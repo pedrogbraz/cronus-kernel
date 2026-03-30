@@ -1380,6 +1380,36 @@ impl Parser {
                 } else {
                     props.insert(k, v);
                 }
+            } else if self.peek().kind == TokenKind::Identifier && is_valid_item_type(&self.peek().value) {
+                // Recognized item type: parse as ComponentItemNode
+                let item_type = self.advance().value;
+                let text = if self.peek().kind == TokenKind::StringLit { self.advance().value } else { String::new() };
+                let link = if self.try_consume(TokenKind::Arrow, None).is_some() {
+                    Some(if self.peek().kind == TokenKind::StringLit { self.advance().value } else { self.advance().value })
+                } else {
+                    None
+                };
+                let mut item_config = HashMap::new();
+                let mut tone = None;
+                while self.peek().kind == TokenKind::ColonPair || self.peek().kind == TokenKind::Price {
+                    if self.peek().kind == TokenKind::Price {
+                        item_config.insert("price".to_string(), self.advance().value);
+                        continue;
+                    }
+                    let (k, v) = Self::split_colon_pair(&self.advance().value);
+                    if k == "tone" {
+                        tone = Some(if v.is_empty() && self.peek().kind == TokenKind::Identifier { self.advance().value } else { v });
+                    } else if v.is_empty() && (self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::StringLit) {
+                        item_config.insert(k, self.advance().value);
+                    } else {
+                        item_config.insert(k, v);
+                    }
+                }
+                // Also store single-value item types (brand, subtitle, title) as props for easy access
+                if (item_type == "brand" || item_type == "subtitle" || item_type == "title") && !text.is_empty() {
+                    props.entry(item_type.clone()).or_insert_with(|| text.clone());
+                }
+                items.push(ComponentItemNode { item_type, text, link, tone, config: item_config });
             } else if self.peek().kind == TokenKind::Identifier {
                 // Unknown identifier props: key value
                 let key = self.advance().value;

@@ -4110,9 +4110,14 @@ fn build_dashboard_sidebar(comp: Option<&ComponentNode>, section: Option<&Sectio
 
     format!(
         r##"<aside style="position:fixed;left:0;top:0;height:100%;width:256px;background:rgba(250,250,250,0.5);border-right:1px solid #e5e7eb;display:flex;flex-direction:column;z-index:50;padding:16px;gap:4px;font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased">
-  <div style="margin-bottom:32px;padding:0 8px">
-    <h1 style="font-weight:700;letter-spacing:-0.04em;color:#000;font-size:20px;margin:0">{brand}</h1>
-    <p style="font-size:10px;color:#71717a;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;margin:2px 0 0">{subtitle}</p>
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:32px;padding:0 8px">
+    <div style="width:32px;height:32px;background:#000;border-radius:6px;display:flex;align-items:center;justify-content:center">
+      <span class="material-symbols-outlined" style="color:#fff;font-size:16px">token</span>
+    </div>
+    <div>
+      <h1 style="font-weight:700;letter-spacing:-0.04em;color:#000;font-size:16px;margin:0">{brand}</h1>
+      <p style="font-size:10px;color:#71717a;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;margin:0">{subtitle}</p>
+    </div>
   </div>
   <nav style="flex:1;display:flex;flex-direction:column;gap:4px">
     {nav_items}
@@ -4497,5 +4502,511 @@ fn build_status_panel(section: Option<&SectionNode>) -> String {
         </section>"##,
         title = title.to_uppercase(),
         status = status_html,
+    )
+}
+
+// ══════════════════════════════════════════════════
+// DEDICATED DASHBOARD PAGE RENDERER — Billing
+// Produces a complete HTML page for the Billing dashboard.
+// ══════════════════════════════════════════════════
+
+pub fn render_billing_dashboard(
+    app_name: &str,
+    sections: &[SectionNode],
+    components: &[crate::parser::ComponentNode],
+    theme: &str,
+) -> String {
+    let _ = theme;
+
+    // ── Extract component data ──────────────────────
+
+    let sidebar_comp = components.iter().find(|c| c.layout.as_deref() == Some("sidebar"));
+    let topbar_comp = components.iter().find(|c| {
+        c.layout.as_deref() == Some("inline") && c.style.as_deref().map(|s| s.contains("topbar")).unwrap_or(false)
+    });
+    let sidebar_section = sections.iter().find(|s| s.section_type == "sidebar");
+
+    // ── Extract section data by type ────────────────
+
+    let page_header = sections.iter().find(|s| s.section_type == "page-header");
+    let current_plan = sections.iter().find(|s| s.section_type == "current-plan");
+    let usage_status = sections.iter().find(|s| s.section_type == "usage-status");
+    let billing_stats = sections.iter().find(|s| s.section_type == "billing-stats");
+    let payment_methods = sections.iter().find(|s| s.section_type == "payment-methods");
+    let recent_invoices = sections.iter().find(|s| s.section_type == "recent-invoices");
+
+    // ── Build sidebar + topbar (reuse) ─────────────
+
+    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section);
+    let topbar_html = build_dashboard_topbar(topbar_comp);
+
+    // ── Build page header ───────────────────────────
+
+    let header_html = build_billing_page_header(page_header);
+
+    // ── Build bento grid cards ──────────────────────
+
+    let current_plan_html = build_billing_current_plan(current_plan);
+    let usage_status_html = build_billing_usage_status(usage_status);
+    let billing_stats_html = build_billing_stats(billing_stats);
+    let payment_methods_html = build_billing_payment_methods(payment_methods);
+    let recent_invoices_html = build_billing_recent_invoices(recent_invoices);
+
+    // ── Assemble complete page ──────────────────────
+
+    format!(
+        r##"<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{app_name}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <style>
+    body {{ font-family:'Inter',sans-serif; background:#f9f9f9; color:#1a1c1c; margin:0; }}
+    * {{ box-sizing:border-box; }}
+    .material-symbols-outlined {{ font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; font-size:20px; display:inline-block; line-height:1; vertical-align:middle; }}
+    ::selection {{ background:rgba(0,111,240,0.15); }}
+    ::-webkit-scrollbar {{ width:4px; }}
+    ::-webkit-scrollbar-thumb {{ background:rgba(0,0,0,0.1); border-radius:2px; }}
+    .ghost-border {{ border:1px solid rgba(198,198,198,0.2); }}
+    .payment-row:hover .payment-hover-actions {{ opacity:1 !important; }}
+  </style>
+</head>
+<body>
+
+{sidebar}
+
+{topbar}
+
+<main style="margin-left:256px;min-height:100vh;background:radial-gradient(circle at top right,rgba(0,111,240,0.08),transparent 40%),radial-gradient(circle at bottom left,rgba(0,56,129,0.05),transparent 40%);background-image:linear-gradient(to right,rgba(198,198,198,0.1) 1px,transparent 1px),linear-gradient(to bottom,rgba(198,198,198,0.1) 1px,transparent 1px);background-size:40px 40px">
+  <div style="max-width:1152px;margin:0 auto;padding:32px">
+
+    {header}
+
+    <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:24px">
+
+      <!-- Current Plan (col-span 7) -->
+      <div style="grid-column:span 7">
+        {current_plan}
+      </div>
+
+      <!-- Usage Status (col-span 5) -->
+      <div style="grid-column:span 5">
+        {usage_status}
+      </div>
+
+      <!-- Stats (col-span 12) -->
+      <div style="grid-column:span 12">
+        {billing_stats}
+      </div>
+
+      <!-- Payment Methods (col-span 8) -->
+      <div style="grid-column:span 8">
+        {payment_methods}
+      </div>
+
+      <!-- Recent Invoices (col-span 4) -->
+      <div style="grid-column:span 4">
+        {recent_invoices}
+      </div>
+
+    </div>
+    <!-- 96px spacer (h-24) -->
+    <div style="height:96px"></div>
+  </div>
+</main>
+
+<script>{runtime}</script>
+<script>{hmr}</script>
+</body>
+</html>"##,
+        app_name = app_name,
+        sidebar = sidebar_html,
+        topbar = topbar_html,
+        header = header_html,
+        current_plan = current_plan_html,
+        usage_status = usage_status_html,
+        billing_stats = billing_stats_html,
+        payment_methods = payment_methods_html,
+        recent_invoices = recent_invoices_html,
+        runtime = super::render::CRONUS_RUNTIME_JS,
+        hmr = super::hmr::HMR_CLIENT_JS,
+    )
+}
+
+// ── Billing page header ────────────────────────
+
+fn build_billing_page_header(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("Billing");
+    let subtitle = sec.subtitle.as_deref().unwrap_or("");
+
+    let subtitle_html = if !subtitle.is_empty() {
+        format!(
+            r#"<p style="color:#5e5e5e;font-size:18px;margin:8px 0 0;line-height:1.5">{}</p>"#,
+            subtitle
+        )
+    } else {
+        String::new()
+    };
+
+    format!(
+        r#"<div style="margin-bottom:48px">
+      <h2 style="font-size:56px;font-weight:800;letter-spacing:-0.04em;color:#1a1c1c;margin:0">{title}</h2>
+      {subtitle}
+    </div>"#,
+        title = title,
+        subtitle = subtitle_html,
+    )
+}
+
+// ── Current Plan card ──────────────────────────
+
+fn build_billing_current_plan(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let badge_text = sec.config.get("badge").map(|s| s.as_str()).unwrap_or("ACTIVE PLAN");
+    let plan_name = sec.title.as_deref().unwrap_or("Enterprise");
+    // Extract action text from items with _type=action, or fallback to config
+    let action_text = sec.items.iter()
+        .find(|i| i.get("_type").map(|s| s.as_str()) == Some("action"))
+        .and_then(|i| i.get("title"))
+        .map(|s| s.as_str())
+        .or_else(|| sec.config.get("action_text").map(|s| s.as_str()))
+        .or_else(|| sec.config.get("action").map(|s| s.as_str()))
+        .unwrap_or("Change Plan");
+
+    // Build detail rows from items — skip action items
+    let mut rows_html = String::new();
+    for item in &sec.items {
+        // Skip action items — they are rendered as the button above
+        if item.get("_type").map(|s| s.as_str()) == Some("action") {
+            continue;
+        }
+        let label = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let value = item.get("value").map(|s| s.as_str()).unwrap_or("");
+        let suffix = item.get("suffix").map(|s| s.as_str()).unwrap_or("");
+
+        let value_html = if !suffix.is_empty() {
+            format!(
+                r#"<span style="font-weight:600">{value}</span> <span style="font-size:14px;color:#5e5e5e">{suffix}</span>"#,
+                value = value, suffix = suffix
+            )
+        } else {
+            format!(r#"<span style="font-weight:600">{value}</span>"#, value = value)
+        };
+
+        rows_html.push_str(&format!(
+            r#"<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f3f3f3;padding-bottom:16px;margin-bottom:16px">
+              <span style="color:#5e5e5e">{label}</span>
+              <span>{value}</span>
+            </div>"#,
+            label = label,
+            value = value_html,
+        ));
+    }
+
+    format!(
+        r##"<section class="ghost-border" style="background:#fff;border-radius:12px;padding:32px;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px">
+            <div>
+              <span style="background:#000;color:#fff;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;border-radius:4px;padding:2px 8px;display:inline-block;margin-bottom:16px">{badge}</span>
+              <h3 style="font-size:30px;font-weight:700;letter-spacing:-0.02em;margin:0">{plan_name}</h3>
+            </div>
+            <button style="background:#000;color:#fff;padding:10px 24px;border-radius:999px;font-size:14px;font-weight:500;border:none;cursor:pointer">{action}</button>
+          </div>
+          {rows}
+          <div style="position:absolute;right:-80px;bottom:-80px;width:240px;height:240px;border-radius:50%;background:#eeeeee;opacity:0.3;filter:blur(48px);pointer-events:none"></div>
+        </section>"##,
+        badge = badge_text,
+        plan_name = plan_name,
+        action = action_text,
+        rows = rows_html,
+    )
+}
+
+// ── Usage Status card ──────────────────────────
+
+fn build_billing_usage_status(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("USAGE STATUS");
+    // Extract link from action items, or fallback to config
+    let action_item = sec.items.iter()
+        .find(|i| i.get("_type").map(|s| s.as_str()) == Some("action"));
+    let link_text = action_item.and_then(|i| i.get("title")).map(|s| s.as_str())
+        .or_else(|| sec.config.get("link_text").map(|s| s.as_str()))
+        .unwrap_or("");
+    let link_href = action_item.and_then(|i| i.get("link")).map(|s| s.as_str())
+        .or_else(|| sec.config.get("link_href").map(|s| s.as_str()))
+        .unwrap_or("#");
+
+    let mut bars_html = String::new();
+    for item in &sec.items {
+        // Skip action items — they are rendered as the link below
+        if item.get("_type").map(|s| s.as_str()) == Some("action") {
+            continue;
+        }
+        let label = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let usage = item.get("value").map(|s| s.as_str()).unwrap_or("");
+        let percent_str = item.get("progress")
+            .or_else(|| item.get("percent"))
+            .map(|s| s.as_str())
+            .unwrap_or("0");
+        let percent: u32 = percent_str.parse().unwrap_or(0);
+
+        bars_html.push_str(&format!(
+            r#"<div style="margin-bottom:32px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <span style="font-size:14px;font-weight:500">{label}</span>
+                <span style="font-size:12px;font-weight:700">{usage}</span>
+              </div>
+              <div style="height:6px;background:#eeeeee;border-radius:999px;overflow:hidden">
+                <div style="height:100%;width:{percent}%;background:#000;border-radius:999px"></div>
+              </div>
+            </div>"#,
+            label = label,
+            usage = usage,
+            percent = percent,
+        ));
+    }
+
+    let link_html = if !link_text.is_empty() {
+        format!(
+            r#"<div style="padding-top:16px"><a href="{href}" style="font-size:14px;font-weight:700;color:#000;text-decoration:underline;text-underline-offset:4px">{text}</a></div>"#,
+            href = link_href, text = link_text
+        )
+    } else {
+        String::new()
+    };
+
+    format!(
+        r##"<section class="ghost-border" style="background:#fff;border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+          <h4 style="font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#5e5e5e;margin:0 0 32px">{title}</h4>
+          {bars}
+          {link}
+        </section>"##,
+        title = title.to_uppercase(),
+        bars = bars_html,
+        link = link_html,
+    )
+}
+
+// ── Billing Stats (3-col) ──────────────────────
+
+fn build_billing_stats(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+
+    let mut cards_html = String::new();
+    for item in &sec.items {
+        let value = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let label = item.get("meta")
+            .or_else(|| item.get("description"))
+            .map(|s| s.as_str())
+            .unwrap_or("");
+        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("circle");
+
+        cards_html.push_str(&format!(
+            r##"<div class="ghost-border" style="background:#fff;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+              <span class="material-symbols-outlined" style="color:#a1a1aa;margin-bottom:16px;display:block">{icon}</span>
+              <div style="font-size:24px;font-weight:700;letter-spacing:-0.02em;margin-bottom:4px">{value}</div>
+              <div style="font-size:12px;color:#5e5e5e;font-weight:500;text-transform:uppercase;letter-spacing:-0.02em">{label}</div>
+            </div>"##,
+            icon = icon,
+            value = value,
+            label = label,
+        ));
+    }
+
+    format!(
+        r#"<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px">
+          {cards}
+        </div>"#,
+        cards = cards_html,
+    )
+}
+
+// ── Payment Methods card ───────────────────────
+
+fn build_billing_payment_methods(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("Payment Methods");
+    let action_text = sec.config.get("action_text")
+        .or_else(|| sec.config.get("action"))
+        .map(|s| s.as_str())
+        .unwrap_or("Add Method");
+
+    let mut items_html = String::new();
+    let mut card_index = 0usize;
+    for item in &sec.items {
+        // Skip action-type items (already rendered as header button)
+        let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("");
+        if item_type == "action" {
+            continue;
+        }
+
+        let name = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let description = item.get("description").map(|s| s.as_str()).unwrap_or("");
+        let meta = item.get("meta").map(|s| s.as_str()).unwrap_or("");
+        let status = item.get("status").map(|s| s.as_str()).unwrap_or("");
+        let action_icon = item.get("action_icon").map(|s| s.as_str()).unwrap_or("more_vert");
+
+        let is_first = card_index == 0;
+
+        // Badge: detect VISA vs Apple Pay vs generic
+        let badge_html = if name.contains("VISA") || name.contains("Visa") || name.contains("visa") {
+            r#"<div style="width:48px;height:32px;background:#171717;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;letter-spacing:-0.04em">VISA</div>"#.to_string()
+        } else if name.contains("Apple") || name.contains("apple") {
+            r#"<div style="width:48px;height:32px;border:1px solid #e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center"><span class="material-symbols-outlined" style="font-size:18px">phone_iphone</span></div>"#.to_string()
+        } else {
+            let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("credit_card");
+            format!(
+                r#"<div style="width:48px;height:32px;border:1px solid #e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center"><span class="material-symbols-outlined" style="font-size:18px">{}</span></div>"#,
+                icon
+            )
+        };
+
+        // Description line with optional bold "Default" from meta
+        let desc_html = if !meta.is_empty() && (status == "default" || meta.to_lowercase().contains("default")) {
+            format!(
+                r#"<div style="font-size:12px;color:#5e5e5e">{} · <span style="color:#000;font-weight:700">{}</span></div>"#,
+                description, meta
+            )
+        } else if !description.is_empty() {
+            format!(r#"<div style="font-size:12px;color:#5e5e5e">{}</div>"#, description)
+        } else {
+            String::new()
+        };
+
+        let bg = if is_first { "background:#f9f9f9;" } else { "" };
+        let border = if is_first { "border:1px solid rgba(198,198,198,0.2);" } else { "" };
+
+        // Action buttons: first card gets edit + more_vert, others get delete on hover
+        let actions_html = if is_first {
+            format!(
+                r#"<div style="display:flex;align-items:center;gap:8px">
+                <button style="padding:8px;border-radius:50%;background:none;border:none;cursor:pointer"><span class="material-symbols-outlined" style="font-size:16px;color:#a1a1aa">{}</span></button>
+                <button style="padding:8px;border-radius:50%;background:none;border:none;cursor:pointer"><span class="material-symbols-outlined" style="font-size:16px;color:#a1a1aa">more_vert</span></button>
+              </div>"#,
+                action_icon
+            )
+        } else {
+            r#"<div class="payment-hover-actions" style="display:flex;align-items:center;gap:8px;opacity:0;transition:opacity 0.15s">
+                <button style="padding:8px;border-radius:50%;background:none;border:none;cursor:pointer" onmouseover="this.querySelector('span').style.color='#dc2626'" onmouseout="this.querySelector('span').style.color='#a1a1aa'"><span class="material-symbols-outlined" style="font-size:16px;color:#a1a1aa">delete</span></button>
+              </div>"#.to_string()
+        };
+
+        items_html.push_str(&format!(
+            r##"<div class="payment-row" style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-radius:8px;{bg}{border}transition:background 0.15s" onmouseover="this.style.background='#f9f9f9';var h=this.querySelector('.payment-hover-actions');if(h)h.style.opacity='1'" onmouseout="var f={is_first};if(!f)this.style.background='';var h=this.querySelector('.payment-hover-actions');if(h)h.style.opacity='0'">
+              <div style="display:flex;align-items:center;gap:16px">
+                {badge}
+                <div>
+                  <div style="font-size:14px;font-weight:700">{name}</div>
+                  {desc}
+                </div>
+              </div>
+              {actions}
+            </div>"##,
+            bg = bg,
+            border = border,
+            is_first = is_first,
+            badge = badge_html,
+            name = name,
+            desc = desc_html,
+            actions = actions_html,
+        ));
+        card_index += 1;
+    }
+
+    format!(
+        r##"<section class="ghost-border" style="background:#fff;border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px">
+            <h4 style="font-size:20px;font-weight:700;margin:0">{title}</h4>
+            <button style="background:transparent;color:#000;padding:8px 16px;border-radius:999px;font-size:14px;font-weight:600;border:1px solid #e5e7eb;cursor:pointer;display:flex;align-items:center;gap:6px"><span class="material-symbols-outlined" style="font-size:16px">add</span> {action}</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:16px">
+            {items}
+          </div>
+        </section>"##,
+        title = title,
+        action = action_text,
+        items = items_html,
+    )
+}
+
+// ── Recent Invoices card ───────────────────────
+
+fn build_billing_recent_invoices(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("RECENT INVOICES");
+    let action_text = sec.config.get("action_text")
+        .or_else(|| sec.config.get("action"))
+        .map(|s| s.as_str())
+        .unwrap_or("DOWNLOAD ALL");
+
+    let mut rows_html = String::new();
+    for item in &sec.items {
+        let invoice_id = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        // Skip "Download All" items — rendered as the footer button only
+        if invoice_id.to_lowercase().contains("download all") {
+            continue;
+        }
+        let date = item.get("date")
+            .or_else(|| item.get("description"))
+            .map(|s| s.as_str())
+            .unwrap_or("");
+        let amount = item.get("amount")
+            .or_else(|| item.get("value"))
+            .map(|s| s.as_str())
+            .unwrap_or("");
+        let action_icon = item.get("action_icon").map(|s| s.as_str()).unwrap_or("download");
+
+        rows_html.push_str(&format!(
+            r##"<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='rgba(243,243,243,0.5)'" onmouseout="this.style.background='transparent'">
+              <div>
+                <div style="font-size:14px;font-weight:700">{invoice_id}</div>
+                <div style="font-size:12px;color:#5e5e5e">{date}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="font-size:14px;font-weight:700">{amount}</div>
+                <span class="material-symbols-outlined" style="font-size:16px;color:#d4d4d8">{action_icon}</span>
+              </div>
+            </div>"##,
+            invoice_id = invoice_id,
+            date = date,
+            amount = amount,
+            action_icon = action_icon,
+        ));
+    }
+
+    format!(
+        r##"<section class="ghost-border" style="background:#fff;border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+          <h4 style="font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#5e5e5e;margin:0 0 24px">{title}</h4>
+          <div style="display:flex;flex-direction:column;gap:24px">
+            {rows}
+          </div>
+          <button style="width:100%;text-align:center;font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;background:none;border:none;border-top:1px solid #f3f3f3;padding-top:16px;margin-top:16px;cursor:pointer;color:#000">{action}</button>
+        </section>"##,
+        title = title.to_uppercase(),
+        rows = rows_html,
+        action = action_text,
     )
 }
