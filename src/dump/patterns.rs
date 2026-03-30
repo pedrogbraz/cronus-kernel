@@ -988,12 +988,15 @@ pub fn is_team_list(node: &DomNode) -> f32 {
 pub fn is_content_card(node: &DomNode) -> f32 {
     let mut score: f32 = 0.0;
 
-    // Has h2/h3 heading but NOT h1
+    // Has h2/h3/h4 heading but NOT h1
     let h1s = find_by_tag(node, "h1");
     let h2s = find_by_tag(node, "h2");
     let h3s = find_by_tag(node, "h3");
+    let h4s = find_by_tag(node, "h4");
     if h1s.is_empty() && (!h2s.is_empty() || !h3s.is_empty()) {
         score += 0.2;
+    } else if h1s.is_empty() && !h4s.is_empty() {
+        score += 0.15;
     }
 
     // Has input, code, or font-mono elements (form-like content)
@@ -1007,7 +1010,8 @@ pub fn is_content_card(node: &DomNode) -> f32 {
     // Rounded border container (card look)
     let is_rounded = has_class(node, "rounded-xl") || has_class(node, "rounded-lg")
         || has_class(node, "rounded-2xl");
-    let has_border = has_class(node, "border") || has_class(node, "shadow");
+    let has_border = has_class(node, "border") || has_class(node, "shadow")
+        || has_class(node, "ghost-border");
     if is_rounded || has_border {
         score += 0.2;
     }
@@ -1022,6 +1026,16 @@ pub fn is_content_card(node: &DomNode) -> f32 {
         || (has_descendant_class(node, "uppercase") && has_descendant_class(node, "tracking-widest"))
     {
         score += 0.1;
+    }
+
+    // Has justify-between rows (key-value pairs, payment methods, invoices)
+    if has_descendant_class(node, "justify-between") {
+        score += 0.05;
+    }
+
+    // Has progress-bar-like elements (usage meters)
+    if has_descendant_class(node, "overflow-hidden") && has_descendant_class(node, "rounded-full") {
+        score += 0.05;
     }
 
     // Penalize if has h1 (that's a page-header)

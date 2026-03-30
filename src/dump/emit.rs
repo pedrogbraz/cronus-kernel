@@ -514,7 +514,7 @@ fn emit_sidebar_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
     }
   }
 
-  // Nav links with arrow syntax: item "Label" -> "/path" icon:X
+  // Nav links with arrow syntax: item "Label" -> "/path" icon:X active:true position:bottom
   for item in &bp.items {
     match item.item_type.as_str() {
       "nav-link" => {
@@ -523,6 +523,12 @@ fn emit_sidebar_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
         let mut line = format!("{}item {} -> {}", pre, quoted(&item.title), quoted(href));
         if let Some(ic) = icon {
           line.push_str(&format!(" icon:{}", ic));
+        }
+        if item.config.get("active").map(|v| v == "true").unwrap_or(false) {
+          line.push_str(" active:true");
+        }
+        if item.config.get("position").map(|v| v == "bottom").unwrap_or(false) {
+          line.push_str(" position:bottom");
         }
         line.push('\n');
         out.push_str(&line);
@@ -1325,7 +1331,7 @@ fn emit_metric_block(item: &ItemBlueprint, ind: usize) -> String {
 // NEW item emitters — dashboard-specific types
 // ---------------------------------------------------------------------------
 
-// -- nav-link: item "Label" -> "/path" icon:X
+// -- nav-link: item "Label" -> "/path" icon:X active:true position:bottom
 fn emit_nav_link(item: &ItemBlueprint, ind: usize) -> String {
   let pre = indent(ind);
   let href = item.config.get("href").map(|s| s.as_str()).unwrap_or("#");
@@ -1333,6 +1339,12 @@ fn emit_nav_link(item: &ItemBlueprint, ind: usize) -> String {
   let mut line = format!("{}item {} -> {}", pre, quoted(&item.title), quoted(href));
   if let Some(ic) = icon {
     line.push_str(&format!(" icon:{}", ic));
+  }
+  if item.config.get("active").map(|v| v == "true").unwrap_or(false) {
+    line.push_str(" active:true");
+  }
+  if item.config.get("position").map(|v| v == "bottom").unwrap_or(false) {
+    line.push_str(" position:bottom");
   }
   line.push('\n');
   line

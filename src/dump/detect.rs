@@ -1340,6 +1340,44 @@ fn extract_footer(node: &DomNode) -> SectionBlueprint {
         config.insert("copyright".into(), c.clone());
     }
 
+    // Descriptive text: bold + paragraph pairs (e.g. "Enterprise-grade security" + subtitle)
+    let bold_nodes = dom::find_by_class(node, "font-bold");
+    for bn in &bold_nodes {
+        if is_material_icon_span(bn) {
+            continue;
+        }
+        let txt = dom::clean_node_text(bn);
+        if !txt.is_empty() && txt.len() < 80 && txt.len() > 3 {
+            // Check for a nearby descriptive paragraph
+            let parent = find_parent_of(node, bn);
+            let desc = parent.and_then(|p| {
+                let ps = dom::find_by_tag(p, "p");
+                for p_node in &ps {
+                    if dom::has_class(p_node, "text-xs") || dom::has_class(p_node, "text-sm") {
+                        let p_text = dom::clean_node_text(p_node);
+                        if !p_text.is_empty() && p_text != txt {
+                            return Some(p_text);
+                        }
+                    }
+                }
+                None
+            });
+            // Extract icon if present
+            let mut item_config: HashMap<String, String> = HashMap::new();
+            if let Some(p) = parent {
+                if let Some(icon) = extract_material_icon(p) {
+                    item_config.insert("icon".into(), icon);
+                }
+            }
+            items.push(ItemBlueprint {
+                item_type: "item".into(),
+                title: txt,
+                description: desc,
+                config: item_config,
+            });
+        }
+    }
+
     // All links become items
     let links = dom::extract_links(node);
     let nav_texts: Vec<String> = links.iter().map(|(text, _)| text.clone()).collect();
@@ -1574,39 +1612,73 @@ fn extract_sidebar(node: &DomNode) -> SectionBlueprint {
     let mut config: HashMap<String, String> = HashMap::new();
     let mut items: Vec<ItemBlueprint> = Vec::new();
 
-    // Brand text: look for bold/large text in the sidebar header area
-    let brand = find_brand_text(node).unwrap_or_default();
-    if !brand.is_empty() {
-        config.insert("brand".into(), brand);
+    // ---------------------------------------------------------------
+    // 1) Brand: first bold/large heading (h1/h2 with font-bold)
+    // ---------------------------------------------------------------
+    let brand = find_sidebar_brand(node);
+    if let Some(ref b) = brand {
+        config.insert("brand".into(), b.clone());
     }
 
-    // Nav links with icon names
-    let links = dom::extract_links(node);
-    for (text, href) in &links {
-        let clean = text.trim().to_string();
-        if clean.is_empty() {
+    // ---------------------------------------------------------------
+    // 2) Subtitle: small uppercase text near the brand (text-xs uppercase)
+    // ---------------------------------------------------------------
+    let subtitle_text = find_sidebar_subtitle(node);
+    if let Some(ref s) = subtitle_text {
+        config.insert("subtitle".into(), s.clone());
+    }
+
+    // ---------------------------------------------------------------
+    // 3) Detect the border-t divider to separate main vs bottom items
+    // ---------------------------------------------------------------
+    // Walk direct children. Items in a container AFTER a border-t div
+    // are "bottom" items (Support, Docs, etc).
+    let border_t_nodes = dom::find_by_class(node, "border-t");
+    let has_bottom_section = !border_t_nodes.is_empty();
+
+    // Collect all <a> tags in the sidebar
+    let a_nodes = dom::find_by_tag(node, "a");
+
+    for a_node in &a_nodes {
+        let text = dom::clean_node_text(a_node);
+        if text.is_empty() {
             continue;
         }
 
-        let mut item_config: HashMap<String, String> = HashMap::new();
-        item_config.insert("href".into(), href.clone());
+        let href = a_node.attrs.get("href").cloned().unwrap_or_else(|| "#".into());
 
-        // Try to find the material icon associated with this link
-        // Search all <a> tags and match by cleaned text content
-        let a_nodes = dom::find_by_tag(node, "a");
-        for a_node in &a_nodes {
-            let a_clean = dom::clean_node_text(a_node);
-            if a_clean == clean {
-                if let Some(icon) = extract_material_icon(a_node) {
-                    item_config.insert("icon".into(), icon);
-                }
-                break;
+        let mut item_config: HashMap<String, String> = HashMap::new();
+        item_config.insert("href".into(), href);
+
+        // Extract material icon from data-icon attr or text content
+        if let Some(icon) = extract_material_icon(a_node) {
+            item_config.insert("icon".into(), icon);
+        }
+
+        // Detect active state: bg-zinc-100, bg-gray-100, bg-muted,
+        // text-black, font-semibold on the <a> itself
+        let active = a_node.classes.iter().any(|c| {
+            c.contains("bg-zinc-100")
+                || c.contains("bg-gray-100")
+                || c.contains("bg-muted")
+                || c == "text-black"
+                || c == "font-semibold"
+        });
+        if active {
+            item_config.insert("active".into(), "true".into());
+        }
+
+        // Detect position:bottom — the <a> is inside a border-t container
+        if has_bottom_section {
+            let is_bottom = is_descendant_of_any(a_node, &border_t_nodes);
+            if is_bottom {
+                item_config.insert("position".into(), "bottom".into());
             }
         }
 
         items.push(ItemBlueprint {
             item_type: "nav-link".into(),
-            title: clean,
+            title: text,
             description: None,
             config: item_config,
         });
@@ -1635,43 +1707,123 @@ fn extract_sidebar(node: &DomNode) -> SectionBlueprint {
     }
 }
 
+/// Find brand text in sidebar: first h1/h2 with font-bold or tracking-tighter.
+fn find_sidebar_brand(node: &DomNode) -> Option<String> {
+    for tag in &["h1", "h2"] {
+        let headings = dom::find_by_tag(node, tag);
+        for h in headings {
+            if dom::has_class(h, "font-bold") || dom::has_class(h, "tracking-tighter") || dom::has_class(h, "font-semibold") {
+                let text = dom::clean_node_text(h);
+                if !text.is_empty() && text.len() < 50 {
+                    return Some(text);
+                }
+            }
+        }
+    }
+    // Fallback to generic find_brand_text
+    find_brand_text(node)
+}
+
+/// Find subtitle in sidebar: text-xs uppercase text (e.g. "Enterprise").
+fn find_sidebar_subtitle(node: &DomNode) -> Option<String> {
+    // Look for elements with text-xs + uppercase (common pattern for subtitles)
+    let candidates = dom::find_by_class(node, "uppercase");
+    for c in &candidates {
+        if dom::has_class(c, "text-xs") || dom::has_class(c, "tracking-widest") {
+            let text = dom::clean_node_text(c);
+            if !text.is_empty() && text.len() < 50 {
+                return Some(text);
+            }
+        }
+    }
+    // Also try <p> with text-xs
+    let ps = dom::find_by_tag(node, "p");
+    for p in ps {
+        if dom::has_class(p, "text-xs") && dom::has_class(p, "uppercase") {
+            let text = dom::clean_node_text(p);
+            if !text.is_empty() {
+                return Some(text);
+            }
+        }
+    }
+    None
+}
+
+/// Check if a node is a descendant of any node in the given list.
+/// Uses full_text identity comparison as a heuristic since DomNode
+/// doesn't carry pointer identity.
+fn is_descendant_of_any(needle: &DomNode, ancestors: &[&DomNode]) -> bool {
+    for ancestor in ancestors {
+        if node_contains(ancestor, needle) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Check if `haystack` contains `needle` anywhere in its subtree (by text + tag match).
+fn node_contains(haystack: &DomNode, needle: &DomNode) -> bool {
+    for child in &haystack.children {
+        // Match by tag + full_text + classes as a proxy for identity
+        if child.tag == needle.tag
+            && child.full_text == needle.full_text
+            && child.classes == needle.classes
+        {
+            return true;
+        }
+        if node_contains(child, needle) {
+            return true;
+        }
+    }
+    false
+}
+
 // ---------------------------------------------------------------------------
 // Extraction: page-header
 // ---------------------------------------------------------------------------
 
 fn extract_page_header(node: &DomNode) -> SectionBlueprint {
-    let config: HashMap<String, String> = HashMap::new();
+    let mut config: HashMap<String, String> = HashMap::new();
     let mut items: Vec<ItemBlueprint> = Vec::new();
 
-    // Title from h1
-    let title = find_heading_by_tag(node, "h1");
+    // Title from h1 or h2 (dashboard pages often use h2 with large text)
+    let title = find_heading_by_tag(node, "h1")
+        .or_else(|| find_heading_by_tag(node, "h2"));
 
     // Subtitle from p
     let subtitle = dom::find_paragraph(node);
 
-    // Action button as item
-    let buttons = extract_clean_buttons(node);
-    for btn in &buttons {
-        if !btn.is_empty() {
-            let mut item_config: HashMap<String, String> = HashMap::new();
-            // Try to find icon on the button
-            let btn_nodes = dom::find_by_tag(node, "button");
-            for bn in &btn_nodes {
-                let btn_text = clean_button_text(bn);
-                if btn_text == *btn {
-                    if let Some(icon) = extract_material_icon(bn) {
-                        item_config.insert("icon".into(), icon);
-                    }
-                    break;
-                }
-            }
-            items.push(ItemBlueprint {
-                item_type: "action".into(),
-                title: btn.clone(),
-                description: None,
-                config: item_config,
-            });
+    // Badge detection: uppercase small text like "DEVELOPER" with optional pulse dot
+    let badge_text = find_page_header_badge(node);
+    if let Some(ref badge) = badge_text {
+        config.insert("badge".into(), badge.clone());
+    }
+
+    // Detect pulse/status dot in badge area
+    if has_pulse_dot(node) {
+        config.insert("badge_dot".into(), "pulse".into());
+    }
+
+    // Action buttons with icon detection
+    let btn_nodes = dom::find_by_tag(node, "button");
+    for bn in &btn_nodes {
+        let btn_text = clean_button_text(bn);
+        if btn_text.is_empty() {
+            continue;
         }
+        let mut item_config: HashMap<String, String> = HashMap::new();
+        if let Some(icon) = extract_material_icon(bn) {
+            item_config.insert("icon".into(), icon);
+        }
+        if dom::has_class(bn, "bg-primary") || dom::has_class(bn, "btn-primary") {
+            item_config.insert("style".into(), "primary".into());
+        }
+        items.push(ItemBlueprint {
+            item_type: "action".into(),
+            title: btn_text,
+            description: None,
+            config: item_config,
+        });
     }
 
     SectionBlueprint {
@@ -1682,6 +1834,45 @@ fn extract_page_header(node: &DomNode) -> SectionBlueprint {
         config,
         items,
     }
+}
+
+/// Find a badge text in a page header (e.g. "DEVELOPER" with uppercase + tracking).
+fn find_page_header_badge(node: &DomNode) -> Option<String> {
+    // Look for uppercase + tracking-wider/tracking-widest small text
+    let upper_nodes = dom::find_by_class(node, "uppercase");
+    for u in &upper_nodes {
+        if dom::has_class(u, "tracking-wider") || dom::has_class(u, "tracking-widest") {
+            let txt = dom::clean_node_text(u);
+            if !txt.is_empty() && txt.len() < 30 {
+                return Some(txt);
+            }
+        }
+    }
+    // Also check for small rounded-full spans with short text (badge pills)
+    let badge_nodes = dom::find_by_class(node, "rounded-full");
+    for b in &badge_nodes {
+        if b.tag == "button" || b.tag == "a" || is_material_icon_span(b) {
+            continue;
+        }
+        let txt = dom::clean_node_text(b);
+        if !txt.is_empty() && txt.len() < 30 {
+            return Some(txt);
+        }
+    }
+    None
+}
+
+/// Check if a node contains a pulse/animated dot (animate-pulse on a small rounded element).
+fn has_pulse_dot(node: &DomNode) -> bool {
+    if dom::has_class(node, "animate-pulse") {
+        return true;
+    }
+    for child in &node.children {
+        if has_pulse_dot(child) {
+            return true;
+        }
+    }
+    false
 }
 
 // ---------------------------------------------------------------------------
@@ -1712,17 +1903,24 @@ fn extract_stat_cards(node: &DomNode) -> SectionBlueprint {
     };
 
     for card in &children_to_check {
+        let mut card_config: HashMap<String, String> = HashMap::new();
+
         // Label: small uppercase text (tracking-widest, uppercase, text-xs/text-sm)
         let label = find_stat_label(card);
         // Value: large bold text (text-2xl, text-3xl, font-bold)
         let value = find_stat_value(card);
+
+        // Icon: material icon in the stat card (e.g. billing stats: hub, speed, shield)
+        if let Some(icon) = extract_material_icon(card) {
+            card_config.insert("icon".into(), icon);
+        }
 
         if label.is_some() || value.is_some() {
             items.push(ItemBlueprint {
                 item_type: "stat".into(),
                 title: label.unwrap_or_default(),
                 description: value,
-                config: HashMap::new(),
+                config: card_config,
             });
         }
     }
@@ -1762,12 +1960,27 @@ fn find_stat_value(node: &DomNode) -> Option<String> {
 
 /// Find the small uppercase label in a stat card (used by extract_stat_cards).
 fn find_stat_label(node: &DomNode) -> Option<String> {
-    let label_classes = ["uppercase", "tracking-widest", "tracking-wider"];
+    let label_classes = ["uppercase", "tracking-widest", "tracking-wider", "tracking-tighter"];
     for cls in &label_classes {
         let matches = dom::find_by_class(node, cls);
         for m in matches {
+            // Must be small text (label, not a heading)
+            let is_small = dom::has_class(m, "text-xs") || dom::has_class(m, "text-sm")
+                || m.classes.iter().any(|c| c.contains("text-["));
+            // Skip if not small and not uppercase
+            if !is_small && !dom::has_class(m, "uppercase") {
+                continue;
+            }
+            // Skip material icons
+            if is_material_icon_span(m) {
+                continue;
+            }
             let txt = m.full_text.trim().to_string();
             if !txt.is_empty() && txt.len() < 60 {
+                // Skip if this is just a number (that's the value, not the label)
+                if txt.chars().all(|c| c.is_ascii_digit() || c == '.' || c == '%' || c == '$' || c == ',' || c == 'M' || c == 'K') {
+                    continue;
+                }
                 return Some(txt);
             }
         }
@@ -1776,6 +1989,9 @@ fn find_stat_label(node: &DomNode) -> Option<String> {
     for cls in &["text-xs", "text-sm"] {
         let matches = dom::find_by_class(node, cls);
         for m in matches {
+            if is_material_icon_span(m) {
+                continue;
+            }
             let txt = m.full_text.trim().to_string();
             if !txt.is_empty() && txt.len() < 60 {
                 return Some(txt);
@@ -1860,6 +2076,32 @@ fn extract_product_grid(node: &DomNode) -> SectionBlueprint {
                 description,
                 config: item_config,
             });
+
+            // Extract action buttons inside this product card (Copy link, Finish setup, etc.)
+            let card_buttons = extract_clean_buttons(card);
+            for btn in &card_buttons {
+                if !btn.is_empty() {
+                    let mut btn_config: HashMap<String, String> = HashMap::new();
+                    btn_config.insert("role".into(), "child".into());
+                    // Try to find icon on the button
+                    let btn_nodes = dom::find_by_tag(card, "button");
+                    for bn in &btn_nodes {
+                        let btn_text = clean_button_text(bn);
+                        if btn_text == *btn {
+                            if let Some(icon) = extract_material_icon(bn) {
+                                btn_config.insert("icon".into(), icon);
+                            }
+                            break;
+                        }
+                    }
+                    items.push(ItemBlueprint {
+                        item_type: "action".into(),
+                        title: btn.clone(),
+                        description: None,
+                        config: btn_config,
+                    });
+                }
+            }
         }
     }
 
@@ -1873,7 +2115,7 @@ fn extract_product_grid(node: &DomNode) -> SectionBlueprint {
     }
 }
 
-/// Find price text ($XX.XX) in a node.
+/// Find price text ($XX.XX) in a node, including sibling suffix like "/ month" or "ETH".
 fn find_price_text(node: &DomNode) -> Option<String> {
     // Look for text with $ sign in bold/large elements
     let bold_classes = ["font-bold", "text-2xl", "text-3xl", "tracking-tighter"];
@@ -1886,6 +2128,17 @@ fn find_price_text(node: &DomNode) -> Option<String> {
             }
         }
     }
+
+    // Strategy 2: Find a container with items-baseline (price + suffix pattern)
+    // e.g. <div class="flex items-baseline gap-1"><span>$99.00</span><span>/ month</span></div>
+    let baseline_nodes = dom::find_by_class(node, "items-baseline");
+    for bn in &baseline_nodes {
+        let full = bn.full_text.trim().to_string();
+        if full.contains('$') && full.len() < 60 {
+            return Some(full);
+        }
+    }
+
     // Fallback: scan all text for $ pattern
     for child in &node.children {
         if let Some(p) = find_price_text(child) {
@@ -1897,22 +2150,62 @@ fn find_price_text(node: &DomNode) -> Option<String> {
 
 /// Find status badge text (Active, Draft, etc.) in a node.
 fn find_status_badge(node: &DomNode) -> Option<String> {
-    let badge_classes = ["rounded-full", "badge", "chip"];
+    let badge_classes = ["rounded-full", "badge", "chip", "rounded"];
     for cls in &badge_classes {
         let matches = dom::find_by_class(node, cls);
         for m in matches {
-            // Skip buttons and material icon spans
+            // Skip buttons, links, and material icon spans
             if m.tag == "button" || m.tag == "a" || is_material_icon_span(m) {
                 continue;
             }
             let txt = m.full_text.trim().to_string();
             let lower = txt.to_lowercase();
             if (lower.contains("active") || lower.contains("draft")
-                || lower.contains("paused") || lower.contains("archived"))
+                || lower.contains("paused") || lower.contains("archived")
+                || lower.contains("testing") || lower.contains("inactive")
+                || lower.contains("pending") || lower.contains("enabled")
+                || lower.contains("disabled") || lower.contains("new feature")
+                || lower.contains("beta") || lower.contains("premium")
+                || lower.contains("pro") || lower.contains("new"))
                 && txt.len() < 30
             {
                 return Some(txt);
             }
+        }
+    }
+    // Also check for colored span badges (bg-green-*, bg-zinc-*, bg-red-*)
+    let color_badge_prefixes = ["bg-green-", "bg-red-", "bg-yellow-", "bg-zinc-", "bg-blue-", "bg-orange-", "bg-white"];
+    for prefix in &color_badge_prefixes {
+        let matches = dom::find_by_class(node, prefix);
+        for m in matches {
+            if m.tag == "button" || m.tag == "a" || is_material_icon_span(m) {
+                continue;
+            }
+            let txt = m.full_text.trim().to_string();
+            if !txt.is_empty() && txt.len() < 30 {
+                return Some(txt);
+            }
+        }
+    }
+    // Also check for uppercase inline-block badges (small bold text with bg)
+    let uppercase_nodes = dom::find_by_class(node, "uppercase");
+    for m in &uppercase_nodes {
+        if is_material_icon_span(m) || m.tag == "button" || m.tag == "a" {
+            continue;
+        }
+        let is_small = dom::has_class(m, "text-xs") || dom::has_class(m, "text-sm")
+            || m.classes.iter().any(|c| c.contains("text-[10px]") || c.contains("text-[11px]"));
+        if !is_small {
+            continue;
+        }
+        let has_bg = m.classes.iter().any(|c| c.starts_with("bg-"));
+        let is_inline = dom::has_class(m, "inline-block") || dom::has_class(m, "inline-flex");
+        if !has_bg && !is_inline {
+            continue;
+        }
+        let txt = m.full_text.trim().to_string();
+        if !txt.is_empty() && txt.len() < 30 {
+            return Some(txt);
         }
     }
     None
@@ -2103,22 +2396,31 @@ fn is_role_text(text: &str) -> bool {
 
 fn extract_content_card(node: &DomNode) -> SectionBlueprint {
     let mut items: Vec<ItemBlueprint> = Vec::new();
+    let mut section_config: HashMap<String, String> = HashMap::new();
 
-    // Title from h2/h3
+    // Title from h2/h3/h4
     let title = find_heading_by_tag(node, "h3")
+        .or_else(|| find_heading_by_tag(node, "h4"))
         .or_else(|| find_heading_by_tag(node, "h2"));
 
-    // Subtitle from first p
-    let subtitle = dom::find_paragraph(node);
+    // Subtitle from first p (skip paragraphs inside divide-y / row containers)
+    let subtitle = find_card_subtitle(node);
 
-    // Extract labels (uppercase tracking-widest text — form field labels)
+    // Extract header-area material icon (icon in flex header near title)
+    if let Some(icon) = extract_header_icon(node) {
+        section_config.insert("icon".into(), icon);
+    }
+
+    // Extract labels: class-based (uppercase tracking-widest) AND <label> tags
     let label_nodes = dom::find_by_class(node, "uppercase");
+    let mut seen_labels: Vec<String> = Vec::new();
     for label_node in &label_nodes {
         if !dom::has_class(label_node, "tracking-widest") && !dom::has_class(label_node, "tracking-wider") {
             continue;
         }
         let txt = label_node.full_text.trim().to_string();
         if !txt.is_empty() && txt.len() < 80 {
+            seen_labels.push(txt.clone());
             items.push(ItemBlueprint {
                 item_type: "label".into(),
                 title: txt,
@@ -2127,54 +2429,168 @@ fn extract_content_card(node: &DomNode) -> SectionBlueprint {
             });
         }
     }
+    // Also extract <label> tags directly (form-style card labels)
+    let label_tags = dom::find_by_tag(node, "label");
+    for label_tag in &label_tags {
+        let txt = dom::clean_node_text(label_tag);
+        if txt.is_empty() || txt.len() >= 80 {
+            continue;
+        }
+        if seen_labels.contains(&txt) {
+            continue;
+        }
+        seen_labels.push(txt.clone());
+        let mut label_config: HashMap<String, String> = HashMap::new();
+        if dom::has_class(label_tag, "uppercase") || dom::has_class(label_tag, "tracking-widest") {
+            label_config.insert("style".into(), "uppercase".into());
+        }
+        items.push(ItemBlueprint {
+            item_type: "label".into(),
+            title: txt,
+            description: None,
+            config: label_config,
+        });
+    }
 
     // Extract input/code values (font-mono text = API keys, codes)
+    // Skip font-mono that are URLs (handled by webhook extraction below)
     let mono_nodes = dom::find_by_class(node, "font-mono");
     for mono in &mono_nodes {
         if is_material_icon_span(mono) {
             continue;
         }
         let txt = mono.full_text.trim().to_string();
-        if !txt.is_empty() && txt.len() < 200 {
-            let mut code_config: HashMap<String, String> = HashMap::new();
-            code_config.insert("_type".into(), "code".into());
-            items.push(ItemBlueprint {
-                item_type: "code".into(),
-                title: txt,
-                description: None,
-                config: code_config,
-            });
+        if txt.is_empty() || txt.len() >= 200 {
+            continue;
         }
+        // Skip URL-like text (handled by row extraction)
+        if txt.starts_with("http") || txt.contains("://") {
+            continue;
+        }
+        // Skip font-mono + font-bold inside divide-y (webhook URL row titles)
+        if dom::has_class(mono, "font-bold") {
+            let parent = find_parent_of(node, mono);
+            if let Some(p) = parent {
+                let grandparent = find_parent_of(node, p);
+                if let Some(gp) = grandparent {
+                    if dom::has_class(gp, "divide-y") {
+                        continue;
+                    }
+                }
+            }
+        }
+        let mut code_config: HashMap<String, String> = HashMap::new();
+        code_config.insert("_type".into(), "code".into());
+        items.push(ItemBlueprint {
+            item_type: "code".into(),
+            title: txt,
+            description: None,
+            config: code_config,
+        });
     }
 
-    // Extract action buttons (e.g. "Reveal", "Hide", "Add Endpoint")
-    let buttons = extract_clean_buttons(node);
-    for btn in &buttons {
-        if !btn.is_empty() {
-            let mut btn_config: HashMap<String, String> = HashMap::new();
-            btn_config.insert("_type".into(), "action".into());
-            items.push(ItemBlueprint {
-                item_type: "action".into(),
-                title: btn.clone(),
-                description: None,
-                config: btn_config,
-            });
+    // Extract action buttons with icon detection
+    let btn_nodes = dom::find_by_tag(node, "button");
+    let mut seen_btns: Vec<String> = Vec::new();
+    for bn in &btn_nodes {
+        let btn_text = clean_button_text(bn);
+        if btn_text.is_empty() || seen_btns.contains(&btn_text) {
+            continue;
         }
-    }
-
-    // Extract webhook URLs and status badges (font-mono links with status spans)
-    let webhook_divs = find_webhook_entries(node);
-    for (url, status, events) in webhook_divs {
-        let mut wh_config: HashMap<String, String> = HashMap::new();
-        if let Some(ref s) = status {
-            wh_config.insert("status".into(), s.clone());
+        seen_btns.push(btn_text.clone());
+        let mut btn_config: HashMap<String, String> = HashMap::new();
+        btn_config.insert("_type".into(), "action".into());
+        if let Some(icon) = extract_material_icon(bn) {
+            btn_config.insert("icon".into(), icon);
+        }
+        if dom::has_class(bn, "bg-primary") || dom::has_class(bn, "btn-primary") {
+            btn_config.insert("style".into(), "primary".into());
         }
         items.push(ItemBlueprint {
-            item_type: "webhook".into(),
+            item_type: "action".into(),
+            title: btn_text,
+            description: None,
+            config: btn_config,
+        });
+    }
+    // Also pick up <a> styled as buttons (rounded-full with bg-primary)
+    let a_btn_nodes = dom::find_by_tag(node, "a");
+    for a_node in &a_btn_nodes {
+        let is_btn_like = dom::has_class(a_node, "rounded-full")
+            || dom::has_class(a_node, "btn")
+            || dom::has_class(a_node, "bg-primary");
+        if !is_btn_like {
+            continue;
+        }
+        let btn_text = clean_button_text(a_node);
+        if btn_text.is_empty() || seen_btns.contains(&btn_text) {
+            continue;
+        }
+        seen_btns.push(btn_text.clone());
+        let mut btn_config: HashMap<String, String> = HashMap::new();
+        btn_config.insert("_type".into(), "action".into());
+        if dom::has_class(a_node, "bg-primary") {
+            btn_config.insert("style".into(), "primary".into());
+        }
+        if let Some(icon) = extract_material_icon(a_node) {
+            btn_config.insert("icon".into(), icon);
+        }
+        items.push(ItemBlueprint {
+            item_type: "action".into(),
+            title: btn_text,
+            description: None,
+            config: btn_config,
+        });
+    }
+
+    // Extract row entries from divide-y containers or font-mono URLs with status
+    let row_entries = find_webhook_entries(node);
+    for (url, status, events) in row_entries {
+        let mut row_config: HashMap<String, String> = HashMap::new();
+        if let Some(ref s) = status {
+            row_config.insert("status".into(), s.to_lowercase());
+        }
+        items.push(ItemBlueprint {
+            item_type: "row".into(),
             title: url,
             description: events,
-            config: wh_config,
+            config: row_config,
         });
+    }
+
+    // Key-value rows (billing info like "Billing cycle" -> "Annual...")
+    let kv_items = extract_key_value_rows(node);
+    items.extend(kv_items);
+
+    // Progress bars (usage meters)
+    let progress_items = extract_labeled_progress_bars(node);
+    items.extend(progress_items);
+
+    // Invoice rows
+    let invoice_items = extract_invoice_rows(node);
+    items.extend(invoice_items);
+
+    // Payment method rows
+    let payment_items = extract_payment_method_rows(node);
+    items.extend(payment_items);
+
+    // Inline badges (e.g. "Active Plan")
+    let badge_items = extract_inline_badges(node);
+    items.extend(badge_items);
+
+    // Links (e.g. "View detailed analytics")
+    let links = dom::extract_links(node);
+    for (text, href) in &links {
+        if !text.is_empty() {
+            let mut link_config: HashMap<String, String> = HashMap::new();
+            link_config.insert("href".into(), href.clone());
+            items.push(ItemBlueprint {
+                item_type: "link".into(),
+                title: text.clone(),
+                description: None,
+                config: link_config,
+            });
+        }
     }
 
     SectionBlueprint {
@@ -2182,27 +2598,128 @@ fn extract_content_card(node: &DomNode) -> SectionBlueprint {
         confidence: 0.0,
         title,
         subtitle,
-        config: HashMap::new(),
+        config: section_config,
         items,
     }
 }
 
-/// Find webhook-like entries: font-mono URL + status badge + event description.
-fn find_webhook_entries(node: &DomNode) -> Vec<(String, Option<String>, Option<String>)> {
-    let mut entries = Vec::new();
-    let mono_nodes = dom::find_by_class(node, "font-mono");
-    for mono in &mono_nodes {
-        let txt = mono.full_text.trim().to_string();
-        // URL-like: starts with http or contains a domain pattern
-        if txt.starts_with("http") || txt.contains("://") {
-            // Find sibling status badge
-            let parent = find_parent_of(node, mono);
-            let status = parent.and_then(|p| find_status_badge(p));
-            let events = parent.and_then(|p| dom::find_paragraph(p));
-            entries.push((txt, status, events));
+/// Find the subtitle paragraph for a card, skipping paragraphs inside
+/// divide-y containers (which are row details, not the card subtitle).
+fn find_card_subtitle(node: &DomNode) -> Option<String> {
+    let paragraphs = dom::find_by_tag(node, "p");
+    for p in &paragraphs {
+        let txt = p.full_text.trim().to_string();
+        if txt.is_empty() {
+            continue;
+        }
+        // Skip if inside a divide-y container (webhook/row detail)
+        let parent = find_parent_of(node, p);
+        if let Some(par) = parent {
+            if dom::has_class(par, "divide-y") {
+                continue;
+            }
+            let grandparent = find_parent_of(node, par);
+            if let Some(gp) = grandparent {
+                if dom::has_class(gp, "divide-y") {
+                    continue;
+                }
+            }
+        }
+        // Skip event detail lines
+        let lower = txt.to_lowercase();
+        if lower.starts_with("events:") {
+            continue;
+        }
+        return Some(txt);
+    }
+    None
+}
+
+/// Extract the header-area material icon from a card.
+/// Looks for an icon in the flex header row (near the title).
+fn extract_header_icon(node: &DomNode) -> Option<String> {
+    // Check direct children first (flex header row)
+    for child in &node.children {
+        if dom::has_class(child, "flex") || dom::has_class(child, "justify-between") {
+            if let Some(icon) = extract_material_icon(child) {
+                return Some(icon);
+            }
         }
     }
+    None
+}
+
+/// Find webhook/row entries: rows in divide-y containers or font-mono URLs with status badges.
+fn find_webhook_entries(node: &DomNode) -> Vec<(String, Option<String>, Option<String>)> {
+    let mut entries = Vec::new();
+
+    // Strategy 1: Find divide-y containers (structured row lists like webhook endpoints)
+    let divide_containers = dom::find_by_class(node, "divide-y");
+    for container in &divide_containers {
+        for row_child in &container.children {
+            // Each row should have font-mono URL + optional status badge + event text
+            let mono_in_row = dom::find_by_class(row_child, "font-mono");
+            let mut url_text: Option<String> = None;
+            for mono in &mono_in_row {
+                if is_material_icon_span(mono) {
+                    continue;
+                }
+                let txt = mono.full_text.trim().to_string();
+                if !txt.is_empty() && (txt.starts_with("http") || txt.contains("://")
+                    || txt.contains(".") || dom::has_class(mono, "font-bold"))
+                {
+                    url_text = Some(txt);
+                    break;
+                }
+            }
+            if let Some(url) = url_text {
+                let status = find_status_badge(row_child);
+                let events = find_row_detail_text(row_child);
+                entries.push((url, status, events));
+            }
+        }
+    }
+
+    // Strategy 2: Fallback — font-mono URLs not in divide-y
+    if entries.is_empty() {
+        let mono_nodes = dom::find_by_class(node, "font-mono");
+        for mono in &mono_nodes {
+            let txt = mono.full_text.trim().to_string();
+            if txt.starts_with("http") || txt.contains("://") {
+                let parent = find_parent_of(node, mono);
+                let status = parent.and_then(|p| find_status_badge(p));
+                let events = parent.and_then(|p| dom::find_paragraph(p));
+                entries.push((txt, status, events));
+            }
+        }
+    }
+
     entries
+}
+
+/// Find detail text in a row (e.g. "Events: payment.succeeded, ...").
+fn find_row_detail_text(node: &DomNode) -> Option<String> {
+    let paragraphs = dom::find_by_tag(node, "p");
+    for p in &paragraphs {
+        let txt = p.full_text.trim().to_string();
+        if !txt.is_empty() {
+            return Some(txt);
+        }
+    }
+    // Fallback: text-xs/text-sm spans with substantive content
+    for cls in &["text-xs", "text-sm"] {
+        let small_nodes = dom::find_by_class(node, cls);
+        for s in &small_nodes {
+            if is_material_icon_span(s) {
+                continue;
+            }
+            let txt = s.full_text.trim().to_string();
+            if !txt.is_empty() && txt.len() > 10 {
+                return Some(txt);
+            }
+        }
+    }
+    None
 }
 
 // ---------------------------------------------------------------------------
@@ -2374,6 +2891,14 @@ fn extract_generic(node: &DomNode) -> SectionBlueprint {
         items.extend(progress_items);
     }
 
+    // 5b. Labeled progress bars (label + value + bar)
+    if items.iter().all(|i| i.item_type != "meter") {
+        let labeled_progress = extract_labeled_progress_bars(node);
+        if !labeled_progress.is_empty() {
+            items.extend(labeled_progress);
+        }
+    }
+
     // 6. Status indicators: colored dots + text
     let status_items = extract_status_indicator_items(node);
     if !status_items.is_empty() {
@@ -2386,10 +2911,35 @@ fn extract_generic(node: &DomNode) -> SectionBlueprint {
         items.extend(badge_items);
     }
 
+    // 7b. Inline badges: small bold uppercase text that acts as a tag/label
+    // (e.g. "Active Plan" badge in billing page)
+    let inline_badge_items = extract_inline_badges(node);
+    if !inline_badge_items.is_empty() {
+        items.extend(inline_badge_items);
+    }
+
     // 8. Code/mono text blocks
     let code_items = extract_code_items(node);
     if !code_items.is_empty() {
         items.extend(code_items);
+    }
+
+    // 8b. Key-value rows (billing info rows)
+    let kv_items = extract_key_value_rows(node);
+    if !kv_items.is_empty() {
+        items.extend(kv_items);
+    }
+
+    // 8c. Invoice rows (repeated date + amount entries)
+    let invoice_items = extract_invoice_rows(node);
+    if !invoice_items.is_empty() {
+        items.extend(invoice_items);
+    }
+
+    // 8d. Payment method rows
+    let payment_items = extract_payment_method_rows(node);
+    if !payment_items.is_empty() {
+        items.extend(payment_items);
     }
 
     // 9. Buttons/actions
@@ -2609,6 +3159,369 @@ fn extract_card_items(node: &DomNode) -> Vec<ItemBlueprint> {
             field_with_role.config.insert("role".into(), "child".into());
             items.push(field_with_role);
         }
+
+        // Key-value rows: flex justify-between with two text elements (billing info)
+        // e.g. "Billing cycle" → "Annual (Renews Oct 24, 2024)"
+        let kv_items = extract_key_value_rows(card);
+        for kv in kv_items {
+            let mut kv_with_role = kv;
+            kv_with_role.config.insert("role".into(), "child".into());
+            items.push(kv_with_role);
+        }
+
+        // Progress bars inside card (usage status)
+        let progress_items = extract_labeled_progress_bars(card);
+        for pi in progress_items {
+            let mut pi_with_role = pi;
+            pi_with_role.config.insert("role".into(), "child".into());
+            items.push(pi_with_role);
+        }
+
+        // Invoice/list rows: repeated flex justify-between entries with date + amount
+        let invoice_items = extract_invoice_rows(card);
+        for inv in invoice_items {
+            let mut inv_with_role = inv;
+            inv_with_role.config.insert("role".into(), "child".into());
+            items.push(inv_with_role);
+        }
+
+        // Payment method rows: flex items-center justify-between with card info
+        let payment_items = extract_payment_method_rows(card);
+        for pm in payment_items {
+            let mut pm_with_role = pm;
+            pm_with_role.config.insert("role".into(), "child".into());
+            items.push(pm_with_role);
+        }
+
+        // Links inside card (e.g. "View detailed analytics")
+        let card_links = dom::extract_links(card);
+        for (text, href) in &card_links {
+            if !text.is_empty() {
+                let mut link_config: HashMap<String, String> = HashMap::new();
+                link_config.insert("role".into(), "child".into());
+                link_config.insert("href".into(), href.clone());
+                items.push(ItemBlueprint {
+                    item_type: "link".into(),
+                    title: text.clone(),
+                    description: None,
+                    config: link_config,
+                });
+            }
+        }
+    }
+
+    items
+}
+
+/// Extract key-value rows from a card: flex justify-between containers with
+/// a label on the left and a value on the right, separated by a border-b.
+/// Pattern: "Billing cycle" → "Annual (Renews Oct 24, 2024)"
+fn extract_key_value_rows(node: &DomNode) -> Vec<ItemBlueprint> {
+    let mut items = Vec::new();
+
+    let jb_nodes = dom::find_by_class(node, "justify-between");
+    for jb in &jb_nodes {
+        // Skip if it's a button row or very short content
+        if jb.tag == "button" || jb.tag == "a" {
+            continue;
+        }
+        // Key-value rows typically have border-b or are in a space-y container
+        let has_border = dom::has_class(jb, "border-b")
+            || jb.classes.iter().any(|c| c.contains("border-"));
+
+        if !has_border && !dom::has_class(jb, "items-end") && !dom::has_class(jb, "items-center") {
+            continue;
+        }
+
+        // Need exactly 2 meaningful text children (key and value)
+        let children_with_text: Vec<&DomNode> = jb.children.iter()
+            .filter(|c| !c.full_text.trim().is_empty())
+            .collect();
+
+        if children_with_text.len() != 2 {
+            continue;
+        }
+
+        let key_text = dom::clean_node_text(children_with_text[0]);
+        let val_text = dom::clean_node_text(children_with_text[1]);
+
+        if key_text.is_empty() || val_text.is_empty() {
+            continue;
+        }
+        // Skip if key is too long (not a label)
+        if key_text.len() > 60 {
+            continue;
+        }
+
+        let mut config: HashMap<String, String> = HashMap::new();
+        config.insert("_type".into(), "kv-row".into());
+        config.insert("value".into(), val_text.clone());
+
+        items.push(ItemBlueprint {
+            item_type: "kv-row".into(),
+            title: key_text,
+            description: Some(val_text),
+            config,
+        });
+    }
+
+    items
+}
+
+/// Extract labeled progress bars: a label + value header followed by a progress bar track.
+/// Pattern: "API Requests" 8.4M/10M with w-[84%] bar
+fn extract_labeled_progress_bars(node: &DomNode) -> Vec<ItemBlueprint> {
+    let mut items = Vec::new();
+
+    // Find progress bar tracks: rounded div with bg-surface/bg-gray containing a w-[%] child
+    find_labeled_progress_recursive(node, &mut items);
+
+    items
+}
+
+fn find_labeled_progress_recursive(node: &DomNode, items: &mut Vec<ItemBlueprint>) {
+    for (i, child) in node.children.iter().enumerate() {
+        // Check if this child is a progress bar track (h-1.5 or h-2 with rounded + overflow)
+        let is_track = (dom::has_class(child, "rounded-full") || dom::has_class(child, "rounded"))
+            && (dom::has_class(child, "overflow-hidden") || dom::has_class(child, "h-1")
+                || child.classes.iter().any(|c| c.starts_with("h-1") || c.starts_with("h-2")))
+            && (dom::has_class(child, "bg-surface") || dom::has_class(child, "bg-gray")
+                || dom::has_class(child, "bg-zinc") || dom::has_class(child, "bg-neutral")
+                || dom::has_class(child, "bg-muted"));
+
+        if !is_track {
+            find_labeled_progress_recursive(child, items);
+            continue;
+        }
+
+        // Extract percentage from inner bar's w-[XX%] class
+        let mut pct = String::new();
+        for bar_child in &child.children {
+            for cls in &bar_child.classes {
+                if cls.starts_with("w-[") && cls.contains('%') {
+                    pct = cls.trim_start_matches("w-[").trim_end_matches(']').to_string();
+                    break;
+                }
+            }
+        }
+
+        // Look for the label/value pair in the preceding sibling
+        let mut label = String::new();
+        let mut value = String::new();
+        if i > 0 {
+            let prev = &node.children[i - 1];
+            // The preceding div typically has justify-between with label + value
+            if dom::has_class(prev, "justify-between") {
+                let texts: Vec<String> = prev.children.iter()
+                    .map(|c| c.full_text.trim().to_string())
+                    .filter(|t| !t.is_empty())
+                    .collect();
+                if texts.len() >= 2 {
+                    label = texts[0].clone();
+                    value = texts[1].clone();
+                } else if texts.len() == 1 {
+                    label = texts[0].clone();
+                }
+            } else {
+                label = dom::clean_node_text(prev);
+            }
+        }
+
+        let mut config: HashMap<String, String> = HashMap::new();
+        config.insert("_type".into(), "meter".into());
+        if !pct.is_empty() {
+            config.insert("progress".into(), pct.clone());
+        }
+        if !value.is_empty() {
+            config.insert("value".into(), value.clone());
+        }
+
+        let desc = if !pct.is_empty() && !value.is_empty() {
+            Some(format!("{} ({})", value, pct))
+        } else if !pct.is_empty() {
+            Some(pct)
+        } else if !value.is_empty() {
+            Some(value)
+        } else {
+            None
+        };
+
+        items.push(ItemBlueprint {
+            item_type: "meter".into(),
+            title: label,
+            description: desc,
+            config,
+        });
+    }
+}
+
+/// Extract invoice-like rows: repeated flex justify-between entries inside a space-y container.
+/// Each row has a title (SEP-2023), date subtitle, and amount ($2,400.00).
+fn extract_invoice_rows(node: &DomNode) -> Vec<ItemBlueprint> {
+    let mut items = Vec::new();
+
+    // Look for space-y containers with multiple justify-between children
+    let spacey_nodes = dom::find_by_class(node, "space-y-");
+    let containers: Vec<&DomNode> = if spacey_nodes.is_empty() {
+        // Fallback: check direct children
+        vec![node]
+    } else {
+        spacey_nodes
+    };
+
+    for container in containers {
+        let jb_children: Vec<&DomNode> = container.children.iter()
+            .filter(|c| dom::has_class(c, "justify-between") && c.tag != "button")
+            .collect();
+
+        // Need at least 2 repeated rows to qualify as a list
+        if jb_children.len() < 2 {
+            continue;
+        }
+
+        // Check if rows look like invoices (have $ amounts or dates)
+        let mut invoice_count = 0;
+        for row in &jb_children {
+            let text = row.full_text.to_string();
+            if text.contains('$') || text.contains("20") {
+                invoice_count += 1;
+            }
+        }
+        if invoice_count < 2 {
+            continue;
+        }
+
+        for row in &jb_children {
+            // Left side: title + subtitle
+            // Right side: amount + icon
+            let children_with_text: Vec<&DomNode> = row.children.iter()
+                .filter(|c| !c.full_text.trim().is_empty())
+                .collect();
+
+            if children_with_text.is_empty() {
+                continue;
+            }
+
+            let mut title = String::new();
+            let mut subtitle = None;
+            let mut amount = None;
+
+            // Left side: usually first child with bold title + small date
+            if let Some(left) = children_with_text.first() {
+                let bold = dom::find_by_class(left, "font-bold");
+                if let Some(b) = bold.first() {
+                    title = b.full_text.trim().to_string();
+                }
+                // Date/subtitle: text-xs or text-secondary child
+                let small = dom::find_by_class(left, "text-xs");
+                if let Some(s) = small.first() {
+                    let txt = s.full_text.trim().to_string();
+                    if txt != title {
+                        subtitle = Some(txt);
+                    }
+                }
+                if title.is_empty() {
+                    title = dom::clean_node_text(left);
+                }
+            }
+
+            // Right side: amount (contains $)
+            if children_with_text.len() >= 2 {
+                let right = children_with_text.last().unwrap();
+                let bold = dom::find_by_class(right, "font-bold");
+                for b in &bold {
+                    let txt = b.full_text.trim().to_string();
+                    if txt.contains('$') {
+                        amount = Some(txt);
+                        break;
+                    }
+                }
+                if amount.is_none() {
+                    let txt = right.full_text.trim().to_string();
+                    if txt.contains('$') {
+                        amount = Some(txt);
+                    }
+                }
+            }
+
+            if title.is_empty() {
+                continue;
+            }
+
+            let mut config: HashMap<String, String> = HashMap::new();
+            config.insert("_type".into(), "invoice-row".into());
+            if let Some(ref a) = amount {
+                config.insert("amount".into(), a.clone());
+            }
+
+            items.push(ItemBlueprint {
+                item_type: "invoice-row".into(),
+                title,
+                description: subtitle.or(amount),
+                config,
+            });
+        }
+    }
+
+    items
+}
+
+/// Extract payment method rows: flex items-center justify-between with card icon + info.
+/// Pattern: VISA icon + "Visa ending in 4242" + "Default" badge
+fn extract_payment_method_rows(node: &DomNode) -> Vec<ItemBlueprint> {
+    let mut items = Vec::new();
+
+    // Find rows with justify-between that contain card-like info
+    let jb_nodes = dom::find_by_class(node, "justify-between");
+    for row in &jb_nodes {
+        if row.tag == "button" || row.tag == "a" {
+            continue;
+        }
+
+        let text = row.full_text.to_string();
+        let lower = text.to_lowercase();
+
+        // Must look like a payment method (card brand names, "ending in", "pay")
+        let is_payment = lower.contains("visa") || lower.contains("mastercard")
+            || lower.contains("amex") || lower.contains("apple pay")
+            || lower.contains("google pay") || lower.contains("ending in")
+            || lower.contains("paypal") || lower.contains("expires");
+
+        if !is_payment {
+            continue;
+        }
+
+        // Extract the card name (bold text)
+        let bold = dom::find_by_class(row, "font-bold");
+        let card_name = bold.iter()
+            .map(|b| b.full_text.trim().to_string())
+            .find(|t| !t.is_empty() && t.len() < 60 && !is_material_icon_text(t))
+            .unwrap_or_default();
+
+        if card_name.is_empty() {
+            continue;
+        }
+
+        let mut config: HashMap<String, String> = HashMap::new();
+        config.insert("_type".into(), "payment-method".into());
+
+        // Check for "Default" badge
+        if lower.contains("default") {
+            config.insert("default".into(), "true".into());
+        }
+
+        // Extract subtitle (expiry, added date)
+        let small = dom::find_by_class(row, "text-xs");
+        let subtitle = small.iter()
+            .map(|s| s.full_text.trim().to_string())
+            .find(|t| !t.is_empty() && t.len() < 80);
+
+        items.push(ItemBlueprint {
+            item_type: "payment-method".into(),
+            title: card_name,
+            description: subtitle,
+            config,
+        });
     }
 
     items
@@ -3326,6 +4239,58 @@ fn extract_badge_items(node: &DomNode) -> Vec<ItemBlueprint> {
     items
 }
 
+/// Extract inline badge labels: small bold uppercase text blocks (bg-black text-white)
+/// that act as status tags. E.g. "Active Plan" badge in billing pages.
+fn extract_inline_badges(node: &DomNode) -> Vec<ItemBlueprint> {
+    let mut items = Vec::new();
+
+    // Look for small span/div with uppercase + font-bold + bg-* (colored inline badges)
+    let uppercase_nodes = dom::find_by_class(node, "uppercase");
+    for badge in &uppercase_nodes {
+        // Must be small text
+        let is_small = dom::has_class(badge, "text-xs") || dom::has_class(badge, "text-sm")
+            || badge.classes.iter().any(|c| c.contains("text-[10px]") || c.contains("text-[11px]"));
+        if !is_small {
+            continue;
+        }
+        // Must be bold
+        if !dom::has_class(badge, "font-bold") && !dom::has_class(badge, "font-semibold") {
+            continue;
+        }
+        // Must have a bg color (not just text)
+        let has_bg = badge.classes.iter().any(|c| c.starts_with("bg-"));
+        if !has_bg {
+            continue;
+        }
+        // Skip if it's a rounded-full (already captured by extract_badge_items)
+        if dom::has_class(badge, "rounded-full") {
+            continue;
+        }
+
+        let txt = badge.full_text.trim().to_string();
+        if txt.is_empty() || txt.len() > 40 {
+            continue;
+        }
+        // Skip material icons
+        if is_material_icon_span(badge) || is_material_icon_text(&txt) {
+            continue;
+        }
+
+        let mut config: HashMap<String, String> = HashMap::new();
+        config.insert("_type".into(), "badge".into());
+        config.insert("style".into(), "inline".into());
+
+        items.push(ItemBlueprint {
+            item_type: "badge".into(),
+            title: txt,
+            description: None,
+            config,
+        });
+    }
+
+    items
+}
+
 // ---------------------------------------------------------------------------
 // Code/mono text extraction
 // ---------------------------------------------------------------------------
@@ -3426,7 +4391,7 @@ const MATERIAL_ICON_NAMES: &[&str] = &[
     "notifications", "info", "warning", "error", "help",
     "schedule", "calendar_today", "event", "place", "map",
     "shopping_cart", "payments", "credit_card", "receipt",
-    "code", "terminal", "data_object", "deployed_code",
+    "code", "terminal", "data_object", "deployed_code", "content_copy", "content_paste",
     "cloud", "cloud_upload", "cloud_download", "storage",
     "rocket_launch", "speed", "bolt", "auto_awesome",
     "dark_mode", "light_mode", "contrast", "palette",
