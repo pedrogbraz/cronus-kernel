@@ -1034,6 +1034,7 @@ impl Parser {
                     || self.matches(TokenKind::Identifier, Some("label"))
                     || self.matches(TokenKind::Identifier, Some("metric"))
                     || self.matches(TokenKind::Identifier, Some("detail"))
+                    || self.matches(TokenKind::Identifier, Some("tab"))
             {
                 // Rich content items: line/output/success/prompt/chip/code/image/link/meter/label/metric/detail
                 let item_type = self.advance().value;

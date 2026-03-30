@@ -199,6 +199,35 @@ document.addEventListener('DOMContentLoaded',()=>{
       btn.disabled=false;btn.textContent=btn.getAttribute('data-label')||origLabel;
     });
   });
+
+  // Tabs
+  document.querySelectorAll('.cronus-tab').forEach(btn=>{
+    btn.addEventListener('click',function(){
+      var panel=this.getAttribute('data-tab');
+      var parent=this.closest('div').parentElement;
+      parent.querySelectorAll('.cronus-tab').forEach(t=>{t.style.color='#71717a';t.style.borderBottomColor='transparent';t.style.fontWeight='500'});
+      this.style.color='#000';this.style.borderBottomColor='#000';this.style.fontWeight='600';
+      parent.querySelectorAll('.cronus-tab-panel').forEach(p=>{p.style.display='none'});
+      parent.querySelector('[data-panel="'+panel+'"]').style.display='block';
+      parent.querySelector('[data-panel="'+panel+'"]').style.animation='fadeIn 0.3s ease-out';
+    });
+  });
+
+  // Accordion
+  document.querySelectorAll('.cronus-accordion-trigger').forEach(btn=>{
+    btn.addEventListener('click',function(){
+      var content=this.nextElementSibling;
+      var icon=this.querySelector('.material-symbols-outlined');
+      if(content.style.display==='none'){content.style.display='block';icon.style.transform='rotate(180deg)'}
+      else{content.style.display='none';icon.style.transform='rotate(0)'}
+    });
+  });
+
+  // Chart bars animate on scroll
+  document.querySelectorAll('.chart-bar').forEach(bar=>{
+    var h=bar.style.height;bar.style.height='0';
+    new IntersectionObserver(e=>{if(e[0].isIntersecting){bar.style.height=h}},{threshold:0.1}).observe(bar);
+  });
 });
 </script>
 "##;
@@ -1776,6 +1805,11 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str) -> String {
         "form" => render_form_section(section),
         "card" | "live-keys" | "test-keys" | "webhooks" => render_card_section(section),
         "links" | "quick-links" => render_links_section(section),
+        "tabs" => render_generic_section(section, accent),
+        "accordion" => render_generic_section(section, accent),
+        "breadcrumb" => render_generic_section(section, accent),
+        "alert" => render_generic_section(section, accent),
+        "chart" => render_generic_section(section, accent),
         _ => render_generic_section(section, accent),
     }
 }
@@ -4036,6 +4070,133 @@ fn render_form_section(section: &SectionNode) -> String {
     )
 }
 
+fn render_tabs_section(section: &SectionNode) -> String {
+    // Group items into tabs: each "tab" _type starts a new group, subsequent "item" types belong to it
+    let mut tabs: Vec<(String, Vec<&std::collections::HashMap<String, String>>)> = Vec::new();
+
+    for item in &section.items {
+        let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("item");
+        let title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+
+        if item_type == "tab" {
+            tabs.push((title.to_string(), Vec::new()));
+        } else if let Some(last) = tabs.last_mut() {
+            last.1.push(item);
+        } else {
+            // Items before any tab — create an implicit tab
+            tabs.push(("Tab".to_string(), vec![item]));
+        }
+    }
+
+    let mut buttons_html = String::new();
+    let mut panels_html = String::new();
+
+    for (i, (tab_title, tab_items)) in tabs.iter().enumerate() {
+        let is_active = i == 0;
+        let (color, border_color, weight) = if is_active {
+            ("#000", "#000", "600")
+        } else {
+            ("#71717a", "transparent", "500")
+        };
+
+        buttons_html.push_str(&format!(
+            r#"<button class="cronus-tab" data-tab="{i}" style="padding:12px 24px;font-size:14px;font-weight:{weight};color:{color};border-bottom:2px solid {border_color};background:none;border-top:none;border-left:none;border-right:none;cursor:pointer;font-family:Inter,sans-serif;transition:all 0.2s">{title}</button>"#,
+            i = i, weight = weight, color = color, border_color = border_color, title = tab_title,
+        ));
+
+        let display = if is_active { "block" } else { "none" };
+        let anim = if is_active { " style=\"animation:fadeIn 0.3s ease-out\"" } else { "" };
+
+        let mut content_html = String::new();
+        for ti in tab_items {
+            let ti_title = ti.get("title").map(|s| s.as_str()).unwrap_or("");
+            let ti_desc = ti.get("description").map(|s| s.as_str()).unwrap_or("");
+            let ti_icon = ti.get("icon").map(|s| s.as_str()).unwrap_or("");
+
+            content_html.push_str(r#"<div style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px">"#);
+            if !ti_icon.is_empty() {
+                content_html.push_str(&format!(
+                    r#"<span style="font-size:20px;margin-bottom:8px;display:block">{}</span>"#, ti_icon
+                ));
+            }
+            if !ti_title.is_empty() {
+                content_html.push_str(&format!(
+                    r#"<h3 style="font-size:16px;font-weight:600;color:#1a1c1c;margin:0 0 6px">{}</h3>"#, ti_title
+                ));
+            }
+            if !ti_desc.is_empty() {
+                content_html.push_str(&format!(
+                    r#"<p style="font-size:14px;color:#6e6e6e;margin:0;line-height:1.5">{}</p>"#, ti_desc
+                ));
+            }
+            content_html.push_str("</div>");
+        }
+
+        panels_html.push_str(&format!(
+            r#"<div class="cronus-tab-panel" data-panel="{i}" style="display:{display}"{anim}><div style="display:flex;flex-direction:column;gap:16px">{content}</div></div>"#,
+            i = i, display = display, anim = anim, content = content_html,
+        ));
+    }
+
+    format!(
+        r#"<div style="margin:24px 0"><div style="display:flex;gap:0;border-bottom:1px solid #e5e7eb;margin-bottom:24px">{buttons}</div>{panels}</div>"#,
+        buttons = buttons_html,
+        panels = panels_html,
+    )
+}
+
+fn render_accordion_section(section: &SectionNode) -> String {
+    let mut items_html = String::new();
+
+    for item in &section.items {
+        let title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let description = item.get("description").map(|s| s.as_str()).unwrap_or("");
+
+        items_html.push_str(&format!(
+            r#"<div class="cronus-accordion"><button class="cronus-accordion-trigger" style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:none;border:none;border-bottom:1px solid #e5e7eb;cursor:pointer;font-size:14px;font-weight:600;text-align:left;font-family:Inter,sans-serif"><span>{title}</span><span class="material-symbols-outlined" style="font-size:18px;transition:transform 0.2s">expand_more</span></button><div class="cronus-accordion-content" style="display:none;padding:16px 20px;font-size:14px;color:#5e5e5e;line-height:1.6;border-bottom:1px solid #e5e7eb">{desc}</div></div>"#,
+            title = title,
+            desc = description,
+        ));
+    }
+
+    format!(
+        r#"<div style="display:flex;flex-direction:column;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">{items}</div>"#,
+        items = items_html,
+    )
+}
+
+fn render_breadcrumb_section(section: &SectionNode) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    let total = section.items.len();
+
+    for (i, item) in section.items.iter().enumerate() {
+        let title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let link = item.get("link").map(|s| s.as_str()).unwrap_or("");
+        let is_last = i == total - 1;
+
+        if i > 0 {
+            parts.push(r#"<span style="color:#d4d4d8">/</span>"#.to_string());
+        }
+
+        if is_last || link.is_empty() {
+            parts.push(format!(
+                r#"<span style="color:#000;font-weight:500">{}</span>"#,
+                title
+            ));
+        } else {
+            parts.push(format!(
+                r#"<a href="{}" style="color:#71717a;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='#000'" onmouseout="this.style.color='#71717a'">{}</a>"#,
+                link, title
+            ));
+        }
+    }
+
+    format!(
+        r#"<nav style="display:flex;align-items:center;gap:8px;padding:12px 0;font-size:14px" class="anim-fade">{}</nav>"#,
+        parts.join("")
+    )
+}
+
 fn render_generic_section(section: &SectionNode, _accent: &str) -> String {
     let mut html = String::new();
 
@@ -4210,6 +4371,227 @@ fn render_generic_section(section: &SectionNode, _accent: &str) -> String {
     html.push_str("</div>");
     html.push_str("</section>");
     html
+}
+
+// ══════════════════════════════════════════════════
+// ALERT SECTION
+// ══════════════════════════════════════════════════
+
+fn render_alert_section(section: &SectionNode) -> String {
+    let style = section.config.get("style").map(|s| s.as_str()).unwrap_or("info");
+    let title = section.title.as_deref().unwrap_or("Alert");
+    let subtitle = section.subtitle.as_deref().unwrap_or("");
+
+    let (bg_color, border_color, text_color, icon) = match style {
+        "success" => ("#f0fdf4", "#bbf7d0", "#16a34a", "check_circle"),
+        "error"   => ("#fef2f2", "#fecaca", "#dc2626", "error"),
+        "warning" => ("#fffbeb", "#fde68a", "#d97706", "warning"),
+        _         => ("#eff6ff", "#bfdbfe", "#2563eb", "info"),
+    };
+
+    format!(
+        r##"<div class="anim-slide-up" style="display:flex;align-items:flex-start;gap:12px;padding:16px 20px;border-radius:12px;border:1px solid {border_color};background:{bg_color}">
+  <span class="material-symbols-outlined" style="font-size:20px;color:{text_color};flex-shrink:0;margin-top:1px">{icon}</span>
+  <div>
+    <h4 style="font-size:14px;font-weight:600;color:{text_color};margin:0 0 4px">{title}</h4>
+    <p style="font-size:13px;color:{text_color};opacity:0.8;margin:0;line-height:1.5">{subtitle}</p>
+  </div>
+  <button onclick="this.parentElement.style.display='none'" style="margin-left:auto;background:none;border:none;cursor:pointer;color:{text_color};opacity:0.5;padding:4px">
+    <span class="material-symbols-outlined" style="font-size:16px">close</span>
+  </button>
+</div>"##,
+        bg_color = bg_color,
+        border_color = border_color,
+        text_color = text_color,
+        icon = icon,
+        title = title,
+        subtitle = subtitle,
+    )
+}
+
+// ══════════════════════════════════════════════════
+// CHART SECTION
+// ══════════════════════════════════════════════════
+
+fn render_chart_section(section: &SectionNode) -> String {
+    let chart_type = section.config.get("type").map(|s| s.as_str()).unwrap_or("bar");
+    let title = section.title.as_deref().unwrap_or("Chart");
+    let subtitle = section.subtitle.as_deref().unwrap_or("");
+
+    // Parse items: title = label, description = value (numeric)
+    let data: Vec<(String, f64)> = section.items.iter().filter_map(|item| {
+        let label = item.get("title")?.clone();
+        let val_str = item.get("description")?;
+        let val: f64 = val_str.trim().parse().ok()?;
+        Some((label, val))
+    }).collect();
+
+    if data.is_empty() {
+        return String::new();
+    }
+
+    match chart_type {
+        "line" => render_chart_line(title, subtitle, &data),
+        "donut" => render_chart_donut(title, subtitle, &data),
+        _ => render_chart_bar(title, subtitle, &data),
+    }
+}
+
+fn render_chart_bar(title: &str, subtitle: &str, data: &[(String, f64)]) -> String {
+    let max_val = data.iter().map(|(_, v)| *v).fold(0.0_f64, f64::max);
+    if max_val == 0.0 {
+        return String::new();
+    }
+
+    let bars: Vec<String> = data.iter().map(|(label, value)| {
+        let percent = (value / max_val) * 100.0;
+        format!(
+            r##"<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px">
+        <span style="font-size:11px;font-weight:600;color:#1a1c1c">{value}</span>
+        <div style="width:100%;background:#000;border-radius:4px 4px 0 0;transition:height 0.8s cubic-bezier(0.16,1,0.3,1);height:{percent}%" class="chart-bar"></div>
+        <span style="font-size:11px;color:#71717a">{label}</span>
+      </div>"##,
+            value = *value as i64,
+            percent = percent as i64,
+            label = label,
+        )
+    }).collect();
+
+    format!(
+        r##"<div class="anim-slide-up card-hover" style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px">
+  <div style="margin-bottom:20px">
+    <h3 style="font-size:16px;font-weight:700;margin:0 0 4px">{title}</h3>
+    <p style="font-size:13px;color:#71717a;margin:0">{subtitle}</p>
+  </div>
+  <div style="display:flex;align-items:flex-end;gap:8px;height:200px;padding-top:16px">
+    {bars}
+  </div>
+</div>"##,
+        title = title,
+        subtitle = subtitle,
+        bars = bars.join("\n    "),
+    )
+}
+
+fn render_chart_line(title: &str, subtitle: &str, data: &[(String, f64)]) -> String {
+    let max_val = data.iter().map(|(_, v)| *v).fold(0.0_f64, f64::max);
+    if max_val == 0.0 || data.len() < 2 {
+        return String::new();
+    }
+
+    let width = 600;
+    let height = 200;
+    let padding = 20;
+    let usable_w = width - 2 * padding;
+    let usable_h = height - 2 * padding;
+    let n = data.len();
+
+    let points: Vec<(i32, i32)> = data.iter().enumerate().map(|(i, (_, v))| {
+        let x = padding + (i as i32 * usable_w / (n as i32 - 1));
+        let y = padding + (usable_h as f64 * (1.0 - v / max_val)) as i32;
+        (x, y)
+    }).collect();
+
+    let polyline_pts: String = points.iter().map(|(x, y)| format!("{},{}", x, y)).collect::<Vec<_>>().join(" ");
+    let fill_pts = format!("{} {},{} {},{}",
+        polyline_pts,
+        points.last().unwrap().0, height,
+        points.first().unwrap().0, height
+    );
+
+    let circles: String = points.iter().map(|(x, y)| {
+        format!(r##"<circle cx="{}" cy="{}" r="4" fill="#000"/>"##, x, y)
+    }).collect::<Vec<_>>().join("\n    ");
+
+    let labels: String = data.iter().map(|(label, _)| {
+        format!(r##"<span style="font-size:11px;color:#71717a">{}</span>"##, label)
+    }).collect::<Vec<_>>().join("\n    ");
+
+    format!(
+        r##"<div class="anim-slide-up" style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px">
+  <div style="margin-bottom:20px">
+    <h3 style="font-size:16px;font-weight:700;margin:0 0 4px">{title}</h3>
+    <p style="font-size:13px;color:#71717a;margin:0">{subtitle}</p>
+  </div>
+  <svg viewBox="0 0 {width} {height}" style="width:100%;height:200px">
+    <polyline points="{polyline_pts}" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <polyline points="{fill_pts}" fill="rgba(0,0,0,0.05)" stroke="none"/>
+    {circles}
+  </svg>
+  <div style="display:flex;justify-content:space-between;padding-top:8px">
+    {labels}
+  </div>
+</div>"##,
+        title = title,
+        subtitle = subtitle,
+        width = width,
+        height = height,
+        polyline_pts = polyline_pts,
+        fill_pts = fill_pts,
+        circles = circles,
+        labels = labels,
+    )
+}
+
+fn render_chart_donut(title: &str, subtitle: &str, data: &[(String, f64)]) -> String {
+    let total: f64 = data.iter().map(|(_, v)| *v).sum();
+    if total == 0.0 {
+        return String::new();
+    }
+
+    let circumference: f64 = 2.0 * std::f64::consts::PI * 50.0;
+    let colors = ["#000", "#71717a", "#a1a1aa", "#d4d4d8", "#e5e7eb", "#f3f4f6"];
+
+    let mut offset = 0.0_f64;
+    let segments: Vec<String> = data.iter().enumerate().map(|(i, (_, v))| {
+        let arc = (v / total) * circumference;
+        let color = colors[i % colors.len()];
+        let seg = format!(
+            r##"<circle cx="60" cy="60" r="50" fill="none" stroke="{color}" stroke-width="10" stroke-dasharray="{arc} {circumference}" stroke-dashoffset="{offset}"/>"##,
+            color = color,
+            arc = arc,
+            circumference = circumference,
+            offset = -offset,
+        );
+        offset += arc;
+        seg
+    }).collect();
+
+    let legend: String = data.iter().enumerate().map(|(i, (label, value))| {
+        let color = colors[i % colors.len()];
+        format!(
+            r##"<div style="display:flex;align-items:center;gap:8px">
+      <div style="width:12px;height:12px;border-radius:3px;background:{color};flex-shrink:0"></div>
+      <span style="font-size:13px;color:#1a1c1c">{label}</span>
+      <span style="font-size:13px;color:#71717a;margin-left:auto">{value}</span>
+    </div>"##,
+            color = color,
+            label = label,
+            value = *value as i64,
+        )
+    }).collect::<Vec<_>>().join("\n    ");
+
+    format!(
+        r##"<div class="anim-slide-up" style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px">
+  <div style="margin-bottom:20px">
+    <h3 style="font-size:16px;font-weight:700;margin:0 0 4px">{title}</h3>
+    <p style="font-size:13px;color:#71717a;margin:0">{subtitle}</p>
+  </div>
+  <div style="display:flex;align-items:center;gap:32px">
+    <svg viewBox="0 0 120 120" style="width:120px;height:120px;transform:rotate(-90deg)">
+      <circle cx="60" cy="60" r="50" fill="none" stroke="#e5e7eb" stroke-width="10"/>
+      {segments}
+    </svg>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      {legend}
+    </div>
+  </div>
+</div>"##,
+        title = title,
+        subtitle = subtitle,
+        segments = segments.join("\n      "),
+        legend = legend,
+    )
 }
 
 // ══════════════════════════════════════════════════

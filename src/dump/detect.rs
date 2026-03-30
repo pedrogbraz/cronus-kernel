@@ -958,13 +958,23 @@ fn extract_hero_chips(container: &DomNode, items: &mut Vec<ItemBlueprint>) {
         }
 
         let mut chip_config = HashMap::new();
+        let mut chip_title = text.clone();
         if let Some(icon) = extract_chip_icon(card) {
+            // Remove icon text from the chip title to avoid duplication
+            // e.g. "NEXT Ready for Next.js" -> "Ready for Next.js" with icon "NEXT"
+            chip_title = chip_title
+                .replace(&icon, "")
+                .trim()
+                .to_string();
+            if chip_title.is_empty() {
+                chip_title = text;
+            }
             chip_config.insert("icon".into(), icon);
         }
 
         items.push(ItemBlueprint {
             item_type: "chip".into(),
-            title: text,
+            title: chip_title,
             description: None,
             config: chip_config,
         });
@@ -4775,4 +4785,69 @@ fn detect_text_color(node: &DomNode) -> Option<String> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hero_extraction_developer_landing() {
+        let html = std::fs::read_to_string(
+            "/home/zedd/Downloads/stitch_performance_dashboard(1) (2)/stitch_performance_dashboard/developer_focused_landing_page/code.html"
+        ).unwrap();
+
+        let nodes = dom::parse_html(&html);
+        let sections = detect_sections(&nodes);
+
+        // Find the hero section
+        let hero = sections.iter().find(|s| s.section_type == "hero");
+        assert!(hero.is_some(), "Hero section not found. Sections: {:?}", sections.iter().map(|s| &s.section_type).collect::<Vec<_>>());
+        let hero = hero.unwrap();
+
+        // A) Badge
+        let badge = hero.config.get("badge");
+        assert!(badge.is_some(), "Badge not found in hero config. Config: {:?}", hero.config);
+        let badge_text = badge.unwrap();
+        assert!(badge_text.contains("Next.js 15"), "Badge should contain 'Next.js 15', got: {}", badge_text);
+
+        // B) Terminal lines
+        let lines: Vec<&ItemBlueprint> = hero.items.iter().filter(|i| i.item_type == "line").collect();
+        assert!(!lines.is_empty(), "No terminal 'line' items found. Items: {:?}", hero.items.iter().map(|i| (&i.item_type, &i.title)).collect::<Vec<_>>());
+        assert!(lines.iter().any(|l| l.title.contains("npm i -g vercel")), "Missing 'npm i -g vercel' line");
+        assert!(lines.iter().any(|l| l.title.contains("vercel deploy")), "Missing 'vercel deploy' line");
+
+        let outputs: Vec<&ItemBlueprint> = hero.items.iter().filter(|i| i.item_type == "output").collect();
+        assert!(outputs.iter().any(|o| o.title.contains("Vercel CLI")), "Missing 'Vercel CLI' output");
+
+        let prompts: Vec<&ItemBlueprint> = hero.items.iter().filter(|i| i.item_type == "prompt").collect();
+        assert!(!prompts.is_empty(), "No prompt items found");
+        // Check prompt has answer
+        assert!(prompts.iter().any(|p| p.config.get("answer").is_some()), "Prompt should have answer config");
+
+        let successes: Vec<&ItemBlueprint> = hero.items.iter().filter(|i| i.item_type == "success").collect();
+        assert!(successes.len() >= 2, "Expected at least 2 success lines, got {}", successes.len());
+
+        // C) Floating chips
+        let chips: Vec<&ItemBlueprint> = hero.items.iter().filter(|i| i.item_type == "chip").collect();
+        assert!(chips.len() >= 2, "Expected at least 2 chips, got {}. Items: {:?}",
+            chips.len(), hero.items.iter().map(|i| (&i.item_type, &i.title)).collect::<Vec<_>>());
+
+        // Check chip content — title should NOT contain icon text
+        let next_chip = chips.iter().find(|c| c.title.contains("Next.js")).expect("Missing Next.js chip");
+        assert!(!next_chip.title.starts_with("NEXT"), "Chip title should not start with icon text, got: {}", next_chip.title);
+        assert_eq!(next_chip.title, "Ready for Next.js");
+        assert_eq!(next_chip.config.get("icon").map(|s| s.as_str()), Some("NEXT"));
+
+        let sv_chip = chips.iter().find(|c| c.title.contains("SvelteKit")).expect("Missing SvelteKit chip");
+        assert!(!sv_chip.title.starts_with("SV"), "Chip title should not start with icon text, got: {}", sv_chip.title);
+        assert_eq!(sv_chip.title, "SvelteKit Support");
+        assert_eq!(sv_chip.config.get("icon").map(|s| s.as_str()), Some("SV"));
+
+        println!("=== HERO EXTRACTION TEST PASSED ===");
+        println!("Badge: {}", badge_text);
+        for item in &hero.items {
+            println!("  [{}] {} {:?}", item.item_type, item.title, item.config);
+        }
+    }
 }
