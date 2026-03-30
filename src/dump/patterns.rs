@@ -96,6 +96,11 @@ pub fn is_topbar(node: &DomNode) -> f32 {
         score += 0.2;
     }
 
+    // Penalize <aside> — sidebars should never be classified as topbar
+    if node.tag == "aside" {
+        score -= 0.3;
+    }
+
     // Position classes
     if has_class(node, "fixed") || has_class(node, "sticky") {
         score += 0.2;
@@ -700,18 +705,18 @@ fn is_card_like(node: &DomNode) -> bool {
 
 /// Detect sidebar / side navigation.
 ///
-/// Signals: aside tag (0.3), h-screen class (0.2), fixed class (0.2),
-/// has 3+ links (0.2), has icons (0.1).
+/// Signals: aside tag (0.4), h-screen/h-full class (0.2), fixed class (0.2),
+/// has 3+ links (0.2), has icons (0.1), left-0 position (0.1).
 pub fn is_sidebar(node: &DomNode) -> f32 {
     let mut score: f32 = 0.0;
 
-    // Tag signal
+    // Tag signal — aside is the strongest sidebar indicator
     if node.tag == "aside" {
-        score += 0.3;
+        score += 0.4;
     }
 
-    // Full-height layout
-    if has_class(node, "h-screen") {
+    // Full-height layout (h-screen or h-full)
+    if has_class(node, "h-screen") || has_class(node, "h-full") {
         score += 0.2;
     }
 
@@ -724,6 +729,11 @@ pub fn is_sidebar(node: &DomNode) -> f32 {
     let links = extract_links(node);
     if links.len() >= 3 {
         score += 0.2;
+    }
+
+    // Left-positioned (left-0 or w-64 — typical sidebar widths)
+    if has_class(node, "left-0") || has_class(node, "w-64") || has_class(node, "w-60") {
+        score += 0.1;
     }
 
     // Has icons (material symbols or svg)

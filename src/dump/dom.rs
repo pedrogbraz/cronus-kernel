@@ -197,6 +197,43 @@ const SEMANTIC_BLOCK_TAGS: &[&str] = &[
     "section", "article", "aside", "table", "nav", "header", "footer", "form",
 ];
 
+/// Check if a block should be kept together (not split into children).
+///
+/// Returns true for page-header-like blocks (heading + paragraph, small simple
+/// groups) so they are not broken apart by `extract_deep_blocks`.
+fn should_keep_together(node: &DomNode) -> bool {
+    // Check if any direct child (or grandchild) is a heading
+    let has_heading = node.children.iter().any(|c| {
+        matches!(c.tag.as_str(), "h1" | "h2" | "h3" | "h4" | "h5" | "h6")
+            || c.children.iter().any(|gc| {
+                matches!(gc.tag.as_str(), "h1" | "h2" | "h3" | "h4" | "h5" | "h6")
+            })
+    });
+    // Check if any direct child (or grandchild) is a paragraph
+    let has_paragraph = node.children.iter().any(|c| {
+        c.tag == "p"
+            || c.children.iter().any(|gc| gc.tag == "p")
+    });
+    // Check if any child is a complex container (grid, card, table, section)
+    let has_complex = node.children.iter().any(|c| {
+        has_class(c, "grid")
+            || has_class(c, "ghost-border")
+            || has_class(c, "rounded-xl")
+            || c.tag == "table"
+            || c.tag == "section"
+    });
+
+    // Header block: has heading + paragraph but no complex children
+    if has_heading && has_paragraph && !has_complex {
+        return true;
+    }
+    // Small block with 3 or fewer children, all simple (no grids/cards)
+    if node.children.len() <= 3 && !has_complex {
+        return true;
+    }
+    false
+}
+
 /// Recursively extract meaningful blocks from a DOM subtree.
 ///
 /// The logic peels away layout wrappers (centering divs, grid/flex containers)
@@ -210,6 +247,11 @@ pub fn extract_deep_blocks(node: &DomNode) -> Vec<DomNode> {
 
     // Only recurse into divs – other tags are kept as-is.
     if node.tag != "div" {
+        return vec![node.clone()];
+    }
+
+    // 1b. Keep cohesive blocks together (page headers, small simple groups).
+    if should_keep_together(node) {
         return vec![node.clone()];
     }
 

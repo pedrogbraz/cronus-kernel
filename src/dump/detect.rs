@@ -84,6 +84,9 @@ pub fn detect_sections(nodes: &[DomNode]) -> Vec<SectionBlueprint> {
         sections.push(blueprint);
     }
 
+    // Merge consecutive page-header fragments into a single section
+    merge_page_headers(&mut sections);
+
     // Sort sections for dashboard pages: sidebar/topbar first, footer last,
     // page-header before content sections.
     sort_dashboard_sections(&mut sections);
@@ -159,6 +162,67 @@ fn split_and_detect(node: &DomNode) -> Vec<SectionBlueprint> {
     sections
 }
 
+/// Merge consecutive page-header sections into one.
+///
+/// When `extract_deep_blocks` splits a page-header div into its children
+/// (badge div, h2, p), each piece may be independently classified as
+/// "page-header". This pass collapses consecutive runs into a single section,
+/// combining title, subtitle, badge, and items.
+fn merge_page_headers(sections: &mut Vec<SectionBlueprint>) {
+    if sections.len() < 2 {
+        return;
+    }
+
+    let mut merged: Vec<SectionBlueprint> = Vec::new();
+    let mut i = 0;
+
+    while i < sections.len() {
+        if sections[i].section_type != "page-header" {
+            merged.push(sections[i].clone());
+            i += 1;
+            continue;
+        }
+
+        // Start a run of consecutive page-header sections
+        let mut combined = sections[i].clone();
+        let mut j = i + 1;
+
+        while j < sections.len() && sections[j].section_type == "page-header" {
+            let next = &sections[j];
+
+            // Merge title: keep the first non-empty title
+            if combined.title.is_none() {
+                if let Some(ref t) = next.title {
+                    combined.title = Some(t.clone());
+                }
+            }
+            // Merge subtitle: keep the first non-empty subtitle
+            if combined.subtitle.is_none() {
+                if let Some(ref s) = next.subtitle {
+                    combined.subtitle = Some(s.clone());
+                }
+            }
+            // Merge config (badge, badge_dot, etc.) — don't overwrite existing keys
+            for (k, v) in &next.config {
+                combined.config.entry(k.clone()).or_insert_with(|| v.clone());
+            }
+            // Merge items (action buttons, etc.)
+            combined.items.extend(next.items.clone());
+            // Keep the highest confidence
+            if next.confidence > combined.confidence {
+                combined.confidence = next.confidence;
+            }
+
+            j += 1;
+        }
+
+        merged.push(combined);
+        i = j;
+    }
+
+    *sections = merged;
+}
+
 /// Sort sections for dashboard layout ordering:
 /// sidebar → topbar → page-header → content sections → footer.
 fn sort_dashboard_sections(sections: &mut Vec<SectionBlueprint>) {
@@ -180,6 +244,7 @@ fn sort_dashboard_sections(sections: &mut Vec<SectionBlueprint>) {
 
 fn extract_topbar(node: &DomNode) -> SectionBlueprint {
     let mut config: HashMap<String, String> = HashMap::new();
+    let mut items: Vec<ItemBlueprint> = Vec::new();
 
     // Brand: first bold/large text child, or first text in the nav
     let brand = find_brand_text(node).unwrap_or_default();
@@ -187,17 +252,86 @@ fn extract_topbar(node: &DomNode) -> SectionBlueprint {
         config.insert("brand".into(), brand);
     }
 
-    // Nav links
-    let links = dom::extract_links(node);
-    let nav_texts: Vec<String> = links.iter().map(|(text, _)| text.clone()).collect();
-    if !nav_texts.is_empty() {
-        config.insert("nav".into(), nav_texts.join(", "));
+    // ---------------------------------------------------------------
+    // Search input: extract placeholder text from <input> elements
+    // ---------------------------------------------------------------
+    let inputs = dom::find_by_tag(node, "input");
+    for input in &inputs {
+        if let Some(placeholder) = input.attrs.get("placeholder") {
+            let ph = placeholder.trim().to_string();
+            if !ph.is_empty() {
+                let mut item_config: HashMap<String, String> = HashMap::new();
+                item_config.insert("icon".into(), "search".into());
+                items.push(ItemBlueprint {
+                    item_type: "search".into(),
+                    title: ph,
+                    description: None,
+                    config: item_config,
+                });
+            }
+        }
     }
 
-    // CTA button (last button found is usually the primary CTA)
-    let buttons = extract_clean_buttons(node);
-    if let Some(cta) = buttons.last() {
-        config.insert("cta_text".into(), cta.clone());
+    // ---------------------------------------------------------------
+    // Button icons: extract material icons from <button> elements
+    // ---------------------------------------------------------------
+    let btn_nodes = dom::find_by_tag(node, "button");
+    for btn in &btn_nodes {
+        if let Some(icon) = extract_material_icon(btn) {
+            let label = capitalize_icon_name(&icon);
+            let mut item_config: HashMap<String, String> = HashMap::new();
+            item_config.insert("icon".into(), icon);
+            items.push(ItemBlueprint {
+                item_type: "action".into(),
+                title: label,
+                description: None,
+                config: item_config,
+            });
+        } else {
+            // Button with text but no icon (CTA)
+            let text = dom::clean_node_text(btn);
+            if !text.is_empty() {
+                config.insert("cta_text".into(), text);
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Avatar image: <img> with alt containing "profile" or "avatar"
+    // ---------------------------------------------------------------
+    let imgs = dom::find_by_tag(node, "img");
+    for img in &imgs {
+        let alt = img.attrs.get("alt").cloned().unwrap_or_default();
+        let src = img.attrs.get("src").cloned().unwrap_or_default();
+        if !alt.is_empty() || !src.is_empty() {
+            let mut item_config: HashMap<String, String> = HashMap::new();
+            if !src.is_empty() {
+                item_config.insert("src".into(), src);
+            }
+            items.push(ItemBlueprint {
+                item_type: "image".into(),
+                title: if !alt.is_empty() { alt } else { "Avatar".into() },
+                description: None,
+                config: item_config,
+            });
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Nav links (fallback for topbars with traditional link navigation)
+    // ---------------------------------------------------------------
+    if items.is_empty() {
+        let links = dom::extract_links(node);
+        let nav_texts: Vec<String> = links.iter().map(|(text, _)| text.clone()).collect();
+        if !nav_texts.is_empty() {
+            config.insert("nav".into(), nav_texts.join(", "));
+        }
+
+        // CTA button (last button found is usually the primary CTA)
+        let buttons = extract_clean_buttons(node);
+        if let Some(cta) = buttons.last() {
+            config.insert("cta_text".into(), cta.clone());
+        }
     }
 
     SectionBlueprint {
@@ -206,7 +340,20 @@ fn extract_topbar(node: &DomNode) -> SectionBlueprint {
         title: None,
         subtitle: None,
         config,
-        items: Vec::new(),
+        items,
+    }
+}
+
+/// Capitalize an icon name for display: "notifications" -> "Notifications".
+fn capitalize_icon_name(icon: &str) -> String {
+    let cleaned = icon.replace('_', " ");
+    let mut chars = cleaned.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(first) => {
+            let upper: String = first.to_uppercase().collect();
+            upper + chars.as_str()
+        }
     }
 }
 
@@ -2411,137 +2558,15 @@ fn extract_content_card(node: &DomNode) -> SectionBlueprint {
         section_config.insert("icon".into(), icon);
     }
 
-    // Extract labels: class-based (uppercase tracking-widest) AND <label> tags
-    let label_nodes = dom::find_by_class(node, "uppercase");
+    // -----------------------------------------------------------------------
+    // DOM-ordered walk: collect labels, code, and actions in document order
+    // so that interleaved structures (label->code->action, label->code->action)
+    // are preserved instead of grouping all labels, then all codes, etc.
+    // -----------------------------------------------------------------------
     let mut seen_labels: Vec<String> = Vec::new();
-    for label_node in &label_nodes {
-        if !dom::has_class(label_node, "tracking-widest") && !dom::has_class(label_node, "tracking-wider") {
-            continue;
-        }
-        let txt = label_node.full_text.trim().to_string();
-        if !txt.is_empty() && txt.len() < 80 {
-            seen_labels.push(txt.clone());
-            items.push(ItemBlueprint {
-                item_type: "label".into(),
-                title: txt,
-                description: None,
-                config: HashMap::new(),
-            });
-        }
-    }
-    // Also extract <label> tags directly (form-style card labels)
-    let label_tags = dom::find_by_tag(node, "label");
-    for label_tag in &label_tags {
-        let txt = dom::clean_node_text(label_tag);
-        if txt.is_empty() || txt.len() >= 80 {
-            continue;
-        }
-        if seen_labels.contains(&txt) {
-            continue;
-        }
-        seen_labels.push(txt.clone());
-        let mut label_config: HashMap<String, String> = HashMap::new();
-        if dom::has_class(label_tag, "uppercase") || dom::has_class(label_tag, "tracking-widest") {
-            label_config.insert("style".into(), "uppercase".into());
-        }
-        items.push(ItemBlueprint {
-            item_type: "label".into(),
-            title: txt,
-            description: None,
-            config: label_config,
-        });
-    }
-
-    // Extract input/code values (font-mono text = API keys, codes)
-    // Skip font-mono that are URLs (handled by webhook extraction below)
-    let mono_nodes = dom::find_by_class(node, "font-mono");
-    for mono in &mono_nodes {
-        if is_material_icon_span(mono) {
-            continue;
-        }
-        let txt = mono.full_text.trim().to_string();
-        if txt.is_empty() || txt.len() >= 200 {
-            continue;
-        }
-        // Skip URL-like text (handled by row extraction)
-        if txt.starts_with("http") || txt.contains("://") {
-            continue;
-        }
-        // Skip font-mono + font-bold inside divide-y (webhook URL row titles)
-        if dom::has_class(mono, "font-bold") {
-            let parent = find_parent_of(node, mono);
-            if let Some(p) = parent {
-                let grandparent = find_parent_of(node, p);
-                if let Some(gp) = grandparent {
-                    if dom::has_class(gp, "divide-y") {
-                        continue;
-                    }
-                }
-            }
-        }
-        let mut code_config: HashMap<String, String> = HashMap::new();
-        code_config.insert("_type".into(), "code".into());
-        items.push(ItemBlueprint {
-            item_type: "code".into(),
-            title: txt,
-            description: None,
-            config: code_config,
-        });
-    }
-
-    // Extract action buttons with icon detection
-    let btn_nodes = dom::find_by_tag(node, "button");
     let mut seen_btns: Vec<String> = Vec::new();
-    for bn in &btn_nodes {
-        let btn_text = clean_button_text(bn);
-        if btn_text.is_empty() || seen_btns.contains(&btn_text) {
-            continue;
-        }
-        seen_btns.push(btn_text.clone());
-        let mut btn_config: HashMap<String, String> = HashMap::new();
-        btn_config.insert("_type".into(), "action".into());
-        if let Some(icon) = extract_material_icon(bn) {
-            btn_config.insert("icon".into(), icon);
-        }
-        if dom::has_class(bn, "bg-primary") || dom::has_class(bn, "btn-primary") {
-            btn_config.insert("style".into(), "primary".into());
-        }
-        items.push(ItemBlueprint {
-            item_type: "action".into(),
-            title: btn_text,
-            description: None,
-            config: btn_config,
-        });
-    }
-    // Also pick up <a> styled as buttons (rounded-full with bg-primary)
-    let a_btn_nodes = dom::find_by_tag(node, "a");
-    for a_node in &a_btn_nodes {
-        let is_btn_like = dom::has_class(a_node, "rounded-full")
-            || dom::has_class(a_node, "btn")
-            || dom::has_class(a_node, "bg-primary");
-        if !is_btn_like {
-            continue;
-        }
-        let btn_text = clean_button_text(a_node);
-        if btn_text.is_empty() || seen_btns.contains(&btn_text) {
-            continue;
-        }
-        seen_btns.push(btn_text.clone());
-        let mut btn_config: HashMap<String, String> = HashMap::new();
-        btn_config.insert("_type".into(), "action".into());
-        if dom::has_class(a_node, "bg-primary") {
-            btn_config.insert("style".into(), "primary".into());
-        }
-        if let Some(icon) = extract_material_icon(a_node) {
-            btn_config.insert("icon".into(), icon);
-        }
-        items.push(ItemBlueprint {
-            item_type: "action".into(),
-            title: btn_text,
-            description: None,
-            config: btn_config,
-        });
-    }
+    let mut seen_codes: Vec<String> = Vec::new();
+    card_walk_ordered(node, &mut items, &mut seen_labels, &mut seen_btns, &mut seen_codes, node);
 
     // Extract row entries from divide-y containers or font-mono URLs with status
     let row_entries = find_webhook_entries(node);
@@ -2600,6 +2625,196 @@ fn extract_content_card(node: &DomNode) -> SectionBlueprint {
         subtitle,
         config: section_config,
         items,
+    }
+}
+
+/// Recursively walk a card's DOM subtree in document order, emitting label,
+/// code, and action items as they are encountered.  This preserves the
+/// interleaved ordering (label -> code -> action per key group) instead of
+/// batching all items of the same type together.
+///
+/// `root` is the card-level node used for ancestor lookups.
+fn card_walk_ordered(
+    node: &DomNode,
+    items: &mut Vec<ItemBlueprint>,
+    seen_labels: &mut Vec<String>,
+    seen_btns: &mut Vec<String>,
+    seen_codes: &mut Vec<String>,
+    root: &DomNode,
+) {
+    // -- Skip nodes inside divide-y containers (handled by find_webhook_entries) --
+    if dom::has_class(node, "divide-y") {
+        return;
+    }
+
+    // -- Label: <label> tag OR element with uppercase + tracking-widest/tracking-wider --
+    let is_label_tag = node.tag == "label";
+    let is_label_class = dom::has_class(node, "uppercase")
+        && (dom::has_class(node, "tracking-widest") || dom::has_class(node, "tracking-wider"));
+
+    if is_label_tag || is_label_class {
+        let txt = if is_label_tag {
+            dom::clean_node_text(node)
+        } else {
+            node.full_text.trim().to_string()
+        };
+        if !txt.is_empty() && txt.len() < 80 && !seen_labels.contains(&txt) {
+            seen_labels.push(txt.clone());
+            let mut label_config: HashMap<String, String> = HashMap::new();
+            if dom::has_class(node, "uppercase") || dom::has_class(node, "tracking-widest") {
+                label_config.insert("style".into(), "uppercase".into());
+            }
+            items.push(ItemBlueprint {
+                item_type: "label".into(),
+                title: txt,
+                description: None,
+                config: label_config,
+            });
+            // Don't recurse into label children -- already captured
+            return;
+        }
+    }
+
+    // -- Code: element with font-mono class containing non-URL text --
+    if dom::has_class(node, "font-mono") && !is_material_icon_span(node) {
+        // Extract text excluding nested button text (e.g. "Reveal" inside mono div)
+        let txt = extract_mono_text_clean(node);
+        if !txt.is_empty() && txt.len() < 200 && !seen_codes.contains(&txt) {
+            // Skip URL-like text (handled by row extraction)
+            let is_url = txt.starts_with("http") || txt.contains("://");
+            // Skip font-mono + font-bold inside divide-y (webhook URL row titles)
+            let is_divide_row = dom::has_class(node, "font-bold") && {
+                let parent = find_parent_of(root, node);
+                parent.map_or(false, |p| {
+                    let gp = find_parent_of(root, p);
+                    gp.map_or(false, |g| dom::has_class(g, "divide-y"))
+                })
+            };
+            if !is_url && !is_divide_row {
+                seen_codes.push(txt.clone());
+                let mut code_config: HashMap<String, String> = HashMap::new();
+                code_config.insert("_type".into(), "code".into());
+                items.push(ItemBlueprint {
+                    item_type: "code".into(),
+                    title: txt,
+                    description: None,
+                    config: code_config,
+                });
+                // Don't recurse -- we already captured the mono content
+                return;
+            }
+        }
+    }
+
+    // -- Action: <button> or <a> styled as button --
+    let is_button = node.tag == "button";
+    let is_a_button = node.tag == "a"
+        && (dom::has_class(node, "rounded-full")
+            || dom::has_class(node, "btn")
+            || dom::has_class(node, "bg-primary"));
+
+    if is_button || is_a_button {
+        let mut btn_text = clean_button_text(node);
+        let icon = extract_material_icon(node);
+
+        // When button has only a material icon and no visible text, derive
+        // a human-readable title from the icon name (e.g. content_copy -> "Copy")
+        if btn_text.is_empty() {
+            if let Some(ref icon_name) = icon {
+                btn_text = icon_name_to_action_title(icon_name);
+            }
+        }
+
+        if !btn_text.is_empty() && !seen_btns.contains(&btn_text) {
+            seen_btns.push(btn_text.clone());
+            let mut btn_config: HashMap<String, String> = HashMap::new();
+            btn_config.insert("_type".into(), "action".into());
+            if let Some(ref i) = icon {
+                btn_config.insert("icon".into(), i.clone());
+            }
+            if dom::has_class(node, "bg-primary") || dom::has_class(node, "btn-primary") {
+                btn_config.insert("style".into(), "primary".into());
+            }
+            items.push(ItemBlueprint {
+                item_type: "action".into(),
+                title: btn_text,
+                description: None,
+                config: btn_config,
+            });
+        }
+        // Don't recurse into button children
+        return;
+    }
+
+    // -- Recurse into children --
+    for child in &node.children {
+        card_walk_ordered(child, items, seen_labels, seen_btns, seen_codes, root);
+    }
+}
+
+/// Extract text from a font-mono element, excluding nested <button> text.
+/// This handles cases like a code div containing both the value and a
+/// "Reveal" button -- we want only the code value, not the button label.
+fn extract_mono_text_clean(node: &DomNode) -> String {
+    let mut parts: Vec<String> = Vec::new();
+
+    // Add direct text
+    let direct = node.text.trim().to_string();
+    if !direct.is_empty() && !is_material_icon_text(&direct) {
+        parts.push(direct);
+    }
+
+    // Recurse into children, skipping buttons and material icon spans
+    for child in &node.children {
+        if child.tag == "button" || is_material_icon_span(child) {
+            continue;
+        }
+        let child_text = extract_mono_text_clean(child);
+        if !child_text.is_empty() {
+            parts.push(child_text);
+        }
+    }
+
+    let result = parts.join(" ");
+    result.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Convert a material icon name to a human-readable action title.
+/// e.g. "content_copy" -> "Copy", "content_paste" -> "Paste"
+fn icon_name_to_action_title(icon: &str) -> String {
+    match icon {
+        "content_copy" => "Copy".into(),
+        "content_paste" => "Paste".into(),
+        "content_cut" => "Cut".into(),
+        "delete" => "Delete".into(),
+        "edit" => "Edit".into(),
+        "add" => "Add".into(),
+        "remove" => "Remove".into(),
+        "close" => "Close".into(),
+        "search" => "Search".into(),
+        "share" => "Share".into(),
+        "download" => "Download".into(),
+        "upload" => "Upload".into(),
+        "visibility" => "Show".into(),
+        "visibility_off" => "Hide".into(),
+        "lock" => "Lock".into(),
+        "lock_open" => "Unlock".into(),
+        "settings" => "Settings".into(),
+        "refresh" | "sync" => "Refresh".into(),
+        "open_in_new" => "Open".into(),
+        _ => {
+            // Generic fallback: replace underscores, capitalize first letter
+            let words: Vec<String> = icon.split('_')
+                .map(|w| {
+                    let mut c = w.chars();
+                    match c.next() {
+                        None => String::new(),
+                        Some(f) => f.to_uppercase().to_string() + c.as_str(),
+                    }
+                })
+                .collect();
+            words.join(" ")
+        }
     }
 }
 
