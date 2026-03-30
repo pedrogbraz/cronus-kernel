@@ -6,6 +6,7 @@ mod cache;
 mod components;
 mod database;
 mod deploy;
+mod dump;
 mod graphql;
 mod hmr;
 mod i18n;
@@ -59,6 +60,7 @@ async fn main() {
         "test" => cmd_test(&args),
         "compose" => cmd_compose(&args),
         "generate" | "gen" => cmd_generate(&args),
+        "dump" => cmd_dump(&args),
         "version" | "-v" | "--version" => println!("cronus v0.1.0"),
         "help" | "--help" | "-h" | _ => print_help(),
     }
@@ -496,7 +498,8 @@ async fn handle_request(
             return Ok(html_response(html));
         }
 
-        let mut body = ui::render_page(page, &state.entities, accent);
+        let theme = state.style.as_ref().and_then(|s| s.theme.as_deref()).unwrap_or("dark");
+        let mut body = ui::render_page(page, &state.entities, accent, theme);
 
         // If page references components (via `use ComponentName`), render them
         if !page.components.is_empty() {
@@ -524,8 +527,18 @@ async fn handle_request(
 
         // Landing/checkout pages use full-width layout, no sidebar
         let is_landing = page.page_type == "checkout" || (page.page_type == "custom" && page.sections.iter().any(|s| s.section_type == "hero" || s.section_type == "topbar" || s.section_type == "checkout"));
-        let html = if is_landing {
-            let theme = state.style.as_ref().and_then(|s| s.theme.as_deref()).unwrap_or("dark");
+        let dashboard_types = ["sidebar", "card", "page-header", "stat-cards", "product-grid",
+            "team-list", "policies", "activity-table", "status-card", "links",
+            "live-keys", "test-keys", "webhooks", "quick-links"];
+        let is_dashboard = page.sections.iter().any(|s| dashboard_types.contains(&s.section_type.as_str()));
+        let html = if is_dashboard {
+            // Dedicated dashboard renderer: produces the ENTIRE page in one shot
+            let referenced_comps: Vec<parser::ComponentNode> = page.components.iter()
+                .filter_map(|name| state.components.iter().find(|c| c.name == *name))
+                .cloned()
+                .collect();
+            ui::render_dashboard_page(app_name, &page.sections, &referenced_comps, theme)
+        } else if is_landing {
             ui::render_layout_landing(app_name, &body, theme)
         } else {
             ui::render_layout(app_name, &state.pages, accent, &body)
@@ -874,6 +887,33 @@ async fn cmd_run(args: &[String]) {
                 eprintln!("  Connection error: {}", e);
             }
         });
+    }
+}
+
+fn cmd_dump(args: &[String]) {
+    let file = args.get(2).unwrap_or_else(|| {
+        eprintln!("  \x1b[31m✗\x1b[0m Usage: cronus dump <file.html> [-o output.cronus]");
+        std::process::exit(1);
+    });
+
+    let html = fs::read_to_string(file).unwrap_or_else(|e| {
+        eprintln!("  \x1b[31m✗\x1b[0m Error reading {}: {}", file, e);
+        std::process::exit(1);
+    });
+
+    eprintln!("  \x1b[36m⚡\x1b[0m Dumping {} ({} bytes)...", file, html.len());
+    let cronus = dump::dump_html(&html);
+
+    // Check for -o flag
+    let output_file = args.iter().position(|a| a == "-o").and_then(|i| args.get(i + 1));
+    if let Some(out) = output_file {
+        fs::write(out, &cronus).unwrap_or_else(|e| {
+            eprintln!("  \x1b[31m✗\x1b[0m Error writing {}: {}", out, e);
+            std::process::exit(1);
+        });
+        eprintln!("  \x1b[32m✓\x1b[0m Written to {}", out);
+    } else {
+        println!("{}", cronus);
     }
 }
 

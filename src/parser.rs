@@ -851,9 +851,20 @@ impl Parser {
         let section_type = self.advance().value;
 
         let mut config = HashMap::new();
-        while self.peek().kind == TokenKind::ColonPair {
-            let (k, v) = Self::split_colon_pair(&self.advance().value);
-            config.insert(k, v);
+        while !self.matches(TokenKind::LBrace, None) && !self.matches(TokenKind::Eof, None) {
+            if self.peek().kind == TokenKind::ColonPair {
+                let (k, v) = Self::split_colon_pair(&self.advance().value);
+                config.insert(k, v);
+            } else if self.peek().kind == TokenKind::Identifier {
+                // Bare identifier before { → boolean flag (e.g. "grid-pattern")
+                let flag = self.advance().value;
+                config.insert(flag, "true".to_string());
+            } else if self.peek().kind == TokenKind::StringLit {
+                // String literal as section title shorthand
+                config.insert("inline_title".to_string(), self.advance().value);
+            } else {
+                break;
+            }
         }
 
         self.expect(TokenKind::LBrace)?;
@@ -863,6 +874,7 @@ impl Parser {
         let mut items = Vec::new();
         let mut plans = Vec::new();
 
+        let mut cta_count = 0;
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
             if self.matches(TokenKind::Identifier, Some("title")) {
                 self.advance();
@@ -873,10 +885,36 @@ impl Parser {
             } else if self.matches(TokenKind::Identifier, Some("badge")) {
                 self.advance();
                 config.insert("badge".into(), self.expect(TokenKind::StringLit)?.value);
+            } else if self.matches(TokenKind::Identifier, Some("copyright")) {
+                self.advance();
+                config.insert("copyright".into(), self.expect(TokenKind::StringLit)?.value);
+            } else if self.matches(TokenKind::Identifier, Some("icon")) {
+                self.advance();
+                config.insert("icon".into(), self.advance().value);
+            } else if self.matches(TokenKind::Identifier, Some("nav")) {
+                self.advance();
+                config.insert("nav".into(), self.expect(TokenKind::StringLit)?.value);
+            } else if self.matches(TokenKind::Identifier, Some("brand")) {
+                self.advance();
+                config.insert("brand".into(), self.expect(TokenKind::StringLit)?.value);
+            } else if self.matches(TokenKind::Identifier, Some("footnote")) {
+                self.advance();
+                config.insert("footnote".into(), self.expect(TokenKind::StringLit)?.value);
             } else if self.matches(TokenKind::Identifier, Some("bullets")) {
                 self.advance();
                 let arr = self.parse_string_array()?;
                 config.insert("bullets".into(), arr.join("||"));
+            } else if self.matches(TokenKind::Identifier, Some("columns")) {
+                // columns "Col1, Col2, Col3" or columns ["Col1", "Col2"]
+                self.advance();
+                if self.peek().kind == TokenKind::StringLit {
+                    config.insert("columns".into(), self.advance().value);
+                } else if self.peek().kind == TokenKind::LBracket {
+                    let arr = self.parse_string_array()?;
+                    config.insert("columns".into(), arr.join(","));
+                } else {
+                    config.insert("columns".into(), String::new());
+                }
             } else if self.matches(TokenKind::Identifier, Some("display")) {
                 self.advance();
                 config.insert("display".into(), self.advance().value);
@@ -893,20 +931,173 @@ impl Parser {
                 if self.try_consume(TokenKind::Arrow, None).is_some() {
                     link = self.expect(TokenKind::StringLit)?.value;
                 }
-                // consume trailing style (primary/secondary)
-                if self.peek().kind == TokenKind::Identifier {
-                    let val = &self.peek().value;
-                    if val == "primary" || val == "secondary" {
-                        self.advance();
+                let mut style = String::new();
+                // consume trailing modifiers (primary/secondary/pill/ghost/text + icon:x)
+                while self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::ColonPair {
+                    if self.peek().kind == TokenKind::ColonPair {
+                        let (k, v) = Self::split_colon_pair(&self.advance().value);
+                        config.insert(format!("cta{}_{}", cta_count, k), v);
+                    } else {
+                        let val = &self.peek().value;
+                        if val == "primary" || val == "secondary" || val == "pill" || val == "ghost" || val == "text" {
+                            style = self.advance().value;
+                        } else {
+                            break;
+                        }
                     }
                 }
-                config.insert("cta_text".into(), text);
-                config.insert("cta_link".into(), link);
+                // Support multiple CTAs: cta_text, cta_link, cta2_text, cta2_link
+                if cta_count == 0 {
+                    config.insert("cta_text".into(), text);
+                    config.insert("cta_link".into(), link);
+                    config.insert("cta_style".into(), style);
+                } else {
+                    config.insert(format!("cta{}_text", cta_count + 1), text);
+                    config.insert(format!("cta{}_link", cta_count + 1), link);
+                    config.insert(format!("cta{}_style", cta_count + 1), style);
+                }
+                cta_count += 1;
+            } else if self.matches(TokenKind::Identifier, Some("action")) {
+                // action "Text" -> "/link" icon:x — stored as item with _type=action
+                self.advance();
+                let text = self.expect(TokenKind::StringLit)?.value;
+                let mut map = HashMap::new();
+                map.insert("_type".into(), "action".into());
+                map.insert("title".into(), text);
+                if self.try_consume(TokenKind::Arrow, None).is_some() {
+                    map.insert("link".into(), self.expect(TokenKind::StringLit)?.value);
+                }
+                while self.peek().kind == TokenKind::ColonPair {
+                    let (k, v) = Self::split_colon_pair(&self.advance().value);
+                    map.insert(k, v);
+                }
+                // consume trailing identifiers (style:outline etc)
+                while self.peek().kind == TokenKind::Identifier {
+                    let val = &self.peek().value;
+                    if val == "primary" || val == "secondary" || val == "outline" {
+                        map.insert("variant".into(), self.advance().value);
+                    } else {
+                        break;
+                    }
+                }
+                items.push(map);
+            } else if self.matches(TokenKind::Identifier, Some("row")) {
+                // row "Label" { key "value"; key "value"; status success }
+                self.advance();
+                let label = self.expect(TokenKind::StringLit)?.value;
+                let mut map = HashMap::new();
+                map.insert("_type".into(), "row".into());
+                map.insert("title".into(), label);
+                // Parse key:value pairs before brace
+                while self.peek().kind == TokenKind::ColonPair {
+                    let (k, v) = Self::split_colon_pair(&self.advance().value);
+                    map.insert(k, v);
+                }
+                if self.matches(TokenKind::LBrace, None) {
+                    self.advance();
+                    while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                        if self.peek().kind == TokenKind::Identifier {
+                            let key = self.advance().value;
+                            if self.peek().kind == TokenKind::StringLit {
+                                map.insert(key, self.advance().value);
+                            } else if self.peek().kind == TokenKind::Identifier {
+                                map.insert(key, self.advance().value);
+                            }
+                        } else {
+                            self.advance();
+                        }
+                    }
+                    if self.matches(TokenKind::RBrace, None) { self.advance(); }
+                }
+                items.push(map);
+            } else if self.matches(TokenKind::Identifier, Some("policy")) {
+                // policy "Name" toggle:on OR policy "Name" value:"X"
+                self.advance();
+                let pname = self.expect(TokenKind::StringLit)?.value;
+                let mut map = HashMap::new();
+                map.insert("_type".into(), "policy".into());
+                map.insert("title".into(), pname);
+                while self.peek().kind == TokenKind::ColonPair {
+                    let (k, v) = Self::split_colon_pair(&self.advance().value);
+                    map.insert(k, v);
+                }
+                items.push(map);
+            } else if self.matches(TokenKind::Identifier, Some("line"))
+                    || self.matches(TokenKind::Identifier, Some("output"))
+                    || self.matches(TokenKind::Identifier, Some("success"))
+                    || self.matches(TokenKind::Identifier, Some("prompt"))
+                    || self.matches(TokenKind::Identifier, Some("chip"))
+                    || self.matches(TokenKind::Identifier, Some("code"))
+                    || self.matches(TokenKind::Identifier, Some("image"))
+                    || self.matches(TokenKind::Identifier, Some("link"))
+                    || self.matches(TokenKind::Identifier, Some("meter"))
+                    || self.matches(TokenKind::Identifier, Some("label"))
+                    || self.matches(TokenKind::Identifier, Some("metric"))
+                    || self.matches(TokenKind::Identifier, Some("detail"))
+            {
+                // Rich content items: line/output/success/prompt/chip/code/image/link/meter/label/metric/detail
+                let item_type = self.advance().value;
+                let mut map = HashMap::new();
+                map.insert("_type".into(), item_type);
+                if self.peek().kind == TokenKind::StringLit {
+                    map.insert("title".into(), self.advance().value);
+                }
+                // Parse trailing key:value pairs
+                while self.peek().kind == TokenKind::ColonPair || self.peek().kind == TokenKind::Price {
+                    if self.peek().kind == TokenKind::Price {
+                        map.insert("price".into(), self.advance().value);
+                    } else {
+                        let (k, v) = Self::split_colon_pair(&self.advance().value);
+                        // If value is empty and next token is StringLit, consume it as the value
+                        // This handles src:"url" where tokenizer splits at :
+                        if v.is_empty() && self.peek().kind == TokenKind::StringLit {
+                            map.insert(k, self.advance().value);
+                        } else {
+                            map.insert(k, v);
+                        }
+                    }
+                }
+                // Parse trailing identifiers as flags
+                while self.peek().kind == TokenKind::Identifier {
+                    let val = &self.peek().value;
+                    if val == "primary" || val == "secondary" || val == "blink" || val == "active" || val == "success" || val == "danger" {
+                        map.insert("style".into(), self.advance().value);
+                    } else {
+                        break;
+                    }
+                }
+                // Optional { "content" } block
+                if self.matches(TokenKind::LBrace, None) {
+                    self.advance();
+                    let mut parts = Vec::new();
+                    while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                        if self.peek().kind == TokenKind::StringLit {
+                            parts.push(self.advance().value);
+                        } else {
+                            self.advance();
+                        }
+                    }
+                    if !parts.is_empty() {
+                        map.insert("description".into(), parts.join("\n"));
+                    }
+                    if self.matches(TokenKind::RBrace, None) { self.advance(); }
+                }
+                items.push(map);
             } else if self.matches(TokenKind::Identifier, Some("item")) {
                 let item = self.parse_section_item()?;
                 items.push(item);
             } else if self.matches(TokenKind::Identifier, Some("plan")) {
                 plans.push(self.parse_plan()?);
+            } else if self.matches(TokenKind::LBrace, None) {
+                // Skip unknown nested blocks
+                self.advance();
+                let mut depth = 1;
+                while depth > 0 && !self.matches(TokenKind::Eof, None) {
+                    if self.peek().kind == TokenKind::LBrace { depth += 1; }
+                    if self.peek().kind == TokenKind::RBrace { depth -= 1; }
+                    if depth > 0 { self.advance(); }
+                }
+                if self.matches(TokenKind::RBrace, None) { self.advance(); }
             } else {
                 self.advance();
             }
@@ -922,8 +1113,11 @@ impl Parser {
         let mut map = HashMap::new();
         map.insert("title".into(), title);
 
-        while self.peek().kind == TokenKind::ColonPair || self.peek().kind == TokenKind::StringLit {
-            if self.peek().kind == TokenKind::ColonPair {
+        // Parse inline attributes: icon:x status:active etc
+        while self.peek().kind == TokenKind::ColonPair || self.peek().kind == TokenKind::StringLit || self.peek().kind == TokenKind::Price {
+            if self.peek().kind == TokenKind::Price {
+                map.insert("price".into(), self.advance().value);
+            } else if self.peek().kind == TokenKind::ColonPair {
                 let (k, v) = Self::split_colon_pair(&self.advance().value);
                 map.insert(k, v);
             } else {
@@ -931,15 +1125,55 @@ impl Parser {
             }
         }
 
-        // Handle { "description" } block
+        // Handle { ... } block — capture descriptions AND sub-items
         if self.matches(TokenKind::LBrace, None) {
             self.advance();
+            let mut desc_parts: Vec<String> = Vec::new();
             while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
                 if self.peek().kind == TokenKind::StringLit {
-                    map.insert("description".into(), self.advance().value);
+                    desc_parts.push(self.advance().value);
+                } else if self.peek().kind == TokenKind::Identifier {
+                    // Sub-items inside {}: action "text" icon:x, price "$99", etc
+                    let key = self.advance().value;
+                    if key == "action" || key == "price" || key == "description" || key == "meta" || key == "detail" || key == "footer" || key == "link" {
+                        let key_clone = key.clone();
+                        if self.peek().kind == TokenKind::StringLit {
+                            let val = self.advance().value;
+                            map.insert(key, val);
+                        } else if self.peek().kind == TokenKind::Price {
+                            map.insert(key, self.advance().value);
+                        }
+                        // consume trailing key:value pairs for this sub-item
+                        while self.peek().kind == TokenKind::ColonPair {
+                            let (k, v) = Self::split_colon_pair(&self.advance().value);
+                            map.insert(format!("{}_{}", key_clone, k), v);
+                        }
+                    } else if self.peek().kind == TokenKind::StringLit {
+                        map.insert(key, self.advance().value);
+                    } else if self.peek().kind == TokenKind::ColonPair {
+                        let key_clone = key.clone();
+                        let (k, v) = Self::split_colon_pair(&self.advance().value);
+                        map.insert(format!("{}_{}", key_clone, k), v);
+                    }
+                } else if self.peek().kind == TokenKind::ColonPair {
+                    let (k, v) = Self::split_colon_pair(&self.advance().value);
+                    map.insert(k, v);
+                } else if self.peek().kind == TokenKind::LBrace {
+                    // Skip nested sub-blocks
+                    self.advance();
+                    let mut depth = 1;
+                    while depth > 0 && !self.matches(TokenKind::Eof, None) {
+                        if self.peek().kind == TokenKind::LBrace { depth += 1; }
+                        if self.peek().kind == TokenKind::RBrace { depth -= 1; }
+                        if depth > 0 { self.advance(); }
+                    }
+                    if self.matches(TokenKind::RBrace, None) { self.advance(); }
                 } else {
                     self.advance();
                 }
+            }
+            if !desc_parts.is_empty() {
+                map.insert("description".into(), desc_parts.join("\n"));
             }
             self.expect(TokenKind::RBrace)?;
         }
@@ -1050,12 +1284,47 @@ impl Parser {
     fn parse_component(&mut self) -> Result<ComponentNode, String> {
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
-        self.expect(TokenKind::LBrace)?;
 
+        // Parse attributes before the opening brace: layout:inline style:topbar+light
         let mut layout = None;
         let mut style = None;
         let mut items = Vec::new();
         let mut props = HashMap::new();
+
+        while !self.matches(TokenKind::LBrace, None) && !self.matches(TokenKind::Eof, None) {
+            if self.peek().kind == TokenKind::ColonPair {
+                let (k, v) = Self::split_colon_pair(&self.advance().value);
+                if k == "layout" {
+                    let mut val = v;
+                    if val.is_empty() && (self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::StringLit) {
+                        val = self.advance().value;
+                    }
+                    layout = Some(val);
+                } else if k == "style" {
+                    let mut parts = vec![if v.is_empty() { self.advance().value } else { v }];
+                    while self.try_consume(TokenKind::Plus, None).is_some() {
+                        parts.push(self.advance().value);
+                    }
+                    style = Some(parts.join("+"));
+                } else {
+                    if v.is_empty() && (self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::StringLit) {
+                        props.insert(k, self.advance().value);
+                    } else {
+                        props.insert(k, v);
+                    }
+                }
+            } else if self.peek().kind == TokenKind::Identifier {
+                // Handle bare identifiers before brace
+                let ident = self.advance().value;
+                if self.peek().kind == TokenKind::StringLit || self.peek().kind == TokenKind::Identifier {
+                    props.insert(ident, self.advance().value);
+                }
+            } else {
+                break;
+            }
+        }
+
+        self.expect(TokenKind::LBrace)?;
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
             if self.matches(TokenKind::Identifier, Some("layout")) {

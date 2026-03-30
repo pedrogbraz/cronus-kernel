@@ -142,36 +142,21 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str) -> String 
     let fg = if is_light { "#1a1a1a" } else { "#fff" };
     let sel_bg = if is_light { "rgba(0,0,0,0.08)" } else { "rgba(0,111,240,0.3)" };
     let scroll_thumb = if is_light { "rgba(0,0,0,0.1)" } else { "rgba(255,255,255,0.1)" };
-    let nav_bg = if is_light { "rgba(255,255,255,0.8)" } else { "rgba(0,0,0,0.8)" };
-    let nav_border = if is_light { "#e5e5e5" } else { "rgba(255,255,255,0.05)" };
-    let nav_text = if is_light { "black" } else { "white" };
-    let nav_muted = if is_light { "#71717a" } else { "#9ca3af" };
-    let btn_bg = if is_light { "black" } else { "white" };
-    let btn_fg = if is_light { "white" } else { "black" };
-    format!(
-        r##"<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{app_name}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-    body {{ background: {bg}; color: {fg}; font-family: 'Inter', -apple-system, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }}
-    ::selection {{ background: {sel_bg}; }}
-    ::-webkit-scrollbar {{ width: 4px; }}
-    ::-webkit-scrollbar-thumb {{ background: {scroll_thumb}; border-radius: 2px; }}
-    @keyframes fadeIn {{ from {{ opacity:0;transform:translateY(8px) }} to {{ opacity:1;transform:translateY(0) }} }}
-    .anim {{ animation: fadeIn 0.6s ease-out both; }}
-    .anim-d1 {{ animation-delay: 0.1s; }}
-    .anim-d2 {{ animation-delay: 0.2s; }}
-    .anim-d3 {{ animation-delay: 0.3s; }}
-  </style>
-  <style>{tailwind_css}</style>
-</head>
-<body>
-  <!-- Fixed Navbar -->
+    let grid_line = if is_light { "rgba(0,0,0,0.05)" } else { "rgba(255,255,255,0.03)" };
+    // If body already contains a topbar section (rendered <header or <nav with data-topbar),
+    // skip the built-in navbar to avoid duplication
+    let has_topbar = body.contains("data-cronus-topbar");
+    let nav_html = if has_topbar {
+        String::new()
+    } else {
+        let nav_bg = if is_light { "rgba(255,255,255,0.8)" } else { "rgba(0,0,0,0.8)" };
+        let nav_border = if is_light { "rgba(229,229,229,0.5)" } else { "rgba(255,255,255,0.05)" };
+        let nav_text = if is_light { "black" } else { "white" };
+        let nav_muted = if is_light { "#71717a" } else { "#9ca3af" };
+        let btn_bg = if is_light { "black" } else { "white" };
+        let btn_fg = if is_light { "white" } else { "black" };
+        format!(r##"
+  <!-- Fixed Navbar (fallback) -->
   <nav style="position:fixed;top:0;width:100%;z-index:50;background:{nav_bg};backdrop-filter:blur(12px);border-bottom:1px solid {nav_border}">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:0 24px;height:64px;max-width:1280px;margin:0 auto">
       <div style="display:flex;align-items:center;gap:32px">
@@ -180,18 +165,114 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str) -> String 
           {app_name}
         </div>
         <div style="display:flex;align-items:center;gap:24px">
-          <a href="#" style="color:{nav_muted};font-size:14px;font-weight:500;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='{nav_text}'" onmouseout="this.style.color='{nav_muted}'">Solutions</a>
-          <a href="#" style="color:{nav_muted};font-size:14px;font-weight:500;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='{nav_text}'" onmouseout="this.style.color='{nav_muted}'">Resources</a>
-          <a href="#" style="color:{nav_muted};font-size:14px;font-weight:500;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='{nav_text}'" onmouseout="this.style.color='{nav_muted}'">Docs</a>
-          <a href="#" style="color:{nav_muted};font-size:14px;font-weight:500;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='{nav_text}'" onmouseout="this.style.color='{nav_muted}'">Pricing</a>
+          <a href="#" style="color:{nav_text};font-size:14px;font-weight:600;letter-spacing:-0.025em;text-decoration:none;transition:color 0.2s">Solutions</a>
+          <a href="#" style="color:{nav_muted};font-size:14px;font-weight:500;letter-spacing:-0.025em;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='{nav_text}'" onmouseout="this.style.color='{nav_muted}'">Resources</a>
+          <a href="#" style="color:{nav_muted};font-size:14px;font-weight:500;letter-spacing:-0.025em;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='{nav_text}'" onmouseout="this.style.color='{nav_muted}'">Docs</a>
+          <a href="#" style="color:{nav_muted};font-size:14px;font-weight:500;letter-spacing:-0.025em;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='{nav_text}'" onmouseout="this.style.color='{nav_muted}'">Pricing</a>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:16px">
-        <a href="#" style="color:{nav_muted};font-size:14px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='{nav_text}'" onmouseout="this.style.color='{nav_muted}'">Contact</a>
-        <a href="/signup" style="display:inline-flex;align-items:center;padding:6px 16px;border-radius:999px;background:{btn_bg};color:{btn_fg};font-weight:500;font-size:14px;text-decoration:none;transition:opacity 0.2s" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Deploy</a>
+      <div style="display:flex;align-items:center;gap:12px">
+        <a href="#" style="color:{nav_muted};font-size:14px;font-weight:500;padding:6px 16px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='{nav_text}'" onmouseout="this.style.color='{nav_muted}'">Contact</a>
+        <a href="/signup" style="display:inline-flex;align-items:center;padding:6px 20px;border-radius:999px;background:{btn_bg};color:{btn_fg};font-weight:700;font-size:14px;text-decoration:none;transition:transform 0.15s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">Deploy</a>
       </div>
     </div>
-  </nav>
+  </nav>"##,
+            nav_bg=nav_bg, nav_border=nav_border, nav_text=nav_text,
+            nav_muted=nav_muted, btn_bg=btn_bg, btn_fg=btn_fg,
+            app_name=app_name)
+    };
+    format!(
+        r##"<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{app_name}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <style>
+    * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+    body {{ background: {bg}; color: {fg}; font-family: 'Inter', -apple-system, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }}
+    ::selection {{ background: {sel_bg}; }}
+    ::-webkit-scrollbar {{ width: 4px; }}
+    ::-webkit-scrollbar-thumb {{ background: {scroll_thumb}; border-radius: 2px; }}
+    @keyframes fadeIn {{ from {{ opacity:0;transform:translateY(8px) }} to {{ opacity:1;transform:translateY(0) }} }}
+    @keyframes blink {{ 0%,100% {{ opacity:1 }} 50% {{ opacity:0 }} }}
+    @keyframes pulseGlow {{ 0%,100% {{ opacity:0.6 }} 50% {{ opacity:1 }} }}
+    .geist-grid {{
+      background-image: linear-gradient(to right, {grid_line} 1px, transparent 1px),
+                        linear-gradient(to bottom, {grid_line} 1px, transparent 1px);
+      background-size: 40px 40px;
+    }}
+    .prism-glow {{
+      background: radial-gradient(circle at 50% 50%, rgba(0, 111, 240, 0.1) 0%, transparent 70%);
+    }}
+    .terminal-header {{
+      background: linear-gradient(to bottom, #2f3131, #1b1c1c);
+    }}
+    .material-symbols-outlined {{
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block; line-height: 1; vertical-align: middle;
+    }}
+    .anim {{ animation: fadeIn 0.6s ease-out both; }}
+    .anim-d1 {{ animation-delay: 0.1s; }}
+    .anim-d2 {{ animation-delay: 0.2s; }}
+    .anim-d3 {{ animation-delay: 0.3s; }}
+    .anim-d4 {{ animation-delay: 0.4s; }}
+    .cursor-blink {{ animation: blink 1s step-end infinite; }}
+    .pulse-glow {{ animation: pulseGlow 2s ease-in-out infinite; }}
+  </style>
+  <style>{tailwind_css}</style>
+</head>
+<body>
+  {nav_html}
+  <main class="geist-grid" style="padding-top:64px;min-height:100vh">
+  {body}
+  </main>
+  <script>{runtime}</script>
+  <script>{hmr}</script>
+</body>
+</html>"##,
+        app_name = app_name,
+        bg = bg, fg = fg, sel_bg = sel_bg, scroll_thumb = scroll_thumb, grid_line = grid_line,
+        nav_html = nav_html,
+        body = body,
+        tailwind_css = super::tailwind::CRONUS_TAILWIND,
+        runtime = super::render::CRONUS_RUNTIME_JS,
+        hmr = super::hmr::HMR_CLIENT_JS,
+    )
+}
+
+// ══════════════════════════════════════════════════
+// DASHBOARD LAYOUT — Light, Geist design system
+// ══════════════════════════════════════════════════
+
+pub fn render_layout_dashboard(app_name: &str, body: &str, theme: &str) -> String {
+    let _ = theme; // reserved for future dark mode toggle
+    format!(
+        r##"<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{app_name}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <style>
+    body {{ font-family:'Inter',sans-serif; background:#f9f9f9; color:#1a1c1c; margin:0; }}
+    * {{ box-sizing:border-box; }}
+    .material-symbols-outlined {{ font-variation-settings:'FILL' 0,'wght' 400; display:inline-block; line-height:1; vertical-align:middle; }}
+    .prism-bg {{ background: radial-gradient(circle at top right,rgba(0,111,240,0.08),transparent 40%),radial-gradient(circle at bottom left,rgba(0,56,129,0.05),transparent 40%); }}
+    .engineering-grid {{ background-image:linear-gradient(to right,rgba(198,198,198,0.1) 1px,transparent 1px),linear-gradient(to bottom,rgba(198,198,198,0.1) 1px,transparent 1px); background-size:40px 40px; }}
+    .ghost-border {{ border:1px solid rgba(198,198,198,0.2); }}
+    ::selection {{ background:rgba(0,111,240,0.15); }}
+    ::-webkit-scrollbar {{ width:4px; }}
+    ::-webkit-scrollbar-thumb {{ background:rgba(0,0,0,0.1); border-radius:2px; }}
+    @keyframes fadeIn {{ from {{ opacity:0;transform:translateY(4px) }} to {{ opacity:1;transform:translateY(0) }} }}
+    .anim {{ animation:fadeIn 0.4s ease-out both; }}
+  </style>
+</head>
+<body>
   {body}
   <script>{runtime}</script>
   <script>{hmr}</script>
@@ -199,7 +280,6 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str) -> String 
 </html>"##,
         app_name = app_name,
         body = body,
-        tailwind_css = super::tailwind::CRONUS_TAILWIND,
         runtime = super::render::CRONUS_RUNTIME_JS,
         hmr = super::hmr::HMR_CLIENT_JS,
     )
@@ -517,13 +597,13 @@ fn render_light_support_banner(comp: &ComponentNode) -> String {
 // PAGE RENDERER (returns inner body HTML)
 // ══════════════════════════════════════════════════
 
-pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str) -> String {
+pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str, theme: &str) -> String {
     match page.page_type.as_str() {
         "dashboard" => render_dashboard(page, entities, accent),
         "list" => render_list(page, entities, accent),
         "form" => render_form(page, entities, accent),
         "detail" => render_list(page, entities, accent),
-        "custom" => render_custom(page, accent),
+        "custom" => render_custom(page, accent, theme),
         "checkout" => render_checkout(page),
         "components" => {
             // page type:components — placeholder, actual rendering happens in main.rs
@@ -1162,36 +1242,101 @@ fn render_detail(page: &PageNode, _entities: &[EntityNode], accent: &str) -> Str
 // CUSTOM PAGE (sections: hero, features, pricing)
 // ══════════════════════════════════════════════════
 
-fn render_custom(page: &PageNode, accent: &str) -> String {
+fn render_custom(page: &PageNode, accent: &str, theme: &str) -> String {
     let sections: Vec<String> = page.sections.iter()
-        .map(|s| render_section(s, accent))
+        .map(|s| render_section(s, accent, theme))
         .collect();
     sections.join("\n")
 }
 
-fn render_section(section: &SectionNode, accent: &str) -> String {
+fn render_section(section: &SectionNode, accent: &str, theme: &str) -> String {
     match section.section_type.as_str() {
-        "hero" => render_hero(section, accent),
-        "features" => render_features(section, accent),
+        "hero" => render_hero(section, accent, theme),
+        "features" => render_features(section, accent, theme),
         "pricing" => render_pricing(section, accent),
-        "cta" => render_cta(section, accent),
+        "cta" => render_cta(section, accent, theme),
         "faq" => render_faq(section, accent),
         "stats" => render_stats(section, accent),
         "trusted" => render_trusted(section),
-        "topbar" => render_topbar(section),
+        "topbar" => render_topbar(section, theme),
         "checkout" => render_checkout_section(section),
         "testimonial" => render_testimonial(section),
-        "footer" => render_footer(section),
+        "footer" => render_footer(section, theme),
+        "page-header" => render_page_header_section(section),
+        "stat-cards" => render_stat_cards(section),
+        "product-grid" => render_product_grid_section(section),
+        "promo" => render_promo(section),
+        "info-bar" => render_info_bar(section),
+        "bento" => render_bento(section, accent),
+        "features-split" => render_features_split(section, accent),
+        "team-list" => render_team_list(section),
+        "status-card" => render_status_card(section),
+        "policies" => render_policies(section),
+        "activity-table" => render_activity_table(section),
+        "edge" => render_edge(section, accent),
+        "sidebar" => render_sidebar(section),
+        "card" | "live-keys" | "test-keys" | "webhooks" => render_card_section(section),
+        "links" | "quick-links" => render_links_section(section),
         _ => render_generic_section(section, accent),
     }
 }
 
-fn render_topbar(section: &SectionNode) -> String {
-    let brand = section.title.as_deref().unwrap_or("Brand");
-    let dark = section.config.get("style").map(|s| s.contains("dark")).unwrap_or(false);
-    let (bg,bd,tx,mu) = if dark {("rgba(0,0,0,0.8)","rgba(255,255,255,0.05)","white","#9ca3af")} else {("rgba(255,255,255,0.8)","#e5e5e5","black","#71717a")};
-    let ini: String = brand.split_whitespace().filter_map(|w| w.chars().next()).take(2).collect::<String>().to_uppercase();
-    format!(r##"<header style="width:100%;border-bottom:1px solid {bd};position:sticky;top:0;z-index:50;background:{bg};backdrop-filter:blur(20px);display:flex;justify-content:space-between;align-items:center;height:64px;padding:0 48px"><div style="font-size:18px;font-weight:700;letter-spacing:-0.03em;color:{tx};display:flex;align-items:center;gap:8px"><span style="width:24px;height:24px;background:{tx};border-radius:4px;display:flex;align-items:center;justify-content:center;color:{bg};font-size:10px;font-weight:700">{ini}</span>{brand}</div><button style="display:flex;align-items:center;gap:8px;color:{mu};font-size:14px;font-weight:500;background:none;border:none;cursor:pointer" onmouseover="this.style.color='{tx}'" onmouseout="this.style.color='{mu}'"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>Cancel</button></header>"##, bd=bd,bg=bg,tx=tx,mu=mu,brand=brand,ini=ini)
+fn render_topbar(section: &SectionNode, theme: &str) -> String {
+    let brand = section.config.get("brand").map(|s| s.as_str())
+        .or(section.title.as_deref())
+        .unwrap_or("Brand");
+    let dark = section.config.get("style").map(|s| s.contains("dark")).unwrap_or(false) || theme == "dark";
+    let (bg,bd,tx,mu) = if dark {
+        ("rgba(0,0,0,0.8)","rgba(255,255,255,0.05)","#fff","#9ca3af")
+    } else {
+        ("rgba(255,255,255,0.8)","rgba(229,229,229,0.5)","#000","#71717a")
+    };
+
+    // Parse nav links from config (e.g. "Solutions, Resources, Docs, Pricing")
+    let nav_links: Vec<String> = section.config.get("nav")
+        .map(|nav| {
+            nav.split(',').enumerate().map(|(i, link)| {
+                let l = link.trim();
+                // First link is "active" (bold)
+                let (weight, color) = if i == 0 { ("600", tx) } else { ("500", mu) };
+                format!(
+                    r##"<a href="#" style="color:{color};font-size:14px;font-weight:{weight};letter-spacing:-0.025em;text-decoration:none;transition:color 0.15s" onmouseover="this.style.color='{tx}'" onmouseout="this.style.color='{color}'">{l}</a>"##,
+                    color=color, weight=weight, tx=tx, l=l
+                )
+            }).collect()
+        })
+        .unwrap_or_default();
+
+    let nav_html = nav_links.join("\n          ");
+
+    // CTA button
+    let cta_text = section.config.get("cta_text").or(section.config.get("cta")).map(|s| s.as_str()).unwrap_or("Deploy");
+    let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("/signup");
+    let (btn_bg, btn_fg) = if dark { ("#fff","#000") } else { ("#000","#fff") };
+
+    // Vercel triangle logo
+    let logo_fill = tx;
+
+    format!(r##"<header data-cronus-topbar style="position:fixed;top:0;width:100%;z-index:50;background:{bg};backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid {bd}">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:0 24px;height:64px;max-width:1280px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:32px">
+      <a href="/" style="font-size:20px;font-weight:700;letter-spacing:-0.03em;color:{tx};display:flex;align-items:center;gap:8px;text-decoration:none">
+        <svg width="22" height="20" viewBox="0 0 76 65" fill="{logo_fill}"><path d="M37.5274 0L75.0548 65L0 65L37.5274 0Z"/></svg>
+        {brand}
+      </a>
+      <nav style="display:flex;align-items:center;gap:24px">
+        {nav_html}
+      </nav>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <a href="#" style="color:{mu};font-size:14px;font-weight:500;text-decoration:none;padding:6px 16px;transition:color 0.15s" onmouseover="this.style.color='{tx}'" onmouseout="this.style.color='{mu}'">Contact</a>
+      <a href="{cta_link}" style="display:inline-flex;align-items:center;padding:6px 20px;border-radius:999px;background:{btn_bg};color:{btn_fg};font-weight:700;font-size:14px;text-decoration:none;transition:transform 0.15s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_text}</a>
+    </div>
+  </div>
+</header>"##,
+        bg=bg, bd=bd, tx=tx, mu=mu, brand=brand, logo_fill=logo_fill,
+        nav_html=nav_html, cta_text=cta_text, cta_link=cta_link,
+        btn_bg=btn_bg, btn_fg=btn_fg)
 }
 
 fn render_checkout_section(section: &SectionNode) -> String {
@@ -1233,7 +1378,7 @@ fn render_testimonial(section: &SectionNode) -> String {
     format!(r##"<div style="position:relative;padding:24px;background:{bg};color:{tx};border-radius:12px;overflow:hidden;max-width:640px;margin:24px auto"><p style="font-size:14px;font-weight:500;font-style:italic;line-height:1.6;opacity:0.9">"{q}"</p><p style="font-size:12px;font-weight:700;margin-top:16px;letter-spacing:0.08em;text-transform:uppercase">{s}</p><div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,111,240,0.2),transparent);opacity:0.5"></div></div>"##, bg=bg,tx=tx,q=q,s=s)
 }
 
-fn render_hero(section: &SectionNode, _accent: &str) -> String {
+fn render_hero(section: &SectionNode, _accent: &str, theme: &str) -> String {
     let title = section.title.as_deref().unwrap_or("Build Something Amazing");
     let subtitle = section.subtitle.as_deref().unwrap_or("The next generation platform for modern teams.");
     let badge = section.config.get("badge").map(|s| s.as_str());
@@ -1250,7 +1395,16 @@ fn render_hero(section: &SectionNode, _accent: &str) -> String {
             .map(|s| s.as_str())
     });
 
-    // Split title for gradient effect
+    // Detect light theme: explicit style:light, or cta2 presence ONLY when global theme is not dark
+    let style_hint = section.config.get("style").map(|s| s.as_str()).unwrap_or("");
+    let is_dark = style_hint.contains("dark") || theme == "dark";
+    let is_light = style_hint.contains("light") || (!is_dark && cta2_text.is_some());
+
+    if is_light {
+        return render_developer_landing_hero(section, title, subtitle, badge_text, cta_primary, cta_link, cta2_text, cta2_link);
+    }
+
+    // === Dark theme hero (original) ===
     let words: Vec<&str> = title.split_whitespace().collect();
     let mid = (words.len() + 1) / 2;
     let line1 = words[..mid].join(" ");
@@ -1293,64 +1447,260 @@ fn render_hero(section: &SectionNode, _accent: &str) -> String {
     )
 }
 
-fn render_features(section: &SectionNode, _accent: &str) -> String {
+/// Developer-landing hero: light theme, two-column grid with terminal window
+fn render_developer_landing_hero(
+    section: &SectionNode,
+    title: &str,
+    subtitle: &str,
+    badge_text: Option<&str>,
+    cta_primary: &str,
+    cta_link: &str,
+    cta2_text: Option<&str>,
+    cta2_link: &str,
+) -> String {
+    // Badge
+    let badge_html = badge_text.map(|b| format!(
+        r#"<div class="anim" style="display:inline-flex;align-items:center;gap:8px;padding:4px 12px;border-radius:999px;background:#e8e8e8;border:1px solid rgba(198,198,198,0.2);margin-bottom:24px">
+      <span class="pulse-glow" style="width:8px;height:8px;border-radius:50%;background:#006ff0"></span>
+      <span style="font-size:12px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;color:#1a1c1c">{}</span>
+    </div>"#, b
+    )).unwrap_or_default();
+
+    // Split title by periods for line breaks (e.g. "Develop. Preview. Ship.")
+    let title_lines: Vec<&str> = if title.contains('.') {
+        title.split('.').map(|s| s.trim()).filter(|s| !s.is_empty()).collect()
+    } else {
+        title.split_whitespace().collect()
+    };
+    let title_html: String = title_lines.iter().enumerate().map(|(i, word)| {
+        if i < title_lines.len() - 1 {
+            format!("{}.<br>", word)
+        } else {
+            format!("{}.", word)
+        }
+    }).collect();
+
+    // CTA2 (outline button)
+    let cta2_html = cta2_text.map(|t| format!(
+        r#"<a href="{link}" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 32px;border-radius:999px;border:1px solid rgba(198,198,198,0.3);color:#1a1c1c;font-weight:700;font-size:16px;text-decoration:none;background:#fff;transition:all 0.2s" onmouseover="this.style.background='#f3f3f3'" onmouseout="this.style.background='#fff'">{text}</a>"#,
+        link=cta2_link, text=t
+    )).unwrap_or_default();
+
+    // Terminal window HTML — built dynamically from section items
+    let terminal_title = section.items.iter()
+        .find(|i| i.get("style").map(|s| s.as_str()) == Some("terminal"))
+        .and_then(|i| i.get("description"))
+        .map(|s| s.as_str())
+        .unwrap_or("terminal");
+
+    let mut terminal_lines = String::new();
+    for item in &section.items {
+        let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("");
+        let text = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        match item_type {
+            "line" => {
+                terminal_lines.push_str(&format!(
+                    r#"<div><span style="color:#666">$</span> <span style="color:#e5e5e5">{}</span></div>"#,
+                    text.trim_start_matches("$ ")
+                ));
+            }
+            "output" => {
+                let color = item.get("color").map(|s| match s.as_str() {
+                    "blue" => "#006ff0",
+                    "green" => "#28c840",
+                    "yellow" => "#febc2e",
+                    "red" => "#ff5f57",
+                    _ => "#666",
+                }).unwrap_or("#666");
+                terminal_lines.push_str(&format!(
+                    r#"<div style="color:{};margin-top:4px">{}</div>"#, color, text
+                ));
+            }
+            "prompt" => {
+                let answer = item.get("answer").map(|s| s.as_str()).unwrap_or("");
+                terminal_lines.push_str(&format!(
+                    r#"<div><span style="color:#666">?</span> <span style="color:#e5e5e5">{}</span> <span style="color:#006ff0">{}</span></div>"#,
+                    text, answer
+                ));
+            }
+            "success" => {
+                terminal_lines.push_str(&format!(
+                    r#"<div><span style="color:#28c840">✓</span> <span style="color:#e5e5e5">{}</span></div>"#,
+                    text
+                ));
+            }
+            _ => {}
+        }
+    }
+    // Add blinking cursor
+    terminal_lines.push_str(r#"<div style="margin-top:12px"><span class="cursor-blink" style="display:inline-block;width:8px;height:16px;background:#e5e5e5;vertical-align:middle"></span></div>"#);
+
+    let terminal_html = format!(
+        r##"<div class="anim anim-d3" style="background:#000;border-radius:12px;overflow:hidden;box-shadow:0 25px 50px rgba(0,0,0,0.25);border:1px solid #1f2937">
+      <div class="terminal-header" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #1f2937">
+        <div style="display:flex;gap:8px">
+          <span style="width:12px;height:12px;border-radius:50%;background:#ff5f56"></span>
+          <span style="width:12px;height:12px;border-radius:50%;background:#ffbd2e"></span>
+          <span style="width:12px;height:12px;border-radius:50%;background:#27c93f"></span>
+        </div>
+        <span style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#6b7280;text-transform:uppercase;letter-spacing:0.1em">{title}</span>
+        <div style="width:48px"></div>
+      </div>
+      <div style="padding:24px;font-family:'JetBrains Mono',monospace;font-size:14px;line-height:1.625;color:#e5e5e5">
+        {lines}
+      </div>
+    </div>"##,
+        title = terminal_title,
+        lines = terminal_lines,
+    );
+
+    // Floating chip badges from section items
+    let chips: Vec<String> = section.items.iter()
+        .filter(|i| i.get("_type").map(|s| s.as_str()) == Some("chip"))
+        .map(|i| {
+            let text = i.get("title").map(|s| s.as_str()).unwrap_or("");
+            let icon = i.get("icon").map(|s| s.as_str()).unwrap_or("●");
+            format!(
+                r#"<div style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:8px;padding:12px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,0.08)">
+              <div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:8px;border:1px solid #000;border-radius:3px">{}</div>
+              <span style="font-size:12px;font-weight:600">{}</span>
+            </div>"#, icon, text
+            )
+        })
+        .collect();
+    let chips_html = if chips.is_empty() { String::new() } else {
+        format!(r#"<div style="position:absolute;bottom:-24px;right:-24px;display:flex;flex-direction:column;gap:8px;z-index:20">{}</div>"#, chips.join("\n"))
+    };
+
+    // Wrap terminal + chips in relative container
+    let terminal_with_chips = format!(
+        r#"<div style="position:relative">{}{}</div>"#,
+        terminal_html, chips_html
+    );
+
+    // Stat cards embedded in hero (role:stat items)
+    let stat_items: Vec<&std::collections::HashMap<String, String>> = section.items.iter()
+        .filter(|i| i.get("role").map(|s| s.as_str()) == Some("stat"))
+        .collect();
+
+    let stats_html = if stat_items.is_empty() {
+        String::new()
+    } else {
+        let cols = stat_items.len();
+        let cards: Vec<String> = stat_items.iter().map(|item| {
+            let label = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let value = item.get("description").map(|s| s.as_str()).unwrap_or("");
+            format!(
+                r#"<div style="background:rgba(255,255,255,0.6);backdrop-filter:blur(8px);padding:32px;border:1px solid rgba(198,198,198,0.2);text-align:left">
+              <div style="font-size:12px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:#777;margin-bottom:8px">{label}</div>
+              <div style="font-size:clamp(32px,5vw,48px);font-weight:700;letter-spacing:-0.04em;color:#000">{value}</div>
+            </div>"#,
+                label = label, value = value
+            )
+        }).collect();
+        format!(
+            r#"<div style="max-width:1280px;margin:80px auto 0;padding:0 24px;position:relative;z-index:10">
+          <div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:1px;border-radius:12px;overflow:hidden;border:1px solid rgba(198,198,198,0.2)">
+            {cards}
+          </div>
+        </div>"#,
+            cols = cols,
+            cards = cards.join("\n")
+        )
+    };
+
+    // Detect if hero has terminal content or just stats
+    let has_terminal = terminal_lines.contains("<div>");
+
+    if !has_terminal && !stat_items.is_empty() {
+        // Centered hero layout with stat cards below (no terminal)
+        return format!(
+            r##"<section style="position:relative;overflow:hidden;min-height:80vh;padding:96px 24px 80px;display:flex;flex-direction:column;align-items:center;justify-content:center;background-image:linear-gradient(to right,rgba(198,198,198,0.1) 1px,transparent 1px),linear-gradient(to bottom,rgba(198,198,198,0.1) 1px,transparent 1px);background-size:40px 40px">
+  <div class="prism-glow" style="position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 50%,rgba(0,111,240,0.08) 0%,rgba(249,249,249,0) 70%)"></div>
+  <div style="position:relative;z-index:10;max-width:1024px;margin:0 auto;padding:0 24px;text-align:center">
+    {badge_html}
+    <h1 class="anim anim-d1" style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.05em;color:#000;line-height:0.9;margin-bottom:32px">
+      {title_html}
+    </h1>
+    <p class="anim anim-d2" style="max-width:640px;margin:0 auto 48px;font-size:18px;color:#474747;line-height:1.625">{subtitle}</p>
+    <div class="anim anim-d2" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px">
+      <a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 32px;border-radius:999px;background:#000;color:#fff;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}</a>
+      {cta2_html}
+    </div>
+  </div>
+  {stats_html}
+</section>"##,
+            badge_html = badge_html,
+            title_html = title_html,
+            subtitle = subtitle,
+            cta_link = cta_link,
+            cta_primary = cta_primary,
+            cta2_html = cta2_html,
+            stats_html = stats_html,
+        );
+    }
+
+    format!(
+        r##"<section style="position:relative;overflow:hidden;padding:96px 24px 128px">
+  <div class="prism-glow" style="position:absolute;inset:0;pointer-events:none"></div>
+  <div style="position:relative;z-index:10;max-width:1280px;margin:0 auto;padding:0 24px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center">
+      <!-- Left: Text content -->
+      <div>
+        {badge_html}
+        <h1 class="anim anim-d1" style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.05em;color:#000;line-height:0.9;margin-bottom:32px">
+          {title_html}
+        </h1>
+        <p class="anim anim-d2" style="max-width:512px;font-size:18px;color:#474747;line-height:1.625;margin-bottom:40px">{subtitle}</p>
+        <div class="anim anim-d2" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px">
+          <a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 32px;border-radius:999px;background:#000;color:#fff;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}<span class="material-symbols-outlined" style="font-size:14px">arrow_forward</span></a>
+          {cta2_html}
+        </div>
+      </div>
+      <!-- Right: Terminal window -->
+      {terminal_with_chips}
+    </div>
+  </div>
+</section>"##,
+        badge_html = badge_html,
+        title_html = title_html,
+        subtitle = subtitle,
+        cta_link = cta_link,
+        cta_primary = cta_primary,
+        cta2_html = cta2_html,
+        terminal_with_chips = terminal_with_chips,
+    )
+}
+
+fn render_features(section: &SectionNode, _accent: &str, theme: &str) -> String {
     let style_hint = section.config.get("style").map(|s| s.as_str()).unwrap_or("");
+
+    // Light bento layout — trigger on style:bento, or auto-detect from mixed spans/children
+    let has_spans = section.items.iter().any(|i| i.get("span").is_some());
+    let has_typed_children = section.items.iter().any(|i| {
+        let t = i.get("_type").map(|s| s.as_str()).unwrap_or("");
+        matches!(t, "chip" | "label" | "code" | "image")
+    });
+    if style_hint.contains("bento") || has_spans || has_typed_children {
+        return render_features_bento_light(section);
+    }
 
     let items: Vec<String> = section.items.iter().enumerate().map(|(i, item)| {
         let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Feature");
         let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
         let icon_name = item.get("icon").map(|s| s.as_str()).unwrap_or("star");
 
-        let icon_svg = match icon_name {
-            "globe" => r#"<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>"#,
-            "zap" | "bolt" => r#"<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>"#,
-            "shield" | "security" => r#"<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>"#,
-            "chart" => r#"<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 6-6"/></svg>"#,
-            _ => r#"<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>"#,
-        };
+        let icon_color = if theme == "dark" || style_hint.contains("dark") { "#fff" } else { "#000" };
+        let icon_svg = get_material_icon(icon_name, icon_color, 20);
 
-        // First card is large (bento style), rest are normal
-        let is_large = i == 0 && style_hint.contains("bento");
-        let is_medium = i == 3 && style_hint.contains("bento");
-
-        if is_large {
-            format!(
-                r#"<div style="grid-column:span 8;position:relative;min-height:450px;background:#0a0a0a;border-radius:12px;border:1px solid rgba(255,255,255,0.05);overflow:hidden;padding:32px;display:flex;flex-direction:column;justify-content:space-between;transition:border-color 0.3s" onmouseover="this.style.borderColor='rgba(255,255,255,0.2)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'">
-  <div style="position:relative;z-index:10">
-    <span style="color:#006ff0;font-weight:600;letter-spacing:0.1em;font-size:11px;text-transform:uppercase;display:block;margin-bottom:16px">Infrastructure</span>
-    <h3 style="font-size:clamp(24px,3vw,30px);font-weight:700;letter-spacing:-0.02em;color:white;margin-bottom:16px">{name}</h3>
-    <p style="color:#9ca3af;max-width:384px;font-size:14px;line-height:1.6">{desc}</p>
-  </div>
-  <div style="display:flex;align-items:center;gap:16px;font-size:14px;color:#6b7280;font-weight:500">
-    <span>Learn more</span>
-    <span style="font-size:14px">&#8594;</span>
-  </div>
-  <div style="position:absolute;right:0;top:0;width:50%;height:100%;background:linear-gradient(135deg,rgba(0,111,240,0.1),transparent);opacity:0.3"></div>
-</div>"#, name = name, desc = desc)
-        } else if is_medium {
-            format!(
-                r#"<div style="grid-column:span 8;background:#0a0a0a;border-radius:12px;border:1px solid rgba(255,255,255,0.05);overflow:hidden;display:flex;transition:border-color 0.3s" onmouseover="this.style.borderColor='rgba(255,255,255,0.2)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'">
-  <div style="padding:32px;display:flex;flex-direction:column;justify-content:center;flex:1">
-    <h3 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:white;margin-bottom:16px">{name}</h3>
-    <p style="color:#9ca3af;font-size:14px;margin-bottom:24px;line-height:1.6">{desc}</p>
-    <div style="display:flex;gap:8px">
-      <div style="height:48px;width:4px;background:rgba(255,255,255,0.1);border-radius:999px;overflow:hidden"><div style="height:66%;width:100%;background:#006ff0"></div></div>
-      <div style="height:48px;width:4px;background:rgba(255,255,255,0.1);border-radius:999px;overflow:hidden"><div style="height:50%;width:100%;background:#006ff0"></div></div>
-      <div style="height:48px;width:4px;background:rgba(255,255,255,0.1);border-radius:999px;overflow:hidden"><div style="height:80%;width:100%;background:#006ff0"></div></div>
-    </div>
-  </div>
-  <div style="flex:1;min-height:200px;background:linear-gradient(135deg,#27272a,black)"></div>
-</div>"#, name = name, desc = desc)
-        } else {
-            format!(
-                r#"<div style="grid-column:span 4;background:#0a0a0a;border-radius:12px;border:1px solid rgba(255,255,255,0.05);padding:32px;display:flex;flex-direction:column;justify-content:space-between;transition:border-color 0.3s" onmouseover="this.style.borderColor='rgba(255,255,255,0.2)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'">
+        format!(
+            r#"<div style="grid-column:span 4;background:#0a0a0a;border-radius:12px;border:1px solid rgba(255,255,255,0.05);padding:32px;display:flex;flex-direction:column;justify-content:space-between;transition:border-color 0.3s" onmouseover="this.style.borderColor='rgba(255,255,255,0.2)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'">
   <div>
     <div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;margin-bottom:24px;color:white">{icon_svg}</div>
     <h3 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:white;margin-bottom:8px">{name}</h3>
     <p style="color:#9ca3af;font-size:14px;line-height:1.6">{desc}</p>
   </div>
 </div>"#, icon_svg = icon_svg, name = name, desc = desc)
-        }
     }).collect();
 
     format!(
@@ -1361,6 +1711,306 @@ fn render_features(section: &SectionNode, _accent: &str) -> String {
 </section>"#,
         items.join("\n    "),
     )
+}
+
+/// Material symbol icon helper
+fn get_material_icon(name: &str, color: &str, size: u32) -> String {
+    match name {
+        "commit" => format!(r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M16.89 12.5a5.001 5.001 0 00-9.78 0H2v-1h5.11a5.001 5.001 0 019.78 0H22v1h-5.11zM12 15a3 3 0 110-6 3 3 0 010 6z"/></svg>"#, s=size, c=color),
+        "extension" => format!(r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M20.5 11H19V7a2 2 0 00-2-2h-4V3.5a2.5 2.5 0 00-5 0V5H4a2 2 0 00-2 2v3.8h1.5a2.7 2.7 0 010 5.4H2V20a2 2 0 002 2h3.8v-1.5a2.7 2.7 0 015.4 0V22H17a2 2 0 002-2v-4h1.5a2.5 2.5 0 000-5z"/></svg>"#, s=size, c=color),
+        "public" | "globe" => format!(r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>"#, s=size, c=color),
+        "terminal" => format!(r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zm0 14H4V8h16v10zm-2-1h-6v-2h6v2zM7.5 17l-1.41-1.41L8.67 13l-2.59-2.59L7.5 9l4 4-4 4z"/></svg>"#, s=size, c=color),
+        "code" => format!(r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>"#, s=size, c=color),
+        "upload" | "cloud_upload" => format!(r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>"#, s=size, c=color),
+        "rocket_launch" | "rocket" => format!(r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M12 2.5s4.5 2 4.5 9.5c0 2.08-.52 3.88-1.26 5.35l-1.62-1.62a2 2 0 00-3.24 0l-1.62 1.62A14.83 14.83 0 017.5 12c0-7.5 4.5-9.5 4.5-9.5zM5 18l1.38-1.37c.49-.49 1.11-.83 1.78-.97l1.85 1.85c-.06.85-.27 1.7-.64 2.49H5zm14 0h-4.37c-.37-.79-.58-1.64-.64-2.49l1.85-1.85c.67.14 1.29.48 1.78.97L19 18zM12 12.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg>"#, s=size, c=color),
+        _ => format!(r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>"#, s=size, c=color),
+    }
+}
+
+/// Bento-style feature grid for light developer landing.
+/// Reads ALL data from section.items dynamically:
+/// - Items without `_type` (or empty) are feature cards
+/// - Items with `_type` (label, chip, code, image) are children of the preceding card
+fn render_features_bento_light(section: &SectionNode) -> String {
+    // Group flat items into cards + their children.
+    // Items without _type (or empty) are feature CARDS.
+    // Items with _type (label, chip, code, image) belong to the preceding card as children.
+    struct CardGroup {
+        card: std::collections::HashMap<String, String>,
+        children: Vec<std::collections::HashMap<String, String>>,
+    }
+
+    let mut cards: Vec<CardGroup> = Vec::new();
+
+    for item in &section.items {
+        let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("");
+        if item_type.is_empty() {
+            cards.push(CardGroup {
+                card: item.clone(),
+                children: Vec::new(),
+            });
+        } else if let Some(last) = cards.last_mut() {
+            last.children.push(item.clone());
+        }
+    }
+
+    let card_htmls: Vec<String> = cards.iter().enumerate().map(|(i, group)| {
+        let card = &group.card;
+        let name = card.get("title").or_else(|| card.get("name")).map(|s| s.as_str()).unwrap_or("Feature");
+        let desc = card.get("description").or_else(|| card.get("desc")).map(|s| s.as_str()).unwrap_or("");
+        let icon_name = card.get("icon").map(|s| s.as_str()).unwrap_or("star");
+        let span = card.get("span").and_then(|s| s.parse::<u32>().ok()).unwrap_or(1);
+        let card_style = card.get("style").map(|s| s.as_str()).unwrap_or("");
+        let is_dark = card_style.contains("dark");
+        let delay_class = format!("anim anim-d{}", (i % 4) + 1);
+
+        let col_span_css = if span > 1 {
+            format!("grid-column:span {};", span)
+        } else {
+            String::new()
+        };
+
+        // Classify children
+        let has_image = group.children.iter().any(|c| c.get("_type").map(|s| s.as_str()) == Some("image"));
+        let has_label = group.children.iter().any(|c| c.get("_type").map(|s| s.as_str()) == Some("label"));
+        let has_chips = group.children.iter().any(|c| c.get("_type").map(|s| s.as_str()) == Some("chip"));
+        let has_code = group.children.iter().any(|c| c.get("_type").map(|s| s.as_str()) == Some("code"));
+        let use_horizontal = span > 1 && has_image;
+
+        if is_dark {
+            // ── DARK CARD ──
+            let chips_html = if has_chips {
+                let chips: Vec<String> = group.children.iter()
+                    .filter(|c| c.get("_type").map(|s| s.as_str()) == Some("chip"))
+                    .map(|c| {
+                        let t = c.get("title").map(|s| s.as_str()).unwrap_or("");
+                        format!(
+                            r#"<span style="padding:4px 12px;background:rgba(255,255,255,0.1);border-radius:999px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#fff">{}</span>"#,
+                            t.to_uppercase()
+                        )
+                    }).collect();
+                format!(
+                    r#"<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:32px">{}</div>"#,
+                    chips.join("")
+                )
+            } else {
+                String::new()
+            };
+
+            format!(
+                r##"<div class="{delay_class}" style="{col_span}background:#000;border-radius:12px;padding:32px;display:flex;flex-direction:column;justify-content:space-between">
+  <div>
+    <span class="material-symbols-outlined" style="font-size:32px;color:#fff;margin-bottom:16px;display:block">{icon}</span>
+    <h3 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#fff;margin-bottom:12px">{name}</h3>
+    <p style="color:#9ca3af;font-size:14px;line-height:1.6">{desc}</p>
+  </div>
+  {chips}
+</div>"##,
+                delay_class = delay_class,
+                col_span = col_span_css,
+                icon = icon_name,
+                name = name,
+                desc = desc,
+                chips = chips_html,
+            )
+        } else if use_horizontal {
+            // ── LIGHT CARD, SPAN 2, WITH IMAGE → HORIZONTAL LAYOUT ──
+            let non_image_children = render_bento_children_light(&group.children, false, true);
+            let img_src = group.children.iter()
+                .filter(|c| c.get("_type").map(|s| s.as_str()) == Some("image"))
+                .filter_map(|c| c.get("src").or(c.get("url")))
+                .next()
+                .map(|s| s.trim_matches('"'))
+                .unwrap_or("");
+            let img_alt = group.children.iter()
+                .filter(|c| c.get("_type").map(|s| s.as_str()) == Some("image"))
+                .filter_map(|c| c.get("title"))
+                .next()
+                .map(|s| s.as_str())
+                .unwrap_or("");
+
+            format!(
+                r##"<div class="{delay_class}" style="{col_span}background:#fff;border:1px solid rgba(198,198,198,0.1);border-radius:12px;padding:32px;overflow:hidden">
+  <div style="display:flex;gap:32px;align-items:center">
+    <div style="flex:1">
+      <span class="material-symbols-outlined" style="font-size:32px;color:#000;margin-bottom:16px;display:block">{icon}</span>
+      <h3 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#1a1c1c;margin-bottom:12px">{name}</h3>
+      <p style="color:#474747;font-size:14px;line-height:1.6">{desc}</p>
+      {text_children}
+    </div>
+    <div style="flex:1">
+      <img src="{img_src}" style="border-radius:8px;width:100%;box-shadow:0 20px 40px rgba(0,0,0,0.15);transition:transform 0.5s" onmouseover="this.style.transform='rotate(2deg)'" onmouseout="this.style.transform='none'" alt="{img_alt}">
+    </div>
+  </div>
+</div>"##,
+                delay_class = delay_class,
+                col_span = col_span_css,
+                icon = icon_name,
+                name = name,
+                desc = desc,
+                text_children = non_image_children,
+                img_src = img_src,
+                img_alt = img_alt,
+            )
+        } else if has_label {
+            // ── LIGHT CARD WITH LABEL → flow icons + label at bottom (Git Push pattern) ──
+            let label_text = group.children.iter()
+                .filter(|c| c.get("_type").map(|s| s.as_str()) == Some("label"))
+                .filter_map(|c| c.get("title"))
+                .next()
+                .map(|s| s.as_str())
+                .unwrap_or("");
+
+            let flow_html = format!(
+                r##"<div style="display:flex;align-items:center;gap:16px;margin-top:48px">
+    <div style="display:flex">
+      <div style="width:40px;height:40px;border-radius:50%;background:#f3f3f3;border:2px solid #fff;display:flex;align-items:center;justify-content:center"><span class="material-symbols-outlined" style="font-size:16px">code</span></div>
+      <div style="width:40px;height:40px;border-radius:50%;background:#000;border:2px solid #fff;display:flex;align-items:center;justify-content:center;margin-left:-8px"><span class="material-symbols-outlined" style="font-size:16px;color:#fff">upload</span></div>
+      <div style="width:40px;height:40px;border-radius:50%;background:#006ff0;border:2px solid #fff;display:flex;align-items:center;justify-content:center;margin-left:-8px"><span class="material-symbols-outlined" style="font-size:16px;color:#fff">rocket_launch</span></div>
+    </div>
+    <div style="flex:1;height:1px;background:rgba(198,198,198,0.3)"></div>
+    <span style="font-size:11px;font-family:'JetBrains Mono',monospace;color:#9ca3af;letter-spacing:0.08em">{label}</span>
+  </div>"##,
+                label = label_text
+            );
+
+            format!(
+                r##"<div class="{delay_class}" style="{col_span}background:#fff;border:1px solid rgba(198,198,198,0.1);border-radius:12px;padding:32px;display:flex;flex-direction:column;justify-content:space-between">
+  <div>
+    <span class="material-symbols-outlined" style="font-size:32px;color:#000;margin-bottom:16px;display:block">{icon}</span>
+    <h3 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#1a1c1c;margin-bottom:12px">{name}</h3>
+    <p style="color:#474747;font-size:14px;line-height:1.6;max-width:480px">{desc}</p>
+  </div>
+  {flow}
+</div>"##,
+                delay_class = delay_class,
+                col_span = col_span_css,
+                icon = icon_name,
+                name = name,
+                desc = desc,
+                flow = flow_html,
+            )
+        } else if has_image && span <= 1 {
+            // ── LIGHT CARD, SPAN 1, WITH IMAGE → vertical layout, image below ──
+            let img_src = group.children.iter()
+                .filter(|c| c.get("_type").map(|s| s.as_str()) == Some("image"))
+                .filter_map(|c| c.get("src").or(c.get("url")))
+                .next()
+                .map(|s| s.trim_matches('"'))
+                .unwrap_or("");
+            let img_alt = group.children.iter()
+                .filter(|c| c.get("_type").map(|s| s.as_str()) == Some("image"))
+                .filter_map(|c| c.get("title"))
+                .next()
+                .map(|s| s.as_str())
+                .unwrap_or("");
+
+            let img_html = if !img_src.is_empty() {
+                format!(
+                    r#"<div style="margin-top:24px;aspect-ratio:1;border-radius:8px;overflow:hidden;background:#e8e8e8"><img src="{}" style="width:100%;height:100%;object-fit:cover;filter:grayscale(100%);transition:filter 0.5s" onmouseover="this.style.filter='none'" onmouseout="this.style.filter='grayscale(100%)'" alt="{}"></div>"#,
+                    img_src, img_alt
+                )
+            } else {
+                r#"<div style="margin-top:24px;aspect-ratio:1;background:#e8e8e8;border-radius:8px;overflow:hidden"></div>"#.to_string()
+            };
+
+            format!(
+                r##"<div class="{delay_class}" style="{col_span}background:#fff;border:1px solid rgba(198,198,198,0.1);border-radius:12px;padding:32px;display:flex;flex-direction:column">
+  <span class="material-symbols-outlined" style="font-size:32px;color:#000;margin-bottom:16px;display:block">{icon}</span>
+  <h3 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:#1a1c1c;margin-bottom:8px">{name}</h3>
+  <p style="font-size:14px;color:#474747;flex:1">{desc}</p>
+  {img}
+</div>"##,
+                delay_class = delay_class,
+                col_span = col_span_css,
+                icon = icon_name,
+                name = name,
+                desc = desc,
+                img = img_html,
+            )
+        } else {
+            // ── LIGHT CARD, generic fallback ──
+            let children_html = render_bento_children_light(&group.children, false, false);
+            format!(
+                r##"<div class="{delay_class}" style="{col_span}background:#fff;border:1px solid rgba(198,198,198,0.1);border-radius:12px;padding:32px;display:flex;flex-direction:column;justify-content:space-between">
+  <div>
+    <span class="material-symbols-outlined" style="font-size:32px;color:#000;margin-bottom:16px;display:block">{icon}</span>
+    <h3 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:#1a1c1c;margin-bottom:8px">{name}</h3>
+    <p style="color:#474747;font-size:14px;line-height:1.6;max-width:480px">{desc}</p>
+  </div>
+  {children}
+</div>"##,
+                delay_class = delay_class,
+                col_span = col_span_css,
+                icon = icon_name,
+                name = name,
+                desc = desc,
+                children = children_html,
+            )
+        }
+    }).collect();
+
+    format!(
+        r##"<section style="padding:96px 24px;background:rgba(243,243,243,0.5)">
+  <div style="max-width:1280px;margin:0 auto">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px">
+      {items}
+    </div>
+  </div>
+</section>"##,
+        items = card_htmls.join("\n      "),
+    )
+}
+
+/// Render non-image child items (code, chip) for light bento cards.
+/// `skip_images` filters out image children (used in horizontal layout where images are handled separately).
+fn render_bento_children_light(
+    children: &[std::collections::HashMap<String, String>],
+    _is_dark: bool,
+    skip_images: bool,
+) -> String {
+    let mut code_pills: Vec<String> = Vec::new();
+    let mut chip_pills: Vec<String> = Vec::new();
+
+    for child in children {
+        let child_type = child.get("_type").map(|s| s.as_str()).unwrap_or("");
+        let title = child.get("title").map(|s| s.as_str()).unwrap_or("");
+
+        match child_type {
+            "code" => {
+                code_pills.push(format!(
+                    r#"<code style="padding:8px 16px;background:#eeeeee;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:13px;border:1px solid rgba(198,198,198,0.2)">{}</code>"#,
+                    title
+                ));
+            }
+            "chip" => {
+                chip_pills.push(format!(
+                    r#"<span style="padding:4px 12px;background:#e8e8e8;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#1a1c1c">{}</span>"#,
+                    title.to_uppercase()
+                ));
+            }
+            "image" if skip_images => { /* handled externally */ }
+            "label" => { /* handled by parent card logic */ }
+            _ => {}
+        }
+    }
+
+    let mut parts: Vec<String> = Vec::new();
+
+    if !code_pills.is_empty() {
+        parts.push(format!(
+            r#"<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:24px">{}</div>"#,
+            code_pills.join("")
+        ));
+    }
+    if !chip_pills.is_empty() {
+        parts.push(format!(
+            r#"<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:32px">{}</div>"#,
+            chip_pills.join("")
+        ));
+    }
+
+    parts.join("\n")
 }
 
 fn render_pricing(section: &SectionNode, accent: &str) -> String {
@@ -1410,12 +2060,45 @@ fn render_pricing(section: &SectionNode, accent: &str) -> String {
     )
 }
 
-fn render_cta(section: &SectionNode, _accent: &str) -> String {
+fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> String {
     let title = section.title.as_deref().unwrap_or("Get Started");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
     let cta_text = section.config.get("cta_text").map(|s| s.as_str()).unwrap_or("Get Started");
     let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("/signup");
+    let cta2_text = section.config.get("cta2_text").map(|s| s.as_str());
+    let cta2_link = section.config.get("cta2_link").map(|s| s.as_str()).unwrap_or("#");
+    let footnote = section.config.get("footnote").map(|s| s.as_str());
+    let is_dark = section.config.get("style").map(|s| s.contains("dark")).unwrap_or(false) || theme == "dark";
+    let is_light = !is_dark && (cta2_text.is_some() || section.config.get("style").map(|s| s.contains("light")).unwrap_or(false));
 
+    if is_light {
+        // Light theme CTA: italic title, centered
+        let cta2_html = cta2_text.map(|t| format!(
+            r#"<a href="{link}" style="display:inline-flex;align-items:center;justify-content:center;padding:16px 48px;border-radius:999px;border:1px solid rgba(198,198,198,0.3);color:#1a1c1c;font-weight:700;font-size:18px;text-decoration:none;background:#fff;transition:all 0.2s" onmouseover="this.style.background='#f3f3f3'" onmouseout="this.style.background='#fff'">{text}</a>"#,
+            link=cta2_link, text=t
+        )).unwrap_or_default();
+
+        let footnote_html = footnote.or(Some(subtitle)).filter(|s| !s.is_empty()).map(|f| format!(
+            r#"<p style="font-size:14px;color:#474747;margin-top:32px">{}</p>"#, f
+        )).unwrap_or_default();
+
+        return format!(
+            r##"<section style="padding:128px 24px;position:relative;overflow:hidden">
+  <div style="position:relative;max-width:960px;margin:0 auto;text-align:center">
+    <h2 class="anim" style="font-size:clamp(36px,5vw,72px);font-weight:800;letter-spacing:-0.04em;color:#000;margin-bottom:32px;line-height:1;font-style:italic">{title}</h2>
+    <div class="anim anim-d1" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px">
+      <a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;padding:16px 48px;border-radius:999px;background:#000;color:#fff;font-weight:700;font-size:18px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_text}</a>
+      {cta2_html}
+    </div>
+    {footnote_html}
+  </div>
+</section>"##,
+            title=title, cta_link=cta_link, cta_text=cta_text,
+            cta2_html=cta2_html, footnote_html=footnote_html,
+        );
+    }
+
+    // Dark theme CTA (original)
     format!(
         r##"<section style="padding:96px 24px;position:relative;overflow:hidden">
   <div style="position:absolute;inset:0;pointer-events:none">
@@ -1640,53 +2323,150 @@ fn render_checkout(page: &PageNode) -> String {
     )
 }
 
-fn render_footer(section: &SectionNode) -> String {
-    let columns: Vec<String> = section.items.iter().map(|item| {
-        let title = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Links");
-        let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
-        let links: Vec<String> = desc.split(',').map(|link| {
+fn render_footer(section: &SectionNode, theme: &str) -> String {
+    let copyright = section.config.get("copyright").map(|s| s.as_str()).unwrap_or("&copy; 2024 Vercel Inc.");
+    let has_copyright = section.config.contains_key("copyright");
+    let is_dark = section.config.get("style").map(|s| s.contains("dark")).unwrap_or(false) || theme == "dark";
+
+    // Light minimal footer: only when copyright is set AND we are NOT in dark theme
+    if has_copyright && !is_dark {
+        // Light minimal footer
+        let mut all_links: Vec<String> = Vec::new();
+
+        // First try nav config (comma-separated)
+        if let Some(nav) = section.config.get("nav") {
+            for link in nav.split(',') {
+                let l = link.trim();
+                if !l.is_empty() {
+                    all_links.push(l.to_string());
+                }
+            }
+        }
+
+        // Then try items (each item is a link)
+        if all_links.is_empty() {
+            for item in &section.items {
+                let title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+                if !title.is_empty() {
+                    all_links.push(title.to_string());
+                }
+                // Also check description for comma-separated links
+                let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
+                for link in desc.split(',') {
+                    let l = link.trim();
+                    if !l.is_empty() {
+                        all_links.push(l.to_string());
+                    }
+                }
+            }
+        }
+
+        // Split: most links on left with copyright, last 2 on right
+        let split_at = if all_links.len() > 2 { all_links.len() - 2 } else { all_links.len() };
+        let left_links: Vec<String> = all_links[..split_at].iter().map(|l| format!(
+            r##"<a href="#" style="color:#6b7280;font-size:12px;text-decoration:none;transition:color 0.15s" onmouseover="this.style.color='#000'" onmouseout="this.style.color='#6b7280'">{}</a>"##, l
+        )).collect();
+        let right_links_html: Vec<String> = all_links[split_at..].iter().map(|l| format!(
+            r##"<a href="#" style="color:#6b7280;font-size:12px;text-decoration:none;transition:color 0.15s" onmouseover="this.style.color='#000'" onmouseout="this.style.color='#6b7280'">{}</a>"##, l
+        )).collect();
+
+        return format!(
+            r##"<footer style="border-top:1px solid #e5e7eb;background:#fafafa;padding:48px 24px">
+  <div style="max-width:1280px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px">
+    <div style="display:flex;align-items:center;gap:16px">
+      <span style="font-size:12px;color:#6b7280">{copyright}</span>
+      {left_links}
+    </div>
+    <div style="display:flex;align-items:center;gap:24px">
+      {right_links}
+    </div>
+  </div>
+</footer>"##,
+            copyright=copyright,
+            left_links=left_links.join("\n      "),
+            right_links=right_links_html.join("\n      "),
+        );
+    }
+
+    // Dark theme footer
+    // Collect all link names from items or nav config
+    let mut all_links: Vec<String> = Vec::new();
+    if let Some(nav) = section.config.get("nav") {
+        for link in nav.split(',') {
             let l = link.trim();
-            format!(r##"<a href="#" style="color:#6b7280;font-size:12px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">{}</a>"##, l)
-        }).collect();
-        format!(
-            r#"<div style="display:flex;flex-direction:column;gap:16px">
+            if !l.is_empty() {
+                all_links.push(l.to_string());
+            }
+        }
+    }
+    if all_links.is_empty() {
+        for item in &section.items {
+            if let Some(title) = item.get("title").or_else(|| item.get("name")) {
+                if !title.is_empty() {
+                    all_links.push(title.clone());
+                }
+            }
+        }
+    }
+
+    // If items have descriptions (column-style data), render as columns
+    let has_columns = section.items.iter().any(|i| {
+        i.get("description").or_else(|| i.get("desc")).map(|s| s.contains(',')).unwrap_or(false)
+    });
+
+    let columns_html = if has_columns {
+        let columns: Vec<String> = section.items.iter().map(|item| {
+            let title = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Links");
+            let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
+            let links: Vec<String> = desc.split(',').map(|link| {
+                let l = link.trim();
+                format!(r##"<a href="#" style="color:#6b7280;font-size:12px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">{}</a>"##, l)
+            }).collect();
+            format!(
+                r#"<div style="display:flex;flex-direction:column;gap:16px">
     <h4 style="color:white;font-size:14px;font-weight:600">{}</h4>
     {}
   </div>"#,
-            title, links.join("\n    ")
-        )
-    }).collect();
+                title, links.join("\n    ")
+            )
+        }).collect();
+        format!(r#"<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:48px">{}</div>"#, columns.join("\n      "))
+    } else if !all_links.is_empty() {
+        // Flat link list — render as a simple grid
+        let link_html: Vec<String> = all_links.iter().map(|l| {
+            format!(r##"<a href="#" style="color:#6b7280;font-size:12px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">{}</a>"##, l)
+        }).collect();
+        format!(r#"<div style="display:flex;flex-wrap:wrap;gap:16px 32px">{}</div>"#, link_html.join("\n        "))
+    } else {
+        String::new()
+    };
+
+    // Bottom row: last 3 links as right-side links (Status, Twitter, GitHub pattern)
+    let bottom_right: Vec<String> = if all_links.len() > 3 {
+        all_links[all_links.len()-3..].iter().map(|l| {
+            format!(r##"<a href="#" style="color:#6b7280;font-size:12px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">{}</a>"##, l)
+        }).collect()
+    } else {
+        Vec::new()
+    };
 
     format!(
-        r##"<footer style="border-top:1px solid rgba(255,255,255,0.1);padding:48px 24px">
+        r##"<footer style="border-top:1px solid rgba(255,255,255,0.1);background:black;padding:48px 24px">
   <div style="max-width:1280px;margin:0 auto">
     <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:48px;margin-bottom:48px">
-      <div style="display:flex;flex-direction:column;gap:24px">
-        <div style="font-size:20px;font-weight:700;letter-spacing:-0.03em;color:white;display:flex;align-items:center;gap:8px">
-          <svg width="24" height="24" viewBox="0 0 76 65" fill="white"><path d="M37.5274 0L75.0548 65L0 65L37.5274 0Z"/></svg>
-          Vercel
-        </div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <a href="#" style="color:#6b7280;font-size:14px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">Frameworks</a>
-          <a href="#" style="color:#6b7280;font-size:14px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">Templates</a>
-          <a href="#" style="color:#6b7280;font-size:14px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">Integrations</a>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:48px">
-        {columns}
-      </div>
+      {columns_html}
     </div>
     <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px;padding-top:48px;border-top:1px solid rgba(255,255,255,0.05)">
-      <span style="font-size:12px;color:#6b7280">&copy; 2024 Vercel Inc.</span>
+      <span style="font-size:12px;color:#6b7280">{copyright}</span>
       <div style="display:flex;gap:24px">
-        <a href="#" style="color:#6b7280;font-size:12px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">Status</a>
-        <a href="#" style="color:#6b7280;font-size:12px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">Twitter</a>
-        <a href="#" style="color:#6b7280;font-size:12px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">GitHub</a>
+        {bottom_right}
       </div>
     </div>
   </div>
 </footer>"##,
-        columns = columns.join("\n      "),
+        columns_html = columns_html,
+        copyright = copyright,
+        bottom_right = bottom_right.join("\n        "),
     )
 }
 
@@ -1745,33 +2525,1040 @@ fn render_stats(section: &SectionNode, accent: &str) -> String {
     )
 }
 
-fn render_generic_section(section: &SectionNode, accent: &str) -> String {
-    let title = section.title.as_deref().unwrap_or(&section.section_type);
+fn render_page_header_section(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("Page Title");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
-    let entity = section.config.get("entity").map(|s| s.as_str());
 
-    let entity_html = entity.map(|e| {
-        let lower = e.to_lowercase();
+    let action_text = section.config.get("action_text")
+        .map(|s| s.as_str())
+        .or_else(|| {
+            section.items.iter()
+                .find(|i| i.get("action").is_some())
+                .and_then(|i| i.get("action").or(i.get("title")))
+                .map(|s| s.as_str())
+        })
+        .unwrap_or("Get Started");
+
+    let action_icon = section.items.iter()
+        .find(|i| i.get("action").is_some())
+        .and_then(|i| i.get("icon"))
+        .map(|s| s.as_str())
+        .unwrap_or("arrow");
+
+    let icon_svg = match action_icon {
+        "plus" => r#"<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>"#,
+        "download" => r#"<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>"#,
+        _ => r#"<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>"#,
+    };
+
+    let subtitle_html = if subtitle.is_empty() {
+        String::new()
+    } else {
+        format!(r#"<p style="font-size:16px;color:#71717a;margin:0">{subtitle}</p>"#, subtitle = subtitle)
+    };
+
+    format!(
+        r##"<div style="display:flex;align-items:center;justify-content:space-between;padding:0 0 48px;font-family:'Inter',system-ui,-apple-system,sans-serif">
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <h1 style="font-size:32px;font-weight:700;letter-spacing:-0.02em;color:#000;margin:0">{title}</h1>
+    {subtitle_html}
+  </div>
+  <button style="display:flex;align-items:center;gap:8px;background:#000;color:#fff;border:none;padding:10px 20px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;transition:opacity 0.2s;font-family:inherit" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">{icon_svg} {action_text}</button>
+</div>"##,
+        title = title, subtitle_html = subtitle_html, icon_svg = icon_svg, action_text = action_text,
+    )
+}
+
+fn render_stat_cards(section: &SectionNode) -> String {
+    let cols = section.config.get("cols")
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(3);
+
+    let cards: Vec<String> = section.items.iter().map(|item| {
+        let label = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Metric");
+        let value = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("0");
+        let icon_html = item.get("icon").map(|icon| {
+            format!(r#"<span style="font-size:18px;margin-bottom:8px;display:block">{icon}</span>"#, icon = icon)
+        }).unwrap_or_default();
+
         format!(
-            r#"<div data-list="{lower}" data-cols="id,name,status" class="mt-6 border border-neutral-800 rounded-lg p-4">
-  <p class="text-neutral-600 font-mono text-sm">Loading {e} data...</p>
-</div>"#,
-            lower = lower, e = e,
+            r##"<div style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px;box-shadow:0 40px 80px rgba(26,28,28,0.04)">
+  {icon_html}
+  <p style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#5e5e5e;margin:0 0 8px">{label}</p>
+  <p style="font-size:28px;font-weight:700;color:#1a1c1c;margin:0">{value}</p>
+</div>"##,
+            icon_html = icon_html, label = label, value = value,
         )
+    }).collect();
+
+    format!(
+        r##"<div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:16px;font-family:'Inter',system-ui,-apple-system,sans-serif">
+  {items}
+</div>"##,
+        cols = cols, items = cards.join("\n  "),
+    )
+}
+
+fn render_info_bar(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("");
+    let subtitle = section.subtitle.as_deref().unwrap_or("");
+
+    let config_icon = section.config.get("icon").map(|s| s.as_str());
+
+    let shield_svg = r#"<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>"#;
+
+    let icon_html = if let Some(icon) = config_icon {
+        format!(r#"<span style="display:flex;align-items:center;justify-content:center;width:24px;height:24px">{icon}</span>"#, icon = icon)
+    } else if section.items.iter().any(|i| i.get("type").map(|t| t == "icon").unwrap_or(false)) {
+        let icon_item = section.items.iter().find(|i| i.get("type").map(|t| t == "icon").unwrap_or(false)).unwrap();
+        let icon_val = icon_item.get("title").or_else(|| icon_item.get("name")).map(|s| s.as_str()).unwrap_or("");
+        format!(r#"<span style="display:flex;align-items:center;justify-content:center;width:24px;height:24px">{icon_val}</span>"#, icon_val = icon_val)
+    } else {
+        format!(r#"<span style="display:flex;align-items:center;justify-content:center;width:24px;height:24px">{shield}</span>"#, shield = shield_svg)
+    };
+
+    let links: Vec<String> = section.items.iter()
+        .filter(|i| i.get("type").map(|t| t != "icon").unwrap_or(true))
+        .map(|item| {
+            let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Link");
+            let href = item.get("description").or_else(|| item.get("desc")).or_else(|| item.get("href")).map(|s| s.as_str()).unwrap_or("#");
+            format!(
+                r##"<a href="{href}" style="font-size:12px;color:#5e5e5e;text-transform:uppercase;letter-spacing:0.1em;text-decoration:none;font-weight:500;transition:color 0.15s" onmouseover="this.style.color='#000'" onmouseout="this.style.color='#5e5e5e'">{name}</a>"##,
+                href = href, name = name,
+            )
+        })
+        .collect();
+
+    let title_html = if title.is_empty() {
+        String::new()
+    } else {
+        format!(r#"<span style="font-size:14px;font-weight:700;color:#000">{title}</span>"#, title = title)
+    };
+
+    let subtitle_html = if subtitle.is_empty() {
+        String::new()
+    } else {
+        format!(r#"<span style="font-size:12px;color:#5e5e5e">{subtitle}</span>"#, subtitle = subtitle)
+    };
+
+    format!(
+        r##"<div style="display:flex;align-items:center;justify-content:space-between;padding:24px;background:#fafafa;border-top:1px solid rgba(198,198,198,0.2);font-family:'Inter',system-ui,-apple-system,sans-serif">
+  <div style="display:flex;align-items:center;gap:12px">
+    {icon_html}
+    <div style="display:flex;flex-direction:column;gap:2px">
+      {title_html}
+      {subtitle_html}
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:24px">
+    {links}
+  </div>
+</div>"##,
+        icon_html = icon_html, title_html = title_html, subtitle_html = subtitle_html, links = links.join("\n    "),
+    )
+}
+
+fn render_product_grid_section(section: &SectionNode) -> String {
+    let cols = section.config.get("cols")
+        .and_then(|c| c.parse::<u32>().ok())
+        .unwrap_or(3);
+
+    let cards: Vec<String> = section.items.iter().map(|item| {
+        let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Untitled");
+        let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
+        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
+        let status = item.get("status").map(|s| s.as_str());
+        let price = item.get("price").map(|s| s.as_str());
+        let interval = item.get("interval").map(|s| s.as_str());
+        let unit = item.get("unit").map(|s| s.as_str());
+        let action_text = item.get("action_text").map(|s| s.as_str()).unwrap_or("View");
+        let action_icon = item.get("action_icon").map(|s| s.as_str());
+
+        // Icon box (48x48, bg #e8e8e8, rounded 8px)
+        let icon_html = if icon.is_empty() {
+            r#"<div style="width:48px;height:48px;background:#e8e8e8;border-radius:8px;flex-shrink:0"></div>"#.to_string()
+        } else {
+            format!(r#"<div style="width:48px;height:48px;background:#e8e8e8;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px">{icon}</div>"#, icon=icon)
+        };
+
+        // Status badge (Active=blue, Draft=gray, pill shape, 10px uppercase tracking-widest)
+        let status_html = match status {
+            Some(s) => {
+                let (bg, tx) = if s.eq_ignore_ascii_case("active") {
+                    ("rgba(59,130,246,0.15)", "#3b82f6")
+                } else {
+                    ("rgba(161,161,170,0.15)", "#a1a1aa")
+                };
+                let label = if s.eq_ignore_ascii_case("active") { "Active" } else { "Draft" };
+                format!(r#"<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;padding:4px 10px;border-radius:999px;background:{bg};color:{tx}">{label}</span>"#, bg=bg, tx=tx, label=label)
+            }
+            None => String::new(),
+        };
+
+        // Price line (24px bold + interval in 12px #5e5e5e)
+        let price_html = match price {
+            Some(p) => {
+                let suffix = interval.or(unit).map(|i| format!(r#" <span style="font-size:12px;font-weight:400;color:#5e5e5e">/{i}</span>"#, i=i)).unwrap_or_default();
+                format!(r#"<div style="font-size:24px;font-weight:700;color:#1a1c1c;margin-top:8px">{p}{suffix}</div>"#, p=p, suffix=suffix)
+            }
+            None => String::new(),
+        };
+
+        // Action button (full-width, bg #f3f3f3, rounded pill, 12px font-weight 700)
+        let act_icon = action_icon.map(|ai| format!(r#" <span style="margin-left:4px">{ai}</span>"#, ai=ai)).unwrap_or_default();
+        let action_html = format!(r#"<button style="width:100%;background:#f3f3f3;border:none;border-radius:999px;padding:10px 0;font-size:12px;font-weight:700;color:#1a1c1c;cursor:pointer;margin-top:16px;transition:background 0.15s" onmouseover="this.style.background='#e8e8e8'" onmouseout="this.style.background='#f3f3f3'">{action_text}{act_icon}</button>"#, action_text=action_text, act_icon=act_icon);
+
+        format!(
+            r##"<div style="background:white;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px;display:flex;flex-direction:column;transition:border-color 0.2s" onmouseover="this.style.borderColor='rgba(0,0,0,0.1)'" onmouseout="this.style.borderColor='rgba(198,198,198,0.2)'"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">{icon_html}{status_html}</div><div style="font-size:18px;font-weight:700;color:#1a1c1c">{name}</div><div style="font-size:14px;color:#5e5e5e;margin-top:4px">{desc}</div>{price_html}<div style="flex:1"></div>{action_html}</div>"##,
+            icon_html=icon_html, status_html=status_html, name=name, desc=desc,
+            price_html=price_html, action_html=action_html,
+        )
+    }).collect();
+
+    let title_html = section.title.as_deref().map(|t| {
+        format!(r#"<h2 style="font-size:24px;font-weight:700;color:#1a1c1c;margin-bottom:24px">{t}</h2>"#, t=t)
     }).unwrap_or_default();
 
     format!(
-        r#"<section class="py-12 max-w-6xl mx-auto px-6">
-  <div class="flex items-center gap-3 mb-6">
-    <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-{accent}-500">// {title}</p>
-    <div class="flex-1 h-px bg-neutral-800/50"></div>
-  </div>
-  <h2 class="text-2xl font-bold mb-2">{title}</h2>
-  <p class="text-neutral-400 text-sm">{subtitle}</p>
-  {entity_html}
-</section>"#,
-        title = title, subtitle = subtitle, accent = accent, entity_html = entity_html,
+        r##"<section style="padding:32px 0">{title_html}<div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:24px">{cards}</div></section>"##,
+        title_html=title_html, cols=cols, cards=cards.join(""),
     )
+}
+
+fn render_promo(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("");
+    let subtitle = section.subtitle.as_deref().unwrap_or("");
+
+    // Badge: from config or first item with "badge" key
+    let badge_text = section.config.get("badge")
+        .or_else(|| section.items.iter().find_map(|i| i.get("badge")))
+        .map(|s| s.as_str());
+
+    let cta_text = section.config.get("cta_text").map(|s| s.as_str());
+    let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("#");
+
+    // If config has span:2, this section is intended to span 2 grid columns in parent layout
+
+    let badge_html = badge_text.map(|b| {
+        format!(r#"<span style="display:inline-block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,0.2);color:white">{b}</span>"#, b=b)
+    }).unwrap_or_default();
+
+    let subtitle_html = if subtitle.is_empty() {
+        String::new()
+    } else {
+        format!(r#"<p style="font-size:14px;color:#a1a1aa;max-width:480px;line-height:1.6">{subtitle}</p>"#, subtitle=subtitle)
+    };
+
+    let cta_html = cta_text.map(|ct| {
+        format!(r##"<a href="{link}" style="display:inline-flex;align-items:center;justify-content:center;padding:10px 24px;border-radius:999px;background:white;color:black;font-weight:700;font-size:14px;text-decoration:none;transition:opacity 0.2s" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">{ct}</a>"##, link=cta_link, ct=ct)
+    }).unwrap_or_default();
+
+    format!(
+        r##"<div style="background:black;color:white;border-radius:12px;padding:32px;position:relative;overflow:hidden;display:flex;flex-direction:column;gap:16px"><div style="position:absolute;right:0;top:0;bottom:0;width:50%;background:radial-gradient(ellipse at 80% 50%,rgba(0,111,240,0.15),transparent 70%);pointer-events:none"></div><div style="position:relative;display:flex;flex-direction:column;gap:16px">{badge_html}<h2 style="font-size:30px;font-weight:700;letter-spacing:-0.02em;color:white;margin:0">{title}</h2>{subtitle_html}{cta_html}</div></div>"##,
+        badge_html=badge_html, title=title, subtitle_html=subtitle_html, cta_html=cta_html,
+    )
+}
+
+// ══════════════════════════════════════════════════
+// LIGHT-THEME SECTION RENDERERS (Geist-inspired)
+// ══════════════════════════════════════════════════
+
+fn render_bento(section: &SectionNode, accent: &str) -> String {
+    let cols = section.config.get("cols").and_then(|c| c.parse::<u32>().ok()).unwrap_or(3);
+    let title_html = section.title.as_deref().map(|t| format!(
+        r#"<h2 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#1a1c1c;margin-bottom:8px">{}</h2>"#, t
+    )).unwrap_or_default();
+    let subtitle_html = section.subtitle.as_deref().map(|s| format!(
+        r#"<p style="font-size:14px;color:#5e5e5e;margin-bottom:32px;line-height:1.6">{}</p>"#, s
+    )).unwrap_or_default();
+
+    let cards: Vec<String> = section.items.iter().map(|item| {
+        let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Card");
+        let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
+        let span = item.get("span").and_then(|s| s.parse::<u32>().ok()).unwrap_or(1);
+        let style_hint = item.get("style").map(|s| s.as_str()).unwrap_or("");
+
+        let (bg, text_color, border) = if style_hint == "dark" {
+            ("#1a1a1a", "white", "1px solid rgba(255,255,255,0.1)")
+        } else {
+            ("white", "#1a1c1c", "1px solid rgba(198,198,198,0.2)")
+        };
+
+        let desc_color = if style_hint == "dark" { "#a1a1aa" } else { "#5e5e5e" };
+
+        let badges_html = item.get("badges").map(|b| {
+            let pills: Vec<String> = b.split(',').map(|badge| format!(
+                r#"<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:500;background:rgba(198,198,198,0.15);color:#5e5e5e">{}</span>"#,
+                badge.trim()
+            )).collect();
+            format!(r#"<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">{}</div>"#, pills.join(""))
+        }).unwrap_or_default();
+
+        let span_style = if span > 1 {
+            format!("grid-column:span {};", span)
+        } else {
+            String::new()
+        };
+
+        format!(
+            r#"<div style="background:{bg};border:{border};border-radius:12px;padding:24px;{span_style}">
+  <h3 style="font-size:20px;font-weight:700;color:{text_color};margin-bottom:8px">{name}</h3>
+  <p style="font-size:14px;color:{desc_color};line-height:1.6">{desc}</p>
+  {badges_html}
+</div>"#,
+            bg = bg, border = border, span_style = span_style,
+            text_color = text_color, name = name, desc_color = desc_color,
+            desc = desc, badges_html = badges_html,
+        )
+    }).collect();
+
+    format!(
+        r#"<section style="max-width:1280px;margin:0 auto;padding:48px 24px">
+  {title_html}
+  {subtitle_html}
+  <div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:24px">
+    {cards}
+  </div>
+</section>"#,
+        title_html = title_html, subtitle_html = subtitle_html,
+        cols = cols, cards = cards.join("\n    "),
+    )
+}
+
+fn render_features_split(section: &SectionNode, accent: &str) -> String {
+    let title_html = section.title.as_deref().map(|t| format!(
+        r#"<h2 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#1a1c1c;margin-bottom:32px">{}</h2>"#, t
+    )).unwrap_or_default();
+
+    let mut feature_items: Vec<String> = Vec::new();
+    let mut code_block = String::new();
+
+    for item in &section.items {
+        let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Feature");
+        let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
+
+        if item.get("code").is_some() || desc.starts_with('{') {
+            let code_content = item.get("code").map(|s| s.as_str()).unwrap_or(desc);
+            code_block = format!(
+                r#"<div style="background:#1a1a1a;border-radius:12px;padding:24px;overflow:hidden">
+  <pre style="margin:0;color:white;font-size:13px;font-family:'SF Mono',SFMono-Regular,Consolas,monospace;line-height:1.6;white-space:pre-wrap;overflow-x:auto">{}</pre>
+</div>"#,
+                code_content
+            );
+        } else {
+            let icon_letter = name.chars().next().unwrap_or('F');
+            feature_items.push(format!(
+                r#"<div style="display:flex;gap:16px;align-items:flex-start">
+  <div style="width:36px;height:36px;border-radius:50%;background:{accent};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+    <span style="color:white;font-size:14px;font-weight:700">{icon_letter}</span>
+  </div>
+  <div>
+    <h4 style="font-size:16px;font-weight:600;color:#1a1c1c;margin-bottom:4px">{name}</h4>
+    <p style="font-size:14px;color:#5e5e5e;line-height:1.6">{desc}</p>
+  </div>
+</div>"#,
+                accent = accent, icon_letter = icon_letter, name = name, desc = desc,
+            ));
+        }
+    }
+
+    let right_col = if code_block.is_empty() {
+        r#"<div style="background:#f5f5f5;border-radius:12px;padding:24px;min-height:200px;display:flex;align-items:center;justify-content:center">
+  <span style="font-size:14px;color:#5e5e5e">Preview</span>
+</div>"#.to_string()
+    } else {
+        code_block
+    };
+
+    format!(
+        r#"<section style="max-width:1280px;margin:0 auto;padding:48px 24px">
+  {title_html}
+  <div style="display:flex;gap:48px;align-items:flex-start">
+    <div style="flex:0 0 60%;display:flex;flex-direction:column;gap:24px">
+      {features}
+    </div>
+    <div style="flex:0 0 40%">
+      {right_col}
+    </div>
+  </div>
+</section>"#,
+        title_html = title_html,
+        features = feature_items.join("\n      "),
+        right_col = right_col,
+    )
+}
+
+fn render_team_list(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("Team");
+    let badge = section.config.get("badge").map(|s| s.as_str());
+    let footer_link = section.config.get("footer_link").map(|s| s.as_str());
+
+    let badge_html = badge.map(|b| format!(
+        r#" <span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:500;background:rgba(198,198,198,0.15);color:#5e5e5e;margin-left:8px">{}</span>"#, b
+    )).unwrap_or_default();
+
+    let rows: Vec<String> = section.items.iter().map(|item| {
+        let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Member");
+        let email = item.get("email").map(|s| s.as_str()).unwrap_or("");
+        let role = item.get("role").map(|s| s.as_str()).unwrap_or("Viewer");
+        let initial = name.chars().next().unwrap_or('?').to_uppercase().to_string();
+
+        let (role_bg, role_color) = match role.to_lowercase().as_str() {
+            "admin" => ("#1a1a1a", "white"),
+            "developer" | "dev" => ("#dbeafe", "#1d4ed8"),
+            _ => ("#f3f3f3", "#5e5e5e"),
+        };
+
+        format!(
+            r#"<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #f3f3f3">
+  <div style="width:40px;height:40px;border-radius:50%;background:#e8e8e8;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+    <span style="font-size:14px;font-weight:600;color:#5e5e5e">{initial}</span>
+  </div>
+  <span style="font-size:14px;font-weight:600;color:#1a1c1c;flex:1">{name}</span>
+  <span style="font-size:14px;color:#5e5e5e;flex:1">{email}</span>
+  <span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:500;background:{role_bg};color:{role_color}">{role}</span>
+</div>"#,
+            initial = initial, name = name, email = email,
+            role = role, role_bg = role_bg, role_color = role_color,
+        )
+    }).collect();
+
+    let footer_html = footer_link.map(|l| format!(
+        r##"<div style="padding-top:16px;margin-top:8px">
+  <a href="#" style="font-size:13px;color:#5e5e5e;text-decoration:none">{}</a>
+</div>"##, l
+    )).unwrap_or_default();
+
+    format!(
+        r#"<section style="max-width:1280px;margin:0 auto;padding:48px 24px">
+  <div style="background:white;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px">
+    <h3 style="font-size:16px;font-weight:700;color:#1a1c1c;margin-bottom:16px">{title}{badge_html}</h3>
+    {rows}
+    {footer_html}
+  </div>
+</section>"#,
+        title = title, badge_html = badge_html,
+        rows = rows.join("\n    "),
+        footer_html = footer_html,
+    )
+}
+
+fn render_policies(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("Policies");
+
+    let rows: Vec<String> = section.items.iter().map(|item| {
+        let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Policy");
+        let value = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
+
+        let value_html = match value.to_lowercase().as_str() {
+            "on" => r#"<div style="width:36px;height:20px;border-radius:10px;background:#047857;position:relative"><div style="width:16px;height:16px;border-radius:50%;background:white;position:absolute;top:2px;right:2px"></div></div>"#.to_string(),
+            "off" => r#"<div style="width:36px;height:20px;border-radius:10px;background:#d1d5db;position:relative"><div style="width:16px;height:16px;border-radius:50%;background:white;position:absolute;top:2px;left:2px"></div></div>"#.to_string(),
+            _ => format!(r#"<span style="font-size:14px;font-weight:600;color:#1a1c1c">{}</span>"#, value),
+        };
+
+        format!(
+            r#"<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #f3f3f3">
+  <span style="font-size:14px;color:#1a1c1c">{name}</span>
+  {value_html}
+</div>"#,
+            name = name, value_html = value_html,
+        )
+    }).collect();
+
+    format!(
+        r#"<section style="max-width:1280px;margin:0 auto;padding:48px 24px">
+  <div style="background:white;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px">
+    <h3 style="font-size:16px;font-weight:700;color:#1a1c1c;margin-bottom:16px">{title}</h3>
+    {rows}
+  </div>
+</section>"#,
+        title = title, rows = rows.join("\n    "),
+    )
+}
+
+fn render_activity_table(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("Activity Log");
+    let action_btn = section.config.get("action_text").map(|s| s.as_str());
+
+    let action_html = action_btn.map(|t| format!(
+        r#"<button style="padding:6px 16px;border-radius:8px;border:1px solid rgba(198,198,198,0.2);background:white;font-size:13px;font-weight:500;color:#1a1c1c;cursor:pointer">{}</button>"#, t
+    )).unwrap_or_default();
+
+    let default_headers = vec!["Event", "User", "Location", "IP Address", "Time", "Status"];
+    let headers: Vec<&str> = section.config.get("columns").map(|c| {
+        c.split(',').map(|s| s.trim()).collect::<Vec<&str>>()
+    }).unwrap_or(default_headers);
+
+    let header_cells: Vec<String> = headers.iter().map(|h| format!(
+        r#"<th style="padding:12px 24px;text-align:left;font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.05em;color:#5e5e5e;border-bottom:1px solid #f3f3f3">{}</th>"#, h
+    )).collect();
+
+    let rows: Vec<String> = section.items.iter().map(|item| {
+        let event = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Event");
+        let user = item.get("user").map(|s| s.as_str()).unwrap_or("-");
+        let location = item.get("location").map(|s| s.as_str()).unwrap_or("-");
+        let ip = item.get("ip").map(|s| s.as_str()).unwrap_or("-");
+        let time = item.get("time").map(|s| s.as_str()).unwrap_or("-");
+        let status = item.get("status").map(|s| s.as_str()).unwrap_or("");
+
+        let (status_bg, status_color) = match status.to_lowercase().as_str() {
+            "success" | "ok" => ("#ecfdf5", "#047857"),
+            "blocked" | "failed" | "error" => ("#fef2f2", "#b91c1c"),
+            _ => ("#f3f3f3", "#5e5e5e"),
+        };
+
+        let status_html = if status.is_empty() {
+            String::new()
+        } else {
+            format!(
+                r#"<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:500;background:{};color:{}">{}</span>"#,
+                status_bg, status_color, status
+            )
+        };
+
+        format!(
+            r#"<tr style="border-bottom:1px solid #f3f3f3">
+  <td style="padding:16px 24px;font-size:14px;color:#1a1c1c;font-weight:500">{event}</td>
+  <td style="padding:16px 24px;font-size:14px;color:#5e5e5e">{user}</td>
+  <td style="padding:16px 24px;font-size:14px;color:#5e5e5e">{location}</td>
+  <td style="padding:16px 24px;font-size:14px;color:#5e5e5e;font-family:monospace">{ip}</td>
+  <td style="padding:16px 24px;font-size:14px;color:#5e5e5e">{time}</td>
+  <td style="padding:16px 24px">{status_html}</td>
+</tr>"#,
+            event = event, user = user, location = location,
+            ip = ip, time = time, status_html = status_html,
+        )
+    }).collect();
+
+    format!(
+        r#"<section style="max-width:1280px;margin:0 auto;padding:48px 24px">
+  <div style="background:white;border:1px solid rgba(198,198,198,0.2);border-radius:12px;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:24px">
+      <h3 style="font-size:16px;font-weight:700;color:#1a1c1c">{title}</h3>
+      {action_html}
+    </div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr>{header_cells}</tr>
+      </thead>
+      <tbody>
+        {rows}
+      </tbody>
+    </table>
+  </div>
+</section>"#,
+        title = title, action_html = action_html,
+        header_cells = header_cells.join(""),
+        rows = rows.join("\n        "),
+    )
+}
+
+fn render_status_card(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("Status");
+    let description = section.subtitle.as_deref().unwrap_or("");
+    let icon_type = section.config.get("icon").map(|s| s.as_str()).unwrap_or("shield");
+
+    let icon_svg = match icon_type {
+        "shield" | "security" => r##"<svg width="24" height="24" fill="none" stroke="#047857" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>"##,
+        "check" => r##"<svg width="24" height="24" fill="none" stroke="#047857" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>"##,
+        "globe" => r##"<svg width="24" height="24" fill="none" stroke="#047857" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>"##,
+        _ => r##"<svg width="24" height="24" fill="none" stroke="#047857" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>"##,
+    };
+
+    let meters: Vec<String> = section.items.iter().map(|item| {
+        let label = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Metric");
+        let value = item.get("description").or_else(|| item.get("desc")).or_else(|| item.get("value")).map(|s| s.as_str()).unwrap_or("0");
+        let status = item.get("status").map(|s| s.as_str()).unwrap_or("default");
+        let bar_color = match status.to_lowercase().as_str() {
+            "success" | "ok" | "good" => "#047857",
+            "warning" => "#d97706",
+            "danger" | "error" => "#b91c1c",
+            _ => "#047857",
+        };
+        let pct: u32 = value.trim_end_matches('%').parse().unwrap_or(0);
+
+        format!(
+            r#"<div style="margin-top:16px">
+  <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:13px;color:#5e5e5e">{label}</span>
+    <span style="font-size:13px;font-weight:600;color:#1a1c1c">{value}%</span>
+  </div>
+  <div style="width:100%;height:6px;border-radius:3px;background:#f3f3f3">
+    <div style="width:{pct}%;height:100%;border-radius:3px;background:{bar_color}"></div>
+  </div>
+</div>"#,
+            label = label, value = pct, pct = pct, bar_color = bar_color,
+        )
+    }).collect();
+
+    format!(
+        r#"<section style="max-width:1280px;margin:0 auto;padding:48px 24px">
+  <div style="background:white;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px">
+    <div style="width:48px;height:48px;border-radius:12px;background:#ecfdf5;display:flex;align-items:center;justify-content:center;margin-bottom:16px">
+      {icon_svg}
+    </div>
+    <h3 style="font-size:16px;font-weight:700;color:#1a1c1c;margin-bottom:4px">{title}</h3>
+    <p style="font-size:14px;color:#5e5e5e;line-height:1.6">{description}</p>
+    {meters}
+  </div>
+</section>"#,
+        icon_svg = icon_svg, title = title, description = description,
+        meters = meters.join("\n    "),
+    )
+}
+
+fn render_edge(section: &SectionNode, accent: &str) -> String {
+    let title_html = section.title.as_deref().map(|t| format!(
+        r#"<h2 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#1a1c1c;margin-bottom:32px">{}</h2>"#, t
+    )).unwrap_or_default();
+
+    let feature_items: Vec<String> = section.items.iter().map(|item| {
+        let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Feature");
+        let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
+        let icon_letter = name.chars().next().unwrap_or('E');
+
+        format!(
+            r#"<div style="display:flex;gap:16px;align-items:flex-start">
+  <div style="width:36px;height:36px;border-radius:50%;background:{accent};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+    <span style="color:white;font-size:14px;font-weight:700">{icon_letter}</span>
+  </div>
+  <div>
+    <h4 style="font-size:16px;font-weight:600;color:#1a1c1c;margin-bottom:4px">{name}</h4>
+    <p style="font-size:14px;color:#5e5e5e;line-height:1.6">{desc}</p>
+  </div>
+</div>"#,
+            accent = accent, icon_letter = icon_letter, name = name, desc = desc,
+        )
+    }).collect();
+
+    format!(
+        r#"<section style="max-width:1280px;margin:0 auto;padding:48px 24px">
+  {title_html}
+  <div style="display:flex;gap:48px;align-items:flex-start">
+    <div style="flex:1;display:flex;flex-direction:column;gap:24px">
+      {features}
+    </div>
+    <div style="flex:1;min-height:300px;border-radius:12px;background:#f5f5f5;border:1px solid rgba(198,198,198,0.2);display:flex;align-items:center;justify-content:center">
+      <span style="font-size:14px;color:#5e5e5e">Edge Network Map</span>
+    </div>
+  </div>
+</section>"#,
+        title_html = title_html,
+        features = feature_items.join("\n      "),
+    )
+}
+
+// ══════════════════════════════════════════════════
+// DASHBOARD SECTION RENDERERS — Geist light design
+// ══════════════════════════════════════════════════
+
+fn render_sidebar(section: &SectionNode) -> String {
+    let brand = section.config.get("brand")
+        .map(|s| s.as_str())
+        .or(section.title.as_deref())
+        .unwrap_or("Dashboard");
+    let subtitle = section.config.get("subtitle")
+        .map(|s| s.as_str())
+        .or(section.subtitle.as_deref())
+        .unwrap_or("Enterprise");
+
+    // Active page from config (matches against item title)
+    let active = section.config.get("active").map(|s| s.as_str()).unwrap_or("");
+
+    // Build nav links from items
+    let mut nav_items = String::new();
+    let mut bottom_items = String::new();
+    for item in &section.items {
+        let title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("circle");
+        let href = item.get("href").map(|s| s.as_str()).unwrap_or("#");
+        let position = item.get("position").map(|s| s.as_str()).unwrap_or("top");
+        let is_active = !active.is_empty() && title.eq_ignore_ascii_case(active);
+
+        let link_html = if is_active {
+            format!(
+                r#"<a class="flex items-center gap-3 px-3 py-2 bg-zinc-100 text-black rounded-md" href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:rgba(0,0,0,0.04);color:#000;border-radius:8px;font-size:14px;font-weight:500;text-decoration:none">
+  <span class="material-symbols-outlined" style="font-size:20px">{icon}</span>
+  <span>{title}</span>
+</a>"#,
+                href = href, icon = icon, title = title
+            )
+        } else {
+            format!(
+                r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;color:#71717a;border-radius:8px;font-size:14px;font-weight:500;text-decoration:none;transition:all 0.15s" onmouseover="this.style.color='#000';this.style.background='rgba(0,0,0,0.04)'" onmouseout="this.style.color='#71717a';this.style.background='transparent'">
+  <span class="material-symbols-outlined" style="font-size:20px">{icon}</span>
+  <span>{title}</span>
+</a>"#,
+                href = href, icon = icon, title = title
+            )
+        };
+
+        if position == "bottom" {
+            bottom_items.push_str(&link_html);
+            bottom_items.push('\n');
+        } else {
+            nav_items.push_str(&link_html);
+            nav_items.push('\n');
+        }
+    }
+
+    format!(
+        r##"<aside style="position:fixed;left:0;top:0;height:100%;width:256px;background:rgba(250,250,250,0.5);border-right:1px solid rgba(228,228,231,1);display:flex;flex-direction:column;z-index:50;padding:16px;gap:4px;font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased">
+  <div style="margin-bottom:32px;padding:0 8px">
+    <h1 style="font-weight:700;letter-spacing:-0.03em;color:#000;font-size:20px;margin:0">{brand}</h1>
+    <p style="font-size:11px;color:#71717a;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;margin:2px 0 0">{subtitle}</p>
+  </div>
+  <nav style="flex:1;display:flex;flex-direction:column;gap:2px">
+    {nav_items}
+  </nav>
+  <div style="margin-top:auto;border-top:1px solid rgba(228,228,231,1);padding-top:16px;display:flex;flex-direction:column;gap:2px">
+    {bottom_items}
+  </div>
+</aside>"##,
+        brand = brand,
+        subtitle = subtitle,
+        nav_items = nav_items,
+        bottom_items = bottom_items,
+    )
+}
+
+fn render_card_section(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("");
+    let subtitle = section.subtitle.as_deref().unwrap_or("");
+    let icon = section.config.get("icon").map(|s| s.as_str()).unwrap_or("");
+
+    // Header
+    let mut header_html = String::new();
+    if !icon.is_empty() || !title.is_empty() || !subtitle.is_empty() {
+        header_html.push_str(r#"<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:24px">"#);
+        if !icon.is_empty() {
+            header_html.push_str(&format!(
+                r#"<span class="material-symbols-outlined" style="font-size:24px;color:#474747">{}</span>"#,
+                icon
+            ));
+        }
+        header_html.push_str("<div>");
+        if !title.is_empty() {
+            header_html.push_str(&format!(
+                r#"<h2 style="font-size:18px;font-weight:700;color:#1a1c1c;margin:0;letter-spacing:-0.02em">{}</h2>"#,
+                title
+            ));
+        }
+        if !subtitle.is_empty() {
+            header_html.push_str(&format!(
+                r#"<p style="font-size:14px;color:#71717a;margin:4px 0 0">{}</p>"#,
+                subtitle
+            ));
+        }
+        header_html.push_str("</div></div>");
+    }
+
+    // Items
+    let mut items_html = String::new();
+    for item in &section.items {
+        let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("item");
+        let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let desc = item.get("description").map(|s| s.as_str()).unwrap_or("");
+        let value = item.get("value").map(|s| s.as_str()).unwrap_or("");
+        let status = item.get("status").map(|s| s.as_str()).unwrap_or("");
+        let href = item.get("href").map(|s| s.as_str()).unwrap_or("#");
+
+        match item_type {
+            "label" => {
+                items_html.push_str(&format!(
+                    r#"<div style="margin-bottom:12px">
+  <span style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#71717a;font-family:'JetBrains Mono',monospace">{}</span>
+</div>"#,
+                    item_title
+                ));
+            }
+            "code" => {
+                items_html.push_str(&format!(
+                    r#"<div style="margin-bottom:12px">
+  <label style="font-size:12px;font-weight:500;color:#474747;display:block;margin-bottom:4px">{title}</label>
+  <div style="background:#f3f3f3;border:1px solid rgba(198,198,198,0.2);border-radius:8px;padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:13px;color:#1a1c1c;user-select:all">{value}</div>
+</div>"#,
+                    title = item_title,
+                    value = if !value.is_empty() { value } else { desc },
+                ));
+            }
+            "action" => {
+                items_html.push_str(&format!(
+                    r#"<div style="margin-top:8px">
+  <a href="{href}" style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;font-size:14px;font-weight:600;color:#fff;background:#1a1c1c;border-radius:8px;text-decoration:none;transition:opacity 0.15s" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">{title}</a>
+</div>"#,
+                    href = href, title = item_title,
+                ));
+            }
+            "row" => {
+                let status_badge = if !status.is_empty() {
+                    let (bg, fg) = match status {
+                        "active" | "enabled" | "200" => ("rgba(22,163,74,0.1)", "#16a34a"),
+                        "error" | "failed" | "500" => ("rgba(220,38,38,0.1)", "#dc2626"),
+                        "pending" | "disabled" => ("rgba(234,179,8,0.1)", "#ca8a04"),
+                        _ => ("rgba(0,0,0,0.05)", "#71717a"),
+                    };
+                    format!(
+                        r#"<span style="padding:2px 10px;font-size:12px;font-weight:500;border-radius:999px;background:{};color:{}">{}</span>"#,
+                        bg, fg, status
+                    )
+                } else {
+                    String::new()
+                };
+                items_html.push_str(&format!(
+                    r#"<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(198,198,198,0.12)">
+  <div>
+    <span style="font-size:14px;font-weight:500;color:#1a1c1c">{title}</span>
+    {desc_html}
+  </div>
+  {status_badge}
+</div>"#,
+                    title = item_title,
+                    desc_html = if !desc.is_empty() {
+                        format!(r#"<span style="font-size:13px;color:#71717a;margin-left:12px">{}</span>"#, desc)
+                    } else {
+                        String::new()
+                    },
+                    status_badge = status_badge,
+                ));
+            }
+            _ => {
+                // Default item rendering
+                if !item_title.is_empty() {
+                    items_html.push_str(&format!(
+                        r#"<div style="padding:8px 0"><span style="font-size:14px;color:#1a1c1c">{}</span></div>"#,
+                        item_title
+                    ));
+                }
+            }
+        }
+    }
+
+    format!(
+        r#"<div style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:16px;padding:32px">
+  {header}
+  {items}
+</div>"#,
+        header = header_html,
+        items = items_html,
+    )
+}
+
+fn render_links_section(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("");
+
+    let mut links_html = String::new();
+    for item in &section.items {
+        let link_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let href = item.get("href").map(|s| s.as_str()).unwrap_or("#");
+        let desc = item.get("description").map(|s| s.as_str()).unwrap_or("");
+
+        links_html.push_str(&format!(
+            r#"<a href="{href}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(198,198,198,0.12);text-decoration:none;transition:opacity 0.15s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
+  <div>
+    <span style="font-size:14px;font-weight:500;color:#1a1c1c">{title}</span>
+    {desc_html}
+  </div>
+  <span class="material-symbols-outlined" style="font-size:18px;color:#71717a">open_in_new</span>
+</a>"#,
+            href = href,
+            title = link_title,
+            desc_html = if !desc.is_empty() {
+                format!(r#"<p style="font-size:13px;color:#71717a;margin:2px 0 0">{}</p>"#, desc)
+            } else {
+                String::new()
+            },
+        ));
+    }
+
+    format!(
+        r#"<div style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:16px;padding:32px">
+  {title_html}
+  <div>{links}</div>
+</div>"#,
+        title_html = if !title.is_empty() {
+            format!(r#"<h2 style="font-size:18px;font-weight:700;color:#1a1c1c;margin:0 0 20px;letter-spacing:-0.02em">{}</h2>"#, title)
+        } else {
+            String::new()
+        },
+        links = links_html,
+    )
+}
+
+fn render_generic_section(section: &SectionNode, _accent: &str) -> String {
+    let mut html = String::new();
+
+    // --- Section container ---
+    html.push_str(r#"<section style="padding:32px 24px;max-width:1280px;margin:0 auto">"#);
+
+    // --- Badge (from config) ---
+    if let Some(badge) = section.config.get("badge") {
+        html.push_str(&format!(
+            r#"<span style="display:inline-block;padding:4px 14px;font-size:12px;font-weight:600;border-radius:999px;background:#f3f3f3;color:#1a1c1c;margin-bottom:12px">{}</span>"#,
+            badge
+        ));
+    }
+
+    // --- Title ---
+    if let Some(ref title) = section.title {
+        html.push_str(&format!(
+            r#"<h2 style="font-size:24px;font-weight:700;color:#1a1c1c;margin:0 0 4px">{}</h2>"#,
+            title
+        ));
+    }
+
+    // --- Subtitle ---
+    if let Some(ref subtitle) = section.subtitle {
+        html.push_str(&format!(
+            r#"<p style="font-size:14px;color:#6e6e6e;margin:0 0 24px">{}</p>"#,
+            subtitle
+        ));
+    }
+
+    // --- Items container ---
+    html.push_str(r#"<div style="display:flex;flex-direction:column;gap:16px">"#);
+
+    for item in &section.items {
+        let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("item");
+        let title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let description = item.get("description").map(|s| s.as_str()).unwrap_or("");
+        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
+        let style_val = item.get("style").map(|s| s.as_str()).unwrap_or("");
+
+        match item_type {
+            // --- Card (default for "item" or empty) ---
+            "item" | "" => {
+                html.push_str(r#"<div style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px">"#);
+                if !icon.is_empty() {
+                    html.push_str(&format!(
+                        r#"<span style="font-size:20px;margin-bottom:8px;display:block">{}</span>"#,
+                        icon
+                    ));
+                }
+                if !title.is_empty() {
+                    html.push_str(&format!(
+                        r#"<h3 style="font-size:16px;font-weight:600;color:#1a1c1c;margin:0 0 6px">{}</h3>"#,
+                        title
+                    ));
+                }
+                if !description.is_empty() {
+                    html.push_str(&format!(
+                        r#"<p style="font-size:14px;color:#6e6e6e;margin:0;line-height:1.5">{}</p>"#,
+                        description
+                    ));
+                }
+                html.push_str("</div>");
+            }
+
+            // --- Code / monospace label ---
+            "code" | "label" if style_val == "mono" => {
+                let text = if !title.is_empty() { title } else { description };
+                html.push_str(&format!(
+                    r#"<div style="background:#f3f3f3;font-family:'JetBrains Mono',monospace;font-size:13px;border-radius:8px;padding:12px 16px;color:#1a1c1c;white-space:pre-wrap">{}</div>"#,
+                    text
+                ));
+            }
+            "code" => {
+                let text = if !title.is_empty() { title } else { description };
+                html.push_str(&format!(
+                    r#"<div style="background:#f3f3f3;font-family:'JetBrains Mono',monospace;font-size:13px;border-radius:8px;padding:12px 16px;color:#1a1c1c;white-space:pre-wrap">{}</div>"#,
+                    text
+                ));
+            }
+            "label" => {
+                let text = if !title.is_empty() { title } else { description };
+                html.push_str(&format!(
+                    r#"<span style="font-size:13px;color:#6e6e6e">{}</span>"#,
+                    text
+                ));
+            }
+
+            // --- Chip (pill badge) ---
+            "chip" => {
+                html.push_str(&format!(
+                    r#"<span style="display:inline-block;padding:4px 14px;font-size:12px;font-weight:500;border-radius:999px;background:#f3f3f3;color:#1a1c1c">{}</span>"#,
+                    title
+                ));
+            }
+
+            // --- Image ---
+            "image" => {
+                let src = item.get("src").map(|s| s.as_str()).unwrap_or("");
+                let alt = if !title.is_empty() { title } else { "image" };
+                if !src.is_empty() {
+                    html.push_str(&format!(
+                        r#"<img src="{}" alt="{}" style="max-width:100%;border-radius:12px;border:1px solid rgba(198,198,198,0.2)" />"#,
+                        src, alt
+                    ));
+                }
+            }
+
+            // --- Action (button) ---
+            "action" => {
+                let href = item.get("href").map(|s| s.as_str()).unwrap_or("#");
+                html.push_str(&format!(
+                    r#"<a href="{}" style="display:inline-block;padding:10px 24px;font-size:14px;font-weight:600;color:#fff;background:#1a1c1c;border-radius:999px;text-decoration:none;text-align:center">{}</a>"#,
+                    href, title
+                ));
+            }
+
+            // --- Row (table-like) ---
+            "row" => {
+                html.push_str(r#"<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:8px">"#);
+                html.push_str(&format!(
+                    r#"<span style="font-size:14px;color:#1a1c1c;font-weight:500">{}</span>"#,
+                    title
+                ));
+                if !description.is_empty() {
+                    html.push_str(&format!(
+                        r#"<span style="font-size:13px;color:#6e6e6e">{}</span>"#,
+                        description
+                    ));
+                }
+                html.push_str("</div>");
+            }
+
+            // --- Policy (key-value) ---
+            "policy" => {
+                let key = item.get("key").map(|s| s.as_str()).unwrap_or(title);
+                let value = item.get("value").map(|s| s.as_str()).unwrap_or(description);
+                html.push_str(r#"<div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px solid rgba(198,198,198,0.12)">"#);
+                html.push_str(&format!(
+                    r#"<span style="font-size:14px;color:#1a1c1c">{}</span>"#,
+                    key
+                ));
+                html.push_str(&format!(
+                    r#"<span style="font-size:14px;color:#6e6e6e">{}</span>"#,
+                    value
+                ));
+                html.push_str("</div>");
+            }
+
+            // --- Link ---
+            "link" => {
+                let href = item.get("href").map(|s| s.as_str()).unwrap_or("#");
+                html.push_str(&format!(
+                    r#"<a href="{}" style="font-size:14px;color:#1a1c1c;text-decoration:underline;text-underline-offset:3px">{}</a>"#,
+                    href, if !title.is_empty() { title } else { href }
+                ));
+            }
+
+            // --- Default: simple text ---
+            _ => {
+                let text = if !title.is_empty() { title } else { description };
+                if !text.is_empty() {
+                    html.push_str(&format!(
+                        r#"<p style="font-size:14px;color:#1a1c1c;margin:0">{}</p>"#,
+                        text
+                    ));
+                }
+            }
+        }
+    }
+
+    html.push_str("</div>");
+    html.push_str("</section>");
+    html
 }
 
 // ══════════════════════════════════════════════════
@@ -2091,4 +3878,624 @@ fn render_menu_component(comp: &ComponentNode, _style: &str) -> String {
         (a.text.as_str(), href)
     }).collect();
     components::dropdown(trigger, &menu_items)
+}
+
+// ══════════════════════════════════════════════════
+// DEDICATED DASHBOARD PAGE RENDERER — API Webhooks
+// Produces a complete HTML page matching the Geist/Inter
+// design system from the original stitch output.
+// ══════════════════════════════════════════════════
+
+pub fn render_dashboard_page(
+    app_name: &str,
+    sections: &[SectionNode],
+    components: &[ComponentNode],
+    theme: &str,
+) -> String {
+    let _ = theme;
+
+    // ── Extract component data ──────────────────────
+
+    // Sidebar component (layout:sidebar)
+    let sidebar_comp = components.iter().find(|c| c.layout.as_deref() == Some("sidebar"));
+    let topbar_comp = components.iter().find(|c| {
+        c.layout.as_deref() == Some("inline") && c.style.as_deref().map(|s| s.contains("topbar")).unwrap_or(false)
+    });
+
+    // ── Extract section data by type ────────────────
+
+    let page_header = sections.iter().find(|s| s.section_type == "page-header");
+    let live_keys = sections.iter().find(|s| s.section_type == "live-keys");
+    let test_keys = sections.iter().find(|s| s.section_type == "test-keys");
+    let webhooks = sections.iter().find(|s| s.section_type == "webhooks");
+    let promo = sections.iter().find(|s| s.section_type == "promo");
+    let quick_links = sections.iter().find(|s| s.section_type == "quick-links" || s.section_type == "links");
+    let status_card = sections.iter().find(|s| s.section_type == "status-card");
+    // Also check for a sidebar section if no component
+    let sidebar_section = sections.iter().find(|s| s.section_type == "sidebar");
+
+    // ── Build sidebar HTML ──────────────────────────
+
+    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section);
+
+    // ── Build topbar HTML ───────────────────────────
+
+    let topbar_html = build_dashboard_topbar(topbar_comp);
+
+    // ── Build page header ───────────────────────────
+
+    let header_html = build_dashboard_page_header(page_header);
+
+    // ── Build left column cards ─────────────────────
+
+    let live_keys_html = build_api_keys_card(live_keys, "live");
+    let test_keys_html = build_api_keys_card(test_keys, "test");
+    let webhooks_html = build_webhooks_card(webhooks);
+
+    // ── Build right column panels ───────────────────
+
+    let promo_html = build_promo_panel(promo);
+    let quick_links_html = build_quick_links_panel(quick_links);
+    let status_html = build_status_panel(status_card);
+
+    // ── Assemble complete page ──────────────────────
+
+    format!(
+        r##"<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{app_name}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <style>
+    body {{ font-family:'Inter',sans-serif; background:#f9f9f9; color:#1a1c1c; margin:0; }}
+    * {{ box-sizing:border-box; }}
+    .material-symbols-outlined {{ font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; font-size:20px; display:inline-block; line-height:1; vertical-align:middle; }}
+    ::selection {{ background:rgba(0,111,240,0.15); }}
+    ::-webkit-scrollbar {{ width:4px; }}
+    ::-webkit-scrollbar-thumb {{ background:rgba(0,0,0,0.1); border-radius:2px; }}
+  </style>
+</head>
+<body>
+
+{sidebar}
+
+{topbar}
+
+<main style="margin-left:256px;min-height:100vh;background:radial-gradient(circle at top right,rgba(0,111,240,0.08),transparent 40%),radial-gradient(circle at bottom left,rgba(0,56,129,0.05),transparent 40%);background-image:linear-gradient(to right,rgba(198,198,198,0.1) 1px,transparent 1px),linear-gradient(to bottom,rgba(198,198,198,0.1) 1px,transparent 1px);background-size:40px 40px">
+  <div style="max-width:1280px;margin:0 auto;padding:48px 24px">
+
+    {header}
+
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:32px">
+
+      <!-- Left column: API cards -->
+      <div style="display:flex;flex-direction:column;gap:32px">
+        {live_keys}
+        {test_keys}
+        {webhooks}
+      </div>
+
+      <!-- Right column: panels -->
+      <div style="display:flex;flex-direction:column;gap:24px">
+        {promo}
+        {quick_links}
+        {status}
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script>{runtime}</script>
+<script>{hmr}</script>
+</body>
+</html>"##,
+        app_name = app_name,
+        sidebar = sidebar_html,
+        topbar = topbar_html,
+        header = header_html,
+        live_keys = live_keys_html,
+        test_keys = test_keys_html,
+        webhooks = webhooks_html,
+        promo = promo_html,
+        quick_links = quick_links_html,
+        status = status_html,
+        runtime = super::render::CRONUS_RUNTIME_JS,
+        hmr = super::hmr::HMR_CLIENT_JS,
+    )
+}
+
+// ── Sidebar builder ─────────────────────────────
+
+fn build_dashboard_sidebar(comp: Option<&ComponentNode>, section: Option<&SectionNode>) -> String {
+    let mut brand = "Dashboard";
+    let mut subtitle = "Enterprise";
+    let mut nav_items_html = String::new();
+    let mut bottom_items_html = String::new();
+
+    if let Some(c) = comp {
+        // Extract brand from props or items
+        if let Some(b) = c.props.get("brand") {
+            brand = b.as_str();
+        } else if let Some(b) = item_by_kind(&c.items, "brand") {
+            brand = b;
+        }
+        if let Some(s) = c.props.get("subtitle") {
+            subtitle = s.as_str();
+        } else if let Some(s) = item_by_kind(&c.items, "subtitle") {
+            subtitle = s;
+        }
+        // Nav items
+        let items = items_by_kind(&c.items, "item");
+        let bottom_types = ["contact_support", "menu_book", "support", "docs"];
+        for item in &items {
+            let title = item.text.as_str();
+            let icon = item.config.get("icon").map(|s| s.as_str()).unwrap_or("circle");
+            let href = item.link.as_deref().unwrap_or("#");
+            let is_active = item.config.get("active").map(|s| s == "true").unwrap_or(false);
+            let is_bottom = bottom_types.contains(&icon) || title.eq_ignore_ascii_case("support") || title.eq_ignore_ascii_case("docs");
+
+            let link_html = if is_active {
+                format!(
+                    r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:rgba(0,0,0,0.04);color:#000;border-radius:8px;font-size:14px;font-weight:500;text-decoration:none;transform:scale(0.97)">
+  <span class="material-symbols-outlined" style="font-size:20px">{icon}</span>
+  <span>{title}</span>
+</a>"#,
+                    href = href, icon = icon, title = title
+                )
+            } else {
+                format!(
+                    r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;color:#71717a;border-radius:8px;font-size:14px;font-weight:500;text-decoration:none;transition:all 0.15s" onmouseover="this.style.color='#000';this.style.background='rgba(0,0,0,0.04)'" onmouseout="this.style.color='#71717a';this.style.background='transparent'">
+  <span class="material-symbols-outlined" style="font-size:20px">{icon}</span>
+  <span>{title}</span>
+</a>"#,
+                    href = href, icon = icon, title = title
+                )
+            };
+
+            if is_bottom {
+                bottom_items_html.push_str(&link_html);
+                bottom_items_html.push('\n');
+            } else {
+                nav_items_html.push_str(&link_html);
+                nav_items_html.push('\n');
+            }
+        }
+    } else if let Some(sec) = section {
+        brand = sec.config.get("brand").map(|s| s.as_str())
+            .or(sec.title.as_deref())
+            .unwrap_or("Dashboard");
+        subtitle = sec.config.get("subtitle").map(|s| s.as_str())
+            .or(sec.subtitle.as_deref())
+            .unwrap_or("Enterprise");
+        let active = sec.config.get("active").map(|s| s.as_str()).unwrap_or("");
+        for item in &sec.items {
+            let title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("circle");
+            let href = item.get("href").map(|s| s.as_str()).unwrap_or("#");
+            let position = item.get("position").map(|s| s.as_str()).unwrap_or("top");
+            let is_active = (!active.is_empty() && title.eq_ignore_ascii_case(active))
+                || item.get("active").map(|s| s == "true").unwrap_or(false);
+
+            let link_html = if is_active {
+                format!(
+                    r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:rgba(0,0,0,0.04);color:#000;border-radius:8px;font-size:14px;font-weight:500;text-decoration:none;transform:scale(0.97)">
+  <span class="material-symbols-outlined" style="font-size:20px">{icon}</span>
+  <span>{title}</span>
+</a>"#,
+                    href = href, icon = icon, title = title
+                )
+            } else {
+                format!(
+                    r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;color:#71717a;border-radius:8px;font-size:14px;font-weight:500;text-decoration:none;transition:all 0.15s" onmouseover="this.style.color='#000';this.style.background='rgba(0,0,0,0.04)'" onmouseout="this.style.color='#71717a';this.style.background='transparent'">
+  <span class="material-symbols-outlined" style="font-size:20px">{icon}</span>
+  <span>{title}</span>
+</a>"#,
+                    href = href, icon = icon, title = title
+                )
+            };
+
+            if position == "bottom" {
+                bottom_items_html.push_str(&link_html);
+                bottom_items_html.push('\n');
+            } else {
+                nav_items_html.push_str(&link_html);
+                nav_items_html.push('\n');
+            }
+        }
+    }
+
+    format!(
+        r##"<aside style="position:fixed;left:0;top:0;height:100%;width:256px;background:rgba(250,250,250,0.5);border-right:1px solid #e5e7eb;display:flex;flex-direction:column;z-index:50;padding:16px;gap:4px;font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased">
+  <div style="margin-bottom:32px;padding:0 8px">
+    <h1 style="font-weight:700;letter-spacing:-0.04em;color:#000;font-size:20px;margin:0">{brand}</h1>
+    <p style="font-size:10px;color:#71717a;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;margin:2px 0 0">{subtitle}</p>
+  </div>
+  <nav style="flex:1;display:flex;flex-direction:column;gap:4px">
+    {nav_items}
+  </nav>
+  <div style="margin-top:auto;border-top:1px solid #e5e7eb;padding-top:16px;display:flex;flex-direction:column;gap:4px">
+    {bottom_items}
+  </div>
+</aside>"##,
+        brand = brand,
+        subtitle = subtitle,
+        nav_items = nav_items_html,
+        bottom_items = bottom_items_html,
+    )
+}
+
+// ── Topbar builder ──────────────────────────────
+
+fn build_dashboard_topbar(comp: Option<&ComponentNode>) -> String {
+    let search_placeholder = comp.and_then(|c| {
+        c.items.iter().find(|i| {
+            i.config.get("icon").map(|s| s == "search").unwrap_or(false)
+        }).map(|i| i.text.as_str())
+    }).unwrap_or("Search documentation...");
+
+    let avatar_url = "https://lh3.googleusercontent.com/aida-public/AB6AXuCha_zTm8Z2D0PGBUFUsNib6XRpaUMhALx9pNzXJbHKdBDzVXsE2DA5T2QSD0Q_xJI8-7pakgrlJlCMK91b_ObGOWwWKKb9hFxi6wd_oonPksAn9PEc_U7y490FpKJoO5t9kFqrH7gFMTEbo7Ebu0SQFpc_lk56jpR820wuxesdGje0UV7ZBPXzXGWmVc-KeCaSdxfbIts0aDYanveD2xurSMFUznMbOnZh5i39K_FUw621wU75hTAqLp2rBpUK-w_JTUugb45terFm";
+
+    format!(
+        r##"<header style="position:sticky;top:0;z-index:40;background:rgba(255,255,255,0.8);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid #e5e7eb;margin-left:256px">
+  <div style="display:flex;justify-content:space-between;align-items:center;height:64px;padding:0 24px;max-width:1280px;margin:0 auto">
+    <div style="position:relative;width:100%;max-width:448px">
+      <span class="material-symbols-outlined" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#a1a1aa;font-size:16px">search</span>
+      <input type="text" placeholder="{placeholder}" style="width:100%;padding:8px 16px 8px 40px;border:none;background:#f3f3f3;border-radius:8px;font-size:14px;outline:none;font-family:'Inter',sans-serif">
+    </div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <span class="material-symbols-outlined" style="color:#71717a;cursor:pointer">notifications</span>
+      <span class="material-symbols-outlined" style="color:#71717a;cursor:pointer">help</span>
+      <div style="width:32px;height:32px;border-radius:50%;background:#e5e7eb;overflow:hidden;border:1px solid #d4d4d8">
+        <img src="{avatar}" style="width:100%;height:100%;object-fit:cover" alt="User">
+      </div>
+    </div>
+  </div>
+</header>"##,
+        placeholder = search_placeholder,
+        avatar = avatar_url,
+    )
+}
+
+// ── Page header builder ─────────────────────────
+
+fn build_dashboard_page_header(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("Page Title");
+    let subtitle = sec.subtitle.as_deref().unwrap_or("");
+    let badge = sec.config.get("badge").map(|s| s.as_str()).unwrap_or("");
+
+    let badge_html = if !badge.is_empty() {
+        format!(
+            r#"<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;background:#e2e2e2;color:#5e5e5e">{badge}</span>
+        <span style="width:6px;height:6px;border-radius:50%;background:#006ff0"></span>
+      </div>"#,
+            badge = badge
+        )
+    } else {
+        String::new()
+    };
+
+    let subtitle_html = if !subtitle.is_empty() {
+        format!(
+            r#"<p style="color:#5e5e5e;max-width:640px;line-height:1.6;font-size:15px;margin:0">{}</p>"#,
+            subtitle
+        )
+    } else {
+        String::new()
+    };
+
+    format!(
+        r#"<div style="margin-bottom:48px">
+      {badge}
+      <h2 style="font-size:36px;font-weight:800;letter-spacing:-0.04em;color:#1a1c1c;margin:0 0 8px">{title}</h2>
+      {subtitle}
+    </div>"#,
+        badge = badge_html,
+        title = title,
+        subtitle = subtitle_html,
+    )
+}
+
+// ── API Keys card builder ───────────────────────
+
+fn build_api_keys_card(section: Option<&SectionNode>, mode: &str) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("");
+    let subtitle = sec.subtitle.as_deref().unwrap_or("");
+    let icon = sec.config.get("icon").map(|s| s.as_str()).unwrap_or("");
+
+    // Build key fields from items
+    let mut fields_html = String::new();
+    for item in &sec.items {
+        let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let description = item.get("description").map(|s| s.as_str()).unwrap_or("");
+        let style_val = item.get("style").map(|s| s.as_str()).unwrap_or("");
+
+        // Check if this has a "Reveal" or "Hide" action → masked secret key
+        let has_reveal = sec.items.iter().any(|i| {
+            i.get("title").map(|t| t == item_title).unwrap_or(false) &&
+            description.contains('\u{2022}') // bullet dots = masked
+        });
+        let is_masked = description.contains('\u{2022}');
+
+        // Find actions for this item
+        // In the .cronus, actions are separate items with action text
+        // But in our parsed structure, each item is a HashMap
+        // The items have "action" keys for inline actions
+        let action_text = item.get("action").map(|s| s.as_str()).unwrap_or("");
+        let action_icon = item.get("action_icon").map(|s| s.as_str()).unwrap_or("");
+
+        // Label
+        fields_html.push_str(&format!(
+            r#"<div>
+              <label style="display:block;font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#a1a1aa;margin-bottom:8px">{label}</label>
+              <div style="display:flex;align-items:center;gap:8px">"#,
+            label = item_title,
+        ));
+
+        if is_masked {
+            // Secret key with masked value + Reveal/Hide button
+            let reveal_text = if description.starts_with("sk_test") { "Hide" } else { "Reveal" };
+            fields_html.push_str(&format!(
+                r#"<div style="flex:1;background:#f3f3f3;border:1px solid rgba(198,198,198,0.1);border-radius:8px;padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:14px;display:flex;justify-content:space-between;align-items:center">
+                  <span style="letter-spacing:0.3em">{value}</span>
+                  <button style="color:#0059c5;font-size:12px;font-weight:600;text-transform:uppercase;background:none;border:none;cursor:pointer;letter-spacing:-0.02em">{reveal}</button>
+                </div>"#,
+                value = description,
+                reveal = reveal_text,
+            ));
+        } else {
+            // Public key — plain display
+            fields_html.push_str(&format!(
+                r#"<div style="flex:1;background:#f3f3f3;border:1px solid rgba(198,198,198,0.1);border-radius:8px;padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:14px;overflow:hidden;white-space:nowrap">{value}</div>"#,
+                value = description,
+            ));
+        }
+
+        // Copy button
+        fields_html.push_str(
+            r#"<button style="padding:12px;color:#5e5e5e;background:none;border:none;border-radius:8px;cursor:pointer"><span class="material-symbols-outlined">content_copy</span></button>"#
+        );
+
+        fields_html.push_str("</div></div>\n");
+    }
+
+    format!(
+        r##"<section style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:24px">
+            <div>
+              <h3 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0 0 4px">{title}</h3>
+              <p style="font-size:14px;color:#5e5e5e;margin:0">{subtitle}</p>
+            </div>
+            <span class="material-symbols-outlined" style="color:#d4d4d8">{icon}</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:24px">
+            {fields}
+          </div>
+        </section>"##,
+        title = title,
+        subtitle = subtitle,
+        icon = icon,
+        fields = fields_html,
+    )
+}
+
+// ── Webhooks card builder ───────────────────────
+
+fn build_webhooks_card(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("");
+    let subtitle = sec.subtitle.as_deref().unwrap_or("");
+
+    // Action button (e.g. "Add Endpoint")
+    let action_text = sec.config.get("action_text")
+        .or_else(|| sec.config.get("action"))
+        .map(|s| s.as_str())
+        .unwrap_or("");
+    let action_btn = if !action_text.is_empty() {
+        format!(
+            r#"<button style="background:#000;color:#fff;padding:10px 24px;border-radius:999px;font-size:14px;font-weight:700;border:none;cursor:pointer;white-space:nowrap">{}</button>"#,
+            action_text
+        )
+    } else {
+        String::new()
+    };
+
+    // Webhook entries from items
+    let mut entries_html = String::new();
+    for item in &sec.items {
+        let url = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let status = item.get("status").map(|s| s.as_str()).unwrap_or("");
+        let events = item.get("description").map(|s| s.as_str()).unwrap_or("");
+
+        let (badge_bg, badge_color, badge_text) = match status.to_lowercase().as_str() {
+            "active" => ("#dcfce7", "#15803d", "Active"),
+            "testing" => ("#f4f4f5", "#71717a", "Testing"),
+            "error" | "failed" => ("#fef2f2", "#dc2626", "Error"),
+            _ => ("#f4f4f5", "#71717a", status),
+        };
+        let badge_text_display = if status.is_empty() { "" } else { badge_text };
+
+        entries_html.push_str(&format!(
+            r##"<div style="padding:32px;border-bottom:1px solid #f3f3f3;transition:background 0.15s" onmouseover="this.style.background='rgba(243,243,243,0.5)'" onmouseout="this.style.background='transparent'">
+              <div style="display:flex;align-items:center;gap:16px">
+                <div style="flex:1">
+                  <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">
+                    <span style="font-size:14px;font-family:'JetBrains Mono',monospace;font-weight:700">{url}</span>
+                    <span style="padding:2px 8px;background:{badge_bg};color:{badge_color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;border-radius:4px">{badge_text}</span>
+                  </div>
+                  <p style="font-size:12px;color:#5e5e5e;margin:0">{events}</p>
+                </div>
+                <div style="display:flex;align-items:center;gap:4px;opacity:0;transition:opacity 0.15s" class="webhook-actions">
+                  <button style="padding:8px;color:#a1a1aa;background:none;border:none;cursor:pointer;border-radius:4px" onmouseover="this.style.color='#000'" onmouseout="this.style.color='#a1a1aa'"><span class="material-symbols-outlined">edit</span></button>
+                  <button style="padding:8px;color:#a1a1aa;background:none;border:none;cursor:pointer;border-radius:4px" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#a1a1aa'"><span class="material-symbols-outlined">delete</span></button>
+                </div>
+              </div>
+            </div>"##,
+            url = url,
+            badge_bg = badge_bg,
+            badge_color = badge_color,
+            badge_text = badge_text_display,
+            events = events,
+        ));
+    }
+
+    format!(
+        r##"<section style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+          <div style="padding:32px;border-bottom:1px solid #f3f3f3;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <h3 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0 0 4px">{title}</h3>
+              <p style="font-size:14px;color:#5e5e5e;margin:0">{subtitle}</p>
+            </div>
+            {action_btn}
+          </div>
+          <div>
+            {entries}
+          </div>
+        </section>
+        <style>
+          section:hover .webhook-actions {{ opacity:1 !important; }}
+          div:hover > div > .webhook-actions {{ opacity:1 !important; }}
+        </style>"##,
+        title = title,
+        subtitle = subtitle,
+        action_btn = action_btn,
+        entries = entries_html,
+    )
+}
+
+// ── Promo panel builder ─────────────────────────
+
+fn build_promo_panel(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("");
+    let subtitle = sec.subtitle.as_deref().unwrap_or("");
+    let cta_text = sec.config.get("cta_text")
+        .or_else(|| sec.config.get("cta"))
+        .map(|s| s.as_str())
+        .unwrap_or("");
+
+    let cta_html = if !cta_text.is_empty() {
+        format!(
+            r##"<a href="#" style="color:#fff;font-size:14px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:8px">{cta} <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span></a>"##,
+            cta = cta_text
+        )
+    } else {
+        String::new()
+    };
+
+    format!(
+        r##"<section style="background:#000;color:#fff;border-radius:12px;padding:32px;position:relative;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.15)">
+          <div style="position:relative;z-index:1">
+            <h4 style="font-size:24px;font-weight:800;letter-spacing:-0.04em;margin:0 0 16px">{title}</h4>
+            <p style="color:#a1a1aa;font-size:14px;line-height:1.6;margin:0 0 24px">{subtitle}</p>
+            {cta}
+          </div>
+          <div style="position:absolute;right:-48px;bottom:-48px;width:192px;height:192px;background:rgba(0,111,240,0.2);border-radius:50%;filter:blur(48px)"></div>
+        </section>"##,
+        title = title,
+        subtitle = subtitle,
+        cta = cta_html,
+    )
+}
+
+// ── Quick Links panel builder ───────────────────
+
+fn build_quick_links_panel(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("");
+
+    let mut links_html = String::new();
+    for item in &sec.items {
+        let link_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let href = item.get("href").map(|s| s.as_str()).unwrap_or("#");
+        links_html.push_str(&format!(
+            r#"<li><a href="{href}" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;transition:opacity 0.15s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
+              <span style="font-size:14px;font-weight:500;color:#1a1c1c">{title}</span>
+              <span class="material-symbols-outlined" style="font-size:16px;color:#d4d4d8">open_in_new</span>
+            </a></li>"#,
+            href = href,
+            title = link_title,
+        ));
+    }
+
+    format!(
+        r##"<section style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+          <h4 style="font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#a1a1aa;margin:0 0 24px">{title}</h4>
+          <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:16px">
+            {links}
+          </ul>
+        </section>"##,
+        title = title.to_uppercase(),
+        links = links_html,
+    )
+}
+
+// ── Status panel builder ────────────────────────
+
+fn build_status_panel(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("");
+
+    let mut status_html = String::new();
+    for item in &sec.items {
+        let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let status = item.get("status").map(|s| s.as_str()).unwrap_or("default");
+        let description = item.get("description").map(|s| s.as_str()).unwrap_or("");
+
+        let dot_color = match status.to_lowercase().as_str() {
+            "success" | "ok" | "operational" => "#22c55e",
+            "warning" => "#eab308",
+            "error" | "danger" => "#ef4444",
+            _ => "#22c55e",
+        };
+
+        status_html.push_str(&format!(
+            r#"<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+              <span style="width:8px;height:8px;border-radius:50%;background:{dot_color}"></span>
+              <span style="font-size:14px;font-weight:500">{title}</span>
+            </div>"#,
+            dot_color = dot_color,
+            title = item_title,
+        ));
+
+        if !description.is_empty() {
+            status_html.push_str(&format!(
+                r#"<p style="font-size:12px;color:#71717a;line-height:1.4;margin:0">{}</p>"#,
+                description
+            ));
+        }
+    }
+
+    format!(
+        r##"<section style="background:rgba(232,232,232,0.5);border:1px solid rgba(198,198,198,0.1);border-radius:12px;padding:32px">
+          <h4 style="font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#71717a;margin:0 0 16px">{title}</h4>
+          {status}
+        </section>"##,
+        title = title.to_uppercase(),
+        status = status_html,
+    )
 }
