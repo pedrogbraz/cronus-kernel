@@ -318,6 +318,8 @@ fn emit_section(bp: &SectionBlueprint, ind: usize) -> String {
     "team-list" => emit_team_list_body(bp, inner, &mut out),
     "card" => emit_card_body(bp, inner, &mut out),
     "info-panel" | "status-card" | "promo" | "links" => emit_info_panel_body(bp, inner, &mut out),
+    "form" => emit_form_body(bp, inner, &mut out),
+    "tabs" => emit_tabs_body(bp, inner, &mut out),
     _ => emit_detected_body(bp, inner, &mut out),
   }
 
@@ -818,6 +820,26 @@ fn emit_form_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
   let groups = group_items(&bp.items);
   for group in &groups {
     out.push_str(&emit_grouped_item(group, ind));
+  }
+}
+
+/// Emit tabs section: list of tab labels.
+fn emit_tabs_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+
+  if let Some(ref title) = bp.title {
+    if !title.is_empty() {
+      out.push_str(&format!("{}title {}\n", pre, quoted(title)));
+    }
+  }
+
+  for item in &bp.items {
+    let active = item.config.get("active").map(|v| v == "true").unwrap_or(false);
+    if active {
+      out.push_str(&format!("{}item {} active:true\n", pre, quoted(&item.title)));
+    } else {
+      out.push_str(&format!("{}item {}\n", pre, quoted(&item.title)));
+    }
   }
 }
 

@@ -351,9 +351,9 @@ fn tokenize(source: &str) -> Vec<Token> {
                     if chars[i] == '\\' { i += 1; }
                     i += 1;
                 }
-                i += 1; // closing quote
+                if i < chars.len() { i += 1; } // closing quote (guard against unclosed string)
                 let raw: String = chars[start..i].iter().collect();
-                let value = raw[1..raw.len()-1].to_string();
+                let value = if raw.len() >= 2 { raw[1..raw.len()-1].to_string() } else { String::new() };
                 tokens.push(Token { kind: TokenKind::StringLit, value, line: line_num });
                 continue;
             }

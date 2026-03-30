@@ -1,21 +1,27 @@
 #![allow(dead_code, unused_imports, unused_variables)]
 mod animations;
 mod auth;
+mod board;
 mod brain;
 mod cache;
+mod command_palette;
 mod components;
+mod data_table;
 mod database;
 mod deploy;
 mod dump;
 mod graphql;
 mod hmr;
 mod i18n;
+mod layout_system;
 mod marketing_components;
 mod orchestrator;
+mod overlays;
 mod parser;
 mod payments;
 mod rate_limit;
 mod reactive;
+mod realtime;
 mod render;
 mod server;
 mod sse;
@@ -82,7 +88,7 @@ fn print_help() {
     println!("    \x1b[32mnew\x1b[0m <template>  Create project (landing/saas/api/ecommerce/blog)");
     println!("    \x1b[32mbuild\x1b[0m            Parse and validate .cronus file");
     println!("    \x1b[32mparse\x1b[0m <file>     Parse and show AST stats");
-    println!("    \x1b[32mdeploy\x1b[0m           Generate Dockerfile + docker-compose");
+    println!("    \x1b[32mdeploy\x1b[0m           Generate deploy artifacts (--fly, --railway, --static)");
     println!("    \x1b[32mdoctor\x1b[0m           Check .cronus syntax + DB + ports");
     println!("    \x1b[32mstats\x1b[0m            Project stats (entities, pages, DB size)");
     println!("    \x1b[32mexport\x1b[0m           Export to cronus-project.ir.json");
@@ -1549,7 +1555,7 @@ fn cmd_parse(args: &[String]) {
     }
 }
 
-fn cmd_deploy(_args: &[String]) {
+fn cmd_deploy(args: &[String]) {
     let file = find_cronus_file().unwrap_or_else(|| {
         eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found"); std::process::exit(1);
     });
@@ -1562,15 +1568,52 @@ fn cmd_deploy(_args: &[String]) {
     for node in &nodes {
         if let AstNode::App(a) = node { app_name = a.name.clone(); port = a.port; }
     }
-    fs::write("Dockerfile", deploy::generate_dockerfile(&app_name, port)).unwrap();
-    println!("  \x1b[32m✓\x1b[0m Generated Dockerfile");
-    fs::write("docker-compose.yml", deploy::generate_compose(&app_name, port)).unwrap();
-    println!("  \x1b[32m✓\x1b[0m Generated docker-compose.yml");
-    fs::write(".dockerignore", deploy::generate_dockerignore()).unwrap();
-    println!("  \x1b[32m✓\x1b[0m Generated .dockerignore");
-    println!("\n  \x1b[1mReady for deployment!\x1b[0m\n");
-    println!("  \x1b[32mDocker:\x1b[0m    docker compose up --build");
-    println!("  \x1b[32mFly.io:\x1b[0m    fly launch");
+
+    let target = args.get(2).map(|s| s.as_str()).unwrap_or("");
+
+    match target {
+        "--fly" => {
+            // Docker artifacts
+            fs::write("Dockerfile", deploy::generate_dockerfile(&app_name, port)).unwrap();
+            fs::write(".dockerignore", deploy::generate_dockerignore()).unwrap();
+            // Fly.io config
+            fs::write("fly.toml", deploy::generate_fly_toml(&app_name, port)).unwrap();
+            println!("  \x1b[32m✓\x1b[0m Generated Dockerfile + fly.toml");
+            println!("\n  \x1b[1mDeploy to Fly.io:\x1b[0m");
+            println!("  \x1b[32m1.\x1b[0m fly auth login");
+            println!("  \x1b[32m2.\x1b[0m fly launch --copy-config --yes");
+            println!("  \x1b[32m3.\x1b[0m fly deploy");
+        }
+        "--railway" => {
+            fs::write("Dockerfile", deploy::generate_dockerfile(&app_name, port)).unwrap();
+            fs::write(".dockerignore", deploy::generate_dockerignore()).unwrap();
+            fs::write("railway.json", deploy::generate_railway_config(&app_name, port)).unwrap();
+            println!("  \x1b[32m✓\x1b[0m Generated Dockerfile + railway.json");
+            println!("\n  \x1b[1mDeploy to Railway:\x1b[0m");
+            println!("  \x1b[32m1.\x1b[0m railway login");
+            println!("  \x1b[32m2.\x1b[0m railway up");
+        }
+        "--static" => {
+            println!("  \x1b[36m⚡\x1b[0m Static export requires running server first.");
+            println!("  \x1b[90mStart with:\x1b[0m cronus run {}", port);
+            println!("  \x1b[90mThen use:\x1b[0m  wget -r -np http://localhost:{}/", port);
+            println!("  \x1b[90mOr:\x1b[0m       curl http://localhost:{}/showcase -o dist/showcase.html", port);
+        }
+        _ => {
+            // Default: Docker artifacts
+            fs::write("Dockerfile", deploy::generate_dockerfile(&app_name, port)).unwrap();
+            println!("  \x1b[32m✓\x1b[0m Generated Dockerfile");
+            fs::write("docker-compose.yml", deploy::generate_compose(&app_name, port)).unwrap();
+            println!("  \x1b[32m✓\x1b[0m Generated docker-compose.yml");
+            fs::write(".dockerignore", deploy::generate_dockerignore()).unwrap();
+            println!("  \x1b[32m✓\x1b[0m Generated .dockerignore");
+            println!("\n  \x1b[1mReady for deployment!\x1b[0m\n");
+            println!("  \x1b[32mDocker:\x1b[0m      docker compose up --build");
+            println!("  \x1b[32mFly.io:\x1b[0m      cronus deploy --fly");
+            println!("  \x1b[32mRailway:\x1b[0m     cronus deploy --railway");
+            println!("  \x1b[32mStatic:\x1b[0m      cronus deploy --static");
+        }
+    }
     println!();
 }
 

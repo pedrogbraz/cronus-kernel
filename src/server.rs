@@ -142,6 +142,30 @@ async fn handle_request(
         return Ok(json_response(StatusCode::OK, json!({})));
     }
 
+    // Health check
+    if path == "/api/health" && method == Method::GET {
+        let health = json!({
+            "status": "ok",
+            "version": "0.1.0",
+            "runtime": "cronus-kernel"
+        });
+        return Ok(json_response(StatusCode::OK, health));
+    }
+
+    // SSE endpoint
+    if path == "/api/sse" && method == Method::GET {
+        // Return a simple keepalive for now — full SSE handled by main.rs
+        let body = ": connected to CRONUS SSE\n\n";
+        return Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header("Content-Type", "text/event-stream")
+            .header("Cache-Control", "no-cache")
+            .header("Connection", "keep-alive")
+            .header("Access-Control-Allow-Origin", "*")
+            .body(Full::new(Bytes::from(body)))
+            .unwrap());
+    }
+
     // API routes
     if path.starts_with("/api/") {
         return Ok(handle_api(req, &method, &path, &state).await);

@@ -73,6 +73,8 @@ pub fn detect_sections(nodes: &[DomNode]) -> Vec<SectionBlueprint> {
             "team-list" => extract_team_list(node),
             "card" => extract_content_card(node),
             "info-panel" => extract_info_panel(node),
+            "form" => extract_form(node),
+            "tabs" => extract_tabs(node),
             _ => extract_generic(node),
         };
 
@@ -3077,6 +3079,197 @@ fn find_status_text(node: &DomNode) -> Option<String> {
 }
 
 // ---------------------------------------------------------------------------
+// Extraction: form
+// ---------------------------------------------------------------------------
+
+fn extract_form(node: &DomNode) -> SectionBlueprint {
+    let mut config: HashMap<String, String> = HashMap::new();
+
+    let title = find_heading_by_tag(node, "h2")
+        .or_else(|| find_heading_by_tag(node, "h3"))
+        .or_else(|| dom::find_heading(node));
+    let subtitle = dom::find_paragraph(node);
+
+    // Extract form action if present
+    if node.tag == "form" {
+        if let Some(action) = node.attrs.get("action") {
+            if !action.is_empty() {
+                config.insert("action".into(), action.clone());
+            }
+        }
+        if let Some(method) = node.attrs.get("method") {
+            config.insert("method".into(), method.to_uppercase());
+        }
+    } else {
+        // Check for descendant <form>
+        let forms = dom::find_by_tag(node, "form");
+        if let Some(form) = forms.first() {
+            if let Some(action) = form.attrs.get("action") {
+                if !action.is_empty() {
+                    config.insert("action".into(), action.clone());
+                }
+            }
+        }
+    }
+
+    // Extract form fields
+    let items = extract_form_items(node);
+
+    // Extract submit/action buttons
+    let mut all_items = items;
+    let buttons = extract_clean_buttons(node);
+    for btn in &buttons {
+        if !btn.is_empty() {
+            let mut item_config: HashMap<String, String> = HashMap::new();
+            // Try to find icon on the button
+            let btn_nodes = dom::find_by_tag(node, "button");
+            for bn in &btn_nodes {
+                let btn_text = clean_button_text(bn);
+                if btn_text == *btn {
+                    if let Some(icon) = extract_material_icon(bn) {
+                        item_config.insert("icon".into(), icon);
+                    }
+                    break;
+                }
+            }
+            all_items.push(ItemBlueprint {
+                item_type: "action".into(),
+                title: btn.clone(),
+                description: None,
+                config: item_config,
+            });
+        }
+    }
+
+    SectionBlueprint {
+        section_type: "form".into(),
+        confidence: 0.0,
+        title,
+        subtitle,
+        config,
+        items: all_items,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Helper: find nodes with specific attribute
+// ---------------------------------------------------------------------------
+
+fn find_nodes_with_attr<'a>(node: &'a DomNode, attr: &str, value: &str) -> Vec<&'a DomNode> {
+    let mut results = Vec::new();
+    if node.attrs.get(attr).map(|v| v.as_str()) == Some(value) {
+        results.push(node);
+    }
+    for child in &node.children {
+        results.extend(find_nodes_with_attr(child, attr, value));
+    }
+    results
+}
+
+// ---------------------------------------------------------------------------
+// Extraction: tabs
+// ---------------------------------------------------------------------------
+
+fn extract_tabs(node: &DomNode) -> SectionBlueprint {
+    let mut items: Vec<ItemBlueprint> = Vec::new();
+
+    let title = find_heading_by_tag(node, "h2")
+        .or_else(|| dom::find_heading(node));
+
+    // Strategy 1: Find [role="tablist"] container
+    let tablists = find_nodes_with_attr(node, "role", "tablist");
+    for tablist in &tablists {
+        for child in &tablist.children {
+            if child.tag == "button" || child.tag == "a" {
+                let label = dom::clean_node_text(child);
+                if label.is_empty() {
+                    continue;
+                }
+                let mut item_config: HashMap<String, String> = HashMap::new();
+                let is_active = child.attrs.get("aria-selected")
+                    .map(|v| v == "true")
+                    .unwrap_or(false)
+                    || dom::has_class(child, "active")
+                    || dom::has_class(child, "bg-white")
+                    || dom::has_class(child, "border-b-2");
+                if is_active {
+                    item_config.insert("active".into(), "true".into());
+                }
+                items.push(ItemBlueprint {
+                    item_type: "item".into(),
+                    title: label,
+                    description: None,
+                    config: item_config,
+                });
+            }
+        }
+    }
+
+    // Strategy 2: Border-b container with button/link children
+    if items.is_empty() {
+        let border_nodes = dom::find_by_class(node, "border-b");
+        for bn in &border_nodes {
+            for child in &bn.children {
+                if child.tag == "button" || child.tag == "a" {
+                    let label = dom::clean_node_text(child);
+                    if label.is_empty() || label.len() > 30 {
+                        continue;
+                    }
+                    let mut item_config: HashMap<String, String> = HashMap::new();
+                    let is_active = dom::has_class(child, "active")
+                        || dom::has_class(child, "border-b-2")
+                        || dom::has_class(child, "text-black")
+                        || dom::has_class(child, "font-semibold");
+                    if is_active {
+                        item_config.insert("active".into(), "true".into());
+                    }
+                    items.push(ItemBlueprint {
+                        item_type: "item".into(),
+                        title: label,
+                        description: None,
+                        config: item_config,
+                    });
+                }
+            }
+            if items.len() >= 2 {
+                break;
+            }
+        }
+    }
+
+    // Strategy 3: Direct button/link children of this node
+    if items.is_empty() {
+        for child in &node.children {
+            if child.tag == "button" || child.tag == "a" {
+                let label = dom::clean_node_text(child);
+                if label.is_empty() || label.len() > 30 {
+                    continue;
+                }
+                let mut item_config: HashMap<String, String> = HashMap::new();
+                if child.attrs.get("aria-selected").map(|v| v == "true").unwrap_or(false) {
+                    item_config.insert("active".into(), "true".into());
+                }
+                items.push(ItemBlueprint {
+                    item_type: "item".into(),
+                    title: label,
+                    description: None,
+                    config: item_config,
+                });
+            }
+        }
+    }
+
+    SectionBlueprint {
+        section_type: "tabs".into(),
+        confidence: 0.0,
+        title,
+        subtitle: None,
+        config: HashMap::new(),
+        items,
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Extraction: generic (fallback) — smart dashboard element detection
 // ---------------------------------------------------------------------------
 
@@ -3951,18 +4144,6 @@ fn extract_table_items(node: &DomNode) -> (Option<String>, Vec<ItemBlueprint>) {
     }
 
     (caption, items)
-}
-
-/// Find nodes with a specific attribute value, recursively.
-fn find_nodes_with_attr<'a>(node: &'a DomNode, attr: &str, value: &str) -> Vec<&'a DomNode> {
-    let mut results = Vec::new();
-    if node.attrs.get(attr).map(|v| v.as_str()) == Some(value) {
-        results.push(node);
-    }
-    for child in &node.children {
-        results.extend(find_nodes_with_attr(child, attr, value));
-    }
-    results
 }
 
 // ---------------------------------------------------------------------------

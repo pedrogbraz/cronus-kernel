@@ -1115,6 +1115,159 @@ pub fn is_info_panel(node: &DomNode) -> f32 {
 }
 
 // ---------------------------------------------------------------------------
+// Dashboard-specific: form detection
+// ---------------------------------------------------------------------------
+
+/// Detect form / input container.
+///
+/// Signals: <form> tag (0.4), has <input>/<select>/<textarea> (0.2 each),
+/// has <label> elements (0.15), has submit button (0.1).
+pub fn is_form(node: &DomNode) -> f32 {
+    let mut score: f32 = 0.0;
+
+    // Tag signal
+    if node.tag == "form" {
+        score += 0.4;
+    }
+
+    // Descendant <form>
+    if count_descendants_with_tag(node, "form") > 0 && node.tag != "form" {
+        score += 0.3;
+    }
+
+    // Input elements
+    let input_count = count_descendants_with_tag(node, "input");
+    let select_count = count_descendants_with_tag(node, "select");
+    let textarea_count = count_descendants_with_tag(node, "textarea");
+    let total_fields = input_count + select_count + textarea_count;
+
+    if total_fields >= 3 {
+        score += 0.3;
+    } else if total_fields >= 2 {
+        score += 0.2;
+    } else if total_fields >= 1 {
+        score += 0.1;
+    }
+
+    // Labels
+    let label_count = count_descendants_with_tag(node, "label");
+    if label_count >= 2 {
+        score += 0.15;
+    } else if label_count >= 1 {
+        score += 0.05;
+    }
+
+    // Submit button
+    let buttons = extract_buttons(node);
+    let has_submit = buttons.iter().any(|b| {
+        let lower = b.to_lowercase();
+        lower.contains("submit") || lower.contains("save") || lower.contains("create")
+            || lower.contains("update") || lower.contains("send")
+    });
+    if has_submit {
+        score += 0.1;
+    }
+
+    // Penalize if it looks like a hero (has h1 + large heading)
+    if !find_by_tag(node, "h1").is_empty() && max_heading_size(node) >= 36.0 {
+        score -= 0.2;
+    }
+
+    // Penalize if it looks like a sidebar
+    if node.tag == "aside" || has_class(node, "h-screen") {
+        score -= 0.3;
+    }
+
+    cap(score.max(0.0))
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard-specific: tabs detection
+// ---------------------------------------------------------------------------
+
+/// Detect tab navigation.
+///
+/// Signals: [role="tablist"] (0.4), buttons/links with aria-selected (0.3),
+/// border-b with inline buttons/links (0.2), has 2+ short text siblings (0.1).
+pub fn is_tabs(node: &DomNode) -> f32 {
+    let mut score: f32 = 0.0;
+
+    // role="tablist"
+    if node.attrs.get("role").map(|r| r == "tablist").unwrap_or(false) {
+        score += 0.4;
+    }
+    // Descendant with role=tablist
+    if has_descendant_attr(node, "role", "tablist") {
+        score += 0.3;
+    }
+
+    // aria-selected on children
+    let selected_count = count_descendants_with_attr(node, "aria-selected");
+    if selected_count >= 1 {
+        score += 0.3;
+    }
+
+    // Border-b with inline buttons/links (tab bar pattern)
+    if has_class(node, "border-b") || has_descendant_class(node, "border-b") {
+        let buttons = extract_buttons(node);
+        let links = extract_links(node);
+        let tab_count = buttons.len() + links.len();
+        if tab_count >= 2 && tab_count <= 8 {
+            score += 0.2;
+        }
+    }
+
+    // Multiple short-text inline children (tab labels)
+    let inline_children = node.children.iter().filter(|c| {
+        (c.tag == "button" || c.tag == "a") && c.full_text.trim().len() < 30
+    }).count();
+    if inline_children >= 2 {
+        score += 0.15;
+    }
+
+    // Flex layout (tabs are typically flex)
+    if has_class(node, "flex") || has_descendant_class(node, "flex") {
+        score += 0.05;
+    }
+
+    // Compact section (tabs are short)
+    if node.full_text.len() < 300 {
+        score += 0.05;
+    }
+
+    // Penalize if has h1 (page-header)
+    if !find_by_tag(node, "h1").is_empty() {
+        score -= 0.2;
+    }
+    // Penalize if has grid (features/bento)
+    if has_descendant_class(node, "grid-cols") {
+        score -= 0.2;
+    }
+
+    cap(score.max(0.0))
+}
+
+/// Check if any descendant has a specific attribute with a specific value.
+fn has_descendant_attr(node: &DomNode, attr: &str, value: &str) -> bool {
+    if node.attrs.get(attr).map(|v| v == value).unwrap_or(false) {
+        return true;
+    }
+    node.children.iter().any(|child| has_descendant_attr(child, attr, value))
+}
+
+/// Count descendants with a specific attribute present.
+fn count_descendants_with_attr(node: &DomNode, attr: &str) -> usize {
+    let mut count = 0;
+    for child in &node.children {
+        if child.attrs.contains_key(attr) {
+            count += 1;
+        }
+        count += count_descendants_with_attr(child, attr);
+    }
+    count
+}
+
+// ---------------------------------------------------------------------------
 // Classifier
 // ---------------------------------------------------------------------------
 
@@ -1141,6 +1294,8 @@ pub fn classify_node(node: &DomNode) -> (&'static str, f32) {
         ("team-list",    is_team_list),
         ("card",         is_content_card),
         ("info-panel",   is_info_panel),
+        ("form",         is_form),
+        ("tabs",         is_tabs),
     ];
 
     let mut best_name: &'static str = "generic";
