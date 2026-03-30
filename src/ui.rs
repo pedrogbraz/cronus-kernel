@@ -21,6 +21,8 @@ const CRONUS_ANIMATIONS_CSS: &str = r##"
 @keyframes slideDown{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes scaleIn{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}
 @keyframes slideRight{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideFromRight{from{opacity:0;transform:translateX(100%)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideFromLeft{from{opacity:0;transform:translateX(-100%)}to{opacity:1;transform:translateX(0)}}
 @keyframes fillWidth{from{width:0}to{width:var(--target-width)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
@@ -132,6 +134,22 @@ document.addEventListener('DOMContentLoaded',()=>{
     }catch(ex){cronusToast('Error loading schema','error')}
   };
 
+  // Auto-wire modal/sheet open buttons
+  document.querySelectorAll('[data-modal]').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var id=btn.getAttribute('data-modal');
+      var el=document.getElementById(id);
+      if(el)el.style.display='flex';
+    });
+  });
+  document.querySelectorAll('[data-sheet]').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var id=btn.getAttribute('data-sheet');
+      var el=document.getElementById(id);
+      if(el)el.style.display='block';
+    });
+  });
+
   // Fetch live counts for stat cards
   (function(){
     var stats=document.querySelectorAll('[data-entity-count]');
@@ -228,6 +246,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     var h=bar.style.height;bar.style.height='0';
     new IntersectionObserver(e=>{if(e[0].isIntersecting){bar.style.height=h}},{threshold:0.1}).observe(bar);
   });
+
+  // Modal/Sheet data-attribute triggers
+  document.querySelectorAll('[data-modal]').forEach(b=>b.addEventListener('click',()=>{var e=document.getElementById(b.getAttribute('data-modal'));if(e)e.style.display='flex'}));
+  document.querySelectorAll('[data-sheet]').forEach(b=>b.addEventListener('click',()=>{var e=document.getElementById(b.getAttribute('data-sheet'));if(e)e.style.display='block'}));
 });
 </script>
 "##;
@@ -1805,11 +1827,20 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str) -> String {
         "form" => render_form_section(section),
         "card" | "live-keys" | "test-keys" | "webhooks" => render_card_section(section),
         "links" | "quick-links" => render_links_section(section),
-        "tabs" => render_tabs_section(section),
-        "accordion" => render_accordion_section(section),
-        "breadcrumb" => render_breadcrumb_section(section),
-        "alert" => render_alert_section(section),
-        "chart" => render_chart_section(section),
+        "tabs" => render_generic_section(section, accent),
+        "accordion" => render_generic_section(section, accent),
+        "breadcrumb" => render_generic_section(section, accent),
+        "alert" => render_generic_section(section, accent),
+        "chart" => render_generic_section(section, accent),
+        "modal" => render_modal_section(section),
+        "sheet" => render_sheet_section(section),
+        "skeleton" | "loading" => render_skeleton_section(section),
+        "empty" => render_empty_section(section),
+        "error" => render_error_section(section),
+        "not-found" | "404" => render_not_found_section(section),
+        "kpi" => render_kpi_section(section),
+        "timeline" => render_timeline_section(section),
+        "progress" => render_progress_section(section),
         _ => render_generic_section(section, accent),
     }
 }
@@ -4070,6 +4101,201 @@ fn render_form_section(section: &SectionNode) -> String {
     )
 }
 
+fn render_modal_section(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("Dialog");
+    let subtitle = section.subtitle.as_deref().unwrap_or("");
+    let modal_id = section.config.get("id").cloned()
+        .unwrap_or_else(|| format!("modal-{}", title.to_lowercase().replace(' ', "-")));
+
+    let mut fields_html = String::new();
+    let mut actions_html = String::new();
+
+    let label_style = "display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#71717a;margin-bottom:8px";
+    let input_style = "width:100%;padding:12px 16px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;font-family:Inter,sans-serif;transition:border-color 0.2s;box-sizing:border-box";
+
+    for item in &section.items {
+        let itype = item.get("_type").map(|s| s.as_str()).unwrap_or("");
+        let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+
+        if itype == "field" {
+            let ftype = item.get("type").map(|s| s.as_str()).unwrap_or("text");
+            let name_lower = item_title.to_lowercase().replace(' ', "_");
+            let placeholder = item.get("placeholder").map(|s| s.as_str()).unwrap_or("");
+            let required = if item.get("required").map(|s| s == "true").unwrap_or(false) { "required" } else { "" };
+
+            match ftype {
+                "select" => {
+                    let options_raw = item.get("options").map(|s| s.as_str()).unwrap_or("");
+                    let options: Vec<&str> = if options_raw.is_empty() { vec![] } else { options_raw.split("||").collect() };
+                    let mut opts_html = format!(r#"<option value="">Select {}...</option>"#, item_title);
+                    for opt in &options {
+                        opts_html.push_str(&format!(r#"<option value="{v}">{v}</option>"#, v = opt));
+                    }
+                    fields_html.push_str(&format!(
+                        r#"<div><label style="{ls}">{label}</label><select name="{name}" {req} style="{is};appearance:none;background:#fff">{opts}</select></div>"#,
+                        ls = label_style, label = item_title, name = name_lower,
+                        req = required, is = input_style, opts = opts_html,
+                    ));
+                }
+                "textarea" => {
+                    let rows = item.get("rows").map(|s| s.as_str()).unwrap_or("4");
+                    fields_html.push_str(&format!(
+                        r#"<div><label style="{ls}">{label}</label><textarea name="{name}" rows="{rows}" placeholder="{ph}" {req} style="{is};resize:vertical" onfocus="this.style.borderColor='#000'" onblur="this.style.borderColor='#e5e7eb'"></textarea></div>"#,
+                        ls = label_style, label = item_title, name = name_lower,
+                        rows = rows, ph = placeholder, req = required, is = input_style,
+                    ));
+                }
+                "checkbox" => {
+                    fields_html.push_str(&format!(
+                        r#"<label style="display:flex;align-items:center;gap:12px;cursor:pointer"><input type="checkbox" name="{name}" style="width:18px;height:18px;accent-color:#000"><span style="font-size:14px">{label}</span></label>"#,
+                        name = name_lower, label = item_title,
+                    ));
+                }
+                _ => {
+                    fields_html.push_str(&format!(
+                        r#"<div><label style="{ls}">{label}</label><input type="{ftype}" name="{name}" placeholder="{ph}" {req} style="{is}" onfocus="this.style.borderColor='#000'" onblur="this.style.borderColor='#e5e7eb'"></div>"#,
+                        ls = label_style, label = item_title, ftype = ftype, name = name_lower,
+                        ph = placeholder, req = required, is = input_style,
+                    ));
+                }
+            }
+        } else if itype == "action" {
+            let variant = item.get("variant").map(|s| s.as_str())
+                .or_else(|| item.get("style").map(|s| s.as_str()))
+                .unwrap_or("primary");
+            let (bg, color, border) = match variant {
+                "secondary" | "outline" => ("#fff", "#000", "1px solid #e5e7eb"),
+                "danger" => ("#dc2626", "#fff", "none"),
+                _ => ("#000", "#fff", "none"),
+            };
+            let onclick = if variant == "secondary" || variant == "outline" {
+                format!(r#"onclick="cronusModal.close('{}')" type="button""#, modal_id)
+            } else {
+                r#"type="submit""#.to_string()
+            };
+            actions_html.push_str(&format!(
+                r#"<button {onclick} style="flex:1;padding:12px;border:{border};border-radius:999px;background:{bg};color:{color};font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">{label}</button>"#,
+                onclick = onclick, border = border, bg = bg, color = color, label = item_title,
+            ));
+        }
+    }
+
+    let subtitle_html = if subtitle.is_empty() {
+        String::new()
+    } else {
+        format!(r#"<p style="font-size:14px;color:#71717a;margin:0">{}</p>"#, subtitle)
+    };
+
+    format!(
+        r##"<div id="{id}" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;backdrop-filter:blur(4px)" onclick="if(event.target===this)cronusModal.close('{id}')">
+  <div style="background:#fff;border-radius:16px;padding:32px;width:100%;max-width:480px;box-shadow:0 24px 48px rgba(0,0,0,0.15);animation:scaleIn 0.3s cubic-bezier(0.16,1,0.3,1)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <div>
+        <h3 style="font-size:20px;font-weight:700;margin:0 0 4px">{title}</h3>
+        {subtitle_html}
+      </div>
+      <button onclick="cronusModal.close('{id}')" style="background:none;border:none;cursor:pointer;padding:4px">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <form style="display:flex;flex-direction:column;gap:16px">
+      {fields}
+      <div style="display:flex;gap:12px;margin-top:8px">
+        {actions}
+      </div>
+    </form>
+  </div>
+</div>"##,
+        id = modal_id, title = title, subtitle_html = subtitle_html,
+        fields = fields_html, actions = actions_html,
+    )
+}
+
+fn render_sheet_section(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("Details");
+    let sheet_id = section.config.get("id").cloned()
+        .unwrap_or_else(|| format!("sheet-{}", title.to_lowercase().replace(' ', "-")));
+    let side = section.config.get("side").map(|s| s.as_str()).unwrap_or("right");
+    let width = section.config.get("width").map(|s| s.as_str()).unwrap_or("400px");
+
+    let (position_style, animation) = match side {
+        "left" => ("left:0;top:0;bottom:0", "slideFromLeft"),
+        _ => ("right:0;top:0;bottom:0", "slideFromRight"),
+    };
+
+    let mut content_html = String::new();
+    let mut actions_html = String::new();
+
+    for item in &section.items {
+        let itype = item.get("_type").map(|s| s.as_str()).unwrap_or("");
+        let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+
+        if itype == "action" {
+            let variant = item.get("variant").map(|s| s.as_str())
+                .or_else(|| item.get("style").map(|s| s.as_str()))
+                .unwrap_or("primary");
+            let (bg, color, border) = match variant {
+                "secondary" | "outline" => ("#fff", "#000", "1px solid #e5e7eb"),
+                "danger" => ("#dc2626", "#fff", "none"),
+                _ => ("#000", "#fff", "none"),
+            };
+            actions_html.push_str(&format!(
+                r#"<button style="flex:1;padding:12px;border:{border};border-radius:999px;background:{bg};color:{color};font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">{label}</button>"#,
+                border = border, bg = bg, color = color, label = item_title,
+            ));
+        } else if itype == "field" {
+            let ftype = item.get("type").map(|s| s.as_str()).unwrap_or("text");
+            let name_lower = item_title.to_lowercase().replace(' ', "_");
+            let placeholder = item.get("placeholder").map(|s| s.as_str()).unwrap_or("");
+            let required = if item.get("required").map(|s| s == "true").unwrap_or(false) { "required" } else { "" };
+            let label_style = "display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#71717a;margin-bottom:8px";
+            let input_style = "width:100%;padding:12px 16px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;font-family:Inter,sans-serif;box-sizing:border-box";
+            content_html.push_str(&format!(
+                r#"<div><label style="{ls}">{label}</label><input type="{ftype}" name="{name}" placeholder="{ph}" {req} style="{is}" onfocus="this.style.borderColor='#000'" onblur="this.style.borderColor='#e5e7eb'"></div>"#,
+                ls = label_style, label = item_title, ftype = ftype, name = name_lower,
+                ph = placeholder, req = required, is = input_style,
+            ));
+        } else {
+            // Regular items rendered as key-value rows
+            let desc = item.get("description").map(|s| s.as_str()).unwrap_or("");
+            if !item_title.is_empty() {
+                content_html.push_str(&format!(
+                    r#"<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #f4f4f5">
+  <span style="font-size:13px;color:#71717a;font-weight:500">{label}</span>
+  <span style="font-size:14px;font-weight:600">{value}</span>
+</div>"#,
+                    label = item_title, value = desc,
+                ));
+            }
+        }
+    }
+
+    let actions_block = if actions_html.is_empty() {
+        String::new()
+    } else {
+        format!(r#"<div style="display:flex;gap:12px;margin-top:24px">{}</div>"#, actions_html)
+    };
+
+    format!(
+        r##"<div id="{id}" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.3)" onclick="if(event.target===this)cronusModal.close('{id}')">
+  <div style="position:absolute;{pos};width:{width};background:#fff;box-shadow:-8px 0 24px rgba(0,0,0,0.1);padding:32px;animation:{anim} 0.3s cubic-bezier(0.16,1,0.3,1);overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <h3 style="font-size:20px;font-weight:700;margin:0">{title}</h3>
+      <button onclick="cronusModal.close('{id}')" style="background:none;border:none;cursor:pointer;padding:4px">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      {content}
+    </div>
+    {actions}
+  </div>
+</div>"##,
+        id = sheet_id, pos = position_style, width = width, anim = animation,
+        title = title, content = content_html, actions = actions_block,
+    )
+}
+
 fn render_tabs_section(section: &SectionNode) -> String {
     // Group items into tabs: each "tab" _type starts a new group, subsequent "item" types belong to it
     let mut tabs: Vec<(String, Vec<&std::collections::HashMap<String, String>>)> = Vec::new();
@@ -4196,6 +4422,8 @@ fn render_breadcrumb_section(section: &SectionNode) -> String {
         parts.join("")
     )
 }
+
+// ── Route State Sections ──
 
 fn render_generic_section(section: &SectionNode, _accent: &str) -> String {
     let mut html = String::new();
@@ -8297,5 +8525,397 @@ fn build_security_login_activity(section: Option<&SectionNode>) -> String {
           </div>
         </section>"##,
         title = title, action = action_html, thead = thead_html, tbody = tbody_html,
+    )
+}
+
+// ══════════════════════════════════════════════════
+// SKELETON / LOADING SECTION
+// ══════════════════════════════════════════════════
+
+fn render_skeleton_section(section: &SectionNode) -> String {
+    let cols: usize = section.config.get("cols")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(3);
+    let rows: usize = section.config.get("rows")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(3);
+    let height = section.config.get("height").map(|s| s.as_str()).unwrap_or("120px");
+    let title = section.title.as_deref().unwrap_or("");
+    let subtitle = section.subtitle.as_deref().unwrap_or("");
+
+    let title_html = if title.is_empty() {
+        String::new()
+    } else {
+        let sub = if subtitle.is_empty() {
+            String::new()
+        } else {
+            format!(r#"<p style="font-size:14px;color:#a1a1aa;margin:4px 0 0">{}</p>"#, subtitle)
+        };
+        format!(r#"<div style="margin-bottom:24px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{}</h2>{}</div>"#, title, sub)
+    };
+
+    let total = cols * rows;
+    let mut blocks = String::new();
+    for _ in 0..total {
+        blocks.push_str(&format!(
+            r#"<div style="background:#f3f3f3;border-radius:8px;height:{};animation:pulse 2s cubic-bezier(0.4,0,0.6,1) infinite"></div>"#,
+            height
+        ));
+    }
+
+    format!(
+        r##"<section style="padding:32px 0">
+  {title_html}
+  <div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:16px">
+    {blocks}
+  </div>
+</section>"##,
+        title_html = title_html, cols = cols, blocks = blocks,
+    )
+}
+
+// ══════════════════════════════════════════════════
+// EMPTY STATE SECTION
+// ══════════════════════════════════════════════════
+
+fn render_empty_section(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("Nothing here yet");
+    let subtitle = section.subtitle.as_deref().unwrap_or("");
+    let icon = section.config.get("icon").map(|s| s.as_str()).unwrap_or("inbox");
+    let cta_text = section.config.get("cta_text")
+        .or(section.config.get("cta"))
+        .map(|s| s.as_str())
+        .unwrap_or("");
+    let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("#");
+
+    let subtitle_html = if subtitle.is_empty() {
+        String::new()
+    } else {
+        format!(r#"<p style="font-size:14px;color:#a1a1aa;margin:8px 0 0;max-width:360px">{}</p>"#, subtitle)
+    };
+
+    let cta_html = if cta_text.is_empty() {
+        String::new()
+    } else {
+        format!(
+            r#"<a href="{link}" style="display:inline-block;margin-top:24px;padding:12px 28px;background:#000;color:#fff;border-radius:999px;font-size:14px;font-weight:700;text-decoration:none;font-family:Inter,sans-serif">{text}</a>"#,
+            link = cta_link, text = cta_text,
+        )
+    };
+
+    format!(
+        r##"<section style="padding:80px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center" class="anim-fade">
+  <span class="material-symbols-outlined" style="font-size:64px;color:#d4d4d8;margin-bottom:16px">{icon}</span>
+  <h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:#52525b">{title}</h2>
+  {subtitle_html}
+  {cta_html}
+</section>"##,
+        icon = icon, title = title, subtitle_html = subtitle_html, cta_html = cta_html,
+    )
+}
+
+// ══════════════════════════════════════════════════
+// ERROR SECTION
+// ══════════════════════════════════════════════════
+
+fn render_error_section(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("Something went wrong");
+    let subtitle = section.subtitle.as_deref().unwrap_or("");
+    let icon = section.config.get("icon").map(|s| s.as_str()).unwrap_or("error");
+    let retry_text = section.config.get("retry_text").map(|s| s.as_str()).unwrap_or("Try again");
+    let retry_link = section.config.get("retry_link").map(|s| s.as_str()).unwrap_or("");
+
+    let subtitle_html = if subtitle.is_empty() {
+        String::new()
+    } else {
+        format!(r#"<p style="font-size:14px;color:#a1a1aa;margin:12px 0 0;max-width:400px">{}</p>"#, subtitle)
+    };
+
+    let retry_onclick = if retry_link.is_empty() {
+        r#"onclick="location.reload()""#.to_string()
+    } else {
+        format!(r#"onclick="location.href='{}'"#, retry_link)
+    };
+
+    format!(
+        r##"<section style="padding:80px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center" class="anim-fade">
+  <div style="width:80px;height:80px;border-radius:50%;background:#fef2f2;display:flex;align-items:center;justify-content:center;margin-bottom:20px">
+    <span class="material-symbols-outlined" style="font-size:36px;color:#dc2626">{icon}</span>
+  </div>
+  <h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:#18181b">{title}</h2>
+  {subtitle_html}
+  <button {retry_onclick} style="margin-top:24px;padding:12px 28px;background:#000;color:#fff;border:none;border-radius:999px;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">{retry_text}</button>
+</section>"##,
+        icon = icon, title = title, subtitle_html = subtitle_html,
+        retry_onclick = retry_onclick, retry_text = retry_text,
+    )
+}
+
+// ══════════════════════════════════════════════════
+// NOT FOUND / 404 SECTION
+// ══════════════════════════════════════════════════
+
+fn render_not_found_section(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("Page not found");
+    let subtitle = section.subtitle.as_deref().unwrap_or("The page you're looking for doesn't exist or has been moved.");
+    let home_text = section.config.get("home_text").map(|s| s.as_str()).unwrap_or("Go home");
+    let home_link = section.config.get("home_link").map(|s| s.as_str()).unwrap_or("/");
+
+    format!(
+        r##"<section style="padding:80px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center" class="anim-fade">
+  <div style="font-size:120px;font-weight:900;letter-spacing:-0.05em;color:#e4e4e7;line-height:1;margin-bottom:16px">404</div>
+  <h2 style="font-size:22px;font-weight:700;letter-spacing:-0.02em;margin:0;color:#18181b">{title}</h2>
+  <p style="font-size:14px;color:#a1a1aa;margin:12px 0 0;max-width:400px">{subtitle}</p>
+  <a href="{home_link}" style="display:inline-block;margin-top:24px;padding:12px 28px;background:#000;color:#fff;border-radius:999px;font-size:14px;font-weight:700;text-decoration:none;font-family:Inter,sans-serif">{home_text}</a>
+</section>"##,
+        title = title, subtitle = subtitle, home_link = home_link, home_text = home_text,
+    )
+}
+
+// ══════════════════════════════════════════════════
+// KPI SECTION
+// ══════════════════════════════════════════════════
+
+fn render_kpi_section(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("");
+    let subtitle = section.subtitle.as_deref().unwrap_or("");
+    let cols: usize = section.config.get("cols")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(4);
+
+    let title_html = if title.is_empty() {
+        String::new()
+    } else {
+        let sub = if subtitle.is_empty() {
+            String::new()
+        } else {
+            format!(r#"<p style="font-size:14px;color:#71717a;margin:4px 0 0">{}</p>"#, subtitle)
+        };
+        format!(r#"<div style="margin-bottom:24px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{}</h2>{}</div>"#, title, sub)
+    };
+
+    let mut cards_html = String::new();
+    for (i, item) in section.items.iter().enumerate() {
+        let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let value = item.get("value").map(|s| s.as_str()).unwrap_or("");
+        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
+        let trend = item.get("trend").map(|s| s.as_str()).unwrap_or("");
+        let meta = item.get("description").map(|s| s.as_str()).unwrap_or("");
+        let delay_class = format!("d{}", (i % 10) + 1);
+
+        let icon_html = if icon.is_empty() {
+            String::new()
+        } else {
+            format!(r#"<span class="material-symbols-outlined" style="font-size:20px;color:#71717a;margin-bottom:8px">{}</span>"#, icon)
+        };
+
+        let (trend_arrow, trend_color) = match trend {
+            t if t.starts_with('+') || t == "up" => ("&#9650;", "#059669"),
+            t if t.starts_with('-') || t == "down" => ("&#9660;", "#dc2626"),
+            _ => ("", "#71717a"),
+        };
+        let trend_html = if trend.is_empty() {
+            String::new()
+        } else if trend == "up" || trend == "down" {
+            format!(r#"<span style="font-size:12px;color:{};font-weight:600">{}</span>"#, trend_color, trend_arrow)
+        } else {
+            format!(r#"<span style="font-size:12px;color:{};font-weight:600">{} {}</span>"#, trend_color, trend_arrow, trend)
+        };
+
+        let meta_html = if meta.is_empty() {
+            String::new()
+        } else {
+            format!(r#"<div style="font-size:12px;color:#a1a1aa;margin-top:4px">{}</div>"#, meta)
+        };
+
+        cards_html.push_str(&format!(
+            r##"<div class="anim-slide-up {delay}" style="background:#fff;border:1px solid #f4f4f5;border-radius:12px;padding:20px">
+  {icon_html}
+  <div style="display:flex;align-items:baseline;gap:8px">
+    <span style="font-size:32px;font-weight:700;letter-spacing:-0.03em;line-height:1">{value}</span>
+    {trend_html}
+  </div>
+  <div style="font-size:14px;color:#71717a;margin-top:6px;font-weight:500">{title}</div>
+  {meta_html}
+</div>"##,
+            delay = delay_class, icon_html = icon_html, value = value,
+            trend_html = trend_html, title = item_title, meta_html = meta_html,
+        ));
+    }
+
+    format!(
+        r##"<section style="padding:32px 0">
+  {title_html}
+  <div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:16px">
+    {cards}
+  </div>
+</section>"##,
+        title_html = title_html, cols = cols, cards = cards_html,
+    )
+}
+
+// ══════════════════════════════════════════════════
+// TIMELINE SECTION
+// ══════════════════════════════════════════════════
+
+fn render_timeline_section(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("");
+    let subtitle = section.subtitle.as_deref().unwrap_or("");
+
+    let title_html = if title.is_empty() {
+        String::new()
+    } else {
+        let sub = if subtitle.is_empty() {
+            String::new()
+        } else {
+            format!(r#"<p style="font-size:14px;color:#71717a;margin:4px 0 0">{}</p>"#, subtitle)
+        };
+        format!(r#"<div style="margin-bottom:32px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{}</h2>{}</div>"#, title, sub)
+    };
+
+    let mut items_html = String::new();
+    let item_count = section.items.len();
+    for (i, item) in section.items.iter().enumerate() {
+        let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let desc = item.get("description").map(|s| s.as_str()).unwrap_or("");
+        let time = item.get("time").map(|s| s.as_str()).unwrap_or("");
+        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("circle");
+        let status = item.get("status").map(|s| s.as_str()).unwrap_or("info");
+        let delay_class = format!("d{}", (i % 10) + 1);
+
+        let dot_color = match status {
+            "success" | "done" | "completed" => "#059669",
+            "error" | "failed" | "danger" => "#dc2626",
+            "warning" => "#d97706",
+            _ => "#3b82f6",
+        };
+
+        let is_last = i == item_count - 1;
+        let line_html = if is_last {
+            String::new()
+        } else {
+            r#"<div style="position:absolute;left:17px;top:40px;bottom:-12px;width:2px;background:#e4e4e7"></div>"#.to_string()
+        };
+
+        let desc_html = if desc.is_empty() {
+            String::new()
+        } else {
+            format!(r#"<p style="font-size:13px;color:#a1a1aa;margin:4px 0 0">{}</p>"#, desc)
+        };
+
+        let time_html = if time.is_empty() {
+            String::new()
+        } else {
+            format!(r#"<span style="font-size:12px;color:#a1a1aa;margin-left:auto;white-space:nowrap">{}</span>"#, time)
+        };
+
+        items_html.push_str(&format!(
+            r##"<div class="anim-slide-up {delay}" style="position:relative;padding-left:48px;padding-bottom:28px">
+  {line}
+  <div style="position:absolute;left:0;top:0;width:36px;height:36px;border-radius:50%;background:{dot_bg};display:flex;align-items:center;justify-content:center">
+    <span class="material-symbols-outlined" style="font-size:18px;color:#fff">{icon}</span>
+  </div>
+  <div style="display:flex;align-items:baseline;gap:12px">
+    <h4 style="font-size:14px;font-weight:600;margin:0;padding-top:7px">{title}</h4>
+    {time_html}
+  </div>
+  {desc_html}
+</div>"##,
+            delay = delay_class, line = line_html, dot_bg = dot_color,
+            icon = icon, title = item_title, time_html = time_html, desc_html = desc_html,
+        ));
+    }
+
+    format!(
+        r##"<section style="padding:32px 0">
+  {title_html}
+  <div style="position:relative">
+    {items}
+  </div>
+</section>"##,
+        title_html = title_html, items = items_html,
+    )
+}
+
+// ══════════════════════════════════════════════════
+// PROGRESS / STEPS SECTION
+// ══════════════════════════════════════════════════
+
+fn render_progress_section(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("");
+    let subtitle = section.subtitle.as_deref().unwrap_or("");
+
+    let title_html = if title.is_empty() {
+        String::new()
+    } else {
+        let sub = if subtitle.is_empty() {
+            String::new()
+        } else {
+            format!(r#"<p style="font-size:14px;color:#71717a;margin:4px 0 0">{}</p>"#, subtitle)
+        };
+        format!(r#"<div style="margin-bottom:32px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{}</h2>{}</div>"#, title, sub)
+    };
+
+    let mut steps_html = String::new();
+    for (i, item) in section.items.iter().enumerate() {
+        let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let desc = item.get("description").map(|s| s.as_str()).unwrap_or("");
+        let status = item.get("status").map(|s| s.as_str()).unwrap_or("pending");
+        let value = item.get("value").map(|s| s.as_str()).unwrap_or("");
+        let delay_class = format!("d{}", (i % 10) + 1);
+
+        let (indicator, label_color) = match status {
+            "done" | "completed" | "success" => (
+                r#"<div style="width:28px;height:28px;border-radius:50%;background:#059669;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span class="material-symbols-outlined" style="font-size:16px;color:#fff">check</span></div>"#.to_string(),
+                "#18181b",
+            ),
+            "active" | "current" | "in-progress" => (
+                r#"<div style="width:28px;height:28px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:10px;height:10px;border-radius:50%;background:#fff"></div></div>"#.to_string(),
+                "#18181b",
+            ),
+            _ => (
+                r#"<div style="width:28px;height:28px;border-radius:50%;background:#e4e4e7;flex-shrink:0"></div>"#.to_string(),
+                "#a1a1aa",
+            ),
+        };
+
+        let desc_html = if desc.is_empty() {
+            String::new()
+        } else {
+            format!(r#"<p style="font-size:13px;color:#a1a1aa;margin:4px 0 0">{}</p>"#, desc)
+        };
+
+        let progress_bar = if status == "active" || status == "current" || status == "in-progress" {
+            let pct = if value.is_empty() { "50" } else { value.trim_end_matches('%') };
+            format!(
+                r#"<div style="margin-top:8px;height:4px;background:#e4e4e7;border-radius:999px;overflow:hidden"><div style="height:100%;background:#3b82f6;border-radius:999px;width:{}%;transition:width 0.6s cubic-bezier(0.16,1,0.3,1)"></div></div>"#,
+                pct
+            )
+        } else {
+            String::new()
+        };
+
+        steps_html.push_str(&format!(
+            r##"<div class="anim-slide-up {delay}" style="display:flex;gap:16px;padding:16px 0">
+  {indicator}
+  <div style="flex:1;min-width:0">
+    <h4 style="font-size:14px;font-weight:600;margin:0;color:{label_color}">{title}</h4>
+    {desc_html}
+    {progress_bar}
+  </div>
+</div>"##,
+            delay = delay_class, indicator = indicator, label_color = label_color,
+            title = item_title, desc_html = desc_html, progress_bar = progress_bar,
+        ));
+    }
+
+    format!(
+        r##"<section style="padding:32px 0">
+  {title_html}
+  <div style="display:flex;flex-direction:column">
+    {steps}
+  </div>
+</section>"##,
+        title_html = title_html, steps = steps_html,
     )
 }
