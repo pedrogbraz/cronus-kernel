@@ -140,10 +140,315 @@ fn collapse_whitespace(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+// ---------------------------------------------------------------------------
+// Wrapper / layout class detection helpers
+// ---------------------------------------------------------------------------
+
+/// Tailwind classes that indicate a centering/sizing wrapper with no semantic
+/// content of its own. When a `<div>` carries *only* these kinds of classes we
+/// should recurse into its children instead of treating it as a block.
+fn is_wrapper_class(class: &str) -> bool {
+    // max-w-* (max-w-6xl, max-w-screen-xl, …)
+    if class.starts_with("max-w-") { return true; }
+    // mx-auto centering
+    if class == "mx-auto" { return true; }
+    // Pure padding/margin utilities (p-*, px-*, py-*, m-*, mt-*, …)
+    if class.len() >= 2 {
+        let bytes = class.as_bytes();
+        if (bytes[0] == b'p' || bytes[0] == b'm')
+            && (bytes[1] == b'-' || bytes[1] == b'x' || bytes[1] == b'y'
+                || bytes[1] == b't' || bytes[1] == b'b'
+                || bytes[1] == b'l' || bytes[1] == b'r')
+        {
+            return true;
+        }
+    }
+    // w-full, min-h-screen, etc. – sizing-only
+    if class.starts_with("w-") || class.starts_with("min-h-") || class.starts_with("h-") {
+        return true;
+    }
+    // container utility
+    if class == "container" { return true; }
+    // space-y-*, gap-*, – spacing only
+    if class.starts_with("space-") || class.starts_with("gap-") { return true; }
+    false
+}
+
+/// True when a `<div>` carries a Tailwind grid class (`grid grid-cols-*`).
+fn is_grid_container(classes: &[String]) -> bool {
+    let has_grid = classes.iter().any(|c| c == "grid");
+    let has_cols = classes.iter().any(|c| c.starts_with("grid-cols-"));
+    has_grid && has_cols
+}
+
+/// True when a `<div>` carries a Tailwind flex class and has layout intent.
+fn is_flex_container(classes: &[String]) -> bool {
+    classes.iter().any(|c| c == "flex")
+}
+
+/// True when *all* classes on a node are wrapper/layout-only.
+fn is_pure_wrapper(classes: &[String]) -> bool {
+    if classes.is_empty() { return true; } // no classes at all → wrapper
+    classes.iter().all(|c| is_wrapper_class(c))
+}
+
+/// Semantic HTML tags that should always be kept as a single block.
+const SEMANTIC_BLOCK_TAGS: &[&str] = &[
+    "section", "article", "aside", "table", "nav", "header", "footer", "form",
+];
+
+/// Recursively extract meaningful blocks from a DOM subtree.
+///
+/// The logic peels away layout wrappers (centering divs, grid/flex containers)
+/// and returns the inner semantic pieces so the detector can classify each one
+/// independently.
+pub fn extract_deep_blocks(node: &DomNode) -> Vec<DomNode> {
+    // 1. Semantic elements → return as-is, they are self-contained blocks.
+    if SEMANTIC_BLOCK_TAGS.contains(&node.tag.as_str()) {
+        return vec![node.clone()];
+    }
+
+    // Only recurse into divs – other tags are kept as-is.
+    if node.tag != "div" {
+        return vec![node.clone()];
+    }
+
+    // 2. Grid container → each direct child is its own block.
+    if is_grid_container(&node.classes) && node.children.len() > 1 {
+        let mut out = Vec::new();
+        for child in &node.children {
+            out.extend(extract_deep_blocks(child));
+        }
+        return out;
+    }
+
+    // 3. Flex container with multiple children → extract each child.
+    if is_flex_container(&node.classes) && node.children.len() > 1 {
+        let mut out = Vec::new();
+        for child in &node.children {
+            out.extend(extract_deep_blocks(child));
+        }
+        return out;
+    }
+
+    // 4. Pure wrapper div (max-w-*, mx-auto, only padding/margin) → recurse.
+    if is_pure_wrapper(&node.classes) {
+        if node.children.is_empty() {
+            return vec![node.clone()];
+        }
+        let mut out = Vec::new();
+        for child in &node.children {
+            out.extend(extract_deep_blocks(child));
+        }
+        return out;
+    }
+
+    // 5. Single-child div with no real semantic meaning → unwrap.
+    if node.children.len() == 1 {
+        return extract_deep_blocks(&node.children[0]);
+    }
+
+    // 6. Default: keep the node as a block.
+    vec![node.clone()]
+}
+
+// ---------------------------------------------------------------------------
+// Structured text extraction
+// ---------------------------------------------------------------------------
+
+/// Extract (tag, text) pairs from a node tree, preserving the relationship
+/// between headings, paragraphs, labels, code blocks, etc.
+///
+/// Walks the tree depth-first and emits an entry every time it hits a
+/// "leaf-level" text-bearing element.
+pub fn extract_structured_text(node: &DomNode) -> Vec<(String, String)> {
+    let mut pairs = Vec::new();
+    extract_structured_text_inner(node, &mut pairs);
+    pairs
+}
+
+/// Tags that carry text we want to surface individually.
+const TEXT_BEARING_TAGS: &[&str] = &[
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "p", "span", "label", "code", "pre", "a",
+    "li", "td", "th", "dt", "dd", "blockquote",
+    "figcaption", "caption", "legend", "summary",
+    "strong", "em", "b", "i", "small", "time",
+];
+
+fn extract_structured_text_inner(node: &DomNode, out: &mut Vec<(String, String)>) {
+    // Skip material-symbols icons entirely
+    if node.classes.iter().any(|c| {
+        MATERIAL_SYMBOL_CLASSES.iter().any(|ms| c.contains(ms))
+    }) {
+        return;
+    }
+
+    // If this is a text-bearing tag, emit it and don't recurse further to
+    // avoid duplicating content that already appears in parent text.
+    if TEXT_BEARING_TAGS.contains(&node.tag.as_str()) {
+        let text = clean_node_text(node);
+        if !text.is_empty() {
+            out.push((node.tag.clone(), text));
+            return;
+        }
+    }
+
+    // Otherwise recurse into children (divs, sections, etc.)
+    for child in &node.children {
+        extract_structured_text_inner(child, out);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Form field extraction
+// ---------------------------------------------------------------------------
+
+/// A form field descriptor: (field_type, label_text, placeholder_or_value).
+///
+/// Examples:
+/// - `("text", "Public Key", "pk_live_...")`
+/// - `("select", "Currency", "USD, BRL, EUR")`
+/// - `("button", "", "Save Changes")`
+pub fn extract_form_fields(node: &DomNode) -> Vec<(String, String, String)> {
+    let mut fields = Vec::new();
+    extract_form_fields_inner(node, &mut fields);
+    fields
+}
+
+fn extract_form_fields_inner(node: &DomNode, out: &mut Vec<(String, String, String)>) {
+    match node.tag.as_str() {
+        "input" => {
+            let field_type = node.attrs.get("type")
+                .cloned()
+                .unwrap_or_else(|| "text".to_string());
+            // Skip hidden inputs
+            if field_type == "hidden" {
+                return;
+            }
+            let placeholder = node.attrs.get("placeholder")
+                .or(node.attrs.get("value"))
+                .cloned()
+                .unwrap_or_default();
+            // Try to find label from attrs or leave empty (caller can match
+            // using sibling label logic below at the block level)
+            let label = node.attrs.get("aria-label")
+                .cloned()
+                .unwrap_or_default();
+            out.push((field_type, label, placeholder));
+        }
+        "textarea" => {
+            let placeholder = node.attrs.get("placeholder")
+                .cloned()
+                .unwrap_or_default();
+            let label = node.attrs.get("aria-label")
+                .cloned()
+                .unwrap_or_default();
+            out.push(("textarea".to_string(), label, placeholder));
+        }
+        "select" => {
+            // Collect option texts
+            let options: Vec<String> = node.children.iter()
+                .filter(|c| c.tag == "option")
+                .map(|c| clean_node_text(c))
+                .filter(|t| !t.is_empty())
+                .collect();
+            let label = node.attrs.get("aria-label")
+                .cloned()
+                .unwrap_or_default();
+            out.push(("select".to_string(), label, options.join(", ")));
+        }
+        "button" => {
+            let text = clean_node_text(node);
+            let btn_type = node.attrs.get("type")
+                .cloned()
+                .unwrap_or_else(|| "button".to_string());
+            out.push((format!("button[{}]", btn_type), String::new(), text));
+        }
+        "label" => {
+            // When we hit a <label>, look for a child input/select/textarea
+            // and pair them together.
+            let label_text = {
+                // Collect only direct text, not child input text
+                let mut parts: Vec<String> = Vec::new();
+                for child in &node.children {
+                    if matches!(child.tag.as_str(), "input" | "select" | "textarea") {
+                        continue;
+                    }
+                    let t = clean_node_text(child);
+                    if !t.is_empty() {
+                        parts.push(t);
+                    }
+                }
+                if parts.is_empty() {
+                    // Fallback: use node's own direct text
+                    node.text.trim().to_string()
+                } else {
+                    parts.join(" ")
+                }
+            };
+
+            // Find the paired input inside this label
+            let mut found_input = false;
+            for child in &node.children {
+                match child.tag.as_str() {
+                    "input" => {
+                        let field_type = child.attrs.get("type")
+                            .cloned()
+                            .unwrap_or_else(|| "text".to_string());
+                        if field_type == "hidden" { continue; }
+                        let placeholder = child.attrs.get("placeholder")
+                            .or(child.attrs.get("value"))
+                            .cloned()
+                            .unwrap_or_default();
+                        out.push((field_type, label_text.clone(), placeholder));
+                        found_input = true;
+                    }
+                    "select" => {
+                        let options: Vec<String> = child.children.iter()
+                            .filter(|c| c.tag == "option")
+                            .map(|c| clean_node_text(c))
+                            .filter(|t| !t.is_empty())
+                            .collect();
+                        out.push(("select".to_string(), label_text.clone(), options.join(", ")));
+                        found_input = true;
+                    }
+                    "textarea" => {
+                        let placeholder = child.attrs.get("placeholder")
+                            .cloned()
+                            .unwrap_or_default();
+                        out.push(("textarea".to_string(), label_text.clone(), placeholder));
+                        found_input = true;
+                    }
+                    _ => {}
+                }
+            }
+            // If label had no child input, still record the label text
+            if !found_input && !label_text.is_empty() {
+                out.push(("label".to_string(), label_text, String::new()));
+            }
+            return; // Don't recurse further, we already handled children
+        }
+        _ => {}
+    }
+
+    // Recurse into children for non-terminal tags
+    for child in &node.children {
+        extract_form_fields_inner(child, out);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Top-level HTML parser
+// ---------------------------------------------------------------------------
+
 /// Parse HTML string into a flat list of semantic top-level blocks.
 ///
 /// Avoids duplicates: sections inside `<main>` are collected as main's
 /// direct children instead of being found again at the top level.
+///
+/// Uses `extract_deep_blocks` on `<main>` content to peel away layout
+/// wrappers and expose the real semantic structure.
 pub fn parse_html(html: &str) -> Vec<DomNode> {
     let document = Html::parse_document(html);
     let mut blocks = Vec::new();
@@ -160,19 +465,18 @@ pub fn parse_html(html: &str) -> Vec<DomNode> {
         }
     }
 
-    // 2) For <main>, collect its direct section/article/div children instead
-    //    of the <main> element itself, to avoid duplicating nested sections.
+    // 2) For <main>, deeply extract blocks by peeling away layout wrappers.
+    //    We iterate main's direct element children and run extract_deep_blocks
+    //    on each one so that wrapper divs get unwrapped automatically.
     if let Ok(main_sel) = Selector::parse("main") {
         for main_el in document.select(&main_sel) {
             let mut found_children = false;
             for child in main_el.children().filter_map(|c| ElementRef::wrap(c)) {
-                let child_tag = child.value().name();
-                if matches!(child_tag, "section" | "article" | "div" | "aside" | "table") {
-                    blocks.push(element_to_node(child, 0));
-                    found_children = true;
-                }
+                let child_node = element_to_node(child, 0);
+                blocks.extend(extract_deep_blocks(&child_node));
+                found_children = true;
             }
-            // If main has no recognizable children, add main itself
+            // If main has no element children, add main itself
             if !found_children {
                 blocks.push(element_to_node(main_el, 0));
             }

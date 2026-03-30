@@ -15,6 +15,50 @@ pub struct CronusFile {
 }
 
 // ---------------------------------------------------------------------------
+// GroupedItem — items grouped under a parent card
+// ---------------------------------------------------------------------------
+
+/// Represents a titled item with its child items grouped beneath it.
+struct GroupedItem<'a> {
+  parent: &'a ItemBlueprint,
+  children: Vec<&'a ItemBlueprint>,
+}
+
+/// Groups consecutive items where non-titled items belong to the preceding
+/// titled item. An item is considered "titled" if it has a non-empty title
+/// and its item_type is "item", "product", "member", or "stat".
+fn group_items<'a>(items: &'a [ItemBlueprint]) -> Vec<GroupedItem<'a>> {
+  let titled_types = ["item", "product", "member", "stat", "webhook"];
+  let child_types = ["label", "code", "action", "chip", "status", "link"];
+
+  let mut groups: Vec<GroupedItem<'a>> = Vec::new();
+
+  for item in items {
+    let is_titled = titled_types.contains(&item.item_type.as_str())
+      && !item.title.is_empty();
+    let is_child = child_types.contains(&item.item_type.as_str());
+
+    if is_titled {
+      groups.push(GroupedItem {
+        parent: item,
+        children: Vec::new(),
+      });
+    } else if is_child && !groups.is_empty() {
+      // Attach to the last titled item
+      groups.last_mut().unwrap().children.push(item);
+    } else {
+      // Standalone item (no parent to attach to, or non-child type)
+      groups.push(GroupedItem {
+        parent: item,
+        children: Vec::new(),
+      });
+    }
+  }
+
+  groups
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -88,13 +132,18 @@ fn emit_structural_config(config: &HashMap<String, String>) -> String {
 }
 
 /// Formats a `HashMap<String, String>` as inline `key:value` pairs.
-/// Keys are sorted for deterministic output.
+/// Keys are sorted for deterministic output. Excludes internal keys prefixed with `_`.
 fn emit_config_pairs(config: &HashMap<String, String>) -> String {
   if config.is_empty() {
     return String::new();
   }
-  let mut keys: Vec<&String> = config.keys().collect();
+  let mut keys: Vec<&String> = config.keys()
+    .filter(|k| !k.starts_with('_'))
+    .collect();
   keys.sort();
+  if keys.is_empty() {
+    return String::new();
+  }
   keys
     .iter()
     .map(|k| {
@@ -112,6 +161,72 @@ fn emit_config_pairs(config: &HashMap<String, String>) -> String {
 /// Wraps `text` in double-quotes after escaping.
 fn quoted(s: &str) -> String {
   format!("\"{}\"", escape_cronus(s))
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard pattern detection helpers
+// ---------------------------------------------------------------------------
+
+/// Detect if items contain progress-bar-like entries (usage meters).
+fn has_progress_items(items: &[ItemBlueprint]) -> bool {
+  items.iter().any(|i| {
+    i.item_type == "meter"
+      || i.config.get("_type").map(|t| t == "meter").unwrap_or(false)
+      || i.config.contains_key("progress")
+      || i.config.contains_key("usage")
+      || i.config.contains_key("limit")
+  })
+}
+
+/// Detect if items look like stat values + labels (billing stats).
+fn has_stat_items(items: &[ItemBlueprint]) -> bool {
+  items.iter().any(|i| i.item_type == "stat")
+}
+
+/// Detect if items are card entries with prices (product grid).
+fn has_price_items(items: &[ItemBlueprint]) -> bool {
+  items.iter().any(|i| {
+    i.item_type == "product"
+      || i.config.contains_key("price")
+  })
+}
+
+/// Detect if items are member-like (name + email + role).
+fn has_member_items(items: &[ItemBlueprint]) -> bool {
+  items.iter().any(|i| {
+    i.item_type == "member"
+      || i.config.contains_key("email")
+      || i.config.contains_key("role")
+  })
+}
+
+/// Detect if items are row-based with columns config (activity table).
+fn has_table_rows(bp: &SectionBlueprint) -> bool {
+  bp.config.contains_key("columns")
+    && bp.items.iter().any(|i| i.item_type == "row")
+}
+
+/// Detect if items are form fields.
+fn has_form_fields(items: &[ItemBlueprint]) -> bool {
+  items.iter().filter(|i| {
+    i.item_type == "field"
+      || i.config.get("_type").map(|t| t == "field").unwrap_or(false)
+  }).count() >= 2
+}
+
+/// Detect if section looks like a current-plan card (badge + title + rows).
+fn is_plan_style(bp: &SectionBlueprint) -> bool {
+  bp.config.contains_key("badge")
+    && bp.title.is_some()
+    && bp.items.iter().any(|i| i.item_type == "row")
+}
+
+/// Detect bento/features pattern: many items without a specific _type.
+fn is_bento_style(items: &[ItemBlueprint]) -> bool {
+  let generic_count = items.iter()
+    .filter(|i| i.item_type == "item" && i.description.is_some())
+    .count();
+  generic_count >= 3
 }
 
 // ---------------------------------------------------------------------------
@@ -168,15 +283,16 @@ pub fn emit_cronus(file: &CronusFile) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Section emitter — dispatches by section_type
+// Section emitter — dispatches by section_type with dashboard detection
 // ---------------------------------------------------------------------------
 
 fn emit_section(bp: &SectionBlueprint, ind: usize) -> String {
   let mut out = String::new();
   let prefix = indent(ind);
 
-  // Section opening line: section <type> [structural config only] {
   let section_type = bp.section_type.to_lowercase();
+
+  // Build the section opening line with structural config inlined
   let cfg = emit_structural_config(&bp.config);
   if cfg.is_empty() {
     out.push_str(&format!("{}section {} {{\n", prefix, section_type));
@@ -186,14 +302,23 @@ fn emit_section(bp: &SectionBlueprint, ind: usize) -> String {
 
   let inner = ind + 1;
 
+  // Route to the appropriate body emitter based on section type,
+  // with fallback dashboard pattern detection for generic sections
   match section_type.as_str() {
     "topbar" => emit_topbar_body(bp, inner, &mut out),
     "hero" => emit_hero_body(bp, inner, &mut out),
     "features" => emit_features_body(bp, inner, &mut out),
-    "stats" => emit_stats_body(bp, inner, &mut out),
+    "stats" | "stat-cards" | "billing-stats" => emit_stats_body(bp, inner, &mut out),
     "cta" => emit_cta_body(bp, inner, &mut out),
     "footer" => emit_footer_body(bp, inner, &mut out),
-    _ => emit_generic_body(bp, inner, &mut out),
+    "terminal" => emit_terminal_body(bp, inner, &mut out),
+    "sidebar" => emit_sidebar_body(bp, inner, &mut out),
+    "page-header" => emit_page_header_body(bp, inner, &mut out),
+    "product-grid" => emit_product_grid_body(bp, inner, &mut out),
+    "team-list" => emit_team_list_body(bp, inner, &mut out),
+    "card" => emit_card_body(bp, inner, &mut out),
+    "info-panel" | "status-card" | "promo" | "links" => emit_info_panel_body(bp, inner, &mut out),
+    _ => emit_detected_body(bp, inner, &mut out),
   }
 
   out.push_str(&format!("{}}}\n", prefix));
@@ -201,7 +326,34 @@ fn emit_section(bp: &SectionBlueprint, ind: usize) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Section body emitters
+// Detected body — tries to detect dashboard patterns before falling back
+// ---------------------------------------------------------------------------
+
+fn emit_detected_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  // Try dashboard pattern detection on generic sections
+  if is_plan_style(bp) {
+    emit_plan_style_body(bp, ind, out);
+  } else if has_table_rows(bp) {
+    emit_activity_table_body(bp, ind, out);
+  } else if has_form_fields(&bp.items) {
+    emit_form_body(bp, ind, out);
+  } else if has_progress_items(&bp.items) {
+    emit_usage_status_body(bp, ind, out);
+  } else if has_stat_items(&bp.items) {
+    emit_stats_body(bp, ind, out);
+  } else if has_price_items(&bp.items) {
+    emit_product_grid_body(bp, ind, out);
+  } else if has_member_items(&bp.items) {
+    emit_team_list_body(bp, ind, out);
+  } else if is_bento_style(&bp.items) {
+    emit_bento_body(bp, ind, out);
+  } else {
+    emit_generic_body(bp, ind, out);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Section body emitters — original types
 // ---------------------------------------------------------------------------
 
 fn emit_topbar_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
@@ -269,8 +421,10 @@ fn emit_features_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
     }
   }
 
-  for item in &bp.items {
-    out.push_str(&emit_item(item, ind));
+  // Use grouped items for features (bento-style grouping)
+  let groups = group_items(&bp.items);
+  for group in &groups {
+    out.push_str(&emit_grouped_item(group, ind));
   }
 }
 
@@ -324,6 +478,418 @@ fn emit_footer_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// NEW section body emitters — dashboard types
+// ---------------------------------------------------------------------------
+
+fn emit_terminal_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+
+  if let Some(ref title) = bp.title {
+    if !title.is_empty() {
+      out.push_str(&format!("{}title {}\n", pre, quoted(title)));
+    }
+  }
+
+  for item in &bp.items {
+    out.push_str(&emit_item(item, ind));
+  }
+}
+
+/// Emit sidebar as a component block with proper nav-link routing.
+fn emit_sidebar_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+
+  // Brand
+  if let Some(brand) = bp.config.get("brand") {
+    out.push_str(&format!("{}brand {}\n", pre, quoted(brand)));
+  }
+
+  // Subtitle (e.g., "Enterprise")
+  if let Some(subtitle) = bp.config.get("subtitle") {
+    out.push_str(&format!("{}subtitle {}\n", pre, quoted(subtitle)));
+  } else if let Some(ref sub) = bp.subtitle {
+    if !sub.is_empty() {
+      out.push_str(&format!("{}subtitle {}\n", pre, quoted(sub)));
+    }
+  }
+
+  // Nav links with arrow syntax: item "Label" -> "/path" icon:X
+  for item in &bp.items {
+    match item.item_type.as_str() {
+      "nav-link" => {
+        let href = item.config.get("href").map(|s| s.as_str()).unwrap_or("#");
+        let icon = item.config.get("icon");
+        let mut line = format!("{}item {} -> {}", pre, quoted(&item.title), quoted(href));
+        if let Some(ic) = icon {
+          line.push_str(&format!(" icon:{}", ic));
+        }
+        line.push('\n');
+        out.push_str(&line);
+      }
+      "action" => {
+        out.push_str(&emit_action_line(item, ind));
+      }
+      _ => {
+        out.push_str(&emit_item(item, ind));
+      }
+    }
+  }
+}
+
+/// Emit page-header with title, subtitle, and action buttons.
+fn emit_page_header_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+
+  if let Some(ref title) = bp.title {
+    if !title.is_empty() {
+      out.push_str(&format!("{}title {}\n", pre, quoted(title)));
+    }
+  }
+  if let Some(ref subtitle) = bp.subtitle {
+    if !subtitle.is_empty() {
+      out.push_str(&format!("{}subtitle {}\n", pre, quoted(subtitle)));
+    }
+  }
+
+  // Actions with icon inline
+  for item in &bp.items {
+    out.push_str(&emit_item(item, ind));
+  }
+}
+
+/// Emit product-grid with proper product blocks including price and status.
+fn emit_product_grid_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+
+  if let Some(ref title) = bp.title {
+    if !title.is_empty() {
+      out.push_str(&format!("{}title {}\n", pre, quoted(title)));
+    }
+  }
+
+  for item in &bp.items {
+    match item.item_type.as_str() {
+      "product" => emit_product_block(item, ind, out),
+      _ => out.push_str(&emit_item(item, ind)),
+    }
+  }
+}
+
+/// Emit a single product as a block with price, status, description.
+fn emit_product_block(item: &ItemBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+  let ipre = indent(ind + 1);
+
+  // Gather inline config (exclude inner-only keys)
+  let inner_keys = ["price", "price_interval", "status", "description", "_type"];
+  let mut inline_parts: Vec<String> = Vec::new();
+  let mut keys: Vec<&String> = item.config.keys()
+    .filter(|k| !inner_keys.contains(&k.as_str()))
+    .collect();
+  keys.sort();
+  for k in &keys {
+    inline_parts.push(format!("{}:{}", k, item.config[*k]));
+  }
+  let cfg_str = inline_parts.join(" ");
+
+  let has_inner = item.description.is_some()
+    || item.config.contains_key("price")
+    || item.config.contains_key("status");
+
+  if has_inner {
+    if cfg_str.is_empty() {
+      out.push_str(&format!("{}item {} {{\n", pre, quoted(&item.title)));
+    } else {
+      out.push_str(&format!("{}item {} {} {{\n", pre, quoted(&item.title), cfg_str));
+    }
+
+    if let Some(ref desc) = item.description {
+      if !desc.is_empty() {
+        out.push_str(&format!("{}{}\n", ipre, quoted(desc)));
+      }
+    }
+    if let Some(price) = item.config.get("price") {
+      let mut line = format!("{}price {}", ipre, quoted(price));
+      if let Some(interval) = item.config.get("price_interval") {
+        line.push_str(&format!(" interval:{}", quoted(interval)));
+      }
+      line.push('\n');
+      out.push_str(&line);
+    }
+    if let Some(status) = item.config.get("status") {
+      out.push_str(&format!("{}status {}\n", ipre, quoted(status)));
+    }
+
+    out.push_str(&format!("{}}}\n", pre));
+  } else {
+    if cfg_str.is_empty() {
+      out.push_str(&format!("{}item {}\n", pre, quoted(&item.title)));
+    } else {
+      out.push_str(&format!("{}item {} {}\n", pre, quoted(&item.title), cfg_str));
+    }
+  }
+}
+
+/// Emit team-list with member blocks including email, role, avatar.
+fn emit_team_list_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+
+  if let Some(ref title) = bp.title {
+    if !title.is_empty() {
+      out.push_str(&format!("{}title {}\n", pre, quoted(title)));
+    }
+  }
+
+  for item in &bp.items {
+    match item.item_type.as_str() {
+      "member" => emit_member_block(item, ind, out),
+      _ => out.push_str(&emit_item(item, ind)),
+    }
+  }
+}
+
+/// Emit a single member block with email, role, avatar.
+fn emit_member_block(item: &ItemBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+  let ipre = indent(ind + 1);
+
+  let has_detail = item.config.contains_key("email")
+    || item.config.contains_key("role")
+    || item.config.contains_key("avatar_src");
+
+  if has_detail {
+    out.push_str(&format!("{}member {} {{\n", pre, quoted(&item.title)));
+
+    if let Some(email) = item.config.get("email") {
+      out.push_str(&format!("{}email {}\n", ipre, quoted(email)));
+    }
+    if let Some(role) = item.config.get("role") {
+      out.push_str(&format!("{}role {}\n", ipre, quoted(role)));
+    }
+    if let Some(avatar) = item.config.get("avatar_src") {
+      let alt = item.config.get("avatar_alt").map(|s| s.as_str()).unwrap_or("");
+      out.push_str(&format!("{}avatar {} src:{}\n", ipre, quoted(alt), quoted(avatar)));
+    }
+
+    out.push_str(&format!("{}}}\n", pre));
+  } else {
+    out.push_str(&format!("{}member {}\n", pre, quoted(&item.title)));
+  }
+}
+
+/// Emit card body with grouped items (label + code + action under titled parent).
+fn emit_card_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+
+  if let Some(ref title) = bp.title {
+    if !title.is_empty() {
+      out.push_str(&format!("{}title {}\n", pre, quoted(title)));
+    }
+  }
+  if let Some(ref subtitle) = bp.subtitle {
+    if !subtitle.is_empty() {
+      out.push_str(&format!("{}subtitle {}\n", pre, quoted(subtitle)));
+    }
+  }
+
+  // Group child items under their parent card items
+  let groups = group_items(&bp.items);
+  for group in &groups {
+    out.push_str(&emit_grouped_item(group, ind));
+  }
+}
+
+/// Emit info-panel / status-card / promo / links body.
+fn emit_info_panel_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+
+  // Panel type annotation
+  if let Some(panel_type) = bp.config.get("panel_type") {
+    if panel_type != &bp.section_type {
+      out.push_str(&format!("{}# panel_type: {}\n", pre, panel_type));
+    }
+  }
+
+  if let Some(ref title) = bp.title {
+    if !title.is_empty() {
+      out.push_str(&format!("{}title {}\n", pre, quoted(title)));
+    }
+  }
+  if let Some(ref subtitle) = bp.subtitle {
+    if !subtitle.is_empty() {
+      out.push_str(&format!("{}subtitle {}\n", pre, quoted(subtitle)));
+    }
+  }
+
+  for item in &bp.items {
+    match item.item_type.as_str() {
+      "link" => {
+        let href = item.config.get("href").map(|s| s.as_str()).unwrap_or("#");
+        let icon = item.config.get("icon");
+        let mut line = format!("{}item {} -> {}", pre, quoted(&item.title), quoted(href));
+        if let Some(ic) = icon {
+          line.push_str(&format!(" icon:{}", ic));
+        }
+        line.push('\n');
+        out.push_str(&line);
+      }
+      "status" => {
+        let status = item.config.get("status").map(|s| s.as_str()).unwrap_or("unknown");
+        out.push_str(&format!("{}status {} state:{}\n", pre, quoted(&item.title), status));
+      }
+      _ => out.push_str(&emit_item(item, ind)),
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard pattern body emitters
+// ---------------------------------------------------------------------------
+
+/// Emit current-plan style: badge + title + rows.
+fn emit_plan_style_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+
+  if let Some(badge) = bp.config.get("badge") {
+    out.push_str(&format!("{}badge {}\n", pre, quoted(badge)));
+  }
+
+  if let Some(ref title) = bp.title {
+    if !title.is_empty() {
+      out.push_str(&format!("{}title {}\n", pre, quoted(title)));
+    }
+  }
+  if let Some(ref subtitle) = bp.subtitle {
+    if !subtitle.is_empty() {
+      out.push_str(&format!("{}subtitle {}\n", pre, quoted(subtitle)));
+    }
+  }
+
+  emit_cta_entries(bp, ind, out);
+
+  for item in &bp.items {
+    out.push_str(&emit_item(item, ind));
+  }
+}
+
+/// Emit activity-table style: columns config + row items.
+fn emit_activity_table_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+
+  if let Some(ref title) = bp.title {
+    if !title.is_empty() {
+      out.push_str(&format!("{}title {}\n", pre, quoted(title)));
+    }
+  }
+
+  // Emit columns definition
+  if let Some(columns) = bp.config.get("columns") {
+    out.push_str(&format!("{}columns {}\n", pre, quoted(columns)));
+  }
+
+  for item in &bp.items {
+    out.push_str(&emit_item(item, ind));
+  }
+}
+
+/// Emit form section: field items with labels.
+fn emit_form_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+
+  if let Some(ref title) = bp.title {
+    if !title.is_empty() {
+      out.push_str(&format!("{}title {}\n", pre, quoted(title)));
+    }
+  }
+  if let Some(ref subtitle) = bp.subtitle {
+    if !subtitle.is_empty() {
+      out.push_str(&format!("{}subtitle {}\n", pre, quoted(subtitle)));
+    }
+  }
+
+  // Group fields under parent items
+  let groups = group_items(&bp.items);
+  for group in &groups {
+    out.push_str(&emit_grouped_item(group, ind));
+  }
+}
+
+/// Emit usage-status style with progress/meter items.
+fn emit_usage_status_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+
+  if let Some(ref title) = bp.title {
+    if !title.is_empty() {
+      out.push_str(&format!("{}title {}\n", pre, quoted(title)));
+    }
+  }
+
+  for item in &bp.items {
+    if item.item_type == "meter" || item.config.contains_key("progress") {
+      emit_meter_item(item, ind, out);
+    } else {
+      out.push_str(&emit_item(item, ind));
+    }
+  }
+}
+
+/// Emit a meter/progress item.
+fn emit_meter_item(item: &ItemBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+  let ipre = indent(ind + 1);
+
+  let has_detail = item.config.contains_key("progress")
+    || item.config.contains_key("usage")
+    || item.config.contains_key("limit")
+    || item.description.is_some();
+
+  if has_detail {
+    out.push_str(&format!("{}meter {} {{\n", pre, quoted(&item.title)));
+
+    if let Some(ref desc) = item.description {
+      if !desc.is_empty() {
+        out.push_str(&format!("{}{}\n", ipre, quoted(desc)));
+      }
+    }
+    if let Some(progress) = item.config.get("progress") {
+      out.push_str(&format!("{}progress {}\n", ipre, progress));
+    }
+    if let Some(usage) = item.config.get("usage") {
+      out.push_str(&format!("{}usage {}\n", ipre, quoted(usage)));
+    }
+    if let Some(limit) = item.config.get("limit") {
+      out.push_str(&format!("{}limit {}\n", ipre, quoted(limit)));
+    }
+
+    out.push_str(&format!("{}}}\n", pre));
+  } else {
+    out.push_str(&format!("{}meter {}\n", pre, quoted(&item.title)));
+  }
+}
+
+/// Emit bento/features-style body with grouped items.
+fn emit_bento_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+
+  if let Some(ref title) = bp.title {
+    if !title.is_empty() {
+      out.push_str(&format!("{}title {}\n", pre, quoted(title)));
+    }
+  }
+  if let Some(ref subtitle) = bp.subtitle {
+    if !subtitle.is_empty() {
+      out.push_str(&format!("{}subtitle {}\n", pre, quoted(subtitle)));
+    }
+  }
+
+  // Group items for bento layout
+  let groups = group_items(&bp.items);
+  for group in &groups {
+    out.push_str(&emit_grouped_item(group, ind));
+  }
+}
+
 fn emit_generic_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
   let pre = indent(ind);
 
@@ -350,9 +916,72 @@ fn emit_generic_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
 
   emit_cta_entries(bp, ind, out);
 
-  for item in &bp.items {
-    out.push_str(&emit_item(item, ind));
+  // Use grouped items for richer output
+  let groups = group_items(&bp.items);
+  for group in &groups {
+    out.push_str(&emit_grouped_item(group, ind));
   }
+}
+
+// ---------------------------------------------------------------------------
+// Grouped item emitter
+// ---------------------------------------------------------------------------
+
+/// Emit a grouped item: parent with children nested inside a block.
+fn emit_grouped_item(group: &GroupedItem, ind: usize) -> String {
+  if group.children.is_empty() {
+    // No children — emit normally
+    return emit_item(group.parent, ind);
+  }
+
+  // Has children — emit as a block
+  let pre = indent(ind);
+  let ipre = indent(ind + 1);
+  let mut out = String::new();
+
+  // Inline config for parent (exclude inner-only keys)
+  let inner_keys = ["price", "action", "meta", "action_icon", "price_interval", "href", "_type"];
+  let mut inline_parts: Vec<String> = Vec::new();
+  let mut keys: Vec<&String> = group.parent.config.keys()
+    .filter(|k| !inner_keys.contains(&k.as_str()))
+    .collect();
+  keys.sort();
+  for k in &keys {
+    inline_parts.push(format!("{}:{}", k, group.parent.config[*k]));
+  }
+  let cfg_str = inline_parts.join(" ");
+
+  let keyword = match group.parent.item_type.as_str() {
+    "product" => "item",
+    "member" => "member",
+    "stat" => "metric",
+    "webhook" => "webhook",
+    _ => "item",
+  };
+
+  if cfg_str.is_empty() {
+    out.push_str(&format!("{}{} {} {{\n", pre, keyword, quoted(&group.parent.title)));
+  } else {
+    out.push_str(&format!("{}{} {} {} {{\n", pre, keyword, quoted(&group.parent.title), cfg_str));
+  }
+
+  // Parent description
+  if let Some(ref desc) = group.parent.description {
+    if !desc.is_empty() {
+      out.push_str(&format!("{}{}\n", ipre, quoted(desc)));
+    }
+  }
+
+  // Parent inner config (price, action, meta)
+  emit_item_inner_config(group.parent, ind + 1, &mut out);
+
+  // Children
+  for child in &group.children {
+    out.push_str(&emit_item(child, ind + 1));
+  }
+
+  out.push_str(&format!("{}}}\n", pre));
+  out
 }
 
 // ---------------------------------------------------------------------------
@@ -427,6 +1056,14 @@ fn emit_item(item: &ItemBlueprint, ind: usize) -> String {
     "policy" => emit_policy_line(item, ind),
     "action" => emit_action_line(item, ind),
     "metric" => emit_metric_block(item, ind),
+    "nav-link" => emit_nav_link(item, ind),
+    "stat" => emit_stat_item(item, ind),
+    "product" => emit_product_item(item, ind),
+    "member" => emit_member_item(item, ind),
+    "webhook" => emit_webhook_item(item, ind),
+    "link" => emit_link_item(item, ind),
+    "status" => emit_status_item(item, ind),
+    "meter" | "field" => emit_meter_or_field(item, ind),
     _ => emit_item_block(item, ind), // fallback: treat as generic item
   }
 }
@@ -440,12 +1077,18 @@ fn emit_item_block(item: &ItemBlueprint, ind: usize) -> String {
 
   // If item has href, emit as link item: item "Title" -> "href"
   if let Some(href) = item.config.get("href") {
-    out.push_str(&format!("{}item {} -> {}\n", pre, quoted(&item.title), quoted(href)));
+    let icon = item.config.get("icon");
+    let mut line = format!("{}item {} -> {}", pre, quoted(&item.title), quoted(href));
+    if let Some(ic) = icon {
+      line.push_str(&format!(" icon:{}", ic));
+    }
+    line.push('\n');
+    out.push_str(&line);
     return out;
   }
 
-  // Config pairs excluding inner-only keys and href
-  let inner_keys = ["price", "action", "meta", "action_icon", "price_interval", "href"];
+  // Config pairs excluding inner-only keys, href, and internal keys
+  let inner_keys = ["price", "action", "meta", "action_icon", "price_interval", "href", "_type"];
   let mut inline_cfg: Vec<String> = Vec::new();
   let mut keys: Vec<&String> = item.config.keys()
     .filter(|k| !inner_keys.contains(&k.as_str()))
@@ -591,8 +1234,10 @@ fn emit_row_block(item: &ItemBlueprint, ind: usize) -> String {
   let inner = ind + 1;
   let ipre = indent(inner);
 
-  // Emit each config pair as `key "value"` inside the row
-  let mut keys: Vec<&String> = item.config.keys().collect();
+  // Emit each config pair as `key "value"` inside the row (skip internal keys)
+  let mut keys: Vec<&String> = item.config.keys()
+    .filter(|k| !k.starts_with('_'))
+    .collect();
   keys.sort();
   for k in keys {
     out.push_str(&format!("{}{} {}\n", ipre, k, quoted(&item.config[k])));
@@ -624,11 +1269,11 @@ fn emit_action_line(item: &ItemBlueprint, ind: usize) -> String {
   let pre = indent(ind);
   let link = item.config.get("link").map(|s| s.as_str()).unwrap_or("#");
 
-  // Collect config pairs excluding "link" (emitted in arrow syntax)
+  // Collect config pairs excluding "link" and internal keys
   let mut extra: HashMap<&String, &String> = item
     .config
     .iter()
-    .filter(|(k, _)| k.as_str() != "link")
+    .filter(|(k, _)| k.as_str() != "link" && !k.starts_with('_'))
     .collect();
 
   let mut line = format!("{}action {} -> {}", pre, quoted(&item.title), quoted(link));
@@ -663,8 +1308,10 @@ fn emit_metric_block(item: &ItemBlueprint, ind: usize) -> String {
     }
   }
 
-  // Emit config inside metric block
-  let mut keys: Vec<&String> = item.config.keys().collect();
+  // Emit config inside metric block (skip internal keys)
+  let mut keys: Vec<&String> = item.config.keys()
+    .filter(|k| !k.starts_with('_'))
+    .collect();
   keys.sort();
   for k in keys {
     out.push_str(&format!("{}{} {}\n", ipre, k, quoted(&item.config[k])));
@@ -672,4 +1319,221 @@ fn emit_metric_block(item: &ItemBlueprint, ind: usize) -> String {
 
   out.push_str(&format!("{}}}\n", pre));
   out
+}
+
+// ---------------------------------------------------------------------------
+// NEW item emitters — dashboard-specific types
+// ---------------------------------------------------------------------------
+
+// -- nav-link: item "Label" -> "/path" icon:X
+fn emit_nav_link(item: &ItemBlueprint, ind: usize) -> String {
+  let pre = indent(ind);
+  let href = item.config.get("href").map(|s| s.as_str()).unwrap_or("#");
+  let icon = item.config.get("icon");
+  let mut line = format!("{}item {} -> {}", pre, quoted(&item.title), quoted(href));
+  if let Some(ic) = icon {
+    line.push_str(&format!(" icon:{}", ic));
+  }
+  line.push('\n');
+  line
+}
+
+// -- stat "LABEL" { "VALUE" }
+fn emit_stat_item(item: &ItemBlueprint, ind: usize) -> String {
+  let pre = indent(ind);
+  let ipre = indent(ind + 1);
+
+  if let Some(ref value) = item.description {
+    if !value.is_empty() {
+      let mut out = format!("{}metric {} {{\n", pre, quoted(&item.title));
+      out.push_str(&format!("{}{}\n", ipre, quoted(value)));
+      // Emit extra config
+      let mut keys: Vec<&String> = item.config.keys()
+        .filter(|k| !k.starts_with('_'))
+        .collect();
+      keys.sort();
+      for k in keys {
+        out.push_str(&format!("{}{} {}\n", ipre, k, quoted(&item.config[k])));
+      }
+      out.push_str(&format!("{}}}\n", pre));
+      return out;
+    }
+  }
+
+  let cfg = emit_config_pairs(&item.config);
+  if cfg.is_empty() {
+    format!("{}metric {}\n", pre, quoted(&item.title))
+  } else {
+    format!("{}metric {} {}\n", pre, quoted(&item.title), cfg)
+  }
+}
+
+// -- product "Name" { price "$29" status "Active" }
+fn emit_product_item(item: &ItemBlueprint, ind: usize) -> String {
+  let pre = indent(ind);
+  let ipre = indent(ind + 1);
+
+  let has_detail = item.description.is_some()
+    || item.config.contains_key("price")
+    || item.config.contains_key("status");
+
+  if has_detail {
+    // Inline config (exclude detail keys)
+    let detail_keys = ["price", "price_interval", "status", "_type"];
+    let mut inline: Vec<String> = Vec::new();
+    let mut keys: Vec<&String> = item.config.keys()
+      .filter(|k| !detail_keys.contains(&k.as_str()))
+      .collect();
+    keys.sort();
+    for k in &keys {
+      inline.push(format!("{}:{}", k, item.config[*k]));
+    }
+    let cfg_str = inline.join(" ");
+
+    let mut out = if cfg_str.is_empty() {
+      format!("{}item {} {{\n", pre, quoted(&item.title))
+    } else {
+      format!("{}item {} {} {{\n", pre, quoted(&item.title), cfg_str)
+    };
+
+    if let Some(ref desc) = item.description {
+      if !desc.is_empty() {
+        out.push_str(&format!("{}{}\n", ipre, quoted(desc)));
+      }
+    }
+    if let Some(price) = item.config.get("price") {
+      let mut line = format!("{}price {}", ipre, quoted(price));
+      if let Some(interval) = item.config.get("price_interval") {
+        line.push_str(&format!(" interval:{}", quoted(interval)));
+      }
+      line.push('\n');
+      out.push_str(&line);
+    }
+    if let Some(status) = item.config.get("status") {
+      out.push_str(&format!("{}status {}\n", ipre, quoted(status)));
+    }
+
+    out.push_str(&format!("{}}}\n", pre));
+    out
+  } else {
+    let cfg = emit_config_pairs(&item.config);
+    if cfg.is_empty() {
+      format!("{}item {}\n", pre, quoted(&item.title))
+    } else {
+      format!("{}item {} {}\n", pre, quoted(&item.title), cfg)
+    }
+  }
+}
+
+// -- member "Name" { email "x@y" role "Admin" }
+fn emit_member_item(item: &ItemBlueprint, ind: usize) -> String {
+  let pre = indent(ind);
+  let ipre = indent(ind + 1);
+
+  let has_detail = item.config.contains_key("email")
+    || item.config.contains_key("role")
+    || item.config.contains_key("avatar_src");
+
+  if has_detail {
+    let mut out = format!("{}member {} {{\n", pre, quoted(&item.title));
+
+    if let Some(email) = item.config.get("email") {
+      out.push_str(&format!("{}email {}\n", ipre, quoted(email)));
+    }
+    if let Some(role) = item.config.get("role") {
+      out.push_str(&format!("{}role {}\n", ipre, quoted(role)));
+    }
+    if let Some(avatar) = item.config.get("avatar_src") {
+      let alt = item.config.get("avatar_alt").map(|s| s.as_str()).unwrap_or("");
+      out.push_str(&format!("{}avatar {} src:{}\n", ipre, quoted(alt), quoted(avatar)));
+    }
+
+    out.push_str(&format!("{}}}\n", pre));
+    out
+  } else {
+    format!("{}member {}\n", pre, quoted(&item.title))
+  }
+}
+
+// -- webhook "https://..." { status "Active" "payment.created, ..." }
+fn emit_webhook_item(item: &ItemBlueprint, ind: usize) -> String {
+  let pre = indent(ind);
+  let ipre = indent(ind + 1);
+
+  let has_detail = item.config.contains_key("status") || item.description.is_some();
+
+  if has_detail {
+    let mut out = format!("{}webhook {} {{\n", pre, quoted(&item.title));
+
+    if let Some(status) = item.config.get("status") {
+      out.push_str(&format!("{}status {}\n", ipre, quoted(status)));
+    }
+    if let Some(ref desc) = item.description {
+      if !desc.is_empty() {
+        out.push_str(&format!("{}{}\n", ipre, quoted(desc)));
+      }
+    }
+
+    out.push_str(&format!("{}}}\n", pre));
+    out
+  } else {
+    format!("{}webhook {}\n", pre, quoted(&item.title))
+  }
+}
+
+// -- item "Text" -> "/link" icon:X  (for link-type items)
+fn emit_link_item(item: &ItemBlueprint, ind: usize) -> String {
+  let pre = indent(ind);
+  let href = item.config.get("href").map(|s| s.as_str()).unwrap_or("#");
+  let icon = item.config.get("icon");
+  let mut line = format!("{}item {} -> {}", pre, quoted(&item.title), quoted(href));
+  if let Some(ic) = icon {
+    line.push_str(&format!(" icon:{}", ic));
+  }
+  line.push('\n');
+  line
+}
+
+// -- status "All systems operational" state:operational
+fn emit_status_item(item: &ItemBlueprint, ind: usize) -> String {
+  let pre = indent(ind);
+  let cfg = emit_config_pairs(&item.config);
+  if cfg.is_empty() {
+    format!("{}status {}\n", pre, quoted(&item.title))
+  } else {
+    format!("{}status {} {}\n", pre, quoted(&item.title), cfg)
+  }
+}
+
+// -- meter "API Calls" { progress 75 usage "7,500" limit "10,000" }
+// -- field "Email" { ... }
+fn emit_meter_or_field(item: &ItemBlueprint, ind: usize) -> String {
+  let pre = indent(ind);
+  let ipre = indent(ind + 1);
+  let keyword = &item.item_type;
+
+  let has_detail = !item.config.is_empty() || item.description.is_some();
+
+  if has_detail {
+    let mut out = format!("{}{} {} {{\n", pre, keyword, quoted(&item.title));
+
+    if let Some(ref desc) = item.description {
+      if !desc.is_empty() {
+        out.push_str(&format!("{}{}\n", ipre, quoted(desc)));
+      }
+    }
+
+    let mut keys: Vec<&String> = item.config.keys()
+      .filter(|k| !k.starts_with('_'))
+      .collect();
+    keys.sort();
+    for k in keys {
+      out.push_str(&format!("{}{} {}\n", ipre, k, quoted(&item.config[k])));
+    }
+
+    out.push_str(&format!("{}}}\n", pre));
+    out
+  } else {
+    format!("{}{} {}\n", pre, keyword, quoted(&item.title))
+  }
 }

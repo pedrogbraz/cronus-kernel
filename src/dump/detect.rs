@@ -42,7 +42,15 @@ pub fn detect_sections(nodes: &[DomNode]) -> Vec<SectionBlueprint> {
         let (section_type, confidence) = patterns::classify_node(node);
 
         if confidence <= 0.3 {
-            // Below threshold -- still emit a generic section so no text is lost
+            // Below threshold -- try splitting large blocks into sub-blocks
+            if should_split_block(node) {
+                let sub_sections = split_and_detect(node);
+                if !sub_sections.is_empty() {
+                    sections.extend(sub_sections);
+                    continue;
+                }
+            }
+            // Still emit a generic section so no text is lost
             let generic = extract_generic(node);
             if generic.title.is_some() || !generic.items.is_empty() {
                 sections.push(generic);
@@ -79,6 +87,74 @@ pub fn detect_sections(nodes: &[DomNode]) -> Vec<SectionBlueprint> {
     // Sort sections for dashboard pages: sidebar/topbar first, footer last,
     // page-header before content sections.
     sort_dashboard_sections(&mut sections);
+
+    sections
+}
+
+/// Check if a block is large enough to warrant splitting into sub-blocks.
+/// A block with many children and deep nesting is a candidate.
+fn should_split_block(node: &DomNode) -> bool {
+    // At least 3 direct children (so there's something to split)
+    if node.children.len() < 3 {
+        return false;
+    }
+    // Count total descendants to gauge block size
+    let desc_count = count_descendants(node);
+    desc_count > 15
+}
+
+/// Count all descendants of a node.
+fn count_descendants(node: &DomNode) -> usize {
+    let mut count = node.children.len();
+    for child in &node.children {
+        count += count_descendants(child);
+    }
+    count
+}
+
+/// Split a large generic block into sub-blocks and detect each one.
+fn split_and_detect(node: &DomNode) -> Vec<SectionBlueprint> {
+    let mut sections = Vec::new();
+
+    for child in &node.children {
+        // Skip empty/trivial children
+        if child.full_text.trim().is_empty() && child.children.is_empty() {
+            continue;
+        }
+
+        let (child_type, child_confidence) = patterns::classify_node(child);
+
+        if child_confidence > 0.3 {
+            // This child classifies as something specific
+            let blueprint = match child_type {
+                "topbar" => extract_topbar(child),
+                "hero" => extract_hero(child),
+                "features" => extract_features(child),
+                "stats" => extract_stats(child),
+                "cta" => extract_cta(child),
+                "footer" => extract_footer(child),
+                "terminal" => extract_terminal(child),
+                "sidebar" => extract_sidebar(child),
+                "page-header" => extract_page_header(child),
+                "stat-cards" => extract_stat_cards(child),
+                "product-grid" => extract_product_grid(child),
+                "team-list" => extract_team_list(child),
+                "card" => extract_content_card(child),
+                "info-panel" => extract_info_panel(child),
+                _ => extract_generic(child),
+            };
+            let mut blueprint = blueprint;
+            blueprint.confidence = child_confidence;
+            blueprint.section_type = child_type.to_string();
+            sections.push(blueprint);
+        } else {
+            // Generic child — still extract it if it has content
+            let generic = extract_generic(child);
+            if generic.title.is_some() || !generic.items.is_empty() {
+                sections.push(generic);
+            }
+        }
+    }
 
     sections
 }
@@ -2259,7 +2335,7 @@ fn find_status_text(node: &DomNode) -> Option<String> {
 }
 
 // ---------------------------------------------------------------------------
-// Extraction: generic (fallback)
+// Extraction: generic (fallback) — smart dashboard element detection
 // ---------------------------------------------------------------------------
 
 fn extract_generic(node: &DomNode) -> SectionBlueprint {
@@ -2268,12 +2344,102 @@ fn extract_generic(node: &DomNode) -> SectionBlueprint {
     let title = dom::find_heading(node);
     let subtitle = dom::find_paragraph(node);
 
-    // All headings as items (cleaned of material-symbols text)
-    let heading_tags = ["h1", "h2", "h3", "h4", "h5", "h6"];
-    for tag in &heading_tags {
-        let headings = dom::find_by_tag(node, tag);
-        for h in headings {
-            let text = dom::clean_node_text(h);
+    // 1. Cards: rounded containers with headings (dashboard cards, settings panels)
+    let card_items = extract_card_items(node);
+    if !card_items.is_empty() {
+        items.extend(card_items);
+    }
+
+    // 2. Tables: <table> or structured div grids with consistent rows
+    let (table_title, table_items) = extract_table_items(node);
+    if !table_items.is_empty() {
+        items.extend(table_items);
+    }
+
+    // 3. Form fields: <label> + <input>/<select> pairs
+    let form_items = extract_form_items(node);
+    if !form_items.is_empty() {
+        items.extend(form_items);
+    }
+
+    // 4. Stat cards: small cards with big number + small label
+    let stat_items = extract_inline_stat_items(node);
+    if !stat_items.is_empty() {
+        items.extend(stat_items);
+    }
+
+    // 5. Progress bars: divs with percentage width children
+    let progress_items = extract_progress_items(node);
+    if !progress_items.is_empty() {
+        items.extend(progress_items);
+    }
+
+    // 6. Status indicators: colored dots + text
+    let status_items = extract_status_indicator_items(node);
+    if !status_items.is_empty() {
+        items.extend(status_items);
+    }
+
+    // 7. Badge/pills: rounded-full + small text + uppercase
+    let badge_items = extract_badge_items(node);
+    if !badge_items.is_empty() {
+        items.extend(badge_items);
+    }
+
+    // 8. Code/mono text blocks
+    let code_items = extract_code_items(node);
+    if !code_items.is_empty() {
+        items.extend(code_items);
+    }
+
+    // 9. Buttons/actions
+    let buttons = extract_clean_buttons(node);
+    for btn in &buttons {
+        if !btn.is_empty() {
+            let mut btn_config: HashMap<String, String> = HashMap::new();
+            // Try to find icon on the button
+            let btn_nodes = dom::find_by_tag(node, "button");
+            for bn in &btn_nodes {
+                let btn_text = clean_button_text(bn);
+                if btn_text == *btn {
+                    if let Some(icon) = extract_material_icon(bn) {
+                        btn_config.insert("icon".into(), icon);
+                    }
+                    break;
+                }
+            }
+            items.push(ItemBlueprint {
+                item_type: "action".into(),
+                title: btn.clone(),
+                description: None,
+                config: btn_config,
+            });
+        }
+    }
+
+    // 10. Fallback: headings + paragraphs + links + images not already captured
+    if items.is_empty() {
+        // Headings (cleaned of material-symbols text)
+        let heading_tags = ["h1", "h2", "h3", "h4", "h5", "h6"];
+        for tag in &heading_tags {
+            let headings = dom::find_by_tag(node, tag);
+            for h in headings {
+                let text = dom::clean_node_text(h);
+                if !text.is_empty() {
+                    items.push(ItemBlueprint {
+                        item_type: "item".into(),
+                        title: text,
+                        description: None,
+                        config: HashMap::new(),
+                    });
+                }
+            }
+        }
+
+        // Paragraphs
+        let paragraphs = dom::find_by_tag(node, "p");
+        for p in paragraphs {
+            let text = dom::clean_node_text(p);
             if !text.is_empty() {
                 items.push(ItemBlueprint {
                     item_type: "item".into(),
@@ -2283,67 +2449,963 @@ fn extract_generic(node: &DomNode) -> SectionBlueprint {
                 });
             }
         }
-    }
 
-    // All paragraphs (cleaned of material-symbols text)
-    let paragraphs = dom::find_by_tag(node, "p");
-    for p in paragraphs {
-        let text = dom::clean_node_text(p);
-        if !text.is_empty() {
+        // Links
+        let links = dom::extract_links(node);
+        for (text, href) in links {
+            let mut link_config = HashMap::new();
+            link_config.insert("href".into(), href);
             items.push(ItemBlueprint {
-                item_type: "item".into(),
+                item_type: "link".into(),
                 title: text,
                 description: None,
-                config: HashMap::new(),
+                config: link_config,
+            });
+        }
+
+        // Images
+        let images = dom::extract_images(node);
+        for (alt, src) in images {
+            let mut img_config = HashMap::new();
+            img_config.insert("src".into(), src);
+            items.push(ItemBlueprint {
+                item_type: "image".into(),
+                title: alt,
+                description: None,
+                config: img_config,
             });
         }
     }
 
-    // All links
-    let links = dom::extract_links(node);
-    for (text, href) in links {
-        let mut link_config = HashMap::new();
-        link_config.insert("href".into(), href);
-        items.push(ItemBlueprint {
-            item_type: "item".into(),
-            title: text,
-            description: None,
-            config: link_config,
-        });
-    }
-
-    // All buttons
-    let buttons = dom::extract_buttons(node);
-    for btn in buttons {
-        items.push(ItemBlueprint {
-            item_type: "item".into(),
-            title: btn,
-            description: None,
-            config: HashMap::new(),
-        });
-    }
-
-    // All images
-    let images = dom::extract_images(node);
-    for (alt, src) in images {
-        let mut img_config = HashMap::new();
-        img_config.insert("src".into(), src);
-        items.push(ItemBlueprint {
-            item_type: "image".into(),
-            title: alt,
-            description: None,
-            config: img_config,
-        });
-    }
+    // Use table title as section title if we found one and had no heading
+    let final_title = title.or(table_title);
 
     SectionBlueprint {
         section_type: "generic".into(),
         confidence: 0.0,
-        title,
+        title: final_title,
         subtitle,
         config: HashMap::new(),
         items,
     }
+}
+
+// ---------------------------------------------------------------------------
+// Card extraction: rounded containers with headings
+// ---------------------------------------------------------------------------
+
+/// Extract card-like elements from a node. Cards are divs with border/rounded/shadow
+/// that contain a heading (h3/h4) and inner content.
+fn extract_card_items(node: &DomNode) -> Vec<ItemBlueprint> {
+    let mut items = Vec::new();
+
+    // Collect card-like direct children
+    let card_nodes = find_card_like_children(node);
+    if card_nodes.is_empty() {
+        return items;
+    }
+
+    for card in &card_nodes {
+        let card_title = find_heading_by_tag(card, "h3")
+            .or_else(|| find_heading_by_tag(card, "h4"))
+            .or_else(|| find_heading_by_tag(card, "h2"))
+            .unwrap_or_default();
+
+        let card_desc = dom::find_paragraph(card);
+
+        // Skip cards with no discernible content
+        if card_title.is_empty() && card_desc.is_none() {
+            continue;
+        }
+
+        let mut card_config: HashMap<String, String> = HashMap::new();
+        card_config.insert("_type".into(), "card".into());
+
+        // Detect dark card style
+        if dom::has_class(card, "bg-black") || dom::has_class(card, "bg-primary")
+            || dom::has_class(card, "bg-surface-container-highest")
+        {
+            card_config.insert("style".into(), "dark".into());
+        }
+
+        // Extract material icon
+        if let Some(icon) = extract_material_icon(card) {
+            card_config.insert("icon".into(), icon);
+        }
+
+        // Extract status badge inside card
+        if let Some(badge) = find_status_badge(card) {
+            card_config.insert("status".into(), badge);
+        }
+
+        items.push(ItemBlueprint {
+            item_type: "card".into(),
+            title: card_title,
+            description: card_desc,
+            config: card_config,
+        });
+
+        // Extract child elements within the card: labels, code, buttons, badges
+        // Labels (font-mono small text)
+        let mono_nodes = dom::find_by_class(card, "font-mono");
+        for mono in &mono_nodes {
+            if mono.tag == "code" || mono.tag == "pre" || is_material_icon_span(mono) {
+                continue;
+            }
+            let is_small = dom::has_class(mono, "text-xs") || dom::has_class(mono, "text-sm")
+                || mono.classes.iter().any(|c| c.contains("text-["));
+            if !is_small {
+                continue;
+            }
+            let label_text = mono.full_text.trim().to_string();
+            if !label_text.is_empty() && label_text.len() < 80 {
+                let mut label_config: HashMap<String, String> = HashMap::new();
+                label_config.insert("style".into(), "mono".into());
+                label_config.insert("role".into(), "child".into());
+                items.push(ItemBlueprint {
+                    item_type: "label".into(),
+                    title: label_text,
+                    description: None,
+                    config: label_config,
+                });
+            }
+        }
+
+        // Code blocks inside card
+        let code_els = dom::find_by_tag(card, "code");
+        for code_el in code_els {
+            let code_text = code_el.full_text.trim().to_string();
+            if !code_text.is_empty() {
+                let mut code_config: HashMap<String, String> = HashMap::new();
+                code_config.insert("role".into(), "child".into());
+                items.push(ItemBlueprint {
+                    item_type: "code".into(),
+                    title: code_text,
+                    description: None,
+                    config: code_config,
+                });
+            }
+        }
+
+        // Action buttons inside card
+        let card_buttons = extract_clean_buttons(card);
+        for btn in &card_buttons {
+            if !btn.is_empty() {
+                let mut btn_config: HashMap<String, String> = HashMap::new();
+                btn_config.insert("role".into(), "child".into());
+                items.push(ItemBlueprint {
+                    item_type: "action".into(),
+                    title: btn.clone(),
+                    description: None,
+                    config: btn_config,
+                });
+            }
+        }
+
+        // Form fields inside card
+        let card_fields = extract_form_items(card);
+        for field in card_fields {
+            let mut field_with_role = field;
+            field_with_role.config.insert("role".into(), "child".into());
+            items.push(field_with_role);
+        }
+    }
+
+    items
+}
+
+/// Find direct children that look like cards (div with border/rounded/shadow + heading).
+fn find_card_like_children(node: &DomNode) -> Vec<&DomNode> {
+    let mut cards = Vec::new();
+
+    // Check direct children
+    for child in &node.children {
+        if is_card_like(child) {
+            cards.push(child);
+            continue;
+        }
+        // Check one level deeper (wrapper div)
+        for grandchild in &child.children {
+            if is_card_like(grandchild) {
+                cards.push(grandchild);
+            }
+        }
+    }
+
+    // Also check grid containers
+    if cards.is_empty() {
+        if let Some(gc) = find_grid_container(node) {
+            for child in &gc.children {
+                if is_card_like(child) || dom::find_heading(child).is_some() {
+                    cards.push(child);
+                }
+            }
+        }
+    }
+
+    cards
+}
+
+/// Check if a node looks like a card (has border/rounded/shadow + contains a heading).
+fn is_card_like(node: &DomNode) -> bool {
+    if node.tag != "div" && node.tag != "article" && node.tag != "section" {
+        return false;
+    }
+    let has_card_class = dom::has_class(node, "rounded")
+        || dom::has_class(node, "border")
+        || dom::has_class(node, "shadow")
+        || dom::has_class(node, "card")
+        || dom::has_class(node, "ghost-border");
+
+    if !has_card_class {
+        return false;
+    }
+
+    // Must contain a heading or substantial text content
+    dom::find_heading(node).is_some()
+        || dom::find_paragraph(node).is_some()
+        || !node.full_text.trim().is_empty()
+}
+
+// ---------------------------------------------------------------------------
+// Table extraction: <table> or structured div grids
+// ---------------------------------------------------------------------------
+
+/// Extract table items from a node. Returns optional caption and row items.
+fn extract_table_items(node: &DomNode) -> (Option<String>, Vec<ItemBlueprint>) {
+    let mut items = Vec::new();
+    let mut caption = None;
+
+    // Strategy 1: HTML <table> elements
+    let tables = dom::find_by_tag(node, "table");
+    for table in &tables {
+        // Caption from <caption> or preceding heading
+        let cap_nodes = dom::find_by_tag(table, "caption");
+        if let Some(cap) = cap_nodes.first() {
+            let txt = dom::clean_node_text(cap);
+            if !txt.is_empty() {
+                caption = Some(txt);
+            }
+        }
+
+        // Column headers from <thead> <th>
+        let mut columns: Vec<String> = Vec::new();
+        let thead_nodes = dom::find_by_tag(table, "thead");
+        if let Some(thead) = thead_nodes.first() {
+            let th_nodes = dom::find_by_tag(thead, "th");
+            for th in &th_nodes {
+                let txt = dom::clean_node_text(th);
+                columns.push(txt);
+            }
+        }
+
+        // If no thead, try first <tr> for headers
+        if columns.is_empty() {
+            let all_rows = dom::find_by_tag(table, "tr");
+            if let Some(first_row) = all_rows.first() {
+                let th_nodes = dom::find_by_tag(first_row, "th");
+                if !th_nodes.is_empty() {
+                    for th in &th_nodes {
+                        let txt = dom::clean_node_text(th);
+                        columns.push(txt);
+                    }
+                }
+            }
+        }
+
+        // Emit column header item
+        if !columns.is_empty() {
+            let mut header_config: HashMap<String, String> = HashMap::new();
+            header_config.insert("_type".into(), "table-header".into());
+            header_config.insert("columns".into(), columns.join(" | "));
+            items.push(ItemBlueprint {
+                item_type: "table-header".into(),
+                title: columns.join(" | "),
+                description: None,
+                config: header_config,
+            });
+        }
+
+        // Data rows from <tbody> <tr>
+        let tbody_nodes = dom::find_by_tag(table, "tbody");
+        let data_rows: Vec<&DomNode> = if let Some(tbody) = tbody_nodes.first() {
+            dom::find_by_tag(tbody, "tr")
+        } else {
+            // No tbody, use all tr except the first (header)
+            let all_rows = dom::find_by_tag(table, "tr");
+            if !columns.is_empty() && all_rows.len() > 1 {
+                all_rows.into_iter().skip(1).collect()
+            } else {
+                all_rows
+            }
+        };
+
+        for row in &data_rows {
+            let td_nodes = dom::find_by_tag(row, "td");
+            let cells: Vec<String> = td_nodes.iter()
+                .map(|td| dom::clean_node_text(td))
+                .collect();
+
+            if cells.is_empty() || cells.iter().all(|c| c.is_empty()) {
+                continue;
+            }
+
+            let mut row_config: HashMap<String, String> = HashMap::new();
+            row_config.insert("_type".into(), "row".into());
+
+            // Map cell values to column names if available
+            for (i, cell) in cells.iter().enumerate() {
+                if !cell.is_empty() {
+                    let key = if i < columns.len() && !columns[i].is_empty() {
+                        columns[i].clone()
+                    } else {
+                        format!("col_{}", i)
+                    };
+                    row_config.insert(key, cell.clone());
+                }
+            }
+
+            let row_title = cells.iter()
+                .find(|c| !c.is_empty())
+                .cloned()
+                .unwrap_or_default();
+
+            items.push(ItemBlueprint {
+                item_type: "row".into(),
+                title: row_title,
+                description: None,
+                config: row_config,
+            });
+        }
+    }
+
+    // Strategy 2: Structured divs with role="table" or consistent row patterns
+    if items.is_empty() {
+        let role_tables: Vec<&DomNode> = find_nodes_with_attr(node, "role", "table");
+        for rt in &role_tables {
+            let rows = find_nodes_with_attr(rt, "role", "row");
+            for row in &rows {
+                let cells = find_nodes_with_attr(row, "role", "cell");
+                let cell_texts: Vec<String> = cells.iter()
+                    .map(|c| dom::clean_node_text(c))
+                    .collect();
+
+                if cell_texts.is_empty() || cell_texts.iter().all(|c| c.is_empty()) {
+                    continue;
+                }
+
+                let mut row_config: HashMap<String, String> = HashMap::new();
+                row_config.insert("_type".into(), "row".into());
+                for (i, cell) in cell_texts.iter().enumerate() {
+                    if !cell.is_empty() {
+                        row_config.insert(format!("col_{}", i), cell.clone());
+                    }
+                }
+
+                items.push(ItemBlueprint {
+                    item_type: "row".into(),
+                    title: cell_texts.first().cloned().unwrap_or_default(),
+                    description: None,
+                    config: row_config,
+                });
+            }
+        }
+    }
+
+    (caption, items)
+}
+
+/// Find nodes with a specific attribute value, recursively.
+fn find_nodes_with_attr<'a>(node: &'a DomNode, attr: &str, value: &str) -> Vec<&'a DomNode> {
+    let mut results = Vec::new();
+    if node.attrs.get(attr).map(|v| v.as_str()) == Some(value) {
+        results.push(node);
+    }
+    for child in &node.children {
+        results.extend(find_nodes_with_attr(child, attr, value));
+    }
+    results
+}
+
+// ---------------------------------------------------------------------------
+// Form field extraction: <label> + <input>/<select> pairs
+// ---------------------------------------------------------------------------
+
+/// Extract form fields from a node. Finds <label> + <input>/<select> pairs.
+fn extract_form_items(node: &DomNode) -> Vec<ItemBlueprint> {
+    let mut items = Vec::new();
+
+    // Strategy 1: <label> elements with associated inputs
+    let labels = dom::find_by_tag(node, "label");
+    for label in &labels {
+        let label_text = dom::clean_node_text(label);
+        if label_text.is_empty() {
+            continue;
+        }
+
+        let mut field_config: HashMap<String, String> = HashMap::new();
+        field_config.insert("_type".into(), "field".into());
+
+        // Check for <input> or <select> inside the label
+        let mut found_input = false;
+        let inner_inputs = dom::find_by_tag(label, "input");
+        let inner_selects = dom::find_by_tag(label, "select");
+        let inner_textareas = dom::find_by_tag(label, "textarea");
+
+        for input in inner_inputs.iter().chain(inner_selects.iter()).chain(inner_textareas.iter()) {
+            found_input = true;
+            extract_input_attrs(input, &mut field_config);
+        }
+
+        // Check for sibling input via "for" attribute → id matching
+        if !found_input {
+            if let Some(for_attr) = label.attrs.get("for") {
+                if let Some(input) = find_node_by_id(node, for_attr) {
+                    found_input = true;
+                    extract_input_attrs(input, &mut field_config);
+                }
+            }
+        }
+
+        // Check for input as next sibling (common pattern: label followed by input)
+        if !found_input {
+            if let Some(input) = find_sibling_input(node, label) {
+                // found_input would be true here but not read again
+                extract_input_attrs(input, &mut field_config);
+            }
+        }
+
+        items.push(ItemBlueprint {
+            item_type: "field".into(),
+            title: label_text,
+            description: None,
+            config: field_config,
+        });
+    }
+
+    // Strategy 2: Input elements with placeholder text (no label)
+    if items.is_empty() {
+        let inputs = dom::find_by_tag(node, "input");
+        for input in &inputs {
+            let placeholder = input.attrs.get("placeholder").cloned().unwrap_or_default();
+            let input_type = input.attrs.get("type").cloned().unwrap_or_else(|| "text".into());
+            if placeholder.is_empty() && input_type == "hidden" {
+                continue;
+            }
+            let title = if !placeholder.is_empty() {
+                placeholder.clone()
+            } else {
+                format!("[{} input]", input_type)
+            };
+
+            let mut field_config: HashMap<String, String> = HashMap::new();
+            field_config.insert("_type".into(), "field".into());
+            extract_input_attrs(input, &mut field_config);
+
+            items.push(ItemBlueprint {
+                item_type: "field".into(),
+                title,
+                description: None,
+                config: field_config,
+            });
+        }
+    }
+
+    items
+}
+
+/// Extract useful attributes from an input/select/textarea node.
+fn extract_input_attrs(input: &DomNode, config: &mut HashMap<String, String>) {
+    if let Some(t) = input.attrs.get("type") {
+        config.insert("input_type".into(), t.clone());
+    }
+    if let Some(p) = input.attrs.get("placeholder") {
+        if !p.is_empty() {
+            config.insert("placeholder".into(), p.clone());
+        }
+    }
+    if let Some(v) = input.attrs.get("value") {
+        if !v.is_empty() {
+            config.insert("value".into(), v.clone());
+        }
+    }
+    if let Some(n) = input.attrs.get("name") {
+        if !n.is_empty() {
+            config.insert("name".into(), n.clone());
+        }
+    }
+    if input.attrs.contains_key("disabled") {
+        config.insert("disabled".into(), "true".into());
+    }
+    if input.attrs.contains_key("readonly") {
+        config.insert("readonly".into(), "true".into());
+    }
+    if input.tag == "select" {
+        // Extract <option> values
+        let options = dom::find_by_tag(input, "option");
+        let opt_texts: Vec<String> = options.iter()
+            .filter_map(|o| {
+                let txt = dom::clean_node_text(o);
+                if txt.is_empty() { None } else { Some(txt) }
+            })
+            .collect();
+        if !opt_texts.is_empty() {
+            config.insert("options".into(), opt_texts.join(", "));
+        }
+    }
+    if input.tag == "textarea" {
+        config.insert("input_type".into(), "textarea".into());
+    }
+}
+
+/// Find a node by its id attribute.
+fn find_node_by_id<'a>(node: &'a DomNode, id: &str) -> Option<&'a DomNode> {
+    if node.id.as_deref() == Some(id) {
+        return Some(node);
+    }
+    for child in &node.children {
+        if let Some(found) = find_node_by_id(child, id) {
+            return Some(found);
+        }
+    }
+    None
+}
+
+/// Find a sibling input/select/textarea element near a label.
+fn find_sibling_input<'a>(parent: &'a DomNode, label: &DomNode) -> Option<&'a DomNode> {
+    let mut found_label = false;
+    for child in &parent.children {
+        if std::ptr::eq(child, label) {
+            found_label = true;
+            continue;
+        }
+        if found_label {
+            if child.tag == "input" || child.tag == "select" || child.tag == "textarea" {
+                return Some(child);
+            }
+            // Check one level deeper (wrapper div around input)
+            for grandchild in &child.children {
+                if grandchild.tag == "input" || grandchild.tag == "select" || grandchild.tag == "textarea" {
+                    return Some(grandchild);
+                }
+            }
+        }
+    }
+    // Also check children of the parent recursively (label and input may be in
+    // separate wrapper divs at the same level)
+    for child in &parent.children {
+        if let Some(found) = find_sibling_input(child, label) {
+            return Some(found);
+        }
+    }
+    None
+}
+
+// ---------------------------------------------------------------------------
+// Inline stat card extraction
+// ---------------------------------------------------------------------------
+
+/// Extract stat cards that appear inline: small cards with a big number + small label.
+fn extract_inline_stat_items(node: &DomNode) -> Vec<ItemBlueprint> {
+    let mut items = Vec::new();
+
+    // Look for grid containers with stat-card-like children
+    let grid_nodes = dom::find_by_class(node, "grid-cols-");
+    for grid in &grid_nodes {
+        if std::ptr::eq(*grid, node) {
+            continue;
+        }
+
+        let mut candidates: Vec<ItemBlueprint> = Vec::new();
+        for child in &grid.children {
+            let large = find_large_text(child)
+                .or_else(|| find_stat_value(child));
+            let label = find_small_label(child)
+                .or_else(|| find_stat_label(child));
+
+            if let (Some(val), Some(lbl)) = (large, label) {
+                let mut config: HashMap<String, String> = HashMap::new();
+                config.insert("_type".into(), "stat".into());
+                config.insert("value".into(), val.clone());
+                candidates.push(ItemBlueprint {
+                    item_type: "stat".into(),
+                    title: lbl,
+                    description: Some(val),
+                    config,
+                });
+            }
+        }
+
+        if candidates.len() >= 2 {
+            items.extend(candidates);
+            return items; // Found stat group, done
+        }
+    }
+
+    items
+}
+
+// ---------------------------------------------------------------------------
+// Progress bar extraction
+// ---------------------------------------------------------------------------
+
+/// Extract progress bars: divs with an inner div that has a width percentage style.
+fn extract_progress_items(node: &DomNode) -> Vec<ItemBlueprint> {
+    let mut items = Vec::new();
+
+    // Look for elements with role="progressbar"
+    let progress_nodes = find_nodes_with_attr(node, "role", "progressbar");
+    for pn in &progress_nodes {
+        let value = pn.attrs.get("aria-valuenow")
+            .or_else(|| pn.attrs.get("aria-value"))
+            .cloned()
+            .unwrap_or_default();
+        let label = pn.attrs.get("aria-label")
+            .cloned()
+            .or_else(|| {
+                let parent = find_parent_of(node, pn);
+                parent.and_then(|p| dom::find_paragraph(p))
+            })
+            .unwrap_or_default();
+
+        let mut config: HashMap<String, String> = HashMap::new();
+        config.insert("_type".into(), "meter".into());
+        if !value.is_empty() {
+            config.insert("value".into(), value.clone());
+        }
+        items.push(ItemBlueprint {
+            item_type: "meter".into(),
+            title: label,
+            description: if value.is_empty() { None } else { Some(format!("{}%", value)) },
+            config,
+        });
+    }
+
+    // Look for <progress> HTML elements
+    let progress_els = dom::find_by_tag(node, "progress");
+    for pe in &progress_els {
+        let value = pe.attrs.get("value").cloned().unwrap_or_default();
+        let max = pe.attrs.get("max").cloned().unwrap_or_else(|| "100".into());
+
+        let mut config: HashMap<String, String> = HashMap::new();
+        config.insert("_type".into(), "meter".into());
+        if !value.is_empty() {
+            config.insert("value".into(), value.clone());
+            config.insert("max".into(), max);
+        }
+        items.push(ItemBlueprint {
+            item_type: "meter".into(),
+            title: String::new(),
+            description: if value.is_empty() { None } else { Some(format!("{}%", value)) },
+            config,
+        });
+    }
+
+    // Look for div-based progress bars (outer track + inner bar with width style)
+    if items.is_empty() {
+        find_div_progress_bars(node, &mut items);
+    }
+
+    items
+}
+
+/// Find div-based progress bars by looking for a container with bg-* + rounded
+/// that has an inner child with a style containing "width:" percentage.
+fn find_div_progress_bars(node: &DomNode, items: &mut Vec<ItemBlueprint>) {
+    // Check if this node is a progress bar track
+    let is_track = (dom::has_class(node, "bg-gray") || dom::has_class(node, "bg-neutral")
+        || dom::has_class(node, "bg-muted") || dom::has_class(node, "bg-surface"))
+        && dom::has_class(node, "rounded");
+
+    if is_track {
+        for child in &node.children {
+            if let Some(style) = child.attrs.get("style") {
+                if let Some(pct) = extract_width_percent(style) {
+                    let label = find_parent_of(node, node)
+                        .and_then(|p| dom::find_paragraph(p))
+                        .unwrap_or_default();
+
+                    let mut config: HashMap<String, String> = HashMap::new();
+                    config.insert("_type".into(), "meter".into());
+                    config.insert("progress".into(), pct.clone());
+
+                    items.push(ItemBlueprint {
+                        item_type: "meter".into(),
+                        title: label,
+                        description: Some(pct),
+                        config,
+                    });
+                    return;
+                }
+            }
+            // Also check Tailwind w-[] classes for percentage
+            for cls in &child.classes {
+                if cls.starts_with("w-[") && cls.contains('%') {
+                    let pct = cls.trim_start_matches("w-[").trim_end_matches(']').to_string();
+                    let mut config: HashMap<String, String> = HashMap::new();
+                    config.insert("_type".into(), "meter".into());
+                    config.insert("progress".into(), pct.clone());
+                    items.push(ItemBlueprint {
+                        item_type: "meter".into(),
+                        title: String::new(),
+                        description: Some(pct),
+                        config,
+                    });
+                    return;
+                }
+            }
+        }
+    }
+
+    // Recurse into children
+    for child in &node.children {
+        find_div_progress_bars(child, items);
+    }
+}
+
+/// Extract width percentage from an inline style string (e.g. "width: 75%").
+fn extract_width_percent(style: &str) -> Option<String> {
+    let lower = style.to_lowercase();
+    if let Some(pos) = lower.find("width") {
+        let after = &style[pos..];
+        if let Some(colon) = after.find(':') {
+            let val_part = after[colon + 1..].trim();
+            if val_part.contains('%') {
+                let pct: String = val_part.chars()
+                    .take_while(|c| c.is_ascii_digit() || *c == '.' || *c == '%')
+                    .collect();
+                if !pct.is_empty() {
+                    return Some(pct);
+                }
+            }
+        }
+    }
+    None
+}
+
+// ---------------------------------------------------------------------------
+// Status indicator extraction: colored dots + text
+// ---------------------------------------------------------------------------
+
+/// Extract status indicators: colored dots (rounded-full with bg-green/red/yellow) + text.
+fn extract_status_indicator_items(node: &DomNode) -> Vec<ItemBlueprint> {
+    let mut items = Vec::new();
+    find_status_indicators(node, &mut items);
+    items
+}
+
+fn find_status_indicators(node: &DomNode, items: &mut Vec<ItemBlueprint>) {
+    // Check if any child is a status dot
+    let dot_colors = [
+        ("bg-green-", "operational"),
+        ("bg-red-", "error"),
+        ("bg-yellow-", "warning"),
+        ("bg-orange-", "warning"),
+        ("bg-blue-", "info"),
+    ];
+
+    for child in &node.children {
+        if !dom::has_class(child, "rounded-full") {
+            continue;
+        }
+        // Tiny dot: w-2/w-3 h-2/h-3 with color bg
+        let is_dot = (dom::has_class(child, "w-2") || dom::has_class(child, "w-3")
+            || dom::has_class(child, "h-2") || dom::has_class(child, "h-3"))
+            && child.full_text.trim().is_empty();
+
+        if !is_dot {
+            continue;
+        }
+
+        // Determine the color/status
+        let mut status_type = "unknown";
+        for (cls, st) in &dot_colors {
+            if dom::has_class(child, cls) {
+                status_type = st;
+                break;
+            }
+        }
+
+        // Find the text sibling next to the dot
+        let mut found_dot = false;
+        for sibling in &node.children {
+            if std::ptr::eq(sibling, child) {
+                found_dot = true;
+                continue;
+            }
+            if found_dot {
+                let txt = dom::clean_node_text(sibling);
+                if !txt.is_empty() && txt.len() < 100 {
+                    let mut config: HashMap<String, String> = HashMap::new();
+                    config.insert("_type".into(), "status".into());
+                    config.insert("status".into(), status_type.to_string());
+                    items.push(ItemBlueprint {
+                        item_type: "status".into(),
+                        title: txt,
+                        description: None,
+                        config,
+                    });
+                    return;
+                }
+            }
+        }
+
+        // Fallback: get text from parent excluding the dot
+        let parent_text = dom::clean_node_text(node);
+        if !parent_text.is_empty() && parent_text.len() < 100 {
+            let mut config: HashMap<String, String> = HashMap::new();
+            config.insert("_type".into(), "status".into());
+            config.insert("status".into(), status_type.to_string());
+            items.push(ItemBlueprint {
+                item_type: "status".into(),
+                title: parent_text,
+                description: None,
+                config,
+            });
+            return;
+        }
+    }
+
+    // Recurse, but only if we haven't found anything yet at this level
+    if items.is_empty() {
+        for child in &node.children {
+            find_status_indicators(child, items);
+            if !items.is_empty() {
+                return;
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Badge/pill extraction
+// ---------------------------------------------------------------------------
+
+/// Extract badge/pill elements: rounded-full + small text + often uppercase.
+fn extract_badge_items(node: &DomNode) -> Vec<ItemBlueprint> {
+    let mut items = Vec::new();
+
+    let badge_nodes = dom::find_by_class(node, "rounded-full");
+    for badge in &badge_nodes {
+        // Skip buttons, links, avatars, traffic dots, material icons
+        if badge.tag == "button" || badge.tag == "a" || badge.tag == "img" {
+            continue;
+        }
+        if is_material_icon_span(badge) || is_traffic_light_dot(badge) || is_badge_dot(badge) {
+            continue;
+        }
+        // Must have small text
+        let is_small = dom::has_class(badge, "text-xs") || dom::has_class(badge, "text-sm")
+            || badge.classes.iter().any(|c| c.contains("text-["));
+        if !is_small {
+            continue;
+        }
+        let txt = extract_badge_text(badge);
+        if txt.is_empty() || txt.len() > 60 {
+            continue;
+        }
+        // Skip if it looks like a nav element
+        if badge.full_text.len() > 40 {
+            continue;
+        }
+
+        let mut config: HashMap<String, String> = HashMap::new();
+        config.insert("_type".into(), "badge".into());
+        if dom::has_class(badge, "uppercase") {
+            config.insert("style".into(), "uppercase".into());
+        }
+
+        items.push(ItemBlueprint {
+            item_type: "badge".into(),
+            title: txt,
+            description: None,
+            config,
+        });
+    }
+
+    items
+}
+
+// ---------------------------------------------------------------------------
+// Code/mono text extraction
+// ---------------------------------------------------------------------------
+
+/// Extract code/mono text blocks: elements with font-mono class or <code>/<pre> tags.
+fn extract_code_items(node: &DomNode) -> Vec<ItemBlueprint> {
+    let mut items = Vec::new();
+
+    // <pre> and <code> blocks
+    let pre_nodes = dom::find_by_tag(node, "pre");
+    for pre in &pre_nodes {
+        let txt = pre.full_text.trim().to_string();
+        if !txt.is_empty() {
+            let mut config: HashMap<String, String> = HashMap::new();
+            config.insert("_type".into(), "code".into());
+            items.push(ItemBlueprint {
+                item_type: "code".into(),
+                title: txt,
+                description: None,
+                config,
+            });
+        }
+    }
+
+    // Standalone <code> elements (not inside <pre>)
+    let code_nodes = dom::find_by_tag(node, "code");
+    for code in &code_nodes {
+        // Skip if parent is <pre> (already captured)
+        let is_in_pre = pre_nodes.iter().any(|pre| {
+            dom::find_by_tag(pre, "code").iter().any(|c| std::ptr::eq(*c, *code))
+        });
+        if is_in_pre {
+            continue;
+        }
+        let txt = code.full_text.trim().to_string();
+        if !txt.is_empty() && txt.len() < 500 {
+            let mut config: HashMap<String, String> = HashMap::new();
+            config.insert("_type".into(), "code".into());
+            config.insert("style".into(), "inline".into());
+            items.push(ItemBlueprint {
+                item_type: "code".into(),
+                title: txt,
+                description: None,
+                config,
+            });
+        }
+    }
+
+    // font-mono blocks that are NOT inside code/pre and NOT buttons or icons
+    let mono_nodes = dom::find_by_class(node, "font-mono");
+    for mono in &mono_nodes {
+        if mono.tag == "code" || mono.tag == "pre" || mono.tag == "button" {
+            continue;
+        }
+        if is_material_icon_span(mono) {
+            continue;
+        }
+        // Skip if already captured as code/pre content
+        let txt = mono.full_text.trim().to_string();
+        if txt.is_empty() || txt.len() > 500 {
+            continue;
+        }
+        // Check if this text is already in items
+        let already_exists = items.iter().any(|i| i.title == txt);
+        if already_exists {
+            continue;
+        }
+
+        let mut config: HashMap<String, String> = HashMap::new();
+        config.insert("_type".into(), "code".into());
+        config.insert("style".into(), "mono".into());
+        items.push(ItemBlueprint {
+            item_type: "code".into(),
+            title: txt,
+            description: None,
+            config,
+        });
+    }
+
+    items
 }
 
 // ---------------------------------------------------------------------------
