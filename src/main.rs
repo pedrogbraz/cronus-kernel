@@ -459,6 +459,43 @@ async fn handle_request(
     });
 
     if let Some(page) = page {
+        if let Some(source_path) = page.config.get("source") {
+            match std::fs::read_to_string(source_path) {
+                Ok(html) => {
+                    return Ok(html_response(html));
+                }
+                Err(err) => {
+                    let body = format!(
+                        r#"<div style="padding:40px">
+  <h1 style="font-size:16px;color:var(--foreground);margin-bottom:8px">Failed to load source HTML</h1>
+  <p style="font-size:13px;color:var(--foreground-muted);margin-bottom:8px">{}</p>
+  <code style="font-size:12px;color:var(--foreground-subtle)">{}</code>
+</div>"#,
+                        err, source_path
+                    );
+                    let html = ui::render_layout(app_name, &state.pages, accent, &body);
+                    return Ok(Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .header("Content-Type", "text/html; charset=utf-8")
+                        .body(Full::new(Bytes::from(html)))
+                        .unwrap());
+                }
+            }
+        }
+
+        if page.config.get("layout").map(|s| s.as_str()) == Some("light-app") {
+            let referenced: Vec<parser::ComponentNode> = if !page.components.is_empty() {
+                page.components.iter()
+                    .filter_map(|name| state.components.iter().find(|c| c.name == *name))
+                    .cloned()
+                    .collect()
+            } else {
+                state.components.clone()
+            };
+            let html = ui::render_light_app_page(app_name, &referenced);
+            return Ok(html_response(html));
+        }
+
         let mut body = ui::render_page(page, &state.entities, accent);
 
         // If page references components (via `use ComponentName`), render them
@@ -485,7 +522,14 @@ async fn handle_request(
             body.push_str(&ui::render_components_page(&state.components));
         }
 
-        let html = ui::render_layout(app_name, &state.pages, accent, &body);
+        // Landing/checkout pages use full-width layout, no sidebar
+        let is_landing = page.page_type == "checkout" || (page.page_type == "custom" && page.sections.iter().any(|s| s.section_type == "hero" || s.section_type == "topbar" || s.section_type == "checkout"));
+        let html = if is_landing {
+            let theme = state.style.as_ref().and_then(|s| s.theme.as_deref()).unwrap_or("dark");
+            ui::render_layout_landing(app_name, &body, theme)
+        } else {
+            ui::render_layout(app_name, &state.pages, accent, &body)
+        };
         return Ok(html_response(html));
     }
 

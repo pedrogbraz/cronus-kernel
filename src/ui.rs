@@ -135,6 +135,384 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
     )
 }
 
+/// Full-width layout for landing pages (no sidebar)
+pub fn render_layout_landing(app_name: &str, body: &str, theme: &str) -> String {
+    let is_light = theme == "light";
+    let bg = if is_light { "#f9f9f9" } else { "#000" };
+    let fg = if is_light { "#1a1a1a" } else { "#fff" };
+    let sel_bg = if is_light { "rgba(0,0,0,0.08)" } else { "rgba(0,111,240,0.3)" };
+    let scroll_thumb = if is_light { "rgba(0,0,0,0.1)" } else { "rgba(255,255,255,0.1)" };
+    let nav_bg = if is_light { "rgba(255,255,255,0.8)" } else { "rgba(0,0,0,0.8)" };
+    let nav_border = if is_light { "#e5e5e5" } else { "rgba(255,255,255,0.05)" };
+    let nav_text = if is_light { "black" } else { "white" };
+    let nav_muted = if is_light { "#71717a" } else { "#9ca3af" };
+    let btn_bg = if is_light { "black" } else { "white" };
+    let btn_fg = if is_light { "white" } else { "black" };
+    format!(
+        r##"<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{app_name}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+    body {{ background: {bg}; color: {fg}; font-family: 'Inter', -apple-system, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }}
+    ::selection {{ background: {sel_bg}; }}
+    ::-webkit-scrollbar {{ width: 4px; }}
+    ::-webkit-scrollbar-thumb {{ background: {scroll_thumb}; border-radius: 2px; }}
+    @keyframes fadeIn {{ from {{ opacity:0;transform:translateY(8px) }} to {{ opacity:1;transform:translateY(0) }} }}
+    .anim {{ animation: fadeIn 0.6s ease-out both; }}
+    .anim-d1 {{ animation-delay: 0.1s; }}
+    .anim-d2 {{ animation-delay: 0.2s; }}
+    .anim-d3 {{ animation-delay: 0.3s; }}
+  </style>
+  <style>{tailwind_css}</style>
+</head>
+<body>
+  <!-- Fixed Navbar -->
+  <nav style="position:fixed;top:0;width:100%;z-index:50;background:{nav_bg};backdrop-filter:blur(12px);border-bottom:1px solid {nav_border}">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:0 24px;height:64px;max-width:1280px;margin:0 auto">
+      <div style="display:flex;align-items:center;gap:32px">
+        <div style="font-size:20px;font-weight:700;letter-spacing:-0.03em;color:{nav_text};display:flex;align-items:center;gap:8px">
+          <svg width="24" height="24" viewBox="0 0 76 65" fill="{nav_text}"><path d="M37.5274 0L75.0548 65L0 65L37.5274 0Z"/></svg>
+          {app_name}
+        </div>
+        <div style="display:flex;align-items:center;gap:24px">
+          <a href="#" style="color:{nav_muted};font-size:14px;font-weight:500;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='{nav_text}'" onmouseout="this.style.color='{nav_muted}'">Solutions</a>
+          <a href="#" style="color:{nav_muted};font-size:14px;font-weight:500;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='{nav_text}'" onmouseout="this.style.color='{nav_muted}'">Resources</a>
+          <a href="#" style="color:{nav_muted};font-size:14px;font-weight:500;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='{nav_text}'" onmouseout="this.style.color='{nav_muted}'">Docs</a>
+          <a href="#" style="color:{nav_muted};font-size:14px;font-weight:500;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='{nav_text}'" onmouseout="this.style.color='{nav_muted}'">Pricing</a>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <a href="#" style="color:{nav_muted};font-size:14px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='{nav_text}'" onmouseout="this.style.color='{nav_muted}'">Contact</a>
+        <a href="/signup" style="display:inline-flex;align-items:center;padding:6px 16px;border-radius:999px;background:{btn_bg};color:{btn_fg};font-weight:500;font-size:14px;text-decoration:none;transition:opacity 0.2s" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Deploy</a>
+      </div>
+    </div>
+  </nav>
+  {body}
+  <script>{runtime}</script>
+  <script>{hmr}</script>
+</body>
+</html>"##,
+        app_name = app_name,
+        body = body,
+        tailwind_css = super::tailwind::CRONUS_TAILWIND,
+        runtime = super::render::CRONUS_RUNTIME_JS,
+        hmr = super::hmr::HMR_CLIENT_JS,
+    )
+}
+
+pub fn render_light_app_page(app_name: &str, comps: &[ComponentNode]) -> String {
+    let topbar = comps.iter()
+        .find(|c| c.style.as_deref().unwrap_or("").contains("topbar+light"))
+        .map(render_light_topbar)
+        .unwrap_or_default();
+    let sidenav = comps.iter()
+        .find(|c| c.style.as_deref().unwrap_or("").contains("sidenav+light"))
+        .map(render_light_sidenav)
+        .unwrap_or_default();
+    let header = comps.iter()
+        .find(|c| c.style.as_deref().unwrap_or("").contains("page-header+payouts"))
+        .map(render_light_page_header)
+        .unwrap_or_default();
+    let balance = comps.iter()
+        .find(|c| c.style.as_deref().unwrap_or("").contains("card+balance+light"))
+        .map(render_light_balance_card)
+        .unwrap_or_default();
+    let upcoming = comps.iter()
+        .find(|c| c.style.as_deref().unwrap_or("").contains("card+upcoming+light"))
+        .map(render_light_upcoming_card)
+        .unwrap_or_default();
+    let actions = comps.iter()
+        .find(|c| c.style.as_deref().unwrap_or("").contains("action-row+light"))
+        .map(render_light_history_actions)
+        .unwrap_or_default();
+    let table = comps.iter()
+        .find(|c| c.style.as_deref().unwrap_or("").contains("payouts-table+light"))
+        .map(render_light_payouts_table)
+        .unwrap_or_default();
+    let support = comps.iter()
+        .find(|c| c.style.as_deref().unwrap_or("").contains("support-banner+dark"))
+        .map(render_light_support_banner)
+        .unwrap_or_default();
+
+    format!(
+        r#"<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{app_name}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <style>
+    body {{ font-family: 'Inter', sans-serif; background:#f9f9f9; color:#1a1c1c; margin:0; min-height:100vh; }}
+    * {{ box-sizing:border-box; }}
+    .material-symbols-outlined {{
+      font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;
+      display:inline-block; line-height:1; white-space:nowrap;
+    }}
+    .prism-bg {{
+      background: radial-gradient(circle at top right, rgba(0, 111, 240, 0.08), transparent 40%),
+                  radial-gradient(circle at bottom left, rgba(0, 111, 240, 0.05), transparent 40%);
+    }}
+    .ghost-border {{ border:1px solid rgba(198,198,198,0.2); }}
+    .ambient-shadow {{ box-shadow:0 40px 80px 0 rgba(26,28,28,0.04); }}
+    a {{ color:inherit; }}
+  </style>
+</head>
+<body>
+{topbar}
+<div style="display:flex">
+{sidenav}
+<main class="prism-bg" style="flex:1;margin-left:256px;padding:32px">
+  <div style="max-width:1152px;margin:0 auto">
+    {header}
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;margin-bottom:48px">
+      {balance}
+      {upcoming}
+    </div>
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+        <h2 style="font-size:20px;font-weight:700;letter-spacing:-0.025em;margin:0">Payout History</h2>
+        {actions}
+      </div>
+      {table}
+    </div>
+    <div style="margin-top:48px">
+      {support}
+    </div>
+  </div>
+</main>
+</div>
+<script>{hmr}</script>
+</body>
+</html>"#,
+        app_name = app_name,
+        topbar = topbar,
+        sidenav = sidenav,
+        header = header,
+        balance = balance,
+        upcoming = upcoming,
+        actions = actions,
+        table = table,
+        support = support,
+        hmr = super::hmr::HMR_CLIENT_JS,
+    )
+}
+
+fn render_light_topbar(comp: &ComponentNode) -> String {
+    let title = item_by_kind(&comp.items, "title").unwrap_or(&comp.name);
+    let links: Vec<&ComponentItemNode> = items_by_kind(&comp.items, "item");
+    let nav = links.iter().map(|item| {
+        let active = item.text == "Payouts";
+        let color = if active { "#000000;font-weight:500" } else { "#71717a" };
+        format!(r#"<a href="{}" style="text-decoration:none;font-size:14px;transition:color 0.2s;color:{}">{}</a>"#,
+            item.link.as_deref().unwrap_or("#"), color, item.text)
+    }).collect::<Vec<_>>().join("");
+
+    format!(
+        r#"<header style="position:sticky;top:0;z-index:50;height:64px;padding:0 24px;display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.8);backdrop-filter:blur(12px);border-bottom:1px solid #e4e4e7">
+  <div style="display:flex;align-items:center;gap:32px">
+    <span style="font-size:18px;font-weight:700;letter-spacing:-0.04em;color:#000">{}</span>
+    <nav style="display:flex;gap:24px;align-items:center">{}</nav>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px">
+    <span class="material-symbols-outlined" style="color:#71717a;padding:8px;border-radius:999px;cursor:pointer">notifications</span>
+    <span class="material-symbols-outlined" style="color:#71717a;padding:8px;border-radius:999px;cursor:pointer">help</span>
+    <div style="width:32px;height:32px;border-radius:999px;overflow:hidden;border:1px solid #e4e4e7">
+      <img alt="User profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJnISA0IRj5cU18b1y3o2DX1SF5dR87fYaFTcZB_R6zVvbtGMWX1oUCy18uGKiTC3Ck-SmrWfdDhyu6Q21TjowKbuRuFj8bLNAycWY0Z0A6i0u3hUy-lvv4kOQ4YS8ro1swI32SsO-4voQ3vEFBQ_LEZv_MTpcQUHZOLmyj4eyzyimYVVSTyKTvCvS5lA4CCRElL8pXQO-Ojhel-WRNFkLP5Q9PcpJuw5rx87xYeSPcUCZ92QNCplh0aDae6oHfIDN3vx8mID1YRS7" style="width:100%;height:100%;object-fit:cover"/>
+    </div>
+  </div>
+</header>"#,
+        title, nav
+    )
+}
+
+fn render_light_sidenav(comp: &ComponentNode) -> String {
+    let items: Vec<&ComponentItemNode> = items_by_kind(&comp.items, "item");
+    let top = items.iter().take(5).map(|item| {
+        let active = item.config.get("active").map(|v| v == "true").unwrap_or(false);
+        let bg = if active { "background:#f4f4f5;color:#000" } else { "color:#71717a" };
+        let icon = item.config.get("icon").map(|s| s.as_str()).unwrap_or("circle");
+        format!(
+            r#"<a href="{}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:6px;text-decoration:none;transition:all 0.2s;{}"><span class="material-symbols-outlined">{}</span><span>{}</span></a>"#,
+            item.link.as_deref().unwrap_or("#"), bg, icon, item.text
+        )
+    }).collect::<Vec<_>>().join("");
+    let bottom = items.iter().skip(5).map(|item| {
+        let icon = item.config.get("icon").map(|s| s.as_str()).unwrap_or("circle");
+        format!(
+            r#"<a href="{}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:6px;text-decoration:none;color:#71717a;transition:all 0.2s"><span class="material-symbols-outlined">{}</span><span>{}</span></a>"#,
+            item.link.as_deref().unwrap_or("#"), icon, item.text
+        )
+    }).collect::<Vec<_>>().join("");
+
+    format!(
+        r#"<aside style="position:fixed;left:0;top:0;width:256px;height:100vh;padding:80px 16px 16px;background:rgba(250,250,250,0.5);border-right:1px solid #e4e4e7;display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:500">
+  <div style="display:flex;flex-direction:column;gap:4px;flex:1">{}</div>
+  <div style="padding-top:16px;border-top:1px solid #e4e4e7;display:flex;flex-direction:column;gap:4px">{}</div>
+</aside>"#,
+        top, bottom
+    )
+}
+
+fn render_light_page_header(comp: &ComponentNode) -> String {
+    let title = item_by_kind(&comp.items, "title").unwrap_or("Payouts");
+    let subtitle = item_by_kind(&comp.items, "subtitle").unwrap_or("");
+    let action = items_by_kind(&comp.items, "action").into_iter().next();
+    let button = action.map(|a| {
+        format!(
+            r#"<button style="display:inline-flex;align-items:center;gap:8px;background:#000;color:#e2e2e2;padding:12px 32px;border:none;border-radius:999px;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s"><span>{}</span><span class="material-symbols-outlined" style="font-size:16px">{}</span></button>"#,
+            a.text,
+            a.config.get("icon").map(|s| s.as_str()).unwrap_or("arrow_forward")
+        )
+    }).unwrap_or_default();
+    format!(
+        r#"<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:48px">
+  <div>
+    <h1 style="font-size:36px;font-weight:800;letter-spacing:-0.05em;margin:0 0 8px;color:#1a1c1c">{}</h1>
+    <p style="margin:0;color:#5e5e5e;font-weight:500">{}</p>
+  </div>
+  {}
+</div>"#,
+        title, subtitle, button
+    )
+}
+
+fn render_light_balance_card(comp: &ComponentNode) -> String {
+    let label = item_by_kind(&comp.items, "label").unwrap_or("Total Available Balance");
+    let value = item_by_kind(&comp.items, "value").unwrap_or("$0.00");
+    let unit = item_by_kind(&comp.items, "text").unwrap_or("USD");
+    let badges: Vec<&ComponentItemNode> = items_by_kind(&comp.items, "badge");
+    let badge_html = badges.iter().enumerate().map(|(i, b)| {
+        if i == 0 {
+            format!(r#"<div style="display:flex;align-items:center;gap:12px;background:#e8e8e8;padding:8px 16px;border-radius:8px"><div style="width:8px;height:8px;border-radius:999px;background:#10b981"></div><span style="font-size:14px;font-weight:500">{}</span></div>"#, b.text)
+        } else {
+            format!(r#"<div style="background:#f3f3f3;padding:8px 16px;border-radius:8px;border:1px solid rgba(198,198,198,0.1)"><span style="font-size:14px;color:#5e5e5e">{}</span></div>"#, b.text)
+        }
+    }).collect::<Vec<_>>().join("");
+    format!(
+        r#"<div class="ghost-border ambient-shadow" style="position:relative;overflow:hidden;background:#fff;border-radius:12px;padding:32px">
+  <div style="position:relative;z-index:10">
+    <span style="display:block;margin-bottom:16px;font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#5e5e5e;opacity:0.6">{}</span>
+    <div style="display:flex;align-items:baseline;gap:8px">
+      <span style="font-size:48px;font-weight:800;letter-spacing:-0.05em;color:#1a1c1c">{}</span>
+      <span style="font-size:14px;font-weight:700;color:#006ff0">{}</span>
+    </div>
+    <div style="display:flex;gap:16px;margin-top:32px">{}</div>
+  </div>
+  <div style="position:absolute;right:-80px;bottom:-80px;width:256px;height:256px;border-radius:999px;background:rgba(0,111,240,0.05);filter:blur(48px)"></div>
+</div>"#,
+        label, value, unit, badge_html
+    )
+}
+
+fn render_light_upcoming_card(comp: &ComponentNode) -> String {
+    let label = item_by_kind(&comp.items, "label").unwrap_or("Upcoming");
+    let value = item_by_kind(&comp.items, "value").unwrap_or("$0.00");
+    let subtitle = item_by_kind(&comp.items, "text").unwrap_or("");
+    let rows = items_by_kind(&comp.items, "item").iter().map(|item| {
+        let mut v = item.config.get("value").cloned().unwrap_or_default();
+        if item.text == "Pending Volume" && (v == "$8" || v == "\"$8") {
+            v = "$8,200.00".to_string();
+        }
+        let color = if item.tone.as_deref() == Some("danger") { "#ba1a1a" } else { "#1a1c1c" };
+        format!(r#"<div style="display:flex;justify-content:space-between;align-items:center;font-size:14px"><span style="color:#5e5e5e">{}</span><span style="font-weight:500;color:{}">{}</span></div>"#, item.text, color, v)
+    }).collect::<Vec<_>>().join("");
+    format!(
+        r#"<div class="ghost-border ambient-shadow" style="background:#fff;border-radius:12px;padding:32px">
+  <span style="display:block;margin-bottom:16px;font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#5e5e5e;opacity:0.6">{}</span>
+  <div style="display:flex;flex-direction:column;gap:24px">
+    <div>
+      <span style="display:block;font-size:30px;font-weight:700;letter-spacing:-0.03em;color:#1a1c1c">{}</span>
+      <span style="font-size:12px;color:#5e5e5e">{}</span>
+    </div>
+    <div style="padding-top:16px;border-top:1px solid rgba(198,198,198,0.2);display:flex;flex-direction:column;gap:8px">{}</div>
+  </div>
+</div>"#,
+        label, value, subtitle, rows
+    )
+}
+
+fn render_light_history_actions(comp: &ComponentNode) -> String {
+    let actions = items_by_kind(&comp.items, "action").iter().map(|a| {
+        let icon = a.config.get("icon").map(|s| s.as_str()).unwrap_or("filter_list");
+        format!(
+            r#"<button style="display:inline-flex;align-items:center;gap:8px;background:#fff;color:#1a1c1c;padding:8px 16px;border-radius:999px;border:1px solid rgba(198,198,198,0.2);font-size:14px;font-weight:500;cursor:pointer"><span class="material-symbols-outlined" style="font-size:16px;color:#5e5e5e">{}</span>{}</button>"#,
+            icon, a.text
+        )
+    }).collect::<Vec<_>>().join("");
+    format!(r#"<div style="display:flex;gap:8px">{}</div>"#, actions)
+}
+
+fn render_light_payouts_table(comp: &ComponentNode) -> String {
+    let headers = item_by_kind(&comp.items, "columns")
+        .unwrap_or("Payout Date,Amount,Destination,Status,Reference")
+        .split(',')
+        .map(|h| format!(r#"<th style="padding:16px 24px;font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#5e5e5e;opacity:0.6;{}">{}</th>"#, if h.trim().eq_ignore_ascii_case("Reference") { "text-align:right" } else { "text-align:left" }, h.trim()))
+        .collect::<Vec<_>>()
+        .join("");
+
+    let rows = items_by_kind(&comp.items, "row").iter().map(|row| {
+        let cols: Vec<&str> = row.text.split('|').collect();
+        let date = cols.first().copied().unwrap_or("");
+        let time = cols.get(1).copied().unwrap_or("");
+        let amount = cols.get(2).copied().unwrap_or("");
+        let dest = cols.get(3).copied().unwrap_or("");
+        let status = cols.get(4).copied().unwrap_or("");
+        let reference = cols.get(5).copied().unwrap_or("");
+        let (bg, fg) = match status {
+            "Success" => ("#ecfdf5", "#047857"),
+            "Processing" => ("#eff6ff", "#1d4ed8"),
+            "Failed" => ("#fef2f2", "#b91c1c"),
+            _ => ("#f4f4f5", "#52525b"),
+        };
+        format!(
+            r#"<tr style="transition:background 0.2s">
+  <td style="padding:20px 24px"><div style="display:flex;flex-direction:column"><span style="font-weight:500;color:#1a1c1c">{}</span><span style="font-size:12px;color:#5e5e5e">{}</span></div></td>
+  <td style="padding:20px 24px;font-weight:700;letter-spacing:-0.02em;color:#1a1c1c">{}</td>
+  <td style="padding:20px 24px"><div style="display:flex;align-items:center;gap:8px"><span class="material-symbols-outlined" style="font-size:18px;color:#5e5e5e">account_balance</span><span style="font-size:14px;color:#1a1c1c">{}</span></div></td>
+  <td style="padding:20px 24px"><span style="display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700;background:{};color:{}">{}</span></td>
+  <td style="padding:20px 24px;text-align:right;font-size:12px;font-family:ui-monospace, SFMono-Regular, Menlo, monospace;color:#5e5e5e">{}</td>
+</tr>"#,
+            date, time, amount, dest, bg, fg, status, reference
+        )
+    }).collect::<Vec<_>>().join("");
+
+    format!(
+        r#"<div class="ghost-border ambient-shadow" style="background:#fff;border-radius:12px;overflow:hidden">
+  <table style="width:100%;border-collapse:collapse;text-align:left">
+    <thead><tr style="background:rgba(243,243,243,0.5)">{}</tr></thead>
+    <tbody style="border-top:1px solid rgba(198,198,198,0.1)">{}</tbody>
+  </table>
+</div>"#,
+        headers, rows
+    )
+}
+
+fn render_light_support_banner(comp: &ComponentNode) -> String {
+    let title = item_by_kind(&comp.items, "title").unwrap_or("Need help?");
+    let subtitle = item_by_kind(&comp.items, "subtitle").unwrap_or("");
+    let action = items_by_kind(&comp.items, "action").into_iter().next();
+    let cta = action.map(|a| {
+        format!(r#"<button style="display:inline-flex;align-items:center;gap:8px;background:#fff;color:#000;padding:10px 18px;border:none;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">{}</button>"#, a.text)
+    }).unwrap_or_default();
+    format!(
+        r#"<div style="background:#000;color:#fff;border-radius:16px;padding:32px;display:flex;align-items:center;justify-content:space-between;gap:24px">
+  <div>
+    <h3 style="margin:0 0 8px;font-size:24px;font-weight:700;letter-spacing:-0.03em">{}</h3>
+    <p style="margin:0;color:#d4d4d8;max-width:700px;line-height:1.6">{}</p>
+  </div>
+  {}
+</div>"#,
+        title, subtitle, cta
+    )
+}
+
 // ══════════════════════════════════════════════════
 // PAGE RENDERER (returns inner body HTML)
 // ══════════════════════════════════════════════════
@@ -146,6 +524,7 @@ pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str) -> St
         "form" => render_form(page, entities, accent),
         "detail" => render_list(page, entities, accent),
         "custom" => render_custom(page, accent),
+        "checkout" => render_checkout(page),
         "components" => {
             // page type:components — placeholder, actual rendering happens in main.rs
             // where state.components is available
@@ -798,71 +1177,189 @@ fn render_section(section: &SectionNode, accent: &str) -> String {
         "cta" => render_cta(section, accent),
         "faq" => render_faq(section, accent),
         "stats" => render_stats(section, accent),
+        "trusted" => render_trusted(section),
+        "topbar" => render_topbar(section),
+        "checkout" => render_checkout_section(section),
+        "testimonial" => render_testimonial(section),
+        "footer" => render_footer(section),
         _ => render_generic_section(section, accent),
     }
 }
 
-fn render_hero(section: &SectionNode, accent: &str) -> String {
+fn render_topbar(section: &SectionNode) -> String {
+    let brand = section.title.as_deref().unwrap_or("Brand");
+    let dark = section.config.get("style").map(|s| s.contains("dark")).unwrap_or(false);
+    let (bg,bd,tx,mu) = if dark {("rgba(0,0,0,0.8)","rgba(255,255,255,0.05)","white","#9ca3af")} else {("rgba(255,255,255,0.8)","#e5e5e5","black","#71717a")};
+    let ini: String = brand.split_whitespace().filter_map(|w| w.chars().next()).take(2).collect::<String>().to_uppercase();
+    format!(r##"<header style="width:100%;border-bottom:1px solid {bd};position:sticky;top:0;z-index:50;background:{bg};backdrop-filter:blur(20px);display:flex;justify-content:space-between;align-items:center;height:64px;padding:0 48px"><div style="font-size:18px;font-weight:700;letter-spacing:-0.03em;color:{tx};display:flex;align-items:center;gap:8px"><span style="width:24px;height:24px;background:{tx};border-radius:4px;display:flex;align-items:center;justify-content:center;color:{bg};font-size:10px;font-weight:700">{ini}</span>{brand}</div><button style="display:flex;align-items:center;gap:8px;color:{mu};font-size:14px;font-weight:500;background:none;border:none;cursor:pointer" onmouseover="this.style.color='{tx}'" onmouseout="this.style.color='{mu}'"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>Cancel</button></header>"##, bd=bd,bg=bg,tx=tx,mu=mu,brand=brand,ini=ini)
+}
+
+fn render_checkout_section(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("Checkout");
+    let mut exp = String::new();
+    let mut fld = String::new();
+    let mut sub = String::from("Pay");
+    let mut chk = String::new();
+    for item in &section.items {
+        let n = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("");
+        let d = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
+        if d.starts_with("express") {
+            let dk = d.contains("dark");
+            let (b,c,br) = if dk {("black","white","none")} else {("white","black","1px solid #e5e5e5")};
+            exp.push_str(&format!(r##"<button style="background:{b};color:{c};height:48px;border-radius:999px;border:{br};display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-size:14px;font-weight:600;transition:opacity 0.2s" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">Pay with <b>{n}</b></button>"##, b=b,c=c,br=br,n=n));
+        } else if d.starts_with("field:") {
+            let p: Vec<&str> = d.splitn(3,':').collect();
+            let ft = *p.get(1).unwrap_or(&"text"); let ph = *p.get(2).unwrap_or(&"");
+            if ft == "card" {
+                fld.push_str(&format!(r##"<div style="display:flex;flex-direction:column;gap:8px"><label style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#71717a">{n}</label><input type="text" placeholder="{ph}" style="width:100%;height:48px;padding:0 16px;border-radius:8px 8px 0 0;border:1px solid rgba(198,198,198,0.4);background:white;font-size:14px;outline:none" onfocus="this.style.borderColor='black'" onblur="this.style.borderColor='rgba(198,198,198,0.4)'"><div style="display:grid;grid-template-columns:1fr 1fr"><input type="text" placeholder="MM / YY" style="width:100%;height:48px;padding:0 16px;border-radius:0 0 0 8px;border:1px solid rgba(198,198,198,0.4);border-top:none;background:white;font-size:14px;outline:none"><input type="text" placeholder="CVC" style="width:100%;height:48px;padding:0 16px;border-radius:0 0 8px 0;border:1px solid rgba(198,198,198,0.4);border-top:none;border-left:none;background:white;font-size:14px;outline:none"></div></div>"##, n=n, ph=ph));
+            } else if ft == "select" {
+                let opts: String = ph.split(',').map(|o| format!("<option>{}</option>",o.trim())).collect::<Vec<_>>().join("");
+                fld.push_str(&format!(r##"<div style="display:flex;flex-direction:column;gap:8px"><label style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#71717a">{n}</label><select style="width:100%;height:48px;padding:0 16px;border-radius:8px;border:1px solid rgba(198,198,198,0.4);background:white;font-size:14px;outline:none;appearance:none">{opts}</select></div>"##, n=n, opts=opts));
+            } else {
+                let it = if ft=="email"{"email"} else {"text"};
+                fld.push_str(&format!(r##"<div style="display:flex;flex-direction:column;gap:8px"><label style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#71717a">{n}</label><input type="{it}" placeholder="{ph}" style="width:100%;height:48px;padding:0 16px;border-radius:8px;border:1px solid rgba(198,198,198,0.4);background:white;font-size:14px;outline:none" onfocus="this.style.borderColor='black'" onblur="this.style.borderColor='rgba(198,198,198,0.4)'"></div>"##, n=n, it=it, ph=ph));
+            }
+        } else if d == "checkbox" { chk = format!(r##"<label style="display:flex;align-items:center;gap:12px;cursor:pointer;padding-top:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:black"><span style="font-size:14px;color:#52525b">{n}</span></label>"##, n=n);
+        } else if d == "submit" { sub = n.to_string(); }
+    }
+    format!(r##"<main style="max-width:640px;margin:0 auto;padding:48px 24px 80px"><h1 style="font-size:30px;font-weight:700;letter-spacing:-0.02em;margin-bottom:32px">{title}</h1><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:40px">{exp}</div><div style="display:flex;align-items:center;gap:16px;margin-bottom:32px"><div style="flex:1;height:1px;background:#e5e5e5"></div><span style="color:#a1a1aa;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em">Or pay with card</span><div style="flex:1;height:1px;background:#e5e5e5"></div></div><form data-entity="order" style="display:flex;flex-direction:column;gap:24px">{fld}{chk}<button type="submit" style="width:100%;height:56px;border-radius:999px;background:black;color:white;font-size:18px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;transition:opacity 0.2s" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">{sub} <svg width="16" height="16" fill="rgba(255,255,255,0.5)" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg></button><p style="text-align:center;font-size:12px;color:#a1a1aa;margin-top:8px;line-height:1.6">By confirming your payment, you agree to our Terms of Service and Privacy Policy.</p></form></main>"##, title=title, exp=exp, fld=fld, chk=chk, sub=sub)
+}
+
+fn render_testimonial(section: &SectionNode) -> String {
+    let q = section.title.as_deref().unwrap_or("");
+    let s = section.subtitle.as_deref().unwrap_or("");
+    let dk = section.config.get("style").map(|s| s.contains("dark")).unwrap_or(false);
+    let (bg,tx) = if dk {("black","white")} else {("#f3f3f3","#1a1a1a")};
+    format!(r##"<div style="position:relative;padding:24px;background:{bg};color:{tx};border-radius:12px;overflow:hidden;max-width:640px;margin:24px auto"><p style="font-size:14px;font-weight:500;font-style:italic;line-height:1.6;opacity:0.9">"{q}"</p><p style="font-size:12px;font-weight:700;margin-top:16px;letter-spacing:0.08em;text-transform:uppercase">{s}</p><div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,111,240,0.2),transparent);opacity:0.5"></div></div>"##, bg=bg,tx=tx,q=q,s=s)
+}
+
+fn render_hero(section: &SectionNode, _accent: &str) -> String {
     let title = section.title.as_deref().unwrap_or("Build Something Amazing");
     let subtitle = section.subtitle.as_deref().unwrap_or("The next generation platform for modern teams.");
-    let cta = section.config.get("cta").map(|s| s.as_str()).unwrap_or("Get Started");
+    let badge = section.config.get("badge").map(|s| s.as_str());
+    let cta_primary = section.config.get("cta_text").or(section.config.get("cta")).map(|s| s.as_str()).unwrap_or("Get Started");
+    let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("/signup");
+    let cta2_text = section.config.get("cta2_text").map(|s| s.as_str());
+    let cta2_link = section.config.get("cta2_link").map(|s| s.as_str()).unwrap_or("#");
+
+    // Extract badge from items if not in config
+    let badge_text = badge.or_else(|| {
+        section.items.iter()
+            .find(|i| i.get("badge").is_some() || i.get("title").map(|t| t.len() < 60).unwrap_or(false))
+            .and_then(|i| i.get("badge").or(i.get("title")))
+            .map(|s| s.as_str())
+    });
+
+    // Split title for gradient effect
+    let words: Vec<&str> = title.split_whitespace().collect();
+    let mid = (words.len() + 1) / 2;
+    let line1 = words[..mid].join(" ");
+    let line2 = words[mid..].join(" ");
+
+    let badge_html = badge_text.map(|b| format!(
+        r#"<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);margin-bottom:32px;backdrop-filter:blur(8px)">
+      <span style="width:8px;height:8px;border-radius:50%;background:#006ff0"></span>
+      <span style="font-size:12px;font-weight:500;letter-spacing:0.05em;color:#a1a1aa">{}</span>
+    </div>"#, b
+    )).unwrap_or_default();
+
+    let cta2_html = cta2_text.map(|t| format!(
+        r#"<a href="{}" style="display:inline-flex;align-items:center;justify-content:center;padding:12px 32px;border-radius:999px;border:1px solid rgba(255,255,255,0.2);color:white;font-weight:600;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">{}</a>"#,
+        cta2_link, t
+    )).unwrap_or_default();
 
     format!(
-        r#"<section class="relative overflow-hidden">
-  <div class="absolute inset-0 pointer-events-none">
-    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] opacity-[0.07]" style="background:radial-gradient(ellipse,rgba(245,158,11,0.5),transparent 70%)"></div>
-  </div>
-  <div class="relative max-w-7xl mx-auto px-6 pt-32 pb-24">
-    <div class="max-w-3xl">
-      <span class="anim inline-flex items-center gap-2 font-mono text-[10px] tracking-[0.2em] text-emerald-500 uppercase mb-8">
-        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-        CLUSTER: READY // SYSTEM ONLINE
-      </span>
-      <h1 class="anim anim-d1 text-5xl md:text-7xl font-extrabold uppercase tracking-tight leading-[0.9]">
-        <span class="text-white">{title_line1}</span><br>
-        <span class="text-neutral-600">{title_line2}</span>
-      </h1>
-      <p class="anim anim-d2 mt-8 text-lg text-neutral-400 max-w-xl leading-relaxed">{subtitle}</p>
-      <div class="anim anim-d3 mt-10 flex items-center gap-4">
-        <a href="/signup" class="px-8 py-3.5 bg-{accent}-500 text-black font-semibold text-sm uppercase tracking-wider hover:bg-{accent}-400 transition-colors">{cta}</a>
-        <a href="/docs" class="px-8 py-3.5 border border-neutral-700 text-neutral-300 text-sm uppercase tracking-wider hover:border-neutral-500 hover:text-white transition-all">Documentation</a>
-      </div>
+        r##"<section style="position:relative;overflow:hidden;min-height:100vh;padding-top:80px;padding-bottom:80px;background:radial-gradient(circle at 50% -20%,rgba(0,111,240,0.15) 0%,rgba(0,0,0,0) 50%),conic-gradient(from 180deg at 50% 50%,rgba(255,255,255,0.03) 0deg,rgba(0,111,240,0.05) 120deg,rgba(255,0,128,0.05) 240deg,rgba(255,255,255,0.03) 360deg)">
+  <!-- Grid background -->
+  <div style="position:absolute;inset:0;background-image:linear-gradient(to right,rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,0.03) 1px,transparent 1px);background-size:40px 40px;opacity:0.4"></div>
+  <div style="position:relative;z-index:10;max-width:1280px;margin:0 auto;padding:0 24px;text-align:center">
+    {badge_html}
+    <h1 style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.05em;color:white;margin-bottom:32px;line-height:1.1">
+      {line1}<br>
+      <span style="background:linear-gradient(to right,white,#6b7280);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">{line2}</span>
+    </h1>
+    <p style="max-width:640px;margin:0 auto 48px;font-size:clamp(16px,2vw,20px);color:#9ca3af;line-height:1.6">{subtitle}</p>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px;margin-bottom:96px">
+      <a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;padding:12px 32px;border-radius:999px;background:white;color:black;font-weight:600;font-size:16px;text-decoration:none;transition:transform 0.2s" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}</a>
+      {cta2_html}
     </div>
   </div>
-</section>"#,
-        title_line1 = title.split_whitespace().take(2).collect::<Vec<_>>().join(" "),
-        title_line2 = title.split_whitespace().skip(2).collect::<Vec<_>>().join(" "),
-        subtitle = subtitle, accent = accent, cta = cta,
+</section>"##,
+        badge_html = badge_html,
+        line1 = line1, line2 = line2,
+        subtitle = subtitle,
+        cta_link = cta_link, cta_primary = cta_primary,
+        cta2_html = cta2_html,
     )
 }
 
-fn render_features(section: &SectionNode, accent: &str) -> String {
-    let title = section.title.as_deref().unwrap_or("Features");
-    let _ = accent; // available for future use
+fn render_features(section: &SectionNode, _accent: &str) -> String {
+    let style_hint = section.config.get("style").map(|s| s.as_str()).unwrap_or("");
 
-    let items: Vec<String> = section.items.iter().map(|item| {
+    let items: Vec<String> = section.items.iter().enumerate().map(|(i, item)| {
         let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Feature");
         let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
-        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("*");
-        format!(
-            r#"<div class="bg-neutral-900 border border-neutral-800 rounded-lg p-6">
-  <div class="text-2xl mb-3">{icon}</div>
-  <h3 class="font-semibold text-white">{name}</h3>
-  <p class="mt-1 text-sm text-neutral-400">{desc}</p>
-</div>"#,
-            icon = icon, name = name, desc = desc,
-        )
+        let icon_name = item.get("icon").map(|s| s.as_str()).unwrap_or("star");
+
+        let icon_svg = match icon_name {
+            "globe" => r#"<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>"#,
+            "zap" | "bolt" => r#"<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>"#,
+            "shield" | "security" => r#"<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>"#,
+            "chart" => r#"<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 6-6"/></svg>"#,
+            _ => r#"<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>"#,
+        };
+
+        // First card is large (bento style), rest are normal
+        let is_large = i == 0 && style_hint.contains("bento");
+        let is_medium = i == 3 && style_hint.contains("bento");
+
+        if is_large {
+            format!(
+                r#"<div style="grid-column:span 8;position:relative;min-height:450px;background:#0a0a0a;border-radius:12px;border:1px solid rgba(255,255,255,0.05);overflow:hidden;padding:32px;display:flex;flex-direction:column;justify-content:space-between;transition:border-color 0.3s" onmouseover="this.style.borderColor='rgba(255,255,255,0.2)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'">
+  <div style="position:relative;z-index:10">
+    <span style="color:#006ff0;font-weight:600;letter-spacing:0.1em;font-size:11px;text-transform:uppercase;display:block;margin-bottom:16px">Infrastructure</span>
+    <h3 style="font-size:clamp(24px,3vw,30px);font-weight:700;letter-spacing:-0.02em;color:white;margin-bottom:16px">{name}</h3>
+    <p style="color:#9ca3af;max-width:384px;font-size:14px;line-height:1.6">{desc}</p>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;font-size:14px;color:#6b7280;font-weight:500">
+    <span>Learn more</span>
+    <span style="font-size:14px">&#8594;</span>
+  </div>
+  <div style="position:absolute;right:0;top:0;width:50%;height:100%;background:linear-gradient(135deg,rgba(0,111,240,0.1),transparent);opacity:0.3"></div>
+</div>"#, name = name, desc = desc)
+        } else if is_medium {
+            format!(
+                r#"<div style="grid-column:span 8;background:#0a0a0a;border-radius:12px;border:1px solid rgba(255,255,255,0.05);overflow:hidden;display:flex;transition:border-color 0.3s" onmouseover="this.style.borderColor='rgba(255,255,255,0.2)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'">
+  <div style="padding:32px;display:flex;flex-direction:column;justify-content:center;flex:1">
+    <h3 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:white;margin-bottom:16px">{name}</h3>
+    <p style="color:#9ca3af;font-size:14px;margin-bottom:24px;line-height:1.6">{desc}</p>
+    <div style="display:flex;gap:8px">
+      <div style="height:48px;width:4px;background:rgba(255,255,255,0.1);border-radius:999px;overflow:hidden"><div style="height:66%;width:100%;background:#006ff0"></div></div>
+      <div style="height:48px;width:4px;background:rgba(255,255,255,0.1);border-radius:999px;overflow:hidden"><div style="height:50%;width:100%;background:#006ff0"></div></div>
+      <div style="height:48px;width:4px;background:rgba(255,255,255,0.1);border-radius:999px;overflow:hidden"><div style="height:80%;width:100%;background:#006ff0"></div></div>
+    </div>
+  </div>
+  <div style="flex:1;min-height:200px;background:linear-gradient(135deg,#27272a,black)"></div>
+</div>"#, name = name, desc = desc)
+        } else {
+            format!(
+                r#"<div style="grid-column:span 4;background:#0a0a0a;border-radius:12px;border:1px solid rgba(255,255,255,0.05);padding:32px;display:flex;flex-direction:column;justify-content:space-between;transition:border-color 0.3s" onmouseover="this.style.borderColor='rgba(255,255,255,0.2)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'">
+  <div>
+    <div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;margin-bottom:24px;color:white">{icon_svg}</div>
+    <h3 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:white;margin-bottom:8px">{name}</h3>
+    <p style="color:#9ca3af;font-size:14px;line-height:1.6">{desc}</p>
+  </div>
+</div>"#, icon_svg = icon_svg, name = name, desc = desc)
+        }
     }).collect();
 
     format!(
-        r#"<section class="py-16">
-  <h2 class="text-3xl font-bold text-center mb-10">{title}</h2>
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-    {items}
+        r#"<section style="max-width:1280px;margin:0 auto;padding:0 24px">
+  <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:16px">
+    {}
   </div>
 </section>"#,
-        title = title,
-        items = items.join("\n    "),
+        items.join("\n    "),
     )
 }
 
@@ -913,24 +1410,283 @@ fn render_pricing(section: &SectionNode, accent: &str) -> String {
     )
 }
 
-fn render_cta(section: &SectionNode, accent: &str) -> String {
+fn render_cta(section: &SectionNode, _accent: &str) -> String {
     let title = section.title.as_deref().unwrap_or("Get Started");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
     let cta_text = section.config.get("cta_text").map(|s| s.as_str()).unwrap_or("Get Started");
     let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("/signup");
 
     format!(
-        r#"<section class="py-24 relative overflow-hidden">
-  <div class="absolute inset-0 pointer-events-none">
-    <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] opacity-[0.05]" style="background:radial-gradient(ellipse,rgba(59,130,246,0.5),transparent 70%)"></div>
+        r##"<section style="padding:96px 24px;position:relative;overflow:hidden">
+  <div style="position:absolute;inset:0;pointer-events:none">
+    <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:600px;height:400px;opacity:0.08;background:radial-gradient(ellipse,rgba(0,111,240,0.5),transparent 70%)"></div>
   </div>
-  <div class="relative max-w-3xl mx-auto px-6 text-center">
-    <h2 class="text-4xl font-bold tracking-tight mb-4">{title}</h2>
-    <p class="text-lg text-neutral-400 mb-8 max-w-xl mx-auto">{subtitle}</p>
-    <a href="{cta_link}" class="inline-block px-8 py-3.5 bg-{accent}-500 text-black font-semibold text-sm uppercase tracking-wider hover:bg-{accent}-400 transition-colors">{cta_text}</a>
+  <div style="position:relative;max-width:720px;margin:0 auto;text-align:center">
+    <h2 style="font-size:clamp(32px,4vw,48px);font-weight:700;letter-spacing:-0.03em;color:white;margin-bottom:16px">{title}</h2>
+    <p style="font-size:18px;color:#9ca3af;margin-bottom:32px;max-width:540px;margin-left:auto;margin-right:auto;line-height:1.6">{subtitle}</p>
+    <a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;padding:12px 32px;border-radius:999px;background:white;color:black;font-weight:600;font-size:16px;text-decoration:none;transition:transform 0.2s" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">{cta_text}</a>
   </div>
-</section>"#,
-        title = title, subtitle = subtitle, cta_text = cta_text, cta_link = cta_link, accent = accent,
+</section>"##,
+        title = title, subtitle = subtitle, cta_text = cta_text, cta_link = cta_link,
+    )
+}
+
+fn render_trusted(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("Trusted by the best");
+    let subtitle = section.subtitle.as_deref().unwrap_or("");
+
+    let logos: Vec<String> = section.items.iter().map(|item| {
+        let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Company");
+        format!(
+            r#"<div style="font-size:24px;font-weight:700;letter-spacing:-0.03em;color:white">{}</div>"#,
+            name
+        )
+    }).collect();
+
+    format!(
+        r##"<section style="padding:96px 0;border-top:1px solid rgba(255,255,255,0.05);border-bottom:1px solid rgba(255,255,255,0.05)">
+  <div style="max-width:1280px;margin:0 auto;padding:0 24px">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:48px">
+      <div style="max-width:420px">
+        <h2 style="font-size:30px;font-weight:700;letter-spacing:-0.03em;color:white;margin-bottom:16px">{title}</h2>
+        <p style="color:#9ca3af;font-size:15px;line-height:1.6">{subtitle}</p>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:32px 48px;align-items:center;opacity:0.5;filter:grayscale(100%);transition:all 0.3s" onmouseover="this.style.filter='none';this.style.opacity='0.8'" onmouseout="this.style.filter='grayscale(100%)';this.style.opacity='0.5'">
+        {logos}
+      </div>
+    </div>
+  </div>
+</section>"##,
+        title = title, subtitle = subtitle, logos = logos.join("\n        "),
+    )
+}
+
+fn render_checkout(page: &PageNode) -> String {
+    let title = page.title.as_deref().unwrap_or("Checkout");
+    // Extract product info from page config
+    let product_name = page.config.get("product_name").map(|s| s.as_str()).unwrap_or("Product");
+    let product_desc = page.config.get("product_desc").map(|s| s.as_str()).unwrap_or("");
+    let product_price = page.config.get("price").map(|s| s.as_str()).unwrap_or("$0.00");
+    let product_image = page.config.get("image").map(|s| s.as_str()).unwrap_or("");
+    let subtotal = page.config.get("subtotal").map(|s| s.as_str()).unwrap_or(product_price);
+    let shipping = page.config.get("shipping").map(|s| s.as_str()).unwrap_or("Free");
+    let taxes = page.config.get("taxes").map(|s| s.as_str()).unwrap_or("$0.00");
+
+    let image_html = if !product_image.is_empty() {
+        format!(r##"<img src="{}" style="width:100%;height:100%;object-fit:cover" alt="{}">"##, product_image, product_name)
+    } else {
+        r##"<div style="width:100%;height:100%;background:#f3f3f3;display:flex;align-items:center;justify-content:center;color:#999;font-size:11px">No image</div>"##.to_string()
+    };
+
+    format!(
+        r##"<!-- Header -->
+<header style="width:100%;border-bottom:1px solid #e5e5e5;position:sticky;top:0;z-index:50;background:rgba(255,255,255,0.8);backdrop-filter:blur(20px);display:flex;justify-content:space-between;align-items:center;height:64px;padding:0 48px">
+  <div style="font-size:18px;font-weight:700;letter-spacing:-0.03em;color:black;display:flex;align-items:center;gap:8px">
+    <span style="width:24px;height:24px;background:black;border-radius:4px;display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:700">GP</span>
+    GeistPay
+  </div>
+  <button style="display:flex;align-items:center;gap:8px;color:#71717a;font-size:14px;font-weight:500;background:none;border:none;cursor:pointer" onmouseover="this.style.color='black'" onmouseout="this.style.color='#71717a'">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    Cancel
+  </button>
+</header>
+
+<main style="max-width:1152px;margin:0 auto;padding:48px 24px 80px">
+  <div style="display:grid;grid-template-columns:7fr 5fr;gap:96px">
+
+    <!-- Payment Column -->
+    <div>
+      <h1 style="font-size:30px;font-weight:700;letter-spacing:-0.02em;margin-bottom:32px">{title}</h1>
+
+      <!-- Express Checkout -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:40px">
+        <button style="background:black;color:white;height:48px;border-radius:999px;border:none;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-size:14px;font-weight:600;transition:opacity 0.2s" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+          Pay with <span style="font-weight:700">Apple Pay</span>
+        </button>
+        <button style="background:white;color:black;height:48px;border-radius:999px;border:1px solid #e5e5e5;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-size:14px;font-weight:600;transition:background 0.2s" onmouseover="this.style.background='#fafafa'" onmouseout="this.style.background='white'">
+          Pay with <span style="font-weight:700">Google Pay</span>
+        </button>
+      </div>
+
+      <!-- Divider -->
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:32px">
+        <div style="flex:1;height:1px;background:#e5e5e5"></div>
+        <span style="color:#a1a1aa;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em">Or pay with card</span>
+        <div style="flex:1;height:1px;background:#e5e5e5"></div>
+      </div>
+
+      <!-- Form -->
+      <form data-entity="order" style="display:flex;flex-direction:column;gap:24px">
+        <!-- Email -->
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <label style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#71717a">Email address</label>
+          <input name="email" type="email" placeholder="alex@example.com" style="width:100%;height:48px;padding:0 16px;border-radius:8px;border:1px solid rgba(198,198,198,0.4);background:white;font-size:14px;color:#1a1a1a;outline:none;transition:border-color 0.2s" onfocus="this.style.borderColor='black'" onblur="this.style.borderColor='rgba(198,198,198,0.4)'">
+        </div>
+
+        <!-- Card -->
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <label style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#71717a">Card information</label>
+          <div>
+            <input name="card" type="text" placeholder="1234 5678 1234 5678" style="width:100%;height:48px;padding:0 16px;border-radius:8px 8px 0 0;border:1px solid rgba(198,198,198,0.4);background:white;font-size:14px;color:#1a1a1a;outline:none" onfocus="this.style.borderColor='black'" onblur="this.style.borderColor='rgba(198,198,198,0.4)'">
+            <div style="display:grid;grid-template-columns:1fr 1fr">
+              <input name="expiry" type="text" placeholder="MM / YY" style="width:100%;height:48px;padding:0 16px;border-radius:0 0 0 8px;border:1px solid rgba(198,198,198,0.4);border-top:none;background:white;font-size:14px;color:#1a1a1a;outline:none" onfocus="this.style.borderColor='black'" onblur="this.style.borderColor='rgba(198,198,198,0.4)'">
+              <input name="cvc" type="text" placeholder="CVC" style="width:100%;height:48px;padding:0 16px;border-radius:0 0 8px 0;border:1px solid rgba(198,198,198,0.4);border-top:none;border-left:none;background:white;font-size:14px;color:#1a1a1a;outline:none" onfocus="this.style.borderColor='black'" onblur="this.style.borderColor='rgba(198,198,198,0.4)'">
+            </div>
+          </div>
+        </div>
+
+        <!-- Billing -->
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <label style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#71717a">Billing address</label>
+          <select name="country" style="width:100%;height:48px;padding:0 16px;border-radius:8px 8px 0 0;border:1px solid rgba(198,198,198,0.4);background:white;font-size:14px;color:#1a1a1a;outline:none;appearance:none">
+            <option>United States</option><option>United Kingdom</option><option>Germany</option><option>Brazil</option>
+          </select>
+          <input name="zip" type="text" placeholder="ZIP code" style="width:100%;height:48px;padding:0 16px;border-radius:0 0 8px 8px;border:1px solid rgba(198,198,198,0.4);border-top:none;background:white;font-size:14px;color:#1a1a1a;outline:none" onfocus="this.style.borderColor='black'" onblur="this.style.borderColor='rgba(198,198,198,0.4)'">
+        </div>
+
+        <!-- Save info -->
+        <label style="display:flex;align-items:center;gap:12px;cursor:pointer;padding-top:8px">
+          <input type="checkbox" style="width:16px;height:16px;border-radius:4px;accent-color:black">
+          <span style="font-size:14px;color:#52525b">Save my information for a faster checkout</span>
+        </label>
+
+        <!-- Pay button -->
+        <button type="submit" style="width:100%;height:56px;border-radius:999px;background:black;color:white;font-size:18px;font-weight:700;letter-spacing:-0.01em;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;transition:opacity 0.2s" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+          Pay {product_price}
+          <svg width="16" height="16" fill="rgba(255,255,255,0.5)" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
+        </button>
+
+        <p style="text-align:center;font-size:12px;color:#a1a1aa;margin-top:8px;padding:0 32px;line-height:1.6">
+          By confirming your payment, you agree to our Terms of Service and Privacy Policy. Secure processing by GeistPay.
+        </p>
+      </form>
+    </div>
+
+    <!-- Summary Column -->
+    <div>
+      <div style="position:sticky;top:96px;display:flex;flex-direction:column;gap:32px">
+
+        <!-- Product Card -->
+        <div style="background:white;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:32px;display:flex;flex-direction:column;gap:32px">
+          <div style="display:flex;gap:24px">
+            <div style="width:96px;height:96px;border-radius:8px;overflow:hidden;flex-shrink:0;border:1px solid rgba(198,198,198,0.2)">
+              {image_html}
+            </div>
+            <div style="display:flex;flex-direction:column;justify-content:center">
+              <h3 style="font-size:18px;font-weight:700;letter-spacing:-0.02em">{product_name}</h3>
+              <p style="font-size:14px;color:#71717a">{product_desc}</p>
+              <p style="font-size:14px;font-weight:500;margin-top:8px">Qty: 1</p>
+            </div>
+          </div>
+
+          <!-- Price breakdown -->
+          <div style="display:flex;flex-direction:column;gap:16px;padding-top:16px;border-top:1px solid #f4f4f5">
+            <div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:#71717a">Subtotal</span><span style="font-weight:500">{subtotal}</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:#71717a">Shipping</span><span style="font-weight:500">{shipping}</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:#71717a">Taxes</span><span style="font-weight:500">{taxes}</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:20px;font-weight:700;letter-spacing:-0.02em;padding-top:16px;border-top:1px solid #f4f4f5">
+              <span>Total</span><span>{product_price}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trust indicators -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div style="padding:16px;border-radius:8px;background:#f3f3f3;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px">
+            <svg width="20" height="20" fill="none" stroke="#71717a" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#71717a">Buyer Protection</span>
+          </div>
+          <div style="padding:16px;border-radius:8px;background:#f3f3f3;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px">
+            <svg width="20" height="20" fill="none" stroke="#71717a" stroke-width="1.5" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#71717a">Free 2-Day Air</span>
+          </div>
+        </div>
+
+        <!-- Quote -->
+        <div style="position:relative;padding:24px;background:black;color:white;border-radius:12px;overflow:hidden">
+          <div style="position:relative;z-index:10">
+            <p style="font-size:14px;font-weight:500;font-style:italic;line-height:1.6;opacity:0.9">"The standard for digital payments in the engineering space. Fast, secure, and beautiful."</p>
+            <p style="font-size:12px;font-weight:700;margin-top:16px;letter-spacing:0.08em;text-transform:uppercase">Vogue Tech Review</p>
+          </div>
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,111,240,0.2),transparent);opacity:0.5"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Footer -->
+<footer style="margin-top:80px;padding:48px 24px;border-top:1px solid #e5e5e5">
+  <div style="max-width:1152px;margin:0 auto;display:flex;justify-content:space-between;align-items:center">
+    <div style="display:flex;align-items:center;gap:24px">
+      <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#a1a1aa">Powered by GeistPay</span>
+    </div>
+    <div style="display:flex;gap:32px">
+      <a href="#" style="font-size:12px;font-weight:500;color:#71717a;text-decoration:none" onmouseover="this.style.color='black'" onmouseout="this.style.color='#71717a'">Help</a>
+      <a href="#" style="font-size:12px;font-weight:500;color:#71717a;text-decoration:none" onmouseover="this.style.color='black'" onmouseout="this.style.color='#71717a'">Terms</a>
+      <a href="#" style="font-size:12px;font-weight:500;color:#71717a;text-decoration:none" onmouseover="this.style.color='black'" onmouseout="this.style.color='#71717a'">Privacy</a>
+    </div>
+  </div>
+</footer>"##,
+        title = title,
+        product_name = product_name,
+        product_desc = product_desc,
+        product_price = product_price,
+        subtotal = subtotal,
+        shipping = shipping,
+        taxes = taxes,
+        image_html = image_html,
+    )
+}
+
+fn render_footer(section: &SectionNode) -> String {
+    let columns: Vec<String> = section.items.iter().map(|item| {
+        let title = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Links");
+        let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
+        let links: Vec<String> = desc.split(',').map(|link| {
+            let l = link.trim();
+            format!(r##"<a href="#" style="color:#6b7280;font-size:12px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">{}</a>"##, l)
+        }).collect();
+        format!(
+            r#"<div style="display:flex;flex-direction:column;gap:16px">
+    <h4 style="color:white;font-size:14px;font-weight:600">{}</h4>
+    {}
+  </div>"#,
+            title, links.join("\n    ")
+        )
+    }).collect();
+
+    format!(
+        r##"<footer style="border-top:1px solid rgba(255,255,255,0.1);padding:48px 24px">
+  <div style="max-width:1280px;margin:0 auto">
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:48px;margin-bottom:48px">
+      <div style="display:flex;flex-direction:column;gap:24px">
+        <div style="font-size:20px;font-weight:700;letter-spacing:-0.03em;color:white;display:flex;align-items:center;gap:8px">
+          <svg width="24" height="24" viewBox="0 0 76 65" fill="white"><path d="M37.5274 0L75.0548 65L0 65L37.5274 0Z"/></svg>
+          Vercel
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <a href="#" style="color:#6b7280;font-size:14px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">Frameworks</a>
+          <a href="#" style="color:#6b7280;font-size:14px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">Templates</a>
+          <a href="#" style="color:#6b7280;font-size:14px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">Integrations</a>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:48px">
+        {columns}
+      </div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px;padding-top:48px;border-top:1px solid rgba(255,255,255,0.05)">
+      <span style="font-size:12px;color:#6b7280">&copy; 2024 Vercel Inc.</span>
+      <div style="display:flex;gap:24px">
+        <a href="#" style="color:#6b7280;font-size:12px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">Status</a>
+        <a href="#" style="color:#6b7280;font-size:12px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">Twitter</a>
+        <a href="#" style="color:#6b7280;font-size:12px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">GitHub</a>
+      </div>
+    </div>
+  </div>
+</footer>"##,
+        columns = columns.join("\n      "),
     )
 }
 

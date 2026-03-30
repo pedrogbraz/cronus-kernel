@@ -794,7 +794,7 @@ impl Parser {
 
         let mut title = None;
         let mut sections = Vec::new();
-        let mut config = HashMap::new();
+        let mut config = inline_config;
         let mut components = Vec::new();
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
