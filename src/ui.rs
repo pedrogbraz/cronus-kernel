@@ -1805,11 +1805,11 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str) -> String {
         "form" => render_form_section(section),
         "card" | "live-keys" | "test-keys" | "webhooks" => render_card_section(section),
         "links" | "quick-links" => render_links_section(section),
-        "tabs" => render_generic_section(section, accent),
-        "accordion" => render_generic_section(section, accent),
-        "breadcrumb" => render_generic_section(section, accent),
-        "alert" => render_generic_section(section, accent),
-        "chart" => render_generic_section(section, accent),
+        "tabs" => render_tabs_section(section),
+        "accordion" => render_accordion_section(section),
+        "breadcrumb" => render_breadcrumb_section(section),
+        "alert" => render_alert_section(section),
+        "chart" => render_chart_section(section),
         _ => render_generic_section(section, accent),
     }
 }
