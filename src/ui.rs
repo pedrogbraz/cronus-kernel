@@ -4112,7 +4112,7 @@ fn build_dashboard_sidebar(comp: Option<&ComponentNode>, section: Option<&Sectio
         r##"<aside style="position:fixed;left:0;top:0;height:100%;width:256px;background:rgba(250,250,250,0.5);border-right:1px solid #e5e7eb;display:flex;flex-direction:column;z-index:50;padding:16px;gap:4px;font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased">
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:32px;padding:0 8px">
     <div style="width:32px;height:32px;background:#000;border-radius:6px;display:flex;align-items:center;justify-content:center">
-      <span class="material-symbols-outlined" style="color:#fff;font-size:16px">token</span>
+      <span style="color:#fff;font-weight:700;letter-spacing:-0.04em;font-size:14px">{brand_letter}</span>
     </div>
     <div>
       <h1 style="font-weight:700;letter-spacing:-0.04em;color:#000;font-size:16px;margin:0">{brand}</h1>
@@ -4126,6 +4126,7 @@ fn build_dashboard_sidebar(comp: Option<&ComponentNode>, section: Option<&Sectio
     {bottom_items}
   </div>
 </aside>"##,
+        brand_letter = brand.chars().next().unwrap_or('D'),
         brand = brand,
         subtitle = subtitle,
         nav_items = nav_items_html,
@@ -4142,7 +4143,7 @@ fn build_dashboard_topbar(comp: Option<&ComponentNode>) -> String {
         }).map(|i| i.text.as_str())
     }).unwrap_or("Search documentation...");
 
-    let avatar_url = "https://lh3.googleusercontent.com/aida-public/AB6AXuCha_zTm8Z2D0PGBUFUsNib6XRpaUMhALx9pNzXJbHKdBDzVXsE2DA5T2QSD0Q_xJI8-7pakgrlJlCMK91b_ObGOWwWKKb9hFxi6wd_oonPksAn9PEc_U7y490FpKJoO5t9kFqrH7gFMTEbo7Ebu0SQFpc_lk56jpR820wuxesdGje0UV7ZBPXzXGWmVc-KeCaSdxfbIts0aDYanveD2xurSMFUznMbOnZh5i39K_FUw621wU75hTAqLp2rBpUK-w_JTUugb45terFm";
+    let avatar_url = comp.and_then(|c| c.props.get("avatar").map(|s| s.as_str())).unwrap_or("");
 
     format!(
         r##"<header style="position:sticky;top:0;z-index:40;background:rgba(255,255,255,0.8);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid #e5e7eb;margin-left:256px">
@@ -6082,6 +6083,13 @@ fn build_payment_links_promo(section: Option<&SectionNode>) -> String {
     let cta_text = sec.config.get("cta_text").map(|s| s.as_str()).unwrap_or("");
     let cta_link = sec.config.get("cta_link").map(|s| s.as_str()).unwrap_or("#");
 
+    // Extract image URL from items with _type=image
+    let image_url = sec.items.iter()
+        .find(|i| i.get("_type").map(|s| s.as_str()) == Some("image"))
+        .and_then(|i| i.get("title"))
+        .map(|s| s.as_str())
+        .unwrap_or("");
+
     let badge_html = if !badge_text.is_empty() {
         format!(r#"<span style="display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,0.2);color:#fff;margin-bottom:16px">{}</span>"#, badge_text)
     } else {
@@ -6103,6 +6111,13 @@ fn build_payment_links_promo(section: Option<&SectionNode>) -> String {
         String::new()
     };
 
+    // Right side: image or gradient placeholder
+    let right_html = if !image_url.is_empty() {
+        format!(r#"<div style="flex:1;position:relative;min-height:200px"><img src="{}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:8px;opacity:0.6" alt=""></div>"#, image_url)
+    } else {
+        r#"<div style="flex:1;position:relative;min-height:200px;border-radius:8px;overflow:hidden;background:radial-gradient(ellipse at 80% 50%,rgba(0,111,240,0.2),transparent 70%)"></div>"#.to_string()
+    };
+
     // Span 2 columns in the parent 3-col grid
     format!(
         r##"<div style="grid-column:span 2;background:#000;color:#fff;border-radius:12px;padding:32px;position:relative;overflow:hidden;display:flex;gap:32px">
@@ -6112,9 +6127,9 @@ fn build_payment_links_promo(section: Option<&SectionNode>) -> String {
     {subtitle}
     {cta}
   </div>
-  <div style="flex:1;position:relative;min-height:200px;border-radius:8px;overflow:hidden;background:radial-gradient(ellipse at 80% 50%,rgba(0,111,240,0.2),transparent 70%)"></div>
+  {right}
 </div>"##,
-        badge = badge_html, title = title, subtitle = subtitle_html, cta = cta_html,
+        badge = badge_html, title = title, subtitle = subtitle_html, cta = cta_html, right = right_html,
     )
 }
 
@@ -6225,7 +6240,7 @@ pub fn render_checkout_dashboard(
 {topbar}
 
 <main style="max-width:1152px;margin:0 auto;padding:48px 24px 80px">
-  <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:48px">
+  <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:96px">
     <div style="grid-column:span 7">
       {form}
     </div>
@@ -6638,8 +6653,8 @@ pub fn render_security_dashboard(
     let security_policies = sections.iter().find(|s| s.section_type == "security-policies");
     let login_activity = sections.iter().find(|s| s.section_type == "login-activity");
 
-    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section);
     let topbar_html = build_dashboard_topbar(topbar_comp);
+    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section);
 
     let header_html = build_security_page_header(page_header);
     let team_html = build_security_team_members(team_members);
@@ -6659,7 +6674,7 @@ pub fn render_security_dashboard(
   <style>
     body {{ font-family:'Inter',sans-serif; background:#f9f9f9; color:#1a1c1c; margin:0; }}
     * {{ box-sizing:border-box; }}
-    .material-symbols-outlined {{ font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; font-size:20px; display:inline-block; line-height:1; vertical-align:middle; }}
+    .material-symbols-outlined {{ font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; font-size:20px; display:inline-block; line-height:1; text-transform:none; letter-spacing:normal; word-wrap:normal; white-space:nowrap; direction:ltr; vertical-align:middle; }}
     ::selection {{ background:rgba(0,111,240,0.15); }}
     ::-webkit-scrollbar {{ width:4px; }}
     ::-webkit-scrollbar-thumb {{ background:rgba(0,0,0,0.1); border-radius:2px; }}
@@ -6667,14 +6682,16 @@ pub fn render_security_dashboard(
     .prism-bg {{ background:radial-gradient(circle at top right,rgba(0,111,240,0.08),transparent 40%),radial-gradient(circle at bottom left,rgba(0,111,240,0.05),transparent 40%); }}
   </style>
 </head>
-<body>
-
-{sidebar}
+<body class="prism-bg">
 
 {topbar}
 
-<main class="prism-bg" style="margin-left:256px;min-height:100vh">
-  <div style="max-width:1152px;margin:0 auto;padding:32px">
+<div style="display:flex">
+
+{sidebar}
+
+<main style="flex:1;margin-left:256px;padding:32px">
+  <div style="max-width:1152px;margin:0 auto">
 
     {header}
 
@@ -6690,17 +6707,18 @@ pub fn render_security_dashboard(
         {activity}
       </div>
     </div>
-    <div style="height:96px"></div>
   </div>
 </main>
+
+</div>
 
 <script>{runtime}</script>
 <script>{hmr}</script>
 </body>
 </html>"##,
         app_name = app_name,
-        sidebar = sidebar_html,
         topbar = topbar_html,
+        sidebar = sidebar_html,
         header = header_html,
         team = team_html,
         status = status_html,
@@ -6708,6 +6726,119 @@ pub fn render_security_dashboard(
         activity = activity_html,
         runtime = super::render::CRONUS_RUNTIME_JS,
         hmr = super::hmr::HMR_CLIENT_JS,
+    )
+}
+
+fn build_security_topbar(comp: Option<&ComponentNode>) -> String {
+    let search_placeholder = comp.and_then(|c| {
+        c.items.iter().find(|i| {
+            i.config.get("icon").map(|s| s == "search").unwrap_or(false)
+        }).map(|i| i.text.as_str())
+    }).unwrap_or("Search team or logs...");
+
+    let avatar_url = comp.and_then(|c| c.props.get("avatar")).map(|s| s.as_str()).unwrap_or(
+        "https://lh3.googleusercontent.com/aida-public/AB6AXuBIbgWddrG9yJJh3szTkHfHc24QiMUNrdmbevowt4H4pw-Sn3AdqIA63n5rQf4TwrFkjVxOgIwZ9vnMKqXg6AkvOnIGMOLL2PfMXo5wJHLsI4tCpLMq8c3bpiAa5zTM1vCgkbtU_MH41WSmUxmB4-P2AAWg1R5gZ--tClrCs3yPUQwVWTUJfJxRrXas6pXdrZxwZY9_Y-qfXZlFsSTTaLEEBoH7WiKE-vfIy6vzFuvW-pIZhe-aAUX_y4_uFxKULJPG18x1leIvlmd8"
+    );
+
+    format!(
+        r##"<header style="width:100%;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:50;background:rgba(255,255,255,0.8);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);display:flex;justify-content:space-between;align-items:center;height:64px;padding:0 24px;font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-0.02em">
+  <div style="display:flex;align-items:center;gap:32px">
+    <span style="font-size:18px;font-weight:700;letter-spacing:-0.05em;color:#000">GeistPay</span>
+    <div style="position:relative">
+      <span class="material-symbols-outlined" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#a1a1aa;font-size:14px">search</span>
+      <input type="text" placeholder="{placeholder}" style="background:#f3f3f3;border:none;border-radius:999px;padding:6px 16px 6px 40px;font-size:14px;width:256px;outline:none;font-family:'Inter',sans-serif">
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px">
+    <button style="padding:8px;color:#71717a;background:none;border:none;cursor:pointer"><span class="material-symbols-outlined">notifications</span></button>
+    <button style="padding:8px;color:#71717a;background:none;border:none;cursor:pointer"><span class="material-symbols-outlined">help</span></button>
+    <div style="width:32px;height:32px;border-radius:50%;overflow:hidden;background:#e5e7eb">
+      <img src="{avatar}" style="width:100%;height:100%;object-fit:cover" alt="User profile">
+    </div>
+  </div>
+</header>"##,
+        placeholder = search_placeholder,
+        avatar = avatar_url,
+    )
+}
+
+fn build_security_sidebar(comp: Option<&ComponentNode>, section: Option<&SectionNode>) -> String {
+    let mut brand = "GeistPay";
+    let mut subtitle = "Enterprise";
+    let mut nav_items_html = String::new();
+    let mut bottom_items_html = String::new();
+
+    if let Some(c) = comp {
+        if let Some(b) = c.props.get("brand") {
+            brand = b.as_str();
+        } else if let Some(b) = item_by_kind(&c.items, "brand") {
+            brand = b;
+        }
+        if let Some(s) = c.props.get("subtitle") {
+            subtitle = s.as_str();
+        } else if let Some(s) = item_by_kind(&c.items, "subtitle") {
+            subtitle = s;
+        }
+        let items = items_by_kind(&c.items, "item");
+        let bottom_types = ["contact_support", "menu_book", "support", "docs"];
+        for item in &items {
+            let title = item.text.as_str();
+            let icon = item.config.get("icon").map(|s| s.as_str()).unwrap_or("");
+            let href = item.link.as_deref().unwrap_or("#");
+            let is_active = item.config.get("active").map(|s| s == "true").unwrap_or(false);
+            let is_bottom = bottom_types.contains(&icon) || title.eq_ignore_ascii_case("support") || title.eq_ignore_ascii_case("docs");
+
+            let link_html = if is_active {
+                format!(
+                    r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:#f4f4f5;color:#000;border-radius:6px;font-size:14px;font-weight:500;text-decoration:none">
+  <span class="material-symbols-outlined" style="font-size:20px">{icon}</span> {title}
+</a>"#,
+                    href = href, icon = icon, title = title
+                )
+            } else {
+                format!(
+                    r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;color:#71717a;border-radius:6px;font-size:14px;font-weight:500;text-decoration:none;transition:all 0.2s" onmouseover="this.style.color='#000';this.style.background='#f4f4f5'" onmouseout="this.style.color='#71717a';this.style.background='transparent'">
+  <span class="material-symbols-outlined" style="font-size:20px">{icon}</span> {title}
+</a>"#,
+                    href = href, icon = icon, title = title
+                )
+            };
+
+            if is_bottom {
+                bottom_items_html.push_str(&link_html);
+                bottom_items_html.push('\n');
+            } else {
+                nav_items_html.push_str(&link_html);
+                nav_items_html.push('\n');
+            }
+        }
+    } else if let Some(sec) = section {
+        brand = sec.config.get("brand").map(|s| s.as_str())
+            .or(sec.title.as_deref())
+            .unwrap_or("GeistPay");
+        subtitle = sec.config.get("subtitle").map(|s| s.as_str())
+            .or(sec.subtitle.as_deref())
+            .unwrap_or("Enterprise");
+    }
+
+    format!(
+        r##"<aside style="height:100vh;width:256px;border-right:1px solid #e5e7eb;position:fixed;left:0;top:64px;padding:16px;display:flex;flex-direction:column;gap:8px;background:rgba(250,250,250,0.5);font-size:14px;font-weight:500;letter-spacing:-0.02em;font-family:'Inter',sans-serif">
+  <div style="margin-bottom:24px;padding:0 8px">
+    <p style="font-weight:700;letter-spacing:-0.05em;color:#000;font-size:16px;margin:0">{brand}</p>
+    <p style="font-size:12px;color:#71717a;font-weight:400;margin:0">{subtitle}</p>
+  </div>
+  <nav style="flex:1;display:flex;flex-direction:column;gap:4px">
+    {nav_items}
+  </nav>
+  <div style="margin-top:auto;border-top:1px solid #e5e7eb;padding-top:16px;display:flex;flex-direction:column;gap:4px">
+    {bottom_items}
+    <button style="margin-top:16px;width:100%;background:#000;color:#fff;padding:8px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:-0.02em;border:none;cursor:pointer">Create Payment</button>
+  </div>
+</aside>"##,
+        brand = brand,
+        subtitle = subtitle,
+        nav_items = nav_items_html,
+        bottom_items = bottom_items_html,
     )
 }
 
@@ -6749,7 +6880,7 @@ fn build_security_page_header(section: Option<&SectionNode>) -> String {
     format!(
         r#"<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:48px">
           <div>
-            <h1 style="font-size:40px;font-weight:800;letter-spacing:-0.05em;margin:0 0 8px">{title}</h1>
+            <h1 style="font-size:36px;font-weight:800;letter-spacing:-0.05em;color:#000;margin:0 0 8px">{title}</h1>
             {subtitle}
           </div>
           {action}
