@@ -530,16 +530,20 @@ async fn handle_request(
         let dashboard_types = ["sidebar", "card", "page-header", "stat-cards", "product-grid",
             "team-list", "policies", "activity-table", "status-card", "links",
             "live-keys", "test-keys", "webhooks", "quick-links",
-            "current-plan", "usage-status", "billing-stats", "payment-methods", "recent-invoices"];
+            "current-plan", "usage-status", "billing-stats", "payment-methods", "recent-invoices",
+            "balance-card", "upcoming-card", "payout-history", "support-banner"];
         let is_dashboard = page.sections.iter().any(|s| dashboard_types.contains(&s.section_type.as_str()));
         let is_billing = page.sections.iter().any(|s| s.section_type == "current-plan" || s.section_type == "billing-stats");
+        let is_payouts = page.sections.iter().any(|s| s.section_type == "balance-card" || s.section_type == "payout-history");
         let html = if is_dashboard {
             // Dedicated dashboard renderer: produces the ENTIRE page in one shot
             let referenced_comps: Vec<parser::ComponentNode> = page.components.iter()
                 .filter_map(|name| state.components.iter().find(|c| c.name == *name))
                 .cloned()
                 .collect();
-            if is_billing {
+            if is_payouts {
+                ui::render_payouts_dashboard(app_name, &page.sections, &referenced_comps, theme)
+            } else if is_billing {
                 ui::render_billing_dashboard(app_name, &page.sections, &referenced_comps, theme)
             } else {
                 ui::render_dashboard_page(app_name, &page.sections, &referenced_comps, theme)

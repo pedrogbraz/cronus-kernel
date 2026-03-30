@@ -5016,3 +5016,426 @@ fn build_billing_recent_invoices(section: Option<&SectionNode>) -> String {
         action = action_text,
     )
 }
+
+// ════════════════════════════════════════════════
+// ██  PAYOUTS DASHBOARD  ████████████████████████
+// ════════════════════════════════════════════════
+
+pub fn render_payouts_dashboard(
+    app_name: &str,
+    sections: &[SectionNode],
+    components: &[crate::parser::ComponentNode],
+    theme: &str,
+) -> String {
+    let _ = theme;
+
+    // ── Extract component data ──────────────────────
+
+    let sidebar_comp = components.iter().find(|c| c.layout.as_deref() == Some("sidebar"));
+    let topbar_comp = components.iter().find(|c| {
+        c.layout.as_deref() == Some("inline") && c.style.as_deref().map(|s| s.contains("topbar")).unwrap_or(false)
+    });
+    let sidebar_section = sections.iter().find(|s| s.section_type == "sidebar");
+
+    // ── Extract section data by type ────────────────
+
+    let page_header = sections.iter().find(|s| s.section_type == "page-header");
+    let balance_card = sections.iter().find(|s| s.section_type == "balance-card");
+    let upcoming_card = sections.iter().find(|s| s.section_type == "upcoming-card");
+    let payout_history = sections.iter().find(|s| s.section_type == "payout-history");
+    let support_banner = sections.iter().find(|s| s.section_type == "support-banner");
+
+    // ── Build sidebar + topbar (reuse) ─────────────
+
+    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section);
+    let topbar_html = build_dashboard_topbar(topbar_comp);
+
+    // ── Build sections ──────────────────────────────
+
+    let header_html = build_payouts_page_header(page_header);
+    let balance_html = build_payouts_balance_card(balance_card);
+    let upcoming_html = build_payouts_upcoming_card(upcoming_card);
+    let history_html = build_payouts_history(payout_history);
+    let support_html = build_payouts_support_banner(support_banner);
+
+    // ── Assemble complete page ──────────────────────
+
+    format!(
+        r##"<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{app_name}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <style>
+    body {{ font-family:'Inter',sans-serif; background:#f9f9f9; color:#1a1c1c; margin:0; }}
+    * {{ box-sizing:border-box; }}
+    .material-symbols-outlined {{ font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; font-size:20px; display:inline-block; line-height:1; vertical-align:middle; }}
+    ::selection {{ background:rgba(0,111,240,0.15); }}
+    ::-webkit-scrollbar {{ width:4px; }}
+    ::-webkit-scrollbar-thumb {{ background:rgba(0,0,0,0.1); border-radius:2px; }}
+    .ghost-border {{ border:1px solid rgba(198,198,198,0.2); }}
+    .payout-row:hover {{ background:rgba(243,243,243,0.5); }}
+  </style>
+</head>
+<body>
+
+{sidebar}
+
+{topbar}
+
+<main style="margin-left:256px;min-height:100vh;background:radial-gradient(circle at top right,rgba(0,111,240,0.08),transparent 40%),radial-gradient(circle at bottom left,rgba(0,56,129,0.05),transparent 40%)">
+  <div style="max-width:1152px;margin:0 auto;padding:32px">
+
+    {header}
+
+    <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:24px">
+
+      <!-- Balance Card (col-span 8) -->
+      <div style="grid-column:span 8">
+        {balance}
+      </div>
+
+      <!-- Upcoming Card (col-span 4) -->
+      <div style="grid-column:span 4">
+        {upcoming}
+      </div>
+
+      <!-- history-section -->
+      <div style="grid-column:span 12">
+        {history}
+      </div>
+
+      <!-- Support Banner (col-span 12) -->
+      <div style="grid-column:span 12">
+        {support}
+      </div>
+
+    </div>
+    <div style="height:96px"></div>
+  </div>
+</main>
+
+<script>{runtime}</script>
+<script>{hmr}</script>
+</body>
+</html>"##,
+        app_name = app_name,
+        sidebar = sidebar_html,
+        topbar = topbar_html,
+        header = header_html,
+        balance = balance_html,
+        upcoming = upcoming_html,
+        history = history_html,
+        support = support_html,
+        runtime = super::render::CRONUS_RUNTIME_JS,
+        hmr = super::hmr::HMR_CLIENT_JS,
+    )
+}
+
+// ── Payouts page header ────────────────────────
+
+fn build_payouts_page_header(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("");
+    let subtitle = sec.subtitle.as_deref().unwrap_or("");
+
+    // Extract action from items
+    let action_item = sec.items.iter()
+        .find(|i| i.get("_type").map(|s| s.as_str()) == Some("action"));
+    let action_text = action_item.and_then(|i| i.get("title")).map(|s| s.as_str()).unwrap_or("");
+    let action_icon = action_item.and_then(|i| i.get("icon")).map(|s| s.as_str()).unwrap_or("");
+
+    let subtitle_html = if !subtitle.is_empty() {
+        format!(
+            r#"<p style="color:#5e5e5e;font-size:18px;margin:8px 0 0;line-height:1.5">{}</p>"#,
+            subtitle
+        )
+    } else {
+        String::new()
+    };
+
+    let action_html = if !action_text.is_empty() {
+        let icon_html = if !action_icon.is_empty() {
+            format!(r#"<span class="material-symbols-outlined" style="font-size:16px">{}</span>"#, action_icon)
+        } else {
+            String::new()
+        };
+        format!(
+            r#"<button style="background:#000;color:#fff;padding:10px 24px;border-radius:999px;font-size:14px;font-weight:500;border:none;cursor:pointer;display:flex;align-items:center;gap:8px">{icon} {text}</button>"#,
+            icon = icon_html,
+            text = action_text
+        )
+    } else {
+        String::new()
+    };
+
+    format!(
+        r#"<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:48px">
+      <div>
+        <h2 style="font-size:36px;font-weight:800;letter-spacing:-0.05em;line-height:1.25;color:#1a1c1c;margin:0 0 8px">{title}</h2>
+        {subtitle}
+      </div>
+      {action}
+    </div>"#,
+        title = title,
+        subtitle = subtitle_html,
+        action = action_html,
+    )
+}
+
+// ── Balance Card ───────────────────────────────
+
+fn build_payouts_balance_card(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let label = sec.config.get("badge").map(|s| s.as_str()).unwrap_or("");
+    let value = sec.title.as_deref().unwrap_or("");
+    let unit = sec.subtitle.as_deref().unwrap_or("");
+
+    // Build info badges from non-action items
+    let mut badges_html = String::new();
+    for item in &sec.items {
+        if item.get("_type").map(|s| s.as_str()) == Some("action") {
+            continue;
+        }
+        let text = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
+        if !text.is_empty() {
+            let icon_html = if !icon.is_empty() {
+                format!(r#"<span class="material-symbols-outlined" style="font-size:14px;color:#5e5e5e">{}</span>"#, icon)
+            } else {
+                String::new()
+            };
+            badges_html.push_str(&format!(
+                r#"<span style="display:inline-flex;align-items:center;gap:6px;background:#f3f3f3;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:500;color:#5e5e5e">{icon} {text}</span>"#,
+                icon = icon_html,
+                text = text
+            ));
+        }
+    }
+
+    format!(
+        r##"<section class="ghost-border" style="background:#fff;border-radius:12px;padding:32px;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+          <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#5e5e5e;margin-bottom:16px">{label}</div>
+          <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:24px">
+            <span style="font-size:48px;font-weight:800;letter-spacing:-0.04em;line-height:1">{value}</span>
+            <span style="background:rgba(0,111,240,0.1);color:#006ff0;font-size:12px;font-weight:700;padding:4px 12px;border-radius:999px">{unit}</span>
+          </div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            {badges}
+          </div>
+          <div style="position:absolute;right:-80px;bottom:-80px;width:240px;height:240px;border-radius:50%;background:rgba(0,111,240,0.08);filter:blur(48px);pointer-events:none"></div>
+        </section>"##,
+        label = label,
+        value = value,
+        unit = unit,
+        badges = badges_html,
+    )
+}
+
+// ── Upcoming Card ──────────────────────────────
+
+fn build_payouts_upcoming_card(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let label = sec.title.as_deref().unwrap_or("");
+    let value = sec.config.get("badge").map(|s| s.as_str()).unwrap_or("");
+    let date = sec.subtitle.as_deref().unwrap_or("");
+
+    // Build detail rows from row items
+    let mut rows_html = String::new();
+    for item in &sec.items {
+        if item.get("_type").map(|s| s.as_str()) == Some("action") {
+            continue;
+        }
+        let row_label = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let row_value = item.get("value").map(|s| s.as_str()).unwrap_or("");
+        let is_negative = row_value.starts_with('-');
+        let value_color = if is_negative { "color:#dc2626;" } else { "" };
+
+        rows_html.push_str(&format!(
+            r#"<div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:13px;color:#5e5e5e">{label}</span>
+              <span style="font-size:13px;font-weight:600;{color}">{value}</span>
+            </div>"#,
+            label = row_label,
+            value = row_value,
+            color = value_color,
+        ));
+    }
+
+    format!(
+        r##"<section class="ghost-border" style="background:#fff;border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+          <div style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#5e5e5e;margin-bottom:16px">{label}</div>
+          <div style="font-size:24px;font-weight:700;letter-spacing:-0.02em;margin-bottom:4px">{value}</div>
+          <div style="font-size:12px;color:#5e5e5e;margin-bottom:24px">{date}</div>
+          <div style="border-top:1px solid #f3f3f3;padding-top:16px;display:flex;flex-direction:column;gap:12px">
+            {rows}
+          </div>
+        </section>"##,
+        label = label,
+        value = value,
+        date = date,
+        rows = rows_html,
+    )
+}
+
+// ── Payout History table ───────────────────────
+
+fn build_payouts_history(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("");
+    let columns_raw = sec.config.get("columns").map(|s| s.as_str()).unwrap_or("");
+    let columns: Vec<&str> = columns_raw.split(',').map(|c| c.trim()).filter(|c| !c.is_empty()).collect();
+    let footnote = sec.config.get("footnote").map(|s| s.as_str()).unwrap_or("");
+
+    // Extract action buttons
+    let actions: Vec<&std::collections::HashMap<String, String>> = sec.items.iter()
+        .filter(|i| i.get("_type").map(|s| s.as_str()) == Some("action"))
+        .collect();
+
+    let mut action_buttons_html = String::new();
+    for action in &actions {
+        let text = action.get("title").map(|s| s.as_str()).unwrap_or("");
+        let icon = action.get("icon").map(|s| s.as_str()).unwrap_or("");
+        let icon_html = if !icon.is_empty() {
+            format!(r#"<span class="material-symbols-outlined" style="font-size:14px">{}</span>"#, icon)
+        } else {
+            String::new()
+        };
+        action_buttons_html.push_str(&format!(
+            r#"<button style="background:transparent;color:#000;padding:8px 16px;border-radius:999px;font-size:13px;font-weight:600;border:1px solid #e5e7eb;cursor:pointer;display:flex;align-items:center;gap:6px">{icon} {text}</button>"#,
+            icon = icon_html,
+            text = text
+        ));
+    }
+
+    // Build table header
+    let mut thead_html = String::new();
+    for col in &columns {
+        thead_html.push_str(&format!(
+            r#"<th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#a1a1aa;padding:12px 16px;border-bottom:1px solid #f3f3f3">{}</th>"#,
+            col
+        ));
+    }
+
+    // Build table rows from non-action items
+    let mut tbody_html = String::new();
+    for item in &sec.items {
+        if item.get("_type").map(|s| s.as_str()) == Some("action") {
+            continue;
+        }
+        let date = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let time = item.get("time").map(|s| s.as_str()).unwrap_or("");
+        let amount = item.get("amount").map(|s| s.as_str()).unwrap_or("");
+        let destination = item.get("destination").map(|s| s.as_str()).unwrap_or("");
+        let status = item.get("status").map(|s| s.as_str()).unwrap_or("");
+        let reference = item.get("reference").map(|s| s.as_str()).unwrap_or("");
+
+        // Colors from status value — label comes from .cronus status_label or capitalized status
+        let status_label = item.get("status_label").map(|s| s.as_str()).unwrap_or(status);
+        let (status_color, status_bg) = match status.to_lowercase().as_str() {
+            "success" => ("#16a34a", "rgba(22,163,74,0.1)"),
+            "processing" => ("#006ff0", "rgba(0,111,240,0.1)"),
+            "failed" => ("#dc2626", "rgba(220,38,38,0.1)"),
+            _ => ("#5e5e5e", "#f3f3f3"),
+        };
+
+        tbody_html.push_str(&format!(
+            r##"<tr class="payout-row" style="transition:background 0.15s;cursor:pointer">
+              <td style="padding:16px;border-bottom:1px solid #f9f9f9">
+                <div style="font-size:14px;font-weight:600">{date}</div>
+                <div style="font-size:11px;color:#a1a1aa">{time}</div>
+              </td>
+              <td style="padding:16px;border-bottom:1px solid #f9f9f9;font-size:14px;font-weight:700">{amount}</td>
+              <td style="padding:16px;border-bottom:1px solid #f9f9f9;font-size:13px;color:#5e5e5e">{destination}</td>
+              <td style="padding:16px;border-bottom:1px solid #f9f9f9">
+                <span style="display:inline-block;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:700;color:{status_color};background:{status_bg}">{status_label}</span>
+              </td>
+              <td style="padding:16px;border-bottom:1px solid #f9f9f9;font-family:'SF Mono','Fira Code',monospace;font-size:12px;color:#5e5e5e">{reference}</td>
+            </tr>"##,
+            date = date,
+            time = time,
+            amount = amount,
+            destination = destination,
+            status_color = status_color,
+            status_bg = status_bg,
+            status_label = status_label,
+            reference = reference,
+        ));
+    }
+
+    let footnote_html = if !footnote.is_empty() {
+        format!(
+            r#"<div style="padding:16px;font-size:12px;color:#a1a1aa;text-align:center;border-top:1px solid #f3f3f3">{}</div>"#,
+            footnote
+        )
+    } else {
+        String::new()
+    };
+
+    format!(
+        r##"<section class="ghost-border" style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.04);overflow:hidden">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:24px 24px 0">
+            <h4 style="font-size:20px;font-weight:700;margin:0">{title}</h4>
+            <div style="display:flex;gap:8px">
+              {action_buttons}
+            </div>
+          </div>
+          <div style="padding:16px 0 0;overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse">
+              <thead><tr>{thead}</tr></thead>
+              <tbody>{tbody}</tbody>
+            </table>
+          </div>
+          {footnote}
+        </section>"##,
+        title = title,
+        action_buttons = action_buttons_html,
+        thead = thead_html,
+        tbody = tbody_html,
+        footnote = footnote_html,
+    )
+}
+
+// ── Support Banner ─────────────────────────────
+
+fn build_payouts_support_banner(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("");
+    let subtitle = sec.subtitle.as_deref().unwrap_or("");
+
+    let action_item = sec.items.iter()
+        .find(|i| i.get("_type").map(|s| s.as_str()) == Some("action"));
+    let action_text = action_item.and_then(|i| i.get("title")).map(|s| s.as_str()).unwrap_or("");
+
+    format!(
+        r##"<section style="background:#0a0a0a;border-radius:12px;padding:40px;position:relative;overflow:hidden">
+          <div style="position:absolute;right:-20%;top:-40%;width:60%;height:180%;background:rgba(255,255,255,0.05);transform:skewX(-12deg);pointer-events:none"></div>
+          <div style="position:relative;z-index:1">
+            <h4 style="font-size:20px;font-weight:700;color:#fff;margin:0 0 8px">{title}</h4>
+            <p style="font-size:14px;color:#a1a1aa;margin:0 0 24px;max-width:560px;line-height:1.6">{subtitle}</p>
+            <button style="background:#fff;color:#000;padding:10px 24px;border-radius:999px;font-size:14px;font-weight:600;border:none;cursor:pointer">{action}</button>
+          </div>
+        </section>"##,
+        title = title,
+        subtitle = subtitle,
+        action = action_text,
+    )
+}
