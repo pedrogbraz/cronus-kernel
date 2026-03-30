@@ -391,7 +391,7 @@ fn render_light_topbar(comp: &ComponentNode) -> String {
         let active = item.text == "Payouts";
         let color = if active { "#000000;font-weight:500" } else { "#71717a" };
         format!(r#"<a href="{}" style="text-decoration:none;font-size:14px;transition:color 0.2s;color:{}">{}</a>"#,
-            item.link.as_deref().unwrap_or("#"), color, item.text)
+            item.link.as_deref().unwrap_or(""), color, item.text)
     }).collect::<Vec<_>>().join("");
 
     format!(
@@ -417,17 +417,17 @@ fn render_light_sidenav(comp: &ComponentNode) -> String {
     let top = items.iter().take(5).map(|item| {
         let active = item.config.get("active").map(|v| v == "true").unwrap_or(false);
         let bg = if active { "background:#f4f4f5;color:#000" } else { "color:#71717a" };
-        let icon = item.config.get("icon").map(|s| s.as_str()).unwrap_or("circle");
+        let icon = item.config.get("icon").map(|s| s.as_str()).unwrap_or("");
         format!(
             r#"<a href="{}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:6px;text-decoration:none;transition:all 0.2s;{}"><span class="material-symbols-outlined">{}</span><span>{}</span></a>"#,
-            item.link.as_deref().unwrap_or("#"), bg, icon, item.text
+            item.link.as_deref().unwrap_or(""), bg, icon, item.text
         )
     }).collect::<Vec<_>>().join("");
     let bottom = items.iter().skip(5).map(|item| {
-        let icon = item.config.get("icon").map(|s| s.as_str()).unwrap_or("circle");
+        let icon = item.config.get("icon").map(|s| s.as_str()).unwrap_or("");
         format!(
             r#"<a href="{}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:6px;text-decoration:none;color:#71717a;transition:all 0.2s"><span class="material-symbols-outlined">{}</span><span>{}</span></a>"#,
-            item.link.as_deref().unwrap_or("#"), icon, item.text
+            item.link.as_deref().unwrap_or(""), icon, item.text
         )
     }).collect::<Vec<_>>().join("");
 
@@ -1385,7 +1385,7 @@ fn render_hero(section: &SectionNode, _accent: &str, theme: &str) -> String {
     let cta_primary = section.config.get("cta_text").or(section.config.get("cta")).map(|s| s.as_str()).unwrap_or("Get Started");
     let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("/signup");
     let cta2_text = section.config.get("cta2_text").map(|s| s.as_str());
-    let cta2_link = section.config.get("cta2_link").map(|s| s.as_str()).unwrap_or("#");
+    let cta2_link = section.config.get("cta2_link").map(|s| s.as_str()).unwrap_or("");
 
     // Extract badge from items if not in config
     let badge_text = badge.or_else(|| {
@@ -2066,7 +2066,7 @@ fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> String {
     let cta_text = section.config.get("cta_text").map(|s| s.as_str()).unwrap_or("Get Started");
     let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("/signup");
     let cta2_text = section.config.get("cta2_text").map(|s| s.as_str());
-    let cta2_link = section.config.get("cta2_link").map(|s| s.as_str()).unwrap_or("#");
+    let cta2_link = section.config.get("cta2_link").map(|s| s.as_str()).unwrap_or("");
     let footnote = section.config.get("footnote").map(|s| s.as_str());
     let is_dark = section.config.get("style").map(|s| s.contains("dark")).unwrap_or(false) || theme == "dark";
     let is_light = !is_dark && (cta2_text.is_some() || section.config.get("style").map(|s| s.contains("light")).unwrap_or(false));
@@ -2504,7 +2504,7 @@ fn render_stats(section: &SectionNode, accent: &str) -> String {
 
     let items: Vec<String> = section.items.iter().map(|item| {
         let label = item.get("title").map(|s| s.as_str()).unwrap_or("Stat");
-        let value = item.get("description").map(|s| s.as_str()).unwrap_or("0");
+        let value = item.get("description").map(|s| s.as_str()).unwrap_or("");
         format!(
             r#"<div class="text-center">
   <p class="text-4xl font-bold text-{accent}-400 tabular-nums">{value}</p>
@@ -2576,7 +2576,7 @@ fn render_stat_cards(section: &SectionNode) -> String {
 
     let cards: Vec<String> = section.items.iter().map(|item| {
         let label = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Metric");
-        let value = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("0");
+        let value = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
         let icon_html = item.get("icon").map(|icon| {
             format!(r#"<span style="font-size:18px;margin-bottom:8px;display:block">{icon}</span>"#, icon = icon)
         }).unwrap_or_default();
@@ -2621,7 +2621,7 @@ fn render_info_bar(section: &SectionNode) -> String {
         .filter(|i| i.get("type").map(|t| t != "icon").unwrap_or(true))
         .map(|item| {
             let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Link");
-            let href = item.get("description").or_else(|| item.get("desc")).or_else(|| item.get("href")).map(|s| s.as_str()).unwrap_or("#");
+            let href = item.get("description").or_else(|| item.get("desc")).or_else(|| item.get("href")).map(|s| s.as_str()).unwrap_or("");
             format!(
                 r##"<a href="{href}" style="font-size:12px;color:#5e5e5e;text-transform:uppercase;letter-spacing:0.1em;text-decoration:none;font-weight:500;transition:color 0.15s" onmouseover="this.style.color='#000'" onmouseout="this.style.color='#5e5e5e'">{name}</a>"##,
                 href = href, name = name,
@@ -2735,7 +2735,7 @@ fn render_promo(section: &SectionNode) -> String {
         .map(|s| s.as_str());
 
     let cta_text = section.config.get("cta_text").map(|s| s.as_str());
-    let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("#");
+    let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("");
 
     // If config has span:2, this section is intended to span 2 grid columns in parent layout
 
@@ -3067,7 +3067,7 @@ fn render_status_card(section: &SectionNode) -> String {
 
     let meters: Vec<String> = section.items.iter().map(|item| {
         let label = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Metric");
-        let value = item.get("description").or_else(|| item.get("desc")).or_else(|| item.get("value")).map(|s| s.as_str()).unwrap_or("0");
+        let value = item.get("description").or_else(|| item.get("desc")).or_else(|| item.get("value")).map(|s| s.as_str()).unwrap_or("");
         let status = item.get("status").map(|s| s.as_str()).unwrap_or("default");
         let bar_color = match status.to_lowercase().as_str() {
             "success" | "ok" | "good" => "#047857",
@@ -3160,7 +3160,7 @@ fn render_sidebar(section: &SectionNode) -> String {
     let subtitle = section.config.get("subtitle")
         .map(|s| s.as_str())
         .or(section.subtitle.as_deref())
-        .unwrap_or("Enterprise");
+        .unwrap_or("");
 
     // Active page from config (matches against item title)
     let active = section.config.get("active").map(|s| s.as_str()).unwrap_or("");
@@ -3170,8 +3170,8 @@ fn render_sidebar(section: &SectionNode) -> String {
     let mut bottom_items = String::new();
     for item in &section.items {
         let title = item.get("title").map(|s| s.as_str()).unwrap_or("");
-        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("circle");
-        let href = item.get("href").map(|s| s.as_str()).unwrap_or("#");
+        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
+        let href = item.get("href").map(|s| s.as_str()).unwrap_or("");
         let position = item.get("position").map(|s| s.as_str()).unwrap_or("top");
         let is_active = !active.is_empty() && title.eq_ignore_ascii_case(active);
 
@@ -3261,7 +3261,7 @@ fn render_card_section(section: &SectionNode) -> String {
         let desc = item.get("description").map(|s| s.as_str()).unwrap_or("");
         let value = item.get("value").map(|s| s.as_str()).unwrap_or("");
         let status = item.get("status").map(|s| s.as_str()).unwrap_or("");
-        let href = item.get("href").map(|s| s.as_str()).unwrap_or("#");
+        let href = item.get("href").map(|s| s.as_str()).unwrap_or("");
 
         match item_type {
             "label" => {
@@ -3350,7 +3350,7 @@ fn render_links_section(section: &SectionNode) -> String {
     let mut links_html = String::new();
     for item in &section.items {
         let link_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
-        let href = item.get("href").map(|s| s.as_str()).unwrap_or("#");
+        let href = item.get("href").map(|s| s.as_str()).unwrap_or("");
         let desc = item.get("description").map(|s| s.as_str()).unwrap_or("");
 
         links_html.push_str(&format!(
@@ -3495,7 +3495,7 @@ fn render_generic_section(section: &SectionNode, _accent: &str) -> String {
 
             // --- Action (button) ---
             "action" => {
-                let href = item.get("href").map(|s| s.as_str()).unwrap_or("#");
+                let href = item.get("href").map(|s| s.as_str()).unwrap_or("");
                 html.push_str(&format!(
                     r#"<a href="{}" style="display:inline-block;padding:10px 24px;font-size:14px;font-weight:600;color:#fff;background:#1a1c1c;border-radius:999px;text-decoration:none;text-align:center">{}</a>"#,
                     href, title
@@ -3536,7 +3536,7 @@ fn render_generic_section(section: &SectionNode, _accent: &str) -> String {
 
             // --- Link ---
             "link" => {
-                let href = item.get("href").map(|s| s.as_str()).unwrap_or("#");
+                let href = item.get("href").map(|s| s.as_str()).unwrap_or("");
                 html.push_str(&format!(
                     r#"<a href="{}" style="font-size:14px;color:#1a1c1c;text-decoration:underline;text-underline-offset:3px">{}</a>"#,
                     href, if !title.is_empty() { title } else { href }
@@ -3649,7 +3649,7 @@ fn render_stack_component(comp: &ComponentNode, style: &str) -> String {
     if style.contains("metric") || style.contains("stat") {
         // StatCard
         let label = item_by_kind(&comp.items, "label").unwrap_or("Metric");
-        let value = item_by_kind(&comp.items, "value").unwrap_or("0");
+        let value = item_by_kind(&comp.items, "value").unwrap_or("");
         let trend = comp.items.iter().find(|i| i.item_type == "trend");
         let change_pct = trend.map(|t| {
             t.text.trim_end_matches('%').parse::<f32>().unwrap_or(0.0)
@@ -3782,7 +3782,7 @@ fn render_hero_component(comp: &ComponentNode, style: &str) -> String {
     let title = item_by_kind(&comp.items, "title").unwrap_or("Welcome");
     let subtitle = item_by_kind(&comp.items, "subtitle").unwrap_or("");
     let ctas: Vec<String> = items_by_kind(&comp.items, "cta").iter().map(|c| {
-        let href = c.link.as_deref().unwrap_or("#");
+        let href = c.link.as_deref().unwrap_or("");
         let tone = c.config.get("tone").map(|s| s.as_str()).unwrap_or("primary");
         let variant = if tone == "primary" || tone == "default" { "primary" } else { "outline" };
         components::button(&c.text, variant, "lg", Some(href))
@@ -3833,7 +3833,7 @@ fn render_modal_component(comp: &ComponentNode, style: &str) -> String {
 
 fn render_sidebar_component(comp: &ComponentNode, _style: &str) -> String {
     let nav_items: Vec<String> = items_by_kind(&comp.items, "item").iter().map(|item| {
-        let href = item.link.as_deref().unwrap_or("#");
+        let href = item.link.as_deref().unwrap_or("");
         let icon = item.config.get("icon").map(|s| s.as_str()).unwrap_or("");
         let icon_svg = match icon {
             "layout-dashboard" => r#"<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>"#,
@@ -3874,7 +3874,7 @@ fn render_tabs_component(comp: &ComponentNode, style: &str) -> String {
 fn render_menu_component(comp: &ComponentNode, _style: &str) -> String {
     let trigger = item_by_kind(&comp.items, "trigger").unwrap_or("Menu");
     let menu_items: Vec<(&str, &str)> = items_by_kind(&comp.items, "action").iter().map(|a| {
-        let href = a.link.as_deref().unwrap_or("#");
+        let href = a.link.as_deref().unwrap_or("");
         (a.text.as_str(), href)
     }).collect();
     components::dropdown(trigger, &menu_items)
@@ -4033,14 +4033,14 @@ fn build_dashboard_sidebar(comp: Option<&ComponentNode>, section: Option<&Sectio
         let bottom_types = ["contact_support", "menu_book", "support", "docs"];
         for item in &items {
             let title = item.text.as_str();
-            let icon = item.config.get("icon").map(|s| s.as_str()).unwrap_or("circle");
-            let href = item.link.as_deref().unwrap_or("#");
+            let icon = item.config.get("icon").map(|s| s.as_str()).unwrap_or("");
+            let href = item.link.as_deref().unwrap_or("");
             let is_active = item.config.get("active").map(|s| s == "true").unwrap_or(false);
             let is_bottom = bottom_types.contains(&icon) || title.eq_ignore_ascii_case("support") || title.eq_ignore_ascii_case("docs");
 
             let link_html = if is_active {
                 format!(
-                    r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:rgba(0,0,0,0.04);color:#000;border-radius:8px;font-size:14px;font-weight:500;text-decoration:none;transform:scale(0.97)">
+                    r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:#f4f4f5;color:#000;border-radius:6px;font-size:14px;font-weight:500;text-decoration:none;transform:scale(0.97)">
   <span class="material-symbols-outlined" style="font-size:20px">{icon}</span>
   <span>{title}</span>
 </a>"#,
@@ -4048,7 +4048,7 @@ fn build_dashboard_sidebar(comp: Option<&ComponentNode>, section: Option<&Sectio
                 )
             } else {
                 format!(
-                    r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;color:#71717a;border-radius:8px;font-size:14px;font-weight:500;text-decoration:none;transition:all 0.15s" onmouseover="this.style.color='#000';this.style.background='rgba(0,0,0,0.04)'" onmouseout="this.style.color='#71717a';this.style.background='transparent'">
+                    r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;color:#71717a;border-radius:6px;font-size:14px;font-weight:500;text-decoration:none;transition:all 0.15s" onmouseover="this.style.color='#000';this.style.background='#f4f4f5'" onmouseout="this.style.color='#71717a';this.style.background='transparent'">
   <span class="material-symbols-outlined" style="font-size:20px">{icon}</span>
   <span>{title}</span>
 </a>"#,
@@ -4070,19 +4070,19 @@ fn build_dashboard_sidebar(comp: Option<&ComponentNode>, section: Option<&Sectio
             .unwrap_or("Dashboard");
         subtitle = sec.config.get("subtitle").map(|s| s.as_str())
             .or(sec.subtitle.as_deref())
-            .unwrap_or("Enterprise");
+            .unwrap_or("");
         let active = sec.config.get("active").map(|s| s.as_str()).unwrap_or("");
         for item in &sec.items {
             let title = item.get("title").map(|s| s.as_str()).unwrap_or("");
-            let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("circle");
-            let href = item.get("href").map(|s| s.as_str()).unwrap_or("#");
+            let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
+            let href = item.get("href").map(|s| s.as_str()).unwrap_or("");
             let position = item.get("position").map(|s| s.as_str()).unwrap_or("top");
             let is_active = (!active.is_empty() && title.eq_ignore_ascii_case(active))
                 || item.get("active").map(|s| s == "true").unwrap_or(false);
 
             let link_html = if is_active {
                 format!(
-                    r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:rgba(0,0,0,0.04);color:#000;border-radius:8px;font-size:14px;font-weight:500;text-decoration:none;transform:scale(0.97)">
+                    r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:#f4f4f5;color:#000;border-radius:6px;font-size:14px;font-weight:500;text-decoration:none;transform:scale(0.97)">
   <span class="material-symbols-outlined" style="font-size:20px">{icon}</span>
   <span>{title}</span>
 </a>"#,
@@ -4090,7 +4090,7 @@ fn build_dashboard_sidebar(comp: Option<&ComponentNode>, section: Option<&Sectio
                 )
             } else {
                 format!(
-                    r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;color:#71717a;border-radius:8px;font-size:14px;font-weight:500;text-decoration:none;transition:all 0.15s" onmouseover="this.style.color='#000';this.style.background='rgba(0,0,0,0.04)'" onmouseout="this.style.color='#71717a';this.style.background='transparent'">
+                    r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;color:#71717a;border-radius:6px;font-size:14px;font-weight:500;text-decoration:none;transition:all 0.15s" onmouseover="this.style.color='#000';this.style.background='#f4f4f5'" onmouseout="this.style.color='#71717a';this.style.background='transparent'">
   <span class="material-symbols-outlined" style="font-size:20px">{icon}</span>
   <span>{title}</span>
 </a>"#,
@@ -4149,7 +4149,7 @@ fn build_dashboard_topbar(comp: Option<&ComponentNode>) -> String {
   <div style="display:flex;justify-content:space-between;align-items:center;height:64px;padding:0 24px;max-width:1280px;margin:0 auto">
     <div style="position:relative;width:100%;max-width:448px">
       <span class="material-symbols-outlined" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#a1a1aa;font-size:16px">search</span>
-      <input type="text" placeholder="{placeholder}" style="width:100%;padding:8px 16px 8px 40px;border:none;background:#f3f3f3;border-radius:8px;font-size:14px;outline:none;font-family:'Inter',sans-serif">
+      <input type="text" placeholder="{placeholder}" style="width:100%;padding:6px 16px 6px 40px;border:none;background:#f3f3f3;border-radius:999px;font-size:14px;outline:none;font-family:'Inter',sans-serif">
     </div>
     <div style="display:flex;align-items:center;gap:16px">
       <span class="material-symbols-outlined" style="color:#71717a;cursor:pointer">notifications</span>
@@ -4433,7 +4433,7 @@ fn build_quick_links_panel(section: Option<&SectionNode>) -> String {
     let mut links_html = String::new();
     for item in &sec.items {
         let link_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
-        let href = item.get("href").map(|s| s.as_str()).unwrap_or("#");
+        let href = item.get("href").map(|s| s.as_str()).unwrap_or("");
         links_html.push_str(&format!(
             r#"<li><a href="{href}" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;transition:opacity 0.15s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
               <span style="font-size:14px;font-weight:500;color:#1a1c1c">{title}</span>
@@ -4580,7 +4580,7 @@ pub fn render_billing_dashboard(
 
 {topbar}
 
-<main style="margin-left:256px;min-height:100vh;background:radial-gradient(circle at top right,rgba(0,111,240,0.08),transparent 40%),radial-gradient(circle at bottom left,rgba(0,56,129,0.05),transparent 40%);background-image:linear-gradient(to right,rgba(198,198,198,0.1) 1px,transparent 1px),linear-gradient(to bottom,rgba(198,198,198,0.1) 1px,transparent 1px);background-size:40px 40px">
+<main style="margin-left:256px;min-height:100vh;background:radial-gradient(circle at top right,rgba(0,111,240,0.08),transparent 40%),radial-gradient(circle at bottom left,rgba(0,56,129,0.05),transparent 40%)">
   <div style="max-width:1152px;margin:0 auto;padding:32px">
 
     {header}
@@ -4643,7 +4643,7 @@ fn build_billing_page_header(section: Option<&SectionNode>) -> String {
         Some(s) => s,
         None => return String::new(),
     };
-    let title = sec.title.as_deref().unwrap_or("Billing");
+    let title = sec.title.as_deref().unwrap_or("");
     let subtitle = sec.subtitle.as_deref().unwrap_or("");
 
     let subtitle_html = if !subtitle.is_empty() {
@@ -4657,7 +4657,7 @@ fn build_billing_page_header(section: Option<&SectionNode>) -> String {
 
     format!(
         r#"<div style="margin-bottom:48px">
-      <h2 style="font-size:56px;font-weight:800;letter-spacing:-0.04em;color:#1a1c1c;margin:0">{title}</h2>
+      <h2 style="font-size:56px;font-weight:800;letter-spacing:-0.05em;line-height:1.25;color:#1a1c1c;margin:0 0 8px">{title}</h2>
       {subtitle}
     </div>"#,
         title = title,
@@ -4672,8 +4672,8 @@ fn build_billing_current_plan(section: Option<&SectionNode>) -> String {
         Some(s) => s,
         None => return String::new(),
     };
-    let badge_text = sec.config.get("badge").map(|s| s.as_str()).unwrap_or("ACTIVE PLAN");
-    let plan_name = sec.title.as_deref().unwrap_or("Enterprise");
+    let badge_text = sec.config.get("badge").map(|s| s.as_str()).unwrap_or("");
+    let plan_name = sec.title.as_deref().unwrap_or("");
     // Extract action text from items with _type=action, or fallback to config
     let action_text = sec.items.iter()
         .find(|i| i.get("_type").map(|s| s.as_str()) == Some("action"))
@@ -4681,7 +4681,7 @@ fn build_billing_current_plan(section: Option<&SectionNode>) -> String {
         .map(|s| s.as_str())
         .or_else(|| sec.config.get("action_text").map(|s| s.as_str()))
         .or_else(|| sec.config.get("action").map(|s| s.as_str()))
-        .unwrap_or("Change Plan");
+        .unwrap_or("");
 
     // Build detail rows from items — skip action items
     let mut rows_html = String::new();
@@ -4704,7 +4704,7 @@ fn build_billing_current_plan(section: Option<&SectionNode>) -> String {
         };
 
         rows_html.push_str(&format!(
-            r#"<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f3f3f3;padding-bottom:16px;margin-bottom:16px">
+            r#"<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid #f3f3f3;padding-bottom:16px;margin-bottom:24px">
               <span style="color:#5e5e5e">{label}</span>
               <span>{value}</span>
             </div>"#,
@@ -4739,7 +4739,7 @@ fn build_billing_usage_status(section: Option<&SectionNode>) -> String {
         Some(s) => s,
         None => return String::new(),
     };
-    let title = sec.title.as_deref().unwrap_or("USAGE STATUS");
+    let title = sec.title.as_deref().unwrap_or("");
     // Extract link from action items, or fallback to config
     let action_item = sec.items.iter()
         .find(|i| i.get("_type").map(|s| s.as_str()) == Some("action"));
@@ -4748,7 +4748,7 @@ fn build_billing_usage_status(section: Option<&SectionNode>) -> String {
         .unwrap_or("");
     let link_href = action_item.and_then(|i| i.get("link")).map(|s| s.as_str())
         .or_else(|| sec.config.get("link_href").map(|s| s.as_str()))
-        .unwrap_or("#");
+        .unwrap_or("");
 
     let mut bars_html = String::new();
     for item in &sec.items {
@@ -4761,7 +4761,7 @@ fn build_billing_usage_status(section: Option<&SectionNode>) -> String {
         let percent_str = item.get("progress")
             .or_else(|| item.get("percent"))
             .map(|s| s.as_str())
-            .unwrap_or("0");
+            .unwrap_or("");
         let percent: u32 = percent_str.parse().unwrap_or(0);
 
         bars_html.push_str(&format!(
@@ -4791,7 +4791,7 @@ fn build_billing_usage_status(section: Option<&SectionNode>) -> String {
 
     format!(
         r##"<section class="ghost-border" style="background:#fff;border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
-          <h4 style="font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#5e5e5e;margin:0 0 32px">{title}</h4>
+          <h4 style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#5e5e5e;margin:0 0 32px">{title}</h4>
           {bars}
           {link}
         </section>"##,
@@ -4816,13 +4816,13 @@ fn build_billing_stats(section: Option<&SectionNode>) -> String {
             .or_else(|| item.get("description"))
             .map(|s| s.as_str())
             .unwrap_or("");
-        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("circle");
+        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
 
         cards_html.push_str(&format!(
             r##"<div class="ghost-border" style="background:#fff;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
-              <span class="material-symbols-outlined" style="color:#a1a1aa;margin-bottom:16px;display:block">{icon}</span>
+              <span class="material-symbols-outlined" style="color:#a1a1aa;margin-bottom:16px">{icon}</span>
               <div style="font-size:24px;font-weight:700;letter-spacing:-0.02em;margin-bottom:4px">{value}</div>
-              <div style="font-size:12px;color:#5e5e5e;font-weight:500;text-transform:uppercase;letter-spacing:-0.02em">{label}</div>
+              <div style="font-size:12px;color:#5e5e5e;font-weight:500;text-transform:uppercase;letter-spacing:-0.05em">{label}</div>
             </div>"##,
             icon = icon,
             value = value,
@@ -4845,11 +4845,11 @@ fn build_billing_payment_methods(section: Option<&SectionNode>) -> String {
         Some(s) => s,
         None => return String::new(),
     };
-    let title = sec.title.as_deref().unwrap_or("Payment Methods");
+    let title = sec.title.as_deref().unwrap_or("");
     let action_text = sec.config.get("action_text")
         .or_else(|| sec.config.get("action"))
         .map(|s| s.as_str())
-        .unwrap_or("Add Method");
+        .unwrap_or("");
 
     let mut items_html = String::new();
     let mut card_index = 0usize;
@@ -4864,21 +4864,27 @@ fn build_billing_payment_methods(section: Option<&SectionNode>) -> String {
         let description = item.get("description").map(|s| s.as_str()).unwrap_or("");
         let meta = item.get("meta").map(|s| s.as_str()).unwrap_or("");
         let status = item.get("status").map(|s| s.as_str()).unwrap_or("");
-        let action_icon = item.get("action_icon").map(|s| s.as_str()).unwrap_or("more_vert");
+        let action_icon = item.get("action_icon").map(|s| s.as_str()).unwrap_or("");
 
         let is_first = card_index == 0;
 
-        // Badge: detect VISA vs Apple Pay vs generic
-        let badge_html = if name.contains("VISA") || name.contains("Visa") || name.contains("visa") {
-            r#"<div style="width:48px;height:32px;background:#171717;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;letter-spacing:-0.04em">VISA</div>"#.to_string()
-        } else if name.contains("Apple") || name.contains("apple") {
-            r#"<div style="width:48px;height:32px;border:1px solid #e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center"><span class="material-symbols-outlined" style="font-size:18px">phone_iphone</span></div>"#.to_string()
-        } else {
-            let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("credit_card");
+        // Badge: read from item config badge_type or badge, then icon
+        let badge_type = item.get("badge").map(|s| s.as_str()).unwrap_or("");
+        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
+        let badge_html = if badge_type == "dark" || (!badge_type.is_empty() && badge_type != "light") {
+            // Dark badge with text (e.g. VISA)
+            format!(
+                r#"<div style="width:48px;height:32px;background:#171717;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;letter-spacing:-0.04em">{}</div>"#,
+                badge_type.to_uppercase()
+            )
+        } else if !icon.is_empty() {
+            // Icon badge
             format!(
                 r#"<div style="width:48px;height:32px;border:1px solid #e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center"><span class="material-symbols-outlined" style="font-size:18px">{}</span></div>"#,
                 icon
             )
+        } else {
+            String::new()
         };
 
         // Description line with optional bold "Default" from meta
@@ -4937,7 +4943,7 @@ fn build_billing_payment_methods(section: Option<&SectionNode>) -> String {
         r##"<section class="ghost-border" style="background:#fff;border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px">
             <h4 style="font-size:20px;font-weight:700;margin:0">{title}</h4>
-            <button style="background:transparent;color:#000;padding:8px 16px;border-radius:999px;font-size:14px;font-weight:600;border:1px solid #e5e7eb;cursor:pointer;display:flex;align-items:center;gap:6px"><span class="material-symbols-outlined" style="font-size:16px">add</span> {action}</button>
+            <button style="background:transparent;color:#000;padding:8px 16px;border-radius:999px;font-size:14px;font-weight:700;border:1px solid #e5e7eb;cursor:pointer;display:flex;align-items:center;gap:8px"><span class="material-symbols-outlined" style="font-size:14px">add</span> {action}</button>
           </div>
           <div style="display:flex;flex-direction:column;gap:16px">
             {items}
@@ -4956,11 +4962,11 @@ fn build_billing_recent_invoices(section: Option<&SectionNode>) -> String {
         Some(s) => s,
         None => return String::new(),
     };
-    let title = sec.title.as_deref().unwrap_or("RECENT INVOICES");
+    let title = sec.title.as_deref().unwrap_or("");
     let action_text = sec.config.get("action_text")
         .or_else(|| sec.config.get("action"))
         .map(|s| s.as_str())
-        .unwrap_or("DOWNLOAD ALL");
+        .unwrap_or("");
 
     let mut rows_html = String::new();
     for item in &sec.items {
@@ -4977,7 +4983,7 @@ fn build_billing_recent_invoices(section: Option<&SectionNode>) -> String {
             .or_else(|| item.get("value"))
             .map(|s| s.as_str())
             .unwrap_or("");
-        let action_icon = item.get("action_icon").map(|s| s.as_str()).unwrap_or("download");
+        let action_icon = item.get("action_icon").map(|s| s.as_str()).unwrap_or("");
 
         rows_html.push_str(&format!(
             r##"<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='rgba(243,243,243,0.5)'" onmouseout="this.style.background='transparent'">
@@ -4987,7 +4993,7 @@ fn build_billing_recent_invoices(section: Option<&SectionNode>) -> String {
               </div>
               <div style="display:flex;align-items:center;gap:12px">
                 <div style="font-size:14px;font-weight:700">{amount}</div>
-                <span class="material-symbols-outlined" style="font-size:16px;color:#d4d4d8">{action_icon}</span>
+                <span class="material-symbols-outlined" style="font-size:20px;color:#d4d4d8">{action_icon}</span>
               </div>
             </div>"##,
             invoice_id = invoice_id,
@@ -4999,11 +5005,11 @@ fn build_billing_recent_invoices(section: Option<&SectionNode>) -> String {
 
     format!(
         r##"<section class="ghost-border" style="background:#fff;border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
-          <h4 style="font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#5e5e5e;margin:0 0 24px">{title}</h4>
+          <h4 style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#5e5e5e;margin:0 0 24px">{title}</h4>
           <div style="display:flex;flex-direction:column;gap:24px">
             {rows}
           </div>
-          <button style="width:100%;text-align:center;font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;background:none;border:none;border-top:1px solid #f3f3f3;padding-top:16px;margin-top:16px;cursor:pointer;color:#000">{action}</button>
+          <button style="width:100%;text-align:center;font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;background:none;border:none;border-top:1px solid #f3f3f3;padding:12px 0;margin-top:16px;cursor:pointer;color:#000">{action}</button>
         </section>"##,
         title = title.to_uppercase(),
         rows = rows_html,
