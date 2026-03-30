@@ -5777,3 +5777,1242 @@ pub fn render_unified_dashboard(
         hmr = super::hmr::HMR_CLIENT_JS,
     )
 }
+
+// ══════════════════════════════════════════════════
+// PAYMENT LINKS DASHBOARD — GeistPay
+// ══════════════════════════════════════════════════
+
+pub fn render_payment_links_dashboard(
+    app_name: &str,
+    sections: &[SectionNode],
+    components: &[crate::parser::ComponentNode],
+    theme: &str,
+) -> String {
+    let _ = theme;
+
+    // ── Extract component data ──────────────────────
+
+    let sidebar_comp = components.iter().find(|c| c.layout.as_deref() == Some("sidebar"));
+    let topbar_comp = components.iter().find(|c| {
+        c.layout.as_deref() == Some("inline") && c.style.as_deref().map(|s| s.contains("topbar")).unwrap_or(false)
+    });
+    let sidebar_section = sections.iter().find(|s| s.section_type == "sidebar");
+
+    // ── Extract section data by type ────────────────
+
+    let page_header = sections.iter().find(|s| s.section_type == "page-header");
+    let stat_cards = sections.iter().find(|s| s.section_type == "stat-cards");
+    let promo = sections.iter().find(|s| s.section_type == "promo");
+    let info_bar = sections.iter().find(|s| s.section_type == "info-bar");
+
+    // Product grids — may be multiple (main grid + draft card)
+    let product_grids: Vec<&SectionNode> = sections.iter()
+        .filter(|s| s.section_type == "product-grid")
+        .collect();
+
+    // ── Build sidebar + topbar (reuse) ─────────────
+
+    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section);
+    let topbar_html = build_dashboard_topbar(topbar_comp);
+
+    // ── Build page header ───────────────────────────
+
+    let header_html = build_payment_links_page_header(page_header);
+
+    // ── Build stat cards ────────────────────────────
+
+    let stat_cards_html = build_payment_links_stat_cards(stat_cards);
+
+    // ── Build product grid(s) ───────────────────────
+
+    let mut product_grid_html = String::new();
+    for grid in &product_grids {
+        product_grid_html.push_str(&build_payment_links_product_grid(grid));
+    }
+
+    // ── Build promo banner ──────────────────────────
+
+    let promo_html = build_payment_links_promo(promo);
+
+    // ── Build info bar (footer) ─────────────────────
+
+    let info_bar_html = build_payment_links_info_bar(info_bar);
+
+    // ── Assemble complete page ──────────────────────
+
+    format!(
+        r##"<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{app_name}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <style>
+    body {{ font-family:'Inter',sans-serif; background:#f9f9f9; color:#1a1c1c; margin:0; }}
+    * {{ box-sizing:border-box; }}
+    .material-symbols-outlined {{ font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; font-size:20px; display:inline-block; line-height:1; vertical-align:middle; }}
+    ::selection {{ background:rgba(0,111,240,0.15); }}
+    ::-webkit-scrollbar {{ width:4px; }}
+    ::-webkit-scrollbar-thumb {{ background:rgba(0,0,0,0.1); border-radius:2px; }}
+    .ghost-border {{ border:1px solid rgba(198,198,198,0.2); }}
+    .prism-bg {{
+      background: radial-gradient(circle at 50% -20%, rgba(0,111,240,0.06) 0%, transparent 50%),
+                  radial-gradient(circle at 0% 100%, rgba(0,56,129,0.04) 0%, transparent 40%);
+    }}
+    .engineering-grid {{
+      background-size: 40px 40px;
+      background-image: linear-gradient(to right, rgba(0,0,0,0.03) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(0,0,0,0.03) 1px, transparent 1px);
+    }}
+  </style>
+</head>
+<body>
+
+{sidebar}
+
+{topbar}
+
+<main style="margin-left:256px;min-height:100vh;display:flex;flex-direction:column">
+  <section class="prism-bg engineering-grid" style="flex:1;padding:32px">
+    <div style="max-width:1152px;margin:0 auto">
+
+      {header}
+
+      {stat_cards}
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px">
+        {product_grid}
+
+        {promo}
+      </div>
+
+    </div>
+  </section>
+
+  {info_bar}
+</main>
+
+<script>{runtime}</script>
+<script>{hmr}</script>
+</body>
+</html>"##,
+        app_name = app_name,
+        sidebar = sidebar_html,
+        topbar = topbar_html,
+        header = header_html,
+        stat_cards = stat_cards_html,
+        product_grid = product_grid_html,
+        promo = promo_html,
+        info_bar = info_bar_html,
+        runtime = super::render::CRONUS_RUNTIME_JS,
+        hmr = super::hmr::HMR_CLIENT_JS,
+    )
+}
+
+// ── Payment Links: page header ─────────────────
+
+fn build_payment_links_page_header(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("");
+    let subtitle = sec.subtitle.as_deref().unwrap_or("");
+
+    // Extract action from items with _type=action
+    let action_item = sec.items.iter()
+        .find(|i| i.get("_type").map(|s| s.as_str()) == Some("action"));
+    let action_text = action_item.and_then(|i| i.get("title")).map(|s| s.as_str()).unwrap_or("");
+    let action_icon = action_item.and_then(|i| i.get("icon")).map(|s| s.as_str()).unwrap_or("add");
+
+    let subtitle_html = if !subtitle.is_empty() {
+        format!(r#"<p style="color:#5e5e5e;font-size:16px;font-weight:500;margin:0">{}</p>"#, subtitle)
+    } else {
+        String::new()
+    };
+
+    let action_html = if !action_text.is_empty() {
+        format!(
+            r##"<button style="display:flex;align-items:center;gap:8px;background:#000;color:#fff;border:none;padding:12px 24px;border-radius:999px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:-0.02em;box-shadow:0 20px 40px rgba(0,0,0,0.05);transition:all 0.15s" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+  <span class="material-symbols-outlined" style="font-size:20px">{icon}</span>
+  {text}
+</button>"##,
+            icon = action_icon, text = action_text
+        )
+    } else {
+        String::new()
+    };
+
+    format!(
+        r##"<div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:48px">
+  <div>
+    <h1 style="font-size:36px;font-weight:800;letter-spacing:-0.04em;color:#000;margin:0 0 8px">{title}</h1>
+    {subtitle}
+  </div>
+  {action}
+</div>"##,
+        title = title, subtitle = subtitle_html, action = action_html,
+    )
+}
+
+// ── Payment Links: stat cards ──────────────────
+
+fn build_payment_links_stat_cards(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+
+    let cols = sec.config.get("cols")
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(3);
+
+    let cards: Vec<String> = sec.items.iter()
+        .filter(|i| i.get("_type").map(|s| s.as_str()) != Some("action"))
+        .map(|item| {
+            let label = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let value = item.get("description").map(|s| s.as_str()).unwrap_or("");
+
+            format!(
+                r##"<div style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px">
+  <p style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#5e5e5e;margin:0 0 4px">{label}</p>
+  <p style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#1a1c1c;margin:0">{value}</p>
+</div>"##,
+                label = label, value = value,
+            )
+        })
+        .collect();
+
+    format!(
+        r##"<div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:24px;margin-bottom:48px">
+  {items}
+</div>"##,
+        cols = cols, items = cards.join("\n  "),
+    )
+}
+
+// ── Payment Links: product grid ────────────────
+
+fn build_payment_links_product_grid(section: &SectionNode) -> String {
+    let cards: Vec<String> = section.items.iter()
+        .filter(|i| i.get("_type").map(|s| s.as_str()) != Some("action"))
+        .map(|item| {
+            let name = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let desc = item.get("description").map(|s| s.as_str()).unwrap_or("");
+            let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
+            let status = item.get("status").map(|s| s.as_str());
+            let price = item.get("price").map(|s| s.as_str());
+            let price_interval = item.get("price_interval").map(|s| s.as_str());
+            let price_unit = item.get("price_unit").map(|s| s.as_str());
+            let action_text = item.get("action").map(|s| s.as_str()).unwrap_or("View");
+            let action_icon = item.get("action_icon").map(|s| s.as_str()).unwrap_or("");
+
+            // Icon box
+            let icon_html = if icon.is_empty() {
+                r#"<div style="width:48px;height:48px;background:#e8e8e8;border-radius:12px;flex-shrink:0"></div>"#.to_string()
+            } else {
+                format!(r#"<div style="width:48px;height:48px;background:#e8e8e8;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center"><span class="material-symbols-outlined" style="color:#1a1c1c">{icon}</span></div>"#, icon = icon)
+            };
+
+            // Status badge
+            let status_html = match status {
+                Some(s) => {
+                    let (bg, tx) = if s.eq_ignore_ascii_case("active") {
+                        ("rgba(0,111,240,0.1)", "#006ff0")
+                    } else {
+                        ("rgba(161,161,170,0.15)", "#71717a")
+                    };
+                    let label = s;
+                    format!(r#"<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;padding:4px 12px;border-radius:999px;background:{bg};color:{tx}">{label}</span>"#, bg = bg, tx = tx, label = label)
+                }
+                None => String::new(),
+            };
+
+            // Price line
+            let price_html = match price {
+                Some(p) => {
+                    let suffix = price_interval.map(|i| format!(r#" <span style="font-size:12px;font-weight:500;color:#5e5e5e">/ {i}</span>"#, i = i))
+                        .or_else(|| price_unit.map(|u| format!(r#" <span style="font-size:12px;font-weight:500;color:#5e5e5e">{u}</span>"#, u = u)))
+                        .unwrap_or_default();
+                    format!(r#"<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:24px"><span style="font-size:24px;font-weight:700;letter-spacing:-0.03em;color:#1a1c1c">{p}</span>{suffix}</div>"#, p = p, suffix = suffix)
+                }
+                None => String::new(),
+            };
+
+            // Action button with icon
+            let act_icon_html = if !action_icon.is_empty() {
+                format!(r#"<span class="material-symbols-outlined" style="font-size:16px">{}</span>"#, action_icon)
+            } else {
+                String::new()
+            };
+
+            format!(
+                r##"<div style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px;display:flex;flex-direction:column;transition:border-color 0.2s" onmouseover="this.style.borderColor='rgba(0,0,0,0.1)'" onmouseout="this.style.borderColor='rgba(198,198,198,0.2)'">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">{icon_html}{status_html}</div>
+  <h3 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;color:#1a1c1c;margin:0 0 4px">{name}</h3>
+  <p style="font-size:14px;color:#5e5e5e;margin:0 0 16px">{desc}</p>
+  <div style="margin-top:auto">{price_html}<div style="display:flex;gap:8px">
+    <button style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#f3f3f3;border:none;border-radius:999px;padding:10px 0;font-size:12px;font-weight:700;color:#1a1c1c;cursor:pointer;transition:background 0.15s;font-family:inherit" onmouseover="this.style.background='#e8e8e8'" onmouseout="this.style.background='#f3f3f3'">{act_icon} {action_text}</button>
+    <button style="width:40px;height:40px;border:1px solid rgba(198,198,198,0.3);border-radius:999px;display:flex;align-items:center;justify-content:center;background:transparent;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='#f3f3f3'" onmouseout="this.style.background='transparent'"><span class="material-symbols-outlined" style="font-size:20px;color:#71717a">more_horiz</span></button>
+  </div></div>
+</div>"##,
+                icon_html = icon_html, status_html = status_html,
+                name = name, desc = desc, price_html = price_html,
+                act_icon = act_icon_html, action_text = action_text,
+            )
+        })
+        .collect();
+
+    cards.join("\n")
+}
+
+// ── Payment Links: promo banner ────────────────
+
+fn build_payment_links_promo(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+
+    let title = sec.title.as_deref().unwrap_or("");
+    let subtitle = sec.subtitle.as_deref().unwrap_or("");
+    let badge_text = sec.config.get("badge").map(|s| s.as_str()).unwrap_or("");
+    let cta_text = sec.config.get("cta_text").map(|s| s.as_str()).unwrap_or("");
+    let cta_link = sec.config.get("cta_link").map(|s| s.as_str()).unwrap_or("#");
+
+    let badge_html = if !badge_text.is_empty() {
+        format!(r#"<span style="display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,0.2);color:#fff;margin-bottom:16px">{}</span>"#, badge_text)
+    } else {
+        String::new()
+    };
+
+    let subtitle_html = if !subtitle.is_empty() {
+        format!(r#"<p style="font-size:14px;color:#a1a1aa;max-width:480px;line-height:1.6;margin:0 0 32px">{}</p>"#, subtitle)
+    } else {
+        String::new()
+    };
+
+    let cta_html = if !cta_text.is_empty() {
+        format!(
+            r##"<a href="{link}" style="display:inline-flex;align-items:center;padding:10px 24px;border-radius:999px;background:#fff;color:#000;font-weight:700;font-size:14px;text-decoration:none;transition:background 0.15s" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#fff'">{text}</a>"##,
+            link = cta_link, text = cta_text
+        )
+    } else {
+        String::new()
+    };
+
+    // Span 2 columns in the parent 3-col grid
+    format!(
+        r##"<div style="grid-column:span 2;background:#000;color:#fff;border-radius:12px;padding:32px;position:relative;overflow:hidden;display:flex;gap:32px">
+  <div style="flex:1;position:relative;z-index:1;display:flex;flex-direction:column">
+    {badge}
+    <h2 style="font-size:30px;font-weight:700;letter-spacing:-0.03em;line-height:1;color:#fff;margin:0 0 16px">{title}</h2>
+    {subtitle}
+    {cta}
+  </div>
+  <div style="flex:1;position:relative;min-height:200px;border-radius:8px;overflow:hidden;background:radial-gradient(ellipse at 80% 50%,rgba(0,111,240,0.2),transparent 70%)"></div>
+</div>"##,
+        badge = badge_html, title = title, subtitle = subtitle_html, cta = cta_html,
+    )
+}
+
+// ── Payment Links: info bar (footer) ───────────
+
+fn build_payment_links_info_bar(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+
+    let title = sec.title.as_deref().unwrap_or("");
+    let subtitle = sec.subtitle.as_deref().unwrap_or("");
+    let icon_name = sec.config.get("icon").map(|s| s.as_str()).unwrap_or("shield");
+
+    let links: Vec<String> = sec.items.iter()
+        .filter(|i| i.get("_type").map(|s| s.as_str()) != Some("action") || i.get("_type").is_none())
+        .map(|item| {
+            let name = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let href = item.get("link").or(item.get("href")).map(|s| s.as_str()).unwrap_or("#");
+            format!(
+                r##"<a href="{href}" style="font-size:12px;font-weight:700;color:#5e5e5e;text-transform:uppercase;letter-spacing:0.1em;text-decoration:none;transition:color 0.15s" onmouseover="this.style.color='#000'" onmouseout="this.style.color='#5e5e5e'">{name}</a>"##,
+                href = href, name = name,
+            )
+        })
+        .collect();
+
+    let title_html = if !title.is_empty() {
+        format!(r#"<p style="font-size:14px;font-weight:700;letter-spacing:-0.02em;color:#1a1c1c;margin:0">{}</p>"#, title)
+    } else {
+        String::new()
+    };
+
+    let subtitle_html = if !subtitle.is_empty() {
+        format!(r#"<p style="font-size:12px;color:#5e5e5e;margin:0">{}</p>"#, subtitle)
+    } else {
+        String::new()
+    };
+
+    format!(
+        r##"<footer style="padding:32px;background:#fafafa;border-top:1px solid rgba(198,198,198,0.2)">
+  <div style="max-width:1024px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:24px">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="width:48px;height:48px;background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:999px;display:flex;align-items:center;justify-content:center">
+        <span class="material-symbols-outlined" style="color:#a1a1aa">{icon}</span>
+      </div>
+      <div>
+        {title}
+        {subtitle}
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:32px">
+      {links}
+    </div>
+  </div>
+</footer>"##,
+        icon = icon_name, title = title_html, subtitle = subtitle_html,
+        links = links.join("\n      "),
+    )
+}
+
+// ════════════════════════════════════════════════
+// ██  CHECKOUT DASHBOARD  ████████████████████████
+// ════════════════════════════════════════════════
+
+pub fn render_checkout_dashboard(
+    app_name: &str,
+    sections: &[SectionNode],
+    _components: &[crate::parser::ComponentNode],
+    theme: &str,
+) -> String {
+    let _ = theme;
+
+    let topbar_sec = sections.iter().find(|s| s.section_type == "topbar");
+    let checkout_form = sections.iter().find(|s| s.section_type == "checkout-form");
+    let product_summary = sections.iter().find(|s| s.section_type == "product-summary");
+    let trust_indicators = sections.iter().find(|s| s.section_type == "trust-indicators");
+    let testimonial = sections.iter().find(|s| s.section_type == "testimonial");
+    let footer_sec = sections.iter().find(|s| s.section_type == "footer");
+
+    let topbar_html = build_checkout_topbar(topbar_sec);
+    let form_html = build_checkout_form(checkout_form);
+    let summary_html = build_checkout_product_summary(product_summary);
+    let trust_html = build_checkout_trust_indicators(trust_indicators);
+    let testimonial_html = build_checkout_testimonial(testimonial);
+    let footer_html = build_checkout_footer(footer_sec);
+
+    format!(
+        r##"<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{app_name}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <style>
+    body {{ font-family:'Inter',sans-serif; background:#f9f9f9; color:#1a1c1c; margin:0; min-height:100vh; }}
+    * {{ box-sizing:border-box; }}
+    .material-symbols-outlined {{ font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; font-size:20px; display:inline-block; line-height:1; vertical-align:middle; }}
+    ::selection {{ background:rgba(0,111,240,0.15); }}
+    .ghost-border {{ border:1px solid rgba(198,198,198,0.2); }}
+    .prism-glow {{ background:radial-gradient(circle at top right,rgba(0,111,240,0.08),transparent 40%),radial-gradient(circle at bottom left,rgba(216,226,255,0.1),transparent 40%); }}
+  </style>
+</head>
+<body class="prism-glow">
+
+{topbar}
+
+<main style="max-width:1152px;margin:0 auto;padding:48px 24px 80px">
+  <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:48px">
+    <div style="grid-column:span 7">
+      {form}
+    </div>
+    <div style="grid-column:span 5">
+      <div style="position:sticky;top:96px;display:flex;flex-direction:column;gap:32px">
+        {summary}
+        {trust}
+        {testimonial}
+      </div>
+    </div>
+  </div>
+</main>
+
+{footer}
+
+<script>{runtime}</script>
+<script>{hmr}</script>
+</body>
+</html>"##,
+        app_name = app_name,
+        topbar = topbar_html,
+        form = form_html,
+        summary = summary_html,
+        trust = trust_html,
+        testimonial = testimonial_html,
+        footer = footer_html,
+        runtime = super::render::CRONUS_RUNTIME_JS,
+        hmr = super::hmr::HMR_CLIENT_JS,
+    )
+}
+
+fn build_checkout_topbar(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let brand = sec.config.get("brand").map(|s| s.as_str()).unwrap_or("");
+    let action_text = sec.items.iter()
+        .find(|i| i.get("_type").map(|s| s.as_str()) == Some("action"))
+        .and_then(|i| i.get("title"))
+        .map(|s| s.as_str())
+        .unwrap_or("");
+
+    format!(
+        r##"<header style="width:100%;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:50;background:rgba(255,255,255,0.8);backdrop-filter:blur(20px);display:flex;justify-content:space-between;align-items:center;height:64px;padding:0 48px">
+  <div style="font-size:18px;font-weight:700;letter-spacing:-0.05em;color:#000;display:flex;align-items:center;gap:8px">
+    <span style="width:24px;height:24px;background:#000;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px">GP</span>
+    {brand}
+  </div>
+  <button style="display:flex;align-items:center;gap:8px;color:#71717a;font-size:14px;font-weight:500;background:none;border:none;cursor:pointer">
+    <span class="material-symbols-outlined" style="font-size:14px">close</span>
+    {action}
+  </button>
+</header>"##,
+        brand = brand,
+        action = action_text,
+    )
+}
+
+fn build_checkout_form(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("");
+    let cta_text = sec.config.get("cta_text").map(|s| s.as_str()).unwrap_or("");
+    let footnote = sec.config.get("footnote").map(|s| s.as_str()).unwrap_or("");
+
+    let mut express_buttons: Vec<String> = Vec::new();
+    let mut divider_text = String::new();
+    let mut fields: Vec<(String, String, String)> = Vec::new();
+    let mut checkbox_text = String::new();
+
+    for item in &sec.items {
+        let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("");
+        if item_type == "action" { continue; }
+        let style = item.get("style").map(|s| s.as_str()).unwrap_or("");
+        let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+
+        if style == "express" {
+            express_buttons.push(item_title.to_string());
+        } else if style == "divider" {
+            divider_text = item_title.to_string();
+        } else if style == "checkbox" {
+            checkbox_text = item_title.to_string();
+        } else if style == "field" {
+            let meta = item.get("meta").map(|s| s.as_str()).unwrap_or("");
+            let action = item.get("action").map(|s| s.as_str()).unwrap_or("");
+            fields.push((item_title.to_string(), meta.to_string(), action.to_string()));
+        }
+    }
+
+    let mut express_html = String::new();
+    if !express_buttons.is_empty() {
+        express_html.push_str(r#"<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:40px">"#);
+        for (i, name) in express_buttons.iter().enumerate() {
+            if i == 0 {
+                express_html.push_str(&format!(
+                    r#"<button style="background:#000;color:#fff;height:48px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:8px;border:none;cursor:pointer;font-size:14px"><span style="font-weight:500">Pay with</span> <span style="font-weight:700">{name}</span></button>"#,
+                    name = name
+                ));
+            } else {
+                express_html.push_str(&format!(
+                    r#"<button style="background:#fff;color:#000;height:48px;border-radius:999px;border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-size:14px"><span style="font-weight:500">Pay with</span> <span style="font-weight:700">{name}</span></button>"#,
+                    name = name
+                ));
+            }
+        }
+        express_html.push_str("</div>");
+    }
+
+    let divider_html = if !divider_text.is_empty() {
+        format!(
+            r#"<div style="display:flex;align-items:center;padding:16px 0;margin-bottom:24px">
+              <div style="flex:1;border-top:1px solid #e5e7eb"></div>
+              <span style="margin:0 16px;color:#a1a1aa;font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em">{text}</span>
+              <div style="flex:1;border-top:1px solid #e5e7eb"></div>
+            </div>"#,
+            text = divider_text
+        )
+    } else {
+        String::new()
+    };
+
+    let mut fields_html = String::new();
+    for (label, placeholder, extra) in &fields {
+        if label == "Card information" {
+            fields_html.push_str(&format!(
+                r#"<div style="margin-bottom:24px">
+                  <label style="display:block;font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#71717a;margin-bottom:8px">{label}</label>
+                  <div style="position:relative">
+                    <input type="text" placeholder="{placeholder}" style="width:100%;height:48px;padding:0 16px;border-radius:8px 8px 0 0;background:#fff;border:1px solid rgba(198,198,198,0.2);outline:none;font-size:14px;color:#1a1c1c">
+                    <span class="material-symbols-outlined" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);color:#d4d4d8">credit_card</span>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr">"#,
+                label = label, placeholder = placeholder,
+            ));
+            let parts: Vec<&str> = extra.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+            if parts.len() >= 2 {
+                fields_html.push_str(&format!(
+                    r#"<input type="text" placeholder="{}" style="width:100%;height:48px;padding:0 16px;border-radius:0 0 0 8px;background:#fff;border:1px solid rgba(198,198,198,0.2);border-top:none;outline:none;font-size:14px">
+                    <input type="text" placeholder="{}" style="width:100%;height:48px;padding:0 16px;border-radius:0 0 8px 0;background:#fff;border:1px solid rgba(198,198,198,0.2);border-top:none;border-left:none;outline:none;font-size:14px">"#,
+                    parts[0], parts[1]
+                ));
+            }
+            fields_html.push_str("</div></div>");
+        } else if label == "Billing address" {
+            fields_html.push_str(&format!(
+                r#"<div style="margin-bottom:24px">
+                  <label style="display:block;font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#71717a;margin-bottom:8px">{label}</label>
+                  <select style="width:100%;height:48px;padding:0 16px;border-radius:8px 8px 0 0;background:#fff;border:1px solid rgba(198,198,198,0.2);outline:none;font-size:14px;color:#1a1c1c;appearance:none">
+                    <option>{placeholder}</option>
+                  </select>
+                  <input type="text" placeholder="{extra}" style="width:100%;height:48px;padding:0 16px;border-radius:0 0 8px 8px;background:#fff;border:1px solid rgba(198,198,198,0.2);border-top:none;outline:none;font-size:14px">
+                </div>"#,
+                label = label, placeholder = placeholder, extra = extra,
+            ));
+        } else {
+            fields_html.push_str(&format!(
+                r#"<div style="margin-bottom:24px">
+                  <label style="display:block;font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#71717a;margin-bottom:8px">{label}</label>
+                  <input type="text" placeholder="{placeholder}" style="width:100%;height:48px;padding:0 16px;border-radius:8px;background:#fff;border:1px solid rgba(198,198,198,0.2);outline:none;font-size:14px;color:#1a1c1c">
+                </div>"#,
+                label = label, placeholder = placeholder,
+            ));
+        }
+    }
+
+    let checkbox_html = if !checkbox_text.is_empty() {
+        format!(
+            r#"<div style="display:flex;align-items:center;gap:12px;padding-top:8px;margin-bottom:32px">
+              <input type="checkbox" style="width:16px;height:16px;border-radius:4px;border:1px solid #d4d4d8;accent-color:#000">
+              <label style="font-size:14px;color:#52525b">{text}</label>
+            </div>"#,
+            text = checkbox_text
+        )
+    } else {
+        String::new()
+    };
+
+    let cta_html = if !cta_text.is_empty() {
+        format!(
+            r#"<button style="width:100%;background:#000;color:#fff;height:56px;border-radius:999px;font-weight:700;letter-spacing:-0.02em;font-size:18px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:32px">
+              {cta}
+              <span class="material-symbols-outlined" style="color:rgba(255,255,255,0.5);font-variation-settings:'FILL' 1">lock</span>
+            </button>"#,
+            cta = cta_text
+        )
+    } else {
+        String::new()
+    };
+
+    let footnote_html = if !footnote.is_empty() {
+        format!(
+            r#"<p style="text-align:center;font-size:12px;color:#a1a1aa;margin-top:16px;padding:0 32px;line-height:1.6">{text}</p>"#,
+            text = footnote
+        )
+    } else {
+        String::new()
+    };
+
+    format!(
+        r##"<section>
+          <h1 style="font-size:30px;font-weight:700;letter-spacing:-0.02em;margin:0 0 32px">{title}</h1>
+          {express}
+          {divider}
+          <form>
+            {fields}
+            {checkbox}
+            {cta}
+            {footnote}
+          </form>
+        </section>"##,
+        title = title,
+        express = express_html,
+        divider = divider_html,
+        fields = fields_html,
+        checkbox = checkbox_html,
+        cta = cta_html,
+        footnote = footnote_html,
+    )
+}
+
+fn build_checkout_product_summary(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+
+    let mut product_html = String::new();
+    let mut rows_html = String::new();
+    let mut total_label = String::new();
+    let mut total_value = String::new();
+
+    for item in &sec.items {
+        let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("");
+        if item_type == "action" { continue; }
+
+        if item_type == "row" {
+            let label = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let value = item.get("value").map(|s| s.as_str()).unwrap_or("");
+            if label == "Total" {
+                total_label = label.to_string();
+                total_value = value.to_string();
+            } else {
+                rows_html.push_str(&format!(
+                    r#"<div style="display:flex;justify-content:space-between;font-size:14px">
+                      <span style="color:#71717a">{label}</span>
+                      <span style="font-weight:500">{value}</span>
+                    </div>"#,
+                    label = label, value = value,
+                ));
+            }
+        } else {
+            let name = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let desc = item.get("description").map(|s| s.as_str()).unwrap_or("");
+            let qty = item.get("meta").map(|s| s.as_str()).unwrap_or("");
+            let img = item.get("icon").map(|s| s.as_str()).unwrap_or("");
+
+            let img_html = if !img.is_empty() && img.starts_with("http") {
+                format!(
+                    r#"<div style="width:96px;height:96px;border-radius:8px;overflow:hidden;flex-shrink:0;border:1px solid rgba(198,198,198,0.2)"><img src="{img}" alt="{name}" style="width:100%;height:100%;object-fit:cover"></div>"#,
+                    img = img, name = name
+                )
+            } else {
+                r#"<div style="width:96px;height:96px;border-radius:8px;background:#f4f4f5;flex-shrink:0;border:1px solid rgba(198,198,198,0.2)"></div>"#.to_string()
+            };
+
+            product_html.push_str(&format!(
+                r#"<div style="display:flex;gap:24px">
+                  {img}
+                  <div style="display:flex;flex-direction:column;justify-content:center">
+                    <h3 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0">{name}</h3>
+                    <p style="font-size:14px;color:#71717a;margin:4px 0 0">{desc}</p>
+                    <p style="font-size:14px;font-weight:500;margin:8px 0 0">{qty}</p>
+                  </div>
+                </div>"#,
+                img = img_html, name = name, desc = desc, qty = qty,
+            ));
+        }
+    }
+
+    let total_html = if !total_label.is_empty() {
+        format!(
+            r#"<div style="display:flex;justify-content:space-between;font-size:20px;font-weight:700;letter-spacing:-0.02em;padding-top:16px;border-top:1px solid #f4f4f5">
+              <span>{label}</span>
+              <span>{value}</span>
+            </div>"#,
+            label = total_label, value = total_value,
+        )
+    } else {
+        String::new()
+    };
+
+    format!(
+        r##"<div class="ghost-border" style="background:#fff;border-radius:12px;padding:32px;display:flex;flex-direction:column;gap:32px">
+          {product}
+          <div style="display:flex;flex-direction:column;gap:16px;padding-top:16px;border-top:1px solid #f4f4f5">
+            {rows}
+            {total}
+          </div>
+        </div>"##,
+        product = product_html, rows = rows_html, total = total_html,
+    )
+}
+
+fn build_checkout_trust_indicators(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+
+    let mut items_html = String::new();
+    for item in &sec.items {
+        let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("");
+        if item_type == "action" { continue; }
+        let label = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
+
+        items_html.push_str(&format!(
+            r#"<div style="padding:16px;border-radius:8px;background:#f4f4f5;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px">
+              <span class="material-symbols-outlined" style="color:#a1a1aa">{icon}</span>
+              <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#71717a">{label}</span>
+            </div>"#,
+            icon = icon, label = label,
+        ));
+    }
+
+    format!(
+        r#"<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">{items}</div>"#,
+        items = items_html,
+    )
+}
+
+fn build_checkout_testimonial(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let source = sec.title.as_deref().unwrap_or("");
+    let quote = sec.subtitle.as_deref().unwrap_or("");
+
+    format!(
+        r##"<div style="position:relative;padding:24px;background:#000;color:#fff;border-radius:12px;overflow:hidden">
+          <div style="position:relative;z-index:1">
+            <p style="font-size:14px;font-weight:500;font-style:italic;line-height:1.6;opacity:0.9">"{quote}"</p>
+            <p style="font-size:12px;font-weight:700;margin-top:16px;letter-spacing:0.05em;text-transform:uppercase">{source}</p>
+          </div>
+          <div style="position:absolute;inset:0;background:linear-gradient(to top right,rgba(0,111,240,0.2),transparent);opacity:0.5"></div>
+        </div>"##,
+        quote = quote, source = source,
+    )
+}
+
+fn build_checkout_footer(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let copyright = sec.config.get("copyright").map(|s| s.as_str()).unwrap_or("");
+    let nav_items = sec.config.get("nav").map(|s| s.as_str()).unwrap_or("");
+
+    let mut nav_html = String::new();
+    for link in nav_items.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+        nav_html.push_str(&format!(
+            r##"<a href="#" style="font-size:12px;font-weight:500;color:#71717a;text-decoration:none">{link}</a>"##,
+            link = link
+        ));
+    }
+
+    format!(
+        r##"<footer style="margin-top:80px;padding:48px 0;border-top:1px solid #e5e7eb">
+  <div style="max-width:1152px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center">
+    <div style="display:flex;align-items:center;gap:24px">
+      <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#a1a1aa">{copyright}</span>
+      <div style="display:flex;gap:16px;opacity:0.3">
+        <span class="material-symbols-outlined">payments</span>
+        <span class="material-symbols-outlined">account_balance</span>
+        <span class="material-symbols-outlined">shield</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:32px">{nav}</div>
+  </div>
+</footer>"##,
+        copyright = copyright, nav = nav_html,
+    )
+}
+
+// ════════════════════════════════════════════════
+// ██  SECURITY TEAM DASHBOARD  ███████████████████
+// ════════════════════════════════════════════════
+
+pub fn render_security_dashboard(
+    app_name: &str,
+    sections: &[SectionNode],
+    components: &[crate::parser::ComponentNode],
+    theme: &str,
+) -> String {
+    let _ = theme;
+
+    let sidebar_comp = components.iter().find(|c| c.layout.as_deref() == Some("sidebar"));
+    let topbar_comp = components.iter().find(|c| {
+        c.layout.as_deref() == Some("inline") && c.style.as_deref().map(|s| s.contains("topbar")).unwrap_or(false)
+    });
+    let sidebar_section = sections.iter().find(|s| s.section_type == "sidebar");
+
+    let page_header = sections.iter().find(|s| s.section_type == "page-header");
+    let team_members = sections.iter().find(|s| s.section_type == "team-members");
+    let security_status = sections.iter().find(|s| s.section_type == "security-status");
+    let security_policies = sections.iter().find(|s| s.section_type == "security-policies");
+    let login_activity = sections.iter().find(|s| s.section_type == "login-activity");
+
+    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section);
+    let topbar_html = build_dashboard_topbar(topbar_comp);
+
+    let header_html = build_security_page_header(page_header);
+    let team_html = build_security_team_members(team_members);
+    let status_html = build_security_2fa_status(security_status);
+    let policies_html = build_security_policies(security_policies);
+    let activity_html = build_security_login_activity(login_activity);
+
+    format!(
+        r##"<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{app_name}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <style>
+    body {{ font-family:'Inter',sans-serif; background:#f9f9f9; color:#1a1c1c; margin:0; }}
+    * {{ box-sizing:border-box; }}
+    .material-symbols-outlined {{ font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; font-size:20px; display:inline-block; line-height:1; vertical-align:middle; }}
+    ::selection {{ background:rgba(0,111,240,0.15); }}
+    ::-webkit-scrollbar {{ width:4px; }}
+    ::-webkit-scrollbar-thumb {{ background:rgba(0,0,0,0.1); border-radius:2px; }}
+    .ghost-border {{ border:1px solid rgba(198,198,198,0.2); }}
+    .prism-bg {{ background:radial-gradient(circle at top right,rgba(0,111,240,0.08),transparent 40%),radial-gradient(circle at bottom left,rgba(0,111,240,0.05),transparent 40%); }}
+  </style>
+</head>
+<body>
+
+{sidebar}
+
+{topbar}
+
+<main class="prism-bg" style="margin-left:256px;min-height:100vh">
+  <div style="max-width:1152px;margin:0 auto;padding:32px">
+
+    {header}
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px">
+      <div style="grid-column:span 2">
+        {team}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:24px">
+        {status}
+        {policies}
+      </div>
+      <div style="grid-column:span 3">
+        {activity}
+      </div>
+    </div>
+    <div style="height:96px"></div>
+  </div>
+</main>
+
+<script>{runtime}</script>
+<script>{hmr}</script>
+</body>
+</html>"##,
+        app_name = app_name,
+        sidebar = sidebar_html,
+        topbar = topbar_html,
+        header = header_html,
+        team = team_html,
+        status = status_html,
+        policies = policies_html,
+        activity = activity_html,
+        runtime = super::render::CRONUS_RUNTIME_JS,
+        hmr = super::hmr::HMR_CLIENT_JS,
+    )
+}
+
+fn build_security_page_header(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("");
+    let subtitle = sec.subtitle.as_deref().unwrap_or("");
+    let action_text = sec.items.iter()
+        .find(|i| i.get("_type").map(|s| s.as_str()) == Some("action"))
+        .and_then(|i| i.get("title"))
+        .map(|s| s.as_str())
+        .unwrap_or("");
+    let action_icon = sec.items.iter()
+        .find(|i| i.get("_type").map(|s| s.as_str()) == Some("action"))
+        .and_then(|i| i.get("icon"))
+        .map(|s| s.as_str())
+        .unwrap_or("");
+
+    let subtitle_html = if !subtitle.is_empty() {
+        format!(r#"<p style="color:#71717a;font-size:14px;margin:0">{}</p>"#, subtitle)
+    } else {
+        String::new()
+    };
+
+    let action_html = if !action_text.is_empty() {
+        format!(
+            r#"<button style="background:#000;color:#fff;padding:10px 24px;border-radius:999px;font-size:14px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;gap:8px">
+              <span class="material-symbols-outlined" style="font-size:14px">{icon}</span> {text}
+            </button>"#,
+            icon = action_icon, text = action_text
+        )
+    } else {
+        String::new()
+    };
+
+    format!(
+        r#"<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:48px">
+          <div>
+            <h1 style="font-size:40px;font-weight:800;letter-spacing:-0.05em;margin:0 0 8px">{title}</h1>
+            {subtitle}
+          </div>
+          {action}
+        </div>"#,
+        title = title, subtitle = subtitle_html, action = action_html,
+    )
+}
+
+fn build_security_team_members(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("");
+    let badge = sec.config.get("badge").map(|s| s.as_str()).unwrap_or("");
+
+    let mut members_html = String::new();
+    let mut footer_action = String::new();
+
+    for item in &sec.items {
+        let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("");
+        if item_type == "action" {
+            footer_action = item.get("title").map(|s| s.as_str()).unwrap_or("").to_string();
+            continue;
+        }
+
+        let name = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let email = item.get("description").map(|s| s.as_str()).unwrap_or("");
+        let role = item.get("meta").map(|s| s.as_str()).unwrap_or("");
+        let avatar = item.get("icon").map(|s| s.as_str()).unwrap_or("");
+        let status = item.get("status").map(|s| s.as_str()).unwrap_or("");
+
+        let avatar_html = if !avatar.is_empty() && avatar.starts_with("http") {
+            format!(
+                r#"<div style="width:40px;height:40px;border-radius:50%;overflow:hidden;border:1px solid #e5e7eb;flex-shrink:0"><img src="{}" alt="{}" style="width:100%;height:100%;object-fit:cover"></div>"#,
+                avatar, name
+            )
+        } else {
+            format!(
+                r#"<div style="width:40px;height:40px;border-radius:50%;background:#f4f4f5;border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:14px;font-weight:600;color:#71717a">{}</span></div>"#,
+                name.chars().next().unwrap_or(' ')
+            )
+        };
+
+        let role_style = if status == "admin" {
+            "font-size:12px;font-weight:500;color:#000;background:#f4f4f5;padding:4px 12px;border-radius:999px;border:1px solid #e5e7eb"
+        } else {
+            "font-size:12px;font-weight:500;color:#71717a;padding:4px 12px;border-radius:999px"
+        };
+
+        members_html.push_str(&format!(
+            r#"<div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="display:flex;align-items:center;gap:16px">
+                {avatar}
+                <div>
+                  <p style="font-size:14px;font-weight:700;letter-spacing:-0.02em;margin:0">{name}</p>
+                  <p style="font-size:12px;color:#a1a1aa;margin:0">{email}</p>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:24px">
+                <span style="{role_style}">{role}</span>
+                <button style="color:#a1a1aa;background:none;border:none;cursor:pointer"><span class="material-symbols-outlined" style="font-size:20px">more_vert</span></button>
+              </div>
+            </div>"#,
+            avatar = avatar_html, name = name, email = email,
+            role_style = role_style, role = role,
+        ));
+    }
+
+    let badge_html = if !badge.is_empty() {
+        format!(r#"<span style="background:#e8e8e8;font-size:12px;padding:4px 10px;border-radius:999px;font-weight:500">{}</span>"#, badge)
+    } else {
+        String::new()
+    };
+
+    let footer_html = if !footer_action.is_empty() {
+        format!(
+            r#"<div style="margin-top:40px;padding-top:24px;border-top:1px solid #f4f4f5">
+              <button style="font-size:12px;font-weight:700;color:#a1a1aa;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:4px">{action} <span class="material-symbols-outlined" style="font-size:12px">arrow_forward</span></button>
+            </div>"#,
+            action = footer_action
+        )
+    } else {
+        String::new()
+    };
+
+    format!(
+        r##"<section class="ghost-border" style="background:#fff;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:32px">
+            <h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{title}</h2>
+            {badge}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:24px">{members}</div>
+          {footer}
+        </section>"##,
+        title = title, badge = badge_html, members = members_html, footer = footer_html,
+    )
+}
+
+fn build_security_2fa_status(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("");
+    let subtitle = sec.subtitle.as_deref().unwrap_or("");
+    let icon = sec.config.get("icon").map(|s| s.as_str()).unwrap_or("");
+
+    let compliance_item = sec.items.iter()
+        .find(|i| i.get("_type").map(|s| s.as_str()) != Some("action"));
+    let compliance_label = compliance_item.and_then(|i| i.get("title")).map(|s| s.as_str()).unwrap_or("");
+    let compliance_value = compliance_item.and_then(|i| i.get("value")).map(|s| s.as_str()).unwrap_or("");
+
+    format!(
+        r##"<section class="ghost-border" style="background:#fff;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div style="width:40px;height:40px;background:#000;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center">
+              <span class="material-symbols-outlined" style="font-size:18px;font-variation-settings:'FILL' 1">{icon}</span>
+            </div>
+            <h2 style="font-size:16px;font-weight:700;letter-spacing:-0.02em;margin:0">{title}</h2>
+          </div>
+          <p style="font-size:12px;color:#71717a;line-height:1.6;margin:0 0 24px">{subtitle}</p>
+          <div style="display:flex;align-items:center;justify-content:space-between;background:#fafafa;padding:12px;border-radius:8px;border:1px solid #f4f4f5">
+            <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">{label}</span>
+            <span style="font-size:12px;font-weight:700;color:#059669;display:flex;align-items:center;gap:4px">
+              <span class="material-symbols-outlined" style="font-size:12px">check_circle</span> {value}
+            </span>
+          </div>
+        </section>"##,
+        icon = icon, title = title, subtitle = subtitle,
+        label = compliance_label, value = compliance_value,
+    )
+}
+
+fn build_security_policies(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("");
+
+    let mut policies_html = String::new();
+    for item in &sec.items {
+        let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("");
+        if item_type != "policy" { continue; }
+
+        let label = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let toggle = item.get("toggle").map(|s| s.as_str()).unwrap_or("");
+        let value = item.get("value").map(|s| s.as_str()).unwrap_or("");
+
+        let control_html = if !toggle.is_empty() {
+            let is_on = toggle == "on";
+            let bg = if is_on { "#000" } else { "#d4d4d8" };
+            let pos = if is_on { "left:18px" } else { "left:4px" };
+            format!(
+                r#"<div style="width:32px;height:16px;background:{bg};border-radius:999px;position:relative;cursor:pointer"><div style="position:absolute;{pos};top:4px;width:8px;height:8px;background:#fff;border-radius:50%"></div></div>"#,
+                bg = bg, pos = pos
+            )
+        } else if !value.is_empty() {
+            format!(
+                r#"<span style="font-size:10px;font-weight:700;background:#f4f4f5;padding:2px 8px;border-radius:4px;text-transform:uppercase">{}</span>"#,
+                value
+            )
+        } else {
+            String::new()
+        };
+
+        policies_html.push_str(&format!(
+            r#"<li style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:12px;color:#52525b">{label}</span>
+              {control}
+            </li>"#,
+            label = label, control = control_html,
+        ));
+    }
+
+    format!(
+        r##"<section class="ghost-border" style="background:#fff;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+          <h2 style="font-size:16px;font-weight:700;letter-spacing:-0.02em;margin:0 0 16px">{title}</h2>
+          <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:12px">{policies}</ul>
+        </section>"##,
+        title = title, policies = policies_html,
+    )
+}
+
+fn build_security_login_activity(section: Option<&SectionNode>) -> String {
+    let sec = match section {
+        Some(s) => s,
+        None => return String::new(),
+    };
+    let title = sec.title.as_deref().unwrap_or("");
+    let columns_str = sec.config.get("columns").map(|s| s.as_str()).unwrap_or("");
+    let columns: Vec<&str> = columns_str.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+
+    let action_text = sec.items.iter()
+        .find(|i| i.get("_type").map(|s| s.as_str()) == Some("action"))
+        .and_then(|i| i.get("title"))
+        .map(|s| s.as_str())
+        .unwrap_or("");
+
+    let mut thead_html = String::new();
+    for col in &columns {
+        thead_html.push_str(&format!(
+            r#"<th style="padding-bottom:16px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#a1a1aa">{}</th>"#,
+            col
+        ));
+    }
+
+    let mut tbody_html = String::new();
+    for item in &sec.items {
+        let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("");
+        if item_type != "row" { continue; }
+
+        let event = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let user = item.get("user").map(|s| s.as_str()).unwrap_or("");
+        let location = item.get("location").map(|s| s.as_str()).unwrap_or("");
+        let ip = item.get("ip").map(|s| s.as_str()).unwrap_or("");
+        let time = item.get("time").map(|s| s.as_str()).unwrap_or("");
+        let status = item.get("status").map(|s| s.as_str()).unwrap_or("");
+
+        let (dot_color, status_text, status_color) = if status == "blocked" {
+            ("#ba1a1a", "Blocked", "color:#ba1a1a;")
+        } else {
+            ("#059669", "Success", "")
+        };
+
+        tbody_html.push_str(&format!(
+            r#"<tr style="border-bottom:1px solid #fafafa">
+              <td style="padding:16px 0;font-weight:500;font-size:14px">{event}</td>
+              <td style="padding:16px 0;font-size:14px"><div style="display:flex;align-items:center;gap:8px"><div style="width:24px;height:24px;border-radius:50%;background:#e5e7eb;flex-shrink:0"></div> {user}</div></td>
+              <td style="padding:16px 0;font-size:14px;color:#71717a">{location}</td>
+              <td style="padding:16px 0;font-family:monospace;font-size:12px;color:#a1a1aa">{ip}</td>
+              <td style="padding:16px 0;font-size:14px;color:#71717a">{time}</td>
+              <td style="padding:16px 0"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{dot};margin-right:8px"></span><span style="font-size:12px;font-weight:500;{status_color}">{status_text}</span></td>
+            </tr>"#,
+            event = event, user = user, location = location,
+            ip = ip, time = time, dot = dot_color,
+            status_text = status_text, status_color = status_color,
+        ));
+    }
+
+    let action_html = if !action_text.is_empty() {
+        format!(
+            r#"<button style="font-size:12px;font-weight:700;color:#000;border:1px solid rgba(0,0,0,0.1);padding:8px 16px;border-radius:999px;background:none;cursor:pointer">{}</button>"#,
+            action_text
+        )
+    } else {
+        String::new()
+    };
+
+    format!(
+        r##"<section class="ghost-border" style="background:#fff;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:32px">
+            <h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{title}</h2>
+            {action}
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;text-align:left;border-collapse:collapse">
+              <thead><tr style="border-bottom:1px solid #f4f4f5">{thead}</tr></thead>
+              <tbody style="font-size:14px">{tbody}</tbody>
+            </table>
+          </div>
+        </section>"##,
+        title = title, action = action_html, thead = thead_html, tbody = tbody_html,
+    )
+}

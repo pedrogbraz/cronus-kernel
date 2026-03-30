@@ -531,13 +531,27 @@ async fn handle_request(
             "team-list", "policies", "activity-table", "status-card", "links",
             "live-keys", "test-keys", "webhooks", "quick-links",
             "current-plan", "usage-status", "billing-stats", "payment-methods", "recent-invoices",
-            "balance-card", "upcoming-card", "payout-history", "support-banner"];
+            "balance-card", "upcoming-card", "payout-history", "support-banner",
+            "checkout-form", "product-summary", "trust-indicators", "testimonial",
+            "team-members", "security-status", "security-policies", "login-activity"];
         let is_dashboard = page.sections.iter().any(|s| dashboard_types.contains(&s.section_type.as_str()));
         let is_billing = page.sections.iter().any(|s| s.section_type == "current-plan" || s.section_type == "billing-stats");
         let is_payouts = page.sections.iter().any(|s| s.section_type == "balance-card" || s.section_type == "payout-history");
         let is_unified = page.sections.iter().any(|s| s.section_type == "balance-card")
             && page.sections.iter().any(|s| s.section_type == "billing-stats" || s.section_type == "recent-invoices");
-        let html = if is_dashboard {
+        let is_payment_links = page.sections.iter().any(|s| s.section_type == "product-grid")
+            && page.sections.iter().any(|s| s.section_type == "stat-cards")
+            && page.sections.iter().any(|s| s.section_type == "info-bar");
+        let is_checkout = page.sections.iter().any(|s| s.section_type == "checkout-form" || s.section_type == "product-summary");
+        let is_security = page.sections.iter().any(|s| s.section_type == "team-members" || s.section_type == "login-activity");
+        let html = if is_checkout {
+            // Checkout page: no sidebar, centered layout
+            let referenced_comps: Vec<parser::ComponentNode> = page.components.iter()
+                .filter_map(|name| state.components.iter().find(|c| c.name == *name))
+                .cloned()
+                .collect();
+            ui::render_checkout_dashboard(app_name, &page.sections, &referenced_comps, theme)
+        } else if is_dashboard {
             // Dedicated dashboard renderer: produces the ENTIRE page in one shot
             let referenced_comps: Vec<parser::ComponentNode> = page.components.iter()
                 .filter_map(|name| state.components.iter().find(|c| c.name == *name))
@@ -549,6 +563,10 @@ async fn handle_request(
                 ui::render_payouts_dashboard(app_name, &page.sections, &referenced_comps, theme)
             } else if is_billing {
                 ui::render_billing_dashboard(app_name, &page.sections, &referenced_comps, theme)
+            } else if is_security {
+                ui::render_security_dashboard(app_name, &page.sections, &referenced_comps, theme)
+            } else if is_payment_links {
+                ui::render_payment_links_dashboard(app_name, &page.sections, &referenced_comps, theme)
             } else {
                 ui::render_dashboard_page(app_name, &page.sections, &referenced_comps, theme)
             }
