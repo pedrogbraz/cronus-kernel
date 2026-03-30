@@ -221,6 +221,54 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str) -> String 
     .anim-d4 {{ animation-delay: 0.4s; }}
     .cursor-blink {{ animation: blink 1s step-end infinite; }}
     .pulse-glow {{ animation: pulseGlow 2s ease-in-out infinite; }}
+
+    /* Page entrance */
+    @keyframes slideUp {{ from {{ opacity:0; transform:translateY(24px) }} to {{ opacity:1; transform:translateY(0) }} }}
+    @keyframes slideDown {{ from {{ opacity:0; transform:translateY(-12px) }} to {{ opacity:1; transform:translateY(0) }} }}
+    @keyframes scaleIn {{ from {{ opacity:0; transform:scale(0.96) }} to {{ opacity:1; transform:scale(1) }} }}
+    @keyframes slideRight {{ from {{ opacity:0; transform:translateX(-16px) }} to {{ opacity:1; transform:translateX(0) }} }}
+    @keyframes fillWidth {{ from {{ width:0 }} to {{ width:var(--target-width) }} }}
+    @keyframes countUp {{ from {{ opacity:0; transform:translateY(8px) }} to {{ opacity:1; transform:translateY(0) }} }}
+    @keyframes shimmer {{ 0% {{ background-position:-200% 0 }} 100% {{ background-position:200% 0 }} }}
+    @keyframes pulse {{ 0%,100% {{ opacity:1 }} 50% {{ opacity:0.5 }} }}
+    @keyframes float {{ 0%,100% {{ transform:translateY(0) }} 50% {{ transform:translateY(-6px) }} }}
+
+    /* Utility classes */
+    .anim-fade {{ animation:fadeIn 0.6s ease-out both }}
+    .anim-slide-up {{ animation:slideUp 0.6s cubic-bezier(0.16,1,0.3,1) both }}
+    .anim-slide-down {{ animation:slideDown 0.4s ease-out both }}
+    .anim-scale {{ animation:scaleIn 0.5s cubic-bezier(0.16,1,0.3,1) both }}
+    .anim-slide-right {{ animation:slideRight 0.5s cubic-bezier(0.16,1,0.3,1) both }}
+
+    /* Stagger delays */
+    .d1 {{ animation-delay:0.05s }} .d2 {{ animation-delay:0.1s }} .d3 {{ animation-delay:0.15s }}
+    .d4 {{ animation-delay:0.2s }} .d5 {{ animation-delay:0.25s }} .d6 {{ animation-delay:0.3s }}
+    .d7 {{ animation-delay:0.35s }} .d8 {{ animation-delay:0.4s }} .d9 {{ animation-delay:0.45s }}
+    .d10 {{ animation-delay:0.5s }}
+
+    /* Card hover */
+    .card-hover {{ transition:all 0.3s cubic-bezier(0.16,1,0.3,1) }}
+    .card-hover:hover {{ transform:translateY(-2px); box-shadow:0 12px 40px rgba(0,0,0,0.08) }}
+
+    /* Button hover */
+    .btn-hover {{ transition:all 0.2s cubic-bezier(0.16,1,0.3,1) }}
+    .btn-hover:hover {{ transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,0.15) }}
+    .btn-hover:active {{ transform:translateY(0); box-shadow:none }}
+
+    /* Link hover */
+    .link-hover {{ transition:color 0.2s ease, opacity 0.2s ease }}
+    .link-hover:hover {{ opacity:0.7 }}
+
+    /* Nav item */
+    .nav-hover {{ transition:all 0.15s ease }}
+    .nav-hover:hover {{ background:rgba(0,0,0,0.04) }}
+
+    /* Progress bar fill */
+    .progress-fill {{ animation:fillWidth 1.2s cubic-bezier(0.16,1,0.3,1) 0.3s both }}
+
+    /* Scroll reveal */
+    .reveal {{ opacity:0; transform:translateY(20px); transition:all 0.7s cubic-bezier(0.16,1,0.3,1) }}
+    .reveal.visible {{ opacity:1; transform:translateY(0) }}
   </style>
   <style>{tailwind_css}</style>
 </head>
@@ -231,6 +279,19 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str) -> String 
   </main>
   <script>{runtime}</script>
   <script>{hmr}</script>
+  <script>
+    document.addEventListener('DOMContentLoaded',function(){{
+      var io=new IntersectionObserver(function(entries){{
+        entries.forEach(function(e){{if(e.isIntersecting){{e.target.classList.add('visible');io.unobserve(e.target)}}}})
+      }},{{threshold:0.1,rootMargin:'0px 0px -40px 0px'}});
+      document.querySelectorAll('.reveal').forEach(function(el){{io.observe(el)}});
+      document.querySelectorAll('.stagger').forEach(function(container){{
+        Array.from(container.children).forEach(function(child,i){{
+          child.style.animationDelay=(0.05+i*0.06)+'s';
+        }});
+      }});
+    }});
+  </script>
 </body>
 </html>"##,
         app_name = app_name,
@@ -270,12 +331,73 @@ pub fn render_layout_dashboard(app_name: &str, body: &str, theme: &str) -> Strin
     ::-webkit-scrollbar-thumb {{ background:rgba(0,0,0,0.1); border-radius:2px; }}
     @keyframes fadeIn {{ from {{ opacity:0;transform:translateY(4px) }} to {{ opacity:1;transform:translateY(0) }} }}
     .anim {{ animation:fadeIn 0.4s ease-out both; }}
+
+    /* Page entrance */
+    @keyframes slideUp {{ from {{ opacity:0; transform:translateY(24px) }} to {{ opacity:1; transform:translateY(0) }} }}
+    @keyframes slideDown {{ from {{ opacity:0; transform:translateY(-12px) }} to {{ opacity:1; transform:translateY(0) }} }}
+    @keyframes scaleIn {{ from {{ opacity:0; transform:scale(0.96) }} to {{ opacity:1; transform:scale(1) }} }}
+    @keyframes slideRight {{ from {{ opacity:0; transform:translateX(-16px) }} to {{ opacity:1; transform:translateX(0) }} }}
+    @keyframes fillWidth {{ from {{ width:0 }} to {{ width:var(--target-width) }} }}
+    @keyframes countUp {{ from {{ opacity:0; transform:translateY(8px) }} to {{ opacity:1; transform:translateY(0) }} }}
+    @keyframes shimmer {{ 0% {{ background-position:-200% 0 }} 100% {{ background-position:200% 0 }} }}
+    @keyframes pulse {{ 0%,100% {{ opacity:1 }} 50% {{ opacity:0.5 }} }}
+    @keyframes float {{ 0%,100% {{ transform:translateY(0) }} 50% {{ transform:translateY(-6px) }} }}
+
+    /* Utility classes */
+    .anim-fade {{ animation:fadeIn 0.6s ease-out both }}
+    .anim-slide-up {{ animation:slideUp 0.6s cubic-bezier(0.16,1,0.3,1) both }}
+    .anim-slide-down {{ animation:slideDown 0.4s ease-out both }}
+    .anim-scale {{ animation:scaleIn 0.5s cubic-bezier(0.16,1,0.3,1) both }}
+    .anim-slide-right {{ animation:slideRight 0.5s cubic-bezier(0.16,1,0.3,1) both }}
+
+    /* Stagger delays */
+    .d1 {{ animation-delay:0.05s }} .d2 {{ animation-delay:0.1s }} .d3 {{ animation-delay:0.15s }}
+    .d4 {{ animation-delay:0.2s }} .d5 {{ animation-delay:0.25s }} .d6 {{ animation-delay:0.3s }}
+    .d7 {{ animation-delay:0.35s }} .d8 {{ animation-delay:0.4s }} .d9 {{ animation-delay:0.45s }}
+    .d10 {{ animation-delay:0.5s }}
+
+    /* Card hover */
+    .card-hover {{ transition:all 0.3s cubic-bezier(0.16,1,0.3,1) }}
+    .card-hover:hover {{ transform:translateY(-2px); box-shadow:0 12px 40px rgba(0,0,0,0.08) }}
+
+    /* Button hover */
+    .btn-hover {{ transition:all 0.2s cubic-bezier(0.16,1,0.3,1) }}
+    .btn-hover:hover {{ transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,0.15) }}
+    .btn-hover:active {{ transform:translateY(0); box-shadow:none }}
+
+    /* Link hover */
+    .link-hover {{ transition:color 0.2s ease, opacity 0.2s ease }}
+    .link-hover:hover {{ opacity:0.7 }}
+
+    /* Nav item */
+    .nav-hover {{ transition:all 0.15s ease }}
+    .nav-hover:hover {{ background:rgba(0,0,0,0.04) }}
+
+    /* Progress bar fill */
+    .progress-fill {{ animation:fillWidth 1.2s cubic-bezier(0.16,1,0.3,1) 0.3s both }}
+
+    /* Scroll reveal */
+    .reveal {{ opacity:0; transform:translateY(20px); transition:all 0.7s cubic-bezier(0.16,1,0.3,1) }}
+    .reveal.visible {{ opacity:1; transform:translateY(0) }}
   </style>
 </head>
 <body>
   {body}
   <script>{runtime}</script>
   <script>{hmr}</script>
+  <script>
+    document.addEventListener('DOMContentLoaded',function(){{
+      var io=new IntersectionObserver(function(entries){{
+        entries.forEach(function(e){{if(e.isIntersecting){{e.target.classList.add('visible');io.unobserve(e.target)}}}})
+      }},{{threshold:0.1,rootMargin:'0px 0px -40px 0px'}});
+      document.querySelectorAll('.reveal').forEach(function(el){{io.observe(el)}});
+      document.querySelectorAll('.stagger').forEach(function(container){{
+        Array.from(container.children).forEach(function(child,i){{
+          child.style.animationDelay=(0.05+i*0.06)+'s';
+        }});
+      }});
+    }});
+  </script>
 </body>
 </html>"##,
         app_name = app_name,
@@ -395,7 +517,7 @@ fn render_light_topbar(comp: &ComponentNode) -> String {
     }).collect::<Vec<_>>().join("");
 
     format!(
-        r#"<header style="position:sticky;top:0;z-index:50;height:64px;padding:0 24px;display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.8);backdrop-filter:blur(12px);border-bottom:1px solid #e4e4e7">
+        r#"<header class="anim-slide-down" style="position:sticky;top:0;z-index:50;height:64px;padding:0 24px;display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.8);backdrop-filter:blur(12px);border-bottom:1px solid #e4e4e7">
   <div style="display:flex;align-items:center;gap:32px">
     <span style="font-size:18px;font-weight:700;letter-spacing:-0.04em;color:#000">{}</span>
     <nav style="display:flex;gap:24px;align-items:center">{}</nav>
@@ -454,10 +576,10 @@ fn render_light_page_header(comp: &ComponentNode) -> String {
     format!(
         r#"<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:48px">
   <div>
-    <h1 style="font-size:36px;font-weight:800;letter-spacing:-0.05em;margin:0 0 8px;color:#1a1c1c">{}</h1>
-    <p style="margin:0;color:#5e5e5e;font-weight:500">{}</p>
+    <h1 class="anim-slide-up d1" style="font-size:36px;font-weight:800;letter-spacing:-0.05em;margin:0 0 8px;color:#1a1c1c">{}</h1>
+    <p class="anim-slide-up d2" style="margin:0;color:#5e5e5e;font-weight:500">{}</p>
   </div>
-  {}
+  <div class="anim-scale d3 btn-hover">{}</div>
 </div>"#,
         title, subtitle, button
     )
@@ -476,7 +598,7 @@ fn render_light_balance_card(comp: &ComponentNode) -> String {
         }
     }).collect::<Vec<_>>().join("");
     format!(
-        r#"<div class="ghost-border ambient-shadow" style="position:relative;overflow:hidden;background:#fff;border-radius:12px;padding:32px">
+        r#"<div class="ghost-border ambient-shadow anim-slide-up d1 card-hover" style="position:relative;overflow:hidden;background:#fff;border-radius:12px;padding:32px">
   <div style="position:relative;z-index:10">
     <span style="display:block;margin-bottom:16px;font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#5e5e5e;opacity:0.6">{}</span>
     <div style="display:flex;align-items:baseline;gap:8px">
@@ -582,12 +704,12 @@ fn render_light_support_banner(comp: &ComponentNode) -> String {
         format!(r#"<button style="display:inline-flex;align-items:center;gap:8px;background:#fff;color:#000;padding:10px 18px;border:none;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">{}</button>"#, a.text)
     }).unwrap_or_default();
     format!(
-        r#"<div style="background:#000;color:#fff;border-radius:16px;padding:32px;display:flex;align-items:center;justify-content:space-between;gap:24px">
+        r#"<div class="anim-scale d3" style="background:#000;color:#fff;border-radius:16px;padding:32px;display:flex;align-items:center;justify-content:space-between;gap:24px">
   <div>
     <h3 style="margin:0 0 8px;font-size:24px;font-weight:700;letter-spacing:-0.03em">{}</h3>
     <p style="margin:0;color:#d4d4d8;max-width:700px;line-height:1.6">{}</p>
   </div>
-  {}
+  <div class="btn-hover">{}</div>
 </div>"#,
         title, subtitle, cta
     )
@@ -1317,7 +1439,7 @@ fn render_topbar(section: &SectionNode, theme: &str) -> String {
     // Vercel triangle logo
     let logo_fill = tx;
 
-    format!(r##"<header data-cronus-topbar style="position:fixed;top:0;width:100%;z-index:50;background:{bg};backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid {bd}">
+    format!(r##"<header data-cronus-topbar class="anim-slide-down" style="position:fixed;top:0;width:100%;z-index:50;background:{bg};backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid {bd}">
   <div style="display:flex;justify-content:space-between;align-items:center;padding:0 24px;height:64px;max-width:1280px;margin:0 auto">
     <div style="display:flex;align-items:center;gap:32px">
       <a href="/" style="font-size:20px;font-weight:700;letter-spacing:-0.03em;color:{tx};display:flex;align-items:center;gap:8px;text-decoration:none">
@@ -1411,14 +1533,14 @@ fn render_hero(section: &SectionNode, _accent: &str, theme: &str) -> String {
     let line2 = words[mid..].join(" ");
 
     let badge_html = badge_text.map(|b| format!(
-        r#"<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);margin-bottom:32px;backdrop-filter:blur(8px)">
+        r#"<div class="anim-fade d1" style="display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);margin-bottom:32px;backdrop-filter:blur(8px)">
       <span style="width:8px;height:8px;border-radius:50%;background:#006ff0"></span>
       <span style="font-size:12px;font-weight:500;letter-spacing:0.05em;color:#a1a1aa">{}</span>
     </div>"#, b
     )).unwrap_or_default();
 
     let cta2_html = cta2_text.map(|t| format!(
-        r#"<a href="{}" style="display:inline-flex;align-items:center;justify-content:center;padding:12px 32px;border-radius:999px;border:1px solid rgba(255,255,255,0.2);color:white;font-weight:600;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">{}</a>"#,
+        r#"<a href="{}" class="anim-scale d5 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;padding:12px 32px;border-radius:999px;border:1px solid rgba(255,255,255,0.2);color:white;font-weight:600;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">{}</a>"#,
         cta2_link, t
     )).unwrap_or_default();
 
@@ -1428,13 +1550,13 @@ fn render_hero(section: &SectionNode, _accent: &str, theme: &str) -> String {
   <div style="position:absolute;inset:0;background-image:linear-gradient(to right,rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,0.03) 1px,transparent 1px);background-size:40px 40px;opacity:0.4"></div>
   <div style="position:relative;z-index:10;max-width:1280px;margin:0 auto;padding:0 24px;text-align:center">
     {badge_html}
-    <h1 style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.05em;color:white;margin-bottom:32px;line-height:1.1">
+    <h1 class="anim-slide-up d2" style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.05em;color:white;margin-bottom:32px;line-height:1.1">
       {line1}<br>
       <span style="background:linear-gradient(to right,white,#6b7280);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">{line2}</span>
     </h1>
-    <p style="max-width:640px;margin:0 auto 48px;font-size:clamp(16px,2vw,20px);color:#9ca3af;line-height:1.6">{subtitle}</p>
+    <p class="anim-slide-up d3" style="max-width:640px;margin:0 auto 48px;font-size:clamp(16px,2vw,20px);color:#9ca3af;line-height:1.6">{subtitle}</p>
     <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px;margin-bottom:96px">
-      <a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;padding:12px 32px;border-radius:999px;background:white;color:black;font-weight:600;font-size:16px;text-decoration:none;transition:transform 0.2s" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}</a>
+      <a href="{cta_link}" class="anim-scale d4 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;padding:12px 32px;border-radius:999px;background:white;color:black;font-weight:600;font-size:16px;text-decoration:none;transition:transform 0.2s" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}</a>
       {cta2_html}
     </div>
   </div>
@@ -1460,7 +1582,7 @@ fn render_developer_landing_hero(
 ) -> String {
     // Badge
     let badge_html = badge_text.map(|b| format!(
-        r#"<div class="anim" style="display:inline-flex;align-items:center;gap:8px;padding:4px 12px;border-radius:999px;background:#e8e8e8;border:1px solid rgba(198,198,198,0.2);margin-bottom:24px">
+        r#"<div class="anim anim-fade d1" style="display:inline-flex;align-items:center;gap:8px;padding:4px 12px;border-radius:999px;background:#e8e8e8;border:1px solid rgba(198,198,198,0.2);margin-bottom:24px">
       <span class="pulse-glow" style="width:8px;height:8px;border-radius:50%;background:#006ff0"></span>
       <span style="font-size:12px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;color:#1a1c1c">{}</span>
     </div>"#, b
@@ -1482,7 +1604,7 @@ fn render_developer_landing_hero(
 
     // CTA2 (outline button)
     let cta2_html = cta2_text.map(|t| format!(
-        r#"<a href="{link}" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 32px;border-radius:999px;border:1px solid rgba(198,198,198,0.3);color:#1a1c1c;font-weight:700;font-size:16px;text-decoration:none;background:#fff;transition:all 0.2s" onmouseover="this.style.background='#f3f3f3'" onmouseout="this.style.background='#fff'">{text}</a>"#,
+        r#"<a href="{link}" class="anim-scale d5 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 32px;border-radius:999px;border:1px solid rgba(198,198,198,0.3);color:#1a1c1c;font-weight:700;font-size:16px;text-decoration:none;background:#fff;transition:all 0.2s" onmouseover="this.style.background='#f3f3f3'" onmouseout="this.style.background='#fff'">{text}</a>"#,
         link=cta2_link, text=t
     )).unwrap_or_default();
 
@@ -1536,7 +1658,7 @@ fn render_developer_landing_hero(
     terminal_lines.push_str(r#"<div style="margin-top:12px"><span class="cursor-blink" style="display:inline-block;width:8px;height:16px;background:#e5e5e5;vertical-align:middle"></span></div>"#);
 
     let terminal_html = format!(
-        r##"<div class="anim anim-d3" style="background:#000;border-radius:12px;overflow:hidden;box-shadow:0 25px 50px rgba(0,0,0,0.25);border:1px solid #1f2937">
+        r##"<div class="anim anim-d3 anim-scale d4" style="background:#000;border-radius:12px;overflow:hidden;box-shadow:0 25px 50px rgba(0,0,0,0.25);border:1px solid #1f2937">
       <div class="terminal-header" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #1f2937">
         <div style="display:flex;gap:8px">
           <span style="width:12px;height:12px;border-radius:50%;background:#ff5f56"></span>
@@ -1561,7 +1683,7 @@ fn render_developer_landing_hero(
             let text = i.get("title").map(|s| s.as_str()).unwrap_or("");
             let icon = i.get("icon").map(|s| s.as_str()).unwrap_or("●");
             format!(
-                r#"<div style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:8px;padding:12px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,0.08)">
+                r#"<div class="anim-fade d6" style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:8px;padding:12px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,0.08);animation:float 3s ease-in-out infinite">
               <div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:8px;border:1px solid #000;border-radius:3px">{}</div>
               <span style="font-size:12px;font-weight:600">{}</span>
             </div>"#, icon, text
@@ -1624,7 +1746,7 @@ fn render_developer_landing_hero(
     </h1>
     <p class="anim anim-d2" style="max-width:640px;margin:0 auto 48px;font-size:18px;color:#474747;line-height:1.625">{subtitle}</p>
     <div class="anim anim-d2" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px">
-      <a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 32px;border-radius:999px;background:#000;color:#fff;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}</a>
+      <a href="{cta_link}" class="anim-scale d4 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 32px;border-radius:999px;background:#000;color:#fff;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}</a>
       {cta2_html}
     </div>
   </div>
@@ -1653,7 +1775,7 @@ fn render_developer_landing_hero(
         </h1>
         <p class="anim anim-d2" style="max-width:512px;font-size:18px;color:#474747;line-height:1.625;margin-bottom:40px">{subtitle}</p>
         <div class="anim anim-d2" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px">
-          <a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 32px;border-radius:999px;background:#000;color:#fff;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}<span class="material-symbols-outlined" style="font-size:14px">arrow_forward</span></a>
+          <a href="{cta_link}" class="anim-scale d4 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 32px;border-radius:999px;background:#000;color:#fff;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}<span class="material-symbols-outlined" style="font-size:14px">arrow_forward</span></a>
           {cta2_html}
         </div>
       </div>
@@ -1762,7 +1884,7 @@ fn render_features_bento_light(section: &SectionNode) -> String {
         let span = card.get("span").and_then(|s| s.parse::<u32>().ok()).unwrap_or(1);
         let card_style = card.get("style").map(|s| s.as_str()).unwrap_or("");
         let is_dark = card_style.contains("dark");
-        let delay_class = format!("anim anim-d{}", (i % 4) + 1);
+        let delay_class = format!("reveal card-hover anim anim-d{}", (i % 4) + 1);
 
         let col_span_css = if span > 1 {
             format!("grid-column:span {};", span)
@@ -1953,7 +2075,7 @@ fn render_features_bento_light(section: &SectionNode) -> String {
     format!(
         r##"<section style="padding:96px 24px;background:rgba(243,243,243,0.5)">
   <div style="max-width:1280px;margin:0 auto">
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px">
+    <div class="stagger" style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px">
       {items}
     </div>
   </div>
@@ -2085,9 +2207,9 @@ fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> String {
         return format!(
             r##"<section style="padding:128px 24px;position:relative;overflow:hidden">
   <div style="position:relative;max-width:960px;margin:0 auto;text-align:center">
-    <h2 class="anim" style="font-size:clamp(36px,5vw,72px);font-weight:800;letter-spacing:-0.04em;color:#000;margin-bottom:32px;line-height:1;font-style:italic">{title}</h2>
+    <h2 class="anim reveal" style="font-size:clamp(36px,5vw,72px);font-weight:800;letter-spacing:-0.04em;color:#000;margin-bottom:32px;line-height:1;font-style:italic">{title}</h2>
     <div class="anim anim-d1" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px">
-      <a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;padding:16px 48px;border-radius:999px;background:#000;color:#fff;font-weight:700;font-size:18px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_text}</a>
+      <a href="{cta_link}" class="reveal btn-hover" style="display:inline-flex;align-items:center;justify-content:center;padding:16px 48px;border-radius:999px;background:#000;color:#fff;font-weight:700;font-size:18px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_text}</a>
       {cta2_html}
     </div>
     {footnote_html}
@@ -2371,7 +2493,7 @@ fn render_footer(section: &SectionNode, theme: &str) -> String {
         )).collect();
 
         return format!(
-            r##"<footer style="border-top:1px solid #e5e7eb;background:#fafafa;padding:48px 24px">
+            r##"<footer class="anim-fade" style="border-top:1px solid #e5e7eb;background:#fafafa;padding:48px 24px">
   <div style="max-width:1280px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px">
     <div style="display:flex;align-items:center;gap:16px">
       <span style="font-size:12px;color:#6b7280">{copyright}</span>
@@ -2451,7 +2573,7 @@ fn render_footer(section: &SectionNode, theme: &str) -> String {
     };
 
     format!(
-        r##"<footer style="border-top:1px solid rgba(255,255,255,0.1);background:black;padding:48px 24px">
+        r##"<footer class="anim-fade" style="border-top:1px solid rgba(255,255,255,0.1);background:black;padding:48px 24px">
   <div style="max-width:1280px;margin:0 auto">
     <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:48px;margin-bottom:48px">
       {columns_html}
@@ -2506,7 +2628,7 @@ fn render_stats(section: &SectionNode, accent: &str) -> String {
         let label = item.get("title").map(|s| s.as_str()).unwrap_or("Stat");
         let value = item.get("description").map(|s| s.as_str()).unwrap_or("");
         format!(
-            r#"<div class="text-center">
+            r#"<div class="text-center reveal">
   <p class="text-4xl font-bold text-{accent}-400 tabular-nums">{value}</p>
   <p class="mt-2 text-sm text-neutral-500 font-mono uppercase tracking-wider">{label}</p>
 </div>"#,
@@ -2560,10 +2682,10 @@ fn render_page_header_section(section: &SectionNode) -> String {
     format!(
         r##"<div style="display:flex;align-items:center;justify-content:space-between;padding:0 0 48px;font-family:'Inter',system-ui,-apple-system,sans-serif">
   <div style="display:flex;flex-direction:column;gap:8px">
-    <h1 style="font-size:32px;font-weight:700;letter-spacing:-0.02em;color:#000;margin:0">{title}</h1>
-    {subtitle_html}
+    <h1 class="anim-slide-up d1" style="font-size:32px;font-weight:700;letter-spacing:-0.02em;color:#000;margin:0">{title}</h1>
+    <div class="anim-slide-up d2">{subtitle_html}</div>
   </div>
-  <button style="display:flex;align-items:center;gap:8px;background:#000;color:#fff;border:none;padding:10px 20px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;transition:opacity 0.2s;font-family:inherit" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">{icon_svg} {action_text}</button>
+  <button class="anim-scale d3 btn-hover" style="display:flex;align-items:center;gap:8px;background:#000;color:#fff;border:none;padding:10px 20px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;transition:opacity 0.2s;font-family:inherit" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">{icon_svg} {action_text}</button>
 </div>"##,
         title = title, subtitle_html = subtitle_html, icon_svg = icon_svg, action_text = action_text,
     )
@@ -2574,20 +2696,21 @@ fn render_stat_cards(section: &SectionNode) -> String {
         .and_then(|s| s.parse::<u32>().ok())
         .unwrap_or(3);
 
-    let cards: Vec<String> = section.items.iter().map(|item| {
+    let cards: Vec<String> = section.items.iter().enumerate().map(|(idx, item)| {
         let label = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Metric");
         let value = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
         let icon_html = item.get("icon").map(|icon| {
             format!(r#"<span style="font-size:18px;margin-bottom:8px;display:block">{icon}</span>"#, icon = icon)
         }).unwrap_or_default();
+        let delay = format!("d{}", (idx % 10) + 1);
 
         format!(
-            r##"<div style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px;box-shadow:0 40px 80px rgba(26,28,28,0.04)">
+            r##"<div class="anim-scale {delay} card-hover" style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px;box-shadow:0 40px 80px rgba(26,28,28,0.04)">
   {icon_html}
   <p style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#5e5e5e;margin:0 0 8px">{label}</p>
   <p style="font-size:28px;font-weight:700;color:#1a1c1c;margin:0">{value}</p>
 </div>"##,
-            icon_html = icon_html, label = label, value = value,
+            delay = delay, icon_html = icon_html, label = label, value = value,
         )
     }).collect();
 
@@ -2801,7 +2924,7 @@ fn render_bento(section: &SectionNode, accent: &str) -> String {
         };
 
         format!(
-            r#"<div style="background:{bg};border:{border};border-radius:12px;padding:24px;{span_style}">
+            r#"<div class="reveal card-hover" style="background:{bg};border:{border};border-radius:12px;padding:24px;{span_style}">
   <h3 style="font-size:20px;font-weight:700;color:{text_color};margin-bottom:8px">{name}</h3>
   <p style="font-size:14px;color:{desc_color};line-height:1.6">{desc}</p>
   {badges_html}
@@ -2816,7 +2939,7 @@ fn render_bento(section: &SectionNode, accent: &str) -> String {
         r#"<section style="max-width:1280px;margin:0 auto;padding:48px 24px">
   {title_html}
   {subtitle_html}
-  <div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:24px">
+  <div class="stagger" style="display:grid;grid-template-columns:repeat({cols},1fr);gap:24px">
     {cards}
   </div>
 </section>"#,
@@ -4109,21 +4232,23 @@ fn build_dashboard_sidebar(comp: Option<&ComponentNode>, section: Option<&Sectio
                 item.config.get("active").map(|s| s == "true").unwrap_or(false);
             let is_bottom = bottom_types.contains(&icon) || title.eq_ignore_ascii_case("support") || title.eq_ignore_ascii_case("docs");
 
+            let nav_idx = if is_bottom { bottom_items_html.matches("<a ").count() } else { nav_items_html.matches("<a ").count() };
+            let delay_cls = format!("d{}", (nav_idx % 10) + 1);
             let link_html = if is_active {
                 format!(
-                    r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:#f4f4f5;color:#000;border-radius:6px;font-size:14px;font-weight:500;text-decoration:none;transform:scale(0.97)">
+                    r#"<a href="{href}" class="nav-hover anim-slide-right {delay}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:#f4f4f5;color:#000;border-radius:6px;font-size:14px;font-weight:500;text-decoration:none;transform:scale(0.97)">
   <span class="material-symbols-outlined" style="font-size:20px">{icon}</span>
   <span>{title}</span>
 </a>"#,
-                    href = href, icon = icon, title = title
+                    href = href, icon = icon, title = title, delay = delay_cls
                 )
             } else {
                 format!(
-                    r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;color:#71717a;border-radius:6px;font-size:14px;font-weight:500;text-decoration:none;transition:all 0.15s" onmouseover="this.style.color='#000';this.style.background='#f4f4f5'" onmouseout="this.style.color='#71717a';this.style.background='transparent'">
+                    r#"<a href="{href}" class="nav-hover anim-slide-right {delay}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;color:#71717a;border-radius:6px;font-size:14px;font-weight:500;text-decoration:none;transition:all 0.15s" onmouseover="this.style.color='#000';this.style.background='#f4f4f5'" onmouseout="this.style.color='#71717a';this.style.background='transparent'">
   <span class="material-symbols-outlined" style="font-size:20px">{icon}</span>
   <span>{title}</span>
 </a>"#,
-                    href = href, icon = icon, title = title
+                    href = href, icon = icon, title = title, delay = delay_cls
                 )
             };
 
@@ -4153,21 +4278,23 @@ fn build_dashboard_sidebar(comp: Option<&ComponentNode>, section: Option<&Sectio
                 || (!active.is_empty() && title.eq_ignore_ascii_case(active))
                 || item.get("active").map(|s| s == "true").unwrap_or(false);
 
+            let nav_idx2 = if position == "bottom" { bottom_items_html.matches("<a ").count() } else { nav_items_html.matches("<a ").count() };
+            let delay_cls2 = format!("d{}", (nav_idx2 % 10) + 1);
             let link_html = if is_active {
                 format!(
-                    r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:#f4f4f5;color:#000;border-radius:6px;font-size:14px;font-weight:500;text-decoration:none;transform:scale(0.97)">
+                    r#"<a href="{href}" class="nav-hover anim-slide-right {delay}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:#f4f4f5;color:#000;border-radius:6px;font-size:14px;font-weight:500;text-decoration:none;transform:scale(0.97)">
   <span class="material-symbols-outlined" style="font-size:20px">{icon}</span>
   <span>{title}</span>
 </a>"#,
-                    href = href, icon = icon, title = title
+                    href = href, icon = icon, title = title, delay = delay_cls2
                 )
             } else {
                 format!(
-                    r#"<a href="{href}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;color:#71717a;border-radius:6px;font-size:14px;font-weight:500;text-decoration:none;transition:all 0.15s" onmouseover="this.style.color='#000';this.style.background='#f4f4f5'" onmouseout="this.style.color='#71717a';this.style.background='transparent'">
+                    r#"<a href="{href}" class="nav-hover anim-slide-right {delay}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;color:#71717a;border-radius:6px;font-size:14px;font-weight:500;text-decoration:none;transition:all 0.15s" onmouseover="this.style.color='#000';this.style.background='#f4f4f5'" onmouseout="this.style.color='#71717a';this.style.background='transparent'">
   <span class="material-symbols-outlined" style="font-size:20px">{icon}</span>
   <span>{title}</span>
 </a>"#,
-                    href = href, icon = icon, title = title
+                    href = href, icon = icon, title = title, delay = delay_cls2
                 )
             };
 
@@ -4182,7 +4309,7 @@ fn build_dashboard_sidebar(comp: Option<&ComponentNode>, section: Option<&Sectio
     }
 
     format!(
-        r##"<aside style="position:fixed;left:0;top:0;height:100%;width:256px;background:rgba(250,250,250,0.5);border-right:1px solid #e5e7eb;display:flex;flex-direction:column;z-index:50;padding:16px;gap:4px;font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased">
+        r##"<aside class="anim-slide-right" style="position:fixed;left:0;top:0;height:100%;width:256px;background:rgba(250,250,250,0.5);border-right:1px solid #e5e7eb;display:flex;flex-direction:column;z-index:50;padding:16px;gap:4px;font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased">
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:32px;padding:0 8px">
     <div style="width:32px;height:32px;background:#000;border-radius:6px;display:flex;align-items:center;justify-content:center">
       <span style="color:#fff;font-weight:700;letter-spacing:-0.04em;font-size:14px">{brand_letter}</span>
@@ -4219,7 +4346,7 @@ fn build_dashboard_topbar(comp: Option<&ComponentNode>) -> String {
     let avatar_url = comp.and_then(|c| c.props.get("avatar").map(|s| s.as_str())).unwrap_or("");
 
     format!(
-        r##"<header style="position:sticky;top:0;z-index:40;background:rgba(255,255,255,0.8);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid #e5e7eb;margin-left:256px">
+        r##"<header class="anim-slide-down" style="position:sticky;top:0;z-index:40;background:rgba(255,255,255,0.8);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid #e5e7eb;margin-left:256px">
   <div style="display:flex;justify-content:space-between;align-items:center;height:64px;padding:0 24px;max-width:1280px;margin:0 auto">
     <div style="position:relative;width:100%;max-width:448px">
       <span class="material-symbols-outlined" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#a1a1aa;font-size:16px">search</span>
@@ -4273,9 +4400,9 @@ fn build_dashboard_page_header(section: Option<&SectionNode>) -> String {
 
     format!(
         r#"<div style="margin-bottom:48px">
-      {badge}
-      <h2 style="font-size:36px;font-weight:800;letter-spacing:-0.04em;color:#1a1c1c;margin:0 0 8px">{title}</h2>
-      {subtitle}
+      <div class="anim-fade d1">{badge}</div>
+      <h2 class="anim-slide-up d1" style="font-size:36px;font-weight:800;letter-spacing:-0.04em;color:#1a1c1c;margin:0 0 8px">{title}</h2>
+      <div class="anim-slide-up d2">{subtitle}</div>
     </div>"#,
         badge = badge_html,
         title = title,
@@ -4351,7 +4478,7 @@ fn build_api_keys_card(section: Option<&SectionNode>, mode: &str) -> String {
     }
 
     format!(
-        r##"<section style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+        r##"<section class="anim-slide-up d2 card-hover" style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
           <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:24px">
             <div>
               <h3 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0 0 4px">{title}</h3>
@@ -4434,13 +4561,13 @@ fn build_webhooks_card(section: Option<&SectionNode>) -> String {
     }
 
     format!(
-        r##"<section style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+        r##"<section class="anim-slide-up d3 card-hover" style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
           <div style="padding:32px;border-bottom:1px solid #f3f3f3;display:flex;justify-content:space-between;align-items:center">
             <div>
               <h3 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0 0 4px">{title}</h3>
               <p style="font-size:14px;color:#5e5e5e;margin:0">{subtitle}</p>
             </div>
-            {action_btn}
+            <div class="btn-hover">{action_btn}</div>
           </div>
           <div>
             {entries}
@@ -4481,7 +4608,7 @@ fn build_promo_panel(section: Option<&SectionNode>) -> String {
     };
 
     format!(
-        r##"<section style="background:#000;color:#fff;border-radius:12px;padding:32px;position:relative;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.15)">
+        r##"<section class="anim-scale d3" style="background:#000;color:#fff;border-radius:12px;padding:32px;position:relative;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.15)">
           <div style="position:relative;z-index:1">
             <h4 style="font-size:24px;font-weight:800;letter-spacing:-0.04em;margin:0 0 16px">{title}</h4>
             <p style="color:#a1a1aa;font-size:14px;line-height:1.6;margin:0 0 24px">{subtitle}</p>
@@ -4509,7 +4636,7 @@ fn build_quick_links_panel(section: Option<&SectionNode>) -> String {
         let link_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
         let href = item.get("href").map(|s| s.as_str()).unwrap_or("");
         links_html.push_str(&format!(
-            r#"<li><a href="{href}" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;transition:opacity 0.15s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
+            r#"<li><a href="{href}" class="link-hover" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;transition:opacity 0.15s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
               <span style="font-size:14px;font-weight:500;color:#1a1c1c">{title}</span>
               <span class="material-symbols-outlined" style="font-size:16px;color:#d4d4d8">open_in_new</span>
             </a></li>"#,
@@ -4519,7 +4646,7 @@ fn build_quick_links_panel(section: Option<&SectionNode>) -> String {
     }
 
     format!(
-        r##"<section style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+        r##"<section class="anim-slide-up d4 card-hover" style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
           <h4 style="font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#a1a1aa;margin:0 0 24px">{title}</h4>
           <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:16px">
             {links}
@@ -4732,8 +4859,8 @@ fn build_billing_page_header(section: Option<&SectionNode>) -> String {
 
     format!(
         r#"<div style="margin-bottom:48px">
-      <h2 style="font-size:56px;font-weight:800;letter-spacing:-0.05em;line-height:1.25;color:#1a1c1c;margin:0 0 8px">{title}</h2>
-      {subtitle}
+      <h2 class="anim-slide-up d1" style="font-size:56px;font-weight:800;letter-spacing:-0.05em;line-height:1.25;color:#1a1c1c;margin:0 0 8px">{title}</h2>
+      <div class="anim-slide-up d2">{subtitle}</div>
     </div>"#,
         title = title,
         subtitle = subtitle_html,
@@ -4789,13 +4916,13 @@ fn build_billing_current_plan(section: Option<&SectionNode>) -> String {
     }
 
     format!(
-        r##"<section class="ghost-border" style="background:#fff;border-radius:12px;padding:32px;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+        r##"<section class="ghost-border anim-slide-up d1 card-hover" style="background:#fff;border-radius:12px;padding:32px;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px">
             <div>
-              <span style="background:#000;color:#fff;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;border-radius:4px;padding:2px 8px;display:inline-block;margin-bottom:16px">{badge}</span>
+              <span class="anim-fade d1" style="background:#000;color:#fff;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;border-radius:4px;padding:2px 8px;display:inline-block;margin-bottom:16px">{badge}</span>
               <h3 style="font-size:30px;font-weight:700;letter-spacing:-0.02em;margin:0">{plan_name}</h3>
             </div>
-            <button style="background:#000;color:#fff;padding:10px 24px;border-radius:999px;font-size:14px;font-weight:500;border:none;cursor:pointer">{action}</button>
+            <button class="btn-hover" style="background:#000;color:#fff;padding:10px 24px;border-radius:999px;font-size:14px;font-weight:500;border:none;cursor:pointer">{action}</button>
           </div>
           {rows}
           <div style="position:absolute;right:-80px;bottom:-80px;width:240px;height:240px;border-radius:50%;background:#eeeeee;opacity:0.3;filter:blur(48px);pointer-events:none"></div>
@@ -4846,7 +4973,7 @@ fn build_billing_usage_status(section: Option<&SectionNode>) -> String {
                 <span style="font-size:12px;font-weight:700">{usage}</span>
               </div>
               <div style="height:6px;background:#eeeeee;border-radius:999px;overflow:hidden">
-                <div style="height:100%;width:{percent}%;background:#000;border-radius:999px"></div>
+                <div class="progress-fill" style="height:100%;width:0;background:#000;border-radius:999px;--target-width:{percent}%"></div>
               </div>
             </div>"#,
             label = label,
@@ -4865,7 +4992,7 @@ fn build_billing_usage_status(section: Option<&SectionNode>) -> String {
     };
 
     format!(
-        r##"<section class="ghost-border" style="background:#fff;border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+        r##"<section class="ghost-border anim-slide-up d2 card-hover" style="background:#fff;border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
           <h4 style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#5e5e5e;margin:0 0 32px">{title}</h4>
           {bars}
           {link}
@@ -4885,6 +5012,7 @@ fn build_billing_stats(section: Option<&SectionNode>) -> String {
     };
 
     let mut cards_html = String::new();
+    let mut billing_stat_idx = 0u32;
     for item in &sec.items {
         let value = item.get("title").map(|s| s.as_str()).unwrap_or("");
         let label = item.get("meta")
@@ -4892,9 +5020,11 @@ fn build_billing_stats(section: Option<&SectionNode>) -> String {
             .map(|s| s.as_str())
             .unwrap_or("");
         let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
+        billing_stat_idx += 1;
+        let delay = format!("d{}", ((billing_stat_idx - 1) % 10) + 1);
 
         cards_html.push_str(&format!(
-            r##"<div class="ghost-border" style="background:#fff;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+            r##"<div class="ghost-border anim-scale {delay} card-hover" style="background:#fff;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
               <span class="material-symbols-outlined" style="color:#a1a1aa;margin-bottom:16px">{icon}</span>
               <div style="font-size:24px;font-weight:700;letter-spacing:-0.02em;margin-bottom:4px">{value}</div>
               <div style="font-size:12px;color:#5e5e5e;font-weight:500;text-transform:uppercase;letter-spacing:-0.05em">{label}</div>
@@ -5257,10 +5387,10 @@ fn build_payouts_page_header(section: Option<&SectionNode>) -> String {
     format!(
         r#"<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:48px">
       <div>
-        <h2 style="font-size:36px;font-weight:800;letter-spacing:-0.05em;line-height:1.25;color:#1a1c1c;margin:0 0 8px">{title}</h2>
-        {subtitle}
+        <h2 class="anim-slide-up d1" style="font-size:36px;font-weight:800;letter-spacing:-0.05em;line-height:1.25;color:#1a1c1c;margin:0 0 8px">{title}</h2>
+        <div class="anim-slide-up d2">{subtitle}</div>
       </div>
-      {action}
+      <div class="anim-scale d3 btn-hover">{action}</div>
     </div>"#,
         title = title,
         subtitle = subtitle_html,
@@ -5302,7 +5432,7 @@ fn build_payouts_balance_card(section: Option<&SectionNode>) -> String {
     }
 
     format!(
-        r##"<section class="ghost-border" style="background:#fff;border-radius:12px;padding:32px;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+        r##"<section class="ghost-border anim-slide-up d1 card-hover" style="background:#fff;border-radius:12px;padding:32px;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
           <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#5e5e5e;margin-bottom:16px">{label}</div>
           <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:24px">
             <span style="font-size:48px;font-weight:800;letter-spacing:-0.04em;line-height:1">{value}</span>
@@ -5354,7 +5484,7 @@ fn build_payouts_upcoming_card(section: Option<&SectionNode>) -> String {
     }
 
     format!(
-        r##"<section class="ghost-border" style="background:#fff;border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+        r##"<section class="ghost-border anim-slide-up d2 card-hover" style="background:#fff;border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
           <div style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#5e5e5e;margin-bottom:16px">{label}</div>
           <div style="font-size:24px;font-weight:700;letter-spacing:-0.02em;margin-bottom:4px">{value}</div>
           <div style="font-size:12px;color:#5e5e5e;margin-bottom:24px">{date}</div>
@@ -5396,7 +5526,7 @@ fn build_payouts_history(section: Option<&SectionNode>) -> String {
             String::new()
         };
         action_buttons_html.push_str(&format!(
-            r#"<button style="background:transparent;color:#000;padding:8px 16px;border-radius:999px;font-size:13px;font-weight:600;border:1px solid #e5e7eb;cursor:pointer;display:flex;align-items:center;gap:6px">{icon} {text}</button>"#,
+            r#"<button class="btn-hover" style="background:transparent;color:#000;padding:8px 16px;border-radius:999px;font-size:13px;font-weight:600;border:1px solid #e5e7eb;cursor:pointer;display:flex;align-items:center;gap:6px">{icon} {text}</button>"#,
             icon = icon_html,
             text = text
         ));
@@ -5433,8 +5563,9 @@ fn build_payouts_history(section: Option<&SectionNode>) -> String {
             _ => ("#5e5e5e", "#f3f3f3"),
         };
 
+        let row_delay = format!("d{}", (tbody_html.matches("<tr").count() % 10) + 1);
         tbody_html.push_str(&format!(
-            r##"<tr class="payout-row" style="transition:background 0.15s;cursor:pointer">
+            r##"<tr class="payout-row anim-fade {row_delay}" style="transition:background 0.15s;cursor:pointer">
               <td style="padding:16px;border-bottom:1px solid #f9f9f9">
                 <div style="font-size:14px;font-weight:600">{date}</div>
                 <div style="font-size:11px;color:#a1a1aa">{time}</div>
@@ -5446,6 +5577,7 @@ fn build_payouts_history(section: Option<&SectionNode>) -> String {
               </td>
               <td style="padding:16px;border-bottom:1px solid #f9f9f9;font-family:'SF Mono','Fira Code',monospace;font-size:12px;color:#5e5e5e">{reference}</td>
             </tr>"##,
+            row_delay = row_delay,
             date = date,
             time = time,
             amount = amount,
@@ -5467,7 +5599,7 @@ fn build_payouts_history(section: Option<&SectionNode>) -> String {
     };
 
     format!(
-        r##"<section class="ghost-border" style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.04);overflow:hidden">
+        r##"<section class="ghost-border anim-slide-up d3 card-hover" style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.04);overflow:hidden">
           <div style="display:flex;justify-content:space-between;align-items:center;padding:24px 24px 0">
             <h4 style="font-size:20px;font-weight:700;margin:0">{title}</h4>
             <div style="display:flex;gap:8px">
@@ -5505,12 +5637,12 @@ fn build_payouts_support_banner(section: Option<&SectionNode>) -> String {
     let action_text = action_item.and_then(|i| i.get("title")).map(|s| s.as_str()).unwrap_or("");
 
     format!(
-        r##"<section style="background:#0a0a0a;border-radius:12px;padding:40px;position:relative;overflow:hidden">
+        r##"<section class="anim-scale d3" style="background:#0a0a0a;border-radius:12px;padding:40px;position:relative;overflow:hidden">
           <div style="position:absolute;right:-20%;top:-40%;width:60%;height:180%;background:rgba(255,255,255,0.05);transform:skewX(-12deg);pointer-events:none"></div>
           <div style="position:relative;z-index:1">
             <h4 style="font-size:20px;font-weight:700;color:#fff;margin:0 0 8px">{title}</h4>
             <p style="font-size:14px;color:#a1a1aa;margin:0 0 24px;max-width:560px;line-height:1.6">{subtitle}</p>
-            <button style="background:#fff;color:#000;padding:10px 24px;border-radius:999px;font-size:14px;font-weight:600;border:none;cursor:pointer">{action}</button>
+            <button class="btn-hover" style="background:#fff;color:#000;padding:10px 24px;border-radius:999px;font-size:14px;font-weight:600;border:none;cursor:pointer">{action}</button>
           </div>
         </section>"##,
         title = title,
@@ -5574,7 +5706,7 @@ fn build_unified_usage_plan(section: Option<&SectionNode>) -> String {
                 <span style="font-size:12px;font-weight:700">{usage}</span>
               </div>
               <div style="height:6px;background:#eeeeee;border-radius:999px;overflow:hidden">
-                <div style="height:100%;width:{percent}%;background:#000;border-radius:999px"></div>
+                <div class="progress-fill" style="height:100%;width:0;background:#000;border-radius:999px;--target-width:{percent}%"></div>
               </div>
             </div>"#,
             label = label, usage = usage, percent = percent
@@ -6026,10 +6158,10 @@ fn build_payment_links_page_header(section: Option<&SectionNode>) -> String {
     format!(
         r##"<div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:48px">
   <div>
-    <h1 style="font-size:36px;font-weight:800;letter-spacing:-0.04em;color:#000;margin:0 0 8px">{title}</h1>
-    {subtitle}
+    <h1 class="anim-slide-up d1" style="font-size:36px;font-weight:800;letter-spacing:-0.04em;color:#000;margin:0 0 8px">{title}</h1>
+    <div class="anim-slide-up d2">{subtitle}</div>
   </div>
-  {action}
+  <div class="anim-scale d3 btn-hover">{action}</div>
 </div>"##,
         title = title, subtitle = subtitle_html, action = action_html,
     )
@@ -6054,7 +6186,7 @@ fn build_payment_links_stat_cards(section: Option<&SectionNode>) -> String {
             let value = item.get("description").map(|s| s.as_str()).unwrap_or("");
 
             format!(
-                r##"<div style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px">
+                r##"<div class="anim-scale card-hover" style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px">
   <p style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#5e5e5e;margin:0 0 4px">{label}</p>
   <p style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#1a1c1c;margin:0">{value}</p>
 </div>"##,
@@ -6127,12 +6259,12 @@ fn build_payment_links_product_grid(section: &SectionNode) -> String {
             };
 
             format!(
-                r##"<div style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px;display:flex;flex-direction:column;transition:border-color 0.2s" onmouseover="this.style.borderColor='rgba(0,0,0,0.1)'" onmouseout="this.style.borderColor='rgba(198,198,198,0.2)'">
+                r##"<div class="anim-slide-up card-hover" style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px;display:flex;flex-direction:column;transition:border-color 0.2s" onmouseover="this.style.borderColor='rgba(0,0,0,0.1)'" onmouseout="this.style.borderColor='rgba(198,198,198,0.2)'">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">{icon_html}{status_html}</div>
   <h3 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;color:#1a1c1c;margin:0 0 4px">{name}</h3>
   <p style="font-size:14px;color:#5e5e5e;margin:0 0 16px">{desc}</p>
   <div style="margin-top:auto">{price_html}<div style="display:flex;gap:8px">
-    <button style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#f3f3f3;border:none;border-radius:999px;padding:10px 0;font-size:12px;font-weight:700;color:#1a1c1c;cursor:pointer;transition:background 0.15s;font-family:inherit" onmouseover="this.style.background='#e8e8e8'" onmouseout="this.style.background='#f3f3f3'">{act_icon} {action_text}</button>
+    <button class="btn-hover" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#f3f3f3;border:none;border-radius:999px;padding:10px 0;font-size:12px;font-weight:700;color:#1a1c1c;cursor:pointer;transition:background 0.15s;font-family:inherit" onmouseover="this.style.background='#e8e8e8'" onmouseout="this.style.background='#f3f3f3'">{act_icon} {action_text}</button>
     <button style="width:40px;height:40px;border:1px solid rgba(198,198,198,0.3);border-radius:999px;display:flex;align-items:center;justify-content:center;background:transparent;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='#f3f3f3'" onmouseout="this.style.background='transparent'"><span class="material-symbols-outlined" style="font-size:20px;color:#71717a">more_horiz</span></button>
   </div></div>
 </div>"##,
@@ -6197,7 +6329,7 @@ fn build_payment_links_promo(section: Option<&SectionNode>) -> String {
 
     // Span 2 columns in the parent 3-col grid
     format!(
-        r##"<div style="grid-column:span 2;background:#000;color:#fff;border-radius:12px;padding:32px;position:relative;overflow:hidden;display:flex;gap:32px">
+        r##"<div class="anim-scale d3" style="grid-column:span 2;background:#000;color:#fff;border-radius:12px;padding:32px;position:relative;overflow:hidden;display:flex;gap:32px">
   <div style="flex:1;position:relative;z-index:1;display:flex;flex-direction:column">
     {badge}
     <h2 style="font-size:30px;font-weight:700;letter-spacing:-0.03em;line-height:1;color:#fff;margin:0 0 16px">{title}</h2>
