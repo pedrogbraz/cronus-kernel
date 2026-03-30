@@ -629,7 +629,7 @@ pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str, theme
 // ══════════════════════════════════════════════════
 
 fn render_dashboard(page: &PageNode, entities: &[EntityNode], _accent: &str) -> String {
-    let _title = page.title.as_deref().unwrap_or("Dashboard");
+    let _title = page.title.as_deref().unwrap_or("");
 
     r##"<div>
   <!-- Header -->
@@ -3156,7 +3156,7 @@ fn render_sidebar(section: &SectionNode) -> String {
     let brand = section.config.get("brand")
         .map(|s| s.as_str())
         .or(section.title.as_deref())
-        .unwrap_or("Dashboard");
+        .unwrap_or("");
     let subtitle = section.config.get("subtitle")
         .map(|s| s.as_str())
         .or(section.subtitle.as_deref())
@@ -4011,8 +4011,8 @@ pub fn render_dashboard_page(
 // ── Sidebar builder ─────────────────────────────
 
 fn build_dashboard_sidebar(comp: Option<&ComponentNode>, section: Option<&SectionNode>) -> String {
-    let mut brand = "Dashboard";
-    let mut subtitle = "Enterprise";
+    let mut brand = "";
+    let mut subtitle = "";
     let mut nav_items_html = String::new();
     let mut bottom_items_html = String::new();
 
@@ -4067,7 +4067,7 @@ fn build_dashboard_sidebar(comp: Option<&ComponentNode>, section: Option<&Sectio
     } else if let Some(sec) = section {
         brand = sec.config.get("brand").map(|s| s.as_str())
             .or(sec.title.as_deref())
-            .unwrap_or("Dashboard");
+            .unwrap_or("");
         subtitle = sec.config.get("subtitle").map(|s| s.as_str())
             .or(sec.subtitle.as_deref())
             .unwrap_or("");
@@ -6764,7 +6764,7 @@ fn build_security_topbar(comp: Option<&ComponentNode>) -> String {
 
 fn build_security_sidebar(comp: Option<&ComponentNode>, section: Option<&SectionNode>) -> String {
     let mut brand = "GeistPay";
-    let mut subtitle = "Enterprise";
+    let mut subtitle = "";
     let mut nav_items_html = String::new();
     let mut bottom_items_html = String::new();
 
