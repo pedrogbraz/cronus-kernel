@@ -536,7 +536,7 @@ async fn handle_request(
         let is_billing = page.sections.iter().any(|s| s.section_type == "current-plan" || s.section_type == "billing-stats");
         let is_payouts = page.sections.iter().any(|s| s.section_type == "balance-card" || s.section_type == "payout-history");
         let is_unified = page.sections.iter().any(|s| s.section_type == "balance-card")
-            && page.sections.iter().any(|s| s.section_type == "current-plan");
+            && page.sections.iter().any(|s| s.section_type == "billing-stats" || s.section_type == "recent-invoices");
         let html = if is_dashboard {
             // Dedicated dashboard renderer: produces the ENTIRE page in one shot
             let referenced_comps: Vec<parser::ComponentNode> = page.components.iter()

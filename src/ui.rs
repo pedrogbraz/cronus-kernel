@@ -5465,18 +5465,18 @@ fn build_unified_usage_plan(section: Option<&SectionNode>) -> String {
             let text = item.get("title").map(|s| s.as_str()).unwrap_or("Manage plan");
             let href = item.get("link").map(|s| s.as_str()).unwrap_or("#");
             action_link = format!(
-                r#"<div style="padding-top:16px"><a href="{href}" style="font-size:14px;font-weight:700;color:#000;text-decoration:underline;text-underline-offset:4px">{text}</a></div>"#,
+                r#"<div style="padding-top:12px"><a href="{href}" style="font-size:14px;font-weight:700;color:#1a1c1c;text-decoration:underline;text-underline-offset:4px">{text}</a></div>"#,
                 href = href, text = text
             );
             continue;
         }
-        if item_type == "cost" {
+        if item_type == "row" {
             let label = item.get("title").map(|s| s.as_str()).unwrap_or("Monthly cost");
             let value = item.get("value").map(|s| s.as_str()).unwrap_or("");
             cost_html = format!(
-                r#"<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-top:1px solid #f3f3f3;margin-top:8px">
-                  <span style="font-size:13px;color:#5e5e5e">{label}</span>
-                  <span style="font-size:14px;font-weight:700">{value}</span>
+                r#"<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-top:1px solid #f3f3f3">
+                  <span style="font-size:14px;color:#5e5e5e">{label}</span>
+                  <span style="font-size:14px;font-weight:600">{value}</span>
                 </div>"#,
                 label = label, value = value
             );
@@ -5492,8 +5492,8 @@ fn build_unified_usage_plan(section: Option<&SectionNode>) -> String {
         let percent: u32 = percent_str.parse().unwrap_or(0);
 
         bars_html.push_str(&format!(
-            r#"<div style="margin-bottom:24px">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            r#"<div style="margin-bottom:20px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
                 <span style="font-size:14px;font-weight:500">{label}</span>
                 <span style="font-size:12px;font-weight:700">{usage}</span>
               </div>
@@ -5511,7 +5511,7 @@ fn build_unified_usage_plan(section: Option<&SectionNode>) -> String {
         let link_href = sec.config.get("link_href").map(|s| s.as_str()).unwrap_or("#");
         if !link_text.is_empty() {
             action_link = format!(
-                r#"<div style="padding-top:16px"><a href="{href}" style="font-size:14px;font-weight:700;color:#000;text-decoration:underline;text-underline-offset:4px">{text}</a></div>"#,
+                r#"<div style="padding-top:12px"><a href="{href}" style="font-size:14px;font-weight:700;color:#1a1c1c;text-decoration:underline;text-underline-offset:4px">{text}</a></div>"#,
                 href = link_href, text = link_text
             );
         }
@@ -5549,7 +5549,8 @@ fn build_unified_billing_payments(section: Option<&SectionNode>) -> String {
     for item in &sec.items {
         let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("");
         if item_type == "row" {
-            // Invoice row: date + amount + download icon
+            // Invoice row: title (period) + date + amount + download icon
+            let title = item.get("title").map(|s| s.as_str()).unwrap_or("");
             let date = item.get("date")
                 .or_else(|| item.get("description"))
                 .map(|s| s.as_str())
@@ -5558,37 +5559,51 @@ fn build_unified_billing_payments(section: Option<&SectionNode>) -> String {
                 .or_else(|| item.get("value"))
                 .map(|s| s.as_str())
                 .unwrap_or("");
-            let action_icon = item.get("action_icon").map(|s| s.as_str()).unwrap_or("download");
 
             invoices_html.push_str(&format!(
-                r##"<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='rgba(243,243,243,0.5)'" onmouseout="this.style.background='transparent'">
-                  <span style="font-size:13px;color:#5e5e5e">{date}</span>
-                  <div style="display:flex;align-items:center;gap:10px">
+                r##"<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0">
+                  <div>
+                    <div style="font-size:14px;font-weight:700">{title}</div>
+                    <div style="font-size:12px;color:#5e5e5e">{date}</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px">
                     <span style="font-size:14px;font-weight:700">{amount}</span>
-                    <span class="material-symbols-outlined" style="font-size:18px;color:#d4d4d8">{icon}</span>
+                    <span class="material-symbols-outlined" style="font-size:16px;color:#d4d4d8">download</span>
                   </div>
                 </div>"##,
-                date = date, amount = amount, icon = action_icon
+                title = title, date = date, amount = amount
             ));
         } else {
-            // Payment method card: VISA badge + name + desc + Apple Pay etc.
+            // Payment method card: VISA badge or icon + name + desc
             let name = item.get("title").map(|s| s.as_str()).unwrap_or("");
             let desc = item.get("description").map(|s| s.as_str()).unwrap_or("");
-            let badge = item.get("badge")
-                .or_else(|| item.get("icon"))
-                .map(|s| s.as_str())
-                .unwrap_or("");
+            let badge = item.get("badge").map(|s| s.as_str()).unwrap_or("");
+            let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
 
             if !name.is_empty() {
+                let badge_html = if !badge.is_empty() {
+                    format!(
+                        r#"<div style="width:48px;height:32px;background:#171717;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">{}</div>"#,
+                        badge.to_uppercase()
+                    )
+                } else if !icon.is_empty() {
+                    format!(
+                        r#"<div style="width:48px;height:32px;background:#171717;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff"><span class="material-symbols-outlined" style="font-size:18px">{}</span></div>"#,
+                        icon
+                    )
+                } else {
+                    String::new()
+                };
+
                 methods_html.push_str(&format!(
-                    r##"<div style="display:flex;align-items:center;gap:12px;padding:8px 0">
-                      <span style="font-size:11px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;background:#1a1c1c;color:#fff;padding:4px 8px;border-radius:4px">{badge}</span>
+                    r##"<div style="display:flex;align-items:center;gap:16px;padding:12px;background:#f9f9f9;border-radius:8px;margin-bottom:8px">
+                      {badge_html}
                       <div>
-                        <div style="font-size:14px;font-weight:600">{name}</div>
-                        <div style="font-size:12px;color:#a1a1aa">{desc}</div>
+                        <div style="font-size:14px;font-weight:700">{name}</div>
+                        <div style="font-size:12px;color:#5e5e5e">{desc}</div>
                       </div>
                     </div>"##,
-                    badge = badge, name = name, desc = desc
+                    badge_html = badge_html, name = name, desc = desc
                 ));
             }
         }
