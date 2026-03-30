@@ -167,6 +167,38 @@ document.addEventListener('DOMContentLoaded',()=>{
       container.innerHTML=html;
     }).catch(function(){});
   })();
+
+  // Form submission with feedback
+  document.querySelectorAll('#cronus-form').forEach(function(form){
+    form.addEventListener('submit',async function(e){
+      e.preventDefault();
+      var btn=form.querySelector('button[type=submit]');
+      var msg=document.getElementById('form-msg');
+      var action=form.getAttribute('action')||'/api/'+form.getAttribute('data-entity')+'s';
+      var method=form.getAttribute('method')||'POST';
+      var origLabel=btn.textContent;
+      btn.disabled=true;btn.textContent='Saving...';
+      var data={};
+      new FormData(form).forEach(function(v,k){data[k]=v});
+      try{
+        var r=await fetch(action,{method:method,headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+        var body=await r.json();
+        if(r.ok){
+          msg.style.display='block';msg.style.background='#f0fdf4';msg.style.color='#16a34a';msg.style.border='1px solid #bbf7d0';
+          msg.textContent='Saved successfully';form.reset();
+          cronusToast('Created successfully','success');
+          setTimeout(function(){msg.style.display='none'},3000);
+        } else {
+          msg.style.display='block';msg.style.background='#fef2f2';msg.style.color='#dc2626';msg.style.border='1px solid #fecaca';
+          msg.textContent=(body.error||'Error saving');
+        }
+      }catch(err){
+        msg.style.display='block';msg.style.background='#fef2f2';msg.style.color='#dc2626';msg.style.border='1px solid #fecaca';
+        msg.textContent='Connection error';
+      }
+      btn.disabled=false;btn.textContent=btn.getAttribute('data-label')||origLabel;
+    });
+  });
 });
 </script>
 "##;
@@ -1196,7 +1228,7 @@ fn render_list(page: &PageNode, entities: &[EntityNode], accent: &str) -> String
 
     let headers_oklch: String = field_names.iter()
         .map(|n| format!(
-            r#"<th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:500;color:var(--foreground-muted);text-transform:uppercase;letter-spacing:0.05em">{}</th>"#, n
+            r#"<th data-sort="{}" style="padding:10px 16px;text-align:left;font-size:11px;font-weight:500;color:var(--foreground-muted);text-transform:uppercase;letter-spacing:0.05em;cursor:pointer;user-select:none">{} <span class="sort-icon" style="font-size:10px"></span></th>"#, n, n
         ))
         .collect::<Vec<_>>()
         .join("\n            ");
@@ -1251,36 +1283,102 @@ fn render_list(page: &PageNode, entities: &[EntityNode], accent: &str) -> String
     return '<span style="display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:500;background:'+bgColor+';color:'+textColor+';border:1px solid '+dotColor.replace(')','/20%)')+'"><span style="width:5px;height:5px;border-radius:50%;background:'+dotColor+'"></span>'+(val||'\u2014')+'</span>';
   }}
 
+  var pageSize=10,currentPage=0;
+  var sortCol=null,sortAsc=true;
+  var filteredData=[];
+
   function renderRows(data) {{
     var tbody=document.getElementById('table-body');
     var empty=document.getElementById('empty-state');
     var countLabel=document.getElementById('count-label');
-    var pagLabel=document.getElementById('pagination-label');
-    if(!data.length){{tbody.innerHTML='';empty.style.display='block';countLabel.textContent='0 registros';pagLabel.textContent='';return}}
+    if(!data.length){{tbody.innerHTML='';empty.style.display='block';countLabel.textContent='0 registros';renderPaginationLabel(0);return}}
     empty.style.display='none';
     countLabel.textContent=data.length+' registro'+(data.length!==1?'s':'');
-    pagLabel.textContent='Mostrando 1-'+data.length+' de '+data.length;
     tbody.innerHTML=data.map(function(row,i){{
       var cells=fields.map(function(f){{
         return '<td style="padding:10px 16px;font-size:13px;color:var(--foreground-muted)">'+badge(row[f],f)+'</td>';
       }}).join('');
       var bg=i%2===0?'':'background:var(--surface-hover)';
-      return '<tr style="border-bottom:1px solid var(--surface-hover);'+bg+';cursor:pointer" onmouseover="this.style.background=\'var(--surface-hover)\'">'+cells+
-        '<td style="padding:10px 8px;text-align:center"><svg width="14" height="14" fill="none" stroke="var(--foreground-subtle)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></td></tr>';
+      return '<tr style="border-bottom:1px solid var(--surface-hover);'+bg+';cursor:pointer" onmouseover="this.style.background=\'var(--surface-hover)\'" onclick="cronusEdit(\''+lower+'\',\''+((row.id||''))+'\')" data-id="'+(row.id||'')+'">'+cells+
+        '<td style="padding:10px 8px;text-align:center;display:flex;gap:4px;align-items:center;justify-content:center">'+
+        '<button onclick="event.stopPropagation();cronusDelete(\''+lower+'\',\''+(row.id||'')+'\')" style="background:none;border:none;cursor:pointer;opacity:0.3;padding:2px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.3"><span class="material-symbols-outlined" style="font-size:16px;color:#dc2626">delete</span></button>'+
+        '<svg width="14" height="14" fill="none" stroke="var(--foreground-subtle)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>'+
+        '</td></tr>';
     }}).join('');
   }}
 
+  function renderPaginationLabel(total){{
+    var pagLabel=document.getElementById('pagination-label');
+    if(!pagLabel)return;
+    if(total===0){{pagLabel.innerHTML='';return}}
+    var start=currentPage*pageSize;
+    var end=Math.min(start+pageSize,total);
+    pagLabel.innerHTML='Mostrando '+(start+1)+'-'+end+' de '+total+
+      ' <button onclick="cronusPrev()" style="margin-left:16px;padding:4px 12px;border:1px solid var(--border);border-radius:999px;font-size:12px;cursor:pointer;background:var(--card);color:var(--foreground)"'+(currentPage===0?' disabled style="margin-left:16px;padding:4px 12px;border:1px solid var(--border);border-radius:999px;font-size:12px;cursor:not-allowed;background:var(--card);color:var(--foreground-subtle);opacity:0.5"':'')+'>&#8592; Prev</button> '+
+      '<button onclick="cronusNext()" style="padding:4px 12px;border:1px solid var(--border);border-radius:999px;font-size:12px;cursor:pointer;background:var(--card);color:var(--foreground)"'+(end>=total?' disabled style="padding:4px 12px;border:1px solid var(--border);border-radius:999px;font-size:12px;cursor:not-allowed;background:var(--card);color:var(--foreground-subtle);opacity:0.5"':'')+'>Next &#8594;</button>';
+  }}
+
+  function renderPaginated(data){{
+    var start=currentPage*pageSize;
+    var pageData=data.slice(start,start+pageSize);
+    renderRows(pageData);
+    renderPaginationLabel(data.length);
+  }}
+
+  function applySort(data){{
+    if(!sortCol)return data;
+    return data.slice().sort(function(a,b){{
+      var va=(a[sortCol]||'').toString().toLowerCase();
+      var vb=(b[sortCol]||'').toString().toLowerCase();
+      return sortAsc?va.localeCompare(vb):vb.localeCompare(va);
+    }});
+  }}
+
+  function refresh(){{
+    var sorted=applySort(filteredData);
+    renderPaginated(sorted);
+  }}
+
+  window.cronusPrev=function(){{if(currentPage>0){{currentPage--;refresh()}}}};
+  window.cronusNext=function(){{if((currentPage+1)*pageSize<filteredData.length){{currentPage++;refresh()}}}};
+
+  window.cronusDelete=function(entity,id){{
+    if(!confirm('Deletar este registro?'))return;
+    fetch('/api/'+entity+'s/'+id,{{method:'DELETE'}}).then(function(r){{
+      if(r.ok){{allData=allData.filter(function(row){{return row.id!==id}});filteredData=filteredData.filter(function(row){{return row.id!==id}});refresh()}}
+      else{{alert('Erro ao deletar')}}
+    }}).catch(function(){{alert('Erro de conexao')}});
+  }};
+
+  window.cronusEdit=function(entity,id){{
+    window.location.href='/'+entity+'s/'+id+'/edit';
+  }};
+
+  // Sort
+  document.querySelectorAll('th[data-sort]').forEach(function(th){{
+    th.addEventListener('click',function(){{
+      var col=th.getAttribute('data-sort');
+      if(sortCol===col)sortAsc=!sortAsc;else{{sortCol=col;sortAsc=true}}
+      currentPage=0;
+      refresh();
+      document.querySelectorAll('th[data-sort]').forEach(function(t){{var si=t.querySelector('.sort-icon');if(si)si.textContent=''}});
+      var icon=th.querySelector('.sort-icon');if(icon)icon.textContent=sortAsc?'\u2191':'\u2193';
+    }});
+  }});
+
   function load(){{
     fetch('/api/'+lower+'s').then(function(r){{return r.json()}}).then(function(d){{
-      allData=Array.isArray(d)?d:[];renderRows(allData);
-    }}).catch(function(){{renderRows([])}});
+      allData=Array.isArray(d)?d:[];filteredData=allData.slice();currentPage=0;refresh();
+    }}).catch(function(){{allData=[];filteredData=[];refresh()}});
   }}
 
   document.getElementById('search-input').addEventListener('input',function(e){{
     var q=e.target.value.toLowerCase();
-    renderRows(allData.filter(function(row){{
+    filteredData=allData.filter(function(row){{
       return fields.some(function(f){{return(row[f]||'').toString().toLowerCase().indexOf(q)!==-1}});
-    }}));
+    }});
+    currentPage=0;
+    refresh();
   }});
 
   load();
@@ -1291,6 +1389,108 @@ fn render_list(page: &PageNode, entities: &[EntityNode], accent: &str) -> String
         fields_js = fields_js,
         enum_fields_js = enum_fields_js,
         lower = lower,
+    )
+}
+
+// ══════════════════════════════════════════════════
+// AUTH PAGE (Login / Signup)
+// ══════════════════════════════════════════════════
+
+pub fn render_auth_page(page: &PageNode, is_login: bool) -> String {
+    let title = if is_login { "Welcome back" } else { "Create your account" };
+    let subtitle = if is_login { "Sign in to your account" } else { "Get started for free" };
+    let btn_label = if is_login { "Sign In" } else { "Sign Up" };
+    let action = if is_login { "/api/auth/login" } else { "/api/auth/signup" };
+    let alt_text = if is_login { "Don't have an account?" } else { "Already have an account?" };
+    let alt_link = if is_login { "/signup" } else { "/login" };
+    let alt_label = if is_login { "Sign up" } else { "Sign in" };
+
+    let app_name = page.title.as_deref().unwrap_or("G");
+    let logo_letter = app_name.chars().next().unwrap_or('G').to_uppercase().to_string();
+
+    let name_field = if is_login {
+        String::new()
+    } else {
+        r#"<input type="text" name="name" placeholder="Full name" required style="width:100%;padding:10px 14px;font-size:14px;border:1px solid #e5e7eb;border-radius:10px;outline:none;box-sizing:border-box;transition:border-color 0.15s" onfocus="this.style.borderColor='#000'" onblur="this.style.borderColor='#e5e7eb'">"#.to_string()
+    };
+
+    format!(
+        r##"<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{title}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+  <style>
+    *{{margin:0;padding:0;box-sizing:border-box}}
+    body{{font-family:'Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}}
+    .btn-hover:hover{{opacity:0.9;transform:translateY(-1px)}}
+    input:focus{{border-color:#000!important;box-shadow:0 0 0 3px rgba(0,0,0,0.05)}}
+  </style>
+</head>
+<body>
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f9f9f9">
+  <div style="width:100%;max-width:400px;padding:32px">
+    <div style="text-align:center;margin-bottom:32px">
+      <div style="width:48px;height:48px;background:#000;border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+        <span style="color:#fff;font-weight:700;font-size:20px">{logo_letter}</span>
+      </div>
+      <h1 style="font-size:24px;font-weight:700;margin:0 0 8px;color:#18181b">{title}</h1>
+      <p style="font-size:14px;color:#71717a">{subtitle}</p>
+    </div>
+    <form id="auth-form" action="{action}" method="POST" style="display:flex;flex-direction:column;gap:16px">
+      {name_field}
+      <input type="email" name="email" placeholder="Email" required style="width:100%;padding:10px 14px;font-size:14px;border:1px solid #e5e7eb;border-radius:10px;outline:none;box-sizing:border-box;transition:border-color 0.15s" onfocus="this.style.borderColor='#000'" onblur="this.style.borderColor='#e5e7eb'">
+      <input type="password" name="password" placeholder="Password" required style="width:100%;padding:10px 14px;font-size:14px;border:1px solid #e5e7eb;border-radius:10px;outline:none;box-sizing:border-box;transition:border-color 0.15s" onfocus="this.style.borderColor='#000'" onblur="this.style.borderColor='#e5e7eb'">
+      <div id="auth-msg" style="display:none;padding:10px 14px;border-radius:10px;font-size:13px;text-align:center"></div>
+      <button type="submit" class="btn-hover" style="width:100%;padding:10px 14px;font-size:14px;font-weight:600;border:none;border-radius:10px;background:#18181b;color:#fff;cursor:pointer;transition:all 0.15s">{btn_label}</button>
+    </form>
+    <p style="text-align:center;margin-top:16px;font-size:14px;color:#71717a">
+      {alt_text} <a href="{alt_link}" style="color:#18181b;font-weight:600;text-decoration:none">{alt_label}</a>
+    </p>
+  </div>
+</div>
+<script>
+document.getElementById('auth-form').addEventListener('submit',async function(e){{
+  e.preventDefault();
+  var data={{}};new FormData(this).forEach(function(v,k){{data[k]=v}});
+  var action=this.getAttribute('action');
+  var btn=this.querySelector('button[type=submit]');
+  btn.disabled=true;btn.textContent='Loading...';
+  try{{
+    var r=await fetch(action,{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify(data)}});
+    var body=await r.json();
+    if(r.ok&&body.token){{
+      localStorage.setItem('token',body.token);
+      localStorage.setItem('user',JSON.stringify(body.user||{{}}));
+      window.location.href='/';
+    }}else{{
+      var msg=document.getElementById('auth-msg');
+      msg.style.display='block';msg.style.background='#fef2f2';msg.style.color='#dc2626';msg.style.border='1px solid #fecaca';
+      msg.textContent=body.error||'Invalid credentials';
+      btn.disabled=false;btn.textContent='{btn_label}';
+    }}
+  }}catch(err){{
+    var msg=document.getElementById('auth-msg');
+    msg.style.display='block';msg.style.background='#fef2f2';msg.style.color='#dc2626';msg.style.border='1px solid #fecaca';
+    msg.textContent='Connection error';
+    btn.disabled=false;btn.textContent='{btn_label}';
+  }}
+}});
+</script>
+</body>
+</html>"##,
+        title = title,
+        subtitle = subtitle,
+        action = action,
+        btn_label = btn_label,
+        name_field = name_field,
+        alt_text = alt_text,
+        alt_link = alt_link,
+        alt_label = alt_label,
+        logo_letter = logo_letter,
     )
 }
 
@@ -1573,6 +1773,7 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str) -> String {
         "activity-table" => render_activity_table(section),
         "edge" => render_edge(section, accent),
         "sidebar" => render_sidebar(section),
+        "form" => render_form_section(section),
         "card" | "live-keys" | "test-keys" | "webhooks" => render_card_section(section),
         "links" | "quick-links" => render_links_section(section),
         _ => render_generic_section(section, accent),
@@ -3681,6 +3882,157 @@ fn render_links_section(section: &SectionNode) -> String {
             String::new()
         },
         links = links_html,
+    )
+}
+
+fn render_form_section(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("Form");
+    let subtitle = section.subtitle.as_deref().unwrap_or("");
+    let entity = section.config.get("entity").map(|s| s.as_str()).unwrap_or("");
+    let action = section.config.get("action").map(|s| s.to_string())
+        .unwrap_or_else(|| if !entity.is_empty() { format!("/api/{}s", entity.to_lowercase()) } else { "#".to_string() });
+    let method = section.config.get("method").map(|s| s.as_str()).unwrap_or("POST");
+
+    let mut fields_html = String::new();
+    let mut actions_html = String::new();
+    let mut links_html = String::new();
+
+    for item in &section.items {
+        let itype = item.get("_type").map(|s| s.as_str()).unwrap_or("");
+        let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+
+        if itype == "field" {
+            let ftype = item.get("type").map(|s| s.as_str()).unwrap_or("text");
+            let name_lower = item_title.to_lowercase().replace(' ', "_");
+            let placeholder = item.get("placeholder").map(|s| s.as_str()).unwrap_or("");
+            let required = if item.get("required").map(|s| s == "true").unwrap_or(false) { "required" } else { "" };
+            let disabled = if item.get("disabled").map(|s| s == "true").unwrap_or(false) { "disabled" } else { "" };
+            let readonly = if item.get("readonly").map(|s| s == "true").unwrap_or(false) { "readonly" } else { "" };
+            let value = item.get("value").map(|s| s.as_str()).unwrap_or("");
+
+            let label_style = "display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#71717a;margin-bottom:8px";
+            let input_style = "width:100%;padding:12px 16px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;font-family:Inter,sans-serif;transition:border-color 0.2s;box-sizing:border-box";
+
+            match ftype {
+                "text" | "email" | "password" | "url" | "tel" | "number" => {
+                    fields_html.push_str(&format!(
+                        r#"<div><label style="{label_style}">{label}</label><input type="{ftype}" name="{name}" placeholder="{placeholder}" value="{value}" {required} {disabled} {readonly} style="{input_style}" onfocus="this.style.borderColor='#000'" onblur="this.style.borderColor='#e5e7eb'"></div>"#,
+                        label_style = label_style, label = item_title, ftype = ftype, name = name_lower,
+                        placeholder = placeholder, value = value, required = required,
+                        disabled = disabled, readonly = readonly, input_style = input_style,
+                    ));
+                }
+                "select" => {
+                    let options_raw = item.get("options").map(|s| s.as_str()).unwrap_or("");
+                    let options: Vec<&str> = if options_raw.is_empty() { vec![] } else { options_raw.split("||").collect() };
+                    let mut opts_html = format!(r#"<option value="">Select {}...</option>"#, item_title);
+                    for opt in &options {
+                        opts_html.push_str(&format!(r#"<option value="{v}">{v}</option>"#, v = opt));
+                    }
+                    fields_html.push_str(&format!(
+                        r#"<div><label style="{label_style}">{label}</label><select name="{name}" {required} {disabled} style="{input_style};appearance:none;background:#fff url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 12 12%22><path d=%22M2 4l4 4 4-4%22 fill=%22none%22 stroke=%22%2371717a%22 stroke-width=%221.5%22/></svg>') no-repeat right 12px center">{options}</select></div>"#,
+                        label_style = label_style, label = item_title, name = name_lower,
+                        required = required, disabled = disabled, input_style = input_style, options = opts_html,
+                    ));
+                }
+                "textarea" => {
+                    let rows = item.get("rows").map(|s| s.as_str()).unwrap_or("4");
+                    fields_html.push_str(&format!(
+                        r#"<div><label style="{label_style}">{label}</label><textarea name="{name}" rows="{rows}" placeholder="{placeholder}" {required} {disabled} {readonly} style="{input_style};resize:vertical" onfocus="this.style.borderColor='#000'" onblur="this.style.borderColor='#e5e7eb'"></textarea></div>"#,
+                        label_style = label_style, label = item_title, name = name_lower,
+                        rows = rows, placeholder = placeholder, required = required,
+                        disabled = disabled, readonly = readonly, input_style = input_style,
+                    ));
+                }
+                "checkbox" => {
+                    fields_html.push_str(&format!(
+                        r#"<label style="display:flex;align-items:center;gap:12px;cursor:pointer"><input type="checkbox" name="{name}" {disabled} style="width:18px;height:18px;accent-color:#000"><span style="font-size:14px">{label}</span></label>"#,
+                        name = name_lower, disabled = disabled, label = item_title,
+                    ));
+                }
+                "radio" => {
+                    let options_raw = item.get("options").map(|s| s.as_str()).unwrap_or("");
+                    let options: Vec<&str> = if options_raw.is_empty() { vec![] } else { options_raw.split("||").collect() };
+                    let mut radio_html = String::new();
+                    for opt in &options {
+                        radio_html.push_str(&format!(
+                            r#"<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="radio" name="{name}" value="{val}" {disabled} style="accent-color:#000"><span style="font-size:14px">{val}</span></label>"#,
+                            name = name_lower, val = opt, disabled = disabled,
+                        ));
+                    }
+                    fields_html.push_str(&format!(
+                        r#"<div><label style="{label_style}">{label}</label><div style="display:flex;flex-direction:column;gap:8px">{radios}</div></div>"#,
+                        label_style = label_style, label = item_title, radios = radio_html,
+                    ));
+                }
+                "file" => {
+                    let accept = item.get("accept").map(|s| s.as_str()).unwrap_or("");
+                    fields_html.push_str(&format!(
+                        r#"<div><label style="{label_style}">{label}</label><input type="file" name="{name}" accept="{accept}" {required} {disabled} style="width:100%;padding:10px;border:1px dashed #e5e7eb;border-radius:8px;font-size:14px;cursor:pointer;box-sizing:border-box"></div>"#,
+                        label_style = label_style, label = item_title, name = name_lower,
+                        accept = accept, required = required, disabled = disabled,
+                    ));
+                }
+                _ => {
+                    // Fallback: treat as text
+                    fields_html.push_str(&format!(
+                        r#"<div><label style="{label_style}">{label}</label><input type="text" name="{name}" placeholder="{placeholder}" value="{value}" {required} {disabled} {readonly} style="{input_style}" onfocus="this.style.borderColor='#000'" onblur="this.style.borderColor='#e5e7eb'"></div>"#,
+                        label_style = label_style, label = item_title, name = name_lower,
+                        placeholder = placeholder, value = value, required = required,
+                        disabled = disabled, readonly = readonly, input_style = input_style,
+                    ));
+                }
+            }
+        } else if itype == "action" {
+            let variant = item.get("variant").map(|s| s.as_str())
+                .or_else(|| item.get("style").map(|s| s.as_str()))
+                .unwrap_or("primary");
+            let (bg, color) = match variant {
+                "secondary" | "outline" => ("#fff", "#000"),
+                _ => ("#000", "#fff"),
+            };
+            let border = if variant == "outline" || variant == "secondary" { "1px solid #e5e7eb" } else { "none" };
+            actions_html.push_str(&format!(
+                r#"<button type="submit" data-label="{label}" style="width:100%;padding:14px;border:{border};border-radius:999px;background:{bg};color:{color};font-size:16px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif" class="btn-hover">{label}</button>"#,
+                label = item_title, bg = bg, color = color, border = border,
+            ));
+        } else if itype == "link" {
+            let link = item.get("link").map(|s| s.as_str()).unwrap_or("#");
+            links_html.push_str(&format!(
+                r#"<a href="{link}" style="text-align:center;font-size:14px;color:#006ff0;text-decoration:none">{text}</a>"#,
+                link = link, text = item_title,
+            ));
+        }
+    }
+
+    // If no explicit action item, add a default submit button
+    if actions_html.is_empty() {
+        actions_html = r#"<button type="submit" data-label="Save" style="width:100%;padding:14px;border:none;border-radius:999px;background:#000;color:#fff;font-size:16px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif" class="btn-hover">Save</button>"#.to_string();
+    }
+
+    let subtitle_html = if subtitle.is_empty() {
+        String::new()
+    } else {
+        format!(r#"<p style="font-size:14px;color:#5e5e5e;margin:0" class="anim-slide-up d2">{}</p>"#, subtitle)
+    };
+
+    let data_entity = if !entity.is_empty() { format!(r#" data-entity="{}""#, entity) } else { String::new() };
+
+    format!(
+        r##"<section style="max-width:480px;margin:0 auto;padding:48px 24px">
+  <div style="margin-bottom:32px">
+    <h2 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;margin:0 0 8px" class="anim-slide-up d1">{title}</h2>
+    {subtitle_html}
+  </div>
+  <form id="cronus-form" action="{action}" method="{method}"{data_entity} style="display:flex;flex-direction:column;gap:20px" class="anim-slide-up d3">
+    {fields}
+    <div id="form-msg" style="display:none;padding:12px 16px;border-radius:8px;font-size:14px;font-weight:500"></div>
+    {actions}
+    {links}
+  </form>
+</section>"##,
+        title = title, subtitle_html = subtitle_html, action = action, method = method,
+        data_entity = data_entity, fields = fields_html, actions = actions_html, links = links_html,
     )
 }
 

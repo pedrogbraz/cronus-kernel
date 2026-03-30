@@ -1038,9 +1038,15 @@ impl Parser {
                 // Rich content items: line/output/success/prompt/chip/code/image/link/meter/label/metric/detail
                 let item_type = self.advance().value;
                 let mut map = HashMap::new();
-                map.insert("_type".into(), item_type);
+                map.insert("_type".into(), item_type.clone());
                 if self.peek().kind == TokenKind::StringLit {
                     map.insert("title".into(), self.advance().value);
+                }
+                // Arrow for link items: link "Text" -> "/url"
+                if self.try_consume(TokenKind::Arrow, None).is_some() {
+                    if self.peek().kind == TokenKind::StringLit {
+                        map.insert("link".into(), self.advance().value);
+                    }
                 }
                 // Parse trailing key:value pairs
                 while self.peek().kind == TokenKind::ColonPair || self.peek().kind == TokenKind::Price {
@@ -1067,6 +1073,60 @@ impl Parser {
                     }
                 }
                 // Optional { "content" } block
+                if self.matches(TokenKind::LBrace, None) {
+                    self.advance();
+                    let mut parts = Vec::new();
+                    while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                        if self.peek().kind == TokenKind::StringLit {
+                            parts.push(self.advance().value);
+                        } else {
+                            self.advance();
+                        }
+                    }
+                    if !parts.is_empty() {
+                        map.insert("description".into(), parts.join("\n"));
+                    }
+                    if self.matches(TokenKind::RBrace, None) { self.advance(); }
+                }
+                items.push(map);
+            } else if self.matches(TokenKind::Identifier, Some("field")) {
+                // field "Label" type:email required placeholder:"you@example.com" options:["A","B"]
+                self.advance();
+                let field_title = self.expect(TokenKind::StringLit)?.value;
+                let mut map = HashMap::new();
+                map.insert("_type".into(), "field".into());
+                map.insert("title".into(), field_title);
+                // Parse key:value pairs and bare flags (required, disabled, readonly)
+                loop {
+                    if self.peek().kind == TokenKind::ColonPair {
+                        let (k, v) = Self::split_colon_pair(&self.advance().value);
+                        if k == "options" && v.is_empty() && self.matches(TokenKind::LBracket, None) {
+                            let arr = self.parse_string_array()?;
+                            map.insert(k, arr.join("||"));
+                        } else if k == "options" && v.starts_with('[') {
+                            // options:["A","B"] already tokenized as single value — strip brackets
+                            let clean = v.trim_start_matches('[').trim_end_matches(']');
+                            let opts: Vec<&str> = clean.split(',').map(|s| s.trim().trim_matches('"').trim_matches('\'')).collect();
+                            map.insert(k, opts.join("||"));
+                        } else {
+                            map.insert(k, v);
+                        }
+                    } else if self.peek().kind == TokenKind::Identifier {
+                        let val = &self.peek().value;
+                        if val == "required" || val == "disabled" || val == "readonly" {
+                            let flag = self.advance().value;
+                            map.insert(flag, "true".into());
+                        } else {
+                            break;
+                        }
+                    } else if self.peek().kind == TokenKind::LBracket {
+                        // Bare [...] after options: already handled above, but just in case
+                        break;
+                    } else {
+                        break;
+                    }
+                }
+                // Optional { } block for description/help text
                 if self.matches(TokenKind::LBrace, None) {
                     self.advance();
                     let mut parts = Vec::new();

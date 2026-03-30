@@ -498,6 +498,18 @@ async fn handle_request(
             return Ok(html_response(html));
         }
 
+        // Auth pages — standalone login/signup with no layout chrome
+        let route_lower = page.route.to_lowercase();
+        let title_lower = page.title.as_deref().unwrap_or("").to_lowercase();
+        let is_auth_page = route_lower == "/login" || route_lower == "/signup"
+            || title_lower.contains("sign in") || title_lower.contains("sign up")
+            || title_lower.contains("login") || title_lower.contains("signup");
+        if is_auth_page {
+            let is_login = route_lower == "/login" || title_lower.contains("login") || title_lower.contains("sign in");
+            let html = ui::render_auth_page(page, is_login);
+            return Ok(html_response(html));
+        }
+
         let theme = state.style.as_ref().and_then(|s| s.theme.as_deref()).unwrap_or("dark");
         let mut body = ui::render_page(page, &state.entities, accent, theme);
 
