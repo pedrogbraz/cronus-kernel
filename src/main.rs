@@ -550,8 +550,7 @@ async fn handle_request(
         let is_unified = page.sections.iter().any(|s| s.section_type == "balance-card")
             && page.sections.iter().any(|s| s.section_type == "billing-stats" || s.section_type == "recent-invoices");
         let is_payment_links = page.sections.iter().any(|s| s.section_type == "product-grid")
-            && page.sections.iter().any(|s| s.section_type == "stat-cards")
-            && page.sections.iter().any(|s| s.section_type == "info-bar");
+            && page.sections.iter().any(|s| s.section_type == "stat-cards");
         let is_checkout = page.sections.iter().any(|s| s.section_type == "checkout-form" || s.section_type == "product-summary");
         let is_security = page.sections.iter().any(|s| s.section_type == "team-members" || s.section_type == "login-activity");
         let current_route = page.route.as_str();
@@ -578,12 +577,9 @@ async fn handle_request(
                 ui::render_security_dashboard(app_name, &page.sections, &referenced_comps, theme, current_route)
             } else if is_payment_links {
                 ui::render_payment_links_dashboard(app_name, &page.sections, &referenced_comps, theme, current_route)
-            } else if has_sidebar_component && !page.sections.iter().any(|s| dashboard_types.contains(&s.section_type.as_str())) {
-                // FIX 3: Generic dashboard wrapper — page has sidebar but no specific dashboard sections
-                // Render sections normally but wrap in dashboard layout with sidebar
-                ui::render_generic_dashboard(app_name, &body, &referenced_comps, theme, current_route)
             } else {
-                ui::render_dashboard_page(app_name, &page.sections, &referenced_comps, theme, current_route)
+                // Generic dashboard wrapper — sidebar + any sections
+                ui::render_generic_dashboard(app_name, &body, &referenced_comps, theme, current_route)
             }
         } else if is_landing {
             ui::render_layout_landing(app_name, &body, theme)
