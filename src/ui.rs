@@ -50,6 +50,123 @@ document.addEventListener('DOMContentLoaded',()=>{
   const io=new IntersectionObserver(e=>{e.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');io.unobserve(e.target)}})},{threshold:.1,rootMargin:'0px 0px -40px 0px'});
   document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
   document.querySelectorAll('.stagger').forEach(c=>{Array.from(c.children).forEach((ch,i)=>{ch.style.animationDelay=(.05+i*.06)+'s'})});
+
+  // Modal system
+  window.cronusModal={
+    open:function(id){document.getElementById(id).style.display='flex'},
+    close:function(id){document.getElementById(id).style.display='none'}
+  };
+
+  // Generic CRUD modal
+  window.cronusCreateModal=function(entity,fields){
+    var old=document.getElementById('create-modal');if(old)old.remove();
+    var html='<div id="create-modal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;backdrop-filter:blur(4px)" onclick="if(event.target===this)cronusModal.close(\'create-modal\')">';
+    html+='<div style="background:#fff;border-radius:16px;padding:32px;width:100%;max-width:480px;box-shadow:0 24px 48px rgba(0,0,0,0.15);animation:scaleIn 0.3s cubic-bezier(0.16,1,0.3,1)">';
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px"><h3 style="font-size:20px;font-weight:700;margin:0">New '+entity+'</h3><button onclick="cronusModal.close(\'create-modal\')" style="background:none;border:none;cursor:pointer;padding:4px"><span class="material-symbols-outlined">close</span></button></div>';
+    html+='<form id="create-form" onsubmit="return cronusSubmitCreate(event,\''+entity+'\')" style="display:flex;flex-direction:column;gap:16px">';
+    fields.forEach(function(f){
+      if(f.type==='enum'){
+        html+='<div><label style="display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#71717a;margin-bottom:6px">'+f.name+'</label>';
+        html+='<select name="'+f.name+'" style="width:100%;padding:10px 14px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;font-family:Inter,sans-serif">';
+        f.values.forEach(function(v){html+='<option value="'+v+'">'+v+'</option>'});
+        html+='</select></div>';
+      } else if(f.type==='boolean'){
+        html+='<label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" name="'+f.name+'" style="width:18px;height:18px;accent-color:#000"><span style="font-size:14px">'+f.name+'</span></label>';
+      } else {
+        var inputType=f.type==='email'?'email':f.sensitive?'password':'text';
+        html+='<div><label style="display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#71717a;margin-bottom:6px">'+f.name+'</label>';
+        html+='<input type="'+inputType+'" name="'+f.name+'" '+(f.required?'required ':'')+' placeholder="Enter '+f.name.toLowerCase()+'..." style="width:100%;padding:10px 14px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;font-family:Inter,sans-serif;transition:border-color 0.2s" onfocus="this.style.borderColor=\'#000\'" onblur="this.style.borderColor=\'#e5e7eb\'"></div>';
+      }
+    });
+    html+='<div style="display:flex;gap:12px;margin-top:8px"><button type="button" onclick="cronusModal.close(\'create-modal\')" style="flex:1;padding:12px;border:1px solid #e5e7eb;border-radius:999px;background:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif">Cancel</button>';
+    html+='<button type="submit" style="flex:1;padding:12px;border:none;border-radius:999px;background:#000;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">Create</button></div>';
+    html+='</form></div></div>';
+    document.body.insertAdjacentHTML('beforeend',html);
+  };
+
+  window.cronusSubmitCreate=async function(e,entity){
+    e.preventDefault();
+    var form=document.getElementById('create-form');
+    var data={};
+    new FormData(form).forEach(function(v,k){data[k]=v});
+    data.id=crypto.randomUUID?crypto.randomUUID():Date.now().toString(36);
+    try{
+      var r=await fetch('/api/'+entity.toLowerCase()+'s',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+      if(r.ok){cronusModal.close('create-modal');location.reload()}
+      else{var err=await r.json();cronusToast(err.error||'Error','error')}
+    }catch(ex){cronusToast('Connection error','error')}
+    return false;
+  };
+
+  // Delete with confirmation
+  window.cronusDelete=async function(entity,id){
+    if(!confirm('Delete this '+entity+'?'))return;
+    try{
+      await fetch('/api/'+entity.toLowerCase()+'s/'+id,{method:'DELETE'});
+      location.reload();
+    }catch(ex){cronusToast('Error deleting','error')}
+  };
+
+  // Toast notification
+  window.cronusToast=function(msg,type){
+    var t=document.createElement('div');
+    t.style.cssText='position:fixed;bottom:24px;right:24px;z-index:200;padding:12px 24px;border-radius:999px;font-size:14px;font-weight:600;color:#fff;animation:fadeIn 0.3s ease-out;font-family:Inter,sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.15)';
+    t.style.background=type==='error'?'#dc2626':'#000';
+    t.textContent=msg;
+    document.body.appendChild(t);
+    setTimeout(function(){t.style.opacity='0';t.style.transition='opacity 0.3s';setTimeout(function(){t.remove()},300)},3000);
+  };
+
+  // Schema-driven create modal
+  window.cronusOpenCreate=async function(entity){
+    try{
+      var r=await fetch('/api/schema');
+      var schema=await r.json();
+      var entitySchema=schema.entities.find(function(e){return e.entity.toLowerCase()===entity.toLowerCase()});
+      if(!entitySchema){cronusToast('Entity not found','error');return}
+      var fields=entitySchema.fields.map(function(f){
+        return {name:f.name,type:f.type,required:f.required,values:f.enum_values||[],sensitive:f.name==='password'};
+      });
+      cronusCreateModal(entity,fields);
+      cronusModal.open('create-modal');
+    }catch(ex){cronusToast('Error loading schema','error')}
+  };
+
+  // Fetch live counts for stat cards
+  (function(){
+    var stats=document.querySelectorAll('[data-entity-count]');
+    stats.forEach(function(el){
+      var entity=el.getAttribute('data-entity-count');
+      fetch('/api/'+entity).then(function(r){return r.json()}).then(function(d){
+        if(Array.isArray(d))el.textContent=d.length;
+      }).catch(function(){});
+    });
+  })();
+
+  // Live data containers
+  (function(){
+    var container=document.querySelector('[data-live]');
+    if(!container)return;
+    var entity=container.getAttribute('data-live');
+    fetch('/api/'+entity).then(function(r){return r.json()}).then(function(members){
+      if(!Array.isArray(members)||!members.length)return;
+      var html='';
+      members.forEach(function(m){
+        var initial=(m.name||'?')[0].toUpperCase();
+        var roleBg=m.role==='Admin'?'#000':m.role==='Developer'?'#006ff0':'#71717a';
+        html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #f3f3f3">';
+        html+='<div style="display:flex;align-items:center;gap:16px">';
+        html+='<div style="width:40px;height:40px;border-radius:50%;background:#e8e8e8;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px">'+initial+'</div>';
+        html+='<div><div style="font-weight:600;font-size:14px">'+m.name+'</div><div style="font-size:12px;color:#71717a">'+m.email+'</div></div>';
+        html+='</div>';
+        html+='<div style="display:flex;align-items:center;gap:12px">';
+        html+='<span style="padding:4px 12px;border-radius:999px;font-size:11px;font-weight:600;color:#fff;background:'+roleBg+'">'+m.role+'</span>';
+        html+='<button onclick="cronusDelete(\'TeamMember\',\''+m.id+'\')" style="background:none;border:none;cursor:pointer;opacity:0.3" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.3"><span class="material-symbols-outlined" style="font-size:18px;color:#dc2626">delete</span></button>';
+        html+='</div></div>';
+      });
+      container.innerHTML=html;
+    }).catch(function(){});
+  })();
 });
 </script>
 "##;
@@ -7169,7 +7286,7 @@ fn build_security_page_header(section: Option<&SectionNode>) -> String {
 
     let action_html = if !action_text.is_empty() {
         format!(
-            r#"<button style="background:#000;color:#fff;padding:10px 24px;border-radius:999px;font-size:14px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;gap:8px">
+            r#"<button onclick="cronusOpenCreate('TeamMember')" style="background:#000;color:#fff;padding:10px 24px;border-radius:999px;font-size:14px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;gap:8px">
               <span class="material-symbols-outlined" style="font-size:14px">{icon}</span> {text}
             </button>"#,
             icon = action_icon, text = action_text
@@ -7274,7 +7391,7 @@ fn build_security_team_members(section: Option<&SectionNode>) -> String {
             <h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{title}</h2>
             {badge}
           </div>
-          <div style="display:flex;flex-direction:column;gap:24px">{members}</div>
+          <div data-live="teammembers" style="display:flex;flex-direction:column;gap:24px">{members}</div>
           {footer}
         </section>"##,
         title = title, badge = badge_html, members = members_html, footer = footer_html,
