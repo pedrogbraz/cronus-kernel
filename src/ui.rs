@@ -12,6 +12,49 @@ use crate::tailwind::CRONUS_TAILWIND;
 use crate::animations::{CRONUS_ANIMATIONS, CRONUS_ANIMATE_JS};
 
 // ══════════════════════════════════════════════════
+// SHARED ANIMATION CSS + JS (injected into every page)
+// ══════════════════════════════════════════════════
+
+const CRONUS_ANIMATIONS_CSS: &str = r##"
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scaleIn{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}
+@keyframes slideRight{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:translateX(0)}}
+@keyframes fillWidth{from{width:0}to{width:var(--target-width)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.anim-fade{animation:fadeIn .6s ease-out both}
+.anim-slide-up{animation:slideUp .6s cubic-bezier(.16,1,.3,1) both}
+.anim-slide-down{animation:slideDown .4s ease-out both}
+.anim-scale{animation:scaleIn .5s cubic-bezier(.16,1,.3,1) both}
+.anim-slide-right{animation:slideRight .5s cubic-bezier(.16,1,.3,1) both}
+.d1{animation-delay:.05s}.d2{animation-delay:.1s}.d3{animation-delay:.15s}
+.d4{animation-delay:.2s}.d5{animation-delay:.25s}.d6{animation-delay:.3s}
+.d7{animation-delay:.35s}.d8{animation-delay:.4s}.d9{animation-delay:.45s}.d10{animation-delay:.5s}
+.card-hover{transition:all .3s cubic-bezier(.16,1,.3,1)}
+.card-hover:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(0,0,0,.08)}
+.btn-hover{transition:all .2s cubic-bezier(.16,1,.3,1)}
+.btn-hover:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.btn-hover:active{transform:translateY(0);box-shadow:none}
+.link-hover{transition:color .2s,opacity .2s}.link-hover:hover{opacity:.7}
+.nav-hover{transition:all .15s}.nav-hover:hover{background:rgba(0,0,0,.04)}
+.progress-fill{animation:fillWidth 1.2s cubic-bezier(.16,1,.3,1) .3s both}
+.reveal{opacity:0;transform:translateY(20px);transition:all .7s cubic-bezier(.16,1,.3,1)}
+.reveal.visible{opacity:1;transform:translateY(0)}
+"##;
+
+const CRONUS_ANIMATIONS_JS: &str = r##"
+<script>
+document.addEventListener('DOMContentLoaded',()=>{
+  const io=new IntersectionObserver(e=>{e.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');io.unobserve(e.target)}})},{threshold:.1,rootMargin:'0px 0px -40px 0px'});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+  document.querySelectorAll('.stagger').forEach(c=>{Array.from(c.children).forEach((ch,i)=>{ch.style.animationDelay=(.05+i*.06)+'s'})});
+});
+</script>
+"##;
+
+// ══════════════════════════════════════════════════
 // LAYOUT (wraps every page)
 // ══════════════════════════════════════════════════
 
@@ -25,6 +68,7 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
   <title>{app_name}</title>
   <style>{tailwind_css}</style>
   <style>{animations_css}</style>
+  <style>{anim_css}</style>
   <style>
     :root {{
       --background: oklch(0.11 0 0);
@@ -123,12 +167,15 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
       }}
     }});
   </script>
+  {anim_js}
 </body>
 </html>"#,
         app_name = app_name,
         body = body,
         tailwind_css = super::tailwind::CRONUS_TAILWIND,
         animations_css = super::animations::CRONUS_ANIMATIONS,
+        anim_css = CRONUS_ANIMATIONS_CSS,
+        anim_js = CRONUS_ANIMATIONS_JS,
         runtime = super::render::CRONUS_RUNTIME_JS,
         animate_js = super::animations::CRONUS_ANIMATE_JS,
         hmr = super::hmr::HMR_CLIENT_JS,
@@ -270,6 +317,7 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str) -> String 
     .reveal {{ opacity:0; transform:translateY(20px); transition:all 0.7s cubic-bezier(0.16,1,0.3,1) }}
     .reveal.visible {{ opacity:1; transform:translateY(0) }}
   </style>
+  <style>{anim_css}</style>
   <style>{tailwind_css}</style>
 </head>
 <body>
@@ -292,12 +340,15 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str) -> String 
       }});
     }});
   </script>
+  {anim_js}
 </body>
 </html>"##,
         app_name = app_name,
         bg = bg, fg = fg, sel_bg = sel_bg, scroll_thumb = scroll_thumb, grid_line = grid_line,
         nav_html = nav_html,
         body = body,
+        anim_css = CRONUS_ANIMATIONS_CSS,
+        anim_js = CRONUS_ANIMATIONS_JS,
         tailwind_css = super::tailwind::CRONUS_TAILWIND,
         runtime = super::render::CRONUS_RUNTIME_JS,
         hmr = super::hmr::HMR_CLIENT_JS,
@@ -380,6 +431,7 @@ pub fn render_layout_dashboard(app_name: &str, body: &str, theme: &str) -> Strin
     .reveal {{ opacity:0; transform:translateY(20px); transition:all 0.7s cubic-bezier(0.16,1,0.3,1) }}
     .reveal.visible {{ opacity:1; transform:translateY(0) }}
   </style>
+  <style>{anim_css}</style>
 </head>
 <body>
   {body}
@@ -398,10 +450,13 @@ pub fn render_layout_dashboard(app_name: &str, body: &str, theme: &str) -> Strin
       }});
     }});
   </script>
+  {anim_js}
 </body>
 </html>"##,
         app_name = app_name,
         body = body,
+        anim_css = CRONUS_ANIMATIONS_CSS,
+        anim_js = CRONUS_ANIMATIONS_JS,
         runtime = super::render::CRONUS_RUNTIME_JS,
         hmr = super::hmr::HMR_CLIENT_JS,
     )
@@ -465,6 +520,7 @@ pub fn render_light_app_page(app_name: &str, comps: &[ComponentNode]) -> String 
     .ambient-shadow {{ box-shadow:0 40px 80px 0 rgba(26,28,28,0.04); }}
     a {{ color:inherit; }}
   </style>
+  <style>{anim_css}</style>
 </head>
 <body>
 {topbar}
@@ -491,6 +547,7 @@ pub fn render_light_app_page(app_name: &str, comps: &[ComponentNode]) -> String 
 </main>
 </div>
 <script>{hmr}</script>
+{anim_js}
 </body>
 </html>"#,
         app_name = app_name,
@@ -502,6 +559,8 @@ pub fn render_light_app_page(app_name: &str, comps: &[ComponentNode]) -> String 
         actions = actions,
         table = table,
         support = support,
+        anim_css = CRONUS_ANIMATIONS_CSS,
+        anim_js = CRONUS_ANIMATIONS_JS,
         hmr = super::hmr::HMR_CLIENT_JS,
     )
 }
@@ -4081,6 +4140,7 @@ pub fn render_dashboard_page(
     ::-webkit-scrollbar {{ width:4px; }}
     ::-webkit-scrollbar-thumb {{ background:rgba(0,0,0,0.1); border-radius:2px; }}
   </style>
+  <style>{anim_css}</style>
 </head>
 <body>
 
@@ -4115,6 +4175,7 @@ pub fn render_dashboard_page(
 
 <script>{runtime}</script>
 <script>{hmr}</script>
+{anim_js}
 </body>
 </html>"##,
         app_name = app_name,
@@ -4127,6 +4188,8 @@ pub fn render_dashboard_page(
         promo = promo_html,
         quick_links = quick_links_html,
         status = status_html,
+        anim_css = CRONUS_ANIMATIONS_CSS,
+        anim_js = CRONUS_ANIMATIONS_JS,
         runtime = super::render::CRONUS_RUNTIME_JS,
         hmr = super::hmr::HMR_CLIENT_JS,
     )
@@ -4174,6 +4237,7 @@ pub fn render_generic_dashboard(
     @keyframes fadeIn {{ from {{ opacity:0;transform:translateY(4px) }} to {{ opacity:1;transform:translateY(0) }} }}
     .anim {{ animation:fadeIn 0.4s ease-out both; }}
   </style>
+  <style>{anim_css}</style>
 </head>
 <body>
 
@@ -4189,12 +4253,15 @@ pub fn render_generic_dashboard(
 
 <script>{runtime}</script>
 <script>{hmr}</script>
+{anim_js}
 </body>
 </html>"##,
         app_name = app_name,
         sidebar = sidebar_html,
         topbar = topbar_html,
         body = body,
+        anim_css = CRONUS_ANIMATIONS_CSS,
+        anim_js = CRONUS_ANIMATIONS_JS,
         runtime = super::render::CRONUS_RUNTIME_JS,
         hmr = super::hmr::HMR_CLIENT_JS,
     )
@@ -4775,6 +4842,7 @@ pub fn render_billing_dashboard(
     .ghost-border {{ border:1px solid rgba(198,198,198,0.2); }}
     .payment-row:hover .payment-hover-actions {{ opacity:1 !important; }}
   </style>
+  <style>{anim_css}</style>
 </head>
 <body>
 
@@ -4822,6 +4890,7 @@ pub fn render_billing_dashboard(
 
 <script>{runtime}</script>
 <script>{hmr}</script>
+{anim_js}
 </body>
 </html>"##,
         app_name = app_name,
@@ -4833,6 +4902,8 @@ pub fn render_billing_dashboard(
         billing_stats = billing_stats_html,
         payment_methods = payment_methods_html,
         recent_invoices = recent_invoices_html,
+        anim_css = CRONUS_ANIMATIONS_CSS,
+        anim_js = CRONUS_ANIMATIONS_JS,
         runtime = super::render::CRONUS_RUNTIME_JS,
         hmr = super::hmr::HMR_CLIENT_JS,
     )
@@ -5288,6 +5359,7 @@ pub fn render_payouts_dashboard(
     .ghost-border {{ border:1px solid rgba(198,198,198,0.2); }}
     .payout-row:hover {{ background:rgba(243,243,243,0.5); }}
   </style>
+  <style>{anim_css}</style>
 </head>
 <body>
 
@@ -5329,6 +5401,7 @@ pub fn render_payouts_dashboard(
 
 <script>{runtime}</script>
 <script>{hmr}</script>
+{anim_js}
 </body>
 </html>"##,
         app_name = app_name,
@@ -5339,6 +5412,8 @@ pub fn render_payouts_dashboard(
         upcoming = upcoming_html,
         history = history_html,
         support = support_html,
+        anim_css = CRONUS_ANIMATIONS_CSS,
+        anim_js = CRONUS_ANIMATIONS_JS,
         runtime = super::render::CRONUS_RUNTIME_JS,
         hmr = super::hmr::HMR_CLIENT_JS,
     )
@@ -5919,6 +5994,7 @@ pub fn render_unified_dashboard(
     .payment-row:hover .payment-hover-actions {{ opacity:1 !important; }}
     .payout-row:hover {{ background:rgba(243,243,243,0.5); }}
   </style>
+  <style>{anim_css}</style>
 </head>
 <body>
 
@@ -5966,6 +6042,7 @@ pub fn render_unified_dashboard(
 
 <script>{runtime}</script>
 <script>{hmr}</script>
+{anim_js}
 </body>
 </html>"##,
         app_name = app_name,
@@ -5982,6 +6059,8 @@ pub fn render_unified_dashboard(
         invoices_cols = invoices_cols,
         invoices = invoices_html,
         support = support_html,
+        anim_css = CRONUS_ANIMATIONS_CSS,
+        anim_js = CRONUS_ANIMATIONS_JS,
         runtime = super::render::CRONUS_RUNTIME_JS,
         hmr = super::hmr::HMR_CLIENT_JS,
     )
@@ -6077,6 +6156,7 @@ pub fn render_payment_links_dashboard(
                         linear-gradient(to bottom, rgba(0,0,0,0.03) 1px, transparent 1px);
     }}
   </style>
+  <style>{anim_css}</style>
 </head>
 <body>
 
@@ -6106,6 +6186,7 @@ pub fn render_payment_links_dashboard(
 
 <script>{runtime}</script>
 <script>{hmr}</script>
+{anim_js}
 </body>
 </html>"##,
         app_name = app_name,
@@ -6116,6 +6197,8 @@ pub fn render_payment_links_dashboard(
         product_grid = product_grid_html,
         promo = promo_html,
         info_bar = info_bar_html,
+        anim_css = CRONUS_ANIMATIONS_CSS,
+        anim_js = CRONUS_ANIMATIONS_JS,
         runtime = super::render::CRONUS_RUNTIME_JS,
         hmr = super::hmr::HMR_CLIENT_JS,
     )
@@ -6443,6 +6526,7 @@ pub fn render_checkout_dashboard(
     .ghost-border {{ border:1px solid rgba(198,198,198,0.2); }}
     .prism-glow {{ background:radial-gradient(circle at top right,rgba(0,111,240,0.08),transparent 40%),radial-gradient(circle at bottom left,rgba(216,226,255,0.1),transparent 40%); }}
   </style>
+  <style>{anim_css}</style>
 </head>
 <body class="prism-glow">
 
@@ -6467,6 +6551,7 @@ pub fn render_checkout_dashboard(
 
 <script>{runtime}</script>
 <script>{hmr}</script>
+{anim_js}
 </body>
 </html>"##,
         app_name = app_name,
@@ -6476,6 +6561,8 @@ pub fn render_checkout_dashboard(
         trust = trust_html,
         testimonial = testimonial_html,
         footer = footer_html,
+        anim_css = CRONUS_ANIMATIONS_CSS,
+        anim_js = CRONUS_ANIMATIONS_JS,
         runtime = super::render::CRONUS_RUNTIME_JS,
         hmr = super::hmr::HMR_CLIENT_JS,
     )
@@ -6891,6 +6978,7 @@ pub fn render_security_dashboard(
     .ghost-border {{ border:1px solid rgba(198,198,198,0.2); }}
     .prism-bg {{ background:radial-gradient(circle at top right,rgba(0,111,240,0.08),transparent 40%),radial-gradient(circle at bottom left,rgba(0,111,240,0.05),transparent 40%); }}
   </style>
+  <style>{anim_css}</style>
 </head>
 <body class="prism-bg">
 
@@ -6924,6 +7012,7 @@ pub fn render_security_dashboard(
 
 <script>{runtime}</script>
 <script>{hmr}</script>
+{anim_js}
 </body>
 </html>"##,
         app_name = app_name,
@@ -6934,6 +7023,8 @@ pub fn render_security_dashboard(
         status = status_html,
         policies = policies_html,
         activity = activity_html,
+        anim_css = CRONUS_ANIMATIONS_CSS,
+        anim_js = CRONUS_ANIMATIONS_JS,
         runtime = super::render::CRONUS_RUNTIME_JS,
         hmr = super::hmr::HMR_CLIENT_JS,
     )
