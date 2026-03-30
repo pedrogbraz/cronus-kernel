@@ -3891,6 +3891,7 @@ pub fn render_dashboard_page(
     sections: &[SectionNode],
     components: &[ComponentNode],
     theme: &str,
+    current_route: &str,
 ) -> String {
     let _ = theme;
 
@@ -3916,7 +3917,7 @@ pub fn render_dashboard_page(
 
     // ── Build sidebar HTML ──────────────────────────
 
-    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section);
+    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section, current_route);
 
     // ── Build topbar HTML ───────────────────────────
 
@@ -4008,9 +4009,77 @@ pub fn render_dashboard_page(
     )
 }
 
+// ── Generic dashboard wrapper (FIX 3) ──────────
+// For pages that have a sidebar component but no specific dashboard section types
+// (e.g. Overview page with hero + stats). Renders body content inside dashboard layout.
+
+pub fn render_generic_dashboard(
+    app_name: &str,
+    body: &str,
+    components: &[ComponentNode],
+    theme: &str,
+    current_route: &str,
+) -> String {
+    let _ = theme;
+
+    let sidebar_comp = components.iter().find(|c| c.layout.as_deref() == Some("sidebar"));
+    let topbar_comp = components.iter().find(|c| {
+        c.layout.as_deref() == Some("inline") && c.style.as_deref().map(|s| s.contains("topbar")).unwrap_or(false)
+    });
+
+    let sidebar_html = build_dashboard_sidebar(sidebar_comp, None, current_route);
+    let topbar_html = build_dashboard_topbar(topbar_comp);
+
+    format!(
+        r##"<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{app_name}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <style>
+    body {{ font-family:'Inter',sans-serif; background:#f9f9f9; color:#1a1c1c; margin:0; }}
+    * {{ box-sizing:border-box; }}
+    .material-symbols-outlined {{ font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; font-size:20px; display:inline-block; line-height:1; vertical-align:middle; }}
+    .prism-bg {{ background: radial-gradient(circle at top right,rgba(0,111,240,0.08),transparent 40%),radial-gradient(circle at bottom left,rgba(0,56,129,0.05),transparent 40%); }}
+    .engineering-grid {{ background-image:linear-gradient(to right,rgba(198,198,198,0.1) 1px,transparent 1px),linear-gradient(to bottom,rgba(198,198,198,0.1) 1px,transparent 1px); background-size:40px 40px; }}
+    ::selection {{ background:rgba(0,111,240,0.15); }}
+    ::-webkit-scrollbar {{ width:4px; }}
+    ::-webkit-scrollbar-thumb {{ background:rgba(0,0,0,0.1); border-radius:2px; }}
+    @keyframes fadeIn {{ from {{ opacity:0;transform:translateY(4px) }} to {{ opacity:1;transform:translateY(0) }} }}
+    .anim {{ animation:fadeIn 0.4s ease-out both; }}
+  </style>
+</head>
+<body>
+
+{sidebar}
+
+{topbar}
+
+<main style="margin-left:256px;min-height:100vh">
+  <div style="max-width:1280px;margin:0 auto;padding:48px 24px">
+    {body}
+  </div>
+</main>
+
+<script>{runtime}</script>
+<script>{hmr}</script>
+</body>
+</html>"##,
+        app_name = app_name,
+        sidebar = sidebar_html,
+        topbar = topbar_html,
+        body = body,
+        runtime = super::render::CRONUS_RUNTIME_JS,
+        hmr = super::hmr::HMR_CLIENT_JS,
+    )
+}
+
 // ── Sidebar builder ─────────────────────────────
 
-fn build_dashboard_sidebar(comp: Option<&ComponentNode>, section: Option<&SectionNode>) -> String {
+fn build_dashboard_sidebar(comp: Option<&ComponentNode>, section: Option<&SectionNode>, current_route: &str) -> String {
     let mut brand = "";
     let mut subtitle = "";
     let mut nav_items_html = String::new();
@@ -4035,7 +4104,9 @@ fn build_dashboard_sidebar(comp: Option<&ComponentNode>, section: Option<&Sectio
             let title = item.text.as_str();
             let icon = item.config.get("icon").map(|s| s.as_str()).unwrap_or("");
             let href = item.link.as_deref().unwrap_or("");
-            let is_active = item.config.get("active").map(|s| s == "true").unwrap_or(false);
+            // FIX 2: Active state based on current route matching the item's link
+            let is_active = (!href.is_empty() && href == current_route) ||
+                item.config.get("active").map(|s| s == "true").unwrap_or(false);
             let is_bottom = bottom_types.contains(&icon) || title.eq_ignore_ascii_case("support") || title.eq_ignore_ascii_case("docs");
 
             let link_html = if is_active {
@@ -4077,7 +4148,9 @@ fn build_dashboard_sidebar(comp: Option<&ComponentNode>, section: Option<&Sectio
             let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
             let href = item.get("href").map(|s| s.as_str()).unwrap_or("");
             let position = item.get("position").map(|s| s.as_str()).unwrap_or("top");
-            let is_active = (!active.is_empty() && title.eq_ignore_ascii_case(active))
+            // FIX 2: Active state based on current route matching the item's href
+            let is_active = (!href.is_empty() && href == current_route)
+                || (!active.is_empty() && title.eq_ignore_ascii_case(active))
                 || item.get("active").map(|s| s == "true").unwrap_or(false);
 
             let link_html = if is_active {
@@ -4516,6 +4589,7 @@ pub fn render_billing_dashboard(
     sections: &[SectionNode],
     components: &[crate::parser::ComponentNode],
     theme: &str,
+    current_route: &str,
 ) -> String {
     let _ = theme;
 
@@ -4538,7 +4612,7 @@ pub fn render_billing_dashboard(
 
     // ── Build sidebar + topbar (reuse) ─────────────
 
-    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section);
+    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section, current_route);
     let topbar_html = build_dashboard_topbar(topbar_comp);
 
     // ── Build page header ───────────────────────────
@@ -5030,6 +5104,7 @@ pub fn render_payouts_dashboard(
     sections: &[SectionNode],
     components: &[crate::parser::ComponentNode],
     theme: &str,
+    current_route: &str,
 ) -> String {
     let _ = theme;
 
@@ -5051,7 +5126,7 @@ pub fn render_payouts_dashboard(
 
     // ── Build sidebar + topbar (reuse) ─────────────
 
-    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section);
+    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section, current_route);
     let topbar_html = build_dashboard_topbar(topbar_comp);
 
     // ── Build sections ──────────────────────────────
@@ -5641,6 +5716,7 @@ pub fn render_unified_dashboard(
     sections: &[SectionNode],
     components: &[crate::parser::ComponentNode],
     theme: &str,
+    current_route: &str,
 ) -> String {
     let _ = theme;
 
@@ -5664,7 +5740,7 @@ pub fn render_unified_dashboard(
 
     // ── Build sidebar + topbar (reuse) ─────────────
 
-    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section);
+    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section, current_route);
     let topbar_html = build_dashboard_topbar(topbar_comp);
 
     // ── Build page header (same pattern as payouts) ─
@@ -5788,6 +5864,7 @@ pub fn render_payment_links_dashboard(
     sections: &[SectionNode],
     components: &[crate::parser::ComponentNode],
     theme: &str,
+    current_route: &str,
 ) -> String {
     let _ = theme;
 
@@ -5813,7 +5890,7 @@ pub fn render_payment_links_dashboard(
 
     // ── Build sidebar + topbar (reuse) ─────────────
 
-    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section);
+    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section, current_route);
     let topbar_html = build_dashboard_topbar(topbar_comp);
 
     // ── Build page header ───────────────────────────
@@ -6638,6 +6715,7 @@ pub fn render_security_dashboard(
     sections: &[SectionNode],
     components: &[crate::parser::ComponentNode],
     theme: &str,
+    current_route: &str,
 ) -> String {
     let _ = theme;
 
@@ -6654,7 +6732,7 @@ pub fn render_security_dashboard(
     let login_activity = sections.iter().find(|s| s.section_type == "login-activity");
 
     let topbar_html = build_dashboard_topbar(topbar_comp);
-    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section);
+    let sidebar_html = build_dashboard_sidebar(sidebar_comp, sidebar_section, current_route);
 
     let header_html = build_security_page_header(page_header);
     let team_html = build_security_team_members(team_members);

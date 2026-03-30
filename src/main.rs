@@ -525,8 +525,18 @@ async fn handle_request(
             body.push_str(&ui::render_components_page(&state.components));
         }
 
+        // FIX 1: Detect sidebar component — if page uses a Sidenav component, it's a dashboard page
+        let has_sidebar_component = !page.components.is_empty() && page.components.iter().any(|comp_name| {
+            state.components.iter().any(|c| {
+                c.name == *comp_name && (
+                    c.style.as_deref().unwrap_or("").contains("sidenav") ||
+                    c.layout.as_deref().unwrap_or("") == "sidebar"
+                )
+            })
+        });
+
         // Landing/checkout pages use full-width layout, no sidebar
-        let is_landing = page.page_type == "checkout" || (page.page_type == "custom" && page.sections.iter().any(|s| s.section_type == "hero" || s.section_type == "topbar" || s.section_type == "checkout"));
+        let is_landing = !has_sidebar_component && (page.page_type == "checkout" || (page.page_type == "custom" && page.sections.iter().any(|s| s.section_type == "hero" || s.section_type == "topbar" || s.section_type == "checkout")));
         let dashboard_types = ["sidebar", "card", "page-header", "stat-cards", "product-grid",
             "team-list", "policies", "activity-table", "status-card", "links",
             "live-keys", "test-keys", "webhooks", "quick-links",
@@ -534,7 +544,7 @@ async fn handle_request(
             "balance-card", "upcoming-card", "payout-history", "support-banner",
             "checkout-form", "product-summary", "trust-indicators", "testimonial",
             "team-members", "security-status", "security-policies", "login-activity"];
-        let is_dashboard = page.sections.iter().any(|s| dashboard_types.contains(&s.section_type.as_str()));
+        let is_dashboard = has_sidebar_component || page.sections.iter().any(|s| dashboard_types.contains(&s.section_type.as_str()));
         let is_billing = page.sections.iter().any(|s| s.section_type == "current-plan" || s.section_type == "billing-stats");
         let is_payouts = page.sections.iter().any(|s| s.section_type == "balance-card" || s.section_type == "payout-history");
         let is_unified = page.sections.iter().any(|s| s.section_type == "balance-card")
@@ -544,6 +554,7 @@ async fn handle_request(
             && page.sections.iter().any(|s| s.section_type == "info-bar");
         let is_checkout = page.sections.iter().any(|s| s.section_type == "checkout-form" || s.section_type == "product-summary");
         let is_security = page.sections.iter().any(|s| s.section_type == "team-members" || s.section_type == "login-activity");
+        let current_route = page.route.as_str();
         let html = if is_checkout {
             // Checkout page: no sidebar, centered layout
             let referenced_comps: Vec<parser::ComponentNode> = page.components.iter()
@@ -558,17 +569,21 @@ async fn handle_request(
                 .cloned()
                 .collect();
             if is_unified {
-                ui::render_unified_dashboard(app_name, &page.sections, &referenced_comps, theme)
+                ui::render_unified_dashboard(app_name, &page.sections, &referenced_comps, theme, current_route)
             } else if is_payouts {
-                ui::render_payouts_dashboard(app_name, &page.sections, &referenced_comps, theme)
+                ui::render_payouts_dashboard(app_name, &page.sections, &referenced_comps, theme, current_route)
             } else if is_billing {
-                ui::render_billing_dashboard(app_name, &page.sections, &referenced_comps, theme)
+                ui::render_billing_dashboard(app_name, &page.sections, &referenced_comps, theme, current_route)
             } else if is_security {
-                ui::render_security_dashboard(app_name, &page.sections, &referenced_comps, theme)
+                ui::render_security_dashboard(app_name, &page.sections, &referenced_comps, theme, current_route)
             } else if is_payment_links {
-                ui::render_payment_links_dashboard(app_name, &page.sections, &referenced_comps, theme)
+                ui::render_payment_links_dashboard(app_name, &page.sections, &referenced_comps, theme, current_route)
+            } else if has_sidebar_component && !page.sections.iter().any(|s| dashboard_types.contains(&s.section_type.as_str())) {
+                // FIX 3: Generic dashboard wrapper — page has sidebar but no specific dashboard sections
+                // Render sections normally but wrap in dashboard layout with sidebar
+                ui::render_generic_dashboard(app_name, &body, &referenced_comps, theme, current_route)
             } else {
-                ui::render_dashboard_page(app_name, &page.sections, &referenced_comps, theme)
+                ui::render_dashboard_page(app_name, &page.sections, &referenced_comps, theme, current_route)
             }
         } else if is_landing {
             ui::render_layout_landing(app_name, &body, theme)
