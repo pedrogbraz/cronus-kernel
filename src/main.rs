@@ -502,7 +502,16 @@ async fn handle_request(
         let mut body = ui::render_page(page, &state.entities, accent, theme);
 
         // If page references components (via `use ComponentName`), render them
-        if !page.components.is_empty() {
+        // BUT skip if page has sidebar component — dashboard renderers handle their own chrome
+        let has_sidebar_component_early = !page.components.is_empty() && page.components.iter().any(|comp_name| {
+            state.components.iter().any(|c| {
+                c.name == *comp_name && (
+                    c.style.as_deref().unwrap_or("").contains("sidenav") ||
+                    c.layout.as_deref().unwrap_or("") == "sidebar"
+                )
+            })
+        });
+        if !page.components.is_empty() && !has_sidebar_component_early {
             let referenced: Vec<parser::ComponentNode> = page.components.iter()
                 .filter_map(|name| state.components.iter().find(|c| c.name == *name))
                 .cloned()
