@@ -1,0 +1,659 @@
+//! CRONUS UI — Server-Side HTML Renderer
+//!
+//! Generates complete HTML pages from the AST.
+//! No React, no frameworks — pure HTML + Tailwind CDN + vanilla JS.
+
+use crate::parser::{EntityNode, FieldType, PageNode, SectionNode};
+use crate::render::CRONUS_RUNTIME_JS;
+use crate::hmr::HMR_CLIENT_JS;
+
+// ══════════════════════════════════════════════════
+// LAYOUT (wraps every page)
+// ══════════════════════════════════════════════════
+
+pub fn render_layout(app_name: &str, pages: &[PageNode], accent: &str, body: &str) -> String {
+    let nav_links: Vec<String> = pages.iter().map(|p| {
+        let label = p.title.as_deref().unwrap_or(&p.route);
+        format!(
+            r#"<a href="{}" class="px-3 py-1.5 rounded text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 transition">{}</a>"#,
+            p.route, label
+        )
+    }).collect();
+
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{app_name}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {{ font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif; }}
+  </style>
+</head>
+<body class="bg-neutral-950 text-white min-h-screen">
+  <nav class="border-b border-neutral-800 px-6 py-3 flex items-center gap-4">
+    <a href="/" class="font-bold text-lg text-{accent}-400 mr-4">{app_name}</a>
+    {nav}
+  </nav>
+  <main class="p-6">
+    {body}
+  </main>
+  <script>{runtime}</script>
+  <script>{hmr}</script>
+</body>
+</html>"#,
+        app_name = app_name,
+        accent = accent,
+        nav = nav_links.join("\n    "),
+        body = body,
+        runtime = CRONUS_RUNTIME_JS,
+        hmr = HMR_CLIENT_JS,
+    )
+}
+
+// ══════════════════════════════════════════════════
+// PAGE RENDERER (returns inner body HTML)
+// ══════════════════════════════════════════════════
+
+pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str) -> String {
+    match page.page_type.as_str() {
+        "dashboard" => render_dashboard(page, entities, accent),
+        "list" => render_list(page, entities, accent),
+        "form" => render_form(page, entities, accent),
+        "custom" => render_custom(page, accent),
+        _ => format!(
+            r#"<div class="text-neutral-400">Unknown page type: {}</div>"#,
+            page.page_type
+        ),
+    }
+}
+
+// ══════════════════════════════════════════════════
+// DASHBOARD PAGE — Premium
+// ══════════════════════════════════════════════════
+
+fn render_dashboard(page: &PageNode, entities: &[EntityNode], accent: &str) -> String {
+    let title = page.title.as_deref().unwrap_or("Dashboard");
+
+    let cards: Vec<String> = entities.iter().map(|e| {
+        let name = &e.name;
+        let lower = name.to_lowercase();
+        format!(
+            r#"<div class="group bg-neutral-950 border border-neutral-800/60 rounded-lg p-6 hover:border-{accent}-500/30 transition-all duration-300">
+  <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-3">// {name}</p>
+  <p class="text-4xl font-bold tabular-nums text-white group-hover:text-{accent}-400 transition-colors" id="count-{lower}" data-count>—</p>
+  <div class="flex items-center justify-between mt-4">
+    <span class="font-mono text-[10px] text-neutral-600">records</span>
+    <a href="/{lower}s" class="font-mono text-[10px] text-{accent}-500/70 hover:text-{accent}-400 transition">view all →</a>
+  </div>
+</div>"#,
+            lower = lower, name = name, accent = accent,
+        )
+    }).collect();
+
+    let fetch_scripts: Vec<String> = entities.iter().map(|e| {
+        let lower = e.name.to_lowercase();
+        format!(
+            r#"fetch('/api/{lower}s').then(function(r){{return r.json()}}).then(function(d){{var c=Array.isArray(d)?d.length:0;document.getElementById('count-{lower}').textContent=c;if(d.length){{addActivity('{name}',c)}}}}).catch(function(){{}});"#,
+            lower = lower, name = e.name,
+        )
+    }).collect();
+
+    format!(
+        r##"<div class="max-w-6xl mx-auto">
+  <div class="flex items-center gap-3 mb-8">
+    <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-{accent}-500">// Overview</p>
+    <div class="flex-1 h-px bg-neutral-800/50"></div>
+  </div>
+
+  <h1 class="text-3xl font-bold tracking-tight mb-8">{title}</h1>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-{cols} gap-4 mb-12">
+    {cards}
+  </div>
+
+  <div class="flex items-center gap-3 mb-6">
+    <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-{accent}-500">// Recent Activity</p>
+    <div class="flex-1 h-px bg-neutral-800/50"></div>
+  </div>
+  <div id="activity-feed" class="space-y-2">
+    <div class="text-sm text-neutral-600 font-mono">Loading...</div>
+  </div>
+</div>
+
+<script>
+(function() {{
+  var activities = [];
+  function addActivity(name, count) {{
+    activities.push(name + ': ' + count + ' records loaded');
+    var feed = document.getElementById('activity-feed');
+    feed.innerHTML = activities.map(function(a,i) {{
+      return '<div class="flex items-center gap-3 py-2 border-b border-neutral-800/30"><span class="w-1.5 h-1.5 rounded-full bg-{accent}-500/60"></span><span class="text-sm text-neutral-400">' + a + '</span><span class="ml-auto font-mono text-[10px] text-neutral-600">just now</span></div>';
+    }}).join('');
+  }}
+  {scripts}
+}})();
+</script>"##,
+        title = title,
+        accent = accent,
+        cols = entities.len().min(4),
+        cards = cards.join("\n    "),
+        scripts = fetch_scripts.join("\n  "),
+    )
+}
+
+// ══════════════════════════════════════════════════
+// LIST PAGE — Premium
+// ══════════════════════════════════════════════════
+
+fn render_list(page: &PageNode, entities: &[EntityNode], accent: &str) -> String {
+    let entity_name = page.entity.as_deref().unwrap_or("");
+    let entity = entities.iter().find(|e| e.name.eq_ignore_ascii_case(entity_name));
+    let title = page.title.as_deref().unwrap_or(entity_name);
+    let lower = entity_name.to_lowercase();
+
+    let field_names: Vec<String> = match entity {
+        Some(e) => e.fields.iter()
+            .filter(|f| f.name != "id" && f.name != "createdAt" && f.name != "updatedAt")
+            .take(5)
+            .map(|f| f.name.clone())
+            .collect(),
+        None => vec!["id".into()],
+    };
+
+    // Find enum fields for status badge coloring
+    let enum_fields: Vec<String> = match entity {
+        Some(e) => e.fields.iter()
+            .filter(|f| f.field_type == FieldType::Enum)
+            .map(|f| f.name.clone())
+            .collect(),
+        None => vec![],
+    };
+
+    let headers: String = field_names.iter()
+        .map(|n| format!(
+            r#"<th class="text-left px-5 py-3 font-mono text-[10px] uppercase tracking-[0.15em] text-neutral-500">{}</th>"#, n
+        ))
+        .collect::<Vec<_>>()
+        .join("\n            ");
+
+    let fields_js: String = field_names.iter()
+        .map(|n| format!(r#"'{}'"#, n))
+        .collect::<Vec<_>>()
+        .join(",");
+
+    let enum_fields_js: String = enum_fields.iter()
+        .map(|n| format!(r#"'{}'"#, n))
+        .collect::<Vec<_>>()
+        .join(",");
+
+    format!(
+        r##"<div class="max-w-6xl mx-auto">
+  <div class="flex items-center gap-3 mb-8">
+    <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-{accent}-500">// {title}</p>
+    <div class="flex-1 h-px bg-neutral-800/50"></div>
+  </div>
+
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-3xl font-bold tracking-tight">{title}</h1>
+    <div class="flex items-center gap-3">
+      <input id="search-input" type="text" placeholder="Search..."
+        class="bg-[#080808] border border-neutral-800 rounded-lg px-4 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-{accent}-500/50 transition w-64 font-mono text-xs">
+      <button onclick="document.getElementById('new-modal').classList.toggle('hidden')"
+        class="px-4 py-2 bg-{accent}-500 hover:bg-{accent}-600 text-black text-sm font-semibold rounded-lg transition">+ New</button>
+    </div>
+  </div>
+
+  <div class="bg-neutral-950 border border-neutral-800/60 rounded-lg overflow-hidden">
+    <table class="w-full">
+      <thead class="border-b border-neutral-800/60">
+        <tr>
+          {headers}
+          <th class="px-5 py-3 text-right font-mono text-[10px] uppercase tracking-[0.15em] text-neutral-500"></th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+    <div id="empty-state" class="hidden py-16 text-center">
+      <p class="text-neutral-600 font-mono text-sm">No records found</p>
+      <p class="text-neutral-700 text-xs mt-1">Create one to get started</p>
+    </div>
+    <div id="row-count" class="border-t border-neutral-800/40 px-5 py-2 text-right">
+      <span class="font-mono text-[10px] text-neutral-600" id="count-label">—</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {{
+  var fields = [{fields_js}];
+  var enumFields = [{enum_fields_js}];
+  var lower = '{lower}';
+  var allData = [];
+
+  var statusColors = {{
+    'active':'emerald','running':'emerald','online':'emerald','paid':'emerald','completed':'emerald',
+    'pending':'amber','paused':'amber','deploying':'amber','processing':'amber',
+    'failed':'red','cancelled':'red','error':'red','offline':'red','stopped':'red','overdue':'red',
+    'archived':'neutral','maintenance':'neutral','development':'neutral','staging':'blue',
+    'production':'violet','admin':'violet','featured':'violet',
+  }};
+
+  function badge(val, field) {{
+    if (enumFields.indexOf(field) === -1) return '<span class="text-sm text-neutral-300">' + (val||'\u2014') + '</span>';
+    var color = statusColors[(val||'').toLowerCase()] || 'neutral';
+    return '<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-mono bg-' + color + '-500/10 text-' + color + '-400 border border-' + color + '-500/20">' +
+      '<span class="w-1 h-1 rounded-full bg-' + color + '-400"></span>' + (val||'\u2014') + '</span>';
+  }}
+
+  function renderRows(data) {{
+    var tbody = document.getElementById('table-body');
+    var empty = document.getElementById('empty-state');
+    var countLabel = document.getElementById('count-label');
+    if (!data.length) {{
+      tbody.innerHTML = '';
+      empty.classList.remove('hidden');
+      countLabel.textContent = '0 records';
+      return;
+    }}
+    empty.classList.add('hidden');
+    countLabel.textContent = data.length + ' record' + (data.length!==1?'s':'');
+    tbody.innerHTML = data.map(function(row) {{
+      var cells = fields.map(function(f) {{
+        var val = row[f] || '';
+        return '<td class="px-5 py-3.5">' + badge(val, f) + '</td>';
+      }}).join('');
+      return '<tr class="border-b border-neutral-800/30 hover:bg-neutral-900/50 transition-colors">' + cells +
+        '<td class="px-5 py-3.5 text-right"><button onclick="deleteRow(\'' + row.id + '\')" class="font-mono text-[10px] text-red-500/60 hover:text-red-400 transition">delete</button></td></tr>';
+    }}).join('');
+  }}
+
+  function load() {{
+    fetch('/api/' + lower + 's').then(function(r){{ return r.json(); }}).then(function(d) {{
+      allData = Array.isArray(d) ? d : [];
+      renderRows(allData);
+    }}).catch(function() {{ renderRows([]); }});
+  }}
+
+  window.deleteRow = function(id) {{
+    if (!confirm('Delete this record?')) return;
+    fetch('/api/' + lower + 's/' + id, {{ method: 'DELETE' }}).then(function() {{ load(); }});
+  }};
+
+  document.getElementById('search-input').addEventListener('input', function(e) {{
+    var q = e.target.value.toLowerCase();
+    var filtered = allData.filter(function(row) {{
+      return fields.some(function(f) {{ return (row[f] || '').toString().toLowerCase().indexOf(q) !== -1; }});
+    }});
+    renderRows(filtered);
+  }});
+
+  load();
+}})();
+</script>"##,
+        title = title,
+        accent = accent,
+        headers = headers,
+        fields_js = fields_js,
+        enum_fields_js = enum_fields_js,
+        lower = lower,
+    )
+}
+
+// ══════════════════════════════════════════════════
+// FORM PAGE
+// ══════════════════════════════════════════════════
+
+fn render_form(page: &PageNode, entities: &[EntityNode], accent: &str) -> String {
+    let entity_name = page.entity.as_deref().unwrap_or("");
+    let entity = entities.iter().find(|e| e.name.eq_ignore_ascii_case(entity_name));
+    let title = page.title.as_deref().unwrap_or(entity_name);
+    let lower = entity_name.to_lowercase();
+
+    // Determine form context label
+    let context_label = if title.to_lowercase().contains("sign") || title.to_lowercase().contains("log") {
+        "Authentication"
+    } else {
+        entity_name
+    };
+
+    let inputs: Vec<String> = match entity {
+        Some(e) => e.fields.iter()
+            .filter(|f| f.name != "id" && f.name != "createdAt" && f.name != "updatedAt")
+            .map(|f| {
+                let input_type = match f.field_type {
+                    FieldType::Email => "email",
+                    FieldType::Number | FieldType::Money | FieldType::Percentage => "number",
+                    FieldType::Boolean => "checkbox",
+                    FieldType::Date => "date",
+                    FieldType::Url => "url",
+                    FieldType::Phone => "tel",
+                    _ => if f.sensitive { "password" } else { "text" },
+                };
+                let required = if f.required { " required" } else { "" };
+                let placeholder = match f.field_type {
+                    FieldType::Email => "you@example.com",
+                    FieldType::Phone => "+1 (555) 000-0000",
+                    FieldType::Url => "https://",
+                    _ => "",
+                };
+                let ph = if !placeholder.is_empty() { format!(r#" placeholder="{}""#, placeholder) } else { String::new() };
+
+                if f.field_type == FieldType::Text {
+                    format!(
+                        r#"<div>
+      <label class="block font-mono text-[10px] uppercase tracking-[0.15em] text-neutral-500 mb-2">{name}</label>
+      <textarea name="{name}" rows="3" class="w-full bg-[#080808] border border-neutral-800 rounded-lg px-4 py-3 text-sm text-white placeholder-neutral-700 focus:outline-none focus:border-{accent}-500/50 transition font-mono text-xs resize-none"{required}></textarea>
+    </div>"#,
+                        name = f.name, accent = accent, required = required,
+                    )
+                } else if f.field_type == FieldType::Boolean {
+                    format!(
+                        r#"<div class="flex items-center gap-3 py-2">
+      <input type="checkbox" name="{name}" id="{name}" class="w-4 h-4 rounded bg-[#080808] border-neutral-700 text-{accent}-500 focus:ring-{accent}-500/30">
+      <label for="{name}" class="font-mono text-[10px] uppercase tracking-[0.15em] text-neutral-500">{name}</label>
+    </div>"#,
+                        name = f.name, accent = accent,
+                    )
+                } else if f.field_type == FieldType::Enum {
+                    let options: Vec<String> = f.enum_values.as_ref()
+                        .map(|vals| vals.iter()
+                            .map(|v| format!(r#"<option value="{v}" class="bg-neutral-900">{v}</option>"#, v = v))
+                            .collect())
+                        .unwrap_or_default();
+                    format!(
+                        r#"<div>
+      <label class="block font-mono text-[10px] uppercase tracking-[0.15em] text-neutral-500 mb-2">{name}</label>
+      <select name="{name}" class="w-full bg-[#080808] border border-neutral-800 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-{accent}-500/50 transition font-mono text-xs appearance-none"{required}>
+        <option value="" class="bg-neutral-900">Select...</option>
+        {options}
+      </select>
+    </div>"#,
+                        name = f.name, accent = accent, required = required,
+                        options = options.join("\n        "),
+                    )
+                } else {
+                    format!(
+                        r#"<div>
+      <label class="block font-mono text-[10px] uppercase tracking-[0.15em] text-neutral-500 mb-2">{name}</label>
+      <input type="{input_type}" name="{name}" class="w-full bg-[#080808] border border-neutral-800 rounded-lg px-4 py-3 text-sm text-white placeholder-neutral-700 focus:outline-none focus:border-{accent}-500/50 transition font-mono text-xs"{required}{ph}>
+    </div>"#,
+                        name = f.name, input_type = input_type, accent = accent,
+                        required = required, ph = ph,
+                    )
+                }
+            })
+            .collect(),
+        None => vec![],
+    };
+
+    format!(
+        r##"<div class="max-w-lg mx-auto mt-12">
+  <div class="flex items-center gap-3 mb-8">
+    <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-{accent}-500">// {context_label}</p>
+    <div class="flex-1 h-px bg-neutral-800/50"></div>
+  </div>
+
+  <h1 class="text-3xl font-bold tracking-tight mb-8">{title}</h1>
+
+  <form id="entity-form" class="space-y-5">
+    {inputs}
+
+    <div id="form-msg" class="hidden rounded-lg px-4 py-3 text-sm font-mono"></div>
+
+    <button type="submit" id="submit-btn"
+      class="w-full py-3 bg-{accent}-500 hover:bg-{accent}-600 text-black font-semibold rounded-lg transition text-sm tracking-wide">
+      {submit_label}
+    </button>
+  </form>
+</div>
+
+<script>
+document.getElementById('entity-form').addEventListener('submit', function(e) {{
+  e.preventDefault();
+  var form = e.target;
+  var btn = document.getElementById('submit-btn');
+  var msg = document.getElementById('form-msg');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  var data = {{}};
+  new FormData(form).forEach(function(v, k) {{ data[k] = v; }});
+  data.id = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36);
+
+  fetch('/api/{lower}s', {{
+    method: 'POST',
+    headers: {{ 'Content-Type': 'application/json' }},
+    body: JSON.stringify(data)
+  }}).then(function(r) {{
+    msg.classList.remove('hidden');
+    btn.disabled = false;
+    btn.textContent = '{submit_label}';
+    if (r.ok) {{
+      msg.className = 'rounded-lg px-4 py-3 text-sm font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+      msg.textContent = '\u2713 Saved successfully';
+      form.reset();
+      setTimeout(function() {{ msg.classList.add('hidden'); }}, 3000);
+    }} else {{
+      msg.className = 'rounded-lg px-4 py-3 text-sm font-mono bg-red-500/10 text-red-400 border border-red-500/20';
+      msg.textContent = '\u2717 Error saving — please try again';
+    }}
+  }}).catch(function() {{
+    btn.disabled = false;
+    btn.textContent = '{submit_label}';
+    msg.classList.remove('hidden');
+    msg.className = 'rounded-lg px-4 py-3 text-sm font-mono bg-red-500/10 text-red-400 border border-red-500/20';
+    msg.textContent = '\u2717 Connection error';
+  }});
+}});
+</script>"##,
+        title = title,
+        context_label = context_label,
+        inputs = inputs.join("\n    "),
+        accent = accent,
+        lower = lower,
+        submit_label = if context_label == "Authentication" { "Sign In" } else { "Save" },
+    )
+}
+
+// ══════════════════════════════════════════════════
+// CUSTOM PAGE (sections: hero, features, pricing)
+// ══════════════════════════════════════════════════
+
+fn render_custom(page: &PageNode, accent: &str) -> String {
+    let sections: Vec<String> = page.sections.iter()
+        .map(|s| render_section(s, accent))
+        .collect();
+    sections.join("\n")
+}
+
+fn render_section(section: &SectionNode, accent: &str) -> String {
+    match section.section_type.as_str() {
+        "hero" => render_hero(section, accent),
+        "features" => render_features(section, accent),
+        "pricing" => render_pricing(section, accent),
+        _ => format!(
+            r#"<div class="py-12"><p class="text-neutral-400">Unknown section: {}</p></div>"#,
+            section.section_type
+        ),
+    }
+}
+
+fn render_hero(section: &SectionNode, accent: &str) -> String {
+    let title = section.title.as_deref().unwrap_or("Welcome");
+    let subtitle = section.subtitle.as_deref().unwrap_or("");
+    let badge = section.config.get("badge").map(|b| b.as_str()).unwrap_or("SYSTEM ONLINE");
+    let cta_text = section.config.get("cta").or(section.config.get("cta_text")).map(|s| s.as_str()).unwrap_or("Get Started");
+    let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("/signup");
+
+    let words: Vec<&str> = title.splitn(3, ' ').collect();
+    let (line1, line2) = if words.len() >= 3 {
+        (format!("{} {}", words[0], words[1]), words[2..].join(" "))
+    } else if words.len() == 2 {
+        (words[0].to_string(), words[1].to_string())
+    } else {
+        (title.to_string(), String::new())
+    };
+
+    let bullets_html = section.config.get("bullets").map(|b| {
+        b.split("||").map(|item| format!(
+            "          <div class=\"flex items-center gap-3\"><div class=\"w-2 h-2 bg-{}-500 flex-shrink-0\"></div><span class=\"font-mono text-[13px] text-zinc-400\">{}</span></div>",
+            accent, item.trim()
+        )).collect::<Vec<_>>().join("\n")
+    }).unwrap_or_default();
+
+    format!(
+        r##"<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@keyframes cronusFadeIn{{from{{opacity:0;transform:translateY(20px);}}to{{opacity:1;transform:translateY(0);}}}}
+@keyframes cronusFadeRight{{from{{opacity:0;transform:translateX(40px);}}to{{opacity:1;transform:translateX(0);}}}}
+@keyframes cronusPulse{{0%,100%{{opacity:0.3;}}50%{{opacity:1;}}}}
+@keyframes cronusBar{{from{{width:0;}}to{{width:var(--bar-w);}}}}
+.cf{{animation:cronusFadeIn .6s ease-out both;}}.cf1{{animation-delay:.1s;}}.cf2{{animation-delay:.2s;}}.cf3{{animation-delay:.35s;}}.cf4{{animation-delay:.5s;}}.cf5{{animation-delay:.65s;}}.cf6{{animation-delay:.8s;}}
+.cc{{animation:cronusFadeRight .7s ease-out both;}}.cc1{{animation-delay:.5s;}}.cc2{{animation-delay:.65s;}}.cc3{{animation-delay:.8s;}}
+.cpulse{{animation:cronusPulse 1.5s infinite;}}.cbar{{animation:cronusBar 1.2s .8s ease-out both;}}
+</style>
+<section id="hero" class="relative min-h-[750px] flex items-center overflow-hidden" style="background:#050505;">
+  <div class="absolute inset-0" style="background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(245,158,11,0.08) 0%,transparent 60%);"></div>
+  <div class="absolute inset-0" style="background:radial-gradient(ellipse 60% 40% at 60% 20%,rgba(99,102,241,0.05) 0%,transparent 50%);"></div>
+  <div class="absolute inset-0 bg-gradient-to-r from-[#050505] via-[#050505]/25 to-[#050505]/20"></div>
+  <div class="absolute inset-0 bg-gradient-to-t from-[#050505] to-transparent"></div>
+  <div class="absolute bottom-6 left-6 z-[2]"><div class="w-5 h-5 border-l border-b border-zinc-700"></div></div>
+  <div class="absolute top-6 right-6 z-[2]"><div class="w-5 h-5 border-r border-t border-zinc-700"></div></div>
+  <div class="relative z-10 max-w-7xl mx-auto px-6 py-24 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center w-full">
+    <div class="flex flex-col gap-8">
+      <div class="cf cf1 flex items-center gap-3">
+        <span class="relative flex h-2.5 w-2.5"><span class="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span></span>
+        <span class="font-mono text-[11px] tracking-[0.15em] text-zinc-500 uppercase">{badge}</span>
+      </div>
+      <h1 class="cf cf2 text-5xl md:text-7xl lg:text-8xl font-bold uppercase tracking-tight leading-[0.9]">
+        <span class="text-white">{line1}</span><br><span class="text-zinc-600">{line2}</span>
+      </h1>
+      <p class="cf cf3 border-l-2 border-{accent}-500 pl-4 font-mono text-sm text-zinc-500 leading-relaxed max-w-md">{subtitle}</p>
+      <div class="cf cf4 flex flex-col gap-3">
+{bullets_html}
+      </div>
+      <div class="cf cf5 flex flex-wrap items-center gap-4 pt-2">
+        <a href="{cta_link}" class="flex items-center gap-2 px-7 py-3.5 bg-{accent}-500 text-black font-semibold text-sm tracking-wide uppercase no-underline" style="box-shadow:0 0 20px rgba(245,158,11,0.15);">
+          {cta_text} <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+        <a href="/docs" class="flex items-center gap-2 px-7 py-3.5 border border-zinc-700 text-zinc-400 font-semibold text-sm tracking-wide uppercase no-underline hover:text-white hover:border-{accent}-500 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          View Documentation
+        </a>
+      </div>
+      <p class="cf cf6 font-mono text-[10px] tracking-[0.1em] text-zinc-600 uppercase">No Credit Card Req. &bull; Instant Provisioning</p>
+    </div>
+    <div class="hidden lg:block relative h-[500px]">
+      <div class="cc cc1 absolute top-4 right-0 w-64 border border-zinc-800 p-4" style="background:#080808;">
+        <div class="flex items-center justify-between mb-3"><span class="font-mono text-[10px] tracking-[0.15em] text-zinc-600 uppercase">Active_Nodes</span><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span></div>
+        <div class="space-y-2">
+          <div class="flex items-center justify-between"><span class="font-mono text-[11px] text-zinc-400">US-EAST-1</span><span class="font-mono text-[10px] text-emerald-500 tracking-wider">ONLINE</span></div>
+          <div class="flex items-center justify-between"><span class="font-mono text-[11px] text-zinc-400">EU-WEST-2</span><span class="font-mono text-[10px] text-emerald-500 tracking-wider">ONLINE</span></div>
+          <div class="flex items-center justify-between"><span class="font-mono text-[11px] text-zinc-400">AP-SOUTH-1</span><span class="font-mono text-[10px] text-emerald-500 tracking-wider">ONLINE</span></div>
+        </div>
+      </div>
+      <div class="cc cc2 absolute top-40 right-12 w-72 border border-zinc-800 p-5" style="background:rgba(5,5,5,0.9);backdrop-filter:blur(8px);">
+        <div class="flex items-center justify-between mb-4"><span class="font-mono text-[10px] tracking-[0.15em] text-zinc-600 uppercase">System_Health</span><span class="font-mono text-[10px] text-zinc-700">v4.2.1</span></div>
+        <div class="mb-4"><span class="text-3xl font-bold text-white tracking-tight">99.99</span><span class="text-lg text-zinc-600 ml-1">%</span></div>
+        <div class="space-y-3">
+          <div><div class="flex items-center justify-between mb-1"><span class="font-mono text-[10px] text-zinc-500">LOAD</span><span class="font-mono text-[10px] text-zinc-600">42%</span></div><div class="w-full h-1 bg-zinc-900 overflow-hidden"><div class="h-full bg-{accent}-500 cbar" style="--bar-w:42%;"></div></div></div>
+          <div><div class="flex items-center justify-between mb-1"><span class="font-mono text-[10px] text-zinc-500">MEMORY</span><span class="font-mono text-[10px] text-zinc-600">67%</span></div><div class="w-full h-1 bg-zinc-900 overflow-hidden"><div class="h-full bg-{accent}-500 cbar" style="--bar-w:67%;"></div></div></div>
+          <div class="flex items-center justify-between"><span class="font-mono text-[10px] text-zinc-500">LATENCY</span><span class="font-mono text-[10px] text-{accent}-500">8ms</span></div>
+        </div>
+      </div>
+      <div class="cc cc3 absolute bottom-8 right-4 w-60 border border-zinc-800 p-4" style="background:#080808;">
+        <div class="flex items-center justify-between mb-3"><span class="font-mono text-[10px] tracking-[0.15em] text-zinc-600 uppercase">Deployments</span><span class="font-mono text-[10px] text-{accent}-500">3 active</span></div>
+        <div class="space-y-2.5">
+          <div class="flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-{accent}-500 cpulse flex-shrink-0"></div><div class="flex-1 min-w-0"><div class="font-mono text-[11px] text-zinc-400 truncate">build_cx7_main</div><div class="font-mono text-[9px] text-zinc-600">Processing...</div></div></div>
+          <div class="flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0"></div><div class="flex-1 min-w-0"><div class="font-mono text-[11px] text-zinc-400 truncate">deploy_prod_v4</div><div class="font-mono text-[9px] text-zinc-600">Complete</div></div></div>
+          <div class="flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0"></div><div class="flex-1 min-w-0"><div class="font-mono text-[11px] text-zinc-400 truncate">agent_cluster_02</div><div class="font-mono text-[9px] text-zinc-600">Complete</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>"##,
+        badge = badge, line1 = line1, line2 = line2, subtitle = subtitle,
+        accent = accent, cta_text = cta_text, cta_link = cta_link,
+        bullets_html = bullets_html,
+    )
+}
+
+fn render_features(section: &SectionNode, accent: &str) -> String {
+    let title = section.title.as_deref().unwrap_or("Features");
+    let _ = accent; // available for future use
+
+    let items: Vec<String> = section.items.iter().map(|item| {
+        let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Feature");
+        let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
+        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("*");
+        format!(
+            r#"<div class="bg-neutral-900 border border-neutral-800 rounded-lg p-6">
+  <div class="text-2xl mb-3">{icon}</div>
+  <h3 class="font-semibold text-white">{name}</h3>
+  <p class="mt-1 text-sm text-neutral-400">{desc}</p>
+</div>"#,
+            icon = icon, name = name, desc = desc,
+        )
+    }).collect();
+
+    format!(
+        r#"<section class="py-16">
+  <h2 class="text-3xl font-bold text-center mb-10">{title}</h2>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    {items}
+  </div>
+</section>"#,
+        title = title,
+        items = items.join("\n    "),
+    )
+}
+
+fn render_pricing(section: &SectionNode, accent: &str) -> String {
+    let title = section.title.as_deref().unwrap_or("Pricing");
+
+    let plans: Vec<String> = section.plans.iter().map(|plan| {
+        let features: Vec<String> = plan.features.iter()
+            .map(|f| format!(r#"<li class="flex items-center gap-2 text-sm text-neutral-300"><span class="text-{}-400">✓</span> {}</li>"#, accent, f))
+            .collect();
+
+        let border = if plan.featured {
+            format!("border-{}-500", accent)
+        } else {
+            "border-neutral-800".to_string()
+        };
+        let badge = if plan.featured {
+            format!(r#"<span class="text-xs bg-{}-600 text-white px-2 py-0.5 rounded-full">Popular</span>"#, accent)
+        } else {
+            String::new()
+        };
+
+        format!(
+            r#"<div class="bg-neutral-900 border {border} rounded-lg p-6 flex flex-col">
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="font-semibold text-white">{name}</h3>
+    {badge}
+  </div>
+  <p class="text-3xl font-bold text-white mb-6">{price}</p>
+  <ul class="space-y-2 mb-6 flex-1">{features}</ul>
+  <button class="w-full bg-{accent}-600 hover:bg-{accent}-500 text-white py-2 rounded text-sm font-medium transition">Choose Plan</button>
+</div>"#,
+            border = border, name = plan.name, badge = badge,
+            price = plan.price, features = features.join("\n    "),
+            accent = accent,
+        )
+    }).collect();
+
+    format!(
+        r#"<section class="py-16">
+  <h2 class="text-3xl font-bold text-center mb-10">{title}</h2>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+    {plans}
+  </div>
+</section>"#,
+        title = title,
+        plans = plans.join("\n    "),
+    )
+}
