@@ -1863,7 +1863,39 @@ fn render_custom(page: &PageNode, accent: &str, theme: &str) -> String {
 }
 
 fn render_section(section: &SectionNode, accent: &str, theme: &str) -> String {
-    match section.section_type.as_str() {
+    // --- Contract validation ---
+    let warnings = crate::contracts::validate_section(section, &[]);
+    let strict = crate::STRICT_MODE.load(std::sync::atomic::Ordering::Relaxed);
+    for w in &warnings {
+        match w {
+            crate::contracts::ParseWarning::UnknownSection { name, .. } => {
+                eprintln!("  \x1b[33m⚠\x1b[0m Unknown section type \"{}\"", name);
+            }
+            crate::contracts::ParseWarning::UnknownKey { section, key, item, .. } => {
+                eprintln!("  \x1b[33m⚠\x1b[0m Section \"{}\": unexpected key \"{}\" on item \"{}\"", section, key, item);
+            }
+            crate::contracts::ParseWarning::MissingRequired { section, key, item, .. } => {
+                eprintln!("  \x1b[31m✗\x1b[0m Section \"{}\": missing required key \"{}\" on item \"{}\"", section, key, item);
+            }
+            crate::contracts::ParseWarning::AliasUsed { alias, canonical, .. } => {
+                eprintln!("  \x1b[36mℹ\x1b[0m Section \"{}\" is an alias for \"{}\"", alias, canonical);
+            }
+        }
+    }
+    if strict && warnings.iter().any(|w| matches!(w,
+        crate::contracts::ParseWarning::UnknownSection { .. } |
+        crate::contracts::ParseWarning::UnknownKey { .. } |
+        crate::contracts::ParseWarning::MissingRequired { .. }
+    )) {
+        return format!("<div style=\"padding:24px;color:#dc2626;font-family:monospace\">Strict mode: section \"{}\" has {} validation issue(s)</div>",
+            section.section_type, warnings.len());
+    }
+
+    // --- Alias resolution ---
+    let resolved_type = crate::contracts::ContractRegistry::resolve_alias(&section.section_type)
+        .unwrap_or(section.section_type.as_str());
+
+    match resolved_type {
         "hero" => render_hero(section, accent, theme),
         "features" => render_features(section, accent, theme),
         "pricing" => render_pricing(section, accent),
@@ -1915,13 +1947,7 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str) -> String {
         "kanban" => crate::board::render_kanban(section),
         "dark-mode" => crate::board::render_dark_mode_toggle(section),
         "layout" => crate::layout_system::render_layout_section(section),
-        other => {
-            eprintln!("  \x1b[33m⚠\x1b[0m Unknown section type \"{}\" — using generic renderer", other);
-            if crate::STRICT_MODE.load(std::sync::atomic::Ordering::Relaxed) {
-                eprintln!("  \x1b[31m✗\x1b[0m Strict mode: unknown section types are not allowed");
-            }
-            render_generic_section(section, accent)
-        }
+        _ => render_generic_section(section, accent),
     }
 }
 

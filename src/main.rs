@@ -98,7 +98,8 @@ fn print_help() {
     println!("    \x1b[32mdoctor\x1b[0m           Check .cronus syntax + DB + ports");
     println!("    \x1b[32mstats\x1b[0m            Project stats (entities, pages, DB size)");
     println!("    \x1b[32mexport\x1b[0m           Export to cronus-project.ir.json");
-    println!("    \x1b[32mtest\x1b[0m [port]      Auto-gen and run CRUD tests");
+    println!("    \x1b[32mtest\x1b[0m [port]          Auto-gen and run CRUD tests");
+    println!("    \x1b[32mtest\x1b[0m --conformance   Run conformance test suite");
     println!("    \x1b[32mcompose\x1b[0m          Compose all .cronus files and show result");
     println!("    \x1b[32mgenerate\x1b[0m <desc>  Generate .cronus from description");
     println!("    \x1b[32mversion\x1b[0m          Show version");
@@ -1693,6 +1694,30 @@ fn cmd_export(_args: &[String]) {
 }
 
 fn cmd_test(args: &[String]) {
+    if args.iter().any(|a| a == "--conformance") {
+        println!("  \x1b[36m⚡\x1b[0m Running conformance suite...\n");
+        let base = args.iter()
+            .position(|a| a == "--dir")
+            .and_then(|i| args.get(i + 1))
+            .map(|s| s.as_str())
+            .unwrap_or("tests/conformance");
+
+        let (passed, failed, errors) = testing::run_conformance(base);
+
+        for err in &errors {
+            println!("  \x1b[31m✗\x1b[0m {}", err);
+        }
+
+        println!();
+        if failed == 0 {
+            println!("  \x1b[32m✓\x1b[0m All {} tests passed", passed);
+        } else {
+            println!("  \x1b[31m✗\x1b[0m {} passed, {} failed", passed, failed);
+            std::process::exit(1);
+        }
+        return;
+    }
+
     let file = find_cronus_file().unwrap_or_else(|| {
         eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found"); std::process::exit(1);
     });

@@ -272,3 +272,95 @@ fn count_array_items(body: &str) -> usize {
     // Simple count: number of {"id": patterns
     body.matches("\"id\"").count()
 }
+
+// ══════════════════════════════════════════════════
+// CONFORMANCE TEST RUNNER
+// ══════════════════════════════════════════════════
+
+/// Run conformance tests against parse-positive/, parse-negative/, and warnings/ dirs.
+/// Returns (passed, failed, error_messages).
+pub fn run_conformance(base_dir: &str) -> (usize, usize, Vec<String>) {
+    let mut passed = 0usize;
+    let mut failed = 0usize;
+    let mut errors: Vec<String> = Vec::new();
+
+    // 1. parse-positive/: every .cronus file must parse without error
+    let pos_dir = format!("{}/parse-positive", base_dir);
+    if let Ok(entries) = std::fs::read_dir(&pos_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().map(|e| e == "cronus").unwrap_or(false) {
+                let source = std::fs::read_to_string(&path).unwrap_or_default();
+                match crate::parser::parse(&source) {
+                    Ok(_) => { passed += 1; }
+                    Err(e) => {
+                        failed += 1;
+                        errors.push(format!("FAIL [parse-positive] {}: {}", path.display(), e));
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. parse-negative/: every .cronus file must FAIL to parse
+    let neg_dir = format!("{}/parse-negative", base_dir);
+    if let Ok(entries) = std::fs::read_dir(&neg_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().map(|e| e == "cronus").unwrap_or(false) {
+                let source = std::fs::read_to_string(&path).unwrap_or_default();
+                match crate::parser::parse(&source) {
+                    Ok(_) => {
+                        failed += 1;
+                        errors.push(format!("FAIL [parse-negative] {}: expected parse error, but succeeded", path.display()));
+                    }
+                    Err(_) => { passed += 1; }
+                }
+            }
+        }
+    }
+
+    // 3. warnings/: every .cronus file must parse OK, then validate_section should produce warnings
+    let warn_dir = format!("{}/warnings", base_dir);
+    if let Ok(entries) = std::fs::read_dir(&warn_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().map(|e| e == "cronus").unwrap_or(false) {
+                let source = std::fs::read_to_string(&path).unwrap_or_default();
+                let expected = source.lines()
+                    .find(|l| l.starts_with("# EXPECTED WARNING:"))
+                    .map(|l| l.trim_start_matches("# EXPECTED WARNING:").trim().to_string());
+
+                match crate::parser::parse(&source) {
+                    Ok(nodes) => {
+                        let mut found_warning = false;
+                        for node in &nodes {
+                            if let crate::parser::AstNode::Page(page) = node {
+                                for section in &page.sections {
+                                    let warnings = crate::contracts::validate_section(section, &[]);
+                                    if !warnings.is_empty() {
+                                        found_warning = true;
+                                    }
+                                }
+                            }
+                        }
+                        if found_warning {
+                            passed += 1;
+                        } else if expected.is_some() {
+                            failed += 1;
+                            errors.push(format!("FAIL [warnings] {}: expected warning but got none", path.display()));
+                        } else {
+                            passed += 1;
+                        }
+                    }
+                    Err(e) => {
+                        failed += 1;
+                        errors.push(format!("FAIL [warnings] {}: parse error: {}", path.display(), e));
+                    }
+                }
+            }
+        }
+    }
+
+    (passed, failed, errors)
+}
