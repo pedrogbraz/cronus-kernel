@@ -62,6 +62,7 @@ pub fn detect_sections(nodes: &[DomNode]) -> Vec<SectionBlueprint> {
             "topbar" => extract_topbar(node),
             "hero" => extract_hero(node),
             "features" => extract_features(node),
+            "testimonial" => extract_testimonials(node),
             "stats" => extract_stats(node),
             "cta" => extract_cta(node),
             "footer" => extract_footer(node),
@@ -135,6 +136,7 @@ fn split_and_detect(node: &DomNode) -> Vec<SectionBlueprint> {
                 "topbar" => extract_topbar(child),
                 "hero" => extract_hero(child),
                 "features" => extract_features(child),
+                "testimonial" => extract_testimonials(child),
                 "stats" => extract_stats(child),
                 "cta" => extract_cta(child),
                 "footer" => extract_footer(child),
@@ -588,13 +590,38 @@ fn find_hero_stat_label(node: &DomNode) -> Option<String> {
 /// badge OR inline-flex) that contains small text (text-xs/text-sm).
 /// Returns the badge text excluding dot-span content.
 fn find_hero_badge(node: &DomNode) -> Option<String> {
-    // First try the classic "badge"/"pill" class
+    // First try the classic "badge"/"pill"/"tag" class
     let badge_nodes = dom::find_by_class(node, "badge");
     let pill_nodes = dom::find_by_class(node, "pill");
-    for n in badge_nodes.iter().chain(pill_nodes.iter()) {
+    let tag_nodes = dom::find_by_class(node, "tag");
+    for n in badge_nodes.iter().chain(pill_nodes.iter()).chain(tag_nodes.iter()) {
+        // Skip nodes that are too large (likely not a badge)
         let txt = n.full_text.trim().to_string();
-        if !txt.is_empty() {
+        if !txt.is_empty() && txt.len() < 60 {
             return Some(txt);
+        }
+    }
+
+    // Check for short <span> elements that appear before h1 (common badge pattern)
+    let mut found_h1 = false;
+    for child in &node.children {
+        if child.tag == "h1" { found_h1 = true; }
+        // Look one level deeper for span-before-h1 pattern
+        for grandchild in &child.children {
+            if grandchild.tag == "h1" { found_h1 = true; }
+            if !found_h1 && grandchild.tag == "span" {
+                let txt = grandchild.full_text.trim().to_string();
+                if !txt.is_empty() && txt.len() < 60 && txt.len() > 3 {
+                    // Check if it looks like a badge (has badge/tag/pill class or is short inline text)
+                    let has_badge_class = grandchild.classes.iter().any(|c| {
+                        c.contains("badge") || c.contains("tag") || c.contains("pill")
+                            || c.contains("label") || c.contains("chip")
+                    });
+                    if has_badge_class {
+                        return Some(txt);
+                    }
+                }
+            }
         }
     }
 
@@ -1454,6 +1481,74 @@ fn looks_like_stat(text: &str) -> bool {
         return false;
     }
     trimmed.chars().any(|c| c.is_ascii_digit())
+}
+
+// ---------------------------------------------------------------------------
+// Extraction: testimonials
+// ---------------------------------------------------------------------------
+
+fn extract_testimonials(node: &DomNode) -> SectionBlueprint {
+    let config: HashMap<String, String> = HashMap::new();
+
+    let title = find_heading_by_tag(node, "h2")
+        .or_else(|| dom::find_heading(node));
+    let subtitle = dom::find_paragraph(node);
+
+    // Collect testimonial cards: look for children (or grandchildren) that
+    // contain a quote paragraph and an author name.
+    let mut items: Vec<ItemBlueprint> = Vec::new();
+
+    fn collect_testimonial_cards(parent: &DomNode, out: &mut Vec<ItemBlueprint>) {
+        for child in &parent.children {
+            // A testimonial card usually has a <p> with quote text and a name div
+            let paragraphs = dom::find_by_tag(child, "p");
+            let quote = paragraphs.iter()
+                .map(|p| dom::clean_node_text(p))
+                .filter(|t| t.len() > 30)
+                .next();
+
+            if let Some(quote_text) = quote {
+                // Try to find an author name (short text in a nested div/span)
+                let mut author = String::new();
+                let name_nodes = dom::find_by_class(child, "name")
+                    .into_iter()
+                    .chain(dom::find_by_class(child, "author").into_iter());
+                for n in name_nodes {
+                    let txt = dom::clean_node_text(n);
+                    if !txt.is_empty() && txt.len() < 40 {
+                        author = txt;
+                        break;
+                    }
+                }
+
+                let mut item_config: HashMap<String, String> = HashMap::new();
+                if !author.is_empty() {
+                    item_config.insert("author".into(), author);
+                }
+
+                out.push(ItemBlueprint {
+                    item_type: "testimonial".into(),
+                    title: quote_text,
+                    description: None,
+                    config: item_config,
+                });
+            } else if !child.children.is_empty() {
+                // Look one level deeper
+                collect_testimonial_cards(child, out);
+            }
+        }
+    }
+
+    collect_testimonial_cards(node, &mut items);
+
+    SectionBlueprint {
+        section_type: "testimonial".into(),
+        confidence: 0.0,
+        title,
+        subtitle,
+        config,
+        items,
+    }
 }
 
 // ---------------------------------------------------------------------------

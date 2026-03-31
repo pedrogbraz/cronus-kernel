@@ -137,6 +137,15 @@ pub fn is_topbar(node: &DomNode) -> f32 {
         score += 0.1;
     }
 
+    // Check for descendant <nav> tag — strongest signal for navigation bar
+    if find_by_tag(node, "nav").len() > 0 {
+        score += 0.3;
+    }
+    // Check for BEM class names containing header/navbar/topbar
+    if node.classes.iter().any(|c| c.contains("header") || c.contains("navbar") || c.contains("topbar") || c.contains("nav-bar")) {
+        score += 0.2;
+    }
+
     // Top-level position hint
     if has_class(node, "top-0") {
         score += 0.1;
@@ -205,12 +214,39 @@ pub fn is_hero(node: &DomNode) -> f32 {
         score += 0.15;
     }
 
+    // Check for class containing "hero" on node or children
+    if node.classes.iter().any(|c| c.contains("hero")) {
+        score += 0.35;
+    }
+    // Also check child elements for hero class
+    for child in &node.children {
+        if child.classes.iter().any(|c| c.contains("hero")) {
+            score += 0.25;
+        }
+    }
+    // Count <a> tags with button-like classes as CTAs (not just <button> tags)
+    let link_buttons = find_link_buttons(node);
+    if link_buttons >= 1 { score += 0.15; }
+    if link_buttons >= 2 { score += 0.1; }
+
     // Centered text (common in heroes)
     if has_descendant_class(node, "text-center") || has_class(node, "text-center") {
         score += 0.05;
     }
 
     cap(score)
+}
+
+/// Count <a> tags with button-like classes (btn, button, cta) recursively.
+fn find_link_buttons(node: &DomNode) -> usize {
+    let mut count = 0;
+    for child in &node.children {
+        if child.tag == "a" && child.classes.iter().any(|c| c.contains("btn") || c.contains("button") || c.contains("cta")) {
+            count += 1;
+        }
+        count += find_link_buttons(child);
+    }
+    count
 }
 
 /// Detect features / card grid section.
@@ -278,6 +314,69 @@ pub fn is_features(node: &DomNode) -> f32 {
 
     // Penalize if it looks like a hero (has buttons + h1 = probably hero, not features)
     if !h1s.is_empty() && !extract_buttons(node).is_empty() {
+        score -= 0.2;
+    }
+
+    cap(score.max(0.0))
+}
+
+/// Detect testimonials / reviews section.
+///
+/// Signals: classes contain "testimonial"/"review"/"quote", text contains
+/// "dizem"/"testimonial"/"clientes"/"depoimento", multiple similar-sized
+/// text blocks (quote cards), no prominent buttons.
+pub fn is_testimonials(node: &DomNode) -> f32 {
+    let mut score: f32 = 0.0;
+
+    // Class-based signals on node or descendants
+    if node.classes.iter().any(|c| c.contains("testimonial") || c.contains("review") || c.contains("quote")) {
+        score += 0.4;
+    } else if has_descendant_class(node, "testimonial") || has_descendant_class(node, "review") || has_descendant_class(node, "quote") {
+        score += 0.35;
+    }
+
+    // ID-based signal
+    if let Some(ref id) = node.id {
+        let id_lower = id.to_lowercase();
+        if id_lower.contains("testimonial") || id_lower.contains("review") || id_lower.contains("depoimento") {
+            score += 0.3;
+        }
+    }
+
+    // Text content signals (PT-BR + EN)
+    let lower = node.full_text.to_lowercase();
+    if lower.contains("dizem") || lower.contains("testimonial") || lower.contains("clientes") || lower.contains("depoimento") {
+        score += 0.2;
+    }
+
+    // Multiple similar-sized text blocks (quote cards): look for 2+ <p> with
+    // substantial text inside card-like divs
+    let paragraphs = find_by_tag(node, "p");
+    let long_paragraphs: Vec<_> = paragraphs.iter().filter(|p| p.full_text.len() > 40).collect();
+    if long_paragraphs.len() >= 3 {
+        score += 0.3;
+    } else if long_paragraphs.len() >= 2 {
+        score += 0.2;
+    }
+
+    // No prominent CTA buttons (testimonials are passive content)
+    let buttons = extract_buttons(node);
+    if buttons.is_empty() {
+        score += 0.1;
+    }
+
+    // Has h2 section heading
+    if !find_by_tag(node, "h2").is_empty() {
+        score += 0.05;
+    }
+
+    // Penalize if has form elements (not testimonials)
+    if count_descendants_with_tag(node, "form") > 0 || count_descendants_with_tag(node, "input") > 0 {
+        score -= 0.3;
+    }
+
+    // Penalize if has h1 (hero, not testimonials)
+    if !find_by_tag(node, "h1").is_empty() {
         score -= 0.2;
     }
 
@@ -381,6 +480,13 @@ pub fn is_cta(node: &DomNode) -> f32 {
     // Padding signals
     if has_class(node, "py-16") || has_class(node, "py-20") || has_class(node, "py-24") {
         score += 0.05;
+    }
+
+    // Penalize if section contains form elements (it's probably a form section, not CTA)
+    if find_by_tag(node, "form").len() > 0
+        || find_by_tag(node, "input").len() > 0
+        || find_by_tag(node, "textarea").len() > 0 {
+        score -= 0.4;
     }
 
     cap(score)
@@ -1157,12 +1263,12 @@ pub fn is_form(node: &DomNode) -> f32 {
         score += 0.05;
     }
 
-    // Submit button
+    // Submit button (EN + PT-BR keywords)
     let buttons = extract_buttons(node);
+    let submit_keywords = ["submit", "save", "create", "send", "update", "enviar", "cadastrar", "salvar", "registrar", "entrar"];
     let has_submit = buttons.iter().any(|b| {
         let lower = b.to_lowercase();
-        lower.contains("submit") || lower.contains("save") || lower.contains("create")
-            || lower.contains("update") || lower.contains("send")
+        submit_keywords.iter().any(|kw| lower.contains(kw))
     });
     if has_submit {
         score += 0.1;
@@ -1280,6 +1386,7 @@ pub fn classify_node(node: &DomNode) -> (&'static str, f32) {
         ("topbar",       is_topbar),
         ("hero",         is_hero),
         ("features",     is_features),
+        ("testimonial",  is_testimonials),
         ("stats",        is_stats),
         ("cta",          is_cta),
         ("footer",       is_footer),
