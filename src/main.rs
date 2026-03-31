@@ -391,6 +391,17 @@ async fn handle_request(
                 let name = body.get("name").and_then(|v| v.as_str()).unwrap_or("");
                 let email = body.get("email").and_then(|v| v.as_str()).unwrap_or("");
                 let password = body.get("password").and_then(|v| v.as_str()).unwrap_or("");
+                // Accept role from request, but only if it's a valid declared role
+                let requested_role = body.get("role").and_then(|v| v.as_str()).unwrap_or("user");
+                let role = if state.auth_roles.iter().any(|r| r == requested_role) {
+                    requested_role.to_string()
+                } else {
+                    // Default to first non-admin role, or "user"
+                    state.auth_roles.iter()
+                        .find(|r| r.as_str() != "admin")
+                        .cloned()
+                        .unwrap_or_else(|| "user".to_string())
+                };
 
                 if name.is_empty() || email.is_empty() || password.is_empty() {
                     json_response(StatusCode::BAD_REQUEST, json!({"error": "name, email and password required"}))
@@ -409,16 +420,16 @@ async fn handle_request(
                             "name": name,
                             "email": email,
                             "password": hashed,
-                            "role": "user"
+                            "role": &role
                         });
 
                         match state.db.insert(user_table, &user_data) {
                             Ok(user) => {
                                 let user_id = user.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                                let token = auth::create_token(user_id, "user", &secret);
+                                let token = auth::create_token(user_id, &role, &secret);
                                 let body = json!({
                                     "token": token,
-                                    "user": {"id": user_id, "name": name, "email": email, "role": "user"}
+                                    "user": {"id": user_id, "name": name, "email": email, "role": &role}
                                 });
                                 Response::builder()
                                     .status(StatusCode::CREATED)
@@ -2600,7 +2611,7 @@ fn cmd_seed(args: &[String]) {
     });
 
     let seed_start = Instant::now();
-    println!("\n  Seeding {} entities \xc3\x97 {} rows...\n", entities.len(), count);
+    println!("\n  Seeding {} entities \u{00d7} {} rows...\n", entities.len(), count);
 
     for entity in &entities {
         let mut seeded = 0;
@@ -2725,7 +2736,7 @@ fn cmd_seed(args: &[String]) {
             }
         }
         let sample: String = if seeded > 0 { format!(" ({})", entity.fields.first().map(|f| f.name.as_str()).unwrap_or("")) } else { String::new() };
-        println!("  \x1b[32m\xe2\x9c\x93\x1b[0m {:<12} {} rows", entity.name, seeded);
+        println!("  \x1b[32m\u{2713}\x1b[0m {:<12} {} rows", entity.name, seeded);
     }
 
     let seed_ms = seed_start.elapsed().as_millis();
@@ -4084,336 +4095,470 @@ fn cmd_compose(_args: &[String]) {
 // GENERATE — AI-first: description → .cronus file
 // ══════════════════════════════════════════════════
 
-fn cmd_generate(args: &[String]) {
-    let desc = if args.len() > 2 {
-        args[2..].join(" ")
-    } else {
-        eprintln!("  Usage: cronus generate \"description of your app\"");
-        eprintln!("  Example: cronus generate \"saas with users, projects, billing\"");
-        std::process::exit(1);
-    };
+const GENERATE_SYSTEM_PROMPT: &str = r#"You are CRONUS, a code generator for .cronus files — a declarative language where one file = full-stack app.
 
-    // Check for template shortcuts first
-    let desc_lower = desc.to_lowercase();
-    if desc_lower == "saas" || desc_lower == "landing" {
-        let content = match desc_lower.as_str() {
-            "saas" => generate_saas_template(),
-            "landing" => generate_landing_template(),
-            _ => unreachable!(),
-        };
-        let filename = format!("{}.cronus", desc_lower);
-        fs::write(&filename, &content).expect("Failed to write template");
-        println!("  \x1b[32m✓\x1b[0m Generated {} ({} lines)", filename, content.lines().count());
+RULES:
+1. Output ONLY .cronus code. No markdown, no explanations.
+2. Always start with: app "Name" { stack react + tailwind; port 5175; database sqlite "./data.db"; theme dark }
+3. Every entity field needs an explicit type: string, text, number, money, boolean, date, email, url, slug, enum [values]
+4. API routes: name METHOD /path auth:mode (auth:public, auth:jwt)
+5. Pages: page "/route" type:custom/list/form { sections }
+6. If app needs users: add auth { entity User; login email + password; session jwt } + User entity with password string required sensitive
+7. Prices in centavos (2990 = $29.90), use money type
+8. Section types: hero, features, pricing, cta, faq, table, form, kpi, chart, kanban, timeline, tabs, accordion, alert, modal
+9. Style: dark theme, one accent color, Inter font
+10. Use bind entity:X { query all } in sections to show real data
+
+EXAMPLE 1 — Todo App:
+app "Todo App" {
+  stack react + tailwind
+  port 5500
+  database sqlite "./data.db"
+  theme dark
+}
+
+style {
+  theme dark
+  accent amber
+  font "Inter"
+}
+
+entity Todo {
+  title       string    required
+  completed   boolean
+  priority    enum      [low, medium, high]
+  created_at  date
+}
+
+api /todos {
+  list    GET    /       auth:public
+  create  POST   /       auth:public
+  update  PATCH  /:id    auth:public
+  delete  DELETE /:id    auth:public
+}
+
+page "/" type:dashboard {
+  title "My Todos"
+
+  section header {
+    title "Todos"
+    subtitle "Stay on top of what matters"
+    action "New Todo" -> "/new" icon:add
+  }
+
+  section todo-table {
+    bind entity:Todo {
+      query all
+      order created_at desc
+      limit 25
+    }
+    columns "Title, Priority, Completed"
+    on click {
+      set completed "true"
+      toast "Todo completed"
+      refresh self
+    }
+  }
+}
+
+page "/new" type:custom {
+  title "New Todo"
+  section form {
+    bind entity:Todo { query all }
+    item "Title" required:true
+    item "Priority"
+    on submit {
+      create Todo
+      toast "Todo created"
+      navigate "/"
+    }
+  }
+}
+
+EXAMPLE 2 — Admin Panel (snippet):
+app "Admin Panel" {
+  stack react + tailwind
+  port 5300
+  database sqlite "./data.db"
+  theme dark
+}
+
+style {
+  theme dark
+  accent blue
+  font "Inter"
+}
+
+entity User {
+  name      string    required
+  email     email     required unique
+  password  string    required sensitive
+  role      enum      [admin, member]
+}
+
+entity Order {
+  customer    string    required
+  amount      money     required
+  status      enum      [pending, approved, shipped, cancelled]
+  created_at  date
+}
+
+auth {
+  entity User
+  login email
+  session jwt
+  roles [admin, member]
+}
+
+api /auth {
+  signup  POST  /signup  auth:public
+  login   POST  /login   auth:public
+  me      GET   /me      auth:jwt
+}
+
+api /orders {
+  list    GET    /       auth:jwt
+  create  POST   /       auth:jwt
+  update  PATCH  /:id    auth:jwt
+  delete  DELETE /:id    auth:jwt
+}
+
+page "/dashboard" type:dashboard {
+  title "Admin Dashboard"
+  section kpis type:kpi {
+    item "Total Orders" bind:count entity:Order
+    item "Revenue" bind:sum entity:Order field:amount
+  }
+  section orders type:table {
+    bind entity:Order { query all order created_at desc }
+    columns "Customer, Amount, Status, Date"
+    search "customer"
+    paginate 20
+  }
+}
+"#;
+
+fn cmd_generate(args: &[String]) {
+    let mut description: Option<String> = None;
+    let mut dry_run = false;
+    let mut from_file: Option<String> = None;
+    let mut output_path = "app.cronus".to_string();
+    let mut auto_go = false;
+
+    // Parse flags from args[2..] (args[0] = "cronus", args[1] = "generate"/"gen")
+    let flag_args = if args.len() > 2 { &args[2..] } else { &[] as &[String] };
+    let mut i = 0;
+    while i < flag_args.len() {
+        match flag_args[i].as_str() {
+            "--dry-run" => { dry_run = true; }
+            "--go" => { auto_go = true; }
+            "--from-file" => {
+                i += 1;
+                if i >= flag_args.len() {
+                    eprintln!("  \x1b[31m✗\x1b[0m --from-file requires a path");
+                    std::process::exit(1);
+                }
+                from_file = Some(flag_args[i].clone());
+            }
+            "--output" | "-o" => {
+                i += 1;
+                if i >= flag_args.len() {
+                    eprintln!("  \x1b[31m✗\x1b[0m --output requires a filename");
+                    std::process::exit(1);
+                }
+                output_path = flag_args[i].clone();
+            }
+            other => {
+                // Positional arg = description (join remaining non-flag words)
+                if description.is_none() && !other.starts_with("--") {
+                    let mut desc_parts = vec![other.to_string()];
+                    while i + 1 < flag_args.len() && !flag_args[i + 1].starts_with("--") {
+                        i += 1;
+                        desc_parts.push(flag_args[i].clone());
+                    }
+                    description = Some(desc_parts.join(" "));
+                }
+            }
+        }
+        i += 1;
+    }
+
+    // MODE: --from-file
+    if let Some(ref file_path) = from_file {
+        cmd_generate_from_file(file_path, &output_path, auto_go);
         return;
     }
 
-    let app_name = extract_app_name(&desc);
+    // Need a description for generate
+    let desc = match description {
+        Some(d) => d,
+        None => {
+            eprintln!("  Usage:");
+            eprintln!("    cronus generate \"description\" [--dry-run] [--output file.cronus] [--go]");
+            eprintln!("    cronus generate --from-file output.txt [--output file.cronus] [--go]");
+            eprintln!();
+            eprintln!("  Examples:");
+            eprintln!("    cronus generate \"veterinary clinic with pets owners and appointments\" --dry-run");
+            eprintln!("    cronus generate --from-file chatgpt-output.txt");
+            eprintln!("    cronus generate \"blog with posts and comments\"");
+            std::process::exit(1);
+        }
+    };
 
-    let mut entities = Vec::new();
-    let mut pages = Vec::new();
-    let mut apis = Vec::new();
-    let mut accent = "blue";
+    // Build the user message
+    let user_message = format!("Generate a .cronus file for: {}", desc);
 
-    // Detect entities from keywords
-    if desc_lower.contains("user") || desc_lower.contains("auth") || desc_lower.contains("login") {
-        entities.push(r#"entity User {
-  email       email     required unique
-  name        string    required
-  password    string    sensitive
-  role        enum      [admin, member]
-  avatarUrl   url
-  createdAt   date
-}"#);
-        apis.push(r#"api /auth {
-  signup    POST   /signup     auth:public
-  login     POST   /login      auth:public
-  me        GET    /me         auth:jwt
+    // Check for API key
+    let api_key = std::env::var("ANTHROPIC_API_KEY").ok();
+
+    if dry_run || api_key.is_none() {
+        // DRY-RUN mode: save prompt to file
+        if api_key.is_none() && !dry_run {
+            println!("  \x1b[33m!\x1b[0m No ANTHROPIC_API_KEY found, falling back to dry-run mode");
+            println!();
+        }
+        cmd_generate_dry_run(&desc, &user_message);
+    } else {
+        // API mode
+        cmd_generate_api(&desc, &user_message, &api_key.unwrap(), &output_path, auto_go);
+    }
 }
 
-api /users {
-  list      GET    /           auth:jwt
-  detail    GET    /:id        auth:jwt
-  edit      PATCH  /:id        auth:jwt
-}"#);
-        pages.push(r#"page "/login" type:form entity:User {
-  title "Sign In"
-  fields [email, password]
-}
+fn cmd_generate_dry_run(desc: &str, user_message: &str) {
+    let full_prompt = format!(
+        "=== SYSTEM PROMPT ===\n{}\n\n=== USER MESSAGE ===\n{}\n",
+        GENERATE_SYSTEM_PROMPT, user_message
+    );
 
-page "/signup" type:form entity:User {
-  title "Create Account"
-  fields [name, email, password]
-}"#);
-    }
-
-    if desc_lower.contains("product") || desc_lower.contains("item") || desc_lower.contains("catalog") {
-        entities.push(r#"entity Product {
-  name        string    required
-  description text
-  price       money     required
-  currency    enum      [usd, brl, eur]
-  category    string
-  imageUrl    url
-  active      boolean
-  createdAt   date
-}"#);
-        apis.push(r#"api /products {
-  list    GET    /        auth:public
-  create  POST   /        auth:jwt
-  detail  GET    /:id     auth:public
-  edit    PATCH  /:id     auth:jwt
-  delete  DELETE /:id     auth:jwt
-}"#);
-        pages.push(r#"page "/products" type:list entity:Product {
-  title "Products"
-  columns [name, price, category, active]
-}"#);
-    }
-
-    if desc_lower.contains("order") || desc_lower.contains("purchase") || desc_lower.contains("sale") {
-        entities.push(r#"entity Order {
-  customer    -> User
-  status      enum      [pending, paid, shipped, delivered, cancelled]
-  total       money     required
-  currency    enum      [usd, brl, eur]
-  createdAt   date
-}"#);
-        apis.push(r#"api /orders {
-  list    GET    /        auth:jwt
-  create  POST   /        auth:public
-  detail  GET    /:id     auth:jwt
-}"#);
-        pages.push(r#"page "/orders" type:list entity:Order {
-  title "Orders"
-  columns [status, total, currency, createdAt]
-}"#);
-    }
-
-    if desc_lower.contains("project") || desc_lower.contains("task") || desc_lower.contains("kanban") {
-        entities.push(r#"entity Project {
-  name        string    required
-  description text
-  status      enum      [active, paused, completed, archived]
-  owner       -> User
-  createdAt   date
-}"#);
-        entities.push(r#"entity Task {
-  project     -> Project
-  title       string    required
-  description text
-  status      enum      [todo, in_progress, review, done]
-  priority    enum      [low, medium, high, urgent]
-  assignee    -> User
-  dueDate     date
-  createdAt   date
-}"#);
-        apis.push(r#"api /projects {
-  list    GET    /        auth:jwt
-  create  POST   /        auth:jwt
-  detail  GET    /:id     auth:jwt
-  edit    PATCH  /:id     auth:jwt
-  delete  DELETE /:id     auth:jwt
-}
-
-api /tasks {
-  list    GET    /        auth:jwt
-  create  POST   /        auth:jwt
-  detail  GET    /:id     auth:jwt
-  edit    PATCH  /:id     auth:jwt
-  delete  DELETE /:id     auth:jwt
-}"#);
-        pages.push(r#"page "/projects" type:list entity:Project {
-  title "Projects"
-  columns [name, status, createdAt]
-}
-
-page "/tasks" type:list entity:Task {
-  title "Tasks"
-  columns [title, status, priority, dueDate]
-}"#);
-    }
-
-    if desc_lower.contains("billing") || desc_lower.contains("subscription") || desc_lower.contains("plan") {
-        entities.push(r#"entity Plan {
-  name        string    required
-  price       money     required
-  currency    enum      [usd, brl, eur]
-  interval    enum      [monthly, yearly]
-  features    text
-  active      boolean
-  createdAt   date
-}"#);
-        entities.push(r#"entity Subscription {
-  user        -> User
-  plan        -> Plan
-  status      enum      [active, canceled, past_due]
-  currentPeriodEnd date
-  createdAt   date
-}"#);
-        apis.push(r#"api /plans {
-  list    GET    /        auth:public
-}
-
-api /subscriptions {
-  list    GET    /        auth:jwt
-  create  POST   /        auth:jwt
-  cancel  DELETE /:id     auth:jwt
-}"#);
-        pages.push(r#"page "/billing" type:list entity:Subscription {
-  title "Billing"
-  columns [status, currentPeriodEnd]
-}"#);
-    }
-
-    if desc_lower.contains("blog") || desc_lower.contains("post") || desc_lower.contains("article") {
-        entities.push(r#"entity Post {
-  title       string    required
-  slug        slug      required unique
-  content     text      required
-  excerpt     text
-  status      enum      [draft, published, archived]
-  author      -> User
-  publishedAt date
-  createdAt   date
-}"#);
-        apis.push(r#"api /posts {
-  list    GET    /        auth:public
-  create  POST   /        auth:jwt
-  detail  GET    /:slug   auth:public
-  edit    PATCH  /:slug   auth:jwt
-  delete  DELETE /:slug   auth:jwt
-}"#);
-        pages.push(r#"page "/posts" type:list entity:Post {
-  title "Posts"
-  columns [title, status, publishedAt]
-}"#);
-    }
-
-    if desc_lower.contains("review") || desc_lower.contains("rating") || desc_lower.contains("feedback") {
-        entities.push(r#"entity Review {
-  user        -> User
-  rating      number    required
-  comment     text
-  status      enum      [pending, approved, rejected]
-  createdAt   date
-}"#);
-        apis.push(r#"api /reviews {
-  list    GET    /        auth:public
-  create  POST   /        auth:jwt
-}"#);
-        pages.push(r#"page "/reviews" type:list entity:Review {
-  title "Reviews"
-  columns [rating, status, comment]
-}"#);
-    }
-
-    if desc_lower.contains("notification") || desc_lower.contains("alert") {
-        entities.push(r#"entity Notification {
-  user        -> User
-  title       string    required
-  body        text
-  channel     enum      [email, push, sms]
-  status      enum      [pending, sent, read]
-  createdAt   date
-}"#);
-        apis.push(r#"api /notifications {
-  list    GET    /        auth:jwt
-}"#);
-    }
-
-    // Detect theme
-    if desc_lower.contains("ecommerce") || desc_lower.contains("store") || desc_lower.contains("shop") {
-        accent = "emerald";
-    } else if desc_lower.contains("finance") || desc_lower.contains("billing") {
-        accent = "violet";
-    } else if desc_lower.contains("health") || desc_lower.contains("medical") {
-        accent = "teal";
-    }
-
-    // If no entities detected, generate a basic one
-    if entities.is_empty() {
-        entities.push(r#"entity Item {
-  name        string    required
-  description text
-  status      enum      [active, archived]
-  createdAt   date
-}"#);
-        apis.push(r#"api /items {
-  list    GET    /        auth:public
-  create  POST   /        auth:jwt
-  detail  GET    /:id     auth:public
-  edit    PATCH  /:id     auth:jwt
-  delete  DELETE /:id     auth:jwt
-}"#);
-        pages.push(r#"page "/items" type:list entity:Item {
-  title "Items"
-  columns [name, status, createdAt]
-}"#);
-    }
-
-    // Always add dashboard
-    pages.insert(0, r#"page "/dashboard" type:dashboard {
-  title "Dashboard"
-}"#);
-
-    // Build the .cronus file
-    let mut output = String::new();
-    output.push_str(&format!(r#"# {} — Generated by CRONUS
-# From: "{}"
-
-app "{}" {{
-  stack react + tailwind
-  port 5175
-  database sqlite "./data.db"
-  theme dark
-}}
-
-"#, app_name, desc, app_name));
-
-    output.push_str("# ── Entities ──\n\n");
-    for e in &entities { output.push_str(e); output.push_str("\n\n"); }
-
-    output.push_str("# ── API Routes ──\n\n");
-    for a in &apis { output.push_str(a); output.push_str("\n\n"); }
-
-    output.push_str("# ── Pages ──\n\n");
-
-    // Landing page
-    output.push_str(&format!(r#"page "/" type:custom {{
-  section hero {{
-    title "{app_name}"
-    subtitle "Built with CRONUS — {desc}"
-    cta "Get Started" -> "/signup" primary
-  }}
-}}
-
-"#));
-
-    for p in &pages { output.push_str(p); output.push_str("\n\n"); }
-
-    output.push_str(&format!(r#"style {{
-  theme dark
-  accent {accent}
-  font "Inter"
-}}
-"#));
-
-    // Write file
-    let filename = "app.cronus";
-    std::fs::write(filename, &output).unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Error writing {}: {}", filename, e);
+    fs::write(".cronus-prompt.txt", &full_prompt).unwrap_or_else(|e| {
+        eprintln!("  \x1b[31m✗\x1b[0m Failed to write .cronus-prompt.txt: {}", e);
         std::process::exit(1);
     });
 
-    let line_count = output.lines().count();
-    let entity_count = entities.len();
-    let page_count = pages.len();
-
-    println!("  \x1b[32m✓\x1b[0m Generated {} ({} lines)", filename, line_count);
-    println!("    {} entities, {} pages, {} accent", entity_count, page_count, accent);
+    println!("  \x1b[32m✓\x1b[0m Prompt saved to \x1b[1m.cronus-prompt.txt\x1b[0m");
     println!();
-    println!("  Next: \x1b[1mcronus run\x1b[0m");
+    println!("  Next steps:");
+    println!("    1. Copy the contents of .cronus-prompt.txt");
+    println!("    2. Paste into Claude or ChatGPT");
+    println!("    3. Save the output to a file (e.g. output.txt)");
+    println!("    4. Run: \x1b[1mcronus generate --from-file output.txt\x1b[0m");
+    println!();
+    println!("  Or set ANTHROPIC_API_KEY to generate directly:");
+    println!("    export ANTHROPIC_API_KEY=sk-ant-...");
+    println!("    cronus generate \"{}\"", desc);
 }
+
+fn cmd_generate_from_file(file_path: &str, output_path: &str, auto_go: bool) {
+    let raw = fs::read_to_string(file_path).unwrap_or_else(|e| {
+        eprintln!("  \x1b[31m✗\x1b[0m Failed to read {}: {}", file_path, e);
+        std::process::exit(1);
+    });
+
+    let source = strip_markdown_fences(&raw);
+
+    match parser::parse(&source) {
+        Ok(nodes) => {
+            let (entities, pages, routes) = parser::stats(&nodes);
+            let lines = source.lines().count();
+
+            fs::write(output_path, &source).unwrap_or_else(|e| {
+                eprintln!("  \x1b[31m✗\x1b[0m Failed to write {}: {}", output_path, e);
+                std::process::exit(1);
+            });
+
+            println!("  \x1b[32m✓\x1b[0m Valid .cronus file written to \x1b[1m{}\x1b[0m", output_path);
+            println!("    {} lines, {} entities, {} pages, {} routes", lines, entities, pages, routes);
+            println!();
+
+            if auto_go {
+                println!("  Running seed + run...");
+                let _ = std::process::Command::new(std::env::current_exe().unwrap())
+                    .args(&["seed", output_path])
+                    .status();
+                let _ = std::process::Command::new(std::env::current_exe().unwrap())
+                    .args(&["run", output_path])
+                    .status();
+            } else {
+                println!("  Next: \x1b[1mcronus run {}\x1b[0m", output_path);
+            }
+        }
+        Err(e) => {
+            eprintln!("  \x1b[31m✗\x1b[0m Parse error in {}:", file_path);
+            eprintln!("    {}", e);
+            eprintln!();
+            eprintln!("  The LLM output is not valid .cronus syntax.");
+            eprintln!("  Try regenerating or fix the errors manually.");
+            std::process::exit(1);
+        }
+    }
+}
+
+fn cmd_generate_api(desc: &str, user_message: &str, api_key: &str, output_path: &str, auto_go: bool) {
+    println!("  Generating .cronus for: \"{}\"", desc);
+    println!();
+
+    let max_retries = 3;
+    let mut attempt = 0;
+    let mut extra_context = String::new();
+
+    loop {
+        attempt += 1;
+        if attempt > 1 {
+            println!("  Retry {}/{}...", attempt, max_retries);
+        }
+
+        let messages_with_context = if extra_context.is_empty() {
+            format!(r#"[{{"role":"user","content":"{}"}}]"#,
+                user_message.replace('\\', "\\\\").replace('"', "\\\""))
+        } else {
+            format!(r#"[{{"role":"user","content":"{}"}},{{"role":"assistant","content":"{}"}},{{"role":"user","content":"{}"}}]"#,
+                user_message.replace('\\', "\\\\").replace('"', "\\\""),
+                "I'll generate the .cronus file now.".replace('"', "\\\""),
+                extra_context.replace('\\', "\\\\").replace('"', "\\\""))
+        };
+
+        let body = format!(
+            r#"{{"model":"claude-sonnet-4-20250514","max_tokens":4096,"system":"{}","messages":{}}}"#,
+            GENERATE_SYSTEM_PROMPT.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n"),
+            messages_with_context
+        );
+
+        let output = std::process::Command::new("curl")
+            .args(&[
+                "-s", "-X", "POST",
+                "https://api.anthropic.com/v1/messages",
+                "-H", &format!("x-api-key: {}", api_key),
+                "-H", "anthropic-version: 2023-06-01",
+                "-H", "content-type: application/json",
+                "-d", &body,
+            ])
+            .output();
+
+        let output = match output {
+            Ok(o) => o,
+            Err(e) => {
+                eprintln!("  \x1b[31m✗\x1b[0m Failed to call API (curl): {}", e);
+                std::process::exit(1);
+            }
+        };
+
+        let response_str = String::from_utf8_lossy(&output.stdout).to_string();
+
+        // Extract content[0].text from JSON response (minimal parsing, no deps)
+        let generated = extract_api_text(&response_str);
+        if generated.is_empty() {
+            if attempt >= max_retries {
+                eprintln!("  \x1b[31m✗\x1b[0m API returned no usable content after {} attempts", max_retries);
+                eprintln!("  Response: {}", &response_str[..response_str.len().min(500)]);
+                std::process::exit(1);
+            }
+            extra_context = "The previous response was empty. Please output ONLY valid .cronus code.".to_string();
+            continue;
+        }
+
+        let source = strip_markdown_fences(&generated);
+
+        match parser::parse(&source) {
+            Ok(nodes) => {
+                let (entities, pages, routes) = parser::stats(&nodes);
+                let lines = source.lines().count();
+
+                fs::write(output_path, &source).unwrap_or_else(|e| {
+                    eprintln!("  \x1b[31m✗\x1b[0m Failed to write {}: {}", output_path, e);
+                    std::process::exit(1);
+                });
+
+                println!("  \x1b[32m✓\x1b[0m Generated \x1b[1m{}\x1b[0m ({} lines)", output_path, lines);
+                println!("    {} entities, {} pages, {} routes", entities, pages, routes);
+                println!();
+
+                if auto_go {
+                    println!("  Running seed + run...");
+                    let _ = std::process::Command::new(std::env::current_exe().unwrap())
+                        .args(&["seed", output_path])
+                        .status();
+                    let _ = std::process::Command::new(std::env::current_exe().unwrap())
+                        .args(&["run", output_path])
+                        .status();
+                } else {
+                    println!("  Next: \x1b[1mcronus run {}\x1b[0m", output_path);
+                }
+                return;
+            }
+            Err(e) => {
+                if attempt >= max_retries {
+                    eprintln!("  \x1b[31m✗\x1b[0m Failed to generate valid .cronus after {} attempts", max_retries);
+                    eprintln!("  Last parse error: {}", e);
+                    // Save the last attempt for debugging
+                    let debug_path = format!("{}.failed.txt", output_path);
+                    let _ = fs::write(&debug_path, &source);
+                    eprintln!("  Raw output saved to {}", debug_path);
+                    std::process::exit(1);
+                }
+                println!("  \x1b[33m!\x1b[0m Attempt {} had parse errors, retrying...", attempt);
+                extra_context = format!(
+                    "Your previous output had parse errors:\n{}\n\nPlease fix these errors and output ONLY valid .cronus code.",
+                    e
+                );
+            }
+        }
+    }
+}
+
+fn strip_markdown_fences(input: &str) -> String {
+    let trimmed = input.trim();
+
+    // Check for ```cronus or ``` at the start
+    if trimmed.starts_with("```") {
+        let after_opening = if let Some(pos) = trimmed.find('\n') {
+            &trimmed[pos + 1..]
+        } else {
+            return trimmed.to_string();
+        };
+        // Remove trailing ```
+        let result = if let Some(pos) = after_opening.rfind("```") {
+            &after_opening[..pos]
+        } else {
+            after_opening
+        };
+        return result.trim().to_string();
+    }
+
+    trimmed.to_string()
+}
+
+fn extract_api_text(json: &str) -> String {
+    // Minimal JSON parsing: find "text":" and extract the value
+    // Looking for: "content":[{"type":"text","text":"..."}]
+    if let Some(text_pos) = json.find("\"text\":\"") {
+        let start = text_pos + 8; // skip "text":"
+        let rest = &json[start..];
+        let mut result = String::new();
+        let mut chars = rest.chars();
+        while let Some(c) = chars.next() {
+            match c {
+                '\\' => {
+                    if let Some(escaped) = chars.next() {
+                        match escaped {
+                            'n' => result.push('\n'),
+                            't' => result.push('\t'),
+                            '"' => result.push('"'),
+                            '\\' => result.push('\\'),
+                            '/' => result.push('/'),
+                            _ => { result.push('\\'); result.push(escaped); }
+                        }
+                    }
+                }
+                '"' => break,
+                _ => result.push(c),
+            }
+        }
+        result
+    } else {
+        String::new()
+    }
+}
+
 
 fn extract_app_name(desc: &str) -> String {
     let words: Vec<&str> = desc.split_whitespace().collect();
