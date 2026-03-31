@@ -83,6 +83,49 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
       });
     });
 
+    // Action buttons (data-cronus-action)
+    document.querySelectorAll('[data-cronus-action]').forEach(function(btn){
+      if(btn._cronusAction) return;
+      btn._cronusAction=true;
+      btn.addEventListener('click',async function(){
+        var confirmMsg=btn.dataset.cronusConfirm;
+        if(confirmMsg&&!confirm(confirmMsg)) return;
+        var action;
+        try{action=JSON.parse(btn.dataset.cronusAction);}catch(e){console.error('CRONUS: invalid action JSON',e);return;}
+        var entity=btn.dataset.cronusEntity||'';
+        var id=btn.dataset.cronusId||'';
+        var section=btn.dataset.cronusSection||'';
+        // Dispatch custom event so runtime_js (or user code) can handle it
+        var ev=new CustomEvent('cronus:action',{bubbles:true,detail:{action:action,entity:entity,id:id,section:section,button:btn}});
+        btn.dispatchEvent(ev);
+      });
+    });
+
+    // Form submission with data-cronus-form
+    document.querySelectorAll('form[data-cronus-form]').forEach(function(form){
+      if(form._cronusForm) return;
+      form._cronusForm=true;
+      form.addEventListener('submit',async function(e){
+        e.preventDefault();
+        var entity=form.dataset.cronusEntity||form.dataset.entity||'';
+        var section=form.dataset.cronusSection||'';
+        var data=Object.fromEntries(new FormData(form));
+        var ev=new CustomEvent('cronus:form-submit',{bubbles:true,cancelable:true,detail:{entity:entity,section:section,data:data,form:form}});
+        if(!form.dispatchEvent(ev)) return;
+        // Default: POST to API
+        if(entity){
+          var btn=form.querySelector('button[type=submit]');
+          if(btn){btn.disabled=true;btn.textContent='Saving...';}
+          try{
+            var res=await fetch('/api/'+entity+'s',{method:form.method||'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+            if(res.ok){form.reset();window.location.reload();}
+            else{var err=await res.json();alert(err.error||'Error');}
+          }catch(e){alert('Network error');}
+          finally{if(btn){btn.disabled=false;btn.textContent='Submit';}}
+        }
+      });
+    });
+
     // Tab switches
     document.querySelectorAll('[data-tab]').forEach(function(btn){
       if(btn._cronus) return;

@@ -432,6 +432,7 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
     }});
   </script>
   {anim_js}
+  {action_js}
 </body>
 </html>"#,
         app_name = app_name,
@@ -443,6 +444,7 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
         runtime = super::render::CRONUS_RUNTIME_JS,
         animate_js = super::animations::CRONUS_ANIMATE_JS,
         hmr = super::hmr::HMR_CLIENT_JS,
+        action_js = super::runtime_js::CRONUS_ACTION_JS,
     )
 }
 
@@ -605,6 +607,7 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str) -> String 
     }});
   </script>
   {anim_js}
+  {action_js}
 </body>
 </html>"##,
         app_name = app_name,
@@ -616,6 +619,7 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str) -> String 
         tailwind_css = super::tailwind::CRONUS_TAILWIND,
         runtime = super::render::CRONUS_RUNTIME_JS,
         hmr = super::hmr::HMR_CLIENT_JS,
+        action_js = super::runtime_js::CRONUS_ACTION_JS,
     )
 }
 
@@ -4038,12 +4042,37 @@ fn render_card_section(section: &SectionNode) -> String {
                 ));
             }
             "action" => {
-                items_html.push_str(&format!(
-                    r#"<div style="margin-top:8px">
+                let on_click = item.get("on_click");
+                if let Some(action_json) = on_click {
+                    // Action button with data attributes for the runtime action system
+                    let entity_attr = section.config.get("entity")
+                        .or_else(|| section.binding.as_ref().map(|b| &b.entity))
+                        .map(|e| format!(r#" data-cronus-entity="{}""#, e))
+                        .unwrap_or_default();
+                    let section_attr = format!(r#" data-cronus-section="{}""#, section.section_type);
+                    let confirm_attr = item.get("confirm")
+                        .map(|c| format!(r#" data-cronus-confirm="{}""#, c))
+                        .unwrap_or_default();
+                    let escaped_json = action_json.replace('"', "&quot;");
+                    items_html.push_str(&format!(
+                        r#"<div style="margin-top:8px">
+  <button type="button" data-cronus-action="{action_json}"{entity_attr}{section_attr}{confirm_attr} style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;font-size:14px;font-weight:600;color:#fff;background:#1a1c1c;border-radius:8px;border:none;cursor:pointer;transition:opacity 0.15s;font-family:inherit" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">{title}</button>
+</div>"#,
+                        action_json = escaped_json,
+                        entity_attr = entity_attr,
+                        section_attr = section_attr,
+                        confirm_attr = confirm_attr,
+                        title = item_title,
+                    ));
+                } else {
+                    // Regular link action
+                    items_html.push_str(&format!(
+                        r#"<div style="margin-top:8px">
   <a href="{href}" style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;font-size:14px;font-weight:600;color:#fff;background:#1a1c1c;border-radius:8px;text-decoration:none;transition:opacity 0.15s" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">{title}</a>
 </div>"#,
-                    href = href, title = item_title,
-                ));
+                        href = href, title = item_title,
+                    ));
+                }
             }
             "row" => {
                 let status_badge = if !status.is_empty() {
@@ -4345,7 +4374,7 @@ fn render_form_section(section: &SectionNode) -> String {
     <h2 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;margin:0 0 8px" class="anim-slide-up d1">{title}</h2>
     {subtitle_html}
   </div>
-  <form id="cronus-form" action="{action}" method="{method}"{data_entity} style="display:flex;flex-direction:column;gap:20px" class="anim-slide-up d3">
+  <form id="cronus-form" action="{action}" method="{method}"{data_entity} data-cronus-form data-cronus-section="{section_type}" style="display:flex;flex-direction:column;gap:20px" class="anim-slide-up d3">
     {fields}
     <div id="form-msg" style="display:none;padding:12px 16px;border-radius:8px;font-size:14px;font-weight:500"></div>
     {actions}
@@ -4353,7 +4382,7 @@ fn render_form_section(section: &SectionNode) -> String {
   </form>
 </section>"##,
         title = title, subtitle_html = subtitle_html, action = action, method = method,
-        data_entity = data_entity, fields = fields_html, actions = actions_html, links = links_html,
+        data_entity = data_entity, section_type = section.section_type, fields = fields_html, actions = actions_html, links = links_html,
     )
 }
 
