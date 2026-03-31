@@ -70,7 +70,7 @@ static TABLE_CONTRACT: SectionContract = SectionContract {
     requires_items: true,
     min_items: 1,
     config_keys: &["title", "entity", "responsive", "live"],
-    structural_keys: &[req("name"), opt("column"), opt("badge"), opt("status"), opt("customer"), opt("amount"), opt("date")],
+    structural_keys: &[req("name"), opt("column"), opt("badge"), opt("status")],
     entity_binding: true,
     on_unknown_key: Fallback::Warn,
     on_missing_required: Fallback::Error,
@@ -275,7 +275,7 @@ pub enum ParseWarning {
 
 // ── Validation ──────────────────────────────────────────────────────────────
 
-pub fn validate_section(section: &SectionNode, _entities: &[String]) -> Vec<ParseWarning> {
+pub fn validate_section(section: &SectionNode, entity_fields: &[String]) -> Vec<ParseWarning> {
     let mut warnings: Vec<ParseWarning> = Vec::new();
     let name = section.section_type.as_str();
 
@@ -304,24 +304,32 @@ pub fn validate_section(section: &SectionNode, _entities: &[String]) -> Vec<Pars
         }
     };
 
-    // 3. Validate items against structural keys
+    // TWO-NAMESPACE KEY VALIDATION:
+    // Keys in entity-bound sections (table, form) come from two namespaces:
+    //   1. Structural keys — defined in the contract (e.g. "column", "badge")
+    //   2. Entity fields — from the bound entity (e.g. "customer", "amount")
+    // If entity_binding is true but no entity fields were provided,
+    // we can't validate entity-bound keys — skip unknown key warnings entirely.
+    // TODO: Thread entity fields from page context through render_section.
+    let skip_entity_key_check = contract.entity_binding && entity_fields.is_empty();
+
+    // 3. Validate items against structural keys + entity fields
     for item in &section.items {
         let item_name = item.get("name").cloned().unwrap_or_default();
 
         // Check for unknown keys
         for key in item.keys() {
             let is_structural = contract.structural_keys.iter().any(|k| k.name == key.as_str());
-            if !is_structural {
+            let is_entity_field = contract.entity_binding && entity_fields.contains(key);
+            let is_meta = key == "_type" || key == "title" || key == "name" || key == "description";
+
+            if !is_structural && !is_entity_field && !is_meta {
+                if skip_entity_key_check {
+                    // Can't validate — entity fields not available yet. Skip.
+                    continue;
+                }
                 match contract.on_unknown_key {
-                    Fallback::Warn => {
-                        warnings.push(ParseWarning::UnknownKey {
-                            section: contract.name.to_string(),
-                            key: key.clone(),
-                            item: item_name.clone(),
-                            line: 0,
-                        });
-                    }
-                    Fallback::Error => {
+                    Fallback::Warn | Fallback::Error => {
                         warnings.push(ParseWarning::UnknownKey {
                             section: contract.name.to_string(),
                             key: key.clone(),
