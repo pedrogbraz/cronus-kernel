@@ -147,6 +147,13 @@ pub struct ApiNode {
 }
 
 #[derive(Debug, Clone)]
+pub struct VisibilityCondition {
+    pub field: String,
+    pub operator: String,  // "==", "!=", ">", "<", ">=", "<="
+    pub value: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct SectionNode {
     pub section_type: String,
     pub title: Option<String>,
@@ -156,6 +163,7 @@ pub struct SectionNode {
     pub plans: Vec<PlanNode>,
     pub binding: Option<BindingNode>,
     pub actions: Vec<ActionBlock>,
+    pub visibility: Option<VisibilityCondition>,
 }
 
 #[derive(Debug, Clone)]
@@ -174,6 +182,20 @@ pub struct BindingNode {
     pub order: Option<OrderExpr>,
     pub limit: Option<usize>,
     pub offset: Option<usize>,
+    pub group_by: Option<GroupByExpr>,
+    pub aggregate: Option<AggregateExpr>,
+}
+
+#[derive(Debug, Clone)]
+pub struct GroupByExpr {
+    pub field: String,
+    pub interval: Option<String>, // "month", "week", "day", "year"
+}
+
+#[derive(Debug, Clone)]
+pub struct AggregateExpr {
+    pub function: String,        // "sum", "count", "avg", "min", "max"
+    pub field: Option<String>,   // None for count, Some("amount") for sum(amount)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -368,6 +390,7 @@ enum TokenKind {
     Method,
     Path,
     EnvRef,
+    Operator,
     Eof,
 }
 
@@ -435,6 +458,38 @@ fn tokenize(source: &str) -> Vec<Token> {
                 ',' => { tokens.push(Token { kind: TokenKind::Comma, value: ",".into(), line: line_num }); i += 1; continue; }
                 '+' => { tokens.push(Token { kind: TokenKind::Plus, value: "+".into(), line: line_num }); i += 1; continue; }
                 _ => {}
+            }
+
+            // comparison operators: ==, !=, >=, <=, >, <
+            if chars[i] == '=' && i + 1 < chars.len() && chars[i + 1] == '=' {
+                tokens.push(Token { kind: TokenKind::Operator, value: "==".into(), line: line_num });
+                i += 2;
+                continue;
+            }
+            if chars[i] == '!' && i + 1 < chars.len() && chars[i + 1] == '=' {
+                tokens.push(Token { kind: TokenKind::Operator, value: "!=".into(), line: line_num });
+                i += 2;
+                continue;
+            }
+            if chars[i] == '>' && i + 1 < chars.len() && chars[i + 1] == '=' {
+                tokens.push(Token { kind: TokenKind::Operator, value: ">=".into(), line: line_num });
+                i += 2;
+                continue;
+            }
+            if chars[i] == '<' && i + 1 < chars.len() && chars[i + 1] == '=' {
+                tokens.push(Token { kind: TokenKind::Operator, value: "<=".into(), line: line_num });
+                i += 2;
+                continue;
+            }
+            if chars[i] == '>' {
+                tokens.push(Token { kind: TokenKind::Operator, value: ">".into(), line: line_num });
+                i += 1;
+                continue;
+            }
+            if chars[i] == '<' {
+                tokens.push(Token { kind: TokenKind::Operator, value: "<".into(), line: line_num });
+                i += 1;
+                continue;
             }
 
             // arrow ->
@@ -985,6 +1040,24 @@ impl Parser {
             }
         }
 
+        // Parse visibility condition: show:when field == "value"
+        let mut visibility = None;
+        if config.get("show").map(|v| v.as_str()) == Some("when") {
+            config.remove("show");
+            let field = self.advance().value;
+            let op_raw = if self.peek().kind == TokenKind::Operator {
+                self.advance().value
+            } else {
+                "==".to_string() // default operator
+            };
+            let value = if self.peek().kind == TokenKind::StringLit {
+                self.advance().value
+            } else {
+                self.advance().value
+            };
+            visibility = Some(VisibilityCondition { field, operator: op_raw, value });
+        }
+
         self.expect(TokenKind::LBrace)?;
 
         let mut title = None;
@@ -1264,6 +1337,24 @@ impl Parser {
                     if self.matches(TokenKind::RBrace, None) { self.advance(); }
                 }
                 items.push(map);
+            } else if self.matches(TokenKind::Identifier, Some("search")) {
+                // search "field1,field2" — store in config for renderer
+                self.advance();
+                if self.peek().kind == TokenKind::StringLit {
+                    config.insert("search".into(), self.advance().value);
+                } else {
+                    config.insert("search".into(), String::new());
+                }
+            } else if self.matches(TokenKind::Identifier, Some("paginate")) {
+                // paginate 25 — store per-page count in config
+                self.advance();
+                if self.peek().kind == TokenKind::Number {
+                    config.insert("paginate".into(), self.advance().value);
+                } else if self.peek().kind == TokenKind::Identifier {
+                    config.insert("paginate".into(), self.advance().value);
+                } else {
+                    config.insert("paginate".into(), "25".into());
+                }
             } else if self.matches(TokenKind::Keyword, Some("on")) || self.matches(TokenKind::Identifier, Some("on")) {
                 self.advance(); // consume "on"
                 let action_block = self.parse_action_block()?;
@@ -1302,11 +1393,13 @@ impl Parser {
                     order: None,
                     limit: None,
                     offset: None,
+                    group_by: None,
+                    aggregate: None,
                 });
             }
         }
 
-        Ok(SectionNode { section_type, title, subtitle, config, items, plans, binding, actions: section_actions })
+        Ok(SectionNode { section_type, title, subtitle, config, items, plans, binding, actions: section_actions, visibility })
     }
 
     fn parse_section_item(&mut self) -> Result<HashMap<String, String>, String> {
@@ -1514,6 +1607,8 @@ impl Parser {
         let mut order = None;
         let mut limit = None;
         let mut offset = None;
+        let mut group_by = None;
+        let mut aggregate = None;
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
             let kw = self.advance();
@@ -1541,7 +1636,7 @@ impl Parser {
                         _ => FilterOp::Eq,
                     };
                     let val_token = self.advance();
-                    let value = if val_token.value.starts_with("auth.") {
+                    let value = if val_token.value.starts_with("auth.") || val_token.value.starts_with("route.") {
                         BindingValue::AuthRef(val_token.value.clone())
                     } else if val_token.kind == TokenKind::StringLit {
                         BindingValue::Str(val_token.value.clone())
@@ -1571,13 +1666,35 @@ impl Parser {
                 "offset" => {
                     offset = Some(self.advance().value.parse::<usize>().unwrap_or(0));
                 }
+                "group" => {
+                    let field = self.advance().value.clone();
+                    let mut interval = None;
+                    if self.peek().kind == TokenKind::ColonPair {
+                        let (k, v) = Self::split_colon_pair(&self.advance().value);
+                        if k == "by" {
+                            interval = Some(v);
+                        }
+                    }
+                    group_by = Some(GroupByExpr { field, interval });
+                }
+                "aggregate" => {
+                    let func_or_expr = self.advance().value.clone();
+                    if func_or_expr.contains('(') {
+                        let paren = func_or_expr.find('(').unwrap();
+                        let func = func_or_expr[..paren].to_string();
+                        let agg_field = func_or_expr[paren+1..].trim_end_matches(')').to_string();
+                        aggregate = Some(AggregateExpr { function: func, field: Some(agg_field) });
+                    } else {
+                        aggregate = Some(AggregateExpr { function: func_or_expr, field: None });
+                    }
+                }
                 _ => {} // skip unknown
             }
         }
 
         self.expect(TokenKind::RBrace)?;
 
-        Ok(BindingNode { entity: entity_name, query, filters, order, limit, offset })
+        Ok(BindingNode { entity: entity_name, query, filters, order, limit, offset, group_by, aggregate })
     }
 
     // ── style ──

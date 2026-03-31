@@ -1046,14 +1046,14 @@ fn render_light_support_banner(comp: &ComponentNode) -> String {
 // PAGE RENDERER (returns inner body HTML)
 // ══════════════════════════════════════════════════
 
-pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str, theme: &str, db: Option<&crate::database::CronusDB>) -> String {
+pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str, theme: &str, db: Option<&crate::database::CronusDB>, route_params: &std::collections::HashMap<String, String>) -> String {
     match page.page_type.as_str() {
         // TODO: pass db to dashboard/list/form/detail when they need binding support
         "dashboard" => render_dashboard(page, entities, accent),
         "list" => render_list(page, entities, accent),
         "form" => render_form(page, entities, accent),
         "detail" => render_list(page, entities, accent),
-        "custom" => render_custom(page, accent, theme, db),
+        "custom" => render_custom(page, accent, theme, db, route_params),
         "checkout" => render_checkout(page),
         "components" => {
             // page type:components — placeholder, actual rendering happens in main.rs
@@ -1860,14 +1860,14 @@ fn render_detail(page: &PageNode, _entities: &[EntityNode], accent: &str) -> Str
 // CUSTOM PAGE (sections: hero, features, pricing)
 // ══════════════════════════════════════════════════
 
-fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::database::CronusDB>) -> String {
+fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::database::CronusDB>, route_params: &std::collections::HashMap<String, String>) -> String {
     let mut html_parts: Vec<String> = Vec::new();
     let mut in_grid = false;
 
     for section in &page.sections {
         // Resolve binding against real DB (falls back to None if no DB)
         let bound_data = match db {
-            Some(db) => crate::binding::resolve_binding(section, db),
+            Some(db) => crate::binding::resolve_binding(section, db, route_params),
             None => crate::binding::ResolvedData::None,
         };
 
@@ -1903,6 +1903,32 @@ fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::
 }
 
 fn render_section(section: &SectionNode, accent: &str, theme: &str, bound_data: &crate::binding::ResolvedData) -> String {
+    // --- Conditional visibility ---
+    if let Some(ref cond) = section.visibility {
+        let eval_condition = |val: &serde_json::Value| -> bool {
+            let field_val = val.get(&cond.field).and_then(|v| v.as_str()).unwrap_or("");
+            match cond.operator.as_str() {
+                "==" => field_val == cond.value,
+                "!=" => field_val != cond.value,
+                ">" => field_val > cond.value.as_str(),
+                "<" => field_val < cond.value.as_str(),
+                ">=" => field_val >= cond.value.as_str(),
+                "<=" => field_val <= cond.value.as_str(),
+                _ => true,
+            }
+        };
+        let should_show = match bound_data {
+            crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => {
+                rows.first().map(|r| eval_condition(r)).unwrap_or(true)
+            }
+            crate::binding::ResolvedData::Record(Some(rec)) => eval_condition(rec),
+            _ => true, // No data to evaluate against, show by default
+        };
+        if !should_show {
+            return String::new();
+        }
+    }
+
     // --- Contract validation ---
     let warnings = crate::contracts::validate_section(section, &[]);
     let strict = crate::STRICT_MODE.load(std::sync::atomic::Ordering::Relaxed);
@@ -1968,7 +1994,7 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str, bound_data: 
         "activity-table" => render_activity_table(section),
         "edge" => render_edge(section, accent),
         "sidebar" => render_sidebar(section),
-        "form" => render_form_section(section),
+        "form" => render_form_section(section, bound_data),
         "card" | "live-keys" | "test-keys" | "webhooks" => render_card_section(section),
         "links" | "quick-links" => render_links_section(section),
         "tabs" => crate::tabs::render_tabs(section),
@@ -4169,13 +4195,45 @@ fn render_links_section(section: &SectionNode) -> String {
     )
 }
 
-fn render_form_section(section: &SectionNode) -> String {
+fn render_form_section(section: &SectionNode, bound_data: &crate::binding::ResolvedData) -> String {
     let title = section.title.as_deref().unwrap_or("Form");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
     let entity = section.config.get("entity").map(|s| s.as_str()).unwrap_or("");
+
+    // Check if we have a bound record (edit mode)
+    let bound_record = match bound_data {
+        crate::binding::ResolvedData::Record(Some(record)) => Some(record),
+        _ => None,
+    };
+    let is_edit = bound_record.is_some();
+    let record_id = bound_record
+        .and_then(|r| r.get("id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    // Check if on submit has "update entity" instruction
+    let has_update_action = section.actions.iter().any(|a| {
+        a.event == "submit" && a.instructions.iter().any(|i| i.verb == "update")
+    });
+
+    // Edit mode: use PATCH + include record ID in action URL
     let action = section.config.get("action").map(|s| s.to_string())
-        .unwrap_or_else(|| if !entity.is_empty() { format!("/api/{}s", entity.to_lowercase()) } else { "#".to_string() });
-    let method = section.config.get("method").map(|s| s.as_str()).unwrap_or("POST");
+        .unwrap_or_else(|| {
+            if !entity.is_empty() {
+                if (is_edit || has_update_action) && !record_id.is_empty() {
+                    format!("/api/{}s/{}", entity.to_lowercase(), record_id)
+                } else {
+                    format!("/api/{}s", entity.to_lowercase())
+                }
+            } else {
+                "#".to_string()
+            }
+        });
+    let method = if is_edit || has_update_action {
+        "PATCH"
+    } else {
+        section.config.get("method").map(|s| s.as_str()).unwrap_or("POST")
+    };
 
     let mut fields_html = String::new();
     let mut actions_html = String::new();
@@ -4192,7 +4250,31 @@ fn render_form_section(section: &SectionNode) -> String {
             let required = if item.get("required").map(|s| s == "true").unwrap_or(false) { "required" } else { "" };
             let disabled = if item.get("disabled").map(|s| s == "true").unwrap_or(false) { "disabled" } else { "" };
             let readonly = if item.get("readonly").map(|s| s == "true").unwrap_or(false) { "readonly" } else { "" };
-            let value = item.get("value").map(|s| s.as_str()).unwrap_or("");
+            // Pre-fill from bound record if in edit mode, otherwise use static value
+            let static_value = item.get("value").map(|s| s.as_str()).unwrap_or("");
+            let bound_value_owned: String;
+            let value = if let Some(record) = bound_record {
+                let field_val = record.get(&name_lower)
+                    .or_else(|| record.get(item_title));
+                match field_val {
+                    Some(serde_json::Value::String(s)) => s.as_str(),
+                    Some(serde_json::Value::Number(n)) => {
+                        bound_value_owned = n.to_string();
+                        bound_value_owned.as_str()
+                    }
+                    Some(serde_json::Value::Bool(b)) => {
+                        bound_value_owned = b.to_string();
+                        bound_value_owned.as_str()
+                    }
+                    Some(v) if !v.is_null() => {
+                        bound_value_owned = v.to_string();
+                        bound_value_owned.as_str()
+                    }
+                    _ => static_value,
+                }
+            } else {
+                static_value
+            };
 
             let label_style = "display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#71717a;margin-bottom:8px";
             let input_style = "width:100%;padding:12px 16px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;font-family:Inter,sans-serif;transition:border-color 0.2s;box-sizing:border-box";
@@ -4211,7 +4293,8 @@ fn render_form_section(section: &SectionNode) -> String {
                     let options: Vec<&str> = if options_raw.is_empty() { vec![] } else { options_raw.split("||").collect() };
                     let mut opts_html = format!(r#"<option value="">Select {}...</option>"#, item_title);
                     for opt in &options {
-                        opts_html.push_str(&format!(r#"<option value="{v}">{v}</option>"#, v = opt));
+                        let selected = if *opt == value { " selected" } else { "" };
+                        opts_html.push_str(&format!(r#"<option value="{v}"{sel}>{v}</option>"#, v = opt, sel = selected));
                     }
                     fields_html.push_str(&format!(
                         r#"<div><label style="{label_style}">{label}</label><select name="{name}" {required} {disabled} style="{input_style};appearance:none;background:#fff url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 12 12%22><path d=%22M2 4l4 4 4-4%22 fill=%22none%22 stroke=%22%2371717a%22 stroke-width=%221.5%22/></svg>') no-repeat right 12px center">{options}</select></div>"#,
@@ -4222,10 +4305,11 @@ fn render_form_section(section: &SectionNode) -> String {
                 "textarea" => {
                     let rows = item.get("rows").map(|s| s.as_str()).unwrap_or("4");
                     fields_html.push_str(&format!(
-                        r#"<div><label style="{label_style}">{label}</label><textarea name="{name}" rows="{rows}" placeholder="{placeholder}" {required} {disabled} {readonly} style="{input_style};resize:vertical" onfocus="this.style.borderColor='#000'" onblur="this.style.borderColor='#e5e7eb'"></textarea></div>"#,
+                        r#"<div><label style="{label_style}">{label}</label><textarea name="{name}" rows="{rows}" placeholder="{placeholder}" {required} {disabled} {readonly} style="{input_style};resize:vertical" onfocus="this.style.borderColor='#000'" onblur="this.style.borderColor='#e5e7eb'">{textarea_val}</textarea></div>"#,
                         label_style = label_style, label = item_title, name = name_lower,
                         rows = rows, placeholder = placeholder, required = required,
                         disabled = disabled, readonly = readonly, input_style = input_style,
+                        textarea_val = value,
                     ));
                 }
                 "checkbox" => {
@@ -4367,6 +4451,21 @@ fn render_form_section(section: &SectionNode) -> String {
     };
 
     let data_entity = if !entity.is_empty() { format!(r#" data-entity="{}""#, entity) } else { String::new() };
+    let data_cronus_entity = if !entity.is_empty() { format!(r#" data-cronus-entity="{}""#, entity) } else { String::new() };
+
+    // Edit mode: add data-cronus-id and data-cronus-method for the JS submit handler
+    let edit_attrs = if is_edit && !record_id.is_empty() {
+        format!(r#" data-cronus-id="{}" data-cronus-method="PATCH""#, record_id)
+    } else {
+        String::new()
+    };
+
+    // Hidden field for record ID in edit mode
+    let hidden_id = if is_edit && !record_id.is_empty() {
+        format!(r#"<input type="hidden" name="_id" value="{}">"#, record_id)
+    } else {
+        String::new()
+    };
 
     format!(
         r##"<section style="max-width:480px;margin:0 auto;padding:48px 24px">
@@ -4374,7 +4473,8 @@ fn render_form_section(section: &SectionNode) -> String {
     <h2 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;margin:0 0 8px" class="anim-slide-up d1">{title}</h2>
     {subtitle_html}
   </div>
-  <form id="cronus-form" action="{action}" method="{method}"{data_entity} data-cronus-form data-cronus-section="{section_type}" style="display:flex;flex-direction:column;gap:20px" class="anim-slide-up d3">
+  <form id="cronus-form" action="{action}" method="{method}"{data_entity}{data_cronus_entity} data-cronus-form data-cronus-section="{section_type}"{edit_attrs} style="display:flex;flex-direction:column;gap:20px" class="anim-slide-up d3">
+    {hidden_id}
     {fields}
     <div id="form-msg" style="display:none;padding:12px 16px;border-radius:8px;font-size:14px;font-weight:500"></div>
     {actions}
@@ -4382,7 +4482,9 @@ fn render_form_section(section: &SectionNode) -> String {
   </form>
 </section>"##,
         title = title, subtitle_html = subtitle_html, action = action, method = method,
-        data_entity = data_entity, section_type = section.section_type, fields = fields_html, actions = actions_html, links = links_html,
+        data_entity = data_entity, data_cronus_entity = data_cronus_entity,
+        section_type = section.section_type, edit_attrs = edit_attrs,
+        hidden_id = hidden_id, fields = fields_html, actions = actions_html, links = links_html,
     )
 }
 

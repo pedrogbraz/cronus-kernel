@@ -38,11 +38,21 @@ pub fn render_data_table(section: &SectionNode, bound_data: &crate::binding::Res
     };
     let mut html = String::new();
 
-    // Sort + bulk select JS (once per page)
+    // Search and pagination config
+    let search_fields = section.config.get("search").cloned().unwrap_or_default();
+    let has_search = section.config.contains_key("search");
+    let paginate_per: usize = section.config.get("paginate")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0);
+    let has_paginate = paginate_per > 0;
+
+    // Sort + bulk select + search + pagination JS (once per page)
     html.push_str(&format!(
         r##"<script>
 function cronusSortTable(tid,ci){{var t=document.getElementById(tid);if(!t)return;var tb=t.querySelector('tbody');var rs=Array.from(tb.rows);var d=t.dataset.sortDir==='asc'?'desc':'asc';t.dataset.sortDir=d;rs.sort(function(a,b){{var av=a.cells[ci].textContent.trim();var bv=b.cells[ci].textContent.trim();var r=av.localeCompare(bv,undefined,{{numeric:true}});return d==='asc'?r:-r;}});rs.forEach(function(r){{tb.appendChild(r);}});t.querySelectorAll('thead th[data-sort] .sa').forEach(function(s,i){{s.textContent=i+1===ci?(d==='asc'?'▲':'▼'):'';}});}}
 function cronusBulkSelect(tid,cb){{var t=document.getElementById(tid);if(!t)return;t.querySelectorAll('tbody input[type=checkbox]').forEach(function(c){{c.checked=cb.checked;}});}}
+function cronusSearch(tid){{var w=document.getElementById(tid);if(!w)return;var input=w.querySelector('[data-cronus-search]');var tbl=w.querySelector('table');if(!input||!tbl)return;input.addEventListener('input',function(){{var term=this.value.toLowerCase();tbl.querySelectorAll('tbody tr').forEach(function(tr){{var txt=Array.from(tr.cells).map(function(c){{return c.textContent.toLowerCase();}}).join(' ');tr.style.display=txt.indexOf(term)>=0?'':'none';}});if(w._cronusPaginate)w._cronusPaginate(0);}});}}
+function cronusPaginate(tid,perPage){{var w=document.getElementById(tid);if(!w)return;var tbl=w.querySelector('table');if(!tbl)return;var info=w.querySelector('[data-page-info]');var prevBtn=w.querySelector('[data-cronus-page="prev"]');var nextBtn=w.querySelector('[data-cronus-page="next"]');var page=0;function show(p){{var rows=Array.from(tbl.querySelectorAll('tbody tr')).filter(function(r){{return r.style.display!=='none'||!r.style.display;}});var visible=Array.from(tbl.querySelectorAll('tbody tr')).filter(function(r){{return r.style.display!=='none';}});var total=visible.length;var tp=Math.max(1,Math.ceil(total/perPage));if(p<0)p=0;if(p>=tp)p=tp-1;page=p;visible.forEach(function(r,i){{r.style.display=(i>=p*perPage&&i<(p+1)*perPage)?'':'none';}});if(info)info.textContent='Showing '+(total===0?'0':((p*perPage+1)+'-'+Math.min((p+1)*perPage,total)))+' of '+total;if(prevBtn)prevBtn.disabled=p<=0;if(nextBtn)nextBtn.disabled=p>=tp-1;}}w._cronusPaginate=show;show(0);if(prevBtn)prevBtn.addEventListener('click',function(){{show(page-1);}});if(nextBtn)nextBtn.addEventListener('click',function(){{show(page+1);}});}}
 </script>"##
     ));
 
@@ -55,6 +65,13 @@ function cronusBulkSelect(tid,cb){{var t=document.getElementById(tid);if(!t)retu
     if !title.is_empty() {
         html.push_str(&format!(
             r#"<div style="padding:16px 16px 0;font-size:16px;font-weight:600;color:#1a1c1c">{title}</div>"#
+        ));
+    }
+
+    // Search bar
+    if has_search {
+        html.push_str(&format!(
+            r#"<div style="padding:12px 16px 0"><input type="text" placeholder="Search..." data-cronus-search="{table_id}" data-search-fields="{search_fields}" style="padding:8px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;color:#374151;width:300px;font-size:14px;outline:none;transition:border-color 0.15s" onfocus="this.style.borderColor='#000'" onblur="this.style.borderColor='#e5e7eb'"></div>"#
         ));
     }
 
@@ -171,12 +188,33 @@ function cronusBulkSelect(tid,cb){{var t=document.getElementById(tid);if(!t)retu
     html.push_str("</tbody>");
 
     // ── Footer ──
-    html.push_str(&format!(
-        r#"<tfoot><tr><td colspan="{}" style="padding:12px 16px;font-size:13px;color:#71717a;border-top:1px solid #e5e7eb">Showing {row_count} items</td></tr></tfoot>"#,
-        columns.len() + 1
-    ));
+    if has_paginate {
+        html.push_str("</table>");
+        // Pagination controls
+        html.push_str(&format!(
+            r#"<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-top:1px solid #e5e7eb"><span data-page-info style="font-size:13px;color:#71717a">Showing 1-{paginate_per} of {row_count}</span><div style="display:flex;gap:4px"><button data-cronus-page="prev" style="padding:6px 14px;font-size:13px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;color:#374151;cursor:pointer" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='#fff'">Previous</button><button data-cronus-page="next" style="padding:6px 14px;font-size:13px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;color:#374151;cursor:pointer" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='#fff'">Next</button></div></div>"#
+        ));
+    } else {
+        html.push_str(&format!(
+            r#"<tfoot><tr><td colspan="{}" style="padding:12px 16px;font-size:13px;color:#71717a;border-top:1px solid #e5e7eb">Showing {row_count} items</td></tr></tfoot>"#,
+            columns.len() + 1
+        ));
+        html.push_str("</table>");
+    }
 
-    html.push_str("</table></div>");
+    // Initialization script for search + pagination
+    let mut init_js = String::new();
+    if has_search {
+        init_js.push_str(&format!("cronusSearch('{table_id}');"));
+    }
+    if has_paginate {
+        init_js.push_str(&format!("cronusPaginate('{table_id}',{paginate_per});"));
+    }
+    if !init_js.is_empty() {
+        html.push_str(&format!(r#"<script>document.addEventListener('DOMContentLoaded',function(){{{init_js}}});</script>"#));
+    }
+
+    html.push_str("</div>");
     html
 }
 

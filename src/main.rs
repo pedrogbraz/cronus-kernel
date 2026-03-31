@@ -722,6 +722,21 @@ async fn handle_request(
     });
 
     if let Some(page) = page {
+        // Extract route params from parameterized routes (e.g. /orders/:id/edit)
+        let route_params: std::collections::HashMap<String, String> = {
+            let mut params = std::collections::HashMap::new();
+            if page.route.contains(':') {
+                let route_parts: Vec<&str> = page.route.split('/').collect();
+                let path_parts: Vec<&str> = path.split('/').collect();
+                for (rp, pp) in route_parts.iter().zip(path_parts.iter()) {
+                    if let Some(param_name) = rp.strip_prefix(':') {
+                        params.insert(param_name.to_string(), pp.to_string());
+                    }
+                }
+            }
+            params
+        };
+
         if let Some(source_path) = page.config.get("source") {
             match std::fs::read_to_string(source_path) {
                 Ok(html) => {
@@ -772,7 +787,7 @@ async fn handle_request(
         }
 
         let theme = state.style.as_ref().and_then(|s| s.theme.as_deref()).unwrap_or("dark");
-        let mut body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db));
+        let mut body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params);
 
         // If page references components (via `use ComponentName`), render them
         // BUT skip if page has sidebar component — dashboard renderers handle their own chrome
