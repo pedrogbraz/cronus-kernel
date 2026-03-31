@@ -2010,7 +2010,7 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str, bound_data: 
         "not-found" | "404" => render_not_found_section(section),
         "kpi" => render_kpi_section(section, bound_data),
         "timeline" => render_timeline_section(section, bound_data),
-        "progress" => render_progress_section(section),
+        "progress" => render_progress_section(section, bound_data),
         "command" => crate::command_palette::render_command_palette(section),
         "table" => crate::data_table::render_data_table(section, bound_data),
         "pagination" => crate::data_table::render_pagination(section),
@@ -9345,7 +9345,7 @@ fn render_timeline_section(section: &SectionNode, bound_data: &crate::binding::R
 // PROGRESS / STEPS SECTION
 // ══════════════════════════════════════════════════
 
-fn render_progress_section(section: &SectionNode) -> String {
+fn render_progress_section(section: &SectionNode, bound_data: &crate::binding::ResolvedData) -> String {
     let title = section.title.as_deref().unwrap_or("");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
 
@@ -9360,8 +9360,41 @@ fn render_progress_section(section: &SectionNode) -> String {
         format!(r#"<div style="margin-bottom:32px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{}</h2>{}</div>"#, title, sub)
     };
 
+    // Convert bound data rows into items format
+    let items_from_data: Vec<std::collections::HashMap<String, String>> = match bound_data {
+        crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => {
+            rows.iter().filter_map(|row| {
+                let obj = row.as_object()?;
+                let mut map = std::collections::HashMap::new();
+                if let Some(t) = obj.get("title").or(obj.get("name")).and_then(|v| v.as_str()) {
+                    map.insert("title".to_string(), t.to_string());
+                }
+                if let Some(s) = obj.get("status").and_then(|v| v.as_str()) {
+                    map.insert("status".to_string(), s.to_string());
+                }
+                if let Some(d) = obj.get("description").and_then(|v| v.as_str()) {
+                    map.insert("description".to_string(), d.to_string());
+                }
+                if let Some(v) = obj.get("value").and_then(|v| v.as_str()) {
+                    map.insert("value".to_string(), v.to_string());
+                }
+                if let Some(ic) = obj.get("icon").and_then(|v| v.as_str()) {
+                    map.insert("icon".to_string(), ic.to_string());
+                }
+                Some(map)
+            }).collect()
+        }
+        _ => Vec::new(),
+    };
+
+    let items: &Vec<std::collections::HashMap<String, String>> = if items_from_data.is_empty() {
+        &section.items
+    } else {
+        &items_from_data
+    };
+
     let mut steps_html = String::new();
-    for (i, item) in section.items.iter().enumerate() {
+    for (i, item) in items.iter().enumerate() {
         let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
         let desc = item.get("description").map(|s| s.as_str()).unwrap_or("");
         let status = item.get("status").map(|s| s.as_str()).unwrap_or("pending");
