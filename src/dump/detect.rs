@@ -61,9 +61,10 @@ pub fn detect_sections(nodes: &[DomNode]) -> Vec<SectionBlueprint> {
         let blueprint = match section_type {
             "topbar" => extract_topbar(node),
             "hero" => extract_hero(node),
-            "features" => extract_features(node),
+            "features" | "faq" => extract_features(node),
             "testimonial" => extract_testimonials(node),
             "stats" => extract_stats(node),
+            "pricing" => extract_pricing(node),
             "cta" => extract_cta(node),
             "footer" => extract_footer(node),
             "terminal" => extract_terminal(node),
@@ -135,9 +136,10 @@ fn split_and_detect(node: &DomNode) -> Vec<SectionBlueprint> {
             let blueprint = match child_type {
                 "topbar" => extract_topbar(child),
                 "hero" => extract_hero(child),
-                "features" => extract_features(child),
+                "features" | "faq" => extract_features(child),
                 "testimonial" => extract_testimonials(child),
                 "stats" => extract_stats(child),
+                "pricing" => extract_pricing(child),
                 "cta" => extract_cta(child),
                 "footer" => extract_footer(child),
                 "terminal" => extract_terminal(child),
@@ -1400,21 +1402,65 @@ fn extract_stats(node: &DomNode) -> SectionBlueprint {
 
     let title = find_heading_by_tag(node, "h2")
         .or_else(|| dom::find_heading(node));
+    let subtitle = find_subtitle_paragraph(node, &title);
 
-    // Stats are typically cards with a large number and a label
-    let cards = find_card_children(node);
-    for card in &cards {
-        // Large number: look for text with large font size classes
-        let large_text = find_large_text(card);
-        let label = find_small_label(card);
+    // Try BEM-style stat cards first (stat-card__value + stat-card__label)
+    // find_by_class matches substrings, so "stat-card" also matches "stat-card__value".
+    // Filter to only the BEM block element (exact class "stat-card", not "stat-card__*").
+    let all_stat_nodes = dom::find_by_class(node, "stat-card");
+    let stat_cards: Vec<&DomNode> = all_stat_nodes.into_iter()
+        .filter(|n| n.classes.iter().any(|c| c == "stat-card"))
+        .collect();
+    if !stat_cards.is_empty() {
+        for card in &stat_cards {
+            // Find __value child (not the card itself)
+            let value = dom::find_by_class(card, "__value")
+                .into_iter()
+                .filter(|n| !std::ptr::eq(*n, *card))
+                .next()
+                .map(|v| dom::clean_node_text(v))
+                .unwrap_or_default();
+            let label = dom::find_by_class(card, "__label")
+                .into_iter()
+                .filter(|n| !std::ptr::eq(*n, *card))
+                .next()
+                .map(|l| dom::clean_node_text(l))
+                .unwrap_or_default();
 
-        if large_text.is_some() || label.is_some() {
-            items.push(ItemBlueprint {
-                item_type: "item".into(),
-                title: label.unwrap_or_default(),
-                description: large_text,
-                config: HashMap::new(),
-            });
+            if !value.is_empty() || !label.is_empty() {
+                let mut config = HashMap::new();
+                if !value.is_empty() {
+                    config.insert("value".into(), value);
+                }
+                items.push(ItemBlueprint {
+                    item_type: "stat".into(),
+                    title: label,
+                    description: None,
+                    config,
+                });
+            }
+        }
+    }
+
+    // Fallback: Tailwind utility class approach
+    if items.is_empty() {
+        let cards = find_card_children(node);
+        for card in &cards {
+            let large_text = find_large_text(card);
+            let label = find_small_label(card);
+
+            if large_text.is_some() || label.is_some() {
+                let mut config = HashMap::new();
+                if let Some(ref val) = large_text {
+                    config.insert("value".into(), val.clone());
+                }
+                items.push(ItemBlueprint {
+                    item_type: "stat".into(),
+                    title: label.unwrap_or_default(),
+                    description: None,
+                    config,
+                });
+            }
         }
     }
 
@@ -1424,7 +1470,7 @@ fn extract_stats(node: &DomNode) -> SectionBlueprint {
             let text = child.full_text.trim().to_string();
             if looks_like_stat(&text) {
                 items.push(ItemBlueprint {
-                    item_type: "item".into(),
+                    item_type: "stat".into(),
                     title: text,
                     description: None,
                     config: HashMap::new(),
@@ -1433,12 +1479,18 @@ fn extract_stats(node: &DomNode) -> SectionBlueprint {
         }
     }
 
+    // Determine cols from item count
+    let mut section_config = HashMap::new();
+    if items.len() >= 3 {
+        section_config.insert("cols".into(), items.len().to_string());
+    }
+
     SectionBlueprint {
         section_type: "stats".into(),
         confidence: 0.0,
         title,
-        subtitle: None,
-        config: HashMap::new(),
+        subtitle,
+        config: section_config,
         items,
     }
 }
@@ -1474,6 +1526,24 @@ fn find_small_label(node: &DomNode) -> Option<String> {
     dom::find_paragraph(node)
 }
 
+/// Find subtitle paragraph that is NOT the section title.
+fn find_subtitle_paragraph(node: &DomNode, title: &Option<String>) -> Option<String> {
+    let paragraphs = dom::find_by_tag(node, "p");
+    for p in &paragraphs {
+        let text = dom::clean_node_text(p);
+        if !text.is_empty() && text.len() < 200 {
+            // Skip if same as title
+            if let Some(ref t) = title {
+                if text == *t {
+                    continue;
+                }
+            }
+            return Some(text);
+        }
+    }
+    None
+}
+
 /// Rough check if text looks like a stat (contains digits, %, +, K, M, etc).
 fn looks_like_stat(text: &str) -> bool {
     let trimmed = text.trim();
@@ -1492,54 +1562,85 @@ fn extract_testimonials(node: &DomNode) -> SectionBlueprint {
 
     let title = find_heading_by_tag(node, "h2")
         .or_else(|| dom::find_heading(node));
-    let subtitle = dom::find_paragraph(node);
+    let subtitle = find_subtitle_paragraph(node, &title);
 
     // Collect testimonial cards: look for children (or grandchildren) that
     // contain a quote paragraph and an author name.
     let mut items: Vec<ItemBlueprint> = Vec::new();
 
-    fn collect_testimonial_cards(parent: &DomNode, out: &mut Vec<ItemBlueprint>) {
+    fn is_heading_container(node: &DomNode) -> bool {
+        node.classes.iter().any(|c| c.contains("header") && !c.contains("card"))
+    }
+
+    fn collect_testimonial_cards(parent: &DomNode, out: &mut Vec<ItemBlueprint>, skip_headers: bool) {
         for child in &parent.children {
-            // A testimonial card usually has a <p> with quote text and a name div
-            let paragraphs = dom::find_by_tag(child, "p");
-            let quote = paragraphs.iter()
-                .map(|p| dom::clean_node_text(p))
-                .filter(|t| t.len() > 30)
-                .next();
+            // Skip section header containers (contain title/subtitle, not testimonials)
+            if skip_headers && is_heading_container(child) {
+                continue;
+            }
 
-            if let Some(quote_text) = quote {
-                // Try to find an author name (short text in a nested div/span)
-                let mut author = String::new();
-                let name_nodes = dom::find_by_class(child, "name")
-                    .into_iter()
-                    .chain(dom::find_by_class(child, "author").into_iter());
-                for n in name_nodes {
-                    let txt = dom::clean_node_text(n);
-                    if !txt.is_empty() && txt.len() < 40 {
-                        author = txt;
-                        break;
+            // Check if this child IS a testimonial card (exact BEM block match, not a grid wrapper)
+            let is_card = child.classes.iter().any(|c|
+                c == "testimonial-card" || c == "review-card" || c == "quote-card"
+                || c == "testimonial" || c == "review" || c == "quote"
+            );
+
+            if is_card {
+                // Extract quote from direct or nested <p> tags
+                let paragraphs = dom::find_by_tag(child, "p");
+                let quote = paragraphs.iter()
+                    .map(|p| dom::clean_node_text(p))
+                    .filter(|t| t.len() > 30)
+                    .next();
+
+                if let Some(quote_text) = quote {
+                    // Try to find an author name (short text in a nested div/span)
+                    let mut author = String::new();
+                    let mut role = String::new();
+                    let name_nodes = dom::find_by_class(child, "name")
+                        .into_iter()
+                        .chain(dom::find_by_class(child, "author").into_iter());
+                    for n in name_nodes {
+                        let txt = dom::clean_node_text(n);
+                        if !txt.is_empty() && txt.len() < 40 {
+                            author = txt;
+                            break;
+                        }
                     }
-                }
+                    // Try to find role
+                    let role_nodes = dom::find_by_class(child, "role")
+                        .into_iter()
+                        .chain(dom::find_by_class(child, "position").into_iter());
+                    for n in role_nodes {
+                        let txt = dom::clean_node_text(n);
+                        if !txt.is_empty() && txt.len() < 60 && txt != author {
+                            role = txt;
+                            break;
+                        }
+                    }
 
-                let mut item_config: HashMap<String, String> = HashMap::new();
-                if !author.is_empty() {
-                    item_config.insert("author".into(), author);
-                }
+                    let mut item_config: HashMap<String, String> = HashMap::new();
+                    if !role.is_empty() {
+                        item_config.insert("role".into(), role);
+                    }
 
-                out.push(ItemBlueprint {
-                    item_type: "testimonial".into(),
-                    title: quote_text,
-                    description: None,
-                    config: item_config,
-                });
+                    let item_title = if !author.is_empty() { author } else { "Anonymous".to_string() };
+
+                    out.push(ItemBlueprint {
+                        item_type: "testimonial".into(),
+                        title: item_title,
+                        description: Some(quote_text),
+                        config: item_config,
+                    });
+                }
             } else if !child.children.is_empty() {
-                // Look one level deeper
-                collect_testimonial_cards(child, out);
+                // Not a card — recurse deeper (e.g. grid wrapper, section container)
+                collect_testimonial_cards(child, out, false);
             }
         }
     }
 
-    collect_testimonial_cards(node, &mut items);
+    collect_testimonial_cards(node, &mut items, true);
 
     SectionBlueprint {
         section_type: "testimonial".into(),
@@ -1549,6 +1650,126 @@ fn extract_testimonials(node: &DomNode) -> SectionBlueprint {
         config,
         items,
     }
+}
+
+// ---------------------------------------------------------------------------
+// Extraction: pricing
+// ---------------------------------------------------------------------------
+
+fn extract_pricing(node: &DomNode) -> SectionBlueprint {
+    let title = find_heading_by_tag(node, "h2")
+        .or_else(|| dom::find_heading(node));
+    let subtitle = find_subtitle_paragraph(node, &title);
+
+    let mut items: Vec<ItemBlueprint> = Vec::new();
+
+    // Find pricing cards: look for BEM classes first, then generic card patterns
+    let pricing_cards = dom::find_by_class(node, "pricing-card");
+    let cards: Vec<&DomNode> = if !pricing_cards.is_empty() {
+        // Filter out nested elements — only keep top-level pricing-card divs
+        pricing_cards.into_iter()
+            .filter(|c| c.classes.iter().any(|cls| cls == "pricing-card" || cls.starts_with("pricing-card ")))
+            .collect()
+    } else {
+        find_card_children(node)
+    };
+
+    for card in &cards {
+        // Extract plan name from h3 or BEM __title
+        let plan_name = find_heading_by_tag(card, "h3")
+            .or_else(|| {
+                dom::find_by_class(card, "__title")
+                    .first()
+                    .map(|n| dom::clean_node_text(n))
+            })
+            .unwrap_or_default();
+
+        // Extract price from BEM __price or text matching price pattern
+        let price = dom::find_by_class(card, "__price")
+            .first()
+            .map(|n| dom::clean_node_text(n))
+            .or_else(|| {
+                // Fallback: find any text with R$ or $ pattern
+                find_price_text_in(card)
+            })
+            .unwrap_or_default();
+
+        // Extract feature list items from <ul>/<li>
+        let mut features: Vec<String> = Vec::new();
+        let uls = dom::find_by_tag(card, "ul");
+        for ul in &uls {
+            let lis = dom::find_by_tag(ul, "li");
+            for li in &lis {
+                let text = dom::clean_node_text(li);
+                if !text.is_empty() {
+                    features.push(text);
+                }
+            }
+        }
+
+        // Check if this plan is "featured" (popular/recommended)
+        let is_featured = card.classes.iter().any(|c| c.contains("featured") || c.contains("popular") || c.contains("recommended"))
+            || dom::find_by_class(card, "badge").len() > 0;
+
+        let mut config = HashMap::new();
+        let has_price = !price.is_empty();
+        let has_name = !plan_name.is_empty();
+        if has_price {
+            config.insert("price".into(), price);
+        }
+        if is_featured {
+            config.insert("featured".into(), "true".into());
+        }
+        if !features.is_empty() {
+            config.insert("_features".into(), features.join("||"));
+        }
+
+        // Extract CTA button text
+        let buttons = dom::extract_buttons(card);
+        if let Some(text) = buttons.first() {
+            if !text.is_empty() {
+                config.insert("cta".into(), text.clone());
+            }
+        }
+
+        if has_name || has_price {
+            items.push(ItemBlueprint {
+                item_type: "plan".into(),
+                title: plan_name,
+                description: None,
+                config,
+            });
+        }
+    }
+
+    SectionBlueprint {
+        section_type: "pricing".into(),
+        confidence: 0.0,
+        title,
+        subtitle,
+        config: HashMap::new(),
+        items,
+    }
+}
+
+/// Find price text in a node subtree.
+fn find_price_text_in(node: &DomNode) -> Option<String> {
+    let text = node.full_text.trim().to_string();
+    if text.contains("R$") || text.contains('$') {
+        // Try to find the specific element with price
+        for child in &node.children {
+            let child_text = dom::clean_node_text(child);
+            if child_text.contains("R$") || child_text.contains('$') {
+                if child_text.len() < 30 {
+                    return Some(child_text);
+                }
+            }
+            if let Some(found) = find_price_text_in(child) {
+                return Some(found);
+            }
+        }
+    }
+    None
 }
 
 // ---------------------------------------------------------------------------

@@ -307,8 +307,9 @@ fn emit_section(bp: &SectionBlueprint, ind: usize) -> String {
   match section_type.as_str() {
     "topbar" => emit_topbar_body(bp, inner, &mut out),
     "hero" => emit_hero_body(bp, inner, &mut out),
-    "features" => emit_features_body(bp, inner, &mut out),
+    "features" | "faq" => emit_features_body(bp, inner, &mut out),
     "stats" | "stat-cards" | "billing-stats" => emit_stats_body(bp, inner, &mut out),
+    "pricing" => emit_pricing_body(bp, inner, &mut out),
     "cta" => emit_cta_body(bp, inner, &mut out),
     "footer" => emit_footer_body(bp, inner, &mut out),
     "terminal" => emit_terminal_body(bp, inner, &mut out),
@@ -438,9 +439,82 @@ fn emit_stats_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
       out.push_str(&format!("{}title {}\n", pre, quoted(title)));
     }
   }
+  if let Some(ref subtitle) = bp.subtitle {
+    if !subtitle.is_empty() {
+      out.push_str(&format!("{}subtitle {}\n", pre, quoted(subtitle)));
+    }
+  }
 
   for item in &bp.items {
-    out.push_str(&emit_item(item, ind));
+    // Emit stat items with value: syntax
+    if let Some(value) = item.config.get("value") {
+      out.push_str(&format!("{}item {} value:{}\n", pre, quoted(&item.title), quoted(value)));
+    } else {
+      out.push_str(&emit_item(item, ind));
+    }
+  }
+}
+
+fn emit_pricing_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+  let ipre = indent(ind + 1);
+
+  if let Some(ref title) = bp.title {
+    if !title.is_empty() {
+      out.push_str(&format!("{}title {}\n", pre, quoted(title)));
+    }
+  }
+  if let Some(ref subtitle) = bp.subtitle {
+    if !subtitle.is_empty() {
+      out.push_str(&format!("{}subtitle {}\n", pre, quoted(subtitle)));
+    }
+  }
+
+  for item in &bp.items {
+    if item.item_type == "plan" {
+      let price = item.config.get("price").cloned().unwrap_or_default();
+      let is_featured = item.config.get("featured").map(|v| v == "true").unwrap_or(false);
+      let features_str = item.config.get("_features").cloned().unwrap_or_default();
+
+      // Build plan line: plan "Name" $price [featured]
+      let mut line = format!("{}plan {}", pre, quoted(&item.title));
+      if !price.is_empty() {
+        // Emit price as a Price token (e.g. $49/mês), not a quoted string
+        let price_clean = price.replace("R$", "").replace("US$", "").replace("€", "").trim().to_string();
+        let parts: Vec<&str> = price_clean.splitn(2, '/').collect();
+        let numeric = parts[0].trim().replace(' ', "").replace('.', "").replace(',', ".");
+        if numeric.parse::<f64>().is_ok() {
+          let interval = parts.get(1).map(|s| s.trim()).unwrap_or(&"");
+          if interval.is_empty() {
+            line.push_str(&format!(" ${}", numeric));
+          } else {
+            line.push_str(&format!(" ${}/{}", numeric, interval));
+          }
+        } else {
+          line.push_str(&format!(" {}", quoted(&price)));
+        }
+      }
+      if is_featured {
+        line.push_str(" featured");
+      }
+
+      if features_str.is_empty() {
+        out.push_str(&format!("{}\n", line));
+      } else {
+        out.push_str(&format!("{} [\n", line));
+        let features: Vec<&str> = features_str.split("||").collect();
+        for (i, feature) in features.iter().enumerate() {
+          if i < features.len() - 1 {
+            out.push_str(&format!("{}{},\n", ipre, quoted(feature)));
+          } else {
+            out.push_str(&format!("{}{}\n", ipre, quoted(feature)));
+          }
+        }
+        out.push_str(&format!("{}]\n", pre));
+      }
+    } else {
+      out.push_str(&emit_item(item, ind));
+    }
   }
 }
 
@@ -1086,6 +1160,8 @@ fn emit_item(item: &ItemBlueprint, ind: usize) -> String {
     "metric" => emit_metric_block(item, ind),
     "nav-link" => emit_nav_link(item, ind),
     "stat" => emit_stat_item(item, ind),
+    "testimonial" => emit_testimonial_item(item, ind),
+    "plan" => emit_plan_item(item, ind),
     "product" => emit_product_item(item, ind),
     "member" => emit_member_item(item, ind),
     "webhook" => emit_webhook_item(item, ind),
@@ -1399,6 +1475,82 @@ fn emit_stat_item(item: &ItemBlueprint, ind: usize) -> String {
     format!("{}metric {}\n", pre, quoted(&item.title))
   } else {
     format!("{}metric {} {}\n", pre, quoted(&item.title), cfg)
+  }
+}
+
+// -- item "Author Name" role:"Title, Company" { "quote text" }
+fn emit_testimonial_item(item: &ItemBlueprint, ind: usize) -> String {
+  let pre = indent(ind);
+  let ipre = indent(ind + 1);
+
+  let role_str = item.config.get("role").cloned().unwrap_or_default();
+
+  if let Some(ref desc) = item.description {
+    let mut line = format!("{}item {}", pre, quoted(&item.title));
+    if !role_str.is_empty() {
+      line.push_str(&format!(" role:{}", quoted(&role_str)));
+    }
+    line.push_str(" {\n");
+    let mut out = line;
+    out.push_str(&format!("{}{}\n", ipre, quoted(desc)));
+    out.push_str(&format!("{}}}\n", pre));
+    out
+  } else {
+    let cfg = emit_config_pairs(&item.config);
+    if cfg.is_empty() {
+      format!("{}item {}\n", pre, quoted(&item.title))
+    } else {
+      format!("{}item {} {}\n", pre, quoted(&item.title), cfg)
+    }
+  }
+}
+
+// -- plan "Name" "R$ 99/mês" featured [ "feature1", "feature2" ]
+fn emit_plan_item(item: &ItemBlueprint, ind: usize) -> String {
+  let pre = indent(ind);
+  let ipre = indent(ind + 1);
+
+  let price = item.config.get("price").cloned().unwrap_or_default();
+  let is_featured = item.config.get("featured").map(|v| v == "true").unwrap_or(false);
+  let features_str = item.config.get("_features").cloned().unwrap_or_default();
+
+  let mut line = format!("{}plan {}", pre, quoted(&item.title));
+  if !price.is_empty() {
+    // Emit price as a Price token (e.g. $49/mês), not a quoted string.
+    // The parser expects Price token syntax: $<number>[/<interval>]
+    // Try to extract numeric value and emit as Price; fallback to quoted.
+    let price_clean = price.replace("R$", "").replace("US$", "").replace("€", "").trim().to_string();
+    let parts: Vec<&str> = price_clean.splitn(2, '/').collect();
+    let numeric = parts[0].trim().replace(' ', "").replace('.', "").replace(',', ".");
+    if numeric.parse::<f64>().is_ok() {
+      let interval = parts.get(1).map(|s| s.trim()).unwrap_or("");
+      if interval.is_empty() {
+        line.push_str(&format!(" ${}", numeric));
+      } else {
+        line.push_str(&format!(" ${}/{}", numeric, interval));
+      }
+    } else {
+      line.push_str(&format!(" {}", quoted(&price)));
+    }
+  }
+  if is_featured {
+    line.push_str(" featured");
+  }
+
+  if features_str.is_empty() {
+    format!("{}\n", line)
+  } else {
+    let mut out = format!("{} [\n", line);
+    let features: Vec<&str> = features_str.split("||").collect();
+    for (i, feature) in features.iter().enumerate() {
+      if i < features.len() - 1 {
+        out.push_str(&format!("{}{},\n", ipre, quoted(feature)));
+      } else {
+        out.push_str(&format!("{}{}\n", ipre, quoted(feature)));
+      }
+    }
+    out.push_str(&format!("{}]\n", pre));
+    out
   }
 }
 

@@ -320,6 +320,53 @@ pub fn is_features(node: &DomNode) -> f32 {
     cap(score.max(0.0))
 }
 
+/// Detect FAQ / frequently-asked-questions section.
+///
+/// Signals: heading text contains "faq"/"perguntas"/"dúvidas"/"frequently",
+/// items with question marks in titles, accordion/collapsible class patterns.
+pub fn is_faq(node: &DomNode) -> f32 {
+    let mut score: f32 = 0.0;
+
+    let text = node.full_text.to_lowercase();
+
+    // Heading text signals (very strong for FAQ)
+    if text.contains("faq") || text.contains("perguntas") || text.contains("dúvidas")
+        || text.contains("duvidas") || text.contains("frequently") {
+        score += 0.5;
+    }
+
+    // Class-based signals
+    if node.classes.iter().any(|c| c.contains("faq") || c.contains("accordion") || c.contains("collapse")) {
+        score += 0.35;
+    } else if has_descendant_class(node, "faq") || has_descendant_class(node, "accordion") || has_descendant_class(node, "collapse") {
+        score += 0.3;
+    }
+
+    // ID-based signal
+    if let Some(ref id) = node.id {
+        let id_lower = id.to_lowercase();
+        if id_lower.contains("faq") || id_lower.contains("perguntas") {
+            score += 0.3;
+        }
+    }
+
+    // Items with question marks in text (strong FAQ signal)
+    let question_count = node.children.iter()
+        .filter(|c| c.full_text.contains('?'))
+        .count();
+    if question_count >= 3 { score += 0.3; }
+    else if question_count >= 2 { score += 0.15; }
+
+    // Card children with title+description (shared with features, but FAQ-specific
+    // when combined with question keywords)
+    let card_count = count_card_children(node);
+    if card_count >= 3 && score > 0.0 {
+        score += 0.1;
+    }
+
+    cap(score.max(0.0))
+}
+
 /// Detect testimonials / reviews section.
 ///
 /// Signals: classes contain "testimonial"/"review"/"quote", text contains
@@ -394,6 +441,18 @@ pub fn is_stats(node: &DomNode) -> f32 {
         score += 0.2;
     } else if has_descendant_class(node, "grid-cols") {
         score += 0.1;
+    }
+
+    // BEM class signals: stat-card, stats__grid, stats__
+    if has_descendant_class(node, "stat-card") || has_descendant_class(node, "stats__") {
+        score += 0.4;
+    }
+    // ID-based signal
+    if let Some(ref id) = node.id {
+        let id_lower = id.to_lowercase();
+        if id_lower.contains("stat") || id_lower.contains("metric") || id_lower.contains("number") {
+            score += 0.3;
+        }
     }
 
     // Children with stat-like text (numbers)
@@ -1385,6 +1444,7 @@ pub fn classify_node(node: &DomNode) -> (&'static str, f32) {
     let detectors: Vec<(&'static str, fn(&DomNode) -> f32)> = vec![
         ("topbar",       is_topbar),
         ("hero",         is_hero),
+        ("faq",          is_faq),
         ("features",     is_features),
         ("testimonial",  is_testimonials),
         ("stats",        is_stats),

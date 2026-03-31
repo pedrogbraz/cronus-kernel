@@ -2661,11 +2661,16 @@ fn render_developer_landing_hero(
         )
     };
 
-    // Detect if hero has terminal content or just stats
-    let has_terminal = terminal_lines.contains("<div>");
+    // Detect if hero has actual terminal content (line/output/prompt/success items)
+    let has_terminal = section.items.iter().any(|i| {
+        matches!(
+            i.get("_type").map(|s| s.as_str()),
+            Some("line") | Some("output") | Some("prompt") | Some("success")
+        )
+    });
 
-    if !has_terminal && !stat_items.is_empty() {
-        // Centered hero layout with stat cards below (no terminal)
+    if !has_terminal {
+        // Centered hero layout without terminal (no terminal items found)
         return format!(
             r##"<section style="position:relative;overflow:hidden;min-height:80vh;padding:96px 24px 80px;display:flex;flex-direction:column;align-items:center;justify-content:center;background-image:linear-gradient(to right,rgba(198,198,198,0.1) 1px,transparent 1px),linear-gradient(to bottom,rgba(198,198,198,0.1) 1px,transparent 1px);background-size:40px 40px">
   <div class="prism-glow" style="position:absolute;inset:0;pointer-events:none"></div>
@@ -3531,32 +3536,40 @@ fn render_footer(section: &SectionNode, theme: &str) -> String {
     )
 }
 
-fn render_faq(section: &SectionNode, accent: &str) -> String {
+fn render_faq(section: &SectionNode, _accent: &str) -> String {
     let title = section.title.as_deref().unwrap_or("FAQ");
+    let subtitle = section.subtitle.as_deref().unwrap_or("");
+
+    let subtitle_html = if subtitle.is_empty() {
+        String::new()
+    } else {
+        format!(r#"<p style="text-align:center;font-size:16px;color:#6b7280;margin:0 auto 48px;max-width:600px">{}</p>"#, subtitle)
+    };
 
     let items: Vec<String> = section.items.iter().map(|item| {
         let q = item.get("title").map(|s| s.as_str()).unwrap_or("Question");
         let a = item.get("description").map(|s| s.as_str()).unwrap_or("");
         format!(
-            r#"<details class="group border-b border-neutral-800">
-  <summary class="flex items-center justify-between py-4 cursor-pointer text-sm font-medium text-white hover:text-{accent}-400 transition-colors">
+            r#"<details class="cronus-accordion-trigger" style="border-bottom:1px solid #e5e7eb">
+  <summary style="display:flex;align-items:center;justify-content:space-between;padding:20px 0;cursor:pointer;font-size:16px;font-weight:600;color:#111;list-style:none;-webkit-appearance:none">
     {q}
-    <span class="text-neutral-600 group-open:rotate-45 transition-transform text-lg">+</span>
+    <span style="font-size:20px;color:#9ca3af;transition:transform 0.2s;flex-shrink:0;margin-left:16px">+</span>
   </summary>
-  <p class="pb-4 text-sm text-neutral-400 leading-relaxed">{a}</p>
+  <div style="padding:0 0 20px;font-size:15px;color:#6b7280;line-height:1.7">{a}</div>
 </details>"#,
-            q = q, a = a, accent = accent,
+            q = q, a = a,
         )
     }).collect();
 
     format!(
-        r#"<section class="py-16 max-w-2xl mx-auto px-6">
-  <h2 class="text-3xl font-bold text-center mb-10">{title}</h2>
-  <div class="divide-y divide-neutral-800">
+        r#"<section style="padding:80px 24px;max-width:768px;margin:0 auto">
+  <h2 style="font-size:32px;font-weight:700;text-align:center;letter-spacing:-0.02em;margin-bottom:16px">{title}</h2>
+  {subtitle_html}
+  <div>
     {items}
   </div>
 </section>"#,
-        title = title, items = items.join("\n    "),
+        title = title, subtitle_html = subtitle_html, items = items.join("\n    "),
     )
 }
 
@@ -4528,11 +4541,27 @@ fn render_form_section(section: &SectionNode, bound_data: &crate::binding::Resol
     let mut actions_html = String::new();
     let mut links_html = String::new();
 
+    // Count short fields (text/email/tel/url/password) for grid layout
+    let short_field_types = ["text", "email", "tel", "url", "password", "number"];
+    let field_items: Vec<&std::collections::HashMap<String, String>> = section.items.iter()
+        .filter(|i| i.get("_type").map(|s| s.as_str()) == Some("field"))
+        .collect();
+    let total_fields = field_items.len();
+    let first_two_short = total_fields >= 2
+        && field_items.get(0).and_then(|i| i.get("type")).map(|t| short_field_types.contains(&t.as_str())).unwrap_or(true)
+        && field_items.get(1).and_then(|i| i.get("type")).map(|t| short_field_types.contains(&t.as_str())).unwrap_or(true);
+    let mut field_index: usize = 0;
+
     for item in &section.items {
         let itype = item.get("_type").map(|s| s.as_str()).unwrap_or("");
         let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
 
         if itype == "field" {
+            // Grid row: open wrapper before first field, close after second field
+            if first_two_short && field_index == 0 {
+                fields_html.push_str(r#"<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">"#);
+            }
+
             let ftype = item.get("type").map(|s| s.as_str()).unwrap_or("text");
             let name_lower = item_title.to_lowercase().replace(' ', "_");
             let placeholder = item.get("placeholder").map(|s| s.as_str()).unwrap_or("");
@@ -4705,6 +4734,12 @@ fn render_form_section(section: &SectionNode, bound_data: &crate::binding::Resol
                     name = err_name, msg = error_msg,
                 ));
             }
+
+            // Close grid row wrapper after second field
+            if first_two_short && field_index == 1 {
+                fields_html.push_str("</div>");
+            }
+            field_index += 1;
         } else if itype == "action" {
 
             let variant = item.get("variant").map(|s| s.as_str())
