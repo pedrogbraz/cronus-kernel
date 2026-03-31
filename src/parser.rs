@@ -26,6 +26,7 @@ pub enum AstNode {
     Env(EnvNode),
     Test(TestNode),
     Compose(ComposeNode),
+    Auth(AuthNode),
 }
 
 #[derive(Debug, Clone)]
@@ -229,6 +230,7 @@ pub struct PageNode {
     pub sections: Vec<SectionNode>,
     pub config: HashMap<String, String>,
     pub components: Vec<String>,  // referenced component names via `use ComponentName`
+    pub requires: Option<String>,  // "auth", "role(admin)", etc.
 }
 
 #[derive(Debug, Clone)]
@@ -333,6 +335,15 @@ pub struct ComposeNode {
     pub name: String,
     pub uses: Vec<String>,
     pub merges: Vec<(String, HashMap<String, String>)>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AuthNode {
+    pub entity: String,           // "User"
+    pub login_fields: Vec<String>, // ["email", "password"]
+    pub session_type: String,      // "jwt"
+    pub session_config: HashMap<String, String>, // expires: "24h"
+    pub roles: Vec<String>,        // ["admin", "member", "viewer"]
 }
 
 // ══════════════════════════════════════════════════
@@ -591,6 +602,8 @@ impl Parser {
                 nodes.push(AstNode::Env(self.parse_env()?));
             } else if self.matches(TokenKind::Keyword, Some("test")) {
                 nodes.push(AstNode::Test(self.parse_test()?));
+            } else if self.matches(TokenKind::Identifier, Some("auth")) {
+                nodes.push(AstNode::Auth(self.parse_auth()?));
             } else {
                 let unknown = self.peek();
                 if !unknown.value.is_empty() && unknown.kind != TokenKind::Eof {
@@ -834,6 +847,49 @@ impl Parser {
         Ok(ApiNode { prefix, routes })
     }
 
+    // ── auth ──
+
+    fn parse_auth(&mut self) -> Result<AuthNode, String> {
+        self.advance(); // consume "auth" (tokenized as Identifier, not Keyword)
+        self.expect(TokenKind::LBrace)?;
+
+        let mut entity = String::new();
+        let mut login_fields = Vec::new();
+        let mut session_type = String::new();
+        let mut session_config = HashMap::new();
+        let mut roles = Vec::new();
+
+        while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+            if self.matches(TokenKind::Identifier, Some("entity")) || self.matches(TokenKind::Keyword, Some("entity")) {
+                self.advance();
+                entity = self.advance().value;
+            } else if self.matches(TokenKind::Identifier, Some("login")) {
+                self.advance();
+                // Parse: email + password
+                login_fields.push(self.advance().value);
+                while self.try_consume(TokenKind::Plus, None).is_some() {
+                    login_fields.push(self.advance().value);
+                }
+            } else if self.matches(TokenKind::Identifier, Some("session")) {
+                self.advance();
+                session_type = self.advance().value; // "jwt"
+                // Parse trailing key:value pairs like expires:24h
+                while self.peek().kind == TokenKind::ColonPair {
+                    let (k, v) = Self::split_colon_pair(&self.advance().value);
+                    session_config.insert(k, v);
+                }
+            } else if self.matches(TokenKind::Identifier, Some("roles")) {
+                self.advance();
+                roles = self.parse_array()?;
+            } else {
+                self.advance();
+            }
+        }
+
+        self.expect(TokenKind::RBrace)?;
+        Ok(AuthNode { entity, login_fields, session_type, session_config, roles })
+    }
+
     // ── page ──
 
     fn parse_page(&mut self) -> Result<PageNode, String> {
@@ -902,7 +958,8 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(PageNode { route, page_type, entity, title, sections, config, components })
+        let requires = config.remove("requires");
+        Ok(PageNode { route, page_type, entity, title, sections, config, components, requires })
     }
 
     // ── section ──
