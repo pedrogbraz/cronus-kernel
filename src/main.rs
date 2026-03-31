@@ -11,6 +11,7 @@ mod data_table;
 mod database;
 mod deploy;
 mod dump;
+mod feedback;
 mod graphql;
 mod hmr;
 mod i18n;
@@ -26,8 +27,10 @@ mod realtime;
 mod render;
 mod server;
 mod sse;
+mod tabs;
 mod tailwind;
 mod testing;
+mod navigation;
 mod ui;
 
 use std::env;

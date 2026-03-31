@@ -1880,12 +1880,20 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str) -> String {
             crate::contracts::ParseWarning::AliasUsed { alias, canonical, .. } => {
                 eprintln!("  \x1b[36mℹ\x1b[0m Section \"{}\" is an alias for \"{}\"", alias, canonical);
             }
+            crate::contracts::ParseWarning::MinItemsViolation { section, expected, actual, .. } => {
+                eprintln!("  \x1b[33m⚠\x1b[0m Section \"{}\": expected at least {} item(s), found {}", section, expected, actual);
+            }
+            crate::contracts::ParseWarning::UnknownConfig { section, key, .. } => {
+                eprintln!("  \x1b[33m⚠\x1b[0m Section \"{}\": unknown config key \"{}\"", section, key);
+            }
         }
     }
     if strict && warnings.iter().any(|w| matches!(w,
         crate::contracts::ParseWarning::UnknownSection { .. } |
         crate::contracts::ParseWarning::UnknownKey { .. } |
-        crate::contracts::ParseWarning::MissingRequired { .. }
+        crate::contracts::ParseWarning::MissingRequired { .. } |
+        crate::contracts::ParseWarning::MinItemsViolation { .. } |
+        crate::contracts::ParseWarning::UnknownConfig { .. }
     )) {
         return format!("<div style=\"padding:24px;color:#dc2626;font-family:monospace\">Strict mode: section \"{}\" has {} validation issue(s)</div>",
             section.section_type, warnings.len());
@@ -1923,11 +1931,11 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str) -> String {
         "form" => render_form_section(section),
         "card" | "live-keys" | "test-keys" | "webhooks" => render_card_section(section),
         "links" | "quick-links" => render_links_section(section),
-        "tabs" => render_generic_section(section, accent),
-        "accordion" => render_generic_section(section, accent),
-        "breadcrumb" => render_generic_section(section, accent),
-        "alert" => render_generic_section(section, accent),
-        "chart" => render_generic_section(section, accent),
+        "tabs" => crate::tabs::render_tabs(section),
+        "accordion" => crate::feedback::render_accordion(section),
+        "breadcrumb" => crate::navigation::render_breadcrumb(section),
+        "alert" => crate::feedback::render_alert(section),
+        "chart" => render_chart_section(section),
         "modal" => render_modal_section(section),
         "sheet" => render_sheet_section(section),
         "skeleton" | "loading" => render_skeleton_section(section),

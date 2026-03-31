@@ -39,6 +39,7 @@ pub struct SectionContract {
     pub requires_title: bool,
     pub requires_items: bool,
     pub min_items: usize,
+    pub config_keys: &'static [&'static str],
     pub structural_keys: &'static [KeyDef],
     pub entity_binding: bool,
     pub on_unknown_key: Fallback,
@@ -68,6 +69,7 @@ static TABLE_CONTRACT: SectionContract = SectionContract {
     requires_title: false,
     requires_items: true,
     min_items: 1,
+    config_keys: &["title", "entity", "responsive", "live"],
     structural_keys: &[req("name"), opt("column"), opt("badge"), opt("status"), opt("customer"), opt("amount"), opt("date")],
     entity_binding: true,
     on_unknown_key: Fallback::Warn,
@@ -81,6 +83,7 @@ static FORM_CONTRACT: SectionContract = SectionContract {
     requires_title: false,
     requires_items: true,
     min_items: 1,
+    config_keys: &["title", "entity", "action", "method"],
     structural_keys: &[req("name"), opt("type"), opt("placeholder"), opt("required"), opt("options"), opt("disabled")],
     entity_binding: true,
     on_unknown_key: Fallback::Warn,
@@ -93,7 +96,8 @@ static CARD_CONTRACT: SectionContract = SectionContract {
     stability: Stability::Stable,
     requires_title: false,
     requires_items: true,
-    min_items: 1,
+    min_items: 0,
+    config_keys: &["icon", "id"],
     structural_keys: &[req("name"), opt("subtitle"), opt("icon"), opt("link")],
     entity_binding: false,
     on_unknown_key: Fallback::Warn,
@@ -107,6 +111,7 @@ static KPI_CONTRACT: SectionContract = SectionContract {
     requires_title: false,
     requires_items: true,
     min_items: 1,
+    config_keys: &["cols", "cols-md", "cols-sm", "entity", "live", "interval"],
     structural_keys: &[req("name"), opt("icon"), opt("trend"), opt("meta"), opt("value")],
     entity_binding: false,
     on_unknown_key: Fallback::Warn,
@@ -119,7 +124,8 @@ static MODAL_CONTRACT: SectionContract = SectionContract {
     stability: Stability::Stable,
     requires_title: true,
     requires_items: true,
-    min_items: 1,
+    min_items: 0,
+    config_keys: &["id"],
     structural_keys: &[req("name"), opt("type"), opt("placeholder"), opt("required"), opt("options")],
     entity_binding: false,
     on_unknown_key: Fallback::Warn,
@@ -133,6 +139,7 @@ static KANBAN_CONTRACT: SectionContract = SectionContract {
     requires_title: false,
     requires_items: true,
     min_items: 1,
+    config_keys: &["title"],
     structural_keys: &[req("name"), opt("column"), opt("color"), opt("assignee"), opt("priority"), opt("label")],
     entity_binding: false,
     on_unknown_key: Fallback::Warn,
@@ -146,6 +153,7 @@ static COMMAND_CONTRACT: SectionContract = SectionContract {
     requires_title: false,
     requires_items: true,
     min_items: 1,
+    config_keys: &["id"],
     structural_keys: &[req("name"), opt("shortcut"), opt("icon"), opt("link")],
     entity_binding: false,
     on_unknown_key: Fallback::Warn,
@@ -159,6 +167,7 @@ static DROPDOWN_CONTRACT: SectionContract = SectionContract {
     requires_title: false,
     requires_items: true,
     min_items: 1,
+    config_keys: &["trigger", "id"],
     structural_keys: &[req("name"), opt("icon"), opt("danger"), opt("link")],
     entity_binding: false,
     on_unknown_key: Fallback::Warn,
@@ -172,6 +181,7 @@ static TOAST_CONTRACT: SectionContract = SectionContract {
     requires_title: true,
     requires_items: false,
     min_items: 0,
+    config_keys: &["type", "duration", "id"],
     structural_keys: &[],
     entity_binding: false,
     on_unknown_key: Fallback::Ignore,
@@ -184,7 +194,8 @@ static EMPTY_CONTRACT: SectionContract = SectionContract {
     stability: Stability::Stable,
     requires_title: true,
     requires_items: true,
-    min_items: 1,
+    min_items: 0,
+    config_keys: &["icon"],
     structural_keys: &[req("name"), opt("icon"), opt("link")],
     entity_binding: false,
     on_unknown_key: Fallback::Warn,
@@ -258,6 +269,8 @@ pub enum ParseWarning {
     UnknownKey { section: String, key: String, item: String, line: usize },
     MissingRequired { section: String, key: String, item: String, line: usize },
     AliasUsed { alias: String, canonical: String, line: usize },
+    MinItemsViolation { section: String, expected: usize, actual: usize, line: usize },
+    UnknownConfig { section: String, key: String, line: usize },
 }
 
 // ── Validation ──────────────────────────────────────────────────────────────
@@ -336,6 +349,31 @@ pub fn validate_section(section: &SectionNode, _entities: &[String]) -> Vec<Pars
                     Fallback::Ignore => {}
                 }
             }
+        }
+    }
+
+    // 4. Check min_items
+    if contract.min_items > 0 && section.items.len() < contract.min_items {
+        warnings.push(ParseWarning::MinItemsViolation {
+            section: contract.name.to_string(),
+            expected: contract.min_items,
+            actual: section.items.len(),
+            line: 0,
+        });
+    }
+
+    // 5. Check config keys
+    for key in section.config.keys() {
+        if !contract.config_keys.contains(&key.as_str()) {
+            // Skip common keys that all sections can have
+            if key == "title" || key == "subtitle" || key == "style" || key == "entity" {
+                continue;
+            }
+            warnings.push(ParseWarning::UnknownConfig {
+                section: contract.name.to_string(),
+                key: key.clone(),
+                line: 0,
+            });
         }
     }
 
