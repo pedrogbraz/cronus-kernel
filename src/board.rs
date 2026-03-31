@@ -22,10 +22,12 @@ struct KanbanCard {
 ///
 /// Items with `column:true` are column headers; subsequent items
 /// are cards belonging to that column until the next column header.
-pub fn render_kanban(section: &SectionNode) -> String {
+/// When bound_data contains Rows, generates cards from database rows.
+/// DB rows are placed into the first column, or matched by a "status"/"column" field.
+pub fn render_kanban(section: &SectionNode, bound_data: &crate::binding::ResolvedData) -> String {
     let title = section.title.as_deref().unwrap_or("");
 
-    // Group items into columns
+    // Group items into columns (column headers always from section)
     let mut columns: Vec<KanbanColumn> = Vec::new();
 
     for item in &section.items {
@@ -38,12 +40,47 @@ pub fn render_kanban(section: &SectionNode) -> String {
                 cards: Vec::new(),
             });
         } else if let Some(col) = columns.last_mut() {
-            col.cards.push(KanbanCard {
-                name: item.get("name").cloned().unwrap_or_default(),
-                assignee: item.get("assignee").cloned().unwrap_or_default(),
-                priority: item.get("priority").cloned().unwrap_or_default(),
-                label: item.get("label").cloned().unwrap_or_default(),
-            });
+            // Only add static cards if we have no bound data
+            if matches!(bound_data, crate::binding::ResolvedData::None) {
+                col.cards.push(KanbanCard {
+                    name: item.get("name").cloned().unwrap_or_default(),
+                    assignee: item.get("assignee").cloned().unwrap_or_default(),
+                    priority: item.get("priority").cloned().unwrap_or_default(),
+                    label: item.get("label").cloned().unwrap_or_default(),
+                });
+            }
+        }
+    }
+
+    // If we have bound rows, distribute them into columns
+    if let crate::binding::ResolvedData::Rows(rows) = bound_data {
+        if !rows.is_empty() {
+            for row in rows {
+                let card = KanbanCard {
+                    name: row.get("name").or_else(|| row.get("title"))
+                        .and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    assignee: row.get("assignee")
+                        .and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    priority: row.get("priority")
+                        .and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    label: row.get("label")
+                        .and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                };
+
+                // Try to match row to column by status/column field
+                let row_col = row.get("status")
+                    .or_else(|| row.get("column"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+
+                let target_idx = columns.iter()
+                    .position(|c| c.name.eq_ignore_ascii_case(row_col))
+                    .or(if columns.is_empty() { None } else { Some(0) });
+
+                if let Some(idx) = target_idx {
+                    columns[idx].cards.push(card);
+                }
+            }
         }
     }
 

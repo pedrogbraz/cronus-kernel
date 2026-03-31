@@ -576,6 +576,10 @@ impl Parser {
             } else if self.matches(TokenKind::Keyword, Some("test")) {
                 nodes.push(AstNode::Test(self.parse_test()?));
             } else {
+                let unknown = self.peek();
+                if !unknown.value.is_empty() && unknown.kind != TokenKind::Eof {
+                    eprintln!("  \x1b[33m⚠\x1b[0m Line {}: unknown top-level token '{}' (skipped)", unknown.line, unknown.value);
+                }
                 self.advance();
             }
         }

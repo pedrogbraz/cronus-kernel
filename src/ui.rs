@@ -1982,13 +1982,13 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str, bound_data: 
         "timeline" => render_timeline_section(section),
         "progress" => render_progress_section(section),
         "command" => crate::command_palette::render_command_palette(section),
-        "table" => crate::data_table::render_data_table(section),
+        "table" => crate::data_table::render_data_table(section, bound_data),
         "pagination" => crate::data_table::render_pagination(section),
         "filters" => crate::data_table::render_filters_toolbar(section),
         "dropdown" => crate::overlays::render_dropdown(section),
         "toast" => crate::overlays::render_toast(section),
         "notifications" => crate::overlays::render_notification_center(section),
-        "kanban" => crate::board::render_kanban(section),
+        "kanban" => crate::board::render_kanban(section, bound_data),
         "dark-mode" => crate::board::render_dark_mode_toggle(section),
         "layout" => {
             let style = section.config.get("style").map(|s| s.as_str()).unwrap_or("");
@@ -3311,14 +3311,26 @@ fn render_page_header_section(section: &SectionNode) -> String {
     )
 }
 
-fn render_stat_cards(section: &SectionNode) -> String {
+fn render_stat_cards(section: &SectionNode, bound_data: &crate::binding::ResolvedData) -> String {
     let cols = section.config.get("cols")
         .and_then(|s| s.parse::<u32>().ok())
         .unwrap_or(3);
 
+    // When bound_data has Count or Rows, override the first card's value
+    let bound_value: Option<String> = match bound_data {
+        crate::binding::ResolvedData::Count(n) => Some(n.to_string()),
+        crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => Some(rows.len().to_string()),
+        _ => None,
+    };
+
     let cards: Vec<String> = section.items.iter().enumerate().map(|(idx, item)| {
         let label = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Metric");
-        let value = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
+        let value_owned: String = if idx == 0 && bound_value.is_some() {
+            bound_value.as_ref().unwrap().clone()
+        } else {
+            item.get("description").or_else(|| item.get("desc")).map(|s| s.to_string()).unwrap_or_default()
+        };
+        let value = value_owned.as_str();
         let icon_html = item.get("icon").map(|icon| {
             format!(r#"<span style="font-size:18px;margin-bottom:8px;display:block">{icon}</span>"#, icon = icon)
         }).unwrap_or_default();
@@ -4885,18 +4897,40 @@ fn render_alert_section(section: &SectionNode) -> String {
 // CHART SECTION
 // ══════════════════════════════════════════════════
 
-fn render_chart_section(section: &SectionNode) -> String {
+fn render_chart_section(section: &SectionNode, bound_data: &crate::binding::ResolvedData) -> String {
     let chart_type = section.config.get("type").map(|s| s.as_str()).unwrap_or("bar");
     let title = section.title.as_deref().unwrap_or("Chart");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
 
-    // Parse items: title = label, description = value (numeric)
-    let data: Vec<(String, f64)> = section.items.iter().filter_map(|item| {
-        let label = item.get("title")?.clone();
-        let val_str = item.get("description")?;
-        let val: f64 = val_str.trim().parse().ok()?;
-        Some((label, val))
-    }).collect();
+    // When bound_data has Rows, extract chart data from DB rows.
+    // Uses "label"/"name"/"title" field for label, "value"/"amount"/"count" for numeric value.
+    let bound_chart_data: Vec<(String, f64)> = if let crate::binding::ResolvedData::Rows(rows) = bound_data {
+        rows.iter().filter_map(|row| {
+            let label = row.get("label").or_else(|| row.get("name")).or_else(|| row.get("title"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            if label.is_empty() { return None; }
+            let val = row.get("value").or_else(|| row.get("amount")).or_else(|| row.get("count"))
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+            Some((label, val))
+        }).collect()
+    } else {
+        Vec::new()
+    };
+
+    let data: Vec<(String, f64)> = if !bound_chart_data.is_empty() {
+        bound_chart_data
+    } else {
+        // Fallback: parse from static items
+        section.items.iter().filter_map(|item| {
+            let label = item.get("title")?.clone();
+            let val_str = item.get("description")?;
+            let val: f64 = val_str.trim().parse().ok()?;
+            Some((label, val))
+        }).collect()
+    };
 
     if data.is_empty() {
         return String::new();
@@ -8920,7 +8954,7 @@ fn render_not_found_section(section: &SectionNode) -> String {
 // KPI SECTION
 // ══════════════════════════════════════════════════
 
-fn render_kpi_section(section: &SectionNode) -> String {
+fn render_kpi_section(section: &SectionNode, bound_data: &crate::binding::ResolvedData) -> String {
     let title = section.title.as_deref().unwrap_or("");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
     let cols: usize = section.config.get("cols")
@@ -8938,10 +8972,23 @@ fn render_kpi_section(section: &SectionNode) -> String {
         format!(r#"<div style="margin-bottom:24px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{}</h2>{}</div>"#, title, sub)
     };
 
+    // When bound_data is Count or Rows, override the first item's value
+    let bound_value: Option<String> = match bound_data {
+        crate::binding::ResolvedData::Count(n) => Some(n.to_string()),
+        crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => Some(rows.len().to_string()),
+        _ => None,
+    };
+
     let mut cards_html = String::new();
     for (i, item) in section.items.iter().enumerate() {
         let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
-        let value = item.get("value").map(|s| s.as_str()).unwrap_or("");
+        // Use bound value for the first KPI card when available
+        let value_owned: String = if i == 0 && bound_value.is_some() {
+            bound_value.as_ref().unwrap().clone()
+        } else {
+            item.get("value").map(|s| s.to_string()).unwrap_or_default()
+        };
+        let value = value_owned.as_str();
         let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
         let trend = item.get("trend").map(|s| s.as_str()).unwrap_or("");
         let meta = item.get("description").map(|s| s.as_str()).unwrap_or("");
@@ -9002,7 +9049,7 @@ fn render_kpi_section(section: &SectionNode) -> String {
 // TIMELINE SECTION
 // ══════════════════════════════════════════════════
 
-fn render_timeline_section(section: &SectionNode) -> String {
+fn render_timeline_section(section: &SectionNode, bound_data: &crate::binding::ResolvedData) -> String {
     let title = section.title.as_deref().unwrap_or("");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
 
@@ -9017,44 +9064,72 @@ fn render_timeline_section(section: &SectionNode) -> String {
         format!(r#"<div style="margin-bottom:32px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{}</h2>{}</div>"#, title, sub)
     };
 
+    // Build timeline items from bound data or static items
+    struct TimelineItem {
+        title: String,
+        description: String,
+        time: String,
+        icon: String,
+        status: String,
+    }
+
+    let timeline_items: Vec<TimelineItem> = if let crate::binding::ResolvedData::Rows(rows) = bound_data {
+        if !rows.is_empty() {
+            rows.iter().map(|row| {
+                TimelineItem {
+                    title: row.get("title").or_else(|| row.get("name"))
+                        .and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    description: row.get("description").or_else(|| row.get("desc"))
+                        .and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    time: row.get("time").or_else(|| row.get("date")).or_else(|| row.get("created_at"))
+                        .and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    icon: row.get("icon")
+                        .and_then(|v| v.as_str()).unwrap_or("circle").to_string(),
+                    status: row.get("status")
+                        .and_then(|v| v.as_str()).unwrap_or("info").to_string(),
+                }
+            }).collect()
+        } else {
+            Vec::new()
+        }
+    } else {
+        Vec::new()
+    };
+
+    // Use bound items if available, otherwise fall back to static section items
+    let use_bound = !timeline_items.is_empty();
+
     let mut items_html = String::new();
-    let item_count = section.items.len();
-    for (i, item) in section.items.iter().enumerate() {
-        let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
-        let desc = item.get("description").map(|s| s.as_str()).unwrap_or("");
-        let time = item.get("time").map(|s| s.as_str()).unwrap_or("");
-        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("circle");
-        let status = item.get("status").map(|s| s.as_str()).unwrap_or("info");
-        let delay_class = format!("d{}", (i % 10) + 1);
 
-        let dot_color = match status {
-            "success" | "done" | "completed" => "#059669",
-            "error" | "failed" | "danger" => "#dc2626",
-            "warning" => "#d97706",
-            _ => "#3b82f6",
-        };
+    if use_bound {
+        let item_count = timeline_items.len();
+        for (i, tl) in timeline_items.iter().enumerate() {
+            let delay_class = format!("d{}", (i % 10) + 1);
+            let dot_color = match tl.status.as_str() {
+                "success" | "done" | "completed" => "#059669",
+                "error" | "failed" | "danger" => "#dc2626",
+                "warning" => "#d97706",
+                _ => "#3b82f6",
+            };
+            let is_last = i == item_count - 1;
+            let line_html = if is_last {
+                String::new()
+            } else {
+                r#"<div style="position:absolute;left:17px;top:40px;bottom:-12px;width:2px;background:#e4e4e7"></div>"#.to_string()
+            };
+            let desc_html = if tl.description.is_empty() {
+                String::new()
+            } else {
+                format!(r#"<p style="font-size:13px;color:#a1a1aa;margin:4px 0 0">{}</p>"#, tl.description)
+            };
+            let time_html = if tl.time.is_empty() {
+                String::new()
+            } else {
+                format!(r#"<span style="font-size:12px;color:#a1a1aa;margin-left:auto;white-space:nowrap">{}</span>"#, tl.time)
+            };
 
-        let is_last = i == item_count - 1;
-        let line_html = if is_last {
-            String::new()
-        } else {
-            r#"<div style="position:absolute;left:17px;top:40px;bottom:-12px;width:2px;background:#e4e4e7"></div>"#.to_string()
-        };
-
-        let desc_html = if desc.is_empty() {
-            String::new()
-        } else {
-            format!(r#"<p style="font-size:13px;color:#a1a1aa;margin:4px 0 0">{}</p>"#, desc)
-        };
-
-        let time_html = if time.is_empty() {
-            String::new()
-        } else {
-            format!(r#"<span style="font-size:12px;color:#a1a1aa;margin-left:auto;white-space:nowrap">{}</span>"#, time)
-        };
-
-        items_html.push_str(&format!(
-            r##"<div class="anim-slide-up {delay}" style="position:relative;padding-left:48px;padding-bottom:28px">
+            items_html.push_str(&format!(
+                r##"<div class="anim-slide-up {delay}" style="position:relative;padding-left:48px;padding-bottom:28px">
   {line}
   <div style="position:absolute;left:0;top:0;width:36px;height:36px;border-radius:50%;background:{dot_bg};display:flex;align-items:center;justify-content:center">
     <span class="material-symbols-outlined" style="font-size:18px;color:#fff">{icon}</span>
@@ -9065,9 +9140,63 @@ fn render_timeline_section(section: &SectionNode) -> String {
   </div>
   {desc_html}
 </div>"##,
-            delay = delay_class, line = line_html, dot_bg = dot_color,
-            icon = icon, title = item_title, time_html = time_html, desc_html = desc_html,
-        ));
+                delay = delay_class, line = line_html, dot_bg = dot_color,
+                icon = tl.icon, title = tl.title, time_html = time_html, desc_html = desc_html,
+            ));
+        }
+    } else {
+        // Fallback: static items from section
+        let item_count = section.items.len();
+        for (i, item) in section.items.iter().enumerate() {
+            let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let desc = item.get("description").map(|s| s.as_str()).unwrap_or("");
+            let time = item.get("time").map(|s| s.as_str()).unwrap_or("");
+            let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("circle");
+            let status = item.get("status").map(|s| s.as_str()).unwrap_or("info");
+            let delay_class = format!("d{}", (i % 10) + 1);
+
+            let dot_color = match status {
+                "success" | "done" | "completed" => "#059669",
+                "error" | "failed" | "danger" => "#dc2626",
+                "warning" => "#d97706",
+                _ => "#3b82f6",
+            };
+
+            let is_last = i == item_count - 1;
+            let line_html = if is_last {
+                String::new()
+            } else {
+                r#"<div style="position:absolute;left:17px;top:40px;bottom:-12px;width:2px;background:#e4e4e7"></div>"#.to_string()
+            };
+
+            let desc_html = if desc.is_empty() {
+                String::new()
+            } else {
+                format!(r#"<p style="font-size:13px;color:#a1a1aa;margin:4px 0 0">{}</p>"#, desc)
+            };
+
+            let time_html = if time.is_empty() {
+                String::new()
+            } else {
+                format!(r#"<span style="font-size:12px;color:#a1a1aa;margin-left:auto;white-space:nowrap">{}</span>"#, time)
+            };
+
+            items_html.push_str(&format!(
+                r##"<div class="anim-slide-up {delay}" style="position:relative;padding-left:48px;padding-bottom:28px">
+  {line}
+  <div style="position:absolute;left:0;top:0;width:36px;height:36px;border-radius:50%;background:{dot_bg};display:flex;align-items:center;justify-content:center">
+    <span class="material-symbols-outlined" style="font-size:18px;color:#fff">{icon}</span>
+  </div>
+  <div style="display:flex;align-items:baseline;gap:12px">
+    <h4 style="font-size:14px;font-weight:600;margin:0;padding-top:7px">{title}</h4>
+    {time_html}
+  </div>
+  {desc_html}
+</div>"##,
+                delay = delay_class, line = line_html, dot_bg = dot_color,
+                icon = icon, title = item_title, time_html = time_html, desc_html = desc_html,
+            ));
+        }
     }
 
     format!(
