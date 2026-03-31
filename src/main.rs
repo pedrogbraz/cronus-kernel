@@ -779,10 +779,6 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
 // ══════════════════════════════════════════════════
 
 async fn cmd_run(args: &[String]) {
-    let port: u16 = args.get(2)
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(0); // 0 = use app port
-
     // Find .cronus files — supports multi-agent mode
     let files = find_all_cronus_files();
     if files.is_empty() {
@@ -846,7 +842,9 @@ async fn cmd_run(args: &[String]) {
         }
     }
 
-    let serve_port = if port > 0 { port } else { app.port };
+    // CLI port takes precedence
+    let cli_port = args.iter().skip(2).find_map(|s| s.parse::<u16>().ok());
+    let serve_port = if let Some(p) = cli_port { p } else { app.port };
     let comp_count = cronus_components.len();
     println!("  \x1b[32m✓\x1b[0m Parsed: {} entities, {} pages, {} routes, {} components", entities.len(), pages.len(), route_count, comp_count);
 
@@ -985,7 +983,22 @@ fn cmd_dump(args: &[String]) {
     });
 
     eprintln!("  \x1b[36m⚡\x1b[0m Dumping {} ({} bytes)...", file, html.len());
-    let cronus = dump::dump_html(&html);
+
+    // Detect OpenAPI/Swagger JSON
+    let cronus = if file.ends_with(".json") {
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&html) {
+            if parsed.get("openapi").is_some() || parsed.get("swagger").is_some() {
+                eprintln!("  \x1b[36m⚡\x1b[0m Detected OpenAPI spec");
+                dump::openapi::dump_openapi(&html)
+            } else {
+                dump::dump_html(&html)
+            }
+        } else {
+            dump::dump_html(&html)
+        }
+    } else {
+        dump::dump_html(&html)
+    };
 
     // Check for -o flag
     let output_file = args.iter().position(|a| a == "-o").and_then(|i| args.get(i + 1));
