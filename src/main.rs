@@ -53,6 +53,7 @@ use std::collections::HashMap;
 use parser::{AstNode, EntityNode, PageNode, StyleNode, ApiNode, AppNode, FieldType};
 
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 pub static STRICT_MODE: AtomicBool = AtomicBool::new(false);
 
 // ══════════════════════════════════════════════════
@@ -80,6 +81,7 @@ async fn main() {
         "compose" => cmd_compose(&args),
         "generate" | "gen" => cmd_generate(&args),
         "dump" => cmd_dump(&args),
+        "validate" => cmd_validate(&args),
         "spec" => cmd_spec(&args),
         "version" | "-v" | "--version" => println!("cronus v0.1.0"),
         "help" | "--help" | "-h" | _ => print_help(),
@@ -111,6 +113,7 @@ fn print_help() {
     println!("    \x1b[32mtest\x1b[0m --conformance   Run conformance test suite");
     println!("    \x1b[32mcompose\x1b[0m          Compose all .cronus files and show result");
     println!("    \x1b[32mgenerate\x1b[0m <desc>  Generate .cronus from description");
+    println!("    \x1b[32mvalidate\x1b[0m [file] [--json]  Validate .cronus file (--json for structured output)");
     println!("    \x1b[32mspec\x1b[0m <validate|list|codegen> Validate, list, or generate from .spec.toml files");
     println!("    \x1b[32mversion\x1b[0m          Show version");
     println!();
@@ -1053,6 +1056,8 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
 // ══════════════════════════════════════════════════
 
 async fn cmd_run(args: &[String]) {
+    let start_time = Instant::now();
+
     // Find .cronus files — supports multi-agent mode
     let files = find_all_cronus_files();
     if files.is_empty() {
@@ -1071,7 +1076,6 @@ async fn cmd_run(args: &[String]) {
             Ok(n) => n,
             Err(e) => { eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e); std::process::exit(1); }
         };
-        println!("  \x1b[32m✓\x1b[0m Found {} ({} lines)", files[0], lines);
         (n, lines)
     } else {
         // Multi-agent mode: compose all .cronus files
@@ -1080,13 +1084,12 @@ async fn cmd_run(args: &[String]) {
         for f in &files {
             let lines = fs::read_to_string(f).map(|s| s.lines().count()).unwrap_or(0);
             total += lines;
-            println!("    \x1b[32m+\x1b[0m {} ({} lines)", f, lines);
         }
         let n = match parser::parse_directory(".") {
             Ok(n) => n,
             Err(e) => { eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e); std::process::exit(1); }
         };
-        println!("  \x1b[32m✓\x1b[0m Composed {} files ({} lines total)", files.len(), total);
+
         (n, total)
     };
 
@@ -1138,7 +1141,7 @@ async fn cmd_run(args: &[String]) {
     let cli_port = args.iter().skip(2).find_map(|s| s.parse::<u16>().ok());
     let serve_port = if let Some(p) = cli_port { p } else { app.port };
     let comp_count = cronus_components.len();
-    println!("  \x1b[32m✓\x1b[0m Parsed: {} entities, {} pages, {} routes, {} components", entities.len(), pages.len(), route_count, comp_count);
+
 
     // Database — use CronusDB for all operations
     let db_path = app.database.as_ref()
@@ -1161,7 +1164,7 @@ async fn cmd_run(args: &[String]) {
     }
 
     let table_count = entities.len();
-    println!("  \x1b[32m✓\x1b[0m Database: ./{} ({} tables)", db_path, table_count);
+
 
     // Initialize Hydra Brain
     let brain_db = Arc::new(database::CronusDB::open(&db_path).expect("Failed to open brain DB"));
@@ -1197,16 +1200,9 @@ async fn cmd_run(args: &[String]) {
     };
     let _ = brain_db.migrate(&[brain_entity]);
     let hydra = brain::CronusBrain::init(brain_db);
-    println!("  \x1b[32m✓\x1b[0m Hydra Brain: online");
+
 
     // Build app state (reuse app_db from migration)
-    if auth_entity.is_some() {
-        println!("  \x1b[32m✓\x1b[0m Auth: entity={}, roles={:?}, protected={} pages",
-            auth_entity.as_deref().unwrap_or("?"), auth_roles, auth_required_pages.len());
-    }
-    if let Some(ref l) = layout {
-        println!("  \x1b[32m✓\x1b[0m Layout: \"{}\" ({} nav items)", l.name, l.sidebar_items.len());
-    }
 
     let state = Arc::new(AppState {
         app: app.clone(),
@@ -1237,26 +1233,56 @@ async fn cmd_run(args: &[String]) {
 
     // Start HMR file watcher
     if files.len() > 1 {
-        // Multi-file mode: watch entire directory
         hmr::start_directory_watcher(".", move || {
             let v = hmr::bump_version();
             eprintln!("  \x1b[33m⚡\x1b[0m File changed — version {} (browser will reload)", v);
         });
-        println!("  \x1b[32m✓\x1b[0m HMR watching {} .cronus files", files.len());
     } else {
         let hmr_file = file.clone();
         hmr::start_watcher(&hmr_file, move || {
             let v = hmr::bump_version();
             eprintln!("  \x1b[33m⚡\x1b[0m File changed — version {} (browser will reload)", v);
         });
-        println!("  \x1b[32m✓\x1b[0m HMR watching {}", file);
     }
-    println!("  \x1b[32m✓\x1b[0m Server running\n");
-    println!("  App      → \x1b[1mhttp://localhost:{}\x1b[0m", serve_port);
-    println!("  API      → \x1b[1mhttp://localhost:{}/api\x1b[0m", serve_port);
-    println!("  GraphQL  → \x1b[1mhttp://localhost:{}/graphql\x1b[0m", serve_port);
-    println!("  Theme    → {} / {}", app.name, accent);
-    println!("\n  Press Ctrl+C to stop\n");
+
+    // Count total rows across all entities
+    let total_rows: usize = state.entities.iter().map(|e| {
+        state.db.count(&e.name).unwrap_or(0)
+    }).sum();
+
+    let auth_page_count = state.auth_required_pages.len();
+    let total_pages = state.pages.len();
+    let elapsed_ms = start_time.elapsed().as_millis();
+
+    // ── Clean startup banner ──
+    println!();
+    println!("  \x1b[36m\x1b[1mCRONUS\x1b[0m \x1b[90mv0.1.0\x1b[0m");
+    println!();
+    println!("  \x1b[90mApp:\x1b[0m       \x1b[1m{}\x1b[0m", app.name);
+    println!("  \x1b[90mPort:\x1b[0m      \x1b]8;;http://localhost:{}\x1b\\http://localhost:{}\x1b]8;;\x1b\\", serve_port, serve_port);
+    println!("  \x1b[90mDatabase:\x1b[0m  ./{} ({} entities, {} rows)", db_path, table_count, total_rows);
+    if total_pages > 0 {
+        if auth_page_count > 0 {
+            println!("  \x1b[90mPages:\x1b[0m     {} ({} require auth)", total_pages, auth_page_count);
+        } else {
+            println!("  \x1b[90mPages:\x1b[0m     {}", total_pages);
+        }
+    }
+    if route_count > 0 {
+        println!("  \x1b[90mRoutes:\x1b[0m    {} API endpoints", route_count);
+    }
+    if let Some(ref _auth_e) = state.auth_entity {
+        if state.auth_roles.is_empty() {
+            println!("  \x1b[90mAuth:\x1b[0m      JWT");
+        } else {
+            println!("  \x1b[90mAuth:\x1b[0m      JWT (roles: {})", state.auth_roles.join(", "));
+        }
+    }
+    println!();
+    println!("  \x1b[32mReady in {}ms\x1b[0m", elapsed_ms);
+    println!();
+    println!("  Press Ctrl+C to stop.");
+    println!();
 
     loop {
         let (stream, _) = listener.accept().await.unwrap();
@@ -2342,6 +2368,119 @@ fn cmd_build(args: &[String]) {
     }
 }
 
+fn cmd_validate(args: &[String]) {
+    let json_output = args.iter().any(|a| a == "--json");
+
+    let file = args.iter().skip(2)
+        .find(|a| a.ends_with(".cronus"))
+        .cloned()
+        .or_else(find_cronus_file);
+
+    let file = match file {
+        Some(f) => f,
+        None => {
+            if json_output {
+                println!("{}", json!({"valid": false, "errors": [{"message": "No .cronus file found"}], "warnings": []}));
+            } else {
+                eprintln!("No .cronus file found");
+            }
+            std::process::exit(1);
+        }
+    };
+
+    let source = fs::read_to_string(&file).unwrap_or_default();
+
+    let mut errors: Vec<Value> = Vec::new();
+    let mut warnings: Vec<Value> = Vec::new();
+    let mut stats = json!({});
+
+    match parser::parse(&source) {
+        Ok(nodes) => {
+            let (entity_count, page_count, api_routes) = parser::stats(&nodes);
+
+            stats = json!({
+                "entities": entity_count,
+                "pages": page_count,
+                "routes": api_routes,
+                "lines": source.lines().count(),
+            });
+
+            for node in &nodes {
+                if let AstNode::Page(page) = node {
+                    for section in &page.sections {
+                        let section_warnings = contracts::validate_section(section, &[]);
+                        for w in section_warnings {
+                            let warning_json = match w {
+                                contracts::ParseWarning::UnknownSection { ref name, line } => {
+                                    json!({"type": "unknown_section", "section": name, "line": line, "message": format!("Unknown section type '{}'", name)})
+                                }
+                                contracts::ParseWarning::UnknownKey { ref section, ref key, ref item, line } => {
+                                    json!({"type": "unknown_key", "section": section, "key": key, "item": item, "line": line, "message": format!("Unknown key '{}' in section '{}'", key, section)})
+                                }
+                                contracts::ParseWarning::MissingRequired { ref section, ref key, ref item, line } => {
+                                    json!({"type": "missing_required", "section": section, "key": key, "item": item, "line": line, "severity": "error", "message": format!("Missing required key '{}' in section '{}'", key, section)})
+                                }
+                                contracts::ParseWarning::AliasUsed { ref alias, ref canonical, line } => {
+                                    json!({"type": "alias", "alias": alias, "canonical": canonical, "line": line, "message": format!("'{}' is an alias for '{}', consider using canonical name", alias, canonical)})
+                                }
+                                contracts::ParseWarning::MinItemsViolation { ref section, expected, actual, line } => {
+                                    json!({"type": "min_items", "section": section, "expected": expected, "actual": actual, "line": line, "message": format!("Section '{}' requires at least {} items, found {}", section, expected, actual)})
+                                }
+                                contracts::ParseWarning::UnknownConfig { ref section, ref key, line } => {
+                                    json!({"type": "unknown_config", "section": section, "key": key, "line": line, "message": format!("Unknown config key '{}' in section '{}'", key, section)})
+                                }
+                            };
+                            warnings.push(warning_json);
+                        }
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            errors.push(json!({
+                "type": "parse_error",
+                "message": e,
+                "severity": "error"
+            }));
+        }
+    }
+
+    let valid = errors.is_empty();
+
+    if json_output {
+        let result = json!({
+            "valid": valid,
+            "file": file,
+            "errors": errors,
+            "warnings": warnings,
+            "stats": stats,
+        });
+        println!("{}", serde_json::to_string_pretty(&result).unwrap());
+    } else {
+        if valid {
+            println!("\n  \x1b[32m✓\x1b[0m {} is valid", file);
+            if let Some(entities) = stats.get("entities") {
+                println!("    {} entities, {} pages, {} routes",
+                    entities, stats.get("pages").unwrap_or(&json!(0)),
+                    stats.get("routes").unwrap_or(&json!(0)));
+            }
+        } else {
+            println!("\n  \x1b[31m✗\x1b[0m {} has errors:", file);
+            for err in &errors {
+                println!("    \x1b[31m✗\x1b[0m {}", err.get("message").and_then(|v| v.as_str()).unwrap_or("unknown error"));
+            }
+        }
+        for w in &warnings {
+            println!("    \x1b[33m⚠\x1b[0m {}", w.get("message").and_then(|v| v.as_str()).unwrap_or(""));
+        }
+        println!();
+    }
+
+    if !valid {
+        std::process::exit(1);
+    }
+}
+
 fn cmd_new(args: &[String]) {
     let template = args.get(2).map(|s| s.as_str()).unwrap_or_else(|| {
         eprintln!("  Usage: cronus new <template>");
@@ -2373,9 +2512,43 @@ fn cmd_new(args: &[String]) {
     let mut file = fs::File::create(&file_path).unwrap();
     file.write_all(content.as_bytes()).unwrap();
 
-    println!("\n  \x1b[32m✓\x1b[0m Created \x1b[1m{}/app.cronus\x1b[0m (template: {})", dir, template);
-    println!("  Next: \x1b[1mcd {} && cronus run\x1b[0m", dir);
-    println!("  Seed: \x1b[1mcd {} && cronus seed\x1b[0m\n", dir);
+    // Parse the template to show stats
+    let new_nodes = parser::parse(content).ok();
+    let (ent_count, pg_count, rt_count) = new_nodes.as_ref()
+        .map(|n| parser::stats(n))
+        .unwrap_or((0, 0, 0));
+
+    let entity_names: Vec<String> = new_nodes.as_ref()
+        .map(|nodes| nodes.iter().filter_map(|n| {
+            if let parser::AstNode::Entity(e) = n { Some(e.name.clone()) } else { None }
+        }).collect())
+        .unwrap_or_default();
+
+    let has_auth = new_nodes.as_ref()
+        .map(|nodes| nodes.iter().any(|n| matches!(n, parser::AstNode::Auth(_))))
+        .unwrap_or(false);
+
+    println!("\n  Created: \x1b[1m{}/app.cronus\x1b[0m", dir);
+    println!();
+    println!("  \x1b[90mContents:\x1b[0m");
+    if !entity_names.is_empty() {
+        println!("    {} entities ({})", ent_count, entity_names.join(", "));
+    }
+    if pg_count > 0 {
+        println!("    {} pages", pg_count);
+    }
+    if rt_count > 0 {
+        println!("    {} API routes", rt_count);
+    }
+    if has_auth {
+        println!("    Auth with JWT");
+    }
+    println!();
+    println!("  \x1b[90mNext steps:\x1b[0m");
+    println!("    cd {}", dir);
+    println!("    cronus seed    \x1b[90m# populate with test data\x1b[0m");
+    println!("    cronus run     \x1b[90m# start the server\x1b[0m");
+    println!();
 }
 
 // ══════════════════════════════════════════════════
@@ -2426,7 +2599,8 @@ fn cmd_seed(args: &[String]) {
         std::process::exit(1);
     });
 
-    println!("\n  \x1b[36m⚡\x1b[0m Seeding {} entities with {} rows each...\n", entities.len(), count);
+    let seed_start = Instant::now();
+    println!("\n  Seeding {} entities \xc3\x97 {} rows...\n", entities.len(), count);
 
     for entity in &entities {
         let mut seeded = 0;
@@ -2550,10 +2724,12 @@ fn cmd_seed(args: &[String]) {
                 seeded += 1;
             }
         }
-        println!("  \x1b[32m✓\x1b[0m {} — {} rows", entity.name, seeded);
+        let sample: String = if seeded > 0 { format!(" ({})", entity.fields.first().map(|f| f.name.as_str()).unwrap_or("")) } else { String::new() };
+        println!("  \x1b[32m\xe2\x9c\x93\x1b[0m {:<12} {} rows", entity.name, seeded);
     }
 
-    println!("\n  \x1b[32m✓\x1b[0m Done! Run \x1b[36mcronus run\x1b[0m to see your data.\n");
+    let seed_ms = seed_start.elapsed().as_millis();
+    println!("\n  Done in {}ms. Run: \x1b[1mcronus run\x1b[0m\n", seed_ms);
 }
 
 // ══════════════════════════════════════════════════
