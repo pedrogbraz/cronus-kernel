@@ -193,6 +193,30 @@ fn html_response(body: String) -> Response<Full<Bytes>> {
         .unwrap()
 }
 
+fn forbidden_response(message: &str) -> Response<Full<Bytes>> {
+    let html = format!(r##"<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>403 Forbidden</title>
+<style>
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  body {{ background:oklch(0.08 0 0); color:oklch(0.7 0 0); font-family:'SF Pro','Inter',system-ui,sans-serif;
+         display:flex; align-items:center; justify-content:center; min-height:100vh; }}
+  .box {{ text-align:center; max-width:400px; padding:40px; }}
+  .code {{ font-size:64px; font-weight:700; color:oklch(0.4 0.15 25); margin-bottom:8px; }}
+  .msg {{ font-size:15px; color:oklch(0.55 0 0); margin-bottom:24px; }}
+  a {{ color:oklch(0.7 0 0); text-decoration:underline; font-size:13px; }}
+</style></head>
+<body><div class="box">
+  <div class="code">403</div>
+  <div class="msg">{}</div>
+  <a href="/">Back to home</a>
+</div></body></html>"##, message);
+    Response::builder()
+        .status(StatusCode::FORBIDDEN)
+        .header("Content-Type", "text/html; charset=utf-8")
+        .body(Full::new(Bytes::from(html)))
+        .unwrap()
+}
+
 fn generate_login_page(state: &AppState) -> String {
     let app_name = &state.app.name;
     let logo_letter = app_name.chars().next().unwrap_or('C').to_uppercase().to_string();
@@ -611,7 +635,7 @@ async fn handle_request(
         let id = body.get("id").and_then(|v| v.as_str()).unwrap_or("");
         let action_data = body.get("action").and_then(|v| v.as_str()).unwrap_or("{}");
 
-        let (ok, effects) = actions::execute_action(action_data, entity, id, &state.db);
+        let (ok, effects) = actions::execute_action_validated(action_data, entity, id, &state.db, &state.entities);
         let response = actions::effects_to_json(&effects);
         return Ok(json_response(if ok { StatusCode::OK } else { StatusCode::BAD_REQUEST }, response));
     }
@@ -625,6 +649,19 @@ async fn handle_request(
         let data = body.get("data").cloned().unwrap_or(json!({}));
 
         if data.is_object() && !entity.is_empty() {
+            // Validate against entity schema if available
+            if let Some(entity_schema) = state.entities.iter().find(|e| e.name.eq_ignore_ascii_case(entity)) {
+                let errors = actions::validate_form_data(&data, entity_schema);
+                if !errors.is_empty() {
+                    let response = json!({
+                        "ok": false,
+                        "errors": errors,
+                        "effects": [{"type": "toast", "target": "Validation failed", "style": "error"}]
+                    });
+                    return Ok(json_response(StatusCode::BAD_REQUEST, response));
+                }
+            }
+
             match state.db.insert(entity, &data) {
                 Ok(row) => {
                     let response = json!({
@@ -701,9 +738,11 @@ async fn handle_request(
     }
 
     // ── Auth middleware — protect pages that require authentication ──
-    if state.auth_required_pages.contains(&path)
-        || state.auth_required_pages.iter().any(|r| path.starts_with(r) && r != "/")
-    {
+    let matched_requires = state.auth_required_pages.iter()
+        .find(|(r, _)| r == &path || (path.starts_with(r.as_str()) && r != "/"))
+        .map(|(_, req)| req.clone());
+
+    if let Some(requires_str) = matched_requires {
         let token = req.headers().get("cookie")
             .and_then(|c| c.to_str().ok())
             .and_then(|c| c.split(';').find(|s| s.trim().starts_with("cronus_token=")))
@@ -714,17 +753,40 @@ async fn handle_request(
                 .map(|s| s.to_string()));
 
         let secret = auth::default_secret();
-        let authenticated = match &token {
-            Some(t) => auth::verify_token(t, &secret).is_ok(),
-            None => false,
-        };
 
-        if !authenticated {
-            return Ok(Response::builder()
-                .status(StatusCode::FOUND)
-                .header("Location", "/login")
-                .body(Full::new(Bytes::new()))
-                .unwrap());
+        let redirect_to_login = || Response::builder()
+            .status(StatusCode::FOUND)
+            .header("Location", "/login")
+            .body(Full::new(Bytes::new()))
+            .unwrap();
+
+        if requires_str.starts_with("role(") {
+            // Role-based access control
+            let required_role = requires_str
+                .trim_start_matches("role(")
+                .trim_end_matches(')');
+            match &token {
+                Some(t) => {
+                    match auth::verify_token(t, &secret) {
+                        Ok(claims) => {
+                            if claims.role != required_role && claims.role != "admin" {
+                                return Ok(forbidden_response("Insufficient permissions"));
+                            }
+                        }
+                        Err(_) => return Ok(redirect_to_login()),
+                    }
+                }
+                None => return Ok(redirect_to_login()),
+            }
+        } else {
+            // Simple auth check
+            let authenticated = match &token {
+                Some(t) => auth::verify_token(t, &secret).is_ok(),
+                None => false,
+            };
+            if !authenticated {
+                return Ok(redirect_to_login());
+            }
         }
     }
 
@@ -1116,7 +1178,7 @@ async fn cmd_run(args: &[String]) {
     let mut route_count = 0;
     let mut auth_entity: Option<String> = None;
     let mut auth_roles: Vec<String> = Vec::new();
-    let mut auth_required_pages: Vec<String> = Vec::new();
+    let mut auth_required_pages: Vec<(String, String)> = Vec::new();
     let mut layout: Option<parser::LayoutNode> = None;
 
     for node in &nodes {
@@ -1126,8 +1188,8 @@ async fn cmd_run(args: &[String]) {
             AstNode::Page(p) => {
                 // Track pages that require auth
                 let req = p.requires.clone().or_else(|| p.config.get("requires").cloned());
-                if req.is_some() {
-                    auth_required_pages.push(p.route.clone());
+                if let Some(ref req_val) = req {
+                    auth_required_pages.push((p.route.clone(), req_val.clone()));
                 }
                 pages.push(p.clone());
             }
