@@ -10,6 +10,10 @@ pub mod patterns;
 pub mod emit;
 pub mod openapi;
 pub mod prisma;
+pub mod project;
+pub mod routes;
+pub mod style_extract;
+pub mod typescript;
 
 use std::collections::HashMap;
 
