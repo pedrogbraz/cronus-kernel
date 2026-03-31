@@ -1,28 +1,41 @@
 use std::collections::HashMap;
+use serde_json::Value as JsonValue;
 use crate::parser::SectionNode;
 
 /// Renders a generic data table from a "table" section.
 /// Items with `column:true` are column headers. All other items are data rows.
 /// Row props map to column names (lowercase).
-pub fn render_data_table(section: &SectionNode) -> String {
+/// When bound_data contains Rows, generates table body from database rows instead of static items.
+pub fn render_data_table(section: &SectionNode, bound_data: &crate::binding::ResolvedData) -> String {
     let title = section.title.as_deref().unwrap_or("");
     let table_id = format!("cronus-tbl-{}", title.replace(' ', "-").to_lowercase());
 
-    // Separate column headers from data rows
+    // Column headers always come from section items with column:true
     let columns: Vec<&str> = section.items.iter()
         .filter(|item| item.get("column").map(|v| v == "true").unwrap_or(false))
         .map(|item| item.get("title").map(|s| s.as_str()).unwrap_or(""))
         .collect();
 
-    let rows: Vec<&HashMap<String, String>> = section.items.iter()
-        .filter(|item| !item.get("column").map(|v| v == "true").unwrap_or(false))
-        .filter(|item| {
-            let t = item.get("_type").map(|s| s.as_str()).unwrap_or("item");
-            t == "item" || t.is_empty()
-        })
-        .collect();
+    // Check if we have bound database rows
+    let use_bound = matches!(bound_data, crate::binding::ResolvedData::Rows(r) if !r.is_empty());
 
-    let row_count = rows.len();
+    let static_rows: Vec<&HashMap<String, String>> = if use_bound {
+        Vec::new()
+    } else {
+        section.items.iter()
+            .filter(|item| !item.get("column").map(|v| v == "true").unwrap_or(false))
+            .filter(|item| {
+                let t = item.get("_type").map(|s| s.as_str()).unwrap_or("item");
+                t == "item" || t.is_empty()
+            })
+            .collect()
+    };
+
+    let row_count = if let crate::binding::ResolvedData::Rows(rows) = bound_data {
+        if !rows.is_empty() { rows.len() } else { static_rows.len() }
+    } else {
+        static_rows.len()
+    };
     let mut html = String::new();
 
     // Sort + bulk select JS (once per page)
@@ -62,53 +75,99 @@ function cronusBulkSelect(tid,cb){{var t=document.getElementById(tid);if(!t)retu
 
     // ── Body ──
     html.push_str("<tbody>");
-    for (idx, row) in rows.iter().enumerate() {
-        let row_title = row.get("title").map(|s| s.as_str()).unwrap_or("");
-        let alt_bg = if idx % 2 == 1 { "rgba(250,250,250,0.3)" } else { "transparent" };
 
-        html.push_str(&format!(
-            r#"<tr style="border-bottom:1px solid #f3f4f6;background:{alt_bg};transition:background 0.1s" onmouseover="this.style.background='rgba(245,245,245,0.5)'" onmouseout="this.style.background='{alt_bg}'">"#
-        ));
-        html.push_str(r#"<td style="padding:12px 16px"><input type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:#000"></td>"#);
+    if let crate::binding::ResolvedData::Rows(bound_rows) = bound_data {
+        if !bound_rows.is_empty() {
+            // === Render from database rows ===
+            for (idx, row) in bound_rows.iter().enumerate() {
+                let alt_bg = if idx % 2 == 1 { "rgba(250,250,250,0.3)" } else { "transparent" };
 
-        for (ci, col) in columns.iter().enumerate() {
-            let col_key = col.to_lowercase();
-
-            // First column uses row title as value
-            let cell_value = if ci == 0 {
-                row_title
-            } else {
-                row.get(&col_key).map(|s| s.as_str()).unwrap_or("")
-            };
-
-            // Check for badge color (on status column)
-            let badge_color = if col_key == "status" {
-                row.get("badge").map(|s| s.as_str()).unwrap_or("")
-            } else {
-                ""
-            };
-
-            html.push_str(r#"<td style="padding:12px 16px;color:#374151">"#);
-
-            if !badge_color.is_empty() {
-                let (dot_bg, txt_color) = match badge_color {
-                    "green" => ("#10b981", "#047857"),
-                    "yellow" => ("#f59e0b", "#b45309"),
-                    "red" => ("#ef4444", "#b91c1c"),
-                    "blue" => ("#3b82f6", "#1d4ed8"),
-                    _ => ("#71717a", "#374151"),
-                };
                 html.push_str(&format!(
-                    r#"<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:{dot_bg};flex-shrink:0"></span><span style="color:{txt_color};font-weight:500">{cell_value}</span></span>"#
+                    r#"<tr style="border-bottom:1px solid #f3f4f6;background:{alt_bg};transition:background 0.1s" onmouseover="this.style.background='rgba(245,245,245,0.5)'" onmouseout="this.style.background='{alt_bg}'">"#
                 ));
-            } else {
-                html.push_str(cell_value);
-            }
+                html.push_str(r#"<td style="padding:12px 16px"><input type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:#000"></td>"#);
 
-            html.push_str("</td>");
+                for col in &columns {
+                    let col_key = col.to_lowercase();
+                    let cell_value = row.get(&col_key)
+                        .and_then(|v| v.as_str())
+                        .or_else(|| row.get(&col_key).and_then(|v| if v.is_number() { None } else { None }))
+                        .unwrap_or("");
+                    // For numeric values, convert to string
+                    let cell_display = if cell_value.is_empty() {
+                        if let Some(v) = row.get(&col_key) {
+                            match v {
+                                JsonValue::Number(n) => n.to_string(),
+                                JsonValue::Bool(b) => b.to_string(),
+                                _ => String::new(),
+                            }
+                        } else {
+                            String::new()
+                        }
+                    } else {
+                        cell_value.to_string()
+                    };
+
+                    html.push_str(r#"<td style="padding:12px 16px;color:#374151">"#);
+                    html.push_str(&cell_display);
+                    html.push_str("</td>");
+                }
+                html.push_str("</tr>");
+            }
         }
-        html.push_str("</tr>");
     }
+
+    if !use_bound {
+        // === Fallback: render from static section items ===
+        for (idx, row) in static_rows.iter().enumerate() {
+            let row_title = row.get("title").map(|s| s.as_str()).unwrap_or("");
+            let alt_bg = if idx % 2 == 1 { "rgba(250,250,250,0.3)" } else { "transparent" };
+
+            html.push_str(&format!(
+                r#"<tr style="border-bottom:1px solid #f3f4f6;background:{alt_bg};transition:background 0.1s" onmouseover="this.style.background='rgba(245,245,245,0.5)'" onmouseout="this.style.background='{alt_bg}'">"#
+            ));
+            html.push_str(r#"<td style="padding:12px 16px"><input type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:#000"></td>"#);
+
+            for (ci, col) in columns.iter().enumerate() {
+                let col_key = col.to_lowercase();
+
+                // First column uses row title as value
+                let cell_value = if ci == 0 {
+                    row_title
+                } else {
+                    row.get(&col_key).map(|s| s.as_str()).unwrap_or("")
+                };
+
+                // Check for badge color (on status column)
+                let badge_color = if col_key == "status" {
+                    row.get("badge").map(|s| s.as_str()).unwrap_or("")
+                } else {
+                    ""
+                };
+
+                html.push_str(r#"<td style="padding:12px 16px;color:#374151">"#);
+
+                if !badge_color.is_empty() {
+                    let (dot_bg, txt_color) = match badge_color {
+                        "green" => ("#10b981", "#047857"),
+                        "yellow" => ("#f59e0b", "#b45309"),
+                        "red" => ("#ef4444", "#b91c1c"),
+                        "blue" => ("#3b82f6", "#1d4ed8"),
+                        _ => ("#71717a", "#374151"),
+                    };
+                    html.push_str(&format!(
+                        r#"<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:{dot_bg};flex-shrink:0"></span><span style="color:{txt_color};font-weight:500">{cell_value}</span></span>"#
+                    ));
+                } else {
+                    html.push_str(cell_value);
+                }
+
+                html.push_str("</td>");
+            }
+            html.push_str("</tr>");
+        }
+    }
+
     html.push_str("</tbody>");
 
     // ── Footer ──
