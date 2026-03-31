@@ -615,10 +615,31 @@ fn element_to_node(el: ElementRef, depth: u32) -> DomNode {
         attrs.insert(attr.0.to_string(), attr.1.to_string());
     }
 
-    // Children
+    // Children — include both element children AND text nodes so that
+    // dom_to_html() can reconstruct the original HTML faithfully.
     let children: Vec<DomNode> = el.children()
-        .filter_map(|child| ElementRef::wrap(child))
-        .map(|child_el| element_to_node(child_el, depth + 1))
+        .filter_map(|child| {
+            if let Some(child_el) = ElementRef::wrap(child) {
+                Some(element_to_node(child_el, depth + 1))
+            } else if let Node::Text(t) = child.value() {
+                let text_content = t.text.to_string();
+                if text_content.trim().is_empty() {
+                    return None; // skip whitespace-only text nodes
+                }
+                Some(DomNode {
+                    tag: "_text".to_string(),
+                    classes: Vec::new(),
+                    id: None,
+                    text: text_content.clone(),
+                    full_text: text_content,
+                    attrs: HashMap::new(),
+                    children: Vec::new(),
+                    depth: depth + 1,
+                })
+            } else {
+                None
+            }
+        })
         .collect();
 
     DomNode { tag, classes, id, text, full_text, attrs, children, depth }

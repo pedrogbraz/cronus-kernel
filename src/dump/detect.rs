@@ -20,6 +20,8 @@ pub struct SectionBlueprint {
     pub subtitle: Option<String>,
     pub config: HashMap<String, String>,
     pub items: Vec<ItemBlueprint>,
+    pub template: Option<String>,
+    pub style_block: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -31,11 +33,116 @@ pub struct ItemBlueprint {
 }
 
 // ---------------------------------------------------------------------------
+// HTML template serialization
+// ---------------------------------------------------------------------------
+
+/// Serialize a DomNode back to an HTML string.
+fn dom_to_html(node: &DomNode) -> String {
+    let mut html = String::new();
+
+    // Opening tag
+    html.push('<');
+    html.push_str(&node.tag);
+
+    // Attributes (skip "class" — we emit classes separately)
+    for (key, value) in &node.attrs {
+        if key == "class" { continue; }
+        html.push_str(&format!(" {}=\"{}\"", key, value.replace('"', "&quot;")));
+    }
+
+    // Classes
+    if !node.classes.is_empty() {
+        html.push_str(&format!(" class=\"{}\"", node.classes.join(" ")));
+    }
+
+    html.push('>');
+
+    // Children
+    for child in &node.children {
+        if child.tag == "_text" {
+            html.push_str(&child.text);
+        } else {
+            html.push_str(&dom_to_html(child));
+        }
+    }
+
+    // Self-closing tags don't get a closing tag
+    let void_elements = ["img", "br", "hr", "input", "meta", "link"];
+    if !void_elements.contains(&node.tag.as_str()) {
+        html.push_str(&format!("</{}>", node.tag));
+    }
+
+    html
+}
+
+/// Replace known content values in the HTML template with {{placeholder}} tokens
+/// so the semantic layer can override them at render time.
+fn templatize(html: &str, section: &SectionBlueprint) -> String {
+    let mut tmpl = html.to_string();
+
+    // Replace title text with {{title}}
+    if let Some(ref title) = section.title {
+        if !title.is_empty() {
+            tmpl = tmpl.replace(title, "{{title}}");
+        }
+    }
+
+    // Replace subtitle with {{subtitle}}
+    if let Some(ref subtitle) = section.subtitle {
+        if !subtitle.is_empty() {
+            tmpl = tmpl.replace(subtitle, "{{subtitle}}");
+        }
+    }
+
+    // Replace CTA text with {{cta.text}} and href with {{cta.href}}
+    if let Some(cta_text) = section.config.get("cta_text") {
+        if !cta_text.is_empty() {
+            tmpl = tmpl.replace(cta_text, "{{cta.text}}");
+        }
+    }
+    if let Some(cta_link) = section.config.get("cta_link") {
+        if !cta_link.is_empty() && cta_link != "#" {
+            tmpl = tmpl.replace(cta_link, "{{cta.href}}");
+        }
+    }
+
+    tmpl
+}
+
+/// Extract all `<style>` tag contents from raw HTML.
+pub fn extract_page_styles(html: &str) -> String {
+    let mut styles = String::new();
+    let mut pos = 0;
+    while let Some(start) = html[pos..].find("<style") {
+        let abs_start = pos + start;
+        if let Some(tag_end) = html[abs_start..].find('>') {
+            let content_start = abs_start + tag_end + 1;
+            if let Some(end) = html[content_start..].find("</style>") {
+                styles.push_str(&html[content_start..content_start + end]);
+                styles.push('\n');
+                pos = content_start + end;
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+    styles
+}
+
+// ---------------------------------------------------------------------------
 // Main detection entry point
 // ---------------------------------------------------------------------------
 
 /// Walk every top-level DOM block, classify it, and extract content.
-pub fn detect_sections(nodes: &[DomNode]) -> Vec<SectionBlueprint> {
+///
+/// When `page_css` is provided (extracted from `<style>` tags), it is attached
+/// as `style_block` on the first emitted section.
+pub fn detect_sections_with_templates(
+    nodes: &[DomNode],
+    page_css: Option<&str>,
+) -> Vec<SectionBlueprint> {
     let mut sections: Vec<SectionBlueprint> = Vec::new();
 
     for node in nodes {
@@ -46,13 +153,18 @@ pub fn detect_sections(nodes: &[DomNode]) -> Vec<SectionBlueprint> {
             if should_split_block(node) {
                 let sub_sections = split_and_detect(node);
                 if !sub_sections.is_empty() {
-                    sections.extend(sub_sections);
+                    // Attach templates to sub-sections
+                    for mut s in sub_sections {
+                        attach_template(&mut s, node);
+                        sections.push(s);
+                    }
                     continue;
                 }
             }
             // Still emit a generic section so no text is lost
-            let generic = extract_generic(node);
+            let mut generic = extract_generic(node);
             if generic.title.is_some() || !generic.items.is_empty() {
+                attach_template(&mut generic, node);
                 sections.push(generic);
             }
             continue;
@@ -85,7 +197,19 @@ pub fn detect_sections(nodes: &[DomNode]) -> Vec<SectionBlueprint> {
         blueprint.confidence = confidence;
         blueprint.section_type = section_type.to_string();
 
+        // Attach HTML template from the source DomNode
+        attach_template(&mut blueprint, node);
+
         sections.push(blueprint);
+    }
+
+    // Attach page-level CSS to the first section
+    if let Some(css) = page_css {
+        if !css.trim().is_empty() {
+            if let Some(first) = sections.first_mut() {
+                first.style_block = Some(css.to_string());
+            }
+        }
     }
 
     // Merge consecutive page-header fragments into a single section
@@ -96,6 +220,18 @@ pub fn detect_sections(nodes: &[DomNode]) -> Vec<SectionBlueprint> {
     sort_dashboard_sections(&mut sections);
 
     sections
+}
+
+/// Backward-compatible entry point (without template extraction).
+pub fn detect_sections(nodes: &[DomNode]) -> Vec<SectionBlueprint> {
+    detect_sections_with_templates(nodes, None)
+}
+
+/// Serialize a DomNode to HTML, templatize it, and store on the blueprint.
+fn attach_template(blueprint: &mut SectionBlueprint, node: &DomNode) {
+    let raw_html = dom_to_html(node);
+    let templated = templatize(&raw_html, blueprint);
+    blueprint.template = Some(templated);
 }
 
 /// Check if a block is large enough to warrant splitting into sub-blocks.
@@ -347,6 +483,8 @@ fn extract_topbar(node: &DomNode) -> SectionBlueprint {
         subtitle: None,
         config,
         items,
+        template: None,
+        style_block: None,
     }
 }
 
@@ -516,6 +654,8 @@ fn extract_hero(node: &DomNode) -> SectionBlueprint {
         subtitle,
         config,
         items,
+        template: None,
+        style_block: None,
     }
 }
 
@@ -1222,6 +1362,8 @@ fn extract_features(node: &DomNode) -> SectionBlueprint {
         subtitle,
         config,
         items,
+        template: None,
+        style_block: None,
     }
 }
 
@@ -1492,6 +1634,8 @@ fn extract_stats(node: &DomNode) -> SectionBlueprint {
         subtitle,
         config: section_config,
         items,
+        template: None,
+        style_block: None,
     }
 }
 
@@ -1671,6 +1815,8 @@ fn extract_testimonials(node: &DomNode) -> SectionBlueprint {
         subtitle,
         config,
         items,
+        template: None,
+        style_block: None,
     }
 }
 
@@ -1771,6 +1917,8 @@ fn extract_pricing(node: &DomNode) -> SectionBlueprint {
         subtitle,
         config: HashMap::new(),
         items,
+        template: None,
+        style_block: None,
     }
 }
 
@@ -1820,6 +1968,8 @@ fn extract_cta(node: &DomNode) -> SectionBlueprint {
         subtitle,
         config,
         items: Vec::new(),
+        template: None,
+        style_block: None,
     }
 }
 
@@ -1899,6 +2049,8 @@ fn extract_footer(node: &DomNode) -> SectionBlueprint {
         subtitle: None,
         config,
         items,
+        template: None,
+        style_block: None,
     }
 }
 
@@ -1978,6 +2130,8 @@ fn extract_terminal(node: &DomNode) -> SectionBlueprint {
         subtitle: None,
         config: HashMap::new(),
         items,
+        template: None,
+        style_block: None,
     }
 }
 
@@ -2201,6 +2355,8 @@ fn extract_sidebar(node: &DomNode) -> SectionBlueprint {
         subtitle: None,
         config,
         items,
+        template: None,
+        style_block: None,
     }
 }
 
@@ -2330,6 +2486,8 @@ fn extract_page_header(node: &DomNode) -> SectionBlueprint {
         subtitle,
         config,
         items,
+        template: None,
+        style_block: None,
     }
 }
 
@@ -2429,6 +2587,8 @@ fn extract_stat_cards(node: &DomNode) -> SectionBlueprint {
         subtitle: None,
         config: HashMap::new(),
         items,
+        template: None,
+        style_block: None,
     }
 }
 
@@ -2609,6 +2769,8 @@ fn extract_product_grid(node: &DomNode) -> SectionBlueprint {
         subtitle: None,
         config: section_config,
         items,
+        template: None,
+        style_block: None,
     }
 }
 
@@ -2766,6 +2928,8 @@ fn extract_team_list(node: &DomNode) -> SectionBlueprint {
         subtitle: None,
         config: HashMap::new(),
         items,
+        template: None,
+        style_block: None,
     }
 }
 
@@ -2975,6 +3139,8 @@ fn extract_content_card(node: &DomNode) -> SectionBlueprint {
         subtitle,
         config: section_config,
         items,
+        template: None,
+        style_block: None,
     }
 }
 
@@ -3369,6 +3535,8 @@ fn extract_info_panel(node: &DomNode) -> SectionBlueprint {
         subtitle,
         config,
         items,
+        template: None,
+        style_block: None,
     }
 }
 
@@ -3486,6 +3654,8 @@ fn extract_form(node: &DomNode) -> SectionBlueprint {
         subtitle,
         config,
         items: all_items,
+        template: None,
+        style_block: None,
     }
 }
 
@@ -3604,6 +3774,8 @@ fn extract_tabs(node: &DomNode) -> SectionBlueprint {
         subtitle: None,
         config: HashMap::new(),
         items,
+        template: None,
+        style_block: None,
     }
 }
 
@@ -3793,6 +3965,8 @@ fn extract_generic(node: &DomNode) -> SectionBlueprint {
         subtitle,
         config: HashMap::new(),
         items,
+        template: None,
+        style_block: None,
     }
 }
 

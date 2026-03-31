@@ -35,8 +35,14 @@ pub fn dump_html(html: &str) -> String {
     // 5. Detect font from HTML
     let font = detect_font_from_html(html).unwrap_or_else(|| "Inter".into());
 
-    // 6. Detect sections
-    let sections = detect::detect_sections(&nodes);
+    // 6. Extract page-level CSS from <style> tags
+    let page_css = detect::extract_page_styles(html);
+
+    // 6a. Detect sections (with HTML template extraction)
+    let sections = detect::detect_sections_with_templates(
+        &nodes,
+        if page_css.trim().is_empty() { None } else { Some(&page_css) },
+    );
 
     // 6b. Extract CSS custom properties (design tokens) from HTML
     let css_vars = extract_css_variables(html);

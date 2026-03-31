@@ -325,6 +325,20 @@ fn emit_section(bp: &SectionBlueprint, ind: usize) -> String {
     _ => emit_detected_body(bp, inner, &mut out),
   }
 
+  // Emit HTML template (minified to single line)
+  if let Some(ref tmpl) = bp.template {
+    let minified = tmpl.replace('\n', "").replace("  ", " ");
+    let escaped = escape_cronus(&minified);
+    out.push_str(&format!("{}template \"{}\"\n", indent(inner), escaped));
+  }
+
+  // Emit scoped CSS style block (minified)
+  if let Some(ref css) = bp.style_block {
+    let minified = css.replace('\n', " ").replace("  ", " ");
+    let escaped = escape_cronus(&minified);
+    out.push_str(&format!("{}style_block \"{}\"\n", indent(inner), escaped));
+  }
+
   out.push_str(&format!("{}}}\n", prefix));
   out
 }
