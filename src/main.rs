@@ -948,7 +948,7 @@ async fn handle_request(
         let current_route = page.route.as_str();
         let html = if has_templates {
             // Dumped page with original HTML templates — use landing layout, no sidebar
-            ui::render_layout_landing(app_name, &body, theme, state.style.as_ref())
+            ui::render_layout_landing_ex(app_name, &body, theme, state.style.as_ref(), state.app.tailwind_config.as_deref())
         } else if is_checkout {
             // Checkout page: no sidebar, centered layout
             let referenced_comps: Vec<parser::ComponentNode> = page.components.iter()
@@ -1180,7 +1180,7 @@ async fn cmd_run(args: &[String]) {
     let file = files[0].clone(); // for HMR watcher
 
     // Extract AST parts
-    let mut app = AppNode { name: "CRONUS App".into(), stack: vec![], port: 5175, database: None };
+    let mut app = AppNode { name: "CRONUS App".into(), stack: vec![], port: 5175, database: None, tailwind_config: None };
     let mut entities: Vec<EntityNode> = vec![];
     let mut pages: Vec<PageNode> = vec![];
     let mut style: Option<StyleNode> = None;

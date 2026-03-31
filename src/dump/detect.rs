@@ -215,9 +215,12 @@ pub fn detect_sections_with_templates(
     // Merge consecutive page-header fragments into a single section
     merge_page_headers(&mut sections);
 
-    // Sort sections for dashboard pages: sidebar/topbar first, footer last,
-    // page-header before content sections.
-    sort_dashboard_sections(&mut sections);
+    // Only sort for dashboard pages (no templates).
+    // When templates are present, preserve original DOM order.
+    let has_any_template = sections.iter().any(|s| s.template.is_some());
+    if !has_any_template {
+        sort_dashboard_sections(&mut sections);
+    }
 
     sections
 }

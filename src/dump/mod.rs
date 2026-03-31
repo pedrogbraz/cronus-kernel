@@ -47,6 +47,9 @@ pub fn dump_html(html: &str) -> String {
     // 6b. Extract CSS custom properties (design tokens) from HTML
     let css_vars = extract_css_variables(html);
 
+    // 6c. Extract inline Tailwind config from <script>tailwind.config = {...}</script>
+    let tailwind_config = extract_tailwind_config(html);
+
     // 7. Build CronusFile
     let file = emit::CronusFile {
         app_name,
@@ -63,10 +66,51 @@ pub fn dump_html(html: &str) -> String {
             m
         },
         sections,
+        tailwind_config,
     };
 
     // 8. Emit .cronus
     emit::emit_cronus(&file)
+}
+
+/// Extract inline Tailwind config from `<script>tailwind.config = {...}</script>`
+/// or `<script id="tailwind-config">tailwind.config = {...}</script>`
+fn extract_tailwind_config(html: &str) -> Option<String> {
+    // Look for tailwind.config assignment in any <script> block
+    let needle = "tailwind.config";
+    let pos = html.find(needle)?;
+
+    // Find the opening `{` of the config object
+    let after = &html[pos..];
+    let eq_pos = after.find('=')?;
+    let after_eq = &after[eq_pos + 1..];
+    let brace_offset = after_eq.find('{')?;
+    let config_start = pos + eq_pos + 1 + brace_offset;
+
+    // Match braces to find the end of the config object
+    let mut depth = 0i32;
+    let mut end = config_start;
+    for (i, ch) in html[config_start..].char_indices() {
+        match ch {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    end = config_start + i + 1;
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if depth != 0 {
+        return None;
+    }
+
+    // Return the full `tailwind.config = {...}` assignment
+    let config_obj = &html[config_start..end];
+    Some(format!("tailwind.config = {}", config_obj))
 }
 
 /// Known hex -> color name mappings (Tailwind palette)

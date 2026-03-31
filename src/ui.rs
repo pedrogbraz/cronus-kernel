@@ -709,14 +709,46 @@ a {{ text-decoration: none; color: inherit; }}
 
 /// Full-width layout for landing pages (no sidebar)
 pub fn render_layout_landing(app_name: &str, body: &str, theme: &str, style_node: Option<&StyleNode>) -> String {
+    render_layout_landing_ex(app_name, body, theme, style_node, None)
+}
+
+/// Full-width layout for landing pages, with optional Tailwind config injection
+pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_node: Option<&StyleNode>, tailwind_config_js: Option<&str>) -> String {
     let is_light = theme == "light";
+    let html_class = if is_light { "light" } else { "dark" };
     let sel_bg = if is_light { "rgba(0,0,0,0.08)" } else { "rgba(0,111,240,0.3)" };
     let scroll_thumb = if is_light { "rgba(0,0,0,0.1)" } else { "rgba(255,255,255,0.1)" };
     let grid_line = if is_light { "rgba(0,0,0,0.05)" } else { "rgba(255,255,255,0.03)" };
     let css_vars = generate_css_vars(&style_node, theme);
+
+    // Extract inline <style> blocks from the body (injected by render_template)
+    // and move them to the <head> so they apply globally
+    let mut head_styles = String::new();
+    let mut clean_body = body.to_string();
+    loop {
+        if let Some(start) = clean_body.find("<style>") {
+            if let Some(end) = clean_body[start..].find("</style>") {
+                let style_content = &clean_body[start..start + end + 8]; // includes </style>
+                head_styles.push_str(style_content);
+                head_styles.push('\n');
+                clean_body = format!("{}{}", &clean_body[..start], &clean_body[start + end + 8..]);
+                continue;
+            }
+        }
+        break;
+    }
+    // Generate Tailwind config script block if provided
+    let tw_config_script = if let Some(cfg) = tailwind_config_js {
+        // Unescape quotes that were escaped for .cronus string storage
+        let unescaped = cfg.replace("\\\"", "\"").replace("\\'", "'");
+        format!("<script>\n    {}\n  </script>", unescaped)
+    } else {
+        String::new()
+    };
+
     // If body already contains a topbar section (rendered <header or <nav with data-topbar),
     // skip the built-in navbar to avoid duplication
-    let has_topbar = body.contains("data-cronus-topbar") || body.contains("<nav ") || body.contains("<nav\n") || body.contains("<header ") || body.contains("MONOLITH") || body.contains("topbar");
+    let has_topbar = clean_body.contains("data-cronus-topbar") || clean_body.contains("<nav ") || clean_body.contains("<nav\n") || clean_body.contains("<header ") || clean_body.contains("MONOLITH") || clean_body.contains("topbar");
     let nav_html = if has_topbar {
         String::new()
     } else {
@@ -754,14 +786,16 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str, style_node
     };
     format!(
         r##"<!DOCTYPE html>
-<html lang="en">
+<html class="{html_class}" lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{app_name}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  {tw_config_script}
+  {head_styles}
   <style>
     {css_vars}
     * {{ margin: 0; padding: 0; box-sizing: border-box; }}
@@ -864,7 +898,7 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str, style_node
 <body style="margin:0;padding:0;width:100%;max-width:100vw;overflow-x:hidden">
   {nav_html}
   <main style="padding-top:64px;min-height:100vh;width:100%">
-  {body}
+  {clean_body}
   </main>
   <script>{runtime}</script>
   <script>{hmr}</script>
@@ -886,9 +920,12 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str, style_node
 </body>
 </html>"##,
         app_name = app_name,
+        html_class = html_class,
+        tw_config_script = tw_config_script,
+        head_styles = head_styles,
         css_vars = css_vars, sel_bg = sel_bg, scroll_thumb = scroll_thumb, grid_line = grid_line,
         nav_html = nav_html,
-        body = body,
+        clean_body = clean_body,
         anim_css = CRONUS_ANIMATIONS_CSS,
         anim_js = CRONUS_ANIMATIONS_JS,
         tailwind_css = super::tailwind::CRONUS_TAILWIND,
@@ -2447,24 +2484,26 @@ fn render_topbar(section: &SectionNode, theme: &str) -> String {
     let brand = section.config.get("brand").map(|s| s.as_str())
         .or(section.title.as_deref())
         .unwrap_or("Brand");
-    let dark = section.config.get("style").map(|s| s.contains("dark")).unwrap_or(false) || theme == "dark";
-    // Use CSS variables with fallback transparency layers
-    let bg = if dark { "rgba(0,0,0,0.8)" } else { "rgba(255,255,255,0.8)" };
-    let bd = "var(--cronus-border)";
-    let tx = "var(--cronus-text)";
-    let mu = "var(--cronus-text-muted)";
+    let _dark = section.config.get("style").map(|s| s.contains("dark")).unwrap_or(false) || theme == "dark";
 
     // Parse nav links from config (e.g. "Solutions, Resources, Docs, Pricing")
     let nav_links: Vec<String> = section.config.get("nav")
         .map(|nav| {
             nav.split(',').enumerate().map(|(i, link)| {
                 let l = link.trim();
-                // First link is "active" (bold)
-                let (weight, color) = if i == 0 { ("600", tx) } else { ("500", mu) };
-                format!(
-                    r##"<a href="#" style="color:{color};font-size:14px;font-weight:{weight};letter-spacing:-0.025em;text-decoration:none;transition:color 0.15s" onmouseover="this.style.color='{tx}'" onmouseout="this.style.color='{color}'">{l}</a>"##,
-                    color=color, weight=weight, tx=tx, l=l
-                )
+                if i == 0 {
+                    // Active link: white, bold, border-bottom
+                    format!(
+                        r##"<a href="#" style="color:#fff;font-size:14px;font-weight:600;letter-spacing:-0.025em;text-decoration:none;padding-bottom:2px;border-bottom:2px solid #fff">{l}</a>"##,
+                        l=l
+                    )
+                } else {
+                    // Inactive links: white/60%
+                    format!(
+                        r##"<a href="#" style="color:rgba(255,255,255,0.6);font-size:14px;font-weight:500;letter-spacing:-0.025em;text-decoration:none;transition:color 0.15s" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">{l}</a>"##,
+                        l=l
+                    )
+                }
             }).collect()
         })
         .unwrap_or_default();
@@ -2472,34 +2511,29 @@ fn render_topbar(section: &SectionNode, theme: &str) -> String {
     let nav_html = nav_links.join("\n          ");
 
     // CTA button
-    let cta_text = section.config.get("cta_text").or(section.config.get("cta")).map(|s| s.as_str()).unwrap_or("Deploy");
+    let cta_text = section.config.get("cta_text").or(section.config.get("cta")).map(|s| s.as_str()).unwrap_or("Deploy Now");
     let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("/signup");
-    let btn_bg = "var(--cronus-accent)";
-    let btn_fg = "#fff";
 
-    // Vercel triangle logo
-    let logo_fill = "var(--cronus-text)";
-
-    format!(r##"<header data-cronus-topbar class="anim-slide-down" style="position:fixed;top:0;width:100%;z-index:50;background:{bg};backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid {bd}">
-  <div style="display:flex;justify-content:space-between;align-items:center;padding:0 24px;height:64px;max-width:1280px;margin:0 auto">
+    format!(r##"<header data-cronus-topbar class="anim-slide-down" style="position:fixed;top:0;width:100%;z-index:50;background:#131313;border-bottom:0.5px solid rgba(255,255,255,0.15);font-family:Inter,system-ui,-apple-system,sans-serif">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:0 24px;height:56px;max-width:1280px;margin:0 auto">
     <div style="display:flex;align-items:center;gap:32px">
-      <a href="/" style="font-size:20px;font-weight:700;letter-spacing:-0.03em;color:{tx};display:flex;align-items:center;gap:8px;text-decoration:none">
-        <svg width="22" height="20" viewBox="0 0 76 65" fill="{logo_fill}"><path d="M37.5274 0L75.0548 65L0 65L37.5274 0Z"/></svg>
-        {brand}
-      </a>
+      <a href="/" style="font-size:18px;font-weight:900;letter-spacing:-0.05em;color:#fff;text-transform:uppercase;text-decoration:none">{brand}</a>
       <nav style="display:flex;align-items:center;gap:24px">
         {nav_html}
       </nav>
     </div>
-    <div style="display:flex;align-items:center;gap:12px">
-      <a href="#" style="color:{mu};font-size:14px;font-weight:500;text-decoration:none;padding:6px 16px;transition:color 0.15s" onmouseover="this.style.color='{tx}'" onmouseout="this.style.color='{mu}'">Contact</a>
-      <a href="{cta_link}" style="display:inline-flex;align-items:center;padding:6px 20px;border-radius:999px;background:{btn_bg};color:{btn_fg};font-weight:700;font-size:14px;text-decoration:none;transition:transform 0.15s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_text}</a>
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 12px">
+        <span class="material-symbols-outlined" style="font-size:18px;color:rgba(255,255,255,0.4)">search</span>
+        <span style="font-size:13px;color:rgba(255,255,255,0.35)">Search...</span>
+      </div>
+      <span class="material-symbols-outlined" style="font-size:20px;color:rgba(255,255,255,0.6);cursor:pointer">notifications</span>
+      <span class="material-symbols-outlined" style="font-size:20px;color:rgba(255,255,255,0.6);cursor:pointer">help_outline</span>
+      <a href="{cta_link}" style="display:inline-flex;align-items:center;padding:6px 16px;border-radius:8px;background:#fff;color:#000;font-weight:700;font-size:12px;text-decoration:none;transition:opacity 0.15s" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">{cta_text}</a>
     </div>
   </div>
 </header>"##,
-        bg=bg, bd=bd, tx=tx, mu=mu, brand=brand, logo_fill=logo_fill,
-        nav_html=nav_html, cta_text=cta_text, cta_link=cta_link,
-        btn_bg=btn_bg, btn_fg=btn_fg)
+        brand=brand, nav_html=nav_html, cta_text=cta_text, cta_link=cta_link)
 }
 
 fn render_checkout_section(section: &SectionNode) -> String {
@@ -2656,55 +2690,205 @@ fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> String {
         return render_developer_landing_hero(section, title, subtitle, badge_text, cta_primary, cta_link, cta2_text, cta2_link, accent_hex);
     }
 
-    // === Dark theme hero (original) ===
-    let words: Vec<&str> = title.split_whitespace().collect();
-    let mid = (words.len() + 1) / 2;
-    let line1 = words[..mid].join(" ");
-    let line2 = words[mid..].join(" ");
+    // === Dark theme hero — MONOLITH_OS design ===
 
+    // Extract background image from items with role:background
+    let bg_image_url = section.items.iter()
+        .find(|i| i.get("role").map(|s| s.as_str()) == Some("background"))
+        .and_then(|i| i.get("title").or(i.get("image")).or(i.get("src")).or(i.get("url")))
+        .map(|s| s.as_str())
+        .unwrap_or("");
+
+    let bg_image_html = if !bg_image_url.is_empty() {
+        format!(
+            r#"<div style="position:absolute;inset:0;z-index:1"><img src="{}" alt="" style="width:100%;height:100%;object-fit:cover;opacity:0.4" /><div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 0%,rgba(19,19,19,0.8) 60%,#131313 100%)"></div></div>"#,
+            bg_image_url
+        )
+    } else {
+        String::new()
+    };
+
+    // Version badge — pill with dot + uppercase text
     let badge_html = badge_text.map(|b| format!(
-        r#"<div class="anim-fade d1" style="display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid var(--cronus-border);margin-bottom:32px;backdrop-filter:blur(8px)">
-      <span style="width:8px;height:8px;border-radius:50%;background:var(--cronus-accent)"></span>
-      <span style="font-size:12px;font-weight:500;letter-spacing:0.05em;color:var(--cronus-text-muted)">{text}</span>
+        r#"<div class="anim-fade d1" style="display:inline-flex;align-items:center;gap:8px;padding:6px 18px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);margin-bottom:40px;backdrop-filter:blur(12px)">
+      <span style="width:6px;height:6px;border-radius:50%;background:#ffffff"></span>
+      <span style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.7)">{text}</span>
     </div>"#, text = b
     )).unwrap_or_default();
 
+    // CTA2 — dark glass button with ghost border
     let cta2_html = cta2_text.map(|t| format!(
-        r#"<a href="{}" class="anim-scale d5 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;padding:12px 32px;border-radius:999px;border:1px solid var(--cronus-border);color:var(--cronus-text);font-weight:600;font-size:16px;text-decoration:none;transition:all 0.2s">{}</a>"#,
-        cta2_link, t
+        r#"<a href="{link}" class="anim-scale d5" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 36px;border-radius:999px;border:0.5px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.04);color:#ffffff;font-weight:600;font-size:16px;text-decoration:none;backdrop-filter:blur(12px);transition:all 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='rgba(255,255,255,0.04)'">{text}</a>"#,
+        link = cta2_link, text = t
     )).unwrap_or_default();
 
-    // Convert accent hex to rgba for gradient use
-    let accent_r = u8::from_str_radix(&accent_hex[1..3], 16).unwrap_or(0);
-    let accent_g = u8::from_str_radix(&accent_hex[3..5], 16).unwrap_or(111);
-    let accent_b = u8::from_str_radix(&accent_hex[5..7], 16).unwrap_or(240);
-    let accent_rgba_15 = format!("rgba({},{},{},0.15)", accent_r, accent_g, accent_b);
-    let accent_rgba_05 = format!("rgba({},{},{},0.05)", accent_r, accent_g, accent_b);
+    // Terminal mockup — glass panel with blur, 3 dots header, syntax-colored lines
+    let has_terminal_items = section.items.iter().any(|i| {
+        let t = i.get("_type").or(i.get("type")).map(|s| s.as_str()).unwrap_or("");
+        matches!(t, "line" | "output" | "success" | "prompt" | "terminal")
+    });
+
+    let terminal_html = if has_terminal_items {
+        let terminal_title = section.items.iter()
+            .find(|i| {
+                let t = i.get("_type").or(i.get("type")).map(|s| s.as_str()).unwrap_or("");
+                t == "terminal" || i.get("style").map(|s| s.as_str()) == Some("terminal")
+            })
+            .and_then(|i| i.get("description").or(i.get("title")))
+            .map(|s| s.as_str())
+            .unwrap_or("terminal");
+
+        let mut terminal_lines = String::new();
+        let mut line_num = 0u32;
+        for item in &section.items {
+            let item_type = item.get("_type").or(item.get("type")).map(|s| s.as_str()).unwrap_or("");
+            let text = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            match item_type {
+                "terminal" | "line" => {
+                    line_num += 1;
+                    // Parse command: "monolith deploy --project hyper-cluster-01"
+                    let parts: Vec<&str> = text.trim_start_matches("$ ").splitn(2, ' ').collect();
+                    let cmd_name = parts.first().unwrap_or(&"");
+                    let cmd_rest = parts.get(1).unwrap_or(&"");
+                    // Split rest into action and flags
+                    let rest_parts: Vec<&str> = cmd_rest.splitn(2, ' ').collect();
+                    let action = rest_parts.first().unwrap_or(&"");
+                    let flags_raw = rest_parts.get(1).unwrap_or(&"");
+                    // Render flags with quoted strings in tertiary color (#e5e2e1)
+                    let mut flags_html = String::new();
+                    if !flags_raw.is_empty() {
+                        let mut in_quote = false;
+                        let mut buf = String::new();
+                        for ch in flags_raw.chars() {
+                            if ch == '"' {
+                                if in_quote {
+                                    flags_html.push_str(&format!(
+                                        r#"<span style="color:#e5e2e1">&quot;{}&quot;</span>"#, buf
+                                    ));
+                                    buf.clear();
+                                    in_quote = false;
+                                } else {
+                                    if !buf.is_empty() {
+                                        flags_html.push_str(&format!(
+                                            r#"<span style="color:rgba(255,255,255,0.4)">{}</span>"#, buf
+                                        ));
+                                        buf.clear();
+                                    }
+                                    in_quote = true;
+                                }
+                            } else {
+                                buf.push(ch);
+                            }
+                        }
+                        if !buf.is_empty() {
+                            flags_html.push_str(&format!(
+                                r#"<span style="color:rgba(255,255,255,0.4)">{}</span>"#, buf
+                            ));
+                        }
+                    }
+                    terminal_lines.push_str(&format!(
+                        r#"<div style="display:flex;gap:16px;margin-bottom:4px"><span style="color:rgba(255,255,255,0.3)">{num:02}</span><span style="color:rgba(255,255,255,0.5)">{name}</span> <span style="color:#fff;font-weight:700">{action}</span> {flags}</div>"#,
+                        num=line_num, name=cmd_name, action=action, flags=flags_html
+                    ));
+                }
+                "output" => {
+                    line_num += 1;
+                    // Detect "URL: https://..." lines — render label muted, URL underlined tertiary
+                    if text.starts_with("URL:") {
+                        let url_part = text["URL:".len()..].trim();
+                        terminal_lines.push_str(&format!(
+                            r#"<div style="display:flex;gap:16px;margin-bottom:4px"><span style="color:rgba(255,255,255,0.3)">{num:02}</span><span style="color:rgba(255,255,255,0.5)">URL:</span> <span style="color:#e5e2e1;text-decoration:underline">{url}</span></div>"#,
+                            num=line_num, url=url_part
+                        ));
+                    } else {
+                        terminal_lines.push_str(&format!(
+                            r#"<div style="display:flex;gap:16px;margin-bottom:4px"><span style="color:rgba(255,255,255,0.3)">{num:02}</span><span style="color:rgba(255,255,255,0.4)">{text}</span></div>"#,
+                            num=line_num, text=text
+                        ));
+                    }
+                }
+                "prompt" => {
+                    line_num += 1;
+                    let answer = item.get("answer").map(|s| s.as_str()).unwrap_or("");
+                    terminal_lines.push_str(&format!(
+                        r#"<div style="display:flex;gap:16px;margin-bottom:4px"><span style="color:rgba(255,255,255,0.3)">{num:02}</span><span style="color:#e5e5e5">{text}</span> <span style="color:#60a5fa">{answer}</span></div>"#,
+                        num=line_num, text=text, answer=answer
+                    ));
+                }
+                "success" => {
+                    line_num += 1;
+                    // Split trailing time pattern (e.g. "1.4s", "200ms") into muted span
+                    let trimmed = text.trim_end();
+                    let time_sep = trimmed.rfind(' ');
+                    let (main_text, time_html) = if let Some(pos) = time_sep {
+                        let candidate = &trimmed[pos+1..];
+                        // Match patterns like "1.4s", "200ms", "0.3s"
+                        let is_time = candidate.ends_with('s') && candidate[..candidate.len()-1]
+                            .replace("ms", "").replace('.', "").chars().all(|c| c.is_ascii_digit());
+                        if is_time && !candidate.is_empty() {
+                            (&trimmed[..pos], format!(r#" <span style="color:rgba(255,255,255,0.3)">{}</span>"#, candidate))
+                        } else {
+                            (trimmed, String::new())
+                        }
+                    } else {
+                        (trimmed, String::new())
+                    };
+                    terminal_lines.push_str(&format!(
+                        r#"<div style="display:flex;gap:16px;margin-bottom:4px"><span style="color:rgba(255,255,255,0.3)">{num:02}</span><span style="color:#fff;font-weight:700">✓ {main}</span>{time}</div>"#,
+                        num=line_num, main=main_text, time=time_html
+                    ));
+                }
+                _ => {}
+            }
+        }
+        // No blinking cursor for clean look
+
+        format!(
+            r##"<div class="anim-slide-up d6" style="max-width:896px;width:100%;margin:96px auto 0;background:rgba(31,31,31,0.7);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:16px;overflow:hidden;border:0.5px solid rgba(255,255,255,0.1);box-shadow:0 32px 64px rgba(0,0,0,0.5)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(53,53,53,0.5);border-bottom:1px solid rgba(255,255,255,0.05)">
+        <div style="display:flex;gap:6px">
+          <span style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.1)"></span>
+          <span style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.1)"></span>
+          <span style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.1)"></span>
+        </div>
+        <span style="font-family:'Space Grotesk',monospace;font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.15em">{title}</span>
+        <div style="width:48px"></div>
+      </div>
+      <div style="padding:24px;font-family:'SF Mono','JetBrains Mono',monospace;font-size:13px;line-height:1.7;color:#e5e5e5">
+        {lines}
+      </div>
+    </div>"##,
+            title = terminal_title,
+            lines = terminal_lines,
+        )
+    } else {
+        String::new()
+    };
 
     format!(
-        r##"<section style="position:relative;overflow:hidden;min-height:100vh;padding-top:80px;padding-bottom:80px;background:radial-gradient(circle at 50% -20%,{accent_rgba_15} 0%,rgba(0,0,0,0) 50%),conic-gradient(from 180deg at 50% 50%,rgba(255,255,255,0.03) 0deg,{accent_rgba_05} 120deg,rgba(255,0,128,0.05) 240deg,rgba(255,255,255,0.03) 360deg)">
-  <!-- Grid background -->
-  <div style="position:absolute;inset:0;background-image:linear-gradient(to right,rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,0.03) 1px,transparent 1px);background-size:40px 40px;opacity:0.4"></div>
-  <div style="position:relative;z-index:10;max-width:1280px;margin:0 auto;padding:0 24px;text-align:center">
+        r##"<section style="position:relative;overflow:hidden;min-height:921px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#131313">
+  {bg_image_html}
+  <div style="position:relative;z-index:10;max-width:1280px;width:100%;margin:0 auto;padding:120px 24px 80px;text-align:center;display:flex;flex-direction:column;align-items:center">
     {badge_html}
-    <h1 class="anim-slide-up d2" style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.05em;color:white;margin-bottom:32px;line-height:1.1">
-      {line1}<br>
-      <span style="background:linear-gradient(to right,white,#6b7280);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">{line2}</span>
+    <h1 class="anim-slide-up d2" style="font-size:clamp(48px,8vw,96px);font-weight:900;letter-spacing:-0.04em;line-height:0.9;text-transform:uppercase;color:#ffffff;margin:0 0 32px 0">
+      {title}
     </h1>
-    <p class="anim-slide-up d3" style="max-width:640px;margin:0 auto 48px;font-size:clamp(16px,2vw,20px);color:var(--cronus-text-muted);line-height:1.6">{subtitle}</p>
-    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px;margin-bottom:96px">
-      <a href="{cta_link}" class="anim-scale d4 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;padding:12px 32px;border-radius:999px;background:white;color:black;font-weight:600;font-size:16px;text-decoration:none;transition:transform 0.2s" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}</a>
+    <p class="anim-slide-up d3" style="max-width:600px;margin:0 auto 48px;font-size:clamp(16px,1.8vw,20px);font-weight:300;color:rgba(255,255,255,0.5);line-height:1.7">{subtitle}</p>
+    <div class="anim-slide-up d4" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px;margin-bottom:80px">
+      <a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 36px;border-radius:999px;background:linear-gradient(180deg,#ffffff 0%,#d4d4d4 100%);color:#131313;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s;box-shadow:0 2px 12px rgba(255,255,255,0.15)" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 20px rgba(255,255,255,0.2)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 12px rgba(255,255,255,0.15)'">{cta_primary}</a>
       {cta2_html}
     </div>
+    {terminal_html}
   </div>
 </section>"##,
-        accent_rgba_15 = accent_rgba_15,
-        accent_rgba_05 = accent_rgba_05,
+        bg_image_html = bg_image_html,
         badge_html = badge_html,
-        line1 = line1, line2 = line2,
+        title = title,
         subtitle = subtitle,
-        cta_link = cta_link, cta_primary = cta_primary,
+        cta_link = cta_link,
+        cta_primary = cta_primary,
         cta2_html = cta2_html,
+        terminal_html = terminal_html,
     )
 }
 
@@ -2941,22 +3125,39 @@ fn render_developer_landing_hero(
 
 fn render_features(section: &SectionNode, _accent: &str, theme: &str) -> String {
     let style_hint = section.config.get("style").map(|s| s.as_str()).unwrap_or("");
+    let is_dark = theme == "dark" || style_hint.contains("dark");
 
-    // Light bento layout — trigger on style:bento, or auto-detect from mixed spans/children
+    // Split layout — two-column text+icons left, image right
+    if style_hint.contains("split") {
+        if is_dark {
+            return render_features_split_dark(section);
+        } else {
+            return render_features_split(section, _accent);
+        }
+    }
+
+    // Bento layout — trigger on style:bento, or auto-detect from mixed spans/children
     let has_spans = section.items.iter().any(|i| i.get("span").is_some());
     let has_typed_children = section.items.iter().any(|i| {
         let t = i.get("_type").map(|s| s.as_str()).unwrap_or("");
         matches!(t, "chip" | "label" | "code" | "image")
     });
-    if style_hint.contains("bento") || has_spans || has_typed_children {
+    let is_bento = style_hint.contains("bento") || has_spans || has_typed_children;
+
+    // Light bento → dedicated renderer
+    if is_bento && !is_dark {
         return render_features_bento_light(section);
     }
 
-    let is_light = theme == "light" && !style_hint.contains("dark");
+    // Dark bento → 12-column bento grid
+    if is_bento && is_dark {
+        return render_features_bento_dark(section);
+    }
 
-    let icon_color = if is_light { "#000" } else { "#fff" };
+    // Fallback: simple 3-column grid (no spans, no typed children)
+    let icon_color = if is_dark { "#fff" } else { "#000" };
 
-    let items: Vec<String> = section.items.iter().enumerate().map(|(i, item)| {
+    let items: Vec<String> = section.items.iter().map(|item| {
         let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Feature");
         let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
         let icon_name = item.get("icon").map(|s| s.as_str()).unwrap_or("star");
@@ -2982,6 +3183,210 @@ fn render_features(section: &SectionNode, _accent: &str, theme: &str) -> String 
   </div>
 </section>"#,
         items.join("\n    "),
+    )
+}
+
+/// Dark bento-style feature grid — 12-column layout with varying card sizes.
+/// Groups flat items into cards + children (image, chip, etc.).
+fn render_features_bento_dark(section: &SectionNode) -> String {
+    struct CardGroup {
+        card: std::collections::HashMap<String, String>,
+        children: Vec<std::collections::HashMap<String, String>>,
+    }
+
+    let mut cards: Vec<CardGroup> = Vec::new();
+
+    for item in &section.items {
+        let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("");
+        if item_type.is_empty() {
+            cards.push(CardGroup {
+                card: item.clone(),
+                children: Vec::new(),
+            });
+        } else if let Some(last) = cards.last_mut() {
+            last.children.push(item.clone());
+        }
+    }
+
+    // Surface colors cycle: card0=#1f1f1f, card1=#2a2a2a, card2=#0e0e0e, card3=#2a2a2a
+    let surface_colors = ["#1f1f1f", "#2a2a2a", "#0e0e0e", "#2a2a2a"];
+
+    let card_htmls: Vec<String> = cards.iter().enumerate().map(|(i, group)| {
+        let card = &group.card;
+        let name = card.get("title").or_else(|| card.get("name")).map(|s| s.as_str()).unwrap_or("Feature");
+        let desc = card.get("description").or_else(|| card.get("desc")).map(|s| s.as_str()).unwrap_or("");
+        let icon_name = card.get("icon").map(|s| s.as_str()).unwrap_or("star");
+        let span: u32 = card.get("span").and_then(|s| s.parse().ok()).unwrap_or(4);
+        let bg = surface_colors.get(i).unwrap_or(&"#1f1f1f");
+
+        let has_image = group.children.iter().any(|c| c.get("_type").map(|s| s.as_str()) == Some("image"));
+        let has_chips = group.children.iter().any(|c| c.get("_type").map(|s| s.as_str()) == Some("chip"));
+
+        // Border styling: #0e0e0e gets white/5, #2a2a2a gets ghost border
+        let border_css = if *bg == "#0e0e0e" {
+            "border:1px solid rgba(255,255,255,0.05);"
+        } else if *bg == "#2a2a2a" {
+            "border:0.5px solid rgba(255,255,255,0.15);"
+        } else {
+            ""
+        };
+
+        // Image HTML — absolute positioned, grayscale, reveals color on hover
+        let image_html = if has_image {
+            let img_src = group.children.iter()
+                .filter(|c| c.get("_type").map(|s| s.as_str()) == Some("image"))
+                .filter_map(|c| c.get("src").or(c.get("url")))
+                .next()
+                .map(|s| s.trim_matches('"'))
+                .unwrap_or("");
+            if !img_src.is_empty() {
+                format!(
+                    r#"<div style="position:absolute;bottom:0;right:0;width:66%;height:50%;overflow:visible;pointer-events:none"><img src="{src}" style="width:100%;height:100%;object-fit:cover;border-top-left-radius:12px;filter:grayscale(100%);opacity:0.3;transform:translateY(25%) translateX(25%);transition:transform 0.7s ease,filter 0.5s,opacity 0.5s;pointer-events:auto" onmouseover="this.style.transform='translateY(0) translateX(25%)';this.style.filter='none';this.style.opacity='0.6'" onmouseout="this.style.transform='translateY(25%) translateX(25%)';this.style.filter='grayscale(100%)';this.style.opacity='0.3'" alt=""></div>"#,
+                    src = img_src
+                )
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
+
+        // Progress bar at bottom for small cards (span 4) with chips
+        let progress_html = if i == 1 && span <= 4 {
+            // SOC2 card (second card): compliance progress bar
+            let chips: Vec<String> = group.children.iter()
+                .filter(|c| c.get("_type").map(|s| s.as_str()) == Some("chip"))
+                .map(|c| {
+                    let t = c.get("title").map(|s| s.as_str()).unwrap_or("");
+                    format!(
+                        r#"<span style="padding:4px 12px;background:rgba(255,255,255,0.08);border-radius:999px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.7)">{}</span>"#,
+                        t.to_uppercase()
+                    )
+                }).collect();
+            let chips_row = if !chips.is_empty() {
+                format!(r#"<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">{}</div>"#, chips.join(""))
+            } else {
+                String::new()
+            };
+            format!(
+                r#"<div style="margin-top:auto;padding-top:24px;width:100%">
+    {chips_row}
+    <div style="height:4px;background:rgba(255,255,255,0.05);border-radius:9999px;overflow:hidden">
+      <div style="height:100%;background:white;width:100%;opacity:0.5"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:8px">
+      <span style="font-family:'Space Grotesk';font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.15em">Compliance status</span>
+      <span style="font-family:'Space Grotesk';font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.15em">100%</span>
+    </div>
+  </div>"#,
+                chips_row = chips_row
+            )
+        } else if has_chips && span <= 4 {
+            let chips: Vec<String> = group.children.iter()
+                .filter(|c| c.get("_type").map(|s| s.as_str()) == Some("chip"))
+                .map(|c| {
+                    let t = c.get("title").map(|s| s.as_str()).unwrap_or("");
+                    format!(
+                        r#"<span style="padding:4px 12px;background:rgba(255,255,255,0.08);border-radius:999px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.7)">{}</span>"#,
+                        t.to_uppercase()
+                    )
+                }).collect();
+            let chips_row = if !chips.is_empty() {
+                format!(r#"<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">{}</div>"#, chips.join(""))
+            } else {
+                String::new()
+            };
+            format!(
+                r#"<div style="margin-top:auto;padding-top:24px">
+    {chips_row}
+    <div style="width:100%;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden">
+      <div style="width:68%;height:100%;background:rgba(255,255,255,0.25);border-radius:2px"></div>
+    </div>
+  </div>"#,
+                chips_row = chips_row
+            )
+        } else {
+            String::new()
+        };
+
+        // Bar chart for wide cards (span 8) without images, not the first card
+        let bar_chart_html = if span >= 8 && !has_image && i > 0 {
+            r#"<div style="width:50%;display:flex;align-items:flex-end;justify-content:flex-end;margin-left:auto">
+      <div style="width:100%;height:128px;display:grid;grid-template-columns:repeat(6,1fr);gap:4px;align-items:end">
+        <div style="background:rgba(255,255,255,0.10);border-radius:2px;height:25%"></div>
+        <div style="background:rgba(255,255,255,0.20);border-radius:2px;height:50%"></div>
+        <div style="background:rgba(255,255,255,0.40);border-radius:2px;height:75%"></div>
+        <div style="background:rgba(255,255,255,0.60);border-radius:2px;height:100%"></div>
+        <div style="background:rgba(255,255,255,0.30);border-radius:2px;height:50%"></div>
+        <div style="background:rgba(255,255,255,0.80);border-radius:2px;height:100%"></div>
+      </div>
+    </div>"#.to_string()
+        } else {
+            String::new()
+        };
+
+        let use_flex_row = !bar_chart_html.is_empty();
+        let needs_relative = has_image;
+        let min_height = if span >= 8 { "min-height:400px;" } else { "" };
+        let position = if needs_relative { "position:relative;" } else { "" };
+
+        if use_flex_row {
+            // Horizontal layout: left text + right bar chart
+            format!(
+                r##"<div style="grid-column:span {span};background:{bg};{border}border-radius:12px;padding:32px;display:flex;flex-direction:row;{min_h}overflow:hidden">
+  <div style="flex:1;display:flex;flex-direction:column">
+    <span class="material-symbols-outlined" style="font-size:32px;color:#fff;margin-bottom:20px;display:block;transform:scale(1.5);transform-origin:top left">{icon}</span>
+    <h3 style="font-size:{title_size};font-weight:700;letter-spacing:-0.02em;color:#fff;margin-bottom:12px">{name}</h3>
+    <p style="color:#c6c6c6;font-size:14px;line-height:1.7;max-width:360px">{desc}</p>
+  </div>
+  {bar_chart}
+</div>"##,
+                span = span,
+                bg = bg,
+                border = border_css,
+                min_h = min_height,
+                icon = icon_name,
+                name = name,
+                desc = desc,
+                bar_chart = bar_chart_html,
+                title_size = if span >= 8 { "30px" } else { "20px" },
+            )
+        } else {
+            // Vertical layout (default)
+            format!(
+                r##"<div style="grid-column:span {span};background:{bg};{border}border-radius:12px;padding:32px;display:flex;flex-direction:column;{min_h}{pos}overflow:hidden">
+  <div>
+    <span class="material-symbols-outlined" style="font-size:32px;color:#fff;margin-bottom:20px;display:block;transform:scale(1.5);transform-origin:top left">{icon}</span>
+    <h3 style="font-size:{title_size};font-weight:700;letter-spacing:-0.02em;color:#fff;margin-bottom:12px">{name}</h3>
+    <p style="color:#c6c6c6;font-size:14px;line-height:1.7;max-width:420px">{desc}</p>
+  </div>
+  {progress}
+  {image}
+</div>"##,
+                span = span,
+                bg = bg,
+                border = border_css,
+                min_h = min_height,
+                pos = position,
+                icon = icon_name,
+                name = name,
+                desc = desc,
+                progress = progress_html,
+                image = image_html,
+                title_size = if span >= 8 { "30px" } else { "20px" },
+            )
+        }
+    }).collect();
+
+    format!(
+        r#"<section style="padding:128px 24px;width:100%">
+  <div style="max-width:80rem;margin:0 auto">
+    <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:24px;width:100%">
+      {}
+    </div>
+  </div>
+</section>"#,
+        card_htmls.join("\n      "),
     )
 }
 
@@ -3370,19 +3775,39 @@ fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> String {
         );
     }
 
-    // Dark theme CTA (original)
+    // Dark theme CTA — solid dark bg, huge title, two buttons side by side
+    let subtitle_html = if subtitle.is_empty() {
+        String::new()
+    } else {
+        format!(r#"<p style="font-size:20px;color:#9ca3af;margin-bottom:48px;max-width:600px;margin-left:auto;margin-right:auto;line-height:1.6">{}</p>"#, subtitle)
+    };
+
+    let cta2_html = cta2_text.map(|t| format!(
+        r##"<a href="{link}" style="display:inline-flex;align-items:center;justify-content:center;padding:20px 48px;border-radius:12px;background:#2a2a2a;color:white;font-weight:900;font-size:13px;letter-spacing:0.1em;text-transform:uppercase;text-decoration:none;border:0.5px solid rgba(255,255,255,0.15);transition:all 0.2s" onmouseover="this.style.background='#333'" onmouseout="this.style.background='#2a2a2a'">{text}</a>"##,
+        link=cta2_link, text=t
+    )).unwrap_or_default();
+
+    let footnote_html = footnote.map(|f| format!(
+        r#"<p style="font-size:14px;color:#6b7280;margin-top:32px">{}</p>"#, f
+    )).unwrap_or_default();
+
     format!(
-        r##"<section style="padding:96px 24px;position:relative;overflow:hidden">
-  <div style="position:absolute;inset:0;pointer-events:none">
-    <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:600px;height:400px;opacity:0.08;background:radial-gradient(ellipse,rgba(0,111,240,0.5),transparent 70%)"></div>
+        r##"<section style="padding:160px 24px;position:relative;overflow:hidden;background:#131313">
+  <div style="position:relative;max-width:960px;margin:0 auto;text-align:center">
+    <h2 class="anim reveal" style="font-size:clamp(48px,7vw,96px);font-weight:900;letter-spacing:-0.05em;text-transform:uppercase;color:white;margin-bottom:24px;line-height:0.95">{title}</h2>
+    {subtitle_html}
+    <div class="anim anim-d1" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px">
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px">
+        <a href="{cta_link}" class="reveal" style="display:inline-flex;align-items:center;justify-content:center;padding:20px 48px;border-radius:12px;background:linear-gradient(180deg,#fff,#d4d4d4);color:black;font-weight:900;font-size:13px;letter-spacing:0.1em;text-transform:uppercase;text-decoration:none;transition:transform 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_text}</a>
+        {cta2_html}
+      </div>
+    </div>
+    {footnote_html}
   </div>
-  <div style="position:relative;max-width:720px;margin:0 auto;text-align:center">
-    <h2 style="font-size:clamp(32px,4vw,48px);font-weight:700;letter-spacing:-0.03em;color:white;margin-bottom:16px">{title}</h2>
-    <p style="font-size:18px;color:#9ca3af;margin-bottom:32px;max-width:540px;margin-left:auto;margin-right:auto;line-height:1.6">{subtitle}</p>
-    <a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;padding:12px 32px;border-radius:999px;background:white;color:black;font-weight:600;font-size:16px;text-decoration:none;transition:transform 0.2s" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">{cta_text}</a>
-  </div>
-</section>"##,
-        title = title, subtitle = subtitle, cta_text = cta_text, cta_link = cta_link,
+</section>
+<style>@media(min-width:768px){{.anim-d1 div{{flex-direction:row!important}}}}</style>"##,
+        title=title, subtitle_html=subtitle_html, cta_link=cta_link, cta_text=cta_text,
+        cta2_html=cta2_html, footnote_html=footnote_html,
     )
 }
 
@@ -3598,6 +4023,7 @@ fn render_checkout(page: &PageNode) -> String {
 fn render_footer(section: &SectionNode, theme: &str) -> String {
     let copyright = section.config.get("copyright").map(|s| s.as_str()).unwrap_or("&copy; 2024 Vercel Inc.");
     let has_copyright = section.config.contains_key("copyright");
+    let brand = section.config.get("brand").or_else(|| section.title.as_ref()).map(|s| s.as_str()).unwrap_or("MONOLITH_OS");
     let is_dark = section.config.get("style").map(|s| s.contains("dark")).unwrap_or(false) || theme == "dark";
 
     // Light minimal footer: only when copyright is set AND we are NOT in dark theme
@@ -3605,7 +4031,6 @@ fn render_footer(section: &SectionNode, theme: &str) -> String {
         // Light minimal footer
         let mut all_links: Vec<String> = Vec::new();
 
-        // First try nav config (comma-separated)
         if let Some(nav) = section.config.get("nav") {
             for link in nav.split(',') {
                 let l = link.trim();
@@ -3615,14 +4040,12 @@ fn render_footer(section: &SectionNode, theme: &str) -> String {
             }
         }
 
-        // Then try items (each item is a link)
         if all_links.is_empty() {
             for item in &section.items {
                 let title = item.get("title").map(|s| s.as_str()).unwrap_or("");
                 if !title.is_empty() {
                     all_links.push(title.to_string());
                 }
-                // Also check description for comma-separated links
                 let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
                 for link in desc.split(',') {
                     let l = link.trim();
@@ -3633,7 +4056,6 @@ fn render_footer(section: &SectionNode, theme: &str) -> String {
             }
         }
 
-        // Split: most links on left with copyright, last 2 on right
         let split_at = if all_links.len() > 2 { all_links.len() - 2 } else { all_links.len() };
         let left_links: Vec<String> = all_links[..split_at].iter().map(|l| format!(
             r##"<a href="#" style="color:var(--cronus-text-muted);font-size:12px;text-decoration:none;transition:color 0.15s">{}</a>"##, l
@@ -3660,85 +4082,68 @@ fn render_footer(section: &SectionNode, theme: &str) -> String {
         );
     }
 
-    // Dark theme footer
-    // Collect all link names from items or nav config
-    let mut all_links: Vec<String> = Vec::new();
-    if let Some(nav) = section.config.get("nav") {
-        for link in nav.split(',') {
+    // Dark theme footer — #0e0e0e bg, Space Grotesk, 6-col grid, brand col span-2
+    let brand_desc = section.subtitle.as_deref().unwrap_or("");
+
+    // Build column items from section.items (title = column header, description = comma-separated links)
+    let columns_html: String = section.items.iter().map(|item| {
+        let col_title = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Links");
+        let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
+        let links: Vec<String> = desc.split(',').filter(|l| !l.trim().is_empty()).map(|link| {
             let l = link.trim();
-            if !l.is_empty() {
-                all_links.push(l.to_string());
-            }
-        }
-    }
-    if all_links.is_empty() {
-        for item in &section.items {
-            if let Some(title) = item.get("title").or_else(|| item.get("name")) {
-                if !title.is_empty() {
-                    all_links.push(title.clone());
-                }
-            }
-        }
-    }
-
-    // If items have descriptions (column-style data), render as columns
-    let has_columns = section.items.iter().any(|i| {
-        i.get("description").or_else(|| i.get("desc")).map(|s| s.contains(',')).unwrap_or(false)
-    });
-
-    let columns_html = if has_columns {
-        let columns: Vec<String> = section.items.iter().map(|item| {
-            let title = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Links");
-            let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
-            let links: Vec<String> = desc.split(',').map(|link| {
-                let l = link.trim();
-                format!(r##"<a href="#" style="color:#6b7280;font-size:12px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">{}</a>"##, l)
-            }).collect();
-            format!(
-                r#"<div style="display:flex;flex-direction:column;gap:16px">
-    <h4 style="color:white;font-size:14px;font-weight:600">{}</h4>
-    {}
-  </div>"#,
-                title, links.join("\n    ")
-            )
+            format!(r##"<a href="#" style="color:rgba(255,255,255,0.4);font-size:10px;text-transform:uppercase;letter-spacing:0.1em;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">{}</a>"##, l)
         }).collect();
-        format!(r#"<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:48px">{}</div>"#, columns.join("\n      "))
-    } else if !all_links.is_empty() {
-        // Flat link list — render as a simple grid
-        let link_html: Vec<String> = all_links.iter().map(|l| {
-            format!(r##"<a href="#" style="color:#6b7280;font-size:12px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">{}</a>"##, l)
-        }).collect();
-        format!(r#"<div style="display:flex;flex-wrap:wrap;gap:16px 32px">{}</div>"#, link_html.join("\n        "))
+        format!(
+            r#"<div style="display:flex;flex-direction:column;gap:16px">
+      <h4 style="color:white;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;font-weight:600;margin-bottom:8px">{}</h4>
+      {}
+    </div>"#,
+            col_title, links.join("\n      ")
+        )
+    }).collect::<Vec<_>>().join("\n    ");
+
+    // Bottom bar nav links from config
+    let nav_links_html: String = if let Some(nav) = section.config.get("nav") {
+        nav.split(',').filter(|l| !l.trim().is_empty()).map(|link| {
+            let l = link.trim();
+            format!(r##"<a href="#" style="color:rgba(255,255,255,0.4);font-size:10px;text-transform:uppercase;letter-spacing:0.1em;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">{}</a>"##, l)
+        }).collect::<Vec<_>>().join("\n        ")
     } else {
         String::new()
     };
 
-    // Bottom row: last 3 links as right-side links (Status, Twitter, GitHub pattern)
-    let bottom_right: Vec<String> = if all_links.len() > 3 {
-        all_links[all_links.len()-3..].iter().map(|l| {
-            format!(r##"<a href="#" style="color:#6b7280;font-size:12px;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='white'" onmouseout="this.style.color='#6b7280'">{}</a>"##, l)
-        }).collect()
+    let brand_desc_html = if brand_desc.is_empty() {
+        String::new()
     } else {
-        Vec::new()
+        format!(r#"<p style="font-size:14px;color:rgba(255,255,255,0.4);line-height:1.7;text-transform:none;letter-spacing:normal;margin-top:16px;max-width:320px">{}</p>"#, brand_desc)
     };
 
     format!(
-        r##"<footer class="anim-fade" style="border-top:1px solid var(--cronus-border);background:var(--cronus-bg);padding:48px 24px">
-  <div style="max-width:1280px;margin:0 auto">
-    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:48px;margin-bottom:48px">
+        r##"<style>.cronus-footer-grid{{display:grid;grid-template-columns:repeat(2,1fr);gap:48px}}@media(min-width:768px){{.cronus-footer-grid{{grid-template-columns:2fr repeat(4,1fr)}}.cronus-footer-brand{{grid-column:span 1!important}}}}</style>
+<footer style="border-top:0.5px solid rgba(255,255,255,0.1);background:#0e0e0e;font-family:'Space Grotesk',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4)">
+  <div style="max-width:1280px;margin:0 auto;padding:80px 32px">
+    <div class="cronus-footer-grid">
+      <div class="cronus-footer-brand" style="grid-column:span 2">
+        <div style="font-size:20px;font-weight:900;letter-spacing:-0.04em;text-transform:uppercase;color:white;margin-bottom:24px">{brand}</div>
+        {brand_desc_html}
+      </div>
       {columns_html}
     </div>
-    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px;padding-top:48px;border-top:1px solid var(--cronus-border)">
-      <span style="font-size:12px;color:var(--cronus-text-muted)">{copyright}</span>
+  </div>
+  <div style="border-top:1px solid rgba(255,255,255,0.05);padding:24px 32px">
+    <div style="max-width:1280px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px">
+      <span style="color:rgba(255,255,255,0.4)">{copyright}</span>
       <div style="display:flex;gap:24px">
-        {bottom_right}
+        {nav_links}
       </div>
     </div>
   </div>
 </footer>"##,
-        columns_html = columns_html,
-        copyright = copyright,
-        bottom_right = bottom_right.join("\n        "),
+        brand=brand,
+        brand_desc_html=brand_desc_html,
+        columns_html=columns_html,
+        copyright=copyright,
+        nav_links=nav_links_html,
     )
 }
 
@@ -4117,6 +4522,87 @@ fn render_bento(section: &SectionNode, accent: &str) -> String {
 </section>"#,
         title_html = title_html, subtitle_html = subtitle_html,
         cols = cols, cards = cards.join("\n    "),
+    )
+}
+
+fn render_features_split_dark(section: &SectionNode) -> String {
+    let eyebrow = section.config.get("eyebrow").map(|s| s.as_str()).unwrap_or("Security & Sovereignty");
+
+    let title_html = section.title.as_deref().map(|t| format!(
+        r#"<h2 style="font-size:clamp(2.25rem,5vw,3.75rem);font-weight:900;letter-spacing:-0.04em;text-transform:uppercase;line-height:0.95;color:#fff;margin:0">{}</h2>"#, t
+    )).unwrap_or_default();
+
+    let subtitle_html = section.subtitle.as_deref().map(|s| format!(
+        r#"<p style="color:rgba(255,255,255,0.5);font-size:15px;line-height:1.7;margin-top:20px;max-width:480px">{}</p>"#, s
+    )).unwrap_or_default();
+
+    // Collect feature items (non-image) and image
+    let mut feature_items: Vec<String> = Vec::new();
+    let mut image_src = String::new();
+
+    for item in &section.items {
+        let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("");
+        if item_type == "image" {
+            image_src = item.get("src").or(item.get("url")).map(|s| s.trim_matches('"').to_string()).unwrap_or_default();
+            continue;
+        }
+        // Check if item itself has an image src (top-level image item)
+        if item.get("image").is_some() || (item.get("src").is_some() && item.get("title").is_none()) {
+            image_src = item.get("src").or(item.get("image")).map(|s| s.trim_matches('"').to_string()).unwrap_or_default();
+            continue;
+        }
+
+        let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Feature");
+        let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
+        let icon_name = item.get("icon").map(|s| s.as_str()).unwrap_or("star");
+
+        feature_items.push(format!(
+            r#"<div style="display:flex;gap:16px;align-items:flex-start">
+  <span class="material-symbols-outlined" style="font-size:28px;color:#fff;flex-shrink:0;margin-top:2px">{icon}</span>
+  <div>
+    <h4 style="font-size:16px;font-weight:700;color:#fff;margin:0 0 4px 0;letter-spacing:-0.01em">{name}</h4>
+    <p style="font-size:14px;color:rgba(255,255,255,0.45);line-height:1.6;margin:0">{desc}</p>
+  </div>
+</div>"#,
+            icon = icon_name, name = name, desc = desc
+        ));
+    }
+
+    // Right column: image with grayscale + glow effect
+    let right_col = if !image_src.is_empty() {
+        format!(
+            r#"<div style="flex:1;min-width:0;position:relative;display:flex;align-items:center;justify-content:center">
+  <div style="position:absolute;width:70%;height:70%;background:rgba(255,255,255,0.03);filter:blur(60px);border-radius:9999px;transition:transform 0.5s" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'"></div>
+  <img src="{src}" alt="" style="position:relative;width:100%;max-width:560px;border-radius:12px;filter:grayscale(100%);opacity:0.8;border:1px solid rgba(255,255,255,0.06);box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);transition:filter 0.5s,opacity 0.5s" onmouseover="this.style.filter='grayscale(0%)';this.style.opacity='1'" onmouseout="this.style.filter='grayscale(100%)';this.style.opacity='0.8'">
+</div>"#,
+            src = image_src
+        )
+    } else {
+        String::new()
+    };
+
+    format!(
+        r#"<section style="background:#0e0e0e;padding:128px 24px;width:100%">
+  <div style="max-width:80rem;margin:0 auto">
+    <div style="display:flex;flex-direction:column;gap:80px;align-items:center" data-cronus-split>
+      <style>@media(min-width:768px){{[data-cronus-split]{{flex-direction:row!important;gap:80px}}}}</style>
+      <div style="flex:1;min-width:0">
+        <span style="font-family:'Space Grotesk',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:0.3em;color:rgba(255,255,255,0.4);margin-bottom:16px;display:block">{eyebrow}</span>
+        {title}
+        {subtitle}
+        <div style="display:flex;flex-direction:column;gap:24px;margin-top:40px">
+          {features}
+        </div>
+      </div>
+      {right_col}
+    </div>
+  </div>
+</section>"#,
+        eyebrow = eyebrow,
+        title = title_html,
+        subtitle = subtitle_html,
+        features = feature_items.join("\n          "),
+        right_col = right_col,
     )
 }
 

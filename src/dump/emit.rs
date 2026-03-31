@@ -12,6 +12,8 @@ pub struct CronusFile {
   pub theme: String,
   pub style_config: HashMap<String, String>,
   pub sections: Vec<SectionBlueprint>,
+  /// Inline Tailwind config extracted from `<script>tailwind.config = {...}</script>`
+  pub tailwind_config: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -270,6 +272,18 @@ pub fn emit_cronus(file: &CronusFile) -> String {
     out.push_str(&format!("  {} {}\n", k, quoted(&file.style_config[k])));
   }
   out.push_str("}\n\n");
+
+  // tailwind_config block (extracted from original site's <script>tailwind.config = {...}</script>)
+  if let Some(ref tw_cfg) = file.tailwind_config {
+    // Minify to single line (tokenizer doesn't support multi-line strings)
+    let minified = tw_cfg.replace('\n', " ").replace("  ", " ");
+    // Collapse repeated spaces
+    let mut prev = String::new();
+    let mut s = minified;
+    while s != prev { prev = s.clone(); s = s.replace("  ", " "); }
+    let escaped = escape_cronus(&s);
+    out.push_str(&format!("tailwind_config \"{}\"\n\n", escaped));
+  }
 
   // page block wrapping all sections
   out.push_str("page \"/\" type:custom {\n");

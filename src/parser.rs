@@ -42,6 +42,8 @@ pub struct AppNode {
     pub stack: Vec<String>,
     pub port: u16,
     pub database: Option<DatabaseConfig>,
+    /// Inline Tailwind config JS (extracted from dumped sites)
+    pub tailwind_config: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -682,6 +684,16 @@ impl Parser {
             } else if self.matches(TokenKind::Identifier, Some("layout")) {
                 self.advance();
                 nodes.push(AstNode::Layout(self.parse_layout()?));
+            } else if self.matches(TokenKind::Identifier, Some("tailwind_config")) {
+                self.advance();
+                let config_js = self.expect(TokenKind::StringLit)?.value;
+                // Attach to the most recent App node
+                for node in nodes.iter_mut().rev() {
+                    if let AstNode::App(ref mut app) = node {
+                        app.tailwind_config = Some(config_js.clone());
+                        break;
+                    }
+                }
             } else {
                 let unknown = self.peek();
                 if !unknown.value.is_empty() && unknown.kind != TokenKind::Eof {
@@ -784,7 +796,7 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(AppNode { name, stack, port, database })
+        Ok(AppNode { name, stack, port, database, tailwind_config: None })
     }
 
     // ── entity ──
