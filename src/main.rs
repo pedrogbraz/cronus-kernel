@@ -170,7 +170,7 @@ struct AppState {
     brain: Option<brain::CronusBrain>,
     auth_entity: Option<String>,      // name of the user entity from auth block
     auth_roles: Vec<String>,          // available roles from auth block
-    auth_required_pages: Vec<String>, // routes that require authentication
+    auth_required_pages: Vec<(String, String)>, // (route, requires_value) for authentication
     layout: Option<parser::LayoutNode>,  // declarative sidebar+topbar layout
 }
 
