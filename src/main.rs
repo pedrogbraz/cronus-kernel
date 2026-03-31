@@ -1,6 +1,7 @@
 #![allow(dead_code, unused_imports, unused_variables)]
 mod animations;
 mod auth;
+mod binding;
 mod board;
 mod brain;
 mod cache;

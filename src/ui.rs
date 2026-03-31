@@ -1860,6 +1860,9 @@ fn render_custom(page: &PageNode, accent: &str, theme: &str) -> String {
     let mut in_grid = false;
 
     for section in &page.sections {
+        // Resolve binding (will be None if no DB available at this level)
+        let bound_data = crate::binding::ResolvedData::None;
+
         let is_column_layout = section.section_type == "layout"
             && matches!(
                 section.config.get("style").map(|s| s.as_str()),
@@ -1871,15 +1874,15 @@ fn render_custom(page: &PageNode, accent: &str, theme: &str) -> String {
             if in_grid {
                 html_parts.push(crate::layout_system::render_column_layout_end());
             }
-            html_parts.push(render_section(section, accent, theme));
+            html_parts.push(render_section(section, accent, theme, &bound_data));
             in_grid = true;
         } else if section.section_type == "layout" && in_grid {
             // A non-column layout section closes the grid
             html_parts.push(crate::layout_system::render_column_layout_end());
             in_grid = false;
-            html_parts.push(render_section(section, accent, theme));
+            html_parts.push(render_section(section, accent, theme, &bound_data));
         } else {
-            html_parts.push(render_section(section, accent, theme));
+            html_parts.push(render_section(section, accent, theme, &bound_data));
         }
     }
 
@@ -1891,7 +1894,7 @@ fn render_custom(page: &PageNode, accent: &str, theme: &str) -> String {
     html_parts.join("\n")
 }
 
-fn render_section(section: &SectionNode, accent: &str, theme: &str) -> String {
+fn render_section(section: &SectionNode, accent: &str, theme: &str, bound_data: &crate::binding::ResolvedData) -> String {
     // --- Contract validation ---
     let warnings = crate::contracts::validate_section(section, &[]);
     let strict = crate::STRICT_MODE.load(std::sync::atomic::Ordering::Relaxed);
@@ -1932,7 +1935,7 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str) -> String {
     let resolved_type = crate::contracts::ContractRegistry::resolve_alias(&section.section_type)
         .unwrap_or(section.section_type.as_str());
 
-    match resolved_type {
+    let section_html = match resolved_type {
         "hero" => render_hero(section, accent, theme),
         "features" => render_features(section, accent, theme),
         "pricing" => render_pricing(section, accent),
@@ -1991,6 +1994,28 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str) -> String {
             }
         }
         _ => render_generic_section(section, accent),
+    };
+
+    // If we have bound data, wrap with data attributes for downstream JS/rendering
+    match bound_data {
+        crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => {
+            let count = rows.len();
+            format!(
+                "<div data-entity=\"{}\" data-bound-rows=\"{}\">{}</div>",
+                section.binding.as_ref().map(|b| b.entity.as_str()).unwrap_or(""),
+                count,
+                section_html
+            )
+        }
+        crate::binding::ResolvedData::Count(n) => {
+            format!(
+                "<div data-entity=\"{}\" data-bound-count=\"{}\">{}</div>",
+                section.binding.as_ref().map(|b| b.entity.as_str()).unwrap_or(""),
+                n,
+                section_html
+            )
+        }
+        _ => section_html,
     }
 }
 
