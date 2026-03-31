@@ -309,6 +309,7 @@ fn emit_section(bp: &SectionBlueprint, ind: usize) -> String {
     "hero" => emit_hero_body(bp, inner, &mut out),
     "features" | "faq" => emit_features_body(bp, inner, &mut out),
     "stats" | "stat-cards" | "billing-stats" => emit_stats_body(bp, inner, &mut out),
+    "testimonial" => emit_testimonial_body(bp, inner, &mut out),
     "pricing" => emit_pricing_body(bp, inner, &mut out),
     "cta" => emit_cta_body(bp, inner, &mut out),
     "footer" => emit_footer_body(bp, inner, &mut out),
@@ -452,6 +453,25 @@ fn emit_stats_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
     } else {
       out.push_str(&emit_item(item, ind));
     }
+  }
+}
+
+fn emit_testimonial_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+
+  if let Some(ref title) = bp.title {
+    if !title.is_empty() {
+      out.push_str(&format!("{}title {}\n", pre, quoted(title)));
+    }
+  }
+  if let Some(ref subtitle) = bp.subtitle {
+    if !subtitle.is_empty() {
+      out.push_str(&format!("{}subtitle {}\n", pre, quoted(subtitle)));
+    }
+  }
+
+  for item in &bp.items {
+    out.push_str(&emit_item(item, ind));
   }
 }
 

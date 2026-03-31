@@ -1418,7 +1418,7 @@ fn extract_stats(node: &DomNode) -> SectionBlueprint {
                 .into_iter()
                 .filter(|n| !std::ptr::eq(*n, *card))
                 .next()
-                .map(|v| dom::clean_node_text(v))
+                .map(|v| clean_stat_value(&dom::clean_node_text(v)))
                 .unwrap_or_default();
             let label = dom::find_by_class(card, "__label")
                 .into_iter()
@@ -1542,6 +1542,28 @@ fn find_subtitle_paragraph(node: &DomNode, title: &Option<String>) -> Option<Str
         }
     }
     None
+}
+
+/// Clean a stat value by collapsing spaces around suffixes/prefixes.
+/// E.g. "+98 %" -> "+98%", "500 +" -> "500+", "+2.5 x" -> "+2.5x"
+fn clean_stat_value(text: &str) -> String {
+    let mut result = text.trim().to_string();
+    // Remove spaces before common stat suffixes
+    for suffix in &[" %", " +", " x", " X", " K", " M", " k", " m"] {
+        if result.ends_with(suffix) {
+            let new_len = result.len() - suffix.len();
+            let suffix_char = &suffix[1..];
+            result = format!("{}{}", &result[..new_len], suffix_char);
+        }
+    }
+    // Remove spaces after common stat prefixes
+    for prefix in &["+ ", "- "] {
+        if result.starts_with(prefix) {
+            let prefix_char = &prefix[..1];
+            result = format!("{}{}", prefix_char, &result[prefix.len()..]);
+        }
+    }
+    result
 }
 
 /// Rough check if text looks like a stat (contains digits, %, +, K, M, etc).
