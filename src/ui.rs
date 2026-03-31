@@ -2146,7 +2146,7 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str, bound_data: 
         "trusted" => render_trusted(section),
         "topbar" => render_topbar(section, theme),
         "checkout" => render_checkout_section(section),
-        "testimonial" => render_testimonial(section),
+        "testimonial" => render_testimonial(section, theme),
         "footer" => render_footer(section, theme),
         "page-header" => render_page_header_section(section),
         "stat-cards" => render_stat_cards(section, bound_data),
@@ -2309,15 +2309,99 @@ fn render_checkout_section(section: &SectionNode) -> String {
     format!(r##"<main style="max-width:640px;margin:0 auto;padding:48px 24px 80px"><h1 style="font-size:30px;font-weight:700;letter-spacing:-0.02em;margin-bottom:32px">{title}</h1><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:40px">{exp}</div><div style="display:flex;align-items:center;gap:16px;margin-bottom:32px"><div style="flex:1;height:1px;background:#e5e5e5"></div><span style="color:#a1a1aa;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em">Or pay with card</span><div style="flex:1;height:1px;background:#e5e5e5"></div></div><form data-entity="order" style="display:flex;flex-direction:column;gap:24px">{fld}{chk}<button type="submit" style="width:100%;height:56px;border-radius:999px;background:black;color:white;font-size:18px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;transition:opacity 0.2s" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">{sub} <svg width="16" height="16" fill="rgba(255,255,255,0.5)" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg></button><p style="text-align:center;font-size:12px;color:#a1a1aa;margin-top:8px;line-height:1.6">By confirming your payment, you agree to our Terms of Service and Privacy Policy.</p></form></main>"##, title=title, exp=exp, fld=fld, chk=chk, sub=sub)
 }
 
-fn render_testimonial(section: &SectionNode) -> String {
-    let q = section.title.as_deref().unwrap_or("");
-    let s = section.subtitle.as_deref().unwrap_or("");
-    let dk = section.config.get("style").map(|s| s.contains("dark")).unwrap_or(false);
-    let (bg,tx) = if dk {("black","white")} else {("#f3f3f3","#1a1a1a")};
-    format!(r##"<div style="position:relative;padding:24px;background:{bg};color:{tx};border-radius:12px;overflow:hidden;max-width:640px;margin:24px auto"><p style="font-size:14px;font-weight:500;font-style:italic;line-height:1.6;opacity:0.9">"{q}"</p><p style="font-size:12px;font-weight:700;margin-top:16px;letter-spacing:0.08em;text-transform:uppercase">{s}</p><div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,111,240,0.2),transparent);opacity:0.5"></div></div>"##, bg=bg,tx=tx,q=q,s=s)
+fn render_testimonial(section: &SectionNode, theme: &str) -> String {
+    let style_hint = section.config.get("style").map(|s| s.as_str()).unwrap_or("");
+    let is_dark = style_hint.contains("dark") || theme == "dark";
+    let is_light = !is_dark;
+
+    let (card_bg, card_border, card_text, card_muted, section_bg) = if is_light {
+        ("#ffffff", "rgba(0,0,0,0.08)", "#1a1a1a", "#6b6b6b", "#fafafa")
+    } else {
+        ("#0a0a0a", "rgba(255,255,255,0.05)", "white", "#9ca3af", "transparent")
+    };
+
+    let section_title = section.title.as_deref().unwrap_or("");
+    let section_subtitle = section.subtitle.as_deref().unwrap_or("");
+
+    // If no items, fall back to single testimonial from title/subtitle
+    if section.items.is_empty() {
+        return format!(
+            r##"<section style="padding:80px 24px;background:{section_bg}">
+  <div style="max-width:640px;margin:0 auto">
+    <div style="background:{card_bg};border:1px solid {card_border};border-radius:12px;padding:32px">
+      <p style="font-size:16px;font-style:italic;line-height:1.7;color:{card_text};margin-bottom:20px">"{quote}"</p>
+      <p style="font-size:13px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:{card_muted}">{author}</p>
+    </div>
+  </div>
+</section>"##,
+            section_bg=section_bg, card_bg=card_bg, card_border=card_border,
+            card_text=card_text, card_muted=card_muted,
+            quote=section_title, author=section_subtitle
+        );
+    }
+
+    // Multi-item testimonial grid
+    let avatar_bg = if is_light { "#e5e7eb" } else { "#374151" };
+    let avatar_text = if is_light { "#374151" } else { "#d1d5db" };
+
+    let cards: Vec<String> = section.items.iter().map(|item| {
+        let quote = item.get("description").or_else(|| item.get("title")).map(|s| s.as_str()).unwrap_or("");
+        let name = item.get("name").or_else(|| item.get("title")).map(|s| s.as_str()).unwrap_or("Anonymous");
+        let role = item.get("role").or_else(|| item.get("meta")).or_else(|| item.get("subtitle")).map(|s| s.as_str()).unwrap_or("");
+
+        // Generate initials from name
+        let initials: String = name.split_whitespace()
+            .filter_map(|w| w.chars().next())
+            .take(2)
+            .map(|c| c.to_uppercase().to_string())
+            .collect();
+
+        format!(
+            r##"<div style="background:{card_bg};border:1px solid {card_border};border-radius:12px;padding:28px;display:flex;flex-direction:column;justify-content:space-between;gap:20px">
+  <p style="font-size:15px;font-style:italic;line-height:1.7;color:{card_text}">"{quote}"</p>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div style="width:36px;height:36px;border-radius:50%;background:{avatar_bg};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:{avatar_text}">{initials}</div>
+    <div>
+      <div style="font-size:14px;font-weight:600;color:{card_text}">{name}</div>
+      <div style="font-size:12px;color:{card_muted}">{role}</div>
+    </div>
+  </div>
+</div>"##,
+            card_bg=card_bg, card_border=card_border, card_text=card_text,
+            card_muted=card_muted, avatar_bg=avatar_bg, avatar_text=avatar_text,
+            quote=quote, initials=initials, name=name, role=role
+        )
+    }).collect();
+
+    // Section header
+    let header = if !section_title.is_empty() {
+        format!(
+            r##"<div style="text-align:center;margin-bottom:48px">
+    <h2 style="font-size:36px;font-weight:800;letter-spacing:-0.04em;color:{card_text};margin-bottom:12px">{title}</h2>
+    <p style="font-size:16px;color:{card_muted};max-width:600px;margin:0 auto">{subtitle}</p>
+  </div>"##,
+            card_text=card_text, card_muted=card_muted,
+            title=section_title, subtitle=section_subtitle
+        )
+    } else {
+        String::new()
+    };
+
+    let cols = if cards.len() <= 2 { cards.len() } else { 3 };
+    format!(
+        r##"<section style="padding:80px 24px;background:{section_bg}">
+  <div style="max-width:1280px;margin:0 auto">
+    {header}
+    <div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:20px">
+      {cards}
+    </div>
+  </div>
+</section>"##,
+        section_bg=section_bg, header=header, cols=cols, cards=cards.join("\n      ")
+    )
 }
 
-fn render_hero(section: &SectionNode, _accent: &str, theme: &str) -> String {
+fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> String {
     let title = section.title.as_deref().unwrap_or("Build Something Amazing");
     let subtitle = section.subtitle.as_deref().unwrap_or("The next generation platform for modern teams.");
     let badge = section.config.get("badge").map(|s| s.as_str());
@@ -2325,6 +2409,25 @@ fn render_hero(section: &SectionNode, _accent: &str, theme: &str) -> String {
     let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("/signup");
     let cta2_text = section.config.get("cta2_text").map(|s| s.as_str());
     let cta2_link = section.config.get("cta2_link").map(|s| s.as_str()).unwrap_or("");
+
+    // Convert accent name to hex color
+    let accent_hex = match accent {
+        "blue" => "#2563eb",
+        "indigo" => "#6366f1",
+        "amber" => "#f59e0b",
+        "emerald" => "#10b981",
+        "rose" => "#f43f5e",
+        "violet" => "#8b5cf6",
+        "sky" => "#0ea5e9",
+        "orange" => "#f97316",
+        "red" => "#ef4444",
+        "green" => "#22c55e",
+        "purple" => "#a855f7",
+        "pink" => "#ec4899",
+        "cyan" => "#06b6d4",
+        "teal" => "#14b8a6",
+        _ => "#2563eb",
+    };
 
     // Extract badge from items if not in config
     let badge_text = badge.or_else(|| {
@@ -2340,7 +2443,7 @@ fn render_hero(section: &SectionNode, _accent: &str, theme: &str) -> String {
     let is_light = style_hint.contains("light") || (!is_dark && cta2_text.is_some());
 
     if is_light {
-        return render_developer_landing_hero(section, title, subtitle, badge_text, cta_primary, cta_link, cta2_text, cta2_link);
+        return render_developer_landing_hero(section, title, subtitle, badge_text, cta_primary, cta_link, cta2_text, cta2_link, accent_hex);
     }
 
     // === Dark theme hero (original) ===
@@ -2351,9 +2454,9 @@ fn render_hero(section: &SectionNode, _accent: &str, theme: &str) -> String {
 
     let badge_html = badge_text.map(|b| format!(
         r#"<div class="anim-fade d1" style="display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);margin-bottom:32px;backdrop-filter:blur(8px)">
-      <span style="width:8px;height:8px;border-radius:50%;background:#006ff0"></span>
-      <span style="font-size:12px;font-weight:500;letter-spacing:0.05em;color:#a1a1aa">{}</span>
-    </div>"#, b
+      <span style="width:8px;height:8px;border-radius:50%;background:{accent}"></span>
+      <span style="font-size:12px;font-weight:500;letter-spacing:0.05em;color:#a1a1aa">{text}</span>
+    </div>"#, accent = accent_hex, text = b
     )).unwrap_or_default();
 
     let cta2_html = cta2_text.map(|t| format!(
@@ -2361,8 +2464,15 @@ fn render_hero(section: &SectionNode, _accent: &str, theme: &str) -> String {
         cta2_link, t
     )).unwrap_or_default();
 
+    // Convert accent hex to rgba for gradient use
+    let accent_r = u8::from_str_radix(&accent_hex[1..3], 16).unwrap_or(0);
+    let accent_g = u8::from_str_radix(&accent_hex[3..5], 16).unwrap_or(111);
+    let accent_b = u8::from_str_radix(&accent_hex[5..7], 16).unwrap_or(240);
+    let accent_rgba_15 = format!("rgba({},{},{},0.15)", accent_r, accent_g, accent_b);
+    let accent_rgba_05 = format!("rgba({},{},{},0.05)", accent_r, accent_g, accent_b);
+
     format!(
-        r##"<section style="position:relative;overflow:hidden;min-height:100vh;padding-top:80px;padding-bottom:80px;background:radial-gradient(circle at 50% -20%,rgba(0,111,240,0.15) 0%,rgba(0,0,0,0) 50%),conic-gradient(from 180deg at 50% 50%,rgba(255,255,255,0.03) 0deg,rgba(0,111,240,0.05) 120deg,rgba(255,0,128,0.05) 240deg,rgba(255,255,255,0.03) 360deg)">
+        r##"<section style="position:relative;overflow:hidden;min-height:100vh;padding-top:80px;padding-bottom:80px;background:radial-gradient(circle at 50% -20%,{accent_rgba_15} 0%,rgba(0,0,0,0) 50%),conic-gradient(from 180deg at 50% 50%,rgba(255,255,255,0.03) 0deg,{accent_rgba_05} 120deg,rgba(255,0,128,0.05) 240deg,rgba(255,255,255,0.03) 360deg)">
   <!-- Grid background -->
   <div style="position:absolute;inset:0;background-image:linear-gradient(to right,rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,0.03) 1px,transparent 1px);background-size:40px 40px;opacity:0.4"></div>
   <div style="position:relative;z-index:10;max-width:1280px;margin:0 auto;padding:0 24px;text-align:center">
@@ -2378,6 +2488,8 @@ fn render_hero(section: &SectionNode, _accent: &str, theme: &str) -> String {
     </div>
   </div>
 </section>"##,
+        accent_rgba_15 = accent_rgba_15,
+        accent_rgba_05 = accent_rgba_05,
         badge_html = badge_html,
         line1 = line1, line2 = line2,
         subtitle = subtitle,
@@ -2396,13 +2508,14 @@ fn render_developer_landing_hero(
     cta_link: &str,
     cta2_text: Option<&str>,
     cta2_link: &str,
+    accent_hex: &str,
 ) -> String {
     // Badge
     let badge_html = badge_text.map(|b| format!(
         r#"<div class="anim anim-fade d1" style="display:inline-flex;align-items:center;gap:8px;padding:4px 12px;border-radius:999px;background:#e8e8e8;border:1px solid rgba(198,198,198,0.2);margin-bottom:24px">
-      <span class="pulse-glow" style="width:8px;height:8px;border-radius:50%;background:#006ff0"></span>
-      <span style="font-size:12px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;color:#1a1c1c">{}</span>
-    </div>"#, b
+      <span class="pulse-glow" style="width:8px;height:8px;border-radius:50%;background:{accent}"></span>
+      <span style="font-size:12px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;color:#1a1c1c">{text}</span>
+    </div>"#, accent=accent_hex, text=b
     )).unwrap_or_default();
 
     // Split title by periods for line breaks (e.g. "Develop. Preview. Ship.")
@@ -2445,7 +2558,7 @@ fn render_developer_landing_hero(
             }
             "output" => {
                 let color = item.get("color").map(|s| match s.as_str() {
-                    "blue" => "#006ff0",
+                    "blue" => accent_hex,
                     "green" => "#28c840",
                     "yellow" => "#febc2e",
                     "red" => "#ff5f57",
@@ -2458,8 +2571,8 @@ fn render_developer_landing_hero(
             "prompt" => {
                 let answer = item.get("answer").map(|s| s.as_str()).unwrap_or("");
                 terminal_lines.push_str(&format!(
-                    r#"<div><span style="color:#666">?</span> <span style="color:#e5e5e5">{}</span> <span style="color:#006ff0">{}</span></div>"#,
-                    text, answer
+                    r#"<div><span style="color:#666">?</span> <span style="color:#e5e5e5">{text}</span> <span style="color:{accent}">{answer}</span></div>"#,
+                    text=text, answer=answer, accent=accent_hex
                 ));
             }
             "success" => {
@@ -2555,7 +2668,7 @@ fn render_developer_landing_hero(
         // Centered hero layout with stat cards below (no terminal)
         return format!(
             r##"<section style="position:relative;overflow:hidden;min-height:80vh;padding:96px 24px 80px;display:flex;flex-direction:column;align-items:center;justify-content:center;background-image:linear-gradient(to right,rgba(198,198,198,0.1) 1px,transparent 1px),linear-gradient(to bottom,rgba(198,198,198,0.1) 1px,transparent 1px);background-size:40px 40px">
-  <div class="prism-glow" style="position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 50%,rgba(0,111,240,0.08) 0%,rgba(249,249,249,0) 70%)"></div>
+  <div class="prism-glow" style="position:absolute;inset:0;pointer-events:none"></div>
   <div style="position:relative;z-index:10;max-width:1024px;margin:0 auto;padding:0 24px;text-align:center">
     {badge_html}
     <h1 class="anim anim-d1" style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.05em;color:#000;line-height:0.9;margin-bottom:32px">
@@ -2624,22 +2737,31 @@ fn render_features(section: &SectionNode, _accent: &str, theme: &str) -> String 
         return render_features_bento_light(section);
     }
 
+    let is_light = theme == "light" && !style_hint.contains("dark");
+    let (card_bg, card_border, card_text, card_desc, card_hover, icon_bg) = if is_light {
+        ("#ffffff", "rgba(0,0,0,0.08)", "#1a1a1a", "#6b6b6b", "rgba(0,0,0,0.15)", "rgba(0,0,0,0.04)")
+    } else {
+        ("#0a0a0a", "rgba(255,255,255,0.05)", "white", "#9ca3af", "rgba(255,255,255,0.2)", "rgba(255,255,255,0.05)")
+    };
+
     let items: Vec<String> = section.items.iter().enumerate().map(|(i, item)| {
         let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Feature");
         let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
         let icon_name = item.get("icon").map(|s| s.as_str()).unwrap_or("star");
 
-        let icon_color = if theme == "dark" || style_hint.contains("dark") { "#fff" } else { "#000" };
+        let icon_color = if is_light { "#000" } else { "#fff" };
         let icon_svg = get_material_icon(icon_name, icon_color, 20);
 
         format!(
-            r#"<div style="grid-column:span 4;background:#0a0a0a;border-radius:12px;border:1px solid rgba(255,255,255,0.05);padding:32px;display:flex;flex-direction:column;justify-content:space-between;transition:border-color 0.3s" onmouseover="this.style.borderColor='rgba(255,255,255,0.2)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'">
+            r#"<div style="grid-column:span 4;background:{card_bg};border-radius:12px;border:1px solid {card_border};padding:32px;display:flex;flex-direction:column;justify-content:space-between;transition:border-color 0.3s" onmouseover="this.style.borderColor='{card_hover}'" onmouseout="this.style.borderColor='{card_border}'">
   <div>
-    <div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;margin-bottom:24px;color:white">{icon_svg}</div>
-    <h3 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:white;margin-bottom:8px">{name}</h3>
-    <p style="color:#9ca3af;font-size:14px;line-height:1.6">{desc}</p>
+    <div style="width:40px;height:40px;border-radius:8px;background:{icon_bg};display:flex;align-items:center;justify-content:center;margin-bottom:24px;color:{card_text}">{icon_svg}</div>
+    <h3 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:{card_text};margin-bottom:8px">{name}</h3>
+    <p style="color:{card_desc};font-size:14px;line-height:1.6">{desc}</p>
   </div>
-</div>"#, icon_svg = icon_svg, name = name, desc = desc)
+</div>"#, icon_svg = icon_svg, name = name, desc = desc,
+            card_bg = card_bg, card_border = card_border, card_text = card_text,
+            card_desc = card_desc, card_hover = card_hover, icon_bg = icon_bg)
     }).collect();
 
     format!(

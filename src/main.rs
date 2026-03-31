@@ -925,13 +925,14 @@ async fn handle_request(
         });
 
         // Landing/checkout pages use full-width layout, no sidebar
-        let is_landing = !has_sidebar_component && (page.page_type == "checkout" || (page.page_type == "custom" && page.sections.iter().any(|s| s.section_type == "hero" || s.section_type == "topbar" || s.section_type == "checkout")));
+        let landing_section_types = ["hero", "topbar", "checkout", "features", "pricing", "cta", "testimonial", "faq", "trusted", "footer"];
+        let is_landing = !has_sidebar_component && (page.page_type == "checkout" || (page.page_type == "custom" && page.sections.iter().any(|s| landing_section_types.contains(&s.section_type.as_str()))));
         let dashboard_types = ["sidebar", "card", "page-header", "stat-cards", "product-grid",
             "team-list", "policies", "activity-table", "status-card", "links",
             "live-keys", "test-keys", "webhooks", "quick-links",
             "current-plan", "usage-status", "billing-stats", "payment-methods", "recent-invoices",
             "balance-card", "upcoming-card", "payout-history", "support-banner",
-            "checkout-form", "product-summary", "trust-indicators", "testimonial",
+            "checkout-form", "product-summary", "trust-indicators",
             "team-members", "security-status", "security-policies", "login-activity"];
         let is_dashboard = has_sidebar_component || page.sections.iter().any(|s| dashboard_types.contains(&s.section_type.as_str()));
         let is_billing = page.sections.iter().any(|s| s.section_type == "current-plan" || s.section_type == "billing-stats");
