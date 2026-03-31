@@ -530,7 +530,7 @@ async fn handle_request(
         }
 
         let theme = state.style.as_ref().and_then(|s| s.theme.as_deref()).unwrap_or("dark");
-        let mut body = ui::render_page(page, &state.entities, accent, theme);
+        let mut body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db));
 
         // If page references components (via `use ComponentName`), render them
         // BUT skip if page has sidebar component — dashboard renderers handle their own chrome

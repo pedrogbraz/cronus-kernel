@@ -1042,13 +1042,14 @@ fn render_light_support_banner(comp: &ComponentNode) -> String {
 // PAGE RENDERER (returns inner body HTML)
 // ══════════════════════════════════════════════════
 
-pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str, theme: &str) -> String {
+pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str, theme: &str, db: Option<&crate::database::CronusDB>) -> String {
     match page.page_type.as_str() {
+        // TODO: pass db to dashboard/list/form/detail when they need binding support
         "dashboard" => render_dashboard(page, entities, accent),
         "list" => render_list(page, entities, accent),
         "form" => render_form(page, entities, accent),
         "detail" => render_list(page, entities, accent),
-        "custom" => render_custom(page, accent, theme),
+        "custom" => render_custom(page, accent, theme, db),
         "checkout" => render_checkout(page),
         "components" => {
             // page type:components — placeholder, actual rendering happens in main.rs
@@ -1855,13 +1856,16 @@ fn render_detail(page: &PageNode, _entities: &[EntityNode], accent: &str) -> Str
 // CUSTOM PAGE (sections: hero, features, pricing)
 // ══════════════════════════════════════════════════
 
-fn render_custom(page: &PageNode, accent: &str, theme: &str) -> String {
+fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::database::CronusDB>) -> String {
     let mut html_parts: Vec<String> = Vec::new();
     let mut in_grid = false;
 
     for section in &page.sections {
-        // Resolve binding (will be None if no DB available at this level)
-        let bound_data = crate::binding::ResolvedData::None;
+        // Resolve binding against real DB (falls back to None if no DB)
+        let bound_data = match db {
+            Some(db) => crate::binding::resolve_binding(section, db),
+            None => crate::binding::ResolvedData::None,
+        };
 
         let is_column_layout = section.section_type == "layout"
             && matches!(
