@@ -4,7 +4,7 @@
 //! Generates complete HTML pages from the AST.
 //! No React, no frameworks — pure HTML + Tailwind CDN + vanilla JS.
 
-use crate::parser::{EntityNode, FieldType, PageNode, SectionNode, ComponentNode, ComponentItemNode};
+use crate::parser::{EntityNode, FieldType, PageNode, SectionNode, ComponentNode, ComponentItemNode, LayoutNode};
 use crate::components;
 use crate::render::CRONUS_RUNTIME_JS;
 use crate::hmr::HMR_CLIENT_JS;
@@ -436,6 +436,173 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
 </body>
 </html>"#,
         app_name = app_name,
+        body = body,
+        tailwind_css = super::tailwind::CRONUS_TAILWIND,
+        animations_css = super::animations::CRONUS_ANIMATIONS,
+        anim_css = CRONUS_ANIMATIONS_CSS,
+        anim_js = CRONUS_ANIMATIONS_JS,
+        runtime = super::render::CRONUS_RUNTIME_JS,
+        animate_js = super::animations::CRONUS_ANIMATE_JS,
+        hmr = super::hmr::HMR_CLIENT_JS,
+        action_js = super::runtime_js::CRONUS_ACTION_JS,
+    )
+}
+
+// ══════════════════════════════════════════════════
+// DECLARATIVE LAYOUT (from `layout` block in .cronus)
+// ══════════════════════════════════════════════════
+
+pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_route: &str, body: &str) -> String {
+    let brand = layout.sidebar_config.get("brand").map(|s| s.as_str()).unwrap_or(app_name);
+
+    // Build nav items HTML
+    let mut nav_html = String::new();
+    for item in &layout.sidebar_items {
+        if item.is_divider {
+            nav_html.push_str(r#"<div style="height:1px;background:oklch(1 0 0 / 6%);margin:8px 0"></div>"#);
+            continue;
+        }
+        let is_active = current_route == item.route
+            || (current_route == "/" && item.route == "/dashboard")
+            || (item.route != "/" && !item.route.is_empty() && current_route.starts_with(&item.route) && item.route.len() > 1);
+        let bg = if is_active { "background:oklch(0.18 0 0);" } else { "" };
+        let fg = if is_active { "color:oklch(0.93 0 0);" } else { "color:oklch(0.5 0 0);" };
+        let icon_html = if let Some(ref icon) = item.icon {
+            format!(r#"<span class="material-symbols-outlined" style="font-size:20px">{}</span>"#, icon)
+        } else {
+            String::new()
+        };
+        nav_html.push_str(&format!(
+            r#"<a href="{route}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;{fg}{bg}text-decoration:none;font-size:13px;transition:all 0.15s" onmouseover="this.style.background='oklch(0.18 0 0)';this.style.color='oklch(0.93 0 0)'" onmouseout="this.style.background='{bg_raw}';this.style.color='{fg_raw}'">{icon}{label}</a>"#,
+            route = item.route,
+            fg = fg,
+            bg = bg,
+            bg_raw = if is_active { "oklch(0.18 0 0)" } else { "" },
+            fg_raw = if is_active { "oklch(0.93 0 0)" } else { "oklch(0.5 0 0)" },
+            icon = icon_html,
+            label = item.label,
+        ));
+    }
+
+    // Topbar
+    let search_placeholder = layout.topbar_config.get("search_placeholder").map(|s| s.as_str()).unwrap_or("");
+    let has_topbar = !layout.topbar_config.is_empty();
+    let topbar_html = if has_topbar {
+        let search_html = if !search_placeholder.is_empty() {
+            format!(
+                r#"<div style="flex:1;max-width:400px">
+  <input type="text" placeholder="{}" style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid oklch(1 0 0 / 6%);background:oklch(0.14 0 0);color:oklch(0.93 0 0);font-size:13px;outline:none" onfocus="this.style.borderColor='oklch(0.488 0.243 264)'" onblur="this.style.borderColor='oklch(1 0 0 / 6%)'">
+</div>"#,
+                search_placeholder
+            )
+        } else {
+            r#"<div style="flex:1"></div>"#.to_string()
+        };
+        format!(
+            r#"<header style="height:52px;border-bottom:1px solid oklch(1 0 0 / 6%);display:flex;align-items:center;padding:0 24px;flex-shrink:0">
+  {search}
+</header>"#,
+            search = search_html
+        )
+    } else {
+        String::new()
+    };
+
+    format!(
+        r##"<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{app_name}</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
+  <style>{tailwind_css}</style>
+  <style>{animations_css}</style>
+  <style>{anim_css}</style>
+  <style>
+    :root {{
+      --background: oklch(0.11 0 0);
+      --card: oklch(0.14 0 0);
+      --card-soft: oklch(0.16 0 0);
+      --card-strong: oklch(0.18 0 0);
+      --foreground: oklch(0.93 0 0);
+      --foreground-muted: oklch(0.5 0 0);
+      --foreground-subtle: oklch(0.4 0 0);
+      --border: oklch(1 0 0 / 6%);
+      --border-strong: oklch(1 0 0 / 8%);
+      --surface-hover: oklch(0.18 0 0);
+      --secondary: oklch(0.18 0 0);
+      --accent: oklch(0.488 0.243 264);
+      --accent-soft: oklch(0.488 0.243 264 / 12%);
+      --success: oklch(0.696 0.17 162);
+      --success-soft: oklch(0.696 0.17 162 / 12%);
+      --warning: oklch(0.769 0.188 70);
+      --danger: oklch(0.704 0.191 22);
+      --danger-soft: oklch(0.704 0.191 22 / 12%);
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+      --radius-card: 22px;
+      --radius-button: 10px;
+      --radius-badge: 999px;
+      --radius: 0.875rem;
+    }}
+    body {{ background: var(--background); color: var(--foreground); font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif; -webkit-font-smoothing: antialiased; margin: 0; }}
+    ::selection {{ background: oklch(0.3 0 0); }}
+    ::-webkit-scrollbar {{ width: 4px; }}
+    ::-webkit-scrollbar-thumb {{ background: var(--border); border-radius: 2px; }}
+    @keyframes fadeIn {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
+    .animate-fade-in {{ animation: fadeIn 0.3s ease-out; }}
+    @media (max-width: 768px) {{
+      .cronus-decl-sidebar {{ transform: translateX(-100%); position: fixed !important; z-index: 40; box-shadow: 4px 0 24px rgba(0,0,0,0.2); }}
+      .cronus-decl-sidebar.open {{ transform: translateX(0); }}
+      .cronus-hamburger {{ display: flex !important; }}
+      .cronus-decl-main {{ margin-left: 0 !important; }}
+    }}
+    @media print {{
+      .cronus-decl-sidebar, .cronus-hamburger, .cronus-overlay {{ display: none !important; }}
+      .cronus-decl-main {{ margin-left: 0 !important; padding: 0 !important; }}
+    }}
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="cronus-decl-sidebar" style="position:fixed;left:0;top:0;bottom:0;width:250px;background:oklch(0.09 0 0);border-right:1px solid oklch(1 0 0 / 6%);padding:16px;display:flex;flex-direction:column;z-index:40;transition:transform 0.3s cubic-bezier(0.16,1,0.3,1)">
+    <div style="font-size:16px;font-weight:700;padding:8px 12px;margin-bottom:16px;color:oklch(0.93 0 0)">{brand}</div>
+    <nav style="flex:1;display:flex;flex-direction:column;gap:2px">
+      {nav_items}
+    </nav>
+  </aside>
+  <!-- Main -->
+  <div class="cronus-decl-main" style="margin-left:250px;min-height:100vh;display:flex;flex-direction:column">
+    <!-- Hamburger (mobile) -->
+    <button class="cronus-hamburger" onclick="cronusDeclToggle()" style="display:none;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;padding:8px;border-radius:8px;position:fixed;top:8px;left:8px;z-index:50;color:var(--foreground)" onmouseover="this.style.background='var(--secondary)'" onmouseout="this.style.background='none'">
+      <span class="material-symbols-outlined" style="font-size:22px">menu</span>
+    </button>
+    {topbar}
+    <main class="animate-fade-in" style="flex:1;padding:24px;overflow-y:auto">
+      {body}
+    </main>
+  </div>
+  <script>
+    window.cronusDeclToggle=function(){{
+      var sb=document.querySelector('.cronus-decl-sidebar');
+      if(!sb)return;
+      sb.classList.toggle('open');
+      var ov=document.querySelector('.cronus-overlay');
+      if(!ov){{ov=document.createElement('div');ov.className='cronus-overlay';ov.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:39;transition:opacity 0.3s';ov.onclick=function(){{cronusDeclToggle()}};document.body.appendChild(ov)}}
+      ov.style.display=sb.classList.contains('open')?'block':'none';
+    }};
+  </script>
+  <script>{runtime}</script>
+  <script>{animate_js}</script>
+  <script>{hmr}</script>
+  {anim_js}
+  {action_js}
+</body>
+</html>"##,
+        app_name = app_name,
+        brand = brand,
+        nav_items = nav_html,
+        topbar = topbar_html,
         body = body,
         tailwind_css = super::tailwind::CRONUS_TAILWIND,
         animations_css = super::animations::CRONUS_ANIMATIONS,

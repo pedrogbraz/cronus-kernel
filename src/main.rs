@@ -71,6 +71,7 @@ async fn main() {
         "build" => cmd_build(&args),
         "parse" => cmd_parse(&args),
         "new" => cmd_new(&args),
+        "seed" => cmd_seed(&args),
         "deploy" => cmd_deploy(&args),
         "doctor" => cmd_doctor(&args),
         "stats" => cmd_stats(&args),
@@ -98,7 +99,8 @@ fn print_help() {
     println!("  \x1b[1mUsage:\x1b[0m cronus <command> [options]\n");
     println!("  \x1b[1mCommands:\x1b[0m");
     println!("    \x1b[32mrun\x1b[0m [port] [--strict]  Parse .cronus → serve (strict: warnings=errors)");
-    println!("    \x1b[32mnew\x1b[0m <template>       Create project (landing/saas/api/ecommerce/blog)");
+    println!("    \x1b[32mnew\x1b[0m <template>       Create project (landing/admin/saas/api/ecommerce/blog)");
+    println!("    \x1b[32mseed\x1b[0m [count]          Seed database with fake data (default: 10 rows)");
     println!("    \x1b[32mbuild\x1b[0m [--strict]      Parse and validate .cronus file (strict mode)");
     println!("    \x1b[32mparse\x1b[0m <file> [--strict] Parse and show AST (strict mode)");
     println!("    \x1b[32mdeploy\x1b[0m           Generate deploy artifacts (--fly, --railway, --static)");
@@ -166,6 +168,7 @@ struct AppState {
     auth_entity: Option<String>,      // name of the user entity from auth block
     auth_roles: Vec<String>,          // available roles from auth block
     auth_required_pages: Vec<String>, // routes that require authentication
+    layout: Option<parser::LayoutNode>,  // declarative sidebar+topbar layout
 }
 
 fn json_response(status: StatusCode, body: Value) -> Response<Full<Bytes>> {
@@ -655,7 +658,11 @@ async fn handle_request(
                 state.components.len(), comp_html
             )
         };
-        let html = ui::render_layout(app_name, &state.pages, accent, &body);
+        let html = if let Some(ref layout) = state.layout {
+            ui::render_layout_declarative(app_name, layout, "/_components", &body)
+        } else {
+            ui::render_layout(app_name, &state.pages, accent, &body)
+        };
         return Ok(html_response(html));
     }
 
@@ -751,7 +758,11 @@ async fn handle_request(
 </div>"#,
                         err, source_path
                     );
-                    let html = ui::render_layout(app_name, &state.pages, accent, &body);
+                    let html = if let Some(ref layout) = state.layout {
+                        ui::render_layout_declarative(app_name, layout, &path, &body)
+                    } else {
+                        ui::render_layout(app_name, &state.pages, accent, &body)
+                    };
                     return Ok(Response::builder()
                         .status(StatusCode::INTERNAL_SERVER_ERROR)
                         .header("Content-Type", "text/html; charset=utf-8")
@@ -880,6 +891,8 @@ async fn handle_request(
             }
         } else if is_landing {
             ui::render_layout_landing(app_name, &body, theme)
+        } else if let Some(ref layout) = state.layout {
+            ui::render_layout_declarative(app_name, layout, current_route, &body)
         } else {
             ui::render_layout(app_name, &state.pages, accent, &body)
         };
@@ -891,7 +904,11 @@ async fn handle_request(
         "<div class=\"flex items-center justify-center min-h-[60vh]\"><div class=\"text-center\"><h1 class=\"text-6xl font-bold text-neutral-600\">404</h1><p class=\"mt-4 text-neutral-400\">Page not found</p><a href=\"/\" class=\"mt-6 inline-block text-{}-400 hover:underline\">← Back home</a></div></div>",
         accent
     );
-    let html = ui::render_layout(app_name, &state.pages, accent, &body);
+    let html = if let Some(ref layout) = state.layout {
+        ui::render_layout_declarative(app_name, layout, "/404", &body)
+    } else {
+        ui::render_layout(app_name, &state.pages, accent, &body)
+    };
     Ok(Response::builder()
         .status(StatusCode::NOT_FOUND)
         .header("Content-Type", "text/html; charset=utf-8")
@@ -1086,6 +1103,7 @@ async fn cmd_run(args: &[String]) {
     let mut auth_entity: Option<String> = None;
     let mut auth_roles: Vec<String> = Vec::new();
     let mut auth_required_pages: Vec<String> = Vec::new();
+    let mut layout: Option<parser::LayoutNode> = None;
 
     for node in &nodes {
         match node {
@@ -1108,6 +1126,9 @@ async fn cmd_run(args: &[String]) {
             AstNode::Auth(auth) => {
                 auth_entity = Some(auth.entity.clone());
                 auth_roles = auth.roles.clone();
+            }
+            AstNode::Layout(l) => {
+                layout = Some(l.clone());
             }
             _ => {}
         }
@@ -1183,6 +1204,9 @@ async fn cmd_run(args: &[String]) {
         println!("  \x1b[32m✓\x1b[0m Auth: entity={}, roles={:?}, protected={} pages",
             auth_entity.as_deref().unwrap_or("?"), auth_roles, auth_required_pages.len());
     }
+    if let Some(ref l) = layout {
+        println!("  \x1b[32m✓\x1b[0m Layout: \"{}\" ({} nav items)", l.name, l.sidebar_items.len());
+    }
 
     let state = Arc::new(AppState {
         app: app.clone(),
@@ -1197,6 +1221,7 @@ async fn cmd_run(args: &[String]) {
         auth_entity,
         auth_roles,
         auth_required_pages,
+        layout,
     });
 
     // Start server
@@ -2320,19 +2345,20 @@ fn cmd_build(args: &[String]) {
 fn cmd_new(args: &[String]) {
     let template = args.get(2).map(|s| s.as_str()).unwrap_or_else(|| {
         eprintln!("  Usage: cronus new <template>");
-        eprintln!("  Templates: landing, saas, api, ecommerce, blog");
+        eprintln!("  Templates: landing, admin, saas, api, ecommerce, blog");
         std::process::exit(1);
     });
 
     let content = match template {
         "landing" => TEMPLATE_LANDING,
+        "admin" => TEMPLATE_ADMIN,
         "saas" => TEMPLATE_SAAS,
         "api" => TEMPLATE_API,
         "ecommerce" => TEMPLATE_ECOMMERCE,
         "blog" => TEMPLATE_BLOG,
         _ => {
             eprintln!("  \x1b[33m✗\x1b[0m Unknown template: {}", template);
-            eprintln!("  Available: landing, saas, api, ecommerce, blog");
+            eprintln!("  Available: landing, admin, saas, api, ecommerce, blog");
             std::process::exit(1);
         }
     };
@@ -2347,16 +2373,416 @@ fn cmd_new(args: &[String]) {
     let mut file = fs::File::create(&file_path).unwrap();
     file.write_all(content.as_bytes()).unwrap();
 
-    println!("  \x1b[32m✓\x1b[0m Created {}/{} (template: {})", dir, "app.cronus", template);
+    println!("\n  \x1b[32m✓\x1b[0m Created \x1b[1m{}/app.cronus\x1b[0m (template: {})", dir, template);
     println!("  Next: \x1b[1mcd {} && cronus run\x1b[0m", dir);
+    println!("  Seed: \x1b[1mcd {} && cronus seed\x1b[0m\n", dir);
+}
+
+// ══════════════════════════════════════════════════
+// SEED COMMAND
+// ══════════════════════════════════════════════════
+
+fn cmd_seed(args: &[String]) {
+    let file = find_cronus_file().unwrap_or_else(|| {
+        eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found");
+        std::process::exit(1);
+    });
+
+    let source = fs::read_to_string(&file).unwrap();
+    let nodes = parser::parse(&source).unwrap_or_else(|e| {
+        eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e);
+        std::process::exit(1);
+    });
+
+    // Find app for database path
+    let app = nodes.iter().find_map(|n| {
+        if let parser::AstNode::App(a) = n { Some(a) } else { None }
+    });
+    let db_path = app
+        .and_then(|a| a.database.as_ref())
+        .and_then(|d| d.path.clone())
+        .unwrap_or_else(|| "./data.db".into());
+
+    let db = database::CronusDB::open(&db_path).unwrap_or_else(|e| {
+        eprintln!("  \x1b[31m✗\x1b[0m Cannot open database: {}", e);
+        std::process::exit(1);
+    });
+
+    let entities: Vec<&parser::EntityNode> = nodes.iter().filter_map(|n| {
+        if let parser::AstNode::Entity(e) = n { Some(e) } else { None }
+    }).collect();
+
+    if entities.is_empty() {
+        eprintln!("  \x1b[33m⊘\x1b[0m No entities found in {}", file);
+        return;
+    }
+
+    let count = args.get(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
+
+    // Migrate tables first
+    let entity_refs: Vec<parser::EntityNode> = entities.iter().map(|e| (*e).clone()).collect();
+    db.migrate(&entity_refs).unwrap_or_else(|e| {
+        eprintln!("  \x1b[31m✗\x1b[0m Migration failed: {}", e);
+        std::process::exit(1);
+    });
+
+    println!("\n  \x1b[36m⚡\x1b[0m Seeding {} entities with {} rows each...\n", entities.len(), count);
+
+    for entity in &entities {
+        let mut seeded = 0;
+        let first_names = ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace", "Henry", "Iris", "Jack",
+                           "Kate", "Leo", "Mia", "Noah", "Olivia", "Pete", "Quinn", "Rosa", "Sam", "Tina"];
+        let last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez",
+                          "Anderson", "Thomas", "Jackson", "White", "Harris", "Clark", "Lewis", "Young", "King", "Wright"];
+        let companies = ["Acme Corp", "TechFlow", "DataSync", "CloudBase", "NetPrime",
+                         "CodeVault", "PixelForge", "ByteWave", "SkyStack", "NanoGrid",
+                         "Quantum Labs", "Apex Digital", "Iris Systems", "Bolt.io", "Vertex AI",
+                         "Nebula Inc", "Spark Ops", "Iron Cloud", "Pulse Dev", "Orbit HQ"];
+        let titles = ["Important task", "Follow up needed", "Review required", "New request",
+                      "Bug fix", "Feature request", "Documentation update", "Testing round",
+                      "Deployment prep", "Migration plan", "Security patch", "Performance tuning",
+                      "UI redesign", "API integration", "Data cleanup", "Onboarding flow",
+                      "Billing issue", "Support ticket", "Release notes", "Sprint planning"];
+
+        for i in 0..count {
+            let mut obj = serde_json::Map::new();
+
+            for field in &entity.fields {
+                let val: serde_json::Value = match field.field_type {
+                    parser::FieldType::String | parser::FieldType::Text => {
+                        let nm = field.name.to_lowercase();
+                        if nm.contains("name") || nm.contains("customer") || nm.contains("author") {
+                            serde_json::Value::String(format!("{} {}", first_names[i % 20], last_names[i % 20]))
+                        } else if nm.contains("company") || nm.contains("org") {
+                            serde_json::Value::String(companies[i % 20].to_string())
+                        } else if nm.contains("title") || nm.contains("subject") {
+                            serde_json::Value::String(format!("Item #{} — {}", i + 1, titles[i % 20]))
+                        } else if nm.contains("description") || nm.contains("content") || nm.contains("body") || nm.contains("bio") || nm.contains("excerpt") {
+                            serde_json::Value::String(format!("Sample content for item {}. This is realistic test data generated by cronus seed.", i + 1))
+                        } else if nm.contains("password") {
+                            serde_json::Value::String(crate::auth::hash_password("password123"))
+                        } else if nm.contains("address") {
+                            serde_json::Value::String(format!("{} {} St, Suite {}", 100 + i * 37 % 900, last_names[i % 20], i + 1))
+                        } else if nm.contains("color") {
+                            let colors = ["#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#14b8a6", "#6366f1"];
+                            serde_json::Value::String(colors[i % 10].to_string())
+                        } else {
+                            serde_json::Value::String(format!("{}_{}", field.name, i + 1))
+                        }
+                    }
+                    parser::FieldType::Email => {
+                        serde_json::Value::String(format!("{}.{}@example.com",
+                            first_names[i % 20].to_lowercase(),
+                            last_names[i % 20].to_lowercase()))
+                    }
+                    parser::FieldType::Phone => {
+                        serde_json::Value::String(format!("+1 555-{:03}-{:04}", 100 + i * 3, 1000 + i * 7))
+                    }
+                    parser::FieldType::Url => {
+                        serde_json::Value::String(format!("https://example.com/{}/{}", field.name, i + 1))
+                    }
+                    parser::FieldType::Number => {
+                        serde_json::Value::String(format!("{}", (i + 1) * 10 + (i * 7) % 100))
+                    }
+                    parser::FieldType::Money => {
+                        // Centavos — realistic prices
+                        serde_json::Value::String(format!("{}", (i + 1) * 1990 + (i * 500) % 10000))
+                    }
+                    parser::FieldType::Percentage => {
+                        serde_json::Value::String(format!("{}", 15 + (i * 8) % 85))
+                    }
+                    parser::FieldType::Boolean => {
+                        serde_json::Value::String(if i % 3 == 0 { "0" } else { "1" }.to_string())
+                    }
+                    parser::FieldType::Date => {
+                        let day = 1 + (i % 28);
+                        let month = 1 + (i % 12);
+                        serde_json::Value::String(format!("2026-{:02}-{:02}", month, day))
+                    }
+                    parser::FieldType::Enum => {
+                        if let Some(ref vals) = field.enum_values {
+                            serde_json::Value::String(vals[i % vals.len()].clone())
+                        } else {
+                            let statuses = ["active", "pending", "completed", "cancelled", "processing"];
+                            serde_json::Value::String(statuses[i % 5].to_string())
+                        }
+                    }
+                    parser::FieldType::Slug => {
+                        serde_json::Value::String(format!("{}-{}", field.name, i + 1))
+                    }
+                    parser::FieldType::Ip => {
+                        serde_json::Value::String(format!("192.168.{}.{}", 1 + i / 255, 1 + i % 255))
+                    }
+                    parser::FieldType::Relation => {
+                        // Try to find an existing row in the related table
+                        if let Some(ref target) = field.reference {
+                            match db.find_all(target, 1, i) {
+                                Ok(rows) => {
+                                    if let Some(arr) = rows.as_array() {
+                                        if let Some(first) = arr.first() {
+                                            if let Some(id) = first.get("id").and_then(|v| v.as_str()) {
+                                                serde_json::Value::String(id.to_string())
+                                            } else { serde_json::Value::Null }
+                                        } else { serde_json::Value::Null }
+                                    } else { serde_json::Value::Null }
+                                }
+                                Err(_) => serde_json::Value::Null,
+                            }
+                        } else {
+                            serde_json::Value::Null
+                        }
+                    }
+                    _ => serde_json::Value::String(format!("value_{}", i + 1)),
+                };
+
+                if !val.is_null() {
+                    obj.insert(field.name.clone(), val);
+                }
+            }
+
+            if db.insert(&entity.name, &serde_json::Value::Object(obj)).is_ok() {
+                seeded += 1;
+            }
+        }
+        println!("  \x1b[32m✓\x1b[0m {} — {} rows", entity.name, seeded);
+    }
+
+    println!("\n  \x1b[32m✓\x1b[0m Done! Run \x1b[36mcronus run\x1b[0m to see your data.\n");
 }
 
 // ══════════════════════════════════════════════════
 // TEMPLATES
 // ══════════════════════════════════════════════════
 
+const TEMPLATE_ADMIN: &str = r#"# Admin Panel — CRONUS
+# Template: admin
+# Full CRUD admin with auth, sidebar layout, KPI dashboard, forms, and actions.
+# Run `cronus seed` after to populate with sample data.
+
+app "Admin Panel" {
+  stack react + tailwind
+  port 5175
+  theme dark
+  database sqlite "./data.db"
+}
+
+# ── Entities ──
+# Define your data models. Each becomes a DB table + REST API automatically.
+
+entity User {
+  name      string    required
+  email     email     required unique
+  password  string    required sensitive
+  role      enum      [admin, manager, member]
+}
+
+entity Customer {
+  name      string    required
+  email     email     required unique
+  phone     phone
+  company   string
+  status    enum      [active, inactive, churned]
+  createdAt date
+}
+
+entity Order {
+  customer    string    required
+  amount      money     required
+  status      enum      [pending, approved, shipped, delivered, cancelled]
+  description text
+  createdAt   date
+}
+
+# ── Auth ──
+# JWT-based login using User entity. Roles control page access.
+
+auth {
+  entity User
+  login email
+  session jwt
+  roles [admin, manager, member]
+}
+
+# ── Layout ──
+# Sidebar navigation. Every page inside this layout gets the sidebar.
+
+layout "admin" {
+  sidebar {
+    brand "Admin Panel"
+    nav "Dashboard"  -> "/"          icon:dashboard
+    nav "Customers"  -> "/customers" icon:people
+    nav "Orders"     -> "/orders"    icon:shopping_cart
+    ---
+    nav "Settings"   -> "/settings"  icon:settings requires:admin
+  }
+}
+
+# ── API Routes ──
+# Auth routes are public; everything else requires JWT.
+
+api /auth {
+  signup  POST  /signup  auth:public
+  login   POST  /login   auth:public
+  me      GET   /me      auth:jwt
+}
+
+api /customers {
+  list    GET    /       auth:jwt
+  create  POST   /       auth:jwt
+  detail  GET    /:id    auth:jwt
+  update  PATCH  /:id    auth:jwt
+  delete  DELETE /:id    auth:jwt
+}
+
+api /orders {
+  list    GET    /       auth:jwt
+  create  POST   /       auth:jwt
+  detail  GET    /:id    auth:jwt
+  update  PATCH  /:id    auth:jwt
+  delete  DELETE /:id    auth:jwt
+}
+
+# ── Dashboard ──
+# KPI cards bound to real data + recent orders table with click action.
+
+page "/" type:dashboard requires:auth {
+  title "Dashboard"
+
+  section stats cols:4 {
+    bind entity:Customer { query count }
+    item "Customers" value:"count" icon:people
+    bind entity:Order { query count }
+    item "Orders" value:"count" icon:shopping_cart
+    bind entity:Order { query sum field:amount }
+    item "Revenue" value:"sum" icon:attach_money
+    bind entity:Order { query count where status eq "pending" }
+    item "Pending" value:"count" icon:pending
+  }
+
+  section recent-orders {
+    title "Recent Orders"
+    subtitle "Last 10 orders placed"
+    bind entity:Order {
+      query all
+      order createdAt desc
+      limit 10
+    }
+    columns "Customer, Amount, Status, Date"
+    on click {
+      navigate "/orders/:id"
+    }
+  }
+}
+
+# ── Customers List ──
+
+page "/customers" type:custom requires:auth {
+  title "Customers"
+
+  section header {
+    title "Customers"
+    subtitle "Manage your customer base"
+    action "Add Customer" -> "/customers/new" icon:add
+  }
+
+  section customer-table {
+    bind entity:Customer {
+      query all
+      order name asc
+      limit 25
+    }
+    columns "Name, Email, Phone, Company, Status"
+    on click {
+      navigate "/customers/:id"
+    }
+  }
+}
+
+# ── New Customer Form with on submit action ──
+
+page "/customers/new" type:custom requires:auth {
+  title "Add Customer"
+
+  section form {
+    bind entity:Customer { query all }
+    item "Name" required:true
+    item "Email" required:true
+    item "Phone"
+    item "Company"
+    item "Status"
+    on submit {
+      create Customer
+      toast "Customer created"
+      navigate "/customers"
+    }
+  }
+}
+
+# ── Orders List ──
+
+page "/orders" type:custom requires:auth {
+  title "Orders"
+
+  section header {
+    title "Orders"
+    subtitle "Track and manage all orders"
+    action "New Order" -> "/orders/new" icon:add
+  }
+
+  section order-table {
+    bind entity:Order {
+      query all
+      order createdAt desc
+      limit 25
+    }
+    columns "Customer, Amount, Status, Description, Date"
+    on click {
+      navigate "/orders/:id"
+    }
+  }
+}
+
+# ── New Order Form with on submit action ──
+
+page "/orders/new" type:custom requires:auth {
+  title "Create Order"
+
+  section form {
+    bind entity:Order { query all }
+    item "Customer" required:true
+    item "Amount" required:true
+    item "Status"
+    item "Description"
+    on submit {
+      create Order
+      toast "Order created"
+      navigate "/orders"
+    }
+  }
+}
+
+# ── Login Page ──
+
+page "/login" type:form entity:User {
+  title "Sign In"
+  fields [email, password]
+}
+
+# ── Style ──
+# Dark theme with blue accent. Monochromatic + 1 accent color.
+
+style {
+  theme dark
+  accent blue
+  background neutral-950
+  radius lg
+  font "Inter"
+}
+"#;
+
 const TEMPLATE_LANDING: &str = r#"# Landing Page — CRONUS
 # Template: landing
+# No auth needed — public marketing page with lead capture form
 
 app "My Landing" {
   stack react + tailwind
@@ -2364,6 +2790,8 @@ app "My Landing" {
   theme dark
   database sqlite "./data.db"
 }
+
+# ── Data: just a lead capture entity ──
 
 entity Lead {
   name      string    required
@@ -2373,10 +2801,14 @@ entity Lead {
   createdAt date
 }
 
+# ── API: public create, protected list ──
+
 api /leads {
   create  POST   /        auth:public
   list    GET    /        auth:jwt
 }
+
+# ── Landing page with hero, features, pricing, CTA ──
 
 page "/" type:custom {
   section hero {
@@ -2419,9 +2851,16 @@ page "/" type:custom {
     ]
   }
 
-  section cta {
+  # Lead capture form with on submit action
+  section signup {
     title "Ready to get started?"
     subtitle "Join thousands of teams already shipping faster"
+    bind entity:Lead { query all }
+    on submit {
+      create Lead
+      toast "Welcome aboard!"
+      navigate "/"
+    }
     cta "Start Free Trial" -> "/signup" primary
   }
 }

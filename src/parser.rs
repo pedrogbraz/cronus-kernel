@@ -27,6 +27,7 @@ pub enum AstNode {
     Test(TestNode),
     Compose(ComposeNode),
     Auth(AuthNode),
+    Layout(LayoutNode),
 }
 
 #[derive(Debug, Clone)]
@@ -368,6 +369,23 @@ pub struct AuthNode {
     pub roles: Vec<String>,        // ["admin", "member", "viewer"]
 }
 
+#[derive(Debug, Clone)]
+pub struct LayoutNode {
+    pub name: String,
+    pub sidebar_items: Vec<LayoutNavItem>,
+    pub sidebar_config: HashMap<String, String>,  // brand, etc
+    pub topbar_config: HashMap<String, String>,    // search placeholder, etc
+}
+
+#[derive(Debug, Clone)]
+pub struct LayoutNavItem {
+    pub label: String,
+    pub route: String,
+    pub icon: Option<String>,
+    pub requires: Option<String>,  // role requirement
+    pub is_divider: bool,
+}
+
 // ══════════════════════════════════════════════════
 // TOKENIZER
 // ══════════════════════════════════════════════════
@@ -659,6 +677,9 @@ impl Parser {
                 nodes.push(AstNode::Test(self.parse_test()?));
             } else if self.matches(TokenKind::Identifier, Some("auth")) {
                 nodes.push(AstNode::Auth(self.parse_auth()?));
+            } else if self.matches(TokenKind::Identifier, Some("layout")) {
+                self.advance();
+                nodes.push(AstNode::Layout(self.parse_layout()?));
             } else {
                 let unknown = self.peek();
                 if !unknown.value.is_empty() && unknown.kind != TokenKind::Eof {
@@ -943,6 +964,85 @@ impl Parser {
 
         self.expect(TokenKind::RBrace)?;
         Ok(AuthNode { entity, login_fields, session_type, session_config, roles })
+    }
+
+    // ── layout ──
+
+    fn parse_layout(&mut self) -> Result<LayoutNode, String> {
+        // "layout" already consumed
+        let name = self.advance().value;
+        self.expect(TokenKind::LBrace)?;
+
+        let mut sidebar_items = Vec::new();
+        let mut sidebar_config = HashMap::new();
+        let mut topbar_config = HashMap::new();
+
+        while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+            if self.matches(TokenKind::Identifier, Some("sidebar")) {
+                self.advance();
+                self.expect(TokenKind::LBrace)?;
+                while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                    if self.matches(TokenKind::Identifier, Some("brand")) {
+                        self.advance();
+                        sidebar_config.insert("brand".into(), self.expect(TokenKind::StringLit)?.value);
+                    } else if self.matches(TokenKind::Identifier, Some("nav")) {
+                        self.advance();
+                        let label = self.expect(TokenKind::StringLit)?.value;
+                        let mut route = String::new();
+                        if self.try_consume(TokenKind::Arrow, None).is_some() {
+                            route = if self.peek().kind == TokenKind::StringLit {
+                                self.advance().value
+                            } else {
+                                self.advance().value  // Path token like /orders
+                            };
+                        }
+                        let mut icon = None;
+                        let mut requires = None;
+                        while self.peek().kind == TokenKind::ColonPair {
+                            let (k, v) = Self::split_colon_pair(&self.advance().value);
+                            if k == "icon" { icon = Some(v.clone()); }
+                            if k == "requires" { requires = Some(v); }
+                        }
+                        sidebar_items.push(LayoutNavItem { label, route, icon, requires, is_divider: false });
+                    } else if self.matches(TokenKind::Identifier, Some("divider")) {
+                        self.advance();
+                        sidebar_items.push(LayoutNavItem {
+                            label: String::new(), route: String::new(),
+                            icon: None, requires: None, is_divider: true,
+                        });
+                    } else {
+                        self.advance();
+                    }
+                }
+                self.expect(TokenKind::RBrace)?;
+            } else if self.matches(TokenKind::Identifier, Some("topbar")) {
+                self.advance();
+                self.expect(TokenKind::LBrace)?;
+                while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                    if self.peek().kind == TokenKind::ColonPair {
+                        let (k, v) = Self::split_colon_pair(&self.advance().value);
+                        topbar_config.insert(k, v);
+                    } else if self.peek().kind == TokenKind::Identifier {
+                        let key = self.advance().value;
+                        // handle "search placeholder:..." pattern
+                        if self.peek().kind == TokenKind::ColonPair {
+                            let (k, v) = Self::split_colon_pair(&self.advance().value);
+                            topbar_config.insert(format!("{}_{}", key, k), v);
+                        } else {
+                            topbar_config.insert(key, String::new());
+                        }
+                    } else {
+                        self.advance();
+                    }
+                }
+                self.expect(TokenKind::RBrace)?;
+            } else {
+                self.advance();
+            }
+        }
+
+        self.expect(TokenKind::RBrace)?;
+        Ok(LayoutNode { name, sidebar_items, sidebar_config, topbar_config })
     }
 
     // ── page ──
