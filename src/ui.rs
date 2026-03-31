@@ -2247,13 +2247,13 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str, bound_data: 
     let template_from_config = section.config.get("template").cloned();
     let style_from_config = section.config.get("style_block").cloned();
 
-    // When SectionNode gains dedicated template/style_block fields, prefer
-    // those over config keys:
-    //   section.template.as_ref().or(template_from_config.as_ref())
-    let effective_template: Option<&String> = template_from_config.as_ref();
+    // Prefer dedicated SectionNode fields over config keys
+    let effective_template: Option<&String> = section.template.as_ref()
+        .or(template_from_config.as_ref());
 
     if let Some(tmpl) = effective_template {
-        let effective_style = style_from_config;
+        let effective_style = section.style_block.clone()
+            .or(style_from_config);
         return render_template(tmpl, section, &effective_style);
     }
 

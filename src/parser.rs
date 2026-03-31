@@ -165,6 +165,8 @@ pub struct SectionNode {
     pub binding: Option<BindingNode>,
     pub actions: Vec<ActionBlock>,
     pub visibility: Option<VisibilityCondition>,
+    pub template: Option<String>,      // raw HTML template for visual preservation
+    pub style_block: Option<String>,   // scoped CSS for visual preservation
 }
 
 #[derive(Debug, Clone)]
@@ -1166,6 +1168,8 @@ impl Parser {
         let mut plans = Vec::new();
         let mut binding: Option<BindingNode> = None;
         let mut section_actions: Vec<ActionBlock> = Vec::new();
+        let mut template: Option<String> = None;
+        let mut style_block: Option<String> = None;
 
         let mut cta_count = 0;
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
@@ -1175,6 +1179,12 @@ impl Parser {
             } else if self.matches(TokenKind::Identifier, Some("subtitle")) {
                 self.advance();
                 subtitle = Some(self.expect(TokenKind::StringLit)?.value);
+            } else if self.matches(TokenKind::Identifier, Some("template")) {
+                self.advance();
+                template = Some(self.expect(TokenKind::StringLit)?.value);
+            } else if self.matches(TokenKind::Identifier, Some("style_block")) {
+                self.advance();
+                style_block = Some(self.expect(TokenKind::StringLit)?.value);
             } else if self.matches(TokenKind::Identifier, Some("badge")) {
                 self.advance();
                 config.insert("badge".into(), self.expect(TokenKind::StringLit)?.value);
@@ -1499,7 +1509,7 @@ impl Parser {
             }
         }
 
-        Ok(SectionNode { section_type, title, subtitle, config, items, plans, binding, actions: section_actions, visibility })
+        Ok(SectionNode { section_type, title, subtitle, config, items, plans, binding, actions: section_actions, visibility, template, style_block })
     }
 
     fn parse_section_item(&mut self) -> Result<HashMap<String, String>, String> {
