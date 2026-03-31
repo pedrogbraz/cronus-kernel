@@ -716,7 +716,7 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str, style_node
     let css_vars = generate_css_vars(&style_node, theme);
     // If body already contains a topbar section (rendered <header or <nav with data-topbar),
     // skip the built-in navbar to avoid duplication
-    let has_topbar = body.contains("data-cronus-topbar");
+    let has_topbar = body.contains("data-cronus-topbar") || body.contains("<nav ") || body.contains("<nav\n") || body.contains("<header ") || body.contains("MONOLITH") || body.contains("topbar");
     let nav_html = if has_topbar {
         String::new()
     } else {
@@ -759,8 +759,9 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str, style_node
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{app_name}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
     {css_vars}
     * {{ margin: 0; padding: 0; box-sizing: border-box; }}
@@ -2349,6 +2350,10 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str, bound_data: 
 /// tokens with values from the section's title, subtitle, config, and items.
 fn render_template(template: &str, section: &SectionNode, style_block: &Option<String>) -> String {
     let mut html = String::new();
+
+    // Unescape template (parser escapes quotes in StringLit)
+    let template = template.replace("\\\"", "\"").replace("\\'", "'");
+    let template = template.as_str();
 
     // Add scoped style if present
     if let Some(ref css) = style_block {

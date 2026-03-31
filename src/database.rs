@@ -83,6 +83,30 @@ impl CronusDB {
         conn.execute_batch(sql).map_err(|e| e.to_string())
     }
 
+    /// Execute a raw SELECT query and return rows as Vec<Value>.
+    /// Used by aggregation bindings (GROUP BY queries).
+    pub fn query_raw(&self, sql: &str) -> Result<Vec<Value>, String> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+        let col_names: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
+
+        let rows = stmt
+            .query_map([], |row| {
+                let mut map = Map::new();
+                for (i, name) in col_names.iter().enumerate() {
+                    map.insert(name.clone(), column_to_json(row, i)?);
+                }
+                Ok(Value::Object(map))
+            })
+            .map_err(|e| e.to_string())?;
+
+        let mut results = Vec::new();
+        for r in rows {
+            results.push(r.map_err(|e| e.to_string())?);
+        }
+        Ok(results)
+    }
+
     // ──────────────────────────────────────────────
     // Migration
     // ──────────────────────────────────────────────

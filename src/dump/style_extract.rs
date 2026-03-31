@@ -1,8 +1,9 @@
 #![allow(dead_code, unused_imports, unused_variables)]
 //! Style extraction for CRONUS Black Hole dump system
 //!
-//! Analyzes Tailwind config and source files to detect theme,
+//! Analyzes Tailwind config, CSS files, and source files to detect theme,
 //! accent color, and font choices for .cronus style blocks.
+//! v2: extracts from @theme CSS variables (Tailwind v4 style).
 
 use std::collections::HashMap;
 use std::fs;
@@ -14,16 +15,92 @@ pub fn extract_style(tailwind_config: &str, ts_files: &[PathBuf]) -> String {
     let accent = detect_accent_color(ts_files);
     let font = detect_font(tailwind_config, ts_files);
 
+    build_style_block(&theme, &accent, &font)
+}
+
+/// Extract style block from CSS @theme variables (no tailwind config needed)
+pub fn extract_style_from_css(css: &str, ts_files: &[PathBuf]) -> String {
+    let theme = if css.contains("#000") || css.contains("bg: #0") || css.contains("background: #0") {
+        "dark".to_string()
+    } else {
+        detect_theme("", ts_files)
+    };
+
+    // Extract accent from --color-*-accent or prominent color variable
+    let accent = extract_accent_from_css(css)
+        .unwrap_or_else(|| detect_accent_color(ts_files));
+
+    // Extract font from CSS --font-sans or @import
+    let font = extract_font_from_css(css)
+        .unwrap_or_else(|| detect_font("", ts_files));
+
+    build_style_block(&theme, &accent, &font)
+}
+
+fn build_style_block(theme: &str, accent: &str, font: &str) -> String {
     let mut style = String::from("style {\n");
     style.push_str(&format!("  theme {}\n", theme));
-    style.push_str(&format!("  accent {}\n", accent));
+    style.push_str(&format!("  accent \"{}\"\n", accent));
     if !font.is_empty() {
         style.push_str(&format!("  font \"{}\"\n", font));
     }
     style.push_str("  radius lg\n");
     style.push_str("}\n");
-
     style
+}
+
+/// Extract accent color from CSS variables
+fn extract_accent_from_css(css: &str) -> Option<String> {
+    // Look for --color-*-accent: #HEXVAL or oklch(...)
+    for line in css.lines() {
+        let line = line.trim();
+        if line.contains("accent") && line.contains(':') {
+            let after_colon = line.split(':').nth(1)?.trim().trim_end_matches(';');
+            if !after_colon.is_empty() {
+                return Some(after_colon.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// Extract font from CSS variables or @import
+fn extract_font_from_css(css: &str) -> Option<String> {
+    // Check --font-sans or --font-display
+    for line in css.lines() {
+        let line = line.trim();
+        if (line.contains("--font-sans") || line.contains("--font-display")) && line.contains(':') {
+            let after_colon = line.split(':').nth(1)?.trim().trim_end_matches(';');
+            // Extract first font name from the font stack
+            let first_font = after_colon
+                .split(',')
+                .next()?
+                .trim()
+                .trim_matches('\'')
+                .trim_matches('"')
+                .to_string();
+            if !first_font.is_empty() && first_font != "system-ui" && first_font != "ui-monospace" {
+                return Some(first_font);
+            }
+        }
+    }
+
+    // Check @import for Google Fonts
+    for line in css.lines() {
+        if line.contains("fonts.googleapis.com") || line.contains("fonts.google") {
+            // Try to extract the first family name
+            if let Some(family_pos) = line.find("family=") {
+                let after = &line[family_pos + 7..];
+                let end = after.find(|c: char| c == '&' || c == '\'' || c == '"' || c == ')').unwrap_or(after.len());
+                let family = after[..end].split(':').next().unwrap_or("").replace('+', " ");
+                if !family.is_empty() {
+                    return Some(family);
+                }
+            }
+        }
+    }
+
+    None
 }
 
 // ---------------------------------------------------------------------------

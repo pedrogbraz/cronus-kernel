@@ -3,8 +3,10 @@
 //!
 //! Scans TS/JS source files for interface/type declarations and
 //! emits .cronus entity blocks with semantic field type detection.
+//! v2: path-aware filtering to keep only domain entities (~30 vs 367).
 
 use std::collections::HashMap;
+use std::path::Path;
 
 pub struct TsEntity {
     pub name: String,
@@ -17,8 +19,67 @@ pub struct TsField {
     pub required: bool,
 }
 
+// Suffixes that indicate internal/framework types (skip unless in types/ or contracts/)
+const SKIP_SUFFIXES: &[&str] = &[
+    "Props", "State", "Actions", "ContextValue", "Options", "Params",
+    "Response", "Request", "Input", "Output", "Hook", "Store",
+    "Handler", "Listener", "Callback", "Ref", "Element", "Style",
+    "Theme", "Animation", "Variant", "Config",
+];
+
+// Directories to skip entirely
+const SKIP_DIRS: &[&str] = &[
+    "src/components", "src/hooks", "src/game", "src/prompts",
+    "src/parsers", "src/kernel/scaffold", "src/kernel/visualization",
+    "src/kernel/blocks", "src/kernel/blueprints",
+];
+
+/// Check if a file path is in a domain-relevant location
+pub fn is_domain_file(path: &Path) -> bool {
+    let p = path.to_string_lossy();
+
+    // Skip blacklisted directories
+    for skip in SKIP_DIRS {
+        if p.contains(skip) {
+            return false;
+        }
+    }
+
+    // Whitelist: always include these
+    if p.contains("src/types") || p.contains("src/contracts") {
+        return true;
+    }
+
+    // Include files with domain-relevant names
+    let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
+    if file_name.contains("types")
+        || file_name.contains("models")
+        || file_name.contains("entities")
+        || file_name.contains("schema")
+        || file_name == "api.ts"
+        || file_name == "api.tsx"
+    {
+        return true;
+    }
+
+    // Include src/lib/api* files
+    if p.contains("src/lib/") && file_name.starts_with("api") {
+        return true;
+    }
+
+    false
+}
+
+/// Check if a file is in a privileged directory (types/ or contracts/)
+fn is_privileged_dir(path: &Path) -> bool {
+    let p = path.to_string_lossy();
+    p.contains("src/types") || p.contains("src/contracts")
+}
+
 /// Extract entity-like interfaces/types from TypeScript source code
-pub fn extract_entities(source: &str) -> Vec<TsEntity> {
+/// with optional path-based filtering
+pub fn extract_entities_from_file(source: &str, file_path: &Path) -> Vec<TsEntity> {
+    let privileged = is_privileged_dir(file_path);
     let mut entities = Vec::new();
 
     let lines: Vec<&str> = source.lines().collect();
@@ -35,26 +96,8 @@ pub fn extract_entities(source: &str) -> Vec<TsEntity> {
             continue;
         };
 
-        // Skip non-entity patterns (React/framework types)
-        if name.ends_with("Props")
-            || name.ends_with("State")
-            || name.ends_with("Config")
-            || name.ends_with("Context")
-            || name.ends_with("Options")
-            || name.ends_with("Params")
-            || name.ends_with("Response")
-            || name.ends_with("Request")
-            || name.ends_with("Input")
-            || name.ends_with("Output")
-            || name.ends_with("Hook")
-            || name.ends_with("Store")
-            || (name.starts_with('I')
-                && name
-                    .chars()
-                    .nth(1)
-                    .map(|c| c.is_uppercase())
-                    .unwrap_or(false))
-        {
+        // Skip non-entity patterns
+        if should_skip_name(name, privileged) {
             i += 1;
             continue;
         }
@@ -88,7 +131,8 @@ pub fn extract_entities(source: &str) -> Vec<TsEntity> {
         // Extract fields from body
         let fields = extract_fields(&body);
 
-        if fields.len() >= 2 {
+        // Filter by field count: skip tiny (<2) or huge (>20) interfaces
+        if fields.len() >= 2 && fields.len() <= 20 {
             entities.push(TsEntity {
                 name: name.to_string(),
                 fields,
@@ -101,6 +145,40 @@ pub fn extract_entities(source: &str) -> Vec<TsEntity> {
     }
 
     entities
+}
+
+/// Legacy: extract without path filtering (for backwards compat)
+pub fn extract_entities(source: &str) -> Vec<TsEntity> {
+    extract_entities_from_file(source, Path::new("unknown.ts"))
+}
+
+fn should_skip_name(name: &str, privileged: bool) -> bool {
+    // Always skip IFoo hungarian notation
+    if name.starts_with('I')
+        && name
+            .chars()
+            .nth(1)
+            .map(|c| c.is_uppercase())
+            .unwrap_or(false)
+    {
+        return true;
+    }
+
+    // In privileged dirs (types/, contracts/), only skip Props/State/Context
+    if privileged {
+        return name.ends_with("Props")
+            || name.ends_with("State")
+            || name.ends_with("Context");
+    }
+
+    // Outside privileged dirs, skip all framework suffixes
+    for suffix in SKIP_SUFFIXES {
+        if name.ends_with(suffix) {
+            return true;
+        }
+    }
+
+    false
 }
 
 fn extract_type_name(line: &str) -> Option<&str> {
@@ -204,12 +282,13 @@ fn map_ts_to_cronus(field_name: &str, ts_type: &str) -> String {
     {
         return "url".to_string();
     }
-    if name_lower.contains("price")
+    // FIX: money detection — require BOTH a money-related name AND a numeric TS type
+    if (name_lower.contains("price")
         || name_lower.contains("amount")
-        || name_lower.contains("total")
         || name_lower.contains("cost")
         || name_lower.contains("fee")
-        || name_lower.contains("revenue")
+        || name_lower.contains("revenue"))
+        && (ts_lower.contains("number") || ts_lower.contains("decimal") || ts_lower.contains("float"))
     {
         return "money".to_string();
     }

@@ -168,12 +168,26 @@ struct RouteInfo {
 }
 
 fn extract_group_name(path: &str) -> String {
+    // Return the prefix up to and including the first segment as a path
+    // e.g. "/api/products/{id}" → "/api/products"
+    //      "/products/{id}"     → "/products"
     let trimmed = path.trim_start_matches('/');
-    let first_segment = trimmed.split('/').next().unwrap_or("api");
-    if first_segment.is_empty() {
-        "root".to_string()
+    let segments: Vec<&str> = trimmed.split('/').collect();
+
+    // Find the last non-parameter segment to use as group
+    // "/api/products/{id}" → group = "/api/products", relative = "/:id"
+    let mut prefix_parts = Vec::new();
+    for seg in &segments {
+        if seg.starts_with('{') || seg.starts_with(':') {
+            break;
+        }
+        prefix_parts.push(*seg);
+    }
+
+    if prefix_parts.is_empty() {
+        "/".to_string()
     } else {
-        first_segment.to_string()
+        format!("/{}", prefix_parts.join("/"))
     }
 }
 
@@ -208,11 +222,12 @@ fn emit_api_group(out: &mut String, group: &str, routes: &[RouteInfo]) {
     out.push_str(&format!("api {} {{\n", group));
 
     for route in routes {
-        let method_lower = route.method.to_lowercase();
+        let method_upper = route.method.to_uppercase();
         let route_name = if !route.op_id.is_empty() {
             route.op_id.clone()
         } else {
-            format!("{}_{}", method_lower, group)
+            let method_lower = route.method.to_lowercase();
+            format!("{}_{}", method_lower, group.trim_start_matches('/'))
         };
         let comment = if !route.summary.is_empty() {
             format!("  // {}", route.summary)
@@ -221,14 +236,21 @@ fn emit_api_group(out: &mut String, group: &str, routes: &[RouteInfo]) {
         };
 
         // Convert path params {id} to :id
-        let cronus_path = route
+        let full_path = route
             .path
             .replace('{', ":")
             .replace('}', "");
 
+        // Make path relative to the group prefix
+        let relative_path = full_path
+            .strip_prefix(group)
+            .unwrap_or(&full_path);
+        let relative_path = if relative_path.is_empty() { "/" } else { relative_path };
+
+        // Parser expects: name METHOD path auth:...
         out.push_str(&format!(
-            "  {} \"{}\" {} {}{}\n",
-            method_lower, cronus_path, route_name, route.auth, comment
+            "  {}    {}    {}    {}{}\n",
+            route_name, method_upper, relative_path, route.auth, comment
         ));
     }
 

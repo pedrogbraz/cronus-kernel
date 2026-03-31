@@ -926,7 +926,9 @@ async fn handle_request(
 
         // Landing/checkout pages use full-width layout, no sidebar
         let landing_section_types = ["hero", "topbar", "checkout", "features", "pricing", "cta", "testimonial", "faq", "trusted", "footer"];
-        let is_landing = !has_sidebar_component && (page.page_type == "checkout" || (page.page_type == "custom" && page.sections.iter().any(|s| landing_section_types.contains(&s.section_type.as_str()))));
+        // If ANY section has a template, it's a dumped page — always use landing layout
+        let has_templates = page.sections.iter().any(|s| s.template.is_some() || s.config.get("template").is_some());
+        let is_landing = has_templates || (!has_sidebar_component && (page.page_type == "checkout" || (page.page_type == "custom" && page.sections.iter().any(|s| landing_section_types.contains(&s.section_type.as_str())))));
         let dashboard_types = ["sidebar", "card", "page-header", "stat-cards", "product-grid",
             "team-list", "policies", "activity-table", "status-card", "links",
             "live-keys", "test-keys", "webhooks", "quick-links",
@@ -944,7 +946,10 @@ async fn handle_request(
         let is_checkout = page.sections.iter().any(|s| s.section_type == "checkout-form" || s.section_type == "product-summary");
         let is_security = page.sections.iter().any(|s| s.section_type == "team-members" || s.section_type == "login-activity");
         let current_route = page.route.as_str();
-        let html = if is_checkout {
+        let html = if has_templates {
+            // Dumped page with original HTML templates — use landing layout, no sidebar
+            ui::render_layout_landing(app_name, &body, theme, state.style.as_ref())
+        } else if is_checkout {
             // Checkout page: no sidebar, centered layout
             let referenced_comps: Vec<parser::ComponentNode> = page.components.iter()
                 .filter_map(|name| state.components.iter().find(|c| c.name == *name))
