@@ -2,12 +2,15 @@
 name = "cronus-lang"
 version = "0.1.0"
 edition = "2021"
-description = "Compile full-stack software from a single spec file"
+authors = ["Zedd <contact@cooud.com>"]
+description = "The declarative language that replaces your entire web stack. One .cronus file = full-stack app."
 license = "MIT"
-repository = "https://github.com/cooud/cronus"
+repository = "https://github.com/eozedd/kronus"
+homepage = "https://github.com/eozedd/kronus"
 readme = "README.md"
-keywords = ["language", "full-stack", "compiler", "ssr", "database"]
-categories = ["command-line-utilities", "web-programming", "development-tools"]
+keywords = ["web", "framework", "declarative", "fullstack", "language"]
+categories = ["web-programming", "development-tools"]
+exclude = ["target/", ".git/", "tests/", "examples/"]
 
 [[bin]]
 name = "cronus"
