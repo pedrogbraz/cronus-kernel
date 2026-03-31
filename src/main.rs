@@ -55,6 +55,7 @@ use parser::{AstNode, EntityNode, PageNode, StyleNode, ApiNode, AppNode, FieldTy
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 pub static STRICT_MODE: AtomicBool = AtomicBool::new(false);
+pub static STRICT_AI_MODE: AtomicBool = AtomicBool::new(false);
 
 // ══════════════════════════════════════════════════
 // MAIN
@@ -64,7 +65,11 @@ pub static STRICT_MODE: AtomicBool = AtomicBool::new(false);
 async fn main() {
     let args: Vec<String> = env::args().collect();
     let strict = args.iter().any(|a| a == "--strict");
-    STRICT_MODE.store(strict, Ordering::Relaxed);
+    let strict_ai = args.iter().any(|a| a == "--strict-ai");
+    if strict || strict_ai {
+        STRICT_MODE.store(true, Ordering::Relaxed);
+    }
+    STRICT_AI_MODE.store(strict_ai, Ordering::Relaxed);
     let cmd = args.get(1).map(|s| s.as_str()).unwrap_or("help");
 
     match cmd {
@@ -103,7 +108,7 @@ fn print_help() {
     println!("    \x1b[32mrun\x1b[0m [port] [--strict]  Parse .cronus → serve (strict: warnings=errors)");
     println!("    \x1b[32mnew\x1b[0m <template>       Create project (landing/admin/saas/api/ecommerce/blog)");
     println!("    \x1b[32mseed\x1b[0m [count]          Seed database with fake data (default: 10 rows)");
-    println!("    \x1b[32mbuild\x1b[0m [--strict]      Parse and validate .cronus file (strict mode)");
+    println!("    \x1b[32mbuild\x1b[0m [--strict] [--strict-ai]  Parse and validate .cronus file (strict mode)");
     println!("    \x1b[32mparse\x1b[0m <file> [--strict] Parse and show AST (strict mode)");
     println!("    \x1b[32mdeploy\x1b[0m           Generate deploy artifacts (--fly, --railway, --static)");
     println!("    \x1b[32mdoctor\x1b[0m           Check .cronus syntax + DB + ports");
@@ -113,7 +118,7 @@ fn print_help() {
     println!("    \x1b[32mtest\x1b[0m --conformance   Run conformance test suite");
     println!("    \x1b[32mcompose\x1b[0m          Compose all .cronus files and show result");
     println!("    \x1b[32mgenerate\x1b[0m <desc>  Generate .cronus from description");
-    println!("    \x1b[32mvalidate\x1b[0m [file] [--json]  Validate .cronus file (--json for structured output)");
+    println!("    \x1b[32mvalidate\x1b[0m [file] [--json] [--strict-ai]  Validate (--strict-ai: all warnings = errors, JSON output)");
     println!("    \x1b[32mspec\x1b[0m <validate|list|codegen> Validate, list, or generate from .spec.toml files");
     println!("    \x1b[32mversion\x1b[0m          Show version");
     println!();
@@ -2418,12 +2423,17 @@ fn spec_list(args: &[String]) {
 }
 
 fn cmd_build(args: &[String]) {
+    let strict_ai = args.iter().any(|a| a == "--strict-ai");
     let file = args.iter().skip(2)
         .find(|a| !a.starts_with("--"))
         .cloned()
         .or_else(find_cronus_file)
         .unwrap_or_else(|| {
-            eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found");
+            if strict_ai {
+                println!("{}", json!({"valid": false, "errors": [{"message": "No .cronus file found"}]}));
+            } else {
+                eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found");
+            }
             std::process::exit(1);
         });
 
@@ -2431,18 +2441,70 @@ fn cmd_build(args: &[String]) {
     match parser::parse(&source) {
         Ok(nodes) => {
             let (entities, pages, routes) = parser::stats(&nodes);
-            println!("  \x1b[32m✓\x1b[0m {} — {} entities, {} pages, {} routes", file, entities, pages, routes);
-            println!("  \x1b[32m✓\x1b[0m Valid .cronus file");
+
+            // In strict-ai mode, run contract validation and promote warnings to errors
+            if strict_ai {
+                let mut errors: Vec<Value> = Vec::new();
+                for node in &nodes {
+                    if let AstNode::Page(page) = node {
+                        for section in &page.sections {
+                            let section_warnings = contracts::validate_section(section, &[]);
+                            for w in section_warnings {
+                                let err_json = match w {
+                                    contracts::ParseWarning::UnknownSection { ref name, line } => {
+                                        json!({"type": "unknown_section", "section": name, "line": line, "severity": "error", "message": format!("Unknown section type '{}'", name)})
+                                    }
+                                    contracts::ParseWarning::UnknownKey { ref section, ref key, ref item, line } => {
+                                        json!({"type": "unknown_key", "section": section, "key": key, "item": item, "line": line, "severity": "error", "message": format!("Unknown key '{}' in section '{}'", key, section)})
+                                    }
+                                    contracts::ParseWarning::MissingRequired { ref section, ref key, ref item, line } => {
+                                        json!({"type": "missing_required", "section": section, "key": key, "item": item, "line": line, "severity": "error", "message": format!("Missing required key '{}' in section '{}'", key, section)})
+                                    }
+                                    contracts::ParseWarning::AliasUsed { ref alias, ref canonical, line } => {
+                                        json!({"type": "alias", "alias": alias, "canonical": canonical, "line": line, "severity": "error", "message": format!("'{}' is an alias for '{}'", alias, canonical)})
+                                    }
+                                    contracts::ParseWarning::MinItemsViolation { ref section, expected, actual, line } => {
+                                        json!({"type": "min_items", "section": section, "expected": expected, "actual": actual, "line": line, "severity": "error", "message": format!("Section '{}' requires at least {} items, found {}", section, expected, actual)})
+                                    }
+                                    contracts::ParseWarning::UnknownConfig { ref section, ref key, line } => {
+                                        json!({"type": "unknown_config", "section": section, "key": key, "line": line, "severity": "error", "message": format!("Unknown config key '{}' in section '{}'", key, section)})
+                                    }
+                                };
+                                errors.push(err_json);
+                            }
+                        }
+                    }
+                }
+                let valid = errors.is_empty();
+                let result = json!({
+                    "valid": valid,
+                    "file": file,
+                    "errors": errors,
+                    "stats": { "entities": entities, "pages": pages, "routes": routes },
+                });
+                println!("{}", serde_json::to_string_pretty(&result).unwrap());
+                if !valid {
+                    std::process::exit(1);
+                }
+            } else {
+                println!("  \x1b[32m✓\x1b[0m {} — {} entities, {} pages, {} routes", file, entities, pages, routes);
+                println!("  \x1b[32m✓\x1b[0m Valid .cronus file");
+            }
         }
         Err(e) => {
-            eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e);
+            if strict_ai {
+                println!("{}", json!({"valid": false, "errors": [{"type": "parse_error", "message": e, "severity": "error"}]}));
+            } else {
+                eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e);
+            }
             std::process::exit(1);
         }
     }
 }
 
 fn cmd_validate(args: &[String]) {
-    let json_output = args.iter().any(|a| a == "--json");
+    let strict_ai = args.iter().any(|a| a == "--strict-ai");
+    let json_output = args.iter().any(|a| a == "--json") || strict_ai;
 
     let file = args.iter().skip(2)
         .find(|a| a.ends_with(".cronus"))
@@ -2516,6 +2578,14 @@ fn cmd_validate(args: &[String]) {
                 "severity": "error"
             }));
         }
+    }
+
+    // strict-ai: promote all warnings to errors
+    if strict_ai && !warnings.is_empty() {
+        for w in &warnings {
+            errors.push(w.clone());
+        }
+        warnings.clear();
     }
 
     let valid = errors.is_empty();
