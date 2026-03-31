@@ -163,6 +163,9 @@ struct AppState {
     db_path: String,
     db: database::CronusDB,
     brain: Option<brain::CronusBrain>,
+    auth_entity: Option<String>,      // name of the user entity from auth block
+    auth_roles: Vec<String>,          // available roles from auth block
+    auth_required_pages: Vec<String>, // routes that require authentication
 }
 
 fn json_response(status: StatusCode, body: Value) -> Response<Full<Bytes>> {
@@ -182,6 +185,139 @@ fn html_response(body: String) -> Response<Full<Bytes>> {
         .header("Content-Type", "text/html; charset=utf-8")
         .body(Full::new(Bytes::from(body)))
         .unwrap()
+}
+
+fn generate_login_page(state: &AppState) -> String {
+    let app_name = &state.app.name;
+    let logo_letter = app_name.chars().next().unwrap_or('C').to_uppercase().to_string();
+    format!(r##"<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — {app}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:'Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;background:#0a0a0a;color:#fafafa;min-height:100vh;display:flex;align-items:center;justify-content:center}}
+input{{width:100%;padding:10px 14px;font-size:14px;background:#171717;border:1px solid #262626;border-radius:10px;color:#fafafa;outline:none;transition:border-color 0.15s}}
+input:focus{{border-color:#525252}}
+.btn{{width:100%;padding:10px 14px;font-size:14px;font-weight:600;border:none;border-radius:10px;background:#fafafa;color:#0a0a0a;cursor:pointer;transition:opacity 0.15s}}
+.btn:hover{{opacity:0.9}}
+</style>
+</head>
+<body>
+<div style="width:100%;max-width:400px;padding:32px">
+  <div style="text-align:center;margin-bottom:32px">
+    <div style="width:48px;height:48px;background:#fafafa;border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+      <span style="color:#0a0a0a;font-weight:700;font-size:20px">{logo}</span>
+    </div>
+    <h1 style="font-size:24px;font-weight:700;margin:0 0 8px">Welcome back</h1>
+    <p style="font-size:14px;color:#a3a3a3">Sign in to your account</p>
+  </div>
+  <form id="loginForm" style="display:flex;flex-direction:column;gap:16px">
+    <input name="email" type="email" placeholder="Email" required />
+    <input name="password" type="password" placeholder="Password" required />
+    <div id="error" style="display:none;padding:10px 14px;border-radius:10px;font-size:13px;text-align:center;background:#450a0a;color:#fca5a5;border:1px solid #7f1d1d"></div>
+    <button type="submit" class="btn">Sign In</button>
+    <p style="text-align:center;font-size:14px;color:#a3a3a3">Don't have an account? <a href="/register" style="color:#fafafa;font-weight:600;text-decoration:none">Register</a></p>
+  </form>
+</div>
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {{
+  e.preventDefault();
+  const btn = e.target.querySelector('button');
+  btn.disabled = true; btn.textContent = 'Loading...';
+  const data = Object.fromEntries(new FormData(e.target));
+  try {{
+    const res = await fetch('/api/auth/login', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify(data) }});
+    const json = await res.json();
+    if (json.token) {{
+      document.cookie = 'cronus_token=' + json.token + '; path=/; max-age=86400';
+      localStorage.setItem('token', json.token);
+      localStorage.setItem('user', JSON.stringify(json.user || {{}}));
+      window.location.href = '/';
+    }} else {{
+      const err = document.getElementById('error');
+      err.style.display = 'block';
+      err.textContent = json.error || 'Invalid credentials';
+      btn.disabled = false; btn.textContent = 'Sign In';
+    }}
+  }} catch(err) {{
+    const el = document.getElementById('error');
+    el.style.display = 'block';
+    el.textContent = 'Connection failed';
+    btn.disabled = false; btn.textContent = 'Sign In';
+  }}
+}});
+</script>
+</body></html>"##, app = app_name, logo = logo_letter)
+}
+
+fn generate_register_page(state: &AppState) -> String {
+    let app_name = &state.app.name;
+    let logo_letter = app_name.chars().next().unwrap_or('C').to_uppercase().to_string();
+    format!(r##"<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Register — {app}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:'Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;background:#0a0a0a;color:#fafafa;min-height:100vh;display:flex;align-items:center;justify-content:center}}
+input{{width:100%;padding:10px 14px;font-size:14px;background:#171717;border:1px solid #262626;border-radius:10px;color:#fafafa;outline:none;transition:border-color 0.15s}}
+input:focus{{border-color:#525252}}
+.btn{{width:100%;padding:10px 14px;font-size:14px;font-weight:600;border:none;border-radius:10px;background:#fafafa;color:#0a0a0a;cursor:pointer;transition:opacity 0.15s}}
+.btn:hover{{opacity:0.9}}
+</style>
+</head>
+<body>
+<div style="width:100%;max-width:400px;padding:32px">
+  <div style="text-align:center;margin-bottom:32px">
+    <div style="width:48px;height:48px;background:#fafafa;border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+      <span style="color:#0a0a0a;font-weight:700;font-size:20px">{logo}</span>
+    </div>
+    <h1 style="font-size:24px;font-weight:700;margin:0 0 8px">Create your account</h1>
+    <p style="font-size:14px;color:#a3a3a3">Get started for free</p>
+  </div>
+  <form id="registerForm" style="display:flex;flex-direction:column;gap:16px">
+    <input name="name" type="text" placeholder="Full name" required />
+    <input name="email" type="email" placeholder="Email" required />
+    <input name="password" type="password" placeholder="Password" required minlength="6" />
+    <div id="error" style="display:none;padding:10px 14px;border-radius:10px;font-size:13px;text-align:center;background:#450a0a;color:#fca5a5;border:1px solid #7f1d1d"></div>
+    <button type="submit" class="btn">Sign Up</button>
+    <p style="text-align:center;font-size:14px;color:#a3a3a3">Already have an account? <a href="/login" style="color:#fafafa;font-weight:600;text-decoration:none">Sign in</a></p>
+  </form>
+</div>
+<script>
+document.getElementById('registerForm').addEventListener('submit', async (e) => {{
+  e.preventDefault();
+  const btn = e.target.querySelector('button');
+  btn.disabled = true; btn.textContent = 'Loading...';
+  const data = Object.fromEntries(new FormData(e.target));
+  try {{
+    const res = await fetch('/api/auth/signup', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify(data) }});
+    const json = await res.json();
+    if (json.token) {{
+      document.cookie = 'cronus_token=' + json.token + '; path=/; max-age=86400';
+      localStorage.setItem('token', json.token);
+      localStorage.setItem('user', JSON.stringify(json.user || {{}}));
+      window.location.href = '/';
+    }} else {{
+      const err = document.getElementById('error');
+      err.style.display = 'block';
+      err.textContent = json.error || 'Registration failed';
+      btn.disabled = false; btn.textContent = 'Sign Up';
+    }}
+  }} catch(err) {{
+    const el = document.getElementById('error');
+    el.style.display = 'block';
+    el.textContent = 'Connection failed';
+    btn.disabled = false; btn.textContent = 'Sign Up';
+  }}
+}});
+</script>
+</body></html>"##, app = app_name, logo = logo_letter)
 }
 
 async fn handle_request(
@@ -274,10 +410,17 @@ async fn handle_request(
                             Ok(user) => {
                                 let user_id = user.get("id").and_then(|v| v.as_str()).unwrap_or("");
                                 let token = auth::create_token(user_id, "user", &secret);
-                                json_response(StatusCode::CREATED, json!({
+                                let body = json!({
                                     "token": token,
                                     "user": {"id": user_id, "name": name, "email": email, "role": "user"}
-                                }))
+                                });
+                                Response::builder()
+                                    .status(StatusCode::CREATED)
+                                    .header("Content-Type", "application/json")
+                                    .header("Access-Control-Allow-Origin", "*")
+                                    .header("Set-Cookie", format!("cronus_token={}; Path=/; HttpOnly; Max-Age=86400", token))
+                                    .body(Full::new(Bytes::from(body.to_string())))
+                                    .unwrap()
                             }
                             Err(e) => json_response(StatusCode::BAD_REQUEST, json!({"error": e}))
                         }
@@ -309,10 +452,17 @@ async fn handle_request(
                                         let user_id = u.get("id").and_then(|v| v.as_str()).unwrap_or("");
                                         let role = u.get("role").and_then(|v| v.as_str()).unwrap_or("user");
                                         let token = auth::create_token(user_id, role, &secret);
-                                        json_response(StatusCode::OK, json!({
+                                        let body = json!({
                                             "token": token,
                                             "user": {"id": user_id, "name": u.get("name"), "email": email, "role": role}
-                                        }))
+                                        });
+                                        Response::builder()
+                                            .status(StatusCode::OK)
+                                            .header("Content-Type", "application/json")
+                                            .header("Access-Control-Allow-Origin", "*")
+                                            .header("Set-Cookie", format!("cronus_token={}; Path=/; HttpOnly; Max-Age=86400", token))
+                                            .body(Full::new(Bytes::from(body.to_string())))
+                                            .unwrap()
                                     } else {
                                         json_response(StatusCode::UNAUTHORIZED, json!({"error": "invalid credentials"}))
                                     }
@@ -507,6 +657,54 @@ async fn handle_request(
         };
         let html = ui::render_layout(app_name, &state.pages, accent, &body);
         return Ok(html_response(html));
+    }
+
+    // ── Auto-generated auth pages (when auth block exists) ──
+    if state.auth_entity.is_some() {
+        if path == "/login" {
+            let html = generate_login_page(&state);
+            return Ok(html_response(html));
+        }
+        if path == "/register" || path == "/signup" {
+            let html = generate_register_page(&state);
+            return Ok(html_response(html));
+        }
+        if path == "/logout" {
+            return Ok(Response::builder()
+                .status(StatusCode::FOUND)
+                .header("Location", "/login")
+                .header("Set-Cookie", "cronus_token=; Path=/; Max-Age=0")
+                .body(Full::new(Bytes::new()))
+                .unwrap());
+        }
+    }
+
+    // ── Auth middleware — protect pages that require authentication ──
+    if state.auth_required_pages.contains(&path)
+        || state.auth_required_pages.iter().any(|r| path.starts_with(r) && r != "/")
+    {
+        let token = req.headers().get("cookie")
+            .and_then(|c| c.to_str().ok())
+            .and_then(|c| c.split(';').find(|s| s.trim().starts_with("cronus_token=")))
+            .map(|s| s.trim().trim_start_matches("cronus_token=").to_string())
+            .or_else(|| req.headers().get("authorization")
+                .and_then(|h| h.to_str().ok())
+                .and_then(|h| h.strip_prefix("Bearer "))
+                .map(|s| s.to_string()));
+
+        let secret = auth::default_secret();
+        let authenticated = match &token {
+            Some(t) => auth::verify_token(t, &secret).is_ok(),
+            None => false,
+        };
+
+        if !authenticated {
+            return Ok(Response::builder()
+                .status(StatusCode::FOUND)
+                .header("Location", "/login")
+                .body(Full::new(Bytes::new()))
+                .unwrap());
+        }
     }
 
     // Find matching page
@@ -870,18 +1068,32 @@ async fn cmd_run(args: &[String]) {
     let mut apis: Vec<ApiNode> = vec![];
     let mut cronus_components: Vec<parser::ComponentNode> = vec![];
     let mut route_count = 0;
+    let mut auth_entity: Option<String> = None;
+    let mut auth_roles: Vec<String> = Vec::new();
+    let mut auth_required_pages: Vec<String> = Vec::new();
 
     for node in &nodes {
         match node {
             AstNode::App(a) => app = a.clone(),
             AstNode::Entity(e) => entities.push(e.clone()),
-            AstNode::Page(p) => pages.push(p.clone()),
+            AstNode::Page(p) => {
+                // Track pages that require auth
+                let req = p.requires.clone().or_else(|| p.config.get("requires").cloned());
+                if req.is_some() {
+                    auth_required_pages.push(p.route.clone());
+                }
+                pages.push(p.clone());
+            }
             AstNode::Style(s) => style = Some(s.clone()),
             AstNode::Api(a) => {
                 route_count += a.routes.len();
                 apis.push(a.clone());
             }
             AstNode::Component(c) => cronus_components.push(c.clone()),
+            AstNode::Auth(auth) => {
+                auth_entity = Some(auth.entity.clone());
+                auth_roles = auth.roles.clone();
+            }
             _ => {}
         }
     }
@@ -952,6 +1164,11 @@ async fn cmd_run(args: &[String]) {
     println!("  \x1b[32m✓\x1b[0m Hydra Brain: online");
 
     // Build app state (reuse app_db from migration)
+    if auth_entity.is_some() {
+        println!("  \x1b[32m✓\x1b[0m Auth: entity={}, roles={:?}, protected={} pages",
+            auth_entity.as_deref().unwrap_or("?"), auth_roles, auth_required_pages.len());
+    }
+
     let state = Arc::new(AppState {
         app: app.clone(),
         entities,
@@ -962,6 +1179,9 @@ async fn cmd_run(args: &[String]) {
         db_path: db_path.clone(),
         db: app_db,
         brain: Some(hydra),
+        auth_entity,
+        auth_roles,
+        auth_required_pages,
     });
 
     // Start server
@@ -1074,8 +1294,10 @@ fn cmd_spec(args: &[String]) {
                 spec_codegen_structs(args);
             } else if args.iter().any(|a| a == "--docs") {
                 spec_codegen_docs(args);
+            } else if args.iter().any(|a| a == "--ai-protocol") {
+                spec_codegen_ai_protocol(args);
             } else {
-                println!("  Usage: cronus spec codegen <--structs|--docs>");
+                println!("  Usage: cronus spec codegen <--structs|--docs|--ai-protocol>");
             }
         }
         _ => {
@@ -1588,6 +1810,10 @@ fn extract_config_details(content: &str) -> Vec<(String, String, String, String)
         }
     }
     results
+}
+
+fn spec_codegen_ai_protocol(_args: &[String]) {
+    println!("  AI protocol codegen: not yet implemented");
 }
 
 fn spec_codegen_docs(args: &[String]) {
