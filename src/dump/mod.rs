@@ -9,6 +9,7 @@ pub mod detect;
 pub mod patterns;
 pub mod emit;
 pub mod openapi;
+pub mod prisma;
 
 use std::collections::HashMap;
 

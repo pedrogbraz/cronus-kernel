@@ -1,4 +1,5 @@
 #![allow(dead_code, unused_imports, unused_variables)]
+mod actions;
 mod animations;
 mod auth;
 mod binding;
@@ -26,6 +27,7 @@ mod rate_limit;
 mod reactive;
 mod realtime;
 mod render;
+mod runtime_js;
 mod server;
 mod sse;
 mod tabs;
@@ -431,6 +433,48 @@ async fn handle_request(
             brain.track_request(method.as_str(), &path, status, duration);
         }
         return Ok(resp);
+    }
+
+    // ── Action execution endpoint ──
+    if method == Method::POST && path.starts_with("/_action/") {
+        let body_bytes = req.collect().await.unwrap_or_default().to_bytes();
+        let body: Value = serde_json::from_slice(&body_bytes).unwrap_or(json!({}));
+
+        let entity = body.get("entity").and_then(|v| v.as_str()).unwrap_or("");
+        let id = body.get("id").and_then(|v| v.as_str()).unwrap_or("");
+        let action_data = body.get("action").and_then(|v| v.as_str()).unwrap_or("{}");
+
+        let (ok, effects) = actions::execute_action(action_data, entity, id, &state.db);
+        let response = actions::effects_to_json(&effects);
+        return Ok(json_response(if ok { StatusCode::OK } else { StatusCode::BAD_REQUEST }, response));
+    }
+
+    // ── Form submission endpoint ──
+    if method == Method::POST && path.starts_with("/_form/") {
+        let body_bytes = req.collect().await.unwrap_or_default().to_bytes();
+        let body: Value = serde_json::from_slice(&body_bytes).unwrap_or(json!({}));
+
+        let entity = body.get("entity").and_then(|v| v.as_str()).unwrap_or("");
+        let data = body.get("data").cloned().unwrap_or(json!({}));
+
+        if data.is_object() && !entity.is_empty() {
+            match state.db.insert(entity, &data) {
+                Ok(row) => {
+                    let response = json!({
+                        "ok": true,
+                        "id": row.get("id"),
+                        "effects": [{"type": "toast", "target": "Created successfully", "style": "success"}]
+                    });
+                    return Ok(json_response(StatusCode::CREATED, response));
+                }
+                Err(e) => {
+                    let response = json!({ "ok": false, "error": e, "effects": [{"type": "toast", "target": e, "style": "error"}] });
+                    return Ok(json_response(StatusCode::BAD_REQUEST, response));
+                }
+            }
+        }
+
+        return Ok(json_response(StatusCode::BAD_REQUEST, json!({"ok": false, "error": "missing entity or data"})));
     }
 
     // Serve pages
@@ -973,7 +1017,7 @@ async fn cmd_run(args: &[String]) {
 
 fn cmd_dump(args: &[String]) {
     let file = args.get(2).unwrap_or_else(|| {
-        eprintln!("  \x1b[31m✗\x1b[0m Usage: cronus dump <file.html> [-o output.cronus]");
+        eprintln!("  \x1b[31m✗\x1b[0m Usage: cronus dump <file.html|.json|.prisma> [-o output.cronus]");
         std::process::exit(1);
     });
 
@@ -984,8 +1028,11 @@ fn cmd_dump(args: &[String]) {
 
     eprintln!("  \x1b[36m⚡\x1b[0m Dumping {} ({} bytes)...", file, html.len());
 
-    // Detect OpenAPI/Swagger JSON
-    let cronus = if file.ends_with(".json") {
+    // Detect file format
+    let cronus = if file.ends_with(".prisma") {
+        eprintln!("  \x1b[36m⚡\x1b[0m Detected Prisma schema");
+        dump::prisma::dump_prisma(&html)
+    } else if file.ends_with(".json") {
         if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&html) {
             if parsed.get("openapi").is_some() || parsed.get("swagger").is_some() {
                 eprintln!("  \x1b[36m⚡\x1b[0m Detected OpenAPI spec");
