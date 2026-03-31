@@ -1812,10 +1812,6 @@ fn extract_config_details(content: &str) -> Vec<(String, String, String, String)
     results
 }
 
-fn spec_codegen_ai_protocol(_args: &[String]) {
-    println!("  AI protocol codegen: not yet implemented");
-}
-
 fn spec_codegen_docs(args: &[String]) {
     let dir = args.iter().position(|a| a == "--dir").and_then(|i| args.get(i + 1))
         .map(|s| s.as_str()).unwrap_or("specs");
@@ -1946,6 +1942,272 @@ fn spec_codegen_docs(args: &[String]) {
             println!();
             println!("---");
             println!();
+        }
+    }
+}
+
+// ── Codegen: --ai-protocol ─────────────────────────────────────────────────
+
+fn extract_aliases_from_meta(content: &str) -> Vec<String> {
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("aliases") && trimmed.contains('=') {
+            if let Some(bracket_start) = trimmed.find('[') {
+                if let Some(bracket_end) = trimmed.find(']') {
+                    let inner = &trimmed[bracket_start + 1..bracket_end];
+                    return inner
+                        .split(',')
+                        .map(|s| s.trim().trim_matches('"').to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect();
+                }
+            }
+        }
+    }
+    Vec::new()
+}
+
+fn extract_config_validates(content: &str, key_name: &str) -> Option<String> {
+    let mut in_config = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed == "[config]" {
+            in_config = true;
+            continue;
+        }
+        if trimmed.starts_with('[') && trimmed != "[config]" {
+            if in_config { break; }
+            continue;
+        }
+        if in_config && trimmed.starts_with(key_name) {
+            if let Some(v_start) = trimmed.find("validates") {
+                let after = &trimmed[v_start..];
+                if let Some(q1) = after.find('"') {
+                    if let Some(q2) = after[q1 + 1..].find('"') {
+                        return Some(after[q1 + 1..q1 + 1 + q2].to_string());
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+fn extract_key_default(content: &str, key_name: &str) -> Option<String> {
+    let header = format!("[keys.structural.{}]", key_name);
+    let mut in_section = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed == header {
+            in_section = true;
+            continue;
+        }
+        if trimmed.starts_with('[') && in_section { break; }
+        if in_section && (trimmed.starts_with("default =") || trimmed.starts_with("default=")) {
+            if let Some(start) = trimmed.find('"') {
+                if let Some(end) = trimmed[start + 1..].find('"') {
+                    return Some(trimmed[start + 1..start + 1 + end].to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn json_escape(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n")
+}
+
+fn spec_codegen_ai_protocol(args: &[String]) {
+    let dir = args.iter().position(|a| a == "--dir").and_then(|i| args.get(i + 1))
+        .map(|s| s.as_str()).unwrap_or("specs");
+
+    let output_path = args.iter().position(|a| a == "-o").and_then(|i| args.get(i + 1))
+        .map(|s| s.as_str()).unwrap_or("cronus-schema.json");
+
+    let mut sections = Vec::new();
+    let mut section_count = 0usize;
+
+    for subdir in &["core", "stdlib", "patterns"] {
+        let path = format!("{}/{}", dir, subdir);
+        let mut entries: Vec<_> = match std::fs::read_dir(&path) {
+            Ok(e) => e.flatten().collect(),
+            Err(_) => continue,
+        };
+        entries.sort_by_key(|e| e.file_name());
+
+        for entry in entries {
+            let file_path = entry.path();
+            if !file_path.extension().map(|e| e == "toml").unwrap_or(false) {
+                continue;
+            }
+            let content = std::fs::read_to_string(&file_path).unwrap_or_default();
+            let name = match extract_field(&content, "name") {
+                Some(n) => n,
+                None => continue,
+            };
+
+            let layer = extract_field(&content, "layer").unwrap_or_else(|| subdir.to_string());
+            let stability = extract_field(&content, "stability").unwrap_or_else(|| "stable".to_string());
+            let description = extract_field(&content, "description").unwrap_or_default();
+            let intent_desc = extract_field_after_section(&content, "[intent]", "description")
+                .unwrap_or_else(|| description.clone());
+
+            // Check if pure alias
+            let is_alias = has_section(&content, "[alias]")
+                && extract_field(&content, "canonical")
+                    .map(|c| c != "none" && !c.is_empty())
+                    .unwrap_or(false);
+
+            if is_alias {
+                let canonical = extract_field(&content, "canonical").unwrap_or_default();
+                let justification = extract_field(&content, "justification").unwrap_or_default();
+                sections.push(format!(
+                    "    \"{}\": {{\n      \"alias_of\": \"{}\",\n      \"layer\": \"{}\",\n      \"stability\": \"{}\",\n      \"justification\": \"{}\"}}",
+                    json_escape(&name), json_escape(&canonical), json_escape(&layer), json_escape(&stability), json_escape(&justification)
+                ));
+                section_count += 1;
+                continue;
+            }
+
+            let requires_title = extract_field_bool(&content, "requires_title").unwrap_or(false);
+            let requires_items = extract_field_bool(&content, "requires_items").unwrap_or(false);
+            let min_items = extract_field_usize(&content, "min_items").unwrap_or(0);
+
+            let entity_binding = has_section(&content, "[keys.entity_bound]")
+                && extract_field(&content, "strategy")
+                    .map(|s| s == "entity_fields" || s == "column_names")
+                    .unwrap_or(false);
+
+            let aliases = extract_aliases_from_meta(&content);
+
+            // Structural keys with full detail
+            let structural_keys = extract_structural_keys(&content);
+            let mut sk_entries = Vec::new();
+            for (key, required) in &structural_keys {
+                let typ = extract_key_type(&content, key);
+                let desc = extract_key_description(&content, key).unwrap_or_default();
+                let mut fields = vec![
+                    format!("\"required\": {}", required),
+                    format!("\"type\": \"{}\"", json_escape(&typ)),
+                    format!("\"description\": \"{}\"", json_escape(&desc)),
+                ];
+                if let Some(def) = extract_key_default(&content, key) {
+                    fields.push(format!("\"default\": \"{}\"", json_escape(&def)));
+                }
+                sk_entries.push(format!("        \"{}\": {{ {} }}", json_escape(key), fields.join(", ")));
+            }
+
+            // Config keys with full detail
+            let config_details = extract_config_details(&content);
+            let mut ck_entries = Vec::new();
+            for (key, typ, default, desc) in &config_details {
+                let mut fields = vec![
+                    format!("\"type\": \"{}\"", json_escape(typ)),
+                ];
+                if !desc.is_empty() {
+                    fields.push(format!("\"description\": \"{}\"", json_escape(desc)));
+                }
+                if !default.is_empty() {
+                    fields.push(format!("\"default\": \"{}\"", json_escape(default)));
+                }
+                if let Some(validates) = extract_config_validates(&content, key) {
+                    fields.push(format!("\"validates\": \"{}\"", json_escape(&validates)));
+                }
+                ck_entries.push(format!("        \"{}\": {{ {} }}", json_escape(key), fields.join(", ")));
+            }
+
+            let aliases_json = if aliases.is_empty() {
+                "[]".to_string()
+            } else {
+                format!("[{}]", aliases.iter().map(|a| format!("\"{}\"", json_escape(a))).collect::<Vec<_>>().join(", "))
+            };
+
+            let section_json = format!(
+                "    \"{name}\": {{\n      \"layer\": \"{layer}\",\n      \"stability\": \"{stability}\",\n      \"intent\": \"{intent}\",\n      \"shape\": {{\n        \"requires_title\": {rt},\n        \"requires_items\": {ri},\n        \"min_items\": {mi}\n      }},\n      \"structural_keys\": {{\n{sk}\n      }},\n      \"config_keys\": {{\n{ck}\n      }},\n      \"entity_binding\": {eb},\n      \"aliases\": {al}}}",
+                name = json_escape(&name),
+                layer = json_escape(&layer),
+                stability = json_escape(&stability),
+                intent = json_escape(&intent_desc),
+                rt = requires_title,
+                ri = requires_items,
+                mi = min_items,
+                sk = sk_entries.join(",\n"),
+                ck = ck_entries.join(",\n"),
+                eb = entity_binding,
+                al = aliases_json
+            );
+            sections.push(section_json);
+            section_count += 1;
+        }
+    }
+
+    let field_types = vec![
+        "string", "text", "email", "url", "slug", "phone", "number", "money",
+        "percentage", "boolean", "date", "ulid", "json", "enum", "ip", "relation",
+    ];
+    let field_modifiers = vec![
+        "required", "unique", "sensitive", "optional", "searchable",
+        "index", "featured", "formatted", "array",
+    ];
+    let action_verbs = vec![
+        "set", "toast", "navigate", "refresh", "create", "confirm", "delete", "validate", "open", "close",
+    ];
+    let action_events = vec!["click", "submit", "error", "change"];
+    let auth_modes = vec!["jwt", "cookie", "token", "public", "api_key", "internal"];
+    let page_types = vec!["custom", "form", "list", "dashboard", "landing", "detail"];
+
+    let ft_json = field_types.iter().map(|t| format!("\"{}\"", t)).collect::<Vec<_>>().join(", ");
+    let fm_json = field_modifiers.iter().map(|m| format!("\"{}\"", m)).collect::<Vec<_>>().join(", ");
+    let av_json = action_verbs.iter().map(|v| format!("\"{}\"", v)).collect::<Vec<_>>().join(", ");
+    let ae_json = action_events.iter().map(|e| format!("\"{}\"", e)).collect::<Vec<_>>().join(", ");
+    let am_json = auth_modes.iter().map(|m| format!("\"{}\"", m)).collect::<Vec<_>>().join(", ");
+    let pt_json = page_types.iter().map(|t| format!("\"{}\"", t)).collect::<Vec<_>>().join(", ");
+
+    // Compute today's date without external crate
+    let today = {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let total_days = now / 86400;
+        let mut y = 1970i64;
+        let mut remaining = total_days as i64;
+        loop {
+            let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+            let days_in_year: i64 = if leap { 366 } else { 365 };
+            if remaining < days_in_year { break; }
+            remaining -= days_in_year;
+            y += 1;
+        }
+        let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+        let month_days: [i64; 12] = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        let mut m = 0usize;
+        for (i, &md) in month_days.iter().enumerate() {
+            if remaining < md { m = i + 1; break; }
+            remaining -= md;
+        }
+        if m == 0 { m = 12; }
+        let d = remaining + 1;
+        format!("{:04}-{:02}-{:02}", y, m, d)
+    };
+
+    let schema = format!(
+        "{{\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\",\n  \"title\": \"CRONUS Language Schema\",\n  \"description\": \"Schema for validating .cronus file structure, generated from {} .spec.toml contracts\",\n  \"version\": \"1.0.0\",\n  \"generated_at\": \"{}\",\n  \"sections\": {{\n{}\n  }},\n  \"field_types\": [{}],\n  \"field_modifiers\": [{}],\n  \"action_verbs\": [{}],\n  \"action_events\": [{}],\n  \"auth_modes\": [{}],\n  \"page_types\": [{}]\n}}\n",
+        section_count,
+        today,
+        sections.join(",\n"),
+        ft_json, fm_json, av_json, ae_json, am_json, pt_json
+    );
+
+    match std::fs::write(output_path, &schema) {
+        Ok(_) => {
+            println!("  \x1b[32m✓\x1b[0m Generated AI protocol schema: {} sections, {} field types, {} action verbs",
+                section_count, field_types.len(), action_verbs.len());
+            println!("  \x1b[36m→\x1b[0m {}", output_path);
+        }
+        Err(e) => {
+            eprintln!("  \x1b[31m✗\x1b[0m Failed to write {}: {}", output_path, e);
         }
     }
 }
