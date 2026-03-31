@@ -1856,10 +1856,39 @@ fn render_detail(page: &PageNode, _entities: &[EntityNode], accent: &str) -> Str
 // ══════════════════════════════════════════════════
 
 fn render_custom(page: &PageNode, accent: &str, theme: &str) -> String {
-    let sections: Vec<String> = page.sections.iter()
-        .map(|s| render_section(s, accent, theme))
-        .collect();
-    sections.join("\n")
+    let mut html_parts: Vec<String> = Vec::new();
+    let mut in_grid = false;
+
+    for section in &page.sections {
+        let is_column_layout = section.section_type == "layout"
+            && matches!(
+                section.config.get("style").map(|s| s.as_str()),
+                Some("columns") | Some("grid")
+            );
+
+        if is_column_layout {
+            // Close any previously open grid before starting a new one
+            if in_grid {
+                html_parts.push(crate::layout_system::render_column_layout_end());
+            }
+            html_parts.push(render_section(section, accent, theme));
+            in_grid = true;
+        } else if section.section_type == "layout" && in_grid {
+            // A non-column layout section closes the grid
+            html_parts.push(crate::layout_system::render_column_layout_end());
+            in_grid = false;
+            html_parts.push(render_section(section, accent, theme));
+        } else {
+            html_parts.push(render_section(section, accent, theme));
+        }
+    }
+
+    // Close any remaining open grid at end of page
+    if in_grid {
+        html_parts.push(crate::layout_system::render_column_layout_end());
+    }
+
+    html_parts.join("\n")
 }
 
 fn render_section(section: &SectionNode, accent: &str, theme: &str) -> String {
@@ -1954,7 +1983,13 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str) -> String {
         "notifications" => crate::overlays::render_notification_center(section),
         "kanban" => crate::board::render_kanban(section),
         "dark-mode" => crate::board::render_dark_mode_toggle(section),
-        "layout" => crate::layout_system::render_layout_section(section),
+        "layout" => {
+            let style = section.config.get("style").map(|s| s.as_str()).unwrap_or("");
+            match style {
+                "columns" | "grid" => crate::layout_system::render_column_layout(section),
+                _ => crate::layout_system::render_layout_section(section),
+            }
+        }
         _ => render_generic_section(section, accent),
     }
 }

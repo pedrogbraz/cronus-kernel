@@ -106,7 +106,7 @@ fn print_help() {
     println!("    \x1b[32mtest\x1b[0m --conformance   Run conformance test suite");
     println!("    \x1b[32mcompose\x1b[0m          Compose all .cronus files and show result");
     println!("    \x1b[32mgenerate\x1b[0m <desc>  Generate .cronus from description");
-    println!("    \x1b[32mspec\x1b[0m <validate|list> Validate or list .spec.toml files");
+    println!("    \x1b[32mspec\x1b[0m <validate|list|codegen> Validate, list, or generate from .spec.toml files");
     println!("    \x1b[32mversion\x1b[0m          Show version");
     println!();
 }
@@ -1008,8 +1008,17 @@ fn cmd_spec(args: &[String]) {
     match subcmd {
         "validate" => spec_validate(args),
         "list" => spec_list(args),
+        "codegen" => {
+            if args.iter().any(|a| a == "--structs") {
+                spec_codegen_structs(args);
+            } else if args.iter().any(|a| a == "--docs") {
+                spec_codegen_docs(args);
+            } else {
+                println!("  Usage: cronus spec codegen <--structs|--docs>");
+            }
+        }
         _ => {
-            println!("  Usage: cronus spec <validate|list>");
+            println!("  Usage: cronus spec <validate|list|codegen>");
         }
     }
 }
@@ -1121,6 +1130,537 @@ fn validate_spec_content(content: &str, subdir: &str) -> Vec<String> {
     }
 
     errors
+}
+
+// ── Codegen helpers ────────────────────────────────────────────────────────
+
+fn extract_structural_keys(content: &str) -> Vec<(String, bool)> {
+    let mut keys = Vec::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        // Match [keys.structural.KEYNAME]
+        if trimmed.starts_with("[keys.structural.") && trimmed.ends_with(']') {
+            let key_name = &trimmed[17..trimmed.len() - 1];
+            // Look ahead for required = true/false
+            let required = content
+                .lines()
+                .skip_while(|l| l.trim() != trimmed)
+                .skip(1)
+                .take_while(|l| !l.trim().starts_with('['))
+                .any(|l| {
+                    let t = l.trim();
+                    t.starts_with("required") && t.contains("true")
+                });
+            keys.push((key_name.to_string(), required));
+        }
+    }
+    keys
+}
+
+fn extract_config_keys(content: &str) -> Vec<String> {
+    let mut keys = Vec::new();
+    let mut in_config = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed == "[config]" {
+            in_config = true;
+            continue;
+        }
+        if trimmed.starts_with('[') && trimmed != "[config]" {
+            if in_config {
+                break;
+            }
+            continue;
+        }
+        if in_config && !trimmed.is_empty() && !trimmed.starts_with('#') {
+            // Lines like: key = { ... } or key = "value"
+            if let Some(eq_pos) = trimmed.find('=') {
+                let key = trimmed[..eq_pos].trim();
+                if !key.is_empty() {
+                    keys.push(key.to_string());
+                }
+            }
+        }
+    }
+    keys
+}
+
+fn capitalize_first(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+    }
+}
+
+fn capitalize_layer(s: &str) -> String {
+    match s {
+        "core" => "Core".to_string(),
+        "stdlib" => "Stdlib".to_string(),
+        "pattern" => "Pattern".to_string(),
+        _ => capitalize_first(s),
+    }
+}
+
+fn capitalize_stability(s: &str) -> String {
+    match s {
+        "stable" => "Stable".to_string(),
+        "experimental" => "Experimental".to_string(),
+        "internal" => "Internal".to_string(),
+        "deprecated" => "Deprecated".to_string(),
+        _ => capitalize_first(s),
+    }
+}
+
+fn capitalize_fallback(s: &str) -> String {
+    match s.to_lowercase().as_str() {
+        "warn" => "Warn".to_string(),
+        "error" => "Error".to_string(),
+        "ignore" => "Ignore".to_string(),
+        _ => capitalize_first(s),
+    }
+}
+
+fn extract_field_bool(content: &str, field_name: &str) -> Option<bool> {
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with(&format!("{} =", field_name))
+            || trimmed.starts_with(&format!("{}=", field_name))
+        {
+            if trimmed.contains("true") {
+                return Some(true);
+            }
+            if trimmed.contains("false") {
+                return Some(false);
+            }
+        }
+    }
+    None
+}
+
+fn extract_field_usize(content: &str, field_name: &str) -> Option<usize> {
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with(&format!("{} =", field_name))
+            || trimmed.starts_with(&format!("{}=", field_name))
+        {
+            if let Some(eq_pos) = trimmed.find('=') {
+                let val = trimmed[eq_pos + 1..].trim().trim_matches('"');
+                if let Ok(n) = val.parse::<usize>() {
+                    return Some(n);
+                }
+            }
+        }
+    }
+    None
+}
+
+// ── Codegen: --structs ─────────────────────────────────────────────────────
+
+fn spec_codegen_structs(args: &[String]) {
+    let dir = args.iter().position(|a| a == "--dir").and_then(|i| args.get(i + 1))
+        .map(|s| s.as_str()).unwrap_or("specs");
+
+    println!("// Auto-generated by `cronus spec codegen --structs`");
+    println!("// Do not edit manually. Edit .spec.toml files instead.");
+    println!("// Source: {}/", dir);
+    println!();
+    println!("use crate::contracts::{{SectionContract, KeyDef, Fallback, Layer, Stability}};");
+    println!();
+
+    let mut all_names: Vec<String> = Vec::new();
+    let mut all_consts: Vec<String> = Vec::new();
+    let mut alias_map: Vec<(String, String)> = Vec::new();
+
+    for subdir in &["stdlib", "patterns"] {
+        let path = format!("{}/{}", dir, subdir);
+        let mut entries: Vec<_> = match std::fs::read_dir(&path) {
+            Ok(e) => e.flatten().collect(),
+            Err(_) => continue,
+        };
+        entries.sort_by_key(|e| e.file_name());
+
+        for entry in entries {
+            let file_path = entry.path();
+            if !file_path.extension().map(|e| e == "toml").unwrap_or(false) {
+                continue;
+            }
+            let content = std::fs::read_to_string(&file_path).unwrap_or_default();
+            let name = match extract_field(&content, "name") {
+                Some(n) => n,
+                None => continue,
+            };
+
+            // Check if this is a pure alias (has [alias] with canonical != "none")
+            if has_section(&content, "[alias]") {
+                let canonical = extract_field(&content, "canonical").unwrap_or_default();
+                if canonical != "none" && !canonical.is_empty() {
+                    alias_map.push((name, canonical));
+                    continue;
+                }
+            }
+
+            let layer = extract_field(&content, "layer").unwrap_or_else(|| "stdlib".to_string());
+            let stability = extract_field(&content, "stability").unwrap_or_else(|| "stable".to_string());
+            let requires_title = extract_field_bool(&content, "requires_title").unwrap_or(false);
+            let requires_items = extract_field_bool(&content, "requires_items").unwrap_or(false);
+            let min_items = extract_field_usize(&content, "min_items").unwrap_or(0);
+
+            let entity_binding = has_section(&content, "[keys.entity_bound]")
+                && extract_field(&content, "strategy")
+                    .map(|s| s == "entity_fields" || s == "column_names")
+                    .unwrap_or(false);
+
+            let structural_keys = extract_structural_keys(&content);
+            let config_keys = extract_config_keys(&content);
+
+            let on_unknown = extract_field(&content, "on_unknown_structural_key").unwrap_or_else(|| "warn".to_string());
+            let on_missing = extract_field(&content, "on_missing_required_key").unwrap_or_else(|| "error".to_string());
+
+            let const_name = name.to_uppercase().replace('-', "_");
+
+            let struct_keys_str = structural_keys
+                .iter()
+                .map(|(k, req)| {
+                    if *req {
+                        format!("req(\"{}\")", k)
+                    } else {
+                        format!("opt(\"{}\")", k)
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            let config_keys_str = config_keys
+                .iter()
+                .map(|k| format!("\"{}\"", k))
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            println!("pub static {}_CONTRACT: SectionContract = SectionContract {{", const_name);
+            println!("    name: \"{}\",", name);
+            println!("    layer: Layer::{},", capitalize_layer(&layer));
+            println!("    stability: Stability::{},", capitalize_stability(&stability));
+            println!("    requires_title: {},", requires_title);
+            println!("    requires_items: {},", requires_items);
+            println!("    min_items: {},", min_items);
+            println!("    structural_keys: &[{}],", struct_keys_str);
+            println!("    entity_binding: {},", entity_binding);
+            println!("    on_unknown_key: Fallback::{},", capitalize_fallback(&on_unknown));
+            println!("    on_missing_required: Fallback::{},", capitalize_fallback(&on_missing));
+            println!("    config_keys: &[{}],", config_keys_str);
+            println!("}};");
+            println!();
+
+            all_names.push(name.clone());
+            all_consts.push(const_name);
+        }
+    }
+
+    // Generate helpers
+    println!("// ── Helpers ─────────────────────────────────────────────────────────────────");
+    println!();
+    println!("const fn req(name: &'static str) -> KeyDef {{ KeyDef {{ name, required: true }} }}");
+    println!("const fn opt(name: &'static str) -> KeyDef {{ KeyDef {{ name, required: false }} }}");
+    println!();
+
+    // Generate registry
+    println!("// ── Registry ────────────────────────────────────────────────────────────────");
+    println!();
+    println!("pub static ALL_CONTRACTS: &[&SectionContract] = &[");
+    for c in &all_consts {
+        println!("    &{}_CONTRACT,", c);
+    }
+    println!("];");
+    println!();
+    println!("pub static ALL_NAMES: &[&str] = &[");
+    for names_chunk in all_names.chunks(5) {
+        let line = names_chunk.iter().map(|n| format!("\"{}\"", n)).collect::<Vec<_>>().join(", ");
+        println!("    {},", line);
+    }
+    println!("];");
+    println!();
+
+    // Generate alias resolver
+    if !alias_map.is_empty() {
+        println!("// ── Aliases ─────────────────────────────────────────────────────────────────");
+        println!();
+        println!("pub fn resolve_alias(name: &str) -> Option<&'static str> {{");
+        println!("    match name {{");
+        for (alias, canonical) in &alias_map {
+            println!("        \"{}\" => Some(\"{}\"),", alias, canonical);
+        }
+        println!("        _ => None,");
+        println!("    }}");
+        println!("}}");
+    }
+}
+
+// ── Codegen: --docs ────────────────────────────────────────────────────────
+
+fn extract_field_after_section(content: &str, section: &str, field_name: &str) -> Option<String> {
+    let mut in_section = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('[') {
+            in_section = trimmed == section;
+            continue;
+        }
+        if in_section {
+            if trimmed.starts_with(&format!("{} =", field_name))
+                || trimmed.starts_with(&format!("{}=", field_name))
+            {
+                if let Some(start) = trimmed.find('"') {
+                    if let Some(end) = trimmed[start + 1..].find('"') {
+                        return Some(trimmed[start + 1..start + 1 + end].to_string());
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+fn extract_key_description(content: &str, key_name: &str) -> Option<String> {
+    let header = format!("[keys.structural.{}]", key_name);
+    let mut in_section = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed == header {
+            in_section = true;
+            continue;
+        }
+        if trimmed.starts_with('[') && in_section {
+            break;
+        }
+        if in_section
+            && (trimmed.starts_with("description =") || trimmed.starts_with("description="))
+        {
+            if let Some(start) = trimmed.find('"') {
+                if let Some(end) = trimmed[start + 1..].find('"') {
+                    return Some(trimmed[start + 1..start + 1 + end].to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn extract_key_type(content: &str, key_name: &str) -> String {
+    let header = format!("[keys.structural.{}]", key_name);
+    let mut in_section = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed == header {
+            in_section = true;
+            continue;
+        }
+        if trimmed.starts_with('[') && in_section {
+            break;
+        }
+        if in_section && (trimmed.starts_with("type =") || trimmed.starts_with("type=")) {
+            if let Some(start) = trimmed.find('"') {
+                if let Some(end) = trimmed[start + 1..].find('"') {
+                    return trimmed[start + 1..start + 1 + end].to_string();
+                }
+            }
+        }
+    }
+    "string".to_string()
+}
+
+fn extract_config_details(content: &str) -> Vec<(String, String, String, String)> {
+    // Returns (key, type, default, description)
+    let mut results = Vec::new();
+    let mut in_config = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed == "[config]" {
+            in_config = true;
+            continue;
+        }
+        if trimmed.starts_with('[') && trimmed != "[config]" {
+            if in_config {
+                break;
+            }
+            continue;
+        }
+        if in_config && !trimmed.is_empty() && !trimmed.starts_with('#') {
+            if let Some(eq_pos) = trimmed.find('=') {
+                let key = trimmed[..eq_pos].trim().to_string();
+                let rest = trimmed[eq_pos + 1..].trim();
+                // Parse inline table: { type = "...", description = "...", default = "..." }
+                let mut typ = "string".to_string();
+                let mut default = String::new();
+                let mut desc = String::new();
+                if rest.starts_with('{') {
+                    // Extract type
+                    if let Some(t_start) = rest.find("type") {
+                        let after = &rest[t_start..];
+                        if let Some(q1) = after.find('"') {
+                            if let Some(q2) = after[q1 + 1..].find('"') {
+                                typ = after[q1 + 1..q1 + 1 + q2].to_string();
+                            }
+                        }
+                    }
+                    // Extract default
+                    if let Some(d_start) = rest.find("default") {
+                        let after = &rest[d_start..];
+                        if let Some(q1) = after.find('"') {
+                            if let Some(q2) = after[q1 + 1..].find('"') {
+                                default = after[q1 + 1..q1 + 1 + q2].to_string();
+                            }
+                        }
+                    }
+                    // Extract description
+                    if let Some(d_start) = rest.find("description") {
+                        let after = &rest[d_start..];
+                        if let Some(q1) = after.find('"') {
+                            if let Some(q2) = after[q1 + 1..].find('"') {
+                                desc = after[q1 + 1..q1 + 1 + q2].to_string();
+                            }
+                        }
+                    }
+                }
+                results.push((key, typ, default, desc));
+            }
+        }
+    }
+    results
+}
+
+fn spec_codegen_docs(args: &[String]) {
+    let dir = args.iter().position(|a| a == "--dir").and_then(|i| args.get(i + 1))
+        .map(|s| s.as_str()).unwrap_or("specs");
+
+    println!("# Section Types Reference (Auto-Generated)");
+    println!();
+    println!("> Generated from .spec.toml files. Do not edit manually.");
+    println!();
+
+    for subdir in &["stdlib", "patterns"] {
+        println!("## {}", if *subdir == "stdlib" { "Standard Library" } else { "Patterns" });
+        println!();
+
+        let path = format!("{}/{}", dir, subdir);
+        let mut entries: Vec<_> = match std::fs::read_dir(&path) {
+            Ok(e) => e.flatten().collect(),
+            Err(_) => continue,
+        };
+        entries.sort_by_key(|e| e.file_name());
+
+        for entry in entries {
+            let file_path = entry.path();
+            if !file_path.extension().map(|e| e == "toml").unwrap_or(false) {
+                continue;
+            }
+            let content = std::fs::read_to_string(&file_path).unwrap_or_default();
+            let name = match extract_field(&content, "name") {
+                Some(n) => n,
+                None => continue,
+            };
+            let stability = extract_field(&content, "stability").unwrap_or_else(|| "stable".to_string());
+            let layer = extract_field(&content, "layer").unwrap_or_else(|| "stdlib".to_string());
+            let renderer = extract_field(&content, "renderer").unwrap_or_else(|| "generic".to_string());
+            let description = extract_field(&content, "description").unwrap_or_default();
+
+            // Check if pure alias
+            let is_alias = has_section(&content, "[alias]")
+                && extract_field(&content, "canonical")
+                    .map(|c| c != "none" && !c.is_empty())
+                    .unwrap_or(false);
+
+            println!("### {}", name);
+            println!();
+            println!("> **Status:** {} | **Layer:** {} | **Renderer:** {}", stability, layer, renderer);
+            if is_alias {
+                let canonical = extract_field(&content, "canonical").unwrap_or_default();
+                println!("> **Alias of:** {}", canonical);
+            }
+            println!();
+            if !description.is_empty() {
+                println!("{}", description);
+                println!();
+            }
+
+            // Skip detailed sections for pure aliases
+            if is_alias {
+                println!("---");
+                println!();
+                continue;
+            }
+
+            // Structural keys
+            let structural_keys = extract_structural_keys(&content);
+            if !structural_keys.is_empty() {
+                println!("**Structural keys:**");
+                println!();
+                println!("| Key | Required | Type | Description |");
+                println!("|-----|----------|------|-------------|");
+                for (key, required) in &structural_keys {
+                    let typ = extract_key_type(&content, key);
+                    let desc = extract_key_description(&content, key).unwrap_or_default();
+                    println!("| `{}` | {} | {} | {} |", key, if *required { "yes" } else { "no" }, typ, desc);
+                }
+                println!();
+            }
+
+            // Config keys
+            let config_details = extract_config_details(&content);
+            if !config_details.is_empty() {
+                println!("**Config keys:**");
+                println!();
+                println!("| Key | Type | Default | Description |");
+                println!("|-----|------|---------|-------------|");
+                for (key, typ, default, desc) in &config_details {
+                    let def_display = if default.is_empty() { "-".to_string() } else { format!("`{}`", default) };
+                    println!("| `{}` | {} | {} | {} |", key, typ, def_display, desc);
+                }
+                println!();
+            }
+
+            // Shape info
+            let requires_title = extract_field_bool(&content, "requires_title").unwrap_or(false);
+            let requires_items = extract_field_bool(&content, "requires_items").unwrap_or(false);
+            let min_items = extract_field_usize(&content, "min_items").unwrap_or(0);
+            println!("**Shape:** title={}, items={}, min_items={}",
+                if requires_title { "required" } else { "optional" },
+                if requires_items { "required" } else { "optional" },
+                min_items);
+            println!();
+
+            // Example
+            println!("**Example:**");
+            println!();
+            println!("```cronus");
+            if structural_keys.is_empty() {
+                println!("section {} {{", name);
+                println!("  title \"Example\"");
+                println!("}}");
+            } else {
+                println!("section {} {{", name);
+                let required_keys: Vec<_> = structural_keys.iter().filter(|(_, r)| *r).collect();
+                if required_keys.is_empty() {
+                    println!("  item {{");
+                    if let Some((first_key, _)) = structural_keys.first() {
+                        println!("    {} \"value\"", first_key);
+                    }
+                    println!("  }}");
+                } else {
+                    println!("  item {{");
+                    for (key, _) in &required_keys {
+                        println!("    {} \"value\"", key);
+                    }
+                    println!("  }}");
+                }
+                println!("}}");
+            }
+            println!("```");
+            println!();
+            println!("---");
+            println!();
+        }
+    }
 }
 
 fn spec_validate(args: &[String]) {

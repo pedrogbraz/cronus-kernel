@@ -152,6 +152,44 @@ pub fn render_layout_section(section: &SectionNode) -> String {
     )
 }
 
+/// Renders a CSS grid wrapper for column-based layouts.
+///
+/// Items define named slots with optional `span` (fr units).
+/// Subsequent sections in the page are auto-placed into the grid by the browser.
+pub fn render_column_layout(section: &SectionNode) -> String {
+    let cols = section.config.get("cols").and_then(|v| v.parse::<u32>().ok()).unwrap_or(2);
+    let gap = section.config.get("gap").map(|s| s.as_str()).unwrap_or("24px");
+    let id = next_id("grid");
+
+    // Build grid-template-columns from items
+    let mut template_parts = Vec::new();
+    for item in &section.items {
+        let span = item.get("span").and_then(|v| v.parse::<u32>().ok()).unwrap_or(1);
+        template_parts.push(format!("{}fr", span));
+    }
+    let template = if template_parts.is_empty() {
+        format!("repeat({}, 1fr)", cols)
+    } else {
+        template_parts.join(" ")
+    };
+
+    // Responsive: stack on mobile
+    format!(
+        r##"<div id="{id}" class="cronus-grid-layout" style="display:grid;grid-template-columns:{template};gap:{gap}">
+<style>
+@media(max-width:768px){{
+  #{id}{{grid-template-columns:1fr!important}}
+}}
+</style>"##,
+        id = id, template = template, gap = gap,
+    )
+}
+
+/// Closes a grid layout div opened by `render_column_layout`.
+pub fn render_column_layout_end() -> String {
+    "</div>".to_string()
+}
+
 /// Wraps any section HTML with responsive CSS media queries based on config keys.
 ///
 /// Reads: cols-sm, cols-md, cols-lg, cols-xl, responsive (scroll/stack/hide), hide-on (mobile/tablet/desktop).
