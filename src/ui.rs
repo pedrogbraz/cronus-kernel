@@ -794,6 +794,21 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str, style_node
     .cursor-blink {{ animation: blink 1s step-end infinite; }}
     .pulse-glow {{ animation: pulseGlow 2s ease-in-out infinite; }}
 
+    /* Responsive */
+    @media (max-width: 768px) {{
+      [style*="grid-template-columns:repeat(12"] {{ grid-template-columns: 1fr !important; }}
+      [style*="grid-template-columns:repeat(3"] {{ grid-template-columns: 1fr !important; }}
+      [style*="grid-template-columns:repeat(4"] {{ grid-template-columns: 1fr !important; }}
+      [style*="grid-template-columns: 1fr 1fr"] {{ grid-template-columns: 1fr !important; }}
+      [style*="grid-column:span 4"] {{ grid-column: span 1 !important; }}
+      [style*="grid-column:span 6"] {{ grid-column: span 1 !important; }}
+      [style*="grid-column:span 8"] {{ grid-column: span 1 !important; }}
+      [style*="min-height:80vh"] {{ min-height: auto !important; padding-top: 80px !important; padding-bottom: 40px !important; }}
+      section {{ padding-left: 16px !important; padding-right: 16px !important; }}
+      h1 {{ font-size: 32px !important; }}
+      h2 {{ font-size: 24px !important; }}
+    }}
+
     /* Page entrance */
     @keyframes slideUp {{ from {{ opacity:0; transform:translateY(24px) }} to {{ opacity:1; transform:translateY(0) }} }}
     @keyframes slideDown {{ from {{ opacity:0; transform:translateY(-12px) }} to {{ opacity:1; transform:translateY(0) }} }}
@@ -845,9 +860,9 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str, style_node
   <style>{anim_css}</style>
   <style>{tailwind_css}</style>
 </head>
-<body>
+<body style="margin:0;padding:0;width:100%;max-width:100vw;overflow-x:hidden">
   {nav_html}
-  <main class="geist-grid" style="padding-top:64px;min-height:100vh">
+  <main style="padding-top:64px;min-height:100vh;width:100%">
   {body}
   </main>
   <script>{runtime}</script>
@@ -2224,6 +2239,24 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str, bound_data: 
             section.section_type, warnings.len());
     }
 
+    // --- Template override ---
+    // If the section carries a template block, render it directly instead of
+    // dispatching to a built-in renderer.  The template/style_block may live as
+    // dedicated fields on SectionNode (when the parser supports them) or as
+    // config keys (fallback for older parser versions).
+    let template_from_config = section.config.get("template").cloned();
+    let style_from_config = section.config.get("style_block").cloned();
+
+    // When SectionNode gains dedicated template/style_block fields, prefer
+    // those over config keys:
+    //   section.template.as_ref().or(template_from_config.as_ref())
+    let effective_template: Option<&String> = template_from_config.as_ref();
+
+    if let Some(tmpl) = effective_template {
+        let effective_style = style_from_config;
+        return render_template(tmpl, section, &effective_style);
+    }
+
     // --- Alias resolution ---
     let resolved_type = crate::contracts::ContractRegistry::resolve_alias(&section.section_type)
         .unwrap_or(section.section_type.as_str());
@@ -2310,6 +2343,99 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str, bound_data: 
         }
         _ => section_html,
     }
+}
+
+/// Render a section from its inline template block, replacing `{{placeholder}}`
+/// tokens with values from the section's title, subtitle, config, and items.
+fn render_template(template: &str, section: &SectionNode, style_block: &Option<String>) -> String {
+    let mut html = String::new();
+
+    // Add scoped style if present
+    if let Some(ref css) = style_block {
+        html.push_str(&format!("<style>{}</style>\n", css));
+    }
+
+    // Process template — replace {{placeholders}} with section values
+    let mut rendered = template.to_string();
+
+    // Replace {{title}}
+    if let Some(ref title) = section.title {
+        rendered = rendered.replace("{{title}}", title);
+    }
+
+    // Replace {{subtitle}}
+    if let Some(ref subtitle) = section.subtitle {
+        rendered = rendered.replace("{{subtitle}}", subtitle);
+    }
+
+    // Replace {{cta.text}} and {{cta.href}}
+    if let Some(cta_text) = section.config.get("cta_text") {
+        rendered = rendered.replace("{{cta.text}}", cta_text);
+        rendered = rendered.replace("{{cta}}", cta_text);
+    }
+    if let Some(cta_link) = section.config.get("cta_link") {
+        rendered = rendered.replace("{{cta.href}}", cta_link);
+        rendered = rendered.replace("{{cta.link}}", cta_link);
+    }
+
+    // Replace {{cta-secondary.text}} and {{cta-secondary.href}}
+    if let Some(cta2_text) = section.config.get("cta2_text") {
+        rendered = rendered.replace("{{cta-secondary.text}}", cta2_text);
+        rendered = rendered.replace("{{cta2.text}}", cta2_text);
+    }
+    if let Some(cta2_link) = section.config.get("cta2_link") {
+        rendered = rendered.replace("{{cta-secondary.href}}", cta2_link);
+        rendered = rendered.replace("{{cta2.link}}", cta2_link);
+    }
+
+    // Replace {{badge}}
+    if let Some(badge) = section.config.get("badge") {
+        rendered = rendered.replace("{{badge}}", badge);
+    }
+
+    // Replace {{brand}}
+    if let Some(brand) = section.config.get("brand") {
+        rendered = rendered.replace("{{brand}}", brand);
+    }
+
+    // Replace config values: {{key}} and {{config.key}}
+    for (key, value) in &section.config {
+        // Skip template/style_block themselves to avoid recursive replacement
+        if key == "template" || key == "style_block" {
+            continue;
+        }
+        rendered = rendered.replace(&format!("{{{{{}}}}}", key), value);
+        rendered = rendered.replace(&format!("{{{{config.{}}}}}", key), value);
+    }
+
+    // Replace {{#each items}} ... {{/each}} with rendered items
+    if rendered.contains("{{#each") {
+        let each_start = rendered.find("{{#each").unwrap_or(0);
+        let each_end = rendered.find("{{/each}}").unwrap_or(rendered.len());
+        if each_start < each_end {
+            let before = &rendered[..each_start];
+            let template_body = &rendered[each_start..each_end];
+            let after = &rendered[each_end + "{{/each}}".len()..];
+
+            // Extract the inner template (between {{#each items}} and {{/each}})
+            let inner_start = template_body.find("}}").map(|p| p + 2).unwrap_or(0);
+            let inner_template = &template_body[inner_start..];
+
+            let mut items_html = String::new();
+            for item in &section.items {
+                let mut item_html = inner_template.to_string();
+                for (key, value) in item {
+                    item_html = item_html.replace(&format!("{{{{{}}}}}", key), value);
+                }
+                items_html.push_str(&item_html);
+            }
+
+            rendered = format!("{}{}{}", before, items_html, after);
+        }
+    }
+
+    html.push_str(&rendered);
+    html
 }
 
 fn render_topbar(section: &SectionNode, theme: &str) -> String {
@@ -2833,7 +2959,7 @@ fn render_features(section: &SectionNode, _accent: &str, theme: &str) -> String 
         let icon_svg = get_material_icon(icon_name, icon_color, 20);
 
         format!(
-            r#"<div style="grid-column:span 4;background:var(--cronus-surface);border-radius:var(--cronus-radius);border:1px solid var(--cronus-border);padding:32px;display:flex;flex-direction:column;justify-content:space-between;transition:border-color 0.3s">
+            r#"<div style="background:var(--cronus-surface);border-radius:var(--cronus-radius);border:1px solid var(--cronus-border);padding:32px;display:flex;flex-direction:column;justify-content:space-between;transition:border-color 0.3s">
   <div>
     <div style="width:40px;height:40px;border-radius:var(--cronus-radius);background:rgba(128,128,128,0.08);display:flex;align-items:center;justify-content:center;margin-bottom:24px;color:var(--cronus-text)">{icon_svg}</div>
     <h3 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:var(--cronus-text);margin-bottom:8px">{name}</h3>
@@ -2843,9 +2969,11 @@ fn render_features(section: &SectionNode, _accent: &str, theme: &str) -> String 
     }).collect();
 
     format!(
-        r#"<section style="max-width:1280px;margin:0 auto;padding:0 24px">
-  <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:16px">
-    {}
+        r#"<section style="padding:64px 24px;width:100%">
+  <div style="max-width:var(--cronus-max-w,1120px);margin:0 auto">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;width:100%">
+      {}
+    </div>
   </div>
 </section>"#,
         items.join("\n    "),
@@ -3635,11 +3763,13 @@ fn render_faq(section: &SectionNode, _accent: &str) -> String {
     }).collect();
 
     format!(
-        r#"<section style="padding:80px 24px;max-width:768px;margin:0 auto">
-  <h2 style="font-size:32px;font-weight:700;text-align:center;letter-spacing:-0.02em;margin-bottom:16px">{title}</h2>
-  {subtitle_html}
-  <div>
-    {items}
+        r#"<section style="padding:80px 24px">
+  <div style="max-width:var(--cronus-max-w, 1120px);margin:0 auto">
+    <h2 style="font-size:32px;font-weight:700;text-align:center;letter-spacing:-0.02em;margin-bottom:16px">{title}</h2>
+    {subtitle_html}
+    <div>
+      {items}
+    </div>
   </div>
 </section>"#,
         title = title, subtitle_html = subtitle_html, items = items.join("\n    "),
@@ -3880,7 +4010,7 @@ fn render_product_grid_section(section: &SectionNode) -> String {
     }).unwrap_or_default();
 
     format!(
-        r##"<section style="padding:32px 0">{title_html}<div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:24px">{cards}</div></section>"##,
+        r##"<section style="padding:48px 24px"><div style="max-width:var(--cronus-max-w,1120px);margin:0 auto">{title_html}<div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:24px">{cards}</div></div></section>"##,
         title_html=title_html, cols=cols, cards=cards.join(""),
     )
 }
@@ -4865,7 +4995,8 @@ fn render_form_section(section: &SectionNode, bound_data: &crate::binding::Resol
     };
 
     format!(
-        r##"<section style="max-width:480px;margin:0 auto;padding:48px 24px">
+        r##"<section style="padding:48px 24px">
+  <div style="max-width:var(--cronus-max-w, 1120px);margin:0 auto">
   <div style="margin-bottom:32px">
     <h2 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;margin:0 0 8px" class="anim-slide-up d1">{title}</h2>
     {subtitle_html}
@@ -4877,6 +5008,7 @@ fn render_form_section(section: &SectionNode, bound_data: &crate::binding::Resol
     {actions}
     {links}
   </form>
+  </div>
 </section>"##,
         title = title, subtitle_html = subtitle_html, action = action, method = method,
         data_entity = data_entity, data_cronus_entity = data_cronus_entity,
