@@ -4,7 +4,7 @@
 //! Generates complete HTML pages from the AST.
 //! No React, no frameworks — pure HTML + Tailwind CDN + vanilla JS.
 
-use crate::parser::{EntityNode, FieldType, PageNode, SectionNode, ComponentNode, ComponentItemNode, LayoutNode};
+use crate::parser::{EntityNode, FieldType, PageNode, SectionNode, ComponentNode, ComponentItemNode, LayoutNode, StyleNode};
 use crate::components;
 use crate::render::CRONUS_RUNTIME_JS;
 use crate::hmr::HMR_CLIENT_JS;
@@ -615,14 +615,105 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
     )
 }
 
-/// Full-width layout for landing pages (no sidebar)
-pub fn render_layout_landing(app_name: &str, body: &str, theme: &str) -> String {
+/// Convert accent color name to hex
+fn accent_to_hex(accent: &str) -> &'static str {
+    match accent {
+        "blue" => "#2563eb",
+        "indigo" => "#6366f1",
+        "amber" => "#f59e0b",
+        "emerald" => "#10b981",
+        "rose" => "#f43f5e",
+        "violet" => "#8b5cf6",
+        "sky" => "#0ea5e9",
+        "orange" => "#f97316",
+        "red" => "#ef4444",
+        "green" => "#22c55e",
+        "purple" => "#a855f7",
+        "pink" => "#ec4899",
+        "cyan" => "#06b6d4",
+        "teal" => "#14b8a6",
+        "black" => "#000000",
+        "white" => "#ffffff",
+        _ => "#2563eb",
+    }
+}
+
+/// Generate CSS custom properties from the StyleNode for theming.
+/// All renderers should use var(--cronus-*) instead of hardcoded colors.
+fn generate_css_vars(style: &Option<&StyleNode>, theme: &str) -> String {
     let is_light = theme == "light";
-    let bg = if is_light { "#f9f9f9" } else { "#000" };
-    let fg = if is_light { "#1a1a1a" } else { "#fff" };
+
+    // Determine accent hex — from style config accent-hex, or named accent, or default
+    let accent_hex = style
+        .and_then(|s| s.config.get("accent-hex").map(|v| v.as_str()))
+        .unwrap_or_else(|| {
+            let name = style.and_then(|s| s.accent.as_deref()).unwrap_or("blue");
+            accent_to_hex(name)
+        });
+
+    // Defaults based on theme
+    let (def_bg, def_surface, def_text, def_text_muted, def_border) = if is_light {
+        ("#fafafa", "#ffffff", "#1a1a1a", "#6b6b6b", "#e5e5e5")
+    } else {
+        ("#000000", "#0a0a0a", "#ffffff", "#9ca3af", "rgba(255,255,255,0.1)")
+    };
+
+    let cfg = |key: &str, default: &str| -> String {
+        style
+            .and_then(|s| s.config.get(key))
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| default.to_string())
+    };
+
+    let bg = cfg("background", def_bg);
+    let surface = cfg("surface", def_surface);
+    let text = cfg("text", def_text);
+    let text_muted = cfg("text-muted", def_text_muted);
+    let border = cfg("border", def_border);
+    let max_width = cfg("max-width", "1120px");
+
+    let radius = style
+        .and_then(|s| s.radius.as_deref())
+        .unwrap_or("8px");
+    let radius_px = match radius {
+        "sm" => "4px", "md" => "6px", "lg" => "8px", "xl" => "12px", "2xl" => "16px", "full" => "999px",
+        other => other,
+    };
+
+    let font = style.and_then(|s| s.font.as_deref()).unwrap_or("Inter");
+
+    // Compute accent-hover: use explicit value or darken accent
+    let accent_hover = cfg("accent-hover", accent_hex);
+
+    format!(
+        r#":root {{
+  --cronus-bg: {bg};
+  --cronus-surface: {surface};
+  --cronus-text: {text};
+  --cronus-text-muted: {text_muted};
+  --cronus-accent: {accent_hex};
+  --cronus-accent-hover: {accent_hover};
+  --cronus-border: {border};
+  --cronus-radius: {radius_px};
+  --cronus-max-w: {max_width};
+  --cronus-font: '{font}', system-ui, -apple-system, sans-serif;
+}}
+body {{ font-family: var(--cronus-font); background: var(--cronus-bg); color: var(--cronus-text); margin: 0; }}
+a {{ text-decoration: none; color: inherit; }}
+* {{ box-sizing: border-box; }}"#,
+        bg = bg, surface = surface, text = text, text_muted = text_muted,
+        accent_hex = accent_hex, accent_hover = accent_hover,
+        border = border, radius_px = radius_px, max_width = max_width, font = font
+    )
+}
+
+/// Full-width layout for landing pages (no sidebar)
+pub fn render_layout_landing(app_name: &str, body: &str, theme: &str, style_node: Option<&StyleNode>) -> String {
+    let is_light = theme == "light";
     let sel_bg = if is_light { "rgba(0,0,0,0.08)" } else { "rgba(0,111,240,0.3)" };
     let scroll_thumb = if is_light { "rgba(0,0,0,0.1)" } else { "rgba(255,255,255,0.1)" };
     let grid_line = if is_light { "rgba(0,0,0,0.05)" } else { "rgba(255,255,255,0.03)" };
+    let css_vars = generate_css_vars(&style_node, theme);
     // If body already contains a topbar section (rendered <header or <nav with data-topbar),
     // skip the built-in navbar to avoid duplication
     let has_topbar = body.contains("data-cronus-topbar");
@@ -671,8 +762,9 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str) -> String 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <style>
+    {css_vars}
     * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-    body {{ background: {bg}; color: {fg}; font-family: 'Inter', -apple-system, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }}
+    body {{ background: var(--cronus-bg); color: var(--cronus-text); font-family: var(--cronus-font); -webkit-font-smoothing: antialiased; }}
     ::selection {{ background: {sel_bg}; }}
     ::-webkit-scrollbar {{ width: 4px; }}
     ::-webkit-scrollbar-thumb {{ background: {scroll_thumb}; border-radius: 2px; }}
@@ -778,7 +870,7 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str) -> String 
 </body>
 </html>"##,
         app_name = app_name,
-        bg = bg, fg = fg, sel_bg = sel_bg, scroll_thumb = scroll_thumb, grid_line = grid_line,
+        css_vars = css_vars, sel_bg = sel_bg, scroll_thumb = scroll_thumb, grid_line = grid_line,
         nav_html = nav_html,
         body = body,
         anim_css = CRONUS_ANIMATIONS_CSS,
@@ -2225,11 +2317,11 @@ fn render_topbar(section: &SectionNode, theme: &str) -> String {
         .or(section.title.as_deref())
         .unwrap_or("Brand");
     let dark = section.config.get("style").map(|s| s.contains("dark")).unwrap_or(false) || theme == "dark";
-    let (bg,bd,tx,mu) = if dark {
-        ("rgba(0,0,0,0.8)","rgba(255,255,255,0.05)","#fff","#9ca3af")
-    } else {
-        ("rgba(255,255,255,0.8)","rgba(229,229,229,0.5)","#000","#71717a")
-    };
+    // Use CSS variables with fallback transparency layers
+    let bg = if dark { "rgba(0,0,0,0.8)" } else { "rgba(255,255,255,0.8)" };
+    let bd = "var(--cronus-border)";
+    let tx = "var(--cronus-text)";
+    let mu = "var(--cronus-text-muted)";
 
     // Parse nav links from config (e.g. "Solutions, Resources, Docs, Pricing")
     let nav_links: Vec<String> = section.config.get("nav")
@@ -2251,10 +2343,11 @@ fn render_topbar(section: &SectionNode, theme: &str) -> String {
     // CTA button
     let cta_text = section.config.get("cta_text").or(section.config.get("cta")).map(|s| s.as_str()).unwrap_or("Deploy");
     let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("/signup");
-    let (btn_bg, btn_fg) = if dark { ("#fff","#000") } else { ("#000","#fff") };
+    let btn_bg = "var(--cronus-accent)";
+    let btn_fg = "#fff";
 
     // Vercel triangle logo
-    let logo_fill = tx;
+    let logo_fill = "var(--cronus-text)";
 
     format!(r##"<header data-cronus-topbar class="anim-slide-down" style="position:fixed;top:0;width:100%;z-index:50;background:{bg};backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid {bd}">
   <div style="display:flex;justify-content:space-between;align-items:center;padding:0 24px;height:64px;max-width:1280px;margin:0 auto">
@@ -2314,36 +2407,25 @@ fn render_testimonial(section: &SectionNode, theme: &str) -> String {
     let is_dark = style_hint.contains("dark") || theme == "dark";
     let is_light = !is_dark;
 
-    let (card_bg, card_border, card_text, card_muted, section_bg) = if is_light {
-        ("#ffffff", "rgba(0,0,0,0.08)", "#1a1a1a", "#6b6b6b", "#fafafa")
-    } else {
-        ("#0a0a0a", "rgba(255,255,255,0.05)", "white", "#9ca3af", "transparent")
-    };
-
     let section_title = section.title.as_deref().unwrap_or("");
     let section_subtitle = section.subtitle.as_deref().unwrap_or("");
 
     // If no items, fall back to single testimonial from title/subtitle
     if section.items.is_empty() {
         return format!(
-            r##"<section style="padding:80px 24px;background:{section_bg}">
+            r##"<section style="padding:80px 24px;background:var(--cronus-bg)">
   <div style="max-width:640px;margin:0 auto">
-    <div style="background:{card_bg};border:1px solid {card_border};border-radius:12px;padding:32px">
-      <p style="font-size:16px;font-style:italic;line-height:1.7;color:{card_text};margin-bottom:20px">"{quote}"</p>
-      <p style="font-size:13px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:{card_muted}">{author}</p>
+    <div style="background:var(--cronus-surface);border:1px solid var(--cronus-border);border-radius:var(--cronus-radius);padding:32px">
+      <p style="font-size:16px;font-style:italic;line-height:1.7;color:var(--cronus-text);margin-bottom:20px">"{quote}"</p>
+      <p style="font-size:13px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--cronus-text-muted)">{author}</p>
     </div>
   </div>
 </section>"##,
-            section_bg=section_bg, card_bg=card_bg, card_border=card_border,
-            card_text=card_text, card_muted=card_muted,
             quote=section_title, author=section_subtitle
         );
     }
 
     // Multi-item testimonial grid
-    let avatar_bg = if is_light { "#e5e7eb" } else { "#374151" };
-    let avatar_text = if is_light { "#374151" } else { "#d1d5db" };
-
     let cards: Vec<String> = section.items.iter().map(|item| {
         let quote = item.get("description").or_else(|| item.get("title")).map(|s| s.as_str()).unwrap_or("");
         let name = item.get("name").or_else(|| item.get("title")).map(|s| s.as_str()).unwrap_or("Anonymous");
@@ -2357,18 +2439,16 @@ fn render_testimonial(section: &SectionNode, theme: &str) -> String {
             .collect();
 
         format!(
-            r##"<div style="background:{card_bg};border:1px solid {card_border};border-radius:12px;padding:28px;display:flex;flex-direction:column;justify-content:space-between;gap:20px">
-  <p style="font-size:15px;font-style:italic;line-height:1.7;color:{card_text}">"{quote}"</p>
+            r##"<div style="background:var(--cronus-surface);border:1px solid var(--cronus-border);border-radius:var(--cronus-radius);padding:28px;display:flex;flex-direction:column;justify-content:space-between;gap:20px">
+  <p style="font-size:15px;font-style:italic;line-height:1.7;color:var(--cronus-text)">"{quote}"</p>
   <div style="display:flex;align-items:center;gap:12px">
-    <div style="width:36px;height:36px;border-radius:50%;background:{avatar_bg};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:{avatar_text}">{initials}</div>
+    <div style="width:36px;height:36px;border-radius:50%;background:var(--cronus-border);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--cronus-text-muted)">{initials}</div>
     <div>
-      <div style="font-size:14px;font-weight:600;color:{card_text}">{name}</div>
-      <div style="font-size:12px;color:{card_muted}">{role}</div>
+      <div style="font-size:14px;font-weight:600;color:var(--cronus-text)">{name}</div>
+      <div style="font-size:12px;color:var(--cronus-text-muted)">{role}</div>
     </div>
   </div>
 </div>"##,
-            card_bg=card_bg, card_border=card_border, card_text=card_text,
-            card_muted=card_muted, avatar_bg=avatar_bg, avatar_text=avatar_text,
             quote=quote, initials=initials, name=name, role=role
         )
     }).collect();
@@ -2377,10 +2457,9 @@ fn render_testimonial(section: &SectionNode, theme: &str) -> String {
     let header = if !section_title.is_empty() {
         format!(
             r##"<div style="text-align:center;margin-bottom:48px">
-    <h2 style="font-size:36px;font-weight:800;letter-spacing:-0.04em;color:{card_text};margin-bottom:12px">{title}</h2>
-    <p style="font-size:16px;color:{card_muted};max-width:600px;margin:0 auto">{subtitle}</p>
+    <h2 style="font-size:36px;font-weight:800;letter-spacing:-0.04em;color:var(--cronus-text);margin-bottom:12px">{title}</h2>
+    <p style="font-size:16px;color:var(--cronus-text-muted);max-width:600px;margin:0 auto">{subtitle}</p>
   </div>"##,
-            card_text=card_text, card_muted=card_muted,
             title=section_title, subtitle=section_subtitle
         )
     } else {
@@ -2389,7 +2468,7 @@ fn render_testimonial(section: &SectionNode, theme: &str) -> String {
 
     let cols = if cards.len() <= 2 { cards.len() } else { 3 };
     format!(
-        r##"<section style="padding:80px 24px;background:{section_bg}">
+        r##"<section style="padding:80px 24px;background:var(--cronus-bg)">
   <div style="max-width:1280px;margin:0 auto">
     {header}
     <div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:20px">
@@ -2397,7 +2476,7 @@ fn render_testimonial(section: &SectionNode, theme: &str) -> String {
     </div>
   </div>
 </section>"##,
-        section_bg=section_bg, header=header, cols=cols, cards=cards.join("\n      ")
+        header=header, cols=cols, cards=cards.join("\n      ")
     )
 }
 
@@ -2453,14 +2532,14 @@ fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> String {
     let line2 = words[mid..].join(" ");
 
     let badge_html = badge_text.map(|b| format!(
-        r#"<div class="anim-fade d1" style="display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);margin-bottom:32px;backdrop-filter:blur(8px)">
-      <span style="width:8px;height:8px;border-radius:50%;background:{accent}"></span>
-      <span style="font-size:12px;font-weight:500;letter-spacing:0.05em;color:#a1a1aa">{text}</span>
-    </div>"#, accent = accent_hex, text = b
+        r#"<div class="anim-fade d1" style="display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid var(--cronus-border);margin-bottom:32px;backdrop-filter:blur(8px)">
+      <span style="width:8px;height:8px;border-radius:50%;background:var(--cronus-accent)"></span>
+      <span style="font-size:12px;font-weight:500;letter-spacing:0.05em;color:var(--cronus-text-muted)">{text}</span>
+    </div>"#, text = b
     )).unwrap_or_default();
 
     let cta2_html = cta2_text.map(|t| format!(
-        r#"<a href="{}" class="anim-scale d5 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;padding:12px 32px;border-radius:999px;border:1px solid rgba(255,255,255,0.2);color:white;font-weight:600;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">{}</a>"#,
+        r#"<a href="{}" class="anim-scale d5 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;padding:12px 32px;border-radius:999px;border:1px solid var(--cronus-border);color:var(--cronus-text);font-weight:600;font-size:16px;text-decoration:none;transition:all 0.2s">{}</a>"#,
         cta2_link, t
     )).unwrap_or_default();
 
@@ -2481,7 +2560,7 @@ fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> String {
       {line1}<br>
       <span style="background:linear-gradient(to right,white,#6b7280);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">{line2}</span>
     </h1>
-    <p class="anim-slide-up d3" style="max-width:640px;margin:0 auto 48px;font-size:clamp(16px,2vw,20px);color:#9ca3af;line-height:1.6">{subtitle}</p>
+    <p class="anim-slide-up d3" style="max-width:640px;margin:0 auto 48px;font-size:clamp(16px,2vw,20px);color:var(--cronus-text-muted);line-height:1.6">{subtitle}</p>
     <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px;margin-bottom:96px">
       <a href="{cta_link}" class="anim-scale d4 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;padding:12px 32px;border-radius:999px;background:white;color:black;font-weight:600;font-size:16px;text-decoration:none;transition:transform 0.2s" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}</a>
       {cta2_html}
@@ -2512,10 +2591,10 @@ fn render_developer_landing_hero(
 ) -> String {
     // Badge
     let badge_html = badge_text.map(|b| format!(
-        r#"<div class="anim anim-fade d1" style="display:inline-flex;align-items:center;gap:8px;padding:4px 12px;border-radius:999px;background:#e8e8e8;border:1px solid rgba(198,198,198,0.2);margin-bottom:24px">
-      <span class="pulse-glow" style="width:8px;height:8px;border-radius:50%;background:{accent}"></span>
-      <span style="font-size:12px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;color:#1a1c1c">{text}</span>
-    </div>"#, accent=accent_hex, text=b
+        r#"<div class="anim anim-fade d1" style="display:inline-flex;align-items:center;gap:8px;padding:4px 12px;border-radius:999px;background:var(--cronus-border);border:1px solid var(--cronus-border);margin-bottom:24px">
+      <span class="pulse-glow" style="width:8px;height:8px;border-radius:50%;background:var(--cronus-accent)"></span>
+      <span style="font-size:12px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;color:var(--cronus-text)">{text}</span>
+    </div>"#, text=b
     )).unwrap_or_default();
 
     // Split title by periods for line breaks (e.g. "Develop. Preview. Ship.")
@@ -2534,7 +2613,7 @@ fn render_developer_landing_hero(
 
     // CTA2 (outline button)
     let cta2_html = cta2_text.map(|t| format!(
-        r#"<a href="{link}" class="anim-scale d5 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 32px;border-radius:999px;border:1px solid rgba(198,198,198,0.3);color:#1a1c1c;font-weight:700;font-size:16px;text-decoration:none;background:#fff;transition:all 0.2s" onmouseover="this.style.background='#f3f3f3'" onmouseout="this.style.background='#fff'">{text}</a>"#,
+        r#"<a href="{link}" class="anim-scale d5 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 32px;border-radius:999px;border:1px solid var(--cronus-border);color:var(--cronus-text);font-weight:700;font-size:16px;text-decoration:none;background:var(--cronus-surface);transition:all 0.2s">{text}</a>"#,
         link=cta2_link, text=t
     )).unwrap_or_default();
 
@@ -2672,16 +2751,16 @@ fn render_developer_landing_hero(
     if !has_terminal {
         // Centered hero layout without terminal (no terminal items found)
         return format!(
-            r##"<section style="position:relative;overflow:hidden;min-height:80vh;padding:96px 24px 80px;display:flex;flex-direction:column;align-items:center;justify-content:center;background-image:linear-gradient(to right,rgba(198,198,198,0.1) 1px,transparent 1px),linear-gradient(to bottom,rgba(198,198,198,0.1) 1px,transparent 1px);background-size:40px 40px">
+            r##"<section style="position:relative;overflow:hidden;min-height:80vh;padding:96px 24px 80px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--cronus-bg);background-image:linear-gradient(to right,rgba(198,198,198,0.1) 1px,transparent 1px),linear-gradient(to bottom,rgba(198,198,198,0.1) 1px,transparent 1px);background-size:40px 40px">
   <div class="prism-glow" style="position:absolute;inset:0;pointer-events:none"></div>
-  <div style="position:relative;z-index:10;max-width:1024px;margin:0 auto;padding:0 24px;text-align:center">
+  <div style="position:relative;z-index:10;max-width:var(--cronus-max-w);margin:0 auto;padding:0 24px;text-align:center">
     {badge_html}
-    <h1 class="anim anim-d1" style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.05em;color:#000;line-height:0.9;margin-bottom:32px">
+    <h1 class="anim anim-d1" style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.05em;color:var(--cronus-text);line-height:0.9;margin-bottom:32px">
       {title_html}
     </h1>
-    <p class="anim anim-d2" style="max-width:640px;margin:0 auto 48px;font-size:18px;color:#474747;line-height:1.625">{subtitle}</p>
+    <p class="anim anim-d2" style="max-width:640px;margin:0 auto 48px;font-size:18px;color:var(--cronus-text-muted);line-height:1.625">{subtitle}</p>
     <div class="anim anim-d2" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px">
-      <a href="{cta_link}" class="anim-scale d4 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 32px;border-radius:999px;background:#000;color:#fff;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}</a>
+      <a href="{cta_link}" class="anim-scale d4 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 32px;border-radius:999px;background:var(--cronus-accent);color:#fff;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}</a>
       {cta2_html}
     </div>
   </div>
@@ -2698,19 +2777,19 @@ fn render_developer_landing_hero(
     }
 
     format!(
-        r##"<section style="position:relative;overflow:hidden;padding:96px 24px 128px">
+        r##"<section style="position:relative;overflow:hidden;padding:96px 24px 128px;background:var(--cronus-bg)">
   <div class="prism-glow" style="position:absolute;inset:0;pointer-events:none"></div>
   <div style="position:relative;z-index:10;max-width:1280px;margin:0 auto;padding:0 24px">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center">
       <!-- Left: Text content -->
       <div>
         {badge_html}
-        <h1 class="anim anim-d1" style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.05em;color:#000;line-height:0.9;margin-bottom:32px">
+        <h1 class="anim anim-d1" style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.05em;color:var(--cronus-text);line-height:0.9;margin-bottom:32px">
           {title_html}
         </h1>
-        <p class="anim anim-d2" style="max-width:512px;font-size:18px;color:#474747;line-height:1.625;margin-bottom:40px">{subtitle}</p>
+        <p class="anim anim-d2" style="max-width:512px;font-size:18px;color:var(--cronus-text-muted);line-height:1.625;margin-bottom:40px">{subtitle}</p>
         <div class="anim anim-d2" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px">
-          <a href="{cta_link}" class="anim-scale d4 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 32px;border-radius:999px;background:#000;color:#fff;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}<span class="material-symbols-outlined" style="font-size:14px">arrow_forward</span></a>
+          <a href="{cta_link}" class="anim-scale d4 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 32px;border-radius:999px;background:var(--cronus-accent);color:#fff;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}<span class="material-symbols-outlined" style="font-size:14px">arrow_forward</span></a>
           {cta2_html}
         </div>
       </div>
@@ -2743,30 +2822,24 @@ fn render_features(section: &SectionNode, _accent: &str, theme: &str) -> String 
     }
 
     let is_light = theme == "light" && !style_hint.contains("dark");
-    let (card_bg, card_border, card_text, card_desc, card_hover, icon_bg) = if is_light {
-        ("#ffffff", "rgba(0,0,0,0.08)", "#1a1a1a", "#6b6b6b", "rgba(0,0,0,0.15)", "rgba(0,0,0,0.04)")
-    } else {
-        ("#0a0a0a", "rgba(255,255,255,0.05)", "white", "#9ca3af", "rgba(255,255,255,0.2)", "rgba(255,255,255,0.05)")
-    };
+
+    let icon_color = if is_light { "#000" } else { "#fff" };
 
     let items: Vec<String> = section.items.iter().enumerate().map(|(i, item)| {
         let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Feature");
         let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
         let icon_name = item.get("icon").map(|s| s.as_str()).unwrap_or("star");
 
-        let icon_color = if is_light { "#000" } else { "#fff" };
         let icon_svg = get_material_icon(icon_name, icon_color, 20);
 
         format!(
-            r#"<div style="grid-column:span 4;background:{card_bg};border-radius:12px;border:1px solid {card_border};padding:32px;display:flex;flex-direction:column;justify-content:space-between;transition:border-color 0.3s" onmouseover="this.style.borderColor='{card_hover}'" onmouseout="this.style.borderColor='{card_border}'">
+            r#"<div style="grid-column:span 4;background:var(--cronus-surface);border-radius:var(--cronus-radius);border:1px solid var(--cronus-border);padding:32px;display:flex;flex-direction:column;justify-content:space-between;transition:border-color 0.3s">
   <div>
-    <div style="width:40px;height:40px;border-radius:8px;background:{icon_bg};display:flex;align-items:center;justify-content:center;margin-bottom:24px;color:{card_text}">{icon_svg}</div>
-    <h3 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:{card_text};margin-bottom:8px">{name}</h3>
-    <p style="color:{card_desc};font-size:14px;line-height:1.6">{desc}</p>
+    <div style="width:40px;height:40px;border-radius:var(--cronus-radius);background:rgba(128,128,128,0.08);display:flex;align-items:center;justify-content:center;margin-bottom:24px;color:var(--cronus-text)">{icon_svg}</div>
+    <h3 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:var(--cronus-text);margin-bottom:8px">{name}</h3>
+    <p style="color:var(--cronus-text-muted);font-size:14px;line-height:1.6">{desc}</p>
   </div>
-</div>"#, icon_svg = icon_svg, name = name, desc = desc,
-            card_bg = card_bg, card_border = card_border, card_text = card_text,
-            card_desc = card_desc, card_hover = card_hover, icon_bg = icon_bg)
+</div>"#, icon_svg = icon_svg, name = name, desc = desc)
     }).collect();
 
     format!(
@@ -3140,20 +3213,20 @@ fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> String {
     if is_light {
         // Light theme CTA: italic title, centered
         let cta2_html = cta2_text.map(|t| format!(
-            r#"<a href="{link}" style="display:inline-flex;align-items:center;justify-content:center;padding:16px 48px;border-radius:999px;border:1px solid rgba(198,198,198,0.3);color:#1a1c1c;font-weight:700;font-size:18px;text-decoration:none;background:#fff;transition:all 0.2s" onmouseover="this.style.background='#f3f3f3'" onmouseout="this.style.background='#fff'">{text}</a>"#,
+            r#"<a href="{link}" style="display:inline-flex;align-items:center;justify-content:center;padding:16px 48px;border-radius:999px;border:1px solid var(--cronus-border);color:var(--cronus-text);font-weight:700;font-size:18px;text-decoration:none;background:var(--cronus-surface);transition:all 0.2s">{text}</a>"#,
             link=cta2_link, text=t
         )).unwrap_or_default();
 
         let footnote_html = footnote.or(Some(subtitle)).filter(|s| !s.is_empty()).map(|f| format!(
-            r#"<p style="font-size:14px;color:#474747;margin-top:32px">{}</p>"#, f
+            r#"<p style="font-size:14px;color:var(--cronus-text-muted);margin-top:32px">{}</p>"#, f
         )).unwrap_or_default();
 
         return format!(
-            r##"<section style="padding:128px 24px;position:relative;overflow:hidden">
+            r##"<section style="padding:128px 24px;position:relative;overflow:hidden;background:var(--cronus-bg)">
   <div style="position:relative;max-width:960px;margin:0 auto;text-align:center">
-    <h2 class="anim reveal" style="font-size:clamp(36px,5vw,72px);font-weight:800;letter-spacing:-0.04em;color:#000;margin-bottom:32px;line-height:1;font-style:italic">{title}</h2>
+    <h2 class="anim reveal" style="font-size:clamp(36px,5vw,72px);font-weight:800;letter-spacing:-0.04em;color:var(--cronus-text);margin-bottom:32px;line-height:1;font-style:italic">{title}</h2>
     <div class="anim anim-d1" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px">
-      <a href="{cta_link}" class="reveal btn-hover" style="display:inline-flex;align-items:center;justify-content:center;padding:16px 48px;border-radius:999px;background:#000;color:#fff;font-weight:700;font-size:18px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_text}</a>
+      <a href="{cta_link}" class="reveal btn-hover" style="display:inline-flex;align-items:center;justify-content:center;padding:16px 48px;border-radius:999px;background:var(--cronus-accent);color:#fff;font-weight:700;font-size:18px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_text}</a>
       {cta2_html}
     </div>
     {footnote_html}
@@ -3430,17 +3503,17 @@ fn render_footer(section: &SectionNode, theme: &str) -> String {
         // Split: most links on left with copyright, last 2 on right
         let split_at = if all_links.len() > 2 { all_links.len() - 2 } else { all_links.len() };
         let left_links: Vec<String> = all_links[..split_at].iter().map(|l| format!(
-            r##"<a href="#" style="color:#6b7280;font-size:12px;text-decoration:none;transition:color 0.15s" onmouseover="this.style.color='#000'" onmouseout="this.style.color='#6b7280'">{}</a>"##, l
+            r##"<a href="#" style="color:var(--cronus-text-muted);font-size:12px;text-decoration:none;transition:color 0.15s">{}</a>"##, l
         )).collect();
         let right_links_html: Vec<String> = all_links[split_at..].iter().map(|l| format!(
-            r##"<a href="#" style="color:#6b7280;font-size:12px;text-decoration:none;transition:color 0.15s" onmouseover="this.style.color='#000'" onmouseout="this.style.color='#6b7280'">{}</a>"##, l
+            r##"<a href="#" style="color:var(--cronus-text-muted);font-size:12px;text-decoration:none;transition:color 0.15s">{}</a>"##, l
         )).collect();
 
         return format!(
-            r##"<footer class="anim-fade" style="border-top:1px solid #e5e7eb;background:#fafafa;padding:48px 24px">
+            r##"<footer class="anim-fade" style="border-top:1px solid var(--cronus-border);background:var(--cronus-bg);padding:48px 24px">
   <div style="max-width:1280px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px">
     <div style="display:flex;align-items:center;gap:16px">
-      <span style="font-size:12px;color:#6b7280">{copyright}</span>
+      <span style="font-size:12px;color:var(--cronus-text-muted)">{copyright}</span>
       {left_links}
     </div>
     <div style="display:flex;align-items:center;gap:24px">
@@ -3517,13 +3590,13 @@ fn render_footer(section: &SectionNode, theme: &str) -> String {
     };
 
     format!(
-        r##"<footer class="anim-fade" style="border-top:1px solid rgba(255,255,255,0.1);background:black;padding:48px 24px">
+        r##"<footer class="anim-fade" style="border-top:1px solid var(--cronus-border);background:var(--cronus-bg);padding:48px 24px">
   <div style="max-width:1280px;margin:0 auto">
     <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:48px;margin-bottom:48px">
       {columns_html}
     </div>
-    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px;padding-top:48px;border-top:1px solid rgba(255,255,255,0.05)">
-      <span style="font-size:12px;color:#6b7280">{copyright}</span>
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px;padding-top:48px;border-top:1px solid var(--cronus-border)">
+      <span style="font-size:12px;color:var(--cronus-text-muted)">{copyright}</span>
       <div style="display:flex;gap:24px">
         {bottom_right}
       </div>
@@ -4594,8 +4667,8 @@ fn render_form_section(section: &SectionNode, bound_data: &crate::binding::Resol
                 static_value
             };
 
-            let label_style = "display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#71717a;margin-bottom:8px";
-            let input_style = "width:100%;padding:12px 16px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;font-family:Inter,sans-serif;transition:border-color 0.2s;box-sizing:border-box";
+            let label_style = "display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--cronus-text-muted);margin-bottom:8px";
+            let input_style = "width:100%;padding:12px 16px;border:1px solid var(--cronus-border);border-radius:var(--cronus-radius);font-size:14px;outline:none;font-family:var(--cronus-font);transition:border-color 0.2s;box-sizing:border-box;background:var(--cronus-surface);color:var(--cronus-text)";
 
             match ftype {
                 "text" | "email" | "password" | "url" | "tel" | "number" => {
@@ -4746,18 +4819,18 @@ fn render_form_section(section: &SectionNode, bound_data: &crate::binding::Resol
                 .or_else(|| item.get("style").map(|s| s.as_str()))
                 .unwrap_or("primary");
             let (bg, color) = match variant {
-                "secondary" | "outline" => ("#fff", "#000"),
-                _ => ("#000", "#fff"),
+                "secondary" | "outline" => ("var(--cronus-surface)", "var(--cronus-text)"),
+                _ => ("var(--cronus-accent)", "#fff"),
             };
-            let border = if variant == "outline" || variant == "secondary" { "1px solid #e5e7eb" } else { "none" };
+            let border = if variant == "outline" || variant == "secondary" { "1px solid var(--cronus-border)" } else { "none" };
             actions_html.push_str(&format!(
-                r#"<button type="submit" data-label="{label}" style="width:100%;padding:14px;border:{border};border-radius:999px;background:{bg};color:{color};font-size:16px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif" class="btn-hover">{label}</button>"#,
+                r#"<button type="submit" data-label="{label}" style="width:100%;padding:14px;border:{border};border-radius:999px;background:{bg};color:{color};font-size:16px;font-weight:700;cursor:pointer;font-family:var(--cronus-font)" class="btn-hover">{label}</button>"#,
                 label = item_title, bg = bg, color = color, border = border,
             ));
         } else if itype == "link" {
             let link = item.get("link").map(|s| s.as_str()).unwrap_or("#");
             links_html.push_str(&format!(
-                r#"<a href="{link}" style="text-align:center;font-size:14px;color:#006ff0;text-decoration:none">{text}</a>"#,
+                r#"<a href="{link}" style="text-align:center;font-size:14px;color:var(--cronus-accent);text-decoration:none">{text}</a>"#,
                 link = link, text = item_title,
             ));
         }
@@ -4765,7 +4838,7 @@ fn render_form_section(section: &SectionNode, bound_data: &crate::binding::Resol
 
     // If no explicit action item, add a default submit button
     if actions_html.is_empty() {
-        actions_html = r#"<button type="submit" data-label="Save" style="width:100%;padding:14px;border:none;border-radius:999px;background:#000;color:#fff;font-size:16px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif" class="btn-hover">Save</button>"#.to_string();
+        actions_html = r#"<button type="submit" data-label="Save" style="width:100%;padding:14px;border:none;border-radius:999px;background:var(--cronus-accent);color:#fff;font-size:16px;font-weight:700;cursor:pointer;font-family:var(--cronus-font)" class="btn-hover">Save</button>"#.to_string();
     }
 
     let subtitle_html = if subtitle.is_empty() {

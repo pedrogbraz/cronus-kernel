@@ -38,6 +38,9 @@ pub fn dump_html(html: &str) -> String {
     // 6. Detect sections
     let sections = detect::detect_sections(&nodes);
 
+    // 6b. Extract CSS custom properties (design tokens) from HTML
+    let css_vars = extract_css_variables(html);
+
     // 7. Build CronusFile
     let file = emit::CronusFile {
         app_name,
@@ -47,6 +50,10 @@ pub fn dump_html(html: &str) -> String {
             let mut m = HashMap::new();
             m.insert("font".into(), font);
             m.insert("accent".into(), accent);
+            // Merge extracted CSS variables
+            for (k, v) in css_vars {
+                m.entry(k).or_insert(v);
+            }
             m
         },
         sections,
@@ -175,4 +182,146 @@ fn detect_font_from_html(html: &str) -> Option<String> {
         }
     }
     None
+}
+
+/// Extract CSS custom properties (design tokens) from `<style>` tags in HTML.
+/// Maps common CSS variable naming patterns to .cronus style keys.
+/// Also detects inline style patterns on body/root elements.
+fn extract_css_variables(html: &str) -> HashMap<String, String> {
+    let mut vars = HashMap::new();
+
+    // Phase 1: Find CSS custom properties (--name: value) in <style> blocks
+    let mut search_from = 0;
+    while let Some(start) = html[search_from..].find("<style") {
+        let abs_start = search_from + start;
+        if let Some(end) = html[abs_start..].find("</style>") {
+            let style_block = &html[abs_start..abs_start + end];
+            for line in style_block.lines() {
+                let line = line.trim();
+                if line.starts_with("--") && line.contains(':') {
+                    if let Some(colon) = line.find(':') {
+                        let name = line[2..colon].trim().to_string();
+                        let value = line[colon + 1..].trim().trim_end_matches(';').trim().to_string();
+                        if value.is_empty() { continue; }
+                        // Map CSS var names to .cronus style keys
+                        let key = match name.as_str() {
+                            "color-bg" => "background",
+                            "color-surface" => "surface",
+                            "color-text" => "text",
+                            "color-text-muted" => "text-muted",
+                            "color-accent" => "accent-hex",
+                            "color-accent-hover" => "accent-hover",
+                            "color-border" => "border",
+                            "max-w" => "max-width",
+                            "font" => "font",
+                            "radius" => "radius",
+                            _ => &name,
+                        };
+                        vars.insert(key.to_string(), value);
+                    }
+                }
+            }
+            search_from = abs_start + end + 8;
+        } else {
+            break;
+        }
+    }
+
+    // Phase 2: Detect design tokens from inline styles on <body> and top-level elements
+    // Look for body style="background:X; color:Y" patterns
+    if vars.is_empty() {
+        // Extract body background and color
+        if let Some(body_pos) = html.find("<body") {
+            if let Some(style_pos) = html[body_pos..body_pos + 200.min(html.len() - body_pos)].find("style=\"") {
+                let style_start = body_pos + style_pos + 7;
+                if let Some(style_end) = html[style_start..].find('"') {
+                    let style_val = &html[style_start..style_start + style_end];
+                    // Extract background
+                    if let Some(bg) = extract_css_prop(style_val, "background") {
+                        if bg.starts_with('#') && !is_neutral_dark(&bg) {
+                            vars.insert("background".into(), bg);
+                        }
+                    }
+                    // Extract color
+                    if let Some(color) = extract_css_prop(style_val, "color") {
+                        if color.starts_with('#') {
+                            vars.insert("text".into(), color);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Detect border-radius from the most common radius value
+        if let Some(radius) = detect_common_radius(html) {
+            vars.insert("radius".into(), radius);
+        }
+
+        // Detect max-width from the main container
+        if let Some(max_w) = detect_max_width(html) {
+            vars.insert("max-width".into(), max_w);
+        }
+    }
+
+    vars
+}
+
+/// Extract a CSS property value from an inline style string
+fn extract_css_prop(style: &str, prop: &str) -> Option<String> {
+    let patterns = [
+        format!("{}:", prop),
+        format!("{}-color:", prop),
+    ];
+    for pat in &patterns {
+        if let Some(pos) = style.find(pat.as_str()) {
+            let after = &style[pos + pat.len()..];
+            let end = after.find(|c: char| c == ';' || c == '"').unwrap_or(after.len());
+            let val = after[..end].trim().to_string();
+            if !val.is_empty() {
+                return Some(val);
+            }
+        }
+    }
+    None
+}
+
+fn is_neutral_dark(hex: &str) -> bool {
+    matches!(hex.to_lowercase().as_str(),
+        "#000" | "#000000" | "#0a0a0a" | "#111" | "#111111" | "#1a1a1a" | "#222" | "#333")
+}
+
+/// Detect the most commonly used border-radius in the HTML
+fn detect_common_radius(html: &str) -> Option<String> {
+    let mut counts: HashMap<String, u32> = HashMap::new();
+    let needle = "border-radius:";
+    let mut pos = 0;
+    while let Some(found) = html[pos..].find(needle) {
+        let abs = pos + found + needle.len();
+        let after = &html[abs..];
+        let end = after.find(|c: char| c == ';' || c == '"' || c == '}').unwrap_or(after.len());
+        let val = after[..end].trim().to_string();
+        if !val.is_empty() && val != "50%" && val != "999px" && val != "9999px" {
+            *counts.entry(val).or_insert(0) += 1;
+        }
+        pos = abs + end;
+    }
+    counts.into_iter().max_by_key(|(_, c)| *c).map(|(v, _)| v)
+}
+
+/// Detect max-width from the main content container
+fn detect_max_width(html: &str) -> Option<String> {
+    let needle = "max-width:";
+    let mut counts: HashMap<String, u32> = HashMap::new();
+    let mut pos = 0;
+    while let Some(found) = html[pos..].find(needle) {
+        let abs = pos + found + needle.len();
+        let after = &html[abs..];
+        let end = after.find(|c: char| c == ';' || c == '"' || c == '}').unwrap_or(after.len());
+        let val = after[..end].trim().to_string();
+        if val.contains("px") && val != "480px" && val != "640px" {
+            *counts.entry(val).or_insert(0) += 1;
+        }
+        pos = abs + end;
+    }
+    counts.into_iter().max_by_key(|(_, c)| *c).map(|(v, _)| v)
 }

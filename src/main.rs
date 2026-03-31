@@ -972,7 +972,7 @@ async fn handle_request(
                 ui::render_generic_dashboard(app_name, &body, &referenced_comps, theme, current_route)
             }
         } else if is_landing {
-            ui::render_layout_landing(app_name, &body, theme)
+            ui::render_layout_landing(app_name, &body, theme, state.style.as_ref())
         } else if let Some(ref layout) = state.layout {
             ui::render_layout_declarative(app_name, layout, current_route, &body)
         } else {
