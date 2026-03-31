@@ -154,6 +154,7 @@ pub struct SectionNode {
     pub items: Vec<HashMap<String, String>>,
     pub plans: Vec<PlanNode>,
     pub binding: Option<BindingNode>,
+    pub actions: Vec<ActionBlock>,
 }
 
 #[derive(Debug, Clone)]
@@ -202,6 +203,21 @@ pub enum BindingValue {
     Num(String),
     Bool(bool),
     AuthRef(String),
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ActionInstruction {
+    pub verb: String,        // "set", "toast", "navigate", "refresh", "create", "confirm", "delete", "validate", "open", "close"
+    pub target: String,      // field name, URL, message text, section ref
+    pub value: String,       // new value for "set", style for "toast"
+    pub modifiers: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ActionBlock {
+    pub event: String,       // "click", "submit", "error", "change"
+    pub confirm: Option<String>,
+    pub instructions: Vec<ActionInstruction>,
 }
 
 #[derive(Debug, Clone)]
@@ -919,6 +935,7 @@ impl Parser {
         let mut items = Vec::new();
         let mut plans = Vec::new();
         let mut binding: Option<BindingNode> = None;
+        let mut section_actions: Vec<ActionBlock> = Vec::new();
 
         let mut cta_count = 0;
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
@@ -1190,6 +1207,10 @@ impl Parser {
                     if self.matches(TokenKind::RBrace, None) { self.advance(); }
                 }
                 items.push(map);
+            } else if self.matches(TokenKind::Keyword, Some("on")) || self.matches(TokenKind::Identifier, Some("on")) {
+                self.advance(); // consume "on"
+                let action_block = self.parse_action_block()?;
+                section_actions.push(action_block);
             } else if self.matches(TokenKind::Identifier, Some("bind")) {
                 binding = Some(self.parse_binding()?);
             } else if self.matches(TokenKind::Identifier, Some("item")) {
@@ -1228,7 +1249,7 @@ impl Parser {
             }
         }
 
-        Ok(SectionNode { section_type, title, subtitle, config, items, plans, binding })
+        Ok(SectionNode { section_type, title, subtitle, config, items, plans, binding, actions: section_actions })
     }
 
     fn parse_section_item(&mut self) -> Result<HashMap<String, String>, String> {
@@ -1256,10 +1277,21 @@ impl Parser {
             while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
                 if self.peek().kind == TokenKind::StringLit {
                     desc_parts.push(self.advance().value);
+                } else if self.peek().kind == TokenKind::Keyword && self.peek().value == "on" {
+                    // Item-level action: on click { set ... }
+                    self.advance(); // consume "on"
+                    let action = self.parse_action_block()?;
+                    let serialized = serde_json::to_string(&action).unwrap_or_default();
+                    map.insert(format!("on_{}", action.event), serialized);
                 } else if self.peek().kind == TokenKind::Identifier {
                     // Sub-items inside {}: action "text" icon:x, price "$99", etc
                     let key = self.advance().value;
-                    if key == "action" || key == "price" || key == "description" || key == "meta" || key == "detail" || key == "footer" || key == "link" {
+                    if key == "on" {
+                        // Item-level action (as identifier): on click { set ... }
+                        let action = self.parse_action_block()?;
+                        let serialized = serde_json::to_string(&action).unwrap_or_default();
+                        map.insert(format!("on_{}", action.event), serialized);
+                    } else if key == "action" || key == "price" || key == "description" || key == "meta" || key == "detail" || key == "footer" || key == "link" {
                         let key_clone = key.clone();
                         if self.peek().kind == TokenKind::StringLit {
                             let val = self.advance().value;
@@ -1303,6 +1335,88 @@ impl Parser {
         }
 
         Ok(map)
+    }
+
+    fn parse_action_block(&mut self) -> Result<ActionBlock, String> {
+        // Already consumed "on" keyword before calling this
+        let event = self.advance().value; // "click", "submit", "error", "change"
+        self.expect(TokenKind::LBrace)?;
+
+        let mut instructions = Vec::new();
+        let mut confirm_msg = None;
+
+        while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+            let verb = self.advance().value;
+            match verb.as_str() {
+                "confirm" => {
+                    confirm_msg = Some(self.expect(TokenKind::StringLit)?.value);
+                }
+                "set" => {
+                    let field = self.advance().value;
+                    let value = if self.peek().kind == TokenKind::StringLit {
+                        self.advance().value
+                    } else {
+                        self.advance().value
+                    };
+                    let mut mods = HashMap::new();
+                    while self.peek().kind == TokenKind::ColonPair {
+                        let (k, v) = Self::split_colon_pair(&self.advance().value);
+                        mods.insert(k, v);
+                    }
+                    instructions.push(ActionInstruction { verb: "set".into(), target: field, value, modifiers: mods });
+                }
+                "toast" => {
+                    let message = self.expect(TokenKind::StringLit)?.value;
+                    let mut mods = HashMap::new();
+                    while self.peek().kind == TokenKind::ColonPair {
+                        let (k, v) = Self::split_colon_pair(&self.advance().value);
+                        mods.insert(k, v);
+                    }
+                    instructions.push(ActionInstruction { verb: "toast".into(), target: message, value: String::new(), modifiers: mods });
+                }
+                "navigate" => {
+                    let url = if self.peek().kind == TokenKind::StringLit {
+                        self.advance().value
+                    } else if self.peek().kind == TokenKind::Path {
+                        self.advance().value
+                    } else {
+                        self.advance().value // "back"
+                    };
+                    instructions.push(ActionInstruction { verb: "navigate".into(), target: url, value: String::new(), modifiers: HashMap::new() });
+                }
+                "refresh" => {
+                    let target = self.advance().value; // "self", "parent", "page"
+                    instructions.push(ActionInstruction { verb: "refresh".into(), target, value: String::new(), modifiers: HashMap::new() });
+                }
+                "create" | "update" | "delete" => {
+                    let target = self.advance().value; // "entity" or entity name
+                    instructions.push(ActionInstruction { verb: verb.clone(), target, value: String::new(), modifiers: HashMap::new() });
+                }
+                "validate" => {
+                    let target = self.advance().value; // "all" or field name
+                    instructions.push(ActionInstruction { verb: "validate".into(), target, value: String::new(), modifiers: HashMap::new() });
+                }
+                "open" | "close" => {
+                    let target = self.expect(TokenKind::StringLit)?.value;
+                    instructions.push(ActionInstruction { verb: verb.clone(), target, value: String::new(), modifiers: HashMap::new() });
+                }
+                _ => {
+                    // Unknown verb — skip to next known verb or closing brace
+                    while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                        let next = self.peek();
+                        if next.kind == TokenKind::Identifier && ["set", "toast", "navigate", "refresh", "create", "update", "delete", "validate", "confirm", "open", "close"].contains(&next.value.as_str()) {
+                            break;
+                        }
+                        if next.kind == TokenKind::Keyword && ["set", "toast", "navigate", "refresh", "create", "update", "delete", "validate", "confirm", "open", "close"].contains(&next.value.as_str()) {
+                            break;
+                        }
+                        self.advance();
+                    }
+                }
+            }
+        }
+        self.expect(TokenKind::RBrace)?;
+        Ok(ActionBlock { event, confirm: confirm_msg, instructions })
     }
 
     fn parse_plan(&mut self) -> Result<PlanNode, String> {
