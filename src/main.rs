@@ -1731,10 +1731,14 @@ fn spec_list(args: &[String]) {
 }
 
 fn cmd_build(args: &[String]) {
-    let file = args.get(2).cloned().or_else(find_cronus_file).unwrap_or_else(|| {
-        eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found");
-        std::process::exit(1);
-    });
+    let file = args.iter().skip(2)
+        .find(|a| !a.starts_with("--"))
+        .cloned()
+        .or_else(find_cronus_file)
+        .unwrap_or_else(|| {
+            eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found");
+            std::process::exit(1);
+        });
 
     let source = fs::read_to_string(&file).unwrap();
     match parser::parse(&source) {
@@ -2268,10 +2272,14 @@ style {
 "#;
 
 fn cmd_parse(args: &[String]) {
-    let file = args.get(2).cloned().unwrap_or_else(|| {
-        eprintln!("Usage: cronus parse <file.cronus>");
-        std::process::exit(1);
-    });
+    let file = args.iter().skip(2)
+        .find(|a| !a.starts_with("--"))
+        .cloned()
+        .or_else(find_cronus_file)
+        .unwrap_or_else(|| {
+            eprintln!("  No .cronus file found");
+            std::process::exit(1);
+        });
 
     let source = fs::read_to_string(&file).unwrap();
     match parser::parse(&source) {

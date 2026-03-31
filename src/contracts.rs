@@ -69,8 +69,8 @@ static TABLE_CONTRACT: SectionContract = SectionContract {
     requires_title: false,
     requires_items: true,
     min_items: 1,
-    config_keys: &["title", "entity", "responsive", "live"],
-    structural_keys: &[req("name"), opt("column"), opt("badge"), opt("status")],
+    config_keys: &["title", "entity", "responsive", "live", "columns"],
+    structural_keys: &[req("name"), opt("title"), opt("column"), opt("badge"), opt("status")],
     entity_binding: true,
     on_unknown_key: Fallback::Warn,
     on_missing_required: Fallback::Error,
@@ -84,7 +84,7 @@ static FORM_CONTRACT: SectionContract = SectionContract {
     requires_items: true,
     min_items: 1,
     config_keys: &["title", "entity", "action", "method"],
-    structural_keys: &[req("name"), opt("type"), opt("placeholder"), opt("required"), opt("options"), opt("disabled")],
+    structural_keys: &[req("name"), opt("title"), opt("type"), opt("placeholder"), opt("required"), opt("options"), opt("disabled")],
     entity_binding: true,
     on_unknown_key: Fallback::Warn,
     on_missing_required: Fallback::Error,
@@ -97,8 +97,8 @@ static CARD_CONTRACT: SectionContract = SectionContract {
     requires_title: false,
     requires_items: true,
     min_items: 0,
-    config_keys: &["icon", "id"],
-    structural_keys: &[req("name"), opt("subtitle"), opt("icon"), opt("link")],
+    config_keys: &["icon", "id", "cols", "cta_text", "cta_link", "cta_style"],
+    structural_keys: &[req("name"), opt("subtitle"), opt("icon"), opt("link"), opt("action"), opt("style"), opt("status"), opt("value"), opt("action_icon"), opt("href"), opt("description")],
     entity_binding: false,
     on_unknown_key: Fallback::Warn,
     on_missing_required: Fallback::Error,
@@ -112,7 +112,7 @@ static KPI_CONTRACT: SectionContract = SectionContract {
     requires_items: true,
     min_items: 1,
     config_keys: &["cols", "cols-md", "cols-sm", "entity", "live", "interval"],
-    structural_keys: &[req("name"), opt("icon"), opt("trend"), opt("meta"), opt("value")],
+    structural_keys: &[req("name"), opt("title"), opt("icon"), opt("trend"), opt("meta"), opt("value")],
     entity_binding: false,
     on_unknown_key: Fallback::Warn,
     on_missing_required: Fallback::Error,
@@ -202,6 +202,92 @@ static EMPTY_CONTRACT: SectionContract = SectionContract {
     on_missing_required: Fallback::Error,
 };
 
+// ── New Contracts (sections with dedicated renderers) ───────────────────────
+
+static PAGE_HEADER_CONTRACT: SectionContract = SectionContract {
+    name: "page-header",
+    layer: Layer::Stdlib,
+    stability: Stability::Stable,
+    requires_title: true,
+    requires_items: false,
+    min_items: 0,
+    structural_keys: &[opt("title"), opt("action"), opt("icon")],
+    entity_binding: false,
+    on_unknown_key: Fallback::Warn,
+    on_missing_required: Fallback::Error,
+    config_keys: &["action_text"],
+};
+
+static TABS_CONTRACT: SectionContract = SectionContract {
+    name: "tabs",
+    layer: Layer::Stdlib,
+    stability: Stability::Stable,
+    requires_title: false,
+    requires_items: true,
+    min_items: 1,
+    structural_keys: &[opt("title"), opt("name"), opt("icon"), opt("active"), opt("style"), opt("description")],
+    entity_binding: false,
+    on_unknown_key: Fallback::Warn,
+    on_missing_required: Fallback::Error,
+    config_keys: &[],
+};
+
+static ALERT_CONTRACT: SectionContract = SectionContract {
+    name: "alert",
+    layer: Layer::Stdlib,
+    stability: Stability::Stable,
+    requires_title: true,
+    requires_items: false,
+    min_items: 0,
+    structural_keys: &[],
+    entity_binding: false,
+    on_unknown_key: Fallback::Warn,
+    on_missing_required: Fallback::Error,
+    config_keys: &["style"],
+};
+
+static ACCORDION_CONTRACT: SectionContract = SectionContract {
+    name: "accordion",
+    layer: Layer::Stdlib,
+    stability: Stability::Stable,
+    requires_title: false,
+    requires_items: true,
+    min_items: 1,
+    structural_keys: &[opt("title"), opt("name"), opt("description")],
+    entity_binding: false,
+    on_unknown_key: Fallback::Warn,
+    on_missing_required: Fallback::Error,
+    config_keys: &[],
+};
+
+static BREADCRUMB_CONTRACT: SectionContract = SectionContract {
+    name: "breadcrumb",
+    layer: Layer::Stdlib,
+    stability: Stability::Stable,
+    requires_title: false,
+    requires_items: true,
+    min_items: 1,
+    structural_keys: &[opt("title"), opt("name"), opt("link")],
+    entity_binding: false,
+    on_unknown_key: Fallback::Warn,
+    on_missing_required: Fallback::Error,
+    config_keys: &[],
+};
+
+static CHART_CONTRACT: SectionContract = SectionContract {
+    name: "chart",
+    layer: Layer::Stdlib,
+    stability: Stability::Stable,
+    requires_title: false,
+    requires_items: true,
+    min_items: 1,
+    structural_keys: &[opt("title"), opt("name"), opt("value"), opt("color")],
+    entity_binding: false,
+    on_unknown_key: Fallback::Warn,
+    on_missing_required: Fallback::Error,
+    config_keys: &["style", "type"],
+};
+
 // ── Registry ────────────────────────────────────────────────────────────────
 
 static ALL_CONTRACTS: &[&SectionContract] = &[
@@ -215,11 +301,18 @@ static ALL_CONTRACTS: &[&SectionContract] = &[
     &DROPDOWN_CONTRACT,
     &TOAST_CONTRACT,
     &EMPTY_CONTRACT,
+    &PAGE_HEADER_CONTRACT,
+    &TABS_CONTRACT,
+    &ALERT_CONTRACT,
+    &ACCORDION_CONTRACT,
+    &BREADCRUMB_CONTRACT,
+    &CHART_CONTRACT,
 ];
 
 static ALL_NAMES: &[&str] = &[
     "table", "form", "card", "kpi", "modal",
     "kanban", "command", "dropdown", "toast", "empty",
+    "page-header", "tabs", "alert", "accordion", "breadcrumb", "chart",
 ];
 
 pub struct ContractRegistry;
@@ -311,7 +404,8 @@ pub fn validate_section(section: &SectionNode, entity_fields: &[String]) -> Vec<
     // If entity_binding is true but no entity fields were provided,
     // we can't validate entity-bound keys — skip unknown key warnings entirely.
     // TODO: Thread entity fields from page context through render_section.
-    let skip_entity_key_check = contract.entity_binding && entity_fields.is_empty();
+    let has_entity_ref = section.config.contains_key("entity") || section.binding.is_some();
+    let skip_entity_key_check = contract.entity_binding && entity_fields.is_empty() && has_entity_ref;
 
     // 3. Validate items against structural keys + entity fields
     for item in &section.items {
@@ -344,7 +438,9 @@ pub fn validate_section(section: &SectionNode, entity_fields: &[String]) -> Vec<
 
         // Check required keys
         for key_def in contract.structural_keys {
-            if key_def.required && !item.contains_key(key_def.name) {
+            let has_key = item.contains_key(key_def.name) ||
+                (key_def.name == "name" && item.contains_key("title"));
+            if key_def.required && !has_key {
                 match contract.on_missing_required {
                     Fallback::Error | Fallback::Warn => {
                         warnings.push(ParseWarning::MissingRequired {
