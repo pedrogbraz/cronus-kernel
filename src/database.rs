@@ -560,6 +560,161 @@ impl CronusDB {
         Ok(Value::Array(results))
     }
 
+    // ──────────────────────────────────────────────
+    // Binding Model queries
+    // ──────────────────────────────────────────────
+
+    /// Query with filters, ordering, and pagination.
+    /// This is the binding model's primary query function.
+    pub fn find_many(
+        &self,
+        table: &str,
+        filters: &[(String, String, String)], // (field, sql_op, value)
+        order_field: Option<&str>,
+        order_dir: Option<&str>, // "ASC" or "DESC"
+        limit: Option<usize>,
+        offset: Option<usize>,
+    ) -> Result<Value, String> {
+        let conn = self.conn.lock().unwrap();
+
+        // Build WHERE clause
+        let mut where_parts = Vec::new();
+        let mut params_vec: Vec<String> = Vec::new();
+
+        let valid_ops = ["=", "!=", ">", ">=", "<", "<=", "LIKE"];
+
+        for (field, op, value) in filters {
+            // Validate: field name must be alphanumeric + underscore (prevent SQL injection)
+            if !field.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                return Err(format!("Invalid field name: {}", field));
+            }
+            // Validate operator against whitelist
+            if !valid_ops.contains(&op.as_str()) {
+                return Err(format!("Invalid operator: {}", op));
+            }
+            where_parts.push(format!("\"{}\" {} ?", field, op));
+            params_vec.push(value.clone());
+        }
+
+        let where_clause = if where_parts.is_empty() {
+            String::new()
+        } else {
+            format!(" WHERE {}", where_parts.join(" AND "))
+        };
+
+        // Build ORDER BY
+        let order_clause = match (order_field, order_dir) {
+            (Some(field), Some(dir)) => {
+                if !field.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                    return Err(format!("Invalid order field: {}", field));
+                }
+                let safe_dir = if dir.eq_ignore_ascii_case("DESC") { "DESC" } else { "ASC" };
+                format!(" ORDER BY \"{}\" {}", field, safe_dir)
+            }
+            (Some(field), None) => {
+                if !field.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                    return Err(format!("Invalid order field: {}", field));
+                }
+                format!(" ORDER BY \"{}\" ASC", field)
+            }
+            _ => " ORDER BY rowid DESC".to_string(),
+        };
+
+        // Build LIMIT/OFFSET
+        let limit_val = limit.unwrap_or(100);
+        let offset_val = offset.unwrap_or(0);
+
+        let sql = format!(
+            "SELECT * FROM \"{}\"{}{} LIMIT {} OFFSET {}",
+            table, where_clause, order_clause, limit_val, offset_val
+        );
+
+        // Execute with params
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let col_names: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
+
+        let params_refs: Vec<&dyn rusqlite::types::ToSql> = params_vec
+            .iter()
+            .map(|s| s as &dyn rusqlite::types::ToSql)
+            .collect();
+
+        let rows = stmt
+            .query_map(params_refs.as_slice(), |row| {
+                let mut map = Map::new();
+                for (i, name) in col_names.iter().enumerate() {
+                    map.insert(name.clone(), column_to_json(row, i)?);
+                }
+                Ok(Value::Object(map))
+            })
+            .map_err(|e| e.to_string())?;
+
+        let mut results = Vec::new();
+        for r in rows {
+            results.push(r.map_err(|e| e.to_string())?);
+        }
+        Ok(Value::Array(results))
+    }
+
+    /// Query for a single record (first match).
+    pub fn find_one(
+        &self,
+        table: &str,
+        filters: &[(String, String, String)],
+        order_field: Option<&str>,
+        order_dir: Option<&str>,
+    ) -> Result<Option<Value>, String> {
+        let result = self.find_many(table, filters, order_field, order_dir, Some(1), Some(0))?;
+        if let Value::Array(arr) = result {
+            Ok(arr.into_iter().next())
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Count records matching filters.
+    pub fn count_where(
+        &self,
+        table: &str,
+        filters: &[(String, String, String)],
+    ) -> Result<u64, String> {
+        let conn = self.conn.lock().unwrap();
+
+        let valid_ops = ["=", "!=", ">", ">=", "<", "<=", "LIKE"];
+
+        let mut where_parts = Vec::new();
+        let mut params_vec: Vec<String> = Vec::new();
+
+        for (field, op, value) in filters {
+            if !field.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                return Err(format!("Invalid field name: {}", field));
+            }
+            if !valid_ops.contains(&op.as_str()) {
+                return Err(format!("Invalid operator: {}", op));
+            }
+            where_parts.push(format!("\"{}\" {} ?", field, op));
+            params_vec.push(value.clone());
+        }
+
+        let where_clause = if where_parts.is_empty() {
+            String::new()
+        } else {
+            format!(" WHERE {}", where_parts.join(" AND "))
+        };
+
+        let sql = format!("SELECT COUNT(*) FROM \"{}\"{}",  table, where_clause);
+
+        let params_refs: Vec<&dyn rusqlite::types::ToSql> = params_vec
+            .iter()
+            .map(|s| s as &dyn rusqlite::types::ToSql)
+            .collect();
+
+        let count: i64 = conn
+            .query_row(&sql, params_refs.as_slice(), |row| row.get(0))
+            .map_err(|e| e.to_string())?;
+
+        Ok(count as u64)
+    }
+
     /// Seed an entity with fake data (10 rows)
     pub fn seed_entity(&self, entity: &EntityNode) -> Result<usize, String> {
         let names = ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace", "Hank", "Ivy", "Jack"];
@@ -628,6 +783,22 @@ impl CronusDB {
             }
         }
         Ok(count)
+    }
+}
+
+/// Convert a binding FilterOp string to SQL operator.
+/// Called by the runtime binding resolver, not by the DB directly.
+pub fn filter_op_to_sql(op: &str) -> &'static str {
+    match op {
+        "eq" => "=",
+        "ne" => "!=",
+        "gt" => ">",
+        "gte" => ">=",
+        "lt" => "<",
+        "lte" => "<=",
+        "contains" => "LIKE",     // value needs %value% wrapping
+        "starts_with" => "LIKE",  // value needs value% wrapping
+        _ => "=",
     }
 }
 

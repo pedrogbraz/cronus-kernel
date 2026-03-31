@@ -153,6 +153,7 @@ pub struct SectionNode {
     pub config: HashMap<String, String>,
     pub items: Vec<HashMap<String, String>>,
     pub plans: Vec<PlanNode>,
+    pub binding: Option<BindingNode>,
 }
 
 #[derive(Debug, Clone)]
@@ -161,6 +162,46 @@ pub struct PlanNode {
     pub price: String,
     pub featured: bool,
     pub features: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BindingNode {
+    pub entity: String,
+    pub query: QueryType,
+    pub filters: Vec<FilterExpr>,
+    pub order: Option<OrderExpr>,
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum QueryType { All, One, Count }
+
+#[derive(Debug, Clone)]
+pub struct FilterExpr {
+    pub field: String,
+    pub operator: FilterOp,
+    pub value: BindingValue,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum FilterOp { Eq, Ne, Gt, Gte, Lt, Lte, Contains, StartsWith }
+
+#[derive(Debug, Clone)]
+pub struct OrderExpr {
+    pub field: String,
+    pub direction: OrderDirection,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum OrderDirection { Asc, Desc }
+
+#[derive(Debug, Clone)]
+pub enum BindingValue {
+    Str(String),
+    Num(String),
+    Bool(bool),
+    AuthRef(String),
 }
 
 #[derive(Debug, Clone)]
@@ -873,6 +914,7 @@ impl Parser {
         let mut subtitle = None;
         let mut items = Vec::new();
         let mut plans = Vec::new();
+        let mut binding: Option<BindingNode> = None;
 
         let mut cta_count = 0;
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
@@ -1144,6 +1186,8 @@ impl Parser {
                     if self.matches(TokenKind::RBrace, None) { self.advance(); }
                 }
                 items.push(map);
+            } else if self.matches(TokenKind::Identifier, Some("bind")) {
+                binding = Some(self.parse_binding()?);
             } else if self.matches(TokenKind::Identifier, Some("item")) {
                 let item = self.parse_section_item()?;
                 items.push(item);
@@ -1165,7 +1209,22 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(SectionNode { section_type, title, subtitle, config, items, plans })
+
+        // Backward compat: synthesize binding from entity config
+        if binding.is_none() {
+            if let Some(entity) = config.get("entity") {
+                binding = Some(BindingNode {
+                    entity: entity.clone(),
+                    query: QueryType::All,
+                    filters: Vec::new(),
+                    order: None,
+                    limit: None,
+                    offset: None,
+                });
+            }
+        }
+
+        Ok(SectionNode { section_type, title, subtitle, config, items, plans, binding })
     }
 
     fn parse_section_item(&mut self) -> Result<HashMap<String, String>, String> {
@@ -1256,6 +1315,94 @@ impl Parser {
         };
 
         Ok(PlanNode { name, price, featured, features })
+    }
+
+    // ── binding ──
+
+    fn parse_binding(&mut self) -> Result<BindingNode, String> {
+        self.advance(); // consume "bind"
+
+        // Next token: ColonPair "entity:Order" or Identifier "entity" followed by ColonPair ":Order"
+        let entity_token = self.advance();
+        let entity_name = if entity_token.kind == TokenKind::ColonPair {
+            let (_key, val) = Self::split_colon_pair(&entity_token.value);
+            val
+        } else {
+            // Bare identifier — next token should have the name
+            self.advance().value.clone()
+        };
+
+        self.expect(TokenKind::LBrace)?;
+
+        let mut query = QueryType::All;
+        let mut filters = Vec::new();
+        let mut order = None;
+        let mut limit = None;
+        let mut offset = None;
+
+        while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+            let kw = self.advance();
+            match kw.value.as_str() {
+                "query" => {
+                    let qt = self.advance().value;
+                    query = match qt.as_str() {
+                        "one" => QueryType::One,
+                        "count" => QueryType::Count,
+                        _ => QueryType::All,
+                    };
+                }
+                "where" => {
+                    let field = self.advance().value.clone();
+                    let op_str = self.advance().value.clone();
+                    let op = match op_str.as_str() {
+                        "eq" => FilterOp::Eq,
+                        "ne" => FilterOp::Ne,
+                        "gt" => FilterOp::Gt,
+                        "gte" => FilterOp::Gte,
+                        "lt" => FilterOp::Lt,
+                        "lte" => FilterOp::Lte,
+                        "contains" => FilterOp::Contains,
+                        "starts_with" => FilterOp::StartsWith,
+                        _ => FilterOp::Eq,
+                    };
+                    let val_token = self.advance();
+                    let value = if val_token.value.starts_with("auth.") {
+                        BindingValue::AuthRef(val_token.value.clone())
+                    } else if val_token.kind == TokenKind::StringLit {
+                        BindingValue::Str(val_token.value.clone())
+                    } else if val_token.kind == TokenKind::Number {
+                        BindingValue::Num(val_token.value.clone())
+                    } else if val_token.value == "true" || val_token.value == "false" {
+                        BindingValue::Bool(val_token.value == "true")
+                    } else {
+                        BindingValue::Str(val_token.value.clone())
+                    };
+                    filters.push(FilterExpr { field, operator: op, value });
+                }
+                "order" => {
+                    let field = self.advance().value.clone();
+                    let dir = if self.matches(TokenKind::Identifier, Some("desc")) {
+                        self.advance();
+                        OrderDirection::Desc
+                    } else {
+                        if self.matches(TokenKind::Identifier, Some("asc")) { self.advance(); }
+                        OrderDirection::Asc
+                    };
+                    order = Some(OrderExpr { field, direction: dir });
+                }
+                "limit" => {
+                    limit = Some(self.advance().value.parse::<usize>().unwrap_or(100));
+                }
+                "offset" => {
+                    offset = Some(self.advance().value.parse::<usize>().unwrap_or(0));
+                }
+                _ => {} // skip unknown
+            }
+        }
+
+        self.expect(TokenKind::RBrace)?;
+
+        Ok(BindingNode { entity: entity_name, query, filters, order, limit, offset })
     }
 
     // ── style ──
