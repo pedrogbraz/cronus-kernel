@@ -1915,7 +1915,13 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str) -> String {
         "kanban" => crate::board::render_kanban(section),
         "dark-mode" => crate::board::render_dark_mode_toggle(section),
         "layout" => crate::layout_system::render_layout_section(section),
-        _ => render_generic_section(section, accent),
+        other => {
+            eprintln!("  \x1b[33m⚠\x1b[0m Unknown section type \"{}\" — using generic renderer", other);
+            if crate::STRICT_MODE.load(std::sync::atomic::Ordering::Relaxed) {
+                eprintln!("  \x1b[31m✗\x1b[0m Strict mode: unknown section types are not allowed");
+            }
+            render_generic_section(section, accent)
+        }
     }
 }
 

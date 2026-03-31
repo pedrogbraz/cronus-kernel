@@ -6,6 +6,7 @@ mod brain;
 mod cache;
 mod command_palette;
 mod components;
+mod contracts;
 mod data_table;
 mod database;
 mod deploy;
@@ -45,6 +46,9 @@ use std::collections::HashMap;
 
 use parser::{AstNode, EntityNode, PageNode, StyleNode, ApiNode, AppNode, FieldType};
 
+use std::sync::atomic::{AtomicBool, Ordering};
+pub static STRICT_MODE: AtomicBool = AtomicBool::new(false);
+
 // ══════════════════════════════════════════════════
 // MAIN
 // ══════════════════════════════════════════════════
@@ -52,6 +56,8 @@ use parser::{AstNode, EntityNode, PageNode, StyleNode, ApiNode, AppNode, FieldTy
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = env::args().collect();
+    let strict = args.iter().any(|a| a == "--strict");
+    STRICT_MODE.store(strict, Ordering::Relaxed);
     let cmd = args.get(1).map(|s| s.as_str()).unwrap_or("help");
 
     match cmd {
@@ -84,10 +90,10 @@ fn print_help() {
     println!("  \x1b[90mThe Cognitive Runtime v0.1.0 (Rust native)\x1b[0m\n");
     println!("  \x1b[1mUsage:\x1b[0m cronus <command> [options]\n");
     println!("  \x1b[1mCommands:\x1b[0m");
-    println!("    \x1b[32mrun\x1b[0m [port]       Parse .cronus → create DB → serve (all-in-one)");
-    println!("    \x1b[32mnew\x1b[0m <template>  Create project (landing/saas/api/ecommerce/blog)");
-    println!("    \x1b[32mbuild\x1b[0m            Parse and validate .cronus file");
-    println!("    \x1b[32mparse\x1b[0m <file>     Parse and show AST stats");
+    println!("    \x1b[32mrun\x1b[0m [port] [--strict]  Parse .cronus → serve (strict: warnings=errors)");
+    println!("    \x1b[32mnew\x1b[0m <template>       Create project (landing/saas/api/ecommerce/blog)");
+    println!("    \x1b[32mbuild\x1b[0m [--strict]      Parse and validate .cronus file (strict mode)");
+    println!("    \x1b[32mparse\x1b[0m <file> [--strict] Parse and show AST (strict mode)");
     println!("    \x1b[32mdeploy\x1b[0m           Generate deploy artifacts (--fly, --railway, --static)");
     println!("    \x1b[32mdoctor\x1b[0m           Check .cronus syntax + DB + ports");
     println!("    \x1b[32mstats\x1b[0m            Project stats (entities, pages, DB size)");
