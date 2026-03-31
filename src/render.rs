@@ -112,16 +112,20 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
         var data=Object.fromEntries(new FormData(form));
         var ev=new CustomEvent('cronus:form-submit',{bubbles:true,cancelable:true,detail:{entity:entity,section:section,data:data,form:form}});
         if(!form.dispatchEvent(ev)) return;
-        // Default: POST to API
+        // Default: POST to API (or PATCH for edit forms)
         if(entity){
           var btn=form.querySelector('button[type=submit]');
           if(btn){btn.disabled=true;btn.textContent='Saving...';}
+          var method=form.dataset.cronusMethod||form.method||'POST';
+          var cronusId=form.dataset.cronusId||'';
+          var url=method==='PATCH'&&cronusId?'/api/'+entity+'s/'+cronusId:'/api/'+entity+'s';
+          delete data._id;
           try{
-            var res=await fetch('/api/'+entity+'s',{method:form.method||'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-            if(res.ok){form.reset();window.location.reload();}
+            var res=await fetch(url,{method:method,headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+            if(res.ok){if(method==='PATCH'){window.location.reload();}else{form.reset();window.location.reload();}}
             else{var err=await res.json();alert(err.error||'Error');}
           }catch(e){alert('Network error');}
-          finally{if(btn){btn.disabled=false;btn.textContent='Submit';}}
+          finally{if(btn){btn.disabled=false;btn.textContent=method==='PATCH'?'Update':'Submit';}}
         }
       });
     });

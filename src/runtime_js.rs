@@ -76,14 +76,19 @@ pub const CRONUS_ACTION_JS: &str = r#"
     for (var i = 0; i < inputs.length; i++) {
       var inp = inputs[i];
       var name = inp.name || inp.id;
-      if (!name) continue;
+      if (!name || name === '_id') continue;
       formData[name] = inp.type === 'checkbox' ? inp.checked : inp.value;
     }
 
     var entity = form.getAttribute('data-cronus-entity') || '';
+    var cronusMethod = form.getAttribute('data-cronus-method') || 'POST';
+    var cronusId = form.getAttribute('data-cronus-id') || '';
 
     var xhr = new XMLHttpRequest();
-    xhr.open('POST', '/_form/' + (form.getAttribute('data-cronus-section') || ''));
+    var formUrl = cronusMethod === 'PATCH' && cronusId
+      ? '/_form/' + (form.getAttribute('data-cronus-section') || '') + '/' + cronusId
+      : '/_form/' + (form.getAttribute('data-cronus-section') || '');
+    xhr.open(cronusMethod, formUrl);
     xhr.setRequestHeader('Content-Type', 'application/json');
     xhr.onload = function() {
       try {
