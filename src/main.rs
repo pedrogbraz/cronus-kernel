@@ -76,6 +76,7 @@ async fn main() {
         "compose" => cmd_compose(&args),
         "generate" | "gen" => cmd_generate(&args),
         "dump" => cmd_dump(&args),
+        "spec" => cmd_spec(&args),
         "version" | "-v" | "--version" => println!("cronus v0.1.0"),
         "help" | "--help" | "-h" | _ => print_help(),
     }
@@ -105,6 +106,7 @@ fn print_help() {
     println!("    \x1b[32mtest\x1b[0m --conformance   Run conformance test suite");
     println!("    \x1b[32mcompose\x1b[0m          Compose all .cronus files and show result");
     println!("    \x1b[32mgenerate\x1b[0m <desc>  Generate .cronus from description");
+    println!("    \x1b[32mspec\x1b[0m <validate|list> Validate or list .spec.toml files");
     println!("    \x1b[32mversion\x1b[0m          Show version");
     println!();
 }
@@ -994,6 +996,196 @@ fn cmd_dump(args: &[String]) {
         eprintln!("  \x1b[32m✓\x1b[0m Written to {}", out);
     } else {
         println!("{}", cronus);
+    }
+}
+
+// ══════════════════════════════════════════════════
+// SPEC COMMANDS
+// ══════════════════════════════════════════════════
+
+fn cmd_spec(args: &[String]) {
+    let subcmd = args.get(2).map(|s| s.as_str()).unwrap_or("help");
+    match subcmd {
+        "validate" => spec_validate(args),
+        "list" => spec_list(args),
+        _ => {
+            println!("  Usage: cronus spec <validate|list>");
+        }
+    }
+}
+
+fn extract_field(content: &str, field_name: &str) -> Option<String> {
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with(&format!("{} =", field_name))
+            || trimmed.starts_with(&format!("{}=", field_name))
+        {
+            if let Some(start) = trimmed.find('"') {
+                if let Some(end) = trimmed[start + 1..].find('"') {
+                    return Some(trimmed[start + 1..start + 1 + end].to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn has_section(content: &str, section: &str) -> bool {
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed == section || trimmed.starts_with(&format!("{}.", &section[..section.len() - 1])) {
+            return true;
+        }
+    }
+    false
+}
+
+fn validate_spec_content(content: &str, subdir: &str) -> Vec<String> {
+    let mut errors = Vec::new();
+
+    // 1. Must have [meta] with name, version, layer, stability
+    if !has_section(content, "[meta]") {
+        errors.push("missing [meta] section".to_string());
+        return errors;
+    }
+
+    let name = extract_field(content, "name");
+    let version = extract_field(content, "version");
+    let layer = extract_field(content, "layer");
+    let stability = extract_field(content, "stability");
+
+    if name.is_none() {
+        errors.push("missing meta field: name".to_string());
+    }
+    if version.is_none() {
+        errors.push("missing meta field: version".to_string());
+    }
+    if layer.is_none() {
+        errors.push("missing meta field: layer".to_string());
+    }
+    if stability.is_none() {
+        errors.push("missing meta field: stability".to_string());
+    }
+
+    // 2. layer must be core, stdlib, or pattern
+    if let Some(ref l) = layer {
+        if !["core", "stdlib", "pattern"].contains(&l.as_str()) {
+            errors.push(format!("invalid layer '{}' (expected core|stdlib|pattern)", l));
+        }
+    }
+
+    // 3. stability must be draft, experimental, stable, or deprecated
+    if let Some(ref s) = stability {
+        if !["draft", "experimental", "stable", "deprecated"].contains(&s.as_str()) {
+            errors.push(format!("invalid stability '{}' (expected draft|experimental|stable|deprecated)", s));
+        }
+    }
+
+    // 4. If layer is "pattern": must have [alias] with canonical
+    if let Some(ref l) = layer {
+        if l == "pattern" {
+            if !has_section(content, "[alias]") {
+                errors.push("pattern spec must have [alias] section".to_string());
+            } else {
+                let canonical = extract_field(content, "canonical");
+                if canonical.is_none() {
+                    errors.push("pattern spec [alias] must have 'canonical' field".to_string());
+                }
+
+                // 5. If alias canonical != "none": must NOT have [keys.structural]
+                if let Some(ref c) = canonical {
+                    if c != "none" && has_section(content, "[keys.structural") {
+                        errors.push("alias with canonical != 'none' must not have [keys.structural]".to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // 6. If NOT an alias: should have [shape] section
+    let is_alias = layer.as_deref() == Some("pattern")
+        && extract_field(content, "canonical").map(|c| c != "none").unwrap_or(false);
+    if !is_alias && layer.as_deref() != Some("core") {
+        if !has_section(content, "[shape]") {
+            errors.push("non-alias spec should have [shape] section".to_string());
+        }
+    }
+
+    // 7. version should match semver X.Y.Z
+    if let Some(ref v) = version {
+        let parts: Vec<&str> = v.split('.').collect();
+        let valid = parts.len() == 3 && parts.iter().all(|p| p.parse::<u32>().is_ok());
+        if !valid {
+            errors.push(format!("version '{}' is not valid semver (expected X.Y.Z)", v));
+        }
+    }
+
+    errors
+}
+
+fn spec_validate(args: &[String]) {
+    let dir = args.get(3).map(|s| s.as_str()).unwrap_or("specs");
+    println!("  \x1b[36m⚡\x1b[0m Validating specs in {}/\n", dir);
+
+    let mut passed = 0;
+    let mut failed = 0;
+
+    for subdir in &["core", "stdlib", "patterns"] {
+        let path = format!("{}/{}", dir, subdir);
+        if let Ok(entries) = std::fs::read_dir(&path) {
+            for entry in entries.flatten() {
+                let file_path = entry.path();
+                if file_path.extension().map(|e| e == "toml").unwrap_or(false) {
+                    let content = std::fs::read_to_string(&file_path).unwrap_or_default();
+                    let errors = validate_spec_content(&content, subdir);
+                    if errors.is_empty() {
+                        passed += 1;
+                        println!("  \x1b[32m✓\x1b[0m {}", file_path.display());
+                    } else {
+                        failed += 1;
+                        println!("  \x1b[31m✗\x1b[0m {}", file_path.display());
+                        for err in &errors {
+                            println!("    → {}", err);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    println!("\n  {} passed, {} failed", passed, failed);
+    if failed > 0 {
+        std::process::exit(1);
+    }
+}
+
+fn spec_list(args: &[String]) {
+    let dir = args.get(3).map(|s| s.as_str()).unwrap_or("specs");
+    println!("  \x1b[36m⚡\x1b[0m Specs in {}/\n", dir);
+
+    for subdir in &["core", "stdlib", "patterns"] {
+        let path = format!("{}/{}", dir, subdir);
+        if let Ok(entries) = std::fs::read_dir(&path) {
+            println!("  \x1b[1m{}:\x1b[0m", subdir);
+            let mut files: Vec<_> = entries.flatten().collect();
+            files.sort_by_key(|e| e.file_name());
+            for entry in files {
+                let file_path = entry.path();
+                if file_path.extension().map(|e| e == "toml").unwrap_or(false) {
+                    let content = std::fs::read_to_string(&file_path).unwrap_or_default();
+                    let name = extract_field(&content, "name").unwrap_or_default();
+                    let stability = extract_field(&content, "stability").unwrap_or_default();
+                    let badge = match stability.as_str() {
+                        "stable" => "\x1b[32m●\x1b[0m",
+                        "experimental" => "\x1b[33m●\x1b[0m",
+                        "deprecated" => "\x1b[31m●\x1b[0m",
+                        _ => "\x1b[90m●\x1b[0m",
+                    };
+                    println!("    {} {} ({})", badge, name, stability);
+                }
+            }
+            println!();
+        }
     }
 }
 
