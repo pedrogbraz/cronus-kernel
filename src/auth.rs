@@ -60,7 +60,7 @@ pub fn hash_password(password: &str) -> String {
     argon2
         .hash_password(password.as_bytes(), &salt)
         .map(|h| h.to_string())
-        .unwrap_or_else(|_| format!("$fallback${}", password))
+        .unwrap_or_else(|e| panic!("CRITICAL: Argon2 hashing failed — refusing to store password: {}", e))
 }
 
 /// Verify a password against an Argon2 hash string
@@ -107,9 +107,24 @@ pub fn require_role(claims: &Claims, role: &str) -> bool {
     claims.role == role || claims.role == "admin"
 }
 
-/// Default JWT secret (from env or fallback)
+/// Default JWT secret (from env or generated per-run)
+///
+/// If JWT_SECRET is not set, generates a random secret and warns on stderr.
+/// This means tokens are invalidated on restart — set JWT_SECRET for persistence.
 pub fn default_secret() -> String {
-    std::env::var("JWT_SECRET").unwrap_or_else(|_| "cronus-dev-secret-change-me".to_string())
+    match std::env::var("JWT_SECRET") {
+        Ok(s) if !s.is_empty() => s,
+        _ => {
+            eprintln!("\x1b[33m[CRONUS] WARNING: JWT_SECRET not set — using random per-run secret. Tokens will not survive restarts.\x1b[0m");
+            eprintln!("\x1b[33m[CRONUS] Set JWT_SECRET env var for persistent sessions.\x1b[0m");
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+            let mut hasher = DefaultHasher::new();
+            std::time::SystemTime::now().hash(&mut hasher);
+            std::process::id().hash(&mut hasher);
+            format!("cronus-ephemeral-{:x}-{:x}", hasher.finish(), std::process::id())
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════

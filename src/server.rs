@@ -284,9 +284,23 @@ async fn handle_api(
 // Body reader
 // ──────────────────────────────────────────────
 
+const MAX_BODY_SIZE: usize = 10 * 1024 * 1024; // 10MB
+
 async fn read_body(req: Request<Incoming>) -> Result<Vec<u8>, String> {
+    // Check Content-Length header first for early rejection
+    if let Some(cl) = req.headers().get("content-length") {
+        if let Ok(len) = cl.to_str().unwrap_or("0").parse::<usize>() {
+            if len > MAX_BODY_SIZE {
+                return Err(format!("request body too large: {} bytes (max {})", len, MAX_BODY_SIZE));
+            }
+        }
+    }
     let collected = req.into_body().collect().await.map_err(|e| e.to_string())?;
-    Ok(collected.to_bytes().to_vec())
+    let bytes = collected.to_bytes().to_vec();
+    if bytes.len() > MAX_BODY_SIZE {
+        return Err(format!("request body too large: {} bytes (max {})", bytes.len(), MAX_BODY_SIZE));
+    }
+    Ok(bytes)
 }
 
 // ──────────────────────────────────────────────
@@ -297,11 +311,23 @@ async fn serve_static(dir: &str, req_path: &str) -> Response<Full<Bytes>> {
     let file_path = if req_path == "/" {
         format!("{dir}/index.html")
     } else {
-        let clean = req_path.trim_start_matches('/');
-        if clean.contains("..") {
+        // Decode percent-encoding before path traversal check
+        let decoded = percent_decode(req_path.trim_start_matches('/'));
+        if decoded.contains("..") || decoded.contains('\0') {
             return json_response(StatusCode::BAD_REQUEST, json!({"error": "invalid path"}));
         }
-        format!("{dir}/{clean}")
+        let candidate = format!("{dir}/{decoded}");
+        // Canonicalize and verify the resolved path stays within static dir
+        let canon_dir = match std::fs::canonicalize(dir) {
+            Ok(p) => p,
+            Err(_) => return json_response(StatusCode::NOT_FOUND, json!({"error": "not found"})),
+        };
+        if let Ok(canon_file) = std::fs::canonicalize(&candidate) {
+            if !canon_file.starts_with(&canon_dir) {
+                return json_response(StatusCode::BAD_REQUEST, json!({"error": "invalid path"}));
+            }
+        }
+        candidate
     };
 
     match tokio::fs::read(Path::new(&file_path)).await {
@@ -355,12 +381,47 @@ fn guess_content_type(path: &str) -> &'static str {
 // ──────────────────────────────────────────────
 
 fn json_response(status: StatusCode, body: Value) -> Response<Full<Bytes>> {
+    // CORS: use configurable origin (default: same-origin only in production)
+    let cors_origin = std::env::var("CRONUS_CORS_ORIGIN").unwrap_or_else(|_| "*".to_string());
     Response::builder()
         .status(status)
         .header("Content-Type", "application/json")
-        .header("Access-Control-Allow-Origin", "*")
+        .header("Access-Control-Allow-Origin", cors_origin)
         .header("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
         .header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         .body(Full::new(Bytes::from(body.to_string())))
-        .unwrap()
+        .unwrap_or_else(|_| {
+            Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(Full::new(Bytes::from("{\"error\":\"internal error\"}")))
+                .expect("fallback response must build")
+        })
+}
+
+/// Decode percent-encoded path segments (e.g., %2e%2e → ..)
+fn percent_decode(input: &str) -> String {
+    let mut result = String::with_capacity(input.len());
+    let bytes = input.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let (Some(hi), Some(lo)) = (hex_val(bytes[i + 1]), hex_val(bytes[i + 2])) {
+                result.push((hi << 4 | lo) as char);
+                i += 3;
+                continue;
+            }
+        }
+        result.push(bytes[i] as char);
+        i += 1;
+    }
+    result
+}
+
+fn hex_val(b: u8) -> Option<u8> {
+    match b {
+        b'0'..=b'9' => Some(b - b'0'),
+        b'a'..=b'f' => Some(b - b'a' + 10),
+        b'A'..=b'F' => Some(b - b'A' + 10),
+        _ => None,
+    }
 }

@@ -53,6 +53,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
   document.querySelectorAll('.stagger').forEach(c=>{Array.from(c.children).forEach((ch,i)=>{ch.style.animationDelay=(.05+i*.06)+'s'})});
 
+  // HTML escape — prevent XSS from user-controlled data
+  window.cronusEscape=function(s){
+    if(s==null)return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  };
+
   // Modal system
   window.cronusModal={
     open:function(id){document.getElementById(id).style.display='flex'},
@@ -1705,14 +1711,15 @@ fn render_list(page: &PageNode, entities: &[EntityNode], accent: &str) -> String
   var allData = [];
 
   function badge(val, field) {{
-    if (enumFields.indexOf(field)===-1) return '<span style="font-size:13px;color:var(--foreground-muted)">'+(val||'\u2014')+'</span>';
+    var esc=window.cronusEscape;
+    if (enumFields.indexOf(field)===-1) return '<span style="font-size:13px;color:var(--foreground-muted)">'+esc(val||'\u2014')+'</span>';
     var v=(val||'').toLowerCase();
     var isPaid=v==='active'||v==='paid'||v==='completed'||v==='succeeded'||v==='approved';
     var isFail=v==='failed'||v==='cancelled'||v==='rejected'||v==='error';
     var dotColor=isPaid?'oklch(0.696 0.17 162)':isFail?'oklch(0.704 0.191 22)':'oklch(0.769 0.188 70)';
     var textColor=isPaid?'oklch(0.696 0.17 162)':isFail?'oklch(0.704 0.191 22)':'oklch(0.769 0.188 70)';
     var bgColor=isPaid?'oklch(0.696 0.17 162/8%)':isFail?'oklch(0.704 0.191 22/8%)':'oklch(0.769 0.188 70/8%)';
-    return '<span style="display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:500;background:'+bgColor+';color:'+textColor+';border:1px solid '+dotColor.replace(')','/20%)')+'"><span style="width:5px;height:5px;border-radius:50%;background:'+dotColor+'"></span>'+(val||'\u2014')+'</span>';
+    return '<span style="display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:500;background:'+bgColor+';color:'+textColor+';border:1px solid '+dotColor.replace(')','/20%)')+'"><span style="width:5px;height:5px;border-radius:50%;background:'+dotColor+'"></span>'+esc(val||'\u2014')+'</span>';
   }}
 
   var pageSize=10,currentPage=0;
@@ -1726,14 +1733,16 @@ fn render_list(page: &PageNode, entities: &[EntityNode], accent: &str) -> String
     if(!data.length){{tbody.innerHTML='';empty.style.display='block';countLabel.textContent='0 registros';renderPaginationLabel(0);return}}
     empty.style.display='none';
     countLabel.textContent=data.length+' registro'+(data.length!==1?'s':'');
+    var esc=window.cronusEscape;
     tbody.innerHTML=data.map(function(row,i){{
       var cells=fields.map(function(f){{
         return '<td style="padding:10px 16px;font-size:13px;color:var(--foreground-muted)">'+badge(row[f],f)+'</td>';
       }}).join('');
+      var safeId=esc(row.id||'');
       var bg=i%2===0?'':'background:var(--surface-hover)';
-      return '<tr style="border-bottom:1px solid var(--surface-hover);'+bg+';cursor:pointer" onmouseover="this.style.background=\'var(--surface-hover)\'" onclick="cronusEdit(\''+lower+'\',\''+((row.id||''))+'\')" data-id="'+(row.id||'')+'">'+cells+
+      return '<tr style="border-bottom:1px solid var(--surface-hover);'+bg+';cursor:pointer" onmouseover="this.style.background=\'var(--surface-hover)\'" onclick="cronusEdit(\''+lower+'\',\''+safeId+'\')" data-id="'+safeId+'">'+cells+
         '<td style="padding:10px 8px;text-align:center;display:flex;gap:4px;align-items:center;justify-content:center">'+
-        '<button onclick="event.stopPropagation();cronusDelete(\''+lower+'\',\''+(row.id||'')+'\')" style="background:none;border:none;cursor:pointer;opacity:0.3;padding:2px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.3"><span class="material-symbols-outlined" style="font-size:16px;color:#dc2626">delete</span></button>'+
+        '<button onclick="event.stopPropagation();cronusDelete(\''+lower+'\',\''+safeId+'\')" style="background:none;border:none;cursor:pointer;opacity:0.3;padding:2px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.3"><span class="material-symbols-outlined" style="font-size:16px;color:#dc2626">delete</span></button>'+
         '<svg width="14" height="14" fill="none" stroke="var(--foreground-subtle)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>'+
         '</td></tr>';
     }}).join('');
@@ -1950,7 +1959,8 @@ fn render_product_grid(title: &str, lower: &str, _entity: Option<&EntityNode>) -
     if(!data.length){{g.innerHTML='';e.style.display='block';return}}
     e.style.display='none';
     g.innerHTML=data.map(function(row){{
-      var name=row.name||row.title||'Sem nome';var s=(row.status||row.live||'active').toString().toLowerCase();
+      var esc=window.cronusEscape;
+      var name=esc(row.name||row.title||'Sem nome');var s=(row.status||row.live||'active').toString().toLowerCase();
       var ok=s==='active'||s==='true'||s==='ativo';var dc=ok?'oklch(0.696 0.17 162)':'oklch(0.5 0 0)';var lb=ok?'Ativo':'Rascunho';
       return '<div style="border-radius:18px;border:1px solid var(--border);overflow:hidden;background:var(--card);cursor:pointer">'
         +'<div style="height:140px;background:var(--surface-hover);display:flex;align-items:center;justify-content:center"><svg width="32" height="32" fill="none" stroke="var(--foreground-subtle)" stroke-width="1" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>'
@@ -2149,13 +2159,13 @@ fn render_detail(page: &PageNode, _entities: &[EntityNode], accent: &str) -> Str
   var id=window.location.pathname.split('/').pop();
   fetch('/api/{lower}s/'+id).then(function(r){{return r.json()}}).then(function(d){{
     if(d.error){{document.getElementById('detail-body').innerHTML='<div class="p-8 text-center text-red-400 font-mono">Not found</div>';return;}}
-    var h='';
+    var esc=window.cronusEscape;var h='';
     Object.keys(d).forEach(function(k){{
       if(k==='updated_at')return;
       var v=d[k];if(v===null||v===undefined)v='\u2014';
       h+='<div class="flex items-center justify-between px-6 py-4 border-b border-neutral-800/30 hover:bg-neutral-900/30 transition-colors">';
-      h+='<span class="font-mono text-[10px] uppercase tracking-[0.15em] text-neutral-500">'+k+'</span>';
-      h+='<span class="text-sm text-neutral-300 font-mono">'+v+'</span>';
+      h+='<span class="font-mono text-[10px] uppercase tracking-[0.15em] text-neutral-500">'+esc(k)+'</span>';
+      h+='<span class="text-sm text-neutral-300 font-mono">'+esc(v)+'</span>';
       h+='</div>';
     }});
     document.getElementById('detail-body').innerHTML=h;

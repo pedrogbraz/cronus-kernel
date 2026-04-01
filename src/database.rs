@@ -644,18 +644,22 @@ impl CronusDB {
             _ => " ORDER BY rowid DESC".to_string(),
         };
 
-        // Build LIMIT/OFFSET
-        let limit_val = limit.unwrap_or(100);
-        let offset_val = offset.unwrap_or(0);
+        // Build LIMIT/OFFSET — use parameterized values to prevent SQL injection
+        let limit_val = limit.unwrap_or(100).min(1000) as i64; // cap at 1000
+        let offset_val = offset.unwrap_or(0) as i64;
 
         let sql = format!(
-            "SELECT * FROM \"{}\"{}{} LIMIT {} OFFSET {}",
-            table, where_clause, order_clause, limit_val, offset_val
+            "SELECT * FROM \"{}\"{}{} LIMIT ? OFFSET ?",
+            table, where_clause, order_clause
         );
 
-        // Execute with params
+        // Execute with params (filters + limit + offset all parameterized)
         let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
         let col_names: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
+
+        // Append LIMIT and OFFSET as bound parameters
+        params_vec.push(limit_val.to_string());
+        params_vec.push(offset_val.to_string());
 
         let params_refs: Vec<&dyn rusqlite::types::ToSql> = params_vec
             .iter()

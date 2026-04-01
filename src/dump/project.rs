@@ -49,7 +49,7 @@ pub fn dump_project(dir: &Path) -> String {
 
     let mut entities_cronus = String::new();
     let mut routes_cronus = String::new();
-    let mut auth_cronus = String::new();
+    let auth_cronus;
     let mut style_cronus = String::new();
 
     // Phase 2: EXTRACT DATA LAYER
