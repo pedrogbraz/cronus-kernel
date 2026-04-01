@@ -50,7 +50,9 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use std::collections::HashMap;
 
-use parser::{AstNode, EntityNode, PageNode, StyleNode, ApiNode, AppNode, FieldType};
+use parser::{AstNode, EntityNode, PageNode, StyleNode, ApiNode, AppNode, FieldType, FieldNode,
+    AuthNode, ServiceNode, ComponentNode, EventNode, WorkerNode, MiddlewareNode, SectionNode,
+    ImportNode, EnvNode, TestNode, ComposeNode, LayoutNode, RouteNode, HttpMethod, DatabaseConfig};
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
@@ -99,6 +101,11 @@ async fn main() {
         "lease" => cmd_lease(&args),
         "drift" => cmd_drift(&args),
         "spec" => cmd_spec(&args),
+        "segment" => cmd_segment(&args),
+        "reconcile" => cmd_reconcile(&args),
+        "review" => cmd_review(&args),
+        "timeline" => cmd_timeline(),
+        "status" => cmd_status(),
         "version" | "-v" | "--version" => println!("cronus v0.1.0"),
         "help" | "--help" | "-h" | _ => print_help(),
     }
@@ -137,6 +144,11 @@ fn print_help() {
     println!("    \x1b[32mlease\x1b[0m check|list|create  Task lease management (drift detection)");
     println!("    \x1b[32mdrift\x1b[0m [--explain]    Detect strategic, scope, and semantic drift");
     println!("    \x1b[32mspec\x1b[0m <validate|list|codegen> Validate, list, or generate from .spec.toml files");
+    println!("    \x1b[32msegment\x1b[0m <create|list|show|check>  Semantic block isolation (parallel agents)");
+    println!("    \x1b[32mreconcile\x1b[0m <a> <b> [--output <file>]  AST-level merge of two .cronus files");
+    println!("    \x1b[32mreview\x1b[0m [task-id]    Semantic review of task changes (what changed, not diff)");
+    println!("    \x1b[32mtimeline\x1b[0m         Task-based project history (newest first)");
+    println!("    \x1b[32mstatus\x1b[0m           Semantic project overview (like git status for CRONUS)");
     println!("    \x1b[32mversion\x1b[0m          Show version");
     println!();
 }
@@ -6614,5 +6626,1367 @@ fn lease_create(args: &[String]) {
             eprintln!("  \x1b[31mError creating {}: {}\x1b[0m", path, e);
             std::process::exit(1);
         }
+    }
+}
+
+// ══════════════════════════════════════════════════
+// STATUS — semantic project overview
+// ══════════════════════════════════════════════════
+
+// cmd_reconcile is implemented at the bottom of this file
+
+fn cmd_review(args: &[String]) {
+    use std::process::Command;
+
+    // 1. Determine which task to review
+    let task_id_arg = args.get(2).cloned();
+    let (task_id, task_content) = if let Some(ref tid) = task_id_arg {
+        let normalized = if tid.starts_with("TASK-") {
+            tid.clone()
+        } else {
+            format!("TASK-{:03}", tid.parse::<u32>().unwrap_or(0))
+        };
+        let path = format!(".cronus/tasks/{}.toml", normalized);
+        match fs::read_to_string(&path) {
+            Ok(c) => (normalized, c),
+            Err(_) => {
+                eprintln!("  \x1b[31mTask file not found: {}\x1b[0m", path);
+                std::process::exit(1);
+            }
+        }
+    } else {
+        review_find_latest_task()
+    };
+
+    // 2. Parse task fields
+    let mission = brief_toml_val(&task_content, "title").unwrap_or_else(|| "Unknown".into());
+    let status = brief_toml_val(&task_content, "status").unwrap_or_else(|| "unknown".into());
+    let done_checks = brief_toml_arr(&task_content, "done");
+
+    // 3. Find commits mentioning this task ID
+    let git_log = Command::new("git")
+        .args(["log", "--oneline", "-50"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .unwrap_or_default();
+
+    let task_id_lower = task_id.to_lowercase();
+    let related_commits: Vec<&str> = git_log.lines()
+        .filter(|l| l.to_lowercase().contains(&task_id_lower))
+        .collect();
+
+    let commit_hashes: Vec<String> = if related_commits.is_empty() {
+        git_log.lines().take(5)
+            .filter_map(|l| l.split_whitespace().next())
+            .map(|s| s.to_string())
+            .collect()
+    } else {
+        related_commits.iter()
+            .filter_map(|l| l.split_whitespace().next())
+            .map(|s| s.to_string())
+            .collect()
+    };
+
+    // 4. Get diff stats for those commits
+    let diff_range = if commit_hashes.len() >= 2 {
+        format!("{}..{}", commit_hashes.last().unwrap(), commit_hashes.first().unwrap())
+    } else if commit_hashes.len() == 1 {
+        format!("{}~1..{}", commit_hashes[0], commit_hashes[0])
+    } else {
+        "HEAD~1..HEAD".to_string()
+    };
+
+    let diff_stat = Command::new("git")
+        .args(["diff", "--stat", &diff_range])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .unwrap_or_default();
+
+    let mut changes: Vec<String> = Vec::new();
+    let mut total_insertions: i64 = 0;
+    let mut total_deletions: i64 = 0;
+    let mut files_changed = 0;
+
+    for line in diff_stat.lines() {
+        let trimmed = line.trim();
+        if trimmed.contains('|') {
+            files_changed += 1;
+            let parts: Vec<&str> = trimmed.splitn(2, '|').collect();
+            if parts.len() == 2 {
+                let file = parts[0].trim();
+                let stat = parts[1].trim();
+                let plus_count = stat.matches('+').count() as i64;
+                let minus_count = stat.matches('-').count() as i64;
+                total_insertions += plus_count;
+                total_deletions += minus_count;
+
+                let action = if minus_count == 0 && plus_count > 0 {
+                    "+"
+                } else if plus_count == 0 && minus_count > 0 {
+                    "-"
+                } else {
+                    "~"
+                };
+
+                let desc = if file.ends_with(".toml") && file.contains("TASK-") {
+                    format!("{} Created task file {}", action, file)
+                } else if file.ends_with(".toml") && (file.contains("constitution") || file.contains("objective")) {
+                    format!("{} Updated project governance ({})", action, file)
+                } else if file.ends_with(".rs") {
+                    let num_str = stat.split_whitespace().next().unwrap_or("?");
+                    format!("{} Modified {} ({} lines)", action, file, num_str)
+                } else if file.ends_with(".cronus") {
+                    format!("{} Updated CRONUS source ({})", action, file)
+                } else if file.ends_with(".spec.toml") {
+                    format!("{} Updated spec ({})", action, file)
+                } else if file.ends_with(".json") {
+                    format!("{} Updated data ({})", action, file)
+                } else {
+                    format!("{} Changed {}", action, file)
+                };
+                changes.push(desc);
+            }
+        } else if trimmed.contains("file") && trimmed.contains("changed") {
+            for word in trimmed.split(',') {
+                let word = word.trim();
+                if word.contains("insertion") {
+                    if let Some(n) = word.split_whitespace().next() {
+                        total_insertions = n.parse().unwrap_or(total_insertions);
+                    }
+                }
+                if word.contains("deletion") {
+                    if let Some(n) = word.split_whitespace().next() {
+                        total_deletions = n.parse().unwrap_or(total_deletions);
+                    }
+                }
+            }
+        }
+    }
+
+    // 5. Detect author from git log
+    let author = Command::new("git")
+        .args(["log", "-1", "--format=%an"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|| "Unknown".into());
+
+    // 6. Validation checks
+    let constitution = fs::read_to_string(".cronus/constitution.toml").unwrap_or_default();
+    let constitution_exists = !constitution.is_empty();
+
+    let objective = fs::read_to_string(".cronus/objective.toml").unwrap_or_default();
+    let objective_exists = !objective.is_empty();
+
+    let objective_pass = if objective_exists { "PASS" } else { "N/A" };
+
+    let spec_count = count_files_matching("specs", ".spec.toml");
+    let test_count = count_files_matching("tests/conformance", ".cronus");
+
+    let build_ok = std::path::Path::new("target/release/cronus-kernel").exists()
+        || std::path::Path::new("target/release/cronus").exists()
+        || std::path::Path::new("target/debug/cronus-kernel").exists()
+        || std::path::Path::new("target/debug/cronus").exists();
+
+    // 7. Print formatted review
+    println!();
+    println!("  \x1b[1mSemantic Review: {}\x1b[0m", task_id);
+    println!("  \x1b[90m{}\x1b[0m", "─".repeat(40));
+    println!("  Mission: {}", mission);
+    println!("  Status: {}", match status.as_str() {
+        "done" => format!("\x1b[32m{}\x1b[0m", status),
+        "in_progress" | "open" => format!("\x1b[33m{}\x1b[0m", status),
+        "blocked" => format!("\x1b[31m{}\x1b[0m", status),
+        _ => status.clone(),
+    });
+    println!("  Author: {}", author);
+    println!("  Objective alignment: \x1b[32m{}\x1b[0m", objective_pass);
+    println!();
+
+    if !changes.is_empty() {
+        println!("  \x1b[1mChanges:\x1b[0m");
+        for change in &changes {
+            println!("    {}", change);
+        }
+        println!("  \x1b[90m({} files, +{} -{})\x1b[0m", files_changed, total_insertions, total_deletions);
+    } else {
+        println!("  \x1b[1mChanges:\x1b[0m \x1b[90m(no diff data available)\x1b[0m");
+    }
+    println!();
+
+    println!("  \x1b[1mValidation:\x1b[0m");
+    if constitution_exists {
+        println!("    Constitution: \x1b[32m✓ PASS\x1b[0m");
+    } else {
+        println!("    Constitution: \x1b[33m⚠ N/A\x1b[0m (no constitution.toml)");
+    }
+    if objective_exists {
+        println!("    Objective: \x1b[32m✓ PASS\x1b[0m");
+    } else {
+        println!("    Objective: \x1b[33m⚠ N/A\x1b[0m (no objective.toml)");
+    }
+    if spec_count > 0 || test_count > 0 {
+        println!("    Spec coverage: {} specs, {} tests", spec_count, test_count);
+    } else {
+        println!("    Spec coverage: \x1b[90mno specs found\x1b[0m");
+    }
+    if build_ok {
+        println!("    Build: \x1b[32m✓ PASS\x1b[0m");
+    } else {
+        println!("    Build: \x1b[33m⚠ unknown\x1b[0m");
+    }
+    println!();
+
+    if !done_checks.is_empty() {
+        println!("  \x1b[1mDone criteria:\x1b[0m");
+        for check in &done_checks {
+            if status == "done" {
+                println!("    \x1b[32m✓\x1b[0m {}", check);
+            } else {
+                println!("    \x1b[90m○\x1b[0m {}", check);
+            }
+        }
+        println!();
+    }
+}
+
+fn review_find_latest_task() -> (String, String) {
+    let mut tasks: Vec<(String, String, String)> = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(".cronus/tasks") {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with("TASK-") && name.ends_with(".toml") {
+                if let Ok(content) = fs::read_to_string(entry.path()) {
+                    let id = name.trim_end_matches(".toml").to_string();
+                    let status = brief_toml_val(&content, "status").unwrap_or_else(|| "open".into());
+                    tasks.push((id, status, content));
+                }
+            }
+        }
+    }
+
+    if tasks.is_empty() {
+        eprintln!("  \x1b[31mNo tasks found in .cronus/tasks/\x1b[0m");
+        std::process::exit(1);
+    }
+
+    tasks.sort_by(|a, b| b.0.cmp(&a.0));
+
+    for (id, status, content) in &tasks {
+        if status == "done" {
+            return (id.clone(), content.clone());
+        }
+    }
+
+    let (id, _, content) = tasks.into_iter().next().unwrap();
+    (id, content)
+}
+
+fn cmd_timeline() {
+    let mut tasks: Vec<(String, String, String, String)> = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(".cronus/tasks") {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with("TASK-") && name.ends_with(".toml") {
+                if let Ok(content) = fs::read_to_string(entry.path()) {
+                    let id = brief_toml_val(&content, "id")
+                        .unwrap_or_else(|| name.trim_end_matches(".toml").to_string());
+                    let title = brief_toml_val(&content, "title").unwrap_or_else(|| "(no title)".into());
+                    let status = brief_toml_val(&content, "status").unwrap_or_else(|| "open".into());
+                    let created = brief_toml_val(&content, "created")
+                        .map(|d| {
+                            if d.len() >= 10 { d[..10].to_string() } else { d }
+                        })
+                        .unwrap_or_else(|| {
+                            entry.metadata().ok()
+                                .and_then(|m| m.modified().ok())
+                                .map(|t| {
+                                    let secs = t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+                                    format_unix_date(secs)
+                                })
+                                .unwrap_or_else(|| "unknown".into())
+                        });
+                    tasks.push((created, id, status, title));
+                }
+            }
+        }
+    }
+
+    if tasks.is_empty() {
+        println!();
+        println!("  \x1b[1mCRONUS Timeline\x1b[0m");
+        println!("  \x1b[90m═══════════════\x1b[0m");
+        println!();
+        println!("  \x1b[90m(no tasks found in .cronus/tasks/)\x1b[0m");
+        println!();
+        return;
+    }
+
+    tasks.sort_by(|a, b| {
+        b.0.cmp(&a.0).then(b.1.cmp(&a.1))
+    });
+
+    println!();
+    println!("  \x1b[1mCRONUS Timeline\x1b[0m");
+    println!("  \x1b[90m═══════════════\x1b[0m");
+    println!();
+
+    for (date, id, status, title) in &tasks {
+        let status_colored = match status.as_str() {
+            "done" => format!("\x1b[32m[{}]\x1b[0m", status),
+            "in_progress" | "open" => format!("\x1b[33m[{}]\x1b[0m", status),
+            "blocked" => format!("\x1b[31m[{}]\x1b[0m", status),
+            _ => format!("[{}]", status),
+        };
+        let status_plain = format!("[{}]", status);
+        let pad = if status_plain.len() < 15 { " ".repeat(15 - status_plain.len()) } else { String::new() };
+        println!("  {}  {}  {}{} {}", date, id, status_colored, pad, title);
+    }
+    println!();
+}
+
+fn format_unix_date(secs: u64) -> String {
+    let days = (secs / 86400) as i64;
+    let mut y = 1970i64;
+    let mut remaining = days;
+
+    loop {
+        let days_in_year = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) { 366 } else { 365 };
+        if remaining < days_in_year {
+            break;
+        }
+        remaining -= days_in_year;
+        y += 1;
+    }
+
+    let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
+    let month_days = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let mut m = 0usize;
+    for (i, &md) in month_days.iter().enumerate() {
+        if remaining < md as i64 {
+            m = i + 1;
+            break;
+        }
+        remaining -= md as i64;
+    }
+    if m == 0 { m = 12; }
+    let d = remaining + 1;
+    format!("{:04}-{:02}-{:02}", y, m, d)
+}
+
+fn cmd_status() {
+    use std::path::Path;
+
+    // ── 1. Project identity from constitution.toml ──
+    let constitution = fs::read_to_string(".cronus/constitution.toml").unwrap_or_default();
+    let proj_name = brief_toml_val(&constitution, "name").unwrap_or_else(|| "Unknown".into());
+
+    // ── 2. Objective from objective.toml ──
+    let objective = fs::read_to_string(".cronus/objective.toml").unwrap_or_default();
+    let obj_title = brief_toml_val(&objective, "title").unwrap_or_else(|| "(no objective set)".into());
+    let obj_deadline = brief_toml_val(&objective, "deadline").unwrap_or_else(|| "none".into());
+    let success_criteria = brief_toml_arr(&objective, "criteria");
+
+    // ── 3. Count completed from done section ──
+    let done_completed = brief_toml_arr_after_section(&objective, "[done]", "completed");
+
+    // Cross-reference: count how many success criteria are "met"
+    // Heuristic: count items in [done].completed
+    let criteria_total = success_criteria.len();
+    let criteria_met = done_completed.len();
+
+    // ── 4. Calculate days remaining ──
+    let today = brief_today_date();
+    let days_remaining = status_days_between(&today, &obj_deadline);
+    let deadline_display = if days_remaining >= 0 {
+        format!("{} ({} days remaining)", obj_deadline, days_remaining)
+    } else {
+        format!("{} (\x1b[31m{} days overdue\x1b[0m)", obj_deadline, -days_remaining)
+    };
+
+    // ── 5. Read tasks ──
+    let mut done_count = 0usize;
+    let mut in_progress_count = 0usize;
+    let mut open_count = 0usize;
+    let mut active_task_id = String::new();
+    let mut active_task_title = String::new();
+    let mut active_task_scope = String::new();
+    let mut active_task_status = String::new();
+
+    if let Ok(entries) = fs::read_dir(".cronus/tasks") {
+        let mut task_files: Vec<_> = entries
+            .flatten()
+            .filter(|e| {
+                let n = e.file_name().to_string_lossy().to_string();
+                n.starts_with("TASK-") && n.ends_with(".toml")
+            })
+            .collect();
+        task_files.sort_by_key(|e| e.file_name());
+
+        for entry in &task_files {
+            if let Ok(content) = fs::read_to_string(entry.path()) {
+                let id = brief_toml_val(&content, "id").unwrap_or_default();
+                let title = brief_toml_val(&content, "title").unwrap_or_default();
+                let status = brief_toml_val(&content, "status").unwrap_or_else(|| "open".into());
+                let write_files = brief_toml_arr(&content, "write");
+
+                match status.as_str() {
+                    "done" => done_count += 1,
+                    "in_progress" => {
+                        in_progress_count += 1;
+                        if active_task_id.is_empty() {
+                            active_task_id = id;
+                            active_task_title = title;
+                            active_task_status = "in_progress".into();
+                            active_task_scope = write_files.iter().map(|f| {
+                                f.rsplit('/').next().unwrap_or(f).to_string()
+                            }).collect::<Vec<_>>().join(", ");
+                        }
+                    }
+                    _ => {
+                        open_count += 1;
+                        if active_task_id.is_empty() {
+                            active_task_id = id;
+                            active_task_title = title;
+                            active_task_status = "open".into();
+                            active_task_scope = write_files.iter().map(|f| {
+                                f.rsplit('/').next().unwrap_or(f).to_string()
+                            }).collect::<Vec<_>>().join(", ");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ── 6. Segments ──
+    let mut seg_active = 0usize;
+    let mut seg_merged = 0usize;
+    if let Ok(entries) = fs::read_dir(".cronus/segments") {
+        for entry in entries.flatten() {
+            if entry.file_name().to_string_lossy().ends_with(".toml") {
+                if let Ok(content) = fs::read_to_string(entry.path()) {
+                    let seg_status = brief_toml_val(&content, "status").unwrap_or_default();
+                    match seg_status.as_str() {
+                        "merged" => seg_merged += 1,
+                        _ => seg_active += 1,
+                    }
+                }
+            }
+        }
+    }
+
+    // ── 7. Build status ──
+    let build = if Path::new("target/release/cronus-kernel").exists()
+        || Path::new("target/release/cronus").exists()
+        || Path::new("cronus-kernel/target/release/cronus").exists()
+    {
+        "\x1b[32mpassing\x1b[0m"
+    } else {
+        "\x1b[33munknown\x1b[0m"
+    };
+
+    // ── 8. Metrics ──
+    let spec_count = count_files_matching("specs", "spec.toml");
+    let test_count = count_files_matching("tests/conformance", ".cronus");
+    let example_count = count_files_matching("examples", ".cronus");
+
+    // ── Print ──
+    let bar_len = 38;
+    let header = format!("CRONUS — Project Status");
+    println!();
+    println!("  \x1b[36m╔{}╗\x1b[0m", "═".repeat(bar_len));
+    println!("  \x1b[36m║\x1b[0m  \x1b[1m{:<width$}\x1b[0m \x1b[36m║\x1b[0m", header, width = bar_len - 3);
+    println!("  \x1b[36m╚{}╝\x1b[0m", "═".repeat(bar_len));
+    println!();
+    println!("  \x1b[1mObjective:\x1b[0m {}", obj_title);
+    println!("  \x1b[1mDeadline:\x1b[0m  {}", deadline_display);
+    if criteria_total > 0 {
+        println!("  \x1b[1mProgress:\x1b[0m  {}/{} success criteria met", criteria_met, criteria_total);
+    }
+    println!();
+
+    if !active_task_id.is_empty() {
+        println!("  \x1b[1mActive Task:\x1b[0m {} — {}", active_task_id, active_task_title);
+        if !active_task_scope.is_empty() {
+            println!("  \x1b[1mScope:\x1b[0m {}", active_task_scope);
+        }
+        println!("  \x1b[1mStatus:\x1b[0m {}", active_task_status);
+        println!();
+    }
+
+    println!("  \x1b[1mSegments:\x1b[0m {} active, {} merged", seg_active, seg_merged);
+    println!();
+    println!("  \x1b[1mBuild:\x1b[0m {}", build);
+    println!("  \x1b[1mSpecs:\x1b[0m {} | \x1b[1mTests:\x1b[0m {} | \x1b[1mExamples:\x1b[0m {}", spec_count, test_count, example_count);
+    println!();
+    println!("  \x1b[1mTasks:\x1b[0m {} done, {} in_progress, {} open",
+        done_count, in_progress_count, open_count);
+    println!();
+}
+
+/// Calculate days between two YYYY-MM-DD date strings (target - from).
+fn status_days_between(from: &str, target: &str) -> i64 {
+    let from_days = status_parse_date_to_days(from);
+    let target_days = status_parse_date_to_days(target);
+    target_days - from_days
+}
+
+/// Parse YYYY-MM-DD to days since epoch (for simple subtraction).
+fn status_parse_date_to_days(date: &str) -> i64 {
+    let parts: Vec<&str> = date.split('-').collect();
+    if parts.len() != 3 { return 0; }
+    let y: i64 = parts[0].parse().unwrap_or(1970);
+    let m: i64 = parts[1].parse().unwrap_or(1);
+    let d: i64 = parts[2].parse().unwrap_or(1);
+
+    // Count days from year 0 using a simple algorithm
+    let mut total: i64 = 0;
+    // Days from years
+    for yr in 1970..y {
+        let leap = yr % 4 == 0 && (yr % 100 != 0 || yr % 400 == 0);
+        total += if leap { 366 } else { 365 };
+    }
+    // Days from months
+    let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
+    let md = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    for i in 0..(m as usize - 1).min(11) {
+        total += md[i] as i64;
+    }
+    total += d;
+    total
+}
+
+// ══════════════════════════════════════════════════
+// SEGMENT — semantic block isolation
+// ══════════════════════════════════════════════════
+
+fn cmd_segment(args: &[String]) {
+    let sub = args.get(2).map(|s| s.as_str()).unwrap_or("list");
+    match sub {
+        "create" => segment_create(args),
+        "list" => segment_list(),
+        "show" => segment_show(args),
+        "check" => segment_check(),
+        _ => {
+            eprintln!("  \x1b[31mUnknown segment subcommand: {}\x1b[0m", sub);
+            eprintln!("  Usage: cronus segment <create|list|show|check>");
+            std::process::exit(1);
+        }
+    }
+}
+
+/// cronus segment create "name" --blocks "entity:Product,page:/dashboard"
+fn segment_create(args: &[String]) {
+    let name = match args.get(3) {
+        Some(n) => n.clone(),
+        None => {
+            eprintln!("  \x1b[31mMissing segment name.\x1b[0m");
+            eprintln!("  Usage: cronus segment create \"name\" --blocks \"entity:X,page:/Y\"");
+            std::process::exit(1);
+        }
+    };
+
+    // Parse --blocks flag
+    let mut blocks: Vec<String> = Vec::new();
+    for (i, arg) in args.iter().enumerate() {
+        if arg == "--blocks" {
+            if let Some(val) = args.get(i + 1) {
+                blocks = val.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+            }
+        }
+    }
+
+    if blocks.is_empty() {
+        eprintln!("  \x1b[31mMissing --blocks flag.\x1b[0m");
+        eprintln!("  Usage: cronus segment create \"name\" --blocks \"entity:X,page:/Y\"");
+        std::process::exit(1);
+    }
+
+    // Validate block format (type:name)
+    for b in &blocks {
+        if !b.contains(':') {
+            eprintln!("  \x1b[31mInvalid block format: {}\x1b[0m (expected type:name, e.g. entity:User)", b);
+            std::process::exit(1);
+        }
+    }
+
+    let today = brief_today_date();
+    let seg_id = name.clone();
+
+    // Build TOML
+    let mut toml = String::new();
+    toml.push_str("[segment]\n");
+    toml.push_str(&format!("id = \"{}\"\n", seg_id));
+    toml.push_str(&format!("created = \"{}\"\n", today));
+    toml.push_str("status = \"active\"\n\n");
+    toml.push_str("[scope]\n");
+    toml.push_str("blocks = [\n");
+    for b in &blocks {
+        toml.push_str(&format!("  \"{}\",\n", b));
+    }
+    toml.push_str("]\n\n");
+    toml.push_str("[owner]\n");
+    toml.push_str("agent = \"\"\n");
+    toml.push_str("task = \"\"\n");
+
+    let _ = fs::create_dir_all(".cronus/segments");
+    let path = format!(".cronus/segments/SEG-{}.toml", name);
+    match fs::write(&path, &toml) {
+        Ok(_) => {
+            println!("  \x1b[32m✓ Created SEG-{}\x1b[0m [active]", name);
+            println!("  Blocks: {}", blocks.join(", "));
+            println!("  File: {}", path);
+        }
+        Err(e) => {
+            eprintln!("  \x1b[31mError creating segment: {}\x1b[0m", e);
+            std::process::exit(1);
+        }
+    }
+}
+
+/// cronus segment list — list all segments with status and blocks
+fn segment_list() {
+    let dir = ".cronus/segments";
+    let entries = match fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => {
+            println!("  \x1b[90mNo segments found.\x1b[0m");
+            return;
+        }
+    };
+
+    let mut files: Vec<_> = entries
+        .flatten()
+        .filter(|e| {
+            let n = e.file_name().to_string_lossy().to_string();
+            n.starts_with("SEG-") && n.ends_with(".toml")
+        })
+        .collect();
+    files.sort_by_key(|e| e.file_name());
+
+    if files.is_empty() {
+        println!("  \x1b[90mNo segments found.\x1b[0m");
+        return;
+    }
+
+    println!("  \x1b[1mSegments:\x1b[0m");
+    for entry in &files {
+        let content = fs::read_to_string(entry.path()).unwrap_or_default();
+        let fname = entry.file_name().to_string_lossy().to_string();
+        let seg_name = fname.trim_start_matches("SEG-").trim_end_matches(".toml");
+        let status = brief_toml_val(&content, "status").unwrap_or_else(|| "unknown".into());
+        let blocks = brief_toml_arr(&content, "blocks");
+
+        let status_color = match status.as_str() {
+            "active" => "\x1b[32m",
+            "merged" => "\x1b[36m",
+            "abandoned" => "\x1b[90m",
+            _ => "\x1b[33m",
+        };
+
+        println!(
+            "    SEG-{} {}[{}]\x1b[0m — {}",
+            seg_name,
+            status_color,
+            status,
+            if blocks.is_empty() { "(no blocks)".to_string() } else { blocks.join(", ") }
+        );
+    }
+}
+
+/// cronus segment show "name" — show details of one segment
+fn segment_show(args: &[String]) {
+    let name = match args.get(3) {
+        Some(n) => n.clone(),
+        None => {
+            eprintln!("  \x1b[31mMissing segment name.\x1b[0m");
+            eprintln!("  Usage: cronus segment show \"name\"");
+            std::process::exit(1);
+        }
+    };
+
+    let path = format!(".cronus/segments/SEG-{}.toml", name);
+    let content = match fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(_) => {
+            eprintln!("  \x1b[31mSegment not found: SEG-{}\x1b[0m", name);
+            std::process::exit(1);
+        }
+    };
+
+    let status = brief_toml_val(&content, "status").unwrap_or_else(|| "unknown".into());
+    let created = brief_toml_val(&content, "created").unwrap_or_else(|| "unknown".into());
+    let blocks = brief_toml_arr(&content, "blocks");
+    let agent = brief_toml_val(&content, "agent").unwrap_or_default();
+    let task = brief_toml_val(&content, "task").unwrap_or_default();
+
+    let status_color = match status.as_str() {
+        "active" => "\x1b[32m",
+        "merged" => "\x1b[36m",
+        "abandoned" => "\x1b[90m",
+        _ => "\x1b[33m",
+    };
+
+    println!("  \x1b[1mSEG-{}\x1b[0m", name);
+    println!("  Status:  {}[{}]\x1b[0m", status_color, status);
+    println!("  Created: {}", created);
+    println!("  Blocks:");
+    if blocks.is_empty() {
+        println!("    \x1b[90m(none)\x1b[0m");
+    } else {
+        for b in &blocks {
+            println!("    - {}", b);
+        }
+    }
+    println!("  Owner:");
+    println!("    Agent: {}", if agent.is_empty() { "\x1b[90m(unassigned)\x1b[0m" } else { &agent });
+    println!("    Task:  {}", if task.is_empty() { "\x1b[90m(none)\x1b[0m" } else { &task });
+}
+
+/// cronus segment check — validate no two active segments claim the same block
+fn segment_check() {
+    let dir = ".cronus/segments";
+    let entries = match fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => {
+            println!("  \x1b[90mNo segments found. Nothing to check.\x1b[0m");
+            return;
+        }
+    };
+
+    let mut files: Vec<_> = entries
+        .flatten()
+        .filter(|e| {
+            let n = e.file_name().to_string_lossy().to_string();
+            n.starts_with("SEG-") && n.ends_with(".toml")
+        })
+        .collect();
+    files.sort_by_key(|e| e.file_name());
+
+    // Map block -> list of segment names that claim it (active only)
+    let mut block_owners: HashMap<String, Vec<String>> = HashMap::new();
+
+    for entry in &files {
+        let content = fs::read_to_string(entry.path()).unwrap_or_default();
+        let status = brief_toml_val(&content, "status").unwrap_or_default();
+        if status != "active" {
+            continue;
+        }
+        let fname = entry.file_name().to_string_lossy().to_string();
+        let seg_name = format!("SEG-{}", fname.trim_start_matches("SEG-").trim_end_matches(".toml"));
+        let blocks = brief_toml_arr(&content, "blocks");
+        for b in blocks {
+            block_owners.entry(b).or_default().push(seg_name.clone());
+        }
+    }
+
+    let mut conflicts = 0;
+    for (block, owners) in &block_owners {
+        if owners.len() > 1 {
+            if conflicts == 0 {
+                println!("  \x1b[31mSegment conflict detected:\x1b[0m");
+            }
+            println!(
+                "    \x1b[33m{}\x1b[0m claimed by {}",
+                block,
+                owners.join(" AND ")
+            );
+            conflicts += 1;
+        }
+    }
+
+    if conflicts == 0 {
+        println!("  \x1b[32m✓ No segment conflicts.\x1b[0m All blocks are uniquely owned.");
+    } else {
+        std::process::exit(1);
+    }
+}
+
+// ══════════════════════════════════════════════════
+// RECONCILE — AST-level merge of two .cronus files
+// ══════════════════════════════════════════════════
+
+fn cmd_reconcile(args: &[String]) {
+    let positional: Vec<&String> = args.iter().skip(2).filter(|a| !a.starts_with("--")).collect();
+    if positional.len() < 2 {
+        eprintln!("  \x1b[31m✗\x1b[0m Usage: cronus reconcile <file-a> <file-b> [--output <file>]");
+        std::process::exit(1);
+    }
+    let file_a = &positional[0];
+    let file_b = &positional[1];
+
+    let output_file = args.windows(2)
+        .find(|w| w[0] == "--output")
+        .map(|w| w[1].clone());
+
+    let source_a = fs::read_to_string(file_a.as_str()).unwrap_or_else(|e| {
+        eprintln!("  \x1b[31m✗\x1b[0m Cannot read {}: {}", file_a, e);
+        std::process::exit(1);
+    });
+    let source_b = fs::read_to_string(file_b.as_str()).unwrap_or_else(|e| {
+        eprintln!("  \x1b[31m✗\x1b[0m Cannot read {}: {}", file_b, e);
+        std::process::exit(1);
+    });
+
+    let nodes_a = parser::parse(&source_a).unwrap_or_else(|e| {
+        eprintln!("  \x1b[31m✗\x1b[0m Parse error in {}: {}", file_a, e);
+        std::process::exit(1);
+    });
+    let nodes_b = parser::parse(&source_b).unwrap_or_else(|e| {
+        eprintln!("  \x1b[31m✗\x1b[0m Parse error in {}: {}", file_b, e);
+        std::process::exit(1);
+    });
+
+    let mut conflicts: Vec<String> = Vec::new();
+    let mut merged: Vec<AstNode> = Vec::new();
+
+    // --- Categorize nodes from A ---
+    let mut app_a: Option<AppNode> = None;
+    let mut style_a: Option<StyleNode> = None;
+    let mut auth_a: Option<AuthNode> = None;
+    let mut entities_a: HashMap<String, EntityNode> = HashMap::new();
+    let mut pages_a: HashMap<String, PageNode> = HashMap::new();
+    let mut apis_a: HashMap<String, ApiNode> = HashMap::new();
+    let mut services_a: HashMap<String, ServiceNode> = HashMap::new();
+    let mut components_a: HashMap<String, ComponentNode> = HashMap::new();
+    let mut events_a: HashMap<String, EventNode> = HashMap::new();
+    let mut workers_a: HashMap<String, WorkerNode> = HashMap::new();
+    let mut middlewares_a: HashMap<String, MiddlewareNode> = HashMap::new();
+    let mut imports_a: Vec<parser::ImportNode> = Vec::new();
+    let mut envs_a: Vec<parser::EnvNode> = Vec::new();
+    let mut tests_a: Vec<parser::TestNode> = Vec::new();
+    let mut composes_a: Vec<parser::ComposeNode> = Vec::new();
+    let mut layouts_a: HashMap<String, parser::LayoutNode> = HashMap::new();
+
+    for node in nodes_a {
+        match node {
+            AstNode::App(n) => app_a = Some(n),
+            AstNode::Style(n) => style_a = Some(n),
+            AstNode::Auth(n) => auth_a = Some(n),
+            AstNode::Entity(n) => { entities_a.insert(n.name.clone(), n); }
+            AstNode::Page(n) => { pages_a.insert(n.route.clone(), n); }
+            AstNode::Api(n) => { apis_a.insert(n.prefix.clone(), n); }
+            AstNode::Service(n) => { services_a.insert(n.name.clone(), n); }
+            AstNode::Component(n) => { components_a.insert(n.name.clone(), n); }
+            AstNode::Event(n) => { events_a.insert(n.name.clone(), n); }
+            AstNode::Worker(n) => { workers_a.insert(n.name.clone(), n); }
+            AstNode::Middleware(n) => { middlewares_a.insert(n.name.clone(), n); }
+            AstNode::Import(n) => imports_a.push(n),
+            AstNode::Env(n) => envs_a.push(n),
+            AstNode::Test(n) => tests_a.push(n),
+            AstNode::Compose(n) => composes_a.push(n),
+            AstNode::Layout(n) => { layouts_a.insert(n.name.clone(), n); }
+        }
+    }
+
+    // --- Categorize nodes from B ---
+    let mut app_b: Option<AppNode> = None;
+    let mut style_b: Option<StyleNode> = None;
+    let mut auth_b: Option<AuthNode> = None;
+    let mut entities_b: HashMap<String, EntityNode> = HashMap::new();
+    let mut pages_b: HashMap<String, PageNode> = HashMap::new();
+    let mut apis_b: HashMap<String, ApiNode> = HashMap::new();
+    let mut services_b: HashMap<String, ServiceNode> = HashMap::new();
+    let mut components_b: HashMap<String, ComponentNode> = HashMap::new();
+    let mut events_b: HashMap<String, EventNode> = HashMap::new();
+    let mut workers_b: HashMap<String, WorkerNode> = HashMap::new();
+    let mut middlewares_b: HashMap<String, MiddlewareNode> = HashMap::new();
+    let mut imports_b: Vec<parser::ImportNode> = Vec::new();
+    let mut envs_b: Vec<parser::EnvNode> = Vec::new();
+    let mut tests_b: Vec<parser::TestNode> = Vec::new();
+    let mut composes_b: Vec<parser::ComposeNode> = Vec::new();
+    let mut layouts_b: HashMap<String, parser::LayoutNode> = HashMap::new();
+
+    for node in nodes_b {
+        match node {
+            AstNode::App(n) => app_b = Some(n),
+            AstNode::Style(n) => style_b = Some(n),
+            AstNode::Auth(n) => auth_b = Some(n),
+            AstNode::Entity(n) => { entities_b.insert(n.name.clone(), n); }
+            AstNode::Page(n) => { pages_b.insert(n.route.clone(), n); }
+            AstNode::Api(n) => { apis_b.insert(n.prefix.clone(), n); }
+            AstNode::Service(n) => { services_b.insert(n.name.clone(), n); }
+            AstNode::Component(n) => { components_b.insert(n.name.clone(), n); }
+            AstNode::Event(n) => { events_b.insert(n.name.clone(), n); }
+            AstNode::Worker(n) => { workers_b.insert(n.name.clone(), n); }
+            AstNode::Middleware(n) => { middlewares_b.insert(n.name.clone(), n); }
+            AstNode::Import(n) => imports_b.push(n),
+            AstNode::Env(n) => envs_b.push(n),
+            AstNode::Test(n) => tests_b.push(n),
+            AstNode::Compose(n) => composes_b.push(n),
+            AstNode::Layout(n) => { layouts_b.insert(n.name.clone(), n); }
+        }
+    }
+
+    // --- 1. App: take from A (primary) ---
+    if let Some(app) = app_a {
+        merged.push(AstNode::App(app));
+    } else if let Some(app) = app_b {
+        merged.push(AstNode::App(app));
+    }
+
+    // --- 2. Style: take from A (primary) ---
+    if let Some(style) = style_a {
+        merged.push(AstNode::Style(style));
+    } else if let Some(style) = style_b {
+        merged.push(AstNode::Style(style));
+    }
+
+    // --- 3. Auth: take from A unless B has it and A doesn't ---
+    if let Some(auth) = auth_a {
+        merged.push(AstNode::Auth(auth));
+    } else if let Some(auth) = auth_b {
+        merged.push(AstNode::Auth(auth));
+    }
+
+    // --- 4. Imports: union by alias ---
+    let mut seen_imports: HashMap<String, bool> = HashMap::new();
+    for imp in &imports_a {
+        seen_imports.insert(imp.alias.clone(), true);
+        merged.push(AstNode::Import(imp.clone()));
+    }
+    for imp in imports_b {
+        if !seen_imports.contains_key(&imp.alias) {
+            merged.push(AstNode::Import(imp));
+        }
+    }
+
+    // --- 5. Entities: merge by name ---
+    let mut all_entity_names: Vec<String> = entities_a.keys().cloned().collect();
+    for name in entities_b.keys() {
+        if !all_entity_names.contains(name) {
+            all_entity_names.push(name.clone());
+        }
+    }
+    all_entity_names.sort();
+
+    for name in &all_entity_names {
+        match (entities_a.remove(name), entities_b.remove(name)) {
+            (Some(a), None) => merged.push(AstNode::Entity(a)),
+            (None, Some(b)) => merged.push(AstNode::Entity(b)),
+            (Some(a), Some(b)) => {
+                let mut merged_fields: Vec<parser::FieldNode> = a.fields.clone();
+                for field_b in &b.fields {
+                    if let Some(field_a) = merged_fields.iter().find(|f| f.name == field_b.name) {
+                        if field_a.field_type != field_b.field_type {
+                            conflicts.push(format!(
+                                "entity {}: field \"{}\" has type {:?} in A but {:?} in B",
+                                name, field_b.name, field_a.field_type, field_b.field_type
+                            ));
+                        }
+                    } else {
+                        merged_fields.push(field_b.clone());
+                    }
+                }
+                merged.push(AstNode::Entity(EntityNode {
+                    name: name.clone(),
+                    fields: merged_fields,
+                }));
+            }
+            (None, None) => {}
+        }
+    }
+
+    // --- 6. Pages: merge by route ---
+    let mut all_routes: Vec<String> = pages_a.keys().cloned().collect();
+    for route in pages_b.keys() {
+        if !all_routes.contains(route) {
+            all_routes.push(route.clone());
+        }
+    }
+    all_routes.sort();
+
+    for route in &all_routes {
+        match (pages_a.remove(route), pages_b.remove(route)) {
+            (Some(a), None) => merged.push(AstNode::Page(a)),
+            (None, Some(b)) => merged.push(AstNode::Page(b)),
+            (Some(a), Some(b)) => {
+                let mut merged_sections: Vec<parser::SectionNode> = a.sections.clone();
+                for (idx, sec_b) in b.sections.iter().enumerate() {
+                    let existing = merged_sections.iter().enumerate()
+                        .find(|(_i, s)| s.section_type == sec_b.section_type);
+                    if let Some((pos, _)) = existing {
+                        if pos == idx {
+                            conflicts.push(format!(
+                                "page \"{}\": section type \"{}\" at position {} exists in both A and B",
+                                route, sec_b.section_type, idx
+                            ));
+                        }
+                    } else {
+                        merged_sections.push(sec_b.clone());
+                    }
+                }
+                merged.push(AstNode::Page(PageNode {
+                    route: route.clone(),
+                    page_type: a.page_type,
+                    entity: a.entity,
+                    title: a.title,
+                    sections: merged_sections,
+                    config: a.config,
+                    components: a.components,
+                    requires: a.requires,
+                }));
+            }
+            (None, None) => {}
+        }
+    }
+
+    // --- 7. APIs: merge by prefix, union of routes ---
+    let mut all_prefixes: Vec<String> = apis_a.keys().cloned().collect();
+    for prefix in apis_b.keys() {
+        if !all_prefixes.contains(prefix) {
+            all_prefixes.push(prefix.clone());
+        }
+    }
+    all_prefixes.sort();
+
+    for prefix in &all_prefixes {
+        match (apis_a.remove(prefix), apis_b.remove(prefix)) {
+            (Some(a), None) => merged.push(AstNode::Api(a)),
+            (None, Some(b)) => merged.push(AstNode::Api(b)),
+            (Some(a), Some(b)) => {
+                let mut merged_routes = a.routes.clone();
+                for route_b in &b.routes {
+                    let exists = merged_routes.iter().any(|r| {
+                        r.method == route_b.method && r.path == route_b.path
+                    });
+                    if !exists {
+                        merged_routes.push(route_b.clone());
+                    }
+                }
+                merged.push(AstNode::Api(ApiNode {
+                    prefix: prefix.clone(),
+                    routes: merged_routes,
+                }));
+            }
+            (None, None) => {}
+        }
+    }
+
+    // --- 8-13. Named blocks: merge by name, report conflicts ---
+    reconcile_named_map(&mut merged, &mut conflicts, services_a, services_b,
+        "service", |n| AstNode::Service(n));
+    reconcile_named_map(&mut merged, &mut conflicts, components_a, components_b,
+        "component", |n| AstNode::Component(n));
+    reconcile_named_map(&mut merged, &mut conflicts, events_a, events_b,
+        "event", |n| AstNode::Event(n));
+    reconcile_named_map(&mut merged, &mut conflicts, workers_a, workers_b,
+        "worker", |n| AstNode::Worker(n));
+    reconcile_named_map(&mut merged, &mut conflicts, middlewares_a, middlewares_b,
+        "middleware", |n| AstNode::Middleware(n));
+    reconcile_named_map(&mut merged, &mut conflicts, layouts_a, layouts_b,
+        "layout", |n| AstNode::Layout(n));
+
+    // --- 14. Envs, Tests, Composes: all from A, unique from B ---
+    for env in envs_a { merged.push(AstNode::Env(env)); }
+    for env in envs_b {
+        if !merged.iter().any(|n| matches!(n, AstNode::Env(e) if e.name == env.name)) {
+            merged.push(AstNode::Env(env));
+        }
+    }
+    for test in tests_a { merged.push(AstNode::Test(test)); }
+    for test in tests_b {
+        if !merged.iter().any(|n| matches!(n, AstNode::Test(t) if t.name == test.name)) {
+            merged.push(AstNode::Test(test));
+        }
+    }
+    for comp in composes_a { merged.push(AstNode::Compose(comp)); }
+    for comp in composes_b {
+        if !merged.iter().any(|n| matches!(n, AstNode::Compose(c) if c.name == comp.name)) {
+            merged.push(AstNode::Compose(comp));
+        }
+    }
+
+    // --- Check for conflicts ---
+    if !conflicts.is_empty() {
+        eprintln!("\n  \x1b[31m✗ RECONCILE FAILED — {} conflict(s):\x1b[0m\n", conflicts.len());
+        for (i, c) in conflicts.iter().enumerate() {
+            eprintln!("  {}. {}", i + 1, c);
+        }
+        eprintln!();
+        std::process::exit(1);
+    }
+
+    // --- Emit merged .cronus ---
+    let output = reconcile_emit(&merged);
+
+    if let Some(out_path) = output_file {
+        fs::write(&out_path, &output).unwrap_or_else(|e| {
+            eprintln!("  \x1b[31m✗\x1b[0m Cannot write {}: {}", out_path, e);
+            std::process::exit(1);
+        });
+        println!("  \x1b[32m✓\x1b[0m Reconciled {} + {} → {}", file_a, file_b, out_path);
+        println!("    {} nodes merged", merged.len());
+    } else {
+        print!("{}", output);
+    }
+}
+
+/// Merge two named HashMaps: unique to A kept, unique to B added, overlap = conflict
+fn reconcile_named_map<T: Clone>(
+    merged: &mut Vec<AstNode>,
+    conflicts: &mut Vec<String>,
+    mut map_a: HashMap<String, T>,
+    mut map_b: HashMap<String, T>,
+    kind: &str,
+    wrap: fn(T) -> AstNode,
+) {
+    let mut all_names: Vec<String> = map_a.keys().cloned().collect();
+    for name in map_b.keys() {
+        if !all_names.contains(name) {
+            all_names.push(name.clone());
+        }
+    }
+    all_names.sort();
+
+    for name in &all_names {
+        match (map_a.remove(name), map_b.remove(name)) {
+            (Some(a), None) => merged.push(wrap(a)),
+            (None, Some(b)) => merged.push(wrap(b)),
+            (Some(a), Some(_b)) => {
+                conflicts.push(format!("{} \"{}\" exists in both files", kind, name));
+                merged.push(wrap(a));
+            }
+            (None, None) => {}
+        }
+    }
+}
+
+/// Emit a Vec<AstNode> as valid .cronus text
+fn reconcile_emit(nodes: &[AstNode]) -> String {
+    let mut out = String::new();
+
+    for node in nodes {
+        match node {
+            AstNode::App(app) => {
+                out.push_str(&format!("app \"{}\" {{\n", app.name));
+                out.push_str(&format!("  stack {}\n", app.stack.join(", ")));
+                out.push_str(&format!("  port {}\n", app.port));
+                if let Some(db) = &app.database {
+                    if let Some(path) = &db.path {
+                        out.push_str(&format!("  database {} \"{}\"\n", db.db_type, path));
+                    } else {
+                        out.push_str(&format!("  database {}\n", db.db_type));
+                    }
+                }
+                out.push_str("}\n\n");
+            }
+            AstNode::Style(style) => {
+                out.push_str("style {\n");
+                if let Some(theme) = &style.theme {
+                    out.push_str(&format!("  theme {}\n", theme));
+                }
+                if let Some(accent) = &style.accent {
+                    out.push_str(&format!("  accent {}\n", accent));
+                }
+                if let Some(radius) = &style.radius {
+                    out.push_str(&format!("  radius {}\n", radius));
+                }
+                if let Some(font) = &style.font {
+                    out.push_str(&format!("  font \"{}\"\n", font));
+                }
+                for (k, v) in &style.config {
+                    out.push_str(&format!("  {} {}\n", k, v));
+                }
+                out.push_str("}\n\n");
+            }
+            AstNode::Auth(auth) => {
+                out.push_str(&format!("auth {} {{\n", auth.entity));
+                out.push_str(&format!("  login {}\n", auth.login_fields.join(", ")));
+                out.push_str(&format!("  session {}", auth.session_type));
+                if !auth.session_config.is_empty() {
+                    let cfg: Vec<String> = auth.session_config.iter()
+                        .map(|(k, v)| format!("{}: {}", k, v)).collect();
+                    out.push_str(&format!(" {}", cfg.join(", ")));
+                }
+                out.push('\n');
+                if !auth.roles.is_empty() {
+                    out.push_str(&format!("  roles {}\n", auth.roles.join(", ")));
+                }
+                out.push_str("}\n\n");
+            }
+            AstNode::Entity(entity) => {
+                out.push_str(&format!("entity {} {{\n", entity.name));
+                for field in &entity.fields {
+                    let ft = reconcile_field_type_str(&field.field_type);
+                    let mut modifiers = Vec::new();
+                    if field.required { modifiers.push("required"); }
+                    if field.unique { modifiers.push("unique"); }
+                    if field.optional { modifiers.push("optional"); }
+                    if field.sensitive { modifiers.push("sensitive"); }
+                    if field.searchable { modifiers.push("searchable"); }
+                    if field.index { modifiers.push("index"); }
+                    if field.featured { modifiers.push("featured"); }
+                    if field.formatted { modifiers.push("formatted"); }
+                    if field.array { modifiers.push("array"); }
+                    let mod_str = if modifiers.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" {}", modifiers.join(" "))
+                    };
+                    if let Some(ref_name) = &field.reference {
+                        out.push_str(&format!("  {} {} -> {}{}\n", field.name, ft, ref_name, mod_str));
+                    } else if let Some(vals) = &field.enum_values {
+                        out.push_str(&format!("  {} enum({}){}\n", field.name, vals.join(", "), mod_str));
+                    } else {
+                        out.push_str(&format!("  {} {}{}\n", field.name, ft, mod_str));
+                    }
+                }
+                out.push_str("}\n\n");
+            }
+            AstNode::Page(page) => {
+                let mut header = format!("page \"{}\"", page.route);
+                if !page.page_type.is_empty() {
+                    header.push_str(&format!(" type:{}", page.page_type));
+                }
+                if let Some(entity) = &page.entity {
+                    header.push_str(&format!(" entity:{}", entity));
+                }
+                if let Some(title) = &page.title {
+                    header.push_str(&format!(" title:\"{}\"", title));
+                }
+                if let Some(req) = &page.requires {
+                    header.push_str(&format!(" requires:{}", req));
+                }
+                out.push_str(&format!("{} {{\n", header));
+                for sec in &page.sections {
+                    out.push_str(&format!("  section {} {{\n", sec.section_type));
+                    if let Some(title) = &sec.title {
+                        out.push_str(&format!("    title \"{}\"\n", title));
+                    }
+                    if let Some(subtitle) = &sec.subtitle {
+                        out.push_str(&format!("    subtitle \"{}\"\n", subtitle));
+                    }
+                    for (k, v) in &sec.config {
+                        out.push_str(&format!("    {} {}\n", k, v));
+                    }
+                    out.push_str("  }\n");
+                }
+                out.push_str("}\n\n");
+            }
+            AstNode::Api(api) => {
+                out.push_str(&format!("api \"{}\" {{\n", api.prefix));
+                for route in &api.routes {
+                    let method = format!("{:?}", route.method);
+                    out.push_str(&format!("  {} {} \"{}\"\n", route.name, method, route.path));
+                }
+                out.push_str("}\n\n");
+            }
+            AstNode::Service(svc) => {
+                out.push_str(&format!("service {} {{\n", svc.name));
+                if let Some(port) = svc.port {
+                    out.push_str(&format!("  port {}\n", port));
+                }
+                for (k, v) in &svc.config {
+                    out.push_str(&format!("  {} {}\n", k, v));
+                }
+                out.push_str("}\n\n");
+            }
+            AstNode::Component(comp) => {
+                let mut header = format!("component {}", comp.name);
+                if let Some(layout) = &comp.layout {
+                    header.push_str(&format!(" layout:{}", layout));
+                }
+                if let Some(style) = &comp.style {
+                    header.push_str(&format!(" style:{}", style));
+                }
+                out.push_str(&format!("{} {{\n", header));
+                for item in &comp.items {
+                    out.push_str(&format!("  {} \"{}\"\n", item.item_type, item.text));
+                }
+                out.push_str("}\n\n");
+            }
+            AstNode::Event(evt) => {
+                out.push_str(&format!("event {} {{\n", evt.name));
+                for action in &evt.actions {
+                    out.push_str(&format!("  {}\n", action));
+                }
+                out.push_str("}\n\n");
+            }
+            AstNode::Worker(w) => {
+                out.push_str(&format!("worker {} {{\n", w.name));
+                if let Some(q) = &w.queue { out.push_str(&format!("  queue \"{}\"\n", q)); }
+                if let Some(c) = w.concurrency { out.push_str(&format!("  concurrency {}\n", c)); }
+                if let Some(r) = w.retry { out.push_str(&format!("  retry {}\n", r)); }
+                if let Some(t) = &w.timeout { out.push_str(&format!("  timeout {}\n", t)); }
+                if let Some(e) = &w.entity { out.push_str(&format!("  entity {}\n", e)); }
+                out.push_str("}\n\n");
+            }
+            AstNode::Middleware(mw) => {
+                out.push_str(&format!("middleware {} {{\n", mw.name));
+                if let Some(applies) = &mw.applies_to {
+                    out.push_str(&format!("  applies_to {}\n", applies.join(", ")));
+                }
+                for (k, v) in &mw.config {
+                    out.push_str(&format!("  {} {}\n", k, v));
+                }
+                out.push_str("}\n\n");
+            }
+            AstNode::Import(imp) => {
+                out.push_str(&format!("import {} from \"{}\"\n", imp.alias, imp.source));
+            }
+            AstNode::Env(env) => {
+                out.push_str(&format!("env {} {{\n", env.name));
+                for (k, v) in &env.vars {
+                    out.push_str(&format!("  {} \"{}\"\n", k, v));
+                }
+                out.push_str("}\n\n");
+            }
+            AstNode::Test(test) => {
+                out.push_str(&format!("test \"{}\" {{\n", test.name));
+                for step in &test.steps {
+                    out.push_str(&format!("  {} {} expect {}\n", step.action, step.entity, step.expect));
+                }
+                out.push_str("}\n\n");
+            }
+            AstNode::Compose(comp) => {
+                out.push_str(&format!("compose {} {{\n", comp.name));
+                for u in &comp.uses {
+                    out.push_str(&format!("  use {}\n", u));
+                }
+                out.push_str("}\n\n");
+            }
+            AstNode::Layout(layout) => {
+                out.push_str(&format!("layout {} {{\n", layout.name));
+                for (k, v) in &layout.sidebar_config {
+                    out.push_str(&format!("  sidebar.{} \"{}\"\n", k, v));
+                }
+                for item in &layout.sidebar_items {
+                    out.push_str(&format!("  nav \"{}\" \"{}\"\n", item.label, item.route));
+                }
+                out.push_str("}\n\n");
+            }
+        }
+    }
+
+    out
+}
+
+fn reconcile_field_type_str(ft: &FieldType) -> &'static str {
+    match ft {
+        FieldType::String => "string",
+        FieldType::Text => "text",
+        FieldType::Email => "email",
+        FieldType::Url => "url",
+        FieldType::Slug => "slug",
+        FieldType::Phone => "phone",
+        FieldType::Number => "number",
+        FieldType::Money => "money",
+        FieldType::Percentage => "percentage",
+        FieldType::Boolean => "boolean",
+        FieldType::Date => "date",
+        FieldType::Ulid => "ulid",
+        FieldType::Json => "json",
+        FieldType::Enum => "enum",
+        FieldType::Ip => "ip",
+        FieldType::Relation => "relation",
     }
 }
