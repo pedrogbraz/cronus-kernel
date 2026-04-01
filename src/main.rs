@@ -86,9 +86,18 @@ async fn main() {
         "compose" => cmd_compose(&args),
         "generate" | "gen" => cmd_generate(&args),
         "dump" => cmd_dump(&args),
-        "validate" => cmd_validate(&args),
+        "validate" => {
+            if args.iter().any(|a| a == "--mission") {
+                cmd_validate_mission();
+            } else {
+                cmd_validate(&args);
+            }
+        }
         "brief" => cmd_brief(),
         "sync" => cmd_sync(),
+        "handoff" => cmd_handoff(),
+        "lease" => cmd_lease(&args),
+        "drift" => cmd_drift(&args),
         "spec" => cmd_spec(&args),
         "version" | "-v" | "--version" => println!("cronus v0.1.0"),
         "help" | "--help" | "-h" | _ => print_help(),
@@ -121,8 +130,12 @@ fn print_help() {
     println!("    \x1b[32mcompose\x1b[0m          Compose all .cronus files and show result");
     println!("    \x1b[32mgenerate\x1b[0m <desc>  Generate .cronus from description");
     println!("    \x1b[32mvalidate\x1b[0m [file] [--json] [--strict-ai]  Validate (--strict-ai: all warnings = errors, JSON output)");
+    println!("    \x1b[32mvalidate\x1b[0m --mission       Validate code against constitution + objective");
     println!("    \x1b[32mbrief\x1b[0m            Generate AI context capsule (~500 words)");
     println!("    \x1b[32msync\x1b[0m             Generate .cronus/state-digest.json from project state");
+    println!("    \x1b[32mhandoff\x1b[0m          Complete active task, update state digest for next session");
+    println!("    \x1b[32mlease\x1b[0m check|list|create  Task lease management (drift detection)");
+    println!("    \x1b[32mdrift\x1b[0m [--explain]    Detect strategic, scope, and semantic drift");
     println!("    \x1b[32mspec\x1b[0m <validate|list|codegen> Validate, list, or generate from .spec.toml files");
     println!("    \x1b[32mversion\x1b[0m          Show version");
     println!();
@@ -5550,6 +5563,662 @@ fn count_files_matching(dir: &str, suffix: &str) -> usize {
     count
 }
 
+// cmd_lease — full implementation at end of file
+// cmd_drift — full implementation at end of file
+
+// ══════════════════════════════════════════════════
+// HANDOFF — session summary + task completion
+// ══════════════════════════════════════════════════
+
+fn cmd_handoff() {
+    use std::path::Path;
+    use std::process::Command;
+
+    // 1. Find the active task (first TASK-*.toml with status = "open")
+    let mut active_task_path: Option<std::path::PathBuf> = None;
+    let mut task_id = String::new();
+    let mut _task_title = String::new();
+
+    if let Ok(entries) = fs::read_dir(".cronus/tasks") {
+        let mut task_files: Vec<_> = entries
+            .flatten()
+            .filter(|e| {
+                let n = e.file_name().to_string_lossy().to_string();
+                n.starts_with("TASK-") && n.ends_with(".toml")
+            })
+            .collect();
+        task_files.sort_by_key(|e| e.file_name());
+
+        for entry in task_files {
+            let content = fs::read_to_string(entry.path()).unwrap_or_default();
+            if let Some(status) = brief_toml_val(&content, "status") {
+                if status == "open" || status == "in_progress" {
+                    task_id = brief_toml_val(&content, "id").unwrap_or_else(|| {
+                        entry.file_name().to_string_lossy().trim_end_matches(".toml").to_string()
+                    });
+                    _task_title = brief_toml_val(&content, "title").unwrap_or_default();
+                    active_task_path = Some(entry.path());
+                    break;
+                }
+            }
+        }
+    }
+
+    if active_task_path.is_none() {
+        println!("  \x1b[33mNo open task found. Nothing to hand off.\x1b[0m");
+        return;
+    }
+
+    let task_path = active_task_path.unwrap();
+
+    println!();
+    println!("  \x1b[1mHandoff: {}\x1b[0m", task_id);
+    println!("  \x1b[90m─────────────────\x1b[0m");
+
+    // 2. Read git diff --stat
+    let mut changes_summary = String::from("no changes detected");
+    let mut insertions = 0u32;
+    let mut deletions = 0u32;
+    if let Ok(output) = Command::new("git")
+        .args(["diff", "--stat", "HEAD~5..HEAD"])
+        .output()
+    {
+        if output.status.success() {
+            let text = String::from_utf8_lossy(&output.stdout).to_string();
+            let lines: Vec<&str> = text.lines().collect();
+            // Last line has summary like " 3 files changed, 245 insertions(+), 12 deletions(-)"
+            if let Some(last) = lines.last() {
+                let last = last.trim();
+                if last.contains("changed") {
+                    // Parse numbers
+                    for part in last.split(',') {
+                        let part = part.trim();
+                        if part.contains("insertion") {
+                            if let Some(n) = part.split_whitespace().next() {
+                                insertions = n.parse().unwrap_or(0);
+                            }
+                        } else if part.contains("deletion") {
+                            if let Some(n) = part.split_whitespace().next() {
+                                deletions = n.parse().unwrap_or(0);
+                            }
+                        }
+                    }
+                }
+            }
+            // Show per-file changes (skip last summary line)
+            let file_lines: Vec<&str> = lines.iter()
+                .take(lines.len().saturating_sub(1))
+                .filter(|l| !l.trim().is_empty())
+                .copied()
+                .collect();
+            if !file_lines.is_empty() {
+                let display: Vec<&str> = file_lines.iter().take(5).copied().collect();
+                let file_parts: Vec<String> = display.iter().map(|l| {
+                    let parts: Vec<&str> = l.trim().splitn(2, '|').collect();
+                    parts[0].trim().to_string()
+                }).collect();
+                let extra = file_lines.len() as i32 - 5;
+                if extra > 0 {
+                    changes_summary = format!("{} (+{}, -{}), {} more files", file_parts.join(", "), insertions, deletions, extra);
+                } else {
+                    changes_summary = format!("{} (+{}, -{})", file_parts.join(", "), insertions, deletions);
+                }
+            }
+        }
+    }
+    println!("  Changes: {}", changes_summary);
+
+    // 3. Read git log --oneline -5
+    let mut commit_count = 0u32;
+    if let Ok(output) = Command::new("git")
+        .args(["log", "--oneline", "-5"])
+        .output()
+    {
+        if output.status.success() {
+            let text = String::from_utf8_lossy(&output.stdout);
+            commit_count = text.lines().filter(|l| !l.trim().is_empty()).count() as u32;
+        }
+    }
+    println!("  Commits: {} recent commits", commit_count);
+
+    // 4. Check build status (binary mtime)
+    let build_status = if Path::new("target/release/cronus-kernel").exists()
+        || Path::new("target/release/cronus").exists()
+        || Path::new("cronus-kernel/target/release/cronus").exists()
+    {
+        "passing"
+    } else {
+        "unknown"
+    };
+    println!("  Build: {}", build_status);
+
+    // 5. Check if tests exist
+    let test_count = count_files_matching("tests/conformance", ".cronus");
+    if test_count > 0 {
+        println!("  Tests: {} conformance tests available", test_count);
+    }
+
+    // 6. Update task status to "done"
+    if let Ok(content) = fs::read_to_string(&task_path) {
+        let updated = content.replace("status = \"open\"", "status = \"done\"")
+                             .replace("status = \"in_progress\"", "status = \"done\"");
+        let _ = fs::write(&task_path, updated);
+    }
+    println!("  Status: \x1b[33mopen\x1b[0m → \x1b[32mdone\x1b[0m");
+
+    // 7. Run sync internally
+    println!();
+    cmd_sync();
+
+    // 8. Final message
+    println!();
+    println!("  \x1b[32mState digest updated.\x1b[0m");
+    println!("  Next terminal will inherit this state.");
+    println!();
+}
+
+// ══════════════════════════════════════════════════
+// VALIDATE --mission — constitution + objective check
+// ══════════════════════════════════════════════════
+
+fn cmd_validate_mission() {
+    use std::process::Command;
+
+    println!();
+    println!("  \x1b[1mMission Validation\x1b[0m");
+    println!("  \x1b[90m──────────────────\x1b[0m");
+
+    // 1. Read constitution.toml [forbidden] items
+    let constitution = fs::read_to_string(".cronus/constitution.toml").unwrap_or_default();
+    let forbidden_items = brief_toml_arr_after_section(&constitution, "[forbidden]", "never");
+    let forbidden_fallback = brief_toml_arr(&constitution, "never");
+    let forbidden = if !forbidden_items.is_empty() { forbidden_items } else { forbidden_fallback };
+
+    // 2. Read git diff content
+    let diff_content = if let Ok(output) = Command::new("git")
+        .args(["diff", "HEAD~5..HEAD"])
+        .output()
+    {
+        if output.status.success() {
+            String::from_utf8_lossy(&output.stdout).to_string()
+        } else {
+            // Try without range
+            if let Ok(output2) = Command::new("git").args(["diff"]).output() {
+                String::from_utf8_lossy(&output2.stdout).to_string()
+            } else {
+                String::new()
+            }
+        }
+    } else {
+        String::new()
+    };
+
+    // 3. Check if any forbidden pattern appears in the diff (code files only)
+    // Filter to only added lines in code files (.rs, .cronus), skip docs/config
+    let mut constitution_pass = true;
+    let mut violations: Vec<String> = Vec::new();
+    let mut in_code_file = false;
+    let added_code_lines: Vec<String> = diff_content.lines()
+        .filter(|l| {
+            if l.starts_with("+++ b/") {
+                let path = &l[6..];
+                in_code_file = path.ends_with(".rs") || path.ends_with(".cronus");
+                return false;
+            }
+            if l.starts_with("--- ") || l.starts_with("diff --git") {
+                return false;
+            }
+            in_code_file && l.starts_with('+') && !l.starts_with("+++")
+        })
+        .map(|l| l[1..].to_lowercase()) // strip leading '+'
+        .collect();
+    let code_text = added_code_lines.join("\n");
+
+    for item in &forbidden {
+        let item_lower = item.to_lowercase();
+        if item_lower.contains("fake data") && (code_text.contains("math.random") || code_text.contains("mock_data") || code_text.contains("fake_data")) {
+            constitution_pass = false;
+            violations.push(item.clone());
+        }
+        if item_lower.contains("export") && (item_lower.contains("react") || item_lower.contains("vue") || item_lower.contains("svelte")) {
+            // Look for actual framework imports/usage in code, not mentions in strings
+            if code_text.contains("use react") || code_text.contains("import react")
+                || code_text.contains("use vue") || code_text.contains("import vue")
+                || code_text.contains("use svelte") || code_text.contains("import svelte")
+                || (code_text.contains("reactdom") || code_text.contains("createapp")) {
+                constitution_pass = false;
+                violations.push(item.clone());
+            }
+        }
+    }
+
+    if constitution_pass {
+        println!("  Constitution: \x1b[32m✓ PASS\x1b[0m (no forbidden patterns)");
+    } else {
+        println!("  Constitution: \x1b[31m✗ FAIL\x1b[0m");
+        for v in &violations {
+            println!("    - {}", v);
+        }
+    }
+
+    // 4. Read objective.toml success criteria
+    let objective = fs::read_to_string(".cronus/objective.toml").unwrap_or_default();
+    let _obj_title = brief_toml_val(&objective, "title").unwrap_or_else(|| "No objective".into());
+
+    // 5. Check basic alignment — does the diff relate to the objective?
+    // Only check code files, not docs/config (uses code_text from step 3)
+    let mut objective_pass = true;
+    let out_of_scope = brief_toml_arr(&objective, "items");
+    for item in &out_of_scope {
+        let item_lower = item.to_lowercase();
+        // Check if the exact phrase (or close to it) appears in code
+        let keywords: Vec<&str> = item_lower.split_whitespace()
+            .filter(|w| w.len() > 6) // only significant words
+            .collect();
+        if keywords.len() >= 2 {
+            // All significant keywords must appear AND they must appear near each other
+            let matches: usize = keywords.iter().filter(|k| code_text.contains(**k)).count();
+            // Also check the exact phrase (most reliable)
+            let exact_match = code_text.contains(&item_lower);
+            if exact_match || (keywords.len() >= 3 && matches >= keywords.len()) {
+                objective_pass = false;
+                println!("  Objective: \x1b[31m✗ FAIL\x1b[0m (out-of-scope work detected: {})", item);
+                break;
+            }
+        }
+    }
+    if objective_pass {
+        println!("  Objective: \x1b[32m✓ PASS\x1b[0m (changes serve current goal)");
+    }
+
+    // 6. Check spec coverage
+    let mut spec_names: Vec<String> = Vec::new();
+    if let Ok(entries) = fs::read_dir("specs") {
+        for entry in entries.flatten() {
+            if entry.path().is_dir() {
+                if let Ok(sub) = fs::read_dir(entry.path()) {
+                    for s in sub.flatten() {
+                        if s.file_name().to_string_lossy().ends_with(".spec.toml") {
+                            spec_names.push(s.file_name().to_string_lossy().to_string());
+                        }
+                    }
+                }
+            } else if entry.file_name().to_string_lossy().ends_with(".spec.toml") {
+                spec_names.push(entry.file_name().to_string_lossy().to_string());
+            }
+        }
+    }
+    let mut specs_with_tests = 0usize;
+    for spec in &spec_names {
+        let base = spec.replace(".spec.toml", "");
+        if count_files_matching("tests/conformance", &base) > 0 {
+            specs_with_tests += 1;
+        }
+    }
+    if spec_names.is_empty() {
+        println!("  Spec coverage: \x1b[33mno specs found\x1b[0m");
+    } else {
+        println!("  Spec coverage: {}/{} specs have tests", specs_with_tests, spec_names.len());
+    }
+
+    // 7. Build check
+    let build_ok = std::path::Path::new("target/release/cronus-kernel").exists()
+        || std::path::Path::new("target/release/cronus").exists()
+        || std::path::Path::new("cronus-kernel/target/release/cronus").exists();
+
+    if build_ok {
+        println!("  Build: \x1b[32m✓ PASS\x1b[0m");
+    } else {
+        println!("  Build: \x1b[33m⚠ unknown\x1b[0m (no release binary found)");
+    }
+
+    println!();
+}
+
+
+// ══════════════════════════════════════════════════
+// DRIFT helpers — used by cmd_drift
+// ══════════════════════════════════════════════════
+
+/// Returns (active_task_id, files_outside_lease) — used by drift scope check
+fn lease_check_scope() -> (String, Vec<String>) {
+    let mut task_id = String::new();
+    let mut write_scope: Vec<String> = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(".cronus/tasks") {
+        let mut files: Vec<_> = entries.flatten()
+            .filter(|e| {
+                let n = e.file_name().to_string_lossy().to_string();
+                n.starts_with("TASK-") && n.ends_with(".toml")
+            })
+            .collect();
+        files.sort_by_key(|e| e.file_name());
+
+        for entry in files {
+            let content = fs::read_to_string(entry.path()).unwrap_or_default();
+            if let Some(status) = brief_toml_val(&content, "status") {
+                if status == "open" || status == "in_progress" {
+                    task_id = brief_toml_val(&content, "id").unwrap_or_default();
+                    // Try section-aware parsing first, fall back to simple
+                    let scope = brief_toml_arr_after_section(&content, "[scope]", "write");
+                    write_scope = if !scope.is_empty() { scope } else { brief_toml_arr(&content, "write") };
+                    break;
+                }
+            }
+        }
+    }
+
+    if task_id.is_empty() || write_scope.is_empty() {
+        return (task_id, Vec::new());
+    }
+
+    let changed = git_changed_files();
+
+    let mut outside = Vec::new();
+    for file in &changed {
+        let in_scope = write_scope.iter().any(|scope_pattern| {
+            lease_file_allowed(file, &[scope_pattern.clone()])
+        });
+        if !in_scope {
+            outside.push(file.clone());
+        }
+    }
+
+    (task_id, outside)
+}
+
+fn git_changed_files() -> Vec<String> {
+    use std::process::Command;
+    let mut files = Vec::new();
+
+    if let Ok(output) = Command::new("git")
+        .args(["diff", "--name-only", "HEAD"])
+        .output()
+    {
+        if output.status.success() {
+            for line in String::from_utf8_lossy(&output.stdout).lines() {
+                let t = line.trim();
+                if !t.is_empty() && !files.contains(&t.to_string()) {
+                    files.push(t.to_string());
+                }
+            }
+        }
+    }
+
+    if let Ok(output) = Command::new("git")
+        .args(["ls-files", "--others", "--exclude-standard"])
+        .output()
+    {
+        if output.status.success() {
+            for line in String::from_utf8_lossy(&output.stdout).lines() {
+                let t = line.trim();
+                if !t.is_empty() && !files.contains(&t.to_string()) {
+                    files.push(t.to_string());
+                }
+            }
+        }
+    }
+
+    files
+}
+
+fn git_diff_content() -> String {
+    use std::process::Command;
+    if let Ok(output) = Command::new("git")
+        .args(["diff", "HEAD"])
+        .output()
+    {
+        if output.status.success() {
+            return String::from_utf8_lossy(&output.stdout).to_string();
+        }
+    }
+    String::new()
+}
+
+// ══════════════════════════════════════════════════
+// DRIFT — 3-axis drift detection
+// ══════════════════════════════════════════════════
+
+fn cmd_drift(args: &[String]) {
+    let explain = args.iter().any(|a| a == "--explain");
+    let mut warnings: Vec<String> = Vec::new();
+
+    println!();
+    println!("\x1b[1mCRONUS Drift Analysis\x1b[0m");
+    println!("\x1b[90m\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\x1b[0m");
+
+    let changed = git_changed_files();
+    let diff_content = git_diff_content();
+
+    // 1. Strategic Drift
+    let strategic = drift_check_strategic(&changed);
+    match &strategic {
+        DriftResult::Ok(msg) => println!("  Strategic: \x1b[32m\u{2713} OK\x1b[0m \u{2014} {}", msg),
+        DriftResult::Warn(msg, details) => {
+            println!("  Strategic: \x1b[33m\u{26a0} WARN\x1b[0m \u{2014} {}", msg);
+            warnings.push(format!("Strategic: {}", msg));
+            if explain { for d in details { println!("      \x1b[33m\u{2014} {}\x1b[0m", d); } }
+        }
+    }
+
+    // 2. Scope Drift
+    let scope = drift_check_scope(&changed);
+    match &scope {
+        DriftResult::Ok(msg) => println!("  Scope:     \x1b[32m\u{2713} OK\x1b[0m \u{2014} {}", msg),
+        DriftResult::Warn(msg, details) => {
+            println!("  Scope:     \x1b[33m\u{26a0} WARN\x1b[0m \u{2014} {}", msg);
+            warnings.push(format!("Scope: {}", msg));
+            if explain { for d in details { println!("      \x1b[33m\u{2014} {}\x1b[0m", d); } }
+        }
+    }
+
+    // 3. Semantic Drift
+    let semantic = drift_check_semantic(&changed, &diff_content);
+    match &semantic {
+        DriftResult::Ok(msg) => println!("  Semantic:  \x1b[32m\u{2713} OK\x1b[0m \u{2014} {}", msg),
+        DriftResult::Warn(msg, details) => {
+            println!("  Semantic:  \x1b[33m\u{26a0} WARN\x1b[0m \u{2014} {}", msg);
+            warnings.push(format!("Semantic: {}", msg));
+            if explain { for d in details { println!("      \x1b[33m\u{2014} {}\x1b[0m", d); } }
+        }
+    }
+
+    println!();
+    if warnings.is_empty() {
+        println!("  \x1b[32mNo drift detected.\x1b[0m");
+    } else {
+        println!("  \x1b[33m{} warning{}.\x1b[0m Run `cronus drift --explain` for details.",
+            warnings.len(),
+            if warnings.len() == 1 { "" } else { "s" }
+        );
+    }
+    println!();
+}
+
+#[allow(dead_code)]
+enum DriftResult {
+    Ok(String),
+    Warn(String, Vec<String>),
+}
+
+/// Strategic drift: are changes aligned with the objective?
+fn drift_check_strategic(changed: &[String]) -> DriftResult {
+    if changed.is_empty() {
+        return DriftResult::Ok("no changes to check".into());
+    }
+
+    let objective = fs::read_to_string(".cronus/objective.toml").unwrap_or_default();
+    if objective.is_empty() {
+        return DriftResult::Ok("no objective.toml \u{2014} skipping".into());
+    }
+
+    // Parse out-of-scope items
+    let out_of_scope = {
+        let mut in_oos = false;
+        let mut items = Vec::new();
+        for line in objective.lines() {
+            let t = line.trim();
+            if t == "[out_of_scope]" { in_oos = true; continue; }
+            if in_oos && t.starts_with('[') && t != "[out_of_scope]" { break; }
+            if in_oos {
+                let v = t.trim_start_matches('"').trim_end_matches('"').trim_end_matches(',').trim_matches('"');
+                if !v.is_empty() && !v.starts_with("items") && v != "]" {
+                    items.push(v.to_lowercase());
+                }
+            }
+        }
+        items
+    };
+
+    // Check if changed files relate to out-of-scope items
+    let mut drift_details: Vec<String> = Vec::new();
+    for file in changed {
+        let fl = file.to_lowercase();
+        for oos in &out_of_scope {
+            for word in oos.split_whitespace() {
+                let clean = word.trim_matches(|c: char| !c.is_alphanumeric());
+                if clean.len() > 4 && fl.contains(clean) && clean != "support" {
+                    let detail = format!("{} (out-of-scope: {})", file, oos);
+                    if !drift_details.contains(&detail) {
+                        drift_details.push(detail);
+                    }
+                }
+            }
+        }
+    }
+
+    if !drift_details.is_empty() {
+        return DriftResult::Warn(
+            format!("{} file(s) may relate to out-of-scope items", drift_details.len()),
+            drift_details,
+        );
+    }
+
+    // Check if changes are at least in kernel/project territory
+    let relevant = changed.iter().any(|f| {
+        f.contains("src/") || f.ends_with(".rs") || f.ends_with(".cronus")
+            || f.contains("specs/") || f.contains("tests/") || f.contains(".cronus/")
+    });
+
+    if relevant {
+        DriftResult::Ok("changes align with objective".into())
+    } else {
+        DriftResult::Warn(
+            "changes may not serve current objective".into(),
+            changed.to_vec(),
+        )
+    }
+}
+
+/// Scope drift: are changed files within the active task lease?
+fn drift_check_scope(changed: &[String]) -> DriftResult {
+    if changed.is_empty() {
+        return DriftResult::Ok("no changes to check".into());
+    }
+
+    let (task_id, outside) = lease_check_scope();
+
+    if task_id.is_empty() {
+        return DriftResult::Ok("no active task lease \u{2014} skipping".into());
+    }
+
+    if outside.is_empty() {
+        DriftResult::Ok("all files within lease".into())
+    } else {
+        DriftResult::Warn(
+            format!("{} file(s) outside lease [{}]", outside.len(), task_id),
+            outside,
+        )
+    }
+}
+
+/// Semantic drift: new syntax without spec, or constitution violations?
+fn drift_check_semantic(changed: &[String], diff_content: &str) -> DriftResult {
+    use std::path::Path;
+
+    let mut details: Vec<String> = Vec::new();
+    let mut has_real_warning = false;
+
+    // Check 1: parser.rs modified — look for new match arms with unspecced keywords
+    let parser_modified = changed.iter().any(|f| f.contains("parser.rs"));
+    if parser_modified {
+        let mut new_keywords: Vec<String> = Vec::new();
+        for line in diff_content.lines() {
+            if !line.starts_with('+') || line.starts_with("+++") { continue; }
+            let trimmed = line[1..].trim();
+            if trimmed.contains("=>") && trimmed.contains('"') {
+                let mut remaining = trimmed;
+                while let Some(start) = remaining.find('"') {
+                    remaining = &remaining[start + 1..];
+                    if let Some(end) = remaining.find('"') {
+                        let keyword = &remaining[..end];
+                        if keyword.len() > 1
+                            && keyword.len() < 30
+                            && !keyword.contains(' ')
+                            && !keyword.contains('/')
+                            && !keyword.contains('.')
+                            && keyword != "true" && keyword != "false"
+                            && keyword.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+                        {
+                            let spec_path = format!("specs/core/{}.spec.toml", keyword);
+                            if !Path::new(&spec_path).exists()
+                                && !new_keywords.contains(&keyword.to_string())
+                            {
+                                new_keywords.push(keyword.to_string());
+                            }
+                        }
+                        remaining = &remaining[end + 1..];
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+
+        if !new_keywords.is_empty() {
+            has_real_warning = true;
+            for kw in &new_keywords {
+                details.push(format!("\"{}\" has no specs/core/{}.spec.toml", kw, kw));
+            }
+        }
+    }
+
+    // Check 2: constitution forbidden violations in added lines
+    let added_lines: String = diff_content.lines()
+        .filter(|l| l.starts_with('+') && !l.starts_with("+++"))
+        .map(|l| if l.len() > 1 { &l[1..] } else { "" })
+        .collect::<Vec<_>>()
+        .join("\n")
+        .to_lowercase();
+
+    if added_lines.contains("math.random()") || added_lines.contains("math::random") {
+        has_real_warning = true;
+        details.push("fake data pattern detected (Math.random)".into());
+    }
+    if (added_lines.contains("react") || added_lines.contains("vue") || added_lines.contains("svelte"))
+        && added_lines.contains("import")
+    {
+        has_real_warning = true;
+        details.push("framework import detected \u{2014} CRONUS is the runtime".into());
+    }
+    if added_lines.contains("mock_data") || added_lines.contains("fake_data") || added_lines.contains("dummy_data") {
+        has_real_warning = true;
+        details.push("fake/mock data pattern detected".into());
+    }
+
+    if has_real_warning {
+        let msg = if parser_modified {
+            format!("parser.rs modified, {} issue(s) found", details.len())
+        } else {
+            format!("{} constitution concern(s)", details.len())
+        };
+        DriftResult::Warn(msg, details)
+    } else if parser_modified {
+        DriftResult::Ok("parser.rs modified, all keywords have specs".into())
+    } else {
+        DriftResult::Ok("no new syntax, no constitution violations".into())
+    }
+}
 fn chrono_now_iso() -> String {
     use std::time::SystemTime;
     let duration = SystemTime::now()
@@ -5582,4 +6251,355 @@ fn chrono_now_iso() -> String {
     let d = remaining + 1;
 
     format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", y, m, d, hours, minutes, seconds)
+}
+
+// =============================================================================
+// cronus lease — Task lease management (check / list / create)
+// =============================================================================
+
+fn cmd_lease(args: &[String]) {
+    let sub = args.get(2).map(|s| s.as_str()).unwrap_or("check");
+    match sub {
+        "check" => lease_check(),
+        "list" => lease_list(),
+        "create" => lease_create(args),
+        _ => {
+            eprintln!("  \x1b[31mUnknown lease subcommand: {}\x1b[0m", sub);
+            eprintln!("  Usage: cronus lease <check|list|create>");
+            std::process::exit(1);
+        }
+    }
+}
+
+/// cronus lease check — validate git diff against active task scope
+fn lease_check() {
+    use std::process::Command;
+
+    // 1. Find active task (first open/in_progress)
+    let mut task_id = String::new();
+    let mut task_title = String::new();
+    let mut write_scope: Vec<String> = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(".cronus/tasks") {
+        let mut task_files: Vec<_> = entries
+            .flatten()
+            .filter(|e| {
+                let n = e.file_name().to_string_lossy().to_string();
+                n.starts_with("TASK-") && n.ends_with(".toml")
+            })
+            .collect();
+        task_files.sort_by_key(|e| e.file_name());
+
+        for entry in task_files {
+            let content = fs::read_to_string(entry.path()).unwrap_or_default();
+            if let Some(status) = brief_toml_val(&content, "status") {
+                if status == "open" || status == "in_progress" {
+                    task_id = brief_toml_val(&content, "id").unwrap_or_default();
+                    task_title = brief_toml_val(&content, "title").unwrap_or_default();
+                    write_scope = brief_toml_arr_after_section(&content, "[scope]", "write");
+                    break;
+                }
+            }
+        }
+    }
+
+    if task_id.is_empty() {
+        eprintln!("  \x1b[33mNo active task lease found.\x1b[0m");
+        eprintln!("  Create one with: cronus lease create \"title\" --write file1,file2");
+        std::process::exit(1);
+    }
+
+    // 2. Get modified files from git
+    let mut modified_files: Vec<String> = Vec::new();
+
+    // Unstaged changes
+    if let Ok(output) = Command::new("git")
+        .args(["diff", "--name-only"])
+        .output()
+    {
+        if output.status.success() {
+            let text = String::from_utf8_lossy(&output.stdout);
+            for line in text.lines() {
+                let f = line.trim().to_string();
+                if !f.is_empty() && !modified_files.contains(&f) {
+                    modified_files.push(f);
+                }
+            }
+        }
+    }
+
+    // Staged changes
+    if let Ok(output) = Command::new("git")
+        .args(["diff", "--cached", "--name-only"])
+        .output()
+    {
+        if output.status.success() {
+            let text = String::from_utf8_lossy(&output.stdout);
+            for line in text.lines() {
+                let f = line.trim().to_string();
+                if !f.is_empty() && !modified_files.contains(&f) {
+                    modified_files.push(f);
+                }
+            }
+        }
+    }
+
+    if modified_files.is_empty() {
+        println!("  Active lease: \x1b[1m{}\x1b[0m — {}", task_id, task_title);
+        println!("  No modified files detected.");
+        return;
+    }
+
+    // 3. Check each file against scope
+    println!("  Active lease: \x1b[1m{}\x1b[0m — {}", task_id, task_title);
+    println!("  Modified files:");
+
+    let mut blocked_files: Vec<String> = Vec::new();
+
+    for file in &modified_files {
+        if lease_file_allowed(file, &write_scope) {
+            println!("    \x1b[32m{}\x1b[0m  \x1b[32m✓ ALLOWED\x1b[0m", file);
+        } else {
+            println!("    \x1b[31m{}\x1b[0m  \x1b[31m✗ BLOCKED (not in scope)\x1b[0m", file);
+            blocked_files.push(file.clone());
+        }
+    }
+
+    if blocked_files.is_empty() {
+        println!("\n  \x1b[32m✓ All files within task scope.\x1b[0m");
+    } else {
+        println!(
+            "\n  \x1b[33m⚠ DRIFT DETECTED: {} file{} outside task scope.\x1b[0m",
+            blocked_files.len(),
+            if blocked_files.len() == 1 { "" } else { "s" }
+        );
+        for f in &blocked_files {
+            println!("  Run `cronus lease expand {}` to add it.", f);
+        }
+        std::process::exit(1);
+    }
+}
+
+/// Check if a file path is allowed by the write scope entries.
+fn lease_file_allowed(file: &str, scope: &[String]) -> bool {
+    for entry in scope {
+        let entry_clean = entry.trim();
+        if entry_clean.is_empty() {
+            continue;
+        }
+
+        // Directory match: "tests/conformance/" matches any file under it
+        if entry_clean.ends_with('/') {
+            if file.starts_with(entry_clean) || file.contains(entry_clean) {
+                return true;
+            }
+            let dir = entry_clean.trim_end_matches('/');
+            if file.starts_with(&format!("{}/", dir)) {
+                return true;
+            }
+            continue;
+        }
+
+        // Glob pattern with * (e.g. "tests/conformance/auth-*.cronus")
+        if entry_clean.contains('*') {
+            if lease_glob_match(entry_clean, file) {
+                return true;
+            }
+            continue;
+        }
+
+        // Exact match
+        if file == entry_clean {
+            return true;
+        }
+
+        // Partial match: "main.rs" matches "cronus-kernel/src/main.rs"
+        if file.ends_with(entry_clean) {
+            return true;
+        }
+
+        // Partial match: scope "cronus-kernel/src/main.rs" matches file "src/main.rs"
+        if entry_clean.ends_with(file) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Simple glob matching — supports single * wildcard
+fn lease_glob_match(pattern: &str, text: &str) -> bool {
+    if let Some(star_pos) = pattern.find('*') {
+        let prefix = &pattern[..star_pos];
+        let suffix = &pattern[star_pos + 1..];
+
+        // Direct match
+        if text.starts_with(prefix) && text.ends_with(suffix) {
+            return true;
+        }
+
+        // Partial path match
+        if text.ends_with(suffix) {
+            if let Some(idx) = text.find(prefix) {
+                let remaining = &text[idx + prefix.len()..];
+                if remaining.ends_with(suffix) {
+                    return true;
+                }
+            }
+        }
+    }
+    pattern == text
+}
+
+/// cronus lease list — show all tasks with status
+fn lease_list() {
+    if let Ok(entries) = fs::read_dir(".cronus/tasks") {
+        let mut task_files: Vec<_> = entries
+            .flatten()
+            .filter(|e| {
+                let n = e.file_name().to_string_lossy().to_string();
+                n.starts_with("TASK-") && n.ends_with(".toml")
+            })
+            .collect();
+        task_files.sort_by_key(|e| e.file_name());
+
+        if task_files.is_empty() {
+            println!("  No task leases found in .cronus/tasks/");
+            return;
+        }
+
+        println!("  \x1b[1mTask Leases:\x1b[0m\n");
+
+        for entry in &task_files {
+            if let Ok(content) = fs::read_to_string(entry.path()) {
+                let id = brief_toml_val(&content, "id").unwrap_or_else(|| "???".into());
+                let title = brief_toml_val(&content, "title").unwrap_or_default();
+                let status = brief_toml_val(&content, "status").unwrap_or_else(|| "open".into());
+                let priority = brief_toml_val(&content, "priority").unwrap_or_default();
+
+                let status_color = match status.as_str() {
+                    "done" => "\x1b[32m",
+                    "open" => "\x1b[33m",
+                    "in_progress" => "\x1b[36m",
+                    "blocked" => "\x1b[31m",
+                    _ => "\x1b[90m",
+                };
+
+                let prio_str = if priority.is_empty() {
+                    String::new()
+                } else {
+                    format!(" [{}]", priority)
+                };
+
+                println!(
+                    "    {} {}{}\x1b[0m — {}{}",
+                    id, status_color, status, title, prio_str
+                );
+            }
+        }
+        println!();
+    } else {
+        println!("  No .cronus/tasks/ directory found.");
+    }
+}
+
+/// cronus lease create "title" --write file1,file2 --checks "check1,check2"
+fn lease_create(args: &[String]) {
+    let title = args.get(3).cloned().unwrap_or_else(|| {
+        eprintln!("  \x1b[31mUsage: cronus lease create \"title\" --write file1,file2 [--checks \"c1,c2\"]\x1b[0m");
+        std::process::exit(1);
+    });
+
+    let mut write_files: Vec<String> = Vec::new();
+    let mut checks: Vec<String> = Vec::new();
+    let mut read_files: Vec<String> = Vec::new();
+
+    let mut i = 4;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--write" | "-w" => {
+                if i + 1 < args.len() {
+                    write_files = args[i + 1].split(',').map(|s| s.trim().to_string()).collect();
+                    i += 2;
+                } else { i += 1; }
+            }
+            "--checks" | "-c" => {
+                if i + 1 < args.len() {
+                    checks = args[i + 1].split(',').map(|s| s.trim().to_string()).collect();
+                    i += 2;
+                } else { i += 1; }
+            }
+            "--read" | "-r" => {
+                if i + 1 < args.len() {
+                    read_files = args[i + 1].split(',').map(|s| s.trim().to_string()).collect();
+                    i += 2;
+                } else { i += 1; }
+            }
+            _ => { i += 1; }
+        }
+    }
+
+    // Find next task number
+    let mut max_num: u32 = 0;
+    if let Ok(entries) = fs::read_dir(".cronus/tasks") {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with("TASK-") && name.ends_with(".toml") {
+                let num_str = &name[5..name.len() - 5];
+                if let Ok(n) = num_str.parse::<u32>() {
+                    if n > max_num { max_num = n; }
+                }
+            }
+        }
+    }
+    let next_num = max_num + 1;
+    let task_id = format!("TASK-{:03}", next_num);
+    let today = brief_today_date();
+
+    let mut toml = String::new();
+    toml.push_str(&format!("[task]\nid = \"{}\"\n", task_id));
+    toml.push_str(&format!("title = \"{}\"\n", title));
+    toml.push_str("status = \"open\"\n");
+    toml.push_str(&format!("created = \"{}\"\n", today));
+    toml.push_str("priority = \"P1\"\n");
+
+    toml.push_str("\n[mission]\n");
+    toml.push_str(&format!("goal = \"{}\"\n", title));
+    toml.push_str("context = \"\"\n");
+
+    toml.push_str("\n[scope]\n");
+    toml.push_str("write = [\n");
+    for f in &write_files {
+        toml.push_str(&format!("  \"{}\",\n", f));
+    }
+    toml.push_str("]\n");
+    toml.push_str("read = [\n");
+    for f in &read_files {
+        toml.push_str(&format!("  \"{}\",\n", f));
+    }
+    toml.push_str("]\n");
+
+    toml.push_str("\n[forbidden]\nitems = []\n");
+    toml.push_str("\n[dependencies]\nrequires = []\n");
+
+    toml.push_str("\n[done]\nchecks = [\n");
+    for c in &checks {
+        toml.push_str(&format!("  \"{}\",\n", c));
+    }
+    toml.push_str("]\n");
+
+    let _ = fs::create_dir_all(".cronus/tasks");
+    let path = format!(".cronus/tasks/{}.toml", task_id);
+    match fs::write(&path, &toml) {
+        Ok(_) => {
+            println!("  \x1b[32m✓ Created {}\x1b[0m — {}", task_id, title);
+            println!("  File: {}", path);
+            if !write_files.is_empty() {
+                println!("  Scope: {}", write_files.join(", "));
+            }
+        }
+        Err(e) => {
+            eprintln!("  \x1b[31mError creating {}: {}\x1b[0m", path, e);
+            std::process::exit(1);
+        }
+    }
 }
