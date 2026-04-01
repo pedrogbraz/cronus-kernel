@@ -5734,27 +5734,55 @@ fn cmd_validate_mission() {
     let forbidden_fallback = brief_toml_arr(&constitution, "never");
     let forbidden = if !forbidden_items.is_empty() { forbidden_items } else { forbidden_fallback };
 
-    // 2. Read git diff content
-    let diff_content = if let Ok(output) = Command::new("git")
-        .args(["diff", "HEAD~5..HEAD"])
-        .output()
-    {
-        if output.status.success() {
-            String::from_utf8_lossy(&output.stdout).to_string()
-        } else {
-            // Try without range
-            if let Ok(output2) = Command::new("git").args(["diff"]).output() {
-                String::from_utf8_lossy(&output2.stdout).to_string()
-            } else {
-                String::new()
+    // 2. Read active task write scope for filtering
+    let mut write_scope: Vec<String> = Vec::new();
+    if let Ok(entries) = fs::read_dir(".cronus/tasks") {
+        let mut files: Vec<_> = entries.flatten()
+            .filter(|e| {
+                let n = e.file_name().to_string_lossy().to_string();
+                n.starts_with("TASK-") && n.ends_with(".toml")
+            })
+            .collect();
+        files.sort_by_key(|e| e.file_name());
+        for entry in files {
+            let content = fs::read_to_string(entry.path()).unwrap_or_default();
+            if let Some(status) = brief_toml_val(&content, "status") {
+                if status == "open" || status == "in_progress" {
+                    let scope = brief_toml_arr_after_section(&content, "[scope]", "write");
+                    write_scope = if !scope.is_empty() { scope } else { brief_toml_arr(&content, "write") };
+                    break;
+                }
             }
         }
-    } else {
-        String::new()
+    }
+
+    // 3. Read git diff content — staged first, fallback to last 1 commit
+    let diff_content = {
+        // Try staged changes first
+        let staged = Command::new("git")
+            .args(["diff", "--cached"])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+            .unwrap_or_default();
+
+        if !staged.trim().is_empty() {
+            staged
+        } else {
+            // Nothing staged — diff last 1 commit only
+            Command::new("git")
+                .args(["diff", "HEAD~1..HEAD"])
+                .output()
+                .ok()
+                .filter(|o| o.status.success())
+                .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+                .unwrap_or_default()
+        }
     };
 
-    // 3. Check if any forbidden pattern appears in the diff (code files only)
-    // Filter to only added lines in code files (.rs, .cronus), skip docs/config
+    // 4. Check if any forbidden pattern appears in the diff (code files only)
+    // Filter to only added lines in code files (.rs, .cronus) that are in scope
     let mut constitution_pass = true;
     let mut violations: Vec<String> = Vec::new();
     let mut in_code_file = false;
@@ -5762,7 +5790,10 @@ fn cmd_validate_mission() {
         .filter(|l| {
             if l.starts_with("+++ b/") {
                 let path = &l[6..];
-                in_code_file = path.ends_with(".rs") || path.ends_with(".cronus");
+                let is_code = path.ends_with(".rs") || path.ends_with(".cronus");
+                // If we have a write scope, only include files within it
+                let in_scope = write_scope.is_empty() || lease_file_allowed(path, &write_scope);
+                in_code_file = is_code && in_scope;
                 return false;
             }
             if l.starts_with("--- ") || l.starts_with("diff --git") {
@@ -5831,34 +5862,13 @@ fn cmd_validate_mission() {
         println!("  Objective: \x1b[32m✓ PASS\x1b[0m (changes serve current goal)");
     }
 
-    // 6. Check spec coverage
-    let mut spec_names: Vec<String> = Vec::new();
-    if let Ok(entries) = fs::read_dir("specs") {
-        for entry in entries.flatten() {
-            if entry.path().is_dir() {
-                if let Ok(sub) = fs::read_dir(entry.path()) {
-                    for s in sub.flatten() {
-                        if s.file_name().to_string_lossy().ends_with(".spec.toml") {
-                            spec_names.push(s.file_name().to_string_lossy().to_string());
-                        }
-                    }
-                }
-            } else if entry.file_name().to_string_lossy().ends_with(".spec.toml") {
-                spec_names.push(entry.file_name().to_string_lossy().to_string());
-            }
-        }
-    }
-    let mut specs_with_tests = 0usize;
-    for spec in &spec_names {
-        let base = spec.replace(".spec.toml", "");
-        if count_files_matching("tests/conformance", &base) > 0 {
-            specs_with_tests += 1;
-        }
-    }
-    if spec_names.is_empty() {
+    // 6. Check spec coverage — count specs and conformance tests separately
+    let spec_count = count_files_matching("specs", ".spec.toml");
+    let test_count = count_files_matching("tests/conformance", ".cronus");
+    if spec_count == 0 && test_count == 0 {
         println!("  Spec coverage: \x1b[33mno specs found\x1b[0m");
     } else {
-        println!("  Spec coverage: {}/{} specs have tests", specs_with_tests, spec_names.len());
+        println!("  Spec coverage: {} specs, {} conformance tests", spec_count, test_count);
     }
 
     // 7. Build check
@@ -5931,8 +5941,9 @@ fn git_changed_files() -> Vec<String> {
     use std::process::Command;
     let mut files = Vec::new();
 
+    // Priority 1: staged files (what's about to be committed)
     if let Ok(output) = Command::new("git")
-        .args(["diff", "--name-only", "HEAD"])
+        .args(["diff", "--cached", "--name-only"])
         .output()
     {
         if output.status.success() {
@@ -5945,15 +5956,18 @@ fn git_changed_files() -> Vec<String> {
         }
     }
 
-    if let Ok(output) = Command::new("git")
-        .args(["ls-files", "--others", "--exclude-standard"])
-        .output()
-    {
-        if output.status.success() {
-            for line in String::from_utf8_lossy(&output.stdout).lines() {
-                let t = line.trim();
-                if !t.is_empty() && !files.contains(&t.to_string()) {
-                    files.push(t.to_string());
+    // Priority 2: if nothing staged, fall back to last commit
+    if files.is_empty() {
+        if let Ok(output) = Command::new("git")
+            .args(["diff", "HEAD~1..HEAD", "--name-only"])
+            .output()
+        {
+            if output.status.success() {
+                for line in String::from_utf8_lossy(&output.stdout).lines() {
+                    let t = line.trim();
+                    if !t.is_empty() && !files.contains(&t.to_string()) {
+                        files.push(t.to_string());
+                    }
                 }
             }
         }
@@ -5964,14 +5978,30 @@ fn git_changed_files() -> Vec<String> {
 
 fn git_diff_content() -> String {
     use std::process::Command;
+
+    // Priority 1: staged diff
     if let Ok(output) = Command::new("git")
-        .args(["diff", "HEAD"])
+        .args(["diff", "--cached"])
+        .output()
+    {
+        if output.status.success() {
+            let staged = String::from_utf8_lossy(&output.stdout).to_string();
+            if !staged.trim().is_empty() {
+                return staged;
+            }
+        }
+    }
+
+    // Priority 2: last commit diff
+    if let Ok(output) = Command::new("git")
+        .args(["diff", "HEAD~1..HEAD"])
         .output()
     {
         if output.status.success() {
             return String::from_utf8_lossy(&output.stdout).to_string();
         }
     }
+
     String::new()
 }
 
@@ -6309,26 +6339,9 @@ fn lease_check() {
         std::process::exit(1);
     }
 
-    // 2. Get modified files from git
+    // 2. Get staged files only (this runs as a pre-commit hook)
     let mut modified_files: Vec<String> = Vec::new();
 
-    // Unstaged changes
-    if let Ok(output) = Command::new("git")
-        .args(["diff", "--name-only"])
-        .output()
-    {
-        if output.status.success() {
-            let text = String::from_utf8_lossy(&output.stdout);
-            for line in text.lines() {
-                let f = line.trim().to_string();
-                if !f.is_empty() && !modified_files.contains(&f) {
-                    modified_files.push(f);
-                }
-            }
-        }
-    }
-
-    // Staged changes
     if let Ok(output) = Command::new("git")
         .args(["diff", "--cached", "--name-only"])
         .output()
