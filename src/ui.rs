@@ -2690,7 +2690,7 @@ fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> String {
         return render_developer_landing_hero(section, title, subtitle, badge_text, cta_primary, cta_link, cta2_text, cta2_link, accent_hex);
     }
 
-    // === Dark theme hero — MONOLITH_OS design ===
+    // === Dark theme hero ===
 
     // Extract background image from items with role:background
     let bg_image_url = section.items.iter()
@@ -2698,6 +2698,21 @@ fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> String {
         .and_then(|i| i.get("title").or(i.get("image")).or(i.get("src")).or(i.get("url")))
         .map(|s| s.as_str())
         .unwrap_or("");
+
+    // Detect terminal items early for layout branching
+    let has_terminal_items = section.items.iter().any(|i| {
+        let t = i.get("_type").or(i.get("type")).map(|s| s.as_str()).unwrap_or("");
+        matches!(t, "line" | "output" | "success" | "prompt" | "terminal")
+    });
+
+    // Two-column layout: no background image AND no terminal items (Ultima/Fintech style)
+    let is_two_col = bg_image_url.is_empty() && !has_terminal_items;
+
+    if is_two_col {
+        return render_two_col_hero(section, title, subtitle, badge_text, cta_primary, cta_link, cta2_text, cta2_link, accent_hex);
+    }
+
+    // === Centered layout — MONOLITH_OS design (bg image or terminal) ===
 
     let bg_image_html = if !bg_image_url.is_empty() {
         format!(
@@ -2723,11 +2738,6 @@ fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> String {
     )).unwrap_or_default();
 
     // Terminal mockup — glass panel with blur, 3 dots header, syntax-colored lines
-    let has_terminal_items = section.items.iter().any(|i| {
-        let t = i.get("_type").or(i.get("type")).map(|s| s.as_str()).unwrap_or("");
-        matches!(t, "line" | "output" | "success" | "prompt" | "terminal")
-    });
-
     let terminal_html = if has_terminal_items {
         let terminal_title = section.items.iter()
             .find(|i| {
@@ -2889,6 +2899,106 @@ fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> String {
         cta_primary = cta_primary,
         cta2_html = cta2_html,
         terminal_html = terminal_html,
+    )
+}
+
+/// Two-column dark hero: Ultima/Fintech style — left text, right visual, gradient title, mesh bg
+fn render_two_col_hero(
+    _section: &SectionNode,
+    title: &str,
+    subtitle: &str,
+    badge_text: Option<&str>,
+    cta_primary: &str,
+    cta_link: &str,
+    cta2_text: Option<&str>,
+    cta2_link: &str,
+    accent_hex: &str,
+) -> String {
+    // Badge with animated pulse dot
+    let badge_html = badge_text.map(|b| format!(
+        r#"<div class="anim-fade d1" style="display:inline-flex;align-items:center;gap:8px;padding:6px 18px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);margin-bottom:32px;backdrop-filter:blur(12px)">
+      <span style="width:7px;height:7px;border-radius:50%;background:{accent};animation:pulse-dot 2s ease-in-out infinite"></span>
+      <span style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.7)">{text}</span>
+    </div>"#, accent = accent_hex, text = b
+    )).unwrap_or_default();
+
+    // Title with gradient on text after last comma or period
+    let title_html = {
+        let last_sep = title.rfind(',').or_else(|| title.rfind('.'));
+        if let Some(pos) = last_sep {
+            let before = &title[..=pos];
+            let after = &title[pos+1..];
+            if after.trim().is_empty() {
+                format!(r#"<span style="color:#ffffff">{}</span>"#, title)
+            } else {
+                format!(
+                    r#"<span style="color:#ffffff">{before}</span><span style="background:linear-gradient(135deg,#adc6ff 0%,#c2c1ff 50%,#e9b3ff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">{after}</span>"#,
+                    before = before, after = after
+                )
+            }
+        } else {
+            format!(r#"<span style="color:#ffffff">{}</span>"#, title)
+        }
+    };
+
+    // CTA2 ghost button
+    let cta2_html = cta2_text.map(|t| format!(
+        r#"<a href="{link}" class="anim-scale d5" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 36px;border-radius:999px;border:0.5px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.04);color:#ffffff;font-weight:600;font-size:16px;text-decoration:none;backdrop-filter:blur(12px);transition:all 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='rgba(255,255,255,0.04)'">{text}</a>"#,
+        link = cta2_link, text = t
+    )).unwrap_or_default();
+
+    // Derive lighter accent for gradient CTA
+    let accent_light = match accent_hex {
+        "#2563eb" => "#60a5fa",
+        "#6366f1" => "#a5b4fc",
+        "#f59e0b" => "#fcd34d",
+        "#10b981" => "#6ee7b7",
+        "#f43f5e" => "#fb7185",
+        "#8b5cf6" => "#c4b5fd",
+        "#0ea5e9" => "#7dd3fc",
+        "#f97316" => "#fdba74",
+        "#ef4444" => "#fca5a5",
+        "#22c55e" => "#86efac",
+        "#a855f7" => "#d8b4fe",
+        "#ec4899" => "#f9a8d4",
+        "#06b6d4" => "#67e8f9",
+        "#14b8a6" => "#5eead4",
+        _ => "#60a5fa",
+    };
+
+    format!(
+        r##"<style>@keyframes pulse-dot{{0%,100%{{opacity:1;transform:scale(1)}}50%{{opacity:0.5;transform:scale(0.85)}}}}</style>
+<section style="position:relative;overflow:hidden;min-height:921px;display:flex;align-items:center;background:#0a0a0a">
+  <div style="position:absolute;inset:0;z-index:0;pointer-events:none">
+    <div style="position:absolute;top:-20%;left:-10%;width:60%;height:60%;background:radial-gradient(ellipse at center,rgba(99,102,241,0.08) 0%,transparent 70%)"></div>
+    <div style="position:absolute;top:-10%;right:-10%;width:50%;height:50%;background:radial-gradient(ellipse at center,rgba(168,85,247,0.06) 0%,transparent 70%)"></div>
+    <div style="position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent)"></div>
+  </div>
+  <div style="position:relative;z-index:10;max-width:1280px;width:100%;margin:0 auto;padding:120px 24px 80px;display:grid;grid-template-columns:58% 42%;align-items:center;gap:48px">
+    <div style="display:flex;flex-direction:column;align-items:flex-start">
+      {badge_html}
+      <h1 class="anim-slide-up d2" style="font-size:clamp(48px,6vw,80px);font-weight:900;letter-spacing:-0.04em;line-height:0.95;margin:0 0 28px 0">
+        {title_html}
+      </h1>
+      <p class="anim-slide-up d3" style="max-width:520px;margin:0 0 40px;font-size:clamp(16px,1.6vw,19px);font-weight:300;color:rgba(255,255,255,0.5);line-height:1.7;text-align:left">{subtitle}</p>
+      <div class="anim-slide-up d4" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px">
+        <a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 36px;border-radius:999px;background:linear-gradient(135deg,{accent} 0%,{accent_light} 100%);color:#ffffff;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s;box-shadow:0 2px 20px {accent}40" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 28px {accent}60'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 20px {accent}40'">{cta_primary}</a>
+        {cta2_html}
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;min-height:400px">
+      <div style="width:100%;max-width:420px;aspect-ratio:4/3;border-radius:24px;background:linear-gradient(135deg,rgba(255,255,255,0.03) 0%,rgba(255,255,255,0.01) 100%);border:0.5px solid rgba(255,255,255,0.06);backdrop-filter:blur(20px)"></div>
+    </div>
+  </div>
+</section>"##,
+        badge_html = badge_html,
+        title_html = title_html,
+        subtitle = subtitle,
+        cta_link = cta_link,
+        accent = accent_hex,
+        accent_light = accent_light,
+        cta_primary = cta_primary,
+        cta2_html = cta2_html,
     )
 }
 
@@ -3378,14 +3488,41 @@ fn render_features_bento_dark(section: &SectionNode) -> String {
         }
     }).collect();
 
+    // Section header (if title exists)
+    let section_header = if let Some(ref title) = section.title {
+        let eyebrow = section.config.get("subtitle_label")
+            .or(section.config.get("eyebrow"))
+            .map(|s| s.as_str())
+            .unwrap_or("");
+        let eyebrow_html = if !eyebrow.is_empty() {
+            format!(
+                r#"<h2 style="font-size:14px;font-weight:700;color:#adc6ff;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:16px">{}</h2>"#,
+                eyebrow
+            )
+        } else {
+            String::new()
+        };
+        format!(
+            r#"<div style="margin-bottom:96px">
+      {}
+      <h3 style="font-size:clamp(32px,4vw,48px);font-weight:700;letter-spacing:-0.02em;max-width:672px;color:white;margin-bottom:0">{}</h3>
+    </div>"#,
+            eyebrow_html, title
+        )
+    } else {
+        String::new()
+    };
+
     format!(
         r#"<section style="padding:128px 24px;width:100%">
   <div style="max-width:80rem;margin:0 auto">
+    {}
     <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:24px;width:100%">
       {}
     </div>
   </div>
 </section>"#,
+        section_header,
         card_htmls.join("\n      "),
     )
 }
@@ -3775,7 +3912,7 @@ fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> String {
         );
     }
 
-    // Dark theme CTA — solid dark bg, huge title, two buttons side by side
+    // Dark theme CTA — glass card, sentence-case title, logo bar
     let subtitle_html = if subtitle.is_empty() {
         String::new()
     } else {
@@ -3783,7 +3920,7 @@ fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> String {
     };
 
     let cta2_html = cta2_text.map(|t| format!(
-        r##"<a href="{link}" style="display:inline-flex;align-items:center;justify-content:center;padding:20px 48px;border-radius:12px;background:#2a2a2a;color:white;font-weight:900;font-size:13px;letter-spacing:0.1em;text-transform:uppercase;text-decoration:none;border:0.5px solid rgba(255,255,255,0.15);transition:all 0.2s" onmouseover="this.style.background='#333'" onmouseout="this.style.background='#2a2a2a'">{text}</a>"##,
+        r##"<a href="{link}" style="display:inline-flex;align-items:center;justify-content:center;padding:20px 48px;border-radius:16px;background:#2a2a2a;color:white;font-weight:900;font-size:13px;letter-spacing:0.1em;text-transform:uppercase;text-decoration:none;border:0.5px solid rgba(255,255,255,0.15);transition:all 0.2s" onmouseover="this.style.background='#333'" onmouseout="this.style.background='#2a2a2a'">{text}</a>"##,
         link=cta2_link, text=t
     )).unwrap_or_default();
 
@@ -3791,23 +3928,39 @@ fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> String {
         r#"<p style="font-size:14px;color:#6b7280;margin-top:32px">{}</p>"#, f
     )).unwrap_or_default();
 
+    // Logo bar from items (non-CTA items like "GOLDMAN", "MORGAN", etc.)
+    let logo_items: Vec<String> = section.items.iter().filter_map(|item| {
+        item.get("title").or_else(|| item.get("name")).map(|name| {
+            format!(r#"<span style="font-weight:900;font-size:20px;font-style:italic;letter-spacing:-0.05em;color:white">{}</span>"#, name)
+        })
+    }).collect();
+
+    let logo_bar_html = if !logo_items.is_empty() {
+        format!(r#"<div style="padding-top:48px;display:flex;justify-content:center;gap:48px;opacity:0.3;filter:grayscale(100%)">{}</div>"#, logo_items.join("\n"))
+    } else {
+        String::new()
+    };
+
     format!(
-        r##"<section style="padding:160px 24px;position:relative;overflow:hidden;background:#131313">
-  <div style="position:relative;max-width:960px;margin:0 auto;text-align:center">
-    <h2 class="anim reveal" style="font-size:clamp(48px,7vw,96px);font-weight:900;letter-spacing:-0.05em;text-transform:uppercase;color:white;margin-bottom:24px;line-height:0.95">{title}</h2>
-    {subtitle_html}
-    <div class="anim anim-d1" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px">
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px">
-        <a href="{cta_link}" class="reveal" style="display:inline-flex;align-items:center;justify-content:center;padding:20px 48px;border-radius:12px;background:linear-gradient(180deg,#fff,#d4d4d4);color:black;font-weight:900;font-size:13px;letter-spacing:0.1em;text-transform:uppercase;text-decoration:none;transition:transform 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_text}</a>
-        {cta2_html}
+        r##"<section style="padding:160px 24px;position:relative;overflow:hidden">
+  <div class="cronus-cta-card" style="position:relative;max-width:1024px;margin:0 auto;background:rgba(27,27,27,0.5);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);border:0.5px solid rgba(76,69,70,0.15);border-radius:32px;padding:48px 24px;overflow:hidden">
+    <div style="text-align:center">
+      <h2 class="anim reveal" style="font-size:clamp(36px,5vw,72px);font-weight:900;letter-spacing:-0.04em;color:white;margin-bottom:24px;line-height:1.1">{title}</h2>
+      {subtitle_html}
+      <div class="anim anim-d1" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px">
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px">
+          <a href="{cta_link}" class="reveal" style="display:inline-flex;align-items:center;justify-content:center;padding:20px 48px;border-radius:16px;background:linear-gradient(180deg,#fff,#d4d4d4);color:black;font-weight:900;font-size:13px;letter-spacing:0.1em;text-transform:uppercase;text-decoration:none;transition:transform 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_text}</a>
+          {cta2_html}
+        </div>
       </div>
+      {footnote_html}
+      {logo_bar_html}
     </div>
-    {footnote_html}
   </div>
 </section>
-<style>@media(min-width:768px){{.anim-d1 div{{flex-direction:row!important}}}}</style>"##,
+<style>@media(min-width:768px){{.cronus-cta-card{{padding:96px 64px!important}}}}@media(min-width:768px){{.anim-d1 div{{flex-direction:row!important}}}}</style>"##,
         title=title, subtitle_html=subtitle_html, cta_link=cta_link, cta_text=cta_text,
-        cta2_html=cta2_html, footnote_html=footnote_html,
+        cta2_html=cta2_html, footnote_html=footnote_html, logo_bar_html=logo_bar_html,
     )
 }
 
@@ -4528,8 +4681,9 @@ fn render_bento(section: &SectionNode, accent: &str) -> String {
 fn render_features_split_dark(section: &SectionNode) -> String {
     let eyebrow = section.config.get("eyebrow").map(|s| s.as_str()).unwrap_or("Security & Sovereignty");
 
+    // Fix #1: No text-transform:uppercase — sentence case as written in .cronus
     let title_html = section.title.as_deref().map(|t| format!(
-        r#"<h2 style="font-size:clamp(2.25rem,5vw,3.75rem);font-weight:900;letter-spacing:-0.04em;text-transform:uppercase;line-height:0.95;color:#fff;margin:0">{}</h2>"#, t
+        r#"<h2 style="font-size:clamp(2.25rem,5vw,3.75rem);font-weight:900;letter-spacing:-0.04em;line-height:0.95;color:#fff;margin:0">{}</h2>"#, t
     )).unwrap_or_default();
 
     let subtitle_html = section.subtitle.as_deref().map(|s| format!(
@@ -4537,7 +4691,8 @@ fn render_features_split_dark(section: &SectionNode) -> String {
     )).unwrap_or_default();
 
     // Collect feature items (non-image) and image
-    let mut feature_items: Vec<String> = Vec::new();
+    let mut stat_cards: Vec<String> = Vec::new();
+    let mut regular_items: Vec<String> = Vec::new();
     let mut image_src = String::new();
 
     for item in &section.items {
@@ -4546,7 +4701,6 @@ fn render_features_split_dark(section: &SectionNode) -> String {
             image_src = item.get("src").or(item.get("url")).map(|s| s.trim_matches('"').to_string()).unwrap_or_default();
             continue;
         }
-        // Check if item itself has an image src (top-level image item)
         if item.get("image").is_some() || (item.get("src").is_some() && item.get("title").is_none()) {
             image_src = item.get("src").or(item.get("image")).map(|s| s.trim_matches('"').to_string()).unwrap_or_default();
             continue;
@@ -4556,24 +4710,58 @@ fn render_features_split_dark(section: &SectionNode) -> String {
         let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
         let icon_name = item.get("icon").map(|s| s.as_str()).unwrap_or("star");
 
-        feature_items.push(format!(
-            r#"<div style="display:flex;gap:16px;align-items:flex-start">
+        // Fix #2: Detect metric-like titles (digits, ms, $, B+, %) -> stat cards in 2-col grid
+        let is_metric = name.chars().any(|c| c.is_ascii_digit())
+            || name.contains("ms") || name.contains('$') || name.contains("B+") || name.contains('%');
+
+        if is_metric {
+            stat_cards.push(format!(
+                r#"<div>
+  <div style="font-size:2.5rem;font-weight:700;color:#adc6ff;letter-spacing:-0.02em">{name}</div>
+  <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.15em;opacity:0.4;margin-top:8px;color:#fff">{desc}</div>
+</div>"#,
+                name = name, desc = desc
+            ));
+        } else {
+            regular_items.push(format!(
+                r#"<div style="display:flex;gap:16px;align-items:flex-start">
   <span class="material-symbols-outlined" style="font-size:28px;color:#fff;flex-shrink:0;margin-top:2px">{icon}</span>
   <div>
     <h4 style="font-size:16px;font-weight:700;color:#fff;margin:0 0 4px 0;letter-spacing:-0.01em">{name}</h4>
     <p style="font-size:14px;color:rgba(255,255,255,0.45);line-height:1.6;margin:0">{desc}</p>
   </div>
 </div>"#,
-            icon = icon_name, name = name, desc = desc
+                icon = icon_name, name = name, desc = desc
+            ));
+        }
+    }
+
+    // Build features HTML: stat cards in 2-col grid, regular items in vertical list
+    let mut features_html = String::new();
+    if !stat_cards.is_empty() {
+        features_html.push_str(&format!(
+            r#"<div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;padding-top:32px">
+          {}
+        </div>"#,
+            stat_cards.join("\n          ")
+        ));
+    }
+    if !regular_items.is_empty() {
+        features_html.push_str(&format!(
+            r#"<div style="display:flex;flex-direction:column;gap:24px;margin-top:40px">
+          {}
+        </div>"#,
+            regular_items.join("\n          ")
         ));
     }
 
-    // Right column: image with grayscale + glow effect
+    // Fix #3: Right column — dashboard card wrapper for images
     let right_col = if !image_src.is_empty() {
         format!(
             r#"<div style="flex:1;min-width:0;position:relative;display:flex;align-items:center;justify-content:center">
-  <div style="position:absolute;width:70%;height:70%;background:rgba(255,255,255,0.03);filter:blur(60px);border-radius:9999px;transition:transform 0.5s" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'"></div>
-  <img src="{src}" alt="" style="position:relative;width:100%;max-width:560px;border-radius:12px;filter:grayscale(100%);opacity:0.8;border:1px solid rgba(255,255,255,0.06);box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);transition:filter 0.5s,opacity 0.5s" onmouseover="this.style.filter='grayscale(0%)';this.style.opacity='1'" onmouseout="this.style.filter='grayscale(100%)';this.style.opacity='0.8'">
+  <div style="background:#0e0e0e;border-radius:24px;border:0.5px solid rgba(76,69,70,0.15);padding:4px;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden">
+    <img src="{src}" alt="" style="width:100%;max-width:560px;border-radius:20px;display:block">
+  </div>
 </div>"#,
             src = image_src
         )
@@ -4590,9 +4778,7 @@ fn render_features_split_dark(section: &SectionNode) -> String {
         <span style="font-family:'Space Grotesk',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:0.3em;color:rgba(255,255,255,0.4);margin-bottom:16px;display:block">{eyebrow}</span>
         {title}
         {subtitle}
-        <div style="display:flex;flex-direction:column;gap:24px;margin-top:40px">
-          {features}
-        </div>
+        {features}
       </div>
       {right_col}
     </div>
@@ -4601,7 +4787,7 @@ fn render_features_split_dark(section: &SectionNode) -> String {
         eyebrow = eyebrow,
         title = title_html,
         subtitle = subtitle_html,
-        features = feature_items.join("\n          "),
+        features = features_html,
         right_col = right_col,
     )
 }
