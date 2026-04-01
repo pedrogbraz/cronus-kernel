@@ -330,6 +330,11 @@ fn emit_section(bp: &SectionBlueprint, ind: usize) -> String {
   // Route to the appropriate body emitter based on section type,
   // with fallback dashboard pattern detection for generic sections
   match section_type.as_str() {
+    // Dashboard-specific emitters (passthrough to generic config/items emit)
+    "order-header" | "line-items" | "price-breakdown" | "shipping-timeline"
+    | "customer-profile" | "payment-info" | "staff-notes" | "settings-profile"
+    | "api-keys" | "subscription-card" | "danger-zone" | "invoices-list"
+    | "security-grid" | "support-card" => emit_dashboard_section_body(bp, inner, &mut out),
     "topbar" => emit_topbar_body(bp, inner, &mut out),
     "hero" => emit_hero_body(bp, inner, &mut out),
     "features" | "faq" => emit_features_body(bp, inner, &mut out),
@@ -375,7 +380,67 @@ fn emit_section(bp: &SectionBlueprint, ind: usize) -> String {
 // Detected body — tries to detect dashboard patterns before falling back
 // ---------------------------------------------------------------------------
 
-fn emit_detected_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+/// Emit dashboard-specific section body: title, subtitle, all config keys, then items with their config.
+/// This is a generic emitter that works for all the new section types (order-header, line-items, etc.)
+/// because they store all data in config/items already.
+fn emit_dashboard_section_body(bp: &super::detect::SectionBlueprint, ind: usize, out: &mut String) {
+    let prefix = indent(ind);
+
+    // Title and subtitle
+    if let Some(ref t) = bp.title {
+        out.push_str(&format!("{}title \"{}\"\n", prefix, escape_cronus(t)));
+    }
+    if let Some(ref s) = bp.subtitle {
+        out.push_str(&format!("{}subtitle \"{}\"\n", prefix, escape_cronus(s)));
+    }
+
+    // All config keys (sorted for deterministic output)
+    let mut keys: Vec<&String> = bp.config.keys().collect();
+    keys.sort();
+    for key in keys {
+        let val = &bp.config[key];
+        if val.is_empty() { continue; }
+        // Skip structural keys already emitted in the section header
+        if key == "cols" || key == "style" || key == "gap" { continue; }
+        out.push_str(&format!("{}{} \"{}\"\n", prefix, key, escape_cronus(val)));
+    }
+
+    // Items
+    for item in &bp.items {
+        let title_escaped = escape_cronus(&item.title);
+        // Build inline config pairs
+        let mut inline: Vec<String> = Vec::new();
+        let mut block_keys: Vec<(&String, &String)> = Vec::new();
+
+        for (k, v) in &item.config {
+            if v.is_empty() { continue; }
+            // Keys that go inline: sku, price, qty, value, style, icon, badge, type
+            let inline_keys = ["sku", "price", "qty", "value", "style", "icon", "badge", "type", "variant"];
+            if inline_keys.contains(&k.as_str()) {
+                inline.push(format!("{}:\"{}\"", k, escape_cronus(v)));
+            } else {
+                block_keys.push((k, v));
+            }
+        }
+
+        let inline_str = if inline.is_empty() { String::new() } else { format!(" {}", inline.join(" ")) };
+
+        if block_keys.is_empty() && item.description.is_none() {
+            out.push_str(&format!("{}item \"{}\"{}\n", prefix, title_escaped, inline_str));
+        } else {
+            out.push_str(&format!("{}item \"{}\"{} {{\n", prefix, title_escaped, inline_str));
+            if let Some(ref desc) = item.description {
+                out.push_str(&format!("{}  \"{}\"\n", prefix, escape_cronus(desc)));
+            }
+            for (k, v) in &block_keys {
+                out.push_str(&format!("{}  {} \"{}\"\n", prefix, k, escape_cronus(v)));
+            }
+            out.push_str(&format!("{}}}\n", prefix));
+        }
+    }
+}
+
+fn emit_detected_body(bp: &super::detect::SectionBlueprint, ind: usize, out: &mut String) {
   // Try dashboard pattern detection on generic sections
   if has_kpi_items(&bp.items) {
     emit_kpi_grid_body(bp, ind, out);

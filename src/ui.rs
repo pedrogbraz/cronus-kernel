@@ -903,9 +903,24 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
 </head>
 <body style="margin:0;padding:0;width:100%;max-width:100vw;overflow-x:hidden">
   {nav_html}
-  <main style="padding-top:64px;min-height:100vh;width:100%">
+  <main id="cronus-main" style="padding-top:64px;min-height:100vh;width:100%">
   {clean_body}
   </main>
+  <script>
+  // Auto-detect fixed sidebar and adjust main content offset
+  !function(){{
+    var aside=document.querySelector('aside');
+    var main=document.getElementById('cronus-main');
+    if(aside&&main){{
+      var s=getComputedStyle(aside);
+      if(s.position==='fixed'){{
+        var w=aside.offsetWidth||256;
+        main.style.marginLeft=w+'px';
+        main.style.maxWidth='calc(100% - '+w+'px)';
+      }}
+    }}
+  }}();
+  </script>
   <script>{runtime}</script>
   <script>{hmr}</script>
   <script>
@@ -946,12 +961,16 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
 // ══════════════════════════════════════════════════
 
 pub fn render_layout_dashboard(app_name: &str, body: &str, theme: &str) -> String {
+    let t = crate::theme::get();
     let is_dark = theme == "dark" || theme == "obsidian";
     let (html_class, bg_color, text_color, selection_bg, scrollbar_color) = if is_dark {
-        ("dark", "#131313", "#e2e2e2", "rgba(173,198,255,0.2)", "rgba(255,255,255,0.1)")
+        ("dark", t.background.as_str(), t.on_surface.as_str(), "rgba(173,198,255,0.2)", "rgba(255,255,255,0.1)")
     } else {
         ("light", "#f9f9f9", "#1a1c1c", "rgba(0,111,240,0.15)", "rgba(0,0,0,0.1)")
     };
+    let theme_css = crate::theme::css_vars();
+    let font_links = crate::theme::font_links();
+    let tailwind_cdn = crate::theme::tailwind_cdn_script();
     format!(
         r##"<!DOCTYPE html>
 <html class="{html_class}" lang="en">
@@ -959,10 +978,11 @@ pub fn render_layout_dashboard(app_name: &str, body: &str, theme: &str) -> Strin
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{app_name}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Inter+Display:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  {font_links}
+  {tailwind_cdn}
   <style>
-    body {{ font-family:'Inter',sans-serif; background:{bg_color}; color:{text_color}; margin:0; -webkit-font-smoothing:antialiased; }}
+    {theme_css}
+    body {{ font-family:var(--font-body); background:{bg_color}; color:{text_color}; margin:0; -webkit-font-smoothing:antialiased; }}
     * {{ box-sizing:border-box; }}
     .material-symbols-outlined {{ font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; font-size:20px; display:inline-block; line-height:1; vertical-align:middle; }}
     .prism-bg {{ background: radial-gradient(circle at top right,rgba(0,111,240,0.08),transparent 40%),radial-gradient(circle at bottom left,rgba(0,56,129,0.05),transparent 40%); }}
@@ -4594,9 +4614,11 @@ fn render_page_header_section(section: &SectionNode) -> String {
     let style_hint = section.config.get("style").map(|s| s.as_str()).unwrap_or("");
     let is_dark_explicit = style_hint.contains("dark") || section.config.get("theme").map(|s| s == "dark").unwrap_or(false);
 
-    // Static colors for explicitly-dark headers (no JS needed)
+    // Static colors for explicitly-dark headers — use theme tokens
+    let t = crate::theme::get();
+    let sub_color_dark = format!("{}80", t.on_surface);
     let (title_color, sub_color, eyebrow_color, btn_bg, btn_color) = if is_dark_explicit {
-        ("#e2e2e2", "rgba(226,226,226,0.5)", "#adc6ff", "#adc6ff", "#002e69")
+        (t.on_surface.as_str(), sub_color_dark.as_str(), t.primary.as_str(), t.primary.as_str(), "#002e69")
     } else {
         ("#000", "#71717a", "#3b82f6", "#000", "#fff")
     };
@@ -5408,16 +5430,18 @@ fn render_sidebar(section: &SectionNode) -> String {
     // Active page from config (matches against item title)
     let active_cfg = section.config.get("active").map(|s| s.as_str()).unwrap_or("");
 
-    // Palette: dark (Obsidian) vs light (default)
-    let bg = if is_dark { "#0e0e0e" } else { "rgba(250,250,250,0.5)" };
-    let border_color = if is_dark { "rgba(76,69,70,0.15)" } else { "rgba(228,228,231,1)" };
-    let brand_color = if is_dark { "#e2e2e2" } else { "#000" };
-    let subtitle_color = if is_dark { "#adc6ff" } else { "#71717a" };
-    let inactive_color = if is_dark { "rgba(226,226,226,0.4)" } else { "#71717a" };
-    let active_bg = if is_dark { "#1f1f1f" } else { "rgba(0,0,0,0.04)" };
-    let active_text = if is_dark { "#adc6ff" } else { "#000" };
-    let hover_bg = if is_dark { "#1b1b1b" } else { "rgba(0,0,0,0.04)" };
-    let hover_text = if is_dark { "#e2e2e2" } else { "#000" };
+    // Palette: use theme tokens for dark, hardcoded for light
+    let t = crate::theme::get();
+    let bg = if is_dark { &t.surface_container_lowest } else { "rgba(250,250,250,0.5)" };
+    let border_color = if is_dark { format!("rgba(76,69,70,0.15)") } else { "rgba(228,228,231,1)".to_string() };
+    let brand_color = if is_dark { &t.on_surface } else { "#000" };
+    let subtitle_color = if is_dark { &t.primary } else { "#71717a" };
+    let inactive_color_str = if is_dark { format!("{}66", t.on_surface) } else { "#71717a".to_string() };
+    let inactive_color = inactive_color_str.as_str();
+    let active_bg = if is_dark { &t.surface_container } else { "rgba(0,0,0,0.04)" };
+    let active_text = if is_dark { &t.primary } else { "#000" };
+    let hover_bg = if is_dark { &t.surface_container_low } else { "rgba(0,0,0,0.04)" };
+    let hover_text = if is_dark { &t.on_surface } else { "#000" };
 
     // Resolve which item is active: explicit config > item marked active > first nav item
     let mut first_nav_title = String::new();
@@ -10703,6 +10727,644 @@ fn render_not_found_section(section: &SectionNode) -> String {
 // ══════════════════════════════════════════════════
 // KPI SECTION
 // ══════════════════════════════════════════════════
+// SETTINGS DASHBOARD (dark Obsidian — full page renderer)
+// ══════════════════════════════════════════════════
+
+pub fn render_settings_dashboard(
+    app_name: &str,
+    sections: &[SectionNode],
+    _components: &[crate::parser::ComponentNode],
+    theme: &str,
+    _current_route: &str,
+) -> String {
+    let _ = theme;
+    let sidebar_section = sections.iter().find(|s| s.section_type == "sidebar");
+    let topbar_section = sections.iter().find(|s| s.section_type == "topbar");
+    let page_header = sections.iter().find(|s| s.section_type == "page-header");
+    let profile = sections.iter().find(|s| s.section_type == "settings-profile");
+    let api_keys = sections.iter().find(|s| s.section_type == "api-keys");
+    let security = sections.iter().find(|s| s.section_type == "security-grid");
+    let subscription = sections.iter().find(|s| s.section_type == "subscription-card");
+    let invoices = sections.iter().find(|s| s.section_type == "invoices-list");
+    let support = sections.iter().find(|s| s.section_type == "support-card");
+    let danger = sections.iter().find(|s| s.section_type == "danger-zone");
+
+    let sidebar_html = if let Some(sec) = sidebar_section { render_sidebar(sec) } else { String::new() };
+    let topbar_html = if let Some(sec) = topbar_section { build_settings_topbar(sec) } else { String::new() };
+
+    let header_html = if let Some(sec) = page_header {
+        let title = sec.title.as_deref().unwrap_or("");
+        let subtitle = sec.subtitle.as_deref().unwrap_or("");
+        format!(r#"<header style="margin-bottom:48px">
+  <h1 style="font-size:clamp(32px,5vw,48px);font-family:'Inter Display','Inter',sans-serif;font-weight:700;letter-spacing:-0.04em;color:#e2e2e2;margin:0">{title}</h1>
+  <p style="font-size:14px;color:rgba(207,196,197,1);margin:8px 0 0;line-height:1.6">{subtitle}</p>
+</header>"#, title = title, subtitle = subtitle)
+    } else { String::new() };
+
+    // ── Profile Form ──
+    let profile_html = if let Some(sec) = profile {
+        let sec_title = sec.title.as_deref().unwrap_or("");
+        let note = sec.config.get("note").map(|s| s.as_str()).unwrap_or("");
+        let action_label = sec.config.get("action_label").map(|s| s.as_str()).unwrap_or("");
+        let mut fields_html = String::new();
+        for item in &sec.items {
+            let label = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let value = item.get("value").map(|s| s.as_str()).unwrap_or("");
+            let input_type = item.get("type").map(|s| s.as_str()).unwrap_or("text");
+            fields_html.push_str(&format!(
+                r#"<div style="display:flex;flex-direction:column;gap:6px">
+  <label style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:rgba(207,196,197,0.6);font-weight:500">{label}</label>
+  <input type="{input_type}" value="{value}" style="width:100%;background:#0e0e0e;border:0.5px solid rgba(76,69,70,0.3);border-radius:8px;padding:10px 16px;color:#e2e2e2;font-size:14px;font-family:inherit;outline:none;transition:box-shadow 0.2s" onfocus="this.style.boxShadow='0 0 0 2px rgba(173,198,255,0.1)'" onblur="this.style.boxShadow='none'">
+</div>"#, label = label, input_type = input_type, value = value));
+        }
+        let note_html = if note.is_empty() { String::new() } else {
+            format!(r#"<p style="font-size:12px;color:rgba(226,226,226,0.7);font-style:italic;margin:0">{}</p>"#, note)
+        };
+        format!(r#"<section style="background:#1f1f1f;border-radius:12px;overflow:hidden;border:0.5px solid rgba(76,69,70,0.15)">
+  <div style="padding:32px">
+    <h3 style="font-size:20px;font-family:'Inter Display','Inter',sans-serif;font-weight:600;margin:0 0 24px;color:#e2e2e2">{title}</h3>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:24px">{fields}</div>
+  </div>
+  <div style="background:#1b1b1b;padding:16px 32px;display:flex;justify-content:space-between;align-items:center">
+    {note}
+    <button style="background:linear-gradient(135deg,#adc6ff 0%,#c2c1ff 50%,#e9b3ff 100%);color:#0071ec;font-weight:600;padding:8px 24px;border-radius:8px;border:none;font-size:14px;cursor:pointer;transition:transform 0.15s;font-family:inherit;box-shadow:0 4px 16px rgba(173,198,255,0.1)" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">{action}</button>
+  </div>
+</section>"#, title = sec_title, fields = fields_html, note = note_html, action = action_label)
+    } else { String::new() };
+
+    // ── API Keys ──
+    let api_keys_html = if let Some(sec) = api_keys {
+        let sec_title = sec.title.as_deref().unwrap_or("");
+        let sec_subtitle = sec.subtitle.as_deref().unwrap_or("");
+        let action_label = sec.config.get("action_label").map(|s| s.as_str()).unwrap_or("");
+        let mut keys_html = String::new();
+        for (i, item) in sec.items.iter().enumerate() {
+            let name = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
+            let note = item.get("subtitle").map(|s| s.as_str()).unwrap_or("");
+            let divider = if i > 0 { r#"<div style="height:0.5px;background:rgba(76,69,70,0.1)"></div>"# } else { "" };
+            keys_html.push_str(&format!(
+                r#"{divider}<div style="padding:24px;display:flex;align-items:center;justify-content:space-between;transition:background 0.15s" onmouseover="this.style.background='#1b1b1b';this.querySelector('.key-actions').style.opacity='1'" onmouseout="this.style.background='transparent';this.querySelector('.key-actions').style.opacity='0'">
+  <div style="display:flex;align-items:center;gap:16px">
+    <div style="width:40px;height:40px;background:#1f1f1f;border-radius:6px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(76,69,70,0.2)">
+      <span class="material-symbols-outlined" style="color:rgba(207,196,197,1);font-size:20px">{icon}</span>
+    </div>
+    <div>
+      <p style="font-size:14px;font-weight:500;font-family:'Courier New',monospace;margin:0;color:#e2e2e2">{name}</p>
+      <p style="font-size:10px;color:rgba(207,196,197,1);text-transform:uppercase;letter-spacing:-0.02em;margin:2px 0 0">{note}</p>
+    </div>
+  </div>
+  <div class="key-actions" style="display:flex;gap:8px;opacity:0;transition:opacity 0.15s">
+    <button style="padding:8px;background:none;border:none;cursor:pointer;color:rgba(207,196,197,1)"><span class="material-symbols-outlined" style="font-size:16px">content_copy</span></button>
+    <button style="padding:8px;background:none;border:none;cursor:pointer;color:rgba(207,196,197,1)" onmouseover="this.style.color='#ffb4ab'" onmouseout="this.style.color='rgba(207,196,197,1)'"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
+  </div>
+</div>"#, divider = divider, icon = icon, name = name, note = note));
+        }
+        format!(r#"<section style="margin-top:48px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:16px">
+    <div>
+      <h3 style="font-size:20px;font-family:'Inter Display','Inter',sans-serif;font-weight:600;margin:0;color:#e2e2e2">{title}</h3>
+      <p style="font-size:14px;color:rgba(207,196,197,1);margin:4px 0 0">{subtitle}</p>
+    </div>
+    <button style="font-size:11px;font-family:'Courier New',monospace;color:#adc6ff;background:rgba(173,198,255,0.1);padding:6px 12px;border-radius:999px;border:1px solid rgba(173,198,255,0.2);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='rgba(173,198,255,0.2)'" onmouseout="this.style.background='rgba(173,198,255,0.1)'">{api_action}</button>
+  </div>
+  <div style="background:#0e0e0e;border:0.5px solid rgba(76,69,70,0.2);border-radius:12px;overflow:hidden">{keys}</div>
+</section>"#, title = sec_title, subtitle = sec_subtitle, keys = keys_html, api_action = action_label)
+    } else { String::new() };
+
+    // ── Security Cards ──
+    let security_html = if let Some(sec) = security {
+        let mut cards_html = String::new();
+        let card_accents = ["#adc6ff", "#c2c1ff", "#e9b3ff"];
+        for (i, item) in sec.items.iter().enumerate() {
+            let title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
+            let subtitle = item.get("subtitle").map(|s| s.as_str()).unwrap_or("");
+            let action = item.get("action").map(|s| s.as_str()).unwrap_or("");
+            let badge = item.get("badge").map(|s| s.as_str()).unwrap_or("");
+            let accent = card_accents.get(i).copied().unwrap_or("#adc6ff");
+            cards_html.push_str(&format!(
+                r#"<div style="background:#2a2a2a;border:0.5px solid rgba(76,69,70,0.2);padding:24px;border-radius:12px;display:flex;flex-direction:column;justify-content:space-between">
+  <div>
+    <div style="display:flex;align-items:center;gap:8px;color:{accent};margin-bottom:16px">
+      <span class="material-symbols-outlined">{icon}</span>
+      <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em">{badge}</span>
+    </div>
+    <h4 style="font-size:18px;font-family:'Inter Display','Inter',sans-serif;font-weight:500;margin:0 0 8px;color:#e2e2e2">{title}</h4>
+    <p style="font-size:14px;color:rgba(207,196,197,1);margin:0 0 24px;line-height:1.5">{subtitle}</p>
+  </div>
+  <button style="width:100%;padding:10px;border-radius:8px;border:1px solid rgba(76,69,70,1);background:transparent;color:#e2e2e2;font-size:14px;font-weight:500;cursor:pointer;transition:background 0.15s;font-family:inherit" onmouseover="this.style.background='#353535'" onmouseout="this.style.background='transparent'">{action}</button>
+</div>"#, accent = accent, icon = icon, badge = badge, title = title, subtitle = subtitle, action = action));
+        }
+        format!(r#"<section style="display:grid;grid-template-columns:repeat(2,1fr);gap:24px;margin-top:48px">{cards}</section>"#, cards = cards_html)
+    } else { String::new() };
+
+    // ── Subscription Card ──
+    let subscription_html = if let Some(sec) = subscription {
+        let badge = sec.title.as_deref().unwrap_or("");
+        let sub_label = sec.subtitle.as_deref().unwrap_or("");
+        let plan_id = sec.config.get("plan_id").map(|s| s.as_str()).unwrap_or("");
+        let manage_label = sec.config.get("action_label").map(|s| s.as_str()).unwrap_or("");
+        let mut price = "";
+        let mut billing_note = "";
+        let mut features_html = String::new();
+        for item in &sec.items {
+            let t = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
+            if item.get("badge").is_some() { price = t; billing_note = item.get("subtitle").map(|s| s.as_str()).unwrap_or(""); }
+            else if icon == "check_circle" {
+                features_html.push_str(&format!(r#"<li style="display:flex;align-items:center;gap:12px;font-size:14px;color:rgba(207,196,197,1)">
+  <span class="material-symbols-outlined" style="color:#adc6ff;font-size:18px">check_circle</span>
+  {title}
+</li>"#, title = t));
+            }
+        }
+        format!(r#"<section style="background:rgba(31,31,31,0.4);backdrop-filter:blur(32px);border:0.5px solid rgba(76,69,70,0.2);padding:32px;border-radius:12px;position:relative;overflow:hidden">
+  <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(173,198,255,0.03) 0%,rgba(194,193,255,0.03) 50%,rgba(233,179,255,0.03) 100%);pointer-events:none;z-index:0"></div>
+  <div style="position:relative;z-index:1">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px">
+      <div style="background:rgba(173,198,255,0.2);color:#adc6ff;font-size:10px;font-weight:900;padding:4px 8px;border-radius:4px;letter-spacing:-0.02em;text-transform:uppercase">{badge}</div>
+      <span style="font-size:10px;color:rgba(207,196,197,1);font-family:monospace">{plan_id}</span>
+    </div>
+    <div style="margin-bottom:40px">
+      <p style="font-size:12px;color:rgba(207,196,197,1);margin:0 0 4px">{sub_label}</p>
+      <h2 style="font-size:clamp(40px,5vw,48px);font-family:'Inter Display','Inter',sans-serif;font-weight:900;letter-spacing:-0.04em;margin:0;color:#e2e2e2">{price}</h2>
+      <p style="font-size:12px;color:rgba(226,226,226,0.6);margin:8px 0 0;font-style:italic">{note}</p>
+    </div>
+    <ul style="list-style:none;padding:0;margin:0 0 40px;display:flex;flex-direction:column;gap:12px">{features}</ul>
+    <button style="width:100%;padding:12px;border-radius:8px;background:#353535;border:1px solid rgba(76,69,70,0.3);color:#e2e2e2;font-size:14px;font-weight:700;cursor:pointer;transition:background 0.15s;font-family:inherit" onmouseover="this.style.background='#393939'" onmouseout="this.style.background='#353535'">{manage_label}</button>
+  </div>
+</section>"#, badge = badge, sub_label = sub_label, price = price, note = billing_note, features = features_html, plan_id = plan_id, manage_label = manage_label)
+    } else { String::new() };
+
+    // ── Invoices ──
+    let invoices_html = if let Some(sec) = invoices {
+        let inv_title = sec.title.as_deref().unwrap_or("");
+        let footer_link = sec.config.get("footer_link").map(|s| s.as_str()).unwrap_or("");
+        let mut rows_html = String::new();
+        for item in &sec.items {
+            let name = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let value = item.get("value").map(|s| s.as_str()).unwrap_or("");
+            rows_html.push_str(&format!(r#"<div style="padding:16px 24px;display:flex;justify-content:space-between;align-items:center;font-size:14px">
+  <span style="font-family:monospace;font-size:12px;color:#e2e2e2">{name}</span>
+  <span style="color:rgba(207,196,197,1)">{value}</span>
+  <button style="background:none;border:none;cursor:pointer;color:rgba(207,196,197,0.4);transition:color 0.15s" onmouseover="this.style.color='#e2e2e2'" onmouseout="this.style.color='rgba(207,196,197,0.4)'"><span class="material-symbols-outlined" style="font-size:18px">download</span></button>
+</div>"#, name = name, value = value));
+        }
+        format!(r#"<section style="background:#0e0e0e;border:0.5px solid rgba(76,69,70,0.15);border-radius:12px;overflow:hidden;margin-top:32px">
+  <div style="padding:16px 24px;border-bottom:1px solid rgba(76,69,70,0.1);display:flex;justify-content:space-between;align-items:center">
+    <h4 style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;color:rgba(207,196,197,1);margin:0">{inv_title}</h4>
+    <span class="material-symbols-outlined" style="color:rgba(207,196,197,1);font-size:16px">receipt_long</span>
+  </div>
+  <div>{rows}</div>
+  <button style="width:100%;padding:12px;font-size:10px;text-transform:uppercase;font-weight:700;letter-spacing:0.15em;color:rgba(207,196,197,1);background:#1b1b1b;border:none;cursor:pointer;transition:color 0.15s;font-family:inherit" onmouseover="this.style.color='#e2e2e2'" onmouseout="this.style.color='rgba(207,196,197,1)'">{inv_footer}</button>
+</section>"#, rows = rows_html, inv_title = inv_title, inv_footer = footer_link)
+    } else { String::new() };
+
+    // ── Support Card ──
+    let support_html = if let Some(sec) = support {
+        let title = sec.title.as_deref().unwrap_or("");
+        let subtitle = sec.subtitle.as_deref().unwrap_or("");
+        let action_label = sec.config.get("action_label").map(|s| s.as_str()).unwrap_or("");
+        let action_html = if action_label.is_empty() { String::new() } else {
+            format!(r##"<a href="#" style="font-size:12px;color:#adc6ff;font-weight:700;text-decoration:none;display:flex;align-items:center;gap:4px" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+    {label}
+    <span class="material-symbols-outlined" style="font-size:14px">arrow_outward</span>
+  </a>"##, label = action_label)
+        };
+        format!(r#"<section style="background:#1b1b1b;padding:24px;border-radius:12px;border-left:4px solid rgba(173,198,255,0.4);margin-top:32px">
+  <h5 style="font-size:14px;font-weight:700;margin:0 0 8px;color:#e2e2e2">{title}</h5>
+  <p style="font-size:12px;color:rgba(207,196,197,1);line-height:1.6;margin:0 0 16px">{subtitle}</p>
+  {action}
+</section>"#, title = title, subtitle = subtitle, action = action_html)
+    } else { String::new() };
+
+    // ── Danger Zone ──
+    let danger_html = if let Some(sec) = danger {
+        let sec_title = sec.title.as_deref().unwrap_or("");
+        let item_title = sec.subtitle.as_deref().unwrap_or("");
+        let action_label = sec.config.get("action_label").map(|s| s.as_str()).unwrap_or("");
+        let desc = sec.items.first().and_then(|i| i.get("title")).map(|s| s.as_str()).unwrap_or("");
+        format!(r#"<div style="margin-top:96px;border-top:1px solid rgba(255,180,171,0.2);padding-top:48px">
+  <h3 style="font-size:20px;font-family:'Inter Display','Inter',sans-serif;font-weight:600;color:#ffb4ab;margin:0 0 16px">{sec_title}</h3>
+  <div style="background:#1f1f1f;border:0.5px solid rgba(255,180,171,0.3);padding:32px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap">
+    <div style="flex:1;min-width:200px">
+      <h4 style="font-weight:700;margin:0 0 4px;color:#e2e2e2">{item_title}</h4>
+      <p style="font-size:14px;color:rgba(207,196,197,1);margin:0;line-height:1.5">{desc}</p>
+    </div>
+    <button style="flex-shrink:0;padding:12px 32px;background:#93000a;color:#ffdad6;font-size:14px;font-weight:700;border-radius:8px;border:1px solid rgba(255,180,171,0.5);cursor:pointer;transition:all 0.15s;font-family:inherit" onmouseover="this.style.background='#ffb4ab';this.style.color='#690005'" onmouseout="this.style.background='#93000a';this.style.color='#ffdad6'" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">{danger_action}</button>
+  </div>
+</div>"#, sec_title = sec_title, item_title = item_title, desc = desc, danger_action = action_label)
+    } else { String::new() };
+
+    // ── Full Page ──
+    format!(r##"<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{app_name}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Inter+Display:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <style>
+    body {{ font-family:'Inter',sans-serif; background:#131313; color:#e2e2e2; margin:0; -webkit-font-smoothing:antialiased; }}
+    * {{ box-sizing:border-box; }}
+    .material-symbols-outlined {{ font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; font-size:20px; display:inline-block; line-height:1; vertical-align:middle; }}
+    ::selection {{ background:rgba(173,198,255,0.2); }}
+    ::-webkit-scrollbar {{ width:4px; }}
+    ::-webkit-scrollbar-thumb {{ background:rgba(255,255,255,0.1); border-radius:2px; }}
+    input:focus {{ outline:none; box-shadow:0 0 0 2px rgba(173,198,255,0.1); }}
+    @keyframes fadeIn {{ from {{ opacity:0;transform:translateY(4px) }} to {{ opacity:1;transform:translateY(0) }} }}
+    @keyframes slideUp {{ from {{ opacity:0; transform:translateY(24px) }} to {{ opacity:1; transform:translateY(0) }} }}
+    .anim-fade {{ animation:fadeIn 0.6s ease-out both }}
+    .anim-slide-up {{ animation:slideUp 0.6s cubic-bezier(0.16,1,0.3,1) both }}
+    .d1 {{ animation-delay:0.05s }} .d2 {{ animation-delay:0.1s }} .d3 {{ animation-delay:0.15s }}
+    .d4 {{ animation-delay:0.2s }} .d5 {{ animation-delay:0.25s }} .d6 {{ animation-delay:0.3s }}
+  </style>
+</head>
+<body>
+{topbar}
+{sidebar}
+<main style="margin-left:256px;padding:96px 32px 48px;max-width:calc(100% - 256px)">
+  <div style="max-width:1152px;margin:0 auto">
+    {header}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:32px">
+      <div style="grid-column:span 2;display:flex;flex-direction:column">
+        <div class="anim-slide-up d1">{profile}</div>
+        <div class="anim-slide-up d2">{api_keys}</div>
+        <div class="anim-slide-up d3">{security}</div>
+      </div>
+      <div style="display:flex;flex-direction:column">
+        <div class="anim-slide-up d2">{subscription}</div>
+        <div class="anim-slide-up d3">{invoices}</div>
+        <div class="anim-slide-up d4">{support}</div>
+      </div>
+    </div>
+    <div class="anim-slide-up d5">{danger}</div>
+  </div>
+</main>
+<script>{runtime}</script>
+<script>{hmr}</script>
+</body>
+</html>"##,
+        app_name = app_name, topbar = topbar_html, sidebar = sidebar_html, header = header_html,
+        profile = profile_html, api_keys = api_keys_html, security = security_html,
+        subscription = subscription_html, invoices = invoices_html, support = support_html,
+        danger = danger_html, runtime = super::render::CRONUS_RUNTIME_JS, hmr = super::hmr::HMR_CLIENT_JS,
+    )
+}
+
+fn build_settings_topbar(section: &SectionNode) -> String {
+    let brand = section.config.get("brand").map(|s| s.as_str()).unwrap_or("");
+    let nav_str = section.config.get("nav").map(|s| s.as_str()).unwrap_or("");
+    let mut nav_html = String::new();
+    for item in nav_str.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+        nav_html.push_str(&format!(
+            r##"<a href="#" style="color:rgba(226,226,226,0.6);text-decoration:none;transition:color 0.3s" onmouseover="this.style.color='#e2e2e2'" onmouseout="this.style.color='rgba(226,226,226,0.6)'">{}</a>"##, item));
+    }
+    let mut actions_html = String::new();
+    for item in &section.items {
+        let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("item");
+        if item_type == "action" {
+            let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
+            let style = item.get("style").map(|s| s.as_str()).unwrap_or("");
+            if style == "active" {
+                actions_html.push_str(&format!(r#"<button style="background:none;border:none;cursor:pointer;color:#adc6ff;border-bottom:2px solid #adc6ff;padding-bottom:4px"><span class="material-symbols-outlined">{}</span></button>"#, icon));
+            } else {
+                actions_html.push_str(&format!(r#"<button style="background:none;border:none;cursor:pointer;color:rgba(226,226,226,0.6);transition:color 0.15s" onmouseover="this.style.color='#e2e2e2'" onmouseout="this.style.color='rgba(226,226,226,0.6)'"><span class="material-symbols-outlined">{}</span></button>"#, icon));
+            }
+        }
+    }
+    let avatar_item = section.items.iter().find(|i| i.get("_type").map(|s| s.as_str()) == Some("image"));
+    let avatar_src = avatar_item.and_then(|i| i.get("src")).map(|s| s.as_str()).unwrap_or("");
+    let avatar_alt = avatar_item.and_then(|i| i.get("title")).map(|s| s.as_str()).unwrap_or("");
+    let avatar_html = if !avatar_src.is_empty() {
+        format!(r#"<div style="height:32px;width:32px;border-radius:50%;background:#2a2a2a;border:0.5px solid rgba(76,69,70,0.2);overflow:hidden">
+  <img src="{src}" alt="{alt}" style="width:100%;height:100%;object-fit:cover">
+</div>"#, src = avatar_src, alt = avatar_alt)
+    } else { String::new() };
+    format!(r##"<nav style="position:fixed;top:0;width:100%;z-index:50;background:rgba(19,19,19,0.8);backdrop-filter:blur(24px);border-bottom:0.5px solid rgba(76,69,70,0.2);box-shadow:0 8px 32px rgba(0,0,0,0.36);display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:64px;font-family:'Inter Display','Inter',sans-serif;letter-spacing:-0.02em">
+  <div style="display:flex;align-items:center;gap:32px">
+    <span style="font-size:20px;font-weight:700;letter-spacing:-0.05em;color:#e2e2e2">{brand}</span>
+    <div style="display:flex;gap:24px;align-items:center">{nav}</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px">{actions}{avatar}</div>
+</nav>"##, brand = brand, nav = nav_html, actions = actions_html, avatar = avatar_html)
+}
+
+// ══════════════════════════════════════════════════
+// ORDER DETAIL DASHBOARD (dark Obsidian — full page renderer)
+// ══════════════════════════════════════════════════
+
+pub fn render_order_detail_dashboard(
+    app_name: &str,
+    sections: &[SectionNode],
+    _components: &[crate::parser::ComponentNode],
+    theme: &str,
+    _current_route: &str,
+) -> String {
+    let _ = theme;
+    let sidebar_section = sections.iter().find(|s| s.section_type == "sidebar");
+    let topbar_section = sections.iter().find(|s| s.section_type == "topbar");
+    let order_header = sections.iter().find(|s| s.section_type == "order-header");
+    let line_items = sections.iter().find(|s| s.section_type == "line-items");
+    let price_breakdown = sections.iter().find(|s| s.section_type == "price-breakdown");
+    let payment_info = sections.iter().find(|s| s.section_type == "payment-info");
+    let customer_profile = sections.iter().find(|s| s.section_type == "customer-profile");
+    let shipping_timeline = sections.iter().find(|s| s.section_type == "shipping-timeline");
+    let staff_notes = sections.iter().find(|s| s.section_type == "staff-notes");
+
+    let sidebar_html = if let Some(sec) = sidebar_section { render_sidebar(sec) } else { String::new() };
+    let topbar_html = if let Some(sec) = topbar_section { build_settings_topbar(sec) } else { String::new() };
+
+    // ── Order Header ──
+    let header_html = if let Some(sec) = order_header {
+        let title = sec.title.as_deref().unwrap_or("");
+        let subtitle = sec.subtitle.as_deref().unwrap_or("");
+        let back_link = sec.config.get("back_link").map(|s| s.as_str()).unwrap_or("");
+        let badge = sec.config.get("badge").map(|s| s.as_str()).unwrap_or("");
+        let action_primary = sec.config.get("action_primary").map(|s| s.as_str()).unwrap_or("");
+        let action_secondary = sec.config.get("action_secondary").map(|s| s.as_str()).unwrap_or("");
+        let back_html = if back_link.is_empty() { String::new() } else {
+            format!(r##"<a href="#" style="color:#adc6ff;font-size:14px;font-weight:500;text-decoration:none;display:flex;align-items:center;gap:4px"><span class="material-symbols-outlined" style="font-size:14px">arrow_back</span> {}</a>"##, back_link)
+        };
+        let badge_html = if badge.is_empty() { String::new() } else {
+            format!(r#"<span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:#3630bf;color:#e2dfff;letter-spacing:0.1em;text-transform:uppercase">{}</span>"#, badge)
+        };
+        let sec_btn = if action_secondary.is_empty() { String::new() } else {
+            format!(r#"<button style="padding:10px 24px;background:#2a2a2a;color:#e2e2e2;font-weight:600;border-radius:8px;border:0.5px solid rgba(76,69,70,0.2);cursor:pointer;font-family:inherit;font-size:14px;transition:background 0.15s" onmouseover="this.style.background='#353535'" onmouseout="this.style.background='#2a2a2a'">{}</button>"#, action_secondary)
+        };
+        let pri_btn = if action_primary.is_empty() { String::new() } else {
+            format!(r#"<button style="padding:10px 24px;background:linear-gradient(135deg,#adc6ff 0%,#c2c1ff 50%,#e9b3ff 100%);color:#000;font-weight:800;border-radius:8px;border:none;cursor:pointer;font-family:inherit;font-size:14px;transition:all 0.15s;box-shadow:0 4px 16px rgba(173,198,255,0.2)" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">{}</button>"#, action_primary)
+        };
+        format!(r#"<section style="display:flex;justify-content:space-between;align-items:flex-end">
+  <div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">{back}{badge}</div>
+    <h2 style="font-size:clamp(36px,5vw,48px);font-weight:800;letter-spacing:-0.04em;margin:0;color:#e2e2e2">{title}</h2>
+    <p style="font-size:14px;color:rgba(226,226,226,0.6);margin:4px 0 0;letter-spacing:0.02em">{subtitle}</p>
+  </div>
+  <div style="display:flex;gap:16px">{sec_btn}{pri_btn}</div>
+</section>"#, back = back_html, badge = badge_html, title = title, subtitle = subtitle, sec_btn = sec_btn, pri_btn = pri_btn)
+    } else { String::new() };
+
+    // ── Line Items ──
+    let items_html = if let Some(sec) = line_items {
+        let sec_title = sec.title.as_deref().unwrap_or("");
+        let mut rows = String::new();
+        for item in &sec.items {
+            let name = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let sku = item.get("sku").map(|s| s.as_str()).unwrap_or("");
+            let price = item.get("price").map(|s| s.as_str()).unwrap_or("");
+            let qty = item.get("qty").map(|s| s.as_str()).unwrap_or("");
+            let variant = item.get("variant").map(|s| s.as_str()).unwrap_or("");
+            let image = item.get("image").map(|s| s.as_str()).unwrap_or("");
+            let img_html = if image.is_empty() { String::new() } else {
+                format!(r#"<div style="width:96px;height:96px;border-radius:8px;overflow:hidden;background:#0e0e0e;border:0.5px solid rgba(76,69,70,0.2);flex-shrink:0">
+  <img src="{}" alt="{}" style="width:100%;height:100%;object-fit:cover;filter:grayscale(0.2)">
+</div>"#, image, name)
+            };
+            rows.push_str(&format!(r#"<div style="display:flex;align-items:center;gap:24px;padding:16px 0">
+  {img}
+  <div style="flex:1">
+    <p style="font-size:12px;color:#c2c1ff;font-family:monospace;letter-spacing:-0.02em;opacity:0.7;margin:0">SKU: {sku}</p>
+    <h4 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:4px 0;color:#e2e2e2">{name}</h4>
+    <p style="font-size:14px;color:rgba(207,196,197,1);margin:0">{variant}</p>
+  </div>
+  <div style="text-align:right">
+    <p style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0;color:#e2e2e2">{price}</p>
+    <p style="font-size:12px;color:rgba(207,196,197,1);margin:2px 0 0">Qty: {qty}</p>
+  </div>
+</div>"#, img = img_html, sku = sku, name = name, variant = variant, price = price, qty = qty));
+        }
+        format!(r#"<div style="background:#1f1f1f;border-radius:12px;padding:32px;border:0.5px solid rgba(76,69,70,0.1)">
+  <h3 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.2em;color:#adc6ff;margin:0 0 32px">{title}</h3>
+  <div style="display:flex;flex-direction:column;gap:16px">{rows}</div>"#, title = sec_title, rows = rows)
+    } else { String::new() };
+
+    // ── Price Breakdown (inside items card) ──
+    let breakdown_html = if let Some(sec) = price_breakdown {
+        let mut rows = String::new();
+        let mut total_html = String::new();
+        for item in &sec.items {
+            let label = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let value = item.get("value").map(|s| s.as_str()).unwrap_or("");
+            let is_total = item.get("style").map(|s| s == "total").unwrap_or(false);
+            if is_total {
+                total_html = format!(r#"<div style="display:flex;justify-content:space-between;align-items:center;padding-top:16px">
+  <span style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:#e2e2e2">{label}</span>
+  <span style="font-size:28px;font-weight:900;letter-spacing:-0.02em;color:#adc6ff">{value}</span>
+</div>"#, label = label, value = value);
+            } else {
+                rows.push_str(&format!(r#"<div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;color:rgba(207,196,197,1)">
+  <span>{label}</span><span style="font-family:monospace">{value}</span>
+</div>"#, label = label, value = value));
+            }
+        }
+        format!(r#"  <div style="margin-top:48px;padding-top:32px;border-top:1px solid rgba(76,69,70,0.1);display:flex;flex-direction:column;gap:16px">
+    {rows}
+    {total}
+  </div>
+</div>"#, rows = rows, total = total_html)
+    } else {
+        // Close the items card div even without breakdown
+        "</div>".to_string()
+    };
+
+    // ── Payment Info (2-col grid) ──
+    let payment_html = if let Some(sec) = payment_info {
+        let mut cards = String::new();
+        let accents = [("primary", "#adc6ff"), ("secondary", "#c2c1ff")];
+        for (i, item) in sec.items.iter().enumerate() {
+            let heading = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            // The actual heading is in the first field; inside {} block we have title/subtitle
+            // But our parser stores it differently: the item title is the section heading
+            // and "title" inside {} is the detail title
+            let section_heading = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let detail_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let detail_subtitle = item.get("subtitle").map(|s| s.as_str()).unwrap_or("");
+            let label_text = item.get("label").map(|s| s.as_str()).unwrap_or("");
+            let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
+            let (_, accent_color) = accents.get(i).copied().unwrap_or(("primary", "#adc6ff"));
+
+            let icon_html = if !label_text.is_empty() {
+                format!(r#"<div style="width:48px;height:32px;border-radius:4px;background:#0e0e0e;border:1px solid rgba(76,69,70,0.3);display:flex;align-items:center;justify-content:center">
+  <span style="font-size:10px;font-weight:900;letter-spacing:0.1em;color:#e2e2e2">{}</span>
+</div>"#, label_text)
+            } else if !icon.is_empty() {
+                format!(r#"<span class="material-symbols-outlined" style="color:#a944dc;font-size:24px">{}</span>"#, icon)
+            } else { String::new() };
+
+            cards.push_str(&format!(r#"<div style="background:#1f1f1f;padding:24px;border-radius:12px;border:0.5px solid rgba(76,69,70,0.1);position:relative;overflow:hidden">
+  <h3 style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.2em;color:{accent}99;margin:0 0 16px">{heading}</h3>
+  <div style="display:flex;align-items:center;gap:16px">
+    {icon_html}
+    <div>
+      <p style="font-weight:700;letter-spacing:-0.02em;margin:0;color:#e2e2e2">{detail_title}</p>
+      <p style="font-size:12px;color:rgba(207,196,197,1);margin:2px 0 0">{detail_sub}</p>
+    </div>
+  </div>
+</div>"#, accent = accent_color, heading = heading, icon_html = icon_html,
+                detail_title = detail_title, detail_sub = detail_subtitle));
+        }
+        format!(r#"<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">{}</div>"#, cards)
+    } else { String::new() };
+
+    // ── Customer Profile ──
+    let customer_html = if let Some(sec) = customer_profile {
+        let sec_title = sec.title.as_deref().unwrap_or("");
+        let name = sec.config.get("customer_name").map(|s| s.as_str()).unwrap_or("");
+        let tier = sec.config.get("customer_tier").map(|s| s.as_str()).unwrap_or("");
+        let email = sec.config.get("customer_email").map(|s| s.as_str()).unwrap_or("");
+        let email_label = sec.config.get("email_label").map(|s| s.as_str()).unwrap_or("");
+        let address_label = sec.config.get("address_label").map(|s| s.as_str()).unwrap_or("");
+        let address = sec.config.get("customer_address").map(|s| s.as_str()).unwrap_or("").replace("\\n", "<br/>");
+        let avatar = sec.config.get("customer_avatar").map(|s| s.as_str()).unwrap_or("");
+        let avatar_html = if avatar.is_empty() { String::new() } else {
+            format!(r#"<div style="height:56px;width:56px;border-radius:50%;background:#2a2a2a;border:1px solid rgba(76,69,70,0.3);overflow:hidden;flex-shrink:0">
+  <img src="{}" alt="{}" style="width:100%;height:100%;object-fit:cover">
+</div>"#, avatar, name)
+        };
+        format!(r#"<div style="background:#1f1f1f;border-radius:12px;padding:24px;border:0.5px solid rgba(76,69,70,0.1)">
+  <h3 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.2em;color:#adc6ff;margin:0 0 24px">{sec_title}</h3>
+  <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px">
+    {avatar}
+    <div>
+      <h4 style="font-size:18px;font-weight:800;letter-spacing:-0.02em;margin:0;color:#e2e2e2">{name}</h4>
+      <p style="font-size:12px;color:#adc6ff;font-weight:500;margin:2px 0 0">{tier}</p>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div>
+      <p style="font-size:10px;text-transform:uppercase;color:rgba(207,196,197,1);font-weight:700;letter-spacing:0.15em;margin:0 0 4px">{email_label}</p>
+      <p style="font-size:14px;font-weight:500;margin:0;color:#e2e2e2">{email}</p>
+    </div>
+    <div>
+      <p style="font-size:10px;text-transform:uppercase;color:rgba(207,196,197,1);font-weight:700;letter-spacing:0.15em;margin:0 0 4px">{address_label}</p>
+      <p style="font-size:14px;font-weight:500;margin:0;color:#e2e2e2;line-height:1.6">{address}</p>
+    </div>
+  </div>
+</div>"#, sec_title = sec_title, avatar = avatar_html, name = name, tier = tier, email = email, email_label = email_label, address_label = address_label, address = address)
+    } else { String::new() };
+
+    // ── Shipping Timeline ──
+    let timeline_html = if let Some(sec) = shipping_timeline {
+        let sec_title = sec.title.as_deref().unwrap_or("");
+        let mut steps = String::new();
+        for item in &sec.items {
+            let title = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let subtitle = item.get("subtitle").map(|s| s.as_str()).unwrap_or("");
+            let style = item.get("style").map(|s| s.as_str()).unwrap_or("completed");
+            let detail = item.get("detail").map(|s| s.as_str()).unwrap_or("");
+            let (dot_style, title_color) = match style {
+                "future" => ("background:#0e0e0e;border:1px solid rgba(76,69,70,0.5)", "color:rgba(226,226,226,0.4)"),
+                "active" => ("background:#1f1f1f;border:2px solid #adc6ff;animation:pulse 2s infinite", "color:#adc6ff"),
+                _ => ("background:#adc6ff", "color:#e2e2e2"),
+            };
+            let check_html = if style == "completed" {
+                r#"<span class="material-symbols-outlined" style="font-size:10px;color:#000;font-weight:900">check</span>"#
+            } else { "" };
+            let detail_html = if detail.is_empty() { String::new() } else {
+                format!(r#"<p style="font-size:11px;margin:4px 0 0;color:rgba(207,196,197,1);font-style:italic">{}</p>"#, detail)
+            };
+            let sub_color = if style == "future" { "color:rgba(226,226,226,0.4)" } else { "color:rgba(207,196,197,1)" };
+            steps.push_str(&format!(r#"<div style="position:relative;padding-left:32px;padding-bottom:24px">
+  <div style="position:absolute;left:0;top:4px;width:14px;height:14px;border-radius:50%;{dot_style};display:flex;align-items:center;justify-content:center">{check}</div>
+  <div>
+    <p style="font-size:14px;font-weight:700;margin:0;{title_color}">{title}</p>
+    <p style="font-size:10px;{sub_color};margin:2px 0 0">{subtitle}</p>
+    {detail}
+  </div>
+</div>"#, dot_style = dot_style, check = check_html, title_color = title_color, title = title, sub_color = sub_color, subtitle = subtitle, detail = detail_html));
+        }
+        format!(r#"<div style="background:#1f1f1f;border-radius:12px;padding:24px;border:0.5px solid rgba(76,69,70,0.1)">
+  <h3 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.2em;color:#adc6ff;margin:0 0 32px">{sec_title}</h3>
+  <div style="position:relative;padding-left:8px">
+    <div style="position:absolute;left:14px;top:8px;bottom:8px;width:1px;background:rgba(76,69,70,0.2)"></div>
+    {steps}
+  </div>
+</div>"#, sec_title = sec_title, steps = steps)
+    } else { String::new() };
+
+    // ── Staff Notes ──
+    let notes_html = if let Some(sec) = staff_notes {
+        let sec_title = sec.title.as_deref().unwrap_or("");
+        let action_label = sec.config.get("action_label").map(|s| s.as_str()).unwrap_or("");
+        let mut notes = String::new();
+        for item in &sec.items {
+            let text = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let meta = item.get("meta").map(|s| s.as_str()).unwrap_or("");
+            notes.push_str(&format!(r#"<div style="padding:12px;background:#1f1f1f;border-radius:8px">
+  <p style="font-size:12px;line-height:1.6;color:rgba(207,196,197,1);font-style:italic;margin:0">"{text}"</p>
+  <p style="font-size:10px;margin:8px 0 0;font-weight:700;color:#c2c1ff">{meta}</p>
+</div>"#, text = text, meta = meta));
+        }
+        let action_html = if action_label.is_empty() { String::new() } else {
+            format!(r#"<button style="width:100%;padding:8px;background:#2a2a2a;border:none;border-radius:6px;color:#e2e2e2;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;transition:background 0.15s" onmouseover="this.style.background='#353535'" onmouseout="this.style.background='#2a2a2a'"><span class="material-symbols-outlined" style="font-size:14px">add_comment</span> {}</button>"#, action_label)
+        };
+        format!(r#"<div style="background:#0e0e0e;border-radius:12px;padding:24px;border:0.5px dashed rgba(76,69,70,0.15)">
+  <h3 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.2em;color:rgba(207,196,197,1);margin:0 0 16px">{sec_title}</h3>
+  <div style="display:flex;flex-direction:column;gap:16px">
+    {notes}
+    {action}
+  </div>
+</div>"#, sec_title = sec_title, notes = notes, action = action_html)
+    } else { String::new() };
+
+    // ── Full Page ──
+    format!(r##"<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{app_name}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <style>
+    body {{ font-family:'Inter',sans-serif; background:#131313; color:#e2e2e2; margin:0; -webkit-font-smoothing:antialiased; }}
+    * {{ box-sizing:border-box; }}
+    .material-symbols-outlined {{ font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; font-size:20px; display:inline-block; line-height:1; vertical-align:middle; }}
+    ::selection {{ background:rgba(173,198,255,0.2); }}
+    ::-webkit-scrollbar {{ width:4px; }}
+    ::-webkit-scrollbar-thumb {{ background:rgba(255,255,255,0.1); border-radius:2px; }}
+    @keyframes pulse {{ 0%,100% {{ opacity:1 }} 50% {{ opacity:0.5 }} }}
+    @keyframes slideUp {{ from {{ opacity:0; transform:translateY(24px) }} to {{ opacity:1; transform:translateY(0) }} }}
+    .anim-slide-up {{ animation:slideUp 0.6s cubic-bezier(0.16,1,0.3,1) both }}
+    .d1 {{ animation-delay:0.05s }} .d2 {{ animation-delay:0.1s }} .d3 {{ animation-delay:0.15s }}
+    .d4 {{ animation-delay:0.2s }} .d5 {{ animation-delay:0.25s }} .d6 {{ animation-delay:0.3s }}
+    .d7 {{ animation-delay:0.35s }}
+  </style>
+</head>
+<body>
+{topbar}
+{sidebar}
+<main style="margin-left:256px;padding:80px 48px 48px">
+  <div style="max-width:1200px;margin:0 auto;display:flex;flex-direction:column;gap:48px">
+    <div class="anim-slide-up d1">{header}</div>
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:24px">
+      <div style="display:flex;flex-direction:column;gap:24px">
+        <div class="anim-slide-up d2">{items}{breakdown}</div>
+        <div class="anim-slide-up d4">{payment}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:24px">
+        <div class="anim-slide-up d3">{customer}</div>
+        <div class="anim-slide-up d5">{timeline}</div>
+        <div class="anim-slide-up d6">{notes}</div>
+      </div>
+    </div>
+  </div>
+</main>
+<script>{runtime}</script>
+<script>{hmr}</script>
+</body>
+</html>"##,
+        app_name = app_name, topbar = topbar_html, sidebar = sidebar_html,
+        header = header_html, items = items_html, breakdown = breakdown_html,
+        payment = payment_html, customer = customer_html, timeline = timeline_html,
+        notes = notes_html, runtime = super::render::CRONUS_RUNTIME_JS, hmr = super::hmr::HMR_CLIENT_JS,
+    )
+}
+
+// ══════════════════════════════════════════════════
 
 fn render_kpi_section(section: &SectionNode, bound_data: &crate::binding::ResolvedData) -> String {
     let title = section.title.as_deref().unwrap_or("");
@@ -10821,6 +11483,7 @@ fn render_kpi_section(section: &SectionNode, bound_data: &crate::binding::Resolv
 // ══════════════════════════════════════════════════
 
 fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crate::binding::ResolvedData) -> String {
+    let t = crate::theme::get();
     let title = section.title.as_deref().unwrap_or("");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
     let cols: usize = section.config.get("cols")
@@ -10835,7 +11498,7 @@ fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crate::binding:
         } else {
             format!(r#"<p style="font-size:13px;color:rgba(226,226,226,0.4);margin:4px 0 0">{}</p>"#, subtitle)
         };
-        format!(r#"<div style="margin-bottom:24px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:#e2e2e2">{}</h2>{}</div>"#, title, sub)
+        format!(r#"<div style="margin-bottom:24px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:{}">{}</h2>{}</div>"#, t.on_surface, title, sub)
     };
 
     // Bound data override for first item

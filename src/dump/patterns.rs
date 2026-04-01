@@ -1709,11 +1709,201 @@ pub fn is_chart(node: &DomNode) -> f32 {
     cap(score.max(0.0))
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Dashboard-specific detectors
+// ═══════════════════════════════════════════════════════════════
+
+/// Order header: "Back to X" link + status badge + large title + date + action buttons
+pub fn is_order_header(node: &DomNode) -> f32 {
+    let text = node.full_text.to_lowercase();
+    let mut score: f32 = 0.0;
+    // "back to" link
+    if text.contains("back to") { score += 0.3; }
+    // Status badge (shipped, processing, fulfilled, pending)
+    let statuses = ["shipped", "processing", "fulfilled", "pending", "completed", "cancelled"];
+    if statuses.iter().any(|s| text.contains(s)) { score += 0.2; }
+    // Large heading with order/detail/invoice pattern
+    if text.contains("order") && (text.contains("detail") || text.contains("#")) { score += 0.3; }
+    // Action buttons (refund, invoice, download)
+    let buttons = extract_buttons(node);
+    let btn_text = buttons.join(" ").to_lowercase();
+    if btn_text.contains("refund") || btn_text.contains("invoice") { score += 0.2; }
+    cap(score)
+}
+
+/// Line items: product list with images + prices + quantities
+pub fn is_line_items(node: &DomNode) -> f32 {
+    let text = node.full_text.to_lowercase();
+    let mut score: f32 = 0.0;
+    // "line items" heading
+    if text.contains("line item") { score += 0.4; }
+    // Multiple images (product photos)
+    let imgs = count_descendants_with_tag(node, "img");
+    if imgs >= 2 { score += 0.2; }
+    // Price patterns ($XX.XX)
+    let price_count = text.matches('$').count();
+    if price_count >= 2 { score += 0.2; }
+    // SKU patterns
+    if text.contains("sku") { score += 0.2; }
+    // Qty patterns
+    if text.contains("qty") { score += 0.1; }
+    cap(score)
+}
+
+/// Price breakdown: subtotal, shipping, tax, total
+pub fn is_price_breakdown(node: &DomNode) -> f32 {
+    let text = node.full_text.to_lowercase();
+    let mut score: f32 = 0.0;
+    if text.contains("subtotal") { score += 0.3; }
+    if text.contains("shipping") || text.contains("delivery") { score += 0.2; }
+    if text.contains("tax") { score += 0.2; }
+    if text.contains("total") && has_price_pattern(&node.full_text) { score += 0.3; }
+    cap(score)
+}
+
+/// Shipping timeline: status steps with dates
+pub fn is_shipping_timeline(node: &DomNode) -> f32 {
+    let text = node.full_text.to_lowercase();
+    let mut score: f32 = 0.0;
+    // Timeline/tracking heading
+    if text.contains("timeline") || text.contains("tracking") || text.contains("shipping") { score += 0.2; }
+    // Multiple date patterns (Oct 24, 2023 etc.)
+    let date_patterns = ["2023", "2024", "2025", "2026", "am", "pm"];
+    let date_hits: usize = date_patterns.iter().filter(|p| text.contains(*p)).count();
+    if date_hits >= 2 { score += 0.2; }
+    // Status words
+    let status_words = ["confirmed", "shipped", "transit", "delivered", "processing", "expected"];
+    let status_hits: usize = status_words.iter().filter(|w| text.contains(*w)).count();
+    if status_hits >= 2 { score += 0.3; }
+    // Vertical line / timeline dots (animate-pulse or rounded-full patterns)
+    if has_descendant_class(node, "animate-pulse") || has_descendant_class(node, "rounded-full") { score += 0.2; }
+    cap(score)
+}
+
+/// Customer profile: avatar + name + email + address
+pub fn is_customer_profile(node: &DomNode) -> f32 {
+    let text = node.full_text.to_lowercase();
+    let mut score: f32 = 0.0;
+    if text.contains("customer") && (text.contains("profile") || text.contains("info")) { score += 0.3; }
+    // Avatar image (rounded-full)
+    if has_descendant_class(node, "rounded-full") { score += 0.1; }
+    // Email pattern
+    if text.contains("email") || text.contains("@") { score += 0.2; }
+    // Address pattern (shipping, destination, address)
+    if text.contains("address") || text.contains("destination") || text.contains("shipping") { score += 0.2; }
+    // Tier/membership
+    if text.contains("tier") || text.contains("member") { score += 0.2; }
+    cap(score)
+}
+
+/// Payment info: payment method + security verification cards
+pub fn is_payment_info(node: &DomNode) -> f32 {
+    let text = node.full_text.to_lowercase();
+    let mut score: f32 = 0.0;
+    if text.contains("payment") && (text.contains("method") || text.contains("info")) { score += 0.3; }
+    if text.contains("visa") || text.contains("mastercard") || text.contains("amex") || text.contains("stripe") { score += 0.2; }
+    if text.contains("3d secure") || text.contains("verified") || text.contains("security validation") { score += 0.2; }
+    if text.contains("authorized") || text.contains("auth id") { score += 0.2; }
+    cap(score)
+}
+
+/// Staff notes: internal notes/comments section
+pub fn is_staff_notes(node: &DomNode) -> f32 {
+    let text = node.full_text.to_lowercase();
+    let mut score: f32 = 0.0;
+    if text.contains("staff") || text.contains("internal") { score += 0.3; }
+    if text.contains("note") || text.contains("comment") { score += 0.3; }
+    if text.contains("add") && (text.contains("note") || text.contains("comment")) { score += 0.2; }
+    // Dashed border (common for notes sections)
+    if has_descendant_class(node, "border-dashed") || node.classes.iter().any(|c| c.contains("dashed")) { score += 0.2; }
+    cap(score)
+}
+
+/// Settings profile: form with labeled inputs
+pub fn is_settings_profile(node: &DomNode) -> f32 {
+    let text = node.full_text.to_lowercase();
+    let mut score: f32 = 0.0;
+    // Profile/general/account heading
+    if text.contains("profile") || text.contains("general") || text.contains("account") { score += 0.2; }
+    // Input fields
+    let inputs = count_descendants_with_tag(node, "input");
+    if inputs >= 2 { score += 0.3; }
+    // Save/update button
+    let buttons = extract_buttons(node);
+    let btn_text = buttons.join(" ").to_lowercase();
+    if btn_text.contains("save") || btn_text.contains("update") { score += 0.2; }
+    // NOT a login/signup form (those have "sign in", "log in", "register")
+    if text.contains("sign in") || text.contains("log in") || text.contains("register") || text.contains("sign up") {
+        return 0.0; // Exclude auth forms
+    }
+    cap(score)
+}
+
+/// API keys: token/key list with copy/delete actions
+pub fn is_api_keys(node: &DomNode) -> f32 {
+    let text = node.full_text.to_lowercase();
+    let mut score: f32 = 0.0;
+    if text.contains("api") && (text.contains("key") || text.contains("token") || text.contains("integration")) { score += 0.4; }
+    // Monospace code-like strings (live_vault, test_sandbox, sk_live, pk_test)
+    if text.contains("live_") || text.contains("test_") || text.contains("sk_") || text.contains("pk_") { score += 0.3; }
+    // Generate/create button
+    let buttons = extract_buttons(node);
+    let btn_text = buttons.join(" ").to_lowercase();
+    if btn_text.contains("generate") || btn_text.contains("create") || btn_text.contains("new") { score += 0.2; }
+    cap(score)
+}
+
+/// Subscription card: plan name + price + features + manage button
+pub fn is_subscription_card(node: &DomNode) -> f32 {
+    let text = node.full_text.to_lowercase();
+    let mut score: f32 = 0.0;
+    // Plan tier names
+    if text.contains("enterprise") || text.contains("pro") || text.contains("premium") || text.contains("starter") { score += 0.2; }
+    // Monthly/yearly billing
+    if text.contains("monthly") || text.contains("billing") || text.contains("investment") || text.contains("/mo") { score += 0.2; }
+    // Large price ($XX or $X,XXX)
+    if has_price_pattern(&node.full_text) { score += 0.2; }
+    // Feature checkmarks
+    if has_descendant_class(node, "check_circle") || text.contains("check_circle") { score += 0.2; }
+    // Manage plan button
+    let buttons = extract_buttons(node);
+    let btn_text = buttons.join(" ").to_lowercase();
+    if btn_text.contains("manage") || btn_text.contains("upgrade") { score += 0.2; }
+    cap(score)
+}
+
+/// Danger zone: destructive action section (delete account, purge, etc.)
+pub fn is_danger_zone(node: &DomNode) -> f32 {
+    let text = node.full_text.to_lowercase();
+    let mut score: f32 = 0.0;
+    // Danger/nuclear/delete keywords
+    if text.contains("danger") || text.contains("nuclear") || text.contains("destructive") { score += 0.3; }
+    if text.contains("delete") || text.contains("purge") || text.contains("deactivate") || text.contains("remove account") { score += 0.3; }
+    if text.contains("irreversible") || text.contains("cannot be undone") { score += 0.3; }
+    // Red/error styling
+    if has_descendant_class(node, "text-error") || has_descendant_class(node, "text-red")
+        || has_descendant_class(node, "border-error") || has_descendant_class(node, "border-red") { score += 0.2; }
+    cap(score)
+}
+
 /// name and its confidence score.
 ///
 /// Returns `("generic", 0.0)` if no detector reaches a meaningful threshold.
 pub fn classify_node(node: &DomNode) -> (&'static str, f32) {
     let detectors: Vec<(&'static str, fn(&DomNode) -> f32)> = vec![
+        // Dashboard-specific (high specificity — check first)
+        ("order-header",      is_order_header),
+        ("line-items",        is_line_items),
+        ("price-breakdown",   is_price_breakdown),
+        ("shipping-timeline", is_shipping_timeline),
+        ("customer-profile",  is_customer_profile),
+        ("payment-info",      is_payment_info),
+        ("staff-notes",       is_staff_notes),
+        ("settings-profile",  is_settings_profile),
+        ("api-keys",          is_api_keys),
+        ("subscription-card", is_subscription_card),
+        ("danger-zone",       is_danger_zone),
+        // General-purpose
         ("topbar",       is_topbar),
         ("hero",         is_hero),
         ("faq",          is_faq),

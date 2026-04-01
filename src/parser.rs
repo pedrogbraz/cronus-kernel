@@ -28,6 +28,15 @@ pub enum AstNode {
     Compose(ComposeNode),
     Auth(AuthNode),
     Layout(LayoutNode),
+    Define(DefineNode),
+}
+
+/// A reusable section definition: `define sidebar "Name" { ... }`
+/// Pages reference via `use Name` which expands to the defined sections.
+#[derive(Debug, Clone)]
+pub struct DefineNode {
+    pub name: String,
+    pub sections: Vec<SectionNode>,
 }
 
 #[derive(Debug, Clone)]
@@ -686,6 +695,8 @@ impl Parser {
                 nodes.push(AstNode::Style(self.parse_style()?));
             } else if self.matches(TokenKind::Keyword, Some("service")) {
                 nodes.push(AstNode::Service(self.parse_service()?));
+            } else if self.matches(TokenKind::Identifier, Some("define")) {
+                nodes.push(AstNode::Define(self.parse_define()?));
             } else if self.matches(TokenKind::Keyword, Some("component")) {
                 nodes.push(AstNode::Component(self.parse_component()?));
             } else if self.matches(TokenKind::Keyword, Some("on")) {
@@ -1536,6 +1547,13 @@ impl Parser {
                     if depth > 0 { self.advance(); }
                 }
                 if self.matches(TokenKind::RBrace, None) { self.advance(); }
+            } else if self.peek().kind == TokenKind::Identifier {
+                // Generic: unknown identifier followed by string literal → store as config
+                let key = self.advance().value;
+                if self.peek().kind == TokenKind::StringLit {
+                    config.insert(key, self.advance().value);
+                }
+                // else: bare identifier, skip it
             } else {
                 self.advance();
             }
@@ -1567,6 +1585,13 @@ impl Parser {
         let title = self.expect(TokenKind::StringLit)?.value;
         let mut map = HashMap::new();
         map.insert("title".into(), title);
+
+        // Arrow for link: item "Text" -> "/url"
+        if self.try_consume(TokenKind::Arrow, None).is_some() {
+            if self.peek().kind == TokenKind::StringLit {
+                map.insert("href".into(), self.advance().value);
+            }
+        }
 
         // Parse inline attributes: icon:x status:active etc
         while self.peek().kind == TokenKind::ColonPair || self.peek().kind == TokenKind::StringLit || self.peek().kind == TokenKind::Price {
@@ -1754,14 +1779,14 @@ impl Parser {
     fn parse_binding(&mut self) -> Result<BindingNode, String> {
         self.advance(); // consume "bind"
 
-        // Next token: ColonPair "entity:Order" or Identifier "entity" followed by ColonPair ":Order"
+        // Next token: ColonPair "entity:Order" or bare Identifier "Order"
         let entity_token = self.advance();
         let entity_name = if entity_token.kind == TokenKind::ColonPair {
             let (_key, val) = Self::split_colon_pair(&entity_token.value);
             val
         } else {
-            // Bare identifier — next token should have the name
-            self.advance().value.clone()
+            // Bare identifier — this IS the entity name (e.g. "Deployment")
+            entity_token.value.clone()
         };
 
         self.expect(TokenKind::LBrace)?;
@@ -1944,6 +1969,31 @@ impl Parser {
     }
 
     // ── component ──
+
+    /// Parse `define "Name" { section ... section ... }`
+    /// Stores one or more reusable sections under a name.
+    fn parse_define(&mut self) -> Result<DefineNode, String> {
+        self.advance(); // consume "define"
+        let name = if self.peek().kind == TokenKind::StringLit {
+            self.advance().value
+        } else {
+            self.advance().value
+        };
+
+        self.expect(TokenKind::LBrace)?;
+
+        let mut sections = Vec::new();
+        while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+            if self.matches(TokenKind::Keyword, Some("section")) {
+                sections.push(self.parse_section()?);
+            } else {
+                self.advance(); // skip unknown tokens
+            }
+        }
+        self.expect(TokenKind::RBrace)?;
+
+        Ok(DefineNode { name, sections })
+    }
 
     fn parse_component(&mut self) -> Result<ComponentNode, String> {
         self.expect(TokenKind::Keyword)?;

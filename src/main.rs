@@ -15,6 +15,7 @@ mod deploy;
 mod dump;
 mod feedback;
 mod graphql;
+mod hardcode_lint;
 mod hmr;
 mod i18n;
 mod layout_system;
@@ -33,6 +34,7 @@ mod sse;
 mod tabs;
 mod tailwind;
 mod testing;
+mod theme;
 mod navigation;
 mod ui;
 
@@ -603,13 +605,29 @@ fn inject_audit_if_enabled(html: String) -> String {
         .map(|s| format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\"")))
         .collect();
 
+    // Also extract DSL strings from .cronus file for source-tracing
+    let mut dsl_strings_json = String::from("[]");
+    if let Some(cronus_file) = find_cronus_file() {
+        if let Ok(cronus_source) = std::fs::read_to_string(&cronus_file) {
+            let mut dsl_strs: Vec<String> = Vec::new();
+            for (i, part) in cronus_source.split('"').enumerate() {
+                if i % 2 == 1 && part.len() > 1 && part.len() < 200 {
+                    let escaped = part.replace('\\', "\\\\").replace('"', "\\\"");
+                    dsl_strs.push(format!("\"{}\"", escaped));
+                }
+            }
+            dsl_strings_json = format!("[{}]", dsl_strs.join(","));
+        }
+    }
+
     let audit_js = include_str!("../../shared/cronus-dump-audit.js");
     // Escape </script> inside JS to prevent premature tag closing
     let safe_js = audit_js.replace("</script>", "<\\/script>");
     let injection = format!(
-        "<script>window.__CRONUS_AUDIT_REFERENCE = {{ numbers: [{}], strings: [{}] }};</script>\n<script>{}</script>",
+        "<script>window.__CRONUS_AUDIT_REFERENCE = {{ numbers: [{}], strings: [{}] }};\nwindow.__CRONUS_DSL_STRINGS__ = {};</script>\n<script>{}</script>",
         numbers_json.join(","),
         strings_json.join(","),
+        dsl_strings_json,
         safe_js,
     );
 
@@ -1485,6 +1503,39 @@ async fn handle_request(
 
         // Check if page has inline sidebar/topbar sections (not components)
         let has_section_sidebar = page.sections.iter().any(|s| s.section_type == "sidebar");
+
+        // Settings page — full-page renderer with its own sidebar/topbar
+        // Order Detail page — full-page renderer
+        let is_order_detail = page.sections.iter().any(|s| s.section_type == "order-header" || s.section_type == "line-items");
+        if is_order_detail {
+            let referenced_comps: Vec<parser::ComponentNode> = page.components.iter()
+                .filter_map(|name| state.components.iter().find(|c| c.name == *name))
+                .cloned()
+                .collect();
+            let html = ui::render_order_detail_dashboard(app_name, &page.sections, &referenced_comps, theme, page.route.as_str());
+            return Ok(html_response(html));
+        }
+
+        // Settings page — full-page renderer
+        let is_settings_page = page.sections.iter().any(|s| s.section_type == "settings-profile" || s.section_type == "subscription-card");
+        if is_settings_page {
+            let referenced_comps: Vec<parser::ComponentNode> = page.components.iter()
+                .filter_map(|name| state.components.iter().find(|c| c.name == *name))
+                .cloned()
+                .collect();
+            let html = ui::render_settings_dashboard(app_name, &page.sections, &referenced_comps, theme, page.route.as_str());
+            return Ok(html_response(html));
+        }
+
+        // Dumped pages with HTML templates — always use landing layout with Tailwind CDN
+        // (must check before has_section_sidebar, because dumps include sidebar templates)
+        let has_templates = page.sections.iter().any(|s| s.template.is_some() || s.config.get("template").is_some());
+        if has_templates {
+            let body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params);
+            let html = ui::render_layout_landing_ex(app_name, &body, theme, state.style.as_ref(), state.app.tailwind_config.as_deref());
+            return Ok(html_response(html));
+        }
+
         if has_section_sidebar {
             // Dashboard with inline sections — render directly with dashboard layout
             let body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params);
@@ -1548,7 +1599,11 @@ async fn handle_request(
             "current-plan", "usage-status", "billing-stats", "payment-methods", "recent-invoices",
             "balance-card", "upcoming-card", "payout-history", "support-banner",
             "checkout-form", "product-summary", "trust-indicators",
-            "team-members", "security-status", "security-policies", "login-activity"];
+            "team-members", "security-status", "security-policies", "login-activity",
+            "settings-profile", "api-keys", "security-grid", "subscription-card",
+            "invoices-list", "support-card", "danger-zone",
+            "order-header", "line-items", "price-breakdown", "payment-info",
+            "customer-profile", "shipping-timeline", "staff-notes"];
         let is_dashboard = has_sidebar_component || page.sections.iter().any(|s| dashboard_types.contains(&s.section_type.as_str()));
         let is_billing = page.sections.iter().any(|s| s.section_type == "current-plan" || s.section_type == "billing-stats");
         let is_payouts = page.sections.iter().any(|s| s.section_type == "balance-card" || s.section_type == "payout-history");
@@ -1558,6 +1613,7 @@ async fn handle_request(
             && page.sections.iter().any(|s| s.section_type == "stat-cards");
         let is_checkout = page.sections.iter().any(|s| s.section_type == "checkout-form" || s.section_type == "product-summary");
         let is_security = page.sections.iter().any(|s| s.section_type == "team-members" || s.section_type == "login-activity");
+        let is_settings = page.sections.iter().any(|s| s.section_type == "settings-profile" || s.section_type == "subscription-card");
         let current_route = page.route.as_str();
         let html = if has_templates {
             // Dumped page with original HTML templates — use landing layout, no sidebar
@@ -1581,6 +1637,8 @@ async fn handle_request(
                 ui::render_payouts_dashboard(app_name, &page.sections, &referenced_comps, theme, current_route)
             } else if is_billing {
                 ui::render_billing_dashboard(app_name, &page.sections, &referenced_comps, theme, current_route)
+            } else if is_settings {
+                ui::render_settings_dashboard(app_name, &page.sections, &referenced_comps, theme, current_route)
             } else if is_security {
                 ui::render_security_dashboard(app_name, &page.sections, &referenced_comps, theme, current_route)
             } else if is_payment_links {
@@ -1804,6 +1862,7 @@ async fn cmd_run(args: &[String]) {
     let mut auth_roles: Vec<String> = Vec::new();
     let mut auth_required_pages: Vec<(String, String)> = Vec::new();
     let mut layout: Option<parser::LayoutNode> = None;
+    let mut defines: std::collections::HashMap<String, Vec<parser::SectionNode>> = std::collections::HashMap::new();
 
     for node in &nodes {
         match node {
@@ -1830,7 +1889,57 @@ async fn cmd_run(args: &[String]) {
             AstNode::Layout(l) => {
                 layout = Some(l.clone());
             }
+            AstNode::Define(d) => {
+                defines.insert(d.name.clone(), d.sections.clone());
+            }
             _ => {}
+        }
+    }
+
+    // Expand `use ComponentName` in pages — inject sections from defines
+    if !defines.is_empty() {
+        for page in &mut pages {
+            let mut expanded_sections: Vec<parser::SectionNode> = Vec::new();
+            let mut used_components: Vec<String> = Vec::new();
+
+            for comp_name in &page.components {
+                if let Some(def_sections) = defines.get(comp_name) {
+                    for mut sec in def_sections.clone() {
+                        // Auto-resolve active state: if sidebar item href matches page route
+                        if sec.section_type == "sidebar" {
+                            for item in &mut sec.items {
+                                let href = item.get("href").map(|s| s.as_str()).unwrap_or("");
+                                if !href.is_empty() && href == page.route {
+                                    item.insert("active".into(), "true".into());
+                                } else {
+                                    item.remove("active");
+                                }
+                            }
+                        }
+                        // Auto-resolve topbar active_nav based on page route
+                        if sec.section_type == "topbar" {
+                            // Set active_nav based on route segments
+                            let route_parts: Vec<&str> = page.route.split('/').filter(|s| !s.is_empty()).collect();
+                            if let Some(first) = route_parts.first() {
+                                // Capitalize first letter
+                                let capitalized = format!("{}{}", first[..1].to_uppercase(), &first[1..]);
+                                sec.config.insert("active_nav".into(), capitalized);
+                            }
+                        }
+                        expanded_sections.push(sec);
+                    }
+                } else {
+                    // Keep as component reference for the old system
+                    used_components.push(comp_name.clone());
+                }
+            }
+
+            if !expanded_sections.is_empty() {
+                // Prepend defined sections before page's own sections
+                expanded_sections.append(&mut page.sections);
+                page.sections = expanded_sections;
+                page.components = used_components;
+            }
         }
     }
 
@@ -1839,6 +1948,20 @@ async fn cmd_run(args: &[String]) {
     let serve_port = if let Some(p) = cli_port { p } else { app.port };
     let comp_count = cronus_components.len();
 
+    // Initialize theme tokens from tailwind_config or style
+    {
+        let tokens = if let Some(ref tc) = app.tailwind_config {
+            theme::parse_from_tailwind_config(tc)
+        } else if let Some(ref s) = style {
+            theme::parse_from_style(
+                s.accent.as_deref().unwrap_or(""),
+                s.font.as_deref().unwrap_or(""),
+            )
+        } else {
+            theme::ThemeTokens::default()
+        };
+        theme::set_global(tokens);
+    }
 
     // Database — use CronusDB for all operations
     let db_path = app.database.as_ref()
@@ -3088,6 +3211,7 @@ fn spec_list(args: &[String]) {
 
 fn cmd_build(args: &[String]) {
     let strict_ai = args.iter().any(|a| a == "--strict-ai");
+    let strict = args.iter().any(|a| a == "--strict") || strict_ai;
     let file = args.iter().skip(2)
         .find(|a| !a.starts_with("--"))
         .cloned()
@@ -3139,6 +3263,29 @@ fn cmd_build(args: &[String]) {
                         }
                     }
                 }
+                // Hardcode lint — render each page and check for hardcoded content
+                let mut all_pages = Vec::new();
+                let mut all_entities = Vec::new();
+                let mut style_node: Option<parser::StyleNode> = None;
+                for node in &nodes {
+                    match node {
+                        AstNode::Page(p) => all_pages.push(p.clone()),
+                        AstNode::Entity(e) => all_entities.push(e.clone()),
+                        AstNode::Style(s) => style_node = Some(s.clone()),
+                        _ => {}
+                    }
+                }
+                let hc_findings = hardcode_lint::lint_all_pages(&all_pages, &all_entities, style_node.as_ref());
+                for f in &hc_findings {
+                    errors.push(json!({
+                        "type": "hardcoded_content",
+                        "page": f.page,
+                        "text": f.text,
+                        "severity": f.severity,
+                        "message": format!("Hardcoded text '{}' in page '{}' — should come from .cronus data", f.text, f.page),
+                    }));
+                }
+
                 let valid = errors.is_empty();
                 let result = json!({
                     "valid": valid,
@@ -3149,6 +3296,32 @@ fn cmd_build(args: &[String]) {
                 println!("{}", serde_json::to_string_pretty(&result).unwrap());
                 if !valid {
                     std::process::exit(1);
+                }
+            } else if strict {
+                // --strict (non-AI) — human-readable hardcode warnings
+                let mut all_pages = Vec::new();
+                let mut all_entities = Vec::new();
+                let mut style_node: Option<parser::StyleNode> = None;
+                for node in &nodes {
+                    match node {
+                        AstNode::Page(p) => all_pages.push(p.clone()),
+                        AstNode::Entity(e) => all_entities.push(e.clone()),
+                        AstNode::Style(s) => style_node = Some(s.clone()),
+                        _ => {}
+                    }
+                }
+                let hc_findings = hardcode_lint::lint_all_pages(&all_pages, &all_entities, style_node.as_ref());
+                println!("  \x1b[32m✓\x1b[0m {} — {} entities, {} pages, {} routes", file, entities, pages, routes);
+                if hc_findings.is_empty() {
+                    println!("  \x1b[32m✓\x1b[0m No hardcoded content detected");
+                } else {
+                    println!("  \x1b[33m⚠\x1b[0m {} hardcoded string(s) found:", hc_findings.len());
+                    for f in &hc_findings {
+                        println!("    \x1b[33m→\x1b[0m [{}] \"{}\"", f.page, f.text);
+                    }
+                    println!();
+                    println!("  \x1b[90mThese strings appear in rendered HTML but don't trace back to .cronus data.\x1b[0m");
+                    println!("  \x1b[90mMove them to section title/subtitle/config/items in the .cronus file.\x1b[0m");
                 }
             } else {
                 println!("  \x1b[32m✓\x1b[0m {} — {} entities, {} pages, {} routes", file, entities, pages, routes);
@@ -7779,6 +7952,7 @@ fn cmd_reconcile(args: &[String]) {
             AstNode::Test(n) => tests_a.push(n),
             AstNode::Compose(n) => composes_a.push(n),
             AstNode::Layout(n) => { layouts_a.insert(n.name.clone(), n); }
+            AstNode::Define(_) => {}
         }
     }
 
@@ -7818,6 +7992,7 @@ fn cmd_reconcile(args: &[String]) {
             AstNode::Test(n) => tests_b.push(n),
             AstNode::Compose(n) => composes_b.push(n),
             AstNode::Layout(n) => { layouts_b.insert(n.name.clone(), n); }
+            AstNode::Define(_) => {}
         }
     }
 
@@ -8258,6 +8433,9 @@ fn reconcile_emit(nodes: &[AstNode]) -> String {
                     out.push_str(&format!("  nav \"{}\" \"{}\"\n", item.label, item.route));
                 }
                 out.push_str("}\n\n");
+            }
+            AstNode::Define(def) => {
+                out.push_str(&format!("define \"{}\" {{\n  # {} section(s)\n}}\n\n", def.name, def.sections.len()));
             }
         }
     }

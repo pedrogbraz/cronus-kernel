@@ -185,6 +185,17 @@ pub fn detect_sections_with_templates(
         }
 
         let blueprint = match section_type {
+            "order-header" => extract_order_header(node),
+            "line-items" => extract_line_items_section(node),
+            "price-breakdown" => extract_price_breakdown(node),
+            "shipping-timeline" => extract_shipping_timeline(node),
+            "customer-profile" => extract_customer_profile(node),
+            "payment-info" => extract_payment_info(node),
+            "staff-notes" => extract_staff_notes(node),
+            "settings-profile" => extract_settings_profile(node),
+            "api-keys" => extract_api_keys(node),
+            "subscription-card" => extract_subscription_card(node),
+            "danger-zone" => extract_danger_zone(node),
             "topbar" => extract_topbar(node),
             "hero" => extract_hero(node),
             "features" | "faq" => extract_features(node),
@@ -3907,6 +3918,534 @@ fn extract_tabs(node: &DomNode) -> SectionBlueprint {
 // Extraction: generic (fallback) — smart dashboard element detection
 // ---------------------------------------------------------------------------
 
+// ═══════════════════════════════════════════════════════════════
+// Dashboard-specific extractors
+// ═══════════════════════════════════════════════════════════════
+
+fn extract_order_header(node: &DomNode) -> SectionBlueprint {
+    let mut config: HashMap<String, String> = HashMap::new();
+    let title = find_heading_by_tag(node, "h2").or_else(|| dom::find_heading(node));
+    let subtitle = dom::find_paragraph(node);
+
+    // Back link: text containing "Back to"
+    let all_text = collect_all_text_nodes(node);
+    for t in &all_text {
+        if t.to_lowercase().contains("back to") {
+            config.insert("back_link".into(), t.trim().to_string());
+            break;
+        }
+    }
+
+    // Badge: short uppercase text in a small colored container
+    let badge_nodes = dom::find_by_class(node, "uppercase");
+    for bn in &badge_nodes {
+        let txt = dom::clean_node_text(bn).trim().to_string();
+        if !txt.is_empty() && txt.len() < 20 && txt.to_lowercase() != "back to orders" {
+            let lower = txt.to_lowercase();
+            let statuses = ["shipped", "processing", "fulfilled", "pending", "completed", "cancelled"];
+            if statuses.iter().any(|s| lower.contains(s)) {
+                config.insert("badge".into(), txt);
+                break;
+            }
+        }
+    }
+
+    // Action buttons
+    let buttons = extract_clean_buttons(node);
+    for (i, btn) in buttons.iter().enumerate() {
+        let lower = btn.to_lowercase();
+        if lower.contains("refund") || lower.contains("process") {
+            config.insert("action_primary".into(), btn.clone());
+        } else if lower.contains("invoice") || lower.contains("download") {
+            config.insert("action_secondary".into(), btn.clone());
+        } else if i == 0 && !config.contains_key("action_secondary") {
+            config.insert("action_secondary".into(), btn.clone());
+        } else if !config.contains_key("action_primary") {
+            config.insert("action_primary".into(), btn.clone());
+        }
+    }
+
+    SectionBlueprint { section_type: "order-header".into(), confidence: 0.0, title, subtitle, config, items: Vec::new(), template: None, style_block: None }
+}
+
+fn extract_line_items_section(node: &DomNode) -> SectionBlueprint {
+    let mut items: Vec<ItemBlueprint> = Vec::new();
+    let title = dom::find_heading(node);
+
+    // Find product rows: divs with img + text + price pattern
+    fn find_product_rows(node: &DomNode, items: &mut Vec<ItemBlueprint>) {
+        // A product row typically has: img, product name (h4/bold), price ($X), maybe SKU
+        let imgs = dom::find_by_tag(node, "img");
+        if !imgs.is_empty() {
+            // This node likely contains products
+            for child in &node.children {
+                let child_text = &child.full_text;
+                let has_img = !dom::find_by_tag(child, "img").is_empty();
+                let has_price = child_text.contains('$');
+                if has_img && has_price {
+                    let mut config = HashMap::new();
+                    // Extract image
+                    if let Some(img) = dom::find_by_tag(child, "img").first() {
+                        if let Some(src) = img.attrs.get("src") {
+                            config.insert("image".into(), src.clone());
+                        }
+                    }
+                    // Extract product name (h4 or first bold text)
+                    let h4s = dom::find_by_tag(child, "h4");
+                    let name = h4s.first().map(|h| dom::clean_node_text(h))
+                        .unwrap_or_default();
+                    // Extract SKU (mono text with SKU: prefix)
+                    for t in collect_all_text_nodes(child) {
+                        let trimmed = t.trim();
+                        if trimmed.to_lowercase().starts_with("sku:") || trimmed.to_lowercase().starts_with("sku ") {
+                            config.insert("sku".into(), trimmed.trim_start_matches("SKU:").trim_start_matches("SKU ").trim().to_string());
+                        }
+                    }
+                    // Extract price ($X,XXX.XX)
+                    for t in collect_all_text_nodes(child) {
+                        let trimmed = t.trim();
+                        if trimmed.starts_with('$') && trimmed.len() > 2 {
+                            config.insert("price".into(), trimmed.to_string());
+                            break;
+                        }
+                    }
+                    // Extract qty
+                    for t in collect_all_text_nodes(child) {
+                        let lower = t.to_lowercase();
+                        if lower.starts_with("qty:") || lower.starts_with("qty ") {
+                            config.insert("qty".into(), lower.trim_start_matches("qty:").trim_start_matches("qty ").trim().to_string());
+                        }
+                    }
+                    // Extract variant (subtitle-like text, not SKU, not price, not qty)
+                    let ps = dom::find_by_tag(child, "p");
+                    for p in &ps {
+                        let pt = dom::clean_node_text(p);
+                        let lower = pt.to_lowercase();
+                        if !lower.starts_with("sku") && !lower.starts_with("qty") && !pt.starts_with('$')
+                            && pt.len() > 5 && pt.len() < 100
+                            && (dom::has_class(p, "text-sm") || dom::has_class(p, "text-on-surface-variant")) {
+                            config.insert("variant".into(), pt);
+                            break;
+                        }
+                    }
+                    if !name.is_empty() {
+                        items.push(ItemBlueprint { item_type: "item".into(), title: name, description: None, config });
+                    }
+                }
+            }
+        }
+        // Recurse into children if no products found at this level
+        if items.is_empty() {
+            for child in &node.children {
+                find_product_rows(child, items);
+                if !items.is_empty() { break; }
+            }
+        }
+    }
+
+    find_product_rows(node, &mut items);
+
+    SectionBlueprint { section_type: "line-items".into(), confidence: 0.0, title, subtitle: None, config: HashMap::new(), items, template: None, style_block: None }
+}
+
+fn extract_price_breakdown(node: &DomNode) -> SectionBlueprint {
+    let mut items: Vec<ItemBlueprint> = Vec::new();
+    // Find label + price pairs
+    let all_text = collect_all_text_nodes(node);
+    let mut i = 0;
+    while i < all_text.len() {
+        let t = all_text[i].trim();
+        // Check if next text is a price
+        if i + 1 < all_text.len() {
+            let next = all_text[i + 1].trim();
+            if next.starts_with('$') && !t.starts_with('$') && t.len() > 2 {
+                let mut config = HashMap::new();
+                config.insert("value".into(), next.to_string());
+                let lower = t.to_lowercase();
+                if lower.contains("total") && !lower.contains("subtotal") {
+                    config.insert("style".into(), "total".into());
+                }
+                items.push(ItemBlueprint { item_type: "item".into(), title: t.to_string(), description: None, config });
+                i += 2;
+                continue;
+            }
+        }
+        i += 1;
+    }
+    SectionBlueprint { section_type: "price-breakdown".into(), confidence: 0.0, title: None, subtitle: None, config: HashMap::new(), items, template: None, style_block: None }
+}
+
+fn extract_shipping_timeline(node: &DomNode) -> SectionBlueprint {
+    let mut items: Vec<ItemBlueprint> = Vec::new();
+    let title = dom::find_heading(node);
+
+    // Timeline steps: look for repeated div patterns with status text + date
+    fn find_timeline_steps(node: &DomNode, items: &mut Vec<ItemBlueprint>) {
+        // Check children for step-like patterns
+        for child in &node.children {
+            let text = dom::clean_node_text(child);
+            if text.is_empty() { continue; }
+
+            // Look for bold text (step title) + small date text
+            let bold_nodes = dom::find_by_class(child, "font-bold");
+            for bn in &bold_nodes {
+                if is_material_icon_span(bn) { continue; }
+                let step_title = dom::clean_node_text(bn).trim().to_string();
+                if step_title.is_empty() || step_title.len() > 60 { continue; }
+
+                let mut config = HashMap::new();
+                // Find date subtitle nearby
+                let parent_text = &child.full_text;
+                // Look for date patterns in sibling text
+                for t in collect_all_text_nodes(child) {
+                    let trimmed = t.trim();
+                    if trimmed != step_title && trimmed.len() > 5 && trimmed.len() < 60 {
+                        if trimmed.contains("202") || trimmed.contains("AM") || trimmed.contains("PM") || trimmed.to_lowercase().starts_with("est:") {
+                            config.insert("subtitle".into(), trimmed.to_string());
+                        } else if trimmed.len() > 10 && (trimmed.contains("carrier") || trimmed.contains("package") || trimmed.contains("tracking")) {
+                            config.insert("detail".into(), trimmed.to_string());
+                        }
+                    }
+                }
+
+                // Detect step style
+                let has_pulse = dom::find_by_class(child, "animate-pulse").len() > 0;
+                let has_check = child.full_text.to_lowercase().contains("check");
+                let is_dimmed = dom::has_class(bn, "text-on-surface/40") || child.full_text.contains("/40");
+                if has_pulse {
+                    config.insert("style".into(), "active".into());
+                } else if is_dimmed || step_title.to_lowercase().contains("expected") {
+                    config.insert("style".into(), "future".into());
+                } else {
+                    config.insert("style".into(), "completed".into());
+                }
+
+                items.push(ItemBlueprint { item_type: "item".into(), title: step_title, description: None, config });
+            }
+            // Recurse
+            if items.is_empty() {
+                find_timeline_steps(child, items);
+            }
+        }
+    }
+
+    find_timeline_steps(node, &mut items);
+
+    SectionBlueprint { section_type: "shipping-timeline".into(), confidence: 0.0, title, subtitle: None, config: HashMap::new(), items, template: None, style_block: None }
+}
+
+fn extract_customer_profile(node: &DomNode) -> SectionBlueprint {
+    let mut config: HashMap<String, String> = HashMap::new();
+    let title = dom::find_heading(node);
+
+    // Customer name (large bold text, usually h4 or strong)
+    let h4s = dom::find_by_tag(node, "h4");
+    if let Some(h4) = h4s.first() {
+        let name = dom::clean_node_text(h4).trim().to_string();
+        if !name.is_empty() { config.insert("customer_name".into(), name); }
+    }
+
+    // Avatar
+    let imgs = dom::find_by_tag(node, "img");
+    for img in &imgs {
+        if let Some(src) = img.attrs.get("src") {
+            // Avatar is typically in a rounded-full container
+            if img.classes.iter().any(|c| c.contains("rounded-full") || c.contains("object-cover")) {
+                config.insert("customer_avatar".into(), src.clone());
+                break;
+            }
+        }
+    }
+
+    // Extract labeled fields
+    let all_text = collect_all_text_nodes(node);
+    for (i, t) in all_text.iter().enumerate() {
+        let lower = t.to_lowercase().trim().to_string();
+        if lower.contains("email") && lower.contains("address") {
+            config.insert("email_label".into(), t.trim().to_string());
+            if i + 1 < all_text.len() {
+                let val = all_text[i + 1].trim();
+                if val.contains('@') { config.insert("customer_email".into(), val.to_string()); }
+            }
+        }
+        if lower.contains("tier") || lower.contains("member") {
+            if !lower.contains("heading") && t.trim().len() < 30 {
+                config.insert("customer_tier".into(), t.trim().to_string());
+            }
+        }
+        if lower.contains("shipping") && lower.contains("destination") || lower.contains("address") && !lower.contains("email") {
+            config.insert("address_label".into(), t.trim().to_string());
+            // Next block of text is likely the address
+            if i + 1 < all_text.len() {
+                let addr_parts: Vec<&str> = all_text[i+1..].iter()
+                    .take(5)
+                    .map(|s| s.trim())
+                    .filter(|s| !s.is_empty() && s.len() < 50)
+                    .collect();
+                if !addr_parts.is_empty() {
+                    config.insert("customer_address".into(), addr_parts.join("\\n"));
+                }
+            }
+        }
+    }
+
+    SectionBlueprint { section_type: "customer-profile".into(), confidence: 0.0, title, subtitle: None, config, items: Vec::new(), template: None, style_block: None }
+}
+
+fn extract_payment_info(node: &DomNode) -> SectionBlueprint {
+    let mut items: Vec<ItemBlueprint> = Vec::new();
+
+    // Find payment cards (grid children)
+    for child in &node.children {
+        let text = &child.full_text;
+        let heading = dom::find_heading(child);
+        if heading.is_none() && text.len() < 10 { continue; }
+
+        let mut config = HashMap::new();
+        let h = heading.unwrap_or_default();
+
+        // Extract details
+        let bold_nodes = dom::find_by_class(child, "font-bold");
+        for bn in &bold_nodes {
+            if is_material_icon_span(bn) { continue; }
+            let t = dom::clean_node_text(bn).trim().to_string();
+            if !t.is_empty() && t != h && t.len() < 60 {
+                config.insert("title".into(), t);
+                break;
+            }
+        }
+        // Subtitle
+        let ps = dom::find_by_tag(child, "p");
+        for p in &ps {
+            if dom::has_class(p, "text-xs") || dom::has_class(p, "text-sm") {
+                let pt = dom::clean_node_text(p).trim().to_string();
+                let lower = pt.to_lowercase();
+                if !pt.is_empty() && !lower.contains("payment") && !lower.contains("security") && pt.len() < 80 {
+                    config.insert("subtitle".into(), pt);
+                    break;
+                }
+            }
+        }
+        // Icon (Material Symbols)
+        let icons = dom::find_by_class(child, "material-symbols");
+        for icon in &icons {
+            let icon_text = dom::clean_node_text(icon).trim().to_string();
+            if !icon_text.is_empty() {
+                config.insert("icon".into(), icon_text);
+                break;
+            }
+        }
+        // Label (VISA, etc.)
+        if text.contains("VISA") { config.insert("label".into(), "VISA".into()); }
+        else if text.contains("MASTERCARD") { config.insert("label".into(), "MASTERCARD".into()); }
+
+        items.push(ItemBlueprint { item_type: "item".into(), title: h, description: None, config });
+    }
+
+    SectionBlueprint { section_type: "payment-info".into(), confidence: 0.0, title: None, subtitle: None, config: HashMap::new(), items, template: None, style_block: None }
+}
+
+fn extract_staff_notes(node: &DomNode) -> SectionBlueprint {
+    let mut items: Vec<ItemBlueprint> = Vec::new();
+    let mut config: HashMap<String, String> = HashMap::new();
+    let title = dom::find_heading(node);
+
+    // Find italic/quoted text
+    let italics = dom::find_by_class(node, "italic");
+    for it in &italics {
+        let text = dom::clean_node_text(it).trim().trim_matches('"').to_string();
+        if !text.is_empty() && text.len() > 10 {
+            let mut item_config = HashMap::new();
+            // Find author (bold text after the quote)
+            let bolds = dom::find_by_class(node, "font-bold");
+            for b in &bolds {
+                let bt = dom::clean_node_text(b).trim().to_string();
+                if bt.contains("—") || bt.contains("-") {
+                    item_config.insert("meta".into(), bt);
+                    break;
+                }
+            }
+            items.push(ItemBlueprint { item_type: "item".into(), title: text, description: None, config: item_config });
+        }
+    }
+
+    // Action button
+    let buttons = extract_clean_buttons(node);
+    if let Some(btn) = buttons.first() {
+        config.insert("action_label".into(), btn.clone());
+    }
+
+    SectionBlueprint { section_type: "staff-notes".into(), confidence: 0.0, title, subtitle: None, config, items, template: None, style_block: None }
+}
+
+fn extract_settings_profile(node: &DomNode) -> SectionBlueprint {
+    let mut items: Vec<ItemBlueprint> = Vec::new();
+    let mut config: HashMap<String, String> = HashMap::new();
+    let title = dom::find_heading(node);
+
+    // Extract form fields
+    let inputs = dom::find_by_tag(node, "input");
+    for input in &inputs {
+        let input_type = input.attrs.get("type").map(|s| s.as_str()).unwrap_or("text");
+        let value = input.attrs.get("value").map(|s| s.as_str()).unwrap_or("");
+        // Find label: look for nearby label/span with uppercase text
+        let label = input.attrs.get("placeholder").cloned().unwrap_or_default();
+        let mut item_config = HashMap::new();
+        item_config.insert("type".into(), input_type.to_string());
+        if !value.is_empty() { item_config.insert("value".into(), value.to_string()); }
+        items.push(ItemBlueprint { item_type: "item".into(), title: if label.is_empty() { input_type.to_string() } else { label }, description: None, config: item_config });
+    }
+
+    // Note text (italic/small)
+    let italics = dom::find_by_class(node, "italic");
+    for it in &italics {
+        let text = dom::clean_node_text(it).trim().to_string();
+        if !text.is_empty() && text.len() > 10 {
+            config.insert("note".into(), text);
+            break;
+        }
+    }
+
+    // Save button
+    let buttons = extract_clean_buttons(node);
+    if let Some(btn) = buttons.first() {
+        config.insert("action_label".into(), btn.clone());
+    }
+
+    SectionBlueprint { section_type: "settings-profile".into(), confidence: 0.0, title, subtitle: None, config, items, template: None, style_block: None }
+}
+
+fn extract_api_keys(node: &DomNode) -> SectionBlueprint {
+    let mut items: Vec<ItemBlueprint> = Vec::new();
+    let mut config: HashMap<String, String> = HashMap::new();
+    let title = dom::find_heading(node);
+    let subtitle = dom::find_paragraph(node);
+
+    // Find monospace key strings
+    let mono_nodes = dom::find_by_class(node, "font-mono");
+    for mn in &mono_nodes {
+        let text = dom::clean_node_text(mn).trim().to_string();
+        if text.len() > 5 && (text.contains("_") || text.contains("...") || text.contains("sk_") || text.contains("pk_")) {
+            let mut item_config = HashMap::new();
+            // Find icon nearby
+            let parent = find_parent_of(node, mn);
+            if let Some(p) = parent {
+                let icons = dom::find_by_class(p, "material-symbols");
+                for icon in &icons {
+                    let it = dom::clean_node_text(icon).trim().to_string();
+                    if !it.is_empty() { item_config.insert("icon".into(), it); break; }
+                }
+                // Find subtitle (small text)
+                for t in collect_all_text_nodes(p) {
+                    let trimmed = t.trim();
+                    if trimmed != text && trimmed.len() > 5 && trimmed.len() < 60 && !trimmed.contains("copy") && !trimmed.contains("delete") {
+                        item_config.insert("subtitle".into(), trimmed.to_string());
+                        break;
+                    }
+                }
+            }
+            items.push(ItemBlueprint { item_type: "item".into(), title: text, description: None, config: item_config });
+        }
+    }
+
+    // Generate button
+    let buttons = extract_clean_buttons(node);
+    if let Some(btn) = buttons.first() {
+        config.insert("action_label".into(), btn.clone());
+    }
+
+    SectionBlueprint { section_type: "api-keys".into(), confidence: 0.0, title, subtitle, config, items, template: None, style_block: None }
+}
+
+fn extract_subscription_card(node: &DomNode) -> SectionBlueprint {
+    let mut items: Vec<ItemBlueprint> = Vec::new();
+    let mut config: HashMap<String, String> = HashMap::new();
+
+    // Plan name from badge-like element
+    let badge_nodes = dom::find_by_class(node, "uppercase");
+    for bn in &badge_nodes {
+        let txt = dom::clean_node_text(bn).trim().to_string();
+        if !txt.is_empty() && txt.len() < 20 {
+            let lower = txt.to_lowercase();
+            if lower == "enterprise" || lower == "pro" || lower == "premium" || lower == "starter" || lower == "free" {
+                config.insert("title_override".into(), txt);
+                break;
+            }
+        }
+    }
+
+    let title = dom::find_heading(node);
+    let subtitle = dom::find_paragraph(node);
+
+    // Large price
+    let all_text = collect_all_text_nodes(node);
+    for t in &all_text {
+        let trimmed = t.trim();
+        if trimmed.starts_with('$') && trimmed.len() > 3 {
+            let mut item_config = HashMap::new();
+            item_config.insert("badge".into(), config.get("title_override").cloned().unwrap_or_default());
+            items.push(ItemBlueprint { item_type: "item".into(), title: trimmed.to_string(), description: None, config: item_config });
+            break;
+        }
+    }
+
+    // Check-circle features
+    for t in &all_text {
+        let trimmed = t.trim();
+        if trimmed.len() > 3 && trimmed.len() < 50 && !trimmed.starts_with('$') && !trimmed.to_lowercase().contains("billing") && !trimmed.to_lowercase().contains("monthly") {
+            // Check if nearby a check_circle icon
+            let lower = trimmed.to_lowercase();
+            if lower != "enterprise" && lower != "pro" && lower != "premium" {
+                let mut item_config = HashMap::new();
+                item_config.insert("icon".into(), "check_circle".into());
+                // Only add if it looks like a feature (not a date or ID)
+                if !trimmed.contains("ID:") && !trimmed.contains("202") {
+                    items.push(ItemBlueprint { item_type: "item".into(), title: trimmed.to_string(), description: None, config: item_config });
+                }
+            }
+        }
+    }
+
+    // Manage button
+    let buttons = extract_clean_buttons(node);
+    if let Some(btn) = buttons.first() {
+        config.insert("action_label".into(), btn.clone());
+    }
+
+    SectionBlueprint { section_type: "subscription-card".into(), confidence: 0.0, title, subtitle, config, items, template: None, style_block: None }
+}
+
+fn extract_danger_zone(node: &DomNode) -> SectionBlueprint {
+    let mut config: HashMap<String, String> = HashMap::new();
+    let mut items: Vec<ItemBlueprint> = Vec::new();
+    let title = dom::find_heading(node);
+
+    // Second heading (action title)
+    let h4s = dom::find_by_tag(node, "h4");
+    if let Some(h4) = h4s.first() {
+        let t = dom::clean_node_text(h4).trim().to_string();
+        if !t.is_empty() { config.insert("subtitle_text".into(), t); }
+    }
+
+    // Description
+    let ps = dom::find_by_tag(node, "p");
+    for p in &ps {
+        let pt = dom::clean_node_text(p).trim().to_string();
+        if pt.len() > 20 {
+            items.push(ItemBlueprint { item_type: "item".into(), title: pt, description: None, config: HashMap::new() });
+            break;
+        }
+    }
+
+    // Destructive action button
+    let buttons = extract_clean_buttons(node);
+    if let Some(btn) = buttons.first() {
+        config.insert("action_label".into(), btn.clone());
+    }
+
+    SectionBlueprint { section_type: "danger-zone".into(), confidence: 0.0, title, subtitle: config.remove("subtitle_text"), config, items, template: None, style_block: None }
+}
+
 fn extract_generic(node: &DomNode) -> SectionBlueprint {
     let mut items: Vec<ItemBlueprint> = Vec::new();
 
@@ -5481,6 +6020,18 @@ fn clean_button_text(node: &DomNode) -> String {
 }
 
 /// Check if a node is a `<span class="material-symbols-outlined">`.
+/// Collect all visible text nodes from a DOM subtree (skipping icons)
+fn collect_all_text_nodes(node: &DomNode) -> Vec<String> {
+    let mut texts = Vec::new();
+    if is_material_icon_span(node) { return texts; }
+    let t = node.text.trim();
+    if !t.is_empty() { texts.push(t.to_string()); }
+    for child in &node.children {
+        texts.extend(collect_all_text_nodes(child));
+    }
+    texts
+}
+
 fn is_material_icon_span(node: &DomNode) -> bool {
     node.tag == "span"
         && node.classes.iter().any(|c| {
