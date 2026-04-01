@@ -231,6 +231,17 @@ fn is_bento_style(items: &[ItemBlueprint]) -> bool {
   generic_count >= 3
 }
 
+/// Detect if items are KPI metrics (from kpi-grid extraction).
+fn has_kpi_items(items: &[ItemBlueprint]) -> bool {
+  items.iter().filter(|i| i.item_type == "kpi").count() >= 2
+}
+
+/// Detect if items contain chart legend entries.
+fn has_chart_items(bp: &SectionBlueprint) -> bool {
+  bp.config.contains_key("chart_type")
+    || bp.items.iter().any(|i| i.item_type == "legend")
+}
+
 // ---------------------------------------------------------------------------
 // Main entry point
 // ---------------------------------------------------------------------------
@@ -336,6 +347,9 @@ fn emit_section(bp: &SectionBlueprint, ind: usize) -> String {
     "info-panel" | "status-card" | "promo" | "links" => emit_info_panel_body(bp, inner, &mut out),
     "form" => emit_form_body(bp, inner, &mut out),
     "tabs" => emit_tabs_body(bp, inner, &mut out),
+    "kpi-grid" => emit_kpi_grid_body(bp, inner, &mut out),
+    "chart" => emit_chart_body(bp, inner, &mut out),
+    "data-table" => emit_data_table_body(bp, inner, &mut out),
     _ => emit_detected_body(bp, inner, &mut out),
   }
 
@@ -363,10 +377,14 @@ fn emit_section(bp: &SectionBlueprint, ind: usize) -> String {
 
 fn emit_detected_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
   // Try dashboard pattern detection on generic sections
-  if is_plan_style(bp) {
+  if has_kpi_items(&bp.items) {
+    emit_kpi_grid_body(bp, ind, out);
+  } else if has_chart_items(bp) {
+    emit_chart_body(bp, ind, out);
+  } else if is_plan_style(bp) {
     emit_plan_style_body(bp, ind, out);
   } else if has_table_rows(bp) {
-    emit_activity_table_body(bp, ind, out);
+    emit_data_table_body(bp, ind, out);
   } else if has_form_fields(&bp.items) {
     emit_form_body(bp, ind, out);
   } else if has_progress_items(&bp.items) {
@@ -528,7 +546,7 @@ fn emit_pricing_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
       let mut line = format!("{}plan {}", pre, quoted(&item.title));
       if !price.is_empty() {
         // Emit price as a Price token (e.g. $49/mês), not a quoted string
-        let price_clean = price.replace("R$", "").replace("US$", "").replace("€", "").trim().to_string();
+        let price_clean = price.replace("R$", "").replace("US$", "").replace("€", "").replace("$", "").trim().to_string();
         let parts: Vec<&str> = price_clean.splitn(2, '/').collect();
         let numeric = parts[0].trim().replace(' ', "").replace('.', "").replace(',', ".");
         if numeric.parse::<f64>().is_ok() {
@@ -1040,6 +1058,213 @@ fn emit_bento_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// KPI grid emitter — dashboard metric cards
+// ---------------------------------------------------------------------------
+
+fn emit_kpi_grid_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+  let ipre = indent(ind + 1);
+
+  if let Some(ref title) = bp.title {
+    if !title.is_empty() {
+      out.push_str(&format!("{}title {}\n", pre, quoted(title)));
+    }
+  }
+
+  // Emit grid layout config
+  if let Some(cols) = bp.config.get("cols") {
+    out.push_str(&format!("{}layout grid cols:{}\n", pre, cols));
+  }
+
+  for item in &bp.items {
+    if item.item_type == "kpi" || item.config.contains_key("value") {
+      let value = item.config.get("value")
+        .or(item.description.as_ref())
+        .cloned()
+        .unwrap_or_default();
+
+      // Build kpi line
+      let span = item.config.get("span");
+      let badge = item.config.get("badge");
+      let subtitle = item.config.get("subtitle");
+      let icon = item.config.get("icon");
+      let mini_chart = item.config.get("mini_chart");
+
+      let has_details = badge.is_some() || subtitle.is_some() || mini_chart.is_some();
+
+      if has_details {
+        // Block style: kpi "Label" value:"$1,482,900.00" { ... }
+        let mut line = format!("{}kpi {} value:{}", pre, quoted(&item.title), quoted(&value));
+        if let Some(s) = span {
+          line.push_str(&format!(" span:{}", s));
+        }
+        if let Some(ic) = icon {
+          line.push_str(&format!(" icon:{}", ic));
+        }
+        line.push_str(" {\n");
+        out.push_str(&line);
+
+        if let Some(b) = badge {
+          out.push_str(&format!("{}badge {}\n", ipre, quoted(b)));
+        }
+        if let Some(s) = subtitle {
+          out.push_str(&format!("{}subtitle {}\n", ipre, quoted(s)));
+        }
+        if mini_chart.is_some() {
+          out.push_str(&format!("{}mini_chart true\n", ipre));
+        }
+
+        out.push_str(&format!("{}}}\n", pre));
+      } else {
+        // Single line: kpi "Label" value:"$1,482,900.00" [span:2] [icon:X]
+        let mut line = format!("{}kpi {} value:{}", pre, quoted(&item.title), quoted(&value));
+        if let Some(s) = span {
+          line.push_str(&format!(" span:{}", s));
+        }
+        if let Some(ic) = icon {
+          line.push_str(&format!(" icon:{}", ic));
+        }
+        line.push('\n');
+        out.push_str(&line);
+      }
+    } else {
+      out.push_str(&emit_item(item, ind));
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Chart emitter — area/bar/line/pie charts
+// ---------------------------------------------------------------------------
+
+fn emit_chart_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+
+  if let Some(ref title) = bp.title {
+    if !title.is_empty() {
+      out.push_str(&format!("{}title {}\n", pre, quoted(title)));
+    }
+  }
+  if let Some(ref subtitle) = bp.subtitle {
+    if !subtitle.is_empty() {
+      out.push_str(&format!("{}subtitle {}\n", pre, quoted(subtitle)));
+    }
+  }
+
+  // Chart type
+  if let Some(chart_type) = bp.config.get("chart_type") {
+    out.push_str(&format!("{}type {}\n", pre, chart_type));
+  }
+
+  // Period selectors
+  if let Some(periods) = bp.config.get("periods") {
+    out.push_str(&format!("{}periods {}\n", pre, quoted(periods)));
+  }
+
+  // X-axis labels
+  if let Some(x_axis) = bp.config.get("x_axis") {
+    out.push_str(&format!("{}x_axis {}\n", pre, quoted(x_axis)));
+  }
+
+  // Legend items
+  for item in &bp.items {
+    if item.item_type == "legend" {
+      let color = item.config.get("color");
+      if let Some(c) = color {
+        out.push_str(&format!("{}legend {} color:{}\n", pre, quoted(&item.title), c));
+      } else {
+        out.push_str(&format!("{}legend {}\n", pre, quoted(&item.title)));
+      }
+    } else {
+      out.push_str(&emit_item(item, ind));
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Data table emitter — tables with headers, rows, search, badges
+// ---------------------------------------------------------------------------
+
+fn emit_data_table_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
+  let pre = indent(ind);
+  let ipre = indent(ind + 1);
+
+  if let Some(ref title) = bp.title {
+    if !title.is_empty() {
+      out.push_str(&format!("{}title {}\n", pre, quoted(title)));
+    }
+  }
+  if let Some(ref subtitle) = bp.subtitle {
+    if !subtitle.is_empty() {
+      out.push_str(&format!("{}subtitle {}\n", pre, quoted(subtitle)));
+    }
+  }
+
+  // Search field
+  if bp.config.get("search").map(|v| v == "true").unwrap_or(false) {
+    if let Some(placeholder) = bp.config.get("search_placeholder") {
+      out.push_str(&format!("{}search placeholder:{}\n", pre, quoted(placeholder)));
+    } else {
+      out.push_str(&format!("{}search true\n", pre));
+    }
+  }
+
+  // Column headers
+  if let Some(columns) = bp.config.get("columns") {
+    out.push_str(&format!("{}columns {}\n", pre, quoted(columns)));
+  }
+
+  // Data rows
+  for item in &bp.items {
+    if item.item_type == "table-header" {
+      // Already emitted as columns above, skip
+      continue;
+    }
+    if item.item_type == "row" {
+      // Emit row with named column values
+      let mut row_pairs: Vec<String> = Vec::new();
+      let mut keys: Vec<&String> = item.config.keys()
+        .filter(|k| !k.starts_with('_') && !k.ends_with("_status"))
+        .collect();
+      keys.sort();
+      for k in &keys {
+        let v = &item.config[*k];
+        if !v.is_empty() {
+          // Check if this column has a status badge
+          let status_key = format!("{}_status", k);
+          if item.config.contains_key(&status_key) {
+            row_pairs.push(format!("{}:status({})", k, v));
+          } else {
+            row_pairs.push(format!("{}:{}", k, quoted(v)));
+          }
+        }
+      }
+      if !row_pairs.is_empty() {
+        out.push_str(&format!("{}row {{\n", pre));
+        for pair in &row_pairs {
+          out.push_str(&format!("{}{}\n", ipre, pair));
+        }
+        out.push_str(&format!("{}}}\n", pre));
+      } else {
+        out.push_str(&format!("{}row {}\n", pre, quoted(&item.title)));
+      }
+    } else {
+      out.push_str(&emit_item(item, ind));
+    }
+  }
+
+  // Footer link
+  if let Some(footer_link) = bp.config.get("footer_link") {
+    let href = bp.config.get("footer_href").cloned().unwrap_or_default();
+    if !href.is_empty() {
+      out.push_str(&format!("{}footer_link {} -> {}\n", pre, quoted(footer_link), quoted(&href)));
+    } else {
+      out.push_str(&format!("{}footer_link {}\n", pre, quoted(footer_link)));
+    }
+  }
+}
+
 fn emit_generic_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
   let pre = indent(ind);
 
@@ -1216,6 +1441,9 @@ fn emit_item(item: &ItemBlueprint, ind: usize) -> String {
     "link" => emit_link_item(item, ind),
     "status" => emit_status_item(item, ind),
     "meter" | "field" => emit_meter_or_field(item, ind),
+    "kpi" => emit_kpi_item(item, ind),
+    "legend" => emit_legend_item(item, ind),
+    "table-header" => emit_table_header_item(item, ind),
     _ => emit_item_block(item, ind), // fallback: treat as generic item
   }
 }
@@ -1567,7 +1795,7 @@ fn emit_plan_item(item: &ItemBlueprint, ind: usize) -> String {
     // Emit price as a Price token (e.g. $49/mês), not a quoted string.
     // The parser expects Price token syntax: $<number>[/<interval>]
     // Try to extract numeric value and emit as Price; fallback to quoted.
-    let price_clean = price.replace("R$", "").replace("US$", "").replace("€", "").trim().to_string();
+    let price_clean = price.replace("R$", "").replace("US$", "").replace("€", "").replace("$", "").trim().to_string();
     let parts: Vec<&str> = price_clean.splitn(2, '/').collect();
     let numeric = parts[0].trim().replace(' ', "").replace('.', "").replace(',', ".");
     if numeric.parse::<f64>().is_ok() {
@@ -1770,4 +1998,74 @@ fn emit_meter_or_field(item: &ItemBlueprint, ind: usize) -> String {
   } else {
     format!("{}{} {}\n", pre, keyword, quoted(&item.title))
   }
+}
+
+// -- kpi "Total Revenue" value:"$1,482,900.00" span:2 { badge "+12.4%" }
+fn emit_kpi_item(item: &ItemBlueprint, ind: usize) -> String {
+  let pre = indent(ind);
+  let ipre = indent(ind + 1);
+
+  let value = item.config.get("value")
+    .or(item.description.as_ref())
+    .cloned()
+    .unwrap_or_default();
+
+  let badge = item.config.get("badge");
+  let subtitle = item.config.get("subtitle");
+  let span = item.config.get("span");
+  let icon = item.config.get("icon");
+  let mini_chart = item.config.get("mini_chart");
+
+  let has_details = badge.is_some() || subtitle.is_some() || mini_chart.is_some();
+
+  if has_details {
+    let mut line = format!("{}kpi {} value:{}", pre, quoted(&item.title), quoted(&value));
+    if let Some(s) = span {
+      line.push_str(&format!(" span:{}", s));
+    }
+    if let Some(ic) = icon {
+      line.push_str(&format!(" icon:{}", ic));
+    }
+    line.push_str(" {\n");
+    let mut out = line;
+
+    if let Some(b) = badge {
+      out.push_str(&format!("{}badge {}\n", ipre, quoted(b)));
+    }
+    if let Some(s) = subtitle {
+      out.push_str(&format!("{}subtitle {}\n", ipre, quoted(s)));
+    }
+    if mini_chart.is_some() {
+      out.push_str(&format!("{}mini_chart true\n", ipre));
+    }
+    out.push_str(&format!("{}}}\n", pre));
+    out
+  } else {
+    let mut line = format!("{}kpi {} value:{}", pre, quoted(&item.title), quoted(&value));
+    if let Some(s) = span {
+      line.push_str(&format!(" span:{}", s));
+    }
+    if let Some(ic) = icon {
+      line.push_str(&format!(" icon:{}", ic));
+    }
+    line.push('\n');
+    line
+  }
+}
+
+// -- legend "Revenue" color:blue
+fn emit_legend_item(item: &ItemBlueprint, ind: usize) -> String {
+  let pre = indent(ind);
+  let color = item.config.get("color");
+  if let Some(c) = color {
+    format!("{}legend {} color:{}\n", pre, quoted(&item.title), c)
+  } else {
+    format!("{}legend {}\n", pre, quoted(&item.title))
+  }
+}
+
+// -- columns "Name | Status | Amount | Date"
+fn emit_table_header_item(item: &ItemBlueprint, ind: usize) -> String {
+  let pre = indent(ind);
+  format!("{}columns {}\n", pre, quoted(&item.title))
 }

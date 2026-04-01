@@ -14,6 +14,7 @@ pub mod project;
 pub mod routes;
 pub mod style_extract;
 pub mod typescript;
+pub mod clone_ir;
 
 use std::collections::HashMap;
 

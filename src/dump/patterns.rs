@@ -78,6 +78,63 @@ fn cap(v: f32) -> f32 {
     v.min(1.0)
 }
 
+/// Check if any descendant has an inline `style` attribute containing `clip-path`.
+fn has_inline_clip_path(node: &DomNode) -> bool {
+    if let Some(style) = node.attrs.get("style") {
+        if style.contains("clip-path") {
+            return true;
+        }
+    }
+    node.children.iter().any(|child| has_inline_clip_path(child))
+}
+
+/// Count date-like labels in text: patterns like "Oct 01", "Jan 15", "Feb 28".
+/// Works on already-lowercased text.
+fn count_date_labels(text: &str) -> usize {
+    let months = ["jan", "feb", "mar", "apr", "may", "jun",
+                   "jul", "aug", "sep", "oct", "nov", "dec"];
+    let mut count = 0;
+    for month in &months {
+        let mut search_from = 0;
+        while let Some(pos) = text[search_from..].find(month) {
+            let abs_pos = search_from + pos;
+            // Check if followed by space + 1-2 digits
+            let after = &text[abs_pos + month.len()..];
+            if after.starts_with(' ') || after.starts_with('\u{a0}') {
+                let rest = after.trim_start();
+                if rest.len() >= 1 && rest.as_bytes()[0].is_ascii_digit() {
+                    count += 1;
+                }
+            }
+            search_from = abs_pos + month.len();
+        }
+    }
+    count
+}
+
+/// Count Y-axis numeric labels: patterns like "1.5M", "1.0M", "0.5M", "$100K".
+/// Works on already-lowercased text.
+fn count_y_axis_labels(text: &str) -> usize {
+    let mut count = 0;
+    let bytes = text.as_bytes();
+    let len = bytes.len();
+    let mut i = 0;
+    while i < len {
+        // Look for digit sequences optionally with dots, followed by k/m/b
+        if bytes[i].is_ascii_digit() {
+            let start = i;
+            while i < len && (bytes[i].is_ascii_digit() || bytes[i] == b'.') {
+                i += 1;
+            }
+            if i < len && (bytes[i] == b'k' || bytes[i] == b'm' || bytes[i] == b'b') {
+                count += 1;
+            }
+        }
+        i += 1;
+    }
+    count
+}
+
 // ---------------------------------------------------------------------------
 // Scoring functions
 // ---------------------------------------------------------------------------
@@ -926,7 +983,7 @@ pub fn is_page_header(node: &DomNode) -> f32 {
     } else {
         // Check h2 with large font (acts as page title in dashboards)
         for h2 in &h2s {
-            if has_class(h2, "text-4xl") || has_class(h2, "text-3xl") {
+            if has_class(h2, "text-5xl") || has_class(h2, "text-4xl") || has_class(h2, "text-3xl") {
                 score += 0.3;
                 break;
             }
@@ -1437,6 +1494,221 @@ fn count_descendants_with_attr(node: &DomNode, attr: &str) -> usize {
 // ---------------------------------------------------------------------------
 
 /// Run all detectors against a node and return the best-matching section type
+/// Detect KPI bento grid — dashboard metric cards with large numbers,
+/// percentage badges, and optional mini charts.
+///
+/// Signals: grid with 3-4+ columns, col-span mixing (bento), children with
+/// financial values ($X,XXX.XX) or large numbers, percentage badges (+12.4%),
+/// small labels + big numbers pattern.
+pub fn is_kpi_grid(node: &DomNode) -> f32 {
+    let mut score: f32 = 0.0;
+    let text = &node.full_text;
+
+    // Grid layout (required baseline)
+    if has_class(node, "grid") || has_descendant_class(node, "grid") {
+        score += 0.1;
+    }
+
+    // Grid with 3-4+ columns (typical KPI layout)
+    if has_class(node, "grid-cols-4") || has_descendant_class(node, "grid-cols-4") {
+        score += 0.2;
+    } else if has_class(node, "grid-cols-3") || has_descendant_class(node, "grid-cols-3") {
+        score += 0.15;
+    }
+
+    // Col-span mixing (bento-style KPI grid: one large card, several small)
+    let has_col_span_2 = has_descendant_class(node, "col-span-2");
+    let has_col_span_1 = has_descendant_class(node, "col-span-1");
+    if has_col_span_2 && has_col_span_1 {
+        score += 0.15;
+    } else if has_col_span_2 {
+        score += 0.1;
+    }
+
+    // Financial values ($1,482,900.00 or similar)
+    let has_dollar = text.contains('$') || text.contains("R$");
+    let has_comma_number = text.chars().filter(|c| *c == ',').count() >= 1
+        && text.chars().any(|c| c.is_ascii_digit());
+    if has_dollar && has_comma_number {
+        score += 0.25;
+    } else if has_dollar {
+        score += 0.15;
+    }
+
+    // Percentage badges (+12.4%, -3.2%, etc.)
+    let has_pct_badge = has_percentage_badge(text);
+    if has_pct_badge {
+        score += 0.2;
+    }
+
+    // Multiple stat-like children (cards with big number + small label)
+    let mut kpi_card_count = 0;
+    let children: Vec<&DomNode> = if node.children.len() >= 2 {
+        node.children.iter().collect()
+    } else {
+        node.children.iter().flat_map(|c| c.children.iter()).collect()
+    };
+    for child in &children {
+        let child_text = &child.full_text;
+        let has_big_num = has_descendant_class(child, "text-2xl")
+            || has_descendant_class(child, "text-3xl")
+            || has_descendant_class(child, "text-4xl")
+            || has_descendant_class(child, "font-bold")
+            || child_text.contains('$');
+        let has_small_label = has_descendant_class(child, "text-xs")
+            || has_descendant_class(child, "text-sm")
+            || has_descendant_class(child, "text-muted")
+            || has_descendant_class(child, "uppercase");
+        if has_big_num && has_small_label {
+            kpi_card_count += 1;
+        }
+    }
+    if kpi_card_count >= 3 {
+        score += 0.25;
+    } else if kpi_card_count >= 2 {
+        score += 0.15;
+    }
+
+    // Penalize if has <table> (that's a data-table, not KPI)
+    if count_descendants_with_tag(node, "table") > 0 {
+        score -= 0.3;
+    }
+    // Penalize if it looks like a hero (has h1 + buttons)
+    if !find_by_tag(node, "h1").is_empty() && !extract_buttons(node).is_empty() {
+        score -= 0.3;
+    }
+    // Penalize if too many h3s (features, not KPI)
+    if count_descendants_with_tag(node, "h3") >= 4 {
+        score -= 0.15;
+    }
+
+    cap(score.max(0.0))
+}
+
+/// Check if text contains a percentage badge pattern like +12.4% or -3.2%.
+fn has_percentage_badge(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    let len = bytes.len();
+    for i in 0..len {
+        if bytes[i] == b'+' || bytes[i] == b'-' {
+            // Look ahead for digit(s) then %
+            let mut j = i + 1;
+            let mut found_digit = false;
+            while j < len && (bytes[j].is_ascii_digit() || bytes[j] == b'.' || bytes[j] == b',') {
+                if bytes[j].is_ascii_digit() {
+                    found_digit = true;
+                }
+                j += 1;
+            }
+            if found_digit && j < len && bytes[j] == b'%' {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Detect chart section — area/bar/line charts with axis labels,
+/// gradient fills, and period selectors.
+///
+/// Signals: SVG or clip-path elements, x-axis labels (Mon/Tue/Jan/Feb or dates),
+/// period selector buttons (7d/30d/90d), "chart"/"graph" class names.
+pub fn is_chart(node: &DomNode) -> f32 {
+    let mut score: f32 = 0.0;
+    let text = node.full_text.to_lowercase();
+
+    // Class-based signals: "chart", "graph", "area-chart"
+    if node.classes.iter().any(|c| c.contains("chart") || c.contains("graph")) {
+        score += 0.35;
+    } else if has_descendant_class(node, "chart") || has_descendant_class(node, "graph") {
+        score += 0.25;
+    }
+
+    // SVG presence (charts are often SVG-based)
+    let svg_count = count_descendants_with_tag(node, "svg");
+    if svg_count >= 1 {
+        score += 0.15;
+    }
+
+    // clip-path / gradient fills (area charts)
+    let has_gradient = has_descendant_class(node, "gradient");
+    if has_descendant_class(node, "clip") || has_gradient {
+        score += 0.1;
+    }
+
+    // clip-path in inline styles (faux CSS charts: style="clip-path: polygon(...)")
+    if has_inline_clip_path(node) {
+        score += 0.2;
+    }
+
+    // Gradient + clip-path combo is a very strong chart signal (CSS area charts)
+    if has_gradient && has_inline_clip_path(node) {
+        score += 0.15;
+    }
+
+    // Axis labels pattern: look for rows of short text like day/month names
+    let axis_keywords = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+        "mon", "tue", "wed", "thu", "fri", "sat", "sun",
+        "seg", "ter", "qua", "qui", "sex", "sab", "dom"];
+    let axis_hit_count = axis_keywords.iter()
+        .filter(|kw| text.contains(**kw))
+        .count();
+    if axis_hit_count >= 3 {
+        score += 0.25;
+    } else if axis_hit_count >= 2 {
+        score += 0.15;
+    } else if axis_hit_count >= 1 {
+        // Even a single month/day abbreviation is a mild signal
+        score += 0.05;
+    }
+
+    // Date-like axis labels: "Oct 01", "Jan 15", etc. (month + number pairs)
+    let date_label_count = count_date_labels(&text);
+    if date_label_count >= 3 {
+        score += 0.2;
+    } else if date_label_count >= 2 {
+        score += 0.1;
+    }
+
+    // Y-axis numeric labels: sequences like "1.5M", "1.0M", "0.5M", "0.0"
+    let y_axis_count = count_y_axis_labels(&text);
+    if y_axis_count >= 3 {
+        score += 0.15;
+    }
+
+    // Period selector buttons (7d, 30d, 90d, 1y, etc.)
+    // Also match spaced variants: "7 days", "30 days", "90 days"
+    let period_keywords = ["7d", "30d", "90d", "1y", "12m", "6m", "3m", "1m",
+        "week", "month", "year", "quarter",
+        "7 day", "30 day", "90 day", "1 year", "12 month", "6 month", "3 month"];
+    let period_hits = period_keywords.iter()
+        .filter(|kw| text.contains(**kw))
+        .count();
+    if period_hits >= 2 {
+        score += 0.2;
+    } else if period_hits >= 1 {
+        score += 0.1;
+    }
+
+    // Has heading (chart title)
+    let h2s = find_by_tag(node, "h2");
+    let h3s = find_by_tag(node, "h3");
+    if !h2s.is_empty() || !h3s.is_empty() {
+        score += 0.05;
+    }
+
+    // Penalize if has <table> (data-table, not chart)
+    if count_descendants_with_tag(node, "table") > 0 {
+        score -= 0.2;
+    }
+    // Penalize if too many paragraphs (content section, not chart)
+    if count_descendants_with_tag(node, "p") > 5 {
+        score -= 0.15;
+    }
+
+    cap(score.max(0.0))
+}
+
 /// name and its confidence score.
 ///
 /// Returns `("generic", 0.0)` if no detector reaches a meaningful threshold.
@@ -1451,7 +1723,9 @@ pub fn classify_node(node: &DomNode) -> (&'static str, f32) {
         ("cta",          is_cta),
         ("footer",       is_footer),
         ("terminal",     is_terminal),
-        ("table",        is_table),
+        ("kpi-grid",     is_kpi_grid),
+        ("chart",        is_chart),
+        ("data-table",   is_table),
         ("pricing",      is_pricing),
         ("bento",        is_bento),
         ("sidebar",      is_sidebar),

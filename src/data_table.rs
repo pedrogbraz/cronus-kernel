@@ -10,11 +10,32 @@ pub fn render_data_table(section: &SectionNode, bound_data: &crate::binding::Res
     let title = section.title.as_deref().unwrap_or("");
     let table_id = format!("cronus-tbl-{}", title.replace(' ', "-").to_lowercase());
 
-    // Column headers always come from section items with column:true
-    let columns: Vec<&str> = section.items.iter()
+    // Column headers: from items with column:true, or from config "columns" string
+    let columns_from_items: Vec<&str> = section.items.iter()
         .filter(|item| item.get("column").map(|v| v == "true").unwrap_or(false))
         .map(|item| item.get("title").map(|s| s.as_str()).unwrap_or(""))
         .collect();
+
+    // Parse columns from config string (pipe-separated or comma-separated)
+    let config_columns_owned: Vec<String> = if columns_from_items.is_empty() {
+        if let Some(cols_str) = section.config.get("columns") {
+            let separator = if cols_str.contains('|') { '|' } else { ',' };
+            cols_str.split(separator)
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect()
+        } else {
+            Vec::new()
+        }
+    } else {
+        Vec::new()
+    };
+
+    let columns: Vec<&str> = if !columns_from_items.is_empty() {
+        columns_from_items
+    } else {
+        config_columns_owned.iter().map(|s| s.as_str()).collect()
+    };
 
     // Check if we have bound database rows
     let use_bound = matches!(bound_data, crate::binding::ResolvedData::Rows(r) if !r.is_empty());
@@ -26,7 +47,7 @@ pub fn render_data_table(section: &SectionNode, bound_data: &crate::binding::Res
             .filter(|item| !item.get("column").map(|v| v == "true").unwrap_or(false))
             .filter(|item| {
                 let t = item.get("_type").map(|s| s.as_str()).unwrap_or("item");
-                t == "item" || t.is_empty()
+                t == "item" || t == "row" || t.is_empty()
             })
             .collect()
     };
@@ -145,15 +166,15 @@ function cronusPaginate(tid,perPage){{var w=document.getElementById(tid);if(!w)r
             ));
             html.push_str(r#"<td style="padding:12px 16px"><input type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:#000"></td>"#);
 
-            for (ci, col) in columns.iter().enumerate() {
+            for (_ci, col) in columns.iter().enumerate() {
                 let col_key = col.to_lowercase();
 
-                // First column uses row title as value
-                let cell_value = if ci == 0 {
-                    row_title
-                } else {
-                    row.get(&col_key).map(|s| s.as_str()).unwrap_or("")
-                };
+                // Look up cell value by column key; fall back to row title for first match
+                let cell_value = row.get(&col_key).map(|s| s.as_str())
+                    .unwrap_or_else(|| {
+                        // If row title is non-empty and no explicit column value, use title
+                        if !row_title.is_empty() && _ci == 0 { row_title } else { "" }
+                    });
 
                 // Check for badge color (on status column)
                 let badge_color = if col_key == "status" {
@@ -339,6 +360,139 @@ pub fn render_filters_toolbar(section: &SectionNode) -> String {
                 ));
             }
         }
+    }
+
+    html.push_str("</div>");
+    html
+}
+
+/// Renders a dark-themed data table with static rows from .cronus config.
+/// Used when `style:dark` is set and items contain row data (title starting with "#" or config keys like client, value, status).
+pub fn render_data_table_dark(section: &SectionNode) -> String {
+    let title = section.title.as_deref().unwrap_or("");
+    let search_placeholder = section.config.get("search").map(|s| s.as_str()).unwrap_or("Search...");
+    let footer_link = section.config.get("footer_link").map(|s| s.as_str());
+
+    // Parse columns from config
+    let columns: Vec<String> = if let Some(cols_str) = section.config.get("columns") {
+        let separator = if cols_str.contains('|') { '|' } else { ',' };
+        cols_str.split(separator)
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    // Collect static rows: items that have row-like data
+    let static_rows: Vec<&HashMap<String, String>> = section.items.iter()
+        .filter(|item| {
+            let t = item.get("_type").map(|s| s.as_str()).unwrap_or("item");
+            (t == "item" || t == "row") && (
+                item.get("title").map(|s| s.starts_with('#')).unwrap_or(false)
+                || item.get("client").is_some()
+                || item.get("value").is_some()
+                || item.get("status").is_some()
+            )
+        })
+        .collect();
+
+    let mut html = String::new();
+
+    // Container
+    html.push_str(r#"<div style="background:#1b1b1b;border:0.5px solid rgba(76,69,70,0.15);border-radius:12px;overflow:hidden">"#);
+
+    // Header: title + search
+    html.push_str(r#"<div style="display:flex;justify-content:space-between;align-items:center;padding:24px 32px">"#);
+    if !title.is_empty() {
+        html.push_str(&format!(
+            r#"<h3 style="font-size:18px;font-weight:600;margin:0;color:#e2e2e2">{title}</h3>"#
+        ));
+    }
+    html.push_str(&format!(
+        r#"<input type="text" placeholder="{search_placeholder}" style="padding:8px 16px;background:#0e0e0e;border:none;border-radius:8px;font-size:12px;color:rgba(226,226,226,0.6);outline:none;width:220px">"#
+    ));
+    html.push_str("</div>");
+
+    // Table
+    html.push_str(r#"<table style="width:100%;border-collapse:collapse">"#);
+
+    // Column headers
+    html.push_str(r#"<thead><tr style="background:rgba(14,14,14,0.5)">"#);
+    for col in &columns {
+        html.push_str(&format!(
+            r#"<th style="padding:12px 32px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;color:rgba(226,226,226,0.4)">{col}</th>"#
+        ));
+    }
+    html.push_str("</tr></thead>");
+
+    // Body
+    html.push_str("<tbody>");
+    let avatar_colors = ["#3b82f6", "#8b5cf6", "#ef4444", "#10b981", "#f59e0b", "#ec4899"];
+
+    for (idx, row) in static_rows.iter().enumerate() {
+        let row_title = row.get("title").map(|s| s.as_str()).unwrap_or("");
+
+        html.push_str(
+            r#"<tr style="border-bottom:1px solid rgba(76,69,70,0.05);transition:background 0.15s" onmouseover="this.style.background='#1f1f1f'" onmouseout="this.style.background='transparent'">"#
+        );
+
+        for (ci, col) in columns.iter().enumerate() {
+            let col_key = col.to_lowercase().replace(' ', "_");
+
+            let cell_value = row.get(&col_key)
+                .or_else(|| row.get(&col.to_lowercase()))
+                .map(|s| s.as_str())
+                .unwrap_or_else(|| {
+                    if ci == 0 && !row_title.is_empty() { row_title } else { "" }
+                });
+
+            html.push_str(r#"<td style="padding:16px 32px">"#);
+
+            if col_key == "client" {
+                let initials: String = cell_value.chars()
+                    .filter(|c| c.is_alphabetic())
+                    .take(2)
+                    .collect::<String>()
+                    .to_uppercase();
+                let avatar_bg = avatar_colors[idx % avatar_colors.len()];
+                html.push_str(&format!(
+                    r#"<div style="display:flex;align-items:center;gap:12px"><div style="width:32px;height:32px;border-radius:50%;background:{avatar_bg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">{initials}</div><span style="font-size:13px;color:#e2e2e2">{cell_value}</span></div>"#
+                ));
+            } else if col_key == "status" {
+                let status_lower = cell_value.to_lowercase();
+                let (badge_bg, badge_color) = match status_lower.as_str() {
+                    "fulfilled" | "completed" | "active" | "success" => ("rgba(16,185,129,0.12)", "#10b981"),
+                    "processing" | "in_progress" | "in progress" => ("rgba(59,130,246,0.12)", "#3b82f6"),
+                    "pending" | "waiting" | "draft" => ("rgba(113,113,122,0.12)", "#71717a"),
+                    "cancelled" | "failed" | "rejected" => ("rgba(239,68,68,0.12)", "#ef4444"),
+                    _ => ("rgba(113,113,122,0.12)", "#71717a"),
+                };
+                html.push_str(&format!(
+                    r#"<span style="display:inline-block;padding:4px 12px;font-size:11px;font-weight:600;border-radius:999px;background:{badge_bg};color:{badge_color}">{cell_value}</span>"#
+                ));
+            } else if col_key == "action" {
+                html.push_str(
+                    r#"<button style="background:none;border:none;color:rgba(226,226,226,0.4);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:background 0.15s" onmouseover="this.style.background='rgba(226,226,226,0.08)'" onmouseout="this.style.background='none'">&#x2026;</button>"#
+                );
+            } else {
+                html.push_str(&format!(
+                    r#"<span style="font-size:13px;color:rgba(226,226,226,0.8)">{cell_value}</span>"#
+                ));
+            }
+
+            html.push_str("</td>");
+        }
+        html.push_str("</tr>");
+    }
+    html.push_str("</tbody>");
+    html.push_str("</table>");
+
+    // Footer link
+    if let Some(link_text) = footer_link {
+        html.push_str(&format!(
+            r##"<div style="padding:20px 32px;text-align:center;border-top:1px solid rgba(76,69,70,0.08)"><a href="#" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;color:rgba(226,226,226,0.4);text-decoration:none;transition:color 0.15s" onmouseover="this.style.color='rgba(226,226,226,0.7)'" onmouseout="this.style.color='rgba(226,226,226,0.4)'">{link_text}</a></div>"##
+        ));
     }
 
     html.push_str("</div>");

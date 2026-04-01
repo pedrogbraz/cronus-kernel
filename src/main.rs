@@ -88,6 +88,7 @@ async fn main() {
         "compose" => cmd_compose(&args),
         "generate" | "gen" => cmd_generate(&args),
         "dump" => cmd_dump(&args),
+        "clone" => cmd_clone(&args),
         "validate" => {
             if args.iter().any(|a| a == "--mission") {
                 cmd_validate_mission();
@@ -535,11 +536,211 @@ fn json_response(status: StatusCode, body: Value) -> Response<Full<Bytes>> {
 }
 
 fn html_response(body: String) -> Response<Full<Bytes>> {
+    let final_body = inject_audit_if_enabled(body);
     Response::builder()
         .status(StatusCode::OK)
         .header("Content-Type", "text/html; charset=utf-8")
-        .body(Full::new(Bytes::from(body)))
+        .body(Full::new(Bytes::from(final_body)))
         .unwrap()
+}
+
+/// If CRONUS_AUDIT_REF env var points to an HTML file, extract reference values
+/// and inject the dump audit script into every page response.
+fn inject_audit_if_enabled(html: String) -> String {
+    let ref_path = match std::env::var("CRONUS_AUDIT_REF") {
+        Ok(p) if !p.is_empty() => p,
+        _ => return html,
+    };
+    let ref_html = match std::fs::read_to_string(&ref_path) {
+        Ok(h) => h,
+        Err(_) => return html,
+    };
+
+    // Extract all visible text values from reference HTML (simple extraction)
+    let mut ref_numbers: Vec<f64> = Vec::new();
+    let mut ref_strings: Vec<String> = Vec::new();
+
+    // Extract only VISIBLE text — skip <script>, <style>, <head>, and Tailwind config
+    let visible_text = extract_visible_text(&ref_html);
+    // Extract numbers (including formatted: 1,482,900.00 / 12,842 / 4.82%)
+    for cap in regex_numbers(&visible_text) {
+        if let Ok(n) = cap.parse::<f64>() {
+            if n.is_finite() && n >= 2.0 && n <= 1e9 {
+                // Skip hex-color-like numbers (6-digit: 131313, 353535, etc.)
+                let is_hex_color = n == n.floor() && n >= 100000.0 && n <= 999999.0;
+                // Skip common CSS/config numbers
+                let is_css_noise = [
+                    24.0, 32.0, 36.0, 48.0, 64.0, 96.0, 128.0, 256.0, 512.0,
+                    0.125, 0.25, 0.5, 0.75, 0.15, 0.2, 0.3, 0.05, 0.08, 0.1, 0.04, 0.06,
+                ].contains(&n);
+                if !is_hex_color && !is_css_noise {
+                    ref_numbers.push(n);
+                }
+            }
+        }
+    }
+    // Extract meaningful strings (3-120 chars, not common UI words)
+    for line in visible_text.lines() {
+        let trimmed = line.trim();
+        if trimmed.len() >= 3 && trimmed.len() <= 120 {
+            let lower = trimmed.to_lowercase();
+            // Skip CSS/Tailwind noise
+            if !lower.contains("tailwind") && !lower.contains("font-variation")
+                && !lower.contains("border-radius") && !lower.contains("rgba(")
+                && !lower.contains("linear-gradient") && !lower.contains("backdrop-filter")
+                && !lower.contains("clip-path") && !lower.contains("animation")
+                && !lower.starts_with('.') && !lower.starts_with('#')
+                && !lower.starts_with('{') && !lower.starts_with('@')
+            {
+                ref_strings.push(lower);
+            }
+        }
+    }
+
+    // Build audit script injection
+    let numbers_json: Vec<String> = ref_numbers.iter().map(|n| format!("{}", n)).collect();
+    let strings_json: Vec<String> = ref_strings.iter()
+        .map(|s| format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\"")))
+        .collect();
+
+    let audit_js = include_str!("../../shared/cronus-dump-audit.js");
+    // Escape </script> inside JS to prevent premature tag closing
+    let safe_js = audit_js.replace("</script>", "<\\/script>");
+    let injection = format!(
+        "<script>window.__CRONUS_AUDIT_REFERENCE = {{ numbers: [{}], strings: [{}] }};</script>\n<script>{}</script>",
+        numbers_json.join(","),
+        strings_json.join(","),
+        safe_js,
+    );
+
+    // Inject before </body>
+    if let Some(pos) = html.rfind("</body>") {
+        let mut result = html[..pos].to_string();
+        result.push_str(&injection);
+        result.push_str(&html[pos..]);
+        result
+    } else {
+        let mut result = html;
+        result.push_str(&injection);
+        result
+    }
+}
+
+/// Extract only visible text from HTML body — skip script, style, head, SVG, tailwind config
+fn extract_visible_text(html: &str) -> String {
+    let mut result = String::new();
+    // Find <body> content
+    let body_start = html.find("<body").and_then(|pos| html[pos..].find('>').map(|p| pos + p + 1)).unwrap_or(0);
+    let body_end = html.rfind("</body>").unwrap_or(html.len());
+    let body = &html[body_start..body_end];
+
+    let mut in_tag = false;
+    let mut tag_name = String::new();
+    let mut skip_depth = 0;
+    let skip_tags = ["script", "style", "svg", "noscript", "link", "meta"];
+
+    let chars: Vec<char> = body.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i] == '<' {
+            in_tag = true;
+            tag_name.clear();
+            // Check if closing tag
+            let is_closing = i + 1 < chars.len() && chars[i + 1] == '/';
+            let name_start = if is_closing { i + 2 } else { i + 1 };
+            let mut j = name_start;
+            while j < chars.len() && chars[j].is_alphanumeric() {
+                tag_name.push(chars[j].to_ascii_lowercase());
+                j += 1;
+            }
+            if is_closing && skip_tags.contains(&tag_name.as_str()) {
+                skip_depth = (skip_depth - 1).max(0);
+            } else if !is_closing && skip_tags.contains(&tag_name.as_str()) {
+                skip_depth += 1;
+            }
+            // Skip to end of tag
+            while i < chars.len() && chars[i] != '>' {
+                i += 1;
+            }
+            i += 1;
+            if skip_depth == 0 { result.push('\n'); }
+            continue;
+        }
+        if skip_depth == 0 {
+            result.push(chars[i]);
+        }
+        i += 1;
+    }
+    result
+}
+
+fn strip_html_tags(html: &str) -> String {
+    let mut result = String::with_capacity(html.len() / 3);
+    let mut in_tag = false;
+    let mut in_script = false;
+    let mut in_style = false;
+    for ch in html.chars() {
+        if ch == '<' {
+            in_tag = true;
+            continue;
+        }
+        if ch == '>' {
+            in_tag = false;
+            // Check if we just closed a script/style
+            let lower = result.to_lowercase();
+            if lower.ends_with("/script") || lower.ends_with("/style") {
+                in_script = false;
+                in_style = false;
+            }
+            result.push(' ');
+            continue;
+        }
+        if in_tag {
+            // Detect script/style opening
+            let partial = result.to_lowercase();
+            if partial.ends_with("script") { in_script = true; }
+            if partial.ends_with("style") { in_style = true; }
+            continue;
+        }
+        if in_script || in_style { continue; }
+        result.push(ch);
+    }
+    result
+}
+
+fn regex_numbers(text: &str) -> Vec<String> {
+    let mut results = Vec::new();
+    let chars: Vec<char> = text.chars().collect();
+    let len = chars.len();
+    let mut i = 0;
+    while i < len {
+        if chars[i].is_ascii_digit() || (chars[i] == '-' && i + 1 < len && chars[i + 1].is_ascii_digit()) {
+            let start = i;
+            while i < len && (chars[i].is_ascii_digit() || chars[i] == '.' || chars[i] == ',' || chars[i] == '-') {
+                i += 1;
+            }
+            let raw: String = chars[start..i].iter().collect();
+            // Try parsing as-is
+            if let Ok(_) = raw.parse::<f64>() {
+                results.push(raw.clone());
+            }
+            // Try removing thousand separators (1,482,900.00 → 1482900.00)
+            let cleaned = raw.replace(',', "");
+            if cleaned != raw {
+                if let Ok(_) = cleaned.parse::<f64>() {
+                    results.push(cleaned);
+                }
+            }
+            // Brazilian format (1.482.900 → 1482900)
+            if raw.matches('.').count() >= 2 {
+                let br_cleaned = raw.replace('.', "");
+                results.push(br_cleaned);
+            }
+        } else {
+            i += 1;
+        }
+    }
+    results
 }
 
 fn forbidden_response(message: &str) -> Response<Full<Bytes>> {
@@ -888,6 +1089,64 @@ async fn handle_request(
         return Ok(json_response(StatusCode::OK, engine.status()));
     }
 
+    // Audit endpoint — triggers browser scan and stores results
+    if path == "/api/audit/trigger" && method == hyper::Method::GET {
+        // Return a page that auto-scans and posts results back
+        let trigger_html = r#"<!DOCTYPE html><html><head><script>
+        fetch('/').then(r=>r.text()).then(html=>{
+            var iframe=document.createElement('iframe');
+            iframe.style.cssText='position:fixed;top:0;left:0;width:100vw;height:100vh;border:none;z-index:1';
+            document.body.appendChild(iframe);
+            iframe.srcdoc=html;
+            iframe.onload=function(){
+                var w=iframe.contentWindow;
+                // Wait for audit to auto-scan
+                var check=setInterval(function(){
+                    if(w.__CRONUS_DUMP_AUDIT && w.__CRONUS_DUMP_AUDIT.results()){
+                        clearInterval(check);
+                        var r=w.__CRONUS_DUMP_AUDIT.results();
+                        fetch('/api/audit/results',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(r)});
+                        document.title='AUDIT DONE: '+r.fidelity+'%';
+                    }
+                },500);
+            };
+        });
+        </script></head><body style="margin:0;background:#0e0e0e;color:#e2e2e2;font-family:Inter,sans-serif">
+        <div style="display:flex;align-items:center;justify-content:center;height:100vh">Running audit...</div>
+        </body></html>"#;
+        return Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header("Content-Type", "text/html; charset=utf-8")
+            .body(Full::new(Bytes::from(trigger_html)))
+            .unwrap());
+    }
+
+    // Audit results storage (posted by the audit widget)
+    if path == "/api/audit/results" && method == hyper::Method::POST {
+        let collected = req.into_body().collect().await.unwrap_or_default();
+        let body_bytes = collected.to_bytes();
+        if let Ok(json_str) = std::str::from_utf8(&body_bytes) {
+            // Store to file for CLI access
+            let _ = std::fs::write("/tmp/cronus-audit-results.json", json_str);
+            eprintln!("\n  \x1b[36m[AUDIT]\x1b[0m Results saved to /tmp/cronus-audit-results.json");
+            if let Ok(val) = serde_json::from_str::<Value>(json_str) {
+                let fidelity = val.get("fidelity").and_then(|v| v.as_i64()).unwrap_or(0);
+                let missing = val.get("missingItems").and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
+                let extra = val.get("extraItems").and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
+                let dot = if fidelity >= 90 { "🟢" } else if fidelity >= 60 { "🟡" } else { "🔴" };
+                eprintln!("  {} Fidelity: {}% | Missing: {} | Extra: {}", dot, fidelity, missing, extra);
+            }
+        }
+        return Ok(json_response(StatusCode::OK, json!({"ok": true})));
+    }
+
+    // Audit results read (for CLI/agent access)
+    if path == "/api/audit/results" && method == hyper::Method::GET {
+        let results = std::fs::read_to_string("/tmp/cronus-audit-results.json").unwrap_or_else(|_| "{}".into());
+        let val: Value = serde_json::from_str(&results).unwrap_or(json!({"error": "no audit results yet"}));
+        return Ok(json_response(StatusCode::OK, val));
+    }
+
     // Health endpoint
     if path == "/api/health" {
         return Ok(json_response(StatusCode::OK, json!({
@@ -1223,6 +1482,16 @@ async fn handle_request(
         }
 
         let theme = state.style.as_ref().and_then(|s| s.theme.as_deref()).unwrap_or("dark");
+
+        // Check if page has inline sidebar/topbar sections (not components)
+        let has_section_sidebar = page.sections.iter().any(|s| s.section_type == "sidebar");
+        if has_section_sidebar {
+            // Dashboard with inline sections — render directly with dashboard layout
+            let body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params);
+            let html = ui::render_layout_dashboard(&state.app.name, &body, theme);
+            return Ok(html_response(html));
+        }
+
         let mut body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params);
 
         // If page references components (via `use ComponentName`), render them
@@ -1781,6 +2050,32 @@ fn cmd_dump(args: &[String]) {
     };
 
     // Check for -o flag
+    let output_file = args.iter().position(|a| a == "-o").and_then(|i| args.get(i + 1));
+    if let Some(out) = output_file {
+        fs::write(out, &cronus).unwrap_or_else(|e| {
+            eprintln!("  \x1b[31m✗\x1b[0m Error writing {}: {}", out, e);
+            std::process::exit(1);
+        });
+        eprintln!("  \x1b[32m✓\x1b[0m Written to {}", out);
+    } else {
+        println!("{}", cronus);
+    }
+}
+
+fn cmd_clone(args: &[String]) {
+    let file = args.get(2).unwrap_or_else(|| {
+        eprintln!("  \x1b[31m✗\x1b[0m Usage: cronus clone <file.html> [-o output.cronus]");
+        std::process::exit(1);
+    });
+
+    let html = fs::read_to_string(file).unwrap_or_else(|e| {
+        eprintln!("  \x1b[31m✗\x1b[0m Error reading {}: {}", file, e);
+        std::process::exit(1);
+    });
+
+    eprintln!("  \x1b[36m⚡\x1b[0m Clone IR: {} ({} bytes)...", file, html.len());
+    let cronus = dump::clone_ir::clone_html_to_cronus(&html);
+
     let output_file = args.iter().position(|a| a == "-o").and_then(|i| args.get(i + 1));
     if let Some(out) = output_file {
         fs::write(out, &cronus).unwrap_or_else(|e| {

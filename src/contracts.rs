@@ -69,10 +69,10 @@ static TABLE_CONTRACT: SectionContract = SectionContract {
     requires_title: false,
     requires_items: true,
     min_items: 1,
-    config_keys: &["title", "entity", "responsive", "live", "columns"],
-    structural_keys: &[req("name"), opt("title"), opt("column"), opt("badge"), opt("status")],
+    config_keys: &["title", "entity", "responsive", "live", "columns", "search", "paginate"],
+    structural_keys: &[req("name"), opt("title"), opt("column"), opt("badge"), opt("status"), opt("_type")],
     entity_binding: true,
-    on_unknown_key: Fallback::Warn,
+    on_unknown_key: Fallback::Ignore,
     on_missing_required: Fallback::Error,
 };
 
@@ -112,7 +112,7 @@ static KPI_CONTRACT: SectionContract = SectionContract {
     requires_items: true,
     min_items: 1,
     config_keys: &["cols", "cols-md", "cols-sm", "entity", "live", "interval"],
-    structural_keys: &[req("name"), opt("title"), opt("icon"), opt("trend"), opt("meta"), opt("value")],
+    structural_keys: &[req("name"), opt("title"), opt("icon"), opt("trend"), opt("meta"), opt("value"), opt("badge"), opt("subtitle"), opt("description"), opt("span")],
     entity_binding: false,
     on_unknown_key: Fallback::Warn,
     on_missing_required: Fallback::Error,
@@ -313,6 +313,12 @@ static ALL_NAMES: &[&str] = &[
     "table", "form", "card", "kpi", "modal",
     "kanban", "command", "dropdown", "toast", "empty",
     "page-header", "tabs", "alert", "accordion", "breadcrumb", "chart",
+    "sidebar", "topbar", "footer", "hero", "features", "pricing",
+    "promo", "info-bar", "bento", "features-split", "team-list",
+    "status-card", "policies", "activity-table", "edge", "links",
+    "quick-links", "skeleton", "loading", "error", "not-found", "404",
+    "timeline", "progress", "pagination", "filters", "notifications",
+    "dark-mode", "layout", "sheet", "product-grid",
 ];
 
 pub struct ContractRegistry;

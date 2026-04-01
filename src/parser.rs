@@ -559,6 +559,17 @@ fn tokenize(source: &str) -> Vec<Token> {
                     if chars[i] == '-' && i + 1 < chars.len() && chars[i + 1] == '>' {
                         break;
                     }
+                    // When a word contains a quoted value (e.g. value:"12,842"),
+                    // consume the entire quoted string including commas and spaces
+                    if chars[i] == '"' {
+                        i += 1; // opening quote
+                        while i < chars.len() && chars[i] != '"' {
+                            if chars[i] == '\\' { i += 1; } // skip escaped chars
+                            i += 1;
+                        }
+                        if i < chars.len() { i += 1; } // closing quote
+                        break; // end of word after closing quote
+                    }
                     i += 1;
                 }
 
@@ -639,7 +650,15 @@ impl Parser {
 
     fn split_colon_pair(pair: &str) -> (String, String) {
         if let Some(idx) = pair.find(':') {
-            (pair[..idx].to_string(), pair[idx+1..].to_string())
+            let key = pair[..idx].to_string();
+            let raw_val = &pair[idx+1..];
+            // Strip surrounding quotes from the value (e.g. value:"12,842" → 12,842)
+            let val = if raw_val.starts_with('"') && raw_val.ends_with('"') && raw_val.len() >= 2 {
+                raw_val[1..raw_val.len()-1].to_string()
+            } else {
+                raw_val.to_string()
+            };
+            (key, val)
         } else {
             (pair.to_string(), String::new())
         }
@@ -1320,12 +1339,22 @@ impl Parser {
                 if self.matches(TokenKind::LBrace, None) {
                     self.advance();
                     while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
-                        if self.peek().kind == TokenKind::Identifier {
+                        if self.peek().kind == TokenKind::ColonPair {
+                            // Direct key:value pair (e.g. Status:"Fulfilled")
+                            let (k, v) = Self::split_colon_pair(&self.advance().value);
+                            map.insert(k.to_lowercase(), v);
+                        } else if self.peek().kind == TokenKind::Identifier {
                             let key = self.advance().value;
-                            if self.peek().kind == TokenKind::StringLit {
-                                map.insert(key, self.advance().value);
+                            if self.peek().kind == TokenKind::ColonPair {
+                                // Multi-word key: "Asset" + "Type:\"Enterprise SaaS\""
+                                // Combine identifier with colon-pair key to form full key
+                                let (k2, v) = Self::split_colon_pair(&self.advance().value);
+                                let full_key = format!("{} {}", key, k2);
+                                map.insert(full_key.to_lowercase(), v);
+                            } else if self.peek().kind == TokenKind::StringLit {
+                                map.insert(key.to_lowercase(), self.advance().value);
                             } else if self.peek().kind == TokenKind::Identifier {
-                                map.insert(key, self.advance().value);
+                                map.insert(key.to_lowercase(), self.advance().value);
                             }
                         } else {
                             self.advance();
@@ -1572,7 +1601,7 @@ impl Parser {
                         let action = self.parse_action_block()?;
                         let serialized = serde_json::to_string(&action).unwrap_or_default();
                         map.insert(format!("on_{}", action.event), serialized);
-                    } else if key == "action" || key == "price" || key == "description" || key == "meta" || key == "detail" || key == "footer" || key == "link" {
+                    } else if key == "action" || key == "price" || key == "description" || key == "meta" || key == "detail" || key == "footer" || key == "link" || key == "subtitle" || key == "badge" {
                         let key_clone = key.clone();
                         if self.peek().kind == TokenKind::StringLit {
                             let val = self.advance().value;
@@ -1703,7 +1732,11 @@ impl Parser {
     fn parse_plan(&mut self) -> Result<PlanNode, String> {
         self.advance(); // consume "plan"
         let name = self.expect(TokenKind::StringLit)?.value;
-        let price = self.expect(TokenKind::Price)?.value;
+        let price = if self.peek().kind == TokenKind::Price {
+            self.advance().value.clone()
+        } else {
+            String::new()
+        };
 
         let featured = self.try_consume(TokenKind::Identifier, Some("featured")).is_some();
 

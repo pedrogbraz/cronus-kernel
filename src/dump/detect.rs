@@ -170,6 +170,20 @@ pub fn detect_sections_with_templates(
             continue;
         }
 
+        // Deep-split: container elements (section, main, div) whose direct
+        // children individually classify as 2+ distinct semantic types should
+        // be exploded into separate sections instead of treated as one blob.
+        if should_deep_split(node, section_type, confidence) {
+            let sub_sections = deep_split_and_detect(node);
+            if sub_sections.len() >= 2 {
+                for s in sub_sections {
+                    // Templates are already attached by deep_split_and_detect
+                    sections.push(s);
+                }
+                continue;
+            }
+        }
+
         let blueprint = match section_type {
             "topbar" => extract_topbar(node),
             "hero" => extract_hero(node),
@@ -189,6 +203,9 @@ pub fn detect_sections_with_templates(
             "info-panel" => extract_info_panel(node),
             "form" => extract_form(node),
             "tabs" => extract_tabs(node),
+            "kpi-grid" => extract_kpi_grid(node),
+            "chart" => extract_chart(node),
+            "data-table" => extract_data_table(node),
             _ => extract_generic(node),
         };
 
@@ -289,6 +306,9 @@ fn split_and_detect(node: &DomNode) -> Vec<SectionBlueprint> {
                 "team-list" => extract_team_list(child),
                 "card" => extract_content_card(child),
                 "info-panel" => extract_info_panel(child),
+                "kpi-grid" => extract_kpi_grid(child),
+                "chart" => extract_chart(child),
+                "data-table" => extract_data_table(child),
                 _ => extract_generic(child),
             };
             let mut blueprint = blueprint;
@@ -299,6 +319,106 @@ fn split_and_detect(node: &DomNode) -> Vec<SectionBlueprint> {
             // Generic child — still extract it if it has content
             let generic = extract_generic(child);
             if generic.title.is_some() || !generic.items.is_empty() {
+                sections.push(generic);
+            }
+        }
+    }
+
+    sections
+}
+
+/// Check if a node that already classified as something (confidence > 0.3)
+/// should actually be split into its children because they individually
+/// classify as 2+ distinct semantic types.
+///
+/// This catches the case where a `<section>` wraps a page-header, KPI grid,
+/// chart, and table — the mixed signals make the parent classify as "features"
+/// but each child is a distinct dashboard section.
+fn should_deep_split(node: &DomNode, section_type: &str, confidence: f32) -> bool {
+    // Only consider container-like elements
+    let is_container = matches!(node.tag.as_str(), "section" | "main" | "div" | "article");
+    if !is_container {
+        return false;
+    }
+
+    // Don't split elements that are already specific dashboard types
+    // (sidebar, topbar, footer are self-contained)
+    if matches!(section_type, "sidebar" | "topbar" | "footer" | "hero") {
+        return false;
+    }
+
+    // Need at least 2 non-trivial direct children
+    let meaningful_children: Vec<&DomNode> = node.children.iter()
+        .filter(|c| c.tag != "_text" && !c.full_text.trim().is_empty())
+        .collect();
+    if meaningful_children.len() < 2 {
+        return false;
+    }
+
+    // Check how many children individually classify as distinct types
+    let mut child_types = std::collections::HashSet::new();
+    let mut classified_count = 0;
+    for child in &meaningful_children {
+        let (child_type, child_conf) = patterns::classify_node(child);
+        if child_conf > 0.3 && child_type != "generic" {
+            child_types.insert(child_type);
+            classified_count += 1;
+        }
+    }
+
+    // Split if we found 2+ children that classify as distinct types
+    // (e.g. page-header + kpi-grid + chart + data-table)
+    child_types.len() >= 2 || classified_count >= 2
+}
+
+/// Deep-split a container node: classify each direct child individually
+/// and produce separate SectionBlueprints with per-child templates.
+fn deep_split_and_detect(node: &DomNode) -> Vec<SectionBlueprint> {
+    let mut sections = Vec::new();
+
+    for child in &node.children {
+        // Skip empty/trivial children (text nodes, whitespace)
+        if child.tag == "_text" || (child.full_text.trim().is_empty() && child.children.is_empty()) {
+            continue;
+        }
+
+        let (child_type, child_confidence) = patterns::classify_node(child);
+
+        if child_confidence > 0.3 {
+            let blueprint = match child_type {
+                "topbar" => extract_topbar(child),
+                "hero" => extract_hero(child),
+                "features" | "faq" => extract_features(child),
+                "testimonial" => extract_testimonials(child),
+                "stats" => extract_stats(child),
+                "pricing" => extract_pricing(child),
+                "cta" => extract_cta(child),
+                "footer" => extract_footer(child),
+                "terminal" => extract_terminal(child),
+                "sidebar" => extract_sidebar(child),
+                "page-header" => extract_page_header(child),
+                "stat-cards" => extract_stat_cards(child),
+                "product-grid" => extract_product_grid(child),
+                "team-list" => extract_team_list(child),
+                "card" => extract_content_card(child),
+                "info-panel" => extract_info_panel(child),
+                "form" => extract_form(child),
+                "tabs" => extract_tabs(child),
+                "kpi-grid" => extract_kpi_grid(child),
+                "chart" => extract_chart(child),
+                "data-table" => extract_data_table(child),
+                _ => extract_generic(child),
+            };
+            let mut blueprint = blueprint;
+            blueprint.confidence = child_confidence;
+            blueprint.section_type = child_type.to_string();
+            attach_template(&mut blueprint, child);
+            sections.push(blueprint);
+        } else {
+            // Child doesn't classify well — still emit if it has content
+            let mut generic = extract_generic(child);
+            if generic.title.is_some() || !generic.items.is_empty() {
+                attach_template(&mut generic, child);
                 sections.push(generic);
             }
         }
@@ -1846,8 +1966,9 @@ fn extract_pricing(node: &DomNode) -> SectionBlueprint {
     };
 
     for card in &cards {
-        // Extract plan name from h3 or BEM __title
+        // Extract plan name from h3/h4 or BEM __title
         let plan_name = find_heading_by_tag(card, "h3")
+            .or_else(|| find_heading_by_tag(card, "h4"))
             .or_else(|| {
                 dom::find_by_class(card, "__title")
                     .first()
@@ -5481,6 +5602,428 @@ fn detect_text_color(node: &DomNode) -> Option<String> {
         }
     }
     None
+}
+
+// ---------------------------------------------------------------------------
+// Extraction: KPI grid (dashboard metric cards)
+// ---------------------------------------------------------------------------
+
+fn extract_kpi_grid(node: &DomNode) -> SectionBlueprint {
+    let mut items: Vec<ItemBlueprint> = Vec::new();
+    let mut config: HashMap<String, String> = HashMap::new();
+
+    // Detect grid columns from classes
+    for cls in &node.classes {
+        if cls.starts_with("grid-cols-") {
+            let cols = cls.strip_prefix("grid-cols-").unwrap_or("4");
+            config.insert("cols".into(), cols.to_string());
+            break;
+        }
+    }
+    // Also check one level deeper
+    if !config.contains_key("cols") {
+        for child in &node.children {
+            for cls in &child.classes {
+                if cls.starts_with("grid-cols-") {
+                    let cols = cls.strip_prefix("grid-cols-").unwrap_or("4");
+                    config.insert("cols".into(), cols.to_string());
+                    break;
+                }
+            }
+        }
+    }
+
+    // Find the grid container (may be node itself or a child)
+    let grid_children: Vec<&DomNode> = if node.classes.iter().any(|c| c.starts_with("grid-cols") || c == "grid") {
+        node.children.iter().collect()
+    } else {
+        let mut found: Vec<&DomNode> = Vec::new();
+        for child in &node.children {
+            if child.classes.iter().any(|c| c.starts_with("grid-cols") || c == "grid") {
+                found = child.children.iter().collect();
+                break;
+            }
+        }
+        if found.is_empty() {
+            node.children.iter().collect()
+        } else {
+            found
+        }
+    };
+
+    for card in &grid_children {
+        let mut card_config: HashMap<String, String> = HashMap::new();
+
+        // Detect col-span
+        for cls in &card.classes {
+            if cls.starts_with("col-span-") {
+                let span = cls.strip_prefix("col-span-").unwrap_or("1");
+                card_config.insert("span".into(), span.to_string());
+                break;
+            }
+        }
+
+        // Extract value: large text (text-2xl/3xl/4xl) or text with $ sign
+        let value = find_kpi_value(card);
+        // Extract label: small text (text-xs/text-sm/uppercase)
+        let label = find_stat_label(card);
+        // Extract badge: percentage text like +12.4%
+        let badge = find_percentage_badge(card);
+        // Extract subtitle: secondary small text
+        let subtitle = find_kpi_subtitle(card);
+        // Extract icon
+        if let Some(icon) = extract_material_icon(card) {
+            card_config.insert("icon".into(), icon);
+        }
+
+        if let Some(ref v) = value {
+            card_config.insert("value".into(), v.clone());
+        }
+        if let Some(ref b) = badge {
+            card_config.insert("badge".into(), b.clone());
+        }
+        if let Some(ref s) = subtitle {
+            card_config.insert("subtitle".into(), s.clone());
+        }
+
+        // Detect mini chart (SVG or bar elements inside the card)
+        let has_svg = dom::find_by_tag(card, "svg").len() > 0;
+        let has_bars = card.children.iter().any(|c|
+            c.classes.iter().any(|cls| cls.contains("bar") || cls.contains("chart"))
+        );
+        if has_svg || has_bars {
+            card_config.insert("mini_chart".into(), "true".into());
+        }
+
+        let item_label = label.unwrap_or_default();
+        if !item_label.is_empty() || value.is_some() {
+            items.push(ItemBlueprint {
+                item_type: "kpi".into(),
+                title: item_label,
+                description: value,
+                config: card_config,
+            });
+        }
+    }
+
+    SectionBlueprint {
+        section_type: "kpi-grid".into(),
+        confidence: 0.0,
+        title: None,
+        subtitle: None,
+        config,
+        items,
+        template: None,
+        style_block: None,
+    }
+}
+
+/// Find the main KPI value in a card (large number, often with $ or formatted).
+fn find_kpi_value(node: &DomNode) -> Option<String> {
+    // First try: text-3xl/4xl/5xl (the big number)
+    for cls in &["text-4xl", "text-5xl", "text-3xl", "text-2xl"] {
+        let matches = dom::find_by_class(node, cls);
+        for m in matches {
+            let txt = m.full_text.trim().to_string();
+            if !txt.is_empty() && txt.len() < 40 {
+                // Prefer values with digits
+                if txt.chars().any(|c| c.is_ascii_digit()) {
+                    return Some(txt);
+                }
+            }
+        }
+    }
+    // Fallback: font-bold with digits
+    let bold_matches = dom::find_by_class(node, "font-bold");
+    for m in bold_matches {
+        let txt = m.full_text.trim().to_string();
+        if !txt.is_empty() && txt.len() < 40 && txt.chars().any(|c| c.is_ascii_digit()) {
+            return Some(txt);
+        }
+    }
+    // Fallback: font-semibold with digits
+    let semi_matches = dom::find_by_class(node, "font-semibold");
+    for m in semi_matches {
+        let txt = m.full_text.trim().to_string();
+        if !txt.is_empty() && txt.len() < 40 && txt.chars().any(|c| c.is_ascii_digit()) {
+            return Some(txt);
+        }
+    }
+    None
+}
+
+/// Find percentage badge text like "+12.4%" or "-3.2%" in a node.
+fn find_percentage_badge(node: &DomNode) -> Option<String> {
+    let text = &node.full_text;
+    // Scan for +X.X% or -X.X% patterns
+    let bytes = text.as_bytes();
+    let len = bytes.len();
+    for i in 0..len {
+        if bytes[i] == b'+' || bytes[i] == b'-' {
+            let mut j = i + 1;
+            while j < len && (bytes[j].is_ascii_digit() || bytes[j] == b'.' || bytes[j] == b',') {
+                j += 1;
+            }
+            if j > i + 1 && j < len && bytes[j] == b'%' {
+                let badge = &text[i..=j];
+                return Some(badge.to_string());
+            }
+        }
+    }
+    // Also check children with badge-like classes
+    for child in &node.children {
+        if child.classes.iter().any(|c| c.contains("badge") || c.contains("pill") || c.contains("tag")) {
+            let txt = child.full_text.trim().to_string();
+            if txt.contains('%') {
+                return Some(txt);
+            }
+        }
+        if let Some(b) = find_percentage_badge(child) {
+            return Some(b);
+        }
+    }
+    None
+}
+
+/// Find a KPI subtitle (secondary text below the value, often text-xs/text-sm).
+fn find_kpi_subtitle(node: &DomNode) -> Option<String> {
+    // Look for text-xs or text-sm that isn't the label
+    let mut candidates: Vec<String> = Vec::new();
+    for cls in &["text-xs", "text-sm"] {
+        let matches = dom::find_by_class(node, cls);
+        for m in matches {
+            if is_material_icon_span(m) { continue; }
+            let txt = m.full_text.trim().to_string();
+            if !txt.is_empty() && txt.len() < 80 && txt.len() > 3 {
+                // Skip if it's purely numeric (that's a value, not subtitle)
+                if txt.chars().all(|c| c.is_ascii_digit() || c == '.' || c == '%' || c == '$' || c == ',') {
+                    continue;
+                }
+                // Skip if it's uppercase and short (that's a label)
+                if dom::has_class(m, "uppercase") && txt.len() < 25 {
+                    continue;
+                }
+                candidates.push(txt);
+            }
+        }
+    }
+    // Return the longest candidate (likely the subtitle, not a label)
+    candidates.sort_by(|a, b| b.len().cmp(&a.len()));
+    candidates.into_iter().next()
+}
+
+// ---------------------------------------------------------------------------
+// Extraction: chart section
+// ---------------------------------------------------------------------------
+
+fn extract_chart(node: &DomNode) -> SectionBlueprint {
+    let mut config: HashMap<String, String> = HashMap::new();
+    let mut items: Vec<ItemBlueprint> = Vec::new();
+
+    let title = dom::find_heading(node);
+    let subtitle = dom::find_paragraph(node);
+
+    // Detect chart type from classes
+    let all_classes: Vec<String> = collect_all_classes(node);
+    let chart_type = if all_classes.iter().any(|c| c.contains("area")) {
+        "area"
+    } else if all_classes.iter().any(|c| c.contains("bar-chart") || c.contains("bar_chart")) {
+        "bar"
+    } else if all_classes.iter().any(|c| c.contains("line")) {
+        "line"
+    } else if all_classes.iter().any(|c| c.contains("pie") || c.contains("donut")) {
+        "pie"
+    } else {
+        "area" // default
+    };
+    config.insert("chart_type".into(), chart_type.into());
+
+    // Extract period selector buttons
+    let buttons = dom::extract_buttons(node);
+    let links = dom::extract_links(node);
+    let mut periods: Vec<String> = Vec::new();
+    let period_keywords = ["7d", "30d", "90d", "1y", "12m", "6m", "3m", "1m",
+        "week", "month", "year", "quarter", "daily", "weekly", "monthly"];
+    for btn_text in &buttons {
+        let lower = btn_text.to_lowercase();
+        if period_keywords.iter().any(|kw| lower.contains(kw)) {
+            periods.push(btn_text.clone());
+        }
+    }
+    for (link_text, _) in &links {
+        let lower = link_text.to_lowercase();
+        if period_keywords.iter().any(|kw| lower.contains(kw)) {
+            periods.push(link_text.clone());
+        }
+    }
+    if !periods.is_empty() {
+        config.insert("periods".into(), periods.join(" | "));
+    }
+
+    // Extract axis labels (look for a row of short text elements — typically flex children)
+    let axis_labels = extract_axis_labels(node);
+    if !axis_labels.is_empty() {
+        config.insert("x_axis".into(), axis_labels.join(" | "));
+    }
+
+    // Extract legend items (colored indicators + text)
+    let legend_items = extract_legend_items(node);
+    for legend in legend_items {
+        items.push(legend);
+    }
+
+    SectionBlueprint {
+        section_type: "chart".into(),
+        confidence: 0.0,
+        title,
+        subtitle,
+        config,
+        items,
+        template: None,
+        style_block: None,
+    }
+}
+
+/// Collect all classes from a node and its descendants.
+fn collect_all_classes(node: &DomNode) -> Vec<String> {
+    let mut classes = node.classes.clone();
+    for child in &node.children {
+        classes.extend(collect_all_classes(child));
+    }
+    classes
+}
+
+/// Extract x-axis labels from a chart: typically a flex/grid row of short text elements.
+fn extract_axis_labels(node: &DomNode) -> Vec<String> {
+    // Look for a child div with flex that contains multiple short text elements
+    for child in &node.children {
+        if child.classes.iter().any(|c| c == "flex" || c.contains("justify-between") || c.contains("gap-")) {
+            let labels: Vec<String> = child.children.iter()
+                .filter_map(|c| {
+                    let txt = c.full_text.trim().to_string();
+                    if !txt.is_empty() && txt.len() < 15 {
+                        Some(txt)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            if labels.len() >= 3 {
+                return labels;
+            }
+        }
+        // Recurse
+        let sub = extract_axis_labels(child);
+        if !sub.is_empty() {
+            return sub;
+        }
+    }
+    Vec::new()
+}
+
+/// Extract legend items (colored dot/line + label text).
+fn extract_legend_items(node: &DomNode) -> Vec<ItemBlueprint> {
+    let mut legends = Vec::new();
+    for child in &node.children {
+        // Legend items typically have a small colored indicator + text
+        if child.classes.iter().any(|c| c.contains("legend") || c.contains("indicator")) {
+            let txt = child.full_text.trim().to_string();
+            if !txt.is_empty() {
+                let mut cfg = HashMap::new();
+                if let Some(color) = detect_text_color(child) {
+                    cfg.insert("color".into(), color);
+                }
+                legends.push(ItemBlueprint {
+                    item_type: "legend".into(),
+                    title: txt,
+                    description: None,
+                    config: cfg,
+                });
+            }
+        }
+        legends.extend(extract_legend_items(child));
+    }
+    legends
+}
+
+// ---------------------------------------------------------------------------
+// Extraction: data table (with headers, rows, search, badges)
+// ---------------------------------------------------------------------------
+
+fn extract_data_table(node: &DomNode) -> SectionBlueprint {
+    let mut items: Vec<ItemBlueprint> = Vec::new();
+    let mut config: HashMap<String, String> = HashMap::new();
+
+    // Title from heading
+    let title = dom::find_heading(node);
+    let subtitle = dom::find_paragraph(node);
+
+    // Search input detection
+    let inputs = dom::find_by_tag(node, "input");
+    for input in &inputs {
+        let input_type = input.attrs.get("type").map(|s| s.as_str()).unwrap_or("text");
+        let placeholder = input.attrs.get("placeholder").map(|s| s.as_str()).unwrap_or("");
+        if input_type == "search" || placeholder.to_lowercase().contains("search") {
+            config.insert("search".into(), "true".into());
+            if !placeholder.is_empty() {
+                config.insert("search_placeholder".into(), placeholder.to_string());
+            }
+            break;
+        }
+    }
+
+    // Extract table data using existing helper
+    let (table_caption, table_items) = extract_table_items(node);
+    if let Some(cap) = table_caption {
+        config.insert("caption".into(), cap);
+    }
+    items.extend(table_items);
+
+    // Detect "View All" or similar footer link
+    let links = dom::extract_links(node);
+    for (text, href) in &links {
+        let lower = text.to_lowercase();
+        if lower.contains("view all") || lower.contains("ver todos") || lower.contains("see all")
+            || lower.contains("show all") || lower.contains("more")
+        {
+            config.insert("footer_link".into(), text.clone());
+            config.insert("footer_href".into(), href.clone());
+            break;
+        }
+    }
+
+    // Extract column names from config (already set by extract_table_items via header item)
+    if let Some(header_item) = items.iter().find(|i| i.item_type == "table-header") {
+        let cols = header_item.title.clone();
+        config.insert("columns".into(), cols);
+    }
+
+    // Detect status badges in table rows and enrich row items
+    for item in &mut items {
+        if item.item_type == "row" {
+            // Check row values for status-like text
+            for (key, val) in item.config.clone() {
+                let lower = val.to_lowercase();
+                if lower == "active" || lower == "completed" || lower == "pending"
+                    || lower == "failed" || lower == "inactive" || lower == "cancelled"
+                    || lower == "approved" || lower == "rejected" || lower == "draft"
+                {
+                    item.config.insert(format!("{}_status", key), "badge".into());
+                }
+            }
+        }
+    }
+
+    SectionBlueprint {
+        section_type: "data-table".into(),
+        confidence: 0.0,
+        title,
+        subtitle,
+        config,
+        items,
+        template: None,
+        style_block: None,
+    }
 }
 
 #[cfg(test)]
