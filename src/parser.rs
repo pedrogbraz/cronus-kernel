@@ -1212,6 +1212,15 @@ impl Parser {
             } else if self.matches(TokenKind::Identifier, Some("brand")) {
                 self.advance();
                 config.insert("brand".into(), self.expect(TokenKind::StringLit)?.value);
+            } else if self.matches(TokenKind::Identifier, Some("card_brand")) {
+                self.advance();
+                config.insert("card_brand".into(), self.expect(TokenKind::StringLit)?.value);
+            } else if self.matches(TokenKind::Identifier, Some("card_number")) {
+                self.advance();
+                config.insert("card_number".into(), self.expect(TokenKind::StringLit)?.value);
+            } else if self.matches(TokenKind::Identifier, Some("card_holder")) {
+                self.advance();
+                config.insert("card_holder".into(), self.expect(TokenKind::StringLit)?.value);
             } else if self.matches(TokenKind::Identifier, Some("footnote")) {
                 self.advance();
                 config.insert("footnote".into(), self.expect(TokenKind::StringLit)?.value);

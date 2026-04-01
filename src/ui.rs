@@ -2492,15 +2492,15 @@ fn render_topbar(section: &SectionNode, theme: &str) -> String {
             nav.split(',').enumerate().map(|(i, link)| {
                 let l = link.trim();
                 if i == 0 {
-                    // Active link: white, bold, border-bottom
+                    // Active link: accent color, medium weight, no underline
                     format!(
-                        r##"<a href="#" style="color:#fff;font-size:14px;font-weight:600;letter-spacing:-0.025em;text-decoration:none;padding-bottom:2px;border-bottom:2px solid #fff">{l}</a>"##,
+                        r##"<a href="#" style="color:#adc6ff;font-size:14px;font-weight:500;text-decoration:none;transition:color 0.2s">{l}</a>"##,
                         l=l
                     )
                 } else {
-                    // Inactive links: white/60%
+                    // Inactive links: white/60%, hover to white
                     format!(
-                        r##"<a href="#" style="color:rgba(255,255,255,0.6);font-size:14px;font-weight:500;letter-spacing:-0.025em;text-decoration:none;transition:color 0.15s" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">{l}</a>"##,
+                        r##"<a href="#" style="color:rgba(226,226,226,0.6);font-size:14px;font-weight:400;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='#e2e2e2'" onmouseout="this.style.color='rgba(226,226,226,0.6)'">{l}</a>"##,
                         l=l
                     )
                 }
@@ -2510,30 +2510,34 @@ fn render_topbar(section: &SectionNode, theme: &str) -> String {
 
     let nav_html = nav_links.join("\n          ");
 
-    // CTA button
-    let cta_text = section.config.get("cta_text").or(section.config.get("cta")).map(|s| s.as_str()).unwrap_or("Deploy Now");
+    // CTA button — only render if explicitly configured
+    let cta_text_opt = section.config.get("cta_text").or(section.config.get("cta")).map(|s| s.as_str());
     let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("/signup");
 
-    format!(r##"<header data-cronus-topbar class="anim-slide-down" style="position:fixed;top:0;width:100%;z-index:50;background:#131313;border-bottom:0.5px solid rgba(255,255,255,0.15);font-family:Inter,system-ui,-apple-system,sans-serif">
-  <div style="display:flex;justify-content:space-between;align-items:center;padding:0 24px;height:56px;max-width:1280px;margin:0 auto">
+    let cta_btn = match cta_text_opt {
+        Some(t) if !t.eq_ignore_ascii_case("search") => {
+            format!(r##"<a href="{cta_link}" style="display:inline-flex;align-items:center;padding:6px 16px;border-radius:8px;background:#fff;color:#000;font-weight:700;font-size:12px;text-decoration:none;transition:opacity 0.15s" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">{cta_text}</a>"##, cta_link=cta_link, cta_text=t)
+        }
+        _ => String::new(),
+    };
+
+    format!(r##"<header data-cronus-topbar class="anim-slide-down" style="position:fixed;top:0;width:100%;z-index:50;background:rgba(19,19,19,0.8);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);border-bottom:0.5px solid rgba(76,69,70,0.15);font-family:Inter,system-ui,-apple-system,sans-serif;font-size:14px;letter-spacing:-0.02em">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:0 24px;height:56px">
     <div style="display:flex;align-items:center;gap:32px">
-      <a href="/" style="font-size:18px;font-weight:900;letter-spacing:-0.05em;color:#fff;text-transform:uppercase;text-decoration:none">{brand}</a>
+      <a href="/" style="font-size:18px;font-weight:700;letter-spacing:-0.04em;color:#e2e2e2;text-decoration:none">{brand}</a>
       <nav style="display:flex;align-items:center;gap:24px">
         {nav_html}
       </nav>
     </div>
     <div style="display:flex;align-items:center;gap:16px">
-      <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 12px">
-        <span class="material-symbols-outlined" style="font-size:18px;color:rgba(255,255,255,0.4)">search</span>
-        <span style="font-size:13px;color:rgba(255,255,255,0.35)">Search...</span>
-      </div>
-      <span class="material-symbols-outlined" style="font-size:20px;color:rgba(255,255,255,0.6);cursor:pointer">notifications</span>
-      <span class="material-symbols-outlined" style="font-size:20px;color:rgba(255,255,255,0.6);cursor:pointer">help_outline</span>
-      <a href="{cta_link}" style="display:inline-flex;align-items:center;padding:6px 16px;border-radius:8px;background:#fff;color:#000;font-weight:700;font-size:12px;text-decoration:none;transition:opacity 0.15s" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">{cta_text}</a>
+      <button style="background:none;border:none;cursor:pointer;padding:6px;border-radius:6px;transition:background 0.2s" onmouseover="this.style.background='#1f1f1f'" onmouseout="this.style.background='transparent'"><span class="material-symbols-outlined" style="font-size:20px;color:rgba(226,226,226,0.6)">search</span></button>
+      <button style="background:none;border:none;cursor:pointer;padding:6px;border-radius:6px;transition:background 0.2s" onmouseover="this.style.background='#1f1f1f'" onmouseout="this.style.background='transparent'"><span class="material-symbols-outlined" style="font-size:20px;color:rgba(226,226,226,0.6)">notifications</span></button>
+      <div style="width:28px;height:28px;border-radius:50%;background:#2a2a2a;border:0.5px solid rgba(76,69,70,0.2);overflow:hidden"></div>
+      {cta_btn}
     </div>
   </div>
 </header>"##,
-        brand=brand, nav_html=nav_html, cta_text=cta_text, cta_link=cta_link)
+        brand=brand, nav_html=nav_html, cta_btn=cta_btn)
 }
 
 fn render_checkout_section(section: &SectionNode) -> String {
@@ -2904,7 +2908,7 @@ fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> String {
 
 /// Two-column dark hero: Ultima/Fintech style — left text, right visual, gradient title, mesh bg
 fn render_two_col_hero(
-    _section: &SectionNode,
+    section: &SectionNode,
     title: &str,
     subtitle: &str,
     badge_text: Option<&str>,
@@ -2916,10 +2920,10 @@ fn render_two_col_hero(
 ) -> String {
     // Badge with animated pulse dot
     let badge_html = badge_text.map(|b| format!(
-        r#"<div class="anim-fade d1" style="display:inline-flex;align-items:center;gap:8px;padding:6px 18px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);margin-bottom:32px;backdrop-filter:blur(12px)">
-      <span style="width:7px;height:7px;border-radius:50%;background:{accent};animation:pulse-dot 2s ease-in-out infinite"></span>
+        r#"<div class="anim-fade d1" style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:9999px;background:rgba(27,27,27,0.5);backdrop-filter:blur(8px);border:0.5px solid rgba(76,69,70,0.2);margin-bottom:32px">
+      <span style="width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e80;animation:pulse-dot 2s ease-in-out infinite"></span>
       <span style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.7)">{text}</span>
-    </div>"#, accent = accent_hex, text = b
+    </div>"#, text = b
     )).unwrap_or_default();
 
     // Title with gradient on text after last comma or period
@@ -2966,6 +2970,18 @@ fn render_two_col_hero(
         _ => "#60a5fa",
     };
 
+    // Credit card config from section data
+    let card_brand = section.config.get("card_brand")
+        .map(|s| s.clone())
+        .or_else(|| section.config.get("brand").cloned())
+        .unwrap_or_else(|| "ULTIMA".to_string());
+    let card_number = section.config.get("card_number")
+        .cloned()
+        .unwrap_or_else(|| "4400 8821 9902 1104".to_string());
+    let card_holder = section.config.get("card_holder")
+        .cloned()
+        .unwrap_or_else(|| "SOVEREIGN ARCHITECT".to_string());
+
     format!(
         r##"<style>@keyframes pulse-dot{{0%,100%{{opacity:1;transform:scale(1)}}50%{{opacity:0.5;transform:scale(0.85)}}}}</style>
 <section style="position:relative;overflow:hidden;min-height:921px;display:flex;align-items:center;background:#0a0a0a">
@@ -2977,7 +2993,7 @@ fn render_two_col_hero(
   <div style="position:relative;z-index:10;max-width:1280px;width:100%;margin:0 auto;padding:120px 24px 80px;display:grid;grid-template-columns:58% 42%;align-items:center;gap:48px">
     <div style="display:flex;flex-direction:column;align-items:flex-start">
       {badge_html}
-      <h1 class="anim-slide-up d2" style="font-size:clamp(48px,6vw,80px);font-weight:900;letter-spacing:-0.04em;line-height:0.95;margin:0 0 28px 0">
+      <h1 class="anim-slide-up d2" style="font-size:clamp(56px,9vw,112px);font-weight:900;letter-spacing:-0.04em;line-height:0.95;margin:0 0 28px 0">
         {title_html}
       </h1>
       <p class="anim-slide-up d3" style="max-width:520px;margin:0 0 40px;font-size:clamp(16px,1.6vw,19px);font-weight:300;color:rgba(255,255,255,0.5);line-height:1.7;text-align:left">{subtitle}</p>
@@ -2986,8 +3002,38 @@ fn render_two_col_hero(
         {cta2_html}
       </div>
     </div>
-    <div style="display:flex;align-items:center;justify-content:center;min-height:400px">
-      <div style="width:100%;max-width:420px;aspect-ratio:4/3;border-radius:24px;background:linear-gradient(135deg,rgba(255,255,255,0.03) 0%,rgba(255,255,255,0.01) 100%);border:0.5px solid rgba(255,255,255,0.06);backdrop-filter:blur(20px)"></div>
+    <div style="display:flex;align-items:center;justify-content:center;min-height:320px">
+      <div style="width:100%;max-width:420px;perspective:1000px;position:relative">
+        <!-- Animated pulse blob behind card -->
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:80%;height:80%;background:radial-gradient(circle,{accent}20 0%,transparent 70%);filter:blur(60px);animation:pulse 4s ease-in-out infinite;z-index:0"></div>
+        <!-- Gradient blur glow behind card -->
+        <div style="position:absolute;bottom:-80px;left:-40px;width:256px;height:256px;border-radius:50%;background:linear-gradient(135deg,rgba(173,198,255,0.1),rgba(233,179,255,0.05));filter:blur(100px);z-index:-1"></div>
+        <!-- Credit Card -->
+        <div class="anim-scale d4" style="position:relative;z-index:1;width:100%;min-height:340px;border-radius:16px;backdrop-filter:blur(32px);border:0.5px solid rgba(76,69,70,0.15);overflow:hidden;transform:rotateY(-6deg) rotateX(4deg);box-shadow:0 25px 50px rgba(0,0,0,0.5),0 0 0 0.5px rgba(255,255,255,0.05) inset;background:linear-gradient(135deg,rgba(255,255,255,0.06) 0%,rgba(255,255,255,0.02) 100%)">
+          <!-- Subtle gradient overlay -->
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(99,102,241,0.08) 0%,rgba(168,85,247,0.05) 50%,transparent 100%);pointer-events:none"></div>
+          <!-- Card content -->
+          <div style="position:relative;z-index:2;padding:28px 28px 24px;min-height:320px;height:100%;display:flex;flex-direction:column;justify-content:space-between">
+            <!-- Top row: brand + contactless -->
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <span style="font-size:18px;font-weight:900;font-style:italic;letter-spacing:-0.04em;color:rgba(255,255,255,0.9)">{card_brand}</span>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="opacity:0.5"><path d="M12 2C8.96 2 6.21 3.23 4.22 5.22L5.64 6.64C7.26 5.03 9.5 4 12 4s4.74 1.03 6.36 2.64l1.41-1.42C17.79 3.23 15.04 2 12 2z" fill="white"/><path d="M12 6c-2.21 0-4.21.9-5.66 2.34l1.42 1.42C8.88 8.64 10.37 8 12 8s3.12.64 4.24 1.76l1.42-1.42C16.21 6.9 14.21 6 12 6z" fill="white"/><path d="M12 10c-1.38 0-2.63.56-3.54 1.46l1.42 1.42C10.44 12.33 11.17 12 12 12s1.56.33 2.12.88l1.42-1.42C14.63 10.56 13.38 10 12 10z" fill="white"/><circle cx="12" cy="16" r="1.5" fill="white"/></svg>
+            </div>
+            <!-- Card number -->
+            <div style="font-size:1.5rem;font-weight:500;letter-spacing:0.2em;color:rgba(255,255,255,0.85);font-feature-settings:'tnum' on;font-variant-numeric:tabular-nums">{card_number}</div>
+            <!-- Bottom row: holder + chip -->
+            <div style="display:flex;justify-content:space-between;align-items:flex-end">
+              <div>
+                <div style="font-size:8px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:4px">Holder</div>
+                <div style="font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.75)">{card_holder}</div>
+              </div>
+              <div style="width:32px;height:32px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center">
+                <div style="width:16px;height:16px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.05)"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </section>"##,
@@ -2999,6 +3045,9 @@ fn render_two_col_hero(
         accent_light = accent_light,
         cta_primary = cta_primary,
         cta2_html = cta2_html,
+        card_brand = card_brand,
+        card_number = card_number,
+        card_holder = card_holder,
     )
 }
 
@@ -3332,14 +3381,8 @@ fn render_features_bento_dark(section: &SectionNode) -> String {
         let has_image = group.children.iter().any(|c| c.get("_type").map(|s| s.as_str()) == Some("image"));
         let has_chips = group.children.iter().any(|c| c.get("_type").map(|s| s.as_str()) == Some("chip"));
 
-        // Border styling: #0e0e0e gets white/5, #2a2a2a gets ghost border
-        let border_css = if *bg == "#0e0e0e" {
-            "border:1px solid rgba(255,255,255,0.05);"
-        } else if *bg == "#2a2a2a" {
-            "border:0.5px solid rgba(255,255,255,0.15);"
-        } else {
-            ""
-        };
+        // Uniform subtle border on all cards
+        let border_css = "border:0.5px solid rgba(76,69,70,0.15);";
 
         // Image HTML — absolute positioned, grayscale, reveals color on hover
         let image_html = if has_image {
@@ -3419,8 +3462,23 @@ fn render_features_bento_dark(section: &SectionNode) -> String {
             String::new()
         };
 
-        // Bar chart for wide cards (span 8) without images, not the first card
-        let bar_chart_html = if span >= 8 && !has_image && i > 0 {
+        // Badge pill for first span:8 card (status indicator)
+        let badge_text = card.get("badge").map(|s| s.as_str()).unwrap_or("");
+        let badge_html = if i == 0 && span >= 8 && !badge_text.is_empty() {
+            format!(
+                r#"<div style="margin-top:auto;padding-top:24px"><div style="padding:8px 16px;border-radius:8px;background:#0e0e0e;border:0.5px solid rgba(76,69,70,0.2);display:inline-flex;align-items:center;gap:12px"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 10px rgba(16,185,129,0.5);display:inline-block"></span><span style="font-size:12px;font-family:monospace;opacity:0.6;color:#fff">{}</span></div></div>"#,
+                badge_text
+            )
+        } else {
+            String::new()
+        };
+
+        // Code block for wide cards with style:code
+        let card_style = card.get("style").map(|s| s.as_str()).unwrap_or("");
+        let is_code_style = card_style == "code";
+
+        // Bar chart or code block for wide cards (span 8) without images, not the first card
+        let bar_chart_html = if span >= 8 && !has_image && i > 0 && !is_code_style {
             r#"<div style="width:50%;display:flex;align-items:flex-end;justify-content:flex-end;margin-left:auto">
       <div style="width:100%;height:128px;display:grid;grid-template-columns:repeat(6,1fr);gap:4px;align-items:end">
         <div style="background:rgba(255,255,255,0.10);border-radius:2px;height:25%"></div>
@@ -3431,19 +3489,30 @@ fn render_features_bento_dark(section: &SectionNode) -> String {
         <div style="background:rgba(255,255,255,0.80);border-radius:2px;height:100%"></div>
       </div>
     </div>"#.to_string()
+        } else if span >= 8 && !has_image && is_code_style {
+            // Code block visualization
+            r#"<div style="width:50%;display:flex;align-items:center;justify-content:flex-end;margin-left:auto">
+      <div style="background:#0e0e0e;border-radius:8px;padding:16px;border:0.5px solid rgba(76,69,70,0.1);font-family:monospace;font-size:12px;width:100%;line-height:1.8">
+        <span style="color:#adc6ff">ultima</span><span style="color:rgba(255,255,255,0.5)"> .</span><span style="color:#fff">initiate_transfer</span><span style="color:rgba(255,255,255,0.5)">({</span><br>
+        <span style="color:rgba(255,255,255,0.3)">&nbsp;&nbsp;</span><span style="color:#adc6ff">amount</span><span style="color:rgba(255,255,255,0.5)">: </span><span style="color:#7dd3a0">"1.2M"</span><span style="color:rgba(255,255,255,0.5)">,</span><br>
+        <span style="color:rgba(255,255,255,0.3)">&nbsp;&nbsp;</span><span style="color:#adc6ff">currency</span><span style="color:rgba(255,255,255,0.5)">: </span><span style="color:#7dd3a0">"USD"</span><span style="color:rgba(255,255,255,0.5)">,</span><br>
+        <span style="color:rgba(255,255,255,0.3)">&nbsp;&nbsp;</span><span style="color:#adc6ff">vault</span><span style="color:rgba(255,255,255,0.5)">: </span><span style="color:#7dd3a0">"Alpha_Prime"</span><br>
+        <span style="color:rgba(255,255,255,0.5)">});</span>
+      </div>
+    </div>"#.to_string()
         } else {
             String::new()
         };
 
         let use_flex_row = !bar_chart_html.is_empty();
         let needs_relative = has_image;
-        let min_height = if span >= 8 { "min-height:400px;" } else { "" };
+        let min_height = if span >= 8 { "min-height:400px;" } else { "min-height:240px;" };
         let position = if needs_relative { "position:relative;" } else { "" };
 
         if use_flex_row {
             // Horizontal layout: left text + right bar chart
             format!(
-                r##"<div style="grid-column:span {span};background:{bg};{border}border-radius:12px;padding:32px;display:flex;flex-direction:row;{min_h}overflow:hidden">
+                r##"<div style="grid-column:span {span};background:{bg};{border}border-radius:16px;padding:40px;display:flex;flex-direction:row;{min_h}overflow:hidden;transition:background 0.5s" onmouseover="this.style.background='#2a2a2a'" onmouseout="this.style.background='{bg}'">
   <div style="flex:1;display:flex;flex-direction:column">
     <span class="material-symbols-outlined" style="font-size:32px;color:#fff;margin-bottom:20px;display:block;transform:scale(1.5);transform-origin:top left">{icon}</span>
     <h3 style="font-size:{title_size};font-weight:700;letter-spacing:-0.02em;color:#fff;margin-bottom:12px">{name}</h3>
@@ -3463,28 +3532,62 @@ fn render_features_bento_dark(section: &SectionNode) -> String {
             )
         } else {
             // Vertical layout (default)
-            format!(
-                r##"<div style="grid-column:span {span};background:{bg};{border}border-radius:12px;padding:32px;display:flex;flex-direction:column;{min_h}{pos}overflow:hidden">
+            // For span:4 cards without progress bar: icon at top, title+desc at bottom (space-between)
+            let is_span4_no_progress = span <= 4 && progress_html.is_empty();
+            let justify = if is_span4_no_progress { "justify-content:space-between;" } else { "" };
+
+            if is_span4_no_progress {
+                format!(
+                    r##"<div style="grid-column:span {span};background:{bg};{border}border-radius:16px;padding:40px;display:flex;flex-direction:column;{justify}{min_h}{pos}overflow:hidden;transition:background 0.5s" onmouseover="this.style.background='#2a2a2a'" onmouseout="this.style.background='{bg}'">
+  <div>
+    <span class="material-symbols-outlined" style="font-size:32px;color:#fff;display:block;transform:scale(1.5);transform-origin:top left">{icon}</span>
+  </div>
+  <div>
+    <h3 style="font-size:{title_size};font-weight:700;letter-spacing:-0.02em;color:#fff;margin-bottom:12px">{name}</h3>
+    <p style="color:#c6c6c6;font-size:14px;line-height:1.7;max-width:420px">{desc}</p>
+  </div>
+  {badge}
+  {image}
+</div>"##,
+                    span = span,
+                    bg = bg,
+                    border = border_css,
+                    justify = justify,
+                    min_h = min_height,
+                    pos = position,
+                    icon = icon_name,
+                    name = name,
+                    desc = desc,
+                    badge = badge_html,
+                    image = image_html,
+                    title_size = "20px",
+                )
+            } else {
+                format!(
+                    r##"<div style="grid-column:span {span};background:{bg};{border}border-radius:16px;padding:40px;display:flex;flex-direction:column;{min_h}{pos}overflow:hidden;transition:background 0.5s" onmouseover="this.style.background='#2a2a2a'" onmouseout="this.style.background='{bg}'">
   <div>
     <span class="material-symbols-outlined" style="font-size:32px;color:#fff;margin-bottom:20px;display:block;transform:scale(1.5);transform-origin:top left">{icon}</span>
     <h3 style="font-size:{title_size};font-weight:700;letter-spacing:-0.02em;color:#fff;margin-bottom:12px">{name}</h3>
     <p style="color:#c6c6c6;font-size:14px;line-height:1.7;max-width:420px">{desc}</p>
   </div>
+  {badge}
   {progress}
   {image}
 </div>"##,
-                span = span,
-                bg = bg,
-                border = border_css,
-                min_h = min_height,
-                pos = position,
-                icon = icon_name,
-                name = name,
-                desc = desc,
-                progress = progress_html,
-                image = image_html,
-                title_size = if span >= 8 { "30px" } else { "20px" },
-            )
+                    span = span,
+                    bg = bg,
+                    border = border_css,
+                    min_h = min_height,
+                    pos = position,
+                    icon = icon_name,
+                    name = name,
+                    desc = desc,
+                    badge = badge_html,
+                    progress = progress_html,
+                    image = image_html,
+                    title_size = if span >= 8 { "30px" } else { "20px" },
+                )
+            }
         }
     }).collect();
 
@@ -3493,6 +3596,7 @@ fn render_features_bento_dark(section: &SectionNode) -> String {
         let eyebrow = section.config.get("subtitle_label")
             .or(section.config.get("eyebrow"))
             .map(|s| s.as_str())
+            .or(section.subtitle.as_deref())
             .unwrap_or("");
         let eyebrow_html = if !eyebrow.is_empty() {
             format!(
@@ -3503,7 +3607,7 @@ fn render_features_bento_dark(section: &SectionNode) -> String {
             String::new()
         };
         format!(
-            r#"<div style="margin-bottom:96px">
+            r#"<div style="margin-bottom:96px;text-align:left">
       {}
       <h3 style="font-size:clamp(32px,4vw,48px);font-weight:700;letter-spacing:-0.02em;max-width:672px;color:white;margin-bottom:0">{}</h3>
     </div>"#,
@@ -3514,7 +3618,7 @@ fn render_features_bento_dark(section: &SectionNode) -> String {
     };
 
     format!(
-        r#"<section style="padding:128px 24px;width:100%">
+        r#"<section style="padding:128px 24px;width:100%;background:#0e0e0e">
   <div style="max-width:80rem;margin:0 auto">
     {}
     <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:24px;width:100%">
@@ -4755,8 +4859,53 @@ fn render_features_split_dark(section: &SectionNode) -> String {
         ));
     }
 
-    // Fix #3: Right column — dashboard card wrapper for images
-    let right_col = if !image_src.is_empty() {
+    // Fix #3: Right column — full dashboard visualization when metrics exist, image fallback otherwise
+    let has_metrics = !stat_cards.is_empty();
+    let right_col = if has_metrics {
+        let image_html = if !image_src.is_empty() {
+            format!(r#"<img src="{src}" alt="" style="width:100%;border-radius:12px;display:block;margin-bottom:24px">"#, src = image_src)
+        } else {
+            String::new()
+        };
+        let dashboard_chart = r##"<div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:12px;opacity:0.5;text-transform:uppercase;letter-spacing:-0.02em;font-family:monospace;color:#fff">Total Assets Under Management</div>
+          <div style="font-size:2rem;font-weight:700;margin-top:8px;color:#fff">$1,204,550.00 <span style="font-size:14px;color:#10b981;font-weight:500">+12.4%</span></div>
+        </div>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg>
+      </div>
+      <div style="position:relative;height:256px;width:100%;margin-top:32px">
+        <svg style="width:100%;height:100%" preserveAspectRatio="none" viewBox="0 0 800 256">
+          <defs>
+            <linearGradient id="cronusChartGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#adc6ff" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="#adc6ff" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d="M0 200 Q 100 150, 200 180 T 400 100 T 600 50 T 800 80" fill="none" stroke="#adc6ff" stroke-width="3" stroke-linecap="round"/>
+          <path d="M0 200 Q 100 150, 200 180 T 400 100 T 600 50 T 800 80 V 256 H 0 Z" fill="url(#cronusChartGrad)"/>
+        </svg>
+        <div style="position:absolute;top:40px;left:50%;transform:translateX(-50%);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);background:rgba(31,31,31,0.5);border:0.5px solid rgba(173,198,255,0.2);padding:8px 16px;border-radius:8px;font-size:12px;font-family:monospace;color:#fff;box-shadow:0 25px 50px rgba(0,0,0,0.25);white-space:nowrap">Vol: $44.2k &middot; 14:02:11</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:32px">
+        <div style="height:4px;background:#adc6ff;border-radius:9999px"></div>
+        <div style="height:4px;background:#2a2a2a;border-radius:9999px"></div>
+        <div style="height:4px;background:#2a2a2a;border-radius:9999px"></div>
+        <div style="height:4px;background:#2a2a2a;border-radius:9999px"></div>
+      </div>"##;
+        format!(
+            r#"<div style="flex:1;min-width:0;position:relative;display:flex;align-items:center;justify-content:center">
+  <div style="background:#0e0e0e;border-radius:24px;border:0.5px solid rgba(76,69,70,0.15);padding:4px;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden;width:100%">
+    <div style="background:rgba(31,31,31,0.3);padding:32px;border-radius:20px">
+      {image_html}
+      {dashboard_chart}
+    </div>
+  </div>
+</div>"#,
+            image_html = image_html,
+            dashboard_chart = dashboard_chart,
+        )
+    } else if !image_src.is_empty() {
         format!(
             r#"<div style="flex:1;min-width:0;position:relative;display:flex;align-items:center;justify-content:center">
   <div style="background:#0e0e0e;border-radius:24px;border:0.5px solid rgba(76,69,70,0.15);padding:4px;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden">
