@@ -506,18 +506,23 @@ pub const CRONUS_DEBUG_JS: &str = r#"
     if(state.tab==='network'){
       if(!state.requests.length){c.innerHTML='<div style="padding:12px;color:#555;">No requests yet</div>';
       }else{
-        var maxDur=Math.max.apply(null,state.requests.map(function(r){return r.duration||1;}));
+        var first=state.requests[0].startTime||0;
+        var last=state.requests[state.requests.length-1];
+        var timeSpan=Math.max((last.startTime||0)+(last.duration||0)-first,1);
         c.innerHTML=state.requests.map(function(r){
           var sc=r.status;var color=sc>=500?'#e74c3c':sc>=400?'#e74c3c':sc>=300?'#f39c12':sc>=200?'#2ecc71':'#666';
-          var barW=r.duration?Math.max(8,Math.round(r.duration/Math.max(maxDur,1)*100)):0;
-          var path=r.url.replace(/^https?:\/\/[^\/]+/,'');if(path.length>32) path='...'+path.slice(-29);
-          return '<div style="padding:6px 12px;border-bottom:1px solid #1b1b1b;display:flex;align-items:center;gap:8px;">'
-            +'<span style="color:#888;width:36px;font-size:10px;">'+r.method+'</span>'
-            +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+r.url+'">'+path+'</span>'
-            +'<span style="color:'+color+';width:28px;text-align:right;font-size:10px;">'+(sc||'...')+'</span>'
-            +'<span style="width:36px;text-align:right;font-size:10px;color:#888;">'+(r.duration?r.duration+'ms':'conn')+'</span>'
-            +'<div style="width:50px;height:6px;background:#1b1b1b;border-radius:3px;overflow:hidden;"><div style="width:'+barW+'%;height:100%;background:'+color+';border-radius:3px;"></div></div>'
-            +'</div>';
+          var offset=Math.round(((r.startTime||0)-first)/timeSpan*100);
+          var barW=Math.max(3,Math.round((r.duration||1)/timeSpan*100));
+          if(offset+barW>100)barW=100-offset;
+          var path=r.url.replace(/^https?:\/\/[^\/]+/,'');if(path.length>28) path='...'+path.slice(-25);
+          return '<div style="padding:4px 12px;border-bottom:1px solid #1b1b1b;display:flex;align-items:center;gap:6px;font-size:10px;">'
+            +'<span style="color:#888;width:32px;">'+r.method+'</span>'
+            +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#aaa;" title="'+r.url+'">'+path+'</span>'
+            +'<span style="color:'+color+';width:24px;text-align:right;">'+(sc||'...')+'</span>'
+            +'<span style="width:32px;text-align:right;color:#666;">'+(r.duration?r.duration+'ms':'')+'</span>'
+            +'<div style="width:80px;height:8px;background:#111;border-radius:2px;position:relative;overflow:hidden;">'
+            +'<div style="position:absolute;left:'+offset+'%;width:'+barW+'%;height:100%;background:'+color+';border-radius:2px;transition:width .2s;"></div>'
+            +'</div></div>';
         }).join('');
       }
       s.textContent=state.requests.length+' requests | '+state.errors.length+' errors | SSE: '+state.sseState;
@@ -571,7 +576,7 @@ pub const CRONUS_DEBUG_JS: &str = r#"
     var url=typeof args[0]==='string'?args[0]:(args[0]&&args[0].url)||'';
     var opts=args[1]||{};
     var method=(opts.method||'GET').toUpperCase();
-    var entry={method:method,url:url,status:null,duration:null,ts:Date.now()};
+    var entry={method:method,url:url,status:null,duration:null,ts:Date.now(),startTime:performance.now()};
     state.requests.push(entry);
     if(state.requests.length>100) state.requests.shift();
     var t0=performance.now();
@@ -623,7 +628,7 @@ pub const CRONUS_DEBUG_JS: &str = r#"
     es.addEventListener('debug',function(e){
       try{
         var d=JSON.parse(e.data);
-        state.requests.push({method:d.method,url:d.path,status:d.status,duration:d.ms,ts:Date.now()});
+        state.requests.push({method:d.method,url:d.path,status:d.status,duration:d.ms,ts:Date.now(),startTime:performance.now()});
         if(state.requests.length>100) state.requests.shift();
         if(state.open&&state.tab==='network') renderTab();
       }catch(err){}
@@ -633,7 +638,7 @@ pub const CRONUS_DEBUG_JS: &str = r#"
   // --- SPA navigation tracking ---
   var _pushState=history.pushState;
   history.pushState=function(){_pushState.apply(this,arguments);
-    state.requests.push({method:'SPA',url:arguments[2]||'',status:'->',duration:null,ts:Date.now()});
+    state.requests.push({method:'SPA',url:arguments[2]||'',status:'->',duration:null,ts:Date.now(),startTime:performance.now()});
     if(state.open&&state.tab==='network') renderTab();
   };
 
