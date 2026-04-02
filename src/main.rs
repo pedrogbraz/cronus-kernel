@@ -859,6 +859,7 @@ struct AppState {
     webhooks: Vec<parser::WebhookNode>,
     rate_limiter: rate_limit::RateLimiter,       // 100 req/60s for general API
     auth_rate_limiter: rate_limit::RateLimiter,  // 10 req/60s for auth endpoints
+    sse_hub: Arc<sse::SseHub>,                   // SSE broadcast hub for real-time updates
 }
 
 fn cors_origin() -> String {
@@ -882,7 +883,12 @@ fn json_response(status: StatusCode, body: Value) -> Response<Full<Bytes>> {
 }
 
 fn html_response(body: String) -> Response<Full<Bytes>> {
-    let final_body = inject_audit_if_enabled(body);
+    let mut final_body = inject_audit_if_enabled(body);
+    // Inject SSE client JS into every HTML page (before </body>)
+    if final_body.contains("</body>") {
+        let sse_script = format!("<script>{}</script>", sse::SSE_CLIENT_JS);
+        final_body = final_body.replace("</body>", &format!("{}\n</body>", sse_script));
+    }
     let mut builder = Response::builder()
         .status(StatusCode::OK)
         .header("Content-Type", "text/html; charset=utf-8");
@@ -1904,6 +1910,12 @@ async fn handle_request(
 
             match state.db.insert(entity, &data) {
                 Ok(row) => {
+                    let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    state.sse_hub.broadcast(sse::DataChangeEvent {
+                        entity: entity.to_string(),
+                        action: "created".to_string(),
+                        id: row_id,
+                    });
                     let response = json!({
                         "ok": true,
                         "id": row.get("id"),
@@ -2419,6 +2431,12 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                             Some(entity) => match state.db.validated_insert(entity, data) {
                                 Ok(row) => {
                                     fire_webhooks(&state.webhooks, table, "create", &row);
+                                    let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                                    state.sse_hub.broadcast(sse::DataChangeEvent {
+                                        entity: table.to_string(),
+                                        action: "created".to_string(),
+                                        id: row_id,
+                                    });
                                     json_response(StatusCode::CREATED, row)
                                 }
                                 Err(e) => {
@@ -2437,6 +2455,12 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                             None => match state.db.insert(table, data) {
                                 Ok(row) => {
                                     fire_webhooks(&state.webhooks, table, "create", &row);
+                                    let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                                    state.sse_hub.broadcast(sse::DataChangeEvent {
+                                        entity: table.to_string(),
+                                        action: "created".to_string(),
+                                        id: row_id,
+                                    });
                                     json_response(StatusCode::CREATED, row)
                                 }
                                 Err(e) => json_response(StatusCode::BAD_REQUEST, json!({"error": e})),
@@ -2452,6 +2476,11 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                         Some(data) => match state.db.update(table, segments[1], data) {
                             Ok(row) => {
                                 fire_webhooks(&state.webhooks, table, "update", &row);
+                                state.sse_hub.broadcast(sse::DataChangeEvent {
+                                    entity: table.to_string(),
+                                    action: "updated".to_string(),
+                                    id: segments[1].to_string(),
+                                });
                                 json_response(StatusCode::OK, row)
                             }
                             Err(e) => json_response(StatusCode::BAD_REQUEST, json!({"error": e})),
@@ -2467,6 +2496,11 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                     match state.db.delete(table, segments[1]) {
                         Ok(true) => {
                             fire_webhooks(&state.webhooks, table, "delete", &json!({"id": segments[1], "entity": table}));
+                            state.sse_hub.broadcast(sse::DataChangeEvent {
+                                entity: table.to_string(),
+                                action: "deleted".to_string(),
+                                id: segments[1].to_string(),
+                            });
                             json_response(StatusCode::OK, json!({"deleted": segments[1]}))
                         }
                         Ok(false) => json_response(StatusCode::NOT_FOUND, json!({"error": "not found"})),
@@ -2766,6 +2800,8 @@ async fn cmd_run(args: &[String]) {
 
     // Build app state (reuse app_db from migration)
 
+    let sse_hub = Arc::new(sse::SseHub::new());
+
     let state = Arc::new(AppState {
         app: app.clone(),
         entities,
@@ -2783,6 +2819,7 @@ async fn cmd_run(args: &[String]) {
         webhooks,
         rate_limiter: rate_limit::RateLimiter::new(100, 60),
         auth_rate_limiter: rate_limit::RateLimiter::new(10, 60),
+        sse_hub,
     });
 
     // Start server
@@ -2904,9 +2941,22 @@ async fn cmd_run(args: &[String]) {
         let state = state.clone();
 
         tokio::task::spawn(async move {
-            let service = service_fn(move |req| {
+            let service = service_fn(move |req: Request<Incoming>| {
                 let state = state.clone();
-                async move { handle_request(req, state, remote_addr).await }
+                async move {
+                    // SSE endpoint — returns a streaming response (not buffered)
+                    if req.uri().path() == "/api/sse" && req.method() == Method::GET {
+                        let sse_resp = state.sse_hub.subscribe();
+                        // Map the streaming body to a boxed body for type compatibility
+                        let (parts, body) = sse_resp.into_parts();
+                        let boxed = http_body_util::Either::Right(body);
+                        return Ok::<_, hyper::Error>(Response::from_parts(parts, boxed));
+                    }
+                    // All other requests — wrap Full<Bytes> in Either::Left
+                    let resp = handle_request(req, state, remote_addr).await?;
+                    let (parts, body) = resp.into_parts();
+                    Ok(Response::from_parts(parts, http_body_util::Either::Left(body)))
+                }
             });
             if let Err(e) = http1::Builder::new().serve_connection(io, service).await {
                 eprintln!("  Connection error: {}", e);

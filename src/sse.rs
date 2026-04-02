@@ -43,6 +43,7 @@ impl SseHub {
 
     /// Create an SSE response that streams events to the client.
     /// Returns a Response with `text/event-stream` content type.
+    /// Includes a 30-second heartbeat to keep the connection alive.
     pub fn subscribe(&self) -> Response<StreamBody<impl futures_core::Stream<Item = Result<Frame<Bytes>, Infallible>>>> {
         let mut rx = self.tx.subscribe();
 
@@ -53,34 +54,38 @@ impl SseHub {
             )));
 
             loop {
-                match rx.recv().await {
-                    Ok(event) => {
-                        let data = json!({
-                            "entity": event.entity,
-                            "action": event.action,
-                            "id": event.id,
-                        });
-                        let payload = format!(
-                            "event: data_change\ndata: {}\n\n",
-                            data.to_string()
-                        );
-                        yield Ok(Frame::data(Bytes::from(payload)));
+                tokio::select! {
+                    result = rx.recv() => {
+                        match result {
+                            Ok(event) => {
+                                let data = json!({
+                                    "entity": event.entity,
+                                    "action": event.action,
+                                    "id": event.id,
+                                });
+                                let payload = format!(
+                                    "event: data_change\ndata: {}\n\n",
+                                    data.to_string()
+                                );
+                                yield Ok(Frame::data(Bytes::from(payload)));
+                            }
+                            Err(broadcast::error::RecvError::Lagged(n)) => {
+                                let payload = format!(
+                                    "event: warning\ndata: {{\"message\":\"missed {} events\"}}\n\n",
+                                    n
+                                );
+                                yield Ok(Frame::data(Bytes::from(payload)));
+                            }
+                            Err(broadcast::error::RecvError::Closed) => {
+                                break;
+                            }
+                        }
                     }
-                    Err(broadcast::error::RecvError::Lagged(n)) => {
-                        // Client fell behind, send a warning
-                        let payload = format!(
-                            "event: warning\ndata: {{\"message\":\"missed {} events\"}}\n\n",
-                            n
-                        );
-                        yield Ok(Frame::data(Bytes::from(payload)));
-                    }
-                    Err(broadcast::error::RecvError::Closed) => {
-                        break;
+                    _ = tokio::time::sleep(std::time::Duration::from_secs(30)) => {
+                        // Heartbeat comment to keep connection alive
+                        yield Ok(Frame::data(Bytes::from(": heartbeat\n\n")));
                     }
                 }
-
-                // Heartbeat every 30 seconds is handled by the client reconnect
-                // but we can send a comment to keep connection alive
             }
         };
 
@@ -96,46 +101,54 @@ impl SseHub {
     }
 }
 
-/// Client-side JS snippet for connecting to SSE and auto-refreshing data lists.
+/// Client-side JS snippet for connecting to SSE and auto-refreshing.
+/// Connects to /api/sse, listens for data_change events, and calls
+/// cronusLiveReload() (from the CRONUS runtime) to refresh the page.
 pub const SSE_CLIENT_JS: &str = r##"
-// CRONUS SSE — Real-time data updates
+// CRONUS SSE — Real-time data updates via Server-Sent Events
 (function() {
-  var es = new EventSource('/api/events');
+  var connected = false;
 
-  es.addEventListener('data_change', function(e) {
-    try {
-      var data = JSON.parse(e.data);
-      var entity = data.entity;
-      var action = data.action;
+  function connect() {
+    var es = new EventSource('/api/sse');
 
-      // Re-fetch any table/list showing this entity
-      document.querySelectorAll('[data-entity="' + entity + '"]').forEach(function(el) {
-        if (el._cronusRefresh) el._cronusRefresh();
-      });
+    es.addEventListener('open', function() {
+      connected = true;
+      var dot = document.getElementById('cronus-sse-dot');
+      if (dot) dot.style.background = '#22c55e';
+      console.log('[CRONUS SSE] connected');
+    });
 
-      // Re-fetch any element with data-list matching entity
-      document.querySelectorAll('[data-list="' + entity + '"]').forEach(function(el) {
-        if (el._cronusRefresh) el._cronusRefresh();
-      });
-
-      // Update count badges
-      document.querySelectorAll('[data-count="' + entity + '"]').forEach(function(el) {
-        if (el._cronusRefresh) el._cronusRefresh();
-        else {
-          // Simple: fetch count from API
-          fetch('/api/' + entity + 's').then(function(r) { return r.json(); }).then(function(d) {
-            el.textContent = Array.isArray(d) ? d.length : '?';
-          }).catch(function() {});
+    es.addEventListener('data_change', function(e) {
+      try {
+        var data = JSON.parse(e.data);
+        console.log('[CRONUS SSE] ' + data.action + ': ' + data.entity + '/' + data.id);
+        // Use the CRONUS runtime's live reload to refresh page content
+        if (window.CRONUS && window.CRONUS.reload) {
+          window.CRONUS.reload();
         }
-      });
+      } catch(err) {}
+    });
 
-      // Flash notification
-      console.log('[CRONUS SSE] ' + action + ': ' + entity + '/' + data.id);
-    } catch(err) {}
-  });
+    es.onerror = function() {
+      connected = false;
+      var dot = document.getElementById('cronus-sse-dot');
+      if (dot) dot.style.background = '#ef4444';
+      es.close();
+      console.log('[CRONUS SSE] disconnected, reconnecting in 3s...');
+      setTimeout(connect, 3000);
+    };
+  }
 
-  es.onerror = function() {
-    console.log('[CRONUS SSE] reconnecting...');
-  };
+  // Create connection indicator
+  var indicator = document.createElement('div');
+  indicator.id = 'cronus-sse-indicator';
+  indicator.innerHTML = '<span id="cronus-sse-dot" style="width:8px;height:8px;border-radius:50%;background:#71717a;display:inline-block;transition:background 0.3s"></span>';
+  indicator.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:100;font-size:11px;color:#71717a;display:flex;align-items:center;gap:6px;font-family:Inter,system-ui,sans-serif;opacity:0.7';
+  indicator.innerHTML += ' <span>SSE</span>';
+  if (document.body) document.body.appendChild(indicator);
+  else document.addEventListener('DOMContentLoaded', function() { document.body.appendChild(indicator); });
+
+  connect();
 })();
 "##;
