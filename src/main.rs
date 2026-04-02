@@ -3273,10 +3273,16 @@ async fn cmd_run(args: &[String]) {
         }
     }
 
+    // Graceful shutdown: listen for Ctrl+C
+    let shutdown = tokio::signal::ctrl_c();
+    tokio::pin!(shutdown);
+
     loop {
-        let (stream, remote_addr) = listener.accept().await.unwrap();
-        let io = TokioIo::new(stream);
-        let state = state.clone();
+        tokio::select! {
+            result = listener.accept() => {
+                let (stream, remote_addr) = result.unwrap();
+                let io = TokioIo::new(stream);
+                let state = state.clone();
 
         tokio::task::spawn(async move {
             let service = service_fn(move |req: Request<Incoming>| {
@@ -3300,6 +3306,15 @@ async fn cmd_run(args: &[String]) {
                 eprintln!("  Connection error: {}", e);
             }
         });
+            }
+            _ = &mut shutdown => {
+                eprintln!("\n  \x1b[36mShutting down gracefully...\x1b[0m");
+                // Give in-flight requests 2 seconds to complete
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                eprintln!("  \x1b[32m✓\x1b[0m Server stopped.");
+                break;
+            }
+        }
     }
 }
 

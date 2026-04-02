@@ -77,10 +77,20 @@ fn generate_id() -> String {
 
 impl CronusDB {
     /// Open (or create) a SQLite database at the given path.
+    /// Uses WAL mode for concurrent reads + busy timeout to avoid lock errors.
     pub fn open(path: &str) -> Result<Self, String> {
         let conn = Connection::open(path).map_err(|e| e.to_string())?;
+        // WAL mode: readers don't block writers, writers don't block readers
         conn.execute_batch("PRAGMA journal_mode=WAL;").ok();
         conn.execute_batch("PRAGMA foreign_keys=ON;").ok();
+        // Busy timeout: wait up to 5s if DB is locked instead of failing immediately
+        conn.busy_timeout(std::time::Duration::from_secs(5)).ok();
+        // Synchronous NORMAL: good balance of safety vs speed (WAL makes this safe)
+        conn.execute_batch("PRAGMA synchronous=NORMAL;").ok();
+        // Cache size: 10MB (default is 2MB) — faster reads
+        conn.execute_batch("PRAGMA cache_size=-10000;").ok();
+        // Temp store in memory — faster temp table operations
+        conn.execute_batch("PRAGMA temp_store=MEMORY;").ok();
         Ok(Self {
             conn: Mutex::new(conn),
         })
@@ -93,6 +103,26 @@ impl CronusDB {
         Ok(Self {
             conn: Mutex::new(conn),
         })
+    }
+
+    /// Execute multiple operations atomically in a SQLite transaction.
+    /// If the closure returns Err, the transaction is rolled back.
+    /// If it returns Ok, the transaction is committed.
+    pub fn transaction<F, T>(&self, f: F) -> Result<T, String>
+    where F: FnOnce(&Connection) -> Result<T, String>
+    {
+        let conn = self.conn.lock().unwrap();
+        conn.execute_batch("BEGIN IMMEDIATE").map_err(|e| e.to_string())?;
+        match f(&conn) {
+            Ok(result) => {
+                conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+                Ok(result)
+            }
+            Err(e) => {
+                conn.execute_batch("ROLLBACK").ok(); // best effort rollback
+                Err(e)
+            }
+        }
     }
 
     /// Execute a raw SQL statement (for schema changes like ALTER TABLE).
