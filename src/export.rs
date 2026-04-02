@@ -205,11 +205,9 @@ pub fn export_openapi(nodes: &[AstNode]) -> String {
             AstNode::Entity(e) => entities.push(e),
             AstNode::Api(a) => {
                 for route in &a.routes {
-                    let full_path = if a.prefix.is_empty() {
-                        route.path.clone()
-                    } else {
-                        format!("{}{}", a.prefix, route.path)
-                    };
+                    // Route path already contains the full path (e.g., "/deployments/:id")
+                    // Just prepend /api
+                    let full_path = format!("/api{}", route.path);
 
                     let method_str = match route.method {
                         HttpMethod::GET => "get",
