@@ -3092,6 +3092,7 @@ async fn cmd_run(args: &[String]) {
                 index: false, featured: false, formatted: false, array: false,
                 enum_values: None, reference: None,
                 doc: None,
+                default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
             },
             parser::FieldNode {
                 name: "metadata".to_string(),
@@ -3101,6 +3102,7 @@ async fn cmd_run(args: &[String]) {
                 index: false, featured: false, formatted: false, array: false,
                 enum_values: None, reference: None,
                 doc: None,
+                default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
             },
             parser::FieldNode {
                 name: "timestamp".to_string(),
@@ -3110,6 +3112,7 @@ async fn cmd_run(args: &[String]) {
                 index: false, featured: false, formatted: false, array: false,
                 enum_values: None, reference: None,
                 doc: None,
+                default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
             },
         ],
         doc: None,
@@ -10548,6 +10551,22 @@ fn render_auto_docs(state: &AppState) -> String {
             if let Some(ref vals) = field.enum_values {
                 let joined = vals.join(" | ");
                 badges.push_str(&format!(r##"<span style="color:#ababab;font-size:10px;margin-left:8px">[{}]</span>"##, joined));
+            }
+            // Constraint badges
+            if let Some(min_val) = field.min {
+                badges.push_str(&format!(r##"<span style="color:#10b981;font-size:10px;margin-left:8px">min:{}</span>"##, min_val));
+            }
+            if let Some(max_val) = field.max {
+                badges.push_str(&format!(r##"<span style="color:#10b981;font-size:10px;margin-left:8px">max:{}</span>"##, max_val));
+            }
+            if let Some(min_len) = field.min_length {
+                badges.push_str(&format!(r##"<span style="color:#10b981;font-size:10px;margin-left:8px">min:{}</span>"##, min_len));
+            }
+            if let Some(max_len) = field.max_length {
+                badges.push_str(&format!(r##"<span style="color:#10b981;font-size:10px;margin-left:8px">max:{}</span>"##, max_len));
+            }
+            if let Some(ref pat) = field.pattern {
+                badges.push_str(&format!(r##"<span style="color:#10b981;font-size:10px;margin-left:8px">match:{}</span>"##, pat));
             }
             let field_doc_html = if let Some(ref doc) = field.doc {
                 let mut parts = Vec::new();

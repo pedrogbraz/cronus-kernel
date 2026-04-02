@@ -582,6 +582,48 @@ impl CronusDB {
                     return Err(format!("'{}' must be a number", field.name));
                 }
             }
+
+            // Numeric min/max constraints (number, money, percentage)
+            if matches!(field.field_type, FieldType::Number | FieldType::Money | FieldType::Percentage) {
+                if let Ok(num) = val_str.parse::<f64>() {
+                    if let Some(min_val) = field.min {
+                        if num < min_val {
+                            return Err(format!("'{}' must be >= {}", field.name, min_val));
+                        }
+                    }
+                    if let Some(max_val) = field.max {
+                        if num > max_val {
+                            return Err(format!("'{}' must be <= {}", field.name, max_val));
+                        }
+                    }
+                }
+            }
+
+            // String length constraints
+            if let Some(min_len) = field.min_length {
+                if val_str.len() < min_len {
+                    return Err(format!("'{}' must be at least {} characters", field.name, min_len));
+                }
+            }
+            if let Some(max_len) = field.max_length {
+                if val_str.len() > max_len {
+                    return Err(format!("'{}' must be at most {} characters", field.name, max_len));
+                }
+            }
+
+            // Regex pattern constraint
+            if let Some(ref pat) = field.pattern {
+                match regex::Regex::new(pat) {
+                    Ok(re) => {
+                        if !re.is_match(&val_str) {
+                            return Err(format!("'{}' does not match pattern '{}'", field.name, pat));
+                        }
+                    }
+                    Err(_) => {
+                        return Err(format!("invalid regex pattern for '{}': {}", field.name, pat));
+                    }
+                }
+            }
         }
         Ok(())
     }
@@ -609,9 +651,22 @@ impl CronusDB {
 
     /// Insert with validation
     pub fn validated_insert(&self, entity: &EntityNode, data: &Value) -> Result<Value, String> {
-        self.validate(entity, data)?;
-        self.check_unique(entity, data)?;
-        self.insert(&entity.name, data)
+        // Apply default values for missing fields
+        let mut data = data.clone();
+        if let Some(obj) = data.as_object_mut() {
+            for field in &entity.fields {
+                if let Some(ref default_val) = field.default_value {
+                    let is_missing = obj.get(&field.name)
+                        .map_or(true, |v| v.is_null());
+                    if is_missing {
+                        obj.insert(field.name.clone(), Value::String(default_val.clone()));
+                    }
+                }
+            }
+        }
+        self.validate(entity, &data)?;
+        self.check_unique(entity, &data)?;
+        self.insert(&entity.name, &data)
     }
 
     /// Find a row with a related entity joined
@@ -956,6 +1011,7 @@ mod tests {
                     enum_values: None,
                     reference: None,
                     doc: None,
+                    default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
                 },
                 FieldNode {
                     name: "email".into(),
@@ -972,6 +1028,7 @@ mod tests {
                     enum_values: None,
                     reference: None,
                     doc: None,
+                    default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
                 },
                 FieldNode {
                     name: "age".into(),
@@ -988,6 +1045,7 @@ mod tests {
                     enum_values: None,
                     reference: None,
                     doc: None,
+                    default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
                 },
             ],
             doc: None,
@@ -1126,5 +1184,127 @@ mod tests {
         db.insert("users", &json!({"name": "Bob Builder", "email": "bob@x.com"})).unwrap();
         let results = db.search("users", "alice", 100).unwrap();
         assert_eq!(results.as_array().unwrap().len(), 1);
+    }
+
+    fn entity_with_constraints() -> EntityNode {
+        EntityNode {
+            name: "products".into(),
+            shared: false,
+            fields: vec![
+                FieldNode {
+                    name: "title".into(),
+                    field_type: FieldType::String,
+                    required: true, unique: false, sensitive: false,
+                    optional: false, searchable: false, index: false,
+                    featured: false, formatted: false, array: false,
+                    enum_values: None, reference: None, doc: None,
+                    default_value: None, min: None, max: None,
+                    min_length: Some(3), max_length: Some(100),
+                    pattern: Some("^[A-Za-z0-9 ]+$".to_string()),
+                },
+                FieldNode {
+                    name: "price".into(),
+                    field_type: FieldType::Number,
+                    required: true, unique: false, sensitive: false,
+                    optional: false, searchable: false, index: false,
+                    featured: false, formatted: false, array: false,
+                    enum_values: None, reference: None, doc: None,
+                    default_value: None, min: Some(0.0), max: Some(999999.0),
+                    min_length: None, max_length: None, pattern: None,
+                },
+                FieldNode {
+                    name: "sku".into(),
+                    field_type: FieldType::String,
+                    required: false, unique: false, sensitive: false,
+                    optional: true, searchable: false, index: false,
+                    featured: false, formatted: false, array: false,
+                    enum_values: None, reference: None, doc: None,
+                    default_value: None, min: None, max: None,
+                    min_length: None, max_length: Some(20),
+                    pattern: Some("^[A-Z0-9-]+$".to_string()),
+                },
+            ],
+            doc: None,
+        }
+    }
+
+    #[test]
+    fn test_validate_min_number() {
+        let db = CronusDB::open_memory().unwrap();
+        let entity = entity_with_constraints();
+        let result = db.validate(&entity, &json!({"title": "Valid", "price": -5}));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("must be >= 0"));
+    }
+
+    #[test]
+    fn test_validate_max_number() {
+        let db = CronusDB::open_memory().unwrap();
+        let entity = entity_with_constraints();
+        let result = db.validate(&entity, &json!({"title": "Valid", "price": 1000000}));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("must be <= 999999"));
+    }
+
+    #[test]
+    fn test_validate_min_length() {
+        let db = CronusDB::open_memory().unwrap();
+        let entity = entity_with_constraints();
+        let result = db.validate(&entity, &json!({"title": "AB", "price": 10}));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("at least 3 characters"));
+    }
+
+    #[test]
+    fn test_validate_max_length() {
+        let db = CronusDB::open_memory().unwrap();
+        let entity = entity_with_constraints();
+        let long_title = "A".repeat(101);
+        let result = db.validate(&entity, &json!({"title": long_title, "price": 10}));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("at most 100 characters"));
+    }
+
+    #[test]
+    fn test_validate_pattern_match() {
+        let db = CronusDB::open_memory().unwrap();
+        let entity = entity_with_constraints();
+        let result = db.validate(&entity, &json!({"title": "Invalid@Title!", "price": 10}));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("does not match pattern"));
+    }
+
+    #[test]
+    fn test_validate_pattern_optional_field() {
+        let db = CronusDB::open_memory().unwrap();
+        let entity = entity_with_constraints();
+        // Valid: optional sku not provided
+        let result = db.validate(&entity, &json!({"title": "Good Product", "price": 50}));
+        assert!(result.is_ok());
+        // Invalid: sku provided but doesn't match
+        let result = db.validate(&entity, &json!({"title": "Good Product", "price": 50, "sku": "bad sku!"}));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("does not match pattern"));
+    }
+
+    #[test]
+    fn test_validate_constraints_pass() {
+        let db = CronusDB::open_memory().unwrap();
+        let entity = entity_with_constraints();
+        let result = db.validate(&entity, &json!({"title": "Good Product", "price": 29.99, "sku": "SKU-001"}));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validated_insert_with_constraints() {
+        let db = CronusDB::open_memory().unwrap();
+        let entity = entity_with_constraints();
+        db.migrate(&[entity.clone()]).unwrap();
+        // Should succeed
+        let ok = db.validated_insert(&entity, &json!({"title": "Widget", "price": 10}));
+        assert!(ok.is_ok());
+        // Should fail (price below min)
+        let err = db.validated_insert(&entity, &json!({"title": "Widget", "price": -1}));
+        assert!(err.is_err());
     }
 }

@@ -466,9 +466,38 @@ fn entity_to_typescript(e: &EntityNode) -> String {
         let ts_type = field_to_ts_type(f);
         let optional = if f.optional { "?" } else { "" };
 
+        // Build JSDoc with constraints
+        let mut jsdoc_parts: Vec<String> = Vec::new();
         if let Some(ref d) = f.doc {
             if !d.summary.is_empty() {
-                lines.push(format!("  /** {} */", d.summary));
+                jsdoc_parts.push(d.summary.clone());
+            }
+        }
+        if let Some(min_val) = f.min {
+            jsdoc_parts.push(format!("@minimum {}", min_val));
+        }
+        if let Some(max_val) = f.max {
+            jsdoc_parts.push(format!("@maximum {}", max_val));
+        }
+        if let Some(min_len) = f.min_length {
+            jsdoc_parts.push(format!("@minLength {}", min_len));
+        }
+        if let Some(max_len) = f.max_length {
+            jsdoc_parts.push(format!("@maxLength {}", max_len));
+        }
+        if let Some(ref pat) = f.pattern {
+            jsdoc_parts.push(format!("@pattern {}", pat));
+        }
+
+        if !jsdoc_parts.is_empty() {
+            if jsdoc_parts.len() == 1 {
+                lines.push(format!("  /** {} */", jsdoc_parts[0]));
+            } else {
+                lines.push("  /**".to_string());
+                for part in &jsdoc_parts {
+                    lines.push(format!("   * {}", part));
+                }
+                lines.push("   */".to_string());
             }
         }
 

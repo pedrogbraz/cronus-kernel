@@ -477,6 +477,7 @@ mod tests {
                 enum_values: None,
                 reference: None,
                 doc: None,
+                default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
             }).collect(),
             shared: false,
             doc: None,

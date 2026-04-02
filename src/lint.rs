@@ -1083,6 +1083,7 @@ mod tests {
                     optional: false, searchable: false, index: false,
                     featured: false, formatted: false, array: false,
                     enum_values: None, reference: None, doc: None,
+                    default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
                 },
                 FieldNode {
                     name: "password".into(),
@@ -1091,6 +1092,7 @@ mod tests {
                     optional: false, searchable: false, index: false,
                     featured: false, formatted: false, array: false,
                     enum_values: None, reference: None, doc: None,
+                    default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
                 },
                 FieldNode {
                     name: "secret_key".into(),
@@ -1099,6 +1101,7 @@ mod tests {
                     optional: false, searchable: false, index: false,
                     featured: false, formatted: false, array: false,
                     enum_values: None, reference: None, doc: None,
+                    default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
                 },
             ],
             shared: false,

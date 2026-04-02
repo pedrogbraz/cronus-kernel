@@ -102,6 +102,12 @@ pub struct FieldNode {
     pub enum_values: Option<Vec<String>>,
     pub reference: Option<String>,
     pub doc: Option<DocComment>,
+    pub default_value: Option<String>,
+    pub min: Option<f64>,
+    pub max: Option<f64>,
+    pub min_length: Option<usize>,
+    pub max_length: Option<usize>,
+    pub pattern: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -553,9 +559,15 @@ fn tokenize(source: &str) -> Vec<Token> {
                 i += 2;
                 continue;
             }
-            if chars[i] == '!' && i + 1 < chars.len() && chars[i + 1] == '=' {
-                tokens.push(Token { kind: TokenKind::Operator, value: "!=".into(), line: line_num });
-                i += 2;
+            if chars[i] == '!' {
+                if i + 1 < chars.len() && chars[i + 1] == '=' {
+                    tokens.push(Token { kind: TokenKind::Operator, value: "!=".into(), line: line_num });
+                    i += 2;
+                    continue;
+                }
+                // Standalone ! emitted as Identifier (required shorthand in fields)
+                tokens.push(Token { kind: TokenKind::Identifier, value: "!".into(), line: line_num });
+                i += 1;
                 continue;
             }
             if chars[i] == '>' && i + 1 < chars.len() && chars[i + 1] == '=' {
@@ -1010,6 +1022,8 @@ impl Parser {
                 enum_values: None,
                 reference: Some(target),
                 doc: None,
+                default_value: None,
+                min: None, max: None, min_length: None, max_length: None, pattern: None,
             }));
         }
 
@@ -1028,8 +1042,15 @@ impl Parser {
             }
         }
 
-        let field_type = FieldType::from_str(&type_str);
-        let mut required = false;
+        // Handle ! suffix on type (e.g. "string!" → type="string", required=true)
+        let (clean_type_str, bang_required) = if type_str.ends_with('!') {
+            (type_str[..type_str.len()-1].to_string(), true)
+        } else {
+            (type_str.clone(), false)
+        };
+
+        let field_type = FieldType::from_str(&clean_type_str);
+        let mut required = bang_required;
         let mut unique = false;
         let mut sensitive = false;
         let mut optional = false;
@@ -1038,6 +1059,10 @@ impl Parser {
         let mut featured = false;
         let mut formatted = false;
         let mut enum_values = None;
+        let mut default_value: Option<String> = None;
+        let mut min: Option<f64> = None;
+        let mut max: Option<f64> = None;
+        let mut pattern: Option<String> = None;
 
         let field_line = field_token.line;
 
@@ -1048,27 +1073,54 @@ impl Parser {
                 enum_values = Some(self.parse_array()?);
             } else if self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::ColonPair {
                 let mod_val = self.advance().value;
-                match mod_val.as_str() {
-                    "required" => required = true,
-                    "unique" => unique = true,
-                    "sensitive" => sensitive = true,
-                    "optional" => optional = true,
-                    "searchable" => searchable = true,
-                    "index" => index = true,
-                    "featured" => featured = true,
-                    "formatted" => formatted = true,
-                    _ => {}
+                // Check for colon-pair modifiers like default:"value"
+                if mod_val.contains(':') {
+                    let (k, v) = Self::split_colon_pair(&mod_val);
+                    match k.as_str() {
+                        "default" => { default_value = Some(v); }
+                        "min" => { min = v.parse::<f64>().ok(); }
+                        "max" => { max = v.parse::<f64>().ok(); }
+                        "match" => { pattern = Some(v); }
+                        _ => {}
+                    }
+                } else {
+                    match mod_val.as_str() {
+                        "!" => required = true,
+                        "required" => required = true,
+                        "unique" => unique = true,
+                        "sensitive" => sensitive = true,
+                        "optional" => optional = true,
+                        "searchable" => searchable = true,
+                        "index" => index = true,
+                        "featured" => featured = true,
+                        "formatted" => formatted = true,
+                        _ => {}
+                    }
                 }
             } else {
                 break;
             }
         }
 
+        // For string/text types, min/max map to min_length/max_length
+        let is_string_type = matches!(field_type,
+            FieldType::String | FieldType::Text | FieldType::Email
+            | FieldType::Url | FieldType::Slug | FieldType::Phone);
+        let (num_min, num_max, str_min_len, str_max_len) = if is_string_type {
+            (None, None, min.map(|v| v as usize), max.map(|v| v as usize))
+        } else {
+            (min, max, None, None)
+        };
+
         Ok(Some(FieldNode {
             name, field_type, required, unique, sensitive, optional,
             searchable, index, featured, formatted, array,
             enum_values, reference: None,
             doc: None,
+            default_value,
+            min: num_min, max: num_max,
+            min_length: str_min_len, max_length: str_max_len,
+            pattern,
         }))
     }
 
@@ -3048,6 +3100,173 @@ mod parser_tests {
         let result = parse(source);
         if let Err(ref e) = result {
             panic!("Valid entity should parse, got error: {}", e);
+        }
+    }
+
+    #[test]
+    fn parse_bang_required_syntax() {
+        let source = r#"entity User { name string! }"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            let field = &e.fields[0];
+            assert_eq!(field.name, "name");
+            assert_eq!(field.field_type, FieldType::String);
+            assert!(field.required, "string! should set required=true");
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn parse_bang_with_other_modifiers() {
+        let source = r#"entity User { email email! unique }"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            let field = &e.fields[0];
+            assert_eq!(field.name, "email");
+            assert_eq!(field.field_type, FieldType::Email);
+            assert!(field.required, "email! should set required=true");
+            assert!(field.unique, "unique modifier should still work after !");
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn parse_bang_backward_compat_required() {
+        let source = r#"entity User { name string required }"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            assert!(e.fields[0].required, "old 'required' keyword should still work");
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn parse_default_value_string() {
+        let source = r#"entity User { role enum ["admin", "user"] default:"user" }"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            let field = &e.fields[0];
+            assert_eq!(field.name, "role");
+            assert_eq!(field.default_value, Some("user".to_string()));
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn parse_default_value_number() {
+        let source = r#"entity Product { stock number default:0 }"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            let field = &e.fields[0];
+            assert_eq!(field.name, "stock");
+            assert_eq!(field.field_type, FieldType::Number);
+            assert_eq!(field.default_value, Some("0".to_string()));
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn parse_bang_with_default() {
+        let source = r#"entity User { role enum ["admin", "user"]! default:"user" }"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            let field = &e.fields[0];
+            assert_eq!(field.name, "role");
+            assert!(field.required, "! should set required");
+            assert_eq!(field.default_value, Some("user".to_string()));
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn parse_no_default_value() {
+        let source = r#"entity User { name string required }"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            assert_eq!(e.fields[0].default_value, None);
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn parse_number_min_max_constraints() {
+        let source = r#"entity Product { age number min:0 max:150 }"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            let field = &e.fields[0];
+            assert_eq!(field.name, "age");
+            assert_eq!(field.min, Some(0.0));
+            assert_eq!(field.max, Some(150.0));
+            assert!(field.min_length.is_none());
+            assert!(field.max_length.is_none());
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn parse_string_min_max_as_length() {
+        let source = r#"entity User { username string min:3 max:30 }"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            let field = &e.fields[0];
+            assert_eq!(field.name, "username");
+            assert!(field.min.is_none(), "string field should not have numeric min");
+            assert!(field.max.is_none(), "string field should not have numeric max");
+            assert_eq!(field.min_length, Some(3));
+            assert_eq!(field.max_length, Some(30));
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn parse_match_pattern() {
+        let source = r#"entity User { username string! match:"^[a-z0-9_]+$" }"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            let field = &e.fields[0];
+            assert_eq!(field.name, "username");
+            assert!(field.required);
+            assert_eq!(field.pattern, Some("^[a-z0-9_]+$".to_string()));
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn parse_money_min_constraint() {
+        let source = r#"entity Product { price money! min:0 }"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            let field = &e.fields[0];
+            assert_eq!(field.name, "price");
+            assert!(field.required);
+            assert_eq!(field.min, Some(0.0));
+            assert!(field.max.is_none());
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn parse_text_max_length() {
+        let source = r#"entity Post { description text max:5000 }"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            let field = &e.fields[0];
+            assert_eq!(field.name, "description");
+            assert_eq!(field.max_length, Some(5000));
+            assert!(field.min_length.is_none());
+        } else {
+            panic!("Expected entity node");
         }
     }
 }
