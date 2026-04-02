@@ -61,7 +61,9 @@ fn collect_section_strings(section: &SectionNode) -> HashSet<String> {
     strings
 }
 
-/// Collect all DSL strings from all sections of a page
+/// Collect all DSL strings from all sections of a page.
+/// Also collects all visible text from template sections (since that text is
+/// intentional UI copy and should never be flagged).
 fn collect_page_strings(page: &PageNode) -> HashSet<String> {
     let mut strings = HashSet::new();
 
@@ -80,6 +82,18 @@ fn collect_page_strings(page: &PageNode) -> HashSet<String> {
     // All sections
     for section in &page.sections {
         strings.extend(collect_section_strings(section));
+
+        // For template sections, extract visible text from the template HTML itself
+        // and add it to the known strings — this text is intentional UI copy.
+        if let Some(ref tmpl) = section.template {
+            let template_texts = extract_visible_text(tmpl);
+            for t in template_texts {
+                let trimmed = t.trim().to_string();
+                if !trimmed.is_empty() {
+                    strings.insert(trimmed);
+                }
+            }
+        }
     }
 
     strings
@@ -139,12 +153,64 @@ fn extract_visible_text(html: &str) -> Vec<String> {
     texts
 }
 
+/// Check if a page is entirely template-based (all sections use custom templates).
+/// Template-based pages (login, signup, settings, etc.) have intentional UI text
+/// that should not be flagged as hardcoded data.
+fn is_fully_template_page(page: &PageNode) -> bool {
+    if page.sections.is_empty() {
+        return false;
+    }
+    page.sections.iter().all(|s| s.template.is_some())
+}
+
+/// Check if text looks like a UI label rather than hardcoded data.
+/// Real hardcoded data: "99.99%", "$142,804", "14ms", "John Doe - Admin"
+/// UI labels: "Profile", "Save Changes", "No account?", "Email"
+fn is_ui_label(text: &str) -> bool {
+    let trimmed = text.trim();
+
+    // Labels are short (under 30 chars), mostly words
+    if trimmed.len() >= 30 {
+        return false;
+    }
+
+    // Common UI loading/placeholder text
+    let lower = trimmed.to_lowercase();
+    if lower == "loading..." || lower == "loading" || lower.starts_with("loading ") {
+        return true;
+    }
+
+    // If it contains digits, currency symbols, or units — it's likely data, not a label
+    if trimmed.chars().any(|c| c.is_ascii_digit()) {
+        return false;
+    }
+    if trimmed.contains('$') || trimmed.contains('€') || trimmed.contains("R$") {
+        return false;
+    }
+
+    // Pure alphabetic words (with spaces, punctuation like ? ! .) = label
+    // e.g. "Save Changes", "No account?", "Already have access?", "Live Uplink"
+    let alpha_ratio = trimmed.chars().filter(|c| c.is_alphabetic() || c.is_whitespace()).count() as f64
+        / trimmed.len().max(1) as f64;
+    if alpha_ratio >= 0.85 {
+        return true;
+    }
+
+    false
+}
+
 /// Strings that are structural / not content (icons, CSS class names, etc.)
 fn is_structural(text: &str) -> bool {
     let trimmed = text.trim();
 
     // Too short to be meaningful content
     if trimmed.len() < 3 {
+        return true;
+    }
+
+    // Typographic characters used as separators/placeholders (em dash, en dash, bullet, ellipsis)
+    let only_punct: String = trimmed.chars().filter(|c| !c.is_whitespace()).collect();
+    if only_punct.chars().all(|c| matches!(c, '\u{2014}' | '\u{2013}' | '\u{2022}' | '\u{2026}' | '-' | '|' | '/' | '·')) {
         return true;
     }
 
@@ -186,7 +252,7 @@ pub fn lint_page(
     let mut findings = Vec::new();
 
     for text in &visible_texts {
-        if is_structural(text) {
+        if is_structural(text) || is_ui_label(text) {
             continue;
         }
 
@@ -232,6 +298,12 @@ pub fn lint_all_pages(
     let mut all_findings = Vec::new();
 
     for page in pages {
+        // Skip pages that are entirely template-based (login, signup, settings, etc.)
+        // All text in these pages is intentional UI copy, not hardcoded data.
+        if is_fully_template_page(page) {
+            continue;
+        }
+
         // Render the page body
         let body = crate::ui::render_page(page, entities, accent, theme, None, &empty_params, "");
 

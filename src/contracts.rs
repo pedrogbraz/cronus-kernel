@@ -215,7 +215,7 @@ static PAGE_HEADER_CONTRACT: SectionContract = SectionContract {
     entity_binding: false,
     on_unknown_key: Fallback::Warn,
     on_missing_required: Fallback::Error,
-    config_keys: &["action_text"],
+    config_keys: &["action_text", "eyebrow"],
 };
 
 static TABS_CONTRACT: SectionContract = SectionContract {
@@ -285,7 +285,65 @@ static CHART_CONTRACT: SectionContract = SectionContract {
     entity_binding: false,
     on_unknown_key: Fallback::Warn,
     on_missing_required: Fallback::Error,
-    config_keys: &["style", "type"],
+    config_keys: &["style", "type", "periods", "x_axis", "y_axis"],
+};
+
+// ── Shell / Template Contracts ─────────────────────────────────────────────
+
+static HERO_CONTRACT: SectionContract = SectionContract {
+    name: "hero",
+    layer: Layer::Pattern,
+    stability: Stability::Stable,
+    requires_title: false,
+    requires_items: false,
+    min_items: 0,
+    config_keys: &["title", "subtitle", "cta_text", "cta_link", "style", "image"],
+    structural_keys: &[opt("title"), opt("name"), opt("description"), opt("link"), opt("icon")],
+    entity_binding: false,
+    on_unknown_key: Fallback::Ignore,
+    on_missing_required: Fallback::Error,
+};
+
+static TOPBAR_CONTRACT: SectionContract = SectionContract {
+    name: "topbar",
+    layer: Layer::Core,
+    stability: Stability::Stable,
+    requires_title: false,
+    requires_items: false,
+    min_items: 0,
+    config_keys: &["title", "logo", "style"],
+    structural_keys: &[opt("name"), opt("title"), opt("link"), opt("icon")],
+    entity_binding: false,
+    on_unknown_key: Fallback::Ignore,
+    on_missing_required: Fallback::Error,
+};
+
+static SIDEBAR_CONTRACT: SectionContract = SectionContract {
+    name: "sidebar",
+    layer: Layer::Core,
+    stability: Stability::Stable,
+    requires_title: false,
+    requires_items: false,
+    min_items: 0,
+    config_keys: &["title", "style", "collapsed"],
+    structural_keys: &[opt("name"), opt("title"), opt("link"), opt("icon"), opt("badge")],
+    entity_binding: false,
+    on_unknown_key: Fallback::Ignore,
+    on_missing_required: Fallback::Error,
+};
+
+static FOOTER_CONTRACT: SectionContract = SectionContract {
+    name: "footer",
+    layer: Layer::Core,
+    stability: Stability::Stable,
+    requires_title: false,
+    requires_items: false,
+    min_items: 0,
+    config_keys: &["title", "style", "copyright"],
+    structural_keys: &[opt("name"), opt("title"), opt("link"), opt("icon")],
+    entity_binding: false,
+    on_unknown_key: Fallback::Ignore,
+    on_missing_required: Fallback::Error,
 };
 
 // ── Registry ────────────────────────────────────────────────────────────────
@@ -307,6 +365,10 @@ static ALL_CONTRACTS: &[&SectionContract] = &[
     &ACCORDION_CONTRACT,
     &BREADCRUMB_CONTRACT,
     &CHART_CONTRACT,
+    &HERO_CONTRACT,
+    &TOPBAR_CONTRACT,
+    &SIDEBAR_CONTRACT,
+    &FOOTER_CONTRACT,
 ];
 
 static ALL_NAMES: &[&str] = &[
