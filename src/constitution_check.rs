@@ -480,6 +480,7 @@ mod tests {
                 default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
             }).collect(),
             transitions: vec![],
+            effects: vec![],
             shared: false,
             doc: None,
         })

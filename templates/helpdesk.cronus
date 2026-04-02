@@ -1,0 +1,194 @@
+/// Helpdesk — Support ticket system with SLA tracking.
+/// Priority-based routing, agent assignment, full ticket lifecycle.
+/// @template helpdesk
+/// @author CRONUS
+app "Helpdesk" {
+  stack fullstack
+  port 5175
+  database sqlite "./data.db"
+  theme dark
+
+  constitution {
+    must "critical tickets must be assigned within 1 hour"
+    must "all status changes emit webhooks"
+    must "resolved tickets require a resolution note"
+    never "delete tickets — archive instead"
+    never "reassign without notifying original agent"
+  }
+}
+
+# -- Entities --
+
+/// Support agent handling tickets.
+entity Agent shared {
+  name string! max:100
+  email email! unique
+  password string! sensitive min:8
+  role enum ["admin", "lead", "agent"] default:"agent"
+  /// Maximum concurrent open tickets
+  max_tickets number default:"20" min:1 max:100
+  active boolean default:"true"
+}
+
+/// Customer who submits support requests.
+entity Customer shared {
+  name string! max:120
+  email email! unique
+  phone phone
+  company string max:120
+}
+
+/// Support ticket with full lifecycle and SLA tracking.
+/// @business Core support entity — SLA clock starts on creation
+entity Ticket shared {
+  /// Short descriptive title
+  subject string! max:200 searchable
+  /// Detailed issue description
+  description text! max:10000
+  customer -> Customer
+  agent -> Agent
+  priority enum ["critical", "high", "medium", "low"] default:"medium"
+  status enum ["open", "assigned", "in_progress", "waiting", "resolved", "closed"] default:"open"
+  category enum ["bug", "feature", "billing", "account", "other"] default:"other"
+  /// SLA deadline timestamp
+  sla_deadline date
+  /// Resolution summary (required before closing)
+  resolution text max:5000
+  satisfaction number min:1 max:5
+
+  transition status {
+    open -> assigned
+    assigned -> in_progress | open
+    in_progress -> waiting | resolved
+    waiting -> in_progress | resolved
+    resolved -> closed | in_progress
+  }
+}
+
+/// Message thread within a ticket.
+entity Message shared {
+  ticket -> Ticket
+  sender_type enum ["agent", "customer", "system"] default:"customer"
+  sender_name string! max:100
+  body text! max:10000
+  /// Whether this message is internal (agent-only)
+  internal boolean default:"false"
+}
+
+# -- Auth --
+
+auth {
+  entity Agent
+  login email
+  session jwt
+  roles [admin, lead, agent]
+}
+
+# -- API --
+
+api /auth {
+  login    POST /login    auth:public
+  register POST /register auth:public
+  me       GET  /me       auth:jwt
+}
+
+api /tickets {
+  list   GET    /       auth:jwt
+  detail GET    /:id    auth:jwt
+  create POST   /       auth:jwt
+  update PATCH  /:id    auth:jwt
+}
+
+api /messages {
+  list   GET    /       auth:jwt
+  create POST   /       auth:jwt
+}
+
+api /customers {
+  list   GET    /       auth:jwt
+  detail GET    /:id    auth:jwt
+  create POST   /       auth:jwt
+  update PATCH  /:id    auth:jwt
+}
+
+api /agents {
+  list   GET    /       auth:jwt
+  detail GET    /:id    auth:jwt
+  update PATCH  /:id    auth:jwt
+}
+
+webhook /tickets {
+  on create -> POST "https://hooks.example.com/support/new-ticket"
+  on update -> POST "https://hooks.example.com/support/ticket-updated"
+}
+
+webhook /messages {
+  on create -> POST "https://hooks.example.com/support/new-message"
+}
+
+# -- Pages --
+
+page "/login" type:form entity:Agent {
+  title "Agent Login"
+  fields [email, password]
+}
+
+page "/dashboard" type:dashboard requires:auth {
+  title "Support Dashboard"
+
+  section stats cols:4 {
+    bind entity:Ticket { query count where status eq "open" }
+    item "Open" value:"count" icon:inbox
+    bind entity:Ticket { query count where status eq "in_progress" }
+    item "In Progress" value:"count" icon:pending
+    bind entity:Ticket { query count where priority eq "critical" }
+    item "Critical" value:"count" icon:error
+    bind entity:Ticket { query count where status eq "resolved" }
+    item "Resolved" value:"count" icon:check_circle
+  }
+
+  section urgent {
+    title "Critical Tickets"
+    bind entity:Ticket { query all where priority eq "critical" order created_at asc limit 10 }
+    columns "Subject, Customer, Agent, Status, SLA Deadline"
+  }
+}
+
+page "/tickets" type:custom requires:auth {
+  title "All Tickets"
+
+  section header {
+    title "Tickets"
+    action "New Ticket" -> "/tickets/new" icon:add
+  }
+
+  section table {
+    search "Filter by subject, customer, or priority..."
+    bind entity:Ticket { query all order created_at desc limit 25 }
+    columns "Subject, Customer, Priority, Status, Agent, Created At"
+  }
+}
+
+page "/tickets/new" type:custom requires:auth {
+  title "New Ticket"
+
+  section form {
+    bind entity:Ticket { query all }
+    item "Subject" required:true
+    item "Description" required:true
+    item "Customer" required:true
+    item "Priority"
+    item "Category"
+    on submit {
+      create Ticket
+      toast "Ticket created"
+      navigate "/tickets"
+    }
+  }
+}
+
+style {
+  theme dark
+  accent amber
+  font "Inter"
+}

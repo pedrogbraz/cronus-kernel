@@ -1,0 +1,191 @@
+/// Blog / CMS — Content management with publish workflow.
+/// Markdown content, SEO-ready slugs, comment moderation.
+/// @template blog
+/// @author CRONUS
+app "Blog CMS" {
+  stack fullstack
+  port 5175
+  database sqlite "./data.db"
+  theme dark
+
+  constitution {
+    must "slugs must be URL-safe and unique"
+    must "published posts require non-empty content"
+    must "comments require moderation before display"
+    never "expose draft posts on public API"
+    never "allow self-approval of comments"
+  }
+}
+
+# -- Entities --
+
+/// Content author with profile and bio.
+entity Author {
+  name string! max:100
+  email email! unique
+  password string! sensitive min:8
+  /// Author bio in markdown
+  bio text max:2000
+  avatar url
+  role enum ["admin", "editor", "writer"] default:"writer"
+}
+
+/// Blog post with full publish lifecycle.
+/// @business Primary content unit — status controls visibility
+entity Post shared {
+  title string! max:200 searchable
+  /// URL-safe slug for SEO
+  slug slug! unique match:"^[a-z0-9-]+$"
+  /// Markdown body content
+  content text!
+  /// Short excerpt for listings and meta description
+  excerpt text max:300
+  author -> Author
+  category -> Category
+  /// SEO meta title (falls back to title if empty)
+  meta_title string max:70
+  /// SEO meta description
+  meta_description string max:160
+  cover_image url
+  status enum ["draft", "review", "published", "archived"] default:"draft"
+  featured boolean default:"false"
+  published_at date
+
+  transition status {
+    draft -> review | published
+    review -> published | draft
+    published -> archived
+    archived -> draft
+  }
+}
+
+/// Post category for content organization.
+entity Category shared {
+  name string! max:80
+  slug slug! unique match:"^[a-z0-9-]+$"
+  description text max:300
+}
+
+/// Tag for flexible cross-cutting content grouping.
+entity Tag shared {
+  name string! max:50 unique
+  slug slug! unique match:"^[a-z0-9-]+$"
+}
+
+/// Reader comment with moderation workflow.
+entity Comment {
+  post -> Post
+  author_name string! max:100
+  author_email email!
+  body text! max:5000
+  approved boolean default:"false"
+}
+
+# -- Auth --
+
+auth {
+  entity Author
+  login email
+  session jwt
+  roles [admin, editor, writer]
+}
+
+# -- API --
+
+api /auth {
+  login    POST /login    auth:public
+  register POST /register auth:public
+  me       GET  /me       auth:jwt
+}
+
+api /posts {
+  list   GET    /        auth:public
+  detail GET    /:slug   auth:public
+  create POST   /        auth:jwt
+  update PATCH  /:id     auth:jwt
+  delete DELETE /:id     auth:jwt
+}
+
+api /categories {
+  list   GET    /     auth:public
+  create POST   /     auth:jwt
+  update PATCH  /:id  auth:jwt
+}
+
+api /tags {
+  list   GET    /     auth:public
+  create POST   /     auth:jwt
+}
+
+api /comments {
+  list   GET    /     auth:public
+  create POST   /     auth:public
+  update PATCH  /:id  auth:jwt
+  delete DELETE /:id  auth:jwt
+}
+
+webhook /posts {
+  on create -> POST "https://hooks.example.com/content/new"
+  on update -> POST "https://hooks.example.com/content/updated"
+}
+
+webhook /comments {
+  on create -> POST "https://hooks.example.com/comments/moderate"
+}
+
+# -- Pages --
+
+page "/login" type:form entity:Author {
+  title "Sign In"
+  fields [email, password]
+}
+
+page "/dashboard" type:dashboard requires:auth {
+  title "Blog Dashboard"
+
+  section stats cols:4 {
+    bind entity:Post { query count }
+    item "Total Posts" value:"count" icon:article
+    bind entity:Post { query count where status eq "published" }
+    item "Published" value:"count" icon:check_circle
+    bind entity:Comment { query count }
+    item "Comments" value:"count" icon:comment
+    bind entity:Author { query count }
+    item "Authors" value:"count" icon:people
+  }
+
+  section recent {
+    title "Recent Posts"
+    bind entity:Post { query all order created_at desc limit 10 }
+    columns "Title, Status, Author, Published At"
+  }
+}
+
+page "/posts" type:custom requires:auth {
+  title "Posts"
+
+  section header {
+    title "All Posts"
+    action "New Post" -> "/posts/new" icon:add
+  }
+
+  section table {
+    bind entity:Post { query all order created_at desc limit 25 }
+    columns "Title, Slug, Status, Category, Featured"
+  }
+}
+
+page "/comments" type:custom requires:auth {
+  title "Comment Moderation"
+
+  section table {
+    bind entity:Comment { query all order created_at desc limit 25 }
+    columns "Post, Author Name, Body, Approved"
+  }
+}
+
+style {
+  theme dark
+  accent sky
+  font "Inter"
+}

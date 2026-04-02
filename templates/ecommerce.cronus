@@ -1,0 +1,192 @@
+/// E-commerce Platform — Full storefront with order state machine.
+/// Inventory tracking, price in centavos, category hierarchy.
+/// @template ecommerce
+/// @author CRONUS
+app "E-commerce Store" {
+  stack fullstack
+  port 5175
+  database sqlite "./data.db"
+  theme dark
+
+  constitution {
+    must "prices in centavos — use formatPrice()"
+    must "stock cannot go negative"
+    must "order total must equal sum of items"
+    never "expose customer payment details"
+    never "allow checkout with zero-stock items"
+  }
+}
+
+# -- Entities --
+
+/// Product category for catalog organization.
+entity Category shared {
+  name string! max:80
+  slug slug! unique match:"^[a-z0-9-]+$"
+  description text max:500
+  /// Sort priority — lower values appear first
+  sort_order number default:"0" min:0
+}
+
+/// Product in the catalog with inventory tracking.
+/// @business Core commerce entity — price always in centavos
+entity Product shared {
+  name string! max:200 searchable
+  slug slug! unique
+  /// Price in centavos (2990 = R$29.90)
+  price money! min:0
+  /// Compare-at price for sale display (centavos)
+  compare_price money min:0
+  sku string unique match:"^[A-Z0-9-]+$"
+  /// Available inventory units
+  stock number! default:"0" min:0
+  category -> Category
+  description text
+  image_url url
+  active boolean default:"true"
+}
+
+/// Registered customer with shipping info.
+entity Customer shared {
+  name string! max:120
+  email email! unique
+  phone phone
+  address text max:500
+  city string max:100
+  state string max:50
+  zip string max:20 match:"^[0-9-]+$"
+}
+
+/// Order with full lifecycle state machine.
+/// @business Revenue tracking — status drives fulfillment pipeline
+entity Order shared {
+  customer -> Customer
+  /// Order total in centavos
+  total money! min:0
+  status enum ["cart", "pending", "paid", "shipped", "delivered", "cancelled"] default:"cart"
+  shipping_address text
+  tracking_code string
+  notes text max:1000
+
+  transition status {
+    cart -> pending
+    pending -> paid | cancelled
+    paid -> shipped | cancelled
+    shipped -> delivered
+  }
+}
+
+/// Individual line item within an order.
+entity OrderItem shared {
+  order -> Order
+  product -> Product
+  quantity number! min:1 max:9999
+  /// Unit price snapshot in centavos (locked at purchase time)
+  unit_price money! min:0
+}
+
+# -- Auth --
+
+auth {
+  entity Customer
+  login email
+  session jwt
+  roles [admin, staff]
+}
+
+# -- API --
+
+api /auth {
+  login    POST /login    auth:public
+  register POST /register auth:public
+  me       GET  /me       auth:jwt
+}
+
+api /categories {
+  list   GET    /       auth:public
+  create POST   /       auth:jwt
+  update PATCH  /:id    auth:jwt
+}
+
+api /products {
+  list   GET    /       auth:public
+  detail GET    /:id    auth:public
+  create POST   /       auth:jwt
+  update PATCH  /:id    auth:jwt
+  delete DELETE /:id    auth:jwt
+}
+
+api /orders {
+  list   GET    /       auth:jwt
+  detail GET    /:id    auth:jwt
+  create POST   /       auth:jwt
+  update PATCH  /:id    auth:jwt
+}
+
+api /orderitems {
+  list   GET    /       auth:jwt
+  create POST   /       auth:jwt
+  delete DELETE /:id    auth:jwt
+}
+
+webhook /orders {
+  on create -> POST "https://hooks.example.com/orders/new"
+  on update -> POST "https://hooks.example.com/orders/status"
+}
+
+# -- Pages --
+
+page "/login" type:form entity:Customer {
+  title "Sign In"
+  fields [email, password]
+}
+
+page "/dashboard" type:dashboard requires:auth {
+  title "Store Dashboard"
+
+  section stats cols:4 {
+    bind entity:Product { query count }
+    item "Products" value:"count" icon:inventory_2
+    bind entity:Order { query count }
+    item "Orders" value:"count" icon:shopping_cart
+    bind entity:Order { query sum field:total }
+    item "Revenue" value:"sum" icon:attach_money
+    bind entity:Customer { query count }
+    item "Customers" value:"count" icon:people
+  }
+
+  section recent {
+    title "Recent Orders"
+    bind entity:Order { query all order created_at desc limit 10 }
+    columns "Customer, Total, Status, Tracking Code"
+  }
+}
+
+page "/products" type:custom requires:auth {
+  title "Product Catalog"
+
+  section header {
+    title "Products"
+    action "Add Product" -> "/products/new" icon:add
+  }
+
+  section table {
+    bind entity:Product { query all order name asc limit 25 }
+    columns "Name, Price, Stock, SKU, Active"
+  }
+}
+
+page "/orders" type:custom requires:auth {
+  title "Orders"
+
+  section table {
+    bind entity:Order { query all order created_at desc limit 25 }
+    columns "Customer, Total, Status, Tracking Code, Created At"
+  }
+}
+
+style {
+  theme dark
+  accent emerald
+  font "Inter"
+}

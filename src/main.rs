@@ -71,6 +71,12 @@ pub static STRICT_MODE: AtomicBool = AtomicBool::new(false);
 pub static STRICT_AI_MODE: AtomicBool = AtomicBool::new(false);
 pub static DEBUG_MODE: AtomicBool = AtomicBool::new(false);
 
+/// Cache for the last `--ai` build result, served by `GET /api/_errors`.
+/// Written by `cmd_build` when `--ai` flag is used, read by the server.
+use std::sync::{Mutex, LazyLock};
+pub static LAST_AI_ERRORS: LazyLock<Mutex<Option<serde_json::Value>>> =
+    LazyLock::new(|| Mutex::new(None));
+
 #[derive(Clone, serde::Serialize)]
 struct RequestTrace {
     id: String,
@@ -201,7 +207,8 @@ fn print_help() {
     println!("    \x1b[32mdebug\x1b[0m [port]           Run with request tracing, colored logs, /api/debug/traces");
     println!("    \x1b[32mnew\x1b[0m <template>       Create project (landing/admin/saas/api/ecommerce/blog)");
     println!("    \x1b[32mseed\x1b[0m [count]          Seed database with fake data (default: 10 rows)");
-    println!("    \x1b[32mbuild\x1b[0m [--strict] [--strict-ai]  Parse and validate .cronus file (strict mode)");
+    println!("    \x1b[32mbuild\x1b[0m [--strict] [--strict-ai] [--ai|--machine|--json-errors]  Validate .cronus file");
+    println!("          --ai / --machine / --json-errors: AI-Error Protocol (structured JSON with fix hints)");
     println!("    \x1b[32mparse\x1b[0m <file> [--strict] Parse and show AST (strict mode)");
     println!("    \x1b[32mdeploy\x1b[0m           Generate deploy artifacts (--fly, --railway, --static)");
     println!("    \x1b[32mdoctor\x1b[0m           Check .cronus syntax + DB + ports");
@@ -2667,6 +2674,7 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                             Some(entity) => match state.db.validated_insert(entity, data) {
                                 Ok(row) => {
                                     fire_webhooks(&state.webhooks, table, "create", &row);
+                                    fire_effects(entity, "create", &row, None, &state.brain, &state.sse_hub);
                                     let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
                                     let _ = state.audit_trail.log("INSERT", table, &row_id, owner_id, &row, None);
                                     state.sse_hub.broadcast(sse::DataChangeEvent {
@@ -2692,6 +2700,7 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                             None => match state.db.insert(table, data) {
                                 Ok(row) => {
                                     fire_webhooks(&state.webhooks, table, "create", &row);
+                                    fire_effects(entity, "create", &row, None, &state.brain, &state.sse_hub);
                                     let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
                                     let _ = state.audit_trail.log("INSERT", table, &row_id, owner_id, &row, None);
                                     state.sse_hub.broadcast(sse::DataChangeEvent {
@@ -2727,6 +2736,7 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                             match state.db.update(table, segments[1], data) {
                             Ok(row) => {
                                 fire_webhooks(&state.webhooks, table, "update", &row);
+                                fire_effects(entity, "update", &row, prev_record.as_ref(), &state.brain, &state.sse_hub);
                                 let _ = state.audit_trail.log("UPDATE", table, segments[1], owner_id, &row, prev_record.as_ref());
                                 state.sse_hub.broadcast(sse::DataChangeEvent {
                                     entity: table.to_string(),
@@ -2749,7 +2759,11 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                     let prev_record = state.db.find_by_id(table, segments[1]).ok().flatten();
                     match state.db.delete(table, segments[1]) {
                         Ok(true) => {
-                            fire_webhooks(&state.webhooks, table, "delete", &json!({"id": segments[1], "entity": table}));
+                            let delete_payload = json!({"id": segments[1], "entity": table});
+                            fire_webhooks(&state.webhooks, table, "delete", &delete_payload);
+                            // For effects, use prev_record if available (has field values for interpolation)
+                            let effect_record = prev_record.as_ref().unwrap_or(&delete_payload);
+                            fire_effects(entity, "delete", effect_record, None, &state.brain, &state.sse_hub);
                             let _ = state.audit_trail.log("DELETE", table, segments[1], owner_id, &json!({"id": segments[1]}), prev_record.as_ref());
                             state.sse_hub.broadcast(sse::DataChangeEvent {
                                 entity: table.to_string(),
@@ -2885,6 +2899,142 @@ fn fire_webhooks(webhooks: &[parser::WebhookNode], entity: &str, event: &str, pa
                     eprintln!("  \x1b[33m⚠\x1b[0m Webhook failed: {}", url);
                 }
             });
+        }
+    }
+}
+
+/// Execute entity effect blocks after create/update/delete.
+/// Interpolates `{{field}}` placeholders with record values.
+/// For "on update <field>" effects, checks if the field changed and matches `when` conditions.
+fn fire_effects(
+    entity: &parser::EntityNode,
+    event: &str,
+    record: &serde_json::Value,
+    prev_record: Option<&serde_json::Value>,
+    brain: &Option<brain::CronusBrain>,
+    sse_hub: &Arc<sse::SseHub>,
+) {
+    for effect in &entity.effects {
+        if effect.event != event {
+            continue;
+        }
+
+        // For "on update <field>" — check if the specific field changed
+        if event == "update" {
+            if let Some(ref watched_field) = effect.field {
+                let new_val = record.get(watched_field).and_then(|v| v.as_str()).unwrap_or("");
+                let old_val = prev_record
+                    .and_then(|p| p.get(watched_field))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                if new_val == old_val {
+                    continue; // field didn't change, skip this effect block
+                }
+
+                // Process actions, respecting `when` conditions
+                for action in &effect.actions {
+                    if let Some(ref condition) = action.condition {
+                        if condition != new_val {
+                            continue; // condition doesn't match current value
+                        }
+                    }
+                    execute_effect_action(action, &entity.name, record, brain, sse_hub);
+                }
+                continue;
+            }
+        }
+
+        // For "on create" / "on delete" / "on update" (no specific field) — run all actions
+        for action in &effect.actions {
+            execute_effect_action(action, &entity.name, record, brain, sse_hub);
+        }
+    }
+}
+
+/// Interpolate `{{field_name}}` placeholders in a message with actual record values.
+fn interpolate_effect_message(template: &str, record: &serde_json::Value) -> String {
+    let mut result = template.to_string();
+    // Find all {{field}} patterns and replace with record values
+    while let Some(start) = result.find("{{") {
+        if let Some(end) = result[start..].find("}}") {
+            let field_name = &result[start + 2..start + end];
+            let value = record
+                .get(field_name)
+                .map(|v| match v {
+                    serde_json::Value::String(s) => s.clone(),
+                    other => other.to_string(),
+                })
+                .unwrap_or_default();
+            result = format!("{}{}{}", &result[..start], value, &result[start + end + 2..]);
+        } else {
+            break;
+        }
+    }
+    result
+}
+
+/// Execute a single effect action (log or notify).
+fn execute_effect_action(
+    action: &parser::EffectAction,
+    entity_name: &str,
+    record: &serde_json::Value,
+    brain: &Option<brain::CronusBrain>,
+    sse_hub: &Arc<sse::SseHub>,
+) {
+    match action.action_type.as_str() {
+        "log" => {
+            if let Some(msg_template) = action.args.first() {
+                let message = interpolate_effect_message(msg_template, record);
+                eprintln!("  \x1b[36m[effect]\x1b[0m {} → {}", entity_name, message);
+                // Write to brain events
+                if let Some(ref brain) = brain {
+                    brain.track(&format!("effect:{}", entity_name), &json!({
+                        "type": "log",
+                        "entity": entity_name,
+                        "message": message,
+                        "record_id": record.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                    }));
+                }
+            }
+        }
+        "notify" => {
+            // args: [provider, channel/severity, message]
+            let provider = action.args.get(0).cloned().unwrap_or_default();
+            let channel = action.args.get(1).cloned().unwrap_or_default();
+            let msg_template = action.args.get(2).cloned().unwrap_or_default();
+            let message = interpolate_effect_message(&msg_template, record);
+
+            eprintln!("  \x1b[35m[notify]\x1b[0m {} → {}:{} — {}", entity_name, provider, channel, message);
+
+            // Write to brain events for tracking
+            if let Some(ref brain) = brain {
+                brain.track(&format!("effect:notify:{}", entity_name), &json!({
+                    "type": "notify",
+                    "entity": entity_name,
+                    "provider": provider,
+                    "channel": channel,
+                    "message": message,
+                    "record_id": record.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                }));
+            }
+
+            // Broadcast via SSE so dashboards can react
+            sse_hub.broadcast(sse::DataChangeEvent {
+                entity: format!("_effect_notify_{}", entity_name.to_lowercase()),
+                action: "notification".to_string(),
+                id: record.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            });
+        }
+        _ => {
+            // Generic/unknown action — log it
+            if let Some(ref brain) = brain {
+                brain.track(&format!("effect:{}:{}", action.action_type, entity_name), &json!({
+                    "type": action.action_type,
+                    "entity": entity_name,
+                    "args": action.args,
+                    "record_id": record.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                }));
+            }
         }
     }
 }
@@ -3171,6 +3321,7 @@ async fn cmd_run(args: &[String]) {
         name: "_brain_events".to_string(),
         shared: true,
         transitions: Vec::new(),
+        effects: Vec::new(),
         fields: vec![
             parser::FieldNode {
                 name: "event".to_string(),
@@ -4512,13 +4663,22 @@ fn spec_list(args: &[String]) {
 
 fn cmd_build(args: &[String]) {
     let strict_ai = args.iter().any(|a| a == "--strict-ai");
+    let ai_mode = args.iter().any(|a| a == "--ai" || a == "--machine" || a == "--json-errors");
     let strict = args.iter().any(|a| a == "--strict") || strict_ai;
     let file = args.iter().skip(2)
         .find(|a| !a.starts_with("--"))
         .cloned()
         .or_else(find_cronus_file)
         .unwrap_or_else(|| {
-            if strict_ai {
+            if ai_mode {
+                let result = json!({
+                    "valid": false,
+                    "errors": [{"code": "PARSE_001", "severity": "fatal", "category": "filesystem", "message": "No .cronus file found", "location": {}, "fix": {"action": "add", "target": "*.cronus", "hint": "Create a .cronus file in the current directory or specify a path"}}],
+                    "context": {"entities": 0, "pages": 0, "resolve_errors": 0, "lint_errors": 0, "constitution_violations": 0, "total_errors": 1}
+                });
+                println!("{}", serde_json::to_string_pretty(&result).unwrap());
+                *LAST_AI_ERRORS.lock().unwrap() = Some(result);
+            } else if strict_ai {
                 println!("{}", json!({"valid": false, "errors": [{"message": "No .cronus file found"}]}));
             } else {
                 eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found");
@@ -4530,6 +4690,24 @@ fn cmd_build(args: &[String]) {
     match parser::parse(&source) {
         Ok(nodes) => {
             let (entities, pages, routes) = parser::stats(&nodes);
+
+            // ── AI-Error Protocol mode (--ai / --machine / --json-errors) ──
+            if ai_mode {
+                let ai_result = build_ai_error_json(&nodes, &file, entities, pages, routes);
+                println!("{}", serde_json::to_string_pretty(&ai_result).unwrap());
+                let valid = ai_result["valid"].as_bool().unwrap_or(false);
+                *LAST_AI_ERRORS.lock().unwrap() = Some(ai_result);
+                if !valid {
+                    std::process::exit(1);
+                }
+                // Save snapshot silently in AI mode (no stdout pollution)
+                let snapshot = ast_diff::snapshot_from_ast(&nodes);
+                let _ = fs::create_dir_all(".cronus");
+                if let Ok(json_str) = serde_json::to_string_pretty(&snapshot) {
+                    let _ = fs::write(".cronus/ast-snapshot.json", &json_str);
+                }
+                return;
+            }
 
             // In strict-ai mode, run contract validation and promote warnings to errors
             if strict_ai {
@@ -4702,7 +4880,15 @@ fn cmd_build(args: &[String]) {
             save_ast_snapshot(&nodes);
         }
         Err(e) => {
-            if strict_ai {
+            if ai_mode {
+                let result = json!({
+                    "valid": false,
+                    "errors": [{"code": "PARSE_001", "severity": "fatal", "category": "syntax", "message": format!("{}", e), "location": {}, "fix": {"action": "replace", "target": "", "hint": "Fix the syntax error in the .cronus file"}}],
+                    "context": {"entities": 0, "pages": 0, "resolve_errors": 0, "lint_errors": 0, "constitution_violations": 0, "total_errors": 1}
+                });
+                println!("{}", serde_json::to_string_pretty(&result).unwrap());
+                *LAST_AI_ERRORS.lock().unwrap() = Some(result);
+            } else if strict_ai {
                 println!("{}", json!({"valid": false, "errors": [{"type": "parse_error", "message": e, "severity": "error"}]}));
             } else {
                 eprintln!("  \x1b[31m\u{2717}\x1b[0m Parse error: {}", e);
@@ -4710,6 +4896,218 @@ fn cmd_build(args: &[String]) {
             std::process::exit(1);
         }
     }
+}
+
+/// Build the AI-Error Protocol JSON from all validation passes.
+/// Collects errors from contract validation, resolve, lint, hardcode lint, and constitution.
+fn build_ai_error_json(nodes: &[AstNode], file: &str, entity_count: usize, page_count: usize, route_count: usize) -> Value {
+    let mut ai_errors: Vec<Value> = Vec::new();
+    let mut resolve_counter = 0usize;
+    let mut lint_counter = 0usize;
+    let mut constitution_counter = 0usize;
+    let mut contract_counter = 0usize;
+
+    // Pass 1: Contract validation (section schemas)
+    for node in nodes {
+        if let AstNode::Page(page) = node {
+            for section in &page.sections {
+                let section_warnings = contracts::validate_section(section, &[]);
+                for w in section_warnings {
+                    contract_counter += 1;
+                    let code = format!("CONTRACT_{:03}", contract_counter);
+                    let (msg, fix, line) = match w {
+                        contracts::ParseWarning::UnknownSection { ref name, line } => (
+                            format!("Unknown section type '{}'", name),
+                            json!({"action": "replace", "target": name, "hint": "Check valid section types: hero, features, pricing, kpi, table, chart, form, etc."}),
+                            line,
+                        ),
+                        contracts::ParseWarning::UnknownKey { ref section, ref key, .. } => (
+                            format!("Unknown key '{}' in section '{}'", key, section),
+                            json!({"action": "remove", "target": key, "hint": format!("Remove or replace with a valid key for '{}' sections", section)}),
+                            0,
+                        ),
+                        contracts::ParseWarning::MissingRequired { ref section, ref key, .. } => (
+                            format!("Missing required key '{}' in section '{}'", key, section),
+                            json!({"action": "add", "target": key, "hint": format!("Add '{}' to the {} section item", key, section)}),
+                            0,
+                        ),
+                        contracts::ParseWarning::AliasUsed { ref alias, ref canonical, line } => (
+                            format!("'{}' is an alias — use canonical name '{}'", alias, canonical),
+                            json!({"action": "replace", "target": alias, "replacement": canonical}),
+                            line,
+                        ),
+                        contracts::ParseWarning::MinItemsViolation { ref section, expected, actual, line } => (
+                            format!("Section '{}' requires at least {} items, found {}", section, expected, actual),
+                            json!({"action": "add", "target": "item", "hint": format!("Add {} more item(s) to '{}' section", expected - actual, section)}),
+                            line,
+                        ),
+                        contracts::ParseWarning::UnknownConfig { ref section, ref key, line } => (
+                            format!("Unknown config key '{}' in section '{}'", key, section),
+                            json!({"action": "remove", "target": key, "hint": format!("Remove unknown config key from '{}' section", section)}),
+                            line,
+                        ),
+                    };
+                    ai_errors.push(json!({
+                        "code": code,
+                        "severity": "error",
+                        "category": "contract",
+                        "message": msg,
+                        "location": {"line": line, "section": format!("{} ({})", section.section_type, page.route), "block": "section"},
+                        "fix": fix,
+                    }));
+                }
+            }
+        }
+    }
+
+    // Pass 2: Resolve — cross-reference validation (fatal)
+    let (_symbol_table, resolve_errors) = resolve::resolve(nodes);
+    let resolve_error_count = resolve_errors.len();
+    for re in &resolve_errors {
+        resolve_counter += 1;
+        let code = format!("RESOLVE_{:03}", resolve_counter);
+        let target_name = re.message.split('\'').nth(1).unwrap_or("").to_string();
+
+        let fix = if let Some(ref sug) = re.suggestion {
+            json!({"action": "replace", "target": &target_name, "replacement": sug})
+        } else if re.message.contains("must be an enum") {
+            json!({"action": "replace", "target": format!("{} field type", target_name), "hint": "Change field type to enum with valid values"})
+        } else {
+            json!({"action": "add", "target": &target_name, "hint": "Define this entity or reference"})
+        };
+
+        let section_hint = if re.message.contains("page '") {
+            format!("page {}", re.message.split("page '").nth(1).and_then(|s| s.split('\'').next()).unwrap_or(""))
+        } else if re.message.contains("entity '") {
+            format!("entity {}", re.message.split("entity '").last().and_then(|s| s.split('\'').next()).unwrap_or(""))
+        } else { String::new() };
+
+        let category = if re.message.contains("Transition") { "state_machine" } else { "reference" };
+        let block = if re.message.contains("bind") { "bind" }
+            else if re.message.contains("Transition") { "transition" }
+            else { "reference" };
+
+        ai_errors.push(json!({
+            "code": code,
+            "severity": "fatal",
+            "category": category,
+            "message": re.message,
+            "suggestion": re.suggestion,
+            "location": {"section": section_hint, "block": block},
+            "fix": fix,
+        }));
+    }
+
+    // Pass 3: Lint — Zero Hardcode Enforcement (7 rules)
+    let lint_results = lint::lint_ast(nodes, true);
+    let lint_error_count = lint_results.iter().filter(|r| matches!(r.severity, lint::Severity::Error)).count();
+    let lint_warning_count = lint_results.iter().filter(|r| matches!(r.severity, lint::Severity::Warning)).count();
+    for lr in &lint_results {
+        lint_counter += 1;
+        let code = format!("LINT_{:03}", lint_counter);
+        let severity = match lr.severity { lint::Severity::Error => "error", lint::Severity::Warning => "warning" };
+
+        let fix = if lr.rule.contains("dead-text") || lr.rule.contains("hardcode") {
+            json!({"action": "wrap_in_dynamic", "target": lr.message.split('\'').nth(1).unwrap_or(&lr.message), "hint": &lr.fix})
+        } else if lr.rule.contains("dead-link") {
+            json!({"action": "replace", "target": lr.message.split('\'').nth(1).unwrap_or(""), "hint": &lr.fix})
+        } else if lr.rule.contains("bind-or-empty") {
+            json!({"action": "add_bind", "target": &lr.section, "hint": &lr.fix})
+        } else if lr.rule.contains("sensitive") {
+            json!({"action": "remove", "target": lr.message.split('\'').nth(1).unwrap_or(""), "hint": &lr.fix})
+        } else if lr.rule.contains("auth") {
+            json!({"action": "add_auth", "target": &lr.page, "hint": &lr.fix})
+        } else {
+            json!({"action": "replace", "target": "", "hint": &lr.fix})
+        };
+
+        ai_errors.push(json!({
+            "code": code,
+            "severity": severity,
+            "category": "hardcode",
+            "message": lr.message,
+            "location": {"section": lr.section, "page": lr.page, "block": "template"},
+            "fix": fix,
+        }));
+    }
+
+    // Pass 3b: Hardcode lint (rendered HTML analysis)
+    let mut all_pages = Vec::new();
+    let mut all_entities = Vec::new();
+    let mut style_node: Option<parser::StyleNode> = None;
+    for node in nodes {
+        match node {
+            AstNode::Page(p) => all_pages.push(p.clone()),
+            AstNode::Entity(e) => all_entities.push(e.clone()),
+            AstNode::Style(s) => style_node = Some(s.clone()),
+            _ => {}
+        }
+    }
+    let hc_findings = hardcode_lint::lint_all_pages(&all_pages, &all_entities, style_node.as_ref());
+    for f in &hc_findings {
+        lint_counter += 1;
+        let code = format!("LINT_{:03}", lint_counter);
+        ai_errors.push(json!({
+            "code": code,
+            "severity": f.severity,
+            "category": "hardcode",
+            "message": format!("Hardcoded text '{}' in page '{}' — should come from .cronus data", f.text, f.page),
+            "location": {"page": f.page, "block": "template"},
+            "fix": {"action": "wrap_in_dynamic", "target": &f.text, "hint": "Use <span id='...'>...</span> populated via JS fetch or move to section data"}
+        }));
+    }
+
+    // Pass 4: Constitution enforcement
+    let mut constitution_violation_count = 0usize;
+    let constitution_app = nodes.iter().find_map(|n| {
+        if let AstNode::App(a) = n { Some(a) } else { None }
+    });
+    if let Some(app_node) = constitution_app {
+        if let Some(ref c) = app_node.constitution {
+            let cv = constitution_check::check_constitution(nodes, c);
+            let real_violations: Vec<_> = cv.iter().filter(|v| v.rule_type != "info").collect();
+            constitution_violation_count = real_violations.len();
+            for v in &real_violations {
+                constitution_counter += 1;
+                let code = format!("CONSTITUTION_{:03}", constitution_counter);
+                let fix = if v.rule.to_lowercase().contains("auth") {
+                    json!({"action": "add_auth", "target": v.entity.clone().unwrap_or_default(), "hint": format!("Add requires: auth to comply with rule: {}", v.rule)})
+                } else if v.rule.to_lowercase().contains("bind") {
+                    json!({"action": "add_bind", "target": &v.violation, "hint": format!("Add bind block to comply with rule: {}", v.rule)})
+                } else {
+                    json!({"action": "add", "target": "", "hint": format!("Fix violation of constitution rule: {}", v.rule)})
+                };
+                ai_errors.push(json!({
+                    "code": code,
+                    "severity": "fatal",
+                    "category": "constitution",
+                    "message": v.violation,
+                    "rule": v.rule,
+                    "entity": v.entity,
+                    "location": {"block": "constitution", "section": v.entity.clone().unwrap_or_default()},
+                    "fix": fix,
+                }));
+            }
+        }
+    }
+
+    let total_errors = ai_errors.len();
+    let valid = total_errors == 0;
+    json!({
+        "valid": valid,
+        "errors": ai_errors,
+        "context": {
+            "file": file,
+            "entities": entity_count,
+            "pages": page_count,
+            "routes": route_count,
+            "resolve_errors": resolve_error_count,
+            "lint_errors": lint_error_count + hc_findings.len(),
+            "lint_warnings": lint_warning_count,
+            "constitution_violations": constitution_violation_count,
+            "total_errors": total_errors,
+        }
+    })
 }
 
 fn cmd_validate(args: &[String]) {
@@ -4835,23 +5233,39 @@ fn cmd_validate(args: &[String]) {
 }
 
 fn cmd_new(args: &[String]) {
+    let all_templates = ["landing", "admin", "saas", "api", "ecommerce", "blog", "helpdesk", "crm"];
+
     let template = args.get(2).map(|s| s.as_str()).unwrap_or_else(|| {
         eprintln!("  Usage: cronus new <template>");
-        eprintln!("  Templates: landing, admin, saas, api, ecommerce, blog");
+        eprintln!("  Templates: {}", all_templates.join(", "));
         std::process::exit(1);
     });
 
-    let content = match template {
-        "landing" => TEMPLATE_LANDING,
-        "admin" => TEMPLATE_ADMIN,
-        "saas" => TEMPLATE_SAAS,
-        "api" => TEMPLATE_API,
-        "ecommerce" => TEMPLATE_ECOMMERCE,
-        "blog" => TEMPLATE_BLOG,
-        _ => {
-            eprintln!("  \x1b[33m✗\x1b[0m Unknown template: {}", template);
-            eprintln!("  Available: landing, admin, saas, api, ecommerce, blog");
-            std::process::exit(1);
+    // Try loading from templates/ directory next to the binary first
+    let template_from_file = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|p| p.to_path_buf()))
+        .map(|dir| dir.join("templates").join(format!("{}.cronus", template)))
+        .and_then(|path| fs::read_to_string(&path).ok());
+
+    let content: &str = if let Some(ref file_content) = template_from_file {
+        file_content.as_str()
+    } else {
+        // Fall back to embedded templates
+        match template {
+            "landing" => TEMPLATE_LANDING,
+            "admin" => TEMPLATE_ADMIN,
+            "saas" => TEMPLATE_SAAS,
+            "api" => TEMPLATE_API,
+            "ecommerce" => TEMPLATE_ECOMMERCE,
+            "blog" => TEMPLATE_BLOG,
+            "helpdesk" => TEMPLATE_HELPDESK,
+            "crm" => TEMPLATE_CRM,
+            _ => {
+                eprintln!("  \x1b[33m✗\x1b[0m Unknown template: {}", template);
+                eprintln!("  Available: {}", all_templates.join(", "));
+                std::process::exit(1);
+            }
         }
     };
 
@@ -5409,248 +5823,6 @@ style {
 }
 "#;
 
-const TEMPLATE_SAAS: &str = r#"# SaaS Platform — CRONUS
-# Template: saas (landing + auth + dashboard + billing)
-# Public landing page + authenticated dashboard with role-based access.
-
-app "My SaaS" {
-  stack react + tailwind
-  port 5175
-  theme dark
-  database sqlite "./data.db"
-}
-
-# ── Entities ──
-
-entity User {
-  name      string    required
-  email     email     required unique
-  password  string    required sensitive
-  role      enum      [admin, member, viewer]
-  plan      enum      [free, starter, pro, enterprise]
-  avatar    url
-  createdAt date
-}
-
-entity Team {
-  name      string    required
-  slug      slug      required unique
-  plan      enum      [free, starter, pro, enterprise]
-  owner     string    required
-  createdAt date
-}
-
-entity Project {
-  name        string    required
-  description text
-  status      enum      [active, paused, completed]
-  team        string    required
-  createdAt   date
-}
-
-entity Invoice {
-  amount    money     required
-  status    enum      [pending, paid, overdue, cancelled]
-  plan      enum      [starter, pro, enterprise]
-  team      string    required
-  period    date      required
-  createdAt date
-}
-
-# ── Auth ──
-
-auth {
-  entity User
-  login email
-  session jwt
-  roles [admin, member, viewer]
-}
-
-# ── Layout (authenticated pages) ──
-
-layout "app" {
-  sidebar {
-    brand "My SaaS"
-    nav "Dashboard"  -> "/dashboard" icon:dashboard
-    nav "Projects"   -> "/projects"  icon:folder
-    nav "Billing"    -> "/billing"   icon:credit_card
-    ---
-    nav "Settings"   -> "/settings"  icon:settings requires:admin
-  }
-}
-
-# ── API ──
-
-api /auth {
-  login     POST   /login     auth:public
-  register  POST   /register  auth:public
-  me        GET    /me        auth:jwt
-}
-
-api /teams {
-  list    GET    /        auth:jwt
-  create  POST   /        auth:jwt
-  detail  GET    /:id     auth:jwt
-}
-
-api /projects {
-  list    GET    /        auth:jwt
-  create  POST   /        auth:jwt
-  detail  GET    /:id     auth:jwt
-  update  PATCH  /:id     auth:jwt
-  delete  DELETE /:id     auth:jwt
-}
-
-api /billing {
-  invoices  GET    /invoices  auth:jwt
-}
-
-# ── Public Landing ──
-
-page "/" type:custom {
-  section hero {
-    badge "LAUNCHING SOON"
-    title "Your SaaS Platform"
-    subtitle "The all-in-one platform for modern teams."
-    cta "Start Free" -> "/signup" primary
-    cta "See Pricing" -> "/#pricing" secondary
-  }
-
-  section features cols:3 style:cards {
-    item "Team Management" icon:users {
-      "Invite members, assign roles, manage permissions"
-    }
-    item "Project Tracking" icon:kanban {
-      "Track progress with boards, lists, and timelines"
-    }
-    item "Billing" icon:credit-card {
-      "Automatic invoicing with Stripe integration"
-    }
-  }
-
-  section pricing cols:3 {
-    plan "Starter" $29/mo [
-      "5 team members",
-      "10 projects",
-      "Email support"
-    ]
-    plan "Pro" $79/mo featured [
-      "25 team members",
-      "Unlimited projects",
-      "Priority support"
-    ]
-    plan "Enterprise" $199/mo [
-      "Unlimited everything",
-      "Dedicated support",
-      "SLA 99.99%"
-    ]
-  }
-}
-
-# ── Auth Pages ──
-
-page "/login" type:form entity:User {
-  title "Sign In"
-  fields [email, password]
-}
-
-page "/signup" type:form entity:User {
-  title "Create Account"
-  fields [name, email, password]
-}
-
-# ── Dashboard with KPIs ──
-
-page "/dashboard" type:dashboard requires:auth {
-  title "Dashboard"
-
-  section stats cols:3 {
-    bind entity:Project { query count }
-    item "Projects" value:"count" icon:folder
-    bind entity:Invoice { query count where status eq "paid" }
-    item "Paid Invoices" value:"count" icon:check_circle
-    bind entity:Invoice { query sum field:amount }
-    item "Total Billed" value:"sum" icon:attach_money
-  }
-
-  section recent-projects {
-    title "Recent Projects"
-    bind entity:Project {
-      query all
-      order createdAt desc
-      limit 5
-    }
-    columns "Name, Status, Team, Created"
-    on click {
-      navigate "/projects/:id"
-    }
-  }
-}
-
-# ── Projects CRUD ──
-
-page "/projects" type:custom requires:auth {
-  title "Projects"
-
-  section header {
-    title "Projects"
-    action "New Project" -> "/projects/new" icon:add
-  }
-
-  section project-table {
-    bind entity:Project {
-      query all
-      order createdAt desc
-      limit 25
-    }
-    columns "Name, Status, Team, Created"
-    on click {
-      navigate "/projects/:id"
-    }
-  }
-}
-
-page "/projects/new" type:custom requires:auth {
-  title "New Project"
-
-  section form {
-    bind entity:Project { query all }
-    item "Name" required:true
-    item "Description"
-    item "Team" required:true
-    item "Status"
-    on submit {
-      create Project
-      toast "Project created"
-      navigate "/projects"
-    }
-  }
-}
-
-# ── Billing ──
-
-page "/billing" type:custom requires:auth {
-  title "Billing"
-
-  section invoice-table {
-    bind entity:Invoice {
-      query all
-      order createdAt desc
-      limit 25
-    }
-    columns "Amount, Status, Plan, Period"
-  }
-}
-
-style {
-  theme dark
-  accent violet
-  background neutral-950
-  radius xl
-  font "Inter"
-}
-"#;
-
 const TEMPLATE_API: &str = r#"# API Backend — CRONUS
 # Template: api (no UI, just backend)
 
@@ -5711,118 +5883,314 @@ service api port:3001 {
 }
 "#;
 
-const TEMPLATE_ECOMMERCE: &str = r#"# E-commerce — CRONUS
-# Template: ecommerce (storefront + admin + orders)
-# Public storefront + authenticated admin panel for managing products/orders.
-
-app "My Store" {
-  stack react + tailwind
+const TEMPLATE_SAAS: &str = r#"/// SaaS Starter — Multi-tenant platform with Stripe-ready billing.
+/// Role-based access control, organization management, and subscription lifecycle.
+/// @template saas
+/// @author CRONUS
+app "SaaS Platform" {
+  stack fullstack
   port 5175
-  theme dark
   database sqlite "./data.db"
+  theme dark
+
+  constitution {
+    must "prices in centavos — use formatPrice()"
+    must "all billing mutations require auth"
+    must "subscription changes emit webhooks"
+    never "expose payment tokens in API responses"
+    never "allow plan downgrade with active usage over limit"
+  }
 }
 
-# ── Entities ──
+# -- Entities --
 
+/// Platform user with role-based access.
 entity User {
-  name      string    required
-  email     email     required unique
-  password  string    required sensitive
-  role      enum      [admin, staff]
+  /// Full display name
+  name string! max:100
+  email email! unique
+  password string! sensitive min:8
+  /// Role determines access level across the platform
+  role enum ["owner", "admin", "member", "viewer"] default:"member"
+  avatar url
+  org -> Organization
 }
 
-entity Product {
-  name        string    required
-  description text
-  price       money     required
-  sku         string    unique
-  stock       number
-  category    enum      [electronics, clothing, food, accessories, other]
-  imageUrl    url
-  active      boolean
-  createdAt   date
+/// Tenant organization — all resources scoped here.
+entity Organization shared {
+  name string! max:120
+  slug slug! unique match:"^[a-z0-9-]+$"
+  /// Stripe customer ID for billing integration
+  stripe_id string unique
+  plan -> Plan
+  seats number default:"5" min:1 max:500
 }
 
-entity Customer {
-  name      string    required
-  email     email     required unique
-  phone     phone
-  address   text
-  createdAt date
+/// Billing plan with Stripe price mapping.
+entity Plan shared {
+  name string!
+  /// Monthly price in centavos (2990 = R$29.90)
+  price_monthly money! min:0
+  price_yearly money min:0
+  /// Stripe price ID for checkout session
+  stripe_price_id string unique
+  max_seats number default:"5" min:1
+  max_projects number default:"10" min:1
+  active boolean default:"true"
 }
 
-entity Purchase {
-  customer    string    required
-  status      enum      [pending, paid, shipped, delivered, cancelled]
-  total       money     required
-  createdAt   date
+/// Subscription linking org to plan with lifecycle state.
+/// @business Core revenue entity — state changes trigger Stripe sync
+entity Subscription shared {
+  org -> Organization
+  plan -> Plan
+  status enum ["trialing", "active", "past_due", "canceled", "paused"] default:"trialing"
+  current_period_end date
+  cancel_at date
+
+  transition status {
+    trialing -> active | canceled
+    active -> past_due | canceled | paused
+    past_due -> active | canceled
+    paused -> active | canceled
+  }
 }
 
-# ── Auth ──
+# -- Auth --
 
 auth {
   entity User
   login email
   session jwt
+  roles [owner, admin, member, viewer]
+}
+
+# -- API --
+
+api /auth {
+  login    POST /login    auth:public
+  register POST /register auth:public
+  me       GET  /me       auth:jwt
+}
+
+api /organizations {
+  list   GET    /       auth:jwt
+  create POST   /       auth:jwt
+  detail GET    /:id    auth:jwt
+  update PATCH  /:id    auth:jwt
+}
+
+api /plans {
+  list   GET  /     auth:public
+  detail GET  /:id  auth:public
+}
+
+api /subscriptions {
+  current GET    /current          auth:jwt
+  create  POST   /                 auth:jwt
+  update  PATCH  /:id              auth:jwt
+  cancel  POST   /:id/cancel       auth:jwt
+}
+
+webhook /subscriptions {
+  on create -> POST "https://api.stripe.com/v1/subscriptions"
+  on update -> POST "https://hooks.example.com/billing/changed"
+}
+
+webhook /organizations {
+  on create -> POST "https://hooks.example.com/org/provisioned"
+}
+
+# -- Pages --
+
+page "/login" type:form entity:User {
+  title "Sign In"
+  fields [email, password]
+}
+
+page "/dashboard" type:dashboard requires:auth {
+  title "Dashboard"
+
+  section stats cols:3 {
+    bind entity:Organization { query count }
+    item "Organizations" value:"count" icon:business
+    bind entity:Subscription { query count where status eq "active" }
+    item "Active Subscriptions" value:"count" icon:check_circle
+    bind entity:User { query count }
+    item "Total Users" value:"count" icon:people
+  }
+
+  section recent {
+    title "Recent Subscriptions"
+    bind entity:Subscription { query all order current_period_end desc limit 10 }
+    columns "Org, Plan, Status, Current Period End"
+  }
+}
+
+page "/billing" type:custom requires:auth {
+  title "Billing"
+
+  section subscription {
+    title "Current Plan"
+    bind entity:Subscription { query one }
+  }
+
+  section plans {
+    title "Available Plans"
+    bind entity:Plan { query all }
+    columns "Name, Price Monthly, Price Yearly, Max Seats"
+  }
+}
+
+style {
+  theme dark
+  accent violet
+  font "Inter"
+}
+"#;
+
+const TEMPLATE_ECOMMERCE: &str = r#"/// E-commerce Platform — Full storefront with order state machine.
+/// Inventory tracking, price in centavos, category hierarchy.
+/// @template ecommerce
+/// @author CRONUS
+app "E-commerce Store" {
+  stack fullstack
+  port 5175
+  database sqlite "./data.db"
+  theme dark
+
+  constitution {
+    must "prices in centavos — use formatPrice()"
+    must "stock cannot go negative"
+    must "order total must equal sum of items"
+    never "expose customer payment details"
+    never "allow checkout with zero-stock items"
+  }
+}
+
+# -- Entities --
+
+/// Product category for catalog organization.
+entity Category shared {
+  name string! max:80
+  slug slug! unique match:"^[a-z0-9-]+$"
+  description text max:500
+  /// Sort priority — lower values appear first
+  sort_order number default:"0" min:0
+}
+
+/// Product in the catalog with inventory tracking.
+/// @business Core commerce entity — price always in centavos
+entity Product shared {
+  name string! max:200 searchable
+  slug slug! unique
+  /// Price in centavos (2990 = R$29.90)
+  price money! min:0
+  /// Compare-at price for sale display (centavos)
+  compare_price money min:0
+  sku string unique match:"^[A-Z0-9-]+$"
+  /// Available inventory units
+  stock number! default:"0" min:0
+  category -> Category
+  description text
+  image_url url
+  active boolean default:"true"
+}
+
+/// Registered customer with shipping info.
+entity Customer shared {
+  name string! max:120
+  email email! unique
+  phone phone
+  address text max:500
+  city string max:100
+  state string max:50
+  zip string max:20 match:"^[0-9-]+$"
+}
+
+/// Order with full lifecycle state machine.
+/// @business Revenue tracking — status drives fulfillment pipeline
+entity Order shared {
+  customer -> Customer
+  /// Order total in centavos
+  total money! min:0
+  status enum ["cart", "pending", "paid", "shipped", "delivered", "cancelled"] default:"cart"
+  shipping_address text
+  tracking_code string
+  notes text max:1000
+
+  transition status {
+    cart -> pending
+    pending -> paid | cancelled
+    paid -> shipped | cancelled
+    shipped -> delivered
+  }
+}
+
+/// Individual line item within an order.
+entity OrderItem shared {
+  order -> Order
+  product -> Product
+  quantity number! min:1 max:9999
+  /// Unit price snapshot in centavos (locked at purchase time)
+  unit_price money! min:0
+}
+
+# -- Auth --
+
+auth {
+  entity Customer
+  login email
+  session jwt
   roles [admin, staff]
 }
 
-# ── Layout (admin pages) ──
-
-layout "store-admin" {
-  sidebar {
-    brand "Store Admin"
-    nav "Dashboard"  -> "/dashboard" icon:dashboard
-    nav "Products"   -> "/products"  icon:inventory_2
-    nav "Orders"     -> "/purchases" icon:shopping_cart
-    nav "Customers"  -> "/customers" icon:people
-  }
-}
-
-# ── API ──
+# -- API --
 
 api /auth {
-  login   POST  /login   auth:public
-  signup  POST  /signup  auth:public
-  me      GET   /me      auth:jwt
+  login    POST /login    auth:public
+  register POST /register auth:public
+  me       GET  /me       auth:jwt
+}
+
+api /categories {
+  list   GET    /       auth:public
+  create POST   /       auth:jwt
+  update PATCH  /:id    auth:jwt
 }
 
 api /products {
-  list    GET    /        auth:public
-  detail  GET    /:id     auth:public
-  create  POST   /        auth:jwt
-  edit    PATCH  /:id     auth:jwt
-  delete  DELETE /:id     auth:jwt
+  list   GET    /       auth:public
+  detail GET    /:id    auth:public
+  create POST   /       auth:jwt
+  update PATCH  /:id    auth:jwt
+  delete DELETE /:id    auth:jwt
 }
 
-api /purchases {
-  list    GET    /        auth:jwt
-  create  POST   /        auth:public
-  detail  GET    /:id     auth:jwt
-  update  PATCH  /:id     auth:jwt
+api /orders {
+  list   GET    /       auth:jwt
+  detail GET    /:id    auth:jwt
+  create POST   /       auth:jwt
+  update PATCH  /:id    auth:jwt
 }
 
-api /customers {
-  list    GET    /        auth:jwt
-  detail  GET    /:id     auth:jwt
+api /orderitems {
+  list   GET    /       auth:jwt
+  create POST   /       auth:jwt
+  delete DELETE /:id    auth:jwt
 }
 
-# ── Public Storefront ──
-
-page "/" type:custom {
-  section hero {
-    title "Welcome to Our Store"
-    subtitle "Find amazing products at great prices"
-    cta "Shop Now" -> "/products" primary
-  }
-  section features cols:3 style:cards {
-    item "Fast Shipping" icon:zap { "Free delivery on orders over $50" }
-    item "Secure Payment" icon:shield { "Encrypted checkout with Stripe" }
-    item "Easy Returns" icon:globe { "30-day return policy on all items" }
-  }
+webhook /orders {
+  on create -> POST "https://hooks.example.com/orders/new"
+  on update -> POST "https://hooks.example.com/orders/status"
 }
 
-# ── Admin Dashboard ──
+# -- Pages --
+
+page "/login" type:form entity:Customer {
+  title "Sign In"
+  fields [email, password]
+}
 
 page "/dashboard" type:dashboard requires:auth {
   title "Store Dashboard"
@@ -5830,341 +6198,655 @@ page "/dashboard" type:dashboard requires:auth {
   section stats cols:4 {
     bind entity:Product { query count }
     item "Products" value:"count" icon:inventory_2
-    bind entity:Purchase { query count }
+    bind entity:Order { query count }
     item "Orders" value:"count" icon:shopping_cart
-    bind entity:Purchase { query sum field:total }
+    bind entity:Order { query sum field:total }
     item "Revenue" value:"sum" icon:attach_money
     bind entity:Customer { query count }
     item "Customers" value:"count" icon:people
   }
 
-  section recent-orders {
+  section recent {
     title "Recent Orders"
-    bind entity:Purchase {
-      query all
-      order createdAt desc
-      limit 10
-    }
-    columns "Customer, Total, Status, Date"
-    on click {
-      navigate "/purchases/:id"
-    }
+    bind entity:Order { query all order created_at desc limit 10 }
+    columns "Customer, Total, Status, Tracking Code"
   }
 }
 
-# ── Products Management ──
-
 page "/products" type:custom requires:auth {
-  title "Products"
+  title "Product Catalog"
 
   section header {
-    title "Product Catalog"
+    title "Products"
     action "Add Product" -> "/products/new" icon:add
   }
 
-  section product-table {
-    bind entity:Product {
-      query all
-      order name asc
-      limit 25
-    }
-    columns "Name, Price, Stock, Category, Active"
-    on click {
-      navigate "/products/:id"
-    }
+  section table {
+    bind entity:Product { query all order name asc limit 25 }
+    columns "Name, Price, Stock, SKU, Active"
   }
 }
 
-page "/products/new" type:custom requires:auth {
-  title "Add Product"
-
-  section form {
-    bind entity:Product { query all }
-    item "Name" required:true
-    item "Price" required:true
-    item "SKU"
-    item "Stock"
-    item "Category"
-    item "Description"
-    on submit {
-      create Product
-      toast "Product added"
-      navigate "/products"
-    }
-  }
-}
-
-# ── Orders ──
-
-page "/purchases" type:custom requires:auth {
+page "/orders" type:custom requires:auth {
   title "Orders"
 
-  section order-table {
-    bind entity:Purchase {
-      query all
-      order createdAt desc
-      limit 25
-    }
-    columns "Customer, Total, Status, Date"
+  section table {
+    bind entity:Order { query all order created_at desc limit 25 }
+    columns "Customer, Total, Status, Tracking Code, Created At"
   }
-}
-
-# ── Login ──
-
-page "/login" type:form entity:User {
-  title "Sign In"
-  fields [email, password]
 }
 
 style {
   theme dark
   accent emerald
-  background neutral-950
-  radius lg
   font "Inter"
 }
 "#;
 
-const TEMPLATE_BLOG: &str = r#"# Blog — CRONUS
-# Template: blog (posts + authors + comments)
-# Public blog with authenticated admin for writing/managing posts.
-
-app "My Blog" {
-  stack react + tailwind
+const TEMPLATE_BLOG: &str = r#"/// Blog / CMS — Content management with publish workflow.
+/// Markdown content, SEO-ready slugs, comment moderation.
+/// @template blog
+/// @author CRONUS
+app "Blog CMS" {
+  stack fullstack
   port 5175
-  theme dark
   database sqlite "./data.db"
-}
+  theme dark
 
-# ── Entities ──
-
-entity User {
-  name      string    required
-  email     email     required unique
-  password  string    required sensitive
-  role      enum      [admin, editor]
-}
-
-entity Author {
-  name      string    required
-  email     email     required unique
-  bio       text
-  avatar    url
-  createdAt date
-}
-
-entity Post {
-  title       string    required
-  slug        slug      required unique
-  content     text      required
-  excerpt     text
-  author      -> Author
-  status      enum      [draft, published, archived]
-  coverImage  url
-  publishedAt date
-  createdAt   date
-}
-
-entity Comment {
-  post        -> Post
-  authorName  string    required
-  authorEmail email     required
-  body        text      required
-  approved    boolean
-  createdAt   date
-}
-
-# ── Auth ──
-
-auth {
-  entity User
-  login email
-  session jwt
-  roles [admin, editor]
-}
-
-# ── Layout (admin pages) ──
-
-layout "blog-admin" {
-  sidebar {
-    brand "Blog Admin"
-    nav "Dashboard"  -> "/dashboard" icon:dashboard
-    nav "Posts"      -> "/admin/posts" icon:article
-    nav "Authors"    -> "/admin/authors" icon:people
-    nav "Comments"   -> "/admin/comments" icon:comment
+  constitution {
+    must "slugs must be URL-safe and unique"
+    must "published posts require non-empty content"
+    must "comments require moderation before display"
+    never "expose draft posts on public API"
+    never "allow self-approval of comments"
   }
 }
 
-# ── API ──
+# -- Entities --
+
+/// Content author with profile and bio.
+entity Author {
+  name string! max:100
+  email email! unique
+  password string! sensitive min:8
+  /// Author bio in markdown
+  bio text max:2000
+  avatar url
+  role enum ["admin", "editor", "writer"] default:"writer"
+}
+
+/// Blog post with full publish lifecycle.
+/// @business Primary content unit — status controls visibility
+entity Post shared {
+  title string! max:200 searchable
+  /// URL-safe slug for SEO
+  slug slug! unique match:"^[a-z0-9-]+$"
+  /// Markdown body content
+  content text!
+  /// Short excerpt for listings and meta description
+  excerpt text max:300
+  author -> Author
+  category -> Category
+  /// SEO meta title (falls back to title if empty)
+  meta_title string max:70
+  /// SEO meta description
+  meta_description string max:160
+  cover_image url
+  status enum ["draft", "review", "published", "archived"] default:"draft"
+  featured boolean default:"false"
+  published_at date
+
+  transition status {
+    draft -> review | published
+    review -> published | draft
+    published -> archived
+    archived -> draft
+  }
+}
+
+/// Post category for content organization.
+entity Category shared {
+  name string! max:80
+  slug slug! unique match:"^[a-z0-9-]+$"
+  description text max:300
+}
+
+/// Tag for flexible cross-cutting content grouping.
+entity Tag shared {
+  name string! max:50 unique
+  slug slug! unique match:"^[a-z0-9-]+$"
+}
+
+/// Reader comment with moderation workflow.
+entity Comment {
+  post -> Post
+  author_name string! max:100
+  author_email email!
+  body text! max:5000
+  approved boolean default:"false"
+}
+
+# -- Auth --
+
+auth {
+  entity Author
+  login email
+  session jwt
+  roles [admin, editor, writer]
+}
+
+# -- API --
 
 api /auth {
-  login   POST  /login   auth:public
-  signup  POST  /signup  auth:public
-  me      GET   /me      auth:jwt
+  login    POST /login    auth:public
+  register POST /register auth:public
+  me       GET  /me       auth:jwt
 }
 
 api /posts {
-  list    GET    /        auth:public
-  detail  GET    /:slug   auth:public
-  create  POST   /        auth:jwt
-  update  PATCH  /:id     auth:jwt
-  delete  DELETE /:id     auth:jwt
+  list   GET    /        auth:public
+  detail GET    /:slug   auth:public
+  create POST   /        auth:jwt
+  update PATCH  /:id     auth:jwt
+  delete DELETE /:id     auth:jwt
 }
 
-api /authors {
-  list    GET    /        auth:public
-  detail  GET    /:id     auth:public
-  create  POST   /        auth:jwt
+api /categories {
+  list   GET    /     auth:public
+  create POST   /     auth:jwt
+  update PATCH  /:id  auth:jwt
+}
+
+api /tags {
+  list   GET    /     auth:public
+  create POST   /     auth:jwt
 }
 
 api /comments {
-  list    GET    /        auth:public
-  create  POST   /        auth:public
-  delete  DELETE /:id     auth:jwt
+  list   GET    /     auth:public
+  create POST   /     auth:public
+  update PATCH  /:id  auth:jwt
+  delete DELETE /:id  auth:jwt
 }
 
-# ── Public Blog ──
-
-page "/" type:custom {
-  section hero {
-    title "My Blog"
-    subtitle "Thoughts, stories, and ideas"
-    cta "Read Latest" -> "/posts" primary
-  }
-  section features cols:3 style:cards {
-    item "Fresh Content" icon:zap { "New articles published weekly" }
-    item "Open Discussion" icon:users { "Comment and engage with authors" }
-    item "Curated Topics" icon:tag { "Browse by tags and categories" }
-  }
-
-  section latest-posts {
-    title "Latest Posts"
-    bind entity:Post {
-      query all
-      order publishedAt desc
-      limit 5
-    }
-    columns "Title, Author, Published"
-    on click {
-      navigate "/posts/:slug"
-    }
-  }
+webhook /posts {
+  on create -> POST "https://hooks.example.com/content/new"
+  on update -> POST "https://hooks.example.com/content/updated"
 }
 
-# ── Admin Dashboard ──
+webhook /comments {
+  on create -> POST "https://hooks.example.com/comments/moderate"
+}
+
+# -- Pages --
+
+page "/login" type:form entity:Author {
+  title "Sign In"
+  fields [email, password]
+}
 
 page "/dashboard" type:dashboard requires:auth {
   title "Blog Dashboard"
 
-  section stats cols:3 {
+  section stats cols:4 {
     bind entity:Post { query count }
     item "Total Posts" value:"count" icon:article
     bind entity:Post { query count where status eq "published" }
     item "Published" value:"count" icon:check_circle
     bind entity:Comment { query count }
     item "Comments" value:"count" icon:comment
+    bind entity:Author { query count }
+    item "Authors" value:"count" icon:people
   }
 
-  section recent-posts {
+  section recent {
     title "Recent Posts"
-    bind entity:Post {
-      query all
-      order createdAt desc
-      limit 10
-    }
-    columns "Title, Status, Author, Created"
-    on click {
-      navigate "/admin/posts/:id"
-    }
+    bind entity:Post { query all order created_at desc limit 10 }
+    columns "Title, Status, Author, Published At"
   }
 }
 
-# ── Post Management ──
-
-page "/admin/posts" type:custom requires:auth {
+page "/posts" type:custom requires:auth {
   title "Posts"
 
   section header {
-    title "Posts"
-    action "New Post" -> "/admin/posts/new" icon:add
+    title "All Posts"
+    action "New Post" -> "/posts/new" icon:add
   }
 
-  section post-table {
-    bind entity:Post {
-      query all
-      order createdAt desc
-      limit 25
-    }
-    columns "Title, Slug, Status, Author, Published"
-    on click {
-      navigate "/admin/posts/:id"
-    }
+  section table {
+    bind entity:Post { query all order created_at desc limit 25 }
+    columns "Title, Slug, Status, Category, Featured"
   }
 }
 
-page "/admin/posts/new" type:custom requires:auth {
-  title "New Post"
+page "/comments" type:custom requires:auth {
+  title "Comment Moderation"
 
-  section form {
-    bind entity:Post { query all }
-    item "Title" required:true
-    item "Slug" required:true
-    item "Content" required:true
-    item "Excerpt"
-    item "Status"
-    item "Cover Image"
-    on submit {
-      create Post
-      toast "Post created"
-      navigate "/admin/posts"
-    }
+  section table {
+    bind entity:Comment { query all order created_at desc limit 25 }
+    columns "Post, Author Name, Body, Approved"
   }
-}
-
-# ── Author Management ──
-
-page "/admin/authors" type:custom requires:auth {
-  title "Authors"
-
-  section author-table {
-    bind entity:Author {
-      query all
-      order name asc
-    }
-    columns "Name, Email, Created"
-  }
-}
-
-# ── Comment Moderation ──
-
-page "/admin/comments" type:custom requires:auth {
-  title "Comments"
-
-  section comment-table {
-    bind entity:Comment {
-      query all
-      order createdAt desc
-      limit 25
-    }
-    columns "Author Name, Body, Approved, Created"
-  }
-}
-
-# ── Login ──
-
-page "/login" type:form entity:User {
-  title "Sign In"
-  fields [email, password]
 }
 
 style {
   theme dark
   accent sky
-  background neutral-950
-  radius lg
   font "Inter"
 }
 "#;
+
+const TEMPLATE_HELPDESK: &str = r#"/// Helpdesk — Support ticket system with SLA tracking.
+/// Priority-based routing, agent assignment, full ticket lifecycle.
+/// @template helpdesk
+/// @author CRONUS
+app "Helpdesk" {
+  stack fullstack
+  port 5175
+  database sqlite "./data.db"
+  theme dark
+
+  constitution {
+    must "critical tickets must be assigned within 1 hour"
+    must "all status changes emit webhooks"
+    must "resolved tickets require a resolution note"
+    never "delete tickets — archive instead"
+    never "reassign without notifying original agent"
+  }
+}
+
+# -- Entities --
+
+/// Support agent handling tickets.
+entity Agent shared {
+  name string! max:100
+  email email! unique
+  password string! sensitive min:8
+  role enum ["admin", "lead", "agent"] default:"agent"
+  /// Maximum concurrent open tickets
+  max_tickets number default:"20" min:1 max:100
+  active boolean default:"true"
+}
+
+/// Customer who submits support requests.
+entity Customer shared {
+  name string! max:120
+  email email! unique
+  phone phone
+  company string max:120
+}
+
+/// Support ticket with full lifecycle and SLA tracking.
+/// @business Core support entity — SLA clock starts on creation
+entity Ticket shared {
+  /// Short descriptive title
+  subject string! max:200 searchable
+  /// Detailed issue description
+  description text! max:10000
+  customer -> Customer
+  agent -> Agent
+  priority enum ["critical", "high", "medium", "low"] default:"medium"
+  status enum ["open", "assigned", "in_progress", "waiting", "resolved", "closed"] default:"open"
+  category enum ["bug", "feature", "billing", "account", "other"] default:"other"
+  /// SLA deadline timestamp
+  sla_deadline date
+  /// Resolution summary (required before closing)
+  resolution text max:5000
+  satisfaction number min:1 max:5
+
+  transition status {
+    open -> assigned
+    assigned -> in_progress | open
+    in_progress -> waiting | resolved
+    waiting -> in_progress | resolved
+    resolved -> closed | in_progress
+  }
+}
+
+/// Message thread within a ticket.
+entity Message shared {
+  ticket -> Ticket
+  sender_type enum ["agent", "customer", "system"] default:"customer"
+  sender_name string! max:100
+  body text! max:10000
+  /// Whether this message is internal (agent-only)
+  internal boolean default:"false"
+}
+
+# -- Auth --
+
+auth {
+  entity Agent
+  login email
+  session jwt
+  roles [admin, lead, agent]
+}
+
+# -- API --
+
+api /auth {
+  login    POST /login    auth:public
+  register POST /register auth:public
+  me       GET  /me       auth:jwt
+}
+
+api /tickets {
+  list   GET    /       auth:jwt
+  detail GET    /:id    auth:jwt
+  create POST   /       auth:jwt
+  update PATCH  /:id    auth:jwt
+}
+
+api /messages {
+  list   GET    /       auth:jwt
+  create POST   /       auth:jwt
+}
+
+api /customers {
+  list   GET    /       auth:jwt
+  detail GET    /:id    auth:jwt
+  create POST   /       auth:jwt
+  update PATCH  /:id    auth:jwt
+}
+
+api /agents {
+  list   GET    /       auth:jwt
+  detail GET    /:id    auth:jwt
+  update PATCH  /:id    auth:jwt
+}
+
+webhook /tickets {
+  on create -> POST "https://hooks.example.com/support/new-ticket"
+  on update -> POST "https://hooks.example.com/support/ticket-updated"
+}
+
+webhook /messages {
+  on create -> POST "https://hooks.example.com/support/new-message"
+}
+
+# -- Pages --
+
+page "/login" type:form entity:Agent {
+  title "Agent Login"
+  fields [email, password]
+}
+
+page "/dashboard" type:dashboard requires:auth {
+  title "Support Dashboard"
+
+  section stats cols:4 {
+    bind entity:Ticket { query count where status eq "open" }
+    item "Open" value:"count" icon:inbox
+    bind entity:Ticket { query count where status eq "in_progress" }
+    item "In Progress" value:"count" icon:pending
+    bind entity:Ticket { query count where priority eq "critical" }
+    item "Critical" value:"count" icon:error
+    bind entity:Ticket { query count where status eq "resolved" }
+    item "Resolved" value:"count" icon:check_circle
+  }
+
+  section urgent {
+    title "Critical Tickets"
+    bind entity:Ticket { query all where priority eq "critical" order created_at asc limit 10 }
+    columns "Subject, Customer, Agent, Status, SLA Deadline"
+  }
+}
+
+page "/tickets" type:custom requires:auth {
+  title "All Tickets"
+
+  section header {
+    title "Tickets"
+    action "New Ticket" -> "/tickets/new" icon:add
+  }
+
+  section table {
+    search "Filter by subject, customer, or priority..."
+    bind entity:Ticket { query all order created_at desc limit 25 }
+    columns "Subject, Customer, Priority, Status, Agent, Created At"
+  }
+}
+
+page "/tickets/new" type:custom requires:auth {
+  title "New Ticket"
+
+  section form {
+    bind entity:Ticket { query all }
+    item "Subject" required:true
+    item "Description" required:true
+    item "Customer" required:true
+    item "Priority"
+    item "Category"
+    on submit {
+      create Ticket
+      toast "Ticket created"
+      navigate "/tickets"
+    }
+  }
+}
+
+style {
+  theme dark
+  accent amber
+  font "Inter"
+}
+"#;
+
+const TEMPLATE_CRM: &str = r#"/// CRM — Sales pipeline and contact management.
+/// Deal lifecycle tracking, activity logging, revenue forecasting.
+/// @template crm
+/// @author CRONUS
+app "CRM" {
+  stack fullstack
+  port 5175
+  database sqlite "./data.db"
+  theme dark
+
+  constitution {
+    must "deal values in centavos — use formatPrice()"
+    must "all deal stage changes logged as activities"
+    must "contacts require at least email or phone"
+    never "delete deals — mark as lost instead"
+    never "modify closed-won deals without admin role"
+  }
+}
+
+# -- Entities --
+
+/// Company / account in the CRM.
+entity Company shared {
+  name string! max:200 searchable
+  domain url
+  industry enum ["tech", "finance", "healthcare", "retail", "manufacturing", "services", "other"] default:"other"
+  size enum ["1-10", "11-50", "51-200", "201-1000", "1000+"]
+  /// Annual revenue estimate in centavos
+  annual_revenue money min:0
+  phone phone
+  address text max:500
+}
+
+/// Individual contact linked to a company.
+entity Contact shared {
+  name string! max:120 searchable
+  email email unique
+  phone phone
+  title string max:100
+  company -> Company
+  source enum ["website", "referral", "linkedin", "cold", "event", "other"] default:"other"
+}
+
+/// Sales deal progressing through pipeline stages.
+/// @business Core revenue entity — stage drives forecasting
+entity Deal shared {
+  title string! max:200 searchable
+  /// Deal value in centavos (500000 = R$5.000,00)
+  value money! min:0
+  company -> Company
+  contact -> Contact
+  owner string! max:100
+  stage enum ["lead", "qualified", "proposal", "negotiation", "won", "lost"] default:"lead"
+  /// Win probability percentage
+  probability number default:"10" min:0 max:100
+  /// Expected close date
+  expected_close date
+  /// Reason for loss (required when stage = lost)
+  lost_reason text max:500
+  source enum ["inbound", "outbound", "referral", "partner"] default:"inbound"
+
+  transition stage {
+    lead -> qualified | lost
+    qualified -> proposal | lost
+    proposal -> negotiation | lost
+    negotiation -> won | lost
+  }
+}
+
+/// Interaction or event logged against a contact or deal.
+entity Activity shared {
+  type enum ["call", "email", "meeting", "note", "task"] default:"note"
+  subject string! max:200
+  description text max:5000
+  contact -> Contact
+  deal -> Deal
+  /// Who performed this activity
+  performed_by string! max:100
+  completed boolean default:"false"
+  due_date date
+}
+
+/// Free-form note attached to any entity.
+entity Note shared {
+  body text! max:10000
+  contact -> Contact
+  deal -> Deal
+  company -> Company
+  author string! max:100
+}
+
+# -- Auth --
+
+auth {
+  entity Contact
+  login email
+  session jwt
+  roles [admin, manager, rep]
+}
+
+# -- API --
+
+api /auth {
+  login    POST /login    auth:public
+  register POST /register auth:public
+  me       GET  /me       auth:jwt
+}
+
+api /companies {
+  list   GET    /       auth:jwt
+  detail GET    /:id    auth:jwt
+  create POST   /       auth:jwt
+  update PATCH  /:id    auth:jwt
+}
+
+api /contacts {
+  list   GET    /       auth:jwt
+  detail GET    /:id    auth:jwt
+  create POST   /       auth:jwt
+  update PATCH  /:id    auth:jwt
+}
+
+api /deals {
+  list   GET    /       auth:jwt
+  detail GET    /:id    auth:jwt
+  create POST   /       auth:jwt
+  update PATCH  /:id    auth:jwt
+}
+
+api /activities {
+  list   GET    /       auth:jwt
+  create POST   /       auth:jwt
+  update PATCH  /:id    auth:jwt
+}
+
+api /notes {
+  list   GET    /       auth:jwt
+  create POST   /       auth:jwt
+  delete DELETE /:id    auth:jwt
+}
+
+webhook /deals {
+  on create -> POST "https://hooks.example.com/crm/deal-created"
+  on update -> POST "https://hooks.example.com/crm/deal-updated"
+}
+
+webhook /activity {
+  on create -> POST "https://hooks.example.com/crm/activity-logged"
+}
+
+# -- Pages --
+
+page "/login" type:form entity:Contact {
+  title "Sign In"
+  fields [email, password]
+}
+
+page "/dashboard" type:dashboard requires:auth {
+  title "Sales Dashboard"
+
+  section stats cols:4 {
+    bind entity:Deal { query count where stage eq "won" }
+    item "Deals Won" value:"count" icon:emoji_events
+    bind entity:Deal { query sum field:value where stage eq "won" }
+    item "Revenue" value:"sum" icon:attach_money
+    bind entity:Deal { query count where stage eq "negotiation" }
+    item "In Negotiation" value:"count" icon:handshake
+    bind entity:Contact { query count }
+    item "Contacts" value:"count" icon:people
+  }
+
+  section pipeline {
+    title "Active Pipeline"
+    bind entity:Deal { query all order expected_close asc limit 15 }
+    columns "Title, Company, Value, Stage, Probability, Expected Close"
+  }
+}
+
+page "/deals" type:custom requires:auth {
+  title "Deals"
+
+  section header {
+    title "Deal Pipeline"
+    action "New Deal" -> "/deals/new" icon:add
+  }
+
+  section table {
+    search "Filter by title, company, or stage..."
+    bind entity:Deal { query all order created_at desc limit 25 }
+    columns "Title, Company, Value, Stage, Owner, Expected Close"
+  }
+}
+
+page "/contacts" type:custom requires:auth {
+  title "Contacts"
+
+  section header {
+    title "All Contacts"
+    action "Add Contact" -> "/contacts/new" icon:add
+  }
+
+  section table {
+    search "Filter by name, email, or company..."
+    bind entity:Contact { query all order name asc limit 25 }
+    columns "Name, Email, Phone, Company, Source"
+  }
+}
+
+style {
+  theme dark
+  accent blue
+  font "Inter"
+}
+"#;
+
 
 fn cmd_parse(args: &[String]) {
     let file = args.iter().skip(2)
@@ -10211,10 +10893,14 @@ fn cmd_reconcile(args: &[String]) {
                 // Merge transitions from both entities
                 let mut merged_transitions = a.transitions.clone();
                 merged_transitions.extend(b.transitions.clone());
+                // Merge effects from both entities
+                let mut merged_effects = a.effects.clone();
+                merged_effects.extend(b.effects.clone());
                 merged.push(AstNode::Entity(EntityNode {
                     name: name.clone(),
                     fields: merged_fields,
                     transitions: merged_transitions,
+                    effects: merged_effects,
                     shared: a.shared || b.shared,
                     doc: None,
                 }));

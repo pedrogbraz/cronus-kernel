@@ -152,6 +152,20 @@ async fn handle_request(
         return Ok(json_response(StatusCode::OK, health));
     }
 
+    // AI-Error Protocol endpoint — returns last build errors as structured JSON
+    if path == "/api/_errors" && method == Method::GET {
+        let cached = crate::LAST_AI_ERRORS.lock().unwrap();
+        let result = match cached.as_ref() {
+            Some(v) => v.clone(),
+            None => json!({
+                "valid": true,
+                "errors": [],
+                "context": {"message": "No build with --ai has been run yet"}
+            }),
+        };
+        return Ok(json_response(StatusCode::OK, result));
+    }
+
     // SSE endpoint
     if path == "/api/sse" && method == Method::GET {
         // Return a simple keepalive for now — full SSE handled by main.rs

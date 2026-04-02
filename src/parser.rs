@@ -83,8 +83,23 @@ pub struct EntityNode {
     pub name: String,
     pub fields: Vec<FieldNode>,
     pub transitions: Vec<TransitionNode>,
+    pub effects: Vec<EffectBlock>,
     pub shared: bool,
     pub doc: Option<DocComment>,
+}
+
+#[derive(Debug, Clone)]
+pub struct EffectBlock {
+    pub event: String,           // "create", "update", "delete"
+    pub field: Option<String>,   // for "on update status" — which field triggers
+    pub actions: Vec<EffectAction>,
+}
+
+#[derive(Debug, Clone)]
+pub struct EffectAction {
+    pub action_type: String,     // "log", "notify"
+    pub args: Vec<String>,       // for log: [message]; for notify: [provider, channel, message]
+    pub condition: Option<String>, // "when" value (e.g., "Failed")
 }
 
 #[derive(Debug, Clone)]
@@ -999,6 +1014,7 @@ impl Parser {
 
         let mut fields = Vec::new();
         let mut transitions = Vec::new();
+        let mut effects = Vec::new();
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
             // Collect doc-comments for the next field
@@ -1008,6 +1024,13 @@ impl Parser {
             if self.matches(TokenKind::Keyword, Some("transition")) {
                 let transition = self.parse_transition(&fields)?;
                 transitions.push(transition);
+                continue;
+            }
+
+            // Check for effect block: on create/update/delete { ... }
+            if self.matches(TokenKind::Keyword, Some("on")) || self.matches(TokenKind::Identifier, Some("on")) {
+                let effect = self.parse_effect_block()?;
+                effects.push(effect);
                 continue;
             }
 
@@ -1023,7 +1046,7 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(EntityNode { name, fields, transitions, shared, doc: None })
+        Ok(EntityNode { name, fields, transitions, effects, shared, doc: None })
     }
 
     fn parse_field(&mut self) -> Result<Option<FieldNode>, String> {
@@ -1227,6 +1250,135 @@ impl Parser {
         self.expect(TokenKind::RBrace)?;
 
         Ok(TransitionNode { field: field_name, rules })
+    }
+
+    // ── effect block (on create/update/delete) ──
+
+    fn parse_effect_block(&mut self) -> Result<EffectBlock, String> {
+        let on_token = self.advance(); // consume "on"
+        let event_token = self.peek().clone();
+        let event = self.advance().value.to_lowercase(); // create, update, delete
+
+        if !["create", "update", "delete"].contains(&event.as_str()) {
+            return Err(format!(
+                "Line {}: invalid effect event '{}', expected 'create', 'update', or 'delete'",
+                event_token.line, event
+            ));
+        }
+
+        // For "on update <field>", check if next token is a field name (not a brace)
+        let field = if event == "update" && !self.matches(TokenKind::LBrace, None) {
+            let f = self.advance().value;
+            Some(f)
+        } else {
+            None
+        };
+
+        self.expect(TokenKind::LBrace)?;
+
+        let mut actions = Vec::new();
+        let mut current_condition: Option<String> = None;
+        let mut in_when_block = false;
+
+        loop {
+            if self.matches(TokenKind::Eof, None) { break; }
+
+            // If we see RBrace and we're inside a "when" block, close the when block
+            if self.matches(TokenKind::RBrace, None) {
+                if in_when_block {
+                    self.advance(); // consume closing brace of when block
+                    current_condition = None;
+                    in_when_block = false;
+                    continue;
+                } else {
+                    break; // closing brace of the effect block itself
+                }
+            }
+
+            let peeked = self.peek().clone();
+
+            // Handle "when" blocks: when "Value" { ... }
+            if (peeked.kind == TokenKind::Identifier || peeked.kind == TokenKind::Keyword)
+                && peeked.value == "when"
+            {
+                self.advance(); // consume "when"
+                let condition_value = if self.peek().kind == TokenKind::StringLit {
+                    self.advance().value
+                } else {
+                    self.advance().value
+                };
+                current_condition = Some(condition_value);
+                self.expect(TokenKind::LBrace)?;
+                in_when_block = true;
+                continue;
+            }
+
+            // Parse action: log "message" or notify "provider" "channel" "message"
+            if peeked.kind == TokenKind::Identifier || peeked.kind == TokenKind::Keyword {
+                let action_type = self.advance().value.to_lowercase();
+
+                match action_type.as_str() {
+                    "log" => {
+                        let msg = if self.peek().kind == TokenKind::StringLit {
+                            self.advance().value
+                        } else {
+                            self.advance().value
+                        };
+                        actions.push(EffectAction {
+                            action_type: "log".to_string(),
+                            args: vec![msg],
+                            condition: current_condition.clone(),
+                        });
+                    }
+                    "notify" => {
+                        // notify "provider" "channel" "message"
+                        let mut args = Vec::new();
+                        // Collect up to 3 string arguments
+                        for _ in 0..3 {
+                            if self.matches(TokenKind::RBrace, None) || self.matches(TokenKind::Eof, None) {
+                                break;
+                            }
+                            let arg = if self.peek().kind == TokenKind::StringLit {
+                                self.advance().value
+                            } else if self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::Keyword {
+                                // Don't consume if it's "when", "log", "notify" (next action)
+                                let next = self.peek().value.clone();
+                                if next == "when" || next == "log" || next == "notify" {
+                                    break;
+                                }
+                                self.advance().value
+                            } else {
+                                break;
+                            };
+                            args.push(arg);
+                        }
+                        actions.push(EffectAction {
+                            action_type: "notify".to_string(),
+                            args,
+                            condition: current_condition.clone(),
+                        });
+                    }
+                    _ => {
+                        // Unknown action — collect string args generically
+                        let mut args = Vec::new();
+                        while self.peek().kind == TokenKind::StringLit {
+                            args.push(self.advance().value);
+                        }
+                        actions.push(EffectAction {
+                            action_type: action_type.clone(),
+                            args,
+                            condition: current_condition.clone(),
+                        });
+                    }
+                }
+            } else {
+                self.advance(); // skip unknown token
+            }
+        }
+
+        self.expect(TokenKind::RBrace)?;
+
+        Ok(EffectBlock { event, field, actions })
     }
 
     // ── api ──
@@ -3566,5 +3718,264 @@ entity Order {
 "#;
         let err = parse(source).err().expect("Expected parse error");
         assert!(err.contains("nonexistent"), "Error should mention invalid pipe target: {}", err);
+    }
+
+    // ══════════════════════════════════════════════════
+    // Effect block tests
+    // ══════════════════════════════════════════════════
+
+    #[test]
+    fn effect_on_create_basic() {
+        let source = r#"
+entity Deployment shared {
+  deploy_id string!
+  cluster string
+
+  on create {
+    log "Deploy {{deploy_id}} started"
+  }
+}
+"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            assert_eq!(e.effects.len(), 1);
+            assert_eq!(e.effects[0].event, "create");
+            assert!(e.effects[0].field.is_none());
+            assert_eq!(e.effects[0].actions.len(), 1);
+            assert_eq!(e.effects[0].actions[0].action_type, "log");
+            assert_eq!(e.effects[0].actions[0].args[0], "Deploy {{deploy_id}} started");
+            assert!(e.effects[0].actions[0].condition.is_none());
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn effect_on_delete_basic() {
+        let source = r#"
+entity Item shared {
+  name string!
+
+  on delete {
+    log "Item {{name}} removed"
+  }
+}
+"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            assert_eq!(e.effects.len(), 1);
+            assert_eq!(e.effects[0].event, "delete");
+            assert!(e.effects[0].field.is_none());
+            assert_eq!(e.effects[0].actions[0].action_type, "log");
+            assert_eq!(e.effects[0].actions[0].args[0], "Item {{name}} removed");
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn effect_on_update_field_with_when() {
+        let source = r#"
+entity Deployment shared {
+  deploy_id string!
+  status enum ["Pending", "Rolling", "Live", "Failed"]! default:"Pending"
+
+  on update status {
+    when "Failed" {
+      log "ALERT: {{deploy_id}} failed"
+    }
+    when "Live" {
+      log "{{deploy_id}} is live"
+    }
+  }
+}
+"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            assert_eq!(e.effects.len(), 1);
+            let eff = &e.effects[0];
+            assert_eq!(eff.event, "update");
+            assert_eq!(eff.field, Some("status".to_string()));
+            assert_eq!(eff.actions.len(), 2);
+            assert_eq!(eff.actions[0].condition, Some("Failed".to_string()));
+            assert_eq!(eff.actions[0].args[0], "ALERT: {{deploy_id}} failed");
+            assert_eq!(eff.actions[1].condition, Some("Live".to_string()));
+            assert_eq!(eff.actions[1].args[0], "{{deploy_id}} is live");
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn effect_notify_action() {
+        let source = r##"
+entity Deploy shared {
+  deploy_id string!
+  cluster string
+
+  on create {
+    notify "slack" "#deploys" "New deploy: {{deploy_id}}"
+  }
+}
+"##;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            let action = &e.effects[0].actions[0];
+            assert_eq!(action.action_type, "notify");
+            assert_eq!(action.args.len(), 3);
+            assert_eq!(action.args[0], "slack");
+            assert_eq!(action.args[1], "#deploys");
+            assert_eq!(action.args[2], "New deploy: {{deploy_id}}");
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn effect_multiple_blocks() {
+        let source = r#"
+entity Order shared {
+  order_id string!
+  status enum ["new", "shipped", "delivered"]! default:"new"
+
+  on create {
+    log "Order {{order_id}} created"
+  }
+
+  on update status {
+    when "shipped" {
+      log "Order {{order_id}} shipped"
+    }
+  }
+
+  on delete {
+    log "Order {{order_id}} deleted"
+  }
+}
+"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            assert_eq!(e.effects.len(), 3);
+            assert_eq!(e.effects[0].event, "create");
+            assert_eq!(e.effects[1].event, "update");
+            assert_eq!(e.effects[1].field, Some("status".to_string()));
+            assert_eq!(e.effects[2].event, "delete");
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn effect_mixed_actions_in_when() {
+        let source = r#"
+entity Deploy shared {
+  deploy_id string!
+  cluster string
+  status enum ["Pending", "Failed"]! default:"Pending"
+
+  on update status {
+    when "Failed" {
+      notify "pagerduty" "critical" "Deploy {{deploy_id}} FAILED"
+      log "ALERT: {{deploy_id}} failed"
+    }
+  }
+}
+"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            let eff = &e.effects[0];
+            assert_eq!(eff.actions.len(), 2);
+            assert_eq!(eff.actions[0].action_type, "notify");
+            assert_eq!(eff.actions[0].condition, Some("Failed".to_string()));
+            assert_eq!(eff.actions[0].args[0], "pagerduty");
+            assert_eq!(eff.actions[1].action_type, "log");
+            assert_eq!(eff.actions[1].condition, Some("Failed".to_string()));
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn effect_coexists_with_transition() {
+        let source = r#"
+entity Order shared {
+  status enum ["draft", "pending", "paid"]! default:"draft"
+
+  transition status {
+    draft -> pending
+    pending -> paid
+  }
+
+  on create {
+    log "Order created"
+  }
+
+  on update status {
+    when "paid" {
+      log "Order paid"
+    }
+  }
+}
+"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            assert_eq!(e.transitions.len(), 1);
+            assert_eq!(e.transitions[0].rules.len(), 2);
+            assert_eq!(e.effects.len(), 2);
+            assert_eq!(e.effects[0].event, "create");
+            assert_eq!(e.effects[1].event, "update");
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn effect_invalid_event_type() {
+        let source = r#"
+entity Item shared {
+  name string!
+
+  on explode {
+    log "boom"
+  }
+}
+"#;
+        let err = parse(source).err().expect("Expected parse error for invalid effect event");
+        assert!(err.contains("invalid effect event"), "Error should mention invalid event: {}", err);
+        assert!(err.contains("explode"), "Error should mention 'explode': {}", err);
+    }
+
+    #[test]
+    fn effect_entity_without_effects() {
+        let source = r#"entity User { name string! email email! unique }"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            assert!(e.effects.is_empty());
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn effect_on_update_without_field() {
+        let source = r#"
+entity Item shared {
+  name string!
+  price number
+
+  on update {
+    log "Item {{name}} was updated"
+  }
+}
+"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            assert_eq!(e.effects.len(), 1);
+            assert_eq!(e.effects[0].event, "update");
+            assert!(e.effects[0].field.is_none(), "on update without field should have field=None");
+            assert_eq!(e.effects[0].actions[0].args[0], "Item {{name}} was updated");
+        } else {
+            panic!("Expected entity node");
+        }
     }
 }

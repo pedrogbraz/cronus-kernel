@@ -1106,6 +1106,7 @@ mod tests {
             ],
             shared: false,
             transitions: vec![],
+            effects: vec![],
             doc: None,
         }
     }
@@ -1372,6 +1373,7 @@ mod tests {
             name: name.into(),
             fields: vec![],
             transitions: vec![],
+            effects: vec![],
             shared: true,
             doc: None,
         }
@@ -1445,6 +1447,7 @@ mod tests {
             name: "Draft".into(),
             fields: vec![],
             transitions: vec![],
+            effects: vec![],
             shared: false,
             doc: None,
         };

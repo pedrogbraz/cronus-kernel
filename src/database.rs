@@ -1049,6 +1049,7 @@ mod tests {
                 },
             ],
             transitions: vec![],
+            effects: vec![],
             doc: None,
         }
     }
@@ -1226,6 +1227,7 @@ mod tests {
                 },
             ],
             transitions: vec![],
+            effects: vec![],
             doc: None,
         }
     }

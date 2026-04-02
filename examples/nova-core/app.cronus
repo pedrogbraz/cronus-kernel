@@ -46,6 +46,25 @@ entity Deployment shared {
     Rolling -> Live | Failed
     Failed -> Pending
   }
+
+  on create {
+    log "Deploy {{deploy_id}} started by {{deployed_by}}"
+    notify "slack" "#deploys" "New deploy: {{deploy_id}} on {{cluster}}"
+  }
+
+  on update status {
+    when "Failed" {
+      notify "pagerduty" "critical" "Deploy {{deploy_id}} FAILED on {{cluster}}"
+      log "ALERT: {{deploy_id}} failed"
+    }
+    when "Live" {
+      notify "slack" "#deploys" "{{deploy_id}} is LIVE on {{cluster}}"
+    }
+  }
+
+  on delete {
+    log "Deploy {{deploy_id}} removed"
+  }
 }
 
 entity SecurityEvent shared {
