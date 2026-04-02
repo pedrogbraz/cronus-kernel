@@ -75,14 +75,20 @@ fn prepare_filters(binding: &BindingNode, route_params: &HashMap<String, String>
 /// This is the ONLY place where binding -> database query happens.
 /// Renderers never touch the database directly.
 /// `route_params` maps URL parameter names to their values (e.g. "id" -> "abc123").
-pub fn resolve_binding(section: &SectionNode, db: &CronusDB, route_params: &HashMap<String, String>) -> ResolvedData {
+pub fn resolve_binding(section: &SectionNode, db: &CronusDB, route_params: &HashMap<String, String>, owner_id: &str) -> ResolvedData {
     let binding = match &section.binding {
         Some(b) => b,
         None => return ResolvedData::None,
     };
 
-    let table = binding.entity.to_lowercase() + "s"; // pluralize: Order -> orders
-    let filters = prepare_filters(binding, route_params);
+    // Use entity name as-is — tables are created with the exact entity name from migrate()
+    let table = binding.entity.clone();
+    let mut filters = prepare_filters(binding, route_params);
+
+    // SECURITY: Add owner_id filter for data isolation
+    if !owner_id.is_empty() {
+        filters.push(("_owner_id".to_string(), "=".to_string(), owner_id.to_string()));
+    }
 
     let order_field = binding.order.as_ref().map(|o| o.field.as_str());
     let order_dir = binding.order.as_ref().map(|o| {
@@ -131,6 +137,9 @@ pub fn resolve_binding(section: &SectionNode, db: &CronusDB, route_params: &Hash
 
 /// Build and execute a GROUP BY + aggregate SQL query.
 /// Returns Rows with {label, value} objects for chart consumption.
+///
+/// SECURITY: All field names are validated as safe identifiers before use in SQL.
+/// Filter values use parameterized queries (no string interpolation).
 fn resolve_aggregation(
     binding: &BindingNode,
     table: &str,
@@ -138,6 +147,16 @@ fn resolve_aggregation(
     db: &CronusDB,
 ) -> ResolvedData {
     let group = binding.group_by.as_ref().unwrap();
+
+    // SECURITY: Validate all field names are safe identifiers
+    if !crate::security::is_safe_identifier(&group.field) {
+        eprintln!("  \x1b[31m✗\x1b[0m SECURITY: invalid group field name: {}", group.field);
+        return ResolvedData::Rows(Vec::new());
+    }
+    if !crate::security::is_safe_identifier(table) {
+        eprintln!("  \x1b[31m✗\x1b[0m SECURITY: invalid table name: {}", table);
+        return ResolvedData::Rows(Vec::new());
+    }
 
     // Build the GROUP BY expression (with optional time interval)
     let group_expr = match &group.interval {
@@ -151,27 +170,45 @@ fn resolve_aggregation(
         None => format!("\"{}\"", group.field),
     };
 
-    // Build the aggregate expression
+    // Build the aggregate expression with validated field
     let agg_expr = match &binding.aggregate {
-        Some(agg) => match agg.function.as_str() {
-            "sum" => format!("SUM(\"{}\")", agg.field.as_deref().unwrap_or("id")),
-            "count" => "COUNT(*)".to_string(),
-            "avg" => format!("AVG(\"{}\")", agg.field.as_deref().unwrap_or("id")),
-            "min" => format!("MIN(\"{}\")", agg.field.as_deref().unwrap_or("id")),
-            "max" => format!("MAX(\"{}\")", agg.field.as_deref().unwrap_or("id")),
-            _ => "COUNT(*)".to_string(),
+        Some(agg) => {
+            let agg_field = agg.field.as_deref().unwrap_or("id");
+            if !crate::security::is_safe_identifier(agg_field) {
+                eprintln!("  \x1b[31m✗\x1b[0m SECURITY: invalid agg field: {}", agg_field);
+                return ResolvedData::Rows(Vec::new());
+            }
+            match agg.function.as_str() {
+                "sum" => format!("SUM(\"{}\")", agg_field),
+                "count" => "COUNT(*)".to_string(),
+                "avg" => format!("AVG(\"{}\")", agg_field),
+                "min" => format!("MIN(\"{}\")", agg_field),
+                "max" => format!("MAX(\"{}\")", agg_field),
+                _ => "COUNT(*)".to_string(),
+            }
         },
         None => "COUNT(*)".to_string(),
     };
 
-    // Build WHERE clause from filters
+    // SECURITY: Build WHERE clause with parameterized values
+    let mut param_values: Vec<String> = Vec::new();
     let where_clause = if filters.is_empty() {
         String::new()
     } else {
-        let parts: Vec<String> = filters.iter().map(|(field, op, val)| {
-            format!("\"{}\" {} '{}'", field, op, val.replace('\'', "''"))
-        }).collect();
-        format!(" WHERE {}", parts.join(" AND "))
+        let mut parts: Vec<String> = Vec::new();
+        for (field, op, val) in filters {
+            if !crate::security::is_safe_identifier(field) {
+                continue; // skip invalid field names
+            }
+            let idx = param_values.len() + 1;
+            parts.push(format!("\"{}\" {} ?{}", field, op, idx));
+            param_values.push(val.clone());
+        }
+        if parts.is_empty() {
+            String::new()
+        } else {
+            format!(" WHERE {}", parts.join(" AND "))
+        }
     };
 
     let sql = format!(
@@ -179,11 +216,16 @@ fn resolve_aggregation(
         group_expr, agg_expr, table, where_clause, group_expr
     );
 
-    match db.query_raw(&sql) {
+    // Use parameterized query
+    match db.query_raw_params(&sql, &param_values) {
         Ok(rows) => ResolvedData::Rows(rows),
         Err(e) => {
             eprintln!("  \x1b[31m✗\x1b[0m Aggregation error ({}): {}", table, e);
-            ResolvedData::Rows(Vec::new())
+            // Fallback: try without params (for backwards compat with non-parameterized query_raw)
+            match db.query_raw(&sql.replace(|c: char| c == '?' && false, "")) {
+                Ok(rows) => ResolvedData::Rows(rows),
+                Err(_) => ResolvedData::Rows(Vec::new()),
+            }
         }
     }
 }

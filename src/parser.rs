@@ -839,7 +839,11 @@ impl Parser {
         let mut fields = Vec::new();
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
-            if self.peek().kind == TokenKind::Identifier {
+            // Accept both Identifier and Keyword as field names — field names like
+            // "page", "service", "style" etc. are valid CRONUS keywords but also
+            // valid entity field names.
+            let pk = self.peek().kind;
+            if pk == TokenKind::Identifier || pk == TokenKind::Keyword {
                 if let Some(field) = self.parse_field()? {
                     fields.push(field);
                 }

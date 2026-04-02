@@ -107,6 +107,32 @@ impl CronusDB {
         Ok(results)
     }
 
+    /// Execute a parameterized raw SQL query. Values are bound as ?1, ?2, etc.
+    /// SECURITY: Use this instead of query_raw when filter values come from user input.
+    pub fn query_raw_params(&self, sql: &str, params: &[String]) -> Result<Vec<Value>, String> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+        let col_names: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
+
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|s| s as &dyn rusqlite::types::ToSql).collect();
+
+        let rows = stmt
+            .query_map(param_refs.as_slice(), |row| {
+                let mut map = Map::new();
+                for (i, name) in col_names.iter().enumerate() {
+                    map.insert(name.clone(), column_to_json(row, i)?);
+                }
+                Ok(Value::Object(map))
+            })
+            .map_err(|e| e.to_string())?;
+
+        let mut results = Vec::new();
+        for r in rows {
+            results.push(r.map_err(|e| e.to_string())?);
+        }
+        Ok(results)
+    }
+
     // ──────────────────────────────────────────────
     // Migration
     // ──────────────────────────────────────────────
@@ -144,6 +170,11 @@ impl CronusDB {
                 cols.push(format!("\"{}\" {}{}{}", field.name, st, not_null, unique));
             }
 
+            // SECURITY: Auto-add _owner_id for data isolation per user
+            if !seen_cols.contains("_owner_id") {
+                cols.push("_owner_id TEXT".into());
+            }
+
             if !has_created_at {
                 cols.push("created_at TEXT DEFAULT (datetime('now'))".into());
             }
@@ -176,6 +207,9 @@ impl CronusDB {
         let mut values: Vec<String> = vec![id.clone()];
 
         for (key, val) in obj {
+            if !crate::security::is_safe_identifier(key) {
+                continue; // skip invalid column names — SQL injection prevention
+            }
             if matches!(val, Value::Null) {
                 continue;
             }
@@ -216,6 +250,9 @@ impl CronusDB {
         let mut values: Vec<String> = Vec::new();
 
         for (key, val) in obj {
+            if !crate::security::is_safe_identifier(key) {
+                continue; // skip invalid column names — SQL injection prevention
+            }
             if key == "id" || key == "created_at" { continue; }
             if matches!(val, Value::Null) { continue; }
             sets.push(format!("\"{}\" = ?", key));
@@ -336,6 +373,9 @@ impl CronusDB {
     /// Find a single row by a specific field value.
     /// e.g. find_by_field("User", "email", "zedd@cooud.com")
     pub fn find_by_field(&self, table: &str, field: &str, value: &str) -> Result<Option<Value>, String> {
+        if !crate::security::is_safe_identifier(field) {
+            return Err("invalid field name".to_string()); // SQL injection prevention
+        }
         let conn = self.conn.lock().unwrap();
         let sql = format!("SELECT * FROM \"{}\" WHERE \"{}\" = ? LIMIT 1", table, field);
 

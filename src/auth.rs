@@ -112,19 +112,20 @@ pub fn require_role(claims: &Claims, role: &str) -> bool {
 /// If JWT_SECRET is not set, generates a random secret and warns on stderr.
 /// This means tokens are invalidated on restart — set JWT_SECRET for persistence.
 pub fn default_secret() -> String {
-    match std::env::var("JWT_SECRET") {
-        Ok(s) if !s.is_empty() => s,
-        _ => {
-            eprintln!("\x1b[33m[CRONUS] WARNING: JWT_SECRET not set — using random per-run secret. Tokens will not survive restarts.\x1b[0m");
-            eprintln!("\x1b[33m[CRONUS] Set JWT_SECRET env var for persistent sessions.\x1b[0m");
-            use std::collections::hash_map::DefaultHasher;
-            use std::hash::{Hash, Hasher};
-            let mut hasher = DefaultHasher::new();
-            std::time::SystemTime::now().hash(&mut hasher);
-            std::process::id().hash(&mut hasher);
-            format!("cronus-ephemeral-{:x}-{:x}", hasher.finish(), std::process::id())
-        }
-    }
+    std::env::var("JWT_SECRET").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| {
+        use std::sync::OnceLock;
+        static SECRET: OnceLock<String> = OnceLock::new();
+        SECRET.get_or_init(|| {
+            use rand::Rng;
+            let secret: String = rand::thread_rng()
+                .sample_iter(&rand::distributions::Alphanumeric)
+                .take(64)
+                .map(char::from)
+                .collect();
+            eprintln!("  \x1b[33m⚠\x1b[0m No JWT_SECRET set — using ephemeral secret (sessions won't survive restarts)");
+            secret
+        }).clone()
+    })
 }
 
 // ══════════════════════════════════════════════════

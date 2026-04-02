@@ -462,8 +462,8 @@ pub fn validate_section(section: &SectionNode, entity_fields: &[String]) -> Vec<
         }
     }
 
-    // 4. Check min_items
-    if contract.min_items > 0 && section.items.len() < contract.min_items {
+    // 4. Check min_items (skip if section has a binding — data comes from DB)
+    if contract.min_items > 0 && section.items.len() < contract.min_items && section.binding.is_none() {
         warnings.push(ParseWarning::MinItemsViolation {
             section: contract.name.to_string(),
             expected: contract.min_items,

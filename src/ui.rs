@@ -26,11 +26,30 @@ const CRONUS_ANIMATIONS_CSS: &str = r##"
 @keyframes fillWidth{from{width:0}to{width:var(--target-width)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes barGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes drawLine{from{stroke-dashoffset:var(--line-len)}to{stroke-dashoffset:0}}
+@keyframes donutDraw{from{stroke-dasharray:0 314}to{stroke-dasharray:var(--arc) 314}}
+@keyframes glowPulse{0%,100%{box-shadow:0 0 0 rgba(135,173,255,0)}50%{box-shadow:0 0 20px rgba(135,173,255,0.15)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes rowSlide{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
+@keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@keyframes breathe{0%,100%{opacity:0.4}50%{opacity:0.8}}
+@keyframes spin{to{transform:rotate(360deg)}}
 .anim-fade{animation:fadeIn .6s ease-out both}
 .anim-slide-up{animation:slideUp .6s cubic-bezier(.16,1,.3,1) both}
 .anim-slide-down{animation:slideDown .4s ease-out both}
 .anim-scale{animation:scaleIn .5s cubic-bezier(.16,1,.3,1) both}
 .anim-slide-right{animation:slideRight .5s cubic-bezier(.16,1,.3,1) both}
+.anim-count{animation:countUp .4s cubic-bezier(.16,1,.3,1) both}
+.anim-row{animation:rowSlide .4s cubic-bezier(.16,1,.3,1) both}
+.anim-glow{animation:glowPulse 3s ease-in-out infinite}
+.anim-breathe{animation:breathe 4s ease-in-out infinite}
+.anim-gradient{background-size:200% 200%;animation:gradientShift 8s ease infinite}
+.chart-bar-anim{transform-origin:bottom;animation:barGrow .8s cubic-bezier(.16,1,.3,1) both}
+.chart-line-draw{animation:drawLine 1.5s cubic-bezier(.16,1,.3,1) both}
+.chart-donut-draw{animation:donutDraw 1.2s cubic-bezier(.16,1,.3,1) both}
+.chart-shimmer{background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.03) 50%,transparent 100%);background-size:200% 100%;animation:shimmer 3s linear infinite}
 .d1{animation-delay:.05s}.d2{animation-delay:.1s}.d3{animation-delay:.15s}
 .d4{animation-delay:.2s}.d5{animation-delay:.25s}.d6{animation-delay:.3s}
 .d7{animation-delay:.35s}.d8{animation-delay:.4s}.d9{animation-delay:.45s}.d10{animation-delay:.5s}
@@ -48,21 +67,230 @@ const CRONUS_ANIMATIONS_CSS: &str = r##"
 
 const CRONUS_ANIMATIONS_JS: &str = r##"
 <script>
+// Modal system — must be global BEFORE DOMContentLoaded
+window.cronusModal={
+  open:function(id){var el=document.getElementById(id);if(el)el.style.display='flex'},
+  close:function(id){var el=document.getElementById(id);if(el)el.style.display='none'}
+};
+// ── CRONUS Live System ──────────────────────────────
+// Premium real-time updates — no page reload, smooth transitions
+
+// Status color map
+var _cs={'live':'#10b981','completed':'#10b981','active':'#10b981','success':'#10b981',
+  'rolling':'#3b82f6','processing':'#3b82f6','in_progress':'#3b82f6',
+  'pending':'#71717a','waiting':'#71717a','draft':'#71717a',
+  'failed':'#ef4444','blocked':'#ef4444','rejected':'#ef4444','cancelled':'#ef4444',
+  'critical':'#ef4444','high':'#f97316',
+  'medium':'#f59e0b','warning':'#f59e0b','throttled':'#f59e0b','flagged':'#f59e0b',
+  'info':'#3b82f6','low':'#3b82f6'};
+
+function _buildCell(col,val,ci){
+  var td=document.createElement('td');
+  td.style.cssText='padding:16px 32px';
+  var lv=(val+'').toLowerCase();
+  if(col==='status'||col==='severity'){
+    var c=_cs[lv]||'#71717a';
+    var p=(lv==='live'||lv==='rolling'||lv==='processing')?'animation:pulse 2s ease-in-out infinite;':'';
+    td.innerHTML='<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;font-size:11px;font-weight:600;border-radius:999px;background:'+c+'1f;color:'+c+'"><span style="width:6px;height:6px;border-radius:50%;background:'+c+';flex-shrink:0;'+p+'"></span>'+val+'</span>';
+  } else if(ci===0){
+    td.innerHTML='<span style="font-size:13px;color:#e2e2e2;font-weight:600">'+val+'</span>';
+  } else {
+    td.innerHTML='<span style="font-size:13px;color:rgba(226,226,226,0.8)">'+val+'</span>';
+  }
+  return td;
+}
+
+function _getHeaders(table){
+  var h=[];
+  table.querySelectorAll('thead th').forEach(function(th){
+    h.push(th.textContent.replace(/[▲▼\s]*$/,'').trim().toLowerCase().replace(/\s+/g,'_'));
+  });
+  return h;
+}
+
+// Insert a single new row at top with premium animation
+function _insertRow(table,row,headers){
+  var tbody=table.querySelector('tbody');
+  if(!tbody)return;
+  var tr=document.createElement('tr');
+  tr.style.cssText='border-bottom:1px solid rgba(76,69,70,0.05);transition:all 0.5s cubic-bezier(0.16,1,0.3,1);opacity:0;transform:translateY(-8px);background:rgba(135,173,255,0.04)';
+  tr.onmouseover=function(){this.style.background='#1f1f1f'};
+  tr.onmouseout=function(){this.style.background='transparent'};
+  headers.forEach(function(col,ci){
+    if(!col)return;
+    tr.appendChild(_buildCell(col,row[col]||'',ci));
+  });
+  tbody.insertBefore(tr,tbody.firstChild);
+  // Trigger animation
+  requestAnimationFrame(function(){requestAnimationFrame(function(){
+    tr.style.opacity='1';
+    tr.style.transform='translateY(0)';
+    // Remove highlight after 2s
+    setTimeout(function(){tr.style.background='transparent'},2000);
+  })});
+}
+
+// Smooth toast notification
+function _toast(msg,type){
+  var existing=document.querySelector('.cronus-toast');
+  if(existing)existing.remove();
+  var t=document.createElement('div');
+  t.className='cronus-toast';
+  var bg=type==='error'?'rgba(220,38,38,0.9)':'rgba(16,185,129,0.9)';
+  var icon=type==='error'?'error':'check_circle';
+  t.innerHTML='<span class="material-symbols-outlined" style="font-size:18px">'+icon+'</span>'+msg;
+  t.style.cssText='position:fixed;bottom:32px;left:50%;z-index:200;padding:10px 20px;background:'+bg+';color:#fff;border-radius:10px;font-size:13px;font-weight:500;font-family:Inter,sans-serif;display:flex;align-items:center;gap:8px;backdrop-filter:blur(12px);box-shadow:0 8px 32px rgba(0,0,0,0.3);transform:translateX(-50%) translateY(20px);opacity:0;transition:all 0.4s cubic-bezier(0.16,1,0.3,1)';
+  document.body.appendChild(t);
+  requestAnimationFrame(function(){requestAnimationFrame(function(){
+    t.style.opacity='1';t.style.transform='translateX(-50%) translateY(0)';
+  })});
+  setTimeout(function(){
+    t.style.opacity='0';t.style.transform='translateX(-50%) translateY(10px)';
+    setTimeout(function(){t.remove()},400);
+  },2800);
+}
+
+// Smooth modal close with fade-out
+var _origOpen=window.cronusModal.open;
+window.cronusModal.open=function(id){
+  var el=document.getElementById(id);if(!el)return;
+  el.style.display='flex';el.style.opacity='0';
+  var panel=el.querySelector(':scope > div');
+  if(panel){panel.style.transform='scale(0.96)';panel.style.opacity='0';}
+  requestAnimationFrame(function(){requestAnimationFrame(function(){
+    el.style.transition='opacity 0.25s ease';el.style.opacity='1';
+    if(panel){panel.style.transition='all 0.35s cubic-bezier(0.16,1,0.3,1)';panel.style.transform='scale(1)';panel.style.opacity='1';}
+  })});
+};
+window.cronusModal.close=function(id){
+  var el=document.getElementById(id);if(!el)return;
+  var panel=el.querySelector(':scope > div');
+  el.style.transition='opacity 0.2s ease';el.style.opacity='0';
+  if(panel){panel.style.transition='all 0.2s ease';panel.style.transform='scale(0.97)';panel.style.opacity='0';}
+  setTimeout(function(){el.style.display='none';el.style.transition='';if(panel){panel.style.transition='';}},220);
+};
+
+// Modal form submit — premium flow
+window.cronusModalSubmit=function(e,modalId,apiUrl){
+  e.preventDefault();
+  var form=e.target;
+  var btn=form.querySelector('[type=submit]');
+  var origText=btn?btn.textContent:'';
+  // Button loading state
+  if(btn){
+    btn.style.transition='all 0.2s ease';
+    btn.style.opacity='0.7';
+    btn.textContent='';
+    btn.innerHTML='<span style="display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite"></span>';
+    btn.disabled=true;
+  }
+  var data={};
+  form.querySelectorAll('input,select,textarea').forEach(function(inp){
+    var name=inp.name;if(!name)return;
+    var val=inp.type==='checkbox'?inp.checked:inp.value;
+    if(val!==''&&val!==false)data[name]=val;
+  });
+  fetch(apiUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+    .then(function(r){
+      if(!r.ok)return r.json().then(function(j){throw new Error(j.error||'Request failed')});
+      return r.json();
+    })
+    .then(function(created){
+      cronusModal.close(modalId);
+      setTimeout(function(){form.reset();if(btn){btn.textContent=origText;btn.disabled=false;btn.style.opacity='1';}},300);
+      _toast('Created successfully','success');
+      // Insert new row into matching tables — no full re-render
+      document.querySelectorAll('[data-entity]').forEach(function(w){
+        var table=w.querySelector('table');
+        if(table){
+          var headers=_getHeaders(table);
+          _insertRow(table,created,headers);
+        }
+      });
+    })
+    .catch(function(err){
+      if(btn){btn.textContent=origText;btn.disabled=false;btn.style.opacity='1';}
+      _toast(err.message,'error');
+    });
+  return false;
+};
 document.addEventListener('DOMContentLoaded',()=>{
   const io=new IntersectionObserver(e=>{e.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');io.unobserve(e.target)}})},{threshold:.1,rootMargin:'0px 0px -40px 0px'});
   document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
   document.querySelectorAll('.stagger').forEach(c=>{Array.from(c.children).forEach((ch,i)=>{ch.style.animationDelay=(.05+i*.06)+'s'})});
 
+  // Counter animation: elements with data-count-to animate from 0 to target
+  // Handles: "847", "99.7%", "42s", "12,847", "A+", "1.2 GB/s", "$142,804.22"
+  document.querySelectorAll('[data-count-to]').forEach(function(el){
+    var raw=el.getAttribute('data-count-to');
+    // Extract numeric part, prefix and suffix
+    var match=raw.match(/^([^0-9]*?)([\d,]+\.?\d*)(.*?)$/);
+    if(!match){el.textContent=raw;return;} // non-numeric like "A+" — show immediately
+    var prefix=match[1];
+    var numStr=match[2];
+    var suffix=match[3];
+    var num=parseFloat(numStr.replace(/,/g,''));
+    if(isNaN(num)){el.textContent=raw;return;}
+    var hasComma=numStr.indexOf(',')!==-1;
+    var decMatch=numStr.match(/\.(\d+)/);
+    var decimals=decMatch?decMatch[1].length:0;
+    var duration=1400;
+    var start=performance.now();
+    function fmt(v){
+      var s;
+      if(decimals>0)s=v.toFixed(decimals);
+      else s=Math.round(v).toString();
+      if(hasComma){
+        var parts=s.split('.');
+        parts[0]=parts[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');
+        s=parts.join('.');
+      }
+      return prefix+s+suffix;
+    }
+    function step(now){
+      var t=Math.min((now-start)/duration,1);
+      t=t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2; // ease-in-out cubic
+      el.textContent=fmt(num*t);
+      if(t<1)requestAnimationFrame(step);
+      else el.textContent=raw; // exact final
+    }
+    el.textContent=fmt(0);
+    requestAnimationFrame(step);
+  });
+
+  // Chart bar grow on scroll
+  var cio=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting){e.target.style.transform='scaleY(1)';cio.unobserve(e.target);}});},{threshold:0.2});
+  document.querySelectorAll('.cronus-bar').forEach(function(b){b.style.transform='scaleY(0)';b.style.transformOrigin='bottom';b.style.transition='transform 0.8s cubic-bezier(0.16,1,0.3,1)';cio.observe(b);});
+
+  // Animate template chart bars (dump templates with Tailwind h-* classes)
+  // Reads computed height, collapses to 0, then animates to target
+  document.querySelectorAll('[class*="items-end"]').forEach(function(container){
+    var bars=container.querySelectorAll('[class*="bg-primary"],[class*="bg-secondary"],[class*="bg-tertiary"]');
+    if(bars.length<3)return;
+    // Phase 1: read all target heights while bars are visible
+    var targets=[];
+    bars.forEach(function(bar){targets.push(bar.offsetHeight)});
+    // Phase 2: collapse all to 0
+    bars.forEach(function(bar){
+      bar.style.transition='none';
+      bar.style.height='0px';
+      bar.style.opacity='0';
+    });
+    // Phase 3: animate each bar to its target
+    requestAnimationFrame(function(){requestAnimationFrame(function(){
+      bars.forEach(function(bar,i){
+        var delay=0.3+i*0.07;
+        bar.style.transition='height 1s cubic-bezier(0.16,1,0.3,1) '+delay+'s, opacity 0.5s ease '+delay+'s';
+        bar.style.height=targets[i]+'px';
+        bar.style.opacity='1';
+      });
+    })});
+  });
+
   // HTML escape — prevent XSS from user-controlled data
   window.cronusEscape=function(s){
     if(s==null)return '';
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-  };
-
-  // Modal system
-  window.cronusModal={
-    open:function(id){document.getElementById(id).style.display='flex'},
-    close:function(id){document.getElementById(id).style.display='none'}
   };
 
   // Generic CRUD modal
@@ -644,6 +872,19 @@ fn accent_to_hex(accent: &str) -> &'static str {
     }
 }
 
+/// Convert hex color to "r,g,b" string for rgba() usage
+fn hex_to_rgb(hex: &str) -> String {
+    let h = hex.trim_start_matches('#');
+    if h.len() >= 6 {
+        let r = u8::from_str_radix(&h[0..2], 16).unwrap_or(0);
+        let g = u8::from_str_radix(&h[2..4], 16).unwrap_or(0);
+        let b = u8::from_str_radix(&h[4..6], 16).unwrap_or(0);
+        format!("{},{},{}", r, g, b)
+    } else {
+        "135,173,255".to_string()
+    }
+}
+
 /// Generate CSS custom properties from the StyleNode for theming.
 /// All renderers should use var(--cronus-*) instead of hardcoded colors.
 fn generate_css_vars(style: &Option<&StyleNode>, theme: &str) -> String {
@@ -691,6 +932,11 @@ fn generate_css_vars(style: &Option<&StyleNode>, theme: &str) -> String {
     // Compute accent-hover: use explicit value or darken accent
     let accent_hover = cfg("accent-hover", accent_hex);
 
+    // Glow orbs — from style config or computed from accent
+    let glow_1 = cfg("glow-1", &format!("rgba({},0.07)", hex_to_rgb(accent_hex)));
+    let glow_2 = cfg("glow-2", &if is_light { "rgba(0,0,0,0.02)".to_string() } else { "rgba(210,119,255,0.04)".to_string() });
+    let glow_3 = cfg("glow-3", &if is_light { "rgba(0,0,0,0.01)".to_string() } else { "rgba(129,236,255,0.03)".to_string() });
+
     format!(
         r#":root {{
   --cronus-bg: {bg};
@@ -703,13 +949,17 @@ fn generate_css_vars(style: &Option<&StyleNode>, theme: &str) -> String {
   --cronus-radius: {radius_px};
   --cronus-max-w: {max_width};
   --cronus-font: '{font}', system-ui, -apple-system, sans-serif;
+  --cronus-glow-1: {glow_1};
+  --cronus-glow-2: {glow_2};
+  --cronus-glow-3: {glow_3};
 }}
 body {{ font-family: var(--cronus-font); background: var(--cronus-bg); color: var(--cronus-text); margin: 0; }}
 a {{ text-decoration: none; color: inherit; }}
 * {{ box-sizing: border-box; }}"#,
         bg = bg, surface = surface, text = text, text_muted = text_muted,
         accent_hex = accent_hex, accent_hover = accent_hover,
-        border = border, radius_px = radius_px, max_width = max_width, font = font
+        border = border, radius_px = radius_px, max_width = max_width, font = font,
+        glow_1 = glow_1, glow_2 = glow_2, glow_3 = glow_3
     )
 }
 
@@ -790,6 +1040,40 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
             nav_muted=nav_muted, btn_bg=btn_bg, btn_fg=btn_fg,
             app_name=app_name)
     };
+
+    // Mobile bottom nav — auto-built from sidebar links via JS
+    let bottom_nav_html = if clean_body.contains("<aside") {
+        r##"<nav class="cronus-bottom-nav" aria-label="Mobile navigation"></nav>
+<script>
+!function(){
+  var aside=document.querySelector('aside');
+  var bnav=document.querySelector('.cronus-bottom-nav');
+  if(!aside||!bnav)return;
+  var links=aside.querySelectorAll('a[data-nav],a[href^="/"]');
+  if(links.length===0)return;
+  bnav.innerHTML='';
+  var p=location.pathname;
+  var added=0;
+  links.forEach(function(a){
+    if(added>=5)return;
+    var href=a.getAttribute('href');
+    if(!href||href==='#')return;
+    var label=a.querySelector('span:last-child');
+    var icon=a.querySelector('.material-symbols-outlined');
+    if(!label||!icon)return;
+    var li=document.createElement('a');
+    li.href=href;
+    li.innerHTML='<span class="material-symbols-outlined">'+icon.textContent+'</span>'+label.textContent;
+    if(href===p)li.classList.add('active');
+    bnav.appendChild(li);
+    added++;
+  });
+}();
+</script>"##.to_string()
+    } else {
+        String::new()
+    };
+
     format!(
         r##"<!DOCTYPE html>
 <html class="{html_class}" lang="en">
@@ -804,8 +1088,24 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
   {head_styles}
   <style>
     {css_vars}
-    * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-    body {{ background: var(--cronus-bg); color: var(--cronus-text); font-family: var(--cronus-font); -webkit-font-smoothing: antialiased; }}
+    *, *::before, *::after {{ margin: 0; padding: 0; box-sizing: border-box; }}
+    html {{ overflow-x: hidden; }}
+    body {{ background: var(--cronus-bg); color: var(--cronus-text); font-family: var(--cronus-font); -webkit-font-smoothing: antialiased; position: relative; overflow-x: hidden; max-width: 100vw; }}
+    img, svg, video, canvas {{ max-width: 100%; height: auto; }}
+    p, h1, h2, h3, h4, h5, h6, span, a, li {{ overflow-wrap: break-word; word-break: break-word; }}
+    #cronus-main > * {{ max-width: 100%; overflow-x: hidden; }}
+    section, [style*="border-radius"] {{ max-width: 100%; }}
+    body::before {{
+      content: '';
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: -1;
+      background:
+        radial-gradient(ellipse 60% 50% at 20% 10%, var(--cronus-glow-1, rgba(135,173,255,0.06)) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 60% at 80% 80%, var(--cronus-glow-2, rgba(210,119,255,0.04)) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 50% 50%, var(--cronus-glow-3, rgba(129,236,255,0.03)) 0%, transparent 70%);
+    }}
     ::selection {{ background: {sel_bg}; }}
     ::-webkit-scrollbar {{ width: 4px; }}
     ::-webkit-scrollbar-thumb {{ background: {scroll_thumb}; border-radius: 2px; }}
@@ -835,19 +1135,115 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
     .cursor-blink {{ animation: blink 1s step-end infinite; }}
     .pulse-glow {{ animation: pulseGlow 2s ease-in-out infinite; }}
 
-    /* Responsive */
+    /* Responsive — Mobile first */
     @media (max-width: 768px) {{
+      /* Sidebar → hidden on mobile (bottom nav replaces it) */
+      aside {{ display: none !important; }}
+      .cronus-bottom-nav {{ display: flex !important; }}
+
+      /* Main content: full width, no sidebar offset */
+      #cronus-main {{
+        margin-left: 0 !important;
+        max-width: 100% !important;
+        padding: 1rem 1rem 5rem !important;
+        padding-top: 4rem !important;
+      }}
+
+      /* Topbar: compact */
+      header {{
+        padding: 0 1rem !important;
+      }}
+      header nav {{ display: none !important; }}
+
+      /* Grids: collapse to 1-2 cols */
       [style*="grid-template-columns:repeat(12"] {{ grid-template-columns: 1fr !important; }}
       [style*="grid-template-columns:repeat(3"] {{ grid-template-columns: 1fr !important; }}
-      [style*="grid-template-columns:repeat(4"] {{ grid-template-columns: 1fr !important; }}
+      [style*="grid-template-columns:repeat(4"] {{ grid-template-columns: repeat(2, 1fr) !important; }}
       [style*="grid-template-columns: 1fr 1fr"] {{ grid-template-columns: 1fr !important; }}
+      [style*="grid-column:span 2"] {{ grid-column: span 2 !important; }}
       [style*="grid-column:span 4"] {{ grid-column: span 1 !important; }}
       [style*="grid-column:span 6"] {{ grid-column: span 1 !important; }}
       [style*="grid-column:span 8"] {{ grid-column: span 1 !important; }}
+
+      /* Hero + template layouts — override Tailwind with high specificity */
       [style*="min-height:80vh"] {{ min-height: auto !important; padding-top: 80px !important; padding-bottom: 40px !important; }}
-      section {{ padding-left: 16px !important; padding-right: 16px !important; }}
-      h1 {{ font-size: 32px !important; }}
-      h2 {{ font-size: 24px !important; }}
+
+      /* Force 12-col grids to stack vertically */
+      section.grid, section[class*="grid"] {{ display: flex !important; flex-direction: column !important; }}
+      .grid.grid-cols-12, [class*="grid"][class*="cols-12"] {{ display: flex !important; flex-direction: column !important; }}
+
+      /* All col-span become full width */
+      [class*="col-span"] {{ width: 100% !important; max-width: 100% !important; grid-column: span 1 !important; }}
+
+      /* Remove sidebar margin */
+      .ml-64, [class*="ml-64"] {{ margin-left: 0 !important; }}
+
+      /* Side panel border fix */
+      [class*="border-l"] {{ border-left: none !important; }}
+
+      /* Chart height */
+      .h-80, [class*="h-80"] {{ height: 200px !important; }}
+
+      /* Typography */
+      h1, .text-5xl {{ font-size: 28px !important; }}
+      h2, .text-3xl {{ font-size: 22px !important; }}
+      h3 {{ font-size: 18px !important; }}
+
+      /* Tables: horizontal scroll */
+      table {{ display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }}
+      thead, tbody {{ display: table; width: 100%; }}
+      td, th {{ min-width: 100px; padding: 12px 16px !important; }}
+
+      /* Cards & padding */
+      .p-8, .p-12 {{ padding: 1rem !important; }}
+      .p-6 {{ padding: 0.75rem !important; }}
+      .mb-12 {{ margin-bottom: 1.5rem !important; }}
+      .gap-12 {{ gap: 1rem !important; }}
+      [style*="padding:20px"], [style*="padding:24px"] {{ padding: 16px !important; }}
+
+      /* Chart bars container */
+      [style*="height:200px"] {{ height: 150px !important; }}
+
+      /* Footer: above bottom nav */
+      footer {{ bottom: 3.5rem !important; }}
+
+      /* Stats grid */
+      .grid-cols-2 {{ grid-template-columns: repeat(2, 1fr) !important; }}
+    }}
+
+    /* Bottom nav — hidden on desktop, shown on mobile */
+    .cronus-bottom-nav {{
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 3.5rem;
+      background: #0e0e0e;
+      border-top: 1px solid rgba(72,72,72,0.15);
+      z-index: 60;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0;
+    }}
+    .cronus-bottom-nav a {{
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      color: rgba(255,255,255,0.4);
+      text-decoration: none;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      transition: color 0.15s;
+    }}
+    .cronus-bottom-nav a.active {{
+      color: #87adff;
+    }}
+    .cronus-bottom-nav a .material-symbols-outlined {{
+      font-size: 22px;
     }}
 
     /* Page entrance */
@@ -903,12 +1299,13 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
 </head>
 <body style="margin:0;padding:0;width:100%;max-width:100vw;overflow-x:hidden">
   {nav_html}
-  <main id="cronus-main" style="padding-top:64px;min-height:100vh;width:100%">
+  <main id="cronus-main" style="padding-top:64px;min-height:100vh;width:100%;box-sizing:border-box">
   {clean_body}
   </main>
   <script>
-  // Auto-detect fixed sidebar and adjust main content offset
+  // Auto-detect fixed sidebar and adjust main content offset (desktop only)
   !function(){{
+    if(window.innerWidth<=768)return; // skip on mobile
     var aside=document.querySelector('aside');
     var main=document.getElementById('cronus-main');
     if(aside&&main){{
@@ -919,7 +1316,160 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
         main.style.maxWidth='calc(100% - '+w+'px)';
       }}
     }}
+    // Handle resize
+    window.addEventListener('resize',function(){{
+      var main=document.getElementById('cronus-main');
+      if(!main)return;
+      if(window.innerWidth<=768){{
+        main.style.marginLeft='';
+        main.style.maxWidth='';
+      }}else{{
+        var aside=document.querySelector('aside');
+        if(aside){{
+          var s=getComputedStyle(aside);
+          if(s.position==='fixed'){{
+            var w=aside.offsetWidth||256;
+            main.style.marginLeft=w+'px';
+            main.style.maxWidth='calc(100% - '+w+'px)';
+          }}
+        }}
+      }}
+    }});
   }}();
+
+  // Fix template layouts inside #cronus-main
+  !function(){{
+    var main=document.getElementById('cronus-main');
+    if(!main)return;
+    // Remove ml-64 from template children (main already has margin-left)
+    main.querySelectorAll('.ml-64,[class*="ml-64"]').forEach(function(el){{
+      el.style.marginLeft='0';
+    }});
+    // Fix 12-col grid layouts — convert to stacked when tight
+    function fixGridLayout(){{
+      var w=main.offsetWidth;
+      var narrow=w<900;
+      main.querySelectorAll('.grid-cols-12,.grid.grid-cols-12').forEach(function(g){{
+        g.style.display='flex';
+        g.style.flexDirection=narrow?'column':'row';
+        g.style.overflow='hidden';
+        g.querySelectorAll('[class*="col-span"]').forEach(function(c){{
+          c.style.overflow='hidden';
+          c.style.minWidth='0';
+          if(narrow){{
+            c.style.flex='none';
+            c.style.width='100%';
+          }}else{{
+            // Restore original proportions
+            var cls=c.className;
+            if(cls.indexOf('col-span-8')>=0)c.style.flex='2 1 0';
+            else if(cls.indexOf('col-span-4')>=0)c.style.flex='1 1 0';
+            else c.style.flex='1 1 0';
+            c.style.width='';
+          }}
+        }});
+      }});
+      // Make all text respect container — no overflow
+      main.querySelectorAll('h1,.text-5xl,.text-3xl,.text-2xl').forEach(function(el){{
+        el.style.overflowWrap='break-word';
+        el.style.wordBreak='break-word';
+        el.style.fontSize=w<600?'24px':w<900?'32px':'';
+      }});
+      // Scale large numbers
+      main.querySelectorAll('.text-3xl').forEach(function(el){{
+        el.style.fontSize=w<600?'18px':w<900?'22px':'';
+      }});
+    }}
+    fixGridLayout();
+    window.addEventListener('resize',fixGridLayout);
+
+    // Kernel Logs animation — reveal each log entry one by one, then stream new ones
+    var logContainer=main.querySelector('.font-mono.space-y-3,[class*="font-mono"][class*="space-y"]');
+    if(logContainer){{
+      var logEntries=Array.from(logContainer.children);
+      // Hide all logs initially
+      logEntries.forEach(function(el){{
+        el.style.opacity='0';
+        el.style.transform='translateY(6px)';
+        el.style.transition='opacity 0.4s ease, transform 0.4s ease';
+      }});
+      // Reveal one by one
+      logEntries.forEach(function(el,i){{
+        setTimeout(function(){{
+          el.style.opacity='1';
+          el.style.transform='translateY(0)';
+        }},800+i*300);
+      }});
+      // After initial reveal, start streaming new fake logs
+      var logTypes=[
+        ['INFO','text-tertiary','Cache invalidation cycle completed: 2.1ms'],
+        ['INFO','text-tertiary','TLS certificate auto-renewed for *.nova-core.io'],
+        ['DEBG','text-primary-dim','Heartbeat ping to cluster Alpha-9: 4ms'],
+        ['INFO','text-tertiary','Worker pool scaled to 8 instances (auto)'],
+        ['WARN','text-error','Connection timeout on DB replica-03 (retrying)'],
+        ['INFO','text-tertiary','Rate limiter reset for API tier-2 clients'],
+        ['DEBG','text-primary-dim','GC pause: 1.2ms (within budget)'],
+        ['INFO','text-tertiary','Webhook delivery confirmed: 847/847 sent'],
+        ['WARN','text-error','Disk I/O spike on node-v7 (87% threshold)'],
+        ['INFO','text-tertiary','Session cleanup: 42 expired tokens purged'],
+        ['INFO','text-tertiary','Config hot-reload: 3 services updated'],
+        ['DEBG','text-primary-dim','Metrics export to Prometheus: OK'],
+        ['CRIT','text-error','Memory allocation failed on worker-12 (recovered)'],
+        ['INFO','text-tertiary','Load balancer health check: all nodes green'],
+      ];
+      var logIdx=0;
+      setTimeout(function streamLog(){{
+        var now=new Date();
+        var ts=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0');
+        var l=logTypes[logIdx%logTypes.length];
+        var entry=document.createElement('div');
+        entry.className='flex gap-3';
+        entry.style.cssText='opacity:0;transform:translateY(6px);transition:opacity 0.4s ease,transform 0.4s ease';
+        entry.innerHTML='<span class="shrink-0 text-on-surface-variant">'+ts+'</span><span class="'+l[1]+'">['+l[0]+']</span><span class="text-white/70">'+l[2]+'</span>';
+        logContainer.insertBefore(entry,logContainer.firstChild);
+        requestAnimationFrame(function(){{requestAnimationFrame(function(){{
+          entry.style.opacity='1';
+          entry.style.transform='translateY(0)';
+        }})}});
+        // Remove old entries to keep list short
+        while(logContainer.children.length>10)logContainer.removeChild(logContainer.lastChild);
+        logIdx++;
+        setTimeout(streamLog,3000+Math.random()*4000);
+      }},800+logEntries.length*300+1500);
+    }}
+    // Add padding to main ONLY if page doesn't have a full-width template grid
+    var hasFullGrid=main.querySelector('.grid-cols-12,.grid.grid-cols-12');
+    if(!hasFullGrid){{
+      main.style.padding='2rem 3rem';
+    }}
+  }}();
+
+  // Force responsive layout for Tailwind template grids
+  function cronusResponsive(){{
+    var mobile=window.innerWidth<=768;
+    // 12-col grids (hero layouts)
+    document.querySelectorAll('.grid-cols-12,.grid.grid-cols-12').forEach(function(g){{
+      if(mobile){{
+        g.style.display='flex';
+        g.style.flexDirection='column';
+      }}else{{
+        g.style.display='';
+        g.style.flexDirection='';
+      }}
+    }});
+    // col-span children
+    document.querySelectorAll('[class*="col-span-"]').forEach(function(c){{
+      if(mobile){{
+        c.style.width='100%';
+        c.style.maxWidth='100%';
+      }}else{{
+        c.style.width='';
+        c.style.maxWidth='';
+      }}
+    }});
+  }}
+  cronusResponsive();
+  window.addEventListener('resize',cronusResponsive);
   </script>
   <script>{runtime}</script>
   <script>{hmr}</script>
@@ -938,6 +1488,7 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
   </script>
   {anim_js}
   {action_js}
+  {bottom_nav}
 </body>
 </html>"##,
         app_name = app_name,
@@ -947,6 +1498,7 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
         css_vars = css_vars, sel_bg = sel_bg, scroll_thumb = scroll_thumb, grid_line = grid_line,
         nav_html = nav_html,
         clean_body = clean_body,
+        bottom_nav = bottom_nav_html,
         anim_css = CRONUS_ANIMATIONS_CSS,
         anim_js = CRONUS_ANIMATIONS_JS,
         tailwind_css = super::tailwind::CRONUS_TAILWIND,
@@ -1413,14 +1965,14 @@ fn render_light_support_banner(comp: &ComponentNode) -> String {
 // PAGE RENDERER (returns inner body HTML)
 // ══════════════════════════════════════════════════
 
-pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str, theme: &str, db: Option<&crate::database::CronusDB>, route_params: &std::collections::HashMap<String, String>) -> String {
+pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str, theme: &str, db: Option<&crate::database::CronusDB>, route_params: &std::collections::HashMap<String, String>, owner_id: &str) -> String {
     match page.page_type.as_str() {
         // TODO: pass db to dashboard/list/form/detail when they need binding support
         "dashboard" => render_dashboard(page, entities, accent),
         "list" => render_list(page, entities, accent),
         "form" => render_form(page, entities, accent),
         "detail" => render_list(page, entities, accent),
-        "custom" => render_custom(page, accent, theme, db, route_params),
+        "custom" => render_custom(page, accent, theme, db, route_params, owner_id),
         "checkout" => render_checkout(page),
         "components" => {
             // page type:components — placeholder, actual rendering happens in main.rs
@@ -2231,14 +2783,14 @@ fn render_detail(page: &PageNode, _entities: &[EntityNode], accent: &str) -> Str
 // CUSTOM PAGE (sections: hero, features, pricing)
 // ══════════════════════════════════════════════════
 
-fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::database::CronusDB>, route_params: &std::collections::HashMap<String, String>) -> String {
+fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::database::CronusDB>, route_params: &std::collections::HashMap<String, String>, owner_id: &str) -> String {
     let mut html_parts: Vec<String> = Vec::new();
     let mut in_grid = false;
 
     for section in &page.sections {
         // Resolve binding against real DB (falls back to None if no DB)
         let bound_data = match db {
-            Some(db) => crate::binding::resolve_binding(section, db, route_params),
+            Some(db) => crate::binding::resolve_binding(section, db, route_params, owner_id),
             None => crate::binding::ResolvedData::None,
         };
 
@@ -2419,8 +2971,8 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str, bound_data: 
                     || item.get("status").is_some()
                 )
             });
-            if is_dark_table && has_static_rows {
-                crate::data_table::render_data_table_dark(section)
+            if is_dark_table {
+                crate::data_table::render_data_table_dark(section, bound_data)
             } else {
                 crate::data_table::render_data_table(section, bound_data)
             }
@@ -4664,41 +5216,102 @@ fn render_stat_cards(section: &SectionNode, bound_data: &crate::binding::Resolve
         .and_then(|s| s.parse::<u32>().ok())
         .unwrap_or(3);
 
-    // When bound_data has Count or Rows, override the first card's value
-    let bound_value: Option<String> = match bound_data {
-        crate::binding::ResolvedData::Count(n) => Some(n.to_string()),
-        crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => Some(rows.len().to_string()),
-        _ => None,
+    let t = crate::theme::get();
+    let is_dark = t.surface.contains("0e0e0e") || t.surface.contains("000") || t.on_surface.contains("fff");
+
+    // Build items from DB rows when section has no static items
+    let db_items: Vec<std::collections::HashMap<String, String>> = if section.items.is_empty() {
+        if let crate::binding::ResolvedData::Rows(rows) = bound_data {
+            rows.iter().map(|row| {
+                let mut map = std::collections::HashMap::new();
+                if let Some(obj) = row.as_object() {
+                    for (k, v) in obj {
+                        let val = match v {
+                            serde_json::Value::String(s) => s.clone(),
+                            serde_json::Value::Number(n) => n.to_string(),
+                            serde_json::Value::Bool(b) => b.to_string(),
+                            serde_json::Value::Null => String::new(),
+                            other => other.to_string(),
+                        };
+                        match k.as_str() {
+                            "label" => { map.insert("title".to_string(), val); }
+                            "change" => { map.insert("badge".to_string(), val); }
+                            _ => { map.insert(k.clone(), val); }
+                        }
+                    }
+                }
+                map
+            }).collect()
+        } else { Vec::new() }
+    } else { Vec::new() };
+
+    let use_db = !db_items.is_empty();
+    let item_count = if use_db { db_items.len() } else { section.items.len() };
+
+    let bound_value: Option<String> = if !use_db {
+        match bound_data {
+            crate::binding::ResolvedData::Count(n) => Some(n.to_string()),
+            crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => Some(rows.len().to_string()),
+            _ => None,
+        }
+    } else { None };
+
+    // Theme colors
+    let (card_bg, card_border, label_color, value_color) = if is_dark {
+        ("#1b1b1b", "0.5px solid rgba(76,69,70,0.15)", "rgba(226,226,226,0.5)", "#e2e2e2")
+    } else {
+        ("#fff", "1px solid rgba(198,198,198,0.2)", "#5e5e5e", "#1a1c1c")
     };
 
-    let cards: Vec<String> = section.items.iter().enumerate().map(|(idx, item)| {
-        let label = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Metric");
-        let value_owned: String = if idx == 0 && bound_value.is_some() {
-            bound_value.as_ref().unwrap().clone()
+    let mut cards = Vec::new();
+    for idx in 0..item_count {
+        let (label, value_owned, icon, badge);
+        if use_db {
+            let db = &db_items[idx];
+            label = db.get("title").map(|s| s.as_str()).unwrap_or("Metric");
+            value_owned = db.get("value").cloned().unwrap_or_default();
+            icon = db.get("icon").cloned().unwrap_or_default();
+            badge = db.get("badge").cloned().unwrap_or_default();
         } else {
-            item.get("description").or_else(|| item.get("desc")).map(|s| s.to_string()).unwrap_or_default()
-        };
+            let si = &section.items[idx];
+            label = si.get("title").or_else(|| si.get("name")).map(|s| s.as_str()).unwrap_or("Metric");
+            value_owned = if idx == 0 && bound_value.is_some() {
+                bound_value.as_ref().unwrap().clone()
+            } else {
+                si.get("description").or_else(|| si.get("desc")).map(|s| s.to_string()).unwrap_or_default()
+            };
+            icon = si.get("icon").cloned().unwrap_or_default();
+            badge = String::new();
+        }
         let value = value_owned.as_str();
-        let icon_html = item.get("icon").map(|icon| {
-            format!(r#"<span style="font-size:18px;margin-bottom:8px;display:block">{icon}</span>"#, icon = icon)
-        }).unwrap_or_default();
+        let icon_html = if icon.is_empty() {
+            String::new()
+        } else {
+            format!(r#"<span class="material-symbols-outlined" style="font-size:20px;color:{label_color};margin-bottom:4px">{icon}</span>"#)
+        };
+        let badge_html = if badge.is_empty() {
+            String::new()
+        } else {
+            let positive = badge.starts_with('+') || (!badge.starts_with('-') && badge.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false));
+            let (bg, fg) = if positive { ("rgba(16,185,129,0.1)", "#10b981") } else { ("rgba(239,68,68,0.1)", "#ef4444") };
+            format!(r#"<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:9999px;font-size:12px;font-weight:600;background:{bg};color:{fg}">{badge}</span>"#)
+        };
         let delay = format!("d{}", (idx % 10) + 1);
 
-        format!(
-            r##"<div class="anim-scale {delay} card-hover" style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px;box-shadow:0 40px 80px rgba(26,28,28,0.04)">
+        cards.push(format!(
+            r##"<div class="anim-scale {delay}" style="background:{card_bg};border:{card_border};border-radius:12px;padding:24px;transition:background 0.2s" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
   {icon_html}
-  <p style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#5e5e5e;margin:0 0 8px">{label}</p>
-  <p style="font-size:28px;font-weight:700;color:#1a1c1c;margin:0">{value}</p>
-</div>"##,
-            delay = delay, icon_html = icon_html, label = label, value = value,
-        )
-    }).collect();
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><p style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:{label_color};margin:0">{label}</p>{badge_html}</div>
+  <p data-count-to="{value}" style="font-size:28px;font-weight:700;color:{value_color};margin:0;letter-spacing:-0.02em">0</p>
+</div>"##
+        ));
+    }
 
     format!(
-        r##"<div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:16px;font-family:'Inter',system-ui,-apple-system,sans-serif">
+        r##"<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;font-family:'Inter',system-ui,-apple-system,sans-serif;width:100%">
   {items}
 </div>"##,
-        cols = cols, items = cards.join("\n  "),
+        items = cards.join("\n  "),
     )
 }
 
@@ -6087,16 +6700,66 @@ fn render_form_section(section: &SectionNode, bound_data: &crate::binding::Resol
 }
 
 fn render_modal_section(section: &SectionNode) -> String {
+    let t = crate::theme::get();
     let title = section.title.as_deref().unwrap_or("Dialog");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
+    let icon = section.config.get("icon").map(|s| s.as_str()).unwrap_or("");
     let modal_id = section.config.get("id").cloned()
         .unwrap_or_else(|| format!("modal-{}", title.to_lowercase().replace(' ', "-")));
+    let trigger = section.config.get("trigger").map(|s| s.as_str()).unwrap_or("");
+    let is_dark = t.surface.contains("0e0e0e") || t.surface.contains("000") || t.on_surface.contains("fff");
+
+    // Theme tokens
+    let (backdrop_bg, panel_bg, panel_border, panel_shadow,
+         label_color, input_bg, input_border, input_focus,
+         text_color, text_muted, summary_bg,
+         btn_secondary_bg, btn_secondary_border, btn_secondary_text,
+         btn_primary_bg, btn_primary_text) = if is_dark {
+        (
+            "rgba(0,0,0,0.6)", // backdrop
+            "rgba(25,25,25,0.85)", // panel
+            "0.5px solid rgba(72,72,72,0.15)", // panel border
+            "0 0 60px rgba(135,173,255,0.08)", // shadow glow
+            "rgba(226,226,226,0.4)", // label
+            "#000000", // input bg
+            "rgba(72,72,72,0.3)", // input border
+            "rgba(135,173,255,0.5)", // input focus
+            "#ffffff", // text
+            "rgba(226,226,226,0.4)", // muted
+            "rgba(31,31,31,0.5)", // summary bg
+            "#262626", // btn secondary bg
+            "0.5px solid rgba(72,72,72,0.2)", // btn secondary border
+            "#ffffff", // btn secondary text
+            "linear-gradient(135deg,#87adff,#d277ff)", // btn primary bg (gradient)
+            "#ffffff", // btn primary text
+        )
+    } else {
+        (
+            "rgba(0,0,0,0.4)",
+            "#ffffff",
+            "1px solid #e5e7eb",
+            "0 24px 48px rgba(0,0,0,0.15)",
+            "#71717a",
+            "#f9fafb",
+            "#e5e7eb",
+            "#2563eb",
+            "#1a1a1a",
+            "#71717a",
+            "#f3f4f6",
+            "#ffffff",
+            "1px solid #e5e7eb",
+            "#1a1a1a",
+            "#000000",
+            "#ffffff",
+        )
+    };
+
+    let label_style = format!("display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;color:{};margin-bottom:8px;margin-left:2px", label_color);
+    let input_style = format!("width:100%;padding:14px 16px;background:{};border:1px solid {};border-radius:8px;font-size:14px;outline:none;font-family:Inter,sans-serif;transition:all 0.2s;box-sizing:border-box;color:{}", input_bg, input_border, text_color);
 
     let mut fields_html = String::new();
     let mut actions_html = String::new();
-
-    let label_style = "display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#71717a;margin-bottom:8px";
-    let input_style = "width:100%;padding:12px 16px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;font-family:Inter,sans-serif;transition:border-color 0.2s;box-sizing:border-box";
+    let mut summary_html = String::new();
 
     for item in &section.items {
         let itype = item.get("_type").map(|s| s.as_str()).unwrap_or("");
@@ -6106,41 +6769,53 @@ fn render_modal_section(section: &SectionNode) -> String {
             let ftype = item.get("type").map(|s| s.as_str()).unwrap_or("text");
             let name_lower = item_title.to_lowercase().replace(' ', "_");
             let placeholder = item.get("placeholder").map(|s| s.as_str()).unwrap_or("");
+            let value = item.get("value").map(|s| s.as_str()).unwrap_or("");
             let required = if item.get("required").map(|s| s == "true").unwrap_or(false) { "required" } else { "" };
+            let readonly = if item.get("readonly").map(|s| s == "true").unwrap_or(false) || !value.is_empty() { "readonly" } else { "" };
+            let span = item.get("span").map(|s| s.as_str()).unwrap_or("1");
+
+            let grid_col = if span != "1" { format!("grid-column:span {}", span) } else { String::new() };
 
             match ftype {
                 "select" => {
                     let options_raw = item.get("options").map(|s| s.as_str()).unwrap_or("");
                     let options: Vec<&str> = if options_raw.is_empty() { vec![] } else { options_raw.split("||").collect() };
-                    let mut opts_html = format!(r#"<option value="">Select {}...</option>"#, item_title);
+                    let mut opts_html = String::new();
                     for opt in &options {
                         opts_html.push_str(&format!(r#"<option value="{v}">{v}</option>"#, v = opt));
                     }
                     fields_html.push_str(&format!(
-                        r#"<div><label style="{ls}">{label}</label><select name="{name}" {req} style="{is};appearance:none;background:#fff">{opts}</select></div>"#,
-                        ls = label_style, label = item_title, name = name_lower,
-                        req = required, is = input_style, opts = opts_html,
+                        r#"<div style="{gc}"><label style="{ls}">{label}</label><select name="{name}" style="{is};appearance:none;cursor:pointer;background-image:url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%23888\" stroke-width=\"2\"><path d=\"M6 9l6 6 6-6\"/></svg>');background-repeat:no-repeat;background-position:right 14px center" onfocus="this.style.borderColor='{fc}';this.style.boxShadow='0 0 0 3px {fc}33'" onblur="this.style.borderColor='{ib}';this.style.boxShadow='none'">{opts}</select></div>"#,
+                        gc = grid_col, ls = label_style, label = item_title, name = name_lower,
+                        is = input_style, opts = opts_html, fc = input_focus, ib = input_border,
                     ));
                 }
                 "textarea" => {
-                    let rows = item.get("rows").map(|s| s.as_str()).unwrap_or("4");
+                    let rows = item.get("rows").map(|s| s.as_str()).unwrap_or("3");
                     fields_html.push_str(&format!(
-                        r#"<div><label style="{ls}">{label}</label><textarea name="{name}" rows="{rows}" placeholder="{ph}" {req} style="{is};resize:vertical" onfocus="this.style.borderColor='#000'" onblur="this.style.borderColor='#e5e7eb'"></textarea></div>"#,
-                        ls = label_style, label = item_title, name = name_lower,
+                        r#"<div style="{gc}"><label style="{ls}">{label}</label><textarea name="{name}" rows="{rows}" placeholder="{ph}" {req} style="{is};resize:none" onfocus="this.style.borderColor='{fc}';this.style.boxShadow='0 0 0 3px {fc}33'" onblur="this.style.borderColor='{ib}';this.style.boxShadow='none'"></textarea></div>"#,
+                        gc = grid_col, ls = label_style, label = item_title, name = name_lower,
                         rows = rows, ph = placeholder, req = required, is = input_style,
+                        fc = input_focus, ib = input_border,
                     ));
                 }
                 "checkbox" => {
                     fields_html.push_str(&format!(
-                        r#"<label style="display:flex;align-items:center;gap:12px;cursor:pointer"><input type="checkbox" name="{name}" style="width:18px;height:18px;accent-color:#000"><span style="font-size:14px">{label}</span></label>"#,
-                        name = name_lower, label = item_title,
+                        r#"<label style="display:flex;align-items:center;gap:12px;cursor:pointer;{gc}"><input type="checkbox" name="{name}" style="width:18px;height:18px;accent-color:{fc}"><span style="font-size:14px;color:{tc}">{label}</span></label>"#,
+                        gc = grid_col, name = name_lower, label = item_title, fc = input_focus, tc = text_color,
                     ));
                 }
                 _ => {
+                    let val_attr = if !value.is_empty() { format!(r#"value="{}""#, value) } else { String::new() };
+                    let copy_icon = if !readonly.is_empty() && !value.is_empty() {
+                        format!(r#"<span class="material-symbols-outlined" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:16px;color:{};cursor:pointer">content_copy</span>"#, label_color)
+                    } else { String::new() };
+                    let wrapper = if !copy_icon.is_empty() { "position:relative" } else { "" };
                     fields_html.push_str(&format!(
-                        r#"<div><label style="{ls}">{label}</label><input type="{ftype}" name="{name}" placeholder="{ph}" {req} style="{is}" onfocus="this.style.borderColor='#000'" onblur="this.style.borderColor='#e5e7eb'"></div>"#,
-                        ls = label_style, label = item_title, ftype = ftype, name = name_lower,
-                        ph = placeholder, req = required, is = input_style,
+                        r#"<div style="{gc};{wr}"><label style="{ls}">{label}</label><div style="position:relative"><input type="{ftype}" name="{name}" placeholder="{ph}" {val} {req} {ro} style="{is}" onfocus="this.style.borderColor='{fc}';this.style.boxShadow='0 0 0 3px {fc}33'" onblur="this.style.borderColor='{ib}';this.style.boxShadow='none'">{copy}</div></div>"#,
+                        gc = grid_col, wr = wrapper, ls = label_style, label = item_title, ftype = ftype,
+                        name = name_lower, ph = placeholder, val = val_attr, req = required, ro = readonly,
+                        is = input_style, fc = input_focus, ib = input_border, copy = copy_icon,
                     ));
                 }
             }
@@ -6148,51 +6823,116 @@ fn render_modal_section(section: &SectionNode) -> String {
             let variant = item.get("variant").map(|s| s.as_str())
                 .or_else(|| item.get("style").map(|s| s.as_str()))
                 .unwrap_or("primary");
-            let (bg, color, border) = match variant {
-                "secondary" | "outline" => ("#fff", "#000", "1px solid #e5e7eb"),
-                "danger" => ("#dc2626", "#fff", "none"),
-                _ => ("#000", "#fff", "none"),
-            };
-            let onclick = if variant == "secondary" || variant == "outline" {
-                format!(r#"onclick="cronusModal.close('{}')" type="button""#, modal_id)
+
+            if variant == "secondary" || variant == "outline" || variant == "cancel" {
+                let onclick = format!(r#"onclick="cronusModal.close('{}')" type="button""#, modal_id);
+                actions_html.push_str(&format!(
+                    r#"<button {onclick} style="flex:1;padding:14px;border:{bdr};border-radius:8px;background:{bg};color:{clr};font-size:12px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;letter-spacing:0.1em;text-transform:uppercase;transition:all 0.15s" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">{label}</button>"#,
+                    onclick = onclick, bdr = btn_secondary_border, bg = btn_secondary_bg,
+                    clr = btn_secondary_text, label = item_title,
+                ));
             } else {
-                r#"type="submit""#.to_string()
-            };
-            actions_html.push_str(&format!(
-                r#"<button {onclick} style="flex:1;padding:12px;border:{border};border-radius:999px;background:{bg};color:{color};font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">{label}</button>"#,
-                onclick = onclick, border = border, bg = bg, color = color, label = item_title,
+                let glow = if is_dark { "box-shadow:0 0 20px rgba(135,173,255,0.25);" } else { "" };
+                actions_html.push_str(&format!(
+                    r#"<button type="submit" style="flex:1.5;padding:14px;border:none;border-radius:8px;background:{bg};color:{clr};font-size:12px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;letter-spacing:0.12em;text-transform:uppercase;transition:all 0.15s;{glow}" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter='none'">{label}</button>"#,
+                    bg = btn_primary_bg, clr = btn_primary_text, glow = glow, label = item_title,
+                ));
+            }
+        } else if itype == "summary" || itype == "row" {
+            let val = item.get("value").map(|s| s.as_str()).unwrap_or("");
+            let val_color = item.get("color").map(|s| s.as_str()).unwrap_or(text_muted);
+            summary_html.push_str(&format!(
+                r#"<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:{tm}">{label}</span><span style="color:{vc};font-weight:500">{val}</span></div>"#,
+                tm = text_muted, label = item_title, vc = val_color, val = val,
             ));
         }
     }
 
+    // Wrap fields in grid if any have span
+    let has_grid = section.items.iter().any(|i| i.get("span").is_some());
+    let fields_wrapper = if has_grid {
+        format!(r#"<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:20px">{}</div>"#, fields_html)
+    } else {
+        format!(r#"<div style="display:flex;flex-direction:column;gap:20px">{}</div>"#, fields_html)
+    };
+
+    let summary_block = if !summary_html.is_empty() {
+        format!(r#"<div style="background:{};border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:8px;margin-top:8px">{}</div>"#, summary_bg, summary_html)
+    } else { String::new() };
+
     let subtitle_html = if subtitle.is_empty() {
         String::new()
     } else {
-        format!(r#"<p style="font-size:14px;color:#71717a;margin:0">{}</p>"#, subtitle)
+        format!(r#"<p style="font-size:13px;color:{};margin:4px 0 0">{}</p>"#, text_muted, subtitle)
     };
 
+    let icon_html = if icon.is_empty() {
+        String::new()
+    } else {
+        let (icon_bg, icon_color, icon_border) = if is_dark {
+            ("rgba(135,173,255,0.1)", "#87adff", "1px solid rgba(135,173,255,0.2)")
+        } else {
+            ("rgba(37,99,235,0.1)", "#2563eb", "1px solid rgba(37,99,235,0.2)")
+        };
+        format!(r#"<div style="width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:{};border:{};flex-shrink:0"><span class="material-symbols-outlined" style="font-size:24px;color:{}">{}</span></div>"#, icon_bg, icon_border, icon_color, icon)
+    };
+
+    // Gradient bar at bottom of modal
+    let gradient_bar = if is_dark {
+        r#"<div style="height:2px;width:100%;background:linear-gradient(90deg,rgba(135,173,255,0.3),rgba(210,119,255,0.3),rgba(135,173,255,0.3))"></div>"#
+    } else { "" };
+
+    // Entity binding — determines API endpoint
+    let entity = section.config.get("entity").map(|s| s.as_str()).unwrap_or("");
+    let entity_lower = entity.to_lowercase();
+    let api_endpoint = if !entity.is_empty() {
+        format!("/api/{}s", entity_lower)
+    } else {
+        String::new()
+    };
+
+    // Form submit JS
+    let form_submit = if !api_endpoint.is_empty() {
+        format!(
+            r#"onsubmit="return cronusModalSubmit(event,'{id}','{api}')" "#,
+            id = modal_id, api = api_endpoint
+        )
+    } else {
+        String::new()
+    };
+
+    // Auto-open trigger
+    let auto_open = if trigger == "auto" || trigger == "open" {
+        format!(r#"<script>document.getElementById('{}').style.display='flex'</script>"#, modal_id)
+    } else { String::new() };
+
     format!(
-        r##"<div id="{id}" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;backdrop-filter:blur(4px)" onclick="if(event.target===this)cronusModal.close('{id}')">
-  <div style="background:#fff;border-radius:16px;padding:32px;width:100%;max-width:480px;box-shadow:0 24px 48px rgba(0,0,0,0.15);animation:scaleIn 0.3s cubic-bezier(0.16,1,0.3,1)">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
-      <div>
-        <h3 style="font-size:20px;font-weight:700;margin:0 0 4px">{title}</h3>
-        {subtitle_html}
+        r##"<div id="{id}" style="display:none;position:fixed;inset:0;z-index:100;background:{backdrop};align-items:center;justify-content:center;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:24px" onclick="if(event.target===this)cronusModal.close('{id}')">
+  <div style="background:{panel};backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);border-radius:16px;width:100%;max-width:540px;{border};box-shadow:{shadow};animation:scaleIn 0.3s cubic-bezier(0.16,1,0.3,1);overflow:hidden;background-image:linear-gradient(135deg,rgba(135,173,255,0.03),rgba(210,119,255,0.06))">
+    <div style="padding:32px 40px 24px;border-bottom:1px solid rgba(72,72,72,0.08)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <h3 style="font-size:22px;font-weight:700;margin:0;color:{text};letter-spacing:-0.02em;font-family:'Space Grotesk',sans-serif">{title}</h3>
+          {subtitle_html}
+        </div>
+        {icon_html}
       </div>
-      <button onclick="cronusModal.close('{id}')" style="background:none;border:none;cursor:pointer;padding:4px">
-        <span class="material-symbols-outlined">close</span>
-      </button>
     </div>
-    <form style="display:flex;flex-direction:column;gap:16px">
+    <form {form_submit}style="padding:32px 40px;display:flex;flex-direction:column;gap:24px">
       {fields}
-      <div style="display:flex;gap:12px;margin-top:8px">
+      {summary}
+      <div style="display:flex;gap:12px;padding-top:8px">
         {actions}
       </div>
     </form>
+    {gradient_bar}
   </div>
-</div>"##,
-        id = modal_id, title = title, subtitle_html = subtitle_html,
-        fields = fields_html, actions = actions_html,
+</div>{auto_open}"##,
+        id = modal_id, backdrop = backdrop_bg, panel = panel_bg, border = format!("border:{}", panel_border),
+        shadow = panel_shadow, text = text_color,
+        title = title, subtitle_html = subtitle_html, icon_html = icon_html,
+        fields = fields_wrapper, summary = summary_block,
+        actions = actions_html, gradient_bar = gradient_bar, auto_open = auto_open,
     )
 }
 
@@ -6697,7 +7437,21 @@ fn render_chart_section(section: &SectionNode, bound_data: &crate::binding::Reso
             r#"<div style="display:flex;justify-content:space-between;padding:16px 48px;font-size:10px;color:rgba(226,226,226,0.4);text-transform:uppercase;letter-spacing:0.15em;background:#1b1b1b">{x_spans}</div>"#
         );
 
-        let gradient_chart = r#"<div style="position:relative;height:200px;overflow:hidden"><div style="position:absolute;bottom:0;width:100%;height:80%;background:linear-gradient(to top,rgba(173,198,255,0.15),transparent);clip-path:polygon(0 80%,10% 70%,20% 85%,30% 60%,40% 65%,50% 40%,60% 45%,70% 30%,80% 35%,90% 10%,100% 15%,100% 100%,0 100%)"></div><div style="position:absolute;bottom:0;width:100%;height:70%;background:linear-gradient(to top,rgba(194,193,255,0.1),transparent);clip-path:polygon(0 90%,15% 75%,25% 80%,35% 55%,45% 60%,55% 45%,65% 50%,75% 35%,85% 40%,100% 20%,100% 100%,0 100%)"></div></div>"#;
+        // Animated bar chart with individual bars that grow
+        let bar_heights = [45, 60, 50, 75, 55, 85, 65, 90, 70, 95, 80, 100, 70, 85, 60, 50, 75, 65, 80, 90, 55, 70, 85, 95];
+        let mut bars_html = String::new();
+        for (bi, h) in bar_heights.iter().enumerate() {
+            let delay = format!("{:.2}", 0.1 + bi as f64 * 0.04);
+            let opacity = if *h > 80 { "0.35" } else if *h > 60 { "0.25" } else { "0.15" };
+            bars_html.push_str(&format!(
+                r#"<div class="cronus-bar" style="flex:1;height:{h}%;background:linear-gradient(to top,rgba(173,198,255,{opacity}),rgba(173,198,255,0.05));border-radius:2px 2px 0 0;transition:transform 0.8s cubic-bezier(0.16,1,0.3,1) {delay}s,opacity 0.6s ease {delay}s;transform:scaleY(0);transform-origin:bottom" onmouseover="this.style.background='linear-gradient(to top,rgba(173,198,255,0.5),rgba(173,198,255,0.1))'" onmouseout="this.style.background='linear-gradient(to top,rgba(173,198,255,{opacity}),rgba(173,198,255,0.05))'"></div>"#,
+                h = h, opacity = opacity, delay = delay
+            ));
+        }
+        let gradient_chart = format!(
+            r#"<div style="position:relative;height:200px;overflow:hidden;display:flex;align-items:flex-end;gap:3px;padding:8px 4px">{bars}<div class="anim-breathe" style="position:absolute;top:15%;left:50%;width:70%;height:1px;background:linear-gradient(90deg,transparent,rgba(173,198,255,0.2),transparent);transform:translateX(-50%)"></div></div>"#,
+            bars = bars_html
+        );
 
         return format!(
             r#"<div style="margin-bottom:48px;background:#0e0e0e;border-radius:12px;border:0.5px solid rgba(76,69,70,0.15);overflow:hidden"><div style="padding:24px 32px;display:flex;justify-content:space-between;align-items:center;background:#1b1b1b"><div><h3 style="font-size:18px;font-weight:600;margin:0;color:#e2e2e2">{}</h3><p style="font-size:12px;color:rgba(226,226,226,0.4);margin:4px 0 0">{}</p></div>{}</div><div style="display:flex;padding:24px 32px;background:#0e0e0e">{}{}</div>{}</div>"#,
@@ -6718,17 +7472,19 @@ fn render_chart_bar(title: &str, subtitle: &str, data: &[(String, f64)]) -> Stri
         return String::new();
     }
 
-    let bars: Vec<String> = data.iter().map(|(label, value)| {
+    let bars: Vec<String> = data.iter().enumerate().map(|(i, (label, value))| {
         let percent = (value / max_val) * 100.0;
+        let delay = format!("{:.2}s", 0.1 + i as f64 * 0.08);
         format!(
             r##"<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px">
-        <span style="font-size:11px;font-weight:600;color:#1a1c1c">{value}</span>
-        <div style="width:100%;background:#000;border-radius:4px 4px 0 0;transition:height 0.8s cubic-bezier(0.16,1,0.3,1);height:{percent}%" class="chart-bar"></div>
+        <span class="anim-count" style="font-size:11px;font-weight:600;color:#1a1c1c;animation-delay:{delay}">{value}</span>
+        <div style="width:100%;background:#000;border-radius:4px 4px 0 0;height:{percent}%" class="chart-bar-anim" style="animation-delay:{delay}"></div>
         <span style="font-size:11px;color:#71717a">{label}</span>
       </div>"##,
             value = *value as i64,
             percent = percent as i64,
             label = label,
+            delay = delay,
         )
     }).collect();
 
@@ -6789,8 +7545,9 @@ fn render_chart_line(title: &str, subtitle: &str, data: &[(String, f64)]) -> Str
     <p style="font-size:13px;color:#71717a;margin:0">{subtitle}</p>
   </div>
   <svg viewBox="0 0 {width} {height}" style="width:100%;height:200px">
-    <polyline points="{polyline_pts}" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <polyline points="{fill_pts}" fill="rgba(0,0,0,0.05)" stroke="none"/>
+    <defs><linearGradient id="lineFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(0,0,0,0.08)"/><stop offset="100%" stop-color="rgba(0,0,0,0)"/></linearGradient></defs>
+    <polyline points="{fill_pts}" fill="url(#lineFill)" stroke="none" style="opacity:0;animation:fadeIn 1s ease 0.8s both"/>
+    <polyline points="{polyline_pts}" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="chart-line-draw" style="--line-len:2000;stroke-dasharray:2000"/>
     {circles}
   </svg>
   <div style="display:flex;justify-content:space-between;padding-top:8px">
@@ -6821,12 +7578,13 @@ fn render_chart_donut(title: &str, subtitle: &str, data: &[(String, f64)]) -> St
     let segments: Vec<String> = data.iter().enumerate().map(|(i, (_, v))| {
         let arc = (v / total) * circumference;
         let color = colors[i % colors.len()];
+        let delay = format!("{:.2}", 0.2 + i as f64 * 0.15);
         let seg = format!(
-            r##"<circle cx="60" cy="60" r="50" fill="none" stroke="{color}" stroke-width="10" stroke-dasharray="{arc} {circumference}" stroke-dashoffset="{offset}"/>"##,
+            r##"<circle cx="60" cy="60" r="50" fill="none" stroke="{color}" stroke-width="10" class="chart-donut-draw" style="--arc:{arc};stroke-dashoffset:{offset};animation-delay:{delay}s"/>"##,
             color = color,
             arc = arc,
-            circumference = circumference,
             offset = -offset,
+            delay = delay,
         );
         offset += arc;
         seg
@@ -10618,11 +11376,11 @@ fn render_skeleton_section(section: &SectionNode) -> String {
     format!(
         r##"<section style="padding:32px 0">
   {title_html}
-  <div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:16px">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
     {blocks}
   </div>
 </section>"##,
-        title_html = title_html, cols = cols, blocks = blocks,
+        title_html = title_html, blocks = blocks,
     )
 }
 
@@ -11384,28 +12142,70 @@ fn render_kpi_section(section: &SectionNode, bound_data: &crate::binding::Resolv
         format!(r#"<div style="margin-bottom:24px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{}</h2>{}</div>"#, title, sub)
     };
 
-    // When bound_data is Count or Rows, override the first item's value
-    let bound_value: Option<String> = match bound_data {
-        crate::binding::ResolvedData::Count(n) => Some(n.to_string()),
-        crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => Some(rows.len().to_string()),
-        _ => None,
-    };
+    // Build items from DB rows when section has no static items
+    let db_items: Vec<std::collections::HashMap<String, String>> = if section.items.is_empty() {
+        if let crate::binding::ResolvedData::Rows(rows) = bound_data {
+            rows.iter().map(|row| {
+                let mut map = std::collections::HashMap::new();
+                if let Some(obj) = row.as_object() {
+                    for (k, v) in obj {
+                        let val = match v {
+                            serde_json::Value::String(s) => s.clone(),
+                            serde_json::Value::Number(n) => n.to_string(),
+                            serde_json::Value::Bool(b) => b.to_string(),
+                            serde_json::Value::Null => String::new(),
+                            other => other.to_string(),
+                        };
+                        match k.as_str() {
+                            "label" => { map.insert("title".to_string(), val); }
+                            "change" => { map.insert("badge".to_string(), val); }
+                            _ => { map.insert(k.clone(), val); }
+                        }
+                    }
+                }
+                map
+            }).collect()
+        } else { Vec::new() }
+    } else { Vec::new() };
+
+    let use_db = !db_items.is_empty();
+    let item_count = if use_db { db_items.len() } else { section.items.len() };
+
+    let bound_value: Option<String> = if !use_db {
+        match bound_data {
+            crate::binding::ResolvedData::Count(n) => Some(n.to_string()),
+            crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => Some(rows.len().to_string()),
+            _ => None,
+        }
+    } else { None };
 
     let mut cards_html = String::new();
-    for (i, item) in section.items.iter().enumerate() {
-        let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
-        // Use bound value for the first KPI card when available
-        let value_owned: String = if i == 0 && bound_value.is_some() {
-            bound_value.as_ref().unwrap().clone()
+    for i in 0..item_count {
+        let (item_title, value_owned, icon, trend, badge, meta, item_subtitle);
+        if use_db {
+            let db = &db_items[i];
+            item_title = db.get("title").map(|s| s.as_str()).unwrap_or("");
+            value_owned = db.get("value").cloned().unwrap_or_default();
+            icon = db.get("icon").map(|s| s.as_str()).unwrap_or("");
+            trend = db.get("trend").or(db.get("badge")).map(|s| s.as_str()).unwrap_or("");
+            badge = db.get("badge").map(|s| s.as_str()).unwrap_or("");
+            meta = db.get("description").map(|s| s.as_str()).unwrap_or("");
+            item_subtitle = db.get("subtitle").map(|s| s.as_str()).unwrap_or("");
         } else {
-            item.get("value").map(|s| s.to_string()).unwrap_or_default()
-        };
+            let si = &section.items[i];
+            item_title = si.get("title").map(|s| s.as_str()).unwrap_or("");
+            value_owned = if i == 0 && bound_value.is_some() {
+                bound_value.as_ref().unwrap().clone()
+            } else {
+                si.get("value").map(|s| s.to_string()).unwrap_or_default()
+            };
+            icon = si.get("icon").map(|s| s.as_str()).unwrap_or("");
+            trend = si.get("trend").map(|s| s.as_str()).unwrap_or("");
+            badge = si.get("badge").map(|s| s.as_str()).unwrap_or("");
+            meta = si.get("description").map(|s| s.as_str()).unwrap_or("");
+            item_subtitle = si.get("subtitle").map(|s| s.as_str()).unwrap_or("");
+        }
         let value = value_owned.as_str();
-        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
-        let trend = item.get("trend").map(|s| s.as_str()).unwrap_or("");
-        let badge = item.get("badge").map(|s| s.as_str()).unwrap_or("");
-        let meta = item.get("description").map(|s| s.as_str()).unwrap_or("");
-        let item_subtitle = item.get("subtitle").map(|s| s.as_str()).unwrap_or("");
         let delay_class = format!("d{}", (i % 10) + 1);
 
         let icon_html = if icon.is_empty() {
@@ -11455,7 +12255,7 @@ fn render_kpi_section(section: &SectionNode, bound_data: &crate::binding::Resolv
             r##"<div class="anim-slide-up {delay}" style="background:#fff;border:1px solid #f4f4f5;border-radius:12px;padding:20px">
   {icon_html}
   <div style="display:flex;align-items:baseline;gap:8px">
-    <span style="font-size:32px;font-weight:700;letter-spacing:-0.03em;line-height:1">{value}</span>
+    <span data-count-to="{value}" style="font-size:32px;font-weight:700;letter-spacing:-0.03em;line-height:1">0</span>
     {badge_html}
     {trend_html}
   </div>
@@ -11470,11 +12270,11 @@ fn render_kpi_section(section: &SectionNode, bound_data: &crate::binding::Resolv
     format!(
         r##"<section style="padding:32px 0">
   {title_html}
-  <div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:16px">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
     {cards}
   </div>
 </section>"##,
-        title_html = title_html, cols = cols, cards = cards_html,
+        title_html = title_html, cards = cards_html,
     )
 }
 
@@ -11501,27 +12301,79 @@ fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crate::binding:
         format!(r#"<div style="margin-bottom:24px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:{}">{}</h2>{}</div>"#, t.on_surface, title, sub)
     };
 
-    // Bound data override for first item
-    let bound_value: Option<String> = match bound_data {
-        crate::binding::ResolvedData::Count(n) => Some(n.to_string()),
-        crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => Some(rows.len().to_string()),
-        _ => None,
+    // Build items list: from DB rows (when section has no static items) or from .cronus items
+    let db_items: Vec<std::collections::HashMap<String, String>> = if section.items.is_empty() {
+        if let crate::binding::ResolvedData::Rows(rows) = bound_data {
+            rows.iter().map(|row| {
+                let mut map = std::collections::HashMap::new();
+                if let Some(obj) = row.as_object() {
+                    for (k, v) in obj {
+                        let val = match v {
+                            serde_json::Value::String(s) => s.clone(),
+                            serde_json::Value::Number(n) => n.to_string(),
+                            serde_json::Value::Bool(b) => b.to_string(),
+                            serde_json::Value::Null => String::new(),
+                            other => other.to_string(),
+                        };
+                        // Map entity fields to KPI card fields
+                        match k.as_str() {
+                            "label" => { map.insert("title".to_string(), val); }
+                            "change" => { map.insert("badge".to_string(), val); }
+                            _ => { map.insert(k.clone(), val); }
+                        }
+                    }
+                }
+                map
+            }).collect()
+        } else {
+            Vec::new()
+        }
+    } else {
+        Vec::new()
+    };
+
+    // Use DB items when available, otherwise fall back to static .cronus items
+    let use_db_items = !db_items.is_empty();
+    let item_count = if use_db_items { db_items.len() } else { section.items.len() };
+
+    // Bound data override for first item (only when using static items)
+    let bound_value: Option<String> = if !use_db_items {
+        match bound_data {
+            crate::binding::ResolvedData::Count(n) => Some(n.to_string()),
+            crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => Some(rows.len().to_string()),
+            _ => None,
+        }
+    } else {
+        None
     };
 
     let mut cards_html = String::new();
-    for (i, item) in section.items.iter().enumerate() {
-        let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
-        let value_owned: String = if i == 0 && bound_value.is_some() {
-            bound_value.as_ref().unwrap().clone()
+    for i in 0..item_count {
+        let (item_title, value_owned, icon, badge, item_subtitle, description, span);
+        if use_db_items {
+            let db_item = &db_items[i];
+            item_title = db_item.get("title").map(|s| s.as_str()).unwrap_or("");
+            value_owned = db_item.get("value").cloned().unwrap_or_default();
+            icon = db_item.get("icon").map(|s| s.as_str()).unwrap_or("");
+            badge = db_item.get("badge").map(|s| s.as_str()).unwrap_or("");
+            item_subtitle = db_item.get("subtitle").map(|s| s.as_str()).unwrap_or("");
+            description = db_item.get("description").map(|s| s.as_str()).unwrap_or("");
+            span = db_item.get("span").and_then(|s| s.parse().ok()).unwrap_or(1usize);
         } else {
-            item.get("value").map(|s| s.to_string()).unwrap_or_default()
-        };
+            let static_item = &section.items[i];
+            item_title = static_item.get("title").map(|s| s.as_str()).unwrap_or("");
+            value_owned = if i == 0 && bound_value.is_some() {
+                bound_value.as_ref().unwrap().clone()
+            } else {
+                static_item.get("value").map(|s| s.to_string()).unwrap_or_default()
+            };
+            icon = static_item.get("icon").map(|s| s.as_str()).unwrap_or("");
+            badge = static_item.get("badge").map(|s| s.as_str()).unwrap_or("");
+            item_subtitle = static_item.get("subtitle").map(|s| s.as_str()).unwrap_or("");
+            description = static_item.get("description").map(|s| s.as_str()).unwrap_or("");
+            span = static_item.get("span").and_then(|s| s.parse().ok()).unwrap_or(1usize);
+        }
         let value = value_owned.as_str();
-        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("");
-        let badge = item.get("badge").map(|s| s.as_str()).unwrap_or("");
-        let item_subtitle = item.get("subtitle").map(|s| s.as_str()).unwrap_or("");
-        let description = item.get("description").map(|s| s.as_str()).unwrap_or("");
-        let span: usize = item.get("span").and_then(|s| s.parse().ok()).unwrap_or(1);
 
         let col_span_style = if span > 1 {
             format!("grid-column:span {}", span)
@@ -11597,7 +12449,7 @@ fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crate::binding:
             r##"<div class="anim-slide-up d{delay}" style="background:#1b1b1b;border:0.5px solid rgba(76,69,70,0.15);border-radius:12px;padding:20px 24px;transition:background 0.2s ease;cursor:default;{col_span}" onmouseover="this.style.background='#1f1f1f'" onmouseout="this.style.background='#1b1b1b'">
   {label_row}
   <div style="display:flex;align-items:baseline;gap:10px">
-    <span style="font-size:{vsize};font-weight:{vweight};letter-spacing:-0.03em;line-height:1;color:#e2e2e2">{value}</span>
+    <span data-count-to="{value}" style="font-size:{vsize};font-weight:{vweight};letter-spacing:-0.03em;line-height:1;color:#e2e2e2">0</span>
   </div>
   {sub_html}
   {chart_html}
@@ -11616,11 +12468,11 @@ fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crate::binding:
     format!(
         r##"<section style="padding:32px 0">
   {title_html}
-  <div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:16px">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
     {cards}
   </div>
 </section>"##,
-        title_html = title_html, cols = cols, cards = cards_html,
+        title_html = title_html, cards = cards_html,
     )
 }
 

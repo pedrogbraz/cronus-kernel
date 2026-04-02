@@ -36,6 +36,7 @@ mod tailwind;
 mod testing;
 mod theme;
 mod navigation;
+mod security;
 mod ui;
 
 use std::env;
@@ -526,22 +527,35 @@ struct AppState {
     layout: Option<parser::LayoutNode>,  // declarative sidebar+topbar layout
 }
 
+fn cors_origin() -> String {
+    std::env::var("CRONUS_CORS_ORIGIN").unwrap_or_else(|_| "same-origin".to_string())
+}
+
 fn json_response(status: StatusCode, body: Value) -> Response<Full<Bytes>> {
-    Response::builder()
+    let origin = cors_origin();
+    let mut builder = Response::builder()
         .status(status)
         .header("Content-Type", "application/json")
-        .header("Access-Control-Allow-Origin", "*")
         .header("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
-        .header("Access-Control-Allow-Headers", "Content-Type, Authorization")
-        .body(Full::new(Bytes::from(body.to_string())))
-        .unwrap()
+        .header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if origin != "same-origin" {
+        builder = builder.header("Access-Control-Allow-Origin", origin);
+    }
+    for (k, v) in crate::security::security_headers() {
+        builder = builder.header(k, v);
+    }
+    builder.body(Full::new(Bytes::from(body.to_string()))).unwrap()
 }
 
 fn html_response(body: String) -> Response<Full<Bytes>> {
     let final_body = inject_audit_if_enabled(body);
-    Response::builder()
+    let mut builder = Response::builder()
         .status(StatusCode::OK)
-        .header("Content-Type", "text/html; charset=utf-8")
+        .header("Content-Type", "text/html; charset=utf-8");
+    for (k, v) in crate::security::security_headers() {
+        builder = builder.header(k, v);
+    }
+    builder
         .body(Full::new(Bytes::from(final_body)))
         .unwrap()
 }
@@ -830,7 +844,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {{
     const res = await fetch('/api/auth/login', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify(data) }});
     const json = await res.json();
     if (json.token) {{
-      document.cookie = 'cronus_token=' + json.token + '; path=/; max-age=86400';
+      // cookie set by server via Set-Cookie header (HttpOnly + Secure + SameSite=Strict)
       localStorage.setItem('token', json.token);
       localStorage.setItem('user', JSON.stringify(json.user || {{}}));
       window.location.href = '/';
@@ -897,7 +911,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     const res = await fetch('/api/auth/signup', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify(data) }});
     const json = await res.json();
     if (json.token) {{
-      document.cookie = 'cronus_token=' + json.token + '; path=/; max-age=86400';
+      // cookie set by server via Set-Cookie header (HttpOnly + Secure + SameSite=Strict)
       localStorage.setItem('token', json.token);
       localStorage.setItem('user', JSON.stringify(json.user || {{}}));
       window.location.href = '/';
@@ -985,12 +999,14 @@ async fn handle_request(
                 let password = body.get("password").and_then(|v| v.as_str()).unwrap_or("");
                 // Accept role from request, but only if it's a valid declared role
                 let requested_role = body.get("role").and_then(|v| v.as_str()).unwrap_or("user");
-                let role = if state.auth_roles.iter().any(|r| r == requested_role) {
+                // SECURITY: Never allow privileged roles via self-registration
+                let forbidden_roles = ["admin", "superadmin", "root", "owner"];
+                let role = if state.auth_roles.iter().any(|r| r == requested_role)
+                    && !forbidden_roles.contains(&requested_role) {
                     requested_role.to_string()
                 } else {
-                    // Default to first non-admin role, or "user"
                     state.auth_roles.iter()
-                        .find(|r| r.as_str() != "admin")
+                        .find(|r| !forbidden_roles.contains(&r.as_str()))
                         .cloned()
                         .unwrap_or_else(|| "user".to_string())
                 };
@@ -998,10 +1014,10 @@ async fn handle_request(
                 if name.is_empty() || email.is_empty() || password.is_empty() {
                     json_response(StatusCode::BAD_REQUEST, json!({"error": "name, email and password required"}))
                 } else {
-                    // Check if email already exists
-                    let exists = state.db.find_all(user_table, 10000, 0)
+                    // Check if email already exists (direct query, not full table scan)
+                    let exists = state.db.find_by_field(user_table, "email", email)
                         .ok()
-                        .and_then(|users| users.as_array().map(|arr| arr.iter().any(|u| u.get("email").and_then(|e| e.as_str()) == Some(email))))
+                        .map(|opt| opt.is_some())
                         .unwrap_or(false);
 
                     if exists {
@@ -1026,8 +1042,7 @@ async fn handle_request(
                                 Response::builder()
                                     .status(StatusCode::CREATED)
                                     .header("Content-Type", "application/json")
-                                    .header("Access-Control-Allow-Origin", "*")
-                                    .header("Set-Cookie", format!("cronus_token={}; Path=/; HttpOnly; Max-Age=86400", token))
+                                    .header("Set-Cookie", crate::security::secure_cookie("cronus_token", &token, 86400, "/"))
                                     .body(Full::new(Bytes::from(body.to_string())))
                                     .unwrap()
                             }
@@ -1048,12 +1063,8 @@ async fn handle_request(
                 if email.is_empty() || password.is_empty() {
                     json_response(StatusCode::BAD_REQUEST, json!({"error": "email and password required"}))
                 } else {
-                    match state.db.find_all(user_table, 10000, 0) {
-                        Ok(users) => {
-                            let user = users.as_array().and_then(|arr| {
-                                arr.iter().find(|u| u.get("email").and_then(|e| e.as_str()) == Some(email))
-                            }).cloned();
-
+                    match state.db.find_by_field(user_table, "email", email) {
+                        Ok(user) => {
                             match user {
                                 Some(u) => {
                                     let stored_pass = u.get("password").and_then(|v| v.as_str()).unwrap_or("");
@@ -1068,8 +1079,7 @@ async fn handle_request(
                                         Response::builder()
                                             .status(StatusCode::OK)
                                             .header("Content-Type", "application/json")
-                                            .header("Access-Control-Allow-Origin", "*")
-                                            .header("Set-Cookie", format!("cronus_token={}; Path=/; HttpOnly; Max-Age=86400", token))
+                                            .header("Set-Cookie", crate::security::secure_cookie("cronus_token", &token, 86400, "/"))
                                             .body(Full::new(Bytes::from(body.to_string())))
                                             .unwrap()
                                     } else {
@@ -1232,17 +1242,33 @@ async fn handle_request(
         return Ok(Response::builder()
             .status(StatusCode::OK)
             .header("Content-Type", "text/plain; charset=utf-8")
-            .header("Access-Control-Allow-Origin", "*")
             .body(Full::new(Bytes::from(schema.sdl)))
             .unwrap());
     }
 
     // API routes: /api/...
     if path.starts_with("/api/") {
+        // SECURITY: Extract owner_id from JWT BEFORE consuming request body
+        let api_auth_header = req.headers().get("authorization").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
+        let api_cookie_header = req.headers().get("cookie").and_then(|v| v.to_str().ok()).unwrap_or("").to_string();
+        let api_cookie_token = api_cookie_header.split(';')
+            .find_map(|c| {
+                let c = c.trim();
+                if c.starts_with("cronus_token=") { Some(c[13..].to_string()) } else { None }
+            });
+        let api_token = api_auth_header.as_deref()
+            .and_then(|h| h.strip_prefix("Bearer ").map(|s| s.to_string()))
+            .or(api_cookie_token);
+        let owner_id = api_token.as_deref().and_then(|t| {
+            let secret = auth::default_secret();
+            auth::extract_user(Some(t), &secret).map(|claims| claims.sub)
+        }).unwrap_or_default();
+
         let body_bytes = req.collect().await.unwrap_or_default().to_bytes();
         let body: Option<serde_json::Value> = serde_json::from_slice(&body_bytes).ok();
         let full_path = if query.is_empty() { path.clone() } else { format!("{}?{}", path, query) };
-        let resp = handle_api(&method, &full_path, body.as_ref(), &state);
+
+        let resp = handle_api(&method, &full_path, body.as_ref(), &state, &owner_id);
         // Track request in brain
         if let Some(ref brain) = state.brain {
             let duration = start.elapsed().as_millis() as u64;
@@ -1357,7 +1383,7 @@ async fn handle_request(
             return Ok(Response::builder()
                 .status(StatusCode::FOUND)
                 .header("Location", "/login")
-                .header("Set-Cookie", "cronus_token=; Path=/; Max-Age=0")
+                .header("Set-Cookie", crate::security::delete_cookie("cronus_token", "/"))
                 .body(Full::new(Bytes::new()))
                 .unwrap());
         }
@@ -1493,13 +1519,31 @@ async fn handle_request(
         let is_auth_page = route_lower == "/login" || route_lower == "/signup"
             || title_lower.contains("sign in") || title_lower.contains("sign up")
             || title_lower.contains("login") || title_lower.contains("signup");
-        if is_auth_page {
+        // Only use built-in auth renderer if page has NO custom template sections
+        let has_custom_template = page.page_type == "custom" && page.sections.iter().any(|s| s.template.is_some());
+        if is_auth_page && !has_custom_template {
             let is_login = route_lower == "/login" || title_lower.contains("login") || title_lower.contains("sign in");
             let html = ui::render_auth_page(page, is_login);
             return Ok(html_response(html));
         }
 
         let theme = state.style.as_ref().and_then(|s| s.theme.as_deref()).unwrap_or("dark");
+
+        // SECURITY: Extract owner_id for page rendering (data isolation)
+        let page_auth_header = req.headers().get("authorization").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
+        let page_cookie = req.headers().get("cookie").and_then(|v| v.to_str().ok()).unwrap_or("");
+        let page_cookie_token = page_cookie.split(';')
+            .find_map(|c| {
+                let c = c.trim();
+                if c.starts_with("cronus_token=") { Some(&c[13..]) } else { None }
+            });
+        let page_token = page_auth_header.as_deref()
+            .and_then(|h| h.strip_prefix("Bearer "))
+            .or(page_cookie_token);
+        let page_owner_id = page_token.and_then(|t| {
+            let secret = auth::default_secret();
+            auth::extract_user(Some(t), &secret).map(|claims| claims.sub)
+        }).unwrap_or_default();
 
         // Check if page has inline sidebar/topbar sections (not components)
         let has_section_sidebar = page.sections.iter().any(|s| s.section_type == "sidebar");
@@ -1531,19 +1575,19 @@ async fn handle_request(
         // (must check before has_section_sidebar, because dumps include sidebar templates)
         let has_templates = page.sections.iter().any(|s| s.template.is_some() || s.config.get("template").is_some());
         if has_templates {
-            let body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params);
+            let body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params, &page_owner_id);
             let html = ui::render_layout_landing_ex(app_name, &body, theme, state.style.as_ref(), state.app.tailwind_config.as_deref());
             return Ok(html_response(html));
         }
 
         if has_section_sidebar {
             // Dashboard with inline sections — render directly with dashboard layout
-            let body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params);
+            let body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params, &page_owner_id);
             let html = ui::render_layout_dashboard(&state.app.name, &body, theme);
             return Ok(html_response(html));
         }
 
-        let mut body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params);
+        let mut body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params, &page_owner_id);
 
         // If page references components (via `use ComponentName`), render them
         // BUT skip if page has sidebar component — dashboard renderers handle their own chrome
@@ -1674,7 +1718,7 @@ async fn handle_request(
         .unwrap())
 }
 
-fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, state: &AppState) -> Response<Full<Bytes>> {
+fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, state: &AppState, owner_id: &str) -> Response<Full<Bytes>> {
     // Split path and query string
     let full_api = &path[4..]; // strip /api
     let (api_path, query_string) = match full_api.split_once('?') {
@@ -1705,12 +1749,30 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
         let table = &entity.name;
         let segments: Vec<&str> = api_path.split('/').filter(|s| !s.is_empty()).collect();
 
+        // SECURITY: Build owner filter for data isolation
+        // Skip User entity (users should be able to see their own record only via /api/auth/me)
+        let is_user_entity = table.to_lowercase() == "user" || table.to_lowercase() == "users";
+        let owner_filter: Vec<(String, String, String)> = if !owner_id.is_empty() && !is_user_entity {
+            vec![("_owner_id".to_string(), "=".to_string(), owner_id.to_string())]
+        } else {
+            vec![]
+        };
+
         match *method {
             Method::GET => {
                 if segments.len() >= 2 {
-                    // GET /api/entity/:id
+                    // GET /api/entity/:id — verify ownership
                     match state.db.find_by_id(table, segments[1]) {
-                        Ok(Some(val)) => json_response(StatusCode::OK, val),
+                        Ok(Some(val)) => {
+                            // SECURITY: Check owner match
+                            if !owner_id.is_empty() && !is_user_entity {
+                                let row_owner = val.get("_owner_id").and_then(|v| v.as_str()).unwrap_or("");
+                                if !row_owner.is_empty() && row_owner != owner_id {
+                                    return json_response(StatusCode::NOT_FOUND, json!({"error": "not found"}));
+                                }
+                            }
+                            json_response(StatusCode::OK, val)
+                        }
                         Ok(None) => json_response(StatusCode::NOT_FOUND, json!({"error": "not found"})),
                         Err(e) => json_response(StatusCode::INTERNAL_SERVER_ERROR, json!({"error": e})),
                     }
@@ -1719,23 +1781,28 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                     let search_query = get_param("search").or(get_param("q"));
 
                     if let Some(q) = search_query {
-                        // Search mode
-                        match state.db.search(table, q, limit) {
-                            Ok(rows) => return json_response(StatusCode::OK, rows),
-                            Err(_) => return json_response(StatusCode::OK, json!([])),
+                        // Search mode — filtered by owner
+                        match state.db.find_many(table, &owner_filter, None, None, Some(limit), None) {
+                            Ok(Value::Array(rows)) => {
+                                let filtered: Vec<Value> = rows.into_iter().filter(|r| {
+                                    let txt = r.to_string().to_lowercase();
+                                    txt.contains(&q.to_lowercase())
+                                }).collect();
+                                return json_response(StatusCode::OK, Value::Array(filtered));
+                            }
+                            _ => return json_response(StatusCode::OK, json!([])),
                         }
                     }
 
-                    // Paginated list
-                    let total = state.db.count(table).unwrap_or(0);
-                    match state.db.find_all(table, limit, offset) {
+                    // Paginated list — SECURITY: filtered by owner_id
+                    match state.db.find_many(table, &owner_filter, None, None, Some(limit), Some(offset)) {
                         Ok(rows) => {
+                            let count = if let Value::Array(ref arr) = rows { arr.len() } else { 0 };
                             Response::builder()
                                 .status(StatusCode::OK)
                                 .header("Content-Type", "application/json")
-                                .header("Access-Control-Allow-Origin", "*")
                                 .header("Access-Control-Expose-Headers", "X-Total-Count, X-Limit, X-Offset")
-                                .header("X-Total-Count", total.to_string())
+                                .header("X-Total-Count", count.to_string())
                                 .header("X-Limit", limit.to_string())
                                 .header("X-Offset", offset.to_string())
                                 .body(Full::new(Bytes::from(rows.to_string())))
@@ -1748,6 +1815,15 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
             Method::POST => {
                 match body {
                     Some(data) => {
+                        // SECURITY: Inject _owner_id automatically
+                        let mut owned_data = data.clone();
+                        if !owner_id.is_empty() && !is_user_entity {
+                            if let Some(obj) = owned_data.as_object_mut() {
+                                obj.insert("_owner_id".to_string(), json!(owner_id));
+                            }
+                        }
+                        let data = &owned_data;
+
                         // Find entity definition for validation
                         let entity_def = state.entities.iter().find(|e| e.name.to_lowercase() == table.to_lowercase());
                         match entity_def {
@@ -2098,6 +2174,47 @@ async fn cmd_run(args: &[String]) {
             println!("  \x1b[90mAuth:\x1b[0m      JWT (roles: {})", state.auth_roles.join(", "));
         }
     }
+    // ── Integrity checks: dead links, unbound sections, hardcoded data ──
+    {
+        let page_routes: Vec<&str> = state.pages.iter().map(|p| p.route.as_str()).collect();
+        let mut warnings = 0;
+
+        for page in &state.pages {
+            // Check sidebar links pointing to non-existent pages
+            for section in &page.sections {
+                if let Some(ref tpl) = section.template {
+                    // Find href="/..." links and check if page exists
+                    let mut pos = 0;
+                    let bytes = tpl.as_bytes();
+                    while pos < tpl.len() {
+                        if let Some(idx) = tpl[pos..].find("href=\"/") {
+                            let start = pos + idx + 6;
+                            if let Some(end) = tpl[start..].find('"') {
+                                let href = &tpl[start - 1..start + end];
+                                if href != "/" && href != "#" && !href.starts_with("/#") && !href.starts_with("/api/") && !page_routes.contains(&href) {
+                                    println!("  \x1b[31m✗\x1b[0m Dead link: \"{}\" → page {} does not exist", href, href);
+                                    warnings += 1;
+                                }
+                                pos = start + end;
+                            } else { break; }
+                        } else { break; }
+                    }
+                }
+
+                // Check sections without binding that should have data
+                let data_sections = ["kpi", "stat-cards", "table"];
+                if data_sections.contains(&section.section_type.as_str()) && section.binding.is_none() && section.items.is_empty() {
+                    println!("  \x1b[31m✗\x1b[0m Page \"{}\": section \"{}\" has no data source (no bind, no items)", page.route, section.section_type);
+                    warnings += 1;
+                }
+            }
+        }
+
+        if warnings > 0 {
+            println!("\n  \x1b[33m⚠ {} integrity warning(s)\x1b[0m", warnings);
+        }
+    }
+
     println!();
     println!("  \x1b[32mReady in {}ms\x1b[0m", elapsed_ms);
     println!();
