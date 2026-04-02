@@ -6527,7 +6527,7 @@ fn cmd_generate(args: &[String]) {
                 }
                 from_file = Some(flag_args[i].clone());
             }
-            "--output" | "-o" => {
+            "--output" | "-o" | "--save" => {
                 i += 1;
                 if i >= flag_args.len() {
                     eprintln!("  \x1b[31m✗\x1b[0m --output requires a filename");
@@ -6561,8 +6561,10 @@ fn cmd_generate(args: &[String]) {
         Some(d) => d,
         None => {
             eprintln!("  Usage:");
-            eprintln!("    cronus generate \"description\" [--dry-run] [--output file.cronus] [--go]");
+            eprintln!("    cronus generate \"description\" [--dry-run] [--output file.cronus] [--save file.cronus] [--go]");
             eprintln!("    cronus generate --from-file output.txt [--output file.cronus] [--go]");
+            eprintln!();
+            eprintln!("  Without ANTHROPIC_API_KEY, generates from built-in templates.");
             eprintln!();
             eprintln!("  Examples:");
             eprintln!("    cronus generate \"veterinary clinic with pets owners and appointments\" --dry-run");
@@ -6576,18 +6578,447 @@ fn cmd_generate(args: &[String]) {
     let user_message = format!("Generate a .cronus file for: {}", desc);
 
     // Check for API key
-    let api_key = std::env::var("ANTHROPIC_API_KEY").ok();
+    let api_key = std::env::var("ANTHROPIC_API_KEY").ok().filter(|k| !k.is_empty());
 
-    if dry_run || api_key.is_none() {
-        // DRY-RUN mode: save prompt to file
-        if api_key.is_none() && !dry_run {
-            println!("  \x1b[33m!\x1b[0m No ANTHROPIC_API_KEY found, falling back to dry-run mode");
-            println!();
-        }
+    if dry_run {
+        // Explicit dry-run: save prompt to file
         cmd_generate_dry_run(&desc, &user_message);
+    } else if api_key.is_none() {
+        // No API key: use template-based generator
+        cmd_generate_template(&desc, &output_path, auto_go);
     } else {
         // API mode
         cmd_generate_api(&desc, &user_message, &api_key.unwrap(), &output_path, auto_go);
+    }
+}
+
+// ── Template-based .cronus generator ──────────────────────────────────────────
+
+struct EntityTemplate {
+    keywords: &'static [&'static str],
+    canonical_name: &'static str,
+    fields: &'static [(&'static str, &'static str, &'static [&'static str], bool, bool)],
+}
+
+const ENTITY_TEMPLATES: &[EntityTemplate] = &[
+    EntityTemplate {
+        keywords: &["user", "member", "team", "person", "people", "staff", "employee"],
+        canonical_name: "Member",
+        fields: &[
+            ("name", "string", &[], true, false),
+            ("email", "email", &[], true, true),
+            ("role", "enum", &["admin", "member", "viewer"], true, false),
+            ("avatar", "url", &[], false, false),
+        ],
+    },
+    EntityTemplate {
+        keywords: &["task", "todo", "ticket", "issue"],
+        canonical_name: "Task",
+        fields: &[
+            ("title", "string", &[], true, false),
+            ("description", "text", &[], false, false),
+            ("priority", "enum", &["low", "medium", "high"], true, false),
+            ("status", "enum", &["todo", "in_progress", "done"], true, false),
+            ("due_date", "date", &[], false, false),
+        ],
+    },
+    EntityTemplate {
+        keywords: &["project", "workspace", "board"],
+        canonical_name: "Project",
+        fields: &[
+            ("name", "string", &[], true, false),
+            ("description", "text", &[], false, false),
+            ("status", "enum", &["active", "archived", "draft"], true, false),
+        ],
+    },
+    EntityTemplate {
+        keywords: &["product", "item", "good", "merchandise"],
+        canonical_name: "Product",
+        fields: &[
+            ("name", "string", &[], true, false),
+            ("description", "text", &[], false, false),
+            ("price", "money", &[], true, false),
+            ("category", "string", &[], false, false),
+            ("image", "url", &[], false, false),
+        ],
+    },
+    EntityTemplate {
+        keywords: &["order", "purchase", "sale", "transaction"],
+        canonical_name: "Order",
+        fields: &[
+            ("total", "money", &[], true, false),
+            ("status", "enum", &["pending", "paid", "shipped", "delivered", "cancelled"], true, false),
+        ],
+    },
+    EntityTemplate {
+        keywords: &["post", "article", "blog", "entry"],
+        canonical_name: "Post",
+        fields: &[
+            ("title", "string", &[], true, false),
+            ("content", "text", &[], true, false),
+            ("slug", "slug", &[], true, true),
+            ("published", "boolean", &[], false, false),
+            ("published_at", "date", &[], false, false),
+        ],
+    },
+    EntityTemplate {
+        keywords: &["comment", "reply", "feedback", "review"],
+        canonical_name: "Comment",
+        fields: &[
+            ("content", "text", &[], true, false),
+            ("author_name", "string", &[], true, false),
+            ("author_email", "email", &[], false, false),
+            ("approved", "boolean", &[], false, false),
+        ],
+    },
+    EntityTemplate {
+        keywords: &["event", "meeting", "appointment", "session", "booking"],
+        canonical_name: "Event",
+        fields: &[
+            ("title", "string", &[], true, false),
+            ("date", "date", &[], true, false),
+            ("location", "string", &[], false, false),
+            ("description", "text", &[], false, false),
+        ],
+    },
+    EntityTemplate {
+        keywords: &["message", "chat", "notification"],
+        canonical_name: "Message",
+        fields: &[
+            ("content", "text", &[], true, false),
+            ("read", "boolean", &[], false, false),
+        ],
+    },
+    EntityTemplate {
+        keywords: &["category", "tag", "label", "group"],
+        canonical_name: "Category",
+        fields: &[
+            ("name", "string", &[], true, true),
+            ("description", "text", &[], false, false),
+        ],
+    },
+    EntityTemplate {
+        keywords: &["author", "writer", "creator", "contributor"],
+        canonical_name: "Author",
+        fields: &[
+            ("name", "string", &[], true, false),
+            ("email", "email", &[], true, true),
+            ("bio", "text", &[], false, false),
+            ("avatar", "url", &[], false, false),
+        ],
+    },
+    EntityTemplate {
+        keywords: &["customer", "client", "buyer"],
+        canonical_name: "Customer",
+        fields: &[
+            ("name", "string", &[], true, false),
+            ("email", "email", &[], true, true),
+            ("phone", "phone", &[], false, false),
+        ],
+    },
+    EntityTemplate {
+        keywords: &["invoice", "bill", "receipt"],
+        canonical_name: "Invoice",
+        fields: &[
+            ("number", "string", &[], true, true),
+            ("total", "money", &[], true, false),
+            ("status", "enum", &["draft", "sent", "paid", "overdue"], true, false),
+            ("due_date", "date", &[], false, false),
+        ],
+    },
+    EntityTemplate {
+        keywords: &["page", "document", "doc", "note", "wiki"],
+        canonical_name: "Document",
+        fields: &[
+            ("title", "string", &[], true, false),
+            ("content", "text", &[], true, false),
+            ("slug", "slug", &[], true, true),
+        ],
+    },
+    EntityTemplate {
+        keywords: &["file", "attachment", "upload", "media", "image", "photo"],
+        canonical_name: "File",
+        fields: &[
+            ("name", "string", &[], true, false),
+            ("url", "url", &[], true, false),
+            ("size", "number", &[], false, false),
+        ],
+    },
+];
+
+struct DetectedEntity {
+    name: String,
+    template_idx: Option<usize>,
+    relations: Vec<String>,
+}
+
+fn parse_generate_description(desc: &str) -> (String, Vec<DetectedEntity>) {
+    let lower = desc.to_lowercase();
+
+    let tokens: Vec<&str> = lower
+        .split(|c: char| c.is_whitespace() || c == ',' || c == ';' || c == '.')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    let stop_words: &[&str] = &[
+        "a", "an", "the", "and", "or", "with", "for", "to", "of", "in", "on", "at",
+        "by", "from", "that", "this", "is", "are", "has", "have", "app", "application",
+        "system", "platform", "website", "web", "site", "service", "tool", "manage",
+        "management", "manager", "managing", "tracker", "tracking",
+    ];
+
+    let mut matched: Vec<(usize, String)> = Vec::new();
+    let mut used_templates: Vec<usize> = Vec::new();
+
+    for (tidx, tmpl) in ENTITY_TEMPLATES.iter().enumerate() {
+        for &kw in tmpl.keywords {
+            if used_templates.contains(&tidx) { break; }
+            let kw_plural = format!("{}s", kw);
+            let kw_plural2 = if kw.ends_with('y') {
+                format!("{}ies", &kw[..kw.len()-1])
+            } else if kw.ends_with('s') || kw.ends_with('x') {
+                format!("{}es", kw)
+            } else {
+                kw_plural.clone()
+            };
+
+            for &tok in &tokens {
+                if tok == kw || tok == kw_plural || tok == kw_plural2 {
+                    matched.push((tidx, kw.to_string()));
+                    used_templates.push(tidx);
+                    break;
+                }
+            }
+        }
+    }
+
+    let entity_names: Vec<String> = matched
+        .iter()
+        .map(|(idx, _)| ENTITY_TEMPLATES[*idx].canonical_name.to_string())
+        .collect();
+
+    let mut entities: Vec<DetectedEntity> = Vec::new();
+    for (tidx, _kw) in &matched {
+        let tmpl = &ENTITY_TEMPLATES[*tidx];
+        let relations: Vec<String> = entity_names
+            .iter()
+            .filter(|n| n.as_str() != tmpl.canonical_name)
+            .cloned()
+            .collect();
+
+        entities.push(DetectedEntity {
+            name: tmpl.canonical_name.to_string(),
+            template_idx: Some(*tidx),
+            relations,
+        });
+    }
+
+    if entities.is_empty() {
+        entities.push(DetectedEntity {
+            name: "Item".to_string(),
+            template_idx: None,
+            relations: vec![],
+        });
+    }
+
+    let app_name = gen_derive_app_name(&tokens, stop_words);
+    (app_name, entities)
+}
+
+fn gen_derive_app_name(tokens: &[&str], stop_words: &[&str]) -> String {
+    let meaningful: Vec<&str> = tokens
+        .iter()
+        .filter(|t| !stop_words.contains(t) && t.len() > 2)
+        .take(3)
+        .copied()
+        .collect();
+
+    if meaningful.is_empty() {
+        return "My App".to_string();
+    }
+
+    let titled = gen_title_case(meaningful[0]);
+    if meaningful.len() == 1 {
+        format!("{} App", titled)
+    } else {
+        let titled2 = gen_title_case(meaningful[1]);
+        format!("{} {}", titled, titled2)
+    }
+}
+
+fn gen_title_case(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        None => String::new(),
+        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+    }
+}
+
+fn gen_pluralize(name: &str) -> String {
+    if name.ends_with('s') || name.ends_with('x') {
+        format!("{}es", name)
+    } else if name.ends_with('y') && !name.ends_with("ey") && !name.ends_with("ay") && !name.ends_with("oy") {
+        format!("{}ies", &name[..name.len()-1])
+    } else {
+        format!("{}s", name)
+    }
+}
+
+fn gen_field_title(s: &str) -> String {
+    s.split('_')
+        .map(|w| gen_title_case(w))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn gen_entity_columns(ent: &DetectedEntity) -> String {
+    if let Some(tidx) = ent.template_idx {
+        let tmpl = &ENTITY_TEMPLATES[tidx];
+        tmpl.fields.iter()
+            .take(4)
+            .map(|&(name, _, _, _, _)| gen_field_title(name))
+            .collect::<Vec<_>>()
+            .join(", ")
+    } else {
+        "Name, Description, Status".to_string()
+    }
+}
+
+fn generate_cronus_from_entities(app_name: &str, entities: &[DetectedEntity]) -> String {
+    let mut out = String::new();
+
+    // App block
+    out.push_str(&format!("app \"{}\" {{\n", app_name));
+    out.push_str("  stack fullstack\n");
+    out.push_str("  port 3000\n");
+    out.push_str("  database sqlite \"./data.db\"\n");
+    out.push_str("  theme dark\n");
+    out.push_str("}\n\n");
+
+    // Entity blocks
+    for ent in entities {
+        out.push_str(&format!("entity {} {{\n", ent.name));
+
+        if let Some(tidx) = ent.template_idx {
+            let tmpl = &ENTITY_TEMPLATES[tidx];
+            for &(fname, ftype, enum_vals, required, unique) in tmpl.fields {
+                let mut line = format!("  {} {}", fname, ftype);
+                if ftype == "enum" && !enum_vals.is_empty() {
+                    let vals: Vec<String> = enum_vals.iter().map(|v| format!("\"{}\"", v)).collect();
+                    line.push_str(&format!(" [{}]", vals.join(", ")));
+                }
+                if required { line.push_str(" required"); }
+                if unique { line.push_str(" unique"); }
+                out.push_str(&line);
+                out.push('\n');
+            }
+        } else {
+            out.push_str("  name string required\n");
+            out.push_str("  description text\n");
+            out.push_str("  status enum [\"active\", \"inactive\"] required\n");
+        }
+
+        for rel in &ent.relations {
+            let field_name = rel.to_lowercase();
+            out.push_str(&format!("  {} -> {}\n", field_name, rel));
+        }
+
+        out.push_str("}\n\n");
+    }
+
+    // API blocks
+    for ent in entities {
+        let slug = ent.name.to_lowercase() + "s";
+        let prefix = format!("/{}", slug);
+        out.push_str(&format!("api {} {{\n", prefix));
+        out.push_str(&format!("  list GET {}\n", prefix));
+        out.push_str(&format!("  find GET {}/:id\n", prefix));
+        out.push_str(&format!("  create POST {}\n", prefix));
+        out.push_str(&format!("  update PATCH {}/:id\n", prefix));
+        out.push_str(&format!("  remove DELETE {}/:id\n", prefix));
+        out.push_str("}\n\n");
+    }
+
+    // Dashboard page
+    let first = &entities[0];
+    out.push_str("page \"/\" type:custom {\n");
+    out.push_str("  section kpi cols:3 {\n");
+    out.push_str(&format!("    bind {} {{ query count }}\n", first.name));
+    out.push_str("  }\n");
+    out.push_str("  section table style:dark {\n");
+    out.push_str(&format!("    title \"Recent {}\"\n", gen_pluralize(&first.name)));
+    out.push_str(&format!("    columns \"{}\"\n", gen_entity_columns(first)));
+    out.push_str(&format!("    bind {} {{ query all order created_at desc limit 10 }}\n", first.name));
+    out.push_str("  }\n");
+    out.push_str("}\n\n");
+
+    // List pages per entity
+    for (i, ent) in entities.iter().enumerate() {
+        let slug = ent.name.to_lowercase() + "s";
+        out.push_str(&format!("page \"/{}\" type:custom {{\n", slug));
+        out.push_str("  section table style:dark {\n");
+        out.push_str(&format!("    title \"{}\"\n", gen_pluralize(&ent.name)));
+        out.push_str(&format!("    columns \"{}\"\n", gen_entity_columns(ent)));
+        out.push_str(&format!("    bind {} {{ query all }}\n", ent.name));
+        out.push_str("  }\n");
+        out.push_str("}\n");
+        if i < entities.len() - 1 {
+            out.push('\n');
+        }
+    }
+
+    out
+}
+
+fn cmd_generate_template(desc: &str, output_path: &str, auto_go: bool) {
+    println!("  Generating .cronus from template for: \"{}\"", desc);
+    println!();
+
+    let (app_name, entities) = parse_generate_description(desc);
+    let source = generate_cronus_from_entities(&app_name, &entities);
+
+    // Validate by parsing
+    match parser::parse(&source) {
+        Ok(nodes) => {
+            let (ent_count, page_count, route_count) = parser::stats(&nodes);
+            let lines = source.lines().count();
+
+            println!("{}", source);
+
+            fs::write(output_path, &source).unwrap_or_else(|e| {
+                eprintln!("  \x1b[31m✗\x1b[0m Failed to write {}: {}", output_path, e);
+                std::process::exit(1);
+            });
+
+            println!("  \x1b[32m✓\x1b[0m Generated \x1b[1m{}\x1b[0m", output_path);
+            println!("    {} lines, {} entities, {} pages, {} routes",
+                     lines, ent_count, page_count, route_count);
+            println!();
+
+            if auto_go {
+                println!("  Running seed + run...");
+                let _ = std::process::Command::new(std::env::current_exe().unwrap())
+                    .args(&["seed", output_path])
+                    .status();
+                let _ = std::process::Command::new(std::env::current_exe().unwrap())
+                    .args(&["run", output_path])
+                    .status();
+            } else {
+                println!("  Next: \x1b[1mcronus run {}\x1b[0m", output_path);
+            }
+        }
+        Err(e) => {
+            eprintln!("  \x1b[31m✗\x1b[0m Generated template has parse errors:");
+            eprintln!("    {}", e);
+            eprintln!();
+            eprintln!("--- Generated output ---");
+            eprintln!("{}", source);
+            eprintln!("--- End ---");
+            eprintln!();
+            eprintln!("  This is a bug in the template generator. Please report it.");
+            std::process::exit(1);
+        }
     }
 }
 
@@ -9786,6 +10217,7 @@ fn render_auto_docs(state: &AppState) -> String {
     nav_html.push_str(r##"<a class="flex items-center gap-3 py-2 px-8 font-['Space_Grotesk'] text-sm uppercase tracking-widest text-[#ababab] hover:text-white transition-all doc-nav" data-scroll="api"><span class="material-symbols-outlined text-lg">api</span>API Reference</a>"##);
     nav_html.push_str(r##"<a class="flex items-center gap-3 py-2 px-8 font-['Space_Grotesk'] text-sm uppercase tracking-widest text-[#ababab] hover:text-white transition-all doc-nav" data-scroll="pages"><span class="material-symbols-outlined text-lg">web</span>Pages</a>"##);
     nav_html.push_str(r##"<a class="flex items-center gap-3 py-2 px-8 font-['Space_Grotesk'] text-sm uppercase tracking-widest text-[#ababab] hover:text-white transition-all doc-nav" data-scroll="webhooks"><span class="material-symbols-outlined text-lg">webhook</span>Webhooks</a>"##);
+    nav_html.push_str(r##"<a class="flex items-center gap-3 py-2 px-8 font-['Space_Grotesk'] text-sm uppercase tracking-widest text-[#ababab] hover:text-white transition-all doc-nav" data-scroll="audit"><span class="material-symbols-outlined text-lg">policy</span>Audit Trail</a>"##);
 
     // --- TOC (right sidebar) ---
     let mut toc_html = String::new();
@@ -9794,6 +10226,7 @@ fn render_auto_docs(state: &AppState) -> String {
     toc_html.push_str(r##"<li><a class="text-sm text-[#ababab] hover:text-white transition-colors flex items-center gap-2 doc-nav" data-scroll="api" style="cursor:pointer"><div class="w-1 h-1 rounded-full bg-[#484848]"></div>API Reference</a></li>"##);
     toc_html.push_str(r##"<li><a class="text-sm text-[#ababab] hover:text-white transition-colors flex items-center gap-2 doc-nav" data-scroll="pages" style="cursor:pointer"><div class="w-1 h-1 rounded-full bg-[#484848]"></div>Pages</a></li>"##);
     toc_html.push_str(r##"<li><a class="text-sm text-[#ababab] hover:text-white transition-colors flex items-center gap-2 doc-nav" data-scroll="webhooks" style="cursor:pointer"><div class="w-1 h-1 rounded-full bg-[#484848]"></div>Webhooks</a></li>"##);
+    toc_html.push_str(r##"<li><a class="text-sm text-[#ababab] hover:text-white transition-colors flex items-center gap-2 doc-nav" data-scroll="audit" style="cursor:pointer"><div class="w-1 h-1 rounded-full bg-[#484848]"></div>Audit Trail</a></li>"##);
 
     // --- Entities section ---
     let mut entities_html = String::new();
@@ -10039,6 +10472,37 @@ body {{ background:#0e0e0e; color:#fff; font-family:'Inter',sans-serif; margin:0
     <section style="margin-bottom:80px" id="webhooks">
       <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:#d277ff">05.</span> Webhooks</h2>
       {webhooks_section}
+    </section>
+
+    <section style="margin-bottom:80px" id="audit">
+      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:#d277ff">06.</span> Audit Trail</h2>
+      <p style="color:#757575;margin-bottom:24px">Every data mutation (INSERT, UPDATE, DELETE) is recorded in an append-only <code style="background:#191919;color:#87adff;padding:2px 6px;border-radius:4px;font-size:13px;font-family:monospace">_audit_log</code> table with cryptographic hash chaining for tamper detection.</p>
+
+      <div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);padding:24px;margin-bottom:16px">
+        <h3 style="font-family:Space Grotesk,sans-serif;font-size:16px;font-weight:700;color:#fff;margin:0 0 16px">_audit_log Table Structure</h3>
+        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">id</span><span style="color:#87adff;font-size:11px;font-family:monospace">INTEGER</span><span style="color:#87adff;font-size:10px;margin-left:8px">primary key</span></div></div>
+        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">entity_type</span><span style="color:#87adff;font-size:11px;font-family:monospace">TEXT</span><span style="color:#757575;font-size:11px;margin-left:8px">e.g. "Deployment", "User"</span></div></div>
+        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">record_id</span><span style="color:#87adff;font-size:11px;font-family:monospace">TEXT</span><span style="color:#757575;font-size:11px;margin-left:8px">UUID of the affected record</span></div></div>
+        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">action</span><span style="color:#87adff;font-size:11px;font-family:monospace">TEXT</span><span style="color:#757575;font-size:11px;margin-left:8px">INSERT | UPDATE | DELETE</span></div></div>
+        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">user_id</span><span style="color:#87adff;font-size:11px;font-family:monospace">TEXT</span><span style="color:#757575;font-size:11px;margin-left:8px">User who performed the action (or "system")</span></div></div>
+        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">diff</span><span style="color:#87adff;font-size:11px;font-family:monospace">TEXT</span><span style="color:#757575;font-size:11px;margin-left:8px">JSON diff of changed fields (before/after)</span></div></div>
+        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">hash</span><span style="color:#87adff;font-size:11px;font-family:monospace">TEXT</span><span style="color:#d277ff;font-size:10px;margin-left:8px">SHA-256 chain hash</span></div></div>
+        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">prev_hash</span><span style="color:#87adff;font-size:11px;font-family:monospace">TEXT</span><span style="color:#d277ff;font-size:10px;margin-left:8px">Hash of previous entry (blockchain-style)</span></div></div>
+        <div style="padding:8px 0"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">created_at</span><span style="color:#87adff;font-size:11px;font-family:monospace">DATETIME</span><span style="color:#757575;font-size:11px;margin-left:8px">UTC timestamp</span></div></div>
+      </div>
+
+      <div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(210,119,255,0.2);padding:24px;margin-bottom:16px">
+        <h3 style="font-family:Space Grotesk,sans-serif;font-size:16px;font-weight:700;color:#fff;margin:0 0 16px">Hash Chaining</h3>
+        <p style="color:#ababab;font-size:13px;line-height:1.6;margin:0 0 12px">Each audit entry's <code style="background:#191919;color:#d277ff;padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace">hash</code> is computed as <code style="background:#191919;color:#d277ff;padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace">SHA-256(prev_hash + entity_type + record_id + action + diff + timestamp)</code>. The first entry uses a genesis hash of all zeros.</p>
+        <p style="color:#ababab;font-size:13px;line-height:1.6;margin:0 0 12px">This creates a tamper-evident chain: modifying any past entry breaks the hash sequence for all subsequent entries. The <code style="background:#191919;color:#87adff;padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace">/api/audit/trail/verify</code> endpoint walks the full chain and validates every link.</p>
+        <div style="background:#0e0e0e;border-radius:8px;padding:16px;font-family:monospace;font-size:12px;line-height:1.8;color:#e2e2e2;margin-top:12px"><span style="color:#757575">// Chain structure</span><br/><span style="color:#d277ff">entry[0].hash</span> = SHA256(<span style="color:#484848">"0000...0000"</span> + data)<br/><span style="color:#d277ff">entry[1].hash</span> = SHA256(<span style="color:#10b981">entry[0].hash</span> + data)<br/><span style="color:#d277ff">entry[N].hash</span> = SHA256(<span style="color:#10b981">entry[N-1].hash</span> + data)</div>
+      </div>
+
+      <div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);padding:24px;margin-bottom:16px">
+        <h3 style="font-family:Space Grotesk,sans-serif;font-size:16px;font-weight:700;color:#fff;margin:0 0 16px">API Endpoints</h3>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><span style="font-family:monospace;font-size:11px;font-weight:700;color:#10b981;min-width:60px">GET</span><span style="font-family:monospace;font-size:13px;color:#e2e2e2">/api/audit/trail</span><span style="font-size:11px;color:#ababab;margin-left:auto">Returns recent audit entries with hash validation status. Query param: <code style="background:#191919;color:#87adff;padding:1px 4px;border-radius:3px;font-size:11px">?limit=N</code></span></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 0"><span style="font-family:monospace;font-size:11px;font-weight:700;color:#10b981;min-width:60px">GET</span><span style="font-family:monospace;font-size:13px;color:#e2e2e2">/api/audit/trail/verify</span><span style="font-size:11px;color:#ababab;margin-left:auto">Walks the full hash chain and returns <code style="background:#191919;color:#87adff;padding:1px 4px;border-radius:3px;font-size:11px">{{"valid": true}}</code> or <code style="background:#191919;color:#87adff;padding:1px 4px;border-radius:3px;font-size:11px">{{"valid": false, "broken_at": N}}</code></span></div>
+      </div>
     </section>
 
     <div style="background:rgba(135,173,255,0.1);border-left:2px solid #87adff;padding:24px;border-radius:0 12px 12px 0;display:flex;gap:16px;margin-bottom:48px">
