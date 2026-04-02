@@ -6,8 +6,27 @@
 use rusqlite::{Connection, params, types::ValueRef};
 use serde_json::{Value, json, Map};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::parser::{EntityNode, FieldType};
+
+// ── SQL query counter for debug tracing ──
+static QUERY_COUNT: AtomicU64 = AtomicU64::new(0);
+
+/// Get the current query count (since last reset).
+pub fn query_count() -> u64 {
+    QUERY_COUNT.load(Ordering::Relaxed)
+}
+
+/// Reset the query counter to zero. Call at the start of each request.
+pub fn reset_query_count() {
+    QUERY_COUNT.store(0, Ordering::Relaxed);
+}
+
+/// Increment the query counter by 1.
+fn tick_query() {
+    QUERY_COUNT.fetch_add(1, Ordering::Relaxed);
+}
 
 /// Read a rusqlite column as a serde_json Value, handling any type.
 fn column_to_json(row: &rusqlite::Row, idx: usize) -> rusqlite::Result<Value> {
@@ -86,6 +105,7 @@ impl CronusDB {
     /// Execute a raw SELECT query and return rows as Vec<Value>.
     /// Used by aggregation bindings (GROUP BY queries).
     pub fn query_raw(&self, sql: &str) -> Result<Vec<Value>, String> {
+        tick_query();
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
         let col_names: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
@@ -110,6 +130,7 @@ impl CronusDB {
     /// Execute a parameterized raw SQL query. Values are bound as ?1, ?2, etc.
     /// SECURITY: Use this instead of query_raw when filter values come from user input.
     pub fn query_raw_params(&self, sql: &str, params: &[String]) -> Result<Vec<Value>, String> {
+        tick_query();
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
         let col_names: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
@@ -198,6 +219,7 @@ impl CronusDB {
 
     /// Insert a row from a JSON object. Returns the full row including generated id.
     pub fn insert(&self, table: &str, data: &Value) -> Result<Value, String> {
+        tick_query();
         let conn = self.conn.lock().unwrap();
         let obj = data.as_object().ok_or("insert data must be a JSON object")?;
 
@@ -244,6 +266,7 @@ impl CronusDB {
 
     /// Update a row by id with partial data. Returns the updated row.
     pub fn update(&self, table: &str, id: &str, data: &Value) -> Result<Value, String> {
+        tick_query();
         let obj = data.as_object().ok_or("update data must be a JSON object")?;
 
         let mut sets = Vec::new();
@@ -293,6 +316,7 @@ impl CronusDB {
 
     /// Retrieve all rows with LIMIT / OFFSET. Returns a JSON array.
     pub fn find_all(&self, table: &str, limit: usize, offset: usize) -> Result<Value, String> {
+        tick_query();
         let conn = self.conn.lock().unwrap();
         let sql = format!(
             "SELECT * FROM \"{}\" ORDER BY rowid DESC LIMIT ? OFFSET ?",
@@ -326,6 +350,7 @@ impl CronusDB {
 
     /// Find a single row by id. Returns `None` if not found.
     pub fn find_by_id(&self, table: &str, id: &str) -> Result<Option<Value>, String> {
+        tick_query();
         let conn = self.conn.lock().unwrap();
         let sql = format!("SELECT * FROM \"{}\" WHERE id = ?", table);
 
@@ -354,6 +379,7 @@ impl CronusDB {
 
     /// Delete a row by id. Returns `true` if a row was actually deleted.
     pub fn delete(&self, table: &str, id: &str) -> Result<bool, String> {
+        tick_query();
         let conn = self.conn.lock().unwrap();
         let sql = format!("DELETE FROM \"{}\" WHERE id = ?", table);
         let affected = conn.execute(&sql, params![id]).map_err(|e| e.to_string())?;
@@ -362,6 +388,7 @@ impl CronusDB {
 
     /// Count total rows in a table.
     pub fn count(&self, table: &str) -> Result<usize, String> {
+        tick_query();
         let conn = self.conn.lock().unwrap();
         let sql = format!("SELECT COUNT(*) FROM \"{}\"", table);
         let count: i64 = conn
@@ -373,6 +400,7 @@ impl CronusDB {
     /// Find a single row by a specific field value.
     /// e.g. find_by_field("User", "email", "zedd@cooud.com")
     pub fn find_by_field(&self, table: &str, field: &str, value: &str) -> Result<Option<Value>, String> {
+        tick_query();
         if !crate::security::is_safe_identifier(field) {
             return Err("invalid field name".to_string()); // SQL injection prevention
         }
@@ -400,6 +428,7 @@ impl CronusDB {
 
     /// Search across text fields with LIKE query
     pub fn search(&self, table: &str, query: &str, limit: usize) -> Result<Value, String> {
+        tick_query();
         let conn = self.conn.lock().unwrap();
         let like_pattern = format!("%{}%", query);
 
@@ -443,6 +472,7 @@ impl CronusDB {
 
     /// Find all with query string filters (e.g. ?owner=abc&status=active)
     pub fn find_filtered(&self, table: &str, filters: &[(String, String)], limit: usize, offset: usize) -> Result<Value, String> {
+        tick_query();
         let conn = self.conn.lock().unwrap();
         let mut conditions = Vec::new();
         let mut params: Vec<String> = Vec::new();
@@ -528,6 +558,7 @@ impl CronusDB {
 
     /// Check unique constraint before insert
     pub fn check_unique(&self, entity: &EntityNode, data: &Value) -> Result<(), String> {
+        tick_query();
         let conn = self.conn.lock().unwrap();
         let obj = data.as_object().ok_or("data must be a JSON object")?;
 

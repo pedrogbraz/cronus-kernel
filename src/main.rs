@@ -68,6 +68,62 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 pub static STRICT_MODE: AtomicBool = AtomicBool::new(false);
 pub static STRICT_AI_MODE: AtomicBool = AtomicBool::new(false);
+pub static DEBUG_MODE: AtomicBool = AtomicBool::new(false);
+
+#[derive(Clone, serde::Serialize)]
+struct RequestTrace {
+    id: String,
+    method: String,
+    path: String,
+    status: u16,
+    duration_ms: u64,
+    query_count: u64,
+    timestamp: String,
+}
+
+struct TraceBuffer {
+    traces: std::sync::Mutex<Vec<RequestTrace>>,
+}
+
+impl TraceBuffer {
+    fn new() -> Self {
+        Self { traces: std::sync::Mutex::new(Vec::with_capacity(200)) }
+    }
+    fn push(&self, trace: RequestTrace) {
+        let mut buf = self.traces.lock().unwrap();
+        if buf.len() >= 200 { buf.remove(0); }
+        buf.push(trace);
+    }
+    fn last_n(&self, n: usize) -> Vec<RequestTrace> {
+        let buf = self.traces.lock().unwrap();
+        let start = buf.len().saturating_sub(n);
+        buf[start..].to_vec()
+    }
+}
+
+fn generate_request_id() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos();
+    format!("req_{:012x}", nanos & 0xFFFF_FFFF_FFFF)
+}
+
+fn current_time_hms() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    let h = (secs / 3600) % 24;
+    let m = (secs % 3600) / 60;
+    let s = secs % 60;
+    format!("{:02}:{:02}:{:02}", h, m, s)
+}
+
+fn iso_timestamp() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    let h = (secs / 3600) % 24;
+    let m = (secs % 3600) / 60;
+    let s = secs % 60;
+    format!("T{:02}:{:02}:{:02}Z", h, m, s)
+}
 
 // ══════════════════════════════════════════════════
 // MAIN
@@ -86,6 +142,7 @@ async fn main() {
 
     match cmd {
         "run" => cmd_run(&args).await,
+        "debug" => cmd_debug(&args).await,
         "build" => cmd_build(&args),
         "parse" => cmd_parse(&args),
         "new" => cmd_new(&args),
@@ -140,6 +197,7 @@ fn print_help() {
     println!("  \x1b[1mUsage:\x1b[0m cronus <command> [options]\n");
     println!("  \x1b[1mCommands:\x1b[0m");
     println!("    \x1b[32mrun\x1b[0m [port] [--strict]  Parse .cronus → serve (strict: warnings=errors)");
+    println!("    \x1b[32mdebug\x1b[0m [port]           Run with request tracing, colored logs, /api/debug/traces");
     println!("    \x1b[32mnew\x1b[0m <template>       Create project (landing/admin/saas/api/ecommerce/blog)");
     println!("    \x1b[32mseed\x1b[0m [count]          Seed database with fake data (default: 10 rows)");
     println!("    \x1b[32mbuild\x1b[0m [--strict] [--strict-ai]  Parse and validate .cronus file (strict mode)");
@@ -869,6 +927,7 @@ struct AppState {
     auth_rate_limiter: rate_limit::RateLimiter,  // 10 req/60s for auth endpoints
     sse_hub: Arc<sse::SseHub>,                   // SSE broadcast hub for real-time updates
     audit_trail: audit::AuditTrail,              // Tamper-proof hash-chained audit log
+    trace_buffer: Arc<TraceBuffer>,               // Debug request traces (circular buffer)
 }
 
 fn cors_origin() -> String {
@@ -897,6 +956,13 @@ fn html_response(body: String) -> Response<Full<Bytes>> {
     if final_body.contains("</body>") {
         let sse_script = format!("<script>{}</script>", sse::SSE_CLIENT_JS);
         final_body = final_body.replace("</body>", &format!("{}\n</body>", sse_script));
+    }
+    // Inject debug overlay JS when debug mode is active (env var or CLI flag)
+    let debug_active = DEBUG_MODE.load(Ordering::Relaxed)
+        || std::env::var("CRONUS_DEBUG").map(|v| v == "1" || v == "true").unwrap_or(false);
+    if debug_active && final_body.contains("</body>") {
+        let debug_script = format!("<script>{}</script>", render::CRONUS_DEBUG_JS);
+        final_body = final_body.replace("</body>", &format!("{}\n</body>", debug_script));
     }
     // Generate per-request CSP nonce and inject into all <script> tags
     let nonce = crate::security::generate_csp_nonce();
@@ -1291,6 +1357,60 @@ async fn handle_request(
     state: Arc<AppState>,
     remote_addr: std::net::SocketAddr,
 ) -> Result<Response<Full<Bytes>>, hyper::Error> {
+    let req_start = std::time::Instant::now();
+    let req_id = generate_request_id();
+    let req_method_str = req.method().to_string();
+    let req_path_str = req.uri().path().to_string();
+    database::reset_query_count();
+
+    if req.method() == Method::GET && req.uri().path() == "/api/debug/traces" {
+        let traces = state.trace_buffer.last_n(50);
+        return Ok(json_response(StatusCode::OK, serde_json::to_value(&traces).unwrap_or(json!([]))));
+    }
+
+    let mut resp = handle_request_inner(req, state.clone(), remote_addr).await?;
+
+    let duration_ms = req_start.elapsed().as_millis() as u64;
+    let queries = database::query_count();
+    resp.headers_mut().insert(
+        hyper::header::HeaderName::from_static("x-response-time"),
+        hyper::header::HeaderValue::from_str(&format!("{}ms", duration_ms)).unwrap(),
+    );
+    resp.headers_mut().insert(
+        hyper::header::HeaderName::from_static("x-request-id"),
+        hyper::header::HeaderValue::from_str(&req_id).unwrap(),
+    );
+    resp.headers_mut().insert(
+        hyper::header::HeaderName::from_static("x-query-count"),
+        hyper::header::HeaderValue::from_str(&queries.to_string()).unwrap(),
+    );
+
+    if DEBUG_MODE.load(Ordering::Relaxed) {
+        let status = resp.status().as_u16();
+        state.trace_buffer.push(RequestTrace {
+            id: req_id.clone(),
+            method: req_method_str.clone(),
+            path: req_path_str.clone(),
+            status,
+            duration_ms,
+            query_count: queries,
+            timestamp: iso_timestamp(),
+        });
+        let sc = match status { 200..=299 => "\x1b[32m", 300..=399 => "\x1b[36m", 400..=499 => "\x1b[33m", _ => "\x1b[31m" };
+        let tc = if duration_ms > 100 { "\x1b[33m" } else { "\x1b[90m" };
+        let dp = if req_path_str.len() > 35 { &req_path_str[..35] } else { &req_path_str };
+        eprintln!("  \x1b[90m{}\x1b[0m {:<5} {:<35} {}{}\x1b[0m  {}{}ms\x1b[0m  {}q",
+            current_time_hms(), req_method_str, dp, sc, status, tc, duration_ms, queries);
+    }
+
+    Ok(resp)
+}
+
+async fn handle_request_inner(
+    req: Request<Incoming>,
+    state: Arc<AppState>,
+    remote_addr: std::net::SocketAddr,
+) -> Result<Response<Full<Bytes>>, hyper::Error> {
     let method = req.method().clone();
     let path = req.uri().path().to_string();
     let query = req.uri().query().unwrap_or("").to_string();
@@ -1582,12 +1702,17 @@ async fn handle_request(
         }
     }
     if (path == "/api/audit/trail" || path.starts_with("/api/audit/trail?")) && method == Method::GET {
-        let limit: usize = req.uri().query()
-            .and_then(|q| q.split('&').find(|p| p.starts_with("limit=")))
+        let query_str = req.uri().query().unwrap_or("");
+        let limit: usize = query_str.split('&')
+            .find(|p| p.starts_with("limit="))
             .and_then(|p| p.strip_prefix("limit="))
             .and_then(|v| v.parse().ok())
             .unwrap_or(50);
-        match state.audit_trail.query(limit) {
+        let entity_filter: Option<String> = query_str.split('&')
+            .find(|p| p.starts_with("entity="))
+            .and_then(|p| p.strip_prefix("entity="))
+            .map(|v| v.to_string());
+        match state.audit_trail.query_filtered(limit, entity_filter.as_deref()) {
             Ok(entries) => return Ok(json_response(StatusCode::OK, entries)),
             Err(e) => return Ok(json_response(StatusCode::INTERNAL_SERVER_ERROR, json!({"error": e}))),
         }
@@ -2496,7 +2621,7 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                                 Ok(row) => {
                                     fire_webhooks(&state.webhooks, table, "create", &row);
                                     let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                                    let _ = state.audit_trail.log("INSERT", table, &row_id, owner_id, &row);
+                                    let _ = state.audit_trail.log("INSERT", table, &row_id, owner_id, &row, None);
                                     state.sse_hub.broadcast(sse::DataChangeEvent {
                                         entity: table.to_string(),
                                         action: "created".to_string(),
@@ -2521,7 +2646,7 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                                 Ok(row) => {
                                     fire_webhooks(&state.webhooks, table, "create", &row);
                                     let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                                    let _ = state.audit_trail.log("INSERT", table, &row_id, owner_id, &row);
+                                    let _ = state.audit_trail.log("INSERT", table, &row_id, owner_id, &row, None);
                                     state.sse_hub.broadcast(sse::DataChangeEvent {
                                         entity: table.to_string(),
                                         action: "created".to_string(),
@@ -2539,10 +2664,13 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
             Method::PATCH | Method::PUT => {
                 if segments.len() >= 2 {
                     match body {
-                        Some(data) => match state.db.update(table, segments[1], data) {
+                        Some(data) => {
+                            // Fetch current record before update for audit diff tracking
+                            let prev_record = state.db.find_by_id(table, segments[1]).ok().flatten();
+                            match state.db.update(table, segments[1], data) {
                             Ok(row) => {
                                 fire_webhooks(&state.webhooks, table, "update", &row);
-                                let _ = state.audit_trail.log("UPDATE", table, segments[1], owner_id, &row);
+                                let _ = state.audit_trail.log("UPDATE", table, segments[1], owner_id, &row, prev_record.as_ref());
                                 state.sse_hub.broadcast(sse::DataChangeEvent {
                                     entity: table.to_string(),
                                     action: "updated".to_string(),
@@ -2551,7 +2679,7 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                                 json_response(StatusCode::OK, row)
                             }
                             Err(e) => json_response(StatusCode::BAD_REQUEST, json!({"error": e})),
-                        },
+                        }},
                         None => json_response(StatusCode::BAD_REQUEST, json!({"error": "expected JSON body"})),
                     }
                 } else {
@@ -2560,10 +2688,12 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
             }
             Method::DELETE => {
                 if segments.len() >= 2 {
+                    // Fetch current record before delete for audit trail
+                    let prev_record = state.db.find_by_id(table, segments[1]).ok().flatten();
                     match state.db.delete(table, segments[1]) {
                         Ok(true) => {
                             fire_webhooks(&state.webhooks, table, "delete", &json!({"id": segments[1], "entity": table}));
-                            let _ = state.audit_trail.log("DELETE", table, segments[1], owner_id, &json!({"id": segments[1]}));
+                            let _ = state.audit_trail.log("DELETE", table, segments[1], owner_id, &json!({"id": segments[1]}), prev_record.as_ref());
                             state.sse_hub.broadcast(sse::DataChangeEvent {
                                 entity: table.to_string(),
                                 action: "deleted".to_string(),
@@ -2641,6 +2771,84 @@ fn fire_webhooks(webhooks: &[parser::WebhookNode], entity: &str, event: &str, pa
 // ══════════════════════════════════════════════════
 // COMMANDS
 // ══════════════════════════════════════════════════
+
+async fn cmd_debug(args: &[String]) {
+    let subcmd = args.get(2).map(|s| s.as_str()).unwrap_or("");
+
+    if subcmd == "audit" {
+        cmd_debug_audit(args);
+        return;
+    }
+
+    DEBUG_MODE.store(true, Ordering::Relaxed);
+    println!("  \x1b[36m⚡\x1b[0m Debug mode enabled — request tracing active");
+    println!("  \x1b[90m  Traces: GET /api/debug/traces  |  Headers: X-Response-Time, X-Request-Id, X-Query-Count\x1b[0m");
+    cmd_run(args).await;
+}
+
+fn cmd_debug_audit(args: &[String]) {
+    // Resolve DB path from .cronus file
+    let files = find_all_cronus_files();
+    if files.is_empty() {
+        eprintln!("  \x1b[31m✗\x1b[0m No .cronus files found");
+        return;
+    }
+
+    let source = std::fs::read_to_string(&files[0]).unwrap_or_default();
+    let nodes = match parser::parse(&source) {
+        Ok(n) => n,
+        Err(_) => vec![],
+    };
+    let db_path = nodes.iter().find_map(|n| {
+        if let AstNode::App(ref app) = n {
+            app.database.as_ref().and_then(|d| d.path.clone())
+        } else {
+            None
+        }
+    }).unwrap_or_else(|| "data.db".into());
+
+    let entity_filter = args.iter().position(|a| a == "--entity")
+        .and_then(|i| args.get(i + 1))
+        .map(|s| s.as_str());
+
+    let verify = args.iter().any(|a| a == "--verify");
+
+    let limit: usize = args.iter().position(|a| a == "--limit")
+        .and_then(|i| args.get(i + 1))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(20);
+
+    println!();
+    println!("  \x1b[1mCRONUS Audit Trail\x1b[0m");
+    println!("  Database: {}", db_path);
+    if let Some(entity) = entity_filter {
+        println!("  Filter: entity={}", entity);
+    }
+    println!();
+
+    match audit::debug_from_file(&db_path, limit, entity_filter, verify) {
+        Ok(output) => print!("{}", output),
+        Err(e) => eprintln!("  \x1b[31m✗\x1b[0m Failed to read audit trail: {}", e),
+    }
+
+    if verify {
+        // Also run full chain verification
+        match audit::verify_from_file(&db_path) {
+            Ok(result) => {
+                let valid = result["valid"].as_bool().unwrap_or(false);
+                let entries = result["entries"].as_i64().unwrap_or(0);
+                if valid {
+                    println!("  \x1b[32m✓\x1b[0m Chain intact -- {} entries verified\n", entries);
+                } else {
+                    let broken_at = result["broken_at"].as_i64().unwrap_or(0);
+                    let reason = result["reason"].as_str().unwrap_or("unknown");
+                    println!("  \x1b[31m✗\x1b[0m Chain BROKEN at entry {} ({}) -- {} total\n", broken_at, reason, entries);
+                }
+            }
+            Err(e) => eprintln!("  \x1b[31m✗\x1b[0m Verification failed: {}\n", e),
+        }
+    }
+}
 
 async fn cmd_run(args: &[String]) {
     let start_time = Instant::now();
@@ -2900,6 +3108,7 @@ async fn cmd_run(args: &[String]) {
         auth_rate_limiter: rate_limit::RateLimiter::new(10, 60),
         sse_hub,
         audit_trail,
+        trace_buffer: Arc::new(TraceBuffer::new()),
     });
 
     // Start server

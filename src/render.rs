@@ -431,3 +431,192 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
   window.CRONUS={init:init,reload:cronusLiveReload,navigate:cronusNavigate,version:'0.5.0'};
 })();
 "#;
+
+/// CRONUS Debug Overlay — activated by Cmd+Shift+D / Ctrl+Shift+D or ?debug=1
+pub const CRONUS_DEBUG_JS: &str = r#"
+(function(){
+  if(window.__cronusDebug) return;
+  window.__cronusDebug=true;
+
+  var state={open:false,tab:'network',requests:[],errors:[],sseState:'unknown'};
+  var panel=null,badge=null,toggle=null;
+
+  // --- Build panel DOM ---
+  function createPanel(){
+    toggle=document.createElement('div');
+    toggle.id='cronus-dbg-toggle';
+    toggle.style.cssText='position:fixed;bottom:16px;right:16px;z-index:10000;width:36px;height:36px;border-radius:8px;background:#1b1b1b;border:1px solid #333;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:"Space Grotesk",monospace;font-size:14px;color:#87adff;user-select:none;';
+    toggle.textContent='D';
+    toggle.title='CRONUS Debug (Cmd+Shift+D)';
+    badge=document.createElement('span');
+    badge.style.cssText='position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:#e74c3c;color:#fff;font-size:10px;display:none;align-items:center;justify-content:center;padding:0 3px;font-family:monospace;';
+    toggle.appendChild(badge);
+    document.body.appendChild(toggle);
+    toggle.addEventListener('click',function(){togglePanel();});
+
+    panel=document.createElement('div');
+    panel.id='cronus-dbg-panel';
+    panel.style.cssText='position:fixed;top:0;right:-330px;width:320px;height:100vh;z-index:9999;background:#0e0e0e;border-left:1px solid #333;font-family:"Space Grotesk",system-ui,monospace;font-size:12px;color:#ccc;display:flex;flex-direction:column;transition:right .25s cubic-bezier(.4,0,.2,1);overflow:hidden;';
+    panel.innerHTML=buildPanelHTML();
+    document.body.appendChild(panel);
+
+    panel.querySelector('#cdbg-close').addEventListener('click',function(){togglePanel(false);});
+    panel.querySelectorAll('[data-cdbg-tab]').forEach(function(btn){
+      btn.addEventListener('click',function(){switchTab(btn.dataset.cdbgTab);});
+    });
+
+    if(location.search.indexOf('debug=1')!==-1) togglePanel(true);
+  }
+
+  function buildPanelHTML(){
+    return '<div style="padding:10px 12px;border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center;"><span style="color:#87adff;font-weight:700;font-size:13px;">CRONUS DEBUG</span><span id="cdbg-close" style="cursor:pointer;color:#666;font-size:16px;">&times;</span></div>'
+      +'<div style="display:flex;border-bottom:1px solid #333;gap:0;">'
+      +'<div data-cdbg-tab="network" style="flex:1;text-align:center;padding:6px 0;cursor:pointer;color:#87adff;border-bottom:2px solid #87adff;font-size:11px;font-weight:600;">Network</div>'
+      +'<div data-cdbg-tab="errors" style="flex:1;text-align:center;padding:6px 0;cursor:pointer;color:#666;border-bottom:2px solid transparent;font-size:11px;font-weight:600;">Errors</div>'
+      +'<div data-cdbg-tab="info" style="flex:1;text-align:center;padding:6px 0;cursor:pointer;color:#666;border-bottom:2px solid transparent;font-size:11px;font-weight:600;">Info</div>'
+      +'</div>'
+      +'<div id="cdbg-content" style="flex:1;overflow-y:auto;"></div>'
+      +'<div id="cdbg-status" style="padding:6px 12px;border-top:1px solid #333;font-size:10px;color:#666;"></div>';
+  }
+
+  function togglePanel(forceOpen){
+    state.open=forceOpen!==undefined?forceOpen:!state.open;
+    panel.style.right=state.open?'0':'-330px';
+    if(state.open) renderTab();
+  }
+
+  function switchTab(t){
+    state.tab=t;
+    panel.querySelectorAll('[data-cdbg-tab]').forEach(function(b){
+      var active=b.dataset.cdbgTab===t;
+      b.style.color=active?'#87adff':'#666';
+      b.style.borderBottom=active?'2px solid #87adff':'2px solid transparent';
+    });
+    renderTab();
+  }
+
+  function updateErrorTab(){
+    var btn=panel.querySelector('[data-cdbg-tab="errors"]');
+    if(btn) btn.textContent='Errors'+(state.errors.length?' ('+state.errors.length+')':'');
+  }
+
+  function renderTab(){
+    var c=panel.querySelector('#cdbg-content');
+    var s=panel.querySelector('#cdbg-status');
+    if(state.tab==='network'){
+      if(!state.requests.length){c.innerHTML='<div style="padding:12px;color:#555;">No requests yet</div>';
+      }else{
+        var maxDur=Math.max.apply(null,state.requests.map(function(r){return r.duration||1;}));
+        c.innerHTML=state.requests.map(function(r){
+          var sc=r.status;var color=sc>=500?'#e74c3c':sc>=400?'#e74c3c':sc>=300?'#f39c12':sc>=200?'#2ecc71':'#666';
+          var barW=r.duration?Math.max(8,Math.round(r.duration/Math.max(maxDur,1)*100)):0;
+          var path=r.url.replace(/^https?:\/\/[^\/]+/,'');if(path.length>32) path='...'+path.slice(-29);
+          return '<div style="padding:6px 12px;border-bottom:1px solid #1b1b1b;display:flex;align-items:center;gap:8px;">'
+            +'<span style="color:#888;width:36px;font-size:10px;">'+r.method+'</span>'
+            +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+r.url+'">'+path+'</span>'
+            +'<span style="color:'+color+';width:28px;text-align:right;font-size:10px;">'+(sc||'...')+'</span>'
+            +'<span style="width:36px;text-align:right;font-size:10px;color:#888;">'+(r.duration?r.duration+'ms':'conn')+'</span>'
+            +'<div style="width:50px;height:6px;background:#1b1b1b;border-radius:3px;overflow:hidden;"><div style="width:'+barW+'%;height:100%;background:'+color+';border-radius:3px;"></div></div>'
+            +'</div>';
+        }).join('');
+      }
+      s.textContent=state.requests.length+' requests | '+state.errors.length+' errors | SSE: '+state.sseState;
+    }else if(state.tab==='errors'){
+      if(!state.errors.length){c.innerHTML='<div style="padding:12px;color:#555;">No errors captured</div>';
+      }else{
+        c.innerHTML=state.errors.map(function(e){
+          return '<div style="padding:8px 12px;border-bottom:1px solid #1b1b1b;">'
+            +'<div style="color:#e74c3c;font-weight:600;margin-bottom:4px;">'+esc(e.message)+'</div>'
+            +(e.file?'<div style="color:#666;font-size:10px;">'+esc(e.file)+':'+e.line+'</div>':'')
+            +(e.stack?'<pre style="color:#555;font-size:9px;margin-top:4px;white-space:pre-wrap;max-height:80px;overflow:auto;">'+esc(e.stack)+'</pre>':'')
+            +'</div>';
+        }).join('');
+      }
+      s.textContent=state.errors.length+' error(s)';
+    }else if(state.tab==='info'){
+      var token=localStorage.getItem('token');
+      var nonceMeta=document.querySelector('meta[name="csp-nonce"]');
+      var nonceScript=document.querySelector('script[nonce]');
+      var sections=document.querySelectorAll('[data-section]').length;
+      var entities=document.querySelectorAll('[data-entity],[data-list],[data-count]').length;
+      c.innerHTML='<div style="padding:8px 12px;">'
+        +infoRow('Route',location.pathname)
+        +infoRow('Sections',sections)
+        +infoRow('Entity bindings',entities)
+        +infoRow('Auth',token?'Authenticated':'Not authenticated')
+        +infoRow('SSE',state.sseState)
+        +infoRow('CSP nonce',nonceMeta?nonceMeta.content:(nonceScript?nonceScript.nonce:'N/A'))
+        +infoRow('Last audit',window.__cronusLastAudit||'N/A')
+        +'</div>';
+      s.textContent='CRONUS Debug v0.5.0';
+    }
+  }
+
+  function infoRow(k,v){return '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #1b1b1b;"><span style="color:#888;">'+k+'</span><span style="color:#ccc;">'+v+'</span></div>';}
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+  function updateBadge(){
+    if(!badge) return;
+    if(state.errors.length){badge.style.display='flex';badge.textContent=state.errors.length;}
+    else{badge.style.display='none';}
+  }
+
+  // --- Intercept fetch for logging ---
+  var _fetch=window.fetch;
+  window.fetch=function(){
+    var args=arguments;
+    var url=typeof args[0]==='string'?args[0]:(args[0]&&args[0].url)||'';
+    var opts=args[1]||{};
+    var method=(opts.method||'GET').toUpperCase();
+    var entry={method:method,url:url,status:null,duration:null,ts:Date.now()};
+    state.requests.push(entry);
+    if(state.requests.length>100) state.requests.shift();
+    var t0=performance.now();
+    return _fetch.apply(this,args).then(function(res){
+      entry.status=res.status;entry.duration=Math.round(performance.now()-t0);
+      if(state.open&&state.tab==='network') renderTab();
+      return res;
+    }).catch(function(err){
+      entry.status='ERR';entry.duration=Math.round(performance.now()-t0);
+      if(state.open&&state.tab==='network') renderTab();
+      throw err;
+    });
+  };
+
+  // --- Catch errors ---
+  window.addEventListener('error',function(e){
+    state.errors.push({message:e.message||'Unknown error',file:e.filename,line:e.lineno,stack:e.error&&e.error.stack});
+    updateBadge();updateErrorTab();if(state.open&&state.tab==='errors') renderTab();
+  });
+  window.addEventListener('unhandledrejection',function(e){
+    var msg=e.reason?e.reason.message||String(e.reason):'Unhandled rejection';
+    state.errors.push({message:msg,file:'',line:'',stack:e.reason&&e.reason.stack});
+    updateBadge();updateErrorTab();if(state.open&&state.tab==='errors') renderTab();
+  });
+
+  // --- SSE state tracking ---
+  var _ES=window.EventSource;
+  if(_ES){window.EventSource=function(url,opts){
+    var es=new _ES(url,opts);
+    state.sseState='connecting';
+    es.addEventListener('open',function(){state.sseState='live';if(state.open) renderTab();});
+    es.addEventListener('error',function(){state.sseState='error';if(state.open) renderTab();});
+    return es;
+  };window.EventSource.prototype=_ES.prototype;window.EventSource.CONNECTING=_ES.CONNECTING;window.EventSource.OPEN=_ES.OPEN;window.EventSource.CLOSED=_ES.CLOSED;}
+
+  // --- Keyboard shortcut ---
+  document.addEventListener('keydown',function(e){
+    if((e.metaKey||e.ctrlKey)&&e.shiftKey&&e.key==='d'){e.preventDefault();togglePanel();}
+  });
+
+  // --- SPA navigation tracking ---
+  var _pushState=history.pushState;
+  history.pushState=function(){_pushState.apply(this,arguments);
+    state.requests.push({method:'SPA',url:arguments[2]||'',status:'->',duration:null,ts:Date.now()});
+    if(state.open&&state.tab==='network') renderTab();
+  };
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',createPanel);
+  else createPanel();
+})();
+"#;
