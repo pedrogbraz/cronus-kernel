@@ -207,6 +207,15 @@ function cronusPaginate(tid,perPage){{var w=document.getElementById(tid);if(!w)r
         }
     }
 
+    // Empty state for light table
+    if row_count == 0 {
+        let col_count = columns.len() + 1; // +1 for checkbox column
+        html.push_str(&format!(
+            r#"<tr><td colspan="{}" style="padding:48px 16px;text-align:center"><span style="font-size:13px;color:#9ca3af">No data yet</span></td></tr>"#,
+            col_count
+        ));
+    }
+
     html.push_str("</tbody>");
 
     // ── Footer ──
@@ -431,9 +440,13 @@ pub fn render_data_table_dark(section: &SectionNode, bound_data: &crate::binding
     html.push_str("<tbody>");
     let avatar_colors = ["#3b82f6", "#8b5cf6", "#ef4444", "#10b981", "#f59e0b", "#ec4899"];
 
+    // Track if any rows were rendered for empty state
+    let mut has_rows = false;
+
     // Render from bound DB rows when available and no static rows
     if static_rows.is_empty() {
         if let crate::binding::ResolvedData::Rows(bound_rows) = bound_data {
+            if !bound_rows.is_empty() { has_rows = true; }
             for (idx, row) in bound_rows.iter().enumerate() {
                 let delay = format!("{:.2}", 0.05 + idx as f64 * 0.06);
                 html.push_str(&format!(
@@ -500,6 +513,7 @@ pub fn render_data_table_dark(section: &SectionNode, bound_data: &crate::binding
         }
     }
 
+    if !static_rows.is_empty() { has_rows = true; }
     for (idx, row) in static_rows.iter().enumerate() {
         let row_title = row.get("title").map(|s| s.as_str()).unwrap_or("");
         let delay = format!("{:.2}", 0.05 + idx as f64 * 0.06);
@@ -567,6 +581,16 @@ pub fn render_data_table_dark(section: &SectionNode, bound_data: &crate::binding
         }
         html.push_str("</tr>");
     }
+
+    // Empty state when no rows
+    if !has_rows {
+        let col_count = columns.len().max(1);
+        html.push_str(&format!(
+            r#"<tr><td colspan="{}" style="padding:48px 32px;text-align:center"><div style="display:flex;flex-direction:column;align-items:center;gap:8px"><span class="material-symbols-outlined" style="font-size:32px;color:rgba(226,226,226,0.15)">inbox</span><span style="font-size:13px;color:rgba(226,226,226,0.3)">No data yet</span></div></td></tr>"#,
+            col_count
+        ));
+    }
+
     html.push_str("</tbody>");
     html.push_str("</table>");
 

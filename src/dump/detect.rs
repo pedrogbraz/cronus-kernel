@@ -1277,6 +1277,15 @@ fn extract_hero_chips(container: &DomNode, items: &mut Vec<ItemBlueprint>) {
             chip_config.insert("icon".into(), icon);
         }
 
+        // Deduplicate text if clean_button_text doubled it from nested elements
+        let words: Vec<&str> = chip_title.split_whitespace().collect();
+        if words.len() >= 4 && words.len() % 2 == 0 {
+            let half = words.len() / 2;
+            if words[..half] == words[half..] {
+                chip_title = words[..half].join(" ");
+            }
+        }
+
         items.push(ItemBlueprint {
             item_type: "chip".into(),
             title: chip_title,
@@ -1441,7 +1450,9 @@ fn extract_features(node: &DomNode) -> SectionBlueprint {
                     continue;
                 }
                 let chip_text = clean_button_text(chip);
-                if !chip_text.is_empty() && chip_text.len() < 60 {
+                // Skip if this chip title already exists (avoid duplicates from hero-level extraction)
+                let already_exists = items.iter().any(|i| i.item_type == "chip" && i.title == chip_text);
+                if !chip_text.is_empty() && chip_text.len() < 60 && !already_exists {
                     let mut chip_config: HashMap<String, String> = HashMap::new();
                     chip_config.insert("role".into(), "child".into());
                     items.push(ItemBlueprint {

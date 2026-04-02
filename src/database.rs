@@ -878,6 +878,7 @@ mod tests {
     fn test_entity() -> EntityNode {
         EntityNode {
             name: "users".into(),
+            shared: false,
             fields: vec![
                 FieldNode {
                     name: "name".into(),
@@ -893,6 +894,7 @@ mod tests {
                     array: false,
                     enum_values: None,
                     reference: None,
+                    doc: None,
                 },
                 FieldNode {
                     name: "email".into(),
@@ -908,6 +910,7 @@ mod tests {
                     array: false,
                     enum_values: None,
                     reference: None,
+                    doc: None,
                 },
                 FieldNode {
                     name: "age".into(),
@@ -923,8 +926,10 @@ mod tests {
                     array: false,
                     enum_values: None,
                     reference: None,
+                    doc: None,
                 },
             ],
+            doc: None,
         }
     }
 

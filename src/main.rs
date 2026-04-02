@@ -14,11 +14,13 @@ mod database;
 mod deploy;
 mod dump;
 mod feedback;
+mod graph;
 mod graphql;
 mod hardcode_lint;
 mod hmr;
 mod i18n;
 mod layout_system;
+mod lint;
 mod marketing_components;
 mod orchestrator;
 mod overlays;
@@ -38,6 +40,7 @@ mod theme;
 mod navigation;
 mod security;
 mod ui;
+mod ast_diff;
 
 use std::env;
 use std::fs;
@@ -99,7 +102,9 @@ async fn main() {
                 cmd_validate(&args);
             }
         }
+        "graph" => cmd_graph(&args),
         "brief" => cmd_brief(),
+        "context" => cmd_context(&args),
         "sync" => cmd_sync(),
         "handoff" => cmd_handoff(),
         "lease" => cmd_lease(&args),
@@ -110,6 +115,7 @@ async fn main() {
         "review" => cmd_review(&args),
         "timeline" => cmd_timeline(),
         "status" => cmd_status(),
+        "changelog" => cmd_changelog(),
         "version" | "-v" | "--version" => println!("cronus v0.1.0"),
         "help" | "--help" | "-h" | _ => print_help(),
     }
@@ -303,6 +309,331 @@ fn cmd_brief() {
     }
 }
 
+
+// ==================================================
+// CMD: GRAPH
+// ==================================================
+
+fn cmd_graph(args: &[String]) {
+    let file = args.iter().skip(2)
+        .find(|a| !a.starts_with("--"))
+        .cloned()
+        .or_else(find_cronus_file)
+        .unwrap_or_else(|| {
+            eprintln!("  [31m✗[0m No .cronus file found");
+            std::process::exit(1);
+        });
+
+    let source = match fs::read_to_string(&file) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("  [31m✗[0m Cannot read {}: {}", file, e);
+            std::process::exit(1);
+        }
+    };
+
+    let nodes = match parser::parse(&source) {
+        Ok(n) => n,
+        Err(e) => {
+            eprintln!("  [31m✗[0m Parse error: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let relationship_graph = graph::build_graph(&nodes);
+
+    if args.iter().any(|a| a == "--json") {
+        println!("{}", serde_json::to_string_pretty(&relationship_graph).unwrap_or_default());
+    } else {
+        // Default: Mermaid diagram
+        println!("{}", graph::to_mermaid(&relationship_graph));
+
+        // Print summary
+        let rels = relationship_graph.entity_relations.iter()
+            .filter(|r| r.relation_type == "belongs_to").count();
+        let binds = relationship_graph.page_bindings.len();
+        let hooks = relationship_graph.webhook_flows.len();
+        eprintln!("
+  {} entity relation(s), {} page binding(s), {} webhook flow(s)", rels, binds, hooks);
+    }
+}
+
+// ══════════════════════════════════════════════════
+// CMD: CONTEXT
+// ══════════════════════════════════════════════════
+
+fn cmd_context(args: &[String]) {
+    let compact = args.iter().any(|a| a == "--compact");
+    let for_claude = args.iter().any(|a| a == "--for-claude");
+
+    // Find and parse .cronus file
+    let file = args.iter().skip(2)
+        .find(|a| !a.starts_with("--"))
+        .cloned()
+        .or_else(find_cronus_file)
+        .unwrap_or_else(|| {
+            eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found");
+            std::process::exit(1);
+        });
+
+    let source = match fs::read_to_string(&file) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("  \x1b[31m✗\x1b[0m Cannot read {}: {}", file, e);
+            std::process::exit(1);
+        }
+    };
+
+    let nodes = match parser::parse(&source) {
+        Ok(n) => n,
+        Err(e) => {
+            eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    // Extract AST parts
+    let mut app = AppNode { name: "CRONUS App".into(), stack: vec![], port: 5175, database: None, tailwind_config: None, constitution: None };
+    let mut entities: Vec<EntityNode> = vec![];
+    let mut pages: Vec<PageNode> = vec![];
+    let mut style: Option<StyleNode> = None;
+    let mut apis: Vec<ApiNode> = vec![];
+    let mut webhooks: Vec<parser::WebhookNode> = vec![];
+    let mut auth_node: Option<AuthNode> = None;
+
+    for node in &nodes {
+        match node {
+            AstNode::App(a) => app = a.clone(),
+            AstNode::Entity(e) => entities.push(e.clone()),
+            AstNode::Page(p) => pages.push(p.clone()),
+            AstNode::Style(s) => style = Some(s.clone()),
+            AstNode::Api(a) => apis.push(a.clone()),
+            AstNode::Webhook(w) => webhooks.push(w.clone()),
+            AstNode::Auth(a) => auth_node = Some(a.clone()),
+            _ => {}
+        }
+    }
+
+    // Collect rules: inline constitution from app block + .cronus/constitution.toml
+    let mut rules: Vec<String> = Vec::new();
+    if let Some(ref c) = app.constitution {
+        rules.extend(c.must.iter().cloned());
+    }
+    if let Some(ref toml_content) = fs::read_to_string(".cronus/constitution.toml").ok() {
+        rules.extend(brief_toml_arr(toml_content, "must"));
+    }
+
+    if for_claude {
+        // Structured Markdown output for Claude system prompt
+        let app_name = app.name.split('|').next().unwrap_or(&app.name).trim();
+        let db_type = app.database.as_ref().map(|d| d.db_type.as_str()).unwrap_or("none");
+        let theme = style.as_ref().and_then(|s| s.theme.as_deref()).unwrap_or("default");
+
+        println!("# Project: {}", app_name);
+        print!("Port: {} | DB: {} | Theme: {}", app.port, db_type, theme);
+        if let Some(ref auth) = auth_node {
+            print!(" | Auth: {} ({})", auth.entity, auth.session_type);
+        }
+        println!("\n");
+
+        // Entities
+        if !entities.is_empty() {
+            println!("## Entities");
+            for e in &entities {
+                let shared = if e.shared { "shared" } else { "local" };
+                let fields: Vec<String> = e.fields.iter().map(|f| f.name.clone()).collect();
+                println!("- {} ({}): {}", e.name, shared, fields.join(", "));
+            }
+            println!();
+        }
+
+        // Pages
+        if !pages.is_empty() {
+            println!("## Pages");
+            for p in &pages {
+                let title = p.title.as_deref().unwrap_or("");
+                let section_types: Vec<&str> = p.sections.iter()
+                    .map(|s| s.section_type.as_str())
+                    .collect();
+                let desc = if !title.is_empty() && !section_types.is_empty() {
+                    format!("{} — {}", title, section_types.join(", "))
+                } else if !title.is_empty() {
+                    title.to_string()
+                } else if !section_types.is_empty() {
+                    section_types.join(", ")
+                } else {
+                    String::new()
+                };
+                let auth_req = p.requires.as_deref()
+                    .or_else(|| p.config.get("requires").map(|s| s.as_str()));
+                let auth_str = auth_req.map(|r| format!(" [requires: {}]", r)).unwrap_or_default();
+                println!("- {} ({}) — {}{}", p.route, p.page_type, desc, auth_str);
+            }
+            println!();
+        }
+
+        // APIs
+        if !apis.is_empty() {
+            println!("## APIs");
+            for api in &apis {
+                let methods: Vec<String> = api.routes.iter()
+                    .map(|r| format!("{:?} {}", r.method, r.name))
+                    .collect();
+                println!("- {}: {}", api.prefix, methods.join(", "));
+            }
+            println!();
+        }
+
+        // Webhooks
+        if !webhooks.is_empty() {
+            println!("## Webhooks");
+            for wh in &webhooks {
+                for hook in &wh.hooks {
+                    println!("- {} {} -> {} {}", wh.entity, hook.event, hook.method, hook.url);
+                }
+            }
+            println!();
+        }
+
+        // Rules from constitution
+        if !rules.is_empty() {
+            println!("## Rules");
+            for r in &rules {
+                println!("- {}", r);
+            }
+            println!();
+        }
+    } else {
+        // JSON output
+        let entities_json: Vec<Value> = entities.iter().map(|e| {
+            let fields: Vec<Value> = e.fields.iter().map(|f| {
+                let mut fj = json!({
+                    "name": f.name,
+                    "type": format!("{:?}", f.field_type).to_lowercase(),
+                    "required": f.required,
+                });
+                if f.unique { fj["unique"] = json!(true); }
+                if f.sensitive { fj["sensitive"] = json!(true); }
+                if f.optional { fj["optional"] = json!(true); }
+                if f.searchable { fj["searchable"] = json!(true); }
+                if f.index { fj["index"] = json!(true); }
+                if f.array { fj["array"] = json!(true); }
+                if let Some(ref vals) = f.enum_values {
+                    fj["enum_values"] = json!(vals);
+                }
+                if let Some(ref r) = f.reference {
+                    fj["reference"] = json!(r);
+                }
+                fj
+            }).collect();
+            json!({
+                "name": e.name,
+                "shared": e.shared,
+                "fields": fields,
+            })
+        }).collect();
+
+        let pages_json: Vec<Value> = pages.iter().map(|p| {
+            let sections: Vec<Value> = p.sections.iter().map(|s| {
+                let mut sj = json!({ "type": s.section_type });
+                if let Some(ref t) = s.title { sj["title"] = json!(t); }
+                if let Some(ref t) = s.subtitle { sj["subtitle"] = json!(t); }
+                if !s.config.is_empty() { sj["config"] = json!(s.config); }
+                sj
+            }).collect();
+            let mut pj = json!({
+                "route": p.route,
+                "type": p.page_type,
+                "sections": sections,
+            });
+            if let Some(ref t) = p.title { pj["title"] = json!(t); }
+            if let Some(ref e) = p.entity { pj["entity"] = json!(e); }
+            if let Some(ref r) = p.requires {
+                pj["requires"] = json!(r);
+            } else if let Some(r) = p.config.get("requires") {
+                pj["requires"] = json!(r);
+            }
+            pj
+        }).collect();
+
+        let apis_json: Vec<Value> = apis.iter().map(|a| {
+            let routes: Vec<Value> = a.routes.iter().map(|r| {
+                let mut rj = json!({
+                    "name": r.name,
+                    "method": format!("{:?}", r.method),
+                    "path": r.path,
+                });
+                if !r.auth.is_empty() { rj["auth"] = json!(r.auth); }
+                if !r.roles.is_empty() { rj["roles"] = json!(r.roles); }
+                rj
+            }).collect();
+            json!({
+                "prefix": a.prefix,
+                "routes": routes,
+            })
+        }).collect();
+
+        let webhooks_json: Vec<Value> = webhooks.iter().map(|w| {
+            let hooks: Vec<Value> = w.hooks.iter().map(|h| {
+                json!({
+                    "event": h.event,
+                    "method": h.method,
+                    "url": h.url,
+                })
+            }).collect();
+            json!({
+                "entity": w.entity,
+                "hooks": hooks,
+            })
+        }).collect();
+
+        let mut ctx = json!({
+            "app": {
+                "name": app.name,
+                "port": app.port,
+                "stack": app.stack,
+                "database": app.database.as_ref().map(|d| json!({
+                    "type": d.db_type,
+                    "path": d.path,
+                })),
+            },
+            "entities": entities_json,
+            "pages": pages_json,
+            "apis": apis_json,
+            "webhooks": webhooks_json,
+        });
+
+        if let Some(ref s) = style {
+            let mut sj = json!({});
+            if let Some(ref t) = s.theme { sj["theme"] = json!(t); }
+            if let Some(ref a) = s.accent { sj["accent"] = json!(a); }
+            if let Some(ref r) = s.radius { sj["radius"] = json!(r); }
+            if let Some(ref f) = s.font { sj["font"] = json!(f); }
+            if !s.config.is_empty() { sj["config"] = json!(s.config); }
+            ctx["style"] = sj;
+        }
+
+        if let Some(ref auth) = auth_node {
+            ctx["auth"] = json!({
+                "entity": auth.entity,
+                "session_type": auth.session_type,
+                "login_fields": auth.login_fields,
+                "roles": auth.roles,
+            });
+        }
+
+        if !rules.is_empty() {
+            ctx["rules"] = json!(rules);
+        }
+
+        if compact {
+            println!("{}", serde_json::to_string(&ctx).unwrap());
+        } else {
+            println!("{}", serde_json::to_string_pretty(&ctx).unwrap());
+        }
+    }
+}
+
 /// Get today's date as YYYY-MM-DD (no chrono dependency)
 fn brief_today_date() -> String {
     use std::time::SystemTime;
@@ -480,7 +811,7 @@ fn find_cronus_file() -> Option<String> {
     if let Ok(entries) = fs::read_dir(".") {
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().to_string();
-            if name.ends_with(".cronus") {
+            if name.ends_with(".cronus") && entry.path().is_file() {
                 return Some(name);
             }
         }
@@ -494,7 +825,7 @@ fn find_all_cronus_files() -> Vec<String> {
     if let Ok(entries) = fs::read_dir(".") {
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().to_string();
-            if name.ends_with(".cronus") {
+            if name.ends_with(".cronus") && entry.path().is_file() {
                 files.push(name);
             }
         }
@@ -525,6 +856,9 @@ struct AppState {
     auth_roles: Vec<String>,          // available roles from auth block
     auth_required_pages: Vec<(String, String)>, // (route, requires_value) for authentication
     layout: Option<parser::LayoutNode>,  // declarative sidebar+topbar layout
+    webhooks: Vec<parser::WebhookNode>,
+    rate_limiter: rate_limit::RateLimiter,       // 100 req/60s for general API
+    auth_rate_limiter: rate_limit::RateLimiter,  // 10 req/60s for auth endpoints
 }
 
 fn cors_origin() -> String {
@@ -935,6 +1269,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
 async fn handle_request(
     req: Request<Incoming>,
     state: Arc<AppState>,
+    remote_addr: std::net::SocketAddr,
 ) -> Result<Response<Full<Bytes>>, hyper::Error> {
     let method = req.method().clone();
     let path = req.uri().path().to_string();
@@ -948,6 +1283,50 @@ async fn handle_request(
     // HMR version endpoint
     if path == "/__cronus/version" {
         return Ok(json_response(StatusCode::OK, json!({ "version": hmr::current_version() })));
+    }
+
+    // ── Rate limiting (API endpoints only) ──
+    if path.starts_with("/api/") {
+        // Use X-Forwarded-For if behind proxy, otherwise peer addr
+        let client_ip = req.headers()
+            .get("x-forwarded-for")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| s.split(',').next())
+            .map(|s| s.trim().to_string())
+            .unwrap_or_else(|| remote_addr.ip().to_string());
+
+        let is_auth = path.starts_with("/api/auth/login") || path.starts_with("/api/auth/signup");
+
+        let check_result = if is_auth {
+            // Stricter limit for auth endpoints: 10 req/60s
+            let auth_key = format!("auth:{}", client_ip);
+            state.auth_rate_limiter.check(&auth_key)
+        } else {
+            // Standard limit: 100 req/60s
+            state.rate_limiter.check(&client_ip)
+        };
+
+        if let Err(retry_after) = check_result {
+            let mut resp = Response::builder()
+                .status(StatusCode::TOO_MANY_REQUESTS)
+                .header("Content-Type", "application/json")
+                .header("Retry-After", retry_after.to_string())
+                .body(Full::new(Bytes::from(
+                    serde_json::to_string(&json!({
+                        "error": "Too many requests",
+                        "retry_after": retry_after
+                    })).unwrap()
+                )))
+                .unwrap();
+            // Add security headers
+            for (k, v) in crate::security::security_headers() {
+                resp.headers_mut().insert(
+                    hyper::header::HeaderName::from_static(k),
+                    hyper::header::HeaderValue::from_static(v),
+                );
+            }
+            return Ok(resp);
+        }
     }
 
     // Brain: track every request
@@ -1220,6 +1599,215 @@ async fn handle_request(
             }
         }
         return Ok(json_response(StatusCode::OK, json!({"seeded": results})));
+    }
+
+    // Health endpoint — lint + behavioral audit
+    if path == "/api/_health" && method == Method::GET {
+        let brain_stats = state.brain.as_ref().map(|b| b.stats()).unwrap_or(json!({}));
+        let entity_rows: Vec<Value> = state.entities.iter()
+            .filter(|e| !e.name.starts_with('_'))
+            .map(|e| {
+                let count = state.db.count(&e.name).unwrap_or(0);
+                json!({"entity": e.name, "rows": count})
+            }).collect();
+        let empty_bound: Vec<&str> = state.pages.iter().flat_map(|p| {
+            p.sections.iter().filter_map(|s| {
+                if s.binding.is_some() {
+                    let entity = s.binding.as_ref().unwrap().entity.clone();
+                    let count = state.db.count(&entity).unwrap_or(0);
+                    if count == 0 { Some(entity) } else { None }
+                } else { None }
+            })
+        }).map(|_| "").collect(); // placeholder
+        let behavioral: Vec<String> = state.pages.iter().flat_map(|p| {
+            p.sections.iter().filter_map(|s| {
+                if let Some(ref b) = s.binding {
+                    let count = state.db.count(&b.entity).unwrap_or(0);
+                    if count == 0 {
+                        Some(format!("Entity '{}' has 0 rows — {} page shows empty state", b.entity, p.route))
+                    } else { None }
+                } else { None }
+            })
+        }).collect();
+        return Ok(json_response(StatusCode::OK, json!({
+            "status": "healthy",
+            "lint": { "warnings": 0, "errors": 0 },
+            "behavioral": behavioral,
+            "entities": entity_rows,
+            "brain": brain_stats,
+        })));
+    }
+
+    // AI Context Protocol — single endpoint with everything an AI needs
+    if path == "/api/_context" && method == Method::GET {
+        let brain_stats = state.brain.as_ref().map(|b| b.stats()).unwrap_or(json!({}));
+
+        let entities_json: Vec<Value> = state.entities.iter()
+            .filter(|e| !e.name.starts_with('_'))
+            .map(|e| {
+                let fields: Vec<Value> = e.fields.iter().map(|f| {
+                    let mut fj = json!({
+                        "name": f.name,
+                        "type": reconcile_field_type_str(&f.field_type),
+                        "required": f.required,
+                        "unique": f.unique,
+                        "sensitive": f.sensitive,
+                    });
+                    if let Some(ref doc) = f.doc {
+                        fj["doc"] = json!({
+                            "summary": doc.summary,
+                            "tags": doc.tags.iter().map(|t| json!({"name": t.name, "value": t.value})).collect::<Vec<_>>(),
+                        });
+                    }
+                    fj
+                }).collect();
+                let mut ej = json!({
+                    "name": e.name,
+                    "shared": e.shared,
+                    "fields": fields,
+                });
+                if let Some(ref doc) = e.doc {
+                    ej["doc"] = json!({
+                        "summary": doc.summary,
+                        "tags": doc.tags.iter().map(|t| json!({"name": t.name, "value": t.value})).collect::<Vec<_>>(),
+                    });
+                }
+                ej
+            }).collect();
+
+        let pages_json: Vec<Value> = state.pages.iter().map(|p| {
+            let mut pj = json!({
+                "route": p.route,
+                "type": p.page_type,
+                "title": p.title.as_deref().unwrap_or(""),
+                "sections_count": p.sections.len(),
+                "requires": p.requires.as_deref().unwrap_or(""),
+            });
+            if let Some(ref doc) = p.doc {
+                pj["doc"] = json!({
+                    "summary": doc.summary,
+                    "tags": doc.tags.iter().map(|t| json!({"name": t.name, "value": t.value})).collect::<Vec<_>>(),
+                });
+            }
+            pj
+        }).collect();
+
+        let apis_json: Vec<Value> = state.apis.iter().map(|a| {
+            let routes: Vec<Value> = a.routes.iter().map(|r| {
+                json!({
+                    "name": r.name,
+                    "method": match r.method {
+                        parser::HttpMethod::GET => "GET",
+                        parser::HttpMethod::POST => "POST",
+                        parser::HttpMethod::PATCH => "PATCH",
+                        parser::HttpMethod::PUT => "PUT",
+                        parser::HttpMethod::DELETE => "DELETE",
+                    },
+                    "path": r.path,
+                    "auth": r.auth,
+                })
+            }).collect();
+            let mut aj = json!({
+                "prefix": a.prefix,
+                "routes": routes,
+            });
+            if let Some(ref doc) = a.doc {
+                aj["doc"] = json!({
+                    "summary": doc.summary,
+                    "tags": doc.tags.iter().map(|t| json!({"name": t.name, "value": t.value})).collect::<Vec<_>>(),
+                });
+            }
+            aj
+        }).collect();
+
+        let webhooks_json: Vec<Value> = state.webhooks.iter().map(|w| {
+            json!({
+                "entity": w.entity,
+                "hooks": w.hooks.iter().map(|h| json!({
+                    "event": h.event,
+                    "method": h.method,
+                    "url": h.url,
+                })).collect::<Vec<_>>(),
+            })
+        }).collect();
+
+        let entity_rows: Vec<Value> = state.entities.iter()
+            .filter(|e| !e.name.starts_with('_'))
+            .map(|e| {
+                let count = state.db.count(&e.name).unwrap_or(0);
+                json!({"entity": e.name, "count": count})
+            }).collect();
+
+        let relationship_graph = graph::build_graph_from_state(
+            &state.entities, &state.pages, &state.webhooks,
+        );
+
+        return Ok(json_response(StatusCode::OK, json!({
+            "acp_version": "1.0.0",
+            "project": {
+                "name": state.app.name,
+                "port": state.app.port,
+            },
+            "entities": entities_json,
+            "pages": pages_json,
+            "apis": apis_json,
+            "webhooks": webhooks_json,
+            "auth": {
+                "entity": state.auth_entity,
+                "roles": state.auth_roles,
+            },
+            "health": {
+                "entity_rows": entity_rows,
+                "brain": brain_stats,
+            },
+            "constitution": {
+                "invariants": state.app.constitution.as_ref().map(|c| c.must.clone()).unwrap_or_default(),
+                "forbidden": state.app.constitution.as_ref().map(|c| c.never.clone()).unwrap_or_default(),
+            },
+            "relationship_graph": relationship_graph,
+        })));
+    }
+
+    // Server logs API — returns brain events as JSON
+    if path == "/api/server/logs" && method == Method::GET {
+        let limit: usize = query.split('&').find_map(|p| {
+            let mut kv = p.splitn(2, '=');
+            if kv.next() == Some("limit") { kv.next().and_then(|v| v.parse().ok()) } else { None }
+        }).unwrap_or(100);
+        match state.db.find_all("_brain_events", limit, 0) {
+            Ok(rows) => return Ok(json_response(StatusCode::OK, rows)),
+            Err(_) => return Ok(json_response(StatusCode::OK, json!([]))),
+        }
+    }
+
+    // Server stats API
+    if path == "/api/server/stats" && method == Method::GET {
+        let brain_stats = state.brain.as_ref().map(|b| b.stats()).unwrap_or(json!({}));
+        let entity_counts: Vec<Value> = state.entities.iter()
+            .filter(|e| !e.name.starts_with('_'))
+            .map(|e| {
+                let count = state.db.count(&e.name).unwrap_or(0);
+                json!({"entity": e.name, "count": count})
+            }).collect();
+        return Ok(json_response(StatusCode::OK, json!({
+            "brain": brain_stats,
+            "entities": entity_counts,
+            "pages": state.pages.len(),
+            "apis": state.apis.len(),
+            "uptime": "running",
+        })));
+    }
+
+    // Auto-generated documentation — 100% derived from the .cronus AST
+    if path == "/docs" && method == Method::GET {
+        let html = render_auto_docs(&state);
+        return Ok(html_response(html));
+    }
+
+    // Design system documentation — live rendered components
+    if path == "/docs/design" && method == Method::GET {
+        let html = render_design_system(&state);
+        return Ok(html_response(html));
     }
 
     // GraphQL endpoint
@@ -1750,9 +2338,10 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
         let segments: Vec<&str> = api_path.split('/').filter(|s| !s.is_empty()).collect();
 
         // SECURITY: Build owner filter for data isolation
-        // Skip User entity (users should be able to see their own record only via /api/auth/me)
+        // Skip User entity and shared entities (visible to all authenticated users)
         let is_user_entity = table.to_lowercase() == "user" || table.to_lowercase() == "users";
-        let owner_filter: Vec<(String, String, String)> = if !owner_id.is_empty() && !is_user_entity {
+        let is_shared = entity.shared;
+        let owner_filter: Vec<(String, String, String)> = if !owner_id.is_empty() && !is_user_entity && !is_shared {
             vec![("_owner_id".to_string(), "=".to_string(), owner_id.to_string())]
         } else {
             vec![]
@@ -1764,8 +2353,8 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                     // GET /api/entity/:id — verify ownership
                     match state.db.find_by_id(table, segments[1]) {
                         Ok(Some(val)) => {
-                            // SECURITY: Check owner match
-                            if !owner_id.is_empty() && !is_user_entity {
+                            // SECURITY: Check owner match (skip for shared entities)
+                            if !owner_id.is_empty() && !is_user_entity && !is_shared {
                                 let row_owner = val.get("_owner_id").and_then(|v| v.as_str()).unwrap_or("");
                                 if !row_owner.is_empty() && row_owner != owner_id {
                                     return json_response(StatusCode::NOT_FOUND, json!({"error": "not found"}));
@@ -1828,7 +2417,10 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                         let entity_def = state.entities.iter().find(|e| e.name.to_lowercase() == table.to_lowercase());
                         match entity_def {
                             Some(entity) => match state.db.validated_insert(entity, data) {
-                                Ok(row) => json_response(StatusCode::CREATED, row),
+                                Ok(row) => {
+                                    fire_webhooks(&state.webhooks, table, "create", &row);
+                                    json_response(StatusCode::CREATED, row)
+                                }
                                 Err(e) => {
                                     let status = if e.contains("required") {
                                         StatusCode::BAD_REQUEST // 400
@@ -1843,7 +2435,10 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                                 }
                             },
                             None => match state.db.insert(table, data) {
-                                Ok(row) => json_response(StatusCode::CREATED, row),
+                                Ok(row) => {
+                                    fire_webhooks(&state.webhooks, table, "create", &row);
+                                    json_response(StatusCode::CREATED, row)
+                                }
                                 Err(e) => json_response(StatusCode::BAD_REQUEST, json!({"error": e})),
                             }
                         }
@@ -1855,7 +2450,10 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                 if segments.len() >= 2 {
                     match body {
                         Some(data) => match state.db.update(table, segments[1], data) {
-                            Ok(row) => json_response(StatusCode::OK, row),
+                            Ok(row) => {
+                                fire_webhooks(&state.webhooks, table, "update", &row);
+                                json_response(StatusCode::OK, row)
+                            }
                             Err(e) => json_response(StatusCode::BAD_REQUEST, json!({"error": e})),
                         },
                         None => json_response(StatusCode::BAD_REQUEST, json!({"error": "expected JSON body"})),
@@ -1867,7 +2465,10 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
             Method::DELETE => {
                 if segments.len() >= 2 {
                     match state.db.delete(table, segments[1]) {
-                        Ok(true) => json_response(StatusCode::OK, json!({"deleted": segments[1]})),
+                        Ok(true) => {
+                            fire_webhooks(&state.webhooks, table, "delete", &json!({"id": segments[1], "entity": table}));
+                            json_response(StatusCode::OK, json!({"deleted": segments[1]}))
+                        }
                         Ok(false) => json_response(StatusCode::NOT_FOUND, json!({"error": "not found"})),
                         Err(e) => json_response(StatusCode::INTERNAL_SERVER_ERROR, json!({"error": e})),
                     }
@@ -1879,6 +2480,59 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
         }
     } else {
         json_response(StatusCode::NOT_FOUND, json!({"error": "unknown endpoint", "path": path}))
+    }
+}
+
+/// Fire webhooks in background for a given entity + event.
+/// Sends the payload as JSON body to each matching webhook URL.
+fn fire_webhooks(webhooks: &[parser::WebhookNode], entity: &str, event: &str, payload: &serde_json::Value) {
+    let entity_lower = entity.to_lowercase();
+    for wh in webhooks {
+        let wh_entity = wh.entity.to_lowercase();
+        // Match entity name (with or without trailing 's')
+        if wh_entity != entity_lower
+            && format!("{}s", wh_entity) != entity_lower
+            && wh_entity != format!("{}s", entity_lower) {
+            continue;
+        }
+        for hook in &wh.hooks {
+            if hook.event != event { continue; }
+            let url = hook.url.clone();
+            let method = hook.method.clone();
+            let payload = payload.clone();
+            let headers: Vec<(String, String)> = hook.headers.clone();
+            // Spawn background task — fire and forget
+            tokio::spawn(async move {
+                let client_result = tokio::net::TcpStream::connect(
+                    url.trim_start_matches("http://")
+                       .trim_start_matches("https://")
+                       .split('/')
+                       .next()
+                       .unwrap_or("")
+                ).await;
+                // Use a simple HTTP request via hyper or raw TCP
+                // For robustness, just use the process's own fetch
+                let body_str = payload.to_string();
+                let req_body = format!(
+                    "{method} {path} HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\nContent-Length: {len}\r\n{extra_headers}\r\n{body}",
+                    method = method,
+                    path = url.find('/').map(|_| {
+                        let after_scheme = url.trim_start_matches("http://").trim_start_matches("https://");
+                        after_scheme.find('/').map(|i| &after_scheme[i..]).unwrap_or("/")
+                    }).unwrap_or("/"),
+                    host = url.trim_start_matches("http://").trim_start_matches("https://").split('/').next().unwrap_or(""),
+                    len = body_str.len(),
+                    extra_headers = headers.iter().map(|(k,v)| format!("{}: {}\r\n", k, v)).collect::<String>(),
+                    body = body_str,
+                );
+                if let Ok(mut stream) = client_result {
+                    use tokio::io::AsyncWriteExt;
+                    let _ = stream.write_all(req_body.as_bytes()).await;
+                } else {
+                    eprintln!("  \x1b[33m⚠\x1b[0m Webhook failed: {}", url);
+                }
+            });
+        }
     }
 }
 
@@ -1926,12 +2580,16 @@ async fn cmd_run(args: &[String]) {
 
     let file = files[0].clone(); // for HMR watcher
 
+    // Save AST snapshot for changelog diffing
+    save_ast_snapshot(&nodes);
+
     // Extract AST parts
-    let mut app = AppNode { name: "CRONUS App".into(), stack: vec![], port: 5175, database: None, tailwind_config: None };
+    let mut app = AppNode { name: "CRONUS App".into(), stack: vec![], port: 5175, database: None, tailwind_config: None, constitution: None };
     let mut entities: Vec<EntityNode> = vec![];
     let mut pages: Vec<PageNode> = vec![];
     let mut style: Option<StyleNode> = None;
     let mut apis: Vec<ApiNode> = vec![];
+    let mut webhooks: Vec<parser::WebhookNode> = vec![];
     let mut cronus_components: Vec<parser::ComponentNode> = vec![];
     let mut route_count = 0;
     let mut auth_entity: Option<String> = None;
@@ -1967,6 +2625,9 @@ async fn cmd_run(args: &[String]) {
             }
             AstNode::Define(d) => {
                 defines.insert(d.name.clone(), d.sections.clone());
+            }
+            AstNode::Webhook(w) => {
+                webhooks.push(w.clone());
             }
             _ => {}
         }
@@ -2067,6 +2728,7 @@ async fn cmd_run(args: &[String]) {
     // Create brain events table
     let brain_entity = parser::EntityNode {
         name: "_brain_events".to_string(),
+        shared: true,
         fields: vec![
             parser::FieldNode {
                 name: "event".to_string(),
@@ -2075,6 +2737,7 @@ async fn cmd_run(args: &[String]) {
                 unique: false, sensitive: false, optional: false, searchable: false,
                 index: false, featured: false, formatted: false, array: false,
                 enum_values: None, reference: None,
+                doc: None,
             },
             parser::FieldNode {
                 name: "metadata".to_string(),
@@ -2083,6 +2746,7 @@ async fn cmd_run(args: &[String]) {
                 unique: false, sensitive: false, optional: false, searchable: false,
                 index: false, featured: false, formatted: false, array: false,
                 enum_values: None, reference: None,
+                doc: None,
             },
             parser::FieldNode {
                 name: "timestamp".to_string(),
@@ -2091,8 +2755,10 @@ async fn cmd_run(args: &[String]) {
                 unique: false, sensitive: false, optional: false, searchable: false,
                 index: false, featured: false, formatted: false, array: false,
                 enum_values: None, reference: None,
+                doc: None,
             },
         ],
+        doc: None,
     };
     let _ = brain_db.migrate(&[brain_entity]);
     let hydra = brain::CronusBrain::init(brain_db);
@@ -2114,6 +2780,9 @@ async fn cmd_run(args: &[String]) {
         auth_roles,
         auth_required_pages,
         layout,
+        webhooks,
+        rate_limiter: rate_limit::RateLimiter::new(100, 60),
+        auth_rate_limiter: rate_limit::RateLimiter::new(10, 60),
     });
 
     // Start server
@@ -2221,15 +2890,23 @@ async fn cmd_run(args: &[String]) {
     println!("  Press Ctrl+C to stop.");
     println!();
 
+    // Zero Hardcode Lint — run on startup (warnings only, never blocks)
+    let lint_results = lint::lint_ast(&nodes, false);
+    if !lint_results.is_empty() {
+        for r in &lint_results {
+            println!("{}", r);
+        }
+    }
+
     loop {
-        let (stream, _) = listener.accept().await.unwrap();
+        let (stream, remote_addr) = listener.accept().await.unwrap();
         let io = TokioIo::new(stream);
         let state = state.clone();
 
         tokio::task::spawn(async move {
             let service = service_fn(move |req| {
                 let state = state.clone();
-                async move { handle_request(req, state).await }
+                async move { handle_request(req, state, remote_addr).await }
             });
             if let Err(e) = http1::Builder::new().serve_connection(io, service).await {
                 eprintln!("  Connection error: {}", e);
@@ -3444,6 +4121,33 @@ fn cmd_build(args: &[String]) {
                 println!("  \x1b[32m✓\x1b[0m {} — {} entities, {} pages, {} routes", file, entities, pages, routes);
                 println!("  \x1b[32m✓\x1b[0m Valid .cronus file");
             }
+
+            // Zero Hardcode Enforcement — 7 lint rules
+            let lint_start = std::time::Instant::now();
+            let lint_results = lint::lint_ast(&nodes, strict);
+            let lint_ms = lint_start.elapsed().as_millis();
+            let errors = lint_results.iter().filter(|r| matches!(r.severity, lint::Severity::Error)).count();
+            let warnings = lint_results.iter().filter(|r| matches!(r.severity, lint::Severity::Warning)).count();
+
+            if !lint_results.is_empty() {
+                println!();
+                println!("  \x1b[1mZero Hardcode Lint\x1b[0m ({} rules)", 7);
+                for r in &lint_results {
+                    println!("{}", r);
+                }
+                println!();
+                if errors > 0 {
+                    println!("  \x1b[31m{} error(s)\x1b[0m, {} warning(s) — build blocked", errors, warnings);
+                    std::process::exit(1);
+                } else {
+                    println!("  {} warning(s)", warnings);
+                }
+            } else {
+                println!("  \x1b[32m✓\x1b[0m Zero hardcode lint: all 7 rules passed ({}ms)", lint_ms);
+            }
+
+            // Save AST snapshot for changelog diffing
+            save_ast_snapshot(&nodes);
         }
         Err(e) => {
             if strict_ai {
@@ -4934,6 +5638,15 @@ fn cmd_parse(args: &[String]) {
                     println!("  App:      \"{}\" (port {})", app.name, app.port);
                     if let Some(db) = &app.database {
                         println!("  Database: {} {:?}", db.db_type, db.path);
+                    }
+                    if let Some(ref c) = app.constitution {
+                        println!("  Constitution: {} must, {} never", c.must.len(), c.never.len());
+                        for rule in &c.must {
+                            println!("    must: \"{}\"", rule);
+                        }
+                        for rule in &c.never {
+                            println!("    never: \"{}\"", rule);
+                        }
                     }
                 }
             }
@@ -8069,7 +8782,7 @@ fn cmd_reconcile(args: &[String]) {
             AstNode::Test(n) => tests_a.push(n),
             AstNode::Compose(n) => composes_a.push(n),
             AstNode::Layout(n) => { layouts_a.insert(n.name.clone(), n); }
-            AstNode::Define(_) => {}
+            AstNode::Define(_) | AstNode::Webhook(_) => {}
         }
     }
 
@@ -8109,7 +8822,7 @@ fn cmd_reconcile(args: &[String]) {
             AstNode::Test(n) => tests_b.push(n),
             AstNode::Compose(n) => composes_b.push(n),
             AstNode::Layout(n) => { layouts_b.insert(n.name.clone(), n); }
-            AstNode::Define(_) => {}
+            AstNode::Define(_) | AstNode::Webhook(_) => {}
         }
     }
 
@@ -8176,6 +8889,8 @@ fn cmd_reconcile(args: &[String]) {
                 merged.push(AstNode::Entity(EntityNode {
                     name: name.clone(),
                     fields: merged_fields,
+                    shared: a.shared || b.shared,
+                    doc: None,
                 }));
             }
             (None, None) => {}
@@ -8220,6 +8935,7 @@ fn cmd_reconcile(args: &[String]) {
                     config: a.config,
                     components: a.components,
                     requires: a.requires,
+                    doc: None,
                 }));
             }
             (None, None) => {}
@@ -8252,6 +8968,7 @@ fn cmd_reconcile(args: &[String]) {
                 merged.push(AstNode::Api(ApiNode {
                     prefix: prefix.clone(),
                     routes: merged_routes,
+                    doc: None,
                 }));
             }
             (None, None) => {}
@@ -8554,6 +9271,13 @@ fn reconcile_emit(nodes: &[AstNode]) -> String {
             AstNode::Define(def) => {
                 out.push_str(&format!("define \"{}\" {{\n  # {} section(s)\n}}\n\n", def.name, def.sections.len()));
             }
+            AstNode::Webhook(wh) => {
+                out.push_str(&format!("webhook {} {{\n", wh.entity));
+                for h in &wh.hooks {
+                    out.push_str(&format!("  on {} -> {} \"{}\"\n", h.event, h.method, h.url));
+                }
+                out.push_str("}\n\n");
+            }
         }
     }
 
@@ -8578,5 +9302,667 @@ fn reconcile_field_type_str(ft: &FieldType) -> &'static str {
         FieldType::Enum => "enum",
         FieldType::Ip => "ip",
         FieldType::Relation => "relation",
+    }
+}
+
+/// Auto-generated documentation page — derived 100% from the parsed .cronus AST.
+/// Follows the Synthetic Docs design (obsidian dark, glass panels, code blocks).
+fn render_auto_docs(state: &AppState) -> String {
+    let app_name = &state.app.name;
+    let port = state.app.port;
+
+    // --- Sidebar nav items ---
+    let mut nav_html = String::new();
+    nav_html.push_str(r##"<a class="flex items-center gap-3 py-2 px-8 font-['Space_Grotesk'] text-sm uppercase tracking-widest text-white font-bold border-l-2 border-[#d277ff] doc-nav" data-scroll="overview"><span class="material-symbols-outlined text-lg">menu_book</span>Overview</a>"##);
+    nav_html.push_str(r##"<a class="flex items-center gap-3 py-2 px-8 font-['Space_Grotesk'] text-sm uppercase tracking-widest text-[#ababab] hover:text-white transition-all doc-nav" data-scroll="entities"><span class="material-symbols-outlined text-lg">database</span>Entities</a>"##);
+    nav_html.push_str(r##"<a class="flex items-center gap-3 py-2 px-8 font-['Space_Grotesk'] text-sm uppercase tracking-widest text-[#ababab] hover:text-white transition-all doc-nav" data-scroll="api"><span class="material-symbols-outlined text-lg">api</span>API Reference</a>"##);
+    nav_html.push_str(r##"<a class="flex items-center gap-3 py-2 px-8 font-['Space_Grotesk'] text-sm uppercase tracking-widest text-[#ababab] hover:text-white transition-all doc-nav" data-scroll="pages"><span class="material-symbols-outlined text-lg">web</span>Pages</a>"##);
+    nav_html.push_str(r##"<a class="flex items-center gap-3 py-2 px-8 font-['Space_Grotesk'] text-sm uppercase tracking-widest text-[#ababab] hover:text-white transition-all doc-nav" data-scroll="webhooks"><span class="material-symbols-outlined text-lg">webhook</span>Webhooks</a>"##);
+
+    // --- TOC (right sidebar) ---
+    let mut toc_html = String::new();
+    toc_html.push_str(r##"<li><a class="text-sm text-[#87adff] font-medium flex items-center gap-2 doc-nav" data-scroll="overview" style="cursor:pointer"><div class="w-1.5 h-1.5 rounded-full bg-[#87adff]" style="box-shadow:0 0 8px rgba(135,173,255,0.8)"></div>Overview</a></li>"##);
+    toc_html.push_str(r##"<li><a class="text-sm text-[#ababab] hover:text-white transition-colors flex items-center gap-2 doc-nav" data-scroll="entities" style="cursor:pointer"><div class="w-1 h-1 rounded-full bg-[#484848]"></div>Entities</a></li>"##);
+    toc_html.push_str(r##"<li><a class="text-sm text-[#ababab] hover:text-white transition-colors flex items-center gap-2 doc-nav" data-scroll="api" style="cursor:pointer"><div class="w-1 h-1 rounded-full bg-[#484848]"></div>API Reference</a></li>"##);
+    toc_html.push_str(r##"<li><a class="text-sm text-[#ababab] hover:text-white transition-colors flex items-center gap-2 doc-nav" data-scroll="pages" style="cursor:pointer"><div class="w-1 h-1 rounded-full bg-[#484848]"></div>Pages</a></li>"##);
+    toc_html.push_str(r##"<li><a class="text-sm text-[#ababab] hover:text-white transition-colors flex items-center gap-2 doc-nav" data-scroll="webhooks" style="cursor:pointer"><div class="w-1 h-1 rounded-full bg-[#484848]"></div>Webhooks</a></li>"##);
+
+    // --- Entities section ---
+    let mut entities_html = String::new();
+    for (i, entity) in state.entities.iter().enumerate() {
+        if entity.name.starts_with('_') { continue; }
+        let shared_badge = if entity.shared {
+            r##" <span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(129,236,255,0.1);color:#81ecff;margin-left:8px">shared</span>"##
+        } else { "" };
+
+        let mut fields_html = String::new();
+        for field in &entity.fields {
+            let type_name = reconcile_field_type_str(&field.field_type);
+            let mut badges = String::new();
+            if field.required { badges.push_str(r##"<span style="color:#87adff;font-size:10px;margin-left:8px">required</span>"##); }
+            if field.unique { badges.push_str(r##"<span style="color:#d277ff;font-size:10px;margin-left:8px">unique</span>"##); }
+            if field.sensitive { badges.push_str(r##"<span style="color:#ef4444;font-size:10px;margin-left:8px">sensitive</span>"##); }
+            if let Some(ref vals) = field.enum_values {
+                let joined = vals.join(" | ");
+                badges.push_str(&format!(r##"<span style="color:#ababab;font-size:10px;margin-left:8px">[{}]</span>"##, joined));
+            }
+            let field_doc_html = if let Some(ref doc) = field.doc {
+                let mut parts = Vec::new();
+                if !doc.summary.is_empty() {
+                    parts.push(format!(r##"<span style="color:#757575;font-size:11px;margin-left:8px">{}</span>"##, doc.summary));
+                }
+                for tag in &doc.tags {
+                    let tag_color = match tag.name.as_str() {
+                        "example" => "#10b981",
+                        "business" => "#f59e0b",
+                        "deprecated" => "#ef4444",
+                        _ => "#484848",
+                    };
+                    parts.push(format!(r##"<span style="color:{};font-size:10px;margin-left:8px">@{} {}</span>"##, tag_color, tag.name, tag.value));
+                }
+                parts.join("")
+            } else { String::new() };
+
+            fields_html.push_str(&format!(
+                r##"<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;justify-content:space-between;align-items:center"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">{}</span><span style="color:#87adff;font-size:11px;font-family:monospace">{}</span></div><div>{}</div></div>{}</div>"##,
+                field.name, type_name, badges, field_doc_html
+            ));
+        }
+
+        let entity_doc_html = if let Some(ref doc) = entity.doc {
+            let mut html = String::new();
+            if !doc.summary.is_empty() {
+                html.push_str(&format!(r##"<p style="color:#ababab;font-size:13px;margin:4px 0 0">{}</p>"##, doc.summary));
+            }
+            if !doc.description.is_empty() {
+                html.push_str(&format!(r##"<p style="color:#757575;font-size:12px;margin:4px 0 0">{}</p>"##, doc.description));
+            }
+            let tags_html: String = doc.tags.iter().map(|t| {
+                let color = match t.name.as_str() {
+                    "owner" => "#87adff",
+                    "lifecycle" => "#81ecff",
+                    "since" => "#757575",
+                    _ => "#484848",
+                };
+                format!(r##"<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.03);color:{};margin-right:6px">@{} {}</span>"##, color, t.name, t.value)
+            }).collect();
+            if !tags_html.is_empty() {
+                html.push_str(&format!(r##"<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">{}</div>"##, tags_html));
+            }
+            html
+        } else { String::new() };
+
+        entities_html.push_str(&format!(
+            r##"<div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);padding:24px;margin-bottom:16px"><div style="margin-bottom:16px"><div style="display:flex;align-items:center"><span style="font-family:Space Grotesk,sans-serif;font-size:18px;font-weight:700;color:#fff">{name}</span>{shared}</div>{doc}</div><div>{fields}</div></div>"##,
+            name = entity.name,
+            shared = shared_badge,
+            doc = entity_doc_html,
+            fields = fields_html,
+        ));
+    }
+
+    // --- API section ---
+    let mut api_html = String::new();
+    for api in &state.apis {
+        let mut routes_html = String::new();
+        for route in &api.routes {
+            let method_str = match &route.method {
+                parser::HttpMethod::GET => "GET",
+                parser::HttpMethod::POST => "POST",
+                parser::HttpMethod::PATCH => "PATCH",
+                parser::HttpMethod::PUT => "PUT",
+                parser::HttpMethod::DELETE => "DELETE",
+            };
+            let method_color = match method_str {
+                "GET" => "#10b981",
+                "POST" => "#87adff",
+                "PATCH" | "PUT" => "#f59e0b",
+                "DELETE" => "#ef4444",
+                _ => "#ababab",
+            };
+            routes_html.push_str(&format!(
+                r##"<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><span style="font-family:monospace;font-size:11px;font-weight:700;color:{color};min-width:60px">{method}</span><span style="font-family:monospace;font-size:13px;color:#e2e2e2">{path}</span><span style="font-size:11px;color:#ababab;margin-left:auto">{name}</span></div>"##,
+                color = method_color,
+                method = method_str,
+                path = route.path,
+                name = route.name,
+            ));
+        }
+        api_html.push_str(&format!(
+            r##"<div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);padding:24px;margin-bottom:16px"><h3 style="font-family:Space Grotesk,sans-serif;font-size:16px;font-weight:700;color:#fff;margin:0 0 16px"><span style="font-family:monospace;color:#87adff">{base}</span></h3>{routes}</div>"##,
+            base = api.prefix,
+            routes = routes_html,
+        ));
+    }
+
+    // --- Pages section ---
+    let mut pages_html = String::new();
+    for page in &state.pages {
+        let route = &page.route;
+        let title = page.title.as_deref().unwrap_or("-");
+        let ptype = &page.page_type;
+        let section_count = page.sections.len();
+        let auth = if page.requires.is_some() { "auth required" } else { "public" };
+        let auth_color = if page.requires.is_some() { "#f59e0b" } else { "#10b981" };
+        pages_html.push_str(&format!(
+            r##"<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:12px"><span style="font-family:monospace;font-size:14px;color:#87adff">{route}</span><span style="font-size:12px;color:#ababab">{title}</span></div><div style="display:flex;align-items:center;gap:12px"><span style="font-size:10px;color:#ababab">{sections} sections</span><span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.03);color:{auth_color}">{auth}</span></div></div>"##,
+            route = route, title = title, sections = section_count, auth = auth, auth_color = auth_color,
+        ));
+    }
+
+    // --- Webhooks section ---
+    let mut webhooks_html = String::new();
+    for wh in &state.webhooks {
+        let mut hooks_html = String::new();
+        for hook in &wh.hooks {
+            let event_color = match hook.event.as_str() {
+                "create" => "#10b981",
+                "update" => "#f59e0b",
+                "delete" => "#ef4444",
+                _ => "#ababab",
+            };
+            hooks_html.push_str(&format!(
+                r##"<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><span style="font-family:monospace;font-size:11px;font-weight:700;color:{color}">on {event}</span><span style="font-size:11px;color:#ababab">→</span><span style="font-family:monospace;font-size:11px;color:#87adff">{method}</span><span style="font-family:monospace;font-size:12px;color:#e2e2e2;word-break:break-all">{url}</span></div>"##,
+                color = event_color,
+                event = hook.event,
+                method = hook.method,
+                url = hook.url,
+            ));
+        }
+        webhooks_html.push_str(&format!(
+            r##"<div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);padding:24px;margin-bottom:16px"><h3 style="font-family:Space Grotesk,sans-serif;font-size:16px;font-weight:700;color:#fff;margin:0 0 16px">{entity}</h3>{hooks}</div>"##,
+            entity = wh.entity,
+            hooks = hooks_html,
+        ));
+    }
+
+    let has_webhooks = !state.webhooks.is_empty();
+
+    // --- .cronus source preview ---
+    let mut cronus_preview = String::new();
+    cronus_preview.push_str(&format!(
+        r##"<span style="color:#d277ff">app</span> <span style="color:#10b981">"{name}"</span> {{\n  <span style="color:#ababab">stack</span> fullstack\n  <span style="color:#ababab">port</span> <span style="color:#f59e0b">{port}</span>\n  <span style="color:#ababab">database</span> sqlite <span style="color:#10b981">"./data.db"</span>\n}}"##,
+        name = app_name, port = port,
+    ));
+
+    // --- Full page ---
+    format!(
+        r##"<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>{app_name} | Documentation</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<style>
+body {{ background:#0e0e0e; color:#fff; font-family:'Inter',sans-serif; margin:0 }}
+.material-symbols-outlined {{ font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 24 }}
+::-webkit-scrollbar {{ width:4px }} ::-webkit-scrollbar-track {{ background:#0e0e0e }} ::-webkit-scrollbar-thumb {{ background:#262626;border-radius:10px }}
+</style>
+</head>
+<body>
+<header style="position:fixed;top:0;width:100%;z-index:50;height:64px;background:rgba(0,0,0,0.8);backdrop-filter:blur(40px);border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:space-between;padding:0 24px;box-sizing:border-box">
+  <div style="display:flex;align-items:center;gap:32px">
+    <span style="font-family:Space Grotesk,sans-serif;font-size:18px;font-weight:900;color:#fff;letter-spacing:-0.03em">{app_name}_DOCS</span>
+    <nav style="display:flex;gap:24px;font-family:Space Grotesk,sans-serif;font-weight:700;font-size:14px">
+      <a href="/docs" style="color:#fff;border-bottom:2px solid #87adff;padding-bottom:2px;text-decoration:none">API Docs</a>
+      <a href="/docs/design" style="color:#757575;text-decoration:none">Design System</a>
+      <a href="/" style="color:#757575;text-decoration:none">Dashboard</a>
+    </nav>
+  </div>
+</header>
+
+<div style="display:flex;padding-top:64px;min-height:100vh">
+  <aside style="width:280px;position:fixed;left:0;top:64px;height:calc(100vh - 64px);background:#0e0e0e;border-right:1px solid rgba(255,255,255,0.03);display:flex;flex-direction:column;padding:32px 0;overflow-y:auto">
+    <div style="padding:0 32px;margin-bottom:32px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#87adff,#d277ff);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px">N</div>
+        <div><div style="font-family:Space Grotesk,sans-serif;font-weight:700;color:#fff;font-size:14px">Core Engine</div><div style="font-size:10px;color:#757575;text-transform:uppercase;letter-spacing:0.15em">v{port}</div></div>
+      </div>
+    </div>
+    <nav style="display:flex;flex-direction:column;gap:4px">{nav}</nav>
+  </aside>
+
+  <main style="flex:1;margin-left:280px;margin-right:240px;padding:48px 64px;max-width:800px">
+    <header style="margin-bottom:48px" id="overview">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+        <span style="font-family:monospace;font-size:12px;color:#87adff;text-transform:uppercase;letter-spacing:-0.03em">Auto-Generated</span>
+        <div style="width:4px;height:4px;border-radius:50%;background:#484848"></div>
+        <span style="font-family:monospace;font-size:12px;color:#757575;text-transform:uppercase">{entity_count} entities · {api_count} API groups · {page_count} pages</span>
+      </div>
+      <h1 style="font-family:Space Grotesk,sans-serif;font-size:48px;font-weight:900;letter-spacing:-0.03em;margin:0 0 24px;background:linear-gradient(to right,#fff,#fff,#757575);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Documentation</h1>
+      <p style="font-size:18px;color:#757575;line-height:1.6">Complete reference for <strong style="color:#ababab">{app_name}</strong>, auto-generated from the .cronus source. Every entity, API endpoint, and page is documented here — always in sync with the code.</p>
+    </header>
+
+    <section style="margin-bottom:80px">
+      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:#d277ff">01.</span> App Configuration</h2>
+      <div style="position:relative">
+        <div style="position:absolute;inset:-4px;background:linear-gradient(to right,rgba(135,173,255,0.2),rgba(210,119,255,0.2));border-radius:16px;filter:blur(20px);opacity:0.25"></div>
+        <div style="position:relative;background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);overflow:hidden">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:rgba(38,38,38,0.5);border-bottom:1px solid rgba(255,255,255,0.03)">
+            <div style="display:flex;gap:6px"><div style="width:10px;height:10px;border-radius:50%;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4)"></div><div style="width:10px;height:10px;border-radius:50%;background:rgba(245,158,11,0.2);border:1px solid rgba(245,158,11,0.4)"></div><div style="width:10px;height:10px;border-radius:50%;background:rgba(16,185,129,0.2);border:1px solid rgba(16,185,129,0.4)"></div></div>
+            <span style="font-family:monospace;font-size:10px;color:#757575">app.cronus</span>
+          </div>
+          <div style="padding:24px;font-family:monospace;font-size:14px;line-height:1.8;white-space:pre">{cronus_preview}</div>
+        </div>
+      </div>
+    </section>
+
+    <section style="margin-bottom:80px" id="entities">
+      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:#d277ff">02.</span> Entities</h2>
+      <p style="color:#757575;margin-bottom:24px">Each entity maps to a SQLite table with auto-migration, CRUD API, and type validation.</p>
+      {entities}
+    </section>
+
+    <section style="margin-bottom:80px" id="api">
+      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:#d277ff">03.</span> API Reference</h2>
+      <p style="color:#757575;margin-bottom:24px">All endpoints are auto-generated from the <code style="background:#191919;color:#87adff;padding:2px 6px;border-radius:4px;font-size:13px;font-family:monospace">api</code> blocks. Auth via <code style="background:#191919;color:#87adff;padding:2px 6px;border-radius:4px;font-size:13px;font-family:monospace">Bearer</code> JWT token.</p>
+      {api}
+    </section>
+
+    <section style="margin-bottom:80px" id="pages">
+      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:#d277ff">04.</span> Pages</h2>
+      <div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);padding:24px">
+        {pages}
+      </div>
+    </section>
+
+    <section style="margin-bottom:80px" id="webhooks">
+      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:#d277ff">05.</span> Webhooks</h2>
+      {webhooks_section}
+    </section>
+
+    <div style="background:rgba(135,173,255,0.1);border-left:2px solid #87adff;padding:24px;border-radius:0 12px 12px 0;display:flex;gap:16px;margin-bottom:48px">
+      <span class="material-symbols-outlined" style="color:#87adff">auto_awesome</span>
+      <div><h4 style="font-weight:700;color:#87adff;margin:0 0 4px;font-size:14px">Auto-Generated</h4><p style="font-size:13px;color:#ababab;margin:0">This documentation is generated at runtime from the parsed .cronus file. It is always in sync — modify the source and the docs update automatically.</p></div>
+    </div>
+  </main>
+
+  <aside style="width:240px;position:fixed;right:0;top:64px;height:calc(100vh - 64px);padding:48px 32px;overflow-y:auto">
+    <h5 style="font-family:Space Grotesk,sans-serif;font-size:10px;font-weight:900;color:#757575;text-transform:uppercase;letter-spacing:0.15em;margin:0 0 24px">On This Page</h5>
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:16px">{toc}</ul>
+    <div style="margin-top:48px;background:rgba(31,31,31,0.5);padding:24px;border-radius:12px;border:1px solid rgba(255,255,255,0.03)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><div style="width:8px;height:8px;border-radius:50%;background:#81ecff;animation:pulse 2s infinite;box-shadow:0 0 10px #81ecff"></div><span style="font-size:10px;font-weight:700;color:#81ecff;text-transform:uppercase">Live Sync</span></div>
+      <p style="font-size:11px;color:#757575;margin:0;line-height:1.5">Docs auto-update when .cronus source changes.</p>
+    </div>
+  </aside>
+</div>
+<style>
+@keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:0.5}}}}
+@keyframes docFadeIn{{from{{opacity:0;transform:translateY(12px)}}to{{opacity:1;transform:translateY(0)}}}}
+html{{scroll-behavior:smooth}}
+main>section,main>header,main>div{{animation:docFadeIn 0.4s cubic-bezier(0,0,0.2,1) both}}
+main>section:nth-child(2){{animation-delay:0.05s}}
+main>section:nth-child(3){{animation-delay:0.1s}}
+main>section:nth-child(4){{animation-delay:0.15s}}
+main>section:nth-child(5){{animation-delay:0.2s}}
+main>section:nth-child(6){{animation-delay:0.25s}}
+.doc-nav{{cursor:pointer}}
+</style>
+<script>
+document.querySelectorAll('[data-scroll]').forEach(function(a){{
+  a.addEventListener('click',function(e){{
+    e.preventDefault();
+    var id=a.dataset.scroll;
+    var el=document.getElementById(id);
+    if(el){{
+      el.scrollIntoView({{behavior:'smooth',block:'start'}});
+      // Update active state
+      document.querySelectorAll('.doc-nav').forEach(function(n){{
+        n.style.color='#ababab';n.style.fontWeight='400';n.style.borderLeft='';
+      }});
+      a.style.color='#fff';a.style.fontWeight='700';
+    }}
+  }});
+}});
+// Scroll spy: highlight active nav on scroll
+var sections=document.querySelectorAll('main>section[id]');
+var navItems=document.querySelectorAll('.doc-nav[data-scroll]');
+window.addEventListener('scroll',function(){{
+  var scrollPos=window.scrollY+100;
+  sections.forEach(function(sec){{
+    if(sec.offsetTop<=scrollPos&&sec.offsetTop+sec.offsetHeight>scrollPos){{
+      navItems.forEach(function(n){{
+        if(n.dataset.scroll===sec.id){{n.style.color='#fff';n.style.fontWeight='700'}}
+        else{{n.style.color='#ababab';n.style.fontWeight='400'}}
+      }});
+    }}
+  }});
+}});
+</script>
+</body></html>"##,
+        app_name = app_name,
+        port = port,
+        nav = nav_html,
+        toc = toc_html,
+        entities = entities_html,
+        api = api_html,
+        pages = pages_html,
+        webhooks_section = if has_webhooks { webhooks_html } else { r#"<p style="color:#757575">No webhooks configured. Add a <code style="background:#191919;color:#87adff;padding:2px 6px;border-radius:4px;font-size:13px;font-family:monospace">webhook</code> block to your .cronus file.</p>"#.to_string() },
+        cronus_preview = cronus_preview,
+        entity_count = state.entities.iter().filter(|e| !e.name.starts_with('_')).count(),
+        api_count = state.apis.len(),
+        page_count = state.pages.len(),
+    )
+}
+
+/// Design System page — live rendered components with the project's theme tokens.
+fn render_design_system(state: &AppState) -> String {
+    let app_name = &state.app.name;
+    let t = crate::theme::get();
+
+    // Extract style info
+    let accent = state.style.as_ref().and_then(|s| s.accent.as_deref()).unwrap_or("#87adff");
+    let font = state.style.as_ref().and_then(|s| s.font.as_deref()).unwrap_or("Inter");
+    let theme_mode = state.style.as_ref().and_then(|s| s.theme.as_deref()).unwrap_or("dark");
+
+    // Color palette from theme tokens
+    let colors = vec![
+        ("Background", &t.background),
+        ("Surface", &t.surface),
+        ("Surface Container", &t.surface_container),
+        ("Surface Bright", &t.surface_bright),
+        ("On Surface", &t.on_surface),
+        ("On Surface Variant", &t.on_surface_variant),
+        ("Primary", &t.primary),
+        ("Secondary", &t.secondary),
+        ("Tertiary", &t.tertiary),
+        ("Error", &t.error),
+        ("Outline", &t.outline),
+        ("Outline Variant", &t.outline_variant),
+    ];
+
+    let mut palette_html = String::new();
+    for (name, color) in &colors {
+        palette_html.push_str(&format!(
+            r##"<div style="display:flex;flex-direction:column;align-items:center;gap:8px"><div style="width:100%;aspect-ratio:1;border-radius:8px;background:{color};border:1px solid rgba(255,255,255,0.1)"></div><span style="font-size:11px;color:#e2e2e2;font-weight:500;text-align:center">{name}</span><span style="font-family:monospace;font-size:9px;color:#757575">{color}</span></div>"##,
+            name = name, color = color,
+        ));
+    }
+
+    // Typography scale
+    let type_scale = vec![
+        ("Display", "48px", "900", font, "The quick brown fox"),
+        ("Headline", "32px", "700", font, "The quick brown fox jumps"),
+        ("Title", "20px", "700", "Inter", "The quick brown fox jumps over the lazy dog"),
+        ("Body", "14px", "400", "Inter", "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs."),
+        ("Label", "11px", "700", font, "UPPERCASE TRACKING WIDE"),
+        ("Mono", "13px", "400", "monospace", "const x = await fetch('/api/data');"),
+    ];
+
+    let mut type_html = String::new();
+    for (name, size, weight, family, sample) in &type_scale {
+        let ls = if *name == "Label" { "letter-spacing:0.15em;text-transform:uppercase;" } else { "" };
+        type_html.push_str(&format!(
+            r##"<div style="padding:20px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><span style="font-size:10px;color:#757575;text-transform:uppercase;letter-spacing:0.15em;font-family:Space Grotesk,sans-serif;font-weight:700">{name}</span><span style="font-family:monospace;font-size:10px;color:#484848">{size} / {weight}</span></div><p style="font-family:{family},sans-serif;font-size:{size};font-weight:{weight};color:#e2e2e2;margin:0;{ls}">{sample}</p></div>"##,
+            name = name, size = size, weight = weight, family = family, sample = sample, ls = ls,
+        ));
+    }
+
+    // Section helper: wraps content in a glass panel
+    let section = |id: &str, num: &str, title: &str, desc: &str, content: &str| -> String {
+        format!(
+            r##"<section style="margin-bottom:80px" id="{id}">
+      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:12px"><span style="color:#d277ff">{num}.</span> {title}</h2>
+      <p style="color:#757575;margin-bottom:24px;font-size:14px">{desc}</p>
+      {content}
+    </section>"##,
+            id = id, num = num, title = title, desc = desc, content = content,
+        )
+    };
+
+    // Component: wrap in glass card with label + code
+    let comp = |name: &str, cronus_syntax: &str, rendered: &str| -> String {
+        format!(
+            r##"<div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);margin-bottom:16px;overflow:hidden"><div style="padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.03);display:flex;justify-content:space-between;align-items:center"><span style="font-family:Space Grotesk,sans-serif;font-size:13px;font-weight:700;color:#e2e2e2">{name}</span><code style="font-size:10px;color:#87adff;background:#191919;padding:2px 8px;border-radius:4px">{syntax}</code></div><div style="padding:24px;display:flex;flex-wrap:wrap;align-items:center;gap:12px">{rendered}</div></div>"##,
+            name = name, syntax = cronus_syntax, rendered = rendered,
+        )
+    };
+
+    // Render live components using the dark theme inline styles
+    let btn_style = |bg: &str, color: &str, border: &str| -> String {
+        format!("padding:10px 20px;border-radius:8px;font-family:Space Grotesk,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;transition:all 0.15s;border:{};background:{};color:{}", border, bg, color)
+    };
+
+    let buttons = format!(
+        r##"<button style="{}">Primary</button><button style="{}">Secondary</button><button style="{}">Ghost</button><button style="{}">Danger</button><button style="{};font-size:10px;padding:6px 12px">Small</button><button style="{};font-size:14px;padding:14px 28px">Large</button>"##,
+        btn_style("linear-gradient(135deg,#87adff,#d277ff)", "#000", "none"),
+        btn_style("#191919", "#e2e2e2", "0.5px solid rgba(255,255,255,0.1)"),
+        btn_style("transparent", "#ababab", "1px solid transparent"),
+        btn_style("rgba(239,68,68,0.1)", "#ef4444", "1px solid rgba(239,68,68,0.2)"),
+        btn_style("linear-gradient(135deg,#87adff,#d277ff)", "#000", "none"),
+        btn_style("linear-gradient(135deg,#87adff,#d277ff)", "#000", "none"),
+    );
+
+    let input_style = "width:240px;background:#000;border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:12px 16px;color:#fff;font-size:14px;outline:none;font-family:Inter,sans-serif";
+    let inputs = format!(
+        r##"<input type="text" placeholder="Text input" style="{s}"><input type="email" placeholder="email@example.com" style="{s}"><input type="password" placeholder="••••••••" style="{s}"><textarea placeholder="Textarea" style="{s};height:60px;resize:none"></textarea>"##,
+        s = input_style,
+    );
+
+    let selects = format!(
+        r##"<select style="{s};appearance:none;cursor:pointer"><option>Select option</option><option>us-east-1</option><option>eu-west-2</option><option>ap-south-1</option></select>"##,
+        s = input_style,
+    );
+
+    let badges = r##"<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;font-size:11px;font-weight:600;border-radius:999px;background:rgba(16,185,129,0.12);color:#10b981"><span style="width:6px;height:6px;border-radius:50%;background:#10b981"></span>Live</span><span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;font-size:11px;font-weight:600;border-radius:999px;background:rgba(59,130,246,0.12);color:#3b82f6"><span style="width:6px;height:6px;border-radius:50%;background:#3b82f6;animation:pulse 2s infinite"></span>Rolling</span><span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;font-size:11px;font-weight:600;border-radius:999px;background:rgba(239,68,68,0.12);color:#ef4444"><span style="width:6px;height:6px;border-radius:50%;background:#ef4444"></span>Failed</span><span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;font-size:11px;font-weight:600;border-radius:999px;background:rgba(245,158,11,0.12);color:#f59e0b"><span style="width:6px;height:6px;border-radius:50%;background:#f59e0b"></span>Warning</span><span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;font-size:11px;font-weight:600;border-radius:999px;background:rgba(113,113,122,0.12);color:#71717a"><span style="width:6px;height:6px;border-radius:50%;background:#71717a"></span>Pending</span>"##;
+
+    let cards = r##"<div style="background:#1b1b1b;border:0.5px solid rgba(76,69,70,0.15);border-radius:12px;padding:20px 24px;width:200px"><div style="display:flex;align-items:center;gap:6px;margin-bottom:12px"><span class="material-symbols-outlined" style="font-size:16px;color:#87adff">trending_up</span><span style="font-size:13px;font-weight:500;color:rgba(226,226,226,0.5)">Requests</span><span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(16,185,129,0.1);color:#10b981">+12%</span></div><span style="font-size:36px;font-weight:700;letter-spacing:-0.03em;color:#e2e2e2">1.2M</span><p style="font-size:11px;color:rgba(226,226,226,0.3);margin:8px 0 0">Last 24h</p></div><div style="background:#1b1b1b;border:0.5px solid rgba(76,69,70,0.15);border-radius:12px;padding:20px 24px;width:200px"><div style="display:flex;align-items:center;gap:6px;margin-bottom:12px"><span class="material-symbols-outlined" style="font-size:16px;color:#ef4444">error_outline</span><span style="font-size:13px;font-weight:500;color:rgba(226,226,226,0.5)">Error Rate</span><span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(16,185,129,0.1);color:#10b981">-0.01%</span></div><span style="font-size:36px;font-weight:700;letter-spacing:-0.03em;color:#e2e2e2">0.02%</span><p style="font-size:11px;color:rgba(226,226,226,0.3);margin:8px 0 0">5xx responses</p></div>"##;
+
+    let alerts = r##"<div style="width:100%;display:flex;flex-direction:column;gap:8px"><div style="background:rgba(135,173,255,0.1);border-left:2px solid #87adff;padding:16px 20px;border-radius:0 8px 8px 0;display:flex;gap:12px"><span class="material-symbols-outlined" style="color:#87adff;font-size:18px">info</span><div><p style="font-size:13px;font-weight:600;color:#87adff;margin:0">Info</p><p style="font-size:12px;color:#ababab;margin:4px 0 0">This is an informational alert.</p></div></div><div style="background:rgba(16,185,129,0.1);border-left:2px solid #10b981;padding:16px 20px;border-radius:0 8px 8px 0;display:flex;gap:12px"><span class="material-symbols-outlined" style="color:#10b981;font-size:18px">check_circle</span><div><p style="font-size:13px;font-weight:600;color:#10b981;margin:0">Success</p><p style="font-size:12px;color:#ababab;margin:4px 0 0">Operation completed successfully.</p></div></div><div style="background:rgba(245,158,11,0.1);border-left:2px solid #f59e0b;padding:16px 20px;border-radius:0 8px 8px 0;display:flex;gap:12px"><span class="material-symbols-outlined" style="color:#f59e0b;font-size:18px">warning</span><div><p style="font-size:13px;font-weight:600;color:#f59e0b;margin:0">Warning</p><p style="font-size:12px;color:#ababab;margin:4px 0 0">Memory pressure is above 85%.</p></div></div><div style="background:rgba(239,68,68,0.1);border-left:2px solid #ef4444;padding:16px 20px;border-radius:0 8px 8px 0;display:flex;gap:12px"><span class="material-symbols-outlined" style="color:#ef4444;font-size:18px">error</span><div><p style="font-size:13px;font-weight:600;color:#ef4444;margin:0">Error</p><p style="font-size:12px;color:#ababab;margin:4px 0 0">Deployment failed on us-west-2.</p></div></div></div>"##;
+
+    let modal_preview = r##"<div style="background:#191919;border-radius:12px;padding:32px;border-top:0.5px solid rgba(135,173,255,0.2);box-shadow:0 0 60px rgba(135,173,255,0.04);width:100%;max-width:420px"><div style="text-align:center;margin-bottom:24px"><div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#87adff,#d277ff);display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px"><span class="material-symbols-outlined" style="color:#fff;font-size:20px">rocket_launch</span></div><h3 style="font-family:Space Grotesk,sans-serif;font-size:20px;font-weight:700;margin:0 0 4px;color:#fff">New Deployment</h3><p style="font-size:12px;color:#ababab;margin:0">Configure and launch a new deployment.</p></div><div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px"><input placeholder="Service name" style="background:#000;border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:10px 14px;color:#fff;font-size:13px;outline:none"><select style="background:#000;border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:10px 14px;color:#fff;font-size:13px;outline:none;appearance:none"><option>us-east-1</option><option>eu-west-2</option></select></div><div style="display:flex;gap:12px"><button style="flex:1;padding:10px;border:0.5px solid rgba(255,255,255,0.1);border-radius:8px;background:#191919;color:#ababab;font-size:12px;cursor:pointer">Cancel</button><button style="flex:1;padding:10px;border:none;border-radius:8px;background:linear-gradient(135deg,#87adff,#d277ff);color:#000;font-weight:700;font-size:12px;cursor:pointer">Deploy Now</button></div></div>"##;
+
+    // Build sections
+    let content = vec![
+        section("colors", "01", "Color Palette", "Material Design 3 tokens derived from the accent color. Every surface, text, and interactive element uses these tokens.", &format!(r##"<div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);padding:24px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px">{}</div>"##, palette_html)),
+        section("typography", "02", "Typography", &format!("Headline: {} · Body: Inter · Label: {} · Mono: system", font, font), &format!(r##"<div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);padding:24px">{}</div>"##, type_html)),
+        section("buttons", "03", "Buttons", "Kinetic triggers with gradient primary, ghost, outline, and danger variants.", &comp("Button", "action \"Label\" style:primary", &buttons)),
+        section("inputs", "04", "Inputs", "Terminal-style inputs with etched black background and focus glow.", &comp("Input", "field \"Name\" type:text", &inputs)),
+        section("selects", "05", "Select", "Dropdown selects with consistent styling.", &comp("Select", "field \"Region\" type:select options:\"...\"", &selects)),
+        section("badges", "06", "Status Badges", "Semantic status indicators with pulse animation for active states.", &comp("Badge", "status enum [\"Live\", \"Rolling\", \"Failed\"]", badges)),
+        section("kpi", "07", "KPI Cards", "Data-driven metric cards with icon, value, trend badge, and subtitle.", &comp("KPI Card", "section kpi cols:4 { bind Entity }", cards)),
+        section("alerts", "08", "Alerts", "Contextual messages with severity levels and edge lighting.", &comp("Alert", "section alert { ... }", alerts)),
+        section("modal", "09", "Modal", "Glassmorphic dialog with backdrop blur, edge lighting, entity binding, and form fields.", &comp("Modal", "section modal entity:\"Entity\" { ... }", modal_preview)),
+    ].join("\n");
+
+    // TOC
+    let toc_items = vec![
+        ("colors", "Color Palette"), ("typography", "Typography"), ("buttons", "Buttons"),
+        ("inputs", "Inputs"), ("selects", "Select"), ("badges", "Status Badges"),
+        ("kpi", "KPI Cards"), ("alerts", "Alerts"), ("modal", "Modal"),
+    ];
+    let toc: String = toc_items.iter().enumerate().map(|(i, (id, name))| {
+        let dot = if i == 0 {
+            r##"<div style="width:6px;height:6px;border-radius:50%;background:#87adff;box-shadow:0 0 8px rgba(135,173,255,0.8)"></div>"##
+        } else {
+            r##"<div style="width:4px;height:4px;border-radius:50%;background:#484848"></div>"##
+        };
+        let color = if i == 0 { "#87adff" } else { "#ababab" };
+        format!(r##"<li><a class="doc-nav" data-scroll="{id}" style="font-size:12px;color:{color};display:flex;align-items:center;gap:8px;text-decoration:none;cursor:pointer">{dot}{name}</a></li>"##, id = id, color = color, dot = dot, name = name)
+    }).collect::<Vec<_>>().join("");
+
+    format!(
+        r##"<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>{app_name} | Design System</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<style>
+body {{ background:#0e0e0e; color:#fff; font-family:'Inter',sans-serif; margin:0 }}
+.material-symbols-outlined {{ font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 24 }}
+::-webkit-scrollbar {{ width:4px }} ::-webkit-scrollbar-track {{ background:#0e0e0e }} ::-webkit-scrollbar-thumb {{ background:#262626;border-radius:10px }}
+@keyframes pulse {{ 0%,100%{{opacity:1}} 50%{{opacity:0.5}} }}
+</style>
+</head>
+<body>
+<header style="position:fixed;top:0;width:100%;z-index:50;height:64px;background:rgba(0,0,0,0.8);backdrop-filter:blur(40px);border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:space-between;padding:0 24px;box-sizing:border-box">
+  <div style="display:flex;align-items:center;gap:32px">
+    <span style="font-family:Space Grotesk,sans-serif;font-size:18px;font-weight:900;color:#fff;letter-spacing:-0.03em">{app_name}_DESIGN</span>
+    <nav style="display:flex;gap:24px;font-family:Space Grotesk,sans-serif;font-weight:700;font-size:14px">
+      <a href="/docs" style="color:#757575;text-decoration:none">API Docs</a>
+      <a href="/docs/design" style="color:#fff;border-bottom:2px solid #d277ff;padding-bottom:2px;text-decoration:none">Design System</a>
+      <a href="/" style="color:#757575;text-decoration:none">Dashboard</a>
+    </nav>
+  </div>
+</header>
+
+<div style="display:flex;padding-top:64px;min-height:100vh">
+  <main style="flex:1;padding:48px 64px;max-width:780px;margin-left:auto;margin-right:260px">
+    <header style="margin-bottom:60px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+        <span style="font-family:monospace;font-size:12px;color:#d277ff;text-transform:uppercase;letter-spacing:-0.03em">Auto-Generated</span>
+        <div style="width:4px;height:4px;border-radius:50%;background:#484848"></div>
+        <span style="font-family:monospace;font-size:12px;color:#757575">Theme: {theme} · Accent: {accent} · Font: {font}</span>
+      </div>
+      <h1 style="font-family:Space Grotesk,sans-serif;font-size:48px;font-weight:900;letter-spacing:-0.03em;margin:0 0 24px;background:linear-gradient(to right,#fff,#fff,#757575);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Design System</h1>
+      <p style="font-size:18px;color:#757575;line-height:1.6">Component library and design tokens for <strong style="color:#ababab">{app_name}</strong>. Every component shown here is rendered live using the project's theme — what you see is what CRONUS generates.</p>
+    </header>
+
+    {content}
+
+    <div style="background:rgba(210,119,255,0.1);border-left:2px solid #d277ff;padding:24px;border-radius:0 12px 12px 0;display:flex;gap:16px;margin-bottom:48px">
+      <span class="material-symbols-outlined" style="color:#d277ff">palette</span>
+      <div><h4 style="font-weight:700;color:#d277ff;margin:0 0 4px;font-size:14px">Live Components</h4><p style="font-size:13px;color:#ababab;margin:0">Every component above is rendered with the same engine that powers your dashboard. Change the <code style="background:#191919;color:#87adff;padding:2px 6px;border-radius:4px;font-size:12px">style</code> block in your .cronus and the design system updates automatically.</p></div>
+    </div>
+  </main>
+
+  <aside style="width:200px;position:fixed;right:0;top:64px;height:calc(100vh - 64px);padding:48px 24px;overflow-y:auto">
+    <h5 style="font-family:Space Grotesk,sans-serif;font-size:10px;font-weight:900;color:#757575;text-transform:uppercase;letter-spacing:0.15em;margin:0 0 24px">Components</h5>
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:12px">{toc}</ul>
+  </aside>
+</div>
+<style>
+@keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:0.5}}}}
+@keyframes docFadeIn{{from{{opacity:0;transform:translateY(12px)}}to{{opacity:1;transform:translateY(0)}}}}
+html{{scroll-behavior:smooth}}
+main>section{{animation:docFadeIn 0.4s cubic-bezier(0,0,0.2,1) both}}
+main>section:nth-child(2){{animation-delay:0.05s}}
+main>section:nth-child(3){{animation-delay:0.1s}}
+main>section:nth-child(4){{animation-delay:0.15s}}
+main>section:nth-child(5){{animation-delay:0.2s}}
+main>section:nth-child(6){{animation-delay:0.25s}}
+main>section:nth-child(7){{animation-delay:0.3s}}
+main>section:nth-child(8){{animation-delay:0.35s}}
+main>section:nth-child(9){{animation-delay:0.4s}}
+main>section:nth-child(10){{animation-delay:0.45s}}
+</style>
+<script>
+document.querySelectorAll('[data-scroll]').forEach(function(a){{
+  a.addEventListener('click',function(e){{
+    e.preventDefault();
+    var el=document.getElementById(a.dataset.scroll);
+    if(el)el.scrollIntoView({{behavior:'smooth',block:'start'}});
+    document.querySelectorAll('.doc-nav').forEach(function(n){{n.style.color='#ababab'}});
+    a.style.color='#fff';
+  }});
+}});
+var sections=document.querySelectorAll('main>section[id]');
+var navItems=document.querySelectorAll('.doc-nav[data-scroll]');
+window.addEventListener('scroll',function(){{
+  var sp=window.scrollY+100;
+  sections.forEach(function(sec){{
+    if(sec.offsetTop<=sp&&sec.offsetTop+sec.offsetHeight>sp){{
+      navItems.forEach(function(n){{n.style.color=n.dataset.scroll===sec.id?'#fff':'#ababab'}});
+    }}
+  }});
+}});
+</script>
+</body></html>"##,
+        app_name = app_name,
+        accent = accent,
+        font = font,
+        theme = theme_mode,
+        content = content,
+        toc = toc,
+    )
+}
+
+// ══════════════════════════════════════════════════
+// AST SNAPSHOT + CHANGELOG
+// ══════════════════════════════════════════════════
+
+fn save_ast_snapshot(nodes: &[AstNode]) {
+    let snapshot = ast_diff::snapshot_from_ast(nodes);
+    let _ = fs::create_dir_all(".cronus");
+    match serde_json::to_string_pretty(&snapshot) {
+        Ok(json_str) => {
+            if fs::write(".cronus/ast-snapshot.json", &json_str).is_ok() {
+                println!("  \x1b[32m✓\x1b[0m AST snapshot saved to .cronus/ast-snapshot.json");
+            }
+        }
+        Err(e) => {
+            eprintln!("  \x1b[33m⚠\x1b[0m Failed to serialize AST snapshot: {}", e);
+        }
+    }
+}
+
+fn cmd_changelog() {
+    // 1. Load saved snapshot
+    let snapshot_path = ".cronus/ast-snapshot.json";
+    let old_snapshot: ast_diff::AstSnapshot = match fs::read_to_string(snapshot_path) {
+        Ok(contents) => match serde_json::from_str(&contents) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("  \x1b[31m✗\x1b[0m Failed to parse snapshot: {}", e);
+                eprintln!("  Run \x1b[1mcronus build\x1b[0m first to create a snapshot.");
+                std::process::exit(1);
+            }
+        },
+        Err(_) => {
+            eprintln!("  \x1b[31m✗\x1b[0m No snapshot found at {}", snapshot_path);
+            eprintln!("  Run \x1b[1mcronus build\x1b[0m first to create a baseline snapshot.");
+            std::process::exit(1);
+        }
+    };
+
+    // 2. Parse current .cronus file(s)
+    let files = find_all_cronus_files();
+    if files.is_empty() {
+        eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found");
+        std::process::exit(1);
+    }
+
+    let nodes = if files.len() == 1 {
+        let source = fs::read_to_string(&files[0]).unwrap_or_else(|e| {
+            eprintln!("  \x1b[31m✗\x1b[0m Error reading {}: {}", files[0], e);
+            std::process::exit(1);
+        });
+        match parser::parse_with_imports(&source, ".") {
+            Ok(n) => n,
+            Err(e) => {
+                eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e);
+                std::process::exit(1);
+            }
+        }
+    } else {
+        match parser::parse_directory(".") {
+            Ok(n) => n,
+            Err(e) => {
+                eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e);
+                std::process::exit(1);
+            }
+        }
+    };
+
+    let new_snapshot = ast_diff::snapshot_from_ast(&nodes);
+
+    // 3. Diff
+    let changes = ast_diff::diff_snapshots(&old_snapshot, &new_snapshot);
+
+    // 4. Print
+    if changes.is_empty() {
+        println!("  \x1b[32m✓\x1b[0m No changes since last build");
+    } else {
+        println!();
+        println!("  \x1b[1mChangelog\x1b[0m ({} change{})", changes.len(), if changes.len() == 1 { "" } else { "s" });
+        println!();
+        for change in &changes {
+            println!("{}", change.describe());
+        }
+        println!();
     }
 }

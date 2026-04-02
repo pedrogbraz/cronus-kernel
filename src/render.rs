@@ -7,6 +7,20 @@
 /// CRONUS Client Runtime — ~2KB vanilla JS, replaces React
 pub const CRONUS_RUNTIME_JS: &str = r#"
 (function(){
+  // On first load, hoist all <style> from #cronus-main to <head> so SPA swaps don't lose them
+  (function(){
+    var main=document.getElementById('cronus-main');
+    if(!main) return;
+    main.querySelectorAll('style').forEach(function(s){
+      if(s.id&&s.id.indexOf('cronus-hoisted')===0) return;
+      var hoisted=document.createElement('style');
+      hoisted.id='cronus-hoisted-'+Math.random().toString(36).slice(2,8);
+      hoisted.textContent=s.textContent;
+      document.head.appendChild(hoisted);
+      s.remove();
+    });
+  })();
+
   function init(){
     // Auto-bind forms to API
     document.querySelectorAll('form[data-entity]').forEach(function(form){
@@ -20,7 +34,7 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
         if(btn){btn.disabled=true;btn.textContent='Saving...';}
         try{
           var res=await fetch('/api/'+entity+'s',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-          if(res.ok){form.reset();window.location.reload();}
+          if(res.ok){form.reset();}
           else{var err=await res.json();alert(err.error||'Error');}
         }catch(e){alert('Network error');}
         finally{if(btn){btn.disabled=false;btn.textContent='Submit';}}
@@ -79,7 +93,6 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
         var id=btn.dataset.id;
         if(!confirm('Delete?')) return;
         await fetch('/api/'+entity+'s/'+id,{method:'DELETE'});
-        window.location.reload();
       });
     });
 
@@ -122,7 +135,7 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
           delete data._id;
           try{
             var res=await fetch(url,{method:method,headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-            if(res.ok){if(method==='PATCH'){window.location.reload();}else{form.reset();window.location.reload();}}
+            if(res.ok){form.reset();}
             else{var err=await res.json();alert(err.error||'Error');}
           }catch(e){alert('Network error');}
           finally{if(btn){btn.disabled=false;btn.textContent=method==='PATCH'?'Update':'Submit';}}
@@ -267,11 +280,154 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
     });
   }
 
+  // Soft-reload: re-fetch current page HTML and replace #cronus-main content
+  // This gives "React-like" reactivity without a virtual DOM
+  function cronusLiveReload(){
+    var main=document.getElementById('cronus-content')||document.getElementById('cronus-main');
+    if(!main) return Promise.resolve();
+    var token=localStorage.getItem('token');
+    var headers={};
+    if(token) headers['Authorization']='Bearer '+token;
+    return fetch(location.pathname,{headers:headers})
+      .then(function(r){return r.text()})
+      .then(function(html){
+        var parser=new DOMParser();
+        var doc=parser.parseFromString(html,'text/html');
+        var newContent=doc.getElementById('cronus-content')||doc.getElementById('cronus-main');
+        if(newContent){
+          main.style.transition='opacity 0.15s cubic-bezier(0.4,0,0.2,1)';
+          main.style.opacity='0.5';
+          setTimeout(function(){
+            main.innerHTML=newContent.innerHTML;
+            main.querySelectorAll('script').forEach(function(old){
+              var s=document.createElement('script');
+              s.textContent=old.textContent;
+              old.parentNode.replaceChild(s,old);
+            });
+            main.style.transition='opacity 0.25s cubic-bezier(0,0,0.2,1)';
+            main.style.opacity='1';
+            init();
+          },150);
+        }
+      })
+      .catch(function(){});
+  }
+
+  // Intercept fetch to auto-reload after mutations
+  var _originalFetch=window.fetch;
+  window.fetch=function(){
+    var args=arguments;
+    var url=typeof args[0]==='string'?args[0]:(args[0]&&args[0].url)||'';
+    var opts=args[1]||{};
+    var method=(opts.method||'GET').toUpperCase();
+    return _originalFetch.apply(this,args).then(function(response){
+      // After successful mutation on API, soft-reload
+      if(url.indexOf('/api/')===0 && ['POST','PATCH','PUT','DELETE'].indexOf(method)!==-1 && response.ok){
+        // Skip auth endpoints (login/signup handle their own redirect)
+        if(url.indexOf('/api/auth/')!==0){
+          setTimeout(cronusLiveReload,200);
+        }
+      }
+      return response;
+    });
+  };
+
+  // SPA navigation — intercept internal links, fetch HTML, swap #cronus-main
+  function cronusNavigate(url){
+    // Prefer swapping #cronus-content (page content only, preserves shell)
+    // Fall back to #cronus-main if no content wrapper
+    var content=document.getElementById('cronus-content')||document.getElementById('cronus-main');
+    if(!content) return false;
+    // Phase 1: fade out + slide
+    content.style.transition='opacity 0.2s cubic-bezier(0.4,0,0.2,1), transform 0.2s cubic-bezier(0.4,0,0.2,1)';
+    content.style.opacity='0';
+    content.style.transform='translateY(8px)';
+    // Start fetch in parallel
+    var token=localStorage.getItem('token');
+    var headers={};
+    if(token) headers['Authorization']='Bearer '+token;
+    var fetchPromise=_originalFetch(url,{headers:headers}).then(function(r){return r.text()});
+    // Phase 2: after fade out completes, swap content
+    setTimeout(function(){
+      fetchPromise.then(function(html){
+        var doc=new DOMParser().parseFromString(html,'text/html');
+        // Try #cronus-content first (shell preserved), fall back to #cronus-main
+        var newContent=doc.getElementById('cronus-content');
+        var newMain=doc.getElementById('cronus-main');
+        if(!newMain){
+          window.location.href=url;
+          return;
+        }
+        // Swap only content if available, otherwise full main
+        if(newContent&&content.id==='cronus-content'){
+          content.innerHTML=newContent.innerHTML;
+        }else{
+          var m=document.getElementById('cronus-main');
+          if(m)m.innerHTML=newMain.innerHTML;
+        }
+        // Run inline scripts in swapped area
+        content.querySelectorAll('script').forEach(function(old){
+          var s=document.createElement('script');
+          s.textContent=old.textContent;
+          old.parentNode.replaceChild(s,old);
+        });
+        // Update URL + nav
+        history.pushState(null,'',url);
+        document.querySelectorAll('[data-nav]').forEach(function(a){
+          var href=a.getAttribute('href');
+          if(href===url){
+            a.className='bg-[#191919] border-[#87adff] border-r-2 cursor-pointer flex gap-3 hover:translate-x-1 items-center px-3 py-2 text-white transition-all';
+            var ic=a.querySelector('.material-symbols-outlined');
+            if(ic)ic.style.fontVariationSettings="'FILL' 1";
+          }else{
+            a.className='cursor-pointer flex gap-3 hover:translate-x-1 items-center px-3 py-2 text-[#ffffff]/40 transition-all';
+            var ic=a.querySelector('.material-symbols-outlined');
+            if(ic)ic.style.fontVariationSettings="'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24";
+          }
+        });
+        // Phase 3: fade in
+        content.style.transition='none';
+        content.style.transform='translateY(-8px)';
+        content.style.opacity='0';
+        void content.offsetHeight;
+        content.style.transition='opacity 0.3s cubic-bezier(0,0,0.2,1), transform 0.3s cubic-bezier(0,0,0.2,1)';
+        content.style.opacity='1';
+        content.style.transform='translateY(0)';
+        // Scroll content to top
+        var scrollTarget=document.getElementById('cronus-main')||content;
+        scrollTarget.scrollTo({top:0,behavior:'smooth'});
+        init();
+      }).catch(function(){window.location.href=url;});
+    },200);
+    return true;
+  }
+
+  // Intercept link clicks for SPA navigation
+  document.addEventListener('click',function(e){
+    var a=e.target.closest('a[href]');
+    if(!a) return;
+    var href=a.getAttribute('href');
+    // Only intercept internal non-auth page links
+    if(!href||href.indexOf('//')!==-1||href.indexOf('mailto:')===0||href==='#') return;
+    if(href==='/login'||href==='/signup') return;
+    if(href.indexOf('/api/')===0) return;
+    // Must have #cronus-main on page (layout pages only)
+    if(!document.getElementById('cronus-main')) return;
+    e.preventDefault();
+    if(href===location.pathname) return;
+    cronusNavigate(href);
+  });
+
+  // Handle browser back/forward
+  window.addEventListener('popstate',function(){
+    cronusNavigate(location.pathname);
+  });
+
   // Run on load
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}
   else{init();}
 
   // Expose for re-init after SPA navigation
-  window.CRONUS={init:init,version:'0.3.0'};
+  window.CRONUS={init:init,reload:cronusLiveReload,navigate:cronusNavigate,version:'0.5.0'};
 })();
 "#;

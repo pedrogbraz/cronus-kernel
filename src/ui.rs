@@ -328,7 +328,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     data.id=crypto.randomUUID?crypto.randomUUID():Date.now().toString(36);
     try{
       var r=await fetch('/api/'+entity.toLowerCase()+'s',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-      if(r.ok){cronusModal.close('create-modal');location.reload()}
+      if(r.ok){cronusModal.close('create-modal');if(window.CRONUS&&window.CRONUS.reload)window.CRONUS.reload()}
       else{var err=await r.json();cronusToast(err.error||'Error','error')}
     }catch(ex){cronusToast('Connection error','error')}
     return false;
@@ -339,7 +339,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(!confirm('Delete this '+entity+'?'))return;
     try{
       await fetch('/api/'+entity.toLowerCase()+'s/'+id,{method:'DELETE'});
-      location.reload();
+      if(window.CRONUS&&window.CRONUS.reload)window.CRONUS.reload();
     }catch(ex){cronusToast('Error deleting','error')}
   };
 
@@ -1972,7 +1972,7 @@ pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str, theme
         "list" => render_list(page, entities, accent),
         "form" => render_form(page, entities, accent),
         "detail" => render_list(page, entities, accent),
-        "custom" => render_custom(page, accent, theme, db, route_params, owner_id),
+        "custom" => render_custom(page, accent, theme, db, route_params, owner_id, entities),
         "checkout" => render_checkout(page),
         "components" => {
             // page type:components — placeholder, actual rendering happens in main.rs
@@ -2783,14 +2783,25 @@ fn render_detail(page: &PageNode, _entities: &[EntityNode], accent: &str) -> Str
 // CUSTOM PAGE (sections: hero, features, pricing)
 // ══════════════════════════════════════════════════
 
-fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::database::CronusDB>, route_params: &std::collections::HashMap<String, String>, owner_id: &str) -> String {
-    let mut html_parts: Vec<String> = Vec::new();
+fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::database::CronusDB>, route_params: &std::collections::HashMap<String, String>, owner_id: &str, entities: &[EntityNode]) -> String {
+    let shell_types = ["topbar", "sidebar", "footer"];
+    let mut shell_parts: Vec<String> = Vec::new();
+    let mut content_parts: Vec<String> = Vec::new();
     let mut in_grid = false;
 
     for section in &page.sections {
+        let is_shell = shell_types.contains(&section.section_type.as_str());
+        // Check if the bound entity is shared (visible to all authenticated users)
+        let effective_owner = if let Some(ref binding) = section.binding {
+            let is_shared = entities.iter().any(|e| e.name == binding.entity && e.shared);
+            if is_shared { "" } else { owner_id }
+        } else {
+            owner_id
+        };
+
         // Resolve binding against real DB (falls back to None if no DB)
         let bound_data = match db {
-            Some(db) => crate::binding::resolve_binding(section, db, route_params, owner_id),
+            Some(db) => crate::binding::resolve_binding(section, db, route_params, effective_owner),
             None => crate::binding::ResolvedData::None,
         };
 
@@ -2800,29 +2811,34 @@ fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::
                 Some("columns") | Some("grid")
             );
 
+        let target = if is_shell { &mut shell_parts } else { &mut content_parts };
+
         if is_column_layout {
-            // Close any previously open grid before starting a new one
             if in_grid {
-                html_parts.push(crate::layout_system::render_column_layout_end());
+                target.push(crate::layout_system::render_column_layout_end());
             }
-            html_parts.push(render_section(section, accent, theme, &bound_data));
+            target.push(render_section(section, accent, theme, &bound_data));
             in_grid = true;
         } else if section.section_type == "layout" && in_grid {
-            // A non-column layout section closes the grid
-            html_parts.push(crate::layout_system::render_column_layout_end());
+            target.push(crate::layout_system::render_column_layout_end());
             in_grid = false;
-            html_parts.push(render_section(section, accent, theme, &bound_data));
+            target.push(render_section(section, accent, theme, &bound_data));
         } else {
-            html_parts.push(render_section(section, accent, theme, &bound_data));
+            target.push(render_section(section, accent, theme, &bound_data));
         }
     }
 
-    // Close any remaining open grid at end of page
     if in_grid {
-        html_parts.push(crate::layout_system::render_column_layout_end());
+        content_parts.push(crate::layout_system::render_column_layout_end());
     }
 
-    html_parts.join("\n")
+    // Shell (topbar/sidebar/footer) + content wrapped in #cronus-content for SPA swap
+    let mut out = String::new();
+    out.push_str(&shell_parts.join("\n"));
+    out.push_str("\n<div id=\"cronus-content\">\n");
+    out.push_str(&content_parts.join("\n"));
+    out.push_str("\n</div>\n");
+    out
 }
 
 fn render_section(section: &SectionNode, accent: &str, theme: &str, bound_data: &crate::binding::ResolvedData) -> String {
@@ -7403,15 +7419,13 @@ fn render_chart_section(section: &SectionNode, bound_data: &crate::binding::Reso
 
     if data.is_empty() {
         // No data — render placeholder chart with title (dark dashboard style)
-        // Read periods from config (comma-separated), highlight last one
         let periods_raw = section.config.get("periods").map(|s| s.as_str()).unwrap_or("7 Days,30 Days");
         let period_items: Vec<&str> = periods_raw.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
         let mut period_html = String::from(r#"<div style="display:flex;gap:8px">"#);
         for (pi, p) in period_items.iter().enumerate() {
             if pi == period_items.len() - 1 {
-                // Last period = active (blue)
                 period_html.push_str(&format!(
-                    r#"<button style="padding:4px 12px;font-size:10px;font-weight:700;text-transform:uppercase;background:#adc6ff;border:none;border-radius:4px;color:#002e69;cursor:pointer">{p}</button>"#
+                    r#"<button style="padding:4px 12px;font-size:10px;font-weight:700;text-transform:uppercase;background:linear-gradient(135deg,#87adff,#d277ff);border:none;border-radius:4px;color:#fff;cursor:pointer">{p}</button>"#
                 ));
             } else {
                 period_html.push_str(&format!(
@@ -7421,7 +7435,6 @@ fn render_chart_section(section: &SectionNode, bound_data: &crate::binding::Reso
         }
         period_html.push_str("</div>");
 
-        // Read y_axis labels from config (comma-separated top-to-bottom)
         let y_axis_raw = section.config.get("y_axis").map(|s| s.as_str()).unwrap_or("1.5M,1.0M,0.5M,0.0");
         let y_labels: Vec<&str> = y_axis_raw.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
         let y_spans: String = y_labels.iter().map(|l| format!("<span>{l}</span>")).collect::<Vec<_>>().join("");
@@ -7429,7 +7442,6 @@ fn render_chart_section(section: &SectionNode, bound_data: &crate::binding::Reso
             r#"<div style="display:flex;flex-direction:column;justify-content:space-between;font-size:10px;color:rgba(226,226,226,0.3);width:40px;padding:8px 0">{y_spans}</div>"#
         );
 
-        // Read x_axis labels from config (comma-separated left-to-right)
         let x_axis_raw = section.config.get("x_axis").map(|s| s.as_str()).unwrap_or("Oct 01,Oct 08,Oct 15,Oct 22,Oct 29");
         let x_items: Vec<&str> = x_axis_raw.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
         let x_spans: String = x_items.iter().map(|l| format!("<span>{l}</span>")).collect::<Vec<_>>().join("");
@@ -7437,29 +7449,88 @@ fn render_chart_section(section: &SectionNode, bound_data: &crate::binding::Reso
             r#"<div style="display:flex;justify-content:space-between;padding:16px 48px;font-size:10px;color:rgba(226,226,226,0.4);text-transform:uppercase;letter-spacing:0.15em;background:#1b1b1b">{x_spans}</div>"#
         );
 
-        // Animated bar chart with individual bars that grow
-        let bar_heights = [45, 60, 50, 75, 55, 85, 65, 90, 70, 95, 80, 100, 70, 85, 60, 50, 75, 65, 80, 90, 55, 70, 85, 95];
-        let mut bars_html = String::new();
-        for (bi, h) in bar_heights.iter().enumerate() {
-            let delay = format!("{:.2}", 0.1 + bi as f64 * 0.04);
-            let opacity = if *h > 80 { "0.35" } else if *h > 60 { "0.25" } else { "0.15" };
-            bars_html.push_str(&format!(
-                r#"<div class="cronus-bar" style="flex:1;height:{h}%;background:linear-gradient(to top,rgba(173,198,255,{opacity}),rgba(173,198,255,0.05));border-radius:2px 2px 0 0;transition:transform 0.8s cubic-bezier(0.16,1,0.3,1) {delay}s,opacity 0.6s ease {delay}s;transform:scaleY(0);transform-origin:bottom" onmouseover="this.style.background='linear-gradient(to top,rgba(173,198,255,0.5),rgba(173,198,255,0.1))'" onmouseout="this.style.background='linear-gradient(to top,rgba(173,198,255,{opacity}),rgba(173,198,255,0.05))'"></div>"#,
-                h = h, opacity = opacity, delay = delay
-            ));
-        }
-        let gradient_chart = format!(
-            r#"<div style="position:relative;height:200px;overflow:hidden;display:flex;align-items:flex-end;gap:3px;padding:8px 4px">{bars}<div class="anim-breathe" style="position:absolute;top:15%;left:50%;width:70%;height:1px;background:linear-gradient(90deg,transparent,rgba(173,198,255,0.2),transparent);transform:translateX(-50%)"></div></div>"#,
-            bars = bars_html
-        );
+        // SVG area chart with purple-blue gradient
+        let is_area = chart_type == "area";
+        let chart_html = if is_area {
+            // Smooth area chart with gradient fill
+            let points = [
+                (0,160),(30,140),(60,120),(90,135),(120,100),(150,110),(180,80),
+                (210,90),(240,60),(270,70),(300,45),(330,55),(360,35),(390,50),
+                (420,30),(450,40),(480,25),(510,45),(540,55),(570,40),(600,50)
+            ];
+            let mut path_line = String::new();
+            let mut path_area = String::new();
+            for (i, (x, y)) in points.iter().enumerate() {
+                if i == 0 {
+                    path_line.push_str(&format!("M{},{}", x, y));
+                    path_area.push_str(&format!("M{},{}", x, y));
+                } else {
+                    let prev = points[i - 1];
+                    let cx = (prev.0 + x) / 2;
+                    path_line.push_str(&format!(" C{},{} {},{} {},{}", cx, prev.1, cx, y, x, y));
+                    path_area.push_str(&format!(" C{},{} {},{} {},{}", cx, prev.1, cx, y, x, y));
+                }
+            }
+            path_area.push_str(" L600,200 L0,200 Z");
+
+            format!(
+                r##"<div style="position:relative;height:200px;overflow:hidden;padding:8px 4px">
+<svg viewBox="0 0 600 200" preserveAspectRatio="none" style="width:100%;height:100%">
+  <defs>
+    <linearGradient id="area-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d277ff" stop-opacity="0.3"/>
+      <stop offset="50%" stop-color="#87adff" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#87adff" stop-opacity="0.02"/>
+    </linearGradient>
+    <linearGradient id="line-grad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#87adff"/>
+      <stop offset="100%" stop-color="#d277ff"/>
+    </linearGradient>
+  </defs>
+  <path d="{area}" fill="url(#area-grad)" opacity="0" style="animation:cronusFadeIn 1.2s ease-out 0.3s forwards"/>
+  <path d="{line}" fill="none" stroke="url(#line-grad)" stroke-width="2" stroke-linecap="round"
+    stroke-dasharray="1200" stroke-dashoffset="1200" style="animation:cronusDrawLine 2s ease-out 0.5s forwards"/>
+  <line x1="0" y1="50" x2="600" y2="50" stroke="rgba(226,226,226,0.05)" stroke-dasharray="4"/>
+  <line x1="0" y1="100" x2="600" y2="100" stroke="rgba(226,226,226,0.05)" stroke-dasharray="4"/>
+  <line x1="0" y1="150" x2="600" y2="150" stroke="rgba(226,226,226,0.05)" stroke-dasharray="4"/>
+</svg>
+<div class="anim-breathe" style="position:absolute;bottom:30%;left:50%;width:60%;height:1px;background:linear-gradient(90deg,transparent,rgba(210,119,255,0.15),transparent);transform:translateX(-50%)"></div>
+<style>@keyframes cronusFadeIn{{from{{opacity:0}}to{{opacity:1}}}}@keyframes cronusDrawLine{{to{{stroke-dashoffset:0}}}}</style>
+</div>"##,
+                area = path_area, line = path_line
+            )
+        } else {
+            // Bar chart — matching Nova Core reference design
+            // Heights as percentages, colors alternate primary/secondary
+            let bars: Vec<(&str, &str)> = vec![
+                ("50%", "rgba(135,173,255,0.2)"), ("66%", "rgba(135,173,255,0.2)"),
+                ("75%", "rgba(135,173,255,0.3)"), ("50%", "rgba(135,173,255,0.2)"),
+                ("80%", "rgba(210,119,255,0.4)"), ("66%", "rgba(135,173,255,0.2)"),
+                ("60%", "rgba(135,173,255,0.2)"), ("50%", "rgba(135,173,255,0.2)"),
+                ("75%", "rgba(135,173,255,0.3)"), ("80%", "rgba(135,173,255,0.2)"),
+                ("100%","rgba(135,173,255,0.4)"),
+            ];
+            let mut bars_html = String::new();
+            for (h, bg) in &bars {
+                bars_html.push_str(&format!(
+                    r##"<div style="flex:1;height:{h};background:{bg};border-radius:2px 2px 0 0;transition:background 0.2s" onmouseover="this.style.background='rgba(135,173,255,0.4)'" onmouseout="this.style.background='{bg}'"></div>"##,
+                    h = h, bg = bg
+                ));
+            }
+            format!(
+                r##"<div style="position:relative;height:260px;overflow:hidden;background:#000;border-radius:8px;border-top:0.5px solid rgba(135,173,255,0.2);box-shadow:0 0 60px rgba(135,173,255,0.04)"><div style="position:absolute;inset:0;opacity:0.2;background:linear-gradient(135deg,rgba(135,173,255,1),rgba(210,119,255,1));filter:blur(48px)"></div><div style="position:relative;width:100%;height:100%;padding:16px 16px 32px;display:flex;align-items:flex-end;justify-content:space-between;gap:4px">{bars}</div></div>"##,
+                bars = bars_html
+            )
+        };
 
         return format!(
             r#"<div style="margin-bottom:48px;background:#0e0e0e;border-radius:12px;border:0.5px solid rgba(76,69,70,0.15);overflow:hidden"><div style="padding:24px 32px;display:flex;justify-content:space-between;align-items:center;background:#1b1b1b"><div><h3 style="font-size:18px;font-weight:600;margin:0;color:#e2e2e2">{}</h3><p style="font-size:12px;color:rgba(226,226,226,0.4);margin:4px 0 0">{}</p></div>{}</div><div style="display:flex;padding:24px 32px;background:#0e0e0e">{}{}</div>{}</div>"#,
-            title, subtitle, period_html, y_axis_html, gradient_chart, x_labels
+            title, subtitle, period_html, y_axis_html, chart_html, x_labels
         );
     }
 
     match chart_type {
+        "area" => render_chart_line(title, subtitle, &data),
         "line" => render_chart_line(title, subtitle, &data),
         "donut" => render_chart_donut(title, subtitle, &data),
         _ => render_chart_bar(title, subtitle, &data),
@@ -11442,7 +11513,7 @@ fn render_error_section(section: &SectionNode) -> String {
     };
 
     let retry_onclick = if retry_link.is_empty() {
-        r#"onclick="location.reload()""#.to_string()
+        r#"onclick="if(window.CRONUS&&window.CRONUS.reload)window.CRONUS.reload();else location.reload()""#.to_string()
     } else {
         format!(r#"onclick="location.href='{}'"#, retry_link)
     };
@@ -12179,6 +12250,25 @@ fn render_kpi_section(section: &SectionNode, bound_data: &crate::binding::Resolv
         }
     } else { None };
 
+    // Empty state: show placeholder cards when no data (light theme)
+    if item_count == 0 {
+        let placeholder_count = cols;
+        let mut placeholder_html = String::new();
+        for _i in 0..placeholder_count {
+            placeholder_html.push_str(
+                r#"<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px 24px">
+  <div style="margin-bottom:12px"><span style="font-size:13px;font-weight:500;color:#9ca3af">—</span></div>
+  <div><span style="font-size:36px;font-weight:700;letter-spacing:-0.03em;color:#d1d5db">—</span></div>
+  <p style="font-size:11px;color:#d1d5db;margin:8px 0 0">No data yet</p>
+</div>"#
+            );
+        }
+        return format!(
+            r#"<section style="padding:32px 0">{title_html}<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">{cards}</div></section>"#,
+            title_html = title_html, cards = placeholder_html,
+        );
+    }
+
     let mut cards_html = String::new();
     for i in 0..item_count {
         let (item_title, value_owned, icon, trend, badge, meta, item_subtitle);
@@ -12346,6 +12436,35 @@ fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crate::binding:
     } else {
         None
     };
+
+    // Empty state: show placeholder cards when no data
+    if item_count == 0 {
+        let placeholder_count = cols;
+        let mut placeholder_html = String::new();
+        for i in 0..placeholder_count {
+            placeholder_html.push_str(&format!(
+                r##"<div class="anim-slide-up d{delay}" style="background:#1b1b1b;border:0.5px solid rgba(76,69,70,0.15);border-radius:12px;padding:20px 24px;cursor:default">
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
+    <span style="font-size:13px;font-weight:500;color:rgba(226,226,226,0.3);letter-spacing:0.02em">—</span>
+  </div>
+  <div style="display:flex;align-items:baseline;gap:10px">
+    <span style="font-size:36px;font-weight:700;letter-spacing:-0.03em;line-height:1;color:rgba(226,226,226,0.15)">—</span>
+  </div>
+  <p style="font-size:11px;color:rgba(226,226,226,0.2);margin:8px 0 0">No data yet</p>
+</div>"##,
+                delay = (i % 10) + 1,
+            ));
+        }
+        return format!(
+            r##"<section style="padding:32px 0">
+  {title_html}
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+    {cards}
+  </div>
+</section>"##,
+            title_html = title_html, cards = placeholder_html,
+        );
+    }
 
     let mut cards_html = String::new();
     for i in 0..item_count {

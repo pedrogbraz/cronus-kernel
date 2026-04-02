@@ -24,7 +24,7 @@ pub const CRONUS_ACTION_JS: &str = r#"
           if (fx.target === 'back') history.back();
           else window.location.href = fx.target;
           break;
-        case 'refresh': window.location.reload(); break;
+        case 'refresh': if(window.CRONUS&&window.CRONUS.reload)window.CRONUS.reload();else window.location.reload(); break;
         case 'open':
           var dlg = document.querySelector(fx.target);
           if (dlg && dlg.showModal) dlg.showModal();

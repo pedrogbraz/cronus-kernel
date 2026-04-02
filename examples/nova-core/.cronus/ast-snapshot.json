@@ -1,0 +1,277 @@
+{
+  "entities": [
+    {
+      "name": "Deployment",
+      "shared": true,
+      "fields": [
+        {
+          "name": "deploy_id",
+          "field_type": "string"
+        },
+        {
+          "name": "service",
+          "field_type": "string"
+        },
+        {
+          "name": "cluster",
+          "field_type": "string"
+        },
+        {
+          "name": "duration",
+          "field_type": "string"
+        },
+        {
+          "name": "status",
+          "field_type": "enum"
+        },
+        {
+          "name": "deployed_by",
+          "field_type": "string"
+        }
+      ]
+    },
+    {
+      "name": "SecurityEvent",
+      "shared": true,
+      "fields": [
+        {
+          "name": "event_id",
+          "field_type": "string"
+        },
+        {
+          "name": "event_type",
+          "field_type": "string"
+        },
+        {
+          "name": "source_ip",
+          "field_type": "string"
+        },
+        {
+          "name": "severity",
+          "field_type": "enum"
+        },
+        {
+          "name": "status",
+          "field_type": "enum"
+        }
+      ]
+    },
+    {
+      "name": "Endpoint",
+      "shared": true,
+      "fields": [
+        {
+          "name": "path",
+          "field_type": "string"
+        },
+        {
+          "name": "method",
+          "field_type": "enum"
+        },
+        {
+          "name": "requests",
+          "field_type": "number"
+        },
+        {
+          "name": "avg_latency",
+          "field_type": "string"
+        },
+        {
+          "name": "p99",
+          "field_type": "string"
+        },
+        {
+          "name": "error_rate",
+          "field_type": "string"
+        }
+      ]
+    },
+    {
+      "name": "KpiSnapshot",
+      "shared": true,
+      "fields": [
+        {
+          "name": "label",
+          "field_type": "string"
+        },
+        {
+          "name": "value",
+          "field_type": "string"
+        },
+        {
+          "name": "change",
+          "field_type": "string"
+        },
+        {
+          "name": "icon",
+          "field_type": "string"
+        },
+        {
+          "name": "subtitle",
+          "field_type": "string"
+        },
+        {
+          "name": "page",
+          "field_type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Notification",
+      "shared": true,
+      "fields": [
+        {
+          "name": "title",
+          "field_type": "string"
+        },
+        {
+          "name": "message",
+          "field_type": "string"
+        },
+        {
+          "name": "type",
+          "field_type": "enum"
+        },
+        {
+          "name": "read",
+          "field_type": "boolean"
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "shared": false,
+      "fields": [
+        {
+          "name": "name",
+          "field_type": "string"
+        },
+        {
+          "name": "email",
+          "field_type": "email"
+        },
+        {
+          "name": "password",
+          "field_type": "string"
+        },
+        {
+          "name": "role",
+          "field_type": "enum"
+        },
+        {
+          "name": "avatar",
+          "field_type": "string"
+        }
+      ]
+    }
+  ],
+  "pages": [
+    "/",
+    "/deployments",
+    "/analytics",
+    "/security",
+    "/server",
+    "/notifications",
+    "/settings",
+    "/login",
+    "/signup"
+  ],
+  "apis": [
+    {
+      "prefix": "/deployments",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/deployments"
+        },
+        {
+          "method": "GET",
+          "path": "/deployments/:id"
+        },
+        {
+          "method": "POST",
+          "path": "/deployments"
+        },
+        {
+          "method": "PATCH",
+          "path": "/deployments/:id"
+        },
+        {
+          "method": "DELETE",
+          "path": "/deployments/:id"
+        }
+      ]
+    },
+    {
+      "prefix": "/securityevents",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/securityevents"
+        },
+        {
+          "method": "POST",
+          "path": "/securityevents"
+        }
+      ]
+    },
+    {
+      "prefix": "/endpoints",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/endpoints"
+        },
+        {
+          "method": "POST",
+          "path": "/endpoints"
+        }
+      ]
+    },
+    {
+      "prefix": "/kpisnapshots",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/kpisnapshots"
+        },
+        {
+          "method": "POST",
+          "path": "/kpisnapshots"
+        }
+      ]
+    },
+    {
+      "prefix": "/notifications",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/notifications"
+        },
+        {
+          "method": "POST",
+          "path": "/notifications"
+        },
+        {
+          "method": "PATCH",
+          "path": "/notifications/:id"
+        },
+        {
+          "method": "DELETE",
+          "path": "/notifications/:id"
+        }
+      ]
+    }
+  ],
+  "webhooks": [
+    "deployments",
+    "securityevents"
+  ],
+  "style": {
+    "glow-2": "rgba(210,119,255,0.05)",
+    "glow-3": "rgba(129,236,255,0.04)",
+    "theme": "dark",
+    "accent": "font",
+    "glow-1": "rgba(135,173,255,0.08)"
+  }
+}

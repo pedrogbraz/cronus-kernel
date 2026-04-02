@@ -77,12 +77,43 @@ pub fn verify_password(password: &str, stored: &str) -> bool {
 
     // Fallback: old SHA-256 "salt:hash" format (for migration)
     if stored.contains(':') && !stored.starts_with('$') {
-        // Old format — cannot verify without reimplementing SHA-256
-        // Return false to force password reset
-        return false;
+        return verify_sha256_legacy(password, stored);
+    }
+
+    // Fallback: plain SHA-256 hex (no salt, very old format)
+    if stored.len() == 64 && stored.chars().all(|c| c.is_ascii_hexdigit()) {
+        use sha2::{Sha256, Digest};
+        let hash = hex::encode(Sha256::digest(password.as_bytes()));
+        return hash == stored;
     }
 
     false
+}
+
+/// Verify a password against a legacy SHA-256 "salt:hash" format.
+/// Tries both `sha256(salt + password)` and `sha256(password + salt)`.
+fn verify_sha256_legacy(password: &str, stored: &str) -> bool {
+    use sha2::{Sha256, Digest};
+
+    let Some((salt, expected_hash)) = stored.split_once(':') else {
+        return false;
+    };
+
+    // Try salt + password
+    let mut hasher = Sha256::new();
+    hasher.update(salt.as_bytes());
+    hasher.update(password.as_bytes());
+    let candidate = hex::encode(hasher.finalize());
+    if candidate == expected_hash {
+        return true;
+    }
+
+    // Try password + salt
+    let mut hasher = Sha256::new();
+    hasher.update(password.as_bytes());
+    hasher.update(salt.as_bytes());
+    let candidate = hex::encode(hasher.finalize());
+    candidate == expected_hash
 }
 
 // ══════════════════════════════════════════════════
@@ -166,6 +197,33 @@ mod tests {
         assert!(verify_password(password, &hash));
 
         // Wrong password should fail
+        assert!(!verify_password("wrong", &hash));
+    }
+
+    #[test]
+    fn test_password_verify_sha256_legacy_salted() {
+        use sha2::{Sha256, Digest};
+        // Simulate legacy salt:hash format (salt + password)
+        let salt = "randomsalt123";
+        let password = "MyOldPassword!";
+        let mut hasher = Sha256::new();
+        hasher.update(salt.as_bytes());
+        hasher.update(password.as_bytes());
+        let hash = hex::encode(hasher.finalize());
+        let stored = format!("{}:{}", salt, hash);
+
+        assert!(verify_password(password, &stored));
+        assert!(!verify_password("wrong", &stored));
+    }
+
+    #[test]
+    fn test_password_verify_sha256_plain_hex() {
+        use sha2::{Sha256, Digest};
+        // Plain SHA-256 hex (no salt)
+        let password = "PlainHash123";
+        let hash = hex::encode(Sha256::digest(password.as_bytes()));
+
+        assert!(verify_password(password, &hash));
         assert!(!verify_password("wrong", &hash));
     }
 

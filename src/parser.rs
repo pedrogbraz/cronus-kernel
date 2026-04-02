@@ -10,7 +10,19 @@ use std::collections::HashMap;
 // AST TYPES
 // ══════════════════════════════════════════════════
 
+#[derive(Debug, Clone, Default)]
+pub struct DocComment {
+    pub summary: String,
+    pub description: String,
+    pub tags: Vec<DocTag>,
+}
+
 #[derive(Debug, Clone)]
+pub struct DocTag {
+    pub name: String,
+    pub value: String,
+}
+
 pub enum AstNode {
     App(AppNode),
     Entity(EntityNode),
@@ -29,6 +41,7 @@ pub enum AstNode {
     Auth(AuthNode),
     Layout(LayoutNode),
     Define(DefineNode),
+    Webhook(WebhookNode),
 }
 
 /// A reusable section definition: `define sidebar "Name" { ... }`
@@ -46,6 +59,12 @@ pub struct DatabaseConfig {
 }
 
 #[derive(Debug, Clone)]
+pub struct ConstitutionNode {
+    pub must: Vec<String>,
+    pub never: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
 pub struct AppNode {
     pub name: String,
     pub stack: Vec<String>,
@@ -53,12 +72,16 @@ pub struct AppNode {
     pub database: Option<DatabaseConfig>,
     /// Inline Tailwind config JS (extracted from dumped sites)
     pub tailwind_config: Option<String>,
+    /// Unbreakable rules defined inline in the app block
+    pub constitution: Option<ConstitutionNode>,
 }
 
 #[derive(Debug, Clone)]
 pub struct EntityNode {
     pub name: String,
     pub fields: Vec<FieldNode>,
+    pub shared: bool,
+    pub doc: Option<DocComment>,
 }
 
 #[derive(Debug, Clone)]
@@ -76,6 +99,7 @@ pub struct FieldNode {
     pub array: bool,
     pub enum_values: Option<Vec<String>>,
     pub reference: Option<String>,
+    pub doc: Option<DocComment>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -150,12 +174,28 @@ pub struct RouteNode {
     pub path: String,
     pub auth: String,
     pub roles: Vec<String>,
+    pub doc: Option<DocComment>,
 }
 
 #[derive(Debug, Clone)]
 pub struct ApiNode {
     pub prefix: String,
     pub routes: Vec<RouteNode>,
+    pub doc: Option<DocComment>,
+}
+
+#[derive(Debug, Clone)]
+pub struct WebhookNode {
+    pub entity: String,
+    pub hooks: Vec<WebhookHook>,
+}
+
+#[derive(Debug, Clone)]
+pub struct WebhookHook {
+    pub event: String,   // "create", "update", "delete"
+    pub method: String,  // "POST", "PUT"
+    pub url: String,
+    pub headers: Vec<(String, String)>,
 }
 
 #[derive(Debug, Clone)]
@@ -267,6 +307,7 @@ pub struct PageNode {
     pub config: HashMap<String, String>,
     pub components: Vec<String>,  // referenced component names via `use ComponentName`
     pub requires: Option<String>,  // "auth", "role(admin)", etc.
+    pub doc: Option<DocComment>,
 }
 
 #[derive(Debug, Clone)]
@@ -422,6 +463,7 @@ enum TokenKind {
     Path,
     EnvRef,
     Operator,
+    DocComment,
     Eof,
 }
 
@@ -435,7 +477,7 @@ struct Token {
 const KEYWORDS: &[&str] = &[
     "app", "entity", "api", "page", "style", "service", "section",
     "import", "compose", "use", "merge", "on", "worker", "component",
-    "middleware", "env", "test",
+    "middleware", "env", "test", "webhook", "constitution", "must", "never",
 ];
 
 const METHODS: &[&str] = &["GET", "POST", "PATCH", "PUT", "DELETE"];
@@ -460,7 +502,18 @@ fn tokenize(source: &str) -> Vec<Token> {
                 continue;
             }
 
-            // comment
+            // doc-comment: /// preserved in AST
+            if i + 2 < chars.len() && chars[i] == '/' && chars[i+1] == '/' && chars[i+2] == '/' {
+                let doc_text: String = chars[i+3..].iter().collect();
+                tokens.push(Token {
+                    kind: TokenKind::DocComment,
+                    value: doc_text.trim().to_string(),
+                    line: line_num,
+                });
+                break;
+            }
+
+            // comment (discarded)
             if chars[i] == '#' {
                 break;
             }
@@ -626,6 +679,39 @@ impl Parser {
         Parser { tokens, pos: 0 }
     }
 
+    /// Consume all consecutive DocComment tokens and build a DocComment struct.
+    fn collect_doc_comments(&mut self) -> Option<DocComment> {
+        let mut lines: Vec<String> = Vec::new();
+        while self.peek().kind == TokenKind::DocComment {
+            lines.push(self.advance().value);
+        }
+        if lines.is_empty() { return None; }
+
+        let mut summary = String::new();
+        let mut desc_lines: Vec<String> = Vec::new();
+        let mut tags: Vec<DocTag> = Vec::new();
+
+        for line in &lines {
+            if line.starts_with('@') {
+                // Parse tag: @name value
+                let mut parts = line[1..].splitn(2, ' ');
+                let name = parts.next().unwrap_or("").to_string();
+                let value = parts.next().unwrap_or("").to_string();
+                tags.push(DocTag { name, value });
+            } else if summary.is_empty() {
+                summary = line.clone();
+            } else {
+                desc_lines.push(line.clone());
+            }
+        }
+
+        Some(DocComment {
+            summary,
+            description: desc_lines.join("\n"),
+            tags,
+        })
+    }
+
     fn peek(&self) -> Token {
         self.tokens.get(self.pos).cloned().unwrap_or(Token { kind: TokenKind::Eof, value: String::new(), line: 0 })
     }
@@ -679,6 +765,9 @@ impl Parser {
         let mut nodes = Vec::new();
 
         while !self.matches(TokenKind::Eof, None) {
+            // Collect doc-comments before each block
+            let pending_doc = self.collect_doc_comments();
+
             if self.matches(TokenKind::Keyword, Some("import")) {
                 nodes.push(AstNode::Import(self.parse_import()?));
             } else if self.matches(TokenKind::Keyword, Some("compose")) {
@@ -686,11 +775,19 @@ impl Parser {
             } else if self.matches(TokenKind::Keyword, Some("app")) {
                 nodes.push(AstNode::App(self.parse_app()?));
             } else if self.matches(TokenKind::Keyword, Some("entity")) {
-                nodes.push(AstNode::Entity(self.parse_entity()?));
+                let mut e = self.parse_entity()?;
+                e.doc = pending_doc.clone();
+                nodes.push(AstNode::Entity(e));
             } else if self.matches(TokenKind::Keyword, Some("api")) {
-                nodes.push(AstNode::Api(self.parse_api()?));
+                let mut a = self.parse_api()?;
+                a.doc = pending_doc.clone();
+                nodes.push(AstNode::Api(a));
+            } else if self.matches(TokenKind::Keyword, Some("webhook")) {
+                nodes.push(AstNode::Webhook(self.parse_webhook()?));
             } else if self.matches(TokenKind::Keyword, Some("page")) {
-                nodes.push(AstNode::Page(self.parse_page()?));
+                let mut p = self.parse_page()?;
+                p.doc = pending_doc.clone();
+                nodes.push(AstNode::Page(p));
             } else if self.matches(TokenKind::Keyword, Some("style")) {
                 nodes.push(AstNode::Style(self.parse_style()?));
             } else if self.matches(TokenKind::Keyword, Some("service")) {
@@ -800,6 +897,7 @@ impl Parser {
         let mut stack = Vec::new();
         let mut port: u16 = 5175;
         let mut database = None;
+        let mut constitution = None;
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
             if self.matches(TokenKind::Identifier, Some("stack")) {
@@ -820,31 +918,62 @@ impl Parser {
                     None
                 };
                 database = Some(DatabaseConfig { db_type, path });
+            } else if self.matches(TokenKind::Keyword, Some("constitution")) {
+                self.advance();
+                self.expect(TokenKind::LBrace)?;
+                let mut must_rules = Vec::new();
+                let mut never_rules = Vec::new();
+                while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                    if self.matches(TokenKind::Keyword, Some("must")) {
+                        self.advance();
+                        must_rules.push(self.expect(TokenKind::StringLit)?.value);
+                    } else if self.matches(TokenKind::Keyword, Some("never")) {
+                        self.advance();
+                        never_rules.push(self.expect(TokenKind::StringLit)?.value);
+                    } else {
+                        self.advance();
+                    }
+                }
+                self.expect(TokenKind::RBrace)?;
+                constitution = Some(ConstitutionNode { must: must_rules, never: never_rules });
             } else {
                 self.advance();
             }
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(AppNode { name, stack, port, database, tailwind_config: None })
+        Ok(AppNode { name, stack, port, database, tailwind_config: None, constitution })
     }
 
     // ── entity ──
 
     fn parse_entity(&mut self) -> Result<EntityNode, String> {
         self.expect(TokenKind::Keyword)?;
+        let name_token = self.peek().clone();
         let name = self.advance().value;
+
+        // P040/P041: validate entity name
+        Self::validate_identifier(&name, "entity name", name_token.line)?;
+
+        // Check for "shared" modifier before the brace
+        let mut shared = false;
+        if self.matches(TokenKind::Identifier, Some("shared")) {
+            self.advance();
+            shared = true;
+        }
+
         self.expect(TokenKind::LBrace)?;
 
         let mut fields = Vec::new();
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
-            // Accept both Identifier and Keyword as field names — field names like
-            // "page", "service", "style" etc. are valid CRONUS keywords but also
-            // valid entity field names.
+            // Collect doc-comments for the next field
+            let field_doc = self.collect_doc_comments();
+
             let pk = self.peek().kind;
             if pk == TokenKind::Identifier || pk == TokenKind::Keyword {
-                if let Some(field) = self.parse_field()? {
+                if let Some(mut field) = self.parse_field()? {
+                    field.doc = field_doc;
                     fields.push(field);
                 }
             } else {
@@ -853,12 +982,15 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(EntityNode { name, fields })
+        Ok(EntityNode { name, fields, shared, doc: None })
     }
 
     fn parse_field(&mut self) -> Result<Option<FieldNode>, String> {
         let field_token = self.peek().clone();
         let name = self.advance().value;
+
+        // P040/P041: validate field name
+        Self::validate_identifier(&name, "entity field", field_token.line)?;
 
         // relation: -> EntityName
         if self.matches(TokenKind::Arrow, None) {
@@ -872,6 +1004,7 @@ impl Parser {
                 featured: false, formatted: false, array: false,
                 enum_values: None,
                 reference: Some(target),
+                doc: None,
             }));
         }
 
@@ -930,6 +1063,7 @@ impl Parser {
             name, field_type, required, unique, sensitive, optional,
             searchable, index, featured, formatted, array,
             enum_values, reference: None,
+            doc: None,
         }))
     }
 
@@ -961,14 +1095,64 @@ impl Parser {
                     roles = self.parse_array()?;
                 }
 
-                routes.push(RouteNode { name, method, path, auth, roles });
+                routes.push(RouteNode { name, method, path, auth, roles, doc: None });
             } else {
                 self.advance();
             }
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(ApiNode { prefix, routes })
+        Ok(ApiNode { prefix, routes, doc: None })
+    }
+
+    // ── webhook ──
+
+    fn parse_webhook(&mut self) -> Result<WebhookNode, String> {
+        self.expect(TokenKind::Keyword)?; // consume "webhook"
+        let entity = self.advance().value; // entity name or path
+        // Strip leading / if present
+        let entity = entity.trim_start_matches('/').to_string();
+        self.expect(TokenKind::LBrace)?;
+
+        let mut hooks = Vec::new();
+
+        while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+            // Expect: on <event> -> <METHOD> "<url>"
+            if self.matches(TokenKind::Keyword, Some("on")) || self.matches(TokenKind::Identifier, Some("on")) {
+                self.advance(); // consume "on"
+                let event = self.advance().value.to_lowercase(); // create, update, delete
+                // Expect -> or =>
+                if self.peek().kind == TokenKind::Arrow || self.peek().value == "->" || self.peek().value == "=>" {
+                    self.advance();
+                }
+                let method = if self.peek().kind == TokenKind::Method {
+                    self.advance().value.to_uppercase()
+                } else {
+                    self.advance().value.to_uppercase()
+                };
+                let url = if self.peek().kind == TokenKind::StringLit {
+                    self.advance().value
+                } else {
+                    self.advance().value
+                };
+
+                // Optional headers: header "Key" "Value"
+                let mut headers = Vec::new();
+                while self.matches(TokenKind::Identifier, Some("header")) {
+                    self.advance();
+                    let key = if self.peek().kind == TokenKind::StringLit { self.advance().value } else { self.advance().value };
+                    let val = if self.peek().kind == TokenKind::StringLit { self.advance().value } else { self.advance().value };
+                    headers.push((key, val));
+                }
+
+                hooks.push(WebhookHook { event, method, url, headers });
+            } else {
+                self.advance();
+            }
+        }
+
+        self.expect(TokenKind::RBrace)?;
+        Ok(WebhookNode { entity, hooks })
     }
 
     // ── auth ──
@@ -1162,7 +1346,7 @@ impl Parser {
 
         self.expect(TokenKind::RBrace)?;
         let requires = config.remove("requires");
-        Ok(PageNode { route, page_type, entity, title, sections, config, components, requires })
+        Ok(PageNode { route, page_type, entity, title, sections, config, components, requires, doc: None })
     }
 
     // ── section ──
@@ -2310,6 +2494,61 @@ impl Parser {
         Ok(TestNode { name, steps })
     }
 
+    // ── P040/P041: SQL identifier validation ──
+
+    /// Validate an identifier against P040 (valid pattern) and P041 (no SQL reserved words).
+    fn validate_identifier(name: &str, context: &str, line: usize) -> Result<(), String> {
+        // P040: Must match [a-zA-Z][a-zA-Z0-9_]{0,63}
+        if name.is_empty() {
+            return Err(format!(
+                "Parse error at line {}: Empty identifier in {}\n  Identifiers must start with a letter and contain only [a-zA-Z0-9_]",
+                line, context
+            ));
+        }
+
+        let bytes = name.as_bytes();
+        let first = bytes[0];
+        if !(first.is_ascii_alphabetic()) {
+            return Err(format!(
+                "Parse error at line {}: Invalid identifier '{}' in {}\n  Identifiers must start with a letter and contain only [a-zA-Z0-9_]",
+                line, name, context
+            ));
+        }
+
+        if name.len() > 64 {
+            return Err(format!(
+                "Parse error at line {}: Identifier '{}' in {} exceeds 64 characters\n  Identifiers must be at most 64 characters long",
+                line, name, context
+            ));
+        }
+
+        for (i, &b) in bytes.iter().enumerate().skip(1) {
+            if !(b.is_ascii_alphanumeric() || b == b'_') {
+                return Err(format!(
+                    "Parse error at line {}: Invalid identifier '{}' in {}\n  Identifiers must start with a letter and contain only [a-zA-Z0-9_]",
+                    line, name, context
+                ));
+            }
+        }
+
+        // P041: No SQL reserved words
+        const SQL_RESERVED: &[&str] = &[
+            "SELECT", "DROP", "INSERT", "DELETE", "UPDATE", "TABLE", "FROM",
+            "WHERE", "OR", "AND", "UNION", "ALTER", "CREATE", "INDEX", "EXEC",
+            "EXECUTE", "INTO", "VALUES", "SET", "NULL", "TRUE", "FALSE",
+        ];
+
+        let upper = name.to_uppercase();
+        if SQL_RESERVED.contains(&upper.as_str()) {
+            return Err(format!(
+                "Parse error at line {}: '{}' is a SQL reserved word and cannot be used as {}\n  Choose a different name",
+                line, name, context
+            ));
+        }
+
+        Ok(())
+    }
+
     // ── helpers ──
 
     fn parse_array(&mut self) -> Result<Vec<String>, String> {
@@ -2318,6 +2557,11 @@ impl Parser {
 
         while !self.matches(TokenKind::RBracket, None) && !self.matches(TokenKind::Eof, None) {
             if self.peek().kind == TokenKind::Comma { self.advance(); continue; }
+            let token = self.peek().clone();
+            // P040/P041: validate unquoted identifiers in arrays (enum values)
+            if token.kind == TokenKind::Identifier {
+                Self::validate_identifier(&token.value, "enum value", token.line)?;
+            }
             items.push(self.advance().value);
         }
 
@@ -2672,4 +2916,124 @@ env production {
   JWT_SECRET env(JWT_SECRET)
 }
 "#.to_string()
+}
+
+// ══════════════════════════════════════════════════
+// TESTS — P040 / P041
+// ══════════════════════════════════════════════════
+
+#[cfg(test)]
+mod parser_tests {
+    use super::*;
+
+    // ── P040: Valid identifier pattern ──
+
+    #[test]
+    fn p040_valid_identifiers() {
+        assert!(Parser::validate_identifier("name", "test", 1).is_ok());
+        assert!(Parser::validate_identifier("User", "test", 1).is_ok());
+        assert!(Parser::validate_identifier("deploy_id", "test", 1).is_ok());
+        assert!(Parser::validate_identifier("status", "test", 1).is_ok());
+        assert!(Parser::validate_identifier("myField2", "test", 1).is_ok());
+        assert!(Parser::validate_identifier("A", "test", 1).is_ok());
+        // 64 chars exactly — should pass
+        let long = "a".repeat(64);
+        assert!(Parser::validate_identifier(&long, "test", 1).is_ok());
+    }
+
+    #[test]
+    fn p040_reject_starts_with_number() {
+        let err = Parser::validate_identifier("2bad", "entity field", 5).unwrap_err();
+        assert!(err.contains("Invalid identifier"), "got: {}", err);
+        assert!(err.contains("2bad"));
+    }
+
+    #[test]
+    fn p040_reject_special_chars() {
+        let err = Parser::validate_identifier("status;DROP", "entity field", 1).unwrap_err();
+        assert!(err.contains("Invalid identifier"), "got: {}", err);
+    }
+
+    #[test]
+    fn p040_reject_dash_in_identifier() {
+        let err = Parser::validate_identifier("my-field", "entity field", 1).unwrap_err();
+        assert!(err.contains("Invalid identifier"), "got: {}", err);
+    }
+
+    #[test]
+    fn p040_reject_too_long() {
+        let long = "a".repeat(65);
+        let err = Parser::validate_identifier(&long, "test", 1).unwrap_err();
+        assert!(err.contains("exceeds 64 characters"), "got: {}", err);
+    }
+
+    #[test]
+    fn p040_reject_empty() {
+        let err = Parser::validate_identifier("", "test", 1).unwrap_err();
+        assert!(err.contains("Empty identifier"), "got: {}", err);
+    }
+
+    // ── P041: SQL reserved words ──
+
+    #[test]
+    fn p041_reject_sql_reserved_words() {
+        let reserved = vec![
+            "SELECT", "DROP", "INSERT", "DELETE", "UPDATE", "TABLE",
+            "FROM", "WHERE", "OR", "AND", "UNION", "ALTER", "CREATE",
+            "INDEX", "EXEC", "EXECUTE", "INTO", "VALUES", "SET",
+            "NULL", "TRUE", "FALSE",
+        ];
+        for word in reserved {
+            let err = Parser::validate_identifier(word, "entity name", 1).unwrap_err();
+            assert!(err.contains("SQL reserved word"), "Expected rejection for '{}', got: {}", word, err);
+        }
+    }
+
+    #[test]
+    fn p041_reject_case_insensitive() {
+        let err = Parser::validate_identifier("select", "entity name", 1).unwrap_err();
+        assert!(err.contains("SQL reserved word"), "got: {}", err);
+        let err = Parser::validate_identifier("Drop", "entity name", 1).unwrap_err();
+        assert!(err.contains("SQL reserved word"), "got: {}", err);
+    }
+
+    #[test]
+    fn p041_allow_non_reserved_common_names() {
+        // These are common field names that must NOT be rejected
+        assert!(Parser::validate_identifier("name", "test", 1).is_ok());
+        assert!(Parser::validate_identifier("status", "test", 1).is_ok());
+        assert!(Parser::validate_identifier("type", "test", 1).is_ok());
+        assert!(Parser::validate_identifier("value", "test", 1).is_ok());
+        assert!(Parser::validate_identifier("email", "test", 1).is_ok());
+        assert!(Parser::validate_identifier("User", "test", 1).is_ok());
+        assert!(Parser::validate_identifier("Deployment", "test", 1).is_ok());
+    }
+
+    // ── Integration: parse rejects bad entity names ──
+
+    #[test]
+    fn p040_parse_rejects_bad_entity_name() {
+        let source = r#"entity 123Bad { name string }"#;
+        let result = parse(source);
+        assert!(result.is_err(), "Should reject entity with invalid name");
+    }
+
+    #[test]
+    fn p041_parse_rejects_reserved_entity_name() {
+        let source = r#"entity SELECT { name string }"#;
+        let result = parse(source);
+        assert!(result.is_err(), "Should reject entity named SELECT");
+        if let Err(err) = result {
+            assert!(err.contains("SQL reserved word"), "got: {}", err);
+        }
+    }
+
+    #[test]
+    fn parse_accepts_valid_entity() {
+        let source = r#"entity User { name string required email email unique }"#;
+        let result = parse(source);
+        if let Err(ref e) = result {
+            panic!("Valid entity should parse, got error: {}", e);
+        }
+    }
 }
