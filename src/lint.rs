@@ -162,7 +162,7 @@ pub fn lint_template(html: &str) -> Vec<LintResult> {
     for finding in find_dead_metrics_in_html(html) {
         results.push(LintResult {
             rule: "no-dead-text",
-            severity: Severity::Warning,
+            severity: Severity::Error, // C001: hardcoded metrics are always fatal
             message: format!("\"{}\" looks like hardcoded metric", finding),
             fix: "Populate via JS fetch or bind to an entity field".into(),
             section: section_name.clone(),
@@ -211,7 +211,7 @@ fn rule_no_dead_text(section: &SectionNode, sec_name: &str, page: &str) -> Vec<L
     for finding in find_dead_metrics_in_html(template) {
         results.push(LintResult {
             rule: "no-dead-text",
-            severity: Severity::Warning,
+            severity: Severity::Error, // C001: hardcoded metrics are always fatal
             message: format!("\"{}\" looks like hardcoded metric", finding),
             fix: "Use <span id=\"...\"> populated via JS fetch, or bind to entity".into(),
             section: sec_name.into(),
@@ -558,7 +558,7 @@ fn rule_bind_or_empty(page: &PageNode) -> Vec<LintResult> {
         if !has_bind && !has_items && !has_template {
             results.push(LintResult {
                 rule: "bind-or-empty",
-                severity: Severity::Warning,
+                severity: Severity::Error, // C003: data sections MUST have a source — always fatal
                 message: format!("section {} has no data source (no bind, no items, no template)", section.section_type),
                 fix: format!("Add: bind EntityName {{ query all }} or define static items"),
                 section: format!("{} ({})", section.section_type, page.route),
