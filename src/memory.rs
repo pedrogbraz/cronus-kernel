@@ -5,6 +5,7 @@ use rusqlite::{Connection, params};
 use serde_json::{json, Value};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
+use crate::parser::{AstNode, ConstitutionNode};
 
 pub struct SemanticMemory {
     conn: Mutex<Connection>,
@@ -108,6 +109,15 @@ impl SemanticMemory {
                 timestamp TEXT NOT NULL,
                 change_type TEXT NOT NULL,
                 description TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS business_rules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                entity TEXT,
+                field TEXT,
+                rule TEXT NOT NULL,
+                source TEXT,
+                extracted_at TEXT DEFAULT (datetime('now'))
             );"
         ).map_err(|e| format!("Failed to init memory tables: {}", e))?;
 
@@ -283,14 +293,133 @@ impl SemanticMemory {
         Ok(result)
     }
 
-    /// Get context data for /api/_context (decisions + changelog).
+    /// Get context data for /api/_context (decisions + changelog + business_rules).
     pub fn get_context_data(&self) -> Result<Value, String> {
         let decisions = self.get_decisions(10)?;
         let changelog = self.get_changelog(20)?;
+        let business_rules = self.get_business_rules(50)?;
         Ok(json!({
             "decisions": decisions,
             "changelog": changelog,
+            "business_rules": business_rules,
         }))
+    }
+
+    /// Store a business rule (skip if identical rule+entity+field already exists).
+    pub fn store_business_rule(
+        &self,
+        entity: Option<&str>,
+        field: Option<&str>,
+        rule: &str,
+        source: Option<&str>,
+    ) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        // Check for duplicates
+        let exists: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM business_rules WHERE rule = ?1 AND COALESCE(entity,'') = COALESCE(?2,'') AND COALESCE(field,'') = COALESCE(?3,'')",
+                params![rule, entity, field],
+                |row| row.get::<_, i64>(0),
+            )
+            .map(|c| c > 0)
+            .unwrap_or(false);
+
+        if !exists {
+            conn.execute(
+                "INSERT INTO business_rules (entity, field, rule, source) VALUES (?1, ?2, ?3, ?4)",
+                params![entity, field, rule, source],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+
+    /// Get business rules (newest first).
+    pub fn get_business_rules(&self, limit: usize) -> Result<Vec<Value>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare("SELECT id, entity, field, rule, source, extracted_at FROM business_rules ORDER BY id DESC LIMIT ?1")
+            .map_err(|e| e.to_string())?;
+
+        let rows = stmt
+            .query_map(params![limit as i64], |row| {
+                Ok(json!({
+                    "id": row.get::<_, i64>(0)?,
+                    "entity": row.get::<_, Option<String>>(1)?,
+                    "field": row.get::<_, Option<String>>(2)?,
+                    "rule": row.get::<_, String>(3)?,
+                    "source": row.get::<_, Option<String>>(4)?,
+                    "extracted_at": row.get::<_, Option<String>>(5)?,
+                }))
+            })
+            .map_err(|e| e.to_string())?;
+
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row.map_err(|e| e.to_string())?);
+        }
+        Ok(result)
+    }
+}
+
+/// Scan AST nodes for @business and @rule doc tags, plus constitution must/never rules,
+/// and store each discovered rule in the business_rules table.
+pub fn extract_and_store_business_rules(mem: &SemanticMemory, nodes: &[AstNode]) {
+    for node in nodes {
+        match node {
+            AstNode::Entity(e) => {
+                // Entity-level doc tags
+                if let Some(ref doc) = e.doc {
+                    for tag in &doc.tags {
+                        if tag.name == "business" || tag.name == "rule" {
+                            let _ = mem.store_business_rule(
+                                Some(&e.name),
+                                None,
+                                &tag.value,
+                                Some("entity_doc"),
+                            );
+                        }
+                    }
+                }
+                // Field-level doc tags
+                for field in &e.fields {
+                    if let Some(ref doc) = field.doc {
+                        for tag in &doc.tags {
+                            if tag.name == "business" || tag.name == "rule" {
+                                let _ = mem.store_business_rule(
+                                    Some(&e.name),
+                                    Some(&field.name),
+                                    &tag.value,
+                                    Some("field_doc"),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            AstNode::App(app) => {
+                // Constitution must/never rules
+                if let Some(ref constitution) = app.constitution {
+                    for rule in &constitution.must {
+                        let _ = mem.store_business_rule(
+                            None,
+                            None,
+                            &format!("MUST: {}", rule),
+                            Some("constitution"),
+                        );
+                    }
+                    for rule in &constitution.never {
+                        let _ = mem.store_business_rule(
+                            None,
+                            None,
+                            &format!("NEVER: {}", rule),
+                            Some("constitution"),
+                        );
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 }
 

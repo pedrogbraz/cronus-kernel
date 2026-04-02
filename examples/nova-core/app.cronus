@@ -88,31 +88,31 @@ entity User {
 api /deployments {
   list    GET    /deployments
   find    GET    /deployments/:id
-  create  POST   /deployments
-  update  PATCH  /deployments/:id
-  remove  DELETE /deployments/:id
+  create  POST   /deployments    auth:jwt
+  update  PATCH  /deployments/:id auth:jwt
+  remove  DELETE /deployments/:id auth:jwt
 }
 
 api /securityevents {
   list    GET    /securityevents
-  create  POST   /securityevents
+  create  POST   /securityevents  auth:jwt
 }
 
 api /endpoints {
   list    GET    /endpoints
-  create  POST   /endpoints
+  create  POST   /endpoints       auth:jwt
 }
 
 api /kpisnapshots {
   list    GET    /kpisnapshots
-  create  POST   /kpisnapshots
+  create  POST   /kpisnapshots    auth:jwt
 }
 
 api /notifications {
   list    GET    /notifications
-  create  POST   /notifications
-  update  PATCH  /notifications/:id
-  remove  DELETE /notifications/:id
+  create  POST   /notifications   auth:jwt
+  update  PATCH  /notifications/:id auth:jwt
+  remove  DELETE /notifications/:id auth:jwt
 }
 
 webhook /deployments {

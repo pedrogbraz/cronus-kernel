@@ -218,6 +218,7 @@ pub struct SectionNode {
     pub visibility: Option<VisibilityCondition>,
     pub template: Option<String>,      // raw HTML template for visual preservation
     pub style_block: Option<String>,   // scoped CSS for visual preservation
+    pub doc: Option<DocComment>,
 }
 
 #[derive(Debug, Clone)]
@@ -1077,6 +1078,7 @@ impl Parser {
         let mut routes = Vec::new();
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+            let route_doc = self.collect_doc_comments();
             if self.peek().kind == TokenKind::Identifier {
                 let name = self.advance().value;
                 let method_tok = self.expect(TokenKind::Method)?;
@@ -1095,7 +1097,7 @@ impl Parser {
                     roles = self.parse_array()?;
                 }
 
-                routes.push(RouteNode { name, method, path, auth, roles, doc: None });
+                routes.push(RouteNode { name, method, path, auth, roles, doc: route_doc });
             } else {
                 self.advance();
             }
@@ -1302,6 +1304,9 @@ impl Parser {
         let mut components = Vec::new();
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+            // Collect doc-comments that may precede a section
+            let inner_doc = self.collect_doc_comments();
+
             // `use ComponentName` — reference a defined component
             if self.matches(TokenKind::Keyword, Some("use")) {
                 self.advance();
@@ -1335,7 +1340,9 @@ impl Parser {
                     if k == "limit" { config.insert("recent_limit".into(), v); }
                 }
             } else if self.matches(TokenKind::Keyword, Some("section")) {
-                sections.push(self.parse_section()?);
+                let mut sec = self.parse_section()?;
+                if sec.doc.is_none() { sec.doc = inner_doc; }
+                sections.push(sec);
             } else if self.peek().kind == TokenKind::ColonPair {
                 let (k, v) = Self::split_colon_pair(&self.advance().value);
                 config.insert(k, v);
@@ -1765,7 +1772,7 @@ impl Parser {
             }
         }
 
-        Ok(SectionNode { section_type, title, subtitle, config, items, plans, binding, actions: section_actions, visibility, template, style_block })
+        Ok(SectionNode { section_type, title, subtitle, config, items, plans, binding, actions: section_actions, visibility, template, style_block, doc: None })
     }
 
     fn parse_section_item(&mut self) -> Result<HashMap<String, String>, String> {
@@ -2172,8 +2179,11 @@ impl Parser {
 
         let mut sections = Vec::new();
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+            let inner_doc = self.collect_doc_comments();
             if self.matches(TokenKind::Keyword, Some("section")) {
-                sections.push(self.parse_section()?);
+                let mut sec = self.parse_section()?;
+                if sec.doc.is_none() { sec.doc = inner_doc; }
+                sections.push(sec);
             } else {
                 self.advance(); // skip unknown tokens
             }

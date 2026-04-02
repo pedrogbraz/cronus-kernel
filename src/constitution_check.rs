@@ -521,6 +521,7 @@ mod tests {
             visibility: None,
             template: None,
             style_block: None,
+            doc: None,
         }
     }
 

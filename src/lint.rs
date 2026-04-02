@@ -4,7 +4,7 @@
 //! 7 rules that prevent hardcoded data, dead UI, and broken SPA contracts.
 //! Runs at parse time (<5ms) using regex on template strings.
 
-use crate::parser::{AstNode, EntityNode, PageNode, SectionNode};
+use crate::parser::{AstNode, ApiNode, EntityNode, HttpMethod, PageNode, SectionNode};
 
 #[derive(Debug, Clone)]
 pub enum Severity {
@@ -42,10 +42,11 @@ impl std::fmt::Display for LintResult {
 pub fn lint_ast(nodes: &[AstNode], strict: bool) -> Vec<LintResult> {
     let mut results = Vec::new();
 
-    // Collect pages, entities, and all sections (including from Define blocks)
+    // Collect pages, entities, APIs, and all sections (including from Define blocks)
     let mut pages: Vec<&PageNode> = Vec::new();
     let mut all_routes: Vec<String> = Vec::new();
     let mut entities: Vec<&EntityNode> = Vec::new();
+    let mut apis: Vec<&ApiNode> = Vec::new();
     let mut define_sections: Vec<(&str, &SectionNode)> = Vec::new();
 
     for node in nodes {
@@ -56,6 +57,9 @@ pub fn lint_ast(nodes: &[AstNode], strict: bool) -> Vec<LintResult> {
             }
             AstNode::Entity(e) => {
                 entities.push(e);
+            }
+            AstNode::Api(a) => {
+                apis.push(a);
             }
             AstNode::Define(d) => {
                 for s in &d.sections {
@@ -106,6 +110,33 @@ pub fn lint_ast(nodes: &[AstNode], strict: bool) -> Vec<LintResult> {
         results.extend(rule_no_orphan_reload(section, &sec_name, "define"));
         results.extend(rule_no_hardcode_user(section, &sec_name, "define"));
         results.extend(rule_no_sensitive_render(section, &sec_name, "define", &sensitive_fields));
+    }
+
+    // Rule C012: form-submit-handler — Form sections must have submit handler
+    for page in &pages {
+        for section in &page.sections {
+            let sec_name = format!("{} ({})", section.section_type, page.route);
+            results.extend(rule_form_submit_handler(section, &sec_name, &page.route));
+        }
+    }
+    for (def_name, section) in &define_sections {
+        let sec_name = format!("{} (define:{})", section.section_type, def_name);
+        results.extend(rule_form_submit_handler(section, &sec_name, "define"));
+    }
+
+    // Rule C030: shared-entity-auth — Shared entity mutations require auth
+    results.extend(rule_shared_entity_auth(&entities, &apis));
+
+    // Rule C031: no-sensitive-select — Sensitive fields excluded from table columns and bind refs
+    for page in &pages {
+        for section in &page.sections {
+            let sec_name = format!("{} ({})", section.section_type, page.route);
+            results.extend(rule_no_sensitive_select(section, &sec_name, &page.route, &sensitive_fields));
+        }
+    }
+    for (def_name, section) in &define_sections {
+        let sec_name = format!("{} (define:{})", section.section_type, def_name);
+        results.extend(rule_no_sensitive_select(section, &sec_name, "define", &sensitive_fields));
     }
 
     // Promote warnings to errors in strict mode
@@ -672,6 +703,194 @@ fn is_in_attribute_value(before: &str, attr_name: &str) -> bool {
 }
 
 // ══════════════════════════════════════════════════
+// RULE C012: form-submit-handler — Form Sections Must Have Submit
+// ══════════════════════════════════════════════════
+
+fn rule_form_submit_handler(section: &SectionNode, sec_name: &str, page: &str) -> Vec<LintResult> {
+    if section.section_type != "form" {
+        return vec![];
+    }
+
+    // Check 1: Does the actions list contain a "submit" event?
+    let has_submit_action = section.actions.iter().any(|a| a.event == "submit");
+
+    // Check 2: Does the template contain submit-related patterns?
+    let has_submit_in_template = if let Some(ref template) = section.template {
+        template.contains("type=\"submit\"")
+            || template.contains("type='submit'")
+            || template.contains("onsubmit")
+            || template.contains("data-cronus-form")
+    } else {
+        false
+    };
+
+    if !has_submit_action && !has_submit_in_template {
+        return vec![LintResult {
+            rule: "form-submit-handler",
+            severity: Severity::Warning,
+            message: "form section has no submit handler".into(),
+            fix: "Add an action { on submit ... } block, or include type=\"submit\" / data-cronus-form in template".into(),
+            section: sec_name.into(),
+            page: page.into(),
+        }];
+    }
+
+    vec![]
+}
+
+// ══════════════════════════════════════════════════
+// RULE C030: shared-entity-auth — Shared Entity Mutations Require Auth
+// ══════════════════════════════════════════════════
+
+fn rule_shared_entity_auth(entities: &[&EntityNode], apis: &[&ApiNode]) -> Vec<LintResult> {
+    let mut results = Vec::new();
+
+    // Collect names of shared entities
+    let shared_names: Vec<&str> = entities.iter()
+        .filter(|e| e.shared)
+        .map(|e| e.name.as_str())
+        .collect();
+
+    if shared_names.is_empty() {
+        return results;
+    }
+
+    for api in apis {
+        // Check if this API's prefix references a shared entity
+        // API prefixes are typically like "/products", "/posts" — match against entity name (lowercase)
+        let prefix_lower = api.prefix.to_lowercase();
+        let matches_shared = shared_names.iter().any(|name| {
+            let name_lower = name.to_lowercase();
+            // Match: prefix contains entity name (e.g., "/products" contains "product")
+            // Or prefix is the plural/singular of the entity name
+            prefix_lower.contains(&name_lower)
+                || prefix_lower.contains(&format!("{}s", name_lower))
+                || name_lower.contains(&prefix_lower.trim_start_matches('/').replace('/', ""))
+        });
+
+        if !matches_shared {
+            continue;
+        }
+
+        for route in &api.routes {
+            // Only check mutation methods (POST, PATCH, PUT, DELETE)
+            match route.method {
+                HttpMethod::GET => continue,
+                _ => {}
+            }
+
+            // Check if auth is missing or public
+            let auth_lower = route.auth.to_lowercase();
+            if auth_lower == "public" || auth_lower.is_empty() || auth_lower == "none" {
+                results.push(LintResult {
+                    rule: "shared-entity-auth",
+                    severity: Severity::Error,
+                    message: format!(
+                        "{} {} on shared entity API \"{}\" has no auth (auth: \"{}\")",
+                        match route.method {
+                            HttpMethod::POST => "POST",
+                            HttpMethod::PATCH => "PATCH",
+                            HttpMethod::PUT => "PUT",
+                            HttpMethod::DELETE => "DELETE",
+                            HttpMethod::GET => "GET",
+                        },
+                        route.path,
+                        api.prefix,
+                        route.auth
+                    ),
+                    fix: "Shared entities must require authentication for mutations — set auth: \"token\" or auth: \"role(admin)\"".into(),
+                    section: format!("api {}", api.prefix),
+                    page: "api".into(),
+                });
+            }
+        }
+    }
+
+    results
+}
+
+// ══════════════════════════════════════════════════
+// RULE C031: no-sensitive-select — Sensitive Fields Not in Table Columns or Bind Refs
+// ══════════════════════════════════════════════════
+
+fn rule_no_sensitive_select(section: &SectionNode, sec_name: &str, page: &str, sensitive_fields: &[String]) -> Vec<LintResult> {
+    if sensitive_fields.is_empty() {
+        return vec![];
+    }
+
+    let mut results = Vec::new();
+
+    // Check table section columns config (extends C002 coverage)
+    if section.section_type == "table" {
+        if let Some(columns) = section.config.get("columns") {
+            for field in sensitive_fields {
+                for col in columns.split(',') {
+                    let col = col.trim();
+                    if col == field {
+                        results.push(LintResult {
+                            rule: "no-sensitive-select",
+                            severity: Severity::Error,
+                            message: format!("sensitive field \"{}\" in table columns — would be included in SELECT", field),
+                            fix: format!("Remove \"{}\" from columns config — sensitive fields must be excluded from queries", field),
+                            section: sec_name.into(),
+                            page: page.into(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // Check bind sections that explicitly reference sensitive fields
+    if let Some(ref binding) = section.binding {
+        // Check filters that reference sensitive fields
+        for filter in &binding.filters {
+            let filter_field = &filter.field;
+            if sensitive_fields.contains(filter_field) {
+                results.push(LintResult {
+                    rule: "no-sensitive-select",
+                    severity: Severity::Error,
+                    message: format!("bind filter references sensitive field \"{}\"", filter_field),
+                    fix: format!("Do not use sensitive field \"{}\" in bind filters — handle in server-side logic", filter_field),
+                    section: sec_name.into(),
+                    page: page.into(),
+                });
+            }
+        }
+
+        // Check order_by referencing sensitive fields
+        if let Some(ref order) = binding.order {
+            if sensitive_fields.contains(&order.field) {
+                results.push(LintResult {
+                    rule: "no-sensitive-select",
+                    severity: Severity::Error,
+                    message: format!("bind order references sensitive field \"{}\"", order.field),
+                    fix: format!("Do not order by sensitive field \"{}\"", order.field),
+                    section: sec_name.into(),
+                    page: page.into(),
+                });
+            }
+        }
+
+        // Check group_by referencing sensitive fields
+        if let Some(ref group) = binding.group_by {
+            if sensitive_fields.contains(&group.field) {
+                results.push(LintResult {
+                    rule: "no-sensitive-select",
+                    severity: Severity::Error,
+                    message: format!("bind group_by references sensitive field \"{}\"", group.field),
+                    fix: format!("Do not group by sensitive field \"{}\"", group.field),
+                    section: sec_name.into(),
+                    page: page.into(),
+                });
+            }
+        }
+    }
+
+    results
+}
+
+// ══════════════════════════════════════════════════
 // RULE C010: Enhanced dead-link route validation helpers
 // ══════════════════════════════════════════════════
 
@@ -828,7 +1047,7 @@ fn is_in_id_element(html: &str, text: &str) -> bool {
 mod tests {
     use super::*;
     use std::collections::HashMap;
-    use crate::parser::{EntityNode, FieldNode, FieldType};
+    use crate::parser::{ActionBlock, ActionInstruction, ApiNode, EntityNode, FieldNode, FieldType, FilterExpr, FilterOp, BindingValue, BindingNode, GroupByExpr, HttpMethod, OrderExpr, OrderDirection, QueryType, RouteNode};
 
     fn make_section(template: &str) -> SectionNode {
         SectionNode {
@@ -843,6 +1062,7 @@ mod tests {
             visibility: None,
             template: Some(template.to_string()),
             style_block: None,
+            doc: None,
         }
     }
 
@@ -1041,5 +1261,316 @@ mod tests {
         let results = lint_ast(&[entity, page], false);
         let sensitive_results: Vec<_> = results.iter().filter(|r| r.rule == "no-sensitive-render").collect();
         assert!(!sensitive_results.is_empty(), "lint_ast should catch sensitive field in columns");
+    }
+
+    // ── C012: form-submit-handler ──
+
+    fn make_form_section(template: Option<&str>, actions: Vec<ActionBlock>) -> SectionNode {
+        SectionNode {
+            section_type: "form".into(),
+            title: None,
+            subtitle: None,
+            config: HashMap::new(),
+            items: vec![],
+            plans: vec![],
+            binding: None,
+            actions,
+            visibility: None,
+            template: template.map(|t| t.to_string()),
+            style_block: None,
+            doc: None,
+        }
+    }
+
+    #[test]
+    fn c012_catches_form_without_submit() {
+        let section = make_form_section(Some("<form><input type='text'></form>"), vec![]);
+        let results = rule_form_submit_handler(&section, "form (/contact)", "/contact");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].rule, "form-submit-handler");
+        assert!(matches!(results[0].severity, Severity::Warning));
+    }
+
+    #[test]
+    fn c012_allows_form_with_submit_action() {
+        let action = ActionBlock {
+            event: "submit".into(),
+            confirm: None,
+            instructions: vec![],
+        };
+        let section = make_form_section(Some("<form></form>"), vec![action]);
+        let results = rule_form_submit_handler(&section, "form (/contact)", "/contact");
+        assert!(results.is_empty(), "form with submit action should pass: {:?}", results);
+    }
+
+    #[test]
+    fn c012_allows_form_with_submit_button_in_template() {
+        let section = make_form_section(
+            Some("<form><button type=\"submit\">Send</button></form>"),
+            vec![],
+        );
+        let results = rule_form_submit_handler(&section, "form (/contact)", "/contact");
+        assert!(results.is_empty(), "form with type=submit button should pass: {:?}", results);
+    }
+
+    #[test]
+    fn c012_allows_form_with_onsubmit() {
+        let section = make_form_section(
+            Some("<form onsubmit=\"handleSubmit()\"></form>"),
+            vec![],
+        );
+        let results = rule_form_submit_handler(&section, "form (/contact)", "/contact");
+        assert!(results.is_empty(), "form with onsubmit should pass: {:?}", results);
+    }
+
+    #[test]
+    fn c012_allows_form_with_data_cronus_form() {
+        let section = make_form_section(
+            Some("<form data-cronus-form></form>"),
+            vec![],
+        );
+        let results = rule_form_submit_handler(&section, "form (/contact)", "/contact");
+        assert!(results.is_empty(), "form with data-cronus-form should pass: {:?}", results);
+    }
+
+    #[test]
+    fn c012_ignores_non_form_sections() {
+        let mut section = make_section("<div>not a form</div>");
+        section.section_type = "hero".into();
+        let results = rule_form_submit_handler(&section, "hero (/)", "/");
+        assert!(results.is_empty(), "non-form section should be ignored");
+    }
+
+    #[test]
+    fn c012_strict_promotes_to_error() {
+        let section = make_form_section(Some("<form><input></form>"), vec![]);
+        let page = AstNode::Page(PageNode {
+            route: "/contact".into(),
+            page_type: "custom".into(),
+            entity: None,
+            title: None,
+            sections: vec![section],
+            config: HashMap::new(),
+            components: vec![],
+            requires: None,
+            doc: None,
+        });
+        let results = lint_ast(&[page], true);
+        let form_results: Vec<_> = results.iter().filter(|r| r.rule == "form-submit-handler").collect();
+        assert!(!form_results.is_empty(), "should catch form without submit");
+        assert!(matches!(form_results[0].severity, Severity::Error), "strict mode should promote to Error");
+    }
+
+    // ── C030: shared-entity-auth ──
+
+    fn make_shared_entity(name: &str) -> EntityNode {
+        EntityNode {
+            name: name.into(),
+            fields: vec![],
+            shared: true,
+            doc: None,
+        }
+    }
+
+    fn make_api(prefix: &str, routes: Vec<RouteNode>) -> ApiNode {
+        ApiNode {
+            prefix: prefix.into(),
+            routes,
+            doc: None,
+        }
+    }
+
+    fn make_route(name: &str, method: HttpMethod, path: &str, auth: &str) -> RouteNode {
+        RouteNode {
+            name: name.into(),
+            method,
+            path: path.into(),
+            auth: auth.into(),
+            roles: vec![],
+            doc: None,
+        }
+    }
+
+    #[test]
+    fn c030_catches_public_post_on_shared_entity() {
+        let entity = make_shared_entity("Product");
+        let api = make_api("/products", vec![
+            make_route("create", HttpMethod::POST, "/", "public"),
+        ]);
+        let results = rule_shared_entity_auth(&[&entity], &[&api]);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].rule, "shared-entity-auth");
+        assert!(matches!(results[0].severity, Severity::Error));
+    }
+
+    #[test]
+    fn c030_catches_empty_auth_on_delete() {
+        let entity = make_shared_entity("Product");
+        let api = make_api("/products", vec![
+            make_route("delete", HttpMethod::DELETE, "/:id", ""),
+        ]);
+        let results = rule_shared_entity_auth(&[&entity], &[&api]);
+        assert_eq!(results.len(), 1);
+        assert!(results[0].message.contains("DELETE"));
+    }
+
+    #[test]
+    fn c030_allows_public_get_on_shared_entity() {
+        let entity = make_shared_entity("Product");
+        let api = make_api("/products", vec![
+            make_route("list", HttpMethod::GET, "/", "public"),
+        ]);
+        let results = rule_shared_entity_auth(&[&entity], &[&api]);
+        assert!(results.is_empty(), "GET on shared entity can be public: {:?}", results);
+    }
+
+    #[test]
+    fn c030_allows_authed_post_on_shared_entity() {
+        let entity = make_shared_entity("Product");
+        let api = make_api("/products", vec![
+            make_route("create", HttpMethod::POST, "/", "token"),
+        ]);
+        let results = rule_shared_entity_auth(&[&entity], &[&api]);
+        assert!(results.is_empty(), "authed POST should pass: {:?}", results);
+    }
+
+    #[test]
+    fn c030_ignores_non_shared_entity() {
+        let entity = EntityNode {
+            name: "Draft".into(),
+            fields: vec![],
+            shared: false,
+            doc: None,
+        };
+        let api = make_api("/drafts", vec![
+            make_route("create", HttpMethod::POST, "/", "public"),
+        ]);
+        let results = rule_shared_entity_auth(&[&entity], &[&api]);
+        assert!(results.is_empty(), "non-shared entity public POST is OK: {:?}", results);
+    }
+
+    #[test]
+    fn c030_catches_multiple_violations() {
+        let entity = make_shared_entity("Product");
+        let api = make_api("/products", vec![
+            make_route("create", HttpMethod::POST, "/", "public"),
+            make_route("update", HttpMethod::PATCH, "/:id", "none"),
+            make_route("list", HttpMethod::GET, "/", "public"),
+            make_route("delete", HttpMethod::DELETE, "/:id", ""),
+        ]);
+        let results = rule_shared_entity_auth(&[&entity], &[&api]);
+        assert_eq!(results.len(), 3, "should catch POST, PATCH, DELETE but not GET: {:?}", results);
+    }
+
+    // ── C031: no-sensitive-select ──
+
+    #[test]
+    fn c031_catches_sensitive_field_in_table_columns() {
+        let mut section = make_section("<table></table>");
+        section.section_type = "table".into();
+        section.config.insert("columns".into(), "name, email, password".into());
+        let fields = vec!["password".to_string()];
+        let results = rule_no_sensitive_select(&section, "table (/users)", "/users", &fields);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].rule, "no-sensitive-select");
+        assert!(results[0].message.contains("password"));
+    }
+
+    #[test]
+    fn c031_allows_non_sensitive_columns() {
+        let mut section = make_section("<table></table>");
+        section.section_type = "table".into();
+        section.config.insert("columns".into(), "name, email, role".into());
+        let fields = vec!["password".to_string()];
+        let results = rule_no_sensitive_select(&section, "table (/users)", "/users", &fields);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn c031_catches_sensitive_field_in_bind_filter() {
+        let mut section = make_section("<div></div>");
+        section.binding = Some(BindingNode {
+            entity: "User".into(),
+            query: QueryType::All,
+            filters: vec![FilterExpr {
+                field: "password".into(),
+                operator: FilterOp::Eq,
+                value: BindingValue::Str("test".into()),
+            }],
+            order: None,
+            limit: None,
+            offset: None,
+            group_by: None,
+            aggregate: None,
+        });
+        let fields = vec!["password".to_string()];
+        let results = rule_no_sensitive_select(&section, "table (/users)", "/users", &fields);
+        assert_eq!(results.len(), 1);
+        assert!(results[0].message.contains("filter"));
+    }
+
+    #[test]
+    fn c031_catches_sensitive_field_in_order_by() {
+        let mut section = make_section("<div></div>");
+        section.binding = Some(BindingNode {
+            entity: "User".into(),
+            query: QueryType::All,
+            filters: vec![],
+            order: Some(OrderExpr {
+                field: "secret_key".into(),
+                direction: OrderDirection::Asc,
+            }),
+            limit: None,
+            offset: None,
+            group_by: None,
+            aggregate: None,
+        });
+        let fields = vec!["secret_key".to_string()];
+        let results = rule_no_sensitive_select(&section, "table (/users)", "/users", &fields);
+        assert_eq!(results.len(), 1);
+        assert!(results[0].message.contains("order"));
+    }
+
+    #[test]
+    fn c031_catches_sensitive_field_in_group_by() {
+        let mut section = make_section("<div></div>");
+        section.binding = Some(BindingNode {
+            entity: "User".into(),
+            query: QueryType::All,
+            filters: vec![],
+            order: None,
+            limit: None,
+            offset: None,
+            group_by: Some(GroupByExpr {
+                field: "password".into(),
+                interval: None,
+            }),
+            aggregate: None,
+        });
+        let fields = vec!["password".to_string()];
+        let results = rule_no_sensitive_select(&section, "table (/users)", "/users", &fields);
+        assert_eq!(results.len(), 1);
+        assert!(results[0].message.contains("group_by"));
+    }
+
+    #[test]
+    fn c031_no_results_when_no_sensitive_fields() {
+        let mut section = make_section("<table></table>");
+        section.section_type = "table".into();
+        section.config.insert("columns".into(), "name, email".into());
+        let fields: Vec<String> = vec![];
+        let results = rule_no_sensitive_select(&section, "table (/users)", "/users", &fields);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn c031_only_checks_table_sections_for_columns() {
+        // hero section with columns config should NOT trigger C031 (not a table)
+        let mut section = make_section("<div></div>");
+        section.section_type = "hero".into();
+        section.config.insert("columns".into(), "name, password".into());
+        let fields = vec!["password".to_string()];
+        let results = rule_no_sensitive_select(&section, "hero (/)", "/", &fields);
+        assert!(results.is_empty(), "non-table section columns should not trigger C031");
     }
 }

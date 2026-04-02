@@ -1874,6 +1874,12 @@ async fn handle_request(
         return Ok(html_response(html));
     }
 
+    // Relationship graph — interactive Mermaid diagram
+    if path == "/docs/graph" && method == Method::GET {
+        let html = render_graph_page(&state);
+        return Ok(html_response(html));
+    }
+
     // GraphQL endpoint
     if path == "/graphql" && method == Method::GET {
         return Ok(html_response(graphql::playground_html()));
@@ -2679,12 +2685,14 @@ async fn cmd_run(args: &[String]) {
     // Save AST snapshot for changelog diffing
     save_ast_snapshot(&nodes);
 
-    // Create semantic memory session
+    // Create semantic memory session and extract business rules
     if let Ok(mem) = open_memory_db() {
         match mem.create_session(Some("cronus-run")) {
             Ok(sid) => println!("  \x1b[32m✓\x1b[0m Memory session: {}", &sid[..sid.len().min(20)]),
             Err(e) => eprintln!("  \x1b[33m⚠\x1b[0m Memory session failed: {}", e),
         }
+        // Auto-extract business rules from @business/@rule doc tags and constitution
+        memory::extract_and_store_business_rules(&mem, &nodes);
     }
 
     // Extract AST parts
@@ -10321,12 +10329,30 @@ fn render_auto_docs(state: &AppState) -> String {
                 "DELETE" => "#ef4444",
                 _ => "#ababab",
             };
+            let route_doc_html = if let Some(ref doc) = route.doc {
+                let mut parts = Vec::new();
+                if !doc.summary.is_empty() {
+                    parts.push(format!(r##"<div style="color:#ababab;font-size:12px;margin:4px 0 0 72px">{}</div>"##, doc.summary));
+                }
+                for tag in &doc.tags {
+                    let tag_color = match tag.name.as_str() {
+                        "param" => "#87adff",
+                        "returns" => "#10b981",
+                        "deprecated" => "#ef4444",
+                        "example" => "#f59e0b",
+                        _ => "#757575",
+                    };
+                    parts.push(format!(r##"<div style="color:{};font-size:11px;margin:2px 0 0 72px">@{} {}</div>"##, tag_color, tag.name, tag.value));
+                }
+                parts.join("")
+            } else { String::new() };
             routes_html.push_str(&format!(
-                r##"<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><span style="font-family:monospace;font-size:11px;font-weight:700;color:{color};min-width:60px">{method}</span><span style="font-family:monospace;font-size:13px;color:#e2e2e2">{path}</span><span style="font-size:11px;color:#ababab;margin-left:auto">{name}</span></div>"##,
+                r##"<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:12px"><span style="font-family:monospace;font-size:11px;font-weight:700;color:{color};min-width:60px">{method}</span><span style="font-family:monospace;font-size:13px;color:#e2e2e2">{path}</span><span style="font-size:11px;color:#ababab;margin-left:auto">{name}</span></div>{route_doc}</div>"##,
                 color = method_color,
                 method = method_str,
                 path = route.path,
                 name = route.name,
+                route_doc = route_doc_html,
             ));
         }
         api_html.push_str(&format!(
@@ -10345,9 +10371,28 @@ fn render_auto_docs(state: &AppState) -> String {
         let section_count = page.sections.len();
         let auth = if page.requires.is_some() { "auth required" } else { "public" };
         let auth_color = if page.requires.is_some() { "#f59e0b" } else { "#10b981" };
+        let page_doc_html = if let Some(ref doc) = page.doc {
+            let mut parts = Vec::new();
+            if !doc.summary.is_empty() {
+                parts.push(format!(r##"<div style="color:#ababab;font-size:12px;margin:4px 0 0 0">{}</div>"##, doc.summary));
+            }
+            if !doc.description.is_empty() {
+                parts.push(format!(r##"<div style="color:#757575;font-size:11px;margin:2px 0 0 0">{}</div>"##, doc.description));
+            }
+            for tag in &doc.tags {
+                let tag_color = match tag.name.as_str() {
+                    "requires" => "#f59e0b",
+                    "layout" => "#87adff",
+                    "since" => "#757575",
+                    _ => "#484848",
+                };
+                parts.push(format!(r##"<div style="color:{};font-size:10px;margin:2px 0 0 0">@{} {}</div>"##, tag_color, tag.name, tag.value));
+            }
+            parts.join("")
+        } else { String::new() };
         pages_html.push_str(&format!(
-            r##"<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:12px"><span style="font-family:monospace;font-size:14px;color:#87adff">{route}</span><span style="font-size:12px;color:#ababab">{title}</span></div><div style="display:flex;align-items:center;gap:12px"><span style="font-size:10px;color:#ababab">{sections} sections</span><span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.03);color:{auth_color}">{auth}</span></div></div>"##,
-            route = route, title = title, sections = section_count, auth = auth, auth_color = auth_color,
+            r##"<div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;justify-content:space-between;align-items:center"><div style="display:flex;align-items:center;gap:12px"><span style="font-family:monospace;font-size:14px;color:#87adff">{route}</span><span style="font-size:12px;color:#ababab">{title}</span></div><div style="display:flex;align-items:center;gap:12px"><span style="font-size:10px;color:#ababab">{sections} sections</span><span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.03);color:{auth_color}">{auth}</span></div></div>{page_doc}</div>"##,
+            route = route, title = title, sections = section_count, auth = auth, auth_color = auth_color, page_doc = page_doc_html,
         ));
     }
 
@@ -10810,6 +10855,102 @@ window.addEventListener('scroll',function(){{
         theme = theme_mode,
         content = content,
         toc = toc,
+    )
+}
+
+/// Relationship graph page — interactive Mermaid diagram of entity relations,
+/// page bindings, and webhook flows.
+fn render_graph_page(state: &AppState) -> String {
+    let app_name = &state.app.name;
+    let relationship_graph = graph::build_graph_from_state(
+        &state.entities, &state.pages, &state.webhooks,
+    );
+    let mermaid_code = graph::to_mermaid(&relationship_graph);
+    // Escape backticks and backslashes for safe JS embedding
+    let mermaid_escaped = mermaid_code
+        .replace('\\', "\\\\")
+        .replace('`', "\\`")
+        .replace("${", "\\${");
+
+    format!(r##"<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>{app_name} | Relationship Graph</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<style>
+body {{ background:#0e0e0e; color:#fff; font-family:'Inter',sans-serif; margin:0 }}
+::-webkit-scrollbar {{ width:4px }} ::-webkit-scrollbar-track {{ background:#0e0e0e }} ::-webkit-scrollbar-thumb {{ background:#262626;border-radius:10px }}
+.graph-container {{ padding:32px; display:flex; justify-content:center; align-items:flex-start; min-height:calc(100vh - 64px - 64px) }}
+.mermaid {{ background:#141414; border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:40px; min-width:600px; max-width:100%; overflow-x:auto }}
+.mermaid svg {{ max-width:100% }}
+.stats {{ display:flex; gap:24px; justify-content:center; padding:0 32px 24px; font-family:'Space Grotesk',sans-serif; font-size:13px; color:#757575 }}
+.stats span {{ background:#141414; border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:8px 16px }}
+.stats .count {{ color:#87adff; font-weight:700 }}
+</style>
+</head>
+<body>
+<header style="position:fixed;top:0;width:100%;z-index:50;height:64px;background:rgba(0,0,0,0.8);backdrop-filter:blur(40px);border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:space-between;padding:0 24px;box-sizing:border-box">
+  <div style="display:flex;align-items:center;gap:32px">
+    <span style="font-family:Space Grotesk,sans-serif;font-size:18px;font-weight:900;color:#fff;letter-spacing:-0.03em">{app_name}_DOCS</span>
+    <nav style="display:flex;gap:24px;font-family:Space Grotesk,sans-serif;font-weight:700;font-size:14px">
+      <a href="/docs" style="color:#757575;text-decoration:none">API Docs</a>
+      <a href="/docs/design" style="color:#757575;text-decoration:none">Design System</a>
+      <a href="/docs/graph" style="color:#fff;border-bottom:2px solid #87adff;padding-bottom:2px;text-decoration:none">Graph</a>
+      <a href="/" style="color:#757575;text-decoration:none">Dashboard</a>
+    </nav>
+  </div>
+</header>
+
+<div style="padding-top:80px">
+  <div class="stats">
+    <span>Entities <span class="count">{entity_count}</span></span>
+    <span>Relations <span class="count">{relation_count}</span></span>
+    <span>Page Bindings <span class="count">{binding_count}</span></span>
+    <span>Webhook Flows <span class="count">{webhook_count}</span></span>
+  </div>
+  <div class="graph-container">
+    <pre class="mermaid" id="graph">{mermaid_code}</pre>
+  </div>
+</div>
+
+<script>
+mermaid.initialize({{
+  startOnLoad: true,
+  theme: 'dark',
+  themeVariables: {{
+    primaryColor: '#87adff',
+    primaryTextColor: '#fff',
+    primaryBorderColor: '#87adff',
+    lineColor: '#555',
+    secondaryColor: '#d277ff',
+    tertiaryColor: '#141414',
+    background: '#0e0e0e',
+    mainBkg: '#1a1a1a',
+    nodeBorder: '#87adff',
+    clusterBkg: '#141414',
+    clusterBorder: '#262626',
+    titleColor: '#fff',
+    edgeLabelBackground: '#1a1a1a',
+    fontFamily: 'Space Grotesk, sans-serif',
+  }},
+  flowchart: {{
+    htmlLabels: true,
+    curve: 'basis',
+    padding: 20,
+  }},
+}});
+</script>
+</body>
+</html>"##,
+        app_name = app_name,
+        mermaid_code = mermaid_code,
+        entity_count = state.entities.iter().filter(|e| !e.name.starts_with('_')).count(),
+        relation_count = relationship_graph.entity_relations.len(),
+        binding_count = relationship_graph.page_bindings.len(),
+        webhook_count = relationship_graph.webhook_flows.len(),
     )
 }
 
