@@ -109,6 +109,18 @@ fn entity_to_json(e: &EntityNode) -> Value {
     if let Some(ref d) = e.doc {
         obj["doc"] = json!(d.summary);
     }
+    if !e.transitions.is_empty() {
+        let transitions: Vec<Value> = e.transitions.iter().map(|t| {
+            json!({
+                "field": t.field,
+                "rules": t.rules.iter().map(|r| json!({
+                    "from": r.from,
+                    "to": r.to,
+                })).collect::<Vec<Value>>(),
+            })
+        }).collect();
+        obj["transitions"] = json!(transitions);
+    }
     obj
 }
 

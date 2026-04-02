@@ -40,6 +40,12 @@ entity Deployment shared {
   status enum ["Live", "Rolling", "Failed", "Pending"] required
   /// Engineer who initiated the deploy
   deployed_by string
+
+  transition status {
+    Pending -> Rolling
+    Rolling -> Live | Failed
+    Failed -> Pending
+  }
 }
 
 entity SecurityEvent shared {

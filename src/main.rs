@@ -1870,6 +1870,18 @@ async fn handle_request_inner(
                         "tags": doc.tags.iter().map(|t| json!({"name": t.name, "value": t.value})).collect::<Vec<_>>(),
                     });
                 }
+                if !e.transitions.is_empty() {
+                    let transitions_json: Vec<Value> = e.transitions.iter().map(|t| {
+                        json!({
+                            "field": t.field,
+                            "rules": t.rules.iter().map(|r| json!({
+                                "from": r.from,
+                                "to": r.to,
+                            })).collect::<Vec<_>>(),
+                        })
+                    }).collect();
+                    ej["transitions"] = json!(transitions_json);
+                }
                 ej
             }).collect();
 
@@ -2701,6 +2713,16 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                         Some(data) => {
                             // Fetch current record before update for audit diff tracking
                             let prev_record = state.db.find_by_id(table, segments[1]).ok().flatten();
+
+                            // Validate state transitions if entity has transition rules
+                            if !entity.transitions.is_empty() {
+                                if let Some(ref current) = prev_record {
+                                    if let Err(err_body) = validate_transitions(entity, data, current) {
+                                        return json_response(StatusCode::CONFLICT, err_body);
+                                    }
+                                }
+                            }
+
                             match state.db.update(table, segments[1], data) {
                             Ok(row) => {
                                 fire_webhooks(&state.webhooks, table, "update", &row);
@@ -2747,6 +2769,70 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
     } else {
         json_response(StatusCode::NOT_FOUND, json!({"error": "unknown endpoint", "path": path}))
     }
+}
+
+/// Validate that a field transition is allowed by the entity's transition rules.
+/// Returns Ok(()) if no transition rules apply or if the transition is valid.
+/// Returns Err with a JSON value containing the error details if the transition is invalid.
+fn validate_transitions(
+    entity: &EntityNode,
+    update_data: &Value,
+    current_record: &Value,
+) -> Result<(), Value> {
+    for transition in &entity.transitions {
+        let field = &transition.field;
+
+        // Check if the update data includes this transition field
+        let new_value = match update_data.get(field).and_then(|v| v.as_str()) {
+            Some(v) => v,
+            None => continue, // Field not being updated, skip
+        };
+
+        // Get the current value from the existing record
+        let old_value = current_record
+            .get(field)
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+
+        // If old == new, no transition needed
+        if old_value == new_value {
+            continue;
+        }
+
+        // Find the rule for this old_value
+        let allowed: Vec<&str> = transition.rules.iter()
+            .filter(|r| r.from == old_value)
+            .flat_map(|r| r.to.iter().map(|s| s.as_str()))
+            .collect();
+
+        // If no rules found for the current state, check if it's a wildcard "*" rule
+        let allowed = if allowed.is_empty() {
+            transition.rules.iter()
+                .filter(|r| r.from == "*")
+                .flat_map(|r| r.to.iter().map(|s| s.as_str()))
+                .collect()
+        } else {
+            allowed
+        };
+
+        // If there are rules but the new value is not in the allowed targets, reject
+        if !allowed.is_empty() && !allowed.contains(&new_value) {
+            return Err(json!({
+                "error": format!(
+                    "Invalid transition: {} '{}' -> '{}' is not allowed",
+                    field, old_value, new_value
+                ),
+                "allowed": allowed,
+                "field": field,
+                "current": old_value,
+                "requested": new_value,
+            }));
+        }
+
+        // If no rules match the current state at all (not even wildcard), the transition is unconstrained
+        // (no rule = no restriction for that source state)
+    }
+    Ok(())
 }
 
 /// Fire webhooks in background for a given entity + event.
@@ -3083,6 +3169,7 @@ async fn cmd_run(args: &[String]) {
     let brain_entity = parser::EntityNode {
         name: "_brain_events".to_string(),
         shared: true,
+        transitions: Vec::new(),
         fields: vec![
             parser::FieldNode {
                 name: "event".to_string(),
@@ -10090,9 +10177,13 @@ fn cmd_reconcile(args: &[String]) {
                         merged_fields.push(field_b.clone());
                     }
                 }
+                // Merge transitions from both entities
+                let mut merged_transitions = a.transitions.clone();
+                merged_transitions.extend(b.transitions.clone());
                 merged.push(AstNode::Entity(EntityNode {
                     name: name.clone(),
                     fields: merged_fields,
+                    transitions: merged_transitions,
                     shared: a.shared || b.shared,
                     doc: None,
                 }));
@@ -10615,12 +10706,39 @@ fn render_auto_docs(state: &AppState) -> String {
             html
         } else { String::new() };
 
+        // Build transition diagram HTML if entity has transitions
+        let transitions_html = if !entity.transitions.is_empty() {
+            let mut html = String::new();
+            html.push_str(r##"<div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.05)"><div style="display:flex;align-items:center;gap:6px;margin-bottom:12px"><span class="material-symbols-outlined" style="font-size:16px;color:#d277ff">swap_horiz</span><span style="font-family:Space Grotesk,sans-serif;font-size:14px;font-weight:600;color:#d277ff">State Transitions</span></div>"##);
+            for t in &entity.transitions {
+                html.push_str(&format!(
+                    r##"<div style="margin-bottom:8px"><span style="color:#87adff;font-size:12px;font-family:monospace">{}</span></div>"##,
+                    t.field
+                ));
+                html.push_str(r##"<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">"##);
+                for rule in &t.rules {
+                    let targets = rule.to.join(", ");
+                    html.push_str(&format!(
+                        r##"<div style="background:rgba(210,119,255,0.06);border:1px solid rgba(210,119,255,0.15);border-radius:8px;padding:8px 12px;font-size:12px"><span style="color:#e2e2e2;font-family:monospace">{from}</span> <span style="color:#757575">-></span> <span style="color:#81ecff;font-family:monospace">{to}</span></div>"##,
+                        from = rule.from,
+                        to = targets,
+                    ));
+                }
+                html.push_str("</div>");
+            }
+            html.push_str("</div>");
+            html
+        } else {
+            String::new()
+        };
+
         entities_html.push_str(&format!(
-            r##"<div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);padding:24px;margin-bottom:16px"><div style="margin-bottom:16px"><div style="display:flex;align-items:center"><span style="font-family:Space Grotesk,sans-serif;font-size:18px;font-weight:700;color:#fff">{name}</span>{shared}</div>{doc}</div><div>{fields}</div></div>"##,
+            r##"<div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);padding:24px;margin-bottom:16px"><div style="margin-bottom:16px"><div style="display:flex;align-items:center"><span style="font-family:Space Grotesk,sans-serif;font-size:18px;font-weight:700;color:#fff">{name}</span>{shared}</div>{doc}</div><div>{fields}</div>{transitions}</div>"##,
             name = entity.name,
             shared = shared_badge,
             doc = entity_doc_html,
             fields = fields_html,
+            transitions = transitions_html,
         ));
     }
 

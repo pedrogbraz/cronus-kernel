@@ -1105,6 +1105,7 @@ mod tests {
                 },
             ],
             shared: false,
+            transitions: vec![],
             doc: None,
         }
     }
@@ -1370,6 +1371,7 @@ mod tests {
         EntityNode {
             name: name.into(),
             fields: vec![],
+            transitions: vec![],
             shared: true,
             doc: None,
         }
@@ -1442,6 +1444,7 @@ mod tests {
         let entity = EntityNode {
             name: "Draft".into(),
             fields: vec![],
+            transitions: vec![],
             shared: false,
             doc: None,
         };

@@ -82,8 +82,21 @@ pub struct AppNode {
 pub struct EntityNode {
     pub name: String,
     pub fields: Vec<FieldNode>,
+    pub transitions: Vec<TransitionNode>,
     pub shared: bool,
     pub doc: Option<DocComment>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TransitionNode {
+    pub field: String,
+    pub rules: Vec<TransitionRule>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TransitionRule {
+    pub from: String,
+    pub to: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -472,6 +485,7 @@ enum TokenKind {
     Path,
     EnvRef,
     Operator,
+    Pipe,
     DocComment,
     Eof,
 }
@@ -487,6 +501,7 @@ const KEYWORDS: &[&str] = &[
     "app", "entity", "api", "page", "style", "service", "section",
     "import", "compose", "use", "merge", "on", "worker", "component",
     "middleware", "env", "test", "webhook", "constitution", "must", "never",
+    "transition",
 ];
 
 const METHODS: &[&str] = &["GET", "POST", "PATCH", "PUT", "DELETE"];
@@ -550,6 +565,7 @@ fn tokenize(source: &str) -> Vec<Token> {
                 ']' => { tokens.push(Token { kind: TokenKind::RBracket, value: "]".into(), line: line_num }); i += 1; continue; }
                 ',' => { tokens.push(Token { kind: TokenKind::Comma, value: ",".into(), line: line_num }); i += 1; continue; }
                 '+' => { tokens.push(Token { kind: TokenKind::Plus, value: "+".into(), line: line_num }); i += 1; continue; }
+                '|' => { tokens.push(Token { kind: TokenKind::Pipe, value: "|".into(), line: line_num }); i += 1; continue; }
                 _ => {}
             }
 
@@ -982,10 +998,18 @@ impl Parser {
         self.expect(TokenKind::LBrace)?;
 
         let mut fields = Vec::new();
+        let mut transitions = Vec::new();
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
             // Collect doc-comments for the next field
             let field_doc = self.collect_doc_comments();
+
+            // Check for transition block
+            if self.matches(TokenKind::Keyword, Some("transition")) {
+                let transition = self.parse_transition(&fields)?;
+                transitions.push(transition);
+                continue;
+            }
 
             let pk = self.peek().kind;
             if pk == TokenKind::Identifier || pk == TokenKind::Keyword {
@@ -999,7 +1023,7 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(EntityNode { name, fields, shared, doc: None })
+        Ok(EntityNode { name, fields, transitions, shared, doc: None })
     }
 
     fn parse_field(&mut self) -> Result<Option<FieldNode>, String> {
@@ -1122,6 +1146,87 @@ impl Parser {
             min_length: str_min_len, max_length: str_max_len,
             pattern,
         }))
+    }
+
+    // ── transition (state machine) ──
+
+    fn parse_transition(&mut self, fields: &[FieldNode]) -> Result<TransitionNode, String> {
+        let kw_token = self.advance(); // consume "transition"
+        let field_name_token = self.peek().clone();
+        let field_name = self.advance().value;
+
+        // Validate: field must exist in the entity
+        let field = fields.iter().find(|f| f.name == field_name);
+        let field = match field {
+            Some(f) => f,
+            None => return Err(format!(
+                "Line {}: transition references unknown field '{}'",
+                field_name_token.line, field_name
+            )),
+        };
+
+        // Validate: field must be an enum type
+        if field.field_type != FieldType::Enum {
+            return Err(format!(
+                "Line {}: transition field '{}' must be an enum type, got {:?}",
+                field_name_token.line, field_name, field.field_type
+            ));
+        }
+
+        let enum_values = field.enum_values.as_ref().unwrap_or(&Vec::new()).clone();
+
+        self.expect(TokenKind::LBrace)?;
+
+        let mut rules = Vec::new();
+
+        while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+            let from_token = self.peek().clone();
+            let from = self.advance().value;
+
+            // Validate: from state must exist in enum values
+            if !enum_values.contains(&from) {
+                return Err(format!(
+                    "Line {}: transition state '{}' is not a valid value of enum field '{}'. Valid values: {:?}",
+                    from_token.line, from, field_name, enum_values
+                ));
+            }
+
+            self.expect(TokenKind::Arrow)?;
+
+            let mut to = Vec::new();
+            let first_to_token = self.peek().clone();
+            let first_target = self.advance().value;
+
+            // Validate first target
+            if !enum_values.contains(&first_target) {
+                return Err(format!(
+                    "Line {}: transition target '{}' is not a valid value of enum field '{}'. Valid values: {:?}",
+                    first_to_token.line, first_target, field_name, enum_values
+                ));
+            }
+            to.push(first_target);
+
+            // Parse additional targets separated by |
+            while self.matches(TokenKind::Pipe, None) {
+                self.advance(); // consume |
+                let target_token = self.peek().clone();
+                let target = self.advance().value;
+
+                if !enum_values.contains(&target) {
+                    return Err(format!(
+                        "Line {}: transition target '{}' is not a valid value of enum field '{}'. Valid values: {:?}",
+                        target_token.line, target, field_name, enum_values
+                    ));
+                }
+                to.push(target);
+            }
+
+            rules.push(TransitionRule { from, to });
+        }
+
+        self.expect(TokenKind::RBrace)?;
+
+        Ok(TransitionNode { field: field_name, rules })
     }
 
     // ── api ──
@@ -3268,5 +3373,198 @@ mod parser_tests {
         } else {
             panic!("Expected entity node");
         }
+    }
+
+    // ── Transition block tests ──
+
+    #[test]
+    fn transition_basic_parsing() {
+        let source = r#"
+entity Order {
+  status enum ["draft", "pending", "paid"]! default:"draft"
+
+  transition status {
+    draft   -> pending
+    pending -> paid
+  }
+}
+"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            assert_eq!(e.transitions.len(), 1);
+            let t = &e.transitions[0];
+            assert_eq!(t.field, "status");
+            assert_eq!(t.rules.len(), 2);
+            assert_eq!(t.rules[0].from, "draft");
+            assert_eq!(t.rules[0].to, vec!["pending"]);
+            assert_eq!(t.rules[1].from, "pending");
+            assert_eq!(t.rules[1].to, vec!["paid"]);
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn transition_multiple_targets_with_pipe() {
+        let source = r#"
+entity Order {
+  status enum ["draft", "pending", "paid", "cancelled"]! default:"draft"
+
+  transition status {
+    draft   -> pending
+    pending -> paid | cancelled
+  }
+}
+"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            let t = &e.transitions[0];
+            assert_eq!(t.rules[1].from, "pending");
+            assert_eq!(t.rules[1].to, vec!["paid", "cancelled"]);
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn transition_entity_without_transition_works() {
+        let source = r#"entity User { name string! }"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            assert!(e.transitions.is_empty());
+            assert_eq!(e.fields.len(), 1);
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn transition_invalid_from_state() {
+        let source = r#"
+entity Order {
+  status enum ["draft", "pending"]! default:"draft"
+
+  transition status {
+    nonexistent -> pending
+  }
+}
+"#;
+        let err = parse(source).err().expect("Expected parse error");
+        assert!(err.contains("nonexistent"), "Error should mention invalid state: {}", err);
+        assert!(err.contains("not a valid value"), "Error should explain it's not valid: {}", err);
+    }
+
+    #[test]
+    fn transition_invalid_to_state() {
+        let source = r#"
+entity Order {
+  status enum ["draft", "pending"]! default:"draft"
+
+  transition status {
+    draft -> nonexistent
+  }
+}
+"#;
+        let err = parse(source).err().expect("Expected parse error");
+        assert!(err.contains("nonexistent"), "Error should mention invalid target: {}", err);
+    }
+
+    #[test]
+    fn transition_field_does_not_exist() {
+        let source = r#"
+entity Order {
+  name string!
+
+  transition status {
+    draft -> pending
+  }
+}
+"#;
+        let err = parse(source).err().expect("Expected parse error");
+        assert!(err.contains("unknown field"), "Error should mention unknown field: {}", err);
+        assert!(err.contains("status"), "Error should mention 'status': {}", err);
+    }
+
+    #[test]
+    fn transition_on_non_enum_field() {
+        let source = r#"
+entity Order {
+  status string!
+
+  transition status {
+    draft -> pending
+  }
+}
+"#;
+        let err = parse(source).err().expect("Expected parse error");
+        assert!(err.contains("must be an enum"), "Error should require enum type: {}", err);
+    }
+
+    #[test]
+    fn transition_full_order_example() {
+        let source = r#"
+entity Order {
+  status enum ["draft", "pending", "paid", "shipped", "delivered", "cancelled"]! default:"draft"
+
+  transition status {
+    draft     -> pending
+    pending   -> paid | cancelled
+    paid      -> shipped | cancelled
+    shipped   -> delivered
+  }
+}
+"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            assert_eq!(e.fields.len(), 1);
+            assert_eq!(e.transitions.len(), 1);
+            let t = &e.transitions[0];
+            assert_eq!(t.rules.len(), 4);
+            assert_eq!(t.rules[0].from, "draft");
+            assert_eq!(t.rules[0].to, vec!["pending"]);
+            assert_eq!(t.rules[1].from, "pending");
+            assert_eq!(t.rules[1].to, vec!["paid", "cancelled"]);
+            assert_eq!(t.rules[2].from, "paid");
+            assert_eq!(t.rules[2].to, vec!["shipped", "cancelled"]);
+            assert_eq!(t.rules[3].from, "shipped");
+            assert_eq!(t.rules[3].to, vec!["delivered"]);
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn transition_multiple_pipe_targets() {
+        let source = r#"
+entity Ticket {
+  priority enum ["low", "medium", "high", "critical"]! default:"low"
+
+  transition priority {
+    low -> medium | high | critical
+  }
+}
+"#;
+        let ast = parse(source).unwrap();
+        if let AstNode::Entity(ref e) = ast[0] {
+            let t = &e.transitions[0];
+            assert_eq!(t.rules[0].to, vec!["medium", "high", "critical"]);
+        } else {
+            panic!("Expected entity node");
+        }
+    }
+
+    #[test]
+    fn transition_invalid_pipe_target() {
+        let source = r#"
+entity Order {
+  status enum ["draft", "pending", "paid"]! default:"draft"
+
+  transition status {
+    draft -> pending | nonexistent
+  }
+}
+"#;
+        let err = parse(source).err().expect("Expected parse error");
+        assert!(err.contains("nonexistent"), "Error should mention invalid pipe target: {}", err);
     }
 }

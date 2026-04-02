@@ -1048,6 +1048,7 @@ mod tests {
                     default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
                 },
             ],
+            transitions: vec![],
             doc: None,
         }
     }
@@ -1224,6 +1225,7 @@ mod tests {
                     pattern: Some("^[A-Z0-9-]+$".to_string()),
                 },
             ],
+            transitions: vec![],
             doc: None,
         }
     }
