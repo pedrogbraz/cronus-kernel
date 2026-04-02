@@ -3011,7 +3011,7 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str, bound_data: 
     };
 
     // If we have bound data, wrap with data attributes for downstream JS/rendering
-    match bound_data {
+    let output = match bound_data {
         crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => {
             let count = rows.len();
             format!(
@@ -3030,6 +3030,29 @@ fn render_section(section: &SectionNode, accent: &str, theme: &str, bound_data: 
             )
         }
         _ => section_html,
+    };
+
+    // Add data-cronus-debug attribute when DEBUG_MODE is active
+    if crate::DEBUG_MODE.load(std::sync::atomic::Ordering::Relaxed) {
+        let entity = section.binding.as_ref().map(|b| b.entity.as_str()).unwrap_or("");
+        let row_count = match bound_data {
+            crate::binding::ResolvedData::Rows(rows) => rows.len(),
+            crate::binding::ResolvedData::Count(n) => *n as usize,
+            _ => 0,
+        };
+        let doc_summary = section.doc.as_ref()
+            .map(|d| d.summary.replace('"', "\\\""))
+            .unwrap_or_default();
+        let debug_json = format!(
+            r#"{{"type":"{}","entity":"{}","rows":{},"doc":"{}"}}"#,
+            section.section_type, entity, row_count, doc_summary
+        );
+        format!(
+            "<div data-cronus-debug='{}'>{}</div>",
+            debug_json, output
+        )
+    } else {
+        output
     }
 }
 

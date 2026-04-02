@@ -539,8 +539,11 @@ pub const CRONUS_DEBUG_JS: &str = r#"
       var nonceScript=document.querySelector('script[nonce]');
       var sections=document.querySelectorAll('[data-section]').length;
       var entities=document.querySelectorAll('[data-entity],[data-list],[data-count]').length;
+      var w=window.innerWidth;
+      var bp=w>=1280?'XL (>=1280)':w>=1024?'LG (>=1024)':w>=768?'MD (>=768)':w>=640?'SM (>=640)':'XS (<640)';
       c.innerHTML='<div style="padding:8px 12px;">'
         +infoRow('Route',location.pathname)
+        +infoRow('Viewport',w+'\u00d7'+window.innerHeight+' \u2014 '+bp)
         +infoRow('Sections',sections)
         +infoRow('Entity bindings',entities)
         +infoRow('Auth',token?'Authenticated':'Not authenticated')
@@ -608,6 +611,24 @@ pub const CRONUS_DEBUG_JS: &str = r#"
   document.addEventListener('keydown',function(e){
     if((e.metaKey||e.ctrlKey)&&e.shiftKey&&e.key==='d'){e.preventDefault();togglePanel();}
   });
+
+  // --- Viewport resize tracking ---
+  window.addEventListener('resize',function(){if(state.open&&state.tab==='info') renderTab();});
+
+  // --- SSE debug event listener ---
+  (function(){
+    var es;
+    try{es=document.querySelector('script')&&window.EventSource?new window.EventSource('/api/sse'):null;}catch(e){return;}
+    if(!es) return;
+    es.addEventListener('debug',function(e){
+      try{
+        var d=JSON.parse(e.data);
+        state.requests.push({method:d.method,url:d.path,status:d.status,duration:d.ms,ts:Date.now()});
+        if(state.requests.length>100) state.requests.shift();
+        if(state.open&&state.tab==='network') renderTab();
+      }catch(err){}
+    });
+  })();
 
   // --- SPA navigation tracking ---
   var _pushState=history.pushState;

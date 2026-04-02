@@ -23,16 +23,29 @@ pub struct DataChangeEvent {
     pub id: String,
 }
 
+/// A debug event broadcast alongside data_change events when DEBUG_MODE is active.
+#[derive(Debug, Clone)]
+pub struct DebugEvent {
+    pub event_type: String, // "request", "error", etc.
+    pub method: String,
+    pub path: String,
+    pub status: u16,
+    pub duration_ms: u64,
+    pub query_count: u64,
+}
+
 /// Shared SSE hub — holds the broadcast sender.
 pub struct SseHub {
     tx: broadcast::Sender<DataChangeEvent>,
+    debug_tx: broadcast::Sender<DebugEvent>,
 }
 
 impl SseHub {
     /// Create a new hub with a broadcast channel (capacity 256 events).
     pub fn new() -> Self {
         let (tx, _) = broadcast::channel(256);
-        SseHub { tx }
+        let (debug_tx, _) = broadcast::channel(256);
+        SseHub { tx, debug_tx }
     }
 
     /// Broadcast a data change event to all connected SSE clients.
@@ -41,11 +54,17 @@ impl SseHub {
         let _ = self.tx.send(event);
     }
 
+    /// Broadcast a debug event (only meaningful when DEBUG_MODE is active).
+    pub fn broadcast_debug(&self, event: DebugEvent) {
+        let _ = self.debug_tx.send(event);
+    }
+
     /// Create an SSE response that streams events to the client.
     /// Returns a Response with `text/event-stream` content type.
     /// Includes a 30-second heartbeat to keep the connection alive.
     pub fn subscribe(&self) -> Response<StreamBody<impl futures_core::Stream<Item = Result<Frame<Bytes>, Infallible>>>> {
         let mut rx = self.tx.subscribe();
+        let mut debug_rx = self.debug_tx.subscribe();
 
         let body_stream = stream! {
             // Initial connection message
@@ -76,6 +95,29 @@ impl SseHub {
                                 );
                                 yield Ok(Frame::data(Bytes::from(payload)));
                             }
+                            Err(broadcast::error::RecvError::Closed) => {
+                                break;
+                            }
+                        }
+                    }
+                    debug_result = debug_rx.recv() => {
+                        match debug_result {
+                            Ok(evt) => {
+                                let data = json!({
+                                    "type": evt.event_type,
+                                    "method": evt.method,
+                                    "path": evt.path,
+                                    "status": evt.status,
+                                    "ms": evt.duration_ms,
+                                    "queries": evt.query_count,
+                                });
+                                let payload = format!(
+                                    "event: debug\ndata: {}\n\n",
+                                    data.to_string()
+                                );
+                                yield Ok(Frame::data(Bytes::from(payload)));
+                            }
+                            Err(broadcast::error::RecvError::Lagged(_)) => {}
                             Err(broadcast::error::RecvError::Closed) => {
                                 break;
                             }

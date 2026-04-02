@@ -268,10 +268,10 @@
     "securityevents"
   ],
   "style": {
-    "theme": "dark",
     "glow-3": "rgba(129,236,255,0.04)",
     "glow-2": "rgba(210,119,255,0.05)",
+    "accent": "font",
     "glow-1": "rgba(135,173,255,0.08)",
-    "accent": "font"
+    "theme": "dark"
   }
 }

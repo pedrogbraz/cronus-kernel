@@ -74,6 +74,8 @@ pub struct AppNode {
     pub tailwind_config: Option<String>,
     /// Unbreakable rules defined inline in the app block
     pub constitution: Option<ConstitutionNode>,
+    /// Doc-comment attached to the app block
+    pub doc: Option<DocComment>,
 }
 
 #[derive(Debug, Clone)]
@@ -774,7 +776,9 @@ impl Parser {
             } else if self.matches(TokenKind::Keyword, Some("compose")) {
                 nodes.push(AstNode::Compose(self.parse_compose()?));
             } else if self.matches(TokenKind::Keyword, Some("app")) {
-                nodes.push(AstNode::App(self.parse_app()?));
+                let mut a = self.parse_app()?;
+                a.doc = pending_doc.clone();
+                nodes.push(AstNode::App(a));
             } else if self.matches(TokenKind::Keyword, Some("entity")) {
                 let mut e = self.parse_entity()?;
                 e.doc = pending_doc.clone();
@@ -943,7 +947,7 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(AppNode { name, stack, port, database, tailwind_config: None, constitution })
+        Ok(AppNode { name, stack, port, database, tailwind_config: None, constitution, doc: None })
     }
 
     // ── entity ──

@@ -167,7 +167,7 @@ async fn main() {
         "brief" => cmd_brief(),
         "context" => cmd_context(&args),
         "sync" => cmd_sync(),
-        "handoff" => cmd_handoff(),
+        "handoff" => cmd_handoff(&args),
         "lease" => cmd_lease(&args),
         "drift" => cmd_drift(&args),
         "spec" => cmd_spec(&args),
@@ -431,11 +431,21 @@ fn cmd_graph(args: &[String]) {
 fn cmd_context(args: &[String]) {
     let compact = args.iter().any(|a| a == "--compact");
     let for_claude = args.iter().any(|a| a == "--for-claude");
+    let section_filter = args.windows(2)
+        .find(|w| w[0] == "--section")
+        .map(|w| w[1].clone());
 
-    // Find and parse .cronus file
+    // Find and parse .cronus file (skip --flag values)
+    let skip_values: Vec<&str> = vec!["--section", "--output", "--format"];
     let file = args.iter().skip(2)
-        .find(|a| !a.starts_with("--"))
-        .cloned()
+        .enumerate()
+        .filter(|(i, a)| {
+            !a.starts_with("--")
+            && !args.get(i + 1).map(|prev| skip_values.contains(&prev.as_str())).unwrap_or(false)
+            && !section_filter.as_ref().map(|sf| sf == a.as_str()).unwrap_or(false)
+        })
+        .map(|(_, a)| a.clone())
+        .next()
         .or_else(find_cronus_file)
         .unwrap_or_else(|| {
             eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found");
@@ -459,7 +469,7 @@ fn cmd_context(args: &[String]) {
     };
 
     // Extract AST parts
-    let mut app = AppNode { name: "CRONUS App".into(), stack: vec![], port: 5175, database: None, tailwind_config: None, constitution: None };
+    let mut app = AppNode { name: "CRONUS App".into(), stack: vec![], port: 5175, database: None, tailwind_config: None, constitution: None, doc: None };
     let mut entities: Vec<EntityNode> = vec![];
     let mut pages: Vec<PageNode> = vec![];
     let mut style: Option<StyleNode> = None;
@@ -692,10 +702,25 @@ fn cmd_context(args: &[String]) {
             ctx["rules"] = json!(rules);
         }
 
-        if compact {
-            println!("{}", serde_json::to_string(&ctx).unwrap());
+        // --section filter: extract just one key from the JSON object
+        let output = if let Some(ref section) = section_filter {
+            if let Some(val) = ctx.get(section) {
+                val.clone()
+            } else {
+                let valid: Vec<&str> = ctx.as_object()
+                    .map(|o| o.keys().map(|k| k.as_str()).collect())
+                    .unwrap_or_default();
+                eprintln!("  \x1b[31m✗\x1b[0m Unknown section '{}'. Valid: {}", section, valid.join(", "));
+                std::process::exit(1);
+            }
         } else {
-            println!("{}", serde_json::to_string_pretty(&ctx).unwrap());
+            ctx
+        };
+
+        if compact {
+            println!("{}", serde_json::to_string(&output).unwrap());
+        } else {
+            println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
     }
 }
@@ -1395,6 +1420,15 @@ async fn handle_request(
             duration_ms,
             query_count: queries,
             timestamp: iso_timestamp(),
+        });
+        // Broadcast debug event via SSE for the debug overlay
+        state.sse_hub.broadcast_debug(sse::DebugEvent {
+            event_type: "request".to_string(),
+            method: req_method_str.clone(),
+            path: req_path_str.clone(),
+            status,
+            duration_ms,
+            query_count: queries,
         });
         let sc = match status { 200..=299 => "\x1b[32m", 300..=399 => "\x1b[36m", 400..=499 => "\x1b[33m", _ => "\x1b[31m" };
         let tc = if duration_ms > 100 { "\x1b[33m" } else { "\x1b[90m" };
@@ -2904,7 +2938,7 @@ async fn cmd_run(args: &[String]) {
     }
 
     // Extract AST parts
-    let mut app = AppNode { name: "CRONUS App".into(), stack: vec![], port: 5175, database: None, tailwind_config: None, constitution: None };
+    let mut app = AppNode { name: "CRONUS App".into(), stack: vec![], port: 5175, database: None, tailwind_config: None, constitution: None, doc: None };
     let mut entities: Vec<EntityNode> = vec![];
     let mut pages: Vec<PageNode> = vec![];
     let mut style: Option<StyleNode> = None;
@@ -7996,9 +8030,45 @@ fn count_files_matching(dir: &str, suffix: &str) -> usize {
 // HANDOFF — session summary + task completion
 // ══════════════════════════════════════════════════
 
-fn cmd_handoff() {
+fn cmd_handoff(args: &[String]) {
     use std::path::Path;
     use std::process::Command;
+
+    // Parse --summary flag
+    let summary_text = args.windows(2)
+        .find(|w| w[0] == "--summary")
+        .map(|w| w[1].clone());
+
+    // Close active session in memory.db
+    {
+        let mem_path = Path::new(".cronus/memory.db");
+        if mem_path.exists() {
+            if let Ok(conn) = rusqlite::Connection::open_with_flags(
+                mem_path,
+                rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE,
+            ) {
+                // Find most recent session where ended_at IS NULL
+                let session_id: Option<String> = conn
+                    .query_row(
+                        "SELECT id FROM sessions WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1",
+                        [],
+                        |r| r.get(0),
+                    )
+                    .ok();
+
+                if let Some(ref sid) = session_id {
+                    let _ = conn.execute(
+                        "UPDATE sessions SET ended_at = datetime('now'), summary = ?1 WHERE id = ?2",
+                        rusqlite::params![summary_text, sid],
+                    );
+                    println!("  \x1b[32m✓\x1b[0m Session {} closed{}", sid,
+                        summary_text.as_ref().map(|s| format!(" — {}", s)).unwrap_or_default());
+                } else {
+                    println!("  \x1b[90mNo active session in memory.db\x1b[0m");
+                }
+            }
+        }
+    }
 
     // 1. Find the active task (first TASK-*.toml with status = "open")
     let mut active_task_path: Option<std::path::PathBuf> = None;
@@ -10470,6 +10540,7 @@ fn render_auto_docs(state: &AppState) -> String {
                     parts.push(format!(r##"<span style="color:#757575;font-size:11px;margin-left:8px">{}</span>"##, doc.summary));
                 }
                 for tag in &doc.tags {
+                    if tag.name == "ai" { continue; }
                     let tag_color = match tag.name.as_str() {
                         "example" => "#10b981",
                         "business" => "#f59e0b",
@@ -10495,7 +10566,7 @@ fn render_auto_docs(state: &AppState) -> String {
             if !doc.description.is_empty() {
                 html.push_str(&format!(r##"<p style="color:#757575;font-size:12px;margin:4px 0 0">{}</p>"##, doc.description));
             }
-            let tags_html: String = doc.tags.iter().map(|t| {
+            let tags_html: String = doc.tags.iter().filter(|t| t.name != "ai").map(|t| {
                 let color = match t.name.as_str() {
                     "owner" => "#87adff",
                     "lifecycle" => "#81ecff",
@@ -10544,6 +10615,7 @@ fn render_auto_docs(state: &AppState) -> String {
                     parts.push(format!(r##"<div style="color:#ababab;font-size:12px;margin:4px 0 0 72px">{}</div>"##, doc.summary));
                 }
                 for tag in &doc.tags {
+                    if tag.name == "ai" { continue; }
                     let tag_color = match tag.name.as_str() {
                         "param" => "#87adff",
                         "returns" => "#10b981",
@@ -10589,6 +10661,7 @@ fn render_auto_docs(state: &AppState) -> String {
                 parts.push(format!(r##"<div style="color:#757575;font-size:11px;margin:2px 0 0 0">{}</div>"##, doc.description));
             }
             for tag in &doc.tags {
+                if tag.name == "ai" { continue; }
                 let tag_color = match tag.name.as_str() {
                     "requires" => "#f59e0b",
                     "layout" => "#87adff",
@@ -10640,6 +10713,30 @@ fn render_auto_docs(state: &AppState) -> String {
         name = app_name, port = port,
     ));
 
+    // --- App doc-comment for Overview ---
+    let app_doc_html = if let Some(ref doc) = state.app.doc {
+        let mut html = String::new();
+        if !doc.summary.is_empty() {
+            html.push_str(&format!(r##"<p style="font-size:16px;color:#ababab;line-height:1.6;margin:16px 0 0">{}</p>"##, doc.summary));
+        }
+        if !doc.description.is_empty() {
+            html.push_str(&format!(r##"<p style="font-size:14px;color:#757575;line-height:1.6;margin:8px 0 0">{}</p>"##, doc.description));
+        }
+        let tags: Vec<String> = doc.tags.iter().filter(|t| t.name != "ai").map(|t| {
+            let color = match t.name.as_str() {
+                "version" => "#87adff",
+                "author" => "#81ecff",
+                "since" => "#757575",
+                _ => "#484848",
+            };
+            format!(r##"<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.03);color:{};margin-right:6px">@{} {}</span>"##, color, t.name, t.value)
+        }).collect();
+        if !tags.is_empty() {
+            html.push_str(&format!(r##"<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:4px">{}</div>"##, tags.join("")));
+        }
+        html
+    } else { String::new() };
+
     // --- Full page ---
     format!(
         r##"<!DOCTYPE html>
@@ -10688,6 +10785,7 @@ body {{ background:#0e0e0e; color:#fff; font-family:'Inter',sans-serif; margin:0
       </div>
       <h1 style="font-family:Space Grotesk,sans-serif;font-size:48px;font-weight:900;letter-spacing:-0.03em;margin:0 0 24px;background:linear-gradient(to right,#fff,#fff,#757575);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Documentation</h1>
       <p style="font-size:18px;color:#757575;line-height:1.6">Complete reference for <strong style="color:#ababab">{app_name}</strong>, auto-generated from the .cronus source. Every entity, API endpoint, and page is documented here — always in sync with the code.</p>
+      {app_doc}
     </header>
 
     <section style="margin-bottom:80px">
@@ -10827,6 +10925,7 @@ window.addEventListener('scroll',function(){{
         pages = pages_html,
         webhooks_section = if has_webhooks { webhooks_html } else { r#"<p style="color:#757575">No webhooks configured. Add a <code style="background:#191919;color:#87adff;padding:2px 6px;border-radius:4px;font-size:13px;font-family:monospace">webhook</code> block to your .cronus file.</p>"#.to_string() },
         cronus_preview = cronus_preview,
+        app_doc = app_doc_html,
         entity_count = state.entities.iter().filter(|e| !e.name.starts_with('_')).count(),
         api_count = state.apis.len(),
         page_count = state.pages.len(),
