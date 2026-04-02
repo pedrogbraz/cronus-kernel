@@ -35,6 +35,7 @@ async-stream = "0.3"
 tokio-stream = "0.1"
 futures-core = "0.3"
 scraper = "0.22"
+base64 = "0.22"
 
 [profile.release]
 opt-level = 3

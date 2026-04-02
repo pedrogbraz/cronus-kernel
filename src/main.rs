@@ -1,6 +1,7 @@
 #![allow(dead_code, unused_imports, unused_variables)]
 mod actions;
 mod animations;
+mod audit;
 mod auth;
 mod binding;
 mod board;
@@ -14,6 +15,7 @@ mod data_table;
 mod database;
 mod deploy;
 mod dump;
+mod export;
 mod feedback;
 mod graph;
 mod graphql;
@@ -119,6 +121,7 @@ async fn main() {
         "status" => cmd_status(),
         "changelog" => cmd_changelog(),
         "memory" => cmd_memory(&args),
+        "verify-audit" => cmd_verify_audit(&args),
         "version" | "-v" | "--version" => println!("cronus v0.1.0"),
         "help" | "--help" | "-h" | _ => print_help(),
     }
@@ -163,6 +166,7 @@ fn print_help() {
     println!("    \x1b[32mtimeline\x1b[0m         Task-based project history (newest first)");
     println!("    \x1b[32mstatus\x1b[0m           Semantic project overview (like git status for CRONUS)");
     println!("    \x1b[32mmemory\x1b[0m sessions|decisions|log|decide  Semantic memory across sessions");
+    println!("    \x1b[32mverify-audit\x1b[0m     Verify audit trail hash chain integrity");
     println!("    \x1b[32mversion\x1b[0m          Show version");
     println!();
 }
@@ -864,6 +868,7 @@ struct AppState {
     rate_limiter: rate_limit::RateLimiter,       // 100 req/60s for general API
     auth_rate_limiter: rate_limit::RateLimiter,  // 10 req/60s for auth endpoints
     sse_hub: Arc<sse::SseHub>,                   // SSE broadcast hub for real-time updates
+    audit_trail: audit::AuditTrail,              // Tamper-proof hash-chained audit log
 }
 
 fn cors_origin() -> String {
@@ -893,9 +898,14 @@ fn html_response(body: String) -> Response<Full<Bytes>> {
         let sse_script = format!("<script>{}</script>", sse::SSE_CLIENT_JS);
         final_body = final_body.replace("</body>", &format!("{}\n</body>", sse_script));
     }
+    // Generate per-request CSP nonce and inject into all <script> tags
+    let nonce = crate::security::generate_csp_nonce();
+    final_body = crate::security::inject_nonce_into_scripts(&final_body, &nonce);
+    let csp_value = crate::security::csp_header_value(&nonce);
     let mut builder = Response::builder()
         .status(StatusCode::OK)
-        .header("Content-Type", "text/html; charset=utf-8");
+        .header("Content-Type", "text/html; charset=utf-8")
+        .header("Content-Security-Policy", csp_value);
     for (k, v) in crate::security::security_headers() {
         builder = builder.header(k, v);
     }
@@ -1562,6 +1572,25 @@ async fn handle_request(
         let results = std::fs::read_to_string("/tmp/cronus-audit-results.json").unwrap_or_else(|_| "{}".into());
         let val: Value = serde_json::from_str(&results).unwrap_or(json!({"error": "no audit results yet"}));
         return Ok(json_response(StatusCode::OK, val));
+    }
+
+    // Audit trail endpoints -- tamper-proof hash-chained log
+    if path == "/api/audit/trail/verify" && method == Method::GET {
+        match state.audit_trail.verify() {
+            Ok(result) => return Ok(json_response(StatusCode::OK, result)),
+            Err(e) => return Ok(json_response(StatusCode::INTERNAL_SERVER_ERROR, json!({"error": e}))),
+        }
+    }
+    if (path == "/api/audit/trail" || path.starts_with("/api/audit/trail?")) && method == Method::GET {
+        let limit: usize = req.uri().query()
+            .and_then(|q| q.split('&').find(|p| p.starts_with("limit=")))
+            .and_then(|p| p.strip_prefix("limit="))
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(50);
+        match state.audit_trail.query(limit) {
+            Ok(entries) => return Ok(json_response(StatusCode::OK, entries)),
+            Err(e) => return Ok(json_response(StatusCode::INTERNAL_SERVER_ERROR, json!({"error": e}))),
+        }
     }
 
     // Health endpoint
@@ -2461,6 +2490,7 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                                 Ok(row) => {
                                     fire_webhooks(&state.webhooks, table, "create", &row);
                                     let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                                    let _ = state.audit_trail.log("INSERT", table, &row_id, owner_id, &row);
                                     state.sse_hub.broadcast(sse::DataChangeEvent {
                                         entity: table.to_string(),
                                         action: "created".to_string(),
@@ -2485,6 +2515,7 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                                 Ok(row) => {
                                     fire_webhooks(&state.webhooks, table, "create", &row);
                                     let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                                    let _ = state.audit_trail.log("INSERT", table, &row_id, owner_id, &row);
                                     state.sse_hub.broadcast(sse::DataChangeEvent {
                                         entity: table.to_string(),
                                         action: "created".to_string(),
@@ -2505,6 +2536,7 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                         Some(data) => match state.db.update(table, segments[1], data) {
                             Ok(row) => {
                                 fire_webhooks(&state.webhooks, table, "update", &row);
+                                let _ = state.audit_trail.log("UPDATE", table, segments[1], owner_id, &row);
                                 state.sse_hub.broadcast(sse::DataChangeEvent {
                                     entity: table.to_string(),
                                     action: "updated".to_string(),
@@ -2525,6 +2557,7 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                     match state.db.delete(table, segments[1]) {
                         Ok(true) => {
                             fire_webhooks(&state.webhooks, table, "delete", &json!({"id": segments[1], "entity": table}));
+                            let _ = state.audit_trail.log("DELETE", table, segments[1], owner_id, &json!({"id": segments[1]}));
                             state.sse_hub.broadcast(sse::DataChangeEvent {
                                 entity: table.to_string(),
                                 action: "deleted".to_string(),
@@ -2838,6 +2871,7 @@ async fn cmd_run(args: &[String]) {
     // Build app state (reuse app_db from migration)
 
     let sse_hub = Arc::new(sse::SseHub::new());
+    let audit_trail = audit::AuditTrail::open(&db_path).expect("Failed to open audit trail");
 
     let state = Arc::new(AppState {
         app: app.clone(),
@@ -2857,6 +2891,7 @@ async fn cmd_run(args: &[String]) {
         rate_limiter: rate_limit::RateLimiter::new(100, 60),
         auth_rate_limiter: rate_limit::RateLimiter::new(10, 60),
         sse_hub,
+        audit_trail,
     });
 
     // Start server
@@ -6174,7 +6209,7 @@ fn cmd_stats(_args: &[String]) {
     println!();
 }
 
-fn cmd_export(_args: &[String]) {
+fn cmd_export(args: &[String]) {
     let file = find_cronus_file().unwrap_or_else(|| {
         eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found"); std::process::exit(1);
     });
@@ -6182,11 +6217,44 @@ fn cmd_export(_args: &[String]) {
     let nodes = parser::parse(&source).unwrap_or_else(|e| {
         eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e); std::process::exit(1);
     });
-    let ir = deploy::generate_ir(&nodes);
-    let output = "cronus-project.ir.json";
-    fs::write(output, serde_json::to_string_pretty(&ir).unwrap()).unwrap();
-    let (e, p, r) = parser::stats(&nodes);
-    println!("  \x1b[32m✓\x1b[0m Exported to {} ({} entities, {} pages, {} routes)", output, e, p, r);
+
+    // Parse --format flag (default: json)
+    let format = args.iter()
+        .position(|a| a == "--format")
+        .and_then(|i| args.get(i + 1))
+        .map(|s| s.as_str())
+        .unwrap_or("json");
+
+    // Parse --output flag (optional: write to file instead of stdout)
+    let output_file = args.iter()
+        .position(|a| a == "--output" || a == "-o")
+        .and_then(|i| args.get(i + 1))
+        .cloned();
+
+    let result = match format {
+        "json" => export::export_json(&nodes),
+        "openapi" => export::export_openapi(&nodes),
+        "sql" => export::export_sql(&nodes),
+        "typescript" | "ts" => export::export_typescript(&nodes),
+        "ir" => {
+            // Legacy: export IR format
+            let ir = deploy::generate_ir(&nodes);
+            serde_json::to_string_pretty(&ir).unwrap()
+        }
+        other => {
+            eprintln!("  \x1b[31m✗\x1b[0m Unknown format: {}", other);
+            eprintln!("    Supported: json, openapi, sql, typescript (ts), ir");
+            std::process::exit(1);
+        }
+    };
+
+    if let Some(ref path) = output_file {
+        fs::write(path, &result).unwrap();
+        let (e, p, r) = parser::stats(&nodes);
+        eprintln!("  \x1b[32m✓\x1b[0m Exported {} to {} ({} entities, {} pages, {} routes)", format, path, e, p, r);
+    } else {
+        println!("{}", result);
+    }
 }
 
 fn cmd_test(args: &[String]) {
@@ -10290,6 +10358,50 @@ fn open_memory_db() -> Result<memory::SemanticMemory, String> {
     memory::SemanticMemory::open(".cronus/memory.db")
 }
 
+fn cmd_verify_audit(args: &[String]) {
+    let files = find_all_cronus_files();
+    if files.is_empty() {
+        eprintln!("  \x1b[31m✗\x1b[0m No .cronus files found");
+        return;
+    }
+
+    let source = std::fs::read_to_string(&files[0]).unwrap_or_default();
+    let nodes = match parser::parse(&source) {
+        Ok(n) => n,
+        Err(_) => vec![],
+    };
+    let db_path = nodes.iter().find_map(|n| {
+        if let AstNode::App(ref app) = n {
+            app.database.as_ref().and_then(|d| d.path.clone())
+        } else {
+            None
+        }
+    }).unwrap_or_else(|| "data.db".into());
+
+    println!();
+    println!("  \x1b[1mCRONUS Audit Trail Verification\x1b[0m");
+    println!("  Database: {}", db_path);
+    println!();
+
+    match audit::verify_from_file(&db_path) {
+        Ok(result) => {
+            let valid = result["valid"].as_bool().unwrap_or(false);
+            let entries = result["entries"].as_i64().unwrap_or(0);
+            if valid {
+                println!("  \x1b[32m✓\x1b[0m Chain intact -- {} entries verified", entries);
+            } else {
+                let broken_at = result["broken_at"].as_i64().unwrap_or(0);
+                let reason = result["reason"].as_str().unwrap_or("unknown");
+                println!("  \x1b[31m✗\x1b[0m Chain BROKEN at entry {} ({}) -- {} total entries", broken_at, reason, entries);
+            }
+        }
+        Err(e) => {
+            eprintln!("  \x1b[31m✗\x1b[0m Failed to verify: {}", e);
+        }
+    }
+    println!();
+}
+
 fn cmd_memory(args: &[String]) {
     let sub = args.get(2).map(|s| s.as_str()).unwrap_or("help");
 
@@ -10434,6 +10546,18 @@ fn save_ast_snapshot(nodes: &[AstNode]) {
             eprintln!("  \x1b[33m⚠\x1b[0m Failed to serialize AST snapshot: {}", e);
         }
     }
+}
+
+fn cmd_verify(args: &[String]) {
+    let file = find_cronus_file().unwrap_or_else(|| {
+        eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found"); std::process::exit(1);
+    });
+    let source = fs::read_to_string(&file).unwrap();
+    let nodes = parser::parse(&source).unwrap_or_else(|e| {
+        eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e); std::process::exit(1);
+    });
+    let (entities, pages, routes) = parser::stats(&nodes);
+    println!("  \x1b[32m✓\x1b[0m Verified: {} entities, {} pages, {} routes", entities, pages, routes);
 }
 
 fn cmd_changelog() {
