@@ -6,6 +6,7 @@
 
 use std::convert::Infallible;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use async_stream::stream;
 use bytes::Bytes;
@@ -35,9 +36,22 @@ pub struct DebugEvent {
 }
 
 /// Shared SSE hub — holds the broadcast sender.
+/// Uses tokio::sync::broadcast which automatically cleans up receivers when dropped.
+/// The active_connections counter tracks live SSE streams for monitoring.
 pub struct SseHub {
     tx: broadcast::Sender<DataChangeEvent>,
     debug_tx: broadcast::Sender<DebugEvent>,
+    active_connections: Arc<AtomicUsize>,
+}
+
+/// RAII guard that decrements the active connection counter when dropped.
+/// This ensures cleanup even if the SSE stream is abruptly terminated.
+struct SseConnectionGuard(Arc<AtomicUsize>);
+
+impl Drop for SseConnectionGuard {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::Relaxed);
+    }
 }
 
 impl SseHub {
@@ -45,7 +59,12 @@ impl SseHub {
     pub fn new() -> Self {
         let (tx, _) = broadcast::channel(256);
         let (debug_tx, _) = broadcast::channel(256);
-        SseHub { tx, debug_tx }
+        SseHub { tx, debug_tx, active_connections: Arc::new(AtomicUsize::new(0)) }
+    }
+
+    /// Number of currently active SSE connections (for monitoring/metrics).
+    pub fn connection_count(&self) -> usize {
+        self.active_connections.load(Ordering::Relaxed)
     }
 
     /// Broadcast a data change event to all connected SSE clients.
@@ -65,8 +84,13 @@ impl SseHub {
     pub fn subscribe(&self) -> Response<StreamBody<impl futures_core::Stream<Item = Result<Frame<Bytes>, Infallible>>>> {
         let mut rx = self.tx.subscribe();
         let mut debug_rx = self.debug_tx.subscribe();
+        let conn_counter = Arc::clone(&self.active_connections);
+        conn_counter.fetch_add(1, Ordering::Relaxed);
 
         let body_stream = stream! {
+            // Guard: decrement counter when stream ends (client disconnects)
+            let _guard = SseConnectionGuard(Arc::clone(&conn_counter));
+
             // Initial connection message
             yield Ok::<Frame<Bytes>, Infallible>(Frame::data(Bytes::from(
                 ": connected to CRONUS SSE\n\n"

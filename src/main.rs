@@ -45,6 +45,7 @@ mod security;
 mod ui;
 mod ast_diff;
 mod memory;
+mod resolve;
 
 use std::env;
 use std::fs;
@@ -3340,6 +3341,19 @@ async fn cmd_run(args: &[String]) {
     println!("  Press Ctrl+C to stop.");
     println!();
 
+    // Resolve pass — verify all cross-references (fatal errors)
+    let (_symbol_table, resolve_errors) = resolve::resolve(&nodes);
+    if !resolve_errors.is_empty() {
+        println!();
+        println!("  \x1b[1mResolve Pass\x1b[0m");
+        for e in &resolve_errors {
+            println!("{}", e);
+        }
+        println!();
+        println!("  \x1b[31m{} resolve error(s)\x1b[0m — aborting", resolve_errors.len());
+        std::process::exit(1);
+    }
+
     // Zero Hardcode Lint — run on startup (warnings only, never blocks)
     let lint_results = lint::lint_ast(&nodes, false);
     if !lint_results.is_empty() {
@@ -4613,6 +4627,23 @@ fn cmd_build(args: &[String]) {
             } else {
                 println!("  \x1b[32m✓\x1b[0m {} — {} entities, {} pages, {} routes", file, entities, pages, routes);
                 println!("  \x1b[32m✓\x1b[0m Valid .cronus file");
+            }
+
+            // Resolve pass — verify all cross-references (fatal errors)
+            let resolve_start = std::time::Instant::now();
+            let (_symbol_table, resolve_errors) = resolve::resolve(&nodes);
+            let resolve_ms = resolve_start.elapsed().as_millis();
+            if !resolve_errors.is_empty() {
+                println!();
+                println!("  \x1b[1mResolve Pass\x1b[0m");
+                for e in &resolve_errors {
+                    println!("{}", e);
+                }
+                println!();
+                println!("  \x1b[31m{} resolve error(s)\x1b[0m — build blocked ({}ms)", resolve_errors.len(), resolve_ms);
+                std::process::exit(1);
+            } else {
+                println!("  \x1b[32m✓\x1b[0m Resolve pass: all references valid ({}ms)", resolve_ms);
             }
 
             // Zero Hardcode Enforcement — 7 lint rules
