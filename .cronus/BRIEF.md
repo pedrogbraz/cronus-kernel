@@ -1,157 +1,136 @@
 # CRONUS Kernel Brief
 
-> Leia este arquivo ao iniciar qualquer sessao no cronus-kernel.
-> Ultima atualizacao: 2026-04-02
+> Read this file at the start of any session on cronus-kernel.
+> Last updated: 2026-04-02
 
-## O que e o CRONUS Kernel
+## What is CRONUS Kernel
 
-Compilador de linguagem `.cronus` → full-stack web app (HTML + API + SQLite). Um binario Rust, zero dependencias externas. 43 linhas de `.cronus` = CRUD completo com DB + API + UI + auth + seguranca.
+Compiler for `.cronus` language → full-stack web app (HTML + API + SQLite). One Rust binary, zero external dependencies. 43 lines of `.cronus` = complete CRUD with DB + API + UI + auth + security + docs.
 
-## Estado Atual
+## Current State
 
 - **Branch:** desenvolvimento
-- **Ultimo commit:** `27ac601` — security hardening + data isolation
+- **Last commit:** `5d5941e` — fix bugs from massive testing
 - **Build:** `cargo build` (3 warnings, 0 errors)
-- **Testes:** 17/18 passam (1 pre-existente em dump detector)
-- **App demo:** `/tmp/nova-core/` porta 5175 (precisa mover pra permanente)
+- **Tests:** 87/87 passing
+- **App demo:** `examples/nova-core/` port 5175
 
-## Arquitetura
+## Architecture
 
 ```
 src/
-├── main.rs          # HTTP server (hyper), request routing, auth endpoints
-├── parser.rs        # Tokenizer + parser (.cronus → AST)
-├── ui.rs            # Renderers (KPI, table, chart, modal, page-header, etc.)
-├── database.rs      # SQLite (rusqlite) — migration, CRUD, validation
-├── binding.rs       # Data binding (section bind Entity → DB query)
-├── auth.rs          # JWT signing/verification, password hashing
-├── security.rs      # HTML escape, SQL identifier validation, rate limiter, secure cookies
-├── data_table.rs    # Table renderer (light + dark, static + DB-driven)
-├── theme.rs         # Design system token extraction
-├── contracts.rs     # Section contract validation
-├── hardcode_lint.rs # Build-time hardcode detection
-├── sse.rs           # Server-Sent Events (infra pronta, nao integrada)
-├── server.rs        # Alternative API handler
-└── ...              # 20+ outros modulos
+├── main.rs              # HTTP server (hyper), request routing, auth, all endpoints
+├── parser.rs            # Tokenizer + parser (.cronus → AST) with /// doc-comments
+├── ui.rs                # Renderers (KPI, table, chart, modal, page-header, etc.)
+├── database.rs          # SQLite (rusqlite) — migration, CRUD, validation, query counter
+├── binding.rs           # Data binding (section bind Entity → DB query)
+├── auth.rs              # JWT signing/verification, Argon2id password hashing
+├── security.rs          # HTML escape, SQL validation, rate limiter, CSP nonces, secure cookies
+├── lint.rs              # Zero Hardcode Enforcement — 13 lint/compiler rules
+├── constitution_check.rs # Constitution enforcement (must/never rules)
+├── audit.rs             # Hash-chained audit trail with diff tracking
+├── memory.rs            # Semantic memory SQLite (sessions, decisions, changelog)
+├── ast_diff.rs          # AST-level semantic change tracking
+├── graph.rs             # Relationship graph (entities, pages, webhooks)
+├── export.rs            # Multi-format export (JSON, TypeScript, SQL, OpenAPI)
+├── sse.rs               # Server-Sent Events (data changes + debug stream)
+├── render.rs            # SPA runtime + debug overlay
+├── data_table.rs        # Table renderer (light + dark, static + DB-driven)
+├── theme.rs             # Design system token extraction
+├── contracts.rs         # Section contract validation
+├── brain.rs             # Pattern learning engine (request tracking)
+├── components.rs        # 40+ UI components
+├── runtime_js.rs        # Action/effect execution
+└── ...                  # 10+ other modules
 ```
 
-## Regras Inviolaveis
+## Unbreakable Rules (13)
 
-1. **ZERO hardcode** — nenhum dado visivel sem existir no DB
-2. **ZERO dados fake** — DB comeca vazio, seed proibido
-3. **Conta nova = zero dados** — `_owner_id` isola tudo
-4. **HTML escape obrigatorio** — `security::html_escape()` em todo output
-5. **SQL parameterizado** — nenhuma string interpolation
-6. **Cookies seguros** — HttpOnly + SameSite=Strict + Secure
-7. **Signup nunca e admin** — roles privilegiados bloqueados
+| Code | Rule | Severity |
+|------|------|----------|
+| C001 | No hardcoded metrics in templates | ERROR |
+| C002 | Sensitive fields never in HTML/API | ERROR |
+| C003 | Data sections must have bind/items | ERROR |
+| C010 | All links resolve to existing routes | ERROR |
+| C011 | Buttons must have action handlers | WARNING |
+| C012 | Forms must have submit handlers | WARNING |
+| C020 | Zero location.reload() | ERROR |
+| C030 | Shared entity mutations require auth | ERROR |
+| C031 | Sensitive fields blocked in columns/bind | ERROR |
+| P040 | SQL identifier validation | FATAL (parser) |
+| P041 | SQL reserved words blocked | FATAL (parser) |
+| no-fake-state | Static "Loading" text detected | WARNING |
+| no-hardcode-user | "System Admin" text detected | WARNING |
 
-## Seguranca Implementada
+## Security Stack
 
-| Camada | Status |
-|--------|--------|
-| Input validation (entity types) | DONE |
-| SQL parameterization | DONE |
-| Authentication (JWT) | DONE |
-| Authorization (_owner_id) | DONE |
-| HTML escaping (XSS prevention) | DONE |
-| Secure cookies + CORS | DONE |
-| Security headers | DONE |
-| Rate limiting (struct pronta) | PARTIAL |
-| Cryptographic integrity (row hashes) | PLANNED |
-| Audit trail (hash chain) | PLANNED |
+| Feature | Implementation |
+|---------|---------------|
+| Passwords | Argon2id (SHA-256 fallback) |
+| Auth | JWT HS256, secure cookies |
+| Rate limit | 10/60s auth, 100/60s API |
+| CSP | Per-request nonces |
+| Data isolation | _owner_id + shared keyword |
+| SQL injection | Parser validation P040/P041 |
+| XSS | html_escape() on all output |
+| Audit | SHA-256 hash chain, diff tracking |
 
-## Como a Linguagem Funciona
+## Self-Documenting Code
 
 ```cronus
-app "My App" {
-  stack fullstack
-  port 5175
-  database sqlite "./data.db"
-  theme dark
-}
-
-entity Deployment {
+/// Tracks deploys in production.
+/// @owner sre-team
+/// @business "Failed" triggers PagerDuty
+entity Deployment shared {
+  /// Unique ID (format: DPL-XXXX)
+  /// @example "DPL-5001"
   deploy_id string required
-  service string required
-  cluster string required
-  status enum ["Live", "Rolling", "Failed"] required
 }
 
-api /deployments {
-  list   GET    /deployments
-  create POST   /deployments
-}
-
-define SharedChrome {
-  section topbar { ... }
-  section sidebar { ... }
-  section modal id:"new-deploy" entity:"Deployment" { ... }
-}
-
-page "/deployments" type:custom {
-  use SharedChrome
-  section kpi cols:4 {
-    bind KpiSnapshot { where page eq "deployments" }
-  }
-  section table style:dark {
-    columns "Deploy ID, Service, Status"
-    bind Deployment { query all order created_at desc }
-  }
-}
-
-page "/login" type:custom {
-  section hero {
-    template "..." # glassmorphic login form
+app "Nova Core" {
+  constitution {
+    must "all data sections require bind"
+    never "expose passwords in API responses"
   }
 }
 ```
 
-## Conceitos Chave
+## AI Context Protocol
 
-- **entity** → tabela SQLite auto-migrada + CRUD API
-- **bind** → conecta section ao DB (query all/one/count + where/order/limit)
-- **define/use** → componentes reutilizaveis (sidebar, topbar, modal, footer)
-- **section modal** → modal glassmorphic com entity binding + form submit
-- **_owner_id** → injetado automaticamente, filtra por user autenticado
-- **section kpi/table/chart** → renderers smart que aceitam bind
-- **style { glow-1/2/3 }** → gradient backgrounds customizaveis
-- **type:custom** com template → tem prioridade sobre auto-detect
+```bash
+cronus context                    # Full project JSON
+cronus context --for-claude       # AI-optimized Markdown
+cronus context --section entities # Filter
+GET /api/_context                 # HTTP endpoint
+```
 
-## Portas
+## CLI Commands
 
-| Servico | Porta |
-|---------|-------|
-| Nova Core (demo) | 5175 |
-| CRONUS Daemon | 4800 |
-| CRONUS Dashboard | 4803 |
+`run, debug, build, context, changelog, graph, doctor, memory, handoff, export, generate, verify-audit, brief, parse, stats, new, deploy, test`
+
+## Auto-Generated Endpoints
+
+`/docs, /docs/design, /docs/graph, /graphql, /api/_context, /api/_health, /api/audit/trail, /api/audit/trail/verify, /api/debug/traces, /api/debug/stream, /api/sse, /api/auth/*, /api/{entity}`
 
 ## Build/Test
 
 ```bash
 cd /home/zedd/Documentos/CRONUS/cronus-kernel
-cargo build        # Compilar
-cargo test         # Rodar testes
-cronus run         # Rodar app no diretorio atual
-cronus build --strict  # Detectar hardcode
+cargo build                    # Compile
+cargo test                     # 87 tests
+cd examples/nova-core
+../../target/debug/cronus run  # Run Nova Core on :5175
+../../target/debug/cronus build --strict  # Full validation
+../../target/debug/cronus debug  # Run with debug overlay
+../../target/debug/cronus doctor # 10-check health diagnostic
+../../target/debug/cronus context --for-claude  # AI context
 ```
 
-## Sessoes
+## Sessions
 
-| Data | Arquivo | Resumo |
-|------|---------|--------|
-| 2026-04-01 tarde | SESSION-2026-04-01-EVENING.md | 12 features, dump renderers, define/use, theme tokens |
-| 2026-04-01 noite | SESSION-2026-04-01-NIGHT.md | DB-driven pages, animations, modals, responsive |
-| 2026-04-02 | SESSION-2026-04-02.md | Security hardening, data isolation, login, zero hardcode |
-| 2026-04-02 | SECURITY-AUDIT-2026-04-02.md | 12 vulnerabilities found + fixed |
-
-## Proximos Passos
-
-1. Argon2id pra password hashing
-2. Audit trail com hash chain (_audit_log)
-3. Row hashes (HMAC-SHA256) pra tamper detection
-4. CSP com nonces per-request
-5. Rate limiting ativo nos endpoints
-6. `cronus verify` CLI pra verificar integridade offline
-7. `/api/_integrity` endpoint
-8. Mover /tmp/nova-core pra path permanente
-9. SSE real-time (infra pronta em sse.rs)
+| Date | File | Summary |
+|------|------|---------|
+| 2026-04-01 tarde | SESSION-2026-04-01-EVENING.md | 12 features, dump renderers, define/use |
+| 2026-04-01 noite | SESSION-2026-04-01-NIGHT.md | DB-driven pages, animations, modals |
+| 2026-04-02 early | SESSION-2026-04-02.md | Security hardening, data isolation |
+| 2026-04-02 full | SESSION-2026-04-02-FULL.md | **11 commits, 3 SDDs, 10.8k lines** |
