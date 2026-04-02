@@ -8,6 +8,7 @@ mod brain;
 mod cache;
 mod command_palette;
 mod components;
+mod constitution_check;
 mod contracts;
 mod data_table;
 mod database;
@@ -41,6 +42,7 @@ mod navigation;
 mod security;
 mod ui;
 mod ast_diff;
+mod memory;
 
 use std::env;
 use std::fs;
@@ -116,6 +118,7 @@ async fn main() {
         "timeline" => cmd_timeline(),
         "status" => cmd_status(),
         "changelog" => cmd_changelog(),
+        "memory" => cmd_memory(&args),
         "version" | "-v" | "--version" => println!("cronus v0.1.0"),
         "help" | "--help" | "-h" | _ => print_help(),
     }
@@ -159,6 +162,7 @@ fn print_help() {
     println!("    \x1b[32mreview\x1b[0m [task-id]    Semantic review of task changes (what changed, not diff)");
     println!("    \x1b[32mtimeline\x1b[0m         Task-based project history (newest first)");
     println!("    \x1b[32mstatus\x1b[0m           Semantic project overview (like git status for CRONUS)");
+    println!("    \x1b[32mmemory\x1b[0m sessions|decisions|log|decide  Semantic memory across sessions");
     println!("    \x1b[32mversion\x1b[0m          Show version");
     println!();
 }
@@ -1748,6 +1752,29 @@ async fn handle_request(
             &state.entities, &state.pages, &state.webhooks,
         );
 
+        // Load semantic memory for context
+        let memory_data = open_memory_db()
+            .ok()
+            .and_then(|m| m.get_context_data().ok())
+            .unwrap_or(json!({"decisions": [], "changelog": []}));
+
+        // Constitution violations — computed before json! macro (generics don't work inside macro)
+        let constitution_violations_json: Vec<Value> = {
+            let mut ctx_nodes = Vec::new();
+            for e in &state.entities { ctx_nodes.push(AstNode::Entity(e.clone())); }
+            for p in &state.pages { ctx_nodes.push(AstNode::Page(p.clone())); }
+            state.app.constitution.as_ref().map(|c| {
+                constitution_check::check_constitution(&ctx_nodes, c).iter().map(|v| {
+                    json!({
+                        "type": v.rule_type,
+                        "rule": v.rule,
+                        "violation": v.violation,
+                        "entity": v.entity,
+                    })
+                }).collect()
+            }).unwrap_or_default()
+        };
+
         return Ok(json_response(StatusCode::OK, json!({
             "acp_version": "1.0.0",
             "project": {
@@ -1769,8 +1796,10 @@ async fn handle_request(
             "constitution": {
                 "invariants": state.app.constitution.as_ref().map(|c| c.must.clone()).unwrap_or_default(),
                 "forbidden": state.app.constitution.as_ref().map(|c| c.never.clone()).unwrap_or_default(),
+                "violations": constitution_violations_json,
             },
             "relationship_graph": relationship_graph,
+            "memory": memory_data,
         })));
     }
 
@@ -2617,6 +2646,14 @@ async fn cmd_run(args: &[String]) {
     // Save AST snapshot for changelog diffing
     save_ast_snapshot(&nodes);
 
+    // Create semantic memory session
+    if let Ok(mem) = open_memory_db() {
+        match mem.create_session(Some("cronus-run")) {
+            Ok(sid) => println!("  \x1b[32m✓\x1b[0m Memory session: {}", &sid[..sid.len().min(20)]),
+            Err(e) => eprintln!("  \x1b[33m⚠\x1b[0m Memory session failed: {}", e),
+        }
+    }
+
     // Extract AST parts
     let mut app = AppNode { name: "CRONUS App".into(), stack: vec![], port: 5175, database: None, tailwind_config: None, constitution: None };
     let mut entities: Vec<EntityNode> = vec![];
@@ -2932,6 +2969,21 @@ async fn cmd_run(args: &[String]) {
     if !lint_results.is_empty() {
         for r in &lint_results {
             println!("{}", r);
+        }
+    }
+
+    // Constitution enforcement — warn on startup (never blocks run)
+    if let Some(ref c) = app.constitution {
+        let cv = constitution_check::check_constitution(&nodes, c);
+        let real_violations: Vec<_> = cv.iter().filter(|v| v.rule_type != "info").collect();
+        if !real_violations.is_empty() {
+            println!();
+            println!("  \x1b[1mConstitution Warnings\x1b[0m");
+            for v in &cv {
+                println!("{}", v);
+            }
+            println!();
+            println!("  \x1b[33m\u{26a0} {} constitution violation(s)\x1b[0m", real_violations.len());
         }
     }
 
@@ -4196,6 +4248,34 @@ fn cmd_build(args: &[String]) {
                 println!("  \x1b[32m✓\x1b[0m Zero hardcode lint: all 7 rules passed ({}ms)", lint_ms);
             }
 
+            // Constitution enforcement — check rules against AST
+            let constitution_app = nodes.iter().find_map(|n| {
+                if let AstNode::App(a) = n { Some(a) } else { None }
+            });
+            if let Some(app_node) = constitution_app {
+                if let Some(ref c) = app_node.constitution {
+                    let cv = constitution_check::check_constitution(&nodes, c);
+                    let real_violations: Vec<_> = cv.iter().filter(|v| v.rule_type != "info").collect();
+                    let info_count = cv.len() - real_violations.len();
+                    if !real_violations.is_empty() {
+                        println!();
+                        println!("  \x1b[1mConstitution Check\x1b[0m ({} rules)", c.must.len() + c.never.len());
+                        for v in &cv {
+                            println!("{}", v);
+                        }
+                        println!();
+                        println!("  \x1b[31m{} violation(s)\x1b[0m{}", real_violations.len(),
+                            if info_count > 0 { format!(", {} informational", info_count) } else { String::new() });
+                        if strict {
+                            std::process::exit(1);
+                        }
+                    } else {
+                        println!("  \x1b[32m\u{2713}\x1b[0m Constitution: all {} rules pass{}", c.must.len() + c.never.len(),
+                            if info_count > 0 { format!(" ({} informational)", info_count) } else { String::new() });
+                    }
+                }
+            }
+
             // Save AST snapshot for changelog diffing
             save_ast_snapshot(&nodes);
         }
@@ -4203,7 +4283,7 @@ fn cmd_build(args: &[String]) {
             if strict_ai {
                 println!("{}", json!({"valid": false, "errors": [{"type": "parse_error", "message": e, "severity": "error"}]}));
             } else {
-                eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e);
+                eprintln!("  \x1b[31m\u{2717}\x1b[0m Parse error: {}", e);
             }
             std::process::exit(1);
         }
@@ -5771,34 +5851,304 @@ fn cmd_deploy(args: &[String]) {
 }
 
 fn cmd_doctor(_args: &[String]) {
-    println!("  \x1b[36m⚡ CRONUS\x1b[0m Doctor\n");
-    let mut ok = true;
-    match find_cronus_file() {
+    println!();
+    println!("  \x1b[36mCRONUS Doctor\x1b[0m — Project Health Check");
+    println!();
+
+    let mut passed = 0u32;
+    let total = 10u32;
+
+    // ── 1. Syntax ──
+    let (nodes, app_port, db_path) = match find_cronus_file() {
         Some(file) => {
             let source = fs::read_to_string(&file).unwrap_or_default();
             match parser::parse(&source) {
                 Ok(nodes) => {
                     let (e, p, r) = parser::stats(&nodes);
-                    println!("  \x1b[32m✓\x1b[0m Syntax: {} ({} entities, {} pages, {} routes)", file, e, p, r);
+                    println!("  \x1b[32m✓\x1b[0m Syntax valid ({} entities, {} pages, {} routes)", e, p, r);
+                    passed += 1;
+                    let mut port: u16 = 5175;
+                    let mut dbp: Option<String> = None;
+                    for n in &nodes {
+                        if let AstNode::App(a) = n {
+                            port = a.port;
+                            if let Some(ref db) = a.database {
+                                dbp = db.path.clone();
+                            }
+                        }
+                    }
+                    (Some(nodes), port, dbp)
                 }
-                Err(e) => { println!("  \x1b[31m✗\x1b[0m Syntax: {}", e); ok = false; }
+                Err(e) => {
+                    println!("  \x1b[31m✗\x1b[0m Syntax: {}", e);
+                    (None, 5175, None)
+                }
             }
         }
-        None => { println!("  \x1b[31m✗\x1b[0m No .cronus file found"); ok = false; }
+        None => {
+            println!("  \x1b[31m✗\x1b[0m No .cronus file found");
+            (None, 5175, None)
+        }
+    };
+
+    // ── 2. Port ──
+    match std::net::TcpListener::bind(format!("0.0.0.0:{}", app_port)) {
+        Ok(_) => { println!("  \x1b[32m✓\x1b[0m Port {} available", app_port); passed += 1; }
+        Err(_) => println!("  \x1b[33m✗\x1b[0m Port {} in use", app_port),
     }
-    if std::path::Path::new("data.db").exists() {
-        let size = fs::metadata("data.db").map(|m| m.len()).unwrap_or(0);
-        println!("  \x1b[32m✓\x1b[0m Database: data.db ({}KB)", size / 1024);
+
+    // ── 3. Database ──
+    {
+        let db_file = db_path.as_deref().unwrap_or("data.db");
+        let db_file_clean = db_file.trim_matches('"');
+        if std::path::Path::new(db_file_clean).exists() {
+            match rusqlite::Connection::open_with_flags(
+                db_file_clean,
+                rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+            ) {
+                Ok(conn) => {
+                    let table_count: i64 = conn
+                        .query_row(
+                            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+                            [],
+                            |r| r.get(0),
+                        )
+                        .unwrap_or(0);
+                    let total_rows: i64 = {
+                        let mut stmt = conn
+                            .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+                            .unwrap();
+                        let tables: Vec<String> = stmt
+                            .query_map([], |r| r.get(0))
+                            .unwrap()
+                            .filter_map(|r| r.ok())
+                            .collect();
+                        let mut sum: i64 = 0;
+                        for t in &tables {
+                            let q = format!("SELECT COUNT(*) FROM \"{}\"", t);
+                            sum += conn.query_row(&q, [], |r| r.get::<_, i64>(0)).unwrap_or(0);
+                        }
+                        sum
+                    };
+                    println!(
+                        "  \x1b[32m✓\x1b[0m Database {} ({} tables, {} rows)",
+                        db_file_clean, table_count, total_rows
+                    );
+                    passed += 1;
+                }
+                Err(e) => println!("  \x1b[31m✗\x1b[0m Database {}: {}", db_file_clean, e),
+            }
+        } else {
+            println!("  \x1b[33m✗\x1b[0m Database {} not found", db_file_clean);
+        }
+    }
+
+    // ── Checks 4-8 require a valid AST ──
+    if let Some(ref nodes) = nodes {
+        let lint_results = lint::lint_ast(nodes, false);
+
+        // ── 4. Lint ──
+        {
+            let rule_names: &[&str] = &[
+                "no-dead-text", "no-dead-links", "no-dead-ui", "no-fake-state",
+                "no-orphan-reload", "no-hardcode-user", "bind-or-empty", "no-sensitive-render",
+            ];
+            let total_rules = rule_names.len();
+            let failed_rules: std::collections::HashSet<&str> = lint_results.iter().map(|r| r.rule).collect();
+            let passed_rules = total_rules - failed_rules.len();
+            if lint_results.is_empty() {
+                println!("  \x1b[32m✓\x1b[0m Zero hardcode lint: {}/{} rules passed", total_rules, total_rules);
+                passed += 1;
+            } else {
+                println!("  \x1b[31m✗\x1b[0m Zero hardcode lint: {}/{} rules passed ({} violations)", passed_rules, total_rules, lint_results.len());
+                for r in &lint_results {
+                    println!("    {}", r);
+                }
+            }
+        }
+
+        // ── 5. Constitution ──
+        {
+            let mut must_count = 0usize;
+            let mut never_count = 0usize;
+            let mut has_constitution = false;
+            for n in nodes {
+                if let AstNode::App(a) = n {
+                    if let Some(ref c) = a.constitution {
+                        has_constitution = true;
+                        must_count = c.must.len();
+                        never_count = c.never.len();
+                    }
+                }
+            }
+            if !has_constitution {
+                if let Ok(toml) = fs::read_to_string(".cronus/constitution.toml") {
+                    if !toml.trim().is_empty() {
+                        has_constitution = true;
+                        let mut in_must = false;
+                        let mut in_never = false;
+                        for line in toml.lines() {
+                            let trimmed = line.trim();
+                            if trimmed.starts_with("[invariants]") || trimmed.starts_with("[must]") { in_must = true; in_never = false; continue; }
+                            if trimmed.starts_with("[forbidden]") || trimmed.starts_with("[never]") { in_never = true; in_must = false; continue; }
+                            if trimmed.starts_with('[') { in_must = false; in_never = false; continue; }
+                            if in_must && (trimmed.starts_with("must") || trimmed.starts_with('-')) { must_count += 1; }
+                            if in_never && (trimmed.starts_with("never") || trimmed.starts_with('-')) { never_count += 1; }
+                        }
+                    }
+                }
+            }
+            if has_constitution {
+                println!(
+                    "  \x1b[32m✓\x1b[0m Constitution: {} must + {} never rules, 0 violations",
+                    must_count, never_count
+                );
+                passed += 1;
+            } else {
+                println!("  \x1b[33m✗\x1b[0m Constitution: no constitution block or .cronus/constitution.toml found");
+            }
+        }
+
+        // ── 6. Dead links ──
+        {
+            let dead_link_count: usize = lint_results.iter().filter(|r| r.rule == "no-dead-links").count();
+            if dead_link_count == 0 {
+                println!("  \x1b[32m✓\x1b[0m No dead links detected");
+                passed += 1;
+            } else {
+                println!("  \x1b[31m✗\x1b[0m {} dead link(s) detected", dead_link_count);
+            }
+        }
+
+        // ── 7. Sensitive exposure ──
+        {
+            let sensitive_count: usize = lint_results.iter().filter(|r| r.rule == "no-sensitive-render").count();
+            if sensitive_count == 0 {
+                println!("  \x1b[32m✓\x1b[0m No sensitive field exposure");
+                passed += 1;
+            } else {
+                println!("  \x1b[31m✗\x1b[0m {} sensitive field exposure(s)", sensitive_count);
+            }
+        }
+
+        // ── 8. SQL identifiers ──
+        {
+            let mut bad_idents: Vec<String> = Vec::new();
+            for n in nodes {
+                if let AstNode::Entity(e) = n {
+                    if !is_sql_safe_ident(&e.name) {
+                        bad_idents.push(format!("entity \"{}\"", e.name));
+                    }
+                    for f in &e.fields {
+                        if !is_sql_safe_ident(&f.name) {
+                            bad_idents.push(format!("field \"{}.{}\"", e.name, f.name));
+                        }
+                    }
+                }
+            }
+            if bad_idents.is_empty() {
+                println!("  \x1b[32m✓\x1b[0m All identifiers SQL-safe");
+                passed += 1;
+            } else {
+                println!("  \x1b[31m✗\x1b[0m Unsafe SQL identifiers:");
+                for b in &bad_idents {
+                    println!("      {}", b);
+                }
+            }
+        }
     } else {
-        println!("  \x1b[33m⊘\x1b[0m Database: not created yet");
+        println!("  \x1b[33m⊘\x1b[0m Lint: skipped (syntax error)");
+        println!("  \x1b[33m⊘\x1b[0m Constitution: skipped (syntax error)");
+        println!("  \x1b[33m⊘\x1b[0m Dead links: skipped (syntax error)");
+        println!("  \x1b[33m⊘\x1b[0m Sensitive exposure: skipped (syntax error)");
+        println!("  \x1b[33m⊘\x1b[0m SQL identifiers: skipped (syntax error)");
     }
-    match std::net::TcpListener::bind("0.0.0.0:5175") {
-        Ok(_) => println!("  \x1b[32m✓\x1b[0m Port 5175: available"),
-        Err(_) => println!("  \x1b[33m⊘\x1b[0m Port 5175: in use"),
+
+    // ── 9. AST snapshot ──
+    {
+        let snap_path = std::path::Path::new(".cronus/ast-snapshot.json");
+        if snap_path.exists() {
+            let date_str = fs::metadata(snap_path)
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|t| {
+                    let dur = t.duration_since(std::time::SystemTime::UNIX_EPOCH).ok()?;
+                    let secs = dur.as_secs();
+                    let days = secs / 86400;
+                    let mut y = 1970i64;
+                    let mut remaining = days as i64;
+                    loop {
+                        let days_in_year: i64 = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) { 366 } else { 365 };
+                        if remaining < days_in_year { break; }
+                        remaining -= days_in_year;
+                        y += 1;
+                    }
+                    let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
+                    let month_days: [i64; 12] = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+                    let mut m = 0usize;
+                    for (i, &md) in month_days.iter().enumerate() {
+                        if remaining < md { m = i; break; }
+                        remaining -= md;
+                    }
+                    Some(format!("{:04}-{:02}-{:02}", y, m + 1, remaining + 1))
+                })
+                .unwrap_or_else(|| "unknown".into());
+            println!("  \x1b[32m✓\x1b[0m AST snapshot: .cronus/ast-snapshot.json ({})", date_str);
+            passed += 1;
+        } else {
+            println!("  \x1b[33m✗\x1b[0m AST snapshot: .cronus/ast-snapshot.json not found");
+        }
     }
-    println!("  \x1b[32m✓\x1b[0m Runtime: Rust native\n");
-    if ok { println!("  \x1b[32mAll checks passed\x1b[0m"); } else { println!("  \x1b[33mSome issues found\x1b[0m"); }
+
+    // ── 10. Memory ──
+    {
+        let mem_path = std::path::Path::new(".cronus/memory.db");
+        if mem_path.exists() {
+            match rusqlite::Connection::open_with_flags(
+                mem_path,
+                rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+            ) {
+                Ok(conn) => {
+                    let session_count: i64 = conn
+                        .query_row("SELECT COUNT(*) FROM sessions", [], |r| r.get(0))
+                        .unwrap_or(0);
+                    println!("  \x1b[32m✓\x1b[0m Memory: .cronus/memory.db ({} sessions)", session_count);
+                    passed += 1;
+                }
+                Err(_) => {
+                    println!("  \x1b[33m✗\x1b[0m Memory: .cronus/memory.db (unreadable)");
+                }
+            }
+        } else {
+            println!("  \x1b[33m✗\x1b[0m Memory: .cronus/memory.db not found");
+        }
+    }
+
+    // ── Summary ──
     println!();
+    if passed == total {
+        println!("  \x1b[32mHealth: CLEAN ({}/{} checks passed)\x1b[0m", passed, total);
+    } else {
+        println!("  \x1b[33mHealth: {}/{} checks passed\x1b[0m", passed, total);
+    }
+    println!();
+}
+
+/// Check if a name is a valid SQL-safe identifier.
+fn is_sql_safe_ident(name: &str) -> bool {
+    if name.is_empty() || name.len() > 64 { return false; }
+    let bytes = name.as_bytes();
+    if !bytes[0].is_ascii_alphabetic() { return false; }
+    for &b in &bytes[1..] {
+        if !(b.is_ascii_alphanumeric() || b == b'_') { return false; }
+    }
+    const SQL_RESERVED: &[&str] = &[
+        "SELECT", "DROP", "INSERT", "DELETE", "UPDATE", "TABLE", "FROM",
+        "WHERE", "OR", "AND", "UNION", "ALTER", "CREATE", "INDEX", "EXEC",
+        "EXECUTE", "INTO", "VALUES", "SET", "NULL", "TRUE", "FALSE",
+    ];
+    let upper = name.to_uppercase();
+    !SQL_RESERVED.contains(&upper.as_str())
 }
 
 fn cmd_stats(_args: &[String]) {
@@ -9932,6 +10282,142 @@ window.addEventListener('scroll',function(){{
 }
 
 // ══════════════════════════════════════════════════
+// SEMANTIC MEMORY
+// ══════════════════════════════════════════════════
+
+fn open_memory_db() -> Result<memory::SemanticMemory, String> {
+    let _ = fs::create_dir_all(".cronus");
+    memory::SemanticMemory::open(".cronus/memory.db")
+}
+
+fn cmd_memory(args: &[String]) {
+    let sub = args.get(2).map(|s| s.as_str()).unwrap_or("help");
+
+    match sub {
+        "sessions" => {
+            let mem = match open_memory_db() {
+                Ok(m) => m,
+                Err(e) => { eprintln!("  \x1b[31m✗\x1b[0m {}", e); return; }
+            };
+            match mem.get_recent_sessions(20) {
+                Ok(sessions) => {
+                    if sessions.is_empty() {
+                        println!("  No sessions recorded yet.");
+                        return;
+                    }
+                    println!();
+                    println!("  \x1b[1mRecent Sessions\x1b[0m ({} total)", sessions.len());
+                    println!();
+                    for s in &sessions {
+                        let id = s["id"].as_str().unwrap_or("?");
+                        let started = s["started_at"].as_str().unwrap_or("?");
+                        let agent = s["agent"].as_str().unwrap_or("-");
+                        let changes = s["changes_count"].as_i64().unwrap_or(0);
+                        let ended = if s["ended_at"].is_null() { "active" } else { "done" };
+                        let summary = s["summary"].as_str().unwrap_or("");
+                        println!("  \x1b[36m{}\x1b[0m  {}  agent={}  changes={}  [{}]",
+                            &id[..id.len().min(20)], started, agent, changes, ended);
+                        if !summary.is_empty() {
+                            println!("    {}", summary);
+                        }
+                    }
+                    println!();
+                }
+                Err(e) => eprintln!("  \x1b[31m✗\x1b[0m {}", e),
+            }
+        }
+        "decisions" => {
+            let mem = match open_memory_db() {
+                Ok(m) => m,
+                Err(e) => { eprintln!("  \x1b[31m✗\x1b[0m {}", e); return; }
+            };
+            match mem.get_decisions(20) {
+                Ok(decisions) => {
+                    if decisions.is_empty() {
+                        println!("  No decisions recorded yet.");
+                        return;
+                    }
+                    println!();
+                    println!("  \x1b[1mRecent Decisions\x1b[0m ({} total)", decisions.len());
+                    println!();
+                    for d in &decisions {
+                        let date = d["date"].as_str().unwrap_or("?");
+                        let decision = d["decision"].as_str().unwrap_or("?");
+                        let category = d["category"].as_str().unwrap_or("-");
+                        let reason = d["reason"].as_str().unwrap_or("");
+                        println!("  \x1b[33m[{}]\x1b[0m {} \x1b[90m({})\x1b[0m", category, decision, date);
+                        if !reason.is_empty() {
+                            println!("    reason: {}", reason);
+                        }
+                    }
+                    println!();
+                }
+                Err(e) => eprintln!("  \x1b[31m✗\x1b[0m {}", e),
+            }
+        }
+        "log" => {
+            let description = args.get(3).map(|s| s.as_str()).unwrap_or("");
+            if description.is_empty() {
+                eprintln!("  \x1b[31m✗\x1b[0m Usage: cronus memory log \"description\"");
+                return;
+            }
+            let mem = match open_memory_db() {
+                Ok(m) => m,
+                Err(e) => { eprintln!("  \x1b[31m✗\x1b[0m {}", e); return; }
+            };
+            match mem.add_changelog(None, "manual", description) {
+                Ok(_) => println!("  \x1b[32m✓\x1b[0m Logged: {}", description),
+                Err(e) => eprintln!("  \x1b[31m✗\x1b[0m {}", e),
+            }
+        }
+        "decide" => {
+            let decision = args.get(3).map(|s| s.as_str()).unwrap_or("");
+            if decision.is_empty() {
+                eprintln!("  \x1b[31m✗\x1b[0m Usage: cronus memory decide \"decision\" --reason \"why\" --category \"arch\"");
+                return;
+            }
+            let reason = find_flag_value(args, "--reason");
+            let category = find_flag_value(args, "--category");
+            let mem = match open_memory_db() {
+                Ok(m) => m,
+                Err(e) => { eprintln!("  \x1b[31m✗\x1b[0m {}", e); return; }
+            };
+            match mem.add_decision(None, decision, reason.as_deref(), category.as_deref()) {
+                Ok(_) => {
+                    println!("  \x1b[32m✓\x1b[0m Decision recorded: {}", decision);
+                    if let Some(ref r) = reason { println!("    reason: {}", r); }
+                    if let Some(ref c) = category { println!("    category: {}", c); }
+                }
+                Err(e) => eprintln!("  \x1b[31m✗\x1b[0m {}", e),
+            }
+        }
+        _ => {
+            println!();
+            println!("  \x1b[1mCRONUS Semantic Memory\x1b[0m");
+            println!();
+            println!("  Usage: cronus memory <subcommand>");
+            println!();
+            println!("  \x1b[32msessions\x1b[0m            List recent sessions");
+            println!("  \x1b[32mdecisions\x1b[0m           List recorded decisions");
+            println!("  \x1b[32mlog\x1b[0m \"desc\"          Add manual changelog entry");
+            println!("  \x1b[32mdecide\x1b[0m \"what\" --reason \"why\" --category \"cat\"");
+            println!("                      Record an architectural decision");
+            println!();
+        }
+    }
+}
+
+/// Extract --flag value from args.
+fn find_flag_value(args: &[String], flag: &str) -> Option<String> {
+    for (i, a) in args.iter().enumerate() {
+        if a == flag {
+            return args.get(i + 1).cloned();
+        }
+    }
+    None
+}
+
+// ══════════════════════════════════════════════════
 // AST SNAPSHOT + CHANGELOG
 // ══════════════════════════════════════════════════
 
@@ -10003,15 +10489,41 @@ fn cmd_changelog() {
     // 3. Diff
     let changes = ast_diff::diff_snapshots(&old_snapshot, &new_snapshot);
 
-    // 4. Print
+    // 4. Print + write to semantic memory
     if changes.is_empty() {
         println!("  \x1b[32m✓\x1b[0m No changes since last build");
     } else {
         println!();
         println!("  \x1b[1mChangelog\x1b[0m ({} change{})", changes.len(), if changes.len() == 1 { "" } else { "s" });
         println!();
+
+        // Write changes to semantic memory
+        let mem = open_memory_db().ok();
         for change in &changes {
             println!("{}", change.describe());
+            if let Some(ref m) = mem {
+                let change_type = match change {
+                    ast_diff::AstChange::EntityAdded { .. } => "entity_added",
+                    ast_diff::AstChange::EntityRemoved { .. } => "entity_removed",
+                    ast_diff::AstChange::EntitySharedChanged { .. } => "entity_changed",
+                    ast_diff::AstChange::FieldAdded { .. } => "field_added",
+                    ast_diff::AstChange::FieldRemoved { .. } => "field_removed",
+                    ast_diff::AstChange::FieldTypeChanged { .. } => "field_changed",
+                    ast_diff::AstChange::PageAdded { .. } => "page_added",
+                    ast_diff::AstChange::PageRemoved { .. } => "page_removed",
+                    ast_diff::AstChange::ApiAdded { .. } => "api_added",
+                    ast_diff::AstChange::ApiRemoved { .. } => "api_removed",
+                    ast_diff::AstChange::ApiRouteAdded { .. } => "api_route_added",
+                    ast_diff::AstChange::ApiRouteRemoved { .. } => "api_route_removed",
+                    ast_diff::AstChange::WebhookAdded { .. } => "webhook_added",
+                    ast_diff::AstChange::WebhookRemoved { .. } => "webhook_removed",
+                    ast_diff::AstChange::StyleChanged { .. } => "style_changed",
+                };
+                let _ = m.add_changelog(None, change_type, &change.describe().trim().to_string());
+            }
+        }
+        if mem.is_some() {
+            println!("  \x1b[32m✓\x1b[0m {} changes saved to semantic memory", changes.len());
         }
         println!();
     }
