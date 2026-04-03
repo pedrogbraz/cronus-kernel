@@ -1,0 +1,636 @@
+//! Hero section renderers
+use crate::parser::SectionNode;
+
+pub(super) fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> String {
+    let title = section.title.as_deref().unwrap_or("Build Something Amazing");
+    let subtitle = section.subtitle.as_deref().unwrap_or("The next generation platform for modern teams.");
+    let badge = section.config.get("badge").map(|s| s.as_str());
+    let cta_primary = section.config.get("cta_text").or(section.config.get("cta")).map(|s| s.as_str()).unwrap_or("Get Started");
+    let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("/signup");
+    let cta2_text = section.config.get("cta2_text").map(|s| s.as_str());
+    let cta2_link = section.config.get("cta2_link").map(|s| s.as_str()).unwrap_or("");
+
+    // Convert accent name to hex color
+    let accent_hex = match accent {
+        "blue" => "#2563eb",
+        "indigo" => "#6366f1",
+        "amber" => "#f59e0b",
+        "emerald" => "#10b981",
+        "rose" => "#f43f5e",
+        "violet" => "#8b5cf6",
+        "sky" => "#0ea5e9",
+        "orange" => "#f97316",
+        "red" => "#ef4444",
+        "green" => "#22c55e",
+        "purple" => "#a855f7",
+        "pink" => "#ec4899",
+        "cyan" => "#06b6d4",
+        "teal" => "#14b8a6",
+        _ => "#2563eb",
+    };
+
+    // Extract badge from items if not in config
+    let badge_text = badge.or_else(|| {
+        section.items.iter()
+            .find(|i| i.get("badge").is_some() || i.get("title").map(|t| t.len() < 60).unwrap_or(false))
+            .and_then(|i| i.get("badge").or(i.get("title")))
+            .map(|s| s.as_str())
+    });
+
+    // Detect light theme: explicit style:light, or cta2 presence ONLY when global theme is not dark
+    let style_hint = section.config.get("style").map(|s| s.as_str()).unwrap_or("");
+    let is_dark = style_hint.contains("dark") || theme == "dark";
+    let is_light = style_hint.contains("light") || (!is_dark && cta2_text.is_some());
+
+    if is_light {
+        return render_developer_landing_hero(section, title, subtitle, badge_text, cta_primary, cta_link, cta2_text, cta2_link, accent_hex);
+    }
+
+    // === Dark theme hero ===
+
+    // Extract background image from items with role:background
+    let bg_image_url = section.items.iter()
+        .find(|i| i.get("role").map(|s| s.as_str()) == Some("background"))
+        .and_then(|i| i.get("title").or(i.get("image")).or(i.get("src")).or(i.get("url")))
+        .map(|s| s.as_str())
+        .unwrap_or("");
+
+    // Detect terminal items early for layout branching
+    let has_terminal_items = section.items.iter().any(|i| {
+        let t = i.get("_type").or(i.get("type")).map(|s| s.as_str()).unwrap_or("");
+        matches!(t, "line" | "output" | "success" | "prompt" | "terminal")
+    });
+
+    // Two-column layout: no background image AND no terminal items (Ultima/Fintech style)
+    let is_two_col = bg_image_url.is_empty() && !has_terminal_items;
+
+    if is_two_col {
+        return render_two_col_hero(section, title, subtitle, badge_text, cta_primary, cta_link, cta2_text, cta2_link, accent_hex);
+    }
+
+    // === Centered layout — MONOLITH_OS design (bg image or terminal) ===
+
+    let bg_image_html = if !bg_image_url.is_empty() {
+        format!(
+            r#"<div style="position:absolute;inset:0;z-index:1"><img src="{}" alt="" style="width:100%;height:100%;object-fit:cover;opacity:0.4" /><div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 0%,rgba(19,19,19,0.8) 60%,#131313 100%)"></div></div>"#,
+            bg_image_url
+        )
+    } else {
+        String::new()
+    };
+
+    // Version badge — pill with dot + uppercase text
+    let badge_html = badge_text.map(|b| format!(
+        r#"<div class="anim-fade d1" style="display:inline-flex;align-items:center;gap:8px;padding:6px 18px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);margin-bottom:40px;backdrop-filter:blur(12px)">
+      <span style="width:6px;height:6px;border-radius:50%;background:#ffffff"></span>
+      <span style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.7)">{text}</span>
+    </div>"#, text = b
+    )).unwrap_or_default();
+
+    // CTA2 — dark glass button with ghost border
+    let cta2_html = cta2_text.map(|t| format!(
+        r#"<a href="{link}" class="anim-scale d5" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 36px;border-radius:999px;border:0.5px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.04);color:#ffffff;font-weight:600;font-size:16px;text-decoration:none;backdrop-filter:blur(12px);transition:all 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='rgba(255,255,255,0.04)'">{text}</a>"#,
+        link = cta2_link, text = t
+    )).unwrap_or_default();
+
+    // Terminal mockup — glass panel with blur, 3 dots header, syntax-colored lines
+    let terminal_html = if has_terminal_items {
+        let terminal_title = section.items.iter()
+            .find(|i| {
+                let t = i.get("_type").or(i.get("type")).map(|s| s.as_str()).unwrap_or("");
+                t == "terminal" || i.get("style").map(|s| s.as_str()) == Some("terminal")
+            })
+            .and_then(|i| i.get("description").or(i.get("title")))
+            .map(|s| s.as_str())
+            .unwrap_or("terminal");
+
+        let mut terminal_lines = String::new();
+        let mut line_num = 0u32;
+        for item in &section.items {
+            let item_type = item.get("_type").or(item.get("type")).map(|s| s.as_str()).unwrap_or("");
+            let text = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            match item_type {
+                "terminal" | "line" => {
+                    line_num += 1;
+                    // Parse command: "monolith deploy --project hyper-cluster-01"
+                    let parts: Vec<&str> = text.trim_start_matches("$ ").splitn(2, ' ').collect();
+                    let cmd_name = parts.first().unwrap_or(&"");
+                    let cmd_rest = parts.get(1).unwrap_or(&"");
+                    // Split rest into action and flags
+                    let rest_parts: Vec<&str> = cmd_rest.splitn(2, ' ').collect();
+                    let action = rest_parts.first().unwrap_or(&"");
+                    let flags_raw = rest_parts.get(1).unwrap_or(&"");
+                    // Render flags with quoted strings in tertiary color (#e5e2e1)
+                    let mut flags_html = String::new();
+                    if !flags_raw.is_empty() {
+                        let mut in_quote = false;
+                        let mut buf = String::new();
+                        for ch in flags_raw.chars() {
+                            if ch == '"' {
+                                if in_quote {
+                                    flags_html.push_str(&format!(
+                                        r#"<span style="color:#e5e2e1">&quot;{}&quot;</span>"#, buf
+                                    ));
+                                    buf.clear();
+                                    in_quote = false;
+                                } else {
+                                    if !buf.is_empty() {
+                                        flags_html.push_str(&format!(
+                                            r#"<span style="color:rgba(255,255,255,0.4)">{}</span>"#, buf
+                                        ));
+                                        buf.clear();
+                                    }
+                                    in_quote = true;
+                                }
+                            } else {
+                                buf.push(ch);
+                            }
+                        }
+                        if !buf.is_empty() {
+                            flags_html.push_str(&format!(
+                                r#"<span style="color:rgba(255,255,255,0.4)">{}</span>"#, buf
+                            ));
+                        }
+                    }
+                    terminal_lines.push_str(&format!(
+                        r#"<div style="display:flex;gap:16px;margin-bottom:4px"><span style="color:rgba(255,255,255,0.3)">{num:02}</span><span style="color:rgba(255,255,255,0.5)">{name}</span> <span style="color:#fff;font-weight:700">{action}</span> {flags}</div>"#,
+                        num=line_num, name=cmd_name, action=action, flags=flags_html
+                    ));
+                }
+                "output" => {
+                    line_num += 1;
+                    // Detect "URL: https://..." lines — render label muted, URL underlined tertiary
+                    if text.starts_with("URL:") {
+                        let url_part = text["URL:".len()..].trim();
+                        terminal_lines.push_str(&format!(
+                            r#"<div style="display:flex;gap:16px;margin-bottom:4px"><span style="color:rgba(255,255,255,0.3)">{num:02}</span><span style="color:rgba(255,255,255,0.5)">URL:</span> <span style="color:#e5e2e1;text-decoration:underline">{url}</span></div>"#,
+                            num=line_num, url=url_part
+                        ));
+                    } else {
+                        terminal_lines.push_str(&format!(
+                            r#"<div style="display:flex;gap:16px;margin-bottom:4px"><span style="color:rgba(255,255,255,0.3)">{num:02}</span><span style="color:rgba(255,255,255,0.4)">{text}</span></div>"#,
+                            num=line_num, text=text
+                        ));
+                    }
+                }
+                "prompt" => {
+                    line_num += 1;
+                    let answer = item.get("answer").map(|s| s.as_str()).unwrap_or("");
+                    terminal_lines.push_str(&format!(
+                        r#"<div style="display:flex;gap:16px;margin-bottom:4px"><span style="color:rgba(255,255,255,0.3)">{num:02}</span><span style="color:#e5e5e5">{text}</span> <span style="color:#60a5fa">{answer}</span></div>"#,
+                        num=line_num, text=text, answer=answer
+                    ));
+                }
+                "success" => {
+                    line_num += 1;
+                    // Split trailing time pattern (e.g. "1.4s", "200ms") into muted span
+                    let trimmed = text.trim_end();
+                    let time_sep = trimmed.rfind(' ');
+                    let (main_text, time_html) = if let Some(pos) = time_sep {
+                        let candidate = &trimmed[pos+1..];
+                        // Match patterns like "1.4s", "200ms", "0.3s"
+                        let is_time = candidate.ends_with('s') && candidate[..candidate.len()-1]
+                            .replace("ms", "").replace('.', "").chars().all(|c| c.is_ascii_digit());
+                        if is_time && !candidate.is_empty() {
+                            (&trimmed[..pos], format!(r#" <span style="color:rgba(255,255,255,0.3)">{}</span>"#, candidate))
+                        } else {
+                            (trimmed, String::new())
+                        }
+                    } else {
+                        (trimmed, String::new())
+                    };
+                    terminal_lines.push_str(&format!(
+                        r#"<div style="display:flex;gap:16px;margin-bottom:4px"><span style="color:rgba(255,255,255,0.3)">{num:02}</span><span style="color:#fff;font-weight:700">✓ {main}</span>{time}</div>"#,
+                        num=line_num, main=main_text, time=time_html
+                    ));
+                }
+                _ => {}
+            }
+        }
+        // No blinking cursor for clean look
+
+        format!(
+            r##"<div class="anim-slide-up d6" style="max-width:896px;width:100%;margin:96px auto 0;background:rgba(31,31,31,0.7);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:16px;overflow:hidden;border:0.5px solid rgba(255,255,255,0.1);box-shadow:0 32px 64px rgba(0,0,0,0.5)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(53,53,53,0.5);border-bottom:1px solid rgba(255,255,255,0.05)">
+        <div style="display:flex;gap:6px">
+          <span style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.1)"></span>
+          <span style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.1)"></span>
+          <span style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.1)"></span>
+        </div>
+        <span style="font-family:'Space Grotesk',monospace;font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.15em">{title}</span>
+        <div style="width:48px"></div>
+      </div>
+      <div style="padding:24px;font-family:'SF Mono','JetBrains Mono',monospace;font-size:13px;line-height:1.7;color:#e5e5e5">
+        {lines}
+      </div>
+    </div>"##,
+            title = terminal_title,
+            lines = terminal_lines,
+        )
+    } else {
+        String::new()
+    };
+
+    format!(
+        r##"<section style="position:relative;overflow:hidden;min-height:921px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#131313">
+  {bg_image_html}
+  <div style="position:relative;z-index:10;max-width:1280px;width:100%;margin:0 auto;padding:120px 24px 80px;text-align:center;display:flex;flex-direction:column;align-items:center">
+    {badge_html}
+    <h1 class="anim-slide-up d2" style="font-size:clamp(48px,8vw,96px);font-weight:900;letter-spacing:-0.04em;line-height:0.9;text-transform:uppercase;color:#ffffff;margin:0 0 32px 0">
+      {title}
+    </h1>
+    <p class="anim-slide-up d3" style="max-width:600px;margin:0 auto 48px;font-size:clamp(16px,1.8vw,20px);font-weight:300;color:rgba(255,255,255,0.5);line-height:1.7">{subtitle}</p>
+    <div class="anim-slide-up d4" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px;margin-bottom:80px">
+      <a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 36px;border-radius:999px;background:linear-gradient(180deg,#ffffff 0%,#d4d4d4 100%);color:#131313;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s;box-shadow:0 2px 12px rgba(255,255,255,0.15)" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 20px rgba(255,255,255,0.2)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 12px rgba(255,255,255,0.15)'">{cta_primary}</a>
+      {cta2_html}
+    </div>
+    {terminal_html}
+  </div>
+</section>"##,
+        bg_image_html = bg_image_html,
+        badge_html = badge_html,
+        title = title,
+        subtitle = subtitle,
+        cta_link = cta_link,
+        cta_primary = cta_primary,
+        cta2_html = cta2_html,
+        terminal_html = terminal_html,
+    )
+}
+
+/// Two-column dark hero: Ultima/Fintech style — left text, right visual, gradient title, mesh bg
+pub(super) fn render_two_col_hero(
+    section: &SectionNode,
+    title: &str,
+    subtitle: &str,
+    badge_text: Option<&str>,
+    cta_primary: &str,
+    cta_link: &str,
+    cta2_text: Option<&str>,
+    cta2_link: &str,
+    accent_hex: &str,
+) -> String {
+    // Badge with animated pulse dot
+    let badge_html = badge_text.map(|b| format!(
+        r#"<div class="anim-fade d1" style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:9999px;background:rgba(27,27,27,0.5);backdrop-filter:blur(8px);border:0.5px solid rgba(76,69,70,0.2);margin-bottom:32px">
+      <span style="width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e80;animation:pulse-dot 2s ease-in-out infinite"></span>
+      <span style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.7)">{text}</span>
+    </div>"#, text = b
+    )).unwrap_or_default();
+
+    // Title with gradient on text after last comma or period
+    let title_html = {
+        let last_sep = title.rfind(',').or_else(|| title.rfind('.'));
+        if let Some(pos) = last_sep {
+            let before = &title[..=pos];
+            let after = &title[pos+1..];
+            if after.trim().is_empty() {
+                format!(r#"<span style="color:#ffffff">{}</span>"#, title)
+            } else {
+                format!(
+                    r#"<span style="color:#ffffff">{before}</span><span style="background:linear-gradient(135deg,#adc6ff 0%,#c2c1ff 50%,#e9b3ff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">{after}</span>"#,
+                    before = before, after = after
+                )
+            }
+        } else {
+            format!(r#"<span style="color:#ffffff">{}</span>"#, title)
+        }
+    };
+
+    // CTA2 ghost button
+    let cta2_html = cta2_text.map(|t| format!(
+        r#"<a href="{link}" class="anim-scale d5" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 36px;border-radius:999px;border:0.5px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.04);color:#ffffff;font-weight:600;font-size:16px;text-decoration:none;backdrop-filter:blur(12px);transition:all 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='rgba(255,255,255,0.04)'">{text}</a>"#,
+        link = cta2_link, text = t
+    )).unwrap_or_default();
+
+    // Derive lighter accent for gradient CTA
+    let accent_light = match accent_hex {
+        "#2563eb" => "#60a5fa",
+        "#6366f1" => "#a5b4fc",
+        "#f59e0b" => "#fcd34d",
+        "#10b981" => "#6ee7b7",
+        "#f43f5e" => "#fb7185",
+        "#8b5cf6" => "#c4b5fd",
+        "#0ea5e9" => "#7dd3fc",
+        "#f97316" => "#fdba74",
+        "#ef4444" => "#fca5a5",
+        "#22c55e" => "#86efac",
+        "#a855f7" => "#d8b4fe",
+        "#ec4899" => "#f9a8d4",
+        "#06b6d4" => "#67e8f9",
+        "#14b8a6" => "#5eead4",
+        _ => "#60a5fa",
+    };
+
+    // Credit card config from section data
+    let card_brand = section.config.get("card_brand")
+        .map(|s| s.clone())
+        .or_else(|| section.config.get("brand").cloned())
+        .unwrap_or_else(|| "ULTIMA".to_string());
+    let card_number = section.config.get("card_number")
+        .cloned()
+        .unwrap_or_else(|| "4400 8821 9902 1104".to_string());
+    let card_holder = section.config.get("card_holder")
+        .cloned()
+        .unwrap_or_else(|| "SOVEREIGN ARCHITECT".to_string());
+
+    format!(
+        r##"<style>@keyframes pulse-dot{{0%,100%{{opacity:1;transform:scale(1)}}50%{{opacity:0.5;transform:scale(0.85)}}}}</style>
+<section style="position:relative;overflow:hidden;min-height:921px;display:flex;align-items:center;background:#0a0a0a">
+  <div style="position:absolute;inset:0;z-index:0;pointer-events:none">
+    <div style="position:absolute;top:-20%;left:-10%;width:60%;height:60%;background:radial-gradient(ellipse at center,rgba(99,102,241,0.08) 0%,transparent 70%)"></div>
+    <div style="position:absolute;top:-10%;right:-10%;width:50%;height:50%;background:radial-gradient(ellipse at center,rgba(168,85,247,0.06) 0%,transparent 70%)"></div>
+    <div style="position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent)"></div>
+  </div>
+  <div style="position:relative;z-index:10;max-width:1280px;width:100%;margin:0 auto;padding:120px 24px 80px;display:grid;grid-template-columns:58% 42%;align-items:center;gap:48px">
+    <div style="display:flex;flex-direction:column;align-items:flex-start">
+      {badge_html}
+      <h1 class="anim-slide-up d2" style="font-size:clamp(56px,9vw,112px);font-weight:900;letter-spacing:-0.04em;line-height:0.95;margin:0 0 28px 0">
+        {title_html}
+      </h1>
+      <p class="anim-slide-up d3" style="max-width:520px;margin:0 0 40px;font-size:clamp(16px,1.6vw,19px);font-weight:300;color:rgba(255,255,255,0.5);line-height:1.7;text-align:left">{subtitle}</p>
+      <div class="anim-slide-up d4" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px">
+        <a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 36px;border-radius:999px;background:linear-gradient(135deg,{accent} 0%,{accent_light} 100%);color:#ffffff;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s;box-shadow:0 2px 20px {accent}40" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 28px {accent}60'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 20px {accent}40'">{cta_primary}</a>
+        {cta2_html}
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;min-height:320px">
+      <div style="width:100%;max-width:420px;perspective:1000px;position:relative">
+        <!-- Animated pulse blob behind card -->
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:80%;height:80%;background:radial-gradient(circle,{accent}20 0%,transparent 70%);filter:blur(60px);animation:pulse 4s ease-in-out infinite;z-index:0"></div>
+        <!-- Gradient blur glow behind card -->
+        <div style="position:absolute;bottom:-80px;left:-40px;width:256px;height:256px;border-radius:50%;background:linear-gradient(135deg,rgba(173,198,255,0.1),rgba(233,179,255,0.05));filter:blur(100px);z-index:-1"></div>
+        <!-- Credit Card -->
+        <div class="anim-scale d4" style="position:relative;z-index:1;width:100%;min-height:340px;border-radius:16px;backdrop-filter:blur(32px);border:0.5px solid rgba(76,69,70,0.15);overflow:hidden;transform:rotateY(-6deg) rotateX(4deg);box-shadow:0 25px 50px rgba(0,0,0,0.5),0 0 0 0.5px rgba(255,255,255,0.05) inset;background:linear-gradient(135deg,rgba(255,255,255,0.06) 0%,rgba(255,255,255,0.02) 100%)">
+          <!-- Subtle gradient overlay -->
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(99,102,241,0.08) 0%,rgba(168,85,247,0.05) 50%,transparent 100%);pointer-events:none"></div>
+          <!-- Card content -->
+          <div style="position:relative;z-index:2;padding:28px 28px 24px;min-height:320px;height:100%;display:flex;flex-direction:column;justify-content:space-between">
+            <!-- Top row: brand + contactless -->
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <span style="font-size:18px;font-weight:900;font-style:italic;letter-spacing:-0.04em;color:rgba(255,255,255,0.9)">{card_brand}</span>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="opacity:0.5"><path d="M12 2C8.96 2 6.21 3.23 4.22 5.22L5.64 6.64C7.26 5.03 9.5 4 12 4s4.74 1.03 6.36 2.64l1.41-1.42C17.79 3.23 15.04 2 12 2z" fill="white"/><path d="M12 6c-2.21 0-4.21.9-5.66 2.34l1.42 1.42C8.88 8.64 10.37 8 12 8s3.12.64 4.24 1.76l1.42-1.42C16.21 6.9 14.21 6 12 6z" fill="white"/><path d="M12 10c-1.38 0-2.63.56-3.54 1.46l1.42 1.42C10.44 12.33 11.17 12 12 12s1.56.33 2.12.88l1.42-1.42C14.63 10.56 13.38 10 12 10z" fill="white"/><circle cx="12" cy="16" r="1.5" fill="white"/></svg>
+            </div>
+            <!-- Card number -->
+            <div style="font-size:1.5rem;font-weight:500;letter-spacing:0.2em;color:rgba(255,255,255,0.85);font-feature-settings:'tnum' on;font-variant-numeric:tabular-nums">{card_number}</div>
+            <!-- Bottom row: holder + chip -->
+            <div style="display:flex;justify-content:space-between;align-items:flex-end">
+              <div>
+                <div style="font-size:8px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:4px">Holder</div>
+                <div style="font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.75)">{card_holder}</div>
+              </div>
+              <div style="width:32px;height:32px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center">
+                <div style="width:16px;height:16px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.05)"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>"##,
+        badge_html = badge_html,
+        title_html = title_html,
+        subtitle = subtitle,
+        cta_link = cta_link,
+        accent = accent_hex,
+        accent_light = accent_light,
+        cta_primary = cta_primary,
+        cta2_html = cta2_html,
+        card_brand = card_brand,
+        card_number = card_number,
+        card_holder = card_holder,
+    )
+}
+
+/// Developer-landing hero: light theme, two-column grid with terminal window
+pub(super) fn render_developer_landing_hero(
+    section: &SectionNode,
+    title: &str,
+    subtitle: &str,
+    badge_text: Option<&str>,
+    cta_primary: &str,
+    cta_link: &str,
+    cta2_text: Option<&str>,
+    cta2_link: &str,
+    accent_hex: &str,
+) -> String {
+    // Badge
+    let badge_html = badge_text.map(|b| format!(
+        r#"<div class="anim anim-fade d1" style="display:inline-flex;align-items:center;gap:8px;padding:4px 12px;border-radius:999px;background:var(--cronus-border);border:1px solid var(--cronus-border);margin-bottom:24px">
+      <span class="pulse-glow" style="width:8px;height:8px;border-radius:50%;background:var(--cronus-accent)"></span>
+      <span style="font-size:12px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;color:var(--cronus-text)">{text}</span>
+    </div>"#, text=b
+    )).unwrap_or_default();
+
+    // Split title by periods for line breaks (e.g. "Develop. Preview. Ship.")
+    let title_lines: Vec<&str> = if title.contains('.') {
+        title.split('.').map(|s| s.trim()).filter(|s| !s.is_empty()).collect()
+    } else {
+        title.split_whitespace().collect()
+    };
+    let title_html: String = title_lines.iter().enumerate().map(|(i, word)| {
+        if i < title_lines.len() - 1 {
+            format!("{}.<br>", word)
+        } else {
+            format!("{}.", word)
+        }
+    }).collect();
+
+    // CTA2 (outline button)
+    let cta2_html = cta2_text.map(|t| format!(
+        r#"<a href="{link}" class="anim-scale d5 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 32px;border-radius:999px;border:1px solid var(--cronus-border);color:var(--cronus-text);font-weight:700;font-size:16px;text-decoration:none;background:var(--cronus-surface);transition:all 0.2s">{text}</a>"#,
+        link=cta2_link, text=t
+    )).unwrap_or_default();
+
+    // Terminal window HTML — built dynamically from section items
+    let terminal_title = section.items.iter()
+        .find(|i| i.get("style").map(|s| s.as_str()) == Some("terminal"))
+        .and_then(|i| i.get("description"))
+        .map(|s| s.as_str())
+        .unwrap_or("terminal");
+
+    let mut terminal_lines = String::new();
+    for item in &section.items {
+        let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("");
+        let text = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        match item_type {
+            "line" => {
+                terminal_lines.push_str(&format!(
+                    r#"<div><span style="color:#666">$</span> <span style="color:#e5e5e5">{}</span></div>"#,
+                    text.trim_start_matches("$ ")
+                ));
+            }
+            "output" => {
+                let color = item.get("color").map(|s| match s.as_str() {
+                    "blue" => accent_hex,
+                    "green" => "#28c840",
+                    "yellow" => "#febc2e",
+                    "red" => "#ff5f57",
+                    _ => "#666",
+                }).unwrap_or("#666");
+                terminal_lines.push_str(&format!(
+                    r#"<div style="color:{};margin-top:4px">{}</div>"#, color, text
+                ));
+            }
+            "prompt" => {
+                let answer = item.get("answer").map(|s| s.as_str()).unwrap_or("");
+                terminal_lines.push_str(&format!(
+                    r#"<div><span style="color:#666">?</span> <span style="color:#e5e5e5">{text}</span> <span style="color:{accent}">{answer}</span></div>"#,
+                    text=text, answer=answer, accent=accent_hex
+                ));
+            }
+            "success" => {
+                terminal_lines.push_str(&format!(
+                    r#"<div><span style="color:#28c840">✓</span> <span style="color:#e5e5e5">{}</span></div>"#,
+                    text
+                ));
+            }
+            _ => {}
+        }
+    }
+    // Add blinking cursor
+    terminal_lines.push_str(r#"<div style="margin-top:12px"><span class="cursor-blink" style="display:inline-block;width:8px;height:16px;background:#e5e5e5;vertical-align:middle"></span></div>"#);
+
+    let terminal_html = format!(
+        r##"<div class="anim anim-d3 anim-scale d4" style="background:#000;border-radius:12px;overflow:hidden;box-shadow:0 25px 50px rgba(0,0,0,0.25);border:1px solid #1f2937">
+      <div class="terminal-header" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #1f2937">
+        <div style="display:flex;gap:8px">
+          <span style="width:12px;height:12px;border-radius:50%;background:#ff5f56"></span>
+          <span style="width:12px;height:12px;border-radius:50%;background:#ffbd2e"></span>
+          <span style="width:12px;height:12px;border-radius:50%;background:#27c93f"></span>
+        </div>
+        <span style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#6b7280;text-transform:uppercase;letter-spacing:0.1em">{title}</span>
+        <div style="width:48px"></div>
+      </div>
+      <div style="padding:24px;font-family:'JetBrains Mono',monospace;font-size:14px;line-height:1.625;color:#e5e5e5">
+        {lines}
+      </div>
+    </div>"##,
+        title = terminal_title,
+        lines = terminal_lines,
+    );
+
+    // Floating chip badges from section items
+    let chips: Vec<String> = section.items.iter()
+        .filter(|i| i.get("_type").map(|s| s.as_str()) == Some("chip"))
+        .map(|i| {
+            let text = i.get("title").map(|s| s.as_str()).unwrap_or("");
+            let icon = i.get("icon").map(|s| s.as_str()).unwrap_or("●");
+            format!(
+                r#"<div class="anim-fade d6" style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:8px;padding:12px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,0.08);animation:float 3s ease-in-out infinite">
+              <div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:8px;border:1px solid #000;border-radius:3px">{}</div>
+              <span style="font-size:12px;font-weight:600">{}</span>
+            </div>"#, icon, text
+            )
+        })
+        .collect();
+    let chips_html = if chips.is_empty() { String::new() } else {
+        format!(r#"<div style="position:absolute;bottom:-24px;right:-24px;display:flex;flex-direction:column;gap:8px;z-index:20">{}</div>"#, chips.join("\n"))
+    };
+
+    // Wrap terminal + chips in relative container
+    let terminal_with_chips = format!(
+        r#"<div style="position:relative">{}{}</div>"#,
+        terminal_html, chips_html
+    );
+
+    // Stat cards embedded in hero (role:stat items)
+    let stat_items: Vec<&std::collections::HashMap<String, String>> = section.items.iter()
+        .filter(|i| i.get("role").map(|s| s.as_str()) == Some("stat"))
+        .collect();
+
+    let stats_html = if stat_items.is_empty() {
+        String::new()
+    } else {
+        let cols = stat_items.len();
+        let cards: Vec<String> = stat_items.iter().map(|item| {
+            let label = item.get("title").map(|s| s.as_str()).unwrap_or("");
+            let value = item.get("description").map(|s| s.as_str()).unwrap_or("");
+            format!(
+                r#"<div style="background:rgba(255,255,255,0.6);backdrop-filter:blur(8px);padding:32px;border:1px solid rgba(198,198,198,0.2);text-align:left">
+              <div style="font-size:12px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:#777;margin-bottom:8px">{label}</div>
+              <div style="font-size:clamp(32px,5vw,48px);font-weight:700;letter-spacing:-0.04em;color:#000">{value}</div>
+            </div>"#,
+                label = label, value = value
+            )
+        }).collect();
+        format!(
+            r#"<div style="max-width:1280px;margin:80px auto 0;padding:0 24px;position:relative;z-index:10">
+          <div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:1px;border-radius:12px;overflow:hidden;border:1px solid rgba(198,198,198,0.2)">
+            {cards}
+          </div>
+        </div>"#,
+            cols = cols,
+            cards = cards.join("\n")
+        )
+    };
+
+    // Detect if hero has actual terminal content (line/output/prompt/success items)
+    let has_terminal = section.items.iter().any(|i| {
+        matches!(
+            i.get("_type").map(|s| s.as_str()),
+            Some("line") | Some("output") | Some("prompt") | Some("success")
+        )
+    });
+
+    if !has_terminal {
+        // Centered hero layout without terminal (no terminal items found)
+        return format!(
+            r##"<section style="position:relative;overflow:hidden;min-height:80vh;padding:96px 24px 80px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--cronus-bg);background-image:linear-gradient(to right,rgba(198,198,198,0.1) 1px,transparent 1px),linear-gradient(to bottom,rgba(198,198,198,0.1) 1px,transparent 1px);background-size:40px 40px">
+  <div class="prism-glow" style="position:absolute;inset:0;pointer-events:none"></div>
+  <div style="position:relative;z-index:10;max-width:var(--cronus-max-w);margin:0 auto;padding:0 24px;text-align:center">
+    {badge_html}
+    <h1 class="anim anim-d1" style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.05em;color:var(--cronus-text);line-height:0.9;margin-bottom:32px">
+      {title_html}
+    </h1>
+    <p class="anim anim-d2" style="max-width:640px;margin:0 auto 48px;font-size:18px;color:var(--cronus-text-muted);line-height:1.625">{subtitle}</p>
+    <div class="anim anim-d2" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px">
+      <a href="{cta_link}" class="anim-scale d4 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 32px;border-radius:999px;background:var(--cronus-accent);color:#fff;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}</a>
+      {cta2_html}
+    </div>
+  </div>
+  {stats_html}
+</section>"##,
+            badge_html = badge_html,
+            title_html = title_html,
+            subtitle = subtitle,
+            cta_link = cta_link,
+            cta_primary = cta_primary,
+            cta2_html = cta2_html,
+            stats_html = stats_html,
+        );
+    }
+
+    format!(
+        r##"<section style="position:relative;overflow:hidden;padding:96px 24px 128px;background:var(--cronus-bg)">
+  <div class="prism-glow" style="position:absolute;inset:0;pointer-events:none"></div>
+  <div style="position:relative;z-index:10;max-width:1280px;margin:0 auto;padding:0 24px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center">
+      <!-- Left: Text content -->
+      <div>
+        {badge_html}
+        <h1 class="anim anim-d1" style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.05em;color:var(--cronus-text);line-height:0.9;margin-bottom:32px">
+          {title_html}
+        </h1>
+        <p class="anim anim-d2" style="max-width:512px;font-size:18px;color:var(--cronus-text-muted);line-height:1.625;margin-bottom:40px">{subtitle}</p>
+        <div class="anim anim-d2" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px">
+          <a href="{cta_link}" class="anim-scale d4 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 32px;border-radius:999px;background:var(--cronus-accent);color:#fff;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}<span class="material-symbols-outlined" style="font-size:14px">arrow_forward</span></a>
+          {cta2_html}
+        </div>
+      </div>
+      <!-- Right: Terminal window -->
+      {terminal_with_chips}
+    </div>
+  </div>
+</section>"##,
+        badge_html = badge_html,
+        title_html = title_html,
+        subtitle = subtitle,
+        cta_link = cta_link,
+        cta_primary = cta_primary,
+        cta2_html = cta2_html,
+        terminal_with_chips = terminal_with_chips,
+    )
+}
+
