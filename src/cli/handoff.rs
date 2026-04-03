@@ -1,6 +1,7 @@
 use std::fs;
 use crate::cli::brief::brief_toml_val;
-use crate::{cmd_sync, count_files_matching};
+use crate::cli::sync_cmd::cmd_sync;
+use crate::cli::objective_kernel::count_files_matching;
 
 pub fn cmd_handoff(args: &[String]) {
     use std::path::Path;

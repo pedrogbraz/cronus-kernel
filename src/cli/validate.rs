@@ -128,8 +128,8 @@ pub fn cmd_validate(args: &[String]) {
 pub fn cmd_validate_mission() {
     use std::process::Command;
     use crate::cli::brief::{brief_toml_val, brief_toml_arr, brief_toml_arr_after_section};
-    use crate::count_files_matching;
-    use crate::lease_file_allowed;
+    use crate::cli::objective_kernel::count_files_matching;
+    use crate::cli::objective_kernel::lease_file_allowed;
 
     println!();
     println!("  \x1b[1mMission Validation\x1b[0m");
