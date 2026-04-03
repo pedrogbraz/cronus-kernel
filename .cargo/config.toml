@@ -1,0 +1,4 @@
+# CRONUS Kernel — Rust quality standards
+# Warn on unwrap in new code. Existing unwrap() will be migrated incrementally.
+[lints]
+# Uncomment when ready: clippy.unwrap_used = "warn"

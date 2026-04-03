@@ -7,6 +7,7 @@ mod binding;
 mod board;
 mod brain;
 mod cache;
+mod error;
 mod command_palette;
 mod components;
 mod constitution_check;
