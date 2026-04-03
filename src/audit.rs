@@ -96,7 +96,19 @@ impl AuditTrail {
                 prev_data TEXT,
                 prev_hash TEXT,
                 hash TEXT NOT NULL
-            );"
+            );
+
+            CREATE TRIGGER IF NOT EXISTS audit_no_delete
+            BEFORE DELETE ON _audit_log
+            BEGIN
+                SELECT RAISE(ABORT, 'Audit log entries cannot be deleted');
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS audit_no_update
+            BEFORE UPDATE ON _audit_log
+            BEGIN
+                SELECT RAISE(ABORT, 'Audit log entries cannot be modified');
+            END;"
         ).map_err(|e| e.to_string())?;
 
         // Add prev_data column if table already existed without it
@@ -585,6 +597,32 @@ mod tests {
 
         let orders = trail.query_filtered(10, Some("Order")).unwrap();
         assert_eq!(orders.as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_audit_immutable_no_delete() {
+        let trail = AuditTrail::open(":memory:").unwrap();
+        trail.log("INSERT", "User", "u1", "sys", &json!({"name": "Alice"}), None).unwrap();
+
+        // Attempt to delete should fail due to trigger
+        let conn = trail.conn.lock().unwrap();
+        let result = conn.execute("DELETE FROM _audit_log WHERE id = 1", []);
+        assert!(result.is_err(), "DELETE on _audit_log should be blocked by trigger");
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("cannot be deleted"), "Error should mention deletion prohibition: {}", err_msg);
+    }
+
+    #[test]
+    fn test_audit_immutable_no_update() {
+        let trail = AuditTrail::open(":memory:").unwrap();
+        trail.log("INSERT", "User", "u1", "sys", &json!({"name": "Alice"}), None).unwrap();
+
+        // Attempt to update should fail due to trigger
+        let conn = trail.conn.lock().unwrap();
+        let result = conn.execute("UPDATE _audit_log SET action = 'FAKE' WHERE id = 1", []);
+        assert!(result.is_err(), "UPDATE on _audit_log should be blocked by trigger");
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("cannot be modified"), "Error should mention modification prohibition: {}", err_msg);
     }
 
     #[test]

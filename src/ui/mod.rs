@@ -1099,6 +1099,17 @@ pub(crate) fn render_section(section: &SectionNode, accent: &str, theme: &str, b
     }
 }
 
+/// Safe template interpolation: `{{key}}` → HTML-escaped, `{{{key}}}` → raw (opt-in).
+/// Always process raw (`{{{...}}}`) FIRST so the triple-brace pattern isn't caught by double-brace.
+fn safe_interpolate(template: &str, key: &str, value: &str) -> String {
+    let safe_value = crate::security::html_escape(value);
+    let raw_pattern = format!("{{{{{{{}}}}}}}", key);   // {{{key}}}
+    let safe_pattern = format!("{{{{{}}}}}", key);       // {{key}}
+    template
+        .replace(&raw_pattern, value)        // raw FIRST
+        .replace(&safe_pattern, &safe_value)  // then safe
+}
+
 /// Render a section from its inline template block, replacing `{{placeholder}}`
 /// tokens with values from the section's title, subtitle, config, and items.
 fn render_template(template: &str, section: &SectionNode, style_block: &Option<String>) -> String {
@@ -1116,44 +1127,44 @@ fn render_template(template: &str, section: &SectionNode, style_block: &Option<S
     // Process template — replace {{placeholders}} with section values
     let mut rendered = template.to_string();
 
-    // Replace {{title}}
+    // Replace {{title}} (HTML-escaped by default; use {{{title}}} for raw)
     if let Some(ref title) = section.title {
-        rendered = rendered.replace("{{title}}", title);
+        rendered = safe_interpolate(&rendered, "title", title);
     }
 
     // Replace {{subtitle}}
     if let Some(ref subtitle) = section.subtitle {
-        rendered = rendered.replace("{{subtitle}}", subtitle);
+        rendered = safe_interpolate(&rendered, "subtitle", subtitle);
     }
 
     // Replace {{cta.text}} and {{cta.href}}
     if let Some(cta_text) = section.config.get("cta_text") {
-        rendered = rendered.replace("{{cta.text}}", cta_text);
-        rendered = rendered.replace("{{cta}}", cta_text);
+        rendered = safe_interpolate(&rendered, "cta.text", cta_text);
+        rendered = safe_interpolate(&rendered, "cta", cta_text);
     }
     if let Some(cta_link) = section.config.get("cta_link") {
-        rendered = rendered.replace("{{cta.href}}", cta_link);
-        rendered = rendered.replace("{{cta.link}}", cta_link);
+        rendered = safe_interpolate(&rendered, "cta.href", cta_link);
+        rendered = safe_interpolate(&rendered, "cta.link", cta_link);
     }
 
     // Replace {{cta-secondary.text}} and {{cta-secondary.href}}
     if let Some(cta2_text) = section.config.get("cta2_text") {
-        rendered = rendered.replace("{{cta-secondary.text}}", cta2_text);
-        rendered = rendered.replace("{{cta2.text}}", cta2_text);
+        rendered = safe_interpolate(&rendered, "cta-secondary.text", cta2_text);
+        rendered = safe_interpolate(&rendered, "cta2.text", cta2_text);
     }
     if let Some(cta2_link) = section.config.get("cta2_link") {
-        rendered = rendered.replace("{{cta-secondary.href}}", cta2_link);
-        rendered = rendered.replace("{{cta2.link}}", cta2_link);
+        rendered = safe_interpolate(&rendered, "cta-secondary.href", cta2_link);
+        rendered = safe_interpolate(&rendered, "cta2.link", cta2_link);
     }
 
     // Replace {{badge}}
     if let Some(badge) = section.config.get("badge") {
-        rendered = rendered.replace("{{badge}}", badge);
+        rendered = safe_interpolate(&rendered, "badge", badge);
     }
 
     // Replace {{brand}}
     if let Some(brand) = section.config.get("brand") {
-        rendered = rendered.replace("{{brand}}", brand);
+        rendered = safe_interpolate(&rendered, "brand", brand);
     }
 
     // Replace config values: {{key}} and {{config.key}}
@@ -1162,8 +1173,8 @@ fn render_template(template: &str, section: &SectionNode, style_block: &Option<S
         if key == "template" || key == "style_block" {
             continue;
         }
-        rendered = rendered.replace(&format!("{{{{{}}}}}", key), value);
-        rendered = rendered.replace(&format!("{{{{config.{}}}}}", key), value);
+        rendered = safe_interpolate(&rendered, key, value);
+        rendered = safe_interpolate(&rendered, &format!("config.{}", key), value);
     }
 
     // Replace {{#each items}} ... {{/each}} with rendered items
@@ -1183,7 +1194,7 @@ fn render_template(template: &str, section: &SectionNode, style_block: &Option<S
             for item in &section.items {
                 let mut item_html = inner_template.to_string();
                 for (key, value) in item {
-                    item_html = item_html.replace(&format!("{{{{{}}}}}", key), value);
+                    item_html = safe_interpolate(&item_html, key, value);
                 }
                 items_html.push_str(&item_html);
             }

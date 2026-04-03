@@ -1654,7 +1654,9 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                                     fire_webhooks(&state.webhooks, table, "create", &row);
                                     fire_effects(entity, "create", &row, None, &state.brain, &state.sse_hub);
                                     let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                                    let _ = state.audit_trail.log("INSERT", table, &row_id, owner_id, &row, None);
+                                    if let Err(e) = state.audit_trail.log("INSERT", table, &row_id, owner_id, &row, None) {
+                                        eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (INSERT {}:{}): {}", table, row_id, e);
+                                    }
                                     state.sse_hub.broadcast(sse::DataChangeEvent {
                                         entity: table.to_string(),
                                         action: "created".to_string(),
@@ -1680,7 +1682,9 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                                     fire_webhooks(&state.webhooks, table, "create", &row);
                                     fire_effects(entity, "create", &row, None, &state.brain, &state.sse_hub);
                                     let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                                    let _ = state.audit_trail.log("INSERT", table, &row_id, owner_id, &row, None);
+                                    if let Err(e) = state.audit_trail.log("INSERT", table, &row_id, owner_id, &row, None) {
+                                        eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (INSERT {}:{}): {}", table, row_id, e);
+                                    }
                                     state.sse_hub.broadcast(sse::DataChangeEvent {
                                         entity: table.to_string(),
                                         action: "created".to_string(),
@@ -1715,7 +1719,9 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                             Ok(row) => {
                                 fire_webhooks(&state.webhooks, table, "update", &row);
                                 fire_effects(entity, "update", &row, prev_record.as_ref(), &state.brain, &state.sse_hub);
-                                let _ = state.audit_trail.log("UPDATE", table, segments[1], owner_id, &row, prev_record.as_ref());
+                                if let Err(e) = state.audit_trail.log("UPDATE", table, segments[1], owner_id, &row, prev_record.as_ref()) {
+                                    eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (UPDATE {}:{}): {}", table, segments[1], e);
+                                }
                                 state.sse_hub.broadcast(sse::DataChangeEvent {
                                     entity: table.to_string(),
                                     action: "updated".to_string(),
@@ -1742,7 +1748,9 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                             // For effects, use prev_record if available (has field values for interpolation)
                             let effect_record = prev_record.as_ref().unwrap_or(&delete_payload);
                             fire_effects(entity, "delete", effect_record, None, &state.brain, &state.sse_hub);
-                            let _ = state.audit_trail.log("DELETE", table, segments[1], owner_id, &json!({"id": segments[1]}), prev_record.as_ref());
+                            if let Err(e) = state.audit_trail.log("DELETE", table, segments[1], owner_id, &json!({"id": segments[1]}), prev_record.as_ref()) {
+                                eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (DELETE {}:{}): {}", table, segments[1], e);
+                            }
                             state.sse_hub.broadcast(sse::DataChangeEvent {
                                 entity: table.to_string(),
                                 action: "deleted".to_string(),
