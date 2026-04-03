@@ -61,6 +61,15 @@ use cli::handoff::cmd_handoff;
 use cli::context::cmd_context;
 use cli::memory_cmd::cmd_memory;
 use cli::changelog::cmd_changelog;
+use cli::build::cmd_build;
+use cli::dump_cmd::{cmd_dump, cmd_clone};
+use cli::validate::{cmd_validate, cmd_validate_mission};
+use cli::verify::{cmd_verify, cmd_verify_audit, cmd_debug_audit};
+use cli::new::cmd_new;
+use cli::seed::cmd_seed;
+use cli::deploy_cmd::cmd_deploy;
+use cli::test_cmd::cmd_test;
+use cli::compose::cmd_compose;
 use cli::brief::{brief_toml_val, brief_toml_arr, brief_toml_arr_after_section, brief_json_arr, brief_json_val, brief_today_date};
 
 use std::env;
@@ -2375,69 +2384,7 @@ async fn cmd_debug(args: &[String]) {
     cmd_run(args).await;
 }
 
-fn cmd_debug_audit(args: &[String]) {
-    // Resolve DB path from .cronus file
-    let files = find_all_cronus_files();
-    if files.is_empty() {
-        eprintln!("  \x1b[31m✗\x1b[0m No .cronus files found");
-        return;
-    }
-
-    let source = std::fs::read_to_string(&files[0]).unwrap_or_default();
-    let nodes = match parser::parse(&source) {
-        Ok(n) => n,
-        Err(_) => vec![],
-    };
-    let db_path = nodes.iter().find_map(|n| {
-        if let AstNode::App(ref app) = n {
-            app.database.as_ref().and_then(|d| d.path.clone())
-        } else {
-            None
-        }
-    }).unwrap_or_else(|| "data.db".into());
-
-    let entity_filter = args.iter().position(|a| a == "--entity")
-        .and_then(|i| args.get(i + 1))
-        .map(|s| s.as_str());
-
-    let verify = args.iter().any(|a| a == "--verify");
-
-    let limit: usize = args.iter().position(|a| a == "--limit")
-        .and_then(|i| args.get(i + 1))
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(20);
-
-    println!();
-    println!("  \x1b[1mCRONUS Audit Trail\x1b[0m");
-    println!("  Database: {}", db_path);
-    if let Some(entity) = entity_filter {
-        println!("  Filter: entity={}", entity);
-    }
-    println!();
-
-    match audit::debug_from_file(&db_path, limit, entity_filter, verify) {
-        Ok(output) => print!("{}", output),
-        Err(e) => eprintln!("  \x1b[31m✗\x1b[0m Failed to read audit trail: {}", e),
-    }
-
-    if verify {
-        // Also run full chain verification
-        match audit::verify_from_file(&db_path) {
-            Ok(result) => {
-                let valid = result["valid"].as_bool().unwrap_or(false);
-                let entries = result["entries"].as_i64().unwrap_or(0);
-                if valid {
-                    println!("  \x1b[32m✓\x1b[0m Chain intact -- {} entries verified\n", entries);
-                } else {
-                    let broken_at = result["broken_at"].as_i64().unwrap_or(0);
-                    let reason = result["reason"].as_str().unwrap_or("unknown");
-                    println!("  \x1b[31m✗\x1b[0m Chain BROKEN at entry {} ({}) -- {} total\n", broken_at, reason, entries);
-                }
-            }
-            Err(e) => eprintln!("  \x1b[31m✗\x1b[0m Verification failed: {}\n", e),
-        }
-    }
-}
+// cmd_debug_audit moved to cli::verify
 
 async fn cmd_run(args: &[String]) {
     let start_time = Instant::now();
@@ -2480,7 +2427,7 @@ async fn cmd_run(args: &[String]) {
     let file = files[0].clone(); // for HMR watcher
 
     // Save AST snapshot for changelog diffing
-    save_ast_snapshot(&nodes);
+    cli::build::save_ast_snapshot(&nodes);
 
     // Create semantic memory session and extract business rules
     if let Ok(mem) = open_memory_db() {
@@ -2891,95 +2838,8 @@ async fn cmd_run(args: &[String]) {
     }
 }
 
-fn cmd_dump(args: &[String]) {
-    let file = args.get(2).unwrap_or_else(|| {
-        eprintln!("  \x1b[31m✗\x1b[0m Usage: cronus dump <file.html|.json|.prisma|dir/> [-o output.cronus]");
-        std::process::exit(1);
-    });
-
-    // Black Hole mode: dump entire project directory
-    let path = std::path::Path::new(file);
-    if path.is_dir() {
-        let output = dump::project::dump_project(path);
-
-        // Determine output file name
-        let out_file = args.iter().position(|a| a == "-o")
-            .and_then(|i| args.get(i + 1))
-            .cloned()
-            .unwrap_or_else(|| {
-                let name = path.file_name().unwrap_or_default().to_string_lossy();
-                format!("{}.cronus", name)
-            });
-
-        fs::write(&out_file, &output).expect("Failed to write output");
-        eprintln!("  \x1b[32m✓\x1b[0m Written to {}", out_file);
-        return;
-    }
-
-    let html = fs::read_to_string(file).unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Error reading {}: {}", file, e);
-        std::process::exit(1);
-    });
-
-    eprintln!("  \x1b[36m⚡\x1b[0m Dumping {} ({} bytes)...", file, html.len());
-
-    // Detect file format
-    let cronus = if file.ends_with(".prisma") {
-        eprintln!("  \x1b[36m⚡\x1b[0m Detected Prisma schema");
-        dump::prisma::dump_prisma(&html)
-    } else if file.ends_with(".json") {
-        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&html) {
-            if parsed.get("openapi").is_some() || parsed.get("swagger").is_some() {
-                eprintln!("  \x1b[36m⚡\x1b[0m Detected OpenAPI spec");
-                dump::openapi::dump_openapi(&html)
-            } else {
-                dump::dump_html(&html)
-            }
-        } else {
-            dump::dump_html(&html)
-        }
-    } else {
-        dump::dump_html(&html)
-    };
-
-    // Check for -o flag
-    let output_file = args.iter().position(|a| a == "-o").and_then(|i| args.get(i + 1));
-    if let Some(out) = output_file {
-        fs::write(out, &cronus).unwrap_or_else(|e| {
-            eprintln!("  \x1b[31m✗\x1b[0m Error writing {}: {}", out, e);
-            std::process::exit(1);
-        });
-        eprintln!("  \x1b[32m✓\x1b[0m Written to {}", out);
-    } else {
-        println!("{}", cronus);
-    }
-}
-
-fn cmd_clone(args: &[String]) {
-    let file = args.get(2).unwrap_or_else(|| {
-        eprintln!("  \x1b[31m✗\x1b[0m Usage: cronus clone <file.html> [-o output.cronus]");
-        std::process::exit(1);
-    });
-
-    let html = fs::read_to_string(file).unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Error reading {}: {}", file, e);
-        std::process::exit(1);
-    });
-
-    eprintln!("  \x1b[36m⚡\x1b[0m Clone IR: {} ({} bytes)...", file, html.len());
-    let cronus = dump::clone_ir::clone_html_to_cronus(&html);
-
-    let output_file = args.iter().position(|a| a == "-o").and_then(|i| args.get(i + 1));
-    if let Some(out) = output_file {
-        fs::write(out, &cronus).unwrap_or_else(|e| {
-            eprintln!("  \x1b[31m✗\x1b[0m Error writing {}: {}", out, e);
-            std::process::exit(1);
-        });
-        eprintln!("  \x1b[32m✓\x1b[0m Written to {}", out);
-    } else {
-        println!("{}", cronus);
-    }
-}
+// cmd_dump moved to cli::dump_cmd
+// cmd_clone moved to cli::dump_cmd
 
 // ══════════════════════════════════════════════════
 // SPEC COMMANDS
@@ -3979,849 +3839,27 @@ fn spec_list(args: &[String]) {
     }
 }
 
-fn cmd_build(args: &[String]) {
-    let strict_ai = args.iter().any(|a| a == "--strict-ai");
-    let ai_mode = args.iter().any(|a| a == "--ai" || a == "--machine" || a == "--json-errors");
-    let strict = args.iter().any(|a| a == "--strict") || strict_ai;
-    let file = args.iter().skip(2)
-        .find(|a| !a.starts_with("--"))
-        .cloned()
-        .or_else(find_cronus_file)
-        .unwrap_or_else(|| {
-            if ai_mode {
-                let result = json!({
-                    "valid": false,
-                    "errors": [{"code": "PARSE_001", "severity": "fatal", "category": "filesystem", "message": "No .cronus file found", "location": {}, "fix": {"action": "add", "target": "*.cronus", "hint": "Create a .cronus file in the current directory or specify a path"}}],
-                    "context": {"entities": 0, "pages": 0, "resolve_errors": 0, "lint_errors": 0, "constitution_violations": 0, "total_errors": 1}
-                });
-                println!("{}", serde_json::to_string_pretty(&result).unwrap());
-                *LAST_AI_ERRORS.lock().unwrap() = Some(result);
-            } else if strict_ai {
-                println!("{}", json!({"valid": false, "errors": [{"message": "No .cronus file found"}]}));
-            } else {
-                eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found");
-            }
-            std::process::exit(1);
-        });
+// cmd_build and build_ai_error_json moved to cli/build.rs
+// save_ast_snapshot moved to cli/build.rs
 
-    let source = fs::read_to_string(&file).unwrap();
-    match parser::parse(&source) {
-        Ok(nodes) => {
-            let (entities, pages, routes) = parser::stats(&nodes);
+// cmd_validate moved to cli::validate
 
-            // ── AI-Error Protocol mode (--ai / --machine / --json-errors) ──
-            if ai_mode {
-                let ai_result = build_ai_error_json(&nodes, &file, entities, pages, routes);
-                println!("{}", serde_json::to_string_pretty(&ai_result).unwrap());
-                let valid = ai_result["valid"].as_bool().unwrap_or(false);
-                *LAST_AI_ERRORS.lock().unwrap() = Some(ai_result);
-                if !valid {
-                    std::process::exit(1);
-                }
-                // Save snapshot silently in AI mode (no stdout pollution)
-                let snapshot = ast_diff::snapshot_from_ast(&nodes);
-                let _ = fs::create_dir_all(".cronus");
-                if let Ok(json_str) = serde_json::to_string_pretty(&snapshot) {
-                    let _ = fs::write(".cronus/ast-snapshot.json", &json_str);
-                }
-                return;
-            }
 
-            // In strict-ai mode, run contract validation and promote warnings to errors
-            if strict_ai {
-                let mut errors: Vec<Value> = Vec::new();
-                for node in &nodes {
-                    if let AstNode::Page(page) = node {
-                        for section in &page.sections {
-                            let section_warnings = contracts::validate_section(section, &[]);
-                            for w in section_warnings {
-                                let err_json = match w {
-                                    contracts::ParseWarning::UnknownSection { ref name, line } => {
-                                        json!({"type": "unknown_section", "section": name, "line": line, "severity": "error", "message": format!("Unknown section type '{}'", name)})
-                                    }
-                                    contracts::ParseWarning::UnknownKey { ref section, ref key, ref item, line } => {
-                                        json!({"type": "unknown_key", "section": section, "key": key, "item": item, "line": line, "severity": "error", "message": format!("Unknown key '{}' in section '{}'", key, section)})
-                                    }
-                                    contracts::ParseWarning::MissingRequired { ref section, ref key, ref item, line } => {
-                                        json!({"type": "missing_required", "section": section, "key": key, "item": item, "line": line, "severity": "error", "message": format!("Missing required key '{}' in section '{}'", key, section)})
-                                    }
-                                    contracts::ParseWarning::AliasUsed { ref alias, ref canonical, line } => {
-                                        json!({"type": "alias", "alias": alias, "canonical": canonical, "line": line, "severity": "error", "message": format!("'{}' is an alias for '{}'", alias, canonical)})
-                                    }
-                                    contracts::ParseWarning::MinItemsViolation { ref section, expected, actual, line } => {
-                                        json!({"type": "min_items", "section": section, "expected": expected, "actual": actual, "line": line, "severity": "error", "message": format!("Section '{}' requires at least {} items, found {}", section, expected, actual)})
-                                    }
-                                    contracts::ParseWarning::UnknownConfig { ref section, ref key, line } => {
-                                        json!({"type": "unknown_config", "section": section, "key": key, "line": line, "severity": "error", "message": format!("Unknown config key '{}' in section '{}'", key, section)})
-                                    }
-                                };
-                                errors.push(err_json);
-                            }
-                        }
-                    }
-                }
-                // Hardcode lint — render each page and check for hardcoded content
-                let mut all_pages = Vec::new();
-                let mut all_entities = Vec::new();
-                let mut style_node: Option<parser::StyleNode> = None;
-                for node in &nodes {
-                    match node {
-                        AstNode::Page(p) => all_pages.push(p.clone()),
-                        AstNode::Entity(e) => all_entities.push(e.clone()),
-                        AstNode::Style(s) => style_node = Some(s.clone()),
-                        _ => {}
-                    }
-                }
-                let hc_findings = hardcode_lint::lint_all_pages(&all_pages, &all_entities, style_node.as_ref());
-                for f in &hc_findings {
-                    errors.push(json!({
-                        "type": "hardcoded_content",
-                        "page": f.page,
-                        "text": f.text,
-                        "severity": f.severity,
-                        "message": format!("Hardcoded text '{}' in page '{}' — should come from .cronus data", f.text, f.page),
-                    }));
-                }
+// cmd_new moved to cli::new
 
-                let valid = errors.is_empty();
-                let result = json!({
-                    "valid": valid,
-                    "file": file,
-                    "errors": errors,
-                    "stats": { "entities": entities, "pages": pages, "routes": routes },
-                });
-                println!("{}", serde_json::to_string_pretty(&result).unwrap());
-                if !valid {
-                    std::process::exit(1);
-                }
-            } else if strict {
-                // --strict (non-AI) — human-readable hardcode warnings
-                let mut all_pages = Vec::new();
-                let mut all_entities = Vec::new();
-                let mut style_node: Option<parser::StyleNode> = None;
-                for node in &nodes {
-                    match node {
-                        AstNode::Page(p) => all_pages.push(p.clone()),
-                        AstNode::Entity(e) => all_entities.push(e.clone()),
-                        AstNode::Style(s) => style_node = Some(s.clone()),
-                        _ => {}
-                    }
-                }
-                let hc_findings = hardcode_lint::lint_all_pages(&all_pages, &all_entities, style_node.as_ref());
-                println!("  \x1b[32m✓\x1b[0m {} — {} entities, {} pages, {} routes", file, entities, pages, routes);
-                if hc_findings.is_empty() {
-                    println!("  \x1b[32m✓\x1b[0m No hardcoded content detected");
-                } else {
-                    println!("  \x1b[33m⚠\x1b[0m {} hardcoded string(s) found:", hc_findings.len());
-                    for f in &hc_findings {
-                        println!("    \x1b[33m→\x1b[0m [{}] \"{}\"", f.page, f.text);
-                    }
-                    println!();
-                    println!("  \x1b[90mThese strings appear in rendered HTML but don't trace back to .cronus data.\x1b[0m");
-                    println!("  \x1b[90mMove them to section title/subtitle/config/items in the .cronus file.\x1b[0m");
-                }
-            } else {
-                println!("  \x1b[32m✓\x1b[0m {} — {} entities, {} pages, {} routes", file, entities, pages, routes);
-                println!("  \x1b[32m✓\x1b[0m Valid .cronus file");
-            }
-
-            // Resolve pass — verify all cross-references (fatal errors)
-            let resolve_start = std::time::Instant::now();
-            let (_symbol_table, resolve_errors) = resolve::resolve(&nodes);
-            let resolve_ms = resolve_start.elapsed().as_millis();
-            if !resolve_errors.is_empty() {
-                println!();
-                println!("  \x1b[1mResolve Pass\x1b[0m");
-                for e in &resolve_errors {
-                    println!("{}", e);
-                }
-                println!();
-                println!("  \x1b[31m{} resolve error(s)\x1b[0m — build blocked ({}ms)", resolve_errors.len(), resolve_ms);
-                std::process::exit(1);
-            } else {
-                println!("  \x1b[32m✓\x1b[0m Resolve pass: all references valid ({}ms)", resolve_ms);
-            }
-
-            // Zero Hardcode Enforcement — 7 lint rules
-            let lint_start = std::time::Instant::now();
-            let lint_results = lint::lint_ast(&nodes, strict);
-            let lint_ms = lint_start.elapsed().as_millis();
-            let errors = lint_results.iter().filter(|r| matches!(r.severity, lint::Severity::Error)).count();
-            let warnings = lint_results.iter().filter(|r| matches!(r.severity, lint::Severity::Warning)).count();
-
-            if !lint_results.is_empty() {
-                println!();
-                println!("  \x1b[1mZero Hardcode Lint\x1b[0m ({} rules)", 7);
-                for r in &lint_results {
-                    println!("{}", r);
-                }
-                println!();
-                if errors > 0 {
-                    println!("  \x1b[31m{} error(s)\x1b[0m, {} warning(s) — build blocked", errors, warnings);
-                    std::process::exit(1);
-                } else {
-                    println!("  {} warning(s)", warnings);
-                }
-            } else {
-                println!("  \x1b[32m✓\x1b[0m Zero hardcode lint: all 7 rules passed ({}ms)", lint_ms);
-            }
-
-            // Constitution enforcement — check rules against AST
-            let constitution_app = nodes.iter().find_map(|n| {
-                if let AstNode::App(a) = n { Some(a) } else { None }
-            });
-            if let Some(app_node) = constitution_app {
-                if let Some(ref c) = app_node.constitution {
-                    let cv = constitution_check::check_constitution(&nodes, c);
-                    let real_violations: Vec<_> = cv.iter().filter(|v| v.rule_type != "info").collect();
-                    let info_count = cv.len() - real_violations.len();
-                    if !real_violations.is_empty() {
-                        println!();
-                        println!("  \x1b[1mConstitution Check\x1b[0m ({} rules)", c.must.len() + c.never.len());
-                        for v in &cv {
-                            println!("{}", v);
-                        }
-                        println!();
-                        println!("  \x1b[31m{} violation(s)\x1b[0m{}", real_violations.len(),
-                            if info_count > 0 { format!(", {} informational", info_count) } else { String::new() });
-                        if strict {
-                            std::process::exit(1);
-                        }
-                    } else {
-                        println!("  \x1b[32m\u{2713}\x1b[0m Constitution: all {} rules pass{}", c.must.len() + c.never.len(),
-                            if info_count > 0 { format!(" ({} informational)", info_count) } else { String::new() });
-                    }
-                }
-            }
-
-            // Save AST snapshot for changelog diffing
-            save_ast_snapshot(&nodes);
-        }
-        Err(e) => {
-            if ai_mode {
-                let result = json!({
-                    "valid": false,
-                    "errors": [{"code": "PARSE_001", "severity": "fatal", "category": "syntax", "message": format!("{}", e), "location": {}, "fix": {"action": "replace", "target": "", "hint": "Fix the syntax error in the .cronus file"}}],
-                    "context": {"entities": 0, "pages": 0, "resolve_errors": 0, "lint_errors": 0, "constitution_violations": 0, "total_errors": 1}
-                });
-                println!("{}", serde_json::to_string_pretty(&result).unwrap());
-                *LAST_AI_ERRORS.lock().unwrap() = Some(result);
-            } else if strict_ai {
-                println!("{}", json!({"valid": false, "errors": [{"type": "parse_error", "message": e, "severity": "error"}]}));
-            } else {
-                eprintln!("  \x1b[31m\u{2717}\x1b[0m Parse error: {}", e);
-            }
-            std::process::exit(1);
-        }
-    }
-}
-
-/// Build the AI-Error Protocol JSON from all validation passes.
-/// Collects errors from contract validation, resolve, lint, hardcode lint, and constitution.
-fn build_ai_error_json(nodes: &[AstNode], file: &str, entity_count: usize, page_count: usize, route_count: usize) -> Value {
-    let mut ai_errors: Vec<Value> = Vec::new();
-    let mut resolve_counter = 0usize;
-    let mut lint_counter = 0usize;
-    let mut constitution_counter = 0usize;
-    let mut contract_counter = 0usize;
-
-    // Pass 1: Contract validation (section schemas)
-    for node in nodes {
-        if let AstNode::Page(page) = node {
-            for section in &page.sections {
-                let section_warnings = contracts::validate_section(section, &[]);
-                for w in section_warnings {
-                    contract_counter += 1;
-                    let code = format!("CONTRACT_{:03}", contract_counter);
-                    let (msg, fix, line) = match w {
-                        contracts::ParseWarning::UnknownSection { ref name, line } => (
-                            format!("Unknown section type '{}'", name),
-                            json!({"action": "replace", "target": name, "hint": "Check valid section types: hero, features, pricing, kpi, table, chart, form, etc."}),
-                            line,
-                        ),
-                        contracts::ParseWarning::UnknownKey { ref section, ref key, .. } => (
-                            format!("Unknown key '{}' in section '{}'", key, section),
-                            json!({"action": "remove", "target": key, "hint": format!("Remove or replace with a valid key for '{}' sections", section)}),
-                            0,
-                        ),
-                        contracts::ParseWarning::MissingRequired { ref section, ref key, .. } => (
-                            format!("Missing required key '{}' in section '{}'", key, section),
-                            json!({"action": "add", "target": key, "hint": format!("Add '{}' to the {} section item", key, section)}),
-                            0,
-                        ),
-                        contracts::ParseWarning::AliasUsed { ref alias, ref canonical, line } => (
-                            format!("'{}' is an alias — use canonical name '{}'", alias, canonical),
-                            json!({"action": "replace", "target": alias, "replacement": canonical}),
-                            line,
-                        ),
-                        contracts::ParseWarning::MinItemsViolation { ref section, expected, actual, line } => (
-                            format!("Section '{}' requires at least {} items, found {}", section, expected, actual),
-                            json!({"action": "add", "target": "item", "hint": format!("Add {} more item(s) to '{}' section", expected - actual, section)}),
-                            line,
-                        ),
-                        contracts::ParseWarning::UnknownConfig { ref section, ref key, line } => (
-                            format!("Unknown config key '{}' in section '{}'", key, section),
-                            json!({"action": "remove", "target": key, "hint": format!("Remove unknown config key from '{}' section", section)}),
-                            line,
-                        ),
-                    };
-                    ai_errors.push(json!({
-                        "code": code,
-                        "severity": "error",
-                        "category": "contract",
-                        "message": msg,
-                        "location": {"line": line, "section": format!("{} ({})", section.section_type, page.route), "block": "section"},
-                        "fix": fix,
-                    }));
-                }
-            }
-        }
-    }
-
-    // Pass 2: Resolve — cross-reference validation (fatal)
-    let (_symbol_table, resolve_errors) = resolve::resolve(nodes);
-    let resolve_error_count = resolve_errors.len();
-    for re in &resolve_errors {
-        resolve_counter += 1;
-        let code = format!("RESOLVE_{:03}", resolve_counter);
-        let target_name = re.message.split('\'').nth(1).unwrap_or("").to_string();
-
-        let fix = if let Some(ref sug) = re.suggestion {
-            json!({"action": "replace", "target": &target_name, "replacement": sug})
-        } else if re.message.contains("must be an enum") {
-            json!({"action": "replace", "target": format!("{} field type", target_name), "hint": "Change field type to enum with valid values"})
-        } else {
-            json!({"action": "add", "target": &target_name, "hint": "Define this entity or reference"})
-        };
-
-        let section_hint = if re.message.contains("page '") {
-            format!("page {}", re.message.split("page '").nth(1).and_then(|s| s.split('\'').next()).unwrap_or(""))
-        } else if re.message.contains("entity '") {
-            format!("entity {}", re.message.split("entity '").last().and_then(|s| s.split('\'').next()).unwrap_or(""))
-        } else { String::new() };
-
-        let category = if re.message.contains("Transition") { "state_machine" } else { "reference" };
-        let block = if re.message.contains("bind") { "bind" }
-            else if re.message.contains("Transition") { "transition" }
-            else { "reference" };
-
-        ai_errors.push(json!({
-            "code": code,
-            "severity": "fatal",
-            "category": category,
-            "message": re.message,
-            "suggestion": re.suggestion,
-            "location": {"section": section_hint, "block": block},
-            "fix": fix,
-        }));
-    }
-
-    // Pass 3: Lint — Zero Hardcode Enforcement (7 rules)
-    let lint_results = lint::lint_ast(nodes, true);
-    let lint_error_count = lint_results.iter().filter(|r| matches!(r.severity, lint::Severity::Error)).count();
-    let lint_warning_count = lint_results.iter().filter(|r| matches!(r.severity, lint::Severity::Warning)).count();
-    for lr in &lint_results {
-        lint_counter += 1;
-        let code = format!("LINT_{:03}", lint_counter);
-        let severity = match lr.severity { lint::Severity::Error => "error", lint::Severity::Warning => "warning" };
-
-        let fix = if lr.rule.contains("dead-text") || lr.rule.contains("hardcode") {
-            json!({"action": "wrap_in_dynamic", "target": lr.message.split('\'').nth(1).unwrap_or(&lr.message), "hint": &lr.fix})
-        } else if lr.rule.contains("dead-link") {
-            json!({"action": "replace", "target": lr.message.split('\'').nth(1).unwrap_or(""), "hint": &lr.fix})
-        } else if lr.rule.contains("bind-or-empty") {
-            json!({"action": "add_bind", "target": &lr.section, "hint": &lr.fix})
-        } else if lr.rule.contains("sensitive") {
-            json!({"action": "remove", "target": lr.message.split('\'').nth(1).unwrap_or(""), "hint": &lr.fix})
-        } else if lr.rule.contains("auth") {
-            json!({"action": "add_auth", "target": &lr.page, "hint": &lr.fix})
-        } else {
-            json!({"action": "replace", "target": "", "hint": &lr.fix})
-        };
-
-        ai_errors.push(json!({
-            "code": code,
-            "severity": severity,
-            "category": "hardcode",
-            "message": lr.message,
-            "location": {"section": lr.section, "page": lr.page, "block": "template"},
-            "fix": fix,
-        }));
-    }
-
-    // Pass 3b: Hardcode lint (rendered HTML analysis)
-    let mut all_pages = Vec::new();
-    let mut all_entities = Vec::new();
-    let mut style_node: Option<parser::StyleNode> = None;
-    for node in nodes {
-        match node {
-            AstNode::Page(p) => all_pages.push(p.clone()),
-            AstNode::Entity(e) => all_entities.push(e.clone()),
-            AstNode::Style(s) => style_node = Some(s.clone()),
-            _ => {}
-        }
-    }
-    let hc_findings = hardcode_lint::lint_all_pages(&all_pages, &all_entities, style_node.as_ref());
-    for f in &hc_findings {
-        lint_counter += 1;
-        let code = format!("LINT_{:03}", lint_counter);
-        ai_errors.push(json!({
-            "code": code,
-            "severity": f.severity,
-            "category": "hardcode",
-            "message": format!("Hardcoded text '{}' in page '{}' — should come from .cronus data", f.text, f.page),
-            "location": {"page": f.page, "block": "template"},
-            "fix": {"action": "wrap_in_dynamic", "target": &f.text, "hint": "Use <span id='...'>...</span> populated via JS fetch or move to section data"}
-        }));
-    }
-
-    // Pass 4: Constitution enforcement
-    let mut constitution_violation_count = 0usize;
-    let constitution_app = nodes.iter().find_map(|n| {
-        if let AstNode::App(a) = n { Some(a) } else { None }
-    });
-    if let Some(app_node) = constitution_app {
-        if let Some(ref c) = app_node.constitution {
-            let cv = constitution_check::check_constitution(nodes, c);
-            let real_violations: Vec<_> = cv.iter().filter(|v| v.rule_type != "info").collect();
-            constitution_violation_count = real_violations.len();
-            for v in &real_violations {
-                constitution_counter += 1;
-                let code = format!("CONSTITUTION_{:03}", constitution_counter);
-                let fix = if v.rule.to_lowercase().contains("auth") {
-                    json!({"action": "add_auth", "target": v.entity.clone().unwrap_or_default(), "hint": format!("Add requires: auth to comply with rule: {}", v.rule)})
-                } else if v.rule.to_lowercase().contains("bind") {
-                    json!({"action": "add_bind", "target": &v.violation, "hint": format!("Add bind block to comply with rule: {}", v.rule)})
-                } else {
-                    json!({"action": "add", "target": "", "hint": format!("Fix violation of constitution rule: {}", v.rule)})
-                };
-                ai_errors.push(json!({
-                    "code": code,
-                    "severity": "fatal",
-                    "category": "constitution",
-                    "message": v.violation,
-                    "rule": v.rule,
-                    "entity": v.entity,
-                    "location": {"block": "constitution", "section": v.entity.clone().unwrap_or_default()},
-                    "fix": fix,
-                }));
-            }
-        }
-    }
-
-    let total_errors = ai_errors.len();
-    let valid = total_errors == 0;
-    json!({
-        "valid": valid,
-        "errors": ai_errors,
-        "context": {
-            "file": file,
-            "entities": entity_count,
-            "pages": page_count,
-            "routes": route_count,
-            "resolve_errors": resolve_error_count,
-            "lint_errors": lint_error_count + hc_findings.len(),
-            "lint_warnings": lint_warning_count,
-            "constitution_violations": constitution_violation_count,
-            "total_errors": total_errors,
-        }
-    })
-}
-
-fn cmd_validate(args: &[String]) {
-    let strict_ai = args.iter().any(|a| a == "--strict-ai");
-    let json_output = args.iter().any(|a| a == "--json") || strict_ai;
-
-    let file = args.iter().skip(2)
-        .find(|a| a.ends_with(".cronus"))
-        .cloned()
-        .or_else(find_cronus_file);
-
-    let file = match file {
-        Some(f) => f,
-        None => {
-            if json_output {
-                println!("{}", json!({"valid": false, "errors": [{"message": "No .cronus file found"}], "warnings": []}));
-            } else {
-                eprintln!("No .cronus file found");
-            }
-            std::process::exit(1);
-        }
-    };
-
-    let source = fs::read_to_string(&file).unwrap_or_default();
-
-    let mut errors: Vec<Value> = Vec::new();
-    let mut warnings: Vec<Value> = Vec::new();
-    let mut stats = json!({});
-
-    match parser::parse(&source) {
-        Ok(nodes) => {
-            let (entity_count, page_count, api_routes) = parser::stats(&nodes);
-
-            stats = json!({
-                "entities": entity_count,
-                "pages": page_count,
-                "routes": api_routes,
-                "lines": source.lines().count(),
-            });
-
-            for node in &nodes {
-                if let AstNode::Page(page) = node {
-                    for section in &page.sections {
-                        let section_warnings = contracts::validate_section(section, &[]);
-                        for w in section_warnings {
-                            let warning_json = match w {
-                                contracts::ParseWarning::UnknownSection { ref name, line } => {
-                                    json!({"type": "unknown_section", "section": name, "line": line, "message": format!("Unknown section type '{}'", name)})
-                                }
-                                contracts::ParseWarning::UnknownKey { ref section, ref key, ref item, line } => {
-                                    json!({"type": "unknown_key", "section": section, "key": key, "item": item, "line": line, "message": format!("Unknown key '{}' in section '{}'", key, section)})
-                                }
-                                contracts::ParseWarning::MissingRequired { ref section, ref key, ref item, line } => {
-                                    json!({"type": "missing_required", "section": section, "key": key, "item": item, "line": line, "severity": "error", "message": format!("Missing required key '{}' in section '{}'", key, section)})
-                                }
-                                contracts::ParseWarning::AliasUsed { ref alias, ref canonical, line } => {
-                                    json!({"type": "alias", "alias": alias, "canonical": canonical, "line": line, "message": format!("'{}' is an alias for '{}', consider using canonical name", alias, canonical)})
-                                }
-                                contracts::ParseWarning::MinItemsViolation { ref section, expected, actual, line } => {
-                                    json!({"type": "min_items", "section": section, "expected": expected, "actual": actual, "line": line, "message": format!("Section '{}' requires at least {} items, found {}", section, expected, actual)})
-                                }
-                                contracts::ParseWarning::UnknownConfig { ref section, ref key, line } => {
-                                    json!({"type": "unknown_config", "section": section, "key": key, "line": line, "message": format!("Unknown config key '{}' in section '{}'", key, section)})
-                                }
-                            };
-                            warnings.push(warning_json);
-                        }
-                    }
-                }
-            }
-        }
-        Err(e) => {
-            errors.push(json!({
-                "type": "parse_error",
-                "message": e,
-                "severity": "error"
-            }));
-        }
-    }
-
-    // strict-ai: promote all warnings to errors
-    if strict_ai && !warnings.is_empty() {
-        for w in &warnings {
-            errors.push(w.clone());
-        }
-        warnings.clear();
-    }
-
-    let valid = errors.is_empty();
-
-    if json_output {
-        let result = json!({
-            "valid": valid,
-            "file": file,
-            "errors": errors,
-            "warnings": warnings,
-            "stats": stats,
-        });
-        println!("{}", serde_json::to_string_pretty(&result).unwrap());
-    } else {
-        if valid {
-            println!("\n  \x1b[32m✓\x1b[0m {} is valid", file);
-            if let Some(entities) = stats.get("entities") {
-                println!("    {} entities, {} pages, {} routes",
-                    entities, stats.get("pages").unwrap_or(&json!(0)),
-                    stats.get("routes").unwrap_or(&json!(0)));
-            }
-        } else {
-            println!("\n  \x1b[31m✗\x1b[0m {} has errors:", file);
-            for err in &errors {
-                println!("    \x1b[31m✗\x1b[0m {}", err.get("message").and_then(|v| v.as_str()).unwrap_or("unknown error"));
-            }
-        }
-        for w in &warnings {
-            println!("    \x1b[33m⚠\x1b[0m {}", w.get("message").and_then(|v| v.as_str()).unwrap_or(""));
-        }
-        println!();
-    }
-
-    if !valid {
-        std::process::exit(1);
-    }
-}
-
-fn cmd_new(args: &[String]) {
-    let all_templates = ["landing", "admin", "saas", "api", "ecommerce", "blog", "helpdesk", "crm"];
-
-    let template = args.get(2).map(|s| s.as_str()).unwrap_or_else(|| {
-        eprintln!("  Usage: cronus new <template>");
-        eprintln!("  Templates: {}", all_templates.join(", "));
-        std::process::exit(1);
-    });
-
-    // Try loading from templates/ directory next to the binary first
-    let template_from_file = std::env::current_exe()
-        .ok()
-        .and_then(|exe| exe.parent().map(|p| p.to_path_buf()))
-        .map(|dir| dir.join("templates").join(format!("{}.cronus", template)))
-        .and_then(|path| fs::read_to_string(&path).ok());
-
-    let content: &str = if let Some(ref file_content) = template_from_file {
-        file_content.as_str()
-    } else {
-        // Fall back to embedded templates
-        match template {
-            "landing" => TEMPLATE_LANDING,
-            "admin" => TEMPLATE_ADMIN,
-            "saas" => TEMPLATE_SAAS,
-            "api" => TEMPLATE_API,
-            "ecommerce" => TEMPLATE_ECOMMERCE,
-            "blog" => TEMPLATE_BLOG,
-            "helpdesk" => TEMPLATE_HELPDESK,
-            "crm" => TEMPLATE_CRM,
-            _ => {
-                eprintln!("  \x1b[33m✗\x1b[0m Unknown template: {}", template);
-                eprintln!("  Available: {}", all_templates.join(", "));
-                std::process::exit(1);
-            }
-        }
-    };
-
-    let dir = template;
-    fs::create_dir_all(dir).unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Cannot create directory: {}", e);
-        std::process::exit(1);
-    });
-
-    let file_path = format!("{}/app.cronus", dir);
-    let mut file = fs::File::create(&file_path).unwrap();
-    file.write_all(content.as_bytes()).unwrap();
-
-    // Parse the template to show stats
-    let new_nodes = parser::parse(content).ok();
-    let (ent_count, pg_count, rt_count) = new_nodes.as_ref()
-        .map(|n| parser::stats(n))
-        .unwrap_or((0, 0, 0));
-
-    let entity_names: Vec<String> = new_nodes.as_ref()
-        .map(|nodes| nodes.iter().filter_map(|n| {
-            if let parser::AstNode::Entity(e) = n { Some(e.name.clone()) } else { None }
-        }).collect())
-        .unwrap_or_default();
-
-    let has_auth = new_nodes.as_ref()
-        .map(|nodes| nodes.iter().any(|n| matches!(n, parser::AstNode::Auth(_))))
-        .unwrap_or(false);
-
-    println!("\n  Created: \x1b[1m{}/app.cronus\x1b[0m", dir);
-    println!();
-    println!("  \x1b[90mContents:\x1b[0m");
-    if !entity_names.is_empty() {
-        println!("    {} entities ({})", ent_count, entity_names.join(", "));
-    }
-    if pg_count > 0 {
-        println!("    {} pages", pg_count);
-    }
-    if rt_count > 0 {
-        println!("    {} API routes", rt_count);
-    }
-    if has_auth {
-        println!("    Auth with JWT");
-    }
-    println!();
-    println!("  \x1b[90mNext steps:\x1b[0m");
-    println!("    cd {}", dir);
-    println!("    cronus seed    \x1b[90m# populate with test data\x1b[0m");
-    println!("    cronus run     \x1b[90m# start the server\x1b[0m");
-    println!();
-}
 
 // ══════════════════════════════════════════════════
 // SEED COMMAND
 // ══════════════════════════════════════════════════
 
-fn cmd_seed(args: &[String]) {
-    let file = find_cronus_file().unwrap_or_else(|| {
-        eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found");
-        std::process::exit(1);
-    });
+// cmd_seed moved to cli::seed
 
-    let source = fs::read_to_string(&file).unwrap();
-    let nodes = parser::parse(&source).unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e);
-        std::process::exit(1);
-    });
-
-    // Find app for database path
-    let app = nodes.iter().find_map(|n| {
-        if let parser::AstNode::App(a) = n { Some(a) } else { None }
-    });
-    let db_path = app
-        .and_then(|a| a.database.as_ref())
-        .and_then(|d| d.path.clone())
-        .unwrap_or_else(|| "./data.db".into());
-
-    let db = database::CronusDB::open(&db_path).unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Cannot open database: {}", e);
-        std::process::exit(1);
-    });
-
-    let entities: Vec<&parser::EntityNode> = nodes.iter().filter_map(|n| {
-        if let parser::AstNode::Entity(e) = n { Some(e) } else { None }
-    }).collect();
-
-    if entities.is_empty() {
-        eprintln!("  \x1b[33m⊘\x1b[0m No entities found in {}", file);
-        return;
-    }
-
-    let count = args.get(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
-
-    // Migrate tables first
-    let entity_refs: Vec<parser::EntityNode> = entities.iter().map(|e| (*e).clone()).collect();
-    db.migrate(&entity_refs).unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Migration failed: {}", e);
-        std::process::exit(1);
-    });
-
-    let seed_start = Instant::now();
-    println!("\n  Seeding {} entities \u{00d7} {} rows...\n", entities.len(), count);
-
-    for entity in &entities {
-        let mut seeded = 0;
-        let first_names = ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace", "Henry", "Iris", "Jack",
-                           "Kate", "Leo", "Mia", "Noah", "Olivia", "Pete", "Quinn", "Rosa", "Sam", "Tina"];
-        let last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez",
-                          "Anderson", "Thomas", "Jackson", "White", "Harris", "Clark", "Lewis", "Young", "King", "Wright"];
-        let companies = ["Acme Corp", "TechFlow", "DataSync", "CloudBase", "NetPrime",
-                         "CodeVault", "PixelForge", "ByteWave", "SkyStack", "NanoGrid",
-                         "Quantum Labs", "Apex Digital", "Iris Systems", "Bolt.io", "Vertex AI",
-                         "Nebula Inc", "Spark Ops", "Iron Cloud", "Pulse Dev", "Orbit HQ"];
-        let titles = ["Important task", "Follow up needed", "Review required", "New request",
-                      "Bug fix", "Feature request", "Documentation update", "Testing round",
-                      "Deployment prep", "Migration plan", "Security patch", "Performance tuning",
-                      "UI redesign", "API integration", "Data cleanup", "Onboarding flow",
-                      "Billing issue", "Support ticket", "Release notes", "Sprint planning"];
-
-        for i in 0..count {
-            let mut obj = serde_json::Map::new();
-
-            for field in &entity.fields {
-                // Skip timestamp fields — they're auto-generated by the DB
-                let lower = field.name.to_lowercase();
-                if lower == "createdat" || lower == "created_at" || lower == "updatedat" || lower == "updated_at" || lower == "id" {
-                    continue;
-                }
-
-                let val: serde_json::Value = match field.field_type {
-                    parser::FieldType::String | parser::FieldType::Text => {
-                        let nm = field.name.to_lowercase();
-                        if nm.contains("name") || nm.contains("customer") || nm.contains("author") {
-                            serde_json::Value::String(format!("{} {}", first_names[i % 20], last_names[i % 20]))
-                        } else if nm.contains("company") || nm.contains("org") {
-                            serde_json::Value::String(companies[i % 20].to_string())
-                        } else if nm.contains("title") || nm.contains("subject") {
-                            serde_json::Value::String(format!("Item #{} — {}", i + 1, titles[i % 20]))
-                        } else if nm.contains("description") || nm.contains("content") || nm.contains("body") || nm.contains("bio") || nm.contains("excerpt") {
-                            serde_json::Value::String(format!("Sample content for item {}. This is realistic test data generated by cronus seed.", i + 1))
-                        } else if nm.contains("password") {
-                            serde_json::Value::String(crate::auth::hash_password("password123"))
-                        } else if nm.contains("address") {
-                            serde_json::Value::String(format!("{} {} St, Suite {}", 100 + i * 37 % 900, last_names[i % 20], i + 1))
-                        } else if nm.contains("color") {
-                            let colors = ["#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#14b8a6", "#6366f1"];
-                            serde_json::Value::String(colors[i % 10].to_string())
-                        } else {
-                            serde_json::Value::String(format!("{}_{}", field.name, i + 1))
-                        }
-                    }
-                    parser::FieldType::Email => {
-                        serde_json::Value::String(format!("{}.{}@example.com",
-                            first_names[i % 20].to_lowercase(),
-                            last_names[i % 20].to_lowercase()))
-                    }
-                    parser::FieldType::Phone => {
-                        serde_json::Value::String(format!("+1 555-{:03}-{:04}", 100 + i * 3, 1000 + i * 7))
-                    }
-                    parser::FieldType::Url => {
-                        serde_json::Value::String(format!("https://example.com/{}/{}", field.name, i + 1))
-                    }
-                    parser::FieldType::Number => {
-                        serde_json::Value::String(format!("{}", (i + 1) * 10 + (i * 7) % 100))
-                    }
-                    parser::FieldType::Money => {
-                        // Centavos — realistic prices
-                        serde_json::Value::String(format!("{}", (i + 1) * 1990 + (i * 500) % 10000))
-                    }
-                    parser::FieldType::Percentage => {
-                        serde_json::Value::String(format!("{}", 15 + (i * 8) % 85))
-                    }
-                    parser::FieldType::Boolean => {
-                        serde_json::Value::String(if i % 3 == 0 { "0" } else { "1" }.to_string())
-                    }
-                    parser::FieldType::Date => {
-                        let day = 1 + (i % 28);
-                        let month = 1 + (i % 12);
-                        serde_json::Value::String(format!("2026-{:02}-{:02}", month, day))
-                    }
-                    parser::FieldType::Enum => {
-                        if let Some(ref vals) = field.enum_values {
-                            serde_json::Value::String(vals[i % vals.len()].clone())
-                        } else {
-                            let statuses = ["active", "pending", "completed", "cancelled", "processing"];
-                            serde_json::Value::String(statuses[i % 5].to_string())
-                        }
-                    }
-                    parser::FieldType::Slug => {
-                        serde_json::Value::String(format!("{}-{}", field.name, i + 1))
-                    }
-                    parser::FieldType::Ip => {
-                        serde_json::Value::String(format!("192.168.{}.{}", 1 + i / 255, 1 + i % 255))
-                    }
-                    parser::FieldType::Relation => {
-                        // Try to find an existing row in the related table
-                        if let Some(ref target) = field.reference {
-                            match db.find_all(target, 1, i) {
-                                Ok(rows) => {
-                                    if let Some(arr) = rows.as_array() {
-                                        if let Some(first) = arr.first() {
-                                            if let Some(id) = first.get("id").and_then(|v| v.as_str()) {
-                                                serde_json::Value::String(id.to_string())
-                                            } else { serde_json::Value::Null }
-                                        } else { serde_json::Value::Null }
-                                    } else { serde_json::Value::Null }
-                                }
-                                Err(_) => serde_json::Value::Null,
-                            }
-                        } else {
-                            serde_json::Value::Null
-                        }
-                    }
-                    _ => serde_json::Value::String(format!("value_{}", i + 1)),
-                };
-
-                if !val.is_null() {
-                    obj.insert(field.name.clone(), val);
-                }
-            }
-
-            if db.insert(&entity.name, &serde_json::Value::Object(obj)).is_ok() {
-                seeded += 1;
-            }
-        }
-        let sample: String = if seeded > 0 { format!(" ({})", entity.fields.first().map(|f| f.name.as_str()).unwrap_or("")) } else { String::new() };
-        println!("  \x1b[32m\u{2713}\x1b[0m {:<12} {} rows", entity.name, seeded);
-    }
-
-    let seed_ms = seed_start.elapsed().as_millis();
-    println!("\n  Done in {}ms. Run: \x1b[1mcronus run\x1b[0m\n", seed_ms);
-}
 
 // ══════════════════════════════════════════════════
 // TEMPLATES
 // ══════════════════════════════════════════════════
 
-const TEMPLATE_ADMIN: &str = r#"# Admin Panel — CRONUS
+pub(crate) const TEMPLATE_ADMIN: &str = r#"# Admin Panel — CRONUS
 # Template: admin
 # Full CRUD admin with auth, sidebar layout, KPI dashboard, forms, and actions.
 # Run `cronus seed` after to populate with sample data.
@@ -5047,7 +4085,7 @@ style {
 }
 "#;
 
-const TEMPLATE_LANDING: &str = r#"# Landing Page — CRONUS
+pub(crate) const TEMPLATE_LANDING: &str = r#"# Landing Page — CRONUS
 # Template: landing
 # No auth needed — public marketing page with lead capture form
 
@@ -5141,7 +4179,7 @@ style {
 }
 "#;
 
-const TEMPLATE_API: &str = r#"# API Backend — CRONUS
+pub(crate) const TEMPLATE_API: &str = r#"# API Backend — CRONUS
 # Template: api (no UI, just backend)
 
 app "My API" {
@@ -5201,7 +4239,7 @@ service api port:3001 {
 }
 "#;
 
-const TEMPLATE_SAAS: &str = r#"/// SaaS Starter — Multi-tenant platform with Stripe-ready billing.
+pub(crate) const TEMPLATE_SAAS: &str = r#"/// SaaS Starter — Multi-tenant platform with Stripe-ready billing.
 /// Role-based access control, organization management, and subscription lifecycle.
 /// @template saas
 /// @author CRONUS
@@ -5367,7 +4405,7 @@ style {
 }
 "#;
 
-const TEMPLATE_ECOMMERCE: &str = r#"/// E-commerce Platform — Full storefront with order state machine.
+pub(crate) const TEMPLATE_ECOMMERCE: &str = r#"/// E-commerce Platform — Full storefront with order state machine.
 /// Inventory tracking, price in centavos, category hierarchy.
 /// @template ecommerce
 /// @author CRONUS
@@ -5561,7 +4599,7 @@ style {
 }
 "#;
 
-const TEMPLATE_BLOG: &str = r#"/// Blog / CMS — Content management with publish workflow.
+pub(crate) const TEMPLATE_BLOG: &str = r#"/// Blog / CMS — Content management with publish workflow.
 /// Markdown content, SEO-ready slugs, comment moderation.
 /// @template blog
 /// @author CRONUS
@@ -5754,7 +4792,7 @@ style {
 }
 "#;
 
-const TEMPLATE_HELPDESK: &str = r#"/// Helpdesk — Support ticket system with SLA tracking.
+pub(crate) const TEMPLATE_HELPDESK: &str = r#"/// Helpdesk — Support ticket system with SLA tracking.
 /// Priority-based routing, agent assignment, full ticket lifecycle.
 /// @template helpdesk
 /// @author CRONUS
@@ -5950,7 +4988,7 @@ style {
 }
 "#;
 
-const TEMPLATE_CRM: &str = r#"/// CRM — Sales pipeline and contact management.
+pub(crate) const TEMPLATE_CRM: &str = r#"/// CRM — Sales pipeline and contact management.
 /// Deal lifecycle tracking, activity logging, revenue forecasting.
 /// @template crm
 /// @author CRONUS
@@ -6168,67 +5206,8 @@ style {
 
 // cmd_parse moved to cli::parse_cmd
 
-fn cmd_deploy(args: &[String]) {
-    let file = find_cronus_file().unwrap_or_else(|| {
-        eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found"); std::process::exit(1);
-    });
-    let source = fs::read_to_string(&file).unwrap();
-    let nodes = parser::parse(&source).unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e); std::process::exit(1);
-    });
-    let mut app_name = "cronus-app".to_string();
-    let mut port: u16 = 5175;
-    for node in &nodes {
-        if let AstNode::App(a) = node { app_name = a.name.clone(); port = a.port; }
-    }
+// cmd_deploy moved to cli::deploy_cmd
 
-    let target = args.get(2).map(|s| s.as_str()).unwrap_or("");
-
-    match target {
-        "--fly" => {
-            // Docker artifacts
-            fs::write("Dockerfile", deploy::generate_dockerfile(&app_name, port)).unwrap();
-            fs::write(".dockerignore", deploy::generate_dockerignore()).unwrap();
-            // Fly.io config
-            fs::write("fly.toml", deploy::generate_fly_toml(&app_name, port)).unwrap();
-            println!("  \x1b[32m✓\x1b[0m Generated Dockerfile + fly.toml");
-            println!("\n  \x1b[1mDeploy to Fly.io:\x1b[0m");
-            println!("  \x1b[32m1.\x1b[0m fly auth login");
-            println!("  \x1b[32m2.\x1b[0m fly launch --copy-config --yes");
-            println!("  \x1b[32m3.\x1b[0m fly deploy");
-        }
-        "--railway" => {
-            fs::write("Dockerfile", deploy::generate_dockerfile(&app_name, port)).unwrap();
-            fs::write(".dockerignore", deploy::generate_dockerignore()).unwrap();
-            fs::write("railway.json", deploy::generate_railway_config(&app_name, port)).unwrap();
-            println!("  \x1b[32m✓\x1b[0m Generated Dockerfile + railway.json");
-            println!("\n  \x1b[1mDeploy to Railway:\x1b[0m");
-            println!("  \x1b[32m1.\x1b[0m railway login");
-            println!("  \x1b[32m2.\x1b[0m railway up");
-        }
-        "--static" => {
-            println!("  \x1b[36m⚡\x1b[0m Static export requires running server first.");
-            println!("  \x1b[90mStart with:\x1b[0m cronus run {}", port);
-            println!("  \x1b[90mThen use:\x1b[0m  wget -r -np http://localhost:{}/", port);
-            println!("  \x1b[90mOr:\x1b[0m       curl http://localhost:{}/showcase -o dist/showcase.html", port);
-        }
-        _ => {
-            // Default: Docker artifacts
-            fs::write("Dockerfile", deploy::generate_dockerfile(&app_name, port)).unwrap();
-            println!("  \x1b[32m✓\x1b[0m Generated Dockerfile");
-            fs::write("docker-compose.yml", deploy::generate_compose(&app_name, port)).unwrap();
-            println!("  \x1b[32m✓\x1b[0m Generated docker-compose.yml");
-            fs::write(".dockerignore", deploy::generate_dockerignore()).unwrap();
-            println!("  \x1b[32m✓\x1b[0m Generated .dockerignore");
-            println!("\n  \x1b[1mReady for deployment!\x1b[0m\n");
-            println!("  \x1b[32mDocker:\x1b[0m      docker compose up --build");
-            println!("  \x1b[32mFly.io:\x1b[0m      cronus deploy --fly");
-            println!("  \x1b[32mRailway:\x1b[0m     cronus deploy --railway");
-            println!("  \x1b[32mStatic:\x1b[0m      cronus deploy --static");
-        }
-    }
-    println!();
-}
 
 // cmd_doctor moved to cli::doctor
 
@@ -6236,59 +5215,8 @@ fn cmd_deploy(args: &[String]) {
 
 // cmd_export moved to cli::export_cmd
 
-fn cmd_test(args: &[String]) {
-    if args.iter().any(|a| a == "--conformance") {
-        println!("  \x1b[36m⚡\x1b[0m Running conformance suite...\n");
-        let base = args.iter()
-            .position(|a| a == "--dir")
-            .and_then(|i| args.get(i + 1))
-            .map(|s| s.as_str())
-            .unwrap_or("tests/conformance");
+// cmd_test moved to cli::test_cmd
 
-        let (passed, failed, errors) = testing::run_conformance(base);
-
-        for err in &errors {
-            println!("  \x1b[31m✗\x1b[0m {}", err);
-        }
-
-        println!();
-        if failed == 0 {
-            println!("  \x1b[32m✓\x1b[0m All {} tests passed", passed);
-        } else {
-            println!("  \x1b[31m✗\x1b[0m {} passed, {} failed", passed, failed);
-            std::process::exit(1);
-        }
-        return;
-    }
-
-    let file = find_cronus_file().unwrap_or_else(|| {
-        eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found"); std::process::exit(1);
-    });
-    let source = fs::read_to_string(&file).unwrap();
-    let nodes = parser::parse(&source).unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e); std::process::exit(1);
-    });
-
-    let mut entities: Vec<EntityNode> = vec![];
-    let mut port: u16 = 5175;
-    for node in &nodes {
-        match node {
-            AstNode::Entity(e) => entities.push(e.clone()),
-            AstNode::App(a) => port = a.port,
-            _ => {}
-        }
-    }
-
-    // Override port from CLI
-    if let Some(p) = args.get(2).and_then(|s| s.parse().ok()) {
-        port = p;
-    }
-
-    let (passed, failed, _total) = testing::run_tests(&entities, port);
-    if failed > 0 {
-        std::process::exit(1);
-    }
-}
 // Add rand_u32
 
 fn rand_u32() -> u32 {
@@ -6300,42 +5228,8 @@ fn rand_u32() -> u32 {
     h.finish() as u32
 }
 
-fn cmd_compose(_args: &[String]) {
-    let files = find_all_cronus_files();
-    if files.is_empty() {
-        eprintln!("  \x1b[31m✗\x1b[0m No .cronus files found");
-        std::process::exit(1);
-    }
-    if files.len() == 1 {
-        println!("  Only 1 file ({}). Compose requires 2+ files.", files[0]);
-        return;
-    }
-    println!("  \x1b[36m⚡ CRONUS\x1b[0m Composing {} files:\n", files.len());
-    let mut total_lines = 0;
-    for f in &files {
-        let lines = fs::read_to_string(f).map(|s| s.lines().count()).unwrap_or(0);
-        total_lines += lines;
-        println!("    + {} ({} lines)", f, lines);
-    }
-    match parser::parse_directory(".") {
-        Ok(nodes) => {
-            let (entities, pages, routes) = parser::stats(&nodes);
-            println!("\n  \x1b[1mComposed:\x1b[0m");
-            println!("    Entities: {}", entities);
-            println!("    Pages:    {}", pages);
-            println!("    Routes:   {}", routes);
-            println!("    Total:    {} nodes from {} lines\n", nodes.len(), total_lines);
-            for node in &nodes {
-                if let AstNode::Entity(e) = node { println!("    entity {} ({} fields)", e.name, e.fields.len()); }
-            }
-            for node in &nodes {
-                if let AstNode::Page(p) = node { println!("    page {} ({})", p.route, p.page_type); }
-            }
-            println!();
-        }
-        Err(e) => { eprintln!("  \x1b[31m✗\x1b[0m {}", e); std::process::exit(1); }
-    }
-}
+// cmd_compose moved to cli::compose
+
 
 // cmd_generate and generate system moved to cli::generate
 
@@ -6530,169 +5424,8 @@ pub(crate) fn count_files_matching(dir: &str, suffix: &str) -> usize {
 // VALIDATE --mission — constitution + objective check
 // ══════════════════════════════════════════════════
 
-fn cmd_validate_mission() {
-    use std::process::Command;
+// cmd_validate_mission moved to cli::validate
 
-    println!();
-    println!("  \x1b[1mMission Validation\x1b[0m");
-    println!("  \x1b[90m──────────────────\x1b[0m");
-
-    // 1. Read constitution.toml [forbidden] items
-    let constitution = fs::read_to_string(".cronus/constitution.toml").unwrap_or_default();
-    let forbidden_items = brief_toml_arr_after_section(&constitution, "[forbidden]", "never");
-    let forbidden_fallback = brief_toml_arr(&constitution, "never");
-    let forbidden = if !forbidden_items.is_empty() { forbidden_items } else { forbidden_fallback };
-
-    // 2. Read active task write scope for filtering
-    let mut write_scope: Vec<String> = Vec::new();
-    if let Ok(entries) = fs::read_dir(".cronus/tasks") {
-        let mut files: Vec<_> = entries.flatten()
-            .filter(|e| {
-                let n = e.file_name().to_string_lossy().to_string();
-                n.starts_with("TASK-") && n.ends_with(".toml")
-            })
-            .collect();
-        files.sort_by_key(|e| e.file_name());
-        for entry in files {
-            let content = fs::read_to_string(entry.path()).unwrap_or_default();
-            if let Some(status) = brief_toml_val(&content, "status") {
-                if status == "open" || status == "in_progress" {
-                    let scope = brief_toml_arr_after_section(&content, "[scope]", "write");
-                    write_scope = if !scope.is_empty() { scope } else { brief_toml_arr(&content, "write") };
-                    break;
-                }
-            }
-        }
-    }
-
-    // 3. Read git diff content — staged first, fallback to last 1 commit
-    let diff_content = {
-        // Try staged changes first
-        let staged = Command::new("git")
-            .args(["diff", "--cached"])
-            .output()
-            .ok()
-            .filter(|o| o.status.success())
-            .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
-            .unwrap_or_default();
-
-        if !staged.trim().is_empty() {
-            staged
-        } else {
-            // Nothing staged — diff last 1 commit only
-            Command::new("git")
-                .args(["diff", "HEAD~1..HEAD"])
-                .output()
-                .ok()
-                .filter(|o| o.status.success())
-                .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
-                .unwrap_or_default()
-        }
-    };
-
-    // 4. Check if any forbidden pattern appears in the diff (code files only)
-    // Filter to only added lines in code files (.rs, .cronus) that are in scope
-    let mut constitution_pass = true;
-    let mut violations: Vec<String> = Vec::new();
-    let mut in_code_file = false;
-    let added_code_lines: Vec<String> = diff_content.lines()
-        .filter(|l| {
-            if l.starts_with("+++ b/") {
-                let path = &l[6..];
-                let is_code = path.ends_with(".rs") || path.ends_with(".cronus");
-                // If we have a write scope, only include files within it
-                let in_scope = write_scope.is_empty() || lease_file_allowed(path, &write_scope);
-                in_code_file = is_code && in_scope;
-                return false;
-            }
-            if l.starts_with("--- ") || l.starts_with("diff --git") {
-                return false;
-            }
-            in_code_file && l.starts_with('+') && !l.starts_with("+++")
-        })
-        .map(|l| l[1..].to_lowercase()) // strip leading '+'
-        .collect();
-    let code_text = added_code_lines.join("\n");
-
-    for item in &forbidden {
-        let item_lower = item.to_lowercase();
-        if item_lower.contains("fake data") && (code_text.contains("math.random") || code_text.contains("mock_data") || code_text.contains("fake_data")) {
-            constitution_pass = false;
-            violations.push(item.clone());
-        }
-        if item_lower.contains("export") && (item_lower.contains("react") || item_lower.contains("vue") || item_lower.contains("svelte")) {
-            // Look for actual framework imports/usage in code, not mentions in strings
-            if code_text.contains("use react") || code_text.contains("import react")
-                || code_text.contains("use vue") || code_text.contains("import vue")
-                || code_text.contains("use svelte") || code_text.contains("import svelte")
-                || (code_text.contains("reactdom") || code_text.contains("createapp")) {
-                constitution_pass = false;
-                violations.push(item.clone());
-            }
-        }
-    }
-
-    if constitution_pass {
-        println!("  Constitution: \x1b[32m✓ PASS\x1b[0m (no forbidden patterns)");
-    } else {
-        println!("  Constitution: \x1b[31m✗ FAIL\x1b[0m");
-        for v in &violations {
-            println!("    - {}", v);
-        }
-    }
-
-    // 4. Read objective.toml success criteria
-    let objective = fs::read_to_string(".cronus/objective.toml").unwrap_or_default();
-    let _obj_title = brief_toml_val(&objective, "title").unwrap_or_else(|| "No objective".into());
-
-    // 5. Check basic alignment — does the diff relate to the objective?
-    // Only check code files, not docs/config (uses code_text from step 3)
-    let mut objective_pass = true;
-    let out_of_scope = brief_toml_arr(&objective, "items");
-    for item in &out_of_scope {
-        let item_lower = item.to_lowercase();
-        // Check if the exact phrase (or close to it) appears in code
-        let keywords: Vec<&str> = item_lower.split_whitespace()
-            .filter(|w| w.len() > 6) // only significant words
-            .collect();
-        if keywords.len() >= 2 {
-            // All significant keywords must appear AND they must appear near each other
-            let matches: usize = keywords.iter().filter(|k| code_text.contains(**k)).count();
-            // Also check the exact phrase (most reliable)
-            let exact_match = code_text.contains(&item_lower);
-            if exact_match || (keywords.len() >= 3 && matches >= keywords.len()) {
-                objective_pass = false;
-                println!("  Objective: \x1b[31m✗ FAIL\x1b[0m (out-of-scope work detected: {})", item);
-                break;
-            }
-        }
-    }
-    if objective_pass {
-        println!("  Objective: \x1b[32m✓ PASS\x1b[0m (changes serve current goal)");
-    }
-
-    // 6. Check spec coverage — count specs and conformance tests separately
-    let spec_count = count_files_matching("specs", ".spec.toml");
-    let test_count = count_files_matching("tests/conformance", ".cronus");
-    if spec_count == 0 && test_count == 0 {
-        println!("  Spec coverage: \x1b[33mno specs found\x1b[0m");
-    } else {
-        println!("  Spec coverage: {} specs, {} conformance tests", spec_count, test_count);
-    }
-
-    // 7. Build check
-    let build_ok = std::path::Path::new("target/release/cronus-kernel").exists()
-        || std::path::Path::new("target/release/cronus").exists()
-        || std::path::Path::new("cronus-kernel/target/release/cronus").exists();
-
-    if build_ok {
-        println!("  Build: \x1b[32m✓ PASS\x1b[0m");
-    } else {
-        println!("  Build: \x1b[33m⚠ unknown\x1b[0m (no release binary found)");
-    }
-
-    println!();
-}
 
 
 // ══════════════════════════════════════════════════
@@ -7203,7 +5936,7 @@ fn lease_check() {
 }
 
 /// Check if a file path is allowed by the write scope entries.
-fn lease_file_allowed(file: &str, scope: &[String]) -> bool {
+pub(crate) fn lease_file_allowed(file: &str, scope: &[String]) -> bool {
     for entry in scope {
         let entry_clean = entry.trim();
         if entry_clean.is_empty() {
@@ -9635,49 +8368,8 @@ pub(crate) fn open_memory_db() -> Result<memory::SemanticMemory, String> {
     memory::SemanticMemory::open(".cronus/memory.db")
 }
 
-fn cmd_verify_audit(args: &[String]) {
-    let files = find_all_cronus_files();
-    if files.is_empty() {
-        eprintln!("  \x1b[31m✗\x1b[0m No .cronus files found");
-        return;
-    }
+// cmd_verify_audit moved to cli::verify
 
-    let source = std::fs::read_to_string(&files[0]).unwrap_or_default();
-    let nodes = match parser::parse(&source) {
-        Ok(n) => n,
-        Err(_) => vec![],
-    };
-    let db_path = nodes.iter().find_map(|n| {
-        if let AstNode::App(ref app) = n {
-            app.database.as_ref().and_then(|d| d.path.clone())
-        } else {
-            None
-        }
-    }).unwrap_or_else(|| "data.db".into());
-
-    println!();
-    println!("  \x1b[1mCRONUS Audit Trail Verification\x1b[0m");
-    println!("  Database: {}", db_path);
-    println!();
-
-    match audit::verify_from_file(&db_path) {
-        Ok(result) => {
-            let valid = result["valid"].as_bool().unwrap_or(false);
-            let entries = result["entries"].as_i64().unwrap_or(0);
-            if valid {
-                println!("  \x1b[32m✓\x1b[0m Chain intact -- {} entries verified", entries);
-            } else {
-                let broken_at = result["broken_at"].as_i64().unwrap_or(0);
-                let reason = result["reason"].as_str().unwrap_or("unknown");
-                println!("  \x1b[31m✗\x1b[0m Chain BROKEN at entry {} ({}) -- {} total entries", broken_at, reason, entries);
-            }
-        }
-        Err(e) => {
-            eprintln!("  \x1b[31m✗\x1b[0m Failed to verify: {}", e);
-        }
-    }
-    println!();
-}
 
 // cmd_memory + find_flag_value moved to cli/memory_cmd.rs
 
@@ -9685,31 +8377,7 @@ fn cmd_verify_audit(args: &[String]) {
 // AST SNAPSHOT + CHANGELOG
 // ══════════════════════════════════════════════════
 
-fn save_ast_snapshot(nodes: &[AstNode]) {
-    let snapshot = ast_diff::snapshot_from_ast(nodes);
-    let _ = fs::create_dir_all(".cronus");
-    match serde_json::to_string_pretty(&snapshot) {
-        Ok(json_str) => {
-            if fs::write(".cronus/ast-snapshot.json", &json_str).is_ok() {
-                println!("  \x1b[32m✓\x1b[0m AST snapshot saved to .cronus/ast-snapshot.json");
-            }
-        }
-        Err(e) => {
-            eprintln!("  \x1b[33m⚠\x1b[0m Failed to serialize AST snapshot: {}", e);
-        }
-    }
-}
+// cmd_verify moved to cli::verify
 
-fn cmd_verify(args: &[String]) {
-    let file = find_cronus_file().unwrap_or_else(|| {
-        eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found"); std::process::exit(1);
-    });
-    let source = fs::read_to_string(&file).unwrap();
-    let nodes = parser::parse(&source).unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e); std::process::exit(1);
-    });
-    let (entities, pages, routes) = parser::stats(&nodes);
-    println!("  \x1b[32m✓\x1b[0m Verified: {} entities, {} pages, {} routes", entities, pages, routes);
-}
 
 // cmd_changelog moved to cli/changelog.rs
