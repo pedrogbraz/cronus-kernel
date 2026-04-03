@@ -4,6 +4,8 @@
 //! Self-contained server that serves static files and entity CRUD API routes.
 //! Uses CronusDB from the database module for persistence.
 
+pub(crate) mod auth_pages;
+pub(crate) mod docs;
 pub(crate) mod response;
 pub(crate) mod state;
 
