@@ -1,0 +1,103 @@
+page "/analytics" type:custom {
+  section topbar {
+    brand "Obsidian Prism"
+    item "Search parameters..." icon:search
+    image "User profile" src:"https://lh3.googleusercontent.com/aida-public/AB6AXuCCEEI9h4y-CPejl-vNnmo6lCbvBZfXlIgf5hYsA8BZxcOXcrPNmZ2kuzGW8vKh4MdeokwwSZk6HhU1qWgjeoPL1KTsZWGwCja59C7SOa6v0M5xSWo7WlTtyIr0ynxp4_Bgr6yWfeJLCGb9Q6Wn1jAOKWOzt_ig8ppHfzCk0XppFEl8SJbG4hKuqAMQnErstT-wrCLiOLE60cLCy4fmO40oQTXpuFiJgJvC3REzOmoshKzDo_Br1EPQRMc59UgGqf9xlEimETUqVnPm"
+    template "<nav class=\"backdrop-blur-xl bg-black/60 border-b border-white/10 fixed flex h-16 items-center justify-between px-6 top-0 w-full z-50\"><div class=\"flex gap-8 items-center\"><span class=\"font-bold text-white text-xl tracking-tighter\">Obsidian Prism</span><div class=\"gap-6 hidden items-center md:flex\"><a href=\"/\" class=\"duration-300 hover:bg-white/10 px-3 py-1 rounded-lg text-neutral-400 transition-all\">Overview</a><a href=\"/analytics\" class=\"border-b border-white font-bold px-3 py-1 text-white\">Analytics</a></div></div><div class=\"flex gap-4 items-center\"><div class=\"flex items-center relative\"><span class=\"absolute left-3 material-symbols-outlined scale-75 text-neutral-500\">search</span><input placeholder=\"Search parameters...\" type=\"text\" class=\"bg-surface-container-lowest border border-white/10 focus:border-white/30 focus:outline-none pl-10 pr-4 py-1.5 rounded-full text-sm transition-all w-64\"></div><button data-icon=\"notifications\" class=\"duration-300 hover:bg-white/10 material-symbols-outlined p-2 rounded-full text-white transition-all\">notifications</button><button data-icon=\"settings\" class=\"duration-300 hover:bg-white/10 material-symbols-outlined p-2 rounded-full text-white transition-all\">settings</button><div class=\"border border-white/20 h-8 overflow-hidden rounded-full w-8\"><img data-alt=\"minimalist close-up portrait of a professional in monochromatic lighting, high-end editorial style\" src=\"https://lh3.googleusercontent.com/aida-public/AB6AXuCCEEI9h4y-CPejl-vNnmo6lCbvBZfXlIgf5hYsA8BZxcOXcrPNmZ2kuzGW8vKh4MdeokwwSZk6HhU1qWgjeoPL1KTsZWGwCja59C7SOa6v0M5xSWo7WlTtyIr0ynxp4_Bgr6yWfeJLCGb9Q6Wn1jAOKWOzt_ig8ppHfzCk0XppFEl8SJbG4hKuqAMQnErstT-wrCLiOLE60cLCy4fmO40oQTXpuFiJgJvC3REzOmoshKzDo_Br1EPQRMc59UgGqf9xlEimETUqVnPm\" alt=\"User profile\" class=\"h-full object-cover w-full\"></div></div></nav>"
+    style_block "     body {       background-color: #000000;       background-image: radial-gradient(#ffffff08 1px, transparent 1px);       background-size: 40px 40px;       color: #ffffff;       font-family: 'Inter', sans-serif;     }     .prism-gradient {       background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);     }     .ethereal-glow {       box-shadow: 0 0 40px rgba(226, 226, 222, 0.05);     }     .glass-panel {       background: rgba(255, 255, 255, 0.03);       backdrop-filter: blur(20px);       border: 1px solid rgba(255, 255, 255, 0.1);     }     .no-scrollbar::-webkit-scrollbar {       display: none;     }   "
+  }
+
+  section sidebar {
+    brand "Obsidian"
+    subtitle "Premium Suite"
+    item "Dashboard" -> "/" icon:dashboard
+    item "Analytics" -> "/analytics" icon:monitoring active:true
+    item "Portfolio" -> "/infrastructure" icon:account_balance_wallet
+    item "Vault" -> "/security" icon:lock
+    item "Reports" -> "/settings" icon:description
+    item "Support" -> "/docs" icon:help position:bottom
+    item "Logout" -> "/docs" icon:logout position:bottom
+    action "Upgrade to Prism Upgrade to Prism" -> "#"
+    template "<aside class=\"bg-[#131313] border-r border-white/5 fixed flex flex-col h-full left-0 p-4 pt-20 space-y-2 top-0 w-64 z-40\"><div class=\"mb-8 px-2\"><h2 class=\"font-black text-2xl text-white tracking-tighter\">Obsidian</h2><p class=\"text-neutral-500 text-xs tracking-widest uppercase\">Premium Suite</p></div><nav class=\"flex flex-1 flex-col space-y-1\"><a href=\"/\" class=\"flex gap-3 group hover:bg-white/5 hover:text-white items-center px-4 py-3 rounded-lg text-neutral-500 transition-colors\"><span data-icon=\"dashboard\" class=\"material-symbols-outlined\">dashboard</span><span class=\"font-['Inter'] text-sm tracking-tight\">Dashboard</span></a><a href=\"/analytics\" class=\"bg-white flex gap-3 group items-center px-4 py-3 rounded-lg shadow-[0_0_15px_rgba(255,255,255,0.1)] text-black\"><span data-icon=\"monitoring\" class=\"material-symbols-outlined\">monitoring</span><span class=\"font-['Inter'] font-bold text-sm tracking-tight\">Analytics</span></a><a href=\"/infrastructure\" class=\"flex gap-3 group hover:bg-white/5 hover:text-white items-center px-4 py-3 rounded-lg text-neutral-500 transition-colors\"><span data-icon=\"account_balance_wallet\" class=\"material-symbols-outlined\">account_balance_wallet</span><span class=\"font-['Inter'] text-sm tracking-tight\">Portfolio</span></a><a href=\"/security\" class=\"flex gap-3 group hover:bg-white/5 hover:text-white items-center px-4 py-3 rounded-lg text-neutral-500 transition-colors\"><span data-icon=\"lock\" class=\"material-symbols-outlined\">lock</span><span class=\"font-['Inter'] text-sm tracking-tight\">Vault</span></a><a href=\"/settings\" class=\"flex gap-3 group hover:bg-white/5 hover:text-white items-center px-4 py-3 rounded-lg text-neutral-500 transition-colors\"><span data-icon=\"description\" class=\"material-symbols-outlined\">description</span><span class=\"font-['Inter'] text-sm tracking-tight\">Reports</span></a></nav><div class=\"border-t border-white/5 flex flex-col pt-4 space-y-1\"><button class=\"bg-white font-bold hover:scale-[0.98] mb-4 py-3 rounded-lg text-black text-sm transition-transform w-full\">Upgrade to Prism</button><a href=\"/docs\" class=\"flex gap-3 hover:text-white items-center px-4 py-2 text-neutral-500 transition-colors\"><span data-icon=\"help\" class=\"material-symbols-outlined scale-75\">help</span><span class=\"text-sm\">Support</span></a><a href=\"/docs\" class=\"flex gap-3 hover:text-white items-center px-4 py-2 text-neutral-500 transition-colors\"><span data-icon=\"logout\" class=\"material-symbols-outlined scale-75\">logout</span><span class=\"text-sm\">Logout</span></a></div></aside>"
+  }
+
+  section page-header {
+    title "Analytics Deep-Dive"
+    subtitle "Real-time intelligence mapping global node activity and consumer behavior vectors. Optimized for high-latency visual fidelity and deep pattern recognition."
+    template "<header class=\"mb-12\"><h1 class=\"font-black leading-none mb-2 text-6xl text-white tracking-tighter\">{{title}}</h1><p class=\"font-light leading-relaxed max-w-2xl text-lg text-on-surface-variant\">        Real-time intelligence mapping global node activity and consumer behavior vectors.         Optimized for high-latency visual fidelity and deep pattern recognition.      </p></header>"
+  }
+
+  section features cols:1 {
+    item "4.82 %" icon:trending_up {
+      "Conversion Rate"
+      label "+12.4%" role:child style:mono
+    }
+    item "24.1 %" icon:trending_down {
+      "Bounce Rate"
+      label "-2.1%" role:child style:mono
+    }
+    item "8.4 pg" {
+      "Session Depth"
+      label "stable" role:child style:mono
+    }
+    item "18 ms" icon:speed {
+      "Avg. Latency"
+      label "prime" role:child style:mono
+    }
+    template "<div class=\"gap-6 grid grid-cols-1 mb-10 md:grid-cols-4\"><div class=\"ethereal-glow glass-panel p-6 rounded-xl\"><p class=\"font-bold mb-1 text-neutral-500 text-xs tracking-widest uppercase\">Conversion Rate</p><div class=\"flex items-end justify-between\"><h3 class=\"font-black text-4xl tracking-tighter\">4.82<span class=\"font-normal text-lg text-neutral-400\">%</span></h3><span class=\"flex font-mono gap-1 items-center text-green-400 text-xs\"><span class=\"material-symbols-outlined scale-50\">trending_up</span>+12.4%          </span></div></div><div class=\"ethereal-glow glass-panel p-6 rounded-xl\"><p class=\"font-bold mb-1 text-neutral-500 text-xs tracking-widest uppercase\">Bounce Rate</p><div class=\"flex items-end justify-between\"><h3 class=\"font-black text-4xl tracking-tighter\">24.1<span class=\"font-normal text-lg text-neutral-400\">%</span></h3><span class=\"flex font-mono gap-1 items-center text-red-400 text-xs\"><span class=\"material-symbols-outlined scale-50\">trending_down</span>-2.1%          </span></div></div><div class=\"ethereal-glow glass-panel p-6 rounded-xl\"><p class=\"font-bold mb-1 text-neutral-500 text-xs tracking-widest uppercase\">Session Depth</p><div class=\"flex items-end justify-between\"><h3 class=\"font-black text-4xl tracking-tighter\">8.4<span class=\"font-normal text-lg text-neutral-400\">pg</span></h3><span class=\"font-mono text-neutral-400 text-xs\">stable</span></div></div><div class=\"ethereal-glow glass-panel p-6 rounded-xl\"><p class=\"font-bold mb-1 text-neutral-500 text-xs tracking-widest uppercase\">Avg. Latency</p><div class=\"flex items-end justify-between\"><h3 class=\"font-black text-4xl tracking-tighter\">18<span class=\"font-normal text-lg text-neutral-400\">ms</span></h3><span class=\"flex font-mono gap-1 items-center text-green-400 text-xs\"><span class=\"material-symbols-outlined scale-50\">speed</span>prime          </span></div></div></div>"
+  }
+
+  section cta {
+    title "Time-Series Performance"
+    subtitle "Trailing 24-hour aggregate traffic distribution"
+    cta "Real-time Real-time" -> "#" primary
+    cta "History History" -> "#" secondary
+    template "<div class=\"gap-6 grid grid-cols-12 mb-10\"><div class=\"col-span-12 glass-panel lg:col-span-8 overflow-hidden p-8 relative rounded-xl\"><div class=\"flex items-center justify-between mb-8 relative z-10\"><div><h2 class=\"font-bold text-xl tracking-tight\">{{title}}</h2><p class=\"text-neutral-500 text-sm\">{{subtitle}}</p></div><div class=\"flex gap-2\"><button class=\"bg-white font-bold px-4 py-2 rounded-lg text-black text-xs\">Real-time</button><button class=\"bg-white/5 font-bold hover:bg-white/10 px-4 py-2 rounded-lg text-white text-xs transition-colors\">History</button></div></div><div class=\"flex gap-1 h-80 items-end justify-between relative w-full\"><svg preserveAspectRatio=\"none\" class=\"absolute h-full inset-0 opacity-30 w-full\"><path d=\"M0,280 L100,220 L200,250 L300,100 L400,150 L500,80 L600,120 L700,40 L800,100 L900,20 L1000,280 Z\" fill=\"url(#prism-grad)\"></path><defs><linearGradient x1=\"0%\" id=\"prism-grad\" y1=\"0%\" x2=\"0%\" y2=\"100%\"><stop style=\"stop-color:white;stop-opacity:0.2\" offset=\"0%\"></stop><stop offset=\"100%\" style=\"stop-color:white;stop-opacity:0\"></stop></linearGradient></defs></svg><div class=\"absolute bg-white ethereal-glow h-3 left-1/3 rounded-full shadow-[0_0_15px_white] top-1/4 w-3\"></div><div class=\"absolute bg-white ethereal-glow h-3 right-1/4 rounded-full shadow-[0_0_15px_white] top-1/2 w-3\"></div><div class=\"absolute border-t border-white/5 bottom-0 flex font-mono justify-between pt-4 text-[10px] text-neutral-600 w-full\"><span>00:00</span><span>04:00</span><span>08:00</span><span>12:00</span><span>16:00</span><span>20:00</span><span>23:59</span></div></div></div><div class=\"col-span-12 flex flex-col glass-panel lg:col-span-4 overflow-hidden p-8 relative rounded-xl\"><h2 class=\"font-bold mb-1 text-xl tracking-tight\">Global Traffic</h2><p class=\"mb-6 text-neutral-500 text-sm\">Regional intensity heatmap</p><div class=\"bg-black/40 border border-white/5 flex-1 overflow-hidden relative rounded-lg\"><img src=\"https://lh3.googleusercontent.com/aida-public/AB6AXuDsqJjoURQJhtrE7ns9ha-c5VqopcpSku3G8VWVr2Bbf71ivVKBBR_p0Qt3z8IR9J_OyvcpkgWs6l-wzdcS6hRSy8aX_h3Y_DpriNetZzyQEGCj-Dd8cpK-e-9WVpmReTCsXhZoX7XnZu6Q3SslJ_ax6SNwMvnkfoAfHKSHnRKKVhDiAHNAVgZJiqGEWvil9MDlj3kkEwlERVIAsKinp5XQpiebHwTUlkUBLHRgEqGnfO1eSGoH4UwG2nDTOmbcdLgu7OliX1C873V0\" alt=\"Global traffic heatmap\" data-alt=\"abstract stylized world map on black background with glowing white and cyan clusters indicating high traffic intensity\" class=\"h-full object-cover opacity-60 w-full\"><div class=\"absolute animate-pulse bg-white h-2 left-1/4 rounded-full shadow-[0_0_10px_white] top-1/4 w-2\"></div><div class=\"absolute bg-white/40 blur-sm h-4 right-1/3 rounded-full top-1/3 w-4\"></div><div class=\"absolute bg-white/10 blur-md bottom-1/2 h-6 left-1/2 rounded-full w-6\"></div></div><div class=\"mt-6 space-y-3\"><div class=\"flex items-center justify-between text-xs\"><span class=\"text-neutral-400\">North America</span><span class=\"font-mono\">42.4%</span></div><div class=\"bg-white/5 h-1 rounded-full w-full\"><div style=\"box-shadow: 0 0 10px rgba(255,255,255,0.3)\" class=\"bg-white h-full w-[42%]\"></div></div><div class=\"flex items-center justify-between text-xs\"><span class=\"text-neutral-400\">European Union</span><span class=\"font-mono\">28.9%</span></div><div class=\"bg-white/5 h-1 rounded-full w-full\"><div class=\"bg-white/60 h-full w-[29%]\"></div></div></div></div></div>"
+  }
+
+  section cta {
+    title "Active Sessions Deep-Dive"
+    cta "Filter Filter" -> "#" primary
+    cta "Export Export" -> "#" secondary
+    template "<div class=\"border-b border-white/10 flex items-center justify-between p-6\"><h2 class=\"font-bold text-lg tracking-tight\">{{title}}</h2><div class=\"flex gap-4\"><button class=\"flex gap-1 hover:text-white items-center text-neutral-500 text-xs transition-colors\"><span data-icon=\"filter_list\" class=\"material-symbols-outlined scale-75\">filter_list</span> Filter          </button><button class=\"flex gap-1 hover:text-white items-center text-neutral-500 text-xs transition-colors\"><span data-icon=\"download\" class=\"material-symbols-outlined scale-75\">download</span> Export          </button></div></div>"
+  }
+
+  section data-table {
+    columns "Source ID | Status | Session Length | Bounce Risk | Exit Page | Action"
+    row "#PX-9021" {
+      Bounce Risk:"Low"
+      Exit Page:"/checkout/v2"
+      Session Length:"12m 44s"
+      Source ID:"#PX-9021"
+      Status:"Active"
+    }
+    row "#PX-4412" {
+      Bounce Risk:"High"
+      Exit Page:"/products/obsidian-prism"
+      Session Length:"04m 12s"
+      Source ID:"#PX-4412"
+      Status:"Idle"
+    }
+    row "#PX-8839" {
+      Bounce Risk:"Critical"
+      Exit Page:"/dashboard/analytics"
+      Session Length:"28m 09s"
+      Source ID:"#PX-8839"
+      Status:"Live"
+    }
+    row "#PX-1102" {
+      Bounce Risk:"Med"
+      Exit Page:"/vault/secure-transfer"
+      Session Length:"08m 55s"
+      Source ID:"#PX-1102"
+      Status:"Active"
+    }
+    template "<div class=\"no-scrollbar overflow-x-auto\"><table class=\"text-left w-full\"><thead><tr class=\"bg-white/5 border-b border-white/5 font-bold text-[10px] text-neutral-500 tracking-widest uppercase\"><th class=\"px-6 py-4\">Source ID</th><th class=\"px-6 py-4\">Status</th><th class=\"px-6 py-4\">Session Length</th><th class=\"px-6 py-4\">Bounce Risk</th><th class=\"px-6 py-4\">Exit Page</th><th class=\"px-6 py-4\">Action</th></tr></thead><tbody class=\"font-light text-sm\"><tr class=\"border-b border-white/5 cursor-pointer group hover:bg-white/5 transition-colors\"><td class=\"font-mono px-6 py-4 text-neutral-400 text-xs\">#PX-9021</td><td class=\"px-6 py-4\"><span class=\"flex gap-2 items-center\"><span class=\"bg-green-500 h-2 rounded-full w-2\"></span> Active                </span></td><td class=\"px-6 py-4 text-white\">12m 44s</td><td class=\"px-6 py-4\"><div class=\"flex gap-2 items-center\"><span class=\"text-neutral-500\">Low</span><div class=\"bg-white/10 h-1 overflow-hidden rounded-full w-12\"><div class=\"bg-white h-full w-1/4\"></div></div></div></td><td class=\"px-6 py-4 text-neutral-400\">/checkout/v2</td><td class=\"group-hover:opacity-100 opacity-0 px-6 py-4 transition-opacity\"><span data-icon=\"arrow_forward\" class=\"material-symbols-outlined text-white\">arrow_forward</span></td></tr><tr class=\"border-b border-white/5 cursor-pointer group hover:bg-white/5 transition-colors\"><td class=\"font-mono px-6 py-4 text-neutral-400 text-xs\">#PX-4412</td><td class=\"px-6 py-4\"><span class=\"flex gap-2 items-center\"><span class=\"bg-white/20 h-2 rounded-full w-2\"></span> Idle                </span></td><td class=\"px-6 py-4 text-white\">04m 12s</td><td class=\"px-6 py-4\"><div class=\"flex gap-2 items-center\"><span class=\"text-neutral-500\">High</span><div class=\"bg-white/10 h-1 overflow-hidden rounded-full w-12\"><div class=\"bg-red-400 h-full w-4/5\"></div></div></div></td><td class=\"px-6 py-4 text-neutral-400\">/products/obsidian-prism</td><td class=\"group-hover:opacity-100 opacity-0 px-6 py-4 transition-opacity\"><span data-icon=\"arrow_forward\" class=\"material-symbols-outlined text-white\">arrow_forward</span></td></tr><tr class=\"border-b border-white/5 cursor-pointer group hover:bg-white/5 transition-colors\"><td class=\"font-mono px-6 py-4 text-neutral-400 text-xs\">#PX-8839</td><td class=\"px-6 py-4\"><span class=\"flex gap-2 items-center\"><span class=\"bg-green-500 h-2 rounded-full shadow-[0_0_10px_#22c55e] w-2\"></span> Live                </span></td><td class=\"px-6 py-4 text-white\">28m 09s</td><td class=\"px-6 py-4\"><div class=\"flex gap-2 items-center\"><span class=\"text-neutral-500\">Critical</span><div class=\"bg-white/10 h-1 overflow-hidden rounded-full w-12\"><div class=\"bg-white h-full w-full\"></div></div></div></td><td class=\"px-6 py-4 text-neutral-400\">/dashboard/analytics</td><td class=\"group-hover:opacity-100 opacity-0 px-6 py-4 transition-opacity\"><span data-icon=\"arrow_forward\" class=\"material-symbols-outlined text-white\">arrow_forward</span></td></tr><tr class=\"border-b border-white/5 cursor-pointer group hover:bg-white/5 transition-colors\"><td class=\"font-mono px-6 py-4 text-neutral-400 text-xs\">#PX-1102</td><td class=\"px-6 py-4\"><span class=\"flex gap-2 items-center\"><span class=\"bg-green-500 h-2 rounded-full w-2\"></span> Active                </span></td><td class=\"px-6 py-4 text-white\">08m 55s</td><td class=\"px-6 py-4\"><div class=\"flex gap-2 items-center\"><span class=\"text-neutral-500\">Med</span><div class=\"bg-white/10 h-1 overflow-hidden rounded-full w-12\"><div class=\"bg-white/50 h-full w-1/2\"></div></div></div></td><td class=\"px-6 py-4 text-neutral-400\">/vault/secure-transfer</td><td class=\"group-hover:opacity-100 opacity-0 px-6 py-4 transition-opacity\"><span data-icon=\"arrow_forward\" class=\"material-symbols-outlined text-white\">arrow_forward</span></td></tr></tbody></table></div>"
+  }
+
+  section cta {
+    cta "Load Sequential Records Load Sequential Records" -> "#" primary
+    template "<div class=\"bg-white/5 p-4 text-center\"><button class=\"font-bold hover:text-white text-neutral-500 text-xs tracking-widest transition-colors uppercase\">Load Sequential Records</button></div>"
+  }
+
+}

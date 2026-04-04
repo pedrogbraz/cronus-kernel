@@ -255,13 +255,14 @@ pub fn extract_deep_blocks(node: &DomNode) -> Vec<DomNode> {
         return vec![node.clone()];
     }
 
-    // 2. Grid container → each direct child is its own block.
+    // 2. Grid container → keep as ONE block when children look homogeneous
+    //    (KPI grids, stat cards, feature grids).  Only explode when children
+    //    are clearly heterogeneous (mixed section types inside a grid wrapper).
     if is_grid_container(&node.classes) && node.children.len() > 1 {
-        let mut out = Vec::new();
-        for child in &node.children {
-            out.extend(extract_deep_blocks(child));
-        }
-        return out;
+        // Keep the grid together — the template system will preserve its
+        // layout (grid-cols-*) and the detect stage will classify the whole
+        // block as kpi-grid / stat-cards / features.
+        return vec![node.clone()];
     }
 
     // 3. Flex container with multiple children → extract each child.

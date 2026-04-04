@@ -1296,17 +1296,18 @@ fn emit_data_table_body(bp: &SectionBlueprint, ind: usize, out: &mut String) {
       for k in &keys {
         let v = &item.config[*k];
         if !v.is_empty() {
-          // Check if this column has a status badge
-          let status_key = format!("{}_status", k);
-          if item.config.contains_key(&status_key) {
-            row_pairs.push(format!("{}:status({})", k, v));
-          } else {
-            row_pairs.push(format!("{}:{}", k, quoted(v)));
-          }
+          row_pairs.push(format!("{}:{}", k, quoted(v)));
         }
       }
       if !row_pairs.is_empty() {
-        out.push_str(&format!("{}row {{\n", pre));
+        // Parser requires: row "label" { ... }
+        // Use item title or first config value as row label
+        let row_label = if !item.title.is_empty() {
+          item.title.clone()
+        } else {
+          item.config.values().next().cloned().unwrap_or_else(|| "row".into())
+        };
+        out.push_str(&format!("{}row {} {{\n", pre, quoted(&row_label)));
         for pair in &row_pairs {
           out.push_str(&format!("{}{}\n", ipre, pair));
         }

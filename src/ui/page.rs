@@ -826,9 +826,10 @@ fn render_detail(page: &PageNode, _entities: &[EntityNode], accent: &str) -> Str
 // ══════════════════════════════════════════════════
 
 fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::database::CronusDB>, route_params: &std::collections::HashMap<String, String>, owner_id: &str, entities: &[EntityNode]) -> String {
-    let shell_types = ["topbar", "sidebar", "footer"];
+    let shell_types = ["topbar", "sidebar"];
     let mut shell_parts: Vec<String> = Vec::new();
     let mut content_parts: Vec<String> = Vec::new();
+    let mut footer_parts: Vec<String> = Vec::new();
     let mut in_grid = false;
 
     for section in &page.sections {
@@ -853,7 +854,8 @@ fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::
                 Some("columns") | Some("grid")
             );
 
-        let target = if is_shell { &mut shell_parts } else { &mut content_parts };
+        let is_footer = section.section_type == "footer";
+        let target = if is_footer { &mut footer_parts } else if is_shell { &mut shell_parts } else { &mut content_parts };
 
         if is_column_layout {
             if in_grid {
@@ -874,12 +876,28 @@ fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::
         content_parts.push(crate::layout_system::render_column_layout_end());
     }
 
-    // Shell (topbar/sidebar/footer) + content wrapped in #cronus-content for SPA swap
+    // Detect if shell contains fixed sidebar/topbar (from templates)
+    let shell_html = shell_parts.join("\n");
+    let has_fixed_sidebar = shell_html.contains("fixed") && shell_html.contains("left-0");
+    let has_fixed_topbar = shell_html.contains("fixed") && shell_html.contains("top-0");
+
+    // When templates provide fixed sidebar/topbar, content needs margin/padding
+    // to avoid being hidden underneath them
+    let content_style = match (has_fixed_sidebar, has_fixed_topbar) {
+        (true, true) => " style=\"margin-left:256px;padding-top:80px;padding-left:32px;padding-right:32px;padding-bottom:48px;min-height:100vh\"",
+        (true, false) => " style=\"margin-left:256px;padding:32px;min-height:100vh\"",
+        (false, true) => " style=\"padding-top:80px;padding-left:32px;padding-right:32px;min-height:100vh\"",
+        _ => "",
+    };
+
     let mut out = String::new();
-    out.push_str(&shell_parts.join("\n"));
-    out.push_str("\n<div id=\"cronus-content\">\n");
+    out.push_str(&shell_html);
+    out.push_str(&format!("\n<main id=\"cronus-content\"{}>\n", content_style));
     out.push_str(&content_parts.join("\n"));
-    out.push_str("\n</div>\n");
+    out.push_str("\n</main>\n");
+    if !footer_parts.is_empty() {
+        out.push_str(&footer_parts.join("\n"));
+    }
     out
 }
 

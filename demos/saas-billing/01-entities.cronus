@@ -1,0 +1,121 @@
+## Entities — the data model drives everything
+
+entity User {
+  name string!
+  email email! unique
+  password_hash string sensitive
+  role enum ["admin", "billing", "viewer"]! default:"admin"
+}
+
+entity Customer shared {
+  name string! searchable
+  email email! unique searchable
+  company string searchable
+  phone string
+  country string default:"BR"
+  plan_name string
+  mrr money default:"0"
+  status enum ["active", "churned", "trial", "suspended"]! default:"trial"
+
+  transition status {
+    trial -> active
+    trial -> churned
+    active -> suspended
+    active -> churned
+    suspended -> active
+    churned -> active
+  }
+
+  on create {
+    notify "log" "New customer registered"
+  }
+}
+
+entity Plan shared {
+  name string! unique
+  slug slug! unique
+  price money!
+  interval enum ["monthly", "yearly"]! default:"monthly"
+  trial_days number default:"14"
+  features text
+  active boolean default:"true"
+  sort_order number default:"0"
+}
+
+entity Subscription shared {
+  customer -> Customer
+  plan -> Plan
+  status enum ["trialing", "active", "past_due", "canceled", "paused"]! default:"trialing"
+  current_period_start string
+  current_period_end string
+  cancel_at string
+  canceled_reason string
+
+  transition status {
+    trialing -> active
+    trialing -> canceled
+    active -> past_due
+    active -> canceled
+    active -> paused
+    past_due -> active
+    past_due -> canceled
+    paused -> active
+    paused -> canceled
+  }
+
+  on create {
+    notify "log" "Subscription created"
+  }
+
+  on update status {
+    when "canceled" {
+      notify "log" "Subscription canceled"
+    }
+    when "active" {
+      notify "log" "Subscription activated"
+    }
+  }
+}
+
+entity Invoice shared {
+  subscription -> Subscription
+  customer -> Customer
+  amount money!
+  currency string default:"BRL"
+  status enum ["draft", "open", "paid", "void", "uncollectible"]! default:"draft"
+  due_date string
+  paid_at string
+  invoice_number string unique
+
+  transition status {
+    draft -> open
+    open -> paid
+    open -> void
+    open -> uncollectible
+    void -> draft
+  }
+
+  on update status {
+    when "paid" {
+      notify "log" "Invoice paid"
+    }
+  }
+}
+
+entity PaymentMethod shared {
+  customer -> Customer
+  type enum ["credit_card", "pix", "boleto", "wire"]! default:"credit_card"
+  last_four string
+  brand string
+  exp_month number
+  exp_year number
+  is_default boolean default:"true"
+}
+
+entity UsageRecord shared {
+  customer -> Customer
+  metric string!
+  value number!
+  period string!
+  recorded_at string
+}

@@ -268,6 +268,11 @@ fn attach_template(blueprint: &mut SectionBlueprint, node: &DomNode) {
 /// Check if a block is large enough to warrant splitting into sub-blocks.
 /// A block with many children and deep nesting is a candidate.
 fn should_split_block(node: &DomNode) -> bool {
+    // Don't split grid containers — they are cohesive layout blocks
+    let classes = node.attrs.get("class").map(|s| s.as_str()).unwrap_or("");
+    if classes.contains("grid-cols-") || classes.contains("grid ") {
+        return false;
+    }
     // At least 3 direct children (so there's something to split)
     if node.children.len() < 3 {
         return false;
@@ -355,6 +360,22 @@ fn should_deep_split(node: &DomNode, section_type: &str, confidence: f32) -> boo
     // Don't split elements that are already specific dashboard types
     // (sidebar, topbar, footer are self-contained)
     if matches!(section_type, "sidebar" | "topbar" | "footer" | "hero") {
+        return false;
+    }
+
+    // Don't split grid layout containers — their children are meant to be
+    // rendered together in the grid.  The template will preserve the layout.
+    let classes = node.attrs.get("class").map(|s| s.as_str()).unwrap_or("");
+    if classes.contains("grid-cols-") || classes.contains("grid ") {
+        return false;
+    }
+
+    // Don't split nodes that already classify with high confidence as a
+    // known composite type (kpi-grid, stat-cards, data-table, chart, pricing).
+    // These are self-contained visual blocks.
+    if confidence >= 0.6 && matches!(section_type,
+        "kpi-grid" | "stat-cards" | "stats" | "data-table" | "chart" | "pricing" | "form" | "tabs"
+    ) {
         return false;
     }
 

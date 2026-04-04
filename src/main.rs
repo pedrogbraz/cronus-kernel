@@ -62,7 +62,7 @@ use cli::context::cmd_context;
 use cli::memory_cmd::cmd_memory;
 use cli::changelog::cmd_changelog;
 use cli::build::cmd_build;
-use cli::dump_cmd::{cmd_dump, cmd_clone};
+use cli::dump_cmd::cmd_dump;
 use cli::validate::{cmd_validate, cmd_validate_mission};
 use cli::verify::{cmd_verify, cmd_verify_audit, cmd_debug_audit};
 use cli::new::cmd_new;
@@ -144,7 +144,7 @@ async fn main() {
         "compose" => cmd_compose(&args),
         "generate" | "gen" => cmd_generate(&args),
         "dump" => cmd_dump(&args),
-        "clone" => cmd_clone(&args),
+        "clone" => cmd_dump(&args), // clone is an alias for dump
         "validate" => {
             if args.iter().any(|a| a == "--mission") {
                 cmd_validate_mission();
@@ -450,7 +450,7 @@ async fn handle_request_inner(
                                 Response::builder()
                                     .status(StatusCode::CREATED)
                                     .header("Content-Type", "application/json")
-                                    .header("Set-Cookie", crate::security::secure_cookie("cronus_token", &token, 86400, "/"))
+                                    .header("Set-Cookie", crate::security::secure_cookie("cronus_token", &token, 604800, "/"))
                                     .body(Full::new(Bytes::from(body.to_string())))
                                     .unwrap()
                             }
@@ -487,7 +487,7 @@ async fn handle_request_inner(
                                         Response::builder()
                                             .status(StatusCode::OK)
                                             .header("Content-Type", "application/json")
-                                            .header("Set-Cookie", crate::security::secure_cookie("cronus_token", &token, 86400, "/"))
+                                            .header("Set-Cookie", crate::security::secure_cookie("cronus_token", &token, 604800, "/"))
                                             .body(Full::new(Bytes::from(body.to_string())))
                                             .unwrap()
                                     } else {
@@ -736,6 +736,10 @@ async fn handle_request_inner(
                         })
                     }).collect();
                     ej["transitions"] = json!(transitions_json);
+                }
+                // Live row count from database
+                if let Ok(count) = state.db.count(&e.name) {
+                    ej["row_count"] = json!(count);
                 }
                 ej
             }).collect();
@@ -2074,8 +2078,9 @@ async fn cmd_run(args: &[String]) {
         let tokens = if let Some(ref tc) = app.tailwind_config {
             theme::parse_from_tailwind_config(tc)
         } else if let Some(ref s) = style {
-            theme::parse_from_style(
+            theme::derive_palette(
                 s.accent.as_deref().unwrap_or(""),
+                s.theme.as_deref().unwrap_or("dark"),
                 s.font.as_deref().unwrap_or(""),
             )
         } else {
@@ -2367,7 +2372,6 @@ async fn cmd_run(args: &[String]) {
 }
 
 // cmd_dump moved to cli::dump_cmd
-// cmd_clone moved to cli::dump_cmd
 
 
 // cmd_build and build_ai_error_json moved to cli/build.rs

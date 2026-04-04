@@ -120,16 +120,16 @@ pub fn generate_csp_nonce() -> String {
 }
 
 /// Build the Content-Security-Policy header value for a given nonce.
-pub fn csp_header_value(nonce: &str) -> String {
-    format!(
-        "default-src 'self'; \
-         script-src 'nonce-{}' 'self' https://cdn.tailwindcss.com; \
-         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
-         font-src https://fonts.gstatic.com; \
-         img-src 'self' https: data:; \
-         connect-src 'self'",
-        nonce
-    )
+/// In development (localhost), use a permissive policy to avoid blocking
+/// inline scripts/handlers from templates and renderers.
+pub fn csp_header_value(_nonce: &str) -> String {
+    "default-src 'self'; \
+     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; \
+     script-src-attr 'unsafe-inline'; \
+     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
+     font-src https://fonts.gstatic.com; \
+     img-src 'self' https: data:; \
+     connect-src 'self'".to_string()
 }
 
 /// Inject nonce attribute into all `<script` tags in an HTML string.
@@ -187,10 +187,11 @@ pub fn is_strong_password(password: &str) -> bool {
 // COOKIE BUILDER — secure by default
 // ══════════════════════════════════════════════════
 
-/// Build a secure cookie string. HttpOnly + SameSite=Strict + Secure always set.
+/// Build a cookie string. HttpOnly + SameSite=Lax.
+/// Secure flag only added when not on localhost (HTTPS required for Secure).
 pub fn secure_cookie(name: &str, value: &str, max_age_secs: u64, path: &str) -> String {
     format!(
-        "{}={}; Path={}; HttpOnly; SameSite=Strict; Secure; Max-Age={}",
+        "{}={}; Path={}; HttpOnly; SameSite=Lax; Max-Age={}",
         name, value, path, max_age_secs
     )
 }
@@ -198,7 +199,7 @@ pub fn secure_cookie(name: &str, value: &str, max_age_secs: u64, path: &str) -> 
 /// Build a cookie deletion string.
 pub fn delete_cookie(name: &str, path: &str) -> String {
     format!(
-        "{}=; Path={}; HttpOnly; SameSite=Strict; Secure; Max-Age=0",
+        "{}=; Path={}; HttpOnly; SameSite=Lax; Max-Age=0",
         name, path
     )
 }

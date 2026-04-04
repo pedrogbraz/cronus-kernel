@@ -31,12 +31,12 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
       --border-strong: oklch(1 0 0 / 8%);
       --surface-hover: oklch(0.18 0 0);
       --secondary: oklch(0.18 0 0);
-      --accent: oklch(0.488 0.243 264);
+      --accent: var(--primary);
       --accent-soft: oklch(0.488 0.243 264 / 12%);
-      --success: oklch(0.696 0.17 162);
+      --success: var(--success, #10b981);
       --success-soft: oklch(0.696 0.17 162 / 12%);
       --warning: oklch(0.769 0.188 70);
-      --danger: oklch(0.704 0.191 22);
+      --danger: var(--error, #ef4444);
       --danger-soft: oklch(0.704 0.191 22 / 12%);
       --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
       --radius-card: 22px;
@@ -176,7 +176,7 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
         let search_html = if !search_placeholder.is_empty() {
             format!(
                 r#"<div style="flex:1;max-width:400px">
-  <input type="text" placeholder="{}" style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid oklch(1 0 0 / 6%);background:oklch(0.14 0 0);color:oklch(0.93 0 0);font-size:13px;outline:none" onfocus="this.style.borderColor='oklch(0.488 0.243 264)'" onblur="this.style.borderColor='oklch(1 0 0 / 6%)'">
+  <input type="text" placeholder="{}" style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid oklch(1 0 0 / 6%);background:oklch(0.14 0 0);color:oklch(0.93 0 0);font-size:13px;outline:none" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='oklch(1 0 0 / 6%)'">
 </div>"#,
                 search_placeholder
             )
@@ -217,12 +217,12 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
       --border-strong: oklch(1 0 0 / 8%);
       --surface-hover: oklch(0.18 0 0);
       --secondary: oklch(0.18 0 0);
-      --accent: oklch(0.488 0.243 264);
+      --accent: var(--primary);
       --accent-soft: oklch(0.488 0.243 264 / 12%);
-      --success: oklch(0.696 0.17 162);
+      --success: var(--success, #10b981);
       --success-soft: oklch(0.696 0.17 162 / 12%);
       --warning: oklch(0.769 0.188 70);
-      --danger: oklch(0.704 0.191 22);
+      --danger: var(--error, #ef4444);
       --danger-soft: oklch(0.704 0.191 22 / 12%);
       --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
       --radius-card: 22px;
@@ -578,6 +578,11 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
       font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
       display: inline-block; line-height: 1; vertical-align: middle;
     }}
+    /* Fixed navs/asides must have explicit left:0 to avoid inheriting parent offset */
+    nav.fixed, nav[class*="fixed"][class*="top-0"] {{ left: 0 !important; width: 100vw !important; }}
+    aside.fixed, aside[class*="fixed"][class*="left-0"] {{ left: 0 !important; }}
+    /* Footer alignment with sidebar */
+    footer.ml-64, footer[class*="ml-64"] {{ margin-left: 256px; }}
     .anim {{ animation: fadeIn 0.6s ease-out both; }}
     .anim-d1 {{ animation-delay: 0.1s; }}
     .anim-d2 {{ animation-delay: 0.2s; }}
@@ -593,12 +598,33 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
       .cronus-bottom-nav {{ display: flex !important; }}
 
       /* Main content: full width, no sidebar offset */
-      #cronus-main {{
+      #cronus-main, #cronus-content, main {{
         margin-left: 0 !important;
         max-width: 100% !important;
         padding: 1rem 1rem 5rem !important;
         padding-top: 4rem !important;
       }}
+
+      /* Fixed topbar: compact on mobile */
+      nav[class*="fixed"][class*="top-0"] {{
+        padding: 0 0.75rem !important;
+        height: 48px !important;
+      }}
+      nav[class*="fixed"] input {{ display: none !important; }}
+      nav[class*="fixed"] .hidden {{ display: none !important; }}
+      nav[class*="fixed"] [class*="w-8"] {{ width: 28px !important; height: 28px !important; }}
+
+      /* Tailwind grid responsive overrides */
+      .grid-cols-4, [class*="grid-cols-4"] {{ grid-template-columns: repeat(2, 1fr) !important; }}
+      .grid-cols-3, [class*="lg:grid-cols-3"] {{ grid-template-columns: 1fr !important; }}
+      .lg\:grid-cols-3 {{ grid-template-columns: 1fr !important; }}
+      .lg\:grid-cols-4 {{ grid-template-columns: repeat(2, 1fr) !important; }}
+      .md\:grid-cols-2 {{ grid-template-columns: 1fr !important; }}
+      .md\:grid-cols-4 {{ grid-template-columns: repeat(2, 1fr) !important; }}
+
+      /* Text sizes */
+      .text-6xl {{ font-size: 2rem !important; }}
+      .text-4xl {{ font-size: 1.5rem !important; }}
 
       /* Topbar: compact */
       header {{
@@ -628,6 +654,12 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
 
       /* Remove sidebar margin */
       .ml-64, [class*="ml-64"] {{ margin-left: 0 !important; }}
+
+      /* Fixed topbar must span full width from left:0 */
+      nav[class*="fixed"][class*="top-0"] {{
+        left: 0 !important;
+        width: 100% !important;
+      }}
 
       /* Side panel border fix */
       [class*="border-l"] {{ border-left: none !important; }}
@@ -758,6 +790,10 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
   !function(){{
     if(window.innerWidth<=768)return; // skip on mobile
     var aside=document.querySelector('aside');
+    // If page already has #cronus-content with its own margin, skip auto-offset
+    // (template pages handle their own layout via render_custom)
+    var cronusContent=document.getElementById('cronus-content');
+    if(cronusContent)return;
     var main=document.getElementById('cronus-main');
     if(aside&&main){{
       var s=getComputedStyle(aside);
@@ -767,25 +803,27 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
         main.style.maxWidth='calc(100% - '+w+'px)';
       }}
     }}
-    // Handle resize
-    window.addEventListener('resize',function(){{
-      var main=document.getElementById('cronus-main');
-      if(!main)return;
-      if(window.innerWidth<=768){{
-        main.style.marginLeft='';
-        main.style.maxWidth='';
-      }}else{{
-        var aside=document.querySelector('aside');
-        if(aside){{
-          var s=getComputedStyle(aside);
-          if(s.position==='fixed'){{
-            var w=aside.offsetWidth||256;
-            main.style.marginLeft=w+'px';
-            main.style.maxWidth='calc(100% - '+w+'px)';
+    // Handle resize (skip if page uses #cronus-content)
+    if(!document.getElementById('cronus-content')){{
+      window.addEventListener('resize',function(){{
+        var main=document.getElementById('cronus-main');
+        if(!main)return;
+        if(window.innerWidth<=768){{
+          main.style.marginLeft='';
+          main.style.maxWidth='';
+        }}else{{
+          var aside=document.querySelector('aside');
+          if(aside){{
+            var s=getComputedStyle(aside);
+            if(s.position==='fixed'){{
+              var w=aside.offsetWidth||256;
+              main.style.marginLeft=w+'px';
+              main.style.maxWidth='calc(100% - '+w+'px)';
+            }}
           }}
         }}
-      }}
-    }});
+      }});
+    }}
   }}();
 
   // Fix template layouts inside #cronus-main
@@ -796,43 +834,36 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
     main.querySelectorAll('.ml-64,[class*="ml-64"]').forEach(function(el){{
       el.style.marginLeft='0';
     }});
-    // Fix 12-col grid layouts — convert to stacked when tight
-    function fixGridLayout(){{
-      var w=main.offsetWidth;
-      var narrow=w<900;
-      main.querySelectorAll('.grid-cols-12,.grid.grid-cols-12').forEach(function(g){{
-        g.style.display='flex';
-        g.style.flexDirection=narrow?'column':'row';
-        g.style.overflow='hidden';
-        g.querySelectorAll('[class*="col-span"]').forEach(function(c){{
-          c.style.overflow='hidden';
-          c.style.minWidth='0';
-          if(narrow){{
-            c.style.flex='none';
-            c.style.width='100%';
-          }}else{{
-            // Restore original proportions
-            var cls=c.className;
-            if(cls.indexOf('col-span-8')>=0)c.style.flex='2 1 0';
-            else if(cls.indexOf('col-span-4')>=0)c.style.flex='1 1 0';
-            else c.style.flex='1 1 0';
-            c.style.width='';
-          }}
+    // Fix 12-col grid layouts — only when Tailwind CDN is NOT loaded
+    // (templates already use Tailwind classes that resolve natively)
+    var hasTailwind=!!document.querySelector('script[src*="tailwindcss"]');
+    if(!hasTailwind){{
+      function fixGridLayout(){{
+        var w=main.offsetWidth;
+        var narrow=w<900;
+        main.querySelectorAll('.grid-cols-12,.grid.grid-cols-12').forEach(function(g){{
+          g.style.display='flex';
+          g.style.flexDirection=narrow?'column':'row';
+          g.style.overflow='hidden';
+          g.querySelectorAll('[class*="col-span"]').forEach(function(c){{
+            c.style.overflow='hidden';
+            c.style.minWidth='0';
+            if(narrow){{
+              c.style.flex='none';
+              c.style.width='100%';
+            }}else{{
+              var cls=c.className;
+              if(cls.indexOf('col-span-8')>=0)c.style.flex='2 1 0';
+              else if(cls.indexOf('col-span-4')>=0)c.style.flex='1 1 0';
+              else c.style.flex='1 1 0';
+              c.style.width='';
+            }}
+          }});
         }});
-      }});
-      // Make all text respect container — no overflow
-      main.querySelectorAll('h1,.text-5xl,.text-3xl,.text-2xl').forEach(function(el){{
-        el.style.overflowWrap='break-word';
-        el.style.wordBreak='break-word';
-        el.style.fontSize=w<600?'24px':w<900?'32px':'';
-      }});
-      // Scale large numbers
-      main.querySelectorAll('.text-3xl').forEach(function(el){{
-        el.style.fontSize=w<600?'18px':w<900?'22px':'';
-      }});
+      }}
+      fixGridLayout();
+      window.addEventListener('resize',fixGridLayout);
     }}
-    fixGridLayout();
-    window.addEventListener('resize',fixGridLayout);
 
     // Kernel Logs animation — reveal each log entry one by one, then stream new ones
     var logContainer=main.querySelector('.font-mono.space-y-3,[class*="font-mono"][class*="space-y"]');
@@ -940,6 +971,298 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
   {anim_js}
   {action_js}
   {bottom_nav}
+  <script>
+  // SPA Router — intercept internal links, swap content without full reload
+  !function(){{
+    var navInFlight=false;
+    function navigateTo(url){{
+      var main=document.getElementById('cronus-content')||document.getElementById('cronus-main');
+      if(!main||navInFlight)return false;
+      navInFlight=true;
+      window.__hmrPaused=true;
+
+      // Prefetch immediately while animating out
+      var fetchPromise=fetch(url).then(function(r){{return r.text()}});
+
+      // Smooth fade-out
+      main.style.transition='opacity 0.2s cubic-bezier(0.4,0,0.2,1), transform 0.2s cubic-bezier(0.4,0,0.2,1)';
+      main.style.opacity='0';
+      main.style.transform='translateY(8px)';
+
+      // Wait for BOTH fade-out AND fetch to complete
+      var fadeOutDone=new Promise(function(r){{setTimeout(r,220)}});
+
+      Promise.all([fetchPromise,fadeOutDone]).then(function(results){{
+        var html=results[0];
+        var doc=new DOMParser().parseFromString(html,'text/html');
+        var newContent=doc.getElementById('cronus-content')||doc.getElementById('cronus-main');
+        var source=newContent||doc.querySelector('body');
+        var pageScripts=[];
+        if(source){{
+          // Collect inline scripts, then remove from DOM before swap
+          source.querySelectorAll('script').forEach(function(s){{
+            if(!s.src)pageScripts.push(s.textContent);
+            s.remove();
+          }});
+          main.innerHTML=source.innerHTML;
+        }}
+
+        history.pushState(null,'',url);
+        var newTitle=doc.querySelector('title');
+        if(newTitle)document.title=newTitle.textContent;
+
+        // Update sidebar active state
+        document.querySelectorAll('aside a[href]').forEach(function(a){{
+          var href=a.getAttribute('href');
+          var isActive=(href===url);
+          if(isActive){{
+            a.className=a.className.replace(/text-neutral-500/g,'text-black').replace(/hover:bg-white\/5/g,'').replace(/hover:text-white/g,'');
+            if(a.className.indexOf('bg-white')<0)a.className+=' bg-white text-black';
+          }}else{{
+            a.className=a.className.replace(/bg-white(?!\/)(\s)/g,'$1').replace(/text-black/g,'text-neutral-500').replace(/shadow-\[[^\]]*\]/g,'');
+            if(a.className.indexOf('hover:bg-white/5')<0)a.className+=' hover:bg-white/5 hover:text-white';
+          }}
+        }});
+        document.querySelectorAll('.cronus-bottom-nav a').forEach(function(a){{
+          if(a.getAttribute('href')===url)a.classList.add('active');
+          else a.classList.remove('active');
+        }});
+
+        window.scrollTo({{top:0,behavior:'instant'}});
+
+        // Smooth fade-in
+        main.style.transform='translateY(12px)';
+        main.style.opacity='0';
+        requestAnimationFrame(function(){{requestAnimationFrame(function(){{
+          main.style.transition='opacity 0.35s cubic-bezier(0,0,0.2,1), transform 0.35s cubic-bezier(0,0,0.2,1)';
+          main.style.opacity='1';
+          main.style.transform='translateY(0)';
+        }})}});
+
+        // Run animations + page scripts after fade-in completes
+        setTimeout(function(){{
+          if(window.__cronusAnimateContent)window.__cronusAnimateContent(main);
+          // Execute inline scripts from the new page
+          pageScripts.forEach(function(code){{
+            try{{(new Function(code))()}}catch(e){{console.warn('[SPA] script error:',e)}}
+          }});
+          navInFlight=false;
+          setTimeout(function(){{window.__hmrPaused=false}},500);
+        }},400);
+      }}).catch(function(){{
+        window.__hmrPaused=false;
+        navInFlight=false;
+        window.location.href=url;
+      }});
+      return true;
+    }}
+    // Intercept clicks on internal links
+    document.addEventListener('click',function(e){{
+      var a=e.target.closest('a[href]');
+      if(!a)return;
+      var href=a.getAttribute('href');
+      if(!href||href==='#'||href.startsWith('http')||href.startsWith('mailto'))return;
+      if(href===location.pathname)return; // already on this page
+      if(a.hasAttribute('download')||a.getAttribute('target')==='_blank')return;
+      e.preventDefault();
+      navigateTo(href);
+    }});
+    // Handle browser back/forward
+    window.addEventListener('popstate',function(){{
+      navigateTo(location.pathname);
+    }});
+  }}();
+  </script>
+  <script>
+  // Premium Animations Runtime — contextual, purposeful animations
+  window.__cronusAnimateContent=function(scope){{
+    scope=scope||document;
+    var io=new IntersectionObserver(function(entries){{
+      entries.forEach(function(e){{
+        if(!e.isIntersecting)return;
+        var el=e.target;
+        el.dataset.visible='1';
+        io.unobserve(el);
+
+        // 1. Number count-up: elements with large numeric text (KPIs, stats)
+        var bigNums=el.querySelectorAll('.text-4xl,.text-3xl,.text-5xl,.text-2xl');
+        bigNums.forEach(function(n){{
+          var raw=n.childNodes[0];
+          if(!raw||raw.nodeType!==3)return;
+          var txt=raw.textContent.trim();
+          var num=parseFloat(txt.replace(/,/g,''));
+          if(isNaN(num)||num===0)return;
+          var start=0;
+          var dur=1200;
+          var t0=performance.now();
+          var hasDecimal=txt.indexOf('.')>=0;
+          var decimals=hasDecimal?(txt.split('.')[1]||'').replace(/[^0-9]/g,'').length:0;
+          function tick(now){{
+            var p=Math.min((now-t0)/dur,1);
+            // ease-out-expo
+            var ep=p===1?1:1-Math.pow(2,-10*p);
+            var v=start+(num-start)*ep;
+            raw.textContent=hasDecimal?v.toFixed(decimals):Math.round(v).toLocaleString();
+            if(p<1)requestAnimationFrame(tick);
+          }}
+          requestAnimationFrame(tick);
+        }});
+
+        // 2. Progress bars: elements with width set as percentage
+        el.querySelectorAll('[class*="h-full"],[class*="h-1"],[class*="h-2"]').forEach(function(bar){{
+          var w=bar.style.width||bar.className.match(/w-\[(\d+)%\]/);
+          if(!w)return;
+          var target=typeof w==='string'?w:(w[1]+'%');
+          if(target.indexOf('%')<0)return;
+          bar.style.width='0%';
+          bar.style.transition='width 1.4s cubic-bezier(0.16,1,0.3,1)';
+          requestAnimationFrame(function(){{requestAnimationFrame(function(){{
+            bar.style.width=target;
+          }})}});
+        }});
+
+        // 3. Chart bars: grow from bottom
+        el.querySelectorAll('[class*="rounded-t"],[class*="hover:bg-white"]').forEach(function(bar,i){{
+          if(bar.tagName==='A'||bar.tagName==='BUTTON')return;
+          var h=bar.style.height||getComputedStyle(bar).height;
+          bar.style.height='0';
+          bar.style.transition='height 0.8s cubic-bezier(0.16,1,0.3,1) '+(i*0.05)+'s';
+          requestAnimationFrame(function(){{requestAnimationFrame(function(){{
+            bar.style.height=h;
+          }})}});
+        }});
+
+        // 4. Stagger children: glass-panel cards, table rows
+        var staggerTargets=el.querySelectorAll('.glass-panel,tr,a[href]');
+        staggerTargets.forEach(function(child,i){{
+          if(child.closest('[data-visible]')!==el)return;
+          child.style.opacity='0';
+          child.style.transform='translateY(12px)';
+          child.style.transition='opacity 0.5s ease,transform 0.5s cubic-bezier(0.16,1,0.3,1)';
+          child.style.transitionDelay=(i*0.06)+'s';
+          requestAnimationFrame(function(){{requestAnimationFrame(function(){{
+            child.style.opacity='1';
+            child.style.transform='translateY(0)';
+          }})}});
+        }});
+      }});
+    }},{{threshold:0.05,rootMargin:'0px 0px -20px 0px'}});
+
+    // Observe all major content blocks
+    document.querySelectorAll('.glass-panel,.grid,[class*="grid-cols"],table,.rounded-xl,header,section,main>div,#cronus-content>div,#cronus-content>header,#cronus-content>section').forEach(function(el){{
+      if(el.offsetHeight>10)io.observe(el);
+    }});
+
+    // 5. SVG path draw-in animation
+    document.querySelectorAll('svg path[d]').forEach(function(path){{
+      try{{
+        var len=path.getTotalLength();
+        if(len<50||len>5000)return;
+        var stroke=path.getAttribute('stroke');
+        var fill=path.getAttribute('fill');
+        // Animate stroke paths (chart lines)
+        if(stroke&&stroke!=='none'){{
+          path.style.strokeDasharray=len;
+          path.style.strokeDashoffset=len;
+          path.style.transition='stroke-dashoffset 2s cubic-bezier(0.16,1,0.3,1) 0.3s';
+          requestAnimationFrame(function(){{path.style.strokeDashoffset='0'}});
+        }}
+        // Animate fill paths (area charts) — fade in
+        if(fill&&fill!=='none'){{
+          path.style.opacity='0';
+          path.style.transition='opacity 1.5s ease 0.5s';
+          requestAnimationFrame(function(){{requestAnimationFrame(function(){{
+            path.style.opacity='';
+          }})}});
+        }}
+      }}catch(e){{}}
+    }});
+
+    // 6. Hover micro-interactions for glass-panels
+    document.querySelectorAll('.glass-panel').forEach(function(el){{
+      el.style.transition=(el.style.transition||'')+',transform 0.3s ease,box-shadow 0.3s ease';
+      el.addEventListener('mouseenter',function(){{
+        el.style.transform='translateY(-2px)';
+        el.style.boxShadow='0 8px 32px rgba(255,255,255,0.06)';
+      }});
+      el.addEventListener('mouseleave',function(){{
+        el.style.transform='translateY(0)';
+        el.style.boxShadow='';
+      }});
+    }});
+
+    // 7. Pulsing status dots
+    document.querySelectorAll('[class*="bg-green-500"][class*="rounded-full"]').forEach(function(dot){{
+      if(dot.offsetWidth<=8){{
+        dot.style.animation='pulse 2s ease-in-out infinite';
+      }}
+    }});
+
+    // 8. Table row hover glow
+    document.querySelectorAll('tbody tr').forEach(function(row){{
+      row.style.transition='background 0.2s ease';
+    }});
+  }};
+  // Run on initial load
+  window.__cronusAnimateContent();
+  </script>
+  <script>
+  // Token auto-refresh — re-authenticate silently before expiry
+  !function(){{
+    var token=localStorage.getItem('token');
+    if(!token)return;
+    // Decode JWT payload to check expiry
+    try{{
+      var payload=JSON.parse(atob(token.split('.')[1]));
+      var exp=payload.exp*1000; // ms
+      var now=Date.now();
+      var remaining=exp-now;
+      // If token expires in less than 1 hour, refresh now
+      if(remaining<3600000&&remaining>0){{
+        fetch('/api/auth/me',{{headers:{{'Authorization':'Bearer '+token}}}})
+          .then(function(r){{return r.json()}})
+          .then(function(d){{
+            if(d.token){{
+              localStorage.setItem('token',d.token);
+              document.cookie='cronus_token='+d.token+';path=/;max-age=604800;SameSite=Strict';
+            }}
+          }}).catch(function(){{}});
+      }}
+      // Schedule refresh 1 hour before expiry
+      if(remaining>3600000){{
+        setTimeout(function(){{
+          var t=localStorage.getItem('token');
+          if(!t)return;
+          fetch('/api/auth/me',{{headers:{{'Authorization':'Bearer '+t}}}})
+            .then(function(r){{return r.json()}})
+            .then(function(d){{
+              if(d.token){{
+                localStorage.setItem('token',d.token);
+                document.cookie='cronus_token='+d.token+';path=/;max-age=604800;SameSite=Strict';
+              }}
+            }}).catch(function(){{}});
+        }},remaining-3600000);
+      }}
+    }}catch(e){{}}
+    // Also inject token into every fetch for SPA navigation
+    var origFetch=window.fetch;
+    window.fetch=function(url,opts){{
+      opts=opts||{{}};
+      if(typeof url==='string'&&url.startsWith('/')&&!url.startsWith('/api/auth/login')){{
+        var t=localStorage.getItem('token');
+        if(t){{
+          opts.headers=opts.headers||{{}};
+          if(!opts.headers['Authorization']&&!opts.headers['authorization']){{
+            opts.headers['Authorization']='Bearer '+t;
+          }}
+          // Also set cookie for page requests
+          opts.credentials='same-origin';
+        }}
+      }}
+      return origFetch.call(this,url,opts);
+    }};
+  }}();
+  </script>
 </body>
 </html>"##,
         app_name = app_name,

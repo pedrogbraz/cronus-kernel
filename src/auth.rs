@@ -138,25 +138,42 @@ pub fn require_role(claims: &Claims, role: &str) -> bool {
     claims.role == role || claims.role == "admin"
 }
 
-/// Default JWT secret (from env or generated per-run)
+/// Default JWT secret — persisted to `.cronus/jwt.key` so sessions survive restarts.
 ///
-/// If JWT_SECRET is not set, generates a random secret and warns on stderr.
-/// This means tokens are invalidated on restart — set JWT_SECRET for persistence.
+/// Priority: JWT_SECRET env var > .cronus/jwt.key file > generate + save.
 pub fn default_secret() -> String {
-    std::env::var("JWT_SECRET").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| {
-        use std::sync::OnceLock;
-        static SECRET: OnceLock<String> = OnceLock::new();
-        SECRET.get_or_init(|| {
-            use rand::Rng;
-            let secret: String = rand::thread_rng()
-                .sample_iter(&rand::distributions::Alphanumeric)
-                .take(64)
-                .map(char::from)
-                .collect();
-            eprintln!("  \x1b[33m⚠\x1b[0m No JWT_SECRET set — using ephemeral secret (sessions won't survive restarts)");
-            secret
-        }).clone()
-    })
+    // 1. Check env var
+    if let Ok(s) = std::env::var("JWT_SECRET") {
+        if !s.is_empty() { return s; }
+    }
+
+    use std::sync::OnceLock;
+    static SECRET: OnceLock<String> = OnceLock::new();
+    SECRET.get_or_init(|| {
+        let key_path = std::path::Path::new(".cronus/jwt.key");
+
+        // 2. Read from persisted file
+        if let Ok(s) = std::fs::read_to_string(key_path) {
+            let s = s.trim().to_string();
+            if !s.is_empty() { return s; }
+        }
+
+        // 3. Generate and persist
+        use rand::Rng;
+        let secret: String = rand::thread_rng()
+            .sample_iter(&rand::distributions::Alphanumeric)
+            .take(64)
+            .map(char::from)
+            .collect();
+
+        // Save to file
+        let _ = std::fs::create_dir_all(".cronus");
+        if std::fs::write(key_path, &secret).is_ok() {
+            eprintln!("  \x1b[32m✓\x1b[0m JWT secret persisted to .cronus/jwt.key");
+        }
+
+        secret
+    }).clone()
 }
 
 // ══════════════════════════════════════════════════

@@ -65,28 +65,3 @@ pub fn cmd_dump(args: &[String]) {
     }
 }
 
-pub fn cmd_clone(args: &[String]) {
-    let file = args.get(2).unwrap_or_else(|| {
-        eprintln!("  \x1b[31m✗\x1b[0m Usage: cronus clone <file.html> [-o output.cronus]");
-        std::process::exit(1);
-    });
-
-    let html = fs::read_to_string(file).unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Error reading {}: {}", file, e);
-        std::process::exit(1);
-    });
-
-    eprintln!("  \x1b[36m⚡\x1b[0m Clone IR: {} ({} bytes)...", file, html.len());
-    let cronus = dump::clone_ir::clone_html_to_cronus(&html);
-
-    let output_file = args.iter().position(|a| a == "-o").and_then(|i| args.get(i + 1));
-    if let Some(out) = output_file {
-        fs::write(out, &cronus).unwrap_or_else(|e| {
-            eprintln!("  \x1b[31m✗\x1b[0m Error writing {}: {}", out, e);
-            std::process::exit(1);
-        });
-        eprintln!("  \x1b[32m✓\x1b[0m Written to {}", out);
-    } else {
-        println!("{}", cronus);
-    }
-}
