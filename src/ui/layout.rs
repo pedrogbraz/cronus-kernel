@@ -1263,6 +1263,99 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
     }};
   }}();
   </script>
+  <script>
+  // ── CRONUS SPA Router ──────────────────────────────
+  // Intercepts internal link clicks, fetches new page, swaps body.
+  // No full reload. Sidebar persists visually. ~800 bytes.
+  !function(){{
+    if(typeof history.pushState!=='function')return;
+    var transitioning=false;
+
+    function isLocal(a){{
+      if(!a.href)return false;
+      if(a.target==='_blank'||a.hasAttribute('download'))return false;
+      if(a.href.indexOf(location.origin)!==0)return false;
+      if(a.href.indexOf('#')>-1&&a.href.split('#')[0]===location.href.split('#')[0])return false;
+      if(a.href.match(/\.(pdf|zip|png|jpg|csv)$/i))return false;
+      return true;
+    }}
+
+    function navigate(url,push){{
+      if(transitioning)return;
+      transitioning=true;
+      // Fade out
+      document.body.style.opacity='0.6';
+      document.body.style.transition='opacity 0.1s ease';
+
+      fetch(url,{{headers:{{'X-CRONUS-SPA':'1'}},credentials:'same-origin'}})
+        .then(function(r){{
+          if(!r.ok){{ window.location.href=url; return null; }}
+          return r.text();
+        }})
+        .then(function(html){{
+          if(!html)return;
+          var doc=new DOMParser().parseFromString(html,'text/html');
+          // Swap body
+          document.body.innerHTML=doc.body.innerHTML;
+          // Copy body attributes
+          Array.from(doc.body.attributes).forEach(function(a){{
+            document.body.setAttribute(a.name,a.value);
+          }});
+          // Update title
+          var t=doc.querySelector('title');
+          if(t)document.title=t.textContent;
+          // Update head styles (for style_block changes between pages)
+          var oldStyles=document.querySelectorAll('style[data-cronus-page]');
+          oldStyles.forEach(function(s){{s.remove()}});
+          doc.querySelectorAll('style').forEach(function(s){{
+            if(s.textContent.indexOf('body')>-1||s.textContent.indexOf('#cronus')>-1){{
+              var ns=s.cloneNode(true);
+              ns.setAttribute('data-cronus-page','1');
+              document.head.appendChild(ns);
+            }}
+          }});
+          // Execute scripts
+          document.querySelectorAll('script:not([src])').forEach(function(s){{
+            if(s.textContent.indexOf('CRONUS SPA Router')>-1)return; // skip self
+            if(s.textContent.indexOf('tailwind')>-1)return; // skip tailwind config
+            try{{ new Function(s.textContent)(); }}catch(e){{}}
+          }});
+          // Re-run Tailwind if present
+          if(window.tailwind&&window.tailwind.refresh){{
+            setTimeout(function(){{window.tailwind.refresh()}},50);
+          }}
+          // Push history
+          if(push)history.pushState(null,document.title,url);
+          // Scroll top
+          window.scrollTo(0,0);
+          // Fade in
+          document.body.style.opacity='1';
+          transitioning=false;
+          // Re-attach click listener
+          listen();
+        }})
+        .catch(function(){{
+          window.location.href=url;
+          transitioning=false;
+        }});
+    }}
+
+    function listen(){{
+      document.addEventListener('click',function(e){{
+        var a=e.target.closest('a');
+        if(!a||!isLocal(a))return;
+        e.preventDefault();
+        if(a.href===location.href)return;
+        navigate(a.href,true);
+      }});
+    }}
+
+    listen();
+    window.addEventListener('popstate',function(){{
+      navigate(location.href,false);
+    }});
+  }}();
+  </script>
 </body>
 </html>"##,
         app_name = app_name,

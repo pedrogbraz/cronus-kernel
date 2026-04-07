@@ -51,6 +51,26 @@ pub fn cmd_test(args: &[String]) {
     }
 
     let (passed, failed, _total) = testing::run_tests(&entities, port);
+
+    // Component tests — report co-located test blocks
+    let mut comp_tests = 0u32;
+    let mut comp_test_steps = 0u32;
+    for node in &nodes {
+        if let AstNode::Component(c) = node {
+            for test in &c.tests {
+                comp_tests += 1;
+                comp_test_steps += test.steps.len() as u32;
+                println!("  \x1b[36m◉\x1b[0m {} → \"{}\" ({} steps)", c.name, test.name, test.steps.len());
+                for step in &test.steps {
+                    println!("    \x1b[90m{}\x1b[0m", step);
+                }
+            }
+        }
+    }
+    if comp_tests > 0 {
+        println!("\n  \x1b[33mℹ\x1b[0m {} component test(s) with {} step(s) (runtime execution coming soon)", comp_tests, comp_test_steps);
+    }
+
     if failed > 0 {
         std::process::exit(1);
     }

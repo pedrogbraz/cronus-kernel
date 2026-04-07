@@ -98,12 +98,12 @@ impl RateLimiter {
 /// Returns security headers that MUST be set on every HTTP response.
 pub fn security_headers() -> Vec<(&'static str, &'static str)> {
     vec![
-        ("X-Content-Type-Options", "nosniff"),
-        ("X-Frame-Options", "DENY"),
-        ("X-XSS-Protection", "0"),
-        ("Referrer-Policy", "strict-origin-when-cross-origin"),
-        ("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()"),
-        ("Cross-Origin-Opener-Policy", "same-origin"),
+        ("x-content-type-options", "nosniff"),
+        ("x-frame-options", "DENY"),
+        ("x-xss-protection", "0"),
+        ("referrer-policy", "strict-origin-when-cross-origin"),
+        ("permissions-policy", "camera=(), microphone=(), geolocation=(), payment=()"),
+        ("cross-origin-opener-policy", "same-origin"),
     ]
 }
 

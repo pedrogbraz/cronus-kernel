@@ -12,6 +12,8 @@ pub(crate) enum TokenKind {
     RBrace,
     LBracket,
     RBracket,
+    LParen,
+    RParen,
     Arrow,
     ColonPair,
     Plus,
@@ -73,6 +75,18 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                 break;
             }
 
+            // hex color literal: #abc123 (before comment check)
+            if chars[i] == '#' && i + 1 < chars.len() && chars[i+1].is_ascii_hexdigit() {
+                let start = i;
+                i += 1;
+                while i < chars.len() && chars[i].is_ascii_hexdigit() {
+                    i += 1;
+                }
+                let value: String = chars[start..i].iter().collect();
+                tokens.push(Token { kind: TokenKind::Identifier, value, line: line_num });
+                continue;
+            }
+
             // comment (discarded)
             if chars[i] == '#' {
                 break;
@@ -100,15 +114,22 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                 '[' => { tokens.push(Token { kind: TokenKind::LBracket, value: "[".into(), line: line_num }); i += 1; continue; }
                 ']' => { tokens.push(Token { kind: TokenKind::RBracket, value: "]".into(), line: line_num }); i += 1; continue; }
                 ',' => { tokens.push(Token { kind: TokenKind::Comma, value: ",".into(), line: line_num }); i += 1; continue; }
+                '(' => { tokens.push(Token { kind: TokenKind::LParen, value: "(".into(), line: line_num }); i += 1; continue; }
+                ')' => { tokens.push(Token { kind: TokenKind::RParen, value: ")".into(), line: line_num }); i += 1; continue; }
                 '+' => { tokens.push(Token { kind: TokenKind::Plus, value: "+".into(), line: line_num }); i += 1; continue; }
                 '|' => { tokens.push(Token { kind: TokenKind::Pipe, value: "|".into(), line: line_num }); i += 1; continue; }
                 _ => {}
             }
 
-            // comparison operators: ==, !=, >=, <=, >, <
+            // comparison and assignment operators: ==, =, !=, >=, <=, >, <
             if chars[i] == '=' && i + 1 < chars.len() && chars[i + 1] == '=' {
                 tokens.push(Token { kind: TokenKind::Operator, value: "==".into(), line: line_num });
                 i += 2;
+                continue;
+            }
+            if chars[i] == '=' {
+                tokens.push(Token { kind: TokenKind::Operator, value: "=".into(), line: line_num });
+                i += 1;
                 continue;
             }
             if chars[i] == '!' {
@@ -178,12 +199,19 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                 }
 
                 // read full word
-                while i < chars.len() && !chars[i].is_whitespace() && chars[i] != '{' && chars[i] != '}' && chars[i] != '[' && chars[i] != ']' && chars[i] != ',' && chars[i] != '+' {
+                while i < chars.len() && !chars[i].is_whitespace() && chars[i] != '{' && chars[i] != '}' && chars[i] != '[' && chars[i] != ']' && chars[i] != ',' && chars[i] != '+' && chars[i] != ')' {
                     if chars[i] == '(' {
-                        i += 1;
-                        while i < chars.len() && chars[i] != ')' { i += 1; }
-                        if i < chars.len() { i += 1; }
-                        continue;
+                        // Check if this is env(...) or role(...) — consume as part of word
+                        let word_so_far: String = chars[start..i].iter().collect();
+                        if word_so_far == "env" || word_so_far == "role" || word_so_far == "sum" || word_so_far == "count"
+                            || word_so_far.ends_with(":role") || word_so_far.ends_with(":env") {
+                            i += 1;
+                            while i < chars.len() && chars[i] != ')' { i += 1; }
+                            if i < chars.len() { i += 1; }
+                            continue;
+                        }
+                        // Otherwise, stop the word here — ( will be tokenized as LParen
+                        break;
                     }
                     if chars[i] == '-' && i + 1 < chars.len() && chars[i + 1] == '>' {
                         break;

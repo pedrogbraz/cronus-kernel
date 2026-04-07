@@ -773,6 +773,46 @@ pub(crate) fn render_section(section: &SectionNode, accent: &str, theme: &str, b
         _ => section_html,
     };
 
+    // Live SSE: auto-refresh when entity data changes
+    let is_live = section.binding.as_ref().map(|b| b.live).unwrap_or(false);
+    let output = if is_live {
+        let entity = section.binding.as_ref().map(|b| b.entity.as_str()).unwrap_or("");
+        let live_id = format!("live_{}", entity.to_lowercase());
+        format!(
+            r#"<div id="{live_id}" data-live-entity="{entity}">{output}</div>
+<script>
+(function(){{
+  var el=document.getElementById('{live_id}');
+  if(!el)return;
+  var es=new EventSource('/api/sse');
+  es.addEventListener('data_change',function(e){{
+    try{{
+      var d=JSON.parse(e.data);
+      if(d.entity==='{entity}'){{
+        // Reload the page content via SPA router
+        if(window.__cronusNavigate){{
+          window.__cronusNavigate(location.href,false);
+        }}else{{
+          location.reload();
+        }}
+      }}
+    }}catch(err){{}}
+  }});
+  es.onerror=function(){{
+    es.close();
+    setTimeout(function(){{
+      var script=document.createElement('script');
+      script.textContent='('+arguments.callee.caller.toString()+')()';
+    }},3000);
+  }};
+}})();
+</script>"#,
+            live_id = live_id, entity = entity, output = output
+        )
+    } else {
+        output
+    };
+
     // Add data-cronus-debug attribute when DEBUG_MODE is active
     if crate::DEBUG_MODE.load(std::sync::atomic::Ordering::Relaxed) {
         let entity = section.binding.as_ref().map(|b| b.entity.as_str()).unwrap_or("");

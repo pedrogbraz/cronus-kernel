@@ -91,7 +91,7 @@ pub(crate) fn forbidden_response(message: &str) -> Response<Full<Bytes>> {
 <body><div class="box">
   <div class="code">403</div>
   <div class="msg">{}</div>
-  <a href="/">Back to home</a>
+  <a href="/">Back to dashboard</a>
 </div></body></html>"##, message);
     Response::builder()
         .status(StatusCode::FORBIDDEN)

@@ -957,6 +957,38 @@ impl Parser {
                 let mut sec = self.parse_section()?;
                 if sec.doc.is_none() { sec.doc = inner_doc; }
                 sections.push(sec);
+            } else if self.peek().kind == TokenKind::Identifier
+                && self.peek().value.chars().next().map(|c| c.is_uppercase()).unwrap_or(false)
+                && !self.peek().value.chars().all(|c| c.is_uppercase() || c == '_') {
+                // PascalCase identifier = component invocation: KPICard label:"Active" value:"1234"
+                let comp_name = self.advance().value;
+                let mut comp_props = HashMap::new();
+                // Parse props: key:"value" or key:value
+                while self.peek().kind == TokenKind::ColonPair && !self.matches(TokenKind::Eof, None) {
+                    let (k, v) = Self::split_colon_pair(&self.advance().value);
+                    if v.is_empty() && (self.peek().kind == TokenKind::StringLit || self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::Number) {
+                        comp_props.insert(k, self.advance().value);
+                    } else {
+                        comp_props.insert(k, v);
+                    }
+                }
+                // Create a section that references the component
+                let mut sec_config = comp_props;
+                sec_config.insert("_component".to_string(), comp_name.clone());
+                sections.push(SectionNode {
+                    section_type: comp_name,
+                    title: None,
+                    subtitle: None,
+                    config: sec_config,
+                    items: Vec::new(),
+                    plans: Vec::new(),
+                    binding: None,
+                    actions: Vec::new(),
+                    visibility: None,
+                    template: None,
+                    style_block: None,
+                    doc: inner_doc,
+                });
             } else if self.peek().kind == TokenKind::ColonPair {
                 let (k, v) = Self::split_colon_pair(&self.advance().value);
                 config.insert(k, v);
@@ -1339,6 +1371,14 @@ impl Parser {
                 self.advance(); // consume "on"
                 let action_block = self.parse_action_block()?;
                 section_actions.push(action_block);
+            } else if self.matches(TokenKind::Identifier, Some("live")) {
+                self.advance(); // consume "live"
+                // "live bind Entity { ... }" or "live list Entity { ... }"
+                if self.matches(TokenKind::Identifier, Some("bind")) || self.matches(TokenKind::Identifier, Some("list")) {
+                    let mut b = self.parse_binding()?;
+                    b.live = true;
+                    binding = Some(b);
+                }
             } else if self.matches(TokenKind::Identifier, Some("bind")) {
                 binding = Some(self.parse_binding()?);
             } else if self.matches(TokenKind::Identifier, Some("item")) {
@@ -1382,6 +1422,7 @@ impl Parser {
                     offset: None,
                     group_by: None,
                     aggregate: None,
+                    live: false,
                 });
             }
         }
@@ -1692,7 +1733,7 @@ impl Parser {
 
         self.expect(TokenKind::RBrace)?;
 
-        Ok(BindingNode { entity: entity_name, query, filters, order, limit, offset, group_by, aggregate })
+        Ok(BindingNode { entity: entity_name, query, filters, order, limit, offset, group_by, aggregate, live: false })
     }
 
     // ── style ──
@@ -1811,11 +1852,53 @@ impl Parser {
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
 
+        // Parse params: component Name(label: text, value: money, icon?: text)
+        let mut params = Vec::new();
+        if self.matches(TokenKind::LParen, None) {
+            self.advance(); // consume (
+            while !self.matches(TokenKind::RParen, None) && !self.matches(TokenKind::Eof, None) {
+                if self.matches(TokenKind::Comma, None) { self.advance(); continue; }
+                if self.matches(TokenKind::RParen, None) { break; }
+                let raw = self.advance().value;
+                // Handle colon pair: "label:text" or bare "label"
+                if raw.contains(':') {
+                    let (pname, ptype) = Self::split_colon_pair(&raw);
+                    let (clean_name, required) = if pname.ends_with('?') {
+                        (pname.trim_end_matches('?').to_string(), false)
+                    } else {
+                        (pname, true)
+                    };
+                    let param_type = if ptype.is_empty() {
+                        if self.peek().kind == TokenKind::Identifier { self.advance().value } else { "any".to_string() }
+                    } else { ptype };
+                    params.push(ComponentParam { name: clean_name, param_type, default: None, required });
+                } else {
+                    // Bare name, check for ColonPair next
+                    let (clean_name, required) = if raw.ends_with('?') {
+                        (raw.trim_end_matches('?').to_string(), false)
+                    } else {
+                        (raw, true)
+                    };
+                    let param_type = if self.peek().kind == TokenKind::ColonPair {
+                        let (_, v) = Self::split_colon_pair(&self.advance().value);
+                        if v.is_empty() { "any".to_string() } else { v }
+                    } else {
+                        "any".to_string()
+                    };
+                    params.push(ComponentParam { name: clean_name, param_type, default: None, required });
+                }
+            }
+            if self.matches(TokenKind::RParen, None) { self.advance(); }
+        }
+
         // Parse attributes before the opening brace: layout:inline style:topbar+light
         let mut layout = None;
         let mut style = None;
+        let mut template: Option<String> = None;
         let mut items = Vec::new();
         let mut props = HashMap::new();
+        let mut state_vars: Vec<ComponentState> = Vec::new();
+        let mut tests: Vec<ComponentTest> = Vec::new();
 
         while !self.matches(TokenKind::LBrace, None) && !self.matches(TokenKind::Eof, None) {
             if self.peek().kind == TokenKind::ColonPair {
@@ -1853,6 +1936,38 @@ impl Parser {
         self.expect(TokenKind::LBrace)?;
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+            // state count: integer = 0
+            if self.matches(TokenKind::Identifier, Some("state")) || self.matches(TokenKind::Keyword, Some("state")) {
+                self.advance();
+                let raw = self.advance().value;
+                // Handle "count:integer" (colon pair) or "count" then next token
+                let (sname, stype) = if raw.contains(':') {
+                    let parts: Vec<&str> = raw.splitn(2, ':').collect();
+                    let mut t = parts.get(1).map(|s| s.to_string()).unwrap_or_default();
+                    if t.is_empty() && (self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::Keyword) {
+                        t = self.advance().value;
+                    }
+                    (parts[0].to_string(), if t.is_empty() { "any".to_string() } else { t })
+                } else if self.peek().kind == TokenKind::ColonPair {
+                    let (_, v) = Self::split_colon_pair(&self.advance().value);
+                    (raw, if v.is_empty() { self.advance().value } else { v })
+                } else {
+                    (raw, "any".to_string())
+                };
+                // Check for = default
+                let default = if self.peek().value == "=" || self.peek().kind == TokenKind::Operator && self.peek().value == "=" {
+                    self.advance();
+                    self.advance().value
+                } else {
+                    match stype.as_str() {
+                        "integer" | "number" => "0".to_string(),
+                        "boolean" => "false".to_string(),
+                        _ => String::new(),
+                    }
+                };
+                state_vars.push(ComponentState { name: sname, state_type: stype, default });
+                continue;
+            }
             if self.matches(TokenKind::Identifier, Some("layout")) {
                 self.advance();
                 layout = Some(self.advance().value);
@@ -1936,6 +2051,36 @@ impl Parser {
                     props.entry(item_type.clone()).or_insert_with(|| text.clone());
                 }
                 items.push(ComponentItemNode { item_type, text, link, tone, config: item_config });
+            } else if self.matches(TokenKind::Identifier, Some("template")) || self.matches(TokenKind::Keyword, Some("template")) {
+                self.advance();
+                if self.peek().kind == TokenKind::StringLit {
+                    template = Some(self.advance().value);
+                }
+            } else if self.matches(TokenKind::Identifier, Some("test")) || self.matches(TokenKind::Keyword, Some("test")) {
+                // test "description" { step1; step2; ... }
+                self.advance();
+                let test_name = if self.peek().kind == TokenKind::StringLit { self.advance().value } else { format!("test_{}", tests.len() + 1) };
+                let mut steps = Vec::new();
+                if self.matches(TokenKind::LBrace, None) {
+                    self.advance();
+                    while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                        // Each step is a line of text tokens until newline (approximated by reading until next keyword or })
+                        let mut step = Vec::new();
+                        while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                            let tok = self.peek();
+                            // Heuristic: a new step starts with a keyword like fill, click, expect, navigate
+                            if !step.is_empty() && (tok.value == "fill" || tok.value == "click" || tok.value == "expect" || tok.value == "navigate" || tok.value == "wait" || tok.value == "assert") {
+                                break;
+                            }
+                            step.push(self.advance().value);
+                        }
+                        if !step.is_empty() {
+                            steps.push(step.join(" "));
+                        }
+                    }
+                    if self.matches(TokenKind::RBrace, None) { self.advance(); }
+                }
+                tests.push(ComponentTest { name: test_name, steps });
             } else if self.peek().kind == TokenKind::Identifier {
                 // Unknown identifier props: key value
                 let key = self.advance().value;
@@ -1948,7 +2093,7 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(ComponentNode { name, layout, style, items, props })
+        Ok(ComponentNode { name, layout, style, items, props, params, template, sections: Vec::new(), state: state_vars, tests })
     }
 
     // ── event ──
@@ -2320,7 +2465,7 @@ pub fn parse_directory(dir: &str) -> Result<Vec<AstNode>, String> {
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().to_string();
-            if name.ends_with(".cronus") {
+            if name.ends_with(".cronus") && entry.path().is_file() {
                 files.push(entry.path().to_string_lossy().to_string());
             }
         }

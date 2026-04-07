@@ -11,10 +11,11 @@ use super::state::AppState;
 pub(crate) fn render_auto_docs(state: &AppState) -> String {
     let app_name = &state.app.name;
     let port = state.app.port;
+    let t = crate::theme::get();
 
     // --- Sidebar nav items ---
     let mut nav_html = String::new();
-    nav_html.push_str(r##"<a class="flex items-center gap-3 py-2 px-8 font-['Space_Grotesk'] text-sm uppercase tracking-widest text-white font-bold border-l-2 border-[#d277ff] doc-nav" data-scroll="overview"><span class="material-symbols-outlined text-lg">menu_book</span>Overview</a>"##);
+    nav_html.push_str(r##"<a class="flex items-center gap-3 py-2 px-8 font-['Space_Grotesk'] text-sm uppercase tracking-widest text-white font-bold border-l-2 border-[var(--secondary)] doc-nav" data-scroll="overview"><span class="material-symbols-outlined text-lg">menu_book</span>Overview</a>"##);
     nav_html.push_str(r##"<a class="flex items-center gap-3 py-2 px-8 font-['Space_Grotesk'] text-sm uppercase tracking-widest text-[#ababab] hover:text-white transition-all doc-nav" data-scroll="entities"><span class="material-symbols-outlined text-lg">database</span>Entities</a>"##);
     nav_html.push_str(r##"<a class="flex items-center gap-3 py-2 px-8 font-['Space_Grotesk'] text-sm uppercase tracking-widest text-[#ababab] hover:text-white transition-all doc-nav" data-scroll="api"><span class="material-symbols-outlined text-lg">api</span>API Reference</a>"##);
     nav_html.push_str(r##"<a class="flex items-center gap-3 py-2 px-8 font-['Space_Grotesk'] text-sm uppercase tracking-widest text-[#ababab] hover:text-white transition-all doc-nav" data-scroll="pages"><span class="material-symbols-outlined text-lg">web</span>Pages</a>"##);
@@ -23,7 +24,7 @@ pub(crate) fn render_auto_docs(state: &AppState) -> String {
 
     // --- TOC (right sidebar) ---
     let mut toc_html = String::new();
-    toc_html.push_str(r##"<li><a class="text-sm text-[#87adff] font-medium flex items-center gap-2 doc-nav" data-scroll="overview" style="cursor:pointer"><div class="w-1.5 h-1.5 rounded-full bg-[#87adff]" style="box-shadow:0 0 8px rgba(135,173,255,0.8)"></div>Overview</a></li>"##);
+    toc_html.push_str(r##"<li><a class="text-sm text-[var(--primary)] font-medium flex items-center gap-2 doc-nav" data-scroll="overview" style="cursor:pointer"><div class="w-1.5 h-1.5 rounded-full bg-[var(--primary)]" style="box-shadow:0 0 8px rgba(135,173,255,0.8)"></div>Overview</a></li>"##);
     toc_html.push_str(r##"<li><a class="text-sm text-[#ababab] hover:text-white transition-colors flex items-center gap-2 doc-nav" data-scroll="entities" style="cursor:pointer"><div class="w-1 h-1 rounded-full bg-[#484848]"></div>Entities</a></li>"##);
     toc_html.push_str(r##"<li><a class="text-sm text-[#ababab] hover:text-white transition-colors flex items-center gap-2 doc-nav" data-scroll="api" style="cursor:pointer"><div class="w-1 h-1 rounded-full bg-[#484848]"></div>API Reference</a></li>"##);
     toc_html.push_str(r##"<li><a class="text-sm text-[#ababab] hover:text-white transition-colors flex items-center gap-2 doc-nav" data-scroll="pages" style="cursor:pointer"><div class="w-1 h-1 rounded-full bg-[#484848]"></div>Pages</a></li>"##);
@@ -35,19 +36,19 @@ pub(crate) fn render_auto_docs(state: &AppState) -> String {
     for (_i, entity) in state.entities.iter().enumerate() {
         if entity.name.starts_with('_') { continue; }
         let shared_badge = if entity.shared {
-            r##" <span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(129,236,255,0.1);color:#81ecff;margin-left:8px">shared</span>"##
-        } else { "" };
+            format!(r##" <span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(129,236,255,0.1);color:{tertiary};margin-left:8px">shared</span>"##, tertiary = t.tertiary)
+        } else { String::new() };
 
         let mut fields_html = String::new();
         for field in &entity.fields {
             let type_name = reconcile_field_type_str(&field.field_type);
             let mut badges = String::new();
-            if field.required { badges.push_str(r##"<span style="color:#87adff;font-size:10px;margin-left:8px">required</span>"##); }
-            if field.unique { badges.push_str(r##"<span style="color:#d277ff;font-size:10px;margin-left:8px">unique</span>"##); }
-            if field.sensitive { badges.push_str(r##"<span style="color:#ef4444;font-size:10px;margin-left:8px">sensitive</span>"##); }
+            if field.required { badges.push_str(&format!(r##"<span style="color:{};font-size:10px;margin-left:8px">required</span>"##, t.primary)); }
+            if field.unique { badges.push_str(&format!(r##"<span style="color:{};font-size:10px;margin-left:8px">unique</span>"##, t.secondary)); }
+            if field.sensitive { badges.push_str(&format!(r##"<span style="color:{};font-size:10px;margin-left:8px">sensitive</span>"##, t.error)); }
             if let Some(ref vals) = field.enum_values {
                 let joined = vals.join(" | ");
-                badges.push_str(&format!(r##"<span style="color:#ababab;font-size:10px;margin-left:8px">[{}]</span>"##, joined));
+                badges.push_str(&format!(r##"<span style="color:{};font-size:10px;margin-left:8px">[{}]</span>"##, t.on_surface_variant, joined));
             }
             if let Some(min_val) = field.min {
                 badges.push_str(&format!(r##"<span style="color:#10b981;font-size:10px;margin-left:8px">min:{}</span>"##, min_val));
@@ -83,27 +84,27 @@ pub(crate) fn render_auto_docs(state: &AppState) -> String {
             } else { String::new() };
 
             fields_html.push_str(&format!(
-                r##"<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;justify-content:space-between;align-items:center"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">{}</span><span style="color:#87adff;font-size:11px;font-family:monospace">{}</span></div><div>{}</div></div>{}</div>"##,
-                field.name, type_name, badges, field_doc_html
+                r##"<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;justify-content:space-between;align-items:center"><div style="display:flex;align-items:center;gap:8px"><span style="color:{on_surface};font-family:monospace;font-size:13px">{}</span><span style="color:{primary};font-size:11px;font-family:monospace">{}</span></div><div>{}</div></div>{}</div>"##,
+                field.name, type_name, badges, field_doc_html, on_surface = t.on_surface, primary = t.primary
             ));
         }
 
         let entity_doc_html = if let Some(ref doc) = entity.doc {
             let mut html = String::new();
             if !doc.summary.is_empty() {
-                html.push_str(&format!(r##"<p style="color:#ababab;font-size:13px;margin:4px 0 0">{}</p>"##, doc.summary));
+                html.push_str(&format!(r##"<p style="color:{};font-size:13px;margin:4px 0 0">{}</p>"##, t.on_surface_variant, doc.summary));
             }
             if !doc.description.is_empty() {
                 html.push_str(&format!(r##"<p style="color:#757575;font-size:12px;margin:4px 0 0">{}</p>"##, doc.description));
             }
-            let tags_html: String = doc.tags.iter().filter(|t| t.name != "ai").map(|t| {
-                let color = match t.name.as_str() {
-                    "owner" => "#87adff",
-                    "lifecycle" => "#81ecff",
+            let tags_html: String = doc.tags.iter().filter(|tg| tg.name != "ai").map(|tg| {
+                let color = match tg.name.as_str() {
+                    "owner" => t.primary.as_str(),
+                    "lifecycle" => t.tertiary.as_str(),
                     "since" => "#757575",
                     _ => "#484848",
                 };
-                format!(r##"<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.03);color:{};margin-right:6px">@{} {}</span>"##, color, t.name, t.value)
+                format!(r##"<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.03);color:{};margin-right:6px">@{} {}</span>"##, color, tg.name, tg.value)
             }).collect();
             if !tags_html.is_empty() {
                 html.push_str(&format!(r##"<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">{}</div>"##, tags_html));
@@ -114,14 +115,14 @@ pub(crate) fn render_auto_docs(state: &AppState) -> String {
         // Build transition diagram HTML if entity has transitions
         let transitions_html = if !entity.transitions.is_empty() {
             let mut html = String::new();
-            html.push_str(r##"<div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.05)"><div style="display:flex;align-items:center;gap:6px;margin-bottom:12px"><span class="material-symbols-outlined" style="font-size:16px;color:#d277ff">swap_horiz</span><span style="font-family:Space Grotesk,sans-serif;font-size:14px;font-weight:600;color:#d277ff">State Transitions</span></div>"##);
-            for t in &entity.transitions {
+            html.push_str(&format!(r##"<div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.05)"><div style="display:flex;align-items:center;gap:6px;margin-bottom:12px"><span class="material-symbols-outlined" style="font-size:16px;color:{secondary}">swap_horiz</span><span style="font-family:Space Grotesk,sans-serif;font-size:14px;font-weight:600;color:{secondary}">State Transitions</span></div>"##, secondary = t.secondary));
+            for trans in &entity.transitions {
                 html.push_str(&format!(
-                    r##"<div style="margin-bottom:8px"><span style="color:#87adff;font-size:12px;font-family:monospace">{}</span></div>"##,
-                    t.field
+                    r##"<div style="margin-bottom:8px"><span style="color:{primary};font-size:12px;font-family:monospace">{field}</span></div>"##,
+                    primary = t.primary, field = trans.field
                 ));
                 html.push_str(r##"<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">"##);
-                for rule in &t.rules {
+                for rule in &trans.rules {
                     let targets = rule.to.join(", ");
                     html.push_str(&format!(
                         r##"<div style="background:rgba(210,119,255,0.06);border:1px solid rgba(210,119,255,0.15);border-radius:8px;padding:8px 12px;font-size:12px"><span style="color:#e2e2e2;font-family:monospace">{from}</span> <span style="color:#757575">-></span> <span style="color:#81ecff;font-family:monospace">{to}</span></div>"##,
@@ -194,7 +195,7 @@ pub(crate) fn render_auto_docs(state: &AppState) -> String {
             ));
         }
         api_html.push_str(&format!(
-            r##"<div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);padding:24px;margin-bottom:16px"><h3 style="font-family:Space Grotesk,sans-serif;font-size:16px;font-weight:700;color:#fff;margin:0 0 16px"><span style="font-family:monospace;color:#87adff">{base}</span></h3>{routes}</div>"##,
+            r##"<div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);padding:24px;margin-bottom:16px"><h3 style="font-family:Space Grotesk,sans-serif;font-size:16px;font-weight:700;color:#fff;margin:0 0 16px"><span style="font-family:monospace;color:var(--primary)">{base}</span></h3>{routes}</div>"##,
             base = api.prefix,
             routes = routes_html,
         ));
@@ -230,7 +231,7 @@ pub(crate) fn render_auto_docs(state: &AppState) -> String {
             parts.join("")
         } else { String::new() };
         pages_html.push_str(&format!(
-            r##"<div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;justify-content:space-between;align-items:center"><div style="display:flex;align-items:center;gap:12px"><span style="font-family:monospace;font-size:14px;color:#87adff">{route}</span><span style="font-size:12px;color:#ababab">{title}</span></div><div style="display:flex;align-items:center;gap:12px"><span style="font-size:10px;color:#ababab">{sections} sections</span><span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.03);color:{auth_color}">{auth}</span></div></div>{page_doc}</div>"##,
+            r##"<div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;justify-content:space-between;align-items:center"><div style="display:flex;align-items:center;gap:12px"><span style="font-family:monospace;font-size:14px;color:var(--primary)">{route}</span><span style="font-size:12px;color:#ababab">{title}</span></div><div style="display:flex;align-items:center;gap:12px"><span style="font-size:10px;color:#ababab">{sections} sections</span><span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.03);color:{auth_color}">{auth}</span></div></div>{page_doc}</div>"##,
             route = route, title = title, sections = section_count, auth = auth, auth_color = auth_color, page_doc = page_doc_html,
         ));
     }
@@ -247,7 +248,7 @@ pub(crate) fn render_auto_docs(state: &AppState) -> String {
                 _ => "#ababab",
             };
             hooks_html.push_str(&format!(
-                r##"<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><span style="font-family:monospace;font-size:11px;font-weight:700;color:{color}">on {event}</span><span style="font-size:11px;color:#ababab">→</span><span style="font-family:monospace;font-size:11px;color:#87adff">{method}</span><span style="font-family:monospace;font-size:12px;color:#e2e2e2;word-break:break-all">{url}</span></div>"##,
+                r##"<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><span style="font-family:monospace;font-size:11px;font-weight:700;color:{color}">on {event}</span><span style="font-size:11px;color:#ababab">→</span><span style="font-family:monospace;font-size:11px;color:var(--primary)">{method}</span><span style="font-family:monospace;font-size:12px;color:#e2e2e2;word-break:break-all">{url}</span></div>"##,
                 color = event_color,
                 event = hook.event,
                 method = hook.method,
@@ -266,7 +267,7 @@ pub(crate) fn render_auto_docs(state: &AppState) -> String {
     // --- .cronus source preview ---
     let mut cronus_preview = String::new();
     cronus_preview.push_str(&format!(
-        r##"<span style="color:#d277ff">app</span> <span style="color:#10b981">"{name}"</span> {{\n  <span style="color:#ababab">stack</span> fullstack\n  <span style="color:#ababab">port</span> <span style="color:#f59e0b">{port}</span>\n  <span style="color:#ababab">database</span> sqlite <span style="color:#10b981">"./data.db"</span>\n}}"##,
+        r##"<span style="color:var(--secondary)">app</span> <span style="color:#10b981">"{name}"</span> {{\n  <span style="color:#ababab">stack</span> fullstack\n  <span style="color:#ababab">port</span> <span style="color:#f59e0b">{port}</span>\n  <span style="color:#ababab">database</span> sqlite <span style="color:#10b981">"./data.db"</span>\n}}"##,
         name = app_name, port = port,
     ));
 
@@ -326,7 +327,7 @@ body {{ background:#0e0e0e; color:#fff; font-family:'Inter',sans-serif; margin:0
   <aside style="width:280px;position:fixed;left:0;top:64px;height:calc(100vh - 64px);background:#0e0e0e;border-right:1px solid rgba(255,255,255,0.03);display:flex;flex-direction:column;padding:32px 0;overflow-y:auto">
     <div style="padding:0 32px;margin-bottom:32px">
       <div style="display:flex;align-items:center;gap:12px">
-        <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#87adff,#d277ff);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px">N</div>
+        <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--primary),var(--secondary));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px">N</div>
         <div><div style="font-family:Space Grotesk,sans-serif;font-weight:700;color:#fff;font-size:14px">Core Engine</div><div style="font-size:10px;color:#757575;text-transform:uppercase;letter-spacing:0.15em">v{port}</div></div>
       </div>
     </div>
@@ -336,7 +337,7 @@ body {{ background:#0e0e0e; color:#fff; font-family:'Inter',sans-serif; margin:0
   <main style="flex:1;margin-left:280px;margin-right:240px;padding:48px 64px;max-width:800px">
     <header style="margin-bottom:48px" id="overview">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-        <span style="font-family:monospace;font-size:12px;color:#87adff;text-transform:uppercase;letter-spacing:-0.03em">Auto-Generated</span>
+        <span style="font-family:monospace;font-size:12px;color:var(--primary);text-transform:uppercase;letter-spacing:-0.03em">Auto-Generated</span>
         <div style="width:4px;height:4px;border-radius:50%;background:#484848"></div>
         <span style="font-family:monospace;font-size:12px;color:#757575;text-transform:uppercase">{entity_count} entities · {api_count} API groups · {page_count} pages</span>
       </div>
@@ -346,7 +347,7 @@ body {{ background:#0e0e0e; color:#fff; font-family:'Inter',sans-serif; margin:0
     </header>
 
     <section style="margin-bottom:80px">
-      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:#d277ff">01.</span> App Configuration</h2>
+      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:var(--secondary)">01.</span> App Configuration</h2>
       <div style="position:relative">
         <div style="position:absolute;inset:-4px;background:linear-gradient(to right,rgba(135,173,255,0.2),rgba(210,119,255,0.2));border-radius:16px;filter:blur(20px);opacity:0.25"></div>
         <div style="position:relative;background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);overflow:hidden">
@@ -360,63 +361,63 @@ body {{ background:#0e0e0e; color:#fff; font-family:'Inter',sans-serif; margin:0
     </section>
 
     <section style="margin-bottom:80px" id="entities">
-      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:#d277ff">02.</span> Entities</h2>
+      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:var(--secondary)">02.</span> Entities</h2>
       <p style="color:#757575;margin-bottom:24px">Each entity maps to a SQLite table with auto-migration, CRUD API, and type validation.</p>
       {entities}
     </section>
 
     <section style="margin-bottom:80px" id="api">
-      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:#d277ff">03.</span> API Reference</h2>
-      <p style="color:#757575;margin-bottom:24px">All endpoints are auto-generated from the <code style="background:#191919;color:#87adff;padding:2px 6px;border-radius:4px;font-size:13px;font-family:monospace">api</code> blocks. Auth via <code style="background:#191919;color:#87adff;padding:2px 6px;border-radius:4px;font-size:13px;font-family:monospace">Bearer</code> JWT token.</p>
+      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:var(--secondary)">03.</span> API Reference</h2>
+      <p style="color:#757575;margin-bottom:24px">All endpoints are auto-generated from the <code style="background:#191919;color:var(--primary);padding:2px 6px;border-radius:4px;font-size:13px;font-family:monospace">api</code> blocks. Auth via <code style="background:#191919;color:var(--primary);padding:2px 6px;border-radius:4px;font-size:13px;font-family:monospace">Bearer</code> JWT token.</p>
       {api}
     </section>
 
     <section style="margin-bottom:80px" id="pages">
-      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:#d277ff">04.</span> Pages</h2>
+      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:var(--secondary)">04.</span> Pages</h2>
       <div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);padding:24px">
         {pages}
       </div>
     </section>
 
     <section style="margin-bottom:80px" id="webhooks">
-      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:#d277ff">05.</span> Webhooks</h2>
+      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:var(--secondary)">05.</span> Webhooks</h2>
       {webhooks_section}
     </section>
 
     <section style="margin-bottom:80px" id="audit">
-      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:#d277ff">06.</span> Audit Trail</h2>
-      <p style="color:#757575;margin-bottom:24px">Every data mutation (INSERT, UPDATE, DELETE) is recorded in an append-only <code style="background:#191919;color:#87adff;padding:2px 6px;border-radius:4px;font-size:13px;font-family:monospace">_audit_log</code> table with cryptographic hash chaining for tamper detection.</p>
+      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px"><span style="color:var(--secondary)">06.</span> Audit Trail</h2>
+      <p style="color:#757575;margin-bottom:24px">Every data mutation (INSERT, UPDATE, DELETE) is recorded in an append-only <code style="background:#191919;color:var(--primary);padding:2px 6px;border-radius:4px;font-size:13px;font-family:monospace">_audit_log</code> table with cryptographic hash chaining for tamper detection.</p>
 
       <div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);padding:24px;margin-bottom:16px">
         <h3 style="font-family:Space Grotesk,sans-serif;font-size:16px;font-weight:700;color:#fff;margin:0 0 16px">_audit_log Table Structure</h3>
-        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">id</span><span style="color:#87adff;font-size:11px;font-family:monospace">INTEGER</span><span style="color:#87adff;font-size:10px;margin-left:8px">primary key</span></div></div>
-        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">entity_type</span><span style="color:#87adff;font-size:11px;font-family:monospace">TEXT</span><span style="color:#757575;font-size:11px;margin-left:8px">e.g. "Deployment", "User"</span></div></div>
-        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">record_id</span><span style="color:#87adff;font-size:11px;font-family:monospace">TEXT</span><span style="color:#757575;font-size:11px;margin-left:8px">UUID of the affected record</span></div></div>
-        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">action</span><span style="color:#87adff;font-size:11px;font-family:monospace">TEXT</span><span style="color:#757575;font-size:11px;margin-left:8px">INSERT | UPDATE | DELETE</span></div></div>
-        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">user_id</span><span style="color:#87adff;font-size:11px;font-family:monospace">TEXT</span><span style="color:#757575;font-size:11px;margin-left:8px">User who performed the action (or "system")</span></div></div>
-        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">diff</span><span style="color:#87adff;font-size:11px;font-family:monospace">TEXT</span><span style="color:#757575;font-size:11px;margin-left:8px">JSON diff of changed fields (before/after)</span></div></div>
-        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">hash</span><span style="color:#87adff;font-size:11px;font-family:monospace">TEXT</span><span style="color:#d277ff;font-size:10px;margin-left:8px">SHA-256 chain hash</span></div></div>
-        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">prev_hash</span><span style="color:#87adff;font-size:11px;font-family:monospace">TEXT</span><span style="color:#d277ff;font-size:10px;margin-left:8px">Hash of previous entry (blockchain-style)</span></div></div>
-        <div style="padding:8px 0"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">created_at</span><span style="color:#87adff;font-size:11px;font-family:monospace">DATETIME</span><span style="color:#757575;font-size:11px;margin-left:8px">UTC timestamp</span></div></div>
+        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">id</span><span style="color:var(--primary);font-size:11px;font-family:monospace">INTEGER</span><span style="color:var(--primary);font-size:10px;margin-left:8px">primary key</span></div></div>
+        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">entity_type</span><span style="color:var(--primary);font-size:11px;font-family:monospace">TEXT</span><span style="color:#757575;font-size:11px;margin-left:8px">e.g. "Deployment", "User"</span></div></div>
+        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">record_id</span><span style="color:var(--primary);font-size:11px;font-family:monospace">TEXT</span><span style="color:#757575;font-size:11px;margin-left:8px">UUID of the affected record</span></div></div>
+        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">action</span><span style="color:var(--primary);font-size:11px;font-family:monospace">TEXT</span><span style="color:#757575;font-size:11px;margin-left:8px">INSERT | UPDATE | DELETE</span></div></div>
+        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">user_id</span><span style="color:var(--primary);font-size:11px;font-family:monospace">TEXT</span><span style="color:#757575;font-size:11px;margin-left:8px">User who performed the action (or "system")</span></div></div>
+        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">diff</span><span style="color:var(--primary);font-size:11px;font-family:monospace">TEXT</span><span style="color:#757575;font-size:11px;margin-left:8px">JSON diff of changed fields (before/after)</span></div></div>
+        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">hash</span><span style="color:var(--primary);font-size:11px;font-family:monospace">TEXT</span><span style="color:var(--secondary);font-size:10px;margin-left:8px">SHA-256 chain hash</span></div></div>
+        <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">prev_hash</span><span style="color:var(--primary);font-size:11px;font-family:monospace">TEXT</span><span style="color:var(--secondary);font-size:10px;margin-left:8px">Hash of previous entry (blockchain-style)</span></div></div>
+        <div style="padding:8px 0"><div style="display:flex;align-items:center;gap:8px"><span style="color:#e2e2e2;font-family:monospace;font-size:13px">created_at</span><span style="color:var(--primary);font-size:11px;font-family:monospace">DATETIME</span><span style="color:#757575;font-size:11px;margin-left:8px">UTC timestamp</span></div></div>
       </div>
 
       <div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(210,119,255,0.2);padding:24px;margin-bottom:16px">
         <h3 style="font-family:Space Grotesk,sans-serif;font-size:16px;font-weight:700;color:#fff;margin:0 0 16px">Hash Chaining</h3>
-        <p style="color:#ababab;font-size:13px;line-height:1.6;margin:0 0 12px">Each audit entry's <code style="background:#191919;color:#d277ff;padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace">hash</code> is computed as <code style="background:#191919;color:#d277ff;padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace">SHA-256(prev_hash + entity_type + record_id + action + diff + timestamp)</code>. The first entry uses a genesis hash of all zeros.</p>
-        <p style="color:#ababab;font-size:13px;line-height:1.6;margin:0 0 12px">This creates a tamper-evident chain: modifying any past entry breaks the hash sequence for all subsequent entries. The <code style="background:#191919;color:#87adff;padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace">/api/audit/trail/verify</code> endpoint walks the full chain and validates every link.</p>
-        <div style="background:#0e0e0e;border-radius:8px;padding:16px;font-family:monospace;font-size:12px;line-height:1.8;color:#e2e2e2;margin-top:12px"><span style="color:#757575">// Chain structure</span><br/><span style="color:#d277ff">entry[0].hash</span> = SHA256(<span style="color:#484848">"0000...0000"</span> + data)<br/><span style="color:#d277ff">entry[1].hash</span> = SHA256(<span style="color:#10b981">entry[0].hash</span> + data)<br/><span style="color:#d277ff">entry[N].hash</span> = SHA256(<span style="color:#10b981">entry[N-1].hash</span> + data)</div>
+        <p style="color:#ababab;font-size:13px;line-height:1.6;margin:0 0 12px">Each audit entry's <code style="background:#191919;color:var(--secondary);padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace">hash</code> is computed as <code style="background:#191919;color:var(--secondary);padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace">SHA-256(prev_hash + entity_type + record_id + action + diff + timestamp)</code>. The first entry uses a genesis hash of all zeros.</p>
+        <p style="color:#ababab;font-size:13px;line-height:1.6;margin:0 0 12px">This creates a tamper-evident chain: modifying any past entry breaks the hash sequence for all subsequent entries. The <code style="background:#191919;color:var(--primary);padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace">/api/audit/trail/verify</code> endpoint walks the full chain and validates every link.</p>
+        <div style="background:#0e0e0e;border-radius:8px;padding:16px;font-family:monospace;font-size:12px;line-height:1.8;color:#e2e2e2;margin-top:12px"><span style="color:#757575">// Chain structure</span><br/><span style="color:var(--secondary)">entry[0].hash</span> = SHA256(<span style="color:#484848">"0000...0000"</span> + data)<br/><span style="color:var(--secondary)">entry[1].hash</span> = SHA256(<span style="color:#10b981">entry[0].hash</span> + data)<br/><span style="color:var(--secondary)">entry[N].hash</span> = SHA256(<span style="color:#10b981">entry[N-1].hash</span> + data)</div>
       </div>
 
       <div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);padding:24px;margin-bottom:16px">
         <h3 style="font-family:Space Grotesk,sans-serif;font-size:16px;font-weight:700;color:#fff;margin:0 0 16px">API Endpoints</h3>
-        <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><span style="font-family:monospace;font-size:11px;font-weight:700;color:#10b981;min-width:60px">GET</span><span style="font-family:monospace;font-size:13px;color:#e2e2e2">/api/audit/trail</span><span style="font-size:11px;color:#ababab;margin-left:auto">Returns recent audit entries with hash validation status. Query param: <code style="background:#191919;color:#87adff;padding:1px 4px;border-radius:3px;font-size:11px">?limit=N</code></span></div>
-        <div style="display:flex;align-items:center;gap:12px;padding:10px 0"><span style="font-family:monospace;font-size:11px;font-weight:700;color:#10b981;min-width:60px">GET</span><span style="font-family:monospace;font-size:13px;color:#e2e2e2">/api/audit/trail/verify</span><span style="font-size:11px;color:#ababab;margin-left:auto">Walks the full hash chain and returns <code style="background:#191919;color:#87adff;padding:1px 4px;border-radius:3px;font-size:11px">{{"valid": true}}</code> or <code style="background:#191919;color:#87adff;padding:1px 4px;border-radius:3px;font-size:11px">{{"valid": false, "broken_at": N}}</code></span></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><span style="font-family:monospace;font-size:11px;font-weight:700;color:#10b981;min-width:60px">GET</span><span style="font-family:monospace;font-size:13px;color:#e2e2e2">/api/audit/trail</span><span style="font-size:11px;color:#ababab;margin-left:auto">Returns recent audit entries with hash validation status. Query param: <code style="background:#191919;color:var(--primary);padding:1px 4px;border-radius:3px;font-size:11px">?limit=N</code></span></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 0"><span style="font-family:monospace;font-size:11px;font-weight:700;color:#10b981;min-width:60px">GET</span><span style="font-family:monospace;font-size:13px;color:#e2e2e2">/api/audit/trail/verify</span><span style="font-size:11px;color:#ababab;margin-left:auto">Walks the full hash chain and returns <code style="background:#191919;color:var(--primary);padding:1px 4px;border-radius:3px;font-size:11px">{{"valid": true}}</code> or <code style="background:#191919;color:var(--primary);padding:1px 4px;border-radius:3px;font-size:11px">{{"valid": false, "broken_at": N}}</code></span></div>
       </div>
     </section>
 
     <div style="background:rgba(135,173,255,0.1);border-left:2px solid #87adff;padding:24px;border-radius:0 12px 12px 0;display:flex;gap:16px;margin-bottom:48px">
-      <span class="material-symbols-outlined" style="color:#87adff">auto_awesome</span>
-      <div><h4 style="font-weight:700;color:#87adff;margin:0 0 4px;font-size:14px">Auto-Generated</h4><p style="font-size:13px;color:#ababab;margin:0">This documentation is generated at runtime from the parsed .cronus file. It is always in sync — modify the source and the docs update automatically.</p></div>
+      <span class="material-symbols-outlined" style="color:var(--primary)">auto_awesome</span>
+      <div><h4 style="font-weight:700;color:var(--primary);margin:0 0 4px;font-size:14px">Auto-Generated</h4><p style="font-size:13px;color:#ababab;margin:0">This documentation is generated at runtime from the parsed .cronus file. It is always in sync — modify the source and the docs update automatically.</p></div>
     </div>
   </main>
 
@@ -480,7 +481,7 @@ window.addEventListener('scroll',function(){{
         entities = entities_html,
         api = api_html,
         pages = pages_html,
-        webhooks_section = if has_webhooks { webhooks_html } else { r#"<p style="color:#757575">No webhooks configured. Add a <code style="background:#191919;color:#87adff;padding:2px 6px;border-radius:4px;font-size:13px;font-family:monospace">webhook</code> block to your .cronus file.</p>"#.to_string() },
+        webhooks_section = if has_webhooks { webhooks_html } else { r#"<p style="color:#757575">No webhooks configured. Add a <code style="background:#191919;color:var(--primary);padding:2px 6px;border-radius:4px;font-size:13px;font-family:monospace">webhook</code> block to your .cronus file.</p>"#.to_string() },
         cronus_preview = cronus_preview,
         app_doc = app_doc_html,
         entity_count = state.entities.iter().filter(|e| !e.name.starts_with('_')).count(),
@@ -546,7 +547,7 @@ pub(crate) fn render_design_system(state: &AppState) -> String {
     let section = |id: &str, num: &str, title: &str, desc: &str, content: &str| -> String {
         format!(
             r##"<section style="margin-bottom:80px" id="{id}">
-      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:12px"><span style="color:#d277ff">{num}.</span> {title}</h2>
+      <h2 style="font-family:Space Grotesk,sans-serif;font-size:24px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:12px"><span style="color:var(--secondary)">{num}.</span> {title}</h2>
       <p style="color:#757575;margin-bottom:24px;font-size:14px">{desc}</p>
       {content}
     </section>"##,
@@ -557,7 +558,7 @@ pub(crate) fn render_design_system(state: &AppState) -> String {
     // Component: wrap in glass card with label + code
     let comp = |name: &str, cronus_syntax: &str, rendered: &str| -> String {
         format!(
-            r##"<div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);margin-bottom:16px;overflow:hidden"><div style="padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.03);display:flex;justify-content:space-between;align-items:center"><span style="font-family:Space Grotesk,sans-serif;font-size:13px;font-weight:700;color:#e2e2e2">{name}</span><code style="font-size:10px;color:#87adff;background:#191919;padding:2px 8px;border-radius:4px">{syntax}</code></div><div style="padding:24px;display:flex;flex-wrap:wrap;align-items:center;gap:12px">{rendered}</div></div>"##,
+            r##"<div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);margin-bottom:16px;overflow:hidden"><div style="padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.03);display:flex;justify-content:space-between;align-items:center"><span style="font-family:Space Grotesk,sans-serif;font-size:13px;font-weight:700;color:#e2e2e2">{name}</span><code style="font-size:10px;color:var(--primary);background:#191919;padding:2px 8px;border-radius:4px">{syntax}</code></div><div style="padding:24px;display:flex;flex-wrap:wrap;align-items:center;gap:12px">{rendered}</div></div>"##,
             name = name, syntax = cronus_syntax, rendered = rendered,
         )
     };
@@ -569,12 +570,12 @@ pub(crate) fn render_design_system(state: &AppState) -> String {
 
     let buttons = format!(
         r##"<button style="{}">Primary</button><button style="{}">Secondary</button><button style="{}">Ghost</button><button style="{}">Danger</button><button style="{};font-size:10px;padding:6px 12px">Small</button><button style="{};font-size:14px;padding:14px 28px">Large</button>"##,
-        btn_style("linear-gradient(135deg,#87adff,#d277ff)", "#000", "none"),
+        btn_style("linear-gradient(135deg,var(--primary),var(--secondary))", "#000", "none"),
         btn_style("#191919", "#e2e2e2", "0.5px solid rgba(255,255,255,0.1)"),
         btn_style("transparent", "#ababab", "1px solid transparent"),
         btn_style("rgba(239,68,68,0.1)", "#ef4444", "1px solid rgba(239,68,68,0.2)"),
-        btn_style("linear-gradient(135deg,#87adff,#d277ff)", "#000", "none"),
-        btn_style("linear-gradient(135deg,#87adff,#d277ff)", "#000", "none"),
+        btn_style("linear-gradient(135deg,var(--primary),var(--secondary))", "#000", "none"),
+        btn_style("linear-gradient(135deg,var(--primary),var(--secondary))", "#000", "none"),
     );
 
     let input_style = "width:240px;background:#000;border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:12px 16px;color:#fff;font-size:14px;outline:none;font-family:Inter,sans-serif";
@@ -590,11 +591,11 @@ pub(crate) fn render_design_system(state: &AppState) -> String {
 
     let badges = r##"<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;font-size:11px;font-weight:600;border-radius:999px;background:rgba(16,185,129,0.12);color:#10b981"><span style="width:6px;height:6px;border-radius:50%;background:#10b981"></span>Live</span><span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;font-size:11px;font-weight:600;border-radius:999px;background:rgba(59,130,246,0.12);color:#3b82f6"><span style="width:6px;height:6px;border-radius:50%;background:#3b82f6;animation:pulse 2s infinite"></span>Rolling</span><span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;font-size:11px;font-weight:600;border-radius:999px;background:rgba(239,68,68,0.12);color:#ef4444"><span style="width:6px;height:6px;border-radius:50%;background:#ef4444"></span>Failed</span><span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;font-size:11px;font-weight:600;border-radius:999px;background:rgba(245,158,11,0.12);color:#f59e0b"><span style="width:6px;height:6px;border-radius:50%;background:#f59e0b"></span>Warning</span><span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;font-size:11px;font-weight:600;border-radius:999px;background:rgba(113,113,122,0.12);color:#71717a"><span style="width:6px;height:6px;border-radius:50%;background:#71717a"></span>Pending</span>"##;
 
-    let cards = r##"<div style="background:#1b1b1b;border:0.5px solid rgba(76,69,70,0.15);border-radius:12px;padding:20px 24px;width:200px"><div style="display:flex;align-items:center;gap:6px;margin-bottom:12px"><span class="material-symbols-outlined" style="font-size:16px;color:#87adff">trending_up</span><span style="font-size:13px;font-weight:500;color:rgba(226,226,226,0.5)">Requests</span><span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(16,185,129,0.1);color:#10b981">+12%</span></div><span style="font-size:36px;font-weight:700;letter-spacing:-0.03em;color:#e2e2e2">1.2M</span><p style="font-size:11px;color:rgba(226,226,226,0.3);margin:8px 0 0">Last 24h</p></div><div style="background:#1b1b1b;border:0.5px solid rgba(76,69,70,0.15);border-radius:12px;padding:20px 24px;width:200px"><div style="display:flex;align-items:center;gap:6px;margin-bottom:12px"><span class="material-symbols-outlined" style="font-size:16px;color:#ef4444">error_outline</span><span style="font-size:13px;font-weight:500;color:rgba(226,226,226,0.5)">Error Rate</span><span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(16,185,129,0.1);color:#10b981">-0.01%</span></div><span style="font-size:36px;font-weight:700;letter-spacing:-0.03em;color:#e2e2e2">0.02%</span><p style="font-size:11px;color:rgba(226,226,226,0.3);margin:8px 0 0">5xx responses</p></div>"##;
+    let cards = r##"<div style="background:#1b1b1b;border:0.5px solid rgba(76,69,70,0.15);border-radius:12px;padding:20px 24px;width:200px"><div style="display:flex;align-items:center;gap:6px;margin-bottom:12px"><span class="material-symbols-outlined" style="font-size:16px;color:var(--primary)">trending_up</span><span style="font-size:13px;font-weight:500;color:rgba(226,226,226,0.5)">Requests</span><span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(16,185,129,0.1);color:#10b981">+12%</span></div><span style="font-size:36px;font-weight:700;letter-spacing:-0.03em;color:#e2e2e2">1.2M</span><p style="font-size:11px;color:rgba(226,226,226,0.3);margin:8px 0 0">Last 24h</p></div><div style="background:#1b1b1b;border:0.5px solid rgba(76,69,70,0.15);border-radius:12px;padding:20px 24px;width:200px"><div style="display:flex;align-items:center;gap:6px;margin-bottom:12px"><span class="material-symbols-outlined" style="font-size:16px;color:#ef4444">error_outline</span><span style="font-size:13px;font-weight:500;color:rgba(226,226,226,0.5)">Error Rate</span><span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(16,185,129,0.1);color:#10b981">-0.01%</span></div><span style="font-size:36px;font-weight:700;letter-spacing:-0.03em;color:#e2e2e2">0.02%</span><p style="font-size:11px;color:rgba(226,226,226,0.3);margin:8px 0 0">5xx responses</p></div>"##;
 
-    let alerts = r##"<div style="width:100%;display:flex;flex-direction:column;gap:8px"><div style="background:rgba(135,173,255,0.1);border-left:2px solid #87adff;padding:16px 20px;border-radius:0 8px 8px 0;display:flex;gap:12px"><span class="material-symbols-outlined" style="color:#87adff;font-size:18px">info</span><div><p style="font-size:13px;font-weight:600;color:#87adff;margin:0">Info</p><p style="font-size:12px;color:#ababab;margin:4px 0 0">This is an informational alert.</p></div></div><div style="background:rgba(16,185,129,0.1);border-left:2px solid #10b981;padding:16px 20px;border-radius:0 8px 8px 0;display:flex;gap:12px"><span class="material-symbols-outlined" style="color:#10b981;font-size:18px">check_circle</span><div><p style="font-size:13px;font-weight:600;color:#10b981;margin:0">Success</p><p style="font-size:12px;color:#ababab;margin:4px 0 0">Operation completed successfully.</p></div></div><div style="background:rgba(245,158,11,0.1);border-left:2px solid #f59e0b;padding:16px 20px;border-radius:0 8px 8px 0;display:flex;gap:12px"><span class="material-symbols-outlined" style="color:#f59e0b;font-size:18px">warning</span><div><p style="font-size:13px;font-weight:600;color:#f59e0b;margin:0">Warning</p><p style="font-size:12px;color:#ababab;margin:4px 0 0">Memory pressure is above 85%.</p></div></div><div style="background:rgba(239,68,68,0.1);border-left:2px solid #ef4444;padding:16px 20px;border-radius:0 8px 8px 0;display:flex;gap:12px"><span class="material-symbols-outlined" style="color:#ef4444;font-size:18px">error</span><div><p style="font-size:13px;font-weight:600;color:#ef4444;margin:0">Error</p><p style="font-size:12px;color:#ababab;margin:4px 0 0">Deployment failed on us-west-2.</p></div></div></div>"##;
+    let alerts = r##"<div style="width:100%;display:flex;flex-direction:column;gap:8px"><div style="background:rgba(135,173,255,0.1);border-left:2px solid #87adff;padding:16px 20px;border-radius:0 8px 8px 0;display:flex;gap:12px"><span class="material-symbols-outlined" style="color:var(--primary);font-size:18px">info</span><div><p style="font-size:13px;font-weight:600;color:var(--primary);margin:0">Info</p><p style="font-size:12px;color:#ababab;margin:4px 0 0">This is an informational alert.</p></div></div><div style="background:rgba(16,185,129,0.1);border-left:2px solid #10b981;padding:16px 20px;border-radius:0 8px 8px 0;display:flex;gap:12px"><span class="material-symbols-outlined" style="color:#10b981;font-size:18px">check_circle</span><div><p style="font-size:13px;font-weight:600;color:#10b981;margin:0">Success</p><p style="font-size:12px;color:#ababab;margin:4px 0 0">Operation completed successfully.</p></div></div><div style="background:rgba(245,158,11,0.1);border-left:2px solid #f59e0b;padding:16px 20px;border-radius:0 8px 8px 0;display:flex;gap:12px"><span class="material-symbols-outlined" style="color:#f59e0b;font-size:18px">warning</span><div><p style="font-size:13px;font-weight:600;color:#f59e0b;margin:0">Warning</p><p style="font-size:12px;color:#ababab;margin:4px 0 0">Memory pressure is above 85%.</p></div></div><div style="background:rgba(239,68,68,0.1);border-left:2px solid #ef4444;padding:16px 20px;border-radius:0 8px 8px 0;display:flex;gap:12px"><span class="material-symbols-outlined" style="color:#ef4444;font-size:18px">error</span><div><p style="font-size:13px;font-weight:600;color:#ef4444;margin:0">Error</p><p style="font-size:12px;color:#ababab;margin:4px 0 0">Deployment failed on us-west-2.</p></div></div></div>"##;
 
-    let modal_preview = r##"<div style="background:#191919;border-radius:12px;padding:32px;border-top:0.5px solid rgba(135,173,255,0.2);box-shadow:0 0 60px rgba(135,173,255,0.04);width:100%;max-width:420px"><div style="text-align:center;margin-bottom:24px"><div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#87adff,#d277ff);display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px"><span class="material-symbols-outlined" style="color:#fff;font-size:20px">rocket_launch</span></div><h3 style="font-family:Space Grotesk,sans-serif;font-size:20px;font-weight:700;margin:0 0 4px;color:#fff">New Deployment</h3><p style="font-size:12px;color:#ababab;margin:0">Configure and launch a new deployment.</p></div><div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px"><input placeholder="Service name" style="background:#000;border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:10px 14px;color:#fff;font-size:13px;outline:none"><select style="background:#000;border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:10px 14px;color:#fff;font-size:13px;outline:none;appearance:none"><option>us-east-1</option><option>eu-west-2</option></select></div><div style="display:flex;gap:12px"><button style="flex:1;padding:10px;border:0.5px solid rgba(255,255,255,0.1);border-radius:8px;background:#191919;color:#ababab;font-size:12px;cursor:pointer">Cancel</button><button style="flex:1;padding:10px;border:none;border-radius:8px;background:linear-gradient(135deg,#87adff,#d277ff);color:#000;font-weight:700;font-size:12px;cursor:pointer">Deploy Now</button></div></div>"##;
+    let modal_preview = r##"<div style="background:#191919;border-radius:12px;padding:32px;border-top:0.5px solid rgba(135,173,255,0.2);box-shadow:0 0 60px rgba(135,173,255,0.04);width:100%;max-width:420px"><div style="text-align:center;margin-bottom:24px"><div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--secondary));display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px"><span class="material-symbols-outlined" style="color:#fff;font-size:20px">rocket_launch</span></div><h3 style="font-family:Space Grotesk,sans-serif;font-size:20px;font-weight:700;margin:0 0 4px;color:#fff">New Deployment</h3><p style="font-size:12px;color:#ababab;margin:0">Configure and launch a new deployment.</p></div><div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px"><input placeholder="Service name" style="background:#000;border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:10px 14px;color:#fff;font-size:13px;outline:none"><select style="background:#000;border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:10px 14px;color:#fff;font-size:13px;outline:none;appearance:none"><option>us-east-1</option><option>eu-west-2</option></select></div><div style="display:flex;gap:12px"><button style="flex:1;padding:10px;border:0.5px solid rgba(255,255,255,0.1);border-radius:8px;background:#191919;color:#ababab;font-size:12px;cursor:pointer">Cancel</button><button style="flex:1;padding:10px;border:none;border-radius:8px;background:linear-gradient(135deg,var(--primary),var(--secondary));color:#000;font-weight:700;font-size:12px;cursor:pointer">Deploy Now</button></div></div>"##;
 
     // Build sections
     let content = vec![
@@ -617,7 +618,7 @@ pub(crate) fn render_design_system(state: &AppState) -> String {
     ];
     let toc: String = toc_items.iter().enumerate().map(|(i, (id, name))| {
         let dot = if i == 0 {
-            r##"<div style="width:6px;height:6px;border-radius:50%;background:#87adff;box-shadow:0 0 8px rgba(135,173,255,0.8)"></div>"##
+            r##"<div style="width:6px;height:6px;border-radius:50%;background:var(--primary);box-shadow:0 0 8px rgba(135,173,255,0.8)"></div>"##
         } else {
             r##"<div style="width:4px;height:4px;border-radius:50%;background:#484848"></div>"##
         };
@@ -656,7 +657,7 @@ body {{ background:#0e0e0e; color:#fff; font-family:'Inter',sans-serif; margin:0
   <main style="flex:1;padding:48px 64px;max-width:780px;margin-left:auto;margin-right:260px">
     <header style="margin-bottom:60px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-        <span style="font-family:monospace;font-size:12px;color:#d277ff;text-transform:uppercase;letter-spacing:-0.03em">Auto-Generated</span>
+        <span style="font-family:monospace;font-size:12px;color:var(--secondary);text-transform:uppercase;letter-spacing:-0.03em">Auto-Generated</span>
         <div style="width:4px;height:4px;border-radius:50%;background:#484848"></div>
         <span style="font-family:monospace;font-size:12px;color:#757575">Theme: {theme} · Accent: {accent} · Font: {font}</span>
       </div>
@@ -667,8 +668,8 @@ body {{ background:#0e0e0e; color:#fff; font-family:'Inter',sans-serif; margin:0
     {content}
 
     <div style="background:rgba(210,119,255,0.1);border-left:2px solid #d277ff;padding:24px;border-radius:0 12px 12px 0;display:flex;gap:16px;margin-bottom:48px">
-      <span class="material-symbols-outlined" style="color:#d277ff">palette</span>
-      <div><h4 style="font-weight:700;color:#d277ff;margin:0 0 4px;font-size:14px">Live Components</h4><p style="font-size:13px;color:#ababab;margin:0">Every component above is rendered with the same engine that powers your dashboard. Change the <code style="background:#191919;color:#87adff;padding:2px 6px;border-radius:4px;font-size:12px">style</code> block in your .cronus and the design system updates automatically.</p></div>
+      <span class="material-symbols-outlined" style="color:var(--secondary)">palette</span>
+      <div><h4 style="font-weight:700;color:var(--secondary);margin:0 0 4px;font-size:14px">Live Components</h4><p style="font-size:13px;color:#ababab;margin:0">Every component above is rendered with the same engine that powers your dashboard. Change the <code style="background:#191919;color:var(--primary);padding:2px 6px;border-radius:4px;font-size:12px">style</code> block in your .cronus and the design system updates automatically.</p></div>
     </div>
   </main>
 
@@ -753,7 +754,7 @@ body {{ background:#0e0e0e; color:#fff; font-family:'Inter',sans-serif; margin:0
 .mermaid svg {{ max-width:100% }}
 .stats {{ display:flex; gap:24px; justify-content:center; padding:0 32px 24px; font-family:'Space Grotesk',sans-serif; font-size:13px; color:#757575 }}
 .stats span {{ background:#141414; border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:8px 16px }}
-.stats .count {{ color:#87adff; font-weight:700 }}
+.stats .count {{ color:var(--primary); font-weight:700 }}
 </style>
 </head>
 <body>

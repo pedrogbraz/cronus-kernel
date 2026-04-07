@@ -269,6 +269,7 @@ pub struct BindingNode {
     pub offset: Option<usize>,
     pub group_by: Option<GroupByExpr>,
     pub aggregate: Option<AggregateExpr>,
+    pub live: bool,  // real-time updates via SSE
 }
 
 #[derive(Debug, Clone)]
@@ -380,12 +381,38 @@ pub struct ComponentItemNode {
 }
 
 #[derive(Debug, Clone)]
+pub struct ComponentParam {
+    pub name: String,
+    pub param_type: String,  // text, money, integer, boolean, etc. or "any"
+    pub default: Option<String>,
+    pub required: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct ComponentState {
+    pub name: String,
+    pub state_type: String,  // integer, text, boolean, etc.
+    pub default: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct ComponentTest {
+    pub name: String,        // test description
+    pub steps: Vec<String>,  // "fill email \"test@test.com\"", "click \"Login\"", "expect visible \".error\""
+}
+
+#[derive(Debug, Clone)]
 pub struct ComponentNode {
     pub name: String,
-    pub layout: Option<String>,  // inline, stack, grid, table, hero, modal, sidebar, tabs
-    pub style: Option<String>,   // dark+solid+lg, card+metric, etc
+    pub layout: Option<String>,
+    pub style: Option<String>,
     pub items: Vec<ComponentItemNode>,
-    pub props: HashMap<String, String>,  // generic key-value props
+    pub props: HashMap<String, String>,
+    pub params: Vec<ComponentParam>,
+    pub template: Option<String>,
+    pub sections: Vec<SectionNode>,
+    pub state: Vec<ComponentState>,
+    pub tests: Vec<ComponentTest>,       // co-located test blocks
 }
 
 #[derive(Debug, Clone)]

@@ -517,7 +517,7 @@ mod tests {
                     limit: None,
                     offset: None,
                     group_by: None,
-                    aggregate: None,
+                    aggregate: None, live: false,
                 })
             } else { None },
             actions: vec![],

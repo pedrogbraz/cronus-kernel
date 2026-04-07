@@ -301,7 +301,13 @@ async fn handle_request_inner(
     remote_addr: std::net::SocketAddr,
 ) -> Result<Response<Full<Bytes>>, hyper::Error> {
     let method = req.method().clone();
-    let path = req.uri().path().to_string();
+    let raw_path = req.uri().path().to_string();
+    // Normalize trailing slash: /portal/ → /portal (but keep "/" as-is)
+    let path = if raw_path.len() > 1 && raw_path.ends_with('/') {
+        raw_path.trim_end_matches('/').to_string()
+    } else {
+        raw_path
+    };
     let query = req.uri().query().unwrap_or("").to_string();
 
     // CORS preflight
@@ -467,6 +473,8 @@ async fn handle_request_inner(
 
                 let email = body.get("email").and_then(|v| v.as_str()).unwrap_or("");
                 let password = body.get("password").and_then(|v| v.as_str()).unwrap_or("");
+                let remember = body.get("remember").and_then(|v| v.as_bool()).unwrap_or(false);
+                let cookie_max_age = if remember { 2592000 } else { 86400 }; // 30 days or 24h
 
                 if email.is_empty() || password.is_empty() {
                     json_response(StatusCode::BAD_REQUEST, json!({"error": "email and password required"}))
@@ -487,7 +495,7 @@ async fn handle_request_inner(
                                         Response::builder()
                                             .status(StatusCode::OK)
                                             .header("Content-Type", "application/json")
-                                            .header("Set-Cookie", crate::security::secure_cookie("cronus_token", &token, 604800, "/"))
+                                            .header("Set-Cookie", crate::security::secure_cookie("cronus_token", &token, cookie_max_age, "/"))
                                             .body(Full::new(Bytes::from(body.to_string())))
                                             .unwrap()
                                     } else {
@@ -1116,7 +1124,12 @@ async fn handle_request_inner(
                     match auth::verify_token(t, &secret) {
                         Ok(claims) => {
                             if claims.role != required_role && claims.role != "admin" {
-                                return Ok(forbidden_response("Insufficient permissions"));
+                                // User is logged in but lacks the role — redirect to portal
+                                return Ok(Response::builder()
+                                    .status(StatusCode::FOUND)
+                                    .header("Location", "/")
+                                    .body(Full::new(Bytes::new()))
+                                    .unwrap());
                             }
                         }
                         Err(_) => return Ok(redirect_to_login()),
@@ -1265,8 +1278,7 @@ async fn handle_request_inner(
             return Ok(html_response(html));
         }
 
-        // Dumped pages with HTML templates — always use landing layout with Tailwind CDN
-        // (must check before has_section_sidebar, because dumps include sidebar templates)
+        // Dumped pages with HTML templates — use landing layout with Tailwind CDN
         let has_templates = page.sections.iter().any(|s| s.template.is_some() || s.config.get("template").is_some());
         if has_templates {
             let body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params, &page_owner_id);
@@ -1275,7 +1287,19 @@ async fn handle_request_inner(
         }
 
         if has_section_sidebar {
-            // Dashboard with inline sections — render directly with dashboard layout
+            // Check for specialized dashboard renderers BEFORE falling back to generic
+            let billing_types = ["current-plan", "usage-status", "billing-stats", "payment-methods", "recent-invoices"];
+            let is_billing_page = page.sections.iter().any(|s| s.section_type == "current-plan" || s.section_type == "billing-stats");
+            if is_billing_page {
+                let referenced_comps: Vec<parser::ComponentNode> = page.components.iter()
+                    .filter_map(|name| state.components.iter().find(|c| c.name == *name))
+                    .cloned()
+                    .collect();
+                let html = ui::render_billing_dashboard(app_name, &page.sections, &referenced_comps, theme, &path);
+                return Ok(html_response(html));
+            }
+
+            // Generic dashboard wrapper — sidebar + any sections
             let body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params, &page_owner_id);
             let html = ui::render_layout_dashboard(&state.app.name, &body, theme);
             return Ok(html_response(html));
@@ -2064,6 +2088,121 @@ async fn cmd_run(args: &[String]) {
                 expanded_sections.append(&mut page.sections);
                 page.sections = expanded_sections;
                 page.components = used_components;
+            }
+        }
+    }
+
+    // Resolve component invocations in pages — replace {{param}} in templates with passed values
+    // Also generates reactive JS for components with `state` declarations
+    if !cronus_components.is_empty() {
+        let mut comp_instance_counter: u32 = 0;
+        for page in &mut pages {
+            for section in &mut page.sections {
+                if let Some(comp_name) = section.config.get("_component").cloned() {
+                    if let Some(comp_def) = cronus_components.iter().find(|c| c.name == comp_name) {
+                        if let Some(ref tmpl) = comp_def.template {
+                            comp_instance_counter += 1;
+                            let cid = format!("c{}", comp_instance_counter);
+
+                            // Interpolate template: replace {{param}} with values from section.config
+                            let mut rendered = tmpl.clone();
+                            for param in &comp_def.params {
+                                let placeholder = format!("{{{{{}}}}}", param.name);
+                                let value = section.config.get(&param.name)
+                                    .map(|s| s.as_str())
+                                    .or(param.default.as_deref())
+                                    .unwrap_or("");
+                                rendered = rendered.replace(&placeholder, value);
+                            }
+                            for (key, value) in &section.config {
+                                if key == "_component" { continue; }
+                                let placeholder = format!("{{{{{}}}}}", key);
+                                rendered = rendered.replace(&placeholder, value);
+                            }
+
+                            // Reactive state: replace {{state_var}} with reactive spans
+                            // and generate JS signal code
+                            if !comp_def.state.is_empty() {
+                                // Wrap component in a container with unique ID
+                                rendered = format!(r#"<div data-cid="{cid}">{html}</div>"#, cid = cid, html = rendered);
+
+                                // Replace {{state_var}} with reactive spans
+                                for sv in &comp_def.state {
+                                    let placeholder = format!("{{{{{}}}}}", sv.name);
+                                    let span = format!(r#"<span data-s="{name}">{default}</span>"#,
+                                        name = sv.name, default = sv.default);
+                                    rendered = rendered.replace(&placeholder, &span);
+                                }
+
+                                // Process @click="expr" → onclick with signal update
+                                // Match @click="..." or @click(...)
+                                let mut script_parts: Vec<String> = Vec::new();
+                                let mut event_id: u32 = 0;
+
+                                // Simple regex-free @click handler extraction
+                                while let Some(pos) = rendered.find("@click=") {
+                                    event_id += 1;
+                                    let eid = format!("{cid}_e{event_id}");
+                                    // Find the expression in quotes
+                                    let after = &rendered[pos + 7..];
+                                    let (expr, end_offset) = if after.starts_with("\\\"") || after.starts_with('"') {
+                                        let quote_char = if after.starts_with("\\\"") { "\\\"" } else { "\"" };
+                                        let qlen = quote_char.len();
+                                        let expr_start = qlen;
+                                        if let Some(expr_end) = after[expr_start..].find(quote_char) {
+                                            (after[expr_start..expr_start + expr_end].to_string(), 7 + expr_start + expr_end + qlen)
+                                        } else {
+                                            break;
+                                        }
+                                    } else {
+                                        break;
+                                    };
+
+                                    // Replace @click="expr" with data-eid="..."
+                                    rendered = format!("{}data-eid=\"{}\"{}",
+                                        &rendered[..pos], eid, &rendered[pos + end_offset..]);
+
+                                    // Generate JS for this event
+                                    // Parse simple expressions: "count += 1", "count -= 1", "toggle = !toggle"
+                                    let js_expr = expr.replace("\\\"", "\"");
+                                    script_parts.push(format!(
+                                        r#"document.querySelector('[data-eid="{eid}"]').addEventListener('click',function(){{ {update_expr}; _u(); }});"#,
+                                        eid = eid, update_expr = format!("_s.{}", js_expr)
+                                    ));
+                                }
+
+                                // Generate the reactive script
+                                if !comp_def.state.is_empty() {
+                                    let mut state_init = String::new();
+                                    let mut update_dom = String::new();
+                                    for sv in &comp_def.state {
+                                        let default_js = match sv.state_type.as_str() {
+                                            "integer" | "number" => sv.default.clone(),
+                                            "boolean" => sv.default.clone(),
+                                            _ => format!("\"{}\"", sv.default),
+                                        };
+                                        state_init.push_str(&format!("{}:{},", sv.name, default_js));
+                                        update_dom.push_str(&format!(
+                                            r#"_c.querySelectorAll('[data-s="{name}"]').forEach(function(el){{ el.textContent=_s.{name}; }});"#,
+                                            name = sv.name
+                                        ));
+                                    }
+
+                                    let script = format!(
+                                        r#"<script>(function(){{ var _c=document.querySelector('[data-cid="{cid}"]'); if(!_c)return; var _s={{{init}}}; function _u(){{{update}}} {events} }})();</script>"#,
+                                        cid = cid,
+                                        init = state_init,
+                                        update = update_dom,
+                                        events = script_parts.join(" "),
+                                    );
+                                    rendered.push_str(&script);
+                                }
+                            }
+
+                            section.template = Some(rendered);
+                        }
+                    }
+                }
             }
         }
     }

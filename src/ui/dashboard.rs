@@ -730,7 +730,7 @@ pub fn render_billing_dashboard(
     theme: &str,
     current_route: &str,
 ) -> String {
-    let _ = theme;
+    let is_dark = theme == "dark";
 
     // ── Extract component data ──────────────────────
 
@@ -768,9 +768,19 @@ pub fn render_billing_dashboard(
 
     // ── Assemble complete page ──────────────────────
 
+    let (html_class, bg, fg, card_bg, card_border, muted, badge_bg, badge_fg, btn_bg, btn_fg, row_border, main_gradient) = if is_dark {
+        ("dark", "#0a0a0a", "#fafafa", "rgba(255,255,255,0.04)", "rgba(255,255,255,0.08)", "#a3a3a3",
+         "rgba(255,255,255,0.1)", "#fafafa", "#fafafa", "#0a0a0a", "rgba(255,255,255,0.06)",
+         "radial-gradient(circle at top right,rgba(255,255,255,0.03),transparent 40%),radial-gradient(circle at bottom left,rgba(255,255,255,0.02),transparent 40%)")
+    } else {
+        ("light", "#f9f9f9", "#1a1c1c", "#fff", "rgba(198,198,198,0.2)", "#5e5e5e",
+         "#000", "#fff", "#000", "#fff", "#f3f3f3",
+         "radial-gradient(circle at top right,rgba(0,111,240,0.08),transparent 40%),radial-gradient(circle at bottom left,rgba(0,56,129,0.05),transparent 40%)")
+    };
+
     format!(
         r##"<!DOCTYPE html>
-<html class="light" lang="en">
+<html class="{html_class}" lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -778,14 +788,31 @@ pub fn render_billing_dashboard(
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <style>
-    body {{ font-family:'Inter',sans-serif; background:#f9f9f9; color:#1a1c1c; margin:0; }}
+    :root {{ --bg:{bg}; --fg:{fg}; --card-bg:{card_bg}; --card-border:{card_border}; --muted:{muted}; --badge-bg:{badge_bg}; --badge-fg:{badge_fg}; --btn-bg:{btn_bg}; --btn-fg:{btn_fg}; --row-border:{row_border}; }}
+    body {{ font-family:'Inter',sans-serif; background:var(--bg); color:var(--fg); margin:0; }}
     * {{ box-sizing:border-box; }}
     .material-symbols-outlined {{ font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; font-size:20px; display:inline-block; line-height:1; vertical-align:middle; }}
-    ::selection {{ background:rgba(0,111,240,0.15); }}
+    ::selection {{ background:rgba(255,255,255,0.15); }}
     ::-webkit-scrollbar {{ width:4px; }}
-    ::-webkit-scrollbar-thumb {{ background:rgba(0,0,0,0.1); border-radius:2px; }}
-    .ghost-border {{ border:1px solid rgba(198,198,198,0.2); }}
+    ::-webkit-scrollbar-thumb {{ background:rgba(128,128,128,0.3); border-radius:2px; }}
+    .ghost-border {{ border:1px solid var(--card-border); background:var(--card-bg); }}
     .payment-row:hover .payment-hover-actions {{ opacity:1 !important; }}
+    html.dark section {{ background:var(--card-bg) !important; border-color:var(--card-border) !important; color:var(--fg); }}
+    html.dark h2, html.dark h3, html.dark h4, html.dark span {{ color:inherit; }}
+    html.dark section .anim-fade {{ background:var(--badge-bg) !important; color:var(--badge-fg) !important; }}
+    html.dark button.btn-hover {{ background:var(--btn-bg) !important; color:var(--btn-fg) !important; }}
+    html.dark [style*="color:#5e5e5e"], html.dark [style*="color:#1a1c1c"] {{ color:var(--muted) !important; }}
+    html.dark [style*="background:#fff"], html.dark [style*="background:#f3f3f3"], html.dark [style*="background:#f4f4f5"] {{ background:var(--card-bg) !important; }}
+    html.dark [style*="background:rgba(250"] {{ background:rgba(20,20,20,0.9) !important; }}
+    html.dark aside {{ background:rgba(20,20,20,0.95) !important; border-color:rgba(255,255,255,0.06) !important; }}
+    html.dark aside a {{ color:var(--muted) !important; }}
+    html.dark aside a[style*="background:#fff"], html.dark aside a[style*="background:rgb(255"] {{ background:rgba(255,255,255,0.1) !important; color:var(--fg) !important; }}
+    html.dark nav[style*="background:#fff"], html.dark nav[style*="background:rgba(255,255,255,0.95"] {{ background:rgba(20,20,20,0.95) !important; border-color:rgba(255,255,255,0.06) !important; }}
+    html.dark header[style*="background:rgba(255,255,255"] {{ background:rgba(10,10,10,0.85) !important; border-color:rgba(255,255,255,0.06) !important; backdrop-filter:blur(20px); }}
+    html.dark input {{ background:rgba(255,255,255,0.06) !important; border-color:rgba(255,255,255,0.1) !important; color:var(--fg) !important; }}
+    html.dark [style*="border-bottom:1px solid #f3f3f3"], html.dark [style*="border-bottom: 1px solid #f3f3f3"] {{ border-color:var(--row-border) !important; }}
+    html.dark [style*="border:1px solid rgba(198"] {{ border-color:var(--card-border) !important; }}
+    html.dark [style*="border-right:1px solid #e5e7eb"] {{ border-color:rgba(255,255,255,0.06) !important; }}
   </style>
   <style>{anim_css}</style>
 </head>
@@ -795,7 +822,7 @@ pub fn render_billing_dashboard(
 
 {topbar}
 
-<main style="margin-left:256px;min-height:100vh;background:radial-gradient(circle at top right,rgba(0,111,240,0.08),transparent 40%),radial-gradient(circle at bottom left,rgba(0,56,129,0.05),transparent 40%)">
+<main style="margin-left:256px;min-height:100vh;background:{main_gradient}">
   <div style="max-width:1152px;margin:0 auto;padding:32px">
 
     {header}
@@ -828,7 +855,6 @@ pub fn render_billing_dashboard(
       </div>
 
     </div>
-    <!-- 96px spacer (h-24) -->
     <div style="height:96px"></div>
   </div>
 </main>
@@ -838,6 +864,11 @@ pub fn render_billing_dashboard(
 {anim_js}
 </body>
 </html>"##,
+        html_class = html_class,
+        bg = bg, fg = fg, card_bg = card_bg, card_border = card_border,
+        muted = muted, badge_bg = badge_bg, badge_fg = badge_fg,
+        btn_bg = btn_bg, btn_fg = btn_fg, row_border = row_border,
+        main_gradient = main_gradient,
         app_name = app_name,
         sidebar = sidebar_html,
         topbar = topbar_html,
@@ -866,7 +897,7 @@ pub(super) fn build_billing_page_header(section: Option<&SectionNode>) -> String
 
     let subtitle_html = if !subtitle.is_empty() {
         format!(
-            r#"<p style="color:#5e5e5e;font-size:18px;margin:8px 0 0;line-height:1.5">{}</p>"#,
+            r#"<p style="color:var(--muted);font-size:18px;margin:8px 0 0;line-height:1.5">{}</p>"#,
             subtitle
         )
     } else {
@@ -875,7 +906,7 @@ pub(super) fn build_billing_page_header(section: Option<&SectionNode>) -> String
 
     format!(
         r#"<div style="margin-bottom:48px">
-      <h2 class="anim-slide-up d1" style="font-size:56px;font-weight:800;letter-spacing:-0.05em;line-height:1.25;color:#1a1c1c;margin:0 0 8px">{title}</h2>
+      <h2 class="anim-slide-up d1" style="font-size:56px;font-weight:800;letter-spacing:-0.05em;line-height:1.25;color:var(--fg);margin:0 0 8px">{title}</h2>
       <div class="anim-slide-up d2">{subtitle}</div>
     </div>"#,
         title = title,
@@ -914,7 +945,7 @@ pub(super) fn build_billing_current_plan(section: Option<&SectionNode>) -> Strin
 
         let value_html = if !suffix.is_empty() {
             format!(
-                r#"<span style="font-weight:600">{value}</span> <span style="font-size:14px;color:#5e5e5e">{suffix}</span>"#,
+                r#"<span style="font-weight:600">{value}</span> <span style="font-size:14px;color:var(--muted)">{suffix}</span>"#,
                 value = value, suffix = suffix
             )
         } else {
@@ -922,8 +953,8 @@ pub(super) fn build_billing_current_plan(section: Option<&SectionNode>) -> Strin
         };
 
         rows_html.push_str(&format!(
-            r#"<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid #f3f3f3;padding-bottom:16px;margin-bottom:24px">
-              <span style="color:#5e5e5e">{label}</span>
+            r#"<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid var(--row-border);padding-bottom:16px;margin-bottom:24px">
+              <span style="color:var(--muted)">{label}</span>
               <span>{value}</span>
             </div>"#,
             label = label,
@@ -932,16 +963,16 @@ pub(super) fn build_billing_current_plan(section: Option<&SectionNode>) -> Strin
     }
 
     format!(
-        r##"<section class="ghost-border anim-slide-up d1 card-hover" style="background:#fff;border-radius:12px;padding:32px;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+        r##"<section class="ghost-border anim-slide-up d1 card-hover" style="border-radius:12px;padding:32px;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px">
             <div>
-              <span class="anim-fade d1" style="background:#000;color:#fff;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;border-radius:4px;padding:2px 8px;display:inline-block;margin-bottom:16px">{badge}</span>
+              <span class="anim-fade d1" style="background:var(--badge-bg);color:var(--badge-fg);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;border-radius:4px;padding:2px 8px;display:inline-block;margin-bottom:16px">{badge}</span>
               <h3 style="font-size:30px;font-weight:700;letter-spacing:-0.02em;margin:0">{plan_name}</h3>
             </div>
-            <button class="btn-hover" style="background:#000;color:#fff;padding:10px 24px;border-radius:999px;font-size:14px;font-weight:500;border:none;cursor:pointer">{action}</button>
+            <button class="btn-hover" style="background:var(--btn-bg);color:var(--btn-fg);padding:10px 24px;border-radius:999px;font-size:14px;font-weight:500;border:none;cursor:pointer">{action}</button>
           </div>
           {rows}
-          <div style="position:absolute;right:-80px;bottom:-80px;width:240px;height:240px;border-radius:50%;background:#eeeeee;opacity:0.3;filter:blur(48px);pointer-events:none"></div>
+          <div style="position:absolute;right:-80px;bottom:-80px;width:240px;height:240px;border-radius:50%;background:var(--muted);opacity:0.15;filter:blur(48px);pointer-events:none"></div>
         </section>"##,
         badge = badge_text,
         plan_name = plan_name,
@@ -1030,8 +1061,9 @@ pub(super) fn build_billing_stats(section: Option<&SectionNode>) -> String {
     let mut cards_html = String::new();
     let mut billing_stat_idx = 0u32;
     for item in &sec.items {
-        let value = item.get("title").map(|s| s.as_str()).unwrap_or("");
-        let label = item.get("meta")
+        let label = item.get("title").map(|s| s.as_str()).unwrap_or("");
+        let value = item.get("value")
+            .or_else(|| item.get("meta"))
             .or_else(|| item.get("description"))
             .map(|s| s.as_str())
             .unwrap_or("");
@@ -1040,10 +1072,10 @@ pub(super) fn build_billing_stats(section: Option<&SectionNode>) -> String {
         let delay = format!("d{}", ((billing_stat_idx - 1) % 10) + 1);
 
         cards_html.push_str(&format!(
-            r##"<div class="ghost-border anim-scale {delay} card-hover" style="background:#fff;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
-              <span class="material-symbols-outlined" style="color:#a1a1aa;margin-bottom:16px">{icon}</span>
+            r##"<div class="ghost-border anim-scale {delay} card-hover" style="border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
+              <span class="material-symbols-outlined" style="color:var(--muted);margin-bottom:16px">{icon}</span>
               <div style="font-size:24px;font-weight:700;letter-spacing:-0.02em;margin-bottom:4px">{value}</div>
-              <div style="font-size:12px;color:#5e5e5e;font-weight:500;text-transform:uppercase;letter-spacing:-0.05em">{label}</div>
+              <div style="font-size:12px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:-0.05em">{label}</div>
             </div>"##,
             icon = icon,
             value = value,
