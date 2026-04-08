@@ -879,6 +879,18 @@ pub fn extract_buttons(node: &DomNode) -> Vec<String> {
     buttons
 }
 
+/// Find all elements with a specific attribute key (any value).
+pub fn find_by_attr<'a>(node: &'a DomNode, attr: &str) -> Vec<&'a DomNode> {
+    let mut results = Vec::new();
+    if node.attrs.contains_key(attr) {
+        results.push(node);
+    }
+    for child in &node.children {
+        results.extend(find_by_attr(child, attr));
+    }
+    results
+}
+
 /// Find the first heading (h1-h6) text in a node tree, cleaned of icon text.
 pub fn find_heading(node: &DomNode) -> Option<String> {
     let heading_tags = ["h1", "h2", "h3", "h4", "h5", "h6"];

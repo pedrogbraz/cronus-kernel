@@ -14,6 +14,7 @@ pub fn cmd_build(args: &[String]) {
     let strict_ai = args.iter().any(|a| a == "--strict-ai");
     let ai_mode = args.iter().any(|a| a == "--ai" || a == "--machine" || a == "--json-errors");
     let strict = args.iter().any(|a| a == "--strict") || strict_ai;
+    let strict_audit = args.iter().any(|a| a == "--strict-audit");
     let file = args.iter().skip(2)
         .find(|a| !a.starts_with("--"))
         .cloned()
@@ -227,6 +228,30 @@ pub fn cmd_build(args: &[String]) {
 
             // Save AST snapshot for changelog diffing
             save_ast_snapshot(&nodes);
+
+            // ── Auto-audit: run fidelity check if .cronus/audit-ref.html exists ──
+            let audit_ref_path = ".cronus/audit-ref.html";
+            if std::path::Path::new(audit_ref_path).exists() && !ai_mode {
+                println!();
+                println!("  \x1b[1mFidelity Audit\x1b[0m (auto — .cronus/audit-ref.html found)");
+                match crate::cli::audit_fidelity::run_audit(audit_ref_path) {
+                    Some(result) => {
+                        crate::cli::audit_fidelity::print_fidelity_line(&result);
+                        crate::cli::audit_fidelity::save_audit_results(&result);
+                        println!("  \x1b[32m✓\x1b[0m Results saved to .cronus/audit-results.json");
+                        if strict_audit && result.fidelity < 95 {
+                            println!();
+                            crate::cli::audit_fidelity::print_missing_top(&result, 5);
+                            eprintln!();
+                            eprintln!("  \x1b[31m✗ AUDIT FAILED\x1b[0m — {}% < 95% threshold (--strict-audit)", result.fidelity);
+                            std::process::exit(1);
+                        }
+                    }
+                    None => {
+                        eprintln!("  \x1b[33m⚠\x1b[0m Could not run audit (no .cronus file or parse error)");
+                    }
+                }
+            }
         }
         Err(e) => {
             if ai_mode {

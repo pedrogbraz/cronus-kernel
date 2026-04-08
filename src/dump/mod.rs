@@ -47,6 +47,20 @@ pub fn dump_html(html: &str) -> String {
     // 6a-fix. Auto-trigger scroll animations for visual fidelity
     detect::fix_animation_visibility(&mut sections);
 
+    // 6a-topbar. Detect topbar from nested <nav>/<header> if not already found
+    if !sections.iter().any(|s| s.section_type == "topbar") {
+        if let Some(topbar) = detect::detect_topbar_from_html(html, &nodes) {
+            sections.insert(0, topbar);
+        }
+    }
+
+    // 6a-unicorn. Detect UnicornStudio WebGL backgrounds
+    let unicorn_ids = detect::detect_unicorn_studio(&nodes);
+
+    // 6a-chartjs. Detect Chart.js canvas elements and scripts
+    let chartjs_canvases = detect::detect_chartjs_canvases(&nodes);
+    let chartjs_scripts = detect::extract_chartjs_scripts(html);
+
     // 6b. Extract CSS custom properties (design tokens) from HTML
     let css_vars = extract_css_variables(html);
 
@@ -70,10 +84,184 @@ pub fn dump_html(html: &str) -> String {
         },
         sections,
         tailwind_config,
+        unicorn_studio_ids: unicorn_ids,
+        chartjs_scripts,
     };
 
     // 8. Emit .cronus
     emit::emit_cronus(&file)
+}
+
+/// Run a lightweight fidelity audit comparing the dumped .cronus output
+/// against the source HTML. Returns the fidelity percentage (0-100).
+/// Prints a summary to stdout. If below `threshold`, prints suggestions.
+pub fn audit_dump(source_html: &str, cronus_output: &str, threshold: u32) -> u32 {
+    let ref_text = audit_extract_visible_text(source_html);
+    let rendered_text = cronus_output.to_string(); // The .cronus text itself for content comparison
+
+    let ref_numbers = audit_extract_numbers(&ref_text);
+    let ref_strings = audit_extract_strings(&ref_text);
+    let rendered_numbers = audit_extract_numbers(&rendered_text);
+    let rendered_strings = audit_extract_strings(&rendered_text);
+
+    let mut num_matched = 0u32;
+    let mut num_missing: Vec<String> = Vec::new();
+    for n in &ref_numbers {
+        if rendered_numbers.contains(n) {
+            num_matched += 1;
+        } else {
+            num_missing.push(format!("{}", n));
+        }
+    }
+
+    let rendered_lower = rendered_text.to_lowercase()
+        .split_whitespace().collect::<Vec<_>>().join(" ");
+
+    let mut str_matched = 0u32;
+    let mut str_missing: Vec<String> = Vec::new();
+    for s in &ref_strings {
+        if rendered_lower.contains(s.as_str())
+           || rendered_strings.iter().any(|rs| rs.contains(s.as_str()) || s.contains(rs.as_str())) {
+            str_matched += 1;
+        } else {
+            str_missing.push(s.clone());
+        }
+    }
+
+    let total_ref = ref_numbers.len() + ref_strings.len();
+    let total_matched = num_matched as usize + str_matched as usize;
+    let fidelity = if total_ref > 0 {
+        (total_matched as f64 / total_ref as f64 * 100.0) as u32
+    } else {
+        100
+    };
+
+    // Print summary
+    let dot = if fidelity >= 95 { "\x1b[32m●\x1b[0m" }
+        else if fidelity >= 70 { "\x1b[33m●\x1b[0m" }
+        else { "\x1b[31m●\x1b[0m" };
+
+    eprintln!();
+    eprintln!("  \x1b[1mDump Audit\x1b[0m");
+    eprintln!("  {} \x1b[1m{}% fidelity\x1b[0m  (threshold: {}%)", dot, fidelity, threshold);
+    eprintln!("  Numbers: {}/{} matched", num_matched, ref_numbers.len());
+    eprintln!("  Strings: {}/{} matched", str_matched, ref_strings.len());
+
+    if fidelity < threshold {
+        eprintln!();
+        if !str_missing.is_empty() {
+            eprintln!("  \x1b[31mMissing strings:\x1b[0m");
+            for (i, s) in str_missing.iter().enumerate() {
+                if i >= 15 { eprintln!("    ... +{} more", str_missing.len() - 15); break; }
+                eprintln!("    STR  \"{}\"", s);
+            }
+        }
+        if !num_missing.is_empty() {
+            eprintln!("  \x1b[31mMissing numbers:\x1b[0m");
+            for n in num_missing.iter().take(10) {
+                eprintln!("    NUM  {}", n);
+            }
+        }
+        eprintln!();
+        eprintln!("  \x1b[33mSuggestions:\x1b[0m");
+        if str_missing.len() > ref_strings.len() / 2 {
+            eprintln!("    - Many strings missing: check section detection (detect.rs)");
+        }
+        if num_missing.len() > 3 {
+            eprintln!("    - Numbers missing: check stat/price/kpi extraction");
+        }
+        eprintln!("    - Run: cronus audit <reference.html> for detailed report");
+    }
+    eprintln!();
+
+    fidelity
+}
+
+/// Extract visible text from HTML (simplified version for dump audit).
+fn audit_extract_visible_text(html: &str) -> String {
+    let mut result = String::new();
+    let body_start = html.find("<body")
+        .and_then(|pos| html[pos..].find('>').map(|p| pos + p + 1))
+        .unwrap_or(0);
+    let body_end = html.rfind("</body>").unwrap_or(html.len());
+    let body = &html[body_start..body_end];
+
+    let mut in_tag = false;
+    let mut skip_depth = 0u32;
+    let skip_tags = ["script", "style", "svg", "noscript"];
+    let mut tag_buf = String::new();
+
+    for ch in body.chars() {
+        if ch == '<' {
+            in_tag = true;
+            tag_buf.clear();
+            continue;
+        }
+        if in_tag {
+            if ch == '>' {
+                in_tag = false;
+                let tag_lower = tag_buf.to_lowercase();
+                let tag_name = tag_lower.split_whitespace().next().unwrap_or("");
+                if tag_name.starts_with('/') {
+                    let name = &tag_name[1..];
+                    if skip_tags.contains(&name) && skip_depth > 0 { skip_depth -= 1; }
+                } else {
+                    if matches!(tag_name, "br" | "div" | "p" | "h1" | "h2" | "h3" | "h4" | "li" | "td" | "section") {
+                        if skip_depth == 0 { result.push(' '); }
+                    }
+                    if skip_tags.contains(&tag_name) { skip_depth += 1; }
+                }
+            } else {
+                tag_buf.push(ch);
+            }
+            continue;
+        }
+        if skip_depth == 0 { result.push(ch); }
+    }
+    result.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+        .replace("&quot;", "\"").replace("&#39;", "'").replace("&nbsp;", " ")
+}
+
+/// Extract number-like tokens from text.
+fn audit_extract_numbers(text: &str) -> Vec<f64> {
+    let mut nums = Vec::new();
+    for word in text.split(|c: char| !c.is_alphanumeric() && c != '.' && c != ',' && c != '%' && c != '$') {
+        let word = word.trim();
+        if word.is_empty() { continue; }
+        let cleaned = word.replace(',', "").replace('%', "").replace('$', "");
+        if let Ok(n) = cleaned.trim().parse::<f64>() {
+            if n.is_finite() && n >= 3.0 && n <= 1e9 && !nums.contains(&n) {
+                nums.push(n);
+            }
+        }
+    }
+    nums
+}
+
+/// Extract meaningful strings from text.
+fn audit_extract_strings(text: &str) -> Vec<String> {
+    let mut strings = Vec::new();
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.len() >= 3 && trimmed.len() <= 120 {
+            let lower = trimmed.to_lowercase();
+            if !lower.contains("tailwind") && !lower.contains("rgba(")
+                && !lower.starts_with('.') && !lower.starts_with('{')
+                && !lower.starts_with('@') && !lower.starts_with('#')
+            {
+                if !strings.contains(&lower) { strings.push(lower); }
+            }
+        }
+    }
+    strings
+}
+
+/// Dump HTML to .cronus with automatic fidelity audit.
+/// Prints the fidelity score to stderr. Returns the .cronus source.
+pub fn dump_html_with_audit(html: &str, threshold: u32) -> String {
+    let cronus = dump_html(html);
+    let _fidelity = audit_dump(html, &cronus, threshold);
+    cronus
 }
 
 /// Extract inline Tailwind config from `<script>tailwind.config = {...}</script>`

@@ -652,19 +652,50 @@ fn extract_topbar(node: &DomNode) -> SectionBlueprint {
     }
 
     // ---------------------------------------------------------------
-    // Nav links (fallback for topbars with traditional link navigation)
+    // Nav links — always extract (not just as fallback)
     // ---------------------------------------------------------------
-    if items.is_empty() {
+    if !config.contains_key("nav") {
         let links = dom::extract_links(node);
-        let nav_texts: Vec<String> = links.iter().map(|(text, _)| text.clone()).collect();
+        // Separate nav links from CTA-like links
+        let brand = config.get("brand").cloned().unwrap_or_default();
+        let mut nav_texts: Vec<String> = Vec::new();
+        let mut cta_candidate: Option<String> = None;
+        for (text, _href) in &links {
+            let lower = text.to_lowercase();
+            // Skip brand text appearing as link
+            if !brand.is_empty() && lower == brand.to_lowercase() {
+                continue;
+            }
+            // Detect CTA-like links
+            if is_cta_text(&lower) {
+                cta_candidate = Some(text.clone());
+            } else {
+                nav_texts.push(text.clone());
+            }
+        }
         if !nav_texts.is_empty() {
             config.insert("nav".into(), nav_texts.join(", "));
         }
+        // CTA: prefer detected CTA link, else last button
+        if let Some(cta) = cta_candidate {
+            if !config.contains_key("cta_text") {
+                config.insert("cta_text".into(), cta);
+            }
+        }
+    }
 
-        // CTA button (last button found is usually the primary CTA)
+    // ---------------------------------------------------------------
+    // CTA button fallback (last button with CTA-like text)
+    // ---------------------------------------------------------------
+    if !config.contains_key("cta_text") {
         let buttons = extract_clean_buttons(node);
-        if let Some(cta) = buttons.last() {
-            config.insert("cta_text".into(), cta.clone());
+        // Prefer buttons matching CTA keywords, else last button
+        let cta = buttons.iter().rev()
+            .find(|b| is_cta_text(&b.to_lowercase()))
+            .or_else(|| buttons.last())
+            .cloned();
+        if let Some(cta) = cta {
+            config.insert("cta_text".into(), cta);
         }
     }
 
@@ -678,6 +709,18 @@ fn extract_topbar(node: &DomNode) -> SectionBlueprint {
         template: None,
         style_block: None,
     }
+}
+
+/// Check if text looks like a CTA (call-to-action) button/link.
+/// Matches common CTA patterns in navigation bars.
+fn is_cta_text(lower: &str) -> bool {
+    let cta_keywords = [
+        "bag", "cart", "sign in", "sign up", "log in", "login", "signup",
+        "get started", "try ", "start ", "subscribe", "register",
+        "download", "buy", "purchase", "order", "book ", "join",
+        "free trial", "demo", "contact", "schedule",
+    ];
+    cta_keywords.iter().any(|kw| lower.contains(kw))
 }
 
 /// Capitalize an icon name for display: "notifications" -> "Notifications".
@@ -4513,6 +4556,216 @@ fn extract_danger_zone(node: &DomNode) -> SectionBlueprint {
     }
 
     SectionBlueprint { section_type: "danger-zone".into(), confidence: 0.0, title, subtitle: config.remove("subtitle_text"), config, items, template: None, style_block: None }
+}
+
+// ---------------------------------------------------------------------------
+// UnicornStudio detection
+// ---------------------------------------------------------------------------
+
+/// Find all `data-us-project` attributes in the DOM tree and return project IDs.
+pub fn detect_unicorn_studio(nodes: &[DomNode]) -> Vec<String> {
+    let mut ids = Vec::new();
+    for node in nodes {
+        let matches = dom::find_by_attr(node, "data-us-project");
+        for m in matches {
+            if let Some(pid) = m.attrs.get("data-us-project") {
+                let pid = pid.trim().to_string();
+                if !pid.is_empty() && !ids.contains(&pid) {
+                    ids.push(pid);
+                }
+            }
+        }
+    }
+    ids
+}
+
+// ---------------------------------------------------------------------------
+// Chart.js detection
+// ---------------------------------------------------------------------------
+
+/// Detect `<canvas id="...Chart">` elements in the DOM.
+/// Returns a list of (canvas_id, element) pairs.
+pub fn detect_chartjs_canvases(nodes: &[DomNode]) -> Vec<String> {
+    let mut ids = Vec::new();
+    for node in nodes {
+        let canvases = dom::find_by_tag(node, "canvas");
+        for canvas in canvases {
+            if let Some(id) = &canvas.id {
+                if id.ends_with("Chart") || id.ends_with("chart") {
+                    if !ids.contains(id) {
+                        ids.push(id.clone());
+                    }
+                }
+            }
+        }
+    }
+    ids
+}
+
+/// Extract Chart.js `new Chart(...)` script blocks from raw HTML.
+/// Returns a map of canvas_id -> script content.
+pub fn extract_chartjs_scripts(html: &str) -> HashMap<String, String> {
+    let mut scripts: HashMap<String, String> = HashMap::new();
+
+    // Find all <script> blocks and look for `new Chart(` patterns
+    let mut pos = 0;
+    while let Some(start) = html[pos..].find("<script") {
+        let abs_start = pos + start;
+        if let Some(tag_end) = html[abs_start..].find('>') {
+            let content_start = abs_start + tag_end + 1;
+            if let Some(end) = html[content_start..].find("</script>") {
+                let script = &html[content_start..content_start + end];
+
+                // Look for `new Chart(` pattern
+                let mut search = 0;
+                while let Some(chart_pos) = script[search..].find("new Chart(") {
+                    let abs_chart = search + chart_pos;
+
+                    // Try to extract the canvas ID from the context
+                    // Common patterns:
+                    //   new Chart(document.getElementById('myChart'), ...)
+                    //   new Chart(ctx, ...) where ctx = document.getElementById('myChart')
+                    let canvas_id = extract_chart_canvas_id(script, abs_chart);
+
+                    if let Some(id) = canvas_id {
+                        // Extract the full Chart constructor call (brace-matched)
+                        if let Some(chart_content) = extract_chart_constructor(script, abs_chart) {
+                            scripts.insert(id, chart_content);
+                        }
+                    }
+
+                    search = abs_chart + 10; // skip past "new Chart("
+                }
+
+                pos = content_start + end;
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+
+    scripts
+}
+
+/// Try to extract the canvas ID referenced by a `new Chart(...)` call.
+fn extract_chart_canvas_id(script: &str, chart_pos: usize) -> Option<String> {
+    // Look backwards and in the args for getElementById('...')
+    let after = &script[chart_pos..];
+
+    // Pattern 1: new Chart(document.getElementById('myChart'), ...)
+    if let Some(gid_pos) = after.find("getElementById(") {
+        if gid_pos < 200 { // must be close to the new Chart( call
+            let after_gid = &after[gid_pos + 15..];
+            // Extract quoted string
+            let quote = after_gid.chars().next()?;
+            if quote == '\'' || quote == '"' {
+                let end = after_gid[1..].find(quote)?;
+                return Some(after_gid[1..1 + end].to_string());
+            }
+        }
+    }
+
+    // Pattern 2: Look backwards for `const ctx = document.getElementById('myChart')`
+    let before = &script[..chart_pos];
+    // Find the last getElementById before this Chart call
+    if let Some(last_gid) = before.rfind("getElementById(") {
+        let after_gid = &before[last_gid + 15..];
+        let quote = after_gid.chars().next()?;
+        if quote == '\'' || quote == '"' {
+            let end = after_gid[1..].find(quote)?;
+            return Some(after_gid[1..1 + end].to_string());
+        }
+    }
+
+    None
+}
+
+/// Extract the full `new Chart(...)` constructor call including its config object.
+fn extract_chart_constructor(script: &str, chart_pos: usize) -> Option<String> {
+    let after = &script[chart_pos..];
+    // Find the opening paren
+    let paren_pos = after.find('(')?;
+    let start = chart_pos;
+
+    // Match parens to find the end
+    let mut depth = 0i32;
+    let mut end = start + paren_pos;
+    for (i, ch) in after[paren_pos..].char_indices() {
+        match ch {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    end = chart_pos + paren_pos + i + 1;
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if depth != 0 {
+        return None;
+    }
+
+    Some(script[start..end].to_string())
+}
+
+// ---------------------------------------------------------------------------
+// Topbar from raw HTML (for pages where <nav>/<header> is nested inside divs)
+// ---------------------------------------------------------------------------
+
+/// Detect a topbar from raw HTML when the DOM parser might not surface it
+/// as a top-level node. Searches for the first `<nav>` or `<header>` element
+/// in the HTML and extracts it as a SectionBlueprint.
+/// Returns None if the nodes already contain a topbar section.
+pub fn detect_topbar_from_html(html: &str, nodes: &[DomNode]) -> Option<SectionBlueprint> {
+    // Check if we already have a topbar in the detected sections
+    for node in nodes {
+        let (section_type, confidence) = patterns::classify_node(node);
+        if section_type == "topbar" && confidence > 0.3 {
+            return None; // Already detected
+        }
+    }
+
+    // Look for <nav> or <header> in the full HTML, parse just that element
+    let nav_start = html.find("<nav").or_else(|| html.find("<header"));
+    if nav_start.is_none() {
+        return None;
+    }
+
+    // The DOM parser already picks up body > nav and body > header,
+    // so if we get here it means the nav/header is nested deeper.
+    // We can still check if any node in the tree has a nav child.
+    for node in nodes {
+        let navs = dom::find_by_tag(node, "nav");
+        if !navs.is_empty() {
+            let nav_node = navs[0];
+            let (section_type, confidence) = patterns::classify_node(nav_node);
+            if confidence > 0.25 {
+                let mut bp = extract_topbar(nav_node);
+                bp.confidence = confidence;
+                bp.section_type = "topbar".into();
+                attach_template(&mut bp, nav_node);
+                return Some(bp);
+            }
+        }
+        let headers = dom::find_by_tag(node, "header");
+        for header in headers {
+            let (section_type, confidence) = patterns::classify_node(header);
+            if section_type == "topbar" && confidence > 0.25 {
+                let mut bp = extract_topbar(header);
+                bp.confidence = confidence;
+                bp.section_type = "topbar".into();
+                attach_template(&mut bp, header);
+                return Some(bp);
+            }
+        }
+    }
+
+    None
 }
 
 fn extract_generic(node: &DomNode) -> SectionBlueprint {

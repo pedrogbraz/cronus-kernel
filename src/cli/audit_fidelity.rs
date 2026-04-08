@@ -193,9 +193,231 @@ pub fn cmd_audit_fidelity(args: &[String]) {
     }
 }
 
-// ── Helpers ──
+// ── Public audit runner (reusable from build/run/dump) ──
 
-fn extract_visible_text(html: &str) -> String {
+/// Structured audit result for persistence and programmatic use.
+#[derive(Clone, Debug)]
+pub struct AuditResult {
+    pub fidelity: u32,
+    pub num_matched: u32,
+    pub num_total: usize,
+    pub str_matched: u32,
+    pub str_total: usize,
+    pub missing_numbers: Vec<String>,
+    pub missing_strings: Vec<String>,
+    pub extra_numbers: Vec<String>,
+    pub extra_strings: Vec<String>,
+}
+
+/// Run fidelity audit comparing the current .cronus output against a reference HTML file.
+/// Returns None if files can't be read or parsed; returns Some(AuditResult) otherwise.
+pub fn run_audit(ref_html_path: &str) -> Option<AuditResult> {
+    let ref_html = std::fs::read_to_string(ref_html_path).ok()?;
+    let cronus_file = crate::find_cronus_file()?;
+    let source = std::fs::read_to_string(&cronus_file).ok()?;
+    let nodes = crate::parser::parse(&source).ok()?;
+
+    run_audit_from_nodes(&ref_html, &nodes)
+}
+
+/// Run fidelity audit with pre-parsed AST nodes (avoids re-parsing).
+pub fn run_audit_from_nodes(ref_html: &str, nodes: &[crate::parser::AstNode]) -> Option<AuditResult> {
+    use crate::parser::AstNode;
+    use std::collections::HashMap;
+
+    let mut accent = "blue".to_string();
+    let mut theme = "dark".to_string();
+    for node in nodes {
+        if let AstNode::Style(style) = node {
+            if let Some(a) = &style.accent { accent = a.clone(); }
+            if let Some(t) = &style.theme { theme = t.clone(); }
+        }
+    }
+
+    let mut rendered_html = String::new();
+    let entities: Vec<crate::parser::EntityNode> = nodes.iter().filter_map(|n| {
+        if let AstNode::Entity(e) = n { Some(e.clone()) } else { None }
+    }).collect();
+
+    for node in nodes {
+        if let AstNode::Page(page) = node {
+            let empty_params: HashMap<String, String> = HashMap::new();
+            let html = crate::ui::page::render_page(page, &entities, &accent, &theme, None, &empty_params, "");
+            rendered_html.push_str(&html);
+        }
+    }
+
+    let ref_text = extract_visible_text(ref_html);
+    let rendered_text = extract_visible_text(&rendered_html);
+
+    let ref_numbers = extract_numbers(&ref_text);
+    let ref_strings = extract_strings(&ref_text);
+    let rendered_numbers = extract_numbers(&rendered_text);
+    let rendered_strings = extract_strings(&rendered_text);
+
+    let mut num_matched = 0u32;
+    let mut missing_numbers: Vec<String> = Vec::new();
+    for n in &ref_numbers {
+        if rendered_numbers.contains(n) {
+            num_matched += 1;
+        } else {
+            missing_numbers.push(format!("{}", n));
+        }
+    }
+
+    let rendered_lower = rendered_text.to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ");
+
+    let mut str_matched = 0u32;
+    let mut missing_strings: Vec<String> = Vec::new();
+    for s in &ref_strings {
+        if rendered_lower.contains(s.as_str())
+           || rendered_strings.iter().any(|rs| rs.contains(s.as_str()) || s.contains(rs.as_str())) {
+            str_matched += 1;
+        } else {
+            missing_strings.push(s.clone());
+        }
+    }
+
+    let mut extra_numbers: Vec<String> = Vec::new();
+    for n in &rendered_numbers {
+        if !ref_numbers.contains(n) {
+            extra_numbers.push(format!("{}", n));
+        }
+    }
+
+    let ref_lower = ref_text.to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut extra_strings: Vec<String> = Vec::new();
+    for s in &rendered_strings {
+        if !ref_lower.contains(s.as_str())
+           && !ref_strings.iter().any(|rs| rs.contains(s.as_str()) || s.contains(rs.as_str())) {
+            extra_strings.push(s.clone());
+        }
+    }
+
+    let total_ref = ref_numbers.len() + ref_strings.len();
+    let total_matched = num_matched as usize + str_matched as usize;
+    let fidelity = if total_ref > 0 {
+        (total_matched as f64 / total_ref as f64 * 100.0) as u32
+    } else {
+        100
+    };
+
+    Some(AuditResult {
+        fidelity,
+        num_matched,
+        num_total: ref_numbers.len(),
+        str_matched,
+        str_total: ref_strings.len(),
+        missing_numbers,
+        missing_strings,
+        extra_numbers,
+        extra_strings,
+    })
+}
+
+/// Save audit results to `.cronus/audit-results.json` with timestamp.
+pub fn save_audit_results(result: &AuditResult) {
+    let _ = std::fs::create_dir_all(".cronus");
+    let timestamp = chrono_now_iso();
+
+    // Load existing results to append
+    let mut history: Vec<serde_json::Value> = if let Ok(existing) = std::fs::read_to_string(".cronus/audit-results.json") {
+        serde_json::from_str(&existing).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+
+    let entry = serde_json::json!({
+        "timestamp": timestamp,
+        "fidelity": result.fidelity,
+        "numbers": { "matched": result.num_matched, "total": result.num_total },
+        "strings": { "matched": result.str_matched, "total": result.str_total },
+        "missing": {
+            "numbers": result.missing_numbers,
+            "strings": result.missing_strings.iter().take(50).collect::<Vec<_>>(),
+        },
+        "extra": {
+            "numbers": result.extra_numbers,
+            "strings": result.extra_strings.iter().take(50).collect::<Vec<_>>(),
+        },
+    });
+
+    history.push(entry);
+
+    // Keep last 100 entries
+    if history.len() > 100 {
+        history = history.split_off(history.len() - 100);
+    }
+
+    if let Ok(json_str) = serde_json::to_string_pretty(&history) {
+        let _ = std::fs::write(".cronus/audit-results.json", json_str);
+    }
+}
+
+/// Print a compact fidelity summary line.
+pub fn print_fidelity_line(result: &AuditResult) {
+    let dot = if result.fidelity >= 95 {
+        "\x1b[32m●\x1b[0m"
+    } else if result.fidelity >= 70 {
+        "\x1b[33m●\x1b[0m"
+    } else {
+        "\x1b[31m●\x1b[0m"
+    };
+    println!("  {} \x1b[1m{}% fidelity\x1b[0m  (numbers: {}/{}, strings: {}/{})",
+        dot, result.fidelity,
+        result.num_matched, result.num_total,
+        result.str_matched, result.str_total);
+}
+
+/// Print the top N missing items as warnings.
+pub fn print_missing_top(result: &AuditResult, n: usize) {
+    let mut items: Vec<String> = Vec::new();
+    for s in result.missing_numbers.iter().take(n) {
+        items.push(format!("NUM {}", s));
+    }
+    let remaining = n.saturating_sub(items.len());
+    for s in result.missing_strings.iter().take(remaining) {
+        items.push(format!("STR \"{}\"", s));
+    }
+    if !items.is_empty() {
+        println!("  \x1b[33m⚠ Top missing items:\x1b[0m");
+        for item in &items {
+            println!("    {}", item);
+        }
+    }
+}
+
+fn chrono_now_iso() -> String {
+    // Simple ISO timestamp without chrono dependency
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    let days = secs / 86400;
+    let time_secs = secs % 86400;
+    let hours = time_secs / 3600;
+    let mins = (time_secs % 3600) / 60;
+    let s = time_secs % 60;
+    // Approximate date calculation (good enough for logging)
+    let mut y = 1970i64;
+    let mut remaining_days = days as i64;
+    loop {
+        let days_in_year = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) { 366 } else { 365 };
+        if remaining_days < days_in_year { break; }
+        remaining_days -= days_in_year;
+        y += 1;
+    }
+    let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
+    let month_days = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let mut m = 0usize;
+    while m < 12 && remaining_days >= month_days[m] {
+        remaining_days -= month_days[m];
+        m += 1;
+    }
+    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", y, m + 1, remaining_days + 1, hours, mins, s)
+}
+
+// ── Helpers (pub for reuse) ──
+
+pub fn extract_visible_text(html: &str) -> String {
     let mut result = String::new();
     let body_start = html.find("<body")
         .and_then(|pos| html[pos..].find('>').map(|p| pos + p + 1))
@@ -258,7 +480,7 @@ fn extract_visible_text(html: &str) -> String {
         .replace("&nbsp;", " ")
 }
 
-fn extract_numbers(text: &str) -> Vec<f64> {
+pub fn extract_numbers(text: &str) -> Vec<f64> {
     let mut nums = Vec::new();
     let re_like = |s: &str| -> Option<f64> {
         let cleaned = s.replace(',', "").replace('%', "").replace('$', "")
@@ -284,7 +506,7 @@ fn extract_numbers(text: &str) -> Vec<f64> {
     nums
 }
 
-fn extract_strings(text: &str) -> Vec<String> {
+pub fn extract_strings(text: &str) -> Vec<String> {
     let mut strings = Vec::new();
     for line in text.lines() {
         let trimmed = line.trim();

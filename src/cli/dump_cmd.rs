@@ -2,10 +2,14 @@ use std::fs;
 use crate::dump;
 
 pub fn cmd_dump(args: &[String]) {
-    let file = args.get(2).unwrap_or_else(|| {
-        eprintln!("  \x1b[31m✗\x1b[0m Usage: cronus dump <file.html|.json|.prisma|dir/> [-o output.cronus]");
-        std::process::exit(1);
-    });
+    let audit_mode = args.iter().any(|a| a == "--audit");
+
+    let file = args.iter().skip(2)
+        .find(|a| !a.starts_with("--"))
+        .unwrap_or_else(|| {
+            eprintln!("  \x1b[31m✗\x1b[0m Usage: cronus dump <file.html|.json|.prisma|dir/> [-o output.cronus] [--audit]");
+            std::process::exit(1);
+        });
 
     // Black Hole mode: dump entire project directory
     let path = std::path::Path::new(file);
@@ -62,6 +66,38 @@ pub fn cmd_dump(args: &[String]) {
         eprintln!("  \x1b[32m✓\x1b[0m Written to {}", out);
     } else {
         println!("{}", cronus);
+    }
+
+    // ── Post-dump audit: compare dumped .cronus output against original HTML ──
+    if audit_mode && file.ends_with(".html") {
+        eprintln!();
+        eprintln!("  \x1b[1mPost-Dump Fidelity Audit\x1b[0m");
+        eprintln!("  Reference: {}", file);
+
+        // Parse the just-generated .cronus output and audit against original HTML
+        match crate::parser::parse(&cronus) {
+            Ok(nodes) => {
+                match crate::cli::audit_fidelity::run_audit_from_nodes(&html, &nodes) {
+                    Some(result) => {
+                        crate::cli::audit_fidelity::print_fidelity_line(&result);
+                        if result.fidelity < 95 {
+                            crate::cli::audit_fidelity::print_missing_top(&result, 10);
+                        }
+                        // Save results
+                        crate::cli::audit_fidelity::save_audit_results(&result);
+                        eprintln!("  \x1b[32m✓\x1b[0m Audit results saved to .cronus/audit-results.json");
+                    }
+                    None => {
+                        eprintln!("  \x1b[33m⚠\x1b[0m Could not run audit comparison");
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("  \x1b[33m⚠\x1b[0m Dumped .cronus has parse errors, skipping audit: {}", e);
+            }
+        }
+    } else if audit_mode {
+        eprintln!("  \x1b[33m⚠\x1b[0m --audit only works with HTML input files");
     }
 }
 

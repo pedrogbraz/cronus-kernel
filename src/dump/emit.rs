@@ -14,6 +14,10 @@ pub struct CronusFile {
   pub sections: Vec<SectionBlueprint>,
   /// Inline Tailwind config extracted from `<script>tailwind.config = {...}</script>`
   pub tailwind_config: Option<String>,
+  /// UnicornStudio project IDs found via `data-us-project` attributes
+  pub unicorn_studio_ids: Vec<String>,
+  /// Chart.js script blocks keyed by canvas ID
+  pub chartjs_scripts: HashMap<String, String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -294,6 +298,32 @@ pub fn emit_cronus(file: &CronusFile) -> String {
     while s != prev { prev = s.clone(); s = s.replace("  ", " "); }
     let escaped = escape_cronus(&s);
     out.push_str(&format!("tailwind_config \"{}\"\n\n", escaped));
+  }
+
+  // UnicornStudio WebGL backgrounds
+  if !file.unicorn_studio_ids.is_empty() {
+    out.push_str("# UnicornStudio WebGL backgrounds\n");
+    for id in &file.unicorn_studio_ids {
+      out.push_str(&format!("unicorn_studio \"{}\"\n", escape_cronus(id)));
+    }
+    out.push('\n');
+  }
+
+  // Chart.js scripts (preserved from source HTML)
+  if !file.chartjs_scripts.is_empty() {
+    out.push_str("# Chart.js definitions\n");
+    let mut keys: Vec<&String> = file.chartjs_scripts.keys().collect();
+    keys.sort();
+    for canvas_id in keys {
+      let script = &file.chartjs_scripts[canvas_id];
+      let minified = script.replace('\n', " ").replace("  ", " ");
+      let mut prev = String::new();
+      let mut s = minified;
+      while s != prev { prev = s.clone(); s = s.replace("  ", " "); }
+      let escaped = escape_cronus(&s);
+      out.push_str(&format!("chartjs \"{}\" \"{}\"\n", escape_cronus(canvas_id), escaped));
+    }
+    out.push('\n');
   }
 
   // page block wrapping all sections

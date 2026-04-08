@@ -2631,6 +2631,28 @@ async fn cmd_run(args: &[String]) {
 
     println!();
     println!("  \x1b[32mReady in {}ms\x1b[0m", elapsed_ms);
+
+    // ── Startup audit: if CRONUS_AUDIT_REF is set, print fidelity score ──
+    if let Ok(ref_path) = std::env::var("CRONUS_AUDIT_REF") {
+        if !ref_path.is_empty() {
+            match cli::audit_fidelity::run_audit(&ref_path) {
+                Some(result) => {
+                    println!();
+                    println!("  \x1b[1mFidelity Audit\x1b[0m (CRONUS_AUDIT_REF={})", ref_path);
+                    cli::audit_fidelity::print_fidelity_line(&result);
+                    if result.fidelity < 90 {
+                        println!("  \x1b[33m⚠ Fidelity below 90% — review missing items:\x1b[0m");
+                        cli::audit_fidelity::print_missing_top(&result, 5);
+                    }
+                    cli::audit_fidelity::save_audit_results(&result);
+                }
+                None => {
+                    eprintln!("  \x1b[33m⚠\x1b[0m CRONUS_AUDIT_REF set but audit failed (check file path or .cronus)");
+                }
+            }
+        }
+    }
+
     println!();
     println!("  Press Ctrl+C to stop.");
     println!();
