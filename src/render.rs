@@ -438,7 +438,7 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
     if(!a) return;
     var href=a.getAttribute('href');
     // Only intercept internal non-auth page links
-    if(!href||href.indexOf('//')!==-1||href.indexOf('mailto:')===0||href==='#') return;
+    if(!href||href.indexOf('//')!==-1||href.indexOf('mailto:')===0||href.charAt(0)==='#') return;
     if(href==='/login'||href==='/signup') return;
     if(href.indexOf('/api/')===0) return;
     // SPA-navigate when page has a sidebar (dashboard apps or doc pages with aside)
