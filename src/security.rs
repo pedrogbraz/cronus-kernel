@@ -124,12 +124,13 @@ pub fn generate_csp_nonce() -> String {
 /// inline scripts/handlers from templates and renderers.
 pub fn csp_header_value(_nonce: &str) -> String {
     "default-src 'self'; \
-     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; \
+     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; \
      script-src-attr 'unsafe-inline'; \
      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
      font-src https://fonts.gstatic.com; \
      img-src 'self' https: data:; \
-     connect-src 'self'".to_string()
+     connect-src 'self' https://unicorn.studio https://*.unicorn.studio https://assets.unicorn.studio https://storage.googleapis.com https://*.googleapis.com; \
+     worker-src blob:".to_string()
 }
 
 /// Inject nonce attribute into all `<script` tags in an HTML string.

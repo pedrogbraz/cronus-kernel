@@ -92,7 +92,7 @@ pub(super) fn render_stat_cards(section: &SectionNode, bound_data: &crate::bindi
             r##"<div class="anim-scale {delay}" style="background:{card_bg};border:{card_border};border-radius:12px;padding:24px;transition:background 0.2s" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
   {icon_html}
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><p style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:{label_color};margin:0">{label}</p>{badge_html}</div>
-  <p data-count-to="{value}" style="font-size:28px;font-weight:700;color:{value_color};margin:0;letter-spacing:-0.02em">0</p>
+  <p data-count-to="{value}" style="font-size:28px;font-weight:700;color:{value_color};margin:0;letter-spacing:-0.02em">{value}</p>
 </div>"##
         ));
     }
@@ -256,7 +256,7 @@ pub(super) fn render_kpi_section(section: &SectionNode, bound_data: &crate::bind
             r##"<div class="anim-slide-up {delay}" style="background:#fff;border:1px solid #f4f4f5;border-radius:12px;padding:20px">
   {icon_html}
   <div style="display:flex;align-items:baseline;gap:8px">
-    <span data-count-to="{value}" style="font-size:32px;font-weight:700;letter-spacing:-0.03em;line-height:1">0</span>
+    <span data-count-to="{value}" style="font-size:32px;font-weight:700;letter-spacing:-0.03em;line-height:1">{value}</span>
     {badge_html}
     {trend_html}
   </div>
@@ -479,7 +479,7 @@ pub(super) fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crat
             r##"<div class="anim-slide-up d{delay}" style="background:#1b1b1b;border:0.5px solid rgba(76,69,70,0.15);border-radius:12px;padding:20px 24px;transition:background 0.2s ease;cursor:default;{col_span}" onmouseover="this.style.background='#1f1f1f'" onmouseout="this.style.background='#1b1b1b'">
   {label_row}
   <div style="display:flex;align-items:baseline;gap:10px">
-    <span data-count-to="{value}" style="font-size:{vsize};font-weight:{vweight};letter-spacing:-0.03em;line-height:1;color:#e2e2e2">0</span>
+    <span data-count-to="{value}" style="font-size:{vsize};font-weight:{vweight};letter-spacing:-0.03em;line-height:1;color:#e2e2e2">{value}</span>
   </div>
   {sub_html}
   {chart_html}

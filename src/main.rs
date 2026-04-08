@@ -4,6 +4,7 @@ mod animations;
 mod audit;
 mod auth;
 mod binding;
+mod block_explorer;
 mod board;
 mod brain;
 mod cache;
@@ -22,6 +23,7 @@ mod graph;
 mod graphql;
 mod hardcode_lint;
 mod hmr;
+mod hydra;
 mod i18n;
 mod layout_system;
 mod lint;
@@ -30,12 +32,16 @@ mod orchestrator;
 mod overlays;
 mod parser;
 mod payments;
+mod promote;
 mod rate_limit;
 mod reactive;
 mod realtime;
 mod render;
 mod runtime_js;
+mod scripting;
 mod server;
+mod trust;
+mod zeus;
 mod sse;
 mod tabs;
 mod tailwind;
@@ -47,6 +53,7 @@ mod ui;
 mod ast_diff;
 mod memory;
 mod resolve;
+mod vm;
 mod cli;
 
 use cli::help::print_help;
@@ -168,6 +175,7 @@ async fn main() {
         "changelog" => cmd_changelog(),
         "memory" => cmd_memory(&args),
         "verify-audit" => cmd_verify_audit(&args),
+        "audit" => cli::audit_fidelity::cmd_audit_fidelity(&args),
         "version" | "-v" | "--version" => println!("cronus v0.1.0"),
         "help" | "--help" | "-h" | _ => print_help(),
     }
@@ -265,6 +273,25 @@ async fn handle_request(
         hyper::header::HeaderValue::from_str(&queries.to_string()).unwrap(),
     );
 
+    // Zeus: record every request trace
+    {
+        let status = resp.status().as_u16();
+        // Skip zeus/trust internal endpoints from traces
+        if !req_path_str.starts_with("/zeus") && !req_path_str.starts_with("/trust") && !req_path_str.starts_with("/.cronus/") && !req_path_str.starts_with("/blocks") && !req_path_str.starts_with("/hydra") {
+            state.zeus.push(zeus::ZeusTrace {
+                id: req_id.clone(),
+                method: req_method_str.clone(),
+                path: req_path_str.clone(),
+                status,
+                duration_ms: duration_ms as f64,
+                timestamp: iso_timestamp(),
+                spans: Vec::new(), // TODO: add spans from TraceBuilder
+                query_count: queries,
+                script_block: None,
+            });
+        }
+    }
+
     if DEBUG_MODE.load(Ordering::Relaxed) {
         let status = resp.status().as_u16();
         state.trace_buffer.push(RequestTrace {
@@ -316,8 +343,72 @@ async fn handle_request_inner(
     }
 
     // HMR version endpoint
-    if path == "/__cronus/version" {
+    if path == "/.cronus/version" {
         return Ok(json_response(StatusCode::OK, json!({ "version": hmr::current_version() })));
+    }
+
+    // Block explorer
+    if path == "/blocks" {
+        let metrics = trust::all_metrics();
+        let html = block_explorer::render_explorer(".", &metrics, &state.script_registry);
+        return Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header("Content-Type", "text/html; charset=utf-8")
+            .body(Full::new(Bytes::from(html)))
+            .unwrap());
+    }
+
+    // Zeus observability endpoints
+    if path == "/zeus" {
+        let html = zeus::render_dashboard(&state.zeus);
+        return Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header("Content-Type", "text/html; charset=utf-8")
+            .body(Full::new(Bytes::from(html)))
+            .unwrap());
+    }
+    if path == "/zeus/api" {
+        let traces = state.zeus.last_n(100);
+        let stats = state.zeus.stats();
+        return Ok(json_response(StatusCode::OK, json!({
+            "stats": stats,
+            "traces": traces,
+        })));
+    }
+    if path == "/zeus/slow" {
+        let slow = state.zeus.slow_traces(50.0); // >50ms
+        return Ok(json_response(StatusCode::OK, json!({"traces": slow})));
+    }
+    if path == "/zeus/errors" {
+        let errors = state.zeus.error_traces();
+        return Ok(json_response(StatusCode::OK, json!({"traces": errors})));
+    }
+
+    // Hydra evolution endpoints
+    if path == "/hydra" || path == "/api/hydra/registry" {
+        let registry = hydra::registry::BlockRegistry::open(".cronus/block-registry.json");
+        return Ok(json_response(StatusCode::OK, registry.to_json()));
+    }
+    if path == "/api/hydra/evolve" {
+        let mut registry = hydra::registry::BlockRegistry::open(".cronus/block-registry.json");
+        let report = hydra::evolve(&mut registry, &state.script_registry.scripts);
+        return Ok(json_response(StatusCode::OK, serde_json::to_value(&report).unwrap_or(json!({"error":"serialize"}))));
+    }
+    if path == "/api/hydra/candidates" {
+        let candidates = hydra::extract::extract_candidates(&state.script_registry.scripts);
+        let data: Vec<serde_json::Value> = candidates.iter().map(|c| {
+            json!({
+                "name": c.name,
+                "source": c.source_script,
+                "type": format!("{:?}", c.block_type),
+                "entity": c.entity,
+                "trust_score": format!("{:.3}", c.trust_score),
+                "executions": c.executions,
+                "promotable": c.promotable,
+                "reason": c.reason,
+            })
+        }).collect();
+        return Ok(json_response(StatusCode::OK, json!({"candidates": data, "total": candidates.len()})));
     }
 
     // ── Rate limiting (API endpoints only) ──
@@ -366,6 +457,29 @@ async fn handle_request_inner(
 
     // Brain: track every request
     let start = std::time::Instant::now();
+
+    // Trust engine endpoint
+    if path == "/api/trust" || path == "/trust" {
+        let metrics = trust::all_metrics();
+        let trust_data: Vec<serde_json::Value> = metrics.iter().map(|m| {
+            let evidence = m.to_evidence();
+            let gates = trust::TrustGates::new_clean();
+            let profile = trust::TrustProfile::from_evidence(&evidence, gates);
+            json!({
+                "block_id": m.block_id,
+                "executions": m.executions,
+                "errors": m.errors,
+                "avg_latency_ms": format!("{:.2}", m.avg_latency_ms()),
+                "trust_score": format!("{:.3}", profile.score()),
+                "status": format!("{:?}", profile.status()),
+                "promotable": profile.promotable(),
+            })
+        }).collect();
+        return Ok(json_response(StatusCode::OK, json!({
+            "blocks": trust_data,
+            "total_tracked": metrics.len(),
+        })));
+    }
 
     // Brain stats endpoint
     if path == "/api/brain/stats" {
@@ -942,6 +1056,78 @@ async fn handle_request_inner(
             .unwrap());
     }
 
+    // ── Script routes (.scriptcronus endpoints + webhooks) ──
+    {
+        let method_str = method.as_str();
+        let has_endpoint = state.script_registry.get_endpoints().iter().any(|(_s, ep)| ep.method == method_str && ep.path == path);
+        // SECURITY: webhooks only match paths under /hooks/ prefix
+        let has_webhook = !has_endpoint && method == Method::POST
+            && path.starts_with("/hooks/")
+            && !state.script_registry.get_webhook_handlers(&path).is_empty();
+
+        if has_endpoint || has_webhook {
+            let token = req.headers().get("authorization")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|h| h.strip_prefix("Bearer "))
+                .map(|s| s.to_string());
+            let (user_id, role) = token.as_deref()
+                .and_then(|t| auth::verify_token(t, &auth::default_secret()).ok())
+                .map(|c| (c.sub.clone(), c.role.clone()))
+                .unwrap_or_else(|| ("anonymous".into(), "public".into()));
+
+            let body_bytes = req.collect().await.unwrap_or_default().to_bytes();
+            let body: Option<serde_json::Value> = serde_json::from_slice(&body_bytes).ok();
+
+            if has_endpoint {
+                for (script, ep) in state.script_registry.get_endpoints() {
+                    if ep.method == method_str && ep.path == path {
+                        // SECURITY: endpoints require auth by default
+                        // Use auth:public to explicitly allow unauthenticated access
+                        let required_role = ep.auth.as_deref().unwrap_or("any");
+                        if required_role != "public" {
+                            // Must have valid token
+                            if user_id == "anonymous" {
+                                return Ok(json_response(StatusCode::UNAUTHORIZED, json!({"error": "authentication required"})));
+                            }
+                            // Check role if specific role required
+                            if required_role != "any" && role != required_role {
+                                return Ok(json_response(StatusCode::FORBIDDEN, json!({"error": "insufficient role"})));
+                            }
+                        }
+                        let ctx = scripting::execute_endpoint(ep, &script.name, &state.db, &user_id, &role, body.as_ref(), &std::collections::HashMap::new());
+                        if let Some(resp) = ctx.response {
+                            // SECURITY: clamp status to safe range
+                            let safe_status = resp.status.max(200).min(599);
+                            let mut builder = Response::builder().status(safe_status);
+                            // SECURITY: whitelist safe response headers — block Set-Cookie, Location, etc.
+                            const ALLOWED_HEADERS: &[&str] = &[
+                                "content-type", "content-disposition", "cache-control",
+                                "x-request-id", "x-total-count",
+                            ];
+                            for (k, v) in &resp.headers {
+                                let k_lower = k.to_lowercase();
+                                if ALLOWED_HEADERS.contains(&k_lower.as_str()) {
+                                    // SECURITY: strip newlines to prevent header injection
+                                    let safe_v = v.replace('\n', "").replace('\r', "");
+                                    builder = builder.header(k.as_str(), safe_v.as_str());
+                                }
+                            }
+                            if !resp.headers.keys().any(|k| k.to_lowercase() == "content-type") {
+                                builder = builder.header("Content-Type", "application/json");
+                            }
+                            return Ok(builder.body(Full::new(Bytes::from(resp.body))).unwrap());
+                        }
+                        return Ok(json_response(StatusCode::OK, json!({"ok": true, "logs": ctx.logs})));
+                    }
+                }
+            }
+            // Webhook
+            let body_val = body.unwrap_or(serde_json::Value::Null);
+            let _ctx = scripting::execute_webhook(&state.script_registry, &path, &body_val, &state.db, &std::collections::HashMap::new());
+            return Ok(json_response(StatusCode::OK, json!({"ok": true})));
+        }
+    }
+
     // API routes: /api/...
     if path.starts_with("/api/") {
         // SECURITY: Extract owner_id from JWT BEFORE consuming request body
@@ -1042,7 +1228,7 @@ async fn handle_request_inner(
     let app_name = &state.app.name;
 
     // ── Component preview route ──
-    if path == "/__components" || path == "/__ui" {
+    if path == "/components" {
         let body = if state.components.is_empty() {
             r#"<div style="padding:40px;text-align:center">
   <h1 style="font-size:16px;color:oklch(0.93 0 0);margin-bottom:8px">CRONUS UI Kit</h1>
@@ -1551,6 +1737,7 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                                     fire_webhooks(&state.webhooks, table, "create", &row);
                                     fire_effects(entity, "create", &row, None, &state.brain, &state.sse_hub);
                                     let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                                    scripting::fire_scripts(&state.script_registry, &entity.name, "create", &row, &row_id, None, &state.db, owner_id, "user", &std::collections::HashMap::new());
                                     if let Err(e) = state.audit_trail.log("INSERT", table, &row_id, owner_id, &row, None) {
                                         eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (INSERT {}:{}): {}", table, row_id, e);
                                     }
@@ -1579,6 +1766,7 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                                     fire_webhooks(&state.webhooks, table, "create", &row);
                                     fire_effects(entity, "create", &row, None, &state.brain, &state.sse_hub);
                                     let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                                    scripting::fire_scripts(&state.script_registry, &entity.name, "create", &row, &row_id, None, &state.db, owner_id, "user", &std::collections::HashMap::new());
                                     if let Err(e) = state.audit_trail.log("INSERT", table, &row_id, owner_id, &row, None) {
                                         eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (INSERT {}:{}): {}", table, row_id, e);
                                     }
@@ -1616,6 +1804,8 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                             Ok(row) => {
                                 fire_webhooks(&state.webhooks, table, "update", &row);
                                 fire_effects(entity, "update", &row, prev_record.as_ref(), &state.brain, &state.sse_hub);
+                                let ent_name = entity.name.as_str();
+                                scripting::fire_scripts(&state.script_registry, ent_name, "update", &row, segments[1], prev_record.as_ref(), &state.db, owner_id, "user", &std::collections::HashMap::new());
                                 if let Err(e) = state.audit_trail.log("UPDATE", table, segments[1], owner_id, &row, prev_record.as_ref()) {
                                     eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (UPDATE {}:{}): {}", table, segments[1], e);
                                 }
@@ -1645,6 +1835,8 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                             // For effects, use prev_record if available (has field values for interpolation)
                             let effect_record = prev_record.as_ref().unwrap_or(&delete_payload);
                             fire_effects(entity, "delete", effect_record, None, &state.brain, &state.sse_hub);
+                            let ent_name_del = entity.name.as_str();
+                            scripting::fire_scripts(&state.script_registry, ent_name_del, "delete", effect_record, segments[1], None, &state.db, owner_id, "user", &std::collections::HashMap::new());
                             if let Err(e) = state.audit_trail.log("DELETE", table, segments[1], owner_id, &json!({"id": segments[1]}), prev_record.as_ref()) {
                                 eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (DELETE {}:{}): {}", table, segments[1], e);
                             }
@@ -2302,6 +2494,9 @@ async fn cmd_run(args: &[String]) {
     let sse_hub = Arc::new(sse::SseHub::new());
     let audit_trail = audit::AuditTrail::open(&db_path).expect("Failed to open audit trail");
 
+    // Load .scriptcronus files
+    let script_registry = scripting::ScriptRegistry::load_from_directory(".");
+
     let state = Arc::new(AppState {
         app: app.clone(),
         entities,
@@ -2322,6 +2517,8 @@ async fn cmd_run(args: &[String]) {
         sse_hub,
         audit_trail,
         trace_buffer: Arc::new(TraceBuffer::new()),
+        script_registry,
+        zeus: Arc::new(zeus::ZeusBuffer::new(200)),
     });
 
     // Start server
@@ -2374,6 +2571,15 @@ async fn cmd_run(args: &[String]) {
     }
     if route_count > 0 {
         println!("  \x1b[90mRoutes:\x1b[0m    {} API endpoints", route_count);
+    }
+    if state.script_registry.block_count() > 0 {
+        let sc = &state.script_registry;
+        let events = sc.scripts.iter().flat_map(|s| s.blocks.iter()).filter(|b| matches!(b, scripting::ast::ScriptBlock::OnEvent(_))).count();
+        let schedules = sc.get_schedules().len();
+        let endpoints = sc.get_endpoints().len();
+        let webhooks = sc.scripts.iter().flat_map(|s| s.blocks.iter()).filter(|b| matches!(b, scripting::ast::ScriptBlock::OnWebhook(_))).count();
+        println!("  \x1b[90mScripts:\x1b[0m   {} ({} events, {} schedules, {} endpoints, {} webhooks)",
+            sc.scripts.len(), events, schedules, endpoints, webhooks);
     }
     if let Some(ref _auth_e) = state.auth_entity {
         if state.auth_roles.is_empty() {
@@ -2428,6 +2634,38 @@ async fn cmd_run(args: &[String]) {
     println!();
     println!("  Press Ctrl+C to stop.");
     println!();
+
+    // Start script schedules
+    {
+        let schedules = state.script_registry.get_schedules();
+        for (script, sched) in &schedules {
+            let interval = scripting::parse_interval(&sched.interval);
+            let body = sched.body.clone();
+            let db_path = state.db_path.clone();
+            let sched_name = sched.name.clone();
+            let script_name = script.name.clone();
+            tokio::spawn(async move {
+                let mut tick = tokio::time::interval(interval);
+                tick.tick().await; // skip immediate first tick
+                loop {
+                    tick.tick().await;
+                    eprintln!("  \x1b[36m[schedule]\x1b[0m running \"{}\" from \"{}\"", sched_name, script_name);
+                    let db = match crate::database::CronusDB::open(&db_path) {
+                        Ok(db) => db,
+                        Err(e) => {
+                            eprintln!("  \x1b[31m[schedule]\x1b[0m db open failed: {}", e);
+                            continue;
+                        }
+                    };
+                    let mut ctx = scripting::vm::ScriptContext::new("system", "admin", std::collections::HashMap::new());
+                    if let Err(e) = scripting::vm::execute_statements(&body, &mut ctx, &db, None) {
+                        eprintln!("  \x1b[31m[schedule]\x1b[0m \"{}\" error: {}", sched_name, e);
+                    }
+                }
+            });
+            eprintln!("  \x1b[36m[schedule]\x1b[0m registered \"{}\" (every {})", sched.name, sched.interval);
+        }
+    }
 
     // Resolve pass — verify all cross-references (fatal errors)
     let (_symbol_table, resolve_errors) = resolve::resolve(&nodes);

@@ -93,4 +93,6 @@ pub(crate) struct AppState {
     pub(crate) sse_hub: Arc<sse::SseHub>,
     pub(crate) audit_trail: audit::AuditTrail,
     pub(crate) trace_buffer: Arc<TraceBuffer>,
+    pub(crate) script_registry: crate::scripting::ScriptRegistry,
+    pub(crate) zeus: Arc<crate::zeus::ZeusBuffer>,
 }

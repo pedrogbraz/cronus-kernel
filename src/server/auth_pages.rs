@@ -201,6 +201,22 @@ document.getElementById('quickLogin').addEventListener('submit', function(e) {{
   doLogin(fd.email, fd.password, !!fd.remember, document.getElementById('quick-error'), e.target.querySelector('button[type=submit]'));
 }});
 
+// Auto-redirect if already logged in with valid token
+!function(){{
+  var token = localStorage.getItem('token');
+  if (token) {{
+    fetch('/api/auth/me', {{ headers: {{ 'Authorization': 'Bearer ' + token }} }})
+      .then(function(r) {{ return r.json(); }})
+      .then(function(d) {{
+        if (d.id || d.user) {{
+          var user = d.user || d;
+          var role = user.role || 'user';
+          window.location.href = (role === 'admin') ? '/admin' : '/';
+        }}
+      }}).catch(function(){{}});
+  }}
+}}();
+
 // Init: show saved accounts or full login
 renderAccounts();
 </script>

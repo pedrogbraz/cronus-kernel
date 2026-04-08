@@ -129,6 +129,8 @@ pub(crate) fn handle_api(method: &Method, path: &str, body: Option<&serde_json::
                                 Ok(row) => {
                                     fire_webhooks(&state.webhooks, table, "create", &row);
                                     fire_effects(entity, "create", &row, None, &state.brain, &state.sse_hub);
+                                    let row_id_for_script = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                                    crate::scripting::fire_scripts(&state.script_registry, &entity.name, "create", &row, &row_id_for_script, None, &state.db, owner_id, "user", &std::collections::HashMap::new());
                                     let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
                                     if let Err(e) = state.audit_trail.log("INSERT", table, &row_id, owner_id, &row, None) {
                                         eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (INSERT {}:{}): {}", table, row_id, e);
@@ -195,6 +197,7 @@ pub(crate) fn handle_api(method: &Method, path: &str, body: Option<&serde_json::
                             Ok(row) => {
                                 fire_webhooks(&state.webhooks, table, "update", &row);
                                 fire_effects(entity, "update", &row, prev_record.as_ref(), &state.brain, &state.sse_hub);
+                                crate::scripting::fire_scripts(&state.script_registry, &entity.name, "update", &row, segments[1], prev_record.as_ref(), &state.db, owner_id, "user", &std::collections::HashMap::new());
                                 if let Err(e) = state.audit_trail.log("UPDATE", table, segments[1], owner_id, &row, prev_record.as_ref()) {
                                     eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (UPDATE {}:{}): {}", table, segments[1], e);
                                 }
@@ -224,6 +227,8 @@ pub(crate) fn handle_api(method: &Method, path: &str, body: Option<&serde_json::
                             // For effects, use prev_record if available (has field values for interpolation)
                             let effect_record = prev_record.as_ref().unwrap_or(&delete_payload);
                             fire_effects(entity, "delete", effect_record, None, &state.brain, &state.sse_hub);
+                            let entity_name = entity.map(|e| e.name.as_str()).unwrap_or(table);
+                            crate::scripting::fire_scripts(&state.script_registry, entity_name, "delete", effect_record, segments[1], None, &state.db, owner_id, "user", &std::collections::HashMap::new());
                             if let Err(e) = state.audit_trail.log("DELETE", table, segments[1], owner_id, &json!({"id": segments[1]}), prev_record.as_ref()) {
                                 eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (DELETE {}:{}): {}", table, segments[1], e);
                             }

@@ -300,8 +300,12 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
     )
 }
 
-/// Convert accent color name to hex
-fn accent_to_hex(accent: &str) -> &'static str {
+/// Convert accent color name to hex (or pass through if already hex)
+fn accent_to_hex(accent: &str) -> &str {
+    // If already a hex color, return as-is
+    if accent.starts_with('#') && accent.len() >= 4 {
+        return accent;
+    }
     match accent {
         "blue" => "#2563eb",
         "indigo" => "#6366f1",
@@ -455,7 +459,7 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
 
     // If body already contains a topbar section (rendered <header or <nav with data-topbar),
     // skip the built-in navbar to avoid duplication
-    let has_topbar = clean_body.contains("data-cronus-topbar") || clean_body.contains("<nav ") || clean_body.contains("<nav\n") || clean_body.contains("<header ") || clean_body.contains("MONOLITH") || clean_body.contains("topbar");
+    let has_topbar = clean_body.contains("data-cronus-topbar") || clean_body.contains("<nav ") || clean_body.contains("<nav\n") || clean_body.contains("<header ") || clean_body.contains("MONOLITH") || clean_body.contains("topbar") || clean_body.contains("min-h-[90vh]") || clean_body.contains("min-height:90vh") || clean_body.contains("hero") || clean_body.contains("fadeInUp") || clean_body.contains("animate-on-scroll") || clean_body.contains("animate") || !head_styles.is_empty();
     let nav_html = if has_topbar {
         String::new()
     } else {
@@ -535,13 +539,15 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   {tw_config_script}
   {head_styles}
   <style>
     {css_vars}
     *, *::before, *::after {{ margin: 0; padding: 0; box-sizing: border-box; }}
     html {{ overflow-x: hidden; }}
-    body {{ background: var(--cronus-bg); color: var(--cronus-text); font-family: var(--cronus-font); -webkit-font-smoothing: antialiased; position: relative; overflow-x: hidden; max-width: 100vw; }}
+    body {{ background: transparent; color: var(--cronus-text); font-family: var(--cronus-font); -webkit-font-smoothing: antialiased; position: relative; overflow-x: hidden; max-width: 100vw; }}
+    html {{ background: var(--cronus-bg); }}
     img, svg, video, canvas {{ max-width: 100%; height: auto; }}
     p, h1, h2, h3, h4, h5, h6, span, a, li {{ overflow-wrap: break-word; word-break: break-word; }}
     #cronus-main > * {{ max-width: 100%; overflow-x: hidden; }}
@@ -781,8 +787,9 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
   <style>{tailwind_css}</style>
 </head>
 <body style="margin:0;padding:0;width:100%;max-width:100vw;overflow-x:hidden">
+  <div class="aura-background-component top-0 w-full -z-10 absolute h-[900px]" data-alpha-mask="80" style="mask-image: linear-gradient(to bottom, transparent, black 0%, black 80%, transparent); -webkit-mask-image: linear-gradient(to bottom, transparent, black 0%, black 80%, transparent)"><div class="aura-background-component top-0 w-full -z-10 absolute h-full"><div data-us-project="bKN5upvoulAmWvInmHza" class="absolute w-full h-full left-0 top-0 -z-10"></div><script type="text/javascript">!function(){{if(!window.UnicornStudio){{window.UnicornStudio={{isInitialized:!1}};var i=document.createElement("script");i.src="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v1.4.29/dist/unicornStudio.umd.js",i.onload=function(){{window.UnicornStudio.isInitialized||(UnicornStudio.init(),window.UnicornStudio.isInitialized=!0)}},(document.head||document.body).appendChild(i)}}}}();</script></div></div>
   {nav_html}
-  <main id="cronus-main" style="padding-top:64px;min-height:100vh;width:100%;box-sizing:border-box">
+  <main id="cronus-main" style="min-height:100vh;width:100%;box-sizing:border-box">
   {clean_body}
   </main>
   <script>

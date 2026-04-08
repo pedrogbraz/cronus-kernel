@@ -86,267 +86,276 @@ pub(super) fn render_features_bento_dark(section: &SectionNode) -> String {
         }
     }
 
-    // Surface colors cycle: card0=#1f1f1f, card1=#2a2a2a, card2=#0e0e0e, card3=#2a2a2a
-    let surface_colors = ["#1f1f1f", "#2a2a2a", "#0e0e0e", "#2a2a2a"];
+    // Detect if this is a product grid (all cards are span:4 with badge/action_text)
+    let is_product_grid = cards.iter().all(|g| {
+        let span: u32 = g.card.get("span").and_then(|s| s.parse().ok()).unwrap_or(4);
+        span <= 4 && (g.card.get("badge").is_some() || g.card.get("action_text").is_some())
+    }) && !cards.is_empty();
 
-    let card_htmls: Vec<String> = cards.iter().enumerate().map(|(i, group)| {
+    // Helper: render a single card's HTML (without grid wrapper)
+    let render_card = |group: &CardGroup, card_index: usize| -> String {
         let card = &group.card;
         let name = card.get("title").or_else(|| card.get("name")).map(|s| s.as_str()).unwrap_or("Feature");
         let desc = card.get("description").or_else(|| card.get("desc")).map(|s| s.as_str()).unwrap_or("");
         let icon_name = card.get("icon").map(|s| s.as_str()).unwrap_or("star");
         let span: u32 = card.get("span").and_then(|s| s.parse().ok()).unwrap_or(4);
-        let bg = surface_colors.get(i).unwrap_or(&"#1f1f1f");
+        let anim_delay = format!("{}s", 0.5 + (card_index as f32) * 0.1);
 
         let has_image = group.children.iter().any(|c| c.get("_type").map(|s| s.as_str()) == Some("image"));
         let has_chips = group.children.iter().any(|c| c.get("_type").map(|s| s.as_str()) == Some("chip"));
+        let has_badge = card.get("badge").is_some();
+        let has_action = card.get("action_text").is_some();
 
-        // Uniform subtle border on all cards
-        let border_css = "border:0.5px solid rgba(76,69,70,0.15);";
+        let img_src = group.children.iter()
+            .filter(|c| c.get("_type").map(|s| s.as_str()) == Some("image"))
+            .filter_map(|c| c.get("src").or(c.get("url")))
+            .next()
+            .map(|s| s.trim_matches('"').to_string())
+            .unwrap_or_default();
 
-        // Image HTML — absolute positioned, grayscale, reveals color on hover
-        let image_html = if has_image {
-            let img_src = group.children.iter()
-                .filter(|c| c.get("_type").map(|s| s.as_str()) == Some("image"))
-                .filter_map(|c| c.get("src").or(c.get("url")))
-                .next()
-                .map(|s| s.trim_matches('"'))
-                .unwrap_or("");
-            if !img_src.is_empty() {
+        let img_alt = group.children.iter()
+            .filter(|c| c.get("_type").map(|s| s.as_str()) == Some("image"))
+            .filter_map(|c| c.get("alt"))
+            .next()
+            .map(|s| s.trim_matches('"').to_string())
+            .unwrap_or_default();
+
+        // Chip pills — span:12 cards with chip children
+        if has_chips && span >= 12 {
+            let chips: Vec<String> = group.children.iter()
+                .filter(|c| c.get("_type").map(|s| s.as_str()) == Some("chip"))
+                .map(|c| {
+                    let t = c.get("title").map(|s| s.as_str()).unwrap_or("");
+                    let icon = c.get("icon").map(|s| s.as_str()).unwrap_or("");
+                    let icon_html = if !icon.is_empty() {
+                        format!(r#"<span class="material-symbols-outlined group-hover:text-red-500 text-neutral-400 transition-colors" style="font-size:16px">{}</span>"#, icon)
+                    } else { String::new() };
+                    format!(
+                        r#"<button class="bg-white/[0.02] border border-white/5 flex gap-3 group hover:bg-white/[0.05] items-center px-6 py-3 rounded-full transition-colors">{}<span class="text-neutral-300 text-sm">{}</span></button>"#,
+                        icon_html, t
+                    )
+                }).collect();
+            return format!(
+                r#"<div class="[animation:fadeInUp_0.8s_ease-out_{delay}_both] lg:col-span-12 mb-24"><div class="flex flex-wrap gap-4 justify-center">{chips}</div></div>"#,
+                delay = anim_delay,
+                chips = chips.join("")
+            );
+        }
+
+        // Product card — has badge and/or action_text
+        if has_badge || has_action {
+            let badge_html = card.get("badge").map(|b| format!(
+                r#"<div class="absolute left-4 top-4"><span class="font-bold text-[10px] text-red-500 tracking-widest uppercase">{}</span></div>"#,
+                b
+            )).unwrap_or_default();
+
+            let image_html = if !img_src.is_empty() {
                 format!(
-                    r#"<div style="position:absolute;bottom:0;right:0;width:66%;height:50%;overflow:visible;pointer-events:none"><img src="{src}" style="width:100%;height:100%;object-fit:cover;border-top-left-radius:12px;filter:grayscale(100%);opacity:0.3;transform:translateY(25%) translateX(25%);transition:transform 0.7s ease,filter 0.5s,opacity 0.5s;pointer-events:auto" onmouseover="this.style.transform='translateY(0) translateX(25%)';this.style.filter='none';this.style.opacity='0.6'" onmouseout="this.style.transform='translateY(25%) translateX(25%)';this.style.filter='grayscale(100%)';this.style.opacity='0.3'" alt=""></div>"#,
-                    src = img_src
+                    r#"<div class="flex items-center justify-center mb-8 mt-4 relative w-full z-10"><img alt="{alt}" src="{src}" class="drop-shadow-2xl h-full object-contain"></div>"#,
+                    alt = name, src = img_src
                 )
             } else {
                 String::new()
-            }
-        } else {
-            String::new()
-        };
+            };
 
-        // Progress bar at bottom for small cards (span 4) with chips
-        let progress_html = if i == 1 && span <= 4 {
-            // SOC2 card (second card): compliance progress bar
-            let chips: Vec<String> = group.children.iter()
-                .filter(|c| c.get("_type").map(|s| s.as_str()) == Some("chip"))
-                .map(|c| {
-                    let t = c.get("title").map(|s| s.as_str()).unwrap_or("");
-                    format!(
-                        r#"<span style="padding:4px 12px;background:rgba(255,255,255,0.08);border-radius:999px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.7)">{}</span>"#,
-                        t.to_uppercase()
-                    )
-                }).collect();
-            let chips_row = if !chips.is_empty() {
-                format!(r#"<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">{}</div>"#, chips.join(""))
+            let price_html = if !desc.is_empty() {
+                format!(r#"<p class="font-mono mb-6 text-neutral-500 text-sm">{}</p>"#, desc)
             } else {
                 String::new()
             };
-            format!(
-                r#"<div style="margin-top:auto;padding-top:24px;width:100%">
-    {chips_row}
-    <div style="height:4px;background:rgba(255,255,255,0.05);border-radius:9999px;overflow:hidden">
-      <div style="height:100%;background:white;width:100%;opacity:0.5"></div>
-    </div>
-    <div style="display:flex;justify-content:space-between;margin-top:8px">
-      <span style="font-family:'Space Grotesk';font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.15em">Compliance status</span>
-      <span style="font-family:'Space Grotesk';font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.15em">100%</span>
-    </div>
-  </div>"#,
-                chips_row = chips_row
-            )
-        } else if has_chips && span <= 4 {
-            let chips: Vec<String> = group.children.iter()
-                .filter(|c| c.get("_type").map(|s| s.as_str()) == Some("chip"))
-                .map(|c| {
-                    let t = c.get("title").map(|s| s.as_str()).unwrap_or("");
-                    format!(
-                        r#"<span style="padding:4px 12px;background:rgba(255,255,255,0.08);border-radius:999px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.7)">{}</span>"#,
-                        t.to_uppercase()
-                    )
-                }).collect();
-            let chips_row = if !chips.is_empty() {
-                format!(r#"<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">{}</div>"#, chips.join(""))
-            } else {
-                String::new()
-            };
-            format!(
-                r#"<div style="margin-top:auto;padding-top:24px">
-    {chips_row}
-    <div style="width:100%;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden">
-      <div style="width:68%;height:100%;background:rgba(255,255,255,0.25);border-radius:2px"></div>
-    </div>
-  </div>"#,
-                chips_row = chips_row
-            )
-        } else {
-            String::new()
-        };
 
-        // Badge pill for first span:8 card (status indicator)
-        let badge_text = card.get("badge").map(|s| s.as_str()).unwrap_or("");
-        let badge_html = if i == 0 && span >= 8 && !badge_text.is_empty() {
-            format!(
-                r#"<div style="margin-top:auto;padding-top:24px"><div style="padding:8px 16px;border-radius:8px;background:#0e0e0e;border:0.5px solid rgba(76,69,70,0.2);display:inline-flex;align-items:center;gap:12px"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 10px rgba(16,185,129,0.5);display:inline-block"></span><span style="font-size:12px;font-family:monospace;opacity:0.6;color:#fff">{}</span></div></div>"#,
-                badge_text
-            )
-        } else {
-            String::new()
-        };
+            let action_html = card.get("action_text").map(|a| format!(
+                r#"<button class="border border-white/10 font-semibold hover:bg-white hover:text-black py-2.5 rounded-full text-white text-xs transition-colors w-full">{}</button>"#,
+                a
+            )).unwrap_or_default();
 
-        // Code block for wide cards with style:code
-        let card_style = card.get("style").map(|s| s.as_str()).unwrap_or("");
-        let is_code_style = card_style == "code";
-
-        // Bar chart or code block for wide cards (span 8) without images, not the first card
-        let bar_chart_html = if span >= 8 && !has_image && i > 0 && !is_code_style {
-            r#"<div style="width:50%;display:flex;align-items:flex-end;justify-content:flex-end;margin-left:auto">
-      <div style="width:100%;height:128px;display:grid;grid-template-columns:repeat(6,1fr);gap:4px;align-items:end">
-        <div style="background:rgba(255,255,255,0.10);border-radius:2px;height:25%"></div>
-        <div style="background:rgba(255,255,255,0.20);border-radius:2px;height:50%"></div>
-        <div style="background:rgba(255,255,255,0.40);border-radius:2px;height:75%"></div>
-        <div style="background:rgba(255,255,255,0.60);border-radius:2px;height:100%"></div>
-        <div style="background:rgba(255,255,255,0.30);border-radius:2px;height:50%"></div>
-        <div style="background:rgba(255,255,255,0.80);border-radius:2px;height:100%"></div>
-      </div>
-    </div>"#.to_string()
-        } else if span >= 8 && !has_image && is_code_style {
-            // Code block visualization
-            r#"<div style="width:50%;display:flex;align-items:center;justify-content:flex-end;margin-left:auto">
-      <div style="background:#0e0e0e;border-radius:8px;padding:16px;border:0.5px solid rgba(76,69,70,0.1);font-family:monospace;font-size:12px;width:100%;line-height:1.8">
-        <span style="color:#adc6ff">ultima</span><span style="color:rgba(255,255,255,0.5)"> .</span><span style="color:#fff">initiate_transfer</span><span style="color:rgba(255,255,255,0.5)">({</span><br>
-        <span style="color:rgba(255,255,255,0.3)">&nbsp;&nbsp;</span><span style="color:#adc6ff">amount</span><span style="color:rgba(255,255,255,0.5)">: </span><span style="color:#7dd3a0">"1.2M"</span><span style="color:rgba(255,255,255,0.5)">,</span><br>
-        <span style="color:rgba(255,255,255,0.3)">&nbsp;&nbsp;</span><span style="color:#adc6ff">currency</span><span style="color:rgba(255,255,255,0.5)">: </span><span style="color:#7dd3a0">"USD"</span><span style="color:rgba(255,255,255,0.5)">,</span><br>
-        <span style="color:rgba(255,255,255,0.3)">&nbsp;&nbsp;</span><span style="color:#adc6ff">vault</span><span style="color:rgba(255,255,255,0.5)">: </span><span style="color:#7dd3a0">"Alpha_Prime"</span><br>
-        <span style="color:rgba(255,255,255,0.5)">});</span>
-      </div>
-    </div>"#.to_string()
-        } else {
-            String::new()
-        };
-
-        let use_flex_row = !bar_chart_html.is_empty();
-        let needs_relative = has_image;
-        let min_height = if span >= 8 { "min-height:400px;" } else { "min-height:240px;" };
-        let position = if needs_relative { "position:relative;" } else { "" };
-
-        if use_flex_row {
-            // Horizontal layout: left text + right bar chart
-            format!(
-                r##"<div style="grid-column:span {span};background:{bg};{border}border-radius:16px;padding:40px;display:flex;flex-direction:row;{min_h}overflow:hidden;transition:background 0.5s" onmouseover="this.style.background='#2a2a2a'" onmouseout="this.style.background='{bg}'">
-  <div style="flex:1;display:flex;flex-direction:column">
-    <span class="material-symbols-outlined" style="font-size:32px;color:#fff;margin-bottom:20px;display:block;transform:scale(1.5);transform-origin:top left">{icon}</span>
-    <h3 style="font-size:{title_size};font-weight:700;letter-spacing:-0.02em;color:#fff;margin-bottom:12px">{name}</h3>
-    <p style="color:#c6c6c6;font-size:14px;line-height:1.7;max-width:360px">{desc}</p>
-  </div>
-  {bar_chart}
+            return format!(
+                r##"<div class="[animation:fadeInUp_0.8s_ease-out_{delay}_both] border border-white/5 group hover:bg-white/[0.03] overflow-hidden p-8 relative rounded-2xl transition-colors">
+  {badge}
+  {image}
+  <h3 class="font-medium mb-2 text-lg text-white">{name}</h3>
+  {price}
+  {action}
 </div>"##,
-                span = span,
-                bg = bg,
-                border = border_css,
-                min_h = min_height,
+                delay = anim_delay,
+                badge = badge_html,
+                image = image_html,
+                name = name,
+                price = price_html,
+                action = action_html,
+            );
+        }
+
+        // Large card (span:8) — full image cover with gradient overlay
+        if span >= 8 {
+            let image_html = if !img_src.is_empty() {
+                format!(
+                    r#"<img src="{src}" alt="{alt}" class="absolute bottom-0 duration-700 group-hover:scale-105 h-full left-0 object-cover opacity-90 right-0 top-0 transition-transform w-full"><div class="absolute bg-gradient-to-t bottom-0 from-black left-0 right-0 to-transparent top-0 via-black/20"></div>"#,
+                    src = img_src, alt = img_alt
+                )
+            } else {
+                String::new()
+            };
+
+            return format!(
+                r##"<div class="[animation:fadeInUp_0.8s_ease-out_{delay}_both] bg-[#080808] border border-white/5 group h-[400px] hover:border-white/10 md:col-span-8 md:h-[500px] overflow-hidden relative rounded-3xl transition-all">
+  {image}
+  <div class="absolute bottom-0 left-0 p-8 w-full">
+    <div class="flex gap-2 items-center mb-2 text-red-500">
+      <span class="material-symbols-outlined" style="font-size:16px">{icon}</span>
+      <span class="font-semibold text-xs tracking-widest uppercase">Craftsmanship</span>
+    </div>
+    <h3 class="font-normal mb-2 text-3xl text-white tracking-tight">{name}</h3>
+    <p class="max-w-md text-neutral-400 text-sm">{desc}</p>
+  </div>
+</div>"##,
+                delay = anim_delay,
+                image = image_html,
                 icon = icon_name,
                 name = name,
                 desc = desc,
-                bar_chart = bar_chart_html,
-                title_size = if span >= 8 { "30px" } else { "20px" },
+            );
+        }
+
+        // Small card (span:4) — icon box + title + divider + desc
+        let image_html = if !img_src.is_empty() {
+            format!(
+                r#"<img src="{src}" class="absolute bottom-0 duration-700 group-hover:opacity-80 group-hover:scale-105 h-full left-0 object-cover opacity-40 right-0 top-0 transition-all w-full z-10">"#,
+                src = img_src
             )
         } else {
-            // Vertical layout (default)
-            // For span:4 cards without progress bar: icon at top, title+desc at bottom (space-between)
-            let is_span4_no_progress = span <= 4 && progress_html.is_empty();
-            let justify = if is_span4_no_progress { "justify-content:space-between;" } else { "" };
+            String::new()
+        };
 
-            if is_span4_no_progress {
-                format!(
-                    r##"<div style="grid-column:span {span};background:{bg};{border}border-radius:16px;padding:40px;display:flex;flex-direction:column;{justify}{min_h}{pos}overflow:hidden;transition:background 0.5s" onmouseover="this.style.background='#2a2a2a'" onmouseout="this.style.background='{bg}'">
-  <div>
-    <span class="material-symbols-outlined" style="font-size:32px;color:#fff;display:block;transform:scale(1.5);transform-origin:top left">{icon}</span>
-  </div>
-  <div>
-    <h3 style="font-size:{title_size};font-weight:700;letter-spacing:-0.02em;color:#fff;margin-bottom:12px">{name}</h3>
-    <p style="color:#c6c6c6;font-size:14px;line-height:1.7;max-width:420px">{desc}</p>
-  </div>
-  {badge}
+        format!(
+            r##"<div class="bg-[#080808] border border-white/5 flex-1 group hover:border-white/10 overflow-hidden p-6 relative rounded-3xl transition-all">
   {image}
-</div>"##,
-                    span = span,
-                    bg = bg,
-                    border = border_css,
-                    justify = justify,
-                    min_h = min_height,
-                    pos = position,
-                    icon = icon_name,
-                    name = name,
-                    desc = desc,
-                    badge = badge_html,
-                    image = image_html,
-                    title_size = "20px",
-                )
-            } else {
-                format!(
-                    r##"<div style="grid-column:span {span};background:{bg};{border}border-radius:16px;padding:40px;display:flex;flex-direction:column;{min_h}{pos}overflow:hidden;transition:background 0.5s" onmouseover="this.style.background='#2a2a2a'" onmouseout="this.style.background='{bg}'">
-  <div>
-    <span class="material-symbols-outlined" style="font-size:32px;color:#fff;margin-bottom:20px;display:block;transform:scale(1.5);transform-origin:top left">{icon}</span>
-    <h3 style="font-size:{title_size};font-weight:700;letter-spacing:-0.02em;color:#fff;margin-bottom:12px">{name}</h3>
-    <p style="color:#c6c6c6;font-size:14px;line-height:1.7;max-width:420px">{desc}</p>
+  <div class="flex flex-col h-full justify-end relative z-10">
+    <div class="backdrop-blur-md bg-white/5 border border-white/10 mb-auto p-2 rounded-lg w-fit">
+      <span class="material-symbols-outlined text-white" style="font-size:20px">{icon}</span>
+    </div>
+    <h3 class="font-normal mt-4 text-white text-xl">{name}</h3>
+    <div class="bg-white/10 h-px my-3 w-full"></div>
+    <div class="flex items-center justify-between">
+      <span class="text-neutral-500 text-xs">{desc}</span>
+    </div>
   </div>
-  {badge}
-  {progress}
-  {image}
 </div>"##,
-                    span = span,
-                    bg = bg,
-                    border = border_css,
-                    min_h = min_height,
-                    pos = position,
-                    icon = icon_name,
-                    name = name,
-                    desc = desc,
-                    badge = badge_html,
-                    progress = progress_html,
-                    image = image_html,
-                    title_size = if span >= 8 { "30px" } else { "20px" },
-                )
-            }
+            image = image_html,
+            icon = icon_name,
+            name = name,
+            desc = desc,
+        )
+    };
+
+    // Build the grid items, grouping consecutive span:4 cards after a span:8 into flex-col wrappers
+    let mut grid_items: Vec<String> = Vec::new();
+    let mut i = 0;
+    let mut card_index: usize = 0;
+
+    while i < cards.len() {
+        let span: u32 = cards[i].card.get("span").and_then(|s| s.parse().ok()).unwrap_or(4);
+
+        if is_product_grid {
+            // Product grid: render each card individually, no col-span wrapping
+            grid_items.push(render_card(&cards[i], card_index));
+            card_index += 1;
+            i += 1;
+            continue;
         }
-    }).collect();
 
-    // Section header (if title exists)
+        // Chip row (span:12)
+        if span >= 12 {
+            grid_items.push(render_card(&cards[i], card_index));
+            card_index += 1;
+            i += 1;
+            continue;
+        }
+
+        // Large card (span:8) — check if followed by span:4 pair
+        if span >= 8 {
+            grid_items.push(render_card(&cards[i], card_index));
+            card_index += 1;
+            i += 1;
+
+            // Collect consecutive span:4 cards into a flex-col wrapper
+            let mut small_cards: Vec<String> = Vec::new();
+            while i < cards.len() {
+                let next_span: u32 = cards[i].card.get("span").and_then(|s| s.parse().ok()).unwrap_or(4);
+                if next_span >= 8 || next_span >= 12 {
+                    break;
+                }
+                small_cards.push(render_card(&cards[i], card_index));
+                card_index += 1;
+                i += 1;
+                if small_cards.len() == 2 {
+                    break;
+                }
+            }
+
+            if !small_cards.is_empty() {
+                let wrapper_delay = format!("{}s", 0.5 + ((card_index - small_cards.len()) as f32) * 0.1);
+                grid_items.push(format!(
+                    r#"<div class="[animation:fadeInUp_0.8s_ease-out_{delay}_both] flex flex-col gap-6 md:col-span-4 z-10">
+  {cards}
+</div>"#,
+                    delay = wrapper_delay,
+                    cards = small_cards.join("\n  ")
+                ));
+            }
+            continue;
+        }
+
+        // Standalone span:4 card (not after a span:8)
+        let anim_delay = format!("{}s", 0.5 + (card_index as f32) * 0.1);
+        let card_html = render_card(&cards[i], card_index);
+        grid_items.push(format!(
+            r#"<div class="[animation:fadeInUp_0.8s_ease-out_{delay}_both] md:col-span-4">{card_html}</div>"#,
+            delay = anim_delay,
+            card_html = card_html
+        ));
+        card_index += 1;
+        i += 1;
+    }
+
+    // Section header
     let section_header = if let Some(ref title) = section.title {
-        let eyebrow = section.config.get("subtitle_label")
-            .or(section.config.get("eyebrow"))
-            .map(|s| s.as_str())
-            .or(section.subtitle.as_deref())
-            .unwrap_or("");
-        let eyebrow_html = if !eyebrow.is_empty() {
-            format!(
-                r#"<h2 style="font-size:14px;font-weight:700;color:#adc6ff;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:16px">{}</h2>"#,
-                eyebrow
-            )
+        let subtitle = section.subtitle.as_deref().unwrap_or("");
+        let subtitle_html = if !subtitle.is_empty() {
+            format!(r#"<p class="[animation:fadeInUp_0.8s_ease-out_0.3s_both] font-light mt-4 text-neutral-400">{}</p>"#, subtitle)
         } else {
             String::new()
         };
         format!(
-            r#"<div style="margin-bottom:96px;text-align:left">
+            r#"<div class="mb-20 text-center">
+      <h2 class="[animation:fadeInUp_0.8s_ease-out_0.2s_both] font-medium md:text-5xl text-3xl text-white tracking-tight">{}</h2>
       {}
-      <h3 style="font-size:clamp(32px,4vw,48px);font-weight:700;letter-spacing:-0.02em;max-width:672px;color:white;margin-bottom:0">{}</h3>
     </div>"#,
-            eyebrow_html, title
+            title, subtitle_html
         )
     } else {
         String::new()
     };
 
+    // Grid class: product grid uses 3-col, bento uses 12-col
+    let grid_class = if is_product_grid {
+        "gap-6 grid grid-cols-1 md:grid-cols-3"
+    } else {
+        "gap-6 grid grid-cols-1 lg:grid-cols-12"
+    };
+
     format!(
-        r#"<section style="padding:128px 24px;width:100%;background:#0e0e0e">
-  <div style="max-width:80rem;margin:0 auto">
+        r#"<section class="bg-[#030303] border-t border-white/5 overflow-hidden py-32 relative">
+  <div class="max-w-7xl mx-auto px-6 relative z-10">
     {}
-    <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:24px;width:100%">
+    <div class="{}">
       {}
     </div>
   </div>
 </section>"#,
         section_header,
-        card_htmls.join("\n      "),
+        grid_class,
+        grid_items.join("\n      "),
     )
 }
 
@@ -652,7 +661,10 @@ pub(super) fn render_bento_children_light(
 
 
 pub(super) fn render_features_split_dark(section: &SectionNode) -> String {
-    let eyebrow = section.config.get("eyebrow").map(|s| s.as_str()).unwrap_or("Security & Sovereignty");
+    let eyebrow = section.config.get("eyebrow")
+        .or(section.config.get("badge"))
+        .map(|s| s.as_str())
+        .unwrap_or("");
 
     // Fix #1: No text-transform:uppercase — sentence case as written in .cronus
     let title_html = section.title.as_deref().map(|t| format!(
@@ -688,12 +700,16 @@ pub(super) fn render_features_split_dark(section: &SectionNode) -> String {
             || name.contains("ms") || name.contains('$') || name.contains("B+") || name.contains('%');
 
         if is_metric {
+            let meta = item.get("meta").map(|s| s.as_str()).unwrap_or("");
+            let unit_html = if !meta.is_empty() {
+                format!(r#"<span style="font-size:1rem;color:rgba(255,255,255,0.4);margin-left:4px">{}</span>"#, meta)
+            } else { String::new() };
             stat_cards.push(format!(
                 r#"<div>
-  <div style="font-size:2.5rem;font-weight:700;color:#adc6ff;letter-spacing:-0.02em">{name}</div>
+  <div style="font-size:2.5rem;font-weight:700;color:#adc6ff;letter-spacing:-0.02em">{name}{unit}</div>
   <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.15em;opacity:0.4;margin-top:8px;color:#fff">{desc}</div>
 </div>"#,
-                name = name, desc = desc
+                name = name, unit = unit_html, desc = desc
             ));
         } else {
             regular_items.push(format!(
@@ -728,53 +744,9 @@ pub(super) fn render_features_split_dark(section: &SectionNode) -> String {
         ));
     }
 
-    // Fix #3: Right column — full dashboard visualization when metrics exist, image fallback otherwise
-    let has_metrics = !stat_cards.is_empty();
-    let right_col = if has_metrics {
-        let image_html = if !image_src.is_empty() {
-            format!(r#"<img src="{src}" alt="" style="width:100%;border-radius:12px;display:block;margin-bottom:24px">"#, src = image_src)
-        } else {
-            String::new()
-        };
-        let dashboard_chart = r##"<div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div style="font-size:12px;opacity:0.5;text-transform:uppercase;letter-spacing:-0.02em;font-family:monospace;color:#fff">Total Assets Under Management</div>
-          <div style="font-size:2rem;font-weight:700;margin-top:8px;color:#fff">$1,204,550.00 <span style="font-size:14px;color:#10b981;font-weight:500">+12.4%</span></div>
-        </div>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg>
-      </div>
-      <div style="position:relative;height:256px;width:100%;margin-top:32px">
-        <svg style="width:100%;height:100%" preserveAspectRatio="none" viewBox="0 0 800 256">
-          <defs>
-            <linearGradient id="cronusChartGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#adc6ff" stop-opacity="0.3"/>
-              <stop offset="100%" stop-color="#adc6ff" stop-opacity="0"/>
-            </linearGradient>
-          </defs>
-          <path d="M0 200 Q 100 150, 200 180 T 400 100 T 600 50 T 800 80" fill="none" stroke="#adc6ff" stroke-width="3" stroke-linecap="round"/>
-          <path d="M0 200 Q 100 150, 200 180 T 400 100 T 600 50 T 800 80 V 256 H 0 Z" fill="url(#cronusChartGrad)"/>
-        </svg>
-        <div style="position:absolute;top:40px;left:50%;transform:translateX(-50%);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);background:rgba(31,31,31,0.5);border:0.5px solid rgba(173,198,255,0.2);padding:8px 16px;border-radius:8px;font-size:12px;font-family:monospace;color:#fff;box-shadow:0 25px 50px rgba(0,0,0,0.25);white-space:nowrap">Vol: $44.2k &middot; 14:02:11</div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:32px">
-        <div style="height:4px;background:#adc6ff;border-radius:9999px"></div>
-        <div style="height:4px;background:#2a2a2a;border-radius:9999px"></div>
-        <div style="height:4px;background:#2a2a2a;border-radius:9999px"></div>
-        <div style="height:4px;background:#2a2a2a;border-radius:9999px"></div>
-      </div>"##;
-        format!(
-            r#"<div style="flex:1;min-width:0;position:relative;display:flex;align-items:center;justify-content:center">
-  <div style="background:#0e0e0e;border-radius:24px;border:0.5px solid rgba(76,69,70,0.15);padding:4px;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden;width:100%">
-    <div style="background:rgba(31,31,31,0.3);padding:32px;border-radius:20px">
-      {image_html}
-      {dashboard_chart}
-    </div>
-  </div>
-</div>"#,
-            image_html = image_html,
-            dashboard_chart = dashboard_chart,
-        )
-    } else if !image_src.is_empty() {
+    // Right column — image with optional stat overlay
+    let _has_metrics = !stat_cards.is_empty();
+    let right_col = if !image_src.is_empty() {
         format!(
             r#"<div style="flex:1;min-width:0;position:relative;display:flex;align-items:center;justify-content:center">
   <div style="background:#0e0e0e;border-radius:24px;border:0.5px solid rgba(76,69,70,0.15);padding:4px;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden">
@@ -787,25 +759,46 @@ pub(super) fn render_features_split_dark(section: &SectionNode) -> String {
         String::new()
     };
 
+    // CTA buttons
+    let cta_text = section.config.get("cta_text").map(|s| s.as_str()).unwrap_or("");
+    let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("#");
+    let cta2_text = section.config.get("cta2_text").map(|s| s.as_str()).unwrap_or("");
+    let cta2_link = section.config.get("cta2_link").map(|s| s.as_str()).unwrap_or("#");
+    let cta_html = if !cta_text.is_empty() {
+        let cta2_btn = if !cta2_text.is_empty() {
+            format!(r#"<a href="{}" class="bg-white/5 border border-white/10 font-medium gap-2 hover:bg-white/10 inline-flex items-center px-6 py-2.5 rounded-full text-sm text-white transition-colors">{}</a>"#, cta2_link, cta2_text)
+        } else { String::new() };
+        format!(r#"<div style="display:flex;gap:16px;margin-top:32px">
+        <a href="{}" class="bg-white font-medium gap-2 hover:scale-105 inline-flex items-center px-6 py-2.5 rounded-full text-black text-sm transition-transform">{}</a>
+        {}
+      </div>"#, cta_link, cta_text, cta2_btn)
+    } else { String::new() };
+
+    // Eyebrow badge with pulse dot
+    let eyebrow_html = if !eyebrow.is_empty() {
+        format!(r#"<div class="bg-white/5 border border-white/10 font-medium gap-2 inline-flex items-center mb-6 px-3 py-1 rounded-full text-[10px] text-red-200 tracking-wider uppercase"><span class="flex h-1.5 relative w-1.5"><span class="absolute animate-ping bg-red-400 h-full inline-flex opacity-75 rounded-full w-full"></span><span class="bg-red-500 h-1.5 inline-flex relative rounded-full w-1.5"></span></span>{}</div>"#, eyebrow)
+    } else { String::new() };
+
     format!(
-        r#"<section style="background:#0e0e0e;padding:128px 24px;width:100%">
-  <div style="max-width:80rem;margin:0 auto">
-    <div style="display:flex;flex-direction:column;gap:80px;align-items:center" data-cronus-split>
-      <style>@media(min-width:768px){{[data-cronus-split]{{flex-direction:row!important;gap:80px}}}}</style>
-      <div style="flex:1;min-width:0">
-        <span style="font-family:'Space Grotesk',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:0.3em;color:rgba(255,255,255,0.4);margin-bottom:16px;display:block">{eyebrow}</span>
+        r#"<section class="md:mt-28 mt-20 relative">
+  <div class="max-w-7xl md:px-8 mx-auto px-6">
+    <div class="gap-16 grid items-center lg:grid-cols-2">
+      <div>
+        {eyebrow_html}
         {title}
         {subtitle}
         {features}
+        {cta_html}
       </div>
       {right_col}
     </div>
   </div>
 </section>"#,
-        eyebrow = eyebrow,
+        eyebrow_html = eyebrow_html,
         title = title_html,
         subtitle = subtitle_html,
         features = features_html,
+        cta_html = cta_html,
         right_col = right_col,
     )
 }

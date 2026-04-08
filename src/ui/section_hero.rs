@@ -10,23 +10,27 @@ pub(super) fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> S
     let cta2_text = section.config.get("cta2_text").map(|s| s.as_str());
     let cta2_link = section.config.get("cta2_link").map(|s| s.as_str()).unwrap_or("");
 
-    // Convert accent name to hex color
-    let accent_hex = match accent {
-        "blue" => "#2563eb",
-        "indigo" => "#6366f1",
-        "amber" => "#f59e0b",
-        "emerald" => "#10b981",
-        "rose" => "#f43f5e",
-        "violet" => "#8b5cf6",
-        "sky" => "#0ea5e9",
-        "orange" => "#f97316",
-        "red" => "#ef4444",
-        "green" => "#22c55e",
-        "purple" => "#a855f7",
-        "pink" => "#ec4899",
-        "cyan" => "#06b6d4",
-        "teal" => "#14b8a6",
-        _ => "#2563eb",
+    // Convert accent name to hex color (pass through if already hex)
+    let accent_hex = if accent.starts_with('#') {
+        accent
+    } else {
+        match accent {
+            "blue" => "#2563eb",
+            "indigo" => "#6366f1",
+            "amber" => "#f59e0b",
+            "emerald" => "#10b981",
+            "rose" => "#f43f5e",
+            "violet" => "#8b5cf6",
+            "sky" => "#0ea5e9",
+            "orange" => "#f97316",
+            "red" => "#ef4444",
+            "green" => "#22c55e",
+            "purple" => "#a855f7",
+            "pink" => "#ec4899",
+            "cyan" => "#06b6d4",
+            "teal" => "#14b8a6",
+            _ => "#2563eb",
+        }
     };
 
     // Extract badge from items if not in config
@@ -68,28 +72,40 @@ pub(super) fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> S
         return render_two_col_hero(section, title, subtitle, badge_text, cta_primary, cta_link, cta2_text, cta2_link, accent_hex);
     }
 
-    // === Centered layout — MONOLITH_OS design (bg image or terminal) ===
+    // === Centered layout — Premium design (bg image or terminal) ===
+
+    // Resolve accent to Tailwind color family
+    let (tw_accent, tw_accent_dark, tw_accent_glow) = match accent_hex {
+        "#CC0000" | "#ef4444" => ("red", "red-950", "204,0,0"),
+        "#f97316" => ("orange", "orange-950", "249,115,22"),
+        "#10b981" => ("emerald", "emerald-950", "16,185,129"),
+        "#6366f1" => ("indigo", "indigo-950", "99,102,241"),
+        "#8b5cf6" => ("violet", "violet-950", "139,92,246"),
+        "#0ea5e9" => ("sky", "sky-950", "14,165,233"),
+        "#2563eb" => ("blue", "blue-950", "37,99,235"),
+        _ => ("red", "red-950", "204,0,0"),
+    };
 
     let bg_image_html = if !bg_image_url.is_empty() {
         format!(
-            r#"<div style="position:absolute;inset:0;z-index:1"><img src="{}" alt="" style="width:100%;height:100%;object-fit:cover;opacity:0.4" /><div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 0%,rgba(19,19,19,0.8) 60%,#131313 100%)"></div></div>"#,
+            r#"<div class="absolute inset-0" style="z-index:-1"><img src="{}" alt="" class="w-full h-full object-cover opacity-60" /><div class="absolute inset-0 bg-gradient-to-b from-transparent via-black/40 to-[#020202]"></div></div>"#,
             bg_image_url
         )
     } else {
         String::new()
     };
 
-    // Version badge — pill with dot + uppercase text
+    // Version badge — pill with accent dot + pulsing indicator
     let badge_html = badge_text.map(|b| format!(
-        r#"<div class="anim-fade d1" style="display:inline-flex;align-items:center;gap:8px;padding:6px 18px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);margin-bottom:40px;backdrop-filter:blur(12px)">
-      <span style="width:6px;height:6px;border-radius:50%;background:#ffffff"></span>
-      <span style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.7)">{text}</span>
-    </div>"#, text = b
+        r#"<div class="[animation:fadeInUp_0.8s_ease-out_0.1s_both] inline-flex items-center gap-2 px-3 py-1 rounded-full bg-{accent_dark}/10 border border-{accent}-500/20 shadow-[0_0_15px_rgba({glow},0.15)] mb-8">
+      <span class="flex h-1.5 w-1.5 relative"><span class="absolute inline-flex h-full w-full rounded-full bg-{accent}-400 opacity-75 animate-ping"></span><span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-{accent}-500"></span></span>
+      <span class="text-[10px] font-medium tracking-wider uppercase text-{accent}-200">{text}</span>
+    </div>"#, text = b, accent = tw_accent, accent_dark = tw_accent_dark, glow = tw_accent_glow
     )).unwrap_or_default();
 
-    // CTA2 — dark glass button with ghost border
+    // CTA2 — ghost button
     let cta2_html = cta2_text.map(|t| format!(
-        r#"<a href="{link}" class="anim-scale d5" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 36px;border-radius:999px;border:0.5px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.04);color:#ffffff;font-weight:600;font-size:16px;text-decoration:none;backdrop-filter:blur(12px);transition:all 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='rgba(255,255,255,0.04)'">{text}</a>"#,
+        r#"<a href="{link}" class="[animation:fadeInUp_0.8s_ease-out_0.5s_both] inline-flex items-center gap-2 px-8 py-3 rounded-full border border-white/10 text-white text-sm font-medium hover:bg-white/[0.05] transition-colors">{text}</a>"#,
         link = cta2_link, text = t
     )).unwrap_or_default();
 
@@ -231,17 +247,29 @@ pub(super) fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> S
         String::new()
     };
 
+    // Split title: last word(s) get muted color for visual contrast
+    let title_parts: Vec<&str> = title.rsplitn(2, ' ').collect();
+    let title_html = if title_parts.len() == 2 {
+        format!(r#"{}<br><span class="text-neutral-500">{}</span>"#, title_parts[1], title_parts[0])
+    } else {
+        title.to_string()
+    };
+
     format!(
-        r##"<section style="position:relative;overflow:hidden;min-height:921px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#131313">
+        r##"<section class="relative overflow-hidden min-h-[90vh] flex flex-col items-center justify-center" style="z-index:2;background:transparent">
   {bg_image_html}
-  <div style="position:relative;z-index:10;max-width:1280px;width:100%;margin:0 auto;padding:120px 24px 80px;text-align:center;display:flex;flex-direction:column;align-items:center">
+  <div class="absolute inset-0 mx-auto max-w-7xl border-r border-l border-white/[0.03]" style="background-image:linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px);background-size:16.66% 100%"></div>
+  <div class="relative z-10 max-w-4xl w-full mx-auto px-6 py-32 text-center flex flex-col items-center">
     {badge_html}
-    <h1 class="anim-slide-up d2" style="font-size:clamp(48px,8vw,96px);font-weight:900;letter-spacing:-0.04em;line-height:0.9;text-transform:uppercase;color:#ffffff;margin:0 0 32px 0">
-      {title}
+    <h1 class="[animation:fadeInUp_0.8s_ease-out_0.2s_both] text-5xl md:text-7xl font-medium leading-[0.95] tracking-tight text-white mb-6">
+      {title_html}
     </h1>
-    <p class="anim-slide-up d3" style="max-width:600px;margin:0 auto 48px;font-size:clamp(16px,1.8vw,20px);font-weight:300;color:rgba(255,255,255,0.5);line-height:1.7">{subtitle}</p>
-    <div class="anim-slide-up d4" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px;margin-bottom:80px">
-      <a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 36px;border-radius:999px;background:linear-gradient(180deg,#ffffff 0%,#d4d4d4 100%);color:#131313;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s;box-shadow:0 2px 12px rgba(255,255,255,0.15)" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 20px rgba(255,255,255,0.2)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 12px rgba(255,255,255,0.15)'">{cta_primary}</a>
+    <p class="[animation:fadeInUp_0.8s_ease-out_0.3s_both] font-light leading-relaxed max-w-xl mx-auto text-lg text-neutral-400 tracking-tight mb-10">{subtitle}</p>
+    <div class="[animation:fadeInUp_0.8s_ease-out_0.4s_both] flex flex-col items-center justify-center gap-4">
+      <a href="{cta_link}" class="bg-white flex font-medium gap-2 group hover:bg-gray-200 items-center px-8 py-3 rounded-full text-black text-sm transition-all">
+        <span>{cta_primary}</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" class="group-hover:translate-x-0.5 transition-transform"><path d="M5 12h14m-7-7l7 7l-7 7" stroke-linejoin="round" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round"></path></svg>
+      </a>
       {cta2_html}
     </div>
     {terminal_html}
@@ -249,7 +277,7 @@ pub(super) fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> S
 </section>"##,
         bg_image_html = bg_image_html,
         badge_html = badge_html,
-        title = title,
+        title_html = title_html,
         subtitle = subtitle,
         cta_link = cta_link,
         cta_primary = cta_primary,

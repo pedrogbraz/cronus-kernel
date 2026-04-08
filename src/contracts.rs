@@ -346,9 +346,9 @@ static FOOTER_CONTRACT: SectionContract = SectionContract {
     on_missing_required: Fallback::Error,
 };
 
-// ── Registry ────────────────────────────────────────────────────────────────
+// ── Registry (hardcoded fallback) ──────────────────────────────────────────
 
-static ALL_CONTRACTS: &[&SectionContract] = &[
+static HARDCODED_CONTRACTS: &[&SectionContract] = &[
     &TABLE_CONTRACT,
     &FORM_CONTRACT,
     &CARD_CONTRACT,
@@ -371,7 +371,7 @@ static ALL_CONTRACTS: &[&SectionContract] = &[
     &FOOTER_CONTRACT,
 ];
 
-static ALL_NAMES: &[&str] = &[
+static HARDCODED_NAMES: &[&str] = &[
     "table", "form", "card", "kpi", "modal",
     "kanban", "command", "dropdown", "toast", "empty",
     "page-header", "tabs", "alert", "accordion", "breadcrumb", "chart",
@@ -383,15 +383,44 @@ static ALL_NAMES: &[&str] = &[
     "dark-mode", "layout", "sheet", "product-grid",
 ];
 
+// ── Generated Contracts (from spec.toml codegen) ──────────────────────────
+// If contracts_generated.rs exists, include it. Generated contracts take
+// precedence over hardcoded ones when names overlap.
+
+#[cfg(feature = "generated-contracts")]
+mod generated {
+    include!("contracts_generated.rs");
+}
+
 pub struct ContractRegistry;
 
 impl ContractRegistry {
+    /// Look up a contract by name. Generated contracts take precedence over hardcoded.
     pub fn get(name: &str) -> Option<&'static SectionContract> {
         let canonical = Self::resolve_alias(name).unwrap_or(name);
-        ALL_CONTRACTS.iter().find(|c| c.name == canonical).copied()
+
+        // Try generated first (if available)
+        #[cfg(feature = "generated-contracts")]
+        {
+            if let Some(c) = generated::GENERATED_CONTRACTS.iter().find(|c| c.name == canonical) {
+                return Some(c);
+            }
+        }
+
+        // Fallback to hardcoded
+        HARDCODED_CONTRACTS.iter().find(|c| c.name == canonical).copied()
     }
 
+    /// Resolve alias to canonical name. Generated aliases take precedence.
     pub fn resolve_alias(name: &str) -> Option<&'static str> {
+        #[cfg(feature = "generated-contracts")]
+        {
+            if let Some(canonical) = generated::generated_resolve_alias(name) {
+                return Some(canonical);
+            }
+        }
+
+        // Hardcoded alias fallback
         match name {
             "stats" => Some("kpi"),
             "stat-cards" => Some("kpi"),
@@ -418,7 +447,39 @@ impl ContractRegistry {
     }
 
     pub fn all_names() -> &'static [&'static str] {
-        ALL_NAMES
+        #[cfg(feature = "generated-contracts")]
+        {
+            return generated::GENERATED_NAMES;
+        }
+        #[cfg(not(feature = "generated-contracts"))]
+        {
+            HARDCODED_NAMES
+        }
+    }
+
+    /// Get all contracts (generated preferred, with hardcoded fallback for any missing)
+    #[allow(unused_mut)]
+    pub fn all_contracts() -> Vec<&'static SectionContract> {
+        let mut result: Vec<&'static SectionContract> = Vec::new();
+        let mut seen: Vec<&str> = Vec::new();
+
+        // Add generated first (they take precedence)
+        #[cfg(feature = "generated-contracts")]
+        {
+            for c in generated::GENERATED_CONTRACTS {
+                result.push(c);
+                seen.push(c.name);
+            }
+        }
+
+        // Fill in any hardcoded contracts not covered by generated
+        for c in HARDCODED_CONTRACTS {
+            if !seen.contains(&c.name) {
+                result.push(c);
+            }
+        }
+
+        result
     }
 }
 

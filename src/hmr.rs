@@ -20,7 +20,7 @@ pub fn current_version() -> u64 {
     BUILD_VERSION.load(Ordering::SeqCst)
 }
 
-/// HMR client script — polls /__cronus/version every 500ms
+/// HMR client script — polls /.cronus/version every 500ms
 /// Pauses during SPA navigation to avoid false reloads.
 pub const HMR_CLIENT_JS: &str = r#"
 (function(){
@@ -29,7 +29,7 @@ pub const HMR_CLIENT_JS: &str = r#"
   setInterval(async function(){
     if(window.__hmrPaused)return;
     try{
-      var res=await fetch('/__cronus/version');
+      var res=await fetch('/.cronus/version');
       var data=await res.json();
       if(v>0&&data.version!==v){
         console.log('[CRONUS HMR] File changed, reloading...');

@@ -29,3 +29,4 @@ pub mod status_cmd;
 pub mod segment;
 pub mod reconcile;
 pub mod spec;
+pub mod audit_fidelity;

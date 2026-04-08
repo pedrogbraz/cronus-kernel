@@ -831,9 +831,28 @@ fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::
     let mut content_parts: Vec<String> = Vec::new();
     let mut footer_parts: Vec<String> = Vec::new();
     let mut in_grid = false;
+    let mut has_topbar_section = false;
+    let mut has_sidebar_section = false;
 
     for section in &page.sections {
-        let is_shell = shell_types.contains(&section.section_type.as_str());
+        let st_lower = section.section_type.to_lowercase();
+        let comp_lower = section.config.get("_component")
+            .map(|s| s.to_lowercase())
+            .unwrap_or_default();
+        let is_shell = shell_types.contains(&section.section_type.as_str())
+            || st_lower.contains("sidebar") || st_lower.contains("topbar")
+            || st_lower.contains("styles")
+            || comp_lower.contains("sidebar") || comp_lower.contains("topbar")
+            || comp_lower.contains("styles");
+        // Track which shell types are present (for layout offset)
+        if st_lower.contains("topbar") || comp_lower.contains("topbar")
+            || section.section_type == "topbar" {
+            has_topbar_section = true;
+        }
+        if st_lower.contains("sidebar") || comp_lower.contains("sidebar")
+            || section.section_type == "sidebar" {
+            has_sidebar_section = true;
+        }
         // Check if the bound entity is shared (visible to all authenticated users)
         let effective_owner = if let Some(ref binding) = section.binding {
             let is_shared = entities.iter().any(|e| e.name == binding.entity && e.shared);
@@ -876,18 +895,30 @@ fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::
         content_parts.push(crate::layout_system::render_column_layout_end());
     }
 
-    // Detect if shell contains fixed sidebar/topbar (from templates)
+    // Use semantic section tracking + HTML fallback for layout detection
     let shell_html = shell_parts.join("\n");
-    let has_fixed_sidebar = shell_html.contains("fixed") && shell_html.contains("left-0");
-    let has_fixed_topbar = shell_html.contains("fixed") && shell_html.contains("top-0");
+    let has_fixed_sidebar = has_sidebar_section
+        || (shell_html.contains("<aside") && shell_html.contains("fixed") && shell_html.contains("left-0"));
+    let has_fixed_topbar = has_topbar_section
+        || (shell_html.contains("fixed") && shell_html.contains("w-full") && shell_html.contains("top-0")
+            && !shell_html.contains("left-0"));
 
     // When templates provide fixed sidebar/topbar, content needs margin/padding
-    // to avoid being hidden underneath them
-    let content_style = match (has_fixed_sidebar, has_fixed_topbar) {
-        (true, true) => " style=\"margin-left:256px;padding-top:80px;padding-left:32px;padding-right:32px;padding-bottom:48px;min-height:100vh\"",
-        (true, false) => " style=\"margin-left:256px;padding:32px;min-height:100vh\"",
-        (false, true) => " style=\"padding-top:80px;padding-left:32px;padding-right:32px;min-height:100vh\"",
-        _ => "",
+    // to avoid being hidden underneath them.
+    // Landing pages (type:custom with hero/features) skip the wrapper entirely
+    // since sections handle their own layout.
+    let is_landing_page = page.page_type == "custom" && page.sections.iter().any(|s|
+        matches!(s.section_type.as_str(), "hero" | "features" | "topbar" | "footer" | "cta" | "testimonial" | "pricing" | "faq")
+    );
+    let content_style = if is_landing_page {
+        ""
+    } else {
+        match (has_fixed_sidebar, has_fixed_topbar) {
+            (true, true) => " style=\"margin-left:256px;padding-top:80px;padding-left:32px;padding-right:32px;padding-bottom:48px;min-height:100vh\"",
+            (true, false) => " style=\"margin-left:256px;padding:32px;min-height:100vh\"",
+            (false, true) => " style=\"padding-top:64px;min-height:100vh\"",
+            _ => "",
+        }
     };
 
     let mut out = String::new();
