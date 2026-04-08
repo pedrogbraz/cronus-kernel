@@ -155,6 +155,8 @@ impl Parser {
                 nodes.push(AstNode::Env(self.parse_env()?));
             } else if self.matches(TokenKind::Keyword, Some("test")) {
                 nodes.push(AstNode::Test(self.parse_test()?));
+            } else if self.matches(TokenKind::Keyword, Some("deploy")) {
+                nodes.push(AstNode::Deploy(self.parse_deploy()?));
             } else if self.matches(TokenKind::Identifier, Some("auth")) {
                 nodes.push(AstNode::Auth(self.parse_auth()?));
             } else if self.matches(TokenKind::Identifier, Some("layout")) {
@@ -347,7 +349,7 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(EntityNode { name, fields, transitions, effects, shared, doc: None })
+        Ok(EntityNode { name, fields, transitions, effects, shared, remote_url: None, doc: None })
     }
 
     fn parse_field(&mut self) -> Result<Option<FieldNode>, String> {
@@ -2349,6 +2351,92 @@ impl Parser {
 
         self.expect(TokenKind::RBracket)?;
         Ok(items)
+    }
+
+    // ── deploy ──
+
+    fn parse_deploy(&mut self) -> Result<DeployNode, String> {
+        self.expect(TokenKind::Keyword)?; // consume "deploy"
+        let mode = self.advance().value;  // e.g. "microservices"
+        self.expect(TokenKind::LBrace)?;
+
+        let mut gateway = None;
+        let mut services = Vec::new();
+
+        while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+            if self.matches(TokenKind::Identifier, Some("gateway")) {
+                self.advance();
+                let mut port: u16 = 0;
+                // Parse inline colon pairs before brace (port:N)
+                while self.peek().kind == TokenKind::ColonPair {
+                    let (k, v) = Self::split_colon_pair(&self.advance().value);
+                    if k == "port" { port = v.parse().unwrap_or(0); }
+                }
+                self.expect(TokenKind::LBrace)?;
+                let mut provider = String::new();
+                let mut cors = None;
+                let mut config = HashMap::new();
+                while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                    if self.matches(TokenKind::Identifier, Some("provider")) {
+                        self.advance();
+                        provider = self.advance().value;
+                    } else if self.matches(TokenKind::Identifier, Some("cors")) {
+                        self.advance();
+                        cors = Some(self.advance().value);
+                    } else if self.peek().kind == TokenKind::ColonPair {
+                        let (k, v) = Self::split_colon_pair(&self.advance().value);
+                        config.insert(k, v);
+                    } else {
+                        self.advance();
+                    }
+                }
+                self.expect(TokenKind::RBrace)?;
+                gateway = Some(GatewayConfig { port, provider, cors, config });
+            } else if self.matches(TokenKind::Keyword, Some("service")) || self.matches(TokenKind::Identifier, Some("service")) {
+                self.advance();
+                let name = self.advance().value; // service name (string or identifier)
+                let mut port: u16 = 0;
+                let mut db = None;
+                // Parse inline colon pairs before brace (port:N db:"path")
+                while self.peek().kind == TokenKind::ColonPair {
+                    let (k, v) = Self::split_colon_pair(&self.advance().value);
+                    match k.as_str() {
+                        "port" => port = v.parse().unwrap_or(0),
+                        "db" => db = Some(v),
+                        _ => {}
+                    }
+                }
+                self.expect(TokenKind::LBrace)?;
+                let mut entities = Vec::new();
+                let mut apis = Vec::new();
+                let mut pages = Vec::new();
+                let mut config = HashMap::new();
+                while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                    if self.matches(TokenKind::Keyword, Some("entity")) || self.matches(TokenKind::Identifier, Some("entities")) {
+                        self.advance();
+                        entities = self.parse_string_array()?;
+                    } else if self.matches(TokenKind::Keyword, Some("api")) || self.matches(TokenKind::Identifier, Some("apis")) {
+                        self.advance();
+                        apis = self.parse_string_array()?;
+                    } else if self.matches(TokenKind::Identifier, Some("pages")) {
+                        self.advance();
+                        pages = self.parse_string_array()?;
+                    } else if self.peek().kind == TokenKind::ColonPair {
+                        let (k, v) = Self::split_colon_pair(&self.advance().value);
+                        config.insert(k, v);
+                    } else {
+                        self.advance();
+                    }
+                }
+                self.expect(TokenKind::RBrace)?;
+                services.push(DeployServiceDef { name, port, db, entities, apis, pages, config });
+            } else {
+                self.advance();
+            }
+        }
+
+        self.expect(TokenKind::RBrace)?;
+        Ok(DeployNode { mode, gateway, services })
     }
 }
 

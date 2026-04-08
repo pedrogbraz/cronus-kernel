@@ -99,7 +99,7 @@ impl RateLimiter {
 pub fn security_headers() -> Vec<(&'static str, &'static str)> {
     vec![
         ("x-content-type-options", "nosniff"),
-        ("x-frame-options", "DENY"),
+        ("x-frame-options", "SAMEORIGIN"),
         ("x-xss-protection", "0"),
         ("referrer-policy", "strict-origin-when-cross-origin"),
         ("permissions-policy", "camera=(), microphone=(), geolocation=(), payment=()"),
@@ -130,7 +130,9 @@ pub fn csp_header_value(_nonce: &str) -> String {
      font-src https://fonts.gstatic.com; \
      img-src 'self' https: data:; \
      connect-src 'self' https://unicorn.studio https://*.unicorn.studio https://assets.unicorn.studio https://storage.googleapis.com https://*.googleapis.com; \
-     worker-src blob:".to_string()
+     worker-src blob:; \
+     frame-ancestors 'self'; \
+     frame-src 'self'".to_string()
 }
 
 /// Inject nonce attribute into all `<script` tags in an HTML string.

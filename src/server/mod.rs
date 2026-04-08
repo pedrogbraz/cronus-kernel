@@ -6,6 +6,7 @@
 
 pub(crate) mod auth_pages;
 pub(crate) mod docs;
+pub(crate) mod docs_index;
 pub(crate) mod response;
 pub(crate) mod state;
 

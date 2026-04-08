@@ -1050,6 +1050,7 @@ mod tests {
             ],
             transitions: vec![],
             effects: vec![],
+            remote_url: None,
             doc: None,
         }
     }
@@ -1228,6 +1229,7 @@ mod tests {
             ],
             transitions: vec![],
             effects: vec![],
+            remote_url: None,
             doc: None,
         }
     }

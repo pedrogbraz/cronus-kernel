@@ -231,6 +231,17 @@ pub fn compose_app(
         output.push_str(&generate_scripts(entities, app_name));
     }
 
+    // Microservices deploy block
+    if options.microservices {
+        if let Some((svc_defs, gw_port)) = super::microservices::get_micro_split(app_name) {
+            let splits: Vec<(String, u16, Vec<String>)> = svc_defs.iter()
+                .map(|s| (s.name.clone(), s.port, s.entities.clone()))
+                .collect();
+            output.push_str("\n");
+            output.push_str(&super::microservices::generate_deploy_block(entities, gw_port, &splits));
+        }
+    }
+
     output
 }
 
@@ -424,6 +435,7 @@ pub struct ComposeOptions {
     pub scripts: bool,
     pub constitution: Vec<String>,
     pub style: Option<StyleConfig>,
+    pub microservices: bool,
 }
 
 impl Default for ComposeOptions {
@@ -436,6 +448,7 @@ impl Default for ComposeOptions {
             scripts: true,
             constitution: Vec::new(),
             style: None,
+            microservices: true,
         }
     }
 }
@@ -570,6 +583,7 @@ fn template_saas_billing() -> (Vec<EntityRemap>, ComposeOptions) {
             "never \"delete a customer with active subscriptions\"".into(),
         ],
         style: Some(StyleConfig { theme: "dark".into(), accent: "white".into(), font: "Inter".into() }),
+        microservices: true,
     };
 
     (entities, opts)
@@ -629,6 +643,7 @@ fn template_blog() -> (Vec<EntityRemap>, ComposeOptions) {
             "comments require moderation before display".into(),
         ],
         style: Some(StyleConfig { theme: "dark".into(), accent: "#f472b6".into(), font: "Inter".into() }),
+        microservices: true,
     };
 
     (entities, opts)
@@ -697,6 +712,7 @@ fn template_crm() -> (Vec<EntityRemap>, ComposeOptions) {
             "contacts require email or phone".into(),
         ],
         style: Some(StyleConfig { theme: "dark".into(), accent: "#3b82f6".into(), font: "Inter".into() }),
+        microservices: true,
     };
 
     (entities, opts)
@@ -763,6 +779,7 @@ fn template_helpdesk() -> (Vec<EntityRemap>, ComposeOptions) {
             "resolved tickets require resolution note".into(),
         ],
         style: Some(StyleConfig { theme: "dark".into(), accent: "#f59e0b".into(), font: "Inter".into() }),
+        microservices: true,
     };
 
     (entities, opts)
@@ -838,6 +855,7 @@ fn template_ecommerce() -> (Vec<EntityRemap>, ComposeOptions) {
             "order total must equal sum of items".into(),
         ],
         style: Some(StyleConfig { theme: "dark".into(), accent: "#10b981".into(), font: "Inter".into() }),
+        microservices: true,
     };
 
     (entities, opts)

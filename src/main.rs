@@ -1032,6 +1032,19 @@ async fn handle_request_inner(
         return Ok(html_response(html));
     }
 
+    // AI Documentation Index — structured JSON for AI navigation
+    if path == "/api/docs/index" && method == Method::GET {
+        return Ok(json_response(StatusCode::OK, server::docs_index::generate_docs_index(&state)));
+    }
+    if path.starts_with("/api/docs/search") && method == Method::GET {
+        let q = query.split('&').find_map(|p| p.strip_prefix("q=")).unwrap_or("");
+        return Ok(json_response(StatusCode::OK, server::docs_index::search_docs_index(&state, q)));
+    }
+    if path.starts_with("/api/docs/tags/") && method == Method::GET {
+        let tag = path.strip_prefix("/api/docs/tags/").unwrap_or("");
+        return Ok(json_response(StatusCode::OK, server::docs_index::get_docs_by_tag(&state, tag)));
+    }
+
     // GraphQL endpoint
     if path == "/graphql" && method == Method::GET {
         return Ok(html_response(graphql::playground_html()));
@@ -2484,6 +2497,7 @@ async fn cmd_run(args: &[String]) {
                 default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
             },
         ],
+        remote_url: None,
         doc: None,
     };
     let _ = brain_db.migrate(&[brain_entity]);

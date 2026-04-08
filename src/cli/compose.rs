@@ -2,6 +2,7 @@ use std::fs;
 use crate::parser::AstNode;
 use crate::{parser, find_all_cronus_files};
 use crate::hydra::compose::{self, ComposeOptions, EntityRemap, FieldDef};
+use crate::hydra::microservices;
 
 pub fn cmd_compose(args: &[String]) {
     // Mode 1: cronus compose --from <template>
@@ -36,6 +37,12 @@ fn compose_from_template(template_name: &str, args: &[String]) {
                 }
             }
 
+            // Microservices is default; --mono disables it
+            let mono = args.iter().any(|a| a == "--mono");
+            if mono {
+                opts.microservices = false;
+            }
+
             // Override app name
             let app_name = args.iter().position(|a| a == "--name")
                 .and_then(|p| args.get(p + 1))
@@ -64,6 +71,62 @@ fn compose_from_template(template_name: &str, args: &[String]) {
             println!("    Routes:    {} API endpoints", route_count);
             println!("    Auth:      JWT (admin, user)");
             println!("    Lines:     {}", lines);
+
+            // Generate microservices split
+            if opts.microservices {
+                if let Some((svc_defs, gw_port)) = microservices::get_micro_split(template_name) {
+                    let (gateway, splits) = microservices::split_services(
+                        &output, &entities, &svc_defs, gw_port, &opts,
+                    );
+
+                    // Create services/ directory
+                    fs::create_dir_all("services").unwrap_or_else(|e| {
+                        eprintln!("  \x1b[31m✗\x1b[0m Failed to create services/: {}", e);
+                        std::process::exit(1);
+                    });
+
+                    // Write gateway .cronus
+                    fs::write("services/gateway.cronus", &gateway.cronus_source).unwrap_or_else(|e| {
+                        eprintln!("  \x1b[31m✗\x1b[0m Failed to write gateway.cronus: {}", e);
+                    });
+
+                    // Write per-service .cronus files
+                    for svc in &splits {
+                        let svc_file = format!("services/{}.cronus", svc.name);
+                        fs::write(&svc_file, &svc.cronus_source).unwrap_or_else(|e| {
+                            eprintln!("  \x1b[31m✗\x1b[0m Failed to write {}: {}", svc_file, e);
+                        });
+                    }
+
+                    // Write docker-compose.yml
+                    let compose_yml = microservices::generate_docker_compose(&gateway, &splits);
+                    fs::write("docker-compose.yml", &compose_yml).unwrap_or_else(|e| {
+                        eprintln!("  \x1b[31m✗\x1b[0m Failed to write docker-compose.yml: {}", e);
+                    });
+
+                    // Write Dockerfile
+                    let dockerfile = microservices::generate_dockerfile();
+                    fs::write("Dockerfile", &dockerfile).unwrap_or_else(|e| {
+                        eprintln!("  \x1b[31m✗\x1b[0m Failed to write Dockerfile: {}", e);
+                    });
+
+                    println!();
+                    println!("    \x1b[36mMicroservices:\x1b[0m");
+                    println!("      Gateway:  port {}", gw_port);
+                    for svc in &splits {
+                        println!("      Service:  {} (port {})", svc.name, svc.port);
+                    }
+                    println!();
+                    println!("    Generated:");
+                    println!("      services/gateway.cronus");
+                    for svc in &splits {
+                        println!("      services/{}.cronus", svc.name);
+                    }
+                    println!("      docker-compose.yml");
+                    println!("      Dockerfile");
+                }
+            }
+
             println!();
             println!("  \x1b[90mRun:\x1b[0m  cronus run . {}", opts.port);
             println!();

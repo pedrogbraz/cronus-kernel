@@ -332,11 +332,11 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
     });
   };
 
-  // SPA navigation — intercept internal links, fetch HTML, swap #cronus-main
+  // SPA navigation — intercept internal links, fetch HTML, swap content
   function cronusNavigate(url){
-    // Prefer swapping #cronus-content (page content only, preserves shell)
-    // Fall back to #cronus-main if no content wrapper
-    var content=document.getElementById('doc-content')||document.getElementById('cronus-content')||document.getElementById('cronus-main');
+    var docContent=document.getElementById('doc-content');
+    // For doc pages: swap the parent of doc-content (includes doc-content + TOC aside)
+    var content=docContent?(docContent.parentNode||docContent):document.getElementById('cronus-content')||document.getElementById('cronus-main');
     if(!content) return false;
     // Phase 1: fade out + slide
     content.style.transition='opacity 0.2s cubic-bezier(0.4,0,0.2,1), transform 0.2s cubic-bezier(0.4,0,0.2,1)';
@@ -351,19 +351,24 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
     setTimeout(function(){
       fetchPromise.then(function(html){
         var doc=new DOMParser().parseFromString(html,'text/html');
-        // Try #cronus-content first (shell preserved), fall back to #cronus-main
-        var newDoc=doc.getElementById('doc-content');
+        var newDocContent=doc.getElementById('doc-content');
         var newContent=doc.getElementById('cronus-content');
         var newMain=doc.getElementById('cronus-main');
         if(!newMain){
           window.location.href=url;
           return;
         }
-        // Swap: prefer doc-content (docs), then cronus-content, then full main
-        if(newDoc&&content.id==='doc-content'){
-          content.innerHTML=newDoc.innerHTML;
-        }else if(newContent&&content.id==='cronus-content'){
-          content.innerHTML=newContent.innerHTML;
+        // Swap strategy: for doc pages, swap parent of doc-content (includes TOC aside)
+        if(docContent&&newDocContent){
+          var newParent=newDocContent.parentNode;
+          if(newParent){
+            content.innerHTML=newParent.innerHTML;
+          }else{
+            content.innerHTML=newDocContent.outerHTML;
+          }
+        }else if(newContent&&(content.id==='cronus-content'||content===document.getElementById('cronus-content'))){
+          var cc=document.getElementById('cronus-content');
+          if(cc)cc.innerHTML=newContent.innerHTML;
         }else{
           var m=document.getElementById('cronus-main');
           if(m)m.innerHTML=newMain.innerHTML;
@@ -376,16 +381,20 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
         });
         // Update URL + nav
         history.pushState(null,'',url);
-        // Update sidebar active state — toggle .active class for smooth CSS transition
-        // Also update doc sidebar links
-        document.querySelectorAll('aside a[href]').forEach(function(a){
-          var h=a.getAttribute('href');
-          if(h===url){
-            a.className=a.className.replace(/text-neutral-400/g,'text-[#CC0000]').replace(/hover:text-white/g,'font-medium');
-          }else{
-            a.className=a.className.replace(/text-\[#CC0000\]/g,'text-neutral-400');
-          }
-        });
+        // Update left sidebar active state for doc pages
+        var leftAside=document.querySelector('aside nav');
+        if(leftAside){
+          leftAside.querySelectorAll('a[href]').forEach(function(a){
+            var h=a.getAttribute('href');
+            var li=a.parentNode;
+            if(h===url){
+              a.className='block text-sm text-[#CC0000] font-medium py-1 px-2 rounded bg-[#CC0000]/5 border-l-2 border-[#CC0000]';
+            }else if(a.className.indexOf('#CC0000')>-1){
+              a.className='block text-sm text-neutral-400 hover:text-white py-1 px-2 transition-colors';
+            }
+          });
+        }
+        // Update admin/user nav active state
         var navContainer=document.getElementById('admin-nav')||document.getElementById('user-nav');
         if(navContainer){
           navContainer.querySelectorAll('[data-nav]').forEach(function(a){
@@ -398,19 +407,22 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
           if(url==='/settings')settingsLink.classList.add('active');
           else settingsLink.classList.remove('active');
         }
-        // Update topbar nav active state
-        var topbar=document.querySelector('[data-cronus-topbar]');
+        // Update topbar nav active state — detect by attribute OR by header>nav
+        var topbar=document.querySelector('[data-cronus-topbar]')||document.querySelector('header nav');
         if(topbar){
-          topbar.querySelectorAll('[data-nav]').forEach(function(a){
+          topbar.querySelectorAll('a[href]').forEach(function(a){
             var h=a.getAttribute('href');
-            if(h===url){
-              a.style.color='var(--cronus-accent,#adc6ff)';
-              a.style.borderBottom='2px solid var(--cronus-accent,#adc6ff)';
-              a.classList.add('active');
+            if(!h||h.charAt(0)==='#') return;
+            // Match: exact path, prefix match for sub-pages, or / only when url is exactly /
+            var isActive=(h==='/'&&url==='/')||(h!=='/'&&url.indexOf(h)===0);
+            if(isActive){
+              a.className=a.className.replace(/text-neutral-500/g,'text-white');
+              if(a.className.indexOf('font-medium')===-1) a.className=a.className.replace(/hover:text-neutral-300/g,'font-medium');
+              if(a.className.indexOf('border-b')===-1) a.className+=' border-b border-[#CC0000] pb-0.5';
             }else{
-              a.style.color='rgba(226,226,226,0.6)';
-              a.style.borderBottom='2px solid transparent';
-              a.classList.remove('active');
+              a.className=a.className.replace(/\s*border-b\s+border-\[#CC0000\]\s+pb-0\.5/g,'');
+              a.className=a.className.replace(/text-white/g,'text-neutral-500');
+              a.className=a.className.replace(/font-medium/g,'hover:text-neutral-300');
             }
           });
         }
@@ -422,14 +434,145 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
         content.style.transition='opacity 0.3s cubic-bezier(0,0,0.2,1), transform 0.3s cubic-bezier(0,0,0.2,1)';
         content.style.opacity='1';
         content.style.transform='translateY(0)';
-        // Scroll content to top
-        var scrollTarget=document.getElementById('cronus-main')||content;
-        scrollTarget.scrollTo({top:0,behavior:'smooth'});
+        // Scroll to top
+        window.scrollTo({top:0,behavior:'smooth'});
         init();
       }).catch(function(){window.location.href=url;});
     },200);
     return true;
   }
+
+  // Smooth scroll for anchor links (On This Page TOC)
+  document.addEventListener('click',function(e){
+    var a=e.target.closest('a[href]');
+    if(!a) return;
+    var href=a.getAttribute('href');
+    if(!href||href.charAt(0)!=='#') return;
+    var target=document.getElementById(href.substring(1));
+    if(target){
+      e.preventDefault();
+      target.scrollIntoView({behavior:'smooth',block:'start'});
+      history.replaceState(null,'',href);
+    }
+  });
+
+  // Docs search — indexes sidebar links, searches page content on demand
+  (function(){
+    var searchInput=document.querySelector('input[placeholder*="Search"]');
+    if(!searchInput) return;
+    // Build index from sidebar links
+    var pages=[];
+    document.querySelectorAll('aside nav a[href]').forEach(function(a){
+      var href=a.getAttribute('href');
+      if(href&&href.charAt(0)==='/'&&pages.findIndex(function(p){return p.href===href})===-1){
+        var cat=a.closest('ul');
+        var catHeader=cat?cat.previousElementSibling:null;
+        pages.push({href:href,title:a.textContent.trim(),category:catHeader?catHeader.textContent.trim():'',content:''});
+      }
+    });
+    // Also index section headings within each page
+    document.querySelectorAll('#doc-content section[id]').forEach(function(s){
+      var h=s.querySelector('h2,h3');
+      if(h){
+        var id=s.getAttribute('id');
+        pages.push({href:'#'+id,title:h.textContent.replace(/#$/,'').trim(),category:'On This Page',content:s.textContent.toLowerCase().substring(0,500)});
+      }
+    });
+    // Create dropdown — append to body to escape header overflow
+    var dropdown=document.createElement('div');
+    dropdown.style.cssText='position:fixed;background:#111;border:1px solid rgba(255,255,255,0.1);border-radius:8px;max-height:360px;overflow-y:auto;display:none;z-index:9999;box-shadow:0 12px 40px rgba(0,0,0,0.6);width:320px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)';
+    document.body.appendChild(dropdown);
+    function positionDropdown(){
+      var r=searchInput.getBoundingClientRect();
+      dropdown.style.top=(r.bottom+6)+'px';
+      dropdown.style.left=Math.max(8,r.right-320)+'px';
+    }
+    // Fetch page content lazily for full-text search
+    var fetched={};
+    function fetchPage(p){
+      if(fetched[p.href]||p.href.charAt(0)==='#')return Promise.resolve();
+      return fetch(p.href).then(function(r){return r.text()}).then(function(html){
+        var doc=new DOMParser().parseFromString(html,'text/html');
+        var dc=doc.getElementById('doc-content');
+        p.content=(dc?dc.textContent:doc.body.textContent).toLowerCase().replace(/\s+/g,' ').substring(0,2000);
+        fetched[p.href]=true;
+      }).catch(function(){});
+    }
+    // Prefetch all pages in background
+    var prefetchIdx=0;
+    function prefetchNext(){
+      if(prefetchIdx>=pages.length)return;
+      fetchPage(pages[prefetchIdx++]).then(function(){setTimeout(prefetchNext,100)});
+    }
+    setTimeout(prefetchNext,1000);
+    // Highlight match in text
+    function hl(text,q){
+      var i=text.toLowerCase().indexOf(q.toLowerCase());
+      if(i===-1)return text;
+      return text.substring(0,i)+'<span style="color:#CC0000;font-weight:600">'+text.substring(i,i+q.length)+'</span>'+text.substring(i+q.length);
+    }
+    // Render results
+    function renderResults(q){
+      dropdown.innerHTML='';
+      if(!q||q.length<2){dropdown.style.display='none';return;}
+      positionDropdown();
+      var ql=q.toLowerCase();
+      var matches=pages.filter(function(p){
+        return p.title.toLowerCase().indexOf(ql)>-1||p.category.toLowerCase().indexOf(ql)>-1||p.content.indexOf(ql)>-1;
+      }).slice(0,10);
+      if(matches.length===0){
+        dropdown.innerHTML='<div style="padding:14px 16px;color:#555;font-size:13px">No results for "<span style="color:#999">'+q+'</span>"</div>';
+        dropdown.style.display='block';
+        return;
+      }
+      matches.forEach(function(p,idx){
+        var item=document.createElement('a');
+        item.href=p.href;
+        item.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 14px;color:#ccc;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.04);transition:background 0.1s;cursor:pointer';
+        var icon=p.href.charAt(0)==='#'?'tag':'description';
+        item.innerHTML='<span class="material-symbols-outlined" style="font-size:16px;color:#555">'+icon+'</span><div style="flex:1;min-width:0"><div style="font-weight:500;color:#eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+hl(p.title,q)+'</div><div style="font-size:11px;color:#555;margin-top:1px">'+p.category+(p.href.charAt(0)!=='#'?' — '+p.href:'')+'</div></div>';
+        item.addEventListener('mouseenter',function(){item.style.background='rgba(204,0,0,0.08)'});
+        item.addEventListener('mouseleave',function(){item.style.background='none'});
+        item.addEventListener('click',function(e){
+          e.preventDefault();
+          dropdown.style.display='none';
+          searchInput.value='';
+          searchInput.blur();
+          if(p.href.charAt(0)==='#'){
+            var target=document.getElementById(p.href.substring(1));
+            if(target){target.scrollIntoView({behavior:'smooth',block:'start'});history.replaceState(null,'',p.href);}
+          }else{
+            cronusNavigate(p.href);
+          }
+        });
+        dropdown.appendChild(item);
+      });
+      dropdown.style.display='block';
+    }
+    var debounce;
+    searchInput.addEventListener('input',function(){
+      clearTimeout(debounce);
+      debounce=setTimeout(function(){renderResults(searchInput.value)},120);
+    });
+    searchInput.addEventListener('focus',function(){
+      if(searchInput.value&&searchInput.value.length>=2)renderResults(searchInput.value);
+    });
+    document.addEventListener('click',function(e){
+      if(!searchInput.contains(e.target)&&!dropdown.contains(e.target))dropdown.style.display='none';
+    });
+    // Cmd+K / Ctrl+K shortcut
+    document.addEventListener('keydown',function(e){
+      if((e.metaKey||e.ctrlKey)&&e.key==='k'){
+        e.preventDefault();
+        searchInput.focus();
+        searchInput.select();
+      }
+      if(e.key==='Escape'){
+        dropdown.style.display='none';
+        searchInput.blur();
+      }
+    });
+  })();
 
   // Intercept link clicks for SPA navigation
   // Only active on pages with sidebar layout (admin/portal dashboards)
@@ -437,7 +580,7 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
     var a=e.target.closest('a[href]');
     if(!a) return;
     var href=a.getAttribute('href');
-    // Only intercept internal non-auth page links
+    // Skip anchor links, external, mailto
     if(!href||href.indexOf('//')!==-1||href.indexOf('mailto:')===0||href.charAt(0)==='#') return;
     if(href==='/login'||href==='/signup') return;
     if(href.indexOf('/api/')===0) return;

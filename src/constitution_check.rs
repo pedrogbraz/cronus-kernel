@@ -482,6 +482,7 @@ mod tests {
             transitions: vec![],
             effects: vec![],
             shared: false,
+            remote_url: None,
             doc: None,
         })
     }

@@ -552,6 +552,8 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
     p, h1, h2, h3, h4, h5, h6, span, a, li {{ overflow-wrap: break-word; word-break: break-word; }}
     #cronus-main > * {{ max-width: 100%; overflow-x: hidden; }}
     section, [style*="border-radius"] {{ max-width: 100%; }}
+    html {{ scroll-behavior: smooth; }}
+    [id] {{ scroll-margin-top: 4.5rem; }}
     body::before {{
       content: '';
       position: fixed;

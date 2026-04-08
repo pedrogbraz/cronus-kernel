@@ -36,6 +36,7 @@ pub enum AstNode {
     Layout(LayoutNode),
     Define(DefineNode),
     Webhook(WebhookNode),
+    Deploy(DeployNode),
 }
 
 /// A reusable section definition: `define sidebar "Name" { ... }`
@@ -79,6 +80,7 @@ pub struct EntityNode {
     pub transitions: Vec<TransitionNode>,
     pub effects: Vec<EffectBlock>,
     pub shared: bool,
+    pub remote_url: Option<String>,
     pub doc: Option<DocComment>,
 }
 
@@ -496,4 +498,30 @@ pub struct LayoutNavItem {
     pub icon: Option<String>,
     pub requires: Option<String>,  // role requirement
     pub is_divider: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct DeployNode {
+    pub mode: String,
+    pub gateway: Option<GatewayConfig>,
+    pub services: Vec<DeployServiceDef>,
+}
+
+#[derive(Debug, Clone)]
+pub struct GatewayConfig {
+    pub port: u16,
+    pub provider: String,
+    pub cors: Option<String>,
+    pub config: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DeployServiceDef {
+    pub name: String,
+    pub port: u16,
+    pub db: Option<String>,
+    pub entities: Vec<String>,
+    pub apis: Vec<String>,
+    pub pages: Vec<String>,
+    pub config: HashMap<String, String>,
 }

@@ -590,6 +590,7 @@ fn spec_codegen_docs(args: &[String]) {
             let layer = extract_field(&content, "layer").unwrap_or_else(|| "stdlib".to_string());
             let renderer = extract_field(&content, "renderer").unwrap_or_else(|| "generic".to_string());
             let description = extract_field(&content, "description").unwrap_or_default();
+            let tags = extract_tags(&content);
 
             // Check if pure alias
             let is_alias = has_section(&content, "[alias]")
@@ -600,6 +601,9 @@ fn spec_codegen_docs(args: &[String]) {
             println!("### {}", name);
             println!();
             println!("> **Status:** {} | **Layer:** {} | **Renderer:** {}", stability, layer, renderer);
+            if !tags.is_empty() {
+                println!("> **Tags:** {}", tags.join(", "));
+            }
             if is_alias {
                 let canonical = extract_field(&content, "canonical").unwrap_or_default();
                 println!("> **Alias of:** {}", canonical);
@@ -692,10 +696,10 @@ fn spec_codegen_docs(args: &[String]) {
 
 // -- Codegen: --ai-protocol --
 
-fn extract_aliases_from_meta(content: &str) -> Vec<String> {
+fn extract_array_field(content: &str, field_name: &str) -> Vec<String> {
     for line in content.lines() {
         let trimmed = line.trim();
-        if trimmed.starts_with("aliases") && trimmed.contains('=') {
+        if trimmed.starts_with(field_name) && trimmed.contains('=') {
             if let Some(bracket_start) = trimmed.find('[') {
                 if let Some(bracket_end) = trimmed.find(']') {
                     let inner = &trimmed[bracket_start + 1..bracket_end];
@@ -709,6 +713,14 @@ fn extract_aliases_from_meta(content: &str) -> Vec<String> {
         }
     }
     Vec::new()
+}
+
+fn extract_aliases_from_meta(content: &str) -> Vec<String> {
+    extract_array_field(content, "aliases")
+}
+
+fn extract_tags(content: &str) -> Vec<String> {
+    extract_array_field(content, "tags")
 }
 
 fn extract_config_validates(content: &str, key_name: &str) -> Option<String> {

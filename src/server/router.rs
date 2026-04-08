@@ -220,6 +220,19 @@ async fn handle_request_inner(
         return Ok(html_response(render_graph_page(&state)));
     }
 
+    // ── AI Docs Index ──
+    if path == "/api/docs/index" && method == Method::GET {
+        return Ok(json_response(StatusCode::OK, super::docs_index::generate_docs_index(&state)));
+    }
+    if path.starts_with("/api/docs/search") && method == Method::GET {
+        let q = query.split('&').find_map(|p| p.strip_prefix("q=")).unwrap_or("");
+        return Ok(json_response(StatusCode::OK, super::docs_index::search_docs_index(&state, q)));
+    }
+    if path.starts_with("/api/docs/tags/") && method == Method::GET {
+        let tag = path.strip_prefix("/api/docs/tags/").unwrap_or("");
+        return Ok(json_response(StatusCode::OK, super::docs_index::get_docs_by_tag(&state, tag)));
+    }
+
     // ── GraphQL (POST consumes body, GET doesn't) ──
     if path == "/graphql" && method == Method::GET {
         return Ok(html_response(graphql::playground_html()));

@@ -75,7 +75,7 @@ pub fn cmd_reconcile(args: &[String]) {
             AstNode::Test(n) => tests_a.push(n),
             AstNode::Compose(n) => composes_a.push(n),
             AstNode::Layout(n) => { layouts_a.insert(n.name.clone(), n); }
-            AstNode::Define(_) | AstNode::Webhook(_) => {}
+            AstNode::Define(_) | AstNode::Webhook(_) | AstNode::Deploy(_) => {}
         }
     }
 
@@ -115,7 +115,7 @@ pub fn cmd_reconcile(args: &[String]) {
             AstNode::Test(n) => tests_b.push(n),
             AstNode::Compose(n) => composes_b.push(n),
             AstNode::Layout(n) => { layouts_b.insert(n.name.clone(), n); }
-            AstNode::Define(_) | AstNode::Webhook(_) => {}
+            AstNode::Define(_) | AstNode::Webhook(_) | AstNode::Deploy(_) => {}
         }
     }
 
@@ -191,6 +191,7 @@ pub fn cmd_reconcile(args: &[String]) {
                     transitions: merged_transitions,
                     effects: merged_effects,
                     shared: a.shared || b.shared,
+                    remote_url: None,
                     doc: None,
                 }));
             }

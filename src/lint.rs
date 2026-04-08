@@ -1107,6 +1107,7 @@ mod tests {
             shared: false,
             transitions: vec![],
             effects: vec![],
+            remote_url: None,
             doc: None,
         }
     }
@@ -1375,6 +1376,7 @@ mod tests {
             transitions: vec![],
             effects: vec![],
             shared: true,
+            remote_url: None,
             doc: None,
         }
     }
@@ -1449,6 +1451,7 @@ mod tests {
             transitions: vec![],
             effects: vec![],
             shared: false,
+            remote_url: None,
             doc: None,
         };
         let api = make_api("/drafts", vec![

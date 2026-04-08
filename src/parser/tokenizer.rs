@@ -39,7 +39,7 @@ pub(crate) const KEYWORDS: &[&str] = &[
     "app", "entity", "api", "page", "style", "service", "section",
     "import", "compose", "use", "merge", "on", "worker", "component",
     "middleware", "env", "test", "webhook", "constitution", "must", "never",
-    "transition",
+    "transition", "deploy",
 ];
 
 pub(crate) const METHODS: &[&str] = &["GET", "POST", "PATCH", "PUT", "DELETE"];

@@ -534,6 +534,7 @@ mod tests {
             transitions: vec![],
             effects: vec![],
             shared: false,
+            remote_url: None,
             doc: None,
         })
     }
@@ -683,6 +684,7 @@ mod tests {
                 }],
                 effects: vec![],
                 shared: false,
+                remote_url: None,
                 doc: None,
             }),
         ];
@@ -707,6 +709,7 @@ mod tests {
                 }],
                 effects: vec![],
                 shared: false,
+                remote_url: None,
                 doc: None,
             }),
         ];
@@ -733,6 +736,7 @@ mod tests {
                 }],
                 effects: vec![],
                 shared: false,
+                remote_url: None,
                 doc: None,
             }),
         ];

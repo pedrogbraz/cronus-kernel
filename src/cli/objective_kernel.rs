@@ -584,6 +584,9 @@ pub fn reconcile_emit(nodes: &[AstNode]) -> String {
                 }
                 out.push_str("}\n\n");
             }
+            AstNode::Deploy(_) => {
+                // Deploy nodes are handled by the microservices module
+            }
         }
     }
 
