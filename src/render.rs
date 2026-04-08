@@ -336,7 +336,7 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
   function cronusNavigate(url){
     // Prefer swapping #cronus-content (page content only, preserves shell)
     // Fall back to #cronus-main if no content wrapper
-    var content=document.getElementById('cronus-content')||document.getElementById('cronus-main');
+    var content=document.getElementById('doc-content')||document.getElementById('cronus-content')||document.getElementById('cronus-main');
     if(!content) return false;
     // Phase 1: fade out + slide
     content.style.transition='opacity 0.2s cubic-bezier(0.4,0,0.2,1), transform 0.2s cubic-bezier(0.4,0,0.2,1)';
@@ -352,14 +352,17 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
       fetchPromise.then(function(html){
         var doc=new DOMParser().parseFromString(html,'text/html');
         // Try #cronus-content first (shell preserved), fall back to #cronus-main
+        var newDoc=doc.getElementById('doc-content');
         var newContent=doc.getElementById('cronus-content');
         var newMain=doc.getElementById('cronus-main');
         if(!newMain){
           window.location.href=url;
           return;
         }
-        // Swap only content if available, otherwise full main
-        if(newContent&&content.id==='cronus-content'){
+        // Swap: prefer doc-content (docs), then cronus-content, then full main
+        if(newDoc&&content.id==='doc-content'){
+          content.innerHTML=newDoc.innerHTML;
+        }else if(newContent&&content.id==='cronus-content'){
           content.innerHTML=newContent.innerHTML;
         }else{
           var m=document.getElementById('cronus-main');
@@ -374,6 +377,15 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
         // Update URL + nav
         history.pushState(null,'',url);
         // Update sidebar active state — toggle .active class for smooth CSS transition
+        // Also update doc sidebar links
+        document.querySelectorAll('aside a[href]').forEach(function(a){
+          var h=a.getAttribute('href');
+          if(h===url){
+            a.className=a.className.replace(/text-neutral-400/g,'text-[#CC0000]').replace(/hover:text-white/g,'font-medium');
+          }else{
+            a.className=a.className.replace(/text-\[#CC0000\]/g,'text-neutral-400');
+          }
+        });
         var navContainer=document.getElementById('admin-nav')||document.getElementById('user-nav');
         if(navContainer){
           navContainer.querySelectorAll('[data-nav]').forEach(function(a){
@@ -429,9 +441,8 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
     if(!href||href.indexOf('//')!==-1||href.indexOf('mailto:')===0||href==='#') return;
     if(href==='/login'||href==='/signup') return;
     if(href.indexOf('/api/')===0) return;
-    // Only SPA-navigate when page has a sidebar (dashboard apps)
-    // Landing/doc pages do full reload for correct topbar + content
-    if(!document.getElementById('admin-nav')&&!document.getElementById('user-nav')) return;
+    // SPA-navigate when page has a sidebar (dashboard apps or doc pages with aside)
+    if(!document.getElementById('admin-nav')&&!document.getElementById('user-nav')&&!document.querySelector('aside')&&!a.hasAttribute('data-spa')) return;
     // Must have #cronus-main on page (layout pages only)
     if(!document.getElementById('cronus-main')) return;
     e.preventDefault();
