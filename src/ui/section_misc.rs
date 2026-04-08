@@ -11,9 +11,9 @@ pub(super) fn render_topbar(section: &SectionNode, theme: &str) -> String {
     let style_hint = section.config.get("style").map(|s| s.as_str()).unwrap_or("");
     let has_sidebar = style_hint.contains("dashboard") || style_hint.contains("sidebar");
     let position_style = if has_sidebar {
-        "position:fixed;top:0;right:0;left:256px;z-index:30"
+        "position:fixed;top:0;right:0;left:256px;z-index:999"
     } else {
-        "position:fixed;top:0;left:0;right:0;z-index:50"
+        "position:fixed;top:0;left:0;right:0;z-index:999"
     };
 
     // Accent color for active nav link
@@ -24,21 +24,20 @@ pub(super) fn render_topbar(section: &SectionNode, theme: &str) -> String {
     // Parse nav links from config (e.g. "Inventory, Analytics, Orders, Customers")
     let nav_links: Vec<String> = section.config.get("nav")
         .map(|nav| {
-            nav.split(',').enumerate().map(|(i, link)| {
+            nav.split(',').map(|link| {
                 let l = link.trim();
-                if i == 0 {
-                    // Active link: accent color + 2px bottom border indicator
-                    format!(
-                        r##"<a href="#" style="color:{accent};font-size:14px;font-weight:500;letter-spacing:-0.01em;text-decoration:none;padding:20px 0;border-bottom:2px solid {accent};transition:color 0.2s">{l}</a>"##,
-                        l=l, accent=accent
-                    )
+                // Generate slug: "Getting Started" -> "/getting-started"
+                let slug = format!("/{}", l.to_lowercase().replace(' ', "-"));
+                let is_active = false; // Active state determined client-side
+                let (color, border, weight) = if is_active {
+                    (format!("{}", accent), format!("2px solid {}", accent), "500")
                 } else {
-                    // Inactive links: muted 60% opacity, hover brightens
-                    format!(
-                        r##"<a href="#" style="color:rgba(226,226,226,0.6);font-size:14px;font-weight:500;letter-spacing:-0.01em;text-decoration:none;padding:20px 0;border-bottom:2px solid transparent;transition:all 0.2s" onmouseover="this.style.color='rgba(226,226,226,0.9)'" onmouseout="this.style.color='rgba(226,226,226,0.6)'">{l}</a>"##,
-                        l=l
-                    )
-                }
+                    ("rgba(226,226,226,0.6)".to_string(), "2px solid transparent".to_string(), "500")
+                };
+                format!(
+                    r##"<a href="{slug}" data-nav style="color:{color};font-size:14px;font-weight:{weight};letter-spacing:-0.01em;text-decoration:none;padding:20px 0;border-bottom:{border};transition:all 0.2s" onmouseover="this.style.color='rgba(226,226,226,0.9)'" onmouseout="if(!this.classList.contains('active'))this.style.color='{color}'">{l}</a>"##,
+                    slug=slug, l=l, color=color, border=border, weight=weight
+                )
             }).collect()
         })
         .unwrap_or_default();
@@ -113,8 +112,9 @@ pub(super) fn render_topbar(section: &SectionNode, theme: &str) -> String {
       {right_side}
     </div>
   </div>
-</header>"##,
-        position=position_style, brand=brand, nav_html=nav_html, right_side=right_side)
+</header>
+<script>!function(){{var p=location.pathname.replace(/\/$/,'')||'/';document.querySelectorAll('[data-cronus-topbar] [data-nav]').forEach(function(a){{var h=a.getAttribute('href');if(h===p||(p==='/'&&h==='/')){{a.style.color='{accent}';a.style.borderBottom='2px solid {accent}';a.classList.add('active')}}}})}}()</script>"##,
+        position=position_style, brand=brand, nav_html=nav_html, right_side=right_side, accent=accent)
 }
 
 

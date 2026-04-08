@@ -265,6 +265,43 @@ fn attach_template(blueprint: &mut SectionBlueprint, node: &DomNode) {
     blueprint.template = Some(templated);
 }
 
+/// Post-process all templates to auto-trigger scroll animations.
+/// Replaces `animate-on-scroll` in class attributes (not in CSS) with
+/// `animate-on-scroll animate` so elements are visible without JS observer.
+pub fn fix_animation_visibility(sections: &mut [SectionBlueprint]) {
+    for section in sections.iter_mut() {
+        if let Some(ref mut tmpl) = section.template {
+            // Only replace inside class="..." attributes, not in CSS selectors
+            // Strategy: find each `class="...animate-on-scroll..."` and inject `animate`
+            let marker = "class=\"";
+            let mut result = String::with_capacity(tmpl.len() + 256);
+            let mut search_from = 0;
+            while let Some(found) = tmpl[search_from..].find(marker) {
+                let abs = search_from + found;
+                // Copy everything up to and including class="
+                result.push_str(&tmpl[search_from..abs + marker.len()]);
+                let class_start = abs + marker.len();
+                // Find closing quote
+                if let Some(end) = tmpl[class_start..].find('"') {
+                    let class_val = &tmpl[class_start..class_start + end];
+                    if class_val.contains("animate-on-scroll") && !class_val.contains("animate-on-scroll animate") {
+                        result.push_str(&class_val.replace("animate-on-scroll", "animate-on-scroll animate"));
+                    } else {
+                        result.push_str(class_val);
+                    }
+                    result.push('"');
+                    search_from = class_start + end + 1;
+                } else {
+                    search_from = class_start;
+                }
+            }
+            // Append remainder
+            result.push_str(&tmpl[search_from..]);
+            *tmpl = result;
+        }
+    }
+}
+
 /// Check if a block is large enough to warrant splitting into sub-blocks.
 /// A block with many children and deep nesting is a candidate.
 fn should_split_block(node: &DomNode) -> bool {

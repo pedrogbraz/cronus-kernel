@@ -373,18 +373,35 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
         });
         // Update URL + nav
         history.pushState(null,'',url);
-        document.querySelectorAll('[data-nav]').forEach(function(a){
-          var href=a.getAttribute('href');
-          if(href===url){
-            a.className='bg-[#191919] border-[#87adff] border-r-2 cursor-pointer flex gap-3 hover:translate-x-1 items-center px-3 py-2 text-white transition-all';
-            var ic=a.querySelector('.material-symbols-outlined');
-            if(ic)ic.style.fontVariationSettings="'FILL' 1";
-          }else{
-            a.className='cursor-pointer flex gap-3 hover:translate-x-1 items-center px-3 py-2 text-[#ffffff]/40 transition-all';
-            var ic=a.querySelector('.material-symbols-outlined');
-            if(ic)ic.style.fontVariationSettings="'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24";
-          }
-        });
+        // Update sidebar active state — toggle .active class for smooth CSS transition
+        var navContainer=document.getElementById('admin-nav')||document.getElementById('user-nav');
+        if(navContainer){
+          navContainer.querySelectorAll('[data-nav]').forEach(function(a){
+            if(a.getAttribute('href')===url)a.classList.add('active');
+            else a.classList.remove('active');
+          });
+        }
+        var settingsLink=document.getElementById('user-settings-link');
+        if(settingsLink){
+          if(url==='/settings')settingsLink.classList.add('active');
+          else settingsLink.classList.remove('active');
+        }
+        // Update topbar nav active state
+        var topbar=document.querySelector('[data-cronus-topbar]');
+        if(topbar){
+          topbar.querySelectorAll('[data-nav]').forEach(function(a){
+            var h=a.getAttribute('href');
+            if(h===url){
+              a.style.color='var(--cronus-accent,#adc6ff)';
+              a.style.borderBottom='2px solid var(--cronus-accent,#adc6ff)';
+              a.classList.add('active');
+            }else{
+              a.style.color='rgba(226,226,226,0.6)';
+              a.style.borderBottom='2px solid transparent';
+              a.classList.remove('active');
+            }
+          });
+        }
         // Phase 3: fade in
         content.style.transition='none';
         content.style.transform='translateY(-8px)';
@@ -403,6 +420,7 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
   }
 
   // Intercept link clicks for SPA navigation
+  // Only active on pages with sidebar layout (admin/portal dashboards)
   document.addEventListener('click',function(e){
     var a=e.target.closest('a[href]');
     if(!a) return;
@@ -411,6 +429,9 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
     if(!href||href.indexOf('//')!==-1||href.indexOf('mailto:')===0||href==='#') return;
     if(href==='/login'||href==='/signup') return;
     if(href.indexOf('/api/')===0) return;
+    // Only SPA-navigate when page has a sidebar (dashboard apps)
+    // Landing/doc pages do full reload for correct topbar + content
+    if(!document.getElementById('admin-nav')&&!document.getElementById('user-nav')) return;
     // Must have #cronus-main on page (layout pages only)
     if(!document.getElementById('cronus-main')) return;
     e.preventDefault();

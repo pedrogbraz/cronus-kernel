@@ -1011,18 +1011,20 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
         var newTitle=doc.querySelector('title');
         if(newTitle)document.title=newTitle.textContent;
 
-        // Update sidebar active state
-        document.querySelectorAll('aside a[href]').forEach(function(a){{
-          var href=a.getAttribute('href');
-          var isActive=(href===url);
-          if(isActive){{
-            a.className=a.className.replace(/text-neutral-500/g,'text-black').replace(/hover:bg-white\/5/g,'').replace(/hover:text-white/g,'');
-            if(a.className.indexOf('bg-white')<0)a.className+=' bg-white text-black';
-          }}else{{
-            a.className=a.className.replace(/bg-white(?!\/)(\s)/g,'$1').replace(/text-black/g,'text-neutral-500').replace(/shadow-\[[^\]]*\]/g,'');
-            if(a.className.indexOf('hover:bg-white/5')<0)a.className+=' hover:bg-white/5 hover:text-white';
-          }}
-        }});
+        // Update sidebar active state — toggle .active class for smooth CSS transition
+        var navContainer=document.getElementById('admin-nav')||document.getElementById('user-nav');
+        if(navContainer){{
+          navContainer.querySelectorAll('[data-nav]').forEach(function(a){{
+            if(a.getAttribute('href')===url)a.classList.add('active');
+            else a.classList.remove('active');
+          }});
+        }}
+        // Settings link for user sidebar
+        var settingsLink=document.getElementById('user-settings-link');
+        if(settingsLink){{
+          if(url==='/settings')settingsLink.classList.add('active');
+          else settingsLink.classList.remove('active');
+        }}
         document.querySelectorAll('.cronus-bottom-nav a').forEach(function(a){{
           if(a.getAttribute('href')===url)a.classList.add('active');
           else a.classList.remove('active');
@@ -1056,14 +1058,15 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
       }});
       return true;
     }}
-    // Intercept clicks on internal links
+    // Intercept clicks on internal links (only when sidebar layout is active)
     document.addEventListener('click',function(e){{
       var a=e.target.closest('a[href]');
       if(!a)return;
       var href=a.getAttribute('href');
       if(!href||href==='#'||href.startsWith('http')||href.startsWith('mailto'))return;
-      if(href===location.pathname)return; // already on this page
+      if(href===location.pathname)return;
       if(a.hasAttribute('download')||a.getAttribute('target')==='_blank')return;
+      if(!document.getElementById('admin-nav')&&!document.getElementById('user-nav'))return;
       e.preventDefault();
       navigateTo(href);
     }});
@@ -1344,6 +1347,7 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
       document.addEventListener('click',function(e){{
         var a=e.target.closest('a');
         if(!a||!isLocal(a))return;
+        if(!document.getElementById('admin-nav')&&!document.getElementById('user-nav'))return;
         e.preventDefault();
         if(a.href===location.href)return;
         navigate(a.href,true);

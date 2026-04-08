@@ -39,10 +39,13 @@ pub fn dump_html(html: &str) -> String {
     let page_css = detect::extract_page_styles(html);
 
     // 6a. Detect sections (with HTML template extraction)
-    let sections = detect::detect_sections_with_templates(
+    let mut sections = detect::detect_sections_with_templates(
         &nodes,
         if page_css.trim().is_empty() { None } else { Some(&page_css) },
     );
+
+    // 6a-fix. Auto-trigger scroll animations for visual fidelity
+    detect::fix_animation_visibility(&mut sections);
 
     // 6b. Extract CSS custom properties (design tokens) from HTML
     let css_vars = extract_css_variables(html);
