@@ -787,7 +787,7 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
   <style>{tailwind_css}</style>
 </head>
 <body style="margin:0;padding:0;width:100%;max-width:100vw;overflow-x:hidden">
-  <div class="aura-background-component top-0 w-full -z-10 absolute h-[900px]" data-alpha-mask="80" style="mask-image: linear-gradient(to bottom, transparent, black 0%, black 80%, transparent); -webkit-mask-image: linear-gradient(to bottom, transparent, black 0%, black 80%, transparent)"><div class="aura-background-component top-0 w-full -z-10 absolute h-full"><div data-us-project="bKN5upvoulAmWvInmHza" class="absolute w-full h-full left-0 top-0 -z-10"></div><script type="text/javascript">!function(){{if(!window.UnicornStudio){{window.UnicornStudio={{isInitialized:!1}};var i=document.createElement("script");i.src="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v1.4.29/dist/unicornStudio.umd.js",i.onload=function(){{window.UnicornStudio.isInitialized||(UnicornStudio.init(),window.UnicornStudio.isInitialized=!0)}},(document.head||document.body).appendChild(i)}}}}();</script></div></div>
+  <div class="aura-background-component top-0 w-full -z-10 absolute h-[900px]" data-alpha-mask="80" style="{unicorn_display}mask-image: linear-gradient(to bottom, transparent, black 0%, black 80%, transparent); -webkit-mask-image: linear-gradient(to bottom, transparent, black 0%, black 80%, transparent)"><div class="aura-background-component top-0 w-full -z-10 absolute h-full"><div data-us-project="bKN5upvoulAmWvInmHza" class="absolute w-full h-full left-0 top-0 -z-10"></div><script type="text/javascript">!function(){{if(!window.UnicornStudio){{window.UnicornStudio={{isInitialized:!1}};var i=document.createElement("script");i.src="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v1.4.29/dist/unicornStudio.umd.js",i.onload=function(){{window.UnicornStudio.isInitialized||(UnicornStudio.init(),window.UnicornStudio.isInitialized=!0)}},(document.head||document.body).appendChild(i)}}}}();</script></div></div>
   {nav_html}
   <main id="cronus-main" style="min-height:100vh;width:100%;box-sizing:border-box">
   {clean_body}
@@ -1374,6 +1374,7 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
         tw_config_script = tw_config_script,
         head_styles = head_styles,
         css_vars = css_vars, sel_bg = sel_bg, scroll_thumb = scroll_thumb, grid_line = grid_line,
+        unicorn_display = if head_styles.contains("fadeInUp") || clean_body.contains("animate-on-scroll") { "" } else { "display:none;" },
         nav_html = nav_html,
         clean_body = clean_body,
         bottom_nav = bottom_nav_html,
