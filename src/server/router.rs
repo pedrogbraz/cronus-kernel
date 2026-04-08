@@ -990,8 +990,9 @@ async fn handle_page_request(
         .unwrap_or("amber");
     let app_name = &state.app.name;
 
-    // ── Component preview route ──
-    if path == "/components" {
+    // ── Component preview route (only if no page is defined for /components) ──
+    let has_components_page = state.pages.iter().any(|p| p.route == "/components");
+    if path == "/components" && !has_components_page {
         let body = if state.components.is_empty() {
             r#"<div style="padding:40px;text-align:center">
   <h1 style="font-size:16px;color:oklch(0.93 0 0);margin-bottom:8px">CRONUS UI Kit</h1>
