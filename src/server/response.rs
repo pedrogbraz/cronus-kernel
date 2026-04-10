@@ -178,7 +178,7 @@ fn inject_audit_if_enabled(html: String) -> String {
         }
     }
 
-    let audit_js = include_str!("../../../shared/cronus-dump-audit.js");
+    let audit_js = include_str!("cronus-dump-audit.js");
     // Escape </script> inside JS to prevent premature tag closing
     let safe_js = audit_js.replace("</script>", "<\\/script>");
     let injection = format!(

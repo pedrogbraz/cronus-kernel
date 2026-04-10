@@ -1478,9 +1478,14 @@ async fn handle_request_inner(
             return Ok(html_response(html));
         }
 
-        // Dumped pages with HTML templates — use landing layout with Tailwind CDN
+        // Dumped pages with HTML templates — use landing layout with Tailwind CDN,
+        // EXCEPT for auth-protected pages that have a declarative layout (these
+        // must share the same sidebar shell across all pages for consistency).
         let has_templates = page.sections.iter().any(|s| s.template.is_some() || s.config.get("template").is_some());
-        if has_templates {
+        let is_auth_page = page.requires.as_deref() == Some("auth")
+            || page.requires.as_deref().map(|r| r.starts_with("role(")).unwrap_or(false);
+        let has_declarative_layout = state.layout.is_some();
+        if has_templates && !(is_auth_page && has_declarative_layout) {
             let body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params, &page_owner_id);
             let html = ui::render_layout_landing_ex(app_name, &body, theme, state.style.as_ref(), state.app.tailwind_config.as_deref());
             return Ok(html_response(html));
@@ -1577,7 +1582,15 @@ async fn handle_request_inner(
         let is_security = page.sections.iter().any(|s| s.section_type == "team-members" || s.section_type == "login-activity");
         let is_settings = page.sections.iter().any(|s| s.section_type == "settings-profile" || s.section_type == "subscription-card");
         let current_route = page.route.as_str();
-        let html = if has_templates {
+        // Auth pages with a declarative layout share the sidebar shell
+        let auth_with_layout = is_auth_page && has_declarative_layout;
+        let html = if auth_with_layout {
+            if let Some(ref layout) = state.layout {
+                ui::render_layout_declarative(app_name, layout, current_route, &body)
+            } else {
+                ui::render_layout(app_name, &state.pages, accent, &body)
+            }
+        } else if has_templates {
             // Dumped page with original HTML templates — use landing layout, no sidebar
             ui::render_layout_landing_ex(app_name, &body, theme, state.style.as_ref(), state.app.tailwind_config.as_deref())
         } else if is_checkout {

@@ -381,19 +381,9 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
         });
         // Update URL + nav
         history.pushState(null,'',url);
-        // Update left sidebar active state for doc pages
-        var leftAside=document.querySelector('aside nav');
-        if(leftAside){
-          leftAside.querySelectorAll('a[href]').forEach(function(a){
-            var h=a.getAttribute('href');
-            var li=a.parentNode;
-            if(h===url){
-              a.className='block text-sm text-[#CC0000] font-medium py-1 px-2 rounded bg-[#CC0000]/5 border-l-2 border-[#CC0000]';
-            }else if(a.className.indexOf('#CC0000')>-1){
-              a.className='block text-sm text-neutral-400 hover:text-white py-1 px-2 transition-colors';
-            }
-          });
-        }
+        // Sidebar active state is managed by the declarative layout JS
+        // (see render_layout_declarative in ui/layout.rs). No brand colors
+        // are injected by the runtime — each app controls its own theme.
         // Update admin/user nav active state
         var navContainer=document.getElementById('admin-nav')||document.getElementById('user-nav');
         if(navContainer){
@@ -407,23 +397,15 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
           if(url==='/settings')settingsLink.classList.add('active');
           else settingsLink.classList.remove('active');
         }
-        // Update topbar nav active state — detect by attribute OR by header>nav
+        // Update topbar nav active state — just toggles an 'active' class.
+        // Styling is the app's responsibility via its own CSS.
         var topbar=document.querySelector('[data-cronus-topbar]')||document.querySelector('header nav');
         if(topbar){
           topbar.querySelectorAll('a[href]').forEach(function(a){
             var h=a.getAttribute('href');
             if(!h||h.charAt(0)==='#') return;
-            // Match: exact path, prefix match for sub-pages, or / only when url is exactly /
             var isActive=(h==='/'&&url==='/')||(h!=='/'&&url.indexOf(h)===0);
-            if(isActive){
-              a.className=a.className.replace(/text-neutral-500/g,'text-white');
-              if(a.className.indexOf('font-medium')===-1) a.className=a.className.replace(/hover:text-neutral-300/g,'font-medium');
-              if(a.className.indexOf('border-b')===-1) a.className+=' border-b border-[#CC0000] pb-0.5';
-            }else{
-              a.className=a.className.replace(/\s*border-b\s+border-\[#CC0000\]\s+pb-0\.5/g,'');
-              a.className=a.className.replace(/text-white/g,'text-neutral-500');
-              a.className=a.className.replace(/font-medium/g,'hover:text-neutral-300');
-            }
+            a.classList.toggle('active', isActive);
           });
         }
         // Phase 3: fade in
@@ -509,7 +491,7 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
     function hl(text,q){
       var i=text.toLowerCase().indexOf(q.toLowerCase());
       if(i===-1)return text;
-      return text.substring(0,i)+'<span style="color:#CC0000;font-weight:600">'+text.substring(i,i+q.length)+'</span>'+text.substring(i+q.length);
+      return text.substring(0,i)+'<mark class="cronus-search-hl">'+text.substring(i,i+q.length)+'</mark>'+text.substring(i+q.length);
     }
     // Render results
     function renderResults(q){
@@ -879,3 +861,29 @@ pub const CRONUS_DEBUG_JS: &str = r#"
   else createPanel();
 })();
 "#;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn runtime_js_has_no_hardcoded_brand_colors() {
+        // The 2026-04-10 session removed all hardcoded #CC0000 (old Cooud red) from
+        // the client-side runtime JavaScript. The runtime should only toggle semantic
+        // classes (active, error, etc.); colors come from the user's style block.
+        // If this assertion fires, a brand color has leaked back into the runtime.
+        assert!(
+            !CRONUS_RUNTIME_JS.contains("#CC0000"),
+            "CRONUS_RUNTIME_JS contains #CC0000 — brand color leak regression"
+        );
+        assert!(
+            !CRONUS_RUNTIME_JS.contains("#cc0000"),
+            "CRONUS_RUNTIME_JS contains #cc0000 (lowercase) — brand color leak regression"
+        );
+        // Also catch the sometimes-used bare 6-digit form
+        assert!(
+            !CRONUS_RUNTIME_JS.contains("'#CC0000'"),
+            "CRONUS_RUNTIME_JS contains quoted '#CC0000' — brand color leak regression"
+        );
+    }
+}

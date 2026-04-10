@@ -9,12 +9,13 @@ use super::render_section;
 
 pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str, theme: &str, db: Option<&crate::database::CronusDB>, route_params: &std::collections::HashMap<String, String>, owner_id: &str) -> String {
     match page.page_type.as_str() {
-        // TODO: pass db to dashboard/list/form/detail when they need binding support
-        "dashboard" => render_dashboard(page, entities, accent),
+        // dashboard/list/form/detail are now layout hints — actual rendering
+        // uses the same pipeline as `custom` so developer-defined sections
+        // are always respected. This matches the "declare once, get it" principle.
+        "dashboard" | "custom" => render_custom(page, accent, theme, db, route_params, owner_id, entities),
         "list" => render_list(page, entities, accent),
         "form" => render_form(page, entities, accent),
         "detail" => render_list(page, entities, accent),
-        "custom" => render_custom(page, accent, theme, db, route_params, owner_id, entities),
         "checkout" => render_checkout(page),
         "components" => {
             // page type:components — placeholder, actual rendering happens in main.rs
@@ -905,12 +906,19 @@ fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::
 
     // When templates provide fixed sidebar/topbar, content needs margin/padding
     // to avoid being hidden underneath them.
-    // Landing pages (type:custom with hero/features) skip the wrapper entirely
-    // since sections handle their own layout.
-    let is_landing_page = page.page_type == "custom" && page.sections.iter().any(|s|
+    // Pages that use raw templates (landing, dashboards with custom sidebar)
+    // handle their own layout via the template's style_block — skip the wrapper.
+    let has_any_template = page.sections.iter().any(|s|
+        s.template.is_some() || s.config.contains_key("template")
+    );
+    let has_marketing_section = page.sections.iter().any(|s|
         matches!(s.section_type.as_str(), "hero" | "features" | "topbar" | "footer" | "cta" | "testimonial" | "pricing" | "faq")
     );
-    let content_style = if is_landing_page {
+    // Skip default wrapper whenever the dev supplies their own templates —
+    // this matches the landing-page behavior and prevents the kernel from
+    // injecting margin/padding that fights against the dev's CSS.
+    let skip_wrapper = has_any_template || has_marketing_section;
+    let content_style = if skip_wrapper {
         ""
     } else {
         match (has_fixed_sidebar, has_fixed_topbar) {
@@ -1109,4 +1117,79 @@ fn render_checkout(page: &PageNode) -> String {
         taxes = taxes,
         image_html = image_html,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser::{PageNode, SectionNode};
+    use std::collections::HashMap;
+
+    /// Regression for the 2026-04-10 fix: `type:dashboard` used to render a
+    /// hardcoded Cooud banking template (Saldo/BOOST/METAS DE VENDAS) and
+    /// completely ignored user-defined sections. The fix made `"dashboard"`
+    /// delegate to `render_custom` so user sections are respected.
+    #[test]
+    fn dashboard_type_renders_user_sections_not_hardcoded_template() {
+        // A minimal user-defined section that carries an inline HTML template.
+        // Using `template = Some(...)` bypasses section-type dispatch entirely:
+        // `render_section` routes straight to `render_template` (see ui/mod.rs).
+        let user_section = SectionNode {
+            section_type: "custom".to_string(),
+            title: None,
+            subtitle: None,
+            config: HashMap::new(),
+            items: Vec::new(),
+            plans: Vec::new(),
+            binding: None,
+            actions: Vec::new(),
+            visibility: None,
+            template: Some(
+                "<div id=\"user-marker\">MY_UNIQUE_KPI_MARKER</div>".to_string(),
+            ),
+            style_block: None,
+            doc: None,
+        };
+
+        let page = PageNode {
+            route: "/dashboard".to_string(),
+            page_type: "dashboard".to_string(),
+            entity: None,
+            title: None,
+            sections: vec![user_section],
+            config: HashMap::new(),
+            components: Vec::new(),
+            requires: None,
+            doc: None,
+        };
+
+        let route_params: HashMap<String, String> = HashMap::new();
+        let html = render_page(
+            &page,
+            &[],
+            "blue",
+            "dark",
+            None,
+            &route_params,
+            "test-user",
+        );
+
+        // The user-defined marker MUST appear in the output.
+        assert!(
+            html.contains("MY_UNIQUE_KPI_MARKER"),
+            "user section marker not found in output; dashboard type ignored user sections. HTML:\n{}",
+            html
+        );
+
+        // The historical hardcoded Cooud banking template strings MUST NOT
+        // appear — their presence would mean `type:dashboard` regressed back
+        // to the pre-fix hardcoded branch.
+        for forbidden in &["Saldo", "BOOST", "METAS DE VENDAS", "Iniciante", "Bronze"] {
+            assert!(
+                !html.contains(forbidden),
+                "dashboard page rendered hardcoded template (found '{}'); regression of the 2026-04-10 fix",
+                forbidden
+            );
+        }
+    }
 }

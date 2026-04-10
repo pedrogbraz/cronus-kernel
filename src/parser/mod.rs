@@ -835,8 +835,13 @@ impl Parser {
                     if self.matches(TokenKind::Identifier, Some("brand")) {
                         self.advance();
                         sidebar_config.insert("brand".into(), self.expect(TokenKind::StringLit)?.value);
-                    } else if self.matches(TokenKind::Identifier, Some("nav")) {
-                        self.advance();
+                    } else if self.matches(TokenKind::Identifier, Some("nav"))
+                        || self.peek().kind == TokenKind::StringLit
+                    {
+                        // `nav` keyword is optional: `"Label" -> "/route"` also works
+                        if self.matches(TokenKind::Identifier, Some("nav")) {
+                            self.advance();
+                        }
                         let label = self.expect(TokenKind::StringLit)?.value;
                         let mut route = String::new();
                         if self.try_consume(TokenKind::Arrow, None).is_some() {
@@ -3511,5 +3516,57 @@ entity Item shared {
         } else {
             panic!("Expected entity node");
         }
+    }
+
+    // ── 2026-04-10: `nav` keyword is optional in layout sidebar items ──
+
+    #[test]
+    fn layout_sidebar_nav_optional() {
+        let source = r#"layout Main { sidebar { brand "Acme" "Home" -> "/" nav "About" -> "/about" } }"#;
+        let ast = parse(source).expect("layout with mixed nav/no-nav sidebar items should parse");
+
+        let layout = ast.iter().find_map(|node| {
+            if let AstNode::Layout(l) = node { Some(l) } else { None }
+        }).expect("expected a Layout node in AST");
+
+        assert_eq!(layout.name, "Main");
+        assert_eq!(layout.sidebar_config.get("brand").map(String::as_str), Some("Acme"));
+        assert_eq!(
+            layout.sidebar_items.len(),
+            2,
+            "expected 2 sidebar items (one without `nav` keyword, one with), got {:?}",
+            layout.sidebar_items
+        );
+
+        assert_eq!(layout.sidebar_items[0].label, "Home");
+        assert_eq!(layout.sidebar_items[0].route, "/");
+        assert!(!layout.sidebar_items[0].is_divider);
+
+        assert_eq!(layout.sidebar_items[1].label, "About");
+        assert_eq!(layout.sidebar_items[1].route, "/about");
+        assert!(!layout.sidebar_items[1].is_divider);
+    }
+
+    // ── 2026-04-10: api rejects unknown HTTP methods (HEAD/OPTIONS/etc.) ──
+
+    #[test]
+    fn api_rejects_unknown_http_method() {
+        // HEAD is NOT in tokenizer METHODS, so it tokenizes as Identifier and
+        // `expect(TokenKind::Method)` in parse_api must reject it cleanly.
+        let source = r#"app "T" { port 5175 } entity Item { name string! } api /items { check HEAD / list GET / }"#;
+        let err = match parse(source) {
+            Err(e) => e,
+            Ok(_) => panic!("api route with HEAD method should fail to parse, got Ok"),
+        };
+        assert!(
+            err.contains("HEAD"),
+            "error should mention the offending token 'HEAD', got: {}",
+            err
+        );
+        assert!(
+            err.contains("Method"),
+            "error should mention expected kind 'Method', got: {}",
+            err
+        );
     }
 }

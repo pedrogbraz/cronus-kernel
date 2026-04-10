@@ -140,30 +140,26 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
 pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_route: &str, body: &str) -> String {
     let brand = layout.sidebar_config.get("brand").map(|s| s.as_str()).unwrap_or(app_name);
 
-    // Build nav items HTML
+    // Build nav items HTML with modern design
     let mut nav_html = String::new();
     for item in &layout.sidebar_items {
         if item.is_divider {
-            nav_html.push_str(r#"<div style="height:1px;background:oklch(1 0 0 / 6%);margin:8px 0"></div>"#);
+            nav_html.push_str(r#"<div class="sb-divider"></div>"#);
             continue;
         }
         let is_active = current_route == item.route
             || (current_route == "/" && item.route == "/dashboard")
             || (item.route != "/" && !item.route.is_empty() && current_route.starts_with(&item.route) && item.route.len() > 1);
-        let bg = if is_active { "background:oklch(0.18 0 0);" } else { "" };
-        let fg = if is_active { "color:oklch(0.93 0 0);" } else { "color:oklch(0.5 0 0);" };
+        let active_class = if is_active { " active" } else { "" };
         let icon_html = if let Some(ref icon) = item.icon {
-            format!(r#"<span class="material-symbols-outlined" style="font-size:20px">{}</span>"#, icon)
+            format!(r#"<span class="material-symbols-outlined">{}</span>"#, icon)
         } else {
             String::new()
         };
         nav_html.push_str(&format!(
-            r#"<a href="{route}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;{fg}{bg}text-decoration:none;font-size:13px;transition:all 0.15s" onmouseover="this.style.background='oklch(0.18 0 0)';this.style.color='oklch(0.93 0 0)'" onmouseout="this.style.background='{bg_raw}';this.style.color='{fg_raw}'">{icon}{label}</a>"#,
+            r#"<a href="{route}" data-spa="true" class="sb-link{active_class}">{icon}{label}</a>"#,
             route = item.route,
-            fg = fg,
-            bg = bg,
-            bg_raw = if is_active { "oklch(0.18 0 0)" } else { "" },
-            fg_raw = if is_active { "oklch(0.93 0 0)" } else { "oklch(0.5 0 0)" },
+            active_class = active_class,
             icon = icon_html,
             label = item.label,
         ));
@@ -195,87 +191,200 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
 
     format!(
         r##"<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="view-transition" content="same-origin">
   <title>{app_name}</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
-  <style>{tailwind_css}</style>
-  <style>{animations_css}</style>
-  <style>{anim_css}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    :root {{
-      --background: oklch(0.11 0 0);
-      --card: oklch(0.14 0 0);
-      --card-soft: oklch(0.16 0 0);
-      --card-strong: oklch(0.18 0 0);
-      --foreground: oklch(0.93 0 0);
-      --foreground-muted: oklch(0.5 0 0);
-      --foreground-subtle: oklch(0.4 0 0);
-      --border: oklch(1 0 0 / 6%);
-      --border-strong: oklch(1 0 0 / 8%);
-      --surface-hover: oklch(0.18 0 0);
-      --secondary: oklch(0.18 0 0);
-      --accent: var(--primary);
-      --accent-soft: oklch(0.488 0.243 264 / 12%);
-      --success: var(--success, #10b981);
-      --success-soft: oklch(0.696 0.17 162 / 12%);
-      --warning: oklch(0.769 0.188 70);
-      --danger: var(--error, #ef4444);
-      --danger-soft: oklch(0.704 0.191 22 / 12%);
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
-      --radius-card: 22px;
-      --radius-button: 10px;
-      --radius-badge: 999px;
-      --radius: 0.875rem;
+    *,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
+    html,body{{background:#000;color:#fff;font-family:'Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}}
+    a{{color:inherit;text-decoration:none}}
+    button{{font-family:inherit;cursor:pointer}}
+    ::selection{{background:rgba(59,130,246,0.3);color:#fff}}
+    ::-webkit-scrollbar{{width:6px;height:6px}}
+    ::-webkit-scrollbar-track{{background:transparent}}
+    ::-webkit-scrollbar-thumb{{background:rgba(255,255,255,0.08);border-radius:3px}}
+    ::-webkit-scrollbar-thumb:hover{{background:rgba(255,255,255,0.15)}}
+    .material-symbols-outlined{{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px;display:inline-block;line-height:1;vertical-align:middle;user-select:none}}
+
+    /* ── Sidebar ── */
+    #cronus-sidebar{{position:fixed;top:0;left:0;width:240px;height:100vh;background:linear-gradient(180deg,#0a0a0a 0%,#050505 100%);border-right:1px solid rgba(255,255,255,0.06);padding:20px;z-index:40;overflow-y:auto;display:flex;flex-direction:column;transition:transform 0.3s cubic-bezier(0.4,0,0.2,1)}}
+    .sb-brand{{display:flex;align-items:center;gap:10px;margin-bottom:28px;padding:0 4px}}
+    .sb-logo{{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#3b82f6,#a855f7);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:14px;box-shadow:0 4px 20px rgba(59,130,246,0.25)}}
+    .sb-name{{font-size:17px;font-weight:700;color:#fff;letter-spacing:-0.02em}}
+    .sb-nav{{display:flex;flex-direction:column;gap:2px;flex:1}}
+    .sb-link,.sb-link:link,.sb-link:visited,.sb-link:focus,.sb-link:active{{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;color:#9ca3af!important;font-size:14px;font-weight:500;text-decoration:none!important;transition:all 0.15s;white-space:nowrap;background:transparent;border:0!important;outline:0!important;-webkit-tap-highlight-color:transparent}}
+    .sb-link:hover{{background:rgba(255,255,255,0.03)!important;color:#fff!important}}
+    .sb-link:active{{color:#fff!important}}
+    .sb-link.active,.sb-link.active:link,.sb-link.active:visited,.sb-link.active:focus,.sb-link.active:active{{background:linear-gradient(90deg,rgba(59,130,246,0.15),rgba(59,130,246,0.03))!important;color:#fff!important;box-shadow:inset 2px 0 0 #3b82f6!important}}
+    .sb-link .material-symbols-outlined{{font-size:19px;color:#6b7280}}
+    .sb-link:hover .material-symbols-outlined{{color:#9ca3af}}
+    .sb-link.active .material-symbols-outlined{{color:#60a5fa}}
+    .sb-divider{{height:1px;background:rgba(255,255,255,0.05);margin:12px 0}}
+    .sb-footer{{padding-top:16px;border-top:1px solid rgba(255,255,255,0.05);margin-top:16px}}
+    .sb-signout{{width:100%;padding:10px 12px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:500;color:#9ca3af;background:transparent;border:1px solid rgba(255,255,255,0.08);border-radius:8px;transition:all 0.15s}}
+    .sb-signout:hover{{background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.3);color:#f87171}}
+    .sb-signout .material-symbols-outlined{{font-size:16px}}
+
+    /* ── Hamburger (mobile) ── */
+    #sb-toggle{{display:none;position:fixed;top:16px;left:16px;width:40px;height:40px;background:rgba(10,10,10,0.9);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:#fff;z-index:50;align-items:center;justify-content:center}}
+
+    /* ── Main shell ── */
+    .cronus-decl-main{{margin-left:240px;min-height:100vh;background:#000;position:relative}}
+    .cronus-decl-main::before{{content:'';position:fixed;top:0;left:240px;right:0;height:400px;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(59,130,246,0.06),transparent 70%);pointer-events:none;z-index:0}}
+    .cronus-decl-main > main{{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:32px 40px;animation:fadeIn 0.3s ease-out}}
+
+    @keyframes fadeIn{{from{{opacity:0;transform:translateY(4px)}}to{{opacity:1;transform:translateY(0)}}}}
+
+    /* ── Auto-style dev content for visual consistency ── */
+    .cronus-decl-main > main h1{{font-size:32px;font-weight:700;color:#fff;letter-spacing:-0.03em;margin-bottom:6px;background:linear-gradient(180deg,#fff 0%,#a1a1aa 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}}
+    .cronus-decl-main > main h2{{font-size:20px;font-weight:600;color:#fff;letter-spacing:-0.02em;margin-bottom:16px}}
+    .cronus-decl-main > main h3{{font-size:16px;font-weight:600;color:#fff;margin-bottom:12px}}
+    .cronus-decl-main > main p{{color:#9ca3af;font-size:14px;line-height:1.6}}
+    .cronus-decl-main > main > div:first-child{{margin-bottom:32px}}
+
+    /* ── Tables ── */
+    .cronus-decl-main table{{width:100%;border-collapse:collapse;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:14px;overflow:hidden}}
+    .cronus-decl-main table thead{{background:rgba(255,255,255,0.02)}}
+    .cronus-decl-main table th{{padding:14px 20px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;border-bottom:1px solid rgba(255,255,255,0.05)}}
+    .cronus-decl-main table td{{padding:14px 20px;font-size:14px;color:#d1d5db;border-bottom:1px solid rgba(255,255,255,0.03)}}
+    .cronus-decl-main table tr:last-child td{{border-bottom:none}}
+    .cronus-decl-main table tr:hover td{{background:rgba(255,255,255,0.02)}}
+
+    /* ── Forms ── */
+    .cronus-decl-main form{{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:32px;max-width:560px}}
+    .cronus-decl-main form label{{display:block;font-size:13px;font-weight:500;color:#d1d5db;margin-bottom:8px}}
+    .cronus-decl-main form input,.cronus-decl-main form select,.cronus-decl-main form textarea{{width:100%;padding:10px 14px;font-size:14px;color:#fff;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;outline:none;margin-bottom:16px;font-family:inherit;transition:border-color 0.15s}}
+    .cronus-decl-main form input:focus,.cronus-decl-main form select:focus,.cronus-decl-main form textarea:focus{{border-color:#3b82f6;background:rgba(255,255,255,0.04)}}
+    .cronus-decl-main form button[type=submit]{{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;font-size:14px;font-weight:600;color:#fff;background:linear-gradient(135deg,#3b82f6,#2563eb);border:1px solid rgba(59,130,246,0.5);border-radius:10px;box-shadow:0 4px 20px rgba(59,130,246,0.25);transition:all 0.15s}}
+    .cronus-decl-main form button[type=submit]:hover{{transform:translateY(-1px);box-shadow:0 6px 28px rgba(59,130,246,0.35)}}
+
+    /* ── Cards / generic sections ── */
+    .cronus-decl-main section{{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:24px;margin-bottom:20px}}
+    .cronus-decl-main section:has(table){{padding:0;overflow:hidden}}
+    .cronus-decl-main section:has(> section){{background:transparent;border:0;padding:0;margin:0}}
+
+    /* ── Buttons ── */
+    .cronus-decl-main a[href^="/"]:not([class]){{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;font-size:13px;font-weight:500;color:#fff;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;transition:all 0.15s}}
+    .cronus-decl-main a[href^="/"]:not([class]):hover{{background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.12)}}
+
+    /* ── KPI cards from built-in renderer ── */
+    .cronus-decl-main [data-section="kpi"],.cronus-decl-main .kpi-card-wrapper{{background:linear-gradient(135deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))!important;border:1px solid rgba(255,255,255,0.06)!important;border-radius:14px!important}}
+
+    /* ── Responsive ── */
+    @media (max-width: 1024px){{
+      .cronus-decl-main > main{{padding:24px}}
     }}
-    body {{ background: var(--background); color: var(--foreground); font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif; -webkit-font-smoothing: antialiased; margin: 0; }}
-    ::selection {{ background: oklch(0.3 0 0); }}
-    ::-webkit-scrollbar {{ width: 4px; }}
-    ::-webkit-scrollbar-thumb {{ background: var(--border); border-radius: 2px; }}
-    @keyframes fadeIn {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
-    .animate-fade-in {{ animation: fadeIn 0.3s ease-out; }}
-    @media (max-width: 768px) {{
-      .cronus-decl-sidebar {{ transform: translateX(-100%); position: fixed !important; z-index: 40; box-shadow: 4px 0 24px rgba(0,0,0,0.2); }}
-      .cronus-decl-sidebar.open {{ transform: translateX(0); }}
-      .cronus-hamburger {{ display: flex !important; }}
-      .cronus-decl-main {{ margin-left: 0 !important; }}
+    @media (max-width: 768px){{
+      #cronus-sidebar{{transform:translateX(-100%);width:260px;box-shadow:0 0 40px rgba(0,0,0,0.8)}}
+      #cronus-sidebar.open{{transform:translateX(0)}}
+      #sb-toggle{{display:flex}}
+      .cronus-decl-main{{margin-left:0}}
+      .cronus-decl-main::before{{left:0}}
+      .cronus-decl-main > main{{padding:70px 16px 24px}}
     }}
-    @media print {{
-      .cronus-decl-sidebar, .cronus-hamburger, .cronus-overlay {{ display: none !important; }}
-      .cronus-decl-main {{ margin-left: 0 !important; padding: 0 !important; }}
-    }}
+    @media print{{#cronus-sidebar,#sb-toggle,.cronus-overlay{{display:none!important}}.cronus-decl-main{{margin-left:0!important}}}}
   </style>
+  <style>{anim_css}</style>
 </head>
 <body>
-  <!-- Sidebar -->
-  <aside class="cronus-decl-sidebar" style="position:fixed;left:0;top:0;bottom:0;width:250px;background:oklch(0.09 0 0);border-right:1px solid oklch(1 0 0 / 6%);padding:16px;display:flex;flex-direction:column;z-index:40;transition:transform 0.3s cubic-bezier(0.16,1,0.3,1)">
-    <div style="font-size:16px;font-weight:700;padding:8px 12px;margin-bottom:16px;color:oklch(0.93 0 0)">{brand}</div>
-    <nav style="flex:1;display:flex;flex-direction:column;gap:2px">
+  <aside id="cronus-sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo">{brand_initial}</div>
+      <span class="sb-name">{brand}</span>
+    </div>
+    <nav class="sb-nav">
       {nav_items}
     </nav>
+    <div class="sb-footer">
+      <button onclick="localStorage.clear();location.href='/login'" class="sb-signout">
+        <span class="material-symbols-outlined">logout</span>Sign Out
+      </button>
+    </div>
   </aside>
-  <!-- Main -->
-  <div class="cronus-decl-main" style="margin-left:250px;min-height:100vh;display:flex;flex-direction:column">
-    <!-- Hamburger (mobile) -->
-    <button class="cronus-hamburger" onclick="cronusDeclToggle()" style="display:none;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;padding:8px;border-radius:8px;position:fixed;top:8px;left:8px;z-index:50;color:var(--foreground)" onmouseover="this.style.background='var(--secondary)'" onmouseout="this.style.background='none'">
-      <span class="material-symbols-outlined" style="font-size:22px">menu</span>
-    </button>
-    {topbar}
-    <main class="animate-fade-in" style="flex:1;padding:24px;overflow-y:auto">
+
+  <button id="sb-toggle" onclick="document.getElementById('cronus-sidebar').classList.toggle('open')">
+    <span class="material-symbols-outlined">menu</span>
+  </button>
+
+  <div class="cronus-decl-main" id="cronus-main">
+    <main id="cronus-content">
       {body}
     </main>
   </div>
+
   <script>
-    window.cronusDeclToggle=function(){{
-      var sb=document.querySelector('.cronus-decl-sidebar');
-      if(!sb)return;
-      sb.classList.toggle('open');
-      var ov=document.querySelector('.cronus-overlay');
-      if(!ov){{ov=document.createElement('div');ov.className='cronus-overlay';ov.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:39;transition:opacity 0.3s';ov.onclick=function(){{cronusDeclToggle()}};document.body.appendChild(ov)}}
-      ov.style.display=sb.classList.contains('open')?'block':'none';
-    }};
+    // Update sidebar active state on SPA navigation
+    // Uses multiple strategies to ensure reliability:
+    // 1. Initial page load
+    // 2. History pushState/replaceState override
+    // 3. popstate event
+    // 4. Interval-based URL polling as fallback
+    // 5. Click handler on sidebar links
+    (function(){{
+      var lastPath = location.pathname;
+      function updateActive(){{
+        var path = location.pathname;
+        var sidebar = document.getElementById('cronus-sidebar');
+        if (!sidebar) return;
+        var links = sidebar.querySelectorAll('.sb-link');
+        var bestMatch = null;
+        var bestLen = 0;
+        // Find the most specific match
+        links.forEach(function(a){{
+          var href = a.getAttribute('href');
+          if (!href) return;
+          if (path === href) {{
+            bestMatch = a;
+            bestLen = 9999;
+          }} else if (href !== '/' && path.indexOf(href) === 0 && href.length > bestLen) {{
+            bestMatch = a;
+            bestLen = href.length;
+          }}
+        }});
+        // Apply active class
+        links.forEach(function(a){{
+          if (a === bestMatch) {{
+            a.classList.add('active');
+          }} else {{
+            a.classList.remove('active');
+          }}
+        }});
+      }}
+      updateActive();
+      // Strategy 1: Override pushState
+      ['pushState','replaceState'].forEach(function(m){{
+        var orig = history[m];
+        history[m] = function(){{
+          var r = orig.apply(this, arguments);
+          setTimeout(updateActive, 0);
+          return r;
+        }};
+      }});
+      // Strategy 2: popstate listener
+      window.addEventListener('popstate', updateActive);
+      // Strategy 3: interval fallback (polls every 200ms)
+      setInterval(function(){{
+        if (location.pathname !== lastPath) {{
+          lastPath = location.pathname;
+          updateActive();
+        }}
+      }}, 200);
+      // Strategy 4: click handler on sidebar links (instant feedback)
+      document.addEventListener('click', function(e){{
+        var link = e.target.closest('#cronus-sidebar .sb-link');
+        if (link) {{
+          setTimeout(updateActive, 50);
+        }}
+      }});
+    }})();
   </script>
   <script>{runtime}</script>
   <script>{animate_js}</script>
@@ -286,11 +395,9 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
 </html>"##,
         app_name = app_name,
         brand = brand,
+        brand_initial = brand.chars().next().unwrap_or('K').to_uppercase().to_string(),
         nav_items = nav_html,
-        topbar = topbar_html,
         body = body,
-        tailwind_css = crate::tailwind::CRONUS_TAILWIND,
-        animations_css = crate::animations::CRONUS_ANIMATIONS,
         anim_css = CRONUS_ANIMATIONS_CSS,
         anim_js = CRONUS_ANIMATIONS_JS,
         runtime = crate::render::CRONUS_RUNTIME_JS,
@@ -1528,4 +1635,57 @@ pub fn render_layout_dashboard(app_name: &str, body: &str, theme: &str) -> Strin
         runtime = crate::render::CRONUS_RUNTIME_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser::{LayoutNavItem, LayoutNode};
+    use std::collections::HashMap;
+
+    #[test]
+    fn render_layout_declarative_has_no_hardcoded_brand_colors() {
+        // Minimal layout with a brand and 2 sidebar items
+        let mut sidebar_config = HashMap::new();
+        sidebar_config.insert("brand".to_string(), "TestApp".to_string());
+
+        let layout = LayoutNode {
+            name: "Main".to_string(),
+            sidebar_items: vec![
+                LayoutNavItem {
+                    label: "Home".to_string(),
+                    route: "/".to_string(),
+                    icon: Some("home".to_string()),
+                    requires: None,
+                    is_divider: false,
+                },
+                LayoutNavItem {
+                    label: "Dashboard".to_string(),
+                    route: "/dashboard".to_string(),
+                    icon: Some("dashboard".to_string()),
+                    requires: None,
+                    is_divider: false,
+                },
+            ],
+            sidebar_config,
+            topbar_config: HashMap::new(),
+        };
+
+        let html = render_layout_declarative("TestApp", &layout, "/dashboard", "<p>body</p>");
+
+        // The runtime must NOT inject any hardcoded brand colors.
+        // #CC0000 was the old Cooud red that leaked into every user app before the 2026-04-10 fix.
+        assert!(
+            !html.contains("#CC0000"),
+            "render_layout_declarative output contains hardcoded #CC0000; brand color leak regression"
+        );
+        assert!(
+            !html.contains("#cc0000"),
+            "render_layout_declarative output contains hardcoded #cc0000 (lowercase); brand color leak regression"
+        );
+
+        // Sanity: the output should still contain the user's brand text and routes
+        assert!(html.contains("TestApp"), "brand text missing from output");
+        assert!(html.contains("/dashboard"), "route missing from output");
+    }
 }

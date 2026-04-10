@@ -174,7 +174,7 @@ async function doLogin(email, password, remember, errorEl, btn) {{
       localStorage.setItem('user', JSON.stringify(json.user || {{}}));
       saveAccount(json.user);
       var role = json.user && json.user.role;
-      window.location.href = (role === 'admin') ? '/admin' : '/';
+      window.location.href = (role === 'admin') ? '/admin' : '/dashboard';
     }} else {{
       errorEl.style.display = 'block';
       errorEl.textContent = json.error || 'Invalid credentials';
@@ -211,7 +211,7 @@ document.getElementById('quickLogin').addEventListener('submit', function(e) {{
         if (d.id || d.user) {{
           var user = d.user || d;
           var role = user.role || 'user';
-          window.location.href = (role === 'admin') ? '/admin' : '/';
+          window.location.href = (role === 'admin') ? '/admin' : '/dashboard';
         }}
       }}).catch(function(){{}});
   }}
@@ -283,7 +283,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
       localStorage.setItem('user', JSON.stringify(json.user || {{}}));
       saveAccount(json.user);
       const role = json.user && json.user.role;
-      window.location.href = (role === 'admin') ? '/admin' : '/';
+      window.location.href = (role === 'admin') ? '/admin' : '/dashboard';
     }} else {{
       const err = document.getElementById('error');
       err.style.display = 'block';
