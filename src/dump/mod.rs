@@ -8,6 +8,7 @@ pub mod dom;
 pub mod detect;
 pub mod patterns;
 pub mod emit;
+pub mod nextjs;
 pub mod openapi;
 pub mod prisma;
 pub mod project;

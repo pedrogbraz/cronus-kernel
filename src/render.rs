@@ -574,36 +574,94 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
     });
   })();
 
-  // Intercept link clicks for SPA navigation
-  // Only active on pages with sidebar layout (admin/portal dashboards)
+  // ── View Transitions API ──────────────────────────────────────
+  // Uses native browser View Transitions for smooth page changes
+  // Falls back to CSS crossfade on unsupported browsers
+  function cronusTransitionNavigate(url){
+    if(document.startViewTransition){
+      document.startViewTransition(function(){
+        return cronusNavigate(url)||Promise.resolve();
+      });
+    }else{
+      cronusNavigate(url);
+    }
+  }
+
+  // ── Speculation Rules / Prefetch ────────────────────────────
+  // Prefetch pages on hover for instant navigation
+  var prefetched={};
+  function prefetchUrl(url){
+    if(prefetched[url]) return;
+    prefetched[url]=true;
+    var link=document.createElement('link');
+    link.rel='prefetch';
+    link.href=url;
+    link.as='document';
+    document.head.appendChild(link);
+  }
+
+  // Inject speculation rules for eager prefetch pages
+  function injectSpeculationRules(){
+    var eager=document.querySelectorAll('[data-prefetch="eager"]');
+    if(eager.length&&window.HTMLScriptElement.supports&&HTMLScriptElement.supports('speculationrules')){
+      var urls=[];
+      eager.forEach(function(a){var h=a.getAttribute('href');if(h)urls.push(h);});
+      if(urls.length){
+        var script=document.createElement('script');
+        script.type='speculationrules';
+        script.textContent=JSON.stringify({prefetch:[{source:'list',urls:urls}]});
+        document.head.appendChild(script);
+      }
+    }
+  }
+
+  // Prefetch on hover (50ms debounce to avoid over-fetching)
+  var hoverTimer=null;
+  document.addEventListener('mouseover',function(e){
+    var a=e.target.closest('a[href]');
+    if(!a) return;
+    var href=a.getAttribute('href');
+    if(!href||href.charAt(0)==='#'||href.indexOf('//')!==-1||href.indexOf('/api/')===0) return;
+    clearTimeout(hoverTimer);
+    hoverTimer=setTimeout(function(){prefetchUrl(href);},50);
+  });
+
+  // Intercept ALL internal link clicks for SPA navigation
+  // CRONUS is a full SPA — every internal link is intercepted
   document.addEventListener('click',function(e){
     var a=e.target.closest('a[href]');
     if(!a) return;
     var href=a.getAttribute('href');
-    // Skip anchor links, external, mailto
+    // Skip: anchor, external, mailto, javascript, api, auth
     if(!href||href.indexOf('//')!==-1||href.indexOf('mailto:')===0||href.charAt(0)==='#') return;
-    if(href==='/login'||href==='/signup') return;
+    if(href.indexOf('javascript:')===0) return;
     if(href.indexOf('/api/')===0) return;
-    // SPA-navigate when page has a sidebar (dashboard apps or doc pages with aside)
-    if(!document.getElementById('admin-nav')&&!document.getElementById('user-nav')&&!document.querySelector('aside')&&!a.hasAttribute('data-spa')) return;
-    // Must have #cronus-main on page (layout pages only)
+    if(href==='/login'||href==='/signup') return;
+    // Must have #cronus-main on page
     if(!document.getElementById('cronus-main')) return;
     e.preventDefault();
     if(href===location.pathname) return;
-    cronusNavigate(href);
+    cronusTransitionNavigate(href);
   });
 
-  // Handle browser back/forward
+  // Handle browser back/forward with View Transitions
   window.addEventListener('popstate',function(){
-    cronusNavigate(location.pathname);
+    if(document.startViewTransition){
+      document.startViewTransition(function(){return cronusNavigate(location.pathname)||Promise.resolve();});
+    }else{
+      cronusNavigate(location.pathname);
+    }
   });
 
   // Run on load
-  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}
-  else{init();}
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){init();injectSpeculationRules();});
+  }else{
+    init();injectSpeculationRules();
+  }
 
   // Expose for re-init after SPA navigation
-  window.CRONUS={init:init,reload:cronusLiveReload,navigate:cronusNavigate,version:'0.5.0'};
+  window.CRONUS={init:init,reload:cronusLiveReload,navigate:cronusNavigate,transition:cronusTransitionNavigate,prefetch:prefetchUrl,version:'0.6.0'};
 })();
 "#;
 

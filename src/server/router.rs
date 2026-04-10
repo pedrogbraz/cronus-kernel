@@ -66,6 +66,30 @@ pub(crate) async fn handle_request(
         resp.headers_mut().insert(hyper::header::HeaderName::from_static("x-query-count"), v);
     }
 
+    // ── Cache headers ──
+    // Static assets (fonts, images, generated CSS) get long cache
+    // API responses get no-cache
+    // Pages get stale-while-revalidate for instant navigation
+    let content_type = resp.headers().get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    let cache_val = if req_path_str.starts_with("/_next/") || req_path_str.starts_with("/static/") {
+        "public, max-age=31536000, immutable"
+    } else if content_type.contains("font") || content_type.contains("image") || content_type.contains("woff") {
+        "public, max-age=31536000, immutable"
+    } else if req_path_str.starts_with("/api/") {
+        "no-store"
+    } else if content_type.contains("text/html") {
+        "public, max-age=0, must-revalidate"
+    } else {
+        ""
+    };
+    if !cache_val.is_empty() {
+        if let Ok(v) = hyper::header::HeaderValue::from_str(cache_val) {
+            resp.headers_mut().entry("cache-control").or_insert(v);
+        }
+    }
+
     if DEBUG_MODE.load(Ordering::Relaxed) {
         let status = resp.status().as_u16();
         state.trace_buffer.push(RequestTrace {

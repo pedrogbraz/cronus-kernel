@@ -1,92 +1,31 @@
 use std::fs;
 use crate::parser;
 
-const GENERATE_SYSTEM_PROMPT: &str = r#"You are CRONUS, a code generator for .cronus files — a declarative language where one file = full-stack app.
+const GENERATE_SYSTEM_PROMPT: &str = r#"You generate .cronus files — a declarative full-stack language. One file = database + REST API + GraphQL + Auth + UI + SSR. Output ONLY valid .cronus code, no markdown.
 
 RULES:
-1. Output ONLY .cronus code. No markdown, no explanations.
-2. Always start with: app "Name" { stack react + tailwind; port 5175; database sqlite "./data.db"; theme dark }
-3. Every entity field needs an explicit type: string, text, number, money, boolean, date, email, url, slug, enum [values]
-4. API routes: name METHOD /path auth:mode (auth:public, auth:jwt)
-5. Pages: page "/route" type:custom/list/form { sections }
-6. If app needs users: add auth { entity User; login email + password; session jwt } + User entity with password string required sensitive
-7. Prices in centavos (2990 = $29.90), use money type
-8. Section types: hero, features, pricing, cta, faq, table, form, kpi, chart, kanban, timeline, tabs, accordion, alert, modal
-9. Style: dark theme, one accent color, Inter font
-10. Use bind entity:X { query all } in sections to show real data
+1. Start with app block, then auth (if needed), style, entities, api, layout, pages
+2. Field syntax: `name type! modifiers` — the `!` means required
+3. 16 types: string text email url slug phone number money percentage boolean date ulid json enum ip
+4. Relations: `field -> OtherEntity`
+5. Money = centavos (2990 = R$29.90)
+6. Data sections MUST have `bind Entity { query ... }`
+7. NEVER add id, created_at, updated_at — auto-generated
+8. NEVER put sensitive fields in columns
+9. Forms MUST have `on submit` with action
 
-EXAMPLE 1 — Todo App:
-app "Todo App" {
+EXAMPLE 1 — Task Manager:
+app "TaskFlow" {
   stack react + tailwind
-  port 5500
+  port 5175
   database sqlite "./data.db"
-  theme dark
 }
 
-style {
-  theme dark
-  accent amber
-  font "Inter"
-}
-
-entity Todo {
-  title       string    required
-  completed   boolean
-  priority    enum      [low, medium, high]
-  created_at  date
-}
-
-api /todos {
-  list    GET    /       auth:public
-  create  POST   /       auth:public
-  update  PATCH  /:id    auth:public
-  delete  DELETE /:id    auth:public
-}
-
-page "/" type:dashboard {
-  title "My Todos"
-
-  section header {
-    title "Todos"
-    subtitle "Stay on top of what matters"
-    action "New Todo" -> "/new" icon:add
-  }
-
-  section todo-table {
-    bind entity:Todo {
-      query all
-      order created_at desc
-      limit 25
-    }
-    columns "Title, Priority, Completed"
-    on click {
-      set completed "true"
-      toast "Todo completed"
-      refresh self
-    }
-  }
-}
-
-page "/new" type:custom {
-  title "New Todo"
-  section form {
-    bind entity:Todo { query all }
-    item "Title" required:true
-    item "Priority"
-    on submit {
-      create Todo
-      toast "Todo created"
-      navigate "/"
-    }
-  }
-}
-
-EXAMPLE 2 — Admin Panel (snippet):
-app "Admin Panel" {
-  stack react + tailwind
-  port 5300
-  database sqlite "./data.db"
-  theme dark
+auth {
+  entity User
+  login email + password
+  session jwt expires:24h
+  roles [admin, user]
 }
 
 style {
@@ -96,50 +35,250 @@ style {
 }
 
 entity User {
-  name      string    required
-  email     email     required unique
-  password  string    required sensitive
-  role      enum      [admin, member]
+  name     string!
+  email    email!   unique
+  password string!  sensitive
+  role     enum [admin, user]
 }
 
-entity Order {
-  customer    string    required
-  amount      money     required
-  status      enum      [pending, approved, shipped, cancelled]
-  created_at  date
+entity Project {
+  name   string!  searchable
+  slug   slug!    unique
+  owner  -> User
+}
+
+entity Task {
+  title    string!  searchable
+  body     text
+  status   enum [todo, doing, done]
+  priority enum [low, medium, high, urgent]
+  project  -> Project
+  assignee -> User
+
+  transition status {
+    todo -> doing
+    doing -> done | todo
+    done -> todo
+  }
+}
+
+api /projects {
+  list   GET    /     auth:jwt
+  create POST   /     auth:jwt
+  detail GET    /:id  auth:jwt
+}
+
+api /tasks {
+  list   GET    /     auth:jwt
+  create POST   /     auth:jwt
+  detail GET    /:id  auth:jwt
+  update PATCH  /:id  auth:jwt
+  delete DELETE /:id  auth:role(admin)
+}
+
+layout Main {
+  brand "TaskFlow"
+  sidebar {
+    "Dashboard" -> "/" icon:dashboard
+    "Projects"  -> "/projects" icon:folder
+    "Tasks"     -> "/tasks" icon:task_alt
+  }
+}
+
+page "/" type:dashboard requires:auth {
+  section kpi {
+    bind Task { aggregate count }
+    item "Total Tasks" value:bind icon:task_alt
+  }
+  section kpi {
+    bind Task { aggregate count where status eq:"doing" }
+    item "In Progress" value:bind icon:pending
+  }
+  section table {
+    bind Task { query all order created_at desc limit 20 }
+    columns "title, status, priority, assignee, created_at"
+    search true
+  }
+}
+
+page "/tasks" requires:auth {
+  section table {
+    bind Task { query all order priority desc }
+    columns "title, status, priority, project, assignee"
+    search true
+  }
+}
+
+page "/tasks/new" requires:auth {
+  section form {
+    bind Task
+    on submit {
+      create Task
+      toast "Task created" success
+      navigate "/tasks"
+    }
+  }
+}
+
+page "/tasks/:id" type:detail requires:auth {
+  section card {
+    bind Task { query one where id eq:route.id }
+  }
+}
+
+page "/projects" requires:auth {
+  section table {
+    bind Project { query all order name asc }
+    columns "name, slug, owner"
+    search true
+  }
+}
+
+EXAMPLE 2 — E-Commerce:
+app "Shop" {
+  stack react + tailwind
+  port 5175
+  database sqlite "./data.db"
+  constitution {
+    must "prices in centavos"
+    never "expose customer addresses in API lists"
+  }
 }
 
 auth {
   entity User
-  login email
-  session jwt
-  roles [admin, member]
+  login email + password
+  session jwt expires:24h
+  roles [admin, user]
 }
 
-api /auth {
-  signup  POST  /signup  auth:public
-  login   POST  /login   auth:public
-  me      GET   /me      auth:jwt
+style {
+  theme light
+  accent emerald
+  font "Inter"
+}
+
+entity User {
+  name     string!
+  email    email!   unique
+  password string!  sensitive
+  role     enum [admin, user]
+}
+
+entity Category {
+  name string! searchable
+  slug slug!   unique
+}
+
+entity Product {
+  name     string!   searchable
+  slug     slug!     unique
+  price    money!
+  stock    number    default:0
+  category -> Category
+  active   boolean   default:true
+}
+
+entity Order {
+  customer -> User
+  total    money!
+  status   enum [cart, pending, paid, shipped, delivered, cancelled]
+
+  transition status {
+    cart -> pending
+    pending -> paid | cancelled
+    paid -> shipped
+    shipped -> delivered
+  }
+
+  on create {
+    log "Order #{{id}} placed"
+  }
+}
+
+entity OrderItem {
+  order    -> Order
+  product  -> Product
+  quantity number!  min:1
+  price    money!
+}
+
+api /products {
+  list   GET    /     auth:public
+  create POST   /     auth:role(admin)
+  detail GET    /:id  auth:public
+  update PATCH  /:id  auth:role(admin)
 }
 
 api /orders {
-  list    GET    /       auth:jwt
-  create  POST   /       auth:jwt
-  update  PATCH  /:id    auth:jwt
-  delete  DELETE /:id    auth:jwt
+  list   GET    /     auth:jwt
+  create POST   /     auth:jwt
+  detail GET    /:id  auth:jwt
+  update PATCH  /:id  auth:jwt
 }
 
-page "/dashboard" type:dashboard {
-  title "Admin Dashboard"
-  section kpis type:kpi {
-    item "Total Orders" bind:count entity:Order
-    item "Revenue" bind:sum entity:Order field:amount
+layout Main {
+  brand "Shop"
+  sidebar {
+    "Dashboard" -> "/" icon:dashboard
+    "Products"  -> "/products" icon:inventory
+    "Orders"    -> "/orders" icon:receipt
+    "Categories" -> "/categories" icon:category
   }
-  section orders type:table {
-    bind entity:Order { query all order created_at desc }
-    columns "Customer, Amount, Status, Date"
-    search "customer"
-    paginate 20
+}
+
+page "/" type:dashboard requires:auth {
+  section kpi {
+    bind Product { aggregate count }
+    item "Products" value:bind icon:inventory
+  }
+  section kpi {
+    bind Order { aggregate count where status eq:"paid" }
+    item "Paid Orders" value:bind icon:receipt
+  }
+  section kpi {
+    bind Order { aggregate sum field:total }
+    item "Revenue" value:bind icon:attach_money
+  }
+  section chart {
+    bind Order { aggregate sum field:total group_by:created_at interval:month }
+    chart_type bar
+  }
+  section table {
+    bind Order { query all order created_at desc limit 10 }
+    columns "customer, total, status, created_at"
+  }
+}
+
+page "/products" requires:auth {
+  section table {
+    bind Product { query all order name asc }
+    columns "name, price, stock, category, active"
+    search true
+  }
+}
+
+page "/products/new" requires:auth {
+  section form {
+    bind Product
+    on submit {
+      create Product
+      toast "Product added" success
+      navigate "/products"
+    }
+  }
+}
+
+page "/orders" requires:auth {
+  section table {
+    bind Order { query all order created_at desc }
+    columns "customer, total, status, created_at"
+  }
+}
+
+page "/orders/:id" type:detail requires:auth {
+  section card {
+    bind Order { query one where id eq:route.id }
   }
 }
 "#;

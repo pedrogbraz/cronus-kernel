@@ -3,18 +3,36 @@ use crate::dump;
 
 pub fn cmd_dump(args: &[String]) {
     let audit_mode = args.iter().any(|a| a == "--audit");
+    let nextjs_mode = args.iter().any(|a| a == "--nextjs");
 
     let file = args.iter().skip(2)
         .find(|a| !a.starts_with("--"))
         .unwrap_or_else(|| {
-            eprintln!("  \x1b[31m✗\x1b[0m Usage: cronus dump <file.html|.json|.prisma|dir/> [-o output.cronus] [--audit]");
+            eprintln!("  \x1b[31m✗\x1b[0m Usage: cronus dump <file.html|.json|.prisma|dir/> [-o output.cronus] [--audit] [--nextjs]");
             std::process::exit(1);
         });
 
     // Black Hole mode: dump entire project directory
     let path = std::path::Path::new(file);
     if path.is_dir() {
-        let output = dump::project::dump_project(path);
+        // Auto-detect Next.js or use --nextjs flag
+        let is_nextjs = nextjs_mode
+            || path.join("next.config.ts").exists()
+            || path.join("next.config.mjs").exists()
+            || path.join("next.config.js").exists()
+            || {
+                let pkg = path.join("package.json");
+                pkg.exists() && fs::read_to_string(&pkg)
+                    .map(|c| c.contains("\"next\"") || c.contains("\"vinext\""))
+                    .unwrap_or(false)
+            };
+
+        let output = if is_nextjs {
+            eprintln!("  \x1b[36m⚡\x1b[0m Detected Next.js/VINEXT project");
+            dump::nextjs::dump_nextjs(path)
+        } else {
+            dump::project::dump_project(path)
+        };
 
         // Determine output file name
         let out_file = args.iter().position(|a| a == "-o")

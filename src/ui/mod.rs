@@ -80,6 +80,13 @@ const CRONUS_ANIMATIONS_CSS: &str = r##"
 .d4{animation-delay:.2s}.d5{animation-delay:.25s}.d6{animation-delay:.3s}
 .d7{animation-delay:.35s}.d8{animation-delay:.4s}.d9{animation-delay:.45s}.d10{animation-delay:.5s}
 .card-hover{transition:all .3s cubic-bezier(.16,1,.3,1)}
+::view-transition-old(root){animation:fadeOut .15s ease-out}
+::view-transition-new(root){animation:fadeIn .2s ease-in}
+::view-transition-old(cronus-content){animation:slideDown .2s ease-out reverse}
+::view-transition-new(cronus-content){animation:slideUp .25s cubic-bezier(.16,1,.3,1)}
+@keyframes fadeOut{from{opacity:1}to{opacity:0}}
+#cronus-main{view-transition-name:cronus-content}
+[data-section]{view-transition-name:auto}
 .card-hover:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(0,0,0,.08)}
 .btn-hover{transition:all .2s cubic-bezier(.16,1,.3,1)}
 .btn-hover:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.15)}
