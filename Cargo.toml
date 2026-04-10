@@ -5,8 +5,8 @@ edition = "2021"
 authors = ["Zedd <contact@cooud.com>"]
 description = "The declarative language that replaces your entire web stack. One .cronus file = full-stack app."
 license = "MIT"
-repository = "https://github.com/eozedd/kronus"
-homepage = "https://github.com/eozedd/kronus"
+repository = "https://github.com/cronusmaster/cronus-kernel"
+homepage = "https://github.com/cronusmaster/cronus-kernel"
 readme = "README.md"
 keywords = ["web", "framework", "declarative", "fullstack", "language"]
 categories = ["web-programming", "development-tools"]

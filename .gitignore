@@ -1,0 +1,37 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Build artifacts
+*.pdb
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# Demo runtime artifacts
+demos/**/data.db
+demos/**/data.db-journal
+demos/**/data.db-wal
+demos/**/data.db-shm
+demos/**/target/
+**/node_modules/
+
+# Logs
+*.log
+logs/
+
+# Generated during build (opt-in via cfg feature)
+src/contracts_generated.rs
