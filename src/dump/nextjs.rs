@@ -596,8 +596,14 @@ fn scan_pages_api_routes(dir: &Path, prefix: &str, routes: &mut Vec<NextApiRoute
 }
 
 fn detect_exported_methods(content: &str) -> Vec<String> {
+    // NOTE: The .cronus language only supports GET/POST/PUT/PATCH/DELETE.
+    // HEAD is auto-handled by the runtime (returns GET headers). OPTIONS is
+    // auto-handled as CORS preflight. Emitting them here would produce
+    // .cronus files that fail to parse (tokenizer rejects them as non-Method
+    // identifiers). So we intentionally ignore HEAD/OPTIONS exports in the
+    // scanned Next.js code.
     let mut methods = Vec::new();
-    for method in &["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] {
+    for method in &["GET", "POST", "PUT", "PATCH", "DELETE"] {
         if content.contains(&format!("export async function {}", method))
             || content.contains(&format!("export function {}", method))
             || content.contains(&format!("export const {} =", method))
@@ -1311,4 +1317,50 @@ fn emit_cronus(project: &NextJsProject) -> String {
     );
 
     out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Regression: the .cronus parser only recognizes GET/POST/PUT/PATCH/DELETE
+    /// as HTTP methods (see src/parser/tokenizer.rs METHODS). If the dumper
+    /// emits `HEAD` or `OPTIONS` in a generated .cronus file, the file fails
+    /// to parse with a generic "esperava Method, encontrou 'HEAD'" error.
+    /// This test pins the filter at the source — detect_exported_methods must
+    /// skip HEAD and OPTIONS even when they exist in the scanned Next.js file.
+    #[test]
+    fn detect_exported_methods_skips_head_and_options() {
+        let next_route = r#"
+            export async function GET(req: Request) { return new Response("ok"); }
+            export async function POST(req: Request) { return new Response("ok"); }
+            export async function HEAD(req: Request) { return new Response(null); }
+            export async function OPTIONS(req: Request) { return new Response(null); }
+            export const DELETE = async (req: Request) => new Response("ok");
+        "#;
+        let detected = detect_exported_methods(next_route);
+
+        assert!(detected.contains(&"GET".to_string()),   "expected GET to be detected");
+        assert!(detected.contains(&"POST".to_string()),  "expected POST to be detected");
+        assert!(detected.contains(&"DELETE".to_string()),"expected DELETE to be detected");
+        assert!(!detected.contains(&"HEAD".to_string()),
+            "HEAD must not be detected — the .cronus parser rejects it (Identifier, not Method). Got: {:?}", detected);
+        assert!(!detected.contains(&"OPTIONS".to_string()),
+            "OPTIONS must not be detected — same parser limitation. Got: {:?}", detected);
+    }
+
+    #[test]
+    fn detect_exported_methods_returns_empty_for_non_route() {
+        let not_a_route = r#"
+            import { NextResponse } from 'next/server';
+            const config = { runtime: 'nodejs' };
+            export default function Page() { return <div>hi</div>; }
+        "#;
+        let detected = detect_exported_methods(not_a_route);
+        assert!(detected.is_empty(), "plain page component should detect zero HTTP methods, got {:?}", detected);
+    }
 }
