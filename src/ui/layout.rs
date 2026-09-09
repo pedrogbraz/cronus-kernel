@@ -10,7 +10,7 @@ use super::{CRONUS_ANIMATIONS_CSS, CRONUS_ANIMATIONS_JS};
 pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &str) -> String {
     format!(
         r#"<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-cronus-theme="aurora" data-cronus-mode="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,6 +18,7 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
   <style>{tailwind_css}</style>
   <style>{animations_css}</style>
   <style>{anim_css}</style>
+  <style>{cronus_ui_css}</style>
   <style>
     :root {{
       --background: oklch(0.11 0 0);
@@ -122,6 +123,7 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
 </html>"#,
         app_name = app_name,
         body = body,
+        cronus_ui_css = crate::cronus_ui::token_css("aurora", "dark"),
         tailwind_css = crate::tailwind::CRONUS_TAILWIND,
         animations_css = crate::animations::CRONUS_ANIMATIONS,
         anim_css = CRONUS_ANIMATIONS_CSS,
@@ -191,7 +193,7 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
 
     format!(
         r##"<!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" class="dark" data-cronus-theme="aurora" data-cronus-mode="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -202,6 +204,7 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>{cronus_ui_css}</style>
   <style>
     *,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
     html,body{{background:#000;color:#fff;font-family:'Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}}
@@ -404,6 +407,7 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
         animate_js = crate::animations::CRONUS_ANIMATE_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
         action_js = crate::runtime_js::CRONUS_ACTION_JS,
+        cronus_ui_css = crate::cronus_ui::token_css("aurora", "dark"),
     )
 }
 
@@ -499,6 +503,12 @@ fn generate_css_vars(style: &Option<&StyleNode>, theme: &str) -> String {
     let glow_2 = cfg("glow-2", &if is_light { "rgba(0,0,0,0.02)".to_string() } else { "rgba(210,119,255,0.04)".to_string() });
     let glow_3 = cfg("glow-3", &if is_light { "rgba(0,0,0,0.01)".to_string() } else { "rgba(129,236,255,0.03)".to_string() });
 
+    let preset = style
+        .and_then(|s| s.config.get("preset"))
+        .map(|s| s.as_str())
+        .unwrap_or("aurora");
+    let cronus_ui = crate::cronus_ui::token_css(preset, theme);
+
     format!(
         r#":root {{
   --cronus-bg: {bg};
@@ -517,11 +527,13 @@ fn generate_css_vars(style: &Option<&StyleNode>, theme: &str) -> String {
 }}
 body {{ font-family: var(--cronus-font); background: var(--cronus-bg); color: var(--cronus-text); margin: 0; }}
 a {{ text-decoration: none; color: inherit; }}
-* {{ box-sizing: border-box; }}"#,
+* {{ box-sizing: border-box; }}
+{cronus_ui}"#,
         bg = bg, surface = surface, text = text, text_muted = text_muted,
         accent_hex = accent_hex, accent_hover = accent_hover,
         border = border, radius_px = radius_px, max_width = max_width, font = font,
-        glow_1 = glow_1, glow_2 = glow_2, glow_3 = glow_3
+        glow_1 = glow_1, glow_2 = glow_2, glow_3 = glow_3,
+        cronus_ui = cronus_ui
     )
 }
 

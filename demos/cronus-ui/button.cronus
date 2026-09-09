@@ -1,0 +1,40 @@
+## Cronus UI Button + tokens — kernel slice
+## style:button+primary is what the renderer keys on.
+
+app "CronusUIButton" {
+  port 5299
+}
+
+style {
+  theme dark
+  preset aurora
+  accent "#0ea5e9"
+  font "Inter"
+  radius 14px
+  accent-hex "#0ea5e9"
+  background "#09090b"
+  surface "#111113"
+  text "#fafaf9"
+}
+
+component Save layout:inline style:button+primary+md {
+  label "Save"
+}
+
+component Cancel layout:inline style:button+ghost+md {
+  label "Cancel"
+}
+
+component Delete layout:inline style:button+destructive+danger+md {
+  label "Delete"
+}
+
+component Docs layout:inline style:button+link+md {
+  label "Docs"
+}
+
+page "/" type:custom {
+  section stats {
+    title "Button parity"
+  }
+}

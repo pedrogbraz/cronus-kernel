@@ -47,6 +47,7 @@ mod tabs;
 mod tailwind;
 mod testing;
 mod theme;
+mod cronus_ui;
 mod navigation;
 mod security;
 mod ui;

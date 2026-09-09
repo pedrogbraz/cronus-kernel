@@ -9,36 +9,11 @@
 // BUTTONS
 // ══════════════════════════════════════════════════
 
-/// Button component
-/// variant: primary, secondary, ghost, danger, outline
-/// size: sm, md, lg
+/// Button — cronus-ui CONTRACT (semantic --cronus-* tokens).
+/// variant: primary, secondary, outline, ghost, destructive (danger alias), link
+/// size: sm, md, lg, icon, icon-sm
 pub fn button(label: &str, variant: &str, size: &str, href: Option<&str>) -> String {
-    let size_cls = match size {
-        "sm" => "text-xs px-3 py-1.5",
-        "lg" => "text-base px-6 py-3",
-        _ => "text-sm px-4 py-2",
-    };
-    let variant_cls = match variant {
-        "primary" => "font-semibold",
-        "secondary" => "",
-        "ghost" => "",
-        "danger" => "",
-        "outline" => "",
-        _ => "",
-    };
-    let variant_style = match variant {
-        "primary" => "background:var(--foreground);color:var(--background);border:1px solid var(--border);",
-        "secondary" => "background:transparent;color:var(--foreground);border:1px solid var(--border);",
-        "ghost" => "background:transparent;color:var(--foreground-muted);border:1px solid transparent;",
-        "danger" => "background:color-mix(in oklch, var(--danger) 14%, transparent);color:var(--danger);border:1px solid color-mix(in oklch, var(--danger) 28%, transparent);",
-        "outline" => "background:transparent;color:var(--foreground);border:1px solid var(--border);",
-        _ => "background:transparent;color:var(--foreground);border:1px solid var(--border);",
-    };
-    let tag = if href.is_some() { "a" } else { "button" };
-    let href_attr = href.map(|h| format!(" href=\"{}\"", h)).unwrap_or_default();
-    format!(
-        "<{tag}{href_attr} class=\"inline-flex items-center justify-center gap-2 {size_cls} {variant_cls} font-medium tracking-wide uppercase transition-all duration-200 outline-none cursor-pointer hover:opacity-90 active:opacity-80\" style=\"border-radius:var(--radius-button);{variant_style}\">{label}</{tag}>",
-    )
+    crate::cronus_ui::button(label, variant, size, href)
 }
 
 /// Icon button (square)

@@ -368,20 +368,46 @@ pub(super) fn render_inline_component(comp: &ComponentNode, style: &str) -> Stri
         };
         components::badge(label, color)
     } else {
-        // Button
-        let variant = if style.contains("primary") { "primary" }
-            else if style.contains("secondary") { "secondary" }
-            else if style.contains("ghost") { "ghost" }
-            else if style.contains("danger") { "danger" }
-            else if style.contains("outline") { "outline" }
-            else { "primary" };
-        let size = if style.contains("lg") { "lg" }
-            else if style.contains("sm") { "sm" }
-            else { "md" };
-        let href = comp.items.iter()
+        // Button — style:button+primary+md and/or props variant/size
+        let variant = comp
+            .props
+            .get("variant")
+            .map(|s| s.as_str())
+            .unwrap_or_else(|| {
+                if style.contains("link") {
+                    "link"
+                } else if style.contains("destructive") || style.contains("danger") {
+                    "destructive"
+                } else if style.contains("ghost") {
+                    "ghost"
+                } else if style.contains("outline") {
+                    "outline"
+                } else if style.contains("secondary") {
+                    "secondary"
+                } else {
+                    "primary"
+                }
+            });
+        let size = comp.props.get("size").map(|s| s.as_str()).unwrap_or_else(|| {
+            if style.contains("icon-sm") {
+                "icon-sm"
+            } else if style.contains("icon") {
+                "icon"
+            } else if style.contains("lg") {
+                "lg"
+            } else if style.contains("sm") {
+                "sm"
+            } else {
+                "md"
+            }
+        });
+        let href = comp
+            .items
+            .iter()
             .find(|i| i.link.is_some())
             .and_then(|i| i.link.as_deref());
-        components::button(label, variant, size, href)
+        let disabled = comp.props.get("disabled").map(|s| s == "true").unwrap_or(false);
+        crate::cronus_ui::button_ex(label, variant, size, href, disabled)
     }
 }
 
