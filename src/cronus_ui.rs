@@ -1,66 +1,47 @@
-//! Cronus UI token + Button slice.
+﻿//! Cronus UI token + Button slice.
 //!
 //! `.cronus` files already declare `style { preset aurora; accent-hex "..." }`
 //! and `component Button layout:inline style:button+primary+md`. Without this
 //! module the kernel paints Obsidian/amber hardcodes, so a complete `.cronus`
 //! catalog can never look like cronus-ui.
 //!
-//! Values copied from `@cronus-ui/tokens` (aurora / neutral × light / dark).
-//! Components use ONLY `var(--cronus-*)` — no palette scales (`zinc-900`).
+//! Values copied from `@cronus-ui/tokens` (aurora / neutral Ã— light / dark).
+//! Components use ONLY `var(--cronus-*)` â€” no palette scales (`zinc-900`).
+
+/// Vendored `@cronus-ui/tokens/styles/tokens.css` (runtime layer + looks).
+/// Snapshot of packages/tokens â€” do not hand-edit palettes here.
+const TOKENS_CSS: &str = include_str!("cronus_ui_tokens.css");
+
+pub fn is_named_preset(preset: &str) -> bool {
+    matches!(
+        preset.trim(),
+        "aurora" | "neutral" | "midnight" | "sunset" | "emerald"
+    )
+}
 
 /// Token CSS.
 ///
 /// Always emits **fallback aliases** on `:root` so `--cronus-*` exists without
 /// stealing existing `--background` / `--foreground` (legacy theme keeps working).
-/// Cronus-ui palettes apply only under `[data-cronus-theme="aurora"|...]`.
+/// Named presets inject the real tokens.css + CVA chrome.
 pub fn token_css(preset: &str, mode: &str) -> String {
     let preset = preset.trim();
-    if preset.is_empty()
-        || preset == "legacy"
-        || preset == "obsidian"
-        || preset == "default"
-    {
-        return FALLBACK_ROOT.to_string();
+    if !is_named_preset(preset) {
+        return format!("{FALLBACK_ROOT}\n{COMPONENT_CHROME}");
     }
-    let dark = mode != "light";
-    let (p, mode) = match (preset, dark) {
-        ("neutral", true) => ("neutral", "dark"),
-        ("neutral", false) => ("neutral", "light"),
-        ("midnight", true) => ("midnight", "dark"),
-        ("midnight", false) => ("midnight", "light"),
-        ("sunset", true) => ("sunset", "dark"),
-        ("sunset", false) => ("sunset", "light"),
-        ("emerald", true) => ("emerald", "dark"),
-        ("emerald", false) => ("emerald", "light"),
-        (_, false) => ("aurora", "light"),
-        _ => ("aurora", "dark"),
-    };
-    let mut css = format!(
-        "{}\n{}\n{}",
-        FALLBACK_ROOT,
-        AURORA_BASE,
-        match (p, mode) {
-            ("aurora", "light") => AURORA_LIGHT,
-            ("neutral", "light") => NEUTRAL_LIGHT,
-            ("neutral", "dark") => NEUTRAL_DARK,
-            ("midnight", "dark") => MIDNIGHT_DARK,
-            ("midnight", "light") => MIDNIGHT_LIGHT,
-            ("sunset", "dark") => SUNSET_DARK,
-            ("sunset", "light") => SUNSET_LIGHT,
-            ("emerald", "dark") => EMERALD_DARK,
-            ("emerald", "light") => EMERALD_LIGHT,
-            _ => "",
-        }
-    );
-    // Author opted in via `style { preset aurora }` — apply on :root too.
-    let needle = format!("[data-cronus-theme=\"{p}\"] {{");
-    let repl = format!(":root, [data-cronus-theme=\"{p}\"] {{");
-    css = css.replacen(&needle, &repl, 1);
+    let mut css = format!("{FALLBACK_ROOT}\n{TOKENS_CSS}\n{COMPONENT_CHROME}");
+    // Author opted in â€” apply that preset on :root as well as the data attr.
+    let needle = format!("[data-cronus-theme=\"{preset}\"] {{");
+    let repl = format!(":root, [data-cronus-theme=\"{preset}\"] {{");
+    if css.contains(&needle) {
+        css = css.replacen(&needle, &repl, 1);
+    }
+    let _ = mode;
     css
 }
 
 /// Button matching cronus-ui CONTRACT: semantic tokens, variants, sizes,
-/// `data-slot`, `data-variant`, focus-visible, href → `<a>`.
+/// `data-slot`, `data-variant`, focus-visible, href â†’ `<a>`.
 /// `danger` is accepted as an alias of `destructive` (legacy kernel name).
 pub fn button(label: &str, variant: &str, size: &str, href: Option<&str>) -> String {
     button_ex(label, variant, size, href, false)
@@ -81,36 +62,6 @@ pub fn button_ex(
         "link" => "link",
         _ => "primary",
     };
-    let (height, pad, font, _icon) = match size {
-        "sm" => ("2rem", "0 0.75rem", "0.75rem", "0.875rem"),
-        "lg" => ("2.75rem", "0 1.5rem", "1rem", "1rem"),
-        "icon" => ("2.25rem", "0", "0.875rem", "1rem"),
-        "icon-sm" => ("2rem", "0", "0.75rem", "0.875rem"),
-        _ => ("2.5rem", "0 1rem", "0.875rem", "1rem"),
-    };
-    let square = size == "icon" || size == "icon-sm";
-    let width = if square { height } else { "auto" };
-    let look = match variant {
-        "secondary" => {
-            "background:var(--cronus-surface-overlay);color:var(--cronus-fg);border:1px solid var(--cronus-border);"
-        }
-        "outline" => {
-            "background:transparent;color:var(--cronus-fg);border:1px solid var(--cronus-border);"
-        }
-        "ghost" => {
-            "background:transparent;color:var(--cronus-fg-secondary);border:1px solid transparent;"
-        }
-        "destructive" => {
-            // text-white on a darkened error fill — same CONTRACT exception as button.tsx
-            "background:color-mix(in oklch,var(--cronus-error),black 30%);color:#fff;border:1px solid transparent;"
-        }
-        "link" => {
-            "background:transparent;color:var(--cronus-primary-text);border:1px solid transparent;text-decoration:none;"
-        }
-        _ => {
-            "background:var(--cronus-primary);color:var(--cronus-primary-foreground);border:1px solid transparent;"
-        }
-    };
     let tag = if href.is_some() { "a" } else { "button" };
     let href_attr = href.map(|h| format!(" href=\"{}\"", h)).unwrap_or_default();
     let type_attr = if href.is_none() {
@@ -123,13 +74,14 @@ pub fn button_ex(
     } else {
         ""
     };
-    let disabled_style = if disabled {
-        "opacity:0.5;pointer-events:none;"
-    } else {
-        ""
-    };
     format!(
-        "<{tag}{href_attr}{type_attr}{disabled_attr} data-slot=\"button\" data-variant=\"{variant}\" style=\"display:inline-flex;align-items:center;justify-content:center;gap:0.5rem;height:{height};width:{width};padding:{pad};font-size:{font};font-weight:500;line-height:1;white-space:nowrap;border-radius:0.5rem;cursor:pointer;text-decoration:none;outline:none;transition:opacity 150ms var(--cronus-ease,cubic-bezier(.22,1,.36,1)),background 150ms,border-color 150ms,box-shadow 150ms,transform 150ms;{look}{disabled_style}\">{label}</{tag}>"
+        "<{tag}{href_attr}{type_attr}{disabled_attr} data-slot=\"button\" data-variant=\"{variant}\" data-size=\"{size}\" class=\"cui-btn\"{disabled_style}>{label}</{tag}>",
+        size = size,
+        disabled_style = if disabled {
+            " style=\"opacity:0.5;pointer-events:none;\""
+        } else {
+            ""
+        },
     )
 }
 
@@ -158,181 +110,124 @@ const FALLBACK_ROOT: &str = r#":root {
 }
 "#;
 
-// Aurora dark — scoped so it does NOT replace the legacy theme unless
-// the page opts in with data-cronus-theme="aurora" (or style.preset).
-const AURORA_BASE: &str = r#"[data-cronus-theme="aurora"] {
-  color-scheme: dark;
-  --cronus-primary: oklch(0.685 0.169 237.3);
-  --cronus-primary-foreground: oklch(0.145 0.005 285.8);
-  --cronus-primary-text: oklch(0.685 0.169 237.3);
-  --cronus-accent: oklch(0.715 0.143 215.2);
-  --cronus-accent-foreground: oklch(0.145 0 0);
-  --cronus-surface-base: oklch(0.145 0.005 285.8);
-  --cronus-surface-inset: oklch(0.165 0.005 285.8);
-  --cronus-surface-raised: oklch(0.195 0.005 285.8);
-  --cronus-surface-overlay: oklch(0.235 0.006 285.9);
-  --cronus-surface-elevated: oklch(0.27 0.006 286);
-  --cronus-surface-floating: oklch(0.2 0.006 286);
-  --cronus-fg: oklch(0.985 0.001 106.4);
-  --cronus-fg-secondary: oklch(0.705 0.015 286);
-  --cronus-fg-tertiary: oklch(0.62 0.014 286);
-  --cronus-fg-muted: oklch(0.442 0.013 286);
-  --cronus-fg-inverse: oklch(0.235 0.006 285.9);
-  --cronus-border: oklch(1 0 0 / 0.1);
-  --cronus-border-strong: oklch(1 0 0 / 0.14);
-  --cronus-border-soft: oklch(1 0 0 / 0.06);
-  --cronus-ring: oklch(0.685 0.169 237.3);
-  --cronus-success: oklch(0.715 0.155 162.5);
-  --cronus-success-text: oklch(0.715 0.155 162.5);
-  --cronus-warning: oklch(0.769 0.166 70.08);
-  --cronus-warning-text: oklch(0.769 0.166 70.08);
-  --cronus-error: oklch(0.645 0.222 16.44);
-  --cronus-error-text: oklch(0.69 0.222 16.44);
-  --cronus-info: oklch(0.715 0.143 215.2);
-  --cronus-info-text: oklch(0.715 0.143 215.2);
-  --cronus-radius: 14px;
+/// CVA from packages/ui as CSS. Sizes/variants match button.tsx / input.tsx / badge.tsx.
+const COMPONENT_CHROME: &str = r#"
+:root, [data-cronus-theme] {
+  --cronus-radius-sm: max(0px, calc(var(--cronus-radius, 14px) - 8px));
+  --cronus-radius-md: max(0px, calc(var(--cronus-radius, 14px) - 4px));
+  --cronus-radius-lg: var(--cronus-radius, 14px);
+  --cronus-radius-xl: calc(var(--cronus-radius, 14px) + 4px);
+  --ease-out-quart: cubic-bezier(0.16, 1, 0.3, 1);
   --cronus-ease: cubic-bezier(.22, 1, .36, 1);
-  --cronus-font-sans: "SF Pro Text", Geist, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 }
-"#;
-
-const AURORA_LIGHT: &str = r#"[data-cronus-theme="aurora"][data-cronus-mode="light"], :root[data-cronus-mode="light"] {
-  color-scheme: light;
-  --cronus-primary-text: oklch(0.515 0.12 237.3);
-  --cronus-surface-base: oklch(1 0 0);
-  --cronus-surface-inset: oklch(0.985 0 0);
-  --cronus-surface-raised: oklch(1 0 0);
-  --cronus-surface-overlay: oklch(0.967 0.001 286);
-  --cronus-surface-elevated: oklch(1 0 0);
-  --cronus-surface-floating: oklch(1 0 0);
-  --cronus-fg: oklch(0.235 0.006 285.9);
-  --cronus-fg-secondary: oklch(0.442 0.013 286);
-  --cronus-fg-tertiary: oklch(0.54 0.014 286);
-  --cronus-fg-muted: oklch(0.705 0.015 286);
-  --cronus-fg-inverse: oklch(0.985 0.001 106.4);
-  --cronus-border: oklch(0 0 0 / 0.1);
-  --cronus-border-strong: oklch(0 0 0 / 0.14);
-  --cronus-border-soft: oklch(0 0 0 / 0.06);
-  --cronus-success: oklch(0.52 0.15 162);
-  --cronus-success-text: oklch(0.48 0.15 162);
-  --cronus-warning: oklch(0.52 0.12 70);
-  --cronus-warning-text: oklch(0.518 0.12 70);
-  --cronus-error: oklch(0.55 0.2 25);
-  --cronus-error-text: oklch(0.531 0.2 25);
-  --cronus-info: oklch(0.52 0.16 235);
-  --cronus-info-text: oklch(0.49 0.16 235);
+html[data-cronus-theme] {
+  background: var(--cronus-surface-base);
+  color: var(--cronus-fg);
 }
-"#;
-
-const NEUTRAL_LIGHT: &str = r#"[data-cronus-theme="neutral"] {
-  color-scheme: light;
-  --cronus-primary: oklch(0.205 0 0);
-  --cronus-primary-foreground: oklch(0.985 0 0);
-  --cronus-primary-text: oklch(0.205 0 0);
-  --cronus-accent: oklch(0.96 0 0);
-  --cronus-accent-foreground: oklch(0.205 0 0);
-  --cronus-surface-base: oklch(0.985 0 0);
-  --cronus-surface-inset: oklch(0.97 0 0);
-  --cronus-surface-raised: oklch(1 0 0);
-  --cronus-surface-overlay: oklch(0.96 0 0);
-  --cronus-surface-elevated: oklch(1 0 0);
-  --cronus-surface-floating: oklch(1 0 0);
-  --cronus-fg: oklch(0.145 0 0);
-  --cronus-fg-secondary: oklch(0.43 0 0);
-  --cronus-fg-tertiary: oklch(0.53 0 0);
-  --cronus-fg-muted: oklch(0.705 0 0);
-  --cronus-fg-inverse: oklch(0.985 0 0);
-  --cronus-border: oklch(0.915 0 0);
-  --cronus-border-strong: oklch(0.86 0 0);
-  --cronus-border-soft: oklch(0.94 0 0);
-  --cronus-ring: oklch(0.705 0 0);
-  --cronus-success: oklch(0.52 0.15 162);
-  --cronus-success-text: oklch(0.48 0.15 162);
-  --cronus-warning: oklch(0.52 0.12 70);
-  --cronus-warning-text: oklch(0.518 0.12 70);
-  --cronus-error: oklch(0.55 0.2 25);
-  --cronus-error-text: oklch(0.531 0.2 25);
-  --cronus-info: oklch(0.52 0.16 235);
-  --cronus-info-text: oklch(0.49 0.16 235);
+html[data-cronus-theme] body {
+  background: var(--cronus-surface-base);
+  color: var(--cronus-fg);
+  font-family: var(--cronus-font-sans);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0;
 }
-"#;
-
-const NEUTRAL_DARK: &str = r#"[data-cronus-theme="neutral"][data-cronus-mode="dark"] {
-  color-scheme: dark;
-  --cronus-primary: oklch(0.93 0 0);
-  --cronus-primary-foreground: oklch(0.11 0 0);
-  --cronus-primary-text: oklch(0.93 0 0);
-  --cronus-accent: oklch(0.27 0 0);
-  --cronus-accent-foreground: oklch(0.93 0 0);
-  --cronus-surface-base: oklch(0.11 0 0);
-  --cronus-surface-inset: oklch(0.13 0 0);
-  --cronus-surface-raised: oklch(0.16 0 0);
-  --cronus-surface-overlay: oklch(0.2 0 0);
-  --cronus-surface-elevated: oklch(0.23 0 0);
-  --cronus-surface-floating: oklch(0.165 0 0);
-  --cronus-fg: oklch(0.93 0 0);
-  --cronus-fg-secondary: oklch(0.7 0 0);
-  --cronus-fg-tertiary: oklch(0.62 0 0);
-  --cronus-fg-muted: oklch(0.44 0 0);
-  --cronus-fg-inverse: oklch(0.11 0 0);
-  --cronus-border: oklch(1 0 0 / 0.1);
-  --cronus-border-strong: oklch(1 0 0 / 0.16);
-  --cronus-border-soft: oklch(1 0 0 / 0.06);
-  --cronus-ring: oklch(0.55 0 0);
-  --cronus-success: oklch(0.715 0.155 162.5);
-  --cronus-error: oklch(0.704 0.191 22.216);
-  --cronus-error-text: oklch(0.704 0.191 22.216);
+html[data-cronus-theme] h1, html[data-cronus-theme] h2, html[data-cronus-theme] h3 {
+  font-weight: 400;
 }
-"#;
+html[data-cronus-theme] h1 { letter-spacing: -0.03em; }
+html[data-cronus-theme] h2, html[data-cronus-theme] .text-4xl { letter-spacing: -0.025em; }
+html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -0.02em; }
 
-const MIDNIGHT_DARK: &str = r#"[data-cronus-theme="midnight"] {
-  --cronus-primary: oklch(0.55 0.205 280);
-  --cronus-primary-foreground: oklch(0.985 0.005 285);
-  --cronus-primary-text: oklch(0.665 0.205 280);
-  --cronus-accent: oklch(0.53 0.2 292);
-  --cronus-ring: oklch(0.55 0.205 280);
+[data-slot="button"].cui-btn, [data-slot="button"] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  white-space: nowrap; border-radius: var(--cronus-radius-lg); font-weight: 500;
+  line-height: 1; cursor: pointer; text-decoration: none;
+  outline: none; border: 1px solid transparent;
+  font-family: inherit;
+  transition: background 150ms var(--ease-out-quart), box-shadow 150ms var(--ease-out-quart),
+    transform 150ms var(--ease-out-quart), opacity 150ms var(--ease-out-quart), border-color 150ms;
 }
-"#;
-
-const MIDNIGHT_LIGHT: &str = r#"[data-cronus-theme="midnight"][data-cronus-mode="light"] {
-  color-scheme: light;
-  --cronus-primary: oklch(0.55 0.205 280);
-  --cronus-primary-text: oklch(0.528 0.205 280);
-  --cronus-ring: oklch(0.55 0.205 280);
+[data-slot="button"]:active { transform: scale(0.98); }
+[data-slot="button"][data-size="sm"] { height: 2rem; padding: 0 0.75rem; font-size: 0.75rem; }
+[data-slot="button"][data-size="md"], [data-slot="button"]:not([data-size]) { height: 2.5rem; padding: 0 1rem; font-size: 0.875rem; }
+[data-slot="button"][data-size="lg"] { height: 2.75rem; padding: 0 1.5rem; font-size: 1rem; }
+[data-slot="button"][data-size="icon"] { height: 2.25rem; width: 2.25rem; padding: 0; }
+[data-slot="button"][data-size="icon-sm"] { height: 2rem; width: 2rem; padding: 0; }
+[data-slot="button"][data-variant="primary"], [data-slot="button"]:not([data-variant]) {
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+  box-shadow: var(--cronus-shadow-xs, 0 1px 2px rgba(0,0,0,.2));
 }
-"#;
-
-const SUNSET_DARK: &str = r#"[data-cronus-theme="sunset"] {
-  --cronus-primary: oklch(0.78 0.16 65);
-  --cronus-primary-foreground: oklch(0.24 0.05 55);
-  --cronus-primary-text: oklch(0.78 0.16 65);
-  --cronus-accent: oklch(0.585 0.22 18);
-  --cronus-ring: oklch(0.78 0.16 65);
+[data-slot="button"][data-variant="primary"]:hover { opacity: 0.9; }
+[data-slot="button"][data-variant="secondary"] {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+  border-color: var(--cronus-border);
 }
-"#;
-
-const SUNSET_LIGHT: &str = r#"[data-cronus-theme="sunset"][data-cronus-mode="light"] {
-  color-scheme: light;
-  --cronus-primary: oklch(0.78 0.16 65);
-  --cronus-primary-text: oklch(0.55 0.16 55);
-  --cronus-ring: oklch(0.78 0.16 65);
+[data-slot="button"][data-variant="outline"] {
+  background: transparent; color: var(--cronus-fg); border-color: var(--cronus-border);
+  box-shadow: var(--cronus-shadow-xs, none);
 }
-"#;
-
-const EMERALD_DARK: &str = r#"[data-cronus-theme="emerald"] {
-  --cronus-primary: oklch(0.72 0.15 162);
-  --cronus-primary-foreground: oklch(0.145 0.005 285.8);
-  --cronus-primary-text: oklch(0.72 0.15 162);
-  --cronus-accent: oklch(0.7 0.12 195);
-  --cronus-ring: oklch(0.72 0.15 162);
+[data-slot="button"][data-variant="outline"]:hover { background: var(--cronus-surface-overlay); }
+[data-slot="button"][data-variant="ghost"] {
+  background: transparent; color: var(--cronus-fg-secondary); border-color: transparent;
 }
-"#;
+[data-slot="button"][data-variant="ghost"]:hover { background: var(--cronus-surface-overlay); color: var(--cronus-fg); }
+[data-slot="button"][data-variant="destructive"] {
+  background: color-mix(in oklch, var(--cronus-error), black 30%); color: #fff;
+}
+[data-slot="button"][data-variant="link"] {
+  background: transparent; color: var(--cronus-primary-text); border: 0;
+  text-underline-offset: 4px;
+}
+[data-slot="button"][data-variant="link"]:hover { text-decoration: underline; }
 
-const EMERALD_LIGHT: &str = r#"[data-cronus-theme="emerald"][data-cronus-mode="light"] {
-  color-scheme: light;
-  --cronus-primary: oklch(0.5 0.14 162);
-  --cronus-primary-text: oklch(0.45 0.14 162);
-  --cronus-ring: oklch(0.5 0.14 162);
+[data-slot="input"], [data-slot$="-control"]:is(input, textarea, select) {
+  display: flex; height: 2.5rem; width: 100%; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+  padding: 0 0.75rem; font-size: 0.875rem; font-family: inherit;
+  transition: border-color 150ms var(--ease-out-quart), box-shadow 150ms var(--ease-out-quart);
+}
+textarea[data-slot], [data-slot="textarea"] textarea, [data-slot="rich-text-editor"] textarea {
+  height: auto; padding: 0.6rem 0.75rem;
+}
+[data-slot="input"]::placeholder { color: var(--cronus-fg-tertiary); }
+
+[data-slot="badge"] {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
+  padding: 0.125rem 0.5rem; font-size: 0.75rem; font-weight: 500;
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
+[data-slot="badge"][data-variant="primary"] {
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground); border-color: transparent;
+}
+[data-slot="badge"][data-variant="destructive"], [data-slot="badge"][data-variant="error"] {
+  background: color-mix(in oklch, var(--cronus-error) 15%, transparent);
+  color: var(--cronus-error-text); border-color: transparent;
+}
+
+[data-slot="card"], [data-slot="glass-card"], [data-slot="spotlight-card"] {
+  background: var(--cronus-surface-raised); border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none);
+}
+
+[data-slot="alert"] {
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-raised);
+}
+
+[data-slot="dialog-content"], dialog[data-slot] {
+  background: var(--cronus-surface-floating); border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-lg, none);
+  color: var(--cronus-fg);
+}
+
+[data-slot="tabs"] [role="tab"][aria-selected="true"] {
+  color: var(--cronus-fg); border-bottom-color: var(--cronus-primary);
+}
+[data-slot="table"] table, [data-slot="data-table"] table {
+  font-size: 0.875rem;
 }
 "#;
 
@@ -364,12 +259,16 @@ mod tests {
         let html = button("Save", "primary", "md", None);
         assert!(html.contains("data-slot=\"button\""));
         assert!(html.contains("data-variant=\"primary\""));
+        assert!(html.contains("data-size=\"md\""));
+        assert!(html.contains("class=\"cui-btn\""));
         assert!(html.contains("type=\"button\""));
-        assert!(html.contains("--cronus-primary"));
         assert!(!html.contains("uppercase"));
         assert!(!html.contains("zinc-"));
         assert!(!html.contains("amber-"));
         assert!(html.starts_with("<button"));
+        let css = token_css("aurora", "dark");
+        assert!(css.contains("background: var(--cronus-primary)"));
+        assert!(css.contains("height: 2.5rem"));
     }
 
     #[test]
@@ -378,8 +277,9 @@ mod tests {
         assert!(html.starts_with("<a "));
         assert!(html.contains("href=\"/docs\""));
         assert!(html.contains("data-variant=\"link\""));
-        assert!(html.contains("--cronus-primary-text"));
         assert!(!html.contains("type="));
+        let css = token_css("aurora", "dark");
+        assert!(css.contains("color: var(--cronus-primary-text)"));
     }
 
     #[test]
@@ -388,16 +288,30 @@ mod tests {
         let b = button("Delete", "danger", "md", None);
         assert!(a.contains("data-variant=\"destructive\""));
         assert!(b.contains("data-variant=\"destructive\""));
-        assert!(a.contains("--cronus-error"));
-        assert!(a.contains("#fff")); // CONTRACT: text-white on darkened error fill
+        let css = token_css("aurora", "dark");
+        assert!(css.contains("color-mix(in oklch, var(--cronus-error), black 30%)"));
+        assert!(css.contains("color: #fff"));
     }
 
     #[test]
     fn button_sizes() {
         let sm = button("A", "primary", "sm", None);
         let icon = button("A", "primary", "icon", None);
-        assert!(sm.contains("2rem"));
-        assert!(icon.contains("width:2.25rem"));
+        assert!(sm.contains("data-size=\"sm\""));
+        assert!(icon.contains("data-size=\"icon\""));
+        let css = token_css("legacy", "dark");
+        assert!(css.contains("[data-size=\"sm\"] { height: 2rem"));
+        assert!(css.contains("[data-size=\"icon\"] { height: 2.25rem"));
+    }
+
+    #[test]
+    fn aurora_tokens_match_vendored_css() {
+        let css = token_css("aurora", "dark");
+        assert!(css.contains("oklch(0.685 0.169 237.3)"));
+        assert!(css.contains("--cronus-font-display"));
+        assert!(css.contains("--cronus-shadow-glow"));
+        assert!(css.contains("--cronus-chart-1"));
+        assert!(css.contains("letter-spacing: -0.03em"));
     }
 
     #[test]

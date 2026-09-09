@@ -56,6 +56,8 @@ There is no Cronus syntax for `@click` or `{ n }`. Live values = extend the **ke
 
 **Bind:** `section metric { bind Lead { query count } }` and `section data-table { bind Lead { query all } }` paint from SQLite. **Form + ScriptCronus:** with Voodoo on, a bound form gets `v-submit="/api/lead"`; POST still runs `on Lead.create` in `.scriptcronus`. Scaffold: `cronus new aurora`.
 
+**Pixels:** named presets inject the real `tokens.css` (not a hand copy). Button/input/badge/card/dialog use CVA sizes (`h-10` = 2.5rem, `rounded-lg` = `--cronus-radius`). `<html data-cronus-theme data-cronus-mode>`. Page chrome (heading tracking, weight 400) only when preset is set. Still not Radix portals.
+
 ## Kernel helpers (`src/voodoo.rs`) — only way to emit Voodoo attrs
 
 | helper | off | on |

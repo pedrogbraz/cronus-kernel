@@ -485,15 +485,21 @@ fn generate_css_vars(style: &Option<&StyleNode>, theme: &str) -> String {
     let border = cfg("border", def_border);
     let max_width = cfg("max-width", "1120px");
 
+    let preset = style
+        .and_then(|s| s.config.get("preset"))
+        .map(|s| s.as_str())
+        .unwrap_or("legacy");
+    let named = crate::cronus_ui::is_named_preset(preset);
+
     let radius = style
         .and_then(|s| s.radius.as_deref())
-        .unwrap_or("8px");
+        .unwrap_or(if named { "14px" } else { "8px" });
     let radius_px = match radius {
         "sm" => "4px", "md" => "6px", "lg" => "8px", "xl" => "12px", "2xl" => "16px", "full" => "999px",
         other => other,
     };
 
-    let font = style.and_then(|s| s.font.as_deref()).unwrap_or("Inter");
+    let font = style.and_then(|s| s.font.as_deref()).unwrap_or(if named { "SF Pro Text" } else { "Inter" });
 
     // Compute accent-hover: use explicit value or darken accent
     let accent_hover = cfg("accent-hover", accent_hex);
@@ -503,11 +509,21 @@ fn generate_css_vars(style: &Option<&StyleNode>, theme: &str) -> String {
     let glow_2 = cfg("glow-2", &if is_light { "rgba(0,0,0,0.02)".to_string() } else { "rgba(210,119,255,0.04)".to_string() });
     let glow_3 = cfg("glow-3", &if is_light { "rgba(0,0,0,0.01)".to_string() } else { "rgba(129,236,255,0.03)".to_string() });
 
-    let preset = style
-        .and_then(|s| s.config.get("preset"))
-        .map(|s| s.as_str())
-        .unwrap_or("legacy");
     let cronus_ui = crate::cronus_ui::token_css(preset, theme);
+
+    let (bg, surface, text, text_muted, border, radius_px, font) = if named {
+        (
+            "var(--cronus-surface-base)".to_string(),
+            "var(--cronus-surface-raised)".to_string(),
+            "var(--cronus-fg)".to_string(),
+            "var(--cronus-fg-secondary)".to_string(),
+            "var(--cronus-border)".to_string(),
+            radius_px.to_string(),
+            format!("var(--cronus-font-sans, '{font}', system-ui, sans-serif)"),
+        )
+    } else {
+        (bg, surface, text, text_muted, border, radius_px.to_string(), format!("'{font}', system-ui, -apple-system, sans-serif"))
+    };
 
     format!(
         r#":root {{
@@ -520,7 +536,7 @@ fn generate_css_vars(style: &Option<&StyleNode>, theme: &str) -> String {
   --cronus-border: {border};
   --cronus-radius: {radius_px};
   --cronus-max-w: {max_width};
-  --cronus-font: '{font}', system-ui, -apple-system, sans-serif;
+  --cronus-font: {font};
   --cronus-glow-1: {glow_1};
   --cronus-glow-2: {glow_2};
   --cronus-glow-3: {glow_3};
@@ -546,6 +562,16 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str, style_node
 pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_node: Option<&StyleNode>, tailwind_config_js: Option<&str>) -> String {
     let is_light = theme == "light";
     let html_class = if is_light { "light" } else { "dark" };
+    let preset = style_node
+        .and_then(|s| s.config.get("preset"))
+        .map(|s| s.as_str())
+        .unwrap_or("legacy");
+    let theme_attrs = if crate::cronus_ui::is_named_preset(preset) {
+        let mode = if is_light { "light" } else { "dark" };
+        format!(" data-cronus-theme=\"{preset}\" data-cronus-mode=\"{mode}\"")
+    } else {
+        String::new()
+    };
     let sel_bg = if is_light { "rgba(0,0,0,0.08)" } else { "rgba(0,111,240,0.3)" };
     let scroll_thumb = if is_light { "rgba(0,0,0,0.1)" } else { "rgba(255,255,255,0.1)" };
     let grid_line = if is_light { "rgba(0,0,0,0.05)" } else { "rgba(255,255,255,0.03)" };
@@ -650,7 +676,7 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
 
     format!(
         r##"<!DOCTYPE html>
-<html class="{html_class}" lang="en">
+<html class="{html_class}" lang="en"{theme_attrs}>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1492,6 +1518,7 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
 </html>"##,
         app_name = app_name,
         html_class = html_class,
+        theme_attrs = theme_attrs,
         tw_config_script = tw_config_script,
         head_styles = head_styles,
         css_vars = css_vars, sel_bg = sel_bg, scroll_thumb = scroll_thumb, grid_line = grid_line,
