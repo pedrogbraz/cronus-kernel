@@ -407,7 +407,13 @@ pub(super) fn render_inline_component(comp: &ComponentNode, style: &str) -> Stri
             .find(|i| i.link.is_some())
             .and_then(|i| i.link.as_deref());
         let disabled = comp.props.get("disabled").map(|s| s == "true").unwrap_or(false);
-        crate::cronus_ui::button_ex(label, variant, size, href, disabled)
+        // Opt-in: `style:button+primary+md` (cronus-ui). Anything else keeps
+        // the legacy kernel Button so existing demos do not change.
+        if style.contains("button") {
+            crate::cronus_ui::button_ex(label, variant, size, href, disabled)
+        } else {
+            components::button(label, variant, size, href)
+        }
     }
 }
 

@@ -10,7 +10,7 @@ use super::{CRONUS_ANIMATIONS_CSS, CRONUS_ANIMATIONS_JS};
 pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &str) -> String {
     format!(
         r#"<!DOCTYPE html>
-<html lang="pt-BR" data-cronus-theme="aurora" data-cronus-mode="dark">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -123,7 +123,7 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
 </html>"#,
         app_name = app_name,
         body = body,
-        cronus_ui_css = crate::cronus_ui::token_css("aurora", "dark"),
+        cronus_ui_css = crate::cronus_ui::token_css("legacy", "dark"),
         tailwind_css = crate::tailwind::CRONUS_TAILWIND,
         animations_css = crate::animations::CRONUS_ANIMATIONS,
         anim_css = CRONUS_ANIMATIONS_CSS,
@@ -193,7 +193,7 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
 
     format!(
         r##"<!DOCTYPE html>
-<html lang="en" class="dark" data-cronus-theme="aurora" data-cronus-mode="dark">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -407,7 +407,7 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
         animate_js = crate::animations::CRONUS_ANIMATE_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
         action_js = crate::runtime_js::CRONUS_ACTION_JS,
-        cronus_ui_css = crate::cronus_ui::token_css("aurora", "dark"),
+        cronus_ui_css = crate::cronus_ui::token_css("legacy", "dark"),
     )
 }
 
@@ -506,7 +506,7 @@ fn generate_css_vars(style: &Option<&StyleNode>, theme: &str) -> String {
     let preset = style
         .and_then(|s| s.config.get("preset"))
         .map(|s| s.as_str())
-        .unwrap_or("aurora");
+        .unwrap_or("legacy");
     let cronus_ui = crate::cronus_ui::token_css(preset, theme);
 
     format!(

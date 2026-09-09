@@ -8,8 +8,20 @@
 //! Values copied from `@cronus-ui/tokens` (aurora / neutral × light / dark).
 //! Components use ONLY `var(--cronus-*)` — no palette scales (`zinc-900`).
 
-/// Token CSS for `:root` / `[data-cronus-theme]`.
+/// Token CSS.
+///
+/// Always emits **fallback aliases** on `:root` so `--cronus-*` exists without
+/// stealing existing `--background` / `--foreground` (legacy theme keeps working).
+/// Cronus-ui palettes apply only under `[data-cronus-theme="aurora"|...]`.
 pub fn token_css(preset: &str, mode: &str) -> String {
+    let preset = preset.trim();
+    if preset.is_empty()
+        || preset == "legacy"
+        || preset == "obsidian"
+        || preset == "default"
+    {
+        return FALLBACK_ROOT.to_string();
+    }
     let dark = mode != "light";
     let (p, mode) = match (preset, dark) {
         ("neutral", true) => ("neutral", "dark"),
@@ -23,8 +35,9 @@ pub fn token_css(preset: &str, mode: &str) -> String {
         (_, false) => ("aurora", "light"),
         _ => ("aurora", "dark"),
     };
-    format!(
-        "{}\n{}",
+    let mut css = format!(
+        "{}\n{}\n{}",
+        FALLBACK_ROOT,
         AURORA_BASE,
         match (p, mode) {
             ("aurora", "light") => AURORA_LIGHT,
@@ -38,7 +51,12 @@ pub fn token_css(preset: &str, mode: &str) -> String {
             ("emerald", "light") => EMERALD_LIGHT,
             _ => "",
         }
-    )
+    );
+    // Author opted in via `style { preset aurora }` — apply on :root too.
+    let needle = format!("[data-cronus-theme=\"{p}\"] {{");
+    let repl = format!(":root, [data-cronus-theme=\"{p}\"] {{");
+    css = css.replacen(&needle, &repl, 1);
+    css
 }
 
 /// Button matching cronus-ui CONTRACT: semantic tokens, variants, sizes,
@@ -115,8 +133,27 @@ pub fn button_ex(
     )
 }
 
-// Aurora dark is the default (cooud / cronus-ui dark-first).
-const AURORA_BASE: &str = r#":root, [data-cronus-theme="aurora"] {
+/// Aliases so `--cronus-*` exists on legacy pages without overriding
+/// `--background` / `--foreground` / Obsidian.
+const FALLBACK_ROOT: &str = r#":root {
+  --cronus-primary: var(--primary, #0ea5e9);
+  --cronus-primary-foreground: var(--background, #09090b);
+  --cronus-primary-text: var(--cronus-primary);
+  --cronus-accent: var(--accent, var(--cronus-primary));
+  --cronus-surface-base: var(--cronus-bg, var(--background, #09090b));
+  --cronus-surface-overlay: var(--surface, var(--cronus-surface, #18181b));
+  --cronus-fg: var(--foreground, var(--cronus-text, #fafaf9));
+  --cronus-fg-secondary: var(--foreground-muted, var(--cronus-text-muted, #a1a1aa));
+  --cronus-border: var(--border, oklch(1 0 0 / 0.1));
+  --cronus-ring: var(--cronus-primary);
+  --cronus-error: var(--danger, var(--error, #f43f5e));
+  --cronus-ease: cubic-bezier(.22, 1, .36, 1);
+}
+"#;
+
+// Aurora dark — scoped so it does NOT replace the legacy theme unless
+// the page opts in with data-cronus-theme="aurora" (or style.preset).
+const AURORA_BASE: &str = r#"[data-cronus-theme="aurora"] {
   color-scheme: dark;
   --cronus-primary: oklch(0.685 0.169 237.3);
   --cronus-primary-foreground: oklch(0.145 0.005 285.8);
@@ -304,6 +341,15 @@ mod tests {
         assert!(css.contains("--cronus-fg:"));
         assert!(css.contains("--cronus-error:"));
         assert!(!css.contains("zinc-900"));
+        assert!(css.contains(":root, [data-cronus-theme=\"aurora\"]"));
+    }
+
+    #[test]
+    fn legacy_preset_does_not_force_aurora_root() {
+        let css = token_css("legacy", "dark");
+        assert!(css.contains("--cronus-primary: var(--primary"));
+        assert!(!css.contains("oklch(0.685 0.169 237.3)"));
+        assert!(!css.contains("color-scheme: dark"));
     }
 
     #[test]

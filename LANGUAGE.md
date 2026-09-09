@@ -296,7 +296,10 @@ This syntax — parameters, `state`, `template` with signals and `@click`/mustac
 
 **What DOES work**: reusable section presets via the `component Name { ... }` block (parser exists, AST node `AstNode::Component`), referenced from pages via `use Component` or inline. It's useful for shared card/layout snippets, not for reactive widgets.
 
-**Button + tokens (REAL, 2026-09)**: `src/cronus_ui.rs` paints cronus-ui semantic `--cronus-*` vars (aurora/neutral/midnight/sunset/emerald × light/dark). `component Save layout:inline style:button+primary+md` (or `variant "primary"`) renders a CONTRACT button: `data-slot`, `data-variant`, focus-visible tokens, `href` → `<a>`, `destructive` (alias `danger`). No zinc/amber hardcodes. Authoring stays `.cronus` — HTML is kernel output.
+**Button + tokens (REAL, 2026-09, dual theme)**:
+- **Legacy (default):** existing Obsidian Button (`uppercase`, `--foreground`) — `style:primary` without `button+`. Demos do not change.
+- **Cronus UI (opt-in):** `style { preset aurora }` + `style:button+primary+md` → `--cronus-*` from `@cronus-ui/tokens`, CONTRACT Button (`data-slot`, `destructive` alias `danger`).
+- Pages without `preset` only get fallback aliases (`--cronus-primary: var(--primary)`). They do not steal `--background`. Authoring stays `.cronus`.
 
 If you need React-like reactivity, use `.scriptcronus` event handlers + `live true` binding instead (§10).
 
