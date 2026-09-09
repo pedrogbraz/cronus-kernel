@@ -16,9 +16,9 @@
 use crate::parser::StyleNode;
 use std::future::Future;
 
-/// Pinned essential build (directives, forms, UI). Not `.full` — that one
-/// ships the JSX interpreter, which must never become Cronus authoring.
-pub const SCRIPT_SRC: &str = "https://cdn.jsdelivr.net/npm/voodoojs@0.13.0/dist/voodoo.min.js";
+/// Pinned Voodoo.js CDN (full build). Injected into **emitted HTML** only.
+/// `.cronus` authoring stays `.cronus` — JSX is not a source language here.
+pub const SCRIPT_SRC: &str = "https://cdn.jsdelivr.net/npm/voodoojs@0.13.0/dist/voodoo.full.min.js";
 
 tokio::task_local! {
     static ENABLED: bool;
