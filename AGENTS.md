@@ -4,7 +4,7 @@ Instructions for AI agents working on this codebase. **Read the whole file befor
 
 > **Authoritative language spec: `LANGUAGE.md` at kernel root.** This file is the short cheatsheet; `LANGUAGE.md` is the full, verified, code-cross-referenced reference. When in doubt, trust `LANGUAGE.md`.
 >
-> **Voodoo.js runtime contract: `VOODOO.md` at kernel root.** Read it before emitting `v-data` / JSX / interactivity. Voodoo is opt-in HTML runtime, never the authoring language.
+> **Voodoo.js runtime:** paste **`llms.txt`** first (compact). Full contract: `VOODOO.md`. Voodoo is opt-in HTML runtime, never the authoring language. Do not emit JSX into `.cronus`.
 >
 > Last verified: 2026-09-09. If a claim here doesn't match reality, trust the code, fix this file, and update the "Last verified" line.
 
@@ -48,6 +48,7 @@ cronus-kernel/
 ├── AGENTS.md               # This file. CLAUDE.md is a symlink to it.
 ├── LANGUAGE.md             # Verified language spec.
 ├── VOODOO.md               # Cronus × Voodoo.js agent contract (opt-in runtime).
+├── llms.txt                # Compact LLM ingest for Cronus × Voodoo (paste into Claude/Grok).
 ├── src/
 │   ├── main.rs             # ~4213 LOC. HTTP server (hyper 1.x) + CLI dispatch.
 │   │                       # handle_request_inner starts at ~line 325. THIS IS THE LIVE DISPATCHER.

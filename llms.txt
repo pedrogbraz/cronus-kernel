@@ -1,0 +1,121 @@
+# Cronus × Voodoo.js
+
+> Cronus is the language (`.cronus`). Voodoo.js is the opt-in runtime of the HTML the kernel emits at `cronus run`. Never write JSX, HTML, or CSS in `.cronus`. Never make Voodoo the authoring language. Default is off so Obsidian demos (`style:primary`, `--foreground`) stay untouched.
+
+Paste this file into Claude/Grok/Cursor before emitting interactivity. Full contract: [VOODOO.md](VOODOO.md). Language: [LANGUAGE.md](LANGUAGE.md). Kernel: [AGENTS.md](AGENTS.md). Upstream Voodoo 0.13: https://github.com/kwy404/Voodoo.js · https://kwy404.github.io/Voodoo.js/docs/
+
+## Law
+
+Cronus owns `app` `entity` `page` `section` `component` `style` `bind` `auth` tokens widgets money-as-centavos. Kernel (Rust) parses and emits HTML. Voodoo binds `v-data` `v-model` `@click` `{ expr }` on that HTML **after** emit.
+
+`.cronus` → kernel → HTML (+ optional Voodoo script). Not the other way around.
+
+## Opt-in (either is enough)
+
+```cronus
+app "Name" { stack voodoo  port 4747 }
+style { theme dark  preset aurora  runtime voodoo }
+```
+
+Predicate: `src/voodoo.rs::wanted()` — `AppNode.stack` has `"voodoo"` OR `StyleNode.config["runtime"] == "voodoo"` (case-insensitive). Task-local via `scope()` around `handle_request_inner`. Never a process-wide AtomicBool.
+
+CDN (pinned, full build, injected only when on):
+
+```
+https://cdn.jsdelivr.net/npm/voodoojs@0.13.0/dist/voodoo.full.min.js
+```
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/voodoojs@0.13.0/dist/voodoo.full.min.js" data-cronus-runtime="voodoo" defer></script>
+```
+
+Injection: `html_response` → `voodoo::inject_into_html`. Idempotent. CSP already allows `cdn.jsdelivr.net`.
+
+## Never
+
+- JSX / HTML / CSS / `template "<button @click>"` in a `.cronus` file
+- Emit `{ count }` or `v-data` / `v-model` / `@click` / `v-show` / `:attr` unless `voodoo::enabled()`
+- Hijack `style:primary` (no `button+`) — that is the legacy Obsidian Button
+- Force `preset aurora` or `data-cronus-theme` on pages that did not ask
+- Palette scales (`zinc-900`, `bg-neutral-`). Tokens only: `var(--cronus-*)`
+- Alpine, React, HTMX, petite-vue as a second interaction layer
+- Edit `src/server/router.rs` or `src/server/api.rs` (dead, never compiled)
+- Store canonical money or auth only in `v-data`
+
+## Authoring (apps)
+
+Family = first `style` segment. Copy in official items: `label` `text` `title` `value` `item` `tab` `columns`.
+
+```cronus
+component Email layout:stack style:input { label "Email"  text "you@cooud.app" }
+component Agree layout:inline style:checkbox { label "I agree" }
+component Hits layout:inline style:button+primary+md { label "Save" }
+```
+
+There is no Cronus syntax for `@click` or `{ n }`. Live values = extend the **kernel renderer**, not the grammar. Demo: `demos/cronus-ui/widgets.cronus`.
+
+## Kernel helpers (`src/voodoo.rs`) — only way to emit Voodoo attrs
+
+| helper | off | on |
+|---|---|---|
+| `data("{ n: 0 }")` | `""` | ` v-data="{ n: 0 }"` |
+| `model("n")` | `""` | ` v-model="n"` |
+| `click("n++")` | `""` | ` @click="n++"` |
+| `show("n > 0")` | `""` | ` v-show="n > 0"` |
+| `bind("value", "n")` | `""` | ` :value="n"` |
+| `interp("n", "0")` | `"0"` | `{ n }` |
+
+In Rust `format!`, Voodoo `{ n }` is `{{ n }}` or `interp()`. `{ n }` as a format placeholder is a compile/runtime bug.
+
+Dispatch: `ui/component.rs` → `cronus_ui_widgets::render` → `cronus_ui_interact::render` first, else generic, else legacy. Unknown family / `style:primary` → `None` → legacy.
+
+New control: native HTML that works **off** (`<input>`, `<dialog>`, `<details>`, `<progress>`), then gated attrs. Put it in `cronus_ui_interact.rs`. Keep `scripts/gen_cronus_ui_widgets.py` calling interact first.
+
+## Widgets (style slug → native, Voodoo gated)
+
+- `checkbox` → `<input type=checkbox>` + `v-model="checked"`
+- `switch` `toggle` → `role=switch` + `v-model="on"`
+- `radio-group` `toggle-group` `segmented-control` → radiogroup + `v-model="value"`
+- `slider` → `type=range` + `v-model="value"` + `{ value }`
+- `progress` `usage-meter` `scroll-progress` → `<progress>` + `:value` + `{ value }`
+- `input` (+ password/number/tel/color/date/time/file) → `<input>` + `v-model="value"`
+- `textarea` `rich-text-editor` → `<textarea>` + `v-model="value"`
+- `select` `combobox` `autocomplete` `multi-select` `tags-input` → `<select>` + `v-model="value"`
+- `dialog` `alert-dialog` `sheet` `drawer` → `<dialog showModal>` (native first)
+- `tabs` `code-tabs` `expandable-tabs` → tablist + `v-data="{ tab: 0 }"` `@click` `v-show`
+- `accordion` `collapsible` → `<details>`
+- `table` `data-table` → `<table>`
+- `button` → `cronus_ui::button_ex` (CONTRACT). Not interact.
+- charts/fx → generic fallbacks in `cronus_ui_widgets.rs`
+
+`data-slot="<family>"` on the root. Dual theme: `style:button+primary+md` + `preset aurora` is cronus-ui; `style:primary` is Obsidian.
+
+## Voodoo on emitted HTML (not in `.cronus`)
+
+State: `v-data` `v-model` `v-if` `v-else` `v-show` `v-for` `:class` `:style` `@click` `{ expr }` (single brace). HTTP: `v-get` `v-post` `v-delete` `v-resource` `v-submit` `v-confirm` `v-toast-success`. JS: `V.reactive` `V.http` `V.store` `V.component`. Cronus still owns routes, auth, entities. Do not add a second Voodoo router for a Cronus app.
+
+`v-*` attributes are stripped from the live DOM after bind — query `data-*` / classes, not `[v-model]`. No `eval`. No `style={{ ... }}`; use `:style`.
+
+## Files
+
+- [VOODOO.md](VOODOO.md): full agent contract (never/helpers/recipe/tests)
+- [LANGUAGE.md](LANGUAGE.md): verified Cronus spec. §6 = components + this runtime
+- [AGENTS.md](AGENTS.md): kernel rules. `CLAUDE.md` is a symlink to it
+- `src/voodoo.rs` `src/cronus_ui_interact.rs` `src/cronus_ui_widgets.rs` `src/cronus_ui.rs`
+- `demos/cronus-ui/widgets.cronus` `demos/cronus-ui/button.cronus`
+
+## Tests
+
+```
+cargo test cronus_ui
+cargo test voodoo
+```
+
+Must keep: 173 families, no zinc/amber, `style:primary` → None, real tags off, no `v-data` off, no script off, `legacy_button_unchanged`, no hardcoded brand in declarative layout. Environmental fail OK: `dump::detect::tests::test_hero_extraction_developer_landing` (Zedd Linux path). Unrelated.
+
+## Optional
+
+- [Voodoo.js README](https://github.com/kwy404/Voodoo.js#readme): runtime API
+- [Voodoo directives](https://kwy404.github.io/Voodoo.js/docs/referencia/directives.html)
+- [Voodoo CONVENTIONS.md](https://github.com/kwy404/Voodoo.js/blob/main/CONVENTIONS.md): `V.*` / `v-*` / `@` / `:` / `$`
+- [cronus-ui /llms.txt](https://ui.cronus.dev/llms.txt): the React design-system sibling — do not mix into `.cronus`

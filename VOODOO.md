@@ -1,7 +1,8 @@
 # VOODOO.md — Cronus × Voodoo.js
 
 > **Read this before emitting Voodoo, writing JSX, or “adding interactivity” to a `.cronus` app.**
-> Language spec: `LANGUAGE.md`. Kernel rules: `AGENTS.md`. This file is the contract for the **opt-in HTML runtime**.
+> Compact ingest for Claude/Grok: **`llms.txt`** at kernel root (paste that first).
+> Language spec: `LANGUAGE.md`. Kernel rules: `AGENTS.md`. This file is the full contract for the **opt-in HTML runtime**.
 >
 > Verified against `src/voodoo.rs`, `src/cronus_ui_interact.rs`, `src/cronus_ui_widgets.rs` (2026-09).
 
@@ -246,6 +247,7 @@ A named preset also applies on `:root` **for that page**, because the author wro
 ## 8. File map
 
 ```
+llms.txt                        compact LLM ingest (paste this first)
 VOODOO.md                       this contract
 LANGUAGE.md                     §6 mentions the runtime; this file is the full contract
 AGENTS.md                       kernel rules; points here
