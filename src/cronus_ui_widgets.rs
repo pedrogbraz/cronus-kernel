@@ -187,6 +187,9 @@ pub fn render(comp: &ComponentNode) -> Option<String> {
     if family.is_empty() {
         return None;
     }
+    if let Some(html) = crate::cronus_ui_interact::render(family, comp) {
+        return Some(html);
+    }
     let html = match family {
         "accordion" => nav("accordion", comp),
         "alert" => display("alert", comp),
@@ -573,5 +576,54 @@ mod tests {
         let mut c = stub("button");
         c.style = Some("primary".into());
         assert!(render(&c).is_none());
+    }
+
+    #[test]
+    fn interactive_families_emit_real_controls() {
+        let cases = [
+            ("checkbox", "type=\"checkbox\""),
+            ("switch", "role=\"switch\""),
+            ("input", "<input"),
+            ("textarea", "<textarea"),
+            ("select", "<select"),
+            ("dialog", "<dialog"),
+            ("accordion", "<details"),
+            ("tabs", "role=\"tablist\""),
+            ("table", "<table"),
+            ("progress", "<progress"),
+            ("slider", "type=\"range\""),
+            ("radio-group", "role=\"radiogroup\""),
+        ];
+        for (family, needle) in cases {
+            let html = render(&stub(family)).expect(family);
+            assert!(html.contains(needle), "{family} missing {needle}: {html}");
+            assert!(!html.contains("{ value }"), "{family} leaked voodoo interp");
+            assert!(!html.contains("v-data="), "{family} leaked v-data without opt-in");
+            assert!(!html.contains("v-model="), "{family} leaked v-model without opt-in");
+            assert!(!html.contains("zinc-"), "{family} used zinc palette");
+        }
+    }
+
+    #[test]
+    fn voodoo_attrs_only_when_runtime_on() {
+        crate::voodoo::with_enabled(true, || {
+            let html = render(&stub("checkbox")).unwrap();
+            assert!(html.contains("v-data="));
+            assert!(html.contains("v-model="));
+            let progress = render(&stub("progress")).unwrap();
+            assert!(progress.contains("{ value }") || progress.contains("v-data="));
+            let tabs = render(&stub("tabs")).unwrap();
+            assert!(tabs.contains("@click=") || tabs.contains("v-data="));
+        });
+        let off = render(&stub("checkbox")).unwrap();
+        assert!(!off.contains("v-data="));
+        assert!(!off.contains("{ value }"));
+    }
+
+    #[test]
+    fn voodoo_off_does_not_inject_script() {
+        let page = crate::ui::render_layout("Legacy", &[], "blue", "<p>ok</p>");
+        assert!(!page.contains("voodoojs"));
+        assert!(!page.contains("data-cronus-runtime"));
     }
 }

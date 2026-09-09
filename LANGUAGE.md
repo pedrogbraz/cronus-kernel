@@ -301,8 +301,10 @@ This syntax — parameters, `state`, `template` with signals and `@click`/mustac
 - **Cronus UI (opt-in):** `style { preset aurora }` + `style:button+primary+md` → `--cronus-*` from `@cronus-ui/tokens`, CONTRACT Button (`data-slot`, `destructive` alias `danger`).
 - Pages without `preset` only get fallback aliases (`--cronus-primary: var(--primary)`). They do not steal `--background`. Authoring stays `.cronus`.
 - **173 families (REAL opt-in):** `src/cronus_ui_widgets.rs` renders every cronus-ui family when `style` starts with that slug (`dialog`, `input`, `area-chart`, …). Legacy `style:primary` / `style:metric` is unchanged.
+- **Native controls (REAL):** interactive families emit real HTML (`<input type=checkbox>`, `<dialog>`, `<details>`, `<progress>`, `<table>`, tablist). They work without a JS framework.
+- **Voodoo runtime (REAL opt-in, not authoring):** `app { stack voodoo }` or `style { runtime voodoo }` injects the pinned Voodoo.js essential build into the **emitted HTML** and adds `v-data` / `v-model` / `@click` / `{ expr }` on those controls. `.cronus` source stays `.cronus` — no JSX, no HTML, no CSS in authoring. Off by default so Obsidian demos do not load it. Interpolations are gated: `{ count }` is never written unless the runtime is on.
 
-If you need React-like reactivity, use `.scriptcronus` event handlers + `live true` binding instead (§10).
+If you need React-like reactivity without Voodoo, use `.scriptcronus` event handlers + `live true` binding instead (§10).
 
 ---
 

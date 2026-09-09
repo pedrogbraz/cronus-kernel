@@ -48,7 +48,9 @@ mod tailwind;
 mod testing;
 mod theme;
 mod cronus_ui;
+mod cronus_ui_interact;
 mod cronus_ui_widgets;
+mod voodoo;
 mod navigation;
 mod security;
 mod ui;
@@ -258,7 +260,12 @@ async fn handle_request(
         return Ok(json_response(StatusCode::OK, serde_json::to_value(&traces).unwrap_or(json!([]))));
     }
 
-    let mut resp = handle_request_inner(req, state.clone(), remote_addr).await?;
+    let voodoo_on = crate::voodoo::wanted(&state.app.stack, state.style.as_ref());
+    let mut resp = crate::voodoo::scope(
+        voodoo_on,
+        handle_request_inner(req, state.clone(), remote_addr),
+    )
+    .await?;
 
     let duration_ms = req_start.elapsed().as_millis() as u64;
     let queries = database::query_count();

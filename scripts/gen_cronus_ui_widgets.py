@@ -138,6 +138,9 @@ pub fn render(comp: &ComponentNode) -> Option<String> {
     if family.is_empty() {
         return None;
     }
+    if let Some(html) = crate::cronus_ui_interact::render(family, comp) {
+        return Some(html);
+    }
     let html = match family {
 $arms
         _ => return None,

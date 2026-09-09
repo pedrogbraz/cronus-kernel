@@ -44,6 +44,7 @@ pub(crate) fn json_response(status: StatusCode, body: Value) -> Response<Full<By
 
 pub(crate) fn html_response(body: String) -> Response<Full<Bytes>> {
     let mut final_body = inject_audit_if_enabled(body);
+    final_body = crate::voodoo::inject_into_html(final_body);
     // Inject SSE client JS into every HTML page (before </body>)
     if final_body.contains("</body>") {
         let sse_script = format!("<script>{}</script>", crate::sse::SSE_CLIENT_JS);

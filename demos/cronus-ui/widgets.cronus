@@ -1,0 +1,84 @@
+## Cronus UI widgets + optional Voodoo runtime.
+## Authoring stays .cronus. Kernel emits HTML. Voodoo is stack opt-in.
+
+app "CronusUIWidgets" {
+  stack voodoo
+  port 5300
+}
+
+style {
+  theme dark
+  preset aurora
+  runtime voodoo
+  accent "#0ea5e9"
+  font "Inter"
+  radius 14px
+  accent-hex "#0ea5e9"
+  background "#09090b"
+  surface "#111113"
+  text "#fafaf9"
+}
+
+component Save layout:inline style:button+primary+md {
+  label "Save"
+}
+
+component Email layout:stack style:input {
+  label "Email"
+  text "you@cooud.app"
+}
+
+component Notes layout:stack style:textarea {
+  label "Notes"
+}
+
+component Plan layout:stack style:select {
+  label "Plan"
+  item "Free"
+  item "Pro"
+}
+
+component Agree layout:inline style:checkbox {
+  label "I agree"
+}
+
+component Billing layout:inline style:switch {
+  label "Annual billing"
+}
+
+component Volume layout:stack style:slider {
+  label "Volume"
+  value "40"
+}
+
+component Upload layout:stack style:progress {
+  label "Upload"
+  value "64"
+}
+
+component Confirm layout:stack style:dialog {
+  title "Delete project"
+  text "This cannot be undone."
+}
+
+component Nav layout:stack style:tabs {
+  tab "Overview"
+  tab "Usage"
+  tab "Settings"
+}
+
+component Faq layout:stack style:accordion {
+  item "What is Cronus"
+  item "How do tokens work"
+}
+
+component People layout:stack style:table {
+  columns "Name"
+  columns "Role"
+}
+
+page "/" type:custom {
+  section stats {
+    title "Widget parity"
+  }
+}
