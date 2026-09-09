@@ -48,6 +48,7 @@ mod tailwind;
 mod testing;
 mod theme;
 mod cronus_ui;
+mod cronus_ui_widgets;
 mod navigation;
 mod security;
 mod ui;

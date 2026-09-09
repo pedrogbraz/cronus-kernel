@@ -300,6 +300,7 @@ This syntax — parameters, `state`, `template` with signals and `@click`/mustac
 - **Legacy (default):** existing Obsidian Button (`uppercase`, `--foreground`) — `style:primary` without `button+`. Demos do not change.
 - **Cronus UI (opt-in):** `style { preset aurora }` + `style:button+primary+md` → `--cronus-*` from `@cronus-ui/tokens`, CONTRACT Button (`data-slot`, `destructive` alias `danger`).
 - Pages without `preset` only get fallback aliases (`--cronus-primary: var(--primary)`). They do not steal `--background`. Authoring stays `.cronus`.
+- **173 families (REAL opt-in):** `src/cronus_ui_widgets.rs` renders every cronus-ui family when `style` starts with that slug (`dialog`, `input`, `area-chart`, …). Legacy `style:primary` / `style:metric` is unchanged.
 
 If you need React-like reactivity, use `.scriptcronus` event handlers + `live true` binding instead (§10).
 

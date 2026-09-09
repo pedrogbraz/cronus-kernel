@@ -320,6 +320,12 @@ pub(super) fn render_light_support_banner(comp: &ComponentNode) -> String {
     )
 }
 pub fn render_component(comp: &ComponentNode) -> String {
+    // Opt-in cronus-ui family: style:accordion / style:button+primary+md.
+    // Unknown / legacy styles (e.g. style:primary) return None and keep
+    // the original layout dispatchers.
+    if let Some(html) = crate::cronus_ui_widgets::render(comp) {
+        return html;
+    }
     let layout = comp.layout.as_deref().unwrap_or("stack");
     let style = comp.style.as_deref().unwrap_or("");
 

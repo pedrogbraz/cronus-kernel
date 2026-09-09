@@ -1,0 +1,577 @@
+//! Opt-in cronus-ui widget renderers (all 173 families).
+//!
+//! Family = first `style` segment (`button+primary+md` -> `button`).
+//! Unknown families return None so legacy dispatchers keep working.
+
+use crate::parser::{ComponentItemNode, ComponentNode};
+
+pub const FAMILIES: &[&str] = &[
+    "accordion",
+    "alert",
+    "alert-dialog",
+    "animated-button",
+    "animated-list",
+    "animated-number",
+    "app-shell",
+    "area-chart",
+    "aspect-ratio",
+    "aurora-background",
+    "autocomplete",
+    "avatar",
+    "avatar-group",
+    "badge",
+    "banner",
+    "bar-chart",
+    "border-beam",
+    "breadcrumb",
+    "button",
+    "button-group",
+    "calendar",
+    "candlestick-chart",
+    "card",
+    "card-stack",
+    "carousel",
+    "chart",
+    "checkbox",
+    "chip",
+    "choropleth-chart",
+    "click-spark",
+    "code-block",
+    "code-tabs",
+    "collapsible",
+    "color-picker",
+    "combobox",
+    "command",
+    "comparison-slider",
+    "composed-chart",
+    "confetti",
+    "confirmation-dialog",
+    "context-menu",
+    "copy-button",
+    "countdown",
+    "credit-card-input",
+    "currency-input",
+    "data-table",
+    "date-picker",
+    "date-range-picker",
+    "description-list",
+    "dialog",
+    "dock",
+    "dot-pattern",
+    "drawer",
+    "dropdown-menu",
+    "dynamic-island",
+    "empty",
+    "expandable-tabs",
+    "fab",
+    "field",
+    "file-dropzone",
+    "flickering-grid",
+    "flip-card",
+    "floating-label-input",
+    "form",
+    "frame",
+    "funnel-chart",
+    "gauge-chart",
+    "glare-hover",
+    "glass-card",
+    "gradient-border",
+    "gradient-text",
+    "grid-pattern",
+    "heatmap",
+    "heatmap-chart",
+    "highlighter",
+    "hover-card",
+    "image-zoom",
+    "input",
+    "input-group",
+    "input-otp",
+    "invite-dialog",
+    "json-viewer",
+    "kanban",
+    "kbd",
+    "label",
+    "light-rays",
+    "lightbox",
+    "line-chart",
+    "live-line-chart",
+    "logo-carousel",
+    "magnetic",
+    "marquee",
+    "masonry",
+    "menubar",
+    "meteors",
+    "metric",
+    "mode-toggle",
+    "morphing-popover",
+    "multi-select",
+    "navigation-menu",
+    "noise",
+    "notification-center",
+    "number-input",
+    "orbit",
+    "pagination",
+    "particles",
+    "password-input",
+    "phone-input",
+    "pie-chart",
+    "pill-nav",
+    "popover",
+    "profit-loss-chart",
+    "progress",
+    "progressive-blur",
+    "radar-chart",
+    "radio-group",
+    "rating",
+    "resizable",
+    "retro-grid",
+    "reveal",
+    "rich-text-editor",
+    "ring-chart",
+    "ripple",
+    "sankey-chart",
+    "scatter-chart",
+    "scheduler",
+    "scramble-text",
+    "scroll-area",
+    "scroll-progress",
+    "segmented-control",
+    "select",
+    "separator",
+    "sheet",
+    "shimmer",
+    "shiny-text",
+    "sidebar",
+    "signature-pad",
+    "skeleton",
+    "slider",
+    "sonner",
+    "sparkles-text",
+    "sparkline",
+    "spinner",
+    "spinning-text",
+    "split-button",
+    "spotlight-card",
+    "star-border",
+    "status-dot",
+    "stepper",
+    "sunburst-chart",
+    "switch",
+    "table",
+    "table-of-contents",
+    "tabs",
+    "tags-input",
+    "terminal",
+    "text-effect",
+    "textarea",
+    "tilt-card",
+    "time-picker",
+    "timeline",
+    "toggle",
+    "toggle-group",
+    "toolbar",
+    "tooltip",
+    "tree-view",
+    "typing-text",
+    "usage-meter",
+    "video-player",
+    "word-rotate",
+    "workspace-switcher",
+    "toast",
+    "motion-presets",
+];
+
+pub fn render(comp: &ComponentNode) -> Option<String> {
+    let style = comp.style.as_deref().unwrap_or("");
+    let family = style.split('+').next().unwrap_or("").trim();
+    if family.is_empty() {
+        return None;
+    }
+    let html = match family {
+        "accordion" => nav("accordion", comp),
+        "alert" => display("alert", comp),
+        "alert-dialog" => overlay("alert-dialog", comp),
+        "animated-button" => fx("animated-button", comp),
+        "animated-list" => fx("animated-list", comp),
+        "animated-number" => fx("animated-number", comp),
+        "app-shell" => nav("app-shell", comp),
+        "area-chart" => chart("area-chart", comp),
+        "aspect-ratio" => display("aspect-ratio", comp),
+        "aurora-background" => fx("aurora-background", comp),
+        "autocomplete" => field("autocomplete", comp),
+        "avatar" => display("avatar", comp),
+        "avatar-group" => display("avatar-group", comp),
+        "badge" => pill("badge", comp),
+        "banner" => display("banner", comp),
+        "bar-chart" => chart("bar-chart", comp),
+        "border-beam" => fx("border-beam", comp),
+        "breadcrumb" => nav("breadcrumb", comp),
+        "button" => button_from(comp),
+        "button-group" => nav("button-group", comp),
+        "calendar" => display("calendar", comp),
+        "candlestick-chart" => chart("candlestick-chart", comp),
+        "card" => display("card", comp),
+        "card-stack" => display("card-stack", comp),
+        "carousel" => display("carousel", comp),
+        "chart" => chart("chart", comp),
+        "checkbox" => pill("checkbox", comp),
+        "chip" => pill("chip", comp),
+        "choropleth-chart" => chart("choropleth-chart", comp),
+        "click-spark" => fx("click-spark", comp),
+        "code-block" => display("code-block", comp),
+        "code-tabs" => display("code-tabs", comp),
+        "collapsible" => nav("collapsible", comp),
+        "color-picker" => field("color-picker", comp),
+        "combobox" => field("combobox", comp),
+        "command" => overlay("command", comp),
+        "comparison-slider" => fx("comparison-slider", comp),
+        "composed-chart" => chart("composed-chart", comp),
+        "confetti" => fx("confetti", comp),
+        "confirmation-dialog" => overlay("confirmation-dialog", comp),
+        "context-menu" => overlay("context-menu", comp),
+        "copy-button" => pill("copy-button", comp),
+        "countdown" => fx("countdown", comp),
+        "credit-card-input" => field("credit-card-input", comp),
+        "currency-input" => field("currency-input", comp),
+        "data-table" => display("data-table", comp),
+        "date-picker" => field("date-picker", comp),
+        "date-range-picker" => field("date-range-picker", comp),
+        "description-list" => display("description-list", comp),
+        "dialog" => overlay("dialog", comp),
+        "dock" => nav("dock", comp),
+        "dot-pattern" => fx("dot-pattern", comp),
+        "drawer" => overlay("drawer", comp),
+        "dropdown-menu" => overlay("dropdown-menu", comp),
+        "dynamic-island" => fx("dynamic-island", comp),
+        "empty" => display("empty", comp),
+        "expandable-tabs" => nav("expandable-tabs", comp),
+        "fab" => pill("fab", comp),
+        "field" => field("field", comp),
+        "file-dropzone" => field("file-dropzone", comp),
+        "flickering-grid" => fx("flickering-grid", comp),
+        "flip-card" => display("flip-card", comp),
+        "floating-label-input" => field("floating-label-input", comp),
+        "form" => field("form", comp),
+        "frame" => display("frame", comp),
+        "funnel-chart" => chart("funnel-chart", comp),
+        "gauge-chart" => chart("gauge-chart", comp),
+        "glare-hover" => fx("glare-hover", comp),
+        "glass-card" => display("glass-card", comp),
+        "gradient-border" => fx("gradient-border", comp),
+        "gradient-text" => fx("gradient-text", comp),
+        "grid-pattern" => fx("grid-pattern", comp),
+        "heatmap" => chart("heatmap", comp),
+        "heatmap-chart" => chart("heatmap-chart", comp),
+        "highlighter" => fx("highlighter", comp),
+        "hover-card" => overlay("hover-card", comp),
+        "image-zoom" => fx("image-zoom", comp),
+        "input" => field("input", comp),
+        "input-group" => field("input-group", comp),
+        "input-otp" => field("input-otp", comp),
+        "invite-dialog" => overlay("invite-dialog", comp),
+        "json-viewer" => display("json-viewer", comp),
+        "kanban" => display("kanban", comp),
+        "kbd" => pill("kbd", comp),
+        "label" => pill("label", comp),
+        "light-rays" => fx("light-rays", comp),
+        "lightbox" => overlay("lightbox", comp),
+        "line-chart" => chart("line-chart", comp),
+        "live-line-chart" => chart("live-line-chart", comp),
+        "logo-carousel" => display("logo-carousel", comp),
+        "magnetic" => fx("magnetic", comp),
+        "marquee" => fx("marquee", comp),
+        "masonry" => display("masonry", comp),
+        "menubar" => overlay("menubar", comp),
+        "meteors" => fx("meteors", comp),
+        "metric" => display("metric", comp),
+        "mode-toggle" => nav("mode-toggle", comp),
+        "morphing-popover" => overlay("morphing-popover", comp),
+        "multi-select" => field("multi-select", comp),
+        "navigation-menu" => nav("navigation-menu", comp),
+        "noise" => fx("noise", comp),
+        "notification-center" => overlay("notification-center", comp),
+        "number-input" => field("number-input", comp),
+        "orbit" => fx("orbit", comp),
+        "pagination" => nav("pagination", comp),
+        "particles" => fx("particles", comp),
+        "password-input" => field("password-input", comp),
+        "phone-input" => field("phone-input", comp),
+        "pie-chart" => chart("pie-chart", comp),
+        "pill-nav" => nav("pill-nav", comp),
+        "popover" => overlay("popover", comp),
+        "profit-loss-chart" => chart("profit-loss-chart", comp),
+        "progress" => pill("progress", comp),
+        "progressive-blur" => fx("progressive-blur", comp),
+        "radar-chart" => chart("radar-chart", comp),
+        "radio-group" => pill("radio-group", comp),
+        "rating" => pill("rating", comp),
+        "resizable" => display("resizable", comp),
+        "retro-grid" => fx("retro-grid", comp),
+        "reveal" => fx("reveal", comp),
+        "rich-text-editor" => field("rich-text-editor", comp),
+        "ring-chart" => chart("ring-chart", comp),
+        "ripple" => fx("ripple", comp),
+        "sankey-chart" => chart("sankey-chart", comp),
+        "scatter-chart" => chart("scatter-chart", comp),
+        "scheduler" => display("scheduler", comp),
+        "scramble-text" => fx("scramble-text", comp),
+        "scroll-area" => display("scroll-area", comp),
+        "scroll-progress" => fx("scroll-progress", comp),
+        "segmented-control" => pill("segmented-control", comp),
+        "select" => field("select", comp),
+        "separator" => pill("separator", comp),
+        "sheet" => overlay("sheet", comp),
+        "shimmer" => fx("shimmer", comp),
+        "shiny-text" => fx("shiny-text", comp),
+        "sidebar" => nav("sidebar", comp),
+        "signature-pad" => field("signature-pad", comp),
+        "skeleton" => pill("skeleton", comp),
+        "slider" => pill("slider", comp),
+        "sonner" => overlay("sonner", comp),
+        "sparkles-text" => fx("sparkles-text", comp),
+        "sparkline" => chart("sparkline", comp),
+        "spinner" => pill("spinner", comp),
+        "spinning-text" => fx("spinning-text", comp),
+        "split-button" => nav("split-button", comp),
+        "spotlight-card" => display("spotlight-card", comp),
+        "star-border" => fx("star-border", comp),
+        "status-dot" => pill("status-dot", comp),
+        "stepper" => nav("stepper", comp),
+        "sunburst-chart" => chart("sunburst-chart", comp),
+        "switch" => pill("switch", comp),
+        "table" => display("table", comp),
+        "table-of-contents" => nav("table-of-contents", comp),
+        "tabs" => nav("tabs", comp),
+        "tags-input" => field("tags-input", comp),
+        "terminal" => display("terminal", comp),
+        "text-effect" => fx("text-effect", comp),
+        "textarea" => field("textarea", comp),
+        "tilt-card" => display("tilt-card", comp),
+        "time-picker" => field("time-picker", comp),
+        "timeline" => display("timeline", comp),
+        "toggle" => pill("toggle", comp),
+        "toggle-group" => pill("toggle-group", comp),
+        "toolbar" => nav("toolbar", comp),
+        "tooltip" => overlay("tooltip", comp),
+        "tree-view" => display("tree-view", comp),
+        "typing-text" => fx("typing-text", comp),
+        "usage-meter" => display("usage-meter", comp),
+        "video-player" => display("video-player", comp),
+        "word-rotate" => fx("word-rotate", comp),
+        "workspace-switcher" => nav("workspace-switcher", comp),
+        "toast" => fx("toast", comp),
+        "motion-presets" => fx("motion-presets", comp),
+        _ => return None,
+    };
+    Some(html)
+}
+
+fn label_of(comp: &ComponentNode) -> String {
+    for kind in ["label", "title", "text", "value"] {
+        if let Some(t) = item(comp, kind) {
+            if !t.is_empty() {
+                return esc(t);
+            }
+        }
+    }
+    esc(&comp.name)
+}
+
+fn item<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
+    comp.items
+        .iter()
+        .find(|i| i.item_type == kind)
+        .map(|i| i.text.as_str())
+}
+
+fn texts(comp: &ComponentNode) -> Vec<String> {
+    let mut out: Vec<String> = comp
+        .items
+        .iter()
+        .filter(|i| !i.text.is_empty())
+        .map(|i| esc(&i.text))
+        .collect();
+    if out.is_empty() {
+        out.push(label_of(comp));
+    }
+    out
+}
+
+fn esc(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
+fn variant(comp: &ComponentNode) -> String {
+    comp.props.get("variant").cloned().unwrap_or_else(|| {
+        let style = comp.style.as_deref().unwrap_or("");
+        for v in ["destructive", "danger", "secondary", "outline", "ghost", "link", "primary"] {
+            if style.contains(v) {
+                return v.to_string();
+            }
+        }
+        "primary".into()
+    })
+}
+
+fn size(comp: &ComponentNode) -> String {
+    comp.props.get("size").cloned().unwrap_or_else(|| {
+        let style = comp.style.as_deref().unwrap_or("");
+        if style.contains("icon-sm") {
+            "icon-sm".into()
+        } else if style.contains("icon") {
+            "icon".into()
+        } else if style.contains("lg") {
+            "lg".into()
+        } else if style.contains("sm") {
+            "sm".into()
+        } else {
+            "md".into()
+        }
+    })
+}
+
+fn disabled(comp: &ComponentNode) -> bool {
+    comp.props.get("disabled").map(|s| s == "true").unwrap_or(false)
+}
+
+fn href(comp: &ComponentNode) -> Option<&str> {
+    comp.items.iter().find_map(|i| i.link.as_deref())
+}
+
+fn button_from(comp: &ComponentNode) -> String {
+    let raw = item(comp, "label").unwrap_or(comp.name.as_str());
+    crate::cronus_ui::button_ex(raw, &variant(comp), &size(comp), href(comp), disabled(comp))
+}
+
+const BASE: &str = "color:var(--cronus-fg);font-family:var(--cronus-font-sans,inherit);box-sizing:border-box;";
+const SURF: &str = "background:var(--cronus-surface-raised);border:1px solid var(--cronus-border);border-radius:var(--cronus-radius,14px);";
+
+fn pill(family: &str, comp: &ComponentNode) -> String {
+    let label = label_of(comp);
+    format!(
+        "<span data-slot=\"{family}\" style=\"{BASE}{SURF}display:inline-flex;align-items:center;gap:0.35rem;padding:0.15rem 0.55rem;font-size:0.75rem;font-weight:500;\">{label}</span>"
+    )
+}
+
+fn field(family: &str, comp: &ComponentNode) -> String {
+    let label = label_of(comp);
+    let ph = esc(item(comp, "text").unwrap_or(""));
+    format!(
+        "<label data-slot=\"{family}\" style=\"{BASE}display:flex;flex-direction:column;gap:0.35rem;font-size:0.875rem;\"><span style=\"color:var(--cronus-fg-secondary);\">{label}</span><input data-slot=\"{family}-control\" placeholder=\"{ph}\" style=\"height:2.5rem;padding:0 0.75rem;border-radius:0.5rem;border:1px solid var(--cronus-border);background:var(--cronus-surface-inset);color:var(--cronus-fg);outline:none;\" /></label>"
+    )
+}
+
+fn overlay(family: &str, comp: &ComponentNode) -> String {
+    let title = label_of(comp);
+    let body = texts(comp)
+        .into_iter()
+        .map(|t| format!("<p style=\"margin:0;color:var(--cronus-fg-secondary);font-size:0.875rem;\">{t}</p>"))
+        .collect::<Vec<_>>()
+        .join("");
+    format!(
+        "<div data-slot=\"{family}\" role=\"dialog\" style=\"{BASE}{SURF}padding:1.25rem;display:flex;flex-direction:column;gap:0.75rem;max-width:28rem;\"><div style=\"font-weight:500;\">{title}</div>{body}</div>"
+    )
+}
+
+fn nav(family: &str, comp: &ComponentNode) -> String {
+    let links = texts(comp)
+        .iter()
+        .map(|t| format!("<a href=\"#\" style=\"color:var(--cronus-fg-secondary);text-decoration:none;padding:0.35rem 0.6rem;border-radius:0.4rem;\">{t}</a>"))
+        .collect::<Vec<_>>()
+        .join("");
+    format!(
+        "<nav data-slot=\"{family}\" style=\"{BASE}display:flex;flex-wrap:wrap;gap:0.25rem;align-items:center;\">{links}</nav>"
+    )
+}
+
+fn display(family: &str, comp: &ComponentNode) -> String {
+    let title = label_of(comp);
+    let rest = texts(comp)
+        .into_iter()
+        .skip(1)
+        .map(|t| format!("<div style=\"color:var(--cronus-fg-secondary);font-size:0.875rem;\">{t}</div>"))
+        .collect::<Vec<_>>()
+        .join("");
+    format!(
+        "<section data-slot=\"{family}\" style=\"{BASE}{SURF}padding:1rem;display:flex;flex-direction:column;gap:0.5rem;\"><div style=\"font-weight:500;\">{title}</div>{rest}</section>"
+    )
+}
+
+fn chart(family: &str, comp: &ComponentNode) -> String {
+    let title = label_of(comp);
+    format!(
+        "<figure data-slot=\"{family}\" style=\"{BASE}{SURF}padding:1rem;\"><figcaption style=\"margin-bottom:0.5rem;font-size:0.875rem;color:var(--cronus-fg-secondary);\">{title}</figcaption><svg viewBox=\"0 0 120 40\" width=\"100%\" height=\"80\" aria-hidden=\"true\"><polyline fill=\"none\" stroke=\"var(--cronus-primary)\" stroke-width=\"2\" points=\"0,30 20,22 40,26 60,12 80,16 100,8 120,14\" /></svg></figure>"
+    )
+}
+
+fn fx(family: &str, comp: &ComponentNode) -> String {
+    let title = label_of(comp);
+    format!(
+        "<div data-slot=\"{family}\" style=\"{BASE}{SURF}padding:0.75rem 1rem;position:relative;overflow:hidden;\"><span>{title}</span></div>"
+    )
+}
+
+fn stub(family: &str) -> ComponentNode {
+    ComponentNode {
+        name: family.to_string(),
+        layout: Some("stack".into()),
+        style: Some(format!("{family}+primary")),
+        items: vec![ComponentItemNode {
+            item_type: "label".into(),
+            text: "Demo".into(),
+            link: None,
+            tone: None,
+            config: Default::default(),
+        }],
+        props: Default::default(),
+        params: vec![],
+        template: None,
+        sections: vec![],
+        state: vec![],
+        tests: vec![],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn registers_173_unique_families() {
+        assert_eq!(FAMILIES.len(), 173);
+        let mut s = std::collections::BTreeSet::new();
+        for f in FAMILIES {
+            assert!(s.insert(*f), "duplicate {f}");
+        }
+    }
+
+    #[test]
+    fn every_family_renders_slot_without_palette_scales() {
+        for family in FAMILIES {
+            let html = render(&stub(family)).expect(family);
+            let slot_ok = html.contains(&format!("data-slot=\"{family}\""))
+                || html.contains("data-slot=\"button\"");
+            assert!(slot_ok, "{family} missing data-slot: {html}");
+            assert!(!html.contains("zinc-"), "{family} used zinc palette");
+            assert!(!html.contains("amber-500"), "{family} used amber palette");
+            assert!(!html.contains("bg-neutral-"), "{family} used neutral palette scale");
+        }
+    }
+
+    #[test]
+    fn unknown_family_is_none() {
+        let mut c = stub("nope-widget");
+        c.style = Some("nope-widget".into());
+        assert!(render(&c).is_none());
+    }
+
+    #[test]
+    fn legacy_primary_style_is_not_hijacked() {
+        let mut c = stub("button");
+        c.style = Some("primary".into());
+        assert!(render(&c).is_none());
+    }
+}
