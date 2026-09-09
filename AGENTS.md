@@ -4,7 +4,9 @@ Instructions for AI agents working on this codebase. **Read the whole file befor
 
 > **Authoritative language spec: `LANGUAGE.md` at kernel root.** This file is the short cheatsheet; `LANGUAGE.md` is the full, verified, code-cross-referenced reference. When in doubt, trust `LANGUAGE.md`.
 >
-> Last verified: 2026-04-10. If a claim here doesn't match reality, trust the code, fix this file, and update the "Last verified" line.
+> **Voodoo.js runtime contract: `VOODOO.md` at kernel root.** Read it before emitting `v-data` / JSX / interactivity. Voodoo is opt-in HTML runtime, never the authoring language.
+>
+> Last verified: 2026-09-09. If a claim here doesn't match reality, trust the code, fix this file, and update the "Last verified" line.
 
 ## What is CRONUS
 
@@ -44,6 +46,8 @@ cargo test                     # Run 203 kernel tests
 cronus-kernel/
 ├── Cargo.toml              # Single binary crate. 1 [[bin]], no [lib], no [workspace].
 ├── AGENTS.md               # This file. CLAUDE.md is a symlink to it.
+├── LANGUAGE.md             # Verified language spec.
+├── VOODOO.md               # Cronus × Voodoo.js agent contract (opt-in runtime).
 ├── src/
 │   ├── main.rs             # ~4213 LOC. HTTP server (hyper 1.x) + CLI dispatch.
 │   │                       # handle_request_inner starts at ~line 325. THIS IS THE LIVE DISPATCHER.
@@ -81,6 +85,10 @@ cronus-kernel/
 │   ├── vm/                 # Bytecode VM experimental (4 files, 8 tests)
 │   ├── hydra/              # Block evolution + registry (5 files, 12 tests)
 │   ├── parser.rs           ⚠️ N/A — parser is `src/parser/` directory
+│   ├── voodoo.rs           # Opt-in Voodoo.js runtime (task-local, gated attrs, CDN). See VOODOO.md.
+│   ├── cronus_ui.rs        # cronus-ui tokens + CONTRACT Button (opt-in).
+│   ├── cronus_ui_widgets.rs  # 173 family dispatcher. Calls interact first.
+│   ├── cronus_ui_interact.rs # Native HTML controls + gated v-data/v-model.
 │   ├── render.rs           # ~863 LOC. SPA client-side JS runtime (vanilla, ~2KB).
 │   ├── binding.rs          # resolve_binding() = THE ONLY place sections touch DB. Zero tests.
 │   ├── database.rs         # SQLite engine (rusqlite). 20 tests.
@@ -297,6 +305,7 @@ If you find yourself editing `router.rs` or `api.rs` or `CronusServer`, **stop**
 - **`sensitive` blocked** — `sensitive` fields never appear in HTML/API (lint C002/C031)
 - **SQL safe** — identifiers validated at parse time (P040 rejects non-identifiers, P041 rejects reserved words `SELECT, DROP, INSERT, DELETE, UPDATE, TABLE, FROM`)
 - **Owner isolation** — `_owner_id` auto-injected, non-admin requests filter by it
+- **Voodoo is runtime, not language** — `.cronus` never contains JSX/HTML/CSS. Opt-in via `stack voodoo` or `style { runtime voodoo }`. Full contract: `VOODOO.md`.
 
 ### Architecture gotchas
 - `main.rs` is **4213 LOC** — HTTP server + all routes + CLI dispatch. `handle_request_inner` at ~line 325 is the live dispatcher. It is too big; split carefully and only under a test net.
