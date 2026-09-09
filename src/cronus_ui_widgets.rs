@@ -505,8 +505,36 @@ fn display(family: &str, comp: &ComponentNode) -> String {
 
 fn chart(family: &str, comp: &ComponentNode) -> String {
     let title = label_of(comp);
+    let rows = crate::cronus_ui_data::rows();
+    let bars = if rows.len() >= 2 {
+        let vals: Vec<f64> = rows
+            .iter()
+            .filter_map(|r| {
+                r.get("value")
+                    .or_else(|| r.get("amount"))
+                    .and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+            })
+            .collect();
+        let max = vals.iter().cloned().fold(1.0_f64, f64::max);
+        vals.iter()
+            .map(|v| {
+                let h = ((*v / max) * 36.0).max(2.0);
+                format!(
+                    "<div style=\"flex:1;height:{h}px;background:var(--cronus-primary);border-radius:2px 2px 0 0;\"></div>"
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("")
+    } else {
+        String::new()
+    };
+    let plot = if bars.is_empty() {
+        r#"<svg viewBox="0 0 120 40" width="100%" height="80" aria-hidden="true"><polyline fill="none" stroke="var(--cronus-primary)" stroke-width="2" points="0,30 20,22 40,26 60,12 80,16 100,8 120,14" /></svg>"#.to_string()
+    } else {
+        format!("<div style=\"display:flex;align-items:flex-end;gap:4px;height:80px;\">{bars}</div>")
+    };
     format!(
-        "<figure data-slot=\"{family}\" style=\"{BASE}{SURF}padding:1rem;\"><figcaption style=\"margin-bottom:0.5rem;font-size:0.875rem;color:var(--cronus-fg-secondary);\">{title}</figcaption><svg viewBox=\"0 0 120 40\" width=\"100%\" height=\"80\" aria-hidden=\"true\"><polyline fill=\"none\" stroke=\"var(--cronus-primary)\" stroke-width=\"2\" points=\"0,30 20,22 40,26 60,12 80,16 100,8 120,14\" /></svg></figure>"
+        "<figure data-slot=\"{family}\" style=\"{BASE}{SURF}padding:1rem;\"><figcaption style=\"margin-bottom:0.5rem;font-size:0.875rem;color:var(--cronus-fg-secondary);\">{title}</figcaption>{plot}</figure>"
     )
 }
 
@@ -535,6 +563,7 @@ fn stub(family: &str) -> ComponentNode {
         sections: vec![],
         state: vec![],
         tests: vec![],
+        binding: None,
     }
 }
 
@@ -625,5 +654,64 @@ mod tests {
         let page = crate::ui::render_layout("Legacy", &[], "blue", "<p>ok</p>");
         assert!(!page.contains("voodoojs"));
         assert!(!page.contains("data-cronus-runtime"));
+    }
+
+    #[test]
+    fn metric_reads_bound_count() {
+        use crate::binding::ResolvedData;
+        crate::cronus_ui_data::with_binding("Lead", &ResolvedData::Count(12), || {
+            let html = render(&stub("metric")).unwrap();
+            assert!(html.contains("12"), "{html}");
+            assert!(html.contains("data-slot=\"metric\""));
+        });
+    }
+
+    #[test]
+    fn form_gets_vsubmit_when_voodoo_and_entity() {
+        use crate::binding::ResolvedData;
+        crate::voodoo::with_enabled(true, || {
+            crate::cronus_ui_data::with_binding("Lead", &ResolvedData::None, || {
+                let html = render(&stub("form")).unwrap();
+                assert!(html.contains("v-submit=\"/api/lead\""), "{html}");
+                assert!(html.contains("v-method=\"POST\""));
+            });
+        });
+        let off = render(&stub("form")).unwrap();
+        assert!(!off.contains("v-submit="), "{off}");
+    }
+
+    #[test]
+    fn interactive_controls_are_labelled() {
+        for family in ["checkbox", "switch", "input", "textarea", "select"] {
+            let html = render(&stub(family)).unwrap();
+            assert!(
+                html.contains("<label") || html.contains("aria-label"),
+                "{family} has no label: {html}"
+            );
+        }
+        let tabs = render(&stub("tabs")).unwrap();
+        assert!(tabs.contains("role=\"tablist\""));
+        let dlg = render(&stub("dialog")).unwrap();
+        assert!(dlg.contains("<dialog"));
+        let toast = render(&stub("toast")).unwrap();
+        assert!(toast.contains("aria-live"));
+    }
+
+    #[test]
+    fn parser_bind_on_component() {
+        let src = r#"
+app "X" { port 1 }
+component Revenue layout:stack style:metric {
+  label "Revenue"
+  bind Order { query count }
+}
+"#;
+        let nodes = crate::parser::parse(src).expect("parse");
+        let comp = nodes.iter().find_map(|n| match n {
+            crate::parser::AstNode::Component(c) => Some(c),
+            _ => None,
+        }).expect("component");
+        let b = comp.binding.as_ref().expect("binding");
+        assert_eq!(b.entity, "Order");
     }
 }

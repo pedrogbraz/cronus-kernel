@@ -10,7 +10,7 @@ use crate::voodoo;
 const BASE: &str =
     "color:var(--cronus-fg);font-family:var(--cronus-font-sans,inherit);box-sizing:border-box;";
 const SURF: &str = "background:var(--cronus-surface-raised,var(--cronus-surface-overlay,transparent));border:1px solid var(--cronus-border);border-radius:var(--cronus-radius,14px);";
-const CTRL: &str = "height:2.5rem;padding:0 0.75rem;border-radius:0.5rem;border:1px solid var(--cronus-border);background:var(--cronus-surface-inset,transparent);color:var(--cronus-fg);outline:none;";
+const CTRL: &str = "height:2.5rem;padding:0 0.75rem;border-radius:0.5rem;border:1px solid var(--cronus-border);background:var(--cronus-surface-inset,transparent);color:var(--cronus-fg);";
 
 pub fn render(family: &str, comp: &ComponentNode) -> Option<String> {
     let html = match family {
@@ -120,10 +120,14 @@ fn esc(s: &str) -> String {
 }
 
 fn num(comp: &ComponentNode, default: u32) -> u32 {
-    comp.props
-        .get("value")
-        .or_else(|| comp.props.get("progress"))
+    crate::cronus_ui_data::scalar()
         .and_then(|s| s.parse().ok())
+        .or_else(|| {
+            comp.props
+                .get("value")
+                .or_else(|| comp.props.get("progress"))
+                .and_then(|s| s.parse().ok())
+        })
         .or_else(|| item(comp, "value").and_then(|s| s.parse().ok()))
         .unwrap_or(default)
 }
@@ -275,8 +279,21 @@ fn field_form(family: &str, comp: &ComponentNode) -> String {
         })
         .collect::<Vec<_>>()
         .join("");
+    let (v_submit, entity_attr) = match crate::cronus_ui_data::entity_of(comp) {
+        Some(ent) if voodoo::enabled() => {
+            let path = format!("/api/{}", ent.to_lowercase());
+            (
+                format!(
+                    " v-submit=\"{path}\" v-method=\"POST\" v-toast-success=\"Saved\" data-cronus-entity=\"{ent}\""
+                ),
+                String::new(),
+            )
+        }
+        Some(ent) => (String::new(), format!(" data-cronus-entity=\"{ent}\"")),
+        None => (String::new(), String::new()),
+    };
     format!(
-        "<form data-slot=\"{family}\" style=\"{BASE}{SURF}padding:1rem;display:flex;flex-direction:column;gap:0.75rem;\"><div style=\"font-weight:500;\">{label}</div>{fields}<button type=\"submit\" data-slot=\"button\" style=\"height:2.5rem;border-radius:0.5rem;border:0;background:var(--cronus-primary);color:var(--cronus-primary-foreground);cursor:pointer;\">Submit</button></form>"
+        "<form data-slot=\"{family}\"{v_submit}{entity_attr} style=\"{BASE}{SURF}padding:1rem;display:flex;flex-direction:column;gap:0.75rem;\"><div style=\"font-weight:500;\">{label}</div>{fields}<button type=\"submit\" data-slot=\"button\" style=\"height:2.5rem;border-radius:0.5rem;border:0;background:var(--cronus-primary);color:var(--cronus-primary-foreground);cursor:pointer;\">Submit</button></form>"
     )
 }
 
@@ -391,29 +408,84 @@ fn pagination(comp: &ComponentNode) -> String {
 }
 
 fn table(family: &str, comp: &ComponentNode) -> String {
-    let cols = texts(comp);
-    let head = cols
-        .iter()
-        .map(|c| {
-            format!("<th style=\"text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;font-weight:500;color:var(--cronus-fg-secondary);border-bottom:1px solid var(--cronus-border);\">{c}</th>")
-        })
-        .collect::<Vec<_>>()
-        .join("");
-    let row = cols
-        .iter()
-        .map(|_| {
-            "<td style=\"padding:0.6rem 0.75rem;font-size:0.875rem;border-bottom:1px solid var(--cronus-border);\">—</td>"
-                .to_string()
-        })
-        .collect::<Vec<_>>()
-        .join("");
+    let bound = crate::cronus_ui_data::rows();
+    let (cols, body) = if !bound.is_empty() {
+        let keys: Vec<String> = bound[0]
+            .as_object()
+            .map(|o| {
+                o.keys()
+                    .filter(|k| !k.starts_with('_'))
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default();
+        let head = keys
+            .iter()
+            .map(|c| {
+                format!("<th style=\"text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;font-weight:500;color:var(--cronus-fg-secondary);border-bottom:1px solid var(--cronus-border);\">{c}</th>")
+            })
+            .collect::<Vec<_>>()
+            .join("");
+        let rows_html = bound
+            .iter()
+            .map(|row| {
+                let cells = keys
+                    .iter()
+                    .map(|k| {
+                        let v = row.get(k).map(|x| match x {
+                            serde_json::Value::String(s) => esc(s),
+                            serde_json::Value::Number(n) => n.to_string(),
+                            serde_json::Value::Bool(b) => b.to_string(),
+                            _ => String::new(),
+                        }).unwrap_or_default();
+                        format!("<td style=\"padding:0.6rem 0.75rem;font-size:0.875rem;border-bottom:1px solid var(--cronus-border);\">{v}</td>")
+                    })
+                    .collect::<Vec<_>>()
+                    .join("");
+                format!("<tr>{cells}</tr>")
+            })
+            .collect::<Vec<_>>()
+            .join("");
+        (head, rows_html)
+    } else {
+        let cols = texts(comp);
+        let head = cols
+            .iter()
+            .map(|c| {
+                format!("<th style=\"text-align:left;padding:0.5rem 0.75rem;font-size:0.75rem;font-weight:500;color:var(--cronus-fg-secondary);border-bottom:1px solid var(--cronus-border);\">{c}</th>")
+            })
+            .collect::<Vec<_>>()
+            .join("");
+        let row = cols
+            .iter()
+            .map(|_| {
+                "<td style=\"padding:0.6rem 0.75rem;font-size:0.875rem;border-bottom:1px solid var(--cronus-border);\">—</td>"
+                    .to_string()
+            })
+            .collect::<Vec<_>>()
+            .join("");
+        (head, format!("<tr>{row}</tr>"))
+    };
+    let resource = match crate::cronus_ui_data::entity_of(comp) {
+        Some(ent) if voodoo::enabled() => {
+            format!(" v-resource=\"rows: /api/{}\"", ent.to_lowercase())
+        }
+        _ => String::new(),
+    };
     format!(
-        "<div data-slot=\"{family}\" style=\"{BASE}{SURF}overflow:auto;\"><table style=\"width:100%;border-collapse:collapse;\"><thead><tr>{head}</tr></thead><tbody><tr>{row}</tr></tbody></table></div>"
+        "<div data-slot=\"{family}\"{resource} style=\"{BASE}{SURF}overflow:auto;\"><table style=\"width:100%;border-collapse:collapse;\"><thead><tr>{cols}</tr></thead><tbody>{body}</tbody></table></div>"
     )
 }
 
 fn calendar(family: &str, comp: &ComponentNode) -> String {
-    let cells: String = (1..=28)
+    let heads = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+        .iter()
+        .map(|d| {
+            format!("<div style=\"font-size:0.7rem;color:var(--cronus-fg-secondary);text-align:center;\">{d}</div>")
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    let cells: String = (1..=31)
         .map(|d| {
             format!(
                 "<button type=\"button\" style=\"height:2rem;border:0;background:transparent;color:var(--cronus-fg);border-radius:0.35rem;cursor:pointer;\">{d}</button>"
@@ -421,7 +493,7 @@ fn calendar(family: &str, comp: &ComponentNode) -> String {
         })
         .collect();
     format!(
-        "<div data-slot=\"{family}\" style=\"{BASE}{SURF}padding:0.75rem;display:grid;grid-template-columns:repeat(7,1fr);gap:0.15rem;\"><div style=\"grid-column:1/-1;font-size:0.875rem;margin-bottom:0.35rem;\">{label}</div>{cells}</div>",
+        "<div data-slot=\"{family}\" style=\"{BASE}{SURF}padding:0.75rem;display:grid;grid-template-columns:repeat(7,1fr);gap:0.15rem;\"><div style=\"grid-column:1/-1;font-size:0.875rem;margin-bottom:0.35rem;\">{label}</div>{heads}{cells}</div>",
         label = label_of(comp),
     )
 }
@@ -486,9 +558,12 @@ fn alert(family: &str, comp: &ComponentNode) -> String {
 
 fn metric(comp: &ComponentNode) -> String {
     let title = label_of(comp);
-    let value = item(comp, "value").unwrap_or("0");
+    let fallback = item(comp, "value").unwrap_or("0");
+    let value = crate::cronus_ui_data::scalar().unwrap_or_else(|| fallback.to_string());
+    let shown = voodoo::interp("value", &value);
     format!(
-        "<section data-slot=\"metric\" style=\"{BASE}{SURF}padding:1rem;\"><div style=\"font-size:0.75rem;color:var(--cronus-fg-secondary);\">{title}</div><div style=\"font-size:1.5rem;letter-spacing:-0.02em;\">{value}</div></section>"
+        "<section data-slot=\"metric\" style=\"{BASE}{SURF}padding:1rem;\"{data}><div style=\"font-size:0.75rem;color:var(--cronus-fg-secondary);\">{title}</div><div style=\"font-size:1.5rem;letter-spacing:-0.02em;\">{shown}</div></section>",
+        data = voodoo::data(&format!("{{ value: {value} }}")),
     )
 }
 
@@ -606,7 +681,7 @@ fn scroll(family: &str, comp: &ComponentNode) -> String {
 
 fn toast(comp: &ComponentNode) -> String {
     format!(
-        "<div data-slot=\"toast\" role=\"status\" style=\"{BASE}{SURF}padding:0.75rem 1rem;font-size:0.875rem;\">{label}</div>",
+        "<div data-slot=\"toast\" role=\"status\" aria-live=\"polite\" style=\"{BASE}{SURF}padding:0.75rem 1rem;font-size:0.875rem;\">{label}</div>",
         label = label_of(comp),
     )
 }

@@ -415,6 +415,8 @@ pub struct ComponentNode {
     pub sections: Vec<SectionNode>,
     pub state: Vec<ComponentState>,
     pub tests: Vec<ComponentTest>,       // co-located test blocks
+    /// Optional `bind Entity { ... }` so a widget can read live rows/count.
+    pub binding: Option<BindingNode>,
 }
 
 #[derive(Debug, Clone)]

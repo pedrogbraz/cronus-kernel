@@ -1,0 +1,48 @@
+## Aurora + Voodoo starter. Authoring stays .cronus.
+## Widgets read bind. Forms POST /api/lead → ScriptCronus on create.
+
+app "Aurora" {
+  stack voodoo
+  port 4747
+  database sqlite "./data.db"
+}
+
+style {
+  theme dark
+  preset aurora
+  runtime voodoo
+  accent-hex "#0ea5e9"
+  font "Inter"
+  radius 14px
+  background "#09090b"
+  surface "#111113"
+  text "#fafaf9"
+}
+
+entity Lead {
+  name string!
+  email email!
+  status enum ["new", "won"] default:"new"
+}
+
+api /leads {
+  list   GET  /     auth:public
+  create POST /     auth:public
+  detail GET  /:id  auth:public
+}
+
+page "/" type:custom {
+  section metric {
+    title "Leads"
+    bind Lead { query count }
+  }
+  section data-table {
+    title "Pipeline"
+    bind Lead { query all }
+  }
+  section form {
+    title "New lead"
+    entity Lead
+    bind Lead { query all }
+  }
+}

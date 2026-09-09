@@ -1906,6 +1906,7 @@ impl Parser {
         let mut props = HashMap::new();
         let mut state_vars: Vec<ComponentState> = Vec::new();
         let mut tests: Vec<ComponentTest> = Vec::new();
+        let mut binding: Option<BindingNode> = None;
 
         while !self.matches(TokenKind::LBrace, None) && !self.matches(TokenKind::Eof, None) {
             if self.peek().kind == TokenKind::ColonPair {
@@ -1944,6 +1945,10 @@ impl Parser {
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
             // state count: integer = 0
+            if self.matches(TokenKind::Identifier, Some("bind")) {
+                binding = Some(self.parse_binding()?);
+                continue;
+            }
             if self.matches(TokenKind::Identifier, Some("state")) || self.matches(TokenKind::Keyword, Some("state")) {
                 self.advance();
                 let raw = self.advance().value;
@@ -2100,7 +2105,7 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(ComponentNode { name, layout, style, items, props, params, template, sections: Vec::new(), state: state_vars, tests })
+        Ok(ComponentNode { name, layout, style, items, props, params, template, sections: Vec::new(), state: state_vars, tests, binding })
     }
 
     // ── event ──

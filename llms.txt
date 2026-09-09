@@ -54,6 +54,8 @@ component Hits layout:inline style:button+primary+md { label "Save" }
 
 There is no Cronus syntax for `@click` or `{ n }`. Live values = extend the **kernel renderer**, not the grammar. Demo: `demos/cronus-ui/widgets.cronus`.
 
+**Bind:** `section metric { bind Lead { query count } }` and `section data-table { bind Lead { query all } }` paint from SQLite. **Form + ScriptCronus:** with Voodoo on, a bound form gets `v-submit="/api/lead"`; POST still runs `on Lead.create` in `.scriptcronus`. Scaffold: `cronus new aurora`.
+
 ## Kernel helpers (`src/voodoo.rs`) — only way to emit Voodoo attrs
 
 | helper | off | on |

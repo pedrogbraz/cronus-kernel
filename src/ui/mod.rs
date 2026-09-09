@@ -590,6 +590,35 @@ document.addEventListener('DOMContentLoaded',()=>{
 // ══════════════════════════════════════════════════
 
 pub(crate) fn render_section(section: &SectionNode, accent: &str, theme: &str, bound_data: &crate::binding::ResolvedData) -> String {
+    let entity = section.binding.as_ref().map(|b| b.entity.as_str()).unwrap_or("");
+    crate::cronus_ui_data::with_binding(entity, bound_data, || {
+        render_section_inner(section, accent, theme, bound_data)
+    })
+}
+
+fn attach_voodoo_form(html: String, entity: &str) -> String {
+    if !crate::voodoo::enabled() || entity.is_empty() {
+        return html;
+    }
+    if html.contains("v-submit=") {
+        return html;
+    }
+    let needle = "<form";
+    if let Some(pos) = html.find(needle) {
+        let path = format!("/api/{}", entity.to_lowercase());
+        let inject = format!(
+            "<form v-submit=\"{path}\" v-method=\"POST\" data-cronus-entity=\"{entity}\" v-toast-success=\"Saved\""
+        );
+        let mut out = String::with_capacity(html.len() + inject.len());
+        out.push_str(&html[..pos]);
+        out.push_str(&inject);
+        out.push_str(&html[pos + needle.len()..]);
+        return out;
+    }
+    html
+}
+
+fn render_section_inner(section: &SectionNode, accent: &str, theme: &str, bound_data: &crate::binding::ResolvedData) -> String {
     // --- Conditional visibility ---
     if let Some(ref cond) = section.visibility {
         let eval_condition = |val: &serde_json::Value| -> bool {
@@ -755,8 +784,19 @@ pub(crate) fn render_section(section: &SectionNode, accent: &str, theme: &str, b
                 _ => crate::layout_system::render_layout_section(section),
             }
         }
-        _ => section_extra::render_generic_section(section, accent),
+        _ => {
+            if crate::cronus_ui_widgets::FAMILIES.contains(&section.section_type.as_str()) {
+                let comp = crate::cronus_ui_data::component_from_section(&section.section_type, section);
+                crate::cronus_ui_widgets::render(&comp)
+                    .unwrap_or_else(|| section_extra::render_generic_section(section, accent))
+            } else {
+                section_extra::render_generic_section(section, accent)
+            }
+        }
     };
+
+    let entity_name = section.binding.as_ref().map(|b| b.entity.as_str()).unwrap_or("");
+    let section_html = attach_voodoo_form(section_html, entity_name);
 
     // If we have bound data, wrap with data attributes for downstream JS/rendering
     let output = match bound_data {

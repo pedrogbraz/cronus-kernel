@@ -149,6 +149,13 @@ const FALLBACK_ROOT: &str = r#":root {
   --cronus-error: var(--danger, var(--error, #f43f5e));
   --cronus-ease: cubic-bezier(.22, 1, .36, 1);
 }
+[data-slot]:focus-visible, [data-slot] :focus-visible {
+  outline: 2px solid var(--cronus-ring, var(--cronus-primary)) !important;
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot] { animation: none !important; transition: none !important; }
+}
 "#;
 
 // Aurora dark — scoped so it does NOT replace the legacy theme unless
@@ -398,5 +405,13 @@ mod tests {
         let html = button_ex("Nope", "primary", "md", None, true);
         assert!(html.contains(" disabled"));
         assert!(html.contains("opacity:0.5"));
+    }
+
+    #[test]
+    fn tokens_include_focus_visible_ring() {
+        let css = token_css("legacy", "dark");
+        assert!(css.contains(":focus-visible"));
+        assert!(css.contains("--cronus-ring"));
+        assert!(css.contains("prefers-reduced-motion"));
     }
 }

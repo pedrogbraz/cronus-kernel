@@ -7,7 +7,7 @@ use crate::{
 };
 
 pub fn cmd_new(args: &[String]) {
-    let all_templates = ["landing", "admin", "saas", "api", "ecommerce", "blog", "helpdesk", "crm"];
+    let all_templates = ["landing", "admin", "saas", "api", "ecommerce", "blog", "helpdesk", "crm", "cronus-ui", "aurora"];
 
     let template = args.get(2).map(|s| s.as_str()).unwrap_or_else(|| {
         eprintln!("  Usage: cronus new <template>");
@@ -35,6 +35,7 @@ pub fn cmd_new(args: &[String]) {
             "blog" => TEMPLATE_BLOG,
             "helpdesk" => TEMPLATE_HELPDESK,
             "crm" => TEMPLATE_CRM,
+            "cronus-ui" | "aurora" => include_str!("../../templates/cronus-ui.cronus"),
             _ => {
                 eprintln!("  \x1b[33m✗\x1b[0m Unknown template: {}", template);
                 eprintln!("  Available: {}", all_templates.join(", "));
@@ -52,6 +53,16 @@ pub fn cmd_new(args: &[String]) {
     let file_path = format!("{}/app.cronus", dir);
     let mut file = fs::File::create(&file_path).unwrap();
     file.write_all(content.as_bytes()).unwrap();
+
+    if template == "cronus-ui" || template == "aurora" {
+        let script = r#"# Fires after POST /api/lead (Voodoo v-submit or Cronus form).
+on Lead.create {
+  log "lead created"
+}
+"#;
+        let mut sf = fs::File::create(format!("{}/app.scriptcronus", dir)).unwrap();
+        sf.write_all(script.as_bytes()).unwrap();
+    }
 
     // Parse the template to show stats
     let new_nodes = parser::parse(content).ok();
