@@ -2236,6 +2236,7 @@ async fn cmd_run(args: &[String]) {
     let mut auth_entity: Option<String> = None;
     let mut auth_roles: Vec<String> = Vec::new();
     let mut auth_required_pages: Vec<(String, String)> = Vec::new();
+    let mut auth_redirect: Option<String> = None;
     let mut layout: Option<parser::LayoutNode> = None;
     let mut defines: std::collections::HashMap<String, Vec<parser::SectionNode>> = std::collections::HashMap::new();
 
@@ -2260,6 +2261,9 @@ async fn cmd_run(args: &[String]) {
             AstNode::Auth(auth) => {
                 auth_entity = Some(auth.entity.clone());
                 auth_roles = auth.roles.clone();
+                if let Some(r) = auth.session_config.get("redirect") {
+                    auth_redirect = Some(r.clone());
+                }
             }
             AstNode::Layout(l) => {
                 layout = Some(l.clone());
@@ -2548,6 +2552,7 @@ async fn cmd_run(args: &[String]) {
         auth_entity,
         auth_roles,
         auth_required_pages,
+        auth_redirect,
         layout,
         webhooks,
         rate_limiter: rate_limit::RateLimiter::new(100, 60),

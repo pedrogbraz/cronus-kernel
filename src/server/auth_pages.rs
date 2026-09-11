@@ -3,9 +3,35 @@
 
 use super::state::AppState;
 
+/// Post-login href: `auth { redirect "/" }`, else `/` if that page exists, else `/dashboard`, else first authed page.
+pub(crate) fn post_login_paths(state: &AppState) -> (String, String) {
+    let has = |r: &str| state.pages.iter().any(|p| p.route == r);
+    let home = if let Some(ref r) = state.auth_redirect {
+        r.clone()
+    } else if has("/") {
+        "/".to_string()
+    } else if has("/dashboard") {
+        "/dashboard".to_string()
+    } else {
+        state
+            .pages
+            .iter()
+            .find(|p| p.requires.is_some())
+            .map(|p| p.route.clone())
+            .unwrap_or_else(|| "/".to_string())
+    };
+    let admin = if has("/admin") {
+        "/admin".to_string()
+    } else {
+        home.clone()
+    };
+    (home, admin)
+}
+
 pub(crate) fn generate_login_page(state: &AppState) -> String {
     let app_name = &state.app.name;
     let logo_letter = app_name.chars().next().unwrap_or('C').to_uppercase().to_string();
+    let (home, admin) = post_login_paths(state);
     format!(r##"<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -174,7 +200,7 @@ async function doLogin(email, password, remember, errorEl, btn) {{
       localStorage.setItem('user', JSON.stringify(json.user || {{}}));
       saveAccount(json.user);
       var role = json.user && json.user.role;
-      window.location.href = (role === 'admin') ? '/admin' : '/dashboard';
+      window.location.href = (role === 'admin') ? '{admin}' : '{home}';
     }} else {{
       errorEl.style.display = 'block';
       errorEl.textContent = json.error || 'Invalid credentials';
@@ -211,7 +237,7 @@ document.getElementById('quickLogin').addEventListener('submit', function(e) {{
         if (d.id || d.user) {{
           var user = d.user || d;
           var role = user.role || 'user';
-          window.location.href = (role === 'admin') ? '/admin' : '/dashboard';
+          window.location.href = (role === 'admin') ? '{admin}' : '{home}';
         }}
       }}).catch(function(){{}});
   }}
@@ -220,12 +246,13 @@ document.getElementById('quickLogin').addEventListener('submit', function(e) {{
 // Init: show saved accounts or full login
 renderAccounts();
 </script>
-</body></html>"##, app = app_name, logo = logo_letter)
+</body></html>"##, app = app_name, logo = logo_letter, home = home, admin = admin)
 }
 
 pub(crate) fn generate_register_page(state: &AppState) -> String {
     let app_name = &state.app.name;
     let logo_letter = app_name.chars().next().unwrap_or('C').to_uppercase().to_string();
+    let (home, admin) = post_login_paths(state);
     format!(r##"<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -283,7 +310,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
       localStorage.setItem('user', JSON.stringify(json.user || {{}}));
       saveAccount(json.user);
       const role = json.user && json.user.role;
-      window.location.href = (role === 'admin') ? '/admin' : '/dashboard';
+      window.location.href = (role === 'admin') ? '{admin}' : '{home}';
     }} else {{
       const err = document.getElementById('error');
       err.style.display = 'block';
@@ -298,5 +325,5 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
   }}
 }});
 </script>
-</body></html>"##, app = app_name, logo = logo_letter)
+</body></html>"##, app = app_name, logo = logo_letter, home = home, admin = admin)
 }

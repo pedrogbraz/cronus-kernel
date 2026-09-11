@@ -86,6 +86,8 @@ pub(crate) struct AppState {
     pub(crate) auth_entity: Option<String>,
     pub(crate) auth_roles: Vec<String>,
     pub(crate) auth_required_pages: Vec<(String, String)>,
+    /// `auth { redirect "/" }` — post-login href. Empty = pick `/` then `/dashboard`.
+    pub(crate) auth_redirect: Option<String>,
     pub(crate) layout: Option<parser::LayoutNode>,
     pub(crate) webhooks: Vec<parser::WebhookNode>,
     pub(crate) rate_limiter: rate_limit::RateLimiter,
