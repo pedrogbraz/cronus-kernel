@@ -333,19 +333,16 @@ fn popover(family: &str, comp: &ComponentNode) -> String {
 
 fn tabs(family: &str, comp: &ComponentNode) -> String {
     let items = texts(comp);
-    let data = voodoo::data("{ tab: 0 }");
+    // Native tab switcher only. Mixing `hidden` + Voodoo `v-show` sets
+    // display:none on every panel after the first click.
     let buttons = items
         .iter()
         .enumerate()
         .map(|(i, t)| {
             let selected = if i == 0 { "true" } else { "false" };
-            let click = if voodoo::enabled() {
-                voodoo::click(&format!("tab = {i}"))
-            } else {
-                format!(
-                    " onclick=\"var r=this.closest('[data-slot]');r.querySelectorAll('[role=tab]').forEach(function(b,j){{b.setAttribute('aria-selected', String(j==={i}));}});r.querySelectorAll('[role=tabpanel]').forEach(function(p,j){{p.hidden=j!=={i};}});\""
-                )
-            };
+            let click = format!(
+                " onclick=\"var r=this.closest('[data-slot]');r.querySelectorAll('[role=tab]').forEach(function(b,j){{b.setAttribute('aria-selected', String(j==={i}));b.style.borderBottomColor=j==={i}?'var(--cronus-primary)':'transparent';}});r.querySelectorAll('[role=tabpanel]').forEach(function(p,j){{p.hidden=j!=={i};}});\""
+            );
             format!(
                 "<button type=\"button\" role=\"tab\" aria-selected=\"{selected}\"{click} style=\"padding:0.4rem 0.75rem;border:0;border-bottom:2px solid {border};background:transparent;color:var(--cronus-fg);cursor:pointer;\">{t}</button>",
                 border = if i == 0 {
@@ -362,17 +359,12 @@ fn tabs(family: &str, comp: &ComponentNode) -> String {
         .enumerate()
         .map(|(i, t)| {
             let hidden = if i == 0 { "" } else { " hidden" };
-            let show = if voodoo::enabled() {
-                voodoo::show(&format!("tab === {i}"))
-            } else {
-                String::new()
-            };
-            format!("<div role=\"tabpanel\"{hidden}{show} style=\"padding:0.75rem 0;font-size:0.875rem;\">{t}</div>")
+            format!("<div role=\"tabpanel\"{hidden} style=\"padding:0.75rem 0;font-size:0.875rem;\">{t}</div>")
         })
         .collect::<Vec<_>>()
         .join("");
     format!(
-        "<div data-slot=\"{family}\" style=\"{BASE}\"{data}><div role=\"tablist\" style=\"display:flex;gap:0.15rem;border-bottom:1px solid var(--cronus-border);\">{buttons}</div>{panels}</div>"
+        "<div data-slot=\"{family}\" style=\"{BASE}\"><div role=\"tablist\" style=\"display:flex;gap:0.15rem;border-bottom:1px solid var(--cronus-border);\">{buttons}</div>{panels}</div>"
     )
 }
 

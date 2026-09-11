@@ -642,7 +642,9 @@ mod tests {
             let progress = render(&stub("progress")).unwrap();
             assert!(progress.contains("{ value }") || progress.contains("v-data="));
             let tabs = render(&stub("tabs")).unwrap();
-            assert!(tabs.contains("@click=") || tabs.contains("v-data="));
+            assert!(tabs.contains("role=\"tablist\""));
+            assert!(tabs.contains("onclick="), "tabs stay native; v-show + hidden deadlock");
+            assert!(!tabs.contains("v-show="));
         });
         let off = render(&stub("checkbox")).unwrap();
         assert!(!off.contains("v-data="));
