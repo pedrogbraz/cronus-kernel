@@ -26,6 +26,16 @@ demos/**/data.db
 demos/**/data.db-journal
 demos/**/data.db-wal
 demos/**/data.db-shm
+demos/**/*.db
+demos/**/*.db-journal
+demos/**/*.db-wal
+demos/**/*.db-shm
+examples/**/data.db
+examples/**/data.db-journal
+examples/**/data.db-wal
+examples/**/data.db-shm
+**/.cronus/memory.db
+**/.cronus/ast-snapshot.json
 demos/**/target/
 **/node_modules/
 
