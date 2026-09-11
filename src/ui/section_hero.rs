@@ -331,103 +331,78 @@ pub(super) fn render_two_col_hero(
         link = cta2_link, text = t
     )).unwrap_or_default();
 
-    // Derive lighter accent for gradient CTA
-    let accent_light = match accent_hex {
-        "#2563eb" => "#60a5fa",
-        "#6366f1" => "#a5b4fc",
-        "#f59e0b" => "#fcd34d",
-        "#10b981" => "#6ee7b7",
-        "#f43f5e" => "#fb7185",
-        "#8b5cf6" => "#c4b5fd",
-        "#0ea5e9" => "#7dd3fc",
-        "#f97316" => "#fdba74",
-        "#ef4444" => "#fca5a5",
-        "#22c55e" => "#86efac",
-        "#a855f7" => "#d8b4fe",
-        "#ec4899" => "#f9a8d4",
-        "#06b6d4" => "#67e8f9",
-        "#14b8a6" => "#5eead4",
-        _ => "#60a5fa",
-    };
-
-    // Credit card config from section data
+    // Credit-card visual is opt-in (`card_brand` / `card_number` / `card_holder`).
+    // Never invent a fintech card when the .cronus file did not ask.
+    let has_card = section.config.contains_key("card_brand")
+        || section.config.contains_key("card_number")
+        || section.config.contains_key("card_holder");
     let card_brand = section.config.get("card_brand")
-        .map(|s| s.clone())
+        .cloned()
         .or_else(|| section.config.get("brand").cloned())
-        .unwrap_or_else(|| "ULTIMA".to_string());
-    let card_number = section.config.get("card_number")
-        .cloned()
-        .unwrap_or_else(|| "4400 8821 9902 1104".to_string());
-    let card_holder = section.config.get("card_holder")
-        .cloned()
-        .unwrap_or_else(|| "SOVEREIGN ARCHITECT".to_string());
+        .unwrap_or_default();
+    let card_number = section.config.get("card_number").cloned().unwrap_or_default();
+    let card_holder = section.config.get("card_holder").cloned().unwrap_or_default();
 
-    format!(
-        r##"<style>@keyframes pulse-dot{{0%,100%{{opacity:1;transform:scale(1)}}50%{{opacity:0.5;transform:scale(0.85)}}}}</style>
-<section style="position:relative;overflow:hidden;min-height:921px;display:flex;align-items:center;background:#0a0a0a">
-  <div style="position:absolute;inset:0;z-index:0;pointer-events:none">
-    <div style="position:absolute;top:-20%;left:-10%;width:60%;height:60%;background:radial-gradient(ellipse at center,rgba(99,102,241,0.08) 0%,transparent 70%)"></div>
-    <div style="position:absolute;top:-10%;right:-10%;width:50%;height:50%;background:radial-gradient(ellipse at center,rgba(168,85,247,0.06) 0%,transparent 70%)"></div>
-    <div style="position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent)"></div>
-  </div>
-  <div style="position:relative;z-index:10;max-width:1280px;width:100%;margin:0 auto;padding:120px 24px 80px;display:grid;grid-template-columns:58% 42%;align-items:center;gap:48px">
-    <div style="display:flex;flex-direction:column;align-items:flex-start">
-      {badge_html}
-      <h1 class="anim-slide-up d2" style="font-size:clamp(56px,9vw,112px);font-weight:900;letter-spacing:-0.04em;line-height:0.95;margin:0 0 28px 0">
-        {title_html}
-      </h1>
-      <p class="anim-slide-up d3" style="max-width:520px;margin:0 0 40px;font-size:clamp(16px,1.6vw,19px);font-weight:300;color:rgba(255,255,255,0.5);line-height:1.7;text-align:left">{subtitle}</p>
-      <div class="anim-slide-up d4" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px">
-        <a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 36px;border-radius:999px;background:linear-gradient(135deg,{accent} 0%,{accent_light} 100%);color:#ffffff;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s;box-shadow:0 2px 20px {accent}40" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 28px {accent}60'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 20px {accent}40'">{cta_primary}</a>
-        {cta2_html}
-      </div>
-    </div>
-    <div style="display:flex;align-items:center;justify-content:center;min-height:320px">
+    let right_col = if has_card {
+        format!(
+            r#"<div style="display:flex;align-items:center;justify-content:center;min-height:320px">
       <div style="width:100%;max-width:420px;perspective:1000px;position:relative">
-        <!-- Animated pulse blob behind card -->
         <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:80%;height:80%;background:radial-gradient(circle,{accent}20 0%,transparent 70%);filter:blur(60px);animation:pulse 4s ease-in-out infinite;z-index:0"></div>
-        <!-- Gradient blur glow behind card -->
-        <div style="position:absolute;bottom:-80px;left:-40px;width:256px;height:256px;border-radius:50%;background:linear-gradient(135deg,rgba(173,198,255,0.1),rgba(233,179,255,0.05));filter:blur(100px);z-index:-1"></div>
-        <!-- Credit Card -->
-        <div class="anim-scale d4" style="position:relative;z-index:1;width:100%;min-height:340px;border-radius:16px;backdrop-filter:blur(32px);border:0.5px solid rgba(76,69,70,0.15);overflow:hidden;transform:rotateY(-6deg) rotateX(4deg);box-shadow:0 25px 50px rgba(0,0,0,0.5),0 0 0 0.5px rgba(255,255,255,0.05) inset;background:linear-gradient(135deg,rgba(255,255,255,0.06) 0%,rgba(255,255,255,0.02) 100%)">
-          <!-- Subtle gradient overlay -->
-          <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(99,102,241,0.08) 0%,rgba(168,85,247,0.05) 50%,transparent 100%);pointer-events:none"></div>
-          <!-- Card content -->
-          <div style="position:relative;z-index:2;padding:28px 28px 24px;min-height:320px;height:100%;display:flex;flex-direction:column;justify-content:space-between">
-            <!-- Top row: brand + contactless -->
-            <div style="display:flex;justify-content:space-between;align-items:flex-start">
-              <span style="font-size:18px;font-weight:900;font-style:italic;letter-spacing:-0.04em;color:rgba(255,255,255,0.9)">{card_brand}</span>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="opacity:0.5"><path d="M12 2C8.96 2 6.21 3.23 4.22 5.22L5.64 6.64C7.26 5.03 9.5 4 12 4s4.74 1.03 6.36 2.64l1.41-1.42C17.79 3.23 15.04 2 12 2z" fill="white"/><path d="M12 6c-2.21 0-4.21.9-5.66 2.34l1.42 1.42C8.88 8.64 10.37 8 12 8s3.12.64 4.24 1.76l1.42-1.42C16.21 6.9 14.21 6 12 6z" fill="white"/><path d="M12 10c-1.38 0-2.63.56-3.54 1.46l1.42 1.42C10.44 12.33 11.17 12 12 12s1.56.33 2.12.88l1.42-1.42C14.63 10.56 13.38 10 12 10z" fill="white"/><circle cx="12" cy="16" r="1.5" fill="white"/></svg>
-            </div>
-            <!-- Card number -->
-            <div style="font-size:1.5rem;font-weight:500;letter-spacing:0.2em;color:rgba(255,255,255,0.85);font-feature-settings:'tnum' on;font-variant-numeric:tabular-nums">{card_number}</div>
-            <!-- Bottom row: holder + chip -->
-            <div style="display:flex;justify-content:space-between;align-items:flex-end">
-              <div>
-                <div style="font-size:8px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:4px">Holder</div>
-                <div style="font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.75)">{card_holder}</div>
-              </div>
-              <div style="width:32px;height:32px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center">
-                <div style="width:16px;height:16px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.05)"></div>
-              </div>
+        <div class="anim-scale d4" style="position:relative;z-index:1;width:100%;min-height:340px;border-radius:16px;backdrop-filter:blur(32px);border:1px solid var(--cronus-border,rgba(255,255,255,0.08));overflow:hidden;background:var(--cronus-surface,rgba(255,255,255,0.04))">
+          <div style="position:relative;z-index:2;padding:28px 28px 24px;min-height:320px;display:flex;flex-direction:column;justify-content:space-between">
+            <span style="font-size:18px;font-weight:800;letter-spacing:-0.03em;color:var(--cronus-fg,#fff)">{card_brand}</span>
+            <div style="font-size:1.5rem;font-weight:500;letter-spacing:0.16em;color:var(--cronus-fg,#fff);font-variant-numeric:tabular-nums">{card_number}</div>
+            <div>
+              <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--cronus-fg-secondary,rgba(255,255,255,0.45));margin-bottom:4px">Holder</div>
+              <div style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--cronus-fg,#fff)">{card_holder}</div>
             </div>
           </div>
         </div>
       </div>
+    </div>"#,
+            accent = accent_hex,
+            card_brand = card_brand,
+            card_number = card_number,
+            card_holder = card_holder,
+        )
+    } else {
+        String::new()
+    };
+    let grid = if has_card { "minmax(0,1.2fr) minmax(0,0.8fr)" } else { "1fr" };
+    let min_h = if has_card { "min-height:80vh;" } else { "" };
+
+    format!(
+        r##"<style>@keyframes pulse-dot{{0%,100%{{opacity:1;transform:scale(1)}}50%{{opacity:0.5;transform:scale(0.85)}}}}</style>
+<section style="position:relative;overflow:hidden;{min_h}display:flex;align-items:center;background:var(--cronus-bg,#0a0a0a)">
+  <div style="position:absolute;inset:0;z-index:0;pointer-events:none">
+    <div style="position:absolute;top:-20%;left:-10%;width:60%;height:60%;background:radial-gradient(ellipse at center,color-mix(in srgb,var(--cronus-primary,{accent}) 12%,transparent) 0%,transparent 70%)"></div>
+    <div style="position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cronus-border,rgba(255,255,255,0.06)),transparent)"></div>
+  </div>
+  <div style="position:relative;z-index:10;max-width:1280px;width:100%;margin:0 auto;padding:120px 24px 80px;display:grid;grid-template-columns:{grid};align-items:center;gap:48px">
+    <div style="display:flex;flex-direction:column;align-items:flex-start">
+      {badge_html}
+      <h1 class="anim-slide-up d2" style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.04em;line-height:0.95;margin:0 0 28px 0">
+        {title_html}
+      </h1>
+      <p class="anim-slide-up d3" style="max-width:560px;margin:0 0 40px;font-size:clamp(16px,1.6vw,19px);font-weight:400;color:var(--cronus-fg-secondary,rgba(255,255,255,0.55));line-height:1.7;text-align:left">{subtitle}</p>
+      <div class="anim-slide-up d4" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px">
+        <a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 36px;border-radius:999px;background:var(--cronus-primary,{accent});color:var(--cronus-primary-foreground,#fff);font-weight:700;font-size:16px;text-decoration:none;transition:transform 0.2s,box-shadow 0.2s" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">{cta_primary}</a>
+        {cta2_html}
+      </div>
     </div>
+    {right_col}
   </div>
 </section>"##,
+        min_h = min_h,
+        accent = accent_hex,
+        grid = grid,
         badge_html = badge_html,
         title_html = title_html,
         subtitle = subtitle,
         cta_link = cta_link,
-        accent = accent_hex,
-        accent_light = accent_light,
         cta_primary = cta_primary,
         cta2_html = cta2_html,
-        card_brand = card_brand,
-        card_number = card_number,
-        card_holder = card_holder,
+        right_col = right_col,
     )
 }
 
