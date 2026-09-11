@@ -2459,6 +2459,11 @@ async fn cmd_run(args: &[String]) {
             theme::ThemeTokens::default()
         };
         theme::set_global(tokens);
+        let preset = style
+            .as_ref()
+            .and_then(|s| s.config.get("preset").cloned())
+            .unwrap_or_default();
+        theme::set_preset(&preset);
     }
 
     // Database — use CronusDB for all operations

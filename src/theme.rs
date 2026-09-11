@@ -8,6 +8,8 @@ use std::sync::RwLock;
 
 /// Global theme tokens — set once at startup from tailwind_config/style
 static THEME: RwLock<Option<ThemeTokens>> = RwLock::new(None);
+/// Named cronus-ui preset (`aurora` / `midnight` / …). Empty = legacy.
+static PRESET: RwLock<String> = RwLock::new(String::new());
 
 #[derive(Debug, Clone)]
 pub struct ThemeTokens {
@@ -281,6 +283,15 @@ pub fn parse_from_style(accent: &str, font: &str) -> ThemeTokens {
 /// Set the global theme tokens
 pub fn set_global(tokens: ThemeTokens) {
     *THEME.write().unwrap() = Some(tokens);
+}
+
+/// Named cronus-ui preset from `style { preset aurora }`. Empty = legacy path.
+pub fn set_preset(preset: &str) {
+    *PRESET.write().unwrap() = preset.trim().to_ascii_lowercase();
+}
+
+pub fn get_preset() -> String {
+    PRESET.read().unwrap().clone()
 }
 
 /// Get current tokens (returns defaults if not set)

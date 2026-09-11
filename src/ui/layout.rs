@@ -8,9 +8,19 @@ use super::{CRONUS_ANIMATIONS_CSS, CRONUS_ANIMATIONS_JS};
 // ══════════════════════════════════════════════════
 
 pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &str) -> String {
+    let preset = crate::theme::get_preset();
+    let theme_attrs = if crate::cronus_ui::is_named_preset(&preset) {
+        format!(" data-cronus-theme=\"{preset}\" data-cronus-mode=\"dark\"")
+    } else {
+        String::new()
+    };
+    let cronus_ui_css = crate::cronus_ui::token_css(
+        if preset.is_empty() { "legacy" } else { &preset },
+        "dark",
+    );
     format!(
         r#"<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR"{theme_attrs}>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,109 +31,30 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
   <style>{cronus_ui_css}</style>
   <style>
     :root {{
-      --background: oklch(0.11 0 0);
-      --card: oklch(0.14 0 0);
-      --card-soft: oklch(0.16 0 0);
-      --card-strong: oklch(0.18 0 0);
-      --foreground: oklch(0.93 0 0);
-      --foreground-muted: oklch(0.5 0 0);
-      --foreground-subtle: oklch(0.4 0 0);
-      --border: oklch(1 0 0 / 6%);
-      --border-strong: oklch(1 0 0 / 8%);
-      --surface-hover: oklch(0.18 0 0);
-      --secondary: oklch(0.18 0 0);
-      --accent: var(--primary);
-      --accent-soft: oklch(0.488 0.243 264 / 12%);
-      --success: var(--success, #10b981);
-      --success-soft: oklch(0.696 0.17 162 / 12%);
-      --warning: oklch(0.769 0.188 70);
-      --danger: var(--error, #ef4444);
-      --danger-soft: oklch(0.704 0.191 22 / 12%);
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
-      --radius-card: 22px;
-      --radius-button: 10px;
-      --radius-badge: 999px;
-      --radius: 0.875rem;
+      --background: var(--cronus-bg, oklch(0.11 0 0));
+      --foreground: var(--cronus-fg, oklch(0.93 0 0));
+      --border: var(--cronus-border, oklch(1 0 0 / 6%));
     }}
-    body {{ background: var(--background); color: var(--foreground); font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif; -webkit-font-smoothing: antialiased; margin: 0; }}
-    ::selection {{ background: oklch(0.3 0 0); }}
+    body {{ background: var(--background); color: var(--foreground); font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; margin: 0; }}
     ::-webkit-scrollbar {{ width: 4px; }}
     ::-webkit-scrollbar-thumb {{ background: var(--border); border-radius: 2px; }}
-    @keyframes fadeIn {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
-    .animate-fade-in {{ animation: fadeIn 0.3s ease-out; }}
-    .sidebar-icon {{ width:36px;height:36px;border-radius:var(--radius-button);display:flex;align-items:center;justify-content:center;color:var(--foreground-muted);text-decoration:none;transition:all 0.15s }}
-    .sidebar-icon:hover {{ background:var(--secondary);color:var(--foreground);transform:scale(1.04) }}
-    .sidebar-text {{ display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:13px;color:var(--foreground-muted);text-decoration:none;transition:all 0.15s }}
-    .sidebar-text:hover {{ background:var(--secondary);color:var(--foreground) }}
   </style>
 </head>
 <body>
-  <div style="display:flex;min-height:100vh">
-    <!-- Sidebar (icon-only, 48px) -->
-    <aside style="width:48px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0">
-      <a href="/" class="sidebar-icon" style="margin-bottom:8px;background:var(--secondary)" title="{app_name}">
-        <span style="font-size:14px;font-weight:700;color:var(--foreground)">C</span>
-      </a>
-      <div style="width:20px;height:1px;background:var(--border);margin:4px 0"></div>
-      <a href="/dashboard" title="Visao Geral" class="sidebar-icon">
-        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      </a>
-      <a href="/courses" title="Produtos" class="sidebar-icon">
-        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-      </a>
-      <a href="/orders" title="Transacoes" class="sidebar-icon">
-        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 2v20m5-17H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H7"/></svg>
-      </a>
-      <a href="/analytics" title="Analise" class="sidebar-icon">
-        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 6-6"/></svg>
-      </a>
-      <a href="/affiliates" title="Afiliados" class="sidebar-icon">
-        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-      </a>
-      <a href="/webhooks" title="Integracoes" class="sidebar-icon">
-        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-      </a>
-      <div style="flex:1"></div>
-      <div style="width:20px;height:1px;background:var(--border);margin:4px 0"></div>
-      <a href="/settings" title="Configuracoes" class="sidebar-icon">
-        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83-2.83l-.06.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33 1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82 1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-      </a>
-      <!-- Avatar -->
-      <div title="Perfil" style="width:28px;height:28px;border-radius:50%;background:var(--secondary);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--foreground-muted);margin:4px 0 8px;cursor:pointer">Z</div>
-    </aside>
-    <!-- Main -->
-    <main style="flex:1;margin-left:48px;padding:6px;min-height:100vh" class="animate-fade-in">
-      <div style="border-radius:var(--radius-card);border:1px solid var(--border);background:var(--background);padding:20px;min-height:calc(100vh - 12px);box-shadow:var(--shadow-sm)">
+  <main style="min-height:100vh;padding:24px;max-width:1120px;margin:0 auto" class="animate-fade-in">
       {body}
-      </div>
-    </main>
-  </div>
+  </main>
   <script>{runtime}</script>
   <script>{animate_js}</script>
   <script>{hmr}</script>
-  <script>
-    // Active nav state
-    var p=window.location.pathname;
-    document.querySelectorAll('aside a.sidebar-icon').forEach(function(a){{
-      if(a.getAttribute('href')===p||(p==='/'&&a.getAttribute('href')==='/dashboard')){{
-        a.style.background='var(--secondary)';
-        a.style.color='var(--foreground)';
-      }}
-    }});
-    document.querySelectorAll('a.sidebar-text').forEach(function(a){{
-      if(a.getAttribute('href')===p){{
-        a.style.background='var(--secondary)';
-        a.style.color='var(--foreground)';
-      }}
-    }});
-  </script>
   {anim_js}
   {action_js}
 </body>
 </html>"#,
         app_name = app_name,
         body = body,
-        cronus_ui_css = crate::cronus_ui::token_css("legacy", "dark"),
+        theme_attrs = theme_attrs,
+        cronus_ui_css = cronus_ui_css,
         tailwind_css = crate::tailwind::CRONUS_TAILWIND,
         animations_css = crate::animations::CRONUS_ANIMATIONS,
         anim_css = CRONUS_ANIMATIONS_CSS,
@@ -191,9 +122,20 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
         String::new()
     };
 
+    let preset = crate::theme::get_preset();
+    let theme_attrs = if crate::cronus_ui::is_named_preset(&preset) {
+        format!(" data-cronus-theme=\"{preset}\" data-cronus-mode=\"dark\"")
+    } else {
+        String::new()
+    };
+    let cronus_ui_css = crate::cronus_ui::token_css(
+        if preset.is_empty() { "legacy" } else { &preset },
+        "dark",
+    );
+
     format!(
         r##"<!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" class="dark"{theme_attrs}>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -220,16 +162,16 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
     /* ── Sidebar ── */
     #cronus-sidebar{{position:fixed;top:0;left:0;width:240px;height:100vh;background:linear-gradient(180deg,#0a0a0a 0%,#050505 100%);border-right:1px solid rgba(255,255,255,0.06);padding:20px;z-index:40;overflow-y:auto;display:flex;flex-direction:column;transition:transform 0.3s cubic-bezier(0.4,0,0.2,1)}}
     .sb-brand{{display:flex;align-items:center;gap:10px;margin-bottom:28px;padding:0 4px}}
-    .sb-logo{{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#3b82f6,#a855f7);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:14px;box-shadow:0 4px 20px rgba(59,130,246,0.25)}}
+    .sb-logo{{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--cronus-primary,#3b82f6),color-mix(in srgb,var(--cronus-primary,#3b82f6) 70%,#fff));display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--cronus-primary-foreground,#fff);font-size:14px;box-shadow:0 4px 20px color-mix(in srgb,var(--cronus-primary,#3b82f6) 35%,transparent)}}
     .sb-name{{font-size:17px;font-weight:700;color:#fff;letter-spacing:-0.02em}}
     .sb-nav{{display:flex;flex-direction:column;gap:2px;flex:1}}
     .sb-link,.sb-link:link,.sb-link:visited,.sb-link:focus,.sb-link:active{{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;color:#9ca3af!important;font-size:14px;font-weight:500;text-decoration:none!important;transition:all 0.15s;white-space:nowrap;background:transparent;border:0!important;outline:0!important;-webkit-tap-highlight-color:transparent}}
     .sb-link:hover{{background:rgba(255,255,255,0.03)!important;color:#fff!important}}
     .sb-link:active{{color:#fff!important}}
-    .sb-link.active,.sb-link.active:link,.sb-link.active:visited,.sb-link.active:focus,.sb-link.active:active{{background:linear-gradient(90deg,rgba(59,130,246,0.15),rgba(59,130,246,0.03))!important;color:#fff!important;box-shadow:inset 2px 0 0 #3b82f6!important}}
+    .sb-link.active,.sb-link.active:link,.sb-link.active:visited,.sb-link.active:focus,.sb-link.active:active{{background:linear-gradient(90deg,color-mix(in srgb,var(--cronus-primary,#3b82f6) 18%,transparent),transparent)!important;color:#fff!important;box-shadow:inset 2px 0 0 var(--cronus-primary,#3b82f6)!important}}
     .sb-link .material-symbols-outlined{{font-size:19px;color:#6b7280}}
     .sb-link:hover .material-symbols-outlined{{color:#9ca3af}}
-    .sb-link.active .material-symbols-outlined{{color:#60a5fa}}
+    .sb-link.active .material-symbols-outlined{{color:var(--cronus-primary,#60a5fa)}}
     .sb-divider{{height:1px;background:rgba(255,255,255,0.05);margin:12px 0}}
     .sb-footer{{padding-top:16px;border-top:1px solid rgba(255,255,255,0.05);margin-top:16px}}
     .sb-signout{{width:100%;padding:10px 12px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:500;color:#9ca3af;background:transparent;border:1px solid rgba(255,255,255,0.08);border-radius:8px;transition:all 0.15s}}
@@ -241,8 +183,11 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
 
     /* ── Main shell ── */
     .cronus-decl-main{{margin-left:240px;min-height:100vh;background:#000;position:relative}}
-    .cronus-decl-main::before{{content:'';position:fixed;top:0;left:240px;right:0;height:400px;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(59,130,246,0.06),transparent 70%);pointer-events:none;z-index:0}}
-    .cronus-decl-main > main{{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:32px 40px;animation:fadeIn 0.3s ease-out}}
+    .cronus-decl-main::before{{content:'';position:fixed;top:0;left:240px;right:0;height:400px;background:radial-gradient(ellipse 80% 60% at 50% 0%,color-mix(in srgb,var(--cronus-primary,#3b82f6) 10%,transparent),transparent 70%);pointer-events:none;z-index:0}}
+    .cronus-decl-main > main{{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:32px 40px;animation:fadeIn 0.35s cubic-bezier(.16,1,.3,1)}}
+    .kpi-card{{transition:transform .2s cubic-bezier(.16,1,.3,1),border-color .2s,box-shadow .2s;will-change:transform}}
+    .kpi-card:hover{{transform:translateY(-2px);border-color:color-mix(in srgb,var(--cronus-primary,#3b82f6) 35%,transparent)!important;box-shadow:0 12px 32px color-mix(in srgb,var(--cronus-primary,#3b82f6) 12%,transparent)}}
+    @media (prefers-reduced-motion: reduce){{.kpi-card,.cronus-decl-main > main,[data-animate]{{animation:none!important;transition:none!important;transform:none!important;opacity:1!important}}}}
 
     @keyframes fadeIn{{from{{opacity:0;transform:translateY(4px)}}to{{opacity:1;transform:translateY(0)}}}}
 
@@ -265,9 +210,9 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
     .cronus-decl-main form{{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:32px;max-width:560px}}
     .cronus-decl-main form label{{display:block;font-size:13px;font-weight:500;color:#d1d5db;margin-bottom:8px}}
     .cronus-decl-main form input,.cronus-decl-main form select,.cronus-decl-main form textarea{{width:100%;padding:10px 14px;font-size:14px;color:#fff;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;outline:none;margin-bottom:16px;font-family:inherit;transition:border-color 0.15s}}
-    .cronus-decl-main form input:focus,.cronus-decl-main form select:focus,.cronus-decl-main form textarea:focus{{border-color:#3b82f6;background:rgba(255,255,255,0.04)}}
-    .cronus-decl-main form button[type=submit]{{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;font-size:14px;font-weight:600;color:#fff;background:linear-gradient(135deg,#3b82f6,#2563eb);border:1px solid rgba(59,130,246,0.5);border-radius:10px;box-shadow:0 4px 20px rgba(59,130,246,0.25);transition:all 0.15s}}
-    .cronus-decl-main form button[type=submit]:hover{{transform:translateY(-1px);box-shadow:0 6px 28px rgba(59,130,246,0.35)}}
+    .cronus-decl-main form input:focus,.cronus-decl-main form select:focus,.cronus-decl-main form textarea:focus{{border-color:var(--cronus-primary,#3b82f6);background:rgba(255,255,255,0.04)}}
+    .cronus-decl-main form button[type=submit]{{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;font-size:14px;font-weight:600;color:var(--cronus-primary-foreground,#fff);background:var(--cronus-primary,#3b82f6);border:1px solid color-mix(in srgb,var(--cronus-primary,#3b82f6) 50%,transparent);border-radius:10px;box-shadow:0 4px 20px color-mix(in srgb,var(--cronus-primary,#3b82f6) 25%,transparent);transition:transform .15s,box-shadow .15s}}
+    .cronus-decl-main form button[type=submit]:hover{{transform:translateY(-1px);box-shadow:0 6px 28px color-mix(in srgb,var(--cronus-primary,#3b82f6) 35%,transparent)}}
 
     /* ── Cards / generic sections ── */
     .cronus-decl-main section{{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:24px;margin-bottom:20px}}
@@ -401,13 +346,14 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
         brand_initial = brand.chars().next().unwrap_or('K').to_uppercase().to_string(),
         nav_items = nav_html,
         body = body,
+        theme_attrs = theme_attrs,
         anim_css = CRONUS_ANIMATIONS_CSS,
         anim_js = CRONUS_ANIMATIONS_JS,
         runtime = crate::render::CRONUS_RUNTIME_JS,
         animate_js = crate::animations::CRONUS_ANIMATE_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
         action_js = crate::runtime_js::CRONUS_ACTION_JS,
-        cronus_ui_css = crate::cronus_ui::token_css("legacy", "dark"),
+        cronus_ui_css = cronus_ui_css,
     )
 }
 
@@ -1726,5 +1672,7 @@ mod tests {
         // Sanity: the output should still contain the user's brand text and routes
         assert!(html.contains("TestApp"), "brand text missing from output");
         assert!(html.contains("/dashboard"), "route missing from output");
+        assert!(!html.contains("Afiliados"), "fallback Cooud chrome leaked into declarative layout");
+        assert!(!html.contains("Visao Geral"), "fallback Cooud chrome leaked into declarative layout");
     }
 }
