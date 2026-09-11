@@ -78,7 +78,17 @@ component People layout:stack style:table {
 }
 
 page "/" type:custom {
-  section stats {
-    title "Widget parity"
-  }
+  title "Widget parity"
+  use Save
+  use Email
+  use Notes
+  use Plan
+  use Agree
+  use Billing
+  use Volume
+  use Upload
+  use Confirm
+  use Nav
+  use Faq
+  use People
 }

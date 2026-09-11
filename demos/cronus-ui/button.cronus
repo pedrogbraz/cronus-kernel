@@ -34,7 +34,9 @@ component Docs layout:inline style:button+link+md {
 }
 
 page "/" type:custom {
-  section stats {
-    title "Button parity"
-  }
+  title "Button parity"
+  use Save
+  use Cancel
+  use Delete
+  use Docs
 }
