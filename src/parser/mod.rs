@@ -422,6 +422,29 @@ impl Parser {
             if self.matches(TokenKind::LBracket, None) {
                 enum_values = Some(self.parse_array()?);
             } else if self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::ColonPair {
+                // Same-line `author string! note text!` is a second field, not a modifier.
+                // `email` is both a type and a common field name — only break when
+                // the current token is NOT a known modifier.
+                if self.peek().kind == TokenKind::Identifier {
+                    let cur = self.peek().value.clone();
+                    const MODIFIERS: &[&str] = &[
+                        "required", "unique", "sensitive", "optional",
+                        "searchable", "index", "featured", "formatted",
+                    ];
+                    if !MODIFIERS.contains(&cur.as_str()) {
+                        if let Some(nxt) = self.tokens.get(self.pos + 1) {
+                            let t = nxt.value.trim_end_matches('!');
+                            let is_type = matches!(t,
+                                "string" | "text" | "email" | "url" | "slug" | "phone"
+                                | "number" | "money" | "percentage" | "boolean" | "date"
+                                | "ulid" | "json" | "enum" | "ip"
+                            );
+                            if is_type || nxt.kind == TokenKind::Arrow {
+                                break;
+                            }
+                        }
+                    }
+                }
                 let mod_val = self.advance().value;
                 // Check for colon-pair modifiers like default:"value"
                 if mod_val.contains(':') {
@@ -807,6 +830,14 @@ impl Parser {
             } else if self.matches(TokenKind::Identifier, Some("roles")) {
                 self.advance();
                 roles = self.parse_array()?;
+            } else if self.matches(TokenKind::Identifier, Some("redirect")) {
+                self.advance();
+                let dest = if self.peek().kind == TokenKind::StringLit {
+                    self.advance().value
+                } else {
+                    self.advance().value
+                };
+                session_config.insert("redirect".into(), dest);
             } else {
                 self.advance();
             }
@@ -1430,6 +1461,7 @@ impl Parser {
                     group_by: None,
                     aggregate: None,
                     live: false,
+                    public: false,
                 });
             }
         }
@@ -1655,10 +1687,18 @@ impl Parser {
         let mut offset = None;
         let mut group_by = None;
         let mut aggregate = None;
+        let mut public = false;
+        let mut live = false;
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
             let kw = self.advance();
-            match kw.value.as_str() {
+            let (kw_name, kw_val) = if kw.value.contains(':') {
+                let (k, v) = Self::split_colon_pair(&kw.value);
+                (k, Some(v))
+            } else {
+                (kw.value.clone(), None)
+            };
+            match kw_name.as_str() {
                 "query" => {
                     let qt = self.advance().value;
                     query = match qt.as_str() {
@@ -1734,13 +1774,33 @@ impl Parser {
                         aggregate = Some(AggregateExpr { function: func_or_expr, field: None });
                     }
                 }
+                "scope" => {
+                    let v = kw_val.unwrap_or_else(|| self.advance().value);
+                    public = v.eq_ignore_ascii_case("public");
+                }
+                "live" => {
+                    live = match kw_val.as_deref() {
+                        Some("false") | Some("off") => false,
+                        Some("true") | Some("on") => true,
+                        Some(_) => true,
+                        None => {
+                            let v = self.peek().value.clone();
+                            if v == "true" || v == "on" || v == "false" || v == "off" {
+                                self.advance();
+                                v == "true" || v == "on"
+                            } else {
+                                true
+                            }
+                        }
+                    };
+                }
                 _ => {} // skip unknown
             }
         }
 
         self.expect(TokenKind::RBrace)?;
 
-        Ok(BindingNode { entity: entity_name, query, filters, order, limit, offset, group_by, aggregate, live: false })
+        Ok(BindingNode { entity: entity_name, query, filters, order, limit, offset, group_by, aggregate, live, public })
     }
 
     // ── style ──
@@ -3573,5 +3633,76 @@ entity Item shared {
             "error should mention expected kind 'Method', got: {}",
             err
         );
+    }
+
+    #[test]
+    fn same_line_fields_are_two_fields() {
+        let ast = parse(r#"entity Message { author string! note text! }"#).unwrap();
+        let AstNode::Entity(e) = &ast[0] else { panic!("entity") };
+        assert_eq!(e.fields.len(), 2, "got {:?}", e.fields.iter().map(|f| &f.name).collect::<Vec<_>>());
+        assert_eq!(e.fields[0].name, "author");
+        assert_eq!(e.fields[1].name, "note");
+        assert!(e.fields[0].required);
+        assert!(e.fields[1].required);
+    }
+
+    #[test]
+    fn email_field_named_email_stays_one_field() {
+        let ast = parse(r#"
+entity Lead {
+  name string! searchable
+  email email! unique
+  company string
+}
+"#).unwrap();
+        let AstNode::Entity(e) = &ast[0] else { panic!("entity") };
+        let names: Vec<_> = e.fields.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, vec!["name", "email", "company"], "got {names:?}");
+        assert!(e.fields[1].unique);
+        assert!(e.fields[1].required);
+    }
+
+    #[test]
+    fn bind_scope_public() {
+        let ast = parse(r#"
+page "/" {
+  section kpi {
+    bind Node { query count scope:public }
+    item "Nodes" value:bind
+  }
+}
+"#).unwrap();
+        let AstNode::Page(p) = &ast[0] else { panic!("page") };
+        let b = p.sections[0].binding.as_ref().expect("binding");
+        assert!(b.public);
+        assert_eq!(b.entity, "Node");
+        assert!(matches!(b.query, QueryType::Count));
+    }
+
+    #[test]
+    fn page_use_component_is_recorded() {
+        let ast = parse(r#"
+component Save layout:inline style:button+primary+md { label "Save" }
+page "/" type:custom {
+  title "Home"
+  use Save
+}
+"#).unwrap();
+        let page = ast.iter().find_map(|n| if let AstNode::Page(p) = n { Some(p) } else { None }).unwrap();
+        assert_eq!(page.components, vec!["Save".to_string()]);
+    }
+
+    #[test]
+    fn auth_redirect_is_stored() {
+        let ast = parse(r#"
+auth {
+  entity User
+  login email + password
+  session jwt expires:24h
+  redirect "/"
+}
+"#).unwrap();
+        let AstNode::Auth(a) = &ast[0] else { panic!("auth") };
+        assert_eq!(a.session_config.get("redirect").map(String::as_str), Some("/"));
     }
 }

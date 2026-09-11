@@ -85,8 +85,9 @@ pub fn resolve_binding(section: &SectionNode, db: &CronusDB, route_params: &Hash
     let table = binding.entity.clone();
     let mut filters = prepare_filters(binding, route_params);
 
-    // SECURITY: Add owner_id filter for data isolation
-    if !owner_id.is_empty() {
+    // SECURITY: Add owner_id filter for data isolation.
+    // `bind X { scope:public }` is the author opt-out (landing KPIs, shared catalogs).
+    if !owner_id.is_empty() && !binding.public {
         filters.push(("_owner_id".to_string(), "=".to_string(), owner_id.to_string()));
     }
 

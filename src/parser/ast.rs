@@ -272,6 +272,8 @@ pub struct BindingNode {
     pub group_by: Option<GroupByExpr>,
     pub aggregate: Option<AggregateExpr>,
     pub live: bool,  // real-time updates via SSE
+    /// `bind X { scope:public }` — skip `_owner_id` filter (marketing, shared catalogs).
+    pub public: bool,
 }
 
 #[derive(Debug, Clone)]

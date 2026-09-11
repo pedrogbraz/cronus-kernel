@@ -579,7 +579,7 @@ mod tests {
             limit: None,
             offset: None,
             group_by: None,
-            aggregate: None, live: false,
+            aggregate: None, live: false, public: false,
         }
     }
 
@@ -854,7 +854,7 @@ mod tests {
                     limit: None,
                     offset: None,
                     group_by: None,
-                    aggregate: None, live: false,
+                    aggregate: None, live: false, public: false,
                 });
                 s
             }]),
