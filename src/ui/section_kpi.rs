@@ -89,7 +89,7 @@ pub(super) fn render_stat_cards(section: &SectionNode, bound_data: &crate::bindi
         let delay = format!("d{}", (idx % 10) + 1);
 
         cards.push(format!(
-            r##"<div class="anim-scale {delay}" style="background:{card_bg};border:{card_border};border-radius:12px;padding:24px;transition:background 0.2s" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+            r##"<div class="kpi-card anim-scale {delay}" data-animate data-section="kpi" style="background:{card_bg};border:{card_border};border-radius:12px;padding:24px">
   {icon_html}
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><p style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:{label_color};margin:0">{label}</p>{badge_html}</div>
   <p data-count-to="{value}" style="font-size:28px;font-weight:700;color:{value_color};margin:0;letter-spacing:-0.02em">{value}</p>
@@ -98,7 +98,7 @@ pub(super) fn render_stat_cards(section: &SectionNode, bound_data: &crate::bindi
     }
 
     format!(
-        r##"<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;font-family:'Inter',system-ui,-apple-system,sans-serif;width:100%">
+        r##"<div class="stagger kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;font-family:'Inter',system-ui,-apple-system,sans-serif;width:100%">
   {items}
 </div>"##,
         items = cards.join("\n  "),
@@ -175,7 +175,7 @@ pub(super) fn render_kpi_section(section: &SectionNode, bound_data: &crate::bind
             );
         }
         return format!(
-            r#"<section style="padding:32px 0">{title_html}<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">{cards}</div></section>"#,
+            r#"<section style="padding:32px 0">{title_html}<div class="stagger kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">{cards}</div></section>"#,
             title_html = title_html, cards = placeholder_html,
         );
     }
@@ -253,7 +253,7 @@ pub(super) fn render_kpi_section(section: &SectionNode, bound_data: &crate::bind
         };
 
         cards_html.push_str(&format!(
-            r##"<div class="anim-slide-up {delay}" style="background:#fff;border:1px solid #f4f4f5;border-radius:12px;padding:20px">
+            r##"<div class="kpi-card anim-slide-up {delay}" data-animate data-section="kpi" style="background:#fff;border:1px solid #f4f4f5;border-radius:12px;padding:20px">
   {icon_html}
   <div style="display:flex;align-items:baseline;gap:8px">
     <span data-count-to="{value}" style="font-size:32px;font-weight:700;letter-spacing:-0.03em;line-height:1">{value}</span>
@@ -271,7 +271,7 @@ pub(super) fn render_kpi_section(section: &SectionNode, bound_data: &crate::bind
     format!(
         r##"<section style="padding:32px 0">
   {title_html}
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+  <div class="stagger kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
     {cards}
   </div>
 </section>"##,
@@ -369,7 +369,7 @@ pub(super) fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crat
         return format!(
             r##"<section style="padding:32px 0">
   {title_html}
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+  <div class="stagger kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
     {cards}
   </div>
 </section>"##,
@@ -498,7 +498,7 @@ pub(super) fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crat
     format!(
         r##"<section style="padding:32px 0">
   {title_html}
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+  <div class="stagger kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
     {cards}
   </div>
 </section>"##,

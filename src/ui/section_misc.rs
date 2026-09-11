@@ -229,45 +229,47 @@ pub(super) fn render_testimonial(section: &SectionNode, theme: &str) -> String {
 }
 
 
-pub(super) fn render_pricing(section: &SectionNode, accent: &str) -> String {
+pub(super) fn render_pricing(section: &SectionNode, _accent: &str) -> String {
     let title = section.title.as_deref().unwrap_or("Pricing");
 
     let plans: Vec<String> = section.plans.iter().map(|plan| {
         let features: Vec<String> = plan.features.iter()
-            .map(|f| format!(r#"<li class="flex items-center gap-2 text-sm text-neutral-300"><span class="text-{}-400">✓</span> {}</li>"#, accent, f))
+            .map(|f| format!(
+                r#"<li style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--cronus-fg-secondary);"><span style="color:var(--cronus-primary)">✓</span> {}</li>"#,
+                f
+            ))
             .collect();
 
         let border = if plan.featured {
-            format!("border-{}-500", accent)
+            "2px solid var(--cronus-primary)"
         } else {
-            "border-neutral-800".to_string()
+            "1px solid var(--cronus-border)"
         };
         let badge = if plan.featured {
-            format!(r#"<span class="text-xs bg-{}-600 text-white px-2 py-0.5 rounded-full">Popular</span>"#, accent)
+            r#"<span style="font-size:11px;background:var(--cronus-primary);color:var(--cronus-primary-foreground);padding:2px 8px;border-radius:999px;">Popular</span>"#
         } else {
-            String::new()
+            ""
         };
 
         format!(
-            r#"<div class="bg-neutral-900 border {border} rounded-lg p-6 flex flex-col">
-  <div class="flex items-center justify-between mb-4">
-    <h3 class="font-semibold text-white">{name}</h3>
+            r#"<div style="background:var(--cronus-surface);border:{border};border-radius:var(--cronus-radius,12px);padding:24px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <h3 style="font-weight:600;color:var(--cronus-fg);margin:0">{name}</h3>
     {badge}
   </div>
-  <p class="text-3xl font-bold text-white mb-6">{price}</p>
-  <ul class="space-y-2 mb-6 flex-1">{features}</ul>
-  <button class="w-full bg-{accent}-600 hover:bg-{accent}-500 text-white py-2 rounded text-sm font-medium transition">Choose Plan</button>
+  <p style="font-size:30px;font-weight:700;color:var(--cronus-fg);margin:0 0 24px">{price}</p>
+  <ul style="list-style:none;padding:0;margin:0 0 24px;display:flex;flex-direction:column;gap:8px;flex:1">{features}</ul>
+  <button type="button" style="width:100%;background:var(--cronus-primary);color:var(--cronus-primary-foreground);padding:10px 0;border:0;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">Choose Plan</button>
 </div>"#,
             border = border, name = plan.name, badge = badge,
             price = plan.price, features = features.join("\n    "),
-            accent = accent,
         )
     }).collect();
 
     format!(
-        r#"<section class="py-16">
-  <h2 class="text-3xl font-bold text-center mb-10">{title}</h2>
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+        r#"<section style="padding:64px 24px">
+  <h2 style="font-size:30px;font-weight:700;text-align:center;margin:0 0 40px;color:var(--cronus-fg)">{title}</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px;max-width:56rem;margin:0 auto">
     {plans}
   </div>
 </section>"#,
@@ -534,19 +536,19 @@ pub(super) fn render_faq(section: &SectionNode, _accent: &str) -> String {
     let subtitle_html = if subtitle.is_empty() {
         String::new()
     } else {
-        format!(r#"<p style="text-align:center;font-size:16px;color:#6b7280;margin:0 auto 48px;max-width:600px">{}</p>"#, subtitle)
+        format!(r#"<p style="text-align:center;font-size:16px;color:var(--cronus-fg-secondary);margin:0 auto 48px;max-width:600px">{}</p>"#, subtitle)
     };
 
     let items: Vec<String> = section.items.iter().map(|item| {
         let q = item.get("title").map(|s| s.as_str()).unwrap_or("Question");
         let a = item.get("description").map(|s| s.as_str()).unwrap_or("");
         format!(
-            r#"<details class="cronus-accordion-trigger" style="border-bottom:1px solid #e5e7eb">
-  <summary style="display:flex;align-items:center;justify-content:space-between;padding:20px 0;cursor:pointer;font-size:16px;font-weight:600;color:#111;list-style:none;-webkit-appearance:none">
+            r#"<details class="cronus-accordion-trigger" style="border-bottom:1px solid var(--cronus-border)">
+  <summary style="display:flex;align-items:center;justify-content:space-between;padding:20px 0;cursor:pointer;font-size:16px;font-weight:600;color:var(--cronus-fg);list-style:none;-webkit-appearance:none">
     {q}
-    <span style="font-size:20px;color:#9ca3af;transition:transform 0.2s;flex-shrink:0;margin-left:16px">+</span>
+    <span style="font-size:20px;color:var(--cronus-fg-secondary);flex-shrink:0;margin-left:16px">+</span>
   </summary>
-  <div style="padding:0 0 20px;font-size:15px;color:#6b7280;line-height:1.7">{a}</div>
+  <div style="padding:0 0 20px;font-size:15px;color:var(--cronus-fg-secondary);line-height:1.7">{a}</div>
 </details>"#,
             q = q, a = a,
         )
@@ -555,7 +557,7 @@ pub(super) fn render_faq(section: &SectionNode, _accent: &str) -> String {
     format!(
         r#"<section style="padding:80px 24px">
   <div style="max-width:var(--cronus-max-w, 1120px);margin:0 auto">
-    <h2 style="font-size:32px;font-weight:700;text-align:center;letter-spacing:-0.02em;margin-bottom:16px">{title}</h2>
+    <h2 style="font-size:32px;font-weight:700;text-align:center;letter-spacing:-0.02em;margin-bottom:16px;color:var(--cronus-fg)">{title}</h2>
     {subtitle_html}
     <div>
       {items}
