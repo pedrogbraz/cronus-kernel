@@ -1,77 +1,84 @@
-page "/admin" requires:role(admin) type:custom {
-  layout sidebar
+## Admin — billing operations. Navigation comes from layout Main.
 
-  section topbar {
-    brand "NovaPay"
-    template "<nav class=\"backdrop-blur-xl bg-black/60 border-b border-white/10 fixed flex h-16 items-center justify-between px-6 top-0 w-full z-50\"><div class=\"flex gap-8 items-center\"><span class=\"font-black text-white text-xl tracking-tighter\">NovaPay</span></div><div class=\"flex gap-3 items-center\"><span class=\"bg-green-500/20 border border-green-500/30 font-mono px-3 py-1 rounded-full text-green-400 text-xs\">Live</span></div></nav>"
-    style_block "body { background-color: #000; background-image: radial-gradient(#ffffff08 1px, transparent 1px); background-size: 40px 40px; color: #fff; font-family: 'Inter', sans-serif; } #cronus-main { padding: 0; max-width: 100vw; overflow-x: hidden; } .glass-panel { background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); } .ethereal-glow { box-shadow: 0 0 40px rgba(226,226,222,0.05); } @keyframes dotPulse { 0%,100% { box-shadow: 0 0 8px white; transform: translate(-50%,-50%) scale(1); } 50% { box-shadow: 0 0 20px white, 0 0 40px rgba(255,255,255,0.3); transform: translate(-50%,-50%) scale(1.3); } } #cronus-content [style*='border-radius'] { background: rgba(255,255,255,0.03) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08) !important; box-shadow: 0 0 40px rgba(226,226,222,0.03); } #cronus-content [style*='border-radius']:hover { background: rgba(255,255,255,0.05) !important; border-color: rgba(255,255,255,0.15) !important; } #cronus-content [style*='border-radius'] { margin-bottom: 2rem; } #cronus-content table { border-collapse: separate; border-spacing: 0; } #cronus-content th { color: rgba(255,255,255,0.4) !important; font-size: 10px !important; letter-spacing: 0.15em !important; text-transform: uppercase !important; } #cronus-content td { border-bottom: 1px solid rgba(255,255,255,0.05) !important; } #cronus-content tr:hover td { background: rgba(255,255,255,0.03) !important; } #cronus-content input[type='text'], #cronus-content input[type='search'] { background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 8px !important; color: white !important; } #cronus-content [style*='font-size:48px'], #cronus-content [style*='font-size:36px'], #cronus-content [style*='font-size:32px'] { font-weight: 900 !important; letter-spacing: -0.03em !important; }"
-  }
-
-  section sidebar {
-    brand "NovaPay"
-    subtitle "Billing Admin"
-    item "Dashboard" -> "/admin" icon:dashboard active:true
-    item "Customers" -> "/admin/customers" icon:people
-    item "Invoices" -> "/admin/invoices" icon:receipt_long
-    item "Subscriptions" -> "/admin/subscriptions" icon:autorenew
-    item "Plans" -> "/admin/plans" icon:loyalty
-    item "Usage" -> "/admin/usage" icon:analytics
-    item "Docs" -> "/docs" icon:menu_book position:bottom
-    template "<aside class=\"bg-[#131313] border-r border-white/5 fixed flex flex-col h-full left-0 p-4 pt-20 space-y-2 top-0 w-64 z-40\"><div class=\"mb-8 px-2\"><h2 class=\"font-black text-2xl text-white tracking-tighter\">NovaPay</h2><p class=\"text-neutral-500 text-xs tracking-widest uppercase\">Billing Admin</p></div><nav class=\"flex flex-1 flex-col space-y-1\"><a href=\"/admin\" class=\"bg-white flex gap-3 items-center px-4 py-3 rounded-lg shadow-[0_0_15px_rgba(255,255,255,0.1)] text-black\"><span class=\"material-symbols-outlined\">dashboard</span><span class=\"font-bold text-sm\">Dashboard</span></a><a href=\"/admin/customers\" class=\"flex gap-3 hover:bg-white/5 hover:text-white items-center px-4 py-3 rounded-lg text-neutral-500 transition-colors\"><span class=\"material-symbols-outlined\">people</span><span class=\"text-sm\">Customers</span></a><a href=\"/admin/invoices\" class=\"flex gap-3 hover:bg-white/5 hover:text-white items-center px-4 py-3 rounded-lg text-neutral-500 transition-colors\"><span class=\"material-symbols-outlined\">receipt_long</span><span class=\"text-sm\">Invoices</span></a><a href=\"/admin/subscriptions\" class=\"flex gap-3 hover:bg-white/5 hover:text-white items-center px-4 py-3 rounded-lg text-neutral-500 transition-colors\"><span class=\"material-symbols-outlined\">autorenew</span><span class=\"text-sm\">Subscriptions</span></a><a href=\"/admin/plans\" class=\"flex gap-3 hover:bg-white/5 hover:text-white items-center px-4 py-3 rounded-lg text-neutral-500 transition-colors\"><span class=\"material-symbols-outlined\">loyalty</span><span class=\"text-sm\">Plans</span></a><a href=\"/admin/usage\" class=\"flex gap-3 hover:bg-white/5 hover:text-white items-center px-4 py-3 rounded-lg text-neutral-500 transition-colors\"><span class=\"material-symbols-outlined\">analytics</span><span class=\"text-sm\">Usage</span></a></nav><div class=\"border-t border-white/5 flex flex-col pt-4 space-y-1\"><a href=\"/\" class=\"flex gap-3 hover:text-white items-center px-4 py-2 text-neutral-500 transition-colors\"><span class=\"material-symbols-outlined scale-75\">visibility</span><span class=\"text-sm\">View as User</span></a><a href=\"/docs\" class=\"flex gap-3 hover:text-white items-center px-4 py-2 text-neutral-500 transition-colors\"><span class=\"material-symbols-outlined scale-75\">menu_book</span><span class=\"text-sm\">Docs</span></a></div></aside>"
-  }
+page "/admin" type:dashboard requires:role(admin) {
+  title "Billing Overview"
 
   section page-header {
     title "Billing Overview"
-    subtitle "Real-time subscription metrics and revenue tracking."
-    template "<header class=\"mb-12\"><h1 class=\"font-black leading-none mb-2 text-5xl text-white tracking-tighter\">{{title}}</h1><p class=\"font-light leading-relaxed max-w-2xl text-lg text-neutral-400\">{{subtitle}}</p></header>"
+    subtitle "Subscription metrics, invoices, and customers from the database."
   }
 
-  section stats {
-    template "<div class=\"gap-6 grid grid-cols-1 md:grid-cols-4 mb-8\"><div class=\"glass-panel p-6 relative rounded-xl\"><div class=\"mb-3 text-neutral-500 text-xs tracking-widest uppercase\">Active Customers</div><div class=\"flex items-baseline justify-between\"><span class=\"font-black text-4xl text-white\" id=\"kpi-active\">--</span><span class=\"material-symbols-outlined text-white/15 text-3xl\">people</span></div></div><div class=\"glass-panel p-6 relative rounded-xl\"><div class=\"mb-3 text-neutral-500 text-xs tracking-widest uppercase\">Trial Users</div><div class=\"flex items-baseline justify-between\"><span class=\"font-black text-4xl text-white\" id=\"kpi-trial\">--</span><span class=\"material-symbols-outlined text-white/15 text-3xl\">hourglass_top</span></div></div><div class=\"glass-panel p-6 relative rounded-xl\"><div class=\"mb-3 text-neutral-500 text-xs tracking-widest uppercase\">Total Revenue</div><div class=\"flex items-baseline justify-between\"><span class=\"font-black text-3xl text-white\" id=\"kpi-revenue\">--</span><span class=\"material-symbols-outlined text-white/15 text-3xl\">account_balance</span></div></div><div class=\"glass-panel p-6 relative rounded-xl\"><div class=\"mb-3 text-neutral-500 text-xs tracking-widest uppercase\">MRR</div><div class=\"flex items-baseline justify-between\"><span class=\"font-black text-3xl text-white\" id=\"kpi-mrr\">--</span><span class=\"material-symbols-outlined text-white/15 text-3xl\">payments</span></div></div></div>"
+  section alert style:info {
+    title "Prices in centavos"
+    subtitle "Money fields are integers. 2990 means R$29.90."
   }
 
-  section stats {
-    template "<div class=\"gap-6 grid grid-cols-1 lg:grid-cols-3 mb-8\"><div class=\"glass-panel lg:col-span-2 overflow-hidden rounded-xl\"><div class=\"border-b border-white/5 flex items-center justify-between p-6\"><div><h3 class=\"font-bold text-lg text-white tracking-tight\">Revenue Overview</h3><p class=\"text-neutral-500 text-xs\">Trailing revenue by invoice</p></div><div class=\"flex gap-2\"><span class=\"bg-green-500/20 border border-green-500/30 font-mono px-2 py-0.5 rounded text-green-400 text-[10px]\" id=\"paid-badge\">0 paid</span><span class=\"bg-yellow-500/20 border border-yellow-500/30 font-mono px-2 py-0.5 rounded text-yellow-400 text-[10px]\" id=\"open-badge\">0 open</span></div></div><div class=\"min-h-[280px] p-6 relative\" id=\"chart-area\"><svg id=\"revenue-svg\" viewBox=\"0 0 600 200\" preserveAspectRatio=\"none\" class=\"h-full w-full\" style=\"opacity:0;transition:opacity 1s ease\"><defs><linearGradient id=\"rev-grad\" x1=\"0\" x2=\"0\" y1=\"0\" y2=\"1\"><stop offset=\"0%\" stop-color=\"white\" stop-opacity=\"0.15\"/><stop offset=\"100%\" stop-color=\"white\" stop-opacity=\"0\"/></linearGradient><linearGradient id=\"scan-grad\" x1=\"0\" x2=\"1\" y1=\"0\" y2=\"0\"><stop offset=\"0%\" stop-color=\"white\" stop-opacity=\"0\"/><stop offset=\"45%\" stop-color=\"white\" stop-opacity=\"0\"/><stop offset=\"50%\" stop-color=\"white\" stop-opacity=\"0.4\"/><stop offset=\"55%\" stop-color=\"white\" stop-opacity=\"0\"/><stop offset=\"100%\" stop-color=\"white\" stop-opacity=\"0\"/><animate attributeName=\"x1\" values=\"-1;1\" dur=\"3s\" repeatCount=\"indefinite\"/><animate attributeName=\"x2\" values=\"0;2\" dur=\"3s\" repeatCount=\"indefinite\"/></linearGradient></defs><path id=\"rev-area\" fill=\"url(#rev-grad)\" d=\"\"/><path id=\"rev-line\" fill=\"none\" stroke=\"white\" stroke-width=\"2\" d=\"\" style=\"filter:drop-shadow(0 0 6px rgba(255,255,255,0.3))\"/><path id=\"rev-scan\" fill=\"none\" stroke=\"url(#scan-grad)\" stroke-width=\"3\" d=\"\"/></svg><div id=\"chart-dots\" class=\"absolute inset-0 p-6\"></div><div class=\"absolute bottom-2 flex font-mono justify-between left-6 right-6 text-[10px] text-neutral-600\" id=\"chart-labels\"></div></div><div class=\"border-t border-white/5 flex gap-1 h-20 items-end p-4\" id=\"chart-bars\"></div></div><div class=\"glass-panel flex flex-col rounded-xl\"><div class=\"border-b border-white/5 p-6\"><h3 class=\"font-bold text-lg text-white tracking-tight\">Customer Breakdown</h3><p class=\"text-neutral-500 text-xs\">Lifecycle distribution</p></div><div class=\"flex-1 p-6 space-y-5\" id=\"status-breakdown\"></div><div class=\"border-t border-white/5 p-4\"><div class=\"flex items-center justify-between text-xs\"><span class=\"text-neutral-500\">Total customers</span><span class=\"font-mono font-bold text-white\" id=\"total-customers\">--</span></div></div></div></div>"
+  section kpi {
+    bind Customer { query count }
+    item "Customers" value:bind icon:people
   }
 
-  section table style:dark {
+  section kpi {
+    bind Invoice { query count }
+    item "Invoices" value:bind icon:receipt_long
+  }
+
+  section kpi {
+    bind Subscription { query count }
+    item "Subscriptions" value:bind icon:autorenew
+  }
+
+  section kpi {
+    bind Plan { query count }
+    item "Plans" value:bind icon:loyalty
+  }
+
+  section chart type:bar {
+    title "Invoices by status"
+    bind Invoice { aggregate count group status }
+  }
+
+  section table {
     title "Recent Invoices"
     columns "invoice_number, amount, currency, status, due_date, paid_at"
     bind Invoice { query all order created_at desc limit 10 }
   }
 
-  section table style:dark {
+  section table {
     title "Customers"
     columns "name, email, company, plan_name, mrr, status"
     bind Customer { query all order created_at desc limit 5 }
   }
-
-  section stats {
-    template "<script>window.__novaRefresh=function(anim){var t=localStorage.getItem('token');if(!t)return;var h={'Authorization':'Bearer '+t};fetch('/api/customers',{headers:h}).then(function(r){return r.json()}).then(function(d){var a=d.filter(function(c){return c.status==='active'}).length;var tr=d.filter(function(c){return c.status==='trial'}).length;var ch=d.filter(function(c){return c.status==='churned'}).length;var su=d.filter(function(c){return c.status==='suspended'}).length;var mrr=d.reduce(function(s,c){return s+(c.mrr||0)},0);var el;el=document.getElementById('kpi-active');if(el)el.textContent=a;el=document.getElementById('kpi-trial');if(el)el.textContent=tr;el=document.getElementById('kpi-mrr');if(el)el.textContent='R$'+Math.round(mrr/100).toLocaleString();el=document.getElementById('total-customers');if(el)el.textContent=d.length;var sb=document.getElementById('status-breakdown');if(sb){var total=d.length||1;sb.innerHTML='';[{n:'Active',c:a,cl:'#22c55e'},{n:'Trial',c:tr,cl:'#eab308'},{n:'Churned',c:ch,cl:'#ef4444'},{n:'Suspended',c:su,cl:'#6b7280'}].forEach(function(s){var pct=Math.round(s.c/total*100);sb.innerHTML+='<div><div class=\"flex items-center justify-between mb-2\"><div class=\"flex gap-2 items-center\"><div style=\"background:'+s.cl+'\" class=\"h-2 rounded-full w-2\"></div><span class=\"text-neutral-400 text-sm\">'+s.n+'</span></div><span class=\"font-mono text-sm text-white\">'+s.c+'</span></div><div class=\"bg-white/5 h-1.5 overflow-hidden rounded-full\"><div style=\"width:'+(anim?'0':pct+'%')+';background:'+s.cl+';box-shadow:0 0 10px '+s.cl+'40;transition:width 1.2s cubic-bezier(0.16,1,0.3,1)\" class=\"h-full rounded-full\" data-w=\"'+pct+'%\"></div></div></div>'});if(anim)setTimeout(function(){sb.querySelectorAll('[data-w]').forEach(function(el){el.style.width=el.dataset.w})},100);}});fetch('/api/invoices',{headers:h}).then(function(r){return r.json()}).then(function(d){var paid=d.filter(function(i){return i.status==='paid'});var open=d.filter(function(i){return i.status==='open'});var totalRev=paid.reduce(function(s,i){return s+(i.amount||0)},0);var el;el=document.getElementById('kpi-revenue');if(el)el.textContent='R$'+Math.round(totalRev/100).toLocaleString();el=document.getElementById('paid-badge');if(el)el.textContent=paid.length+' paid';el=document.getElementById('open-badge');if(el)el.textContent=open.length+' open';var W=600,H=200,pad=10;var amounts=d.map(function(i){return i.amount||0});var maxA=Math.max.apply(null,amounts)||1;var pts=amounts.map(function(a,i){return{x:pad+i*(W-2*pad)/(amounts.length-1||1),y:H-pad-(a/maxA)*(H-2*pad)}});if(pts.length>1){var lineD='M'+pts.map(function(p){return p.x+','+p.y}).join(' L');var areaD=lineD+' L'+pts[pts.length-1].x+','+H+' L'+pts[0].x+','+H+' Z';var aEl=document.getElementById('rev-area');if(aEl)aEl.setAttribute('d',areaD);var lEl=document.getElementById('rev-line');if(lEl)lEl.setAttribute('d',lineD);var scEl=document.getElementById('rev-scan');if(scEl)scEl.setAttribute('d',lineD);var svg=document.getElementById('revenue-svg');if(svg)svg.style.opacity='1';if(anim){var dots=document.getElementById('chart-dots');if(dots){dots.innerHTML='';pts.forEach(function(p,i){var dot=document.createElement('div');dot.style.cssText='position:absolute;width:8px;height:8px;background:white;border-radius:50%;box-shadow:0 0 12px white;left:'+((p.x/W)*100)+'%;top:'+((p.y/H)*100)+'%;transform:translate(-50%,-50%) scale(0);transition:transform 0.5s ease '+(0.3+i*0.15)+'s;animation:dotPulse 2s ease-in-out '+(i*0.3)+'s infinite';dots.appendChild(dot);requestAnimationFrame(function(){requestAnimationFrame(function(){dot.style.transform='translate(-50%,-50%) scale(1)'})})})}}}var labels=document.getElementById('chart-labels');if(labels)labels.innerHTML=d.map(function(i){return '<span>'+i.invoice_number.replace('INV-','#')+'</span>'}).join('');var bars=document.getElementById('chart-bars');if(bars){bars.innerHTML=d.map(function(inv,idx){var pct=Math.round((inv.amount||0)/maxA*100);var cl=inv.status==='paid'?'bg-white':'bg-white/30';return '<div class=\"flex flex-1 flex-col gap-1 items-center\"><div class=\"'+cl+' hover:bg-white rounded-t-sm w-full\" style=\"height:'+(anim?'0':pct+'%')+';transition:height 0.8s cubic-bezier(0.16,1,0.3,1) '+(idx*0.1)+'s\" data-h=\"'+pct+'%\"></div><span class=\"font-mono text-[8px] text-neutral-600\">R$'+(inv.amount/100)+'</span></div>'}).join('');if(anim)setTimeout(function(){bars.querySelectorAll('[data-h]').forEach(function(el){el.style.height=el.dataset.h})},100)}});};window.__novaRefresh(true);setInterval(function(){window.__novaRefresh(false)},5000);</script>"
-  }
 }
 
-page "/admin/customers" requires:role(admin) type:custom {
-  layout sidebar
-  AdminStyles
-  AdminTopbar
-  AdminSidebar
-  PageHeader title:"Customers" subtitle:"Manage your customer base and subscription status."
+page "/admin/customers" requires:role(admin) {
+  title "Customers"
 
-  section table style:dark {
+  section page-header {
+    title "Customers"
+    subtitle "Manage your customer base and subscription status."
+  }
+
+  section table {
     title "All Customers"
     columns "name, email, company, plan_name, mrr, status"
     bind Customer { query all order created_at desc }
-    search true
-    pagination 20
+    search "name,email,company"
+    paginate 20
   }
 }
 
-page "/admin/customers/new" requires:role(admin) {
-  layout sidebar
+page "/admin/customers/new" type:form requires:role(admin) {
+  title "New Customer"
+
+  section page-header {
+    title "New Customer"
+    subtitle "Create a customer record. MRR is stored in centavos."
+  }
 
   section form entity:Customer {
     title "New Customer"
+    bind Customer { }
     field "name" type:text required
     field "email" type:email required
     field "company" type:text
@@ -81,89 +88,100 @@ page "/admin/customers/new" requires:role(admin) {
     field "mrr" type:money
 
     on submit {
-      create entity
+      create Customer
       toast "Customer created" style:success
       navigate "/admin/customers"
     }
   }
 }
 
-page "/admin/invoices" requires:role(admin) type:custom {
-  layout sidebar
-  AdminStyles
-  AdminTopbar
-  AdminSidebar
-  PageHeader title:"Invoices" subtitle:"Billing history and payment tracking."
+page "/admin/invoices" requires:role(admin) {
+  title "Invoices"
 
-  section table style:dark {
+  section page-header {
+    title "Invoices"
+    subtitle "Billing history and payment tracking."
+  }
+
+  section table {
     title "All Invoices"
     columns "invoice_number, amount, currency, status, due_date, paid_at"
     bind Invoice { query all order created_at desc }
-    search true
-    pagination 25
+    search "invoice_number,status"
+    paginate 25
   }
 }
 
-page "/admin/subscriptions" requires:role(admin) type:custom {
-  layout sidebar
-  AdminStyles
-  AdminTopbar
-  AdminSidebar
-  PageHeader title:"Subscriptions" subtitle:"Active subscriptions and billing cycles."
+page "/admin/subscriptions" requires:role(admin) {
+  title "Subscriptions"
 
-  section table style:dark {
+  section page-header {
+    title "Subscriptions"
+    subtitle "Active subscriptions and billing cycles."
+  }
+
+  section table {
     title "All Subscriptions"
     columns "customer, plan, status, current_period_start, current_period_end"
     bind Subscription { query all order created_at desc }
-    search true
+    search "status"
+    paginate 20
   }
 }
 
-page "/admin/plans" requires:role(admin) type:custom {
-  layout sidebar
-  AdminStyles
-  AdminTopbar
-  AdminSidebar
-  PageHeader title:"Plans & Pricing" subtitle:"Configure subscription tiers and pricing."
+page "/admin/plans" requires:role(admin) {
+  title "Plans"
 
-  section table style:dark {
+  section page-header {
+    title "Plans & Pricing"
+    subtitle "Configure subscription tiers. Price is stored in centavos."
+  }
+
+  section table {
     title "Available Plans"
     columns "name, slug, price, interval, trial_days, active"
     bind Plan { query all order sort_order asc }
   }
 }
 
-page "/admin/plans/new" requires:role(admin) {
-  layout sidebar
+page "/admin/plans/new" type:form requires:role(admin) {
+  title "New Plan"
+
+  section page-header {
+    title "New Plan"
+    subtitle "Price is an integer in centavos — 2990 is R$29.90."
+  }
 
   section form entity:Plan {
     title "New Plan"
+    bind Plan { }
     field "name" type:text required
     field "slug" type:text required
     field "price" type:money required
-    field "interval" type:select options:"monthly,yearly"
+    field "interval" type:select options:["monthly", "yearly"]
     field "trial_days" type:number
     field "features" type:textarea
 
     on submit {
-      create entity
+      create Plan
       toast "Plan created" style:success
       navigate "/admin/plans"
     }
   }
 }
 
-page "/admin/usage" requires:role(admin) type:custom {
-  layout sidebar
-  AdminStyles
-  AdminTopbar
-  AdminSidebar
-  PageHeader title:"Usage Analytics" subtitle:"Resource consumption and metering data."
+page "/admin/usage" requires:role(admin) {
+  title "Usage"
 
-  section table style:dark {
+  section page-header {
+    title "Usage Analytics"
+    subtitle "Resource consumption and metering data."
+  }
+
+  section table {
     title "Usage Records"
     columns "customer, metric, value, period, recorded_at"
     bind UsageRecord { query all order recorded_at desc }
-    pagination 50
+    paginate 50
   }
 }

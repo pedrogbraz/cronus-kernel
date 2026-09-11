@@ -1,49 +1,49 @@
-## API — full REST endpoints, auto-generated from entities
-
-api /auth {
-  login POST /auth/login auth:public
-  register POST /auth/register auth:public
-  me GET /auth/me auth:jwt
-}
+## API — REST surface. Kernel already serves /api/auth/signup and /api/auth/login.
 
 api /customers {
-  list GET /customers auth:jwt
-  create POST /customers auth:jwt
-  detail GET /customers/:id auth:jwt
-  update PATCH /customers/:id auth:jwt
-  remove DELETE /customers/:id auth:jwt
+  list   GET    /      auth:jwt
+  create POST   /      auth:jwt
+  detail GET    /:id   auth:jwt
+  update PATCH  /:id   auth:jwt
+  delete DELETE /:id   auth:jwt
 }
 
 api /plans {
-  list GET /plans auth:public
-  create POST /plans auth:jwt
-  detail GET /plans/:id auth:public
-  update PATCH /plans/:id auth:jwt
-  remove DELETE /plans/:id auth:jwt
+  list   GET    /      auth:public
+  create POST   /      auth:jwt
+  detail GET    /:id   auth:public
+  update PATCH  /:id   auth:jwt
+  delete DELETE /:id   auth:jwt
 }
 
 api /subscriptions {
-  list GET /subscriptions auth:jwt
-  create POST /subscriptions auth:jwt
-  detail GET /subscriptions/:id auth:jwt
-  update PATCH /subscriptions/:id auth:jwt
-  remove DELETE /subscriptions/:id auth:jwt
+  list   GET    /      auth:jwt
+  create POST   /      auth:jwt
+  detail GET    /:id   auth:jwt
+  update PATCH  /:id   auth:jwt
+  delete DELETE /:id   auth:jwt
 }
 
 api /invoices {
-  list GET /invoices auth:jwt
-  create POST /invoices auth:jwt
-  detail GET /invoices/:id auth:jwt
-  update PATCH /invoices/:id auth:jwt
+  list   GET    /      auth:jwt
+  create POST   /      auth:jwt
+  detail GET    /:id   auth:jwt
+  update PATCH  /:id   auth:jwt
+  delete DELETE /:id   auth:jwt
 }
 
 api /payment-methods {
-  list GET /payment-methods auth:jwt
-  create POST /payment-methods auth:jwt
-  remove DELETE /payment-methods/:id auth:jwt
+  list   GET    /      auth:jwt
+  create POST   /      auth:jwt
+  detail GET    /:id   auth:jwt
+  update PATCH  /:id   auth:jwt
+  delete DELETE /:id   auth:jwt
 }
 
 api /usage {
-  list GET /usage auth:jwt
-  create POST /usage auth:jwt
+  list   GET    /      auth:jwt
+  create POST   /      auth:jwt
+  detail GET    /:id   auth:jwt
+  update PATCH  /:id   auth:jwt
+  delete DELETE /:id   auth:jwt
 }
