@@ -1,121 +1,41 @@
-## CRONUS v2 — All phases demo
-## Phase 1: Components with params
-## Phase 2: SPA Router (built into layout)
-## Phase 3: Reactive state (signals)
-## Phase 4: Live keyword (SSE bindings)
-## Phase 5: Test blocks
-
-app "CRONUSDemo" {
+app "Cronus Studio" {
+  stack voodoo
   port 5231
   database sqlite "./demo.db"
-  theme dark
 }
-
-style {
-  theme dark
-  accent white
+style { theme dark  preset aurora  runtime voodoo  font "Inter"  radius 14px }
+layout Main {
+  sidebar {
+    brand "Studio"
+    "Widgets" -> "/" icon:widgets
+    "Messages" -> "/messages" icon:chat
+  }
 }
-
 entity Message {
   author string!
-  body text!
+  note text!
 }
+api /messages { list GET / auth:public  create POST / auth:public }
 
-api /messages {
-  list GET /messages auth:public
-  create POST /messages auth:public
+component Save layout:inline style:button+primary+md { label "Save" }
+component Ghost layout:inline style:button+ghost+md { label "Cancel" }
+component Email layout:stack style:input { label "Email"  text "you@studio.app" }
+component Agree layout:inline style:checkbox { label "I agree" }
+component Live layout:inline style:switch { label "Live updates" }
+component Volume layout:stack style:slider { label "Intensity"  value "70" }
+component Tabs layout:stack style:tabs { tab "Overview"  tab "Activity"  tab "Settings" }
+component Faq layout:stack style:accordion { item "What is Cronus"  item "How do tokens work" }
+
+page "/" type:components {
+  title "Studio"
 }
-
-## Phase 1: Static component with params
-component KPICard(label: text, value: text, icon: text) {
-  template "<div class=\"bg-white/[0.03] border border-white/[0.08] rounded-xl p-6\"><div class=\"text-neutral-500 text-xs uppercase tracking-widest mb-2\">{{label}}</div><div class=\"flex items-baseline justify-between\"><span class=\"text-3xl font-black text-white\">{{value}}</span><span class=\"material-symbols-outlined text-white/15 text-2xl\">{{icon}}</span></div></div>"
-}
-
-## Phase 3: Reactive counter with signals
-component Counter {
-  state count: integer = 0
-  template "<div class=\"bg-white/[0.03] border border-white/[0.08] rounded-xl p-6 flex items-center justify-between\"><div><div class=\"text-neutral-500 text-xs uppercase tracking-widest mb-2\">Click Counter</div><div class=\"text-4xl font-black text-white\">{{count}}</div></div><div class=\"flex gap-2\"><button @click=\"count -= 1\" class=\"w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xl flex items-center justify-center transition-colors cursor-pointer select-none\">−</button><button @click=\"count += 1\" class=\"w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xl flex items-center justify-center transition-colors cursor-pointer select-none\">+</button></div></div>"
-
-  test "increments on click" {
-    click "+"
-    expect count 1
-    click "+"
-    expect count 2
-  }
-
-  test "decrements on click" {
-    click "−"
-    expect count -1
-  }
-}
-
-## Phase 3: Toggle with boolean state
-component ToggleCard {
-  state active: boolean = false
-  template "<div class=\"bg-white/[0.03] border border-white/[0.08] rounded-xl p-6 flex items-center justify-between\"><div><div class=\"text-neutral-500 text-xs uppercase tracking-widest mb-1\">Status</div><div class=\"text-lg font-bold text-white\">{{active}}</div></div><button @click=\"active = !active\" class=\"px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors cursor-pointer\">Toggle</button></div>"
-}
-
-## Phase 1 + 3: Component with params AND state
-component LikeButton(label: text) {
-  state likes: integer = 0
-  template "<button @click=\"likes += 1\" class=\"bg-white/[0.03] border border-white/[0.08] rounded-xl px-6 py-4 flex items-center gap-3 hover:bg-white/[0.06] transition-colors cursor-pointer\"><span class=\"material-symbols-outlined text-red-400\">favorite</span><span class=\"text-white font-medium\">{{label}}</span><span class=\"text-white/60 font-mono text-sm\">{{likes}}</span></button>"
-}
-
-## Pages — Phase 2 SPA Router handles navigation
-page "/" type:custom {
-  section topbar {
-    brand "CRONUS"
-    template "<nav class=\"bg-neutral-900 border-b border-white/5 fixed flex h-14 items-center justify-between px-6 top-0 w-full z-50\"><span class=\"font-bold text-white tracking-tight\">CRONUS <span class=\"text-neutral-500 font-normal\">v2 Demo</span></span><div class=\"flex gap-4\"><a href=\"/\" class=\"text-white text-sm font-medium\">Home</a><a href=\"/messages\" class=\"text-neutral-500 text-sm hover:text-white transition-colors\">Messages</a></div></nav>"
-    style_block "body { background: #0a0a0a; color: #fafafa; font-family: Inter, sans-serif; margin: 0; } #cronus-main { padding: 80px 32px 48px; max-width: 900px; margin: 0 auto; overflow-x: hidden; }"
-  }
-
-  section stats {
-    template "<h1 class=\"text-4xl font-black text-white tracking-tight mb-2\">CRONUS v2</h1><p class=\"text-neutral-400 mb-8\">All 5 phases working. Components, SPA Router, Reactive State, Live Bindings, Test Blocks.</p>"
-  }
-
-  section stats {
-    template "<h2 class=\"text-neutral-500 text-xs uppercase tracking-widest mb-4\">Phase 1 — Static Components</h2><div class=\"grid grid-cols-1 md:grid-cols-3 gap-4 mb-10\">"
-  }
-  KPICard label:"Users" value:"1,234" icon:"people"
-  KPICard label:"Revenue" value:"R$54K" icon:"payments"
-  KPICard label:"Uptime" value:"99.9%" icon:"speed"
-  section stats {
-    template "</div>"
-  }
-
-  section stats {
-    template "<h2 class=\"text-neutral-500 text-xs uppercase tracking-widest mb-4\">Phase 3 — Reactive Components</h2><div class=\"grid grid-cols-1 md:grid-cols-2 gap-4 mb-6\">"
-  }
-  Counter
-  ToggleCard
-  section stats {
-    template "</div><div class=\"flex gap-4 mb-10\">"
-  }
-  LikeButton label:"Like this"
-  LikeButton label:"Love CRONUS"
-  section stats {
-    template "</div>"
-  }
-
-  section stats {
-    template "<div class=\"mt-4 p-6 rounded-xl border border-white/5 bg-white/[0.02]\"><h3 class=\"text-white font-bold mb-3\">Phase Summary</h3><div class=\"grid grid-cols-2 md:grid-cols-5 gap-4 text-center\"><div><div class=\"text-2xl font-black text-green-400\">✓</div><div class=\"text-neutral-500 text-xs mt-1\">Components</div></div><div><div class=\"text-2xl font-black text-green-400\">✓</div><div class=\"text-neutral-500 text-xs mt-1\">SPA Router</div></div><div><div class=\"text-2xl font-black text-green-400\">✓</div><div class=\"text-neutral-500 text-xs mt-1\">Signals</div></div><div><div class=\"text-2xl font-black text-green-400\">✓</div><div class=\"text-neutral-500 text-xs mt-1\">Live</div></div><div><div class=\"text-2xl font-black text-green-400\">✓</div><div class=\"text-neutral-500 text-xs mt-1\">Tests</div></div></div></div>"
-  }
-}
-
 page "/messages" type:custom {
-  section topbar {
-    brand "CRONUS"
-    template "<nav class=\"bg-neutral-900 border-b border-white/5 fixed flex h-14 items-center justify-between px-6 top-0 w-full z-50\"><span class=\"font-bold text-white tracking-tight\">CRONUS <span class=\"text-neutral-500 font-normal\">v2 Demo</span></span><div class=\"flex gap-4\"><a href=\"/\" class=\"text-neutral-500 text-sm hover:text-white transition-colors\">Home</a><a href=\"/messages\" class=\"text-white text-sm font-medium\">Messages</a></div></nav>"
-    style_block "body { background: #0a0a0a; color: #fafafa; font-family: Inter, sans-serif; margin: 0; } #cronus-main { padding: 80px 32px 48px; max-width: 900px; margin: 0 auto; overflow-x: hidden; } #cronus-content th { color: rgba(255,255,255,0.4) !important; font-size: 10px !important; letter-spacing: 0.15em !important; text-transform: uppercase !important; } #cronus-content td { border-bottom: 1px solid rgba(255,255,255,0.05) !important; } #cronus-content tr:hover td { background: rgba(255,255,255,0.03) !important; } #cronus-content input { background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 8px !important; color: white !important; } #cronus-content [style*='border-radius'] { background: rgba(255,255,255,0.03) !important; border: 1px solid rgba(255,255,255,0.08) !important; }"
-  }
-
-  section stats {
-    template "<h1 class=\"text-4xl font-black text-white tracking-tight mb-2\">Messages</h1><p class=\"text-neutral-400 mb-8\">Phase 4 — Live data binding via SSE.</p>"
-  }
-
-  section table style:dark {
-    title "All Messages"
-    columns "author, body, created_at"
-    live bind Message { query all order created_at desc limit 50 }
+  section kpi { bind Message { query count }  item "Messages" value:bind icon:chat }
+  section table { title "Inbox"  bind Message { query all order created_at desc }  columns "author, note, created_at" }
+  section form {
+    title "New message"
+    entity Message
+    bind Message { query all }
+    on submit { create Message  toast "Sent" success  refresh self }
   }
 }
