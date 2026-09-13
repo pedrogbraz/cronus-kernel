@@ -1266,6 +1266,20 @@ button:has(+ [data-slot="sheet-content"]) {
   margin-top: 0.375rem; padding: 0 0.25rem;
   font-size: 0.75rem; color: var(--cronus-fg-secondary);
 }
+[data-slot="split-button"] {
+  display: inline-flex; align-items: stretch;
+}
+[data-slot="split-button"] > [data-slot="button"]:first-child {
+  border-top-right-radius: 0; border-bottom-right-radius: 0; border-right-width: 0;
+}
+[data-slot="split-button"] > [data-slot="button"]:last-child {
+  border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-width: 0;
+  aspect-ratio: 1; padding: 0; min-width: 2.5rem;
+}
+[data-slot="split-button"] > [data-slot="button"]:focus-visible {
+  position: relative; z-index: 10;
+}
+[data-slot="split-button"][data-disabled=""] { opacity: 0.5; pointer-events: none; }
 "#;
 
 #[cfg(test)]

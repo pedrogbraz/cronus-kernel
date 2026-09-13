@@ -93,6 +93,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "status-dot" => Some("cronus_ui_status_dot::render"),
         "credit-card-input" => Some("cronus_ui_credit_card_input::render"),
         "floating-label-input" => Some("cronus_ui_floating_label_input::render"),
+        "split-button" => Some("cronus_ui_split_button::render"),
         _ => None,
     }
 }
@@ -278,6 +279,10 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || html.contains("<label data-slot=\"credit-card-input\"")
         || html.contains("data-slot=\"floating-label-input-control\"")
         || html.contains("<label data-slot=\"floating-label-input\" style=")
+        || (html.contains("data-slot=\"split-button\"")
+            && html.contains("display:inline-flex;gap:0.25rem"))
+        || (html.contains("data-slot=\"split-button\"") && html.contains("style="))
+        || (html.contains("data-slot=\"split-button\"") && !html.contains("role=\"group\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -436,6 +441,7 @@ mod tests {
             "src/cronus_ui_textarea.rs",
             "src/cronus_ui_switch.rs",
             "src/cronus_ui_spinner.rs",
+            "src/cronus_ui_split_button.rs",
             "src/cronus_ui_separator.rs",
             "src/cronus_ui_sheet.rs",
             "src/cronus_ui_sidebar.rs",
