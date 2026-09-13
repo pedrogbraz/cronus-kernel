@@ -146,6 +146,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "animated-list" => Some("cronus_ui_animated_list::render"),
         "toast" => Some("cronus_ui_toast::render"),
         "carousel" => Some("cronus_ui_carousel::render"),
+        "code-block" => Some("cronus_ui_code_block::render"),
         _ => None,
     }
 }
@@ -514,6 +515,9 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && (!html.contains("data-slot=\"carousel-content\"")
                 || !html.contains("data-slot=\"carousel-item\"")))
         || (html.contains("data-slot=\"carousel\"") && html.contains("style="))
+        || html.contains("<section data-slot=\"code-block\"")
+        || (html.contains("data-slot=\"code-block\"") && html.contains("style="))
+        || (html.contains("<pre data-slot=\"code-block\"") && !html.contains("<code"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -704,6 +708,7 @@ mod tests {
             "src/cronus_ui_animated_list.rs",
             "src/cronus_ui_toast.rs",
             "src/cronus_ui_carousel.rs",
+            "src/cronus_ui_code_block.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",

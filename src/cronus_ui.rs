@@ -2774,6 +2774,17 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="carousel-previous"]:disabled, [data-slot="carousel-next"]:disabled {
   opacity: 0.5; pointer-events: none;
 }
+[data-slot="code-block"] {
+  margin: 0; overflow: auto;
+  border-radius: var(--cronus-radius-xl);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised); color: var(--cronus-fg);
+  padding: 1rem; font-size: 0.875rem; line-height: 1.625;
+  font-family: var(--cronus-font-mono, ui-monospace, monospace);
+}
+[data-slot="code-block"] code {
+  display: block; white-space: pre; font-family: inherit;
+}
 "#;
 
 #[cfg(test)]
