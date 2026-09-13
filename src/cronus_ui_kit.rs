@@ -203,6 +203,81 @@ pub fn chart_bars(series: &[f64]) -> Vec<ChartBar> {
         .collect()
 }
 
+/// Pentagon radar (5 axes). ViewBox `0 0 100 100`, first axis at top.
+pub const RADAR_AXES: usize = 5;
+pub const RADAR_VIEW: f64 = 100.0;
+pub const RADAR_CX: f64 = 50.0;
+pub const RADAR_CY: f64 = 50.0;
+pub const RADAR_RADIUS: f64 = 36.0;
+pub const RADAR_LEVELS: usize = 4;
+
+pub fn radar_values(series: &[f64]) -> [f64; RADAR_AXES] {
+    let mut out = [0.0; RADAR_AXES];
+    if series.is_empty() {
+        return DEFAULT_CHART_SERIES;
+    }
+    for (i, v) in series.iter().take(RADAR_AXES).enumerate() {
+        out[i] = *v;
+    }
+    out
+}
+
+pub fn radar_vertex(index: usize, radius: f64) -> (f64, f64) {
+    let angle =
+        -std::f64::consts::FRAC_PI_2 + (index as f64) * std::f64::consts::TAU / (RADAR_AXES as f64);
+    (
+        RADAR_CX + radius * angle.cos(),
+        RADAR_CY + radius * angle.sin(),
+    )
+}
+
+fn join_points(pts: &[(f64, f64)], close: bool) -> String {
+    let mut s: Vec<String> = pts
+        .iter()
+        .map(|(x, y)| format!("{},{}", fmt_coord(*x), fmt_coord(*y)))
+        .collect();
+    if close && !s.is_empty() {
+        s.push(s[0].clone());
+    }
+    s.join(" ")
+}
+
+pub fn radar_data_vertices(series: &[f64]) -> Vec<(f64, f64)> {
+    let vals = radar_values(series);
+    let max = vals.iter().copied().fold(1.0_f64, f64::max);
+    (0..RADAR_AXES)
+        .map(|i| {
+            let r = RADAR_RADIUS * (vals[i] / max).clamp(0.0, 1.0);
+            radar_vertex(i, r)
+        })
+        .collect()
+}
+
+pub fn radar_polygon_points(series: &[f64]) -> String {
+    join_points(&radar_data_vertices(series), false)
+}
+
+pub fn radar_polyline_points(series: &[f64]) -> String {
+    join_points(&radar_data_vertices(series), true)
+}
+
+pub fn radar_grid_points(level_frac: f64) -> String {
+    let r = RADAR_RADIUS * level_frac.clamp(0.0, 1.0);
+    let pts: Vec<(f64, f64)> = (0..RADAR_AXES).map(|i| radar_vertex(i, r)).collect();
+    join_points(&pts, true)
+}
+
+pub fn radar_axis_points(index: usize) -> String {
+    let (x, y) = radar_vertex(index, RADAR_RADIUS);
+    format!(
+        "{},{} {},{}",
+        fmt_coord(RADAR_CX),
+        fmt_coord(RADAR_CY),
+        fmt_coord(x),
+        fmt_coord(y)
+    )
+}
+
 #[cfg(test)]
 pub fn stub(family: &str, label: &str) -> ComponentNode {
     use std::collections::HashMap;

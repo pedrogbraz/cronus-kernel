@@ -1023,6 +1023,18 @@ button:has(+ [data-slot="sheet-content"]) {
   display: flex; align-items: center; justify-content: center;
   width: 100%; height: 16rem;
 [data-slot="pie-chart"] svg { width: 12rem; height: 12rem; }
+[data-slot="radar-chart"] {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 16rem;
+}
+[data-slot="radar-chart"] svg { width: 12rem; height: 12rem; }
+[data-slot="radar-chart"] polygon {
+  fill: var(--cronus-primary); fill-opacity: 0.28;
+}
+[data-slot="radar-chart"] polyline {
+  fill: none; stroke: var(--cronus-primary); stroke-width: 2;
+  stroke-linejoin: round; stroke-linecap: round;
+}
 [data-slot="data-table"] {
   display: flex; flex-direction: column; gap: 0.75rem;
   overflow: auto; color: var(--cronus-fg);
