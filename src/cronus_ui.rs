@@ -2904,6 +2904,23 @@ button:has(+ [data-slot="sheet-content"]) {
   letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--cronus-fg-tertiary, var(--cronus-fg-secondary));
 }
+[data-slot="animated-button"] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  height: 2.5rem; padding: 0 1rem;
+  border-radius: var(--cronus-radius-lg); border: 1px solid transparent;
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+  font: inherit; font-size: 0.875rem; font-weight: 500; line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--cronus-shadow-xs, 0 1px 2px rgba(0,0,0,.2));
+  transition: transform 150ms var(--ease-out-quart), opacity 150ms var(--ease-out-quart);
+}
+[data-slot="animated-button"]:hover { transform: translateY(-1px); }
+[data-slot="animated-button"]:active { transform: scale(0.97); }
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="animated-button"] { transition: none; }
+  [data-slot="animated-button"]:hover,
+  [data-slot="animated-button"]:active { transform: none; }
+}
 "#;
 
 #[cfg(test)]

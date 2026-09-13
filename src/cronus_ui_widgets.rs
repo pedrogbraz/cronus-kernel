@@ -326,6 +326,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "gradient-text",
     "shiny-text",
     "countdown",
+    "animated-button",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -480,6 +481,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "gradient-text" => Some(crate::cronus_ui_gradient_text::render(comp)),
         "shiny-text" => Some(crate::cronus_ui_shiny_text::render(comp)),
         "countdown" => Some(crate::cronus_ui_countdown::render(comp)),
+        "animated-button" => Some(crate::cronus_ui_animated_button::render(comp)),
         _ => None,
     }
 }
