@@ -2785,6 +2785,19 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="code-block"] code {
   display: block; white-space: pre; font-family: inherit;
 }
+[data-slot="description-list"] {
+  width: 100%; min-width: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 1rem;
+}
+[data-slot="description-item"] { min-width: 0; }
+[data-slot="description-term"] {
+  font-weight: 500; font-size: 0.875rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="description-details"] {
+  min-width: 0; margin: 0.25rem 0 0;
+  font-size: 0.875rem; color: var(--cronus-fg);
+  overflow-wrap: anywhere;
+}
 "#;
 
 #[cfg(test)]

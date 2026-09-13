@@ -246,6 +246,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "toast",
     "carousel",
     "code-block",
+    "description-list",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -392,6 +393,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "toast" => Some(crate::cronus_ui_toast::render(comp)),
         "carousel" => Some(crate::cronus_ui_carousel::render(comp)),
         "code-block" => Some(crate::cronus_ui_code_block::render(comp)),
+        "description-list" => Some(crate::cronus_ui_description_list::render(comp)),
         _ => None,
     }
 }
