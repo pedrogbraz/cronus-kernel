@@ -704,55 +704,40 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
   background: transparent; color: var(--cronus-fg);
   font-size: 0.875rem; font-weight: 400; font-family: inherit; cursor: pointer;
-}
 [data-slot="combobox-trigger"]:disabled { opacity: 0.5; pointer-events: none; }
 [data-slot="combobox-content"] {
   display: flex; flex-direction: column; min-width: 8rem; padding: 0.25rem;
   border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
   background: var(--cronus-surface-floating, var(--cronus-surface-overlay));
   color: var(--cronus-fg); box-shadow: var(--cronus-shadow-md, none);
-}
 [data-slot="combobox-item"] {
   display: flex; align-items: center; width: 100%;
   padding: 0.4rem 0.75rem; border: 0; border-radius: var(--cronus-radius-sm);
-  background: transparent; color: var(--cronus-fg);
   font: inherit; text-align: left; cursor: pointer;
-}
 [data-slot="combobox-item"][aria-selected="true"] {
   background: var(--cronus-surface-overlay);
-}
 [data-slot="stepper"] {
   display: flex; width: 100%;
-}
 [data-slot="stepper"][data-orientation="horizontal"], [data-slot="stepper"]:not([data-orientation]) {
   flex-direction: row; align-items: center;
-}
 [data-slot="stepper"][data-orientation="vertical"] {
   flex-direction: column;
-}
 [data-slot="stepper-item"] {
   position: relative; display: flex; align-items: center;
-}
 [data-slot="stepper"][data-orientation="horizontal"] > [data-slot="stepper-item"]:not(:last-child) {
   flex: 1;
-}
 [data-slot="stepper-trigger"] {
   display: inline-flex; align-items: center; gap: 0.75rem;
   border: 0; background: transparent; color: inherit;
   font: inherit; text-align: left; cursor: pointer; outline: none;
-}
 [data-slot="stepper-title"] {
   font-size: 0.875rem; font-weight: 500; line-height: 1; color: var(--cronus-fg);
-}
 [data-slot="stepper-item"][data-state="upcoming"] [data-slot="stepper-title"] {
   color: var(--cronus-fg-tertiary);
-}
 [data-slot="input-otp"] {
   display: flex; align-items: center; gap: 0.5rem;
-}
 [data-slot="input-otp-group"] {
   display: flex; align-items: center;
-}
 [data-slot="input-otp-slot"] {
   position: relative; display: flex; align-items: center; justify-content: center;
   height: 2.5rem; width: 2.5rem; box-sizing: border-box;
@@ -761,15 +746,44 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   border-bottom: 1px solid var(--cronus-border);
   font-size: 0.875rem; color: var(--cronus-fg);
   font-variant-numeric: tabular-nums;
-}
 [data-slot="input-otp-slot"]:first-child {
   border-left: 1px solid var(--cronus-border);
   border-top-left-radius: var(--cronus-radius-lg);
   border-bottom-left-radius: var(--cronus-radius-lg);
-}
 [data-slot="input-otp-slot"]:last-child {
   border-top-right-radius: var(--cronus-radius-lg);
   border-bottom-right-radius: var(--cronus-radius-lg);
+[data-slot="file-dropzone"] {
+  position: relative; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 0.5rem;
+  cursor: pointer; box-sizing: border-box;
+  border-radius: var(--cronus-radius-xl);
+  border: 2px dashed var(--cronus-border);
+  background: var(--cronus-surface-inset);
+  padding: 2.5rem 1.5rem; text-align: center;
+  font-size: 0.875rem; color: var(--cronus-fg-secondary);
+[data-slot="file-dropzone"][aria-disabled="true"] {
+  cursor: not-allowed; opacity: 0.5;
+[data-slot="file-dropzone"] .sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+[data-slot="file-dropzone"]:has(:focus-visible) {
+  outline: 2px solid var(--cronus-ring, var(--cronus-primary));
+  outline-offset: 2px;
+button:has(+ [data-slot="popover-content"]) {
+  font: inherit; cursor: pointer; color: var(--cronus-fg);
+  background: transparent; border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-lg);
+  height: 2.5rem; padding: 0 1rem; font-size: 0.875rem;
+[data-slot="popover-content"] {
+  z-index: 50; width: 18rem; box-sizing: border-box;
+  padding: 0.75rem; outline: none;
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  font-size: 0.875rem; box-shadow: var(--cronus-shadow-lg, none);
+button:has(+ [data-slot="hover-card-content"]) {
+[data-slot="hover-card-content"] {
+  z-index: 50; width: 16rem; box-sizing: border-box;
 }
 "#;
 
