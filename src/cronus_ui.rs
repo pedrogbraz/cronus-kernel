@@ -716,6 +716,20 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   outline: 2px solid var(--cronus-ring, var(--cronus-primary));
   outline-offset: 2px;
 }
+button:has(+ [data-slot="popover-content"]) {
+  font: inherit; cursor: pointer; color: var(--cronus-fg);
+  background: transparent; border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-lg);
+  height: 2.5rem; padding: 0 1rem; font-size: 0.875rem;
+}
+[data-slot="popover-content"] {
+  z-index: 50; width: 18rem; box-sizing: border-box;
+  padding: 0.75rem; outline: none;
+  border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  font-size: 0.875rem; box-shadow: var(--cronus-shadow-lg, none);
+}
 "#;
 
 #[cfg(test)]
