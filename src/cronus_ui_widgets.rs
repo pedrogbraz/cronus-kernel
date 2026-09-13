@@ -183,7 +183,17 @@ pub const FAMILIES: &[&str] = &[
 
 /// Families with a dedicated CONTRACT renderer. Interact and stub arms must
 /// not run for these (Cronus Audit K13).
-pub const PORTED_FAMILIES: &[&str] = &["button", "badge", "input", "label", "textarea", "checkbox"];
+pub const PORTED_FAMILIES: &[&str] = &[
+    "button",
+    "badge",
+    "input",
+    "label",
+    "textarea",
+    "checkbox",
+    "switch",
+    "spinner",
+    "separator",
+];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
     let style = comp.style.as_deref().unwrap_or("");
@@ -203,6 +213,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "label" => Some(crate::cronus_ui_label::render(comp)),
         "textarea" => Some(crate::cronus_ui_textarea::render(comp)),
         "checkbox" => Some(crate::cronus_ui_checkbox::render(comp)),
+        "switch" => Some(crate::cronus_ui_switch::render(comp)),
+        "spinner" => Some(crate::cronus_ui_spinner::render(comp)),
+        "separator" => Some(crate::cronus_ui_separator::render(comp)),
         _ => None,
     }
 }
