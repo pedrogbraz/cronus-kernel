@@ -2620,6 +2620,17 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="tree-view-item-trigger"]:hover {
   background: var(--cronus-surface-overlay); color: var(--cronus-fg);
 }
+[data-slot="tilt-card"] {
+  position: relative;
+  border-radius: var(--cronus-radius-xl);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised);
+  padding: 1.5rem;
+  color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-sm, var(--cronus-shadow-xs, none));
+  transform-style: preserve-3d;
+  transform: perspective(1000px) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg)) scale(var(--tilt-scale, 1));
+}
 "#;
 
 #[cfg(test)]

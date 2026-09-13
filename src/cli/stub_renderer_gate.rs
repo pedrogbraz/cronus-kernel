@@ -136,6 +136,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "word-rotate" => Some("cronus_ui_word_rotate::render"),
         "timeline" => Some("cronus_ui_timeline::render"),
         "tree-view" => Some("cronus_ui_tree_view::render"),
+        "tilt-card" => Some("cronus_ui_tilt_card::render"),
         _ => None,
     }
 }
@@ -462,6 +463,9 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && (!html.contains("data-slot=\"tree-view-item\"")
                 || !html.contains("data-slot=\"tree-view-item-trigger\"")))
         || (html.contains("data-slot=\"tree-view\"") && html.contains("style="))
+        || html.contains("<section data-slot=\"tilt-card\"")
+        || (html.contains("data-slot=\"tilt-card\"")
+            && html.contains("padding:1rem;display:flex;flex-direction:column;gap:0.5rem;"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -642,6 +646,7 @@ mod tests {
             "src/cronus_ui_word_rotate.rs",
             "src/cronus_ui_timeline.rs",
             "src/cronus_ui_tree_view.rs",
+            "src/cronus_ui_tilt_card.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",

@@ -162,6 +162,7 @@ mod cronus_ui_tree_view;
 mod cronus_ui_switch;
 mod cronus_ui_textarea;
 mod cronus_ui_text_shimmer;
+mod cronus_ui_tilt_card;
 mod cronus_ui_typing_text;
 mod cronus_ui_time_picker;
 mod cronus_ui_timeline;
