@@ -281,6 +281,16 @@ textarea[data-slot], [data-slot="textarea"] textarea, [data-slot="rich-text-edit
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+[data-slot="separator"] {
+  flex-shrink: 0; border: 0; background: var(--cronus-border);
+}
+[data-slot="separator"][data-orientation="horizontal"], [data-slot="separator"]:not([data-orientation]) {
+  height: 1px; width: 100%;
+}
+[data-slot="separator"][data-orientation="vertical"] {
+  height: 100%; width: 1px;
+}
+
 [data-slot="card"], [data-slot="glass-card"], [data-slot="spotlight-card"] {
   background: var(--cronus-surface-raised); border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none);
