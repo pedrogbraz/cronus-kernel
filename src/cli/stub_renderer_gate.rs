@@ -137,6 +137,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "timeline" => Some("cronus_ui_timeline::render"),
         "tree-view" => Some("cronus_ui_tree_view::render"),
         "spotlight-card" => Some("cronus_ui_spotlight_card::render"),
+        "animated-list" => Some("cronus_ui_animated_list::render"),
         _ => None,
     }
 }
@@ -467,6 +468,11 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"spotlight-card\"") && html.contains("style="))
         || (html.contains("data-slot=\"spotlight-card\"")
             && html.contains("padding:1rem;display:flex;flex-direction:column;gap:0.5rem"))
+        || (html.contains("data-slot=\"animated-list\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("<span")
+                || html.contains("style=")
+                || !html.contains("data-slot=\"animated-list-item\"")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -648,6 +654,7 @@ mod tests {
             "src/cronus_ui_timeline.rs",
             "src/cronus_ui_tree_view.rs",
             "src/cronus_ui_spotlight_card.rs",
+            "src/cronus_ui_animated_list.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",
