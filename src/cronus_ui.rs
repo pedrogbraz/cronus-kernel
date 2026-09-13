@@ -2405,6 +2405,36 @@ button:has(+ [data-slot="sheet-content"]) {
   padding: 0 0.75rem; font-size: 0.875rem; font-family: inherit; outline: none;
 [data-slot="invite-dialog"] > button {
 [data-slot="invite-dialog-send"] {
+[data-slot="shimmer"] {
+  display: block; position: relative; overflow: hidden;
+  height: 0.9rem; width: 8rem;
+  border-radius: var(--cronus-radius-md);
+  background: var(--cronus-surface-overlay);
+[data-slot="shimmer"]::after {
+  content: "";
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--cronus-fg) 10%, transparent), transparent);
+  animation: cui-shimmer 2s linear infinite;
+@keyframes cui-shimmer { 100% { transform: translateX(100%); } }
+[data-slot="reveal"] {
+  animation: cui-reveal 500ms var(--ease-out-quart) both;
+@keyframes cui-reveal {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+[data-slot="text-shimmer"] {
+  display: inline-block;
+  color: transparent;
+  background-image:
+    linear-gradient(90deg, transparent 40%, var(--cronus-surface-base), transparent 60%),
+    linear-gradient(var(--cronus-fg-tertiary, var(--cronus-fg-secondary)), var(--cronus-fg-tertiary, var(--cronus-fg-secondary)));
+  background-size: 250% 100%, auto;
+  background-repeat: no-repeat, padding-box;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: cui-text-shimmer 2s linear infinite;
+@keyframes cui-text-shimmer {
+  0% { background-position: 100% center, 0 0; }
+  100% { background-position: 0% center, 0 0; }
 }
 "#;
 
