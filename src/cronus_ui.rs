@@ -2921,6 +2921,27 @@ button:has(+ [data-slot="sheet-content"]) {
   [data-slot="animated-button"]:hover,
   [data-slot="animated-button"]:active { transform: none; }
 }
+[data-slot="card-stack"] {
+  position: relative; isolation: isolate;
+  height: 14rem; width: 100%; max-width: 24rem;
+}
+[data-slot="card-stack-item"] {
+  position: absolute; inset: 0;
+  border-radius: 1rem;
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised);
+  padding: 1.25rem;
+  color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-sm, none);
+  transform-origin: top center;
+}
+[data-slot="card-stack-item"]:nth-child(1) { z-index: 3; }
+[data-slot="card-stack-item"]:nth-child(2) {
+  z-index: 2; transform: translate(10px, 10px) scale(0.96);
+}
+[data-slot="card-stack-item"]:nth-child(3) {
+  z-index: 1; transform: translate(20px, 20px) scale(0.92);
+}
 "#;
 
 #[cfg(test)]

@@ -67,6 +67,7 @@ mod cronus_ui_breadcrumb;
 mod cronus_ui_button_group;
 mod cronus_ui_calendar;
 mod cronus_ui_card;
+mod cronus_ui_card_stack;
 mod cronus_ui_carousel;
 mod cronus_ui_checkbox;
 mod cronus_ui_chip;

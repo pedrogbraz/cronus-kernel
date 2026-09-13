@@ -59,9 +59,9 @@ mod tests {
         assert!(interact.contains(DISPLAY_SURF));
         assert_ne!(html, interact);
         let display =
-            crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("card-stack"))
+            crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("flip-card"))
                 .unwrap();
-        assert!(display.contains("<section data-slot=\"card-stack\""));
+        assert!(display.contains("<section data-slot=\"flip-card\""));
         assert!(display.contains(DISPLAY_SURF));
         assert!(!html.contains("<section"));
         reject_display(&html);
