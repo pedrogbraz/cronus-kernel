@@ -2775,6 +2775,13 @@ button:has(+ [data-slot="sheet-content"]) {
 @media (prefers-reduced-motion: reduce) {
   [data-slot="marquee-group"] { animation: none; }
 }
+[data-slot="gradient-text"] {
+  display: inline-block;
+  color: transparent;
+  background-image: linear-gradient(135deg, var(--cronus-primary), var(--cronus-accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+}
 "#;
 
 #[cfg(test)]
