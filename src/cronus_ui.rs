@@ -1382,6 +1382,33 @@ button:has(+ [data-slot="sheet-content"]) {
   position: relative; display: flex; width: 1px;
   align-items: center; justify-content: center;
   background: var(--cronus-border); flex-shrink: 0;
+}
+[data-slot="scheduler"] {
+  display: block; width: 100%; box-sizing: border-box;
+  border-radius: var(--cronus-radius-xl);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-base); color: var(--cronus-fg);
+[data-slot="scheduler-title"] {
+  margin: 0; padding: 0.75rem;
+  font-size: 0.875rem; font-weight: 600; color: var(--cronus-fg);
+  border-bottom: 1px solid var(--cronus-border);
+[data-slot="scheduler-grid"] {
+  width: 100%; table-layout: fixed; border-collapse: collapse;
+[data-slot="scheduler-weekdays"] th {
+  padding: 0.375rem 0.5rem; font-size: 0.75rem; font-weight: 400;
+  color: var(--cronus-fg-tertiary); text-align: center;
+  border-bottom: 1px solid var(--cronus-border);
+[data-slot="scheduler-grid"] td {
+  height: 6rem; padding: 0.375rem; vertical-align: top;
+  font-size: 0.75rem; color: var(--cronus-fg);
+  border-right: 1px solid var(--cronus-border);
+  border-bottom: 1px solid var(--cronus-border);
+[data-slot="scheduler-event"] {
+  display: block; margin-top: 0.25rem; padding: 0.125rem 0.375rem;
+  border-radius: var(--cronus-radius-sm);
+  background: color-mix(in oklch, var(--cronus-primary), transparent 85%);
+  color: var(--cronus-primary); font-size: 0.75rem; font-weight: 500;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 "#;
 
 #[cfg(test)]

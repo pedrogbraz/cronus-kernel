@@ -112,6 +112,7 @@ mod cronus_ui_rating;
 mod cronus_ui_resizable;
 mod cronus_ui_ring_chart;
 mod cronus_ui_scatter_chart;
+mod cronus_ui_scheduler;
 mod cronus_ui_scroll_area;
 mod cronus_ui_select;
 mod cronus_ui_separator;

@@ -102,6 +102,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "workspace-switcher" => Some("cronus_ui_workspace_switcher::render"),
         "signature-pad" => Some("cronus_ui_signature_pad::render"),
         "resizable" => Some("cronus_ui_resizable::render"),
+        "scheduler" => Some("cronus_ui_scheduler::render"),
         _ => None,
     }
 }
@@ -318,6 +319,13 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"resizable\"")
             && !html.contains("data-slot=\"resizable-handle\""))
         || (html.contains("data-slot=\"resizable\"") && html.contains("max-height:12rem;overflow:auto"))
+        || (html.contains("data-slot=\"scheduler\"")
+            && !html.contains("data-slot=\"scheduler-title\""))
+        || (html.contains("data-slot=\"scheduler\"")
+            && !html.contains("data-slot=\"scheduler-grid\""))
+        || (html.contains("data-slot=\"scheduler\"") && html.contains("style="))
+        || (html.contains("data-slot=\"scheduler\"")
+            && html.contains("grid-template-columns:repeat(7,1fr)"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -546,6 +554,7 @@ mod tests {
             "src/cronus_ui_pill_nav.rs",
             "src/cronus_ui_radar_chart.rs",
             "src/cronus_ui_scatter_chart.rs",
+            "src/cronus_ui_scheduler.rs",
             "src/cronus_ui_ring_chart.rs",
             "src/cronus_ui_data_table.rs",
             "src/cronus_ui_workspace_switcher.rs",
