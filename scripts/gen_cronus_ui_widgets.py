@@ -169,6 +169,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "drawer",
     "sheet",
     "calendar",
+    "date-picker",
+    "time-picker",
+    "date-range-picker",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -238,6 +241,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "drawer" => Some(crate::cronus_ui_drawer::render(comp)),
         "sheet" => Some(crate::cronus_ui_sheet::render(comp)),
         "calendar" => Some(crate::cronus_ui_calendar::render(comp)),
+        "date-picker" => Some(crate::cronus_ui_date_picker::render(comp)),
+        "time-picker" => Some(crate::cronus_ui_time_picker::render(comp)),
+        "date-range-picker" => Some(crate::cronus_ui_date_range_picker::render(comp)),
         _ => None,
     }
 }

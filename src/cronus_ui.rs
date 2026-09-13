@@ -916,6 +916,81 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="calendar"] td {
   width: 2.25rem; height: 2.25rem; text-align: center;
   font-size: 0.875rem; color: var(--cronus-fg);
+[data-slot="date-picker-trigger"] {
+  display: inline-flex; align-items: center; justify-content: flex-start; gap: 0.5rem;
+  width: 15rem; height: 2.5rem; padding: 0 0.75rem; box-sizing: border-box;
+  font-size: 0.875rem; font-weight: 400; font-family: inherit; cursor: pointer;
+[data-slot="date-picker-trigger"]:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="date-picker-trigger"][aria-invalid="true"] {
+  border-color: var(--cronus-error);
+[data-slot="date-picker-trigger"] svg { width: 1rem; height: 1rem; flex-shrink: 0; opacity: 0.7; }
+[data-slot="date-picker-content"] {
+  z-index: 50; width: auto; box-sizing: border-box;
+  padding: 0.75rem; outline: none;
+  font-size: 0.875rem; box-shadow: var(--cronus-shadow-lg, none);
+[data-slot="date-picker-calendar"] {
+  display: flex; flex-direction: column; gap: 0.25rem;
+[data-slot="date-picker-calendar"] [role="row"] {
+  display: grid; grid-template-columns: repeat(7, 2.25rem); justify-content: center;
+[data-slot="date-picker-weekday"] {
+  font-size: 0.75rem; font-weight: 400; color: var(--cronus-fg-tertiary);
+  text-align: center;
+[data-slot="date-picker-day"] {
+  width: 2.25rem; height: 2.25rem; padding: 0; border: 0;
+  font: inherit; font-size: 0.875rem; cursor: default;
+[data-slot="date-picker-day"][aria-selected="true"] {
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+[data-slot="time-picker"] {
+  display: inline-flex; flex-direction: column; gap: 0.25rem;
+[data-slot="time-picker"] > button {
+[data-slot="time-picker"] > button:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="time-picker"] > button svg { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--cronus-fg-tertiary); }
+[data-slot="time-picker-content"] {
+[data-slot="time-picker-content"] > div {
+  display: flex; align-items: stretch; justify-content: center; gap: 0.25rem;
+[data-slot="time-picker-column"] {
+  display: flex; flex-direction: column; align-items: center; gap: 0.35rem;
+[data-slot="time-picker-column"] > span {
+  font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--cronus-fg-tertiary);
+[data-slot="time-picker-option"] {
+  display: flex; align-items: center; justify-content: center;
+  width: 3.5rem; height: 2.25rem; border-radius: var(--cronus-radius-md);
+  font-size: 0.875rem; font-variant-numeric: tabular-nums; cursor: default;
+  color: var(--cronus-fg-secondary);
+[data-slot="time-picker-option"][aria-selected="true"] {
+  background: color-mix(in oklch, var(--cronus-primary), black 30%);
+  color: var(--cronus-primary-foreground); font-weight: 600;
+[data-slot="time-picker-now"], [data-slot="time-picker-done"] {
+  font: inherit; font-size: 0.75rem; cursor: default;
+  background: transparent; color: var(--cronus-fg); padding: 0.25rem 0.5rem;
+[data-slot="date-range-picker-trigger"] {
+  width: 18.75rem; height: 2.5rem; padding: 0 0.75rem; box-sizing: border-box;
+[data-slot="date-range-picker-trigger"]:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="date-range-picker-trigger"] svg { width: 1rem; height: 1rem; flex-shrink: 0; opacity: 0.7; }
+[data-slot="date-range-picker-content"] {
+  padding: 0; outline: none;
+  display: flex; flex-direction: row;
+[data-slot="date-range-picker-content"] legend {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0);
+[data-slot="date-range-picker-presets"] {
+  margin: 0; padding: 0.5rem; border: 0;
+  border-right: 1px solid var(--cronus-border);
+[data-slot="date-range-picker-preset"] {
+  font: inherit; font-size: 0.75rem; text-align: left; cursor: default;
+  border: 0; background: transparent; color: var(--cronus-fg);
+  padding: 0.25rem 0.5rem; border-radius: var(--cronus-radius-md);
+[data-slot="date-range-picker-calendar"] {
+  margin: 0; padding: 0.75rem; border: 0;
+  display: flex; flex-direction: row; gap: 1rem;
+[data-slot="date-range-picker-month"] {
+[data-slot="date-range-picker-month"] [role="row"] {
+[data-slot="date-range-picker-weekday"] {
+[data-slot="date-range-picker-day"] {
+[data-slot="date-range-picker-day"][data-range="start"],
+[data-slot="date-range-picker-day"][data-range="end"] {
+[data-slot="date-range-picker-day"][data-range="middle"] {
+  background: var(--cronus-surface-overlay); border-radius: 0;
 }
 "#;
 
