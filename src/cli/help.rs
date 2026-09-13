@@ -10,7 +10,8 @@ pub fn print_help() {
     println!("  \x1b[90mThe Cognitive Runtime v0.1.0 (Rust native)\x1b[0m\n");
     println!("  \x1b[1mUsage:\x1b[0m cronus <command> [options]\n");
     println!("  \x1b[1mCommands:\x1b[0m");
-    println!("    \x1b[32mrun\x1b[0m [port] [--strict]  Parse .cronus → serve (strict: warnings=errors)");
+    println!("    \x1b[32mrun\x1b[0m [port] [--strict] [--audit-canvas [port]]  Parse .cronus → serve");
+    println!("          --audit-canvas: bind 127.0.0.1, exclusive /audit/* path (default port 5176)");
     println!("    \x1b[32mdebug\x1b[0m [port]           Run with request tracing, colored logs, /api/debug/traces");
     println!("    \x1b[32mnew\x1b[0m <template>       Create project (landing/admin/saas/api/ecommerce/blog)");
     println!("    \x1b[32mseed\x1b[0m [count]          Seed database with fake data (default: 10 rows)");
@@ -40,6 +41,7 @@ pub fn print_help() {
     println!("    \x1b[32mstatus\x1b[0m           Semantic project overview (like git status for CRONUS)");
     println!("    \x1b[32mmemory\x1b[0m sessions|decisions|log|decide  Semantic memory across sessions");
     println!("    \x1b[32mverify-audit\x1b[0m     Verify audit trail hash chain integrity");
+    println!("    \x1b[32maudit\x1b[0m language|logic|visual|all|legacy   Cronus Audit (legacy = dump-text HTML)");
     println!("    \x1b[32mversion\x1b[0m          Show version");
     println!();
 }

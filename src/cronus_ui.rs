@@ -40,6 +40,21 @@ pub fn token_css(preset: &str, mode: &str) -> String {
     css
 }
 
+/// Full vendored tokens + chrome for the audit canvas. Theme/mode are selected
+/// by `data-cronus-theme` / `data-cronus-mode` on `<html>` — do not steal
+/// `:root` for a single preset (`token_css` does, and ignores `mode`).
+pub fn audit_stylesheet() -> String {
+    format!("{FALLBACK_ROOT}\n{TOKENS_CSS}\n{COMPONENT_CHROME}")
+}
+
+pub fn vendored_tokens_css() -> &'static str {
+    TOKENS_CSS
+}
+
+pub fn component_chrome_css() -> &'static str {
+    COMPONENT_CHROME
+}
+
 /// Button matching cronus-ui CONTRACT: semantic tokens, variants, sizes,
 /// `data-slot`, `data-variant`, focus-visible, href â†’ `<a>`.
 /// `danger` is accepted as an alias of `destructive` (legacy kernel name).
@@ -327,5 +342,14 @@ mod tests {
         assert!(css.contains(":focus-visible"));
         assert!(css.contains("--cronus-ring"));
         assert!(css.contains("prefers-reduced-motion"));
+    }
+
+    #[test]
+    fn component_chrome_has_no_tailwind_palette() {
+        let css = audit_stylesheet();
+        assert!(!css.contains("--tw-"));
+        assert!(!css.contains("@tailwind"));
+        assert!(!css.contains("zinc-900"));
+        assert!(!css.contains("bg-zinc-"));
     }
 }

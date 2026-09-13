@@ -12,6 +12,24 @@ const BASE: &str =
 const SURF: &str = "background:var(--cronus-surface-raised,var(--cronus-surface-overlay,transparent));border:1px solid var(--cronus-border);border-radius:var(--cronus-radius,14px);";
 const CTRL: &str = "height:2.5rem;padding:0 0.75rem;border-radius:0.5rem;border:1px solid var(--cronus-border);background:var(--cronus-surface-inset,transparent);color:var(--cronus-fg);";
 
+/// True when this module owns a match arm for `family` (legacy generic HTML).
+pub fn covers(family: &str) -> bool {
+    let empty = ComponentNode {
+        name: String::new(),
+        layout: None,
+        style: None,
+        items: Vec::new(),
+        props: Default::default(),
+        params: Vec::new(),
+        template: None,
+        sections: Vec::new(),
+        state: Vec::new(),
+        tests: Vec::new(),
+        binding: None,
+    };
+    render(family, &empty).is_some()
+}
+
 pub fn render(family: &str, comp: &ComponentNode) -> Option<String> {
     let html = match family {
         "checkbox" => checkbox(comp),

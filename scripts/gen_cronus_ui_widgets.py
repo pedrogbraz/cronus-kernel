@@ -1,4 +1,9 @@
-"""Emit src/cronus_ui_widgets.rs — one opt-in renderer per cronus-ui family."""
+"""Emit src/cronus_ui_widgets.rs — one opt-in renderer per cronus-ui family.
+
+Do not add a new family as a stub (pill/field/overlay/nav/display/chart/fx).
+A family is only ported when dedicated_render calls a named module/function
+and PORTED_FAMILIES lists it so interact is skipped.
+"""
 from pathlib import Path
 from string import Template
 
@@ -132,11 +137,32 @@ pub const FAMILIES: &[&str] = &[
     $fam_list,
 ];
 
-pub fn render(comp: &ComponentNode) -> Option<String> {
+/// Families with a dedicated CONTRACT renderer. Interact and stub arms must
+/// not run for these (Cronus Audit K13). Do not add a family here unless
+/// `dedicated_render` has a named arm.
+pub const PORTED_FAMILIES: &[&str] = &["button"];
+
+pub fn family_of(comp: &ComponentNode) -> Option<&str> {
     let style = comp.style.as_deref().unwrap_or("");
     let family = style.split('+').next().unwrap_or("").trim();
     if family.is_empty() {
-        return None;
+        None
+    } else {
+        Some(family)
+    }
+}
+
+pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
+    match family {
+        "button" => Some(button_from(comp)),
+        _ => None,
+    }
+}
+
+pub fn render(comp: &ComponentNode) -> Option<String> {
+    let family = family_of(comp)?;
+    if PORTED_FAMILIES.contains(&family) {
+        return dedicated_render(family, comp);
     }
     if let Some(html) = crate::cronus_ui_interact::render(family, comp) {
         return Some(html);

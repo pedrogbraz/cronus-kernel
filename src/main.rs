@@ -117,6 +117,8 @@ use std::time::Instant;
 pub static STRICT_MODE: AtomicBool = AtomicBool::new(false);
 pub static STRICT_AI_MODE: AtomicBool = AtomicBool::new(false);
 pub static DEBUG_MODE: AtomicBool = AtomicBool::new(false);
+/// `cronus run --audit-canvas` / `CRONUS_AUDIT=1`. Exclusive `/audit/*` path.
+pub static AUDIT_CANVAS: AtomicBool = AtomicBool::new(false);
 
 /// Cache for the last `--ai` build result, served by `GET /api/_errors`.
 /// Written by `cmd_build` when `--ai` flag is used, read by the server.
@@ -180,7 +182,7 @@ async fn main() {
         "changelog" => cmd_changelog(),
         "memory" => cmd_memory(&args),
         "verify-audit" => cmd_verify_audit(&args),
-        "audit" => cli::audit_fidelity::cmd_audit_fidelity(&args),
+        "audit" => cli::cronus_audit::cmd_audit(&args),
         "version" | "-v" | "--version" => println!("cronus v0.1.0"),
         "help" | "--help" | "-h" | _ => print_help(),
     }
@@ -255,6 +257,18 @@ async fn handle_request(
     let req_method_str = req.method().to_string();
     let req_path_str = req.uri().path().to_string();
     database::reset_query_count();
+
+    if AUDIT_CANVAS.load(Ordering::Relaxed) {
+        if req_path_str.starts_with("/audit/") {
+            return Ok(cli::audit_http::handle_audit_request(
+                &req_path_str,
+                req.uri().query(),
+                &state.pages,
+                &state.components,
+            ));
+        }
+        return Ok(cli::audit_http::audit_not_found());
+    }
 
     if req.method() == Method::GET && req.uri().path() == "/api/debug/traces" {
         let traces = state.trace_buffer.last_n(50);
@@ -2440,9 +2454,36 @@ async fn cmd_run(args: &[String]) {
         }
     }
 
-    // CLI port takes precedence
-    let cli_port = args.iter().skip(2).find_map(|s| s.parse::<u16>().ok());
-    let serve_port = if let Some(p) = cli_port { p } else { app.port };
+    let audit_canvas = args.iter().any(|a| a == "--audit-canvas")
+        || std::env::var("CRONUS_AUDIT")
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+    if audit_canvas {
+        AUDIT_CANVAS.store(true, Ordering::Relaxed);
+    }
+
+    // CLI port takes precedence. `--audit-canvas [port]` default 5176.
+    let audit_flag_port = args
+        .iter()
+        .position(|a| a == "--audit-canvas")
+        .and_then(|i| args.get(i + 1))
+        .and_then(|s| s.parse::<u16>().ok());
+    let cli_port = audit_flag_port.or_else(|| {
+        args.iter().skip(2).find_map(|s| {
+            if s.starts_with('-') {
+                None
+            } else {
+                s.parse::<u16>().ok()
+            }
+        })
+    });
+    let serve_port = if let Some(p) = cli_port {
+        p
+    } else if audit_canvas {
+        5176
+    } else {
+        app.port
+    };
     let comp_count = cronus_components.len();
 
     // Initialize theme tokens from tailwind_config or style
@@ -2569,8 +2610,9 @@ async fn cmd_run(args: &[String]) {
         zeus: Arc::new(zeus::ZeusBuffer::new(200)),
     });
 
-    // Start server
-    let addr = format!("0.0.0.0:{}", serve_port);
+    // Start server. Audit-canvas binds loopback only (never 0.0.0.0).
+    let bind_host = if audit_canvas { "127.0.0.1" } else { "0.0.0.0" };
+    let addr = format!("{}:{}", bind_host, serve_port);
     let listener = TcpListener::bind(&addr).await.unwrap_or_else(|e| {
         eprintln!("  \x1b[31m✗\x1b[0m Cannot bind to port {}: {}", serve_port, e);
         std::process::exit(1);
@@ -2789,6 +2831,27 @@ async fn cmd_run(args: &[String]) {
                 let state = state.clone();
                 async move {
                     // SSE endpoint — returns a streaming response (not buffered)
+                    if AUDIT_CANVAS.load(Ordering::Relaxed) {
+                        if req.uri().path().starts_with("/audit/") {
+                            let resp = cli::audit_http::handle_audit_request(
+                                req.uri().path(),
+                                req.uri().query(),
+                                &state.pages,
+                                &state.components,
+                            );
+                            let (parts, body) = resp.into_parts();
+                            return Ok::<_, hyper::Error>(Response::from_parts(
+                                parts,
+                                http_body_util::Either::Left(body),
+                            ));
+                        }
+                        let resp = cli::audit_http::audit_not_found();
+                        let (parts, body) = resp.into_parts();
+                        return Ok::<_, hyper::Error>(Response::from_parts(
+                            parts,
+                            http_body_util::Either::Left(body),
+                        ));
+                    }
                     if req.uri().path() == "/api/sse" && req.method() == Method::GET {
                         let sse_resp = state.sse_hub.subscribe();
                         // Map the streaming body to a boxed body for type compatibility

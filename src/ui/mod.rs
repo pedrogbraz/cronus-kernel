@@ -5,6 +5,7 @@
 //! No React, no frameworks — pure HTML + Tailwind CDN + vanilla JS.
 
 pub mod layout;
+pub mod audit_layout;
 pub mod page;
 mod section_hero;
 mod section_features;

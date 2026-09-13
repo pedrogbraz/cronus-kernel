@@ -181,11 +181,31 @@ pub const FAMILIES: &[&str] = &[
     "motion-presets",
 ];
 
-pub fn render(comp: &ComponentNode) -> Option<String> {
+/// Families with a dedicated CONTRACT renderer. Interact and stub arms must
+/// not run for these (Cronus Audit K13).
+pub const PORTED_FAMILIES: &[&str] = &["button"];
+
+pub fn family_of(comp: &ComponentNode) -> Option<&str> {
     let style = comp.style.as_deref().unwrap_or("");
     let family = style.split('+').next().unwrap_or("").trim();
     if family.is_empty() {
-        return None;
+        None
+    } else {
+        Some(family)
+    }
+}
+
+pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
+    match family {
+        "button" => Some(button_from(comp)),
+        _ => None,
+    }
+}
+
+pub fn render(comp: &ComponentNode) -> Option<String> {
+    let family = family_of(comp)?;
+    if PORTED_FAMILIES.contains(&family) {
+        return dedicated_render(family, comp);
     }
     if let Some(html) = crate::cronus_ui_interact::render(family, comp) {
         return Some(html);
@@ -545,6 +565,10 @@ fn fx(family: &str, comp: &ComponentNode) -> String {
     )
 }
 
+pub(crate) fn test_stub(family: &str) -> ComponentNode {
+    stub(family)
+}
+
 fn stub(family: &str) -> ComponentNode {
     ComponentNode {
         name: family.to_string(),
@@ -697,6 +721,28 @@ mod tests {
         assert!(dlg.contains("<dialog"));
         let toast = render(&stub("toast")).unwrap();
         assert!(toast.contains("aria-live"));
+    }
+
+    #[test]
+    fn ported_family_skips_interact() {
+        for family in PORTED_FAMILIES {
+            let html = render(&stub(family)).expect(family);
+            if let Some(ih) = crate::cronus_ui_interact::render(family, &stub(family)) {
+                assert_ne!(html, ih, "{family} still equals interact HTML");
+            }
+            assert!(
+                !html.contains("data-slot=\"input-control\""),
+                "{family} used interact input-control"
+            );
+        }
+    }
+
+    #[test]
+    fn ported_family_does_not_use_interact_generic() {
+        let html = render(&stub("button")).unwrap();
+        assert!(html.contains("data-slot=\"button\""));
+        assert!(!html.contains("<label data-slot"));
+        assert!(!crate::cli::stub_renderer_gate::looks_like_interact_generic(&html));
     }
 
     #[test]
