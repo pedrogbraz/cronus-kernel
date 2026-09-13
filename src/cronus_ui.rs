@@ -210,10 +210,27 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
 [data-slot="input"]:disabled {
   opacity: 0.5; pointer-events: none;
 }
-textarea[data-slot], [data-slot="textarea"] textarea, [data-slot="rich-text-editor"] textarea {
+[data-slot="input"]::placeholder { color: var(--cronus-fg-tertiary); }
+
+[data-slot="textarea"] {
+  display: block; min-height: 5rem; width: 100%; box-sizing: border-box;
+  field-sizing: content; resize: vertical;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+  padding: 0.5rem 0.75rem; font-size: 0.875rem; font-family: inherit;
+  outline: none;
+  transition: border-color 150ms var(--ease-out-quart), box-shadow 150ms var(--ease-out-quart);
+}
+[data-slot="textarea"][aria-invalid="true"] {
+  border-color: var(--cronus-error);
+}
+[data-slot="textarea"]:disabled {
+  opacity: 0.5; pointer-events: none;
+}
+[data-slot="textarea"]::placeholder { color: var(--cronus-fg-tertiary); }
+[data-slot="rich-text-editor"] textarea {
   height: auto; padding: 0.6rem 0.75rem;
 }
-[data-slot="input"]::placeholder { color: var(--cronus-fg-tertiary); }
 
 [data-slot="badge"] {
   display: inline-flex; align-items: center; gap: 0.25rem;
