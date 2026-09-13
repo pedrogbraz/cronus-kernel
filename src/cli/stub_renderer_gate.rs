@@ -47,6 +47,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "password-input" => Some("cronus_ui_password_input::render"),
         "number-input" => Some("cronus_ui_number_input::render"),
         "metric" => Some("cronus_ui_metric::render"),
+        "avatar-group" => Some("cronus_ui_avatar_group::render"),
         _ => None,
     }
 }
@@ -132,6 +133,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"chip\"") && html.contains("padding:0.15rem 0.55rem"))
         || html.contains("<section data-slot=\"metric\"")
         || (html.contains("data-slot=\"metric\"") && html.contains("{ value }"))
+        || (html.contains("data-slot=\"avatar-group\"")
+            && html.contains("width:2.25rem;height:2.25rem;border-radius:999px"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -296,6 +299,7 @@ mod tests {
             "src/cronus_ui_radio_group.rs",
             "src/cronus_ui_chip.rs",
             "src/cronus_ui_avatar.rs",
+            "src/cronus_ui_avatar_group.rs",
             "src/cronus_ui_card.rs",
             "src/cronus_ui_empty.rs",
             "src/cronus_ui_select.rs",

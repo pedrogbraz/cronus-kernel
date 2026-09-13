@@ -598,6 +598,25 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   font-size: 1.5rem; font-weight: 600; color: var(--cronus-fg);
   font-variant-numeric: tabular-nums;
 }
+
+[data-slot="avatar-group"] {
+  display: flex; align-items: center;
+}
+[data-slot="avatar-group"] > * + * {
+  margin-left: -0.5rem;
+}
+[data-slot="avatar-group"] [data-slot="avatar"] {
+  width: 2.25rem; height: 2.25rem;
+  box-shadow: 0 0 0 2px var(--cronus-surface-base);
+}
+[data-slot="avatar-group-overflow"] {
+  position: relative; display: flex; flex-shrink: 0;
+  align-items: center; justify-content: center;
+  width: 2.25rem; height: 2.25rem; border-radius: 9999px;
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg-secondary);
+  font-weight: 500; font-size: 0.875rem;
+  box-shadow: 0 0 0 2px var(--cronus-surface-base);
+}
 "#;
 
 #[cfg(test)]

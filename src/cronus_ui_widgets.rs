@@ -216,6 +216,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "password-input",
     "number-input",
     "metric",
+    "avatar-group",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -262,6 +263,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "password-input" => Some(crate::cronus_ui_password_input::render(comp)),
         "number-input" => Some(crate::cronus_ui_number_input::render(comp)),
         "metric" => Some(crate::cronus_ui_metric::render(comp)),
+        "avatar-group" => Some(crate::cronus_ui_avatar_group::render(comp)),
         _ => None,
     }
 }

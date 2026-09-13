@@ -51,6 +51,7 @@ mod cronus_ui;
 mod cronus_ui_accordion;
 mod cronus_ui_alert;
 mod cronus_ui_avatar;
+mod cronus_ui_avatar_group;
 mod cronus_ui_badge;
 mod cronus_ui_banner;
 mod cronus_ui_breadcrumb;
