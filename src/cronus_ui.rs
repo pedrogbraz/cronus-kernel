@@ -1017,6 +1017,21 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="sidebar-menu-button"]:hover {
   background: var(--cronus-surface-inset); color: var(--cronus-fg);
 }
+[data-slot="sonner"] {
+  position: fixed; z-index: 50; inset: auto 1rem 1rem auto;
+  display: flex; flex-direction: column;
+  width: 22rem; max-width: calc(100% - 2rem);
+}
+[data-slot="toaster"] {
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+[data-slot="toast"] {
+  padding: 0.75rem 1rem; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  font-size: 0.875rem; box-shadow: var(--cronus-shadow-lg, none);
+}
 "#;
 
 #[cfg(test)]

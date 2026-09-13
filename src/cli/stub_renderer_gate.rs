@@ -74,6 +74,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "time-picker" => Some("cronus_ui_time_picker::render"),
         "date-range-picker" => Some("cronus_ui_date_range_picker::render"),
         "sidebar" => Some("cronus_ui_sidebar::render"),
+        "sonner" => Some("cronus_ui_sonner::render"),
         _ => None,
     }
 }
@@ -216,6 +217,10 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"sidebar\"") && !html.contains("data-slot=\"sidebar-content\""))
         || (html.contains("data-slot=\"sidebar\"") && !html.contains("data-slot=\"sidebar-menu\""))
         || (html.contains("data-slot=\"sidebar\"") && html.contains("flex-wrap:wrap"))
+        || html.contains("<details data-slot=\"sonner\"")
+        || (html.contains("data-slot=\"sonner\"") && html.contains("<details"))
+        || (html.contains("data-slot=\"sonner\"") && !html.contains("data-slot=\"toaster\""))
+        || (html.contains("data-slot=\"sonner\"") && !html.contains("data-slot=\"toast\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -376,6 +381,7 @@ mod tests {
             "src/cronus_ui_separator.rs",
             "src/cronus_ui_sheet.rs",
             "src/cronus_ui_sidebar.rs",
+            "src/cronus_ui_sonner.rs",
             "src/cronus_ui_skeleton.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
