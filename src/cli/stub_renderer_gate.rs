@@ -163,6 +163,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "gauge-chart" => Some("cronus_ui_gauge_chart::render"),
         "funnel-chart" => Some("cronus_ui_funnel_chart::render"),
         "candlestick-chart" => Some("cronus_ui_candlestick_chart::render"),
+        "aurora-background" => Some("cronus_ui_aurora_background::render"),
         _ => None,
     }
 }
@@ -604,6 +605,13 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"funnel-chart\"") && html.contains("<figcaption"))
         || html.contains("<figure data-slot=\"candlestick-chart\"")
         || (html.contains("data-slot=\"candlestick-chart\"") && html.contains("<figcaption"))
+        || (html.contains("data-slot=\"aurora-background\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || !html.contains("data-slot=\"aurora-blob\"")
+                || html.contains("<canvas")
+                || html.contains("<script")
+                || html.contains("setInterval")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -753,6 +761,7 @@ mod tests {
             "src/cronus_ui_app_shell.rs",
             "src/cronus_ui_alert_dialog.rs",
             "src/cronus_ui_autocomplete.rs",
+            "src/cronus_ui_aurora_background.rs",
             "src/cronus_ui_badge.rs",
             "src/cronus_ui_banner.rs",
             "src/cronus_ui_checkbox.rs",

@@ -3053,6 +3053,42 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="card-stack-item"]:nth-child(3) {
   z-index: 1; transform: translate(20px, 20px) scale(0.92);
 }
+[data-slot="aurora-background"] {
+  position: relative; overflow: hidden;
+  color: var(--cronus-fg);
+}
+[data-slot="aurora-background"] > [aria-hidden] {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+}
+[data-slot="aurora-background"] > div:last-child {
+  position: relative; z-index: 1;
+}
+[data-slot="aurora-blob"] {
+  position: absolute; border-radius: 999px;
+  background: linear-gradient(135deg, var(--cronus-primary), var(--cronus-accent));
+  filter: blur(48px);
+  opacity: 0.3;
+  animation: cui-aurora 18s ease-in-out infinite alternate;
+}
+[data-slot="aurora-blob"]:nth-child(1) {
+  top: -33%; inset-inline-start: 25%; width: 66%; height: 66%;
+}
+[data-slot="aurora-blob"]:nth-child(2) {
+  bottom: -33%; inset-inline-end: 25%; width: 66%; height: 66%;
+  animation-delay: -6s;
+}
+[data-slot="aurora-blob"]:nth-child(3) {
+  top: 25%; inset-inline-start: 25%; width: 50%; height: 50%;
+  opacity: 0.2; animation-delay: -12s;
+}
+@keyframes cui-aurora {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(3%, -4%) scale(1.08); }
+  100% { transform: translate(-3%, 4%) scale(1.04); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="aurora-blob"] { animation: none; }
+}
 
 "#;
 
