@@ -694,6 +694,31 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   border-bottom-left-radius: 0; border-bottom-right-radius: 0;
 [data-slot="button-group"] > *:focus-visible {
   position: relative; z-index: 10;
+}
+[data-slot="dropdown-menu"] {
+  position: relative; display: inline-flex; flex-direction: column; gap: 0.25rem;
+}
+[data-slot="dropdown-menu"] > button {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2.5rem; padding: 0 1rem;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+}
+[data-slot="dropdown-menu-content"] {
+  min-width: 8rem; overflow: hidden;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  padding: 0.25rem; box-shadow: var(--cronus-shadow-lg, none);
+}
+[data-slot="dropdown-menu-item"] {
+  display: flex; align-items: center; gap: 0.5rem;
+  border-radius: var(--cronus-radius-md); padding: 0.375rem 0.5rem;
+  font-size: 0.875rem; cursor: default;
+}
+[data-slot="dropdown-menu-item"]:hover {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
 "#;
 
 #[cfg(test)]

@@ -55,6 +55,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "metric" => Some("cronus_ui_metric::render"),
         "avatar-group" => Some("cronus_ui_avatar_group::render"),
         "button-group" => Some("cronus_ui_button_group::render"),
+        "dropdown-menu" => Some("cronus_ui_dropdown_menu::render"),
         _ => None,
     }
 }
@@ -152,6 +153,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"avatar-group\"")
             && html.contains("width:2.25rem;height:2.25rem;border-radius:999px"))
         || (html.contains("data-slot=\"button-group\"") && html.contains("display:inline-flex;gap:0.25rem"))
+        || (html.contains("data-slot=\"dropdown-menu\"") && html.contains("<details"))
+        || html.contains("position:absolute;z-index:20;margin-top:0.35rem")
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -327,6 +330,7 @@ mod tests {
             "src/cronus_ui_fab.rs",
             "src/cronus_ui_select.rs",
             "src/cronus_ui_dialog.rs",
+            "src/cronus_ui_dropdown_menu.rs",
             "src/cronus_ui_tabs.rs",
             "src/cronus_ui_accordion.rs",
             "src/cronus_ui_table.rs",

@@ -62,6 +62,7 @@ mod cronus_ui_chip;
 mod cronus_ui_copy_button;
 mod cronus_ui_data;
 mod cronus_ui_dialog;
+mod cronus_ui_dropdown_menu;
 mod cronus_ui_empty;
 mod cronus_ui_field;
 mod cronus_ui_fab;
