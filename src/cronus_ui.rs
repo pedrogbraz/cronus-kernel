@@ -2518,6 +2518,20 @@ button:has(+ [data-slot="sheet-content"]) {
   40% { transform: scale(1); opacity: 1; }
   70% { transform: scale(0.6); opacity: 0.6; }
 }
+[data-slot="noise"] {
+  position: relative; overflow: hidden; display: inline-block;
+  isolation: isolate;
+}
+[data-slot="noise"]::after {
+  content: "";
+  position: absolute; inset: 0; pointer-events: none;
+  opacity: 0.08;
+  mix-blend-mode: overlay;
+  background-image:
+    repeating-radial-gradient(circle at 20% 30%, var(--cronus-fg) 0 0.4px, transparent 0.6px 3px),
+    repeating-conic-gradient(from 20deg, transparent 0 12deg, color-mix(in oklch, var(--cronus-fg) 50%, transparent) 12.2deg 12.5deg, transparent 12.8deg 24deg);
+  background-size: 5px 5px, 7px 7px;
+}
 "#;
 
 #[cfg(test)]

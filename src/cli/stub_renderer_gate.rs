@@ -129,6 +129,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "text-shimmer" => Some("cronus_ui_text_shimmer::render"),
         "particles" => Some("cronus_ui_particles::render"),
         "sparkles-text" => Some("cronus_ui_sparkles_text::render"),
+        "noise" => Some("cronus_ui_noise::render"),
         _ => None,
     }
 }
@@ -432,6 +433,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")))
         || (html.contains("data-slot=\"sparkles-text\"")
             && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
+        || (html.contains("data-slot=\"noise\"")
+            && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -607,6 +610,7 @@ mod tests {
             "src/cronus_ui_text_shimmer.rs",
             "src/cronus_ui_particles.rs",
             "src/cronus_ui_sparkles_text.rs",
+            "src/cronus_ui_noise.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",
