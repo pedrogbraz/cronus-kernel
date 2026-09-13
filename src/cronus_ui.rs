@@ -831,6 +831,33 @@ button:has(+ [data-slot="hover-card-content"]) {
 [data-slot="mode-toggle"][data-mode="dark"] [data-slot="mode-toggle-crescent"] {
   transform: translateX(-7px);
 }
+[data-slot="drawer"] {
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+[data-slot="drawer"] > button {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2.5rem; padding: 0 1rem;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+}
+[data-slot="drawer-content"] {
+  z-index: 50; display: flex; flex-direction: column;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-xl) var(--cronus-radius-xl) 0 0;
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-lg, none);
+}
+[data-slot="drawer-title"] {
+  font-size: 1.125rem; font-weight: 600; color: var(--cronus-fg);
+  font-family: var(--cronus-font-display, inherit);
+  padding: 1rem 1rem 0;
+}
+[data-slot="drawer-description"] {
+  font-size: 0.875rem; color: var(--cronus-fg-secondary);
+  padding: 0 1rem 1rem;
+}
 "#;
 
 #[cfg(test)]
