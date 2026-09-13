@@ -56,6 +56,7 @@ mod cronus_ui_app_shell;
 mod cronus_ui_alert_dialog;
 mod cronus_ui_autocomplete;
 mod cronus_ui_area_chart;
+mod cronus_ui_aspect_ratio;
 mod cronus_ui_avatar;
 mod cronus_ui_avatar_group;
 mod cronus_ui_badge;

@@ -154,6 +154,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "marquee" => Some("cronus_ui_marquee::render"),
         "gradient-text" => Some("cronus_ui_gradient_text::render"),
         "shiny-text" => Some("cronus_ui_shiny_text::render"),
+        "aspect-ratio" => Some("cronus_ui_aspect_ratio::render"),
         _ => None,
     }
 }
@@ -555,6 +556,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
         || (html.contains("data-slot=\"shiny-text\"")
             && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
+        || html.contains("<section data-slot=\"aspect-ratio\"")
+        || (html.contains("data-slot=\"aspect-ratio\"") && html.contains("style="))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -753,6 +756,7 @@ mod tests {
             "src/cronus_ui_marquee.rs",
             "src/cronus_ui_gradient_text.rs",
             "src/cronus_ui_shiny_text.rs",
+            "src/cronus_ui_aspect_ratio.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",

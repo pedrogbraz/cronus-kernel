@@ -2881,6 +2881,10 @@ button:has(+ [data-slot="sheet-content"]) {
 }
   [data-slot="shiny-text"] { animation: none; }
 }
+[data-slot="aspect-ratio"] {
+  position: relative; width: 100%;
+  aspect-ratio: 16 / 9;
+}
 "#;
 
 #[cfg(test)]
