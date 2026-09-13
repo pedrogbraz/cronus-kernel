@@ -110,6 +110,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "lightbox" => Some("cronus_ui_lightbox::render"),
         "notification-center" => Some("cronus_ui_notification_center::render"),
         "expandable-tabs" => Some("cronus_ui_expandable_tabs::render"),
+        "live-line-chart" => Some("cronus_ui_live_line_chart::render"),
         _ => None,
     }
 }
@@ -358,6 +359,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && !html.contains("data-slot=\"expandable-tabs-item\""))
         || (html.contains("data-slot=\"expandable-tabs\"") && html.contains("role=\"tabpanel\""))
         || (html.contains("data-slot=\"expandable-tabs\"") && html.contains("<div role=\"tablist\""))
+        || html.contains("<figure data-slot=\"live-line-chart\"")
+        || (html.contains("data-slot=\"live-line-chart\"") && html.contains("<figcaption"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -588,6 +591,7 @@ mod tests {
             "src/cronus_ui_area_chart.rs",
             "src/cronus_ui_bar_chart.rs",
             "src/cronus_ui_line_chart.rs",
+            "src/cronus_ui_live_line_chart.rs",
             "src/cronus_ui_sparkline.rs",
             "src/cronus_ui_pie_chart.rs",
             "src/cronus_ui_pill_nav.rs",

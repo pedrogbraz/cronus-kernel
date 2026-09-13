@@ -1507,6 +1507,16 @@ button:has(+ [data-slot="sheet-content"]) {
   background: var(--cronus-surface-floating);
   box-shadow: var(--cronus-shadow-xs, none);
 }
+[data-slot="live-line-chart"] {
+  display: block; width: 100%; aspect-ratio: 2 / 1;
+}
+[data-slot="live-line-chart"] svg {
+  display: block; width: 100%; height: 100%;
+}
+[data-slot="live-line-chart"] polyline {
+  fill: none; stroke: var(--cronus-primary); stroke-width: 2;
+  stroke-linejoin: round; stroke-linecap: round;
+}
 "#;
 
 #[cfg(test)]
