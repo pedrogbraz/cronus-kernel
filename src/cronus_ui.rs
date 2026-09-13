@@ -2350,6 +2350,43 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="profit-loss-chart"] polyline[stroke="var(--cronus-error)"] {
   stroke: var(--cronus-error);
 }
+[data-slot="gauge-chart"] {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 16rem;
+}
+[data-slot="gauge-chart"] svg { width: 12rem; height: 12rem; }
+[data-slot="gauge-chart"] path {
+  fill: none; stroke-linecap: round; stroke-width: 8;
+}
+[data-slot="gauge-chart"] path[stroke="var(--cronus-primary)"] {
+  stroke: var(--cronus-primary);
+}
+[data-slot="gauge-chart"] text {
+  fill: var(--cronus-fg);
+}
+[data-slot="funnel-chart"] {
+  display: block; width: 100%; aspect-ratio: 2 / 1;
+}
+[data-slot="funnel-chart"] svg {
+  display: block; width: 100%; height: 100%;
+}
+[data-slot="funnel-chart"] polygon {
+  stroke: var(--cronus-surface-base); stroke-width: 1;
+}
+[data-slot="candlestick-chart"] {
+  display: block; width: 100%; aspect-ratio: 2 / 1;
+}
+[data-slot="candlestick-chart"] svg {
+  display: block; width: 100%; height: 100%;
+}
+[data-slot="candlestick-chart"] rect[fill="var(--cronus-success)"],
+[data-slot="candlestick-chart"] line[stroke="var(--cronus-success)"] {
+  fill: var(--cronus-success); stroke: var(--cronus-success);
+}
+[data-slot="candlestick-chart"] rect[fill="var(--cronus-error)"],
+[data-slot="candlestick-chart"] line[stroke="var(--cronus-error)"] {
+  fill: var(--cronus-error); stroke: var(--cronus-error);
+}
 [data-slot="scroll-progress"] {
   height: 0.25rem; width: 100%; overflow: hidden;
   background: var(--cronus-surface-inset);

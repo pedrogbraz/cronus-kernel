@@ -238,11 +238,7 @@ pub fn chart_bars(series: &[f64]) -> Vec<ChartBar> {
         return Vec::new();
     }
     let n = series.len() as f64;
-    let max = series
-        .iter()
-        .cloned()
-        .fold(0.0_f64, f64::max)
-        .max(1.0);
+    let max = series.iter().cloned().fold(0.0_f64, f64::max).max(1.0);
     let inner_w = chart_inner_w();
     let inner_h = chart_inner_h();
     let slot = inner_w / n;
@@ -416,6 +412,205 @@ fn ring_arc_d(r: f64, progress: f64) -> String {
         fmt_coord(x1),
         fmt_coord(y1),
     )
+}
+
+/// Horseshoe gauge. ViewBox `0 0 100 100`. Track is 240° through the top.
+pub const GAUGE_VIEW: f64 = 100.0;
+pub const GAUGE_CX: f64 = 50.0;
+pub const GAUGE_CY: f64 = 54.0;
+pub const GAUGE_R: f64 = 36.0;
+pub const GAUGE_STROKE: f64 = 8.0;
+pub const GAUGE_DEFAULT: f64 = 60.0;
+/// SVG polar: 0 at 3 o'clock, clockwise (y-down). 150° = lower-left.
+const GAUGE_A0: f64 = 150.0 * std::f64::consts::PI / 180.0;
+const GAUGE_SWEEP: f64 = 240.0 * std::f64::consts::PI / 180.0;
+
+pub struct ChartGauge {
+    pub value: f64,
+    pub track_d: String,
+    pub value_d: String,
+}
+
+/// Clamp `value` to 0–100 and build track + fill arc paths.
+pub fn chart_gauge(value: f64) -> ChartGauge {
+    let v = if value.is_finite() {
+        value.clamp(0.0, 100.0)
+    } else {
+        0.0
+    };
+    ChartGauge {
+        value: v,
+        track_d: gauge_arc_d(1.0),
+        value_d: gauge_arc_d(v / 100.0),
+    }
+}
+
+fn gauge_arc_d(progress: f64) -> String {
+    if progress <= 0.0 || GAUGE_R <= 0.0 {
+        return String::new();
+    }
+    let p = progress.clamp(0.0, 1.0);
+    let sweep = GAUGE_SWEEP * p;
+    let a1 = GAUGE_A0 + sweep;
+    let x0 = GAUGE_CX + GAUGE_R * GAUGE_A0.cos();
+    let y0 = GAUGE_CY + GAUGE_R * GAUGE_A0.sin();
+    let x1 = GAUGE_CX + GAUGE_R * a1.cos();
+    let y1 = GAUGE_CY + GAUGE_R * a1.sin();
+    let large = if sweep > std::f64::consts::PI { 1 } else { 0 };
+    format!(
+        "M {} {} A {} {} 0 {} 1 {} {}",
+        fmt_coord(x0),
+        fmt_coord(y0),
+        fmt_coord(GAUGE_R),
+        fmt_coord(GAUGE_R),
+        large,
+        fmt_coord(x1),
+        fmt_coord(y1),
+    )
+}
+
+/// Vertical funnel stages. ViewBox `0 0 200 100`. Width follows value.
+pub const DEFAULT_FUNNEL_SERIES: [f64; 5] = [10.0, 8.0, 6.0, 4.0, 2.0];
+
+pub struct ChartFunnelStage {
+    pub points: String,
+    pub top_w: f64,
+    pub bot_w: f64,
+}
+
+/// Trapezoids (or rects when adjacent values match) shrinking down the plot.
+pub fn chart_funnel(series: &[f64]) -> Vec<ChartFunnelStage> {
+    if series.is_empty() {
+        return Vec::new();
+    }
+    let n = series.len();
+    let max = series.iter().cloned().fold(1.0_f64, f64::max).max(1.0);
+    let inner_w = chart_inner_w();
+    let inner_h = chart_inner_h();
+    let slot = inner_h / n as f64;
+    (0..n)
+        .map(|i| {
+            let v0 = series[i].max(0.0);
+            let v1 = if i + 1 < n {
+                series[i + 1].max(0.0)
+            } else {
+                v0 * 0.55
+            };
+            let top_w = inner_w * (v0 / max);
+            let bot_w = inner_w * (v1 / max);
+            let y0 = CHART_PAD + slot * i as f64;
+            let y1 = y0 + slot;
+            let x0l = (CHART_VIEW_W - top_w) / 2.0;
+            let x0r = x0l + top_w;
+            let x1l = (CHART_VIEW_W - bot_w) / 2.0;
+            let x1r = x1l + bot_w;
+            ChartFunnelStage {
+                points: format!(
+                    "{},{} {},{} {},{} {},{}",
+                    fmt_coord(x0l),
+                    fmt_coord(y0),
+                    fmt_coord(x0r),
+                    fmt_coord(y0),
+                    fmt_coord(x1r),
+                    fmt_coord(y1),
+                    fmt_coord(x1l),
+                    fmt_coord(y1),
+                ),
+                top_w,
+                bot_w,
+            }
+        })
+        .collect()
+}
+
+pub fn funnel_series(comp: &ComponentNode) -> Vec<f64> {
+    let out = numeric_items(comp);
+    if out.is_empty() {
+        DEFAULT_FUNNEL_SERIES.to_vec()
+    } else {
+        out
+    }
+}
+
+/// Default 5 OHLC candles (open, high, low, close). Mix of up/down.
+pub const DEFAULT_CANDLES: [[f64; 4]; 5] = [
+    [20.0, 28.0, 16.0, 24.0],
+    [24.0, 26.0, 18.0, 19.0],
+    [19.0, 30.0, 17.0, 27.0],
+    [27.0, 29.0, 21.0, 22.0],
+    [22.0, 31.0, 20.0, 29.0],
+];
+
+pub struct ChartCandle {
+    pub cx: f64,
+    pub wick_y0: f64,
+    pub wick_y1: f64,
+    pub body_x: f64,
+    pub body_y: f64,
+    pub body_w: f64,
+    pub body_h: f64,
+    pub up: bool,
+}
+
+/// OHLC tuples from items: groups of 4, else closes with synthetic wicks.
+pub fn candle_ohlc(comp: &ComponentNode) -> Vec<[f64; 4]> {
+    let nums = numeric_items(comp);
+    if nums.is_empty() {
+        return DEFAULT_CANDLES.to_vec();
+    }
+    if nums.len() >= 4 && nums.len() % 4 == 0 {
+        return nums.chunks(4).map(|c| [c[0], c[1], c[2], c[3]]).collect();
+    }
+    let mut prev: Option<f64> = None;
+    nums.into_iter()
+        .map(|close| {
+            let open = prev.unwrap_or(close * 0.96);
+            prev = Some(close);
+            let high = open.max(close) * 1.08;
+            let low = open.min(close) * 0.92;
+            [open, high, low, close]
+        })
+        .collect()
+}
+
+/// Rect body + wick in the same 200×100 padded viewBox.
+pub fn chart_candles(ohlc: &[[f64; 4]]) -> Vec<ChartCandle> {
+    if ohlc.is_empty() {
+        return Vec::new();
+    }
+    let mut min = f64::INFINITY;
+    let mut max = f64::NEG_INFINITY;
+    for &[open, high, low, close] in ohlc {
+        min = min.min(low).min(open).min(close);
+        max = max.max(high).max(open).max(close);
+    }
+    let span = (max - min).max(1.0);
+    let n = ohlc.len() as f64;
+    let inner_w = chart_inner_w();
+    let inner_h = chart_inner_h();
+    let slot = inner_w / n;
+    let w = slot * 0.5;
+    let inset = (slot - w) / 2.0;
+    ohlc.iter()
+        .enumerate()
+        .map(|(i, &[open, high, low, close])| {
+            let x = CHART_PAD + slot * i as f64 + inset;
+            let cx = x + w / 2.0;
+            let y_of = |v: f64| CHART_PAD + inner_h * (1.0 - (v - min) / span);
+            let y_open = y_of(open);
+            let y_close = y_of(close);
+            ChartCandle {
+                cx,
+                wick_y0: y_of(high),
+                wick_y1: y_of(low),
+                body_x: x,
+                body_y: y_open.min(y_close),
+                body_w: w,
+                body_h: (y_open - y_close).abs().max(1.0),
+                up: close >= open,
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]

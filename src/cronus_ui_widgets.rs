@@ -331,6 +331,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "countdown",
     "animated-button",
     "card-stack",
+    "gauge-chart",
+    "funnel-chart",
+    "candlestick-chart",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -490,6 +493,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "countdown" => Some(crate::cronus_ui_countdown::render(comp)),
         "animated-button" => Some(crate::cronus_ui_animated_button::render(comp)),
         "card-stack" => Some(crate::cronus_ui_card_stack::render(comp)),
+        "gauge-chart" => Some(crate::cronus_ui_gauge_chart::render(comp)),
+        "funnel-chart" => Some(crate::cronus_ui_funnel_chart::render(comp)),
+        "candlestick-chart" => Some(crate::cronus_ui_candlestick_chart::render(comp)),
         _ => None,
     }
 }

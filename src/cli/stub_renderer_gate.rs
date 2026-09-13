@@ -160,6 +160,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "countdown" => Some("cronus_ui_countdown::render"),
         "animated-button" => Some("cronus_ui_animated_button::render"),
         "card-stack" => Some("cronus_ui_card_stack::render"),
+        "gauge-chart" => Some("cronus_ui_gauge_chart::render"),
+        "funnel-chart" => Some("cronus_ui_funnel_chart::render"),
+        "candlestick-chart" => Some("cronus_ui_candlestick_chart::render"),
         _ => None,
     }
 }
@@ -442,6 +445,12 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"choropleth-chart\"") && html.contains("<figcaption"))
         || html.contains("<figure data-slot=\"profit-loss-chart\"")
         || (html.contains("data-slot=\"profit-loss-chart\"") && html.contains("<figcaption"))
+        || html.contains("<figure data-slot=\"gauge-chart\"")
+        || (html.contains("data-slot=\"gauge-chart\"") && html.contains("<figcaption"))
+        || html.contains("<figure data-slot=\"funnel-chart\"")
+        || (html.contains("data-slot=\"funnel-chart\"") && html.contains("<figcaption"))
+        || html.contains("<figure data-slot=\"candlestick-chart\"")
+        || (html.contains("data-slot=\"candlestick-chart\"") && html.contains("<figcaption"))
         || (html.contains("data-slot=\"scroll-progress\"") && html.contains("<progress"))
         || (html.contains("data-slot=\"scroll-progress\"")
             && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
@@ -819,6 +828,8 @@ mod tests {
             "src/cronus_ui_file_dropzone.rs",
             "src/cronus_ui_floating_label_input.rs",
             "src/cronus_ui_form.rs",
+            "src/cronus_ui_funnel_chart.rs",
+            "src/cronus_ui_gauge_chart.rs",
             "src/cronus_ui_input_group.rs",
             "src/cronus_ui_input_otp.rs",
             "src/cronus_ui_invite_dialog.rs",
@@ -843,6 +854,7 @@ mod tests {
             "src/cronus_ui_breadcrumb.rs",
             "src/cronus_ui_button_group.rs",
             "src/cronus_ui_calendar.rs",
+            "src/cronus_ui_candlestick_chart.rs",
             "src/cronus_ui_combobox.rs",
             "src/cronus_ui_command.rs",
             "src/cronus_ui_masonry.rs",
