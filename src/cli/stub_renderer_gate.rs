@@ -29,6 +29,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "progress" => Some("cronus_ui_progress::render"),
         "avatar" => Some("cronus_ui_avatar::render"),
         "card" => Some("cronus_ui_card::render"),
+        "empty" => Some("cronus_ui_empty::render"),
         _ => None,
     }
 }
@@ -262,6 +263,7 @@ mod tests {
             "src/cronus_ui_progress.rs",
             "src/cronus_ui_avatar.rs",
             "src/cronus_ui_card.rs",
+            "src/cronus_ui_empty.rs",
             "src/cli/audit_http.rs",
             "src/ui/audit_layout.rs",
         ];

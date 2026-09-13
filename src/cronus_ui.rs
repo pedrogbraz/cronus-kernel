@@ -408,6 +408,20 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   font-size: 0.875rem; color: var(--cronus-fg-secondary);
 }
 
+[data-slot="empty"] {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0.75rem; border-radius: var(--cronus-radius-xl);
+  border: 1px dashed var(--cronus-border);
+  background: color-mix(in oklch, var(--cronus-surface-inset) 40%, transparent);
+  padding: 3rem 1.5rem; text-align: center;
+}
+[data-slot="empty-title"] {
+  font-size: 0.875rem; font-weight: 600; color: var(--cronus-fg);
+}
+[data-slot="empty-description"] {
+  max-width: 24rem; font-size: 0.875rem; color: var(--cronus-fg-secondary);
+}
+
 [data-slot="alert"] {
   border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
   background: var(--cronus-surface-raised);
