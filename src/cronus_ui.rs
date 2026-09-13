@@ -992,6 +992,31 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="date-range-picker-day"][data-range="middle"] {
   background: var(--cronus-surface-overlay); border-radius: 0;
 }
+[data-slot="sidebar"] {
+  display: flex; flex-direction: column;
+  width: 16rem; min-height: 100%; box-sizing: border-box;
+  background: var(--cronus-surface-base); color: var(--cronus-fg);
+  border-right: 1px solid var(--cronus-border);
+}
+[data-slot="sidebar-content"] {
+  display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 0.5rem;
+}
+[data-slot="sidebar-menu"] {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 0.25rem;
+}
+[data-slot="sidebar-menu-item"] { position: relative; }
+[data-slot="sidebar-menu-button"] {
+  display: flex; align-items: center; gap: 0.5rem;
+  width: 100%; box-sizing: border-box;
+  height: 2rem; padding: 0 0.5rem;
+  border-radius: var(--cronus-radius-md);
+  color: var(--cronus-fg-secondary); text-decoration: none;
+  font-size: 0.875rem;
+}
+[data-slot="sidebar-menu-button"]:hover {
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+}
 "#;
 
 #[cfg(test)]

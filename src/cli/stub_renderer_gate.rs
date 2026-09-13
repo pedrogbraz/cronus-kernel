@@ -73,6 +73,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "date-picker" => Some("cronus_ui_date_picker::render"),
         "time-picker" => Some("cronus_ui_time_picker::render"),
         "date-range-picker" => Some("cronus_ui_date_range_picker::render"),
+        "sidebar" => Some("cronus_ui_sidebar::render"),
         _ => None,
     }
 }
@@ -211,6 +212,10 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || html.contains("<input type=\"time\"")
         || html.contains("<label data-slot=\"date-range-picker\"")
         || html.contains("data-slot=\"date-range-picker-control\"")
+        || html.contains("<nav data-slot=\"sidebar\"")
+        || (html.contains("data-slot=\"sidebar\"") && !html.contains("data-slot=\"sidebar-content\""))
+        || (html.contains("data-slot=\"sidebar\"") && !html.contains("data-slot=\"sidebar-menu\""))
+        || (html.contains("data-slot=\"sidebar\"") && html.contains("flex-wrap:wrap"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -370,6 +375,7 @@ mod tests {
             "src/cronus_ui_spinner.rs",
             "src/cronus_ui_separator.rs",
             "src/cronus_ui_sheet.rs",
+            "src/cronus_ui_sidebar.rs",
             "src/cronus_ui_skeleton.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
