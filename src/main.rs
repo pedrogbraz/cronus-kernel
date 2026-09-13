@@ -97,6 +97,7 @@ mod cronus_ui_expandable_tabs;
 mod cronus_ui_field;
 mod cronus_ui_file_dropzone;
 mod cronus_ui_fab;
+mod cronus_ui_flip_card;
 mod cronus_ui_floating_label_input;
 mod cronus_ui_form;
 mod cronus_ui_frame;

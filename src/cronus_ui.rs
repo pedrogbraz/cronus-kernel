@@ -2908,6 +2908,53 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="frame-chrome"] [aria-hidden] span:nth-child(2) { background: var(--cronus-warning); }
 [data-slot="frame-chrome"] [aria-hidden] span:nth-child(3) { background: var(--cronus-success); }
 [data-slot="frame-content"] { color: var(--cronus-fg); }
+[data-slot="flip-card"] {
+  position: relative; isolation: isolate;
+  min-height: 16rem; border-radius: var(--cronus-radius-xl);
+  perspective: 1600px;
+}
+[data-slot="flip-card-front"],
+[data-slot="flip-card-back"] {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  overflow: hidden; border-radius: var(--cronus-radius-xl);
+  border: 1px solid var(--cronus-border);
+  color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-sm, none);
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+  transition: transform 600ms var(--cronus-ease);
+}
+[data-slot="flip-card-front"] {
+  background: var(--cronus-surface-raised);
+}
+[data-slot="flip-card-back"] {
+  background: var(--cronus-surface-elevated, var(--cronus-surface-overlay));
+  transform: rotateY(180deg);
+}
+[data-slot="flip-card"]:hover [data-slot="flip-card-front"],
+[data-slot="flip-card"]:focus-within [data-slot="flip-card-front"] {
+  transform: rotateY(180deg);
+}
+[data-slot="flip-card"]:hover [data-slot="flip-card-back"],
+[data-slot="flip-card"]:focus-within [data-slot="flip-card-back"] {
+  transform: rotateY(360deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="flip-card-front"],
+  [data-slot="flip-card-back"] {
+    transition: none; backface-visibility: visible;
+  }
+  [data-slot="flip-card-back"] { visibility: hidden; transform: none; }
+  [data-slot="flip-card"]:hover [data-slot="flip-card-front"],
+  [data-slot="flip-card"]:focus-within [data-slot="flip-card-front"] {
+    visibility: hidden; transform: none;
+  }
+  [data-slot="flip-card"]:hover [data-slot="flip-card-back"],
+  [data-slot="flip-card"]:focus-within [data-slot="flip-card-back"] {
+    visibility: visible; transform: none;
+  }
+}
 "#;
 
 #[cfg(test)]

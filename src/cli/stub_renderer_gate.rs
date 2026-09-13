@@ -156,6 +156,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "shiny-text" => Some("cronus_ui_shiny_text::render"),
         "aspect-ratio" => Some("cronus_ui_aspect_ratio::render"),
         "frame" => Some("cronus_ui_frame::render"),
+        "flip-card" => Some("cronus_ui_flip_card::render"),
         _ => None,
     }
 }
@@ -564,6 +565,11 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && (!html.contains("data-slot=\"frame-chrome\"")
                 || !html.contains("data-slot=\"frame-content\"")))
         || (html.contains("data-slot=\"frame\"") && html.contains("style="))
+        || html.contains("<section data-slot=\"flip-card\"")
+        || (html.contains("data-slot=\"flip-card\"")
+            && (!html.contains("data-slot=\"flip-card-front\"")
+                || !html.contains("data-slot=\"flip-card-back\"")))
+        || (html.contains("data-slot=\"flip-card\"") && html.contains("style="))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -764,6 +770,7 @@ mod tests {
             "src/cronus_ui_shiny_text.rs",
             "src/cronus_ui_aspect_ratio.rs",
             "src/cronus_ui_frame.rs",
+            "src/cronus_ui_flip_card.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",
