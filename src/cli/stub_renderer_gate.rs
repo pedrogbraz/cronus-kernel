@@ -29,6 +29,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "progress" => Some("cronus_ui_progress::render"),
         "alert" => Some("cronus_ui_alert::render"),
         "skeleton" => Some("cronus_ui_skeleton::render"),
+        "banner" => Some("cronus_ui_banner::render"),
         _ => None,
     }
 }
@@ -107,6 +108,7 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"alert\"") && !html.contains("data-slot=\"alert-title\""))
         || html.contains("padding:0.85rem 1rem;display:flex;flex-direction:column;gap:0.25rem;font-size:0.875rem;")
         || html.contains("height:0.9rem;width:8rem;")
+        || (html.contains("data-slot=\"banner\"") && !html.contains("data-slot=\"banner-title\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -254,6 +256,7 @@ mod tests {
             "src/cronus_ui_widgets.rs",
             "src/cronus_ui_alert.rs",
             "src/cronus_ui_badge.rs",
+            "src/cronus_ui_banner.rs",
             "src/cronus_ui_checkbox.rs",
             "src/cronus_ui_input.rs",
             "src/cronus_ui_label.rs",

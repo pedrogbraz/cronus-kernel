@@ -143,7 +143,7 @@ pub const FAMILIES: &[&str] = &[
 pub const PORTED_FAMILIES: &[&str] = &[
     "button", "badge", "input", "label", "textarea", "checkbox",
     "switch", "spinner", "separator", "kbd", "toggle", "progress",
-    "alert", "skeleton",
+    "alert", "skeleton", "banner",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -172,6 +172,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "progress" => Some(crate::cronus_ui_progress::render(comp)),
         "alert" => Some(crate::cronus_ui_alert::render(comp)),
         "skeleton" => Some(crate::cronus_ui_skeleton::render(comp)),
+        "banner" => Some(crate::cronus_ui_banner::render(comp)),
         _ => None,
     }
 }

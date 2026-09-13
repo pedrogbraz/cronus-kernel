@@ -398,6 +398,24 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   font-size: 0.875rem; color: var(--cronus-fg-secondary);
 }
 
+[data-slot="banner"] {
+  display: flex; width: 100%; align-items: center; gap: 0.75rem;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--cronus-border);
+  padding: 0.625rem 1rem; font-size: 0.875rem;
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
+[data-slot="banner-content"] {
+  display: flex; min-width: 0; flex: 1; flex-wrap: wrap;
+  align-items: center; gap: 0.5rem;
+}
+[data-slot="banner-title"] {
+  font-weight: 500;
+}
+[data-slot="banner-description"] {
+  color: var(--cronus-fg-secondary);
+}
+
 [data-slot="dialog-content"], dialog[data-slot] {
   background: var(--cronus-surface-floating); border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-lg, none);

@@ -50,6 +50,7 @@ mod theme;
 mod cronus_ui;
 mod cronus_ui_alert;
 mod cronus_ui_badge;
+mod cronus_ui_banner;
 mod cronus_ui_checkbox;
 mod cronus_ui_data;
 mod cronus_ui_input;
