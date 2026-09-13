@@ -121,6 +121,7 @@ mod cronus_ui_radar_chart;
 mod cronus_ui_radio_group;
 mod cronus_ui_rating;
 mod cronus_ui_resizable;
+mod cronus_ui_rich_text_editor;
 mod cronus_ui_ring_chart;
 mod cronus_ui_scatter_chart;
 mod cronus_ui_scheduler;

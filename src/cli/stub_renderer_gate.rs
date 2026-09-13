@@ -118,6 +118,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "expandable-tabs" => Some("cronus_ui_expandable_tabs::render"),
         "live-line-chart" => Some("cronus_ui_live_line_chart::render"),
         "sunburst-chart" => Some("cronus_ui_sunburst_chart::render"),
+        "rich-text-editor" => Some("cronus_ui_rich_text_editor::render"),
         _ => None,
     }
 }
@@ -391,6 +392,9 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"live-line-chart\"") && html.contains("<figcaption"))
         || html.contains("<figure data-slot=\"sunburst-chart\"")
         || (html.contains("data-slot=\"sunburst-chart\"") && html.contains("<figcaption"))
+        || html.contains("data-slot=\"rich-text-editor-control\"")
+        || html.contains("<label data-slot=\"rich-text-editor\"")
+        || (html.contains("data-slot=\"rich-text-editor\"") && html.contains("<textarea"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -571,6 +575,7 @@ mod tests {
             "src/cronus_ui_radio_group.rs",
             "src/cronus_ui_rating.rs",
             "src/cronus_ui_resizable.rs",
+            "src/cronus_ui_rich_text_editor.rs",
             "src/cronus_ui_scroll_area.rs",
             "src/cronus_ui_chip.rs",
             "src/cronus_ui_code_tabs.rs",

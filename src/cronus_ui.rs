@@ -647,9 +647,6 @@ dialog[data-slot="dialog-content"]::backdrop {
   opacity: 0.5; pointer-events: none;
 }
 [data-slot="textarea"]::placeholder { color: var(--cronus-fg-tertiary); }
-[data-slot="rich-text-editor"] textarea {
-  height: auto; padding: 0.6rem 0.75rem;
-}
 
 [data-slot="badge"] {
   display: inline-flex; align-items: center; gap: 0.25rem;
@@ -2315,6 +2312,35 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="sunburst-chart"] svg { width: 12rem; height: 12rem; }
 [data-slot="sunburst-chart"] path {
   stroke: var(--cronus-surface-base); stroke-width: 1;
+}
+[data-slot="rich-text-editor"] {
+  display: flex; flex-direction: column; overflow: hidden;
+  width: 100%; min-width: 0; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-base); color: var(--cronus-fg);
+}
+[data-slot="rich-text-editor-toolbar"] {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.125rem;
+  border-bottom: 1px solid var(--cronus-border);
+  background: color-mix(in oklch, var(--cronus-surface-overlay) 40%, transparent);
+  padding: 0.375rem;
+}
+[data-slot="rich-text-editor-toolbar"] button {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2rem; padding: 0 0.375rem;
+  border: 0; border-radius: var(--cronus-radius-md);
+  background: transparent; color: var(--cronus-fg-secondary);
+  font: inherit; font-size: 0.75rem; cursor: pointer;
+}
+[data-slot="rich-text-editor-toolbar"] [data-slot="separator"][data-orientation="vertical"] {
+  height: 1.5rem; width: 1px; margin: 0 0.25rem;
+  background: var(--cronus-border);
+}
+[data-slot="rich-text-editor-content-wrapper"] {
+  position: relative; min-height: 10rem; box-sizing: border-box;
+  padding: 0.75rem 1rem; font-size: 0.875rem; line-height: 1.6;
+  color: var(--cronus-fg);
 }
 "#;
 
