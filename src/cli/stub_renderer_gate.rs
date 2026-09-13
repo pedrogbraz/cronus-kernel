@@ -61,6 +61,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "file-dropzone" => Some("cronus_ui_file_dropzone::render"),
         "popover" => Some("cronus_ui_popover::render"),
         "hover-card" => Some("cronus_ui_hover_card::render"),
+        "dropdown-menu" => Some("cronus_ui_dropdown_menu::render"),
+        "collapsible" => Some("cronus_ui_collapsible::render"),
+        "mode-toggle" => Some("cronus_ui_mode_toggle::render"),
         _ => None,
     }
 }
@@ -172,6 +175,13 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"file-dropzone\"") && html.contains("style="))
         || html.contains("<details data-slot=\"popover\"")
         || html.contains("<details data-slot=\"hover-card\"")
+        || (html.contains("data-slot=\"dropdown-menu\"") && html.contains("<details"))
+        || html.contains("position:absolute;z-index:20;margin-top:0.35rem")
+        || (html.contains("data-slot=\"collapsible\"") && html.contains("<details"))
+        || (html.contains("data-slot=\"collapsible\"")
+            && !html.contains("data-slot=\"collapsible-content\""))
+        || (html.contains("data-slot=\"mode-toggle\"") && html.contains("classList.toggle('dark')"))
+        || (html.contains("data-slot=\"mode-toggle\"") && html.contains("style="))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -325,6 +335,7 @@ mod tests {
             "src/cronus_ui_input.rs",
             "src/cronus_ui_label.rs",
             "src/cronus_ui_metric.rs",
+            "src/cronus_ui_mode_toggle.rs",
             "src/cronus_ui_textarea.rs",
             "src/cronus_ui_switch.rs",
             "src/cronus_ui_spinner.rs",
@@ -338,6 +349,7 @@ mod tests {
             "src/cronus_ui_radio_group.rs",
             "src/cronus_ui_rating.rs",
             "src/cronus_ui_chip.rs",
+            "src/cronus_ui_collapsible.rs",
             "src/cronus_ui_avatar.rs",
             "src/cronus_ui_avatar_group.rs",
             "src/cronus_ui_card.rs",
@@ -350,6 +362,7 @@ mod tests {
             "src/cronus_ui_hover_card.rs",
             "src/cronus_ui_select.rs",
             "src/cronus_ui_dialog.rs",
+            "src/cronus_ui_dropdown_menu.rs",
             "src/cronus_ui_tabs.rs",
             "src/cronus_ui_accordion.rs",
             "src/cronus_ui_table.rs",

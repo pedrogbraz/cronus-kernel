@@ -784,6 +784,52 @@ button:has(+ [data-slot="popover-content"]) {
 button:has(+ [data-slot="hover-card-content"]) {
 [data-slot="hover-card-content"] {
   z-index: 50; width: 16rem; box-sizing: border-box;
+[data-slot="dropdown-menu"] {
+  position: relative; display: inline-flex; flex-direction: column; gap: 0.25rem;
+[data-slot="dropdown-menu"] > button {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2.5rem; padding: 0 1rem;
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+[data-slot="dropdown-menu-content"] {
+  min-width: 8rem; overflow: hidden;
+  padding: 0.25rem; box-shadow: var(--cronus-shadow-lg, none);
+[data-slot="dropdown-menu-item"] {
+  border-radius: var(--cronus-radius-md); padding: 0.375rem 0.5rem;
+  font-size: 0.875rem; cursor: default;
+[data-slot="dropdown-menu-item"]:hover {
+[data-slot="collapsible"] {
+  display: flex; flex-direction: column; gap: 0.25rem;
+[data-slot="collapsible"] > button {
+  display: inline-flex; align-items: center;
+[data-slot="collapsible-content"] {
+  overflow: hidden; font-size: 0.875rem; color: var(--cronus-fg-secondary);
+[data-slot="collapsible-content"][data-state="open"] {
+  display: block;
+[data-slot="mode-toggle"] {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 2.25rem; height: 2.25rem; padding: 0; margin: 0;
+  border: 0; border-radius: var(--cronus-radius-lg);
+  background: transparent; color: var(--cronus-fg-secondary);
+  cursor: pointer; outline: none;
+  transition: background 150ms var(--ease-out-quart), color 150ms var(--ease-out-quart);
+[data-slot="mode-toggle"]:hover {
+[data-slot="mode-toggle"]:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="mode-toggle"] svg { width: 1.25rem; height: 1.25rem; }
+[data-slot="mode-toggle-core"] {
+  transform-origin: center; transform: scale(1);
+  transition: transform 300ms var(--ease-out-quart);
+[data-slot="mode-toggle"][data-mode="dark"] [data-slot="mode-toggle-core"] {
+  transform: scale(1.75);
+[data-slot="mode-toggle-rays"] {
+  transform-origin: center; transform: scale(1); opacity: 1;
+  transition: transform 300ms var(--ease-out-quart), opacity 300ms var(--ease-out-quart);
+[data-slot="mode-toggle"][data-mode="dark"] [data-slot="mode-toggle-rays"] {
+  transform: scale(0.5); opacity: 0;
+[data-slot="mode-toggle-crescent"] {
+  transform: translateX(0);
+[data-slot="mode-toggle"][data-mode="dark"] [data-slot="mode-toggle-crescent"] {
+  transform: translateX(-7px);
 }
 "#;
 
