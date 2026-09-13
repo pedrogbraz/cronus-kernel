@@ -49,6 +49,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "field" => Some("cronus_ui_field::render"),
         "input-group" => Some("cronus_ui_input_group::render"),
         "rating" => Some("cronus_ui_rating::render"),
+        "copy-button" => Some("cronus_ui_copy_button::render"),
+        "fab" => Some("cronus_ui_fab::render"),
+        "toggle-group" => Some("cronus_ui_toggle_group::render"),
         _ => None,
     }
 }
@@ -137,6 +140,10 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || html.contains("data-slot=\"input-group-control\"")
         || html.contains("<label data-slot=\"input-group\"")
         || (html.contains("data-slot=\"rating\"") && html.contains("role=\"radiogroup\""))
+        || html.contains("navigator.clipboard.writeText")
+        || (html.contains("data-slot=\"copy-button\"") && html.contains("style="))
+        || (html.contains("data-slot=\"fab\"") && html.contains("data-slot=\"button\""))
+        || (html.contains("data-slot=\"toggle-group\"") && html.contains("role=\"radiogroup\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -286,6 +293,7 @@ mod tests {
             "src/cronus_ui_badge.rs",
             "src/cronus_ui_banner.rs",
             "src/cronus_ui_checkbox.rs",
+            "src/cronus_ui_copy_button.rs",
             "src/cronus_ui_input.rs",
             "src/cronus_ui_label.rs",
             "src/cronus_ui_textarea.rs",
@@ -295,6 +303,7 @@ mod tests {
             "src/cronus_ui_skeleton.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
+            "src/cronus_ui_toggle_group.rs",
             "src/cronus_ui_progress.rs",
             "src/cronus_ui_slider.rs",
             "src/cronus_ui_radio_group.rs",
@@ -305,6 +314,7 @@ mod tests {
             "src/cronus_ui_empty.rs",
             "src/cronus_ui_field.rs",
             "src/cronus_ui_input_group.rs",
+            "src/cronus_ui_fab.rs",
             "src/cronus_ui_select.rs",
             "src/cronus_ui_dialog.rs",
             "src/cronus_ui_tabs.rs",
