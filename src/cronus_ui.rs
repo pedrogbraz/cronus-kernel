@@ -201,7 +201,14 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
   background: var(--cronus-surface-inset); color: var(--cronus-fg);
   padding: 0 0.75rem; font-size: 0.875rem; font-family: inherit;
+  outline: none;
   transition: border-color 150ms var(--ease-out-quart), box-shadow 150ms var(--ease-out-quart);
+}
+[data-slot="input"][aria-invalid="true"] {
+  border-color: var(--cronus-error);
+}
+[data-slot="input"]:disabled {
+  opacity: 0.5; pointer-events: none;
 }
 textarea[data-slot], [data-slot="textarea"] textarea, [data-slot="rich-text-editor"] textarea {
   height: auto; padding: 0.6rem 0.75rem;
@@ -212,14 +219,33 @@ textarea[data-slot], [data-slot="textarea"] textarea, [data-slot="rich-text-edit
   display: inline-flex; align-items: center; gap: 0.25rem;
   border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
   padding: 0.125rem 0.5rem; font-size: 0.75rem; font-weight: 500;
+  white-space: nowrap;
   background: var(--cronus-surface-overlay); color: var(--cronus-fg);
 }
 [data-slot="badge"][data-variant="primary"] {
   background: var(--cronus-primary); color: var(--cronus-primary-foreground); border-color: transparent;
 }
+[data-slot="badge"][data-variant="secondary"] {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg-secondary); border-color: var(--cronus-border);
+}
+[data-slot="badge"][data-variant="outline"] {
+  background: transparent; color: var(--cronus-fg); border-color: var(--cronus-border);
+}
+[data-slot="badge"][data-variant="success"] {
+  background: color-mix(in oklch, var(--cronus-success) 15%, transparent);
+  color: var(--cronus-success-text); border-color: transparent;
+}
+[data-slot="badge"][data-variant="warning"] {
+  background: color-mix(in oklch, var(--cronus-warning) 15%, transparent);
+  color: var(--cronus-warning-text); border-color: transparent;
+}
 [data-slot="badge"][data-variant="destructive"], [data-slot="badge"][data-variant="error"] {
   background: color-mix(in oklch, var(--cronus-error) 15%, transparent);
   color: var(--cronus-error-text); border-color: transparent;
+}
+[data-slot="badge"][data-variant="info"] {
+  background: color-mix(in oklch, var(--cronus-info) 15%, transparent);
+  color: var(--cronus-info-text); border-color: transparent;
 }
 
 [data-slot="card"], [data-slot="glass-card"], [data-slot="spotlight-card"] {

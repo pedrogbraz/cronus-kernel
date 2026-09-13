@@ -234,6 +234,8 @@ mod tests {
         let files = [
             "src/cronus_ui.rs",
             "src/cronus_ui_widgets.rs",
+            "src/cronus_ui_badge.rs",
+            "src/cronus_ui_input.rs",
             "src/cli/audit_http.rs",
             "src/ui/audit_layout.rs",
         ];

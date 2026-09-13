@@ -183,7 +183,7 @@ pub const FAMILIES: &[&str] = &[
 
 /// Families with a dedicated CONTRACT renderer. Interact and stub arms must
 /// not run for these (Cronus Audit K13).
-pub const PORTED_FAMILIES: &[&str] = &["button"];
+pub const PORTED_FAMILIES: &[&str] = &["button", "badge", "input"];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
     let style = comp.style.as_deref().unwrap_or("");
@@ -198,6 +198,8 @@ pub fn family_of(comp: &ComponentNode) -> Option<&str> {
 pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
     match family {
         "button" => Some(button_from(comp)),
+        "badge" => Some(crate::cronus_ui_badge::render(comp)),
+        "input" => Some(crate::cronus_ui_input::render(comp)),
         _ => None,
     }
 }
@@ -708,7 +710,7 @@ mod tests {
 
     #[test]
     fn interactive_controls_are_labelled() {
-        for family in ["checkbox", "switch", "input", "textarea", "select"] {
+        for family in ["checkbox", "switch", "textarea", "select"] {
             let html = render(&stub(family)).unwrap();
             assert!(
                 html.contains("<label") || html.contains("aria-label"),
