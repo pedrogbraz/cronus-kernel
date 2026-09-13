@@ -86,6 +86,7 @@ mod cronus_ui_label;
 mod cronus_ui_menubar;
 mod cronus_ui_metric;
 mod cronus_ui_mode_toggle;
+mod cronus_ui_navigation_menu;
 mod cronus_ui_number_input;
 mod cronus_ui_pagination;
 mod cronus_ui_popover;
