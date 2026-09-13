@@ -93,6 +93,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "status-dot" => Some("cronus_ui_status_dot::render"),
         "tags-input" => Some("cronus_ui_tags_input::render"),
         "autocomplete" => Some("cronus_ui_autocomplete::render"),
+        "multi-select" => Some("cronus_ui_multi_select::render"),
         _ => None,
     }
 }
@@ -280,6 +281,9 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || html.contains("data-slot=\"autocomplete-control\"")
         || html.contains("<label data-slot=\"autocomplete\"")
         || (html.contains("data-slot=\"autocomplete") && html.contains("<select"))
+        || html.contains("data-slot=\"multi-select-control\"")
+        || html.contains("<label data-slot=\"multi-select\"")
+        || (html.contains("data-slot=\"multi-select") && html.contains("<select"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -435,6 +439,7 @@ mod tests {
             "src/cronus_ui_label.rs",
             "src/cronus_ui_metric.rs",
             "src/cronus_ui_mode_toggle.rs",
+            "src/cronus_ui_multi_select.rs",
             "src/cronus_ui_textarea.rs",
             "src/cronus_ui_switch.rs",
             "src/cronus_ui_spinner.rs",

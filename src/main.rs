@@ -93,6 +93,7 @@ mod cronus_ui_line_chart;
 mod cronus_ui_menubar;
 mod cronus_ui_metric;
 mod cronus_ui_mode_toggle;
+mod cronus_ui_multi_select;
 mod cronus_ui_navigation_menu;
 mod cronus_ui_number_input;
 mod cronus_ui_pagination;

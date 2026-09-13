@@ -262,6 +262,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "status-dot",
     "tags-input",
     "autocomplete",
+    "multi-select",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -354,6 +355,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "status-dot" => Some(crate::cronus_ui_status_dot::render(comp)),
         "tags-input" => Some(crate::cronus_ui_tags_input::render(comp)),
         "autocomplete" => Some(crate::cronus_ui_autocomplete::render(comp)),
+        "multi-select" => Some(crate::cronus_ui_multi_select::render(comp)),
         _ => None,
     }
 }
