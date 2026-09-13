@@ -1101,6 +1101,29 @@ button:has(+ [data-slot="sheet-content"]) {
   border: 0; border-radius: 0; background: transparent; box-shadow: none;
   padding: 0 0.75rem; color: var(--cronus-fg); font: inherit; outline: none;
 }
+[data-slot="currency-input"] {
+  display: flex; height: 2.5rem; width: 100%; align-items: stretch;
+  overflow: hidden; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+  font-size: 0.875rem;
+}
+[data-slot="currency-input"][data-invalid=""] {
+  border-color: var(--cronus-error);
+}
+[data-slot="currency-input"][data-disabled=""] { opacity: 0.5; pointer-events: none; }
+[data-slot="currency-input-prefix"] {
+  display: flex; flex-shrink: 0; align-items: center; gap: 0.375rem;
+  padding: 0 0.75rem; color: var(--cronus-fg);
+  border-right: 1px solid var(--cronus-border); user-select: none; white-space: nowrap;
+  font-weight: 500;
+}
+[data-slot="currency-input-field"] {
+  height: 100%; width: auto; flex: 1; min-width: 0;
+  border: 0; border-radius: 0; background: transparent; box-shadow: none;
+  padding: 0 0.75rem; color: var(--cronus-fg); font: inherit; outline: none;
+  text-align: end; font-variant-numeric: tabular-nums;
+}
 "#;
 
 #[cfg(test)]
