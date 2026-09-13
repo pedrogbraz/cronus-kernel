@@ -2471,6 +2471,27 @@ button:has(+ [data-slot="sheet-content"]) {
   0% { background-position: 100% center, 0 0; }
   100% { background-position: 0% center, 0 0; }
 }
+[data-slot="particles"] {
+  position: relative; overflow: hidden; display: inline-block;
+  padding: 1rem 1.25rem;
+  background-color: var(--cronus-surface-overlay);
+  background-image:
+    radial-gradient(circle, color-mix(in oklch, var(--cronus-fg) 35%, transparent) 1.2px, transparent 1.6px),
+    radial-gradient(circle, color-mix(in oklch, var(--cronus-fg) 22%, transparent) 0.8px, transparent 1.2px);
+  background-size: 24px 24px, 32px 28px;
+  background-position: 0 0, 12px 8px;
+}
+[data-slot="particles"]::after {
+  content: "";
+  position: absolute; inset: 0; pointer-events: none;
+  background-image: radial-gradient(circle, color-mix(in oklch, var(--cronus-fg) 40%, transparent) 1px, transparent 1.4px);
+  background-size: 18px 22px;
+  animation: cui-particles 14s linear infinite;
+}
+@keyframes cui-particles {
+  from { background-position: 0 0; }
+  to { background-position: 18px 22px; }
+}
 "#;
 
 #[cfg(test)]
