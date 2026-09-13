@@ -202,6 +202,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "slider",
     "radio-group",
     "chip",
+    "avatar",
+    "card",
+    "empty",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -234,6 +237,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "slider" => Some(crate::cronus_ui_slider::render(comp)),
         "radio-group" => Some(crate::cronus_ui_radio_group::render(comp)),
         "chip" => Some(crate::cronus_ui_chip::render(comp)),
+        "avatar" => Some(crate::cronus_ui_avatar::render(comp)),
+        "card" => Some(crate::cronus_ui_card::render(comp)),
+        "empty" => Some(crate::cronus_ui_empty::render(comp)),
         _ => None,
     }
 }

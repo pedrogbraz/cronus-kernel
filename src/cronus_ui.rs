@@ -420,9 +420,58 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   color: var(--cronus-fg);
 }
 
+[data-slot="avatar"] {
+  position: relative; display: flex;
+  width: 2.5rem; height: 2.5rem; flex-shrink: 0; overflow: hidden;
+  border-radius: 9999px;
+}
+[data-slot="avatar-image"] {
+  aspect-ratio: 1 / 1; width: 100%; height: 100%; object-fit: cover;
+}
+[data-slot="avatar-fallback"] {
+  display: flex; width: 100%; height: 100%;
+  align-items: center; justify-content: center; border-radius: 9999px;
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg-secondary);
+  font-size: 0.875rem; font-weight: 500;
+}
+
 [data-slot="card"], [data-slot="glass-card"], [data-slot="spotlight-card"] {
   background: var(--cronus-surface-raised); border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none);
+}
+[data-slot="card"] {
+  display: flex; flex-direction: column; gap: 1.5rem;
+  padding-top: 1.5rem; padding-bottom: 1.5rem; color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-sm, var(--cronus-shadow-xs, none));
+}
+[data-slot="card-header"] {
+  display: grid; min-width: 0; grid-auto-rows: min-content;
+  grid-template-columns: minmax(0, 1fr) auto; align-items: start;
+  gap: 0.375rem; padding-left: 1.5rem; padding-right: 1.5rem;
+}
+[data-slot="card-title"] {
+  min-width: 0; font-weight: 500; line-height: 1; color: var(--cronus-fg);
+}
+[data-slot="card-description"] {
+  grid-column: 1 / -1; font-size: 0.875rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="card-content"] {
+  min-width: 0; padding-left: 1.5rem; padding-right: 1.5rem;
+  font-size: 0.875rem; color: var(--cronus-fg-secondary);
+}
+
+[data-slot="empty"] {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0.75rem; border-radius: var(--cronus-radius-xl);
+  border: 1px dashed var(--cronus-border);
+  background: color-mix(in oklch, var(--cronus-surface-inset) 40%, transparent);
+  padding: 3rem 1.5rem; text-align: center;
+}
+[data-slot="empty-title"] {
+  font-size: 0.875rem; font-weight: 600; color: var(--cronus-fg);
+}
+[data-slot="empty-description"] {
+  max-width: 24rem; font-size: 0.875rem; color: var(--cronus-fg-secondary);
 }
 
 [data-slot="alert"] {

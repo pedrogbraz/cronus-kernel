@@ -33,6 +33,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "slider" => Some("cronus_ui_slider::render"),
         "radio-group" => Some("cronus_ui_radio_group::render"),
         "chip" => Some("cronus_ui_chip::render"),
+        "avatar" => Some("cronus_ui_avatar::render"),
+        "card" => Some("cronus_ui_card::render"),
+        "empty" => Some("cronus_ui_empty::render"),
         _ => None,
     }
 }
@@ -278,6 +281,9 @@ mod tests {
             "src/cronus_ui_slider.rs",
             "src/cronus_ui_radio_group.rs",
             "src/cronus_ui_chip.rs",
+            "src/cronus_ui_avatar.rs",
+            "src/cronus_ui_card.rs",
+            "src/cronus_ui_empty.rs",
             "src/cli/audit_http.rs",
             "src/ui/audit_layout.rs",
         ];
