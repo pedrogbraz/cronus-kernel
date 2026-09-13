@@ -211,6 +211,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "segmented-control",
     "usage-meter",
     "masonry",
+    "heatmap",
+    "comparison-slider",
+    "code-tabs",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -322,6 +325,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "segmented-control" => Some(crate::cronus_ui_segmented_control::render(comp)),
         "usage-meter" => Some(crate::cronus_ui_usage_meter::render(comp)),
         "masonry" => Some(crate::cronus_ui_masonry::render(comp)),
+        "heatmap" => Some(crate::cronus_ui_heatmap::render(comp)),
+        "comparison-slider" => Some(crate::cronus_ui_comparison_slider::render(comp)),
+        "code-tabs" => Some(crate::cronus_ui_code_tabs::render(comp)),
         _ => None,
     }
 }

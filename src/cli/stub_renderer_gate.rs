@@ -112,6 +112,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "segmented-control" => Some("cronus_ui_segmented_control::render"),
         "usage-meter" => Some("cronus_ui_usage_meter::render"),
         "masonry" => Some("cronus_ui_masonry::render"),
+        "heatmap" => Some("cronus_ui_heatmap::render"),
+        "comparison-slider" => Some("cronus_ui_comparison_slider::render"),
+        "code-tabs" => Some("cronus_ui_code_tabs::render"),
         _ => None,
     }
 }
@@ -366,6 +369,17 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"masonry\"") && html.contains("<section"))
         || (html.contains("data-slot=\"masonry\"") && html.contains("max-height:12rem;overflow:auto"))
         || (html.contains("data-slot=\"masonry\"") && !html.contains("data-slot=\"masonry-cell\""))
+        || html.contains("<figure data-slot=\"heatmap\"")
+        || (html.contains("data-slot=\"heatmap\"") && html.contains("<figcaption"))
+        || (html.contains("data-slot=\"heatmap\"") && !html.contains("data-slot=\"heatmap-day\""))
+        || (html.contains("data-slot=\"comparison-slider\"")
+            && !html.contains("data-slot=\"comparison-before\""))
+            && !html.contains("data-slot=\"comparison-after\""))
+            && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
+        || (html.contains("data-slot=\"code-tabs\"") && !html.contains("data-slot=\"code-tabs-pre\""))
+        || (html.contains("data-slot=\"code-tabs\"")
+            && html.contains("role=\"tablist\"")
+            && !html.contains("data-slot=\"code-tabs-list\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -548,6 +562,7 @@ mod tests {
             "src/cronus_ui_resizable.rs",
             "src/cronus_ui_scroll_area.rs",
             "src/cronus_ui_chip.rs",
+            "src/cronus_ui_code_tabs.rs",
             "src/cronus_ui_collapsible.rs",
             "src/cronus_ui_avatar.rs",
             "src/cronus_ui_avatar_group.rs",
@@ -560,6 +575,7 @@ mod tests {
             "src/cronus_ui_input_group.rs",
             "src/cronus_ui_input_otp.rs",
             "src/cronus_ui_fab.rs",
+            "src/cronus_ui_heatmap.rs",
             "src/cronus_ui_hover_card.rs",
             "src/cronus_ui_select.rs",
             "src/cronus_ui_segmented_control.rs",
@@ -580,6 +596,7 @@ mod tests {
             "src/cronus_ui_combobox.rs",
             "src/cronus_ui_command.rs",
             "src/cronus_ui_masonry.rs",
+            "src/cronus_ui_comparison_slider.rs",
             "src/cronus_ui_menubar.rs",
             "src/cronus_ui_navigation_menu.rs",
             "src/cronus_ui_notification_center.rs",
