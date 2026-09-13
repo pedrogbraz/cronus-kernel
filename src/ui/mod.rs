@@ -18,7 +18,9 @@ pub mod component;
 pub mod dashboard;
 pub(crate) mod section_extra;
 
-pub use component::{render_component, render_components_page, render_light_app_page};
+pub use component::{
+    render_component, render_components_inline, render_components_page, render_light_app_page,
+};
 pub use dashboard::{
     render_dashboard_page, render_generic_dashboard,
     render_billing_dashboard, render_payouts_dashboard,

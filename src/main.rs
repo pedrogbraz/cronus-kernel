@@ -1362,24 +1362,9 @@ async fn handle_request_inner(
     let has_components_page_main = state.pages.iter().any(|p| p.route == "/components");
     if path == "/components" && !has_components_page_main {
         let body = if state.components.is_empty() {
-            r#"<div style="padding:40px;text-align:center">
-  <h1 style="font-size:16px;color:oklch(0.93 0 0);margin-bottom:8px">CRONUS UI Kit</h1>
-  <p style="font-size:13px;color:oklch(0.5 0 0)">No components defined. Add <code style="background:oklch(0.18 0 0);padding:2px 6px;border-radius:4px">component</code> blocks to your .cronus file.</p>
-</div>"#.to_string()
+            r#"<div data-slot="catalog"><header data-slot="catalog-header"><h1>Kit</h1><p data-slot="catalog-lead">No components defined.</p></header></div>"#.to_string()
         } else {
-            let comp_html = ui::render_components_page(&state.components);
-            format!(
-                r#"<div style="padding:20px">
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:24px">
-    <h1 style="font-size:16px;font-weight:400;color:oklch(0.93 0 0)">CRONUS UI Kit</h1>
-    <span style="font-size:10px;padding:2px 8px;border-radius:20px;background:oklch(0.488 0.243 264/12%);color:oklch(0.488 0.243 264)">{} components</span>
-  </div>
-  <div style="display:flex;flex-direction:column;gap:16px">
-    {}
-  </div>
-</div>"#,
-                state.components.len(), comp_html
-            )
+            ui::render_components_page(&state.components)
         };
         let html = if let Some(ref layout) = state.layout {
             ui::render_layout_declarative(app_name, layout, "/_components", &body)
@@ -1628,10 +1613,14 @@ async fn handle_request_inner(
             return Ok(html_response(html));
         }
 
-        let mut body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params, &page_owner_id);
+        let mut body = if page.page_type == "components" && !state.components.is_empty() {
+            ui::render_components_page(&state.components)
+        } else {
+            ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params, &page_owner_id)
+        };
 
-        // If page references components (via `use ComponentName`), render them
-        // BUT skip if page has sidebar component — dashboard renderers handle their own chrome
+        // `use ComponentName` on a real page — widgets only, no kit chrome.
+        // type:components already rendered the full catalog above.
         let has_sidebar_component_early = !page.components.is_empty() && page.components.iter().any(|comp_name| {
             state.components.iter().any(|c| {
                 c.name == *comp_name && (
@@ -1640,27 +1629,23 @@ async fn handle_request_inner(
                 )
             })
         });
-        if !page.components.is_empty() && !has_sidebar_component_early {
-            let referenced: Vec<parser::ComponentNode> = page.components.iter()
-                .filter_map(|name| state.components.iter().find(|c| c.name == *name))
-                .cloned()
-                .collect();
-            if !referenced.is_empty() {
-                body.push_str("\n");
-                body.push_str(&ui::render_components_page(&referenced));
+        if page.page_type != "components" {
+            if !page.components.is_empty() && !has_sidebar_component_early {
+                let referenced: Vec<parser::ComponentNode> = page.components.iter()
+                    .filter_map(|name| state.components.iter().find(|c| c.name == *name))
+                    .cloned()
+                    .collect();
+                if !referenced.is_empty() {
+                    body.push_str("\n");
+                    body.push_str(&ui::render_components_inline(&referenced));
+                }
             }
-        }
 
-        // page type:components — render all components as showcase
-        if page.page_type == "components" && !state.components.is_empty() {
-            body.push_str("\n");
-            body.push_str(&ui::render_components_page(&state.components));
-        }
-
-        // custom pages with no sections — fallback to component rendering
-        if page.page_type == "custom" && page.sections.is_empty() && !state.components.is_empty() {
-            body.push_str("\n");
-            body.push_str(&ui::render_components_page(&state.components));
+            // custom pages with no sections — fallback to the kit catalog
+            if page.page_type == "custom" && page.sections.is_empty() && !state.components.is_empty() {
+                body.push_str("\n");
+                body.push_str(&ui::render_components_page(&state.components));
+            }
         }
 
         // FIX 1: Detect sidebar component — if page uses a Sidenav component, it's a dashboard page

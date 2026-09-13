@@ -1059,6 +1059,10 @@ component Revenue layout:stack style:metric {
             })
             .collect();
         let html = crate::ui::render_components_page(&comps);
+        assert!(html.contains("data-slot=\"catalog\""), "{html}");
+        assert!(html.contains("data-slot=\"catalog-specimen\""), "{html}");
+        assert!(html.contains("id=\"buttons\""));
+        assert!(html.contains("id=\"forms\""));
         assert!(html.contains("Save"), "{html}");
         assert!(html.contains("Email") || html.contains("you@cooud.app"), "{html}");
         for family in ["button", "input", "dialog", "tabs", "select"] {
@@ -1068,6 +1072,7 @@ component Revenue layout:stack style:metric {
             );
         }
         let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"catalog\"]"));
         assert!(css.contains("--cronus-") || crate::cronus_ui::token_css("aurora", "dark").contains("--cronus-"));
         assert!(!html.contains("zinc-"));
     }
