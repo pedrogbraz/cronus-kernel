@@ -121,6 +121,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "choropleth-chart" => Some("cronus_ui_choropleth_chart::render"),
         "profit-loss-chart" => Some("cronus_ui_profit_loss_chart::render"),
         "scroll-progress" => Some("cronus_ui_scroll_progress::render"),
+        "rich-text-editor" => Some("cronus_ui_rich_text_editor::render"),
+        "confirmation-dialog" => Some("cronus_ui_confirmation_dialog::render"),
+        "invite-dialog" => Some("cronus_ui_invite_dialog::render"),
         _ => None,
     }
 }
@@ -401,9 +404,16 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"scroll-progress\"") && html.contains("<progress"))
         || (html.contains("data-slot=\"scroll-progress\"")
             && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
-        || (html.contains("data-slot=\"scroll-progress\"")
             && !html.contains("data-slot=\"scroll-progress-fill\"")
             && !html.contains("data-slot=\"scroll-progress-ring\""))
+        || html.contains("data-slot=\"rich-text-editor-control\"")
+        || html.contains("<label data-slot=\"rich-text-editor\"")
+        || (html.contains("data-slot=\"rich-text-editor\"") && html.contains("<textarea"))
+        || (html.contains("data-slot=\"confirmation-dialog")
+            && (html.contains("<dialog") || html.contains("showModal()")))
+        || (html.contains("data-slot=\"invite-dialog")
+        || html.contains("data-slot=\"invite-dialog-control\"")
+        || html.contains("<label data-slot=\"invite-dialog\"")
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -585,6 +595,7 @@ mod tests {
             "src/cronus_ui_radio_group.rs",
             "src/cronus_ui_rating.rs",
             "src/cronus_ui_resizable.rs",
+            "src/cronus_ui_rich_text_editor.rs",
             "src/cronus_ui_scroll_area.rs",
             "src/cronus_ui_scroll_progress.rs",
             "src/cronus_ui_chip.rs",
@@ -602,6 +613,7 @@ mod tests {
             "src/cronus_ui_form.rs",
             "src/cronus_ui_input_group.rs",
             "src/cronus_ui_input_otp.rs",
+            "src/cronus_ui_invite_dialog.rs",
             "src/cronus_ui_fab.rs",
             "src/cronus_ui_heatmap.rs",
             "src/cronus_ui_hover_card.rs",
@@ -625,6 +637,7 @@ mod tests {
             "src/cronus_ui_command.rs",
             "src/cronus_ui_masonry.rs",
             "src/cronus_ui_comparison_slider.rs",
+            "src/cronus_ui_confirmation_dialog.rs",
             "src/cronus_ui_menubar.rs",
             "src/cronus_ui_navigation_menu.rs",
             "src/cronus_ui_notification_center.rs",

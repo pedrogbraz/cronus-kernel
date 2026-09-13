@@ -290,6 +290,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "choropleth-chart",
     "profit-loss-chart",
     "scroll-progress",
+    "rich-text-editor",
+    "confirmation-dialog",
+    "invite-dialog",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -410,6 +413,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "choropleth-chart" => Some(crate::cronus_ui_choropleth_chart::render(comp)),
         "profit-loss-chart" => Some(crate::cronus_ui_profit_loss_chart::render(comp)),
         "scroll-progress" => Some(crate::cronus_ui_scroll_progress::render(comp)),
+        "rich-text-editor" => Some(crate::cronus_ui_rich_text_editor::render(comp)),
+        "confirmation-dialog" => Some(crate::cronus_ui_confirmation_dialog::render(comp)),
+        "invite-dialog" => Some(crate::cronus_ui_invite_dialog::render(comp)),
         _ => None,
     }
 }

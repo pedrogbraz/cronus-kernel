@@ -647,9 +647,6 @@ dialog[data-slot="dialog-content"]::backdrop {
   opacity: 0.5; pointer-events: none;
 }
 [data-slot="textarea"]::placeholder { color: var(--cronus-fg-tertiary); }
-[data-slot="rich-text-editor"] textarea {
-  height: auto; padding: 0.6rem 0.75rem;
-}
 
 [data-slot="badge"] {
   display: inline-flex; align-items: center; gap: 0.25rem;
@@ -2321,50 +2318,93 @@ button:has(+ [data-slot="sheet-content"]) {
 }
 [data-slot="choropleth-chart"] svg {
   display: block; width: 100%; height: 100%;
-}
 [data-slot="choropleth-chart"] path {
   fill: var(--cronus-primary); stroke: var(--cronus-border);
-}
 [data-slot="profit-loss-chart"] {
   display: block; width: 100%; aspect-ratio: 2 / 1;
-}
 [data-slot="profit-loss-chart"] svg {
-  display: block; width: 100%; height: 100%;
-}
 [data-slot="profit-loss-chart"] polyline {
   fill: none; stroke-width: 2;
   stroke-linejoin: round; stroke-linecap: round;
-}
 [data-slot="profit-loss-chart"] polyline[stroke="var(--cronus-success)"] {
   stroke: var(--cronus-success);
-}
 [data-slot="profit-loss-chart"] polyline[stroke="var(--cronus-error)"] {
   stroke: var(--cronus-error);
-}
 [data-slot="scroll-progress"] {
   height: 0.25rem; width: 100%; overflow: hidden;
   background: var(--cronus-surface-inset);
-}
 [data-slot="scroll-progress-fill"] {
   height: 100%; background: var(--cronus-primary);
-}
 [data-slot="scroll-progress"][data-variant="circle"] {
   position: relative; display: inline-flex;
   align-items: center; justify-content: center;
   width: 2.5rem; height: 2.5rem; overflow: visible;
   background: transparent;
-}
 [data-slot="scroll-progress"][data-variant="circle"] svg {
   transform: rotate(-90deg);
-}
 [data-slot="scroll-progress-ring"] {
   fill: none; stroke: var(--cronus-primary);
-}
 [data-slot="scroll-progress-value"] {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
   font-size: 0.75rem; font-weight: 500; color: var(--cronus-fg);
   font-variant-numeric: tabular-nums;
+[data-slot="rich-text-editor"] {
+  display: flex; flex-direction: column; overflow: hidden;
+  width: 100%; min-width: 0; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-base); color: var(--cronus-fg);
+[data-slot="rich-text-editor-toolbar"] {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.125rem;
+  border-bottom: 1px solid var(--cronus-border);
+  background: color-mix(in oklch, var(--cronus-surface-overlay) 40%, transparent);
+  padding: 0.375rem;
+[data-slot="rich-text-editor-toolbar"] button {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2rem; padding: 0 0.375rem;
+  border: 0; border-radius: var(--cronus-radius-md);
+  background: transparent; color: var(--cronus-fg-secondary);
+  font: inherit; font-size: 0.75rem; cursor: pointer;
+[data-slot="rich-text-editor-toolbar"] [data-slot="separator"][data-orientation="vertical"] {
+  height: 1.5rem; width: 1px; margin: 0 0.25rem;
+  background: var(--cronus-border);
+[data-slot="rich-text-editor-content-wrapper"] {
+  position: relative; min-height: 10rem; box-sizing: border-box;
+  padding: 0.75rem 1rem; font-size: 0.875rem; line-height: 1.6;
+  color: var(--cronus-fg);
+[data-slot="confirmation-dialog"] {
+  z-index: 50; display: grid; gap: 1rem;
+  width: 100%; max-width: 28rem; box-sizing: border-box;
+  padding: 1.5rem;
+  border-radius: var(--cronus-radius-xl);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-lg, none);
+[data-slot="confirmation-dialog-title"] {
+  font-size: 1.125rem; font-weight: 600; color: var(--cronus-fg);
+  font-family: var(--cronus-font-display, inherit);
+[data-slot="confirmation-dialog-description"] {
+  font-size: 0.875rem; color: var(--cronus-fg-secondary);
+[data-slot="confirmation-dialog"] > button {
+  height: 2.5rem; padding: 0 1rem;
+  background: transparent; color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+[data-slot="confirmation-dialog-confirm"] {
+  border: 1px solid transparent;
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+[data-slot="invite-dialog"] {
+[data-slot="invite-dialog-title"] {
+[data-slot="invite-dialog-description"] {
+[data-slot="invite-dialog"] > label {
+  display: flex; flex-direction: column; gap: 0.35rem;
+  font-size: 0.875rem; font-weight: 500; color: var(--cronus-fg);
+[data-slot="invite-dialog"] input[type="email"] {
+  display: flex; height: 2.5rem; width: 100%; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+  padding: 0 0.75rem; font-size: 0.875rem; font-family: inherit; outline: none;
+[data-slot="invite-dialog"] > button {
+[data-slot="invite-dialog-send"] {
 }
 "#;
 
