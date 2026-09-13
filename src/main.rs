@@ -98,6 +98,7 @@ mod cronus_ui_file_dropzone;
 mod cronus_ui_fab;
 mod cronus_ui_floating_label_input;
 mod cronus_ui_form;
+mod cronus_ui_funnel_chart;
 mod cronus_ui_gauge_chart;
 mod cronus_ui_glass_card;
 mod cronus_ui_gradient_text;

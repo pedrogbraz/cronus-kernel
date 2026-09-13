@@ -2364,6 +2364,15 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="gauge-chart"] text {
   fill: var(--cronus-fg);
 }
+[data-slot="funnel-chart"] {
+  display: block; width: 100%; aspect-ratio: 2 / 1;
+}
+[data-slot="funnel-chart"] svg {
+  display: block; width: 100%; height: 100%;
+}
+[data-slot="funnel-chart"] polygon {
+  stroke: var(--cronus-surface-base); stroke-width: 1;
+}
 [data-slot="scroll-progress"] {
   height: 0.25rem; width: 100%; overflow: hidden;
   background: var(--cronus-surface-inset);

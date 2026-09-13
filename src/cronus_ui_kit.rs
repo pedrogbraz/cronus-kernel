@@ -473,6 +473,69 @@ fn gauge_arc_d(progress: f64) -> String {
     )
 }
 
+/// Vertical funnel stages. ViewBox `0 0 200 100`. Width follows value.
+pub const DEFAULT_FUNNEL_SERIES: [f64; 5] = [10.0, 8.0, 6.0, 4.0, 2.0];
+
+pub struct ChartFunnelStage {
+    pub points: String,
+    pub top_w: f64,
+    pub bot_w: f64,
+}
+
+/// Trapezoids (or rects when adjacent values match) shrinking down the plot.
+pub fn chart_funnel(series: &[f64]) -> Vec<ChartFunnelStage> {
+    if series.is_empty() {
+        return Vec::new();
+    }
+    let n = series.len();
+    let max = series.iter().cloned().fold(1.0_f64, f64::max).max(1.0);
+    let inner_w = chart_inner_w();
+    let inner_h = chart_inner_h();
+    let slot = inner_h / n as f64;
+    (0..n)
+        .map(|i| {
+            let v0 = series[i].max(0.0);
+            let v1 = if i + 1 < n {
+                series[i + 1].max(0.0)
+            } else {
+                v0 * 0.55
+            };
+            let top_w = inner_w * (v0 / max);
+            let bot_w = inner_w * (v1 / max);
+            let y0 = CHART_PAD + slot * i as f64;
+            let y1 = y0 + slot;
+            let x0l = (CHART_VIEW_W - top_w) / 2.0;
+            let x0r = x0l + top_w;
+            let x1l = (CHART_VIEW_W - bot_w) / 2.0;
+            let x1r = x1l + bot_w;
+            ChartFunnelStage {
+                points: format!(
+                    "{},{} {},{} {},{} {},{}",
+                    fmt_coord(x0l),
+                    fmt_coord(y0),
+                    fmt_coord(x0r),
+                    fmt_coord(y0),
+                    fmt_coord(x1r),
+                    fmt_coord(y1),
+                    fmt_coord(x1l),
+                    fmt_coord(y1),
+                ),
+                top_w,
+                bot_w,
+            }
+        })
+        .collect()
+}
+
+pub fn funnel_series(comp: &ComponentNode) -> Vec<f64> {
+    let out = numeric_items(comp);
+    if out.is_empty() {
+        DEFAULT_FUNNEL_SERIES.to_vec()
+    } else {
+        out
+    }
+}
+
 #[cfg(test)]
 pub fn stub(family: &str, label: &str) -> ComponentNode {
     use std::collections::HashMap;
