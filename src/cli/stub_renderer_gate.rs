@@ -110,6 +110,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "lightbox" => Some("cronus_ui_lightbox::render"),
         "notification-center" => Some("cronus_ui_notification_center::render"),
         "heatmap" => Some("cronus_ui_heatmap::render"),
+        "comparison-slider" => Some("cronus_ui_comparison_slider::render"),
         _ => None,
     }
 }
@@ -357,6 +358,12 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || html.contains("<figure data-slot=\"heatmap\"")
         || (html.contains("data-slot=\"heatmap\"") && html.contains("<figcaption"))
         || (html.contains("data-slot=\"heatmap\"") && !html.contains("data-slot=\"heatmap-day\""))
+        || (html.contains("data-slot=\"comparison-slider\"")
+            && !html.contains("data-slot=\"comparison-before\""))
+        || (html.contains("data-slot=\"comparison-slider\"")
+            && !html.contains("data-slot=\"comparison-after\""))
+        || (html.contains("data-slot=\"comparison-slider\"")
+            && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -569,6 +576,7 @@ mod tests {
             "src/cronus_ui_calendar.rs",
             "src/cronus_ui_combobox.rs",
             "src/cronus_ui_command.rs",
+            "src/cronus_ui_comparison_slider.rs",
             "src/cronus_ui_menubar.rs",
             "src/cronus_ui_navigation_menu.rs",
             "src/cronus_ui_notification_center.rs",

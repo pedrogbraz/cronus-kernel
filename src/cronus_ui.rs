@@ -1514,6 +1514,31 @@ button:has(+ [data-slot="sheet-content"]) {
   display: flex; align-items: center; gap: 0.25rem;
   font-size: 0.75rem; color: var(--cronus-fg-tertiary);
 }
+[data-slot="comparison-slider"] {
+  position: relative; aspect-ratio: 16 / 9; width: 100%;
+  overflow: hidden; user-select: none;
+  border-radius: var(--cronus-radius-xl);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset);
+}
+[data-slot="comparison-after"], [data-slot="comparison-before"] {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.875rem; color: var(--cronus-fg);
+}
+[data-slot="comparison-after"] {
+  background: var(--cronus-surface-raised);
+}
+[data-slot="comparison-before"] {
+  background: var(--cronus-surface-overlay);
+  clip-path: inset(0 50% 0 0);
+}
+[data-slot="comparison-slider"]::after {
+  content: "";
+  position: absolute; top: 0; bottom: 0; left: 50%;
+  width: 2px; transform: translateX(-50%);
+  background: var(--cronus-surface-base); z-index: 10; pointer-events: none;
+}
 "#;
 
 #[cfg(test)]

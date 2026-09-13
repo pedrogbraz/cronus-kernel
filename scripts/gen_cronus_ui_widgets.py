@@ -209,6 +209,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "lightbox",
     "notification-center",
     "heatmap",
+    "comparison-slider",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -318,6 +319,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "lightbox" => Some(crate::cronus_ui_lightbox::render(comp)),
         "notification-center" => Some(crate::cronus_ui_notification_center::render(comp)),
         "heatmap" => Some(crate::cronus_ui_heatmap::render(comp)),
+        "comparison-slider" => Some(crate::cronus_ui_comparison_slider::render(comp)),
         _ => None,
     }
 }
