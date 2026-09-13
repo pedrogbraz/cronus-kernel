@@ -278,6 +278,85 @@ pub fn radar_axis_points(index: usize) -> String {
     )
 }
 
+/// Concentric donut rings. ViewBox `0 0 100 100`.
+pub const RING_VIEW: f64 = 100.0;
+pub const RING_CX: f64 = 50.0;
+pub const RING_CY: f64 = 50.0;
+pub const RING_OUTER: f64 = 40.0;
+
+pub struct ChartRing {
+    pub r: f64,
+    pub stroke: f64,
+    pub d: String,
+}
+
+pub fn chart_rings(series: &[f64]) -> Vec<ChartRing> {
+    let vals: Vec<f64> = if series.is_empty() {
+        DEFAULT_CHART_SERIES.to_vec()
+    } else {
+        series.to_vec()
+    };
+    let n = vals.len().max(1);
+    let slot = RING_OUTER / n as f64;
+    let stroke = (slot * 0.62).max(3.0);
+    let max = vals.iter().copied().fold(1.0_f64, f64::max);
+    (0..n)
+        .map(|i| {
+            let r = RING_OUTER - slot * i as f64 - stroke / 2.0;
+            let progress = (vals[i] / max).clamp(0.0, 1.0);
+            ChartRing {
+                r,
+                stroke,
+                d: ring_arc_d(r, progress),
+            }
+        })
+        .collect()
+}
+
+fn ring_arc_d(r: f64, progress: f64) -> String {
+    if progress <= 0.0 || r <= 0.0 {
+        return String::new();
+    }
+    let a0 = -std::f64::consts::FRAC_PI_2;
+    let p = progress.clamp(0.0, 1.0);
+    if p >= 0.999 {
+        let x0 = RING_CX;
+        let y0 = RING_CY - r;
+        let x1 = RING_CX;
+        let y1 = RING_CY + r;
+        return format!(
+            "M {} {} A {} {} 0 0 1 {} {} A {} {} 0 0 1 {} {}",
+            fmt_coord(x0),
+            fmt_coord(y0),
+            fmt_coord(r),
+            fmt_coord(r),
+            fmt_coord(x1),
+            fmt_coord(y1),
+            fmt_coord(r),
+            fmt_coord(r),
+            fmt_coord(x0),
+            fmt_coord(y0),
+        );
+    }
+    let sweep = p * std::f64::consts::TAU;
+    let a1 = a0 + sweep;
+    let x0 = RING_CX + r * a0.cos();
+    let y0 = RING_CY + r * a0.sin();
+    let x1 = RING_CX + r * a1.cos();
+    let y1 = RING_CY + r * a1.sin();
+    let large = if sweep > std::f64::consts::PI { 1 } else { 0 };
+    format!(
+        "M {} {} A {} {} 0 {} 1 {} {}",
+        fmt_coord(x0),
+        fmt_coord(y0),
+        fmt_coord(r),
+        fmt_coord(r),
+        large,
+        fmt_coord(x1),
+        fmt_coord(y1),
+    )
+}
+
 #[cfg(test)]
 pub fn stub(family: &str, label: &str) -> ComponentNode {
     use std::collections::HashMap;

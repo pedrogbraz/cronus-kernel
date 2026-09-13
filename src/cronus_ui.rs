@@ -1044,6 +1044,14 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="scatter-chart"] circle {
   fill: var(--cronus-primary);
 }
+[data-slot="ring-chart"] {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 16rem;
+}
+[data-slot="ring-chart"] svg { width: 12rem; height: 12rem; }
+[data-slot="ring-chart"] circle, [data-slot="ring-chart"] path {
+  fill: none; stroke: var(--cronus-primary);
+}
 [data-slot="data-table"] {
   display: flex; flex-direction: column; gap: 0.75rem;
   overflow: auto; color: var(--cronus-fg);
