@@ -1539,6 +1539,35 @@ button:has(+ [data-slot="sheet-content"]) {
   width: 2px; transform: translateX(-50%);
   background: var(--cronus-surface-base); z-index: 10; pointer-events: none;
 }
+[data-slot="code-tabs"] {
+  overflow: hidden; border-radius: var(--cronus-radius-xl);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised); color: var(--cronus-fg);
+}
+[data-slot="code-tabs-list"] {
+  display: flex; align-items: center;
+  border-bottom: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-overlay);
+}
+[data-slot="code-tabs-trigger"] {
+  padding: 0.625rem 0.875rem; border: 0; background: transparent;
+  color: var(--cronus-fg-tertiary); font: inherit; cursor: default;
+}
+[data-slot="code-tabs-trigger"][data-state="active"],
+[data-slot="code-tabs-trigger"][aria-selected="true"] {
+  color: var(--cronus-fg);
+}
+[data-slot="code-tabs-panel"] {
+  overflow-x: auto;
+}
+[data-slot="code-tabs-pre"] {
+  margin: 0; padding: 1rem 3.5rem 1rem 1rem;
+  font-size: 0.875rem; line-height: 1.625;
+}
+[data-slot="code-tabs-code"] {
+  display: block; white-space: pre;
+  font-family: var(--cronus-font-mono, ui-monospace, monospace);
+}
 "#;
 
 #[cfg(test)]

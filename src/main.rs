@@ -68,6 +68,7 @@ mod cronus_ui_chip;
 mod cronus_ui_combobox;
 mod cronus_ui_command;
 mod cronus_ui_comparison_slider;
+mod cronus_ui_code_tabs;
 mod cronus_ui_collapsible;
 mod cronus_ui_color_picker;
 mod cronus_ui_copy_button;

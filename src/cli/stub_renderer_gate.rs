@@ -111,6 +111,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "notification-center" => Some("cronus_ui_notification_center::render"),
         "heatmap" => Some("cronus_ui_heatmap::render"),
         "comparison-slider" => Some("cronus_ui_comparison_slider::render"),
+        "code-tabs" => Some("cronus_ui_code_tabs::render"),
         _ => None,
     }
 }
@@ -364,6 +365,10 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && !html.contains("data-slot=\"comparison-after\""))
         || (html.contains("data-slot=\"comparison-slider\"")
             && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
+        || (html.contains("data-slot=\"code-tabs\"") && !html.contains("data-slot=\"code-tabs-pre\""))
+        || (html.contains("data-slot=\"code-tabs\"")
+            && html.contains("role=\"tablist\"")
+            && !html.contains("data-slot=\"code-tabs-list\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -545,6 +550,7 @@ mod tests {
             "src/cronus_ui_resizable.rs",
             "src/cronus_ui_scroll_area.rs",
             "src/cronus_ui_chip.rs",
+            "src/cronus_ui_code_tabs.rs",
             "src/cronus_ui_collapsible.rs",
             "src/cronus_ui_avatar.rs",
             "src/cronus_ui_avatar_group.rs",
