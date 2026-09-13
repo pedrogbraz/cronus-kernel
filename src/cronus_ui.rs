@@ -2751,6 +2751,29 @@ button:has(+ [data-slot="sheet-content"]) {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+[data-slot="carousel"] {
+  position: relative; outline: none;
+}
+[data-slot="carousel-content"] {
+  display: flex; overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+[data-slot="carousel-item"] {
+  min-width: 0; flex: 0 0 100%;
+  scroll-snap-align: start; box-sizing: border-box;
+  color: var(--cronus-fg);
+}
+[data-slot="carousel-previous"], [data-slot="carousel-next"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2rem; height: 2rem; margin-top: 0.5rem;
+  border-radius: 9999px; border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised); color: var(--cronus-fg);
+  font: inherit; font-size: 0.75rem; cursor: pointer;
+}
+[data-slot="carousel-previous"]:disabled, [data-slot="carousel-next"]:disabled {
+  opacity: 0.5; pointer-events: none;
+}
 "#;
 
 #[cfg(test)]
