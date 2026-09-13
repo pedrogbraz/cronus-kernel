@@ -374,8 +374,20 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
 }
 
 [data-slot="alert"] {
+  display: grid; width: 100%; box-sizing: border-box;
   border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
-  background: var(--cronus-surface-raised);
+  padding: 0.75rem 1rem; font-size: 0.875rem;
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
+[data-slot="alert"][role="alert"] {
+  background: color-mix(in oklch, var(--cronus-error) 10%, var(--cronus-surface-overlay));
+  border-color: color-mix(in oklch, var(--cronus-error) 30%, transparent);
+}
+[data-slot="alert-title"] {
+  font-weight: 500; color: var(--cronus-fg); line-height: 1.25;
+}
+[data-slot="alert-description"] {
+  font-size: 0.875rem; color: var(--cronus-fg-secondary);
 }
 
 [data-slot="dialog-content"], dialog[data-slot] {

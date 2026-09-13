@@ -27,6 +27,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "kbd" => Some("cronus_ui_kbd::render"),
         "toggle" => Some("cronus_ui_toggle::render"),
         "progress" => Some("cronus_ui_progress::render"),
+        "alert" => Some("cronus_ui_alert::render"),
         _ => None,
     }
 }
@@ -102,6 +103,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || html.contains("<label data-slot=\"switch\"")
         || (html.contains("data-slot=\"spinner\"") && html.contains("border-top-color"))
         || html.contains("<hr data-slot=\"separator\"")
+        || (html.contains("data-slot=\"alert\"") && !html.contains("data-slot=\"alert-title\""))
+        || html.contains("padding:0.85rem 1rem;display:flex;flex-direction:column;gap:0.25rem;font-size:0.875rem;")
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -247,6 +250,7 @@ mod tests {
         let files = [
             "src/cronus_ui.rs",
             "src/cronus_ui_widgets.rs",
+            "src/cronus_ui_alert.rs",
             "src/cronus_ui_badge.rs",
             "src/cronus_ui_checkbox.rs",
             "src/cronus_ui_input.rs",
