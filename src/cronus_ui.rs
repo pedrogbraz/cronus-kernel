@@ -2370,6 +2370,44 @@ button:has(+ [data-slot="sheet-content"]) {
   border: 1px solid transparent;
   background: var(--cronus-primary); color: var(--cronus-primary-foreground);
 }
+[data-slot="invite-dialog"] {
+  z-index: 50; display: grid; gap: 1rem;
+  width: 100%; max-width: 28rem; box-sizing: border-box;
+  padding: 1.5rem;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-xl);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-lg, none);
+}
+[data-slot="invite-dialog-title"] {
+  font-size: 1.125rem; font-weight: 600; color: var(--cronus-fg);
+  font-family: var(--cronus-font-display, inherit);
+}
+[data-slot="invite-dialog-description"] {
+  font-size: 0.875rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="invite-dialog"] > label {
+  display: flex; flex-direction: column; gap: 0.35rem;
+  font-size: 0.875rem; font-weight: 500; color: var(--cronus-fg);
+}
+[data-slot="invite-dialog"] input[type="email"] {
+  display: flex; height: 2.5rem; width: 100%; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+  padding: 0 0.75rem; font-size: 0.875rem; font-family: inherit; outline: none;
+}
+[data-slot="invite-dialog"] > button {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2.5rem; padding: 0 1rem;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-lg);
+  background: transparent; color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+}
+[data-slot="invite-dialog-send"] {
+  border: 1px solid transparent;
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+}
 "#;
 
 #[cfg(test)]

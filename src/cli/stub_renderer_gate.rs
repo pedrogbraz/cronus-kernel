@@ -120,6 +120,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "sunburst-chart" => Some("cronus_ui_sunburst_chart::render"),
         "rich-text-editor" => Some("cronus_ui_rich_text_editor::render"),
         "confirmation-dialog" => Some("cronus_ui_confirmation_dialog::render"),
+        "invite-dialog" => Some("cronus_ui_invite_dialog::render"),
         _ => None,
     }
 }
@@ -398,6 +399,10 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"rich-text-editor\"") && html.contains("<textarea"))
         || (html.contains("data-slot=\"confirmation-dialog")
             && (html.contains("<dialog") || html.contains("showModal()")))
+        || (html.contains("data-slot=\"invite-dialog")
+            && (html.contains("<dialog") || html.contains("showModal()")))
+        || html.contains("data-slot=\"invite-dialog-control\"")
+        || html.contains("<label data-slot=\"invite-dialog\"")
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -594,6 +599,7 @@ mod tests {
             "src/cronus_ui_form.rs",
             "src/cronus_ui_input_group.rs",
             "src/cronus_ui_input_otp.rs",
+            "src/cronus_ui_invite_dialog.rs",
             "src/cronus_ui_fab.rs",
             "src/cronus_ui_heatmap.rs",
             "src/cronus_ui_hover_card.rs",

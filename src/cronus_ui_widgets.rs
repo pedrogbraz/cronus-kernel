@@ -289,6 +289,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "sunburst-chart",
     "rich-text-editor",
     "confirmation-dialog",
+    "invite-dialog",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -408,6 +409,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "sunburst-chart" => Some(crate::cronus_ui_sunburst_chart::render(comp)),
         "rich-text-editor" => Some(crate::cronus_ui_rich_text_editor::render(comp)),
         "confirmation-dialog" => Some(crate::cronus_ui_confirmation_dialog::render(comp)),
+        "invite-dialog" => Some(crate::cronus_ui_invite_dialog::render(comp)),
         _ => None,
     }
 }
