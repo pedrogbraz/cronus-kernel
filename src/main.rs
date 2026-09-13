@@ -85,6 +85,7 @@ mod cronus_ui_interact;
 mod cronus_ui_kbd;
 mod cronus_ui_kit;
 mod cronus_ui_label;
+mod cronus_ui_line_chart;
 mod cronus_ui_menubar;
 mod cronus_ui_metric;
 mod cronus_ui_mode_toggle;
