@@ -142,6 +142,7 @@ mod cronus_ui_sidebar;
 mod cronus_ui_signature_pad;
 mod cronus_ui_skeleton;
 mod cronus_ui_slider;
+mod cronus_ui_sparkles_text;
 mod cronus_ui_sparkline;
 mod cronus_ui_sonner;
 mod cronus_ui_spinner;
