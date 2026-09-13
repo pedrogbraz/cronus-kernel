@@ -376,6 +376,50 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
 }
 @keyframes cui-pulse { 50% { opacity: 0.5; } }
 
+[data-slot="slider"] {
+  position: relative; display: flex; width: 100%; align-items: center;
+}
+[data-slot="slider-track"] {
+  position: relative; height: 0.375rem; width: 100%; flex-grow: 1;
+  overflow: hidden; border-radius: 9999px; background: var(--cronus-surface-overlay);
+}
+[data-slot="slider-range"] {
+  position: absolute; height: 100%; background: var(--cronus-primary);
+}
+[data-slot="slider-thumb"] {
+  display: block; position: absolute; width: 1rem; height: 1rem;
+  border-radius: 9999px; border: 1px solid var(--cronus-primary);
+  background: var(--cronus-surface-base);
+  box-shadow: var(--cronus-shadow-sm, 0 1px 2px rgba(0,0,0,.2));
+  transform: translateX(-50%);
+}
+
+[data-slot="radio-group"] {
+  display: grid; gap: 0.5rem;
+}
+[data-slot="radio-group-item"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1rem; height: 1rem; padding: 0; margin: 0;
+  border-radius: 9999px; border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-primary);
+  cursor: pointer; outline: none; font: inherit;
+}
+[data-slot="radio-group-item"][data-state="checked"] {
+  border-color: var(--cronus-primary);
+}
+[data-slot="radio-group-item"][data-state="checked"]::after {
+  content: ""; width: 0.5rem; height: 0.5rem; border-radius: 9999px;
+  background: var(--cronus-primary);
+}
+
+[data-slot="chip"] {
+  display: inline-flex; align-items: center; height: 1.75rem;
+  border-radius: 9999px; border: 1px solid var(--cronus-border);
+  padding: 0 0.625rem; font-size: 0.875rem; font-weight: 500;
+  white-space: nowrap; background: var(--cronus-surface-overlay);
+  color: var(--cronus-fg);
+}
+
 [data-slot="card"], [data-slot="glass-card"], [data-slot="spotlight-card"] {
   background: var(--cronus-surface-raised); border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none);

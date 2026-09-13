@@ -30,6 +30,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "alert" => Some("cronus_ui_alert::render"),
         "skeleton" => Some("cronus_ui_skeleton::render"),
         "banner" => Some("cronus_ui_banner::render"),
+        "slider" => Some("cronus_ui_slider::render"),
+        "radio-group" => Some("cronus_ui_radio_group::render"),
+        "chip" => Some("cronus_ui_chip::render"),
         _ => None,
     }
 }
@@ -109,6 +112,10 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || html.contains("padding:0.85rem 1rem;display:flex;flex-direction:column;gap:0.25rem;font-size:0.875rem;")
         || html.contains("height:0.9rem;width:8rem;")
         || (html.contains("data-slot=\"banner\"") && !html.contains("data-slot=\"banner-title\""))
+        || html.contains("data-slot=\"slider-control\"")
+        || html.contains("<label data-slot=\"slider\"")
+        || html.contains("<input type=\"radio\"")
+        || (html.contains("data-slot=\"chip\"") && html.contains("padding:0.15rem 0.55rem"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -268,6 +275,9 @@ mod tests {
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_progress.rs",
+            "src/cronus_ui_slider.rs",
+            "src/cronus_ui_radio_group.rs",
+            "src/cronus_ui_chip.rs",
             "src/cli/audit_http.rs",
             "src/ui/audit_layout.rs",
         ];
