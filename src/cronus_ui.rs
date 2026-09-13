@@ -1215,6 +1215,32 @@ button:has(+ [data-slot="sheet-content"]) {
   background: var(--cronus-fg-muted);
 [data-slot="status-dot-label"] {
   font-size: 0.875rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="tags-input"] {
+  display: flex; min-height: 2.5rem; width: 100%; flex-wrap: wrap;
+  align-items: center; gap: 0.375rem; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+  padding: 0.375rem 0.75rem; font-size: 0.875rem;
+}
+[data-slot="tags-input"][data-disabled=""] { opacity: 0.5; pointer-events: none; }
+[data-slot="tags-input"][aria-invalid="true"] { border-color: var(--cronus-error); }
+[data-slot="tags-input-item"] {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
+  padding: 0.125rem 0.5rem; font-size: 0.75rem; font-weight: 500;
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
+[data-slot="tags-input-remove"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 0.875rem; height: 0.875rem; padding: 0; border: 0;
+  background: transparent; color: var(--cronus-fg-tertiary); cursor: pointer;
+}
+[data-slot="tags-input-field"] {
+  min-width: 6rem; flex: 1; border: 0; background: transparent;
+  color: var(--cronus-fg); font: inherit; outline: none;
+}
+[data-slot="tags-input-field"]::placeholder { color: var(--cronus-fg-tertiary); }
 "#;
 
 #[cfg(test)]
