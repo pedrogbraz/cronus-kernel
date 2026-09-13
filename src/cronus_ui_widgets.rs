@@ -289,6 +289,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "sunburst-chart",
     "choropleth-chart",
     "profit-loss-chart",
+    "scroll-progress",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -408,6 +409,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "sunburst-chart" => Some(crate::cronus_ui_sunburst_chart::render(comp)),
         "choropleth-chart" => Some(crate::cronus_ui_choropleth_chart::render(comp)),
         "profit-loss-chart" => Some(crate::cronus_ui_profit_loss_chart::render(comp)),
+        "scroll-progress" => Some(crate::cronus_ui_scroll_progress::render(comp)),
         _ => None,
     }
 }
@@ -881,7 +883,9 @@ mod tests {
             assert!(html.contains("v-data="));
             assert!(html.contains("v-model="));
             let meter = render(&stub("scroll-progress")).unwrap();
-            assert!(meter.contains("{ value }") || meter.contains("v-data="));
+            assert!(!meter.contains("{ value }"), "{meter}");
+            assert!(!meter.contains("v-data="), "{meter}");
+            assert!(meter.contains("data-slot=\"scroll-progress-fill\""), "{meter}");
             let usage = render(&stub("usage-meter")).unwrap();
             assert!(!usage.contains("{ value }"), "{usage}");
             assert!(!usage.contains("v-data="), "{usage}");

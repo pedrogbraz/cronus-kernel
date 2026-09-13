@@ -120,6 +120,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "sunburst-chart" => Some("cronus_ui_sunburst_chart::render"),
         "choropleth-chart" => Some("cronus_ui_choropleth_chart::render"),
         "profit-loss-chart" => Some("cronus_ui_profit_loss_chart::render"),
+        "scroll-progress" => Some("cronus_ui_scroll_progress::render"),
         _ => None,
     }
 }
@@ -397,6 +398,12 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"choropleth-chart\"") && html.contains("<figcaption"))
         || html.contains("<figure data-slot=\"profit-loss-chart\"")
         || (html.contains("data-slot=\"profit-loss-chart\"") && html.contains("<figcaption"))
+        || (html.contains("data-slot=\"scroll-progress\"") && html.contains("<progress"))
+        || (html.contains("data-slot=\"scroll-progress\"")
+            && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
+        || (html.contains("data-slot=\"scroll-progress\"")
+            && !html.contains("data-slot=\"scroll-progress-fill\"")
+            && !html.contains("data-slot=\"scroll-progress-ring\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -579,6 +586,7 @@ mod tests {
             "src/cronus_ui_rating.rs",
             "src/cronus_ui_resizable.rs",
             "src/cronus_ui_scroll_area.rs",
+            "src/cronus_ui_scroll_progress.rs",
             "src/cronus_ui_chip.rs",
             "src/cronus_ui_choropleth_chart.rs",
             "src/cronus_ui_code_tabs.rs",

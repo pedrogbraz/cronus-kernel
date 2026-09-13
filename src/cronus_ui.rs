@@ -2341,6 +2341,31 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="profit-loss-chart"] polyline[stroke="var(--cronus-error)"] {
   stroke: var(--cronus-error);
 }
+[data-slot="scroll-progress"] {
+  height: 0.25rem; width: 100%; overflow: hidden;
+  background: var(--cronus-surface-inset);
+}
+[data-slot="scroll-progress-fill"] {
+  height: 100%; background: var(--cronus-primary);
+}
+[data-slot="scroll-progress"][data-variant="circle"] {
+  position: relative; display: inline-flex;
+  align-items: center; justify-content: center;
+  width: 2.5rem; height: 2.5rem; overflow: visible;
+  background: transparent;
+}
+[data-slot="scroll-progress"][data-variant="circle"] svg {
+  transform: rotate(-90deg);
+}
+[data-slot="scroll-progress-ring"] {
+  fill: none; stroke: var(--cronus-primary);
+}
+[data-slot="scroll-progress-value"] {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 500; color: var(--cronus-fg);
+  font-variant-numeric: tabular-nums;
+}
 "#;
 
 #[cfg(test)]
