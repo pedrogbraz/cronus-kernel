@@ -304,7 +304,7 @@ page "/audit/button/primary-md" type:custom {
             &path,
             r#"
 app "x" { port 1 }
-component Revenue layout:stack style:area-chart {
+component Revenue layout:stack style:pie-chart {
   label "Revenue"
 }
 "#,

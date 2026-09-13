@@ -73,6 +73,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "date-picker" => Some("cronus_ui_date_picker::render"),
         "time-picker" => Some("cronus_ui_time_picker::render"),
         "date-range-picker" => Some("cronus_ui_date_range_picker::render"),
+        "area-chart" => Some("cronus_ui_area_chart::render"),
         _ => None,
     }
 }
@@ -294,11 +295,11 @@ mod tests {
     }
 
     #[test]
-    fn area_chart_is_stub() {
-        assert_eq!(renderer_kind("area-chart"), RendererKind::Stub("chart"));
-        let err = check_family("area-chart").unwrap_err();
+    fn pie_chart_is_stub() {
+        assert_eq!(renderer_kind("pie-chart"), RendererKind::Stub("chart"));
+        let err = check_family("pie-chart").unwrap_err();
         assert_eq!(err.code, STUB_RENDERER);
-        let html = render(&stub("area-chart")).unwrap();
+        let html = render(&stub("pie-chart")).unwrap();
         assert_eq!(looks_like_stub_fingerprint(&html), Some("chart"));
     }
 
@@ -413,6 +414,7 @@ mod tests {
             "src/cronus_ui_date_picker.rs",
             "src/cronus_ui_time_picker.rs",
             "src/cronus_ui_date_range_picker.rs",
+            "src/cronus_ui_area_chart.rs",
             "src/cronus_ui_kit.rs",
             "src/cli/audit_http.rs",
             "src/ui/audit_layout.rs",

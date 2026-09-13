@@ -992,6 +992,19 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="date-range-picker-day"][data-range="middle"] {
   background: var(--cronus-surface-overlay); border-radius: 0;
 }
+[data-slot="area-chart"] {
+  display: block; width: 100%; aspect-ratio: 2 / 1;
+}
+[data-slot="area-chart"] svg {
+  display: block; width: 100%; height: 100%;
+}
+[data-slot="area-chart"] path {
+  fill: var(--cronus-primary); fill-opacity: 0.28;
+}
+[data-slot="area-chart"] polyline {
+  fill: none; stroke: var(--cronus-primary); stroke-width: 2;
+  stroke-linejoin: round; stroke-linecap: round;
+}
 "#;
 
 #[cfg(test)]

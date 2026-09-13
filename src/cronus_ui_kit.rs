@@ -67,6 +67,103 @@ pub fn choice_texts(comp: &ComponentNode) -> Vec<String> {
         .collect()
 }
 
+/// Fallback series when a chart family has no numeric items.
+pub const DEFAULT_CHART_SERIES: [f64; 5] = [4.0, 8.0, 6.0, 10.0, 7.0];
+
+pub const CHART_VIEW_W: f64 = 200.0;
+pub const CHART_VIEW_H: f64 = 100.0;
+pub const CHART_PAD: f64 = 10.0;
+
+pub fn chart_base_y() -> f64 {
+    CHART_VIEW_H - CHART_PAD
+}
+
+pub fn chart_inner_w() -> f64 {
+    CHART_VIEW_W - CHART_PAD * 2.0
+}
+
+pub fn chart_inner_h() -> f64 {
+    CHART_VIEW_H - CHART_PAD * 2.0
+}
+
+/// Numeric values from item text (whole number or comma/whitespace lists).
+/// Empty → `DEFAULT_CHART_SERIES`.
+pub fn numeric_series(comp: &ComponentNode) -> Vec<f64> {
+    let mut out = Vec::new();
+    for i in &comp.items {
+        push_nums(&i.text, &mut out);
+    }
+    if out.is_empty() {
+        DEFAULT_CHART_SERIES.to_vec()
+    } else {
+        out
+    }
+}
+
+fn push_nums(s: &str, out: &mut Vec<f64>) {
+    let t = s.trim();
+    if t.is_empty() {
+        return;
+    }
+    if let Ok(n) = t.parse::<f64>() {
+        out.push(n);
+        return;
+    }
+    for part in t.split(|c: char| c == ',' || c.is_whitespace()) {
+        let p = part.trim();
+        if p.is_empty() {
+            continue;
+        }
+        if let Ok(n) = p.parse::<f64>() {
+            out.push(n);
+        }
+    }
+}
+
+pub fn fmt_coord(n: f64) -> String {
+    let r = (n * 100.0).round() / 100.0;
+    if (r - r.round()).abs() < 1e-9 {
+        format!("{}", r.round() as i64)
+    } else {
+        let s = format!("{r:.2}");
+        s.trim_end_matches('0').trim_end_matches('.').to_string()
+    }
+}
+
+/// Map a series onto viewBox `0 0 200 100` with 10px padding.
+pub fn chart_line_points(series: &[f64]) -> Vec<(f64, f64)> {
+    if series.is_empty() {
+        return Vec::new();
+    }
+    let n = series.len();
+    let min = series.iter().cloned().fold(f64::INFINITY, f64::min);
+    let max = series.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let span = (max - min).max(1.0);
+    let inner_w = chart_inner_w();
+    let inner_h = chart_inner_h();
+    series
+        .iter()
+        .enumerate()
+        .map(|(i, v)| {
+            let x = if n == 1 {
+                CHART_PAD + inner_w / 2.0
+            } else {
+                CHART_PAD + inner_w * (i as f64) / ((n - 1) as f64)
+            };
+            let y = CHART_PAD + inner_h * (1.0 - (*v - min) / span);
+            (x, y)
+        })
+        .collect()
+}
+
+pub fn chart_polyline_points(series: &[f64]) -> String {
+    chart_line_points(series)
+        .into_iter()
+        .map(|(x, y)| format!("{},{}", fmt_coord(x), fmt_coord(y)))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 #[cfg(test)]
 pub fn stub(family: &str, label: &str) -> ComponentNode {
     use std::collections::HashMap;
