@@ -83,6 +83,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "sonner" => Some("cronus_ui_sonner::render"),
         "navigation-menu" => Some("cronus_ui_navigation_menu::render"),
         "scroll-area" => Some("cronus_ui_scroll_area::render"),
+        "toolbar" => Some("cronus_ui_toolbar::render"),
         _ => None,
     }
 }
@@ -243,6 +244,10 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"scroll-area\"") && html.contains("max-height:12rem;overflow:auto"))
         || (html.contains("data-slot=\"scroll-area\"")
             && !html.contains("data-slot=\"scroll-area-viewport\""))
+        || (html.contains("data-slot=\"toolbar\"") && html.contains("<nav"))
+        || (html.contains("data-slot=\"toolbar\"")
+            && !html.contains("data-slot=\"toolbar-button\""))
+        || (html.contains("data-slot=\"toolbar\"") && html.contains("flex-wrap:wrap"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -408,6 +413,7 @@ mod tests {
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",
+            "src/cronus_ui_toolbar.rs",
             "src/cronus_ui_progress.rs",
             "src/cronus_ui_slider.rs",
             "src/cronus_ui_radio_group.rs",

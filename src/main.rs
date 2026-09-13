@@ -118,6 +118,7 @@ mod cronus_ui_textarea;
 mod cronus_ui_time_picker;
 mod cronus_ui_toggle;
 mod cronus_ui_toggle_group;
+mod cronus_ui_toolbar;
 mod cronus_ui_widgets;
 mod voodoo;
 mod navigation;

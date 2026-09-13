@@ -1097,6 +1097,24 @@ button:has(+ [data-slot="sheet-content"]) {
   content: ""; flex: 1; border-radius: 9999px;
   background: var(--cronus-border);
 }
+[data-slot="toolbar"] {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised); color: var(--cronus-fg);
+  padding: 0.25rem;
+}
+[data-slot="toolbar-button"] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem;
+  height: 2rem; min-width: 2rem; padding: 0 0.5rem;
+  border: 0; border-radius: var(--cronus-radius-md);
+  background: transparent; color: var(--cronus-fg-secondary);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+}
+[data-slot="toolbar-button"]:hover,
+[data-slot="toolbar-button"][data-state="on"] {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
 "#;
 
 #[cfg(test)]
