@@ -585,6 +585,21 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   border: 1px solid var(--cronus-border); background: var(--cronus-surface-inset);
   color: var(--cronus-fg); font: inherit;
 }
+
+[data-slot="copy-button"] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  white-space: nowrap; border-radius: var(--cronus-radius-lg); font-weight: 500;
+  line-height: 1; cursor: pointer; text-decoration: none;
+  outline: none; border: 1px solid transparent;
+  font-family: inherit; font-size: 0.875rem;
+  height: 2.25rem; padding: 0 0.75rem;
+  background: transparent; color: var(--cronus-fg-secondary);
+  transition: background 150ms var(--ease-out-quart), box-shadow 150ms var(--ease-out-quart),
+    transform 150ms var(--ease-out-quart), opacity 150ms var(--ease-out-quart), border-color 150ms;
+}
+[data-slot="copy-button"]:active { transform: scale(0.98); }
+[data-slot="copy-button"]:hover { background: var(--cronus-surface-overlay); color: var(--cronus-fg); }
+[data-slot="copy-button"]:disabled { opacity: 0.5; pointer-events: none; }
 "#;
 
 #[cfg(test)]
