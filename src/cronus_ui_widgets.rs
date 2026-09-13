@@ -261,6 +261,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "toolbar",
     "status-dot",
     "credit-card-input",
+    "floating-label-input",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -352,6 +353,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "toolbar" => Some(crate::cronus_ui_toolbar::render(comp)),
         "status-dot" => Some(crate::cronus_ui_status_dot::render(comp)),
         "credit-card-input" => Some(crate::cronus_ui_credit_card_input::render(comp)),
+        "floating-label-input" => Some(crate::cronus_ui_floating_label_input::render(comp)),
         _ => None,
     }
 }

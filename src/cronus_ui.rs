@@ -1233,6 +1233,39 @@ button:has(+ [data-slot="sheet-content"]) {
   color: var(--cronus-fg); font: inherit; font-variant-numeric: tabular-nums;
 }
 [data-slot="credit-card-input"] input:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="floating-label-input"] {
+  position: relative; display: block; width: 100%;
+}
+[data-slot="floating-label-input"] [data-slot="input"] {
+  height: 3.5rem; padding-top: 1rem;
+}
+[data-slot="floating-label-input-label"] {
+  position: absolute; left: 0.75rem; top: 1.15rem;
+  transform-origin: left; transform: translateY(-0.7rem) scale(0.8);
+  pointer-events: none; user-select: none;
+  color: var(--cronus-fg-secondary); font-size: 0.875rem;
+}
+[data-slot="floating-label-input"]:has([data-slot="input"]:placeholder-shown) [data-slot="floating-label-input-label"] {
+  top: 50%; transform: translateY(-50%) scale(1);
+  color: var(--cronus-fg-tertiary);
+}
+[data-slot="floating-label-input"]:has([data-slot="input"]:focus) [data-slot="floating-label-input-label"],
+[data-slot="floating-label-input"]:has([data-slot="input"]:not(:placeholder-shown)) [data-slot="floating-label-input-label"] {
+  top: 1.15rem; transform: translateY(-0.7rem) scale(0.8);
+  color: var(--cronus-fg-secondary);
+}
+[data-slot="floating-label-input"]:has([data-slot="input"]:focus) [data-slot="floating-label-input-label"] {
+  color: var(--cronus-primary);
+}
+[data-slot="floating-label-input"][data-invalid=""] [data-slot="floating-label-input-label"],
+[data-slot="floating-label-input"][data-invalid=""] [data-slot="floating-label-input-helper"] {
+  color: var(--cronus-error);
+}
+[data-slot="floating-label-input"][data-disabled=""] { opacity: 0.5; pointer-events: none; }
+[data-slot="floating-label-input-helper"] {
+  margin-top: 0.375rem; padding: 0 0.25rem;
+  font-size: 0.75rem; color: var(--cronus-fg-secondary);
+}
 "#;
 
 #[cfg(test)]

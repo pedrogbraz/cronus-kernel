@@ -92,6 +92,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "toolbar" => Some("cronus_ui_toolbar::render"),
         "status-dot" => Some("cronus_ui_status_dot::render"),
         "credit-card-input" => Some("cronus_ui_credit_card_input::render"),
+        "floating-label-input" => Some("cronus_ui_floating_label_input::render"),
         _ => None,
     }
 }
@@ -275,6 +276,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || !html.contains("data-slot=\"status-dot-label\"")))
         || html.contains("data-slot=\"credit-card-input-control\"")
         || html.contains("<label data-slot=\"credit-card-input\"")
+        || html.contains("data-slot=\"floating-label-input-control\"")
+        || html.contains("<label data-slot=\"floating-label-input\" style=")
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -455,6 +458,7 @@ mod tests {
             "src/cronus_ui_empty.rs",
             "src/cronus_ui_field.rs",
             "src/cronus_ui_file_dropzone.rs",
+            "src/cronus_ui_floating_label_input.rs",
             "src/cronus_ui_input_group.rs",
             "src/cronus_ui_input_otp.rs",
             "src/cronus_ui_fab.rs",
