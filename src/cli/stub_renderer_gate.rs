@@ -157,6 +157,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "aspect-ratio" => Some("cronus_ui_aspect_ratio::render"),
         "frame" => Some("cronus_ui_frame::render"),
         "flip-card" => Some("cronus_ui_flip_card::render"),
+        "countdown" => Some("cronus_ui_countdown::render"),
+        "animated-button" => Some("cronus_ui_animated_button::render"),
+        "card-stack" => Some("cronus_ui_card_stack::render"),
         _ => None,
     }
 }
@@ -570,6 +573,21 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && (!html.contains("data-slot=\"flip-card-front\"")
                 || !html.contains("data-slot=\"flip-card-back\"")))
         || (html.contains("data-slot=\"flip-card\"") && html.contains("style="))
+        || (html.contains("data-slot=\"countdown\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || !html.contains("data-slot=\"countdown-unit\"")
+                || !html.contains("data-slot=\"countdown-value\"")
+                || !html.contains("data-slot=\"countdown-label\"")
+                || html.contains("setInterval")
+                || html.contains("setTimeout")))
+        || (html.contains("data-slot=\"animated-button\"")
+                || html.contains("<div")
+                || html.contains("<span")
+                || !html.contains("<button")))
+        || html.contains("<section data-slot=\"card-stack\"")
+        || (html.contains("data-slot=\"card-stack\"")
+            && (!html.contains("data-slot=\"card-stack-item\"") || html.contains("style=")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -771,6 +789,9 @@ mod tests {
             "src/cronus_ui_aspect_ratio.rs",
             "src/cronus_ui_frame.rs",
             "src/cronus_ui_flip_card.rs",
+            "src/cronus_ui_countdown.rs",
+            "src/cronus_ui_animated_button.rs",
+            "src/cronus_ui_card_stack.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",

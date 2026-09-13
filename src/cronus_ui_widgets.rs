@@ -328,6 +328,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "aspect-ratio",
     "frame",
     "flip-card",
+    "countdown",
+    "animated-button",
+    "card-stack",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -484,6 +487,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "aspect-ratio" => Some(crate::cronus_ui_aspect_ratio::render(comp)),
         "frame" => Some(crate::cronus_ui_frame::render(comp)),
         "flip-card" => Some(crate::cronus_ui_flip_card::render(comp)),
+        "countdown" => Some(crate::cronus_ui_countdown::render(comp)),
+        "animated-button" => Some(crate::cronus_ui_animated_button::render(comp)),
+        "card-stack" => Some(crate::cronus_ui_card_stack::render(comp)),
         _ => None,
     }
 }
