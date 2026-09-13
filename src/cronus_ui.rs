@@ -2782,6 +2782,29 @@ button:has(+ [data-slot="sheet-content"]) {
   -webkit-background-clip: text;
   background-clip: text;
 }
+[data-slot="shiny-text"] {
+  display: inline;
+  color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    var(--cronus-fg-tertiary, var(--cronus-fg-secondary)) 0%,
+    var(--cronus-fg-tertiary, var(--cronus-fg-secondary)) 40%,
+    var(--cronus-fg) 50%,
+    var(--cronus-fg-tertiary, var(--cronus-fg-secondary)) 60%,
+    var(--cronus-fg-tertiary, var(--cronus-fg-secondary)) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: cui-shiny-text 3s linear infinite;
+}
+@keyframes cui-shiny-text {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="shiny-text"] { animation: none; }
+}
 "#;
 
 #[cfg(test)]

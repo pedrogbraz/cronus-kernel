@@ -145,6 +145,7 @@ mod cronus_ui_select;
 mod cronus_ui_separator;
 mod cronus_ui_sheet;
 mod cronus_ui_shimmer;
+mod cronus_ui_shiny_text;
 mod cronus_ui_sidebar;
 mod cronus_ui_signature_pad;
 mod cronus_ui_skeleton;
