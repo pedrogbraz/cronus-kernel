@@ -138,6 +138,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "tree-view" => Some("cronus_ui_tree_view::render"),
         "terminal" => Some("cronus_ui_terminal::render"),
         "video-player" => Some("cronus_ui_video_player::render"),
+        "text-effect" => Some("cronus_ui_text_effect::render"),
         _ => None,
     }
 }
@@ -478,6 +479,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || !html.contains("<video")
                 || !html.contains("data-slot=\"video-player-play\"")))
         || (html.contains("data-slot=\"video-player\"") && html.contains("style="))
+        || (html.contains("data-slot=\"text-effect\"")
+            && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -651,6 +654,7 @@ mod tests {
             "src/cronus_ui_shimmer.rs",
             "src/cronus_ui_reveal.rs",
             "src/cronus_ui_text_shimmer.rs",
+            "src/cronus_ui_text_effect.rs",
             "src/cronus_ui_particles.rs",
             "src/cronus_ui_sparkles_text.rs",
             "src/cronus_ui_noise.rs",

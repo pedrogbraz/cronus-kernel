@@ -2675,6 +2675,17 @@ button:has(+ [data-slot="sheet-content"]) {
   background: transparent; color: var(--cronus-fg);
   font: inherit; font-size: 0.75rem; font-weight: 500; cursor: pointer;
 }
+[data-slot="text-effect"] {
+  display: inline-block;
+  animation: cui-text-effect 400ms var(--ease-out-quart) both;
+}
+@keyframes cui-text-effect {
+  from { opacity: 0; filter: blur(8px); transform: translateY(8px); }
+  to { opacity: 1; filter: blur(0); transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="text-effect"] { animation: none; }
+}
 "#;
 
 #[cfg(test)]
