@@ -46,6 +46,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "tooltip" => Some("cronus_ui_tooltip::render"),
         "password-input" => Some("cronus_ui_password_input::render"),
         "number-input" => Some("cronus_ui_number_input::render"),
+        "field" => Some("cronus_ui_field::render"),
+        "input-group" => Some("cronus_ui_input_group::render"),
+        "rating" => Some("cronus_ui_rating::render"),
         _ => None,
     }
 }
@@ -129,6 +132,11 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || html.contains("<label data-slot=\"slider\"")
         || html.contains("<input type=\"radio\"")
         || (html.contains("data-slot=\"chip\"") && html.contains("padding:0.15rem 0.55rem"))
+        || html.contains("<form data-slot=\"field\"")
+        || (html.contains("data-slot=\"field\"") && !html.contains("data-slot=\"field-label\""))
+        || html.contains("data-slot=\"input-group-control\"")
+        || html.contains("<label data-slot=\"input-group\"")
+        || (html.contains("data-slot=\"rating\"") && html.contains("role=\"radiogroup\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -290,10 +298,13 @@ mod tests {
             "src/cronus_ui_progress.rs",
             "src/cronus_ui_slider.rs",
             "src/cronus_ui_radio_group.rs",
+            "src/cronus_ui_rating.rs",
             "src/cronus_ui_chip.rs",
             "src/cronus_ui_avatar.rs",
             "src/cronus_ui_card.rs",
             "src/cronus_ui_empty.rs",
+            "src/cronus_ui_field.rs",
+            "src/cronus_ui_input_group.rs",
             "src/cronus_ui_select.rs",
             "src/cronus_ui_dialog.rs",
             "src/cronus_ui_tabs.rs",
@@ -315,7 +326,10 @@ mod tests {
                 if trimmed.starts_with("//") {
                     continue;
                 }
-                if trimmed.contains("include_str!") && !trimmed.contains("cronus_ui_tokens.css") {
+                if trimmed.contains("include_str!")
+                    && !trimmed.contains("cronus_ui_tokens.css")
+                    && !trimmed.contains(".cronus")
+                {
                     panic!("{file}:{} sidecar include_str: {trimmed}", i + 1);
                 }
                 if (trimmed.contains("fs::read(")

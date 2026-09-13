@@ -585,6 +585,48 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   border: 1px solid var(--cronus-border); background: var(--cronus-surface-inset);
   color: var(--cronus-fg); font: inherit;
 }
+
+[data-slot="field"] {
+  display: flex; flex-direction: column; gap: 0.375rem;
+}
+[data-slot="field-label"] {
+  font-size: 0.875rem; font-weight: 500; color: var(--cronus-fg);
+  line-height: 1; user-select: none;
+}
+[data-slot="field-description"] {
+  margin: 0; font-size: 0.75rem; color: var(--cronus-fg-secondary);
+}
+
+[data-slot="input-group"] {
+  display: flex; height: 2.5rem; width: 100%; align-items: stretch;
+  overflow: hidden; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+  font-size: 0.875rem;
+}
+[data-slot="input-group-addon"] {
+  display: flex; flex-shrink: 0; align-items: center; gap: 0.375rem;
+  padding: 0 0.75rem; color: var(--cronus-fg-tertiary);
+  border-right: 1px solid var(--cronus-border); user-select: none; white-space: nowrap;
+}
+[data-slot="input-group"] [data-slot="input"] {
+  height: 100%; width: auto; flex: 1; min-width: 0;
+  border: 0; border-radius: 0; background: transparent; box-shadow: none;
+}
+
+[data-slot="rating"] {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+}
+[data-slot="rating-item"] {
+  display: inline-flex; color: var(--cronus-fg-tertiary, var(--cronus-fg-secondary));
+  font-size: 1.25rem; line-height: 1;
+}
+[data-slot="rating-item"][data-state="on"] {
+  color: var(--cronus-warning, var(--cronus-primary));
+}
+[data-slot="rating-item"]::before {
+  content: "★";
+}
 "#;
 
 #[cfg(test)]
