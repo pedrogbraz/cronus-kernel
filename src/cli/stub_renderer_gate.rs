@@ -200,6 +200,7 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"drawer")
             && (html.contains("<dialog") || html.contains("showModal()")))
         || (html.contains("data-slot=\"sheet")
+            && (html.contains("<dialog") || html.contains("showModal()")))
         || (html.contains("data-slot=\"calendar\"") && html.contains("style="))
         || html.contains("grid-template-columns:repeat(7,1fr)")
         || html.contains("data-slot=\"date-picker-control\"")
