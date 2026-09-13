@@ -148,6 +148,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "carousel" => Some("cronus_ui_carousel::render"),
         "code-block" => Some("cronus_ui_code_block::render"),
         "description-list" => Some("cronus_ui_description_list::render"),
+        "kanban" => Some("cronus_ui_kanban::render"),
+        "json-viewer" => Some("cronus_ui_json_viewer::render"),
+        "animated-number" => Some("cronus_ui_animated_number::render"),
         _ => None,
     }
 }
@@ -525,6 +528,24 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || !html.contains("data-slot=\"description-term\"")
                 || !html.contains("data-slot=\"description-details\"")))
         || (html.contains("data-slot=\"description-list\"") && html.contains("style="))
+        || html.contains("<section data-slot=\"kanban\"")
+        || (html.contains("data-slot=\"kanban\"")
+            && (!html.contains("data-slot=\"kanban-column\"")
+                || !html.contains("data-slot=\"kanban-card\"")))
+        || (html.contains("data-slot=\"kanban\"") && html.contains("style="))
+        || html.contains("<pre data-slot=\"json-viewer\"")
+        || html.contains("<section data-slot=\"json-viewer\"")
+        || (html.contains("data-slot=\"json-viewer\"")
+            && (!html.contains("data-slot=\"json-viewer-row\"")
+                || !html.contains("data-slot=\"json-viewer-key\"")
+                || !html.contains("data-slot=\"json-viewer-value\"")))
+        || (html.contains("data-slot=\"json-viewer\"") && html.contains("style="))
+        || (html.contains("data-slot=\"animated-number\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("<div")
+                || html.contains("style=")
+                || html.contains("setInterval")
+                || html.contains("requestAnimationFrame")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -717,6 +738,9 @@ mod tests {
             "src/cronus_ui_carousel.rs",
             "src/cronus_ui_code_block.rs",
             "src/cronus_ui_description_list.rs",
+            "src/cronus_ui_kanban.rs",
+            "src/cronus_ui_json_viewer.rs",
+            "src/cronus_ui_animated_number.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",
