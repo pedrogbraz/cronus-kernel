@@ -56,6 +56,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "avatar-group" => Some("cronus_ui_avatar_group::render"),
         "button-group" => Some("cronus_ui_button_group::render"),
         "dropdown-menu" => Some("cronus_ui_dropdown_menu::render"),
+        "collapsible" => Some("cronus_ui_collapsible::render"),
         _ => None,
     }
 }
@@ -155,6 +156,9 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"button-group\"") && html.contains("display:inline-flex;gap:0.25rem"))
         || (html.contains("data-slot=\"dropdown-menu\"") && html.contains("<details"))
         || html.contains("position:absolute;z-index:20;margin-top:0.35rem")
+        || (html.contains("data-slot=\"collapsible\"") && html.contains("<details"))
+        || (html.contains("data-slot=\"collapsible\"")
+            && !html.contains("data-slot=\"collapsible-content\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -321,6 +325,7 @@ mod tests {
             "src/cronus_ui_radio_group.rs",
             "src/cronus_ui_rating.rs",
             "src/cronus_ui_chip.rs",
+            "src/cronus_ui_collapsible.rs",
             "src/cronus_ui_avatar.rs",
             "src/cronus_ui_avatar_group.rs",
             "src/cronus_ui_card.rs",

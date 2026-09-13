@@ -719,6 +719,22 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
 [data-slot="dropdown-menu-item"]:hover {
   background: var(--cronus-surface-overlay); color: var(--cronus-fg);
 }
+[data-slot="collapsible"] {
+  display: flex; flex-direction: column; gap: 0.25rem;
+}
+[data-slot="collapsible"] > button {
+  display: inline-flex; align-items: center;
+  height: 2.5rem; padding: 0 1rem;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: transparent; color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+}
+[data-slot="collapsible-content"] {
+  overflow: hidden; font-size: 0.875rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="collapsible-content"][data-state="open"] {
+  display: block;
+}
 "#;
 
 #[cfg(test)]
