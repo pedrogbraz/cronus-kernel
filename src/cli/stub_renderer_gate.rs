@@ -97,6 +97,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "credit-card-input" => Some("cronus_ui_credit_card_input::render"),
         "floating-label-input" => Some("cronus_ui_floating_label_input::render"),
         "split-button" => Some("cronus_ui_split_button::render"),
+        "pill-nav" => Some("cronus_ui_pill_nav::render"),
+        "dock" => Some("cronus_ui_dock::render"),
+        "workspace-switcher" => Some("cronus_ui_workspace_switcher::render"),
         _ => None,
     }
 }
@@ -295,6 +298,15 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && html.contains("display:inline-flex;gap:0.25rem"))
         || (html.contains("data-slot=\"split-button\"") && html.contains("style="))
         || (html.contains("data-slot=\"split-button\"") && !html.contains("role=\"group\""))
+        || (html.contains("data-slot=\"pill-nav\"") && !html.contains("data-slot=\"pill-nav-item\""))
+        || (html.contains("data-slot=\"pill-nav\"") && html.contains("flex-wrap:wrap"))
+        || (html.contains("data-slot=\"dock\"") && !html.contains("data-slot=\"dock-item\""))
+        || (html.contains("data-slot=\"dock\"") && html.contains("flex-wrap:wrap"))
+        || (html.contains("data-slot=\"workspace-switcher\"") && html.contains("<nav"))
+        || (html.contains("data-slot=\"workspace-switcher\"")
+            && !html.contains("data-slot=\"workspace-switcher-content\""))
+        || (html.contains("data-slot=\"workspace-switcher\"") && html.contains("<details"))
+        || (html.contains("data-slot=\"workspace-switcher\"") && html.contains("flex-wrap:wrap"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -485,6 +497,7 @@ mod tests {
             "src/cronus_ui_hover_card.rs",
             "src/cronus_ui_select.rs",
             "src/cronus_ui_dialog.rs",
+            "src/cronus_ui_dock.rs",
             "src/cronus_ui_drawer.rs",
             "src/cronus_ui_dropdown_menu.rs",
             "src/cronus_ui_tabs.rs",
@@ -517,10 +530,12 @@ mod tests {
             "src/cronus_ui_line_chart.rs",
             "src/cronus_ui_sparkline.rs",
             "src/cronus_ui_pie_chart.rs",
+            "src/cronus_ui_pill_nav.rs",
             "src/cronus_ui_radar_chart.rs",
             "src/cronus_ui_scatter_chart.rs",
             "src/cronus_ui_ring_chart.rs",
             "src/cronus_ui_data_table.rs",
+            "src/cronus_ui_workspace_switcher.rs",
             "src/cronus_ui_kit.rs",
             "src/cli/audit_http.rs",
             "src/ui/audit_layout.rs",

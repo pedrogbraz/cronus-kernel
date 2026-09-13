@@ -1316,6 +1316,42 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="split-button"] > [data-slot="button"]:focus-visible {
   position: relative; z-index: 10;
 [data-slot="split-button"][data-disabled=""] { opacity: 0.5; pointer-events: none; }
+[data-slot="pill-nav"] {
+  border-radius: 9999px;
+  border: 1px solid var(--cronus-border);
+  padding: 0.25rem;
+[data-slot="pill-nav-item"] {
+  position: relative; z-index: 0;
+  border: 0; border-radius: 9999px;
+  padding: 0.375rem 0.875rem;
+  background: transparent; color: var(--cronus-fg-secondary);
+  font: inherit; font-size: 0.875rem; font-weight: 500;
+  text-decoration: none; cursor: pointer;
+[data-slot="pill-nav-item"][aria-current="page"] {
+  color: var(--cronus-fg);
+  background: var(--cronus-surface-floating);
+  box-shadow: var(--cronus-shadow-xs, none);
+[data-slot="dock"] {
+  display: inline-flex; align-items: flex-end; gap: 0.5rem;
+  border-radius: var(--cronus-radius-xl);
+  background: var(--cronus-surface-raised); color: var(--cronus-fg);
+  padding: 0.5rem 0.75rem;
+[data-slot="dock-item"] {
+  width: 2.75rem; height: 2.75rem;
+  border: 0; border-radius: var(--cronus-radius-lg);
+  font: inherit; cursor: pointer; text-decoration: none;
+[data-slot="workspace-switcher"] {
+  display: flex; width: 100%; min-width: 0; align-items: center; gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+[data-slot="workspace-switcher-content"] {
+  min-width: 14rem; overflow: hidden;
+  padding: 0.25rem; box-shadow: var(--cronus-shadow-lg, none);
+  border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+[data-slot="workspace-switcher-item"] {
+  border-radius: var(--cronus-radius-md); padding: 0.375rem 0.5rem;
+  font-size: 0.875rem; cursor: default;
 "#;
 
 #[cfg(test)]
