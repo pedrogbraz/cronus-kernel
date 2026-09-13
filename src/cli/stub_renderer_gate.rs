@@ -109,6 +109,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "alert-dialog" => Some("cronus_ui_alert_dialog::render"),
         "lightbox" => Some("cronus_ui_lightbox::render"),
         "notification-center" => Some("cronus_ui_notification_center::render"),
+        "expandable-tabs" => Some("cronus_ui_expandable_tabs::render"),
         _ => None,
     }
 }
@@ -353,6 +354,10 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"notification-center\"") && html.contains("<details"))
         || (html.contains("data-slot=\"notification-center\"")
             && !html.contains("data-slot=\"notification-row\""))
+        || (html.contains("data-slot=\"expandable-tabs\"")
+            && !html.contains("data-slot=\"expandable-tabs-item\""))
+        || (html.contains("data-slot=\"expandable-tabs\"") && html.contains("role=\"tabpanel\""))
+        || (html.contains("data-slot=\"expandable-tabs\"") && html.contains("<div role=\"tablist\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -539,6 +544,7 @@ mod tests {
             "src/cronus_ui_avatar_group.rs",
             "src/cronus_ui_card.rs",
             "src/cronus_ui_empty.rs",
+            "src/cronus_ui_expandable_tabs.rs",
             "src/cronus_ui_field.rs",
             "src/cronus_ui_file_dropzone.rs",
             "src/cronus_ui_floating_label_input.rs",

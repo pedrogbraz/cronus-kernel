@@ -82,6 +82,7 @@ mod cronus_ui_dock;
 mod cronus_ui_drawer;
 mod cronus_ui_dropdown_menu;
 mod cronus_ui_empty;
+mod cronus_ui_expandable_tabs;
 mod cronus_ui_field;
 mod cronus_ui_file_dropzone;
 mod cronus_ui_fab;

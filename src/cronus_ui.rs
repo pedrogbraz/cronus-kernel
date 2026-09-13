@@ -1488,6 +1488,25 @@ button:has(+ [data-slot="sheet-content"]) {
   font: inherit; font-size: 0.875rem; text-align: start; cursor: pointer;
 [data-slot="notification-row"]:hover {
   background: var(--cronus-surface-overlay);
+[data-slot="expandable-tabs"] {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  border-radius: 9999px;
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset);
+  padding: 0.25rem;
+}
+[data-slot="expandable-tabs-item"] {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  border: 0; border-radius: 9999px;
+  padding: 0.375rem 0.625rem;
+  background: transparent; color: var(--cronus-fg-secondary);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+}
+[data-slot="expandable-tabs-item"][aria-selected="true"] {
+  color: var(--cronus-fg);
+  background: var(--cronus-surface-floating);
+  box-shadow: var(--cronus-shadow-xs, none);
+}
 "#;
 
 #[cfg(test)]
