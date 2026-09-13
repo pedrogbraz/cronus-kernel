@@ -164,6 +164,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "collapsible",
     "mode-toggle",
     "command",
+    "menubar",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -228,6 +229,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "collapsible" => Some(crate::cronus_ui_collapsible::render(comp)),
         "mode-toggle" => Some(crate::cronus_ui_mode_toggle::render(comp)),
         "command" => Some(crate::cronus_ui_command::render(comp)),
+        "menubar" => Some(crate::cronus_ui_menubar::render(comp)),
         _ => None,
     }
 }

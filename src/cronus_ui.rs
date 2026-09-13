@@ -855,6 +855,37 @@ button:has(+ [data-slot="hover-card-content"]) {
 [data-slot="command-item"]:hover {
   background: var(--cronus-surface-overlay); color: var(--cronus-fg);
 }
+[data-slot="menubar"] {
+  display: flex; align-items: center; gap: 0.25rem;
+  border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-floating); padding: 0.25rem;
+  box-shadow: var(--cronus-shadow-xs, none);
+}
+[data-slot="menubar-trigger"] {
+  display: flex; align-items: center; border: 0;
+  border-radius: var(--cronus-radius-md);
+  background: transparent; color: var(--cronus-fg);
+  padding: 0.25rem 0.75rem; font: inherit; font-size: 0.875rem; font-weight: 500;
+  cursor: default; outline: none;
+}
+[data-slot="menubar-trigger"][data-state="open"],
+[data-slot="menubar-trigger"]:hover {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
+[data-slot="menubar-content"] {
+  min-width: 12rem; overflow: hidden;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  padding: 0.25rem; box-shadow: var(--cronus-shadow-lg, none);
+}
+[data-slot="menubar-item"] {
+  display: flex; align-items: center; gap: 0.5rem;
+  border-radius: var(--cronus-radius-md); padding: 0.375rem 0.5rem;
+  font-size: 0.875rem; cursor: default;
+}
+[data-slot="menubar-item"]:hover {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
 "#;
 
 #[cfg(test)]
