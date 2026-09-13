@@ -2881,6 +2881,29 @@ button:has(+ [data-slot="sheet-content"]) {
 }
   [data-slot="shiny-text"] { animation: none; }
 }
+
+[data-slot="countdown"] {
+  display: inline-flex; align-items: flex-start; gap: 0.375rem;
+}
+[data-slot="countdown-unit"] {
+  display: flex; flex-direction: column; align-items: center; gap: 0.125rem;
+  min-width: 3.5rem; padding: 0.5rem 0.625rem;
+  border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised);
+  box-shadow: var(--cronus-shadow-xs, none);
+}
+[data-slot="countdown-value"] {
+  display: block; overflow: hidden;
+  font-weight: 600; font-size: 1.5rem; line-height: 2rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--cronus-fg);
+}
+[data-slot="countdown-label"] {
+  font-weight: 500; font-size: 0.6875rem;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--cronus-fg-tertiary, var(--cronus-fg-secondary));
+}
 "#;
 
 #[cfg(test)]

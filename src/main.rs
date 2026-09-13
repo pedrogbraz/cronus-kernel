@@ -79,6 +79,7 @@ mod cronus_ui_code_tabs;
 mod cronus_ui_collapsible;
 mod cronus_ui_color_picker;
 mod cronus_ui_copy_button;
+mod cronus_ui_countdown;
 mod cronus_ui_credit_card_input;
 mod cronus_ui_currency_input;
 mod cronus_ui_context_menu;
