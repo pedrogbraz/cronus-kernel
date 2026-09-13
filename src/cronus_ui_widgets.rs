@@ -322,6 +322,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "kanban",
     "json-viewer",
     "animated-number",
+    "marquee",
+    "gradient-text",
+    "shiny-text",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -472,6 +475,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "kanban" => Some(crate::cronus_ui_kanban::render(comp)),
         "json-viewer" => Some(crate::cronus_ui_json_viewer::render(comp)),
         "animated-number" => Some(crate::cronus_ui_animated_number::render(comp)),
+        "marquee" => Some(crate::cronus_ui_marquee::render(comp)),
+        "gradient-text" => Some(crate::cronus_ui_gradient_text::render(comp)),
+        "shiny-text" => Some(crate::cronus_ui_shiny_text::render(comp)),
         _ => None,
     }
 }

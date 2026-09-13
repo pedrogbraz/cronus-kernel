@@ -2816,6 +2816,45 @@ button:has(+ [data-slot="sheet-content"]) {
   display: inline-block;
   font-variant-numeric: tabular-nums;
   font-family: var(--cronus-font-display, inherit);
+[data-slot="marquee"] {
+  position: relative; display: flex; overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+[data-slot="marquee-group"] {
+  display: flex; flex-shrink: 0; align-items: center; gap: 1rem;
+  width: max-content;
+  animation: cui-marquee 20s linear infinite;
+[data-slot="marquee"]:hover [data-slot="marquee-group"],
+[data-slot="marquee"]:focus-within [data-slot="marquee-group"] {
+  animation-play-state: paused;
+[data-slot="marquee-group"] > span {
+  white-space: nowrap; color: var(--cronus-fg);
+@keyframes cui-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="marquee-group"] { animation: none; }
+[data-slot="gradient-text"] {
+  color: transparent;
+  background-image: linear-gradient(135deg, var(--cronus-primary), var(--cronus-accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+[data-slot="shiny-text"] {
+  display: inline;
+  background-image: linear-gradient(
+    90deg,
+    var(--cronus-fg-tertiary, var(--cronus-fg-secondary)) 0%,
+    var(--cronus-fg-tertiary, var(--cronus-fg-secondary)) 40%,
+    var(--cronus-fg) 50%,
+    var(--cronus-fg-tertiary, var(--cronus-fg-secondary)) 60%,
+    var(--cronus-fg-tertiary, var(--cronus-fg-secondary)) 100%
+  );
+  background-size: 200% 100%;
+  animation: cui-shiny-text 3s linear infinite;
+@keyframes cui-shiny-text {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+  [data-slot="shiny-text"] { animation: none; }
 }
 "#;
 
