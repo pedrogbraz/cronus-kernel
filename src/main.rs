@@ -149,6 +149,7 @@ mod cronus_ui_tags_input;
 mod cronus_ui_tooltip;
 mod cronus_ui_switch;
 mod cronus_ui_textarea;
+mod cronus_ui_text_shimmer;
 mod cronus_ui_time_picker;
 mod cronus_ui_toggle;
 mod cronus_ui_toggle_group;

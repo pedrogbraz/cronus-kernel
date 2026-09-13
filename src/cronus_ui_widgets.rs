@@ -1,4 +1,4 @@
-//! Opt-in cronus-ui widget renderers (all 173 families).
+//! Opt-in cronus-ui widget renderers (all 174 families).
 //!
 //! Family = first `style` segment (`button+primary+md` -> `button`).
 //! Unknown families return None so legacy dispatchers keep working.
@@ -163,6 +163,7 @@ pub const FAMILIES: &[&str] = &[
     "tags-input",
     "terminal",
     "text-effect",
+    "text-shimmer",
     "textarea",
     "tilt-card",
     "time-picker",
@@ -289,6 +290,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "sunburst-chart",
     "shimmer",
     "reveal",
+    "text-shimmer",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -408,6 +410,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "sunburst-chart" => Some(crate::cronus_ui_sunburst_chart::render(comp)),
         "shimmer" => Some(crate::cronus_ui_shimmer::render(comp)),
         "reveal" => Some(crate::cronus_ui_reveal::render(comp)),
+        "text-shimmer" => Some(crate::cronus_ui_text_shimmer::render(comp)),
         _ => None,
     }
 }
@@ -578,6 +581,7 @@ pub fn render(comp: &ComponentNode) -> Option<String> {
         "tags-input" => field("tags-input", comp),
         "terminal" => display("terminal", comp),
         "text-effect" => fx("text-effect", comp),
+        "text-shimmer" => fx("text-shimmer", comp),
         "textarea" => field("textarea", comp),
         "tilt-card" => display("tilt-card", comp),
         "time-picker" => field("time-picker", comp),
@@ -811,8 +815,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn registers_173_unique_families() {
-        assert_eq!(FAMILIES.len(), 173);
+    fn registers_174_unique_families() {
+        assert_eq!(FAMILIES.len(), 174);
         let mut s = std::collections::BTreeSet::new();
         for f in FAMILIES {
             assert!(s.insert(*f), "duplicate {f}");

@@ -120,6 +120,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "sunburst-chart" => Some("cronus_ui_sunburst_chart::render"),
         "shimmer" => Some("cronus_ui_shimmer::render"),
         "reveal" => Some("cronus_ui_reveal::render"),
+        "text-shimmer" => Some("cronus_ui_text_shimmer::render"),
         _ => None,
     }
 }
@@ -181,7 +182,7 @@ pub fn catalog_stub_kind(family: &str) -> Option<&'static str> {
         | "marquee" | "meteors" | "noise" | "orbit" | "particles" | "progressive-blur"
         | "retro-grid" | "reveal" | "ripple" | "scramble-text" | "scroll-progress"
         | "shimmer" | "shiny-text" | "sparkles-text" | "spinning-text" | "star-border"
-        | "text-effect" | "typing-text" | "word-rotate" | "comparison-slider"
+        | "text-effect" | "text-shimmer" | "typing-text" | "word-rotate" | "comparison-slider"
         | "dynamic-island" | "toast" | "motion-presets" => Some("fx"),
         _ => None,
     }
@@ -399,6 +400,9 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"reveal\"")
             && (html.contains("<span")
                 || html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")))
+        || (html.contains("data-slot=\"text-shimmer\"")
+            && (html.contains("<div")
+                || html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -532,7 +536,7 @@ mod tests {
 
     #[test]
     fn no_new_stub_families() {
-        assert_eq!(FAMILIES.len(), 173);
+        assert_eq!(FAMILIES.len(), 174);
         for family in PORTED_FAMILIES {
             assert!(FAMILIES.contains(family));
             assert!(cronus_ui_widgets::dedicated_render(family, &stub(family)).is_some());
@@ -571,6 +575,7 @@ mod tests {
             "src/cronus_ui_skeleton.rs",
             "src/cronus_ui_shimmer.rs",
             "src/cronus_ui_reveal.rs",
+            "src/cronus_ui_text_shimmer.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",

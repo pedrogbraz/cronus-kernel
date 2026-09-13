@@ -2337,6 +2337,22 @@ button:has(+ [data-slot="sheet-content"]) {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
+[data-slot="text-shimmer"] {
+  display: inline-block;
+  color: transparent;
+  background-image:
+    linear-gradient(90deg, transparent 40%, var(--cronus-surface-base), transparent 60%),
+    linear-gradient(var(--cronus-fg-tertiary, var(--cronus-fg-secondary)), var(--cronus-fg-tertiary, var(--cronus-fg-secondary)));
+  background-size: 250% 100%, auto;
+  background-repeat: no-repeat, padding-box;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: cui-text-shimmer 2s linear infinite;
+}
+@keyframes cui-text-shimmer {
+  0% { background-position: 100% center, 0 0; }
+  100% { background-position: 0% center, 0 0; }
+}
 "#;
 
 #[cfg(test)]

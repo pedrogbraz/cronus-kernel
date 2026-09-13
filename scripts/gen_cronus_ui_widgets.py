@@ -38,7 +38,7 @@ FAMILIES = [
     "slider", "sonner", "sparkles-text", "sparkline", "spinner", "spinning-text",
     "split-button", "spotlight-card", "star-border", "status-dot", "stepper",
     "sunburst-chart", "switch", "table", "table-of-contents", "tabs",
-    "tags-input", "terminal", "text-effect", "textarea", "tilt-card",
+    "tags-input", "terminal", "text-effect", "text-shimmer", "textarea", "tilt-card",
     "time-picker", "timeline", "toggle", "toggle-group", "toolbar", "tooltip",
     "tree-view", "typing-text", "usage-meter", "video-player", "word-rotate",
     "workspace-switcher",
@@ -109,11 +109,11 @@ add(
     "marquee", "meteors", "noise", "orbit", "particles", "progressive-blur",
     "retro-grid", "reveal", "ripple", "scramble-text", "scroll-progress",
     "shimmer", "shiny-text", "sparkles-text", "spinning-text", "star-border",
-    "text-effect", "typing-text", "word-rotate", "comparison-slider",
+    "text-effect", "text-shimmer", "typing-text", "word-rotate", "comparison-slider",
     "dynamic-island", "toast", "motion-presets",
 )
 
-assert len(FAMILIES) == 173
+assert len(FAMILIES) == 174
 assert set(FAMILIES) == set(KIND)
 
 arms = []
@@ -219,6 +219,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "sunburst-chart",
     "shimmer",
     "reveal",
+    "text-shimmer",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -338,6 +339,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "sunburst-chart" => Some(crate::cronus_ui_sunburst_chart::render(comp)),
         "shimmer" => Some(crate::cronus_ui_shimmer::render(comp)),
         "reveal" => Some(crate::cronus_ui_reveal::render(comp)),
+        "text-shimmer" => Some(crate::cronus_ui_text_shimmer::render(comp)),
         _ => None,
     }
 }
@@ -531,8 +533,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn registers_173_unique_families() {
-        assert_eq!(FAMILIES.len(), 173);
+    fn registers_174_unique_families() {
+        assert_eq!(FAMILIES.len(), 174);
         let mut s = std::collections::BTreeSet::new();
         for f in FAMILIES {
             assert!(s.insert(*f), "duplicate {f}");
