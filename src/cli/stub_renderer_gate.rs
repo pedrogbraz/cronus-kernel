@@ -24,6 +24,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "switch" => Some("cronus_ui_switch::render"),
         "spinner" => Some("cronus_ui_spinner::render"),
         "separator" => Some("cronus_ui_separator::render"),
+        "kbd" => Some("cronus_ui_kbd::render"),
+        "toggle" => Some("cronus_ui_toggle::render"),
+        "progress" => Some("cronus_ui_progress::render"),
         _ => None,
     }
 }
@@ -252,6 +255,9 @@ mod tests {
             "src/cronus_ui_switch.rs",
             "src/cronus_ui_spinner.rs",
             "src/cronus_ui_separator.rs",
+            "src/cronus_ui_kbd.rs",
+            "src/cronus_ui_toggle.rs",
+            "src/cronus_ui_progress.rs",
             "src/cli/audit_http.rs",
             "src/ui/audit_layout.rs",
         ];

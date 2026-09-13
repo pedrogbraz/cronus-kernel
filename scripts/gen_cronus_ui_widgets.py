@@ -142,7 +142,7 @@ pub const FAMILIES: &[&str] = &[
 /// `dedicated_render` has a named arm.
 pub const PORTED_FAMILIES: &[&str] = &[
     "button", "badge", "input", "label", "textarea", "checkbox",
-    "switch", "spinner", "separator",
+    "switch", "spinner", "separator", "kbd", "toggle", "progress",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -166,6 +166,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "switch" => Some(crate::cronus_ui_switch::render(comp)),
         "spinner" => Some(crate::cronus_ui_spinner::render(comp)),
         "separator" => Some(crate::cronus_ui_separator::render(comp)),
+        "kbd" => Some(crate::cronus_ui_kbd::render(comp)),
+        "toggle" => Some(crate::cronus_ui_toggle::render(comp)),
+        "progress" => Some(crate::cronus_ui_progress::render(comp)),
         _ => None,
     }
 }
