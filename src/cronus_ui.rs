@@ -2350,6 +2350,20 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="profit-loss-chart"] polyline[stroke="var(--cronus-error)"] {
   stroke: var(--cronus-error);
 }
+[data-slot="gauge-chart"] {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 16rem;
+}
+[data-slot="gauge-chart"] svg { width: 12rem; height: 12rem; }
+[data-slot="gauge-chart"] path {
+  fill: none; stroke-linecap: round; stroke-width: 8;
+}
+[data-slot="gauge-chart"] path[stroke="var(--cronus-primary)"] {
+  stroke: var(--cronus-primary);
+}
+[data-slot="gauge-chart"] text {
+  fill: var(--cronus-fg);
+}
 [data-slot="scroll-progress"] {
   height: 0.25rem; width: 100%; overflow: hidden;
   background: var(--cronus-surface-inset);

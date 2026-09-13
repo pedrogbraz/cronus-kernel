@@ -325,6 +325,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "marquee",
     "gradient-text",
     "shiny-text",
+    "gauge-chart",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -478,6 +479,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "marquee" => Some(crate::cronus_ui_marquee::render(comp)),
         "gradient-text" => Some(crate::cronus_ui_gradient_text::render(comp)),
         "shiny-text" => Some(crate::cronus_ui_shiny_text::render(comp)),
+        "gauge-chart" => Some(crate::cronus_ui_gauge_chart::render(comp)),
         _ => None,
     }
 }

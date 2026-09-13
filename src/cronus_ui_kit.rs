@@ -418,6 +418,61 @@ fn ring_arc_d(r: f64, progress: f64) -> String {
     )
 }
 
+/// Horseshoe gauge. ViewBox `0 0 100 100`. Track is 240° through the top.
+pub const GAUGE_VIEW: f64 = 100.0;
+pub const GAUGE_CX: f64 = 50.0;
+pub const GAUGE_CY: f64 = 54.0;
+pub const GAUGE_R: f64 = 36.0;
+pub const GAUGE_STROKE: f64 = 8.0;
+pub const GAUGE_DEFAULT: f64 = 60.0;
+/// SVG polar: 0 at 3 o'clock, clockwise (y-down). 150° = lower-left.
+const GAUGE_A0: f64 = 150.0 * std::f64::consts::PI / 180.0;
+const GAUGE_SWEEP: f64 = 240.0 * std::f64::consts::PI / 180.0;
+
+pub struct ChartGauge {
+    pub value: f64,
+    pub track_d: String,
+    pub value_d: String,
+}
+
+/// Clamp `value` to 0–100 and build track + fill arc paths.
+pub fn chart_gauge(value: f64) -> ChartGauge {
+    let v = if value.is_finite() {
+        value.clamp(0.0, 100.0)
+    } else {
+        0.0
+    };
+    ChartGauge {
+        value: v,
+        track_d: gauge_arc_d(1.0),
+        value_d: gauge_arc_d(v / 100.0),
+    }
+}
+
+fn gauge_arc_d(progress: f64) -> String {
+    if progress <= 0.0 || GAUGE_R <= 0.0 {
+        return String::new();
+    }
+    let p = progress.clamp(0.0, 1.0);
+    let sweep = GAUGE_SWEEP * p;
+    let a1 = GAUGE_A0 + sweep;
+    let x0 = GAUGE_CX + GAUGE_R * GAUGE_A0.cos();
+    let y0 = GAUGE_CY + GAUGE_R * GAUGE_A0.sin();
+    let x1 = GAUGE_CX + GAUGE_R * a1.cos();
+    let y1 = GAUGE_CY + GAUGE_R * a1.sin();
+    let large = if sweep > std::f64::consts::PI { 1 } else { 0 };
+    format!(
+        "M {} {} A {} {} 0 {} 1 {} {}",
+        fmt_coord(x0),
+        fmt_coord(y0),
+        fmt_coord(GAUGE_R),
+        fmt_coord(GAUGE_R),
+        large,
+        fmt_coord(x1),
+        fmt_coord(y1),
+    )
+}
+
 #[cfg(test)]
 pub fn stub(family: &str, label: &str) -> ComponentNode {
     use std::collections::HashMap;

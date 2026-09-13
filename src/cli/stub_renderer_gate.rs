@@ -154,6 +154,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "marquee" => Some("cronus_ui_marquee::render"),
         "gradient-text" => Some("cronus_ui_gradient_text::render"),
         "shiny-text" => Some("cronus_ui_shiny_text::render"),
+        "gauge-chart" => Some("cronus_ui_gauge_chart::render"),
         _ => None,
     }
 }
@@ -436,6 +437,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"choropleth-chart\"") && html.contains("<figcaption"))
         || html.contains("<figure data-slot=\"profit-loss-chart\"")
         || (html.contains("data-slot=\"profit-loss-chart\"") && html.contains("<figcaption"))
+        || html.contains("<figure data-slot=\"gauge-chart\"")
+        || (html.contains("data-slot=\"gauge-chart\"") && html.contains("<figcaption"))
         || (html.contains("data-slot=\"scroll-progress\"") && html.contains("<progress"))
         || (html.contains("data-slot=\"scroll-progress\"")
             && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
@@ -780,6 +783,7 @@ mod tests {
             "src/cronus_ui_file_dropzone.rs",
             "src/cronus_ui_floating_label_input.rs",
             "src/cronus_ui_form.rs",
+            "src/cronus_ui_gauge_chart.rs",
             "src/cronus_ui_input_group.rs",
             "src/cronus_ui_input_otp.rs",
             "src/cronus_ui_invite_dialog.rs",
