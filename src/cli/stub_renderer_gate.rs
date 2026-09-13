@@ -269,9 +269,9 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && !html.contains("data-slot=\"toolbar-button\""))
         || (html.contains("data-slot=\"toolbar\"") && html.contains("flex-wrap:wrap"))
         || (html.contains("data-slot=\"status-dot\"")
-            && html.contains("padding:0.15rem 0.55rem"))
-            && !html.contains("data-slot=\"status-dot-indicator\""))
-            && !html.contains("data-slot=\"status-dot-label\""))
+            && (html.contains("padding:0.15rem 0.55rem")
+                || !html.contains("data-slot=\"status-dot-indicator\"")
+                || !html.contains("data-slot=\"status-dot-label\"")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
