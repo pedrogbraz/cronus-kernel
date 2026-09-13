@@ -321,11 +321,11 @@ mod tests {
     }
 
     #[test]
-    fn pie_chart_is_stub() {
-        assert_eq!(renderer_kind("pie-chart"), RendererKind::Stub("chart"));
-        let err = check_family("pie-chart").unwrap_err();
+    fn radar_chart_is_stub() {
+        assert_eq!(renderer_kind("radar-chart"), RendererKind::Stub("chart"));
+        let err = check_family("radar-chart").unwrap_err();
         assert_eq!(err.code, STUB_RENDERER);
-        let html = render(&stub("pie-chart")).unwrap();
+        let html = render(&stub("radar-chart")).unwrap();
         assert_eq!(looks_like_stub_fingerprint(&html), Some("chart"));
     }
 

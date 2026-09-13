@@ -196,10 +196,10 @@ mod tests {
         assert!(!html.contains("<figure"));
         assert!(!html.contains("<figcaption"));
         let area =
-            crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("area-chart"))
+            crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("radar-chart"))
                 .unwrap();
         assert!(area.contains("<figure"));
-        assert!(area.contains("data-slot=\"area-chart\""));
+        assert!(area.contains("data-slot=\"radar-chart\""));
         assert_ne!(html, area);
     }
 
