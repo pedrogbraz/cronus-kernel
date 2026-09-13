@@ -617,6 +617,33 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   font-weight: 500; font-size: 0.875rem;
   box-shadow: 0 0 0 2px var(--cronus-surface-base);
 }
+
+[data-slot="button-group"] {
+  display: inline-flex;
+}
+[data-slot="button-group"][data-orientation="horizontal"], [data-slot="button-group"]:not([data-orientation]) {
+  flex-direction: row;
+}
+[data-slot="button-group"][data-orientation="horizontal"] > *:not(:first-child),
+[data-slot="button-group"]:not([data-orientation]) > *:not(:first-child) {
+  border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px;
+}
+[data-slot="button-group"][data-orientation="horizontal"] > *:not(:last-child),
+[data-slot="button-group"]:not([data-orientation]) > *:not(:last-child) {
+  border-top-right-radius: 0; border-bottom-right-radius: 0;
+}
+[data-slot="button-group"][data-orientation="vertical"] {
+  flex-direction: column;
+}
+[data-slot="button-group"][data-orientation="vertical"] > *:not(:first-child) {
+  border-top-left-radius: 0; border-top-right-radius: 0; margin-top: -1px;
+}
+[data-slot="button-group"][data-orientation="vertical"] > *:not(:last-child) {
+  border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+}
+[data-slot="button-group"] > *:focus-visible {
+  position: relative; z-index: 10;
+}
 "#;
 
 #[cfg(test)]
