@@ -55,6 +55,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "metric" => Some("cronus_ui_metric::render"),
         "avatar-group" => Some("cronus_ui_avatar_group::render"),
         "button-group" => Some("cronus_ui_button_group::render"),
+        "combobox" => Some("cronus_ui_combobox::render"),
         _ => None,
     }
 }
@@ -152,6 +153,9 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"avatar-group\"")
             && html.contains("width:2.25rem;height:2.25rem;border-radius:999px"))
         || (html.contains("data-slot=\"button-group\"") && html.contains("display:inline-flex;gap:0.25rem"))
+        || html.contains("data-slot=\"combobox-control\"")
+        || html.contains("<label data-slot=\"combobox\"")
+        || (html.contains("data-slot=\"combobox") && html.contains("<select"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -333,6 +337,7 @@ mod tests {
             "src/cronus_ui_pagination.rs",
             "src/cronus_ui_breadcrumb.rs",
             "src/cronus_ui_button_group.rs",
+            "src/cronus_ui_combobox.rs",
             "src/cronus_ui_tooltip.rs",
             "src/cronus_ui_password_input.rs",
             "src/cronus_ui_number_input.rs",

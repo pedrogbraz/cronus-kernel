@@ -694,6 +694,33 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   border-bottom-left-radius: 0; border-bottom-right-radius: 0;
 [data-slot="button-group"] > *:focus-visible {
   position: relative; z-index: 10;
+}
+[data-slot="combobox"] {
+  position: relative; display: flex; flex-direction: column; gap: 0.25rem;
+}
+[data-slot="combobox-trigger"] {
+  display: inline-flex; align-items: center; justify-content: space-between;
+  width: 100%; height: 2.5rem; padding: 0 0.75rem; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: transparent; color: var(--cronus-fg);
+  font-size: 0.875rem; font-weight: 400; font-family: inherit; cursor: pointer;
+}
+[data-slot="combobox-trigger"]:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="combobox-content"] {
+  display: flex; flex-direction: column; min-width: 8rem; padding: 0.25rem;
+  border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-floating, var(--cronus-surface-overlay));
+  color: var(--cronus-fg); box-shadow: var(--cronus-shadow-md, none);
+}
+[data-slot="combobox-item"] {
+  display: flex; align-items: center; width: 100%;
+  padding: 0.4rem 0.75rem; border: 0; border-radius: var(--cronus-radius-sm);
+  background: transparent; color: var(--cronus-fg);
+  font: inherit; text-align: left; cursor: pointer;
+}
+[data-slot="combobox-item"][aria-selected="true"] {
+  background: var(--cronus-surface-overlay);
+}
 "#;
 
 #[cfg(test)]
