@@ -238,11 +238,7 @@ pub fn chart_bars(series: &[f64]) -> Vec<ChartBar> {
         return Vec::new();
     }
     let n = series.len() as f64;
-    let max = series
-        .iter()
-        .cloned()
-        .fold(0.0_f64, f64::max)
-        .max(1.0);
+    let max = series.iter().cloned().fold(0.0_f64, f64::max).max(1.0);
     let inner_w = chart_inner_w();
     let inner_h = chart_inner_h();
     let slot = inner_w / n;
@@ -534,6 +530,87 @@ pub fn funnel_series(comp: &ComponentNode) -> Vec<f64> {
     } else {
         out
     }
+}
+
+/// Default 5 OHLC candles (open, high, low, close). Mix of up/down.
+pub const DEFAULT_CANDLES: [[f64; 4]; 5] = [
+    [20.0, 28.0, 16.0, 24.0],
+    [24.0, 26.0, 18.0, 19.0],
+    [19.0, 30.0, 17.0, 27.0],
+    [27.0, 29.0, 21.0, 22.0],
+    [22.0, 31.0, 20.0, 29.0],
+];
+
+pub struct ChartCandle {
+    pub cx: f64,
+    pub wick_y0: f64,
+    pub wick_y1: f64,
+    pub body_x: f64,
+    pub body_y: f64,
+    pub body_w: f64,
+    pub body_h: f64,
+    pub up: bool,
+}
+
+/// OHLC tuples from items: groups of 4, else closes with synthetic wicks.
+pub fn candle_ohlc(comp: &ComponentNode) -> Vec<[f64; 4]> {
+    let nums = numeric_items(comp);
+    if nums.is_empty() {
+        return DEFAULT_CANDLES.to_vec();
+    }
+    if nums.len() >= 4 && nums.len() % 4 == 0 {
+        return nums.chunks(4).map(|c| [c[0], c[1], c[2], c[3]]).collect();
+    }
+    let mut prev: Option<f64> = None;
+    nums.into_iter()
+        .map(|close| {
+            let open = prev.unwrap_or(close * 0.96);
+            prev = Some(close);
+            let high = open.max(close) * 1.08;
+            let low = open.min(close) * 0.92;
+            [open, high, low, close]
+        })
+        .collect()
+}
+
+/// Rect body + wick in the same 200×100 padded viewBox.
+pub fn chart_candles(ohlc: &[[f64; 4]]) -> Vec<ChartCandle> {
+    if ohlc.is_empty() {
+        return Vec::new();
+    }
+    let mut min = f64::INFINITY;
+    let mut max = f64::NEG_INFINITY;
+    for &[open, high, low, close] in ohlc {
+        min = min.min(low).min(open).min(close);
+        max = max.max(high).max(open).max(close);
+    }
+    let span = (max - min).max(1.0);
+    let n = ohlc.len() as f64;
+    let inner_w = chart_inner_w();
+    let inner_h = chart_inner_h();
+    let slot = inner_w / n;
+    let w = slot * 0.5;
+    let inset = (slot - w) / 2.0;
+    ohlc.iter()
+        .enumerate()
+        .map(|(i, &[open, high, low, close])| {
+            let x = CHART_PAD + slot * i as f64 + inset;
+            let cx = x + w / 2.0;
+            let y_of = |v: f64| CHART_PAD + inner_h * (1.0 - (v - min) / span);
+            let y_open = y_of(open);
+            let y_close = y_of(close);
+            ChartCandle {
+                cx,
+                wick_y0: y_of(high),
+                wick_y1: y_of(low),
+                body_x: x,
+                body_y: y_open.min(y_close),
+                body_w: w,
+                body_h: (y_open - y_close).abs().max(1.0),
+                up: close >= open,
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]

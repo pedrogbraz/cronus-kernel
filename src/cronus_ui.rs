@@ -2373,6 +2373,20 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="funnel-chart"] polygon {
   stroke: var(--cronus-surface-base); stroke-width: 1;
 }
+[data-slot="candlestick-chart"] {
+  display: block; width: 100%; aspect-ratio: 2 / 1;
+}
+[data-slot="candlestick-chart"] svg {
+  display: block; width: 100%; height: 100%;
+}
+[data-slot="candlestick-chart"] rect[fill="var(--cronus-success)"],
+[data-slot="candlestick-chart"] line[stroke="var(--cronus-success)"] {
+  fill: var(--cronus-success); stroke: var(--cronus-success);
+}
+[data-slot="candlestick-chart"] rect[fill="var(--cronus-error)"],
+[data-slot="candlestick-chart"] line[stroke="var(--cronus-error)"] {
+  fill: var(--cronus-error); stroke: var(--cronus-error);
+}
 [data-slot="scroll-progress"] {
   height: 0.25rem; width: 100%; overflow: hidden;
   background: var(--cronus-surface-inset);
