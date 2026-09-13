@@ -274,6 +274,13 @@ textarea[data-slot], [data-slot="textarea"] textarea, [data-slot="rich-text-edit
   transform: translateX(18px);
 }
 
+[data-slot="spinner"] {
+  width: 1.25rem; height: 1.25rem; display: inline-block;
+  color: currentColor; vertical-align: middle;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 [data-slot="card"], [data-slot="glass-card"], [data-slot="spotlight-card"] {
   background: var(--cronus-surface-raised); border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none);
