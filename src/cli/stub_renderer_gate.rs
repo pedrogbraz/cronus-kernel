@@ -109,6 +109,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "alert-dialog" => Some("cronus_ui_alert_dialog::render"),
         "lightbox" => Some("cronus_ui_lightbox::render"),
         "notification-center" => Some("cronus_ui_notification_center::render"),
+        "heatmap" => Some("cronus_ui_heatmap::render"),
         _ => None,
     }
 }
@@ -353,6 +354,9 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"notification-center\"") && html.contains("<details"))
         || (html.contains("data-slot=\"notification-center\"")
             && !html.contains("data-slot=\"notification-row\""))
+        || html.contains("<figure data-slot=\"heatmap\"")
+        || (html.contains("data-slot=\"heatmap\"") && html.contains("<figcaption"))
+        || (html.contains("data-slot=\"heatmap\"") && !html.contains("data-slot=\"heatmap-day\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -546,6 +550,7 @@ mod tests {
             "src/cronus_ui_input_group.rs",
             "src/cronus_ui_input_otp.rs",
             "src/cronus_ui_fab.rs",
+            "src/cronus_ui_heatmap.rs",
             "src/cronus_ui_hover_card.rs",
             "src/cronus_ui_select.rs",
             "src/cronus_ui_dialog.rs",

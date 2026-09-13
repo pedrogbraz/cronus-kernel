@@ -87,6 +87,7 @@ mod cronus_ui_file_dropzone;
 mod cronus_ui_fab;
 mod cronus_ui_floating_label_input;
 mod cronus_ui_form;
+mod cronus_ui_heatmap;
 mod cronus_ui_hover_card;
 mod cronus_ui_input;
 mod cronus_ui_input_group;
