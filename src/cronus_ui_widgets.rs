@@ -336,6 +336,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "candlestick-chart",
     "logo-carousel",
     "dynamic-island",
+    "image-zoom",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -500,6 +501,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "candlestick-chart" => Some(crate::cronus_ui_candlestick_chart::render(comp)),
         "logo-carousel" => Some(crate::cronus_ui_logo_carousel::render(comp)),
         "dynamic-island" => Some(crate::cronus_ui_dynamic_island::render(comp)),
+        "image-zoom" => Some(crate::cronus_ui_image_zoom::render(comp)),
         _ => None,
     }
 }

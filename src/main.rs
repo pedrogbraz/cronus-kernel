@@ -112,6 +112,7 @@ mod cronus_ui_glass_card;
 mod cronus_ui_gradient_text;
 mod cronus_ui_heatmap;
 mod cronus_ui_hover_card;
+mod cronus_ui_image_zoom;
 mod cronus_ui_input;
 mod cronus_ui_input_group;
 mod cronus_ui_input_otp;
