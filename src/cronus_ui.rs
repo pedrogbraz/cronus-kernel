@@ -1352,6 +1352,49 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="workspace-switcher-item"] {
   border-radius: var(--cronus-radius-md); padding: 0.375rem 0.5rem;
   font-size: 0.875rem; cursor: default;
+[data-slot="alert-dialog"] {
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+[data-slot="alert-dialog"] > button {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2.5rem; padding: 0 1rem;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+}
+[data-slot="alert-dialog-content"] {
+  z-index: 50; display: grid; gap: 1rem;
+  width: 100%; max-width: 32rem; box-sizing: border-box;
+  padding: 1.5rem;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-xl);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-lg, none);
+}
+[data-slot="alert-dialog-title"] {
+  font-size: 1.125rem; font-weight: 600; color: var(--cronus-fg);
+  font-family: var(--cronus-font-display, inherit);
+}
+[data-slot="alert-dialog-description"] {
+  font-size: 0.875rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="alert-dialog-cancel"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2.5rem; padding: 0 1rem;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-lg);
+  background: transparent; color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+}
+[data-slot="alert-dialog-action"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2.5rem; padding: 0 1rem;
+  border: 1px solid transparent;
+  border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+}
 "#;
 
 #[cfg(test)]

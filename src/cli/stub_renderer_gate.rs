@@ -100,6 +100,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "pill-nav" => Some("cronus_ui_pill_nav::render"),
         "dock" => Some("cronus_ui_dock::render"),
         "workspace-switcher" => Some("cronus_ui_workspace_switcher::render"),
+        "alert-dialog" => Some("cronus_ui_alert_dialog::render"),
         _ => None,
     }
 }
@@ -307,6 +308,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && !html.contains("data-slot=\"workspace-switcher-content\""))
         || (html.contains("data-slot=\"workspace-switcher\"") && html.contains("<details"))
         || (html.contains("data-slot=\"workspace-switcher\"") && html.contains("flex-wrap:wrap"))
+        || (html.contains("data-slot=\"alert-dialog")
+            && (html.contains("<dialog") || html.contains("showModal()")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -453,6 +456,7 @@ mod tests {
             "src/cronus_ui.rs",
             "src/cronus_ui_widgets.rs",
             "src/cronus_ui_alert.rs",
+            "src/cronus_ui_alert_dialog.rs",
             "src/cronus_ui_autocomplete.rs",
             "src/cronus_ui_badge.rs",
             "src/cronus_ui_banner.rs",
