@@ -183,7 +183,7 @@ pub const FAMILIES: &[&str] = &[
 
 /// Families with a dedicated CONTRACT renderer. Interact and stub arms must
 /// not run for these (Cronus Audit K13).
-pub const PORTED_FAMILIES: &[&str] = &["button", "badge", "input", "label", "textarea"];
+pub const PORTED_FAMILIES: &[&str] = &["button", "badge", "input", "label", "textarea", "checkbox"];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
     let style = comp.style.as_deref().unwrap_or("");
@@ -202,6 +202,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "input" => Some(crate::cronus_ui_input::render(comp)),
         "label" => Some(crate::cronus_ui_label::render(comp)),
         "textarea" => Some(crate::cronus_ui_textarea::render(comp)),
+        "checkbox" => Some(crate::cronus_ui_checkbox::render(comp)),
         _ => None,
     }
 }
@@ -643,7 +644,7 @@ mod tests {
     #[test]
     fn interactive_families_emit_real_controls() {
         let cases = [
-            ("checkbox", "type=\"checkbox\""),
+            ("checkbox", "role=\"checkbox\""),
             ("switch", "role=\"switch\""),
             ("input", "<input"),
             ("textarea", "<textarea"),
@@ -669,7 +670,7 @@ mod tests {
     #[test]
     fn voodoo_attrs_only_when_runtime_on() {
         crate::voodoo::with_enabled(true, || {
-            let html = render(&stub("checkbox")).unwrap();
+            let html = render(&stub("switch")).unwrap();
             assert!(html.contains("v-data="));
             assert!(html.contains("v-model="));
             let progress = render(&stub("progress")).unwrap();
@@ -678,8 +679,11 @@ mod tests {
             assert!(tabs.contains("role=\"tablist\""));
             assert!(tabs.contains("onclick="), "tabs stay native; v-show + hidden deadlock");
             assert!(!tabs.contains("v-show="));
+            let checkbox = render(&stub("checkbox")).unwrap();
+            assert!(!checkbox.contains("v-data="), "{checkbox}");
+            assert!(!checkbox.contains("v-model="), "{checkbox}");
         });
-        let off = render(&stub("checkbox")).unwrap();
+        let off = render(&stub("switch")).unwrap();
         assert!(!off.contains("v-data="));
         assert!(!off.contains("{ value }"));
     }

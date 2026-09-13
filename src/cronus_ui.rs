@@ -270,6 +270,31 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   line-height: 1; user-select: none;
 }
 
+[data-slot="checkbox"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1rem; height: 1rem; padding: 0; margin: 0; flex-shrink: 0;
+  box-sizing: border-box; font: inherit; cursor: pointer; outline: none;
+  border-radius: var(--cronus-radius-sm); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-primary-foreground);
+  box-shadow: var(--cronus-shadow-xs, none);
+  transition: background 150ms var(--ease-out-quart), border-color 150ms var(--ease-out-quart);
+}
+[data-slot="checkbox"][data-state="checked"] {
+  background: var(--cronus-primary); border-color: var(--cronus-primary);
+  color: var(--cronus-primary-foreground);
+}
+[data-slot="checkbox"][aria-invalid="true"] {
+  border-color: var(--cronus-error);
+}
+[data-slot="checkbox"]:disabled {
+  opacity: 0.5; pointer-events: none;
+}
+[data-slot="checkbox-indicator"] {
+  display: block; width: 0.35rem; height: 0.55rem;
+  border: solid currentColor; border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translateY(-0.0625rem);
+}
+
 [data-slot="card"], [data-slot="glass-card"], [data-slot="spotlight-card"] {
   background: var(--cronus-surface-raised); border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none);
