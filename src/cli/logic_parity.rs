@@ -215,6 +215,24 @@ mod tests {
     }
 
     #[test]
+    fn button_variant_matrix_does_not_require_data_size() {
+        for variant in ["primary", "secondary", "outline", "ghost", "destructive", "link"] {
+            for size in ["sm", "md", "lg", "icon"] {
+                let html = button_ex("Save", variant, size, None, false);
+                let mut expect = LogicExpect {
+                    slot: "button".into(),
+                    tag: Some("button".into()),
+                    ..Default::default()
+                };
+                expect.attrs.insert("data-slot".into(), "button".into());
+                expect.attrs.insert("data-variant".into(), variant.into());
+                let findings = compare_html(&html, &expect);
+                assert!(findings.is_empty(), "{variant}/{size}: {findings:?}");
+            }
+        }
+    }
+
+    #[test]
     fn fixture_json_drops_data_size() {
         let v = serde_json::json!({
             "expect": {
