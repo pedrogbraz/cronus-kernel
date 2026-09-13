@@ -65,6 +65,7 @@ mod cronus_ui_interact;
 mod cronus_ui_kbd;
 mod cronus_ui_kit;
 mod cronus_ui_label;
+mod cronus_ui_metric;
 mod cronus_ui_number_input;
 mod cronus_ui_pagination;
 mod cronus_ui_password_input;

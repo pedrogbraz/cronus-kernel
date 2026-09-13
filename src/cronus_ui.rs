@@ -585,6 +585,19 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   border: 1px solid var(--cronus-border); background: var(--cronus-surface-inset);
   color: var(--cronus-fg); font: inherit;
 }
+
+[data-slot="metric"] {
+  display: flex; flex-direction: column; gap: 0.25rem;
+}
+[data-slot="metric-label"] {
+  font-size: 0.75rem; font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--cronus-fg-tertiary);
+}
+[data-slot="metric-value"] {
+  font-family: var(--cronus-font-display, inherit);
+  font-size: 1.5rem; font-weight: 600; color: var(--cronus-fg);
+  font-variant-numeric: tabular-nums;
+}
 "#;
 
 #[cfg(test)]

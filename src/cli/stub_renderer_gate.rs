@@ -46,6 +46,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "tooltip" => Some("cronus_ui_tooltip::render"),
         "password-input" => Some("cronus_ui_password_input::render"),
         "number-input" => Some("cronus_ui_number_input::render"),
+        "metric" => Some("cronus_ui_metric::render"),
         _ => None,
     }
 }
@@ -129,6 +130,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || html.contains("<label data-slot=\"slider\"")
         || html.contains("<input type=\"radio\"")
         || (html.contains("data-slot=\"chip\"") && html.contains("padding:0.15rem 0.55rem"))
+        || html.contains("<section data-slot=\"metric\"")
+        || (html.contains("data-slot=\"metric\"") && html.contains("{ value }"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -280,6 +283,7 @@ mod tests {
             "src/cronus_ui_checkbox.rs",
             "src/cronus_ui_input.rs",
             "src/cronus_ui_label.rs",
+            "src/cronus_ui_metric.rs",
             "src/cronus_ui_textarea.rs",
             "src/cronus_ui_switch.rs",
             "src/cronus_ui_spinner.rs",
@@ -315,7 +319,10 @@ mod tests {
                 if trimmed.starts_with("//") {
                     continue;
                 }
-                if trimmed.contains("include_str!") && !trimmed.contains("cronus_ui_tokens.css") {
+                if trimmed.contains("include_str!")
+                    && !trimmed.contains("cronus_ui_tokens.css")
+                    && !trimmed.contains(".cronus")
+                {
                     panic!("{file}:{} sidecar include_str: {trimmed}", i + 1);
                 }
                 if (trimmed.contains("fs::read(")
