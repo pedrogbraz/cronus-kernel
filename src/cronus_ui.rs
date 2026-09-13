@@ -2790,6 +2790,12 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="json-viewer-value"] {
   color: var(--cronus-fg); word-break: break-all;
 }
+[data-slot="animated-number"] {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  color: var(--cronus-fg);
+  font-family: var(--cronus-font-display, inherit);
+}
 "#;
 
 #[cfg(test)]

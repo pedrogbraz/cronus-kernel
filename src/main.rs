@@ -51,6 +51,7 @@ mod cronus_ui;
 mod cronus_ui_accordion;
 mod cronus_ui_alert;
 mod cronus_ui_animated_list;
+mod cronus_ui_animated_number;
 mod cronus_ui_app_shell;
 mod cronus_ui_alert_dialog;
 mod cronus_ui_autocomplete;
