@@ -248,6 +248,11 @@ textarea[data-slot], [data-slot="textarea"] textarea, [data-slot="rich-text-edit
   color: var(--cronus-info-text); border-color: transparent;
 }
 
+[data-slot="label"] {
+  font-size: 0.875rem; font-weight: 500; color: var(--cronus-fg);
+  line-height: 1; user-select: none;
+}
+
 [data-slot="card"], [data-slot="glass-card"], [data-slot="spotlight-card"] {
   background: var(--cronus-surface-raised); border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none);

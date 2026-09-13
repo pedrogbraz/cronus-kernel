@@ -18,6 +18,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "button" => Some("button_from"),
         "badge" => Some("cronus_ui_badge::render"),
         "input" => Some("cronus_ui_input::render"),
+        "label" => Some("cronus_ui_label::render"),
         _ => None,
     }
 }
@@ -236,6 +237,7 @@ mod tests {
             "src/cronus_ui_widgets.rs",
             "src/cronus_ui_badge.rs",
             "src/cronus_ui_input.rs",
+            "src/cronus_ui_label.rs",
             "src/cli/audit_http.rs",
             "src/ui/audit_layout.rs",
         ];
