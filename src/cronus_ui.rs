@@ -2772,6 +2772,24 @@ button:has(+ [data-slot="sheet-content"]) {
   font-size: 0.875rem;
   box-shadow: var(--cronus-shadow-sm, none);
 }
+[data-slot="json-viewer"] {
+  overflow-x: auto;
+  border-radius: var(--cronus-radius-xl);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset);
+  padding: 1rem;
+  font-family: var(--cronus-font-mono, ui-monospace, monospace);
+  font-size: 0.875rem; line-height: 1.625;
+  color: var(--cronus-fg);
+}
+[data-slot="json-viewer-row"] {
+  display: flex; align-items: flex-start; gap: 0.25rem;
+  min-width: 0;
+}
+[data-slot="json-viewer-key"] { color: var(--cronus-fg-secondary); }
+[data-slot="json-viewer-value"] {
+  color: var(--cronus-fg); word-break: break-all;
+}
 "#;
 
 #[cfg(test)]

@@ -146,6 +146,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "animated-list" => Some("cronus_ui_animated_list::render"),
         "toast" => Some("cronus_ui_toast::render"),
         "kanban" => Some("cronus_ui_kanban::render"),
+        "json-viewer" => Some("cronus_ui_json_viewer::render"),
         _ => None,
     }
 }
@@ -514,6 +515,13 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && (!html.contains("data-slot=\"kanban-column\"")
                 || !html.contains("data-slot=\"kanban-card\"")))
         || (html.contains("data-slot=\"kanban\"") && html.contains("style="))
+        || html.contains("<pre data-slot=\"json-viewer\"")
+        || html.contains("<section data-slot=\"json-viewer\"")
+        || (html.contains("data-slot=\"json-viewer\"")
+            && (!html.contains("data-slot=\"json-viewer-row\"")
+                || !html.contains("data-slot=\"json-viewer-key\"")
+                || !html.contains("data-slot=\"json-viewer-value\"")))
+        || (html.contains("data-slot=\"json-viewer\"") && html.contains("style="))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -704,6 +712,7 @@ mod tests {
             "src/cronus_ui_animated_list.rs",
             "src/cronus_ui_toast.rs",
             "src/cronus_ui_kanban.rs",
+            "src/cronus_ui_json_viewer.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",

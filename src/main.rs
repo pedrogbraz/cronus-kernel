@@ -102,6 +102,7 @@ mod cronus_ui_input_group;
 mod cronus_ui_input_otp;
 mod cronus_ui_invite_dialog;
 mod cronus_ui_interact;
+mod cronus_ui_json_viewer;
 mod cronus_ui_kanban;
 mod cronus_ui_kbd;
 mod cronus_ui_kit;

@@ -317,6 +317,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "animated-list",
     "toast",
     "kanban",
+    "json-viewer",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -462,6 +463,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "animated-list" => Some(crate::cronus_ui_animated_list::render(comp)),
         "toast" => Some(crate::cronus_ui_toast::render(comp)),
         "kanban" => Some(crate::cronus_ui_kanban::render(comp)),
+        "json-viewer" => Some(crate::cronus_ui_json_viewer::render(comp)),
         _ => None,
     }
 }
