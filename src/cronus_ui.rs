@@ -1215,6 +1215,28 @@ button:has(+ [data-slot="sheet-content"]) {
   background: var(--cronus-fg-muted);
 [data-slot="status-dot-label"] {
   font-size: 0.875rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="pill-nav"] {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  border-radius: 9999px;
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+  padding: 0.25rem;
+}
+[data-slot="pill-nav-item"] {
+  position: relative; z-index: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 9999px;
+  padding: 0.375rem 0.875rem;
+  background: transparent; color: var(--cronus-fg-secondary);
+  font: inherit; font-size: 0.875rem; font-weight: 500;
+  text-decoration: none; cursor: pointer;
+}
+[data-slot="pill-nav-item"][aria-current="page"] {
+  color: var(--cronus-fg);
+  background: var(--cronus-surface-floating);
+  box-shadow: var(--cronus-shadow-xs, none);
+}
 "#;
 
 #[cfg(test)]

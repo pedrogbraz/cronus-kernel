@@ -99,6 +99,7 @@ mod cronus_ui_popover;
 mod cronus_ui_password_input;
 mod cronus_ui_phone_input;
 mod cronus_ui_pie_chart;
+mod cronus_ui_pill_nav;
 mod cronus_ui_progress;
 mod cronus_ui_radar_chart;
 mod cronus_ui_radio_group;

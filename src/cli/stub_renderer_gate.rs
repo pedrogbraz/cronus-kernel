@@ -91,6 +91,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "scroll-area" => Some("cronus_ui_scroll_area::render"),
         "toolbar" => Some("cronus_ui_toolbar::render"),
         "status-dot" => Some("cronus_ui_status_dot::render"),
+        "pill-nav" => Some("cronus_ui_pill_nav::render"),
         _ => None,
     }
 }
@@ -272,6 +273,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && (html.contains("padding:0.15rem 0.55rem")
                 || !html.contains("data-slot=\"status-dot-indicator\"")
                 || !html.contains("data-slot=\"status-dot-label\"")))
+        || (html.contains("data-slot=\"pill-nav\"") && !html.contains("data-slot=\"pill-nav-item\""))
+        || (html.contains("data-slot=\"pill-nav\"") && html.contains("flex-wrap:wrap"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -488,6 +491,7 @@ mod tests {
             "src/cronus_ui_line_chart.rs",
             "src/cronus_ui_sparkline.rs",
             "src/cronus_ui_pie_chart.rs",
+            "src/cronus_ui_pill_nav.rs",
             "src/cronus_ui_radar_chart.rs",
             "src/cronus_ui_scatter_chart.rs",
             "src/cronus_ui_ring_chart.rs",
