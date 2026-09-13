@@ -52,6 +52,7 @@ mod cronus_ui_badge;
 mod cronus_ui_data;
 mod cronus_ui_input;
 mod cronus_ui_interact;
+mod cronus_ui_switch;
 mod cronus_ui_widgets;
 mod voodoo;
 mod navigation;

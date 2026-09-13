@@ -18,6 +18,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "button" => Some("button_from"),
         "badge" => Some("cronus_ui_badge::render"),
         "input" => Some("cronus_ui_input::render"),
+        "switch" => Some("cronus_ui_switch::render"),
         _ => None,
     }
 }
@@ -89,6 +90,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
     html.contains("data-slot=\"input-control\"")
         || html.contains("<label data-slot=\"input\"")
         || html.contains("height:2.5rem;padding:0 0.75rem;border-radius:0.5rem;border:1px solid var(--cronus-border);background:var(--cronus-surface-inset")
+        || html.contains("data-slot=\"switch-control\"")
+        || html.contains("<label data-slot=\"switch\"")
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -236,6 +239,7 @@ mod tests {
             "src/cronus_ui_widgets.rs",
             "src/cronus_ui_badge.rs",
             "src/cronus_ui_input.rs",
+            "src/cronus_ui_switch.rs",
             "src/cli/audit_http.rs",
             "src/ui/audit_layout.rs",
         ];
