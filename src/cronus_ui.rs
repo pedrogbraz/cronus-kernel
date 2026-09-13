@@ -851,7 +851,7 @@ dialog[data-slot="dialog-content"]::backdrop {
   font-size: 0.875rem; font-weight: 500;
 }
 
-[data-slot="card"], [data-slot="glass-card"], [data-slot="spotlight-card"] {
+[data-slot="card"], [data-slot="spotlight-card"] {
   background: var(--cronus-surface-raised); border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none);
 }
@@ -2652,6 +2652,26 @@ button:has(+ [data-slot="sheet-content"]) {
 @keyframes cui-star-border {
   from { offset-distance: 0%; }
   to { offset-distance: 100%; }
+}
+[data-slot="glass-card"] {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--cronus-radius-xl);
+  border: 1px solid var(--cronus-border);
+  background: color-mix(in oklch, var(--cronus-surface-raised) 60%, transparent);
+  padding: 1.5rem;
+  color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-lg, none);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+[data-slot="glass-card"]::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset-inline: 0; top: 0; height: 1px;
+  border-radius: inherit;
+  background: linear-gradient(to right, transparent, var(--cronus-border), transparent);
 }
 "#;
 
