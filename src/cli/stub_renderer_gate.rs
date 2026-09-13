@@ -57,6 +57,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "button-group" => Some("cronus_ui_button_group::render"),
         "combobox" => Some("cronus_ui_combobox::render"),
         "stepper" => Some("cronus_ui_stepper::render"),
+        "input-otp" => Some("cronus_ui_input_otp::render"),
         _ => None,
     }
 }
@@ -160,6 +161,10 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"stepper\"") && html.contains("<ol"))
         || html.contains("<nav data-slot=\"stepper\"")
         || (html.contains("data-slot=\"stepper\"") && html.contains("style="))
+        || html.contains("<fieldset data-slot=\"input-otp\"")
+        || html.contains("data-slot=\"input-otp-control\"")
+        || (html.contains("data-slot=\"input-otp\"") && html.contains("style="))
+        || html.contains("width:2.5rem;text-align:center;font-variant-numeric:tabular-nums")
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -332,6 +337,7 @@ mod tests {
             "src/cronus_ui_empty.rs",
             "src/cronus_ui_field.rs",
             "src/cronus_ui_input_group.rs",
+            "src/cronus_ui_input_otp.rs",
             "src/cronus_ui_fab.rs",
             "src/cronus_ui_select.rs",
             "src/cronus_ui_dialog.rs",

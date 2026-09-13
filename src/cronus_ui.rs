@@ -747,6 +747,30 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
 [data-slot="stepper-item"][data-state="upcoming"] [data-slot="stepper-title"] {
   color: var(--cronus-fg-tertiary);
 }
+[data-slot="input-otp"] {
+  display: flex; align-items: center; gap: 0.5rem;
+}
+[data-slot="input-otp-group"] {
+  display: flex; align-items: center;
+}
+[data-slot="input-otp-slot"] {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  height: 2.5rem; width: 2.5rem; box-sizing: border-box;
+  border-top: 1px solid var(--cronus-border);
+  border-right: 1px solid var(--cronus-border);
+  border-bottom: 1px solid var(--cronus-border);
+  font-size: 0.875rem; color: var(--cronus-fg);
+  font-variant-numeric: tabular-nums;
+}
+[data-slot="input-otp-slot"]:first-child {
+  border-left: 1px solid var(--cronus-border);
+  border-top-left-radius: var(--cronus-radius-lg);
+  border-bottom-left-radius: var(--cronus-radius-lg);
+}
+[data-slot="input-otp-slot"]:last-child {
+  border-top-right-radius: var(--cronus-radius-lg);
+  border-bottom-right-radius: var(--cronus-radius-lg);
+}
 "#;
 
 #[cfg(test)]

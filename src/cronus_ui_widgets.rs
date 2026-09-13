@@ -226,6 +226,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "button-group",
     "combobox",
     "stepper",
+    "input-otp",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -282,6 +283,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "button-group" => Some(crate::cronus_ui_button_group::render(comp)),
         "combobox" => Some(crate::cronus_ui_combobox::render(comp)),
         "stepper" => Some(crate::cronus_ui_stepper::render(comp)),
+        "input-otp" => Some(crate::cronus_ui_input_otp::render(comp)),
         _ => None,
     }
 }
