@@ -1511,6 +1511,12 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="usage-meter-fill"] {
   height: 0.5rem; border-radius: 9999px;
   background: var(--cronus-primary);
+[data-slot="masonry"] {
+  column-count: 3; column-gap: 1rem;
+[data-slot="masonry-cell"] {
+  break-inside: avoid; margin-bottom: 1rem;
+  display: block; box-sizing: border-box;
+  color: var(--cronus-fg); font-size: 0.875rem;
 "#;
 
 #[cfg(test)]
