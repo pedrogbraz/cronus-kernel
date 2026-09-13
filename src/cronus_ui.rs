@@ -387,6 +387,26 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   background: var(--cronus-surface-raised); border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none);
 }
+[data-slot="card"] {
+  display: flex; flex-direction: column; gap: 1.5rem;
+  padding-top: 1.5rem; padding-bottom: 1.5rem; color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-sm, var(--cronus-shadow-xs, none));
+}
+[data-slot="card-header"] {
+  display: grid; min-width: 0; grid-auto-rows: min-content;
+  grid-template-columns: minmax(0, 1fr) auto; align-items: start;
+  gap: 0.375rem; padding-left: 1.5rem; padding-right: 1.5rem;
+}
+[data-slot="card-title"] {
+  min-width: 0; font-weight: 500; line-height: 1; color: var(--cronus-fg);
+}
+[data-slot="card-description"] {
+  grid-column: 1 / -1; font-size: 0.875rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="card-content"] {
+  min-width: 0; padding-left: 1.5rem; padding-right: 1.5rem;
+  font-size: 0.875rem; color: var(--cronus-fg-secondary);
+}
 
 [data-slot="alert"] {
   border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
