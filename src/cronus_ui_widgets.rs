@@ -248,6 +248,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "sparkline",
     "pie-chart",
     "data-table",
+    "sidebar",
+    "sonner",
+    "navigation-menu",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -326,6 +329,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "sparkline" => Some(crate::cronus_ui_sparkline::render(comp)),
         "pie-chart" => Some(crate::cronus_ui_pie_chart::render(comp)),
         "data-table" => Some(crate::cronus_ui_data_table::render(comp)),
+        "sidebar" => Some(crate::cronus_ui_sidebar::render(comp)),
+        "sonner" => Some(crate::cronus_ui_sonner::render(comp)),
+        "navigation-menu" => Some(crate::cronus_ui_navigation_menu::render(comp)),
         _ => None,
     }
 }

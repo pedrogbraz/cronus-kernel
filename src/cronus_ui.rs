@@ -1026,6 +1026,57 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="data-table"] {
   display: flex; flex-direction: column; gap: 0.75rem;
   overflow: auto; color: var(--cronus-fg);
+[data-slot="sidebar"] {
+  display: flex; flex-direction: column;
+  width: 16rem; min-height: 100%; box-sizing: border-box;
+  background: var(--cronus-surface-base); color: var(--cronus-fg);
+  border-right: 1px solid var(--cronus-border);
+[data-slot="sidebar-content"] {
+  display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 0.5rem;
+[data-slot="sidebar-menu"] {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 0.25rem;
+[data-slot="sidebar-menu-item"] { position: relative; }
+[data-slot="sidebar-menu-button"] {
+  display: flex; align-items: center; gap: 0.5rem;
+  width: 100%; box-sizing: border-box;
+  height: 2rem; padding: 0 0.5rem;
+  border-radius: var(--cronus-radius-md);
+  color: var(--cronus-fg-secondary); text-decoration: none;
+  font-size: 0.875rem;
+[data-slot="sidebar-menu-button"]:hover {
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+[data-slot="sonner"] {
+  position: fixed; z-index: 50; inset: auto 1rem 1rem auto;
+  width: 22rem; max-width: calc(100% - 2rem);
+[data-slot="toaster"] {
+  display: flex; flex-direction: column; gap: 0.5rem;
+[data-slot="toast"] {
+  padding: 0.75rem 1rem; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  font-size: 0.875rem; box-shadow: var(--cronus-shadow-lg, none);
+[data-slot="navigation-menu"] {
+  position: relative; z-index: 10;
+  display: flex; max-width: max-content; flex: 1;
+  align-items: center; justify-content: center;
+[data-slot="navigation-menu-list"] {
+  display: flex; flex: 1; align-items: center; justify-content: center; gap: 0.25rem;
+[data-slot="navigation-menu-item"] { position: relative; }
+[data-slot="navigation-menu-trigger"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2.25rem; padding: 0 1rem;
+  border: 0; border-radius: var(--cronus-radius-lg);
+  background: transparent; color: var(--cronus-fg-secondary);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+[data-slot="navigation-menu-trigger"][data-state="open"],
+[data-slot="navigation-menu-trigger"]:hover {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+[data-slot="navigation-menu-content"] {
+  position: absolute; left: 0; top: 100%;
+  min-width: 12rem; margin-top: 0.35rem; padding: 0.25rem;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
 }
 "#;
 
