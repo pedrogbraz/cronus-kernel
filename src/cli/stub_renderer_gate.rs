@@ -28,6 +28,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "toggle" => Some("cronus_ui_toggle::render"),
         "progress" => Some("cronus_ui_progress::render"),
         "alert" => Some("cronus_ui_alert::render"),
+        "skeleton" => Some("cronus_ui_skeleton::render"),
         _ => None,
     }
 }
@@ -105,6 +106,7 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || html.contains("<hr data-slot=\"separator\"")
         || (html.contains("data-slot=\"alert\"") && !html.contains("data-slot=\"alert-title\""))
         || html.contains("padding:0.85rem 1rem;display:flex;flex-direction:column;gap:0.25rem;font-size:0.875rem;")
+        || html.contains("height:0.9rem;width:8rem;")
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -259,6 +261,7 @@ mod tests {
             "src/cronus_ui_switch.rs",
             "src/cronus_ui_spinner.rs",
             "src/cronus_ui_separator.rs",
+            "src/cronus_ui_skeleton.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_progress.rs",

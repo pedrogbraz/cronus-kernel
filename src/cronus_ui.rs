@@ -368,6 +368,14 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   transition: transform 300ms var(--ease-out-quart);
 }
 
+[data-slot="skeleton"] {
+  display: block; height: 0.9rem; width: 8rem;
+  border-radius: var(--cronus-radius-md);
+  background: var(--cronus-surface-overlay);
+  animation: cui-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes cui-pulse { 50% { opacity: 0.5; } }
+
 [data-slot="card"], [data-slot="glass-card"], [data-slot="spotlight-card"] {
   background: var(--cronus-surface-raised); border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none);

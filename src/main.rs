@@ -58,6 +58,7 @@ mod cronus_ui_kbd;
 mod cronus_ui_label;
 mod cronus_ui_progress;
 mod cronus_ui_separator;
+mod cronus_ui_skeleton;
 mod cronus_ui_spinner;
 mod cronus_ui_switch;
 mod cronus_ui_textarea;
