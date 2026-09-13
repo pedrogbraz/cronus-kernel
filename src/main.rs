@@ -96,6 +96,7 @@ mod cronus_ui_dialog;
 mod cronus_ui_dock;
 mod cronus_ui_drawer;
 mod cronus_ui_dropdown_menu;
+mod cronus_ui_dynamic_island;
 mod cronus_ui_empty;
 mod cronus_ui_expandable_tabs;
 mod cronus_ui_field;

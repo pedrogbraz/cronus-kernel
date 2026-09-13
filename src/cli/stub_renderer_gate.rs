@@ -164,6 +164,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "funnel-chart" => Some("cronus_ui_funnel_chart::render"),
         "candlestick-chart" => Some("cronus_ui_candlestick_chart::render"),
         "logo-carousel" => Some("cronus_ui_logo_carousel::render"),
+        "dynamic-island" => Some("cronus_ui_dynamic_island::render"),
         _ => None,
     }
 }
@@ -610,6 +611,10 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || html.contains("style=")
                 || !html.contains("data-slot=\"logo-carousel-item\"")
                 || !html.contains("<ul")))
+        || (html.contains("data-slot=\"dynamic-island\"")
+            && (!html.contains("data-slot=\"dynamic-island-shell\"")
+                || !html.contains("data-slot=\"dynamic-island-trigger\"")
+                || html.contains("style=")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -855,6 +860,7 @@ mod tests {
             "src/cronus_ui_dock.rs",
             "src/cronus_ui_drawer.rs",
             "src/cronus_ui_dropdown_menu.rs",
+            "src/cronus_ui_dynamic_island.rs",
             "src/cronus_ui_tabs.rs",
             "src/cronus_ui_accordion.rs",
             "src/cronus_ui_bouncy_accordion.rs",
