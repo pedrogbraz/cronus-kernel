@@ -47,6 +47,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "password-input" => Some("cronus_ui_password_input::render"),
         "number-input" => Some("cronus_ui_number_input::render"),
         "field" => Some("cronus_ui_field::render"),
+        "input-group" => Some("cronus_ui_input_group::render"),
         _ => None,
     }
 }
@@ -132,6 +133,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"chip\"") && html.contains("padding:0.15rem 0.55rem"))
         || html.contains("<form data-slot=\"field\"")
         || (html.contains("data-slot=\"field\"") && !html.contains("data-slot=\"field-label\""))
+        || html.contains("data-slot=\"input-group-control\"")
+        || html.contains("<label data-slot=\"input-group\"")
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -298,6 +301,7 @@ mod tests {
             "src/cronus_ui_card.rs",
             "src/cronus_ui_empty.rs",
             "src/cronus_ui_field.rs",
+            "src/cronus_ui_input_group.rs",
             "src/cronus_ui_select.rs",
             "src/cronus_ui_dialog.rs",
             "src/cronus_ui_tabs.rs",
