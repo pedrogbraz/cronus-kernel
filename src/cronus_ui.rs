@@ -600,6 +600,23 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
 [data-slot="copy-button"]:active { transform: scale(0.98); }
 [data-slot="copy-button"]:hover { background: var(--cronus-surface-overlay); color: var(--cronus-fg); }
 [data-slot="copy-button"]:disabled { opacity: 0.5; pointer-events: none; }
+
+[data-slot="fab"] {
+  position: relative; display: inline-flex;
+}
+[data-slot="fab-button"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 3.5rem; height: 3.5rem; padding: 0; margin: 0;
+  border: 0; border-radius: 9999px;
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+  box-shadow: var(--cronus-shadow-md, 0 4px 6px rgba(0,0,0,.2));
+  cursor: pointer; outline: none; font: inherit;
+  transition: transform 150ms var(--ease-out-quart), box-shadow 150ms var(--ease-out-quart),
+    opacity 150ms var(--ease-out-quart);
+}
+[data-slot="fab-button"]:hover { opacity: 0.9; }
+[data-slot="fab-button"]:active { transform: scale(0.95); }
+[data-slot="fab-button"]:disabled { opacity: 0.5; pointer-events: none; }
 "#;
 
 #[cfg(test)]

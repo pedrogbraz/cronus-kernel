@@ -216,6 +216,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "password-input",
     "number-input",
     "copy-button",
+    "fab",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -262,6 +263,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "password-input" => Some(crate::cronus_ui_password_input::render(comp)),
         "number-input" => Some(crate::cronus_ui_number_input::render(comp)),
         "copy-button" => Some(crate::cronus_ui_copy_button::render(comp)),
+        "fab" => Some(crate::cronus_ui_fab::render(comp)),
         _ => None,
     }
 }
