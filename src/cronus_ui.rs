@@ -2498,6 +2498,20 @@ button:has(+ [data-slot="sheet-content"]) {
   min-width: 0; padding-top: 0.125rem;
   font-size: 0.875rem; color: var(--cronus-fg);
 }
+[data-slot="tree-view"] {
+  display: flex; flex-direction: column; width: 100%; min-width: 0;
+  font-size: 0.875rem; color: var(--cronus-fg); user-select: none;
+}
+[data-slot="tree-view-item"] { min-width: 0; }
+[data-slot="tree-view-item-trigger"] {
+  display: flex; align-items: center; gap: 0.375rem;
+  height: 2rem; padding: 0 0.5rem;
+  border-radius: var(--cronus-radius-md);
+  color: var(--cronus-fg-secondary);
+}
+[data-slot="tree-view-item-trigger"]:hover {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
 "#;
 
 #[cfg(test)]
