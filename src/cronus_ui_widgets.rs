@@ -183,7 +183,7 @@ pub const FAMILIES: &[&str] = &[
 
 /// Families with a dedicated CONTRACT renderer. Interact and stub arms must
 /// not run for these (Cronus Audit K13).
-pub const PORTED_FAMILIES: &[&str] = &["button", "badge", "input", "kbd", "toggle"];
+pub const PORTED_FAMILIES: &[&str] = &["button", "badge", "input", "kbd", "toggle", "progress"];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
     let style = comp.style.as_deref().unwrap_or("");
@@ -202,6 +202,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "input" => Some(crate::cronus_ui_input::render(comp)),
         "kbd" => Some(crate::cronus_ui_kbd::render(comp)),
         "toggle" => Some(crate::cronus_ui_toggle::render(comp)),
+        "progress" => Some(crate::cronus_ui_progress::render(comp)),
         _ => None,
     }
 }
@@ -652,7 +653,7 @@ mod tests {
             ("accordion", "<details"),
             ("tabs", "role=\"tablist\""),
             ("table", "<table"),
-            ("progress", "<progress"),
+            ("progress", "role=\"progressbar\""),
             ("slider", "type=\"range\""),
             ("radio-group", "role=\"radiogroup\""),
         ];
@@ -672,8 +673,8 @@ mod tests {
             let html = render(&stub("checkbox")).unwrap();
             assert!(html.contains("v-data="));
             assert!(html.contains("v-model="));
-            let progress = render(&stub("progress")).unwrap();
-            assert!(progress.contains("{ value }") || progress.contains("v-data="));
+            let meter = render(&stub("usage-meter")).unwrap();
+            assert!(meter.contains("{ value }") || meter.contains("v-data="));
             let tabs = render(&stub("tabs")).unwrap();
             assert!(tabs.contains("role=\"tablist\""));
             assert!(tabs.contains("onclick="), "tabs stay native; v-show + hidden deadlock");

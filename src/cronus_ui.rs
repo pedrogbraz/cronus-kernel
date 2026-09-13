@@ -269,6 +269,15 @@ textarea[data-slot], [data-slot="textarea"] textarea, [data-slot="rich-text-edit
   background: var(--cronus-surface-overlay); color: var(--cronus-fg);
 }
 
+[data-slot="progress"] {
+  position: relative; height: 0.5rem; width: 100%; overflow: hidden;
+  border-radius: 9999px; background: var(--cronus-surface-overlay);
+}
+[data-slot="progress-indicator"] {
+  height: 100%; width: 100%; flex: 1; background: var(--cronus-primary);
+  transition: transform 300ms var(--ease-out-quart);
+}
+
 [data-slot="card"], [data-slot="glass-card"], [data-slot="spotlight-card"] {
   background: var(--cronus-surface-raised); border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none);
