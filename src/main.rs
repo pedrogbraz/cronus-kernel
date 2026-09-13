@@ -74,6 +74,7 @@ mod cronus_ui_data_table;
 mod cronus_ui_date_picker;
 mod cronus_ui_date_range_picker;
 mod cronus_ui_dialog;
+mod cronus_ui_dock;
 mod cronus_ui_drawer;
 mod cronus_ui_dropdown_menu;
 mod cronus_ui_empty;

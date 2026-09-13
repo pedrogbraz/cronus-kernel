@@ -1237,6 +1237,20 @@ button:has(+ [data-slot="sheet-content"]) {
   background: var(--cronus-surface-floating);
   box-shadow: var(--cronus-shadow-xs, none);
 }
+[data-slot="dock"] {
+  display: inline-flex; align-items: flex-end; gap: 0.5rem;
+  border-radius: var(--cronus-radius-xl);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised); color: var(--cronus-fg);
+  padding: 0.5rem 0.75rem;
+}
+[data-slot="dock-item"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2.75rem; height: 2.75rem;
+  border: 0; border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+  font: inherit; cursor: pointer; text-decoration: none;
+}
 "#;
 
 #[cfg(test)]

@@ -92,6 +92,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "toolbar" => Some("cronus_ui_toolbar::render"),
         "status-dot" => Some("cronus_ui_status_dot::render"),
         "pill-nav" => Some("cronus_ui_pill_nav::render"),
+        "dock" => Some("cronus_ui_dock::render"),
         _ => None,
     }
 }
@@ -275,6 +276,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || !html.contains("data-slot=\"status-dot-label\"")))
         || (html.contains("data-slot=\"pill-nav\"") && !html.contains("data-slot=\"pill-nav-item\""))
         || (html.contains("data-slot=\"pill-nav\"") && html.contains("flex-wrap:wrap"))
+        || (html.contains("data-slot=\"dock\"") && !html.contains("data-slot=\"dock-item\""))
+        || (html.contains("data-slot=\"dock\"") && html.contains("flex-wrap:wrap"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -460,6 +463,7 @@ mod tests {
             "src/cronus_ui_hover_card.rs",
             "src/cronus_ui_select.rs",
             "src/cronus_ui_dialog.rs",
+            "src/cronus_ui_dock.rs",
             "src/cronus_ui_drawer.rs",
             "src/cronus_ui_dropdown_menu.rs",
             "src/cronus_ui_tabs.rs",
