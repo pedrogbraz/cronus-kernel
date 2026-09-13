@@ -27,6 +27,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "kbd" => Some("cronus_ui_kbd::render"),
         "toggle" => Some("cronus_ui_toggle::render"),
         "progress" => Some("cronus_ui_progress::render"),
+        "slider" => Some("cronus_ui_slider::render"),
         _ => None,
     }
 }
@@ -102,6 +103,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || html.contains("<label data-slot=\"switch\"")
         || (html.contains("data-slot=\"spinner\"") && html.contains("border-top-color"))
         || html.contains("<hr data-slot=\"separator\"")
+        || html.contains("data-slot=\"slider-control\"")
+        || html.contains("<label data-slot=\"slider\"")
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -258,6 +261,7 @@ mod tests {
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_progress.rs",
+            "src/cronus_ui_slider.rs",
             "src/cli/audit_http.rs",
             "src/ui/audit_layout.rs",
         ];

@@ -196,6 +196,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "kbd",
     "toggle",
     "progress",
+    "slider",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -222,6 +223,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "kbd" => Some(crate::cronus_ui_kbd::render(comp)),
         "toggle" => Some(crate::cronus_ui_toggle::render(comp)),
         "progress" => Some(crate::cronus_ui_progress::render(comp)),
+        "slider" => Some(crate::cronus_ui_slider::render(comp)),
         _ => None,
     }
 }
@@ -673,7 +675,7 @@ mod tests {
             ("tabs", "role=\"tablist\""),
             ("table", "<table"),
             ("progress", "role=\"progressbar\""),
-            ("slider", "type=\"range\""),
+            ("slider", "role=\"slider\""),
             ("radio-group", "role=\"radiogroup\""),
         ];
         for (family, needle) in cases {
@@ -689,7 +691,7 @@ mod tests {
     #[test]
     fn voodoo_attrs_only_when_runtime_on() {
         crate::voodoo::with_enabled(true, || {
-            let html = render(&stub("slider")).unwrap();
+            let html = render(&stub("select")).unwrap();
             assert!(html.contains("v-data="));
             assert!(html.contains("v-model="));
             let meter = render(&stub("usage-meter")).unwrap();
@@ -702,7 +704,7 @@ mod tests {
             assert!(!checkbox.contains("v-data="), "{checkbox}");
             assert!(!checkbox.contains("v-model="), "{checkbox}");
         });
-        let off = render(&stub("slider")).unwrap();
+        let off = render(&stub("select")).unwrap();
         assert!(!off.contains("v-data="));
         assert!(!off.contains("{ value }"));
     }
