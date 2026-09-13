@@ -94,6 +94,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "tags-input" => Some("cronus_ui_tags_input::render"),
         "autocomplete" => Some("cronus_ui_autocomplete::render"),
         "multi-select" => Some("cronus_ui_multi_select::render"),
+        "credit-card-input" => Some("cronus_ui_credit_card_input::render"),
+        "floating-label-input" => Some("cronus_ui_floating_label_input::render"),
+        "split-button" => Some("cronus_ui_split_button::render"),
         _ => None,
     }
 }
@@ -284,6 +287,14 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || html.contains("data-slot=\"multi-select-control\"")
         || html.contains("<label data-slot=\"multi-select\"")
         || (html.contains("data-slot=\"multi-select") && html.contains("<select"))
+        || html.contains("data-slot=\"credit-card-input-control\"")
+        || html.contains("<label data-slot=\"credit-card-input\"")
+        || html.contains("data-slot=\"floating-label-input-control\"")
+        || html.contains("<label data-slot=\"floating-label-input\" style=")
+        || (html.contains("data-slot=\"split-button\"")
+            && html.contains("display:inline-flex;gap:0.25rem"))
+        || (html.contains("data-slot=\"split-button\"") && html.contains("style="))
+        || (html.contains("data-slot=\"split-button\"") && !html.contains("role=\"group\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -435,6 +446,7 @@ mod tests {
             "src/cronus_ui_banner.rs",
             "src/cronus_ui_checkbox.rs",
             "src/cronus_ui_copy_button.rs",
+            "src/cronus_ui_credit_card_input.rs",
             "src/cronus_ui_input.rs",
             "src/cronus_ui_label.rs",
             "src/cronus_ui_metric.rs",
@@ -443,6 +455,7 @@ mod tests {
             "src/cronus_ui_textarea.rs",
             "src/cronus_ui_switch.rs",
             "src/cronus_ui_spinner.rs",
+            "src/cronus_ui_split_button.rs",
             "src/cronus_ui_separator.rs",
             "src/cronus_ui_sheet.rs",
             "src/cronus_ui_sidebar.rs",
@@ -465,6 +478,7 @@ mod tests {
             "src/cronus_ui_empty.rs",
             "src/cronus_ui_field.rs",
             "src/cronus_ui_file_dropzone.rs",
+            "src/cronus_ui_floating_label_input.rs",
             "src/cronus_ui_input_group.rs",
             "src/cronus_ui_input_otp.rs",
             "src/cronus_ui_fab.rs",

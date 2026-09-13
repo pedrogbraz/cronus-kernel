@@ -193,6 +193,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "tags-input",
     "autocomplete",
     "multi-select",
+    "credit-card-input",
+    "floating-label-input",
+    "split-button",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -286,6 +289,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "tags-input" => Some(crate::cronus_ui_tags_input::render(comp)),
         "autocomplete" => Some(crate::cronus_ui_autocomplete::render(comp)),
         "multi-select" => Some(crate::cronus_ui_multi_select::render(comp)),
+        "credit-card-input" => Some(crate::cronus_ui_credit_card_input::render(comp)),
+        "floating-label-input" => Some(crate::cronus_ui_floating_label_input::render(comp)),
+        "split-button" => Some(crate::cronus_ui_split_button::render(comp)),
         _ => None,
     }
 }

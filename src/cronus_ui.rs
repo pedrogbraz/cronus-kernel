@@ -1230,71 +1230,92 @@ button:has(+ [data-slot="sheet-content"]) {
   border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
   padding: 0.125rem 0.5rem; font-size: 0.75rem; font-weight: 500;
   background: var(--cronus-surface-overlay); color: var(--cronus-fg);
-}
 [data-slot="tags-input-remove"] {
   display: inline-flex; align-items: center; justify-content: center;
   width: 0.875rem; height: 0.875rem; padding: 0; border: 0;
   background: transparent; color: var(--cronus-fg-tertiary); cursor: pointer;
-}
 [data-slot="tags-input-field"] {
   min-width: 6rem; flex: 1; border: 0; background: transparent;
   color: var(--cronus-fg); font: inherit; outline: none;
-}
 [data-slot="tags-input-field"]::placeholder { color: var(--cronus-fg-tertiary); }
 [data-slot="autocomplete"] {
   position: relative; display: flex; flex-direction: column; gap: 0.25rem;
   width: 100%;
-}
 [data-slot="autocomplete-input"] {
   display: flex; height: 2.5rem; width: 100%; box-sizing: border-box;
-  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
-  background: var(--cronus-surface-inset); color: var(--cronus-fg);
   padding: 0 0.75rem; font-size: 0.875rem; font-family: inherit; outline: none;
-}
 [data-slot="autocomplete-input"]::placeholder { color: var(--cronus-fg-tertiary); }
 [data-slot="autocomplete-input"]:disabled { opacity: 0.5; pointer-events: none; }
 [data-slot="autocomplete-content"] {
   display: flex; flex-direction: column; min-width: 8rem; padding: 0.25rem;
-  border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
   background: var(--cronus-surface-floating, var(--cronus-surface-overlay));
   color: var(--cronus-fg); box-shadow: var(--cronus-shadow-md, none);
-}
 [data-slot="autocomplete-item"] {
   display: flex; align-items: center; width: 100%;
   padding: 0.4rem 0.75rem; border: 0; border-radius: var(--cronus-radius-sm);
   background: transparent; color: inherit;
   font: inherit; text-align: left; cursor: pointer;
-}
 [data-slot="autocomplete-item"][aria-selected="true"] {
   background: var(--cronus-surface-overlay);
-}
 [data-slot="multi-select"] {
-  position: relative; display: flex; flex-direction: column; gap: 0.25rem;
-}
 [data-slot="multi-select-trigger"] {
   display: inline-flex; align-items: center; justify-content: space-between;
   width: 100%; min-height: 2.5rem; padding: 0.375rem 0.75rem; box-sizing: border-box;
-  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
   background: transparent; color: var(--cronus-fg);
   font-size: 0.875rem; font-weight: 400; font-family: inherit; cursor: pointer;
-}
 [data-slot="multi-select-trigger"]:disabled { opacity: 0.5; pointer-events: none; }
 [data-slot="multi-select-trigger"][aria-invalid="true"] { border-color: var(--cronus-error); }
 [data-slot="multi-select-content"] {
-  display: flex; flex-direction: column; min-width: 8rem; padding: 0.25rem;
-  border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
-  background: var(--cronus-surface-floating, var(--cronus-surface-overlay));
-  color: var(--cronus-fg); box-shadow: var(--cronus-shadow-md, none);
-}
 [data-slot="multi-select-item"] {
-  display: flex; align-items: center; width: 100%;
-  padding: 0.4rem 0.75rem; border: 0; border-radius: var(--cronus-radius-sm);
-  background: transparent; color: inherit;
-  font: inherit; text-align: left; cursor: pointer;
-}
 [data-slot="multi-select-item"][aria-selected="true"] {
-  background: var(--cronus-surface-overlay);
-}
+[data-slot="credit-card-input"] {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;
+  width: 100%; box-sizing: border-box;
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--cronus-radius-xl); border: 1px solid var(--cronus-border);
+  font-size: 0.875rem;
+[data-slot="credit-card-input"][data-invalid=""] {
+  border-color: var(--cronus-error);
+[data-slot="credit-card-input"][data-disabled=""] { opacity: 0.6; pointer-events: none; }
+[data-slot="credit-card-input"] input {
+  min-width: 0; flex: 1; background: transparent; border: 0; outline: none;
+  color: var(--cronus-fg); font: inherit; font-variant-numeric: tabular-nums;
+[data-slot="credit-card-input"] input:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="floating-label-input"] {
+  position: relative; display: block; width: 100%;
+[data-slot="floating-label-input"] [data-slot="input"] {
+  height: 3.5rem; padding-top: 1rem;
+[data-slot="floating-label-input-label"] {
+  position: absolute; left: 0.75rem; top: 1.15rem;
+  transform-origin: left; transform: translateY(-0.7rem) scale(0.8);
+  pointer-events: none; user-select: none;
+  color: var(--cronus-fg-secondary); font-size: 0.875rem;
+[data-slot="floating-label-input"]:has([data-slot="input"]:placeholder-shown) [data-slot="floating-label-input-label"] {
+  top: 50%; transform: translateY(-50%) scale(1);
+  color: var(--cronus-fg-tertiary);
+[data-slot="floating-label-input"]:has([data-slot="input"]:focus) [data-slot="floating-label-input-label"],
+[data-slot="floating-label-input"]:has([data-slot="input"]:not(:placeholder-shown)) [data-slot="floating-label-input-label"] {
+  top: 1.15rem; transform: translateY(-0.7rem) scale(0.8);
+  color: var(--cronus-fg-secondary);
+[data-slot="floating-label-input"]:has([data-slot="input"]:focus) [data-slot="floating-label-input-label"] {
+  color: var(--cronus-primary);
+[data-slot="floating-label-input"][data-invalid=""] [data-slot="floating-label-input-label"],
+[data-slot="floating-label-input"][data-invalid=""] [data-slot="floating-label-input-helper"] {
+  color: var(--cronus-error);
+[data-slot="floating-label-input"][data-disabled=""] { opacity: 0.5; pointer-events: none; }
+[data-slot="floating-label-input-helper"] {
+  margin-top: 0.375rem; padding: 0 0.25rem;
+  font-size: 0.75rem; color: var(--cronus-fg-secondary);
+[data-slot="split-button"] {
+  display: inline-flex; align-items: stretch;
+[data-slot="split-button"] > [data-slot="button"]:first-child {
+  border-top-right-radius: 0; border-bottom-right-radius: 0; border-right-width: 0;
+[data-slot="split-button"] > [data-slot="button"]:last-child {
+  border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-width: 0;
+  aspect-ratio: 1; padding: 0; min-width: 2.5rem;
+[data-slot="split-button"] > [data-slot="button"]:focus-visible {
+  position: relative; z-index: 10;
+[data-slot="split-button"][data-disabled=""] { opacity: 0.5; pointer-events: none; }
 "#;
 
 #[cfg(test)]
