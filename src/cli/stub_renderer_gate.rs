@@ -139,6 +139,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "tilt-card" => Some("cronus_ui_tilt_card::render"),
         "star-border" => Some("cronus_ui_star_border::render"),
         "glass-card" => Some("cronus_ui_glass_card::render"),
+        "terminal" => Some("cronus_ui_terminal::render"),
+        "video-player" => Some("cronus_ui_video_player::render"),
+        "text-effect" => Some("cronus_ui_text_effect::render"),
         _ => None,
     }
 }
@@ -472,7 +475,21 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
         || html.contains("<section data-slot=\"glass-card\"")
         || (html.contains("data-slot=\"glass-card\"")
-            && html.contains("padding:1rem;display:flex;flex-direction:column;gap:0.5rem;"))
+        || html.contains("<pre data-slot=\"terminal\"")
+        || html.contains("<section data-slot=\"terminal\"")
+        || (html.contains("data-slot=\"terminal\"")
+            && (!html.contains("data-slot=\"terminal-screen\"")
+                || !html.contains("data-slot=\"terminal-prompt\"")))
+        || (html.contains("data-slot=\"terminal\"") && html.contains("style="))
+        || html.contains("<video data-slot=\"video-player\"")
+        || html.contains("<section data-slot=\"video-player\"")
+        || (html.contains("data-slot=\"video-player\"")
+            && (!html.contains("data-slot=\"video-player-video\"")
+                || !html.contains("data-slot=\"video-player-controls\"")
+                || !html.contains("<video")
+                || !html.contains("data-slot=\"video-player-play\"")))
+        || (html.contains("data-slot=\"video-player\"") && html.contains("style="))
+        || (html.contains("data-slot=\"text-effect\"")
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -646,6 +663,7 @@ mod tests {
             "src/cronus_ui_shimmer.rs",
             "src/cronus_ui_reveal.rs",
             "src/cronus_ui_text_shimmer.rs",
+            "src/cronus_ui_text_effect.rs",
             "src/cronus_ui_particles.rs",
             "src/cronus_ui_sparkles_text.rs",
             "src/cronus_ui_noise.rs",
@@ -656,6 +674,8 @@ mod tests {
             "src/cronus_ui_tilt_card.rs",
             "src/cronus_ui_star_border.rs",
             "src/cronus_ui_glass_card.rs",
+            "src/cronus_ui_terminal.rs",
+            "src/cronus_ui_video_player.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",
