@@ -1078,6 +1078,29 @@ button:has(+ [data-slot="sheet-content"]) {
   min-width: 12rem; margin-top: 0.35rem; padding: 0.25rem;
   border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
 }
+[data-slot="phone-input"] {
+  display: flex; height: 2.5rem; width: 100%; align-items: stretch;
+  overflow: hidden; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+  font-size: 0.875rem;
+}
+[data-slot="phone-input"][data-invalid="true"] {
+  border-color: var(--cronus-error);
+}
+[data-slot="phone-input-country"] {
+  display: flex; flex-shrink: 0; align-items: center; gap: 0.375rem;
+  padding: 0 0.5rem 0 0.75rem; border: 0;
+  background: transparent; color: var(--cronus-fg-secondary);
+  font: inherit; font-size: 0.875rem; cursor: pointer;
+  border-right: 1px solid var(--cronus-border);
+}
+[data-slot="phone-input-country"]:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="phone-input-field"] {
+  height: 100%; width: auto; flex: 1; min-width: 0;
+  border: 0; border-radius: 0; background: transparent; box-shadow: none;
+  padding: 0 0.75rem; color: var(--cronus-fg); font: inherit; outline: none;
+}
 "#;
 
 #[cfg(test)]
