@@ -98,6 +98,7 @@ mod cronus_ui_separator;
 mod cronus_ui_sheet;
 mod cronus_ui_skeleton;
 mod cronus_ui_slider;
+mod cronus_ui_sparkline;
 mod cronus_ui_spinner;
 mod cronus_ui_stepper;
 mod cronus_ui_table;

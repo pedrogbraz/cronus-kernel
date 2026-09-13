@@ -992,6 +992,17 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="date-range-picker-day"][data-range="middle"] {
   background: var(--cronus-surface-overlay); border-radius: 0;
 }
+[data-slot="sparkline"] {
+  display: inline-block; overflow: visible; vertical-align: middle;
+  color: var(--cronus-primary);
+}
+[data-slot="sparkline"][data-tone="success"] { color: var(--cronus-success); }
+[data-slot="sparkline"][data-tone="warning"] { color: var(--cronus-warning); }
+[data-slot="sparkline"][data-tone="error"] { color: var(--cronus-error); }
+[data-slot="sparkline"][data-tone="info"] { color: var(--cronus-info); }
+[data-slot="sparkline"][data-tone="fg"] { color: var(--cronus-fg); }
+[data-slot="sparkline-line"] { fill: none; stroke: currentColor; }
+[data-slot="sparkline-area"] { stroke: none; }
 "#;
 
 #[cfg(test)]
