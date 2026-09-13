@@ -2751,6 +2751,27 @@ button:has(+ [data-slot="sheet-content"]) {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+[data-slot="kanban"] {
+  display: flex; width: 100%; min-width: 0; gap: 1rem;
+  overflow-x: auto; padding-bottom: 0.5rem;
+}
+[data-slot="kanban-column"] {
+  display: flex; flex-direction: column; gap: 0.5rem;
+  width: 18rem; flex-shrink: 0; min-width: 0;
+  border-radius: var(--cronus-radius-xl);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset);
+  padding: 0.5rem;
+}
+[data-slot="kanban-card"] {
+  border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised);
+  padding: 0.75rem;
+  color: var(--cronus-fg);
+  font-size: 0.875rem;
+  box-shadow: var(--cronus-shadow-sm, none);
+}
 "#;
 
 #[cfg(test)]

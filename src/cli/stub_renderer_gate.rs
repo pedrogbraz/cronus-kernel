@@ -145,6 +145,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "spotlight-card" => Some("cronus_ui_spotlight_card::render"),
         "animated-list" => Some("cronus_ui_animated_list::render"),
         "toast" => Some("cronus_ui_toast::render"),
+        "kanban" => Some("cronus_ui_kanban::render"),
         _ => None,
     }
 }
@@ -508,6 +509,11 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && html.contains("style=")
             && !html.contains("data-slot=\"sonner\"")
             && !html.contains("data-slot=\"toaster\""))
+        || html.contains("<section data-slot=\"kanban\"")
+        || (html.contains("data-slot=\"kanban\"")
+            && (!html.contains("data-slot=\"kanban-column\"")
+                || !html.contains("data-slot=\"kanban-card\"")))
+        || (html.contains("data-slot=\"kanban\"") && html.contains("style="))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -697,6 +703,7 @@ mod tests {
             "src/cronus_ui_spotlight_card.rs",
             "src/cronus_ui_animated_list.rs",
             "src/cronus_ui_toast.rs",
+            "src/cronus_ui_kanban.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",
