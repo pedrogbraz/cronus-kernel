@@ -9,12 +9,17 @@ pub fn render(comp: &ComponentNode) -> String {
         .or_else(|| comp.props.get("placeholder").map(String::as_str))
         .unwrap_or("");
     let ty = comp.props.get("type").map(String::as_str).unwrap_or("text");
-    let disabled = comp.props.get("disabled").map(|s| s == "true").unwrap_or(false);
-    let invalid = comp.props.get("invalid").map(|s| s == "true").unwrap_or(false);
+    let disabled = flag(comp, "disabled");
+    let invalid = flag(comp, "invalid");
     let aria_label = comp
         .props
         .get("aria-label")
         .map(String::as_str)
+        .or_else(|| {
+            comp.items
+                .iter()
+                .find_map(|i| i.config.get("aria-label").map(String::as_str))
+        })
         .or_else(|| item(comp, "title"));
     let mut attrs = format!(
         "data-slot=\"input\" type=\"{}\" placeholder=\"{}\"",
@@ -31,6 +36,15 @@ pub fn render(comp: &ComponentNode) -> String {
         attrs.push_str(&format!(" aria-label=\"{}\"", esc_attr(label)));
     }
     format!("<input {attrs} />")
+}
+
+fn flag(comp: &ComponentNode, name: &str) -> bool {
+    if comp.props.get(name).map(|s| s == "true").unwrap_or(false) {
+        return true;
+    }
+    comp.items
+        .iter()
+        .any(|i| i.config.get(name).map(|s| s == "true").unwrap_or(false))
 }
 
 fn item<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {

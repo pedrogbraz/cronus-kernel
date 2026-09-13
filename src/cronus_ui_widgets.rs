@@ -459,7 +459,12 @@ fn size(comp: &ComponentNode) -> String {
 }
 
 fn disabled(comp: &ComponentNode) -> bool {
-    comp.props.get("disabled").map(|s| s == "true").unwrap_or(false)
+    if comp.props.get("disabled").map(|s| s == "true").unwrap_or(false) {
+        return true;
+    }
+    comp.items
+        .iter()
+        .any(|i| i.config.get("disabled").map(|s| s == "true").unwrap_or(false))
 }
 
 fn href(comp: &ComponentNode) -> Option<&str> {
@@ -745,6 +750,33 @@ mod tests {
         assert!(html.contains("data-slot=\"button\""));
         assert!(!html.contains("<label data-slot"));
         assert!(!crate::cli::stub_renderer_gate::looks_like_interact_generic(&html));
+    }
+
+    #[test]
+    fn disabled_colon_pair_is_a_prop() {
+        let src = r#"
+app "x" { port 1 }
+component B layout:inline style:button+primary+md {
+  label "Save"
+  disabled:true
+  invalid:true
+}
+"#;
+        let nodes = crate::parser::parse(src).expect("parse");
+        let comp = nodes
+            .iter()
+            .find_map(|n| match n {
+                crate::parser::AstNode::Component(c) => Some(c),
+                _ => None,
+            })
+            .expect("component");
+        let html = render(comp).unwrap();
+        assert!(
+            html.contains(" disabled"),
+            "props={:?} items={:?} html={html}",
+            comp.props,
+            comp.items
+        );
     }
 
     #[test]
