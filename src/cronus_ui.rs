@@ -1440,6 +1440,54 @@ button:has(+ [data-slot="sheet-content"]) {
   background: color-mix(in oklch, var(--cronus-primary), transparent 85%);
   color: var(--cronus-primary); font-size: 0.75rem; font-weight: 500;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+[data-slot="alert-dialog"] {
+  display: flex; flex-direction: column; gap: 0.5rem;
+[data-slot="alert-dialog"] > button {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2.5rem; padding: 0 1rem;
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+[data-slot="alert-dialog-content"] {
+  z-index: 50; display: grid; gap: 1rem;
+  width: 100%; max-width: 32rem; box-sizing: border-box;
+  padding: 1.5rem;
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-lg, none);
+[data-slot="alert-dialog-title"] {
+  font-size: 1.125rem; font-weight: 600; color: var(--cronus-fg);
+  font-family: var(--cronus-font-display, inherit);
+[data-slot="alert-dialog-description"] {
+  font-size: 0.875rem; color: var(--cronus-fg-secondary);
+[data-slot="alert-dialog-cancel"] {
+  background: transparent; color: var(--cronus-fg);
+[data-slot="alert-dialog-action"] {
+  border: 1px solid transparent;
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+[data-slot="lightbox"] {
+  z-index: 50; display: flex; flex-direction: column; gap: 0.75rem;
+  box-sizing: border-box; padding: 1rem;
+[data-slot="lightbox-counter"] {
+[data-slot="lightbox-close"] {
+  width: 2rem; height: 2rem; padding: 0; align-self: flex-end;
+  border: 0; border-radius: var(--cronus-radius-md);
+  background: transparent; color: var(--cronus-fg-secondary);
+  font: inherit; cursor: pointer;
+[data-slot="lightbox-caption"] {
+  margin: 0; padding: 0.75rem 1rem 0;
+  text-align: center; font-size: 0.875rem; color: var(--cronus-fg-secondary);
+[data-slot="notification-trigger"] {
+  height: 2.25rem; padding: 0 0.75rem;
+  border: 0; border-radius: var(--cronus-radius-lg);
+[data-slot="notification-center"] {
+  z-index: 50; display: flex; flex-direction: column;
+  width: 20rem; box-sizing: border-box; overflow: hidden;
+[data-slot="notification-row"] {
+  display: flex; width: 100%; box-sizing: border-box;
+  align-items: flex-start; gap: 0.75rem;
+  padding: 0.625rem 0.5rem; border: 0;
+  font: inherit; font-size: 0.875rem; text-align: start; cursor: pointer;
+[data-slot="notification-row"]:hover {
+  background: var(--cronus-surface-overlay);
 "#;
 
 #[cfg(test)]

@@ -106,6 +106,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "signature-pad" => Some("cronus_ui_signature_pad::render"),
         "resizable" => Some("cronus_ui_resizable::render"),
         "scheduler" => Some("cronus_ui_scheduler::render"),
+        "alert-dialog" => Some("cronus_ui_alert_dialog::render"),
+        "lightbox" => Some("cronus_ui_lightbox::render"),
+        "notification-center" => Some("cronus_ui_notification_center::render"),
         _ => None,
     }
 }
@@ -341,6 +344,13 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && !html.contains("data-slot=\"scheduler-grid\""))
         || (html.contains("data-slot=\"scheduler\"") && html.contains("style="))
             && html.contains("grid-template-columns:repeat(7,1fr)"))
+        || (html.contains("data-slot=\"alert-dialog")
+            && (html.contains("<dialog") || html.contains("showModal()")))
+        || (html.contains("data-slot=\"lightbox")
+        || html.contains("<details data-slot=\"notification-center\"")
+        || (html.contains("data-slot=\"notification-center\"") && html.contains("<details"))
+        || (html.contains("data-slot=\"notification-center\"")
+            && !html.contains("data-slot=\"notification-row\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -488,6 +498,7 @@ mod tests {
             "src/cronus_ui_widgets.rs",
             "src/cronus_ui_alert.rs",
             "src/cronus_ui_app_shell.rs",
+            "src/cronus_ui_alert_dialog.rs",
             "src/cronus_ui_autocomplete.rs",
             "src/cronus_ui_badge.rs",
             "src/cronus_ui_banner.rs",
@@ -496,6 +507,7 @@ mod tests {
             "src/cronus_ui_credit_card_input.rs",
             "src/cronus_ui_input.rs",
             "src/cronus_ui_label.rs",
+            "src/cronus_ui_lightbox.rs",
             "src/cronus_ui_metric.rs",
             "src/cronus_ui_mode_toggle.rs",
             "src/cronus_ui_multi_select.rs",
@@ -552,6 +564,7 @@ mod tests {
             "src/cronus_ui_command.rs",
             "src/cronus_ui_menubar.rs",
             "src/cronus_ui_navigation_menu.rs",
+            "src/cronus_ui_notification_center.rs",
             "src/cronus_ui_context_menu.rs",
             "src/cronus_ui_status_dot.rs",
             "src/cronus_ui_stepper.rs",
