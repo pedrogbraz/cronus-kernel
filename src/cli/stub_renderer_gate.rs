@@ -64,6 +64,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "dropdown-menu" => Some("cronus_ui_dropdown_menu::render"),
         "collapsible" => Some("cronus_ui_collapsible::render"),
         "mode-toggle" => Some("cronus_ui_mode_toggle::render"),
+        "command" => Some("cronus_ui_command::render"),
         _ => None,
     }
 }
@@ -182,6 +183,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && !html.contains("data-slot=\"collapsible-content\""))
         || (html.contains("data-slot=\"mode-toggle\"") && html.contains("classList.toggle('dark')"))
         || (html.contains("data-slot=\"mode-toggle\"") && html.contains("style="))
+        || html.contains("<details data-slot=\"command\"")
+        || (html.contains("data-slot=\"command\"") && html.contains("<details"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -371,6 +374,7 @@ mod tests {
             "src/cronus_ui_breadcrumb.rs",
             "src/cronus_ui_button_group.rs",
             "src/cronus_ui_combobox.rs",
+            "src/cronus_ui_command.rs",
             "src/cronus_ui_stepper.rs",
             "src/cronus_ui_tooltip.rs",
             "src/cronus_ui_password_input.rs",

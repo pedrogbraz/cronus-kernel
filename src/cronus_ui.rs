@@ -831,6 +831,30 @@ button:has(+ [data-slot="hover-card-content"]) {
 [data-slot="mode-toggle"][data-mode="dark"] [data-slot="mode-toggle-crescent"] {
   transform: translateX(-7px);
 }
+[data-slot="command"] {
+  display: flex; flex-direction: column; overflow: hidden; width: 100%;
+  box-sizing: border-box; border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+}
+[data-slot="command-input"] {
+  display: flex; width: 100%; height: 2.5rem; box-sizing: border-box;
+  border: 0; border-bottom: 1px solid var(--cronus-border);
+  background: transparent; color: var(--cronus-fg);
+  padding: 0 0.75rem; font-size: 0.875rem; font-family: inherit; outline: none;
+}
+[data-slot="command-input"]::placeholder { color: var(--cronus-fg-tertiary); }
+[data-slot="command-list"] {
+  max-height: 20rem; overflow-y: auto; overflow-x: hidden; padding: 0.25rem;
+}
+[data-slot="command-item"] {
+  display: flex; align-items: center; gap: 0.5rem;
+  border-radius: var(--cronus-radius-md); padding: 0.375rem 0.5rem;
+  font-size: 0.875rem; cursor: default;
+}
+[data-slot="command-item"]:hover {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
 "#;
 
 #[cfg(test)]
