@@ -192,6 +192,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "status-dot",
     "pill-nav",
     "dock",
+    "workspace-switcher",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -284,6 +285,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "status-dot" => Some(crate::cronus_ui_status_dot::render(comp)),
         "pill-nav" => Some(crate::cronus_ui_pill_nav::render(comp)),
         "dock" => Some(crate::cronus_ui_dock::render(comp)),
+        "workspace-switcher" => Some(crate::cronus_ui_workspace_switcher::render(comp)),
         _ => None,
     }
 }

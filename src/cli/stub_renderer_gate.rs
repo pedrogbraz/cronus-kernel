@@ -93,6 +93,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "status-dot" => Some("cronus_ui_status_dot::render"),
         "pill-nav" => Some("cronus_ui_pill_nav::render"),
         "dock" => Some("cronus_ui_dock::render"),
+        "workspace-switcher" => Some("cronus_ui_workspace_switcher::render"),
         _ => None,
     }
 }
@@ -278,6 +279,11 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"pill-nav\"") && html.contains("flex-wrap:wrap"))
         || (html.contains("data-slot=\"dock\"") && !html.contains("data-slot=\"dock-item\""))
         || (html.contains("data-slot=\"dock\"") && html.contains("flex-wrap:wrap"))
+        || (html.contains("data-slot=\"workspace-switcher\"") && html.contains("<nav"))
+        || (html.contains("data-slot=\"workspace-switcher\"")
+            && !html.contains("data-slot=\"workspace-switcher-content\""))
+        || (html.contains("data-slot=\"workspace-switcher\"") && html.contains("<details"))
+        || (html.contains("data-slot=\"workspace-switcher\"") && html.contains("flex-wrap:wrap"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -500,6 +506,7 @@ mod tests {
             "src/cronus_ui_scatter_chart.rs",
             "src/cronus_ui_ring_chart.rs",
             "src/cronus_ui_data_table.rs",
+            "src/cronus_ui_workspace_switcher.rs",
             "src/cronus_ui_kit.rs",
             "src/cli/audit_http.rs",
             "src/ui/audit_layout.rs",

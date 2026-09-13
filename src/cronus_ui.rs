@@ -1251,6 +1251,24 @@ button:has(+ [data-slot="sheet-content"]) {
   background: var(--cronus-surface-overlay); color: var(--cronus-fg);
   font: inherit; cursor: pointer; text-decoration: none;
 }
+[data-slot="workspace-switcher"] {
+  display: flex; width: 100%; min-width: 0; align-items: center; gap: 0.5rem;
+  border: 0; border-radius: var(--cronus-radius-lg);
+  padding: 0.375rem 0.5rem;
+  background: transparent; color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+}
+[data-slot="workspace-switcher-content"] {
+  min-width: 14rem; overflow: hidden;
+  padding: 0.25rem; box-shadow: var(--cronus-shadow-lg, none);
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+}
+[data-slot="workspace-switcher-item"] {
+  border-radius: var(--cronus-radius-md); padding: 0.375rem 0.5rem;
+  font-size: 0.875rem; cursor: default;
+}
 "#;
 
 #[cfg(test)]
