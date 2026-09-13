@@ -74,6 +74,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "time-picker" => Some("cronus_ui_time_picker::render"),
         "date-range-picker" => Some("cronus_ui_date_range_picker::render"),
         "area-chart" => Some("cronus_ui_area_chart::render"),
+        "bar-chart" => Some("cronus_ui_bar_chart::render"),
         _ => None,
     }
 }
@@ -415,6 +416,7 @@ mod tests {
             "src/cronus_ui_time_picker.rs",
             "src/cronus_ui_date_range_picker.rs",
             "src/cronus_ui_area_chart.rs",
+            "src/cronus_ui_bar_chart.rs",
             "src/cronus_ui_kit.rs",
             "src/cli/audit_http.rs",
             "src/ui/audit_layout.rs",

@@ -1005,6 +1005,15 @@ button:has(+ [data-slot="sheet-content"]) {
   fill: none; stroke: var(--cronus-primary); stroke-width: 2;
   stroke-linejoin: round; stroke-linecap: round;
 }
+[data-slot="bar-chart"] {
+  display: block; width: 100%; aspect-ratio: 2 / 1;
+}
+[data-slot="bar-chart"] svg {
+  display: block; width: 100%; height: 100%;
+}
+[data-slot="bar-chart"] rect {
+  fill: var(--cronus-primary);
+}
 "#;
 
 #[cfg(test)]

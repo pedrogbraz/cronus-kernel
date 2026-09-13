@@ -164,6 +164,45 @@ pub fn chart_polyline_points(series: &[f64]) -> String {
         .join(" ")
 }
 
+pub struct ChartBar {
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+}
+
+/// Vertical bars in the same 200×100 padded viewBox. Baseline is 0 when all values ≥ 0.
+pub fn chart_bars(series: &[f64]) -> Vec<ChartBar> {
+    if series.is_empty() {
+        return Vec::new();
+    }
+    let n = series.len() as f64;
+    let max = series
+        .iter()
+        .cloned()
+        .fold(0.0_f64, f64::max)
+        .max(1.0);
+    let inner_w = chart_inner_w();
+    let inner_h = chart_inner_h();
+    let slot = inner_w / n;
+    let w = slot * (2.0 / 3.0);
+    let inset = (slot - w) / 2.0;
+    let base = chart_base_y();
+    series
+        .iter()
+        .enumerate()
+        .map(|(i, v)| {
+            let h = inner_h * (*v / max).max(0.0);
+            ChartBar {
+                x: CHART_PAD + slot * i as f64 + inset,
+                y: base - h,
+                w,
+                h,
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 pub fn stub(family: &str, label: &str) -> ComponentNode {
     use std::collections::HashMap;
