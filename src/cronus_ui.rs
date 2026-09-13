@@ -2330,6 +2330,13 @@ button:has(+ [data-slot="sheet-content"]) {
   animation: cui-shimmer 2s linear infinite;
 }
 @keyframes cui-shimmer { 100% { transform: translateX(100%); } }
+[data-slot="reveal"] {
+  animation: cui-reveal 500ms var(--ease-out-quart) both;
+}
+@keyframes cui-reveal {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 "#;
 
 #[cfg(test)]

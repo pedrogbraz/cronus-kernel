@@ -119,6 +119,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "live-line-chart" => Some("cronus_ui_live_line_chart::render"),
         "sunburst-chart" => Some("cronus_ui_sunburst_chart::render"),
         "shimmer" => Some("cronus_ui_shimmer::render"),
+        "reveal" => Some("cronus_ui_reveal::render"),
         _ => None,
     }
 }
@@ -395,6 +396,9 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"shimmer\"")
             && (html.contains("<span")
                 || html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")))
+        || (html.contains("data-slot=\"reveal\"")
+            && (html.contains("<span")
+                || html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -566,6 +570,7 @@ mod tests {
             "src/cronus_ui_sonner.rs",
             "src/cronus_ui_skeleton.rs",
             "src/cronus_ui_shimmer.rs",
+            "src/cronus_ui_reveal.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",

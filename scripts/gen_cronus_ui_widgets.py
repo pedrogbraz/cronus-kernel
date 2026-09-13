@@ -218,6 +218,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "live-line-chart",
     "sunburst-chart",
     "shimmer",
+    "reveal",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -336,6 +337,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "live-line-chart" => Some(crate::cronus_ui_live_line_chart::render(comp)),
         "sunburst-chart" => Some(crate::cronus_ui_sunburst_chart::render(comp)),
         "shimmer" => Some(crate::cronus_ui_shimmer::render(comp)),
+        "reveal" => Some(crate::cronus_ui_reveal::render(comp)),
         _ => None,
     }
 }
