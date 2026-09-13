@@ -201,6 +201,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "workspace-switcher",
     "alert-dialog",
     "lightbox",
+    "notification-center",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -302,6 +303,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "workspace-switcher" => Some(crate::cronus_ui_workspace_switcher::render(comp)),
         "alert-dialog" => Some(crate::cronus_ui_alert_dialog::render(comp)),
         "lightbox" => Some(crate::cronus_ui_lightbox::render(comp)),
+        "notification-center" => Some(crate::cronus_ui_notification_center::render(comp)),
         _ => None,
     }
 }

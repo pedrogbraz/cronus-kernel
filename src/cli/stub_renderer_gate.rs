@@ -102,6 +102,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "workspace-switcher" => Some("cronus_ui_workspace_switcher::render"),
         "alert-dialog" => Some("cronus_ui_alert_dialog::render"),
         "lightbox" => Some("cronus_ui_lightbox::render"),
+        "notification-center" => Some("cronus_ui_notification_center::render"),
         _ => None,
     }
 }
@@ -313,6 +314,10 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && (html.contains("<dialog") || html.contains("showModal()")))
         || (html.contains("data-slot=\"lightbox")
             && (html.contains("<dialog") || html.contains("showModal()")))
+        || html.contains("<details data-slot=\"notification-center\"")
+        || (html.contains("data-slot=\"notification-center\"") && html.contains("<details"))
+        || (html.contains("data-slot=\"notification-center\"")
+            && !html.contains("data-slot=\"notification-row\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -521,6 +526,7 @@ mod tests {
             "src/cronus_ui_command.rs",
             "src/cronus_ui_menubar.rs",
             "src/cronus_ui_navigation_menu.rs",
+            "src/cronus_ui_notification_center.rs",
             "src/cronus_ui_context_menu.rs",
             "src/cronus_ui_status_dot.rs",
             "src/cronus_ui_stepper.rs",

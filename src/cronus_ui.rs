@@ -1414,6 +1414,31 @@ button:has(+ [data-slot="sheet-content"]) {
   margin: 0; padding: 0.75rem 1rem 0;
   text-align: center; font-size: 0.875rem; color: var(--cronus-fg-secondary);
 }
+[data-slot="notification-trigger"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2.25rem; padding: 0 0.75rem;
+  border: 0; border-radius: var(--cronus-radius-lg);
+  background: transparent; color: var(--cronus-fg-secondary);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+}
+[data-slot="notification-center"] {
+  z-index: 50; display: flex; flex-direction: column;
+  width: 20rem; box-sizing: border-box; overflow: hidden;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-lg, none);
+}
+[data-slot="notification-row"] {
+  display: flex; width: 100%; box-sizing: border-box;
+  align-items: flex-start; gap: 0.75rem;
+  padding: 0.625rem 0.5rem; border: 0;
+  background: transparent; color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; text-align: start; cursor: pointer;
+}
+[data-slot="notification-row"]:hover {
+  background: var(--cronus-surface-overlay);
+}
 "#;
 
 #[cfg(test)]
