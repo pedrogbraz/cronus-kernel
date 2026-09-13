@@ -886,6 +886,26 @@ button:has(+ [data-slot="hover-card-content"]) {
 [data-slot="menubar-item"]:hover {
   background: var(--cronus-surface-overlay); color: var(--cronus-fg);
 }
+button:has(+ [data-slot="context-menu-content"]) {
+  font: inherit; cursor: pointer; color: var(--cronus-fg);
+  background: transparent; border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-lg);
+  height: 2.5rem; padding: 0 1rem; font-size: 0.875rem;
+}
+[data-slot="context-menu-content"] {
+  z-index: 50; min-width: 8rem; overflow: hidden; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  padding: 0.25rem; box-shadow: var(--cronus-shadow-lg, none);
+}
+[data-slot="context-menu-item"] {
+  display: flex; align-items: center; gap: 0.5rem;
+  border-radius: var(--cronus-radius-md); padding: 0.375rem 0.5rem;
+  font-size: 0.875rem; cursor: default;
+}
+[data-slot="context-menu-item"]:hover {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
 "#;
 
 #[cfg(test)]

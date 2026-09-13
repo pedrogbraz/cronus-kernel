@@ -66,6 +66,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "mode-toggle" => Some("cronus_ui_mode_toggle::render"),
         "command" => Some("cronus_ui_command::render"),
         "menubar" => Some("cronus_ui_menubar::render"),
+        "context-menu" => Some("cronus_ui_context_menu::render"),
         _ => None,
     }
 }
@@ -188,6 +189,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"command\"") && html.contains("<details"))
         || html.contains("<details data-slot=\"menubar\"")
         || (html.contains("data-slot=\"menubar\"") && html.contains("<details"))
+        || html.contains("<details data-slot=\"context-menu\"")
+        || (html.contains("data-slot=\"context-menu\"") && html.contains("<details"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -379,6 +382,7 @@ mod tests {
             "src/cronus_ui_combobox.rs",
             "src/cronus_ui_command.rs",
             "src/cronus_ui_menubar.rs",
+            "src/cronus_ui_context_menu.rs",
             "src/cronus_ui_stepper.rs",
             "src/cronus_ui_tooltip.rs",
             "src/cronus_ui_password_input.rs",

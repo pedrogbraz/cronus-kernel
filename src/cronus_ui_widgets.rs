@@ -235,6 +235,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "mode-toggle",
     "command",
     "menubar",
+    "context-menu",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -300,6 +301,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "mode-toggle" => Some(crate::cronus_ui_mode_toggle::render(comp)),
         "command" => Some(crate::cronus_ui_command::render(comp)),
         "menubar" => Some(crate::cronus_ui_menubar::render(comp)),
+        "context-menu" => Some(crate::cronus_ui_context_menu::render(comp)),
         _ => None,
     }
 }
