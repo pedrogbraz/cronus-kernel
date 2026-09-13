@@ -150,6 +150,7 @@ mod cronus_ui_sparkline;
 mod cronus_ui_sonner;
 mod cronus_ui_spinner;
 mod cronus_ui_split_button;
+mod cronus_ui_spotlight_card;
 mod cronus_ui_status_dot;
 mod cronus_ui_stepper;
 mod cronus_ui_sunburst_chart;

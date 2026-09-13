@@ -855,6 +855,19 @@ dialog[data-slot="dialog-content"]::backdrop {
   background: var(--cronus-surface-raised); border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none);
 }
+[data-slot="spotlight-card"] {
+  position: relative; overflow: hidden;
+  padding: 1.5rem; color: var(--cronus-fg);
+}
+[data-slot="spotlight-card"]::after {
+  content: "";
+  pointer-events: none;
+  position: absolute; inset: -1px;
+  opacity: 0;
+  transition: opacity 300ms var(--cronus-ease);
+  background: radial-gradient(320px circle at var(--spot-x, 50%) var(--spot-y, 50%), color-mix(in oklch, var(--cronus-primary) 14%, transparent), transparent 72%);
+}
+[data-slot="spotlight-card"]:hover::after { opacity: 1; }
 [data-slot="card"] {
   display: flex; flex-direction: column; gap: 1.5rem;
   padding-top: 1.5rem; padding-bottom: 1.5rem; color: var(--cronus-fg);
