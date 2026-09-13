@@ -248,6 +248,15 @@ textarea[data-slot], [data-slot="textarea"] textarea, [data-slot="rich-text-edit
   color: var(--cronus-info-text); border-color: transparent;
 }
 
+[data-slot="kbd"] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem;
+  height: 1.25rem; min-width: 1.25rem; padding: 0 0.375rem;
+  border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg-secondary);
+  font-family: var(--cronus-font-mono, ui-monospace, monospace);
+  font-size: 0.7rem; font-weight: 500; white-space: nowrap;
+}
+
 [data-slot="card"], [data-slot="glass-card"], [data-slot="spotlight-card"] {
   background: var(--cronus-surface-raised); border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none);
