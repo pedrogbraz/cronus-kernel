@@ -251,6 +251,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "sidebar",
     "sonner",
     "navigation-menu",
+    "scroll-area",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -332,6 +333,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "sidebar" => Some(crate::cronus_ui_sidebar::render(comp)),
         "sonner" => Some(crate::cronus_ui_sonner::render(comp)),
         "navigation-menu" => Some(crate::cronus_ui_navigation_menu::render(comp)),
+        "scroll-area" => Some(crate::cronus_ui_scroll_area::render(comp)),
         _ => None,
     }
 }

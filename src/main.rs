@@ -99,6 +99,7 @@ mod cronus_ui_pie_chart;
 mod cronus_ui_progress;
 mod cronus_ui_radio_group;
 mod cronus_ui_rating;
+mod cronus_ui_scroll_area;
 mod cronus_ui_select;
 mod cronus_ui_separator;
 mod cronus_ui_sheet;

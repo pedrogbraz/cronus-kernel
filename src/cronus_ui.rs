@@ -1078,6 +1078,25 @@ button:has(+ [data-slot="sheet-content"]) {
   min-width: 12rem; margin-top: 0.35rem; padding: 0.25rem;
   border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
 }
+[data-slot="scroll-area"] {
+  position: relative; overflow: hidden;
+  max-height: 12rem;
+}
+[data-slot="scroll-area-viewport"] {
+  width: 100%; height: 100%; max-height: inherit;
+  overflow: auto; outline: none;
+  font-size: 0.875rem; color: var(--cronus-fg);
+}
+[data-slot="scroll-bar"] {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  display: flex; width: 0.625rem;
+  border-left: 1px solid transparent; padding: 1px;
+  touch-action: none; user-select: none;
+}
+[data-slot="scroll-bar"]::before {
+  content: ""; flex: 1; border-radius: 9999px;
+  background: var(--cronus-border);
+}
 "#;
 
 #[cfg(test)]
