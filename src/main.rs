@@ -126,6 +126,7 @@ mod cronus_ui_split_button;
 mod cronus_ui_status_dot;
 mod cronus_ui_stepper;
 mod cronus_ui_table;
+mod cronus_ui_table_of_contents;
 mod cronus_ui_tabs;
 mod cronus_ui_tags_input;
 mod cronus_ui_tooltip;

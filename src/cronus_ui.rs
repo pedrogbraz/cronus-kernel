@@ -1367,6 +1367,18 @@ button:has(+ [data-slot="sheet-content"]) {
   padding: 0 1rem; font-size: 0.875rem; font-weight: 500;
 [data-slot="app-shell-body"] {
   display: flex; min-height: 0; flex: 1; flex-direction: column;
+[data-slot="table-of-contents"] {
+  position: relative; font-size: 0.875rem; color: var(--cronus-fg);
+[data-slot="table-of-contents-list"] {
+  list-style: none; margin: 0; padding: 0;
+  border-left: 1px solid var(--cronus-border);
+[data-slot="table-of-contents-link"] {
+  display: block; padding: 0.375rem 0.75rem;
+  color: var(--cronus-fg-tertiary, var(--cronus-fg-secondary));
+  text-decoration: none; line-height: 1.375;
+[data-slot="table-of-contents-link"]:hover { color: var(--cronus-fg-secondary); }
+[data-slot="table-of-contents-link"][aria-current="location"] {
+  color: var(--cronus-fg); font-weight: 500;
 "#;
 
 #[cfg(test)]

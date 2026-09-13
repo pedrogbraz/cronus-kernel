@@ -101,6 +101,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "dock" => Some("cronus_ui_dock::render"),
         "workspace-switcher" => Some("cronus_ui_workspace_switcher::render"),
         "app-shell" => Some("cronus_ui_app_shell::render"),
+        "table-of-contents" => Some("cronus_ui_table_of_contents::render"),
         _ => None,
     }
 }
@@ -316,6 +317,11 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"app-shell\"")
             && !html.contains("data-slot=\"app-shell-content\""))
         || (html.contains("data-slot=\"app-shell\"") && html.contains("flex-wrap:wrap"))
+        || (html.contains("data-slot=\"table-of-contents\"")
+            && !html.contains("data-slot=\"table-of-contents-list\""))
+        || (html.contains("data-slot=\"table-of-contents\"")
+            && !html.contains("data-slot=\"table-of-contents-link\""))
+        || (html.contains("data-slot=\"table-of-contents\"") && html.contains("flex-wrap:wrap"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -513,6 +519,7 @@ mod tests {
             "src/cronus_ui_tabs.rs",
             "src/cronus_ui_accordion.rs",
             "src/cronus_ui_table.rs",
+            "src/cronus_ui_table_of_contents.rs",
             "src/cronus_ui_tags_input.rs",
             "src/cronus_ui_pagination.rs",
             "src/cronus_ui_popover.rs",

@@ -200,6 +200,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "dock",
     "workspace-switcher",
     "app-shell",
+    "table-of-contents",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -300,6 +301,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "dock" => Some(crate::cronus_ui_dock::render(comp)),
         "workspace-switcher" => Some(crate::cronus_ui_workspace_switcher::render(comp)),
         "app-shell" => Some(crate::cronus_ui_app_shell::render(comp)),
+        "table-of-contents" => Some(crate::cronus_ui_table_of_contents::render(comp)),
         _ => None,
     }
 }
