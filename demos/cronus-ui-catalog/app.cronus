@@ -1,0 +1,74 @@
+## Native Cronus UI catalog. Source is only .cronus.
+## Kernel emits HTML, tokens, and motion. No JSX.
+
+app "CronusUICatalog" {
+  port 5311
+}
+
+style {
+  theme dark
+  preset aurora
+  accent-hex "#0ea5e9"
+  font "Inter"
+  radius 14px
+}
+
+component Save layout:inline style:button+primary+md { label "Save" }
+component Ghost layout:inline style:button+ghost+md { label "Cancel" }
+component Status layout:inline style:badge+success { label "Live" }
+component Email layout:stack style:input { label "Email" text "you@cooud.app" }
+component FieldLabel layout:inline style:label { label "Workspace" }
+component Notes layout:stack style:textarea { label "Notes" }
+component Agree layout:inline style:checkbox { label "I agree" }
+component Billing layout:inline style:switch { label "Annual billing" }
+component Wait layout:inline style:spinner { label "Loading" }
+component Rule layout:stack style:separator { label "Divide" }
+component Shortcut layout:inline style:kbd { label "⌘K" }
+component Mute layout:inline style:toggle { label "Mute" }
+component Upload layout:stack style:progress { label "Upload" value "64" }
+component Notice layout:stack style:alert { title "Heads up" text "Tokens already ship." }
+component Pulse layout:stack style:skeleton { label "Loading block" }
+component Promo layout:stack style:banner { title "New" text "Native catalog is live." }
+component Volume layout:stack style:slider { label "Volume" value "40" }
+component PlanRadio layout:stack style:radio-group { label "Plan" item "Free" item "Pro" }
+component Tag layout:inline style:chip { label "Beta" }
+component Face layout:inline style:avatar { label "Ada Lovelace" }
+component Panel layout:stack style:card { title "Workspace" text "Compose without JSX." }
+component Vacant layout:stack style:empty { title "Nothing here" text "Add a page with add-page." }
+component Plan layout:stack style:select { label "Plan" item "Free" item "Pro" }
+component Confirm layout:stack style:dialog { title "Delete project" text "This cannot be undone." }
+component Nav layout:stack style:tabs { tab "Overview" tab "Usage" tab "Settings" }
+component Faq layout:stack style:accordion { item "What is Cronus" item "How do tokens work" }
+component People layout:stack style:table { columns "Name" columns "Role" }
+component Pages layout:stack style:pagination { label "Pages" }
+component Trail layout:stack style:breadcrumb { item "Home" item "Settings" item "Team" }
+component Hint layout:stack style:tooltip { label "Hint" text "Kernel emits the chrome." }
+component Secret layout:stack style:password-input { label "Password" }
+component Qty layout:stack style:number-input { label "Quantity" }
+component Hover layout:stack style:hover-card { label "Preview" text "Native disclosure." }
+component Menu layout:stack style:dropdown-menu { label "Actions" item "Edit" item "Archive" }
+component Toast layout:stack style:toast { label "Saved" }
+component Stat layout:stack style:metric { label "Leads" value "12" }
+component Sheet layout:stack style:sheet { title "Filters" text "Narrow the list." }
+component Pop layout:stack style:popover { label "More" text "Extra actions." }
+component Dates layout:stack style:date-picker { label "Due date" }
+component Times layout:stack style:time-picker { label "Time" }
+component Stars layout:stack style:rating { label "Rating" }
+component Copy layout:inline style:copy-button { label "Copy" }
+component Combo layout:stack style:combobox { label "Search" item "Ada" item "Grace" }
+
+page "/" type:custom {
+  title "Cronus UI"
+  use Save
+  use Email
+  section hero {
+    badge "Language"
+    title "Native catalog"
+    subtitle "Widgets are declared in Cronus. The kernel emits HTML, tokens, and motion."
+    cta "Open kit" -> "/kit" primary
+  }
+}
+
+page "/kit" type:components {
+  title "Kit"
+}
