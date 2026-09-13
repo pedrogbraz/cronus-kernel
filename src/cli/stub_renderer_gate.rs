@@ -142,6 +142,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "terminal" => Some("cronus_ui_terminal::render"),
         "video-player" => Some("cronus_ui_video_player::render"),
         "text-effect" => Some("cronus_ui_text_effect::render"),
+        "spotlight-card" => Some("cronus_ui_spotlight_card::render"),
+        "animated-list" => Some("cronus_ui_animated_list::render"),
+        "toast" => Some("cronus_ui_toast::render"),
         _ => None,
     }
 }
@@ -490,6 +493,19 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || !html.contains("data-slot=\"video-player-play\"")))
         || (html.contains("data-slot=\"video-player\"") && html.contains("style="))
         || (html.contains("data-slot=\"text-effect\"")
+        || html.contains("<section data-slot=\"spotlight-card\"")
+        || (html.contains("data-slot=\"spotlight-card\"") && html.contains("style="))
+        || (html.contains("data-slot=\"spotlight-card\"")
+            && html.contains("padding:1rem;display:flex;flex-direction:column;gap:0.5rem"))
+        || (html.contains("data-slot=\"animated-list\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("<span")
+                || html.contains("style=")
+                || !html.contains("data-slot=\"animated-list-item\"")))
+        || (html.contains("data-slot=\"toast\"")
+            && html.contains("style=")
+            && !html.contains("data-slot=\"sonner\"")
+            && !html.contains("data-slot=\"toaster\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -676,6 +692,9 @@ mod tests {
             "src/cronus_ui_glass_card.rs",
             "src/cronus_ui_terminal.rs",
             "src/cronus_ui_video_player.rs",
+            "src/cronus_ui_spotlight_card.rs",
+            "src/cronus_ui_animated_list.rs",
+            "src/cronus_ui_toast.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",

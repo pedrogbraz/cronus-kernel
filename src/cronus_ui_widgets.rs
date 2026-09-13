@@ -313,6 +313,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "terminal",
     "video-player",
     "text-effect",
+    "spotlight-card",
+    "animated-list",
+    "toast",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -454,6 +457,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "terminal" => Some(crate::cronus_ui_terminal::render(comp)),
         "video-player" => Some(crate::cronus_ui_video_player::render(comp)),
         "text-effect" => Some(crate::cronus_ui_text_effect::render(comp)),
+        "spotlight-card" => Some(crate::cronus_ui_spotlight_card::render(comp)),
+        "animated-list" => Some(crate::cronus_ui_animated_list::render(comp)),
+        "toast" => Some(crate::cronus_ui_toast::render(comp)),
         _ => None,
     }
 }

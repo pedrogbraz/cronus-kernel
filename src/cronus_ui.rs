@@ -855,6 +855,19 @@ dialog[data-slot="dialog-content"]::backdrop {
   background: var(--cronus-surface-raised); border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none);
 }
+[data-slot="spotlight-card"] {
+  position: relative; overflow: hidden;
+  padding: 1.5rem; color: var(--cronus-fg);
+}
+[data-slot="spotlight-card"]::after {
+  content: "";
+  pointer-events: none;
+  position: absolute; inset: -1px;
+  opacity: 0;
+  transition: opacity 300ms var(--cronus-ease);
+  background: radial-gradient(320px circle at var(--spot-x, 50%) var(--spot-y, 50%), color-mix(in oklch, var(--cronus-primary) 14%, transparent), transparent 72%);
+}
+[data-slot="spotlight-card"]:hover::after { opacity: 1; }
 [data-slot="card"] {
   display: flex; flex-direction: column; gap: 1.5rem;
   padding-top: 1.5rem; padding-bottom: 1.5rem; color: var(--cronus-fg);
@@ -2704,6 +2717,19 @@ button:has(+ [data-slot="sheet-content"]) {
   from { opacity: 0; filter: blur(8px); transform: translateY(8px); }
   to { opacity: 1; filter: blur(0); transform: translateY(0); }
   [data-slot="text-effect"] { animation: none; }
+[data-slot="animated-list"] {
+  display: flex; flex-direction: column; gap: 0.5rem;
+  list-style: none; margin: 0; padding: 0;
+[data-slot="animated-list-item"] {
+  animation: cui-animated-list 0.35s var(--cronus-ease) both;
+[data-slot="animated-list-item"]:nth-child(1) { animation-delay: 0s; }
+[data-slot="animated-list-item"]:nth-child(2) { animation-delay: 0.08s; }
+[data-slot="animated-list-item"]:nth-child(3) { animation-delay: 0.16s; }
+[data-slot="animated-list-item"]:nth-child(4) { animation-delay: 0.24s; }
+[data-slot="animated-list-item"]:nth-child(5) { animation-delay: 0.32s; }
+@keyframes cui-animated-list {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 "#;
 
