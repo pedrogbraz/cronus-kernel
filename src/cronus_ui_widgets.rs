@@ -1,4 +1,4 @@
-//! Opt-in cronus-ui widget renderers (all 174 families).
+//! Opt-in cronus-ui widget renderers (all 175 families).
 //!
 //! Family = first `style` segment (`button+primary+md` -> `button`).
 //! Unknown families return None so legacy dispatchers keep working.
@@ -23,6 +23,7 @@ pub const FAMILIES: &[&str] = &[
     "banner",
     "bar-chart",
     "border-beam",
+    "bouncy-accordion",
     "breadcrumb",
     "button",
     "button-group",
@@ -300,6 +301,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "particles",
     "sparkles-text",
     "noise",
+    "morphing-popover",
+    "bouncy-accordion",
+    "typing-text",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -429,6 +433,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "particles" => Some(crate::cronus_ui_particles::render(comp)),
         "sparkles-text" => Some(crate::cronus_ui_sparkles_text::render(comp)),
         "noise" => Some(crate::cronus_ui_noise::render(comp)),
+        "morphing-popover" => Some(crate::cronus_ui_morphing_popover::render(comp)),
+        "bouncy-accordion" => Some(crate::cronus_ui_bouncy_accordion::render(comp)),
+        "typing-text" => Some(crate::cronus_ui_typing_text::render(comp)),
         _ => None,
     }
 }
@@ -459,6 +466,7 @@ pub fn render(comp: &ComponentNode) -> Option<String> {
         "banner" => display("banner", comp),
         "bar-chart" => chart("bar-chart", comp),
         "border-beam" => fx("border-beam", comp),
+        "bouncy-accordion" => nav("bouncy-accordion", comp),
         "breadcrumb" => nav("breadcrumb", comp),
         "button" => button_from(comp),
         "button-group" => nav("button-group", comp),
@@ -833,8 +841,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn registers_174_unique_families() {
-        assert_eq!(FAMILIES.len(), 174);
+    fn registers_175_unique_families() {
+        assert_eq!(FAMILIES.len(), 175);
         let mut s = std::collections::BTreeSet::new();
         for f in FAMILIES {
             assert!(s.insert(*f), "duplicate {f}");

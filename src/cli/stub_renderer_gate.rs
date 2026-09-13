@@ -130,6 +130,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "particles" => Some("cronus_ui_particles::render"),
         "sparkles-text" => Some("cronus_ui_sparkles_text::render"),
         "noise" => Some("cronus_ui_noise::render"),
+        "morphing-popover" => Some("cronus_ui_morphing_popover::render"),
+        "bouncy-accordion" => Some("cronus_ui_bouncy_accordion::render"),
+        "typing-text" => Some("cronus_ui_typing_text::render"),
         _ => None,
     }
 }
@@ -169,7 +172,7 @@ pub fn catalog_stub_kind(family: &str) -> Option<&'static str> {
         | "drawer" | "popover" | "hover-card" | "tooltip" | "dropdown-menu" | "context-menu"
         | "menubar" | "command" | "lightbox" | "morphing-popover" | "notification-center"
         | "sonner" => Some("overlay"),
-        "tabs" | "accordion" | "collapsible" | "breadcrumb" | "pagination" | "sidebar"
+        "tabs" | "accordion" | "bouncy-accordion" | "collapsible" | "breadcrumb" | "pagination" | "sidebar"
         | "navigation-menu" | "pill-nav" | "expandable-tabs" | "stepper" | "toolbar"
         | "table-of-contents" | "app-shell" | "workspace-switcher" | "dock" | "mode-toggle"
         | "split-button" | "button-group" => Some("nav"),
@@ -241,6 +244,11 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"file-dropzone\"") && html.contains("style="))
         || html.contains("<details data-slot=\"popover\"")
         || html.contains("<details data-slot=\"hover-card\"")
+        || html.contains("<details data-slot=\"morphing-popover\"")
+        || (html.contains("data-slot=\"morphing-popover\"") && html.contains("<details"))
+        || (html.contains("data-slot=\"bouncy-accordion\"")
+            && (html.contains("<details")
+                || !html.contains("data-slot=\"bouncy-accordion-trigger\"")))
         || (html.contains("data-slot=\"dropdown-menu\"") && html.contains("<details"))
         || html.contains("position:absolute;z-index:20;margin-top:0.35rem")
         || (html.contains("data-slot=\"collapsible\"") && html.contains("<details"))
@@ -434,6 +442,7 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"sparkles-text\"")
             && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
         || (html.contains("data-slot=\"noise\"")
+        || (html.contains("data-slot=\"typing-text\"")
             && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
 }
 
@@ -568,7 +577,7 @@ mod tests {
 
     #[test]
     fn no_new_stub_families() {
-        assert_eq!(FAMILIES.len(), 174);
+        assert_eq!(FAMILIES.len(), 175);
         for family in PORTED_FAMILIES {
             assert!(FAMILIES.contains(family));
             assert!(cronus_ui_widgets::dedicated_render(family, &stub(family)).is_some());
@@ -611,6 +620,7 @@ mod tests {
             "src/cronus_ui_particles.rs",
             "src/cronus_ui_sparkles_text.rs",
             "src/cronus_ui_noise.rs",
+            "src/cronus_ui_typing_text.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",
@@ -652,11 +662,13 @@ mod tests {
             "src/cronus_ui_dropdown_menu.rs",
             "src/cronus_ui_tabs.rs",
             "src/cronus_ui_accordion.rs",
+            "src/cronus_ui_bouncy_accordion.rs",
             "src/cronus_ui_table.rs",
             "src/cronus_ui_table_of_contents.rs",
             "src/cronus_ui_tags_input.rs",
             "src/cronus_ui_pagination.rs",
             "src/cronus_ui_popover.rs",
+            "src/cronus_ui_morphing_popover.rs",
             "src/cronus_ui_breadcrumb.rs",
             "src/cronus_ui_button_group.rs",
             "src/cronus_ui_calendar.rs",
