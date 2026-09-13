@@ -92,6 +92,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "toolbar" => Some("cronus_ui_toolbar::render"),
         "status-dot" => Some("cronus_ui_status_dot::render"),
         "tags-input" => Some("cronus_ui_tags_input::render"),
+        "autocomplete" => Some("cronus_ui_autocomplete::render"),
         _ => None,
     }
 }
@@ -276,6 +277,9 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || html.contains("data-slot=\"tags-input-control\"")
         || html.contains("<label data-slot=\"tags-input\"")
         || (html.contains("data-slot=\"tags-input") && html.contains("<select"))
+        || html.contains("data-slot=\"autocomplete-control\"")
+        || html.contains("<label data-slot=\"autocomplete\"")
+        || (html.contains("data-slot=\"autocomplete") && html.contains("<select"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -422,6 +426,7 @@ mod tests {
             "src/cronus_ui.rs",
             "src/cronus_ui_widgets.rs",
             "src/cronus_ui_alert.rs",
+            "src/cronus_ui_autocomplete.rs",
             "src/cronus_ui_badge.rs",
             "src/cronus_ui_banner.rs",
             "src/cronus_ui_checkbox.rs",
