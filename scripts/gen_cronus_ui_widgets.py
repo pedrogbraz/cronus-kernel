@@ -165,6 +165,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "mode-toggle",
     "date-picker",
     "time-picker",
+    "date-range-picker",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -230,6 +231,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "mode-toggle" => Some(crate::cronus_ui_mode_toggle::render(comp)),
         "date-picker" => Some(crate::cronus_ui_date_picker::render(comp)),
         "time-picker" => Some(crate::cronus_ui_time_picker::render(comp)),
+        "date-range-picker" => Some(crate::cronus_ui_date_range_picker::render(comp)),
         _ => None,
     }
 }
