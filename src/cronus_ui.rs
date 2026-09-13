@@ -3053,6 +3053,19 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="card-stack-item"]:nth-child(3) {
   z-index: 1; transform: translate(20px, 20px) scale(0.92);
 }
+[data-slot="composed-chart"] {
+  display: block; width: 100%; aspect-ratio: 2 / 1;
+}
+[data-slot="composed-chart"] svg {
+  display: block; width: 100%; height: 100%;
+}
+[data-slot="composed-chart"] path {
+  fill: var(--cronus-primary); fill-opacity: 0.28;
+}
+[data-slot="composed-chart"] polyline {
+  fill: none; stroke: var(--cronus-primary); stroke-width: 2;
+  stroke-linejoin: round; stroke-linecap: round;
+}
 
 "#;
 
