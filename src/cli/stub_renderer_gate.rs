@@ -406,7 +406,7 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"profit-loss-chart\"") && html.contains("<figcaption"))
         || (html.contains("data-slot=\"scroll-progress\"") && html.contains("<progress"))
         || (html.contains("data-slot=\"scroll-progress\"")
-            && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
+            && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
             && !html.contains("data-slot=\"scroll-progress-fill\"")
             && !html.contains("data-slot=\"scroll-progress-ring\""))
         || html.contains("data-slot=\"rich-text-editor-control\"")
@@ -415,14 +415,16 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"confirmation-dialog")
             && (html.contains("<dialog") || html.contains("showModal()")))
         || (html.contains("data-slot=\"invite-dialog")
+            && (html.contains("<dialog") || html.contains("showModal()")))
         || html.contains("data-slot=\"invite-dialog-control\"")
         || html.contains("<label data-slot=\"invite-dialog\"")
         || (html.contains("data-slot=\"shimmer\"")
             && (html.contains("<span")
                 || html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")))
         || (html.contains("data-slot=\"reveal\"")
+            && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
         || (html.contains("data-slot=\"text-shimmer\"")
-            && (html.contains("<div")
+            && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
