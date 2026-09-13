@@ -165,6 +165,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "candlestick-chart" => Some("cronus_ui_candlestick_chart::render"),
         "aurora-background" => Some("cronus_ui_aurora_background::render"),
         "border-beam" => Some("cronus_ui_border_beam::render"),
+        "confetti" => Some("cronus_ui_confetti::render"),
         _ => None,
     }
 }
@@ -622,6 +623,14 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || html.contains("<canvas")
                 || html.contains("<script")
                 || html.contains("setInterval")))
+        || (html.contains("data-slot=\"confetti\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<canvas")
+                || html.contains("<script")
+                || html.contains("setInterval")
+                || html.contains("requestAnimationFrame")
+                || !html.contains("data-slot=\"confetti-piece\"")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -886,6 +895,7 @@ mod tests {
             "src/cronus_ui_command.rs",
             "src/cronus_ui_masonry.rs",
             "src/cronus_ui_comparison_slider.rs",
+            "src/cronus_ui_confetti.rs",
             "src/cronus_ui_confirmation_dialog.rs",
             "src/cronus_ui_menubar.rs",
             "src/cronus_ui_navigation_menu.rs",

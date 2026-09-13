@@ -3116,6 +3116,46 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="border-beam-content"] {
   position: relative;
 }
+[data-slot="confetti"] {
+  position: relative;
+  color: var(--cronus-fg);
+}
+[data-slot="confetti-piece"] {
+  position: absolute; pointer-events: none;
+  width: 0.4rem; height: 0.25rem; border-radius: 1px;
+  background: var(--cronus-primary);
+  animation: cui-confetti 1.4s ease-out infinite;
+}
+[data-slot="confetti-piece"]:nth-of-type(1) {
+  left: 12%; top: 18%; background: var(--cronus-primary);
+}
+[data-slot="confetti-piece"]:nth-of-type(2) {
+  left: 28%; top: 8%; background: var(--cronus-accent);
+  animation-delay: 0.12s;
+}
+[data-slot="confetti-piece"]:nth-of-type(3) {
+  left: 46%; top: 22%; background: var(--cronus-success, var(--cronus-primary));
+  animation-delay: 0.24s;
+}
+[data-slot="confetti-piece"]:nth-of-type(4) {
+  left: 62%; top: 10%; background: var(--cronus-warning, var(--cronus-accent));
+  animation-delay: 0.36s;
+}
+[data-slot="confetti-piece"]:nth-of-type(5) {
+  left: 74%; top: 28%; background: var(--cronus-error);
+  animation-delay: 0.48s;
+}
+[data-slot="confetti-piece"]:nth-of-type(6) {
+  left: 86%; top: 16%; background: var(--cronus-primary);
+  animation-delay: 0.6s;
+}
+@keyframes cui-confetti {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(1.25rem, 3.25rem) rotate(220deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="confetti-piece"] { display: none; animation: none; }
+}
 
 "#;
 
