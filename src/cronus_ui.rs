@@ -694,6 +694,28 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   border-bottom-left-radius: 0; border-bottom-right-radius: 0;
 [data-slot="button-group"] > *:focus-visible {
   position: relative; z-index: 10;
+}
+[data-slot="file-dropzone"] {
+  position: relative; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 0.5rem;
+  cursor: pointer; box-sizing: border-box;
+  border-radius: var(--cronus-radius-xl);
+  border: 2px dashed var(--cronus-border);
+  background: var(--cronus-surface-inset);
+  padding: 2.5rem 1.5rem; text-align: center;
+  font-size: 0.875rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="file-dropzone"][aria-disabled="true"] {
+  cursor: not-allowed; opacity: 0.5;
+}
+[data-slot="file-dropzone"] .sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="file-dropzone"]:has(:focus-visible) {
+  outline: 2px solid var(--cronus-ring, var(--cronus-primary));
+  outline-offset: 2px;
+}
 "#;
 
 #[cfg(test)]
