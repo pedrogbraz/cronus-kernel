@@ -1215,6 +1215,24 @@ button:has(+ [data-slot="sheet-content"]) {
   background: var(--cronus-fg-muted);
 [data-slot="status-dot-label"] {
   font-size: 0.875rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="credit-card-input"] {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;
+  width: 100%; box-sizing: border-box;
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--cronus-radius-xl); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+  font-size: 0.875rem;
+}
+[data-slot="credit-card-input"][data-invalid=""] {
+  border-color: var(--cronus-error);
+}
+[data-slot="credit-card-input"][data-disabled=""] { opacity: 0.6; pointer-events: none; }
+[data-slot="credit-card-input"] input {
+  min-width: 0; flex: 1; background: transparent; border: 0; outline: none;
+  color: var(--cronus-fg); font: inherit; font-variant-numeric: tabular-nums;
+}
+[data-slot="credit-card-input"] input:disabled { opacity: 0.5; pointer-events: none; }
 "#;
 
 #[cfg(test)]

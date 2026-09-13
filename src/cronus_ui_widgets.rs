@@ -260,6 +260,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "scroll-area",
     "toolbar",
     "status-dot",
+    "credit-card-input",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -350,6 +351,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "scroll-area" => Some(crate::cronus_ui_scroll_area::render(comp)),
         "toolbar" => Some(crate::cronus_ui_toolbar::render(comp)),
         "status-dot" => Some(crate::cronus_ui_status_dot::render(comp)),
+        "credit-card-input" => Some(crate::cronus_ui_credit_card_input::render(comp)),
         _ => None,
     }
 }

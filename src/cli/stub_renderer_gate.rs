@@ -91,6 +91,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "scroll-area" => Some("cronus_ui_scroll_area::render"),
         "toolbar" => Some("cronus_ui_toolbar::render"),
         "status-dot" => Some("cronus_ui_status_dot::render"),
+        "credit-card-input" => Some("cronus_ui_credit_card_input::render"),
         _ => None,
     }
 }
@@ -272,6 +273,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && (html.contains("padding:0.15rem 0.55rem")
                 || !html.contains("data-slot=\"status-dot-indicator\"")
                 || !html.contains("data-slot=\"status-dot-label\"")))
+        || html.contains("data-slot=\"credit-card-input-control\"")
+        || html.contains("<label data-slot=\"credit-card-input\"")
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -422,6 +425,7 @@ mod tests {
             "src/cronus_ui_banner.rs",
             "src/cronus_ui_checkbox.rs",
             "src/cronus_ui_copy_button.rs",
+            "src/cronus_ui_credit_card_input.rs",
             "src/cronus_ui_input.rs",
             "src/cronus_ui_label.rs",
             "src/cronus_ui_metric.rs",
