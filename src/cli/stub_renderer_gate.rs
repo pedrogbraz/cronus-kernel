@@ -84,6 +84,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "navigation-menu" => Some("cronus_ui_navigation_menu::render"),
         "scroll-area" => Some("cronus_ui_scroll_area::render"),
         "toolbar" => Some("cronus_ui_toolbar::render"),
+        "status-dot" => Some("cronus_ui_status_dot::render"),
         _ => None,
     }
 }
@@ -248,6 +249,12 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"toolbar\"")
             && !html.contains("data-slot=\"toolbar-button\""))
         || (html.contains("data-slot=\"toolbar\"") && html.contains("flex-wrap:wrap"))
+        || (html.contains("data-slot=\"status-dot\"")
+            && html.contains("padding:0.15rem 0.55rem"))
+        || (html.contains("data-slot=\"status-dot\"")
+            && !html.contains("data-slot=\"status-dot-indicator\""))
+        || (html.contains("data-slot=\"status-dot\"")
+            && !html.contains("data-slot=\"status-dot-label\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -448,6 +455,7 @@ mod tests {
             "src/cronus_ui_menubar.rs",
             "src/cronus_ui_navigation_menu.rs",
             "src/cronus_ui_context_menu.rs",
+            "src/cronus_ui_status_dot.rs",
             "src/cronus_ui_stepper.rs",
             "src/cronus_ui_tooltip.rs",
             "src/cronus_ui_password_input.rs",
