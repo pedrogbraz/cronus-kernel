@@ -109,6 +109,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "alert-dialog" => Some("cronus_ui_alert_dialog::render"),
         "lightbox" => Some("cronus_ui_lightbox::render"),
         "notification-center" => Some("cronus_ui_notification_center::render"),
+        "segmented-control" => Some("cronus_ui_segmented_control::render"),
         _ => None,
     }
 }
@@ -353,6 +354,10 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"notification-center\"") && html.contains("<details"))
         || (html.contains("data-slot=\"notification-center\"")
             && !html.contains("data-slot=\"notification-row\""))
+        || (html.contains("data-slot=\"segmented-control\"") && html.contains("<input type=\"radio\""))
+        || (html.contains("data-slot=\"segmented-control\"") && html.contains("role=\"radiogroup\""))
+        || (html.contains("data-slot=\"segmented-control\"")
+            && !html.contains("data-slot=\"segmented-control-item\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -548,6 +553,7 @@ mod tests {
             "src/cronus_ui_fab.rs",
             "src/cronus_ui_hover_card.rs",
             "src/cronus_ui_select.rs",
+            "src/cronus_ui_segmented_control.rs",
             "src/cronus_ui_dialog.rs",
             "src/cronus_ui_dock.rs",
             "src/cronus_ui_drawer.rs",

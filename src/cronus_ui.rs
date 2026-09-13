@@ -1488,6 +1488,22 @@ button:has(+ [data-slot="sheet-content"]) {
   font: inherit; font-size: 0.875rem; text-align: start; cursor: pointer;
 [data-slot="notification-row"]:hover {
   background: var(--cronus-surface-overlay);
+[data-slot="segmented-control"] {
+  display: inline-flex; align-items: stretch; gap: 0.25rem;
+  border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-overlay); padding: 0.25rem;
+[data-slot="segmented-control-item"] {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0.375rem 0.75rem;
+  border: 0; border-radius: var(--cronus-radius-md);
+  background: transparent; color: var(--cronus-fg-secondary);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+[data-slot="segmented-control-item"][data-state="active"] {
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-sm, none);
+[data-slot="segmented-control-item"]:disabled { opacity: 0.5; pointer-events: none; }
 "#;
 
 #[cfg(test)]
