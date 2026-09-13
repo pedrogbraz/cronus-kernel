@@ -110,6 +110,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "lightbox" => Some("cronus_ui_lightbox::render"),
         "notification-center" => Some("cronus_ui_notification_center::render"),
         "segmented-control" => Some("cronus_ui_segmented_control::render"),
+        "usage-meter" => Some("cronus_ui_usage_meter::render"),
         _ => None,
     }
 }
@@ -358,6 +359,9 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"segmented-control\"") && html.contains("role=\"radiogroup\""))
         || (html.contains("data-slot=\"segmented-control\"")
             && !html.contains("data-slot=\"segmented-control-item\""))
+        || (html.contains("data-slot=\"usage-meter\"") && html.contains("<progress"))
+        || (html.contains("data-slot=\"usage-meter\"")
+            && !html.contains("data-slot=\"usage-meter-fill\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -531,6 +535,7 @@ mod tests {
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",
+            "src/cronus_ui_usage_meter.rs",
             "src/cronus_ui_toolbar.rs",
             "src/cronus_ui_progress.rs",
             "src/cronus_ui_slider.rs",

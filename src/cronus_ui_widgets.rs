@@ -279,6 +279,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "lightbox",
     "notification-center",
     "segmented-control",
+    "usage-meter",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -388,6 +389,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "lightbox" => Some(crate::cronus_ui_lightbox::render(comp)),
         "notification-center" => Some(crate::cronus_ui_notification_center::render(comp)),
         "segmented-control" => Some(crate::cronus_ui_segmented_control::render(comp)),
+        "usage-meter" => Some(crate::cronus_ui_usage_meter::render(comp)),
         _ => None,
     }
 }
@@ -860,8 +862,12 @@ mod tests {
             let html = render(&stub("select")).unwrap();
             assert!(html.contains("v-data="));
             assert!(html.contains("v-model="));
-            let meter = render(&stub("usage-meter")).unwrap();
+            let meter = render(&stub("scroll-progress")).unwrap();
             assert!(meter.contains("{ value }") || meter.contains("v-data="));
+            let usage = render(&stub("usage-meter")).unwrap();
+            assert!(!usage.contains("{ value }"), "{usage}");
+            assert!(!usage.contains("v-data="), "{usage}");
+            assert!(usage.contains("data-slot=\"usage-meter-fill\""), "{usage}");
             let tabs = render(&stub("tabs")).unwrap();
             assert!(tabs.contains("role=\"tablist\""));
             assert!(tabs.contains("onclick="), "tabs stay native; v-show + hidden deadlock");

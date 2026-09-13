@@ -1504,6 +1504,13 @@ button:has(+ [data-slot="sheet-content"]) {
   background: var(--cronus-surface-floating); color: var(--cronus-fg);
   box-shadow: var(--cronus-shadow-sm, none);
 [data-slot="segmented-control-item"]:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="usage-meter"] {
+  display: flex; flex-direction: column; gap: 0.5rem;
+[data-slot="usage-meter-label"] {
+  font-size: 0.875rem; font-weight: 500; color: var(--cronus-fg);
+[data-slot="usage-meter-fill"] {
+  height: 0.5rem; border-radius: 9999px;
+  background: var(--cronus-primary);
 "#;
 
 #[cfg(test)]

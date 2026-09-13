@@ -209,6 +209,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "lightbox",
     "notification-center",
     "segmented-control",
+    "usage-meter",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -318,6 +319,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "lightbox" => Some(crate::cronus_ui_lightbox::render(comp)),
         "notification-center" => Some(crate::cronus_ui_notification_center::render(comp)),
         "segmented-control" => Some(crate::cronus_ui_segmented_control::render(comp)),
+        "usage-meter" => Some(crate::cronus_ui_usage_meter::render(comp)),
         _ => None,
     }
 }
