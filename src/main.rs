@@ -53,6 +53,7 @@ mod cronus_ui_data;
 mod cronus_ui_input;
 mod cronus_ui_interact;
 mod cronus_ui_kbd;
+mod cronus_ui_toggle;
 mod cronus_ui_widgets;
 mod voodoo;
 mod navigation;
