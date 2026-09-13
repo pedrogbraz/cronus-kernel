@@ -2476,6 +2476,28 @@ button:has(+ [data-slot="sheet-content"]) {
   height: 1.2em; overflow: hidden;
   vertical-align: baseline; white-space: nowrap;
 }
+[data-slot="timeline"] {
+  display: flex; flex-direction: column; width: 100%; min-width: 0;
+}
+[data-slot="timeline-item"] {
+  position: relative; display: grid;
+  grid-template-columns: auto minmax(0, 1fr); column-gap: 0.75rem;
+  padding-bottom: 1.5rem;
+}
+[data-slot="timeline-item"]:last-child { padding-bottom: 0; }
+[data-slot="timeline-item"]::before {
+  content: ""; width: 0.625rem; height: 0.625rem; margin-top: 0.25rem;
+  border-radius: 999px; background: var(--cronus-fg-tertiary);
+}
+[data-slot="timeline-item"]:not(:last-child)::after {
+  content: ""; position: absolute; left: 0.25rem; top: 1rem; bottom: 0;
+  width: 1px; background: var(--cronus-border);
+}
+[data-slot="timeline-content"] {
+  display: flex; flex-direction: column; gap: 0.25rem;
+  min-width: 0; padding-top: 0.125rem;
+  font-size: 0.875rem; color: var(--cronus-fg);
+}
 "#;
 
 #[cfg(test)]

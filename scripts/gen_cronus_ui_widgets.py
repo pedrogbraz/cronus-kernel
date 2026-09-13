@@ -227,6 +227,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "reveal",
     "text-shimmer",
     "word-rotate",
+    "timeline",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -354,6 +355,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "reveal" => Some(crate::cronus_ui_reveal::render(comp)),
         "text-shimmer" => Some(crate::cronus_ui_text_shimmer::render(comp)),
         "word-rotate" => Some(crate::cronus_ui_word_rotate::render(comp)),
+        "timeline" => Some(crate::cronus_ui_timeline::render(comp)),
         _ => None,
     }
 }
