@@ -163,6 +163,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "gauge-chart" => Some("cronus_ui_gauge_chart::render"),
         "funnel-chart" => Some("cronus_ui_funnel_chart::render"),
         "candlestick-chart" => Some("cronus_ui_candlestick_chart::render"),
+        "logo-carousel" => Some("cronus_ui_logo_carousel::render"),
         _ => None,
     }
 }
@@ -604,6 +605,11 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"funnel-chart\"") && html.contains("<figcaption"))
         || html.contains("<figure data-slot=\"candlestick-chart\"")
         || (html.contains("data-slot=\"candlestick-chart\"") && html.contains("<figcaption"))
+        || (html.contains("data-slot=\"logo-carousel\"")
+            && (html.contains("<div data-slot=\"logo-carousel\"")
+                || html.contains("style=")
+                || !html.contains("data-slot=\"logo-carousel-item\"")
+                || !html.contains("<ul")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -887,6 +893,7 @@ mod tests {
             "src/cronus_ui_bar_chart.rs",
             "src/cronus_ui_line_chart.rs",
             "src/cronus_ui_live_line_chart.rs",
+            "src/cronus_ui_logo_carousel.rs",
             "src/cronus_ui_sparkline.rs",
             "src/cronus_ui_pie_chart.rs",
             "src/cronus_ui_pill_nav.rs",

@@ -3053,6 +3053,19 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="card-stack-item"]:nth-child(3) {
   z-index: 1; transform: translate(20px, 20px) scale(0.92);
 }
+[data-slot="logo-carousel"] {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+  gap: 0.75rem; width: 100%; margin: 0; padding: 0; list-style: none;
+}
+[data-slot="logo-carousel-item"] {
+  display: flex; min-width: 0; align-items: center; justify-content: center;
+  overflow: hidden; height: 4rem; padding: 0 1rem;
+  border-radius: var(--cronus-radius-xl);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised);
+  color: var(--cronus-fg-secondary);
+  font-weight: 600;
+}
 
 "#;
 
