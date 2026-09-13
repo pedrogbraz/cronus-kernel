@@ -831,6 +831,44 @@ button:has(+ [data-slot="hover-card-content"]) {
 [data-slot="mode-toggle"][data-mode="dark"] [data-slot="mode-toggle-crescent"] {
   transform: translateX(-7px);
 }
+[data-slot="date-picker-trigger"] {
+  display: inline-flex; align-items: center; justify-content: flex-start; gap: 0.5rem;
+  width: 15rem; height: 2.5rem; padding: 0 0.75rem; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: transparent; color: var(--cronus-fg);
+  font-size: 0.875rem; font-weight: 400; font-family: inherit; cursor: pointer;
+}
+[data-slot="date-picker-trigger"]:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="date-picker-trigger"][aria-invalid="true"] {
+  border-color: var(--cronus-error);
+}
+[data-slot="date-picker-trigger"] svg { width: 1rem; height: 1rem; flex-shrink: 0; opacity: 0.7; }
+[data-slot="date-picker-content"] {
+  z-index: 50; width: auto; box-sizing: border-box;
+  padding: 0.75rem; outline: none;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  font-size: 0.875rem; box-shadow: var(--cronus-shadow-lg, none);
+}
+[data-slot="date-picker-calendar"] {
+  display: flex; flex-direction: column; gap: 0.25rem;
+}
+[data-slot="date-picker-calendar"] [role="row"] {
+  display: grid; grid-template-columns: repeat(7, 2.25rem); justify-content: center;
+}
+[data-slot="date-picker-weekday"] {
+  font-size: 0.75rem; font-weight: 400; color: var(--cronus-fg-tertiary);
+  text-align: center;
+}
+[data-slot="date-picker-day"] {
+  width: 2.25rem; height: 2.25rem; padding: 0; border: 0;
+  border-radius: var(--cronus-radius-md);
+  background: transparent; color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; cursor: default;
+}
+[data-slot="date-picker-day"][aria-selected="true"] {
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+}
 "#;
 
 #[cfg(test)]
