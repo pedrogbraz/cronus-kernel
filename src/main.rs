@@ -56,6 +56,7 @@ mod cronus_ui_interact;
 mod cronus_ui_kbd;
 mod cronus_ui_label;
 mod cronus_ui_progress;
+mod cronus_ui_radio_group;
 mod cronus_ui_separator;
 mod cronus_ui_slider;
 mod cronus_ui_spinner;

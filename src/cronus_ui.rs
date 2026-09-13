@@ -386,6 +386,24 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   transform: translateX(-50%);
 }
 
+[data-slot="radio-group"] {
+  display: grid; gap: 0.5rem;
+}
+[data-slot="radio-group-item"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1rem; height: 1rem; padding: 0; margin: 0;
+  border-radius: 9999px; border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-primary);
+  cursor: pointer; outline: none; font: inherit;
+}
+[data-slot="radio-group-item"][data-state="checked"] {
+  border-color: var(--cronus-primary);
+}
+[data-slot="radio-group-item"][data-state="checked"]::after {
+  content: ""; width: 0.5rem; height: 0.5rem; border-radius: 9999px;
+  background: var(--cronus-primary);
+}
+
 [data-slot="card"], [data-slot="glass-card"], [data-slot="spotlight-card"] {
   background: var(--cronus-surface-raised); border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none);
