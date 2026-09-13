@@ -175,6 +175,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "area-chart",
     "bar-chart",
     "line-chart",
+    "sparkline",
+    "pie-chart",
+    "data-table",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -250,6 +253,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "area-chart" => Some(crate::cronus_ui_area_chart::render(comp)),
         "bar-chart" => Some(crate::cronus_ui_bar_chart::render(comp)),
         "line-chart" => Some(crate::cronus_ui_line_chart::render(comp)),
+        "sparkline" => Some(crate::cronus_ui_sparkline::render(comp)),
+        "pie-chart" => Some(crate::cronus_ui_pie_chart::render(comp)),
+        "data-table" => Some(crate::cronus_ui_data_table::render(comp)),
         _ => None,
     }
 }

@@ -997,32 +997,35 @@ button:has(+ [data-slot="sheet-content"]) {
 }
 [data-slot="area-chart"] svg {
   display: block; width: 100%; height: 100%;
-}
 [data-slot="area-chart"] path {
   fill: var(--cronus-primary); fill-opacity: 0.28;
-}
 [data-slot="area-chart"] polyline {
   fill: none; stroke: var(--cronus-primary); stroke-width: 2;
   stroke-linejoin: round; stroke-linecap: round;
-}
 [data-slot="bar-chart"] {
-  display: block; width: 100%; aspect-ratio: 2 / 1;
-}
 [data-slot="bar-chart"] svg {
-  display: block; width: 100%; height: 100%;
-}
 [data-slot="bar-chart"] rect {
   fill: var(--cronus-primary);
-}
 [data-slot="line-chart"] {
-  display: block; width: 100%; aspect-ratio: 2 / 1;
-}
 [data-slot="line-chart"] svg {
-  display: block; width: 100%; height: 100%;
-}
 [data-slot="line-chart"] polyline {
-  fill: none; stroke: var(--cronus-primary); stroke-width: 2;
-  stroke-linejoin: round; stroke-linecap: round;
+[data-slot="sparkline"] {
+  display: inline-block; overflow: visible; vertical-align: middle;
+  color: var(--cronus-primary);
+[data-slot="sparkline"][data-tone="success"] { color: var(--cronus-success); }
+[data-slot="sparkline"][data-tone="warning"] { color: var(--cronus-warning); }
+[data-slot="sparkline"][data-tone="error"] { color: var(--cronus-error); }
+[data-slot="sparkline"][data-tone="info"] { color: var(--cronus-info); }
+[data-slot="sparkline"][data-tone="fg"] { color: var(--cronus-fg); }
+[data-slot="sparkline-line"] { fill: none; stroke: currentColor; }
+[data-slot="sparkline-area"] { stroke: none; }
+[data-slot="pie-chart"] {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 16rem;
+[data-slot="pie-chart"] svg { width: 12rem; height: 12rem; }
+[data-slot="data-table"] {
+  display: flex; flex-direction: column; gap: 0.75rem;
+  overflow: auto; color: var(--cronus-fg);
 }
 "#;
 
