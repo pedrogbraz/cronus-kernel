@@ -2316,6 +2316,20 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="sunburst-chart"] path {
   stroke: var(--cronus-surface-base); stroke-width: 1;
 }
+[data-slot="shimmer"] {
+  display: block; position: relative; overflow: hidden;
+  height: 0.9rem; width: 8rem;
+  border-radius: var(--cronus-radius-md);
+  background: var(--cronus-surface-overlay);
+}
+[data-slot="shimmer"]::after {
+  content: "";
+  position: absolute; inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--cronus-fg) 10%, transparent), transparent);
+  animation: cui-shimmer 2s linear infinite;
+}
+@keyframes cui-shimmer { 100% { transform: translateX(100%); } }
 "#;
 
 #[cfg(test)]
