@@ -83,6 +83,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "sonner" => Some("cronus_ui_sonner::render"),
         "navigation-menu" => Some("cronus_ui_navigation_menu::render"),
         "radar-chart" => Some("cronus_ui_radar_chart::render"),
+        "scatter-chart" => Some("cronus_ui_scatter_chart::render"),
         _ => None,
     }
 }
@@ -227,6 +228,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"pie-chart\"") && html.contains("<figcaption"))
         || html.contains("<figure data-slot=\"radar-chart\"")
         || (html.contains("data-slot=\"radar-chart\"") && html.contains("<figcaption"))
+        || html.contains("<figure data-slot=\"scatter-chart\"")
+        || (html.contains("data-slot=\"scatter-chart\"") && html.contains("<figcaption"))
         || (html.contains("data-slot=\"data-table\"")
             && html.contains("text-align:left;padding:0.5rem 0.75rem"))
         || (html.contains("data-slot=\"data-table\"") && html.contains("style="))
@@ -452,6 +455,7 @@ mod tests {
             "src/cronus_ui_sparkline.rs",
             "src/cronus_ui_pie_chart.rs",
             "src/cronus_ui_radar_chart.rs",
+            "src/cronus_ui_scatter_chart.rs",
             "src/cronus_ui_data_table.rs",
             "src/cronus_ui_kit.rs",
             "src/cli/audit_http.rs",

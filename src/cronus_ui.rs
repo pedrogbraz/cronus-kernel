@@ -1035,6 +1035,15 @@ button:has(+ [data-slot="sheet-content"]) {
   fill: none; stroke: var(--cronus-primary); stroke-width: 2;
   stroke-linejoin: round; stroke-linecap: round;
 }
+[data-slot="scatter-chart"] {
+  display: block; width: 100%; aspect-ratio: 2 / 1;
+}
+[data-slot="scatter-chart"] svg {
+  display: block; width: 100%; height: 100%;
+}
+[data-slot="scatter-chart"] circle {
+  fill: var(--cronus-primary);
+}
 [data-slot="data-table"] {
   display: flex; flex-direction: column; gap: 0.75rem;
   overflow: auto; color: var(--cronus-fg);

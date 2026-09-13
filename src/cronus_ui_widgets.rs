@@ -252,6 +252,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "sonner",
     "navigation-menu",
     "radar-chart",
+    "scatter-chart",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -334,6 +335,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "sonner" => Some(crate::cronus_ui_sonner::render(comp)),
         "navigation-menu" => Some(crate::cronus_ui_navigation_menu::render(comp)),
         "radar-chart" => Some(crate::cronus_ui_radar_chart::render(comp)),
+        "scatter-chart" => Some(crate::cronus_ui_scatter_chart::render(comp)),
         _ => None,
     }
 }
