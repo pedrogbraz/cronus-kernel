@@ -1116,80 +1116,105 @@ button:has(+ [data-slot="sheet-content"]) {
 }
 [data-slot="phone-input"][data-invalid="true"] {
   border-color: var(--cronus-error);
-}
 [data-slot="phone-input-country"] {
   display: flex; flex-shrink: 0; align-items: center; gap: 0.375rem;
   padding: 0 0.5rem 0 0.75rem; border: 0;
   background: transparent; color: var(--cronus-fg-secondary);
   font: inherit; font-size: 0.875rem; cursor: pointer;
   border-right: 1px solid var(--cronus-border);
-}
 [data-slot="phone-input-country"]:disabled { opacity: 0.5; pointer-events: none; }
 [data-slot="phone-input-field"] {
   height: 100%; width: auto; flex: 1; min-width: 0;
   border: 0; border-radius: 0; background: transparent; box-shadow: none;
   padding: 0 0.75rem; color: var(--cronus-fg); font: inherit; outline: none;
-}
 [data-slot="currency-input"] {
-  display: flex; height: 2.5rem; width: 100%; align-items: stretch;
-  overflow: hidden; box-sizing: border-box;
-  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
-  background: var(--cronus-surface-inset); color: var(--cronus-fg);
-  font-size: 0.875rem;
-}
 [data-slot="currency-input"][data-invalid=""] {
-  border-color: var(--cronus-error);
-}
 [data-slot="currency-input"][data-disabled=""] { opacity: 0.5; pointer-events: none; }
 [data-slot="currency-input-prefix"] {
-  display: flex; flex-shrink: 0; align-items: center; gap: 0.375rem;
   padding: 0 0.75rem; color: var(--cronus-fg);
   border-right: 1px solid var(--cronus-border); user-select: none; white-space: nowrap;
   font-weight: 500;
-}
 [data-slot="currency-input-field"] {
-  height: 100%; width: auto; flex: 1; min-width: 0;
-  border: 0; border-radius: 0; background: transparent; box-shadow: none;
-  padding: 0 0.75rem; color: var(--cronus-fg); font: inherit; outline: none;
   text-align: end; font-variant-numeric: tabular-nums;
-}
 [data-slot="color-picker"] {
   display: inline-flex; flex-direction: column; gap: 0.25rem;
-}
 [data-slot="color-picker-trigger"] {
   display: inline-flex; align-items: center; justify-content: flex-start; gap: 0.5rem;
   width: 100%; height: 2.5rem; padding: 0 0.75rem; box-sizing: border-box;
-  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
   background: transparent; color: var(--cronus-fg);
   font-size: 0.875rem; font-weight: 400; font-family: inherit; cursor: pointer;
-}
 [data-slot="color-picker-trigger"]:disabled { opacity: 0.5; pointer-events: none; }
 [data-slot="color-picker-swatch"] {
   width: 1.25rem; height: 1.25rem; flex-shrink: 0;
   border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
   background: var(--cronus-primary);
-}
 [data-slot="color-picker-content"] {
   z-index: 50; width: 16rem; box-sizing: border-box;
   padding: 0.75rem; outline: none;
-  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
   background: var(--cronus-surface-floating); color: var(--cronus-fg);
   font-size: 0.875rem; box-shadow: var(--cronus-shadow-lg, none);
   display: flex; flex-direction: column; gap: 0.75rem;
-}
 [data-slot="color-picker-swatches"] {
   display: flex; flex-wrap: wrap; gap: 0.375rem;
-}
 [data-slot="color-picker-swatch-button"] {
   width: 1.5rem; height: 1.5rem; padding: 0;
-  border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
   cursor: default;
-}
 [data-slot="color-picker-swatch-button"]:nth-child(1) { background: var(--cronus-primary); }
 [data-slot="color-picker-swatch-button"]:nth-child(2) { background: var(--cronus-error); }
 [data-slot="color-picker-swatch-button"]:nth-child(3) { background: var(--cronus-success); }
 [data-slot="color-picker-swatch-button"]:nth-child(4) { background: var(--cronus-warning); }
 [data-slot="color-picker-swatch-button"]:nth-child(5) { background: var(--cronus-info); }
+[data-slot="scroll-area"] {
+  position: relative; overflow: hidden;
+  max-height: 12rem;
+[data-slot="scroll-area-viewport"] {
+  width: 100%; height: 100%; max-height: inherit;
+  overflow: auto; outline: none;
+  font-size: 0.875rem; color: var(--cronus-fg);
+[data-slot="scroll-bar"] {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  display: flex; width: 0.625rem;
+  border-left: 1px solid transparent; padding: 1px;
+  touch-action: none; user-select: none;
+[data-slot="scroll-bar"]::before {
+  content: ""; flex: 1; border-radius: 9999px;
+  background: var(--cronus-border);
+[data-slot="toolbar"] {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised); color: var(--cronus-fg);
+  padding: 0.25rem;
+[data-slot="toolbar-button"] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem;
+  height: 2rem; min-width: 2rem; padding: 0 0.5rem;
+  border: 0; border-radius: var(--cronus-radius-md);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+[data-slot="toolbar-button"]:hover,
+[data-slot="toolbar-button"][data-state="on"] {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+[data-slot="status-dot"] {
+  display: inline-flex; align-items: center; gap: 0.375rem;
+[data-slot="status-dot-indicator"] {
+  position: relative; display: inline-block; flex-shrink: 0;
+  width: 0.625rem; height: 0.625rem; border-radius: 9999px;
+  background: var(--cronus-success);
+[data-slot="status-dot"][data-status="online"] [data-slot="status-dot-indicator"],
+[data-slot="status-dot"][data-status="success"] [data-slot="status-dot-indicator"] {
+[data-slot="status-dot"][data-status="offline"] [data-slot="status-dot-indicator"] {
+  background: transparent; border: 2px solid var(--cronus-fg-muted);
+[data-slot="status-dot"][data-status="busy"] [data-slot="status-dot-indicator"],
+[data-slot="status-dot"][data-status="error"] [data-slot="status-dot-indicator"] {
+  background: var(--cronus-error);
+[data-slot="status-dot"][data-status="away"] [data-slot="status-dot-indicator"],
+[data-slot="status-dot"][data-status="warning"] [data-slot="status-dot-indicator"] {
+  background: var(--cronus-warning);
+[data-slot="status-dot"][data-status="info"] [data-slot="status-dot-indicator"] {
+  background: var(--cronus-info);
+[data-slot="status-dot"][data-status="neutral"] [data-slot="status-dot-indicator"] {
+  background: var(--cronus-fg-muted);
+[data-slot="status-dot-label"] {
+  font-size: 0.875rem; color: var(--cronus-fg-secondary);
 "#;
 
 #[cfg(test)]

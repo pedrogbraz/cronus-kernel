@@ -88,6 +88,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "phone-input" => Some("cronus_ui_phone_input::render"),
         "currency-input" => Some("cronus_ui_currency_input::render"),
         "color-picker" => Some("cronus_ui_color_picker::render"),
+        "scroll-area" => Some("cronus_ui_scroll_area::render"),
+        "toolbar" => Some("cronus_ui_toolbar::render"),
+        "status-dot" => Some("cronus_ui_status_dot::render"),
         _ => None,
     }
 }
@@ -257,6 +260,18 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || html.contains("data-slot=\"color-picker-control\"")
         || html.contains("<label data-slot=\"color-picker\"")
         || html.contains("<input type=\"color\"")
+        || (html.contains("data-slot=\"scroll-area\"") && html.contains("<section"))
+        || (html.contains("data-slot=\"scroll-area\"") && html.contains("max-height:12rem;overflow:auto"))
+        || (html.contains("data-slot=\"scroll-area\"")
+            && !html.contains("data-slot=\"scroll-area-viewport\""))
+        || (html.contains("data-slot=\"toolbar\"") && html.contains("<nav"))
+        || (html.contains("data-slot=\"toolbar\"")
+            && !html.contains("data-slot=\"toolbar-button\""))
+        || (html.contains("data-slot=\"toolbar\"") && html.contains("flex-wrap:wrap"))
+        || (html.contains("data-slot=\"status-dot\"")
+            && html.contains("padding:0.15rem 0.55rem"))
+            && !html.contains("data-slot=\"status-dot-indicator\""))
+            && !html.contains("data-slot=\"status-dot-label\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -422,10 +437,12 @@ mod tests {
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",
+            "src/cronus_ui_toolbar.rs",
             "src/cronus_ui_progress.rs",
             "src/cronus_ui_slider.rs",
             "src/cronus_ui_radio_group.rs",
             "src/cronus_ui_rating.rs",
+            "src/cronus_ui_scroll_area.rs",
             "src/cronus_ui_chip.rs",
             "src/cronus_ui_collapsible.rs",
             "src/cronus_ui_avatar.rs",
@@ -455,6 +472,7 @@ mod tests {
             "src/cronus_ui_menubar.rs",
             "src/cronus_ui_navigation_menu.rs",
             "src/cronus_ui_context_menu.rs",
+            "src/cronus_ui_status_dot.rs",
             "src/cronus_ui_stepper.rs",
             "src/cronus_ui_tooltip.rs",
             "src/cronus_ui_password_input.rs",
