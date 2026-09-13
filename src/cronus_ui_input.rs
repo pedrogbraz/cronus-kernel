@@ -20,7 +20,8 @@ pub fn render(comp: &ComponentNode) -> String {
                 .iter()
                 .find_map(|i| i.config.get("aria-label").map(String::as_str))
         })
-        .or_else(|| item(comp, "title"));
+        .or_else(|| item(comp, "title"))
+        .or_else(|| item(comp, "label"));
     let mut attrs = format!(
         "data-slot=\"input\" type=\"{}\" placeholder=\"{}\"",
         esc_attr(ty),

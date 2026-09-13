@@ -145,6 +145,8 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "switch", "spinner", "separator", "kbd", "toggle", "progress",
     "alert", "skeleton", "banner", "slider", "radio-group", "chip",
     "avatar", "card", "empty",
+    "select", "dialog", "tabs", "accordion", "table", "pagination",
+    "breadcrumb", "tooltip", "password-input", "number-input",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {

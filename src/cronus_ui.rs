@@ -519,7 +519,71 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   color: var(--cronus-fg); border-bottom-color: var(--cronus-primary);
 }
 [data-slot="table"] table, [data-slot="data-table"] table {
-  font-size: 0.875rem;
+  font-size: 0.875rem; width: 100%; border-collapse: collapse;
+}
+[data-slot="table"] th, [data-slot="data-table"] th {
+  text-align: start; padding: 0.5rem 0.75rem; font-size: 0.75rem; font-weight: 500;
+  color: var(--cronus-fg-secondary); border-bottom: 1px solid var(--cronus-border);
+}
+[data-slot="table"] td, [data-slot="data-table"] td {
+  padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--cronus-border);
+  color: var(--cronus-fg);
+}
+[data-slot="select"] {
+  display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.875rem;
+}
+[data-slot="select"] select {
+  height: 2.5rem; padding: 0 0.75rem; border-radius: var(--cronus-radius-md);
+  border: 1px solid var(--cronus-border); background: var(--cronus-surface-inset);
+  color: var(--cronus-fg); font: inherit;
+}
+[data-slot="dialog"] { display: inline-flex; flex-direction: column; gap: 0.5rem; }
+[data-slot="dialog"] form { display: flex; flex-direction: column; gap: 0.75rem; padding: 1.25rem; min-width: 18rem; }
+[data-slot="dialog-title"] { font-weight: 500; font-size: 1rem; }
+[data-slot="dialog-description"] { margin: 0; color: var(--cronus-fg-secondary); font-size: 0.875rem; }
+[data-slot="tabs"] [role="tablist"] {
+  display: flex; gap: 0.15rem; border-bottom: 1px solid var(--cronus-border);
+}
+[data-slot="tabs"] [role="tab"] {
+  padding: 0.4rem 0.75rem; border: 0; border-bottom: 2px solid transparent;
+  background: transparent; color: var(--cronus-fg-secondary); cursor: pointer; font: inherit;
+}
+[data-slot="tabs"] [role="tab"][aria-selected="true"] {
+  color: var(--cronus-fg); border-bottom-color: var(--cronus-primary);
+}
+[data-slot="tabs"] [role="tabpanel"] { padding: 0.75rem 0; font-size: 0.875rem; }
+[data-slot="accordion"] { display: flex; flex-direction: column; }
+[data-slot="accordion-item"] { border-bottom: 1px solid var(--cronus-border); padding: 0.5rem 0; }
+[data-slot="accordion-trigger"] { cursor: pointer; font-size: 0.875rem; }
+[data-slot="accordion-content"] { padding: 0.5rem 0; color: var(--cronus-fg-secondary); font-size: 0.875rem; }
+[data-slot="pagination"] { display: flex; gap: 0.25rem; align-items: center; }
+[data-slot="pagination-link"], [data-slot="pagination-previous"], [data-slot="pagination-next"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 2.25rem; height: 2.25rem; padding: 0 0.5rem;
+  border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
+  color: var(--cronus-fg); text-decoration: none; font-size: 0.875rem;
+}
+[data-slot="pagination-link"][aria-current="page"] {
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground); border-color: transparent;
+}
+[data-slot="breadcrumb-list"] { list-style: none; padding: 0; margin: 0; display: flex; gap: 0.35rem; font-size: 0.8125rem; }
+[data-slot="breadcrumb-link"] { color: var(--cronus-fg-secondary); text-decoration: none; }
+[data-slot="breadcrumb-page"] { color: var(--cronus-fg); }
+[data-slot="tooltip"] { position: relative; display: inline-block; }
+[data-slot="tooltip-trigger"] { list-style: none; cursor: pointer; }
+[data-slot="tooltip-content"] {
+  position: absolute; z-index: 20; margin-top: 0.35rem; padding: 0.5rem 0.75rem;
+  min-width: 8rem; background: var(--cronus-surface-floating);
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-md);
+  color: var(--cronus-fg); font-size: 0.8125rem; box-shadow: var(--cronus-shadow-md, none);
+}
+[data-slot="password-input"], [data-slot="number-input"] {
+  display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.875rem;
+}
+[data-slot="password-input"] input, [data-slot="number-input"] input {
+  height: 2.5rem; padding: 0 0.75rem; border-radius: var(--cronus-radius-md);
+  border: 1px solid var(--cronus-border); background: var(--cronus-surface-inset);
+  color: var(--cronus-fg); font: inherit;
 }
 "#;
 

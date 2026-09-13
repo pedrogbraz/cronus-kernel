@@ -205,6 +205,16 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "avatar",
     "card",
     "empty",
+    "select",
+    "dialog",
+    "tabs",
+    "accordion",
+    "table",
+    "pagination",
+    "breadcrumb",
+    "tooltip",
+    "password-input",
+    "number-input",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -240,6 +250,16 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "avatar" => Some(crate::cronus_ui_avatar::render(comp)),
         "card" => Some(crate::cronus_ui_card::render(comp)),
         "empty" => Some(crate::cronus_ui_empty::render(comp)),
+        "select" => Some(crate::cronus_ui_select::render(comp)),
+        "dialog" => Some(crate::cronus_ui_dialog::render(comp)),
+        "tabs" => Some(crate::cronus_ui_tabs::render(comp)),
+        "accordion" => Some(crate::cronus_ui_accordion::render(comp)),
+        "table" => Some(crate::cronus_ui_table::render(comp)),
+        "pagination" => Some(crate::cronus_ui_pagination::render(comp)),
+        "breadcrumb" => Some(crate::cronus_ui_breadcrumb::render(comp)),
+        "tooltip" => Some(crate::cronus_ui_tooltip::render(comp)),
+        "password-input" => Some(crate::cronus_ui_password_input::render(comp)),
+        "number-input" => Some(crate::cronus_ui_number_input::render(comp)),
         _ => None,
     }
 }
@@ -838,5 +858,86 @@ component Revenue layout:stack style:metric {
         }).expect("component");
         let b = comp.binding.as_ref().expect("binding");
         assert_eq!(b.entity, "Order");
+    }
+
+    #[test]
+    fn catalog_source_is_declaration_only() {
+        let src = include_str!("../demos/cronus-ui-catalog/app.cronus");
+        assert!(!src.contains("<div"));
+        assert!(!src.contains("className"));
+        assert!(!src.contains("jsx"));
+        assert!(!src.contains("template \""));
+        assert!(!src.contains("style_block"));
+        assert!(!src.contains(".tsx"));
+        assert!(!src.contains("eq:\""));
+        assert!(!src.contains("query sum"));
+        assert!(!src.contains("zinc-"));
+        assert!(!src.contains("amber-"));
+    }
+
+    #[test]
+    fn catalog_families_are_native_not_stub() {
+        use crate::cli::stub_renderer_gate::{renderer_kind, RendererKind};
+        let src = include_str!("../demos/cronus-ui-catalog/app.cronus");
+        let nodes = crate::parser::parse(src).expect("parse catalog");
+        let mut families = Vec::new();
+        for node in &nodes {
+            if let crate::parser::AstNode::Component(comp) = node {
+                let family = family_of(comp).expect(&comp.name);
+                families.push(family.to_string());
+                match renderer_kind(family) {
+                    RendererKind::Dedicated(_) | RendererKind::Interact => {}
+                    other => panic!("{family} on catalog is {other:?}, expected native"),
+                }
+                let html = render(comp).expect(family);
+                assert!(
+                    html.contains("data-slot") || html.contains("--cronus-"),
+                    "{family} missing slot/tokens: {html}"
+                );
+                assert!(!html.contains("zinc-"), "{family}");
+                assert!(!html.contains("amber-500"), "{family}");
+                assert!(!html.contains("bg-neutral-"), "{family}");
+                if matches!(renderer_kind(family), RendererKind::Stub(_)) {
+                    panic!("{family} stub");
+                }
+            }
+        }
+        assert!(
+            families.len() >= 20,
+            "catalog too small: {}",
+            families.len()
+        );
+        let has_app = nodes
+            .iter()
+            .any(|n| matches!(n, crate::parser::AstNode::App(_)));
+        let has_page = nodes
+            .iter()
+            .any(|n| matches!(n, crate::parser::AstNode::Page(_)));
+        assert!(has_app && has_page);
+    }
+
+    #[test]
+    fn catalog_kit_html_contains_widget_labels_and_tokens() {
+        let src = include_str!("../demos/cronus-ui-catalog/app.cronus");
+        let nodes = crate::parser::parse(src).expect("parse catalog");
+        let comps: Vec<_> = nodes
+            .iter()
+            .filter_map(|n| match n {
+                crate::parser::AstNode::Component(c) => Some(c.clone()),
+                _ => None,
+            })
+            .collect();
+        let html = crate::ui::render_components_page(&comps);
+        assert!(html.contains("Save"), "{html}");
+        assert!(html.contains("Email") || html.contains("you@cooud.app"), "{html}");
+        for family in ["button", "input", "dialog", "tabs", "select"] {
+            assert!(
+                html.contains(&format!("data-slot=\"{family}\"")),
+                "missing {family}"
+            );
+        }
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("--cronus-") || crate::cronus_ui::token_css("aurora", "dark").contains("--cronus-"));
+        assert!(!html.contains("zinc-"));
     }
 }
