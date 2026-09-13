@@ -383,7 +383,7 @@ mod tests {
         assert!(!html.contains("<figure"));
         assert!(!html.contains("<figcaption"));
         let area =
-            crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("radar-chart"))
+            crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("sankey-chart"))
                 .unwrap();
         assert!(area.contains("<figure"));
         assert!(area.contains("<figcaption"));

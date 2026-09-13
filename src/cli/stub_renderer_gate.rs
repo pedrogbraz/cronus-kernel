@@ -330,11 +330,11 @@ mod tests {
     }
 
     #[test]
-    fn radar_chart_is_stub() {
-        assert_eq!(renderer_kind("radar-chart"), RendererKind::Stub("chart"));
-        let err = check_family("radar-chart").unwrap_err();
+    fn sankey_chart_is_stub() {
+        assert_eq!(renderer_kind("sankey-chart"), RendererKind::Stub("chart"));
+        let err = check_family("sankey-chart").unwrap_err();
         assert_eq!(err.code, STUB_RENDERER);
-        let html = render(&stub("radar-chart")).unwrap();
+        let html = render(&stub("sankey-chart")).unwrap();
         assert_eq!(looks_like_stub_fingerprint(&html), Some("chart"));
     }
 
