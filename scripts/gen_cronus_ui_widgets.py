@@ -218,6 +218,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "live-line-chart",
     "sunburst-chart",
     "choropleth-chart",
+    "profit-loss-chart",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -336,6 +337,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "live-line-chart" => Some(crate::cronus_ui_live_line_chart::render(comp)),
         "sunburst-chart" => Some(crate::cronus_ui_sunburst_chart::render(comp)),
         "choropleth-chart" => Some(crate::cronus_ui_choropleth_chart::render(comp)),
+        "profit-loss-chart" => Some(crate::cronus_ui_profit_loss_chart::render(comp)),
         _ => None,
     }
 }

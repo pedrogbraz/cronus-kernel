@@ -119,6 +119,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "live-line-chart" => Some("cronus_ui_live_line_chart::render"),
         "sunburst-chart" => Some("cronus_ui_sunburst_chart::render"),
         "choropleth-chart" => Some("cronus_ui_choropleth_chart::render"),
+        "profit-loss-chart" => Some("cronus_ui_profit_loss_chart::render"),
         _ => None,
     }
 }
@@ -394,6 +395,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"sunburst-chart\"") && html.contains("<figcaption"))
         || html.contains("<figure data-slot=\"choropleth-chart\"")
         || (html.contains("data-slot=\"choropleth-chart\"") && html.contains("<figcaption"))
+        || html.contains("<figure data-slot=\"profit-loss-chart\"")
+        || (html.contains("data-slot=\"profit-loss-chart\"") && html.contains("<figcaption"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -570,6 +573,7 @@ mod tests {
             "src/cronus_ui_usage_meter.rs",
             "src/cronus_ui_toolbar.rs",
             "src/cronus_ui_progress.rs",
+            "src/cronus_ui_profit_loss_chart.rs",
             "src/cronus_ui_slider.rs",
             "src/cronus_ui_radio_group.rs",
             "src/cronus_ui_rating.rs",

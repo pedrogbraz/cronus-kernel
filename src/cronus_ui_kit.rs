@@ -188,6 +188,43 @@ pub fn chart_polyline_points(series: &[f64]) -> String {
         .join(" ")
 }
 
+/// Domain for a signed series: always includes 0 so the zero line is in view.
+pub fn chart_signed_domain(series: &[f64]) -> (f64, f64) {
+    let min = series.iter().cloned().fold(0.0_f64, f64::min);
+    let max = series.iter().cloned().fold(0.0_f64, f64::max);
+    let span = (max - min).max(1.0);
+    (min, span)
+}
+
+/// Map a signed series onto viewBox `0 0 200 100` with 10px padding.
+pub fn chart_signed_line_points(series: &[f64]) -> Vec<(f64, f64)> {
+    if series.is_empty() {
+        return Vec::new();
+    }
+    let n = series.len();
+    let (min, span) = chart_signed_domain(series);
+    let inner_w = chart_inner_w();
+    let inner_h = chart_inner_h();
+    series
+        .iter()
+        .enumerate()
+        .map(|(i, v)| {
+            let x = if n == 1 {
+                CHART_PAD + inner_w / 2.0
+            } else {
+                CHART_PAD + inner_w * (i as f64) / ((n - 1) as f64)
+            };
+            let y = CHART_PAD + inner_h * (1.0 - (*v - min) / span);
+            (x, y)
+        })
+        .collect()
+}
+
+pub fn chart_zero_y(series: &[f64]) -> f64 {
+    let (min, span) = chart_signed_domain(series);
+    CHART_PAD + chart_inner_h() * (1.0 - (0.0 - min) / span)
+}
+
 pub struct ChartBar {
     pub x: f64,
     pub y: f64,

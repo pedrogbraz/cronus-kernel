@@ -2325,6 +2325,22 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="choropleth-chart"] path {
   fill: var(--cronus-primary); stroke: var(--cronus-border);
 }
+[data-slot="profit-loss-chart"] {
+  display: block; width: 100%; aspect-ratio: 2 / 1;
+}
+[data-slot="profit-loss-chart"] svg {
+  display: block; width: 100%; height: 100%;
+}
+[data-slot="profit-loss-chart"] polyline {
+  fill: none; stroke-width: 2;
+  stroke-linejoin: round; stroke-linecap: round;
+}
+[data-slot="profit-loss-chart"] polyline[stroke="var(--cronus-success)"] {
+  stroke: var(--cronus-success);
+}
+[data-slot="profit-loss-chart"] polyline[stroke="var(--cronus-error)"] {
+  stroke: var(--cronus-error);
+}
 "#;
 
 #[cfg(test)]
