@@ -613,6 +613,20 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   height: 100%; width: auto; flex: 1; min-width: 0;
   border: 0; border-radius: 0; background: transparent; box-shadow: none;
 }
+
+[data-slot="rating"] {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+}
+[data-slot="rating-item"] {
+  display: inline-flex; color: var(--cronus-fg-tertiary, var(--cronus-fg-secondary));
+  font-size: 1.25rem; line-height: 1;
+}
+[data-slot="rating-item"][data-state="on"] {
+  color: var(--cronus-warning, var(--cronus-primary));
+}
+[data-slot="rating-item"]::before {
+  content: "★";
+}
 "#;
 
 #[cfg(test)]

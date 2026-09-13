@@ -72,6 +72,7 @@ mod cronus_ui_pagination;
 mod cronus_ui_password_input;
 mod cronus_ui_progress;
 mod cronus_ui_radio_group;
+mod cronus_ui_rating;
 mod cronus_ui_select;
 mod cronus_ui_separator;
 mod cronus_ui_skeleton;

@@ -147,7 +147,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "avatar", "card", "empty",
     "select", "dialog", "tabs", "accordion", "table", "pagination",
     "breadcrumb", "tooltip", "password-input", "number-input",
-    "field", "input-group",
+    "field", "input-group", "rating",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -195,6 +195,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "number-input" => Some(crate::cronus_ui_number_input::render(comp)),
         "field" => Some(crate::cronus_ui_field::render(comp)),
         "input-group" => Some(crate::cronus_ui_input_group::render(comp)),
+        "rating" => Some(crate::cronus_ui_rating::render(comp)),
         _ => None,
     }
 }
