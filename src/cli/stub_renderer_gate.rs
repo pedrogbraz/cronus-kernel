@@ -48,6 +48,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "number-input" => Some("cronus_ui_number_input::render"),
         "copy-button" => Some("cronus_ui_copy_button::render"),
         "fab" => Some("cronus_ui_fab::render"),
+        "toggle-group" => Some("cronus_ui_toggle_group::render"),
         _ => None,
     }
 }
@@ -134,6 +135,7 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || html.contains("navigator.clipboard.writeText")
         || (html.contains("data-slot=\"copy-button\"") && html.contains("style="))
         || (html.contains("data-slot=\"fab\"") && html.contains("data-slot=\"button\""))
+        || (html.contains("data-slot=\"toggle-group\"") && html.contains("role=\"radiogroup\""))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -293,6 +295,7 @@ mod tests {
             "src/cronus_ui_skeleton.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
+            "src/cronus_ui_toggle_group.rs",
             "src/cronus_ui_progress.rs",
             "src/cronus_ui_slider.rs",
             "src/cronus_ui_radio_group.rs",

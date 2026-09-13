@@ -617,6 +617,22 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
 [data-slot="fab-button"]:hover { opacity: 0.9; }
 [data-slot="fab-button"]:active { transform: scale(0.95); }
 [data-slot="fab-button"]:disabled { opacity: 0.5; pointer-events: none; }
+
+[data-slot="toggle-group"] {
+  display: flex; align-items: center; gap: 0.25rem;
+}
+[data-slot="toggle-group-item"] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  height: 2.5rem; padding: 0 0.75rem; border-radius: var(--cronus-radius-lg);
+  border: 0; background: transparent; color: var(--cronus-fg-secondary);
+  font-size: 0.875rem; font-weight: 500; font-family: inherit;
+  cursor: pointer; outline: none;
+  transition: background 150ms var(--ease-out-quart), color 150ms var(--ease-out-quart);
+}
+[data-slot="toggle-group-item"][data-state="on"] {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
+[data-slot="toggle-group-item"]:disabled { opacity: 0.5; pointer-events: none; }
 "#;
 
 #[cfg(test)]
