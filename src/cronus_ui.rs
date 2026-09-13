@@ -2316,6 +2316,15 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="sunburst-chart"] path {
   stroke: var(--cronus-surface-base); stroke-width: 1;
 }
+[data-slot="choropleth-chart"] {
+  display: block; width: 100%; height: 16rem;
+}
+[data-slot="choropleth-chart"] svg {
+  display: block; width: 100%; height: 100%;
+}
+[data-slot="choropleth-chart"] path {
+  fill: var(--cronus-primary); stroke: var(--cronus-border);
+}
 "#;
 
 #[cfg(test)]

@@ -104,12 +104,19 @@ pub fn chart_inner_h() -> f64 {
 }
 
 /// Numeric values from item text (whole number or comma/whitespace lists).
-/// Empty → `DEFAULT_CHART_SERIES`.
-pub fn numeric_series(comp: &ComponentNode) -> Vec<f64> {
+/// Empty when no numbers are present.
+pub fn numeric_items(comp: &ComponentNode) -> Vec<f64> {
     let mut out = Vec::new();
     for i in &comp.items {
         push_nums(&i.text, &mut out);
     }
+    out
+}
+
+/// Numeric values from item text (whole number or comma/whitespace lists).
+/// Empty → `DEFAULT_CHART_SERIES`.
+pub fn numeric_series(comp: &ComponentNode) -> Vec<f64> {
+    let out = numeric_items(comp);
     if out.is_empty() {
         DEFAULT_CHART_SERIES.to_vec()
     } else {

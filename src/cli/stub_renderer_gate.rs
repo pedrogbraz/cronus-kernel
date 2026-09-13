@@ -118,6 +118,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "expandable-tabs" => Some("cronus_ui_expandable_tabs::render"),
         "live-line-chart" => Some("cronus_ui_live_line_chart::render"),
         "sunburst-chart" => Some("cronus_ui_sunburst_chart::render"),
+        "choropleth-chart" => Some("cronus_ui_choropleth_chart::render"),
         _ => None,
     }
 }
@@ -391,6 +392,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"live-line-chart\"") && html.contains("<figcaption"))
         || html.contains("<figure data-slot=\"sunburst-chart\"")
         || (html.contains("data-slot=\"sunburst-chart\"") && html.contains("<figcaption"))
+        || html.contains("<figure data-slot=\"choropleth-chart\"")
+        || (html.contains("data-slot=\"choropleth-chart\"") && html.contains("<figcaption"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -573,6 +576,7 @@ mod tests {
             "src/cronus_ui_resizable.rs",
             "src/cronus_ui_scroll_area.rs",
             "src/cronus_ui_chip.rs",
+            "src/cronus_ui_choropleth_chart.rs",
             "src/cronus_ui_code_tabs.rs",
             "src/cronus_ui_collapsible.rs",
             "src/cronus_ui_avatar.rs",
