@@ -184,6 +184,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "radar-chart",
     "scatter-chart",
     "ring-chart",
+    "phone-input",
+    "currency-input",
+    "color-picker",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -268,6 +271,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "radar-chart" => Some(crate::cronus_ui_radar_chart::render(comp)),
         "scatter-chart" => Some(crate::cronus_ui_scatter_chart::render(comp)),
         "ring-chart" => Some(crate::cronus_ui_ring_chart::render(comp)),
+        "phone-input" => Some(crate::cronus_ui_phone_input::render(comp)),
+        "currency-input" => Some(crate::cronus_ui_currency_input::render(comp)),
+        "color-picker" => Some(crate::cronus_ui_color_picker::render(comp)),
         _ => None,
     }
 }

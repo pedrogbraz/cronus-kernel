@@ -85,6 +85,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "radar-chart" => Some("cronus_ui_radar_chart::render"),
         "scatter-chart" => Some("cronus_ui_scatter_chart::render"),
         "ring-chart" => Some("cronus_ui_ring_chart::render"),
+        "phone-input" => Some("cronus_ui_phone_input::render"),
+        "currency-input" => Some("cronus_ui_currency_input::render"),
+        "color-picker" => Some("cronus_ui_color_picker::render"),
         _ => None,
     }
 }
@@ -247,6 +250,13 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"navigation-menu\"")
             && !html.contains("data-slot=\"navigation-menu-list\""))
         || (html.contains("data-slot=\"navigation-menu\"") && html.contains("flex-wrap:wrap"))
+        || html.contains("data-slot=\"phone-input-control\"")
+        || html.contains("<label data-slot=\"phone-input\"")
+        || html.contains("data-slot=\"currency-input-control\"")
+        || html.contains("<label data-slot=\"currency-input\"")
+        || html.contains("data-slot=\"color-picker-control\"")
+        || html.contains("<label data-slot=\"color-picker\"")
+        || html.contains("<input type=\"color\"")
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -448,6 +458,9 @@ mod tests {
             "src/cronus_ui_stepper.rs",
             "src/cronus_ui_tooltip.rs",
             "src/cronus_ui_password_input.rs",
+            "src/cronus_ui_phone_input.rs",
+            "src/cronus_ui_currency_input.rs",
+            "src/cronus_ui_color_picker.rs",
             "src/cronus_ui_number_input.rs",
             "src/cronus_ui_date_picker.rs",
             "src/cronus_ui_time_picker.rs",
