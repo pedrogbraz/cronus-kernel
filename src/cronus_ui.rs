@@ -1003,6 +1003,11 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="sparkline"][data-tone="fg"] { color: var(--cronus-fg); }
 [data-slot="sparkline-line"] { fill: none; stroke: currentColor; }
 [data-slot="sparkline-area"] { stroke: none; }
+[data-slot="pie-chart"] {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 16rem;
+}
+[data-slot="pie-chart"] svg { width: 12rem; height: 12rem; }
 "#;
 
 #[cfg(test)]
