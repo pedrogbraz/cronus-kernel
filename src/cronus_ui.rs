@@ -1363,7 +1363,6 @@ button:has(+ [data-slot="sheet-content"]) {
   position: sticky; top: 0; z-index: 30;
   display: flex; height: 3.5rem; flex-shrink: 0; align-items: center; gap: 0.5rem;
   border-bottom: 1px solid var(--cronus-border);
-  background: var(--cronus-surface-base);
   padding: 0 1rem; font-size: 0.875rem; font-weight: 500;
 [data-slot="app-shell-body"] {
   display: flex; min-height: 0; flex: 1; flex-direction: column;
@@ -1394,6 +1393,53 @@ button:has(+ [data-slot="sheet-content"]) {
   padding: 0 0.75rem; font-size: 0.875rem; font-family: inherit; outline: none;
 [data-slot="form-description"] {
   margin: 0; font-size: 0.75rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="signature-pad"] {
+  position: relative; height: 10rem; width: 100%; overflow: hidden;
+  box-sizing: border-box;
+  border-radius: var(--cronus-radius-xl);
+  border: 1px solid var(--cronus-border);
+  box-shadow: var(--cronus-shadow-xs, none);
+[data-slot="signature-pad-canvas"] {
+  position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+[data-slot="signature-pad-hint"] {
+  pointer-events: none; position: absolute;
+  left: 1.25rem; right: 1.25rem; bottom: 1.75rem;
+  font-size: 0.75rem; color: var(--cronus-fg-muted);
+[data-slot="resizable"] {
+  display: block; width: 100%; min-height: 12rem; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-raised); color: var(--cronus-fg);
+  overflow: hidden;
+[data-slot="resizable-panel-group"] {
+  display: flex; height: 100%; width: 100%; min-height: 12rem;
+[data-slot="resizable-panel"] {
+  flex: 1; min-width: 0; min-height: 0; overflow: auto;
+  padding: 0.75rem; font-size: 0.875rem; box-sizing: border-box;
+[data-slot="resizable-handle"] {
+  position: relative; display: flex; width: 1px;
+  align-items: center; justify-content: center;
+  background: var(--cronus-border); flex-shrink: 0;
+[data-slot="scheduler"] {
+  display: block; width: 100%; box-sizing: border-box;
+[data-slot="scheduler-title"] {
+  margin: 0; padding: 0.75rem;
+  font-size: 0.875rem; font-weight: 600; color: var(--cronus-fg);
+[data-slot="scheduler-grid"] {
+  width: 100%; table-layout: fixed; border-collapse: collapse;
+[data-slot="scheduler-weekdays"] th {
+  padding: 0.375rem 0.5rem; font-size: 0.75rem; font-weight: 400;
+  color: var(--cronus-fg-tertiary); text-align: center;
+[data-slot="scheduler-grid"] td {
+  height: 6rem; padding: 0.375rem; vertical-align: top;
+  font-size: 0.75rem; color: var(--cronus-fg);
+  border-right: 1px solid var(--cronus-border);
+[data-slot="scheduler-event"] {
+  display: block; margin-top: 0.25rem; padding: 0.125rem 0.375rem;
+  border-radius: var(--cronus-radius-sm);
+  background: color-mix(in oklch, var(--cronus-primary), transparent 85%);
+  color: var(--cronus-primary); font-size: 0.75rem; font-weight: 500;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 "#;
 
 #[cfg(test)]

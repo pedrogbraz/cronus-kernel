@@ -103,6 +103,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "app-shell" => Some("cronus_ui_app_shell::render"),
         "table-of-contents" => Some("cronus_ui_table_of_contents::render"),
         "form" => Some("cronus_ui_form::render"),
+        "signature-pad" => Some("cronus_ui_signature_pad::render"),
+        "resizable" => Some("cronus_ui_resizable::render"),
+        "scheduler" => Some("cronus_ui_scheduler::render"),
         _ => None,
     }
 }
@@ -313,14 +316,11 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || html.contains("<nav data-slot=\"app-shell\"")
         || (html.contains("data-slot=\"app-shell\"")
             && !html.contains("data-slot=\"app-shell-header\""))
-        || (html.contains("data-slot=\"app-shell\"")
             && !html.contains("data-slot=\"app-shell-body\""))
-        || (html.contains("data-slot=\"app-shell\"")
             && !html.contains("data-slot=\"app-shell-content\""))
         || (html.contains("data-slot=\"app-shell\"") && html.contains("flex-wrap:wrap"))
         || (html.contains("data-slot=\"table-of-contents\"")
             && !html.contains("data-slot=\"table-of-contents-list\""))
-        || (html.contains("data-slot=\"table-of-contents\"")
             && !html.contains("data-slot=\"table-of-contents-link\""))
         || (html.contains("data-slot=\"table-of-contents\"") && html.contains("flex-wrap:wrap"))
         || (html.contains("data-slot=\"form\"") && html.contains("style="))
@@ -328,6 +328,19 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"form\"") && !html.contains("data-slot=\"form-item\""))
         || (html.contains("data-slot=\"form\"") && !html.contains("data-slot=\"form-label\""))
         || (html.contains("data-slot=\"form\"") && html.contains("v-submit="))
+        || (html.contains("data-slot=\"signature-pad\"")
+            && !html.contains("data-slot=\"signature-pad-canvas\""))
+        || (html.contains("data-slot=\"signature-pad\"") && html.contains("style="))
+        || (html.contains("data-slot=\"resizable\"") && html.contains("<section"))
+        || (html.contains("data-slot=\"resizable\"")
+            && !html.contains("data-slot=\"resizable-panel-group\""))
+            && !html.contains("data-slot=\"resizable-handle\""))
+        || (html.contains("data-slot=\"resizable\"") && html.contains("max-height:12rem;overflow:auto"))
+        || (html.contains("data-slot=\"scheduler\"")
+            && !html.contains("data-slot=\"scheduler-title\""))
+            && !html.contains("data-slot=\"scheduler-grid\""))
+        || (html.contains("data-slot=\"scheduler\"") && html.contains("style="))
+            && html.contains("grid-template-columns:repeat(7,1fr)"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -493,6 +506,7 @@ mod tests {
             "src/cronus_ui_separator.rs",
             "src/cronus_ui_sheet.rs",
             "src/cronus_ui_sidebar.rs",
+            "src/cronus_ui_signature_pad.rs",
             "src/cronus_ui_sonner.rs",
             "src/cronus_ui_skeleton.rs",
             "src/cronus_ui_kbd.rs",
@@ -503,6 +517,7 @@ mod tests {
             "src/cronus_ui_slider.rs",
             "src/cronus_ui_radio_group.rs",
             "src/cronus_ui_rating.rs",
+            "src/cronus_ui_resizable.rs",
             "src/cronus_ui_scroll_area.rs",
             "src/cronus_ui_chip.rs",
             "src/cronus_ui_collapsible.rs",
@@ -557,6 +572,7 @@ mod tests {
             "src/cronus_ui_pill_nav.rs",
             "src/cronus_ui_radar_chart.rs",
             "src/cronus_ui_scatter_chart.rs",
+            "src/cronus_ui_scheduler.rs",
             "src/cronus_ui_ring_chart.rs",
             "src/cronus_ui_data_table.rs",
             "src/cronus_ui_workspace_switcher.rs",
