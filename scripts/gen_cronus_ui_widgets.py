@@ -228,6 +228,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "text-shimmer",
     "morphing-popover",
     "bouncy-accordion",
+    "typing-text",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -356,6 +357,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "text-shimmer" => Some(crate::cronus_ui_text_shimmer::render(comp)),
         "morphing-popover" => Some(crate::cronus_ui_morphing_popover::render(comp)),
         "bouncy-accordion" => Some(crate::cronus_ui_bouncy_accordion::render(comp)),
+        "typing-text" => Some(crate::cronus_ui_typing_text::render(comp)),
         _ => None,
     }
 }

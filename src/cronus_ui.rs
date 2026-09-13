@@ -2509,6 +2509,25 @@ button:has(+ [data-slot="sheet-content"]) {
   width: 100%; padding: 0.5rem 0.75rem; box-sizing: border-box;
   font-size: 0.875rem; color: var(--cronus-fg-tertiary, var(--cronus-fg-secondary));
 }
+[data-slot="typing-text"] {
+  display: inline; white-space: pre-wrap;
+}
+[data-slot="typing-text"]::after {
+  content: "";
+  display: inline-block;
+  width: 1px; height: 1em;
+  margin-inline-start: 1px;
+  background: var(--cronus-fg);
+  transform: translateY(0.1em);
+  vertical-align: baseline;
+  animation: cui-typing-caret 1s step-end infinite;
+}
+@keyframes cui-typing-caret {
+  50% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="typing-text"]::after { display: none; animation: none; }
+}
 "#;
 
 #[cfg(test)]
