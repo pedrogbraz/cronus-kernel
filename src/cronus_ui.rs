@@ -1352,6 +1352,21 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="workspace-switcher-item"] {
   border-radius: var(--cronus-radius-md); padding: 0.375rem 0.5rem;
   font-size: 0.875rem; cursor: default;
+[data-slot="app-shell"] {
+  display: flex; min-height: 100svh; width: 100%;
+  background: var(--cronus-surface-base); color: var(--cronus-fg);
+[data-slot="app-shell-content"] {
+  position: relative; display: flex; min-height: 100svh; min-width: 0;
+  flex: 1; flex-direction: column;
+  background: var(--cronus-surface-base);
+[data-slot="app-shell-header"] {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; height: 3.5rem; flex-shrink: 0; align-items: center; gap: 0.5rem;
+  border-bottom: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-base);
+  padding: 0 1rem; font-size: 0.875rem; font-weight: 500;
+[data-slot="app-shell-body"] {
+  display: flex; min-height: 0; flex: 1; flex-direction: column;
 "#;
 
 #[cfg(test)]
