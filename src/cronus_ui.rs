@@ -721,6 +721,32 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
 [data-slot="combobox-item"][aria-selected="true"] {
   background: var(--cronus-surface-overlay);
 }
+[data-slot="stepper"] {
+  display: flex; width: 100%;
+}
+[data-slot="stepper"][data-orientation="horizontal"], [data-slot="stepper"]:not([data-orientation]) {
+  flex-direction: row; align-items: center;
+}
+[data-slot="stepper"][data-orientation="vertical"] {
+  flex-direction: column;
+}
+[data-slot="stepper-item"] {
+  position: relative; display: flex; align-items: center;
+}
+[data-slot="stepper"][data-orientation="horizontal"] > [data-slot="stepper-item"]:not(:last-child) {
+  flex: 1;
+}
+[data-slot="stepper-trigger"] {
+  display: inline-flex; align-items: center; gap: 0.75rem;
+  border: 0; background: transparent; color: inherit;
+  font: inherit; text-align: left; cursor: pointer; outline: none;
+}
+[data-slot="stepper-title"] {
+  font-size: 0.875rem; font-weight: 500; line-height: 1; color: var(--cronus-fg);
+}
+[data-slot="stepper-item"][data-state="upcoming"] [data-slot="stepper-title"] {
+  color: var(--cronus-fg-tertiary);
+}
 "#;
 
 #[cfg(test)]
