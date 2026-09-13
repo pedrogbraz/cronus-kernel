@@ -101,6 +101,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "dock" => Some("cronus_ui_dock::render"),
         "workspace-switcher" => Some("cronus_ui_workspace_switcher::render"),
         "alert-dialog" => Some("cronus_ui_alert_dialog::render"),
+        "lightbox" => Some("cronus_ui_lightbox::render"),
         _ => None,
     }
 }
@@ -310,6 +311,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"workspace-switcher\"") && html.contains("flex-wrap:wrap"))
         || (html.contains("data-slot=\"alert-dialog")
             && (html.contains("<dialog") || html.contains("showModal()")))
+        || (html.contains("data-slot=\"lightbox")
+            && (html.contains("<dialog") || html.contains("showModal()")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -465,6 +468,7 @@ mod tests {
             "src/cronus_ui_credit_card_input.rs",
             "src/cronus_ui_input.rs",
             "src/cronus_ui_label.rs",
+            "src/cronus_ui_lightbox.rs",
             "src/cronus_ui_metric.rs",
             "src/cronus_ui_mode_toggle.rs",
             "src/cronus_ui_multi_select.rs",

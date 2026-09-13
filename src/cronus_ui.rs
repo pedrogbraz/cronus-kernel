@@ -1395,6 +1395,25 @@ button:has(+ [data-slot="sheet-content"]) {
   background: var(--cronus-primary); color: var(--cronus-primary-foreground);
   font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
 }
+[data-slot="lightbox"] {
+  z-index: 50; display: flex; flex-direction: column; gap: 0.75rem;
+  box-sizing: border-box; padding: 1rem;
+  background: var(--cronus-surface-base); color: var(--cronus-fg);
+}
+[data-slot="lightbox-counter"] {
+  font-size: 0.875rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="lightbox-close"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2rem; height: 2rem; padding: 0; align-self: flex-end;
+  border: 0; border-radius: var(--cronus-radius-md);
+  background: transparent; color: var(--cronus-fg-secondary);
+  font: inherit; cursor: pointer;
+}
+[data-slot="lightbox-caption"] {
+  margin: 0; padding: 0.75rem 1rem 0;
+  text-align: center; font-size: 0.875rem; color: var(--cronus-fg-secondary);
+}
 "#;
 
 #[cfg(test)]
