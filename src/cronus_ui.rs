@@ -2620,6 +2620,36 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="tree-view-item-trigger"]:hover {
   background: var(--cronus-surface-overlay); color: var(--cronus-fg);
 }
+[data-slot="terminal"] {
+  overflow: hidden; border-radius: var(--cronus-radius-xl);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+}
+[data-slot="terminal-screen"] {
+  padding: 1rem; display: flex; flex-direction: column; gap: 0.25rem;
+  font-family: var(--cronus-font-mono, ui-monospace, monospace);
+  font-size: 0.875rem; line-height: 1.625;
+}
+[data-slot="terminal-line"] {
+  display: flex; gap: 0.5rem; min-width: 0;
+  white-space: pre-wrap; word-break: break-word;
+}
+[data-slot="terminal-prompt"] {
+  user-select: none; color: var(--cronus-fg-tertiary, var(--cronus-fg-secondary));
+}
+[data-slot="terminal-line"]:last-child::after {
+  content: ""; display: inline-block;
+  width: 0.55em; height: 1.1em; margin-left: 1px;
+  background: var(--cronus-fg);
+  animation: cui-terminal-caret 1s step-end infinite;
+  vertical-align: text-bottom;
+}
+@keyframes cui-terminal-caret {
+  50% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="terminal-line"]:last-child::after { display: none; animation: none; }
+}
 "#;
 
 #[cfg(test)]

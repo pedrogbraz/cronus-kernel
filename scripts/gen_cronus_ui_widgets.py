@@ -235,6 +235,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "word-rotate",
     "timeline",
     "tree-view",
+    "terminal",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -370,6 +371,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "word-rotate" => Some(crate::cronus_ui_word_rotate::render(comp)),
         "timeline" => Some(crate::cronus_ui_timeline::render(comp)),
         "tree-view" => Some(crate::cronus_ui_tree_view::render(comp)),
+        "terminal" => Some(crate::cronus_ui_terminal::render(comp)),
         _ => None,
     }
 }

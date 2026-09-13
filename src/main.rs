@@ -157,6 +157,7 @@ mod cronus_ui_table;
 mod cronus_ui_table_of_contents;
 mod cronus_ui_tabs;
 mod cronus_ui_tags_input;
+mod cronus_ui_terminal;
 mod cronus_ui_tooltip;
 mod cronus_ui_tree_view;
 mod cronus_ui_switch;
