@@ -1517,6 +1517,14 @@ button:has(+ [data-slot="sheet-content"]) {
   fill: none; stroke: var(--cronus-primary); stroke-width: 2;
   stroke-linejoin: round; stroke-linecap: round;
 }
+[data-slot="sunburst-chart"] {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 16rem;
+}
+[data-slot="sunburst-chart"] svg { width: 12rem; height: 12rem; }
+[data-slot="sunburst-chart"] path {
+  stroke: var(--cronus-surface-base); stroke-width: 1;
+}
 "#;
 
 #[cfg(test)]
