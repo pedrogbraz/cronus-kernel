@@ -162,6 +162,7 @@ mod cronus_ui_toggle_group;
 mod cronus_ui_toolbar;
 mod cronus_ui_usage_meter;
 mod cronus_ui_workspace_switcher;
+mod cronus_ui_word_rotate;
 mod cronus_ui_widgets;
 mod voodoo;
 mod navigation;

@@ -2471,6 +2471,11 @@ button:has(+ [data-slot="sheet-content"]) {
   0% { background-position: 100% center, 0 0; }
   100% { background-position: 0% center, 0 0; }
 }
+[data-slot="word-rotate"] {
+  position: relative; display: inline-grid;
+  height: 1.2em; overflow: hidden;
+  vertical-align: baseline; white-space: nowrap;
+}
 "#;
 
 #[cfg(test)]

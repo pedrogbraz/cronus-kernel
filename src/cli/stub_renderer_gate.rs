@@ -127,6 +127,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "shimmer" => Some("cronus_ui_shimmer::render"),
         "reveal" => Some("cronus_ui_reveal::render"),
         "text-shimmer" => Some("cronus_ui_text_shimmer::render"),
+        "word-rotate" => Some("cronus_ui_word_rotate::render"),
         _ => None,
     }
 }
@@ -425,6 +426,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
         || (html.contains("data-slot=\"text-shimmer\"")
             && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
+        || (html.contains("data-slot=\"word-rotate\"")
+            && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -598,6 +601,7 @@ mod tests {
             "src/cronus_ui_shimmer.rs",
             "src/cronus_ui_reveal.rs",
             "src/cronus_ui_text_shimmer.rs",
+            "src/cronus_ui_word_rotate.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",
