@@ -2471,6 +2471,29 @@ button:has(+ [data-slot="sheet-content"]) {
   0% { background-position: 100% center, 0 0; }
   100% { background-position: 0% center, 0 0; }
 }
+[data-slot="morphing-popover"] {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+[data-slot="morphing-popover-trigger"] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  height: 2.25rem; padding: 0 0.75rem;
+  border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-floating);
+  color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+}
+[data-slot="morphing-popover-content"] {
+  z-index: 50; width: 18rem; box-sizing: border-box;
+  padding: 1rem; outline: none; overflow: hidden;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-xl);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  font-size: 0.875rem; box-shadow: var(--cronus-shadow-lg, none);
+}
 "#;
 
 #[cfg(test)]

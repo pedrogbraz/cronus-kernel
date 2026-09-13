@@ -127,6 +127,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "shimmer" => Some("cronus_ui_shimmer::render"),
         "reveal" => Some("cronus_ui_reveal::render"),
         "text-shimmer" => Some("cronus_ui_text_shimmer::render"),
+        "morphing-popover" => Some("cronus_ui_morphing_popover::render"),
         _ => None,
     }
 }
@@ -238,6 +239,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"file-dropzone\"") && html.contains("style="))
         || html.contains("<details data-slot=\"popover\"")
         || html.contains("<details data-slot=\"hover-card\"")
+        || html.contains("<details data-slot=\"morphing-popover\"")
+        || (html.contains("data-slot=\"morphing-popover\"") && html.contains("<details"))
         || (html.contains("data-slot=\"dropdown-menu\"") && html.contains("<details"))
         || html.contains("position:absolute;z-index:20;margin-top:0.35rem")
         || (html.contains("data-slot=\"collapsible\"") && html.contains("<details"))
@@ -644,6 +647,7 @@ mod tests {
             "src/cronus_ui_tags_input.rs",
             "src/cronus_ui_pagination.rs",
             "src/cronus_ui_popover.rs",
+            "src/cronus_ui_morphing_popover.rs",
             "src/cronus_ui_breadcrumb.rs",
             "src/cronus_ui_button_group.rs",
             "src/cronus_ui_calendar.rs",
