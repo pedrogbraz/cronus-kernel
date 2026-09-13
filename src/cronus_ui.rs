@@ -404,6 +404,14 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   background: var(--cronus-primary);
 }
 
+[data-slot="chip"] {
+  display: inline-flex; align-items: center; height: 1.75rem;
+  border-radius: 9999px; border: 1px solid var(--cronus-border);
+  padding: 0 0.625rem; font-size: 0.875rem; font-weight: 500;
+  white-space: nowrap; background: var(--cronus-surface-overlay);
+  color: var(--cronus-fg);
+}
+
 [data-slot="card"], [data-slot="glass-card"], [data-slot="spotlight-card"] {
   background: var(--cronus-surface-raised); border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none);
