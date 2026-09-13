@@ -119,6 +119,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "live-line-chart" => Some("cronus_ui_live_line_chart::render"),
         "sunburst-chart" => Some("cronus_ui_sunburst_chart::render"),
         "rich-text-editor" => Some("cronus_ui_rich_text_editor::render"),
+        "confirmation-dialog" => Some("cronus_ui_confirmation_dialog::render"),
         _ => None,
     }
 }
@@ -395,6 +396,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || html.contains("data-slot=\"rich-text-editor-control\"")
         || html.contains("<label data-slot=\"rich-text-editor\"")
         || (html.contains("data-slot=\"rich-text-editor\"") && html.contains("<textarea"))
+        || (html.contains("data-slot=\"confirmation-dialog")
+            && (html.contains("<dialog") || html.contains("showModal()")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -614,6 +617,7 @@ mod tests {
             "src/cronus_ui_command.rs",
             "src/cronus_ui_masonry.rs",
             "src/cronus_ui_comparison_slider.rs",
+            "src/cronus_ui_confirmation_dialog.rs",
             "src/cronus_ui_menubar.rs",
             "src/cronus_ui_navigation_menu.rs",
             "src/cronus_ui_notification_center.rs",

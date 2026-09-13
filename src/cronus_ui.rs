@@ -2342,6 +2342,34 @@ button:has(+ [data-slot="sheet-content"]) {
   padding: 0.75rem 1rem; font-size: 0.875rem; line-height: 1.6;
   color: var(--cronus-fg);
 }
+[data-slot="confirmation-dialog"] {
+  z-index: 50; display: grid; gap: 1rem;
+  width: 100%; max-width: 28rem; box-sizing: border-box;
+  padding: 1.5rem;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-xl);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-lg, none);
+}
+[data-slot="confirmation-dialog-title"] {
+  font-size: 1.125rem; font-weight: 600; color: var(--cronus-fg);
+  font-family: var(--cronus-font-display, inherit);
+}
+[data-slot="confirmation-dialog-description"] {
+  font-size: 0.875rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="confirmation-dialog"] > button {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2.5rem; padding: 0 1rem;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-lg);
+  background: transparent; color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+}
+[data-slot="confirmation-dialog-confirm"] {
+  border: 1px solid transparent;
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+}
 "#;
 
 #[cfg(test)]
