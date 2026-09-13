@@ -1008,6 +1008,10 @@ button:has(+ [data-slot="sheet-content"]) {
   width: 100%; height: 16rem;
 }
 [data-slot="pie-chart"] svg { width: 12rem; height: 12rem; }
+[data-slot="data-table"] {
+  display: flex; flex-direction: column; gap: 0.75rem;
+  overflow: auto; color: var(--cronus-fg);
+}
 "#;
 
 #[cfg(test)]

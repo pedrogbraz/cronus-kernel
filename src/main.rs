@@ -66,6 +66,7 @@ mod cronus_ui_collapsible;
 mod cronus_ui_copy_button;
 mod cronus_ui_context_menu;
 mod cronus_ui_data;
+mod cronus_ui_data_table;
 mod cronus_ui_date_picker;
 mod cronus_ui_date_range_picker;
 mod cronus_ui_dialog;

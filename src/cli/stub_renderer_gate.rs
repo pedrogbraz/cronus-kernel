@@ -75,6 +75,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "date-range-picker" => Some("cronus_ui_date_range_picker::render"),
         "sparkline" => Some("cronus_ui_sparkline::render"),
         "pie-chart" => Some("cronus_ui_pie_chart::render"),
+        "data-table" => Some("cronus_ui_data_table::render"),
         _ => None,
     }
 }
@@ -217,6 +218,9 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"sparkline\"") && html.contains("<figcaption"))
         || html.contains("<figure data-slot=\"pie-chart\"")
         || (html.contains("data-slot=\"pie-chart\"") && html.contains("<figcaption"))
+        || (html.contains("data-slot=\"data-table\"")
+            && html.contains("text-align:left;padding:0.5rem 0.75rem"))
+        || (html.contains("data-slot=\"data-table\"") && html.contains("style="))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -421,6 +425,7 @@ mod tests {
             "src/cronus_ui_date_range_picker.rs",
             "src/cronus_ui_sparkline.rs",
             "src/cronus_ui_pie_chart.rs",
+            "src/cronus_ui_data_table.rs",
             "src/cronus_ui_kit.rs",
             "src/cli/audit_http.rs",
             "src/ui/audit_layout.rs",
