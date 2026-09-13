@@ -368,6 +368,21 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   transition: transform 300ms var(--ease-out-quart);
 }
 
+[data-slot="avatar"] {
+  position: relative; display: flex;
+  width: 2.5rem; height: 2.5rem; flex-shrink: 0; overflow: hidden;
+  border-radius: 9999px;
+}
+[data-slot="avatar-image"] {
+  aspect-ratio: 1 / 1; width: 100%; height: 100%; object-fit: cover;
+}
+[data-slot="avatar-fallback"] {
+  display: flex; width: 100%; height: 100%;
+  align-items: center; justify-content: center; border-radius: 9999px;
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg-secondary);
+  font-size: 0.875rem; font-weight: 500;
+}
+
 [data-slot="card"], [data-slot="glass-card"], [data-slot="spotlight-card"] {
   background: var(--cronus-surface-raised); border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none);

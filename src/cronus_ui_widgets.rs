@@ -196,6 +196,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "kbd",
     "toggle",
     "progress",
+    "avatar",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -222,6 +223,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "kbd" => Some(crate::cronus_ui_kbd::render(comp)),
         "toggle" => Some(crate::cronus_ui_toggle::render(comp)),
         "progress" => Some(crate::cronus_ui_progress::render(comp)),
+        "avatar" => Some(crate::cronus_ui_avatar::render(comp)),
         _ => None,
     }
 }

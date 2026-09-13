@@ -48,6 +48,7 @@ mod tailwind;
 mod testing;
 mod theme;
 mod cronus_ui;
+mod cronus_ui_avatar;
 mod cronus_ui_badge;
 mod cronus_ui_checkbox;
 mod cronus_ui_data;
