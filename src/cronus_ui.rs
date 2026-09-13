@@ -2650,6 +2650,31 @@ button:has(+ [data-slot="sheet-content"]) {
 @media (prefers-reduced-motion: reduce) {
   [data-slot="terminal-line"]:last-child::after { display: none; animation: none; }
 }
+[data-slot="video-player"] {
+  position: relative; isolation: isolate; width: 100%;
+  overflow: hidden; border-radius: var(--cronus-radius-xl);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset);
+  aspect-ratio: 16 / 9;
+}
+[data-slot="video-player-video"] {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: contain;
+}
+[data-slot="video-player-controls"] {
+  position: absolute; inset-inline: 0; bottom: 0; z-index: 20;
+  display: flex; align-items: center; gap: 0.375rem;
+  border-top: 1px solid var(--cronus-border);
+  background: color-mix(in oklch, var(--cronus-surface-base) 90%, transparent);
+  padding: 0.5rem 0.625rem;
+}
+[data-slot="video-player-play"] {
+  display: inline-flex; width: auto; min-width: 2rem; height: 2rem;
+  align-items: center; justify-content: center;
+  padding: 0 0.5rem; border: 0; border-radius: var(--cronus-radius-md);
+  background: transparent; color: var(--cronus-fg);
+  font: inherit; font-size: 0.75rem; font-weight: 500; cursor: pointer;
+}
 "#;
 
 #[cfg(test)]

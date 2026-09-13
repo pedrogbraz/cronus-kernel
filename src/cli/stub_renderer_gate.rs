@@ -137,6 +137,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "timeline" => Some("cronus_ui_timeline::render"),
         "tree-view" => Some("cronus_ui_tree_view::render"),
         "terminal" => Some("cronus_ui_terminal::render"),
+        "video-player" => Some("cronus_ui_video_player::render"),
         _ => None,
     }
 }
@@ -469,6 +470,14 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && (!html.contains("data-slot=\"terminal-screen\"")
                 || !html.contains("data-slot=\"terminal-prompt\"")))
         || (html.contains("data-slot=\"terminal\"") && html.contains("style="))
+        || html.contains("<video data-slot=\"video-player\"")
+        || html.contains("<section data-slot=\"video-player\"")
+        || (html.contains("data-slot=\"video-player\"")
+            && (!html.contains("data-slot=\"video-player-video\"")
+                || !html.contains("data-slot=\"video-player-controls\"")
+                || !html.contains("<video")
+                || !html.contains("data-slot=\"video-player-play\"")))
+        || (html.contains("data-slot=\"video-player\"") && html.contains("style="))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -650,6 +659,7 @@ mod tests {
             "src/cronus_ui_timeline.rs",
             "src/cronus_ui_tree_view.rs",
             "src/cronus_ui_terminal.rs",
+            "src/cronus_ui_video_player.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",
