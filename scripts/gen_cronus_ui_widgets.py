@@ -11,7 +11,7 @@ FAMILIES = [
     "accordion", "alert", "alert-dialog", "animated-button", "animated-list",
     "animated-number", "app-shell", "area-chart", "aspect-ratio", "aurora-background",
     "autocomplete", "avatar", "avatar-group", "badge", "banner", "bar-chart",
-    "border-beam", "breadcrumb", "button", "button-group", "calendar",
+    "border-beam", "bouncy-accordion", "breadcrumb", "button", "button-group", "calendar",
     "candlestick-chart", "card", "card-stack", "carousel", "chart", "checkbox",
     "chip", "choropleth-chart", "click-spark", "code-block", "code-tabs",
     "collapsible", "color-picker", "combobox", "command", "comparison-slider",
@@ -78,7 +78,7 @@ add(
 )
 add(
     "nav",
-    "tabs", "accordion", "collapsible", "breadcrumb", "pagination", "sidebar",
+    "tabs", "accordion", "bouncy-accordion", "collapsible", "breadcrumb", "pagination", "sidebar",
     "navigation-menu", "pill-nav", "expandable-tabs", "stepper", "toolbar",
     "table-of-contents", "app-shell", "workspace-switcher", "dock",
     "mode-toggle", "split-button", "button-group",
@@ -113,7 +113,7 @@ add(
     "dynamic-island", "toast", "motion-presets",
 )
 
-assert len(FAMILIES) == 174
+assert len(FAMILIES) == 175
 assert set(FAMILIES) == set(KIND)
 
 arms = []
@@ -227,6 +227,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "reveal",
     "text-shimmer",
     "morphing-popover",
+    "bouncy-accordion",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -354,6 +355,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "reveal" => Some(crate::cronus_ui_reveal::render(comp)),
         "text-shimmer" => Some(crate::cronus_ui_text_shimmer::render(comp)),
         "morphing-popover" => Some(crate::cronus_ui_morphing_popover::render(comp)),
+        "bouncy-accordion" => Some(crate::cronus_ui_bouncy_accordion::render(comp)),
         _ => None,
     }
 }
@@ -547,8 +549,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn registers_174_unique_families() {
-        assert_eq!(FAMILIES.len(), 174);
+    fn registers_175_unique_families() {
+        assert_eq!(FAMILIES.len(), 175);
         let mut s = std::collections::BTreeSet::new();
         for f in FAMILIES {
             assert!(s.insert(*f), "duplicate {f}");

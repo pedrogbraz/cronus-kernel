@@ -2494,6 +2494,21 @@ button:has(+ [data-slot="sheet-content"]) {
   background: var(--cronus-surface-floating); color: var(--cronus-fg);
   font-size: 0.875rem; box-shadow: var(--cronus-shadow-lg, none);
 }
+[data-slot="bouncy-accordion"] {
+  display: flex; flex-direction: column; align-items: center;
+  width: 100%; max-width: 300px;
+}
+[data-slot="bouncy-accordion-trigger"] {
+  display: flex; width: 100%; min-height: 45px; box-sizing: border-box;
+  align-items: center; padding: 0 0.75rem;
+  border: 0; border-radius: 20px;
+  background: var(--cronus-surface-base); color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; cursor: pointer; text-align: start;
+}
+[data-slot="bouncy-accordion-content"] {
+  width: 100%; padding: 0.5rem 0.75rem; box-sizing: border-box;
+  font-size: 0.875rem; color: var(--cronus-fg-tertiary, var(--cronus-fg-secondary));
+}
 "#;
 
 #[cfg(test)]
