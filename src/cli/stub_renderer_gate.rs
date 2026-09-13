@@ -165,6 +165,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "candlestick-chart" => Some("cronus_ui_candlestick_chart::render"),
         "composed-chart" => Some("cronus_ui_composed_chart::render"),
         "heatmap-chart" => Some("cronus_ui_heatmap_chart::render"),
+        "chart" => Some("cronus_ui_chart::render"),
         _ => None,
     }
 }
@@ -457,6 +458,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"composed-chart\"") && html.contains("<figcaption"))
         || html.contains("<figure data-slot=\"heatmap-chart\"")
         || (html.contains("data-slot=\"heatmap-chart\"") && html.contains("<figcaption"))
+        || html.contains("<figure data-slot=\"chart\"")
+        || (html.contains("data-slot=\"chart\"") && html.contains("<figcaption"))
         || (html.contains("data-slot=\"scroll-progress\"") && html.contains("<progress"))
         || (html.contains("data-slot=\"scroll-progress\"")
             && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
@@ -614,6 +617,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"composed-chart\"") && html.contains("<figcaption"))
         || html.contains("<figure data-slot=\"heatmap-chart\"")
         || (html.contains("data-slot=\"heatmap-chart\"") && html.contains("<figcaption"))
+        || html.contains("<figure data-slot=\"chart\"")
+        || (html.contains("data-slot=\"chart\"") && html.contains("<figcaption"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -873,6 +878,7 @@ mod tests {
             "src/cronus_ui_button_group.rs",
             "src/cronus_ui_calendar.rs",
             "src/cronus_ui_candlestick_chart.rs",
+            "src/cronus_ui_chart.rs",
             "src/cronus_ui_composed_chart.rs",
             "src/cronus_ui_combobox.rs",
             "src/cronus_ui_command.rs",

@@ -3097,6 +3097,19 @@ button:has(+ [data-slot="sheet-content"]) {
   display: flex; align-items: center; gap: 0.25rem;
   font-size: 0.75rem; color: var(--cronus-fg-tertiary);
 }
+[data-slot="chart"] {
+  display: block; width: 100%; aspect-ratio: 2 / 1;
+}
+[data-slot="chart"] svg {
+  display: block; width: 100%; height: 100%;
+}
+[data-slot="chart"] path {
+  fill: var(--cronus-primary); fill-opacity: 0.28;
+}
+[data-slot="chart"] polyline {
+  fill: none; stroke: var(--cronus-primary); stroke-width: 2;
+  stroke-linejoin: round; stroke-linecap: round;
+}
 
 "#;
 
