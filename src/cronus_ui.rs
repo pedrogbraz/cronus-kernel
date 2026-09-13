@@ -869,6 +869,50 @@ button:has(+ [data-slot="hover-card-content"]) {
 [data-slot="date-picker-day"][aria-selected="true"] {
   background: var(--cronus-primary); color: var(--cronus-primary-foreground);
 }
+[data-slot="time-picker"] {
+  display: inline-flex; flex-direction: column; gap: 0.25rem;
+}
+[data-slot="time-picker"] > button {
+  display: inline-flex; align-items: center; justify-content: flex-start; gap: 0.5rem;
+  width: 15rem; height: 2.5rem; padding: 0 0.75rem; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: transparent; color: var(--cronus-fg);
+  font-size: 0.875rem; font-weight: 400; font-family: inherit; cursor: pointer;
+}
+[data-slot="time-picker"] > button:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="time-picker"] > button svg { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--cronus-fg-tertiary); }
+[data-slot="time-picker-content"] {
+  z-index: 50; width: auto; box-sizing: border-box;
+  padding: 0.75rem; outline: none;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  font-size: 0.875rem; box-shadow: var(--cronus-shadow-lg, none);
+}
+[data-slot="time-picker-content"] > div {
+  display: flex; align-items: stretch; justify-content: center; gap: 0.25rem;
+}
+[data-slot="time-picker-column"] {
+  display: flex; flex-direction: column; align-items: center; gap: 0.35rem;
+}
+[data-slot="time-picker-column"] > span {
+  font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--cronus-fg-tertiary);
+}
+[data-slot="time-picker-option"] {
+  display: flex; align-items: center; justify-content: center;
+  width: 3.5rem; height: 2.25rem; border-radius: var(--cronus-radius-md);
+  font-size: 0.875rem; font-variant-numeric: tabular-nums; cursor: default;
+  color: var(--cronus-fg-secondary);
+}
+[data-slot="time-picker-option"][aria-selected="true"] {
+  background: color-mix(in oklch, var(--cronus-primary), black 30%);
+  color: var(--cronus-primary-foreground); font-weight: 600;
+}
+[data-slot="time-picker-now"], [data-slot="time-picker-done"] {
+  font: inherit; font-size: 0.75rem; cursor: default;
+  border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
+  background: transparent; color: var(--cronus-fg); padding: 0.25rem 0.5rem;
+}
 "#;
 
 #[cfg(test)]

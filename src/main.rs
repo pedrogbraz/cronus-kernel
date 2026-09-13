@@ -98,6 +98,7 @@ mod cronus_ui_tabs;
 mod cronus_ui_tooltip;
 mod cronus_ui_switch;
 mod cronus_ui_textarea;
+mod cronus_ui_time_picker;
 mod cronus_ui_toggle;
 mod cronus_ui_toggle_group;
 mod cronus_ui_widgets;
