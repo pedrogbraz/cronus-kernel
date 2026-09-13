@@ -1352,6 +1352,20 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="workspace-switcher-item"] {
   border-radius: var(--cronus-radius-md); padding: 0.375rem 0.5rem;
   font-size: 0.875rem; cursor: default;
+}
+[data-slot="signature-pad"] {
+  position: relative; height: 10rem; width: 100%; overflow: hidden;
+  box-sizing: border-box;
+  border-radius: var(--cronus-radius-xl);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-xs, none);
+[data-slot="signature-pad-canvas"] {
+  position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+[data-slot="signature-pad-hint"] {
+  pointer-events: none; position: absolute;
+  left: 1.25rem; right: 1.25rem; bottom: 1.75rem;
+  font-size: 0.75rem; color: var(--cronus-fg-muted);
 "#;
 
 #[cfg(test)]

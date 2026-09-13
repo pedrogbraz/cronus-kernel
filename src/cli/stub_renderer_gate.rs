@@ -100,6 +100,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "pill-nav" => Some("cronus_ui_pill_nav::render"),
         "dock" => Some("cronus_ui_dock::render"),
         "workspace-switcher" => Some("cronus_ui_workspace_switcher::render"),
+        "signature-pad" => Some("cronus_ui_signature_pad::render"),
         _ => None,
     }
 }
@@ -307,6 +308,9 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && !html.contains("data-slot=\"workspace-switcher-content\""))
         || (html.contains("data-slot=\"workspace-switcher\"") && html.contains("<details"))
         || (html.contains("data-slot=\"workspace-switcher\"") && html.contains("flex-wrap:wrap"))
+        || (html.contains("data-slot=\"signature-pad\"")
+            && !html.contains("data-slot=\"signature-pad-canvas\""))
+        || (html.contains("data-slot=\"signature-pad\"") && html.contains("style="))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -471,6 +475,7 @@ mod tests {
             "src/cronus_ui_separator.rs",
             "src/cronus_ui_sheet.rs",
             "src/cronus_ui_sidebar.rs",
+            "src/cronus_ui_signature_pad.rs",
             "src/cronus_ui_sonner.rs",
             "src/cronus_ui_skeleton.rs",
             "src/cronus_ui_kbd.rs",
