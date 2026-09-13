@@ -270,6 +270,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "dock",
     "workspace-switcher",
     "signature-pad",
+    "resizable",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -370,6 +371,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "dock" => Some(crate::cronus_ui_dock::render(comp)),
         "workspace-switcher" => Some(crate::cronus_ui_workspace_switcher::render(comp)),
         "signature-pad" => Some(crate::cronus_ui_signature_pad::render(comp)),
+        "resizable" => Some(crate::cronus_ui_resizable::render(comp)),
         _ => None,
     }
 }

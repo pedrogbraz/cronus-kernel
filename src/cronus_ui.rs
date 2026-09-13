@@ -1366,6 +1366,22 @@ button:has(+ [data-slot="sheet-content"]) {
   pointer-events: none; position: absolute;
   left: 1.25rem; right: 1.25rem; bottom: 1.75rem;
   font-size: 0.75rem; color: var(--cronus-fg-muted);
+}
+[data-slot="resizable"] {
+  display: block; width: 100%; min-height: 12rem; box-sizing: border-box;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-raised); color: var(--cronus-fg);
+  overflow: hidden;
+[data-slot="resizable-panel-group"] {
+  display: flex; height: 100%; width: 100%; min-height: 12rem;
+[data-slot="resizable-panel"] {
+  flex: 1; min-width: 0; min-height: 0; overflow: auto;
+  padding: 0.75rem; font-size: 0.875rem; box-sizing: border-box;
+[data-slot="resizable-handle"] {
+  position: relative; display: flex; width: 1px;
+  align-items: center; justify-content: center;
+  background: var(--cronus-border); flex-shrink: 0;
 "#;
 
 #[cfg(test)]

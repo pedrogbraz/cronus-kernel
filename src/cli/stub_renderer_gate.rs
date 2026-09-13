@@ -101,6 +101,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "dock" => Some("cronus_ui_dock::render"),
         "workspace-switcher" => Some("cronus_ui_workspace_switcher::render"),
         "signature-pad" => Some("cronus_ui_signature_pad::render"),
+        "resizable" => Some("cronus_ui_resizable::render"),
         _ => None,
     }
 }
@@ -311,6 +312,12 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"signature-pad\"")
             && !html.contains("data-slot=\"signature-pad-canvas\""))
         || (html.contains("data-slot=\"signature-pad\"") && html.contains("style="))
+        || (html.contains("data-slot=\"resizable\"") && html.contains("<section"))
+        || (html.contains("data-slot=\"resizable\"")
+            && !html.contains("data-slot=\"resizable-panel-group\""))
+        || (html.contains("data-slot=\"resizable\"")
+            && !html.contains("data-slot=\"resizable-handle\""))
+        || (html.contains("data-slot=\"resizable\"") && html.contains("max-height:12rem;overflow:auto"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -486,6 +493,7 @@ mod tests {
             "src/cronus_ui_slider.rs",
             "src/cronus_ui_radio_group.rs",
             "src/cronus_ui_rating.rs",
+            "src/cronus_ui_resizable.rs",
             "src/cronus_ui_scroll_area.rs",
             "src/cronus_ui_chip.rs",
             "src/cronus_ui_collapsible.rs",
