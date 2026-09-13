@@ -66,6 +66,7 @@ mod cronus_ui_empty;
 mod cronus_ui_field;
 mod cronus_ui_file_dropzone;
 mod cronus_ui_fab;
+mod cronus_ui_hover_card;
 mod cronus_ui_input;
 mod cronus_ui_input_group;
 mod cronus_ui_interact;

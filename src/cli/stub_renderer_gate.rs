@@ -57,6 +57,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "button-group" => Some("cronus_ui_button_group::render"),
         "file-dropzone" => Some("cronus_ui_file_dropzone::render"),
         "popover" => Some("cronus_ui_popover::render"),
+        "hover-card" => Some("cronus_ui_hover_card::render"),
         _ => None,
     }
 }
@@ -157,6 +158,7 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || html.contains("data-slot=\"file-dropzone-control\"")
         || (html.contains("data-slot=\"file-dropzone\"") && html.contains("style="))
         || html.contains("<details data-slot=\"popover\"")
+        || html.contains("<details data-slot=\"hover-card\"")
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -331,6 +333,7 @@ mod tests {
             "src/cronus_ui_file_dropzone.rs",
             "src/cronus_ui_input_group.rs",
             "src/cronus_ui_fab.rs",
+            "src/cronus_ui_hover_card.rs",
             "src/cronus_ui_select.rs",
             "src/cronus_ui_dialog.rs",
             "src/cronus_ui_tabs.rs",

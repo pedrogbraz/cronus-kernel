@@ -156,6 +156,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "button-group",
     "file-dropzone",
     "popover",
+    "hover-card",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -212,6 +213,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "button-group" => Some(crate::cronus_ui_button_group::render(comp)),
         "file-dropzone" => Some(crate::cronus_ui_file_dropzone::render(comp)),
         "popover" => Some(crate::cronus_ui_popover::render(comp)),
+        "hover-card" => Some(crate::cronus_ui_hover_card::render(comp)),
         _ => None,
     }
 }
