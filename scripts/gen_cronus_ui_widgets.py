@@ -232,6 +232,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "morphing-popover",
     "bouncy-accordion",
     "typing-text",
+    "word-rotate",
+    "timeline",
+    "tree-view",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -364,6 +367,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "morphing-popover" => Some(crate::cronus_ui_morphing_popover::render(comp)),
         "bouncy-accordion" => Some(crate::cronus_ui_bouncy_accordion::render(comp)),
         "typing-text" => Some(crate::cronus_ui_typing_text::render(comp)),
+        "word-rotate" => Some(crate::cronus_ui_word_rotate::render(comp)),
+        "timeline" => Some(crate::cronus_ui_timeline::render(comp)),
+        "tree-view" => Some(crate::cronus_ui_tree_view::render(comp)),
         _ => None,
     }
 }

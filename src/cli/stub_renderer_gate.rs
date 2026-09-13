@@ -133,6 +133,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "morphing-popover" => Some("cronus_ui_morphing_popover::render"),
         "bouncy-accordion" => Some("cronus_ui_bouncy_accordion::render"),
         "typing-text" => Some("cronus_ui_typing_text::render"),
+        "word-rotate" => Some("cronus_ui_word_rotate::render"),
+        "timeline" => Some("cronus_ui_timeline::render"),
+        "tree-view" => Some("cronus_ui_tree_view::render"),
         _ => None,
     }
 }
@@ -443,7 +446,19 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
         || (html.contains("data-slot=\"noise\"")
         || (html.contains("data-slot=\"typing-text\"")
-            && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
+        || (html.contains("data-slot=\"word-rotate\"")
+        || html.contains("<ol data-slot=\"timeline\"")
+        || html.contains("<section data-slot=\"timeline\"")
+        || (html.contains("data-slot=\"timeline\"")
+            && (!html.contains("data-slot=\"timeline-item\"")
+                || !html.contains("data-slot=\"timeline-content\"")))
+        || (html.contains("data-slot=\"timeline\"") && html.contains("style="))
+        || html.contains("<ul data-slot=\"tree-view\"")
+        || html.contains("<section data-slot=\"tree-view\"")
+        || (html.contains("data-slot=\"tree-view\"")
+            && (!html.contains("data-slot=\"tree-view-item\"")
+                || !html.contains("data-slot=\"tree-view-item-trigger\"")))
+        || (html.contains("data-slot=\"tree-view\"") && html.contains("style="))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -621,6 +636,9 @@ mod tests {
             "src/cronus_ui_sparkles_text.rs",
             "src/cronus_ui_noise.rs",
             "src/cronus_ui_typing_text.rs",
+            "src/cronus_ui_word_rotate.rs",
+            "src/cronus_ui_timeline.rs",
+            "src/cronus_ui_tree_view.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
             "src/cronus_ui_toggle_group.rs",
