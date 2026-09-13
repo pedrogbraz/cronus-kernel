@@ -2751,6 +2751,30 @@ button:has(+ [data-slot="sheet-content"]) {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+[data-slot="marquee"] {
+  position: relative; display: flex; overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+}
+[data-slot="marquee-group"] {
+  display: flex; flex-shrink: 0; align-items: center; gap: 1rem;
+  width: max-content;
+  animation: cui-marquee 20s linear infinite;
+}
+[data-slot="marquee"]:hover [data-slot="marquee-group"],
+[data-slot="marquee"]:focus-within [data-slot="marquee-group"] {
+  animation-play-state: paused;
+}
+[data-slot="marquee-group"] > span {
+  white-space: nowrap; color: var(--cronus-fg);
+}
+@keyframes cui-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="marquee-group"] { animation: none; }
+}
 "#;
 
 #[cfg(test)]
