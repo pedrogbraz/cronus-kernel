@@ -1379,6 +1379,21 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="table-of-contents-link"]:hover { color: var(--cronus-fg-secondary); }
 [data-slot="table-of-contents-link"][aria-current="location"] {
   color: var(--cronus-fg); font-weight: 500;
+[data-slot="form"] {
+  display: flex; flex-direction: column; gap: 0.75rem;
+[data-slot="form-item"] {
+  display: flex; flex-direction: column; gap: 0.375rem;
+[data-slot="form-label"] {
+  font-size: 0.875rem; font-weight: 500; color: var(--cronus-fg);
+  line-height: 1; user-select: none;
+[data-slot="form-control"] { display: block; width: 100%; }
+[data-slot="form-item"] input {
+  display: flex; height: 2.5rem; width: 100%; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+  padding: 0 0.75rem; font-size: 0.875rem; font-family: inherit; outline: none;
+[data-slot="form-description"] {
+  margin: 0; font-size: 0.75rem; color: var(--cronus-fg-secondary);
 "#;
 
 #[cfg(test)]

@@ -271,6 +271,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "workspace-switcher",
     "app-shell",
     "table-of-contents",
+    "form",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -372,6 +373,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "workspace-switcher" => Some(crate::cronus_ui_workspace_switcher::render(comp)),
         "app-shell" => Some(crate::cronus_ui_app_shell::render(comp)),
         "table-of-contents" => Some(crate::cronus_ui_table_of_contents::render(comp)),
+        "form" => Some(crate::cronus_ui_form::render(comp)),
         _ => None,
     }
 }
@@ -877,17 +879,20 @@ mod tests {
     }
 
     #[test]
-    fn form_gets_vsubmit_when_voodoo_and_entity() {
+    fn form_skips_vsubmit_even_when_voodoo_and_entity() {
         use crate::binding::ResolvedData;
         crate::voodoo::with_enabled(true, || {
             crate::cronus_ui_data::with_binding("Lead", &ResolvedData::None, || {
                 let html = render(&stub("form")).unwrap();
-                assert!(html.contains("v-submit=\"/api/lead\""), "{html}");
-                assert!(html.contains("v-method=\"POST\""));
+                assert!(!html.contains("v-submit="), "{html}");
+                assert!(!html.contains("v-method="), "{html}");
+                assert!(html.contains("data-slot=\"form-item\""), "{html}");
+                assert!(html.contains("data-slot=\"form-label\""), "{html}");
             });
         });
         let off = render(&stub("form")).unwrap();
         assert!(!off.contains("v-submit="), "{off}");
+        assert!(off.contains("data-slot=\"form-item\""), "{off}");
     }
 
     #[test]

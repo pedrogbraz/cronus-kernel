@@ -102,6 +102,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "workspace-switcher" => Some("cronus_ui_workspace_switcher::render"),
         "app-shell" => Some("cronus_ui_app_shell::render"),
         "table-of-contents" => Some("cronus_ui_table_of_contents::render"),
+        "form" => Some("cronus_ui_form::render"),
         _ => None,
     }
 }
@@ -322,6 +323,11 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"table-of-contents\"")
             && !html.contains("data-slot=\"table-of-contents-link\""))
         || (html.contains("data-slot=\"table-of-contents\"") && html.contains("flex-wrap:wrap"))
+        || (html.contains("data-slot=\"form\"") && html.contains("style="))
+        || (html.contains("data-slot=\"form\"") && html.contains(">Submit</button>"))
+        || (html.contains("data-slot=\"form\"") && !html.contains("data-slot=\"form-item\""))
+        || (html.contains("data-slot=\"form\"") && !html.contains("data-slot=\"form-label\""))
+        || (html.contains("data-slot=\"form\"") && html.contains("v-submit="))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -507,6 +513,7 @@ mod tests {
             "src/cronus_ui_field.rs",
             "src/cronus_ui_file_dropzone.rs",
             "src/cronus_ui_floating_label_input.rs",
+            "src/cronus_ui_form.rs",
             "src/cronus_ui_input_group.rs",
             "src/cronus_ui_input_otp.rs",
             "src/cronus_ui_fab.rs",
