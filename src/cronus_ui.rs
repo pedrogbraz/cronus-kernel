@@ -1124,6 +1124,43 @@ button:has(+ [data-slot="sheet-content"]) {
   padding: 0 0.75rem; color: var(--cronus-fg); font: inherit; outline: none;
   text-align: end; font-variant-numeric: tabular-nums;
 }
+[data-slot="color-picker"] {
+  display: inline-flex; flex-direction: column; gap: 0.25rem;
+}
+[data-slot="color-picker-trigger"] {
+  display: inline-flex; align-items: center; justify-content: flex-start; gap: 0.5rem;
+  width: 100%; height: 2.5rem; padding: 0 0.75rem; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: transparent; color: var(--cronus-fg);
+  font-size: 0.875rem; font-weight: 400; font-family: inherit; cursor: pointer;
+}
+[data-slot="color-picker-trigger"]:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="color-picker-swatch"] {
+  width: 1.25rem; height: 1.25rem; flex-shrink: 0;
+  border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
+  background: var(--cronus-primary);
+}
+[data-slot="color-picker-content"] {
+  z-index: 50; width: 16rem; box-sizing: border-box;
+  padding: 0.75rem; outline: none;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  font-size: 0.875rem; box-shadow: var(--cronus-shadow-lg, none);
+  display: flex; flex-direction: column; gap: 0.75rem;
+}
+[data-slot="color-picker-swatches"] {
+  display: flex; flex-wrap: wrap; gap: 0.375rem;
+}
+[data-slot="color-picker-swatch-button"] {
+  width: 1.5rem; height: 1.5rem; padding: 0;
+  border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
+  cursor: default;
+}
+[data-slot="color-picker-swatch-button"]:nth-child(1) { background: var(--cronus-primary); }
+[data-slot="color-picker-swatch-button"]:nth-child(2) { background: var(--cronus-error); }
+[data-slot="color-picker-swatch-button"]:nth-child(3) { background: var(--cronus-success); }
+[data-slot="color-picker-swatch-button"]:nth-child(4) { background: var(--cronus-warning); }
+[data-slot="color-picker-swatch-button"]:nth-child(5) { background: var(--cronus-info); }
 "#;
 
 #[cfg(test)]

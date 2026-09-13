@@ -253,6 +253,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "navigation-menu",
     "phone-input",
     "currency-input",
+    "color-picker",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -336,6 +337,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "navigation-menu" => Some(crate::cronus_ui_navigation_menu::render(comp)),
         "phone-input" => Some(crate::cronus_ui_phone_input::render(comp)),
         "currency-input" => Some(crate::cronus_ui_currency_input::render(comp)),
+        "color-picker" => Some(crate::cronus_ui_color_picker::render(comp)),
         _ => None,
     }
 }
