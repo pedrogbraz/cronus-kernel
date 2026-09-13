@@ -215,6 +215,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "tooltip",
     "password-input",
     "number-input",
+    "field",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -260,6 +261,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "tooltip" => Some(crate::cronus_ui_tooltip::render(comp)),
         "password-input" => Some(crate::cronus_ui_password_input::render(comp)),
         "number-input" => Some(crate::cronus_ui_number_input::render(comp)),
+        "field" => Some(crate::cronus_ui_field::render(comp)),
         _ => None,
     }
 }

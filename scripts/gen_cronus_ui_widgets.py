@@ -147,6 +147,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "avatar", "card", "empty",
     "select", "dialog", "tabs", "accordion", "table", "pagination",
     "breadcrumb", "tooltip", "password-input", "number-input",
+    "field",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -182,6 +183,17 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "avatar" => Some(crate::cronus_ui_avatar::render(comp)),
         "card" => Some(crate::cronus_ui_card::render(comp)),
         "empty" => Some(crate::cronus_ui_empty::render(comp)),
+        "select" => Some(crate::cronus_ui_select::render(comp)),
+        "dialog" => Some(crate::cronus_ui_dialog::render(comp)),
+        "tabs" => Some(crate::cronus_ui_tabs::render(comp)),
+        "accordion" => Some(crate::cronus_ui_accordion::render(comp)),
+        "table" => Some(crate::cronus_ui_table::render(comp)),
+        "pagination" => Some(crate::cronus_ui_pagination::render(comp)),
+        "breadcrumb" => Some(crate::cronus_ui_breadcrumb::render(comp)),
+        "tooltip" => Some(crate::cronus_ui_tooltip::render(comp)),
+        "password-input" => Some(crate::cronus_ui_password_input::render(comp)),
+        "number-input" => Some(crate::cronus_ui_number_input::render(comp)),
+        "field" => Some(crate::cronus_ui_field::render(comp)),
         _ => None,
     }
 }

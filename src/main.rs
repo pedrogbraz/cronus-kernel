@@ -60,6 +60,7 @@ mod cronus_ui_chip;
 mod cronus_ui_data;
 mod cronus_ui_dialog;
 mod cronus_ui_empty;
+mod cronus_ui_field;
 mod cronus_ui_input;
 mod cronus_ui_interact;
 mod cronus_ui_kbd;

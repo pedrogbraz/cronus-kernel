@@ -585,6 +585,17 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   border: 1px solid var(--cronus-border); background: var(--cronus-surface-inset);
   color: var(--cronus-fg); font: inherit;
 }
+
+[data-slot="field"] {
+  display: flex; flex-direction: column; gap: 0.375rem;
+}
+[data-slot="field-label"] {
+  font-size: 0.875rem; font-weight: 500; color: var(--cronus-fg);
+  line-height: 1; user-select: none;
+}
+[data-slot="field-description"] {
+  margin: 0; font-size: 0.75rem; color: var(--cronus-fg-secondary);
+}
 "#;
 
 #[cfg(test)]
