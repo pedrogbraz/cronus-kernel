@@ -65,6 +65,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "collapsible" => Some("cronus_ui_collapsible::render"),
         "mode-toggle" => Some("cronus_ui_mode_toggle::render"),
         "drawer" => Some("cronus_ui_drawer::render"),
+        "sheet" => Some("cronus_ui_sheet::render"),
         _ => None,
     }
 }
@@ -184,6 +185,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"mode-toggle\"") && html.contains("classList.toggle('dark')"))
         || (html.contains("data-slot=\"mode-toggle\"") && html.contains("style="))
         || (html.contains("data-slot=\"drawer")
+            && (html.contains("<dialog") || html.contains("showModal()")))
+        || (html.contains("data-slot=\"sheet")
             && (html.contains("<dialog") || html.contains("showModal()")))
 }
 
@@ -343,6 +346,7 @@ mod tests {
             "src/cronus_ui_switch.rs",
             "src/cronus_ui_spinner.rs",
             "src/cronus_ui_separator.rs",
+            "src/cronus_ui_sheet.rs",
             "src/cronus_ui_skeleton.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
