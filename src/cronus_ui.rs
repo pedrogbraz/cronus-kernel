@@ -654,6 +654,46 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
 [data-slot="toggle-group-item"][data-state="on"] {
   background: var(--cronus-surface-overlay); color: var(--cronus-fg);
 [data-slot="toggle-group-item"]:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="metric"] {
+  display: flex; flex-direction: column; gap: 0.25rem;
+[data-slot="metric-label"] {
+  font-size: 0.75rem; font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--cronus-fg-tertiary);
+[data-slot="metric-value"] {
+  font-family: var(--cronus-font-display, inherit);
+  font-size: 1.5rem; font-weight: 600; color: var(--cronus-fg);
+  font-variant-numeric: tabular-nums;
+[data-slot="avatar-group"] {
+  display: flex; align-items: center;
+[data-slot="avatar-group"] > * + * {
+  margin-left: -0.5rem;
+[data-slot="avatar-group"] [data-slot="avatar"] {
+  width: 2.25rem; height: 2.25rem;
+  box-shadow: 0 0 0 2px var(--cronus-surface-base);
+[data-slot="avatar-group-overflow"] {
+  position: relative; display: flex; flex-shrink: 0;
+  align-items: center; justify-content: center;
+  width: 2.25rem; height: 2.25rem; border-radius: 9999px;
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg-secondary);
+  font-weight: 500; font-size: 0.875rem;
+[data-slot="button-group"] {
+  display: inline-flex;
+[data-slot="button-group"][data-orientation="horizontal"], [data-slot="button-group"]:not([data-orientation]) {
+  flex-direction: row;
+[data-slot="button-group"][data-orientation="horizontal"] > *:not(:first-child),
+[data-slot="button-group"]:not([data-orientation]) > *:not(:first-child) {
+  border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px;
+[data-slot="button-group"][data-orientation="horizontal"] > *:not(:last-child),
+[data-slot="button-group"]:not([data-orientation]) > *:not(:last-child) {
+  border-top-right-radius: 0; border-bottom-right-radius: 0;
+[data-slot="button-group"][data-orientation="vertical"] {
+  flex-direction: column;
+[data-slot="button-group"][data-orientation="vertical"] > *:not(:first-child) {
+  border-top-left-radius: 0; border-top-right-radius: 0; margin-top: -1px;
+[data-slot="button-group"][data-orientation="vertical"] > *:not(:last-child) {
+  border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+[data-slot="button-group"] > *:focus-visible {
+  position: relative; z-index: 10;
 "#;
 
 #[cfg(test)]

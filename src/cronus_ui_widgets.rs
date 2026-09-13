@@ -221,6 +221,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "copy-button",
     "fab",
     "toggle-group",
+    "metric",
+    "avatar-group",
+    "button-group",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -272,6 +275,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "copy-button" => Some(crate::cronus_ui_copy_button::render(comp)),
         "fab" => Some(crate::cronus_ui_fab::render(comp)),
         "toggle-group" => Some(crate::cronus_ui_toggle_group::render(comp)),
+        "metric" => Some(crate::cronus_ui_metric::render(comp)),
+        "avatar-group" => Some(crate::cronus_ui_avatar_group::render(comp)),
+        "button-group" => Some(crate::cronus_ui_button_group::render(comp)),
         _ => None,
     }
 }

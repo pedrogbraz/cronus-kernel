@@ -52,6 +52,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "copy-button" => Some("cronus_ui_copy_button::render"),
         "fab" => Some("cronus_ui_fab::render"),
         "toggle-group" => Some("cronus_ui_toggle_group::render"),
+        "metric" => Some("cronus_ui_metric::render"),
+        "avatar-group" => Some("cronus_ui_avatar_group::render"),
+        "button-group" => Some("cronus_ui_button_group::render"),
         _ => None,
     }
 }
@@ -144,6 +147,11 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"copy-button\"") && html.contains("style="))
         || (html.contains("data-slot=\"fab\"") && html.contains("data-slot=\"button\""))
         || (html.contains("data-slot=\"toggle-group\"") && html.contains("role=\"radiogroup\""))
+        || html.contains("<section data-slot=\"metric\"")
+        || (html.contains("data-slot=\"metric\"") && html.contains("{ value }"))
+        || (html.contains("data-slot=\"avatar-group\"")
+            && html.contains("width:2.25rem;height:2.25rem;border-radius:999px"))
+        || (html.contains("data-slot=\"button-group\"") && html.contains("display:inline-flex;gap:0.25rem"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -296,6 +304,7 @@ mod tests {
             "src/cronus_ui_copy_button.rs",
             "src/cronus_ui_input.rs",
             "src/cronus_ui_label.rs",
+            "src/cronus_ui_metric.rs",
             "src/cronus_ui_textarea.rs",
             "src/cronus_ui_switch.rs",
             "src/cronus_ui_spinner.rs",
@@ -310,6 +319,7 @@ mod tests {
             "src/cronus_ui_rating.rs",
             "src/cronus_ui_chip.rs",
             "src/cronus_ui_avatar.rs",
+            "src/cronus_ui_avatar_group.rs",
             "src/cronus_ui_card.rs",
             "src/cronus_ui_empty.rs",
             "src/cronus_ui_field.rs",
@@ -322,6 +332,7 @@ mod tests {
             "src/cronus_ui_table.rs",
             "src/cronus_ui_pagination.rs",
             "src/cronus_ui_breadcrumb.rs",
+            "src/cronus_ui_button_group.rs",
             "src/cronus_ui_tooltip.rs",
             "src/cronus_ui_password_input.rs",
             "src/cronus_ui_number_input.rs",

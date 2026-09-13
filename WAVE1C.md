@@ -1,3 +1,3 @@
-# Wave 1c — kernel ports (merge in progress)
+# Wave 1c — 9 dedicated kernel ports
 
-field, input-group, rating, copy-button, fab, toggle-group (+ metric, avatar-group, button-group pending C).
+field, input-group, rating, copy-button, fab, toggle-group, metric, avatar-group, button-group.
