@@ -335,6 +335,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "funnel-chart",
     "candlestick-chart",
     "aurora-background",
+    "border-beam",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -498,6 +499,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "funnel-chart" => Some(crate::cronus_ui_funnel_chart::render(comp)),
         "candlestick-chart" => Some(crate::cronus_ui_candlestick_chart::render(comp)),
         "aurora-background" => Some(crate::cronus_ui_aurora_background::render(comp)),
+        "border-beam" => Some(crate::cronus_ui_border_beam::render(comp)),
         _ => None,
     }
 }

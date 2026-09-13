@@ -3089,6 +3089,33 @@ button:has(+ [data-slot="sheet-content"]) {
 @media (prefers-reduced-motion: reduce) {
   [data-slot="aurora-blob"] { animation: none; }
 }
+[data-slot="border-beam"] {
+  position: relative;
+  border-radius: var(--cronus-radius-xl);
+  color: var(--cronus-fg);
+}
+[data-slot="border-beam-layer"] {
+  position: absolute; inset: 0; pointer-events: none;
+  border-radius: inherit;
+}
+[data-slot="border-beam-layer"]::after {
+  content: "";
+  position: absolute;
+  width: 60px; height: 60px;
+  background: linear-gradient(to left, var(--cronus-fg), var(--cronus-primary), transparent);
+  offset-path: rect(0 auto auto 0 round 60px);
+  animation: cui-border-beam 8s linear infinite;
+}
+@keyframes cui-border-beam {
+  from { offset-distance: 0%; }
+  to { offset-distance: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="border-beam-layer"] { display: none; }
+}
+[data-slot="border-beam-content"] {
+  position: relative;
+}
 
 "#;
 

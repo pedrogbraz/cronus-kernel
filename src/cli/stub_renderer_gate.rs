@@ -164,6 +164,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "funnel-chart" => Some("cronus_ui_funnel_chart::render"),
         "candlestick-chart" => Some("cronus_ui_candlestick_chart::render"),
         "aurora-background" => Some("cronus_ui_aurora_background::render"),
+        "border-beam" => Some("cronus_ui_border_beam::render"),
         _ => None,
     }
 }
@@ -612,6 +613,15 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || html.contains("<canvas")
                 || html.contains("<script")
                 || html.contains("setInterval")))
+        || (html.contains("data-slot=\"border-beam\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || !html.contains("data-slot=\"border-beam-layer\"")
+                || !html.contains("data-slot=\"border-beam-content\"")
+                || html.contains("<canvas")
+                || html.contains("<script")
+                || html.contains("setInterval")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -764,6 +774,7 @@ mod tests {
             "src/cronus_ui_aurora_background.rs",
             "src/cronus_ui_badge.rs",
             "src/cronus_ui_banner.rs",
+            "src/cronus_ui_border_beam.rs",
             "src/cronus_ui_checkbox.rs",
             "src/cronus_ui_copy_button.rs",
             "src/cronus_ui_credit_card_input.rs",
