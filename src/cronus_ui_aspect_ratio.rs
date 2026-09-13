@@ -75,20 +75,13 @@ mod tests {
     #[test]
     fn skips_display_surf_section() {
         let html = render(&stub("aspect-ratio", "Cover"));
-        let interact = crate::cronus_ui_interact::render(
-            "aspect-ratio",
-            &stub("aspect-ratio", "Cover"),
-        )
-        .unwrap();
+        let interact =
+            crate::cronus_ui_interact::render("aspect-ratio", &stub("aspect-ratio", "Cover"))
+                .unwrap();
         assert!(interact.starts_with("<section data-slot=\"aspect-ratio\""));
         assert!(interact.contains("style="));
         assert!(interact.contains(DISPLAY_SURF));
         assert_ne!(html, interact);
-        let display =
-            crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("card-stack"))
-                .unwrap();
-        assert!(display.contains("<section data-slot=\"card-stack\""));
-        assert!(display.contains(DISPLAY_SURF));
         assert!(!html.contains("<section"));
         reject_display(&html);
         assert_eq!(

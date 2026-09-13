@@ -2628,8 +2628,8 @@ button:has(+ [data-slot="sheet-content"]) {
   50% { opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-}
   [data-slot="typing-text"]::after { display: none; animation: none; }
+}
 [data-slot="word-rotate"] {
   position: relative; display: inline-grid;
   height: 1.2em; overflow: hidden;
@@ -2738,8 +2738,8 @@ button:has(+ [data-slot="sheet-content"]) {
   50% { opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-}
   [data-slot="terminal-line"]:last-child::after { display: none; animation: none; }
+}
 [data-slot="video-player"] {
   position: relative; isolation: isolate; width: 100%;
   background: var(--cronus-surface-inset);
@@ -2891,8 +2891,8 @@ button:has(+ [data-slot="sheet-content"]) {
   to { transform: translateX(-100%); }
 }
 @media (prefers-reduced-motion: reduce) {
-}
   [data-slot="marquee-group"] { animation: none; }
+}
 [data-slot="gradient-text"] {
   color: transparent;
   background-image: linear-gradient(135deg, var(--cronus-primary), var(--cronus-accent));
@@ -2916,6 +2916,7 @@ button:has(+ [data-slot="sheet-content"]) {
   0% { background-position: 100% 0; }
   100% { background-position: -100% 0; }
 }
+@media (prefers-reduced-motion: reduce) {
   [data-slot="shiny-text"] { animation: none; }
 }
 [data-slot="aspect-ratio"] {
@@ -2928,15 +2929,19 @@ button:has(+ [data-slot="sheet-content"]) {
   border: 1px solid var(--cronus-border);
   background: var(--cronus-surface-raised);
   box-shadow: var(--cronus-shadow-sm, none);
+}
 [data-slot="frame-chrome"] {
   display: flex; align-items: center; gap: 0.75rem;
   border-bottom: 1px solid var(--cronus-border);
   background: var(--cronus-surface-inset);
   padding: 0.5rem 0.75rem;
+}
 [data-slot="frame-chrome"] [aria-hidden] {
   display: flex; align-items: center; gap: 0.375rem;
+}
 [data-slot="frame-chrome"] [aria-hidden] span {
   width: 0.75rem; height: 0.75rem; border-radius: 999px;
+}
 [data-slot="frame-chrome"] [aria-hidden] span:nth-child(1) { background: var(--cronus-error); }
 [data-slot="frame-chrome"] [aria-hidden] span:nth-child(2) { background: var(--cronus-warning); }
 [data-slot="frame-chrome"] [aria-hidden] span:nth-child(3) { background: var(--cronus-success); }
@@ -2945,23 +2950,34 @@ button:has(+ [data-slot="sheet-content"]) {
   position: relative; isolation: isolate;
   min-height: 16rem; border-radius: var(--cronus-radius-xl);
   perspective: 1600px;
+}
 [data-slot="flip-card-front"],
 [data-slot="flip-card-back"] {
   position: absolute; inset: 0;
   display: flex; flex-direction: column;
   overflow: hidden; border-radius: var(--cronus-radius-xl);
+  border: 1px solid var(--cronus-border);
   color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-sm, none);
   backface-visibility: hidden;
   transform-style: preserve-3d;
   transition: transform 600ms var(--cronus-ease);
+}
 [data-slot="flip-card-front"] {
+  background: var(--cronus-surface-raised);
+}
+[data-slot="flip-card-back"] {
   background: var(--cronus-surface-elevated, var(--cronus-surface-overlay));
   transform: rotateY(180deg);
+}
 [data-slot="flip-card"]:hover [data-slot="flip-card-front"],
 [data-slot="flip-card"]:focus-within [data-slot="flip-card-front"] {
+  transform: rotateY(180deg);
+}
 [data-slot="flip-card"]:hover [data-slot="flip-card-back"],
 [data-slot="flip-card"]:focus-within [data-slot="flip-card-back"] {
   transform: rotateY(360deg);
+}
 @media (prefers-reduced-motion: reduce) {
   [data-slot="flip-card-front"],
   [data-slot="flip-card-back"] {
@@ -2971,24 +2987,34 @@ button:has(+ [data-slot="sheet-content"]) {
   [data-slot="flip-card"]:hover [data-slot="flip-card-front"],
   [data-slot="flip-card"]:focus-within [data-slot="flip-card-front"] {
     visibility: hidden; transform: none;
+  }
   [data-slot="flip-card"]:hover [data-slot="flip-card-back"],
   [data-slot="flip-card"]:focus-within [data-slot="flip-card-back"] {
     visibility: visible; transform: none;
+  }
+}
 [data-slot="countdown"] {
   display: inline-flex; align-items: flex-start; gap: 0.375rem;
+}
 [data-slot="countdown-unit"] {
   display: flex; flex-direction: column; align-items: center; gap: 0.125rem;
   min-width: 3.5rem; padding: 0.5rem 0.625rem;
   border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised);
   box-shadow: var(--cronus-shadow-xs, none);
+}
 [data-slot="countdown-value"] {
   display: block; overflow: hidden;
   font-weight: 600; font-size: 1.5rem; line-height: 2rem;
   font-variant-numeric: tabular-nums;
+  color: var(--cronus-fg);
+}
 [data-slot="countdown-label"] {
   font-weight: 500; font-size: 0.6875rem;
   letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--cronus-fg-tertiary, var(--cronus-fg-secondary));
+}
 [data-slot="animated-button"] {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   height: 2.5rem; padding: 0 1rem;
@@ -2998,23 +3024,36 @@ button:has(+ [data-slot="sheet-content"]) {
   cursor: pointer;
   box-shadow: var(--cronus-shadow-xs, 0 1px 2px rgba(0,0,0,.2));
   transition: transform 150ms var(--ease-out-quart), opacity 150ms var(--ease-out-quart);
+}
 [data-slot="animated-button"]:hover { transform: translateY(-1px); }
 [data-slot="animated-button"]:active { transform: scale(0.97); }
+@media (prefers-reduced-motion: reduce) {
   [data-slot="animated-button"] { transition: none; }
   [data-slot="animated-button"]:hover,
   [data-slot="animated-button"]:active { transform: none; }
+}
 [data-slot="card-stack"] {
+  position: relative; isolation: isolate;
   height: 14rem; width: 100%; max-width: 24rem;
+}
 [data-slot="card-stack-item"] {
+  position: absolute; inset: 0;
   border-radius: 1rem;
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised);
   padding: 1.25rem;
+  color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-sm, none);
   transform-origin: top center;
+}
 [data-slot="card-stack-item"]:nth-child(1) { z-index: 3; }
 [data-slot="card-stack-item"]:nth-child(2) {
   z-index: 2; transform: translate(10px, 10px) scale(0.96);
+}
 [data-slot="card-stack-item"]:nth-child(3) {
   z-index: 1; transform: translate(20px, 20px) scale(0.92);
 }
+
 "#;
 
 #[cfg(test)]

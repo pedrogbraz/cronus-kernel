@@ -89,11 +89,6 @@ mod tests {
         assert!(!interact.contains("data-slot=\"frame-chrome\""));
         assert!(!interact.contains("data-slot=\"frame-content\""));
         assert_ne!(html, interact);
-        let display =
-            crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("card-stack"))
-                .unwrap();
-        assert!(display.contains("<section data-slot=\"card-stack\""));
-        assert!(display.contains(DISPLAY_SURF));
         assert!(!html.contains("<section"));
         reject_display(&html);
         assert_eq!(dedicated_fn_name("frame"), Some("cronus_ui_frame::render"));

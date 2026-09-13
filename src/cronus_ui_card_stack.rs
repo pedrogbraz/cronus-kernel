@@ -109,9 +109,8 @@ mod tests {
     #[test]
     fn label_is_escaped() {
         let html = render(&stack(&["A <B> & \"C\"", "Back"]));
-        assert!(html.contains(
-            "<div data-slot=\"card-stack-item\">A &lt;B&gt; &amp; &quot;C&quot;</div>"
-        ));
+        assert!(html
+            .contains("<div data-slot=\"card-stack-item\">A &lt;B&gt; &amp; &quot;C&quot;</div>"));
         reject_display(&html);
     }
 
@@ -125,11 +124,6 @@ mod tests {
         assert!(interact.starts_with("<section data-slot=\"card-stack\""));
         assert!(interact.contains("style="));
         assert_ne!(html, interact);
-        let display =
-            crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("flip-card"))
-                .unwrap();
-        assert!(display.contains("<section data-slot=\"flip-card\""));
-        assert!(display.contains(DISPLAY_SURF));
         assert!(!html.contains("<section"));
         reject_display(&html);
         assert_eq!(

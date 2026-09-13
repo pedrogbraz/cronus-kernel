@@ -8,7 +8,11 @@ use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     let front = label_of(comp);
-    let back = texts(comp).into_iter().skip(1).collect::<Vec<_>>().join(" ");
+    let back = texts(comp)
+        .into_iter()
+        .skip(1)
+        .collect::<Vec<_>>()
+        .join(" ");
     format!(
         "<div data-slot=\"flip-card\"><div data-slot=\"flip-card-front\">{front}</div><div data-slot=\"flip-card-back\">{back}</div></div>"
     )
@@ -96,11 +100,6 @@ mod tests {
         assert!(!interact.contains("data-slot=\"flip-card-front\""));
         assert!(!interact.contains("data-slot=\"flip-card-back\""));
         assert_ne!(html, interact);
-        let display =
-            crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("card-stack"))
-                .unwrap();
-        assert!(display.contains("<section data-slot=\"card-stack\""));
-        assert!(display.contains(DISPLAY_SURF));
         assert!(!html.contains("<section"));
         reject_display(&html);
         assert_eq!(

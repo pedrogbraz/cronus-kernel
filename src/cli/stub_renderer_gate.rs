@@ -591,12 +591,19 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || html.contains("setInterval")
                 || html.contains("setTimeout")))
         || (html.contains("data-slot=\"animated-button\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
                 || html.contains("<div")
                 || html.contains("<span")
                 || !html.contains("<button")))
         || html.contains("<section data-slot=\"card-stack\"")
         || (html.contains("data-slot=\"card-stack\"")
             && (!html.contains("data-slot=\"card-stack-item\"") || html.contains("style=")))
+        || html.contains("<figure data-slot=\"gauge-chart\"")
+        || (html.contains("data-slot=\"gauge-chart\"") && html.contains("<figcaption"))
+        || html.contains("<figure data-slot=\"funnel-chart\"")
+        || (html.contains("data-slot=\"funnel-chart\"") && html.contains("<figcaption"))
+        || html.contains("<figure data-slot=\"candlestick-chart\"")
+        || (html.contains("data-slot=\"candlestick-chart\"") && html.contains("<figcaption"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
