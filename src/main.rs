@@ -56,6 +56,7 @@ mod cronus_ui_badge;
 mod cronus_ui_banner;
 mod cronus_ui_breadcrumb;
 mod cronus_ui_button_group;
+mod cronus_ui_calendar;
 mod cronus_ui_card;
 mod cronus_ui_checkbox;
 mod cronus_ui_chip;

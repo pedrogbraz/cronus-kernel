@@ -66,6 +66,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "mode-toggle" => Some("cronus_ui_mode_toggle::render"),
         "drawer" => Some("cronus_ui_drawer::render"),
         "sheet" => Some("cronus_ui_sheet::render"),
+        "calendar" => Some("cronus_ui_calendar::render"),
         _ => None,
     }
 }
@@ -188,6 +189,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && (html.contains("<dialog") || html.contains("showModal()")))
         || (html.contains("data-slot=\"sheet")
             && (html.contains("<dialog") || html.contains("showModal()")))
+        || (html.contains("data-slot=\"calendar\"") && html.contains("style="))
+        || html.contains("grid-template-columns:repeat(7,1fr)")
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -378,6 +381,7 @@ mod tests {
             "src/cronus_ui_popover.rs",
             "src/cronus_ui_breadcrumb.rs",
             "src/cronus_ui_button_group.rs",
+            "src/cronus_ui_calendar.rs",
             "src/cronus_ui_combobox.rs",
             "src/cronus_ui_stepper.rs",
             "src/cronus_ui_tooltip.rs",

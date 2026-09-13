@@ -881,6 +881,27 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="sheet-description"] {
   font-size: 0.875rem; color: var(--cronus-fg-secondary);
 }
+[data-slot="calendar"] {
+  display: block; padding: 0.75rem; box-sizing: border-box;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-raised); color: var(--cronus-fg);
+}
+[data-slot="calendar"] table {
+  width: 100%; border-collapse: collapse;
+}
+[data-slot="calendar"] caption {
+  font-size: 0.875rem; font-weight: 500; padding-bottom: 0.5rem;
+  color: var(--cronus-fg);
+}
+[data-slot="calendar"] th {
+  width: 2.25rem; font-size: 0.75rem; font-weight: 400;
+  color: var(--cronus-fg-tertiary); text-align: center;
+}
+[data-slot="calendar"] td {
+  width: 2.25rem; height: 2.25rem; text-align: center;
+  font-size: 0.875rem; color: var(--cronus-fg);
+}
 "#;
 
 #[cfg(test)]
