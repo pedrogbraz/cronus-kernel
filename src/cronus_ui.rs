@@ -2246,6 +2246,29 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="code-tabs-code"] {
   display: block; white-space: pre;
   font-family: var(--cronus-font-mono, ui-monospace, monospace);
+[data-slot="expandable-tabs"] {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  border-radius: 9999px;
+  padding: 0.25rem;
+[data-slot="expandable-tabs-item"] {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  border: 0; border-radius: 9999px;
+  padding: 0.375rem 0.625rem;
+[data-slot="expandable-tabs-item"][aria-selected="true"] {
+  background: var(--cronus-surface-floating);
+  box-shadow: var(--cronus-shadow-xs, none);
+[data-slot="live-line-chart"] {
+  display: block; width: 100%; aspect-ratio: 2 / 1;
+[data-slot="live-line-chart"] svg {
+  display: block; width: 100%; height: 100%;
+[data-slot="live-line-chart"] polyline {
+  fill: none; stroke: var(--cronus-primary); stroke-width: 2;
+  stroke-linejoin: round; stroke-linecap: round;
+[data-slot="sunburst-chart"] {
+  width: 100%; height: 16rem;
+[data-slot="sunburst-chart"] svg { width: 12rem; height: 12rem; }
+[data-slot="sunburst-chart"] path {
+  stroke: var(--cronus-surface-base); stroke-width: 1;
 "#;
 
 #[cfg(test)]

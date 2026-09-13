@@ -284,6 +284,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "heatmap",
     "comparison-slider",
     "code-tabs",
+    "expandable-tabs",
+    "live-line-chart",
+    "sunburst-chart",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -398,6 +401,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "heatmap" => Some(crate::cronus_ui_heatmap::render(comp)),
         "comparison-slider" => Some(crate::cronus_ui_comparison_slider::render(comp)),
         "code-tabs" => Some(crate::cronus_ui_code_tabs::render(comp)),
+        "expandable-tabs" => Some(crate::cronus_ui_expandable_tabs::render(comp)),
+        "live-line-chart" => Some(crate::cronus_ui_live_line_chart::render(comp)),
+        "sunburst-chart" => Some(crate::cronus_ui_sunburst_chart::render(comp)),
         _ => None,
     }
 }

@@ -115,6 +115,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "heatmap" => Some("cronus_ui_heatmap::render"),
         "comparison-slider" => Some("cronus_ui_comparison_slider::render"),
         "code-tabs" => Some("cronus_ui_code_tabs::render"),
+        "expandable-tabs" => Some("cronus_ui_expandable_tabs::render"),
+        "live-line-chart" => Some("cronus_ui_live_line_chart::render"),
+        "sunburst-chart" => Some("cronus_ui_sunburst_chart::render"),
         _ => None,
     }
 }
@@ -380,6 +383,14 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"code-tabs\"")
             && html.contains("role=\"tablist\"")
             && !html.contains("data-slot=\"code-tabs-list\""))
+        || (html.contains("data-slot=\"expandable-tabs\"")
+            && !html.contains("data-slot=\"expandable-tabs-item\""))
+        || (html.contains("data-slot=\"expandable-tabs\"") && html.contains("role=\"tabpanel\""))
+        || (html.contains("data-slot=\"expandable-tabs\"") && html.contains("<div role=\"tablist\""))
+        || html.contains("<figure data-slot=\"live-line-chart\"")
+        || (html.contains("data-slot=\"live-line-chart\"") && html.contains("<figcaption"))
+        || html.contains("<figure data-slot=\"sunburst-chart\"")
+        || (html.contains("data-slot=\"sunburst-chart\"") && html.contains("<figcaption"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -568,6 +579,7 @@ mod tests {
             "src/cronus_ui_avatar_group.rs",
             "src/cronus_ui_card.rs",
             "src/cronus_ui_empty.rs",
+            "src/cronus_ui_expandable_tabs.rs",
             "src/cronus_ui_field.rs",
             "src/cronus_ui_file_dropzone.rs",
             "src/cronus_ui_floating_label_input.rs",
@@ -602,6 +614,7 @@ mod tests {
             "src/cronus_ui_notification_center.rs",
             "src/cronus_ui_context_menu.rs",
             "src/cronus_ui_status_dot.rs",
+            "src/cronus_ui_sunburst_chart.rs",
             "src/cronus_ui_stepper.rs",
             "src/cronus_ui_tooltip.rs",
             "src/cronus_ui_password_input.rs",
@@ -615,6 +628,7 @@ mod tests {
             "src/cronus_ui_area_chart.rs",
             "src/cronus_ui_bar_chart.rs",
             "src/cronus_ui_line_chart.rs",
+            "src/cronus_ui_live_line_chart.rs",
             "src/cronus_ui_sparkline.rs",
             "src/cronus_ui_pie_chart.rs",
             "src/cronus_ui_pill_nav.rs",
