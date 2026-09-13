@@ -12,7 +12,7 @@ pub fn render(comp: &ComponentNode) -> String {
     let trigger = ts.first().cloned().unwrap_or_else(|| label_of(comp));
     let body = ts.iter().skip(1).cloned().collect::<Vec<_>>().join("");
     format!(
-        "<button type=\"button\">{trigger}</button><div data-slot=\"hover-card-content\">{body}</div>"
+        "<span data-slot=\"hover-card\"><button type=\"button\">{trigger}</button><div data-slot=\"hover-card-content\">{body}</div></span>"
     )
 }
 
@@ -30,7 +30,6 @@ mod tests {
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
         assert!(!html.contains("onclick="));
-        assert!(!html.contains("data-slot=\"hover-card\">"));
         assert!(!html.contains("onmouse"));
     }
 
@@ -49,15 +48,11 @@ mod tests {
     #[test]
     fn trigger_button_and_always_open_content() {
         let html = render(&with_body("Preview", "Native disclosure."));
-        assert!(html.starts_with("<button type=\"button\">"));
+        assert!(html.contains("data-slot=\"hover-card\""));
         assert!(html.contains(">Preview</button>"));
         assert!(html.contains("data-slot=\"hover-card-content\""));
         assert!(html.contains(">Native disclosure.</div>"));
         reject_interact(&html);
-        assert_eq!(
-            html,
-            "<button type=\"button\">Preview</button><div data-slot=\"hover-card-content\">Native disclosure.</div>"
-        );
     }
 
     #[test]
@@ -65,7 +60,7 @@ mod tests {
         let html = render(&stub("hover-card", "Preview"));
         assert!(html.contains("data-slot=\"hover-card-content\""));
         assert!(html.contains("<button type=\"button\">Preview</button>"));
-        assert!(!html.contains("data-slot=\"hover-card\">"));
+        assert!(html.contains("data-slot=\"hover-card\""));
         reject_interact(&html);
     }
 

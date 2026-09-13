@@ -27,7 +27,11 @@ pub fn render(comp: &ComponentNode) -> String {
     } else {
         ""
     };
-    format!("<button {attrs}>{inner}</button>")
+    let text = aria_label_of(comp)
+        .filter(|t| !t.is_empty())
+        .map(|t| format!("<span data-slot=\"checkbox-text\">{}</span>", esc(t)))
+        .unwrap_or_default();
+    format!("<button {attrs}>{inner}</button>{text}")
 }
 
 fn checked_of(comp: &ComponentNode) -> bool {

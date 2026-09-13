@@ -1,20 +1,21 @@
-//! Dedicated DropdownMenu renderer. Always-open static: trigger button +
-//! `<div data-slot="dropdown-menu-content" role="menu">` with each text item
-//! `<div data-slot="dropdown-menu-item" role="menuitem">`.
+//! Dedicated DropdownMenu renderer. Native Popover API — closed until invoked.
+//! Trigger + `<div popover data-slot="dropdown-menu-content" role="menu">`.
 //! Not interact `popover("dropdown-menu")` (`<details>` SURF box).
 
-use crate::cronus_ui_kit::{choice_texts, label_of, texts};
+use crate::cronus_ui_kit::{choice_texts, label_of, texts, widget_id};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = label_of(comp);
+    let trigger_id = widget_id(comp, "trigger");
+    let pop_id = widget_id(comp, "menu");
     let items = menu_items(comp)
         .into_iter()
         .map(|t| format!("<div data-slot=\"dropdown-menu-item\" role=\"menuitem\">{t}</div>"))
         .collect::<Vec<_>>()
         .join("");
     format!(
-        "<div data-slot=\"dropdown-menu\"><button type=\"button\">{label}</button><div data-slot=\"dropdown-menu-content\" role=\"menu\">{items}</div></div>"
+        "<div data-slot=\"dropdown-menu\"><button type=\"button\" id=\"{trigger_id}\" data-slot=\"dropdown-menu-trigger\" popovertarget=\"{pop_id}\" aria-haspopup=\"menu\">{label}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"dropdown-menu-content\" role=\"menu\" anchor=\"{trigger_id}\">{items}</div></div>"
     )
 }
 
@@ -68,16 +69,15 @@ mod tests {
     fn root_is_always_open_menu_not_popover_details() {
         let html = render(&menu("Actions", &["Edit", "Share"]));
         assert!(html.starts_with("<div data-slot=\"dropdown-menu\">"));
-        assert!(html.contains("<button type=\"button\">Actions</button>"));
-        assert!(html.contains("<div data-slot=\"dropdown-menu-content\" role=\"menu\">"));
+        assert!(html.contains("data-slot=\"dropdown-menu-trigger\""));
+        assert!(html.contains("popovertarget="));
+        assert!(html.contains("popover=\"auto\""));
+        assert!(html.contains(">Actions</button>"));
+        assert!(html.contains("data-slot=\"dropdown-menu-content\" role=\"menu\""));
         assert!(html.contains("<div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Edit</div>"));
         assert!(html.contains("<div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Share</div>"));
         assert!(!html.contains("role=\"menuitem\">Actions"));
         reject_interact(&html);
-        assert_eq!(
-            html,
-            "<div data-slot=\"dropdown-menu\"><button type=\"button\">Actions</button><div data-slot=\"dropdown-menu-content\" role=\"menu\"><div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Edit</div><div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Share</div></div></div>"
-        );
     }
 
     #[test]
@@ -86,7 +86,7 @@ mod tests {
         c.items.push(extra("text", "New"));
         c.items.push(extra("text", "Open"));
         let html = render(&c);
-        assert!(html.contains("<button type=\"button\">File</button>"));
+        assert!(html.contains(">File</button>"));
         assert!(html.contains("role=\"menuitem\">New</div>"));
         assert!(html.contains("role=\"menuitem\">Open</div>"));
         assert_eq!(html.matches("role=\"menuitem\"").count(), 2);
@@ -96,8 +96,8 @@ mod tests {
     #[test]
     fn label_only_still_opens_empty_menu() {
         let html = render(&stub("dropdown-menu", "Actions"));
-        assert!(html.contains("<button type=\"button\">Actions</button>"));
-        assert!(html.contains("<div data-slot=\"dropdown-menu-content\" role=\"menu\"></div>"));
+        assert!(html.contains(">Actions</button>"));
+        assert!(html.contains("data-slot=\"dropdown-menu-content\" role=\"menu\""));
         assert!(!html.contains("role=\"menuitem\""));
         reject_interact(&html);
     }
