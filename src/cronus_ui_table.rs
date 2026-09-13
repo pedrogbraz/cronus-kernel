@@ -45,7 +45,14 @@ pub fn render(comp: &ComponentNode) -> String {
             "<div data-slot=\"table\" data-animate><table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>"
         );
     }
-    let cols = texts(comp);
+    let cols = {
+        let c = crate::cronus_ui_kit::choice_texts(comp);
+        if c.is_empty() {
+            crate::cronus_ui_kit::texts(comp)
+        } else {
+            c
+        }
+    };
     let head = cols
         .iter()
         .map(|c| format!("<th>{c}</th>"))

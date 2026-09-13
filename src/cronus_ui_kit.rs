@@ -45,6 +45,28 @@ pub fn texts(comp: &ComponentNode) -> Vec<String> {
     out
 }
 
+const CHOICE_KINDS: &[&str] = &["item", "tab", "columns"];
+const FIELD_KINDS: &[&str] = &["label", "title", "text", "value"];
+
+/// Options/rows for select, radio-group, tabs, accordion, table.
+/// `label` / `title` / `text` / `value` name the field — they are not choices.
+pub fn choice_texts(comp: &ComponentNode) -> Vec<String> {
+    let choices: Vec<String> = comp
+        .items
+        .iter()
+        .filter(|i| CHOICE_KINDS.contains(&i.item_type.as_str()) && !i.text.is_empty())
+        .map(|i| esc(&i.text))
+        .collect();
+    if !choices.is_empty() {
+        return choices;
+    }
+    comp.items
+        .iter()
+        .filter(|i| !FIELD_KINDS.contains(&i.item_type.as_str()) && !i.text.is_empty())
+        .map(|i| esc(&i.text))
+        .collect()
+}
+
 #[cfg(test)]
 pub fn stub(family: &str, label: &str) -> ComponentNode {
     use std::collections::HashMap;

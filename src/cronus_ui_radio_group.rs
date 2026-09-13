@@ -19,15 +19,29 @@ pub fn render(comp: &ComponentNode) -> String {
         })
         .collect::<Vec<_>>()
         .join("");
-    format!("<div data-slot=\"radio-group\" role=\"radiogroup\">{buttons}</div>")
+    let name = crate::cronus_ui_kit::label_of(comp);
+    format!(
+        "<div data-slot=\"radio-group\" role=\"radiogroup\" aria-label=\"{name}\">{buttons}</div>"
+    )
 }
 
+const FIELD_KINDS: &[&str] = &["label", "title", "text", "value"];
+const CHOICE_KINDS: &[&str] = &["item", "tab", "columns"];
+
 fn options(comp: &ComponentNode) -> Vec<(String, bool)> {
-    let items: Vec<&ComponentItemNode> = comp
+    let preferred: Vec<&ComponentItemNode> = comp
         .items
         .iter()
-        .filter(|i| !i.text.is_empty())
+        .filter(|i| CHOICE_KINDS.contains(&i.item_type.as_str()) && !i.text.is_empty())
         .collect();
+    let items: Vec<&ComponentItemNode> = if !preferred.is_empty() {
+        preferred
+    } else {
+        comp.items
+            .iter()
+            .filter(|i| !FIELD_KINDS.contains(&i.item_type.as_str()) && !i.text.is_empty())
+            .collect()
+    };
     if items.is_empty() {
         let label = if comp.name.is_empty() {
             "Option"
@@ -151,6 +165,33 @@ mod tests {
         assert!(html.contains("aria-label=\"A\""));
         assert!(html.contains("aria-label=\"B\""));
         assert!(html.contains("aria-label=\"C\""));
+    }
+
+    #[test]
+    fn field_label_is_not_a_radio() {
+        let mut c = stub_options(&["Free", "Pro"]);
+        c.items.insert(
+            0,
+            ComponentItemNode {
+                item_type: "label".into(),
+                text: "Plan".into(),
+                link: None,
+                tone: None,
+                config: HashMap::new(),
+            },
+        );
+        let html = render(&c);
+        assert!(html.contains("role=\"radiogroup\" aria-label=\"Plan\""));
+        assert_eq!(html.matches("role=\"radio\"").count(), 2);
+        assert!(html.contains("aria-label=\"Free\""));
+        assert!(html.contains("aria-label=\"Pro\""));
+        for chunk in html.split("data-slot=\"radio-group-item\"").skip(1) {
+            assert!(
+                !chunk.contains("aria-label=\"Plan\""),
+                "Plan leaked as radio: {html}"
+            );
+        }
+        reject_interact(&html);
     }
 
     #[test]

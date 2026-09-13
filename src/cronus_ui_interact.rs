@@ -170,7 +170,14 @@ fn switch(family: &str, comp: &ComponentNode) -> String {
 
 fn radios(family: &str, comp: &ComponentNode) -> String {
     let name = esc(&comp.name);
-    let opts = texts(comp);
+    let opts = {
+        let c = crate::cronus_ui_kit::choice_texts(comp);
+        if c.is_empty() {
+            texts(comp)
+        } else {
+            c
+        }
+    };
     let buttons = opts
         .iter()
         .enumerate()
@@ -258,7 +265,7 @@ fn textarea(family: &str, comp: &ComponentNode) -> String {
 
 fn select(family: &str, comp: &ComponentNode) -> String {
     let label = label_of(comp);
-    let opts = texts(comp)
+    let opts = crate::cronus_ui_kit::choice_texts(comp)
         .into_iter()
         .map(|t| format!("<option>{t}</option>"))
         .collect::<Vec<_>>()

@@ -1,11 +1,18 @@
 //! Dedicated Tabs renderer. Native tablist + hidden panels + onclick.
 //! Never mix `v-show` with `hidden`.
 
-use crate::cronus_ui_kit::texts;
+use crate::cronus_ui_kit::choice_texts;
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    let items = texts(comp);
+    let items = {
+        let c = choice_texts(comp);
+        if c.is_empty() {
+            crate::cronus_ui_kit::texts(comp)
+        } else {
+            c
+        }
+    };
     let buttons = items
         .iter()
         .enumerate()

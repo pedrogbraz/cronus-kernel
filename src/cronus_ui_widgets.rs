@@ -940,4 +940,64 @@ component Revenue layout:stack style:metric {
         assert!(css.contains("--cronus-") || crate::cronus_ui::token_css("aurora", "dark").contains("--cronus-"));
         assert!(!html.contains("zinc-"));
     }
+
+    fn catalog_component(name: &str) -> crate::parser::ComponentNode {
+        let src = include_str!("../demos/cronus-ui-catalog/app.cronus");
+        let nodes = crate::parser::parse(src).expect("parse catalog");
+        nodes
+            .into_iter()
+            .find_map(|n| match n {
+                crate::parser::AstNode::Component(c) if c.name == name => Some(c),
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("catalog missing component {name}"))
+    }
+
+    #[test]
+    fn catalog_select_options_are_items_not_the_field_label() {
+        let html = render(&catalog_component("Plan")).expect("select");
+        assert!(
+            html.contains("data-slot=\"label\">Plan</span>"),
+            "Plan must be the field label: {html}"
+        );
+        assert!(html.contains("<option value=\"Free\">Free</option>"), "{html}");
+        assert!(html.contains("<option value=\"Pro\">Pro</option>"), "{html}");
+        assert!(
+            !html.contains("<option value=\"Plan\">"),
+            "Plan must not be an option: {html}"
+        );
+        assert_eq!(
+            html.matches("<option ").count(),
+            2,
+            "expected Free/Pro only: {html}"
+        );
+    }
+
+    #[test]
+    fn catalog_radio_items_are_items_not_the_field_label() {
+        let html = render(&catalog_component("PlanRadio")).expect("radio-group");
+        assert!(
+            html.contains("role=\"radiogroup\" aria-label=\"Plan\""),
+            "Plan must name the group: {html}"
+        );
+        assert_eq!(
+            html.matches("role=\"radio\"").count(),
+            2,
+            "expected Free/Pro only: {html}"
+        );
+        assert!(html.contains("aria-label=\"Free\""), "{html}");
+        assert!(html.contains("aria-label=\"Pro\""), "{html}");
+        assert!(
+            !html.contains("role=\"radio\"") || !html.contains("aria-label=\"Plan\"></button>"),
+            "Plan must not be a radio: {html}"
+        );
+        assert!(
+            !html.contains("data-slot=\"radio-group-item\" role=\"radio\"")
+                || html
+                    .split("data-slot=\"radio-group-item\"")
+                    .skip(1)
+                    .all(|chunk| !chunk.contains("aria-label=\"Plan\"")),
+            "Plan leaked as a radio item: {html}"
+        );
+    }
 }
