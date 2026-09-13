@@ -842,69 +842,80 @@ button:has(+ [data-slot="hover-card-content"]) {
   border: 0; border-bottom: 1px solid var(--cronus-border);
   background: transparent; color: var(--cronus-fg);
   padding: 0 0.75rem; font-size: 0.875rem; font-family: inherit; outline: none;
-}
 [data-slot="command-input"]::placeholder { color: var(--cronus-fg-tertiary); }
 [data-slot="command-list"] {
   max-height: 20rem; overflow-y: auto; overflow-x: hidden; padding: 0.25rem;
-}
 [data-slot="command-item"] {
   display: flex; align-items: center; gap: 0.5rem;
   border-radius: var(--cronus-radius-md); padding: 0.375rem 0.5rem;
   font-size: 0.875rem; cursor: default;
-}
 [data-slot="command-item"]:hover {
   background: var(--cronus-surface-overlay); color: var(--cronus-fg);
-}
 [data-slot="menubar"] {
   display: flex; align-items: center; gap: 0.25rem;
   border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
   background: var(--cronus-surface-floating); padding: 0.25rem;
   box-shadow: var(--cronus-shadow-xs, none);
-}
 [data-slot="menubar-trigger"] {
   display: flex; align-items: center; border: 0;
   border-radius: var(--cronus-radius-md);
-  background: transparent; color: var(--cronus-fg);
   padding: 0.25rem 0.75rem; font: inherit; font-size: 0.875rem; font-weight: 500;
   cursor: default; outline: none;
-}
 [data-slot="menubar-trigger"][data-state="open"],
 [data-slot="menubar-trigger"]:hover {
-  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
-}
 [data-slot="menubar-content"] {
   min-width: 12rem; overflow: hidden;
   border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
-  background: var(--cronus-surface-floating); color: var(--cronus-fg);
   padding: 0.25rem; box-shadow: var(--cronus-shadow-lg, none);
-}
 [data-slot="menubar-item"] {
-  display: flex; align-items: center; gap: 0.5rem;
-  border-radius: var(--cronus-radius-md); padding: 0.375rem 0.5rem;
-  font-size: 0.875rem; cursor: default;
-}
 [data-slot="menubar-item"]:hover {
-  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
-}
 button:has(+ [data-slot="context-menu-content"]) {
   font: inherit; cursor: pointer; color: var(--cronus-fg);
   background: transparent; border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-lg);
   height: 2.5rem; padding: 0 1rem; font-size: 0.875rem;
-}
 [data-slot="context-menu-content"] {
   z-index: 50; min-width: 8rem; overflow: hidden; box-sizing: border-box;
-  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
-  background: var(--cronus-surface-floating); color: var(--cronus-fg);
-  padding: 0.25rem; box-shadow: var(--cronus-shadow-lg, none);
-}
 [data-slot="context-menu-item"] {
-  display: flex; align-items: center; gap: 0.5rem;
-  border-radius: var(--cronus-radius-md); padding: 0.375rem 0.5rem;
-  font-size: 0.875rem; cursor: default;
-}
 [data-slot="context-menu-item"]:hover {
-  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+[data-slot="drawer"] {
+  display: flex; flex-direction: column; gap: 0.5rem;
+[data-slot="drawer"] > button {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2.5rem; padding: 0 1rem;
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+[data-slot="drawer-content"] {
+  z-index: 50; display: flex; flex-direction: column;
+  border-radius: var(--cronus-radius-xl) var(--cronus-radius-xl) 0 0;
+  box-shadow: var(--cronus-shadow-lg, none);
+[data-slot="drawer-title"] {
+  font-size: 1.125rem; font-weight: 600; color: var(--cronus-fg);
+  font-family: var(--cronus-font-display, inherit);
+  padding: 1rem 1rem 0;
+[data-slot="drawer-description"] {
+  font-size: 0.875rem; color: var(--cronus-fg-secondary);
+  padding: 0 1rem 1rem;
+button:has(+ [data-slot="sheet-content"]) {
+[data-slot="sheet-content"] {
+  z-index: 50; display: flex; flex-direction: column; gap: 1rem;
+  padding: 1.5rem; box-sizing: border-box;
+  width: 75%; max-width: 24rem;
+[data-slot="sheet-title"] {
+[data-slot="sheet-description"] {
+[data-slot="calendar"] {
+  display: block; padding: 0.75rem; box-sizing: border-box;
+  background: var(--cronus-surface-raised); color: var(--cronus-fg);
+[data-slot="calendar"] table {
+  width: 100%; border-collapse: collapse;
+[data-slot="calendar"] caption {
+  font-size: 0.875rem; font-weight: 500; padding-bottom: 0.5rem;
+  color: var(--cronus-fg);
+[data-slot="calendar"] th {
+  width: 2.25rem; font-size: 0.75rem; font-weight: 400;
+  color: var(--cronus-fg-tertiary); text-align: center;
+[data-slot="calendar"] td {
+  width: 2.25rem; height: 2.25rem; text-align: center;
+  font-size: 0.875rem; color: var(--cronus-fg);
 }
 "#;
 

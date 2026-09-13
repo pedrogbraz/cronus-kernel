@@ -236,6 +236,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "command",
     "menubar",
     "context-menu",
+    "drawer",
+    "sheet",
+    "calendar",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -302,6 +305,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "command" => Some(crate::cronus_ui_command::render(comp)),
         "menubar" => Some(crate::cronus_ui_menubar::render(comp)),
         "context-menu" => Some(crate::cronus_ui_context_menu::render(comp)),
+        "drawer" => Some(crate::cronus_ui_drawer::render(comp)),
+        "sheet" => Some(crate::cronus_ui_sheet::render(comp)),
+        "calendar" => Some(crate::cronus_ui_calendar::render(comp)),
         _ => None,
     }
 }

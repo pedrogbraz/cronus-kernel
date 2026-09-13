@@ -67,6 +67,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "command" => Some("cronus_ui_command::render"),
         "menubar" => Some("cronus_ui_menubar::render"),
         "context-menu" => Some("cronus_ui_context_menu::render"),
+        "drawer" => Some("cronus_ui_drawer::render"),
+        "sheet" => Some("cronus_ui_sheet::render"),
+        "calendar" => Some("cronus_ui_calendar::render"),
         _ => None,
     }
 }
@@ -191,6 +194,11 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"menubar\"") && html.contains("<details"))
         || html.contains("<details data-slot=\"context-menu\"")
         || (html.contains("data-slot=\"context-menu\"") && html.contains("<details"))
+        || (html.contains("data-slot=\"drawer")
+            && (html.contains("<dialog") || html.contains("showModal()")))
+        || (html.contains("data-slot=\"sheet")
+        || (html.contains("data-slot=\"calendar\"") && html.contains("style="))
+        || html.contains("grid-template-columns:repeat(7,1fr)")
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -349,6 +357,7 @@ mod tests {
             "src/cronus_ui_switch.rs",
             "src/cronus_ui_spinner.rs",
             "src/cronus_ui_separator.rs",
+            "src/cronus_ui_sheet.rs",
             "src/cronus_ui_skeleton.rs",
             "src/cronus_ui_kbd.rs",
             "src/cronus_ui_toggle.rs",
@@ -371,6 +380,7 @@ mod tests {
             "src/cronus_ui_hover_card.rs",
             "src/cronus_ui_select.rs",
             "src/cronus_ui_dialog.rs",
+            "src/cronus_ui_drawer.rs",
             "src/cronus_ui_dropdown_menu.rs",
             "src/cronus_ui_tabs.rs",
             "src/cronus_ui_accordion.rs",
@@ -379,6 +389,7 @@ mod tests {
             "src/cronus_ui_popover.rs",
             "src/cronus_ui_breadcrumb.rs",
             "src/cronus_ui_button_group.rs",
+            "src/cronus_ui_calendar.rs",
             "src/cronus_ui_combobox.rs",
             "src/cronus_ui_command.rs",
             "src/cronus_ui_menubar.rs",
