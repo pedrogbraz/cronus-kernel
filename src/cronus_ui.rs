@@ -2885,6 +2885,29 @@ button:has(+ [data-slot="sheet-content"]) {
   position: relative; width: 100%;
   aspect-ratio: 16 / 9;
 }
+[data-slot="frame"] {
+  overflow: hidden;
+  border-radius: var(--cronus-radius-xl);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised);
+  box-shadow: var(--cronus-shadow-sm, none);
+}
+[data-slot="frame-chrome"] {
+  display: flex; align-items: center; gap: 0.75rem;
+  border-bottom: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset);
+  padding: 0.5rem 0.75rem;
+}
+[data-slot="frame-chrome"] [aria-hidden] {
+  display: flex; align-items: center; gap: 0.375rem;
+}
+[data-slot="frame-chrome"] [aria-hidden] span {
+  width: 0.75rem; height: 0.75rem; border-radius: 999px;
+}
+[data-slot="frame-chrome"] [aria-hidden] span:nth-child(1) { background: var(--cronus-error); }
+[data-slot="frame-chrome"] [aria-hidden] span:nth-child(2) { background: var(--cronus-warning); }
+[data-slot="frame-chrome"] [aria-hidden] span:nth-child(3) { background: var(--cronus-success); }
+[data-slot="frame-content"] { color: var(--cronus-fg); }
 "#;
 
 #[cfg(test)]

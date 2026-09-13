@@ -326,6 +326,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "gradient-text",
     "shiny-text",
     "aspect-ratio",
+    "frame",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -480,6 +481,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "gradient-text" => Some(crate::cronus_ui_gradient_text::render(comp)),
         "shiny-text" => Some(crate::cronus_ui_shiny_text::render(comp)),
         "aspect-ratio" => Some(crate::cronus_ui_aspect_ratio::render(comp)),
+        "frame" => Some(crate::cronus_ui_frame::render(comp)),
         _ => None,
     }
 }
