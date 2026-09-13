@@ -689,7 +689,7 @@ mod tests {
     #[test]
     fn voodoo_attrs_only_when_runtime_on() {
         crate::voodoo::with_enabled(true, || {
-            let html = render(&stub("switch")).unwrap();
+            let html = render(&stub("slider")).unwrap();
             assert!(html.contains("v-data="));
             assert!(html.contains("v-model="));
             let meter = render(&stub("usage-meter")).unwrap();
@@ -702,7 +702,7 @@ mod tests {
             assert!(!checkbox.contains("v-data="), "{checkbox}");
             assert!(!checkbox.contains("v-model="), "{checkbox}");
         });
-        let off = render(&stub("switch")).unwrap();
+        let off = render(&stub("slider")).unwrap();
         assert!(!off.contains("v-data="));
         assert!(!off.contains("{ value }"));
     }
