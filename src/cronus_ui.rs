@@ -2631,6 +2631,28 @@ button:has(+ [data-slot="sheet-content"]) {
   transform-style: preserve-3d;
   transform: perspective(1000px) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg)) scale(var(--tilt-scale, 1));
 }
+[data-slot="star-border"] {
+  position: relative;
+  border-radius: var(--cronus-radius-xl);
+  padding: 1.5rem;
+  color: var(--cronus-fg);
+}
+[data-slot="star-border"]::before,
+[data-slot="star-border"]::after {
+  content: "";
+  position: absolute;
+  width: 0.375rem; height: 0.375rem;
+  border-radius: 999px;
+  background: var(--cronus-primary);
+  pointer-events: none;
+  offset-path: rect(0 auto auto 0 round 12px);
+  animation: cui-star-border 6s linear infinite;
+}
+[data-slot="star-border"]::after { animation-delay: -3s; }
+@keyframes cui-star-border {
+  from { offset-distance: 0%; }
+  to { offset-distance: 100%; }
+}
 "#;
 
 #[cfg(test)]
