@@ -550,10 +550,11 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || html.contains("setInterval")
                 || html.contains("requestAnimationFrame")))
         || (html.contains("data-slot=\"marquee\"")
-                || !html.contains("data-slot=\"marquee-group\"")))
+            && !html.contains("data-slot=\"marquee-group\""))
         || (html.contains("data-slot=\"gradient-text\"")
             && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
         || (html.contains("data-slot=\"shiny-text\"")
+            && html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {

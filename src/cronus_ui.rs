@@ -2758,87 +2758,110 @@ button:has(+ [data-slot="sheet-content"]) {
   display: flex; overflow-x: auto;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
+}
 [data-slot="carousel-item"] {
   min-width: 0; flex: 0 0 100%;
   scroll-snap-align: start; box-sizing: border-box;
   color: var(--cronus-fg);
+}
 [data-slot="carousel-previous"], [data-slot="carousel-next"] {
   display: inline-flex; align-items: center; justify-content: center;
   width: 2rem; height: 2rem; margin-top: 0.5rem;
   border-radius: 9999px; border: 1px solid var(--cronus-border);
   background: var(--cronus-surface-raised); color: var(--cronus-fg);
   font: inherit; font-size: 0.75rem; cursor: pointer;
+}
 [data-slot="carousel-previous"]:disabled, [data-slot="carousel-next"]:disabled {
   opacity: 0.5; pointer-events: none;
+}
 [data-slot="code-block"] {
   margin: 0; overflow: auto;
   border-radius: var(--cronus-radius-xl);
   border: 1px solid var(--cronus-border);
   padding: 1rem; font-size: 0.875rem; line-height: 1.625;
   font-family: var(--cronus-font-mono, ui-monospace, monospace);
+}
 [data-slot="code-block"] code {
   display: block; white-space: pre; font-family: inherit;
+}
 [data-slot="description-list"] {
   width: 100%; min-width: 0; margin: 0;
   display: flex; flex-direction: column; gap: 1rem;
+}
 [data-slot="description-item"] { min-width: 0; }
 [data-slot="description-term"] {
   font-weight: 500; font-size: 0.875rem; color: var(--cronus-fg-secondary);
+}
 [data-slot="description-details"] {
   min-width: 0; margin: 0.25rem 0 0;
   font-size: 0.875rem; color: var(--cronus-fg);
   overflow-wrap: anywhere;
+}
 [data-slot="kanban"] {
   display: flex; width: 100%; min-width: 0; gap: 1rem;
   overflow-x: auto; padding-bottom: 0.5rem;
+}
 [data-slot="kanban-column"] {
   display: flex; flex-direction: column; gap: 0.5rem;
   width: 18rem; flex-shrink: 0; min-width: 0;
   background: var(--cronus-surface-inset);
   padding: 0.5rem;
+}
 [data-slot="kanban-card"] {
   border-radius: var(--cronus-radius-lg);
   background: var(--cronus-surface-raised);
   padding: 0.75rem;
   font-size: 0.875rem;
   box-shadow: var(--cronus-shadow-sm, none);
+}
 [data-slot="json-viewer"] {
   overflow-x: auto;
   padding: 1rem;
   font-size: 0.875rem; line-height: 1.625;
+}
 [data-slot="json-viewer-row"] {
   display: flex; align-items: flex-start; gap: 0.25rem;
   min-width: 0;
+}
 [data-slot="json-viewer-key"] { color: var(--cronus-fg-secondary); }
 [data-slot="json-viewer-value"] {
   color: var(--cronus-fg); word-break: break-all;
+}
 [data-slot="animated-number"] {
   display: inline-block;
   font-variant-numeric: tabular-nums;
   font-family: var(--cronus-font-display, inherit);
+}
 [data-slot="marquee"] {
   position: relative; display: flex; overflow: hidden;
   mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
   -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+}
 [data-slot="marquee-group"] {
   display: flex; flex-shrink: 0; align-items: center; gap: 1rem;
   width: max-content;
   animation: cui-marquee 20s linear infinite;
+}
 [data-slot="marquee"]:hover [data-slot="marquee-group"],
 [data-slot="marquee"]:focus-within [data-slot="marquee-group"] {
   animation-play-state: paused;
+}
 [data-slot="marquee-group"] > span {
   white-space: nowrap; color: var(--cronus-fg);
+}
 @keyframes cui-marquee {
   from { transform: translateX(0); }
   to { transform: translateX(-100%); }
+}
 @media (prefers-reduced-motion: reduce) {
+}
   [data-slot="marquee-group"] { animation: none; }
 [data-slot="gradient-text"] {
   color: transparent;
   background-image: linear-gradient(135deg, var(--cronus-primary), var(--cronus-accent));
   -webkit-background-clip: text;
   background-clip: text;
+}
 [data-slot="shiny-text"] {
   display: inline;
   background-image: linear-gradient(
@@ -2851,9 +2874,11 @@ button:has(+ [data-slot="sheet-content"]) {
   );
   background-size: 200% 100%;
   animation: cui-shiny-text 3s linear infinite;
+}
 @keyframes cui-shiny-text {
   0% { background-position: 100% 0; }
   100% { background-position: -100% 0; }
+}
   [data-slot="shiny-text"] { animation: none; }
 }
 "#;
