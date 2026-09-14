@@ -1,22 +1,26 @@
 //! Hero section renderers
 use crate::parser::SectionNode;
 
+/// `open` + `content` + `close`, or nothing when `content` is empty.
+/// Heroes never invent a heading, subtitle or CTA the `.cronus` file did not declare.
+fn element(open: &str, content: &str, close: &str) -> String {
+    if content.is_empty() {
+        String::new()
+    } else {
+        format!("{open}{content}{close}")
+    }
+}
+
 pub(super) fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> String {
-    let title = section
-        .title
-        .as_deref()
-        .unwrap_or("Build Something Amazing");
-    let subtitle = section
-        .subtitle
-        .as_deref()
-        .unwrap_or("The next generation platform for modern teams.");
+    let title = section.title.as_deref().unwrap_or("");
+    let subtitle = section.subtitle.as_deref().unwrap_or("");
     let badge = section.config.get("badge").map(|s| s.as_str());
     let cta_primary = section
         .config
         .get("cta_text")
         .or(section.config.get("cta"))
         .map(|s| s.as_str())
-        .unwrap_or("Get Started");
+        .unwrap_or("");
     let cta_link = section
         .config
         .get("cta_link")
@@ -344,15 +348,10 @@ pub(super) fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> S
   <div class="absolute inset-0 mx-auto max-w-7xl border-r border-l border-white/[0.03]" style="background-image:linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px);background-size:16.66% 100%"></div>
   <div class="relative z-10 max-w-4xl w-full mx-auto px-6 py-32 text-center flex flex-col items-center">
     {badge_html}
-    <h1 class="[animation:fadeInUp_0.8s_ease-out_0.2s_both] text-5xl md:text-7xl font-medium leading-[0.95] tracking-tight text-white mb-6">
-      {title_html}
-    </h1>
-    <p class="[animation:fadeInUp_0.8s_ease-out_0.3s_both] font-light leading-relaxed max-w-xl mx-auto text-lg text-neutral-400 tracking-tight mb-10">{subtitle}</p>
+    {title_html}
+    {subtitle_html}
     <div class="[animation:fadeInUp_0.8s_ease-out_0.4s_both] flex flex-col items-center justify-center gap-4">
-      <a href="{cta_link}" class="bg-white flex font-medium gap-2 group hover:bg-gray-200 items-center px-8 py-3 rounded-full text-black text-sm transition-all">
-        <span>{cta_primary}</span>
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" class="group-hover:translate-x-0.5 transition-transform"><path d="M5 12h14m-7-7l7 7l-7 7" stroke-linejoin="round" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round"></path></svg>
-      </a>
+      {cta_html}
       {cta2_html}
     </div>
     {terminal_html}
@@ -360,10 +359,27 @@ pub(super) fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> S
 </section>"##,
         bg_image_html = bg_image_html,
         badge_html = badge_html,
-        title_html = title_html,
-        subtitle = subtitle,
-        cta_link = cta_link,
-        cta_primary = cta_primary,
+        title_html = element(
+            r#"<h1 class="[animation:fadeInUp_0.8s_ease-out_0.2s_both] text-5xl md:text-7xl font-medium leading-[0.95] tracking-tight text-white mb-6">
+      "#,
+            &title_html,
+            "\n    </h1>",
+        ),
+        subtitle_html = element(
+            r#"<p class="[animation:fadeInUp_0.8s_ease-out_0.3s_both] font-light leading-relaxed max-w-xl mx-auto text-lg text-neutral-400 tracking-tight mb-10">"#,
+            subtitle,
+            "</p>",
+        ),
+        cta_html = element(
+            &format!(
+                r#"<a href="{cta_link}" class="bg-white flex font-medium gap-2 group hover:bg-gray-200 items-center px-8 py-3 rounded-full text-black text-sm transition-all">
+        <span>"#
+            ),
+            cta_primary,
+            r#"</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" class="group-hover:translate-x-0.5 transition-transform"><path d="M5 12h14m-7-7l7 7l-7 7" stroke-linejoin="round" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round"></path></svg>
+      </a>"#,
+        ),
         cta2_html = cta2_html,
         terminal_html = terminal_html,
     )
@@ -390,7 +406,9 @@ pub(super) fn render_two_col_hero(
     )).unwrap_or_default();
 
     // Title with gradient on text after last comma or period
-    let title_html = {
+    let title_html = if title.is_empty() {
+        String::new()
+    } else {
         let last_sep = title.rfind(',').or_else(|| title.rfind('.'));
         if let Some(pos) = last_sep {
             let before = &title[..=pos];
@@ -479,12 +497,10 @@ pub(super) fn render_two_col_hero(
   <div style="position:relative;z-index:10;max-width:1280px;width:100%;margin:0 auto;padding:120px 24px 80px;display:grid;grid-template-columns:{grid};align-items:center;gap:48px">
     <div style="display:flex;flex-direction:column;align-items:flex-start">
       {badge_html}
-      <h1 class="anim-slide-up d2" style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.04em;line-height:0.95;margin:0 0 28px 0">
-        {title_html}
-      </h1>
-      <p class="anim-slide-up d3" style="max-width:560px;margin:0 0 40px;font-size:clamp(16px,1.6vw,19px);font-weight:400;color:var(--cronus-fg-secondary,rgba(255,255,255,0.55));line-height:1.7;text-align:left">{subtitle}</p>
+      {title_html}
+      {subtitle_html}
       <div class="anim-slide-up d4" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px">
-        <a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 36px;border-radius:999px;background:var(--cronus-primary,{accent});color:var(--cronus-primary-foreground,#fff);font-weight:700;font-size:16px;text-decoration:none;transition:transform 0.2s,box-shadow 0.2s" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">{cta_primary}</a>
+        {cta_html}
         {cta2_html}
       </div>
     </div>
@@ -495,10 +511,24 @@ pub(super) fn render_two_col_hero(
         accent = accent_hex,
         grid = grid,
         badge_html = badge_html,
-        title_html = title_html,
-        subtitle = subtitle,
-        cta_link = cta_link,
-        cta_primary = cta_primary,
+        title_html = element(
+            r#"<h1 class="anim-slide-up d2" style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.04em;line-height:0.95;margin:0 0 28px 0">
+        "#,
+            &title_html,
+            "\n      </h1>",
+        ),
+        subtitle_html = element(
+            r#"<p class="anim-slide-up d3" style="max-width:560px;margin:0 0 40px;font-size:clamp(16px,1.6vw,19px);font-weight:400;color:var(--cronus-fg-secondary,rgba(255,255,255,0.55));line-height:1.7;text-align:left">"#,
+            subtitle,
+            "</p>",
+        ),
+        cta_html = element(
+            &format!(
+                r#"<a href="{cta_link}" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 36px;border-radius:999px;background:var(--cronus-primary,{accent_hex});color:var(--cronus-primary-foreground,#fff);font-weight:700;font-size:16px;text-decoration:none;transition:transform 0.2s,box-shadow 0.2s" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">"#
+            ),
+            cta_primary,
+            "</a>",
+        ),
         cta2_html = cta2_html,
         right_col = right_col,
     )
@@ -688,6 +718,16 @@ pub(super) fn render_developer_landing_hero(
         )
     };
 
+    let h1_html = element(
+        r#"<h1 class="anim anim-d1" style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.05em;color:var(--cronus-text);line-height:0.9;margin-bottom:32px">
+      "#,
+        &title_html,
+        "\n    </h1>",
+    );
+    let cta_open = format!(
+        r#"<a href="{cta_link}" class="anim-scale d4 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 32px;border-radius:999px;background:var(--cronus-accent);color:#fff;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">"#
+    );
+
     // Detect if hero has actual terminal content (line/output/prompt/success items)
     let has_terminal = section.items.iter().any(|i| {
         matches!(
@@ -703,22 +743,23 @@ pub(super) fn render_developer_landing_hero(
   <div class="prism-glow" style="position:absolute;inset:0;pointer-events:none"></div>
   <div style="position:relative;z-index:10;max-width:var(--cronus-max-w);margin:0 auto;padding:0 24px;text-align:center">
     {badge_html}
-    <h1 class="anim anim-d1" style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.05em;color:var(--cronus-text);line-height:0.9;margin-bottom:32px">
-      {title_html}
-    </h1>
-    <p class="anim anim-d2" style="max-width:640px;margin:0 auto 48px;font-size:18px;color:var(--cronus-text-muted);line-height:1.625">{subtitle}</p>
+    {title_html}
+    {subtitle_html}
     <div class="anim anim-d2" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px">
-      <a href="{cta_link}" class="anim-scale d4 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 32px;border-radius:999px;background:var(--cronus-accent);color:#fff;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}</a>
+      {cta_html}
       {cta2_html}
     </div>
   </div>
   {stats_html}
 </section>"##,
             badge_html = badge_html,
-            title_html = title_html,
-            subtitle = subtitle,
-            cta_link = cta_link,
-            cta_primary = cta_primary,
+            title_html = h1_html,
+            subtitle_html = element(
+                r#"<p class="anim anim-d2" style="max-width:640px;margin:0 auto 48px;font-size:18px;color:var(--cronus-text-muted);line-height:1.625">"#,
+                subtitle,
+                "</p>",
+            ),
+            cta_html = element(&cta_open, cta_primary, "</a>"),
             cta2_html = cta2_html,
             stats_html = stats_html,
         );
@@ -732,12 +773,10 @@ pub(super) fn render_developer_landing_hero(
       <!-- Left: Text content -->
       <div>
         {badge_html}
-        <h1 class="anim anim-d1" style="font-size:clamp(48px,8vw,96px);font-weight:800;letter-spacing:-0.05em;color:var(--cronus-text);line-height:0.9;margin-bottom:32px">
-          {title_html}
-        </h1>
-        <p class="anim anim-d2" style="max-width:512px;font-size:18px;color:var(--cronus-text-muted);line-height:1.625;margin-bottom:40px">{subtitle}</p>
+        {title_html}
+        {subtitle_html}
         <div class="anim anim-d2" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px">
-          <a href="{cta_link}" class="anim-scale d4 btn-hover" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 32px;border-radius:999px;background:var(--cronus-accent);color:#fff;font-weight:700;font-size:16px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_primary}<span class="material-symbols-outlined" style="font-size:14px">arrow_forward</span></a>
+          {cta_html}
           {cta2_html}
         </div>
       </div>
@@ -747,11 +786,128 @@ pub(super) fn render_developer_landing_hero(
   </div>
 </section>"##,
         badge_html = badge_html,
-        title_html = title_html,
-        subtitle = subtitle,
-        cta_link = cta_link,
-        cta_primary = cta_primary,
+        title_html = h1_html,
+        subtitle_html = element(
+            r#"<p class="anim anim-d2" style="max-width:512px;font-size:18px;color:var(--cronus-text-muted);line-height:1.625;margin-bottom:40px">"#,
+            subtitle,
+            "</p>",
+        ),
+        cta_html = element(
+            &cta_open,
+            cta_primary,
+            r#"<span class="material-symbols-outlined" style="font-size:14px">arrow_forward</span></a>"#,
+        ),
         cta2_html = cta2_html,
         terminal_with_chips = terminal_with_chips,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn hero(title: Option<&str>, subtitle: Option<&str>, config: &[(&str, &str)]) -> SectionNode {
+        SectionNode {
+            section_type: "hero".into(),
+            title: title.map(str::to_string),
+            subtitle: subtitle.map(str::to_string),
+            config: config
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect::<HashMap<_, _>>(),
+            items: vec![],
+            plans: vec![],
+            binding: None,
+            actions: vec![],
+            visibility: None,
+            template: None,
+            style_block: None,
+            doc: None,
+        }
+    }
+
+    /// (theme, config) pairs that reach each of the hero layouts:
+    /// dark two-column, dark centered (terminal), light centered, light terminal.
+    fn variants() -> Vec<(&'static str, Vec<(&'static str, &'static str)>, bool)> {
+        vec![
+            ("dark", vec![], false),
+            ("dark", vec![], true),
+            ("light", vec![("style", "light")], false),
+            ("light", vec![("style", "light")], true),
+        ]
+    }
+
+    fn render(section: &mut SectionNode, theme: &str, terminal: bool) -> String {
+        if terminal {
+            let mut line = HashMap::new();
+            line.insert("_type".to_string(), "line".to_string());
+            line.insert("title".to_string(), "cronus run".to_string());
+            section.items = vec![line];
+        }
+        render_hero(section, "blue", theme)
+    }
+
+    #[test]
+    fn hero_without_subtitle_or_title_renders_no_invented_copy() {
+        for (theme, config, terminal) in variants() {
+            let mut s = hero(Some("Ship it"), None, &config);
+            let html = render(&mut s, theme, terminal);
+            assert!(
+                !html.contains("next generation platform"),
+                "{theme}: {html}"
+            );
+            assert!(!html.contains("<p class=\"[animation") && !html.contains("{subtitle}"));
+            assert!(!html.contains("Get Started"), "no invented CTA: {html}");
+            assert!(!html.contains("/signup"), "no invented CTA link: {html}");
+
+            let mut untitled = hero(None, None, &config);
+            let html = render(&mut untitled, theme, terminal);
+            assert!(!html.contains("Build Something Amazing"), "{theme}: {html}");
+            assert!(!html.contains("<h1"), "no empty heading: {html}");
+        }
+    }
+
+    #[test]
+    fn hero_renders_declared_subtitle_and_cta() {
+        for (theme, mut config, terminal) in variants() {
+            config.push(("cta_text", "Start now"));
+            config.push(("cta_link", "/start"));
+            let mut s = hero(Some("Ship it"), Some("Declared subtitle"), &config);
+            let html = render(&mut s, theme, terminal);
+            assert!(html.contains(">Declared subtitle</p>"), "{theme}: {html}");
+            assert!(html.contains("Start now") && html.contains("href=\"/start\""));
+            assert!(html.contains("<h1"), "{theme}: {html}");
+        }
+    }
+
+    #[test]
+    fn hardcode_lint_is_clean_for_hero_without_subtitle() {
+        for (theme, config) in [("dark", vec![]), ("light", vec![("style", "light")])] {
+            let page = crate::parser::PageNode {
+                route: "/".into(),
+                page_type: "custom".into(),
+                entity: None,
+                title: None,
+                sections: vec![hero(Some("Ship. Fast."), None, &config)],
+                config: HashMap::new(),
+                components: vec![],
+                requires: None,
+                doc: None,
+            };
+            let findings = crate::hardcode_lint::lint_all_pages(
+                std::slice::from_ref(&page),
+                &[],
+                Some(&crate::parser::StyleNode {
+                    theme: Some(theme.into()),
+                    accent: None,
+                    radius: None,
+                    font: None,
+                    config: HashMap::new(),
+                }),
+            );
+            let texts: Vec<_> = findings.iter().map(|f| f.text.as_str()).collect();
+            assert!(texts.is_empty(), "{theme}: {texts:?}");
+        }
+    }
 }
