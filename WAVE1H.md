@@ -66,3 +66,66 @@ Remaining divergences (documented, intentional):
   pane: bg rgb(14,14,14), fg rgb(232,232,232)); kernel content stays inside the canvas and uses the aurora
   tokens (rgb(22,22,25) / rgb(250,250,249)). Harness artifact, not a token bug.
 - Kernel-only `data-slot="multi-select"` wrapper (same rect as trigger) anchors the absolute content.
+
+### tags-input
+Wave 1t geometry parity (React `TagsInput` fixture `default`): 0 mismatches.
+
+DOM: `<div data-slot="tags-input">` + per tag `<span data-slot="badge" data-variant="secondary"><span>Design</span><button type="button" tabindex="-1" aria-label="Remove Design" data-slot="tags-input-remove" disabled><svg lucide-x/></button></span>`
++ `<input type="text" autocomplete="off" aria-label="Tags" data-slot="tags-input-field" />` (placeholder only with no tags).
+The emitter's placeholder `text` line (equal to the label) is no longer a tag.
+CSS: root/field text-sm/1.25rem; badge gap .25rem pr .25rem lh 1rem; remove 14px rounded-sm fg-tertiary, x .75rem.
+
+| slot | React | Cronus before → after |
+|---|---|---|
+| tags-input | lh 20px, text "Design System" | lh 21px, "Add a tag × Design × System ×" → equal |
+| badge ×2 | 37,33 71.98×22 / 114.98,33 74.91×22 | tags-input-item ×3 24px → equal |
+| tags-input-remove ×2 | 89.98,37 14×14 r 6px, text "" | 105.14,37 r 0 "×" → equal |
+| tags-input-field | 195.89,34 247.11×20 | 301.03,33.5 141.97×21 → equal |
+
+Divergence: adding/removing tags needs JS → remove buttons are native `disabled` with React's idle look.
+
+### autocomplete
+Wave 1t geometry parity (React `AutocompleteFixture` `default`: focused, value "L", popover open): 0 mismatches
+with the proposed PORTAL entry below.
+
+DOM (open while there is a query with matches): `<div><div data-slot="autocomplete"><input type="text" role="combobox" … aria-expanded="true" aria-label="City" data-slot="autocomplete-input" placeholder="Type a city" value="L" aria-controls /></div><div data-side="bottom" data-align="start" data-state="open" role="dialog" data-slot="autocomplete-content"><div data-slot="autocomplete-command"><div data-slot="command-list" role="listbox" aria-label id><div>` + rows
+`<div data-slot="command-item" role="option" aria-selected data-selected><span>Lisbon</span></div>` (first row highlighted) `</div></div></div></div></div>`.
+The plain outer div anchors the absolute content (4px under the input, input width) so `autocomplete` keeps React's
+40px box and empty text; empty query / no match → just the wrapper + input (`aria-expanded="false"`).
+Options are filtered with React's local case-insensitive `includes`; the placeholder `text` line is not an option.
+
+| slot | React | Cronus before → after |
+|---|---|---|
+| autocomplete | 24,24 432×40, text "" | 432×199.13 with options text → equal |
+| autocomplete-input | r 14 border 1 bg inset, lh 20px | r 0 border 0 transparent, lh 21px → equal |
+| autocomplete-content (vs input) | 0,44 432×106 | in-flow 432×155 → equal |
+| autocomplete-command / command-list | 1,45 430×104 | missing → equal |
+| command-item ×3 | 5,49 / 5,81 / 5,113 422×32 | autocomplete-item buttons ×4 (label leaked) → equal |
+
+Proposed spec entry: `PORTAL.autocomplete = { anchor: "autocomplete-input", root: "autocomplete-content", prefix: "autocomplete-", containers: [], containerAnchor: "autocomplete-input", ready: '[role="option"]' }`.
+Divergences: live re-filtering, keyboard highlight and picking need JS (rows are non-interactive `role="option"` divs).
+
+### credit-card-input
+Wave 1t geometry parity (React `CreditCardInput` fixture `default`): 0 mismatches.
+
+DOM: `<div data-slot="credit-card-input"><fieldset data-brand="visa"><legend class="sr-only">Credit card</legend><span class="sr-only" aria-live="polite">Visa card</span><svg viewBox="0 0 32 20"><text>VISA</text></svg>` + number/expiry/CVC inputs + `<svg lucide-check/></fieldset></div>`.
+Brand detected statically from the initial number (React IIN table order: elo, amex, mastercard, visa, discover); number gaps and CVC length per brand.
+CSS: root is an unstyled flex column (gap .375rem); the fieldset carries rounded-xl border inset px-3.5 py-2.5 text-sm/1.25rem.
+
+| slot | React | Cronus before → after |
+|---|---|---|
+| credit-card-input | 16px/24px, r 0 border 0, text "Credit card Visa card VISA" | 14px/21px r 18 border 1, "" → equal |
+
+Divergence: the validity check stays hidden (`opacity 0 scale .75`) — Luhn/expiry validation needs JS.
+
+### floating-label-input
+Wave 1t geometry parity (React `FloatingLabelInput` fixture `default`): 0 mismatches.
+
+DOM: `<div data-slot="floating-label-input"><div><input data-slot="input" id placeholder=" " value /><label data-slot="floating-label-input-label" for>Email</label></div>[<p data-slot="floating-label-input-helper">]</div>`
+(input before label like React's `peer`; no aria-label — the label `for` names it). `description:` also feeds the helper.
+CSS: label `top: 50%` + `translateY(-1.6rem) scale(.8)` (placeholder-shown: `translateY(-50%) scale(1)`), line-height 1.25rem on input and label.
+
+| slot | React | Cronus before → after |
+|---|---|---|
+| input | lh 20px | lh 21px → equal |
+| floating-label-input-label | 36,28.4 27.6×16, lh 20px | 36,33.29 27.6×16.8, lh 21px → equal |

@@ -1,6 +1,11 @@
 //! Dedicated PhoneInput renderer. DOM matches React:
-//! `<div data-slot="phone-input" role="group"><button data-slot="phone-input-country">`
-//! + `<input data-slot="phone-input-field" type="tel">`.
+//! `<div data-slot="phone-input" role="group">` holding the country trigger
+//! `<button data-slot="phone-input-country">` (flag, dial code, lucide chevron),
+//! a 1px `<span aria-hidden>` divider, and `<input data-slot="phone-input-field" type="tel">`
+//! whose value is the national number grouped by the country mask (`11 98765 4321`).
+//! The country list is a Radix popover in React (JS); the kernel renders the
+//! closed trigger (`aria-expanded="false"`, `data-state="closed"`) as a native
+//! `disabled` button with React's idle look (not dimmed).
 //! Not interact `input("phone-input", "tel")` (`<label>` + `*-control` + CTRL).
 
 use crate::cronus_ui_kit::{esc, item, label_of};
@@ -11,7 +16,8 @@ struct Country {
     name: &'static str,
     dial: &'static str,
     flag: &'static str,
-    mask: &'static str,
+    /// National digit groups (React `format`), e.g. BR `[2, 5, 4]`.
+    groups: &'static [usize],
 }
 
 const BRAZIL: Country = Country {
@@ -19,7 +25,7 @@ const BRAZIL: Country = Country {
     name: "Brazil",
     dial: "55",
     flag: "🇧🇷",
-    mask: "00 00000 0000",
+    groups: &[2, 5, 4],
 };
 
 const COUNTRIES: &[Country] = &[
@@ -29,23 +35,26 @@ const COUNTRIES: &[Country] = &[
         name: "United States",
         dial: "1",
         flag: "🇺🇸",
-        mask: "000 000 0000",
+        groups: &[3, 3, 4],
     },
     Country {
         code: "GB",
         name: "United Kingdom",
         dial: "44",
         flag: "🇬🇧",
-        mask: "0000 000 000",
+        groups: &[4, 3, 3],
     },
     Country {
         code: "PT",
         name: "Portugal",
         dial: "351",
         flag: "🇵🇹",
-        mask: "000 000 000",
+        groups: &[3, 3, 3],
     },
 ];
+
+/// lucide `chevron-down` (React `<ChevronDown className="size-3.5" />`).
+const CHEVRON_DOWN: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"></path></svg>";
 
 pub fn render(comp: &ComponentNode) -> String {
     let country = country_of(comp);
@@ -63,16 +72,15 @@ pub fn render(comp: &ComponentNode) -> String {
         root.push_str(" data-invalid=\"true\"");
     }
 
-    let mut btn = format!(
-        "type=\"button\" data-slot=\"phone-input-country\" role=\"combobox\" aria-haspopup=\"listbox\" aria-label=\"Select country. {}, +{}\"",
+    // The country list needs JS: same native trigger as React, `disabled`,
+    // keeping React's idle look (only a disabled group dims, via the root).
+    let btn = format!(
+        "type=\"button\" role=\"combobox\" aria-expanded=\"false\" aria-haspopup=\"listbox\" aria-label=\"Select country. {}, +{}\" data-slot=\"phone-input-country\" data-state=\"closed\" disabled",
         country.name, country.dial
     );
-    if disabled {
-        btn.push_str(" disabled");
-    }
 
     let mut field = format!(
-        "data-slot=\"phone-input-field\" type=\"tel\" inputmode=\"tel\" autocomplete=\"tel-national\" aria-label=\"{aria}\" placeholder=\"{placeholder}\""
+        "type=\"tel\" inputmode=\"tel\" autocomplete=\"tel-national\" aria-label=\"{aria}\" data-slot=\"phone-input-field\" placeholder=\"{placeholder}\""
     );
     if !value.is_empty() {
         field.push_str(&format!(" value=\"{value}\""));
@@ -85,7 +93,7 @@ pub fn render(comp: &ComponentNode) -> String {
     }
 
     format!(
-        "<div {root}><button {btn}><span aria-hidden=\"true\">{}</span><span>+{}</span></button><input {field} /></div>",
+        "<div {root}><button {btn}><span aria-hidden=\"true\">{}</span><span>+{}</span>{CHEVRON_DOWN}</button><span aria-hidden=\"true\"></span><input {field} /></div>",
         country.flag, country.dial
     )
 }
@@ -117,6 +125,15 @@ fn aria_label_of(comp: &ComponentNode) -> String {
     }
 }
 
+fn mask_of(country: &Country) -> String {
+    country
+        .groups
+        .iter()
+        .map(|n| "0".repeat(*n))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 fn placeholder_of(comp: &ComponentNode, country: &Country) -> String {
     if let Some(v) = attr(comp, "placeholder").filter(|s| !s.is_empty()) {
         return esc(v);
@@ -124,10 +141,24 @@ fn placeholder_of(comp: &ComponentNode, country: &Country) -> String {
     if let Some(t) = item(comp, "placeholder").filter(|s| !s.is_empty()) {
         return esc(t);
     }
-    if let Some(t) = item(comp, "text").filter(|s| !s.is_empty()) {
-        return esc(t);
+    mask_of(country)
+}
+
+/// React `formatNational`: digits split by the country groups, max length = sum.
+fn format_national(digits: &str, groups: &[usize]) -> String {
+    let max: usize = groups.iter().sum();
+    let digits: Vec<char> = digits.chars().take(max).collect();
+    let mut parts = Vec::new();
+    let mut index = 0;
+    for size in groups {
+        if index >= digits.len() {
+            break;
+        }
+        let end = (index + size).min(digits.len());
+        parts.push(digits[index..end].iter().collect::<String>());
+        index = end;
     }
-    country.mask.into()
+    parts.join(" ")
 }
 
 fn value_of(comp: &ComponentNode, country: &Country) -> String {
@@ -139,10 +170,12 @@ fn value_of(comp: &ComponentNode, country: &Country) -> String {
         return String::new();
     }
     let digits: String = raw.chars().filter(|c| c.is_ascii_digit()).collect();
-    let national = digits
-        .strip_prefix(country.dial)
-        .unwrap_or(digits.as_str());
-    esc(national)
+    let national = if raw.starts_with('+') {
+        digits.strip_prefix(country.dial).unwrap_or(digits.as_str())
+    } else {
+        digits.as_str()
+    };
+    esc(&format_national(national, country.groups))
 }
 
 fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
@@ -175,31 +208,26 @@ mod tests {
     }
 
     #[test]
-    fn root_is_group_with_country_and_tel_field() {
+    fn root_is_group_with_country_divider_and_tel_field() {
         let html = render(&stub("phone-input", "Phone"));
         assert!(html.starts_with("<div data-slot=\"phone-input\" role=\"group\""));
         assert!(html.contains("aria-label=\"Phone\""));
-        assert!(html.contains("data-slot=\"phone-input-country\""));
-        assert!(html.contains("role=\"combobox\""));
-        assert!(html.contains("<span aria-hidden=\"true\">🇧🇷</span>"));
-        assert!(html.contains("<span>+55</span>"));
-        assert!(html.contains("data-slot=\"phone-input-field\""));
-        assert!(html.contains("type=\"tel\""));
+        assert!(html.contains("<span aria-hidden=\"true\">🇧🇷</span><span>+55</span><svg "));
+        assert!(html.contains("</button><span aria-hidden=\"true\"></span><input "));
         assert!(html.contains("placeholder=\"00 00000 0000\""));
-        assert!(!html.contains("phone-input-control"));
         reject_interact(&html);
         assert_eq!(
             html,
-            "<div data-slot=\"phone-input\" role=\"group\" aria-label=\"Phone\"><button type=\"button\" data-slot=\"phone-input-country\" role=\"combobox\" aria-haspopup=\"listbox\" aria-label=\"Select country. Brazil, +55\"><span aria-hidden=\"true\">🇧🇷</span><span>+55</span></button><input data-slot=\"phone-input-field\" type=\"tel\" inputmode=\"tel\" autocomplete=\"tel-national\" aria-label=\"Phone\" placeholder=\"00 00000 0000\" /></div>"
+            format!("<div data-slot=\"phone-input\" role=\"group\" aria-label=\"Phone\"><button type=\"button\" role=\"combobox\" aria-expanded=\"false\" aria-haspopup=\"listbox\" aria-label=\"Select country. Brazil, +55\" data-slot=\"phone-input-country\" data-state=\"closed\" disabled><span aria-hidden=\"true\">🇧🇷</span><span>+55</span>{CHEVRON_DOWN}</button><span aria-hidden=\"true\"></span><input type=\"tel\" inputmode=\"tel\" autocomplete=\"tel-national\" aria-label=\"Phone\" data-slot=\"phone-input-field\" placeholder=\"00 00000 0000\" /></div>")
         );
     }
 
     #[test]
-    fn value_fills_national_number() {
+    fn value_fills_grouped_national_number() {
         let mut c = stub("phone-input", "Phone");
         c.props.insert("value".into(), "+5511987654321".into());
         let html = render(&c);
-        assert!(html.contains("value=\"11987654321\""));
+        assert!(html.contains("value=\"11 98765 4321\""));
         reject_interact(&html);
     }
 
@@ -262,5 +290,22 @@ mod tests {
         assert!(css.contains("height: 2.5rem"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("onclick"));
+    }
+
+    /// Wave 1t geometry: root keeps the inherited 16px/24px type (no text-sm),
+    /// the trigger is rounded-s-lg with no border (the divider is its own 1px
+    /// span), flag is text-base leading-none, chevron size-3.5, controls 20px lines.
+    #[test]
+    fn chrome_matches_react_geometry() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains(
+            "[data-slot=\"phone-input\"] {\n  display: flex; height: 2.5rem; width: 100%; align-items: center;\n  box-sizing: border-box;\n  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);\n  background: var(--cronus-surface-inset); color: var(--cronus-fg);\n}"
+        ));
+        assert!(css.contains(
+            "[data-slot=\"phone-input\"] > span[aria-hidden=\"true\"] {\n  height: 1.25rem; width: 1px; flex-shrink: 0; background: var(--cronus-border);\n}"
+        ));
+        assert!(css.contains("border-start-start-radius: var(--cronus-radius-lg); border-end-start-radius: var(--cronus-radius-lg);"));
+        assert!(css.contains("[data-slot=\"phone-input-country\"] > span:first-child { font-size: 1rem; line-height: 1; }"));
+        assert!(!css.contains("border-right: 1px solid var(--cronus-border);\n}\n[data-slot=\"phone-input-country\"]:disabled"));
     }
 }

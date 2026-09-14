@@ -1,7 +1,11 @@
-//! Dedicated ColorPicker renderer. Always-open static DOM (no JS).
-//! Wrapper `data-slot="color-picker"` with
-//! `<button data-slot="color-picker-trigger">` plus
-//! `<div data-slot="color-picker-content">` (swatch).
+//! Dedicated ColorPicker renderer. DOM matches React's closed ColorPicker: a
+//! single outline `<button data-slot="color-picker-trigger">` holding the
+//! `<span data-slot="color-picker-swatch">` tile and the value text (React has
+//! no wrapper element). React paints the tile with an inline `style`; the kernel
+//! emits `data-color` and the chrome paints it with typed `attr()`.
+//! Opening the editor (saturation area, hue slider, L/C/H inputs, presets) needs
+//! JS, so the trigger is React's native button rendered `disabled` with React's
+//! idle look (not dimmed); a real `disabled` prop adds `data-disabled` and dims.
 //! Not interact `input("color-picker", "color")` as the only control.
 
 use crate::cronus_ui_kit::{esc, item, label_of};
@@ -9,41 +13,18 @@ use crate::parser::ComponentNode;
 
 const DEFAULT_VALUE: &str = "oklch(0.62 0.21 256)";
 
-const PRESETS: &[&str] = &[
-    "oklch(0.62 0.21 256)",
-    "oklch(0.65 0.24 24)",
-    "oklch(0.72 0.19 145)",
-    "oklch(0.8 0.16 86)",
-    "oklch(0.62 0.25 304)",
-];
-
 pub fn render(comp: &ComponentNode) -> String {
     let value = value_of(comp);
-    let disabled = flag(comp, "disabled");
-    let aria = trigger_aria(comp, &value);
-    let mut btn = String::from(
-        "type=\"button\" data-slot=\"color-picker-trigger\" aria-haspopup=\"dialog\"",
+    let name = name_of(comp);
+    let mut btn = format!(
+        "type=\"button\" data-slot=\"color-picker-trigger\" data-variant=\"outline\" aria-label=\"{name}: {value}\" aria-haspopup=\"dialog\" aria-expanded=\"false\" data-state=\"closed\""
     );
-    btn.push_str(&format!(" aria-label=\"{aria}\""));
-    if disabled {
-        btn.push_str(" disabled");
+    if flag(comp, "disabled") {
+        btn.push_str(" data-disabled=\"\"");
     }
-    let swatches = PRESETS
-        .iter()
-        .map(|swatch| {
-            let pressed = if *swatch == value.as_str() {
-                "true"
-            } else {
-                "false"
-            };
-            format!(
-                "<button type=\"button\" data-slot=\"color-picker-swatch-button\" aria-label=\"{swatch}\" aria-pressed=\"{pressed}\"></button>"
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("");
+    btn.push_str(" disabled");
     format!(
-        "<div data-slot=\"color-picker\"><button {btn}><span aria-hidden=\"true\" data-slot=\"color-picker-swatch\"></span><span>{value}</span></button><div data-slot=\"color-picker-content\" aria-label=\"Color picker\"><span aria-hidden=\"true\" data-slot=\"color-picker-swatch\"></span><div role=\"group\" aria-label=\"Preset colors\" data-slot=\"color-picker-swatches\">{swatches}</div></div></div>"
+        "<button {btn}><span aria-hidden=\"true\" data-slot=\"color-picker-swatch\" data-color=\"{value}\"></span><span>{value}</span></button>"
     )
 }
 
@@ -63,15 +44,15 @@ fn value_of(comp: &ComponentNode) -> String {
     DEFAULT_VALUE.into()
 }
 
-fn trigger_aria(comp: &ComponentNode, value: &str) -> String {
+fn name_of(comp: &ComponentNode) -> String {
     if let Some(v) = attr(comp, "aria-label").filter(|s| !s.is_empty()) {
-        return format!("{}: {value}", esc(v));
+        return esc(v);
     }
     let label = label_of(comp);
     if label.is_empty() || label == "color-picker" {
-        format!("Color: {value}")
+        "Color".into()
     } else {
-        format!("{label}: {value}")
+        label
     }
 }
 
@@ -107,37 +88,36 @@ mod tests {
     }
 
     #[test]
-    fn root_is_wrapper_with_trigger_and_open_content() {
+    fn root_is_single_disabled_trigger_button() {
         let html = render(&stub("color-picker", "Accent"));
-        assert!(html.starts_with("<div data-slot=\"color-picker\">"));
-        assert!(html.contains("<button type=\"button\" data-slot=\"color-picker-trigger\""));
-        assert!(html.contains("aria-haspopup=\"dialog\""));
-        assert!(html.contains("data-slot=\"color-picker-swatch\""));
-        assert!(html.contains("<span>oklch(0.62 0.21 256)</span>"));
-        assert!(html.contains("data-slot=\"color-picker-content\""));
-        assert!(html.contains("data-slot=\"color-picker-swatches\""));
-        assert!(html.contains("data-slot=\"color-picker-swatch-button\""));
-        assert!(!html.contains("type=\"color\""));
+        assert!(!html.contains("data-slot=\"color-picker\""), "React has no wrapper slot: {html}");
+        assert!(!html.contains("color-picker-content"), "editor needs JS: {html}");
+        assert!(!html.contains("color-picker-swatch-button"));
         reject_interact(&html);
+        assert_eq!(
+            html,
+            "<button type=\"button\" data-slot=\"color-picker-trigger\" data-variant=\"outline\" aria-label=\"Accent: oklch(0.62 0.21 256)\" aria-haspopup=\"dialog\" aria-expanded=\"false\" data-state=\"closed\" disabled><span aria-hidden=\"true\" data-slot=\"color-picker-swatch\" data-color=\"oklch(0.62 0.21 256)\"></span><span>oklch(0.62 0.21 256)</span></button>"
+        );
     }
 
     #[test]
-    fn value_labels_trigger() {
+    fn value_and_aria_label_name_trigger() {
         let mut c = stub("color-picker", "Accent");
         c.props.insert("value".into(), "oklch(0.72 0.19 145)".into());
+        c.props.insert("aria-label".into(), "Color".into());
         let html = render(&c);
-        assert!(html.contains("aria-label=\"Accent: oklch(0.72 0.19 145)\""));
+        assert!(html.contains("aria-label=\"Color: oklch(0.72 0.19 145)\""));
+        assert!(html.contains("data-color=\"oklch(0.72 0.19 145)\""));
         assert!(html.contains("<span>oklch(0.72 0.19 145)</span>"));
-        assert!(html.contains("aria-pressed=\"true\""));
         reject_interact(&html);
     }
 
     #[test]
-    fn disabled_trigger() {
+    fn disabled_prop_marks_data_disabled() {
         let mut c = stub("color-picker", "Accent");
         c.props.insert("disabled".into(), "true".into());
         let html = render(&c);
-        assert!(html.contains(" disabled>"));
+        assert!(html.contains(" data-disabled=\"\" disabled>"));
         reject_interact(&html);
     }
 
@@ -168,15 +148,25 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"color-picker\"]"));
         assert!(css.contains("[data-slot=\"color-picker-trigger\"]"));
-        assert!(css.contains("[data-slot=\"color-picker-content\"]"));
         assert!(css.contains("[data-slot=\"color-picker-swatch\"]"));
-        assert!(css.contains("var(--cronus-surface-floating)"));
         assert!(css.contains("var(--cronus-border)"));
-        assert!(css.contains("var(--cronus-shadow-lg"));
-        assert!(css.contains("z-index: 50"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("onclick"));
+    }
+
+    /// Wave 1t geometry: outline Button `h-10 px-4 w-full justify-start gap-2`
+    /// at text-sm/20px; 20px rounded-md bordered tile painted from `data-color`
+    /// (React paints oklch(0.62 0.21 256), not the primary token).
+    #[test]
+    fn chrome_matches_react_geometry() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains(
+            "[data-slot=\"color-picker-trigger\"] {\n  display: inline-flex; align-items: center; justify-content: flex-start; gap: 0.5rem;\n  width: 100%; height: 2.5rem; padding: 0 1rem; box-sizing: border-box; white-space: nowrap;"
+        ));
+        assert!(css.contains("background-color: attr(data-color type(<color>), var(--cronus-primary));"));
+        assert!(css.contains("[data-slot=\"color-picker-trigger\"][data-disabled] { opacity: 0.5; }"));
+        assert!(!css.contains("[data-slot=\"color-picker\"] {"));
+        assert!(!css.contains("[data-slot=\"color-picker-swatch-button\"]"));
     }
 }

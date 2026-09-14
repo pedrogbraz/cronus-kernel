@@ -1,14 +1,21 @@
 //! Dedicated TagsInput renderer. DOM matches React:
-//! `<div data-slot="tags-input">` chips from extra texts plus
-//! `<input data-slot="tags-input-field">`.
+//! `<div data-slot="tags-input">` with one secondary `<span data-slot="badge">`
+//! per committed tag (`<span>tag</span>` + `<button data-slot="tags-input-remove">`
+//! holding a lucide `x`), then `<input data-slot="tags-input-field">`.
+//! The field placeholder is only shown while there are no tags (React).
+//! Adding / removing tags needs JS: the remove buttons are React's native
+//! `<button tabindex="-1">` rendered `disabled`, with React's idle look (not dimmed).
 //! Not interact `select("tags-input")` (`<label><select data-slot="tags-input-control">`).
 
-use crate::cronus_ui_kit::{choice_texts, esc, item, texts};
+use crate::cronus_ui_kit::{choice_texts, esc, item};
 use crate::parser::ComponentNode;
 
+/// lucide `x` (React `<X className="size-3" />`).
+const X_ICON: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M18 6 6 18\"></path><path d=\"m6 6 12 12\"></path></svg>";
+
 pub fn render(comp: &ComponentNode) -> String {
-    let tags = extra_texts(comp);
     let placeholder = placeholder_of(comp);
+    let tags = tags_of(comp, &placeholder);
     let disabled = flag(comp, "disabled");
     let invalid = flag(comp, "invalid");
     let aria = aria_label_of(comp);
@@ -27,14 +34,13 @@ pub fn render(comp: &ComponentNode) -> String {
         .collect::<Vec<_>>()
         .join("");
 
-    let mut field = String::from(
-        "data-slot=\"tags-input-field\" type=\"text\" autocomplete=\"off\"",
-    );
-    if tags.is_empty() && !placeholder.is_empty() {
-        field.push_str(&format!(" placeholder=\"{placeholder}\""));
-    }
+    let mut field = String::from("type=\"text\" autocomplete=\"off\"");
     if !aria.is_empty() {
         field.push_str(&format!(" aria-label=\"{aria}\""));
+    }
+    field.push_str(" data-slot=\"tags-input-field\"");
+    if tags.is_empty() && !placeholder.is_empty() {
+        field.push_str(&format!(" placeholder=\"{placeholder}\""));
     }
     if disabled {
         field.push_str(" disabled");
@@ -48,19 +54,32 @@ pub fn render(comp: &ComponentNode) -> String {
 
 fn chip(tag: &str, disabled: bool) -> String {
     if disabled {
-        return format!("<span data-slot=\"tags-input-item\">{tag}</span>");
+        return format!(
+            "<span data-slot=\"badge\" data-variant=\"secondary\"><span>{tag}</span></span>"
+        );
     }
     format!(
-        "<span data-slot=\"tags-input-item\">{tag}<button type=\"button\" data-slot=\"tags-input-remove\" tabindex=\"-1\" aria-label=\"Remove {tag}\">×</button></span>"
+        "<span data-slot=\"badge\" data-variant=\"secondary\"><span>{tag}</span><button type=\"button\" tabindex=\"-1\" aria-label=\"Remove {tag}\" data-slot=\"tags-input-remove\" disabled>{X_ICON}</button></span>"
     )
 }
 
-fn extra_texts(comp: &ComponentNode) -> Vec<String> {
+/// Committed tags: `item` choices, else the free `text` lines. The emitter also
+/// writes the placeholder as the first `text`; that names the field, it is not a tag.
+fn tags_of(comp: &ComponentNode, placeholder: &str) -> Vec<String> {
     let choices = choice_texts(comp);
     if !choices.is_empty() {
         return choices;
     }
-    texts(comp).into_iter().skip(1).collect()
+    let mut out: Vec<String> = comp
+        .items
+        .iter()
+        .filter(|i| i.item_type == "text" && !i.text.is_empty())
+        .map(|i| esc(&i.text))
+        .collect();
+    if out.first().is_some_and(|t| t == placeholder) {
+        out.remove(0);
+    }
+    out
 }
 
 fn placeholder_of(comp: &ComponentNode) -> String {
@@ -104,9 +123,9 @@ mod tests {
     use crate::cronus_ui_kit::stub;
     use crate::parser::ComponentItemNode;
 
-    fn extra(text: &str) -> ComponentItemNode {
+    fn node(kind: &str, text: &str) -> ComponentItemNode {
         ComponentItemNode {
-            item_type: "item".into(),
+            item_type: kind.into(),
             text: text.into(),
             link: None,
             tone: None,
@@ -117,7 +136,7 @@ mod tests {
     fn tags(placeholder: &str, items: &[&str]) -> crate::parser::ComponentNode {
         let mut c = stub("tags-input", placeholder);
         for t in items {
-            c.items.push(extra(t));
+            c.items.push(node("item", t));
         }
         c
     }
@@ -135,35 +154,41 @@ mod tests {
     }
 
     #[test]
-    fn root_is_chips_and_field_not_native_select() {
+    fn root_is_badges_and_field_not_native_select() {
         let html = render(&tags("Add a tag", &["react", "vue"]));
         assert!(html.starts_with("<div data-slot=\"tags-input\">"));
-        assert!(html.contains("<span data-slot=\"tags-input-item\">react"));
-        assert!(html.contains("<span data-slot=\"tags-input-item\">vue"));
-        assert!(html.contains(
-            "<button type=\"button\" data-slot=\"tags-input-remove\" tabindex=\"-1\" aria-label=\"Remove react\">×</button>"
-        ));
-        assert!(html.contains("data-slot=\"tags-input-field\""));
-        assert!(html.contains("type=\"text\""));
         assert!(!html.contains("placeholder="));
+        assert!(!html.contains("tags-input-item"));
         reject_interact(&html);
         assert_eq!(
             html,
-            "<div data-slot=\"tags-input\"><span data-slot=\"tags-input-item\">react<button type=\"button\" data-slot=\"tags-input-remove\" tabindex=\"-1\" aria-label=\"Remove react\">×</button></span><span data-slot=\"tags-input-item\">vue<button type=\"button\" data-slot=\"tags-input-remove\" tabindex=\"-1\" aria-label=\"Remove vue\">×</button></span><input data-slot=\"tags-input-field\" type=\"text\" autocomplete=\"off\" aria-label=\"Add a tag\" /></div>"
+            format!("<div data-slot=\"tags-input\"><span data-slot=\"badge\" data-variant=\"secondary\"><span>react</span><button type=\"button\" tabindex=\"-1\" aria-label=\"Remove react\" data-slot=\"tags-input-remove\" disabled>{X_ICON}</button></span><span data-slot=\"badge\" data-variant=\"secondary\"><span>vue</span><button type=\"button\" tabindex=\"-1\" aria-label=\"Remove vue\" data-slot=\"tags-input-remove\" disabled>{X_ICON}</button></span><input type=\"text\" autocomplete=\"off\" aria-label=\"Add a tag\" data-slot=\"tags-input-field\" /></div>")
         );
     }
 
     #[test]
     fn label_is_placeholder_not_a_chip() {
         let html = render(&tags("Add a tag", &["react", "vue"]));
-        assert_eq!(html.matches("data-slot=\"tags-input-item\"").count(), 2);
-        for chunk in html.split("data-slot=\"tags-input-item\"").skip(1) {
-            assert!(
-                !chunk.contains(">Add a tag"),
-                "placeholder leaked as chip: {html}"
-            );
-        }
+        assert_eq!(html.matches("data-slot=\"badge\"").count(), 2);
+        assert!(!html.contains("<span>Add a tag</span>"), "placeholder leaked as chip: {html}");
         reject_interact(&html);
+    }
+
+    /// Emitted fixture shape: `label "Add a tag"`, `text "Add a tag"`,
+    /// `text "Design"`, `text "System"` — only Design and System are tags.
+    #[test]
+    fn emitted_placeholder_text_is_not_a_chip() {
+        let mut c = stub("tags-input", "Add a tag");
+        for t in ["Add a tag", "Design", "System"] {
+            c.items.push(node("text", t));
+        }
+        c.props.insert("aria-label".into(), "Tags".into());
+        let html = render(&c);
+        assert_eq!(html.matches("data-slot=\"badge\"").count(), 2);
+        assert!(html.contains("<span>Design</span>"));
+        assert!(html.contains("<span>System</span>"));
+        assert!(!html.contains("<span>Add a tag</span>"));
+        assert!(html.contains("aria-label=\"Tags\" data-slot=\"tags-input-field\" />"));
     }
 
     #[test]
@@ -171,31 +196,19 @@ mod tests {
         let html = render(&stub("tags-input", "Add a tag"));
         assert!(html.contains("data-slot=\"tags-input-field\""));
         assert!(html.contains("placeholder=\"Add a tag\""));
-        assert!(!html.contains("data-slot=\"tags-input-item\""));
+        assert!(!html.contains("data-slot=\"badge\""));
         reject_interact(&html);
     }
 
     #[test]
     fn extra_text_items_become_chips() {
         let mut c = stub("tags-input", "Tags");
-        c.items.push(ComponentItemNode {
-            item_type: "text".into(),
-            text: "alpha".into(),
-            link: None,
-            tone: None,
-            config: Default::default(),
-        });
-        c.items.push(ComponentItemNode {
-            item_type: "text".into(),
-            text: "beta".into(),
-            link: None,
-            tone: None,
-            config: Default::default(),
-        });
+        c.items.push(node("text", "alpha"));
+        c.items.push(node("text", "beta"));
         let html = render(&c);
-        assert!(html.contains("<span data-slot=\"tags-input-item\">alpha"));
-        assert!(html.contains("<span data-slot=\"tags-input-item\">beta"));
-        assert_eq!(html.matches("data-slot=\"tags-input-item\"").count(), 2);
+        assert!(html.contains("<span>alpha</span>"));
+        assert!(html.contains("<span>beta</span>"));
+        assert_eq!(html.matches("data-slot=\"badge\"").count(), 2);
         reject_interact(&html);
     }
 
@@ -209,7 +222,7 @@ mod tests {
         assert!(html.contains(" aria-invalid=\"true\""));
         assert!(html.contains(" disabled"));
         assert!(!html.contains("data-slot=\"tags-input-remove\""));
-        assert!(html.contains("<span data-slot=\"tags-input-item\">react</span>"));
+        assert!(html.contains("<span data-slot=\"badge\" data-variant=\"secondary\"><span>react</span></span>"));
         reject_interact(&html);
     }
 
@@ -239,7 +252,6 @@ mod tests {
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"tags-input\"]"));
-        assert!(css.contains("[data-slot=\"tags-input-item\"]"));
         assert!(css.contains("[data-slot=\"tags-input-remove\"]"));
         assert!(css.contains("[data-slot=\"tags-input-field\"]"));
         assert!(css.contains("var(--cronus-surface-inset)"));
@@ -248,5 +260,18 @@ mod tests {
         assert!(css.contains("min-width: 6rem"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("onclick"));
+    }
+
+    /// Wave 1t geometry: text-sm root/field (20px lines), 22px secondary badges
+    /// (text-xs/1rem, pr-1, gap-1), 14px rounded-sm remove with a 12px x glyph.
+    #[test]
+    fn chrome_matches_react_geometry() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.25rem;"));
+        assert!(css.contains(
+            "[data-slot=\"tags-input\"] > [data-slot=\"badge\"] {\n  gap: 0.25rem; padding-right: 0.25rem; line-height: 1rem;\n}"
+        ));
+        assert!(css.contains("[data-slot=\"tags-input-remove\"] svg { width: 0.75rem; height: 0.75rem; }"));
+        assert!(css.contains("border-radius: var(--cronus-radius-sm); color: var(--cronus-fg-tertiary);"));
     }
 }

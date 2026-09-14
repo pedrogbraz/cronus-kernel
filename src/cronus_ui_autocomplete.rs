@@ -1,45 +1,43 @@
 //! Dedicated Autocomplete renderer. DOM matches React:
-//! `<div data-slot="autocomplete"><input data-slot="autocomplete-input">`
-//! plus always-open `<div data-slot="autocomplete-content">` options from extra texts.
+//! `<div data-slot="autocomplete"><input data-slot="autocomplete-input" role="combobox">`
+//! and, while there is a query, the open Radix/cmdk content React shows on focus:
+//! `autocomplete-content` > `autocomplete-command` > `command-list` (listbox) >
+//! sizer `<div>` > `command-item` rows (`<span>` label, first row highlighted).
+//! React portals the content to `<body>`; the kernel keeps it in place as the
+//! wrapper's next sibling inside a plain anchor `<div>` (so `autocomplete` keeps
+//! React's empty text and 40px box), absolutely positioned 4px under the input at
+//! the input's width (sideOffset 4, align start).
+//! Options are filtered statically with React's local `includes` match on the
+//! initial value. Live re-filtering, keyboard highlight and picking need JS, so
+//! rows are non-interactive `role="option"` divs. Empty query → closed (React).
 //! Not interact `select("autocomplete")` (`<label><select data-slot="autocomplete-control">`).
 
-use crate::cronus_ui_kit::{choice_texts, esc, item, texts};
+use crate::cronus_ui_kit::{choice_texts, esc, item};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    let options = extra_texts(comp);
-    let selected = selected_of(comp, &options);
     let placeholder = placeholder_of(comp);
-    let value = selected
-        .clone()
-        .or_else(|| attr(comp, "value").filter(|s| !s.is_empty()).map(esc))
-        .unwrap_or_default();
+    let options = options_of(comp, &placeholder);
+    let value = attr(comp, "value").filter(|s| !s.is_empty()).map(esc).unwrap_or_default();
     let disabled = flag(comp, "disabled");
     let aria = aria_label_of(comp);
-
-    let items = options
+    let needle = value.to_lowercase();
+    let matches: Vec<&String> = options
         .iter()
-        .map(|t| {
-            let aria_sel = if selected.as_deref() == Some(t.as_str()) {
-                "true"
-            } else {
-                "false"
-            };
-            format!(
-                "<button type=\"button\" data-slot=\"autocomplete-item\" role=\"option\" aria-selected=\"{aria_sel}\">{t}</button>"
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("");
+        .filter(|o| o.to_lowercase().contains(&needle))
+        .collect();
+    let open = !value.is_empty() && !disabled && !matches.is_empty();
+    let list_id = crate::cronus_ui_kit::widget_id(comp, "list");
 
-    let mut field = String::from(
-        "data-slot=\"autocomplete-input\" type=\"text\" role=\"combobox\" aria-autocomplete=\"list\" aria-expanded=\"true\" autocomplete=\"off\"",
+    let mut field = format!(
+        "type=\"text\" role=\"combobox\" autocomplete=\"off\" autocorrect=\"off\" autocapitalize=\"none\" spellcheck=\"false\" aria-autocomplete=\"list\" aria-expanded=\"{open}\""
     );
-    if !placeholder.is_empty() {
-        field.push_str(&format!(" placeholder=\"{placeholder}\""));
-    }
     if !aria.is_empty() {
         field.push_str(&format!(" aria-label=\"{aria}\""));
+    }
+    field.push_str(" data-slot=\"autocomplete-input\"");
+    if !placeholder.is_empty() {
+        field.push_str(&format!(" placeholder=\"{placeholder}\""));
     }
     if !value.is_empty() {
         field.push_str(&format!(" value=\"{value}\""));
@@ -47,18 +45,49 @@ pub fn render(comp: &ComponentNode) -> String {
     if disabled {
         field.push_str(" disabled");
     }
+    if !open {
+        return format!("<div data-slot=\"autocomplete\"><input {field} /></div>");
+    }
+    field.push_str(&format!(" aria-controls=\"{list_id}\""));
 
+    let rows = matches
+        .iter()
+        .enumerate()
+        .map(|(i, t)| {
+            let sel = if i == 0 { "true" } else { "false" };
+            format!(
+                "<div data-slot=\"command-item\" role=\"option\" aria-selected=\"{sel}\" data-selected=\"{sel}\"><span>{t}</span></div>"
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    let list_label = if aria.is_empty() {
+        String::new()
+    } else {
+        format!(" aria-label=\"{aria}\"")
+    };
     format!(
-        "<div data-slot=\"autocomplete\"><input {field} /><div data-slot=\"autocomplete-content\" role=\"listbox\">{items}</div></div>"
+        "<div><div data-slot=\"autocomplete\"><input {field} /></div><div data-side=\"bottom\" data-align=\"start\" data-state=\"open\" role=\"dialog\" data-slot=\"autocomplete-content\"><div data-slot=\"autocomplete-command\"><div data-slot=\"command-list\" role=\"listbox\"{list_label} id=\"{list_id}\"><div>{rows}</div></div></div></div></div>"
     )
 }
 
-fn extra_texts(comp: &ComponentNode) -> Vec<String> {
+/// Options: `item` choices, else free `text` lines. The emitter also writes the
+/// placeholder as the first `text`; it names the field, it is not an option.
+fn options_of(comp: &ComponentNode, placeholder: &str) -> Vec<String> {
     let choices = choice_texts(comp);
     if !choices.is_empty() {
         return choices;
     }
-    texts(comp).into_iter().skip(1).collect()
+    let mut out: Vec<String> = comp
+        .items
+        .iter()
+        .filter(|i| i.item_type == "text" && !i.text.is_empty())
+        .map(|i| esc(&i.text))
+        .collect();
+    if out.first().is_some_and(|t| t == placeholder) {
+        out.remove(0);
+    }
+    out
 }
 
 fn placeholder_of(comp: &ComponentNode) -> String {
@@ -83,27 +112,6 @@ fn aria_label_of(comp: &ComponentNode) -> String {
     String::new()
 }
 
-fn selected_of(comp: &ComponentNode, options: &[String]) -> Option<String> {
-    if let Some(v) = attr(comp, "value").filter(|s| !s.is_empty()) {
-        let e = esc(v);
-        if options.iter().any(|o| o == &e) {
-            return Some(e);
-        }
-    }
-    for i in &comp.items {
-        if i.text.is_empty() {
-            continue;
-        }
-        if is_true(i.config.get("selected")) || is_true(i.config.get("checked")) {
-            let e = esc(&i.text);
-            if options.iter().any(|o| o == &e) {
-                return Some(e);
-            }
-        }
-    }
-    None
-}
-
 fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
     if let Some(v) = comp.props.get(name) {
         return Some(v.as_str());
@@ -117,19 +125,15 @@ fn flag(comp: &ComponentNode, name: &str) -> bool {
     attr(comp, name).map(|s| s == "true").unwrap_or(false)
 }
 
-fn is_true(raw: Option<&String>) -> bool {
-    matches!(raw.map(String::as_str), Some("true" | "on" | "1"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::cronus_ui_kit::stub;
     use crate::parser::ComponentItemNode;
 
-    fn extra(text: &str) -> ComponentItemNode {
+    fn node(kind: &str, text: &str) -> ComponentItemNode {
         ComponentItemNode {
-            item_type: "item".into(),
+            item_type: kind.into(),
             text: text.into(),
             link: None,
             tone: None,
@@ -140,7 +144,7 @@ mod tests {
     fn auto(placeholder: &str, items: &[&str]) -> crate::parser::ComponentNode {
         let mut c = stub("autocomplete", placeholder);
         for t in items {
-            c.items.push(extra(t));
+            c.items.push(node("item", t));
         }
         c
     }
@@ -148,9 +152,10 @@ mod tests {
     fn reject_interact(html: &str) {
         assert!(!html.contains("<select"));
         assert!(!html.contains("</select>"));
-        assert!(!html.contains("-control"));
+        assert!(!html.contains("data-slot=\"autocomplete-control\""));
         assert!(!html.contains("<label"));
-        assert!(!html.contains("style="));
+        assert!(!html.contains("<button"));
+        assert!(!html.contains(" style="));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
@@ -158,92 +163,65 @@ mod tests {
     }
 
     #[test]
-    fn root_is_input_and_open_content_not_native_select() {
+    fn empty_query_renders_closed_input_only() {
         let html = render(&auto("Search", &["Ada", "Grace"]));
-        assert!(html.starts_with("<div data-slot=\"autocomplete\">"));
-        assert!(html.contains(
-            "<input data-slot=\"autocomplete-input\" type=\"text\" role=\"combobox\" aria-autocomplete=\"list\" aria-expanded=\"true\" autocomplete=\"off\" placeholder=\"Search\" />"
-        ));
-        assert!(html.contains("<div data-slot=\"autocomplete-content\" role=\"listbox\">"));
-        assert!(html.contains(
-            "<button type=\"button\" data-slot=\"autocomplete-item\" role=\"option\" aria-selected=\"false\">Ada</button>"
-        ));
-        assert!(html.contains(
-            "<button type=\"button\" data-slot=\"autocomplete-item\" role=\"option\" aria-selected=\"false\">Grace</button>"
-        ));
         reject_interact(&html);
         assert_eq!(
             html,
-            "<div data-slot=\"autocomplete\"><input data-slot=\"autocomplete-input\" type=\"text\" role=\"combobox\" aria-autocomplete=\"list\" aria-expanded=\"true\" autocomplete=\"off\" placeholder=\"Search\" /><div data-slot=\"autocomplete-content\" role=\"listbox\"><button type=\"button\" data-slot=\"autocomplete-item\" role=\"option\" aria-selected=\"false\">Ada</button><button type=\"button\" data-slot=\"autocomplete-item\" role=\"option\" aria-selected=\"false\">Grace</button></div></div>"
+            "<div data-slot=\"autocomplete\"><input type=\"text\" role=\"combobox\" autocomplete=\"off\" autocorrect=\"off\" autocapitalize=\"none\" spellcheck=\"false\" aria-autocomplete=\"list\" aria-expanded=\"false\" data-slot=\"autocomplete-input\" placeholder=\"Search\" /></div>"
+        );
+    }
+
+    /// Emitted fixture: `label/text "Type a city"`, texts Lisbon/Lima/London,
+    /// `value:"L"`, `aria-label:"City"` → open cmdk tree, first row highlighted.
+    #[test]
+    fn query_opens_cmdk_tree_like_react() {
+        let mut c = stub("autocomplete", "Type a city");
+        for t in ["Type a city", "Lisbon", "Lima", "London"] {
+            c.items.push(node("text", t));
+        }
+        c.props.insert("value".into(), "L".into());
+        c.props.insert("aria-label".into(), "City".into());
+        let html = render(&c);
+        reject_interact(&html);
+        assert_eq!(
+            html,
+            "<div><div data-slot=\"autocomplete\"><input type=\"text\" role=\"combobox\" autocomplete=\"off\" autocorrect=\"off\" autocapitalize=\"none\" spellcheck=\"false\" aria-autocomplete=\"list\" aria-expanded=\"true\" aria-label=\"City\" data-slot=\"autocomplete-input\" placeholder=\"Type a city\" value=\"L\" aria-controls=\"cui-autocomplete-list\" /></div><div data-side=\"bottom\" data-align=\"start\" data-state=\"open\" role=\"dialog\" data-slot=\"autocomplete-content\"><div data-slot=\"autocomplete-command\"><div data-slot=\"command-list\" role=\"listbox\" aria-label=\"City\" id=\"cui-autocomplete-list\"><div><div data-slot=\"command-item\" role=\"option\" aria-selected=\"true\" data-selected=\"true\"><span>Lisbon</span></div><div data-slot=\"command-item\" role=\"option\" aria-selected=\"false\" data-selected=\"false\"><span>Lima</span></div><div data-slot=\"command-item\" role=\"option\" aria-selected=\"false\" data-selected=\"false\"><span>London</span></div></div></div></div></div></div>"
         );
     }
 
     #[test]
     fn label_is_placeholder_not_an_option() {
-        let html = render(&auto("Search", &["Ada", "Grace"]));
+        let mut c = auto("Search", &["Ada", "Grace"]);
+        c.props.insert("value".into(), "a".into());
+        let html = render(&c);
         assert!(html.contains("placeholder=\"Search\""));
         assert_eq!(html.matches("role=\"option\"").count(), 2);
-        for chunk in html.split("data-slot=\"autocomplete-item\"").skip(1) {
-            assert!(
-                !chunk.contains(">Search</button>"),
-                "Search leaked as option: {html}"
-            );
-        }
+        assert!(!html.contains("<span>Search</span>"), "Search leaked as option: {html}");
         reject_interact(&html);
     }
 
     #[test]
-    fn extra_text_items_become_options() {
-        let mut c = stub("autocomplete", "Search");
-        c.items.push(ComponentItemNode {
-            item_type: "text".into(),
-            text: "Ada".into(),
-            link: None,
-            tone: None,
-            config: Default::default(),
-        });
-        c.items.push(ComponentItemNode {
-            item_type: "text".into(),
-            text: "Grace".into(),
-            link: None,
-            tone: None,
-            config: Default::default(),
-        });
+    fn query_filters_with_case_insensitive_includes() {
+        let mut c = auto("Search", &["Ada", "Grace", "Linus"]);
+        c.props.insert("value".into(), "GR".into());
         let html = render(&c);
-        assert!(html.contains("placeholder=\"Search\""));
-        assert!(html.contains("aria-selected=\"false\">Ada</button>"));
-        assert!(html.contains("aria-selected=\"false\">Grace</button>"));
-        assert_eq!(html.matches("data-slot=\"autocomplete-item\"").count(), 2);
-        reject_interact(&html);
+        assert_eq!(html.matches("data-slot=\"command-item\"").count(), 1);
+        assert!(html.contains("data-selected=\"true\"><span>Grace</span>"));
+        c.props.insert("value".into(), "zzz".into());
+        let closed = render(&c);
+        assert!(closed.contains("aria-expanded=\"false\""));
+        assert!(!closed.contains("autocomplete-content"));
     }
 
     #[test]
-    fn value_selects_matching_option() {
-        let mut c = auto("Search", &["Ada", "Grace"]);
-        c.props.insert("value".into(), "Grace".into());
-        let html = render(&c);
-        assert!(html.contains("value=\"Grace\""));
-        assert!(html.contains("aria-selected=\"false\">Ada</button>"));
-        assert!(html.contains("aria-selected=\"true\">Grace</button>"));
-        reject_interact(&html);
-    }
-
-    #[test]
-    fn empty_choices_keep_open_content() {
-        let html = render(&stub("autocomplete", "Search"));
-        assert!(html.contains("data-slot=\"autocomplete-input\""));
-        assert!(html.contains("role=\"listbox\""));
-        assert!(!html.contains("data-slot=\"autocomplete-item\""));
-        assert!(html.contains("placeholder=\"Search\""));
-        reject_interact(&html);
-    }
-
-    #[test]
-    fn disabled_input() {
+    fn disabled_input_stays_closed() {
         let mut c = auto("Search", &["Ada"]);
         c.props.insert("disabled".into(), "true".into());
+        c.props.insert("value".into(), "A".into());
         let html = render(&c);
         assert!(html.contains(" disabled />"));
+        assert!(!html.contains("autocomplete-content"));
         reject_interact(&html);
     }
 
@@ -275,11 +253,25 @@ mod tests {
         assert!(css.contains("[data-slot=\"autocomplete\"]"));
         assert!(css.contains("[data-slot=\"autocomplete-input\"]"));
         assert!(css.contains("[data-slot=\"autocomplete-content\"]"));
-        assert!(css.contains("[data-slot=\"autocomplete-item\"]"));
+        assert!(css.contains("[data-slot=\"autocomplete-command\"]"));
         assert!(css.contains("min-width: 8rem"));
         assert!(css.contains("var(--cronus-surface-floating"));
-        assert!(css.contains("[data-slot=\"autocomplete-item\"][aria-selected=\"true\"]"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("onclick"));
+    }
+
+    /// Wave 1t geometry: the wrapper stays the input's 40px (content is absolute,
+    /// 4px below, full width, rounded-lg bordered floating surface); input is the
+    /// Input chrome at text-sm/20px; rows px-2 py-1.5 text-sm/20px in a p-1 list.
+    #[test]
+    fn chrome_matches_react_geometry() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains(
+            "[data-slot=\"autocomplete-content\"] {\n  position: absolute; top: calc(100% + 4px); left: 0; z-index: 50;\n  width: 100%; min-width: 8rem; box-sizing: border-box; padding: 0; outline: none;"
+        ));
+        assert!(css.contains("padding: 0 0.75rem; font-family: inherit; font-size: 0.875rem; line-height: 1.25rem; outline: none;"));
+        assert!(css.contains(
+            "[data-slot=\"autocomplete-content\"] [data-slot=\"command-item\"][data-selected=\"true\"] {\n  background: var(--cronus-surface-overlay); color: var(--cronus-fg);\n}"
+        ));
     }
 }
