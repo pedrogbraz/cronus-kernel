@@ -174,6 +174,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "chart" => Some("cronus_ui_chart::render"),
         "dot-pattern" => Some("cronus_ui_dot_pattern::render"),
         "flickering-grid" => Some("cronus_ui_flickering_grid::render"),
+        "grid-pattern" => Some("cronus_ui_grid_pattern::render"),
         _ => None,
     }
 }
@@ -674,6 +675,14 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || !html.contains("data-slot=\"flickering-grid-content\"")
                 || html.contains("<script")
                 || html.contains("<canvas")))
+        || (html.contains("data-slot=\"grid-pattern\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || !html.contains("data-slot=\"grid-pattern-field\"")
+                || !html.contains("data-slot=\"grid-pattern-content\"")
+                || html.contains("<script")
+                || html.contains("<canvas")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -968,6 +977,7 @@ mod tests {
             "src/cronus_ui_chart.rs",
             "src/cronus_ui_dot_pattern.rs",
             "src/cronus_ui_flickering_grid.rs",
+            "src/cronus_ui_grid_pattern.rs",
             "src/cronus_ui_sparkline.rs",
             "src/cronus_ui_pie_chart.rs",
             "src/cronus_ui_pill_nav.rs",

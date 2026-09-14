@@ -3313,6 +3313,19 @@ button:has(+ [data-slot="sheet-content"]) {
 @media (prefers-reduced-motion: reduce) {
   [data-slot="flickering-grid-field"] { animation: none; opacity: 0.4; }
 }
+[data-slot="grid-pattern"] {
+  position: relative; overflow: hidden;
+  color: var(--cronus-border);
+}
+[data-slot="grid-pattern-field"] {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    repeating-linear-gradient(to right, var(--cronus-border) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(to bottom, var(--cronus-border) 0 1px, transparent 1px 24px);
+}
+[data-slot="grid-pattern-content"] {
+  position: relative; z-index: 1;
+}
 
 "#;
 
