@@ -59,12 +59,10 @@ component Combo layout:stack style:combobox { label "Search" item "Ada" item "Gr
 
 page "/" type:custom {
   title "Cronus UI"
-  use Save
-  use Email
   section hero {
     badge "Language"
     title "Native catalog"
-    subtitle "Widgets are declared in Cronus. The kernel emits HTML, tokens, and motion."
+    subtitle "Declare widgets in .cronus. The kernel emits HTML, tokens, and motion. Open the kit for every family on this shelf."
     cta "Open kit" -> "/kit" primary
   }
 }
