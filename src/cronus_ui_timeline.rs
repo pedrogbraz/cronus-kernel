@@ -194,6 +194,17 @@ mod tests {
         assert!(!css.contains("[data-slot=\"timeline-item\"]::before"));
         assert!(css.contains("flex-direction: column"));
         assert!(css.contains("var(--cronus-fg-tertiary)"));
+        // Wave 1s geometry parity (React measured: item 432x40 pb24, dot 10 at y0,
+        // connector 1x2 at y14, title 14px/14px at y2).
+        assert!(css.contains(
+            "position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr);\n  column-gap: 0.75rem; padding-bottom: 1.5rem;"
+        ));
+        assert!(css.contains("[data-slot=\"timeline-item\"]:last-child { padding-bottom: 0; }"));
+        assert!(css.contains("width: 0.625rem; height: 0.625rem;\n  border-radius: calc(infinity * 1px);"));
+        assert!(css.contains("flex: 1 1 0%; width: 1px; margin-top: 0.25rem;"));
+        assert!(css.contains("[data-slot=\"timeline-body\"] { min-width: 0; padding-top: 0.125rem; }"));
+        assert!(css.contains("font-size: 0.875rem; font-weight: 500; line-height: 1; color: var(--cronus-fg);"));
+        assert!(!css.contains("margin-top: 0.375rem;\n  border-radius: 999px"));
         assert!(css.contains("var(--cronus-border)"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("onclick"));

@@ -1,6 +1,8 @@
-//! Dedicated LogoCarousel renderer. DOM matches React idle:
-//! `<ul data-slot="logo-carousel">` plus `logo-carousel-item` from texts.
-//! No setInterval. CSS in COMPONENT_CHROME. Not interact flex-overflow
+//! Dedicated LogoCarousel renderer. DOM matches React idle (page 0):
+//! `<ul data-slot="logo-carousel">` plus up to 3 `logo-carousel-item`
+//! `<li aria-label>` each holding `div > span[aria-hidden] > span` with the
+//! label initials (React `LogoMark` without icon). No setInterval / paging.
+//! CSS in COMPONENT_CHROME. Not interact flex-overflow
 //! `<div data-slot="logo-carousel" style=...>` without items.
 
 use crate::cronus_ui_kit::{esc, item, label_of};
@@ -8,24 +10,53 @@ use crate::parser::ComponentNode;
 
 /// Logos come from `text` / `item` lines. The `label` names the list
 /// (aria-label) and is only a logo when no other line exists.
-fn logos(comp: &ComponentNode) -> Vec<String> {
-    let out: Vec<String> = comp
+/// Returns `(raw, escaped)` so initials are computed on unescaped text.
+fn logos(comp: &ComponentNode) -> Vec<(String, String)> {
+    let out: Vec<(String, String)> = comp
         .items
         .iter()
         .filter(|i| matches!(i.item_type.as_str(), "text" | "item") && !i.text.is_empty())
-        .map(|i| esc(&i.text))
+        .map(|i| (i.text.clone(), esc(&i.text)))
         .collect();
-    if out.is_empty() {
-        vec![label_of(comp)]
-    } else {
-        out
+    if !out.is_empty() {
+        return out;
     }
+    // Same lookup order as `label_of`, but unescaped for the initials.
+    let raw = ["label", "title", "text", "value"]
+        .iter()
+        .find_map(|k| item(comp, *k).filter(|t| !t.is_empty()))
+        .map(str::to_string)
+        .or_else(|| comp.items.iter().find(|i| !i.text.is_empty()).map(|i| i.text.clone()))
+        .unwrap_or_else(|| comp.name.clone());
+    vec![(raw, label_of(comp))]
+}
+
+/// React's default `columns` (3) capped by `MAX_COLUMNS` (8). The idle page
+/// shows exactly one logo per column; later logos only appear when React's
+/// timer pages, which a zero-JS render cannot do.
+const COLUMNS: usize = 3;
+
+/// React `getInitials`: first letter of up to two whitespace words, uppercased.
+/// Works on the raw text; the result is escaped by the caller.
+fn initials(label: &str) -> String {
+    label
+        .split_whitespace()
+        .take(2)
+        .filter_map(|w| w.chars().next())
+        .flat_map(char::to_uppercase)
+        .collect()
 }
 
 pub fn render(comp: &ComponentNode) -> String {
     let items = logos(comp)
         .into_iter()
-        .map(|t| format!("<li data-slot=\"logo-carousel-item\" aria-label=\"{t}\">{t}</li>"))
+        .take(COLUMNS)
+        .map(|(raw, t)| {
+            format!(
+                "<li data-slot=\"logo-carousel-item\" aria-label=\"{t}\"><div><span aria-hidden=\"true\"><span>{}</span></span></div></li>",
+                esc(&initials(&raw))
+            )
+        })
         .collect::<Vec<_>>()
         .join("");
     // `aria-label:` after an item line lands in that item's config (the
@@ -76,7 +107,7 @@ mod tests {
 
     fn reject_stub(html: &str) {
         assert!(!html.contains("<section"));
-        assert!(!html.contains("<div"));
+        assert!(!html.contains("<div data-slot=\"logo-carousel\""));
         assert!(!html.contains("style="));
         assert!(!html.contains("SURF"));
         assert!(!html.contains("v-data="));
@@ -94,6 +125,14 @@ mod tests {
         assert!(!html.contains("zinc-"));
     }
 
+    /// React `LogoMark` without icon/node: motion wrapper `div` >
+    /// `span[aria-hidden]` > `span` holding the initials; name on the `li`.
+    fn li(label: &str, initials: &str) -> String {
+        format!(
+            "<li data-slot=\"logo-carousel-item\" aria-label=\"{label}\"><div><span aria-hidden=\"true\"><span>{initials}</span></span></div></li>"
+        )
+    }
+
     #[test]
     fn root_is_ul_with_items_not_interact_flex() {
         let html = render(&logos(&["Acme", "Stripe"]));
@@ -101,13 +140,37 @@ mod tests {
         assert!(html.contains("aria-live=\"off\""));
         assert!(html.contains("aria-label=\"Logo carousel\""));
         assert_eq!(html.matches("data-slot=\"logo-carousel-item\"").count(), 2);
-        assert!(html.contains("<li data-slot=\"logo-carousel-item\" aria-label=\"Acme\">Acme</li>"));
-        assert!(html.contains("<li data-slot=\"logo-carousel-item\" aria-label=\"Stripe\">Stripe</li>"));
         reject_stub(&html);
         assert_eq!(
             html,
-            "<ul data-slot=\"logo-carousel\" aria-label=\"Logo carousel\" aria-live=\"off\"><li data-slot=\"logo-carousel-item\" aria-label=\"Acme\">Acme</li><li data-slot=\"logo-carousel-item\" aria-label=\"Stripe\">Stripe</li></ul>"
+            format!(
+                "<ul data-slot=\"logo-carousel\" aria-label=\"Logo carousel\" aria-live=\"off\">{}{}</ul>",
+                li("Acme", "A"),
+                li("Stripe", "S")
+            )
         );
+    }
+
+    /// React shows initials, never the full name, when a logo has no icon.
+    #[test]
+    fn items_show_initials_not_names() {
+        let html = render(&logos(&["Acme", "Globex Corp", "big  blue  sky"]));
+        assert!(html.contains(&li("Acme", "A")));
+        assert!(html.contains(&li("Globex Corp", "GC")));
+        assert!(html.contains(&li("big  blue  sky", "BB")));
+        assert!(!html.contains(">Acme<"));
+        assert!(!html.contains(">Globex Corp<"));
+        reject_stub(&html);
+    }
+
+    /// Idle page 0 renders one logo per column (default 3); the rest only
+    /// appear when React's timer pages.
+    #[test]
+    fn idle_page_caps_at_three_columns() {
+        let html = render(&logos(&["Acme", "Globex", "Initech", "Umbrella"]));
+        assert_eq!(html.matches("data-slot=\"logo-carousel-item\"").count(), 3);
+        assert!(!html.contains("Umbrella"));
+        reject_stub(&html);
     }
 
     #[test]
@@ -117,9 +180,9 @@ mod tests {
         c.items.push(extra("text", "Vercel"));
         let html = render(&c);
         assert_eq!(html.matches("data-slot=\"logo-carousel-item\"").count(), 2);
-        assert!(!html.contains(">Acme</li>"));
-        assert!(html.contains(">Stripe</li>"));
-        assert!(html.contains(">Vercel</li>"));
+        assert!(!html.contains("aria-label=\"Acme\"><div>"));
+        assert!(html.contains(&li("Stripe", "S")));
+        assert!(html.contains(&li("Vercel", "V")));
         assert!(html.starts_with("<ul data-slot=\"logo-carousel\" aria-label=\"Acme\""));
         reject_stub(&html);
     }
@@ -137,7 +200,11 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            "<ul data-slot=\"logo-carousel\" aria-label=\"Logos\" aria-live=\"off\"><li data-slot=\"logo-carousel-item\" aria-label=\"Acme\">Acme</li><li data-slot=\"logo-carousel-item\" aria-label=\"Globex\">Globex</li></ul>"
+            format!(
+                "<ul data-slot=\"logo-carousel\" aria-label=\"Logos\" aria-live=\"off\">{}{}</ul>",
+                li("Acme", "A"),
+                li("Globex", "G")
+            )
         );
         reject_stub(&html);
     }
@@ -147,19 +214,17 @@ mod tests {
         let html = render(&stub("logo-carousel", "Acme"));
         assert!(html.starts_with("<ul data-slot=\"logo-carousel\""));
         assert_eq!(html.matches("data-slot=\"logo-carousel-item\"").count(), 1);
-        assert!(html.contains(">Acme</li>"));
-        assert!(html.contains("aria-label=\"Acme\""));
+        assert!(html.contains(&li("Acme", "A")));
         assert!(html.contains("aria-live=\"off\""));
         reject_stub(&html);
     }
 
+    /// Initials come from raw text (`<B>` → `<`), then get escaped once.
     #[test]
     fn label_is_escaped() {
         let html = render(&stub("logo-carousel", "A <B> & \"C\""));
-        assert!(html.contains(
-            "<li data-slot=\"logo-carousel-item\" aria-label=\"A &lt;B&gt; &amp; &quot;C&quot;\">A &lt;B&gt; &amp; &quot;C&quot;</li>"
-        ));
-        assert!(html.contains("aria-label=\"A &lt;B&gt; &amp; &quot;C&quot;\""));
+        assert!(html.contains(&li("A &lt;B&gt; &amp; &quot;C&quot;", "A&lt;")));
+        assert!(!html.contains("&amp;lt;"));
         reject_stub(&html);
     }
 
@@ -212,9 +277,19 @@ mod tests {
         assert!(css.contains("[data-slot=\"logo-carousel\"]"));
         assert!(css.contains("[data-slot=\"logo-carousel-item\"]"));
         assert!(css.contains("list-style: none"));
-        assert!(css.contains("var(--cronus-surface-raised)"));
-        assert!(css.contains("var(--cronus-border)"));
-        assert!(css.contains("var(--cronus-fg-secondary)"));
+        // Wave 1s geometry parity (React measured: ul 288x96, li 138x96, 60px initials).
+        assert!(css.contains(
+            "display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);\n  gap: 0.75rem; width: 18rem;"
+        ));
+        assert!(css.contains("position: relative; box-sizing: border-box;"));
+        assert!(css.contains("overflow: hidden; height: 5rem; padding: 0 0.75rem;"));
+        assert!(css.contains("border: 1px solid transparent;\n  background: transparent;"));
+        assert!(css.contains("color: color-mix(in oklab, var(--cronus-fg-secondary) 70%, transparent);"));
+        assert!(css.contains("font-size: 2.25rem; font-weight: 600; line-height: 1; color: currentColor;"));
+        assert!(css.contains(
+            "[data-slot=\"logo-carousel-item\"] { height: 6rem; }\n  [data-slot=\"logo-carousel-item\"] > div > span { font-size: 3.75rem; }"
+        ));
+        assert!(!css.contains("repeat(auto-fit, minmax(6rem, 1fr))"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("onclick"));
         assert!(!css.contains("setInterval"));
