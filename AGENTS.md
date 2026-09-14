@@ -48,7 +48,7 @@ src/cli/                 40 files, one per command (+ context_grammar.rs: gramma
 src/ui/                  14 files. mod.rs = section dispatcher (render_section_inner), page.rs, layout.rs, dashboard.rs, section_*.rs
 src/cronus_ui*.rs        177 files: cronus-ui families. cronus_ui_widgets.rs = FAMILIES + PORTED_FAMILIES dispatch,
                          cronus_ui_<family>.rs = dedicated renderers, cronus_ui_kit.rs = shared helpers,
-                         cronus_ui_output_gate.rs = safety gate tests, cronus_ui_interact.rs = native-control fallback
+                         cronus_ui_output_gate.rs = safety gate tests (every ported family, zero JS/inline style)
 src/dump/                12 files: HTML / Next.js / Prisma / OpenAPI → .cronus
 src/server/              auth_pages, docs, docs_index, response, state (+ dead code, see below)
 src/scripting/ src/vm/ src/hydra/   .scriptcronus interpreter, experimental bytecode VM, block evolution

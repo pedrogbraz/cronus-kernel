@@ -1,5 +1,5 @@
 //! Dedicated Badge renderer. DOM matches React: `<span data-slot="badge" data-variant>`.
-//! Not `pill()` and not `cronus_ui_interact`.
+//! Not the legacy `pill()` stub.
 
 use crate::cronus_ui_kit::esc;
 use crate::parser::{ComponentItemNode, ComponentNode};
