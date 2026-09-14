@@ -1,44 +1,91 @@
-//! Dedicated Command renderer. Static palette:
-//! `<div data-slot="command"><input data-slot="command-input" /><div data-slot="command-list">`
-//! plus each extra text as `<div data-slot="command-item">`.
+//! Dedicated Command renderer. DOM mirrors React/cmdk:
+//! `<div data-slot="command">` > visually-hidden `<label>` (accessible name) >
+//! `<div data-slot="command-input-wrapper">` (search icon + `command-input`) >
+//! `<div data-slot="command-list" role="listbox">` > sizer `<div>` >
+//! `command-item[role=option]`. The first item carries cmdk's initial highlight
+//! (`data-selected="true"`). Zero JS: cmdk filtering needs JS, so the input is
+//! the same native `<input>` rendered `disabled`, with React's undimmed idle look.
+//!
+//! Emitted source order is `label` (widget name), then the placeholder `text`
+//! when the fixture has one, then one `text` per item. A first text equal to the
+//! label or ending in an ellipsis is the placeholder, not an item.
 //! Not interact `popover("command")` (`<details>` SURF box).
 
-use crate::cronus_ui_kit::{choice_texts, esc, item, texts};
+use crate::cronus_ui_kit::{choice_texts, esc, item, widget_id};
 use crate::parser::ComponentNode;
 
+const SEARCH_ICON: &str = concat!(
+    "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" ",
+    "stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\">",
+    "<circle cx=\"11\" cy=\"11\" r=\"8\" /><path d=\"m21 21-4.3-4.3\" /></svg>",
+);
+
 pub fn render(comp: &ComponentNode) -> String {
-    let placeholder = placeholder_of(comp);
-    let items = command_items(comp)
-        .into_iter()
-        .map(|t| format!("<div data-slot=\"command-item\">{t}</div>"))
+    let parts = parts_of(comp);
+    let input_id = widget_id(comp, "input");
+    let items = parts
+        .items
+        .iter()
+        .enumerate()
+        .map(|(i, t)| {
+            let selected = if i == 0 { "true" } else { "false" };
+            format!(
+                "<div data-slot=\"command-item\" role=\"option\" aria-selected=\"{selected}\" data-selected=\"{selected}\">{t}</div>"
+            )
+        })
         .collect::<Vec<_>>()
         .join("");
     format!(
-        "<div data-slot=\"command\"><input data-slot=\"command-input\" type=\"text\" placeholder=\"{placeholder}\" /><div data-slot=\"command-list\">{items}</div></div>"
+        "<div data-slot=\"command\"><label for=\"{input_id}\">{label}</label><div data-slot=\"command-input-wrapper\">{SEARCH_ICON}<input data-slot=\"command-input\" id=\"{input_id}\" type=\"text\" placeholder=\"{placeholder}\" role=\"combobox\" aria-autocomplete=\"list\" aria-expanded=\"true\" autocomplete=\"off\" spellcheck=\"false\" disabled /></div><div data-slot=\"command-list\" role=\"listbox\" aria-label=\"Suggestions\"><div>{items}</div></div></div>",
+        label = parts.label,
+        placeholder = parts.placeholder,
     )
 }
 
-fn placeholder_of(comp: &ComponentNode) -> String {
-    if let Some(v) = comp.props.get("placeholder").filter(|s| !s.is_empty()) {
-        return esc(v);
-    }
-    if let Some(t) = item(comp, "placeholder").filter(|s| !s.is_empty()) {
-        return esc(t);
-    }
-    for kind in ["label", "title"] {
-        if let Some(t) = item(comp, kind).filter(|s| !s.is_empty()) {
-            return esc(t);
-        }
-    }
-    "Search…".into()
+struct Parts {
+    label: String,
+    placeholder: String,
+    items: Vec<String>,
 }
 
-fn command_items(comp: &ComponentNode) -> Vec<String> {
+fn parts_of(comp: &ComponentNode) -> Parts {
+    let label = ["label", "title"]
+        .iter()
+        .find_map(|k| item(comp, k).filter(|s| !s.is_empty()))
+        .map(esc)
+        .unwrap_or_else(|| "Search…".into());
     let choices = choice_texts(comp);
-    if !choices.is_empty() {
-        return choices;
+    let mut rest: Vec<String> = if choices.is_empty() {
+        comp.items
+            .iter()
+            .filter(|i| i.item_type == "text" && !i.text.is_empty())
+            .map(|i| esc(&i.text))
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let explicit = comp
+        .props
+        .get("placeholder")
+        .map(String::as_str)
+        .or_else(|| item(comp, "placeholder"))
+        .filter(|s| !s.is_empty())
+        .map(esc);
+    let placeholder = match explicit {
+        Some(p) => p,
+        None => match rest.first() {
+            Some(first) if *first == label || first.ends_with('…') || first.ends_with("...") => {
+                rest.remove(0)
+            }
+            _ => label.clone(),
+        },
+    };
+    let items = if choices.is_empty() { rest } else { choices };
+    Parts {
+        label,
+        placeholder,
+        items,
     }
-    texts(comp).into_iter().skip(1).collect()
 }
 
 #[cfg(test)]
@@ -81,45 +128,40 @@ mod tests {
     }
 
     #[test]
-    fn root_is_input_and_list_not_popover_details() {
-        let html = render(&palette("Search", &["Calendar", "Profile"]));
-        assert!(html.starts_with("<div data-slot=\"command\">"));
-        assert!(html.contains(
-            "<input data-slot=\"command-input\" type=\"text\" placeholder=\"Search\" />"
-        ));
-        assert!(html.contains("<div data-slot=\"command-list\">"));
-        assert!(html.contains("<div data-slot=\"command-item\">Calendar</div>"));
-        assert!(html.contains("<div data-slot=\"command-item\">Profile</div>"));
-        reject_interact(&html);
+    fn emitted_fixture_splits_label_placeholder_and_items() {
+        let mut c = stub("command", "Command menu");
+        c.items.push(extra("text", "Type a command…"));
+        c.items.push(extra("text", "Calendar"));
+        c.items.push(extra("text", "Search"));
+        let html = render(&c);
         assert_eq!(
             html,
-            "<div data-slot=\"command\"><input data-slot=\"command-input\" type=\"text\" placeholder=\"Search\" /><div data-slot=\"command-list\"><div data-slot=\"command-item\">Calendar</div><div data-slot=\"command-item\">Profile</div></div></div>"
+            format!(
+                "<div data-slot=\"command\"><label for=\"cui-command-input\">Command menu</label><div data-slot=\"command-input-wrapper\">{SEARCH_ICON}<input data-slot=\"command-input\" id=\"cui-command-input\" type=\"text\" placeholder=\"Type a command…\" role=\"combobox\" aria-autocomplete=\"list\" aria-expanded=\"true\" autocomplete=\"off\" spellcheck=\"false\" disabled /></div><div data-slot=\"command-list\" role=\"listbox\" aria-label=\"Suggestions\"><div><div data-slot=\"command-item\" role=\"option\" aria-selected=\"true\" data-selected=\"true\">Calendar</div><div data-slot=\"command-item\" role=\"option\" aria-selected=\"false\" data-selected=\"false\">Search</div></div></div></div>"
+            )
         );
-    }
-
-    #[test]
-    fn label_is_placeholder_not_an_item() {
-        let html = render(&palette("Search", &["Calendar", "Profile"]));
-        assert!(html.contains("placeholder=\"Search\""));
-        assert_eq!(html.matches("data-slot=\"command-item\"").count(), 2);
-        for chunk in html.split("data-slot=\"command-item\"").skip(1) {
-            assert!(
-                !chunk.contains(">Search</div>"),
-                "Search leaked as item: {html}"
-            );
-        }
+        assert!(!html.contains("command-item\" role=\"option\" aria-selected=\"true\" data-selected=\"true\">Type a command"));
         reject_interact(&html);
     }
 
     #[test]
-    fn extra_text_items_become_command_items() {
+    fn item_kinds_are_items_and_label_is_placeholder() {
+        let html = render(&palette("Search", &["Calendar", "Profile"]));
+        assert!(html.contains("placeholder=\"Search\""));
+        assert!(html.contains("<label for=\"cui-command-input\">Search</label>"));
+        assert_eq!(html.matches("data-slot=\"command-item\"").count(), 2);
+        assert!(html.contains("data-selected=\"true\">Calendar</div>"));
+        assert!(html.contains("data-selected=\"false\">Profile</div>"));
+        reject_interact(&html);
+    }
+
+    #[test]
+    fn plain_texts_without_placeholder_are_items() {
         let mut c = stub("command", "Search");
         c.items.push(extra("text", "Calendar"));
         c.items.push(extra("text", "Profile"));
         let html = render(&c);
         assert!(html.contains("placeholder=\"Search\""));
-        assert!(html.contains("<div data-slot=\"command-item\">Calendar</div>"));
-        assert!(html.contains("<div data-slot=\"command-item\">Profile</div>"));
         assert_eq!(html.matches("data-slot=\"command-item\"").count(), 2);
         reject_interact(&html);
     }
@@ -127,10 +169,8 @@ mod tests {
     #[test]
     fn label_only_keeps_empty_list() {
         let html = render(&stub("command", "Search"));
-        assert!(html.contains(
-            "<input data-slot=\"command-input\" type=\"text\" placeholder=\"Search\" />"
-        ));
-        assert!(html.contains("<div data-slot=\"command-list\"></div>"));
+        assert!(html.contains("placeholder=\"Search\""));
+        assert!(html.contains("aria-label=\"Suggestions\"><div></div></div>"));
         assert!(!html.contains("data-slot=\"command-item\""));
         reject_interact(&html);
     }
@@ -141,7 +181,7 @@ mod tests {
         c.props.insert("placeholder".into(), "Type a command…".into());
         let html = render(&c);
         assert!(html.contains("placeholder=\"Type a command…\""));
-        assert!(html.contains("<div data-slot=\"command-item\">Calendar</div>"));
+        assert!(html.contains("data-selected=\"true\">Calendar</div>"));
         reject_interact(&html);
     }
 
@@ -154,11 +194,8 @@ mod tests {
         assert!(interact.contains("<details data-slot=\"command\""));
         assert!(interact.contains("<summary"));
         assert!(interact.contains("style="));
-        assert!(interact.contains("position:absolute;z-index:20"));
         assert!(!interact.contains("data-slot=\"command-input\""));
-        assert!(!interact.contains("data-slot=\"command-list\""));
         assert!(html.contains("data-slot=\"command-input\""));
-        assert!(html.contains("data-slot=\"command-list\""));
         reject_interact(&html);
     }
 
@@ -173,10 +210,11 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"command\"]"));
-        assert!(css.contains("[data-slot=\"command-input\"]"));
+        assert!(css.contains("[data-slot=\"command\"] {\n  display: flex; flex-direction: column; overflow: hidden;\n  width: 18rem; height: 12rem;"));
+        assert!(css.contains("[data-slot=\"command-input-wrapper\"]"));
+        assert!(css.contains("[data-slot=\"command\"] > label {"));
         assert!(css.contains("[data-slot=\"command-list\"]"));
-        assert!(css.contains("[data-slot=\"command-item\"]"));
+        assert!(css.contains("[data-slot=\"command-item\"][data-selected=\"true\"]"));
         assert!(css.contains("var(--cronus-surface-floating)"));
         assert!(css.contains("var(--cronus-border)"));
         assert!(css.contains("max-height: 20rem"));

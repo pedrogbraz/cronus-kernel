@@ -3,7 +3,7 @@
 //! `<div data-slot="date-range-picker-content">`. Not interact `date_range()`
 //! (two native `type="date"` inputs with CTRL styles).
 
-use crate::cronus_ui_kit::{choice_texts, esc, item, label_of};
+use crate::cronus_ui_kit::{choice_texts, esc, item, label_of, widget_id};
 use crate::parser::ComponentNode;
 
 const ICON: &str = concat!(
@@ -21,7 +21,14 @@ const WEEKDAYS: [&str; 7] = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 pub fn render(comp: &ComponentNode) -> String {
     let placeholder = placeholder_of(comp);
     let label = trigger_label(comp, &placeholder);
-    let mut attrs = String::from("type=\"button\" data-slot=\"date-range-picker-trigger\"");
+    let trigger_id = widget_id(comp, "trigger");
+    let pop_id = widget_id(comp, "range");
+    let mut attrs = format!(
+        "type=\"button\" id=\"{trigger_id}\" data-slot=\"date-range-picker-trigger\" data-variant=\"outline\" popovertarget=\"{pop_id}\" aria-haspopup=\"dialog\""
+    );
+    if label == placeholder {
+        attrs.push_str(" data-empty=\"\"");
+    }
     if flag(comp, "disabled") {
         attrs.push_str(" disabled");
     }
@@ -32,7 +39,7 @@ pub fn render(comp: &ComponentNode) -> String {
     let (from, to) = range_of(comp);
     let calendar = calendar_html(&placeholder, from, to);
     format!(
-        "<button {attrs}>{ICON}<span>{label}</span></button><div data-slot=\"date-range-picker-content\" aria-label=\"{placeholder}\">{presets}{calendar}</div>"
+        "<button {attrs}>{ICON}<span>{label}</span></button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"date-range-picker-content\" role=\"dialog\" aria-label=\"{placeholder}\" anchor=\"{trigger_id}\">{presets}{calendar}</div>"
     )
 }
 
@@ -98,7 +105,9 @@ fn presets_html(comp: &ComponentNode) -> String {
     let buttons = presets
         .into_iter()
         .map(|t| {
-            format!("<button type=\"button\" data-slot=\"date-range-picker-preset\">{t}</button>")
+            format!(
+                "<button type=\"button\" disabled data-slot=\"date-range-picker-preset\">{t}</button>"
+            )
         })
         .collect::<Vec<_>>()
         .join("");
@@ -133,7 +142,7 @@ fn month_grid(from: Option<u8>, to: Option<u8>) -> String {
             let day_u8 = day as u8;
             let (aria, range) = day_state(day_u8, from, to);
             out.push_str(&format!(
-                "<button type=\"button\" data-slot=\"date-range-picker-day\" role=\"gridcell\" aria-selected=\"{aria}\"{range}>{day}</button>"
+                "<button type=\"button\" disabled data-slot=\"date-range-picker-day\" role=\"gridcell\" aria-selected=\"{aria}\"{range}>{day}</button>"
             ));
         }
         out.push_str("</div>");
@@ -198,11 +207,10 @@ mod tests {
     #[test]
     fn root_is_trigger_and_open_content_not_two_date_inputs() {
         let html = render(&stub("date-range-picker", "Stay"));
-        assert!(
-            html.starts_with("<button type=\"button\" data-slot=\"date-range-picker-trigger\">")
-        );
-        assert!(html.contains("<span>Stay</span></button>"));
-        assert!(html.contains("data-slot=\"date-range-picker-content\""));
+        assert!(html.starts_with(
+            "<button type=\"button\" id=\"cui-date-range-picker-trigger\" data-slot=\"date-range-picker-trigger\" data-variant=\"outline\" popovertarget=\"cui-date-range-picker-range\" aria-haspopup=\"dialog\" data-empty=\"\">"
+        ));
+        assert!(html.contains("<span>Stay</span></button><div id=\"cui-date-range-picker-range\" popover=\"auto\" data-slot=\"date-range-picker-content\" role=\"dialog\" aria-label=\"Stay\" anchor=\"cui-date-range-picker-trigger\">"));
         assert!(html.contains("data-slot=\"date-range-picker-calendar\""));
         assert!(html.contains("data-slot=\"date-range-picker-day\""));
         assert_eq!(
@@ -222,6 +230,7 @@ mod tests {
         c.props.insert("to".into(), "2026-09-13".into());
         let html = render(&c);
         assert!(html.contains("<span>2026-09-01 – 2026-09-13</span></button>"));
+        assert!(!html.contains("data-empty"));
         assert!(html.contains("data-range=\"start\">1</button>"));
         assert!(html.contains("data-range=\"end\">13</button>"));
         assert!(html.contains("data-range=\"middle\">7</button>"));
@@ -236,10 +245,10 @@ mod tests {
         let html = render(&c);
         assert!(html.contains("data-slot=\"date-range-picker-presets\""));
         assert!(html.contains(
-            "<button type=\"button\" data-slot=\"date-range-picker-preset\">Last 7 days</button>"
+            "<button type=\"button\" disabled data-slot=\"date-range-picker-preset\">Last 7 days</button>"
         ));
         assert!(html.contains(
-            "<button type=\"button\" data-slot=\"date-range-picker-preset\">This month</button>"
+            "<button type=\"button\" disabled data-slot=\"date-range-picker-preset\">This month</button>"
         ));
         assert!(!html.contains("date-range-picker-preset\">Stay"));
         reject_interact(&html);
@@ -282,8 +291,10 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"date-range-picker-trigger\"]"));
-        assert!(css.contains("[data-slot=\"date-range-picker-content\"]"));
+        assert!(css.contains("[data-slot=\"date-range-picker-trigger\"] {\n  display: inline-flex; align-items: center; justify-content: flex-start; gap: 0.5rem;\n  width: 18.75rem; height: 2.5rem; padding: 0 1rem; box-sizing: border-box;"));
+        assert!(css.contains("[data-slot=\"date-range-picker-trigger\"][data-empty] { color: var(--cronus-fg-tertiary); }"));
+        assert!(css.contains("[data-slot=\"date-range-picker-content\"]:not(:popover-open) { display: none; }"));
+        assert!(css.contains("[data-slot=\"date-range-picker-content\"]:popover-open {"));
         assert!(css.contains("[data-slot=\"date-range-picker-calendar\"]"));
         assert!(css.contains("[data-slot=\"date-range-picker-preset\"]"));
         assert!(css.contains("var(--cronus-surface-floating)"));
