@@ -15,8 +15,10 @@ pub enum ResolvedData {
     Rows(Vec<Value>),
     /// query one -> single record or None
     Record(Option<Value>),
-    /// query count -> number
+    /// query count / `aggregate count` -> number
     Count(u64),
+    /// `aggregate sum|avg|min|max field:x` without `group_by` -> one value
+    Scalar(Value),
     /// No binding on this section
     None,
 }
@@ -102,6 +104,13 @@ fn empty_for(binding: &BindingNode) -> ResolvedData {
     if binding.group_by.is_some() {
         return ResolvedData::Rows(Vec::new());
     }
+    if let Some(agg) = &binding.aggregate {
+        return if agg.function == "count" {
+            ResolvedData::Count(0)
+        } else {
+            ResolvedData::Scalar(Value::from(0))
+        };
+    }
     match binding.query {
         QueryType::All => ResolvedData::Rows(Vec::new()),
         QueryType::One => ResolvedData::Record(None),
@@ -158,6 +167,9 @@ pub fn resolve_binding(
     if binding.group_by.is_some() {
         return resolve_aggregation(binding, entity, &table, &filters, db);
     }
+    if let Some(agg) = &binding.aggregate {
+        return resolve_scalar_aggregate(agg, entity, &table, &filters, db);
+    }
 
     let redact = |mut v: Value| {
         if let Some(e) = entity {
@@ -200,6 +212,107 @@ pub fn resolve_binding(
                 ResolvedData::Count(0)
             }
         },
+    }
+}
+
+/// ` WHERE "f" op ?1 AND …` with bound values. `None` when a filter cannot be
+/// expressed safely: it must not be silently dropped, since that would widen
+/// the result (e.g. lose the owner scope).
+fn where_params(
+    table: &str,
+    filters: &[(String, String, String)],
+) -> Option<(String, Vec<String>)> {
+    let valid_ops = ["=", "!=", ">", ">=", "<", "<=", "LIKE"];
+    let mut values: Vec<String> = Vec::new();
+    let mut parts: Vec<String> = Vec::new();
+    for (field, op, val) in filters {
+        if !crate::security::is_safe_identifier(field) || !valid_ops.contains(&op.as_str()) {
+            eprintln!(
+                "  \x1b[31m✗\x1b[0m SECURITY: invalid aggregation filter on {}",
+                table
+            );
+            return None;
+        }
+        values.push(val.clone());
+        parts.push(format!("\"{}\" {} ?{}", field, op, values.len()));
+    }
+    let clause = if parts.is_empty() {
+        String::new()
+    } else {
+        format!(" WHERE {}", parts.join(" AND "))
+    };
+    Some((clause, values))
+}
+
+/// `aggregate count` → `Count`; `aggregate sum|avg|min|max field:x` → `Scalar`.
+/// Same filters (owner scope included) and field checks as grouped aggregations.
+fn resolve_scalar_aggregate(
+    agg: &crate::parser::AggregateExpr,
+    entity: Option<&EntityNode>,
+    table: &str,
+    filters: &[(String, String, String)],
+    db: &CronusDB,
+) -> ResolvedData {
+    if agg.function == "count" {
+        return match db.count_where(table, filters) {
+            Ok(n) => ResolvedData::Count(n),
+            Err(e) => {
+                eprintln!("  \x1b[31m✗\x1b[0m Aggregate error ({}): {}", table, e);
+                ResolvedData::Count(0)
+            }
+        };
+    }
+    let zero = ResolvedData::Scalar(Value::from(0));
+    let func = match agg.function.as_str() {
+        "sum" => "SUM",
+        "avg" => "AVG",
+        "min" => "MIN",
+        "max" => "MAX",
+        other => {
+            eprintln!(
+                "  \x1b[31m✗\x1b[0m Unknown aggregate '{}' on {}",
+                other, table
+            );
+            return zero;
+        }
+    };
+    let Some(field) = agg.field.as_deref() else {
+        eprintln!(
+            "  \x1b[31m✗\x1b[0m aggregate {} on {} needs field:<name>",
+            agg.function, table
+        );
+        return zero;
+    };
+    if !crate::security::is_safe_identifier(table)
+        || !crate::security::is_safe_identifier(field)
+        || is_hidden_field(entity, field)
+    {
+        eprintln!(
+            "  \x1b[31m✗\x1b[0m SECURITY: invalid aggregate on {}.{}",
+            table, field
+        );
+        return zero;
+    }
+    let Some((where_clause, params)) = where_params(table, filters) else {
+        return zero;
+    };
+    let sql = format!(
+        "SELECT {}(\"{}\") AS value FROM \"{}\"{}",
+        func, field, table, where_clause
+    );
+    match db.query_raw_params(&sql, &params) {
+        Ok(rows) => match rows
+            .into_iter()
+            .next()
+            .and_then(|r| r.get("value").cloned())
+        {
+            Some(Value::Null) | None => zero,
+            Some(v) => ResolvedData::Scalar(v),
+        },
+        Err(e) => {
+            eprintln!("  \x1b[31m✗\x1b[0m Aggregate error ({}): {}", table, e);
+            zero
+        }
     }
 }
 
@@ -266,26 +379,8 @@ fn resolve_aggregation(
         None => "COUNT(*)".to_string(),
     };
 
-    let valid_ops = ["=", "!=", ">", ">=", "<", "<=", "LIKE"];
-    let mut param_values: Vec<String> = Vec::new();
-    let mut parts: Vec<String> = Vec::new();
-    for (field, op, val) in filters {
-        // A filter that cannot be expressed safely must not be silently
-        // dropped — that would widen the result (e.g. lose the owner scope).
-        if !crate::security::is_safe_identifier(field) || !valid_ops.contains(&op.as_str()) {
-            eprintln!(
-                "  \x1b[31m✗\x1b[0m SECURITY: invalid aggregation filter on {}",
-                table
-            );
-            return ResolvedData::Rows(Vec::new());
-        }
-        param_values.push(val.clone());
-        parts.push(format!("\"{}\" {} ?{}", field, op, param_values.len()));
-    }
-    let where_clause = if parts.is_empty() {
-        String::new()
-    } else {
-        format!(" WHERE {}", parts.join(" AND "))
+    let Some((where_clause, param_values)) = where_params(table, filters) else {
+        return ResolvedData::Rows(Vec::new());
     };
 
     let sql = format!(
@@ -429,6 +524,37 @@ mod tests {
         assert_eq!(bob.len(), 1);
         assert_eq!(bob[0]["title"], "b1");
         assert!(rows(resolve_binding(&s, &db, &p, &anon(), &ents)).is_empty());
+    }
+
+    #[test]
+    fn aggregate_count_without_group_by_is_a_scoped_count() {
+        let (ents, db) = fixture();
+        let p = HashMap::new();
+        let s = section("bind Note { aggregate count }");
+        let count = |a: &Access| match resolve_binding(&s, &db, &p, a, &ents) {
+            ResolvedData::Count(n) => n,
+            other => panic!("expected count, got {:?}", other),
+        };
+        assert_eq!(count(&as_user("alice")), 2);
+        assert_eq!(count(&as_user("carol")), 0);
+        assert_eq!(count(&anon()), 0);
+        assert_eq!(count(&as_admin()), 3);
+    }
+
+    #[test]
+    fn scalar_aggregate_uses_field_and_owner_scope() {
+        let (ents, db) = fixture();
+        let p = HashMap::new();
+        let s = section("bind Note { aggregate max field:title }");
+        match resolve_binding(&s, &db, &p, &as_user("alice"), &ents) {
+            ResolvedData::Scalar(v) => assert_eq!(v, "a2"),
+            other => panic!("expected scalar, got {:?}", other),
+        }
+        let hidden = section("bind Note { aggregate max field:secret }");
+        match resolve_binding(&hidden, &db, &p, &as_admin(), &ents) {
+            ResolvedData::Scalar(v) => assert_eq!(v, 0, "sensitive field never aggregated"),
+            other => panic!("expected scalar, got {:?}", other),
+        }
     }
 
     #[test]

@@ -564,19 +564,21 @@ fn resolve_mutation(
     variables: &Value,
     access: &Access,
 ) -> Result<Value, GqlError> {
-    let viewer = access
-        .viewer
-        .as_ref()
-        .ok_or(("UNAUTHENTICATED", "authentication required".to_string()))?;
+    if access.viewer.is_none() {
+        return Err(("UNAUTHENTICATED", "authentication required".to_string()));
+    }
     for entity in &schema.entities {
         let create_name = format!("create{}", entity.name);
         let delete_name = format!("delete{}", entity.name);
-        let is_auth_entity = access.is_auth_entity(&entity.name);
 
         if field.name == create_name {
-            if is_auth_entity && !viewer.is_admin() {
-                return Err(("FORBIDDEN", "not allowed".into()));
-            }
+            let owner = match access::create_owner(access, &entity.name, false) {
+                Ok(owner) => owner,
+                Err(access::Denial::Unauthenticated) => {
+                    return Err(("UNAUTHENTICATED", "authentication required".to_string()))
+                }
+                Err(access::Denial::Forbidden) => return Err(("FORBIDDEN", "not allowed".into())),
+            };
             // Get input from args or variables
             let input = field
                 .args
@@ -595,8 +597,8 @@ fn resolve_mutation(
                 .as_object()
                 .ok_or(("BAD_USER_INPUT", "input must be an object".to_string()))?;
             let mut body = authz::writable_body(entity, obj);
-            if !is_auth_entity {
-                body.insert("_owner_id".into(), json!(viewer.id));
+            if let Some(owner) = owner {
+                body.insert("_owner_id".into(), json!(owner));
             }
             let mut row = db.insert(&entity.name, &Value::Object(body)).map_err(|e| {
                 eprintln!("  graphql {} failed: {}", create_name, e);

@@ -69,6 +69,8 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
       form._cronus=true;
       var entity=form.dataset.entity;
       form.addEventListener('submit',async function(e){
+        // Kernel forms are submitted once, by the action runtime, via /_form.
+        if(window._cronusActions&&form.hasAttribute('data-cronus-form')) return;
         e.preventDefault();
         var data=Object.fromEntries(new FormData(form));
         var btn=form.querySelector('button[type=submit]');
@@ -170,6 +172,8 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
         var data=Object.fromEntries(new FormData(form));
         var ev=new CustomEvent('cronus:form-submit',{bubbles:true,cancelable:true,detail:{entity:entity,section:section,data:data,form:form}});
         if(!form.dispatchEvent(ev)) return;
+        // The action runtime (runtime_js) owns kernel forms: POST/PATCH /_form.
+        if(window._cronusActions) return;
         // Default: POST to API (or PATCH for edit forms)
         if(entity){
           var btn=form.querySelector('button[type=submit]');

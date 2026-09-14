@@ -257,7 +257,7 @@ Both are served by `src/api_crud.rs::handle_api` (called from `main.rs::handle_r
 
 ### 4.5 Owner scope (enforced in SQL)
 
-Every SELECT / UPDATE / DELETE carries the scope in its `WHERE` clause; there is no read-then-check.
+Every SELECT / UPDATE / DELETE carries the scope in its `WHERE` clause; there is no read-then-check. The rules are decided in one place, `src/access.rs` (`rest_read_scope`, `account_write_scope`, `create_owner`, `read_scope`, `write_scope`), shared by REST, GraphQL, SSR bindings, `/_form`, `/_action` and SSE. The session is always read by `access::Access::from_headers`. `User`/`Users` count as account tables on every surface, even when `auth { entity X }` names a different entity.
 
 | Caller | Reads (list/detail) | Update / delete |
 |---|---|---|
@@ -450,7 +450,7 @@ on click confirm:"Delete this order?" {
 
 `POST /_action/*`:
 - Requires a session (401 otherwise).
-- The client can only reference an action **declared in the AST**: by `action_id` (stable hash of route, section, slot and block), or by sending the exact serialized block the server rendered. The server executes **its own copy** of the instructions; anything else is 403.
+- The client can only reference an action **declared in the AST**, by `action_id`. Kernel-rendered action buttons carry `data-action-id` (sha256 of the section entity and the canonical block, first 16 hex chars), and the runtime posts `{action_id, entity, id}`. The server executes **its own copy** of the instructions. A body without a matching `action_id` is 403, and client-sent instruction JSON (`action`) is ignored.
 - `entity` must equal the declared section's entity (`bind X` or `entity:`).
 - `set`/`delete` run on that entity only, constrained by `_owner_id` in SQL for non-admins (404 if the row is not yours), never on the auth entity for non-admins. `set` targets must be writable (`authz::writable_body`: no `id`, `_owner_id`, timestamps, `role`, `password`, or `sensitive` fields).
 
@@ -458,9 +458,14 @@ on click confirm:"Delete this order?" {
 - `entity` must be bound by a declared section of that type.
 - Requires a session unless the form is explicitly public: `bind X { scope:public }` on a page without `requires:`. Anonymous rows get no `_owner_id`. The auth entity is never writable here by non-admins.
 - The body goes through `authz::writable_body`; `_owner_id` is set by the server. DB errors are logged, and the client receives `{"error":{"code","message"}}`.
-- `PATCH` (edit-mode forms) is still not routed (pre-existing gap).
+`PATCH /_form/<section_type>/<id>` (edit-mode forms, sent by `runtime_js`):
+- Same declared-form check (403 `UNKNOWN_FORM`). Always requires a session (401), never public.
+- Update is constrained by `_owner_id` in SQL for non-admins (404 if the row is not yours). Non-admins can never edit the auth entity (403).
+- Only writable fields are applied (`authz::writable_body`), and only the fields sent are validated. Privileged/sensitive/system keys are ignored, and a body with nothing writable is 400. `transition` rules apply (409).
+- Response: `{ok, id, record, effects}` with `record` redacted.
+- Kernel forms are submitted once, by `runtime_js`. The older `render.rs`/animation handlers skip `data-cronus-form` forms when that runtime is present.
 
-Test coverage in `actions.rs`: 4 tests (undeclared action, ignored client instructions, session/owner/writable checks, declared forms).
+Test coverage in `actions.rs`: declared actions/forms, owner/writable checks, HTTP-level `handle_form` (PATCH owner/other/anonymous/undeclared/privileged, POST) and `handle_action` (renderer id equals server id, id-only execution, JSON rejected).
 
 ### 8.3 Effects envelope — REAL contract
 
@@ -510,9 +515,11 @@ bind Order { aggregate sum field:total group_by:created_at interval:month }
 bind Order { query all live:true }
 ```
 
+Aggregates without `group_by` return one value: `aggregate count` → a count, `aggregate sum|avg|min|max field:x` → a number. A KPI item with `value:bind` shows that value. It shows `0` when there is nothing to count and never renders the literal `bind`. Aggregates use the same owner scope as every other binding. `field:`, `group_by:` and `interval:` are parsed in colon form.
+
 ### 9.2 Supported operators in `where`
 
-`eq:`, `neq:`, `gt:`, `gte:`, `lt:`, `lte:`, `contains:`, `starts_with:`, `ends_with:`, `in:[...]`
+`eq`, `ne` (alias `neq`), `gt`, `gte`, `lt`, `lte`, `contains`, `starts_with`. Both forms are equivalent: `where status eq "active"` and `where status eq:"active"` (also `eq:auth.id`, `eq:route.id`, `gt:5`, `eq:true`). `ends_with` and `in:[...]` are **not** implemented. An unknown operator currently falls back to `eq`.
 
 ### 9.3 `group_by` intervals
 
@@ -542,7 +549,7 @@ Rules live in `src/access.rs::read_scope` and are applied in `resolve_binding`:
 - A public page without a session renders empty tables and `0` counts unless the binding says `scope:public`. That is the explicit author opt-in for marketing KPIs and catalogs. It exposes every row of that entity to anyone, so use it only for data that is public by nature.
 - `sensitive` fields and `password`/`password_hash` are stripped from every bound row. Aggregations over them return no data.
 - `auth.id`, `auth.role` and `auth.email` in `where` resolve from the session (`auth.email` is read from the auth entity row). Without a session, or with an unknown `auth.*` ref, the binding returns no data instead of matching a literal placeholder.
-- The parser accepts the space-separated form `where owner_id eq auth.id`. The colon form `eq:auth.id` is tokenized as a single operator token, so its value is lost. This is a parser issue, tracked separately.
+- `where owner_id eq auth.id` and `where owner_id eq:auth.id` produce the same filter (fixed in Sprint 2; before, the colon form lost its value).
 - Aggregations bind every filter (including the owner scope) as a parameter. There is no unparameterized fallback anymore.
 
 Test coverage in `binding.rs`: 6 tests. Coverage in `sse.rs`: the visibility filter is tested in `access.rs`.

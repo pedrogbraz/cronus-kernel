@@ -1,5 +1,34 @@
 //! KPI and stat card section renderers
+use crate::binding::ResolvedData;
 use crate::parser::SectionNode;
+
+/// Value a binding gives the first card (`value:bind`).
+fn bound_display(bound: &ResolvedData) -> Option<String> {
+    match bound {
+        ResolvedData::Count(n) => Some(n.to_string()),
+        ResolvedData::Scalar(serde_json::Value::String(s)) => Some(crate::security::html_escape(s)),
+        ResolvedData::Scalar(serde_json::Value::Null) => Some("0".to_string()),
+        ResolvedData::Scalar(v) => Some(v.to_string()),
+        ResolvedData::Rows(rows) if !rows.is_empty() => Some(rows.len().to_string()),
+        _ => None,
+    }
+}
+
+/// Static item value. The `bind` placeholder is never shown literally: an
+/// item that asked for bound data but got none renders `0` for an empty
+/// result set and `—` otherwise.
+fn item_value(raw: Option<&String>, bound: &ResolvedData) -> String {
+    match raw.map(String::as_str) {
+        Some("bind") => match bound {
+            ResolvedData::Rows(_) | ResolvedData::Count(_) | ResolvedData::Scalar(_) => {
+                "0".to_string()
+            }
+            _ => "—".to_string(),
+        },
+        Some(v) => v.to_string(),
+        None => String::new(),
+    }
+}
 
 pub(super) fn render_stat_cards(
     section: &SectionNode,
@@ -61,13 +90,7 @@ pub(super) fn render_stat_cards(
     };
 
     let bound_value: Option<String> = if !use_db {
-        match bound_data {
-            crate::binding::ResolvedData::Count(n) => Some(n.to_string()),
-            crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => {
-                Some(rows.len().to_string())
-            }
-            _ => None,
-        }
+        bound_display(bound_data)
     } else {
         None
     };
@@ -108,10 +131,7 @@ pub(super) fn render_stat_cards(
             value_owned = if idx == 0 && bound_value.is_some() {
                 bound_value.as_ref().unwrap().clone()
             } else {
-                si.get("description")
-                    .or_else(|| si.get("desc"))
-                    .map(|s| s.to_string())
-                    .unwrap_or_default()
+                item_value(si.get("description").or_else(|| si.get("desc")), bound_data)
             };
             icon = si.get("icon").cloned().unwrap_or_default();
             badge = String::new();
@@ -237,13 +257,7 @@ pub(super) fn render_kpi_section(
     };
 
     let bound_value: Option<String> = if !use_db {
-        match bound_data {
-            crate::binding::ResolvedData::Count(n) => Some(n.to_string()),
-            crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => {
-                Some(rows.len().to_string())
-            }
-            _ => None,
-        }
+        bound_display(bound_data)
     } else {
         None
     };
@@ -290,7 +304,7 @@ pub(super) fn render_kpi_section(
             value_owned = if i == 0 && bound_value.is_some() {
                 bound_value.as_ref().unwrap().clone()
             } else {
-                si.get("value").map(|s| s.to_string()).unwrap_or_default()
+                item_value(si.get("value"), bound_data)
             };
             icon = si.get("icon").map(|s| s.as_str()).unwrap_or("");
             trend = si.get("trend").map(|s| s.as_str()).unwrap_or("");
@@ -479,13 +493,7 @@ pub(super) fn render_kpi_dashboard_dark(
 
     // Bound data override for first item (only when using static items)
     let bound_value: Option<String> = if !use_db_items {
-        match bound_data {
-            crate::binding::ResolvedData::Count(n) => Some(n.to_string()),
-            crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => {
-                Some(rows.len().to_string())
-            }
-            _ => None,
-        }
+        bound_display(bound_data)
     } else {
         None
     };
@@ -541,10 +549,7 @@ pub(super) fn render_kpi_dashboard_dark(
             value_owned = if i == 0 && bound_value.is_some() {
                 bound_value.as_ref().unwrap().clone()
             } else {
-                static_item
-                    .get("value")
-                    .map(|s| s.to_string())
-                    .unwrap_or_default()
+                item_value(static_item.get("value"), bound_data)
             };
             icon = static_item.get("icon").map(|s| s.as_str()).unwrap_or("");
             badge = static_item.get("badge").map(|s| s.as_str()).unwrap_or("");
@@ -732,6 +737,33 @@ mod tests {
         assert!(!html.contains("<svg onload"), "{html}");
         assert!(!html.contains("<iframe"), "{html}");
         assert!(html.contains("&lt;script&gt;kpi()"), "{html}");
+    }
+
+    fn bind_item_section() -> SectionNode {
+        let mut s = section("kpi");
+        let mut item = HashMap::new();
+        item.insert("title".to_string(), "Tasks".to_string());
+        item.insert("value".to_string(), "bind".to_string());
+        item.insert("icon".to_string(), "home".to_string());
+        s.items.push(item);
+        s
+    }
+
+    #[test]
+    fn value_bind_never_renders_the_placeholder_literally() {
+        let s = bind_item_section();
+        for render in [render_kpi_section, render_kpi_dashboard_dark] {
+            let counted = render(&s, &ResolvedData::Count(7));
+            assert!(counted.contains(">7<"), "{counted}");
+            assert!(!counted.contains(">bind<"), "{counted}");
+            let empty = render(&s, &ResolvedData::Rows(vec![]));
+            assert!(!empty.contains(">bind<"), "{empty}");
+            assert!(empty.contains(">0<"), "{empty}");
+            let zero = render(&s, &ResolvedData::Count(0));
+            assert!(zero.contains(">0<") && !zero.contains(">bind<"), "{zero}");
+            let sum = render(&s, &ResolvedData::Scalar(json!(12.5)));
+            assert!(sum.contains(">12.5<"), "{sum}");
+        }
     }
 
     #[test]

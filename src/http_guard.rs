@@ -475,26 +475,7 @@ pub fn gate(class: RouteClass, policy: &Policy, role: Option<&str>) -> Gate {
 
 /// Role from `Authorization: Bearer` or the `cronus_token` cookie.
 pub fn request_role(headers: &HeaderMap) -> Option<String> {
-    let secret = crate::auth::default_secret();
-    let bearer = headers
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|h| h.strip_prefix("Bearer "))
-        .map(|s| s.trim().to_string());
-    let cookie = headers
-        .get("cookie")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|c| {
-            c.split(';').find_map(|p| {
-                p.trim()
-                    .strip_prefix("cronus_token=")
-                    .map(|s| s.to_string())
-            })
-        });
-    bearer
-        .or(cookie)
-        .and_then(|t| crate::auth::verify_token(&t, &secret).ok())
-        .map(|c| c.role)
+    crate::access::viewer_from_headers(headers, &crate::auth::default_secret()).map(|v| v.role)
 }
 
 /// Returns a response when the route must not be served to this request.

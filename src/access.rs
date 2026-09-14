@@ -1,15 +1,21 @@
-//! Who is asking and which rows they may touch, for the non-REST data
-//! surfaces: GraphQL, SSR bindings, `/_form` + `/_action`, and SSE.
+//! Who is asking and which rows they may touch — the single authorization
+//! source for every data surface: REST (`api_crud.rs`), GraphQL, SSR
+//! bindings, `/_form` + `/_action` (`actions.rs`) and SSE.
 //!
-//! Model (mirrors REST, Sprint 1 security):
+//! Model (Sprint 1 security):
 //! - no session → no data, unless the author explicitly opted in
-//!   (`bind X { scope:public }`), and never for the auth entity;
+//!   (`bind X { scope:public }` or an `auth:public` REST route), and never
+//!   for the auth entity;
 //! - admin → every row;
 //! - authenticated non-admin → own rows (`_owner_id`), `shared` entities and
-//!   `scope:public` bindings readable by everyone signed in; the auth entity
+//!   public bindings/routes readable by everyone signed in; the auth entity
 //!   only exposes the caller's own row;
 //! - writes (update/delete) are constrained by `_owner_id` in SQL for
-//!   non-admins and refused on the auth entity.
+//!   non-admins and refused on the auth entity (REST additionally lets a
+//!   user update their own account row, see `account_write_scope`).
+//!
+//! Callers turn a scope into SQL through `ReadScope::condition` /
+//! `WriteScope::condition`; the column is always a kernel constant.
 
 use serde_json::{Map, Value};
 
@@ -42,11 +48,29 @@ impl Access {
         Self::default()
     }
 
-    pub fn is_auth_entity(&self, entity: &str) -> bool {
-        match &self.auth_entity {
-            Some(name) => name.eq_ignore_ascii_case(entity),
-            None => entity.eq_ignore_ascii_case("user") || entity.eq_ignore_ascii_case("users"),
+    /// Session from `Authorization: Bearer` or the `cronus_token` cookie,
+    /// verified with the kernel secret. Every HTTP surface builds its access
+    /// context here.
+    pub fn from_headers(headers: &hyper::HeaderMap, auth_entity: Option<String>) -> Self {
+        Access {
+            viewer: viewer_from_headers(headers, &crate::auth::default_secret()),
+            auth_entity,
         }
+    }
+
+    /// Accounts table: the `auth { entity X }` entity, plus `User`/`Users`
+    /// which are always treated as accounts.
+    pub fn is_auth_entity(&self, entity: &str) -> bool {
+        entity.eq_ignore_ascii_case("user")
+            || entity.eq_ignore_ascii_case("users")
+            || self
+                .auth_entity
+                .as_deref()
+                .map_or(false, |name| name.eq_ignore_ascii_case(entity))
+    }
+
+    pub fn is_admin(&self) -> bool {
+        self.viewer.as_ref().map_or(false, Viewer::is_admin)
     }
 
     pub fn auth_entity_name(&self) -> &str {
@@ -96,13 +120,28 @@ pub enum ReadScope {
     SelfRow(String),
 }
 
+/// Why a request was refused before touching data.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Denial {
+    /// No session → 401.
+    Unauthenticated,
+    /// Session present but not allowed → 403.
+    Forbidden,
+}
+
 impl ReadScope {
-    pub fn filter(&self) -> Option<(String, String, String)> {
+    /// `"column" = ?` restriction, if any. Column is a kernel constant.
+    pub fn condition(&self) -> Option<(&'static str, String)> {
         match self {
-            ReadScope::Owner(id) => Some(("_owner_id".into(), "=".into(), id.clone())),
-            ReadScope::SelfRow(id) => Some(("id".into(), "=".into(), id.clone())),
+            ReadScope::Owner(id) => Some(("_owner_id", id.clone())),
+            ReadScope::SelfRow(id) => Some(("id", id.clone())),
             _ => None,
         }
+    }
+
+    pub fn filter(&self) -> Option<(String, String, String)> {
+        self.condition()
+            .map(|(col, val)| (col.to_string(), "=".to_string(), val))
     }
 }
 
@@ -129,14 +168,45 @@ pub fn read_scope(
     }
 }
 
+/// REST read on a declared/auto route: `public_route` is `auth:public`.
+/// Listing accounts is admin-only; a user may read only their own account.
+pub fn rest_read_scope(
+    access: &Access,
+    entity: &EntityNode,
+    public_route: bool,
+    listing: bool,
+) -> Result<ReadScope, Denial> {
+    match read_scope(access, &entity.name, Some(entity), public_route) {
+        ReadScope::Deny => Err(Denial::Unauthenticated),
+        ReadScope::SelfRow(_) if listing => Err(Denial::Forbidden),
+        scope => Ok(scope),
+    }
+}
+
 /// Row scope for update/delete.
 #[derive(Debug, Clone, PartialEq)]
 pub enum WriteScope {
     Deny,
     Any,
     Owner(String),
+    /// auth entity: `id = ?` (REST self-service update only)
+    SelfRow(String),
 }
 
+impl WriteScope {
+    /// `"column" = ?` restriction, if any. `Deny` has no condition — callers
+    /// must check it first.
+    pub fn condition(&self) -> Option<(&'static str, String)> {
+        match self {
+            WriteScope::Owner(id) => Some(("_owner_id", id.clone())),
+            WriteScope::SelfRow(id) => Some(("id", id.clone())),
+            _ => None,
+        }
+    }
+}
+
+/// Generic write surfaces (GraphQL, actions, forms): the auth entity is
+/// never writable by non-admins.
 pub fn write_scope(access: &Access, entity_name: &str) -> WriteScope {
     match &access.viewer {
         None => WriteScope::Deny,
@@ -146,15 +216,56 @@ pub fn write_scope(access: &Access, entity_name: &str) -> WriteScope {
     }
 }
 
-fn scope_clause(scope: &WriteScope, params: &mut Vec<String>) -> Result<String, String> {
-    match scope {
-        WriteScope::Deny => Err("write denied".into()),
-        WriteScope::Any => Ok(String::new()),
-        WriteScope::Owner(owner) => {
-            params.push(owner.clone());
-            Ok(format!(" AND \"_owner_id\" = ?{}", params.len()))
-        }
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum WriteOp {
+    Update,
+    Delete,
+}
+
+/// REST writes: like `write_scope`, except a user may update (never delete)
+/// their own account row. Field-level limits come from `authz::writable_body`.
+pub fn account_write_scope(
+    access: &Access,
+    entity_name: &str,
+    op: WriteOp,
+) -> Result<WriteScope, Denial> {
+    let viewer = access.viewer.as_ref().ok_or(Denial::Unauthenticated)?;
+    match write_scope(access, entity_name) {
+        WriteScope::Deny if op == WriteOp::Update => Ok(WriteScope::SelfRow(viewer.id.clone())),
+        WriteScope::Deny => Err(Denial::Forbidden),
+        scope => Ok(scope),
     }
+}
+
+/// Create policy for generic surfaces. `public` is the author's explicit
+/// opt-in for anonymous creates. Returns the `_owner_id` to stamp (none for
+/// anonymous rows and for accounts created by an admin).
+pub fn create_owner(
+    access: &Access,
+    entity_name: &str,
+    public: bool,
+) -> Result<Option<String>, Denial> {
+    let is_auth = access.is_auth_entity(entity_name);
+    match &access.viewer {
+        None if public && !is_auth => Ok(None),
+        None => Err(Denial::Unauthenticated),
+        Some(v) if is_auth && !v.is_admin() => Err(Denial::Forbidden),
+        Some(_) if is_auth => Ok(None),
+        Some(v) => Ok(Some(v.id.clone())),
+    }
+}
+
+fn scope_clause(scope: &WriteScope, params: &mut Vec<String>) -> Result<String, String> {
+    if *scope == WriteScope::Deny {
+        return Err("write denied".into());
+    }
+    Ok(match scope.condition() {
+        None => String::new(),
+        Some((column, value)) => {
+            params.push(value);
+            format!(" AND \"{}\" = ?{}", column, params.len())
+        }
+    })
 }
 
 /// `UPDATE … WHERE id = ? [AND _owner_id = ?]`. `Ok(None)` when no row in
@@ -382,6 +493,105 @@ mod tests {
             ReadScope::SelfRow("u1".into())
         );
         assert_eq!(read_scope(&as_admin(), "Note", note, false), ReadScope::All);
+    }
+
+    #[test]
+    fn rest_read_scope_matches_rest_model() {
+        let ents = entities();
+        let note = ents.iter().find(|e| e.name == "Note").unwrap();
+        let user = ents.iter().find(|e| e.name == "User").unwrap();
+        assert_eq!(
+            rest_read_scope(&anon(), note, false, true),
+            Err(Denial::Unauthenticated)
+        );
+        assert_eq!(
+            rest_read_scope(&anon(), note, true, true),
+            Ok(ReadScope::All)
+        );
+        assert_eq!(
+            rest_read_scope(&anon(), user, true, false),
+            Err(Denial::Unauthenticated),
+            "auth:public never opens the accounts table"
+        );
+        assert_eq!(
+            rest_read_scope(&as_user("u1"), user, false, true),
+            Err(Denial::Forbidden),
+            "listing accounts is admin-only"
+        );
+        assert_eq!(
+            rest_read_scope(&as_user("u1"), user, false, false)
+                .unwrap()
+                .condition(),
+            Some(("id", "u1".to_string()))
+        );
+        assert_eq!(
+            rest_read_scope(&as_user("u1"), note, false, false)
+                .unwrap()
+                .condition(),
+            Some(("_owner_id", "u1".to_string()))
+        );
+        assert_eq!(
+            rest_read_scope(&as_admin(), user, false, true),
+            Ok(ReadScope::All)
+        );
+    }
+
+    #[test]
+    fn account_write_scope_allows_only_self_update() {
+        assert_eq!(
+            account_write_scope(&anon(), "Note", WriteOp::Update),
+            Err(Denial::Unauthenticated)
+        );
+        assert_eq!(
+            account_write_scope(&as_user("u1"), "User", WriteOp::Update),
+            Ok(WriteScope::SelfRow("u1".into()))
+        );
+        assert_eq!(
+            account_write_scope(&as_user("u1"), "User", WriteOp::Delete),
+            Err(Denial::Forbidden)
+        );
+        assert_eq!(
+            account_write_scope(&as_user("u1"), "Note", WriteOp::Delete),
+            Ok(WriteScope::Owner("u1".into()))
+        );
+        assert_eq!(
+            account_write_scope(&as_admin(), "User", WriteOp::Delete),
+            Ok(WriteScope::Any)
+        );
+    }
+
+    #[test]
+    fn create_owner_follows_model() {
+        assert_eq!(
+            create_owner(&anon(), "Note", false),
+            Err(Denial::Unauthenticated)
+        );
+        assert_eq!(create_owner(&anon(), "Note", true), Ok(None));
+        assert_eq!(
+            create_owner(&anon(), "User", true),
+            Err(Denial::Unauthenticated)
+        );
+        assert_eq!(
+            create_owner(&as_user("u1"), "Note", false),
+            Ok(Some("u1".into()))
+        );
+        assert_eq!(
+            create_owner(&as_user("u1"), "User", false),
+            Err(Denial::Forbidden)
+        );
+        assert_eq!(create_owner(&as_admin(), "User", false), Ok(None));
+    }
+
+    #[test]
+    fn user_entity_is_an_account_table_even_with_another_auth_entity() {
+        let access = Access {
+            viewer: None,
+            auth_entity: Some("Account".into()),
+        };
+        assert!(access.is_auth_entity("account"));
+        assert!(access.is_auth_entity("User"));
+        assert!(access.is_auth_entity("users"));
+        assert!(!access.is_auth_entity("Note"));
     }
 
     #[test]

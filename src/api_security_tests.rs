@@ -2,7 +2,8 @@
 //! Drives `api_crud::handle_api` — the handler `handle_request_inner` calls
 //! for `/api/<entity>` — against an in-memory SQLite built from `.cronus`.
 
-use crate::api_crud::{claims_from_headers, entity_matches_segment, handle_api};
+use crate::access::{viewer_from_headers, Access, Viewer};
+use crate::api_crud::{entity_matches_segment, handle_api};
 use crate::auth::{create_token, Claims};
 use crate::parser::{parse, AstNode};
 use crate::server::state::{AppState, TraceBuffer};
@@ -138,7 +139,14 @@ fn call(
     claims: Option<&Claims>,
 ) -> Reply {
     let (path, query) = target.split_once('?').unwrap_or((target, ""));
-    let resp = handle_api(state, &method, path, query, body.as_ref(), claims);
+    let access = Access {
+        viewer: claims.map(|c| Viewer {
+            id: c.sub.clone(),
+            role: c.role.clone(),
+        }),
+        auth_entity: state.auth_entity.clone(),
+    };
+    let resp = handle_api(state, &method, path, query, body.as_ref(), &access);
     let status = resp.status();
     let headers = resp.headers().clone();
     let bytes = tokio::runtime::Builder::new_current_thread()
@@ -812,11 +820,21 @@ fn errors_use_stable_codes_without_driver_text() {
 fn claims_come_from_bearer_or_cookie() {
     let secret = "test-secret";
     let token = create_token("u1", "user", secret);
-    let from_bearer = claims_from_headers(Some(&format!("Bearer {token}")), "", secret);
-    assert_eq!(from_bearer.map(|c| c.sub), Some("u1".to_string()));
-    let from_cookie =
-        claims_from_headers(None, &format!("theme=dark; cronus_token={token}"), secret);
-    assert_eq!(from_cookie.map(|c| c.sub), Some("u1".to_string()));
-    assert!(claims_from_headers(Some("Bearer forged"), "", secret).is_none());
-    assert!(claims_from_headers(None, "", secret).is_none());
+    let headers = |name: &'static str, value: String| {
+        let mut h = HeaderMap::new();
+        h.insert(name, value.parse().unwrap());
+        h
+    };
+    let from_bearer =
+        viewer_from_headers(&headers("authorization", format!("Bearer {token}")), secret);
+    assert_eq!(from_bearer.map(|v| v.id), Some("u1".to_string()));
+    let from_cookie = viewer_from_headers(
+        &headers("cookie", format!("theme=dark; cronus_token={token}")),
+        secret,
+    );
+    assert_eq!(from_cookie.map(|v| v.id), Some("u1".to_string()));
+    assert!(
+        viewer_from_headers(&headers("authorization", "Bearer forged".into()), secret).is_none()
+    );
+    assert!(viewer_from_headers(&HeaderMap::new(), secret).is_none());
 }

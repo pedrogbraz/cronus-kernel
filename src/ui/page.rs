@@ -1327,3 +1327,66 @@ mod tests {
         assert!(!html.contains("'+safeId+'\\')"), "{html}");
     }
 }
+
+/// Regression: `section kpi { bind Task { aggregate count } item "Tasks"
+/// value:bind }` on a `type:dashboard requires:auth` page rendered the literal
+/// text `bind` for a signed-in user with no rows (pre-existing at d1d548b:
+/// `aggregate` without `group_by` was ignored and the empty result fell back
+/// to the placeholder). Rendered through the real SSR entry point.
+#[cfg(test)]
+mod kpi_bind_regression {
+    use super::*;
+    use crate::access::test_support::{anon, as_admin, as_user};
+    use crate::parser::{parse, AstNode};
+
+    const SMOKE: &str = "app \"Smoke\" { port 5901 }\n\
+auth { entity User  login email + password  session jwt expires:24h  roles [admin, user] }\n\
+entity User { name string  email email!  role string  password string! sensitive }\n\
+entity Task { title string!  done boolean default:false }\n\
+page \"/tasks\" type:dashboard requires:auth {\n\
+  section kpi { bind Task { aggregate count }  item \"Tasks\" value:bind icon:home }\n\
+  section table { bind Task { query all order created_at desc }  columns \"title, done\" }\n\
+}\n";
+
+    #[test]
+    fn dashboard_kpi_value_bind_shows_the_scoped_count() {
+        let mut entities = Vec::new();
+        let mut page = None;
+        for node in parse(SMOKE).expect("parse smoke app") {
+            match node {
+                AstNode::Entity(e) => entities.push(e),
+                AstNode::Page(p) => page = Some(p),
+                _ => {}
+            }
+        }
+        let page = page.expect("page");
+        let db = crate::database::CronusDB::open_memory().expect("db");
+        db.migrate(&entities).expect("migrate");
+        let params = std::collections::HashMap::new();
+        let render = |access: &crate::access::Access, theme: &str| {
+            render_page(&page, &entities, "amber", theme, Some(&db), &params, access)
+        };
+
+        for theme in ["dark", "light"] {
+            let empty = render(&as_user("u1"), theme);
+            assert!(
+                !empty.contains(">bind<"),
+                "literal placeholder ({theme}): {empty}"
+            );
+            assert!(empty.contains(">0<"), "zero count ({theme}): {empty}");
+        }
+
+        for (title, owner) in [("a", "u1"), ("b", "u1"), ("c", "u2")] {
+            db.insert(
+                "Task",
+                &serde_json::json!({"title": title, "_owner_id": owner}),
+            )
+            .expect("insert");
+        }
+        let mine = render(&as_user("u1"), "dark");
+        assert!(mine.contains(">2<") && !mine.contains(">bind<"), "{mine}");
+        assert!(render(&as_admin(), "dark").contains(">3<"));
+        let anonymous = render(&anon(), "dark");
+        assert!(!anonymous.contains(">bind<") && anonymous.contains(">0<"));
+    }
+}
