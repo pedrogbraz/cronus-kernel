@@ -3000,7 +3000,7 @@ button:has(+ [data-slot="sheet-content"]) {
   box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
 }
 [data-slot="flip-card"] > div {
-  position: relative; width: 100%; height: 100%;
+  position: absolute; inset: 0;
   transform-style: preserve-3d;
   transition: transform 600ms var(--ease-spring, var(--cronus-ease));
   will-change: transform;

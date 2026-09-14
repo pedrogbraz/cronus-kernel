@@ -179,10 +179,10 @@ mod tests {
         assert!(!css.contains("onclick"));
     }
 
-    /// Wave 1s geometry parity with React `FlipCard className="w-72"`:
-    /// root 288×256 rounded-2xl (22px); inner preserve-3d stage is
-    /// `size-full` inside a min-height-only parent, so it resolves to 0px
-    /// tall and both absolute faces measure 288×2 on both sides.
+    /// Wave 1s geometry parity with the corrected React `FlipCard
+    /// className="w-72"`: root 288×256 rounded-2xl (22px); the preserve-3d
+    /// stage is `absolute inset-0` (was `size-full`, which resolved to 0px
+    /// against a min-height-only card), so both faces measure 288×256.
     #[test]
     fn chrome_geometry_matches_react() {
         let css = crate::cronus_ui::component_chrome_css();
@@ -190,8 +190,9 @@ mod tests {
             "[data-slot=\"flip-card\"] {\n  position: relative; isolation: isolate;\n  width: 18rem;\n  min-height: 16rem; border-radius: calc(var(--cronus-radius, 14px) + 8px);\n  perspective: 1600px;\n  line-height: 1.5;"
         ));
         assert!(css.contains(
-            "[data-slot=\"flip-card\"] > div {\n  position: relative; width: 100%; height: 100%;\n  transform-style: preserve-3d;"
+            "[data-slot=\"flip-card\"] > div {\n  position: absolute; inset: 0;\n  transform-style: preserve-3d;"
         ));
+        assert!(!css.contains("position: relative; width: 100%; height: 100%;\n  transform-style: preserve-3d;"));
         assert!(css.contains(
             "[data-slot=\"flip-card\"]:hover > div,\n[data-slot=\"flip-card\"]:focus-within > div {\n  transform: rotateY(180deg);\n}"
         ));

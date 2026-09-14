@@ -18,22 +18,25 @@ rotate it `rotateY(180deg)` (CSS only, so focus is a working control). Back face
 pre-rotated 180deg.
 CSS: root `width: 18rem` (fixture `w-72`), `min-height: 16rem`, radius
 `calc(var(--cronus-radius) + 8px)` (rounded-2xl, 22px), `perspective: 1600px`,
-`line-height: 1.5`; stage `position: relative; width/height: 100%`; faces absolute
+`line-height: 1.5`; stage `position: absolute; inset: 0`; faces absolute
 `inset: 0`, border, `shadow-sm`, `backface-visibility: hidden`, front
 `surface-raised`, back `surface-elevated`. Reduced motion: no rotation, visibility swap.
 
 | slot | React | Cronus |
 |---|---|---|
-| flip-card | 24,24 288×256 r22 | 24,24 288×256 r22 |
-| stage div | 24,24 288×0 | 24,24 288×0 |
-| flip-card-front | 24,24 288×2 bg 21,21,23 | 24,24 288×2 bg 21,21,23 |
-| flip-card-back | 24,24 288×2 bg 38,38,41 matrix3d(-1,…) | same |
+| slot | React (corrected stage) | Cronus |
+|---|---|---|
+| flip-card | 24,24 288×256 r22 role=group | 24,24 288×256 r22 role=group |
+| stage div | 24,24 288×256 transform none | 24,24 288×256 transform none |
+| flip-card-front | 24,24 288×256 bg 21,21,23 border 1px, 16/24 "Front" | same |
+| flip-card-back | 24,24 288×256 bg 38,38,41 matrix3d(-1,…) "Back" | same |
 
-Screenshot pixel diff: 0. Note: in React the stage is `size-full` inside a
-min-height-only parent, so it resolves to 0px and both faces collapse to their 2px
-borders (text clipped). Cronus mirrors that geometry; fixing it belongs in the React
-component (e.g. `absolute inset-0` stage). Divergence: no `inert` / `data-active`
-toggling (needs JS), so the back face text stays in the accessibility tree.
+Screenshot pixel diff: 0; "Front" visible on both sides.
+
+The React stage used to be `size-full` inside a min-height-only card, so it resolved
+to 0px and both faces collapsed to their 2px borders. React now uses `absolute inset-0`
+(cooud-ui `flip-card.tsx`), and Cronus follows it. Divergence: no `inert` /
+`data-active` toggling (needs JS), so the back face text stays in the accessibility tree.
 
 ### card-stack
 DOM: `<section data-slot="card-stack" aria-label="Stack"><span>Card stack</span>`
