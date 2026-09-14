@@ -118,3 +118,23 @@ is now surface-overlay / fg.
 |---|---|---|
 | mode-toggle-core | 37,37 10×10 | 39.75,39.75 31.5×31.5 (dark scale) → identical |
 | mode-toggle-rays | 32.83,32.83 18.33×18.33 | 33.75,33.75 16.5×16.5 → identical |
+### stepper
+
+Wave 1t geometry parity (2026-09-14, fixture Account/Shipping, aurora/dark). DOM now mirrors React
+`Stepper > StepperList > StepperItem(StepperIndicator + StepperTitle)` (no StepperTrigger in the fixture):
+`<div data-slot="stepper" data-orientation><ol data-slot="stepper-list" data-orientation>` + per step
+`<li data-slot="stepper-item" data-state="completed|active|upcoming" data-orientation [aria-current="step"]>`
+`<span data-slot="stepper-indicator" data-state><span>{n}</span></span>` (lucide check svg once completed)
+`<div data-slot="stepper-title">` `<span data-slot="stepper-item-state">current|not started|completed</span></li>`.
+`label` ("Onboarding") is never a step. Gate: `<ol` is only a stub fingerprint without `stepper-list`.
+CSS: list flex row items-center; item `:not(:last-child) { flex: 1 }`; indicator 2rem circle 14px/20px 500
+(active `primary` + `#fff` + shadow-xs, completed primary 15% mix, upcoming 1px border `surface-overlay`
+`fg-tertiary`); title 14px/1 500 (upcoming `fg-tertiary`); item-state sr-only. `stepper-trigger` CSS removed.
+
+| slot | React | Cronus |
+|---|---|---|
+| stepper / stepper-list | 24,24 432×32 | identical, text "1 Account current 2 Shipping not started" |
+| stepper-item #0 / #1 | 24,24 341.86×32 / 365.86,24 90.14×32 | identical |
+| stepper-indicator #0 / #1 | 24,24 32×32 / 365.86,24 32×32 | identical |
+| stepper-title #0 / #1 | 56,33 54.66×14 / 397.86,33 58.14×14 | identical |
+| stepper-item-state | 23,39.5 1×1 | identical |

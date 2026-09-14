@@ -22,3 +22,19 @@ The label span becomes `inline-flex; align-items:center; gap:0.375rem`.
 | span Day / Week | 41,35,25.5,20 / 94.5,35,36.5,20 | identical | 14px/20px 500 | — |
 
 Screenshots of both canvases are byte-identical PNGs. No remaining delta.
+
+### expandable-tabs
+
+Wave 1t geometry parity (2026-09-14, fixture Home/Search, aurora/dark).
+DOM: `<div data-slot="expandable-tabs" role="tablist" aria-label>` + per tab
+`<button type="button" role="tab" data-slot="expandable-tabs-item" aria-selected disabled><span aria-hidden="true">{circle svg}</span><span>{label}</span></button>`.
+The kernel has no icon source, so every tab shows the same circle glyph the React fixture passes.
+Unselected labels are sr-only (React collapsed state). Switching tabs needs JS: native `disabled`, not dimmed.
+`label` ("Sections") is aria only (it used to leak as a 1st tab).
+CSS: item `line-height: 1.25rem`; icon span grid 1rem; label span nowrap; `[aria-selected="false"] > span:last-child` sr-only.
+
+| slot | React | Cronus |
+|---|---|---|
+| expandable-tabs | 24,24 133×42, r 21px | identical |
+| item Home (selected) | 29,29 83×32, r 16px, 14px/20px | identical |
+| item Search | 116,31 36×28, r 14px | identical |

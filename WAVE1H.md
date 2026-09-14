@@ -129,3 +129,46 @@ CSS: label `top: 50%` + `translateY(-1.6rem) scale(.8)` (placeholder-shown: `tra
 |---|---|---|
 | input | lh 20px | lh 21px → equal |
 | floating-label-input-label | 36,28.4 27.6×16, lh 20px | 36,33.29 27.6×16.8, lh 21px → equal |
+### pill-nav
+
+Wave 1t geometry parity (2026-09-14, fixture Home/Work, aurora/dark).
+DOM: `<nav data-slot="pill-nav" aria-label>` + `<button type="button" data-slot="pill-nav-item" [aria-current="page"] disabled>`
+(`<a>` when linked). `label` is aria only. Link-less switching needs JS: native `disabled`, not dimmed.
+CSS: nav `inline-flex` items-center gap .25rem, 1px border, 9999px, `surface-inset`, p .25rem; item
+`.375rem .875rem` 14px/20px 500 `fg-secondary`, transparent. The current pill is `::before` (inset 0, z −1,
+`surface-floating`, shadow-xs) — React draws it with an absolute `<span>`, so the item box stays transparent.
+
+| slot | React | Cronus |
+|---|---|---|
+| pill-nav | 24,24 143.28×42, r 21px, bg rgb(14,14,16) | identical |
+| item Home / Work | 29,29 67×32 / 100,29 62.28×32, r 16px, 14px/20px | identical |
+
+### workspace-switcher
+
+Wave 1t geometry parity (2026-09-14, fixture Cronus/Northwind, aurora/dark). React idle = closed menu.
+DOM: `<button type="button" data-slot="workspace-switcher" aria-label="Switch workspace, {name}" disabled>`
+`<span data-slot="avatar"><span data-slot="avatar-fallback">{initials}</span></span><span>{name}</span>{chevrons-up-down svg}</button>`.
+Initials follow React `workspaceInitials`. Opening the menu needs JS, so the trigger is a native `disabled`
+button (not dimmed) and no menu content is emitted (the old always-open content was removed; gate now
+requires `avatar-fallback` instead of `workspace-switcher-content`). `label` is never a workspace.
+CSS: trigger flex gap .5rem `radius-lg` `.375rem .5rem` 14px/20px 400; name span flex-1 truncate 500;
+avatar 1.5rem, fallback 12px/16px; svg 1rem `fg-tertiary`.
+
+| slot | React | Cronus |
+|---|---|---|
+| workspace-switcher | 24,24 432×36, r 14px, 14px/20px 400 | identical, text "CR Cronus" |
+| avatar / avatar-fallback | 32,30 24×24 | identical |
+
+### split-button
+
+Wave 1t geometry parity (2026-09-14, fixture Save + Duplicate/Archive `defaultOpen`, aurora/dark).
+DOM: `<div data-slot="split-button" role="group" data-variant aria-label>` + `<button data-slot="button">Save</button>`
++ `<button data-slot="button" aria-label="More actions" aria-haspopup="menu" disabled>{chevron}</button>`.
+React opens its Radix menu in a portal outside the canvas (not measured). Opening needs JS: the chevron is
+a native `disabled` button (not dimmed) and menu items are not emitted.
+CSS: `> [data-slot="button"] { position: relative; line-height: 1.25rem; }`, primary `border-width: 0`,
+`:first-of-type`/`:last-of-type` corners, chevron `::before` divider (`currentColor` 15%, inset-y .5rem), `isolation: isolate`.
+
+| slot | React | Cronus |
+|---|---|---|
+| button Save / chevron | 14px/20px, border 0 (was 14px line-height, 1px border) | identical |
