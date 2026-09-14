@@ -24,7 +24,7 @@ pub fn render(comp: &ComponentNode) -> String {
     let trigger_id = widget_id(comp, "trigger");
     let pop_id = widget_id(comp, "sheet");
     format!(
-        "<button type=\"button\" id=\"{trigger_id}\" popovertarget=\"{pop_id}\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"sheet-content\" anchor=\"{trigger_id}\"><div data-slot=\"sheet-title\">{title}</div>{desc_html}</div>"
+        "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"sheet-trigger\" popovertarget=\"{pop_id}\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"sheet-content\" anchor=\"{trigger_id}\"><button type=\"button\" data-slot=\"sheet-close\" popovertarget=\"{pop_id}\" popovertargetaction=\"hide\" aria-label=\"Close\"></button><div data-slot=\"sheet-title\">{title}</div>{desc_html}</div>"
     )
 }
 
@@ -70,9 +70,11 @@ mod tests {
         let mut c = stub("sheet", "Filters");
         c.items.push(extra("text", "Narrow the list."));
         let html = render(&c);
-        assert!(html.contains("<button type=\"button\""));
+        assert!(html.contains("data-slot=\"sheet-trigger\""));
         assert!(html.contains("popovertarget="));
         assert!(html.contains(">Filters</button>"));
+        assert!(html.contains("data-slot=\"sheet-close\""));
+        assert!(html.contains("aria-label=\"Close\""));
         assert!(html.contains("data-slot=\"sheet-content\""));
         assert!(html.contains("popover=\"auto\""));
         assert!(html.contains("<div data-slot=\"sheet-title\">Filters</div>"));
