@@ -15,9 +15,19 @@ zero inline `style=`, zero canvas, zero rAF. Token CSS in `COMPONENT_CHROME`.
 
 CSS overlay/field + content. leftover stub is meteors.
 
+progressive-blur parity pass (2026-09-14): DOM mirrors the React fixture —
+`progressive-blur-host` (fixture wrapper, 18rem × min 8rem, line-height 1.5) holds the
+label as bare text, then `<div data-slot="progressive-blur" aria-hidden="true">` with three
+unslotted `<div>` layers (1/4/12px) styled via `> div:nth-child(n)`. Measured host 288×128,
+band 288×96 at y=32, same as React.
+
 ## C — motion-presets
 
-CSS demo of fade-in / fade-in-up / scale-in. leftover stubs: meteors, sankey-chart.
+React `motion-presets` is a framer variants module, not a component; the audit fixture is a
+static list. Parity pass (2026-09-14): one `motion-preset` row per `text`/`item` line
+(default fade-in / fade-in-up / scale-in when none; the label — fixture id — is not a row).
+Chrome matches React's unstyled blocks (16px/400, line-height 1.5, no gap, no animation).
+leftover stubs: meteors, sankey-chart.
 
 ### gradient-border
 React idle: `<div data-slot="gradient-border">` wrapping an inner surface div + children.
