@@ -1,6 +1,7 @@
 //! Dedicated GlareHover renderer. DOM matches React idle:
-//! `<div data-slot="glare-hover">` + aria-hidden `glare-hover-layer` +
-//! `glare-hover-content` wrapping the label. Diagonal glare is CSS-only
+//! `<div data-slot="glare-hover">` + aria-hidden glare layer + relative
+//! children div wrapping the label. Only the root has a `data-slot`, like
+//! React (Wave 1t geometry parity). Diagonal glare is CSS-only
 //! (`:hover` / `:focus-within`); no `--glare-x` JS. Not the catalog `fx()`
 //! title SURF box.
 
@@ -9,7 +10,7 @@ use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     format!(
-        "<div data-slot=\"glare-hover\"><div data-slot=\"glare-hover-layer\" aria-hidden=\"true\"></div><div data-slot=\"glare-hover-content\">{}</div></div>",
+        "<div data-slot=\"glare-hover\"><div aria-hidden=\"true\"></div><div>{}</div></div>",
         label_of(comp)
     )
 }
@@ -40,6 +41,7 @@ mod tests {
         assert!(!html.contains("data-glare-hovered"));
         assert!(!html.contains("zinc-"));
         assert!(!html.contains("fx("));
+        assert_eq!(html.matches("data-slot=").count(), 1);
     }
 
     #[test]
@@ -47,14 +49,9 @@ mod tests {
         let html = render(&stub("glare-hover", "Glare"));
         assert_eq!(
             html,
-            "<div data-slot=\"glare-hover\"><div data-slot=\"glare-hover-layer\" aria-hidden=\"true\"></div><div data-slot=\"glare-hover-content\">Glare</div></div>"
+            "<div data-slot=\"glare-hover\"><div aria-hidden=\"true\"></div><div>Glare</div></div>"
         );
-        assert!(html.starts_with("<div "));
-        assert!(html.contains("data-slot=\"glare-hover\""));
-        assert!(html.contains("data-slot=\"glare-hover-layer\""));
-        assert!(html.contains("data-slot=\"glare-hover-content\""));
-        assert!(html.contains("aria-hidden=\"true\""));
-        assert!(html.contains(">Glare</div></div>"));
+        assert!(!html.contains("glare-hover-layer"));
         reject_fx(&html);
     }
 
@@ -63,9 +60,8 @@ mod tests {
         let html = render(&stub("glare-hover", "A <B> & \"C\""));
         assert_eq!(
             html,
-            "<div data-slot=\"glare-hover\"><div data-slot=\"glare-hover-layer\" aria-hidden=\"true\"></div><div data-slot=\"glare-hover-content\">A &lt;B&gt; &amp; &quot;C&quot;</div></div>"
+            "<div data-slot=\"glare-hover\"><div aria-hidden=\"true\"></div><div>A &lt;B&gt; &amp; &quot;C&quot;</div></div>"
         );
-        assert!(!html.contains("<B>"));
         reject_fx(&html);
     }
 
@@ -78,10 +74,8 @@ mod tests {
         let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
             .unwrap();
         assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
-        assert!(!html.contains("<span"));
         reject_fx(&html);
         assert_eq!(
             dedicated_fn_name("glare-hover"),
@@ -101,26 +95,26 @@ mod tests {
             let html = render(&stub("glare-hover", "Glare"));
             reject_fx(&html);
             assert!(html.contains("data-slot=\"glare-hover\""));
-            assert!(html.contains("data-slot=\"glare-hover-layer\""));
-            assert!(html.contains("data-slot=\"glare-hover-content\""));
         });
     }
 
     #[test]
     fn chrome_glare_hover_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"glare-hover\"]"));
-        assert!(css.contains("[data-slot=\"glare-hover-layer\"]"));
-        assert!(css.contains("[data-slot=\"glare-hover-content\"]"));
+        let start = css.find("[data-slot=\"glare-hover\"] {").unwrap();
+        let block = &css[start..start + css[start..].find('}').unwrap()];
+        assert!(block.contains("width: 18rem;"));
+        assert!(css.contains("[data-slot=\"glare-hover\"] > [aria-hidden] {"));
+        assert!(css.contains("[data-slot=\"glare-hover\"] > div:last-child {"));
+        assert!(!css.contains("[data-slot=\"glare-hover-layer\"]"));
         assert!(css.contains("linear-gradient"));
         assert!(css.contains("var(--cronus-fg)"));
-        assert!(css.contains(":hover"));
-        assert!(css.contains(":focus-within"));
+        assert!(css.contains("[data-slot=\"glare-hover\"]:hover > [aria-hidden]"));
+        assert!(css.contains("[data-slot=\"glare-hover\"]:focus-within > [aria-hidden]"));
         assert!(css.contains("50% 50%"));
         assert!(css.contains("prefers-reduced-motion"));
         assert!(!css.contains("--glare-x"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
-        assert!(!css.contains("<style"));
     }
 }

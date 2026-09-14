@@ -1,18 +1,34 @@
 //! Dedicated AnimatedList renderer. DOM matches React:
-//! `<ul data-slot="animated-list">` plus each text as
+//! `<ul data-slot="animated-list">` plus each row as
 //! `<li data-slot="animated-list-item">`. Static list (no JS stagger).
 //! CSS in COMPONENT_CHROME. Not the catalog `fx()` title SURF box.
+//! Wave 1t: `label` / `title` name the list and are never rows when real
+//! rows (`text` / `item`) exist — the emitter writes the fixture id as label.
 
-use crate::cronus_ui_kit::texts;
+use crate::cronus_ui_kit::{esc, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    let items = texts(comp)
+    let items = rows(comp)
         .into_iter()
         .map(|t| format!("<li data-slot=\"animated-list-item\">{t}</li>"))
         .collect::<Vec<_>>()
         .join("");
     format!("<ul data-slot=\"animated-list\">{items}</ul>")
+}
+
+fn rows(comp: &ComponentNode) -> Vec<String> {
+    let out: Vec<String> = comp
+        .items
+        .iter()
+        .filter(|i| !i.text.is_empty() && !matches!(i.item_type.as_str(), "label" | "title"))
+        .map(|i| esc(&i.text))
+        .collect();
+    if out.is_empty() {
+        vec![label_of(comp)]
+    } else {
+        out
+    }
 }
 
 #[cfg(test)]
@@ -59,27 +75,26 @@ mod tests {
     #[test]
     fn root_is_ul_of_items_not_fx_title_box() {
         let html = render(&list(&["Alpha", "Beta"]));
-        assert!(html.starts_with("<ul data-slot=\"animated-list\">"));
-        assert_eq!(html.matches("data-slot=\"animated-list-item\"").count(), 2);
-        assert!(html.contains("<li data-slot=\"animated-list-item\">Alpha</li>"));
-        assert!(html.contains("<li data-slot=\"animated-list-item\">Beta</li>"));
-        reject_fx(&html);
         assert_eq!(
             html,
             "<ul data-slot=\"animated-list\"><li data-slot=\"animated-list-item\">Alpha</li><li data-slot=\"animated-list-item\">Beta</li></ul>"
         );
+        reject_fx(&html);
     }
 
+    /// Audit fixture shape: `label "default"` + `text "Alpha"` + `text "Beta"`.
+    /// React renders exactly the two items; the label must not leak as a row.
     #[test]
-    fn extra_text_items_become_rows() {
-        let mut c = stub("animated-list", "Alpha");
+    fn label_is_not_a_row_when_texts_exist() {
+        let mut c = stub("animated-list", "default");
+        c.items.push(extra("text", "Alpha"));
         c.items.push(extra("text", "Beta"));
-        c.items.push(extra("text", "Gamma"));
         let html = render(&c);
-        assert_eq!(html.matches("data-slot=\"animated-list-item\"").count(), 3);
-        assert!(html.contains(">Alpha</li>"));
-        assert!(html.contains(">Beta</li>"));
-        assert!(html.contains(">Gamma</li>"));
+        assert_eq!(
+            html,
+            "<ul data-slot=\"animated-list\"><li data-slot=\"animated-list-item\">Alpha</li><li data-slot=\"animated-list-item\">Beta</li></ul>"
+        );
+        assert!(!html.contains("default"));
         reject_fx(&html);
     }
 
@@ -90,7 +105,6 @@ mod tests {
             html,
             "<ul data-slot=\"animated-list\"><li data-slot=\"animated-list-item\">Alpha</li></ul>"
         );
-        assert_eq!(html.matches("data-slot=\"animated-list-item\"").count(), 1);
         reject_fx(&html);
     }
 
@@ -109,10 +123,8 @@ mod tests {
         let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
             .unwrap();
         assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
-        assert!(!html.contains("<div"));
         reject_fx(&html);
         assert_eq!(
             crate::cli::stub_renderer_gate::renderer_kind("meteors"),

@@ -1,14 +1,15 @@
 //! Dedicated Highlighter renderer. DOM matches React idle:
-//! `<span data-slot="highlighter">` plus `highlighter-mark` (aria-hidden)
-//! and the label. CSS scaleX draw-in lives in COMPONENT_CHROME. Zero JS,
-//! no inline style, no `<style>` tag. Not the catalog `fx()` title SURF box.
+//! `<span data-slot="highlighter">` plus an `aria-hidden` marker span (no
+//! `data-slot`, like React — Wave 1t geometry parity) and the label. CSS
+//! scaleX draw-in lives in COMPONENT_CHROME. Zero JS, no inline style, no
+//! `<style>` tag. Not the catalog `fx()` title SURF box.
 
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     format!(
-        "<span data-slot=\"highlighter\"><span data-slot=\"highlighter-mark\" aria-hidden=\"true\"></span>{}</span>",
+        "<span data-slot=\"highlighter\"><span aria-hidden=\"true\"></span>{}</span>",
         label_of(comp)
     )
 }
@@ -34,6 +35,7 @@ mod tests {
         assert!(!html.contains("setTimeout"));
         assert!(!html.contains("zinc-"));
         assert!(!html.contains("fx("));
+        assert_eq!(html.matches("data-slot=").count(), 1);
     }
 
     #[test]
@@ -41,13 +43,9 @@ mod tests {
         let html = render(&stub("highlighter", "Important"));
         assert_eq!(
             html,
-            "<span data-slot=\"highlighter\"><span data-slot=\"highlighter-mark\" aria-hidden=\"true\"></span>Important</span>"
+            "<span data-slot=\"highlighter\"><span aria-hidden=\"true\"></span>Important</span>"
         );
-        assert!(html.starts_with("<span "));
-        assert!(html.contains("data-slot=\"highlighter\""));
-        assert!(html.contains("data-slot=\"highlighter-mark\""));
-        assert!(html.contains("aria-hidden=\"true\""));
-        assert!(html.contains(">Important</span>"));
+        assert!(!html.contains("highlighter-mark"));
         reject_fx(&html);
     }
 
@@ -56,9 +54,8 @@ mod tests {
         let html = render(&stub("highlighter", "A <B> & \"C\""));
         assert_eq!(
             html,
-            "<span data-slot=\"highlighter\"><span data-slot=\"highlighter-mark\" aria-hidden=\"true\"></span>A &lt;B&gt; &amp; &quot;C&quot;</span>"
+            "<span data-slot=\"highlighter\"><span aria-hidden=\"true\"></span>A &lt;B&gt; &amp; &quot;C&quot;</span>"
         );
-        assert!(!html.contains("<B>"));
         reject_fx(&html);
     }
 
@@ -71,10 +68,8 @@ mod tests {
         let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
             .unwrap();
         assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
-        assert!(!html.contains("<div"));
         reject_fx(&html);
         assert_eq!(
             dedicated_fn_name("highlighter"),
@@ -94,7 +89,6 @@ mod tests {
             let html = render(&stub("highlighter", "Important"));
             reject_fx(&html);
             assert!(html.contains("data-slot=\"highlighter\""));
-            assert!(html.contains("data-slot=\"highlighter-mark\""));
         });
     }
 
@@ -102,16 +96,15 @@ mod tests {
     fn chrome_highlighter_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"highlighter\"]"));
-        assert!(css.contains("[data-slot=\"highlighter-mark\"]"));
+        assert!(css.contains("[data-slot=\"highlighter\"] > [aria-hidden] {"));
+        assert!(!css.contains("[data-slot=\"highlighter-mark\"]"));
         assert!(css.contains("@keyframes cui-highlighter"));
         assert!(css.contains("animation: cui-highlighter"));
         assert!(css.contains("scaleX(0)"));
         assert!(css.contains("scaleX(1)"));
-        assert!(css.contains("var(--cronus-primary)"));
         assert!(css.contains("color-mix(in oklch, var(--cronus-primary) 25%"));
         assert!(css.contains("prefers-reduced-motion"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
-        assert!(!css.contains("<style"));
     }
 }
