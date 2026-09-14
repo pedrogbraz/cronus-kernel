@@ -23,6 +23,20 @@ jobs:
       - name: cargo test
         run: cargo test --locked
 
+  # The optional `dump` feature (HTML/Next.js/Prisma → .cronus, scraper) must stay
+  # removable: build the kernel and its tests without default features.
+  no-default-features:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: no-default-features
+      - name: cargo check --no-default-features
+        run: cargo check --locked --no-default-features --all-targets
+
   clippy:
     runs-on: ubuntu-latest
     timeout-minutes: 30

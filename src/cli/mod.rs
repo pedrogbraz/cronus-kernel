@@ -18,6 +18,7 @@ pub mod graph_cmd;
 pub mod handoff;
 pub mod help;
 pub mod lease;
+#[cfg(feature = "dump")]
 pub mod logic_parity;
 pub mod memory_cmd;
 pub mod new;

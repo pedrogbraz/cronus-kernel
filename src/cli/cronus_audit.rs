@@ -129,6 +129,16 @@ fn render_first_component(path: &str) -> Result<String, String> {
     Err("no renderable component".into())
 }
 
+#[cfg(not(feature = "dump"))]
+fn run_logic(_path: &str, _fixture: &str) -> Vec<AuditFinding> {
+    vec![AuditFinding::fail(
+        "logic",
+        "CRONUS_AUDIT_IO",
+        crate::cli::dump_cmd::feature_disabled_msg("audit logic"),
+    )]
+}
+
+#[cfg(feature = "dump")]
 fn run_logic(path: &str, fixture: &str) -> Vec<AuditFinding> {
     match render_first_component(path) {
         Ok(html) => match crate::cli::logic_parity::compare_fixture_file(&html, fixture) {

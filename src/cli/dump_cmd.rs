@@ -1,6 +1,23 @@
+#[cfg(feature = "dump")]
 use crate::dump;
+#[cfg(feature = "dump")]
 use std::fs;
 
+/// Error shown when a command needs the optional `dump` cargo feature.
+pub fn feature_disabled_msg(command: &str) -> String {
+    format!(
+        "`cronus {command}` is unavailable: this binary was built without the dump feature \
+         (rebuild with `cargo build --features dump`)"
+    )
+}
+
+#[cfg(not(feature = "dump"))]
+pub fn cmd_dump(_args: &[String]) {
+    eprintln!("  \x1b[31m✗\x1b[0m {}", feature_disabled_msg("dump"));
+    std::process::exit(1);
+}
+
+#[cfg(feature = "dump")]
 pub fn cmd_dump(args: &[String]) {
     let audit_mode = args.iter().any(|a| a == "--audit");
     let nextjs_mode = args.iter().any(|a| a == "--nextjs");

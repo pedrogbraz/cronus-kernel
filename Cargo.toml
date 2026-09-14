@@ -16,9 +16,17 @@ exclude = ["target/", ".git/", "tests/", "examples/"]
 name = "cronus"
 path = "src/main.rs"
 
+[features]
+default = ["dump"]
+# `cronus dump` (HTML / Next.js / Prisma / OpenAPI → .cronus) and
+# `cronus audit logic` (DOM fixture parity). Both need the scraper HTML parser.
+dump = ["dep:scraper"]
+
 [dependencies]
-tokio = { version = "1", features = ["full"] }
-hyper = { version = "1", features = ["full"] }
+# Minimal feature sets: only what src/ uses (tokio::main/test/select!, TcpListener,
+# lookup_host, time, broadcast, AsyncRead/WriteExt, ctrl_c; hyper HTTP/1 server).
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "net", "time", "sync", "io-util", "signal"] }
+hyper = { version = "1", features = ["http1", "server"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 http-body-util = "0.1"
 serde = { version = "1", features = ["derive"] }
@@ -32,11 +40,14 @@ rand_core = { version = "0.6", features = ["getrandom"] }
 sha2 = "0.10"
 hex = "0.4"
 async-stream = "0.3"
-tokio-stream = "0.1"
 futures-core = "0.3"
-scraper = "0.22"
+scraper = { version = "0.22", optional = true }
 base64 = "0.22"
 regex = "1"
+
+[dev-dependencies]
+# http_dispatch_tests.rs drives the server with hyper's HTTP/1 client.
+hyper = { version = "1", features = ["client"] }
 
 [profile.release]
 opt-level = "z"
