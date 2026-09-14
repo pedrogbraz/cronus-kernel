@@ -764,6 +764,7 @@ dialog[data-slot="dialog-content"]::backdrop {
 }
 [data-slot="input"][aria-invalid="true"] {
   border-color: var(--cronus-error);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--cronus-error) 30%, transparent);
 }
 [data-slot="input"]:disabled {
   opacity: 0.5; pointer-events: none;
@@ -782,6 +783,7 @@ dialog[data-slot="dialog-content"]::backdrop {
 }
 [data-slot="textarea"][aria-invalid="true"] {
   border-color: var(--cronus-error);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--cronus-error) 30%, transparent);
 }
 [data-slot="textarea"]:disabled {
   opacity: 0.5; pointer-events: none;
@@ -1166,6 +1168,7 @@ dialog[data-slot="dialog-content"]::backdrop {
   width: 1rem; height: 1rem; padding: 0; margin: 0;
   border-radius: 9999px; border: 1px solid var(--cronus-border);
   background: var(--cronus-surface-inset); color: var(--cronus-primary);
+  box-shadow: var(--cronus-shadow-xs, none);
   cursor: pointer; outline: none; font: inherit;
 }
 [data-slot="radio-group-item"][data-state="checked"] {
@@ -1178,7 +1181,7 @@ dialog[data-slot="dialog-content"]::backdrop {
 
 [data-slot="chip"] {
   display: inline-flex; align-items: center; height: 1.75rem;
-  border-radius: 9999px; border: 1px solid var(--cronus-border);
+  border-radius: 9999px; border: 1px solid transparent;
   padding: 0 0.625rem; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;
   white-space: nowrap; background: var(--cronus-surface-overlay);
   color: var(--cronus-fg);
@@ -2504,6 +2507,8 @@ div:has(> [data-slot="autocomplete"] + [data-slot="autocomplete-content"]) {
   position: relative; z-index: 10;
 }
 [data-slot="split-button"][data-disabled=""] { opacity: 0.5; pointer-events: none; }
+/* The chevron is JS-only (menu), so it is always `disabled`; React only dims it with the group. */
+[data-slot="split-button"]:not([data-disabled]) > [data-slot="button"][aria-haspopup]:disabled { opacity: 1; }
 [data-slot="pill-nav"] {
   display: inline-flex; align-items: center; gap: 0.25rem;
   border-radius: 9999px;
@@ -2687,6 +2692,8 @@ div:has(> [data-slot="autocomplete"] + [data-slot="autocomplete-content"]) {
 }
 [data-slot="scheduler"] > div:first-child > div { display: flex; align-items: center; gap: 0.25rem; }
 [data-slot="scheduler"] [data-slot="button"] { font-size: 0.875rem; line-height: 1.25rem; cursor: default; }
+/* Month navigation is JS-only (`disabled`); React's buttons are enabled, so no dimming. */
+[data-slot="scheduler"] [data-slot="button"]:disabled { opacity: 1; }
 [data-slot="scheduler"] [data-slot="button"][data-size="sm"] { font-size: 0.75rem; line-height: 1rem; gap: 0.375rem; }
 [data-slot="scheduler"] [data-slot="button"] svg { width: 0.875rem; height: 0.875rem; flex-shrink: 0; }
 [data-slot="scheduler-title"] { font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; color: var(--cronus-fg); }
@@ -2845,7 +2852,6 @@ div:has(> [data-slot="autocomplete"] + [data-slot="autocomplete-content"]) {
 [dir="rtl"] [data-slot="lightbox"] > div:nth-child(2) > button { transform: scaleX(-1); }
 [data-slot="lightbox-image"] {
   display: block; max-width: 100%; max-height: 100%; object-fit: contain;
-  box-shadow: inset 0 0 0 999px var(--cronus-fg-tertiary);
 }
 [data-slot="lightbox-thumbnails"] {
   display: flex; align-items: center; justify-content: center;
@@ -3293,6 +3299,8 @@ div:has(> [data-slot="autocomplete"] + [data-slot="autocomplete-content"]) {
 [data-slot="invite-dialog"] > form {
   display: flex; flex-direction: column; gap: 1rem;
 }
+/* Cancel is JS-only (`disabled`); React's Cancel is enabled, so no dimming. */
+[data-slot="invite-dialog"] [data-slot="button"]:disabled { opacity: 1; }
 [data-slot="invite-dialog"] [data-slot="input"] {
   line-height: 1.25rem;
 }
@@ -3372,6 +3380,11 @@ div:has(> [data-slot="autocomplete"] + [data-slot="autocomplete-content"]) {
   background-image:
     linear-gradient(90deg, transparent 40%, var(--cronus-surface-base), transparent 60%),
     linear-gradient(var(--cronus-fg-tertiary, var(--cronus-fg-secondary)), var(--cronus-fg-tertiary, var(--cronus-fg-secondary)));
+  /* React: spread = text length x 2px, emitted as data-spread (typed attr(); older
+     browsers drop this declaration and keep the 40%/60% stops above). */
+  background-image:
+    linear-gradient(90deg, transparent calc(50% - attr(data-spread px, 0px)), var(--cronus-surface-base), transparent calc(50% + attr(data-spread px, 0px))),
+    linear-gradient(var(--cronus-fg-tertiary), var(--cronus-fg-tertiary));
   background-size: 250% 100%, auto;
   background-repeat: no-repeat, padding-box;
   -webkit-background-clip: text;
@@ -5026,5 +5039,62 @@ mod tests {
         );
         assert!(css.contains("[popover]"));
         assert!(css.contains("cronus-pop-in"));
+    }
+
+    fn rule<'a>(css: &'a str, selector: &str) -> &'a str {
+        let start = css
+            .find(&format!("{selector} {{"))
+            .unwrap_or_else(|| panic!("missing rule {selector}"));
+        let body = &css[start..];
+        &body[..body.find('}').expect("rule end")]
+    }
+
+    /// fa: React `aria-invalid:ring-2 aria-invalid:ring-error/30` on Input/Textarea.
+    #[test]
+    fn invalid_input_and_textarea_paint_error_ring_like_react() {
+        let css = component_chrome_css();
+        for slot in ["input", "textarea"] {
+            let r = rule(
+                css,
+                &format!("[data-slot=\"{slot}\"][aria-invalid=\"true\"]"),
+            );
+            assert!(r.contains("border-color: var(--cronus-error);"), "{slot}");
+            assert!(
+                r.contains(
+                    "box-shadow: 0 0 0 2px color-mix(in oklab, var(--cronus-error) 30%, transparent);"
+                ),
+                "{slot}"
+            );
+        }
+    }
+
+    /// fa: RadioGroupItem is `shadow-xs`; soft Chip is `border-transparent`;
+    /// the Lightbox `<img>` has no placeholder shadow.
+    #[test]
+    fn radio_chip_lightbox_image_chrome_matches_react() {
+        let css = component_chrome_css();
+        assert!(rule(css, "[data-slot=\"radio-group-item\"]")
+            .contains("box-shadow: var(--cronus-shadow-xs, none);"));
+        let chip = rule(css, "[data-slot=\"chip\"]");
+        assert!(chip.contains("border: 1px solid transparent;"));
+        assert!(!chip.contains("var(--cronus-border)"));
+        assert!(!rule(css, "[data-slot=\"lightbox-image\"]").contains("box-shadow"));
+    }
+
+    /// fa: JS-only controls stay `disabled` but keep React's undimmed idle look
+    /// where React's control is enabled (scheduler nav, invite Cancel, split
+    /// chevron unless the whole group is disabled).
+    #[test]
+    fn js_only_disabled_buttons_not_dimmed_where_react_is_enabled() {
+        let css = component_chrome_css();
+        assert!(css
+            .contains("[data-slot=\"scheduler\"] [data-slot=\"button\"]:disabled { opacity: 1; }"));
+        assert!(css.contains(
+            "[data-slot=\"invite-dialog\"] [data-slot=\"button\"]:disabled { opacity: 1; }"
+        ));
+        assert!(css.contains("[data-slot=\"split-button\"]:not([data-disabled]) > [data-slot=\"button\"][aria-haspopup]:disabled { opacity: 1; }"));
+        assert!(css.contains(
+            "[data-slot=\"split-button\"][data-disabled=\"\"] { opacity: 0.5; pointer-events: none; }"
+        ));
     }
 }
