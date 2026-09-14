@@ -181,6 +181,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "highlighter" => Some("cronus_ui_highlighter::render"),
         "scramble-text" => Some("cronus_ui_scramble_text::render"),
         "spinning-text" => Some("cronus_ui_spinning_text::render"),
+        "gradient-border" => Some("cronus_ui_gradient_border::render"),
         _ => None,
     }
 }
@@ -734,6 +735,13 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || html.contains("setTimeout")
                 || !html.contains("data-slot=\"spinning-text-label\"")
                 || !html.contains("data-slot=\"spinning-text-orbit\"")))
+        || (html.contains("data-slot=\"gradient-border\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || !html.contains("data-slot=\"gradient-border-inner\"")
+                || html.contains("<canvas")
+                || html.contains("<script")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -1005,6 +1013,7 @@ mod tests {
             "src/cronus_ui_highlighter.rs",
             "src/cronus_ui_scramble_text.rs",
             "src/cronus_ui_spinning_text.rs",
+            "src/cronus_ui_gradient_border.rs",
             "src/cronus_ui_masonry.rs",
             "src/cronus_ui_comparison_slider.rs",
             "src/cronus_ui_confirmation_dialog.rs",

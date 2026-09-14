@@ -118,6 +118,7 @@ mod cronus_ui_funnel_chart;
 mod cronus_ui_gauge_chart;
 mod cronus_ui_glare_hover;
 mod cronus_ui_glass_card;
+mod cronus_ui_gradient_border;
 mod cronus_ui_gradient_text;
 mod cronus_ui_grid_pattern;
 mod cronus_ui_heatmap;

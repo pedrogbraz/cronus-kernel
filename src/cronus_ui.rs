@@ -3428,6 +3428,20 @@ button:has(+ [data-slot="sheet-content"]) {
 @media (prefers-reduced-motion: reduce) {
   [data-slot="spinning-text-orbit"] { animation: none; }
 }
+[data-slot="gradient-border"] {
+  display: inline-block;
+  padding: 1px;
+  border-radius: var(--cronus-radius-xl);
+  background: linear-gradient(135deg, var(--cronus-primary), var(--cronus-accent));
+  color: var(--cronus-fg);
+}
+[data-slot="gradient-border-inner"] {
+  height: 100%;
+  width: 100%;
+  border-radius: inherit;
+  background: var(--cronus-surface-raised);
+  padding: 0.75rem 1.25rem;
+}
 
 "#;
 
