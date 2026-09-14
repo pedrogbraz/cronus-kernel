@@ -3428,6 +3428,41 @@ button:has(+ [data-slot="sheet-content"]) {
 @media (prefers-reduced-motion: reduce) {
   [data-slot="spinning-text-orbit"] { animation: none; }
 }
+[data-slot="progressive-blur-host"] {
+  position: relative; min-height: 6rem;
+  color: var(--cronus-fg);
+}
+[data-slot="progressive-blur"] {
+  position: absolute; inset-inline: 0; bottom: 0;
+  height: 6rem; z-index: 10; pointer-events: none;
+}
+[data-slot="progressive-blur-layer"] {
+  position: absolute; inset: 0;
+}
+[data-slot="progressive-blur-layer"]:nth-of-type(1) {
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
+  mask-image: linear-gradient(to top, black, transparent);
+  -webkit-mask-image: linear-gradient(to top, black, transparent);
+}
+[data-slot="progressive-blur-layer"]:nth-of-type(2) {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  mask-image: linear-gradient(to top, black 30%, transparent 70%);
+  -webkit-mask-image: linear-gradient(to top, black 30%, transparent 70%);
+}
+[data-slot="progressive-blur-layer"]:nth-of-type(3) {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  mask-image: linear-gradient(to top, black 10%, transparent 45%);
+  -webkit-mask-image: linear-gradient(to top, black 10%, transparent 45%);
+}
+[data-slot="progressive-blur-content"] {
+  position: relative;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="progressive-blur"] { display: none; }
+}
 
 "#;
 

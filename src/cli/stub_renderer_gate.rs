@@ -181,6 +181,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "highlighter" => Some("cronus_ui_highlighter::render"),
         "scramble-text" => Some("cronus_ui_scramble_text::render"),
         "spinning-text" => Some("cronus_ui_spinning_text::render"),
+        "progressive-blur" => Some("cronus_ui_progressive_blur::render"),
         _ => None,
     }
 }
@@ -734,6 +735,15 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || html.contains("setTimeout")
                 || !html.contains("data-slot=\"spinning-text-label\"")
                 || !html.contains("data-slot=\"spinning-text-orbit\"")))
+        || (html.contains("data-slot=\"progressive-blur\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || html.contains("<script")
+                || !html.contains("data-slot=\"progressive-blur-host\"")
+                || !html.contains("data-slot=\"progressive-blur-layer\"")
+                || !html.contains("data-slot=\"progressive-blur-content\"")
+                || html.contains("<canvas")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -945,6 +955,7 @@ mod tests {
             "src/cronus_ui_usage_meter.rs",
             "src/cronus_ui_toolbar.rs",
             "src/cronus_ui_progress.rs",
+            "src/cronus_ui_progressive_blur.rs",
             "src/cronus_ui_profit_loss_chart.rs",
             "src/cronus_ui_slider.rs",
             "src/cronus_ui_radio_group.rs",
