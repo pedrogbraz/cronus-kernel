@@ -7,12 +7,12 @@ use super::render_section;
 // PAGE RENDERER (returns inner body HTML)
 // ══════════════════════════════════════════════════
 
-pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str, theme: &str, db: Option<&crate::database::CronusDB>, route_params: &std::collections::HashMap<String, String>, owner_id: &str) -> String {
+pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str, theme: &str, db: Option<&crate::database::CronusDB>, route_params: &std::collections::HashMap<String, String>, access: &crate::access::Access) -> String {
     match page.page_type.as_str() {
         // dashboard/list/form/detail are now layout hints — actual rendering
         // uses the same pipeline as `custom` so developer-defined sections
         // are always respected. This matches the "declare once, get it" principle.
-        "dashboard" | "custom" => render_custom(page, accent, theme, db, route_params, owner_id, entities),
+        "dashboard" | "custom" => render_custom(page, accent, theme, db, route_params, access, entities),
         "list" => render_list(page, entities, accent),
         "form" => render_form(page, entities, accent),
         "detail" => render_list(page, entities, accent),
@@ -818,7 +818,7 @@ fn render_detail(page: &PageNode, _entities: &[EntityNode], accent: &str) -> Str
 // CUSTOM PAGE (sections: hero, features, pricing)
 // ══════════════════════════════════════════════════
 
-fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::database::CronusDB>, route_params: &std::collections::HashMap<String, String>, owner_id: &str, entities: &[EntityNode]) -> String {
+fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::database::CronusDB>, route_params: &std::collections::HashMap<String, String>, access: &crate::access::Access, entities: &[EntityNode]) -> String {
     let shell_types = ["topbar", "sidebar"];
     let mut shell_parts: Vec<String> = Vec::new();
     let mut content_parts: Vec<String> = Vec::new();
@@ -846,17 +846,10 @@ fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::
             || section.section_type == "sidebar" {
             has_sidebar_section = true;
         }
-        // Check if the bound entity is shared (visible to all authenticated users)
-        let effective_owner = if let Some(ref binding) = section.binding {
-            let is_shared = entities.iter().any(|e| e.name == binding.entity && e.shared);
-            if is_shared { "" } else { owner_id }
-        } else {
-            owner_id
-        };
-
-        // Resolve binding against real DB (falls back to None if no DB)
+        // Resolve binding against real DB (falls back to None if no DB).
+        // Authorization (owner scope, shared, scope:public, redaction) lives in binding.rs.
         let bound_data = match db {
-            Some(db) => crate::binding::resolve_binding(section, db, route_params, effective_owner),
+            Some(db) => crate::binding::resolve_binding(section, db, route_params, access, entities),
             None => crate::binding::ResolvedData::None,
         };
 
@@ -1163,7 +1156,7 @@ mod tests {
             "dark",
             None,
             &route_params,
-            "test-user",
+            &crate::access::Access::anonymous(),
         );
 
         // The user-defined marker MUST appear in the output.

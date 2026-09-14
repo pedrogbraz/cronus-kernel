@@ -7,11 +7,24 @@
 //! Auto-generates types, queries, and mutations from entities.
 //! Resolves via CronusDB.
 
-use std::sync::Arc;
 use serde_json::{json, Value, Map};
 
+use crate::access::{self, Access, ReadScope, WriteScope};
+use crate::authz;
 use crate::database::CronusDB;
-use crate::parser::{EntityNode, FieldType};
+use crate::parser::{EntityNode, FieldNode, FieldType};
+
+/// Never part of the generated output type (or introspection).
+fn is_readable_field(field: &FieldNode) -> bool {
+    !field.sensitive && field.name != "password" && field.name != "password_hash"
+}
+
+/// Only fields `authz::writable_body` would keep appear in create inputs.
+fn is_writable_field(field: &FieldNode) -> bool {
+    is_readable_field(field)
+        && !authz::SYSTEM_FIELDS.contains(&field.name.as_str())
+        && !authz::PRIVILEGED_FIELDS.contains(&field.name.as_str())
+}
 
 // ══════════════════════════════════════════════════
 // SCHEMA GENERATION
@@ -80,7 +93,7 @@ fn field_type_to_graphql(ft: &FieldType) -> &'static str {
 fn generate_type(entity: &EntityNode) -> String {
     let mut out = format!("type {} {{\n", entity.name);
     out.push_str("  id: String!\n");
-    for field in &entity.fields {
+    for field in entity.fields.iter().filter(|f| is_readable_field(f)) {
         let gql_type = if field.enum_values.is_some() {
             "String"
         } else {
@@ -97,7 +110,7 @@ fn generate_type(entity: &EntityNode) -> String {
 
 fn generate_create_input(entity: &EntityNode) -> String {
     let mut out = format!("input Create{}Input {{\n", entity.name);
-    for field in &entity.fields {
+    for field in entity.fields.iter().filter(|f| is_writable_field(f)) {
         let gql_type = if field.enum_values.is_some() {
             "String"
         } else {
@@ -375,13 +388,28 @@ fn parse_arg_value(
 // EXECUTOR
 // ══════════════════════════════════════════════════
 
+type GqlError = (&'static str, String);
+
+pub fn gql_error(code: &str, message: &str) -> Value {
+    json!({ "errors": [{ "message": message, "extensions": { "code": code } }] })
+}
+
 /// Execute a GraphQL request. Returns JSON response { data, errors }.
+///
+/// SECURITY: requires an authenticated viewer; reads use the same owner scope
+/// as REST, mutations write through `authz::writable_body` with a server-set
+/// `_owner_id`, deletes are owner-constrained in SQL, and sensitive fields
+/// are redacted. DB error text is logged, never returned.
 pub fn execute_graphql(
     query: &str,
     variables: &Value,
     schema: &GraphQLSchema,
-    db: &Arc<CronusDB>,
+    db: &CronusDB,
+    access: &Access,
 ) -> Value {
+    if access.viewer.is_none() {
+        return gql_error("UNAUTHENTICATED", "authentication required");
+    }
     let (op, fields) = match parse_query(query) {
         Ok(r) => r,
         Err(e) => {
@@ -397,7 +425,7 @@ pub fn execute_graphql(
     for field in &fields {
         match op {
             Operation::Query => {
-                if let Some(result) = resolve_query(field, schema, db, variables) {
+                if let Some(result) = resolve_query(field, schema, db, access) {
                     data.insert(field.name.clone(), result);
                 } else {
                     errors.push(json!({
@@ -406,12 +434,12 @@ pub fn execute_graphql(
                 }
             }
             Operation::Mutation => {
-                match resolve_mutation(field, schema, db, variables) {
+                match resolve_mutation(field, schema, db, variables, access) {
                     Ok(result) => {
                         data.insert(field.name.clone(), result);
                     }
-                    Err(e) => {
-                        errors.push(json!({ "message": e }));
+                    Err((code, message)) => {
+                        errors.push(json!({ "message": message, "extensions": { "code": code } }));
                     }
                 }
             }
@@ -425,65 +453,81 @@ pub fn execute_graphql(
     result
 }
 
+fn string_arg(field: &ParsedField, name: &str) -> Option<String> {
+    field.args.iter().find(|(k, _)| k == name).and_then(|(_, v)| match v {
+        ArgValue::StringVal(s) => Some(s.clone()),
+        _ => None,
+    })
+}
+
+fn select(value: Value, sub_fields: &[String]) -> Value {
+    if sub_fields.is_empty() {
+        value
+    } else if value.is_array() {
+        filter_fields_array(&value, sub_fields)
+    } else {
+        filter_fields_object(&value, sub_fields)
+    }
+}
+
 fn resolve_query(
     field: &ParsedField,
     schema: &GraphQLSchema,
-    db: &Arc<CronusDB>,
-    _variables: &Value,
+    db: &CronusDB,
+    access: &Access,
 ) -> Option<Value> {
-    // Check if this is a list query (e.g. "users", "products")
     for entity in &schema.entities {
         let lower = entity.name.to_lowercase();
-        let plural = format!("{}s", lower);
+        let is_list = field.name == format!("{}s", lower);
+        if !is_list && field.name != lower {
+            continue;
+        }
+        let empty = if is_list { json!([]) } else { Value::Null };
+        let scope = access::read_scope(access, &entity.name, Some(entity), false);
+        if scope == ReadScope::Deny {
+            return Some(empty);
+        }
+        let mut filters: Vec<(String, String, String)> = scope.filter().into_iter().collect();
 
-        if field.name == plural {
-            // List query
+        if is_list {
             let limit = field
                 .args
                 .iter()
                 .find(|(k, _)| k == "limit")
                 .and_then(|(_, v)| match v {
-                    ArgValue::IntVal(n) => Some(*n as usize),
+                    ArgValue::IntVal(n) => usize::try_from(*n).ok(),
                     _ => None,
                 })
-                .unwrap_or(100);
-
-            match db.find_all(&entity.name, limit, 0) {
-                Ok(rows) => {
-                    if field.sub_fields.is_empty() {
-                        return Some(rows);
-                    }
-                    // Filter to requested fields
-                    return Some(filter_fields_array(&rows, &field.sub_fields));
+                .unwrap_or(100)
+                .min(1000);
+            return Some(match db.find_many(&entity.name, &filters, None, None, Some(limit), Some(0)) {
+                Ok(mut rows) => {
+                    authz::redact_sensitive(entity, &mut rows);
+                    select(rows, &field.sub_fields)
                 }
-                Err(_) => return Some(json!([])),
-            }
+                Err(e) => {
+                    eprintln!("  graphql {} list failed: {}", entity.name, e);
+                    empty
+                }
+            });
         }
 
-        if field.name == lower {
-            // Single query
-            let id = field
-                .args
-                .iter()
-                .find(|(k, _)| k == "id")
-                .and_then(|(_, v)| match v {
-                    ArgValue::StringVal(s) => Some(s.clone()),
-                    _ => None,
-                });
-
-            if let Some(id) = id {
-                match db.find_by_id(&entity.name, &id) {
-                    Ok(Some(row)) => {
-                        if field.sub_fields.is_empty() {
-                            return Some(row);
-                        }
-                        return Some(filter_fields_object(&row, &field.sub_fields));
-                    }
-                    _ => return Some(Value::Null),
-                }
+        let id = match string_arg(field, "id") {
+            Some(id) => id,
+            None => return Some(Value::Null),
+        };
+        filters.push(("id".into(), "=".into(), id));
+        return Some(match db.find_one(&entity.name, &filters, None, None) {
+            Ok(Some(mut row)) => {
+                authz::redact_sensitive(entity, &mut row);
+                select(row, &field.sub_fields)
             }
-            return Some(Value::Null);
-        }
+            Ok(None) => Value::Null,
+            Err(e) => {
+                eprintln!("  graphql {} by id failed: {}", entity.name, e);
+                Value::Null
+            }
+        });
     }
 
     None
@@ -492,14 +536,23 @@ fn resolve_query(
 fn resolve_mutation(
     field: &ParsedField,
     schema: &GraphQLSchema,
-    db: &Arc<CronusDB>,
+    db: &CronusDB,
     variables: &Value,
-) -> Result<Value, String> {
+    access: &Access,
+) -> Result<Value, GqlError> {
+    let viewer = access
+        .viewer
+        .as_ref()
+        .ok_or(("UNAUTHENTICATED", "authentication required".to_string()))?;
     for entity in &schema.entities {
         let create_name = format!("create{}", entity.name);
         let delete_name = format!("delete{}", entity.name);
+        let is_auth_entity = access.is_auth_entity(&entity.name);
 
         if field.name == create_name {
+            if is_auth_entity && !viewer.is_admin() {
+                return Err(("FORBIDDEN", "not allowed".into()));
+            }
             // Get input from args or variables
             let input = field
                 .args
@@ -519,26 +572,37 @@ fn resolve_mutation(
                         .unwrap_or(json!({}))
                 });
 
-            return db.insert(&entity.name, &input);
+            let obj = input
+                .as_object()
+                .ok_or(("BAD_USER_INPUT", "input must be an object".to_string()))?;
+            let mut body = authz::writable_body(entity, obj);
+            if !is_auth_entity {
+                body.insert("_owner_id".into(), json!(viewer.id));
+            }
+            let mut row = db.insert(&entity.name, &Value::Object(body)).map_err(|e| {
+                eprintln!("  graphql {} failed: {}", create_name, e);
+                ("CREATE_FAILED", format!("could not create {}", entity.name))
+            })?;
+            authz::redact_sensitive(entity, &mut row);
+            return Ok(select(row, &field.sub_fields));
         }
 
         if field.name == delete_name {
-            let id = field
-                .args
-                .iter()
-                .find(|(k, _)| k == "id")
-                .and_then(|(_, v)| match v {
-                    ArgValue::StringVal(s) => Some(s.clone()),
-                    _ => None,
-                })
-                .ok_or("delete requires id argument")?;
-
-            let deleted = db.delete(&entity.name, &id)?;
+            let id = string_arg(field, "id")
+                .ok_or(("BAD_USER_INPUT", "delete requires id argument".to_string()))?;
+            let scope = access::write_scope(access, &entity.name);
+            if scope == WriteScope::Deny {
+                return Err(("FORBIDDEN", "not allowed".into()));
+            }
+            let deleted = access::scoped_delete(db, &entity.name, &id, &scope).map_err(|e| {
+                eprintln!("  graphql {} failed: {}", delete_name, e);
+                ("DELETE_FAILED", format!("could not delete {}", entity.name))
+            })?;
             return Ok(json!(deleted));
         }
     }
 
-    Err(format!("Unknown mutation: {}", field.name))
+    Err(("UNKNOWN_MUTATION", format!("Unknown mutation: {}", field.name)))
 }
 
 fn filter_fields_array(arr: &Value, fields: &[String]) -> Value {
@@ -685,4 +749,106 @@ pub fn playground_html() -> String {
   </script>
 </body>
 </html>"#.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::access::test_support::*;
+
+    fn run(q: &str, vars: Value, access: &Access, db: &CronusDB, ents: &[EntityNode]) -> Value {
+        let schema = GraphQLSchema::from_entities(ents);
+        execute_graphql(q, &vars, &schema, db, access)
+    }
+
+    #[test]
+    fn anonymous_requests_are_rejected() {
+        let ents = entities();
+        let db = db(&ents);
+        db.insert("User", &json!({"email":"a@b.co","password":"$argon2id$hash","role":"admin"})).unwrap();
+        let out = run("{ users { email password role } }", json!({}), &anon(), &db, &ents);
+        assert_eq!(out["errors"][0]["extensions"]["code"], "UNAUTHENTICATED");
+        assert!(out.get("data").is_none());
+        let out = run("mutation { deleteNote(id: \"x\") }", json!({}), &anon(), &db, &ents);
+        assert_eq!(out["errors"][0]["extensions"]["code"], "UNAUTHENTICATED");
+    }
+
+    #[test]
+    fn lists_and_by_id_are_owner_scoped() {
+        let ents = entities();
+        let db = db(&ents);
+        let alice_note = insert_note(&db, "alice", "a1");
+        insert_note(&db, "bob", "b1");
+
+        let out = run("{ notes { id title } }", json!({}), &as_user("bob"), &db, &ents);
+        let notes = out["data"]["notes"].as_array().unwrap();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0]["title"], "b1");
+
+        let q = format!("{{ note(id: \"{}\") {{ title }} }}", alice_note);
+        assert!(run(&q, json!({}), &as_user("bob"), &db, &ents)["data"]["note"].is_null());
+        assert_eq!(run(&q, json!({}), &as_user("alice"), &db, &ents)["data"]["note"]["title"], "a1");
+        let all = run("{ notes { id } }", json!({}), &as_admin(), &db, &ents);
+        assert_eq!(all["data"]["notes"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn sensitive_fields_absent_from_responses_and_schema() {
+        let ents = entities();
+        let db = db(&ents);
+        insert_note(&db, "alice", "a1");
+        let me = db.insert("User", &json!({"email":"me@x.co","password":"$argon2id$me"})).unwrap();
+        db.insert("User", &json!({"email":"other@x.co","password":"$argon2id$other"})).unwrap();
+        let me_id = me["id"].as_str().unwrap();
+
+        let out = run("{ notes { title secret } }", json!({}), &as_user("alice"), &db, &ents);
+        assert!(out["data"]["notes"][0].get("secret").is_none());
+        let out = run("{ users }", json!({}), &as_user(me_id), &db, &ents);
+        let users = out["data"]["users"].as_array().unwrap();
+        assert_eq!(users.len(), 1, "a user only sees their own account");
+        assert!(users[0].get("password").is_none());
+
+        let sdl = GraphQLSchema::from_entities(&ents).sdl;
+        assert!(!sdl.contains("secret"));
+        assert!(!sdl.contains("password"));
+        assert!(!sdl.contains("  role: String\n}\ninput"), "role is not writable");
+    }
+
+    #[test]
+    fn cross_owner_delete_is_refused() {
+        let ents = entities();
+        let db = db(&ents);
+        let id = insert_note(&db, "alice", "a1");
+        let q = format!("mutation {{ deleteNote(id: \"{}\") }}", id);
+        assert_eq!(run(&q, json!({}), &as_user("bob"), &db, &ents)["data"]["deleteNote"], false);
+        assert!(db.find_by_id("Note", &id).unwrap().is_some());
+        assert_eq!(run(&q, json!({}), &as_user("alice"), &db, &ents)["data"]["deleteNote"], true);
+    }
+
+    #[test]
+    fn create_sets_owner_server_side_and_drops_forbidden_fields() {
+        let ents = entities();
+        let db = db(&ents);
+        let out = run(
+            "mutation($input: CreateNoteInput!) { createNote(input: $input) { id } }",
+            json!({"input": {"title": "t", "_owner_id": "alice", "secret": "leak", "id": "forced"}}),
+            &as_user("bob"),
+            &db,
+            &ents,
+        );
+        let id = out["data"]["createNote"]["id"].as_str().expect("id");
+        assert_ne!(id, "forced");
+        let row = db.find_by_id("Note", id).unwrap().unwrap();
+        assert_eq!(row["_owner_id"], "bob");
+        assert!(row["secret"].is_null());
+
+        let out = run(
+            "mutation($input: CreateUserInput!) { createUser(input: $input) { id } }",
+            json!({"input": {"email": "x@y.co"}}),
+            &as_user("bob"),
+            &db,
+            &ents,
+        );
+        assert_eq!(out["errors"][0]["extensions"]["code"], "FORBIDDEN");
+    }
 }

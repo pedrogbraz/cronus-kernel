@@ -2,7 +2,8 @@
 
 use serde_json::Value;
 use std::collections::HashMap;
-use crate::parser::{BindingNode, QueryType, FilterOp, BindingValue, SectionNode, OrderDirection};
+use crate::access::{self, Access, ReadScope};
+use crate::parser::{BindingNode, EntityNode, QueryType, FilterOp, BindingValue, SectionNode, OrderDirection};
 use crate::database::CronusDB;
 
 /// The result of resolving a binding against the database.
@@ -32,64 +33,105 @@ fn op_to_str(op: &FilterOp) -> &'static str {
     }
 }
 
-/// Extract the string value from a BindingValue for SQL parameter.
-/// Route params (route.id, route.slug, etc.) are resolved from the route_params map.
-fn binding_value_to_string(val: &BindingValue, route_params: &HashMap<String, String>) -> String {
+/// Resolve a filter value. `route.*` comes from URL params, `auth.id`,
+/// `auth.role` and `auth.email` from the session. `None` means the filter
+/// cannot be satisfied (no session, unknown ref) — the binding yields no data.
+fn binding_value_to_string(
+    val: &BindingValue,
+    route_params: &HashMap<String, String>,
+    access: &Access,
+    db: &CronusDB,
+) -> Option<String> {
     match val {
-        BindingValue::Str(s) => s.clone(),
-        BindingValue::Num(n) => n.clone(),
-        BindingValue::Bool(b) => if *b { "1".to_string() } else { "0".to_string() },
+        BindingValue::Str(s) => Some(s.clone()),
+        BindingValue::Num(n) => Some(n.clone()),
+        BindingValue::Bool(b) => Some(if *b { "1".to_string() } else { "0".to_string() }),
         BindingValue::AuthRef(r) => {
-            // Resolve route.* references from URL params
             if let Some(param_name) = r.strip_prefix("route.") {
-                return route_params.get(param_name).cloned().unwrap_or_default();
+                return Some(route_params.get(param_name).cloned().unwrap_or_default());
             }
-            // TODO: resolve auth refs against current user session
-            // For now, return the ref as placeholder
-            format!("${}", r)
+            let viewer = access.viewer.as_ref()?;
+            match r.strip_prefix("auth.")? {
+                "id" => Some(viewer.id.clone()),
+                "role" => Some(viewer.role.clone()),
+                "email" => db
+                    .find_by_id(access.auth_entity_name(), &viewer.id)
+                    .ok()
+                    .flatten()
+                    .and_then(|row| row.get("email").and_then(|v| v.as_str()).map(str::to_string)),
+                _ => None,
+            }
         }
     }
 }
 
-/// Prepare filter tuples for the database query builder.
-/// Each tuple is (field_name, sql_operator, value_string).
-fn prepare_filters(binding: &BindingNode, route_params: &HashMap<String, String>) -> Vec<(String, String, String)> {
+/// Prepare filter tuples (field, sql_operator, value) for the query builder.
+fn prepare_filters(
+    binding: &BindingNode,
+    route_params: &HashMap<String, String>,
+    access: &Access,
+    db: &CronusDB,
+) -> Option<Vec<(String, String, String)>> {
     binding.filters.iter().map(|f| {
         let sql_op = crate::database::filter_op_to_sql(op_to_str(&f.operator)).to_string();
-        let mut value = binding_value_to_string(&f.value, route_params);
-
-        // For LIKE operators, wrap the value
+        let mut value = binding_value_to_string(&f.value, route_params, access, db)?;
         match f.operator {
             FilterOp::Contains => { value = format!("%{}%", value); }
             FilterOp::StartsWith => { value = format!("{}%", value); }
             _ => {}
         }
-
-        (f.field.clone(), sql_op, value)
+        Some((f.field.clone(), sql_op, value))
     }).collect()
 }
 
+fn empty_for(binding: &BindingNode) -> ResolvedData {
+    if binding.group_by.is_some() {
+        return ResolvedData::Rows(Vec::new());
+    }
+    match binding.query {
+        QueryType::All => ResolvedData::Rows(Vec::new()),
+        QueryType::One => ResolvedData::Record(None),
+        QueryType::Count => ResolvedData::Count(0),
+    }
+}
+
+fn is_hidden_field(entity: Option<&EntityNode>, field: &str) -> bool {
+    field == "password"
+        || field == "password_hash"
+        || entity.map(|e| crate::authz::sensitive_names(e).contains(&field)).unwrap_or(false)
+}
+
 /// Resolve a section's binding against the database.
-/// Returns ResolvedData that renderers can consume.
 ///
 /// This is the ONLY place where binding -> database query happens.
-/// Renderers never touch the database directly.
-/// `route_params` maps URL parameter names to their values (e.g. "id" -> "abc123").
-pub fn resolve_binding(section: &SectionNode, db: &CronusDB, route_params: &HashMap<String, String>, owner_id: &str) -> ResolvedData {
+/// Authorization (see `access.rs` and LANGUAGE.md §9.5): anonymous viewers get
+/// data only from `scope:public` bindings (never the auth entity); signed-in
+/// non-admins are owner-scoped except for `shared` entities and `scope:public`;
+/// admins see every row. Sensitive fields never leave this function.
+pub fn resolve_binding(
+    section: &SectionNode,
+    db: &CronusDB,
+    route_params: &HashMap<String, String>,
+    access: &Access,
+    entities: &[EntityNode],
+) -> ResolvedData {
     let binding = match &section.binding {
         Some(b) => b,
         None => return ResolvedData::None,
     };
 
-    // Use entity name as-is — tables are created with the exact entity name from migrate()
     let table = binding.entity.clone();
-    let mut filters = prepare_filters(binding, route_params);
+    let entity = entities.iter().find(|e| e.name == table);
 
-    // SECURITY: Add owner_id filter for data isolation.
-    // `bind X { scope:public }` is the author opt-out (landing KPIs, shared catalogs).
-    if !owner_id.is_empty() && !binding.public {
-        filters.push(("_owner_id".to_string(), "=".to_string(), owner_id.to_string()));
-    }
+    let scope_filter = match access::read_scope(access, &table, entity, binding.public) {
+        ReadScope::Deny => return empty_for(binding),
+        scope => scope.filter(),
+    };
+    let mut filters = match prepare_filters(binding, route_params, access, db) {
+        Some(f) => f,
+        None => return empty_for(binding),
+    };
+    filters.extend(scope_filter);
 
     let order_field = binding.order.as_ref().map(|o| o.field.as_str());
     let order_dir = binding.order.as_ref().map(|o| {
@@ -99,16 +141,22 @@ pub fn resolve_binding(section: &SectionNode, db: &CronusDB, route_params: &Hash
         }
     });
 
-    // If group_by is present, run an aggregation query instead of normal CRUD
     if binding.group_by.is_some() {
-        return resolve_aggregation(binding, &table, &filters, db);
+        return resolve_aggregation(binding, entity, &table, &filters, db);
     }
+
+    let redact = |mut v: Value| {
+        if let Some(e) = entity {
+            crate::authz::redact_sensitive(e, &mut v);
+        }
+        v
+    };
 
     match binding.query {
         QueryType::All => {
             match db.find_many(&table, &filters, order_field, order_dir, binding.limit, binding.offset) {
-                Ok(Value::Array(rows)) => ResolvedData::Rows(rows),
-                Ok(other) => ResolvedData::Rows(vec![other]),
+                Ok(Value::Array(rows)) => ResolvedData::Rows(rows.into_iter().map(redact).collect()),
+                Ok(other) => ResolvedData::Rows(vec![redact(other)]),
                 Err(e) => {
                     eprintln!("  \x1b[31m✗\x1b[0m Binding error ({}): {}", table, e);
                     ResolvedData::Rows(Vec::new())
@@ -117,7 +165,7 @@ pub fn resolve_binding(section: &SectionNode, db: &CronusDB, route_params: &Hash
         }
         QueryType::One => {
             match db.find_one(&table, &filters, order_field, order_dir) {
-                Ok(record) => ResolvedData::Record(record),
+                Ok(record) => ResolvedData::Record(record.map(redact)),
                 Err(e) => {
                     eprintln!("  \x1b[31m✗\x1b[0m Binding error ({}): {}", table, e);
                     ResolvedData::Record(None)
@@ -140,17 +188,20 @@ pub fn resolve_binding(section: &SectionNode, db: &CronusDB, route_params: &Hash
 /// Returns Rows with {label, value} objects for chart consumption.
 ///
 /// SECURITY: All field names are validated as safe identifiers before use in SQL.
-/// Filter values use parameterized queries (no string interpolation).
+/// Filter values (including the owner scope) are bound parameters.
 fn resolve_aggregation(
     binding: &BindingNode,
+    entity: Option<&EntityNode>,
     table: &str,
     filters: &[(String, String, String)],
     db: &CronusDB,
 ) -> ResolvedData {
-    let group = binding.group_by.as_ref().unwrap();
+    let group = match binding.group_by.as_ref() {
+        Some(g) => g,
+        None => return ResolvedData::Rows(Vec::new()),
+    };
 
-    // SECURITY: Validate all field names are safe identifiers
-    if !crate::security::is_safe_identifier(&group.field) {
+    if !crate::security::is_safe_identifier(&group.field) || is_hidden_field(entity, &group.field) {
         eprintln!("  \x1b[31m✗\x1b[0m SECURITY: invalid group field name: {}", group.field);
         return ResolvedData::Rows(Vec::new());
     }
@@ -159,7 +210,6 @@ fn resolve_aggregation(
         return ResolvedData::Rows(Vec::new());
     }
 
-    // Build the GROUP BY expression (with optional time interval)
     let group_expr = match &group.interval {
         Some(interval) => match interval.as_str() {
             "month" => format!("strftime('%Y-%m', \"{}\")", group.field),
@@ -171,11 +221,10 @@ fn resolve_aggregation(
         None => format!("\"{}\"", group.field),
     };
 
-    // Build the aggregate expression with validated field
     let agg_expr = match &binding.aggregate {
         Some(agg) => {
             let agg_field = agg.field.as_deref().unwrap_or("id");
-            if !crate::security::is_safe_identifier(agg_field) {
+            if !crate::security::is_safe_identifier(agg_field) || is_hidden_field(entity, agg_field) {
                 eprintln!("  \x1b[31m✗\x1b[0m SECURITY: invalid agg field: {}", agg_field);
                 return ResolvedData::Rows(Vec::new());
             }
@@ -191,25 +240,23 @@ fn resolve_aggregation(
         None => "COUNT(*)".to_string(),
     };
 
-    // SECURITY: Build WHERE clause with parameterized values
+    let valid_ops = ["=", "!=", ">", ">=", "<", "<=", "LIKE"];
     let mut param_values: Vec<String> = Vec::new();
-    let where_clause = if filters.is_empty() {
+    let mut parts: Vec<String> = Vec::new();
+    for (field, op, val) in filters {
+        // A filter that cannot be expressed safely must not be silently
+        // dropped — that would widen the result (e.g. lose the owner scope).
+        if !crate::security::is_safe_identifier(field) || !valid_ops.contains(&op.as_str()) {
+            eprintln!("  \x1b[31m✗\x1b[0m SECURITY: invalid aggregation filter on {}", table);
+            return ResolvedData::Rows(Vec::new());
+        }
+        param_values.push(val.clone());
+        parts.push(format!("\"{}\" {} ?{}", field, op, param_values.len()));
+    }
+    let where_clause = if parts.is_empty() {
         String::new()
     } else {
-        let mut parts: Vec<String> = Vec::new();
-        for (field, op, val) in filters {
-            if !crate::security::is_safe_identifier(field) {
-                continue; // skip invalid field names
-            }
-            let idx = param_values.len() + 1;
-            parts.push(format!("\"{}\" {} ?{}", field, op, idx));
-            param_values.push(val.clone());
-        }
-        if parts.is_empty() {
-            String::new()
-        } else {
-            format!(" WHERE {}", parts.join(" AND "))
-        }
+        format!(" WHERE {}", parts.join(" AND "))
     };
 
     let sql = format!(
@@ -217,16 +264,106 @@ fn resolve_aggregation(
         group_expr, agg_expr, table, where_clause, group_expr
     );
 
-    // Use parameterized query
     match db.query_raw_params(&sql, &param_values) {
         Ok(rows) => ResolvedData::Rows(rows),
         Err(e) => {
             eprintln!("  \x1b[31m✗\x1b[0m Aggregation error ({}): {}", table, e);
-            // Fallback: try without params (for backwards compat with non-parameterized query_raw)
-            match db.query_raw(&sql.replace(|c: char| c == '?' && false, "")) {
-                Ok(rows) => ResolvedData::Rows(rows),
-                Err(_) => ResolvedData::Rows(Vec::new()),
-            }
+            ResolvedData::Rows(Vec::new())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::access::test_support::*;
+    use crate::parser::{parse, AstNode};
+
+    fn section(bind: &str) -> SectionNode {
+        let src = format!("app \"T\" {{ port 5175 }}\npage \"/p\" type:custom {{\n  section table {{\n    {}\n  }}\n}}\n", bind);
+        parse(&src)
+            .expect("parse")
+            .into_iter()
+            .find_map(|n| match n {
+                AstNode::Page(p) => p.sections.into_iter().next(),
+                _ => None,
+            })
+            .expect("section")
+    }
+
+    fn rows(data: ResolvedData) -> Vec<Value> {
+        match data {
+            ResolvedData::Rows(r) => r,
+            other => panic!("expected rows, got {:?}", other),
+        }
+    }
+
+    fn fixture() -> (Vec<EntityNode>, CronusDB) {
+        let ents = entities();
+        let db = db(&ents);
+        insert_note(&db, "alice", "a1");
+        insert_note(&db, "alice", "a2");
+        insert_note(&db, "bob", "b1");
+        (ents, db)
+    }
+
+    #[test]
+    fn anonymous_gets_no_rows_without_scope_public() {
+        let (ents, db) = fixture();
+        let p = HashMap::new();
+        assert!(rows(resolve_binding(&section("bind Note { query all }"), &db, &p, &anon(), &ents)).is_empty());
+        match resolve_binding(&section("bind Note { query count }"), &db, &p, &anon(), &ents) {
+            ResolvedData::Count(n) => assert_eq!(n, 0),
+            other => panic!("{:?}", other),
+        }
+    }
+
+    #[test]
+    fn anonymous_scope_public_sees_rows_but_never_the_auth_entity() {
+        let (ents, db) = fixture();
+        db.insert("User", &serde_json::json!({"email":"a@b.co","password":"h"})).unwrap();
+        let p = HashMap::new();
+        assert_eq!(rows(resolve_binding(&section("bind Note { query all scope:public }"), &db, &p, &anon(), &ents)).len(), 3);
+        assert!(rows(resolve_binding(&section("bind User { query all scope:public }"), &db, &p, &anon(), &ents)).is_empty());
+    }
+
+    #[test]
+    fn owner_sees_only_own_rows_and_admin_sees_all() {
+        let (ents, db) = fixture();
+        let p = HashMap::new();
+        let s = section("bind Note { query all }");
+        let alice = rows(resolve_binding(&s, &db, &p, &as_user("alice"), &ents));
+        assert_eq!(alice.len(), 2);
+        assert!(alice.iter().all(|r| r["_owner_id"] == "alice"));
+        assert_eq!(rows(resolve_binding(&s, &db, &p, &as_admin(), &ents)).len(), 3);
+    }
+
+    #[test]
+    fn sensitive_fields_are_redacted() {
+        let (ents, db) = fixture();
+        let p = HashMap::new();
+        let r = rows(resolve_binding(&section("bind Note { query all }"), &db, &p, &as_user("alice"), &ents));
+        assert!(r.iter().all(|row| row.get("secret").is_none() && row.get("title").is_some()));
+    }
+
+    #[test]
+    fn auth_refs_resolve_from_session_and_fail_closed_without_one() {
+        let (ents, db) = fixture();
+        let p = HashMap::new();
+        let s = section("bind Note { query all where _owner_id eq auth.id scope:public }");
+        let bob = rows(resolve_binding(&s, &db, &p, &as_user("bob"), &ents));
+        assert_eq!(bob.len(), 1);
+        assert_eq!(bob[0]["title"], "b1");
+        assert!(rows(resolve_binding(&s, &db, &p, &anon(), &ents)).is_empty());
+    }
+
+    #[test]
+    fn aggregation_binds_filters_and_applies_owner_scope() {
+        let (ents, db) = fixture();
+        let p = HashMap::new();
+        let s = section("bind Note { aggregate count group_by:title }");
+        let alice = rows(resolve_binding(&s, &db, &p, &as_user("alice"), &ents));
+        assert_eq!(alice.len(), 2, "{:?}", alice);
+        assert!(rows(resolve_binding(&s, &db, &p, &anon(), &ents)).is_empty());
     }
 }

@@ -312,6 +312,8 @@ Supported `type:` values in `src/ui/page.rs`:
 - `requires:role(admin)` — specific role
 - `requires:role(admin|editor)` — any of listed roles
 
+Matching is by **exact route pattern** (`access::route_pattern_matches`): `requires` on `/admin` protects `/admin` only, not `/admin/users`; `/orders/:id` matches `/orders/42` but not `/orders/42/edit`. Declare `requires:` on every protected page. (Before Sprint 1 this was a prefix match.)
+
 ### 5.3 Pages + layout integration — 2026-04-10 fix
 
 When a page has `requires:auth` AND the app has a top-level `layout Main { sidebar { ... } }` block, the renderer uses `render_layout_declarative` to wrap the page in the declarative sidebar shell — **even if the page has template sections**. This ensures every protected page shares the same design system. The routing guard lives in `src/main.rs::handle_request_inner` at ~line 1477 (look for `auth_with_layout`).
@@ -444,7 +446,21 @@ on click confirm:"Delete this order?" {
 - `log "..."` — not in the action executor
 - `confirm:"..."` — **only the `confirm:` MODIFIER on `on click`** works; there's no standalone `confirm` action
 
-Test coverage in `actions.rs`: **0 tests**.
+### 8.2.1 Server enforcement (Sprint 1)
+
+`POST /_action/*`:
+- Requires a session (401 otherwise).
+- The client can only reference an action **declared in the AST**: by `action_id` (stable hash of route, section, slot and block), or by sending the exact serialized block the server rendered. The server executes **its own copy** of the instructions; anything else is 403.
+- `entity` must equal the declared section's entity (`bind X` or `entity:`).
+- `set`/`delete` run on that entity only, constrained by `_owner_id` in SQL for non-admins (404 if the row is not yours), never on the auth entity for non-admins. `set` targets must be writable (`authz::writable_body`: no `id`, `_owner_id`, timestamps, `role`, `password`, or `sensitive` fields).
+
+`POST /_form/<section_type>`:
+- `entity` must be bound by a declared section of that type.
+- Requires a session unless the form is explicitly public: `bind X { scope:public }` on a page without `requires:`. Anonymous rows get no `_owner_id`. The auth entity is never writable here by non-admins.
+- The body goes through `authz::writable_body`; `_owner_id` is set by the server. DB errors are logged, and the client receives `{"error":{"code","message"}}`.
+- `PATCH` (edit-mode forms) is still not routed (pre-existing gap).
+
+Test coverage in `actions.rs`: 4 tests (undeclared action, ignored client instructions, session/owner/writable checks, declared forms).
 
 ### 8.3 Effects envelope — REAL contract
 
@@ -513,7 +529,23 @@ Server side: `src/sse.rs` uses a tokio broadcast channel; `main.rs::handle_reque
 - Strategy is full SPA re-render, not targeted DOM patching
 - The inline reconnect loop has a broken closure (`arguments.callee.caller.toString()`) — initial connection works; reconnect after disconnect is dead
 
-Test coverage in `binding.rs`: **0 tests**. Coverage in `sse.rs`: **0 tests**.
+### 9.5 Who sees bound data (Sprint 1 security)
+
+Rules live in `src/access.rs::read_scope` and are applied in `resolve_binding`:
+
+| Viewer | Normal entity | `shared` entity | `bind X { scope:public }` | Auth entity (`auth { entity User }`) |
+|---|---|---|---|---|
+| No session | **nothing** | **nothing** | all rows | **nothing** |
+| Signed-in user | own rows (`_owner_id`) | all rows | all rows | own row only (`id = auth.id`) |
+| `role: admin` | all rows | all rows | all rows | all rows |
+
+- A public page without a session renders empty tables and `0` counts unless the binding says `scope:public`. That is the explicit author opt-in for marketing KPIs and catalogs. It exposes every row of that entity to anyone, so use it only for data that is public by nature.
+- `sensitive` fields and `password`/`password_hash` are stripped from every bound row. Aggregations over them return no data.
+- `auth.id`, `auth.role` and `auth.email` in `where` resolve from the session (`auth.email` is read from the auth entity row). Without a session, or with an unknown `auth.*` ref, the binding returns no data instead of matching a literal placeholder.
+- The parser accepts the space-separated form `where owner_id eq auth.id`. The colon form `eq:auth.id` is tokenized as a single operator token, so its value is lost. This is a parser issue, tracked separately.
+- Aggregations bind every filter (including the owner scope) as a parameter. There is no unparameterized fallback anymore.
+
+Test coverage in `binding.rs`: 6 tests. Coverage in `sse.rs`: the visibility filter is tested in `access.rs`.
 
 ---
 
@@ -754,8 +786,10 @@ Status: all four files have executable logic. `auto-promotion` rides on the Trus
 
 ### 14.6 GraphQL — SCAFFOLDED
 
-`src/graphql.rs`, **0 tests**.
+`src/graphql.rs`, 5 tests.
 
+- **Auth (Sprint 1):** `POST /graphql` and `GET /graphql/schema` return 401 without a session. Reads use the same owner scope as bindings (§9.5, without `scope:public`). `create<Entity>` keeps only writable fields and sets `_owner_id` on the server. `delete<Entity>` is constrained by `_owner_id` in SQL (it returns `false` for other users' rows). The auth entity is admin-only for mutations. `sensitive`/`password` fields are absent from responses, output types and create inputs. DB errors are logged and never returned.
+- There is no language flag to disable GraphQL yet. It is always mounted, but authenticated.
 - Auto-generates an SDL schema from entities at server startup
 - Serves `POST /graphql` with a hand-rolled query parser
 - Query playground at `GET /graphql` (hardcoded HTML)
@@ -768,7 +802,8 @@ Status: all four files have executable logic. `auto-promotion` rides on the Trus
 
 `src/sse.rs` + `main.rs::handle_request_inner` path for `/api/sse`.
 
-- tokio broadcast channel (`SseHub::subscribe`)
+- **Auth (Sprint 1):** `/api/sse` requires a session (401). Each `data_change` event is filtered per subscriber by `access::can_see_event`: admins get everything; signed-in users get `shared` entities and rows they own. Deletes of owner-scoped rows can no longer be looked up, so only admins receive those. `debug` events are streamed to admins only.
+- tokio broadcast channel (`SseHub::subscribe_filtered`)
 - Real streaming long-lived `Content-Type: text/event-stream` response
 - Events: `data_change` (entity write), `debug` (request trace in DEBUG_MODE)
 - Zero polling on server side — push-only

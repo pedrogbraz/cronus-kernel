@@ -305,7 +305,7 @@ pub fn lint_all_pages(
         }
 
         // Render the page body
-        let body = crate::ui::render_page(page, entities, accent, theme, None, &empty_params, "");
+        let body = crate::ui::render_page(page, entities, accent, theme, None, &empty_params, &crate::access::Access::anonymous());
 
         // Run lint
         let findings = lint_page(page, &body);
