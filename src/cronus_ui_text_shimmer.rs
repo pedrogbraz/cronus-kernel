@@ -72,7 +72,11 @@ mod tests {
     #[test]
     fn chrome_text_shimmer_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"text-shimmer\"] {\n  display: inline-block;\n  margin: 0;"));
+        // Wave 1s: React `<p>` inherits line-height 24px → root 57.5×24.
+        assert!(css.contains(
+            "[data-slot=\"text-shimmer\"] {\n  display: inline-block;\n  margin: 0;\n  position: relative;\n  line-height: 1.5;\n  color: transparent;"
+        ));
+        assert!(css.contains("background-size: 250% 100%, auto;"));
         assert!(css.contains("background-clip: text"));
         assert!(css.contains("@keyframes cui-text-shimmer"));
         assert!(css.contains("animation: cui-text-shimmer"));

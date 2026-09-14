@@ -25,7 +25,9 @@ pub fn render(comp: &ComponentNode) -> String {
         .filter(|s| !s.is_empty())
         .map(|v| format!(" aria-label=\"{}\"", esc(v)))
         .unwrap_or_default();
-    format!("<section data-slot=\"card-stack\"{aria}>{items}</section>")
+    // React's first child is a visually hidden region label (`sr-only`,
+    // default "Card stack"); CSS hides it via `[data-slot="card-stack"] > span`.
+    format!("<section data-slot=\"card-stack\"{aria}><span>Card stack</span>{items}</section>")
 }
 
 fn items_of(comp: &ComponentNode) -> Vec<String> {
@@ -90,7 +92,7 @@ mod tests {
         let html = render(&stack(&["Alpha", "Beta"]));
         assert_eq!(
             html,
-            "<section data-slot=\"card-stack\"><div data-slot=\"card-stack-item\">Alpha</div><div data-slot=\"card-stack-item\" aria-hidden=\"true\">Beta</div></section>"
+            "<section data-slot=\"card-stack\"><span>Card stack</span><div data-slot=\"card-stack-item\">Alpha</div><div data-slot=\"card-stack-item\" aria-hidden=\"true\">Beta</div></section>"
         );
         reject_display(&html);
     }
@@ -108,7 +110,7 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            "<section data-slot=\"card-stack\" aria-label=\"Stack\"><div data-slot=\"card-stack-item\">One</div><div data-slot=\"card-stack-item\" aria-hidden=\"true\">Two</div></section>"
+            "<section data-slot=\"card-stack\" aria-label=\"Stack\"><span>Card stack</span><div data-slot=\"card-stack-item\">One</div><div data-slot=\"card-stack-item\" aria-hidden=\"true\">Two</div></section>"
         );
         reject_display(&html);
     }
@@ -186,10 +188,34 @@ mod tests {
         assert!(css.contains("[data-slot=\"card-stack-item\"]"));
         assert!(css.contains("position: relative"));
         assert!(css.contains("position: absolute"));
-        assert!(css.contains("translate(10px, 10px)"));
         assert!(css.contains("var(--cronus-surface-raised)"));
         assert!(css.contains("var(--cronus-border)"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(DISPLAY_SURF));
+    }
+
+    /// Wave 1s geometry parity with React `CardStack className="w-72"`:
+    /// section 288×224; front 288×224 (`translate: 0px`, z 2); next card
+    /// `translate: 10px 10px` + framer `scale(.96) rotate(-1.5deg)` from top
+    /// center → bbox 282×222 at (16, 6.5); radius rounded-2xl (22px).
+    #[test]
+    fn chrome_geometry_matches_react() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("height: 14rem; width: 18rem; max-width: 24rem;\n  line-height: 1.5;"));
+        assert!(css.contains(
+            "[data-slot=\"card-stack\"] > span {\n  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;"
+        ));
+        assert!(css.contains("border-radius: calc(var(--cronus-radius, 14px) + 8px);\n  border: 1px solid var(--cronus-border);\n  background: var(--cronus-surface-raised);\n  padding: 1.25rem;"));
+        assert!(css.contains("[data-slot=\"card-stack-item\"]:nth-of-type(1) { translate: 0px 0px; }"));
+        assert!(css.contains(
+            "[data-slot=\"card-stack-item\"]:nth-of-type(2) {\n  translate: 10px 10px; transform: scale(0.96) rotate(-1.5deg);\n}"
+        ));
+        assert!(css.contains(
+            "[data-slot=\"card-stack-item\"]:nth-of-type(3) {\n  translate: 20px 20px; transform: scale(0.92) rotate(-3deg);\n}"
+        ));
+        assert!(css.contains("[data-slot=\"card-stack-item\"]:nth-last-of-type(1) { z-index: 1; }"));
+        assert!(css.contains("[data-slot=\"card-stack-item\"]:nth-last-of-type(2) { z-index: 2; }"));
+        assert!(!css.contains("translate(10px, 10px)"));
+        assert!(!css.contains("height: 14rem; width: 100%; max-width: 24rem;"));
     }
 }

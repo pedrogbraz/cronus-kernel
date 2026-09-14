@@ -75,7 +75,15 @@ mod tests {
     #[test]
     fn chrome_text_effect_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"text-effect\"] {\n  display: inline-block;\n  margin: 0;"));
+        // Wave 1s: React `<p>` is a block (432×24 in the audit canvas) and
+        // the settled state has no residual transform (computed `none`).
+        assert!(css.contains(
+            "[data-slot=\"text-effect\"] {\n  display: block;\n  margin: 0;\n  line-height: 1.5;\n  animation: cui-text-effect 400ms ease-out both;\n}"
+        ));
+        assert!(css.contains(
+            "@keyframes cui-text-effect {\n  from { opacity: 0; filter: blur(8px); }\n  to { opacity: 1; filter: none; }\n}"
+        ));
+        assert!(!css.contains("to { opacity: 1; filter: blur(0); transform: translateY(0); }"));
         assert!(css.contains("@keyframes cui-text-effect"));
         assert!(css.contains("animation: cui-text-effect"));
         assert!(css.contains(
@@ -83,7 +91,6 @@ mod tests {
         ));
         assert!(!css.contains("}\n  [data-slot=\"text-effect\"] { animation: none; }\n[data-slot="));
         assert!(css.contains("filter: blur"));
-        assert!(css.contains("var(--ease-out-quart)"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
     }
