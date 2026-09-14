@@ -3291,6 +3291,28 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="dot-pattern-content"] {
   position: relative; z-index: 1;
 }
+[data-slot="flickering-grid"] {
+  position: relative; overflow: hidden;
+  color: var(--cronus-fg);
+}
+[data-slot="flickering-grid-field"] {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--cronus-fg) 18%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--cronus-fg) 18%, transparent) 1px, transparent 1px);
+  background-size: 12px 12px;
+  animation: cui-flicker 1.8s ease-in-out infinite;
+}
+[data-slot="flickering-grid-content"] {
+  position: relative; z-index: 1;
+}
+@keyframes cui-flicker {
+  0%, 100% { opacity: 0.08; }
+  50% { opacity: 0.45; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="flickering-grid-field"] { animation: none; opacity: 0.4; }
+}
 
 "#;
 
