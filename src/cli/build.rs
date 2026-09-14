@@ -30,6 +30,26 @@ pub(crate) fn validate_source_ai(source: &str, file: &str) -> Result<serde_json:
     Ok(report::validate(file, source, &nodes, Profile { strict: true }).to_json())
 }
 
+/// Compatibility entry point for callers that already hold the AST
+/// (`context --for-claude`, the llms-full drift test). Same passes and JSON as
+/// `build --ai`. Source positions come from re-reading `file` when it is a
+/// readable `.cronus` path; otherwise name-based locations fall back to 1:1.
+/// Prefer `validate_source_ai` when the source text is at hand.
+pub(crate) fn build_ai_error_json(
+    nodes: &[AstNode],
+    file: &str,
+    _entities: usize,
+    _pages: usize,
+    _routes: usize,
+) -> serde_json::Value {
+    let source = if file.ends_with(".cronus") {
+        fs::read_to_string(file).unwrap_or_default()
+    } else {
+        String::new()
+    };
+    report::validate(file, &source, nodes, Profile { strict: true }).to_json()
+}
+
 pub fn cmd_build(args: &[String]) {
     let code = run(args);
     if code != report::exit::VALID {
@@ -174,6 +194,50 @@ pub(crate) fn save_ast_snapshot(nodes: &[AstNode]) {
                 "  \x1b[33m\u{26a0}\x1b[0m Failed to serialize AST snapshot: {}",
                 e
             );
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SRC: &str = "entity Task {\n  title string!\n}\npage \"/\" {\n  section stats { bind Task { aggregate count } }\n  section table { bind Tsk { query all } }\n}\n";
+
+    #[test]
+    fn validate_source_ai_matches_the_ai_report() {
+        let v = validate_source_ai(SRC, "app.cronus").expect("parses");
+        assert_eq!(v["schema_version"], 1);
+        assert_eq!(v["valid"], false);
+        assert!(v["errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["code"] == "RESOLVE_001" && e["location"]["line"] == 6));
+        let Err(e) = validate_source_ai("entity T {\n  a strin\n}\n", "app.cronus") else {
+            panic!("typo must be a parse error")
+        };
+        assert!(e.starts_with("TYPE_001: "), "{}", e);
+    }
+
+    #[test]
+    fn build_ai_error_json_shim_has_same_verdict_and_codes() {
+        let nodes = parser::parse(SRC).unwrap_or_default();
+        let shim = build_ai_error_json(&nodes, "not-a-file.txt", 0, 0, 0);
+        let full = validate_source_ai(SRC, "not-a-file.txt").expect("parses");
+        assert_eq!(shim["valid"], full["valid"]);
+        let codes = |v: &serde_json::Value| -> Vec<String> {
+            v["errors"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|e| e["code"].as_str().unwrap_or("").to_string())
+                .collect()
+        };
+        assert_eq!(codes(&shim), codes(&full));
+        // without source text, locations degrade to 1:1 but are never 0
+        for e in shim["errors"].as_array().unwrap() {
+            assert!(e["location"]["line"].as_u64().unwrap() >= 1);
         }
     }
 }
