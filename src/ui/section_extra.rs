@@ -661,7 +661,77 @@ pub(super) fn render_sidebar(section: &SectionNode) -> String {
     )
 }
 
-pub(super) fn render_card_section(section: &SectionNode) -> String {
+/// Id of a bound DB row (`id` as string or number), for `data-cronus-id`.
+pub(crate) fn bound_record_id(row: &serde_json::Value) -> Option<String> {
+    match row.get("id")? {
+        serde_json::Value::String(s) if !s.is_empty() => Some(s.clone()),
+        serde_json::Value::Number(n) => Some(n.to_string()),
+        _ => None,
+    }
+}
+
+/// A declared item-level `on click` block as a runtime action button.
+/// The runtime posts `{action_id, entity, id}`: `data-action-id` names the
+/// declared block, `data-cronus-id` the bound row it acts on (the server
+/// re-checks that row against the viewer's write scope). Every attribute is
+/// escaped.
+pub(crate) fn render_action_button(
+    section: &SectionNode,
+    item: &std::collections::HashMap<String, String>,
+    action_json: &str,
+    record_id: Option<&str>,
+) -> String {
+    use crate::security::html_escape;
+    let action_entity = section
+        .config
+        .get("entity")
+        .or_else(|| section.binding.as_ref().map(|b| &b.entity));
+    let entity_attr = action_entity
+        .map(|e| format!(r#" data-cronus-entity="{}""#, html_escape(e)))
+        .unwrap_or_default();
+    let action_id_attr = crate::actions::action_id_for_item(
+        action_entity.map(String::as_str).unwrap_or(""),
+        action_json,
+    )
+    .map(|id| format!(r#" data-action-id="{}""#, id))
+    .unwrap_or_default();
+    let record_attr = record_id
+        .map(|id| format!(r#" data-cronus-id="{}""#, html_escape(id)))
+        .unwrap_or_default();
+    let section_attr = format!(
+        r#" data-cronus-section="{}""#,
+        html_escape(&section.section_type)
+    );
+    let confirm_attr = item
+        .get("confirm")
+        .map(|c| format!(r#" data-cronus-confirm="{}""#, html_escape(c)))
+        .unwrap_or_default();
+    let title = html_escape(item.get("title").map(|s| s.as_str()).unwrap_or(""));
+    format!(
+        r#"<button type="button" data-cronus-action="{action_json}"{action_id_attr}{record_attr}{entity_attr}{section_attr}{confirm_attr} style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;font-size:14px;font-weight:600;color:#fff;background:#1a1c1c;border-radius:8px;border:none;cursor:pointer;transition:opacity 0.15s;font-family:inherit" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">{title}</button>"#,
+        action_json = html_escape(action_json),
+    )
+}
+
+/// Visible label for a bound row next to its action buttons.
+fn bound_row_label(row: &serde_json::Value) -> String {
+    ["title", "name", "email"]
+        .iter()
+        .find_map(|k| {
+            row.get(*k)
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+        })
+        .map(String::from)
+        .or_else(|| bound_record_id(row))
+        .map(|s| crate::security::html_escape(&s))
+        .unwrap_or_default()
+}
+
+pub(super) fn render_card_section(
+    section: &SectionNode,
+    bound_data: &crate::binding::ResolvedData,
+) -> String {
     let title = section.title.as_deref().unwrap_or("");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
     let icon = section.config.get("icon").map(|s| s.as_str()).unwrap_or("");
@@ -697,7 +767,12 @@ pub(super) fn render_card_section(section: &SectionNode) -> String {
     // Items
     let mut items_html = String::new();
     for item in &section.items {
-        let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("item");
+        // `item "X" { on click { … } }` is a declared action whatever its _type.
+        let item_type = if item.contains_key("on_click") {
+            "action"
+        } else {
+            item.get("_type").map(|s| s.as_str()).unwrap_or("item")
+        };
         let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
         let desc = item.get("description").map(|s| s.as_str()).unwrap_or("");
         let value = item.get("value").map(|s| s.as_str()).unwrap_or("");
@@ -726,40 +801,35 @@ pub(super) fn render_card_section(section: &SectionNode) -> String {
             "action" => {
                 let on_click = item.get("on_click");
                 if let Some(action_json) = on_click {
-                    // Action button with data attributes for the runtime action system.
-                    // The runtime posts only `data-action-id` (+ entity, id); the
-                    // server executes its own declared copy of the block.
-                    let action_entity = section
-                        .config
-                        .get("entity")
-                        .or_else(|| section.binding.as_ref().map(|b| &b.entity));
-                    let entity_attr = action_entity
-                        .map(|e| format!(r#" data-cronus-entity="{}""#, e))
-                        .unwrap_or_default();
-                    let action_id_attr = crate::actions::action_id_for_item(
-                        action_entity.map(String::as_str).unwrap_or(""),
-                        action_json,
-                    )
-                    .map(|id| format!(r#" data-action-id="{}""#, id))
-                    .unwrap_or_default();
-                    let section_attr =
-                        format!(r#" data-cronus-section="{}""#, section.section_type);
-                    let confirm_attr = item
-                        .get("confirm")
-                        .map(|c| format!(r#" data-cronus-confirm="{}""#, c))
-                        .unwrap_or_default();
-                    let escaped_json = action_json.replace('"', "&quot;");
-                    items_html.push_str(&format!(
-                        r#"<div style="margin-top:8px">
-  <button type="button" data-cronus-action="{action_json}"{action_id_attr}{entity_attr}{section_attr}{confirm_attr} style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;font-size:14px;font-weight:600;color:#fff;background:#1a1c1c;border-radius:8px;border:none;cursor:pointer;transition:opacity 0.15s;font-family:inherit" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">{title}</button>
-</div>"#,
-                        action_json = escaped_json,
-                        action_id_attr = action_id_attr,
-                        entity_attr = entity_attr,
-                        section_attr = section_attr,
-                        confirm_attr = confirm_attr,
-                        title = item_title,
-                    ));
+                    // The runtime posts `{action_id, entity, id}`; the server
+                    // executes its own declared copy of the block on that row.
+                    use crate::binding::ResolvedData;
+                    match bound_data {
+                        // `query all`: one button per visible row, each with its id.
+                        ResolvedData::Rows(rows) if !rows.is_empty() => {
+                            for row in rows {
+                                let id = bound_record_id(row);
+                                items_html.push_str(&format!(
+                                    r#"<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:8px"><span style="font-size:14px;color:#1a1c1c">{label}</span>{button}</div>"#,
+                                    label = bound_row_label(row),
+                                    button = render_action_button(section, item, action_json, id.as_deref()),
+                                ));
+                            }
+                        }
+                        // `query one`: the bound record.
+                        ResolvedData::Record(Some(row)) => {
+                            let id = bound_record_id(row);
+                            items_html.push_str(&format!(
+                                r#"<div style="margin-top:8px">{}</div>"#,
+                                render_action_button(section, item, action_json, id.as_deref())
+                            ));
+                        }
+                        // Unbound (toast/navigate-only actions): no record.
+                        _ => items_html.push_str(&format!(
+                            r#"<div style="margin-top:8px">{}</div>"#,
+                            render_action_button(section, item, action_json, None)
+                        )),
+                    }
                 } else {
                     // Regular link action
                     items_html.push_str(&format!(

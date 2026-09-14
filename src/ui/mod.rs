@@ -785,7 +785,7 @@ fn render_section_inner(
         "sidebar" => section_extra::render_sidebar(section),
         "form" => section_form::render_form_section(section, bound_data),
         "card" | "live-keys" | "test-keys" | "webhooks" => {
-            section_extra::render_card_section(section)
+            section_extra::render_card_section(section, bound_data)
         }
         "links" | "quick-links" => section_extra::render_links_section(section),
         "tabs" => crate::tabs::render_tabs(section),

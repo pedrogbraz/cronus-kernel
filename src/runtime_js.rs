@@ -123,3 +123,25 @@ pub const CRONUS_ACTION_JS: &str = r#"
 })();
 </script>
 "#;
+
+#[cfg(test)]
+mod tests {
+    use super::CRONUS_ACTION_JS;
+
+    /// The action payload carries the clicked button's `data-cronus-id` (the
+    /// bound row's id), next to the declared action id and entity.
+    #[test]
+    fn action_payload_reads_record_id_from_the_button() {
+        let start = CRONUS_ACTION_JS
+            .find("xhr.send(JSON.stringify({\n      action_id:")
+            .expect("action payload");
+        let payload = &CRONUS_ACTION_JS[start..start + 260];
+        assert!(payload.contains("action_id: btn.getAttribute('data-action-id')"));
+        assert!(payload.contains("entity: btn.getAttribute('data-cronus-entity')"));
+        assert!(payload.contains("id: btn.getAttribute('data-cronus-id')"));
+        assert!(
+            !payload.contains("data-cronus-action"),
+            "no client instructions"
+        );
+    }
+}

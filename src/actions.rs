@@ -931,6 +931,115 @@ page \"/notes/:id\" type:custom requires:auth {\n\
         assert_eq!(status, 401);
     }
 
+    /// Real SSR path: `render_page` resolves the bindings against the DB for
+    /// a logged-in viewer; every action button inside a bound card/table row
+    /// carries that row's id, and the runtime payload built from the rendered
+    /// attributes runs `set`/`delete` for the owner only.
+    #[test]
+    fn bound_row_action_buttons_carry_record_id_and_stay_owner_scoped() {
+        const SRC: &str = "app \"F\" { port 5175 }\n\
+auth { entity User  login email + password  session jwt  roles [admin, user] }\n\
+entity User { name string  email email!  role string  password string sensitive }\n\
+entity Note { title string!  status string  secret string sensitive  role string }\n\
+page \"/notes\" type:custom requires:auth {\n\
+  section card {\n\
+    bind Note { query all }\n\
+    item \"Archive\" {\n\
+      on click {\n\
+        set status \"archived\"\n\
+      }\n\
+    }\n\
+  }\n\
+  section table {\n\
+    bind Note { query all }\n\
+    columns \"title, status\"\n\
+    item \"Remove\" {\n\
+      on click {\n\
+        delete Note\n\
+      }\n\
+    }\n\
+  }\n\
+}\n";
+        let mut s = crate::api_security_tests::state_from(SRC);
+        s.pages = parse(SRC)
+            .expect("parse")
+            .into_iter()
+            .filter_map(|n| match n {
+                AstNode::Page(p) => Some(p),
+                _ => None,
+            })
+            .collect();
+        let alice_note = note(&s, "alice");
+        let bob_note = note(&s, "bob");
+
+        let html = crate::ui::render_page(
+            &s.pages[0],
+            &s.entities,
+            "amber",
+            "light",
+            Some(&s.db),
+            &std::collections::HashMap::new(),
+            &as_user("alice"),
+        );
+        let attr = |name: &str, button: &str| -> String {
+            let marker = format!(" {name}=\"");
+            button
+                .find(&marker)
+                .map(|i| &button[i + marker.len()..])
+                .and_then(|rest| rest.split('"').next())
+                .unwrap_or_default()
+                .to_string()
+        };
+        let buttons: Vec<&str> = html
+            .split("<button type=\"button\" data-cronus-action=")
+            .skip(1)
+            .map(|b| b.split('>').next().unwrap())
+            .collect();
+        assert_eq!(buttons.len(), 2, "one card + one table button: {html}");
+        for b in &buttons {
+            assert_eq!(attr("data-cronus-id", b), alice_note, "row id on {b}");
+            assert_eq!(attr("data-cronus-entity", b), "Note");
+            assert!(!attr("data-action-id", b).is_empty());
+        }
+        assert!(!html.contains(&bob_note), "other owner's row not rendered");
+
+        // Runtime payload from the rendered attributes.
+        let payload = |b: &str| {
+            json!({
+                "action_id": attr("data-action-id", b),
+                "entity": attr("data-cronus-entity", b),
+                "id": attr("data-cronus-id", b),
+            })
+        };
+        let (archive, remove) = (payload(buttons[0]), payload(buttons[1]));
+
+        // Another viewer replaying alice's ids: not found, nothing changes.
+        let (status, body) = handle_action(&s, &archive, &as_user("bob"));
+        assert_eq!(status, 404, "{body}");
+        let (status, body) = handle_action(&s, &remove, &as_user("bob"));
+        assert_eq!(status, 404, "{body}");
+        let row = s.db.find_by_id("Note", &alice_note).unwrap().unwrap();
+        assert!(row["status"].is_null(), "{row}");
+
+        // Owner: set, then delete.
+        let (status, body) = handle_action(&s, &archive, &as_user("alice"));
+        assert_eq!(status, 200, "{body}");
+        assert_eq!(
+            s.db.find_by_id("Note", &alice_note).unwrap().unwrap()["status"],
+            "archived"
+        );
+        let (status, body) = handle_action(&s, &remove, &as_user("alice"));
+        assert_eq!(status, 200, "{body}");
+        assert!(s.db.find_by_id("Note", &alice_note).unwrap().is_none());
+        assert!(s.db.find_by_id("Note", &bob_note).unwrap().is_some());
+
+        // Without the id (the pre-fix payload) the action is rejected.
+        let mut missing = archive.clone();
+        missing["id"] = json!("");
+        let (status, _) = handle_action(&s, &missing, &as_user("bob"));
+        assert_eq!(status, 400);
+    }
+
     #[test]
     fn forms_must_be_declared_and_public_only_when_explicit() {
         let p = pages();

@@ -2,6 +2,35 @@ use crate::parser::SectionNode;
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 
+/// Declared `item "X" { on click { … } }` blocks: rendered as per-row action
+/// buttons on bound rows, never as static rows.
+fn row_actions(section: &SectionNode) -> Vec<(&HashMap<String, String>, &String)> {
+    section
+        .items
+        .iter()
+        .filter_map(|item| item.get("on_click").map(|block| (item, block)))
+        .collect()
+}
+
+/// Trailing cell with the row's action buttons, carrying the row id.
+fn row_action_cell(
+    section: &SectionNode,
+    actions: &[(&HashMap<String, String>, &String)],
+    row: &JsonValue,
+    td_style: &str,
+) -> String {
+    let id = crate::ui::section_extra::bound_record_id(row);
+    let buttons: String = actions
+        .iter()
+        .map(|(item, block)| {
+            crate::ui::section_extra::render_action_button(section, item, block, id.as_deref())
+        })
+        .collect();
+    format!(
+        r#"<td style="{td_style}"><div style="display:flex;gap:8px;justify-content:flex-end">{buttons}</div></td>"#
+    )
+}
+
 /// Renders a generic data table from a "table" section.
 /// Items with `column:true` are column headers. All other items are data rows.
 /// Row props map to column names (lowercase).
@@ -54,6 +83,7 @@ pub fn render_data_table(
             .items
             .iter()
             .filter(|item| !item.get("column").map(|v| v == "true").unwrap_or(false))
+            .filter(|item| !item.contains_key("on_click"))
             .filter(|item| {
                 let t = item.get("_type").map(|s| s.as_str()).unwrap_or("item");
                 t == "item" || t == "row" || t.is_empty()
@@ -124,6 +154,11 @@ function cronusPaginate(tid,perPage){{var w=document.getElementById(tid);if(!w)r
             i + 1
         ));
     }
+    let actions = row_actions(section);
+    let bound_actions = use_bound && !actions.is_empty();
+    if bound_actions {
+        html.push_str(r#"<th style="padding:12px 16px"></th>"#);
+    }
     html.push_str("</tr></thead>");
 
     // ── Body ──
@@ -172,6 +207,9 @@ function cronusPaginate(tid,perPage){{var w=document.getElementById(tid);if(!w)r
                     html.push_str(r#"<td style="padding:12px 16px;color:#374151">"#);
                     html.push_str(&crate::security::html_escape(&cell_display));
                     html.push_str("</td>");
+                }
+                if bound_actions {
+                    html.push_str(&row_action_cell(section, &actions, row, "padding:8px 16px"));
                 }
                 html.push_str("</tr>");
             }
@@ -505,6 +543,13 @@ pub fn render_data_table_dark(
             r#"<th style="padding:12px 32px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;color:rgba(226,226,226,0.4)">{col}</th>"#
         ));
     }
+    let actions = row_actions(section);
+    let bound_actions = !actions.is_empty()
+        && static_rows.is_empty()
+        && matches!(bound_data, crate::binding::ResolvedData::Rows(r) if !r.is_empty());
+    if bound_actions {
+        html.push_str(r#"<th style="padding:12px 32px"></th>"#);
+    }
     html.push_str("</tr></thead>");
 
     // Body
@@ -601,6 +646,14 @@ pub fn render_data_table_dark(
                     }
 
                     html.push_str("</td>");
+                }
+                if bound_actions {
+                    html.push_str(&row_action_cell(
+                        section,
+                        &actions,
+                        row,
+                        "padding:12px 32px",
+                    ));
                 }
                 html.push_str("</tr>");
             }
