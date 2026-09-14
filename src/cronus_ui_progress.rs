@@ -3,20 +3,34 @@
 //! The Radix Indicator carries no `data-slot` in React (only `data-state`,
 //! `data-value`, `data-max`), so the kernel indicator doesn't either — CSS
 //! targets it as `[data-slot="progress"] > div`.
+//!
+//! React writes `style.transform = translateX(-{100-value}%)`; the kernel
+//! emits no inline style. `data-value` carries the value rounded to an integer
+//! 0..100, COMPONENT_CHROME maps each `[data-value="N"]` to
+//! `--cui-progress-value: N`, and the indicator's transform reads that property.
 
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
     let pct = value_of(comp);
     let now = fmt_num(pct);
-    let remain = fmt_num(100.0 - pct);
+    let step = step_of(pct);
     let state = if pct >= 100.0 { "complete" } else { "loading" };
     let aria = aria_label(comp)
         .map(|a| format!(" aria-label=\"{}\"", crate::cronus_ui_kit::esc(a)))
         .unwrap_or_default();
     format!(
-        "<div data-slot=\"progress\" role=\"progressbar\" aria-valuenow=\"{now}\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuetext=\"{now}%\" data-state=\"{state}\" data-value=\"{now}\" data-max=\"100\"{aria}><div data-state=\"{state}\" data-value=\"{now}\" data-max=\"100\" style=\"transform:translateX(-{remain}%)\"></div></div>"
+        "<div data-slot=\"progress\" role=\"progressbar\" aria-valuenow=\"{now}\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuetext=\"{now}%\" data-state=\"{state}\" data-value=\"{step}\" data-max=\"100\"{aria}><div data-state=\"{state}\" data-value=\"{step}\" data-max=\"100\"></div></div>"
     )
+}
+
+/// Integer 0..100 that matches one of the per-value chrome rules.
+fn step_of(pct: f64) -> i64 {
+    if pct.is_finite() {
+        pct.round().clamp(0.0, 100.0) as i64
+    } else {
+        0
+    }
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<&str> {
@@ -95,7 +109,7 @@ mod tests {
         }
     }
 
-    fn assert_progressbar(html: &str, now: &str, remain: &str) {
+    fn assert_progressbar(html: &str, now: &str) {
         assert!(html.starts_with("<div "));
         assert!(html.contains("data-slot=\"progress\""));
         assert!(html.contains("role=\"progressbar\""));
@@ -103,7 +117,8 @@ mod tests {
         assert!(html.contains("aria-valuemin=\"0\""));
         assert!(html.contains("aria-valuemax=\"100\""));
         assert!(!html.contains("data-slot=\"progress-indicator\""));
-        assert!(html.contains(&format!("data-value=\"{now}\" data-max=\"100\" style=\"transform:translateX(-{remain}%)\"")));
+        assert!(html.contains(&format!("data-value=\"{now}\" data-max=\"100\"></div></div>")));
+        assert!(!html.contains("style="));
         assert!(!html.contains("<progress"));
         assert!(!html.contains("data-slot=\"progress-control\""));
     }
@@ -111,11 +126,39 @@ mod tests {
     #[test]
     fn root_is_div_progressbar_not_html_progress() {
         let html = render(&stub());
-        assert_progressbar(&html, "0", "100");
+        assert_progressbar(&html, "0");
         assert_eq!(
             html,
-            "<div data-slot=\"progress\" role=\"progressbar\" aria-valuenow=\"0\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuetext=\"0%\" data-state=\"loading\" data-value=\"0\" data-max=\"100\"><div data-state=\"loading\" data-value=\"0\" data-max=\"100\" style=\"transform:translateX(-100%)\"></div></div>"
+            "<div data-slot=\"progress\" role=\"progressbar\" aria-valuenow=\"0\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuetext=\"0%\" data-state=\"loading\" data-value=\"0\" data-max=\"100\"><div data-state=\"loading\" data-value=\"0\" data-max=\"100\"></div></div>"
         );
+    }
+
+    #[test]
+    fn no_inline_style_and_value_rounded_for_chrome() {
+        let mut c = stub();
+        c.props.insert("value".into(), "37.4".into());
+        let html = render(&c);
+        assert!(!html.contains("style="), "{html}");
+        assert!(html.contains("aria-valuenow=\"37.4\""));
+        assert!(html.contains("data-state=\"loading\" data-value=\"37\" data-max=\"100\">"));
+        assert!(html.contains("<div data-state=\"loading\" data-value=\"37\" data-max=\"100\"></div>"));
+        c.props.insert("value".into(), "250".into());
+        assert!(render(&c).contains("data-value=\"100\""));
+        c.props.insert("value".into(), "-5".into());
+        assert!(render(&c).contains("data-value=\"0\""));
+    }
+
+    #[test]
+    fn chrome_drives_indicator_from_per_value_rules() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(!css.contains("attr(data-value type("));
+        assert!(css.contains("transform: translateX(calc((var(--cui-progress-value, 0) - 100) * 1%));"));
+        for n in [0, 37, 100] {
+            assert!(css.contains(&format!(
+                ":is([data-slot=\"progress\"], [data-slot=\"usage-meter-fill\"], [data-slot=\"scroll-progress-fill\"])[data-value=\"{n}\"] {{ --cui-progress-value: {n}; }}"
+            )));
+        }
+        assert!(!css.contains("[data-value=\"101\"] { --cui-progress-value"));
     }
 
     #[test]
@@ -128,7 +171,7 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            "<div data-slot=\"progress\" role=\"progressbar\" aria-valuenow=\"50\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuetext=\"50%\" data-state=\"loading\" data-value=\"50\" data-max=\"100\" aria-label=\"Upload progress\"><div data-state=\"loading\" data-value=\"50\" data-max=\"100\" style=\"transform:translateX(-50%)\"></div></div>"
+            "<div data-slot=\"progress\" role=\"progressbar\" aria-valuenow=\"50\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuetext=\"50%\" data-state=\"loading\" data-value=\"50\" data-max=\"100\" aria-label=\"Upload progress\"><div data-state=\"loading\" data-value=\"50\" data-max=\"100\"></div></div>"
         );
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"progress\"] > div {"));
@@ -140,7 +183,7 @@ mod tests {
         let mut c = stub();
         c.props.insert("value".into(), "40".into());
         let html = render(&c);
-        assert_progressbar(&html, "40", "60");
+        assert_progressbar(&html, "40");
     }
 
     #[test]
@@ -149,7 +192,7 @@ mod tests {
         c.items[0].item_type = "value".into();
         c.items[0].text = "75".into();
         let html = render(&c);
-        assert_progressbar(&html, "75", "25");
+        assert_progressbar(&html, "75");
     }
 
     #[test]
@@ -157,7 +200,7 @@ mod tests {
         let mut c = stub();
         c.items[0].config.insert("value".into(), "10".into());
         let html = render(&c);
-        assert_progressbar(&html, "10", "90");
+        assert_progressbar(&html, "10");
     }
 
     #[test]

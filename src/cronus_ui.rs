@@ -920,8 +920,110 @@ dialog[data-slot="dialog-content"]::backdrop {
 }
 [data-slot="progress"] > div {
   height: 100%; width: 100%; flex: 1; background: var(--cronus-primary);
+  transform: translateX(calc((var(--cui-progress-value, 0) - 100) * 1%));
   transition: transform 300ms var(--ease-out-quart);
 }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="0"] { --cui-progress-value: 0; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="1"] { --cui-progress-value: 1; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="2"] { --cui-progress-value: 2; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="3"] { --cui-progress-value: 3; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="4"] { --cui-progress-value: 4; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="5"] { --cui-progress-value: 5; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="6"] { --cui-progress-value: 6; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="7"] { --cui-progress-value: 7; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="8"] { --cui-progress-value: 8; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="9"] { --cui-progress-value: 9; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="10"] { --cui-progress-value: 10; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="11"] { --cui-progress-value: 11; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="12"] { --cui-progress-value: 12; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="13"] { --cui-progress-value: 13; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="14"] { --cui-progress-value: 14; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="15"] { --cui-progress-value: 15; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="16"] { --cui-progress-value: 16; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="17"] { --cui-progress-value: 17; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="18"] { --cui-progress-value: 18; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="19"] { --cui-progress-value: 19; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="20"] { --cui-progress-value: 20; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="21"] { --cui-progress-value: 21; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="22"] { --cui-progress-value: 22; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="23"] { --cui-progress-value: 23; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="24"] { --cui-progress-value: 24; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="25"] { --cui-progress-value: 25; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="26"] { --cui-progress-value: 26; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="27"] { --cui-progress-value: 27; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="28"] { --cui-progress-value: 28; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="29"] { --cui-progress-value: 29; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="30"] { --cui-progress-value: 30; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="31"] { --cui-progress-value: 31; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="32"] { --cui-progress-value: 32; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="33"] { --cui-progress-value: 33; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="34"] { --cui-progress-value: 34; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="35"] { --cui-progress-value: 35; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="36"] { --cui-progress-value: 36; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="37"] { --cui-progress-value: 37; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="38"] { --cui-progress-value: 38; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="39"] { --cui-progress-value: 39; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="40"] { --cui-progress-value: 40; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="41"] { --cui-progress-value: 41; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="42"] { --cui-progress-value: 42; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="43"] { --cui-progress-value: 43; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="44"] { --cui-progress-value: 44; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="45"] { --cui-progress-value: 45; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="46"] { --cui-progress-value: 46; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="47"] { --cui-progress-value: 47; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="48"] { --cui-progress-value: 48; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="49"] { --cui-progress-value: 49; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="50"] { --cui-progress-value: 50; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="51"] { --cui-progress-value: 51; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="52"] { --cui-progress-value: 52; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="53"] { --cui-progress-value: 53; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="54"] { --cui-progress-value: 54; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="55"] { --cui-progress-value: 55; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="56"] { --cui-progress-value: 56; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="57"] { --cui-progress-value: 57; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="58"] { --cui-progress-value: 58; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="59"] { --cui-progress-value: 59; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="60"] { --cui-progress-value: 60; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="61"] { --cui-progress-value: 61; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="62"] { --cui-progress-value: 62; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="63"] { --cui-progress-value: 63; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="64"] { --cui-progress-value: 64; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="65"] { --cui-progress-value: 65; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="66"] { --cui-progress-value: 66; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="67"] { --cui-progress-value: 67; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="68"] { --cui-progress-value: 68; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="69"] { --cui-progress-value: 69; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="70"] { --cui-progress-value: 70; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="71"] { --cui-progress-value: 71; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="72"] { --cui-progress-value: 72; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="73"] { --cui-progress-value: 73; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="74"] { --cui-progress-value: 74; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="75"] { --cui-progress-value: 75; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="76"] { --cui-progress-value: 76; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="77"] { --cui-progress-value: 77; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="78"] { --cui-progress-value: 78; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="79"] { --cui-progress-value: 79; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="80"] { --cui-progress-value: 80; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="81"] { --cui-progress-value: 81; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="82"] { --cui-progress-value: 82; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="83"] { --cui-progress-value: 83; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="84"] { --cui-progress-value: 84; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="85"] { --cui-progress-value: 85; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="86"] { --cui-progress-value: 86; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="87"] { --cui-progress-value: 87; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="88"] { --cui-progress-value: 88; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="89"] { --cui-progress-value: 89; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="90"] { --cui-progress-value: 90; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="91"] { --cui-progress-value: 91; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="92"] { --cui-progress-value: 92; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="93"] { --cui-progress-value: 93; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="94"] { --cui-progress-value: 94; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="95"] { --cui-progress-value: 95; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="96"] { --cui-progress-value: 96; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="97"] { --cui-progress-value: 97; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="98"] { --cui-progress-value: 98; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="99"] { --cui-progress-value: 99; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="100"] { --cui-progress-value: 100; }
 
 [data-slot="skeleton"] {
   display: block; height: 1rem; width: 8rem;
@@ -2882,7 +2984,7 @@ div:has(> [data-slot="autocomplete"] + [data-slot="autocomplete-content"]) {
 }
 [data-slot="usage-meter-fill"] {
   height: 100%; border-radius: 9999px;
-  width: calc(attr(data-value type(<number>), 0) * 1%);
+  width: calc(var(--cui-progress-value, 0) * 1%);
   background: var(--cronus-primary);
 }
 [data-slot="usage-meter-fill"][data-tone="warning"] { background: var(--cronus-warning); }
@@ -3086,7 +3188,7 @@ div:has(> [data-slot="autocomplete"] + [data-slot="autocomplete-content"]) {
 }
 [data-slot="scroll-progress-fill"] {
   height: 100%; background: var(--cronus-primary);
-  width: calc(attr(data-value type(<number>), 0) * 1%);
+  width: calc(var(--cui-progress-value, 0) * 1%);
 }
 [data-slot="scroll-progress"][data-variant="circle"] {
   position: relative; display: inline-flex;

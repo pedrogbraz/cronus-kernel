@@ -4,9 +4,11 @@
 //!     `<span data-slot="usage-meter-label">{label}</span>` (or `<span></span>`)
 //!     `<span data-slot="usage-meter-value"><span>{value} / {max}</span><span>{pct}%</span></span>`
 //!   `<div data-slot="usage-meter-track" role="meter" aria-*>`
-//!     `<div data-slot="usage-meter-fill" data-tone data-value="{ratio×100}">`
-//! Fill width comes from CSS `attr(data-value type(<number>))` — no inline
-//! style. Tone auto: >90% error, >75% warning, else primary.
+//!     `<div data-slot="usage-meter-fill" data-tone data-value="{round(ratio×100)}">`
+//! No inline style: `data-value` is an integer 0..100, COMPONENT_CHROME maps
+//! each `[data-value="N"]` to `--cui-progress-value: N` and the fill width reads
+//! it (portable; typed `attr()` is Chromium-only). Tone auto: >90% error,
+//! >75% warning, else primary.
 //! `value` / `max` / `unit` / `aria-label` come from props or item config.
 
 use crate::cronus_ui_chart::prop;
@@ -51,7 +53,7 @@ pub fn render(comp: &ComponentNode) -> String {
         "<div data-slot=\"usage-meter\"><div>{label_html}<span data-slot=\"usage-meter-value\"><span>{value_text}</span><span>{percent}%</span></span></div><div data-slot=\"usage-meter-track\" role=\"meter\" aria-valuenow=\"{now}\" aria-valuemin=\"0\" aria-valuemax=\"{mx}\" aria-valuetext=\"{percent}%\" aria-label=\"{aria}\"><div data-slot=\"usage-meter-fill\" data-tone=\"{tone}\" data-value=\"{fill}\"></div></div></div>",
         now = plain(safe_value),
         mx = plain(safe_max),
-        fill = plain((ratio * 10_000.0).round() / 100.0),
+        fill = percent,
     )
 }
 
@@ -148,9 +150,22 @@ mod tests {
     }
 
     #[test]
-    fn chrome_sizes_fill_from_attr() {
+    fn fill_data_value_is_rounded_integer_percent() {
+        let mut c = stub("usage-meter", "Tokens");
+        c.props.insert("value".into(), "1".into());
+        c.props.insert("max".into(), "3".into());
+        let html = render(&c);
+        assert!(html.contains("data-slot=\"usage-meter-fill\" data-tone=\"primary\" data-value=\"33\""), "{html}");
+        assert!(!html.contains("data-value=\"33.33\""));
+        assert!(!html.contains("style="));
+    }
+
+    #[test]
+    fn chrome_sizes_fill_from_per_value_rules() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("width: calc(attr(data-value type(<number>), 0) * 1%);"));
+        assert!(!css.contains("attr(data-value type("));
+        assert!(css.contains("[data-slot=\"usage-meter-fill\"] {\n  height: 100%; border-radius: 9999px;\n  width: calc(var(--cui-progress-value, 0) * 1%);"));
+        assert!(css.contains("[data-slot=\"usage-meter-fill\"], [data-slot=\"scroll-progress-fill\"])[data-value=\"37\"] { --cui-progress-value: 37; }"));
         assert!(css.contains("[data-slot=\"usage-meter\"] > div:first-child {\n  display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem;\n  font-size: 0.875rem; line-height: 1.25rem;\n}"));
     }
 }

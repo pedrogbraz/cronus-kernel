@@ -13,15 +13,22 @@ pub fn render(comp: &ComponentNode) -> String {
     if is_circle(comp) {
         circle(pct, &now, &label)
     } else {
-        bar(&now, &label)
+        bar(pct, &now, &label)
     }
 }
 
-/// Fill width comes from `data-value` via typed `attr()` in COMPONENT_CHROME
-/// (React writes `style.width`; the kernel emits no inline style).
-fn bar(now: &str, label: &str) -> String {
+/// React writes `style.width`; the kernel emits no inline style. The fill's
+/// `data-value` is the value rounded to an integer 0..100; COMPONENT_CHROME
+/// maps each `[data-value="N"]` to `--cui-progress-value: N` and the width
+/// reads it (portable; typed `attr()` is Chromium-only).
+fn bar(pct: f64, now: &str, label: &str) -> String {
+    let step = if pct.is_finite() {
+        pct.round().clamp(0.0, 100.0) as i64
+    } else {
+        0
+    };
     format!(
-        "<div data-slot=\"scroll-progress\" data-variant=\"bar\" role=\"progressbar\" aria-valuenow=\"{now}\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-label=\"{label}\"><div data-slot=\"scroll-progress-fill\" data-value=\"{now}\"></div></div>"
+        "<div data-slot=\"scroll-progress\" data-variant=\"bar\" role=\"progressbar\" aria-valuenow=\"{now}\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-label=\"{label}\"><div data-slot=\"scroll-progress-fill\" data-value=\"{step}\"></div></div>"
     )
 }
 
@@ -166,6 +173,16 @@ mod tests {
     }
 
     #[test]
+    fn fractional_value_rounds_fill_data_value() {
+        let mut c = stub("scroll-progress", "Reading");
+        c.props.insert("value".into(), "36.6".into());
+        let html = render(&c);
+        assert!(html.contains("aria-valuenow=\"36.6\""));
+        assert!(html.contains("<div data-slot=\"scroll-progress-fill\" data-value=\"37\"></div>"), "{html}");
+        assert!(!html.contains("style="));
+    }
+
+    #[test]
     fn value_from_item_text_number() {
         let mut c = stub("scroll-progress", "Reading");
         c.items.push(extra("value", "75"));
@@ -233,7 +250,9 @@ mod tests {
         assert!(css.contains("height: 0.25rem"));
         // Fixture wrapper `w-72` (React bar is `w-full` inside it).
         assert!(css.contains("[data-slot=\"scroll-progress\"] {\n  height: 0.25rem; width: 18rem; overflow: hidden;"));
-        assert!(css.contains("width: calc(attr(data-value type(<number>), 0) * 1%);"));
+        assert!(!css.contains("attr(data-value type("));
+        assert!(css.contains("[data-slot=\"scroll-progress-fill\"] {\n  height: 100%; background: var(--cronus-primary);\n  width: calc(var(--cui-progress-value, 0) * 1%);"));
+        assert!(css.contains("[data-slot=\"scroll-progress-fill\"])[data-value=\"37\"] { --cui-progress-value: 37; }"));
         assert!(css.contains("var(--cronus-surface-inset)"));
         assert!(css.contains("var(--cronus-primary)"));
         assert!(!css.contains("zinc-"));
