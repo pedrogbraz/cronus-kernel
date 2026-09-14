@@ -3300,7 +3300,8 @@ div:has(> [data-slot="autocomplete"] + [data-slot="autocomplete-content"]) {
   display: flex; flex-direction: column; gap: 1rem;
 }
 /* Cancel is JS-only (`disabled`); React's Cancel is enabled, so no dimming. */
-[data-slot="invite-dialog"] [data-slot="button"]:disabled { opacity: 1; }[data-slot="invite-dialog"] [data-slot="input"] {
+[data-slot="invite-dialog"] [data-slot="button"]:disabled { opacity: 1; }
+[data-slot="invite-dialog"] [data-slot="input"] {
   line-height: 1.25rem;
 }
 [data-slot="invite-dialog"] [data-slot="select-trigger"] {
