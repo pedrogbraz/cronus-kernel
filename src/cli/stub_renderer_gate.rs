@@ -187,6 +187,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "progressive-blur" => Some("cronus_ui_progressive_blur::render"),
         "retro-grid" => Some("cronus_ui_retro_grid::render"),
         "ripple" => Some("cronus_ui_ripple::render"),
+        "motion-presets" => Some("cronus_ui_motion_presets::render"),
         _ => None,
     }
 }
@@ -790,6 +791,12 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || !html.contains("data-slot=\"ripple-ring\"")
                 || !html.contains("data-slot=\"ripple-content\"")
                 || html.contains("<canvas")))
+        || (html.contains("data-slot=\"motion-presets\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || html.contains("<script")
+                || !html.contains("data-slot=\"motion-preset\"")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -1067,6 +1074,7 @@ mod tests {
             "src/cronus_ui_progressive_blur.rs",
             "src/cronus_ui_retro_grid.rs",
             "src/cronus_ui_ripple.rs",
+            "src/cronus_ui_motion_presets.rs",
             "src/cronus_ui_masonry.rs",
             "src/cronus_ui_comparison_slider.rs",
             "src/cronus_ui_confirmation_dialog.rs",

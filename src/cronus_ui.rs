@@ -3619,6 +3619,41 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="ripple-content"] {
   position: relative;
 }
+[data-slot="motion-presets"] {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+[data-slot="motion-preset"] {
+  color: var(--cronus-fg);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+[data-slot="motion-preset"][data-preset="fade-in"] {
+  animation: cui-fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+[data-slot="motion-preset"][data-preset="fade-in-up"] {
+  animation: cui-fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+[data-slot="motion-preset"][data-preset="scale-in"] {
+  animation: cui-scale-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes cui-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes cui-fade-in-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes cui-scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="motion-preset"] { animation: none; opacity: 1; transform: none; }
+}
 
 "#;
 
