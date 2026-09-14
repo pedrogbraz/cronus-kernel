@@ -418,10 +418,7 @@ pub fn generate_docker_compose(gateway: &GatewayDef, services: &[ServiceSplit]) 
     ));
     out.push_str("    volumes:\n");
     out.push_str("      - ./gateway.cronus:/app/app.cronus:ro\n");
-    out.push_str(&format!(
-        "    command: [\"cronus\", \"run\", \".\", \"{}\"]\n",
-        gateway.port
-    ));
+    out.push_str(&run_command(gateway.port));
     out.push_str("    depends_on:\n");
     for svc in services {
         out.push_str(&format!("      - {}\n", svc.name));
@@ -441,10 +438,7 @@ pub fn generate_docker_compose(gateway: &GatewayDef, services: &[ServiceSplit]) 
             svc.name
         ));
         out.push_str(&format!("      - {}-data:/app/data\n", svc.name));
-        out.push_str(&format!(
-            "    command: [\"cronus\", \"run\", \".\", \"{}\"]\n",
-            svc.port
-        ));
+        out.push_str(&run_command(svc.port));
         out.push_str("    networks:\n      - cronus-net\n\n");
     }
 
@@ -462,19 +456,17 @@ pub fn generate_docker_compose(gateway: &GatewayDef, services: &[ServiceSplit]) 
     out
 }
 
-/// Generate a minimal Dockerfile for running a .cronus service.
+/// Dockerfile shared by the gateway and every service: the released `cronus`
+/// binary only. Each compose service mounts its `.cronus` file and sets `command`.
 pub fn generate_dockerfile() -> String {
-    let mut out = String::new();
+    crate::deploy::generate_service_dockerfile(5220)
+}
 
-    out.push_str("FROM debian:bookworm-slim\n\n");
-    out.push_str("RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*\n\n");
-    out.push_str("WORKDIR /app\n\n");
-    out.push_str("COPY cronus /usr/local/bin/cronus\n");
-    out.push_str("COPY *.cronus /app/\n\n");
-    out.push_str("EXPOSE 5220\n\n");
-    out.push_str("CMD [\"cronus\", \"run\", \".\"]\n");
-
-    out
+fn run_command(port: u16) -> String {
+    format!(
+        "    command: [\"cronus\", \"run\", \"--prod\", \"--host\", \"0.0.0.0\", \"{}\"]\n",
+        port
+    )
 }
 
 #[cfg(test)]
@@ -523,8 +515,36 @@ mod tests {
     fn test_generate_dockerfile() {
         let df = generate_dockerfile();
         assert!(df.contains("FROM debian"));
-        assert!(df.contains("COPY cronus"));
+        // Release binary, not a locally built `cronus` in the build context.
+        assert!(df.contains("releases/download/v${version}"));
+        assert!(!df.contains("COPY cronus"));
+        // Sources are mounted by compose, never baked in.
+        assert!(!df.contains("COPY --chown=cronus:cronus . /app/"));
         assert!(df.contains("CMD"));
+    }
+
+    #[test]
+    fn test_docker_compose_services_listen_on_all_interfaces() {
+        let gateway = GatewayDef {
+            port: 5220,
+            services: vec![],
+            cronus_source: String::new(),
+        };
+        let services = vec![ServiceSplit {
+            name: "auth".to_string(),
+            port: 5221,
+            db_path: "./data-auth.db".to_string(),
+            cronus_source: String::new(),
+        }];
+        let yml = generate_docker_compose(&gateway, &services);
+        // Default bind is 127.0.0.1, unreachable from other containers.
+        assert!(yml.contains(
+            "command: [\"cronus\", \"run\", \"--prod\", \"--host\", \"0.0.0.0\", \"5221\"]"
+        ));
+        assert!(yml.contains(
+            "command: [\"cronus\", \"run\", \"--prod\", \"--host\", \"0.0.0.0\", \"5220\"]"
+        ));
+        assert!(!yml.contains("\"run\", \".\""));
     }
 
     #[test]

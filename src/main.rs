@@ -376,7 +376,7 @@ async fn main() {
         "memory" => cmd_memory(&args),
         "verify-audit" => cmd_verify_audit(&args),
         "audit" => cli::cronus_audit::cmd_audit(&args),
-        "version" | "-v" | "--version" => println!("cronus v0.1.0"),
+        "version" | "-v" | "-V" | "--version" => cli::version::cmd_version(),
         "help" | "--help" | "-h" | _ => print_help(),
     }
 }

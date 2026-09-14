@@ -1,0 +1,220 @@
+name: release
+
+# Tag push `vX.Y.Z` (must equal Cargo.toml version) builds, packages and
+# publishes a GitHub Release. Manual dispatch with dry_run=true (default)
+# builds and uploads the same assets as workflow artifacts only.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and package only (no GitHub Release). Publishing also requires running on a v* tag."
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  plan:
+    name: resolve version
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      publish: ${{ steps.version.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - id: version
+        name: check tag matches Cargo.toml
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          version=$(cargo metadata --no-deps --format-version 1 --locked \
+            | jq -r '.packages[] | select(.name == "cronus-lang") | .version')
+          if [ -z "$version" ] || [ "$version" = null ]; then
+            echo "::error::could not read the cronus-lang version from Cargo.toml"
+            exit 1
+          fi
+          publish=false
+          if [ "$REF_TYPE" = tag ]; then
+            if [ "${REF_NAME#v}" != "$version" ]; then
+              echo "::error::tag $REF_NAME does not match Cargo.toml version $version (expected v$version)"
+              exit 1
+            fi
+            if [ "$EVENT" = push ] || [ "$DRY_RUN" = false ]; then
+              publish=true
+            fi
+          elif [ "$DRY_RUN" = false ]; then
+            echo "::error::publishing requires a v* tag ref; use dry_run=true on branches"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "cronus $version (publish=$publish)" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: build ${{ matrix.target }}
+    needs: plan
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            smoke: true
+          # Cross-compiled on the arm64 runner; cannot execute there.
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            smoke: false
+          # Oldest available runner = lowest glibc requirement for the gnu build.
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-22.04
+            smoke: true
+          # Static binary: rusqlite (bundled) and ring compile their C with musl-gcc.
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            smoke: true
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            smoke: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
+      - name: install musl-tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools
+      - name: cargo build --release
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          CC_x86_64_unknown_linux_musl: musl-gcc
+        run: |
+          set -euo pipefail
+          # Embedded in `cronus --version`.
+          export CRONUS_GIT_SHA="${GITHUB_SHA::12}"
+          # Symbols are stripped by [profile.release] strip = true.
+          cargo build --release --locked --target "$TARGET"
+      - name: verify and package
+        id: package
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          SMOKE: ${{ matrix.smoke }}
+        run: |
+          set -euo pipefail
+          exe=cronus
+          case "$TARGET" in *windows*) exe=cronus.exe ;; esac
+          bin="target/$TARGET/release/$exe"
+
+          size=$(wc -c < "$bin" | tr -d ' ')
+          max=$((12 * 1024 * 1024))
+          echo "$bin: $size bytes (budget $max)"
+          if [ "$size" -gt "$max" ]; then
+            echo "::error::$TARGET binary is $size bytes, over the 12 MB budget"
+            exit 1
+          fi
+
+          if [ "$SMOKE" = true ]; then
+            out=$("$bin" --version)
+            echo "$out"
+            case "$out" in
+              "cronus $VERSION ("*")") ;;
+              *) echo "::error::unexpected --version output: $out"; exit 1 ;;
+            esac
+          fi
+
+          name="cronus-$VERSION-$TARGET"
+          mkdir -p "dist/$name"
+          cp "$bin" LICENSE README.md "dist/$name/"
+          cd dist
+          case "$TARGET" in
+            *windows*)
+              7z a -tzip "$name.zip" "$name" > /dev/null
+              echo "asset=$name.zip" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              tar -czf "$name.tar.gz" "$name"
+              echo "asset=$name.tar.gz" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cronus-${{ matrix.target }}
+          path: dist/${{ steps.package.outputs.asset }}
+          if-no-files-found: error
+          retention-days: 14
+
+  checksums:
+    name: checksums
+    needs: [plan, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cronus-*
+          path: dist
+          merge-multiple: true
+      - name: SHA256SUMS
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          sha256sum cronus-* > SHA256SUMS
+          cat SHA256SUMS
+          count=$(wc -l < SHA256SUMS)
+          if [ "$count" -ne 5 ]; then
+            echo "::error::expected 5 release assets, found $count"
+            exit 1
+          fi
+          sha256sum -c SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ needs.plan.outputs.version }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: publish GitHub Release
+    needs: [plan, checksums]
+    if: needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-${{ needs.plan.outputs.version }}
+          path: dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: cronus ${{ needs.plan.outputs.version }}
+          files: dist/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
