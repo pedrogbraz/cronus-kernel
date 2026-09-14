@@ -2,19 +2,29 @@
 //! `<div data-slot="spinning-text">` + a visually hidden copy of the phrase
 //! (`sr-only`) + an aria-hidden orbit `<div>` holding one `<span>` per glyph
 //! (spaces become U+00A0). React writes each glyph's
-//! `rotate(i/n·360deg) translateY(-radius)` inline; the kernel emits the angle
-//! as `data-angle` and COMPONENT_CHROME reads it with typed
-//! `attr(data-angle type(<angle>))` — no inline style. Glyphs are Unicode
-//! scalar values (React segments graphemes; no segmenter dep here).
-//! `@keyframes cui-spinning-text` lives in COMPONENT_CHROME. Zero JS.
+//! `rotate(i/n·360deg) translateY(-radius)` inline; the kernel emits no inline
+//! style. COMPONENT_CHROME derives the angle portably (no typed `attr()`, which
+//! is Chromium-only): decimal-digit `:nth-child(10n+k)` / `:nth-child(n+k1)`
+//! rules set the glyph index `i` and `:nth-last-child` rules set the glyphs
+//! after it, so `n` is their sum and the transform is
+//! `rotate(calc(360deg * i / n)) translateY(-3rem)` — 36 rules, any browser.
+//! The tens rules stop at 9, so the orbit supports at most `MAX_GLYPHS` (100)
+//! glyphs; longer phrases are truncated in the orbit only (the sr-only copy
+//! keeps the full text). `data-angle` stays on each glyph as an informational
+//! mirror of React's per-glyph angle (the chrome does not read it).
+//! Glyphs are Unicode scalar values (React segments graphemes; no segmenter
+//! dep here). `@keyframes cui-spinning-text` lives in COMPONENT_CHROME. Zero JS.
 
 use crate::cronus_ui_kit::{esc, fmt_coord, label_of};
 use crate::parser::ComponentNode;
 
+/// Largest orbit the chrome's digit rules can place (indices 0..=99).
+pub const MAX_GLYPHS: usize = 100;
+
 pub fn render(comp: &ComponentNode) -> String {
     let label = label_of(comp);
     let phrase = raw_label(comp);
-    let glyphs: Vec<char> = phrase.chars().collect();
+    let glyphs: Vec<char> = phrase.chars().take(MAX_GLYPHS).collect();
     let n = glyphs.len().max(1) as f64;
     let orbit: String = glyphs
         .iter()
@@ -57,6 +67,7 @@ mod tests {
     use crate::cronus_ui_kit::stub;
 
     const FX_BOX: &str = "padding:0.75rem 1rem;position:relative;overflow:hidden";
+    const GLYPH: &str = "[data-slot=\"spinning-text\"] > [aria-hidden=\"true\"] > ";
 
     fn reject_fx(html: &str) {
         assert!(!html.contains(FX_BOX));
@@ -148,7 +159,6 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"spinning-text\"] > span:first-child {\n  position: absolute;"));
         assert!(css.contains("[data-slot=\"spinning-text\"] > [aria-hidden=\"true\"] > span {"));
-        assert!(css.contains("transform: rotate(attr(data-angle type(<angle>), 0deg)) translateY(-3rem);"));
         assert!(css.contains("font-size: 0.75rem; line-height: 1rem; font-weight: 500;"));
         assert!(css.contains("letter-spacing: 0.1em;"));
         assert!(!css.contains("[data-slot=\"spinning-text-orbit\"]"));
@@ -160,5 +170,53 @@ mod tests {
         assert!(!css.contains(FX_BOX));
         assert!(!css.contains("<style"));
         assert!(!css.contains("style="));
+    }
+
+    /// Typed `attr(… type(<angle>))` only works in Chromium 133+; the angle
+    /// must come from portable structural selectors instead.
+    #[test]
+    fn chrome_angle_is_portable_without_typed_attr() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(!css.contains("type(<angle>)"));
+        assert!(!css.contains("attr(data-angle"));
+        assert!(css.contains(
+            "transform: rotate(calc(360deg * (10 * var(--cui-it) + var(--cui-io)) / (10 * (var(--cui-it) + var(--cui-jt)) + var(--cui-io) + var(--cui-jo) + 1))) translateY(-3rem);"
+        ));
+        for (pseudo, o, t) in [("nth-child", "io", "it"), ("nth-last-child", "jo", "jt")] {
+            for k in 1..10 {
+                assert!(css.contains(&format!("{GLYPH}:{pseudo}(10n+{}) {{ --cui-{o}: {k}; }}", k + 1)));
+                assert!(css.contains(&format!("{GLYPH}:{pseudo}(n+{}) {{ --cui-{t}: {k}; }}", k * 10 + 1)));
+            }
+            assert!(!css.contains(&format!("{GLYPH}:{pseudo}(n+101)")));
+        }
+    }
+
+    /// Simulates the chrome's digit rules and checks the resulting angle
+    /// equals React's `i / n * 360` for every supported orbit size.
+    #[test]
+    fn digit_rules_reproduce_react_angles_up_to_cap() {
+        let digits = |pos: usize| -> (usize, usize) {
+            // pos is 1-based: ones from :nth-child(10n+k), tens from :nth-child(n+k1), capped at 9.
+            ((pos - 1) % 10, ((pos - 1) / 10).min(9))
+        };
+        for n in 1..=MAX_GLYPHS {
+            for pos in 1..=n {
+                let (io, it) = digits(pos);
+                let (jo, jt) = digits(n - pos + 1);
+                let i = 10 * it + io;
+                let total = 10 * (it + jt) + io + jo + 1;
+                assert_eq!(i, pos - 1);
+                assert_eq!(total, n);
+            }
+        }
+    }
+
+    #[test]
+    fn orbit_is_capped_at_max_glyphs() {
+        let long: String = "ab".repeat(80);
+        let html = render(&stub("spinning-text", &long));
+        assert_eq!(html.matches("<span data-angle=").count(), MAX_GLYPHS);
+        assert!(html.contains(&format!("<span>{long}</span>")), "sr-only copy keeps full text");
+        assert!(html.contains("<span data-angle=\"3.6deg\">b</span>"));
     }
 }
