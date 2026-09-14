@@ -1,11 +1,18 @@
 //! Dedicated Rating renderer. DOM matches React:
-//! `<div data-slot="rating" role="slider">` plus five `<span data-slot="rating-item">`.
+//! `<div data-slot="rating" role="slider">` plus five
+//! `<span data-slot="rating-item"><span data-slot="rating-star">` stars, each an
+//! outline lucide star with a clipped, warning-filled overlay star on top.
+//! React sizes the overlay with an inline `style="width:N%"`; the kernel emits
+//! no inline styles, so `data-state` on the item drives the overlay width in CSS.
 //! Not interact `role="radiogroup"` with hidden `<input type="radio">` stars.
 
 use crate::cronus_ui_kit::{item, label_of};
 use crate::parser::ComponentNode;
 
 const MAX: u32 = 5;
+
+/// lucide `star`, stroke 2, `currentColor` (React `<Star />`).
+const STAR: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z\"></path></svg>";
 
 pub fn render(comp: &ComponentNode) -> String {
     let now = value_of(comp);
@@ -14,11 +21,11 @@ pub fn render(comp: &ComponentNode) -> String {
     for i in 1..=MAX {
         let state = if i <= now { "on" } else { "off" };
         items.push_str(&format!(
-            "<span data-slot=\"rating-item\" aria-hidden=\"true\" data-state=\"{state}\"></span>"
+            "<span aria-hidden=\"true\" data-slot=\"rating-item\" data-state=\"{state}\"><span data-slot=\"rating-star\">{STAR}<span>{STAR}</span></span></span>"
         ));
     }
     format!(
-        "<div data-slot=\"rating\" role=\"slider\" aria-valuemin=\"0\" aria-valuemax=\"{MAX}\" aria-valuenow=\"{now}\" aria-label=\"{label}\">{items}</div>"
+        "<div data-slot=\"rating\" role=\"slider\" aria-label=\"{label}\" aria-valuemin=\"0\" aria-valuemax=\"{MAX}\" aria-valuenow=\"{now}\" aria-valuetext=\"{now} out of {MAX}\" aria-readonly=\"true\">{items}</div>"
     )
 }
 
@@ -61,6 +68,8 @@ mod tests {
         assert!(!html.contains("<label"));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
+        assert!(!html.contains("style="));
+        assert!(!html.contains("<script"));
     }
 
     fn assert_slider(html: &str, now: u32, label: &str) {
@@ -70,9 +79,11 @@ mod tests {
         assert!(html.contains("aria-valuemin=\"0\""));
         assert!(html.contains("aria-valuemax=\"5\""));
         assert!(html.contains(&format!("aria-valuenow=\"{now}\"")));
+        assert!(html.contains(&format!("aria-valuetext=\"{now} out of 5\"")));
         assert!(html.contains(&format!("aria-label=\"{label}\"")));
         assert_eq!(html.matches("data-slot=\"rating-item\"").count(), 5);
-        assert_eq!(html.matches("aria-hidden=\"true\"").count(), 5);
+        assert_eq!(html.matches("data-slot=\"rating-star\"").count(), 5);
+        assert_eq!(html.matches("<svg ").count(), 10);
         let on = html.matches("data-state=\"on\"").count();
         let off = html.matches("data-state=\"off\"").count();
         assert_eq!(on, now as usize);
@@ -81,12 +92,18 @@ mod tests {
     }
 
     #[test]
-    fn root_is_slider_of_spans_not_radiogroup() {
+    fn root_is_slider_of_star_spans_not_radiogroup() {
         let html = render(&stub("rating", "Rating"));
         assert_slider(&html, 0, "Rating");
+        let star = format!(
+            "<span aria-hidden=\"true\" data-slot=\"rating-item\" data-state=\"off\"><span data-slot=\"rating-star\">{STAR}<span>{STAR}</span></span></span>"
+        );
         assert_eq!(
             html,
-            "<div data-slot=\"rating\" role=\"slider\" aria-valuemin=\"0\" aria-valuemax=\"5\" aria-valuenow=\"0\" aria-label=\"Rating\"><span data-slot=\"rating-item\" aria-hidden=\"true\" data-state=\"off\"></span><span data-slot=\"rating-item\" aria-hidden=\"true\" data-state=\"off\"></span><span data-slot=\"rating-item\" aria-hidden=\"true\" data-state=\"off\"></span><span data-slot=\"rating-item\" aria-hidden=\"true\" data-state=\"off\"></span><span data-slot=\"rating-item\" aria-hidden=\"true\" data-state=\"off\"></span></div>"
+            format!(
+                "<div data-slot=\"rating\" role=\"slider\" aria-label=\"Rating\" aria-valuemin=\"0\" aria-valuemax=\"5\" aria-valuenow=\"0\" aria-valuetext=\"0 out of 5\" aria-readonly=\"true\">{}</div>",
+                star.repeat(5)
+            )
         );
     }
 
@@ -137,10 +154,24 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"rating\"]"));
         assert!(css.contains("[data-slot=\"rating-item\"]"));
-        assert!(css.contains("display: inline-flex"));
-        assert!(css.contains("align-items: center"));
-        assert!(css.contains("content: \"★\""));
+        assert!(css.contains("[data-slot=\"rating-star\"]"));
         assert!(css.contains("var(--cronus-warning"));
         assert!(!css.contains("zinc-"));
+    }
+
+    /// Wave 1t geometry: 20px svg stars (`[&_svg]:size-5`), gap-1, rounded-md
+    /// root; stars are SVG (not a 20px `★` glyph with line-height 1), items keep
+    /// the inherited 16px/24px type; overlay clipped to 100% / 0% by state.
+    #[test]
+    fn chrome_matches_react_geometry() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains(
+            "[data-slot=\"rating\"] {\n  display: inline-flex; align-items: center; gap: 0.25rem;\n  border-radius: var(--cronus-radius-md);\n}"
+        ));
+        assert!(css.contains("[data-slot=\"rating\"] svg { width: 1.25rem; height: 1.25rem; }"));
+        assert!(css.contains(
+            "[data-slot=\"rating-item\"][data-state=\"on\"] [data-slot=\"rating-star\"] > span { width: 100%; }"
+        ));
+        assert!(!css.contains("content: \"★\""));
     }
 }

@@ -1,7 +1,9 @@
 //! Dedicated FloatingLabelInput renderer. DOM matches React:
-//! `<div data-slot="floating-label-input"><label data-slot="floating-label-input-label">`
-//! plus a native `<input data-slot="input">`. Not interact
-//! `input("floating-label-input")` (`<label>` wrapping `*-control`).
+//! `<div data-slot="floating-label-input"><div>` (the `relative` positioning
+//! box) holding a native `<input data-slot="input">` followed by its
+//! `<label data-slot="floating-label-input-label">`. The float is pure CSS
+//! (`:placeholder-shown` / `:focus`), exactly like React's `peer-*` variants.
+//! Not interact `input("floating-label-input")` (`<label>` wrapping `*-control`).
 
 use crate::cronus_ui_kit::{esc, item, label_of};
 use crate::parser::ComponentNode;
@@ -22,9 +24,7 @@ pub fn render(comp: &ComponentNode) -> String {
         root.push_str(" data-invalid=\"\"");
     }
 
-    let mut field = format!(
-        "data-slot=\"input\" id=\"{id}\" placeholder=\" \" aria-label=\"{label}\""
-    );
+    let mut field = format!("data-slot=\"input\" id=\"{id}\" placeholder=\" \"");
     if !value.is_empty() {
         field.push_str(&format!(" value=\"{value}\""));
     }
@@ -39,7 +39,7 @@ pub fn render(comp: &ComponentNode) -> String {
     }
 
     let mut html = format!(
-        "<div {root}><label data-slot=\"floating-label-input-label\" for=\"{id}\">{label}</label><input {field} />"
+        "<div {root}><div><input {field} /><label data-slot=\"floating-label-input-label\" for=\"{id}\">{label}</label></div>"
     );
     if !helper.is_empty() {
         let role = if invalid { " role=\"alert\"" } else { "" };
@@ -70,6 +70,7 @@ fn helper_of(comp: &ComponentNode) -> String {
     attr(comp, "helperText")
         .or_else(|| attr(comp, "helper-text"))
         .or_else(|| attr(comp, "helper"))
+        .or_else(|| attr(comp, "description"))
         .or_else(|| item(comp, "helper"))
         .or_else(|| item(comp, "description"))
         .filter(|s| !s.is_empty())
@@ -108,18 +109,17 @@ mod tests {
     }
 
     #[test]
-    fn root_is_div_with_label_and_native_input() {
+    fn root_is_div_with_relative_box_input_then_label() {
         let html = render(&stub("floating-label-input", "Email"));
-        assert!(html.starts_with("<div data-slot=\"floating-label-input\">"));
+        assert!(html.starts_with("<div data-slot=\"floating-label-input\"><div><input data-slot=\"input\""));
         assert!(html.contains("<label data-slot=\"floating-label-input-label\" for=\"floating-label-input\">Email</label>"));
-        assert!(html.contains("<input data-slot=\"input\""));
         assert!(html.contains("placeholder=\" \""));
-        assert!(html.contains("aria-label=\"Email\""));
-        assert!(!html.contains("floating-label-input-control"));
+        // React names the field through <label for>, not aria-label.
+        assert!(!html.contains("aria-label="));
         reject_interact(&html);
         assert_eq!(
             html,
-            "<div data-slot=\"floating-label-input\"><label data-slot=\"floating-label-input-label\" for=\"floating-label-input\">Email</label><input data-slot=\"input\" id=\"floating-label-input\" placeholder=\" \" aria-label=\"Email\" /></div>"
+            "<div data-slot=\"floating-label-input\"><div><input data-slot=\"input\" id=\"floating-label-input\" placeholder=\" \" /><label data-slot=\"floating-label-input-label\" for=\"floating-label-input\">Email</label></div></div>"
         );
     }
 
@@ -130,9 +130,20 @@ mod tests {
         c.props.insert("helperText".into(), "We'll never share this.".into());
         let html = render(&c);
         assert!(html.contains("value=\"a@b.co\""));
-        assert!(html.contains("data-slot=\"floating-label-input-helper\""));
+        assert!(html.contains("</label></div><p data-slot=\"floating-label-input-helper\""));
         assert!(html.contains("We'll never share this."));
         assert!(!html.contains("role=\"alert\""));
+        reject_interact(&html);
+    }
+
+    /// Emitter writes `description:"…"` (attr-style, props or item config).
+    #[test]
+    fn description_attr_is_helper() {
+        let mut c = stub("floating-label-input", "Email");
+        c.items[0].config.insert("description".into(), "Work address".into());
+        let html = render(&c);
+        assert!(html.contains("aria-describedby=\"floating-label-input-helper\""));
+        assert!(html.contains(">Work address</p>"));
         reject_interact(&html);
     }
 
@@ -183,5 +194,20 @@ mod tests {
         assert!(css.contains("var(--cronus-fg-secondary)"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("onclick"));
+    }
+
+    /// Wave 1t geometry: React label sits at `top-1/2` of the 56px box, lifted
+    /// `-translate-y-[1.6rem] scale-[0.8]` (visual top 4.4px, 16px tall); both
+    /// input and label use text-sm's 20px line-height, not the document's 1.5.
+    #[test]
+    fn chrome_matches_react_geometry() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"floating-label-input\"] > div { position: relative; }"));
+        assert!(css.contains(
+            "[data-slot=\"floating-label-input\"] [data-slot=\"input\"] {\n  height: 3.5rem; padding-top: 1rem; line-height: 1.25rem;\n}"
+        ));
+        assert!(css.contains("top: 50%; z-index: 10;"));
+        assert!(css.contains("transform: translateY(-1.6rem) scale(0.8);"));
+        assert!(!css.contains("top: 1.15rem"));
     }
 }
