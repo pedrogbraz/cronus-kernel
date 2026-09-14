@@ -1,17 +1,34 @@
-//! Dedicated Masonry renderer. DOM matches React:
-//! `<div data-slot="masonry">` grid of cells from text items.
-//! Not catalog `display()` SURF `<section>` and not interact `scroll()`.
+//! Dedicated Masonry renderer. DOM matches React `Masonry` (audit harness:
+//! `columns={2}`, `w-72`): `<div data-slot="masonry" aria-label=…>` whose
+//! direct children are plain card `<div>`s (React gives them no slot).
+//! CSS columns, zero JS. Not catalog `display()` SURF, not interact `scroll()`.
 
-use crate::cronus_ui_kit::texts;
+use crate::cronus_ui_kit::{esc, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    let cells = texts(comp)
-        .into_iter()
-        .map(|t| format!("<div data-slot=\"masonry-cell\">{t}</div>"))
-        .collect::<Vec<_>>()
-        .join("");
-    format!("<div data-slot=\"masonry\">{cells}</div>")
+    let mut cells: Vec<String> = comp
+        .items
+        .iter()
+        .filter(|i| i.item_type != "label" && !i.text.is_empty())
+        .map(|i| esc(&i.text))
+        .collect();
+    if cells.is_empty() {
+        cells.push(label_of(comp));
+    }
+    let aria = attr(comp, "aria-label")
+        .map(|a| format!(" aria-label=\"{}\"", esc(a)))
+        .unwrap_or_default();
+    let body = cells.iter().map(|t| format!("<div>{t}</div>")).collect::<String>();
+    format!("<div data-slot=\"masonry\"{aria}>{body}</div>")
+}
+
+fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
+    comp.props
+        .get(key)
+        .map(String::as_str)
+        .or_else(|| comp.items.iter().find_map(|i| i.config.get(key).map(String::as_str)))
+        .filter(|s| !s.is_empty())
 }
 
 #[cfg(test)]
@@ -30,101 +47,81 @@ mod tests {
         }
     }
 
-    fn wall(items: &[&str]) -> crate::parser::ComponentNode {
-        let mut c = stub("masonry", items.first().copied().unwrap_or("Card"));
-        c.items.clear();
+    /// Emitter shape: `label "Gallery"`, `text` per card, `aria-label:` on the last item.
+    fn wall(label: &str, items: &[&str]) -> ComponentNode {
+        let mut c = stub("masonry", label);
         for n in items {
-            c.items.push(extra("item", n));
+            c.items.push(extra("text", n));
+        }
+        if let Some(last) = c.items.last_mut() {
+            last.config.insert("aria-label".into(), label.into());
         }
         c
     }
 
     fn reject_interact(html: &str) {
-        assert!(!html.starts_with("<section"));
-        assert!(!html.contains("<section data-slot=\"masonry\""));
-        assert!(!html.contains("<nav data-slot=\"masonry\""));
+        assert!(!html.contains("<section"));
         assert!(!html.contains("<details"));
-        assert!(!html.contains("-control"));
         assert!(!html.contains("style="));
         assert!(!html.contains("onclick="));
-        assert!(!html.contains("padding:1rem;display:flex;flex-direction:column;gap:0.5rem"));
         assert!(!html.contains("max-height:12rem;overflow:auto"));
         assert!(!html.contains("v-data="));
-        assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
-        assert!(!html.contains("display("));
-        assert!(!html.contains("scroll("));
+        assert!(!html.contains("masonry-cell"));
     }
 
     #[test]
-    fn root_is_masonry_grid_of_cells_not_display_surf() {
-        let html = render(&wall(&["Alpha", "Beta"]));
-        assert!(html.starts_with("<div data-slot=\"masonry\">"));
-        assert!(html.contains("<div data-slot=\"masonry-cell\">Alpha</div>"));
-        assert!(html.contains("<div data-slot=\"masonry-cell\">Beta</div>"));
-        assert_eq!(html.matches("data-slot=\"masonry-cell\"").count(), 2);
-        reject_interact(&html);
+    fn dom_matches_react_masonry() {
+        let html = render(&wall("Gallery", &["Alpha", "Beta", "Gamma", "Delta"]));
         assert_eq!(
             html,
-            "<div data-slot=\"masonry\"><div data-slot=\"masonry-cell\">Alpha</div><div data-slot=\"masonry-cell\">Beta</div></div>"
+            "<div data-slot=\"masonry\" aria-label=\"Gallery\"><div>Alpha</div><div>Beta</div><div>Gamma</div><div>Delta</div></div>"
         );
-    }
-
-    #[test]
-    fn extra_text_items_become_cells() {
-        let mut c = stub("masonry", "Alpha");
-        c.items.push(extra("text", "Beta"));
-        c.items.push(extra("text", "Gamma"));
-        let html = render(&c);
-        assert_eq!(html.matches("data-slot=\"masonry-cell\"").count(), 3);
-        assert!(html.contains(">Alpha</div>"));
-        assert!(html.contains(">Beta</div>"));
-        assert!(html.contains(">Gamma</div>"));
         reject_interact(&html);
+        assert!(!crate::cli::stub_renderer_gate::looks_like_interact_generic(&html));
     }
 
     #[test]
-    fn label_only_still_emits_one_cell() {
+    fn label_only_still_emits_one_cell_without_aria() {
         let html = render(&stub("masonry", "Card"));
-        assert!(html.contains("<div data-slot=\"masonry\">"));
-        assert_eq!(html.matches("data-slot=\"masonry-cell\"").count(), 1);
-        assert!(html.contains("<div data-slot=\"masonry-cell\">Card</div>"));
+        assert_eq!(html, "<div data-slot=\"masonry\"><div>Card</div></div>");
         reject_interact(&html);
+    }
+
+    #[test]
+    fn text_is_escaped() {
+        let html = render(&wall("G & \"H\"", &["<b>"]));
+        assert!(html.contains("aria-label=\"G &amp; &quot;H&quot;\""));
+        assert!(html.contains("<div>&lt;b&gt;</div>"));
     }
 
     #[test]
     fn skips_interact_scroll_and_display_surf() {
-        let c = wall(&["Alpha", "Beta"]);
+        let c = wall("Gallery", &["Alpha", "Beta"]);
         let html = render(&c);
         let interact = crate::cronus_ui_interact::render("masonry", &c).unwrap();
         assert_ne!(html, interact);
-        assert!(interact.contains("data-slot=\"masonry\""));
-        assert!(interact.contains("style="));
         assert!(interact.contains("max-height:12rem;overflow:auto"));
-        assert!(!interact.contains("data-slot=\"masonry-cell\""));
-        assert!(html.contains("data-slot=\"masonry-cell\""));
-        assert!(!html.contains("<section"));
+        assert!(crate::cli::stub_renderer_gate::looks_like_interact_generic(&interact));
         reject_interact(&html);
     }
 
     #[test]
     fn no_voodoo_even_when_runtime_on() {
         crate::voodoo::with_enabled(true, || {
-            let html = render(&wall(&["Alpha"]));
+            let html = render(&wall("Gallery", &["Alpha"]));
             reject_interact(&html);
-            assert!(html.contains("data-slot=\"masonry-cell\""));
+            assert!(html.contains("<div>Alpha</div>"));
         });
     }
 
     #[test]
-    fn chrome_is_token_only() {
+    fn chrome_is_token_only_and_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"masonry\"]"));
-        assert!(css.contains("[data-slot=\"masonry-cell\"]"));
-        assert!(css.contains("column-count: 3"));
-        assert!(css.contains("column-gap: 1rem"));
-        assert!(css.contains("break-inside: avoid"));
+        assert!(css.contains("[data-slot=\"masonry\"] {\n  box-sizing: border-box; width: 18rem; max-width: 100%;\n  column-count: 2; column-gap: 1rem;"));
+        assert!(css.contains("[data-slot=\"masonry\"] > * { margin-bottom: 1rem; break-inside: avoid; }"));
+        assert!(css.contains("padding: 0.75rem; font-size: 0.875rem; line-height: 1.25rem;"));
+        assert!(!css.contains("[data-slot=\"masonry-cell\"]"));
         assert!(!css.contains("zinc-"));
-        assert!(!css.contains("onclick"));
     }
 }

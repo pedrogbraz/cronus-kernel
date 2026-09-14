@@ -450,7 +450,7 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && !html.contains("data-slot=\"usage-meter-fill\""))
         || (html.contains("data-slot=\"masonry\"") && html.contains("<section"))
         || (html.contains("data-slot=\"masonry\"") && html.contains("max-height:12rem;overflow:auto"))
-        || (html.contains("data-slot=\"masonry\"") && !html.contains("data-slot=\"masonry-cell\""))
+        || (html.contains("data-slot=\"masonry\"") && html.contains("style="))
         || html.contains("<figure data-slot=\"heatmap\"")
         || (html.contains("data-slot=\"heatmap\"") && html.contains("<figcaption"))
         || (html.contains("data-slot=\"heatmap\"") && !html.contains("data-slot=\"heatmap-day\""))
