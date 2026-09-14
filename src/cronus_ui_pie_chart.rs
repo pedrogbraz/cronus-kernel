@@ -1,131 +1,40 @@
 //! Dedicated PieChart renderer. DOM matches React:
-//! `<div data-slot="pie-chart">` wrapping `<svg>` with 3–4 `<path>` slices.
-//! Token fills: primary, success, warning, info. Not the catalog `chart()` stub
-//! (`<figure data-slot="pie-chart"><figcaption>`).
+//! `<div data-slot="pie-chart" role="img" aria-label>`
+//!   `<div data-slot="chart"><svg viewBox="0 0 432 256">` one sector path per
+//!   slice (centre 216,128, outer radius 80% of 123 = 98.4, start angle 0,
+//!   counter-clockwise), colours chart-1..5.
+//! Slices are the `text` lines; values cycle 4, 8, 6, 10, 7 unless numeric
+//! items are given. Tooltip needs JS and is not emitted.
 
+use crate::cronus_ui_chart::{
+    categories_or, container, sector_path, values_for, DEMO_VALUES, POLAR_CX, POLAR_CY,
+};
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
 
-const SIZE: f64 = 100.0;
-const CX: f64 = 50.0;
-const CY: f64 = 50.0;
-const RADIUS: f64 = 40.0;
-const DEFAULT_SLICES: [f64; 4] = [40.0, 25.0, 20.0, 15.0];
-const FILLS: [&str; 4] = [
-    "var(--cronus-primary)",
-    "var(--cronus-success)",
-    "var(--cronus-warning)",
-    "var(--cronus-info)",
-];
+pub const PIE_OUTER: f64 = 98.4;
 
 pub fn render(comp: &ComponentNode) -> String {
-    let values = slices_of(comp);
     let label = label_of(comp);
-    let paths = pie_paths(&values);
+    let cats = categories_or(comp, &["Desktop", "Mobile"]);
+    let values = values_for(comp, cats.len(), &DEMO_VALUES);
+    let total: f64 = values.iter().map(|v| v.max(0.0)).sum();
+    let mut body = String::new();
+    let mut start = 0.0;
+    for (i, v) in values.iter().enumerate() {
+        let delta = if total > 0.0 { v.max(0.0) / total * 360.0 } else { 0.0 };
+        let end = start + delta;
+        body.push_str(&format!(
+            "<path d=\"{}\" fill=\"var(--cronus-chart-{})\" stroke-width=\"0\"></path>",
+            sector_path(POLAR_CX, POLAR_CY, 0.0, PIE_OUTER, start, end),
+            i % 5 + 1
+        ));
+        start = end;
+    }
     format!(
-        "<div data-slot=\"pie-chart\" role=\"img\" aria-label=\"{label}\"><svg viewBox=\"0 0 {s} {s}\" width=\"{s}\" height=\"{s}\" aria-hidden=\"true\">{paths}</svg></div>",
-        s = fmt(SIZE),
+        "<div data-slot=\"pie-chart\" role=\"img\" aria-label=\"{label}\">{}</div>",
+        container(&body)
     )
-}
-
-fn pie_paths(values: &[f64]) -> String {
-    let total: f64 = values.iter().copied().sum();
-    let n = values.len().max(1) as f64;
-    let mut angle = -std::f64::consts::FRAC_PI_2;
-    let mut out = String::new();
-    for (index, value) in values.iter().enumerate() {
-        let sweep = if total <= 0.0 {
-            std::f64::consts::TAU / n
-        } else {
-            (*value / total) * std::f64::consts::TAU
-        };
-        let next = angle + sweep;
-        let fill = FILLS[index % FILLS.len()];
-        let d = slice_path(angle, next);
-        out.push_str(&format!("<path d=\"{d}\" fill=\"{fill}\"></path>"));
-        angle = next;
-    }
-    out
-}
-
-fn slice_path(a0: f64, a1: f64) -> String {
-    let x0 = CX + RADIUS * a0.cos();
-    let y0 = CY + RADIUS * a0.sin();
-    let x1 = CX + RADIUS * a1.cos();
-    let y1 = CY + RADIUS * a1.sin();
-    let large = if (a1 - a0).abs() > std::f64::consts::PI {
-        1
-    } else {
-        0
-    };
-    format!(
-        "M {cx} {cy} L {x0} {y0} A {r} {r} 0 {large} 1 {x1} {y1} Z",
-        cx = fmt(CX),
-        cy = fmt(CY),
-        x0 = fmt(x0),
-        y0 = fmt(y0),
-        x1 = fmt(x1),
-        y1 = fmt(y1),
-        r = fmt(RADIUS),
-    )
-}
-
-fn slices_of(comp: &ComponentNode) -> Vec<f64> {
-    let mut out = Vec::new();
-    if let Some(raw) = comp.props.get("data") {
-        out.extend(parse_series(raw));
-    }
-    for i in &comp.items {
-        out.extend(parse_series(&i.text));
-        if let Some(v) = i.config.get("value") {
-            out.extend(parse_series(v));
-        }
-    }
-    if out.is_empty() {
-        for row in crate::cronus_ui_data::rows() {
-            if let Some(v) = row.get("value") {
-                out.extend(parse_series(&json_num(v)));
-            }
-        }
-    }
-    out.retain(|n| *n >= 0.0 && n.is_finite());
-    if out.len() < 3 {
-        DEFAULT_SLICES.to_vec()
-    } else if out.len() > 4 {
-        out.truncate(4);
-        out
-    } else {
-        out
-    }
-}
-
-fn parse_series(s: &str) -> Vec<f64> {
-    s.split(|c: char| c == ',' || c.is_whitespace())
-        .filter_map(|part| {
-            let part = part.trim();
-            if part.is_empty() {
-                return None;
-            }
-            part.parse::<f64>().ok().filter(|n| n.is_finite())
-        })
-        .collect()
-}
-
-fn json_num(v: &serde_json::Value) -> String {
-    match v {
-        serde_json::Value::String(s) => s.clone(),
-        serde_json::Value::Number(n) => n.to_string(),
-        other => other.to_string(),
-    }
-}
-
-fn fmt(n: f64) -> String {
-    let r = (n * 100.0).round() / 100.0;
-    if r.fract() == 0.0 {
-        format!("{}", r as i64)
-    } else {
-        format!("{r}")
-    }
 }
 
 #[cfg(test)]
@@ -134,90 +43,33 @@ mod tests {
     use crate::cronus_ui_kit::stub;
     use crate::parser::ComponentItemNode;
 
-    fn extra(item_type: &str, text: &str) -> ComponentItemNode {
-        ComponentItemNode {
-            item_type: item_type.into(),
-            text: text.into(),
-            link: None,
-            tone: None,
-            config: Default::default(),
+    fn fixture() -> ComponentNode {
+        let mut c = stub("pie-chart", "Traffic");
+        for t in ["Desktop", "Mobile"] {
+            c.items.push(ComponentItemNode {
+                item_type: "text".into(),
+                text: t.into(),
+                link: None,
+                tone: None,
+                config: Default::default(),
+            });
         }
-    }
-
-    fn reject_stub(html: &str) {
-        assert!(!html.contains("<figure"));
-        assert!(!html.contains("<figcaption"));
-        assert!(!html.contains("style="));
-        assert!(!html.contains("SURF"));
-        assert!(!html.contains("v-data="));
-        assert!(!html.contains("v-model="));
-        assert!(!html.contains("onclick="));
-        assert!(!html.contains("<script"));
-        assert!(!html.contains("zinc-"));
+        c
     }
 
     #[test]
-    fn root_is_div_with_svg_slices_not_figure() {
-        let html = render(&stub("pie-chart", "Share"));
-        assert!(html.starts_with("<div data-slot=\"pie-chart\""));
-        assert!(html.contains("<svg "));
-        let paths = html.matches("<path ").count();
-        assert!(paths >= 3, "{html}");
-        assert!(paths <= 4, "{html}");
-        assert!(html.contains("fill=\"var(--cronus-primary)\""));
-        assert!(html.contains("fill=\"var(--cronus-success)\""));
-        assert!(html.contains("fill=\"var(--cronus-warning)\""));
-        assert!(html.contains("fill=\"var(--cronus-info)\""));
-        assert!(!html.contains("<figure"));
-        assert!(!html.contains("<figcaption"));
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn three_values_emit_three_slices() {
-        let mut c = stub("pie-chart", "Share");
-        c.items = vec![
-            extra("value", "50"),
-            extra("value", "30"),
-            extra("value", "20"),
-        ];
-        let html = render(&c);
-        assert_eq!(html.matches("<path ").count(), 3);
-        assert!(html.contains("fill=\"var(--cronus-primary)\""));
-        assert!(html.contains("fill=\"var(--cronus-success)\""));
-        assert!(html.contains("fill=\"var(--cronus-warning)\""));
-        assert!(!html.contains("fill=\"var(--cronus-info)\""));
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn skips_chart_figure_stub() {
-        let html = render(&stub("pie-chart", "Share"));
-        assert!(!html.contains("<figure"));
-        assert!(!html.contains("<figcaption"));
-        let area =
-            crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("sankey-chart"))
-                .unwrap();
-        assert!(area.contains("<figure"));
-        assert!(area.contains("data-slot=\"sankey-chart\""));
-        assert_ne!(html, area);
-    }
-
-    #[test]
-    fn no_voodoo_even_when_runtime_on() {
-        crate::voodoo::with_enabled(true, || {
-            let html = render(&stub("pie-chart", "Share"));
-            reject_stub(&html);
-            assert!(html.contains("data-slot=\"pie-chart\""));
-        });
+    fn fixture_matches_recharts_sectors() {
+        let html = render(&fixture());
+        assert_eq!(
+            html,
+            "<div data-slot=\"pie-chart\" role=\"img\" aria-label=\"Traffic\"><div data-slot=\"chart\"><svg viewBox=\"0 0 432 256\" aria-hidden=\"true\"><path d=\"M 314.4,128 A 98.4,98.4,0, 0,0, 166.8,42.7831 L 216,128 Z\" fill=\"var(--cronus-chart-1)\" stroke-width=\"0\"></path><path d=\"M 166.8,42.7831 A 98.4,98.4,0, 1,0, 314.4,128 L 216,128 Z\" fill=\"var(--cronus-chart-2)\" stroke-width=\"0\"></path></svg></div></div>"
+        );
     }
 
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"pie-chart\"]"));
-        assert!(css.contains("var(--cronus-primary)"));
-        assert!(!css.contains("zinc-"));
-        assert!(!css.contains("onclick"));
+        assert!(css.contains("[data-slot=\"pie-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"));
+        assert!(!css.contains("[data-slot=\"pie-chart\"] svg { width: 12rem"));
     }
 }

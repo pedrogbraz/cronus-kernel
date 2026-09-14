@@ -1,39 +1,99 @@
 //! Dedicated RadarChart renderer. DOM matches React:
-//! `<div data-slot="radar-chart">` wrapping SVG polygon/polyline pentagon.
-//! Not the stub `chart()` `<figure><figcaption>` + dummy polyline.
+//! `<div data-slot="radar-chart" role="img" aria-label>`
+//!   `<div data-slot="chart"><svg viewBox="0 0 432 256">` PolarGrid (one
+//!   polygon per radius tick + spokes, recharts `#ccc`), the series polygon
+//!   (chart-1, fill-opacity 0.25) and PolarAngleAxis labels (`#808080`).
+//! Centre 216,128, outerRadius 70% of 123 = 86.1, first axis at 90°.
+//! Axes are the `text` lines; values cycle 4, 8, 6, 10, 7.
 
-use crate::cronus_ui_kit::{
-    fmt_coord, label_of, numeric_series, radar_axis_points, radar_grid_points,
-    radar_polygon_points, radar_polyline_points, RADAR_AXES, RADAR_LEVELS, RADAR_VIEW,
+use crate::cronus_ui_chart::{
+    categories_or, container, max_of, nice_domain, num, polar, values_for, DEMO_VALUES,
+    POLAR_CX, POLAR_CY,
 };
+use crate::cronus_ui_kit::{esc, label_of};
 use crate::parser::ComponentNode;
+
+pub const RADAR_OUTER: f64 = 86.1;
+const EPS: f64 = 1e-5;
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = label_of(comp);
-    let series = numeric_series(comp);
-    let poly = radar_polygon_points(&series);
-    let line = radar_polyline_points(&series);
-    let mut marks = String::new();
-    for lvl in 1..=RADAR_LEVELS {
-        let frac = lvl as f64 / RADAR_LEVELS as f64;
-        let g = radar_grid_points(frac);
-        marks.push_str(&format!(
-            "<polyline fill=\"none\" stroke=\"var(--cronus-border)\" stroke-width=\"1\" points=\"{g}\"></polyline>"
+    let axes = categories_or(comp, &["Speed", "Reliability", "Comfort"]);
+    let values = values_for(comp, axes.len(), &DEMO_VALUES);
+    let n = axes.len().min(values.len()).max(1);
+    let (lo, hi, ticks) = nice_domain(0.0, max_of(&values));
+    let angle = |i: usize| 90.0 - 360.0 * i as f64 / n as f64;
+    let mut body = String::new();
+    for t in &ticks {
+        let r = (t - lo) / (hi - lo) * RADAR_OUTER;
+        body.push_str(&format!(
+            "<path d=\"{}\" fill=\"none\" stroke=\"#ccc\"></path>",
+            ring(n, r, angle)
         ));
     }
-    for i in 0..RADAR_AXES {
-        let g = radar_axis_points(i);
-        marks.push_str(&format!(
-            "<polyline fill=\"none\" stroke=\"var(--cronus-border)\" stroke-width=\"1\" points=\"{g}\"></polyline>"
+    for i in 0..n {
+        let (x, y) = polar(POLAR_CX, POLAR_CY, RADAR_OUTER, angle(i));
+        body.push_str(&format!(
+            "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"#ccc\"></line>",
+            num(POLAR_CX),
+            num(POLAR_CY),
+            num(x),
+            num(y)
         ));
     }
-    marks.push_str(&format!(
-        "<polygon fill=\"var(--cronus-primary)\" fill-opacity=\"0.28\" stroke=\"none\" points=\"{poly}\"></polygon><polyline fill=\"none\" stroke=\"var(--cronus-primary)\" stroke-width=\"2\" points=\"{line}\"></polyline>"
+    let mut d = String::new();
+    for i in 0..n {
+        let r = (values[i] - lo) / (hi - lo) * RADAR_OUTER;
+        let (x, y) = polar(POLAR_CX, POLAR_CY, r, angle(i));
+        d.push_str(&format!("{}{},{}", if i == 0 { "M" } else { "L" }, num(x), num(y)));
+    }
+    let (x0, y0) = polar(POLAR_CX, POLAR_CY, (values[0] - lo) / (hi - lo) * RADAR_OUTER, angle(0));
+    d.push_str(&format!("L{},{}Z", num(x0), num(y0)));
+    body.push_str(&format!(
+        "<path d=\"{d}\" fill=\"var(--cronus-chart-1)\" fill-opacity=\"0.25\" stroke=\"var(--cronus-chart-1)\"></path>"
     ));
+    for (i, name) in axes.iter().take(n).enumerate() {
+        let a = angle(i);
+        let (x, y) = polar(POLAR_CX, POLAR_CY, RADAR_OUTER + 8.0, a);
+        let cos = (-a).to_radians().cos();
+        let sin = (-a).to_radians().sin();
+        let anchor = if cos > EPS {
+            "start"
+        } else if cos < -EPS {
+            "end"
+        } else {
+            "middle"
+        };
+        let dy = if cos.abs() <= EPS {
+            if sin > 0.0 {
+                "0.71em"
+            } else {
+                "0em"
+            }
+        } else {
+            "0.355em"
+        };
+        body.push_str(&format!(
+            "<g><text x=\"{x}\" y=\"{y}\" text-anchor=\"{anchor}\" fill=\"#808080\"><tspan x=\"{x}\" dy=\"{dy}\">{t}</tspan></text></g>",
+            x = num(x),
+            y = num(y),
+            t = esc(name),
+        ));
+    }
     format!(
-        "<div data-slot=\"radar-chart\" role=\"img\" aria-label=\"{label}\"><svg viewBox=\"0 0 {s} {s}\" aria-hidden=\"true\">{marks}</svg></div>",
-        s = fmt_coord(RADAR_VIEW),
+        "<div data-slot=\"radar-chart\" role=\"img\" aria-label=\"{label}\">{}</div>",
+        container(&body)
     )
+}
+
+fn ring(n: usize, r: f64, angle: impl Fn(usize) -> f64) -> String {
+    let mut d = String::new();
+    for i in 0..n {
+        let (x, y) = polar(POLAR_CX, POLAR_CY, r, angle(i));
+        d.push_str(&format!("{} {},{}", if i == 0 { "M" } else { "L" }, num(x), num(y)));
+    }
+    d.push('Z');
+    d
 }
 
 #[cfg(test)]
@@ -42,99 +102,36 @@ mod tests {
     use crate::cronus_ui_kit::stub;
     use crate::parser::ComponentItemNode;
 
-    const STUB_POLYLINE: &str = "0,30 20,22 40,26 60,12 80,16 100,8 120,14";
-
-    fn extra(item_type: &str, text: &str) -> ComponentItemNode {
-        ComponentItemNode {
-            item_type: item_type.into(),
-            text: text.into(),
-            link: None,
-            tone: None,
-            config: Default::default(),
+    fn fixture() -> ComponentNode {
+        let mut c = stub("radar-chart", "Metrics");
+        for t in ["Speed", "Reliability", "Comfort"] {
+            c.items.push(ComponentItemNode {
+                item_type: "text".into(),
+                text: t.into(),
+                link: None,
+                tone: None,
+                config: Default::default(),
+            });
         }
+        c
     }
 
-    fn reject_stub(html: &str) {
-        assert!(!html.contains("<figure"));
-        assert!(!html.contains("figcaption"));
-        assert!(!html.contains(STUB_POLYLINE));
+    #[test]
+    fn fixture_matches_recharts_polar_layout() {
+        let html = render(&fixture());
+        assert!(html.starts_with("<div data-slot=\"radar-chart\" role=\"img\" aria-label=\"Metrics\"><div data-slot=\"chart\"><svg viewBox=\"0 0 432 256\" aria-hidden=\"true\">"));
+        assert!(html.contains("<path d=\"M 216,41.9L 290.5648,171.05L 141.4352,171.05Z\" fill=\"none\" stroke=\"#ccc\"></path>"));
+        assert!(html.contains("<path d=\"M216,84.95L290.5648,171.05L160.0764,160.2875L216,84.95Z\" fill=\"var(--cronus-chart-1)\" fill-opacity=\"0.25\""));
+        assert!(html.contains("<g><text x=\"216\" y=\"33.9\" text-anchor=\"middle\" fill=\"#808080\"><tspan x=\"216\" dy=\"0em\">Speed</tspan></text></g>"));
+        assert!(html.contains("text-anchor=\"start\" fill=\"#808080\"><tspan x=\"297.493\" dy=\"0.355em\">Reliability</tspan>"));
+        assert!(html.contains("text-anchor=\"end\" fill=\"#808080\"><tspan x=\"134.507\" dy=\"0.355em\">Comfort</tspan>"));
+        assert!(!html.contains("polyline"));
         assert!(!html.contains("style="));
-        assert!(!html.contains("v-data="));
-        assert!(!html.contains("v-model="));
-        assert!(!html.contains("<script"));
-        assert!(!html.contains("onclick="));
-        assert!(!html.contains("{ value }"));
-    }
-
-    #[test]
-    fn root_is_div_with_svg_pentagon_not_figure() {
-        let html = render(&stub("radar-chart", "Coverage"));
-        assert!(html.starts_with("<div data-slot=\"radar-chart\""));
-        assert!(html.contains("role=\"img\""));
-        assert!(html.contains("aria-label=\"Coverage\""));
-        assert!(html.contains("<svg"));
-        assert!(html.contains("<polygon "));
-        assert!(html.contains("<polyline "));
-        assert!(html.contains("fill=\"var(--cronus-primary)\""));
-        assert!(html.contains("stroke=\"var(--cronus-primary)\""));
-        assert!(html.contains("viewBox=\"0 0 100 100\""));
-        assert_eq!(html.matches("<polygon ").count(), 1);
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn default_series_when_only_label() {
-        let html = render(&stub("radar-chart", "Coverage"));
-        let poly = radar_polygon_points(&[4.0, 8.0, 6.0, 10.0, 7.0]);
-        let line = radar_polyline_points(&[4.0, 8.0, 6.0, 10.0, 7.0]);
-        assert!(html.contains(&format!("points=\"{poly}\"")));
-        assert!(html.contains(&format!("points=\"{line}\"")));
-        assert_eq!(poly.split_whitespace().count(), 5);
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn numeric_items_drive_series() {
-        let mut c = stub("radar-chart", "Coverage");
-        c.items.push(extra("item", "1"));
-        c.items.push(extra("item", "3"));
-        c.items.push(extra("item", "2"));
-        c.items.push(extra("item", "4"));
-        c.items.push(extra("item", "5"));
-        let html = render(&c);
-        let pts = radar_polygon_points(&[1.0, 3.0, 2.0, 4.0, 5.0]);
-        assert!(html.contains(&format!("points=\"{pts}\"")));
-        let def = radar_polygon_points(&[4.0, 8.0, 6.0, 10.0, 7.0]);
-        assert_ne!(pts, def);
-        assert!(!html.contains(&format!("points=\"{def}\"")));
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn comma_list_item_is_series() {
-        let mut c = stub("radar-chart", "Coverage");
-        c.items.push(extra("item", "4, 8, 6, 10, 7"));
-        let html = render(&c);
-        let pts = radar_polygon_points(&[4.0, 8.0, 6.0, 10.0, 7.0]);
-        assert!(html.contains(&format!("points=\"{pts}\"")));
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn no_voodoo_even_when_runtime_on() {
-        crate::voodoo::with_enabled(true, || {
-            let html = render(&stub("radar-chart", "Coverage"));
-            reject_stub(&html);
-            assert!(html.contains("data-slot=\"radar-chart\""));
-        });
     }
 
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"radar-chart\"]"));
-        assert!(css.contains("var(--cronus-primary)"));
-        assert!(!css.contains("zinc-"));
-        assert!(!css.contains("onclick"));
+        assert!(css.contains("[data-slot=\"radar-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"));
     }
 }

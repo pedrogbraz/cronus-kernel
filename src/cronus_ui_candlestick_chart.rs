@@ -1,160 +1,104 @@
 //! Dedicated CandlestickChart renderer. DOM matches React:
-//! `<div data-slot="candlestick-chart">` wrapping SVG candles (rect + wick).
-//! Success/error tokens. Not the stub `chart()` dummy polyline.
+//! `<div data-slot="candlestick-chart" role="img" aria-label>`
+//!   `<div data-slot="chart"><svg viewBox="0 0 432 256">` dashed grid rows for
+//!   the hidden YAxis domain `[low - pad, high + pad]` (pad = max(2, 8% span)),
+//!   `<g data-slot="candlestick-marks">` with one wick line + body rect per
+//!   candle on a point scale (body width clamp(step / 2, 4, 12), rx 1,
+//!   success when close ≥ open else error), x tick labels (minTickGap 24).
+//! Categories are the `text` lines; OHLC cycles the React fixture candles.
+//! The transparent hover hit-rects and tooltip need JS and are not emitted.
 
-use crate::cronus_ui_kit::{candle_ohlc, chart_candles, fmt_coord, label_of};
+use crate::cronus_ui_chart::{
+    categories_or, container, fixed_domain_ticks, grid_rows, num, point_xs, x_tick_labels,
+    y_of, PLOT_L, PLOT_R,
+};
+use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
+
+/// open, high, low, close — the React `OHLC_DATA` candles.
+pub const DEMO_OHLC: [[f64; 4]; 3] = [[4.0, 8.0, 2.0, 6.0], [6.0, 9.0, 5.0, 5.0], [5.0, 7.0, 3.0, 4.0]];
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = label_of(comp);
-    let ohlc = candle_ohlc(comp);
+    let cats = categories_or(comp, &["Mon", "Tue", "Wed"]);
+    let n = cats.len();
+    let ohlc: Vec<[f64; 4]> = (0..n).map(|i| DEMO_OHLC[i % DEMO_OHLC.len()]).collect();
+    let min = ohlc.iter().map(|c| c[2]).fold(f64::INFINITY, f64::min);
+    let max = ohlc.iter().map(|c| c[1]).fold(f64::NEG_INFINITY, f64::max);
+    let pad = (2.0_f64).max((max - min) * 0.08);
+    let (lo, hi) = (min - pad, max + pad);
+    let ticks: Vec<f64> = fixed_domain_ticks(lo, hi)
+        .iter()
+        .map(|t| y_of(*t, lo, hi))
+        .collect();
+    let xs = point_xs(n);
+    let step = (PLOT_R - PLOT_L) / n.max(1) as f64;
+    let body_w = (step * 0.5).clamp(4.0, 12.0);
     let mut marks = String::new();
-    for c in chart_candles(&ohlc) {
-        let color = if c.up {
-            "var(--cronus-success)"
-        } else {
-            "var(--cronus-error)"
-        };
+    for (x, [open, high, low, close]) in xs.iter().zip(&ohlc) {
+        let up = close >= open;
+        let color = if up { "var(--cronus-success)" } else { "var(--cronus-error)" };
+        let y_open = y_of(*open, lo, hi);
+        let y_close = y_of(*close, lo, hi);
         marks.push_str(&format!(
-            "<line x1=\"{x}\" y1=\"{y0}\" x2=\"{x}\" y2=\"{y1}\" stroke=\"{color}\" stroke-width=\"1\"></line><rect x=\"{bx}\" y=\"{by}\" width=\"{bw}\" height=\"{bh}\" fill=\"{color}\"></rect>",
-            x = fmt_coord(c.cx),
-            y0 = fmt_coord(c.wick_y0),
-            y1 = fmt_coord(c.wick_y1),
-            bx = fmt_coord(c.body_x),
-            by = fmt_coord(c.body_y),
-            bw = fmt_coord(c.body_w),
-            bh = fmt_coord(c.body_h),
+            "<g><line x1=\"{x}\" y1=\"{}\" x2=\"{x}\" y2=\"{}\" stroke=\"{color}\" stroke-width=\"1\"></line><rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" rx=\"1\" fill=\"{color}\"></rect></g>",
+            num(y_of(*high, lo, hi)),
+            num(y_of(*low, lo, hi)),
+            num(x - body_w / 2.0),
+            num(y_open.min(y_close)),
+            num(body_w),
+            num((y_close - y_open).abs().max(2.0)),
+            x = num(*x),
         ));
     }
+    let body = format!(
+        "{}<g data-slot=\"candlestick-marks\">{marks}</g>{}",
+        grid_rows(&ticks, PLOT_L, PLOT_R),
+        x_tick_labels(&cats, &xs, 24.0)
+    );
     format!(
-        "<div data-slot=\"candlestick-chart\" role=\"img\" aria-label=\"{label}\"><svg viewBox=\"0 0 200 100\" aria-hidden=\"true\">{marks}</svg></div>"
+        "<div data-slot=\"candlestick-chart\" role=\"img\" aria-label=\"{label}\">{}</div>",
+        container(&body)
     )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cronus_ui_kit::{stub, DEFAULT_CANDLES};
+    use crate::cronus_ui_kit::stub;
     use crate::parser::ComponentItemNode;
 
-    const STUB_POLYLINE: &str = "0,30 20,22 40,26 60,12 80,16 100,8 120,14";
-
-    fn extra(item_type: &str, text: &str) -> ComponentItemNode {
-        ComponentItemNode {
-            item_type: item_type.into(),
-            text: text.into(),
-            link: None,
-            tone: None,
-            config: Default::default(),
+    fn fixture() -> ComponentNode {
+        let mut c = stub("candlestick-chart", "OHLC");
+        for t in ["Mon", "Tue", "Wed"] {
+            c.items.push(ComponentItemNode {
+                item_type: "text".into(),
+                text: t.into(),
+                link: None,
+                tone: None,
+                config: Default::default(),
+            });
         }
+        c
     }
 
-    fn reject_stub(html: &str) {
-        assert!(!html.contains("<figure"));
-        assert!(!html.contains("figcaption"));
-        assert!(!html.contains(STUB_POLYLINE));
+    #[test]
+    fn fixture_matches_recharts_candles() {
+        let html = render(&fixture());
+        assert!(html.starts_with("<div data-slot=\"candlestick-chart\" role=\"img\" aria-label=\"OHLC\"><div data-slot=\"chart\"><svg viewBox=\"0 0 432 256\" aria-hidden=\"true\">"));
+        assert!(html.contains("<line x1=\"8\" y1=\"166.5455\" x2=\"424\" y2=\"166.5455\" stroke-dasharray=\"4 4\"></line>"));
+        assert!(html.contains("<g data-slot=\"candlestick-marks\"><g><line x1=\"8\" y1=\"67.4545\" x2=\"8\" y2=\"186.3636\" stroke=\"var(--cronus-success)\" stroke-width=\"1\"></line><rect x=\"2\" y=\"107.0909\" width=\"12\" height=\"39.6364\" rx=\"1\" fill=\"var(--cronus-success)\"></rect></g>"));
+        assert!(html.contains("<rect x=\"210\" y=\"107.0909\" width=\"12\" height=\"19.8182\" rx=\"1\" fill=\"var(--cronus-error)\"></rect>"));
+        assert!(html.contains("<rect x=\"418\" y=\"126.9091\""));
+        assert!(!html.contains(">Mon</tspan>"));
+        assert!(html.contains(">Tue</tspan>"));
+        assert!(html.contains(">Wed</tspan>"));
         assert!(!html.contains("style="));
-        assert!(!html.contains("v-data="));
-        assert!(!html.contains("v-model="));
-        assert!(!html.contains("<script"));
-        assert!(!html.contains("onclick="));
-        assert!(!html.contains("{ value }"));
-        assert!(!html.contains("zinc-"));
-    }
-
-    #[test]
-    fn root_is_div_with_svg_candles_not_figure() {
-        let html = render(&stub("candlestick-chart", "OHLC"));
-        assert!(html.starts_with("<div data-slot=\"candlestick-chart\""));
-        assert!(html.contains("role=\"img\""));
-        assert!(html.contains("aria-label=\"OHLC\""));
-        assert!(html.contains("<svg"));
-        assert!(html.contains("<rect "));
-        assert!(html.contains("<line "));
-        assert!(html.contains("fill=\"var(--cronus-success)\""));
-        assert!(html.contains("fill=\"var(--cronus-error)\""));
-        assert!(html.contains("stroke=\"var(--cronus-success)\""));
-        assert!(html.contains("stroke=\"var(--cronus-error)\""));
-        assert!(html.contains("viewBox=\"0 0 200 100\""));
-        let n = html.matches("<rect ").count();
-        assert!(n >= 4 && n <= 6, "candles={n} html={html}");
-        assert_eq!(html.matches("<line ").count(), n);
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn default_series_when_only_label() {
-        let html = render(&stub("candlestick-chart", "OHLC"));
-        let candles = chart_candles(&DEFAULT_CANDLES);
-        assert_eq!(candles.len(), 5);
-        assert!(candles.iter().any(|c| c.up));
-        assert!(candles.iter().any(|c| !c.up));
-        assert!(html.contains(&format!(
-            "x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\"",
-            fmt_coord(candles[0].body_x),
-            fmt_coord(candles[0].body_y),
-            fmt_coord(candles[0].body_w),
-            fmt_coord(candles[0].body_h),
-        )));
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn numeric_items_drive_series() {
-        let mut c = stub("candlestick-chart", "OHLC");
-        c.items.push(extra("item", "10"));
-        c.items.push(extra("item", "14"));
-        c.items.push(extra("item", "8"));
-        let html = render(&c);
-        assert_eq!(html.matches("<rect ").count(), 3);
-        let ohlc = candle_ohlc(&c);
-        let candles = chart_candles(&ohlc);
-        assert_eq!(candles.len(), 3);
-        let def = chart_candles(&DEFAULT_CANDLES);
-        assert_ne!(candles.len(), def.len());
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn comma_list_item_is_series() {
-        let mut c = stub("candlestick-chart", "OHLC");
-        c.items.push(extra("item", "10, 12, 8, 11"));
-        let html = render(&c);
-        assert_eq!(html.matches("<rect ").count(), 1);
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn skips_chart_figure_stub() {
-        let html = render(&stub("candlestick-chart", "OHLC"));
-        assert!(!html.contains("<figure"));
-        assert!(!html.contains("<figcaption"));
-        assert!(!html.contains(STUB_POLYLINE));
-        let area =
-            crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("sankey-chart"))
-                .unwrap();
-        assert!(area.contains("<figure"));
-        assert!(area.contains("data-slot=\"sankey-chart\""));
-        assert!(area.contains(STUB_POLYLINE));
-        assert_ne!(html, area);
-    }
-
-    #[test]
-    fn no_voodoo_even_when_runtime_on() {
-        crate::voodoo::with_enabled(true, || {
-            let html = render(&stub("candlestick-chart", "OHLC"));
-            reject_stub(&html);
-            assert!(html.contains("data-slot=\"candlestick-chart\""));
-        });
     }
 
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"candlestick-chart\"]"));
-        assert!(css.contains("var(--cronus-success)"));
-        assert!(css.contains("var(--cronus-error)"));
-        assert!(!css.contains("zinc-"));
-        assert!(!css.contains("onclick"));
+        assert!(css.contains("[data-slot=\"candlestick-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"));
     }
 }

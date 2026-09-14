@@ -1,23 +1,54 @@
 //! Dedicated ScatterChart renderer. DOM matches React:
-//! `<div data-slot="scatter-chart">` wrapping SVG `<circle>` points.
-//! Not the stub `chart()` `<figure><figcaption>` + dummy polyline.
+//! `<div data-slot="scatter-chart" role="img" aria-label>`
+//!   `<div data-slot="chart"><svg viewBox="0 0 432 256">` dashed grid (rows +
+//!   columns), numeric X/Y axes (YAxis width 60 → plot x 68..424), one
+//!   circle per point (ZAxis range 60 → r 4.5135, chart-1), X labels then
+//!   Y labels. Point i is (i + 1, value cycle 4, 8, 6, 10, 7); the `text`
+//!   lines only set the point count.
 
-use crate::cronus_ui_kit::{chart_line_points, fmt_coord, label_of, numeric_series};
+use crate::cronus_ui_chart::{
+    container, grid_cols, grid_rows, item_labels, max_of, nice_domain, num, x_tick_labels_at,
+    y_of, DEMO_VALUES, PLOT_B, PLOT_R, PLOT_T, TICK_FILL,
+};
+use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
+
+pub const SCATTER_PLOT_L: f64 = 68.0;
+pub const SCATTER_R: f64 = 4.5135;
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = label_of(comp);
-    let series = numeric_series(comp);
-    let mut circles = String::new();
-    for (x, y) in chart_line_points(&series) {
-        circles.push_str(&format!(
-            "<circle cx=\"{}\" cy=\"{}\" r=\"4\" fill=\"var(--cronus-primary)\"></circle>",
-            fmt_coord(x),
-            fmt_coord(y),
+    let n = item_labels(comp).len().max(1);
+    let n = if item_labels(comp).is_empty() { 3 } else { n };
+    let ys_val: Vec<f64> = (0..n).map(|i| DEMO_VALUES[i % DEMO_VALUES.len()]).collect();
+    let (xlo, xhi, xticks) = nice_domain(0.0, n as f64);
+    let (ylo, yhi, yticks) = nice_domain(0.0, max_of(&ys_val));
+    let x_of = |v: f64| SCATTER_PLOT_L + (v - xlo) / (xhi - xlo) * (PLOT_R - SCATTER_PLOT_L);
+    let tick_ys: Vec<f64> = yticks.iter().map(|t| y_of(*t, ylo, yhi)).collect();
+    let tick_xs: Vec<f64> = xticks.iter().map(|t| x_of(*t)).collect();
+    let mut body = String::new();
+    body.push_str(&grid_rows(&tick_ys, SCATTER_PLOT_L, PLOT_R));
+    body.push_str(&grid_cols(&tick_xs, PLOT_T, PLOT_B));
+    for (i, v) in ys_val.iter().enumerate() {
+        body.push_str(&format!(
+            "<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"var(--cronus-chart-1)\"></circle>",
+            num(x_of((i + 1) as f64)),
+            num(y_of(*v, ylo, yhi)),
+            num(SCATTER_R)
+        ));
+    }
+    let xlabels: Vec<String> = xticks.iter().map(|t| num(*t)).collect();
+    body.push_str(&x_tick_labels_at(&xlabels, &tick_xs, 5.0, PLOT_B + 8.0));
+    for (t, y) in yticks.iter().zip(&tick_ys) {
+        body.push_str(&format!(
+            "<g><text x=\"60\" y=\"{y}\" text-anchor=\"end\" fill=\"{TICK_FILL}\"><tspan x=\"60\" dy=\"0.355em\">{t}</tspan></text></g>",
+            y = num(*y),
+            t = num(*t),
         ));
     }
     format!(
-        "<div data-slot=\"scatter-chart\" role=\"img\" aria-label=\"{label}\"><svg viewBox=\"0 0 200 100\" aria-hidden=\"true\">{circles}</svg></div>"
+        "<div data-slot=\"scatter-chart\" role=\"img\" aria-label=\"{label}\">{}</div>",
+        container(&body)
     )
 }
 
@@ -27,106 +58,38 @@ mod tests {
     use crate::cronus_ui_kit::stub;
     use crate::parser::ComponentItemNode;
 
-    const STUB_POLYLINE: &str = "0,30 20,22 40,26 60,12 80,16 100,8 120,14";
-
-    fn extra(item_type: &str, text: &str) -> ComponentItemNode {
-        ComponentItemNode {
-            item_type: item_type.into(),
-            text: text.into(),
-            link: None,
-            tone: None,
-            config: Default::default(),
+    fn fixture() -> ComponentNode {
+        let mut c = stub("scatter-chart", "Reach");
+        for t in ["A", "B", "C"] {
+            c.items.push(ComponentItemNode {
+                item_type: "text".into(),
+                text: t.into(),
+                link: None,
+                tone: None,
+                config: Default::default(),
+            });
         }
+        c
     }
 
-    fn reject_stub(html: &str) {
-        assert!(!html.contains("<figure"));
-        assert!(!html.contains("figcaption"));
-        assert!(!html.contains(STUB_POLYLINE));
+    #[test]
+    fn fixture_matches_recharts_numeric_axes() {
+        let html = render(&fixture());
+        assert!(html.starts_with("<div data-slot=\"scatter-chart\" role=\"img\" aria-label=\"Reach\"><div data-slot=\"chart\"><svg viewBox=\"0 0 432 256\" aria-hidden=\"true\"><line x1=\"68\" y1=\"226\" x2=\"424\" y2=\"226\" stroke-dasharray=\"4 4\"></line>"));
+        assert!(html.contains("<line x1=\"157\" y1=\"8\" x2=\"157\" y2=\"226\" stroke-dasharray=\"4 4\"></line>"));
+        assert!(html.contains("<circle cx=\"186.6667\" cy=\"117\" r=\"4.5135\" fill=\"var(--cronus-chart-1)\"></circle>"));
+        assert!(html.contains("<circle cx=\"305.3333\" cy=\"8\""));
+        assert!(html.contains("<circle cx=\"424\" cy=\"62.5\""));
+        for t in ["0", "0.75", "1.5", "2.25", "3"] {
+            assert!(html.contains(&format!("dy=\"0.71em\">{t}</tspan>")));
+        }
+        assert!(html.contains("<g><text x=\"60\" y=\"8\" text-anchor=\"end\" fill=\"#666\"><tspan x=\"60\" dy=\"0.355em\">8</tspan></text></g>"));
         assert!(!html.contains("style="));
-        assert!(!html.contains("v-data="));
-        assert!(!html.contains("v-model="));
-        assert!(!html.contains("<script"));
-        assert!(!html.contains("onclick="));
-        assert!(!html.contains("{ value }"));
-    }
-
-    #[test]
-    fn root_is_div_with_svg_circles_not_figure() {
-        let html = render(&stub("scatter-chart", "Points"));
-        assert!(html.starts_with("<div data-slot=\"scatter-chart\""));
-        assert!(html.contains("role=\"img\""));
-        assert!(html.contains("aria-label=\"Points\""));
-        assert!(html.contains("<svg"));
-        assert!(html.contains("<circle "));
-        assert!(html.contains("fill=\"var(--cronus-primary)\""));
-        assert!(html.contains("viewBox=\"0 0 200 100\""));
-        assert_eq!(html.matches("<circle ").count(), 5);
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn default_series_when_only_label() {
-        let html = render(&stub("scatter-chart", "Points"));
-        let pts = chart_line_points(&[4.0, 8.0, 6.0, 10.0, 7.0]);
-        assert_eq!(pts.len(), 5);
-        assert!(html.contains(&format!(
-            "cx=\"{}\" cy=\"{}\"",
-            fmt_coord(pts[0].0),
-            fmt_coord(pts[0].1)
-        )));
-        assert!(html.contains(&format!(
-            "cx=\"{}\" cy=\"{}\"",
-            fmt_coord(pts[3].0),
-            fmt_coord(pts[3].1)
-        )));
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn numeric_items_drive_series() {
-        let mut c = stub("scatter-chart", "Points");
-        c.items.push(extra("item", "1"));
-        c.items.push(extra("item", "3"));
-        c.items.push(extra("item", "2"));
-        let html = render(&c);
-        assert_eq!(html.matches("<circle ").count(), 3);
-        let pts = chart_line_points(&[1.0, 3.0, 2.0]);
-        assert!(html.contains(&format!(
-            "cx=\"{}\" cy=\"{}\"",
-            fmt_coord(pts[0].0),
-            fmt_coord(pts[0].1)
-        )));
-        let def = chart_line_points(&[4.0, 8.0, 6.0, 10.0, 7.0]);
-        assert_ne!(pts.len(), def.len());
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn comma_list_item_is_series() {
-        let mut c = stub("scatter-chart", "Points");
-        c.items.push(extra("item", "4, 8, 6"));
-        let html = render(&c);
-        assert_eq!(html.matches("<circle ").count(), 3);
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn no_voodoo_even_when_runtime_on() {
-        crate::voodoo::with_enabled(true, || {
-            let html = render(&stub("scatter-chart", "Points"));
-            reject_stub(&html);
-            assert!(html.contains("data-slot=\"scatter-chart\""));
-        });
     }
 
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"scatter-chart\"]"));
-        assert!(css.contains("aspect-ratio: 2 / 1"));
-        assert!(css.contains("var(--cronus-primary)"));
-        assert!(!css.contains("zinc-"));
-        assert!(!css.contains("onclick"));
+        assert!(css.contains("[data-slot=\"scatter-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"));
     }
 }

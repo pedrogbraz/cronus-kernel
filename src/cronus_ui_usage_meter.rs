@@ -1,29 +1,64 @@
-//! Dedicated UsageMeter renderer. DOM:
-//! `<div data-slot="usage-meter">` plus `<div data-slot="usage-meter-fill">`
-//! and optional `usage-meter-label` from label. Value from props/text number,
-//! default 40. Not interact `progress()` (native `<progress>` / SURF bar).
+//! Dedicated UsageMeter renderer (linear variant). DOM matches React:
+//! `<div data-slot="usage-meter">`
+//!   `<div>` (flex baseline justify-between, text-sm)
+//!     `<span data-slot="usage-meter-label">{label}</span>` (or `<span></span>`)
+//!     `<span data-slot="usage-meter-value"><span>{value} / {max}</span><span>{pct}%</span></span>`
+//!   `<div data-slot="usage-meter-track" role="meter" aria-*>`
+//!     `<div data-slot="usage-meter-fill" data-tone data-value="{ratio×100}">`
+//! Fill width comes from CSS `attr(data-value type(<number>))` — no inline
+//! style. Tone auto: >90% error, >75% warning, else primary.
+//! `value` / `max` / `unit` / `aria-label` come from props or item config.
 
+use crate::cronus_ui_chart::prop;
 use crate::cronus_ui_kit::{esc, item};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    let pct = value_of(comp);
-    let width = fmt_num(pct);
-    let fill = format!(
-        "<div data-slot=\"usage-meter-fill\" style=\"width:{width}%\"></div>"
-    );
-    match label_of(comp) {
-        Some(label) => format!(
-            "<div data-slot=\"usage-meter\"><span data-slot=\"usage-meter-label\">{label}</span>{fill}</div>"
-        ),
-        None => format!("<div data-slot=\"usage-meter\">{fill}</div>"),
-    }
+    let max = number(prop(comp, "max")).unwrap_or(100.0);
+    let value = number(prop(comp, "value"))
+        .or_else(|| comp.items.iter().find_map(|i| number(Some(&i.text))))
+        .unwrap_or(40.0);
+    let ratio = if value.is_finite() && max.is_finite() && max > 0.0 {
+        (value / max).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let percent = (ratio * 100.0).round() as i64;
+    let tone = if ratio > 0.9 {
+        "error"
+    } else if ratio > 0.75 {
+        "warning"
+    } else {
+        "primary"
+    };
+    let readout = format!("{} / {}", group(value), group(max));
+    let value_text = match prop(comp, "unit") {
+        Some(u) if !u.is_empty() => format!("{readout} {}", esc(u)),
+        _ => readout,
+    };
+    let label = label_of(comp);
+    let aria = prop(comp, "aria-label")
+        .map(esc)
+        .or_else(|| label.clone())
+        .unwrap_or_else(|| value_text.clone());
+    let label_html = match &label {
+        Some(l) => format!("<span data-slot=\"usage-meter-label\">{l}</span>"),
+        None => "<span></span>".to_string(),
+    };
+    let safe_max = if max.is_finite() && max > 0.0 { max } else { 0.0 };
+    let safe_value = if value.is_finite() { value.clamp(0.0, safe_max) } else { 0.0 };
+    format!(
+        "<div data-slot=\"usage-meter\"><div>{label_html}<span data-slot=\"usage-meter-value\"><span>{value_text}</span><span>{percent}%</span></span></div><div data-slot=\"usage-meter-track\" role=\"meter\" aria-valuenow=\"{now}\" aria-valuemin=\"0\" aria-valuemax=\"{mx}\" aria-valuetext=\"{percent}%\" aria-label=\"{aria}\"><div data-slot=\"usage-meter-fill\" data-tone=\"{tone}\" data-value=\"{fill}\"></div></div></div>",
+        now = plain(safe_value),
+        mx = plain(safe_max),
+        fill = plain((ratio * 10_000.0).round() / 100.0),
+    )
 }
 
 fn label_of(comp: &ComponentNode) -> Option<String> {
     for kind in ["label", "title"] {
         if let Some(t) = item(comp, kind) {
-            if !t.is_empty() && parse_num(t).is_none() {
+            if !t.is_empty() && t.trim().parse::<f64>().is_err() {
                 return Some(esc(t));
             }
         }
@@ -31,36 +66,11 @@ fn label_of(comp: &ComponentNode) -> Option<String> {
     None
 }
 
-fn value_of(comp: &ComponentNode) -> f64 {
-    if let Some(v) = comp.props.get("value").and_then(|s| parse_num(s)) {
-        return clamp(v);
-    }
-    for i in &comp.items {
-        if let Some(v) = parse_num(&i.text) {
-            return clamp(v);
-        }
-    }
-    for i in &comp.items {
-        if let Some(v) = i.config.get("value").and_then(|s| parse_num(s)) {
-            return clamp(v);
-        }
-    }
-    40.0
+fn number(s: Option<&str>) -> Option<f64> {
+    s.and_then(|v| v.trim().parse::<f64>().ok())
 }
 
-fn parse_num(s: &str) -> Option<f64> {
-    let s = s.trim();
-    if s.is_empty() {
-        return None;
-    }
-    s.parse().ok()
-}
-
-fn clamp(v: f64) -> f64 {
-    v.clamp(0.0, 100.0)
-}
-
-fn fmt_num(n: f64) -> String {
+fn plain(n: f64) -> String {
     if n.fract() == 0.0 {
         format!("{}", n as i64)
     } else {
@@ -68,125 +78,79 @@ fn fmt_num(n: f64) -> String {
     }
 }
 
+/// `Intl.NumberFormat("en-US")`: thousands grouping, up to 3 fraction digits.
+fn group(n: f64) -> String {
+    if !n.is_finite() {
+        return "0".into();
+    }
+    let rounded = (n.abs() * 1000.0).round() / 1000.0;
+    let int = rounded.trunc() as u64;
+    let digits = int.to_string();
+    let mut out = String::new();
+    for (i, ch) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(ch);
+    }
+    let frac = rounded.fract();
+    if frac > 0.0 {
+        let f = format!("{frac:.3}");
+        out.push_str(f.trim_start_matches('0').trim_end_matches('0'));
+    }
+    if n < 0.0 {
+        format!("-{out}")
+    } else {
+        out
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::cronus_ui_kit::stub;
-    use crate::parser::ComponentItemNode;
 
-    fn extra(kind: &str, text: &str) -> ComponentItemNode {
-        ComponentItemNode {
-            item_type: kind.into(),
-            text: text.into(),
-            link: None,
-            tone: None,
-            config: Default::default(),
-        }
-    }
-
-    fn reject_interact(html: &str) {
-        assert!(!html.contains("<progress"));
-        assert!(!html.contains("data-slot=\"progress-control\""));
-        assert!(!html.contains("<section"));
-        assert!(!html.contains("padding:1rem;display:flex;flex-direction:column;gap:0.5rem"));
-        assert!(!html.contains("v-data="));
-        assert!(!html.contains("v-model="));
-        assert!(!html.contains("{ value }"));
-        assert!(!html.contains("<script"));
-        assert!(!html.contains("onclick="));
-        assert!(!html.contains("progress("));
-    }
-
-    fn assert_meter(html: &str, width: &str) {
-        assert!(html.starts_with("<div "));
-        assert!(html.contains("data-slot=\"usage-meter\""));
-        assert!(html.contains("data-slot=\"usage-meter-fill\""));
-        assert!(html.contains(&format!("style=\"width:{width}%\"")));
-        assert!(!html.contains("<progress"));
-        reject_interact(html);
+    fn fixture() -> ComponentNode {
+        let mut c = stub("usage-meter", "Tokens");
+        c.items[0].config.insert("value".into(), "40".into());
+        c.items[0]
+            .config
+            .insert("aria-label".into(), "Token usage".into());
+        c
     }
 
     #[test]
-    fn root_is_div_with_fill_default_40() {
-        let html = render(&stub("usage-meter", "Storage"));
-        assert_meter(&html, "40");
-        assert!(html.contains("data-slot=\"usage-meter-label\">Storage</span>"));
+    fn fixture_matches_react_linear_meter() {
         assert_eq!(
-            html,
-            "<div data-slot=\"usage-meter\"><span data-slot=\"usage-meter-label\">Storage</span><div data-slot=\"usage-meter-fill\" style=\"width:40%\"></div></div>"
+            render(&fixture()),
+            "<div data-slot=\"usage-meter\"><div><span data-slot=\"usage-meter-label\">Tokens</span><span data-slot=\"usage-meter-value\"><span>40 / 100</span><span>40%</span></span></div><div data-slot=\"usage-meter-track\" role=\"meter\" aria-valuenow=\"40\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuetext=\"40%\" aria-label=\"Token usage\"><div data-slot=\"usage-meter-fill\" data-tone=\"primary\" data-value=\"40\"></div></div></div>"
         );
     }
 
     #[test]
-    fn value_from_props() {
-        let mut c = stub("usage-meter", "Storage");
-        c.props.insert("value".into(), "72".into());
+    fn no_inline_style_and_auto_tone() {
+        let mut c = stub("usage-meter", "Tokens");
+        c.props.insert("value".into(), "9500".into());
+        c.props.insert("max".into(), "10000".into());
         let html = render(&c);
-        assert_meter(&html, "72");
-        assert!(html.contains("data-slot=\"usage-meter-label\">Storage</span>"));
+        assert!(!html.contains("style="));
+        assert!(html.contains("<span>9,500 / 10,000</span><span>95%</span>"));
+        assert!(html.contains("data-tone=\"error\""));
     }
 
     #[test]
-    fn value_from_item_text_number() {
-        let mut c = stub("usage-meter", "Storage");
-        c.items.push(extra("value", "75"));
+    fn unlabeled_keeps_spacer_span() {
+        let mut c = stub("usage-meter", "");
+        c.items.clear();
         let html = render(&c);
-        assert_meter(&html, "75");
-        assert!(html.contains("data-slot=\"usage-meter-label\">Storage</span>"));
+        assert!(html.contains("<div><span></span><span data-slot=\"usage-meter-value\">"));
+        assert!(html.contains("aria-label=\"40 / 100\""));
     }
 
     #[test]
-    fn value_from_item_config() {
-        let mut c = stub("usage-meter", "Storage");
-        c.items[0].config.insert("value".into(), "10".into());
-        let html = render(&c);
-        assert_meter(&html, "10");
-    }
-
-    #[test]
-    fn numeric_label_is_value_not_label() {
-        let html = render(&stub("usage-meter", "55"));
-        assert_meter(&html, "55");
-        assert!(!html.contains("data-slot=\"usage-meter-label\""));
-        assert_eq!(
-            html,
-            "<div data-slot=\"usage-meter\"><div data-slot=\"usage-meter-fill\" style=\"width:55%\"></div></div>"
-        );
-    }
-
-    #[test]
-    fn skips_interact_html_progress() {
-        let c = stub("usage-meter", "Storage");
-        let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("usage-meter", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<progress"));
-        assert!(interact.contains("max=\"100\""));
-        assert!(!interact.contains("data-slot=\"usage-meter-fill\""));
-        assert!(html.contains("data-slot=\"usage-meter-fill\""));
-        reject_interact(&html);
-    }
-
-    #[test]
-    fn no_voodoo_even_when_runtime_on() {
-        crate::voodoo::with_enabled(true, || {
-            let html = render(&stub("usage-meter", "Storage"));
-            reject_interact(&html);
-            assert!(html.contains("style=\"width:40%\""));
-        });
-    }
-
-    #[test]
-    fn chrome_is_token_only() {
+    fn chrome_sizes_fill_from_attr() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"usage-meter\"]"));
-        assert!(css.contains("[data-slot=\"usage-meter-fill\"]"));
-        assert!(css.contains("[data-slot=\"usage-meter-label\"]"));
-        assert!(css.contains("height: 0.5rem"));
-        assert!(css.contains("border-radius: 9999px"));
-        assert!(css.contains("var(--cronus-surface-overlay)"));
-        assert!(css.contains("var(--cronus-primary)"));
-        assert!(!css.contains("zinc-"));
-        assert!(!css.contains("<progress"));
+        assert!(css.contains("width: calc(attr(data-value type(<number>), 0) * 1%);"));
+        assert!(css.contains("[data-slot=\"usage-meter\"] > div:first-child {\n  display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem;\n  font-size: 0.875rem; line-height: 1.25rem;\n}"));
     }
 }
