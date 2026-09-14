@@ -3002,6 +3002,10 @@ button:has(+ [data-slot="sheet-content"]) {
   line-height: 1.5;
   animation: cui-text-effect 400ms ease-out both;
 }
+[data-slot="text-effect"] > .sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
 @keyframes cui-text-effect {
   from { opacity: 0; filter: blur(8px); }
   to { opacity: 1; filter: none; }
