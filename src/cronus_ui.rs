@@ -1976,7 +1976,7 @@ dialog[data-slot="dialog-content"]::backdrop {
   min-height: 0; flex: 1;
 }
 [data-slot="sidebar-content"] > [data-slot="scroll-area"] {
-  position: relative; overflow: hidden; height: 100%; max-height: none;
+  position: relative; overflow: hidden; width: 100%; height: 100%; max-height: none;
 }
 [data-slot="sidebar-content"] > [data-slot="scroll-area"] > div {
   display: flex; flex-direction: column; gap: 0.5rem; padding: 0.5rem;
@@ -2105,7 +2105,8 @@ dialog[data-slot="dialog-content"]::backdrop {
   border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
   background-color: var(--cronus-primary);
   background-color: attr(data-color type(<color>), var(--cronus-primary));
-}[data-slot="scroll-area"] {
+}
+[data-slot="scroll-area"] {
   position: relative; overflow: hidden;
   width: 12rem; height: 8rem;
 }
@@ -2621,12 +2622,8 @@ div:has(> [data-slot="autocomplete"] + [data-slot="autocomplete-content"]) {
   padding: 0 0.375rem; font-size: 0.75rem; line-height: 1rem; font-weight: 500;
   color: var(--cronus-fg-tertiary);
 }
-/* alert-dialog + confirmation-dialog: open by default. Non-modal <dialog open>
-   paints no box; overlay and panel are viewport-fixed like the React portal. */
-dialog:has(> [data-slot="alert-dialog-content"]),
-dialog:has(> [data-slot="confirmation-dialog"]) {
-  display: contents; color: inherit;
-}
+/* alert-dialog + confirmation-dialog: open by default; overlay and panel are
+   viewport-fixed plain divs, like the React portal (no native dialog). */
 [data-slot="alert-dialog-overlay"] {
   position: fixed; inset: 0; z-index: 50;
   background: color-mix(in oklch, black 50%, transparent);
@@ -3159,10 +3156,7 @@ dialog:has(> [data-slot="confirmation-dialog"]) {
   box-shadow: var(--cronus-shadow-xs, none);
 }
 /* invite-dialog: open by default, same fixed overlay + panel model. */
-dialog:has(> [data-slot="invite-dialog"]) {
-  display: contents; color: inherit;
-}
-dialog:has(> [data-slot="invite-dialog"]) > [data-slot="dialog-overlay"] {
+[data-slot="dialog-overlay"]:has(+ [data-slot="invite-dialog"]) {
   position: fixed; inset: 0; z-index: 50;
   background: color-mix(in oklch, black 50%, transparent);
   backdrop-filter: blur(8px);
@@ -3755,7 +3749,7 @@ dialog:has(> [data-slot="invite-dialog"]) > [data-slot="dialog-overlay"] {
 }
 [data-slot="code-block-header"] {
   display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
-  padding: 0.5rem 1rem; border: 0 solid var(--cronus-border); border-bottom-width: 1px;
+  padding: 0.5rem 0.625rem 0.5rem 1rem; border: 0 solid var(--cronus-border); border-bottom-width: 1px;
   background: var(--cronus-surface-overlay);
 }
 [data-slot="code-block-header"] > div { display: flex; align-items: center; gap: 0.5rem; min-width: 0; min-height: 2rem; }

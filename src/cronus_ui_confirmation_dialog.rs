@@ -1,13 +1,13 @@
 //! Dedicated ConfirmationDialog renderer — mirrors React `ConfirmationDialog`
 //! (an `AlertDialogContent` with `data-slot="confirmation-dialog"`).
 //!
-//! Open by default, zero JS: a non-modal native `<dialog open>` (chrome gives it
-//! `display: contents`) wraps the fixed `alert-dialog-overlay` scrim and the
-//! fixed, centred `confirmation-dialog` panel. Structure as in React:
+//! Open by default, zero JS, no native `<dialog>` (React's portal renders plain
+//! divs): the fixed `alert-dialog-overlay` scrim and the fixed, centred
+//! `confirmation-dialog` panel (`role="alertdialog"`). Structure as in React:
 //! `alert-dialog-header` > `alert-dialog-title` (`h2`) [+ `alert-dialog-description`],
 //! then `alert-dialog-footer` > `alert-dialog-cancel` (outline) +
-//! `confirmation-dialog-confirm` (primary, min-width 6rem). Both buttons submit a
-//! hidden `<form method="dialog">`, so they close the dialog without script.
+//! `confirmation-dialog-confirm` (primary, min-width 6rem). Closing/confirming needs
+//! JS, so both are the same native buttons with `disabled` and React's idle look.
 //! Not reproduced (JS-only): focus trap, async `onConfirm` spinner/error state.
 
 use crate::cronus_ui_kit::{esc, item, label_of, widget_id};
@@ -37,10 +37,9 @@ pub fn render(comp: &ComponentNode) -> String {
     } else {
         format!("<p data-slot=\"alert-dialog-description\">{desc}</p>")
     };
-    let form = widget_id(comp, "confirmation-dialog-form");
     let title_id = widget_id(comp, "confirmation-dialog-title");
     format!(
-        "<dialog open role=\"alertdialog\" aria-labelledby=\"{title_id}\"><form method=\"dialog\" id=\"{form}\" hidden></form><div data-slot=\"alert-dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"confirmation-dialog\" data-state=\"open\"><div data-slot=\"alert-dialog-header\"><h2 data-slot=\"alert-dialog-title\" id=\"{title_id}\">{title}</h2>{desc_html}</div><div data-slot=\"alert-dialog-footer\"><button type=\"submit\" form=\"{form}\" value=\"cancel\" data-slot=\"alert-dialog-cancel\">{cancel}</button><button type=\"submit\" form=\"{form}\" value=\"confirm\" data-slot=\"confirmation-dialog-confirm\">{confirm}</button></div></div></dialog>"
+        "<div data-slot=\"alert-dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"confirmation-dialog\" data-state=\"open\" role=\"alertdialog\" aria-labelledby=\"{title_id}\"><div data-slot=\"alert-dialog-header\"><h2 data-slot=\"alert-dialog-title\" id=\"{title_id}\">{title}</h2>{desc_html}</div><div data-slot=\"alert-dialog-footer\"><button type=\"button\" data-slot=\"alert-dialog-cancel\" disabled>{cancel}</button><button type=\"button\" data-slot=\"confirmation-dialog-confirm\" disabled>{confirm}</button></div></div>"
     )
 }
 
@@ -79,7 +78,8 @@ mod tests {
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
-        assert!(!html.contains("<dialog data-slot="));
+        assert!(!html.contains("<dialog"));
+        assert!(!html.contains("<form"));
     }
 
     #[test]
@@ -90,7 +90,7 @@ mod tests {
         assert_eq!(
             html,
             format!(
-                "<dialog open role=\"alertdialog\" aria-labelledby=\"{id}confirmation-dialog-title\"><form method=\"dialog\" id=\"{id}confirmation-dialog-form\" hidden></form><div data-slot=\"alert-dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"confirmation-dialog\" data-state=\"open\"><div data-slot=\"alert-dialog-header\"><h2 data-slot=\"alert-dialog-title\" id=\"{id}confirmation-dialog-title\">Delete project</h2></div><div data-slot=\"alert-dialog-footer\"><button type=\"submit\" form=\"{id}confirmation-dialog-form\" value=\"cancel\" data-slot=\"alert-dialog-cancel\">Cancel</button><button type=\"submit\" form=\"{id}confirmation-dialog-form\" value=\"confirm\" data-slot=\"confirmation-dialog-confirm\">Confirm</button></div></div></dialog>"
+                "<div data-slot=\"alert-dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"confirmation-dialog\" data-state=\"open\" role=\"alertdialog\" aria-labelledby=\"{id}confirmation-dialog-title\"><div data-slot=\"alert-dialog-header\"><h2 data-slot=\"alert-dialog-title\" id=\"{id}confirmation-dialog-title\">Delete project</h2></div><div data-slot=\"alert-dialog-footer\"><button type=\"button\" data-slot=\"alert-dialog-cancel\" disabled>Cancel</button><button type=\"button\" data-slot=\"confirmation-dialog-confirm\" disabled>Confirm</button></div></div>"
             )
         );
         assert!(!html.contains("data-slot=\"confirmation-dialog-title\""));
@@ -107,8 +107,8 @@ mod tests {
         assert!(html.contains(
             "Delete project</h2><p data-slot=\"alert-dialog-description\">This cannot be undone.</p></div>"
         ));
-        assert!(html.contains("data-slot=\"alert-dialog-cancel\">Keep</button>"));
-        assert!(html.contains("data-slot=\"confirmation-dialog-confirm\">Delete anyway</button>"));
+        assert!(html.contains("data-slot=\"alert-dialog-cancel\" disabled>Keep</button>"));
+        assert!(html.contains("data-slot=\"confirmation-dialog-confirm\" disabled>Delete anyway</button>"));
         reject_js(&html);
     }
 
@@ -138,7 +138,7 @@ mod tests {
             let end = css[start..].find('}').unwrap() + start;
             css[start..end].to_string()
         };
-        assert!(css.contains("dialog:has(> [data-slot=\"confirmation-dialog\"])"));
+        assert!(!css.contains("dialog:has(> [data-slot=\"confirmation-dialog\"])"));
         assert!(block("[data-slot=\"confirmation-dialog\"]").contains("max-width: 28rem"));
         let header = block("[data-slot=\"alert-dialog-header\"]");
         assert!(header.contains("flex-direction: column; gap: 0.375rem;"));

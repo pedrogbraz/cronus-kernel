@@ -1,19 +1,18 @@
 //! Dedicated InviteDialog renderer — mirrors React `InviteDialog` (a
 //! `DialogContent` with `data-slot="invite-dialog"`) in its default form state.
 //!
-//! Open by default, zero JS: a non-modal native `<dialog open>` (chrome gives it
-//! `display: contents`) wraps the fixed `dialog-overlay` scrim and the fixed,
-//! centred `invite-dialog` panel:
+//! Open by default, zero JS, no native `<dialog>` (React's portal renders plain
+//! divs): the fixed `dialog-overlay` scrim and the fixed, centred
+//! `invite-dialog` panel (`role="dialog"`):
 //! `dialog-header` (`dialog-title` h2 + `dialog-description` p), a
-//! `<form method="dialog">` with two `field`s (Email `input`; Role
+//! `<form>` with two `field`s (Email `input`; Role
 //! `select-trigger`), `dialog-footer` (outline Cancel + primary
 //! `invite-dialog-send`) and the absolute `dialog-close` icon button.
 //!
-//! Live without script: Send validates the required email and closes the
-//! dialog; Cancel and Close submit with `formnovalidate` and close it.
-//! JS-only (Wave 1t rule: same native element, `disabled`, idle look): the Radix
-//! role select — its trigger is a disabled `button` showing the default role,
-//! and a hidden `role` input carries that value. Not reproduced either: focus
+//! JS-only (Wave 1t rule: same native element, `disabled`, idle look): Send,
+//! Cancel and Close (sending/closing need JS) and the Radix role select — its
+//! trigger is a disabled `button` showing the default role, and a hidden native
+//! `select` carries that value. The email input stays editable. Not reproduced either: focus
 //! trap, async `onInvite` spinner/error, invite-link success view.
 
 use crate::cronus_ui_kit::{esc, item, label_of, widget_id};
@@ -71,7 +70,7 @@ pub fn render(comp: &ComponentNode) -> String {
     let role_id = widget_id(comp, "invite-dialog-role");
 
     format!(
-        "<dialog open aria-labelledby=\"{title_id}\"><div data-slot=\"dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"invite-dialog\" data-state=\"open\"><div data-slot=\"dialog-header\"><h2 data-slot=\"dialog-title\" id=\"{title_id}\">{title}</h2><p data-slot=\"dialog-description\">{description}</p></div><form method=\"dialog\" id=\"{form}\"><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{email_id}\">{email}</label><input data-slot=\"input\" id=\"{email_id}\" type=\"email\" name=\"email\" autocomplete=\"email\" required placeholder=\"{placeholder}\"></div><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{role_id}\">{role}</label><button type=\"button\" data-slot=\"select-trigger\" id=\"{role_id}\" role=\"combobox\" aria-expanded=\"false\" disabled><span>{role_text}</span>{CHEVRON}</button><select aria-hidden=\"true\" tabindex=\"-1\" name=\"role\">{options}</select></div><div data-slot=\"dialog-footer\"><button type=\"submit\" formnovalidate value=\"cancel\" data-slot=\"button\" data-variant=\"outline\">{cancel}</button><button type=\"submit\" value=\"send\" data-slot=\"invite-dialog-send\" data-variant=\"primary\">{send}</button></div></form><button type=\"submit\" form=\"{form}\" formnovalidate value=\"close\" data-slot=\"dialog-close\">{CROSS}<span>{close}</span></button></div></dialog>"
+        "<div data-slot=\"dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"invite-dialog\" data-state=\"open\" role=\"dialog\" aria-labelledby=\"{title_id}\"><div data-slot=\"dialog-header\"><h2 data-slot=\"dialog-title\" id=\"{title_id}\">{title}</h2><p data-slot=\"dialog-description\">{description}</p></div><form id=\"{form}\"><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{email_id}\">{email}</label><input data-slot=\"input\" id=\"{email_id}\" type=\"email\" name=\"email\" autocomplete=\"email\" required placeholder=\"{placeholder}\"></div><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{role_id}\">{role}</label><button type=\"button\" data-slot=\"select-trigger\" id=\"{role_id}\" role=\"combobox\" aria-expanded=\"false\" disabled><span>{role_text}</span>{CHEVRON}</button><select aria-hidden=\"true\" tabindex=\"-1\" name=\"role\">{options}</select></div><div data-slot=\"dialog-footer\"><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" disabled>{cancel}</button><button type=\"button\" data-slot=\"invite-dialog-send\" data-variant=\"primary\" disabled>{send}</button></div></form><button type=\"button\" data-slot=\"dialog-close\" disabled>{CROSS}<span>{close}</span></button></div>"
     )
 }
 
@@ -99,7 +98,8 @@ mod tests {
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
-        assert!(!html.contains("<dialog data-slot="));
+        assert!(!html.contains("<dialog"));
+        assert!(!html.contains("method=\"dialog\""));
         assert!(!html.contains("<label data-slot=\"invite-dialog\""));
     }
 
@@ -111,7 +111,7 @@ mod tests {
         assert_eq!(
             html,
             format!(
-                "<dialog open aria-labelledby=\"{id}title\"><div data-slot=\"dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"invite-dialog\" data-state=\"open\"><div data-slot=\"dialog-header\"><h2 data-slot=\"dialog-title\" id=\"{id}title\">Invite member</h2><p data-slot=\"dialog-description\">Send an invitation to join this workspace.</p></div><form method=\"dialog\" id=\"{id}form\"><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{id}email\">Email</label><input data-slot=\"input\" id=\"{id}email\" type=\"email\" name=\"email\" autocomplete=\"email\" required placeholder=\"name@example.com\"></div><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{id}role\">Role</label><button type=\"button\" data-slot=\"select-trigger\" id=\"{id}role\" role=\"combobox\" aria-expanded=\"false\" disabled><span>Member</span>{CHEVRON}</button><select aria-hidden=\"true\" tabindex=\"-1\" name=\"role\"><option value=\"member\" selected>Member</option><option value=\"admin\">Admin</option></select></div><div data-slot=\"dialog-footer\"><button type=\"submit\" formnovalidate value=\"cancel\" data-slot=\"button\" data-variant=\"outline\">Cancel</button><button type=\"submit\" value=\"send\" data-slot=\"invite-dialog-send\" data-variant=\"primary\">Send invite</button></div></form><button type=\"submit\" form=\"{id}form\" formnovalidate value=\"close\" data-slot=\"dialog-close\">{CROSS}<span>Close</span></button></div></dialog>"
+                "<div data-slot=\"dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"invite-dialog\" data-state=\"open\" role=\"dialog\" aria-labelledby=\"{id}title\"><div data-slot=\"dialog-header\"><h2 data-slot=\"dialog-title\" id=\"{id}title\">Invite member</h2><p data-slot=\"dialog-description\">Send an invitation to join this workspace.</p></div><form id=\"{id}form\"><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{id}email\">Email</label><input data-slot=\"input\" id=\"{id}email\" type=\"email\" name=\"email\" autocomplete=\"email\" required placeholder=\"name@example.com\"></div><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{id}role\">Role</label><button type=\"button\" data-slot=\"select-trigger\" id=\"{id}role\" role=\"combobox\" aria-expanded=\"false\" disabled><span>Member</span>{CHEVRON}</button><select aria-hidden=\"true\" tabindex=\"-1\" name=\"role\"><option value=\"member\" selected>Member</option><option value=\"admin\">Admin</option></select></div><div data-slot=\"dialog-footer\"><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" disabled>Cancel</button><button type=\"button\" data-slot=\"invite-dialog-send\" data-variant=\"primary\" disabled>Send invite</button></div></form><button type=\"button\" data-slot=\"dialog-close\" disabled>{CROSS}<span>Close</span></button></div>"
             )
         );
         assert!(!html.contains("data-slot=\"invite-dialog-title\""));
@@ -128,8 +128,8 @@ mod tests {
         let html = render(&c);
         assert!(html.contains("<p data-slot=\"dialog-description\">Add a teammate.</p>"));
         assert!(html.contains("placeholder=\"teammate@company.com\""));
-        assert!(html.contains("data-slot=\"invite-dialog-send\" data-variant=\"primary\">Invite</button>"));
-        assert!(html.contains("data-variant=\"outline\">Dismiss</button>"));
+        assert!(html.contains("data-slot=\"invite-dialog-send\" data-variant=\"primary\" disabled>Invite</button>"));
+        assert!(html.contains("data-variant=\"outline\" disabled>Dismiss</button>"));
         let mut c = stub("invite-dialog", "Invite member");
         c.items[0].config.insert("description".into(), "From config.".into());
         assert!(render(&c).contains("<p data-slot=\"dialog-description\">From config.</p>"));
@@ -154,9 +154,9 @@ mod tests {
             let end = css[start..].find('}').unwrap() + start;
             css[start..end].to_string()
         };
-        assert!(block("dialog:has(> [data-slot=\"invite-dialog\"])").contains("display: contents"));
+        assert!(!css.contains("dialog:has(> [data-slot=\"invite-dialog\"])"));
         let overlay =
-            block("dialog:has(> [data-slot=\"invite-dialog\"]) > [data-slot=\"dialog-overlay\"]");
+            block("[data-slot=\"dialog-overlay\"]:has(+ [data-slot=\"invite-dialog\"])");
         assert!(overlay.contains("position: fixed; inset: 0; z-index: 50;"));
         let content = block("[data-slot=\"invite-dialog\"]");
         assert!(content.contains("position: fixed; inset: 0; z-index: 50; margin: auto;"));

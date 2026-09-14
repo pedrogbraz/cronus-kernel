@@ -1,13 +1,12 @@
 //! Dedicated AlertDialog renderer — mirrors the React `AlertDialogContent`
 //! fixture (packages/audit react-fixture-render: title + one action).
 //!
-//! Open by default, zero JS: a non-modal native `<dialog open>` (chrome gives it
-//! `display: contents`, so it paints no box) wraps a fixed `alert-dialog-overlay`
-//! scrim and the fixed, centred `alert-dialog-content` panel. The action submits
-//! a hidden `<form method="dialog">`, so it really closes the dialog without
-//! script. JS-only React behaviour (focus trap, Esc while modal, pointer-outside
-//! guard) is not reproduced: the dialog is non-modal. No trigger: the React
-//! fixture renders none.
+//! Open by default, zero JS, no native `<dialog>` (React's portal renders plain
+//! divs): a fixed `alert-dialog-overlay` scrim and the fixed, centred
+//! `alert-dialog-content` panel carrying `role="alertdialog"`. Closing needs JS,
+//! so action/cancel are the same native buttons with `disabled` and React's idle
+//! look (Wave 1t rule). Not reproduced: focus trap, Esc, pointer-outside guard.
+//! No trigger: the React fixture renders none.
 //!
 //! Content: `alert-dialog-title` (`h2`), optional `alert-dialog-description`
 //! (`description` item), optional `alert-dialog-cancel` (`cancel` item) and the
@@ -43,7 +42,6 @@ pub fn render(comp: &ComponentNode) -> String {
         })
         .map(esc)
         .unwrap_or_else(|| "Confirm".into());
-    let form = widget_id(comp, "alert-dialog-form");
     let title_id = widget_id(comp, "alert-dialog-title");
     let description = description_of(comp)
         .map(|d| format!("<p data-slot=\"alert-dialog-description\">{d}</p>"))
@@ -51,13 +49,13 @@ pub fn render(comp: &ComponentNode) -> String {
     let cancel = non_empty(comp, "cancel")
         .map(|c| {
             format!(
-                "<button type=\"submit\" form=\"{form}\" value=\"cancel\" data-slot=\"alert-dialog-cancel\">{}</button>",
+                "<button type=\"button\" data-slot=\"alert-dialog-cancel\" disabled>{}</button>",
                 esc(c)
             )
         })
         .unwrap_or_default();
     format!(
-        "<dialog open role=\"alertdialog\" aria-labelledby=\"{title_id}\"><form method=\"dialog\" id=\"{form}\" hidden></form><div data-slot=\"alert-dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"alert-dialog-content\" data-state=\"open\"><h2 data-slot=\"alert-dialog-title\" id=\"{title_id}\">{title}</h2>{description}{cancel}<button type=\"submit\" form=\"{form}\" value=\"action\" data-slot=\"alert-dialog-action\">{action}</button></div></dialog>"
+        "<div data-slot=\"alert-dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"alert-dialog-content\" data-state=\"open\" role=\"alertdialog\" aria-labelledby=\"{title_id}\"><h2 data-slot=\"alert-dialog-title\" id=\"{title_id}\">{title}</h2>{description}{cancel}<button type=\"button\" data-slot=\"alert-dialog-action\" disabled>{action}</button></div>"
     )
 }
 
@@ -91,7 +89,8 @@ mod tests {
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
-        assert!(!html.contains("<dialog data-slot="));
+        assert!(!html.contains("<dialog"));
+        assert!(!html.contains("<form"));
     }
 
     #[test]
@@ -101,7 +100,7 @@ mod tests {
         assert_eq!(
             html,
             format!(
-                "<dialog open role=\"alertdialog\" aria-labelledby=\"{id}alert-dialog-title\"><form method=\"dialog\" id=\"{id}alert-dialog-form\" hidden></form><div data-slot=\"alert-dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"alert-dialog-content\" data-state=\"open\"><h2 data-slot=\"alert-dialog-title\" id=\"{id}alert-dialog-title\">Delete account</h2><button type=\"submit\" form=\"{id}alert-dialog-form\" value=\"action\" data-slot=\"alert-dialog-action\">Confirm</button></div></dialog>"
+                "<div data-slot=\"alert-dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"alert-dialog-content\" data-state=\"open\" role=\"alertdialog\" aria-labelledby=\"{id}alert-dialog-title\"><h2 data-slot=\"alert-dialog-title\" id=\"{id}alert-dialog-title\">Delete account</h2><button type=\"button\" data-slot=\"alert-dialog-action\" disabled>Confirm</button></div>"
             )
         );
         reject_js(&html);
@@ -111,7 +110,7 @@ mod tests {
     fn no_wrapper_trigger_description_or_cancel_by_default() {
         let html = render(&fixture());
         assert!(!html.contains("data-slot=\"alert-dialog\""));
-        assert!(!html.contains("<button type=\"button\""));
+        assert_eq!(html.matches("<button").count(), 1);
         assert!(!html.contains("alert-dialog-description"));
         assert!(!html.contains("alert-dialog-cancel"));
         assert!(!html.contains("Continue"));
@@ -120,14 +119,14 @@ mod tests {
     #[test]
     fn action_defaults_to_confirm_and_items_override() {
         let html = render(&stub("alert-dialog", "Delete"));
-        assert!(html.contains("data-slot=\"alert-dialog-action\">Confirm</button>"));
+        assert!(html.contains("data-slot=\"alert-dialog-action\" disabled>Confirm</button>"));
         let mut c = fixture();
         c.items.push(extra("action", "Delete anyway"));
         c.items.push(extra("cancel", "Keep"));
         c.items.push(extra("description", "This cannot be undone."));
         let html = render(&c);
-        assert!(html.contains("data-slot=\"alert-dialog-action\">Delete anyway</button>"));
-        assert!(html.contains("value=\"cancel\" data-slot=\"alert-dialog-cancel\">Keep</button>"));
+        assert!(html.contains("data-slot=\"alert-dialog-action\" disabled>Delete anyway</button>"));
+        assert!(html.contains("<button type=\"button\" data-slot=\"alert-dialog-cancel\" disabled>Keep</button>"));
         assert!(html.contains(
             "<p data-slot=\"alert-dialog-description\">This cannot be undone.</p>"
         ));
@@ -161,7 +160,7 @@ mod tests {
             let end = css[start..].find('}').unwrap() + start;
             css[start..end].to_string()
         };
-        assert!(css.contains("dialog:has(> [data-slot=\"alert-dialog-content\"])"));
+        assert!(!css.contains("dialog:has(> [data-slot=\"alert-dialog-content\"])"));
         let overlay = block("[data-slot=\"alert-dialog-overlay\"]");
         assert!(overlay.contains("position: fixed; inset: 0; z-index: 50;"));
         assert!(overlay.contains("backdrop-filter: blur(8px)"));

@@ -1,17 +1,28 @@
 //! Dedicated Field renderer. DOM matches React:
 //! `<div data-slot="field"><label data-slot="field-label">` plus optional
-//! `<p data-slot="field-description">` from extra text items.
+//! `<p data-slot="field-description">` from the `description:` attr (props or
+//! item config, as the audit emitter writes it) or extra text items.
 //! Not interact `field_form()` (`<form>` of `<label>…<input style=CTRL>`).
 
-use crate::cronus_ui_kit::{label_of, texts};
+use crate::cronus_ui_kit::{esc, label_of, texts};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     let ts = texts(comp);
     let label = ts.first().cloned().unwrap_or_else(|| label_of(comp));
     let mut inner = format!("<label data-slot=\"field-label\">{label}</label>");
-    for d in ts.iter().skip(1) {
-        inner.push_str(&format!("<p data-slot=\"field-description\">{d}</p>"));
+    let described = comp
+        .props
+        .get("description")
+        .or_else(|| comp.items.iter().find_map(|i| i.config.get("description")))
+        .filter(|d| !d.is_empty());
+    match described {
+        Some(d) => inner.push_str(&format!("<p data-slot=\"field-description\">{}</p>", esc(d))),
+        None => {
+            for d in ts.iter().skip(1) {
+                inner.push_str(&format!("<p data-slot=\"field-description\">{d}</p>"));
+            }
+        }
     }
     format!("<div data-slot=\"field\">{inner}</div>")
 }
@@ -61,6 +72,22 @@ mod tests {
         assert!(html.contains("data-slot=\"field-label\">Email</label>"));
         assert!(html.contains("data-slot=\"field-description\">We'll never share this.</p>"));
         reject_interact(&html);
+    }
+
+    /// Audit fixture: the emitter writes `description:"…"`, which the parser
+    /// attaches to the label item's config. React renders it as FieldDescription.
+    #[test]
+    fn description_attr_from_props_or_item_config() {
+        let mut c = stub("field", "Email");
+        c.items[0].config.insert("description".into(), "We'll never share it.".into());
+        assert_eq!(
+            render(&c),
+            "<div data-slot=\"field\"><label data-slot=\"field-label\">Email</label><p data-slot=\"field-description\">We'll never share it.</p></div>"
+        );
+        let mut c = stub("field", "Email");
+        c.props.insert("description".into(), "A <b>".into());
+        assert!(render(&c).contains("<p data-slot=\"field-description\">A &lt;b&gt;</p>"));
+        reject_interact(&render(&c));
     }
 
     #[test]
