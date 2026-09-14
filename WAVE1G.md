@@ -41,8 +41,9 @@ Wave 1t geometry parity (React `ColorPickerFixture` `default`): 0 mismatches und
 
 DOM (no wrapper): `<button type="button" data-slot="color-picker-trigger" data-variant="outline" aria-label="Color: oklch(0.62 0.21 256)" aria-haspopup="dialog" aria-expanded="false" data-state="closed" disabled><span aria-hidden="true" data-slot="color-picker-swatch" data-color="oklch(0.62 0.21 256)"></span><span>oklch(0.62 0.21 256)</span></button>`.
 CSS: outline Button `h-10 px-4 w-full justify-start gap-2` text-sm/1.25rem; tile 1.25rem rounded-md bordered,
-`background-color: attr(data-color type(<color>), var(--cronus-primary))` (React uses inline `style`; kernel emits none;
-browsers without typed `attr()` fall back to the primary token).
+`background-color: attr(data-color type(<color>), var(--cronus-primary))` (React uses inline `style`; kernel emits none).
+Portable since wave 1u: the swatch also holds an `aria-hidden` `<svg><rect fill="{validated color}">` (hex or
+rgb/hsl/oklch/oklab/lab/lch with a safe charset), so browsers without typed `attr()` still paint the author color.
 
 | slot | React | Cronus before → after |
 |---|---|---|

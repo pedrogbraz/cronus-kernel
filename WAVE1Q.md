@@ -118,8 +118,9 @@ DOM mirrors React's settled render: `<span data-slot="scramble-text"><span>Decod
 DOM mirrors React: `<div data-slot="spinning-text"><span>SPIN</span><div aria-hidden="true">`
 `<span data-angle="0deg">S</span><span data-angle="90deg">P</span>…</div></div>` (one span per Unicode
 scalar; space → U+00A0). React's inline per-glyph `rotate(i/n·360deg) translateY(-48px)` is
-`transform: rotate(attr(data-angle type(<angle>), 0deg)) translateY(-3rem)` in CSS (typed `attr()`,
-Chromium 133+). Glyphs `absolute start-50% top-50% origin 0 0`, 12/16, 500, uppercase,
+`transform: rotate(calc(360deg * i / n)) translateY(-3rem)` in CSS, with glyph index `i` and count `n`
+derived portably from digit-split `:nth-child`/`:nth-last-child` rules (wave 1u; typed `attr()` removed;
+capped at 100 glyphs, `data-angle` kept for the stub gate). Glyphs `absolute start-50% top-50% origin 0 0`, 12/16, 500, uppercase,
 `letter-spacing: 0.1em`, `fg-secondary`; orbit `absolute inset-0` + `cui-spinning-text` 16s.
 
 | slot | React | Cronus |
