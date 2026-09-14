@@ -569,7 +569,8 @@ pub fn render_for_claude(file: &str, source: &str) -> String {
     let _ = writeln!(out, "## Build status (`cronus build --ai`)");
     let errors = build["errors"].as_array().cloned().unwrap_or_default();
     if build["valid"].as_bool() == Some(true) {
-        let _ = writeln!(out, "Valid: no errors, no warnings.\n");
+        let warnings = build["warnings"].as_array().map_or(0, Vec::len);
+        let _ = writeln!(out, "Valid: no errors, {warnings} warning(s).\n");
     } else {
         let _ = writeln!(
             out,

@@ -11,7 +11,7 @@
 /// The full LLM reference shipped at the kernel root.
 pub const LLMS_FULL: &str = include_str!("../../llms-full.txt");
 
-/// Field type keywords accepted by `FieldType::from_str` (relations use `->`).
+/// Canonical field type keywords accepted by `FieldType::from_keyword` (relations use `->`).
 pub const FIELD_TYPES: &[&str] = &[
     "string",
     "text",
@@ -259,7 +259,7 @@ mod tests {
     fn context_grammar_field_types_match_enum() {
         for name in FIELD_TYPES {
             assert_eq!(
-                keyword(&FieldType::from_str(name)),
+                FieldType::from_keyword(name).as_ref().and_then(keyword),
                 Some(*name),
                 "{name} is not parsed as its own FieldType"
             );
