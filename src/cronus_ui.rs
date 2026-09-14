@@ -331,9 +331,10 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
     grid-column: auto;
   }
 }
-[data-slot="catalog-specimen"] {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 12rem;
+[data-slot="catalog-specimen"]:has(:popover-open),
+[data-slot="catalog-specimen"]:has([data-slot="hover-card"]:hover),
+[data-slot="catalog-specimen"]:has([data-slot="hover-card"]:focus-within) {
+  z-index: 30;
 }
 
 /* Native overlays — closed until invoked. Popover API + dialog. */
@@ -490,14 +491,25 @@ button:has(+ [popover][data-slot="sheet-content"]) {
   content: ""; width: 0.375rem; height: 0.375rem; border-radius: 9999px;
   background: var(--cronus-primary); flex-shrink: 0;
 }
+[data-slot="hover-card"] { position: relative; display: inline-flex; }
+[data-slot="hover-card-trigger"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2.5rem; padding: 0 1rem;
+  border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-overlay);
+  color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; cursor: pointer;
+}
 [data-slot="hover-card-content"] {
-  position: absolute; z-index: 50; top: calc(100% + 0.35rem); left: 0;
+  position: absolute; z-index: 50; top: calc(100% + 0.4rem); left: 0;
   width: 16rem; padding: 0.75rem; box-sizing: border-box;
   border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl);
   background: var(--cronus-surface-floating, var(--cronus-surface-overlay));
   color: var(--cronus-fg);
-  box-shadow: var(--cronus-shadow-lg, none);
+  font-size: 0.875rem; line-height: 1.5;
+  box-shadow: var(--cronus-shadow-lg, 0 16px 40px rgba(0,0,0,.32));
   opacity: 0; visibility: hidden; pointer-events: none;
   transform: translateY(4px) scale(0.98);
   transition: opacity 160ms var(--cronus-ease), transform 160ms var(--cronus-ease), visibility 160ms;
@@ -505,6 +517,27 @@ button:has(+ [popover][data-slot="sheet-content"]) {
 [data-slot="hover-card"]:hover [data-slot="hover-card-content"],
 [data-slot="hover-card"]:focus-within [data-slot="hover-card-content"] {
   opacity: 1; visibility: visible; pointer-events: auto; transform: none;
+}
+[data-slot="popover-trigger"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2.5rem; padding: 0 1rem;
+  border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-overlay);
+  color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; cursor: pointer;
+}
+[data-slot="popover-content"]:popover-open {
+  display: block; z-index: 50; width: 18rem; box-sizing: border-box;
+  padding: 0.75rem; font-size: 0.875rem; line-height: 1.5;
+}
+[data-slot="dialog-trigger"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2.5rem; padding: 0 1rem;
+  border-radius: var(--cronus-radius-lg);
+  border: 1px solid transparent;
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
 }
 dialog[data-slot="dialog-content"] {
   position: fixed; inset: 0; margin: auto;
@@ -521,6 +554,21 @@ dialog[data-slot="dialog-content"] {
 dialog[data-slot="dialog-content"]::backdrop {
   background: color-mix(in oklch, black 55%, transparent);
   animation: cronus-overlay-in 200ms var(--cronus-ease) both;
+}
+[data-slot="dialog"] form {
+  display: flex; flex-direction: column; gap: 0.75rem;
+  padding: 1.25rem 1.35rem 1.15rem;
+}
+[data-slot="dialog-title"] {
+  font-family: var(--cronus-font-display, inherit);
+  font-size: 1.125rem; font-weight: 400; letter-spacing: -0.02em;
+  color: var(--cronus-fg);
+}
+[data-slot="dialog-description"] {
+  margin: 0; font-size: 0.875rem; line-height: 1.5; color: var(--cronus-fg-secondary);
+}
+[data-slot="dialog-content"] [data-slot="button"][data-variant="outline"] {
+  align-self: flex-end; width: auto; min-width: 5.5rem; height: 2.25rem;
 }
 @media (prefers-reduced-motion: reduce) {
   [popover]:popover-open,
@@ -1346,14 +1394,14 @@ button:has(+ [data-slot="popover-content"]) {
   height: 2.5rem; padding: 0 1rem; font-size: 0.875rem;
 }
 }
-[data-slot="popover-content"] {
+[data-slot="popover-content"]:popover-open {
   z-index: 50; width: 18rem; box-sizing: border-box;
   padding: 0.75rem; outline: none;
   border: 1px solid var(--cronus-border);
   background: var(--cronus-surface-floating); color: var(--cronus-fg);
   font-size: 0.875rem; box-shadow: var(--cronus-shadow-lg, none);
-button:has(+ [data-slot="hover-card-content"]) {
 }
+button:has(+ [data-slot="hover-card-content"]) {
 }
 [data-slot="hover-card-content"] {
   z-index: 50; width: 16rem; box-sizing: border-box;
