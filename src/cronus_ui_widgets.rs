@@ -344,6 +344,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "heatmap-chart",
     "chart",
     "click-spark",
+    "glare-hover",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -516,6 +517,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "heatmap-chart" => Some(crate::cronus_ui_heatmap_chart::render(comp)),
         "chart" => Some(crate::cronus_ui_chart::render(comp)),
         "click-spark" => Some(crate::cronus_ui_click_spark::render(comp)),
+        "glare-hover" => Some(crate::cronus_ui_glare_hover::render(comp)),
         _ => None,
     }
 }

@@ -173,6 +173,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "heatmap-chart" => Some("cronus_ui_heatmap_chart::render"),
         "chart" => Some("cronus_ui_chart::render"),
         "click-spark" => Some("cronus_ui_click_spark::render"),
+        "glare-hover" => Some("cronus_ui_glare_hover::render"),
         _ => None,
     }
 }
@@ -664,6 +665,14 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || html.contains("onclick=")
                 || html.contains("requestAnimationFrame")
                 || !html.contains("data-slot=\"click-spark-content\"")))
+        || (html.contains("data-slot=\"glare-hover\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<script")
+                || html.contains("onclick=")
+                || html.contains("requestAnimationFrame")
+                || !html.contains("data-slot=\"glare-hover-layer\"")
+                || !html.contains("data-slot=\"glare-hover-content\"")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -847,6 +856,7 @@ mod tests {
             "src/cronus_ui_tree_view.rs",
             "src/cronus_ui_tilt_card.rs",
             "src/cronus_ui_star_border.rs",
+            "src/cronus_ui_glare_hover.rs",
             "src/cronus_ui_glass_card.rs",
             "src/cronus_ui_terminal.rs",
             "src/cronus_ui_video_player.rs",

@@ -3286,6 +3286,28 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="click-spark-content"] {
   position: relative;
 }
+[data-slot="glare-hover"] {
+  position: relative; overflow: hidden;
+  color: var(--cronus-fg);
+}
+[data-slot="glare-hover-layer"] {
+  position: absolute; inset: 0; pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(115deg, transparent 32%, color-mix(in oklch, var(--cronus-fg) 18%, transparent) 50%, transparent 68%);
+  background-size: 220% 220%;
+  background-position: 50% 50%;
+  transition: opacity 300ms var(--cronus-ease);
+}
+[data-slot="glare-hover"]:hover [data-slot="glare-hover-layer"],
+[data-slot="glare-hover"]:focus-within [data-slot="glare-hover-layer"] {
+  opacity: 1;
+}
+[data-slot="glare-hover-content"] {
+  position: relative;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="glare-hover-layer"] { display: none; }
+}
 
 "#;
 
