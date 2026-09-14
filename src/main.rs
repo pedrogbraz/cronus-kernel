@@ -24,6 +24,7 @@ mod graph;
 mod graphql;
 mod hardcode_lint;
 mod hmr;
+mod http_guard;
 mod hydra;
 mod i18n;
 mod layout_system;
@@ -444,6 +445,11 @@ async fn handle_request(
         return Ok(cli::audit_http::audit_not_found());
     }
 
+    // Internal/diagnostic routes: 404 in production, admin unless loopback dev.
+    if let Some(resp) = http_guard::guard_internal(req.method(), &req_path_str, req.headers()) {
+        return Ok(resp);
+    }
+
     if req.method() == Method::GET && req.uri().path() == "/api/debug/traces" {
         let traces = state.trace_buffer.last_n(50);
         return Ok(json_response(StatusCode::OK, serde_json::to_value(&traces).unwrap_or(json!([]))));
@@ -611,13 +617,8 @@ async fn handle_request_inner(
 
     // ── Rate limiting (API endpoints only) ──
     if path.starts_with("/api/") {
-        // Use X-Forwarded-For if behind proxy, otherwise peer addr
-        let client_ip = req.headers()
-            .get("x-forwarded-for")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|s| s.split(',').next())
-            .map(|s| s.trim().to_string())
-            .unwrap_or_else(|| remote_addr.ip().to_string());
+        // Socket peer IP; X-Forwarded-For only when the peer is in CRONUS_TRUSTED_PROXIES
+        let client_ip = http_guard::client_ip_from_headers(remote_addr, req.headers()).to_string();
 
         let is_auth = path.starts_with("/api/auth/login") || path.starts_with("/api/auth/signup");
 
@@ -631,25 +632,7 @@ async fn handle_request_inner(
         };
 
         if let Err(retry_after) = check_result {
-            let mut resp = Response::builder()
-                .status(StatusCode::TOO_MANY_REQUESTS)
-                .header("Content-Type", "application/json")
-                .header("Retry-After", retry_after.to_string())
-                .body(Full::new(Bytes::from(
-                    serde_json::to_string(&json!({
-                        "error": "Too many requests",
-                        "retry_after": retry_after
-                    })).unwrap()
-                )))
-                .unwrap();
-            // Add security headers
-            for (k, v) in crate::security::security_headers() {
-                resp.headers_mut().insert(
-                    hyper::header::HeaderName::from_static(k),
-                    hyper::header::HeaderValue::from_static(v),
-                );
-            }
-            return Ok(resp);
+            return Ok(http_guard::too_many_requests(retry_after));
         }
     }
 
@@ -707,6 +690,7 @@ async fn handle_request_inner(
             .map(|e| e.name.as_str())
             .unwrap_or("User");
 
+        let mut login_account: Option<String> = None;
         let resp = match (method.clone(), path.as_str()) {
             (Method::GET, "/api/auth/me") => {
                 match auth::extract_user(auth_header.as_deref(), &secret) {
@@ -717,7 +701,7 @@ async fn handle_request_inner(
 
             // POST /api/auth/signup
             (Method::POST, "/api/auth/signup") => {
-                let body_bytes = req.collect().await.unwrap_or_default().to_bytes();
+                let body_bytes = match http_guard::read_body(req).await { Ok(b) => b, Err(r) => return Ok(r) };
                 let body: Value = serde_json::from_slice(&body_bytes).unwrap_or(json!({}));
 
                 let name = body.get("name").and_then(|v| v.as_str()).unwrap_or("");
@@ -780,12 +764,14 @@ async fn handle_request_inner(
 
             // POST /api/auth/login
             (Method::POST, "/api/auth/login") => {
-                let body_bytes = req.collect().await.unwrap_or_default().to_bytes();
+                let body_bytes = match http_guard::read_body(req).await { Ok(b) => b, Err(r) => return Ok(r) };
                 let body: Value = serde_json::from_slice(&body_bytes).unwrap_or(json!({}));
 
                 let email = body.get("email").and_then(|v| v.as_str()).unwrap_or("");
                 let password = body.get("password").and_then(|v| v.as_str()).unwrap_or("");
-                let remember = body.get("remember").and_then(|v| v.as_bool()).unwrap_or(false);
+                if let Some(locked) = http_guard::login_account_check(email) { return Ok(locked); }
+                login_account = Some(email.to_string());
+                let remember =body.get("remember").and_then(|v| v.as_bool()).unwrap_or(false);
                 let cookie_max_age = if remember { 2592000 } else { 86400 }; // 30 days or 24h
 
                 if email.is_empty() || password.is_empty() {
@@ -824,6 +810,9 @@ async fn handle_request_inner(
 
             _ => json_response(StatusCode::OK, json!({"info": "auth endpoint", "routes": ["/api/auth/signup POST", "/api/auth/login POST", "/api/auth/me GET"]})),
         };
+        if let Some(ref account) = login_account {
+            http_guard::login_account_record(account, resp.status());
+        }
         return Ok(resp);
     }
 
@@ -879,13 +868,20 @@ async fn handle_request_inner(
 
     // Audit results storage (posted by the audit widget)
     if path == "/api/audit/results" && method == hyper::Method::POST {
-        let collected = req.into_body().collect().await.unwrap_or_default();
-        let body_bytes = collected.to_bytes();
-        if let Ok(json_str) = std::str::from_utf8(&body_bytes) {
-            // Store to file for CLI access
-            let _ = std::fs::write("/tmp/cronus-audit-results.json", json_str);
-            eprintln!("\n  \x1b[36m[AUDIT]\x1b[0m Results saved to /tmp/cronus-audit-results.json");
-            if let Ok(val) = serde_json::from_str::<Value>(json_str) {
+        // Dev only (http_guard 404s it in production). Project dir, never /tmp.
+        let body_bytes = match http_guard::read_body(req.into_body()).await { Ok(b) => b, Err(r) => return Ok(r) };
+        let Ok(val) = serde_json::from_slice::<Value>(&body_bytes) else {
+            return Ok(json_response(StatusCode::BAD_REQUEST, authz::error_body("BAD_REQUEST", "Expected JSON body")));
+        };
+        {
+            let saved = std::fs::create_dir_all(".cronus")
+                .and_then(|_| std::fs::write(http_guard::AUDIT_WIDGET_RESULTS_PATH, val.to_string()));
+            if let Err(e) = saved {
+                eprintln!("  \x1b[33m[AUDIT]\x1b[0m could not save results: {}", e);
+                return Ok(json_response(StatusCode::INTERNAL_SERVER_ERROR, authz::error_body("INTERNAL", "Could not save audit results")));
+            }
+            eprintln!("\n  \x1b[36m[AUDIT]\x1b[0m Results saved to {}", http_guard::AUDIT_WIDGET_RESULTS_PATH);
+            {
                 let fidelity = val.get("fidelity").and_then(|v| v.as_i64()).unwrap_or(0);
                 let missing = val.get("missingItems").and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
                 let extra = val.get("extraItems").and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
@@ -898,7 +894,7 @@ async fn handle_request_inner(
 
     // Audit results read (for CLI/agent access)
     if path == "/api/audit/results" && method == hyper::Method::GET {
-        let results = std::fs::read_to_string("/tmp/cronus-audit-results.json").unwrap_or_else(|_| "{}".into());
+        let results = std::fs::read_to_string(http_guard::AUDIT_WIDGET_RESULTS_PATH).unwrap_or_else(|_| "{}".into());
         let val: Value = serde_json::from_str(&results).unwrap_or(json!({"error": "no audit results yet"}));
         return Ok(json_response(StatusCode::OK, val));
     }
@@ -907,7 +903,10 @@ async fn handle_request_inner(
     if path == "/api/audit/trail/verify" && method == Method::GET {
         match state.audit_trail.verify() {
             Ok(result) => return Ok(json_response(StatusCode::OK, result)),
-            Err(e) => return Ok(json_response(StatusCode::INTERNAL_SERVER_ERROR, json!({"error": e}))),
+            Err(e) => {
+                eprintln!("  \x1b[31m✗\x1b[0m audit trail verify: {}", e);
+                return Ok(json_response(StatusCode::INTERNAL_SERVER_ERROR, authz::error_body("INTERNAL", "Audit trail unavailable")));
+            }
         }
     }
     if (path == "/api/audit/trail" || path.starts_with("/api/audit/trail?")) && method == Method::GET {
@@ -922,8 +921,14 @@ async fn handle_request_inner(
             .and_then(|p| p.strip_prefix("entity="))
             .map(|v| v.to_string());
         match state.audit_trail.query_filtered(limit, entity_filter.as_deref()) {
-            Ok(entries) => return Ok(json_response(StatusCode::OK, entries)),
-            Err(e) => return Ok(json_response(StatusCode::INTERNAL_SERVER_ERROR, json!({"error": e}))),
+            Ok(mut entries) => {
+                http_guard::redact_audit_entries(&mut entries, &state.entities);
+                return Ok(json_response(StatusCode::OK, entries));
+            }
+            Err(e) => {
+                eprintln!("  \x1b[31m✗\x1b[0m audit trail query: {}", e);
+                return Ok(json_response(StatusCode::INTERNAL_SERVER_ERROR, authz::error_body("INTERNAL", "Audit trail unavailable")));
+            }
         }
     }
 
@@ -1248,7 +1253,7 @@ async fn handle_request_inner(
         return Ok(html_response(graphql::playground_html()));
     }
     if path == "/graphql" && method == Method::POST {
-        let body_bytes = req.collect().await.unwrap().to_bytes();
+        let body_bytes = match http_guard::read_body(req).await { Ok(b) => b, Err(r) => return Ok(r) };
         let body_str = String::from_utf8_lossy(&body_bytes);
         let body_json: Value = serde_json::from_str(&body_str).unwrap_or(json!({}));
         let query = body_json.get("query").and_then(|v| v.as_str()).unwrap_or("");
@@ -1286,7 +1291,7 @@ async fn handle_request_inner(
                 .map(|c| (c.sub.clone(), c.role.clone()))
                 .unwrap_or_else(|| ("anonymous".into(), "public".into()));
 
-            let body_bytes = req.collect().await.unwrap_or_default().to_bytes();
+            let body_bytes = match http_guard::read_body(req).await { Ok(b) => b, Err(r) => return Ok(r) };
             let body: Option<serde_json::Value> = serde_json::from_slice(&body_bytes).ok();
 
             if has_endpoint {
@@ -1357,7 +1362,7 @@ async fn handle_request_inner(
             auth::extract_user(Some(t), &secret).map(|claims| claims.sub)
         }).unwrap_or_default();
 
-        let body_bytes = req.collect().await.unwrap_or_default().to_bytes();
+        let body_bytes = match http_guard::read_body(req).await { Ok(b) => b, Err(r) => return Ok(r) };
         let body: Option<serde_json::Value> = serde_json::from_slice(&body_bytes).ok();
         let full_path = if query.is_empty() { path.clone() } else { format!("{}?{}", path, query) };
 
@@ -1373,7 +1378,7 @@ async fn handle_request_inner(
 
     // ── Action execution endpoint ──
     if method == Method::POST && path.starts_with("/_action/") {
-        let body_bytes = req.collect().await.unwrap_or_default().to_bytes();
+        let body_bytes = match http_guard::read_body(req).await { Ok(b) => b, Err(r) => return Ok(r) };
         let body: Value = serde_json::from_slice(&body_bytes).unwrap_or(json!({}));
 
         let entity = body.get("entity").and_then(|v| v.as_str()).unwrap_or("");
@@ -1387,7 +1392,7 @@ async fn handle_request_inner(
 
     // ── Form submission endpoint ──
     if method == Method::POST && path.starts_with("/_form/") {
-        let body_bytes = req.collect().await.unwrap_or_default().to_bytes();
+        let body_bytes = match http_guard::read_body(req).await { Ok(b) => b, Err(r) => return Ok(r) };
         let body: Value = serde_json::from_slice(&body_bytes).unwrap_or(json!({}));
 
         let entity = body.get("entity").and_then(|v| v.as_str()).unwrap_or("");
@@ -1563,19 +1568,19 @@ async fn handle_request_inner(
         };
 
         if let Some(source_path) = page.config.get("source") {
+            if http_guard::is_production() {
+                return Ok(http_guard::not_found());
+            }
             match std::fs::read_to_string(source_path) {
                 Ok(html) => {
                     return Ok(html_response(html));
                 }
                 Err(err) => {
-                    let body = format!(
-                        r#"<div style="padding:40px">
+                    // Detail goes to the log once; the page never shows IO errors or paths.
+                    eprintln!("  \x1b[31m✗\x1b[0m source page {}: {}", page.route, err);
+                    let body = r#"<div style="padding:40px">
   <h1 style="font-size:16px;color:var(--foreground);margin-bottom:8px">Failed to load source HTML</h1>
-  <p style="font-size:13px;color:var(--foreground-muted);margin-bottom:8px">{}</p>
-  <code style="font-size:12px;color:var(--foreground-subtle)">{}</code>
-</div>"#,
-                        err, source_path
-                    );
+</div>"#.to_string();
                     let html = if let Some(ref layout) = state.layout {
                         ui::render_layout_declarative(app_name, layout, &path, &body)
                     } else {
@@ -2067,7 +2072,7 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
             _ => json_response(StatusCode::METHOD_NOT_ALLOWED, json!({"error": "method not allowed"})),
         }
     } else {
-        json_response(StatusCode::NOT_FOUND, json!({"error": "unknown endpoint", "path": path}))
+        json_response(StatusCode::NOT_FOUND, authz::error_body("NOT_FOUND", "Unknown endpoint"))
     }
 }
 
@@ -2769,10 +2774,35 @@ async fn cmd_run(args: &[String]) {
         zeus: Arc::new(zeus::ZeusBuffer::new(200)),
     });
 
-    // Start server. Audit-canvas binds loopback only (never 0.0.0.0).
-    let bind_host = if audit_canvas { "127.0.0.1" } else { "0.0.0.0" };
-    let addr = format!("{}:{}", bind_host, serve_port);
-    let listener = TcpListener::bind(&addr).await.unwrap_or_else(|e| {
+    // Start server. Default 127.0.0.1; `--host`/CRONUS_HOST opts into exposure.
+    // Audit-canvas always binds loopback.
+    let policy = match http_guard::policy_from_env(args, audit_canvas) {
+        Ok(p) => http_guard::install_policy(p),
+        Err(e) => {
+            eprintln!("  \x1b[31m✗\x1b[0m {}", e);
+            std::process::exit(1);
+        }
+    };
+    if !policy.bind_ip.is_loopback() {
+        eprintln!("  \x1b[33m⚠\x1b[0m Binding to {} — the server is reachable from the network. Internal dev routes require an admin session.", policy.bind_ip);
+    }
+    if policy.mode == http_guard::RunMode::Production {
+        println!("  \x1b[90mMode:\x1b[0m      production (internal routes disabled)");
+    }
+    {
+        let st = state.clone();
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(std::time::Duration::from_secs(60));
+            loop {
+                tick.tick().await;
+                st.rate_limiter.cleanup();
+                st.auth_rate_limiter.cleanup();
+                http_guard::account_limiter().cleanup_at(Instant::now());
+            }
+        });
+    }
+    let addr = std::net::SocketAddr::new(policy.bind_ip, serve_port);
+    let listener = TcpListener::bind(addr).await.unwrap_or_else(|e| {
         eprintln!("  \x1b[31m✗\x1b[0m Cannot bind to port {}: {}", serve_port, e);
         std::process::exit(1);
     });
@@ -2981,7 +3011,13 @@ async fn cmd_run(args: &[String]) {
     loop {
         tokio::select! {
             result = listener.accept() => {
-                let (stream, remote_addr) = result.unwrap();
+                let (stream, remote_addr) = match result {
+                    Ok(conn) => conn,
+                    Err(e) => {
+                        eprintln!("  Accept error: {}", e);
+                        continue;
+                    }
+                };
                 let io = TokioIo::new(stream);
                 let state = state.clone();
 
@@ -3019,12 +3055,12 @@ async fn cmd_run(args: &[String]) {
                         return Ok::<_, hyper::Error>(Response::from_parts(parts, boxed));
                     }
                     // All other requests — wrap Full<Bytes> in Either::Left
-                    let resp = handle_request(req, state, remote_addr).await?;
+                    let resp = http_guard::isolate_panics(handle_request(req, state, remote_addr)).await?;
                     let (parts, body) = resp.into_parts();
                     Ok(Response::from_parts(parts, http_body_util::Either::Left(body)))
                 }
             });
-            if let Err(e) = http1::Builder::new().serve_connection(io, service).await {
+            if let Err(e) = http_guard::http1_builder().serve_connection(io, service).await {
                 eprintln!("  Connection error: {}", e);
             }
         });
