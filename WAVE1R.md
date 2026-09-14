@@ -82,3 +82,17 @@ cd /Users/pedrogbraz/projects/cooud/.wt/kernel-1r-a
 cargo test --offline -- --test-threads=1 cronus_ui_gradient_border cronus_ui_light_rays cronus_ui_orbit
 ```
 17 passed (5 gradient-border + 5 light-rays + 7 orbit).
+
+## Wave 1t — geometry parity, effects A (2026-09-14)
+
+Measured with the `e2e/audit/geometry.spec.ts` rules (FREEZE_CSS, settle loop, slot+occurrence pairing, rect ≤1px, colour ≤2/255) against the `default` fixture, aurora/dark, canvas 480px: **0 mismatches**.
+
+### gradient-border (1t)
+DOM: `<div data-slot="gradient-border"><div>{label}</div></div>` (inner surface has no slot in
+React). CSS root `display: block; width: 18rem; padding: 1.5rem; border-radius: calc(radius + 8px)`
+— React merges `p-px` with the fixture's `p-6` and tailwind-merge keeps `p-6`, so the ring is
+24px thick; inner `100%` × `100%`, `surface-raised`, radius inherit, no padding.
+
+| slot | React | Cronus |
+|---|---|---|
+| gradient-border | 24,24 288×72 r22 "Border" | same (was inline-block 91×50 r18 + inner slot) |

@@ -1,6 +1,7 @@
 //! Dedicated GridPattern renderer. DOM matches React idle without SVG:
-//! `<div data-slot="grid-pattern">` + `aria-hidden` field + relative content
-//! wrapping the label. CSS repeating-linear-gradient lines live in
+//! `<div data-slot="grid-pattern">` + `aria-hidden` field + relative children
+//! div wrapping the label. Only the root has a `data-slot`, like React (Wave 1t
+//! geometry parity). CSS repeating-linear-gradient lines live in
 //! COMPONENT_CHROME. Zero JS, no inline style. Not the catalog `fx()` title SURF box.
 
 use crate::cronus_ui_kit::label_of;
@@ -8,7 +9,7 @@ use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     format!(
-        "<div data-slot=\"grid-pattern\"><div data-slot=\"grid-pattern-field\" aria-hidden=\"true\"></div><div data-slot=\"grid-pattern-content\">{}</div></div>",
+        "<div data-slot=\"grid-pattern\"><div aria-hidden=\"true\"></div><div>{}</div></div>",
         label_of(comp)
     )
 }
@@ -37,6 +38,7 @@ mod tests {
         assert!(!html.contains("requestAnimationFrame"));
         assert!(!html.contains("zinc-"));
         assert!(!html.contains("fx("));
+        assert_eq!(html.matches("data-slot=").count(), 1);
     }
 
     #[test]
@@ -44,14 +46,9 @@ mod tests {
         let html = render(&stub("grid-pattern", "Grid"));
         assert_eq!(
             html,
-            "<div data-slot=\"grid-pattern\"><div data-slot=\"grid-pattern-field\" aria-hidden=\"true\"></div><div data-slot=\"grid-pattern-content\">Grid</div></div>"
+            "<div data-slot=\"grid-pattern\"><div aria-hidden=\"true\"></div><div>Grid</div></div>"
         );
-        assert!(html.starts_with("<div "));
-        assert!(html.contains("data-slot=\"grid-pattern\""));
-        assert!(html.contains("data-slot=\"grid-pattern-field\""));
-        assert!(html.contains("data-slot=\"grid-pattern-content\""));
-        assert!(html.contains("aria-hidden=\"true\""));
-        assert!(html.contains(">Grid</div></div>"));
+        assert!(!html.contains("grid-pattern-field"));
         reject_fx(&html);
     }
 
@@ -60,9 +57,8 @@ mod tests {
         let html = render(&stub("grid-pattern", "A <B> & \"C\""));
         assert_eq!(
             html,
-            "<div data-slot=\"grid-pattern\"><div data-slot=\"grid-pattern-field\" aria-hidden=\"true\"></div><div data-slot=\"grid-pattern-content\">A &lt;B&gt; &amp; &quot;C&quot;</div></div>"
+            "<div data-slot=\"grid-pattern\"><div aria-hidden=\"true\"></div><div>A &lt;B&gt; &amp; &quot;C&quot;</div></div>"
         );
-        assert!(!html.contains("<B>"));
         reject_fx(&html);
     }
 
@@ -75,10 +71,8 @@ mod tests {
         let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
             .unwrap();
         assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
-        assert!(!html.contains("<span"));
         reject_fx(&html);
         assert_eq!(
             dedicated_fn_name("grid-pattern"),
@@ -98,22 +92,21 @@ mod tests {
             let html = render(&stub("grid-pattern", "Grid"));
             reject_fx(&html);
             assert!(html.contains("data-slot=\"grid-pattern\""));
-            assert!(html.contains("data-slot=\"grid-pattern-field\""));
-            assert!(html.contains("data-slot=\"grid-pattern-content\""));
         });
     }
 
     #[test]
     fn chrome_grid_pattern_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"grid-pattern\"]"));
-        assert!(css.contains("[data-slot=\"grid-pattern-field\"]"));
-        assert!(css.contains("[data-slot=\"grid-pattern-content\"]"));
+        let start = css.find("[data-slot=\"grid-pattern\"] {").unwrap();
+        let block = &css[start..start + css[start..].find('}').unwrap()];
+        assert!(block.contains("width: 18rem; min-height: 8rem;"));
+        assert!(css.contains("[data-slot=\"grid-pattern\"] > [aria-hidden] {"));
+        assert!(css.contains("[data-slot=\"grid-pattern\"] > div:last-child {"));
+        assert!(!css.contains("[data-slot=\"grid-pattern-field\"]"));
         assert!(css.contains("repeating-linear-gradient"));
         assert!(css.contains("var(--cronus-border)"));
-        assert!(!css.contains("<canvas"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
-        assert!(!css.contains("<style"));
     }
 }

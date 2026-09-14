@@ -221,3 +221,30 @@ export CARGO_TARGET_DIR=/Users/pedrogbraz/projects/cooud/cronus-kernel/target
 touch src/main.rs && cargo test --offline
 ```
 1247 passed, 0 failed.
+## Wave 1t — geometry parity, effects A (2026-09-14)
+
+Measured with the `e2e/audit/geometry.spec.ts` rules (FREEZE_CSS, settle loop, slot+occurrence pairing, rect ≤1px, colour ≤2/255) against the `default` fixture, aurora/dark, canvas 480px: **0 mismatches**.
+
+### aurora-background
+DOM: `<div data-slot="aurora-background"><div aria-hidden="true"><div></div><div></div><div></div></div><div>{label}</div></div>`.
+No `aurora-blob` slots (React blobs have none). CSS: root `width: 18rem; min-height: 8rem`
+(fixture `w-72 min-h-32`); layer `z-index: -10` like React's `-z-10` — the root is not a
+stacking context, so the blobs sit behind the ground and are invisible in both panes.
+
+### border-beam
+DOM: `<div data-slot="border-beam"><div aria-hidden="true"></div><div>{label}</div></div>`.
+CSS: root `width: 18rem; padding: 1.5rem` (fixture `w-72 p-6`), radius +8px (`rounded-2xl`);
+layer 1px transparent border + two-layer `mask-composite: intersect` (beam only on the
+border band, as React); beam gradient `fg → transparent`.
+
+### confetti
+DOM: `<div data-slot="confetti"><div>{label}</div></div>`. React's idle canvas is empty
+(`fireOnMount` false) and the zero-JS kernel emits no canvas; the six CSS `confetti-piece`
+spans were painting pieces React never shows and are removed. CSS `width: 18rem;
+min-height: 8rem`.
+
+| slot | React | Cronus |
+|---|---|---|
+| aurora-background | 24,24 288×128 "Aurora" | same (was 432×24 + 3 blob slots) |
+| border-beam | 24,24 288×72 r22 "Beam" | same (was 432×24 r12 + 2 slots) |
+| confetti | 24,24 288×128 "Celebrate" | same (was 432×24 + 6 piece slots) |

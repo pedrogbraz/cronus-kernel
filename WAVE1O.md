@@ -92,3 +92,29 @@ padding 0.25rem 0.75rem; 0.75rem/1rem; fg-tertiary`.
 `url` line (the emitter drops the prop), leaving 8 mismatches (empty bar: chrome 29px, no
 "cronus.dev" text). Needed emitter change in `emit-cronus-fixture.ts`:
 `if (typeof fixture.props.url === "string") lines.push(\`  url:"${cronusEscape(fixture.props.url)}"\`);`
+## Wave 1t — geometry parity, effects A (2026-09-14)
+
+Measured with the `e2e/audit/geometry.spec.ts` rules (FREEZE_CSS, settle loop, slot+occurrence pairing, rect ≤1px, colour ≤2/255) against the `default` fixture, aurora/dark, canvas 480px: **0 mismatches**.
+
+### countdown
+DOM: `<div data-slot="countdown" role="timer" aria-live="off"><span class="sr-only">0 days,
+0 hours, 0 min, 0 sec</span>` + 4 × `countdown-unit` (`countdown-value` / `countdown-label`).
+The sr-only summary (unpadded numbers + captions) is part of the root's innerText in React's
+settled render; CSS `[data-slot="countdown"] > .sr-only` is the Tailwind sr-only clip.
+Fixture `target` (2000-01-01, past) is not emitted; the kernel default `00` equals React's
+settled zero state.
+
+| slot | React | Cronus |
+|---|---|---|
+| countdown | 24,24 252.27×68.5 "0 days, 0 hours, 0 min, 0 sec 00 DAYS …" | same |
+| countdown-unit #0 | 56×68.5 r14 b1 | same |
+| countdown-value #0 | 30.73×32 24/32 600 | same |
+| countdown-label #0 | 32.67×16.5 11px 500 | same |
+
+### animated-button
+CSS now mirrors `buttonVariants` primary/md: `border: 0` (was 1px transparent → +2px width),
+`line-height: 1.25rem` (text-sm, was 1), `white-space: nowrap`.
+
+| slot | React | Cronus |
+|---|---|---|
+| animated-button | 24,24 106.7×40 14/20 500 b0 | same (was 108.7 wide, lh 14, b1) |

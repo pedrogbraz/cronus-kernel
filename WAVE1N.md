@@ -104,3 +104,17 @@ boolean `warning-text`, null `fg-tertiary`.
 | json-viewer-closer | 41,113 254×24 | same |
 
 Result: 0 mismatches.
+## Wave 1t — geometry parity, effects A (2026-09-14)
+
+Measured with the `e2e/audit/geometry.spec.ts` rules (FREEZE_CSS, settle loop, slot+occurrence pairing, rect ≤1px, colour ≤2/255) against the `default` fixture, aurora/dark, canvas 480px: **0 mismatches**.
+
+### animated-number
+DOM: `<span data-slot="animated-number"><span>{formatted}</span></span>` (React nesting).
+Value is the settled target, read from `value` item, props, **or any item's config**
+(`value:1234` after `label "Count"` attaches to the label item). CSS `display: inline;
+font-variant-numeric: tabular-nums` (was `inline-block` + display font → 24px-tall box).
+Divergence: no count-up tween (React mounts at the target anyway).
+
+| slot | React | Cronus |
+|---|---|---|
+| animated-number | 24,27 43.5×18 "1,234" | same (was 9.8×24 "0") |

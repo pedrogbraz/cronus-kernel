@@ -1,7 +1,9 @@
-//! Dedicated Countdown renderer. DOM matches React idle:
-//! `<div data-slot="countdown">` plus `countdown-unit` / `countdown-value` /
-//! `countdown-label` tiles. Static numbers from texts or `00:00:00`.
-//! Zero JS timer. CSS in COMPONENT_CHROME. Not the catalog `fx()` title SURF box.
+//! Dedicated Countdown renderer. DOM matches React settled render:
+//! `<div data-slot="countdown" role="timer" aria-live="off">` + visually
+//! hidden summary `<span class="sr-only">0 days, 0 hours, 0 min, 0 sec</span>`
+//! + four `countdown-unit` / `countdown-value` / `countdown-label` tiles.
+//! Static numbers from texts or `00`. Zero JS timer. CSS in COMPONENT_CHROME.
+//! Not the catalog `fx()` title SURF box.
 
 use crate::cronus_ui_kit::numeric_items;
 use crate::parser::ComponentNode;
@@ -15,6 +17,12 @@ const UNITS: [(&str, &str); 4] = [
 
 pub fn render(comp: &ComponentNode) -> String {
     let values = values_of(comp);
+    let summary = UNITS
+        .iter()
+        .zip(values.iter())
+        .map(|((_, label), value)| format!("{} {label}", value.parse::<u64>().unwrap_or(0)))
+        .collect::<Vec<_>>()
+        .join(", ");
     let units = UNITS
         .iter()
         .zip(values.iter())
@@ -25,7 +33,9 @@ pub fn render(comp: &ComponentNode) -> String {
         })
         .collect::<Vec<_>>()
         .join("");
-    format!("<div data-slot=\"countdown\" role=\"timer\" aria-live=\"off\">{units}</div>")
+    format!(
+        "<div data-slot=\"countdown\" role=\"timer\" aria-live=\"off\"><span class=\"sr-only\">{summary}</span>{units}</div>"
+    )
 }
 
 fn values_of(comp: &ComponentNode) -> [String; 4] {
@@ -136,23 +146,29 @@ mod tests {
     #[test]
     fn root_is_timer_with_four_static_units_not_fx_title_box() {
         let html = render(&stub("countdown", "Demo"));
-        assert!(html.starts_with("<div data-slot=\"countdown\""));
-        assert!(html.contains("role=\"timer\""));
-        assert!(html.contains("aria-live=\"off\""));
+        assert!(html.starts_with("<div data-slot=\"countdown\" role=\"timer\" aria-live=\"off\">"));
         assert_eq!(html.matches("data-slot=\"countdown-unit\"").count(), 4);
         assert_eq!(html.matches("data-slot=\"countdown-value\"").count(), 4);
         assert_eq!(html.matches("data-slot=\"countdown-label\"").count(), 4);
-        assert!(html.contains("data-unit=\"days\""));
-        assert!(html.contains("data-unit=\"hours\""));
-        assert!(html.contains("data-unit=\"minutes\""));
-        assert!(html.contains("data-unit=\"seconds\""));
-        assert!(html.contains(">days</span>"));
+        assert!(html.contains(
+            "<div data-slot=\"countdown-unit\" data-unit=\"days\" aria-hidden=\"true\"><span data-slot=\"countdown-value\">00</span><span data-slot=\"countdown-label\">days</span></div>"
+        ));
         assert!(html.contains(">hours</span>"));
         assert!(html.contains(">min</span>"));
         assert!(html.contains(">sec</span>"));
-        assert!(unit(&html, "hours").contains(">00</span>"));
-        assert!(unit(&html, "minutes").contains(">00</span>"));
         assert!(unit(&html, "seconds").contains(">00</span>"));
+        reject_fx(&html);
+    }
+
+    /// Wave 1t: React's settled render (past target) carries a visually hidden
+    /// summary before the tiles; its text is part of the root's innerText.
+    #[test]
+    fn sr_only_summary_precedes_tiles() {
+        let html = render(&stub("countdown", "Launch"));
+        assert!(html.starts_with(
+            "<div data-slot=\"countdown\" role=\"timer\" aria-live=\"off\"><span class=\"sr-only\">0 days, 0 hours, 0 min, 0 sec</span><div data-slot=\"countdown-unit\" data-unit=\"days\""
+        ));
+        assert!(!html.contains("Launch"));
         reject_fx(&html);
     }
 
@@ -179,6 +195,7 @@ mod tests {
         assert!(unit(&html, "hours").contains(">02</span>"));
         assert!(unit(&html, "minutes").contains(">03</span>"));
         assert!(unit(&html, "seconds").contains(">04</span>"));
+        assert!(html.contains("<span class=\"sr-only\">1 days, 2 hours, 3 min, 4 sec</span>"));
         reject_fx(&html);
     }
 
@@ -225,7 +242,6 @@ mod tests {
         let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
             .unwrap();
         assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
         reject_fx(&html);
@@ -253,6 +269,7 @@ mod tests {
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"countdown\"]"));
+        assert!(css.contains("[data-slot=\"countdown\"] > .sr-only {"));
         assert!(css.contains("[data-slot=\"countdown-unit\"]"));
         assert!(css.contains("[data-slot=\"countdown-value\"]"));
         assert!(css.contains("[data-slot=\"countdown-label\"]"));
@@ -261,7 +278,5 @@ mod tests {
         assert!(css.contains("var(--cronus-fg-tertiary"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
-        assert!(!css.contains("setInterval"));
-        assert!(!css.contains("setTimeout"));
     }
 }

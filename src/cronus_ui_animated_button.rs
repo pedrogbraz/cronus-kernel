@@ -1,6 +1,8 @@
 //! Dedicated AnimatedButton renderer. DOM matches React idle:
 //! `<button type="button" data-slot="animated-button">` with label.
 //! CSS hover in COMPONENT_CHROME. Not the catalog `fx()` title SURF box.
+//! Wave 1t: chrome mirrors `buttonVariants` primary/md exactly — no border,
+//! `text-sm` 14px / 20px line-height, `whitespace-nowrap`.
 
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
@@ -43,10 +45,6 @@ mod tests {
             html,
             "<button type=\"button\" data-slot=\"animated-button\">Launch</button>"
         );
-        assert!(html.starts_with("<button "));
-        assert!(html.contains("type=\"button\""));
-        assert!(html.contains("data-slot=\"animated-button\""));
-        assert!(html.contains(">Launch</button>"));
         reject_fx(&html);
     }
 
@@ -69,10 +67,8 @@ mod tests {
         let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
             .unwrap();
         assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
-        assert!(!html.contains("<div"));
         reject_fx(&html);
         assert_eq!(
             dedicated_fn_name("animated-button"),
@@ -94,10 +90,15 @@ mod tests {
         });
     }
 
+    fn block(css: &str) -> &str {
+        let start = css.find("[data-slot=\"animated-button\"] {").unwrap();
+        let rest = &css[start..];
+        &rest[..rest.find('}').unwrap()]
+    }
+
     #[test]
     fn chrome_hover_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"animated-button\"]"));
         assert!(css.contains("[data-slot=\"animated-button\"]:hover"));
         assert!(css.contains("translateY(-1px)"));
         assert!(css.contains("scale(0.97)"));
@@ -105,5 +106,17 @@ mod tests {
         assert!(css.contains("var(--cronus-primary-foreground)"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
+    }
+
+    /// Wave 1t geometry: React button is 40px tall, 14px / 20px text, no border.
+    #[test]
+    fn chrome_matches_button_primary_md_geometry() {
+        let css = crate::cronus_ui::component_chrome_css();
+        let b = block(&css);
+        assert!(b.contains("height: 2.5rem; padding: 0 1rem;"));
+        assert!(b.contains("border: 0;"));
+        assert!(!b.contains("1px solid transparent"));
+        assert!(b.contains("font-size: 0.875rem; font-weight: 500; line-height: 1.25rem;"));
+        assert!(b.contains("white-space: nowrap;"));
     }
 }

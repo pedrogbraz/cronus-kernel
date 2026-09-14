@@ -35,3 +35,29 @@ toast rule that lived next to sonner is gone.
 | toast | 24,24 432×46, 14px/20px 400, bg rgba(22,22,25), r 14px, border 1px | identical |
 
 0 mismatches (geometry spec rules). Screenshots visually identical.
+## Wave 1t — geometry parity, effects A (2026-09-14)
+
+Measured with the `e2e/audit/geometry.spec.ts` rules (FREEZE_CSS, settle loop, slot+occurrence pairing, rect ≤1px, colour ≤2/255) against the `default` fixture, aurora/dark, canvas 480px: **0 mismatches**.
+
+### glass-card
+DOM: `<div data-slot="glass-card"><div aria-hidden="true"></div><div>{label}</div></div>`
+(React: top highlight line + relative children; only the root has a slot).
+CSS: `position: relative; width: 18rem; padding: 1.5rem` (fixture `w-72` + `p-6`),
+`border-radius: calc(var(--cronus-radius, 14px) + 8px)` (`rounded-2xl` = 22px),
+`border: 1px solid var(--cronus-border-soft, var(--cronus-border))`, surface-raised 60%,
+`backdrop-filter: blur(24px)`; highlight = `> [aria-hidden]` 1px gradient via `border-strong`
+(the old `::before` had no `content` and never painted).
+
+| slot | React | Cronus |
+|---|---|---|
+| glass-card | 24,24 288×74 r22 b1 bg 22,22,23,153 | same |
+
+### animated-list
+DOM unchanged (`ul` > `li data-slot="animated-list-item"`). Fix: `label` / `title` are never
+rows when `text` / `item` rows exist — the emitter writes the fixture id (`label "default"`),
+which leaked as a first row ("default Alpha Beta").
+
+| slot | React | Cronus |
+|---|---|---|
+| animated-list | 24,24 432×56 "Alpha Beta" | same |
+| animated-list-item #0/#1 | 432×24 "Alpha" / "Beta" | same |

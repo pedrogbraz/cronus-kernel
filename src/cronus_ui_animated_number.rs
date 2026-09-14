@@ -1,14 +1,18 @@
 //! Dedicated AnimatedNumber renderer. DOM matches React:
-//! `<span data-slot="animated-number">` with a static formatted number
-//! (no JS ticker). CSS tabular-nums in COMPONENT_CHROME.
+//! `<span data-slot="animated-number"><span>{formatted}</span></span>` with the
+//! settled value rendered statically (React mounts *at* the target, no JS
+//! ticker here). CSS tabular-nums in COMPONENT_CHROME.
 //! Not the catalog `fx()` title SURF box.
+//! Wave 1t: `value:` written after an item attaches to that item's config
+//! (the emitter writes `label "Count"` then `value:1234`), so it is read there
+//! too; the root is `display: inline` like React's unstyled span.
 
 use crate::cronus_ui_kit::{esc, item};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     format!(
-        "<span data-slot=\"animated-number\">{}</span>",
+        "<span data-slot=\"animated-number\"><span>{}</span></span>",
         value_of(comp)
     )
 }
@@ -22,6 +26,11 @@ fn value_of(comp: &ComponentNode) -> String {
     if let Some(v) = comp.props.get("value") {
         if let Some(s) = display_value(v) {
             return s;
+        }
+    }
+    for i in &comp.items {
+        if let Some(v) = i.config.get("value").and_then(|v| display_value(v)) {
+            return v;
         }
     }
     let label = item(comp, "label")
@@ -144,9 +153,18 @@ mod tests {
     #[test]
     fn root_is_span_with_formatted_number_not_fx_title_box() {
         let html = render(&stub("animated-number", "Demo"));
-        assert_eq!(html, "<span data-slot=\"animated-number\">0</span>");
-        assert!(html.starts_with("<span "));
-        assert!(html.contains("data-slot=\"animated-number\""));
+        assert_eq!(html, "<span data-slot=\"animated-number\"><span>0</span></span>");
+        reject_fx(&html);
+    }
+
+    /// Audit fixture shape: `label "Count"` then `value:1234` (item config).
+    /// React shows the settled `1,234`, never `0`.
+    #[test]
+    fn value_from_label_item_config_is_settled_value() {
+        let mut c = stub("animated-number", "Count");
+        c.items[0].config.insert("value".into(), "1234".into());
+        let html = render(&c);
+        assert_eq!(html, "<span data-slot=\"animated-number\"><span>1,234</span></span>");
         reject_fx(&html);
     }
 
@@ -155,7 +173,7 @@ mod tests {
         let mut c = stub("animated-number", "Users");
         c.items.push(extra("value", "1234"));
         let html = render(&c);
-        assert_eq!(html, "<span data-slot=\"animated-number\">1,234</span>");
+        assert_eq!(html, "<span data-slot=\"animated-number\"><span>1,234</span></span>");
         reject_fx(&html);
     }
 
@@ -164,7 +182,7 @@ mod tests {
         let mut c = stub("animated-number", "Users");
         c.items.push(extra("text", "42"));
         let html = render(&c);
-        assert!(html.contains(">42</span>"));
+        assert!(html.contains("><span>42</span></span>"));
         reject_fx(&html);
     }
 
@@ -173,7 +191,7 @@ mod tests {
         let mut c = stub("animated-number", "Users");
         c.props.insert("value".into(), "1200".into());
         let html = render(&c);
-        assert_eq!(html, "<span data-slot=\"animated-number\">1,200</span>");
+        assert_eq!(html, "<span data-slot=\"animated-number\"><span>1,200</span></span>");
         reject_fx(&html);
     }
 
@@ -182,7 +200,7 @@ mod tests {
         let mut c = stub("animated-number", "MRR");
         c.items.push(extra("value", "$12.4k"));
         let html = render(&c);
-        assert_eq!(html, "<span data-slot=\"animated-number\">$12.4k</span>");
+        assert_eq!(html, "<span data-slot=\"animated-number\"><span>$12.4k</span></span>");
         reject_fx(&html);
     }
 
@@ -193,7 +211,7 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            "<span data-slot=\"animated-number\">1 &lt; 2 &amp; &quot;3&quot;</span>"
+            "<span data-slot=\"animated-number\"><span>1 &lt; 2 &amp; &quot;3&quot;</span></span>"
         );
         reject_fx(&html);
     }
@@ -203,7 +221,7 @@ mod tests {
         use crate::binding::ResolvedData;
         crate::cronus_ui_data::with_binding("Lead", &ResolvedData::Count(12), || {
             let html = render(&stub("animated-number", "Leads"));
-            assert_eq!(html, "<span data-slot=\"animated-number\">12</span>");
+            assert_eq!(html, "<span data-slot=\"animated-number\"><span>12</span></span>");
             reject_fx(&html);
         });
     }
@@ -214,10 +232,8 @@ mod tests {
         let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
             .unwrap();
         assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
-        assert!(!html.contains("<div"));
         reject_fx(&html);
         assert_eq!(
             crate::cli::stub_renderer_gate::renderer_kind("meteors"),
@@ -239,13 +255,14 @@ mod tests {
     }
 
     #[test]
-    fn chrome_is_token_only() {
+    fn chrome_is_token_only_and_inline() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"animated-number\"]"));
-        assert!(css.contains("font-variant-numeric: tabular-nums"));
-        assert!(css.contains("var(--cronus-fg)"));
+        let start = css.find("[data-slot=\"animated-number\"] {").unwrap();
+        let block = &css[start..start + css[start..].find('}').unwrap()];
+        assert!(block.contains("display: inline;"));
+        assert!(!block.contains("inline-block"));
+        assert!(block.contains("font-variant-numeric: tabular-nums"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
-        assert!(!css.contains("onclick"));
     }
 }

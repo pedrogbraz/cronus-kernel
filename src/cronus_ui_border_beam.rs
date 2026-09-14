@@ -1,15 +1,16 @@
 //! Dedicated BorderBeam renderer. DOM matches React idle:
-//! `<div data-slot="border-beam">` + `data-slot="border-beam-layer"`
-//! (aria-hidden) + `data-slot="border-beam-content"` wrapping the label.
-//! `@keyframes cui-border-beam` lives in COMPONENT_CHROME — never a `<style>`
-//! tag. Zero JS, no inline style. Not the catalog `fx()` title SURF box.
+//! `<div data-slot="border-beam">` + `aria-hidden` beam layer + relative
+//! children div wrapping the label. Only the root has a `data-slot`, like React
+//! (Wave 1t geometry parity). `@keyframes cui-border-beam` lives in
+//! COMPONENT_CHROME — never a `<style>` tag. Zero JS, no inline style.
+//! Not the catalog `fx()` title SURF box.
 
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     format!(
-        "<div data-slot=\"border-beam\"><div data-slot=\"border-beam-layer\" aria-hidden=\"true\"></div><div data-slot=\"border-beam-content\">{}</div></div>",
+        "<div data-slot=\"border-beam\"><div aria-hidden=\"true\"></div><div>{}</div></div>",
         label_of(comp)
     )
 }
@@ -38,6 +39,7 @@ mod tests {
         assert!(!html.contains("requestAnimationFrame"));
         assert!(!html.contains("zinc-"));
         assert!(!html.contains("fx("));
+        assert_eq!(html.matches("data-slot=").count(), 1);
     }
 
     #[test]
@@ -45,14 +47,10 @@ mod tests {
         let html = render(&stub("border-beam", "Beam"));
         assert_eq!(
             html,
-            "<div data-slot=\"border-beam\"><div data-slot=\"border-beam-layer\" aria-hidden=\"true\"></div><div data-slot=\"border-beam-content\">Beam</div></div>"
+            "<div data-slot=\"border-beam\"><div aria-hidden=\"true\"></div><div>Beam</div></div>"
         );
-        assert!(html.starts_with("<div "));
-        assert!(html.contains("data-slot=\"border-beam\""));
-        assert!(html.contains("data-slot=\"border-beam-layer\""));
-        assert!(html.contains("data-slot=\"border-beam-content\""));
-        assert!(html.contains("aria-hidden=\"true\""));
-        assert!(html.contains(">Beam</div></div>"));
+        assert!(!html.contains("border-beam-layer"));
+        assert!(!html.contains("border-beam-content"));
         reject_fx(&html);
     }
 
@@ -61,9 +59,8 @@ mod tests {
         let html = render(&stub("border-beam", "A <B> & \"C\""));
         assert_eq!(
             html,
-            "<div data-slot=\"border-beam\"><div data-slot=\"border-beam-layer\" aria-hidden=\"true\"></div><div data-slot=\"border-beam-content\">A &lt;B&gt; &amp; &quot;C&quot;</div></div>"
+            "<div data-slot=\"border-beam\"><div aria-hidden=\"true\"></div><div>A &lt;B&gt; &amp; &quot;C&quot;</div></div>"
         );
-        assert!(!html.contains("<B>"));
         reject_fx(&html);
     }
 
@@ -76,10 +73,8 @@ mod tests {
         let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
             .unwrap();
         assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
-        assert!(!html.contains("<span"));
         reject_fx(&html);
         assert_eq!(
             dedicated_fn_name("border-beam"),
@@ -99,17 +94,15 @@ mod tests {
             let html = render(&stub("border-beam", "Beam"));
             reject_fx(&html);
             assert!(html.contains("data-slot=\"border-beam\""));
-            assert!(html.contains("data-slot=\"border-beam-layer\""));
-            assert!(html.contains("data-slot=\"border-beam-content\""));
         });
     }
 
     #[test]
     fn chrome_border_beam_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"border-beam\"]"));
-        assert!(css.contains("[data-slot=\"border-beam-layer\"]"));
-        assert!(css.contains("[data-slot=\"border-beam-content\"]"));
+        assert!(css.contains("[data-slot=\"border-beam\"] > [aria-hidden] {"));
+        assert!(css.contains("[data-slot=\"border-beam\"] > div:last-child {"));
+        assert!(!css.contains("[data-slot=\"border-beam-layer\"]"));
         assert!(css.contains("@keyframes cui-border-beam"));
         assert!(css.contains("animation: cui-border-beam"));
         assert!(css.contains("offset-path"));
@@ -117,6 +110,15 @@ mod tests {
         assert!(css.contains("prefers-reduced-motion"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
-        assert!(!css.contains("<style"));
+    }
+
+    /// Wave 1t geometry: fixture `w-72 p-6` + React `rounded-2xl` (radius + 8px).
+    #[test]
+    fn chrome_mirrors_fixture_box_and_2xl_radius() {
+        let css = crate::cronus_ui::component_chrome_css();
+        let start = css.find("[data-slot=\"border-beam\"] {").unwrap();
+        let block = &css[start..start + css[start..].find('}').unwrap()];
+        assert!(block.contains("width: 18rem; padding: 1.5rem;"));
+        assert!(block.contains("border-radius: calc(var(--cronus-radius, 14px) + 8px);"));
     }
 }

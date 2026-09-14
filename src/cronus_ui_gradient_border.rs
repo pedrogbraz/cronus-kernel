@@ -1,15 +1,16 @@
 //! Dedicated GradientBorder renderer. DOM matches React idle:
-//! `<div data-slot="gradient-border">` wrapping `gradient-border-inner`
-//! and the label. 1px padding + primary/accent gradient live in
-//! COMPONENT_CHROME. Zero JS, no glow, no inline style. Not the catalog
-//! `fx()` title SURF box.
+//! `<div data-slot="gradient-border">` wrapping an inner surface div (no
+//! `data-slot`, like React — Wave 1t geometry parity) with the label.
+//! Gradient ring, `rounded-2xl` and the inner `surface-raised` fill live in
+//! COMPONENT_CHROME. Zero JS, no glow, no inline style. Not the catalog `fx()`
+//! title SURF box.
 
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     format!(
-        "<div data-slot=\"gradient-border\"><div data-slot=\"gradient-border-inner\">{}</div></div>",
+        "<div data-slot=\"gradient-border\"><div>{}</div></div>",
         label_of(comp)
     )
 }
@@ -38,19 +39,14 @@ mod tests {
         assert!(!html.contains("requestAnimationFrame"));
         assert!(!html.contains("zinc-"));
         assert!(!html.contains("fx("));
+        assert_eq!(html.matches("data-slot=").count(), 1);
     }
 
     #[test]
     fn root_wraps_label_text_not_fx_title_box() {
         let html = render(&stub("gradient-border", "Glow"));
-        assert_eq!(
-            html,
-            "<div data-slot=\"gradient-border\"><div data-slot=\"gradient-border-inner\">Glow</div></div>"
-        );
-        assert!(html.starts_with("<div "));
-        assert!(html.contains("data-slot=\"gradient-border\""));
-        assert!(html.contains("data-slot=\"gradient-border-inner\""));
-        assert!(html.contains(">Glow</div></div>"));
+        assert_eq!(html, "<div data-slot=\"gradient-border\"><div>Glow</div></div>");
+        assert!(!html.contains("gradient-border-inner"));
         reject_fx(&html);
     }
 
@@ -59,9 +55,8 @@ mod tests {
         let html = render(&stub("gradient-border", "A <B> & \"C\""));
         assert_eq!(
             html,
-            "<div data-slot=\"gradient-border\"><div data-slot=\"gradient-border-inner\">A &lt;B&gt; &amp; &quot;C&quot;</div></div>"
+            "<div data-slot=\"gradient-border\"><div>A &lt;B&gt; &amp; &quot;C&quot;</div></div>"
         );
-        assert!(!html.contains("<B>"));
         reject_fx(&html);
     }
 
@@ -74,10 +69,8 @@ mod tests {
         let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
             .unwrap();
         assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
-        assert!(!html.contains("<span"));
         reject_fx(&html);
         assert_eq!(
             dedicated_fn_name("gradient-border"),
@@ -97,23 +90,32 @@ mod tests {
             let html = render(&stub("gradient-border", "Glow"));
             reject_fx(&html);
             assert!(html.contains("data-slot=\"gradient-border\""));
-            assert!(html.contains("data-slot=\"gradient-border-inner\""));
         });
     }
 
     #[test]
     fn chrome_gradient_border_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"gradient-border\"]"));
-        assert!(css.contains("[data-slot=\"gradient-border-inner\"]"));
-        assert!(css.contains("padding: 1px"));
+        assert!(css.contains("[data-slot=\"gradient-border\"] > div {"));
+        assert!(!css.contains("[data-slot=\"gradient-border-inner\"]"));
         assert!(css.contains("linear-gradient"));
         assert!(css.contains("var(--cronus-primary)"));
         assert!(css.contains("var(--cronus-accent)"));
         assert!(css.contains("var(--cronus-surface-raised)"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
-        assert!(!css.contains("<style"));
-        assert!(!css.contains("style="));
+    }
+
+    /// Wave 1t geometry: React `rounded-2xl bg-gradient-primary p-px` merged
+    /// with fixture `w-72 p-6` (tailwind-merge keeps `p-6`) → block 288×72, r22.
+    #[test]
+    fn chrome_mirrors_fixture_box_and_2xl_radius() {
+        let css = crate::cronus_ui::component_chrome_css();
+        let start = css.find("[data-slot=\"gradient-border\"] {").unwrap();
+        let block = &css[start..start + css[start..].find('}').unwrap()];
+        assert!(block.contains("display: block;"));
+        assert!(!block.contains("inline-block"));
+        assert!(block.contains("width: 18rem; padding: 1.5rem;"));
+        assert!(block.contains("border-radius: calc(var(--cronus-radius, 14px) + 8px);"));
     }
 }
