@@ -174,6 +174,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "chart" => Some("cronus_ui_chart::render"),
         "click-spark" => Some("cronus_ui_click_spark::render"),
         "glare-hover" => Some("cronus_ui_glare_hover::render"),
+        "magnetic" => Some("cronus_ui_magnetic::render"),
         _ => None,
     }
 }
@@ -673,6 +674,14 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || html.contains("requestAnimationFrame")
                 || !html.contains("data-slot=\"glare-hover-layer\"")
                 || !html.contains("data-slot=\"glare-hover-content\"")))
+        || (html.contains("data-slot=\"magnetic\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<script")
+                || html.contains("onclick=")
+                || html.contains("requestAnimationFrame")
+                || html.contains("data-magnetic-active")
+                || !html.contains("data-slot=\"magnetic-target\"")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -937,6 +946,7 @@ mod tests {
             "src/cronus_ui_candlestick_chart.rs",
             "src/cronus_ui_combobox.rs",
             "src/cronus_ui_command.rs",
+            "src/cronus_ui_magnetic.rs",
             "src/cronus_ui_masonry.rs",
             "src/cronus_ui_comparison_slider.rs",
             "src/cronus_ui_confirmation_dialog.rs",

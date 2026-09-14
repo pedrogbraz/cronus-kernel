@@ -137,6 +137,7 @@ mod cronus_ui_masonry;
 mod cronus_ui_marquee;
 mod cronus_ui_live_line_chart;
 mod cronus_ui_logo_carousel;
+mod cronus_ui_magnetic;
 mod cronus_ui_menubar;
 mod cronus_ui_metric;
 mod cronus_ui_mode_toggle;

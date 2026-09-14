@@ -3308,6 +3308,24 @@ button:has(+ [data-slot="sheet-content"]) {
 @media (prefers-reduced-motion: reduce) {
   [data-slot="glare-hover-layer"] { display: none; }
 }
+[data-slot="magnetic"] {
+  display: inline-block;
+  color: var(--cronus-fg);
+}
+[data-slot="magnetic-target"] {
+  display: inline-block;
+  transition: transform 300ms var(--cronus-ease);
+}
+[data-slot="magnetic"]:hover [data-slot="magnetic-target"] {
+  transform: translate(4px, -4px);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="magnetic"] [data-slot="magnetic-target"],
+  [data-slot="magnetic"]:hover [data-slot="magnetic-target"] {
+    transform: none;
+    transition: none;
+  }
+}
 
 "#;
 
