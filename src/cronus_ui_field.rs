@@ -4,18 +4,14 @@
 //! item config, as the audit emitter writes it) or extra text items.
 //! Not interact `field_form()` (`<form>` of `<label>…<input style=CTRL>`).
 
-use crate::cronus_ui_kit::{esc, label_of, texts};
+use crate::cronus_ui_kit::{attr_nonempty, esc, label_of, texts};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     let ts = texts(comp);
     let label = ts.first().cloned().unwrap_or_else(|| label_of(comp));
     let mut inner = format!("<label data-slot=\"field-label\">{label}</label>");
-    let described = comp
-        .props
-        .get("description")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("description")))
-        .filter(|d| !d.is_empty());
+    let described = attr_nonempty(comp, "description");
     match described {
         Some(d) => inner.push_str(&format!(
             "<p data-slot=\"field-description\">{}</p>",

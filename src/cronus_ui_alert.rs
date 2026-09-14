@@ -4,6 +4,7 @@
 //! (a `description:"…"` attribute first, then extra texts).
 //! Not the interact SURF box wrapping raw `<div>text</div>` with no title slot.
 
+use crate::cronus_ui_kit::{attr_nonempty, esc};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -13,7 +14,7 @@ pub fn render(comp: &ComponentNode) -> String {
         "status"
     };
     let (title, mut descs) = title_and_descriptions(comp);
-    if let Some(d) = attr(comp, "description") {
+    if let Some(d) = attr_nonempty(comp, "description") {
         descs.insert(0, esc(d));
     }
     let mut inner = format!("<div data-slot=\"alert-title\">{title}</div>");
@@ -65,26 +66,6 @@ fn extra_descs(comp: &ComponentNode, skip: usize) -> Vec<String> {
         .filter(|(i, item)| *i != skip && !item.text.is_empty())
         .map(|(_, item)| esc(&item.text))
         .collect()
-}
-
-/// Prop or item attribute (`key:"value"` lines attach to the preceding item).
-fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
-    comp.props
-        .get(key)
-        .map(String::as_str)
-        .or_else(|| {
-            comp.items
-                .iter()
-                .find_map(|i| i.config.get(key).map(String::as_str))
-        })
-        .filter(|s| !s.is_empty())
-}
-
-fn esc(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
 }
 
 #[cfg(test)]

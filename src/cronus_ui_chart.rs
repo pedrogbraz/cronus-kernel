@@ -127,17 +127,6 @@ pub fn values_for(comp: &ComponentNode, n: usize, cycle: &[f64]) -> Vec<f64> {
     (0..n).map(|i| cycle[i % cycle.len()]).collect()
 }
 
-/// A prop read from component props or any item's `key:value` config
-/// (the tokenizer attaches trailing `key:value` lines to the previous item).
-pub fn prop<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
-    if let Some(v) = comp.props.get(key) {
-        return Some(v.as_str());
-    }
-    comp.items
-        .iter()
-        .find_map(|i| i.config.get(key).map(|v| v.as_str()))
-}
-
 // ── ticks ─────────────────────────────────────────────────────────
 
 fn digit_count(v: f64) -> i32 {
@@ -744,7 +733,7 @@ mod tests {
     fn prop_reads_item_config() {
         let mut c = stub("gauge-chart", "Score");
         c.items[0].config.insert("value".into(), "72".into());
-        assert_eq!(prop(&c, "value"), Some("72"));
+        assert_eq!(crate::cronus_ui_kit::attr(&c, "value"), Some("72"));
     }
 
     #[test]

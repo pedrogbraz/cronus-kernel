@@ -2,7 +2,7 @@
 //! `<button type="button" data-slot="mode-toggle" data-mode="dark" aria-label="Switch to light mode">`.
 //! Not interact onclick `document.documentElement.classList.toggle('dark')` + BASE/SURF styles.
 
-use crate::cronus_ui_kit::esc;
+use crate::cronus_ui_kit::{esc, flag};
 use crate::parser::ComponentNode;
 
 const ICON: &str = concat!(
@@ -36,10 +36,7 @@ pub fn render(comp: &ComponentNode) -> String {
 /// dimmed (`data-disabled`) when the author disabled it, like React's
 /// `disabled:opacity-50`.
 fn author_disabled(comp: &ComponentNode) -> bool {
-    comp.props
-        .get("disabled")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("disabled")))
-        .is_some_and(|v| v == "true")
+    flag(comp, "disabled")
 }
 
 fn mode_of(comp: &ComponentNode) -> &'static str {

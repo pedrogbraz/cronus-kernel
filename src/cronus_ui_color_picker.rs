@@ -17,7 +17,7 @@
 //! idle look (not dimmed); a real `disabled` prop adds `data-disabled` and dims.
 //! Not interact `input("color-picker", "color")` as the only control.
 
-use crate::cronus_ui_kit::{esc, item, label_of};
+use crate::cronus_ui_kit::{attr, attr_nonempty, esc, flag, item, label_of};
 use crate::parser::ComponentNode;
 
 const DEFAULT_VALUE: &str = "oklch(0.62 0.21 256)";
@@ -78,7 +78,7 @@ fn safe_color(raw: &str) -> Option<&str> {
 }
 
 fn raw_value(comp: &ComponentNode) -> &str {
-    if let Some(v) = attr(comp, "value").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr_nonempty(comp, "value") {
         return v;
     }
     if let Some(v) = attr(comp, "defaultValue")
@@ -94,7 +94,7 @@ fn raw_value(comp: &ComponentNode) -> &str {
 }
 
 fn name_of(comp: &ComponentNode) -> String {
-    if let Some(v) = attr(comp, "aria-label").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr_nonempty(comp, "aria-label") {
         return esc(v);
     }
     let label = label_of(comp);
@@ -103,19 +103,6 @@ fn name_of(comp: &ComponentNode) -> String {
     } else {
         label
     }
-}
-
-fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
-    if let Some(v) = comp.props.get(name) {
-        return Some(v.as_str());
-    }
-    comp.items
-        .iter()
-        .find_map(|i| i.config.get(name).map(String::as_str))
-}
-
-fn flag(comp: &ComponentNode, name: &str) -> bool {
-    attr(comp, name).map(|s| s == "true").unwrap_or(false)
 }
 
 #[cfg(test)]

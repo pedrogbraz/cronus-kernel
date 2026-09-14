@@ -439,3 +439,33 @@ fn gate_detects_each_offense_kind() {
         );
     }
 }
+
+#[test]
+fn renderer_sources_do_not_redefine_kit_helpers() {
+    let mut failures = Vec::new();
+    let dir = std::fs::read_dir("src").expect("read src");
+    for entry in dir.flatten() {
+        let path = entry.path();
+        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if !name.starts_with("cronus_ui") || !name.ends_with(".rs") {
+            continue;
+        }
+        if name == "cronus_ui_kit.rs" || name == "cronus_ui_output_gate.rs" {
+            continue;
+        }
+        let src = std::fs::read_to_string(&path).expect("read renderer");
+        for (i, line) in src.lines().enumerate() {
+            let t = line.trim_start();
+            for needle in ["fn esc(", "fn attr(", "fn attr<", "fn flag("] {
+                if t.starts_with(needle) || t.contains(&format!(" {needle}")) {
+                    failures.push(format!("{name}:{}: {}", i + 1, line.trim()));
+                }
+            }
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "use crate::cronus_ui_kit::{{esc, attr, flag}} instead of local copies:\n{}",
+        failures.join("\n")
+    );
+}

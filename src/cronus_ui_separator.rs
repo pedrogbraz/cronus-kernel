@@ -1,6 +1,7 @@
 //! Dedicated Separator renderer. DOM matches React/Radix Root (`div`).
 //! Decorative by default (no role). Not the interact `<hr data-slot="separator">`.
 
+use crate::cronus_ui_kit::attr;
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -41,13 +42,7 @@ fn orientation_of(comp: &ComponentNode) -> &'static str {
 }
 
 fn decorative(comp: &ComponentNode) -> bool {
-    if let Some(v) = comp.props.get("decorative") {
-        return v != "false";
-    }
-    if let Some(v) = comp.items.iter().find_map(|i| i.config.get("decorative")) {
-        return v != "false";
-    }
-    true
+    attr(comp, "decorative").is_none_or(|v| v != "false")
 }
 
 #[cfg(test)]

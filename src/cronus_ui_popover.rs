@@ -7,7 +7,7 @@
 //! of the canvas; the kernel cannot open a top-layer popover without JS).
 //! Not interact `popover("popover")` SURF `<details>` overlay.
 
-use crate::cronus_ui_kit::{esc, label_of, texts, widget_id};
+use crate::cronus_ui_kit::{attr_nonempty, esc, label_of, texts, widget_id};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -28,11 +28,7 @@ pub fn render(comp: &ComponentNode) -> String {
 }
 
 fn aria_label_of(comp: &ComponentNode) -> Option<String> {
-    comp.props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
-        .filter(|v| !v.is_empty())
-        .map(|v| esc(v))
+    attr_nonempty(comp, "aria-label").map(|v| esc(v))
 }
 
 #[cfg(test)]

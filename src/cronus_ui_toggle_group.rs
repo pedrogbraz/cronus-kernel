@@ -10,7 +10,7 @@
 //! `pressed`/`on`, else the group `value` (props or trailing `value:` config), else first.
 //! Not interact `radios()` (`<input type="radio">` inside labels).
 
-use crate::cronus_ui_kit::esc;
+use crate::cronus_ui_kit::{attr, attr_nonempty, esc};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -26,11 +26,7 @@ pub fn render(comp: &ComponentNode) -> String {
         })
         .collect::<Vec<_>>()
         .join("");
-    let aria = comp
-        .props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
-        .filter(|s| !s.is_empty())
+    let aria = attr_nonempty(comp, "aria-label")
         .map(|a| format!(" aria-label=\"{}\"", esc(a)))
         .unwrap_or_default();
     format!("<div data-slot=\"toggle-group\" role=\"group\"{aria}>{buttons}</div>")
@@ -57,10 +53,7 @@ fn options(comp: &ComponentNode) -> Vec<(String, bool)> {
             });
         return vec![(label, true)];
     }
-    let group_value = comp
-        .props
-        .get("value")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("value")));
+    let group_value = attr(comp, "value");
     let on_idx = items
         .iter()
         .position(|i| is_true(i.config.get("pressed")) || is_true(i.config.get("on")))

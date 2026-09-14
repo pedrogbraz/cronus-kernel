@@ -12,16 +12,13 @@
 //! rows are non-interactive `role="option"` divs. Empty query → closed (React).
 //! Not interact `select("autocomplete")` (`<label><select data-slot="autocomplete-control">`).
 
-use crate::cronus_ui_kit::{choice_texts, esc, item};
+use crate::cronus_ui_kit::{attr_nonempty, choice_texts, esc, flag, item};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     let placeholder = placeholder_of(comp);
     let options = options_of(comp, &placeholder);
-    let value = attr(comp, "value")
-        .filter(|s| !s.is_empty())
-        .map(esc)
-        .unwrap_or_default();
+    let value = attr_nonempty(comp, "value").map(esc).unwrap_or_default();
     let disabled = flag(comp, "disabled");
     let aria = aria_label_of(comp);
     let needle = value.to_lowercase();
@@ -94,7 +91,7 @@ fn options_of(comp: &ComponentNode, placeholder: &str) -> Vec<String> {
 }
 
 fn placeholder_of(comp: &ComponentNode) -> String {
-    if let Some(v) = attr(comp, "placeholder").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr_nonempty(comp, "placeholder") {
         return esc(v);
     }
     if let Some(t) = item(comp, "placeholder").filter(|s| !s.is_empty()) {
@@ -109,23 +106,10 @@ fn placeholder_of(comp: &ComponentNode) -> String {
 }
 
 fn aria_label_of(comp: &ComponentNode) -> String {
-    if let Some(v) = attr(comp, "aria-label").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr_nonempty(comp, "aria-label") {
         return esc(v);
     }
     String::new()
-}
-
-fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
-    if let Some(v) = comp.props.get(name) {
-        return Some(v.as_str());
-    }
-    comp.items
-        .iter()
-        .find_map(|i| i.config.get(name).map(String::as_str))
-}
-
-fn flag(comp: &ComponentNode, name: &str) -> bool {
-    attr(comp, name).map(|s| s == "true").unwrap_or(false)
 }
 
 #[cfg(test)]

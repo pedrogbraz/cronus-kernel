@@ -3,6 +3,7 @@
 //! Optional extra text as `data-slot="empty-description"`.
 //! Not interact `alert("empty")` (SURF box with raw divs, no empty-title).
 
+use crate::cronus_ui_kit::esc;
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -55,13 +56,6 @@ fn item<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
         .iter()
         .find(|i| i.item_type == kind)
         .map(|i| i.text.as_str())
-}
-
-fn esc(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
 }
 
 #[cfg(test)]

@@ -5,7 +5,7 @@
 //! `aria-label` fallback) and is never rendered as a term. Not interact styled
 //! `<dl>` rows without term/details slots, not catalog `display()` `<section>`.
 
-use crate::cronus_ui_kit::esc;
+use crate::cronus_ui_kit::{attr_nonempty, esc};
 use crate::parser::ComponentNode;
 
 /// Item kinds that name the widget rather than carry list content.
@@ -28,11 +28,7 @@ pub fn render(comp: &ComponentNode) -> String {
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<&str> {
-    comp.props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
-        .map(String::as_str)
-        .filter(|v| !v.is_empty())
+    attr_nonempty(comp, "aria-label")
 }
 
 fn content(comp: &ComponentNode) -> Vec<String> {

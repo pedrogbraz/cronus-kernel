@@ -10,7 +10,7 @@
 //! as in React). Month comes from `defaultMonth` / `value` (`YYYY-MM[-DD]`) or a
 //! `Month YYYY` label. Not interact `calendar()` SURF grid / date input.
 
-use crate::cronus_ui_kit::{item, label_of};
+use crate::cronus_ui_kit::{attr, item, label_of};
 use crate::parser::ComponentNode;
 
 const MONTHS: [&str; 12] = [
@@ -124,16 +124,7 @@ fn ordinal(day: u32) -> &'static str {
 /// render stays deterministic).
 fn month_of(comp: &ComponentNode) -> (i32, u32, Option<u32>) {
     for key in ["defaultMonth", "value"] {
-        let raw = comp
-            .props
-            .get(key)
-            .map(String::as_str)
-            .or_else(|| {
-                comp.items
-                    .iter()
-                    .find_map(|i| i.config.get(key).map(String::as_str))
-            })
-            .or_else(|| item(comp, key));
+        let raw = attr(comp, key).or_else(|| item(comp, key));
         if let Some((y, m, d)) = raw.and_then(parse_iso) {
             let selected = if key == "value" { d } else { None };
             return (y, m, selected);

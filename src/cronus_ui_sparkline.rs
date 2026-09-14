@@ -3,7 +3,7 @@
 //! Optional `<path data-slot="sparkline-area">`. Not the catalog `chart()` stub
 //! (`<figure data-slot="sparkline"><figcaption>`).
 
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{esc, flag_any, label_of};
 use crate::parser::ComponentNode;
 
 const WIDTH: f64 = 96.0;
@@ -15,7 +15,7 @@ const TONES: &[&str] = &["primary", "success", "warning", "error", "info", "fg"]
 pub fn render(comp: &ComponentNode) -> String {
     let points = series_of(comp);
     let tone = tone_of(comp);
-    let area = flag(comp, "area") || style_has(comp, "area");
+    let area = flag_any(comp, "area") || style_has(comp, "area");
     let bar = type_is_bar(comp);
     let label = aria_label_of(comp, points.len());
     let attrs = format!(
@@ -252,15 +252,6 @@ fn style_has(comp: &ComponentNode, needle: &str) -> bool {
         .unwrap_or("")
         .split('+')
         .any(|part| part.trim() == needle)
-}
-
-fn flag(comp: &ComponentNode, name: &str) -> bool {
-    if comp.props.get(name).map(|s| s == "true").unwrap_or(false) {
-        return true;
-    }
-    comp.items
-        .iter()
-        .any(|i| i.config.get(name).map(|s| s == "true").unwrap_or(false))
 }
 
 fn min_of(points: &[f64]) -> f64 {

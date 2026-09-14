@@ -5,12 +5,13 @@
 //! no dismiss button (the audit fixture renders `dismissible={false}`).
 //! Not the interact `alert("banner")` SURF box.
 
+use crate::cronus_ui_kit::{attr_nonempty, esc};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
     let aria = aria_label(comp).unwrap_or("Announcement");
     let (title, mut descs) = title_and_descriptions(comp);
-    if let Some(d) = attr(comp, "description") {
+    if let Some(d) = attr_nonempty(comp, "description") {
         descs.insert(0, esc(d));
     }
     let mut content = format!("<span data-slot=\"banner-title\">{title}</span>");
@@ -26,25 +27,12 @@ pub fn render(comp: &ComponentNode) -> String {
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<&str> {
-    attr(comp, "aria-label").or_else(|| {
+    attr_nonempty(comp, "aria-label").or_else(|| {
         comp.props
             .get("label")
             .map(String::as_str)
             .filter(|s| !s.is_empty())
     })
-}
-
-/// Prop or item attribute (`key:"value"` lines attach to the preceding item).
-fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
-    comp.props
-        .get(key)
-        .map(String::as_str)
-        .or_else(|| {
-            comp.items
-                .iter()
-                .find_map(|i| i.config.get(key).map(String::as_str))
-        })
-        .filter(|s| !s.is_empty())
 }
 
 fn title_and_descriptions(comp: &ComponentNode) -> (String, Vec<String>) {
@@ -68,13 +56,6 @@ fn extra_descs(comp: &ComponentNode, skip: usize) -> Vec<String> {
         .filter(|(i, item)| *i != skip && !item.text.is_empty())
         .map(|(_, item)| esc(&item.text))
         .collect()
-}
-
-fn esc(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
 }
 
 #[cfg(test)]

@@ -2,7 +2,7 @@
 //! `<div data-slot="input-group"><div data-slot="input-group-addon" data-align="start">…</div><input data-slot="input" />`.
 //! Not interact `input("input-group")` (`<label data-slot="input-group"><input data-slot="input-group-control">`).
 
-use crate::cronus_ui_kit::{esc, item};
+use crate::cronus_ui_kit::{attr_nonempty, esc, item};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -24,12 +24,7 @@ pub fn render(comp: &ComponentNode) -> String {
 }
 
 fn aria_label_of(comp: &ComponentNode) -> Option<String> {
-    comp.props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
-        .map(String::as_str)
-        .filter(|s| !s.is_empty())
-        .map(esc)
+    attr_nonempty(comp, "aria-label").map(esc)
 }
 
 fn placeholder_of(comp: &ComponentNode) -> String {

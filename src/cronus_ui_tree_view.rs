@@ -15,7 +15,7 @@
 //! `aria-selected="true"`). Not interact `tree()` (`<ul style=SURF>`) or catalog
 //! `display()` SURF `<section>`.
 
-use crate::cronus_ui_kit::esc;
+use crate::cronus_ui_kit::{attr_nonempty, esc};
 use crate::parser::ComponentNode;
 
 const NAME_KINDS: &[&str] = &["label", "title"];
@@ -45,11 +45,7 @@ fn leaf(label: &str, level: u8) -> String {
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<&str> {
-    comp.props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
-        .map(String::as_str)
-        .filter(|v| !v.is_empty())
+    attr_nonempty(comp, "aria-label")
 }
 
 fn content(comp: &ComponentNode) -> Vec<String> {

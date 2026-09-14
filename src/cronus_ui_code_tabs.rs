@@ -18,7 +18,7 @@
 //! emitted (no way to reveal them). The sliding underline is positioned with CSS
 //! anchor positioning instead of JS-measured offsets.
 
-use crate::cronus_ui_kit::{esc, item};
+use crate::cronus_ui_kit::{attr_nonempty, esc, item};
 use crate::parser::ComponentNode;
 
 const NAME_KINDS: &[&str] = &["label", "title", "code"];
@@ -73,11 +73,7 @@ pub fn render(comp: &ComponentNode) -> String {
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<&str> {
-    comp.props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
-        .map(String::as_str)
-        .filter(|v| !v.is_empty())
+    attr_nonempty(comp, "aria-label")
 }
 
 fn tabs(comp: &ComponentNode) -> Vec<Tab> {

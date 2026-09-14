@@ -1,6 +1,7 @@
 //! Dedicated Label renderer. DOM matches React: `<label data-slot="label">`.
 //! Not `pill("label")` → `<span data-slot="label" style=…>`.
 
+use crate::cronus_ui_kit::{attr, esc};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -17,11 +18,7 @@ fn html_for(comp: &ComponentNode) -> Option<&str> {
         .get("for")
         .or_else(|| comp.props.get("htmlFor"))
         .map(String::as_str)
-        .or_else(|| {
-            comp.items
-                .iter()
-                .find_map(|i| i.config.get("for").map(String::as_str))
-        })
+        .or_else(|| attr(comp, "for"))
 }
 
 fn label_of(comp: &ComponentNode) -> &str {
@@ -40,13 +37,6 @@ fn item<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
         .iter()
         .find(|i| i.item_type == kind)
         .map(|i| i.text.as_str())
-}
-
-fn esc(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
 }
 
 #[cfg(test)]

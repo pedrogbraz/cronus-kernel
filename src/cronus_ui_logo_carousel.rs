@@ -5,7 +5,7 @@
 //! CSS in COMPONENT_CHROME. Not interact flex-overflow
 //! `<div data-slot="logo-carousel" style=...>` without items.
 
-use crate::cronus_ui_kit::{esc, item, label_of};
+use crate::cronus_ui_kit::{attr, esc, item, label_of};
 use crate::parser::ComponentNode;
 
 /// Logos come from `text` / `item` lines. The `label` names the list
@@ -66,11 +66,7 @@ pub fn render(comp: &ComponentNode) -> String {
         .join("");
     // `aria-label:` after an item line lands in that item's config (the
     // tokenizer has no newlines), so look there as well as in props.
-    let aria = match comp
-        .props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
-        .map(String::as_str)
+    let aria = match attr(comp, "aria-label")
         .or_else(|| item(comp, "label"))
         .filter(|t| !t.is_empty())
     {

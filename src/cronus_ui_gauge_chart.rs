@@ -7,8 +7,8 @@
 //! `value` / `max` come from props or item config (`value:72` after the
 //! label line), else the first numeric item, else 72.
 
-use crate::cronus_ui_chart::{container, num, prop, rounded_sector_path, POLAR_CX, POLAR_CY};
-use crate::cronus_ui_kit::{label_of, numeric_items};
+use crate::cronus_ui_chart::{container, num, rounded_sector_path, POLAR_CX, POLAR_CY};
+use crate::cronus_ui_kit::{attr, label_of, numeric_items};
 use crate::parser::ComponentNode;
 
 pub const GAUGE_INNER: f64 = 83.0;
@@ -19,11 +19,11 @@ pub const GAUGE_END: f64 = -30.0;
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = label_of(comp);
-    let max = prop(comp, "max")
+    let max = attr(comp, "max")
         .and_then(|v| v.trim().parse::<f64>().ok())
         .filter(|m| m.is_finite() && *m > 0.0)
         .unwrap_or(100.0);
-    let value = prop(comp, "value")
+    let value = attr(comp, "value")
         .and_then(|v| v.trim().parse::<f64>().ok())
         .or_else(|| numeric_items(comp).first().copied())
         .unwrap_or(72.0);

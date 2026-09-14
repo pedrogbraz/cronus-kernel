@@ -7,7 +7,7 @@
 //! never shown unless `withLabel` is set (same as React, which ignores it).
 //! Not interact `pill("status-dot")` (BASE/SURF padding pill span).
 
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, esc, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -19,7 +19,7 @@ pub fn render(comp: &ComponentNode) -> String {
             label_of(comp)
         )
     } else {
-        let name = attr(comp, "label")
+        let name = attr_nonempty(comp, "label")
             .map(esc)
             .unwrap_or_else(|| default_label(status).to_string());
         format!("<span data-slot=\"status-dot-sr-label\">{name}</span>")
@@ -29,23 +29,9 @@ pub fn render(comp: &ComponentNode) -> String {
     )
 }
 
-/// Attribute from props or any item's config (the tokenizer attaches
-/// `key:value` lines to the preceding item).
-fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
-    comp.props
-        .get(key)
-        .map(String::as_str)
-        .or_else(|| {
-            comp.items
-                .iter()
-                .find_map(|i| i.config.get(key).map(String::as_str))
-        })
-        .filter(|s| !s.is_empty())
-}
-
 fn with_label(comp: &ComponentNode) -> bool {
     matches!(
-        attr(comp, "withLabel").or_else(|| attr(comp, "with-label")),
+        attr_nonempty(comp, "withLabel").or_else(|| attr_nonempty(comp, "with-label")),
         Some("true")
     )
 }
@@ -65,7 +51,7 @@ fn default_label(status: &str) -> &'static str {
 }
 
 fn status_of(comp: &ComponentNode) -> &'static str {
-    if let Some(v) = attr(comp, "status") {
+    if let Some(v) = attr_nonempty(comp, "status") {
         if let Some(named) = named_status(v) {
             return named;
         }

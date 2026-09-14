@@ -8,7 +8,7 @@
 //! not dimmed because React does not dim it at idle. The label is the handle's
 //! accessible name, never a layer text. Not the catalog `fx()` SURF title box.
 
-use crate::cronus_ui_kit::{esc, item, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, esc, item, label_of};
 use crate::parser::ComponentNode;
 
 const CHEVRONS_SVG: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m9 7-5 5 5 5\"></path><path d=\"m15 7 5 5-5 5\"></path></svg>";
@@ -46,11 +46,7 @@ fn side(comp: &ComponentNode, kind: &str, fallback: Option<&String>, default: &s
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<String> {
-    comp.props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
-        .filter(|s| !s.is_empty())
-        .map(|s| esc(s))
+    attr_nonempty(comp, "aria-label").map(|s| esc(s))
 }
 
 #[cfg(test)]

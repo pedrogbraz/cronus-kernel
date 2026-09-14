@@ -3,7 +3,7 @@
 //! native `popover` sibling (`time-picker-content`), hidden until opened by
 //! `popovertarget` — no JS. Not interact `input("time-picker", "time")`.
 
-use crate::cronus_ui_kit::{esc, item, label_of};
+use crate::cronus_ui_kit::{attr, attr_nonempty, esc, flag, item, label_of};
 use crate::parser::ComponentNode;
 
 const ICON: &str = concat!(
@@ -27,7 +27,7 @@ pub fn render(comp: &ComponentNode) -> String {
     if flag(comp, "disabled") {
         btn.push_str(" disabled");
     }
-    if let Some(aria) = attr(comp, "aria-label").filter(|s| !s.is_empty()) {
+    if let Some(aria) = attr_nonempty(comp, "aria-label") {
         let shown = if time.is_some() {
             format!("{}: {label}", esc(aria))
         } else {
@@ -35,8 +35,7 @@ pub fn render(comp: &ComponentNode) -> String {
         };
         btn.push_str(&format!(" aria-label=\"{shown}\""));
     }
-    let content_label = attr(comp, "aria-label")
-        .filter(|s| !s.is_empty())
+    let content_label = attr_nonempty(comp, "aria-label")
         .map(esc)
         .unwrap_or_else(|| "Choose a time".into());
     let columns = columns_html(time, hour_cycle, show_seconds);
@@ -54,7 +53,7 @@ fn trigger_label(
     if let Some(t) = time {
         return format_time(t, hour_cycle, show_seconds);
     }
-    if let Some(v) = attr(comp, "placeholder").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr_nonempty(comp, "placeholder") {
         return esc(v);
     }
     let label = label_of(comp);
@@ -214,19 +213,6 @@ fn period_column(selected: Option<&str>) -> String {
     format!(
         "<div data-slot=\"time-picker-column\" role=\"listbox\" aria-label=\"AM or PM\"><span>AM/PM</span>{opts}</div>"
     )
-}
-
-fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
-    if let Some(v) = comp.props.get(name) {
-        return Some(v.as_str());
-    }
-    comp.items
-        .iter()
-        .find_map(|i| i.config.get(name).map(String::as_str))
-}
-
-fn flag(comp: &ComponentNode, name: &str) -> bool {
-    attr(comp, name).map(|s| s == "true").unwrap_or(false)
 }
 
 #[cfg(test)]

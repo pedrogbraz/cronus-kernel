@@ -9,7 +9,7 @@
 //! No cmdk search row: filtering needs JS, so it is not emitted (no dead input).
 //! Not interact `select("multi-select")` native `<select multiple>`.
 
-use crate::cronus_ui_kit::{choice_texts, esc, item, texts};
+use crate::cronus_ui_kit::{attr_nonempty, choice_texts, esc, flag, item, texts};
 use crate::parser::ComponentNode;
 
 const CHEVRON: &str = concat!(
@@ -60,7 +60,7 @@ pub fn render(comp: &ComponentNode) -> String {
         trigger_attrs.push_str(" tabindex=\"0\"");
     }
     trigger_attrs.push_str(" aria-expanded=\"true\" aria-haspopup=\"listbox\"");
-    if let Some(label) = attr(comp, "aria-label").filter(|s| !s.is_empty()) {
+    if let Some(label) = attr_nonempty(comp, "aria-label") {
         trigger_attrs.push_str(&format!(" aria-label=\"{}\"", esc(label)));
     }
     if flag(comp, "invalid") {
@@ -89,7 +89,7 @@ fn extra_texts(comp: &ComponentNode) -> Vec<String> {
 }
 
 fn placeholder_of(comp: &ComponentNode) -> String {
-    if let Some(v) = attr(comp, "placeholder").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr_nonempty(comp, "placeholder") {
         return esc(v);
     }
     if let Some(t) = item(comp, "placeholder").filter(|s| !s.is_empty()) {
@@ -105,7 +105,7 @@ fn placeholder_of(comp: &ComponentNode) -> String {
 
 fn selected_of(comp: &ComponentNode, options: &[String]) -> Vec<String> {
     let mut out = Vec::new();
-    if let Some(v) = attr(comp, "value").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr_nonempty(comp, "value") {
         for part in v.split(',') {
             let e = esc(part.trim());
             if !e.is_empty() && options.iter().any(|o| o == &e) && !out.contains(&e) {
@@ -128,19 +128,6 @@ fn selected_of(comp: &ComponentNode, options: &[String]) -> Vec<String> {
         }
     }
     out
-}
-
-fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
-    if let Some(v) = comp.props.get(name) {
-        return Some(v.as_str());
-    }
-    comp.items
-        .iter()
-        .find_map(|i| i.config.get(name).map(String::as_str))
-}
-
-fn flag(comp: &ComponentNode, name: &str) -> bool {
-    attr(comp, name).map(|s| s == "true").unwrap_or(false)
 }
 
 fn is_true(raw: Option<&String>) -> bool {

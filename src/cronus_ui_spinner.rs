@@ -1,33 +1,19 @@
 //! Dedicated Spinner renderer. DOM matches React: SVG with `data-slot="spinner"`.
 //! Not the interact `<div data-slot="spinner" … border-top-color>`.
 
+use crate::cronus_ui_kit::{attr_nonempty, esc};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
     let aria = aria_label(comp).unwrap_or("Loading");
     format!(
         "<svg data-slot=\"spinner\" role=\"status\" aria-label=\"{}\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-width=\"3\" opacity=\"0.25\"></circle><path d=\"M12 2a10 10 0 0 1 10 10\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" opacity=\"0.9\"></path></svg>",
-        esc_attr(aria)
+        esc(aria)
     )
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<&str> {
-    comp.props
-        .get("aria-label")
-        .map(String::as_str)
-        .or_else(|| {
-            comp.items
-                .iter()
-                .find_map(|i| i.config.get("aria-label").map(String::as_str))
-        })
-        .filter(|s| !s.is_empty())
-}
-
-fn esc_attr(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
+    attr_nonempty(comp, "aria-label")
 }
 
 #[cfg(test)]

@@ -2,11 +2,12 @@
 //! `<button type="button" data-slot="switch" role="switch" aria-checked data-state>`.
 //! Not the interact `<label data-slot="switch"><input type="checkbox" role="switch" data-slot="switch-control">`.
 
+use crate::cronus_ui_kit::{attr, esc, flag_any};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
-    let checked = flag(comp, "checked");
-    let disabled = flag(comp, "disabled");
+    let checked = flag_any(comp, "checked");
+    let disabled = flag_any(comp, "disabled");
     let state = if checked { "checked" } else { "unchecked" };
     let aria_checked = if checked { "true" } else { "false" };
     let mut attrs = format!(
@@ -16,34 +17,18 @@ pub fn render(comp: &ComponentNode) -> String {
         attrs.push_str(" disabled");
     }
     if let Some(label) = aria_label(comp) {
-        attrs.push_str(&format!(" aria-label=\"{}\"", esc_attr(label)));
+        attrs.push_str(&format!(" aria-label=\"{}\"", esc(label)));
     }
     // Radix Thumb carries no data-slot; React renders no label text.
     format!("<button {attrs}><span data-state=\"{state}\"></span></button>")
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<&str> {
-    comp.props
-        .get("aria-label")
-        .map(String::as_str)
-        .or_else(|| {
-            comp.items
-                .iter()
-                .find_map(|i| i.config.get("aria-label").map(String::as_str))
-        })
+    attr(comp, "aria-label")
         .or_else(|| item(comp, "label"))
         .or_else(|| item(comp, "title"))
         .or_else(|| item(comp, "text"))
         .filter(|s| !s.is_empty())
-}
-
-fn flag(comp: &ComponentNode, name: &str) -> bool {
-    if comp.props.get(name).map(|s| s == "true").unwrap_or(false) {
-        return true;
-    }
-    comp.items
-        .iter()
-        .any(|i| i.config.get(name).map(|s| s == "true").unwrap_or(false))
 }
 
 fn item<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
@@ -51,13 +36,6 @@ fn item<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
         .iter()
         .find(|i| i.item_type == kind)
         .map(|i| i.text.as_str())
-}
-
-fn esc_attr(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
 }
 
 #[cfg(test)]

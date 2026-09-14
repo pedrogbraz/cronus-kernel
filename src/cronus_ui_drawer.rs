@@ -9,7 +9,7 @@
 //! Description comes from `description:"…"` (props or item config), else extra `text`.
 //! Not interact `dialog("drawer")` native `<dialog>` + `showModal()` + SURF.
 
-use crate::cronus_ui_kit::{esc, item, label_of, widget_id};
+use crate::cronus_ui_kit::{attr, esc, item, label_of, widget_id};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -31,15 +31,6 @@ pub fn render(comp: &ComponentNode) -> String {
     format!(
         "<div data-slot=\"drawer-overlay\" aria-hidden=\"true\"></div><div role=\"dialog\" aria-labelledby=\"{title_id}\"{described_by} data-slot=\"drawer-content\"><div aria-hidden=\"true\"></div><div data-slot=\"drawer-header\"><h2 id=\"{title_id}\" data-slot=\"drawer-title\">{title}</h2>{desc_html}</div></div>"
     )
-}
-
-fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
-    if let Some(v) = comp.props.get(name) {
-        return Some(v.as_str());
-    }
-    comp.items
-        .iter()
-        .find_map(|i| i.config.get(name).map(String::as_str))
 }
 
 fn description(comp: &ComponentNode, title: &str) -> String {

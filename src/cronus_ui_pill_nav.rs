@@ -8,7 +8,7 @@
 //! JS, so (wave 1t rule) such items are native `disabled` buttons, not visually dimmed.
 //! Not interact `nav("pill-nav")` (generic SURF `<nav>` without pill-nav-item).
 
-use crate::cronus_ui_kit::{esc, label_of, safe_url};
+use crate::cronus_ui_kit::{attr_nonempty, esc, label_of, safe_url};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -71,11 +71,7 @@ fn entry_of(i: &ComponentItemNode) -> (String, Option<String>) {
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<String> {
-    comp.props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
-        .filter(|s| !s.is_empty())
-        .map(|s| esc(s))
+    attr_nonempty(comp, "aria-label").map(|s| esc(s))
 }
 
 #[cfg(test)]

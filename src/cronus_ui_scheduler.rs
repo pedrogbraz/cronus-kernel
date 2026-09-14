@@ -16,7 +16,7 @@
 //! the event chips are `disabled` buttons (month navigation and
 //! `onEventClick` need a runtime). Not interact `calendar("scheduler")`.
 
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, esc, label_of};
 use crate::parser::ComponentNode;
 
 const NAME_KINDS: &[&str] = &["label", "title"];
@@ -55,7 +55,7 @@ pub fn render(comp: &ComponentNode) -> String {
     let (year, month) = visible_month(comp);
     let title = format!("{} {year}", MONTHS[(month - 1) as usize]);
     let events = events(comp, year, month);
-    let today = config(comp, "today").and_then(|v| parse_ymd(&v));
+    let today = attr_nonempty(comp, "today").and_then(parse_ymd);
 
     let heads = WEEKDAYS
         .iter()
@@ -120,16 +120,8 @@ fn cell(day: i64, year: i64, month: u32, today: Option<i64>, events: &[(i64, Str
     format!("<td aria-label=\"{label}\"{outside}{current}><span>{d}</span><span>{chips}{more}</span></td>")
 }
 
-fn config(comp: &ComponentNode, key: &str) -> Option<String> {
-    comp.props
-        .get(key)
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get(key)))
-        .filter(|v| !v.is_empty())
-        .cloned()
-}
-
 fn visible_month(comp: &ComponentNode) -> (i64, u32) {
-    if let Some((y, m)) = config(comp, "month").and_then(|v| parse_ym(&v)) {
+    if let Some((y, m)) = attr_nonempty(comp, "month").and_then(parse_ym) {
         return (y, m);
     }
     let title = comp

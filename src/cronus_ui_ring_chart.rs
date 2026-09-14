@@ -6,10 +6,10 @@
 //! Slices are the `text` lines; values cycle 4, 8, 6, 10, 7.
 
 use crate::cronus_ui_chart::{
-    categories_or, compact_number, container, prop, sector_path, values_for, DEMO_VALUES, POLAR_CX,
+    categories_or, compact_number, container, sector_path, values_for, DEMO_VALUES, POLAR_CX,
     POLAR_CY,
 };
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{attr, esc, label_of};
 use crate::parser::ComponentNode;
 
 pub const RING_INNER: f64 = 64.0;
@@ -40,7 +40,7 @@ pub fn render(comp: &ComponentNode) -> String {
         ));
         prev_end = Some(end);
     }
-    let center = esc(prop(comp, "centerLabel").unwrap_or("Total"));
+    let center = esc(attr(comp, "centerLabel").unwrap_or("Total"));
     body.push_str(&format!(
         "<text x=\"216\" y=\"128\" text-anchor=\"middle\" dominant-baseline=\"middle\"><tspan x=\"216\" y=\"128\">{}</tspan><tspan x=\"216\" y=\"148\">{center}</tspan></text>",
         compact_number(sum)

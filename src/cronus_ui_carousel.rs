@@ -9,7 +9,7 @@
 //! a single slide) and only those dim. Not catalog `display()` SURF, not
 //! interact flex-overflow slides without `carousel-item`.
 
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, esc, label_of};
 use crate::parser::ComponentNode;
 
 const CHEVRON_LEFT: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m15 18-6-6 6-6\"></path></svg>";
@@ -25,7 +25,7 @@ pub fn render(comp: &ComponentNode) -> String {
     if slides.is_empty() {
         slides.push(label_of(comp));
     }
-    let aria = attr(comp, "aria-label")
+    let aria = attr_nonempty(comp, "aria-label")
         .map(esc)
         .unwrap_or_else(|| label_of(comp));
     let next_idle = if slides.len() <= 1 {
@@ -44,18 +44,6 @@ pub fn render(comp: &ComponentNode) -> String {
     format!(
         "<div data-slot=\"carousel\" role=\"region\" aria-roledescription=\"carousel\" aria-label=\"{aria}\"><div data-slot=\"carousel-content\" tabindex=\"0\">{items}</div><div><button type=\"button\" data-slot=\"carousel-previous\" data-variant=\"outline\" aria-label=\"Previous slide\" data-disabled=\"\" disabled>{CHEVRON_LEFT}</button><button type=\"button\" data-slot=\"carousel-next\" data-variant=\"outline\" aria-label=\"Next slide\"{next_idle} disabled>{CHEVRON_RIGHT}</button></div></div>"
     )
-}
-
-fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
-    comp.props
-        .get(key)
-        .map(String::as_str)
-        .or_else(|| {
-            comp.items
-                .iter()
-                .find_map(|i| i.config.get(key).map(String::as_str))
-        })
-        .filter(|s| !s.is_empty())
 }
 
 #[cfg(test)]

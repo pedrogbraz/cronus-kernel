@@ -9,6 +9,7 @@
 //! 0..100, COMPONENT_CHROME maps each `[data-value="N"]` to
 //! `--cui-progress-value: N`, and the indicator's transform reads that property.
 
+use crate::cronus_ui_kit::attr_nonempty;
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -34,15 +35,7 @@ fn step_of(pct: f64) -> i64 {
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<&str> {
-    comp.props
-        .get("aria-label")
-        .map(String::as_str)
-        .or_else(|| {
-            comp.items
-                .iter()
-                .find_map(|i| i.config.get("aria-label").map(String::as_str))
-        })
-        .filter(|s| !s.is_empty())
+    attr_nonempty(comp, "aria-label")
 }
 
 fn value_of(comp: &ComponentNode) -> f64 {

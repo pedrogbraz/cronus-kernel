@@ -9,7 +9,7 @@
 //! chrome makes it an absolute 100%×100% block, so its box is the same.
 //! Not interact `signature()` (SURF box + canvas without the canvas slot).
 
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, esc, label_of};
 use crate::parser::ComponentNode;
 
 /// React SignaturePad's built-in caption (not a prop).
@@ -35,11 +35,7 @@ fn button(aria: &str, svg: &str) -> String {
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<String> {
-    comp.props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
-        .filter(|s| !s.is_empty())
-        .map(|s| esc(s))
+    attr_nonempty(comp, "aria-label").map(|s| esc(s))
 }
 
 #[cfg(test)]

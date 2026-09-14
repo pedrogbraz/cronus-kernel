@@ -8,7 +8,7 @@
 //! idle look; only Undo/Redo carry `data-disabled` and dim, as they do in React.
 //! The textbox is `aria-readonly`. Not interact `textarea("rich-text-editor")`.
 
-use crate::cronus_ui_kit::{esc, label_of, widget_id};
+use crate::cronus_ui_kit::{attr_nonempty, esc, label_of, widget_id};
 use crate::parser::ComponentNode;
 
 const SVG_OPEN: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">";
@@ -41,7 +41,7 @@ pub fn render(comp: &ComponentNode) -> String {
         .find(|i| i.item_type == "text" && !i.text.is_empty())
         .map(|i| esc(&i.text))
         .unwrap_or_else(|| label_of(comp));
-    let aria = attr(comp, "aria-label")
+    let aria = attr_nonempty(comp, "aria-label")
         .map(esc)
         .unwrap_or_else(|| placeholder.clone());
     let id = widget_id(comp, "content");
@@ -60,18 +60,6 @@ pub fn render(comp: &ComponentNode) -> String {
     format!(
         "<div data-slot=\"rich-text-editor\"><div data-slot=\"rich-text-editor-toolbar\" role=\"toolbar\" aria-label=\"Text formatting\" aria-controls=\"{id}\">{tools}</div><div data-slot=\"rich-text-editor-content-wrapper\"><p aria-hidden=\"true\" data-slot=\"rich-text-editor-placeholder\">{placeholder}</p><div><div role=\"textbox\" id=\"{id}\" aria-multiline=\"true\" aria-readonly=\"true\" aria-label=\"{aria}\"><p><br></p></div></div></div></div>"
     )
-}
-
-fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
-    comp.props
-        .get(key)
-        .map(String::as_str)
-        .or_else(|| {
-            comp.items
-                .iter()
-                .find_map(|i| i.config.get(key).map(String::as_str))
-        })
-        .filter(|s| !s.is_empty())
 }
 
 #[cfg(test)]

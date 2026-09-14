@@ -18,7 +18,7 @@
 //! buttons at `opacity: 0` (React reveals them only on row hover/focus).
 //! Not interact `codey()` (`<pre style=SURF>`) or catalog `display()` SURF.
 
-use crate::cronus_ui_kit::esc;
+use crate::cronus_ui_kit::{attr_nonempty, esc};
 use crate::parser::ComponentNode;
 
 const NAME_KINDS: &[&str] = &["label", "title"];
@@ -71,11 +71,7 @@ fn copy_button(label: &str) -> String {
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<&str> {
-    comp.props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
-        .map(String::as_str)
-        .filter(|v| !v.is_empty())
+    attr_nonempty(comp, "aria-label")
 }
 
 fn entries(comp: &ComponentNode) -> Vec<(String, String)> {

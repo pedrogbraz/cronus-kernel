@@ -7,7 +7,7 @@
 //! JS and is not emitted. `label` names the input (aria-label), never the copy.
 //! Not interact `input("file-dropzone")` (`data-slot="file-dropzone-control"` + CTRL styles).
 
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{attr, attr_nonempty, esc, flag, label_of};
 use crate::parser::ComponentNode;
 
 /// lucide `cloud-upload` (React `<UploadCloud />`).
@@ -18,12 +18,10 @@ pub fn render(comp: &ComponentNode) -> String {
         Some(v) => esc(v),
         None => label_of(comp),
     };
-    let drop = attr(comp, "drop")
-        .filter(|s| !s.is_empty())
+    let drop = attr_nonempty(comp, "drop")
         .map(esc)
         .unwrap_or_else(|| "Drag &amp; drop or".into());
-    let browse = attr(comp, "browse")
-        .filter(|s| !s.is_empty())
+    let browse = attr_nonempty(comp, "browse")
         .map(esc)
         .unwrap_or_else(|| "browse".into());
     let mut input = String::from("<input type=\"file\"");
@@ -50,20 +48,7 @@ pub fn render(comp: &ComponentNode) -> String {
 }
 
 fn aria_label_of(comp: &ComponentNode) -> Option<&str> {
-    attr(comp, "aria-label").filter(|s| !s.is_empty())
-}
-
-fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
-    if let Some(v) = comp.props.get(name) {
-        return Some(v.as_str());
-    }
-    comp.items
-        .iter()
-        .find_map(|i| i.config.get(name).map(String::as_str))
-}
-
-fn flag(comp: &ComponentNode, name: &str) -> bool {
-    attr(comp, name).map(|s| s == "true").unwrap_or(false)
+    attr_nonempty(comp, "aria-label")
 }
 
 #[cfg(test)]

@@ -5,7 +5,7 @@
 //! Options are `item`/`text` lines; the `label` names the group.
 //! Not interact `radios()` (`<input type="radio">` + `<label>`).
 
-use crate::cronus_ui_kit::esc;
+use crate::cronus_ui_kit::{attr, attr_nonempty, esc};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 const THUMB: &str = "<div data-slot=\"segmented-control-thumb\" aria-hidden=\"true\"></div>";
@@ -26,7 +26,7 @@ pub fn render(comp: &ComponentNode) -> String {
         })
         .collect::<Vec<_>>()
         .join("");
-    let aria = match attr(comp, "aria-label").filter(|s| !s.is_empty()) {
+    let aria = match attr_nonempty(comp, "aria-label") {
         Some(v) => format!(" aria-label=\"{}\"", esc(v)),
         None => String::new(),
     };
@@ -82,17 +82,6 @@ fn selected_idx(comp: &ComponentNode, items: &[&ComponentItemNode]) -> usize {
                 || is_true(i.config.get("checked"))
         })
         .unwrap_or(0)
-}
-
-/// Props first; `key:value` after an item line lands in that item's config
-/// (the tokenizer has no newlines).
-fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
-    if let Some(v) = comp.props.get(name) {
-        return Some(v.as_str());
-    }
-    comp.items
-        .iter()
-        .find_map(|i| i.config.get(name).map(String::as_str))
 }
 
 fn is_true(raw: Option<&String>) -> bool {

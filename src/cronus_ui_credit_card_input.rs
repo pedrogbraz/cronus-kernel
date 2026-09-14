@@ -6,7 +6,7 @@
 //! hidden). Brand detection is static from the initial number (React IIN table).
 //! Not interact `input("credit-card-input", "text")` (`<label>` + `*-control` + CTRL).
 
-use crate::cronus_ui_kit::{esc, item, label_of};
+use crate::cronus_ui_kit::{attr, attr_nonempty, esc, flag, item, label_of};
 use crate::parser::ComponentNode;
 
 struct Brand {
@@ -152,10 +152,10 @@ fn brand_of(d: &str) -> Brand {
 }
 
 fn group_label(comp: &ComponentNode) -> String {
-    if let Some(v) = attr(comp, "label").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr_nonempty(comp, "label") {
         return esc(v);
     }
-    if let Some(v) = attr(comp, "aria-label").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr_nonempty(comp, "aria-label") {
         return esc(v);
     }
     let label = label_of(comp);
@@ -168,7 +168,7 @@ fn group_label(comp: &ComponentNode) -> String {
 
 fn digits_of(comp: &ComponentNode, names: &[&str]) -> String {
     for name in names {
-        if let Some(v) = attr(comp, name).filter(|s| !s.is_empty()) {
+        if let Some(v) = attr_nonempty(comp, name) {
             return v.chars().filter(|c| c.is_ascii_digit()).take(19).collect();
         }
         if let Some(t) = item(comp, name).filter(|s| !s.is_empty()) {
@@ -196,19 +196,6 @@ fn format_expiry(digits: &str) -> String {
     } else {
         esc(&d)
     }
-}
-
-fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
-    if let Some(v) = comp.props.get(name) {
-        return Some(v.as_str());
-    }
-    comp.items
-        .iter()
-        .find_map(|i| i.config.get(name).map(String::as_str))
-}
-
-fn flag(comp: &ComponentNode, name: &str) -> bool {
-    attr(comp, name).map(|s| s == "true").unwrap_or(false)
 }
 
 #[cfg(test)]

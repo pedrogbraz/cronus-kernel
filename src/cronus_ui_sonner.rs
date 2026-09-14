@@ -5,7 +5,7 @@
 //! toasts, so the kernel emits the same empty toaster (0px tall). Queued toasts
 //! need JS timers; they are not faked. Not interact `popover("sonner")`.
 
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, esc, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -16,11 +16,7 @@ pub fn render(comp: &ComponentNode) -> String {
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<String> {
-    comp.props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
-        .filter(|s| !s.is_empty())
-        .map(|s| esc(s))
+    attr_nonempty(comp, "aria-label").map(|s| esc(s))
 }
 
 #[cfg(test)]

@@ -7,7 +7,7 @@
 //! trigger (inert while open in React) is the native button rendered `disabled`.
 //! Not interact `popover("morphing-popover")` SURF `<details>` overlay.
 
-use crate::cronus_ui_kit::{esc, label_of, texts};
+use crate::cronus_ui_kit::{attr_nonempty, esc, label_of, texts};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -19,11 +19,7 @@ pub fn render(comp: &ComponentNode) -> String {
     } else {
         body
     };
-    let aria = comp
-        .props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
-        .filter(|v| !v.is_empty())
+    let aria = attr_nonempty(comp, "aria-label")
         .map(|v| esc(v))
         .unwrap_or_else(|| "Details".into());
     format!(

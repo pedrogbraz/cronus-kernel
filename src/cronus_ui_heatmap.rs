@@ -8,7 +8,7 @@
 //! fixture's `data` array, so both implementations fall back to the same
 //! placeholder instead of two unrelated ones.
 
-use crate::cronus_ui_kit::{fmt_coord, label_of, numeric_items};
+use crate::cronus_ui_kit::{attr_nonempty, fmt_coord, label_of, numeric_items};
 use crate::parser::ComponentNode;
 
 const LEVELS: usize = 5;
@@ -49,11 +49,7 @@ pub fn render(comp: &ComponentNode) -> String {
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<String> {
-    comp.props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
-        .filter(|v| !v.is_empty())
-        .map(|v| crate::cronus_ui_kit::esc(v))
+    attr_nonempty(comp, "aria-label").map(|v| crate::cronus_ui_kit::esc(v))
 }
 
 /// Bucket `value` into `0..levels-1` against series `max`. Level 0 is empty;

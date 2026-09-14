@@ -6,7 +6,7 @@
 //! The `label` names the nav (default aria-label); it is never a link.
 //! Not interact `nav("table-of-contents")` (generic SURF `<nav>` without list/link).
 
-use crate::cronus_ui_kit::{esc, label_of, safe_url};
+use crate::cronus_ui_kit::{attr_nonempty, esc, label_of, safe_url};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -19,11 +19,7 @@ pub fn render(comp: &ComponentNode) -> String {
         })
         .collect::<Vec<_>>()
         .join("");
-    let aria = comp
-        .props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
-        .filter(|s| !s.is_empty())
+    let aria = attr_nonempty(comp, "aria-label")
         .map(|s| esc(s))
         .unwrap_or_else(|| "On this page".into());
     format!(

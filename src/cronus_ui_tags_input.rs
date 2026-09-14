@@ -7,7 +7,7 @@
 //! `<button tabindex="-1">` rendered `disabled`, with React's idle look (not dimmed).
 //! Not interact `select("tags-input")` (`<label><select data-slot="tags-input-control">`).
 
-use crate::cronus_ui_kit::{choice_texts, esc, item};
+use crate::cronus_ui_kit::{attr_nonempty, choice_texts, esc, flag, item};
 use crate::parser::ComponentNode;
 
 /// lucide `x` (React `<X className="size-3" />`).
@@ -83,7 +83,7 @@ fn tags_of(comp: &ComponentNode, placeholder: &str) -> Vec<String> {
 }
 
 fn placeholder_of(comp: &ComponentNode) -> String {
-    if let Some(v) = attr(comp, "placeholder").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr_nonempty(comp, "placeholder") {
         return esc(v);
     }
     if let Some(t) = item(comp, "placeholder").filter(|s| !s.is_empty()) {
@@ -98,23 +98,10 @@ fn placeholder_of(comp: &ComponentNode) -> String {
 }
 
 fn aria_label_of(comp: &ComponentNode) -> String {
-    if let Some(v) = attr(comp, "aria-label").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr_nonempty(comp, "aria-label") {
         return esc(v);
     }
     placeholder_of(comp)
-}
-
-fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
-    if let Some(v) = comp.props.get(name) {
-        return Some(v.as_str());
-    }
-    comp.items
-        .iter()
-        .find_map(|i| i.config.get(name).map(String::as_str))
-}
-
-fn flag(comp: &ComponentNode, name: &str) -> bool {
-    attr(comp, name).map(|s| s == "true").unwrap_or(false)
 }
 
 #[cfg(test)]

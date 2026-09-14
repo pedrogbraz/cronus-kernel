@@ -8,7 +8,7 @@
 //! The `label` names the stepper; it is never a step.
 //! Not interact `stepper()` (`<ol style=BASE>` numbered pills without stepper-list).
 
-use crate::cronus_ui_kit::{choice_texts, esc, label_of};
+use crate::cronus_ui_kit::{attr, choice_texts, esc, label_of};
 use crate::parser::ComponentNode;
 
 const CHECK: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg>";
@@ -64,11 +64,7 @@ fn steps_of(comp: &ComponentNode) -> Vec<String> {
 }
 
 fn current_of(comp: &ComponentNode, n: usize) -> usize {
-    let raw = ["value", "current"].iter().find_map(|k| {
-        comp.props
-            .get(*k)
-            .or_else(|| comp.items.iter().find_map(|i| i.config.get(*k)))
-    });
+    let raw = attr(comp, "value").or_else(|| attr(comp, "current"));
     let parsed = raw.and_then(|s| s.parse::<usize>().ok()).unwrap_or(0);
     if n == 0 {
         0

@@ -3,6 +3,7 @@
 //! Optional `<img data-slot="avatar-image" src>` when a url item/link exists.
 //! Not interact `avatar()` (`<div data-slot="avatar" style="width:2.25rem;…">` single letter).
 
+use crate::cronus_ui_kit::{esc, safe_url};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -12,7 +13,7 @@ pub fn render(comp: &ComponentNode) -> String {
     if let Some(src) = image_src(comp) {
         inner.push_str(&format!(
             "<img data-slot=\"avatar-image\" src=\"{}\" alt=\"{}\">",
-            crate::cronus_ui_kit::safe_url(src),
+            safe_url(src),
             esc(&label)
         ));
     }
@@ -110,13 +111,6 @@ fn item<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
         .iter()
         .find(|i| i.item_type == kind)
         .map(|i| i.text.as_str())
-}
-
-fn esc(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
 }
 
 #[cfg(test)]

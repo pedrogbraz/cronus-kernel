@@ -8,7 +8,7 @@
 //! `disabled` button with React's idle look (not dimmed).
 //! Not interact `input("phone-input", "tel")` (`<label>` + `*-control` + CTRL).
 
-use crate::cronus_ui_kit::{esc, item, label_of};
+use crate::cronus_ui_kit::{attr, attr_nonempty, esc, flag, item, label_of};
 use crate::parser::ComponentNode;
 
 struct Country {
@@ -108,10 +108,10 @@ fn country_of(comp: &ComponentNode) -> &'static Country {
 }
 
 fn aria_label_of(comp: &ComponentNode) -> String {
-    if let Some(v) = attr(comp, "aria-label").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr_nonempty(comp, "aria-label") {
         return esc(v);
     }
-    if let Some(v) = attr(comp, "label").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr_nonempty(comp, "label") {
         return esc(v);
     }
     let label = label_of(comp);
@@ -132,7 +132,7 @@ fn mask_of(country: &Country) -> String {
 }
 
 fn placeholder_of(comp: &ComponentNode, country: &Country) -> String {
-    if let Some(v) = attr(comp, "placeholder").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr_nonempty(comp, "placeholder") {
         return esc(v);
     }
     if let Some(t) = item(comp, "placeholder").filter(|s| !s.is_empty()) {
@@ -173,19 +173,6 @@ fn value_of(comp: &ComponentNode, country: &Country) -> String {
         digits.as_str()
     };
     esc(&format_national(national, country.groups))
-}
-
-fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
-    if let Some(v) = comp.props.get(name) {
-        return Some(v.as_str());
-    }
-    comp.items
-        .iter()
-        .find_map(|i| i.config.get(name).map(String::as_str))
-}
-
-fn flag(comp: &ComponentNode, name: &str) -> bool {
-    attr(comp, name).map(|s| s == "true").unwrap_or(false)
 }
 
 #[cfg(test)]

@@ -8,7 +8,7 @@
 //! Not interact `codey()` SURF `<pre style=…>`, not catalog `display()`
 //! `<section>`, not ai-code-block.
 
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, esc, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -17,8 +17,8 @@ pub fn render(comp: &ComponentNode) -> String {
         .map(|l| format!("<span>{l}</span>"))
         .collect::<Vec<_>>()
         .join("\n");
-    let filename = attr(comp, "filename").filter(|s| !s.is_empty()).map(esc);
-    let language = attr(comp, "language").filter(|s| !s.is_empty()).map(esc);
+    let filename = attr_nonempty(comp, "filename").map(esc);
+    let language = attr_nonempty(comp, "language").map(esc);
     let header = if filename.is_some() || language.is_some() {
         let f = filename
             .as_deref()
@@ -60,15 +60,6 @@ fn code_lines(comp: &ComponentNode) -> Vec<String> {
     } else {
         lines
     }
-}
-
-fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
-    if let Some(v) = comp.props.get(name) {
-        return Some(v.as_str());
-    }
-    comp.items
-        .iter()
-        .find_map(|i| i.config.get(name).map(String::as_str))
 }
 
 #[cfg(test)]

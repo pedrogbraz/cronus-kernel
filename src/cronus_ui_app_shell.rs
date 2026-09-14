@@ -6,7 +6,7 @@
 //! `data-app-shell` is not a slot; it only scopes the shell CSS.
 //! Not interact `nav("app-shell")` (generic SURF `<nav>` without header/body/content).
 
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, esc, label_of};
 use crate::cronus_ui_sidebar::{aria_label, aside, menu_entries};
 use crate::parser::ComponentNode;
 
@@ -24,11 +24,7 @@ pub fn render(comp: &ComponentNode) -> String {
 
 /// Body content: `description` from props or item config (`key:value` attaches to the previous item).
 fn description(comp: &ComponentNode) -> Option<String> {
-    comp.props
-        .get("description")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("description")))
-        .filter(|s| !s.is_empty())
-        .map(|s| esc(s))
+    attr_nonempty(comp, "description").map(|s| esc(s))
 }
 
 #[cfg(test)]

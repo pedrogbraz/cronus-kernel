@@ -11,13 +11,12 @@
 //! >75% warning, else primary.
 //! `value` / `max` / `unit` / `aria-label` come from props or item config.
 
-use crate::cronus_ui_chart::prop;
-use crate::cronus_ui_kit::{esc, item};
+use crate::cronus_ui_kit::{attr, esc, item};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    let max = number(prop(comp, "max")).unwrap_or(100.0);
-    let value = number(prop(comp, "value"))
+    let max = number(attr(comp, "max")).unwrap_or(100.0);
+    let value = number(attr(comp, "value"))
         .or_else(|| comp.items.iter().find_map(|i| number(Some(&i.text))))
         .unwrap_or(40.0);
     let ratio = if value.is_finite() && max.is_finite() && max > 0.0 {
@@ -34,12 +33,12 @@ pub fn render(comp: &ComponentNode) -> String {
         "primary"
     };
     let readout = format!("{} / {}", group(value), group(max));
-    let value_text = match prop(comp, "unit") {
+    let value_text = match attr(comp, "unit") {
         Some(u) if !u.is_empty() => format!("{readout} {}", esc(u)),
         _ => readout,
     };
     let label = label_of(comp);
-    let aria = prop(comp, "aria-label")
+    let aria = attr(comp, "aria-label")
         .map(esc)
         .or_else(|| label.clone())
         .unwrap_or_else(|| value_text.clone());

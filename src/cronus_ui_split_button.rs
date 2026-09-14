@@ -6,7 +6,7 @@
 //! (React portals them out of the canvas) are not emitted.
 //! Not interact `buttonish()` (single primary + inline SURF).
 
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{attr, attr_nonempty, esc, flag, label_of};
 use crate::parser::ComponentNode;
 
 const CHEVRON: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"/></svg>";
@@ -18,7 +18,7 @@ pub fn render(comp: &ComponentNode) -> String {
     let disabled = flag(comp, "disabled") || flag(comp, "loading");
 
     let mut root = format!("data-slot=\"split-button\" role=\"group\" data-variant=\"{variant}\"");
-    if let Some(a) = attr(comp, "aria-label").filter(|s| !s.is_empty()) {
+    if let Some(a) = attr_nonempty(comp, "aria-label") {
         root.push_str(&format!(" aria-label=\"{}\"", esc(a)));
     }
     if disabled {
@@ -66,19 +66,6 @@ fn menu_label_of(comp: &ComponentNode) -> String {
         .filter(|s| !s.is_empty())
         .map(esc)
         .unwrap_or_else(|| "More actions".into())
-}
-
-fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
-    if let Some(v) = comp.props.get(name) {
-        return Some(v.as_str());
-    }
-    comp.items
-        .iter()
-        .find_map(|i| i.config.get(name).map(String::as_str))
-}
-
-fn flag(comp: &ComponentNode, name: &str) -> bool {
-    attr(comp, name).map(|s| s == "true").unwrap_or(false)
 }
 
 #[cfg(test)]

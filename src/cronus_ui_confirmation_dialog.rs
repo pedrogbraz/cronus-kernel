@@ -10,7 +10,7 @@
 //! JS, so both are the same native buttons with `disabled` and React's idle look.
 //! Not reproduced (JS-only): focus trap, async `onConfirm` spinner/error state.
 
-use crate::cronus_ui_kit::{esc, item, label_of, widget_id};
+use crate::cronus_ui_kit::{attr_nonempty, esc, item, label_of, widget_id};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -25,11 +25,7 @@ pub fn render(comp: &ComponentNode) -> String {
         .map(esc)
         .unwrap_or_else(|| "Cancel".into());
     // `description:"…"` prop or attr-style item config, else free text items.
-    let desc = comp
-        .props
-        .get("description")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("description")))
-        .filter(|d| !d.is_empty())
+    let desc = attr_nonempty(comp, "description")
         .map(|d| esc(d))
         .unwrap_or_else(|| extras(comp, &title));
     let desc_html = if desc.is_empty() {

@@ -5,7 +5,7 @@
 //! `data-slot="avatar-group-overflow"`.
 //! Not interact `avatar("avatar-group")` (single `<div style=circle>` one letter).
 
-use crate::cronus_ui_kit::esc;
+use crate::cronus_ui_kit::{attr_nonempty, esc};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -33,15 +33,7 @@ pub fn render(comp: &ComponentNode) -> String {
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<&str> {
-    comp.props
-        .get("aria-label")
-        .map(String::as_str)
-        .or_else(|| {
-            comp.items
-                .iter()
-                .find_map(|i| i.config.get("aria-label").map(String::as_str))
-        })
-        .filter(|s| !s.is_empty())
+    attr_nonempty(comp, "aria-label")
 }
 
 /// Members come from the non-label items (React: `items`/`options`). The

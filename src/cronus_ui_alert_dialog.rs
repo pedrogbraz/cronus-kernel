@@ -13,7 +13,7 @@
 //! primary `alert-dialog-action` (`action` item, else the first `text` item —
 //! the fixture's `items[0]` — else "Confirm").
 
-use crate::cronus_ui_kit::{esc, item, label_of, widget_id};
+use crate::cronus_ui_kit::{attr, esc, item, label_of, widget_id};
 use crate::parser::ComponentNode;
 
 fn non_empty<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
@@ -22,14 +22,7 @@ fn non_empty<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
 
 /// `description:"…"` prop, attr-style item config, or a `description` item.
 fn description_of(comp: &ComponentNode) -> Option<String> {
-    comp.props
-        .get("description")
-        .map(String::as_str)
-        .or_else(|| {
-            comp.items
-                .iter()
-                .find_map(|i| i.config.get("description").map(String::as_str))
-        })
+    attr(comp, "description")
         .or_else(|| item(comp, "description"))
         .filter(|d| !d.is_empty())
         .map(esc)

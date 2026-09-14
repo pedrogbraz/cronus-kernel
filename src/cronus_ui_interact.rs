@@ -4,6 +4,7 @@
 //! progress, tabs via small onclick). Voodoo attributes are additive and
 //! only emitted when `crate::voodoo::enabled()` is true — never as authoring.
 
+use crate::cronus_ui_kit::esc;
 use crate::parser::ComponentNode;
 use crate::voodoo;
 
@@ -128,13 +129,6 @@ fn texts(comp: &ComponentNode) -> Vec<String> {
         out.push(label_of(comp));
     }
     out
-}
-
-fn esc(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
 }
 
 fn num(comp: &ComponentNode, default: u32) -> u32 {

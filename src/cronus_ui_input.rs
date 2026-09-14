@@ -1,6 +1,7 @@
 //! Dedicated Input renderer. DOM matches React: `<input data-slot="input">`.
 //! Not the interact `<label data-slot="input"><input data-slot="input-control">`.
 
+use crate::cronus_ui_kit::{attr, esc, flag_any};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -9,23 +10,15 @@ pub fn render(comp: &ComponentNode) -> String {
         .or_else(|| comp.props.get("placeholder").map(String::as_str))
         .unwrap_or("");
     let ty = comp.props.get("type").map(String::as_str).unwrap_or("text");
-    let disabled = flag(comp, "disabled");
-    let invalid = flag(comp, "invalid");
-    let aria_label = comp
-        .props
-        .get("aria-label")
-        .map(String::as_str)
-        .or_else(|| {
-            comp.items
-                .iter()
-                .find_map(|i| i.config.get("aria-label").map(String::as_str))
-        })
+    let disabled = flag_any(comp, "disabled");
+    let invalid = flag_any(comp, "invalid");
+    let aria_label = attr(comp, "aria-label")
         .or_else(|| item(comp, "title"))
         .or_else(|| item(comp, "label"));
     let mut attrs = format!(
         "data-slot=\"input\" type=\"{}\" placeholder=\"{}\"",
-        esc_attr(ty),
-        esc_attr(placeholder)
+        esc(ty),
+        esc(placeholder)
     );
     if disabled {
         attrs.push_str(" disabled");
@@ -34,18 +27,9 @@ pub fn render(comp: &ComponentNode) -> String {
         attrs.push_str(" aria-invalid=\"true\"");
     }
     if let Some(label) = aria_label {
-        attrs.push_str(&format!(" aria-label=\"{}\"", esc_attr(label)));
+        attrs.push_str(&format!(" aria-label=\"{}\"", esc(label)));
     }
     format!("<input {attrs} />")
-}
-
-fn flag(comp: &ComponentNode, name: &str) -> bool {
-    if comp.props.get(name).map(|s| s == "true").unwrap_or(false) {
-        return true;
-    }
-    comp.items
-        .iter()
-        .any(|i| i.config.get(name).map(|s| s == "true").unwrap_or(false))
 }
 
 fn item<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
@@ -53,13 +37,6 @@ fn item<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
         .iter()
         .find(|i| i.item_type == kind)
         .map(|i| i.text.as_str())
-}
-
-fn esc_attr(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
 }
 
 #[cfg(test)]

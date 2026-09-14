@@ -4,7 +4,7 @@
 //! no url, exactly like React's `{url}`) > `frame-content` with the label.
 //! Width mirrors the audit fixture's `w-72`. Not the catalog `display()` SURF.
 
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, esc, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -18,11 +18,7 @@ pub fn render(comp: &ComponentNode) -> String {
 /// `url:"…"` as a prop, or attached to an item's config (the tokenizer has no
 /// newlines, so a trailing `key:value` lands on the preceding item).
 fn url_of(comp: &ComponentNode) -> Option<String> {
-    comp.props
-        .get("url")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("url")))
-        .filter(|s| !s.is_empty())
-        .map(|s| esc(s))
+    attr_nonempty(comp, "url").map(|s| esc(s))
 }
 
 #[cfg(test)]

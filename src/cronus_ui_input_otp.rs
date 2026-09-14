@@ -5,7 +5,7 @@
 //! initial value only. Not interact `otp()` (`<fieldset style=BASE>` +
 //! `maxlength=1` inputs with CTRL).
 
-use crate::cronus_ui_kit::esc;
+use crate::cronus_ui_kit::{attr, attr_nonempty, esc};
 use crate::parser::ComponentNode;
 
 const SLOTS: usize = 6;
@@ -55,21 +55,10 @@ fn digits_of(comp: &ComponentNode) -> String {
 }
 
 fn aria_label_of(comp: &ComponentNode) -> String {
-    if let Some(v) = attr(comp, "aria-label").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr_nonempty(comp, "aria-label") {
         return esc(v);
     }
     "One-time passcode".into()
-}
-
-/// Props first; `key:value` after an item line lands in that item's config
-/// (the tokenizer has no newlines).
-fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
-    if let Some(v) = comp.props.get(name) {
-        return Some(v.as_str());
-    }
-    comp.items
-        .iter()
-        .find_map(|i| i.config.get(name).map(String::as_str))
 }
 
 #[cfg(test)]

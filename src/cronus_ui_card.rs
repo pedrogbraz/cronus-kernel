@@ -4,12 +4,13 @@
 //! `card-content` if more.
 //! Not interact `card()` (`<section data-slot="card" style=…SURF…>` without card-title).
 
+use crate::cronus_ui_kit::{attr_nonempty, esc};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
     let title = esc(title_of(comp));
     let extras = extras_of(comp);
-    let (desc, rest): (Option<&str>, &[&str]) = match attr(comp, "description") {
+    let (desc, rest): (Option<&str>, &[&str]) = match attr_nonempty(comp, "description") {
         Some(d) => (Some(d), &extras[..]),
         None if extras.is_empty() => (None, &extras[..]),
         None => (Some(extras[0]), &extras[1..]),
@@ -69,26 +70,6 @@ fn item<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
         .iter()
         .find(|i| i.item_type == kind)
         .map(|i| i.text.as_str())
-}
-
-/// Prop or item attribute (`key:"value"` lines attach to the preceding item).
-fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
-    comp.props
-        .get(key)
-        .map(String::as_str)
-        .or_else(|| {
-            comp.items
-                .iter()
-                .find_map(|i| i.config.get(key).map(String::as_str))
-        })
-        .filter(|s| !s.is_empty())
-}
-
-fn esc(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
 }
 
 #[cfg(test)]

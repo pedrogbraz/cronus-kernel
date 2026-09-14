@@ -3,7 +3,7 @@
 //! direct children are plain card `<div>`s (React gives them no slot).
 //! CSS columns, zero JS. Not catalog `display()` SURF, not interact `scroll()`.
 
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, esc, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -16,7 +16,7 @@ pub fn render(comp: &ComponentNode) -> String {
     if cells.is_empty() {
         cells.push(label_of(comp));
     }
-    let aria = attr(comp, "aria-label")
+    let aria = attr_nonempty(comp, "aria-label")
         .map(|a| format!(" aria-label=\"{}\"", esc(a)))
         .unwrap_or_default();
     let body = cells
@@ -24,18 +24,6 @@ pub fn render(comp: &ComponentNode) -> String {
         .map(|t| format!("<div>{t}</div>"))
         .collect::<String>();
     format!("<div data-slot=\"masonry\"{aria}>{body}</div>")
-}
-
-fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
-    comp.props
-        .get(key)
-        .map(String::as_str)
-        .or_else(|| {
-            comp.items
-                .iter()
-                .find_map(|i| i.config.get(key).map(String::as_str))
-        })
-        .filter(|s| !s.is_empty())
 }
 
 #[cfg(test)]

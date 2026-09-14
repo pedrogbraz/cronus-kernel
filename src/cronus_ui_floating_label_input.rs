@@ -5,7 +5,7 @@
 //! (`:placeholder-shown` / `:focus`), exactly like React's `peer-*` variants.
 //! Not interact `input("floating-label-input")` (`<label>` wrapping `*-control`).
 
-use crate::cronus_ui_kit::{esc, item, label_of};
+use crate::cronus_ui_kit::{attr, attr_nonempty, esc, flag, item, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -52,7 +52,7 @@ pub fn render(comp: &ComponentNode) -> String {
 }
 
 fn id_of(comp: &ComponentNode) -> String {
-    if let Some(v) = attr(comp, "id").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr_nonempty(comp, "id") {
         return esc(v);
     }
     "floating-label-input".into()
@@ -76,19 +76,6 @@ fn helper_of(comp: &ComponentNode) -> String {
         .filter(|s| !s.is_empty())
         .map(esc)
         .unwrap_or_default()
-}
-
-fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
-    if let Some(v) = comp.props.get(name) {
-        return Some(v.as_str());
-    }
-    comp.items
-        .iter()
-        .find_map(|i| i.config.get(name).map(String::as_str))
-}
-
-fn flag(comp: &ComponentNode, name: &str) -> bool {
-    attr(comp, name).map(|s| s == "true").unwrap_or(false)
 }
 
 #[cfg(test)]

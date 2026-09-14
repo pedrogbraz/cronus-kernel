@@ -3,6 +3,7 @@
 //! `<button type="button" data-slot="radio-group-item" role="radio">`.
 //! Not interact `radios()` (`<input type="radio">` inside labels).
 
+use crate::cronus_ui_kit::{attr_nonempty, esc};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -32,16 +33,8 @@ const CIRCLE_INDICATOR: &str = "<span data-state=\"checked\"><svg xmlns=\"http:/
 /// Label / title name the group; they are never options.
 const NAME_KINDS: &[&str] = &["label", "title"];
 
-fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
-    comp.props
-        .get(key)
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get(key)))
-        .map(String::as_str)
-        .filter(|s| !s.is_empty())
-}
-
 fn group_label(comp: &ComponentNode) -> String {
-    match attr(comp, "aria-label") {
+    match attr_nonempty(comp, "aria-label") {
         Some(v) => esc(v),
         None => crate::cronus_ui_kit::label_of(comp),
     }
@@ -62,7 +55,7 @@ fn options(comp: &ComponentNode) -> Vec<(String, bool)> {
         return vec![(label.to_string(), false)];
     }
     // Radix: `value` selects the matching item; without it nothing is checked.
-    let selected = attr(comp, "value");
+    let selected = attr_nonempty(comp, "value");
     let checked_idx = items
         .iter()
         .position(|i| selected == Some(i.text.as_str()))
@@ -76,13 +69,6 @@ fn options(comp: &ComponentNode) -> Vec<(String, bool)> {
 
 fn is_true(raw: Option<&String>) -> bool {
     matches!(raw.map(String::as_str), Some("true" | "on" | "1"))
-}
-
-fn esc(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
 }
 
 #[cfg(test)]

@@ -7,7 +7,7 @@
 //! The `label` names the dock; it is only an entry when nothing else exists.
 //! Not interact `nav("dock")` (generic SURF `<nav>` without dock-item).
 
-use crate::cronus_ui_kit::{esc, label_of, safe_url};
+use crate::cronus_ui_kit::{attr, esc, label_of, safe_url};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -35,10 +35,7 @@ fn item_html(text: &str, href: Option<&str>) -> String {
 /// `aria-label:` after an item line lands in that item's config (the
 /// tokenizer has no newlines), so look there as well as in props.
 fn aria_attr(comp: &ComponentNode) -> String {
-    let v = comp
-        .props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")));
+    let v = attr(comp, "aria-label");
     match v.filter(|s| !s.is_empty()) {
         Some(v) => format!(" aria-label=\"{}\"", esc(v)),
         None => String::new(),

@@ -5,7 +5,7 @@
 //! so (wave 1t rule) buttons are native `disabled` buttons, not visually dimmed.
 //! Not interact `nav("toolbar")` (generic SURF `<nav>`).
 
-use crate::cronus_ui_kit::{choice_texts, esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, choice_texts, esc, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -16,11 +16,7 @@ pub fn render(comp: &ComponentNode) -> String {
         })
         .collect::<Vec<_>>()
         .join("");
-    let aria = comp
-        .props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
-        .filter(|s| !s.is_empty())
+    let aria = attr_nonempty(comp, "aria-label")
         .map(|a| format!(" aria-label=\"{}\"", esc(a)))
         .unwrap_or_default();
     format!(

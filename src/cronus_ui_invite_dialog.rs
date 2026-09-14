@@ -15,7 +15,7 @@
 //! `select` carries that value. The email input stays editable. Not reproduced either: focus
 //! trap, async `onInvite` spinner/error, invite-link success view.
 
-use crate::cronus_ui_kit::{esc, item, label_of, widget_id};
+use crate::cronus_ui_kit::{attr, esc, item, label_of, widget_id};
 use crate::parser::ComponentNode;
 
 /// React `DEFAULT_ROLES`; the first is initially selected.
@@ -34,15 +34,7 @@ fn label(comp: &ComponentNode, kind: &str, fallback: &str) -> String {
 pub fn render(comp: &ComponentNode) -> String {
     let title = label_of(comp);
     // `description:"…"` prop, attr-style item config, a `description` item, else React's default.
-    let description = comp
-        .props
-        .get("description")
-        .map(String::as_str)
-        .or_else(|| {
-            comp.items
-                .iter()
-                .find_map(|i| i.config.get("description").map(String::as_str))
-        })
+    let description = attr(comp, "description")
         .or_else(|| item(comp, "description"))
         .filter(|d| !d.is_empty())
         .map(esc)

@@ -9,7 +9,7 @@
 //! The `label` names the widget (nav `aria-label`); it is never a menu item.
 //! Not interact `nav("sidebar")` (generic SURF `<nav>` without sidebar-content/menu).
 
-use crate::cronus_ui_kit::{esc, label_of, safe_url};
+use crate::cronus_ui_kit::{attr_nonempty, esc, label_of, safe_url};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -80,11 +80,7 @@ fn entry_of(i: &ComponentItemNode) -> (String, Option<String>) {
 
 /// `aria-label` from props or item config (`key:value` lines attach to the previous item).
 pub fn aria_label(comp: &ComponentNode) -> Option<String> {
-    comp.props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
-        .filter(|s| !s.is_empty())
-        .map(|s| esc(s))
+    attr_nonempty(comp, "aria-label").map(|s| esc(s))
 }
 
 #[cfg(test)]

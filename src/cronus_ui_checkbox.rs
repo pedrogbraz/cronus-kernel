@@ -2,12 +2,13 @@
 //! `<button type="button" data-slot="checkbox" role="checkbox">`.
 //! Not the interact `<label data-slot="checkbox"><input type="checkbox" data-slot="checkbox-control">`.
 
+use crate::cronus_ui_kit::{esc, flag_any};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
     let checked = checked_of(comp);
-    let disabled = flag(comp, "disabled");
-    let invalid = flag(comp, "invalid");
+    let disabled = flag_any(comp, "disabled");
+    let invalid = flag_any(comp, "invalid");
     let state = if checked { "checked" } else { "unchecked" };
     let aria_checked = if checked { "true" } else { "false" };
     let mut attrs = format!(
@@ -30,7 +31,7 @@ pub fn render(comp: &ComponentNode) -> String {
 const CHECK_INDICATOR: &str = "<span data-state=\"checked\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"></path></svg></span>";
 
 fn checked_of(comp: &ComponentNode) -> bool {
-    if flag(comp, "checked") {
+    if flag_any(comp, "checked") {
         return true;
     }
     comp.style
@@ -65,27 +66,11 @@ fn aria_label_of(comp: &ComponentNode) -> Option<&str> {
     }
 }
 
-fn flag(comp: &ComponentNode, name: &str) -> bool {
-    if comp.props.get(name).map(|s| s == "true").unwrap_or(false) {
-        return true;
-    }
-    comp.items
-        .iter()
-        .any(|i| i.config.get(name).map(|s| s == "true").unwrap_or(false))
-}
-
 fn item<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
     comp.items
         .iter()
         .find(|i| i.item_type == kind)
         .map(|i| i.text.as_str())
-}
-
-fn esc(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
 }
 
 #[cfg(test)]

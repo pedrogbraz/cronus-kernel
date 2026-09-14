@@ -4,6 +4,7 @@
 //! from `data-value` rules in COMPONENT_CHROME (integer 0..100), never inline style.
 //! Not the interact `<label data-slot="slider">…<input type="range" data-slot="slider-control">`.
 
+use crate::cronus_ui_kit::esc;
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -93,13 +94,6 @@ fn fmt_num(n: f64) -> String {
     } else {
         format!("{n}")
     }
-}
-
-fn esc(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
 }
 
 #[cfg(test)]

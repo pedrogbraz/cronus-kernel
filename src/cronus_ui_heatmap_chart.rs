@@ -7,15 +7,14 @@
 //! Values are the numeric items (fallback 1, 3, 5, 2); aria-label from the
 //! `aria-label` prop / item config, else the label.
 
-use crate::cronus_ui_chart::prop;
-use crate::cronus_ui_kit::{esc, fmt_coord, label_of, numeric_items};
+use crate::cronus_ui_kit::{attr, esc, fmt_coord, label_of, numeric_items};
 use crate::parser::ComponentNode;
 
 const LEVELS: usize = 5;
 const FALLBACK: [f64; 4] = [1.0, 3.0, 5.0, 2.0];
 
 pub fn render(comp: &ComponentNode) -> String {
-    let label = prop(comp, "aria-label")
+    let label = attr(comp, "aria-label")
         .map(esc)
         .unwrap_or_else(|| label_of(comp));
     let mut series = numeric_items(comp);

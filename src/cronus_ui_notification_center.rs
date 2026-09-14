@@ -11,7 +11,7 @@
 //! portals the open panel out of the canvas).
 //! Not interact `popover("notification-center")` SURF `<details>`.
 
-use crate::cronus_ui_kit::{choice_texts, label_of, texts, widget_id};
+use crate::cronus_ui_kit::{attr_num, choice_texts, label_of, texts, widget_id};
 use crate::parser::ComponentNode;
 
 const BELL: &str = concat!(
@@ -78,11 +78,7 @@ fn row_texts(comp: &ComponentNode) -> Vec<String> {
 }
 
 fn unread_count(comp: &ComponentNode, rows: usize) -> usize {
-    let explicit = comp
-        .props
-        .get("unread")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("unread")))
-        .and_then(|v| v.parse::<usize>().ok());
+    let explicit = attr_num::<usize>(comp, "unread");
     explicit.unwrap_or(usize::from(rows > 0)).min(rows)
 }
 

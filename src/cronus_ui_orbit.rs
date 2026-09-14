@@ -6,7 +6,7 @@
 //! which also holds `@keyframes cui-orbit-spin`. Zero JS. Not the catalog
 //! `fx()` title SURF box.
 
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{attr, esc, label_of};
 use crate::parser::ComponentNode;
 
 const MAX_ITEMS: usize = 6;
@@ -34,10 +34,7 @@ pub fn render(comp: &ComponentNode) -> String {
         .join("");
     // `aria-label:` after an item line lands in that item's config (the
     // tokenizer has no newlines), so look there as well as in props.
-    let aria_label = comp
-        .props
-        .get("aria-label")
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")));
+    let aria_label = attr(comp, "aria-label");
     let aria = match aria_label.filter(|s| !s.is_empty()) {
         Some(v) => format!(" aria-label=\"{}\"", esc(v)),
         None => String::new(),

@@ -8,7 +8,7 @@
 //! is emitted (the emitter does not carry one). Not catalog `display()` SURF,
 //! not interact `video()` (`<video data-slot="video-player" controls>`).
 
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, esc, label_of};
 use crate::parser::ComponentNode;
 
 const SVG_OPEN: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">";
@@ -17,24 +17,12 @@ const VOLUME: &str = "<path d=\"M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A
 const MAXIMIZE: &str = "<path d=\"M8 3H5a2 2 0 0 0-2 2v3\"></path><path d=\"M21 8V5a2 2 0 0 0-2-2h-3\"></path><path d=\"M3 16v3a2 2 0 0 0 2 2h3\"></path><path d=\"M16 21h3a2 2 0 0 0 2-2v-3\"></path></svg>";
 
 pub fn render(comp: &ComponentNode) -> String {
-    let aria = attr(comp, "aria-label")
+    let aria = attr_nonempty(comp, "aria-label")
         .map(esc)
         .unwrap_or_else(|| label_of(comp));
     format!(
         "<div data-slot=\"video-player\" aria-label=\"{aria}\"><video data-slot=\"video-player-video\" playsinline preload=\"metadata\"></video><button type=\"button\" data-slot=\"video-player-overlay-play\" aria-label=\"Play\" disabled>{SVG_OPEN}{PLAY}</button><div data-slot=\"video-player-controls\"><button type=\"button\" data-slot=\"video-player-play\" aria-label=\"Play\" disabled>{SVG_OPEN}{PLAY}</button><span dir=\"ltr\" data-slot=\"video-player-time\">0:00 / 0:00</span><input type=\"range\" data-slot=\"video-player-seek\" aria-label=\"Seek\" aria-valuetext=\"0:00 / 0:00\" min=\"0\" max=\"0\" step=\"0.1\" value=\"0\" disabled><button type=\"button\" data-slot=\"video-player-rate\" aria-label=\"Playback speed, 1x\" disabled>1x</button><button type=\"button\" data-slot=\"video-player-mute\" aria-label=\"Mute\" disabled>{SVG_OPEN}{VOLUME}</button><input type=\"range\" data-slot=\"video-player-volume\" aria-label=\"Volume\" min=\"0\" max=\"1\" step=\"0.05\" value=\"1\" disabled><button type=\"button\" data-slot=\"video-player-fullscreen\" aria-label=\"Fullscreen\" disabled>{SVG_OPEN}{MAXIMIZE}</button></div></div>"
     )
-}
-
-fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
-    comp.props
-        .get(key)
-        .map(String::as_str)
-        .or_else(|| {
-            comp.items
-                .iter()
-                .find_map(|i| i.config.get(key).map(String::as_str))
-        })
-        .filter(|s| !s.is_empty())
 }
 
 #[cfg(test)]

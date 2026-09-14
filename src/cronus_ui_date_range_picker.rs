@@ -3,7 +3,9 @@
 //! `<div data-slot="date-range-picker-content">`. Not interact `date_range()`
 //! (two native `type="date"` inputs with CTRL styles).
 
-use crate::cronus_ui_kit::{choice_texts, esc, item, label_of, widget_id};
+use crate::cronus_ui_kit::{
+    attr, attr_nonempty, choice_texts, esc, flag, item, label_of, widget_id,
+};
 use crate::parser::ComponentNode;
 
 const ICON: &str = concat!(
@@ -32,7 +34,7 @@ pub fn render(comp: &ComponentNode) -> String {
     if flag(comp, "disabled") {
         attrs.push_str(" disabled");
     }
-    if let Some(aria) = attr(comp, "aria-label").filter(|s| !s.is_empty()) {
+    if let Some(aria) = attr_nonempty(comp, "aria-label") {
         attrs.push_str(&format!(" aria-label=\"{}\"", esc(aria)));
     }
     let presets = presets_html(comp);
@@ -62,7 +64,7 @@ fn trigger_label(comp: &ComponentNode, placeholder: &str) -> String {
 }
 
 fn placeholder_of(comp: &ComponentNode) -> String {
-    if let Some(v) = attr(comp, "placeholder").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr_nonempty(comp, "placeholder") {
         return esc(v);
     }
     if let Some(t) = item(comp, "placeholder").filter(|s| !s.is_empty()) {
@@ -160,19 +162,6 @@ fn day_state(day: u8, from: Option<u8>, to: Option<u8>) -> (&'static str, &'stat
         (Some(f), None) if day == f => ("true", " data-range=\"start\""),
         _ => ("false", ""),
     }
-}
-
-fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
-    if let Some(v) = comp.props.get(name) {
-        return Some(v.as_str());
-    }
-    comp.items
-        .iter()
-        .find_map(|i| i.config.get(name).map(String::as_str))
-}
-
-fn flag(comp: &ComponentNode, name: &str) -> bool {
-    attr(comp, name).map(|s| s == "true").unwrap_or(false)
 }
 
 #[cfg(test)]

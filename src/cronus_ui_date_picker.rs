@@ -3,7 +3,7 @@
 //! `<div data-slot="date-picker-content">` with a tiny static calendar grid.
 //! Not interact `input("date-picker", "date")` (`<label>` + `type="date"` + `*-control`).
 
-use crate::cronus_ui_kit::{esc, item, label_of};
+use crate::cronus_ui_kit::{attr, attr_nonempty, esc, flag, item, label_of};
 use crate::parser::ComponentNode;
 
 const ICON: &str = concat!(
@@ -35,7 +35,7 @@ pub fn render(comp: &ComponentNode) -> String {
     if flag(comp, "invalid") {
         attrs.push_str(" aria-invalid=\"true\"");
     }
-    if let Some(aria) = attr(comp, "aria-label").filter(|s| !s.is_empty()) {
+    if let Some(aria) = attr_nonempty(comp, "aria-label") {
         attrs.push_str(&format!(" aria-label=\"{}\"", esc(aria)));
     }
     let grid = calendar_grid(selected_day(comp), &caption_of(comp));
@@ -51,9 +51,8 @@ fn has_value(comp: &ComponentNode) -> bool {
 }
 
 fn trigger_label(comp: &ComponentNode) -> String {
-    let raw = attr(comp, "value")
-        .filter(|s| !s.is_empty())
-        .or_else(|| item(comp, "value").filter(|s| !s.is_empty()));
+    let raw =
+        attr_nonempty(comp, "value").or_else(|| item(comp, "value").filter(|s| !s.is_empty()));
     match raw {
         Some(v) => format_ppp(v).unwrap_or_else(|| esc(v)),
         None => placeholder_of(comp),
@@ -80,7 +79,7 @@ fn format_ppp(raw: &str) -> Option<String> {
 }
 
 fn placeholder_of(comp: &ComponentNode) -> String {
-    if let Some(v) = attr(comp, "placeholder").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr_nonempty(comp, "placeholder") {
         return esc(v);
     }
     if let Some(t) = item(comp, "placeholder").filter(|s| !s.is_empty()) {
@@ -167,19 +166,6 @@ fn calendar_grid(selected: Option<u8>, caption: &str) -> String {
     }
     out.push_str("</div>");
     out
-}
-
-fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
-    if let Some(v) = comp.props.get(name) {
-        return Some(v.as_str());
-    }
-    comp.items
-        .iter()
-        .find_map(|i| i.config.get(name).map(String::as_str))
-}
-
-fn flag(comp: &ComponentNode, name: &str) -> bool {
-    attr(comp, name).map(|s| s == "true").unwrap_or(false)
 }
 
 #[cfg(test)]
