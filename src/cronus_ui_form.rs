@@ -1,30 +1,47 @@
 //! Dedicated Form renderer. DOM matches React rhf wrappers:
 //! `<form data-slot="form"><div data-slot="form-item"><label data-slot="form-label">`
 //! plus `form-control` wrapping an input and optional `form-description`.
+//! Fields come from `item` lines; without them the form has one field named by
+//! the `label`, and the first `text` line is its placeholder (the audit
+//! emitter writes `placeholder` as `text`).
 //! Not interact `field_form()` (SURF `<form>` dump + Submit button styles).
 
 use crate::cronus_ui_kit::{esc, label_of};
-use crate::parser::{ComponentItemNode, ComponentNode};
+use crate::parser::ComponentNode;
+
+struct Field {
+    label: String,
+    description: Option<String>,
+    placeholder: Option<String>,
+}
 
 pub fn render(comp: &ComponentNode) -> String {
     let items = field_entries(comp)
-        .into_iter()
-        .map(|(label, description)| field_html(&label, description.as_deref()))
+        .iter()
+        .map(field_html)
         .collect::<Vec<_>>()
         .join("");
     format!("<form data-slot=\"form\">{items}</form>")
 }
 
-fn field_html(label: &str, description: Option<&str>) -> String {
-    let desc = description
+fn field_html(field: &Field) -> String {
+    let label = &field.label;
+    let desc = field
+        .description
+        .as_deref()
         .map(|d| format!("<p data-slot=\"form-description\">{d}</p>"))
         .unwrap_or_default();
+    let placeholder = field
+        .placeholder
+        .as_deref()
+        .map(|p| format!(" placeholder=\"{p}\""))
+        .unwrap_or_default();
     format!(
-        "<div data-slot=\"form-item\"><label data-slot=\"form-label\">{label}</label><div data-slot=\"form-control\"><input type=\"text\" name=\"{label}\" /></div>{desc}</div>"
+        "<div data-slot=\"form-item\"><label data-slot=\"form-label\">{label}</label><div data-slot=\"form-control\"><input type=\"text\" name=\"{label}\"{placeholder} /></div>{desc}</div>"
     )
 }
 
-fn field_entries(comp: &ComponentNode) -> Vec<(String, Option<String>)> {
+fn field_entries(comp: &ComponentNode) -> Vec<Field> {
     let descriptions = descriptions_of(comp);
     let choice: Vec<String> = comp
         .items
@@ -51,17 +68,16 @@ fn field_entries(comp: &ComponentNode) -> Vec<(String, Option<String>)> {
     if !other.is_empty() {
         return attach_descriptions(other, descriptions);
     }
-    let all: Vec<String> = comp
+    let label = label_of(comp);
+    let placeholder = comp
         .items
         .iter()
-        .filter(|i| i.item_type != "description" && !i.text.is_empty())
+        .filter(|i| i.item_type == "text" && !i.text.is_empty())
         .map(|i| esc(&i.text))
-        .collect();
-    if all.is_empty() {
-        attach_descriptions(vec![label_of(comp)], descriptions)
-    } else {
-        attach_descriptions(all, descriptions)
-    }
+        .find(|t| *t != label);
+    let mut fields = attach_descriptions(vec![label], descriptions);
+    fields[0].placeholder = placeholder;
+    fields
 }
 
 fn descriptions_of(comp: &ComponentNode) -> Vec<String> {
@@ -72,14 +88,15 @@ fn descriptions_of(comp: &ComponentNode) -> Vec<String> {
         .collect()
 }
 
-fn attach_descriptions(
-    labels: Vec<String>,
-    descriptions: Vec<String>,
-) -> Vec<(String, Option<String>)> {
+fn attach_descriptions(labels: Vec<String>, descriptions: Vec<String>) -> Vec<Field> {
     labels
         .into_iter()
         .enumerate()
-        .map(|(i, label)| (label, descriptions.get(i).cloned()))
+        .map(|(i, label)| Field {
+            label,
+            description: descriptions.get(i).cloned(),
+            placeholder: None,
+        })
         .collect()
 }
 
@@ -129,16 +146,27 @@ mod tests {
         );
     }
 
+    /// Audit fixture: `label "Email"` + `text "ada@cronus.dev"` (the
+    /// placeholder). React renders ONE form-item; the text is not a field.
     #[test]
-    fn extra_text_items_become_fields() {
+    fn text_line_is_placeholder_not_second_field() {
         let mut c = stub("form", "Email");
-        c.items.push(extra("text", "Name"));
-        c.items.push(extra("text", "Company"));
+        c.items.push(extra("text", "ada@cronus.dev"));
         let html = render(&c);
-        assert!(html.contains("data-slot=\"form-label\">Email</label>"));
-        assert!(html.contains("data-slot=\"form-label\">Name</label>"));
-        assert!(html.contains("data-slot=\"form-label\">Company</label>"));
-        assert_eq!(html.matches("data-slot=\"form-item\"").count(), 3);
+        assert_eq!(
+            html,
+            "<form data-slot=\"form\"><div data-slot=\"form-item\"><label data-slot=\"form-label\">Email</label><div data-slot=\"form-control\"><input type=\"text\" name=\"Email\" placeholder=\"ada@cronus.dev\" /></div></div></form>"
+        );
+        assert_eq!(html.matches("data-slot=\"form-item\"").count(), 1);
+        reject_interact(&html);
+    }
+
+    #[test]
+    fn placeholder_is_escaped() {
+        let mut c = stub("form", "Email");
+        c.items.push(extra("text", "a \"b\" <c>"));
+        let html = render(&c);
+        assert!(html.contains(" placeholder=\"a &quot;b&quot; &lt;c&gt;\" />"));
         reject_interact(&html);
     }
 

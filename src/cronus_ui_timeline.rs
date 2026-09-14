@@ -1,23 +1,52 @@
-//! Dedicated Timeline renderer. DOM matches React slots:
-//! `<div data-slot="timeline">` plus each text as
-//! `<div data-slot="timeline-item"><div data-slot="timeline-content">`.
+//! Dedicated Timeline renderer. DOM mirrors React:
+//! `<ol role="list" data-slot="timeline" aria-label>` of
+//! `<li data-slot="timeline-item">` each with `timeline-rail` (dot + connector,
+//! none on the last item) and `timeline-body` > `timeline-content` >
+//! `timeline-title`. Events are `text`/`item` lines; the `label` names the list.
 //! Not interact `timeline()` (`<ol style=BASE>` bordered list) or catalog
 //! `display()` SURF `<section>`.
 
-use crate::cronus_ui_kit::texts;
+use crate::cronus_ui_kit::{esc, label_of};
 use crate::parser::ComponentNode;
 
+const CONNECTOR: &str = "<div data-slot=\"timeline-connector\" aria-hidden=\"true\"></div>";
+
 pub fn render(comp: &ComponentNode) -> String {
-    let items = texts(comp)
-        .into_iter()
-        .map(|t| {
+    let events = events_of(comp);
+    let last = events.len().saturating_sub(1);
+    let items = events
+        .iter()
+        .enumerate()
+        .map(|(i, t)| {
+            let connector = if i < last { CONNECTOR } else { "" };
             format!(
-                "<div data-slot=\"timeline-item\"><div data-slot=\"timeline-content\">{t}</div></div>"
+                "<li data-slot=\"timeline-item\"><div data-slot=\"timeline-rail\"><span data-slot=\"timeline-dot\" data-tone=\"default\"></span>{connector}</div><div data-slot=\"timeline-body\"><div data-slot=\"timeline-content\"><div data-slot=\"timeline-title\">{t}</div></div></div></li>"
             )
         })
         .collect::<Vec<_>>()
         .join("");
-    format!("<div data-slot=\"timeline\">{items}</div>")
+    let aria = comp
+        .props
+        .get("aria-label")
+        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
+        .filter(|s| !s.is_empty())
+        .map(|v| format!(" aria-label=\"{}\"", esc(v)))
+        .unwrap_or_default();
+    format!("<ol role=\"list\" data-slot=\"timeline\"{aria}>{items}</ol>")
+}
+
+fn events_of(comp: &ComponentNode) -> Vec<String> {
+    let events: Vec<String> = comp
+        .items
+        .iter()
+        .filter(|i| matches!(i.item_type.as_str(), "text" | "item") && !i.text.is_empty())
+        .map(|i| esc(&i.text))
+        .collect();
+    if events.is_empty() {
+        vec![label_of(comp)]
+    } else {
+        events
+    }
 }
 
 #[cfg(test)]
@@ -45,9 +74,14 @@ mod tests {
         c
     }
 
+    fn event(t: &str, connector: bool) -> String {
+        let c = if connector { CONNECTOR } else { "" };
+        format!(
+            "<li data-slot=\"timeline-item\"><div data-slot=\"timeline-rail\"><span data-slot=\"timeline-dot\" data-tone=\"default\"></span>{c}</div><div data-slot=\"timeline-body\"><div data-slot=\"timeline-content\"><div data-slot=\"timeline-title\">{t}</div></div></div></li>"
+        )
+    }
+
     fn reject_interact(html: &str) {
-        assert!(!html.contains("<ol"));
-        assert!(!html.contains("<li"));
         assert!(!html.contains("<section"));
         assert!(!html.contains("<nav"));
         assert!(!html.contains("style="));
@@ -62,43 +96,49 @@ mod tests {
     }
 
     #[test]
-    fn root_is_div_of_item_content_not_ol_or_section() {
+    fn root_is_ol_of_rail_and_body_items_like_react() {
         let html = render(&feed(&["Shipped", "Delivered"]));
-        assert!(html.starts_with("<div data-slot=\"timeline\">"));
-        assert_eq!(html.matches("data-slot=\"timeline-item\"").count(), 2);
-        assert_eq!(html.matches("data-slot=\"timeline-content\"").count(), 2);
-        assert!(html.contains(
-            "<div data-slot=\"timeline-item\"><div data-slot=\"timeline-content\">Shipped</div></div>"
-        ));
-        assert!(html.contains(">Delivered</div>"));
-        reject_interact(&html);
         assert_eq!(
             html,
-            "<div data-slot=\"timeline\"><div data-slot=\"timeline-item\"><div data-slot=\"timeline-content\">Shipped</div></div><div data-slot=\"timeline-item\"><div data-slot=\"timeline-content\">Delivered</div></div></div>"
+            format!(
+                "<ol role=\"list\" data-slot=\"timeline\">{}{}</ol>",
+                event("Shipped", true),
+                event("Delivered", false)
+            )
         );
+        assert_eq!(html.matches("data-slot=\"timeline-connector\"").count(), 1);
+        reject_interact(&html);
     }
 
+    /// Audit fixture: `label "Order history"`, `text` per event, `aria-label:`
+    /// on the last text. React: `<ol aria-label="Order history">` with only
+    /// "Order placed" / "Order shipped".
     #[test]
-    fn extra_text_items_become_events() {
-        let mut c = stub("timeline", "Shipped");
-        c.items.push(extra("text", "Delivered"));
-        c.items.push(extra("text", "Returned"));
+    fn fixture_label_names_list_not_an_event() {
+        let mut c = stub("timeline", "Order history");
+        c.items.push(extra("text", "Order placed"));
+        let mut shipped = extra("text", "Order shipped");
+        shipped.config.insert("aria-label".into(), "Order history".into());
+        c.items.push(shipped);
         let html = render(&c);
-        assert_eq!(html.matches("data-slot=\"timeline-item\"").count(), 3);
-        assert!(html.contains(">Shipped</div>"));
-        assert!(html.contains(">Delivered</div>"));
-        assert!(html.contains(">Returned</div>"));
+        assert_eq!(
+            html,
+            format!(
+                "<ol role=\"list\" data-slot=\"timeline\" aria-label=\"Order history\">{}{}</ol>",
+                event("Order placed", true),
+                event("Order shipped", false)
+            )
+        );
         reject_interact(&html);
     }
 
     #[test]
     fn label_only_still_emits_one_item() {
         let html = render(&stub("timeline", "Shipped"));
-        assert!(html.starts_with("<div data-slot=\"timeline\">"));
-        assert_eq!(html.matches("data-slot=\"timeline-item\"").count(), 1);
-        assert!(html.contains(
-            "<div data-slot=\"timeline-item\"><div data-slot=\"timeline-content\">Shipped</div></div>"
-        ));
+        assert_eq!(
+            html,
+            format!("<ol role=\"list\" data-slot=\"timeline\">{}</ol>", event("Shipped", false))
+        );
         reject_interact(&html);
     }
 
@@ -106,24 +146,23 @@ mod tests {
     fn label_is_escaped() {
         let html = render(&stub("timeline", "A <B> & \"C\""));
         assert!(html.contains(
-            "<div data-slot=\"timeline-content\">A &lt;B&gt; &amp; &quot;C&quot;</div>"
+            "<div data-slot=\"timeline-title\">A &lt;B&gt; &amp; &quot;C&quot;</div>"
         ));
         reject_interact(&html);
     }
 
     #[test]
-    fn skips_interact_ol_and_display_surf() {
+    fn skips_interact_styled_ol_and_display_surf() {
         let c = feed(&["Shipped", "Delivered"]);
         let html = render(&c);
         let interact = crate::cronus_ui_interact::render("timeline", &c).unwrap();
         assert_ne!(html, interact);
         assert!(interact.starts_with("<ol data-slot=\"timeline\""));
         assert!(interact.contains("style="));
-        assert!(interact.contains("<li"));
         assert!(!interact.contains("data-slot=\"timeline-item\""));
         assert!(!interact.contains("data-slot=\"timeline-content\""));
+        assert!(html.starts_with("<ol role=\"list\" data-slot=\"timeline\">"));
         assert!(html.contains("data-slot=\"timeline-item\""));
-        assert!(!html.contains("<ol"));
         reject_interact(&html);
     }
 
@@ -139,9 +178,20 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"timeline\"]"));
-        assert!(css.contains("[data-slot=\"timeline-item\"]"));
-        assert!(css.contains("[data-slot=\"timeline-content\"]"));
+        for slot in [
+            "timeline",
+            "timeline-item",
+            "timeline-rail",
+            "timeline-dot",
+            "timeline-connector",
+            "timeline-body",
+            "timeline-content",
+            "timeline-title",
+        ] {
+            assert!(css.contains(&format!("[data-slot=\"{slot}\"]")), "{slot}");
+        }
+        assert!(css.contains("list-style: none; margin: 0; padding: 0;"));
+        assert!(!css.contains("[data-slot=\"timeline-item\"]::before"));
         assert!(css.contains("flex-direction: column"));
         assert!(css.contains("var(--cronus-fg-tertiary)"));
         assert!(css.contains("var(--cronus-border)"));

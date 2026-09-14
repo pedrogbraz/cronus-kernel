@@ -1,14 +1,66 @@
-//! Dedicated CodeBlock renderer. DOM:
-//! `<pre data-slot="code-block"><code>` with text from label/items.
-//! Not interact `codey()` SURF `<pre style=…>` and not catalog `display()`
-//! `<section>`. Not ai-code-block.
+//! Dedicated CodeBlock renderer. DOM mirrors React:
+//! `<div data-slot="code-block">` with an optional `code-block-header`
+//! (filename / language), then `<div><section data-slot="code-block-scroll">`
+//! > `<pre data-slot="code-block-pre">` > `<code data-slot="code-block-code">`
+//! with one `<span>` per line. Code comes from `text`/`item` lines (the audit
+//! emitter repeats the code as `label`). No copy button: it would need JS.
+//! Not interact `codey()` SURF `<pre style=…>`, not catalog `display()`
+//! `<section>`, not ai-code-block.
 
-use crate::cronus_ui_kit::texts;
+use crate::cronus_ui_kit::{esc, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    let body = texts(comp).join("\n");
-    format!("<pre data-slot=\"code-block\"><code>{body}</code></pre>")
+    let code = code_lines(comp)
+        .iter()
+        .map(|l| format!("<span>{l}</span>"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let filename = attr(comp, "filename").filter(|s| !s.is_empty()).map(esc);
+    let language = attr(comp, "language").filter(|s| !s.is_empty()).map(esc);
+    let header = if filename.is_some() || language.is_some() {
+        let f = filename
+            .as_deref()
+            .map(|f| format!("<span data-slot=\"code-block-filename\">{f}</span>"))
+            .unwrap_or_default();
+        let l = language
+            .as_deref()
+            .map(|l| format!("<span data-slot=\"code-block-language\">{l}</span>"))
+            .unwrap_or_default();
+        format!("<div data-slot=\"code-block-header\"><div>{f}{l}</div></div>")
+    } else {
+        String::new()
+    };
+    let label = match filename.as_deref() {
+        Some(f) => format!("Code block, {f}"),
+        None => "Code block".into(),
+    };
+    format!(
+        "<div data-slot=\"code-block\">{header}<div><section data-slot=\"code-block-scroll\" tabindex=\"0\" aria-label=\"{label}\"><pre data-slot=\"code-block-pre\"><code data-slot=\"code-block-code\">{code}</code></pre></section></div></div>"
+    )
+}
+
+fn code_lines(comp: &ComponentNode) -> Vec<String> {
+    let lines: Vec<String> = comp
+        .items
+        .iter()
+        .filter(|i| matches!(i.item_type.as_str(), "text" | "item") && !i.text.is_empty())
+        .flat_map(|i| i.text.split('\n').map(esc).collect::<Vec<_>>())
+        .collect();
+    if lines.is_empty() {
+        vec![label_of(comp)]
+    } else {
+        lines
+    }
+}
+
+fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
+    if let Some(v) = comp.props.get(name) {
+        return Some(v.as_str());
+    }
+    comp.items
+        .iter()
+        .find_map(|i| i.config.get(name).map(String::as_str))
 }
 
 #[cfg(test)]
@@ -40,8 +92,15 @@ mod tests {
         c
     }
 
+    fn block(header: &str, label: &str, code: &str) -> String {
+        format!(
+            "<div data-slot=\"code-block\">{header}<div><section data-slot=\"code-block-scroll\" tabindex=\"0\" aria-label=\"{label}\"><pre data-slot=\"code-block-pre\"><code data-slot=\"code-block-code\">{code}</code></pre></section></div></div>"
+        )
+    }
+
     fn reject_stub(html: &str) {
-        assert!(!html.contains("<section"));
+        assert!(!html.contains("<section data-slot=\"code-block\""));
+        assert!(!html.contains("<pre data-slot=\"code-block\""));
         assert!(!html.contains("<nav"));
         assert!(!html.contains("style="));
         assert!(!html.contains("SURF"));
@@ -60,44 +119,65 @@ mod tests {
     }
 
     #[test]
-    fn root_is_pre_code_not_section_or_codey() {
+    fn root_is_div_with_scroll_pre_code_like_react() {
         let html = render(&snippet(&["fn main() {}"]));
-        assert!(html.starts_with("<pre data-slot=\"code-block\">"));
-        assert!(html.contains("<code>fn main() {}</code>"));
+        assert_eq!(html, block("", "Code block", "<span>fn main() {}</span>"));
         assert!(!html.contains("data-slot=\"code-tabs\""));
+        assert!(!html.contains("copy-button"));
         reject_stub(&html);
-        assert_eq!(
-            html,
-            "<pre data-slot=\"code-block\"><code>fn main() {}</code></pre>"
-        );
+    }
+
+    /// Audit fixture: emitter writes the code as both `label` and `text`.
+    /// React shows it once.
+    #[test]
+    fn fixture_code_is_not_duplicated() {
+        let mut c = stub("code-block", "const n = 1;");
+        c.items.push(extra("text", "const n = 1;"));
+        let html = render(&c);
+        assert_eq!(html, block("", "Code block", "<span>const n = 1;</span>"));
+        reject_stub(&html);
     }
 
     #[test]
-    fn extra_text_items_join_as_code() {
-        let mut c = stub("code-block", "let a = 1;");
-        c.items.push(extra("text", "let b = 2;"));
+    fn text_lines_and_newlines_become_line_spans() {
+        let mut c = stub("code-block", "demo");
+        c.items.push(extra("text", "let a = 1;\nlet b = 2;"));
+        c.items.push(extra("text", "let c = 3;"));
         let html = render(&c);
         assert_eq!(
             html,
-            "<pre data-slot=\"code-block\"><code>let a = 1;\nlet b = 2;</code></pre>"
+            block(
+                "",
+                "Code block",
+                "<span>let a = 1;</span>\n<span>let b = 2;</span>\n<span>let c = 3;</span>"
+            )
         );
         reject_stub(&html);
     }
 
     #[test]
-    fn label_only_still_emits_code() {
-        let html = render(&stub("code-block", "SELECT 1"));
-        assert!(html.starts_with("<pre data-slot=\"code-block\">"));
-        assert!(html.contains("<code>SELECT 1</code>"));
+    fn filename_and_language_render_header() {
+        let mut c = snippet(&["const n = 1;"]);
+        c.props.insert("filename".into(), "index.ts".into());
+        c.props.insert("language".into(), "ts".into());
+        let html = render(&c);
+        assert_eq!(
+            html,
+            block(
+                "<div data-slot=\"code-block-header\"><div><span data-slot=\"code-block-filename\">index.ts</span><span data-slot=\"code-block-language\">ts</span></div></div>",
+                "Code block, index.ts",
+                "<span>const n = 1;</span>"
+            )
+        );
         reject_stub(&html);
     }
 
     #[test]
-    fn label_is_escaped() {
+    fn label_only_is_escaped_code() {
         let html = render(&stub("code-block", "a <b> & \"c\""));
         assert_eq!(
             html,
-            "<pre data-slot=\"code-block\"><code>a &lt;b&gt; &amp; &quot;c&quot;</code></pre>"
+            block("", "Code block", "<span>a &lt;b&gt; &amp; &quot;c&quot;</span>")
         );
         reject_stub(&html);
     }
@@ -111,9 +191,7 @@ mod tests {
         assert!(interact.starts_with("<pre data-slot=\"code-block\""));
         assert!(interact.contains("style="));
         assert!(interact.contains(CODEY));
-        assert!(interact.contains("<code>fn main() {}</code>"));
-        assert!(!html.contains("style="));
-        assert!(!html.contains("<section"));
+        assert!(html.starts_with("<div data-slot=\"code-block\">"));
         assert!(!html.contains(DISPLAY_SURF));
         reject_stub(&html);
         assert_eq!(
@@ -137,15 +215,24 @@ mod tests {
         crate::voodoo::with_enabled(true, || {
             let html = render(&snippet(&["fn main() {}"]));
             reject_stub(&html);
-            assert!(html.starts_with("<pre data-slot=\"code-block\">"));
-            assert!(html.contains("<code>"));
+            assert!(html.starts_with("<div data-slot=\"code-block\">"));
+            assert!(html.contains("<code data-slot=\"code-block-code\">"));
         });
     }
 
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"code-block\"]"));
+        for slot in [
+            "code-block",
+            "code-block-header",
+            "code-block-scroll",
+            "code-block-pre",
+            "code-block-code",
+        ] {
+            assert!(css.contains(&format!("[data-slot=\"{slot}\"]")), "{slot}");
+        }
+        assert!(css.contains("[data-slot=\"code-block-pre\"] {\n  margin: 0;"));
         assert!(css.contains("var(--cronus-surface-raised)"));
         assert!(css.contains("var(--cronus-font-mono"));
         assert!(css.contains("var(--cronus-fg)"));

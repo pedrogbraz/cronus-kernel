@@ -1,7 +1,9 @@
-//! Dedicated InputOTP renderer. DOM matches React:
-//! `<div data-slot="input-otp" role="group">` wrapping
-//! `<div data-slot="input-otp-group">` and six `<div data-slot="input-otp-slot">`.
-//! Not interact `otp()` (`<fieldset style=BASE>` + `maxlength=1` inputs with CTRL).
+//! Dedicated InputOTP renderer. DOM mirrors React (input-otp lib):
+//! `<div data-input-otp-container>` holding `input-otp-group` of
+//! `input-otp-slot`s plus an overlay `<div><input data-slot="input-otp">`.
+//! The real input sits transparent over the slots; zero JS, so slots show the
+//! initial value only. Not interact `otp()` (`<fieldset style=BASE>` +
+//! `maxlength=1` inputs with CTRL).
 
 use crate::cronus_ui_kit::esc;
 use crate::parser::ComponentNode;
@@ -10,23 +12,22 @@ const SLOTS: usize = 6;
 
 pub fn render(comp: &ComponentNode) -> String {
     let n = length_of(comp);
-    let digits = digits_of(comp);
+    let digits: String = digits_of(comp).chars().take(n).collect();
     let mut group = String::new();
     for i in 0..n {
-        let ch = digits.chars().nth(i).map(|c| esc(&c.to_string())).unwrap_or_default();
+        let ch = digits.chars().nth(i).map(|c| c.to_string()).unwrap_or_default();
         group.push_str(&format!("<div data-slot=\"input-otp-slot\">{ch}</div>"));
     }
     let label = aria_label_of(comp);
     format!(
-        "<div data-slot=\"input-otp\" role=\"group\" aria-label=\"{label}\"><div data-slot=\"input-otp-group\">{group}</div></div>"
+        "<div data-input-otp-container=\"true\"><div data-slot=\"input-otp-group\">{group}</div><div><input data-slot=\"input-otp\" autocomplete=\"one-time-code\" aria-label=\"{label}\" inputmode=\"numeric\" maxlength=\"{n}\" value=\"{digits}\" /></div></div>"
     )
 }
 
 fn length_of(comp: &ComponentNode) -> usize {
-    let raw = comp
-        .props
-        .get("length")
-        .or_else(|| comp.props.get("maxlength"))
+    let raw = ["length", "maxlength", "maxLength"]
+        .iter()
+        .find_map(|k| attr(comp, k))
         .and_then(|s| s.parse::<usize>().ok());
     match raw {
         Some(n) if (1..=8).contains(&n) => n,
@@ -50,10 +51,21 @@ fn digits_of(comp: &ComponentNode) -> String {
 }
 
 fn aria_label_of(comp: &ComponentNode) -> String {
-    if let Some(v) = comp.props.get("aria-label").filter(|s| !s.is_empty()) {
+    if let Some(v) = attr(comp, "aria-label").filter(|s| !s.is_empty()) {
         return esc(v);
     }
     "One-time passcode".into()
+}
+
+/// Props first; `key:value` after an item line lands in that item's config
+/// (the tokenizer has no newlines).
+fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
+    if let Some(v) = comp.props.get(name) {
+        return Some(v.as_str());
+    }
+    comp.items
+        .iter()
+        .find_map(|i| i.config.get(name).map(String::as_str))
 }
 
 #[cfg(test)]
@@ -61,11 +73,24 @@ mod tests {
     use super::*;
     use crate::cronus_ui_kit::stub;
 
+    fn slots(values: &[&str]) -> String {
+        values
+            .iter()
+            .map(|v| format!("<div data-slot=\"input-otp-slot\">{v}</div>"))
+            .collect()
+    }
+
+    fn expected(slot_html: &str, label: &str, n: usize, value: &str) -> String {
+        format!(
+            "<div data-input-otp-container=\"true\"><div data-slot=\"input-otp-group\">{slot_html}</div><div><input data-slot=\"input-otp\" autocomplete=\"one-time-code\" aria-label=\"{label}\" inputmode=\"numeric\" maxlength=\"{n}\" value=\"{value}\" /></div></div>"
+        )
+    }
+
     fn reject_interact(html: &str) {
         assert!(!html.contains("<fieldset"));
         assert!(!html.contains("<legend"));
-        assert!(!html.contains("<input"));
-        assert!(!html.contains("maxlength"));
+        assert!(!html.contains("<input data-slot=\"input-otp-slot\""));
+        assert!(!html.contains("maxlength=\"1\""));
         assert!(!html.contains("style="));
         assert!(!html.contains("-control"));
         assert!(!html.contains("v-data="));
@@ -75,49 +100,53 @@ mod tests {
         assert!(!html.contains("font-variant-numeric:tabular-nums"));
     }
 
+    /// React (input-otp lib): container > group of slots + overlay div with
+    /// the real `<input data-slot="input-otp">`. Audit e2e expects INPUT.
     #[test]
-    fn root_is_group_of_six_slots_not_fieldset() {
+    fn slot_is_overlay_input_like_react() {
         let html = render(&stub("input-otp", "Code"));
-        assert!(html.starts_with(
-            "<div data-slot=\"input-otp\" role=\"group\" aria-label=\"One-time passcode\">"
-        ));
-        assert!(html.contains("<div data-slot=\"input-otp-group\">"));
-        assert_eq!(html.matches("data-slot=\"input-otp-slot\"").count(), 6);
-        reject_interact(&html);
         assert_eq!(
             html,
-            "<div data-slot=\"input-otp\" role=\"group\" aria-label=\"One-time passcode\"><div data-slot=\"input-otp-group\"><div data-slot=\"input-otp-slot\"></div><div data-slot=\"input-otp-slot\"></div><div data-slot=\"input-otp-slot\"></div><div data-slot=\"input-otp-slot\"></div><div data-slot=\"input-otp-slot\"></div><div data-slot=\"input-otp-slot\"></div></div></div>"
+            expected(&slots(&["", "", "", "", "", ""]), "One-time passcode", 6, "")
         );
+        assert_eq!(html.matches("data-slot=\"input-otp\"").count(), 1);
+        assert!(!html.contains("role=\"group\""));
+        reject_interact(&html);
     }
 
     #[test]
-    fn value_fills_slots() {
+    fn value_fills_slots_and_input() {
         let mut c = stub("input-otp", "Code");
         c.props.insert("value".into(), "12ab3".into());
         let html = render(&c);
-        assert!(html.contains("<div data-slot=\"input-otp-slot\">1</div>"));
-        assert!(html.contains("<div data-slot=\"input-otp-slot\">2</div>"));
-        assert!(html.contains("<div data-slot=\"input-otp-slot\">3</div>"));
-        assert!(!html.contains(">a</div>"));
-        assert_eq!(html.matches("data-slot=\"input-otp-slot\"").count(), 6);
+        assert_eq!(
+            html,
+            expected(&slots(&["1", "2", "3", "", "", ""]), "One-time passcode", 6, "123")
+        );
         reject_interact(&html);
     }
 
     #[test]
     fn length_from_props() {
-        let mut c = stub("input-otp", "Code");
-        c.props.insert("length".into(), "4".into());
-        let html = render(&c);
-        assert_eq!(html.matches("data-slot=\"input-otp-slot\"").count(), 4);
-        reject_interact(&html);
+        for key in ["length", "maxLength"] {
+            let mut c = stub("input-otp", "Code");
+            c.props.insert(key.into(), "4".into());
+            let html = render(&c);
+            assert_eq!(html.matches("data-slot=\"input-otp-slot\"").count(), 4, "{key}");
+            assert!(html.contains("maxlength=\"4\""), "{key}");
+            reject_interact(&html);
+        }
     }
 
     #[test]
-    fn aria_label_from_props() {
+    fn aria_label_from_props_or_item_config() {
         let mut c = stub("input-otp", "Code");
         c.props.insert("aria-label".into(), "Login code".into());
+        assert!(render(&c).contains("aria-label=\"Login code\""));
+        let mut c = stub("input-otp", "Code");
+        c.items[0].config.insert("aria-label".into(), "A <B>".into());
         let html = render(&c);
-        assert!(html.contains("aria-label=\"Login code\""));
+        assert!(html.contains("aria-label=\"A &lt;B&gt;\""));
         assert!(!html.contains("aria-label=\"One-time passcode\""));
         reject_interact(&html);
     }
@@ -134,7 +163,7 @@ mod tests {
         assert!(interact.contains("maxlength=\"1\""));
         assert!(interact.contains("width:2.5rem;text-align:center;font-variant-numeric:tabular-nums"));
         assert!(!html.contains("<fieldset"));
-        assert!(!html.contains("<input"));
+        assert!(html.contains("<input data-slot=\"input-otp\""));
         reject_interact(&html);
     }
 
@@ -147,14 +176,16 @@ mod tests {
     }
 
     #[test]
-    fn chrome_is_token_only() {
+    fn chrome_overlays_transparent_input_on_slots() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"input-otp\"]"));
+        assert!(css.contains("[data-input-otp-container] {"));
+        assert!(css.contains("[data-input-otp-container] > div:last-child {"));
+        assert!(css.contains("[data-slot=\"input-otp\"] {"));
         assert!(css.contains("[data-slot=\"input-otp-group\"]"));
         assert!(css.contains("[data-slot=\"input-otp-slot\"]"));
+        assert!(css.contains("caret-color: transparent"));
         assert!(css.contains("height: 2.5rem"));
         assert!(css.contains("width: 2.5rem"));
-        assert!(css.contains("align-items: center"));
         assert!(css.contains("var(--cronus-border)"));
         assert!(!css.contains("zinc-"));
     }

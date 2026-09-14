@@ -375,7 +375,6 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
 [data-slot="dropdown-menu"],
 [data-slot="combobox"],
 [data-slot="date-picker"],
-[data-slot="time-picker"],
 [data-slot="hover-card"] {
   position: relative;
   display: inline-flex;
@@ -456,7 +455,7 @@ dialog[data-slot="dialog-content"]::backdrop {
 }
 
 [data-slot="date-picker-trigger"],
-[data-slot="time-picker-trigger"] {
+[data-slot="time-picker"] {
   display: inline-flex; align-items: center; justify-content: flex-start; gap: 0.5rem;
   width: 15rem; height: 2.5rem; padding: 0 0.75rem; box-sizing: border-box;
   border: 1px solid var(--cronus-border);
@@ -468,16 +467,16 @@ dialog[data-slot="dialog-content"]::backdrop {
   transition: border-color 150ms var(--cronus-ease), box-shadow 150ms var(--cronus-ease);
 }
 [data-slot="date-picker-trigger"]:hover,
-[data-slot="time-picker-trigger"]:hover {
+[data-slot="time-picker"]:hover {
   border-color: color-mix(in oklch, var(--cronus-fg) 22%, var(--cronus-border));
 }
 [data-slot="date-picker-trigger"]:focus-visible,
-[data-slot="time-picker-trigger"]:focus-visible {
+[data-slot="time-picker"]:focus-visible {
   border-color: var(--cronus-ring, var(--cronus-primary));
   box-shadow: 0 0 0 3px color-mix(in oklch, var(--cronus-ring, var(--cronus-primary)) 25%, transparent);
 }
 [data-slot="date-picker-trigger"] svg,
-[data-slot="time-picker-trigger"] svg {
+[data-slot="time-picker"] svg {
   width: 1rem; height: 1rem; flex-shrink: 0; opacity: 0.7;
 }
 [data-slot="date-picker-content"][popover],
@@ -1204,8 +1203,19 @@ dialog[data-slot="dialog-content"]::backdrop {
 [data-slot="stepper-item"][data-state="upcoming"] [data-slot="stepper-title"] {
   color: var(--cronus-fg-tertiary);
 }
+[data-input-otp-container] {
+  position: relative; display: flex; align-items: center; gap: 0.5rem;
+}
+[data-input-otp-container] > div:last-child {
+  position: absolute; inset: 0; pointer-events: none;
+}
 [data-slot="input-otp"] {
-  display: flex; align-items: center; gap: 0.5rem;
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  display: flex; margin: 0; padding: 0; box-sizing: border-box;
+  opacity: 1; color: transparent; background: transparent; caret-color: transparent;
+  border: 0 solid transparent; outline: 0 solid transparent; box-shadow: none;
+  pointer-events: all; text-align: left; line-height: 1; letter-spacing: -0.5em;
+  font-size: 2.5rem; font-family: monospace;
 }
 [data-slot="input-otp-group"] {
   display: flex; align-items: center;
@@ -1477,13 +1487,7 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="date-picker-day"][aria-selected="true"] {
   background: var(--cronus-primary); color: var(--cronus-primary-foreground);
 }
-[data-slot="time-picker"] {
-  display: inline-flex; flex-direction: column; gap: 0.25rem;
-}
-[data-slot="time-picker"] > button {
-}
-[data-slot="time-picker"] > button:disabled { opacity: 0.5; pointer-events: none; }
-[data-slot="time-picker"] > button svg { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--cronus-fg-tertiary); }
+[data-slot="time-picker"]:disabled { opacity: 0.5; pointer-events: none; }
 [data-slot="time-picker-content"] {
 }
 [data-slot="time-picker-content"] > div {
@@ -1881,7 +1885,8 @@ button:has(+ [data-slot="sheet-content"]) {
   background: transparent; color: var(--cronus-fg);
   font-size: 0.875rem; font-weight: 400; font-family: inherit; cursor: pointer;
 }
-[data-slot="multi-select-trigger"]:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="multi-select-trigger"][aria-disabled="true"] { opacity: 0.5; pointer-events: none; }
+[data-slot="multi-select-trigger"] svg { width: 1rem; height: 1rem; flex-shrink: 0; opacity: 0.5; }
 [data-slot="multi-select-trigger"][aria-invalid="true"] { border-color: var(--cronus-error); }
 [data-slot="multi-select-content"] {
 }
@@ -2187,9 +2192,14 @@ button:has(+ [data-slot="sheet-content"]) {
   font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
 }
 [data-slot="segmented-control-item"][data-state="active"] {
-  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  color: var(--cronus-fg);
+}
+[data-slot="segmented-control-thumb"] {
+  position: absolute; inset: 0; z-index: 0; border-radius: inherit;
+  background: var(--cronus-surface-floating);
   box-shadow: var(--cronus-shadow-sm, none);
 }
+[data-slot="segmented-control-item"] > span { position: relative; z-index: 1; }
 [data-slot="segmented-control-item"]:disabled { opacity: 0.5; pointer-events: none; }
 [data-slot="usage-meter"] {
   display: flex; flex-direction: column; gap: 0.5rem;
@@ -2507,6 +2517,7 @@ button:has(+ [data-slot="sheet-content"]) {
 }
 [data-slot="text-shimmer"] {
   display: inline-block;
+  margin: 0;
   color: transparent;
   background-image:
     linear-gradient(90deg, transparent 40%, var(--cronus-surface-base), transparent 60%),
@@ -2637,26 +2648,28 @@ button:has(+ [data-slot="sheet-content"]) {
 }
 [data-slot="timeline"] {
   display: flex; flex-direction: column; width: 100%; min-width: 0;
+  list-style: none; margin: 0; padding: 0;
 }
 [data-slot="timeline-item"] {
-  position: relative; display: grid;
-  grid-template-columns: auto minmax(0, 1fr); column-gap: 0.75rem;
-  padding-bottom: 1.5rem;
+  position: relative; display: flex; gap: 0.75rem;
 }
-[data-slot="timeline-item"]:last-child { padding-bottom: 0; }
-[data-slot="timeline-item"]::before {
-  content: ""; width: 0.625rem; height: 0.625rem; margin-top: 0.25rem;
+[data-slot="timeline-rail"] {
+  display: flex; flex-direction: column; align-items: center; flex-shrink: 0;
+}
+[data-slot="timeline-dot"] {
+  display: block; width: 0.625rem; height: 0.625rem; margin-top: 0.375rem;
   border-radius: 999px; background: var(--cronus-fg-tertiary);
 }
-[data-slot="timeline-item"]:not(:last-child)::after {
-  content: ""; position: absolute; left: 0.25rem; top: 1rem; bottom: 0;
-  width: 1px; background: var(--cronus-border);
+[data-slot="timeline-connector"] {
+  flex: 1; width: 1px; margin-top: 0.25rem; background: var(--cronus-border);
 }
+[data-slot="timeline-body"] { flex: 1; min-width: 0; padding-bottom: 1.5rem; }
+[data-slot="timeline-item"]:last-child [data-slot="timeline-body"] { padding-bottom: 0; }
 [data-slot="timeline-content"] {
   display: flex; flex-direction: column; gap: 0.25rem;
-  min-width: 0; padding-top: 0.125rem;
-  font-size: 0.875rem; color: var(--cronus-fg);
+  min-width: 0; font-size: 0.875rem; color: var(--cronus-fg);
 }
+[data-slot="timeline-title"] { font-weight: 500; line-height: 1.5; }
 [data-slot="tree-view"] {
   font-size: 0.875rem; color: var(--cronus-fg); user-select: none;
 }
@@ -2765,13 +2778,16 @@ button:has(+ [data-slot="sheet-content"]) {
 }
 [data-slot="text-effect"] {
   display: inline-block;
+  margin: 0;
   animation: cui-text-effect 400ms var(--ease-out-quart) both;
 }
 @keyframes cui-text-effect {
   from { opacity: 0; filter: blur(8px); transform: translateY(8px); }
   to { opacity: 1; filter: blur(0); transform: translateY(0); }
 }
+@media (prefers-reduced-motion: reduce) {
   [data-slot="text-effect"] { animation: none; }
+}
 [data-slot="animated-list"] {
   display: flex; flex-direction: column; gap: 0.5rem;
   list-style: none; margin: 0; padding: 0;
@@ -2812,15 +2828,22 @@ button:has(+ [data-slot="sheet-content"]) {
   opacity: 0.5; pointer-events: none;
 }
 [data-slot="code-block"] {
-  margin: 0; overflow: auto;
+  overflow: hidden;
   border-radius: var(--cronus-radius-xl);
   border: 1px solid var(--cronus-border);
-  padding: 1rem; font-size: 0.875rem; line-height: 1.625;
+}
+[data-slot="code-block-header"] {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--cronus-border);
+  font-size: 0.75rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="code-block-header"] > div { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+[data-slot="code-block-scroll"] { display: block; overflow: auto; outline: none; }
+[data-slot="code-block-pre"] {
+  margin: 0; padding: 1rem; font-size: 0.875rem; line-height: 1.625;
   font-family: var(--cronus-font-mono, ui-monospace, monospace);
 }
-[data-slot="code-block"] code {
-  display: block; white-space: pre; font-family: inherit;
-}
+[data-slot="code-block-code"] { display: block; white-space: pre; font-family: inherit; }
 [data-slot="description-list"] {
   width: 100%; min-width: 0; margin: 0;
   display: flex; flex-direction: column; gap: 1rem;

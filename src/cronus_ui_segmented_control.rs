@@ -1,37 +1,63 @@
-//! Dedicated SegmentedControl renderer. DOM matches React:
-//! `<div data-slot="segmented-control" role="tablist">` plus
-//! `<button type="button" data-slot="segmented-control-item" role="tab">`.
-//! First item selected. Not interact `radios()` (`<input type="radio">`).
+//! Dedicated SegmentedControl renderer. DOM mirrors React:
+//! `<div data-slot="segmented-control" data-size="md" role="radiogroup">` plus
+//! `<button type="button" data-slot="segmented-control-item" role="radio">`;
+//! the active item carries the `segmented-control-thumb` and `tabindex="0"`.
+//! Options are `item`/`text` lines; the `label` names the group.
+//! Not interact `radios()` (`<input type="radio">` + `<label>`).
 
 use crate::cronus_ui_kit::esc;
 use crate::parser::{ComponentItemNode, ComponentNode};
 
+const THUMB: &str = "<div data-slot=\"segmented-control-thumb\" aria-hidden=\"true\"></div>";
+
 pub fn render(comp: &ComponentNode) -> String {
-    let items = options(comp);
-    let buttons = items
+    let buttons = options(comp)
         .iter()
         .map(|(text, on)| {
-            let state = if *on { "active" } else { "inactive" };
-            let selected = if *on { "true" } else { "false" };
+            let (state, checked, tab, thumb) = if *on {
+                ("active", "true", "0", THUMB)
+            } else {
+                ("inactive", "false", "-1", "")
+            };
             format!(
-                "<button type=\"button\" data-slot=\"segmented-control-item\" role=\"tab\" aria-selected=\"{selected}\" data-state=\"{state}\">{}</button>",
+                "<button type=\"button\" data-slot=\"segmented-control-item\" data-state=\"{state}\" role=\"radio\" aria-checked=\"{checked}\" tabindex=\"{tab}\">{thumb}<span>{}</span></button>",
                 esc(text)
             )
         })
         .collect::<Vec<_>>()
         .join("");
-    format!("<div data-slot=\"segmented-control\" role=\"tablist\">{buttons}</div>")
+    let aria = match attr(comp, "aria-label").filter(|s| !s.is_empty()) {
+        Some(v) => format!(" aria-label=\"{}\"", esc(v)),
+        None => String::new(),
+    };
+    format!(
+        "<div data-slot=\"segmented-control\" data-size=\"md\" role=\"radiogroup\"{aria}>{buttons}</div>"
+    )
 }
 
 fn options(comp: &ComponentNode) -> Vec<(String, bool)> {
-    let items: Vec<&ComponentItemNode> = comp.items.iter().filter(|i| !i.text.is_empty()).collect();
+    let items: Vec<&ComponentItemNode> = comp
+        .items
+        .iter()
+        .filter(|i| {
+            matches!(i.item_type.as_str(), "item" | "text" | "tab" | "columns")
+                && !i.text.is_empty()
+        })
+        .collect();
     if items.is_empty() {
-        let label = if comp.name.is_empty() {
-            "Option"
-        } else {
-            comp.name.as_str()
-        };
-        return vec![(label.to_string(), true)];
+        let label = comp
+            .items
+            .iter()
+            .find(|i| !i.text.is_empty())
+            .map(|i| i.text.clone())
+            .unwrap_or_else(|| {
+                if comp.name.is_empty() {
+                    "Option".into()
+                } else {
+                    comp.name.clone()
+                }
+            });
+        return vec![(label, true)];
     }
     let on_idx = selected_idx(comp, &items);
     items
@@ -42,8 +68,8 @@ fn options(comp: &ComponentNode) -> Vec<(String, bool)> {
 }
 
 fn selected_idx(comp: &ComponentNode, items: &[&ComponentItemNode]) -> usize {
-    if let Some(v) = comp.props.get("value") {
-        if let Some(idx) = items.iter().position(|i| i.text == *v) {
+    if let Some(v) = attr(comp, "value") {
+        if let Some(idx) = items.iter().position(|i| i.text == v) {
             return idx;
         }
     }
@@ -58,6 +84,17 @@ fn selected_idx(comp: &ComponentNode, items: &[&ComponentItemNode]) -> usize {
         .unwrap_or(0)
 }
 
+/// Props first; `key:value` after an item line lands in that item's config
+/// (the tokenizer has no newlines).
+fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
+    if let Some(v) = comp.props.get(name) {
+        return Some(v.as_str());
+    }
+    comp.items
+        .iter()
+        .find_map(|i| i.config.get(name).map(String::as_str))
+}
+
 fn is_true(raw: Option<&String>) -> bool {
     matches!(raw.map(String::as_str), Some("true" | "on" | "1"))
 }
@@ -65,6 +102,7 @@ fn is_true(raw: Option<&String>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cronus_ui_kit::stub;
     use std::collections::HashMap;
 
     fn stub_options(opts: &[&str]) -> ComponentNode {
@@ -92,11 +130,23 @@ mod tests {
         }
     }
 
+    fn seg(text: &str, on: bool) -> String {
+        if on {
+            format!(
+                "<button type=\"button\" data-slot=\"segmented-control-item\" data-state=\"active\" role=\"radio\" aria-checked=\"true\" tabindex=\"0\">{THUMB}<span>{text}</span></button>"
+            )
+        } else {
+            format!(
+                "<button type=\"button\" data-slot=\"segmented-control-item\" data-state=\"inactive\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\"><span>{text}</span></button>"
+            )
+        }
+    }
+
     fn reject_interact(html: &str) {
         assert!(!html.contains("<input"));
         assert!(!html.contains("type=\"radio\""));
         assert!(!html.contains("<label"));
-        assert!(!html.contains("role=\"radiogroup\""));
+        assert!(!html.contains("role=\"tablist\""));
         assert!(!html.contains("style="));
         assert!(!html.contains("onclick="));
         assert!(!html.contains("v-data="));
@@ -106,37 +156,56 @@ mod tests {
     }
 
     #[test]
-    fn root_is_tablist_of_segment_items() {
+    fn root_is_radiogroup_of_segment_radios() {
         let html = render(&stub_options(&["Day", "Week"]));
-        assert!(html.starts_with("<div "));
-        assert!(html.contains("data-slot=\"segmented-control\""));
-        assert!(html.contains("role=\"tablist\""));
-        assert_eq!(html.matches("data-slot=\"segmented-control-item\"").count(), 2);
-        assert!(html.contains(
-            "<button type=\"button\" data-slot=\"segmented-control-item\" role=\"tab\" aria-selected=\"true\" data-state=\"active\">Day</button>"
-        ));
-        assert!(html.contains(
-            "<button type=\"button\" data-slot=\"segmented-control-item\" role=\"tab\" aria-selected=\"false\" data-state=\"inactive\">Week</button>"
-        ));
-        reject_interact(&html);
         assert_eq!(
             html,
-            "<div data-slot=\"segmented-control\" role=\"tablist\"><button type=\"button\" data-slot=\"segmented-control-item\" role=\"tab\" aria-selected=\"true\" data-state=\"active\">Day</button><button type=\"button\" data-slot=\"segmented-control-item\" role=\"tab\" aria-selected=\"false\" data-state=\"inactive\">Week</button></div>"
+            format!(
+                "<div data-slot=\"segmented-control\" data-size=\"md\" role=\"radiogroup\">{}{}</div>",
+                seg("Day", true),
+                seg("Week", false)
+            )
         );
+        assert_eq!(html.matches("data-slot=\"segmented-control-thumb\"").count(), 1);
+        reject_interact(&html);
+    }
+
+    /// Audit fixture: `label "Range"`, `text "Day"`, `text "Week"`, then
+    /// `value:` / `aria-label:` attached to the last text. React:
+    /// radiogroup labelled "Range" with Day (active) and Week — no "Range" radio.
+    #[test]
+    fn fixture_label_names_group_value_selects() {
+        let mut c = stub("segmented-control", "Range");
+        let text = |t: &str| ComponentItemNode {
+            item_type: "text".into(),
+            text: t.into(),
+            link: None,
+            tone: None,
+            config: HashMap::new(),
+        };
+        c.items.push(text("Day"));
+        let mut week = text("Week");
+        week.config.insert("value".into(), "Day".into());
+        week.config.insert("aria-label".into(), "Range".into());
+        c.items.push(week);
+        let html = render(&c);
+        assert_eq!(
+            html,
+            format!(
+                "<div data-slot=\"segmented-control\" data-size=\"md\" role=\"radiogroup\" aria-label=\"Range\">{}{}</div>",
+                seg("Day", true),
+                seg("Week", false)
+            )
+        );
+        reject_interact(&html);
     }
 
     #[test]
     fn first_item_is_selected_by_default() {
         let html = render(&stub_options(&["Day", "Week", "Month"]));
-        assert!(html.contains(
-            "aria-selected=\"true\" data-state=\"active\">Day</button>"
-        ));
-        assert!(html.contains(
-            "aria-selected=\"false\" data-state=\"inactive\">Week</button>"
-        ));
-        assert!(html.contains(
-            "aria-selected=\"false\" data-state=\"inactive\">Month</button>"
-        ));
+        assert!(html.contains(&seg("Day", true)));
+        assert!(html.contains(&seg("Week", false)));
+        assert!(html.contains(&seg("Month", false)));
         reject_interact(&html);
     }
 
@@ -145,15 +214,9 @@ mod tests {
         let mut c = stub_options(&["Day", "Week", "Month"]);
         c.items[1].config.insert("selected".into(), "true".into());
         let html = render(&c);
-        assert!(html.contains(
-            "aria-selected=\"false\" data-state=\"inactive\">Day</button>"
-        ));
-        assert!(html.contains(
-            "aria-selected=\"true\" data-state=\"active\">Week</button>"
-        ));
-        assert!(html.contains(
-            "aria-selected=\"false\" data-state=\"inactive\">Month</button>"
-        ));
+        assert!(html.contains(&seg("Day", false)));
+        assert!(html.contains(&seg("Week", true)));
+        assert!(html.contains(&seg("Month", false)));
         reject_interact(&html);
     }
 
@@ -162,22 +225,18 @@ mod tests {
         let mut c = stub_options(&["Day", "Week", "Month"]);
         c.props.insert("value".into(), "Month".into());
         let html = render(&c);
-        assert!(html.contains(
-            "aria-selected=\"true\" data-state=\"active\">Month</button>"
-        ));
-        assert!(html.contains(
-            "aria-selected=\"false\" data-state=\"inactive\">Day</button>"
-        ));
+        assert!(html.contains(&seg("Month", true)));
+        assert!(html.contains(&seg("Day", false)));
         reject_interact(&html);
     }
 
     #[test]
-    fn options_from_text_items() {
-        let html = render(&stub_options(&["A", "B", "C"]));
+    fn options_from_items_and_escaped() {
+        let html = render(&stub_options(&["A", "B", "<C>"]));
         assert_eq!(html.matches("data-slot=\"segmented-control-item\"").count(), 3);
-        assert!(html.contains(">A</button>"));
-        assert!(html.contains(">B</button>"));
-        assert!(html.contains(">C</button>"));
+        assert!(html.contains("<span>A</span></button>"));
+        assert!(html.contains("<span>&lt;C&gt;</span></button>"));
+        reject_interact(&html);
     }
 
     #[test]
@@ -188,10 +247,9 @@ mod tests {
         assert_ne!(html, interact);
         assert!(interact.contains("<input type=\"radio\""));
         assert!(interact.contains("<label"));
-        assert!(interact.contains("role=\"radiogroup\""));
         assert!(!interact.contains("data-slot=\"segmented-control-item\""));
         assert!(html.contains("data-slot=\"segmented-control-item\""));
-        assert!(html.contains("role=\"tablist\""));
+        assert!(html.contains("role=\"radiogroup\""));
         reject_interact(&html);
     }
 
@@ -209,6 +267,8 @@ mod tests {
         assert!(css.contains("[data-slot=\"segmented-control\"]"));
         assert!(css.contains("[data-slot=\"segmented-control-item\"]"));
         assert!(css.contains("[data-slot=\"segmented-control-item\"][data-state=\"active\"]"));
+        assert!(css.contains("[data-slot=\"segmented-control-thumb\"]"));
+        assert!(css.contains("[data-slot=\"segmented-control-item\"] > span"));
         assert!(css.contains("display: inline-flex"));
         assert!(css.contains("gap: 0.25rem"));
         assert!(css.contains("var(--cronus-surface-overlay)"));

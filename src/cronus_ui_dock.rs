@@ -1,7 +1,8 @@
-//! Dedicated Dock renderer. DOM:
-//! `<nav data-slot="dock">` plus each text as
+//! Dedicated Dock renderer. DOM mirrors React:
+//! `<div data-slot="dock" aria-label>` plus each entry as
 //! `<a data-slot="dock-item">` when the item has a link, otherwise
-//! `<button type="button" data-slot="dock-item">`.
+//! `<button type="button" data-slot="dock-item">`. The `label` names the dock;
+//! it is only an entry when nothing else exists.
 //! Not interact `nav("dock")` (generic SURF `<nav>` without dock-item).
 
 use crate::cronus_ui_kit::{esc, label_of};
@@ -13,7 +14,7 @@ pub fn render(comp: &ComponentNode) -> String {
         .map(|(text, href)| item_html(&text, href.as_deref()))
         .collect::<Vec<_>>()
         .join("");
-    format!("<nav data-slot=\"dock\">{items}</nav>")
+    format!("<div data-slot=\"dock\"{}>{items}</div>", aria_attr(comp))
 }
 
 fn item_html(text: &str, href: Option<&str>) -> String {
@@ -22,6 +23,19 @@ fn item_html(text: &str, href: Option<&str>) -> String {
         None => format!(
             "<button type=\"button\" data-slot=\"dock-item\" title=\"{text}\" aria-label=\"{text}\">{text}</button>"
         ),
+    }
+}
+
+/// `aria-label:` after an item line lands in that item's config (the
+/// tokenizer has no newlines), so look there as well as in props.
+fn aria_attr(comp: &ComponentNode) -> String {
+    let v = comp
+        .props
+        .get("aria-label")
+        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")));
+    match v.filter(|s| !s.is_empty()) {
+        Some(v) => format!(" aria-label=\"{}\"", esc(v)),
+        None => String::new(),
     }
 }
 
@@ -46,6 +60,15 @@ fn nav_entries(comp: &ComponentNode) -> Vec<(String, Option<String>)> {
         .collect();
     if !other.is_empty() {
         return other;
+    }
+    let text_lines: Vec<(String, Option<String>)> = comp
+        .items
+        .iter()
+        .filter(|i| i.item_type == "text" && !i.text.is_empty())
+        .map(entry_of)
+        .collect();
+    if !text_lines.is_empty() {
+        return text_lines;
     }
     let all: Vec<(String, Option<String>)> = comp
         .items
@@ -74,7 +97,6 @@ fn entry_of(i: &ComponentItemNode) -> (String, Option<String>) {
 mod tests {
     use super::*;
     use crate::cronus_ui_kit::stub;
-    use crate::parser::ComponentItemNode;
 
     fn extra(kind: &str, text: &str) -> ComponentItemNode {
         ComponentItemNode {
@@ -106,6 +128,7 @@ mod tests {
     }
 
     fn reject_interact(html: &str) {
+        assert!(!html.contains("<nav"));
         assert!(!html.contains("<details"));
         assert!(!html.contains("<summary"));
         assert!(!html.contains("-control"));
@@ -119,21 +142,31 @@ mod tests {
     }
 
     #[test]
-    fn root_is_nav_with_items_not_surf() {
+    fn root_is_div_with_items_like_react() {
         let html = render(&bar(&["Home", "Search"]));
-        assert!(html.starts_with("<nav data-slot=\"dock\">"));
-        assert!(html.contains(
-            "<button type=\"button\" data-slot=\"dock-item\" title=\"Home\" aria-label=\"Home\">Home</button>"
-        ));
-        assert!(html.contains(
-            "<button type=\"button\" data-slot=\"dock-item\" title=\"Search\" aria-label=\"Search\">Search</button>"
-        ));
-        assert_eq!(html.matches("data-slot=\"dock-item\"").count(), 2);
-        reject_interact(&html);
         assert_eq!(
             html,
-            "<nav data-slot=\"dock\"><button type=\"button\" data-slot=\"dock-item\" title=\"Home\" aria-label=\"Home\">Home</button><button type=\"button\" data-slot=\"dock-item\" title=\"Search\" aria-label=\"Search\">Search</button></nav>"
+            "<div data-slot=\"dock\"><button type=\"button\" data-slot=\"dock-item\" title=\"Home\" aria-label=\"Home\">Home</button><button type=\"button\" data-slot=\"dock-item\" title=\"Search\" aria-label=\"Search\">Search</button></div>"
         );
+        reject_interact(&html);
+    }
+
+    /// Audit fixture: `label "App dock"`, `text` per item, `aria-label:` on the
+    /// last text. React: `<div data-slot="dock" aria-label="App dock">` with
+    /// Home/Search only.
+    #[test]
+    fn fixture_label_names_dock_not_an_item() {
+        let mut c = stub("dock", "App dock");
+        c.items.push(extra("text", "Home"));
+        let mut search = extra("text", "Search");
+        search.config.insert("aria-label".into(), "App dock".into());
+        c.items.push(search);
+        let html = render(&c);
+        assert_eq!(
+            html,
+            "<div data-slot=\"dock\" aria-label=\"App dock\"><button type=\"button\" data-slot=\"dock-item\" title=\"Home\" aria-label=\"Home\">Home</button><button type=\"button\" data-slot=\"dock-item\" title=\"Search\" aria-label=\"Search\">Search</button></div>"
+        );
+        reject_interact(&html);
     }
 
     #[test]
@@ -154,15 +187,15 @@ mod tests {
     }
 
     #[test]
-    fn extra_text_items_become_items() {
+    fn extra_text_items_become_items_label_does_not() {
         let mut c = stub("dock", "Home");
         c.items.push(extra("text", "Search"));
         c.items.push(extra("text", "Settings"));
         let html = render(&c);
-        assert!(html.contains("data-slot=\"dock-item\" title=\"Home\""));
+        assert!(!html.contains("title=\"Home\""));
         assert!(html.contains("data-slot=\"dock-item\" title=\"Search\""));
         assert!(html.contains("data-slot=\"dock-item\" title=\"Settings\""));
-        assert_eq!(html.matches("data-slot=\"dock-item\"").count(), 3);
+        assert_eq!(html.matches("data-slot=\"dock-item\"").count(), 2);
         reject_interact(&html);
     }
 
@@ -182,7 +215,7 @@ mod tests {
     #[test]
     fn label_only_still_emits_one_item() {
         let html = render(&stub("dock", "Home"));
-        assert!(html.contains("<nav data-slot=\"dock\">"));
+        assert!(html.starts_with("<div data-slot=\"dock\">"));
         assert!(html.contains(
             "<button type=\"button\" data-slot=\"dock-item\" title=\"Home\" aria-label=\"Home\">Home</button>"
         ));

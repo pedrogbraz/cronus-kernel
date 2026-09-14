@@ -1,15 +1,13 @@
-//! Dedicated TextEffect renderer. DOM matches React idle:
-//! `<span data-slot="text-effect">` with label text. CSS enter animation
-//! in COMPONENT_CHROME. Not the catalog `fx()` title SURF box.
+//! Dedicated TextEffect renderer. DOM matches React root:
+//! `<p data-slot="text-effect">` with label text. CSS enter animation
+//! in COMPONENT_CHROME (off under reduced motion). Not the catalog `fx()`
+//! title SURF box.
 
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    format!(
-        "<span data-slot=\"text-effect\">{}</span>",
-        label_of(comp)
-    )
+    format!("<p data-slot=\"text-effect\">{}</p>", label_of(comp))
 }
 
 #[cfg(test)]
@@ -24,6 +22,7 @@ mod tests {
         assert!(!html.contains("style="));
         assert!(!html.contains("SURF"));
         assert!(!html.contains("<div"));
+        assert!(!html.contains("<span"));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
@@ -31,13 +30,12 @@ mod tests {
         assert!(!html.contains("zinc-"));
     }
 
+    /// React `TextEffect` root is `<p data-slot="text-effect">`; audit e2e
+    /// expects tag P.
     #[test]
-    fn root_is_span_with_label_not_fx_title_box() {
+    fn root_is_p_with_label_like_react() {
         let html = render(&stub("text-effect", "Ship faster"));
-        assert_eq!(html, "<span data-slot=\"text-effect\">Ship faster</span>");
-        assert!(html.starts_with("<span "));
-        assert!(html.contains("data-slot=\"text-effect\""));
-        assert!(html.contains(">Ship faster</span>"));
+        assert_eq!(html, "<p data-slot=\"text-effect\">Ship faster</p>");
         reject_fx(&html);
     }
 
@@ -46,7 +44,7 @@ mod tests {
         let html = render(&stub("text-effect", "A <B> & \"C\""));
         assert_eq!(
             html,
-            "<span data-slot=\"text-effect\">A &lt;B&gt; &amp; &quot;C&quot;</span>"
+            "<p data-slot=\"text-effect\">A &lt;B&gt; &amp; &quot;C&quot;</p>"
         );
         reject_fx(&html);
     }
@@ -60,7 +58,6 @@ mod tests {
         assert!(fx.contains("<span>"));
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
-        assert!(!html.contains("<div"));
         reject_fx(&html);
     }
 
@@ -73,12 +70,18 @@ mod tests {
         });
     }
 
+    /// The reduced-motion override used to sit outside any `@media`, which
+    /// disabled the enter animation for everyone.
     #[test]
     fn chrome_text_effect_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"text-effect\"]"));
+        assert!(css.contains("[data-slot=\"text-effect\"] {\n  display: inline-block;\n  margin: 0;"));
         assert!(css.contains("@keyframes cui-text-effect"));
         assert!(css.contains("animation: cui-text-effect"));
+        assert!(css.contains(
+            "@media (prefers-reduced-motion: reduce) {\n  [data-slot=\"text-effect\"] { animation: none; }\n}"
+        ));
+        assert!(!css.contains("}\n  [data-slot=\"text-effect\"] { animation: none; }\n[data-slot="));
         assert!(css.contains("filter: blur"));
         assert!(css.contains("var(--ease-out-quart)"));
         assert!(!css.contains("zinc-"));

@@ -1,24 +1,43 @@
-//! Dedicated CardStack renderer. DOM matches React idle:
-//! `<div data-slot="card-stack">` plus `card-stack-item` from texts (2–3
-//! stacked). CSS offset in COMPONENT_CHROME. Not catalog `display()` SURF
-//! `<section>`. Not interact `card()`.
+//! Dedicated CardStack renderer. DOM mirrors React idle:
+//! `<section data-slot="card-stack" aria-label>` plus `card-stack-item`s (2–3
+//! stacked); cards behind the front one are `aria-hidden`. Cards are
+//! `text`/`item` lines; the `label` names the stack. CSS offset in
+//! COMPONENT_CHROME, no JS (no "show next card" button role).
+//! Not the interact/catalog `<section style=…>` SURF card.
 
-use crate::cronus_ui_kit::texts;
+use crate::cronus_ui_kit::{esc, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     let items = items_of(comp)
         .into_iter()
-        .map(|t| format!("<div data-slot=\"card-stack-item\">{t}</div>"))
+        .enumerate()
+        .map(|(i, t)| {
+            let hidden = if i == 0 { "" } else { " aria-hidden=\"true\"" };
+            format!("<div data-slot=\"card-stack-item\"{hidden}>{t}</div>")
+        })
         .collect::<Vec<_>>()
         .join("");
-    format!("<div data-slot=\"card-stack\">{items}</div>")
+    let aria = comp
+        .props
+        .get("aria-label")
+        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
+        .filter(|s| !s.is_empty())
+        .map(|v| format!(" aria-label=\"{}\"", esc(v)))
+        .unwrap_or_default();
+    format!("<section data-slot=\"card-stack\"{aria}>{items}</section>")
 }
 
 fn items_of(comp: &ComponentNode) -> Vec<String> {
-    let mut out = texts(comp);
-    if out.len() > 3 {
-        out.truncate(3);
+    let mut out: Vec<String> = comp
+        .items
+        .iter()
+        .filter(|i| matches!(i.item_type.as_str(), "text" | "item") && !i.text.is_empty())
+        .map(|i| esc(&i.text))
+        .take(3)
+        .collect();
+    if out.is_empty() {
+        out.push(label_of(comp));
     }
     while out.len() < 2 {
         out.push(format!("Card {}", out.len() + 1));
@@ -56,7 +75,6 @@ mod tests {
 
     fn reject_display(html: &str) {
         assert!(!html.contains(DISPLAY_SURF));
-        assert!(!html.contains("<section"));
         assert!(!html.contains("style="));
         assert!(!html.contains("SURF"));
         assert!(!html.contains("v-data="));
@@ -68,15 +86,29 @@ mod tests {
     }
 
     #[test]
-    fn root_is_div_with_stacked_items_not_display_section() {
+    fn root_is_section_with_stacked_items_like_react() {
         let html = render(&stack(&["Alpha", "Beta"]));
-        assert!(html.starts_with("<div data-slot=\"card-stack\">"));
-        assert_eq!(html.matches("data-slot=\"card-stack-item\"").count(), 2);
-        assert!(html.contains("<div data-slot=\"card-stack-item\">Alpha</div>"));
-        assert!(html.contains("<div data-slot=\"card-stack-item\">Beta</div>"));
         assert_eq!(
             html,
-            "<div data-slot=\"card-stack\"><div data-slot=\"card-stack-item\">Alpha</div><div data-slot=\"card-stack-item\">Beta</div></div>"
+            "<section data-slot=\"card-stack\"><div data-slot=\"card-stack-item\">Alpha</div><div data-slot=\"card-stack-item\" aria-hidden=\"true\">Beta</div></section>"
+        );
+        reject_display(&html);
+    }
+
+    /// Audit fixture: `label "Stack"`, `text "One"`, `text "Two"`,
+    /// `aria-label:` on the last text. React: `<section aria-label="Stack">`
+    /// with cards One/Two only.
+    #[test]
+    fn fixture_label_names_stack_not_a_card() {
+        let mut c = stub("card-stack", "Stack");
+        c.items.push(extra("text", "One"));
+        let mut two = extra("text", "Two");
+        two.config.insert("aria-label".into(), "Stack".into());
+        c.items.push(two);
+        let html = render(&c);
+        assert_eq!(
+            html,
+            "<section data-slot=\"card-stack\" aria-label=\"Stack\"><div data-slot=\"card-stack-item\">One</div><div data-slot=\"card-stack-item\" aria-hidden=\"true\">Two</div></section>"
         );
         reject_display(&html);
     }
@@ -86,6 +118,7 @@ mod tests {
         let html = render(&stack(&["Alpha", "Beta", "Gamma"]));
         assert_eq!(html.matches("data-slot=\"card-stack-item\"").count(), 3);
         assert!(html.contains(">Gamma</div>"));
+        assert_eq!(html.matches("aria-hidden=\"true\"").count(), 2);
         reject_display(&html);
     }
 
@@ -102,7 +135,7 @@ mod tests {
         let html = render(&stub("card-stack", "Front"));
         assert_eq!(html.matches("data-slot=\"card-stack-item\"").count(), 2);
         assert!(html.contains("<div data-slot=\"card-stack-item\">Front</div>"));
-        assert!(html.contains("<div data-slot=\"card-stack-item\">Card 2</div>"));
+        assert!(html.contains("<div data-slot=\"card-stack-item\" aria-hidden=\"true\">Card 2</div>"));
         reject_display(&html);
     }
 
@@ -124,7 +157,7 @@ mod tests {
         assert!(interact.starts_with("<section data-slot=\"card-stack\""));
         assert!(interact.contains("style="));
         assert_ne!(html, interact);
-        assert!(!html.contains("<section"));
+        assert!(html.starts_with("<section data-slot=\"card-stack\">"));
         reject_display(&html);
         assert_eq!(
             dedicated_fn_name("card-stack"),

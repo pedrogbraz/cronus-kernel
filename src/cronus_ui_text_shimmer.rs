@@ -1,15 +1,12 @@
 //! Dedicated TextShimmer renderer. DOM matches React:
-//! `<span data-slot="text-shimmer">` with label text. CSS gradient animation
+//! `<p data-slot="text-shimmer">` with label text. CSS gradient animation
 //! in COMPONENT_CHROME. Not the catalog `fx()` title SURF box.
 
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    format!(
-        "<span data-slot=\"text-shimmer\">{}</span>",
-        label_of(comp)
-    )
+    format!("<p data-slot=\"text-shimmer\">{}</p>", label_of(comp))
 }
 
 #[cfg(test)]
@@ -24,6 +21,7 @@ mod tests {
         assert!(!html.contains("style="));
         assert!(!html.contains("SURF"));
         assert!(!html.contains("<div"));
+        assert!(!html.contains("<span"));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
@@ -31,13 +29,12 @@ mod tests {
         assert!(!html.contains("zinc-"));
     }
 
+    /// React `TextShimmer` renders `<p data-slot="text-shimmer">`; audit e2e
+    /// expects tag P.
     #[test]
-    fn root_is_span_with_label_not_fx_title_box() {
+    fn root_is_p_with_label_like_react() {
         let html = render(&stub("text-shimmer", "Thinking"));
-        assert_eq!(html, "<span data-slot=\"text-shimmer\">Thinking</span>");
-        assert!(html.starts_with("<span "));
-        assert!(html.contains("data-slot=\"text-shimmer\""));
-        assert!(html.contains(">Thinking</span>"));
+        assert_eq!(html, "<p data-slot=\"text-shimmer\">Thinking</p>");
         reject_fx(&html);
     }
 
@@ -46,7 +43,7 @@ mod tests {
         let html = render(&stub("text-shimmer", "A <B> & \"C\""));
         assert_eq!(
             html,
-            "<span data-slot=\"text-shimmer\">A &lt;B&gt; &amp; &quot;C&quot;</span>"
+            "<p data-slot=\"text-shimmer\">A &lt;B&gt; &amp; &quot;C&quot;</p>"
         );
         reject_fx(&html);
     }
@@ -60,7 +57,6 @@ mod tests {
         assert!(fx.contains("<span>"));
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
-        assert!(!html.contains("<div"));
         reject_fx(&html);
     }
 
@@ -76,7 +72,7 @@ mod tests {
     #[test]
     fn chrome_text_shimmer_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"text-shimmer\"]"));
+        assert!(css.contains("[data-slot=\"text-shimmer\"] {\n  display: inline-block;\n  margin: 0;"));
         assert!(css.contains("background-clip: text"));
         assert!(css.contains("@keyframes cui-text-shimmer"));
         assert!(css.contains("animation: cui-text-shimmer"));

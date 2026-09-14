@@ -1,6 +1,7 @@
-//! Dedicated TimePicker renderer. Always-open static DOM (no JS).
-//! Root `data-slot="time-picker"` with open `data-slot="time-picker-content"`
-//! columns of options. Not interact `input("time-picker", "time")`.
+//! Dedicated TimePicker renderer. DOM mirrors React closed state: the root
+//! `data-slot="time-picker"` IS the outline trigger `<button>`. The panel is a
+//! native `popover` sibling (`time-picker-content`), hidden until opened by
+//! `popovertarget` — no JS. Not interact `input("time-picker", "time")`.
 
 use crate::cronus_ui_kit::{esc, item, label_of};
 use crate::parser::ComponentNode;
@@ -21,7 +22,7 @@ pub fn render(comp: &ComponentNode) -> String {
     let trigger_id = crate::cronus_ui_kit::widget_id(comp, "trigger");
     let pop_id = crate::cronus_ui_kit::widget_id(comp, "panel");
     let mut btn = format!(
-        "type=\"button\" id=\"{trigger_id}\" data-slot=\"time-picker-trigger\" aria-haspopup=\"dialog\" popovertarget=\"{pop_id}\""
+        "type=\"button\" id=\"{trigger_id}\" data-slot=\"time-picker\" data-variant=\"outline\" aria-haspopup=\"dialog\" aria-expanded=\"false\" data-state=\"closed\" popovertarget=\"{pop_id}\""
     );
     if flag(comp, "disabled") {
         btn.push_str(" disabled");
@@ -40,7 +41,7 @@ pub fn render(comp: &ComponentNode) -> String {
         .unwrap_or_else(|| "Choose a time".into());
     let columns = columns_html(time, hour_cycle, show_seconds);
     format!(
-        "<div data-slot=\"time-picker\"><button {btn}>{ICON}<span>{label}</span></button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"time-picker-content\" aria-label=\"{content_label}\" anchor=\"{trigger_id}\">{columns}<div data-slot=\"time-picker-footer\"><button type=\"button\" data-slot=\"time-picker-now\">Now</button><button type=\"button\" data-slot=\"time-picker-done\">Done</button></div></div></div>"
+        "<button {btn}>{ICON}<span>{label}</span></button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"time-picker-content\" aria-label=\"{content_label}\" anchor=\"{trigger_id}\">{columns}<div data-slot=\"time-picker-footer\"><button type=\"button\" data-slot=\"time-picker-now\">Now</button><button type=\"button\" data-slot=\"time-picker-done\">Done</button></div></div>"
     )
 }
 
@@ -232,6 +233,7 @@ fn flag(comp: &ComponentNode, name: &str) -> bool {
 mod tests {
     use super::*;
     use crate::cronus_ui_kit::stub;
+    use crate::parser::ComponentItemNode;
 
     fn reject_interact(html: &str) {
         assert!(!html.contains("type=\"time\""));
@@ -247,13 +249,15 @@ mod tests {
     }
 
     #[test]
-    fn root_is_open_panel_not_native_time_input() {
+    fn root_is_trigger_button_with_native_popover_panel() {
         let html = render(&stub("time-picker", "Time"));
-        assert!(html.starts_with("<div data-slot=\"time-picker\">"));
-        assert!(html.contains("aria-haspopup=\"dialog\""));
-        assert!(html.contains("popovertarget="));
-        assert!(html.contains("<span>Time</span></button>"));
-        assert!(html.contains("data-slot=\"time-picker-content\""));
+        assert!(html.starts_with(
+            "<button type=\"button\" id=\"cui-time-picker-trigger\" data-slot=\"time-picker\" data-variant=\"outline\" aria-haspopup=\"dialog\" aria-expanded=\"false\" data-state=\"closed\" popovertarget=\"cui-time-picker-panel\">"
+        ));
+        assert_eq!(html.matches("data-slot=\"time-picker\"").count(), 1);
+        assert!(html.contains(
+            "<span>Time</span></button><div id=\"cui-time-picker-panel\" popover=\"auto\" data-slot=\"time-picker-content\""
+        ));
         assert!(html.contains("data-slot=\"time-picker-column\""));
         assert!(html.contains("data-slot=\"time-picker-option\""));
         assert!(html.contains("role=\"listbox\""));
@@ -262,7 +266,31 @@ mod tests {
         assert!(html.contains("aria-label=\"AM or PM\""));
         assert!(html.contains("data-slot=\"time-picker-now\">Now</button>"));
         assert!(html.contains("data-slot=\"time-picker-done\">Done</button>"));
-        assert!(!html.contains("type=\"time\""));
+        assert!(!html.contains("data-slot=\"time-picker-trigger\""));
+        reject_interact(&html);
+    }
+
+    /// Audit fixture: emitter writes `label`, `text`, then `value:` and
+    /// `aria-label:` which the parser attaches to the text item. React root
+    /// `[data-slot="time-picker"]` is the BUTTON labelled "Meeting time: …".
+    #[test]
+    fn fixture_root_is_button_with_value_aria_label() {
+        let mut c = stub("time-picker", "Select time");
+        let mut text = ComponentItemNode {
+            item_type: "text".into(),
+            text: "Select time".into(),
+            link: None,
+            tone: None,
+            config: Default::default(),
+        };
+        text.config.insert("value".into(), "09:30".into());
+        text.config.insert("aria-label".into(), "Meeting time".into());
+        c.items.push(text);
+        let html = render(&c);
+        assert!(html.starts_with("<button type=\"button\""));
+        assert!(!html.starts_with("<div"));
+        assert!(html.contains(" aria-label=\"Meeting time: 09:30 AM\">"));
+        assert!(html.contains("<span>09:30 AM</span></button>"));
         reject_interact(&html);
     }
 
@@ -339,6 +367,9 @@ mod tests {
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"time-picker\"]"));
+        assert!(css.contains("[data-slot=\"time-picker\"]:disabled"));
+        assert!(!css.contains("[data-slot=\"time-picker-trigger\"]"));
+        assert!(!css.contains("[data-slot=\"time-picker\"] > button"));
         assert!(css.contains("[data-slot=\"time-picker-content\"]"));
         assert!(css.contains("[data-slot=\"time-picker-column\"]"));
         assert!(css.contains("[data-slot=\"time-picker-option\"]"));
