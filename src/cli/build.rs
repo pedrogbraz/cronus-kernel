@@ -352,6 +352,14 @@ pub fn cmd_build(args: &[String]) {
     }
 }
 
+/// Parses `source` and returns the same report `cronus build --ai` prints.
+/// `Err` carries the parse error.
+pub(crate) fn validate_source_ai(source: &str, file: &str) -> Result<Value, String> {
+    let nodes = parser::parse(source)?;
+    let (entities, pages, routes) = parser::stats(&nodes);
+    Ok(build_ai_error_json(&nodes, file, entities, pages, routes))
+}
+
 /// Build the AI-Error Protocol JSON from all validation passes.
 /// Collects errors from contract validation, resolve, lint, hardcode lint, and constitution.
 fn build_ai_error_json(

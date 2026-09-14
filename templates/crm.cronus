@@ -1,213 +1,136 @@
-/// CRM — Sales pipeline and contact management.
-/// Deal lifecycle tracking, activity logging, revenue forecasting.
+/// CRM — contacts and a deal pipeline, private to each signed-in user.
 /// @template crm
-/// @author CRONUS
 app "CRM" {
-  stack fullstack
   port 5175
   database sqlite "./data.db"
-  theme dark
-
-  constitution {
-    must "deal values in centavos — use formatPrice()"
-    must "all deal stage changes logged as activities"
-    must "contacts require at least email or phone"
-    never "delete deals — mark as lost instead"
-    never "modify closed-won deals without admin role"
-  }
 }
-
-# -- Entities --
-
-/// Company / account in the CRM.
-entity Company shared {
-  name string! max:200 searchable
-  domain url
-  industry enum ["tech", "finance", "healthcare", "retail", "manufacturing", "services", "other"] default:"other"
-  size enum ["1-10", "11-50", "51-200", "201-1000", "1000+"]
-  /// Annual revenue estimate in centavos
-  annual_revenue money min:0
-  phone phone
-  address text max:500
-}
-
-/// Individual contact linked to a company.
-entity Contact shared {
-  name string! max:120 searchable
-  email email unique
-  phone phone
-  title string max:100
-  company -> Company
-  source enum ["website", "referral", "linkedin", "cold", "event", "other"] default:"other"
-}
-
-/// Sales deal progressing through pipeline stages.
-/// @business Core revenue entity — stage drives forecasting
-entity Deal shared {
-  title string! max:200 searchable
-  /// Deal value in centavos (500000 = R$5.000,00)
-  value money! min:0
-  company -> Company
-  contact -> Contact
-  owner string! max:100
-  stage enum ["lead", "qualified", "proposal", "negotiation", "won", "lost"] default:"lead"
-  /// Win probability percentage
-  probability number default:"10" min:0 max:100
-  /// Expected close date
-  expected_close date
-  /// Reason for loss (required when stage = lost)
-  lost_reason text max:500
-  source enum ["inbound", "outbound", "referral", "partner"] default:"inbound"
-
-  transition stage {
-    lead -> qualified | lost
-    qualified -> proposal | lost
-    proposal -> negotiation | lost
-    negotiation -> won | lost
-  }
-}
-
-/// Interaction or event logged against a contact or deal.
-entity Activity shared {
-  type enum ["call", "email", "meeting", "note", "task"] default:"note"
-  subject string! max:200
-  description text max:5000
-  contact -> Contact
-  deal -> Deal
-  /// Who performed this activity
-  performed_by string! max:100
-  completed boolean default:"false"
-  due_date date
-}
-
-/// Free-form note attached to any entity.
-entity Note shared {
-  body text! max:10000
-  contact -> Contact
-  deal -> Deal
-  company -> Company
-  author string! max:100
-}
-
-# -- Auth --
 
 auth {
-  entity Contact
-  login email
-  session jwt
-  roles [admin, manager, rep]
+  entity User
+  login email + password
+  session jwt expires:24h
+  roles [rep, admin]
+  redirect "/dashboard"
 }
 
-# -- API --
-
-api /auth {
-  login    POST /login    auth:public
-  register POST /register auth:public
-  me       GET  /me       auth:jwt
+entity User {
+  name     string!
+  email    email! unique
+  password string! sensitive
+  role     string
 }
 
-api /companies {
-  list   GET    /       auth:jwt
-  detail GET    /:id    auth:jwt
-  create POST   /       auth:jwt
-  update PATCH  /:id    auth:jwt
+entity Contact {
+  name    string! searchable
+  email   email
+  company string
+  phone   phone
+}
+
+entity Deal {
+  title   string!
+  company string
+  value   money!
+  stage   enum [lead, qualified, proposal, won, lost] default:lead
 }
 
 api /contacts {
-  list   GET    /       auth:jwt
-  detail GET    /:id    auth:jwt
-  create POST   /       auth:jwt
-  update PATCH  /:id    auth:jwt
+  list   GET    /    auth:jwt
+  create POST   /    auth:jwt
+  detail GET    /:id auth:jwt
+  update PATCH  /:id auth:jwt
+  delete DELETE /:id auth:jwt
 }
 
 api /deals {
-  list   GET    /       auth:jwt
-  detail GET    /:id    auth:jwt
-  create POST   /       auth:jwt
-  update PATCH  /:id    auth:jwt
+  list   GET    /    auth:jwt
+  create POST   /    auth:jwt
+  detail GET    /:id auth:jwt
+  update PATCH  /:id auth:jwt
+  delete DELETE /:id auth:jwt
 }
 
-api /activities {
-  list   GET    /       auth:jwt
-  create POST   /       auth:jwt
-  update PATCH  /:id    auth:jwt
+layout Main {
+  brand "CRM"
+  sidebar {
+    "Dashboard" -> "/dashboard" icon:dashboard
+    "Deals"     -> "/deals"     icon:handshake
+    "Contacts"  -> "/contacts"  icon:contacts
+  }
 }
 
-api /notes {
-  list   GET    /       auth:jwt
-  create POST   /       auth:jwt
-  delete DELETE /:id    auth:jwt
-}
-
-webhook /deals {
-  on create -> POST "https://hooks.example.com/crm/deal-created"
-  on update -> POST "https://hooks.example.com/crm/deal-updated"
-}
-
-webhook /activity {
-  on create -> POST "https://hooks.example.com/crm/activity-logged"
-}
-
-# -- Pages --
-
-page "/login" type:form entity:Contact {
-  title "Sign In"
-  fields [email, password]
+page "/" type:custom {
+  section hero {
+    title "Your pipeline, in one place"
+    subtitle "Track contacts and deals from lead to won."
+    cta_text "Create an account"
+    cta_link "/register"
+  }
 }
 
 page "/dashboard" type:dashboard requires:auth {
-  title "Sales Dashboard"
-
-  section stats cols:4 {
-    bind entity:Deal { query count where stage eq "won" }
-    item "Deals Won" value:"count" icon:emoji_events
-    bind entity:Deal { query sum field:value where stage eq "won" }
-    item "Revenue" value:"sum" icon:attach_money
-    bind entity:Deal { query count where stage eq "negotiation" }
-    item "In Negotiation" value:"count" icon:handshake
-    bind entity:Contact { query count }
-    item "Contacts" value:"count" icon:people
+  section kpi {
+    bind Deal { aggregate count }
+    item "Open deals" value:bind icon:handshake
   }
-
-  section pipeline {
-    title "Active Pipeline"
-    bind entity:Deal { query all order expected_close asc limit 15 }
-    columns "Title, Company, Value, Stage, Probability, Expected Close"
+  section kpi {
+    bind Deal { aggregate sum field:value }
+    item "Pipeline value" value:bind icon:payments
+  }
+  section table {
+    title "Latest deals"
+    bind Deal { query all order created_at desc limit 10 }
+    columns "Title, Company, Value, Stage"
   }
 }
 
 page "/deals" type:custom requires:auth {
-  title "Deals"
-
-  section header {
-    title "Deal Pipeline"
-    action "New Deal" -> "/deals/new" icon:add
+  section page-header {
+    title "Deals"
   }
-
   section table {
-    search "Filter by title, company, or stage..."
-    bind entity:Deal { query all order created_at desc limit 25 }
-    columns "Title, Company, Value, Stage, Owner, Expected Close"
+    bind Deal { query all order created_at desc limit 50 }
+    columns "Title, Company, Value, Stage, Created At"
+  }
+  section form {
+    title "New deal"
+    bind Deal { query all }
+    field "title" type:text required
+    field "company" type:text
+    field "value" type:money required
+    on submit {
+      create Deal
+      toast "Deal added" success
+      navigate "/deals"
+    }
   }
 }
 
 page "/contacts" type:custom requires:auth {
-  title "Contacts"
-
-  section header {
-    title "All Contacts"
-    action "Add Contact" -> "/contacts/new" icon:add
+  section page-header {
+    title "Contacts"
   }
-
   section table {
-    search "Filter by name, email, or company..."
-    bind entity:Contact { query all order name asc limit 25 }
-    columns "Name, Email, Phone, Company, Source"
+    bind Contact { query all order name limit 50 }
+    columns "Name, Email, Company, Phone"
+  }
+  section form {
+    title "New contact"
+    bind Contact { query all }
+    field "name" type:text required
+    field "email" type:email
+    field "company" type:text
+    field "phone" type:text
+    on submit {
+      create Contact
+      toast "Contact added" success
+      navigate "/contacts"
+    }
   }
 }
 
 style {
   theme dark
-  accent blue
+  accent emerald
   font "Inter"
 }

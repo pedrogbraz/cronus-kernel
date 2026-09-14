@@ -1,9 +1,10 @@
 ## Aurora + Voodoo starter. Authoring stays .cronus.
-## Widgets read bind. Forms POST /api/lead → ScriptCronus on create.
+## Sections read `bind`. app.scriptcronus reacts to `on Lead.create`.
+## Leads are shared and read-only in public on purpose: this is a demo board.
 
 app "Aurora" {
   stack voodoo
-  port 4747
+  port 5175
   database sqlite "./data.db"
 }
 
@@ -19,30 +20,25 @@ style {
   text "#fafaf9"
 }
 
-entity Lead {
-  name string!
-  email email!
-  status enum ["new", "won"] default:"new"
+entity Lead shared {
+  name   string!
+  email  email!
+  status enum [new, won] default:new
 }
 
 api /leads {
-  list   GET  /     auth:public
-  create POST /     auth:public
-  detail GET  /:id  auth:public
+  list   GET  /    auth:public
+  detail GET  /:id auth:public
 }
 
 page "/" type:custom {
-  section metric {
-    title "Leads"
-    bind Lead { query count }
+  section kpi {
+    bind Lead { aggregate count scope:public }
+    item "Leads" value:bind icon:group
   }
-  section data-table {
+  section table {
     title "Pipeline"
-    bind Lead { query all }
-  }
-  section form {
-    title "New lead"
-    entity Lead
-    bind Lead { query all }
+    bind Lead { query all order created_at desc limit 20 scope:public }
+    columns "Name, Email, Status"
   }
 }

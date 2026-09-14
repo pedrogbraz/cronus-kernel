@@ -1,55 +1,150 @@
+/// Commands shown by `cronus help`, grouped by who needs them.
+/// Every verb dispatched in `main.rs` belongs to exactly one group.
+pub(crate) const HELP_GROUPS: &[(&str, &[(&str, &str)])] = &[
+    (
+        "Essentials",
+        &[
+            (
+                "new <name> [--template t]",
+                "Create a project (templates: see `cronus new --list`)",
+            ),
+            (
+                "run [port] [--host ip] [--prod]",
+                "Serve the app with hot reload (127.0.0.1 by default)",
+            ),
+            (
+                "build [--ai]",
+                "Validate the .cronus file (--ai: JSON errors with fix hints)",
+            ),
+            ("doctor", "Health check: required checks + suggestions"),
+            (
+                "test [port]",
+                "Run auto-generated CRUD tests against a running server",
+            ),
+            ("seed [count]", "Insert fake rows (default: 10 per entity)"),
+            (
+                "deploy",
+                "Generate deploy artifacts (--fly, --railway, --static)",
+            ),
+            ("version", "Show version"),
+        ],
+    ),
+    (
+        "AI",
+        &[
+            (
+                "generate <desc> [-o file] [--force]",
+                "Generate .cronus from a description",
+            ),
+            (
+                "context [--for-claude]",
+                "Export project context for an AI assistant",
+            ),
+            (
+                "dump <path>",
+                "Convert HTML / Next.js / Prisma / OpenAPI into .cronus",
+            ),
+            ("brief", "Short AI context capsule"),
+            (
+                "validate [file] [--json]",
+                "Validate with contract checks (--strict-ai: warnings = errors)",
+            ),
+        ],
+    ),
+    (
+        "Advanced",
+        &[
+            ("parse <file>", "Show the AST"),
+            ("debug [port]", "Run with request tracing"),
+            ("compose", "Merge all .cronus files and show the result"),
+            ("export", "Export to cronus-project.ir.json"),
+            ("stats", "Project stats"),
+            ("graph", "Entity/page graph"),
+            ("audit language|logic|visual|all", "Cronus Audit"),
+            ("verify-audit", "Verify audit trail hash chain"),
+            ("reconcile <a> <b>", "AST-level merge of two .cronus files"),
+            ("spec validate|list|codegen", ".spec.toml tooling"),
+            ("status | timeline | changelog", "Semantic project history"),
+            (
+                "sync | handoff | lease | drift",
+                "Multi-agent session state",
+            ),
+            ("review | segment | memory", "Multi-agent review and memory"),
+        ],
+    ),
+];
+
 pub fn print_help() {
-    println!("\x1b[36m\x1b[1m");
-    println!("  ██████╗██████╗  ██████╗ ███╗   ██╗██╗   ██╗███████╗");
-    println!(" ██╔════╝██╔══██╗██╔═══██╗████╗  ██║██║   ██║██╔════╝");
-    println!(" ██║     ██████╔╝██║   ██║██╔██╗ ██║██║   ██║███████╗");
-    println!(" ██║     ██╔══██╗██║   ██║██║╚██╗██║██║   ██║╚════██║");
-    println!(" ╚██████╗██║  ██║╚██████╔╝██║ ╚████║╚██████╔╝███████║");
-    println!("  ╚═════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝ ╚══════╝");
-    println!("\x1b[0m");
-    println!("  \x1b[90mThe Cognitive Runtime v0.1.0 (Rust native)\x1b[0m\n");
-    println!("  \x1b[1mUsage:\x1b[0m cronus <command> [options]\n");
-    println!("  \x1b[1mCommands:\x1b[0m");
-    println!("    \x1b[32mrun\x1b[0m [port] [--host ip] [--prod] [--strict] [--audit-canvas [port]]  Parse .cronus → serve (127.0.0.1 by default)");
-    println!(
-        "          --audit-canvas: bind 127.0.0.1, exclusive /audit/* path (default port 5176)"
-    );
-    println!("    \x1b[32mdebug\x1b[0m [port]           Run with request tracing, colored logs, /api/debug/traces");
-    println!("    \x1b[32mnew\x1b[0m <template>       Create project (landing/admin/saas/api/ecommerce/blog)");
-    println!(
-        "    \x1b[32mseed\x1b[0m [count]          Seed database with fake data (default: 10 rows)"
-    );
-    println!("    \x1b[32mbuild\x1b[0m [--strict] [--strict-ai] [--ai|--machine|--json-errors]  Validate .cronus file");
-    println!("          --ai / --machine / --json-errors: AI-Error Protocol (structured JSON with fix hints)");
-    println!("    \x1b[32mparse\x1b[0m <file> [--strict] Parse and show AST (strict mode)");
-    println!("    \x1b[32mdeploy\x1b[0m           Generate deploy artifacts (--fly, --railway, --static)");
-    println!("    \x1b[32mdoctor\x1b[0m           Check .cronus syntax + DB + ports");
-    println!("    \x1b[32mstats\x1b[0m            Project stats (entities, pages, DB size)");
-    println!("    \x1b[32mexport\x1b[0m           Export to cronus-project.ir.json");
-    println!("    \x1b[32mtest\x1b[0m [port]          Auto-gen and run CRUD tests");
-    println!("    \x1b[32mtest\x1b[0m --conformance   Run conformance test suite");
-    println!("    \x1b[32mcompose\x1b[0m          Compose all .cronus files and show result");
-    println!("    \x1b[32mgenerate\x1b[0m <desc>  Generate .cronus from description");
-    println!("    \x1b[32mvalidate\x1b[0m [file] [--json] [--strict-ai]  Validate (--strict-ai: all warnings = errors, JSON output)");
-    println!("    \x1b[32mvalidate\x1b[0m --mission       Validate code against constitution + objective");
-    println!("    \x1b[32mbrief\x1b[0m            Generate AI context capsule (~500 words)");
-    println!(
-        "    \x1b[32msync\x1b[0m             Generate .cronus/state-digest.json from project state"
-    );
-    println!("    \x1b[32mhandoff\x1b[0m          Complete active task, update state digest for next session");
-    println!("    \x1b[32mlease\x1b[0m check|list|create  Task lease management (drift detection)");
-    println!("    \x1b[32mdrift\x1b[0m [--explain]    Detect strategic, scope, and semantic drift");
-    println!("    \x1b[32mspec\x1b[0m <validate|list|codegen> Validate, list, or generate from .spec.toml files");
-    println!("    \x1b[32msegment\x1b[0m <create|list|show|check>  Semantic block isolation (parallel agents)");
-    println!("    \x1b[32mreconcile\x1b[0m <a> <b> [--output <file>]  AST-level merge of two .cronus files");
-    println!("    \x1b[32mreview\x1b[0m [task-id]    Semantic review of task changes (what changed, not diff)");
-    println!("    \x1b[32mtimeline\x1b[0m         Task-based project history (newest first)");
-    println!("    \x1b[32mstatus\x1b[0m           Semantic project overview (like git status for CRONUS)");
-    println!(
-        "    \x1b[32mmemory\x1b[0m sessions|decisions|log|decide  Semantic memory across sessions"
-    );
-    println!("    \x1b[32mverify-audit\x1b[0m     Verify audit trail hash chain integrity");
-    println!("    \x1b[32maudit\x1b[0m language|logic|visual|all|legacy   Cronus Audit (legacy = dump-text HTML)");
-    println!("    \x1b[32mversion\x1b[0m          Show version");
     println!();
+    println!(
+        "  \x1b[36m\x1b[1mCRONUS\x1b[0m \x1b[90mdeclarative full-stack language (v0.1.0)\x1b[0m"
+    );
+    println!();
+    println!("  \x1b[1mUsage:\x1b[0m cronus <command> [options]");
+    println!();
+    println!("  \x1b[1mQuick start:\x1b[0m cronus new my-app && cd my-app && cronus run");
+    for (group, commands) in HELP_GROUPS {
+        println!();
+        println!("  \x1b[1m{}\x1b[0m", group);
+        for (usage, about) in *commands {
+            println!("    \x1b[32m{:<38}\x1b[0m {}", usage, about);
+        }
+    }
+    println!();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn verbs(group: &str) -> Vec<String> {
+        HELP_GROUPS
+            .iter()
+            .find(|(g, _)| *g == group)
+            .map(|(_, cmds)| {
+                cmds.iter()
+                    .flat_map(|(usage, _)| {
+                        usage
+                            .split(|c: char| c == '|' || c.is_whitespace())
+                            .filter(|w| {
+                                !w.is_empty()
+                                    && w.chars().all(|c| c.is_ascii_lowercase() || c == '-')
+                            })
+                            .map(str::to_string)
+                            .collect::<Vec<_>>()
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    #[test]
+    fn help_groups_essentials_ai_advanced() {
+        let names: Vec<&str> = HELP_GROUPS.iter().map(|(g, _)| *g).collect();
+        assert_eq!(names, ["Essentials", "AI", "Advanced"]);
+        let essentials = verbs("Essentials");
+        for v in ["new", "run", "build", "doctor"] {
+            assert!(
+                essentials.iter().any(|e| e == v),
+                "{} missing from Essentials",
+                v
+            );
+        }
+    }
+
+    #[test]
+    fn help_lists_dump_and_context() {
+        let ai = verbs("AI");
+        assert!(ai.iter().any(|v| v == "dump"));
+        assert!(ai.iter().any(|v| v == "context"));
+    }
+
+    #[test]
+    fn internal_verbs_live_under_advanced_only() {
+        let advanced = verbs("Advanced");
+        for v in ["lease", "drift", "segment", "memory", "handoff", "sync"] {
+            assert!(advanced.iter().any(|a| a == v), "{} not in Advanced", v);
+            assert!(!verbs("Essentials").iter().any(|a| a == v));
+        }
+    }
 }

@@ -1,0 +1,49 @@
+/// Landing Page — public marketing page with lead capture. No auth.
+/// @template landing
+app "My Landing" {
+  port 5175
+  database sqlite "./data.db"
+}
+
+entity Lead {
+  name    string!
+  email   email!
+  company string
+}
+
+api /leads {
+  create POST / auth:public
+}
+
+page "/" type:custom {
+  section hero {
+    title "Scale with autonomy"
+    subtitle "The modern platform for modern teams. Ship faster, scale effortlessly."
+    cta_text "Get early access"
+    cta_link "#signup"
+  }
+
+  section card cols:3 {
+    item "Fast" icon:bolt description:"Server-rendered pages from a single binary."
+    item "Secure" icon:shield description:"Sessions, validation and owner scoping built in."
+    item "Simple" icon:code description:"One .cronus file describes the whole app."
+  }
+
+  section form {
+    title "Get early access"
+    bind Lead { query all }
+    field "name" type:text required
+    field "email" type:email required
+    field "company" type:text
+    on submit {
+      create Lead
+      toast "Thanks! We'll be in touch." success
+    }
+  }
+}
+
+style {
+  theme dark
+  accent amber
+  font "Inter"
+}
