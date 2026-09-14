@@ -14,7 +14,7 @@ pub fn render(comp: &ComponentNode) -> String {
     let trigger_id = widget_id(comp, "trigger");
     let pop_id = widget_id(comp, "pop");
     format!(
-        "<button type=\"button\" id=\"{trigger_id}\" popovertarget=\"{pop_id}\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"popover-content\" anchor=\"{trigger_id}\">{body}</div>"
+        "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"popover-trigger\" popovertarget=\"{pop_id}\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"popover-content\" anchor=\"{trigger_id}\">{body}</div>"
     )
 }
 
@@ -50,7 +50,7 @@ mod tests {
     #[test]
     fn trigger_button_and_always_open_content() {
         let html = render(&with_body("More", "Extra actions."));
-        assert!(html.contains("<button type=\"button\""));
+        assert!(html.contains("data-slot=\"popover-trigger\""));
         assert!(html.contains("popovertarget="));
         assert!(html.contains(">More</button>"));
         assert!(html.contains("data-slot=\"popover-content\""));
