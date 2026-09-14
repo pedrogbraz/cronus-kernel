@@ -464,6 +464,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   // Form submission with feedback
   document.querySelectorAll('#cronus-form').forEach(function(form){
     form.addEventListener('submit',async function(e){
+      // Kernel forms are submitted once, by the action runtime, via /_form.
+      if(window._cronusActions&&form.hasAttribute('data-cronus-form')) return;
       e.preventDefault();
       var btn=form.querySelector('button[type=submit]');
       var msg=document.getElementById('form-msg');

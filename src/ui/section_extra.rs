@@ -726,13 +726,22 @@ pub(super) fn render_card_section(section: &SectionNode) -> String {
             "action" => {
                 let on_click = item.get("on_click");
                 if let Some(action_json) = on_click {
-                    // Action button with data attributes for the runtime action system
-                    let entity_attr = section
+                    // Action button with data attributes for the runtime action system.
+                    // The runtime posts only `data-action-id` (+ entity, id); the
+                    // server executes its own declared copy of the block.
+                    let action_entity = section
                         .config
                         .get("entity")
-                        .or_else(|| section.binding.as_ref().map(|b| &b.entity))
+                        .or_else(|| section.binding.as_ref().map(|b| &b.entity));
+                    let entity_attr = action_entity
                         .map(|e| format!(r#" data-cronus-entity="{}""#, e))
                         .unwrap_or_default();
+                    let action_id_attr = crate::actions::action_id_for_item(
+                        action_entity.map(String::as_str).unwrap_or(""),
+                        action_json,
+                    )
+                    .map(|id| format!(r#" data-action-id="{}""#, id))
+                    .unwrap_or_default();
                     let section_attr =
                         format!(r#" data-cronus-section="{}""#, section.section_type);
                     let confirm_attr = item
@@ -742,9 +751,10 @@ pub(super) fn render_card_section(section: &SectionNode) -> String {
                     let escaped_json = action_json.replace('"', "&quot;");
                     items_html.push_str(&format!(
                         r#"<div style="margin-top:8px">
-  <button type="button" data-cronus-action="{action_json}"{entity_attr}{section_attr}{confirm_attr} style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;font-size:14px;font-weight:600;color:#fff;background:#1a1c1c;border-radius:8px;border:none;cursor:pointer;transition:opacity 0.15s;font-family:inherit" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">{title}</button>
+  <button type="button" data-cronus-action="{action_json}"{action_id_attr}{entity_attr}{section_attr}{confirm_attr} style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;font-size:14px;font-weight:600;color:#fff;background:#1a1c1c;border-radius:8px;border:none;cursor:pointer;transition:opacity 0.15s;font-family:inherit" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">{title}</button>
 </div>"#,
                         action_json = escaped_json,
+                        action_id_attr = action_id_attr,
                         entity_attr = entity_attr,
                         section_attr = section_attr,
                         confirm_attr = confirm_attr,

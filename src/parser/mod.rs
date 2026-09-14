@@ -119,6 +119,39 @@ impl Parser {
         }
     }
 
+    /// `where` value written as its own token (`eq auth.id`, `eq "x"`, `eq 5`).
+    fn filter_value(token: &Token) -> BindingValue {
+        if token.value.starts_with("auth.") || token.value.starts_with("route.") {
+            BindingValue::AuthRef(token.value.clone())
+        } else if token.kind == TokenKind::StringLit {
+            BindingValue::Str(token.value.clone())
+        } else if token.kind == TokenKind::Number {
+            BindingValue::Num(token.value.clone())
+        } else if token.value == "true" || token.value == "false" {
+            BindingValue::Bool(token.value == "true")
+        } else {
+            BindingValue::Str(token.value.clone())
+        }
+    }
+
+    /// `where` value glued to its operator (`eq:auth.id`, `eq:"x"`, `gt:5`).
+    /// Classified exactly like the space-separated form.
+    fn filter_value_from_colon(raw: &str) -> BindingValue {
+        let quoted = raw.len() >= 2 && raw.starts_with('"') && raw.ends_with('"');
+        if quoted {
+            return BindingValue::Str(raw[1..raw.len() - 1].to_string());
+        }
+        if raw.starts_with("auth.") || raw.starts_with("route.") {
+            BindingValue::AuthRef(raw.to_string())
+        } else if !raw.is_empty() && raw.chars().all(|c| c.is_ascii_digit()) {
+            BindingValue::Num(raw.to_string())
+        } else if raw == "true" || raw == "false" {
+            BindingValue::Bool(raw == "true")
+        } else {
+            BindingValue::Str(raw.to_string())
+        }
+    }
+
     // ── Main parse ──
 
     fn parse(&mut self) -> Result<Vec<AstNode>, String> {
@@ -2054,6 +2087,8 @@ impl Parser {
         let mut aggregate = None;
         let mut public = false;
         let mut live = false;
+        let mut agg_field: Option<String> = None;
+        let mut group_interval: Option<String> = None;
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
             let kw = self.advance();
@@ -2074,10 +2109,24 @@ impl Parser {
                 }
                 "where" => {
                     let field = self.advance().value.clone();
-                    let op_str = self.advance().value.clone();
+                    // Two equivalent forms: `status eq "active"` (operator and
+                    // value as separate tokens) and `status eq:"active"` (the
+                    // tokenizer emits one ColonPair). Both yield the same FilterExpr.
+                    let op_token = self.advance();
+                    let (op_str, value) = if op_token.kind == TokenKind::ColonPair {
+                        let (op, raw) = op_token
+                            .value
+                            .split_once(':')
+                            .map(|(o, r)| (o.to_string(), r.to_string()))
+                            .unwrap_or_default();
+                        (op, Self::filter_value_from_colon(&raw))
+                    } else {
+                        let val_token = self.advance();
+                        (op_token.value.clone(), Self::filter_value(&val_token))
+                    };
                     let op = match op_str.as_str() {
                         "eq" => FilterOp::Eq,
-                        "ne" => FilterOp::Ne,
+                        "ne" | "neq" => FilterOp::Ne,
                         "gt" => FilterOp::Gt,
                         "gte" => FilterOp::Gte,
                         "lt" => FilterOp::Lt,
@@ -2085,20 +2134,6 @@ impl Parser {
                         "contains" => FilterOp::Contains,
                         "starts_with" => FilterOp::StartsWith,
                         _ => FilterOp::Eq,
-                    };
-                    let val_token = self.advance();
-                    let value = if val_token.value.starts_with("auth.")
-                        || val_token.value.starts_with("route.")
-                    {
-                        BindingValue::AuthRef(val_token.value.clone())
-                    } else if val_token.kind == TokenKind::StringLit {
-                        BindingValue::Str(val_token.value.clone())
-                    } else if val_token.kind == TokenKind::Number {
-                        BindingValue::Num(val_token.value.clone())
-                    } else if val_token.value == "true" || val_token.value == "false" {
-                        BindingValue::Bool(val_token.value == "true")
-                    } else {
-                        BindingValue::Str(val_token.value.clone())
                     };
                     filters.push(FilterExpr {
                         field,
@@ -2156,6 +2191,21 @@ impl Parser {
                         });
                     }
                 }
+                // Colon forms used by docs/templates:
+                // `aggregate sum field:total group_by:created_at interval:month`.
+                "field" => {
+                    agg_field = Some(kw_val.unwrap_or_else(|| self.advance().value));
+                }
+                "group_by" => {
+                    let field = kw_val.unwrap_or_else(|| self.advance().value);
+                    group_by = Some(GroupByExpr {
+                        field,
+                        interval: None,
+                    });
+                }
+                "interval" => {
+                    group_interval = Some(kw_val.unwrap_or_else(|| self.advance().value));
+                }
                 "scope" => {
                     let v = kw_val.unwrap_or_else(|| self.advance().value);
                     public = v.eq_ignore_ascii_case("public");
@@ -2177,6 +2227,17 @@ impl Parser {
                     };
                 }
                 _ => {} // skip unknown
+            }
+        }
+
+        if let (Some(agg), Some(field)) = (aggregate.as_mut(), agg_field) {
+            if agg.field.is_none() {
+                agg.field = Some(field);
+            }
+        }
+        if let (Some(group), Some(interval)) = (group_by.as_mut(), group_interval) {
+            if group.interval.is_none() {
+                group.interval = Some(interval);
             }
         }
 
@@ -3543,6 +3604,88 @@ env production {
 #[cfg(test)]
 mod parser_tests {
     use super::*;
+
+    fn bind_filters(clause: &str) -> Vec<FilterExpr> {
+        let src = format!(
+            "page \"/p\" type:custom {{\n  section table {{\n    bind Task {{ query all where {} }}\n  }}\n}}\n",
+            clause
+        );
+        let nodes = parse(&src).expect("parse");
+        let AstNode::Page(p) = &nodes[0] else {
+            panic!("expected page")
+        };
+        p.sections[0]
+            .binding
+            .as_ref()
+            .expect("binding")
+            .filters
+            .clone()
+    }
+
+    fn describe(f: &FilterExpr) -> String {
+        format!("{} {:?} {:?}", f.field, f.operator, f.value)
+    }
+
+    // ── `where x op:value` must equal `where x op value` ──
+
+    #[test]
+    fn where_colon_form_matches_space_form() {
+        let cases = [
+            ("owner eq:auth.id", "owner eq auth.id"),
+            ("id eq:route.id", "id eq route.id"),
+            ("status eq:\"active\"", "status eq \"active\""),
+            ("count gt:5", "count gt 5"),
+            ("count gte:5", "count gte 5"),
+            ("count lt:5", "count lt 5"),
+            ("count lte:5", "count lte 5"),
+            ("status ne:\"done\"", "status ne \"done\""),
+            ("done eq:true", "done eq true"),
+            ("title contains:\"a b\"", "title contains \"a b\""),
+            ("title starts_with:abc", "title starts_with abc"),
+        ];
+        for (colon, spaced) in cases {
+            let a = bind_filters(colon);
+            let b = bind_filters(spaced);
+            assert_eq!(a.len(), 1, "{colon}");
+            assert_eq!(describe(&a[0]), describe(&b[0]), "{colon} vs {spaced}");
+        }
+    }
+
+    #[test]
+    fn aggregate_colon_forms_keep_field_group_and_interval() {
+        let src = "page \"/p\" type:custom {\n  section chart {\n    bind Order { aggregate sum field:total group_by:created_at interval:month }\n  }\n  section kpi {\n    bind Order { aggregate count }\n  }\n}\n";
+        let nodes = parse(src).expect("parse");
+        let AstNode::Page(p) = &nodes[0] else {
+            panic!("expected page")
+        };
+        let chart = p.sections[0].binding.as_ref().unwrap();
+        let agg = chart.aggregate.as_ref().unwrap();
+        assert_eq!(agg.function, "sum");
+        assert_eq!(agg.field.as_deref(), Some("total"));
+        let group = chart.group_by.as_ref().expect("group_by");
+        assert_eq!(group.field, "created_at");
+        assert_eq!(group.interval.as_deref(), Some("month"));
+        let kpi = p.sections[1].binding.as_ref().unwrap();
+        assert_eq!(kpi.aggregate.as_ref().unwrap().function, "count");
+        assert!(kpi.group_by.is_none());
+    }
+
+    #[test]
+    fn where_colon_form_keeps_value_and_following_keywords() {
+        let f = bind_filters("_owner_id eq:auth.id order created_at desc");
+        assert_eq!(f.len(), 1);
+        assert_eq!(f[0].field, "_owner_id");
+        assert_eq!(f[0].operator, FilterOp::Eq);
+        assert!(matches!(&f[0].value, BindingValue::AuthRef(r) if r == "auth.id"));
+
+        let f = bind_filters("status eq:\"active\"");
+        assert!(matches!(&f[0].value, BindingValue::Str(s) if s == "active"));
+        let f = bind_filters("n gt:5");
+        assert_eq!(f[0].operator, FilterOp::Gt);
+        assert!(matches!(&f[0].value, BindingValue::Num(n) if n == "5"));
+        let f = bind_filters("status neq:\"x\"");
+        assert_eq!(f[0].operator, FilterOp::Ne);
+    }
 
     // ── P041 does not apply to enum values (data, not identifiers) ──
 

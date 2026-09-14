@@ -58,10 +58,11 @@ pub const CRONUS_ACTION_JS: &str = r#"
       }
     };
     xhr.onerror = function() { showToast('Action failed', 'error'); };
+    // Reference the declared action by id only; the server runs its own copy.
     xhr.send(JSON.stringify({
+      action_id: btn.getAttribute('data-action-id') || '',
       entity: btn.getAttribute('data-cronus-entity') || '',
-      id: btn.getAttribute('data-cronus-id') || '',
-      action: btn.getAttribute('data-cronus-action') || '{}'
+      id: btn.getAttribute('data-cronus-id') || ''
     }));
   });
 

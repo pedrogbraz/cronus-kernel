@@ -10,8 +10,8 @@
 //! - Any unsafe request that carries the session cookie (and no bearer
 //!   header) must present an `Origin`/`Referer` of this host. This single gate
 //!   runs before every handler in `handle_request_inner`, so it covers every
-//!   cookie identity reader: `access::viewer_from_headers`,
-//!   `api_crud::claims_from_headers` and `http_guard::request_role`.
+//!   cookie identity reader: `access::viewer_from_headers` (used by
+//!   `Access::from_headers` and `http_guard::request_role`).
 
 use bytes::Bytes;
 use http_body_util::Full;
