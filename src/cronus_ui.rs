@@ -4584,7 +4584,7 @@ div:has(> [data-slot="autocomplete"] + [data-slot="autocomplete-content"]) {
 }
 [data-slot="gradient-border"] {
   display: block;
-  width: 18rem; padding: 1.5rem;
+  width: 18rem; padding: 1px;
   border-radius: calc(var(--cronus-radius, 14px) + 8px);
   background: linear-gradient(135deg, var(--cronus-primary), var(--cronus-accent));
   color: var(--cronus-fg);
@@ -4592,6 +4592,7 @@ div:has(> [data-slot="autocomplete"] + [data-slot="autocomplete-content"]) {
 [data-slot="gradient-border"] > div {
   height: 100%;
   width: 100%;
+  padding: 1.5rem;
   border-radius: inherit;
   background: var(--cronus-surface-raised);
 }
