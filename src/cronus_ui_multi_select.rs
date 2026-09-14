@@ -6,7 +6,10 @@
 //! command-item[role=option]` with a `multi-select-indicator` box + label.
 //! Kernel wraps both in `data-slot="multi-select"` (position: relative) so the
 //! content sits absolutely 4px below the trigger, like the Radix popper.
-//! No cmdk search row: filtering needs JS, so it is not emitted (no dead input).
+//! React always renders cmdk's search row (`command-input-wrapper` > search
+//! icon + `command-input`, placeholder `searchPlaceholder`, default "Search…")
+//! above the list. Filtering needs JS, so the input is the native control
+//! rendered `disabled` with React's idle look.
 //! Not interact `select("multi-select")` native `<select multiple>`.
 
 use crate::cronus_ui_kit::{attr_nonempty, choice_texts, esc, flag, item, texts};
@@ -24,6 +27,12 @@ const CHECK: &str = concat!(
     "stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\">",
     "<path d=\"M20 6 9 17l-5-5\" />",
     "</svg>",
+);
+
+const SEARCH_ICON: &str = concat!(
+    "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" ",
+    "stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\">",
+    "<circle cx=\"11\" cy=\"11\" r=\"8\" /><path d=\"m21 21-4.3-4.3\" /></svg>",
 );
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -70,8 +79,20 @@ pub fn render(comp: &ComponentNode) -> String {
     if selected.is_empty() {
         trigger_attrs.push_str(" data-placeholder=\"\"");
     }
+    let search = search_row(comp);
     format!(
-        "<div data-slot=\"multi-select\"><div {trigger_attrs}><span><span>{trigger}</span></span><span aria-hidden=\"true\">{CHEVRON}</span></div><div data-slot=\"popover-content\" role=\"dialog\" data-state=\"open\"><div data-slot=\"command\"><div data-slot=\"command-list\" role=\"listbox\" aria-multiselectable=\"true\">{items}</div></div></div></div>"
+        "<div data-slot=\"multi-select\"><div {trigger_attrs}><span><span>{trigger}</span></span><span aria-hidden=\"true\">{CHEVRON}</span></div><div data-slot=\"popover-content\" role=\"dialog\" data-state=\"open\"><div data-slot=\"command\">{search}<div data-slot=\"command-list\" role=\"listbox\" aria-multiselectable=\"true\">{items}</div></div></div></div>"
+    )
+}
+
+/// cmdk `CommandInput`: icon + native text input, `disabled` (filtering needs JS).
+fn search_row(comp: &ComponentNode) -> String {
+    let placeholder = attr_nonempty(comp, "searchPlaceholder")
+        .or_else(|| attr_nonempty(comp, "search-placeholder"))
+        .map(esc)
+        .unwrap_or_else(|| "Search…".into());
+    format!(
+        "<div data-slot=\"command-input-wrapper\">{SEARCH_ICON}<input data-slot=\"command-input\" type=\"text\" placeholder=\"{placeholder}\" role=\"combobox\" aria-autocomplete=\"list\" aria-expanded=\"true\" autocomplete=\"off\" spellcheck=\"false\" disabled /></div>"
     )
 }
 
@@ -196,7 +217,16 @@ mod tests {
         assert!(!html.contains("-control"));
         assert!(!html.contains("<label"));
         assert!(!html.contains("<button"));
-        assert!(!html.contains("<input"));
+        // The only input is cmdk's search field, always native + disabled.
+        assert_eq!(
+            html.matches("<input").count(),
+            html.matches("<input data-slot=\"command-input\" type=\"text\"")
+                .count()
+        );
+        assert_eq!(
+            html.matches("<input").count(),
+            html.matches("spellcheck=\"false\" disabled />").count()
+        );
         assert!(!html.contains("style="));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
@@ -213,7 +243,7 @@ mod tests {
         assert_eq!(
             html,
             format!(
-                "<div data-slot=\"multi-select\">{TRIGGER_OPEN}{}<span aria-hidden=\"true\">{CHEVRON}</span></div><div data-slot=\"popover-content\" role=\"dialog\" data-state=\"open\"><div data-slot=\"command\"><div data-slot=\"command-list\" role=\"listbox\" aria-multiselectable=\"true\">{}{}</div></div></div></div>",
+                "<div data-slot=\"multi-select\">{TRIGGER_OPEN}{}<span aria-hidden=\"true\">{CHEVRON}</span></div><div data-slot=\"popover-content\" role=\"dialog\" data-state=\"open\"><div data-slot=\"command\"><div data-slot=\"command-input-wrapper\">{SEARCH_ICON}<input data-slot=\"command-input\" type=\"text\" placeholder=\"Search…\" role=\"combobox\" aria-autocomplete=\"list\" aria-expanded=\"true\" autocomplete=\"off\" spellcheck=\"false\" disabled /></div><div data-slot=\"command-list\" role=\"listbox\" aria-multiselectable=\"true\">{}{}</div></div></div></div>",
                 trig("Pick"),
                 first("Ada", false),
                 opt("Grace", false)
@@ -221,6 +251,24 @@ mod tests {
         );
         assert!(!html.contains("data-slot=\"multi-select-content\""));
         assert!(!html.contains("data-slot=\"multi-select-item\""));
+        reject_interact(&html);
+    }
+
+    /// Pixel parity (multi-select/default): React's open content starts with
+    /// cmdk's search row before the options; the kernel used to omit it.
+    #[test]
+    fn content_has_disabled_search_row_before_list() {
+        let html = render(&multi("Pick", &["Ada"]));
+        let row = html
+            .find("<div data-slot=\"command-input-wrapper\">")
+            .expect("search row");
+        let list = html.find("data-slot=\"command-list\"").unwrap();
+        assert!(row < list, "{html}");
+        assert!(html.contains("placeholder=\"Search…\""));
+        let mut c = multi("Pick", &["Ada"]);
+        c.props
+            .insert("searchPlaceholder".into(), "Find \"x\"".into());
+        assert!(render(&c).contains("placeholder=\"Find &quot;x&quot;\""));
         reject_interact(&html);
     }
 
