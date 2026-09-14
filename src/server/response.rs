@@ -54,15 +54,11 @@ pub(crate) fn html_response(body: String) -> Response<Full<Bytes>> {
     let nonce_attr = crate::security::script_nonce_attr();
     let mut final_body = inject_audit_if_enabled(body);
     final_body = crate::voodoo::inject_into_html(final_body);
-    // Inject SSE client JS into every HTML page (before </body>)
-    if let Some(pos) = final_body.rfind("</body>") {
-        let sse_script = format!(
-            "<script{}>{}</script>\n",
-            nonce_attr,
-            crate::sse::SSE_CLIENT_JS
-        );
-        final_body.insert_str(pos, &sse_script);
-    }
+    final_body = apply_live_clients(
+        final_body,
+        crate::http_guard::is_production(),
+        nonce_attr,
+    );
     // Inject debug overlay JS when debug mode is active (env var or CLI flag)
     let debug_active = crate::DEBUG_MODE.load(Ordering::Relaxed)
         || std::env::var("CRONUS_DEBUG")
@@ -100,6 +96,45 @@ pub(crate) fn html_response(body: String) -> Response<Full<Bytes>> {
         builder = builder.header(k, v);
     }
     builder.body(Full::new(Bytes::from(final_body))).unwrap()
+}
+
+/// Dev machinery vs live data in an outgoing HTML page.
+///
+/// - Production: the HMR client (which polls `/.cronus/version`, a 404 there)
+///   is removed, and the global SSE client is added only when the page has a
+///   `live` binding (`data-live…` marker), so anonymous prod pages do not open
+///   `/api/sse`.
+/// - Dev: HMR stays and the SSE client is injected into every page, as before.
+fn apply_live_clients(mut body: String, production: bool, nonce_attr: &str) -> String {
+    if production {
+        body = strip_hmr_client(body, nonce_attr);
+    }
+    let wants_sse = !production || body.contains("data-live");
+    if wants_sse {
+        if let Some(pos) = body.rfind("</body>") {
+            let sse_script = format!(
+                "<script{}>{}</script>\n",
+                nonce_attr,
+                crate::sse::SSE_CLIENT_JS
+            );
+            body.insert_str(pos, &sse_script);
+        }
+    }
+    body
+}
+
+/// Remove the HMR client from a page. Templates emit
+/// `<script{script_nonce}>{HMR_CLIENT_JS}</script>`; the whole tag goes, then any
+/// copy under a different wrapper. Also used by `routes::serve` for HTML built
+/// outside `html_response` (404 / error pages) in production.
+pub(crate) fn strip_hmr_client(body: String, nonce_attr: &str) -> String {
+    let hmr = crate::hmr::HMR_CLIENT_JS;
+    if !body.contains(hmr) {
+        return body;
+    }
+    body.replace(&format!("<script{nonce_attr}>{hmr}</script>"), "")
+        .replace(&format!("<script>{hmr}</script>"), "")
+        .replace(hmr, "")
 }
 
 // ──────────────────────────────────────────────
@@ -378,4 +413,63 @@ fn regex_numbers(text: &str) -> Vec<String> {
         }
     }
     results
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{apply_live_clients, strip_hmr_client};
+    use crate::hmr::HMR_CLIENT_JS;
+    use crate::sse::SSE_CLIENT_JS;
+
+    const NONCE: &str = " nonce=\"MARKER\"";
+
+    fn page(extra: &str) -> String {
+        format!(
+            "<html><body><main>{extra}</main><script{NONCE}>{HMR_CLIENT_JS}</script>\n</body></html>"
+        )
+    }
+
+    #[test]
+    fn production_html_has_no_hmr_client() {
+        let out = apply_live_clients(page(""), true, NONCE);
+        assert!(!out.contains(HMR_CLIENT_JS));
+        assert!(!out.contains("/.cronus/version"));
+        assert!(!out.contains(&format!("<script{NONCE}></script>")));
+        assert!(out.contains("<main></main>"));
+    }
+
+    #[test]
+    fn production_injects_sse_client_only_for_live_pages() {
+        let plain = apply_live_clients(page(""), true, NONCE);
+        assert!(!plain.contains("/api/sse"));
+
+        let live = page(r#"<div id="live_note" data-live-entity="Note"></div>"#);
+        let out = apply_live_clients(live, true, NONCE);
+        assert!(out.contains(SSE_CLIENT_JS));
+        assert!(!out.contains(HMR_CLIENT_JS));
+    }
+
+    #[test]
+    fn dev_html_keeps_hmr_and_sse_clients() {
+        let out = apply_live_clients(page(""), false, NONCE);
+        assert!(out.contains(HMR_CLIENT_JS));
+        assert!(out.contains(SSE_CLIENT_JS));
+        assert!(out.find(SSE_CLIENT_JS) < out.rfind("</body>"));
+    }
+
+    #[test]
+    fn strip_handles_unmarked_script_tags() {
+        let html = format!("<body><script>{HMR_CLIENT_JS}</script></body>");
+        assert_eq!(strip_hmr_client(html, NONCE), "<body></body>");
+    }
+
+    #[test]
+    fn rendered_layout_hmr_is_removed_in_production() {
+        let html = crate::ui::render_layout("App", &[], "amber", "<p>hi</p>");
+        assert!(html.contains(HMR_CLIENT_JS), "layout embeds the HMR client");
+        let nonce = crate::security::script_nonce_attr();
+        let out = apply_live_clients(html, true, nonce);
+        assert!(!out.contains("/.cronus/version"));
+        assert!(out.contains("<p>hi</p>"));
+    }
 }

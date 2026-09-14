@@ -202,6 +202,7 @@ mod cronus_ui_workspace_switcher;
 mod data_table;
 mod database;
 mod deploy;
+#[cfg(feature = "dump")]
 mod dump;
 mod effects;
 mod error;
