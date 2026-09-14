@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 //! CRONUS Resolve Pass — Symbol Table & Cross-Reference Validation
 //!
 //! Runs after parsing, before lint. Two-pass analysis:
@@ -7,7 +6,7 @@
 //!
 //! Resolve errors are always fatal — they block build/run.
 
-use crate::parser::{AstNode, EntityNode, FieldNode, FieldType, PageNode, SectionNode};
+use crate::parser::{AstNode, FieldType, SectionNode};
 use std::collections::{HashMap, HashSet};
 
 // ══════════════════════════════════════════════════
@@ -17,33 +16,14 @@ use std::collections::{HashMap, HashSet};
 #[derive(Debug, Clone)]
 pub struct SymbolTable {
     pub entities: HashMap<String, EntityInfo>,
-    pub pages: HashMap<String, PageInfo>,
+    pub pages: HashSet<String>,
     pub api_prefixes: HashSet<String>,
     pub kernel_routes: HashSet<String>,
 }
 
 #[derive(Debug, Clone)]
 pub struct EntityInfo {
-    pub name: String,
-    pub shared: bool,
-    pub fields: HashMap<String, FieldInfo>,
-    pub has_transitions: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct FieldInfo {
-    pub name: String,
-    pub field_type: String,
-    pub required: bool,
-    pub sensitive: bool,
-    pub enum_values: Option<Vec<String>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct PageInfo {
-    pub route: String,
-    pub bound_entities: Vec<String>,
-    pub requires_auth: bool,
+    pub fields: HashSet<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -71,7 +51,7 @@ impl SymbolTable {
 
         Self {
             entities: HashMap::new(),
-            pages: HashMap::new(),
+            pages: HashSet::new(),
             api_prefixes: HashSet::new(),
             kernel_routes,
         }
@@ -80,7 +60,7 @@ impl SymbolTable {
     /// All known routes (page routes + kernel routes)
     fn all_routes(&self) -> Vec<&str> {
         self.pages
-            .keys()
+            .iter()
             .map(|s| s.as_str())
             .chain(self.kernel_routes.iter().map(|s| s.as_str()))
             .collect()
@@ -114,52 +94,11 @@ fn collect_symbols(nodes: &[AstNode], table: &mut SymbolTable) {
     for node in nodes {
         match node {
             AstNode::Entity(e) => {
-                let mut fields = HashMap::new();
-                for f in &e.fields {
-                    fields.insert(
-                        f.name.clone(),
-                        FieldInfo {
-                            name: f.name.clone(),
-                            field_type: format!("{:?}", f.field_type),
-                            required: f.required,
-                            sensitive: f.sensitive,
-                            enum_values: f.enum_values.clone(),
-                        },
-                    );
-                }
-                table.entities.insert(
-                    e.name.clone(),
-                    EntityInfo {
-                        name: e.name.clone(),
-                        shared: e.shared,
-                        fields,
-                        has_transitions: !e.transitions.is_empty(),
-                    },
-                );
+                let fields = e.fields.iter().map(|f| f.name.clone()).collect();
+                table.entities.insert(e.name.clone(), EntityInfo { fields });
             }
             AstNode::Page(p) => {
-                let mut bound_entities = Vec::new();
-                // Page-level entity binding
-                if let Some(ref ent) = p.entity {
-                    bound_entities.push(ent.clone());
-                }
-                // Section-level bindings
-                for section in &p.sections {
-                    if let Some(ref binding) = section.binding {
-                        if !bound_entities.contains(&binding.entity) {
-                            bound_entities.push(binding.entity.clone());
-                        }
-                    }
-                }
-                let requires_auth = p.requires.is_some() || p.config.get("requires").is_some();
-                table.pages.insert(
-                    p.route.clone(),
-                    PageInfo {
-                        route: p.route.clone(),
-                        bound_entities,
-                        requires_auth,
-                    },
-                );
+                table.pages.insert(p.route.clone());
             }
             AstNode::Api(a) => {
                 table.api_prefixes.insert(a.prefix.clone());
@@ -298,7 +237,7 @@ fn resolve_section(
             // Entity exists — check filter/order/group_by fields resolve
             let entity = &table.entities[&binding.entity];
             let auto_fields = ["id", "created_at", "updated_at", "_owner_id"];
-            let mut all_field_names: Vec<String> = entity.fields.keys().cloned().collect();
+            let mut all_field_names: Vec<String> = entity.fields.iter().cloned().collect();
             for af in &auto_fields {
                 all_field_names.push(af.to_string());
             }
@@ -365,7 +304,7 @@ fn resolve_section(
             if let Some(entity) = table.entities.get(&binding.entity) {
                 // Include auto-generated fields that the kernel adds
                 let auto_fields = vec!["id", "created_at", "updated_at", "_owner_id"];
-                let mut all_fields: Vec<String> = entity.fields.keys().cloned().collect();
+                let mut all_fields: Vec<String> = entity.fields.iter().cloned().collect();
                 for af in &auto_fields {
                     all_fields.push(af.to_string());
                 }
@@ -430,7 +369,7 @@ fn check_template_hrefs(
                     let route = if route.is_empty() { "/" } else { route };
 
                     // Check if route exists in pages or kernel routes
-                    if !table.pages.contains_key(route) && !table.kernel_routes.contains(route) {
+                    if !table.pages.contains(route) && !table.kernel_routes.contains(route) {
                         let all_routes = table.all_routes();
                         errors.push(ResolveError {
                             message: format!(

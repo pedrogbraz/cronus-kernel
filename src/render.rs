@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_imports, unused_variables)]
 //! CRONUS Render Engine — Server-Side Rendering with micro-runtime hydration
 //!
 //! Replaces React with ~2KB of vanilla JS for interactivity.

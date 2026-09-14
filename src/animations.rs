@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_imports, unused_variables)]
 //! CRONUS Animation Library — 50+ animations, 0 dependencies
 //!
 //! CSS keyframes + utility classes + IntersectionObserver for viewport animations.

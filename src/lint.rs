@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 //! CRONUS Lint Engine — Zero Hardcode Enforcement
 //!
 //! 7 rules that prevent hardcoded data, dead UI, and broken SPA contracts.
@@ -27,10 +26,6 @@ impl std::fmt::Display for LintResult {
         let icon = match self.severity {
             Severity::Warning => "\x1b[33m⚠\x1b[0m",
             Severity::Error => "\x1b[31m✗\x1b[0m",
-        };
-        let sev = match self.severity {
-            Severity::Warning => "warning",
-            Severity::Error => "error",
         };
         write!(
             f,
@@ -182,52 +177,6 @@ pub fn lint_ast(nodes: &[AstNode], strict: bool) -> Vec<LintResult> {
                 r.severity = Severity::Error;
             }
         }
-    }
-
-    results
-}
-
-/// Validate a raw template HTML string (for AI code generation).
-/// Returns violations without needing a full AST.
-pub fn lint_template(html: &str) -> Vec<LintResult> {
-    let mut results = Vec::new();
-    let section_name = "template".to_string();
-    let page = "generated".to_string();
-
-    // Check dead metrics
-    for finding in find_dead_metrics_in_html(html) {
-        results.push(LintResult {
-            rule: "no-dead-text",
-            severity: Severity::Error, // C001: hardcoded metrics are always fatal
-            message: format!("\"{}\" looks like hardcoded metric", finding),
-            fix: "Populate via JS fetch or bind to an entity field".into(),
-            section: section_name.clone(),
-            page: page.clone(),
-        });
-    }
-
-    // Check orphan reload
-    if has_orphan_reload(html) {
-        results.push(LintResult {
-            rule: "no-orphan-reload",
-            severity: Severity::Error,
-            message: "location.reload() found — breaks SPA contract".into(),
-            fix: "Use CRONUS.reload() for soft refresh".into(),
-            section: section_name.clone(),
-            page: page.clone(),
-        });
-    }
-
-    // Check dead links
-    for href in find_dead_hrefs(html) {
-        results.push(LintResult {
-            rule: "no-dead-links",
-            severity: Severity::Error,
-            message: format!("href=\"{}\" is a dead link", href),
-            fix: "Point to a real page route or remove the element".into(),
-            section: section_name.clone(),
-            page: page.clone(),
-        });
     }
 
     results
@@ -1189,9 +1138,9 @@ fn is_in_id_element(html: &str, text: &str) -> bool {
 mod tests {
     use super::*;
     use crate::parser::{
-        ActionBlock, ActionInstruction, ApiNode, BindingNode, BindingValue, EntityNode, FieldNode,
-        FieldType, FilterExpr, FilterOp, GroupByExpr, HttpMethod, OrderDirection, OrderExpr,
-        QueryType, RouteNode,
+        ActionBlock, ApiNode, BindingNode, BindingValue, EntityNode, FieldNode, FieldType,
+        FilterExpr, FilterOp, GroupByExpr, HttpMethod, OrderDirection, OrderExpr, QueryType,
+        RouteNode,
     };
     use std::collections::HashMap;
 

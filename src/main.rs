@@ -1,3 +1,6 @@
+// Crate-wide until the remaining modules are cleaned (Sprint 4 removed the
+// per-file copies from core/server/ui modules; dump, parser, routes, cli,
+// cronus_ui*, vm, hydra, scripting still rely on this).
 #![allow(dead_code, unused_imports, unused_variables)]
 mod access;
 mod actions;
@@ -14,7 +17,6 @@ mod binding;
 mod block_explorer;
 mod board;
 mod brain;
-mod cache;
 mod cli;
 mod command_palette;
 mod components;
@@ -215,20 +217,15 @@ mod hmr;
 mod http_dispatch_tests;
 mod http_guard;
 mod hydra;
-mod i18n;
 mod layout_system;
 mod lint;
-mod marketing_components;
 mod memory;
 mod navigation;
-mod orchestrator;
 mod overlays;
 mod parser;
 mod payments;
 mod promote;
 mod rate_limit;
-mod reactive;
-mod realtime;
 mod render;
 mod resolve;
 mod routes;
@@ -250,10 +247,6 @@ mod webhook;
 mod zeus;
 
 use cli::brief::cmd_brief;
-use cli::brief::{
-    brief_json_arr, brief_json_val, brief_today_date, brief_toml_arr, brief_toml_arr_after_section,
-    brief_toml_val,
-};
 use cli::build::cmd_build;
 use cli::changelog::cmd_changelog;
 use cli::compose::cmd_compose;
@@ -270,7 +263,6 @@ use cli::help::print_help;
 use cli::lease::cmd_lease;
 use cli::memory_cmd::cmd_memory;
 use cli::new::cmd_new;
-use cli::objective_kernel::reconcile_field_type_str;
 use cli::parse_cmd::cmd_parse;
 use cli::reconcile::cmd_reconcile;
 use cli::review::cmd_review;
@@ -284,7 +276,7 @@ use cli::sync_cmd::cmd_sync;
 use cli::test_cmd::cmd_test;
 use cli::timeline::cmd_timeline;
 use cli::validate::{cmd_validate, cmd_validate_mission};
-use cli::verify::{cmd_debug_audit, cmd_verify, cmd_verify_audit};
+use cli::verify::cmd_verify_audit;
 
 use std::env;
 use std::fs;

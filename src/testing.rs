@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_imports, unused_variables)]
 //! CRONUS Test Runner — Auto-generated CRUD tests
 //!
 //! `cronus test` reads .cronus, generates and runs HTTP tests against
