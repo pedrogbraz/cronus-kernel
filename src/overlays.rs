@@ -1,6 +1,4 @@
-#![allow(dead_code, unused_imports)]
 use crate::parser::SectionNode;
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 static OVERLAY_COUNTER: AtomicU32 = AtomicU32::new(0);
