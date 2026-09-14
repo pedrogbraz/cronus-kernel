@@ -1,8 +1,10 @@
 //! Dedicated Dock renderer. DOM mirrors React:
 //! `<div data-slot="dock" aria-label>` plus each entry as
 //! `<a data-slot="dock-item">` when the item has a link, otherwise
-//! `<button type="button" data-slot="dock-item">`. The `label` names the dock;
-//! it is only an entry when nothing else exists.
+//! `<button type="button" data-slot="dock-item">`. Items are icon buttons: the
+//! name lives in `title`/`aria-label` and the body is the decorative `GLYPH`
+//! (same circle React's dock fixture passes as `icon`), never visible text.
+//! The `label` names the dock; it is only an entry when nothing else exists.
 //! Not interact `nav("dock")` (generic SURF `<nav>` without dock-item).
 
 use crate::cronus_ui_kit::{esc, label_of};
@@ -17,11 +19,15 @@ pub fn render(comp: &ComponentNode) -> String {
     format!("<div data-slot=\"dock\"{}>{items}</div>", aria_attr(comp))
 }
 
+/// Decorative glyph React's dock fixture passes as `icon`. The accessible name
+/// lives only in `title` / `aria-label`; the button shows no visible text.
+const GLYPH: &str = "<span aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"7\"></circle></svg></span>";
+
 fn item_html(text: &str, href: Option<&str>) -> String {
     match href {
-        Some(h) => format!("<a data-slot=\"dock-item\" href=\"{h}\" title=\"{text}\" aria-label=\"{text}\">{text}</a>"),
+        Some(h) => format!("<a data-slot=\"dock-item\" href=\"{h}\" title=\"{text}\" aria-label=\"{text}\">{GLYPH}</a>"),
         None => format!(
-            "<button type=\"button\" data-slot=\"dock-item\" title=\"{text}\" aria-label=\"{text}\">{text}</button>"
+            "<button type=\"button\" data-slot=\"dock-item\" title=\"{text}\" aria-label=\"{text}\">{GLYPH}</button>"
         ),
     }
 }
@@ -146,7 +152,7 @@ mod tests {
         let html = render(&bar(&["Home", "Search"]));
         assert_eq!(
             html,
-            "<div data-slot=\"dock\"><button type=\"button\" data-slot=\"dock-item\" title=\"Home\" aria-label=\"Home\">Home</button><button type=\"button\" data-slot=\"dock-item\" title=\"Search\" aria-label=\"Search\">Search</button></div>"
+            format!("<div data-slot=\"dock\"><button type=\"button\" data-slot=\"dock-item\" title=\"Home\" aria-label=\"Home\">{GLYPH}</button><button type=\"button\" data-slot=\"dock-item\" title=\"Search\" aria-label=\"Search\">{GLYPH}</button></div>")
         );
         reject_interact(&html);
     }
@@ -164,7 +170,7 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            "<div data-slot=\"dock\" aria-label=\"App dock\"><button type=\"button\" data-slot=\"dock-item\" title=\"Home\" aria-label=\"Home\">Home</button><button type=\"button\" data-slot=\"dock-item\" title=\"Search\" aria-label=\"Search\">Search</button></div>"
+            format!("<div data-slot=\"dock\" aria-label=\"App dock\"><button type=\"button\" data-slot=\"dock-item\" title=\"Home\" aria-label=\"Home\">{GLYPH}</button><button type=\"button\" data-slot=\"dock-item\" title=\"Search\" aria-label=\"Search\">{GLYPH}</button></div>")
         );
         reject_interact(&html);
     }
@@ -177,10 +183,10 @@ mod tests {
         c.items.push(linked("item", "Search", "/search"));
         let html = render(&c);
         assert!(html.contains(
-            "<a data-slot=\"dock-item\" href=\"/\" title=\"Home\" aria-label=\"Home\">Home</a>"
+            &format!("<a data-slot=\"dock-item\" href=\"/\" title=\"Home\" aria-label=\"Home\">{GLYPH}</a>")
         ));
         assert!(html.contains(
-            "<a data-slot=\"dock-item\" href=\"/search\" title=\"Search\" aria-label=\"Search\">Search</a>"
+            &format!("<a data-slot=\"dock-item\" href=\"/search\" title=\"Search\" aria-label=\"Search\">{GLYPH}</a>")
         ));
         assert!(!html.contains("<button"));
         reject_interact(&html);
@@ -205,8 +211,8 @@ mod tests {
         c.items.push(extra("item", "Home"));
         c.items.push(extra("item", "Search"));
         let html = render(&c);
-        assert!(html.contains("aria-label=\"Home\">Home</button>"));
-        assert!(html.contains("aria-label=\"Search\">Search</button>"));
+        assert!(html.contains(&format!("aria-label=\"Home\">{GLYPH}</button>")));
+        assert!(html.contains(&format!("aria-label=\"Search\">{GLYPH}</button>")));
         assert!(!html.contains(">Apps</button>"));
         assert_eq!(html.matches("data-slot=\"dock-item\"").count(), 2);
         reject_interact(&html);
@@ -217,7 +223,7 @@ mod tests {
         let html = render(&stub("dock", "Home"));
         assert!(html.starts_with("<div data-slot=\"dock\">"));
         assert!(html.contains(
-            "<button type=\"button\" data-slot=\"dock-item\" title=\"Home\" aria-label=\"Home\">Home</button>"
+            &format!("<button type=\"button\" data-slot=\"dock-item\" title=\"Home\" aria-label=\"Home\">{GLYPH}</button>")
         ));
         assert_eq!(html.matches("data-slot=\"dock-item\"").count(), 1);
         reject_interact(&html);
@@ -255,7 +261,25 @@ mod tests {
         assert!(css.contains("var(--cronus-surface-overlay)"));
         assert!(css.contains("var(--cronus-border)"));
         assert!(css.contains("width: 2.75rem; height: 2.75rem"));
+        // Wave 1s geometry parity (React measured: dock 122x62 r22, item 44x44 r18, svg 22).
+        assert!(css.contains("border-radius: calc(var(--cronus-radius, 14px) + 8px);\n  border: 1px solid var(--cronus-border);"));
+        assert!(css.contains("background: color-mix(in oklab, var(--cronus-surface-raised) 70%, transparent);"));
+        assert!(css.contains("-webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);"));
+        assert!(css.contains("border: 0; border-radius: var(--cronus-radius-xl); outline: none;\n  background: var(--cronus-surface-overlay); color: var(--cronus-fg);"));
+        assert!(css.contains("[data-slot=\"dock-item\"] > span { display: contents; }"));
+        assert!(css.contains("[data-slot=\"dock-item\"] svg { width: 50%; height: 50%;"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("onclick"));
+    }
+
+    /// React dock items are icon buttons: the name is only in title/aria-label.
+    #[test]
+    fn items_show_glyph_not_visible_text() {
+        let html = render(&bar(&["Home", "Search"]));
+        assert_eq!(html.matches(GLYPH).count(), 2);
+        assert!(!html.contains(">Home<"));
+        assert!(!html.contains(">Search<"));
+        assert!(!html.contains("<svg style"));
+        reject_interact(&html);
     }
 }
