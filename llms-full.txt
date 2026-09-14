@@ -1,0 +1,352 @@
+# CRONUS language — full LLM reference
+
+> CRONUS is a declarative full-stack language. One `.cronus` file is compiled by the
+> `cronus` binary (Rust) into SQLite tables, a REST API, server-rendered HTML, GraphQL,
+> cookie sessions and an audit trail. You write `.cronus`, never JS/JSX/HTML/CSS.
+
+Validate every file you write with `cronus build --ai` (JSON: `valid`, `errors[]` with
+`code`, `severity`, `message`, `fix`). A file is done only when `valid` is `true`.
+Project context for an assistant: `cronus context --for-claude`.
+
+Machine-checked: the blocks between `<!-- begin:x -->` / `<!-- end:x -->` markers are
+compared with the kernel source by `cargo test context_grammar` (section types, field
+types, aliases, and the example below must build clean).
+
+<!-- begin:grammar -->
+## Grammar (canonical forms)
+
+A file is a sequence of top-level blocks. `#` starts a comment. Strings use double quotes.
+`key:value` pairs have no spaces around the colon.
+
+### app
+```cronus
+app "Name" {
+  port 5175
+  database sqlite "./data.db"
+}
+```
+
+### auth
+```cronus
+auth {
+  entity User
+  login email + password
+  session jwt expires:24h
+  roles [admin, user]
+}
+```
+Sessions are HttpOnly cookies (the JWT is not exposed to page JS). Signup is
+`POST /api/auth/signup`; passwords need at least 15 characters.
+
+### entity
+```cronus
+entity Order {
+  number    string!  unique
+  customer  -> Customer
+  total     money!   min:0
+  status    enum [pending, paid, shipped] default:pending
+  notes     text
+  secret    string   sensitive
+
+  transition status {
+    pending -> paid
+    paid    -> shipped
+  }
+}
+entity Plan shared { name string! }
+```
+- `name type modifiers`. `!` = required. `-> Entity` = relation.
+- Modifiers: `!` `unique` `sensitive` `optional` `searchable` `index` `featured`
+  `formatted` `default:<v>` `min:<n>` `max:<n>` `match:"<regex>"`.
+- `money` is an integer amount in centavos (2990 = 29.90).
+- `shared` after the name: every signed-in user can read all rows (writes stay owner-only).
+- The kernel adds `id` (UUIDv7), `_owner_id`, `created_at`, `updated_at`.
+
+### api
+```cronus
+api /orders {
+  list   GET    /     auth:jwt
+  detail GET    /:id  auth:jwt
+  create POST   /     auth:jwt
+  update PATCH  /:id  auth:jwt
+  delete DELETE /:id  auth:role(admin)
+}
+```
+- Methods: `GET` `POST` `PUT` `PATCH` `DELETE` only.
+- Auth: `auth:public`, `auth:jwt` (session), `auth:role(a|b)`, `auth:admin`. Anything else
+  means a session is required.
+- With an `api` block only the declared routes exist (404 otherwise). Without one, auto
+  CRUD at `/api/<entity>` requires a session. Non-admins only see and change their own
+  rows (`_owner_id`), except `shared` entities (read) and `auth:public` routes (read).
+
+### layout
+```cronus
+layout Main {
+  brand "Acme"
+  sidebar {
+    "Dashboard" -> "/dashboard" icon:home
+    nav "Admin" -> "/admin" icon:settings requires:role(admin)
+  }
+}
+```
+
+### page and section
+```cronus
+page "/dashboard" type:dashboard requires:auth {
+  title "Dashboard"
+  section kpi {
+    bind Order { aggregate count }
+    item "Orders" value:bind icon:cart
+  }
+  section table {
+    bind Order { query all order created_at desc limit 25 }
+    columns "number, status, total"
+  }
+}
+```
+- Page `type:` `custom` (default) `dashboard` `list` `form` `detail` `checkout` `components`.
+- `requires:auth` or `requires:role(admin|editor)`. Matching is by exact route pattern:
+  `/admin` does not protect `/admin/users`; declare `requires:` on every protected page.
+- Section body: `title "…"`, `subtitle "…"`, `columns "a, b"`, `item "Label" key:value …`,
+  `bind …`, `on <event> { … }`. The section type must be one of the lists below.
+
+### bind
+```cronus
+bind Order { query all }
+bind Order { query one where id eq:route.id }
+bind Order { query all where status eq:"paid" order created_at desc limit 10 offset 0 }
+bind Order { query all where owner_id eq:auth.id }
+bind Order { aggregate count }
+bind Order { aggregate sum field:total }
+bind Order { aggregate sum field:total group_by:created_at interval:month }
+bind Order { query all live:true }
+bind Product { query all scope:public }
+```
+- Always `bind Entity { … }` with braces (`bind entity:Order { … }` also parses).
+- `query all|one|count`. `aggregate count|sum|avg|min|max` with `field:`.
+- `where` operators: `eq` `ne` (`neq`) `gt` `gte` `lt` `lte` `contains` `starts_with`.
+  Values: `"text"`, numbers, `true`, `route.id`, `auth.id`, `auth.role`, `auth.email`.
+- `interval:` `day` `week` `month` `quarter` `year`.
+- Visibility: no session sees nothing unless `scope:public` (every row, to anyone);
+  users see own rows and `shared` entities; admins see all. `sensitive` fields never leave.
+
+### actions
+```cronus
+section form {
+  bind Order { query all }
+  item "Number" required:true
+  on submit {
+    create Order
+    toast "Saved" success
+    navigate "/orders"
+  }
+}
+```
+- Verbs the server executes: `set <field> "<value>"`, `delete <Entity>`, `toast "<msg>" <style>`,
+  `navigate "<path>"`, `refresh <target>`, `open "<name>"`, `close "<name>"`.
+- `on click confirm:"Sure?" { … }` asks before running.
+- A bound `form` section submits to the kernel (`/_form`), which creates the row with the
+  declared fields; `create`/`update` inside the block are accepted but not executed as
+  separate server steps.
+
+### style
+```cronus
+style {
+  theme dark
+  accent "#3b82f6"
+  font "Inter"
+  radius md
+}
+```
+Other `key value` pairs are kept as config (e.g. `preset aurora`, `runtime voodoo`).
+
+### webhook
+```cronus
+webhook Order {
+  on create -> POST "http://hooks.internal.example/orders"
+}
+```
+Only `http://` URLs are delivered; private/loopback targets are blocked unless
+`CRONUS_WEBHOOK_ALLOW_PRIVATE=1`. Payloads are redacted and HMAC-signed.
+
+### component (cronus-ui families)
+```cronus
+component Email layout:stack style:input { label "Email" }
+component Save  layout:inline style:button+primary+md { label "Save" }
+```
+The first `style` segment is a family name from the family list below.
+<!-- end:grammar -->
+
+## Field types
+
+<!-- begin:field-types -->
+`string` `text` `email` `url` `slug` `phone` `number` `money` `percentage` `boolean`
+`date` `ulid` `json` `enum` `ip`
+<!-- end:field-types -->
+
+Relations are written `name -> Entity`, not as a type keyword. An unknown type keyword
+is silently treated as `string`, so use only the list above.
+
+## Section types
+
+Built-in renderers (`section <type> { … }`):
+
+<!-- begin:builtin-sections -->
+`hero` `features` `pricing` `cta` `faq` `stats` `trusted` `topbar` `checkout` `testimonial`
+`footer` `page-header` `stat-cards` `product-grid` `promo` `info-bar` `bento`
+`features-split` `team-list` `status-card` `policies` `activity-table` `edge` `sidebar`
+`form` `card` `live-keys` `test-keys` `webhooks` `links` `quick-links` `tabs` `accordion`
+`breadcrumb` `alert` `chart` `modal` `sheet` `skeleton` `loading` `empty` `error`
+`not-found` `404` `kpi` `timeline` `progress` `command` `table` `pagination` `filters`
+`dropdown` `toast` `notifications` `kanban` `dark-mode` `layout`
+<!-- end:builtin-sections -->
+
+Aliases (rewritten before rendering; prefer the canonical name):
+
+<!-- begin:section-aliases -->
+`stats` → kpi, `stat-cards` → kpi, `status-card` → card, `activity-table` → table,
+`team-list` → table, `policies` → form, `live-keys` → card, `test-keys` → card,
+`webhooks` → card, `quick-links` → links, `promo` → card, `info-bar` → alert,
+`edge` → features, `bento` → features, `features-split` → features, `product-grid` → card
+<!-- end:section-aliases -->
+
+cronus-ui families (usable as `component X style:<family>`, or as a section type when the
+name is not also a built-in above, in which case the built-in renderer wins):
+
+<!-- begin:family-sections -->
+`accordion` `alert` `alert-dialog` `animated-button` `animated-list` `animated-number`
+`app-shell` `area-chart` `aspect-ratio` `aurora-background` `autocomplete` `avatar`
+`avatar-group` `badge` `banner` `bar-chart` `border-beam` `bouncy-accordion` `breadcrumb`
+`button` `button-group` `calendar` `candlestick-chart` `card` `card-stack` `carousel`
+`chart` `checkbox` `chip` `choropleth-chart` `click-spark` `code-block` `code-tabs`
+`collapsible` `color-picker` `combobox` `command` `comparison-slider` `composed-chart`
+`confetti` `confirmation-dialog` `context-menu` `copy-button` `countdown`
+`credit-card-input` `currency-input` `data-table` `date-picker` `date-range-picker`
+`description-list` `dialog` `dock` `dot-pattern` `drawer` `dropdown-menu` `dynamic-island`
+`empty` `expandable-tabs` `fab` `field` `file-dropzone` `flickering-grid` `flip-card`
+`floating-label-input` `form` `frame` `funnel-chart` `gauge-chart` `glare-hover`
+`glass-card` `gradient-border` `gradient-text` `grid-pattern` `heatmap` `heatmap-chart`
+`highlighter` `hover-card` `image-zoom` `input` `input-group` `input-otp` `invite-dialog`
+`json-viewer` `kanban` `kbd` `label` `light-rays` `lightbox` `line-chart` `live-line-chart`
+`logo-carousel` `magnetic` `marquee` `masonry` `menubar` `meteors` `metric` `mode-toggle`
+`morphing-popover` `multi-select` `navigation-menu` `noise` `notification-center`
+`number-input` `orbit` `pagination` `particles` `password-input` `phone-input` `pie-chart`
+`pill-nav` `popover` `profit-loss-chart` `progress` `progressive-blur` `radar-chart`
+`radio-group` `rating` `resizable` `retro-grid` `reveal` `rich-text-editor` `ring-chart`
+`ripple` `sankey-chart` `scatter-chart` `scheduler` `scramble-text` `scroll-area`
+`scroll-progress` `segmented-control` `select` `separator` `sheet` `shimmer` `shiny-text`
+`sidebar` `signature-pad` `skeleton` `slider` `sonner` `sparkles-text` `sparkline`
+`spinner` `spinning-text` `split-button` `spotlight-card` `star-border` `status-dot`
+`stepper` `sunburst-chart` `switch` `table` `table-of-contents` `tabs` `tags-input`
+`terminal` `text-effect` `text-shimmer` `textarea` `tilt-card` `time-picker` `timeline`
+`toggle` `toggle-group` `toolbar` `tooltip` `tree-view` `typing-text` `usage-meter`
+`video-player` `word-rotate` `workspace-switcher` `toast` `motion-presets`
+<!-- end:family-sections -->
+
+## Complete minimal example
+
+This file passes `cronus build --ai` with zero errors and zero warnings.
+
+<!-- begin:example -->
+```cronus
+app "Tasks" {
+  port 5175
+  database sqlite "./data.db"
+}
+
+auth {
+  entity User
+  login email + password
+  session jwt expires:24h
+  roles [admin, user]
+}
+
+style {
+  theme dark
+  accent "#3b82f6"
+}
+
+entity User {
+  name     string!
+  email    email! unique
+  password string! sensitive
+  role     enum [admin, user] default:user
+}
+
+entity Task {
+  title    string!
+  notes    text
+  budget   money default:0
+  status   enum [todo, doing, done] default:todo
+  due      date
+
+  transition status {
+    todo -> doing
+    doing -> done
+  }
+}
+
+api /tasks {
+  list   GET    /     auth:jwt
+  detail GET    /:id  auth:jwt
+  create POST   /     auth:jwt
+  update PATCH  /:id  auth:jwt
+  delete DELETE /:id  auth:role(admin)
+}
+
+layout Main {
+  brand "Tasks"
+  sidebar {
+    "Dashboard" -> "/dashboard" icon:home
+  }
+}
+
+page "/dashboard" type:dashboard requires:auth {
+  section kpi {
+    bind Task { aggregate count }
+    item "Open tasks" value:bind icon:check
+  }
+  section table {
+    bind Task { query all order created_at desc }
+    columns "title, status, due"
+  }
+  section form {
+    bind Task { query all }
+    item "Title" required:true
+    on submit {
+      create Task
+      toast "Saved" success
+      refresh page
+    }
+  }
+}
+```
+<!-- end:example -->
+
+<!-- begin:never -->
+## Never do
+
+- Never write JS, JSX, HTML or CSS in a `.cronus` file (no `template "<button @click>"`,
+  no `fetch`, no helper functions). The kernel emits all markup and client runtime.
+- Never store money as a float or decimal string: `money` is integer centavos.
+- Never declare `HEAD` or `OPTIONS` routes; the runtime handles them.
+- Never leave a data section (`kpi` `table` `chart` `kanban` `timeline` `stats`
+  `stat-cards`) without `bind` or items: the build fails.
+- Never write `bind Entity` without `{ … }`.
+- Never invent field types (`int`, `float`, `datetime`, `uuid`): unknown types become `string`.
+- Never use `indexed`, `computed` or `onupdate:` (not recognized); use `index`.
+- Never use `ends_with` or `in:[…]` in `where` (not implemented).
+- Never name an entity or field `select`, `drop`, `insert`, `delete`, `update`, `table` or `from`.
+- Never list a `sensitive` field in `columns` or a template.
+- Never put `scope:public` on a binding whose rows are not public data.
+- Never assume `requires:` on a parent route protects child routes.
+- Never keep tokens in localStorage or add a second auth flow: sessions are HttpOnly cookies.
+- Never ship an unvalidated file: run `cronus build --ai` and fix every error.
+<!-- end:never -->
+
+## More
+
+- [llms.txt](llms.txt): index
+- [LANGUAGE.md](LANGUAGE.md): verified long-form language reference
+- [docs/voodoo-llms.md](docs/voodoo-llms.md): opt-in Voodoo.js runtime for emitted HTML
+- [VOODOO.md](VOODOO.md): full Voodoo contract

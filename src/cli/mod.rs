@@ -6,6 +6,7 @@ pub mod build;
 pub mod changelog;
 pub mod compose;
 pub mod context;
+pub mod context_grammar;
 pub mod cronus_audit;
 pub mod deploy_cmd;
 pub mod doctor;

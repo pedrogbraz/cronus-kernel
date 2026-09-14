@@ -354,7 +354,7 @@ pub fn cmd_build(args: &[String]) {
 
 /// Build the AI-Error Protocol JSON from all validation passes.
 /// Collects errors from contract validation, resolve, lint, hardcode lint, and constitution.
-fn build_ai_error_json(
+pub(crate) fn build_ai_error_json(
     nodes: &[AstNode],
     file: &str,
     entity_count: usize,
