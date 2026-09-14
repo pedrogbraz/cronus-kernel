@@ -10,7 +10,7 @@
   display: flex; margin: 0; padding: 0; box-sizing: border-box;
   opacity: 1; color: transparent; background: transparent; caret-color: transparent;
   border: 0 solid transparent; outline: 0 solid transparent; box-shadow: none;
-  pointer-events: all; text-align: left; line-height: 1; letter-spacing: -0.5em;
+  pointer-events: all; text-align: start; line-height: 1; letter-spacing: -0.5em;
   font-size: 2.5rem; font-family: monospace;
 }
 [data-slot="input-otp-group"] {
@@ -20,16 +20,16 @@
   position: relative; display: flex; align-items: center; justify-content: center;
   height: 2.5rem; width: 2.5rem; box-sizing: border-box;
   border: 0 solid var(--cronus-border);
-  border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px;
+  border-top-width: 1px; border-inline-end-width: 1px; border-bottom-width: 1px;
   font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg);
   font-variant-numeric: tabular-nums;
 }
 [data-slot="input-otp-slot"]:first-child {
-  border-left-width: 1px;
-  border-top-left-radius: var(--cronus-radius-lg);
-  border-bottom-left-radius: var(--cronus-radius-lg);
+  border-inline-start-width: 1px;
+  border-start-start-radius: var(--cronus-radius-lg);
+  border-end-start-radius: var(--cronus-radius-lg);
 }
 [data-slot="input-otp-slot"]:last-child {
-  border-top-right-radius: var(--cronus-radius-lg);
-  border-bottom-right-radius: var(--cronus-radius-lg);
+  border-start-end-radius: var(--cronus-radius-lg);
+  border-end-end-radius: var(--cronus-radius-lg);
 }

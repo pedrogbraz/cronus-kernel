@@ -14,7 +14,7 @@
   background: transparent; color: var(--cronus-fg);
   padding: 0 0.75rem; font-family: inherit; font-size: 0.875rem; line-height: 1.25rem;
 }
-[data-slot="currency-input-selector"] { padding: 0 0.625rem 0 0.75rem; cursor: default; }
+[data-slot="currency-input-selector"] { padding-block: 0; padding-inline: 0.75rem 0.625rem; cursor: default; }
 [data-slot="currency-input-selector"] > span:first-child,
 [data-slot="currency-input-prefix"] > span:first-child { font-weight: 500; color: var(--cronus-fg); }
 [data-slot="currency-input-selector"] > span:nth-child(2),

@@ -109,7 +109,7 @@ mod tests {
     #[test]
     fn chrome_is_token_only_and_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"masonry\"] {\n  box-sizing: border-box; width: 18rem; max-width: 100%;\n  column-count: 2; column-gap: 1rem;"));
+        assert!(css.contains("[data-slot=\"masonry\"] {\n  box-sizing: border-box; width: var(--cui-masonry-w, 100%); max-width: 100%;\n  column-count: 2; column-gap: 1rem;"));
         assert!(css
             .contains("[data-slot=\"masonry\"] > * { margin-bottom: 1rem; break-inside: avoid; }"));
         assert!(css.contains("padding: 0.75rem; font-size: 0.875rem; line-height: 1.25rem;"));

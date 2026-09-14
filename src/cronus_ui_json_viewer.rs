@@ -232,8 +232,8 @@ mod tests {
     #[test]
     fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"json-viewer\"] {\n  display: block; width: 18rem; max-width: 100%; overflow-x: auto; padding: 1rem;\n  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-xl);\n  background: var(--cronus-surface-inset); color: var(--cronus-fg);\n  font-family: var(--cronus-font-mono, ui-monospace, monospace); font-size: 0.875rem; line-height: 1.5rem;\n}"));
-        assert!(css.contains("[data-slot=\"json-viewer-children\"] { margin-left: 0.625rem; padding-left: 0.875rem; border-left: 1px solid var(--cronus-border); }"));
+        assert!(css.contains("[data-slot=\"json-viewer\"] {\n  display: block; width: var(--cui-json-viewer-w, 100%); box-sizing: border-box; max-width: 100%; overflow-x: auto; padding: 1rem;\n  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-xl);\n  background: var(--cronus-surface-inset); color: var(--cronus-fg);\n  font-family: var(--cronus-font-mono, ui-monospace, monospace); font-size: 0.875rem; line-height: 1.5rem;\n}"));
+        assert!(css.contains("[data-slot=\"json-viewer-children\"] { margin-inline-start: 0.625rem; padding-inline-start: 0.875rem; border-inline-start: 1px solid var(--cronus-border); }"));
         assert!(css.contains("[data-slot=\"json-viewer-row\"] > [data-slot=\"copy-button\"] {\n  width: 1.25rem; height: 1.25rem; flex-shrink: 0; margin-top: 0.125rem; padding: 0;\n  border: 0; border-radius: var(--cronus-radius-md); background: transparent;\n  color: var(--cronus-fg-secondary); font-size: 0.875rem; line-height: 1.25rem;\n  opacity: 0; cursor: default;\n}"));
         assert!(css.contains("[data-slot=\"json-viewer-value\"][data-type=\"string\"] { color: var(--cronus-success-text); }"));
         assert!(css.contains("[data-slot=\"json-viewer-value\"][data-type=\"boolean\"] { color: var(--cronus-warning-text); }"));

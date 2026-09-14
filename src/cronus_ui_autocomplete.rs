@@ -252,7 +252,7 @@ mod tests {
     fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains(
-            "[data-slot=\"autocomplete-content\"] {\n  position: absolute; top: calc(100% + 4px); left: 0; z-index: 50;\n  width: 100%; min-width: 8rem; box-sizing: border-box; padding: 0; outline: none;"
+            "[data-slot=\"autocomplete-content\"] {\n  position: absolute; top: calc(100% + 4px); inset-inline-start: 0; z-index: 50;\n  width: 100%; min-width: 8rem; box-sizing: border-box; padding: 0; outline: none;"
         ));
         assert!(css.contains("padding: 0 0.75rem; font-family: inherit; font-size: 0.875rem; line-height: 1.25rem; outline: none;"));
         assert!(css.contains(

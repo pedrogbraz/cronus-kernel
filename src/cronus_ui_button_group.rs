@@ -147,7 +147,7 @@ mod tests {
         assert!(css.contains(
             "[data-slot=\"button-group\"] > [data-slot=\"button\"][data-variant=\"primary\"] { border-width: 0; }"
         ));
-        assert!(css.contains("margin-left: -1px"));
+        assert!(css.contains("margin-inline-start: -1px"));
         assert!(css.contains("margin-top: -1px"));
         assert!(!css.contains("zinc-"));
     }

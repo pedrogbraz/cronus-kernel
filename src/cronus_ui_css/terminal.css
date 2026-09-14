@@ -1,5 +1,5 @@
 [data-slot="terminal"] {
-  box-sizing: border-box; width: 18rem; max-width: 100%; overflow: hidden;
+  box-sizing: border-box; width: var(--cui-terminal-w, 100%); max-width: 100%; overflow: hidden;
   border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-xl);
   background: var(--cronus-surface-inset); color: var(--cronus-fg);
   box-shadow: var(--cronus-shadow-sm, none);
@@ -25,7 +25,7 @@
   color: var(--cronus-fg-tertiary, var(--cronus-fg-secondary));
 }
 [data-slot="terminal-chrome"] [data-slot="copy-button"] {
-  width: 2rem; height: 2rem; padding: 0; margin-right: -0.375rem; flex-shrink: 0;
+  width: 2rem; height: 2rem; padding: 0; margin-inline-end: -0.375rem; flex-shrink: 0;
   border: 0; border-radius: var(--cronus-radius-lg);
   font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;
   background: transparent; color: var(--cronus-fg-secondary);

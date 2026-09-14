@@ -1,6 +1,6 @@
 [data-slot="spotlight-card"] {
   position: relative; overflow: hidden;
-  width: 18rem; padding: 1.5rem; color: var(--cronus-fg);
+  width: var(--cui-spotlight-card-w, 100%); box-sizing: border-box; padding: 1.5rem; color: var(--cronus-fg);
   border-radius: calc(var(--cronus-radius, 14px) + 8px); box-shadow: none;
 }
 [data-slot="spotlight-card"] > [aria-hidden="true"] {

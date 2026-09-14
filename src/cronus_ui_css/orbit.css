@@ -3,15 +3,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18rem;
-  height: 18rem;
+  width: var(--cui-orbit-size, 18rem);
+  height: var(--cui-orbit-size, 18rem);
   line-height: 1.5;
   color: var(--cronus-fg);
 }
 [data-slot="orbit-ring"] {
   box-sizing: border-box;
   position: absolute;
-  left: 50%;
+  left: 50%; /* physical: centred with translate(-50%, -50%) */
   top: 50%;
   width: 16rem;
   height: 16rem;
@@ -33,7 +33,7 @@
 }
 [data-slot="orbit-holder"] {
   position: absolute;
-  left: 50%;
+  left: 50%; /* physical: centred with translate(-50%, -50%) */
   top: 0;
   transform: translate(-50%, -50%);
 }

@@ -1,6 +1,6 @@
 [data-slot="confetti"] {
   position: relative;
-  width: 18rem; min-height: 8rem;
+  width: var(--cui-confetti-w, 100%); min-height: 8rem;
   color: var(--cronus-fg);
 }
 [data-slot="confetti"] > div {

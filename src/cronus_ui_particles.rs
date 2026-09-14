@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn chrome_particles_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"particles\"] {\n  position: relative; overflow: hidden;\n  width: 18rem; height: 8rem;\n}"));
+        assert!(css.contains("[data-slot=\"particles\"] {\n  position: relative; overflow: hidden;\n  width: var(--cui-particles-w, 100%); height: 8rem;\n}"));
         assert!(css.contains("[data-slot=\"particles\"] > [aria-hidden=\"true\"] {"));
         assert!(
             css.contains("[data-slot=\"particles\"] > div:last-child {\n  position: relative;\n}")

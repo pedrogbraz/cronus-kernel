@@ -25,7 +25,7 @@
 [data-slot="multi-select-trigger"] svg { width: 1rem; height: 1rem; flex-shrink: 0; opacity: 0.6; }
 [data-slot="multi-select-trigger"][aria-invalid="true"] { border-color: var(--cronus-error); }
 [data-slot="multi-select"] > [data-slot="popover-content"] {
-  position: absolute; top: calc(100% + 4px); left: 0; z-index: 50;
+  position: absolute; top: calc(100% + 4px); inset-inline-start: 0; z-index: 50;
   display: block; width: 100%; box-sizing: border-box; padding: 0; outline: none;
   border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
   background: var(--cronus-surface-floating); color: var(--cronus-fg);

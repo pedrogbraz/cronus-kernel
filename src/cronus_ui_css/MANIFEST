@@ -164,6 +164,8 @@ keep 0149 switch 3757f046ad4861fb -
 keep 0150 switch 81ac21e9832be532 -
 keep 0151 switch cc2c569a1ed05080 -
 keep 0152 switch 66605abf826c17b2 -
+new switch 94b27e528c835242 -
+new switch b7334bc231138aa5 -
 keep 0153 spinner 007a2bd1463af3f5 -
 keep 0154 spinner 1e228e042811d953 -
 keep 0155 separator d6d34e67a50e6999 -
@@ -275,12 +277,12 @@ keep 0260 shared 951aed3c76c1daf0 progress,scroll-progress,usage-meter
 keep 0261 shared 18ee45f320d5738e progress,scroll-progress,usage-meter
 keep 0262 shared a269921341eef2e4 progress,scroll-progress,usage-meter
 keep 0263 shared 55fb1b3a49f7038e progress,scroll-progress,usage-meter
-keep 0264 skeleton a3f1f5f9ca9c93a2 -
+edit 0264 skeleton a3f1f5f9ca9c93a2 d482cce5f3ac16e9 - fluid-width
 keep 0265 skeleton 5fb28714050a8f72 -
 keep 0266 slider 39b7e45ab2583df3 -
 keep 0267 slider 99fe0c524e749fcb -
-keep 0268 slider 954c72ddabb73151 -
-keep 0269 slider 887d176a3ed16b9d -
+edit 0268 slider 954c72ddabb73151 1e6810c23e740a83 - fluid-width+rtl-logical
+edit 0269 slider 887d176a3ed16b9d 2f4e520b79d29308 - fluid-width+rtl-logical
 keep 0270 slider 05f68fea52e42da3 -
 keep 0271 slider 8bd1bb38c9726819 -
 keep 0272 slider 48e974572eeb7235 -
@@ -383,6 +385,7 @@ keep 0368 slider 2092d31952e8983f -
 keep 0369 slider 0f5674478ae10225 -
 keep 0370 slider c7b51c541e4da2eb -
 keep 0371 slider c83a9bfd54640f85 -
+new slider 27816ddcde789bbf -
 keep 0372 radio-group 89448c1119e8ba2d -
 keep 0373 radio-group d3fa4fd94e07f04e -
 keep 0374 radio-group 5f2c9e6a053fc08a -
@@ -393,17 +396,17 @@ keep 0378 avatar ada55a596d9d548e -
 keep 0379 avatar 0734138edb0234b0 -
 keep 0380 avatar 978794e7b66f190a -
 keep 0381 shared 8dd8c0cd97694f96 card,spotlight-card
-keep 0382 spotlight-card f56a3123befe8a71 -
+edit 0382 spotlight-card f56a3123befe8a71 08bd99cd223cd4d4 - fluid-width
 keep 0383 spotlight-card 2c5779cdbaa0c1b4 -
 keep 0384 spotlight-card b2fb9cc2ff13176c -
 keep 0385 spotlight-card 29dfc39aaebc029c -
 keep 0386 spotlight-card b7ad95d589bd4568 -
 keep 0387 card 0bffe55f87a8e646 -
-keep 0388 card 0a5cd4803ec7e826 -
+edit 0388 card 0a5cd4803ec7e826 b8ce1556f40a92d8 - rtl-logical
 keep 0389 card 4f5adc13fa108f52 -
 keep 0390 card 2bd0941f9ceb98fe -
-keep 0391 card cce28aac88cba255 -
-keep 0392 card 50eedcfbe719006d -
+edit 0391 card cce28aac88cba255 9d340a383b050423 - rtl-logical
+edit 0392 card 50eedcfbe719006d ad25a5791836fd2d - rtl-logical
 keep 0393 empty 399bd6f7f2076ede -
 keep 0394 empty 0a4b63ffa9f2e604 -
 keep 0395 empty fd12c0a027b2d28d -
@@ -475,6 +478,7 @@ keep 0460 pagination abc8f8ebb078b153 -
 keep 0461 pagination 9fb8f93cc4e59d8d -
 keep 0462 pagination e184af9989b07b38 -
 keep 0463 pagination c9fa8f40ab2c8ddc -
+new pagination 3f63fe7c952b0791 -
 keep 0464 breadcrumb 7c04c54338a998c6 -
 keep 0465 breadcrumb 08d5d93c171abd56 -
 keep 0466 breadcrumb c30d483e189488c4 -
@@ -487,13 +491,13 @@ keep 0472 table 67d0f00827fc54cd -
 keep 0473 table be0d70412ded21f6 -
 keep 0474 table ad5046d2166cef2f -
 keep 0475 table 83e63ae7fb24a528 -
-keep 0476 table 6866c7987fda2b41 -
+edit 0476 table 6866c7987fda2b41 d15054ac9a2e6364 - rtl-logical
 keep 0477 table 01359ee2ae896e8a -
 keep 0478 field 728a69aa5fc7b6d9 -
 keep 0479 field cc79a794fa75963b -
 keep 0480 field da0d25d65aa831e0 -
 keep 0481 input-group 66e07a73ef22605e -
-keep 0482 input-group e45fa6f9750bb519 -
+edit 0482 input-group e45fa6f9750bb519 96d1eb514b775d12 - rtl-logical
 keep 0483 input-group b98c783b1f862e89 -
 keep 0484 rating d515febefbbb4013 -
 keep 0485 rating d9ea52d476122ca5 -
@@ -524,23 +528,23 @@ keep 0509 metric 193c711d86236d95 -
 keep 0510 metric b720a39c34aac878 -
 keep 0511 metric 2ba1d5b73a5b854d -
 keep 0512 avatar-group cd55baaa42ff457a -
-keep 0513 avatar-group be253346a180b206 -
+edit 0513 avatar-group be253346a180b206 f08c85e8bc1bc67f - rtl-logical
 keep 0514 avatar-group b7e77de0a5688e29 -
 keep 0515 avatar-group 01a280dae3330cc7 -
 keep 0516 button-group bd765de739a2b86b -
 keep 0517 button-group fb069be3c3f2e8c0 -
-keep 0518 button-group c21578a2bd4d8565 -
-keep 0519 button-group 98cd1d9976ec1434 -
+edit 0518 button-group c21578a2bd4d8565 1848b154301a2bdb - rtl-logical
+edit 0519 button-group 98cd1d9976ec1434 55def2d1e9120385 - rtl-logical
 keep 0520 button-group c963f1460ca2920f -
-keep 0521 button-group 7380cd574da85b4a -
-keep 0522 button-group 4e0ab56457700ec5 -
+edit 0521 button-group 7380cd574da85b4a 4ebee069dc7fbe84 - rtl-logical
+edit 0522 button-group 4e0ab56457700ec5 5b32fded6c630d57 - rtl-logical
 keep 0523 button-group e4db24f7ed8e4ec7 -
 keep 0524 button-group 6eaf104a4dbd776e -
 keep 0525 button-group 8d1cef2ba65cae1e -
 keep 0526 combobox b861fcac1957c6c7 -
 keep 0527 combobox d30cb7e07f05a0f6 -
 keep 0528 combobox d13c3f0fa35b5454 -
-keep 0529 combobox 3b3ae8f5b25cdc80 -
+edit 0529 combobox 3b3ae8f5b25cdc80 98993517048e52eb - rtl-logical
 keep 0530 combobox d9e457933d45d2c3 -
 drop 0531 10570e9feebc0200 dead-slot combobox-content
 drop 0532 19d506c62fe39e86 dead-slot combobox-item
@@ -565,11 +569,11 @@ keep 0550 stepper fe453e9e0e4fb0bf -
 keep 0551 stepper d7960070b5fb497c -
 keep 0552 input-otp 380b33ba0006b0fe -
 keep 0553 input-otp b2a97077e17764d9 -
-keep 0554 input-otp 51e017e6f999d072 -
+edit 0554 input-otp 51e017e6f999d072 132b2c080cc8e205 - rtl-logical
 keep 0555 input-otp 21ea67047a76cb27 -
-keep 0556 input-otp a8b7a6b8de41f3c1 -
-keep 0557 input-otp 1844db63f820786e -
-keep 0558 input-otp 1f27f44142134629 -
+edit 0556 input-otp a8b7a6b8de41f3c1 299734ae117d05ae - rtl-logical
+edit 0557 input-otp 1844db63f820786e 13f000ca45b25f7c - rtl-logical
+edit 0558 input-otp 1f27f44142134629 b7df97b1e2b74928 - rtl-logical
 keep 0559 file-dropzone 4c19d3c2730de79c -
 keep 0560 file-dropzone 0a1f63a36e7f7bfe -
 keep 0561 file-dropzone 6f32e9447093e049 -
@@ -593,7 +597,7 @@ keep 0578 mode-toggle 84da99063fbbe791 -
 keep 0579 mode-toggle bbd3bd1a45033f25 -
 keep 0580 mode-toggle f02a0beac3b45b63 -
 keep 0581 mode-toggle d338701c64387bc4 -
-keep 0582 command ccbe07bf303dbbd8 -
+edit 0582 command ccbe07bf303dbbd8 13f807887a1fbe6e - fluid-width
 keep 0583 command 02737777bf853d2c -
 keep 0584 command 33b0bf892ad34ec7 -
 keep 0585 command 5b52acc2a1eed3fb -
@@ -613,7 +617,7 @@ keep 0598 context-menu 529c5f1de89c9bd0 -
 keep 0599 context-menu 9eba379b09588eb4 -
 keep 0600 context-menu ed47293c9d0a1558 -
 keep 0601 drawer 879aacf8c1d63654 -
-keep 0602 drawer af5a827f67c2126f -
+edit 0602 drawer af5a827f67c2126f f7c352b8e723144d - rtl-logical
 keep 0603 drawer b0712c44b5b40e09 -
 keep 0604 drawer f96a87917b3d0765 -
 keep 0605 drawer 441230c6ab1c928e -
@@ -665,8 +669,8 @@ keep 0650 date-range-picker 8906721f9f88a7f2 -
 keep 0651 date-range-picker 633e99c1329e8035 -
 keep 0652 date-range-picker fe48bd89eef7ec47 -
 keep 0653 date-range-picker dd5f31817585913a -
-keep 0654 date-range-picker dcb356a0dde5d611 -
-keep 0655 date-range-picker f2293e1cbd120009 -
+edit 0654 date-range-picker dcb356a0dde5d611 f9180117126f3fe4 - rtl-logical
+edit 0655 date-range-picker f2293e1cbd120009 239be8fcbc037ab6 - rtl-logical
 keep 0656 date-range-picker 68c9246b29d97fe1 -
 keep 0657 date-range-picker a408445636acbad3 -
 keep 0658 date-range-picker 7155a3d7471931f6 -
@@ -697,11 +701,11 @@ keep 0682 data-table 1cd41d4d24345977 -
 keep 0683 data-table 0938ff18c065909c -
 keep 0684 data-table 67eacc0ca1baeb9f -
 keep 0685 data-table b6141e7e5517c41a -
-keep 0686 data-table 0101660718339584 -
+edit 0686 data-table 0101660718339584 5fec1161d3905c4d - rtl-logical
 keep 0687 data-table b54f2cf9e625799f -
 keep 0688 sidebar 9a23b9e473bf62ab -
 keep 0689 sidebar 96a452790994f38a -
-keep 0690 sidebar 513f59157d798b32 -
+edit 0690 sidebar 513f59157d798b32 260562aca047148d - rtl-logical
 keep 0691 sidebar 603ec1ba4fe7c9d8 -
 keep 0692 sidebar 2d7c0ac4c524af23 -
 keep 0693 sidebar 2ad3a0922dd9efcd -
@@ -709,7 +713,7 @@ keep 0694 sidebar 7badcf88b2f88237 -
 keep 0695 sidebar c696e1819631fffc -
 keep 0696 sidebar fab6f53fe1c4ef9a -
 keep 0697 sidebar 399cfcfa9749607f -
-keep 0698 sidebar dd117fea5d3de876 -
+edit 0698 sidebar dd117fea5d3de876 042615eea0855cb1 - rtl-logical
 keep 0699 sidebar 14b49fbe2f588b8a -
 keep 0700 sidebar a844785a6a423130 -
 keep 0701 shared 08a81c7456ed0bf3 sonner,toast
@@ -722,7 +726,7 @@ keep 0707 navigation-menu 39c1d37bd0a4ee14 -
 keep 0708 navigation-menu 43adc3ea5622b28d -
 keep 0709 phone-input ccd0fa6c10246b83 -
 keep 0710 phone-input adc189b5b13e4915 -
-keep 0711 phone-input 2c15a6677afaf871 -
+edit 0711 phone-input 2c15a6677afaf871 d3d9be5bc7e3f6b3 - rtl-logical
 keep 0712 phone-input c0671cc4d19bc29a -
 keep 0713 phone-input f0d97a2e6ec6b899 -
 keep 0714 phone-input 5b2d7f74b9aec370 -
@@ -734,7 +738,7 @@ keep 0719 currency-input 6b0e391dfb4a6085 -
 keep 0720 currency-input 91564e970067f2e2 -
 keep 0721 currency-input 90ee0646931979aa -
 keep 0722 currency-input d8b5730df0343a2d -
-keep 0723 currency-input 7bff3ec4c879d8ba -
+edit 0723 currency-input 7bff3ec4c879d8ba 2859e20157ffb9e0 - rtl-logical
 keep 0724 currency-input b9d0a4f8eae7c3ec -
 keep 0725 currency-input c65e89e511be9461 -
 keep 0726 currency-input 6d3b39c5b65af995 -
@@ -745,7 +749,7 @@ keep 0730 color-picker 0715e0a03c35fd6a -
 keep 0731 color-picker ec2b3afeae4b75cf -
 keep 0732 color-picker 1b16b75225ba4ef0 -
 keep 0733 color-picker 8323cf8ee0405041 -
-keep 0734 scroll-area 20361d594149c881 -
+edit 0734 scroll-area 20361d594149c881 2936aee452e7930d - fluid-width
 keep 0735 scroll-area 3ea7f2a66ca45842 -
 keep 0736 scroll-area 2c4dd5520edbce3e -
 keep 0737 scroll-area 819b3199866a4cb4 -
@@ -766,7 +770,7 @@ keep 0751 status-dot b84d2429c32243b0 -
 keep 0752 tags-input abae8af9ad4e2792 -
 keep 0753 tags-input c434a3e32e28729c -
 keep 0754 tags-input d77a0c1fa20780bf -
-keep 0755 tags-input a98cfa9cfcb73b32 -
+edit 0755 tags-input a98cfa9cfcb73b32 0e1a3a1bdfa7ab31 - rtl-logical
 keep 0756 tags-input 8944003de2162339 -
 keep 0757 tags-input 00ef6d2c156dee37 -
 keep 0758 tags-input c166e21f52f9bf73 -
@@ -777,7 +781,7 @@ keep 0762 shared b2789cfaff4c7a3d *
 keep 0763 autocomplete 64ea5b73bc653adf -
 keep 0764 autocomplete f69593dfe61599e4 -
 keep 0765 autocomplete 912f16ce30842961 -
-keep 0766 autocomplete 740db6c4ad65d7f2 -
+edit 0766 autocomplete 740db6c4ad65d7f2 7e0633b7e571569f - rtl-logical
 keep 0767 autocomplete 904df1912c44a24c -
 keep 0768 autocomplete 37f2d4d03626dd1f -
 keep 0769 autocomplete 497481a0285c7a8b -
@@ -793,7 +797,7 @@ keep 0778 multi-select fd3b0955d2822967 -
 keep 0779 multi-select bc094f7751ce8323 -
 keep 0780 multi-select 386ea217cab90057 -
 keep 0781 multi-select 00c242c9368e0cf2 -
-keep 0782 multi-select 43ae9c8e4da0ae91 -
+edit 0782 multi-select 43ae9c8e4da0ae91 073b070e899e2554 - rtl-logical
 keep 0783 multi-select eaa39cd0b2a53247 -
 keep 0784 multi-select 0c8562272ade423f -
 keep 0785 multi-select a469bae4ad30862b -
@@ -819,19 +823,20 @@ keep 0804 credit-card-input 671309cad94bd7f8 -
 keep 0805 floating-label-input a1cb1b02ec65c91c -
 keep 0806 floating-label-input c8d77904fabe55f6 -
 keep 0807 floating-label-input fb9be66ff51cb1c1 -
-keep 0808 floating-label-input 59b37c3b116b8128 -
+edit 0808 floating-label-input 59b37c3b116b8128 13677f1e77d038e3 - rtl-logical
 keep 0809 floating-label-input 609310d9ed4aff7b -
 keep 0810 floating-label-input ffc366464cabe263 -
 keep 0811 floating-label-input aafde573ede0c986 -
 keep 0812 floating-label-input 3a21664db8490996 -
 keep 0813 floating-label-input 9795b2b95f9c2f80 -
 keep 0814 floating-label-input 4c819a218f12a2c4 -
+new floating-label-input 75f6945c49b915be -
 keep 0815 split-button 5266485f729dd53a -
 keep 0816 split-button 1816cdbf77e90547 -
 keep 0817 split-button 2a99fdf726eaee5d -
-keep 0818 split-button 6a5eb8f0d12bf538 -
-keep 0819 split-button d8249b2b29909828 -
-keep 0820 split-button f9215cafb019da6a -
+edit 0818 split-button 6a5eb8f0d12bf538 875fa4f701c673f2 - rtl-logical
+edit 0819 split-button d8249b2b29909828 85c3ef63b8e3539c - rtl-logical
+edit 0820 split-button f9215cafb019da6a daa88e3912342c7f - rtl-logical
 keep 0821 split-button 40f96d19ed5b4f28 -
 keep 0822 split-button 0ac60acb0f069ed3 -
 keep 0823 split-button 59edad02355663a6 -
@@ -858,7 +863,7 @@ keep 0843 app-shell 2b09660e73399e68 -
 keep 0844 app-shell 5ed91752a062f70e -
 keep 0845 table-of-contents b718fb8be01de8e7 -
 keep 0846 table-of-contents b68347b2766b30d9 -
-keep 0847 table-of-contents 3e1e8b2fdc1f93af -
+edit 0847 table-of-contents 3e1e8b2fdc1f93af 7fc83188aa81b0b0 - rtl-logical
 keep 0848 table-of-contents 8904c2079a23ce8d -
 keep 0849 table-of-contents 654247121aabea34 -
 keep 0850 table-of-contents 41d7a1fdba87a2ec -
@@ -871,10 +876,10 @@ keep 0856 form cc4414e5e439122b -
 keep 0857 form 9c3db3ea39d5cac8 -
 keep 0858 signature-pad 7c4b58daa342cac3 -
 keep 0859 signature-pad aa7c53d4cced7f3c -
-keep 0860 signature-pad 7217d5f697a92e8b -
+edit 0860 signature-pad 7217d5f697a92e8b f9cc627ed88ad1bb - rtl-logical
 keep 0861 signature-pad 8464250c8de06c9c -
 keep 0862 signature-pad b60f910e90e142e7 -
-keep 0863 signature-pad 76052660b192ab23 -
+edit 0863 signature-pad 76052660b192ab23 e40c1f98435b6ff2 - rtl-logical
 keep 0864 signature-pad 5258ec6730a39c3a -
 keep 0865 signature-pad f5ac702d7e174f44 -
 keep 0866 signature-pad fdc0c16b4fc7157c -
@@ -895,13 +900,13 @@ keep 0880 scheduler 9c4b004fca6fdec3 -
 keep 0881 scheduler ca9b7a09df58eb30 -
 keep 0882 scheduler 525b58b048d5e46c -
 keep 0883 scheduler 1f0b079bdc7dff8b -
-keep 0884 scheduler 4d5d21e381f6af4d -
-keep 0885 scheduler 10dad5d652712d58 -
+edit 0884 scheduler 4d5d21e381f6af4d 2482f5f28959edd8 - rtl-logical
+edit 0885 scheduler 10dad5d652712d58 8be82d141d7b1027 - rtl-logical
 keep 0886 scheduler 7ae9afe5403ae1e8 -
 keep 0887 scheduler b99c159e9c117d61 -
 keep 0888 scheduler 74d8792da60065e3 -
 keep 0889 scheduler 6f1c6384fab6d5c7 -
-keep 0890 scheduler cb65834052e5ac77 -
+edit 0890 scheduler cb65834052e5ac77 b236d8b84d6bc942 - rtl-logical
 keep 0891 scheduler 9796497dfc3578d0 -
 keep 0892 alert-dialog d87f542d0bd647c1 -
 keep 0893 shared b949445120c879d4 alert-dialog,confirmation-dialog
@@ -967,7 +972,7 @@ keep 0952 usage-meter 87d19c958386706f -
 keep 0953 usage-meter 2630d5ce23aa9ada -
 keep 0954 usage-meter a97b70bd81c25cf2 -
 keep 0955 usage-meter b7bdbb40be28b476 -
-keep 0956 masonry 6414a25b66c839a7 -
+edit 0956 masonry 6414a25b66c839a7 8c3ed0c3b05a18db - fluid-width
 keep 0957 masonry c3cfae2bd5cac0aa -
 keep 0958 masonry 16c792e03d9d37c2 -
 keep 0959 heatmap d55bbfa8762ecfeb -
@@ -990,17 +995,17 @@ keep 0975 comparison-slider cc2c6515614c32bd -
 keep 0976 comparison-slider 5ca89245c02243b6 -
 keep 0977 comparison-slider 7c3f3bf8855151ca -
 keep 0978 code-tabs 678d9ba4b7892785 -
-keep 0979 code-tabs 6baaa7ae42f4eb81 -
+edit 0979 code-tabs 6baaa7ae42f4eb81 edb15edd51f5965c - rtl-logical
 keep 0980 code-tabs 6f0145e1b2449e0c -
 keep 0981 code-tabs 3446f2f5e4c9845b -
 keep 0982 code-tabs 74f3ba1e2438258a -
 keep 0983 code-tabs ace93b2dede34139 -
 keep 0984 code-tabs c8373ca0a1516bf7 -
 keep 0985 code-tabs 235197de0806d867 -
-keep 0986 code-tabs f3e70770a8690f64 -
+edit 0986 code-tabs f3e70770a8690f64 c721c723290e304b - rtl-logical
 keep 0987 code-tabs 50d44ecd8e0ff7fc -
 keep 0988 code-tabs 7cd689d7c1b49f67 -
-keep 0989 code-tabs 08d19d373b04cc10 -
+edit 0989 code-tabs 08d19d373b04cc10 d07c2d20d98a262f - rtl-logical
 keep 0990 code-tabs 9044a5c179931f7b -
 keep 0991 expandable-tabs 0f966283828d6090 -
 keep 0992 expandable-tabs cb647c224b8c55f9 -
@@ -1021,7 +1026,7 @@ keep 1006 gauge-chart 5d385cf5a59caf6a -
 keep 1007 funnel-chart 0d405eec2c393862 -
 keep 1008 funnel-chart 75ab94a086432941 -
 keep 1009 candlestick-chart 7219ba8a80e6ffc5 -
-keep 1010 scroll-progress db40775229ca10ab -
+edit 1010 scroll-progress db40775229ca10ab b310519200952d73 - fluid-width
 keep 1011 scroll-progress 6d60c275e5cabf42 -
 keep 1012 scroll-progress 5789dedf0488866a -
 keep 1013 scroll-progress d7dad644df0c7e6e -
@@ -1059,23 +1064,23 @@ keep 1044 invite-dialog 3eecf1e1dc0b3d46 -
 keep 1045 invite-dialog f95002660eb9387b -
 keep 1046 invite-dialog 9e994a94960d781d -
 keep 1047 invite-dialog 3a3685741015b0af -
-keep 1048 shimmer f8c62b68eea13a38 -
+edit 1048 shimmer f8c62b68eea13a38 234944956a7f500e - fluid-width
 keep 1049 shimmer 1a510a222b5377c7 -
 keep 1050 shimmer 111995e5b8ea8ce3 -
 keep 1051 reveal edbe19639a105047 -
 keep 1052 reveal a9471a75a06f0f2a -
 keep 1053 text-shimmer 886fbee4d9e8041d -
 keep 1054 text-shimmer 2ffbdf3db0efcdcd -
-keep 1055 particles 29eb1a3ae353c6b5 -
+edit 1055 particles 29eb1a3ae353c6b5 52524b75c6ae6c81 - fluid-width
 keep 1056 particles da4fbe5076222648 -
 keep 1057 particles 590df05fe84dcf06 -
 keep 1058 particles 8e61f0ac2d937a44 -
 keep 1059 particles f00989241bb68750 -
 keep 1060 sparkles-text 6dc104e26eabe366 -
 keep 1061 sparkles-text ff272b69ed638083 -
-keep 1062 sparkles-text 6fa54eca8e9bd5d0 -
+edit 1062 sparkles-text 6fa54eca8e9bd5d0 2eebac6a12602315 - rtl-logical
 keep 1063 sparkles-text ed68f34d9d1940ec -
-keep 1064 noise 2a2085735d7b43c8 -
+edit 1064 noise 2a2085735d7b43c8 40c7e42be65c5f7b - fluid-width
 keep 1065 noise 50f7048b7b589dbb -
 keep 1066 noise 026a922715cf2430 -
 keep 1067 morphing-popover 4601f04730c624c1 -
@@ -1087,13 +1092,13 @@ keep 1072 morphing-popover 0ad08ee45ecdc4e5 -
 keep 1073 morphing-popover 0599605217370228 -
 keep 1074 bouncy-accordion 7d8b2d7b579272ee -
 keep 1075 bouncy-accordion ef50dace11602b02 -
-keep 1076 bouncy-accordion 9c0a088c53ddba70 -
+edit 1076 bouncy-accordion 9c0a088c53ddba70 20b4beeb4e38d26c - rtl-logical
 keep 1077 bouncy-accordion 4fc4085e2f6c521c -
 keep 1078 bouncy-accordion 4dcd93f6c2e8cf8b -
 keep 1079 bouncy-accordion a239dae444d7c6ca -
 keep 1080 bouncy-accordion 2baf709bdc3ba6ba -
-keep 1081 bouncy-accordion 15ef72afa120c690 -
-keep 1082 bouncy-accordion 6a3bb3cd1605645d -
+edit 1081 bouncy-accordion 15ef72afa120c690 8c68b9b58b8e90ec - rtl-logical
+edit 1082 bouncy-accordion 6a3bb3cd1605645d d0fc05bba8141aa1 - rtl-logical
 keep 1083 bouncy-accordion 03c36f076785c94c -
 keep 1084 bouncy-accordion 22fe3a919b82a9ee -
 keep 1085 bouncy-accordion 3cc8a045c0dd6036 -
@@ -1127,26 +1132,26 @@ keep 1112 tree-view 1a79478d098168f4 -
 keep 1113 tree-view 05d5abce788bf66d -
 keep 1114 tree-view 4246e1fbe3f72f21 -
 keep 1115 tree-view df49ad09b540ea9d -
-keep 1116 tilt-card e0a951fc10377b0c -
+edit 1116 tilt-card e0a951fc10377b0c 5baacc4b2564ff15 - fluid-width
 keep 1117 tilt-card c42ae8314b704676 -
-keep 1118 star-border 91b699d57df3bfb9 -
+edit 1118 star-border 91b699d57df3bfb9 d8efd27effb23799 - fluid-width
 keep 1119 star-border d1953d15613b17be -
 keep 1120 star-border 5fa06a2132d06b33 -
 keep 1121 star-border 811badea009a66b5 -
 keep 1122 star-border ff43f444bd76ac30 -
 keep 1123 star-border fbe8fef4be2259fa -
 keep 1124 star-border 04b8492cc5a86515 -
-keep 1125 glass-card 7b88a3bbe9d43e1d -
+edit 1125 glass-card 7b88a3bbe9d43e1d c372a7125e994ff4 - fluid-width
 keep 1126 glass-card a8fc0746bf90872b -
 keep 1127 glass-card 7808f99ff7730b2c -
-keep 1128 terminal b8d796e8670ccb9f -
+edit 1128 terminal b8d796e8670ccb9f 867aa3d9e48c20da - fluid-width
 keep 1129 terminal d1a4107c5b3545ae -
 keep 1130 terminal 386b4a96f3d94993 -
 keep 1131 terminal 459f4a3abba1f574 -
 keep 1132 terminal 0434f2384e79c76b -
 keep 1133 terminal 91f9a4c4cda896f3 -
 keep 1134 terminal 3fe101d1aa8ea63e -
-keep 1135 terminal ba7c352a6dd33b96 -
+edit 1135 terminal ba7c352a6dd33b96 5da0f48d75ed00c3 - rtl-logical
 keep 1136 terminal 002c98f8828ca067 -
 keep 1137 terminal 9a12ff4288cd59fd -
 keep 1138 terminal b99f8d8b9f6cbb35 -
@@ -1186,18 +1191,18 @@ keep 1171 animated-list 5d0a97a5e730e817 -
 keep 1172 animated-list ab308268ae1dacd1 -
 keep 1173 animated-list 54ae701c0b8f19fb -
 keep 1174 animated-list c644e8dfc8394f42 -
-keep 1175 carousel ac856209dbebf162 -
-keep 1176 carousel 7428138cc2f22eab -
+edit 1175 carousel ac856209dbebf162 d3906a0db9feadfb - fluid-width
+edit 1176 carousel 7428138cc2f22eab 7ba6ee385ca9c362 - rtl-logical
 keep 1177 carousel daece360e2c845a0 -
-keep 1178 carousel 5e064e3340602b72 -
+edit 1178 carousel 5e064e3340602b72 b321774864b9c7d9 - rtl-logical
 keep 1179 carousel 2fa7d15aedc5d831 -
 keep 1180 carousel e5eb204aecd84bd0 -
 keep 1181 carousel d64241bf8458cb3f -
 keep 1182 carousel 6cab953473f154fd -
 keep 1183 carousel 6ed30114690d4f7a -
 keep 1184 carousel dc2733f8bf79e0ea -
-keep 1185 code-block d3f6a5be1bac270f -
-keep 1186 code-block 4c0391de0ef74a5b -
+edit 1185 code-block d3f6a5be1bac270f 6b19407d1a69cee7 - fluid-width
+edit 1186 code-block 4c0391de0ef74a5b e7d861b9d622d854 - rtl-logical
 keep 1187 code-block ae0b160b33eb39f4 -
 keep 1188 code-block a5145dae70bcb6d1 -
 keep 1189 code-block 45df21d2df217697 -
@@ -1206,7 +1211,7 @@ keep 1191 code-block 00c0aca051d25838 -
 keep 1192 code-block bb3a82ad672d62ff -
 keep 1193 code-block 5694dc8279881fa7 -
 keep 1194 code-block 943f167bbe0903f6 -
-keep 1195 description-list b88a2533160bd592 -
+edit 1195 description-list b88a2533160bd592 14e7b27386e0c11a - fluid-width
 keep 1196 description-list fbce32827f57d06d -
 keep 1197 description-list d1e6a95d6604ff16 -
 keep 1198 description-list e20013e052a81689 -
@@ -1225,7 +1230,7 @@ keep 1210 kanban 6ee583ec0864c359 -
 keep 1211 kanban ccea7d51225966a3 -
 keep 1212 kanban 14ed04192da4dde7 -
 keep 1213 kanban 7850a9f26a29301c -
-keep 1214 json-viewer 340994334bf4dca0 -
+edit 1214 json-viewer 340994334bf4dca0 6765cf28b9315c93 - fluid-width
 keep 1215 json-viewer 575eb95d4f9278b0 -
 keep 1216 json-viewer f1136c9f1f8fb75e -
 keep 1217 json-viewer a6963c0e3424316e -
@@ -1234,7 +1239,7 @@ keep 1219 json-viewer 12ecfb9c239c93a6 -
 keep 1220 json-viewer 1be797582c4aff91 -
 keep 1221 json-viewer 1593d81c17d73858 -
 keep 1222 json-viewer 1cd2be95e2d1fb1e -
-keep 1223 json-viewer 610466e85825412c -
+edit 1223 json-viewer 610466e85825412c e26ebb254cb3a55b - rtl-logical
 keep 1224 json-viewer 81c523a0279a691d -
 keep 1225 json-viewer 9ec71cc59bbbb5a1 -
 keep 1226 json-viewer 6dac55351983c110 -
@@ -1243,7 +1248,7 @@ keep 1228 json-viewer b7575c99887966e9 -
 keep 1229 json-viewer 5159a07e85c901a7 -
 keep 1230 json-viewer 3eaa9436e3aaed94 -
 keep 1231 animated-number 7948b124c7c5b7fd -
-keep 1232 marquee 76ec4d3744788704 -
+edit 1232 marquee 76ec4d3744788704 7d7492452d74f5f9 - fluid-width
 keep 1233 marquee 77b48c0ce2a9ad75 -
 keep 1234 marquee a14b33b2a1c86d6f -
 keep 1235 marquee a2c1aa5e5144a58e -
@@ -1254,8 +1259,8 @@ keep 1239 shiny-text c0ba77cb5c3c80c5 -
 keep 1240 shiny-text 6f7c776f85ce6253 -
 keep 1241 shiny-text c6ca59516142a9d1 -
 keep 1242 shiny-text c78a17759298a2df -
-keep 1243 aspect-ratio d01ccaa4a2e0b3fd -
-keep 1244 frame 84ef520bd9e87b7a -
+edit 1243 aspect-ratio d01ccaa4a2e0b3fd 89f829e272089d02 - fluid-width
+edit 1244 frame 84ef520bd9e87b7a 6af87c1b603ae0f3 - fluid-width
 keep 1245 frame db4b5c34225ab156 -
 keep 1246 frame 1deb69c523add435 -
 keep 1247 frame 999e463c3d480d61 -
@@ -1264,7 +1269,7 @@ keep 1249 frame a412350566e6247b -
 keep 1250 frame 8fb08f9ba2a01e6f -
 keep 1251 frame 4fac66ba0b3967d9 -
 keep 1252 frame 3d29f33ed2ceec6a -
-keep 1253 flip-card 1a59654b409cc6d6 -
+edit 1253 flip-card 1a59654b409cc6d6 26705dd4113f1883 - fluid-width
 keep 1254 flip-card 5a0fe629418c6a80 -
 keep 1255 flip-card 99b6182e210d9c4f -
 keep 1256 flip-card c6d16f4a11f75dfa -
@@ -1281,7 +1286,7 @@ keep 1266 animated-button fcaa9878c1279215 -
 keep 1267 animated-button 25f9d597416c5736 -
 keep 1268 animated-button 0be77d25a86f1a75 -
 keep 1269 animated-button e87f2c585d3172fe -
-keep 1270 card-stack 45e51d5120424d60 -
+edit 1270 card-stack 45e51d5120424d60 b087280a33e8b302 - fluid-width
 keep 1271 card-stack 6b867ab0b6bdf980 -
 keep 1272 card-stack ccb51f70f07b2c72 -
 keep 1273 card-stack 1a281a245d604bb0 -
@@ -1291,7 +1296,7 @@ keep 1276 card-stack 1f7e3b0e276502d1 -
 keep 1277 card-stack 399451681d61f531 -
 keep 1278 card-stack f914a2b1d460b265 -
 keep 1279 card-stack 0510a48816261cef -
-keep 1280 logo-carousel 1aa806280af8fb37 -
+edit 1280 logo-carousel 1aa806280af8fb37 1d4e40ead78ef924 - fluid-width
 keep 1281 logo-carousel 810321e58f17ed2e -
 keep 1282 logo-carousel 84444c52dffcc899 -
 keep 1283 logo-carousel e9ece7cb8e427360 -
@@ -1304,14 +1309,14 @@ keep 1289 dynamic-island 80d940eb1702379f -
 keep 1290 dynamic-island 6c23a396183f04d4 -
 keep 1291 dynamic-island f4e664aee76826a9 -
 keep 1292 dynamic-island 98e7385fa57aa1b8 -
-keep 1293 image-zoom b53cd2d150098233 -
+edit 1293 image-zoom b53cd2d150098233 141aca21869c38fe - fluid-width
 keep 1294 image-zoom 29c93f306d4ca08a -
 keep 1295 image-zoom 87ac7ceccf98ffd0 -
 keep 1296 image-zoom 51abf523f3f5b684 -
 keep 1297 image-zoom baec723039a48a7d -
 keep 1298 image-zoom 684b66cec83cbe83 -
 keep 1299 image-zoom 2831ac6d18729b09 -
-keep 1300 aurora-background 8bc3792c8ef7888e -
+edit 1300 aurora-background 8bc3792c8ef7888e 64633a0c9c89f16a - fluid-width
 keep 1301 aurora-background 2cbbeb54d55488a5 -
 keep 1302 aurora-background 2972dd96c5a267f6 -
 keep 1303 aurora-background 790c89225757a120 -
@@ -1320,13 +1325,13 @@ keep 1305 aurora-background 099a5061405b83a5 -
 keep 1306 aurora-background fdfe58031f6a6cbc -
 keep 1307 aurora-background 64ae7eb78d72d64d -
 keep 1308 aurora-background 0f9d5ad636ca36e0 -
-keep 1309 border-beam bda1e5c4d9decb54 -
+edit 1309 border-beam bda1e5c4d9decb54 57065944325ae64a - fluid-width
 keep 1310 border-beam ec6daca0d8cdf361 -
 keep 1311 border-beam ea40d62b3facb7b5 -
 keep 1312 border-beam 9e8d68631154665e -
 keep 1313 border-beam ed9de2d40e9b73e0 -
 keep 1314 border-beam 1229eb62128c7bb1 -
-keep 1315 confetti e2002970e087288c -
+edit 1315 confetti e2002970e087288c 2178eda0da462f93 - fluid-width
 keep 1316 confetti 499ef308aabca13e -
 keep 1317 composed-chart a8f13f5aa43a2442 -
 keep 1318 heatmap-chart b65c4efa7a55e989 -
@@ -1341,27 +1346,27 @@ keep 1326 heatmap-chart b7b8a551d69e4a09 -
 keep 1327 chart a269c32c53e9acc1 -
 keep 1328 chart ed3fa1f7b278b904 -
 keep 1329 chart ae47a84517a41b20 -
-keep 1330 click-spark 471c5ba1bb7d58e1 -
+edit 1330 click-spark 471c5ba1bb7d58e1 c5d36a49488a2e7c - fluid-width
 keep 1331 click-spark 0ced0d4db6879a39 -
 keep 1332 click-spark e8800fa02e94e0f5 -
-keep 1333 glare-hover f6215effcad9630a -
+edit 1333 glare-hover f6215effcad9630a 5cfdce37f871dc89 - fluid-width
 keep 1334 glare-hover ec429c0d3cd33316 -
 keep 1335 glare-hover 2001ef16e88d6218 -
 keep 1336 glare-hover d6a602221eacbbaf -
 keep 1337 glare-hover 463c4c8f28c906d2 -
-keep 1338 magnetic b8ea707717573f67 -
+edit 1338 magnetic b8ea707717573f67 27f96e97791afe92 - fluid-width+rtl-logical
 keep 1339 magnetic 3d440ef060482747 -
 keep 1340 magnetic 82ca4538f4531096 -
 keep 1341 magnetic e2c800fa28425768 -
-keep 1342 dot-pattern 85b3813b645613af -
+edit 1342 dot-pattern 85b3813b645613af 01c74d722cd922d4 - fluid-width
 keep 1343 dot-pattern cc1a533e3b654b8a -
 keep 1344 dot-pattern 9cc0e55f53f597de -
-keep 1345 flickering-grid 384afc00cec0b896 -
+edit 1345 flickering-grid 384afc00cec0b896 c0635d5a27ce646e - fluid-width
 keep 1346 flickering-grid 9083834d07b64dd1 -
 keep 1347 flickering-grid a7b85445f7a77f17 -
 keep 1348 flickering-grid 61d821c06ec3cb0a -
 keep 1349 flickering-grid aaec5d3d607095f7 -
-keep 1350 grid-pattern 702a57a3e0e5baa7 -
+edit 1350 grid-pattern 702a57a3e0e5baa7 6bb52c4c9aba8cf1 - fluid-width
 keep 1351 grid-pattern 57f9f5bb90999ab7 -
 keep 1352 grid-pattern a4a25a0c43b8c9ab -
 keep 1353 highlighter 59e3195436912186 -
@@ -1412,15 +1417,15 @@ keep 1397 spinning-text 9accb5654e816e5e -
 keep 1398 spinning-text 6692640cea5ea976 -
 keep 1399 spinning-text ebecf2f7a086a938 -
 keep 1400 spinning-text e3bb006724ab7c11 -
-keep 1401 gradient-border 55d5663218f54f99 -
+edit 1401 gradient-border 55d5663218f54f99 fb44a5ed19e85a6a - fluid-width
 keep 1402 gradient-border b139edeb7b759325 -
-keep 1403 light-rays 9723bf9870382629 -
+edit 1403 light-rays 9723bf9870382629 c25d6927a7ea8060 - fluid-width
 keep 1404 light-rays 8975df908776b8be -
 keep 1405 light-rays dbdaf0f0f5d53641 -
 keep 1406 light-rays 1a5f2832513d6a1c -
 keep 1407 light-rays cb93b16f07f52d29 -
 keep 1408 light-rays 5d293493ffd35d77 -
-keep 1409 orbit 0889fd4cb288103f -
+edit 1409 orbit 0889fd4cb288103f 76d4501727d4c7a5 - fluid-width
 keep 1410 orbit 3de5c68e010b82a9 -
 keep 1411 orbit 5141e6170cbf30d1 -
 keep 1412 orbit 773881066fae1b79 -
@@ -1443,21 +1448,21 @@ keep 1428 orbit f0321495c867f4f6 -
 keep 1429 orbit 1fe1af3ea842b3af -
 keep 1430 orbit 064051493cd7f570 -
 keep 1431 orbit f33d412ddcd10587 -
-keep 1432 progressive-blur c30b57293e11a852 -
+edit 1432 progressive-blur c30b57293e11a852 ab568ec7444f1330 - fluid-width
 keep 1433 progressive-blur 2a85619c128f6b12 -
 keep 1434 progressive-blur d6e212b4b84ef8c0 -
 keep 1435 progressive-blur aab034a81ae455ec -
 keep 1436 progressive-blur 585617e52f3e3e17 -
 keep 1437 progressive-blur 583273b966814644 -
 keep 1438 progressive-blur 862a79ab22e8d879 -
-keep 1439 retro-grid cd563f0e6f2c6ad3 -
+edit 1439 retro-grid cd563f0e6f2c6ad3 6553063ed787dbbd - fluid-width
 keep 1440 retro-grid 6505802e44f766e9 -
 keep 1441 retro-grid 1e9f2a8e88d9899b -
 keep 1442 retro-grid 77a0cfea7f7ae601 -
 keep 1443 retro-grid 02f39e7af3d298dc -
 keep 1444 retro-grid f84941c5c24bac3e -
 keep 1445 retro-grid 0b986f7b69161cf2 -
-keep 1446 ripple 5a1e5fb407ddfcb1 -
+edit 1446 ripple 5a1e5fb407ddfcb1 011c6227d04460a0 - fluid-width
 keep 1447 ripple 08eee676a5c76bab -
 keep 1448 ripple 06ec6e7891f8ba6a -
 keep 1449 ripple 6a1f6855c75adc33 -

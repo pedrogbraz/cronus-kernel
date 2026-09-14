@@ -2,7 +2,7 @@
   display: flex; align-items: center;
 }
 [data-slot="avatar-group"] > * + * {
-  margin-left: -0.5rem;
+  margin-inline-start: -0.5rem;
 }
 [data-slot="avatar-group"] [data-slot="avatar"] {
   width: 2.25rem; height: 2.25rem;

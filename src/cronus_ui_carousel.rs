@@ -152,10 +152,10 @@ mod tests {
     fn chrome_is_token_only_and_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains(
-            "[data-slot=\"carousel\"] { position: relative; outline: none; width: 18rem;"
+            "[data-slot=\"carousel\"] { position: relative; outline: none; width: var(--cui-carousel-w, 100%);"
         ));
-        assert!(css.contains("margin-left: -1rem; display: flex; overflow-x: auto;"));
-        assert!(css.contains("min-width: 0; flex: 0 0 100%; padding-left: 1rem;"));
+        assert!(css.contains("margin-inline-start: -1rem; display: flex; overflow-x: auto;"));
+        assert!(css.contains("min-width: 0; flex: 0 0 100%; padding-inline-start: 1rem;"));
         assert!(css.contains("width: 2.25rem; height: 2.25rem;"));
         assert!(css.contains("[data-slot=\"carousel-previous\"][data-disabled], [data-slot=\"carousel-next\"][data-disabled] { opacity: 0.5; }"));
         assert!(css.contains("scroll-snap-type: x mandatory"));

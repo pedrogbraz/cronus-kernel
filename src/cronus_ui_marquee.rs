@@ -159,7 +159,7 @@ mod tests {
     #[test]
     fn chrome_marquee_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"marquee\"] {\n  position: relative; display: flex; overflow: hidden;\n  width: 18rem;"));
+        assert!(css.contains("[data-slot=\"marquee\"] {\n  position: relative; display: flex; overflow: hidden;\n  width: var(--cui-marquee-w, 100%);"));
         assert!(css.contains("[data-slot=\"marquee-group\"] > span {\n  padding-inline: 0.75rem;\n  font-size: 0.875rem; line-height: 1.25rem;"));
         assert!(css.contains("@keyframes cui-marquee"));
         assert!(css.contains("animation: cui-marquee"));

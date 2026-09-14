@@ -11,7 +11,7 @@
   background: var(--cronus-border);
 }
 [data-slot="resizable-handle"]::after {
-  content: ""; position: absolute; top: 0; bottom: 0; left: 50%;
+  content: ""; position: absolute; top: 0; bottom: 0; left: 50%; /* physical: centred with translateX(-50%) */
   width: 0.25rem; transform: translateX(-50%);
 }
 [data-slot="resizable-handle"][data-panel-group-direction="vertical"] { height: 1px; width: 100%; }

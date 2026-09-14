@@ -267,10 +267,10 @@ mod tests {
     fn chrome_geometry_matches_react() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains(
-            "[data-slot=\"code-block\"] {\n  box-sizing: border-box; width: 18rem; max-width: 100%;\n  overflow: hidden;\n  border-radius: var(--cronus-radius-xl);\n  border: 1px solid var(--cronus-border);\n  background: var(--cronus-surface-raised);\n  color: var(--cronus-fg);\n  line-height: 1.5;\n}"
+            "[data-slot=\"code-block\"] {\n  box-sizing: border-box; width: var(--cui-code-block-w, 100%); max-width: 100%;\n  overflow: hidden;\n  border-radius: var(--cronus-radius-xl);\n  border: 1px solid var(--cronus-border);\n  background: var(--cronus-surface-raised);\n  color: var(--cronus-fg);\n  line-height: 1.5;\n}"
         ));
         assert!(css.contains(
-            "display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;\n  padding: 0.5rem 0.625rem 0.5rem 1rem; border: 0 solid var(--cronus-border); border-bottom-width: 1px;\n  background: var(--cronus-surface-overlay);"
+            "display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;\n  padding-block: 0.5rem; padding-inline: 1rem 0.625rem; border: 0 solid var(--cronus-border); border-bottom-width: 1px;\n  background: var(--cronus-surface-overlay);"
         ));
         assert!(css.contains(
             "[data-slot=\"code-block-header\"] > div { display: flex; align-items: center; gap: 0.5rem; min-width: 0; min-height: 2rem; }"

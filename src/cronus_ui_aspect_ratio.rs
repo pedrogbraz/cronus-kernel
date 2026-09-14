@@ -94,7 +94,7 @@ mod tests {
     fn chrome_mirrors_w72_at_16_9() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains(
-            "[data-slot=\"aspect-ratio\"] {\n  position: relative; width: 18rem;\n  aspect-ratio: 16 / 9;\n}"
+            "[data-slot=\"aspect-ratio\"] {\n  position: relative; width: var(--cui-aspect-ratio-w, 100%);\n  aspect-ratio: 16 / 9;\n}"
         ));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(DISPLAY_SURF));

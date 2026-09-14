@@ -101,7 +101,7 @@ mod tests {
         let start = css.find("[data-slot=\"confetti\"] {").unwrap();
         let block = &css[start..start + css[start..].find('}').unwrap()];
         assert!(block.contains("position: relative;"));
-        assert!(block.contains("width: 18rem; min-height: 8rem;"));
+        assert!(block.contains("width: var(--cui-confetti-w, 100%); min-height: 8rem;"));
         assert!(css.contains("[data-slot=\"confetti\"] > div {"));
         assert!(!css.contains("[data-slot=\"confetti-piece\"]"));
         assert!(!css.contains("@keyframes cui-confetti"));

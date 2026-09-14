@@ -115,7 +115,7 @@ mod tests {
     fn chrome_matches_react_fixture_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains(
-            "[data-progressive-blur-host] {\n  position: relative;\n  width: 18rem;\n  min-height: 8rem;\n  line-height: 1.5;"
+            "[data-progressive-blur-host] {\n  position: relative;\n  width: var(--cui-progressive-blur-w, 100%);\n  min-height: 8rem;\n  line-height: 1.5;"
         ));
         assert!(css.contains("height: 6rem; z-index: 10; pointer-events: none;"));
         assert!(css.contains("[data-slot=\"progressive-blur\"] > div {"));

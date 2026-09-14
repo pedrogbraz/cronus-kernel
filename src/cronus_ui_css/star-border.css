@@ -1,5 +1,5 @@
 [data-slot="star-border"] {
-  position: relative; width: 18rem;
+  position: relative; width: var(--cui-star-border-w, 100%);
   border-radius: calc(var(--cronus-radius, 14px) + 8px);
 }
 [data-slot="star-border"] > [aria-hidden="true"] {

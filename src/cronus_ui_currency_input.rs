@@ -315,7 +315,7 @@ mod tests {
         assert!(css.contains(
             "[data-slot=\"currency-input\"] {\n  display: flex; height: 2.5rem; width: 100%; align-items: stretch; overflow: hidden;\n  box-sizing: border-box;\n  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);\n  background: var(--cronus-surface-inset); color: var(--cronus-fg);\n  box-shadow: var(--cronus-shadow-xs, none);\n}"
         ));
-        assert!(css.contains("[data-slot=\"currency-input-selector\"] { padding: 0 0.625rem 0 0.75rem; cursor: default; }"));
+        assert!(css.contains("[data-slot=\"currency-input-selector\"] { padding-block: 0; padding-inline: 0.75rem 0.625rem; cursor: default; }"));
         assert!(css.contains(
             "[data-slot=\"currency-input-field\"] {\n  min-width: 0; flex: 1; border: 0; outline: none; background: transparent;\n  padding: 0 0.75rem; text-align: end; font-variant-numeric: tabular-nums;\n  color: var(--cronus-fg); font-size: 0.875rem; line-height: 1.25rem;\n}"
         ));

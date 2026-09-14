@@ -391,7 +391,7 @@ mod tests {
             "[data-slot=\"multi-select-trigger\"] {\n  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;\n  width: 100%; min-height: 2.5rem; padding: 0.375rem 0.75rem; box-sizing: border-box;"
         ));
         assert!(css.contains("[data-slot=\"multi-select-trigger\"][aria-expanded=\"true\"] { border-color: var(--cronus-border-strong); }"));
-        assert!(css.contains("[data-slot=\"multi-select\"] > [data-slot=\"popover-content\"] {\n  position: absolute; top: calc(100% + 4px); left: 0; z-index: 50;"));
+        assert!(css.contains("[data-slot=\"multi-select\"] > [data-slot=\"popover-content\"] {\n  position: absolute; top: calc(100% + 4px); inset-inline-start: 0; z-index: 50;"));
         assert!(css.contains("[data-slot=\"multi-select\"] [data-slot=\"command-item\"] {\n  position: relative; display: flex; align-items: center; gap: 0.5rem;"));
         assert!(css.contains("padding: 0.375rem 0.5rem;"));
         assert!(css.contains("[data-slot=\"multi-select-indicator\"] {\n  display: flex; align-items: center; justify-content: center; flex-shrink: 0;\n  width: 1rem; height: 1rem;"));

@@ -1,6 +1,6 @@
 [data-slot="particles"] {
   position: relative; overflow: hidden;
-  width: 18rem; height: 8rem;
+  width: var(--cui-particles-w, 100%); height: 8rem;
 }
 [data-slot="particles"] > [aria-hidden="true"] {
   position: absolute; inset: 0; pointer-events: none;

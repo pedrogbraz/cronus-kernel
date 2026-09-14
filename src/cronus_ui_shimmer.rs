@@ -66,7 +66,7 @@ mod tests {
     #[test]
     fn chrome_shimmer_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"shimmer\"] {\n  display: block; position: relative; overflow: hidden;\n  height: 2rem; width: 12rem;\n  border-radius: var(--cronus-radius-md);"));
+        assert!(css.contains("[data-slot=\"shimmer\"] {\n  display: block; position: relative; overflow: hidden;\n  height: 2rem; width: var(--cui-shimmer-w, 100%);\n  border-radius: var(--cronus-radius-md);"));
         assert!(css.contains("[data-slot=\"shimmer\"] > div {\n  position: absolute; inset: 0;"));
         assert!(css.contains("var(--cronus-surface-overlay)"));
         assert!(css.contains("@keyframes cui-shimmer"));

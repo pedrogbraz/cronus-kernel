@@ -1,5 +1,5 @@
 [data-slot="image-zoom"] {
-  position: relative; display: block; width: 18rem; overflow: hidden;
+  position: relative; display: block; width: var(--cui-image-zoom-w, 100%); box-sizing: border-box; overflow: hidden;
   cursor: zoom-in; user-select: none; padding: 0; font: inherit; color: inherit;
   border-radius: var(--cronus-radius-xl);
   border: 1px solid var(--cronus-border);

@@ -1,5 +1,5 @@
 [data-slot="code-block"] {
-  box-sizing: border-box; width: 18rem; max-width: 100%;
+  box-sizing: border-box; width: var(--cui-code-block-w, 100%); max-width: 100%;
   overflow: hidden;
   border-radius: var(--cronus-radius-xl);
   border: 1px solid var(--cronus-border);
@@ -9,7 +9,7 @@
 }
 [data-slot="code-block-header"] {
   display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
-  padding: 0.5rem 0.625rem 0.5rem 1rem; border: 0 solid var(--cronus-border); border-bottom-width: 1px;
+  padding-block: 0.5rem; padding-inline: 1rem 0.625rem; border: 0 solid var(--cronus-border); border-bottom-width: 1px;
   background: var(--cronus-surface-overlay);
 }
 [data-slot="code-block-header"] > div { display: flex; align-items: center; gap: 0.5rem; min-width: 0; min-height: 2rem; }

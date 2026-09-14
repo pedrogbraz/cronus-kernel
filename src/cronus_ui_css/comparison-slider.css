@@ -17,13 +17,13 @@
 [data-slot="comparison-before"] { clip-path: inset(0 50% 0 0); }
 [data-slot="comparison-before"]:dir(rtl) { clip-path: inset(0 0 0 50%); }
 [data-slot="comparison-slider"] > [aria-hidden] {
-  position: absolute; top: 0; bottom: 0; left: 50%; z-index: 10;
+  position: absolute; top: 0; bottom: 0; left: 50%; z-index: 10; /* physical: centred with translateX(-50%) */
   width: 2px; transform: translateX(-50%); pointer-events: none;
   background: color-mix(in oklab, var(--cronus-surface-base) 90%, transparent);
   box-shadow: var(--cronus-shadow-sm, none);
 }
 [data-slot="comparison-slider"] > [role="slider"] {
-  position: absolute; top: 50%; left: 50%; z-index: 20;
+  position: absolute; top: 50%; left: 50%; z-index: 20; /* physical: centred with translateX(-50%) */
   display: flex; width: 2.25rem; height: 2.25rem; align-items: center; justify-content: center;
   transform: translate(-50%, -50%); pointer-events: none; box-sizing: border-box;
   border-radius: 9999px; border: 1px solid var(--cronus-border);

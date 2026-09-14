@@ -74,7 +74,7 @@ mod tests {
     #[test]
     fn chrome_tilt_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"tilt-card\"] {\n  position: relative;\n  width: 18rem;\n  border-radius: calc(var(--cronus-radius, 14px) + 8px);"));
+        assert!(css.contains("[data-slot=\"tilt-card\"] {\n  position: relative;\n  width: var(--cui-tilt-card-w, 100%);\n  border-radius: calc(var(--cronus-radius, 14px) + 8px);"));
         assert!(css.contains("[data-slot=\"tilt-card\"] > div {\n  position: relative;\n}"));
         assert!(css.contains("transform-style: preserve-3d"));
         assert!(css.contains("perspective(1000px)"));

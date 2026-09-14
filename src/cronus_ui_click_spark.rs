@@ -103,7 +103,7 @@ mod tests {
         let start = css.find("[data-slot=\"click-spark\"] {").unwrap();
         let block = &css[start..start + css[start..].find('}').unwrap()];
         assert!(block.contains("position: relative;"));
-        assert!(block.contains("width: 18rem;"));
+        assert!(block.contains("width: var(--cui-click-spark-w, 100%);"));
         assert!(css.contains("[data-slot=\"click-spark\"] > div:first-child {"));
         assert!(css.contains("[data-slot=\"click-spark\"] > [aria-hidden] {"));
         assert!(!css.contains("[data-slot=\"click-spark-content\"]"));

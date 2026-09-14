@@ -11,7 +11,7 @@
   pointer-events: none;
 }
 [data-slot="sparkles-text"]::before {
-  top: -0.35rem; left: 8%;
+  top: -0.35rem; inset-inline-start: 8%;
   animation-delay: 0s; animation-duration: 1.4s;
   top: 10%; inset-inline-end: -0.35rem;
   animation-delay: 0.7s; animation-duration: 1.65s;

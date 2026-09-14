@@ -154,7 +154,8 @@ mod tests {
         assert!(overlay.contains("position: fixed; inset: 0;"));
         assert!(overlay.contains("color-mix(in srgb, black 50%, transparent)"));
         let content = block("[data-slot=\"drawer-content\"]");
-        assert!(content.contains("position: fixed; left: 0; right: 0; bottom: 0;"));
+        assert!(content
+            .contains("position: fixed; inset-inline-start: 0; inset-inline-end: 0; bottom: 0;"));
         assert!(content.contains("border: 1px solid var(--cronus-border)"));
         assert!(content.contains("var(--cronus-radius-xl) var(--cronus-radius-xl) 0 0"));
         assert!(content.contains("background: var(--cronus-surface-floating)"));

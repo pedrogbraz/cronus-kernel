@@ -65,7 +65,7 @@ mod tests {
         assert!(css.contains("[data-slot=\"skeleton\"]"));
         assert!(css.contains("width: 8rem"));
         // Wave 1t: harness default className `h-4 w-32` → 16px, not 14.4px.
-        assert!(css.contains("display: block; height: 1rem; width: 8rem;"));
+        assert!(css.contains("display: block; height: 1rem; width: var(--cui-skeleton-w, 100%);"));
         assert!(css.contains("border-radius: var(--cronus-radius-md)"));
         assert!(css.contains("var(--cronus-surface-overlay)"));
         assert!(css.contains("@keyframes cui-pulse"));

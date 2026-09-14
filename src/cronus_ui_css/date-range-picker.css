@@ -28,10 +28,10 @@
 }
 [data-slot="date-range-picker-presets"] {
   margin: 0; padding: 0.5rem; border: 0;
-  border-right: 1px solid var(--cronus-border);
+  border-inline-end: 1px solid var(--cronus-border);
 }
 [data-slot="date-range-picker-preset"] {
-  font: inherit; font-size: 0.75rem; text-align: left; cursor: default;
+  font: inherit; font-size: 0.75rem; text-align: start; cursor: default;
   border: 0; background: transparent; color: var(--cronus-fg);
   padding: 0.25rem 0.5rem; border-radius: var(--cronus-radius-md);
 }

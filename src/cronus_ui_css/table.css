@@ -17,7 +17,7 @@
   background: color-mix(in oklch, var(--cronus-surface-overlay) 50%, transparent);
 }
 [data-slot="table-head"] {
-  height: 2.5rem; padding: 0 0.75rem; text-align: left; vertical-align: middle;
+  height: 2.5rem; padding: 0 0.75rem; text-align: start; vertical-align: middle;
   font-weight: 500; color: var(--cronus-fg-secondary); white-space: nowrap;
 }
 [data-slot="table-cell"] {

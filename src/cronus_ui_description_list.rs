@@ -194,7 +194,7 @@ mod tests {
     fn chrome_matches_react_stacked_md_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains(
-            "[data-slot=\"description-list\"] {\n  display: block; width: 18rem; max-width: 100%; min-width: 0; margin: 0;\n  font-size: 0.875rem; line-height: 1.25rem;\n}"
+            "[data-slot=\"description-list\"] {\n  display: block; width: var(--cui-description-list-w, 100%); max-width: 100%; min-width: 0; margin: 0;\n  font-size: 0.875rem; line-height: 1.25rem;\n}"
         ));
         assert!(css.contains(
             "[data-slot=\"description-item\"] + [data-slot=\"description-item\"] { margin-top: 1rem; }"

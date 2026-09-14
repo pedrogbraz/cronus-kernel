@@ -23,3 +23,6 @@
 [data-slot="switch"][data-state="checked"] > span {
   transform: translateX(18px);
 }
+/* RTL: the thumb starts at inline-start, so it travels the other way. */
+[data-slot="switch"]:dir(rtl) > span { transform: translateX(-0.125rem); }
+[data-slot="switch"][data-state="checked"]:dir(rtl) > span { transform: translateX(-18px); }

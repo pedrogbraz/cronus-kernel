@@ -1,6 +1,6 @@
 [data-slot="magnetic"] {
   display: inline-block;
-  width: 18rem;
+  width: var(--cui-magnetic-w, 100%);
   color: var(--cronus-fg);
 }
 [data-slot="magnetic-target"] {

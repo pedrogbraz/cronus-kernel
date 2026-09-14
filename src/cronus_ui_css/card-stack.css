@@ -1,6 +1,6 @@
 [data-slot="card-stack"] {
   position: relative; isolation: isolate;
-  height: 14rem; width: 18rem; max-width: 24rem;
+  height: 14rem; width: var(--cui-card-stack-w, 100%); max-width: 24rem;
   line-height: 1.5;
 }
 [data-slot="card-stack"] > span {

@@ -122,7 +122,9 @@ mod tests {
         let block = chrome_block("[data-slot=\"gradient-border\"] {");
         assert!(block.contains("display: block;"));
         assert!(!block.contains("inline-block"));
-        assert!(block.contains("width: 18rem;"));
+        assert!(
+            block.contains("width: var(--cui-gradient-border-w, 100%); box-sizing: border-box;")
+        );
         assert!(block.contains("border-radius: calc(var(--cronus-radius, 14px) + 8px);"));
     }
 

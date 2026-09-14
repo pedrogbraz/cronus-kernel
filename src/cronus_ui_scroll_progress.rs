@@ -253,7 +253,7 @@ mod tests {
         assert!(css.contains("height: 0.25rem"));
         // Fixture wrapper `w-72` (React bar is `w-full` inside it).
         assert!(css.contains(
-            "[data-slot=\"scroll-progress\"] {\n  height: 0.25rem; width: 18rem; overflow: hidden;"
+            "[data-slot=\"scroll-progress\"] {\n  height: 0.25rem; width: var(--cui-scroll-progress-w, 100%); overflow: hidden;"
         ));
         assert!(!css.contains("attr(data-value type("));
         assert!(css.contains("[data-slot=\"scroll-progress-fill\"] {\n  height: 100%; background: var(--cronus-primary);\n  width: calc(var(--cui-progress-value, 0) * 1%);"));

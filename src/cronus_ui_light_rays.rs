@@ -106,7 +106,7 @@ mod tests {
     #[test]
     fn chrome_light_rays_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"light-rays\"] {\n  position: relative;\n  overflow: hidden;\n  width: 18rem;\n  min-height: 8rem;"));
+        assert!(css.contains("[data-slot=\"light-rays\"] {\n  position: relative;\n  overflow: hidden;\n  width: var(--cui-light-rays-w, 100%);\n  min-height: 8rem;"));
         assert!(css.contains("[data-slot=\"light-rays\"] > [aria-hidden=\"true\"] > div {"));
         assert!(
             css.contains("[data-slot=\"light-rays\"] > div:last-child {\n  position: relative;\n}")

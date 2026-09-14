@@ -103,7 +103,7 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         let start = css.find("[data-slot=\"glare-hover\"] {").unwrap();
         let block = &css[start..start + css[start..].find('}').unwrap()];
-        assert!(block.contains("width: 18rem;"));
+        assert!(block.contains("width: var(--cui-glare-hover-w, 100%);"));
         assert!(css.contains("[data-slot=\"glare-hover\"] > [aria-hidden] {"));
         assert!(css.contains("[data-slot=\"glare-hover\"] > div:last-child {"));
         assert!(!css.contains("[data-slot=\"glare-hover-layer\"]"));

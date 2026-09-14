@@ -1,6 +1,6 @@
 [data-slot="glare-hover"] {
   position: relative; overflow: hidden;
-  width: 18rem;
+  width: var(--cui-glare-hover-w, 100%);
   color: var(--cronus-fg);
 }
 [data-slot="glare-hover"] > [aria-hidden] {

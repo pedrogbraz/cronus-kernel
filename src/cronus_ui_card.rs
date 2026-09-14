@@ -174,7 +174,7 @@ mod tests {
         assert!(css.contains("var(--cronus-surface-raised)"));
         assert!(css.contains("[data-slot=\"card-title\"] {\n  min-width: 0; overflow-wrap: break-word;\n  font-family: var(--cronus-font-display, inherit); font-weight: 600; line-height: 1;"));
         assert!(css.contains("grid-column: 1 / -1; font-size: 0.875rem; line-height: 1.25rem;"));
-        assert!(css.contains("@media (max-width: 639.98px) {\n  [data-slot=\"card-header\"], [data-slot=\"card-content\"] { padding-left: 1rem; padding-right: 1rem; }"));
+        assert!(css.contains("@media (max-width: 639.98px) {\n  [data-slot=\"card-header\"], [data-slot=\"card-content\"] { padding-inline-start: 1rem; padding-inline-end: 1rem; }"));
         assert!(!css.contains("zinc-"));
     }
 }

@@ -1,6 +1,6 @@
 [data-slot="border-beam"] {
   position: relative;
-  width: 18rem; padding: 1.5rem;
+  width: var(--cui-border-beam-w, 100%); box-sizing: border-box; padding: 1.5rem;
   border-radius: calc(var(--cronus-radius, 14px) + 8px);
   color: var(--cronus-fg);
 }

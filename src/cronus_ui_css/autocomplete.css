@@ -10,7 +10,7 @@
 [data-slot="autocomplete-input"]::placeholder { color: var(--cronus-fg-tertiary); }
 [data-slot="autocomplete-input"]:disabled { opacity: 0.5; pointer-events: none; }
 [data-slot="autocomplete-content"] {
-  position: absolute; top: calc(100% + 4px); left: 0; z-index: 50;
+  position: absolute; top: calc(100% + 4px); inset-inline-start: 0; z-index: 50;
   width: 100%; min-width: 8rem; box-sizing: border-box; padding: 0; outline: none;
   border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
   background: var(--cronus-surface-floating); color: var(--cronus-fg);

@@ -7,7 +7,7 @@
   font-size: 0.75rem; line-height: 1.25; text-transform: uppercase; color: var(--cronus-fg-tertiary);
 }
 [data-slot="bouncy-accordion"] > p::after {
-  content: ""; position: absolute; left: 0; right: 0; top: 100%; margin: 0 auto;
+  content: ""; position: absolute; inset-inline-start: 0; inset-inline-end: 0; top: 100%; margin: 0 auto;
   width: 1px; height: 4rem; background: linear-gradient(to bottom, transparent, var(--cronus-fg));
 }
 [data-slot="bouncy-accordion"] > ul { width: 100%; margin: 0; padding: 0; list-style: none; }
@@ -21,11 +21,11 @@
 }
 [data-slot="bouncy-accordion"] > ul > li:first-child,
 [data-slot="bouncy-accordion"] > ul > li[data-state="open"] + li {
-  border-top-left-radius: 20px; border-top-right-radius: 20px;
+  border-start-start-radius: 20px; border-start-end-radius: 20px;
 }
 [data-slot="bouncy-accordion"] > ul > li:last-child,
 [data-slot="bouncy-accordion"] > ul > li:has(+ li[data-state="open"]) {
-  border-bottom-left-radius: 20px; border-bottom-right-radius: 20px;
+  border-end-start-radius: 20px; border-end-end-radius: 20px;
 }
 [data-slot="bouncy-accordion-trigger"] {
   display: flex; flex-direction: column; width: 100%; padding: 0 0.5rem;

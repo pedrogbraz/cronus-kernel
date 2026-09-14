@@ -1,5 +1,5 @@
 [data-slot="scroll-progress"] {
-  height: 0.25rem; width: 18rem; overflow: hidden;
+  height: 0.25rem; width: var(--cui-scroll-progress-w, 100%); overflow: hidden;
   background: var(--cronus-surface-inset);
 }
 [data-slot="scroll-progress-fill"] {

@@ -12,14 +12,14 @@
   [popover]:not([data-slot="sheet-content"]) {
     position: absolute;
     top: calc(anchor(bottom) + 0.35rem);
-    left: anchor(left);
+    left: anchor(left); /* physical: top-layer popover aligns to the trigger's left edge (viewport is ltr) */
   }
 }
 @supports not (top: anchor(bottom)) {
   [popover]:not([data-slot="sheet-content"]) {
     position: fixed;
     top: 18%;
-    left: 50%;
+    left: 50%; /* physical: centred with translate -50% */
     translate: -50% 0;
   }
 }
