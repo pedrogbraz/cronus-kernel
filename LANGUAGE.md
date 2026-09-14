@@ -614,10 +614,20 @@ auth {
 
 ### 11.2 Implementation facts
 
+- **Implicit auth entity** (2026-09-14): if `auth { entity X }` names an entity that is not declared, `cronus run` synthesizes it as
+  ```cronus
+  entity X {
+    email    email! unique
+    password string! sensitive
+    role     string
+    name     string
+  }
+  ```
+  Matching is case-insensitive, like signup/login. Declare the entity yourself to add fields; a declared entity is never modified. Code: `src/auth_entity.rs` (called from `cmd_run` in `src/main.rs`).
 - Password hashing: **Argon2id** (`argon2` crate) — `src/auth.rs`, 7 tests
 - JWT: `jsonwebtoken` crate, HS256, configurable expiry
-- Auto-generated routes: `POST /auth/signup`, `POST /auth/login`, `GET /auth/me`
-- Post-login redirect: `/dashboard` for non-admin, `/admin` for admin (hardcoded in `src/server/auth_pages.rs` as of 2026-04-10)
+- Auto-generated routes: `POST /api/auth/signup`, `POST /api/auth/login`, `GET /api/auth/me`; HTML pages `/login`, `/register` (alias `/signup`), `/logout`
+- Post-login redirect: `redirect "/path"` inside `auth { }`, else `/` if a `/` page exists, else `/dashboard` (`src/server/auth_pages.rs`)
 - Auto-generated HTML login/register pages (templated by `src/server/auth_pages.rs`)
 - Session storage: JWT in `localStorage` + injected into `Authorization: Bearer` header by the runtime
 - Sensitive fields in the `User` entity (like `password`) are blocked from auto-API responses by lint rule **C002**

@@ -1,159 +1,80 @@
-/// SaaS Starter — Multi-tenant platform with Stripe-ready billing.
-/// Role-based access control, organization management, and subscription lifecycle.
+/// SaaS Starter — sign up, create projects, see your own dashboard.
+/// Data is owner-scoped: every signed-in user only sees their own projects.
 /// @template saas
-/// @author CRONUS
-app "SaaS Platform" {
-  stack fullstack
+app "SaaS Starter" {
   port 5175
   database sqlite "./data.db"
-  theme dark
-
-  constitution {
-    must "prices in centavos — use formatPrice()"
-    must "all billing mutations require auth"
-    must "subscription changes emit webhooks"
-    never "expose payment tokens in API responses"
-    never "allow plan downgrade with active usage over limit"
-  }
 }
-
-# -- Entities --
-
-/// Platform user with role-based access.
-entity User {
-  /// Full display name
-  name string! max:100
-  email email! unique
-  password string! sensitive min:8
-  /// Role determines access level across the platform
-  role enum ["owner", "admin", "member", "viewer"] default:"member"
-  avatar url
-  org -> Organization
-}
-
-/// Tenant organization — all resources scoped here.
-entity Organization shared {
-  name string! max:120
-  slug slug! unique match:"^[a-z0-9-]+$"
-  /// Stripe customer ID for billing integration
-  stripe_id string unique
-  plan -> Plan
-  seats number default:"5" min:1 max:500
-}
-
-/// Billing plan with Stripe price mapping.
-entity Plan shared {
-  name string!
-  /// Monthly price in centavos (2990 = R$29.90)
-  price_monthly money! min:0
-  price_yearly money min:0
-  /// Stripe price ID for checkout session
-  stripe_price_id string unique
-  max_seats number default:"5" min:1
-  max_projects number default:"10" min:1
-  active boolean default:"true"
-}
-
-/// Subscription linking org to plan with lifecycle state.
-/// @business Core revenue entity — state changes trigger Stripe sync
-entity Subscription shared {
-  org -> Organization
-  plan -> Plan
-  status enum ["trialing", "active", "past_due", "canceled", "paused"] default:"trialing"
-  current_period_end date
-  cancel_at date
-
-  transition status {
-    trialing -> active | canceled
-    active -> past_due | canceled | paused
-    past_due -> active | canceled
-    paused -> active | canceled
-  }
-}
-
-# -- Auth --
 
 auth {
   entity User
-  login email
-  session jwt
-  roles [owner, admin, member, viewer]
+  login email + password
+  session jwt expires:24h
+  roles [member, admin]
+  redirect "/dashboard"
 }
 
-# -- API --
-
-api /auth {
-  login    POST /login    auth:public
-  register POST /register auth:public
-  me       GET  /me       auth:jwt
+entity User {
+  name     string!
+  email    email! unique
+  password string! sensitive
+  role     string
 }
 
-api /organizations {
-  list   GET    /       auth:jwt
-  create POST   /       auth:jwt
-  detail GET    /:id    auth:jwt
-  update PATCH  /:id    auth:jwt
+entity Project {
+  name        string!
+  description text
+  status      enum [active, paused, archived] default:active
 }
 
-api /plans {
-  list   GET  /     auth:public
-  detail GET  /:id  auth:public
+api /projects {
+  list   GET    /    auth:jwt
+  create POST   /    auth:jwt
+  detail GET    /:id auth:jwt
+  update PATCH  /:id auth:jwt
+  delete DELETE /:id auth:jwt
 }
 
-api /subscriptions {
-  current GET    /current          auth:jwt
-  create  POST   /                 auth:jwt
-  update  PATCH  /:id              auth:jwt
-  cancel  POST   /:id/cancel       auth:jwt
+layout Main {
+  brand "SaaS Starter"
+  sidebar {
+    "Dashboard"   -> "/dashboard"    icon:home
+    "New project" -> "/projects/new" icon:add
+  }
 }
 
-webhook /subscriptions {
-  on create -> POST "https://api.stripe.com/v1/subscriptions"
-  on update -> POST "https://hooks.example.com/billing/changed"
-}
-
-webhook /organizations {
-  on create -> POST "https://hooks.example.com/org/provisioned"
-}
-
-# -- Pages --
-
-page "/login" type:form entity:User {
-  title "Sign In"
-  fields [email, password]
+page "/" type:custom {
+  section hero {
+    title "Ship your SaaS today"
+    subtitle "Accounts, projects and a private dashboard, from one file."
+    cta_text "Create an account"
+    cta_link "/register"
+  }
 }
 
 page "/dashboard" type:dashboard requires:auth {
-  title "Dashboard"
-
-  section stats cols:3 {
-    bind entity:Organization { query count }
-    item "Organizations" value:"count" icon:business
-    bind entity:Subscription { query count where status eq "active" }
-    item "Active Subscriptions" value:"count" icon:check_circle
-    bind entity:User { query count }
-    item "Total Users" value:"count" icon:people
+  section kpi {
+    bind Project { aggregate count }
+    item "Projects" value:bind icon:folder
   }
-
-  section recent {
-    title "Recent Subscriptions"
-    bind entity:Subscription { query all order current_period_end desc limit 10 }
-    columns "Org, Plan, Status, Current Period End"
+  section table {
+    title "Your projects"
+    bind Project { query all order created_at desc limit 20 }
+    columns "Name, Status, Created At"
   }
 }
 
-page "/billing" type:custom requires:auth {
-  title "Billing"
-
-  section subscription {
-    title "Current Plan"
-    bind entity:Subscription { query one }
-  }
-
-  section plans {
-    title "Available Plans"
-    bind entity:Plan { query all }
-    columns "Name, Price Monthly, Price Yearly, Max Seats"
+page "/projects/new" type:custom requires:auth {
+  section form {
+    title "New project"
+    bind Project { query all }
+    field "name" type:text required
+    field "description" type:textarea
+    on submit {
+      create Project
+      toast "Project created" success
+      navigate "/dashboard"
+    }
   }
 }
 

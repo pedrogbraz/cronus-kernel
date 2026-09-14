@@ -1,0 +1,45 @@
+/// API Backend — REST only, no UI. Sign up at POST /api/auth/signup,
+/// then call /api/items with the session cookie.
+/// @template api
+app "My API" {
+  port 5175
+  database sqlite "./data.db"
+}
+
+auth {
+  entity User
+  login email + password
+  session jwt expires:24h
+  roles [member, admin]
+}
+
+entity User {
+  name     string!
+  email    email! unique
+  password string! sensitive
+  role     string
+}
+
+entity Item {
+  name        string!
+  description text
+  status      enum [active, archived] default:active
+  price       money
+}
+
+api /items {
+  list   GET    /    auth:jwt
+  detail GET    /:id auth:jwt
+  create POST   /    auth:jwt
+  update PATCH  /:id auth:jwt
+  delete DELETE /:id auth:jwt
+}
+
+page "/" type:custom {
+  section hero {
+    title "My API"
+    subtitle "REST endpoints live under /api. Browse them at /.cronus/docs."
+    cta_text "Open API docs"
+    cta_link "/.cronus/docs"
+  }
+}

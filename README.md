@@ -12,14 +12,18 @@ No React. No Node. No npm. No config files.
 ```bash
 cargo install --path .
 
-cronus new admin
-cd admin
+cronus new my-app                 # default template: saas
+cd my-app
 
 cronus run
-# -> http://localhost:5175
-# -> http://localhost:5175/api
-# -> http://localhost:5175/graphql
+# -> http://127.0.0.1:5175            home page
+# -> http://127.0.0.1:5175/register   create an account (15+ char password)
+# -> http://127.0.0.1:5175/dashboard  your data
 ```
+
+Pick another starting point with `cronus new my-app --template <t>`:
+`saas`, `api`, `landing`, `admin`, `blog`, `crm`, `ecommerce`, `helpdesk`, `cronus-ui`.
+Every template passes `cronus build --ai` with zero errors.
 
 ---
 
@@ -27,54 +31,58 @@ cronus run
 
 ```cronus
 app "Admin Panel" {
-  port 5300
+  port 5175
   database sqlite "./data.db"
-  theme dark
-}
-
-entity Order {
-  customer    string    required
-  amount      money     required
-  status      enum      [pending, approved, shipped, cancelled]
-  created_at  date
 }
 
 auth {
   entity User
-  login email
-  session jwt
-  roles [admin, member]
+  login email + password
+  session jwt expires:24h
+  roles [member, admin]
+  redirect "/dashboard"
+}
+
+entity Order {
+  customer string!
+  amount   money!
+  status   enum [pending, approved, shipped, cancelled] default:pending
 }
 
 api /orders {
-  list    GET    /       auth:jwt
-  create  POST   /       auth:jwt
-  update  PATCH  /:id    auth:jwt
-  delete  DELETE /:id    auth:jwt
+  list   GET    /    auth:jwt
+  create POST   /    auth:jwt
+  update PATCH  /:id auth:jwt
+  delete DELETE /:id auth:jwt
 }
 
-page "/" type:dashboard requires:auth {
-  title "Admin Dashboard"
-
-  section stats cols:4 {
-    bind entity:Order { query count }
-    item "Total Orders" value:"count" icon:shopping_cart
-    item "Revenue" value:"$48,290.00" icon:attach_money
+page "/" type:custom {
+  section hero {
+    title "Admin Panel"
+    subtitle "Orders and revenue for your team."
+    cta_text "Sign in"
+    cta_link "/login"
   }
+}
 
-  section recent-orders {
-    bind entity:Order { query all; order created_at desc; limit 10 }
-    columns "Customer, Amount, Status, Date"
-    on click {
-      set status "approved"
-      toast "Order approved"
-      refresh self
-    }
+page "/dashboard" type:dashboard requires:auth {
+  section kpi {
+    bind Order { aggregate count }
+    item "Orders" value:bind icon:shopping_cart
+  }
+  section kpi {
+    bind Order { aggregate sum field:amount }
+    item "Revenue" value:bind icon:attach_money
+  }
+  section table {
+    title "Recent orders"
+    bind Order { query all order created_at desc limit 10 }
+    columns "Customer, Amount, Status, Created At"
   }
 }
 ```
 
-These ~50 lines give you: HTTP server, SQLite database, JWT auth with roles, CRUD API, server-rendered dashboard with KPIs, a data table with real database binding, and click actions that mutate data.
+These ~50 lines give you: HTTP server, SQLite database, signup/login (the `User` table is created for you when you don't declare it), a CRUD API, and a dashboard whose KPIs and table read each signed-in user's own orders.
 
 ---
 
@@ -112,14 +120,21 @@ These ~50 lines give you: HTTP server, SQLite database, JWT auth with roles, CRU
 
 ## Demos
 
-| File | Description |
-|---|---|
-| `demos/admin-panel.cronus` | Order management with auth, KPIs, tables, forms (166 lines) |
-| `demos/saas-dashboard.cronus` | Multi-entity analytics with charts and team management (245 lines) |
-| `demos/landing-page.cronus` | Marketing site with hero, features, pricing, lead capture (107 lines) |
+Start from `templates/` (via `cronus new`) for idiomatic code: every template is
+checked by `cargo test` to pass `cronus build --ai` with zero errors.
+
+The demos are showcases. They must all **parse** (`every_template_and_demo_parses`),
+but only some pass `build --ai`:
+
+| Path | `build --ai` | Why |
+|---|---|---|
+| `demos/component-test/`, `demos/cronus-ui/` | valid | |
+| `demos/cronus-ui-catalog/` | parse-only | widget catalog uses experimental section keys |
+| `demos/saas-billing/`, `demos/stitch-dashboard/` | parse-only | multi-file showcases with custom sections |
+| `demos/vinext-dumps/`, `templates/ecosystem/` | parse-only | raw `cronus dump` output from Next.js apps, kept as-is |
 
 ```bash
-cronus run demos/admin-panel.cronus
+cd demos/saas-billing && cronus run 5950
 ```
 
 ---
@@ -131,17 +146,19 @@ cronus run demos/admin-panel.cronus
 | `cronus run [port] [--strict]` | Parse `.cronus`, create DB, serve on `127.0.0.1` (dev mode) |
 | `cronus run --host 0.0.0.0` | Expose on all interfaces (or `CRONUS_HOST`); internal dev routes then require an admin |
 | `cronus run --prod` | Production mode (or `CRONUS_ENV=production`): `/zeus`, `/api/_context`, `/api/_seed`, debug routes → 404. Env: `CRONUS_MAX_BODY_BYTES`, `CRONUS_TRUSTED_PROXIES`, `CRONUS_HEADER_READ_TIMEOUT_SECS` |
-| `cronus new <template>` | Create project: `landing`, `admin`, `saas`, `api`, `ecommerce`, `blog` |
-| `cronus build [--strict]` | Validate `.cronus` file |
+| `cronus new <name> [--template t]` | Create project `<name>/` (default template `saas`; `cronus new --list` shows all) |
+| `cronus build [--ai]` | Validate `.cronus` file (`--ai`: JSON errors with fix hints) |
 | `cronus parse <file>` | Parse and show AST |
 | `cronus seed [count]` | Seed database with realistic test data |
 | `cronus test [port]` | Auto-generate and run CRUD tests |
 | `cronus test --conformance` | Run conformance test suite |
 | `cronus compose` | Compose all `.cronus` files into one app |
-| `cronus generate <desc>` | Generate `.cronus` from natural language description |
+| `cronus generate <desc> [-o file] [--force]` | Generate `.cronus` from a description (never overwrites `app.cronus` without `--force`) |
+| `cronus dump <path>` | Convert HTML / Next.js / Prisma / OpenAPI into `.cronus` |
+| `cronus context --for-claude` | Export project context for an AI assistant |
 | `cronus spec <validate\|list\|codegen>` | Validate, list, or generate from `.spec.toml` |
 | `cronus deploy` | Generate deploy artifacts (`--fly`, `--railway`, `--static`) |
-| `cronus doctor` | Check syntax, DB, ports |
+| `cronus doctor` | Required checks (parse, build, port, database writable) + informational ones + next commands |
 | `cronus stats` | Project statistics |
 | `cronus export` | Export to `cronus-project.ir.json` |
 
@@ -183,7 +200,7 @@ component Name { ... }       # Reusable section templates
 
 Field types: `string`, `text`, `email`, `url`, `slug`, `phone`, `number`, `money`, `percentage`, `boolean`, `date`, `enum`, `json`, `ulid`.
 
-Field modifiers: `required`, `unique`, `sensitive`, `searchable`, `index`, `featured`, `optional`.
+Field modifiers: `!` (required, e.g. `name string!`), `unique`, `sensitive`, `searchable`, `index`, `featured`, `optional`.
 
 ---
 

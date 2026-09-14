@@ -1,0 +1,128 @@
+/// Admin Panel — customers and orders behind a login.
+/// The auth entity `User` is implicit: Cronus creates it with
+/// email, password, role and name because it is not declared here.
+/// @template admin
+app "Admin Panel" {
+  port 5175
+  database sqlite "./data.db"
+}
+
+auth {
+  entity User
+  login email + password
+  session jwt expires:24h
+  roles [member, admin]
+  redirect "/dashboard"
+}
+
+entity Customer {
+  name    string!
+  email   email!
+  company string
+  status  enum [active, inactive] default:active
+}
+
+entity Order {
+  customer string!
+  amount   money!
+  status   enum [pending, shipped, cancelled] default:pending
+}
+
+api /customers {
+  list   GET    /    auth:jwt
+  create POST   /    auth:jwt
+  detail GET    /:id auth:jwt
+  update PATCH  /:id auth:jwt
+  delete DELETE /:id auth:jwt
+}
+
+api /orders {
+  list   GET    /    auth:jwt
+  create POST   /    auth:jwt
+  detail GET    /:id auth:jwt
+  update PATCH  /:id auth:jwt
+  delete DELETE /:id auth:jwt
+}
+
+layout Main {
+  brand "Admin Panel"
+  sidebar {
+    "Dashboard" -> "/dashboard" icon:dashboard
+    "Customers" -> "/customers" icon:people
+    "Orders"    -> "/orders"    icon:shopping_cart
+  }
+}
+
+page "/" type:custom {
+  section hero {
+    title "Admin Panel"
+    subtitle "Sign in to manage customers and orders."
+    cta_text "Sign in"
+    cta_link "/login"
+  }
+}
+
+page "/dashboard" type:dashboard requires:auth {
+  section kpi {
+    bind Customer { aggregate count }
+    item "Customers" value:bind icon:people
+  }
+  section kpi {
+    bind Order { aggregate sum field:amount }
+    item "Revenue" value:bind icon:payments
+  }
+  section table {
+    title "Recent orders"
+    bind Order { query all order created_at desc limit 10 }
+    columns "Customer, Amount, Status, Created At"
+  }
+}
+
+page "/customers" type:custom requires:auth {
+  section page-header {
+    title "Customers"
+  }
+  section table {
+    bind Customer { query all order name limit 50 }
+    columns "Name, Email, Company, Status"
+  }
+  section form {
+    title "Add customer"
+    bind Customer { query all }
+    field "name" type:text required
+    field "email" type:email required
+    field "company" type:text
+    on submit {
+      create Customer
+      toast "Customer created" success
+      navigate "/customers"
+    }
+  }
+}
+
+page "/orders" type:custom requires:auth {
+  section page-header {
+    title "Orders"
+  }
+  section table {
+    bind Order { query all order created_at desc limit 50 }
+    columns "Customer, Amount, Status, Created At"
+  }
+  section form {
+    title "New order"
+    bind Order { query all }
+    field "customer" type:text required
+    field "amount" type:money required
+    on submit {
+      create Order
+      toast "Order created" success
+      navigate "/orders"
+    }
+  }
+}
+
+style {
+  theme dark
+  accent blue
+  font "Inter"
+}
