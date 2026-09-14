@@ -3471,6 +3471,56 @@ button:has(+ [data-slot="sheet-content"]) {
 @media (prefers-reduced-motion: reduce) {
   [data-slot="light-rays-field"] { display: none; }
 }
+[data-slot="orbit"] {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 12rem;
+  height: 12rem;
+  color: var(--cronus-fg);
+}
+[data-slot="orbit-nucleus"] {
+  position: relative;
+  z-index: 1;
+  font-weight: 600;
+}
+[data-slot="orbit-ring"] {
+  position: absolute;
+  inset: 1rem;
+  border: 1px solid var(--cronus-border);
+  border-radius: 999px;
+  pointer-events: none;
+  animation: cui-orbit-spin 24s linear infinite;
+}
+@keyframes cui-orbit-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+[data-slot="orbit"]:hover [data-slot="orbit-ring"],
+[data-slot="orbit"]:focus-within [data-slot="orbit-ring"] {
+  animation-play-state: paused;
+}
+[data-slot="orbit-item"] {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  color: var(--cronus-fg-secondary);
+  pointer-events: auto;
+}
+[data-slot="orbit-item"]:nth-child(1) { transform: rotate(0deg) translateY(-5rem) rotate(0deg); }
+[data-slot="orbit-item"]:nth-child(2) { transform: rotate(60deg) translateY(-5rem) rotate(-60deg); }
+[data-slot="orbit-item"]:nth-child(3) { transform: rotate(120deg) translateY(-5rem) rotate(-120deg); }
+[data-slot="orbit-item"]:nth-child(4) { transform: rotate(180deg) translateY(-5rem) rotate(-180deg); }
+[data-slot="orbit-item"]:nth-child(5) { transform: rotate(240deg) translateY(-5rem) rotate(-240deg); }
+[data-slot="orbit-item"]:nth-child(6) { transform: rotate(300deg) translateY(-5rem) rotate(-300deg); }
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="orbit-ring"] { animation: none; }
+}
 
 "#;
 

@@ -183,6 +183,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "spinning-text" => Some("cronus_ui_spinning_text::render"),
         "gradient-border" => Some("cronus_ui_gradient_border::render"),
         "light-rays" => Some("cronus_ui_light_rays::render"),
+        "orbit" => Some("cronus_ui_orbit::render"),
         _ => None,
     }
 }
@@ -751,6 +752,15 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || !html.contains("data-slot=\"light-rays-content\"")
                 || html.contains("<canvas")
                 || html.contains("<script")))
+        || (html.contains("data-slot=\"orbit\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || !html.contains("data-slot=\"orbit-nucleus\"")
+                || !html.contains("data-slot=\"orbit-ring\"")
+                || !html.contains("data-slot=\"orbit-item\"")
+                || html.contains("<canvas")
+                || html.contains("<script")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -1024,6 +1034,7 @@ mod tests {
             "src/cronus_ui_spinning_text.rs",
             "src/cronus_ui_gradient_border.rs",
             "src/cronus_ui_light_rays.rs",
+            "src/cronus_ui_orbit.rs",
             "src/cronus_ui_masonry.rs",
             "src/cronus_ui_comparison_slider.rs",
             "src/cronus_ui_confirmation_dialog.rs",

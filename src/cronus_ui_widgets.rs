@@ -354,6 +354,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "spinning-text",
     "gradient-border",
     "light-rays",
+    "orbit",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -536,6 +537,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "spinning-text" => Some(crate::cronus_ui_spinning_text::render(comp)),
         "gradient-border" => Some(crate::cronus_ui_gradient_border::render(comp)),
         "light-rays" => Some(crate::cronus_ui_light_rays::render(comp)),
+        "orbit" => Some(crate::cronus_ui_orbit::render(comp)),
         _ => None,
     }
 }
