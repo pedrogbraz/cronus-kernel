@@ -21,3 +21,17 @@ Measured (Playwright 1280×900 dsf 1, aurora dark, rects relative to the 480px c
 | input-otp-group | 24,24 240×40 | 24,24 240×40 |
 | input-otp-slot ×6 | x 24…224 step 40, 40×40, 14px/20px, border 1px rgba(245,255,255,.10), r 14px | identical |
 | input-otp (input) | 24,24 432×40, 40px/40px, ls −20px, transparent | identical |
+
+### collapsible
+Wave 1t geometry parity. React/Radix open state: root `<div data-state="open">` has no data-slot,
+trigger `<button aria-expanded="true" data-state="open">`, content
+`<div data-state="open" data-slot="collapsible-content">`. Kernel mirrors it (root slot removed);
+body = non-label texts. CSS: `[data-slot="collapsible-content"]` gains `line-height: 1.25rem`
+(`text-sm` pair).
+
+| slot | React | Cronus |
+|---|---|---|
+| collapsible-content | 24,48 432×20, 14px/20px, rgb(159,159,169) | identical |
+
+0 mismatches. Divergence: toggling needs JS; the fixture's `defaultOpen` state is rendered and the
+trigger is `disabled` (not dimmed).

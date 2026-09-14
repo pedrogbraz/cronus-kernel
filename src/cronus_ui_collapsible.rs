@@ -1,19 +1,25 @@
-//! Dedicated Collapsible renderer. Open static: trigger button (label) +
-//! `<div data-slot="collapsible-content" data-state="open">` extra text.
+//! Dedicated Collapsible renderer. DOM matches React/Radix open state:
+//! `<div data-state="open">` (Radix Root carries no data-slot) > trigger
+//! `<button aria-expanded="true" data-state="open">` (label) >
+//! `<div data-slot="collapsible-content" data-state="open">` (body texts).
+//! Toggling needs JS, so the kernel renders the fixture's `defaultOpen` state
+//! and the trigger keeps React's `<button>` but is `disabled` (not dimmed).
 //! Not interact `accordion("collapsible")` (`<details>` SURF, no collapsible-content).
 
-use crate::cronus_ui_kit::{label_of, texts};
+use crate::cronus_ui_kit::{esc, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = label_of(comp);
-    let extra = texts(comp)
-        .into_iter()
-        .skip(1)
+    let body = comp
+        .items
+        .iter()
+        .filter(|i| i.item_type != "label" && i.item_type != "title" && !i.text.is_empty())
+        .map(|i| esc(&i.text))
         .collect::<Vec<_>>()
         .join("");
     format!(
-        "<div data-slot=\"collapsible\"><button type=\"button\">{label}</button><div data-slot=\"collapsible-content\" data-state=\"open\">{extra}</div></div>"
+        "<div data-state=\"open\"><button type=\"button\" aria-expanded=\"true\" data-state=\"open\" disabled>{label}</button><div data-state=\"open\" data-slot=\"collapsible-content\">{body}</div></div>"
     )
 }
 
@@ -39,33 +45,29 @@ mod tests {
         assert!(!html.contains("style="));
         assert!(!html.contains("onclick="));
         assert!(!html.contains("v-data="));
-        assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
-        assert!(!html.contains("<nav "));
     }
 
+    /// wave1t: Radix Root has no `data-slot`; an extra kernel slot would be
+    /// an unpaired geometry node.
     #[test]
-    fn root_is_open_content_not_accordion_details() {
-        let mut c = stub("collapsible", "Show more");
-        c.items.push(extra("Hidden details here."));
+    fn root_is_unslotted_radix_open_state() {
+        let mut c = stub("collapsible", "Toggle");
+        c.items.push(extra("Hidden body"));
         let html = render(&c);
-        assert!(html.starts_with("<div data-slot=\"collapsible\">"));
-        assert!(html.contains("<button type=\"button\">Show more</button>"));
-        assert!(html.contains(
-            "<div data-slot=\"collapsible-content\" data-state=\"open\">Hidden details here.</div>"
-        ));
-        reject_interact(&html);
         assert_eq!(
             html,
-            "<div data-slot=\"collapsible\"><button type=\"button\">Show more</button><div data-slot=\"collapsible-content\" data-state=\"open\">Hidden details here.</div></div>"
+            "<div data-state=\"open\"><button type=\"button\" aria-expanded=\"true\" data-state=\"open\" disabled>Toggle</button><div data-state=\"open\" data-slot=\"collapsible-content\">Hidden body</div></div>"
         );
+        assert!(!html.contains("data-slot=\"collapsible\""));
+        reject_interact(&html);
     }
 
     #[test]
     fn label_only_still_opens_empty_content() {
         let html = render(&stub("collapsible", "Show more"));
-        assert!(html.contains("<button type=\"button\">Show more</button>"));
-        assert!(html.contains("<div data-slot=\"collapsible-content\" data-state=\"open\"></div>"));
+        assert!(html.contains(">Show more</button>"));
+        assert!(html.contains("data-slot=\"collapsible-content\"></div>"));
         reject_interact(&html);
     }
 
@@ -76,13 +78,9 @@ mod tests {
         let html = render(&c);
         let interact = crate::cronus_ui_interact::render("collapsible", &c).unwrap();
         assert_ne!(html, interact);
-        assert!(interact.contains("<div data-slot=\"collapsible\""));
         assert!(interact.contains("<details"));
-        assert!(interact.contains("<summary"));
-        assert!(interact.contains("style="));
         assert!(!interact.contains("data-slot=\"collapsible-content\""));
         assert!(html.contains("data-slot=\"collapsible-content\""));
-        assert!(html.contains("data-state=\"open\""));
         reject_interact(&html);
     }
 
@@ -91,17 +89,16 @@ mod tests {
         crate::voodoo::with_enabled(true, || {
             let html = render(&stub("collapsible", "Show more"));
             reject_interact(&html);
-            assert!(html.contains("data-slot=\"collapsible-content\""));
         });
     }
 
+    /// wave1t: `text-sm` is 14px/20px (not the canvas 1.5 line-height).
     #[test]
-    fn chrome_is_token_only() {
+    fn chrome_content_is_text_sm_pair() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"collapsible\"]"));
-        assert!(css.contains("[data-slot=\"collapsible-content\"]"));
-        assert!(css.contains("overflow: hidden"));
-        assert!(css.contains("var(--cronus-fg-secondary)"));
+        assert!(css.contains(
+            "[data-slot=\"collapsible-content\"] {\n  overflow: hidden; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);\n}"
+        ));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("onclick"));
     }

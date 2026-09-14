@@ -19,3 +19,27 @@ the id avoids the `-control"` field-stub fingerprint.
 | form / form-item | 24,24 432×60 | 24,24 432×60 |
 | label | 24,24 432×14, 14px/14px 500 | identical |
 | input | 24,44 432×40, 14px/20px, bg rgb(14,14,16), r 14px, placeholder rgb(133,133,142) | identical |
+
+### signature-pad
+Wave 1t geometry parity. DOM = React idle (empty pad):
+`div[data-slot=signature-pad][data-empty=true]` > `canvas[data-slot=signature-pad-canvas][role=img]`
++ `div[data-slot=signature-pad-hint][aria-hidden]` (`<div>` dashed rule + `<span>Sign here</span>`,
+React's fixed caption) + `<div>` with two `button[data-slot=button][data-variant=ghost][data-size=icon-sm]`
+(Undo last stroke / Clear signature, lucide Undo2 / Eraser) `disabled`, exactly as React while the
+pad has no ink. The label/aria-label names the canvas only.
+CSS: pad gets `background: var(--cronus-surface-inset); color: var(--cronus-fg)`; hint `> div`
+`border-top: 1px dashed var(--cronus-border-strong)`, `> span` block, `margin-top: 0.375rem`,
+`0.75rem/1rem`, fg-muted; actions `absolute right/bottom 0.375rem, gap 0.25rem`; buttons scoped
+`border-width: 0; font-size: 0.875rem; line-height: 1.25rem`, `:disabled { opacity: .5 }` (React
+`disabled:opacity-50`), svg 0.875rem.
+
+| slot | React | Cronus |
+|---|---|---|
+| signature-pad | 24,24 432×160, bg rgba(14,14,16), r 18px, border 1px | identical |
+| signature-pad-canvas | 25,25 430×158 | identical |
+| signature-pad-hint | 45,132 390×23, 16px/24px | identical |
+| button ×2 | 381,145 / 417,145 32×32, 14px/20px 500, rgb(159,159,169), r 14px, border 0 | identical |
+
+0 mismatches. Divergence: drawing needs pointer JS, so the canvas never inks and both buttons stay
+disabled. Shared-base note: kernel Button base has `line-height: 1` and `border: 1px solid transparent`
+(React ghost: 20px line, no border); overridden only inside the pad.

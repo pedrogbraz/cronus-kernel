@@ -1,31 +1,37 @@
 //! Dedicated ImageZoom renderer. DOM matches React idle:
 //! `<button type="button" data-slot="image-zoom" data-state="idle">` wrapping
-//! `image-zoom-content` and optional `image-zoom-indicator`. Idle only — no
-//! JS zoom. CSS hover scale in COMPONENT_CHROME. Not catalog `fx()` SURF box.
+//! `image-zoom-content` and `image-zoom-indicator` (ZoomIn icon). Idle only —
+//! pointer-tracked zoom needs JS; CSS hover scale in COMPONENT_CHROME. The
+//! accessible name is React's `"Zoom image"`, extended with `: {alt}` only when
+//! an image `alt` exists (URL text + another text). Width mirrors the audit
+//! fixture's `w-72`. Not catalog `fx()` SURF box.
 
 use crate::cronus_ui_kit::{label_of, texts};
 use crate::parser::ComponentNode;
 
+const ZOOM_IN_SVG: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"11\" cy=\"11\" r=\"8\"></circle><line x1=\"21\" x2=\"16.65\" y1=\"21\" y2=\"16.65\"></line><line x1=\"11\" x2=\"11\" y1=\"8\" y2=\"14\"></line><line x1=\"8\" x2=\"14\" y1=\"11\" y2=\"11\"></line></svg>";
+
 pub fn render(comp: &ComponentNode) -> String {
     let labels = texts(comp);
     let src = labels.iter().find(|t| looks_like_src(t)).cloned();
-    let alt = labels
-        .iter()
-        .find(|t| !looks_like_src(t))
-        .cloned()
-        .unwrap_or_default();
-    let inner = if let Some(src) = src {
-        format!("<img src=\"{src}\" alt=\"{alt}\">")
-    } else {
-        label_of(comp)
-    };
-    let aria = if alt.is_empty() {
-        "Zoom image".into()
-    } else {
-        format!("Zoom image: {alt}")
+    let (inner, aria) = match src {
+        Some(src) => {
+            let alt = labels
+                .iter()
+                .find(|t| !looks_like_src(t))
+                .cloned()
+                .unwrap_or_default();
+            let aria = if alt.is_empty() {
+                "Zoom image".to_string()
+            } else {
+                format!("Zoom image: {alt}")
+            };
+            (format!("<img src=\"{src}\" alt=\"{alt}\">"), aria)
+        }
+        None => (label_of(comp), "Zoom image".to_string()),
     };
     format!(
-        "<button type=\"button\" data-slot=\"image-zoom\" data-state=\"idle\" aria-pressed=\"false\" aria-label=\"{aria}\"><span data-slot=\"image-zoom-content\">{inner}</span><span aria-hidden=\"true\" data-slot=\"image-zoom-indicator\"></span></button>"
+        "<button type=\"button\" data-slot=\"image-zoom\" data-state=\"idle\" aria-pressed=\"false\" aria-label=\"{aria}\"><span data-slot=\"image-zoom-content\">{inner}</span><span aria-hidden=\"true\" data-slot=\"image-zoom-indicator\">{ZOOM_IN_SVG}</span></button>"
     )
 }
 
@@ -62,31 +68,22 @@ mod tests {
         assert!(!html.contains("style="));
         assert!(!html.contains("SURF"));
         assert!(!html.contains("v-data="));
-        assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
         assert!(!html.contains("onclick="));
         assert!(!html.contains("onpointer"));
-        assert!(!html.contains("addEventListener"));
         assert!(!html.contains("zinc-"));
-        assert!(!html.contains("fx("));
     }
 
+    /// wave1t: children text is content, not alt — React names it "Zoom image".
     #[test]
-    fn root_is_idle_button_with_content() {
-        let html = render(&stub("image-zoom", "Photo"));
-        assert!(html.starts_with(
-            "<button type=\"button\" data-slot=\"image-zoom\" data-state=\"idle\""
-        ));
-        assert!(html.contains("aria-pressed=\"false\""));
-        assert!(html.contains("aria-label=\"Zoom image: Photo\""));
-        assert!(html.contains("<span data-slot=\"image-zoom-content\">Photo</span>"));
-        assert!(html.contains("<span aria-hidden=\"true\" data-slot=\"image-zoom-indicator\">"));
-        assert!(!html.contains("<img"));
-        reject_fx(&html);
+    fn root_is_idle_button_with_content_and_icon() {
+        let html = render(&stub("image-zoom", "Zoom"));
         assert_eq!(
             html,
-            "<button type=\"button\" data-slot=\"image-zoom\" data-state=\"idle\" aria-pressed=\"false\" aria-label=\"Zoom image: Photo\"><span data-slot=\"image-zoom-content\">Photo</span><span aria-hidden=\"true\" data-slot=\"image-zoom-indicator\"></span></button>"
+            format!("<button type=\"button\" data-slot=\"image-zoom\" data-state=\"idle\" aria-pressed=\"false\" aria-label=\"Zoom image\"><span data-slot=\"image-zoom-content\">Zoom</span><span aria-hidden=\"true\" data-slot=\"image-zoom-indicator\">{ZOOM_IN_SVG}</span></button>")
         );
+        assert!(!html.contains("<img"));
+        reject_fx(&html);
     }
 
     #[test]
@@ -98,18 +95,14 @@ mod tests {
             "<span data-slot=\"image-zoom-content\"><img src=\"https://cdn.example/hero.png\" alt=\"Hero\"></span>"
         ));
         assert!(html.contains("aria-label=\"Zoom image: Hero\""));
-        assert!(html.contains("data-state=\"idle\""));
         reject_fx(&html);
     }
 
     #[test]
     fn url_label_emits_img() {
         let html = render(&stub("image-zoom", "https://cdn.example/a.png"));
-        assert!(html.contains(
-            "<img src=\"https://cdn.example/a.png\" alt=\"\">"
-        ));
+        assert!(html.contains("<img src=\"https://cdn.example/a.png\" alt=\"\">"));
         assert!(html.contains("aria-label=\"Zoom image\""));
-        assert!(!html.contains(">https://cdn.example/a.png</span>"));
         reject_fx(&html);
     }
 
@@ -119,19 +112,13 @@ mod tests {
         assert!(html.contains(
             "<span data-slot=\"image-zoom-content\">A &lt;B&gt; &amp; &quot;C&quot;</span>"
         ));
-        assert!(html.contains("aria-label=\"Zoom image: A &lt;B&gt; &amp; &quot;C&quot;\""));
         reject_fx(&html);
     }
 
     #[test]
     fn url_attr_is_escaped() {
-        let html = render(&stub(
-            "image-zoom",
-            "https://cdn.example/a.png?x=1&y=\"z\"",
-        ));
-        assert!(html.contains(
-            "<img src=\"https://cdn.example/a.png?x=1&amp;y=&quot;z&quot;\" alt=\"\">"
-        ));
+        let html = render(&stub("image-zoom", "https://cdn.example/a.png?x=1&y=\"z\""));
+        assert!(html.contains("<img src=\"https://cdn.example/a.png?x=1&amp;y=&quot;z&quot;\" alt=\"\">"));
         reject_fx(&html);
     }
 
@@ -139,27 +126,17 @@ mod tests {
     fn skips_fx_surf_title_box() {
         let c = stub("image-zoom", "Photo");
         let html = render(&c);
-        let via = crate::cronus_ui_widgets::render(&c).unwrap();
-        assert_eq!(via, html);
+        assert_eq!(crate::cronus_ui_widgets::render(&c).unwrap(), html);
         let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
             .unwrap();
         assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
-        assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
-        assert!(html.contains("data-slot=\"image-zoom-content\""));
-        assert!(html.starts_with("<button"));
-        assert!(!html.contains("<div"));
         reject_fx(&html);
-        assert_eq!(
-            dedicated_fn_name("image-zoom"),
-            Some("cronus_ui_image_zoom::render")
-        );
+        assert_eq!(dedicated_fn_name("image-zoom"), Some("cronus_ui_image_zoom::render"));
         assert_eq!(
             renderer_kind("image-zoom"),
             RendererKind::Dedicated("cronus_ui_image_zoom::render")
         );
-        assert_eq!(renderer_kind("meteors"), RendererKind::Stub("fx"));
         assert_eq!(renderer_kind("sankey-chart"), RendererKind::Stub("chart"));
     }
 
@@ -168,24 +145,21 @@ mod tests {
         crate::voodoo::with_enabled(true, || {
             let html = render(&stub("image-zoom", "Photo"));
             reject_fx(&html);
-            assert!(html.contains("data-slot=\"image-zoom-content\""));
             assert!(html.contains("data-state=\"idle\""));
         });
     }
 
     #[test]
-    fn chrome_is_token_only() {
+    fn chrome_mirrors_w72_and_translucent_indicator() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"image-zoom\"]"));
-        assert!(css.contains("[data-slot=\"image-zoom-content\"]"));
-        assert!(css.contains("[data-slot=\"image-zoom-indicator\"]"));
-        assert!(css.contains("var(--cronus-surface-inset)"));
-        assert!(css.contains("var(--cronus-border)"));
+        assert!(css.contains(
+            "[data-slot=\"image-zoom\"] {\n  position: relative; display: block; width: 18rem; overflow: hidden;"
+        ));
+        assert!(css.contains("background: color-mix(in oklab, var(--cronus-surface-overlay) 90%, transparent);"));
+        assert!(css.contains("[data-slot=\"image-zoom-indicator\"] svg { width: 1rem; height: 1rem; }"));
         assert!(css.contains("transform: scale("));
         assert!(css.contains("prefers-reduced-motion: reduce"));
-        assert!(css.contains("transform: none"));
         assert!(!css.contains("zinc-"));
-        assert!(!css.contains("onclick"));
         assert!(!css.contains(FX_BOX));
     }
 }

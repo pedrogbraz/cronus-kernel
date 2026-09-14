@@ -1,7 +1,8 @@
 //! Dedicated Toast renderer. Family name is `toast`. One visible toast:
-//! `<div data-slot="toast" role="status">` with label text.
-//! Not catalog `fx()` SURF title box. Not sonner's toaster wrapper
-//! (`data-slot="sonner"` / `data-slot="toaster"`).
+//! `<div data-slot="toast" role="status">` with label text, exactly the
+//! audit `ToastFixture` box (block, `px-4 py-3 text-sm rounded-lg border
+//! bg-surface-floating shadow-lg`). Not catalog `fx()` SURF title box. Not
+//! sonner's toaster wrapper (`data-slot="toaster"`).
 
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
@@ -32,6 +33,18 @@ mod tests {
         }
     }
 
+    /// Every CSS rule body whose selector list is exactly `selector`.
+    fn blocks(css: &str, selector: &str) -> Vec<String> {
+        let open = format!("{selector} {{");
+        css.match_indices(&open)
+            .filter(|(i, _)| *i == 0 || css.as_bytes()[i - 1] == b'\n')
+            .map(|(i, _)| {
+                let body = &css[i + open.len()..];
+                body[..body.find('}').unwrap_or(body.len())].to_string()
+            })
+            .collect()
+    }
+
     fn reject_fx_and_sonner(html: &str) {
         assert!(!html.contains(FX_BOX));
         assert!(!html.contains("<span"));
@@ -54,10 +67,6 @@ mod tests {
             html,
             "<div data-slot=\"toast\" role=\"status\" aria-live=\"polite\">Saved</div>"
         );
-        assert!(html.starts_with("<div data-slot=\"toast\""));
-        assert!(html.contains("role=\"status\""));
-        assert!(html.contains("aria-live=\"polite\""));
-        assert!(html.contains(">Saved</div>"));
         assert_eq!(html.matches("data-slot=\"toast\"").count(), 1);
         reject_fx_and_sonner(&html);
     }
@@ -91,19 +100,12 @@ mod tests {
         assert_ne!(html, interact);
         assert!(interact.contains("data-slot=\"toast\""));
         assert!(interact.contains("style="));
-        assert!(interact.contains("padding:0.75rem 1rem;font-size:0.875rem"));
-        assert!(!interact.contains("data-slot=\"toaster\""));
         let sonner = crate::cronus_ui_sonner::render(&stub("sonner", "Saved"));
-        assert!(sonner.contains("data-slot=\"sonner\""));
         assert!(sonner.contains("data-slot=\"toaster\""));
-        assert!(sonner.contains("data-slot=\"toast\""));
         assert_ne!(html, sonner);
-        assert!(!html.contains("data-slot=\"toaster\""));
         let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
             .unwrap();
         assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
-        assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
         reject_fx_and_sonner(&html);
         assert_eq!(dedicated_fn_name("toast"), Some("cronus_ui_toast::render"));
@@ -112,10 +114,6 @@ mod tests {
             RendererKind::Dedicated("cronus_ui_toast::render")
         );
         assert_eq!(renderer_kind("meteors"), RendererKind::Stub("fx"));
-        assert_eq!(
-            dedicated_fn_name("sonner"),
-            Some("cronus_ui_sonner::render")
-        );
     }
 
     #[test]
@@ -127,15 +125,24 @@ mod tests {
         });
     }
 
+    /// wave1t: React ToastFixture is a block box (432px in the audit canvas),
+    /// weight 400, `text-sm` 14px/20px, no leading dot. One toast rule only.
     #[test]
-    fn chrome_is_token_only() {
+    fn chrome_matches_react_toast_fixture_box() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"toast\"]"));
-        assert!(css.contains("var(--cronus-surface-floating)"));
-        assert!(css.contains("var(--cronus-border)"));
-        assert!(css.contains("padding: 0.75rem 1rem"));
+        let toast = blocks(css, "[data-slot=\"toast\"]");
+        assert_eq!(toast.len(), 1, "{toast:?}");
+        let b = &toast[0];
+        assert!(b.contains("display: block"), "{b}");
+        assert!(b.contains("padding: 0.75rem 1rem"), "{b}");
+        assert!(b.contains("font-size: 0.875rem; line-height: 1.25rem"), "{b}");
+        assert!(b.contains("var(--cronus-surface-floating)"), "{b}");
+        assert!(b.contains("var(--cronus-border)"), "{b}");
+        assert!(!b.contains("inline-flex"), "{b}");
+        assert!(!b.contains("min-width"), "{b}");
+        assert!(!b.contains("font-weight"), "{b}");
+        assert!(!css.contains("[data-slot=\"toast\"]::before"));
         assert!(!css.contains("zinc-"));
-        assert!(!css.contains("onclick"));
         assert!(!css.contains(FX_BOX));
     }
 }

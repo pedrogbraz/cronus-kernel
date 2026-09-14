@@ -62,3 +62,33 @@ Divergence: React front card is `role="button"` `tabindex=0` "Show next card" an
 cycles on click/keys; that needs JS, so Cronus emits no control. React's accessible
 name is "Card stack" (`aria-labelledby` wins over `aria-label`); Cronus keeps
 `aria-label`.
+
+### aspect-ratio
+Wave 1t geometry parity. DOM unchanged (`<div data-slot="aspect-ratio">label</div>`). CSS width
+`18rem` mirrors the fixture `className="w-72"` (React component default is `w-full`; `.cronus` has
+no className channel), `aspect-ratio: 16 / 9`.
+
+| slot | React | Cronus |
+|---|---|---|
+| aspect-ratio | 24,24 288×162 | identical (was 432×243) |
+
+0 mismatches.
+
+### frame
+Wave 1t geometry parity. DOM = React `variant="browser"`: `div[data-slot=frame][data-variant=browser]`
+> `frame-chrome` (3 dots + `div[data-slot=frame-address-bar]` with `url` from prop or item config,
+empty when absent, like React's `{url}`) > `frame-content`. CSS: frame `width: 18rem` (fixture
+`w-72`); address bar `margin 0 auto; max-width 100%; ellipsis; radius-md; surface-raised;
+padding 0.25rem 0.75rem; 0.75rem/1rem; fg-tertiary`.
+
+| slot | React | Cronus (source with `url:"cronus.dev"`) |
+|---|---|---|
+| frame | 24,24 288×67, bg rgba(21,21,23), r 18px | identical |
+| frame-chrome | 25,25 286×41, bg rgba(14,14,16), border-bottom 1px | identical |
+| frame-address-bar | 154.78,33 86.44×24, 12px/16px, rgb(133,133,142), r 10px | identical |
+| frame-content | 25,66 286×24 | identical |
+
+0 mismatches once the fixture source carries `url`. Current `cronus-fixtures/app.cronus` has no
+`url` line (the emitter drops the prop), leaving 8 mismatches (empty bar: chrome 29px, no
+"cronus.dev" text). Needed emitter change in `emit-cronus-fixture.ts`:
+`if (typeof fixture.props.url === "string") lines.push(\`  url:"${cronusEscape(fixture.props.url)}"\`);`
