@@ -1,51 +1,78 @@
-//! Dedicated InviteDialog renderer. Always-open static:
-//! `<div data-slot="invite-dialog">` plus an email field and send button
-//! `invite-dialog-send`. Not interact `dialog("invite-dialog")` native
-//! `<dialog>` + `showModal()` + SURF.
+//! Dedicated InviteDialog renderer — mirrors React `InviteDialog` (a
+//! `DialogContent` with `data-slot="invite-dialog"`) in its default form state.
+//!
+//! Open by default, zero JS: a non-modal native `<dialog open>` (chrome gives it
+//! `display: contents`) wraps the fixed `dialog-overlay` scrim and the fixed,
+//! centred `invite-dialog` panel:
+//! `dialog-header` (`dialog-title` h2 + `dialog-description` p), a
+//! `<form method="dialog">` with two `field`s (Email `input`; Role
+//! `select-trigger`), `dialog-footer` (outline Cancel + primary
+//! `invite-dialog-send`) and the absolute `dialog-close` icon button.
+//!
+//! Live without script: Send validates the required email and closes the
+//! dialog; Cancel and Close submit with `formnovalidate` and close it.
+//! JS-only (Wave 1t rule: same native element, `disabled`, idle look): the Radix
+//! role select — its trigger is a disabled `button` showing the default role,
+//! and a hidden `role` input carries that value. Not reproduced either: focus
+//! trap, async `onInvite` spinner/error, invite-link success view.
 
-use crate::cronus_ui_kit::{esc, item, label_of};
+use crate::cronus_ui_kit::{esc, item, label_of, widget_id};
 use crate::parser::ComponentNode;
+
+/// React `DEFAULT_ROLES`; the first is initially selected.
+const ROLES: [(&str, &str); 2] = [("member", "Member"), ("admin", "Admin")];
+
+const CHEVRON: &str = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"/></svg>";
+const CROSS: &str = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M18 6 6 18\"/><path d=\"m6 6 12 12\"/></svg>";
+
+fn label(comp: &ComponentNode, kind: &str, fallback: &str) -> String {
+    item(comp, kind)
+        .filter(|t| !t.is_empty())
+        .map(esc)
+        .unwrap_or_else(|| fallback.into())
+}
 
 pub fn render(comp: &ComponentNode) -> String {
     let title = label_of(comp);
-    let send = item(comp, "send")
-        .filter(|t| !t.is_empty())
+    // `description:"…"` prop, attr-style item config, a `description` item, else React's default.
+    let description = comp
+        .props
+        .get("description")
+        .map(String::as_str)
+        .or_else(|| comp.items.iter().find_map(|i| i.config.get("description").map(String::as_str)))
+        .or_else(|| item(comp, "description"))
+        .filter(|d| !d.is_empty())
         .map(esc)
-        .unwrap_or_else(|| "Send invite".into());
-    let cancel = item(comp, "cancel")
-        .filter(|t| !t.is_empty())
-        .map(esc)
-        .unwrap_or_else(|| "Cancel".into());
+        .unwrap_or_else(|| "Send an invitation to join this workspace.".into());
+    let email = label(comp, "email", "Email");
     let placeholder = item(comp, "placeholder")
         .or_else(|| comp.props.get("placeholder").map(String::as_str))
         .filter(|t| !t.is_empty())
         .map(esc)
         .unwrap_or_else(|| "name@example.com".into());
-    let desc = extras(comp, &title);
-    let desc_html = if desc.is_empty() {
-        String::new()
-    } else {
-        format!("<div data-slot=\"invite-dialog-description\">{desc}</div>")
-    };
-    format!(
-        "<div data-slot=\"invite-dialog\"><div data-slot=\"invite-dialog-title\">{title}</div>{desc_html}<label>Email<input type=\"email\" name=\"email\" placeholder=\"{placeholder}\" autocomplete=\"email\" required /></label><button type=\"button\">{cancel}</button><button type=\"button\" data-slot=\"invite-dialog-send\">{send}</button></div>"
-    )
-}
-
-fn extras(comp: &ComponentNode, title: &str) -> String {
-    comp.items
+    let role = label(comp, "role", "Role");
+    let send = label(comp, "send", "Send invite");
+    let cancel = label(comp, "cancel", "Cancel");
+    let close = label(comp, "close", "Close");
+    let role_text = ROLES[0].1;
+    // Radix Select's visually hidden native <select> (form value; aria-hidden, tabindex -1).
+    let options: String = ROLES
         .iter()
-        .filter(|i| {
-            !matches!(
-                i.item_type.as_str(),
-                "title" | "send" | "cancel" | "confirm" | "email" | "placeholder"
-            )
+        .enumerate()
+        .map(|(i, (value, text))| {
+            let selected = if i == 0 { " selected" } else { "" };
+            format!("<option value=\"{value}\"{selected}>{text}</option>")
         })
-        .filter(|i| !i.text.is_empty())
-        .map(|i| esc(&i.text))
-        .filter(|t| t != title)
-        .collect::<Vec<_>>()
-        .join("")
+        .collect();
+
+    let form = widget_id(comp, "invite-dialog-form");
+    let title_id = widget_id(comp, "invite-dialog-title");
+    let email_id = widget_id(comp, "invite-dialog-email");
+    let role_id = widget_id(comp, "invite-dialog-role");
+
+    format!(
+        "<dialog open aria-labelledby=\"{title_id}\"><div data-slot=\"dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"invite-dialog\" data-state=\"open\"><div data-slot=\"dialog-header\"><h2 data-slot=\"dialog-title\" id=\"{title_id}\">{title}</h2><p data-slot=\"dialog-description\">{description}</p></div><form method=\"dialog\" id=\"{form}\"><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{email_id}\">{email}</label><input data-slot=\"input\" id=\"{email_id}\" type=\"email\" name=\"email\" autocomplete=\"email\" required placeholder=\"{placeholder}\"></div><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{role_id}\">{role}</label><button type=\"button\" data-slot=\"select-trigger\" id=\"{role_id}\" role=\"combobox\" aria-expanded=\"false\" disabled><span>{role_text}</span>{CHEVRON}</button><select aria-hidden=\"true\" tabindex=\"-1\" name=\"role\">{options}</select></div><div data-slot=\"dialog-footer\"><button type=\"submit\" formnovalidate value=\"cancel\" data-slot=\"button\" data-variant=\"outline\">{cancel}</button><button type=\"submit\" value=\"send\" data-slot=\"invite-dialog-send\" data-variant=\"primary\">{send}</button></div></form><button type=\"submit\" form=\"{form}\" formnovalidate value=\"close\" data-slot=\"dialog-close\">{CROSS}<span>{close}</span></button></div></dialog>"
+    )
 }
 
 #[cfg(test)]
@@ -64,8 +91,7 @@ mod tests {
         }
     }
 
-    fn reject_interact(html: &str) {
-        assert!(!html.contains("<dialog"));
+    fn reject_js(html: &str) {
         assert!(!html.contains("showModal"));
         assert!(!html.contains("-control"));
         assert!(!html.contains("onclick="));
@@ -73,102 +99,81 @@ mod tests {
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
-        assert!(!html.contains("max-width:28rem"));
-        assert!(!html.contains("role=\"dialog\""));
+        assert!(!html.contains("<dialog data-slot="));
         assert!(!html.contains("<label data-slot=\"invite-dialog\""));
     }
 
     #[test]
-    fn always_open_email_field_and_send() {
-        let html = render(&stub("invite-dialog", "Invite member"));
-        assert!(html.starts_with("<div data-slot=\"invite-dialog\">"));
-        assert!(html.contains("<div data-slot=\"invite-dialog-title\">Invite member</div>"));
-        assert!(html.contains("<label>Email<input type=\"email\" name=\"email\" placeholder=\"name@example.com\" autocomplete=\"email\" required /></label>"));
-        assert!(html.contains(
-            "<button type=\"button\" data-slot=\"invite-dialog-send\">Send invite</button>"
-        ));
-        reject_interact(&html);
+    fn fixture_matches_react_dom() {
+        let c = stub("invite-dialog", "Invite member");
+        let id = widget_id(&c, "invite-dialog-");
+        let html = render(&c);
         assert_eq!(
             html,
-            "<div data-slot=\"invite-dialog\"><div data-slot=\"invite-dialog-title\">Invite member</div><label>Email<input type=\"email\" name=\"email\" placeholder=\"name@example.com\" autocomplete=\"email\" required /></label><button type=\"button\">Cancel</button><button type=\"button\" data-slot=\"invite-dialog-send\">Send invite</button></div>"
+            format!(
+                "<dialog open aria-labelledby=\"{id}title\"><div data-slot=\"dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"invite-dialog\" data-state=\"open\"><div data-slot=\"dialog-header\"><h2 data-slot=\"dialog-title\" id=\"{id}title\">Invite member</h2><p data-slot=\"dialog-description\">Send an invitation to join this workspace.</p></div><form method=\"dialog\" id=\"{id}form\"><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{id}email\">Email</label><input data-slot=\"input\" id=\"{id}email\" type=\"email\" name=\"email\" autocomplete=\"email\" required placeholder=\"name@example.com\"></div><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{id}role\">Role</label><button type=\"button\" data-slot=\"select-trigger\" id=\"{id}role\" role=\"combobox\" aria-expanded=\"false\" disabled><span>Member</span>{CHEVRON}</button><select aria-hidden=\"true\" tabindex=\"-1\" name=\"role\"><option value=\"member\" selected>Member</option><option value=\"admin\">Admin</option></select></div><div data-slot=\"dialog-footer\"><button type=\"submit\" formnovalidate value=\"cancel\" data-slot=\"button\" data-variant=\"outline\">Cancel</button><button type=\"submit\" value=\"send\" data-slot=\"invite-dialog-send\" data-variant=\"primary\">Send invite</button></div></form><button type=\"submit\" form=\"{id}form\" formnovalidate value=\"close\" data-slot=\"dialog-close\">{CROSS}<span>Close</span></button></div></dialog>"
+            )
         );
+        assert!(!html.contains("data-slot=\"invite-dialog-title\""));
+        reject_js(&html);
     }
 
     #[test]
-    fn description_and_send_override() {
+    fn label_items_override_defaults() {
         let mut c = stub("invite-dialog", "Invite member");
-        c.items
-            .push(extra("text", "Send an invitation to join this workspace."));
+        c.items.push(extra("placeholder", "teammate@company.com"));
         c.items.push(extra("send", "Invite"));
-        c.items.push(extra("cancel", "Close"));
+        c.items.push(extra("cancel", "Dismiss"));
+        c.props.insert("description".into(), "Add a teammate.".into());
         let html = render(&c);
-        assert!(html.contains(
-            "<div data-slot=\"invite-dialog-description\">Send an invitation to join this workspace.</div>"
-        ));
-        assert!(html.contains(
-            "<button type=\"button\" data-slot=\"invite-dialog-send\">Invite</button>"
-        ));
-        assert!(html.contains("<button type=\"button\">Close</button>"));
-        assert!(!html.contains(">Invite</div>"));
-        assert!(!html.contains(">Close</div>"));
-        reject_interact(&html);
-    }
-
-    #[test]
-    fn placeholder_from_item() {
-        let mut c = stub("invite-dialog", "Invite member");
-        c.items
-            .push(extra("placeholder", "teammate@company.com"));
-        let html = render(&c);
+        assert!(html.contains("<p data-slot=\"dialog-description\">Add a teammate.</p>"));
         assert!(html.contains("placeholder=\"teammate@company.com\""));
-        assert!(!html.contains("teammate@company.com</div>"));
-        reject_interact(&html);
-    }
-
-    #[test]
-    fn skips_interact_dialog_surf() {
-        let c = stub("invite-dialog", "Invite member");
-        let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("invite-dialog", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<dialog data-slot=\"invite-dialog-content\""));
-        assert!(interact.contains("showModal()"));
-        assert!(interact.contains("onclick="));
-        assert!(interact.contains("style="));
-        assert!(interact.contains("max-width:28rem"));
-        assert!(!html.contains("<dialog"));
-        assert!(!html.contains("showModal"));
-        assert!(html.contains("type=\"email\""));
-        assert!(html.contains("data-slot=\"invite-dialog-send\""));
-        reject_interact(&html);
+        assert!(html.contains("data-slot=\"invite-dialog-send\" data-variant=\"primary\">Invite</button>"));
+        assert!(html.contains("data-variant=\"outline\">Dismiss</button>"));
+        let mut c = stub("invite-dialog", "Invite member");
+        c.items[0].config.insert("description".into(), "From config.".into());
+        assert!(render(&c).contains("<p data-slot=\"dialog-description\">From config.</p>"));
+        reject_js(&html);
     }
 
     #[test]
     fn no_voodoo_even_when_runtime_on() {
         crate::voodoo::with_enabled(true, || {
             let html = render(&stub("invite-dialog", "Invite member"));
-            reject_interact(&html);
-            assert!(html.contains("data-slot=\"invite-dialog\""));
+            reject_js(&html);
             assert!(html.contains("data-slot=\"invite-dialog-send\""));
             assert!(html.contains("type=\"email\""));
         });
     }
 
     #[test]
-    fn chrome_is_token_only() {
+    fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"invite-dialog\"]"));
-        assert!(css.contains("[data-slot=\"invite-dialog-title\"]"));
-        assert!(css.contains("[data-slot=\"invite-dialog-description\"]"));
-        assert!(css.contains("[data-slot=\"invite-dialog-send\"]"));
-        assert!(css.contains("z-index: 50"));
-        assert!(css.contains("max-width: 28rem"));
-        assert!(css.contains("var(--cronus-surface-floating)"));
-        assert!(css.contains("var(--cronus-border)"));
-        assert!(css.contains("var(--cronus-fg-secondary)"));
-        assert!(css.contains("var(--cronus-surface-inset)"));
+        let block = |sel: &str| {
+            let start = css.find(&format!("{sel} {{")).unwrap_or_else(|| panic!("{sel}"));
+            let end = css[start..].find('}').unwrap() + start;
+            css[start..end].to_string()
+        };
+        assert!(block("dialog:has(> [data-slot=\"invite-dialog\"])").contains("display: contents"));
+        let overlay =
+            block("dialog:has(> [data-slot=\"invite-dialog\"]) > [data-slot=\"dialog-overlay\"]");
+        assert!(overlay.contains("position: fixed; inset: 0; z-index: 50;"));
+        let content = block("[data-slot=\"invite-dialog\"]");
+        assert!(content.contains("position: fixed; inset: 0; z-index: 50; margin: auto;"));
+        assert!(content.contains("max-width: 28rem"));
+        assert!(content.contains("border: 1px solid var(--cronus-border)"));
+        assert!(content.contains("border-radius: var(--cronus-radius-xl)"));
+        let close = block("[data-slot=\"invite-dialog\"] [data-slot=\"dialog-close\"]");
+        assert!(close.contains("position: absolute; top: 1rem; inset-inline-end: 1rem;"));
+        let trigger = block("[data-slot=\"invite-dialog\"] [data-slot=\"select-trigger\"]");
+        assert!(trigger.contains("height: 2.5rem"));
+        assert!(trigger.contains("background: var(--cronus-surface-inset)"));
+        let send = block(
+            "[data-slot=\"invite-dialog\"] [data-slot=\"dialog-footer\"] > [data-slot=\"invite-dialog-send\"]",
+        );
+        assert!(send.contains("background: var(--cronus-primary)"));
+        assert!(send.contains("min-width: 6rem"));
+        assert!(!css.contains("[data-slot=\"invite-dialog-title\"]"));
         assert!(!css.contains("zinc-"));
-        assert!(!css.contains("onclick"));
-        assert!(!css.contains("showModal"));
     }
 }

@@ -2366,35 +2366,62 @@ button:has(+ [data-slot="sheet-content"]) {
   color: var(--cronus-primary); font-size: 0.75rem; font-weight: 500;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-[data-slot="alert-dialog"] {
-  display: flex; flex-direction: column; gap: 0.5rem;
+/* alert-dialog + confirmation-dialog: open by default. Non-modal <dialog open>
+   paints no box; overlay and panel are viewport-fixed like the React portal. */
+dialog:has(> [data-slot="alert-dialog-content"]),
+dialog:has(> [data-slot="confirmation-dialog"]) {
+  display: contents; color: inherit;
 }
-[data-slot="alert-dialog"] > button {
-  display: inline-flex; align-items: center; justify-content: center;
-  height: 2.5rem; padding: 0 1rem;
-  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
-  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+[data-slot="alert-dialog-overlay"] {
+  position: fixed; inset: 0; z-index: 50;
+  background: color-mix(in oklch, black 50%, transparent);
+  backdrop-filter: blur(8px);
 }
-[data-slot="alert-dialog-content"] {
-  z-index: 50; display: grid; gap: 1rem;
-  width: 100%; max-width: 32rem; box-sizing: border-box;
+[data-slot="confirmation-dialog"], [data-slot="alert-dialog-content"] {
+  position: fixed; inset: 0; z-index: 50; margin: auto;
+  display: grid; gap: 1rem;
+  width: 100%; max-width: 32rem; height: fit-content; box-sizing: border-box;
   padding: 1.5rem;
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-xl);
   background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  font-size: 1rem; line-height: 1.5rem; text-align: start;
   box-shadow: var(--cronus-shadow-lg, none);
 }
-[data-slot="alert-dialog-title"] {
-  font-size: 1.125rem; font-weight: 600; color: var(--cronus-fg);
-  font-family: var(--cronus-font-display, inherit);
+[data-slot="alert-dialog-header"] {
+  display: flex; flex-direction: column; gap: 0.375rem; text-align: start;
+}
+[data-slot="alert-dialog-footer"] {
+  display: flex; flex-direction: row; justify-content: flex-end; gap: 0.5rem;
+}
+@media (max-width: 639.98px) {
+  [data-slot="alert-dialog-header"] { text-align: center; }
+  [data-slot="alert-dialog-footer"] { flex-direction: column-reverse; justify-content: flex-start; }
+}
+/* Two attribute selectors: beats the base `html[data-cronus-theme] h2` weight 400. */
+[data-slot="alert-dialog-content"] [data-slot="alert-dialog-title"],
+[data-slot="confirmation-dialog"] [data-slot="alert-dialog-title"] {
+  margin: 0; font-family: var(--cronus-font-display, inherit);
+  font-size: 1.125rem; line-height: 1.75rem; font-weight: 600; letter-spacing: normal;
+  color: var(--cronus-fg);
 }
 [data-slot="alert-dialog-description"] {
-  font-size: 0.875rem; color: var(--cronus-fg-secondary);
-}
-[data-slot="alert-dialog-cancel"] {
-  background: transparent; color: var(--cronus-fg);
+  margin: 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
 }
 [data-slot="alert-dialog-action"] {
-  border: 1px solid transparent;
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  white-space: nowrap; height: 2.5rem; padding: 0 1rem; box-sizing: border-box;
+  border: 0; border-radius: var(--cronus-radius-lg);
   background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+  font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; cursor: pointer;
+  box-shadow: var(--cronus-shadow-xs, none);
+}
+[data-slot="alert-dialog-cancel"] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  white-space: nowrap; height: 2.5rem; padding: 0 1rem; box-sizing: border-box;
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
+  background: transparent; color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; cursor: pointer;
+  box-shadow: var(--cronus-shadow-xs, none);
 }
 [data-slot="lightbox"] {
   z-index: 50; display: flex; flex-direction: column; gap: 0.75rem;
@@ -2708,48 +2735,98 @@ button:has(+ [data-slot="sheet-content"]) {
   color: var(--cronus-fg);
 }
 [data-slot="confirmation-dialog"] {
-  z-index: 50; display: grid; gap: 1rem;
-  width: 100%; max-width: 28rem; box-sizing: border-box;
-  padding: 1.5rem;
-  border-radius: var(--cronus-radius-xl);
-  background: var(--cronus-surface-floating); color: var(--cronus-fg);
-  box-shadow: var(--cronus-shadow-lg, none);
-}
-[data-slot="confirmation-dialog-title"] {
-  font-size: 1.125rem; font-weight: 600; color: var(--cronus-fg);
-  font-family: var(--cronus-font-display, inherit);
-}
-[data-slot="confirmation-dialog-description"] {
-  font-size: 0.875rem; color: var(--cronus-fg-secondary);
-}
-[data-slot="confirmation-dialog"] > button {
-  height: 2.5rem; padding: 0 1rem;
-  background: transparent; color: var(--cronus-fg);
-  font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+  max-width: 28rem;
 }
 [data-slot="confirmation-dialog-confirm"] {
-  border: 1px solid transparent;
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  white-space: nowrap; height: 2.5rem; min-width: 6rem; padding: 0 1rem; box-sizing: border-box;
+  border: 0; border-radius: var(--cronus-radius-lg);
   background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+  font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; cursor: pointer;
+  box-shadow: var(--cronus-shadow-xs, none);
+}
+/* invite-dialog: open by default, same fixed overlay + panel model. */
+dialog:has(> [data-slot="invite-dialog"]) {
+  display: contents; color: inherit;
+}
+dialog:has(> [data-slot="invite-dialog"]) > [data-slot="dialog-overlay"] {
+  position: fixed; inset: 0; z-index: 50;
+  background: color-mix(in oklch, black 50%, transparent);
+  backdrop-filter: blur(8px);
 }
 [data-slot="invite-dialog"] {
+  position: fixed; inset: 0; z-index: 50; margin: auto;
+  display: grid; gap: 1rem;
+  width: 100%; max-width: 28rem; height: fit-content; box-sizing: border-box;
+  padding: 1.5rem;
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-xl);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  font-size: 1rem; line-height: 1.5rem; text-align: start;
+  box-shadow: var(--cronus-shadow-lg, none);
 }
-[data-slot="invite-dialog-title"] {
+[data-slot="invite-dialog"] [data-slot="dialog-header"] {
+  display: flex; flex-direction: column; gap: 0.375rem; text-align: start;
 }
-[data-slot="invite-dialog-description"] {
+[data-slot="invite-dialog"] [data-slot="dialog-title"] {
+  margin: 0; font-family: var(--cronus-font-display, inherit);
+  font-size: 1.125rem; line-height: 1.75rem; font-weight: 600; letter-spacing: normal;
+  color: var(--cronus-fg);
 }
-[data-slot="invite-dialog"] > label {
-  display: flex; flex-direction: column; gap: 0.35rem;
-  font-size: 0.875rem; font-weight: 500; color: var(--cronus-fg);
+[data-slot="invite-dialog"] [data-slot="dialog-description"] {
+  margin: 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
 }
-[data-slot="invite-dialog"] input[type="email"] {
-  display: flex; height: 2.5rem; width: 100%; box-sizing: border-box;
-  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+[data-slot="invite-dialog"] > form {
+  display: flex; flex-direction: column; gap: 1rem;
+}
+[data-slot="invite-dialog"] [data-slot="input"] {
+  line-height: 1.25rem;
+}
+[data-slot="invite-dialog"] [data-slot="select-trigger"] {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  width: 100%; height: 2.5rem; box-sizing: border-box; padding: 0.5rem 0.75rem;
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
   background: var(--cronus-surface-inset); color: var(--cronus-fg);
-  padding: 0 0.75rem; font-size: 0.875rem; font-family: inherit; outline: none;
+  font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 400;
 }
-[data-slot="invite-dialog"] > button {
+[data-slot="invite-dialog"] [data-slot="select-trigger"] > svg {
+  width: 1rem; height: 1rem; flex-shrink: 0; opacity: 0.6;
 }
-[data-slot="invite-dialog-send"] {
+[data-slot="invite-dialog"] [data-slot="field"] > select[aria-hidden="true"] {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="invite-dialog"] [data-slot="dialog-footer"] {
+  display: flex; flex-direction: row; justify-content: flex-end; gap: 0.5rem;
+}
+@media (max-width: 639.98px) {
+  [data-slot="invite-dialog"] [data-slot="dialog-header"] { text-align: center; }
+  [data-slot="invite-dialog"] [data-slot="dialog-footer"] { flex-direction: column-reverse; justify-content: flex-start; }
+}
+[data-slot="invite-dialog"] [data-slot="dialog-footer"] > button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  white-space: nowrap; height: 2.5rem; padding: 0 1rem; box-sizing: border-box;
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
+  background: transparent; color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; cursor: pointer;
+  box-shadow: var(--cronus-shadow-xs, none);
+}
+[data-slot="invite-dialog"] [data-slot="dialog-footer"] > [data-slot="invite-dialog-send"] {
+  min-width: 6rem; border: 0;
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+}
+[data-slot="invite-dialog"] [data-slot="dialog-close"] {
+  position: absolute; top: 1rem; inset-inline-end: 1rem;
+  display: block; width: 1rem; height: 1rem; padding: 0; border: 0;
+  border-radius: var(--cronus-radius-md); background: transparent;
+  color: var(--cronus-fg-tertiary); font: inherit; font-size: 1rem; line-height: 1.5rem;
+  cursor: pointer;
+}
+[data-slot="invite-dialog"] [data-slot="dialog-close"] > svg {
+  display: block; width: 1rem; height: 1rem;
+}
+[data-slot="invite-dialog"] [data-slot="dialog-close"] > span {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 [data-slot="shimmer"] {
   display: block; position: relative; overflow: hidden;
