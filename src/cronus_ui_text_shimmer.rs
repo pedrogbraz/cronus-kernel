@@ -1,12 +1,37 @@
 //! Dedicated TextShimmer renderer. DOM matches React:
 //! `<p data-slot="text-shimmer">` with label text. CSS gradient animation
 //! in COMPONENT_CHROME. Not the catalog `fx()` title SURF box.
+//! React sets `--spread: {text.length * 2}px` inline; the kernel emits the
+//! same number as `data-spread` and the chrome reads it with typed `attr()`.
 
-use crate::cronus_ui_kit::label_of;
+use crate::cronus_ui_kit::{item, label_of};
 use crate::parser::ComponentNode;
 
+/// React `TextShimmer` default `spread` multiplier (px per UTF-16 unit).
+const SPREAD_PER_CHAR: usize = 2;
+
 pub fn render(comp: &ComponentNode) -> String {
-    format!("<p data-slot=\"text-shimmer\">{}</p>", label_of(comp))
+    let spread = raw_label(comp).encode_utf16().count() * SPREAD_PER_CHAR;
+    format!(
+        "<p data-slot=\"text-shimmer\" data-spread=\"{spread}\">{}</p>",
+        label_of(comp)
+    )
+}
+
+/// Unescaped text `label_of` picks (React measures `children.length` raw).
+fn raw_label(comp: &ComponentNode) -> &str {
+    for kind in ["label", "title", "text", "value"] {
+        if let Some(t) = item(comp, kind) {
+            if !t.is_empty() {
+                return t;
+            }
+        }
+    }
+    comp.items
+        .iter()
+        .map(|i| i.text.as_str())
+        .find(|t| !t.is_empty())
+        .unwrap_or(&comp.name)
 }
 
 #[cfg(test)]
@@ -34,8 +59,22 @@ mod tests {
     #[test]
     fn root_is_p_with_label_like_react() {
         let html = render(&stub("text-shimmer", "Thinking"));
-        assert_eq!(html, "<p data-slot=\"text-shimmer\">Thinking</p>");
+        assert_eq!(
+            html,
+            "<p data-slot=\"text-shimmer\" data-spread=\"16\">Thinking</p>"
+        );
         reject_fx(&html);
+    }
+
+    /// fa: React `--spread` = `children.length * 2`px (UTF-16 units, raw text),
+    /// and the gradient stops are `calc(50% ∓ spread)`, not 40%/60%.
+    #[test]
+    fn spread_matches_react_children_length() {
+        assert!(render(&stub("text-shimmer", "Loading")).contains("data-spread=\"14\""));
+        // "é😀" = 1 + 2 UTF-16 units; `&` counts once even though it is escaped.
+        assert!(render(&stub("text-shimmer", "é😀&")).contains("data-spread=\"8\""));
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("transparent calc(50% - attr(data-spread px, 0px)), var(--cronus-surface-base), transparent calc(50% + attr(data-spread px, 0px))),\n    linear-gradient(var(--cronus-fg-tertiary), var(--cronus-fg-tertiary));"));
     }
 
     #[test]
@@ -43,7 +82,7 @@ mod tests {
         let html = render(&stub("text-shimmer", "A <B> & \"C\""));
         assert_eq!(
             html,
-            "<p data-slot=\"text-shimmer\">A &lt;B&gt; &amp; &quot;C&quot;</p>"
+            "<p data-slot=\"text-shimmer\" data-spread=\"22\">A &lt;B&gt; &amp; &quot;C&quot;</p>"
         );
         reject_fx(&html);
     }
