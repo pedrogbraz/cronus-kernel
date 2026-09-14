@@ -36,3 +36,4 @@ pub mod test_cmd;
 pub mod timeline;
 pub mod validate;
 pub mod verify;
+pub mod version;
