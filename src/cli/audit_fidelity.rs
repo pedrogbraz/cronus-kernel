@@ -68,7 +68,7 @@ pub fn cmd_audit_fidelity(args: &[String]) {
     for node in &nodes {
         if let AstNode::Page(page) = node {
             let empty_params: HashMap<String, String> = HashMap::new();
-            let html = render_page(page, &entities, &accent, &theme, None, &empty_params, "");
+            let html = render_page(page, &entities, &accent, &theme, None, &empty_params, &crate::access::Access::anonymous());
             rendered_html.push_str(&html);
         }
     }
@@ -242,7 +242,7 @@ pub fn run_audit_from_nodes(ref_html: &str, nodes: &[crate::parser::AstNode]) ->
     for node in nodes {
         if let AstNode::Page(page) = node {
             let empty_params: HashMap<String, String> = HashMap::new();
-            let html = crate::ui::page::render_page(page, &entities, &accent, &theme, None, &empty_params, "");
+            let html = crate::ui::page::render_page(page, &entities, &accent, &theme, None, &empty_params, &crate::access::Access::anonymous());
             rendered_html.push_str(&html);
         }
     }

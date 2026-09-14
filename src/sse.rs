@@ -81,7 +81,14 @@ impl SseHub {
     /// Create an SSE response that streams events to the client.
     /// Returns a Response with `text/event-stream` content type.
     /// Includes a 30-second heartbeat to keep the connection alive.
-    pub fn subscribe(&self) -> Response<StreamBody<impl futures_core::Stream<Item = Result<Frame<Bytes>, Infallible>>>> {
+    ///
+    /// SECURITY: `filter` decides per event whether this subscriber may see
+    /// it (see `access::can_see_event`); request-trace `debug` events are only
+    /// streamed when `include_debug` is set (admins).
+    pub fn subscribe_filtered<F>(&self, filter: F, include_debug: bool) -> Response<StreamBody<impl futures_core::Stream<Item = Result<Frame<Bytes>, Infallible>>>>
+    where
+        F: Fn(&DataChangeEvent) -> bool + Send + Sync + 'static,
+    {
         let mut rx = self.tx.subscribe();
         let mut debug_rx = self.debug_tx.subscribe();
         let conn_counter = Arc::clone(&self.active_connections);
@@ -101,16 +108,18 @@ impl SseHub {
                     result = rx.recv() => {
                         match result {
                             Ok(event) => {
-                                let data = json!({
-                                    "entity": event.entity,
-                                    "action": event.action,
-                                    "id": event.id,
-                                });
-                                let payload = format!(
-                                    "event: data_change\ndata: {}\n\n",
-                                    data.to_string()
-                                );
-                                yield Ok(Frame::data(Bytes::from(payload)));
+                                if filter(&event) {
+                                    let data = json!({
+                                        "entity": event.entity,
+                                        "action": event.action,
+                                        "id": event.id,
+                                    });
+                                    let payload = format!(
+                                        "event: data_change\ndata: {}\n\n",
+                                        data.to_string()
+                                    );
+                                    yield Ok(Frame::data(Bytes::from(payload)));
+                                }
                             }
                             Err(broadcast::error::RecvError::Lagged(n)) => {
                                 let payload = format!(
@@ -126,7 +135,7 @@ impl SseHub {
                     }
                     debug_result = debug_rx.recv() => {
                         match debug_result {
-                            Ok(evt) => {
+                            Ok(evt) if include_debug => {
                                 let data = json!({
                                     "type": evt.event_type,
                                     "method": evt.method,
@@ -141,7 +150,7 @@ impl SseHub {
                                 );
                                 yield Ok(Frame::data(Bytes::from(payload)));
                             }
-                            Err(broadcast::error::RecvError::Lagged(_)) => {}
+                            Ok(_) | Err(broadcast::error::RecvError::Lagged(_)) => {}
                             Err(broadcast::error::RecvError::Closed) => {
                                 break;
                             }

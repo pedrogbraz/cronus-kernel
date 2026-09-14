@@ -1,4 +1,5 @@
 #![allow(dead_code, unused_imports, unused_variables)]
+mod access;
 mod actions;
 mod animations;
 mod audit;
@@ -1248,17 +1249,27 @@ async fn handle_request_inner(
         return Ok(html_response(graphql::playground_html()));
     }
     if path == "/graphql" && method == Method::POST {
+        // SECURITY: GraphQL requires a session; owner scope/redaction in graphql.rs.
+        let gql_access = access::Access {
+            viewer: access::viewer_from_headers(req.headers(), &auth::default_secret()),
+            auth_entity: state.auth_entity.clone(),
+        };
+        if gql_access.viewer.is_none() {
+            return Ok(json_response(StatusCode::UNAUTHORIZED, graphql::gql_error("UNAUTHENTICATED", "authentication required")));
+        }
         let body_bytes = req.collect().await.unwrap().to_bytes();
         let body_str = String::from_utf8_lossy(&body_bytes);
         let body_json: Value = serde_json::from_str(&body_str).unwrap_or(json!({}));
         let query = body_json.get("query").and_then(|v| v.as_str()).unwrap_or("");
         let variables = body_json.get("variables").cloned().unwrap_or(json!({}));
         let schema = graphql::GraphQLSchema::from_entities(&state.entities);
-        let db = Arc::new(database::CronusDB::open(&state.db_path).expect("db"));
-        let result = graphql::execute_graphql(query, &variables, &schema, &db);
+        let result = graphql::execute_graphql(query, &variables, &schema, &state.db, &gql_access);
         return Ok(json_response(StatusCode::OK, result));
     }
     if path == "/graphql/schema" && method == Method::GET {
+        if access::viewer_from_headers(req.headers(), &auth::default_secret()).is_none() {
+            return Ok(json_response(StatusCode::UNAUTHORIZED, graphql::gql_error("UNAUTHENTICATED", "authentication required")));
+        }
         let schema = graphql::GraphQLSchema::from_entities(&state.entities);
         return Ok(Response::builder()
             .status(StatusCode::OK)
@@ -1373,63 +1384,111 @@ async fn handle_request_inner(
 
     // ── Action execution endpoint ──
     if method == Method::POST && path.starts_with("/_action/") {
+        // SECURITY: session required; only AST-declared actions run, with the
+        // server's own instructions, owner-scoped (see actions.rs).
+        let action_access = access::Access {
+            viewer: access::viewer_from_headers(req.headers(), &auth::default_secret()),
+            auth_entity: state.auth_entity.clone(),
+        };
         let body_bytes = req.collect().await.unwrap_or_default().to_bytes();
         let body: Value = serde_json::from_slice(&body_bytes).unwrap_or(json!({}));
 
         let entity = body.get("entity").and_then(|v| v.as_str()).unwrap_or("");
         let id = body.get("id").and_then(|v| v.as_str()).unwrap_or("");
-        let action_data = body.get("action").and_then(|v| v.as_str()).unwrap_or("{}");
+        let action_id = body.get("action_id").and_then(|v| v.as_str());
+        let client_action = body.get("action").and_then(|v| v.as_str());
 
-        let (ok, effects) = actions::execute_action_validated(action_data, entity, id, &state.db, &state.entities);
-        let response = actions::effects_to_json(&effects);
-        return Ok(json_response(if ok { StatusCode::OK } else { StatusCode::BAD_REQUEST }, response));
+        let denied = |d: actions::ActionDenied| {
+            let status = StatusCode::from_u16(d.status()).unwrap_or(StatusCode::BAD_REQUEST);
+            json_response(status, d.to_json())
+        };
+        if action_access.viewer.is_none() {
+            return Ok(denied(actions::ActionDenied::Unauthenticated));
+        }
+        let declared = actions::declared_actions(&state.pages);
+        let Some(action) = actions::find_declared_action(&declared, action_id, client_action, entity) else {
+            return Ok(denied(actions::ActionDenied::Forbidden));
+        };
+        return Ok(match actions::execute_declared_action(action, id, &state.db, &state.entities, &action_access) {
+            Ok(effects) => json_response(StatusCode::OK, actions::effects_to_json(&effects)),
+            Err(d) => denied(d),
+        });
     }
 
     // ── Form submission endpoint ──
     if method == Method::POST && path.starts_with("/_form/") {
+        // SECURITY: entity must be bound by a declared form section; session
+        // required unless that form is explicitly public; body filtered by
+        // authz::writable_body; `_owner_id` set by the server.
+        let form_viewer = access::viewer_from_headers(req.headers(), &auth::default_secret());
         let body_bytes = req.collect().await.unwrap_or_default().to_bytes();
         let body: Value = serde_json::from_slice(&body_bytes).unwrap_or(json!({}));
 
         let entity = body.get("entity").and_then(|v| v.as_str()).unwrap_or("");
         let data = body.get("data").cloned().unwrap_or(json!({}));
+        let section_type = path.trim_start_matches("/_form/").split('/').next().unwrap_or("");
+        let form_error = |status: StatusCode, code: &str, message: &str| {
+            let mut resp = authz::error_body(code, message);
+            resp["ok"] = json!(false);
+            resp["effects"] = json!([{"type": "toast", "target": message, "style": "error"}]);
+            json_response(status, resp)
+        };
 
-        if data.is_object() && !entity.is_empty() {
-            // Validate against entity schema if available
-            if let Some(entity_schema) = state.entities.iter().find(|e| e.name.eq_ignore_ascii_case(entity)) {
-                let errors = actions::validate_form_data(&data, entity_schema);
-                if !errors.is_empty() {
-                    let response = json!({
-                        "ok": false,
-                        "errors": errors,
-                        "effects": [{"type": "toast", "target": "Validation failed", "style": "error"}]
-                    });
-                    return Ok(json_response(StatusCode::BAD_REQUEST, response));
-                }
+        let Some(form) = actions::find_declared_form(&state.pages, section_type, entity) else {
+            return Ok(form_error(StatusCode::FORBIDDEN, "UNKNOWN_FORM", "Not allowed"));
+        };
+        let Some(entity_schema) = state.entities.iter().find(|e| e.name == form.entity) else {
+            return Ok(form_error(StatusCode::FORBIDDEN, "UNKNOWN_FORM", "Not allowed"));
+        };
+        let form_access = access::Access { viewer: form_viewer, auth_entity: state.auth_entity.clone() };
+        let is_auth_entity = form_access.is_auth_entity(&entity_schema.name);
+        match &form_access.viewer {
+            None if !form.public || is_auth_entity => {
+                return Ok(form_error(StatusCode::UNAUTHORIZED, "UNAUTHENTICATED", "Sign in required"));
             }
+            Some(v) if is_auth_entity && !v.is_admin() => {
+                return Ok(form_error(StatusCode::FORBIDDEN, "FORBIDDEN", "Not allowed"));
+            }
+            _ => {}
+        }
+        let Some(data_obj) = data.as_object() else {
+            return Ok(form_error(StatusCode::BAD_REQUEST, "INVALID", "Missing form data"));
+        };
 
-            match state.db.insert(entity, &data) {
-                Ok(row) => {
-                    let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                    state.sse_hub.broadcast(sse::DataChangeEvent {
-                        entity: entity.to_string(),
-                        action: "created".to_string(),
-                        id: row_id,
-                    });
-                    let response = json!({
-                        "ok": true,
-                        "id": row.get("id"),
-                        "effects": [{"type": "toast", "target": "Created successfully", "style": "success"}]
-                    });
-                    return Ok(json_response(StatusCode::CREATED, response));
-                }
-                Err(e) => {
-                    let response = json!({ "ok": false, "error": e, "effects": [{"type": "toast", "target": e, "style": "error"}] });
-                    return Ok(json_response(StatusCode::BAD_REQUEST, response));
-                }
-            }
+        let errors = actions::validate_form_data(&data, entity_schema);
+        if !errors.is_empty() {
+            let response = json!({
+                "ok": false,
+                "errors": errors,
+                "effects": [{"type": "toast", "target": "Validation failed", "style": "error"}]
+            });
+            return Ok(json_response(StatusCode::BAD_REQUEST, response));
         }
 
-        return Ok(json_response(StatusCode::BAD_REQUEST, json!({"ok": false, "error": "missing entity or data"})));
+        let mut row_data = authz::writable_body(entity_schema, data_obj);
+        if let (Some(v), false) = (&form_access.viewer, is_auth_entity) {
+            row_data.insert("_owner_id".into(), json!(v.id));
+        }
+        match state.db.insert(&entity_schema.name, &Value::Object(row_data)) {
+            Ok(row) => {
+                let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                state.sse_hub.broadcast(sse::DataChangeEvent {
+                    entity: entity_schema.name.clone(),
+                    action: "created".to_string(),
+                    id: row_id,
+                });
+                let response = json!({
+                    "ok": true,
+                    "id": row.get("id"),
+                    "effects": [{"type": "toast", "target": "Created successfully", "style": "success"}]
+                });
+                return Ok(json_response(StatusCode::CREATED, response));
+            }
+            Err(e) => {
+                eprintln!("  /_form insert into {} failed: {}", entity_schema.name, e);
+                return Ok(form_error(StatusCode::BAD_REQUEST, "CREATE_FAILED", "Could not save"));
+            }
+        }
     }
 
     // Serve pages
@@ -1475,8 +1534,9 @@ async fn handle_request_inner(
     }
 
     // ── Auth middleware — protect pages that require authentication ──
+    // SECURITY: exact route-pattern match (`/orders/:id`), never prefix.
     let matched_requires = state.auth_required_pages.iter()
-        .find(|(r, _)| r == &path || (path.starts_with(r.as_str()) && r != "/"))
+        .find(|(r, _)| access::route_pattern_matches(r, &path))
         .map(|(_, req)| req.clone());
 
     if let Some(requires_str) = matched_requires {
@@ -1533,18 +1593,7 @@ async fn handle_request_inner(
     }
 
     // Find matching page
-    let page = state.pages.iter().find(|p| {
-        if p.route == path { return true; }
-        // Handle parameterized routes
-        if p.route.contains(':') {
-            let parts: Vec<&str> = p.route.split('/').collect();
-            let req_parts: Vec<&str> = path.split('/').collect();
-            if parts.len() == req_parts.len() {
-                return parts.iter().zip(req_parts.iter()).all(|(p, r)| p.starts_with(':') || p == r);
-            }
-        }
-        false
-    });
+    let page = state.pages.iter().find(|p| access::route_pattern_matches(&p.route, &path));
 
     if let Some(page) = page {
         // Extract route params from parameterized routes (e.g. /orders/:id/edit)
@@ -1619,21 +1668,11 @@ async fn handle_request_inner(
 
         let theme = state.style.as_ref().and_then(|s| s.theme.as_deref()).unwrap_or("dark");
 
-        // SECURITY: Extract owner_id for page rendering (data isolation)
-        let page_auth_header = req.headers().get("authorization").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
-        let page_cookie = req.headers().get("cookie").and_then(|v| v.to_str().ok()).unwrap_or("");
-        let page_cookie_token = page_cookie.split(';')
-            .find_map(|c| {
-                let c = c.trim();
-                if c.starts_with("cronus_token=") { Some(&c[13..]) } else { None }
-            });
-        let page_token = page_auth_header.as_deref()
-            .and_then(|h| h.strip_prefix("Bearer "))
-            .or(page_cookie_token);
-        let page_owner_id = page_token.and_then(|t| {
-            let secret = auth::default_secret();
-            auth::extract_user(Some(t), &secret).map(|claims| claims.sub)
-        }).unwrap_or_default();
+        // SECURITY: viewer for SSR bindings (owner scope, auth.* refs, redaction).
+        let page_access = access::Access {
+            viewer: access::viewer_from_headers(req.headers(), &auth::default_secret()),
+            auth_entity: state.auth_entity.clone(),
+        };
 
         // Check if page has inline sidebar/topbar sections (not components)
         let has_section_sidebar = page.sections.iter().any(|s| s.section_type == "sidebar");
@@ -1669,7 +1708,7 @@ async fn handle_request_inner(
             || page.requires.as_deref().map(|r| r.starts_with("role(")).unwrap_or(false);
         let has_declarative_layout = state.layout.is_some();
         if has_templates && !(is_auth_page && has_declarative_layout) {
-            let body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params, &page_owner_id);
+            let body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params, &page_access);
             let html = ui::render_layout_landing_ex(app_name, &body, theme, state.style.as_ref(), state.app.tailwind_config.as_deref());
             return Ok(html_response(html));
         }
@@ -1688,7 +1727,7 @@ async fn handle_request_inner(
             }
 
             // Generic dashboard wrapper — sidebar + any sections
-            let body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params, &page_owner_id);
+            let body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params, &page_access);
             let html = ui::render_layout_dashboard(&state.app.name, &body, theme);
             return Ok(html_response(html));
         }
@@ -1696,7 +1735,7 @@ async fn handle_request_inner(
         let mut body = if page.page_type == "components" && !state.components.is_empty() {
             ui::render_components_page(&state.components)
         } else {
-            ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params, &page_owner_id)
+            ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params, &page_access)
         };
 
         // `use ComponentName` on a real page — widgets only, no kit chrome.
@@ -3012,7 +3051,21 @@ async fn cmd_run(args: &[String]) {
                         ));
                     }
                     if req.uri().path() == "/api/sse" && req.method() == Method::GET {
-                        let sse_resp = state.sse_hub.subscribe();
+                        // SECURITY: session required; events filtered per viewer.
+                        let sse_access = access::Access {
+                            viewer: access::viewer_from_headers(req.headers(), &auth::default_secret()),
+                            auth_entity: state.auth_entity.clone(),
+                        };
+                        let Some(is_admin) = sse_access.viewer.as_ref().map(|v| v.is_admin()) else {
+                            let resp = json_response(StatusCode::UNAUTHORIZED, authz::error_body("UNAUTHENTICATED", "Sign in required"));
+                            let (parts, body) = resp.into_parts();
+                            return Ok::<_, hyper::Error>(Response::from_parts(parts, http_body_util::Either::Left(body)));
+                        };
+                        let sse_state = state.clone();
+                        let sse_resp = state.sse_hub.subscribe_filtered(
+                            move |ev| access::can_see_event(&sse_state.db, &sse_access, &sse_state.entities, ev),
+                            is_admin,
+                        );
                         // Map the streaming body to a boxed body for type compatibility
                         let (parts, body) = sse_resp.into_parts();
                         let boxed = http_body_util::Either::Right(body);
