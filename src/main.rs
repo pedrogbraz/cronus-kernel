@@ -2,6 +2,9 @@
 mod actions;
 mod animations;
 mod audit;
+mod api_crud;
+#[cfg(test)]
+mod api_security_tests;
 mod auth;
 mod authz;
 mod binding;
@@ -739,6 +742,8 @@ async fn handle_request_inner(
 
                 if name.is_empty() || email.is_empty() || password.is_empty() {
                     json_response(StatusCode::BAD_REQUEST, json!({"error": "name, email and password required"}))
+                } else if let Err(message) = auth::validate_new_password(password) {
+                    json_response(StatusCode::BAD_REQUEST, authz::error_body("VALIDATION_FAILED", &message))
                 } else {
                     // Check if email already exists (direct query, not full table scan)
                     let exists = state.db.find_by_field(user_table, "email", email)
@@ -1341,27 +1346,15 @@ async fn handle_request_inner(
 
     // API routes: /api/...
     if path.starts_with("/api/") {
-        // SECURITY: Extract owner_id from JWT BEFORE consuming request body
+        // SECURITY: read the session BEFORE consuming the request body.
         let api_auth_header = req.headers().get("authorization").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
         let api_cookie_header = req.headers().get("cookie").and_then(|v| v.to_str().ok()).unwrap_or("").to_string();
-        let api_cookie_token = api_cookie_header.split(';')
-            .find_map(|c| {
-                let c = c.trim();
-                if c.starts_with("cronus_token=") { Some(c[13..].to_string()) } else { None }
-            });
-        let api_token = api_auth_header.as_deref()
-            .and_then(|h| h.strip_prefix("Bearer ").map(|s| s.to_string()))
-            .or(api_cookie_token);
-        let owner_id = api_token.as_deref().and_then(|t| {
-            let secret = auth::default_secret();
-            auth::extract_user(Some(t), &secret).map(|claims| claims.sub)
-        }).unwrap_or_default();
+        let api_claims = api_crud::claims_from_headers(api_auth_header.as_deref(), &api_cookie_header, &auth::default_secret());
 
         let body_bytes = req.collect().await.unwrap_or_default().to_bytes();
         let body: Option<serde_json::Value> = serde_json::from_slice(&body_bytes).ok();
-        let full_path = if query.is_empty() { path.clone() } else { format!("{}?{}", path, query) };
 
-        let resp = handle_api(&method, &full_path, body.as_ref(), &state, &owner_id);
+        let resp = api_crud::handle_api(&state, &method, &path, &query, body.as_ref(), api_claims.as_ref());
         // Track request in brain
         if let Some(ref brain) = state.brain {
             let duration = start.elapsed().as_millis() as u64;
@@ -1830,245 +1823,6 @@ async fn handle_request_inner(
         .header("Content-Type", "text/html; charset=utf-8")
         .body(Full::new(Bytes::from(html)))
         .unwrap())
-}
-
-fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, state: &AppState, owner_id: &str) -> Response<Full<Bytes>> {
-    // Split path and query string
-    let full_api = &path[4..]; // strip /api
-    let (api_path, query_string) = match full_api.split_once('?') {
-        Some((p, q)) => (p, q),
-        None => (full_api, ""),
-    };
-
-    // Parse query params
-    let params: Vec<(&str, &str)> = query_string.split('&')
-        .filter(|p| !p.is_empty())
-        .filter_map(|p| p.split_once('='))
-        .collect();
-    let get_param = |name: &str| -> Option<&str> {
-        params.iter().find(|(k, _)| *k == name).map(|(_, v)| *v)
-    };
-
-    let limit: usize = get_param("limit").and_then(|v| v.parse().ok()).unwrap_or(100);
-    let offset: usize = get_param("offset").and_then(|v| v.parse().ok()).unwrap_or(0);
-
-    // Find matching entity by pluralized name in path
-    let entity = state.entities.iter().find(|e| {
-        let lower = e.name.to_lowercase();
-        api_path.starts_with(&format!("/{}", lower))
-            || api_path.starts_with(&format!("/{}s", lower))
-    });
-
-    if let Some(entity) = entity {
-        let table = &entity.name;
-        let segments: Vec<&str> = api_path.split('/').filter(|s| !s.is_empty()).collect();
-
-        // SECURITY: Build owner filter for data isolation
-        // Skip User entity and shared entities (visible to all authenticated users)
-        let is_user_entity = table.to_lowercase() == "user" || table.to_lowercase() == "users";
-        let is_shared = entity.shared;
-        let owner_filter: Vec<(String, String, String)> = if !owner_id.is_empty() && !is_user_entity && !is_shared {
-            vec![("_owner_id".to_string(), "=".to_string(), owner_id.to_string())]
-        } else {
-            vec![]
-        };
-
-        match *method {
-            Method::GET => {
-                if segments.len() >= 2 {
-                    // GET /api/entity/:id — verify ownership
-                    match state.db.find_by_id(table, segments[1]) {
-                        Ok(Some(val)) => {
-                            // SECURITY: Check owner match (skip for shared entities)
-                            if !owner_id.is_empty() && !is_user_entity && !is_shared {
-                                let row_owner = val.get("_owner_id").and_then(|v| v.as_str()).unwrap_or("");
-                                if !row_owner.is_empty() && row_owner != owner_id {
-                                    return json_response(StatusCode::NOT_FOUND, json!({"error": "not found"}));
-                                }
-                            }
-                            json_response(StatusCode::OK, val)
-                        }
-                        Ok(None) => json_response(StatusCode::NOT_FOUND, json!({"error": "not found"})),
-                        Err(e) => json_response(StatusCode::INTERNAL_SERVER_ERROR, json!({"error": e})),
-                    }
-                } else {
-                    // GET /api/entity?search=term&limit=N&offset=M
-                    let search_query = get_param("search").or(get_param("q"));
-
-                    if let Some(q) = search_query {
-                        // Search mode — filtered by owner
-                        match state.db.find_many(table, &owner_filter, None, None, Some(limit), None) {
-                            Ok(Value::Array(rows)) => {
-                                let filtered: Vec<Value> = rows.into_iter().filter(|r| {
-                                    let txt = r.to_string().to_lowercase();
-                                    txt.contains(&q.to_lowercase())
-                                }).collect();
-                                return json_response(StatusCode::OK, Value::Array(filtered));
-                            }
-                            _ => return json_response(StatusCode::OK, json!([])),
-                        }
-                    }
-
-                    // Paginated list — SECURITY: filtered by owner_id
-                    match state.db.find_many(table, &owner_filter, None, None, Some(limit), Some(offset)) {
-                        Ok(rows) => {
-                            let count = if let Value::Array(ref arr) = rows { arr.len() } else { 0 };
-                            Response::builder()
-                                .status(StatusCode::OK)
-                                .header("Content-Type", "application/json")
-                                .header("Access-Control-Expose-Headers", "X-Total-Count, X-Limit, X-Offset")
-                                .header("X-Total-Count", count.to_string())
-                                .header("X-Limit", limit.to_string())
-                                .header("X-Offset", offset.to_string())
-                                .body(Full::new(Bytes::from(rows.to_string())))
-                                .unwrap()
-                        }
-                        Err(_) => json_response(StatusCode::OK, json!([])),
-                    }
-                }
-            }
-            Method::POST => {
-                match body {
-                    Some(data) => {
-                        // SECURITY: Inject _owner_id automatically
-                        let mut owned_data = data.clone();
-                        if !owner_id.is_empty() && !is_user_entity {
-                            if let Some(obj) = owned_data.as_object_mut() {
-                                obj.insert("_owner_id".to_string(), json!(owner_id));
-                            }
-                        }
-                        let data = &owned_data;
-
-                        // Find entity definition for validation
-                        let entity_def = state.entities.iter().find(|e| e.name.to_lowercase() == table.to_lowercase());
-                        match entity_def {
-                            Some(entity) => match state.db.validated_insert(entity, data) {
-                                Ok(row) => {
-                                    fire_webhooks(&state.webhooks, table, "create", &row);
-                                    fire_effects(entity, "create", &row, None, &state.brain, &state.sse_hub);
-                                    let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                                    scripting::fire_scripts(&state.script_registry, &entity.name, "create", &row, &row_id, None, &state.db, owner_id, "user", &std::collections::HashMap::new());
-                                    if let Err(e) = state.audit_trail.log("INSERT", table, &row_id, owner_id, &row, None) {
-                                        eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (INSERT {}:{}): {}", table, row_id, e);
-                                    }
-                                    state.sse_hub.broadcast(sse::DataChangeEvent {
-                                        entity: table.to_string(),
-                                        action: "created".to_string(),
-                                        id: row_id,
-                                    });
-                                    json_response(StatusCode::CREATED, row)
-                                }
-                                Err(e) => {
-                                    let status = if e.contains("required") {
-                                        StatusCode::BAD_REQUEST // 400
-                                    } else if e.contains("already exists") {
-                                        StatusCode::CONFLICT // 409
-                                    } else if e.contains("must be") {
-                                        StatusCode::UNPROCESSABLE_ENTITY // 422
-                                    } else {
-                                        StatusCode::BAD_REQUEST
-                                    };
-                                    json_response(status, json!({"error": e}))
-                                }
-                            },
-                            None => match state.db.insert(table, data) {
-                                Ok(row) => {
-                                    fire_webhooks(&state.webhooks, table, "create", &row);
-                                    fire_effects(entity, "create", &row, None, &state.brain, &state.sse_hub);
-                                    let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                                    scripting::fire_scripts(&state.script_registry, &entity.name, "create", &row, &row_id, None, &state.db, owner_id, "user", &std::collections::HashMap::new());
-                                    if let Err(e) = state.audit_trail.log("INSERT", table, &row_id, owner_id, &row, None) {
-                                        eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (INSERT {}:{}): {}", table, row_id, e);
-                                    }
-                                    state.sse_hub.broadcast(sse::DataChangeEvent {
-                                        entity: table.to_string(),
-                                        action: "created".to_string(),
-                                        id: row_id,
-                                    });
-                                    json_response(StatusCode::CREATED, row)
-                                }
-                                Err(e) => json_response(StatusCode::BAD_REQUEST, json!({"error": e})),
-                            }
-                        }
-                    },
-                    None => json_response(StatusCode::BAD_REQUEST, json!({"error": "expected JSON body"})),
-                }
-            }
-            Method::PATCH | Method::PUT => {
-                if segments.len() >= 2 {
-                    match body {
-                        Some(data) => {
-                            // Fetch current record before update for audit diff tracking
-                            let prev_record = state.db.find_by_id(table, segments[1]).ok().flatten();
-
-                            // Validate state transitions if entity has transition rules
-                            if !entity.transitions.is_empty() {
-                                if let Some(ref current) = prev_record {
-                                    if let Err(err_body) = validate_transitions(entity, data, current) {
-                                        return json_response(StatusCode::CONFLICT, err_body);
-                                    }
-                                }
-                            }
-
-                            match state.db.update(table, segments[1], data) {
-                            Ok(row) => {
-                                fire_webhooks(&state.webhooks, table, "update", &row);
-                                fire_effects(entity, "update", &row, prev_record.as_ref(), &state.brain, &state.sse_hub);
-                                let ent_name = entity.name.as_str();
-                                scripting::fire_scripts(&state.script_registry, ent_name, "update", &row, segments[1], prev_record.as_ref(), &state.db, owner_id, "user", &std::collections::HashMap::new());
-                                if let Err(e) = state.audit_trail.log("UPDATE", table, segments[1], owner_id, &row, prev_record.as_ref()) {
-                                    eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (UPDATE {}:{}): {}", table, segments[1], e);
-                                }
-                                state.sse_hub.broadcast(sse::DataChangeEvent {
-                                    entity: table.to_string(),
-                                    action: "updated".to_string(),
-                                    id: segments[1].to_string(),
-                                });
-                                json_response(StatusCode::OK, row)
-                            }
-                            Err(e) => json_response(StatusCode::BAD_REQUEST, json!({"error": e})),
-                        }},
-                        None => json_response(StatusCode::BAD_REQUEST, json!({"error": "expected JSON body"})),
-                    }
-                } else {
-                    json_response(StatusCode::BAD_REQUEST, json!({"error": "id required for PATCH"}))
-                }
-            }
-            Method::DELETE => {
-                if segments.len() >= 2 {
-                    // Fetch current record before delete for audit trail
-                    let prev_record = state.db.find_by_id(table, segments[1]).ok().flatten();
-                    match state.db.delete(table, segments[1]) {
-                        Ok(true) => {
-                            let delete_payload = json!({"id": segments[1], "entity": table});
-                            fire_webhooks(&state.webhooks, table, "delete", &delete_payload);
-                            // For effects, use prev_record if available (has field values for interpolation)
-                            let effect_record = prev_record.as_ref().unwrap_or(&delete_payload);
-                            fire_effects(entity, "delete", effect_record, None, &state.brain, &state.sse_hub);
-                            let ent_name_del = entity.name.as_str();
-                            scripting::fire_scripts(&state.script_registry, ent_name_del, "delete", effect_record, segments[1], None, &state.db, owner_id, "user", &std::collections::HashMap::new());
-                            if let Err(e) = state.audit_trail.log("DELETE", table, segments[1], owner_id, &json!({"id": segments[1]}), prev_record.as_ref()) {
-                                eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (DELETE {}:{}): {}", table, segments[1], e);
-                            }
-                            state.sse_hub.broadcast(sse::DataChangeEvent {
-                                entity: table.to_string(),
-                                action: "deleted".to_string(),
-                                id: segments[1].to_string(),
-                            });
-                            json_response(StatusCode::OK, json!({"deleted": segments[1]}))
-                        }
-                        Ok(false) => json_response(StatusCode::NOT_FOUND, json!({"error": "not found"})),
-                        Err(e) => json_response(StatusCode::INTERNAL_SERVER_ERROR, json!({"error": e})),
-                    }
-                } else {
-                    json_response(StatusCode::BAD_REQUEST, json!({"error": "id required"}))
-                }
-            }
-            _ => json_response(StatusCode::METHOD_NOT_ALLOWED, json!({"error": "method not allowed"})),
-        }
-    } else {
-        json_response(StatusCode::NOT_FOUND, json!({"error": "unknown endpoint", "path": path}))
-    }
 }
 
 /// Validate that a field transition is allowed by the entity's transition rules.

@@ -49,71 +49,58 @@ pub fn verify_token(token: &str, secret: &str) -> Result<Claims, String> {
 // PASSWORD HASHING (Argon2id)
 // ══════════════════════════════════════════════════
 
+/// Minimum length for a single-factor password (NIST SP 800-63B-4).
+/// No composition rules and no periodic expiry, by design.
+pub const MIN_PASSWORD_CHARS: usize = 15;
+
+/// Argon2id memory cost in KiB, iterations and parallelism.
+const ARGON2_M_COST: u32 = 19_456;
+const ARGON2_T_COST: u32 = 2;
+const ARGON2_P_COST: u32 = 1;
+
+/// Argon2id with explicit parameters (m=19456, t=2, p=1), so a crate
+/// default change can never silently weaken new hashes.
+fn argon2id() -> argon2::Argon2<'static> {
+    use argon2::{Algorithm, Argon2, Params, Version};
+    let params = Params::new(ARGON2_M_COST, ARGON2_T_COST, ARGON2_P_COST, None)
+        .unwrap_or(Params::DEFAULT);
+    Argon2::new(Algorithm::Argon2id, Version::V0x13, params)
+}
+
+/// Signup-time policy: at least `MIN_PASSWORD_CHARS` characters (Unicode
+/// scalar values), nothing else.
+pub fn validate_new_password(password: &str) -> Result<(), String> {
+    if password.chars().count() < MIN_PASSWORD_CHARS {
+        return Err(format!("password must be at least {} characters", MIN_PASSWORD_CHARS));
+    }
+    Ok(())
+}
+
 /// Hash a password using Argon2id (industry standard)
 pub fn hash_password(password: &str) -> String {
-    use argon2::{Argon2, PasswordHasher};
+    use argon2::PasswordHasher;
     use argon2::password_hash::SaltString;
     use rand_core::OsRng;
 
     let salt = SaltString::generate(&mut OsRng);
-    let argon2 = Argon2::default();
-    argon2
+    argon2id()
         .hash_password(password.as_bytes(), &salt)
         .map(|h| h.to_string())
         .unwrap_or_else(|e| panic!("CRITICAL: Argon2 hashing failed — refusing to store password: {}", e))
 }
 
-/// Verify a password against an Argon2 hash string
+/// Verify a password against a PHC-format Argon2 hash string. Anything
+/// else (including legacy unsalted/salted SHA-256 hex) is rejected.
 pub fn verify_password(password: &str, stored: &str) -> bool {
-    use argon2::{Argon2, PasswordVerifier};
+    use argon2::PasswordVerifier;
     use argon2::password_hash::PasswordHash;
 
-    // Try Argon2 format first
-    if let Ok(hash) = PasswordHash::new(stored) {
-        return Argon2::default()
-            .verify_password(password.as_bytes(), &hash)
-            .is_ok();
+    match PasswordHash::new(stored) {
+        Ok(hash) if hash.algorithm.as_str().starts_with("argon2") => {
+            argon2id().verify_password(password.as_bytes(), &hash).is_ok()
+        }
+        _ => false,
     }
-
-    // Fallback: old SHA-256 "salt:hash" format (for migration)
-    if stored.contains(':') && !stored.starts_with('$') {
-        return verify_sha256_legacy(password, stored);
-    }
-
-    // Fallback: plain SHA-256 hex (no salt, very old format)
-    if stored.len() == 64 && stored.chars().all(|c| c.is_ascii_hexdigit()) {
-        use sha2::{Sha256, Digest};
-        let hash = hex::encode(Sha256::digest(password.as_bytes()));
-        return hash == stored;
-    }
-
-    false
-}
-
-/// Verify a password against a legacy SHA-256 "salt:hash" format.
-/// Tries both `sha256(salt + password)` and `sha256(password + salt)`.
-fn verify_sha256_legacy(password: &str, stored: &str) -> bool {
-    use sha2::{Sha256, Digest};
-
-    let Some((salt, expected_hash)) = stored.split_once(':') else {
-        return false;
-    };
-
-    // Try salt + password
-    let mut hasher = Sha256::new();
-    hasher.update(salt.as_bytes());
-    hasher.update(password.as_bytes());
-    let candidate = hex::encode(hasher.finalize());
-    if candidate == expected_hash {
-        return true;
-    }
-
-    // Try password + salt
-    let mut hasher = Sha256::new();
-    hasher.update(password.as_bytes());
-    hasher.update(salt.as_bytes());
-    let candidate = hex::encode(hasher.finalize());
-    candidate == expected_hash
 }
 
 // ══════════════════════════════════════════════════
@@ -218,30 +205,43 @@ mod tests {
     }
 
     #[test]
-    fn test_password_verify_sha256_legacy_salted() {
+    fn test_password_hash_uses_explicit_argon2id_params() {
+        let hash = hash_password("correct horse battery staple");
+        assert!(hash.starts_with("$argon2id$v=19$m=19456,t=2,p=1$"), "unexpected PHC string: {hash}");
+    }
+
+    #[test]
+    fn test_password_verify_rejects_sha256_legacy_salted() {
         use sha2::{Sha256, Digest};
-        // Simulate legacy salt:hash format (salt + password)
         let salt = "randomsalt123";
         let password = "MyOldPassword!";
         let mut hasher = Sha256::new();
         hasher.update(salt.as_bytes());
         hasher.update(password.as_bytes());
-        let hash = hex::encode(hasher.finalize());
-        let stored = format!("{}:{}", salt, hash);
+        let stored = format!("{}:{}", salt, hex::encode(hasher.finalize()));
 
-        assert!(verify_password(password, &stored));
-        assert!(!verify_password("wrong", &stored));
+        assert!(!verify_password(password, &stored));
     }
 
     #[test]
-    fn test_password_verify_sha256_plain_hex() {
+    fn test_password_verify_rejects_sha256_plain_hex() {
         use sha2::{Sha256, Digest};
-        // Plain SHA-256 hex (no salt)
         let password = "PlainHash123";
         let hash = hex::encode(Sha256::digest(password.as_bytes()));
 
-        assert!(verify_password(password, &hash));
-        assert!(!verify_password("wrong", &hash));
+        assert!(!verify_password(password, &hash));
+        assert!(!verify_password("", ""));
+    }
+
+    #[test]
+    fn test_validate_new_password_length_only() {
+        assert!(validate_new_password("").is_err());
+        assert!(validate_new_password("fourteen-chars").is_err());
+        assert!(validate_new_password("fifteen-chars!!").is_ok());
+        // No composition rules: 15 lowercase letters are fine.
+        assert!(validate_new_password("aaaaaaaaaaaaaaa").is_ok());
+        // Counts characters, not bytes: 14 multi-byte chars is still too short.
+        assert!(validate_new_password("ééééééééééééé").is_err());
     }
 
     #[test]

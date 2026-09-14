@@ -235,12 +235,13 @@ api /orders {
 
 ### 4.2 Auth modes
 
-Verified in `src/parser/mod.rs::parse_api` and `src/auth.rs`:
+Parsed in `src/parser/mod.rs::parse_api`, **enforced** in `src/api_crud.rs::authorize` (verified 2026-09-14, tests in `src/api_security_tests.rs`):
 
-- `auth:public` — no token required
-- `auth:jwt` — valid JWT required
-- `auth:role(name)` — JWT + role must match. Multiple roles: `auth:role(admin|manager)`.
-- `auth:admin` — alias for `auth:role(admin)` (accepted in some places but inconsistent — prefer `role(admin)`)
+- `auth:public` — no session required (401 is never returned for this route)
+- `auth:jwt` — valid session required → `401 UNAUTHORIZED` otherwise. Any unknown or empty `auth:` value behaves like `jwt` (deny by default).
+- `auth:role(name)` — session + role → `403 FORBIDDEN` for other roles. Multiple roles: `auth:role(admin|manager)`. A trailing `[roles]` array on the route adds roles the same way.
+- `auth:admin` — alias for `auth:role(admin)`.
+- The `admin` role always satisfies role requirements. The session comes from `Authorization: Bearer <jwt>` or the `cronus_token` cookie; the role is the JWT `role` claim.
 
 ### 4.3 HTTP methods — 5 only
 
@@ -248,7 +249,41 @@ GET, POST, PUT, PATCH, DELETE. See §2.1. HEAD and OPTIONS are handled by the ru
 
 ### 4.4 `api` block vs auto-generated CRUD
 
-If an entity has an `api` block pointing at its path, that block **replaces** the default CRUD routes for that path. If no `api` block matches, auto-CRUD is generated. Both share the same `handle_api` dispatcher in `src/main.rs`.
+Both are served by `src/api_crud.rs::handle_api` (called from `main.rs::handle_request_inner` for `/api/*`).
+
+- **Entity resolution is by exact path segment.** `/api/notes` and `/api/note` resolve `Note` (also `-es`, `y → ies`, and `-`/`_` removed: `/api/blog-posts` → `BlogPost`). `/api/notesarchive` is `404`, never `Note`.
+- **With an `api` block** whose prefix resolves to the entity (e.g. `api /notes`, or `api /api/notes`): only the declared method + path shapes are served; everything else is `404 NOT_FOUND`, even for admins. `PUT` is not an alias of a declared `PATCH`. The block applies to every alias path of that entity. CRUD shapes: `GET /` list, `GET /:x` detail, `POST /` create, `PATCH|PUT /:x` update, `DELETE /:x` delete.
+- **Without an `api` block** (auto CRUD): all five operations exist and every one requires a session (`401` otherwise).
+
+### 4.5 Owner scope (enforced in SQL)
+
+Every SELECT / UPDATE / DELETE carries the scope in its `WHERE` clause; there is no read-then-check.
+
+| Caller | Reads (list/detail) | Update / delete |
+|---|---|---|
+| `admin` role | all rows | all rows |
+| any caller on an `auth:public` route | all rows | — (see below) |
+| user, entity declared `shared` | all rows | own rows only |
+| user, normal entity | rows with `_owner_id` = user id | own rows only |
+
+- Rows owned by someone else, or with an empty `_owner_id`, are `404 NOT_FOUND` for non-admins (not `403`, so existence doesn't leak) unless the entity is `shared` or the route is public.
+- Update and delete always need a session, even on a route declared `auth:public` (`401`).
+- Create sets `_owner_id` to the caller's id server-side (empty for anonymous creates on a public route).
+- **User entity** (`User`/`Users` or the `auth { entity X }` entity): list is admin-only (`403`); detail/update only on the caller's own record (`404` otherwise); delete is admin-only; create through generic REST is always refused (`401`/`403`) — accounts are created with `POST /api/auth/signup`. `auth:public` does not relax these rules.
+
+### 4.6 Writes, responses, errors
+
+- Request bodies are filtered by `authz::writable_body`: only declared fields that are not `sensitive`, not system (`id`, `_owner_id`, `created_at`, `updated_at`, …) and not privileged (`role`, `password`, `password_hash`). Other keys are silently dropped. Defaults (`default:`) are then applied server-side.
+- Create validates with the entity rules (required, enum, email, min/max, pattern, unique); update validates only the fields being written, plus `transition` rules (`409`).
+- Every row leaving REST passes `authz::redact_sensitive`: `sensitive` fields and `password`/`password_hash` never appear. `?search=` never matches sensitive or privileged columns.
+- List: `?limit=` (default 100, max 1000), `?offset=`, `?search=` / `?q=` (SQL `LIKE` over all visible rows, wildcards escaped). `X-Total-Count` is the total number of matching rows in scope, not the page size.
+- Errors are `{"error": {"code", "message"}}` with codes `UNAUTHORIZED` (401), `FORBIDDEN` (403), `NOT_FOUND` (404), `VALIDATION_FAILED` (400, or 409 for uniqueness), `INTERNAL` (500). Database driver text is logged once server-side and never returned.
+
+### 4.7 Passwords
+
+- Hashing: Argon2id with explicit `m=19456, t=2, p=1` (`src/auth.rs::hash_password`).
+- Verification accepts only Argon2 PHC strings. Legacy SHA-256 hex / `salt:sha256` hashes were removed (2026-09-14) and no longer log in.
+- Signup (`POST /api/auth/signup`) requires at least 15 characters (Unicode characters, not bytes), with no composition rules and no expiry → `400 VALIDATION_FAILED` otherwise.
 
 ---
 
