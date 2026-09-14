@@ -1,0 +1,15 @@
+[data-slot="tilt-card"] {
+  position: relative;
+  width: 18rem;
+  border-radius: calc(var(--cronus-radius, 14px) + 8px);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised);
+  padding: 1.5rem;
+  color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-sm, var(--cronus-shadow-xs, none));
+  transform-style: preserve-3d;
+  transform: perspective(1000px) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg)) scale(var(--tilt-scale, 1));
+}
+[data-slot="tilt-card"] > div {
+  position: relative;
+}

@@ -1,0 +1,16 @@
+[data-slot="word-rotate"] {
+  position: relative; display: inline-grid;
+  height: 1.2em; overflow: hidden;
+  vertical-align: baseline;
+}
+[data-slot="word-rotate"] > span:first-child {
+  position: absolute;
+  width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
+}
+[data-slot="word-rotate"] > [data-word-rotate-sizer] {
+  visibility: hidden; grid-area: 1 / 1; white-space: nowrap;
+}
+[data-slot="word-rotate"] > span:last-child {
+  grid-area: 1 / 1; display: inline-block; white-space: nowrap; justify-self: start;
+}

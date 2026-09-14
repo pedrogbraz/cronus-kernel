@@ -274,17 +274,28 @@ pub fn family_of(comp: &ComponentNode) -> Option<&str> {
 
 pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
     match renderer_of(family)? {
-        Renderer::Dedicated(_, render) => Some(render(comp)),
+        Renderer::Dedicated(_, render) => {
+            note_css_usage(family);
+            Some(render(comp))
+        }
         Renderer::Stub(..) => None,
     }
 }
 
 pub fn render(comp: &ComponentNode) -> Option<String> {
     let family = family_of(comp)?;
-    Some(match renderer_of(family)? {
+    let renderer = renderer_of(family)?;
+    note_css_usage(family);
+    Some(match renderer {
         Renderer::Dedicated(_, render) => render(comp),
         Renderer::Stub(_, render) => render(family, comp),
     })
+}
+
+/// Per-page CSS registry hook: the layout ships this family's stylesheet
+/// (`cronus_ui_css::note_family`). Kept out of the table logic above.
+fn note_css_usage(family: &str) {
+    crate::cronus_ui_css::note_family(family);
 }
 
 fn label_of(comp: &ComponentNode) -> String {

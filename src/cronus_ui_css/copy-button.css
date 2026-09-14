@@ -1,0 +1,21 @@
+[data-slot="copy-button"] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  white-space: nowrap; border-radius: var(--cronus-radius-lg); font-weight: 500;
+  line-height: 1.25rem; cursor: pointer; text-decoration: none;
+  outline: none; border: 0;
+  font-family: inherit; font-size: 0.875rem;
+  width: 2.25rem; height: 2.25rem; padding: 0;
+  background: transparent; color: var(--cronus-fg-secondary);
+  transition: background 150ms var(--ease-out-quart), box-shadow 150ms var(--ease-out-quart),
+    transform 150ms var(--ease-out-quart), opacity 150ms var(--ease-out-quart), border-color 150ms;
+}
+[data-slot="copy-button"]:active { transform: scale(0.98); }
+[data-slot="copy-button"]:hover { background: var(--cronus-surface-overlay); color: var(--cronus-fg); }
+[data-slot="copy-button"][data-disabled] { opacity: 0.5; pointer-events: none; }
+[data-slot="copy-button"] svg {
+  width: 1rem; height: 1rem; flex-shrink: 0; pointer-events: none;
+}
+[data-slot="copy-button"] > [aria-live] {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
+}

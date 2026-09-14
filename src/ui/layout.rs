@@ -15,8 +15,17 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
     } else {
         String::new()
     };
-    let cronus_ui_css =
-        crate::cronus_ui::token_css(if preset.is_empty() { "legacy" } else { &preset }, "dark");
+    // Only the cronus-ui families this page renders, in cascade layers. The
+    // kernel's own page CSS (Tailwind subset, animations, resets) shares
+    // `cronus.tokens` in its original order, so its specificity contest with
+    // tokens/theme is unchanged; components sit above; unlayered author CSS
+    // wins over all of it.
+    let cronus_ui_css = crate::cronus_ui_css::page_stylesheet(
+        if preset.is_empty() { "legacy" } else { &preset },
+        body,
+        true,
+    );
+    let layer_order = crate::cronus_ui_css::LAYER_ORDER;
     format!(
         r#"<!DOCTYPE html>
 <html lang="pt-BR"{theme_attrs}>
@@ -24,11 +33,19 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{app_name}</title>
-  <style>{tailwind_css}</style>
-  <style>{animations_css}</style>
-  <style>{anim_css}</style>
+  <style>{layer_order}
+@layer cronus.tokens {{
+{tailwind_css}
+}}</style>
+  <style>@layer cronus.tokens {{
+{animations_css}
+}}</style>
+  <style>@layer cronus.tokens {{
+{anim_css}
+}}</style>
   <style>{cronus_ui_css}</style>
   <style>
+    @layer cronus.tokens {{
     :root {{
       --background: var(--cronus-bg, oklch(0.11 0 0));
       --foreground: var(--cronus-fg, oklch(0.93 0 0));
@@ -37,6 +54,7 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
     body {{ background: var(--background); color: var(--foreground); font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; margin: 0; }}
     ::-webkit-scrollbar {{ width: 4px; }}
     ::-webkit-scrollbar-thumb {{ background: var(--border); border-radius: 2px; }}
+    }}
   </style>
 </head>
 <body>
@@ -144,8 +162,15 @@ pub fn render_layout_declarative(
     } else {
         String::new()
     };
-    let cronus_ui_css =
-        crate::cronus_ui::token_css(if preset.is_empty() { "legacy" } else { &preset }, "dark");
+    // Only the families this page renders. Unlayered: the Tailwind play CDN
+    // injects an unlayered preflight at runtime (`button { padding: 0 }`),
+    // which would beat layered component CSS.
+    let cronus_ui_css = crate::cronus_ui_css::page_stylesheet(
+        if preset.is_empty() { "legacy" } else { &preset },
+        body,
+        false,
+    );
+    let cronus_ui_meta = crate::cronus_ui_css::css_meta(&cronus_ui_css);
 
     format!(
         r##"<!DOCTYPE html>
@@ -160,6 +185,7 @@ pub fn render_layout_declarative(
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
   <script{script_nonce} src="https://cdn.tailwindcss.com"></script>
+  {cronus_ui_meta}
   <style>{cronus_ui_css}</style>
   <style>
     *,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
@@ -418,7 +444,7 @@ fn hex_to_rgb(hex: &str) -> String {
 
 /// Generate CSS custom properties from the StyleNode for theming.
 /// All renderers should use var(--cronus-*) instead of hardcoded colors.
-fn generate_css_vars(style: &Option<&StyleNode>, theme: &str) -> String {
+fn generate_css_vars(style: &Option<&StyleNode>, theme: &str, body: &str) -> String {
     let is_light = theme == "light";
 
     // Determine accent hex — from style config accent-hex, or named accent, or default
@@ -504,7 +530,8 @@ fn generate_css_vars(style: &Option<&StyleNode>, theme: &str) -> String {
         },
     );
 
-    let cronus_ui = crate::cronus_ui::token_css(preset, theme);
+    // Only the families `body` renders; unlayered (Tailwind play CDN layout).
+    let cronus_ui = crate::cronus_ui_css::page_stylesheet(preset, body, false);
 
     let (bg, surface, text, text_muted, border, radius_px, font) = if named {
         (
@@ -611,7 +638,8 @@ pub fn render_layout_landing_ex(
     } else {
         "rgba(255,255,255,0.03)"
     };
-    let css_vars = generate_css_vars(&style_node, theme);
+    let css_vars = generate_css_vars(&style_node, theme, body);
+    let cronus_ui_meta = crate::cronus_ui_css::css_meta(&css_vars);
 
     // Extract inline <style> blocks from the body (injected by render_template)
     // and move them to the <head> so they apply globally
@@ -748,6 +776,7 @@ pub fn render_layout_landing_ex(
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <script{script_nonce} src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  {cronus_ui_meta}
   <script{script_nonce} src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   {tw_config_script}
   {head_styles}
@@ -1216,6 +1245,9 @@ pub fn render_layout_landing_ex(
       Promise.all([fetchPromise,fadeOutDone]).then(function(results){{
         var html=results[0];
         var doc=new DOMParser().parseFromString(html,'text/html');
+        // Per-page cronus-ui CSS lives in <head>: a page needing other families loads fully
+        var cssNew=doc.querySelector('meta[name="cronus-ui-css"]'),cssOld=document.querySelector('meta[name="cronus-ui-css"]');
+        if((cssNew?cssNew.content:'')!==(cssOld?cssOld.content:'')){{window.location.href=url;return;}}
         var newContent=doc.getElementById('cronus-content')||doc.getElementById('cronus-main');
         var source=newContent||doc.querySelector('body');
         var pageScripts=[];

@@ -1,0 +1,103 @@
+[data-slot="time-picker"] {
+  display: inline-flex; align-items: center; justify-content: flex-start; gap: 0.5rem;
+  width: 15rem; height: 2.5rem; padding: 0 1rem; box-sizing: border-box;
+  white-space: nowrap;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-lg);
+  background: transparent;
+  box-shadow: var(--cronus-shadow-xs, none);
+  color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 400;
+  cursor: pointer; outline: none;
+  transition: background 150ms var(--cronus-ease), box-shadow 150ms var(--cronus-ease);
+}
+[data-slot="time-picker"]:hover {
+  background: var(--cronus-surface-overlay);
+}
+[data-slot="time-picker"]:focus-visible {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring, var(--cronus-primary));
+}
+[data-slot="time-picker"] svg {
+  width: 1rem; height: 1rem; flex-shrink: 0; pointer-events: none;
+  color: var(--cronus-fg-tertiary);
+}
+[data-slot="time-picker"] > span {
+  font-variant-numeric: tabular-nums;
+}
+[data-slot="time-picker-columns"] {
+  display: flex; align-items: flex-start; justify-content: center; gap: 0;
+}
+[data-slot="time-picker-column"] {
+  display: flex; flex-direction: column; align-items: stretch;
+  min-width: 3.75rem; max-height: 14rem; overflow-y: auto;
+  padding: 0 0.25rem 0.25rem;
+  scrollbar-width: thin;
+}
+[data-slot="time-picker-column"] + [data-slot="time-picker-column"] {
+  border-inline-start: 1px solid var(--cronus-border);
+}
+[data-slot="time-picker-column"] > span {
+  position: sticky; top: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  height: 1.75rem; margin-bottom: 0.2rem;
+  font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--cronus-fg-tertiary);
+  background: var(--cronus-surface-floating, var(--cronus-surface-overlay));
+}
+[data-slot="time-picker-option"] {
+  display: flex; align-items: center; justify-content: center;
+  height: 2rem; border-radius: var(--cronus-radius-md);
+  font-size: 0.875rem; font-variant-numeric: tabular-nums;
+  color: var(--cronus-fg-secondary); cursor: pointer;
+  transition: background 120ms var(--cronus-ease), color 120ms var(--cronus-ease);
+}
+[data-slot="time-picker-option"]:hover {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
+[data-slot="time-picker-option"][aria-selected="true"] {
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+  font-weight: 500;
+}
+[data-slot="time-picker-footer"] {
+  display: flex; justify-content: flex-end; gap: 0.35rem;
+  margin-top: 0.6rem; padding-top: 0.6rem;
+  border-top: 1px solid var(--cronus-border);
+}
+[data-slot="time-picker-now"], [data-slot="time-picker-done"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2rem; padding: 0 0.75rem;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-md);
+  background: transparent; color: var(--cronus-fg);
+  font: inherit; font-size: 0.75rem; font-weight: 500; cursor: pointer;
+}
+[data-slot="time-picker-done"] {
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+  border-color: transparent;
+}
+[data-slot="time-picker"]:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="time-picker-content"] {
+}
+[data-slot="time-picker-content"] > div {
+  display: flex; align-items: flex-start; justify-content: center;
+}
+[data-slot="time-picker-column"] {
+  display: flex; flex-direction: column; align-items: stretch;
+}
+[data-slot="time-picker-column"] > span {
+  font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--cronus-fg-tertiary);
+}
+[data-slot="time-picker-option"] {
+  display: flex; align-items: center; justify-content: center;
+  width: 3.5rem; height: 2.25rem; border-radius: var(--cronus-radius-md);
+  font-size: 0.875rem; font-variant-numeric: tabular-nums; cursor: default;
+  color: var(--cronus-fg-secondary);
+}
+[data-slot="time-picker-option"][aria-selected="true"] {
+  background: color-mix(in oklch, var(--cronus-primary), black 30%);
+  color: var(--cronus-primary-foreground); font-weight: 600;
+}
+[data-slot="time-picker-now"], [data-slot="time-picker-done"] {
+  font: inherit; font-size: 0.75rem; cursor: pointer;
+}

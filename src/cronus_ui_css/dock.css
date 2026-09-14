@@ -1,0 +1,22 @@
+[data-slot="dock"] {
+  display: inline-flex; align-items: flex-end; gap: 0.5rem;
+  border-radius: calc(var(--cronus-radius, 14px) + 8px);
+  border: 1px solid var(--cronus-border);
+  background: color-mix(in oklab, var(--cronus-surface-raised) 70%, transparent);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  color: var(--cronus-fg); line-height: 1.5;
+  padding: 0.5rem 0.75rem;
+}
+[data-slot="dock-item"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2.75rem; height: 2.75rem; padding: 0;
+  border: 0; border-radius: var(--cronus-radius-xl); outline: none;
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+  font: inherit; cursor: pointer; text-decoration: none;
+}
+[data-slot="dock-item"]:hover { background: var(--cronus-surface-base); }
+[data-slot="dock-item"]:focus-visible {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring, var(--cronus-primary));
+}
+[data-slot="dock-item"] > span { display: contents; }
+[data-slot="dock-item"] svg { width: 50%; height: 50%; flex-shrink: 0; pointer-events: none; }

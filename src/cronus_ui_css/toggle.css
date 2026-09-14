@@ -1,0 +1,12 @@
+[data-slot="toggle"] {
+  line-height: 1.25rem;
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  height: 2.5rem; padding: 0 0.75rem; border-radius: var(--cronus-radius-lg);
+  border: 0; background: transparent; color: var(--cronus-fg-secondary);
+  font-size: 0.875rem; font-weight: 500; font-family: inherit;
+  cursor: pointer; outline: none;
+  transition: background 150ms var(--ease-out-quart), color 150ms var(--ease-out-quart);
+}
+[data-slot="toggle"][data-state="on"] {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}

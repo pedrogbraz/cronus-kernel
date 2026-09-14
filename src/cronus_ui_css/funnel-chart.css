@@ -1,0 +1,6 @@
+[data-slot="funnel-chart"] {
+  display: block; width: 100%; height: 16rem;
+}
+[data-slot="funnel-chart"] text {
+  fill: var(--cronus-fg);
+}

@@ -1,0 +1,11 @@
+[data-slot="click-spark"] {
+  position: relative;
+  width: 18rem;
+  color: var(--cronus-fg);
+}
+[data-slot="click-spark"] > div:first-child {
+  position: relative;
+}
+[data-slot="click-spark"] > [aria-hidden] {
+  position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+}

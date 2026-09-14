@@ -1,0 +1,26 @@
+:root, [data-cronus-theme] {
+  --cronus-radius-sm: max(0px, calc(var(--cronus-radius, 14px) - 8px));
+  --cronus-radius-md: max(0px, calc(var(--cronus-radius, 14px) - 4px));
+  --cronus-radius-lg: var(--cronus-radius, 14px);
+  --cronus-radius-xl: calc(var(--cronus-radius, 14px) + 4px);
+  --ease-out-quart: cubic-bezier(0.16, 1, 0.3, 1);
+  --cronus-ease: cubic-bezier(.22, 1, .36, 1);
+}
+html[data-cronus-theme] {
+  background: var(--cronus-surface-base);
+  color: var(--cronus-fg);
+}
+html[data-cronus-theme] body {
+  background: var(--cronus-surface-base);
+  color: var(--cronus-fg);
+  font-family: var(--cronus-font-sans);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0;
+}
+:where(html[data-cronus-theme]) :where(h1, h2, h3) {
+  font-weight: 400;
+}
+:where(html[data-cronus-theme]) :where(h1) { letter-spacing: -0.03em; }
+:where(html[data-cronus-theme]) :where(h2, .text-4xl) { letter-spacing: -0.025em; }
+:where(html[data-cronus-theme]) :where(h3, .text-xl) { letter-spacing: -0.02em; }

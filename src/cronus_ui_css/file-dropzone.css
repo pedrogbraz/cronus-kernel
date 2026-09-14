@@ -1,0 +1,23 @@
+[data-slot="file-dropzone"] {
+  position: relative; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 0.5rem;
+  cursor: pointer; box-sizing: border-box;
+  border-radius: var(--cronus-radius-xl);
+  border: 2px dashed var(--cronus-border);
+  background: var(--cronus-surface-inset);
+  padding: 2.5rem 1.5rem; text-align: center;
+  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="file-dropzone"] > svg { width: 1.5rem; height: 1.5rem; color: var(--cronus-fg-muted); }
+[data-slot="file-dropzone"] > span > span { font-weight: 500; color: var(--cronus-fg); }
+[data-slot="file-dropzone"][aria-disabled="true"] {
+  cursor: not-allowed; opacity: 0.5;
+}
+[data-slot="file-dropzone"] .sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="file-dropzone"]:has(:focus-visible) {
+  outline: 2px solid var(--cronus-ring, var(--cronus-primary));
+  outline-offset: 2px;
+}

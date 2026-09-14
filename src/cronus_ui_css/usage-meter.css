@@ -1,0 +1,26 @@
+[data-slot="usage-meter"] {
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+[data-slot="usage-meter"] > div:first-child {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem;
+  font-size: 0.875rem; line-height: 1.25rem;
+}
+[data-slot="usage-meter-label"] {
+  font-weight: 500; color: var(--cronus-fg);
+}
+[data-slot="usage-meter-value"] {
+  display: flex; align-items: baseline; gap: 0.5rem;
+  font-variant-numeric: tabular-nums; color: var(--cronus-fg-secondary);
+}
+[data-slot="usage-meter-value"] > span + span { color: var(--cronus-fg-tertiary); }
+[data-slot="usage-meter-track"] {
+  position: relative; height: 0.5rem; width: 100%; overflow: hidden;
+  border-radius: 9999px; background: var(--cronus-surface-overlay);
+}
+[data-slot="usage-meter-fill"] {
+  height: 100%; border-radius: 9999px;
+  width: calc(var(--cui-progress-value, 0) * 1%);
+  background: var(--cronus-primary);
+}
+[data-slot="usage-meter-fill"][data-tone="warning"] { background: var(--cronus-warning); }
+[data-slot="usage-meter-fill"][data-tone="error"] { background: var(--cronus-error); }

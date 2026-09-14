@@ -1,0 +1,22 @@
+[data-slot="split-button"] {
+  isolation: isolate; display: inline-flex; align-items: stretch;
+}
+[data-slot="split-button"] > [data-slot="button"] { position: relative; line-height: 1.25rem; }
+[data-slot="split-button"][data-variant="primary"] > [data-slot="button"] { border-width: 0; }
+[data-slot="split-button"] > [data-slot="button"]:first-of-type {
+  border-top-right-radius: 0; border-bottom-right-radius: 0; border-right-width: 0;
+}
+[data-slot="split-button"] > [data-slot="button"]:last-of-type {
+  border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-width: 0;
+  aspect-ratio: 1; padding: 0; min-width: 2.5rem;
+}
+[data-slot="split-button"] > [data-slot="button"]:last-of-type::before {
+  content: ""; pointer-events: none; position: absolute; top: 0.5rem; bottom: 0.5rem; left: 0;
+  width: 1px; background: color-mix(in oklab, currentColor 15%, transparent);
+}
+[data-slot="split-button"] > [data-slot="button"]:focus-visible {
+  position: relative; z-index: 10;
+}
+[data-slot="split-button"][data-disabled=""] { opacity: 0.5; pointer-events: none; }
+/* The chevron is JS-only (menu), so it is always `disabled`; React only dims it with the group. */
+[data-slot="split-button"]:not([data-disabled]) > [data-slot="button"][aria-haspopup]:disabled { opacity: 1; }

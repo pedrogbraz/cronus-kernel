@@ -1,0 +1,11 @@
+[data-slot="description-list"] {
+  display: block; width: 18rem; max-width: 100%; min-width: 0; margin: 0;
+  font-size: 0.875rem; line-height: 1.25rem;
+}
+[data-slot="description-item"] { min-width: 0; }
+[data-slot="description-item"] + [data-slot="description-item"] { margin-top: 1rem; }
+[data-slot="description-term"] { font-weight: 500; color: var(--cronus-fg-secondary); }
+[data-slot="description-details"] {
+  min-width: 0; margin: 0.25rem 0 0;
+  color: var(--cronus-fg); overflow-wrap: break-word;
+}

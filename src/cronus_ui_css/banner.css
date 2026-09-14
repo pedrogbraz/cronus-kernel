@@ -1,0 +1,17 @@
+[data-slot="banner"] {
+  display: flex; width: 100%; align-items: center; gap: 0.25rem 0.75rem;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--cronus-border);
+  padding: 0.625rem 1rem; font-size: 0.875rem; line-height: 1.25rem; text-align: center;
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
+[data-slot="banner-content"] {
+  display: flex; min-width: 0; flex: 1; flex-wrap: wrap;
+  align-items: center; gap: 0.125rem 0.5rem;
+}
+[data-slot="banner-title"] {
+  font-weight: 500;
+}
+[data-slot="banner-description"] {
+  color: var(--cronus-fg-secondary);
+}

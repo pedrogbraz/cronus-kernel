@@ -1,0 +1,11 @@
+[data-slot="chart"] {
+  display: flex; justify-content: center;
+  width: 100%; height: 16rem; aspect-ratio: 16 / 9;
+  font-size: 0.75rem; line-height: 1rem;
+}
+[data-slot="chart"] svg {
+  display: block; width: 100%; height: 100%;
+}
+[data-slot="chart"] line[stroke-dasharray] {
+  stroke: color-mix(in oklch, var(--cronus-border) 50%, transparent);
+}

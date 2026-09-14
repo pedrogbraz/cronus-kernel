@@ -1,0 +1,6 @@
+[data-slot="gauge-chart"] {
+  display: block; width: 100%; height: 16rem;
+}
+[data-slot="gauge-chart"] text {
+  fill: var(--cronus-fg); font-size: 1.5rem; font-weight: 500;
+}

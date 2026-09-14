@@ -1,0 +1,18 @@
+[data-slot="textarea"] {
+  display: block; min-height: 5rem; width: 100%; box-sizing: border-box;
+  field-sizing: content; resize: vertical;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+  padding: 0.5rem 0.75rem; font-size: 0.875rem; font-family: inherit;
+  outline: none;
+  transition: border-color 150ms var(--ease-out-quart), box-shadow 150ms var(--ease-out-quart);
+}
+[data-slot="textarea"][aria-invalid="true"] {
+  border-color: var(--cronus-error);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--cronus-error) 30%, transparent);
+}
+[data-slot="textarea"]:disabled {
+  opacity: 0.5; pointer-events: none;
+}
+[data-slot="textarea"]::placeholder { color: var(--cronus-fg-tertiary); }
+[data-slot="textarea"] { line-height: 1.25rem; }

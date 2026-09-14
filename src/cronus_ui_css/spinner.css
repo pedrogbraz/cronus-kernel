@@ -1,0 +1,6 @@
+[data-slot="spinner"] {
+  width: 1.25rem; height: 1.25rem; display: block;
+  color: currentColor; vertical-align: middle;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

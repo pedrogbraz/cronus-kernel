@@ -1,0 +1,41 @@
+/* accordion: zero-JS checkboxes. A checked item shows its content. */
+[data-slot="accordion-item"] {
+  border-bottom: 1px solid var(--cronus-border);
+}
+[data-slot="accordion-item"] > h3 {
+  display: flex; margin: 0; font: inherit; letter-spacing: inherit;
+}
+[data-slot="accordion-item"] > h3 > label {
+  position: relative; display: flex; flex: 1; cursor: pointer;
+}
+[data-slot="accordion-trigger"] {
+  display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 1rem;
+  box-sizing: border-box; margin: 0; padding: 1rem 0; border: 0; background: transparent;
+  border-radius: var(--cronus-radius-md);
+  font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; letter-spacing: inherit;
+  color: var(--cronus-fg); text-align: start; outline: none; pointer-events: none;
+  transition: all 150ms;
+}
+[data-slot="accordion-trigger"] > svg {
+  display: block; width: 1rem; height: 1rem; flex-shrink: 0;
+  color: var(--cronus-fg-tertiary); transition: transform 200ms;
+}
+[data-slot="accordion-item"] > h3 > label:hover > [data-slot="accordion-trigger"] {
+  text-decoration: underline;
+}
+[data-slot="accordion-item"] > h3 > label:has(> input:checked) > [data-slot="accordion-trigger"] > svg {
+  transform: rotate(180deg);
+}
+[data-slot="accordion-item"] > h3 > label:has(> input:focus-visible) > [data-slot="accordion-trigger"] {
+  box-shadow: inset 0 0 0 2px var(--cronus-ring);
+}
+[data-slot="accordion-content"] {
+  display: none;
+  overflow: hidden; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="accordion-item"]:has(> h3 > label > input:checked) > [data-slot="accordion-content"] {
+  display: block;
+}
+[data-slot="accordion-content"] > div {
+  padding: 0 0 1rem;
+}

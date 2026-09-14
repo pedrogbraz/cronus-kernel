@@ -1,0 +1,70 @@
+[data-slot="spinning-text"] {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 6rem;
+  height: 6rem;
+}
+[data-slot="spinning-text"] > span:first-child {
+  position: absolute;
+  width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
+}
+[data-slot="spinning-text"] > [aria-hidden="true"] {
+  position: absolute; inset: 0;
+  animation: cui-spinning-text 16s linear infinite;
+}
+[data-slot="spinning-text"] > [aria-hidden="true"] > span {
+  position: absolute; inset-inline-start: 50%; top: 50%;
+  transform-origin: 0 0;
+  --cui-io: 0; --cui-it: 0; --cui-jo: 0; --cui-jt: 0;
+  transform: rotate(calc(360deg * (10 * var(--cui-it) + var(--cui-io)) / (10 * (var(--cui-it) + var(--cui-jt)) + var(--cui-io) + var(--cui-jo) + 1))) translateY(-3rem);
+  font-size: 0.75rem; line-height: 1rem; font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cronus-fg-secondary);
+}
+/* Portable glyph angle: index i = 10*it + io (nth-child), glyphs after = 10*jt + jo (nth-last-child); orbit max 100 glyphs. */
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-child(10n+2) { --cui-io: 1; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-child(10n+3) { --cui-io: 2; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-child(10n+4) { --cui-io: 3; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-child(10n+5) { --cui-io: 4; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-child(10n+6) { --cui-io: 5; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-child(10n+7) { --cui-io: 6; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-child(10n+8) { --cui-io: 7; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-child(10n+9) { --cui-io: 8; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-child(10n+10) { --cui-io: 9; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-child(n+11) { --cui-it: 1; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-child(n+21) { --cui-it: 2; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-child(n+31) { --cui-it: 3; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-child(n+41) { --cui-it: 4; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-child(n+51) { --cui-it: 5; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-child(n+61) { --cui-it: 6; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-child(n+71) { --cui-it: 7; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-child(n+81) { --cui-it: 8; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-child(n+91) { --cui-it: 9; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-last-child(10n+2) { --cui-jo: 1; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-last-child(10n+3) { --cui-jo: 2; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-last-child(10n+4) { --cui-jo: 3; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-last-child(10n+5) { --cui-jo: 4; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-last-child(10n+6) { --cui-jo: 5; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-last-child(10n+7) { --cui-jo: 6; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-last-child(10n+8) { --cui-jo: 7; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-last-child(10n+9) { --cui-jo: 8; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-last-child(10n+10) { --cui-jo: 9; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-last-child(n+11) { --cui-jt: 1; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-last-child(n+21) { --cui-jt: 2; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-last-child(n+31) { --cui-jt: 3; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-last-child(n+41) { --cui-jt: 4; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-last-child(n+51) { --cui-jt: 5; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-last-child(n+61) { --cui-jt: 6; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-last-child(n+71) { --cui-jt: 7; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-last-child(n+81) { --cui-jt: 8; }
+[data-slot="spinning-text"] > [aria-hidden="true"] > :nth-last-child(n+91) { --cui-jt: 9; }
+@keyframes cui-spinning-text {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="spinning-text"] > [aria-hidden="true"] { animation: none; }
+}

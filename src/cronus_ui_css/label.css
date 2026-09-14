@@ -1,0 +1,4 @@
+[data-slot="label"] {
+  font-size: 0.875rem; font-weight: 500; color: var(--cronus-fg);
+  line-height: 1; user-select: none;
+}

@@ -1,0 +1,14 @@
+[data-slot="dot-pattern"] {
+  position: relative; overflow: hidden;
+  width: 18rem; min-height: 8rem;
+  color: var(--cronus-fg);
+}
+[data-slot="dot-pattern"] > [aria-hidden] {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image: radial-gradient(circle at 8px 8px, var(--cronus-fg) 1px, transparent 1.25px);
+  background-size: 16px 16px;
+  opacity: 0.18;
+}
+[data-slot="dot-pattern"] > div:last-child {
+  position: relative; z-index: 1;
+}

@@ -1,0 +1,15 @@
+[data-slot="hover-card-content"] {
+  display: none;
+  position: absolute; z-index: 50; top: calc(100% + 4px); left: 50%;
+  width: 16rem; padding: 0.75rem; box-sizing: border-box;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-floating);
+  color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-lg, 0 16px 40px rgba(0,0,0,.32));
+  transform: translateX(-50%);
+}
+span:hover > [data-slot="hover-card-content"],
+span:focus-within > [data-slot="hover-card-content"] {
+  display: block;
+}

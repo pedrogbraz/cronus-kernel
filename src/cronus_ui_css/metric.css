@@ -1,0 +1,12 @@
+[data-slot="metric"] {
+  display: flex; flex-direction: column; gap: 0.25rem;
+}
+[data-slot="metric-label"] {
+  font-size: 0.75rem; line-height: 1rem; font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--cronus-fg-tertiary);
+}
+[data-slot="metric-value"] {
+  font-family: var(--cronus-font-display, inherit);
+  font-size: 1.5rem; line-height: 2rem; font-weight: 600; color: var(--cronus-fg);
+  font-variant-numeric: tabular-nums;
+}

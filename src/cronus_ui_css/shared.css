@@ -1,0 +1,197 @@
+/* Native overlays — closed until invoked. Popover API + dialog. */
+[popover] {
+  inset: unset; margin: 0;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-xl);
+  background: var(--cronus-surface-floating, var(--cronus-surface-overlay));
+  color: var(--cronus-fg);
+  padding: 0.35rem;
+  box-shadow: var(--cronus-shadow-lg, 0 16px 40px rgba(0,0,0,.35));
+}
+@supports (top: anchor(bottom)) {
+  [popover]:not([data-slot="sheet-content"]) {
+    position: absolute;
+    top: calc(anchor(bottom) + 0.35rem);
+    left: anchor(left);
+  }
+}
+@supports not (top: anchor(bottom)) {
+  [popover]:not([data-slot="sheet-content"]) {
+    position: fixed;
+    top: 18%;
+    left: 50%;
+    translate: -50% 0;
+  }
+}
+[popover]:popover-open {
+  animation: cronus-pop-in 180ms var(--cronus-ease) both;
+}
+@starting-style {
+  [popover]:popover-open {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+[data-slot="dropdown-menu-content"]:not(:popover-open),
+[data-slot="popover-content"]:not(:popover-open) {
+  display: none;
+}
+span:has(> [data-slot="hover-card-content"]) { position: relative; display: inline-flex; }
+@media (prefers-reduced-motion: reduce) {
+  [popover]:popover-open,
+  [data-slot="hover-card-content"] {
+    animation: none; transition: none;
+  }
+}
+[data-slot="date-picker-content"][popover],
+[data-slot="time-picker-content"][popover] {
+  z-index: 50;
+  padding: 0.75rem 0.85rem 0.85rem;
+  min-width: 17.75rem;
+  box-sizing: border-box;
+}
+
+[data-slot="input"], [data-slot$="-control"]:is(input, textarea, select) {
+  display: flex; height: 2.5rem; width: 100%; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+  padding: 0 0.75rem; font-size: 0.875rem; font-family: inherit;
+  outline: none;
+  transition: border-color 150ms var(--ease-out-quart), box-shadow 150ms var(--ease-out-quart);
+}
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="0"] { --cui-progress-value: 0; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="1"] { --cui-progress-value: 1; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="2"] { --cui-progress-value: 2; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="3"] { --cui-progress-value: 3; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="4"] { --cui-progress-value: 4; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="5"] { --cui-progress-value: 5; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="6"] { --cui-progress-value: 6; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="7"] { --cui-progress-value: 7; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="8"] { --cui-progress-value: 8; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="9"] { --cui-progress-value: 9; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="10"] { --cui-progress-value: 10; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="11"] { --cui-progress-value: 11; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="12"] { --cui-progress-value: 12; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="13"] { --cui-progress-value: 13; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="14"] { --cui-progress-value: 14; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="15"] { --cui-progress-value: 15; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="16"] { --cui-progress-value: 16; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="17"] { --cui-progress-value: 17; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="18"] { --cui-progress-value: 18; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="19"] { --cui-progress-value: 19; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="20"] { --cui-progress-value: 20; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="21"] { --cui-progress-value: 21; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="22"] { --cui-progress-value: 22; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="23"] { --cui-progress-value: 23; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="24"] { --cui-progress-value: 24; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="25"] { --cui-progress-value: 25; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="26"] { --cui-progress-value: 26; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="27"] { --cui-progress-value: 27; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="28"] { --cui-progress-value: 28; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="29"] { --cui-progress-value: 29; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="30"] { --cui-progress-value: 30; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="31"] { --cui-progress-value: 31; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="32"] { --cui-progress-value: 32; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="33"] { --cui-progress-value: 33; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="34"] { --cui-progress-value: 34; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="35"] { --cui-progress-value: 35; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="36"] { --cui-progress-value: 36; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="37"] { --cui-progress-value: 37; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="38"] { --cui-progress-value: 38; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="39"] { --cui-progress-value: 39; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="40"] { --cui-progress-value: 40; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="41"] { --cui-progress-value: 41; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="42"] { --cui-progress-value: 42; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="43"] { --cui-progress-value: 43; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="44"] { --cui-progress-value: 44; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="45"] { --cui-progress-value: 45; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="46"] { --cui-progress-value: 46; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="47"] { --cui-progress-value: 47; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="48"] { --cui-progress-value: 48; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="49"] { --cui-progress-value: 49; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="50"] { --cui-progress-value: 50; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="51"] { --cui-progress-value: 51; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="52"] { --cui-progress-value: 52; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="53"] { --cui-progress-value: 53; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="54"] { --cui-progress-value: 54; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="55"] { --cui-progress-value: 55; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="56"] { --cui-progress-value: 56; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="57"] { --cui-progress-value: 57; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="58"] { --cui-progress-value: 58; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="59"] { --cui-progress-value: 59; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="60"] { --cui-progress-value: 60; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="61"] { --cui-progress-value: 61; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="62"] { --cui-progress-value: 62; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="63"] { --cui-progress-value: 63; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="64"] { --cui-progress-value: 64; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="65"] { --cui-progress-value: 65; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="66"] { --cui-progress-value: 66; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="67"] { --cui-progress-value: 67; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="68"] { --cui-progress-value: 68; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="69"] { --cui-progress-value: 69; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="70"] { --cui-progress-value: 70; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="71"] { --cui-progress-value: 71; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="72"] { --cui-progress-value: 72; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="73"] { --cui-progress-value: 73; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="74"] { --cui-progress-value: 74; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="75"] { --cui-progress-value: 75; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="76"] { --cui-progress-value: 76; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="77"] { --cui-progress-value: 77; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="78"] { --cui-progress-value: 78; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="79"] { --cui-progress-value: 79; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="80"] { --cui-progress-value: 80; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="81"] { --cui-progress-value: 81; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="82"] { --cui-progress-value: 82; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="83"] { --cui-progress-value: 83; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="84"] { --cui-progress-value: 84; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="85"] { --cui-progress-value: 85; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="86"] { --cui-progress-value: 86; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="87"] { --cui-progress-value: 87; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="88"] { --cui-progress-value: 88; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="89"] { --cui-progress-value: 89; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="90"] { --cui-progress-value: 90; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="91"] { --cui-progress-value: 91; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="92"] { --cui-progress-value: 92; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="93"] { --cui-progress-value: 93; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="94"] { --cui-progress-value: 94; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="95"] { --cui-progress-value: 95; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="96"] { --cui-progress-value: 96; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="97"] { --cui-progress-value: 97; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="98"] { --cui-progress-value: 98; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="99"] { --cui-progress-value: 99; }
+:is([data-slot="progress"], [data-slot="usage-meter-fill"], [data-slot="scroll-progress-fill"])[data-value="100"] { --cui-progress-value: 100; }
+
+[data-slot="card"], [data-slot="spotlight-card"] {
+  background: var(--cronus-surface-raised); border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none);
+}
+
+/* Visually hidden native state inputs and screen-reader-only labels. */
+[data-slot="tabs-list"] > label > input,
+[data-slot="accordion-item"] > h3 > label > input,
+[data-slot="dialog-close"] > span,
+[data-slot="pagination-ellipsis"] > span {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="toaster"] { display: block; }
+div:has(> [data-slot="autocomplete"] + [data-slot="autocomplete-content"]) {
+  position: relative; width: 100%;
+}
+[data-slot="confirmation-dialog"], [data-slot="alert-dialog-content"] {
+  position: fixed; inset: 0; z-index: 50; margin: auto;
+  display: grid; gap: 1rem;
+  width: 100%; max-width: 32rem; height: fit-content; box-sizing: border-box;
+  padding: 1.5rem;
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-xl);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  font-size: 1rem; line-height: 1.5rem; text-align: start;
+  box-shadow: var(--cronus-shadow-lg, none);
+}
+/* Two attribute selectors: beats the base `html[data-cronus-theme] h2` weight 400. */
+[data-slot="alert-dialog-content"] [data-slot="alert-dialog-title"],
+[data-slot="confirmation-dialog"] [data-slot="alert-dialog-title"] {
+  margin: 0; font-family: var(--cronus-font-display, inherit);
+  font-size: 1.125rem; line-height: 1.75rem; font-weight: 600; letter-spacing: normal;
+  color: var(--cronus-fg);
+}

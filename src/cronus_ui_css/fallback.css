@@ -1,0 +1,14 @@
+:root {
+  --cronus-primary: var(--primary, #0ea5e9);
+  --cronus-primary-foreground: var(--background, #09090b);
+  --cronus-primary-text: var(--cronus-primary);
+  --cronus-accent: var(--accent, var(--cronus-primary));
+  --cronus-surface-base: var(--cronus-bg, var(--background, #09090b));
+  --cronus-surface-overlay: var(--surface, var(--cronus-surface, #18181b));
+  --cronus-fg: var(--foreground, var(--cronus-text, #fafaf9));
+  --cronus-fg-secondary: var(--foreground-muted, var(--cronus-text-muted, #a1a1aa));
+  --cronus-border: var(--border, oklch(1 0 0 / 0.1));
+  --cronus-ring: var(--cronus-primary);
+  --cronus-error: var(--danger, var(--error, #f43f5e));
+  --cronus-ease: cubic-bezier(.22, 1, .36, 1);
+}

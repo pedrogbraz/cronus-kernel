@@ -1,0 +1,51 @@
+[data-slot="kanban"] {
+  display: flex; width: 100%; gap: 1rem;
+  overflow-x: auto; padding-bottom: 0.5rem;
+}
+[data-slot="kanban-column"] {
+  display: flex; flex-direction: column; width: 18rem; flex-shrink: 0;
+  border-radius: var(--cronus-radius-xl); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset);
+}
+[data-slot="kanban-column-header"] {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+}
+[data-slot="kanban-column-title"] {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--cronus-font-display, inherit);
+  font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; color: var(--cronus-fg);
+}
+[data-slot="kanban-column-count"] {
+  display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap;
+  border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
+  padding: 0.125rem 0.5rem; font-size: 0.75rem; line-height: 1rem; font-weight: 500;
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg-secondary);
+}
+[data-slot="kanban-column-header"] > [data-slot="kanban-column-title"] {
+  font-weight: 600; letter-spacing: normal; font-variant-numeric: tabular-nums;
+}
+[data-slot="kanban-column-header"] > [data-slot="kanban-column-count"] { font-variant-numeric: tabular-nums; }
+[data-slot="kanban-column-list"] {
+  display: flex; flex: 1; flex-direction: column; gap: 0.5rem; min-height: 6rem;
+  overflow-y: auto; margin: 0; padding: 0.5rem;
+  border-radius: 0 0 var(--cronus-radius-xl) var(--cronus-radius-xl);
+}
+[data-slot="kanban-card"] {
+  display: flex; align-items: flex-start; gap: 0.5rem;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised); color: var(--cronus-fg);
+  padding: 0.75rem;
+  box-shadow: var(--cronus-shadow-sm, none);
+}
+[data-slot="kanban-drag-handle"] {
+  display: block; flex-shrink: 0; margin-top: 0.125rem; padding: 0.125rem;
+  border: 0; border-radius: var(--cronus-radius-md); background: transparent;
+  color: var(--cronus-fg-muted); cursor: default;
+}
+[data-slot="kanban-drag-handle"] svg { width: 1rem; height: 1rem; }
+[data-slot="kanban-card-body"] { flex: 1; min-width: 0; }
+[data-slot="kanban-card-title"] { display: block; font-weight: 500; line-height: 1.375; color: var(--cronus-fg); }
+[data-slot="kanban-card-description"] {
+  display: block; margin-top: 0.25rem; font-size: 0.875rem; line-height: 1.375; color: var(--cronus-fg-secondary);
+}

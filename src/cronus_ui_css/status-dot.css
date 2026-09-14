@@ -1,0 +1,35 @@
+[data-slot="status-dot"] {
+  display: inline-flex; align-items: center; gap: 0.375rem;
+}
+[data-slot="status-dot-indicator"] {
+  position: relative; display: inline-block; flex-shrink: 0;
+  width: 0.625rem; height: 0.625rem; border-radius: 9999px;
+  background: var(--cronus-success);
+}
+[data-slot="status-dot"][data-status="online"] [data-slot="status-dot-indicator"],
+[data-slot="status-dot"][data-status="success"] [data-slot="status-dot-indicator"] {
+}
+[data-slot="status-dot"][data-status="offline"] [data-slot="status-dot-indicator"] {
+  background: transparent; border: 2px solid var(--cronus-fg-muted);
+}
+[data-slot="status-dot"][data-status="busy"] [data-slot="status-dot-indicator"],
+[data-slot="status-dot"][data-status="error"] [data-slot="status-dot-indicator"] {
+  background: var(--cronus-error);
+}
+[data-slot="status-dot"][data-status="away"] [data-slot="status-dot-indicator"],
+[data-slot="status-dot"][data-status="warning"] [data-slot="status-dot-indicator"] {
+  background: var(--cronus-warning);
+}
+[data-slot="status-dot"][data-status="info"] [data-slot="status-dot-indicator"] {
+  background: var(--cronus-info);
+}
+[data-slot="status-dot"][data-status="neutral"] [data-slot="status-dot-indicator"] {
+  background: var(--cronus-fg-muted);
+}
+[data-slot="status-dot-label"] {
+  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="status-dot-sr-label"] {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
+}

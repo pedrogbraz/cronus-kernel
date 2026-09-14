@@ -1,0 +1,35 @@
+[data-input-otp-container] {
+  position: relative; display: flex; align-items: center; gap: 0.5rem;
+  line-height: 1.5; cursor: text; user-select: none; pointer-events: none;
+}
+[data-input-otp-container] > div:last-child {
+  position: absolute; inset: 0; pointer-events: none;
+}
+[data-slot="input-otp"] {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  display: flex; margin: 0; padding: 0; box-sizing: border-box;
+  opacity: 1; color: transparent; background: transparent; caret-color: transparent;
+  border: 0 solid transparent; outline: 0 solid transparent; box-shadow: none;
+  pointer-events: all; text-align: left; line-height: 1; letter-spacing: -0.5em;
+  font-size: 2.5rem; font-family: monospace;
+}
+[data-slot="input-otp-group"] {
+  display: flex; align-items: center;
+}
+[data-slot="input-otp-slot"] {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  height: 2.5rem; width: 2.5rem; box-sizing: border-box;
+  border: 0 solid var(--cronus-border);
+  border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px;
+  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg);
+  font-variant-numeric: tabular-nums;
+}
+[data-slot="input-otp-slot"]:first-child {
+  border-left-width: 1px;
+  border-top-left-radius: var(--cronus-radius-lg);
+  border-bottom-left-radius: var(--cronus-radius-lg);
+}
+[data-slot="input-otp-slot"]:last-child {
+  border-top-right-radius: var(--cronus-radius-lg);
+  border-bottom-right-radius: var(--cronus-radius-lg);
+}

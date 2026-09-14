@@ -1,0 +1,12 @@
+[data-slot="collapsible"] {
+  display: flex; flex-direction: column; gap: 0.25rem;
+}
+[data-slot="collapsible"] > button {
+  display: inline-flex; align-items: center;
+}
+[data-slot="collapsible-content"] {
+  overflow: hidden; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="collapsible-content"][data-state="open"] {
+  display: block;
+}

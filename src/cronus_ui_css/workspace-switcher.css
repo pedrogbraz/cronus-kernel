@@ -1,0 +1,20 @@
+[data-slot="workspace-switcher"] {
+  display: flex; width: 100%; min-width: 0; align-items: center; gap: 0.5rem;
+  border: 0; border-radius: var(--cronus-radius-lg); padding: 0.375rem 0.5rem;
+  background: transparent; color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; line-height: 1.25rem; cursor: pointer; outline: none;
+}
+[data-slot="workspace-switcher"]:hover { background: var(--cronus-surface-overlay); }
+[data-slot="workspace-switcher"] [data-slot="avatar"] {
+  width: 1.5rem; height: 1.5rem;
+}
+[data-slot="workspace-switcher"] [data-slot="avatar-fallback"] {
+  font-size: 0.75rem; line-height: 1rem;
+}
+[data-slot="workspace-switcher"] > span:not([data-slot]) {
+  min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  text-align: start; font-weight: 500;
+}
+[data-slot="workspace-switcher"] > svg {
+  width: 1rem; height: 1rem; flex-shrink: 0; color: var(--cronus-fg-tertiary);
+}

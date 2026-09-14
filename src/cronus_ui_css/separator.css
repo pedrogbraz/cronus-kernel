@@ -1,0 +1,9 @@
+[data-slot="separator"] {
+  flex-shrink: 0; border: 0; background: var(--cronus-border);
+}
+[data-slot="separator"][data-orientation="horizontal"], [data-slot="separator"]:not([data-orientation]) {
+  height: 1px; width: 100%;
+}
+[data-slot="separator"][data-orientation="vertical"] {
+  height: 100%; width: 1px;
+}

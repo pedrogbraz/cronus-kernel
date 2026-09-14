@@ -1,0 +1,10 @@
+[data-slot="masonry"] {
+  box-sizing: border-box; width: 18rem; max-width: 100%;
+  column-count: 2; column-gap: 1rem;
+}
+[data-slot="masonry"] > * { margin-bottom: 1rem; break-inside: avoid; }
+[data-slot="masonry"] > div {
+  box-sizing: border-box; border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-lg); background: var(--cronus-surface-raised);
+  padding: 0.75rem; font-size: 0.875rem; line-height: 1.25rem;
+}

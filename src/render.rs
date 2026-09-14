@@ -419,6 +419,12 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
           window.location.href=url;
           return;
         }
+        // Per-page cronus-ui CSS lives in <head>: a page needing other families loads fully
+        var cssNew=doc.querySelector('meta[name="cronus-ui-css"]'),cssOld=document.querySelector('meta[name="cronus-ui-css"]');
+        if((cssNew?cssNew.content:'')!==(cssOld?cssOld.content:'')){
+          window.location.href=url;
+          return;
+        }
         // Swap strategy: for doc pages, swap parent of doc-content (includes TOC aside)
         if(docContent&&newDocContent){
           var newParent=newDocContent.parentNode;

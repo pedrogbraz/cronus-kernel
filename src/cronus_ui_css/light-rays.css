@@ -1,0 +1,35 @@
+[data-slot="light-rays"] {
+  position: relative;
+  overflow: hidden;
+  width: 18rem;
+  min-height: 8rem;
+  color: var(--cronus-fg);
+}
+[data-slot="light-rays"] > [aria-hidden="true"] {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+[data-slot="light-rays"] > [aria-hidden="true"] > div {
+  position: absolute;
+  inset: -50%;
+  background: repeating-conic-gradient(
+    from 0deg,
+    color-mix(in oklch, var(--cronus-primary) 22%, transparent) 0deg 6deg,
+    transparent 6deg 28deg
+  );
+  -webkit-mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
+  mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
+  animation: cui-light-rays 18s linear infinite;
+}
+@keyframes cui-light-rays {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+[data-slot="light-rays"] > div:last-child {
+  position: relative;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="light-rays"] > [aria-hidden="true"] { display: none; }
+}

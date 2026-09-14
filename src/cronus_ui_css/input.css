@@ -1,0 +1,9 @@
+[data-slot="input"][aria-invalid="true"] {
+  border-color: var(--cronus-error);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--cronus-error) 30%, transparent);
+}
+[data-slot="input"]:disabled {
+  opacity: 0.5; pointer-events: none;
+}
+[data-slot="input"]::placeholder { color: var(--cronus-fg-tertiary); }
+[data-slot="input"] { line-height: 1.25rem; }

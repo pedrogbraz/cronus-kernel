@@ -1,0 +1,23 @@
+[data-slot="sparkles-text"] {
+  position: relative; display: inline-block;
+}
+[data-slot="sparkles-text"]::before,
+[data-slot="sparkles-text"]::after {
+  position: absolute;
+  width: 0.5rem; height: 0.5rem;
+  background: var(--cronus-primary);
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  animation: cui-sparkle 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+[data-slot="sparkles-text"]::before {
+  top: -0.35rem; left: 8%;
+  animation-delay: 0s; animation-duration: 1.4s;
+  top: 10%; inset-inline-end: -0.35rem;
+  animation-delay: 0.7s; animation-duration: 1.65s;
+}
+@keyframes cui-sparkle {
+  0%, 100% { transform: scale(0); opacity: 0; }
+  40% { transform: scale(1); opacity: 1; }
+  70% { transform: scale(0.6); opacity: 0.6; }
+}

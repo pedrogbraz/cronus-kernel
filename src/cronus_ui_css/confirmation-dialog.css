@@ -1,0 +1,11 @@
+[data-slot="confirmation-dialog"] {
+  max-width: 28rem;
+}
+[data-slot="confirmation-dialog-confirm"] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  white-space: nowrap; height: 2.5rem; min-width: 6rem; padding: 0 1rem; box-sizing: border-box;
+  border: 0; border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+  font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; cursor: pointer;
+  box-shadow: var(--cronus-shadow-xs, none);
+}

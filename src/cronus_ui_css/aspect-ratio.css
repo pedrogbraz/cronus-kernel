@@ -1,0 +1,4 @@
+[data-slot="aspect-ratio"] {
+  position: relative; width: 18rem;
+  aspect-ratio: 16 / 9;
+}

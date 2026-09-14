@@ -1,0 +1,21 @@
+/* Focus ring for every slot and anything focusable inside one. Only paints on
+   :focus-visible, so idle rendering is unchanged. `--cronus-ring` comes from
+   tokens.css (named presets) or fallback.css (legacy pages). */
+[data-slot]:focus-visible, [data-slot] :focus-visible {
+  outline: 2px solid var(--cronus-ring, var(--cronus-primary)) !important;
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot] { animation: none !important; transition: none !important; }
+  /* Descendants and pseudo-elements (spinner arcs, shimmer sweeps, reveal
+     children, sparkles, list items): finish at the end state instead of
+     looping. Family rules that hide decorative layers still apply. */
+  [data-slot] *,
+  [data-slot]::before, [data-slot]::after,
+  [data-slot] *::before, [data-slot] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

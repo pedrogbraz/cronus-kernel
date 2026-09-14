@@ -1,0 +1,33 @@
+[data-slot="border-beam"] {
+  position: relative;
+  width: 18rem; padding: 1.5rem;
+  border-radius: calc(var(--cronus-radius, 14px) + 8px);
+  color: var(--cronus-fg);
+}
+[data-slot="border-beam"] > [aria-hidden] {
+  position: absolute; inset: 0; pointer-events: none;
+  border-radius: inherit;
+  border: 1px solid transparent;
+  mask-image: linear-gradient(transparent, transparent), linear-gradient(#000, #000);
+  -webkit-mask-image: linear-gradient(transparent, transparent), linear-gradient(#000, #000);
+  mask-clip: padding-box, border-box;
+  mask-composite: intersect;
+}
+[data-slot="border-beam"] > [aria-hidden]::after {
+  content: "";
+  position: absolute;
+  width: 60px; height: 60px;
+  background: linear-gradient(to left, var(--cronus-fg), transparent, transparent);
+  offset-path: rect(0 auto auto 0 round 60px);
+  animation: cui-border-beam 8s linear infinite;
+}
+@keyframes cui-border-beam {
+  from { offset-distance: 0%; }
+  to { offset-distance: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="border-beam"] > [aria-hidden] { display: none; }
+}
+[data-slot="border-beam"] > div:last-child {
+  position: relative;
+}

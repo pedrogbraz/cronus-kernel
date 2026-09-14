@@ -1,0 +1,9 @@
+[data-slot="choropleth-chart"] {
+  display: block; width: 100%; height: 16rem;
+}
+[data-slot="choropleth-chart"] svg {
+  display: block; width: 100%; height: 100%;
+}
+[data-slot="choropleth-chart"] path {
+  fill: var(--cronus-primary); stroke: var(--cronus-border);
+}

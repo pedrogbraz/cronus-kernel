@@ -1,0 +1,11 @@
+[data-slot="rating"] {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  border-radius: var(--cronus-radius-md);
+}
+[data-slot="rating"] svg { width: 1.25rem; height: 1.25rem; }
+[data-slot="rating-item"] { display: inline-flex; cursor: default; }
+[data-slot="rating-star"] { position: relative; display: inline-flex; flex-shrink: 0; }
+[data-slot="rating-star"] > svg { color: var(--cronus-fg-muted); }
+[data-slot="rating-star"] > span { position: absolute; inset: 0; overflow: hidden; width: 0%; }
+[data-slot="rating-item"][data-state="on"] [data-slot="rating-star"] > span { width: 100%; }
+[data-slot="rating-star"] > span > svg { color: var(--cronus-warning); fill: var(--cronus-warning); }

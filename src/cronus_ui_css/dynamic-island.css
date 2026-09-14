@@ -1,0 +1,22 @@
+[data-slot="dynamic-island"] {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 0.75rem;
+}
+[data-slot="dynamic-island-shell"] {
+  overflow: hidden; border-radius: 9999px;
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-floating);
+  color: var(--cronus-fg);
+  padding: 0.5rem 1rem;
+  box-shadow: var(--cronus-shadow-md, none);
+}
+[data-slot="dynamic-island-shell"] > div { display: flex; align-items: center; gap: 0.75rem; }
+[data-slot="dynamic-island"] [role="tablist"] {
+  display: flex; align-items: center; gap: 0.25rem;
+}
+[data-slot="dynamic-island-trigger"] {
+  width: 0.5rem; height: 0.5rem; padding: 0; border: 0;
+  border-radius: 9999px; background: var(--cronus-border); cursor: pointer;
+}
+[data-slot="dynamic-island-trigger"][aria-selected="true"] {
+  background: var(--cronus-fg);
+}

@@ -1,0 +1,35 @@
+[data-progressive-blur-host] {
+  position: relative;
+  width: 18rem;
+  min-height: 8rem;
+  line-height: 1.5;
+  color: var(--cronus-fg);
+}
+[data-slot="progressive-blur"] {
+  position: absolute; inset-inline: 0; bottom: 0;
+  height: 6rem; z-index: 10; pointer-events: none;
+}
+[data-slot="progressive-blur"] > div {
+  position: absolute; inset: 0;
+}
+[data-slot="progressive-blur"] > div:nth-child(1) {
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
+  mask-image: linear-gradient(to top, black, transparent);
+  -webkit-mask-image: linear-gradient(to top, black, transparent);
+}
+[data-slot="progressive-blur"] > div:nth-child(2) {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  mask-image: linear-gradient(to top, black 30%, transparent 70%);
+  -webkit-mask-image: linear-gradient(to top, black 30%, transparent 70%);
+}
+[data-slot="progressive-blur"] > div:nth-child(3) {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  mask-image: linear-gradient(to top, black 10%, transparent 45%);
+  -webkit-mask-image: linear-gradient(to top, black 10%, transparent 45%);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="progressive-blur"] { display: none; }
+}

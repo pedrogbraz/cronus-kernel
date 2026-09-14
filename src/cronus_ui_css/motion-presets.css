@@ -1,0 +1,6 @@
+[data-slot="motion-presets"] {
+  display: block;
+  line-height: 1.5;
+  color: var(--cronus-fg);
+}
+[data-slot="motion-preset"] { display: block; }

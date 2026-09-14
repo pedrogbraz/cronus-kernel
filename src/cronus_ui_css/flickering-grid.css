@@ -1,0 +1,26 @@
+[data-slot="flickering-grid"] {
+  position: relative; overflow: hidden;
+  width: 18rem; min-height: 8rem;
+  color: var(--cronus-fg);
+}
+[data-slot="flickering-grid"] > [aria-hidden] {
+  position: absolute; inset: 0; pointer-events: none;
+  background: var(--cronus-fg);
+  opacity: 0.08;
+  mask-image:
+    linear-gradient(to right, #000 calc(100% - 2px), transparent 0),
+    linear-gradient(to bottom, #000 calc(100% - 2px), transparent 0);
+  mask-size: calc((100% + 2px) / 16) 100%, 100% calc((100% + 2px) / 10);
+  mask-composite: intersect;
+  animation: cui-flicker 1.8s ease-in-out infinite;
+}
+[data-slot="flickering-grid"] > div:last-child {
+  position: relative; z-index: 1;
+}
+@keyframes cui-flicker {
+  0%, 100% { opacity: 0.08; }
+  50% { opacity: 0.45; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="flickering-grid"] > [aria-hidden] { animation: none; opacity: 0.4; }
+}

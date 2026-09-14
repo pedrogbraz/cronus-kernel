@@ -1,0 +1,19 @@
+[data-slot="magnetic"] {
+  display: inline-block;
+  width: 18rem;
+  color: var(--cronus-fg);
+}
+[data-slot="magnetic-target"] {
+  display: block;
+  transition: transform 300ms var(--cronus-ease);
+}
+[data-slot="magnetic"]:hover [data-slot="magnetic-target"] {
+  transform: translate(4px, -4px);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="magnetic"] [data-slot="magnetic-target"],
+  [data-slot="magnetic"]:hover [data-slot="magnetic-target"] {
+    transform: none;
+    transition: none;
+  }
+}

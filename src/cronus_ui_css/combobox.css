@@ -1,0 +1,17 @@
+[data-slot="combobox"] {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+[data-slot="combobox-trigger"] {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  width: 100%; height: 2.5rem; padding: 0 1rem; box-sizing: border-box; white-space: nowrap;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: transparent; color: var(--cronus-fg); box-shadow: var(--cronus-shadow-xs, none);
+  font-family: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 400; cursor: default;
+}
+[data-slot="combobox-trigger"][data-placeholder] { color: var(--cronus-fg-tertiary); }
+[data-slot="combobox-trigger"] > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-slot="combobox-trigger"] > svg { width: 1rem; height: 1rem; flex-shrink: 0; margin-left: 0.5rem; opacity: 0.6; }
+[data-slot="combobox-trigger"][data-disabled] { opacity: 0.5; }

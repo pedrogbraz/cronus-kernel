@@ -1,0 +1,34 @@
+[data-slot="ripple"] {
+  position: relative; overflow: hidden;
+  width: 18rem; min-height: 8rem;
+  color: var(--cronus-fg);
+}
+[data-slot="ripple"] > [aria-hidden="true"] {
+  position: absolute; inset: 0; pointer-events: none;
+}
+[data-slot="ripple"] > [aria-hidden="true"] > span {
+  position: absolute; inset-inline-start: 50%; top: 50%;
+  width: 220%; aspect-ratio: 1;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklch, var(--cronus-primary) 40%, transparent);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0);
+  animation: cui-ripple 8s ease-out infinite backwards;
+}
+[data-slot="ripple"] > [aria-hidden="true"] > span:nth-of-type(2) { animation-delay: 1s; }
+[data-slot="ripple"] > [aria-hidden="true"] > span:nth-of-type(3) { animation-delay: 2s; }
+[data-slot="ripple"] > [aria-hidden="true"] > span:nth-of-type(4) { animation-delay: 3s; }
+[data-slot="ripple"] > [aria-hidden="true"] > span:nth-of-type(5) { animation-delay: 4s; }
+[data-slot="ripple"] > [aria-hidden="true"] > span:nth-of-type(6) { animation-delay: 5s; }
+[data-slot="ripple"] > [aria-hidden="true"] > span:nth-of-type(7) { animation-delay: 6s; }
+[data-slot="ripple"] > [aria-hidden="true"] > span:nth-of-type(8) { animation-delay: 7s; }
+@keyframes cui-ripple {
+  from { transform: translate(-50%, -50%) scale(0); opacity: 0.35; }
+  to { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="ripple"] > [aria-hidden="true"] { display: none; }
+}
+[data-slot="ripple"] > div:last-child {
+  position: relative;
+}

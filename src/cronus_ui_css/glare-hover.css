@@ -1,0 +1,23 @@
+[data-slot="glare-hover"] {
+  position: relative; overflow: hidden;
+  width: 18rem;
+  color: var(--cronus-fg);
+}
+[data-slot="glare-hover"] > [aria-hidden] {
+  position: absolute; inset: 0; pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(115deg, transparent 32%, color-mix(in oklch, var(--cronus-fg) 18%, transparent) 50%, transparent 68%);
+  background-size: 220% 220%;
+  background-position: 50% 50%;
+  transition: opacity 300ms var(--cronus-ease);
+}
+[data-slot="glare-hover"]:hover > [aria-hidden],
+[data-slot="glare-hover"]:focus-within > [aria-hidden] {
+  opacity: 1;
+}
+[data-slot="glare-hover"] > div:last-child {
+  position: relative;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="glare-hover"] > [aria-hidden] { display: none; }
+}

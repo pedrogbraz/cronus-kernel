@@ -1,0 +1,9 @@
+[data-slot="ring-chart"] {
+  display: block; width: 100%; height: 16rem;
+}
+[data-slot="ring-chart"] tspan:first-child {
+  fill: var(--cronus-fg); font-size: 1.5rem; font-weight: 500;
+}
+[data-slot="ring-chart"] tspan + tspan {
+  fill: var(--cronus-fg-tertiary); font-size: 0.75rem;
+}

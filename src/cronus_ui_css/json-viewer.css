@@ -1,0 +1,40 @@
+[data-slot="json-viewer"] {
+  display: block; width: 18rem; max-width: 100%; overflow-x: auto; padding: 1rem;
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-xl);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+  font-family: var(--cronus-font-mono, ui-monospace, monospace); font-size: 0.875rem; line-height: 1.5rem;
+}
+[data-slot="json-viewer-row"], [data-slot="json-viewer-closer"] {
+  display: flex; align-items: flex-start; gap: 0.25rem;
+}
+[data-slot="json-viewer-row"] > [data-slot="copy-button"] {
+  width: 1.25rem; height: 1.25rem; flex-shrink: 0; margin-top: 0.125rem; padding: 0;
+  border: 0; border-radius: var(--cronus-radius-md); background: transparent;
+  color: var(--cronus-fg-secondary); font-size: 0.875rem; line-height: 1.25rem;
+  opacity: 0; cursor: default;
+}
+[data-slot="json-viewer-row"] > [data-slot="copy-button"] svg { width: 0.75rem; height: 0.75rem; }
+[data-slot="json-viewer-row"] > span:not([aria-hidden]),
+[data-slot="json-viewer-closer"] > span:not([aria-hidden]) {
+  flex: 1; min-width: 0; overflow-wrap: break-word;
+}
+[data-slot="json-viewer-row"] > span[aria-hidden="true"],
+[data-slot="json-viewer-closer"] > span[aria-hidden="true"] {
+  width: 1.25rem; height: 1.25rem; flex-shrink: 0;
+}
+[data-slot="json-viewer-toggle"] {
+  display: inline-flex; width: 1.25rem; height: 1.25rem; flex-shrink: 0; margin-top: 0.125rem;
+  align-items: center; justify-content: center; padding: 0; border: 0;
+  border-radius: var(--cronus-radius-md); background: transparent;
+  color: var(--cronus-fg-tertiary); cursor: default;
+}
+[data-slot="json-viewer-toggle"] svg { width: 0.875rem; height: 0.875rem; }
+[data-slot="json-viewer-toggle"][data-state="open"] svg { transform: rotate(90deg); }
+[data-slot="json-viewer-children"] { margin-left: 0.625rem; padding-left: 0.875rem; border-left: 1px solid var(--cronus-border); }
+[data-slot="json-viewer"] [data-json="punct"] { color: var(--cronus-fg-tertiary); }
+[data-slot="json-viewer-key"] { color: var(--cronus-fg-secondary); }
+[data-slot="json-viewer-value"] { word-break: break-all; color: var(--cronus-fg); }
+[data-slot="json-viewer-value"][data-type="string"] { color: var(--cronus-success-text); }
+[data-slot="json-viewer-value"][data-type="number"] { color: var(--cronus-info-text); font-variant-numeric: tabular-nums; }
+[data-slot="json-viewer-value"][data-type="boolean"] { color: var(--cronus-warning-text); }
+[data-slot="json-viewer-value"][data-type="null"] { color: var(--cronus-fg-tertiary); }

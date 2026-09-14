@@ -1,0 +1,19 @@
+/* breadcrumb */
+[data-slot="breadcrumb-list"] {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem;
+  margin: 0; padding: 0; list-style: none;
+  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-tertiary);
+}
+[data-slot="breadcrumb-item"] {
+  display: inline-flex; align-items: center; gap: 0.375rem;
+}
+[data-slot="breadcrumb-link"] {
+  color: inherit; text-decoration: none; transition: color 150ms;
+}
+[data-slot="breadcrumb-link"]:hover { color: var(--cronus-fg); }
+[data-slot="breadcrumb-page"] {
+  font-weight: 400; color: var(--cronus-fg);
+}
+[data-slot="breadcrumb-separator"] > svg {
+  display: block; width: 0.875rem; height: 0.875rem;
+}

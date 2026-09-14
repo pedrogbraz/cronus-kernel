@@ -1,10 +1,10 @@
 //! Isolated Cronus Audit document. Injected by the binary — never authored
 //! in `.cronus`. Zero JS. No Voodoo, HMR, or animation runtime.
 
-use crate::cronus_ui;
-
 pub fn render_audit_document(widget_html: &str, preset: &str, mode: &str, dir: &str) -> String {
-    let css = cronus_ui::audit_stylesheet();
+    // Self-contained: preflight + tokens + only the families in the widget,
+    // layered. The canvas rule below is unlayered and wins over them.
+    let css = crate::cronus_ui_css::audit_stylesheet(widget_html);
     format!(
         r#"<!DOCTYPE html>
 <html lang="en" data-cronus-theme="{preset}" data-cronus-mode="{mode}">

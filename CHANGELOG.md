@@ -89,6 +89,15 @@ deliberate security change.
 - Sprint 2: zero-JS rewrites of ten renderers (37596d4), multi-select search row (762de83),
   choropleth/sunburst pixel parity (3c475d6), style fixes from the extended geometry audit
   (dd6082d), `cronus_ui_kit` attr/flag/esc helpers with a gate test against local copies (20e6e2b).
+- Sprint 4: per-page cronus-ui CSS. The 220 KB component stylesheet is split into
+  `src/cronus_ui_css/` and pages ship tokens plus only the families they render (audit
+  button canvas 275 KB → 51 KB of CSS; a page without families 347 KB → 117 KB). Kit catalog
+  CSS ships only with the catalog, audit preflight only in the audit document. `render_layout`
+  and the audit document use `@layer cronus.tokens, cronus.base, cronus.components`, so
+  unlayered author CSS wins without `!important`. Dead `combobox-content`/`combobox-item`
+  rules and one duplicate block removed; reduced motion now also covers descendants and
+  pseudo-elements of `[data-slot]`. SPA navigation does a full load when the target page
+  needs a different cronus-ui stylesheet.
 
 ### Language
 

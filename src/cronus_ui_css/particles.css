@@ -1,0 +1,23 @@
+[data-slot="particles"] {
+  position: relative; overflow: hidden;
+  width: 18rem; height: 8rem;
+}
+[data-slot="particles"] > [aria-hidden="true"] {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    radial-gradient(circle, color-mix(in oklch, var(--cronus-fg) 35%, transparent) 1.4px, transparent 1.8px),
+    radial-gradient(circle, color-mix(in oklch, var(--cronus-fg) 35%, transparent) 1px, transparent 1.4px);
+  background-size: 97px 53px, 61px 37px;
+  background-position: 0 0, 29px 17px;
+  animation: cui-particles 14s linear infinite;
+}
+[data-slot="particles"] > div:last-child {
+  position: relative;
+}
+@keyframes cui-particles {
+  from { background-position: 0 0, 29px 17px; }
+  to { background-position: 97px 53px, -32px 54px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="particles"] > [aria-hidden="true"] { display: none; }
+}

@@ -1,0 +1,28 @@
+[data-slot="expandable-tabs"] {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  border-radius: 9999px;
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset);
+  padding: 0.25rem;
+}
+[data-slot="expandable-tabs-item"] {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  border: 0; border-radius: 9999px;
+  padding: 0.375rem 0.625rem;
+  background: transparent; color: var(--cronus-fg-secondary);
+  font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; cursor: pointer;
+}
+[data-slot="expandable-tabs-item"][aria-selected="true"] {
+  color: var(--cronus-fg);
+  background: var(--cronus-surface-floating);
+  box-shadow: var(--cronus-shadow-xs, none);
+}
+[data-slot="expandable-tabs-item"] > span[aria-hidden="true"] {
+  display: grid; width: 1rem; height: 1rem; place-items: center;
+}
+[data-slot="expandable-tabs-item"] > span[aria-hidden="true"] > svg { width: 1rem; height: 1rem; }
+[data-slot="expandable-tabs-item"] > span:last-child { overflow: hidden; white-space: nowrap; }
+[data-slot="expandable-tabs-item"][aria-selected="false"] > span:last-child {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
+}

@@ -1,0 +1,14 @@
+/* tooltip: hint popover opened by the trigger's interestfor (no JS). */
+[data-slot="tooltip-content"]:not(:popover-open) { display: none; }
+[data-slot="tooltip-content"]:popover-open {
+  z-index: 50; overflow: hidden; box-sizing: border-box; margin: 0;
+  padding: 0.25rem 0.625rem; font-size: 0.75rem; line-height: 1rem;
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-md);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-md, none);
+}
+@supports (top: anchor(bottom)) {
+  [data-slot="tooltip-content"][popover] {
+    top: auto; bottom: calc(anchor(top) + 4px); left: anchor(center); translate: -50% 0;
+  }
+}

@@ -1,0 +1,122 @@
+[data-slot="slider"] {
+  position: relative; display: flex; width: 100%; align-items: center;
+}
+[data-slot="slider"] > span:first-child {
+  position: relative; display: block; height: 0.375rem; width: 100%; flex-grow: 1;
+  overflow: hidden; border-radius: 9999px; background: var(--cronus-surface-overlay);
+}
+[data-slot="slider"] > span:first-child > span {
+  position: absolute; display: block; height: 100%; left: 0;
+  right: calc(100% - var(--cui-slider-value, 0) * 1%); background: var(--cronus-primary);
+}
+[data-slot="slider"] > span:last-child {
+  position: absolute; transform: translateX(-50%);
+  left: calc(var(--cui-slider-value, 0) * 1% + 0.5rem - var(--cui-slider-value, 0) * 0.01rem);
+}
+[data-slot="slider"] > span:last-child > span {
+  display: block; width: 1rem; height: 1rem; box-sizing: border-box;
+  border-radius: 9999px; border: 1px solid var(--cronus-primary);
+  background: var(--cronus-surface-base);
+  box-shadow: var(--cronus-shadow-sm, 0 1px 2px rgba(0,0,0,.2));
+}
+[data-slot="slider"][data-value="0"] { --cui-slider-value: 0; }
+[data-slot="slider"][data-value="1"] { --cui-slider-value: 1; }
+[data-slot="slider"][data-value="2"] { --cui-slider-value: 2; }
+[data-slot="slider"][data-value="3"] { --cui-slider-value: 3; }
+[data-slot="slider"][data-value="4"] { --cui-slider-value: 4; }
+[data-slot="slider"][data-value="5"] { --cui-slider-value: 5; }
+[data-slot="slider"][data-value="6"] { --cui-slider-value: 6; }
+[data-slot="slider"][data-value="7"] { --cui-slider-value: 7; }
+[data-slot="slider"][data-value="8"] { --cui-slider-value: 8; }
+[data-slot="slider"][data-value="9"] { --cui-slider-value: 9; }
+[data-slot="slider"][data-value="10"] { --cui-slider-value: 10; }
+[data-slot="slider"][data-value="11"] { --cui-slider-value: 11; }
+[data-slot="slider"][data-value="12"] { --cui-slider-value: 12; }
+[data-slot="slider"][data-value="13"] { --cui-slider-value: 13; }
+[data-slot="slider"][data-value="14"] { --cui-slider-value: 14; }
+[data-slot="slider"][data-value="15"] { --cui-slider-value: 15; }
+[data-slot="slider"][data-value="16"] { --cui-slider-value: 16; }
+[data-slot="slider"][data-value="17"] { --cui-slider-value: 17; }
+[data-slot="slider"][data-value="18"] { --cui-slider-value: 18; }
+[data-slot="slider"][data-value="19"] { --cui-slider-value: 19; }
+[data-slot="slider"][data-value="20"] { --cui-slider-value: 20; }
+[data-slot="slider"][data-value="21"] { --cui-slider-value: 21; }
+[data-slot="slider"][data-value="22"] { --cui-slider-value: 22; }
+[data-slot="slider"][data-value="23"] { --cui-slider-value: 23; }
+[data-slot="slider"][data-value="24"] { --cui-slider-value: 24; }
+[data-slot="slider"][data-value="25"] { --cui-slider-value: 25; }
+[data-slot="slider"][data-value="26"] { --cui-slider-value: 26; }
+[data-slot="slider"][data-value="27"] { --cui-slider-value: 27; }
+[data-slot="slider"][data-value="28"] { --cui-slider-value: 28; }
+[data-slot="slider"][data-value="29"] { --cui-slider-value: 29; }
+[data-slot="slider"][data-value="30"] { --cui-slider-value: 30; }
+[data-slot="slider"][data-value="31"] { --cui-slider-value: 31; }
+[data-slot="slider"][data-value="32"] { --cui-slider-value: 32; }
+[data-slot="slider"][data-value="33"] { --cui-slider-value: 33; }
+[data-slot="slider"][data-value="34"] { --cui-slider-value: 34; }
+[data-slot="slider"][data-value="35"] { --cui-slider-value: 35; }
+[data-slot="slider"][data-value="36"] { --cui-slider-value: 36; }
+[data-slot="slider"][data-value="37"] { --cui-slider-value: 37; }
+[data-slot="slider"][data-value="38"] { --cui-slider-value: 38; }
+[data-slot="slider"][data-value="39"] { --cui-slider-value: 39; }
+[data-slot="slider"][data-value="40"] { --cui-slider-value: 40; }
+[data-slot="slider"][data-value="41"] { --cui-slider-value: 41; }
+[data-slot="slider"][data-value="42"] { --cui-slider-value: 42; }
+[data-slot="slider"][data-value="43"] { --cui-slider-value: 43; }
+[data-slot="slider"][data-value="44"] { --cui-slider-value: 44; }
+[data-slot="slider"][data-value="45"] { --cui-slider-value: 45; }
+[data-slot="slider"][data-value="46"] { --cui-slider-value: 46; }
+[data-slot="slider"][data-value="47"] { --cui-slider-value: 47; }
+[data-slot="slider"][data-value="48"] { --cui-slider-value: 48; }
+[data-slot="slider"][data-value="49"] { --cui-slider-value: 49; }
+[data-slot="slider"][data-value="50"] { --cui-slider-value: 50; }
+[data-slot="slider"][data-value="51"] { --cui-slider-value: 51; }
+[data-slot="slider"][data-value="52"] { --cui-slider-value: 52; }
+[data-slot="slider"][data-value="53"] { --cui-slider-value: 53; }
+[data-slot="slider"][data-value="54"] { --cui-slider-value: 54; }
+[data-slot="slider"][data-value="55"] { --cui-slider-value: 55; }
+[data-slot="slider"][data-value="56"] { --cui-slider-value: 56; }
+[data-slot="slider"][data-value="57"] { --cui-slider-value: 57; }
+[data-slot="slider"][data-value="58"] { --cui-slider-value: 58; }
+[data-slot="slider"][data-value="59"] { --cui-slider-value: 59; }
+[data-slot="slider"][data-value="60"] { --cui-slider-value: 60; }
+[data-slot="slider"][data-value="61"] { --cui-slider-value: 61; }
+[data-slot="slider"][data-value="62"] { --cui-slider-value: 62; }
+[data-slot="slider"][data-value="63"] { --cui-slider-value: 63; }
+[data-slot="slider"][data-value="64"] { --cui-slider-value: 64; }
+[data-slot="slider"][data-value="65"] { --cui-slider-value: 65; }
+[data-slot="slider"][data-value="66"] { --cui-slider-value: 66; }
+[data-slot="slider"][data-value="67"] { --cui-slider-value: 67; }
+[data-slot="slider"][data-value="68"] { --cui-slider-value: 68; }
+[data-slot="slider"][data-value="69"] { --cui-slider-value: 69; }
+[data-slot="slider"][data-value="70"] { --cui-slider-value: 70; }
+[data-slot="slider"][data-value="71"] { --cui-slider-value: 71; }
+[data-slot="slider"][data-value="72"] { --cui-slider-value: 72; }
+[data-slot="slider"][data-value="73"] { --cui-slider-value: 73; }
+[data-slot="slider"][data-value="74"] { --cui-slider-value: 74; }
+[data-slot="slider"][data-value="75"] { --cui-slider-value: 75; }
+[data-slot="slider"][data-value="76"] { --cui-slider-value: 76; }
+[data-slot="slider"][data-value="77"] { --cui-slider-value: 77; }
+[data-slot="slider"][data-value="78"] { --cui-slider-value: 78; }
+[data-slot="slider"][data-value="79"] { --cui-slider-value: 79; }
+[data-slot="slider"][data-value="80"] { --cui-slider-value: 80; }
+[data-slot="slider"][data-value="81"] { --cui-slider-value: 81; }
+[data-slot="slider"][data-value="82"] { --cui-slider-value: 82; }
+[data-slot="slider"][data-value="83"] { --cui-slider-value: 83; }
+[data-slot="slider"][data-value="84"] { --cui-slider-value: 84; }
+[data-slot="slider"][data-value="85"] { --cui-slider-value: 85; }
+[data-slot="slider"][data-value="86"] { --cui-slider-value: 86; }
+[data-slot="slider"][data-value="87"] { --cui-slider-value: 87; }
+[data-slot="slider"][data-value="88"] { --cui-slider-value: 88; }
+[data-slot="slider"][data-value="89"] { --cui-slider-value: 89; }
+[data-slot="slider"][data-value="90"] { --cui-slider-value: 90; }
+[data-slot="slider"][data-value="91"] { --cui-slider-value: 91; }
+[data-slot="slider"][data-value="92"] { --cui-slider-value: 92; }
+[data-slot="slider"][data-value="93"] { --cui-slider-value: 93; }
+[data-slot="slider"][data-value="94"] { --cui-slider-value: 94; }
+[data-slot="slider"][data-value="95"] { --cui-slider-value: 95; }
+[data-slot="slider"][data-value="96"] { --cui-slider-value: 96; }
+[data-slot="slider"][data-value="97"] { --cui-slider-value: 97; }
+[data-slot="slider"][data-value="98"] { --cui-slider-value: 98; }
+[data-slot="slider"][data-value="99"] { --cui-slider-value: 99; }
+[data-slot="slider"][data-value="100"] { --cui-slider-value: 100; }

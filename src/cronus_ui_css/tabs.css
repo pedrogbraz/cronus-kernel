@@ -1,0 +1,44 @@
+/* tabs: zero-JS radios. The checked radio picks the visible panel. */
+[data-slot="tabs"] {
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+[data-slot="tabs-list"] {
+  display: inline-flex; height: 2.5rem; width: fit-content; box-sizing: border-box;
+  align-items: center; justify-content: center; gap: 0.25rem; padding: 0.25rem;
+  border-radius: var(--cronus-radius-lg); background: var(--cronus-surface-inset);
+  color: var(--cronus-fg-secondary);
+}
+[data-slot="tabs-list"] > label {
+  position: relative; display: inline-flex; cursor: pointer;
+}
+[data-slot="tabs-trigger"] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem;
+  white-space: nowrap; box-sizing: border-box; padding: 0.375rem 0.75rem; margin: 0;
+  border: 0; border-radius: var(--cronus-radius-md); background: transparent; color: inherit;
+  font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; letter-spacing: inherit;
+  outline: none; pointer-events: none; transition: color 150ms, background-color 150ms;
+}
+[data-slot="tabs-list"] > label:has(> input:checked) > [data-slot="tabs-trigger"] {
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-xs, none);
+}
+[data-slot="tabs-list"] > label:has(> input:focus-visible) > [data-slot="tabs-trigger"] {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
+}
+[data-slot="tabs"] > [data-slot="tabs-content"] {
+  display: none; flex: 1; outline: none;
+}
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(1) > input:checked) > [data-slot="tabs-content"]:nth-child(2),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(2) > input:checked) > [data-slot="tabs-content"]:nth-child(3),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(3) > input:checked) > [data-slot="tabs-content"]:nth-child(4),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(4) > input:checked) > [data-slot="tabs-content"]:nth-child(5),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(5) > input:checked) > [data-slot="tabs-content"]:nth-child(6),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(6) > input:checked) > [data-slot="tabs-content"]:nth-child(7),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(7) > input:checked) > [data-slot="tabs-content"]:nth-child(8),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(8) > input:checked) > [data-slot="tabs-content"]:nth-child(9),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(9) > input:checked) > [data-slot="tabs-content"]:nth-child(10),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(10) > input:checked) > [data-slot="tabs-content"]:nth-child(11),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(11) > input:checked) > [data-slot="tabs-content"]:nth-child(12),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(12) > input:checked) > [data-slot="tabs-content"]:nth-child(13) {
+  display: block;
+}

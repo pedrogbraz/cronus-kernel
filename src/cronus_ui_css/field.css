@@ -1,0 +1,10 @@
+[data-slot="field"] {
+  display: flex; flex-direction: column; gap: 0.375rem;
+}
+[data-slot="field-label"] {
+  font-size: 0.875rem; font-weight: 500; color: var(--cronus-fg);
+  line-height: 1; user-select: none;
+}
+[data-slot="field-description"] {
+  margin: 0; font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-secondary);
+}
