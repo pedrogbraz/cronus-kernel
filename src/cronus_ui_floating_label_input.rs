@@ -158,11 +158,6 @@ mod tests {
     fn skips_interact_label_wrapping_control() {
         let c = stub("floating-label-input", "Email");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("floating-label-input", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<label data-slot=\"floating-label-input\""));
-        assert!(interact.contains("data-slot=\"floating-label-input-control\""));
-        assert!(interact.contains("style="));
         assert!(!html.contains("floating-label-input-control"));
         assert!(html.contains("data-slot=\"floating-label-input-label\""));
         reject_interact(&html);

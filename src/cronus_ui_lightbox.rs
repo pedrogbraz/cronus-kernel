@@ -147,10 +147,6 @@ mod tests {
     fn skips_interact_dialog_surf() {
         let c = stub("lightbox", "Sunset over the bay");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("lightbox", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<dialog data-slot=\"lightbox-content\""));
-        assert!(interact.contains("showModal()"));
         reject_interact(&html);
     }
 

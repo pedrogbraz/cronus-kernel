@@ -278,12 +278,6 @@ mod tests {
     fn skips_interact_number_control() {
         let c = stub("currency-input", "Amount");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("currency-input", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<label data-slot=\"currency-input\""));
-        assert!(interact.contains("data-slot=\"currency-input-control\""));
-        assert!(interact.contains("type=\"number\""));
-        assert!(interact.contains("style="));
         assert!(!html.contains("currency-input-control"));
         assert!(!html.contains("<label"));
         assert!(!html.contains("type=\"number\""));

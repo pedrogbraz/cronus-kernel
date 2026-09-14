@@ -127,11 +127,6 @@ mod tests {
     #[test]
     fn skips_interact_buttonish() {
         let html = render(&group("G", &["Edit", "Share"]));
-        let interact =
-            crate::cronus_ui_interact::render("button-group", &stub("button-group", "Edit"))
-                .unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("display:inline-flex;gap:0.25rem"));
         assert_eq!(html.matches("<button").count(), 2);
         reject_interact(&html);
     }

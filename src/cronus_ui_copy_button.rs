@@ -88,10 +88,6 @@ mod tests {
     fn skips_interact_clipboard_onclick() {
         let c = stub("copy-button", "Copy");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("copy-button", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("onclick=\"navigator.clipboard.writeText"));
-        assert!(interact.contains("style="));
         reject_interact(&html);
     }
 

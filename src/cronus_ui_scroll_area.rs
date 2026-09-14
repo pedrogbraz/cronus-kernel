@@ -104,12 +104,6 @@ mod tests {
         let mut c = stub("scroll-area", "Notes");
         c.items.push(extra("text", "Alpha"));
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("scroll-area", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("max-height:12rem;overflow:auto"));
-        assert!(crate::cli::stub_renderer_gate::looks_like_interact_generic(
-            &interact
-        ));
         assert!(!crate::cli::stub_renderer_gate::looks_like_interact_generic(&html));
         reject_interact(&html);
     }

@@ -87,10 +87,6 @@ mod tests {
     fn skips_interact_signature_surf() {
         let c = stub("signature-pad", "Sign here");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("signature-pad", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("style="));
-        assert!(!interact.contains("data-slot=\"signature-pad-canvas\""));
         reject_interact(&html);
     }
 

@@ -126,10 +126,6 @@ mod tests {
     fn skips_interact_flex_and_display_surf() {
         let c = slides("Slides", &["Alpha", "Beta"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("carousel", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains(INTERACT_ROW));
-        assert!(!interact.contains("data-slot=\"carousel-item\""));
         reject_stub(&html);
         assert_eq!(
             dedicated_fn_name("carousel"),

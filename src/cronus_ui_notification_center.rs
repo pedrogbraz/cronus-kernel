@@ -157,12 +157,6 @@ mod tests {
         let mut c = stub("notification-center", "Deployed to production");
         c.items.push(extra("text", "Invite accepted"));
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("notification-center", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<details data-slot=\"notification-center\""));
-        assert!(interact.contains("<summary"));
-        assert!(interact.contains("style="));
-        assert!(!interact.contains("data-slot=\"notification-trigger\""));
         assert!(!html.contains("<details"));
         reject_interact(&html);
     }

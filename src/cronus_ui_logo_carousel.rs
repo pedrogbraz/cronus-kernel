@@ -233,14 +233,6 @@ mod tests {
     fn skips_interact_flex_and_display_surf() {
         let c = logos(&["Acme", "Stripe"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("logo-carousel", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("data-slot=\"logo-carousel\""));
-        assert!(interact.contains("<div data-slot=\"logo-carousel\""));
-        assert!(interact.contains("style="));
-        assert!(interact.contains(INTERACT_ROW));
-        assert!(!interact.contains("data-slot=\"logo-carousel-item\""));
-        assert!(!interact.contains("<ul"));
         assert!(html.contains("data-slot=\"logo-carousel-item\""));
         assert!(html.starts_with("<ul"));
         assert!(!html.contains("<section"));

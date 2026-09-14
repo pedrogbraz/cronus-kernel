@@ -96,10 +96,6 @@ mod tests {
     fn skips_fx_surf_interact_and_sonner_wrapper() {
         let c = stub("toast", "Saved");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("toast", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("data-slot=\"toast\""));
-        assert!(interact.contains("style="));
         let sonner = crate::cronus_ui_sonner::render(&stub("sonner", "Saved"));
         assert!(sonner.contains("data-slot=\"toaster\""));
         assert_ne!(html, sonner);

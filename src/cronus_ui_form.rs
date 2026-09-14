@@ -210,15 +210,6 @@ mod tests {
     fn skips_interact_field_form() {
         let c = stub("form", "Email");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("form", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<form data-slot=\"form\""));
-        assert!(interact.contains("style="));
-        assert!(interact.contains(">Submit</button>"));
-        assert!(interact.contains("data-slot=\"button\""));
-        assert!(!interact.contains("data-slot=\"form-item\""));
-        assert!(!interact.contains("data-slot=\"form-label\""));
-        assert!(!interact.contains("data-slot=\"form-control\""));
         assert!(html.contains("data-slot=\"form-item\""));
         assert!(html.contains("<label data-slot=\"label\""));
         assert!(html.contains("<input data-slot=\"input\""));

@@ -190,12 +190,6 @@ mod tests {
     fn skips_interact_popover_surf() {
         let c = palette("Search", &["Calendar"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("command", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<details data-slot=\"command\""));
-        assert!(interact.contains("<summary"));
-        assert!(interact.contains("style="));
-        assert!(!interact.contains("data-slot=\"command-input\""));
         assert!(html.contains("data-slot=\"command-input\""));
         reject_interact(&html);
     }

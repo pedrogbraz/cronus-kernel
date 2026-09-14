@@ -79,10 +79,6 @@ mod tests {
     fn skips_display_surf_and_interact_card() {
         let c = stub("spotlight-card", "Hover me");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("spotlight-card", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.starts_with("<section data-slot=\"spotlight-card\""));
-        assert!(interact.contains(DISPLAY_BOX));
         reject_display(&html);
         assert_eq!(
             crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html),

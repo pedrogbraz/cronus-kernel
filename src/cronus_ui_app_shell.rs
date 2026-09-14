@@ -100,10 +100,6 @@ mod tests {
     fn skips_interact_nav_surf() {
         let c = stub("app-shell", "Dashboard");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("app-shell", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<nav data-slot=\"app-shell\""));
-        assert!(!interact.contains("data-slot=\"app-shell-content\""));
         assert!(html.contains("data-slot=\"app-shell-content\""));
         reject_interact(&html);
     }

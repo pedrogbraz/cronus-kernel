@@ -110,10 +110,6 @@ mod tests {
         c.items.push(extra("item", "Home"));
         c.items.push(extra("item", "Search"));
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("expandable-tabs", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("role=\"tabpanel\""));
-        assert!(!interact.contains("data-slot=\"expandable-tabs-item\""));
         assert!(!html.contains("<span>Menus</span>"));
         reject_interact(&html);
     }

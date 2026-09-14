@@ -98,12 +98,7 @@ mod tests {
         let mut c = stub("bouncy-accordion", "Hint");
         c.items.push(extra("item", "Type"));
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("accordion", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<details"));
-        assert!(!interact.contains("data-slot=\"bouncy-accordion-trigger\""));
         reject_interact(&html);
-        assert!(crate::cronus_ui_interact::render("bouncy-accordion", &c).is_none());
     }
 
     #[test]

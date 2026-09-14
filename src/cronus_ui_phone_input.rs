@@ -244,12 +244,6 @@ mod tests {
     fn skips_interact_label_tel_control() {
         let c = stub("phone-input", "Phone");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("phone-input", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<label data-slot=\"phone-input\""));
-        assert!(interact.contains("data-slot=\"phone-input-control\""));
-        assert!(interact.contains("type=\"tel\""));
-        assert!(interact.contains("style="));
         assert!(!html.contains("phone-input-control"));
         assert!(!html.contains("<label"));
         reject_interact(&html);

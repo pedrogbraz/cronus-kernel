@@ -222,11 +222,6 @@ mod tests {
     fn skips_interact_native_select() {
         let c = tags("Add a tag", &["react", "vue"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("tags-input", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<label data-slot=\"tags-input\""));
-        assert!(interact.contains("<select data-slot=\"tags-input-control\""));
-        assert!(interact.contains("style="));
         assert!(!html.contains("tags-input-control"));
         assert!(!html.contains("<select"));
         reject_interact(&html);

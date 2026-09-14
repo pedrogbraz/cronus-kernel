@@ -94,9 +94,6 @@ mod tests {
         c.items.push(extra("item", "Sidebar"));
         c.items.push(extra("item", "Main"));
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("resizable", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("max-height:12rem;overflow:auto"));
         assert!(!crate::cli::stub_renderer_gate::looks_like_interact_generic(&html));
         reject_interact(&html);
     }

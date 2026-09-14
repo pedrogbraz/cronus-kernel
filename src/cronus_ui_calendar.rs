@@ -311,11 +311,6 @@ mod tests {
     fn skips_interact_surf_grid() {
         let c = stub("calendar", "March");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("calendar", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("data-slot=\"calendar\""));
-        assert!(interact.contains("style="));
-        assert!(interact.contains("grid-template-columns:repeat(7,1fr)"));
         assert!(html.contains("data-slot=\"calendar\""));
         reject_interact(&html);
     }

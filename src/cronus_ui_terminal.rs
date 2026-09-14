@@ -164,11 +164,6 @@ mod tests {
     fn skips_interact_pre_and_display_surf() {
         let c = session("zsh", &["npm install", "ready"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("terminal", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.starts_with("<pre data-slot=\"terminal\""));
-        assert!(interact.contains("style="));
-        assert!(!interact.contains("data-slot=\"terminal-screen\""));
         assert!(html.contains("data-slot=\"terminal-screen\""));
         assert!(html.contains("data-slot=\"terminal-prompt\""));
         reject_stub(&html);

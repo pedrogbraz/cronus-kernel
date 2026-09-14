@@ -105,10 +105,6 @@ mod tests {
     fn skips_interact_popover_surf() {
         let c = menu("Surface", &["Cut"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("context-menu", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<details data-slot=\"context-menu\""));
-        assert!(!interact.contains("data-slot=\"context-menu-content\""));
         assert!(html.contains("data-slot=\"context-menu-content\""));
         reject_interact(&html);
     }

@@ -66,15 +66,6 @@ mod tests {
     }
 
     #[test]
-    fn skips_interact_pill() {
-        let html = render(&stub("⌘K"));
-        let interact = crate::cronus_ui_interact::render("kbd", &stub("⌘K")).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.starts_with("<span data-slot=\"kbd\""));
-        assert!(interact.contains("style="));
-    }
-
-    #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"kbd\"]"));

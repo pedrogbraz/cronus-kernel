@@ -94,12 +94,6 @@ mod tests {
     fn skips_interact_scroll_and_display_surf() {
         let c = wall("Gallery", &["Alpha", "Beta"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("masonry", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("max-height:12rem;overflow:auto"));
-        assert!(crate::cli::stub_renderer_gate::looks_like_interact_generic(
-            &interact
-        ));
         reject_interact(&html);
     }
 

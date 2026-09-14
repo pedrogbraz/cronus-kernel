@@ -119,15 +119,6 @@ mod tests {
     #[test]
     fn skips_interact_control_slot() {
         let html = render(&stub("file-dropzone", "Upload files"));
-        let interact = crate::cronus_ui_interact::render(
-            "file-dropzone",
-            &stub("file-dropzone", "Upload files"),
-        )
-        .unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("data-slot=\"file-dropzone-control\""));
-        assert!(interact.contains("style="));
-        assert!(interact.contains("type=\"file\""));
         assert!(!html.contains("data-slot=\"file-dropzone-control\""));
         reject_interact(&html);
     }

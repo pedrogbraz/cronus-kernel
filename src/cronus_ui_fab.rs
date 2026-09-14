@@ -58,12 +58,6 @@ mod tests {
     fn skips_interact_buttonish() {
         let c = stub("fab", "Compose");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("fab", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("data-slot=\"fab\""));
-        assert!(interact.contains("data-slot=\"button\""));
-        assert!(interact.contains("style="));
-        assert!(interact.contains("background:var(--cronus-primary)"));
         assert!(!html.contains("data-slot=\"button\""));
         reject_interact(&html);
     }

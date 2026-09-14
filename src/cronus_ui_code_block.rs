@@ -209,11 +209,6 @@ mod tests {
     fn skips_interact_codey_and_display_surf() {
         let c = snippet(&["fn main() {}"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("code-block", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.starts_with("<pre data-slot=\"code-block\""));
-        assert!(interact.contains("style="));
-        assert!(interact.contains(CODEY));
         assert!(html.starts_with("<div data-slot=\"code-block\">"));
         assert!(!html.contains(DISPLAY_SURF));
         reject_stub(&html);

@@ -76,10 +76,6 @@ mod tests {
         let mut c = stub("collapsible", "Show more");
         c.items.push(extra("Hidden details here."));
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("collapsible", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<details"));
-        assert!(!interact.contains("data-slot=\"collapsible-content\""));
         assert!(html.contains("data-slot=\"collapsible-content\""));
         reject_interact(&html);
     }

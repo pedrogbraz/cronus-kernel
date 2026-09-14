@@ -136,9 +136,6 @@ mod tests {
     fn skips_interact_buttonish() {
         let c = stub("split-button", "Save");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("split-button", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("display:inline-flex;gap:0.25rem"));
         assert_eq!(html.matches("<button").count(), 2);
         assert!(html.contains("role=\"group\""));
         reject_interact(&html);

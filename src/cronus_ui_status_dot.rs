@@ -150,13 +150,6 @@ mod tests {
     fn skips_interact_pill() {
         let c = stub("status-dot", "Online");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("status-dot", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.starts_with("<span data-slot=\"status-dot\""));
-        assert!(interact.contains("style="));
-        assert!(interact.contains("padding:0.15rem 0.55rem"));
-        assert!(!interact.contains("data-slot=\"status-dot-indicator\""));
-        assert!(!interact.contains("role=\"status\""));
         assert!(html.contains("data-slot=\"status-dot-indicator\""));
         assert!(html.contains("data-slot=\"status-dot-sr-label\""));
         reject_interact(&html);

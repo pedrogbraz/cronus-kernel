@@ -98,9 +98,6 @@ mod tests {
         let mut c = stub("toolbar", "Format");
         c.items.push(extra("item", "Bold"));
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("toolbar", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<nav data-slot=\"toolbar\""));
         assert!(html.contains("role=\"toolbar\""));
         reject_interact(&html);
     }

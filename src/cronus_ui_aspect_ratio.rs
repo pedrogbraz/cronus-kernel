@@ -70,11 +70,6 @@ mod tests {
     #[test]
     fn skips_display_surf_section() {
         let html = render(&stub("aspect-ratio", "Cover"));
-        let interact =
-            crate::cronus_ui_interact::render("aspect-ratio", &stub("aspect-ratio", "Cover"))
-                .unwrap();
-        assert!(interact.starts_with("<section data-slot=\"aspect-ratio\""));
-        assert_ne!(html, interact);
         reject_display(&html);
         assert_eq!(
             dedicated_fn_name("aspect-ratio"),

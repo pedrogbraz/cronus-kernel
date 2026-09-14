@@ -205,16 +205,6 @@ mod tests {
     #[test]
     fn skips_interact_circle() {
         let html = render(&group(&["Jane Doe", "Ada Lovelace"]));
-        let interact =
-            crate::cronus_ui_interact::render("avatar-group", &stub("avatar-group", "Jane Doe"))
-                .unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.starts_with("<div data-slot=\"avatar-group\""));
-        assert!(interact.contains("style="));
-        assert!(interact.contains("width:2.25rem"));
-        assert!(interact.contains("border-radius:999px"));
-        assert!(!interact.contains("data-slot=\"avatar-fallback\""));
-        assert!(!interact.contains("data-slot=\"avatar\""));
         reject_interact(&html);
     }
 

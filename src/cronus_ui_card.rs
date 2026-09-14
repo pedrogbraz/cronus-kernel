@@ -163,9 +163,6 @@ mod tests {
     #[test]
     fn skips_interact_section() {
         let html = render(&stub("Overview"));
-        let interact = crate::cronus_ui_interact::render("card", &stub("Overview")).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.starts_with("<section data-slot=\"card\""));
         assert!(!html.contains("v-data="));
     }
 

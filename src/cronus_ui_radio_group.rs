@@ -216,11 +216,6 @@ mod tests {
     fn skips_interact_native_radios() {
         let c = stub_options(&["Free", "Pro"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("radio-group", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<input type=\"radio\""));
-        assert!(interact.contains("<label"));
-        assert!(!interact.contains("data-slot=\"radio-group-item\""));
         assert!(html.contains("data-slot=\"radio-group-item\""));
         reject_interact(&html);
     }

@@ -226,12 +226,6 @@ mod tests {
     fn skips_interact_native_color_input() {
         let c = stub("color-picker", "Accent");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("color-picker", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<label data-slot=\"color-picker\""));
-        assert!(interact.contains("data-slot=\"color-picker-control\""));
-        assert!(interact.contains("type=\"color\""));
-        assert!(interact.contains("style="));
         assert!(!html.contains("color-picker-control"));
         assert!(!html.contains("type=\"color\""));
         assert!(html.contains("data-slot=\"color-picker-trigger\""));

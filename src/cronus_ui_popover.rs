@@ -86,13 +86,6 @@ mod tests {
     #[test]
     fn skips_interact_surf_details() {
         let html = render(&with_body("More", "Extra actions."));
-        let interact =
-            crate::cronus_ui_interact::render("popover", &with_body("More", "Extra actions."))
-                .unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<details data-slot=\"popover\""));
-        assert!(interact.contains("style="));
-        assert!(!interact.contains("data-slot=\"popover-content\""));
         assert!(!html.contains("<details"));
         reject_interact(&html);
     }

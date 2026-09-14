@@ -107,8 +107,11 @@ Changing any of the above is a breaking change: record it in `CHANGELOG.md` and 
 
 ## Dead code (verified 2026-09-14)
 
-- `src/server/router.rs` and `src/server/api.rs` are not declared in `server/mod.rs` and never compile. Do not edit them.
-- `CronusServer` in `src/server/mod.rs` compiles but is never constructed. The live path is `main.rs::handle_request` → `handle_request_inner` → `api_crud::handle_api` / `actions` / `graphql` / `sse` / `ui`.
+Deleted in Sprint 4 (2026-09-14): `src/server/router.rs`, `src/server/api.rs`, `CronusServer` and its private handlers in `src/server/mod.rs`, the duplicate `RateLimiter` in `src/security.rs` (the live one is `src/rate_limit.rs`), and `src/cronus_ui_interact.rs` (unreachable fallback).
+
+- The live HTTP path is `main.rs::handle_request` → `handle_request_inner` → `api_crud::handle_api` / `actions` / `graphql` / `sse` / `ui`. `src/server/mod.rs` only declares its live submodules.
+- cronus-ui families have one table: `cronus_ui_widgets::FAMILY_TABLE`. `FAMILIES`, `PORTED_FAMILIES` and `cli::stub_renderer_gate::{dedicated_fn_name, renderer_kind}` derive from it. The only stubs are `meteors` (fx) and `sankey-chart` (chart).
+- `stub_renderer_gate::looks_like_interact_generic` is a fingerprint of the retired generic renderers, kept as a test oracle for dedicated output.
 
 ## Known gaps (2026-09-14)
 

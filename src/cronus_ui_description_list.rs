@@ -164,10 +164,6 @@ mod tests {
     fn skips_interact_styled_dl_and_display_surf() {
         let c = list(&["Order", "#10245"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("description-list", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains(INTERACT_ROW));
-        assert!(!interact.contains("data-slot=\"description-term\""));
         assert!(html.contains("data-slot=\"description-term\""));
         reject_stub(&html);
         assert_eq!(

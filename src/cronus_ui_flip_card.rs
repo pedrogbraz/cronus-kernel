@@ -127,14 +127,6 @@ mod tests {
     #[test]
     fn skips_display_surf_section() {
         let html = render(&stub("flip-card", "Front"));
-        let interact =
-            crate::cronus_ui_interact::render("flip-card", &stub("flip-card", "Front")).unwrap();
-        assert!(interact.starts_with("<section data-slot=\"flip-card\""));
-        assert!(interact.contains("style="));
-        assert!(interact.contains(DISPLAY_SURF));
-        assert!(!interact.contains("data-slot=\"flip-card-front\""));
-        assert!(!interact.contains("data-slot=\"flip-card-back\""));
-        assert_ne!(html, interact);
         assert!(!html.contains("<section"));
         reject_display(&html);
         assert_eq!(

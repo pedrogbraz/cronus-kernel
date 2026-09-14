@@ -206,11 +206,6 @@ mod tests {
     #[test]
     fn skips_interact_label_range() {
         let html = render(&stub());
-        let interact = crate::cronus_ui_interact::render("slider", &stub()).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<label data-slot=\"slider\""));
-        assert!(interact.contains("type=\"range\""));
-        assert!(interact.contains("data-slot=\"slider-control\""));
         assert!(!html.contains("<label"));
         assert!(!html.contains("type=\"range\""));
     }

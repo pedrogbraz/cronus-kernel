@@ -235,9 +235,6 @@ mod tests {
     fn skips_interact_inline_th_styles() {
         let c = stub("data-table", "People");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("data-table", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("text-align:left;padding:0.5rem 0.75rem"));
         assert!(!html.contains("style="));
         reject_interact(&html);
     }

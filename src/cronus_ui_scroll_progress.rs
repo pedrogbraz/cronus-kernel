@@ -232,11 +232,6 @@ mod tests {
     fn skips_interact_html_progress() {
         let c = stub("scroll-progress", "Reading");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("scroll-progress", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<progress"));
-        assert!(interact.contains("max=\"100\""));
-        assert!(!interact.contains("data-slot=\"scroll-progress-fill\""));
         assert!(html.contains("data-slot=\"scroll-progress-fill\""));
         reject_interact(&html);
     }

@@ -159,10 +159,6 @@ mod tests {
     fn skips_interact_nav_surf() {
         let c = emitted("Sidebar", &["Home", "Settings"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("sidebar", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<nav data-slot=\"sidebar\""));
-        assert!(!interact.contains("data-slot=\"sidebar-content\""));
         assert!(html.contains("<aside data-slot=\"sidebar\""));
         reject_interact(&html);
     }

@@ -82,15 +82,6 @@ mod tests {
     #[test]
     fn skips_interact_surf_details() {
         let html = render(&with_body("Open menu", "First action"));
-        let interact = crate::cronus_ui_interact::render(
-            "morphing-popover",
-            &with_body("Open menu", "First action"),
-        )
-        .unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<details data-slot=\"morphing-popover\""));
-        assert!(interact.contains("style="));
-        assert!(!interact.contains("data-slot=\"morphing-popover-trigger\""));
         assert!(!html.contains("<details"));
         reject_interact(&html);
     }

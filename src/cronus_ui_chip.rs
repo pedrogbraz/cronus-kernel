@@ -70,11 +70,6 @@ mod tests {
     #[test]
     fn skips_interact_pill() {
         let html = render(&stub("New"));
-        let interact = crate::cronus_ui_interact::render("chip", &stub("New")).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.starts_with("<span data-slot=\"chip\""));
-        assert!(interact.contains("style="));
-        assert!(interact.contains("display:inline-flex;align-items:center"));
         assert!(!html.contains("style="));
         assert!(!html.contains("v-data="));
     }

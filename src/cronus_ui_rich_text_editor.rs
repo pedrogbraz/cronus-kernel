@@ -144,9 +144,6 @@ mod tests {
     fn skips_interact_textarea_surf() {
         let c = stub("rich-text-editor", "Release notes");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("rich-text-editor", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<textarea data-slot=\"rich-text-editor-control\""));
         reject_interact(&html);
     }
 

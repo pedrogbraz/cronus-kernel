@@ -6,361 +6,261 @@
 use crate::cronus_ui_kit::{esc, flag_any};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
-pub const FAMILIES: &[&str] = &[
-    "accordion",
-    "alert",
-    "alert-dialog",
-    "animated-button",
-    "animated-list",
-    "animated-number",
-    "app-shell",
-    "area-chart",
-    "aspect-ratio",
-    "aurora-background",
-    "autocomplete",
-    "avatar",
-    "avatar-group",
-    "badge",
-    "banner",
-    "bar-chart",
-    "border-beam",
-    "bouncy-accordion",
-    "breadcrumb",
-    "button",
-    "button-group",
-    "calendar",
-    "candlestick-chart",
-    "card",
-    "card-stack",
-    "carousel",
-    "chart",
-    "checkbox",
-    "chip",
-    "choropleth-chart",
-    "click-spark",
-    "code-block",
-    "code-tabs",
-    "collapsible",
-    "color-picker",
-    "combobox",
-    "command",
-    "comparison-slider",
-    "composed-chart",
-    "confetti",
-    "confirmation-dialog",
-    "context-menu",
-    "copy-button",
-    "countdown",
-    "credit-card-input",
-    "currency-input",
-    "data-table",
-    "date-picker",
-    "date-range-picker",
-    "description-list",
-    "dialog",
-    "dock",
-    "dot-pattern",
-    "drawer",
-    "dropdown-menu",
-    "dynamic-island",
-    "empty",
-    "expandable-tabs",
-    "fab",
-    "field",
-    "file-dropzone",
-    "flickering-grid",
-    "flip-card",
-    "floating-label-input",
-    "form",
-    "frame",
-    "funnel-chart",
-    "gauge-chart",
-    "glare-hover",
-    "glass-card",
-    "gradient-border",
-    "gradient-text",
-    "grid-pattern",
-    "heatmap",
-    "heatmap-chart",
-    "highlighter",
-    "hover-card",
-    "image-zoom",
-    "input",
-    "input-group",
-    "input-otp",
-    "invite-dialog",
-    "json-viewer",
-    "kanban",
-    "kbd",
-    "label",
-    "light-rays",
-    "lightbox",
-    "line-chart",
-    "live-line-chart",
-    "logo-carousel",
-    "magnetic",
-    "marquee",
-    "masonry",
-    "menubar",
-    "meteors",
-    "metric",
-    "mode-toggle",
-    "morphing-popover",
-    "multi-select",
-    "navigation-menu",
-    "noise",
-    "notification-center",
-    "number-input",
-    "orbit",
-    "pagination",
-    "particles",
-    "password-input",
-    "phone-input",
-    "pie-chart",
-    "pill-nav",
-    "popover",
-    "profit-loss-chart",
-    "progress",
-    "progressive-blur",
-    "radar-chart",
-    "radio-group",
-    "rating",
-    "resizable",
-    "retro-grid",
-    "reveal",
-    "rich-text-editor",
-    "ring-chart",
-    "ripple",
-    "sankey-chart",
-    "scatter-chart",
-    "scheduler",
-    "scramble-text",
-    "scroll-area",
-    "scroll-progress",
-    "segmented-control",
-    "select",
-    "separator",
-    "sheet",
-    "shimmer",
-    "shiny-text",
-    "sidebar",
-    "signature-pad",
-    "skeleton",
-    "slider",
-    "sonner",
-    "sparkles-text",
-    "sparkline",
-    "spinner",
-    "spinning-text",
-    "split-button",
-    "spotlight-card",
-    "star-border",
-    "status-dot",
-    "stepper",
-    "sunburst-chart",
-    "switch",
-    "table",
-    "table-of-contents",
-    "tabs",
-    "tags-input",
-    "terminal",
-    "text-effect",
-    "text-shimmer",
-    "textarea",
-    "tilt-card",
-    "time-picker",
-    "timeline",
-    "toggle",
-    "toggle-group",
-    "toolbar",
-    "tooltip",
-    "tree-view",
-    "typing-text",
-    "usage-meter",
-    "video-player",
-    "word-rotate",
-    "workspace-switcher",
-    "toast",
-    "motion-presets",
+type RenderFn = fn(&ComponentNode) -> String;
+type StubFn = fn(&str, &ComponentNode) -> String;
+
+/// How a family renders. The single source for [`FAMILIES`],
+/// [`PORTED_FAMILIES`] and `cli::stub_renderer_gate`.
+#[derive(Clone, Copy)]
+pub enum Renderer {
+    /// Dedicated CONTRACT renderer: (function path reported by audits, function).
+    Dedicated(&'static str, RenderFn),
+    /// Intentional placeholder: (catalog kind, generic renderer).
+    Stub(&'static str, StubFn),
+}
+
+macro_rules! dedicated {
+    ($family:literal, $module:ident) => {
+        (
+            $family,
+            Renderer::Dedicated(
+                concat!(stringify!($module), "::render"),
+                crate::$module::render,
+            ),
+        )
+    };
+}
+
+/// Every registered family, in registry order.
+pub const FAMILY_TABLE: &[(&str, Renderer)] = &[
+    dedicated!("accordion", cronus_ui_accordion),
+    dedicated!("alert", cronus_ui_alert),
+    dedicated!("alert-dialog", cronus_ui_alert_dialog),
+    dedicated!("animated-button", cronus_ui_animated_button),
+    dedicated!("animated-list", cronus_ui_animated_list),
+    dedicated!("animated-number", cronus_ui_animated_number),
+    dedicated!("app-shell", cronus_ui_app_shell),
+    dedicated!("area-chart", cronus_ui_area_chart),
+    dedicated!("aspect-ratio", cronus_ui_aspect_ratio),
+    dedicated!("aurora-background", cronus_ui_aurora_background),
+    dedicated!("autocomplete", cronus_ui_autocomplete),
+    dedicated!("avatar", cronus_ui_avatar),
+    dedicated!("avatar-group", cronus_ui_avatar_group),
+    dedicated!("badge", cronus_ui_badge),
+    dedicated!("banner", cronus_ui_banner),
+    dedicated!("bar-chart", cronus_ui_bar_chart),
+    dedicated!("border-beam", cronus_ui_border_beam),
+    dedicated!("bouncy-accordion", cronus_ui_bouncy_accordion),
+    dedicated!("breadcrumb", cronus_ui_breadcrumb),
+    ("button", Renderer::Dedicated("button_from", button_from)),
+    dedicated!("button-group", cronus_ui_button_group),
+    dedicated!("calendar", cronus_ui_calendar),
+    dedicated!("candlestick-chart", cronus_ui_candlestick_chart),
+    dedicated!("card", cronus_ui_card),
+    dedicated!("card-stack", cronus_ui_card_stack),
+    dedicated!("carousel", cronus_ui_carousel),
+    dedicated!("chart", cronus_ui_chart),
+    dedicated!("checkbox", cronus_ui_checkbox),
+    dedicated!("chip", cronus_ui_chip),
+    dedicated!("choropleth-chart", cronus_ui_choropleth_chart),
+    dedicated!("click-spark", cronus_ui_click_spark),
+    dedicated!("code-block", cronus_ui_code_block),
+    dedicated!("code-tabs", cronus_ui_code_tabs),
+    dedicated!("collapsible", cronus_ui_collapsible),
+    dedicated!("color-picker", cronus_ui_color_picker),
+    dedicated!("combobox", cronus_ui_combobox),
+    dedicated!("command", cronus_ui_command),
+    dedicated!("comparison-slider", cronus_ui_comparison_slider),
+    dedicated!("composed-chart", cronus_ui_composed_chart),
+    dedicated!("confetti", cronus_ui_confetti),
+    dedicated!("confirmation-dialog", cronus_ui_confirmation_dialog),
+    dedicated!("context-menu", cronus_ui_context_menu),
+    dedicated!("copy-button", cronus_ui_copy_button),
+    dedicated!("countdown", cronus_ui_countdown),
+    dedicated!("credit-card-input", cronus_ui_credit_card_input),
+    dedicated!("currency-input", cronus_ui_currency_input),
+    dedicated!("data-table", cronus_ui_data_table),
+    dedicated!("date-picker", cronus_ui_date_picker),
+    dedicated!("date-range-picker", cronus_ui_date_range_picker),
+    dedicated!("description-list", cronus_ui_description_list),
+    dedicated!("dialog", cronus_ui_dialog),
+    dedicated!("dock", cronus_ui_dock),
+    dedicated!("dot-pattern", cronus_ui_dot_pattern),
+    dedicated!("drawer", cronus_ui_drawer),
+    dedicated!("dropdown-menu", cronus_ui_dropdown_menu),
+    dedicated!("dynamic-island", cronus_ui_dynamic_island),
+    dedicated!("empty", cronus_ui_empty),
+    dedicated!("expandable-tabs", cronus_ui_expandable_tabs),
+    dedicated!("fab", cronus_ui_fab),
+    dedicated!("field", cronus_ui_field),
+    dedicated!("file-dropzone", cronus_ui_file_dropzone),
+    dedicated!("flickering-grid", cronus_ui_flickering_grid),
+    dedicated!("flip-card", cronus_ui_flip_card),
+    dedicated!("floating-label-input", cronus_ui_floating_label_input),
+    dedicated!("form", cronus_ui_form),
+    dedicated!("frame", cronus_ui_frame),
+    dedicated!("funnel-chart", cronus_ui_funnel_chart),
+    dedicated!("gauge-chart", cronus_ui_gauge_chart),
+    dedicated!("glare-hover", cronus_ui_glare_hover),
+    dedicated!("glass-card", cronus_ui_glass_card),
+    dedicated!("gradient-border", cronus_ui_gradient_border),
+    dedicated!("gradient-text", cronus_ui_gradient_text),
+    dedicated!("grid-pattern", cronus_ui_grid_pattern),
+    dedicated!("heatmap", cronus_ui_heatmap),
+    dedicated!("heatmap-chart", cronus_ui_heatmap_chart),
+    dedicated!("highlighter", cronus_ui_highlighter),
+    dedicated!("hover-card", cronus_ui_hover_card),
+    dedicated!("image-zoom", cronus_ui_image_zoom),
+    dedicated!("input", cronus_ui_input),
+    dedicated!("input-group", cronus_ui_input_group),
+    dedicated!("input-otp", cronus_ui_input_otp),
+    dedicated!("invite-dialog", cronus_ui_invite_dialog),
+    dedicated!("json-viewer", cronus_ui_json_viewer),
+    dedicated!("kanban", cronus_ui_kanban),
+    dedicated!("kbd", cronus_ui_kbd),
+    dedicated!("label", cronus_ui_label),
+    dedicated!("light-rays", cronus_ui_light_rays),
+    dedicated!("lightbox", cronus_ui_lightbox),
+    dedicated!("line-chart", cronus_ui_line_chart),
+    dedicated!("live-line-chart", cronus_ui_live_line_chart),
+    dedicated!("logo-carousel", cronus_ui_logo_carousel),
+    dedicated!("magnetic", cronus_ui_magnetic),
+    dedicated!("marquee", cronus_ui_marquee),
+    dedicated!("masonry", cronus_ui_masonry),
+    dedicated!("menubar", cronus_ui_menubar),
+    ("meteors", Renderer::Stub("fx", fx)),
+    dedicated!("metric", cronus_ui_metric),
+    dedicated!("mode-toggle", cronus_ui_mode_toggle),
+    dedicated!("morphing-popover", cronus_ui_morphing_popover),
+    dedicated!("multi-select", cronus_ui_multi_select),
+    dedicated!("navigation-menu", cronus_ui_navigation_menu),
+    dedicated!("noise", cronus_ui_noise),
+    dedicated!("notification-center", cronus_ui_notification_center),
+    dedicated!("number-input", cronus_ui_number_input),
+    dedicated!("orbit", cronus_ui_orbit),
+    dedicated!("pagination", cronus_ui_pagination),
+    dedicated!("particles", cronus_ui_particles),
+    dedicated!("password-input", cronus_ui_password_input),
+    dedicated!("phone-input", cronus_ui_phone_input),
+    dedicated!("pie-chart", cronus_ui_pie_chart),
+    dedicated!("pill-nav", cronus_ui_pill_nav),
+    dedicated!("popover", cronus_ui_popover),
+    dedicated!("profit-loss-chart", cronus_ui_profit_loss_chart),
+    dedicated!("progress", cronus_ui_progress),
+    dedicated!("progressive-blur", cronus_ui_progressive_blur),
+    dedicated!("radar-chart", cronus_ui_radar_chart),
+    dedicated!("radio-group", cronus_ui_radio_group),
+    dedicated!("rating", cronus_ui_rating),
+    dedicated!("resizable", cronus_ui_resizable),
+    dedicated!("retro-grid", cronus_ui_retro_grid),
+    dedicated!("reveal", cronus_ui_reveal),
+    dedicated!("rich-text-editor", cronus_ui_rich_text_editor),
+    dedicated!("ring-chart", cronus_ui_ring_chart),
+    dedicated!("ripple", cronus_ui_ripple),
+    ("sankey-chart", Renderer::Stub("chart", chart)),
+    dedicated!("scatter-chart", cronus_ui_scatter_chart),
+    dedicated!("scheduler", cronus_ui_scheduler),
+    dedicated!("scramble-text", cronus_ui_scramble_text),
+    dedicated!("scroll-area", cronus_ui_scroll_area),
+    dedicated!("scroll-progress", cronus_ui_scroll_progress),
+    dedicated!("segmented-control", cronus_ui_segmented_control),
+    dedicated!("select", cronus_ui_select),
+    dedicated!("separator", cronus_ui_separator),
+    dedicated!("sheet", cronus_ui_sheet),
+    dedicated!("shimmer", cronus_ui_shimmer),
+    dedicated!("shiny-text", cronus_ui_shiny_text),
+    dedicated!("sidebar", cronus_ui_sidebar),
+    dedicated!("signature-pad", cronus_ui_signature_pad),
+    dedicated!("skeleton", cronus_ui_skeleton),
+    dedicated!("slider", cronus_ui_slider),
+    dedicated!("sonner", cronus_ui_sonner),
+    dedicated!("sparkles-text", cronus_ui_sparkles_text),
+    dedicated!("sparkline", cronus_ui_sparkline),
+    dedicated!("spinner", cronus_ui_spinner),
+    dedicated!("spinning-text", cronus_ui_spinning_text),
+    dedicated!("split-button", cronus_ui_split_button),
+    dedicated!("spotlight-card", cronus_ui_spotlight_card),
+    dedicated!("star-border", cronus_ui_star_border),
+    dedicated!("status-dot", cronus_ui_status_dot),
+    dedicated!("stepper", cronus_ui_stepper),
+    dedicated!("sunburst-chart", cronus_ui_sunburst_chart),
+    dedicated!("switch", cronus_ui_switch),
+    dedicated!("table", cronus_ui_table),
+    dedicated!("table-of-contents", cronus_ui_table_of_contents),
+    dedicated!("tabs", cronus_ui_tabs),
+    dedicated!("tags-input", cronus_ui_tags_input),
+    dedicated!("terminal", cronus_ui_terminal),
+    dedicated!("text-effect", cronus_ui_text_effect),
+    dedicated!("text-shimmer", cronus_ui_text_shimmer),
+    dedicated!("textarea", cronus_ui_textarea),
+    dedicated!("tilt-card", cronus_ui_tilt_card),
+    dedicated!("time-picker", cronus_ui_time_picker),
+    dedicated!("timeline", cronus_ui_timeline),
+    dedicated!("toggle", cronus_ui_toggle),
+    dedicated!("toggle-group", cronus_ui_toggle_group),
+    dedicated!("toolbar", cronus_ui_toolbar),
+    dedicated!("tooltip", cronus_ui_tooltip),
+    dedicated!("tree-view", cronus_ui_tree_view),
+    dedicated!("typing-text", cronus_ui_typing_text),
+    dedicated!("usage-meter", cronus_ui_usage_meter),
+    dedicated!("video-player", cronus_ui_video_player),
+    dedicated!("word-rotate", cronus_ui_word_rotate),
+    dedicated!("workspace-switcher", cronus_ui_workspace_switcher),
+    dedicated!("toast", cronus_ui_toast),
+    dedicated!("motion-presets", cronus_ui_motion_presets),
 ];
 
-/// Families with a dedicated CONTRACT renderer. Interact and stub arms must
-/// not run for these (Cronus Audit K13).
-pub const PORTED_FAMILIES: &[&str] = &[
-    "button",
-    "badge",
-    "input",
-    "label",
-    "textarea",
-    "checkbox",
-    "switch",
-    "spinner",
-    "separator",
-    "kbd",
-    "toggle",
-    "progress",
-    "alert",
-    "skeleton",
-    "banner",
-    "slider",
-    "radio-group",
-    "chip",
-    "avatar",
-    "card",
-    "empty",
-    "select",
-    "dialog",
-    "tabs",
-    "accordion",
-    "table",
-    "pagination",
-    "breadcrumb",
-    "tooltip",
-    "password-input",
-    "number-input",
-    "field",
-    "input-group",
-    "rating",
-    "copy-button",
-    "fab",
-    "toggle-group",
-    "metric",
-    "avatar-group",
-    "button-group",
-    "combobox",
-    "stepper",
-    "input-otp",
-    "file-dropzone",
-    "popover",
-    "hover-card",
-    "dropdown-menu",
-    "collapsible",
-    "mode-toggle",
-    "command",
-    "menubar",
-    "context-menu",
-    "drawer",
-    "sheet",
-    "calendar",
-    "date-picker",
-    "time-picker",
-    "date-range-picker",
-    "area-chart",
-    "bar-chart",
-    "line-chart",
-    "sparkline",
-    "pie-chart",
-    "data-table",
-    "sidebar",
-    "sonner",
-    "navigation-menu",
-    "radar-chart",
-    "scatter-chart",
-    "ring-chart",
-    "phone-input",
-    "currency-input",
-    "color-picker",
-    "scroll-area",
-    "toolbar",
-    "status-dot",
-    "tags-input",
-    "autocomplete",
-    "multi-select",
-    "credit-card-input",
-    "floating-label-input",
-    "split-button",
-    "pill-nav",
-    "dock",
-    "workspace-switcher",
-    "app-shell",
-    "table-of-contents",
-    "form",
-    "signature-pad",
-    "resizable",
-    "scheduler",
-    "alert-dialog",
-    "lightbox",
-    "notification-center",
-    "segmented-control",
-    "usage-meter",
-    "masonry",
-    "heatmap",
-    "comparison-slider",
-    "code-tabs",
-    "expandable-tabs",
-    "live-line-chart",
-    "sunburst-chart",
-    "choropleth-chart",
-    "profit-loss-chart",
-    "scroll-progress",
-    "rich-text-editor",
-    "confirmation-dialog",
-    "invite-dialog",
-    "shimmer",
-    "reveal",
-    "text-shimmer",
-    "particles",
-    "sparkles-text",
-    "noise",
-    "morphing-popover",
-    "bouncy-accordion",
-    "typing-text",
-    "word-rotate",
-    "timeline",
-    "tree-view",
-    "tilt-card",
-    "star-border",
-    "glass-card",
-    "terminal",
-    "video-player",
-    "text-effect",
-    "spotlight-card",
-    "animated-list",
-    "toast",
-    "carousel",
-    "code-block",
-    "description-list",
-    "kanban",
-    "json-viewer",
-    "animated-number",
-    "marquee",
-    "gradient-text",
-    "shiny-text",
-    "aspect-ratio",
-    "frame",
-    "flip-card",
-    "countdown",
-    "animated-button",
-    "card-stack",
-    "gauge-chart",
-    "funnel-chart",
-    "candlestick-chart",
-    "logo-carousel",
-    "dynamic-island",
-    "image-zoom",
-    "aurora-background",
-    "border-beam",
-    "confetti",
-    "composed-chart",
-    "heatmap-chart",
-    "chart",
-    "click-spark",
-    "glare-hover",
-    "magnetic",
-    "dot-pattern",
-    "flickering-grid",
-    "grid-pattern",
-    "highlighter",
-    "scramble-text",
-    "spinning-text",
-    "gradient-border",
-    "light-rays",
-    "orbit",
-    "progressive-blur",
-    "retro-grid",
-    "ripple",
-    "motion-presets",
-];
+const FAMILY_COUNT: usize = FAMILY_TABLE.len();
+const PORTED_COUNT: usize = count_dedicated();
+
+const fn count_dedicated() -> usize {
+    let mut n = 0;
+    let mut i = 0;
+    while i < FAMILY_COUNT {
+        if matches!(FAMILY_TABLE[i].1, Renderer::Dedicated(..)) {
+            n += 1;
+        }
+        i += 1;
+    }
+    n
+}
+
+const fn family_names() -> [&'static str; FAMILY_COUNT] {
+    let mut out = [""; FAMILY_COUNT];
+    let mut i = 0;
+    while i < FAMILY_COUNT {
+        out[i] = FAMILY_TABLE[i].0;
+        i += 1;
+    }
+    out
+}
+
+const fn ported_names() -> [&'static str; PORTED_COUNT] {
+    let mut out = [""; PORTED_COUNT];
+    let mut n = 0;
+    let mut i = 0;
+    while i < FAMILY_COUNT {
+        if matches!(FAMILY_TABLE[i].1, Renderer::Dedicated(..)) {
+            out[n] = FAMILY_TABLE[i].0;
+            n += 1;
+        }
+        i += 1;
+    }
+    out
+}
+
+pub const FAMILIES: &[&str] = &family_names();
+
+/// Families with a dedicated CONTRACT renderer. Stub renderers must not run
+/// for these (Cronus Audit K13).
+pub const PORTED_FAMILIES: &[&str] = &ported_names();
+
+pub fn renderer_of(family: &str) -> Option<Renderer> {
+    FAMILY_TABLE
+        .iter()
+        .find(|(name, _)| *name == family)
+        .map(|(_, renderer)| *renderer)
+}
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
     let style = comp.style.as_deref().unwrap_or("");
@@ -373,371 +273,18 @@ pub fn family_of(comp: &ComponentNode) -> Option<&str> {
 }
 
 pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
-    match family {
-        "button" => Some(button_from(comp)),
-        "badge" => Some(crate::cronus_ui_badge::render(comp)),
-        "input" => Some(crate::cronus_ui_input::render(comp)),
-        "label" => Some(crate::cronus_ui_label::render(comp)),
-        "textarea" => Some(crate::cronus_ui_textarea::render(comp)),
-        "checkbox" => Some(crate::cronus_ui_checkbox::render(comp)),
-        "switch" => Some(crate::cronus_ui_switch::render(comp)),
-        "spinner" => Some(crate::cronus_ui_spinner::render(comp)),
-        "separator" => Some(crate::cronus_ui_separator::render(comp)),
-        "kbd" => Some(crate::cronus_ui_kbd::render(comp)),
-        "toggle" => Some(crate::cronus_ui_toggle::render(comp)),
-        "progress" => Some(crate::cronus_ui_progress::render(comp)),
-        "alert" => Some(crate::cronus_ui_alert::render(comp)),
-        "skeleton" => Some(crate::cronus_ui_skeleton::render(comp)),
-        "banner" => Some(crate::cronus_ui_banner::render(comp)),
-        "slider" => Some(crate::cronus_ui_slider::render(comp)),
-        "radio-group" => Some(crate::cronus_ui_radio_group::render(comp)),
-        "chip" => Some(crate::cronus_ui_chip::render(comp)),
-        "avatar" => Some(crate::cronus_ui_avatar::render(comp)),
-        "card" => Some(crate::cronus_ui_card::render(comp)),
-        "empty" => Some(crate::cronus_ui_empty::render(comp)),
-        "select" => Some(crate::cronus_ui_select::render(comp)),
-        "dialog" => Some(crate::cronus_ui_dialog::render(comp)),
-        "tabs" => Some(crate::cronus_ui_tabs::render(comp)),
-        "accordion" => Some(crate::cronus_ui_accordion::render(comp)),
-        "table" => Some(crate::cronus_ui_table::render(comp)),
-        "pagination" => Some(crate::cronus_ui_pagination::render(comp)),
-        "breadcrumb" => Some(crate::cronus_ui_breadcrumb::render(comp)),
-        "tooltip" => Some(crate::cronus_ui_tooltip::render(comp)),
-        "password-input" => Some(crate::cronus_ui_password_input::render(comp)),
-        "number-input" => Some(crate::cronus_ui_number_input::render(comp)),
-        "field" => Some(crate::cronus_ui_field::render(comp)),
-        "input-group" => Some(crate::cronus_ui_input_group::render(comp)),
-        "rating" => Some(crate::cronus_ui_rating::render(comp)),
-        "copy-button" => Some(crate::cronus_ui_copy_button::render(comp)),
-        "fab" => Some(crate::cronus_ui_fab::render(comp)),
-        "toggle-group" => Some(crate::cronus_ui_toggle_group::render(comp)),
-        "metric" => Some(crate::cronus_ui_metric::render(comp)),
-        "avatar-group" => Some(crate::cronus_ui_avatar_group::render(comp)),
-        "button-group" => Some(crate::cronus_ui_button_group::render(comp)),
-        "combobox" => Some(crate::cronus_ui_combobox::render(comp)),
-        "stepper" => Some(crate::cronus_ui_stepper::render(comp)),
-        "input-otp" => Some(crate::cronus_ui_input_otp::render(comp)),
-        "file-dropzone" => Some(crate::cronus_ui_file_dropzone::render(comp)),
-        "popover" => Some(crate::cronus_ui_popover::render(comp)),
-        "hover-card" => Some(crate::cronus_ui_hover_card::render(comp)),
-        "dropdown-menu" => Some(crate::cronus_ui_dropdown_menu::render(comp)),
-        "collapsible" => Some(crate::cronus_ui_collapsible::render(comp)),
-        "mode-toggle" => Some(crate::cronus_ui_mode_toggle::render(comp)),
-        "command" => Some(crate::cronus_ui_command::render(comp)),
-        "menubar" => Some(crate::cronus_ui_menubar::render(comp)),
-        "context-menu" => Some(crate::cronus_ui_context_menu::render(comp)),
-        "drawer" => Some(crate::cronus_ui_drawer::render(comp)),
-        "sheet" => Some(crate::cronus_ui_sheet::render(comp)),
-        "calendar" => Some(crate::cronus_ui_calendar::render(comp)),
-        "date-picker" => Some(crate::cronus_ui_date_picker::render(comp)),
-        "time-picker" => Some(crate::cronus_ui_time_picker::render(comp)),
-        "date-range-picker" => Some(crate::cronus_ui_date_range_picker::render(comp)),
-        "area-chart" => Some(crate::cronus_ui_area_chart::render(comp)),
-        "bar-chart" => Some(crate::cronus_ui_bar_chart::render(comp)),
-        "line-chart" => Some(crate::cronus_ui_line_chart::render(comp)),
-        "sparkline" => Some(crate::cronus_ui_sparkline::render(comp)),
-        "pie-chart" => Some(crate::cronus_ui_pie_chart::render(comp)),
-        "data-table" => Some(crate::cronus_ui_data_table::render(comp)),
-        "sidebar" => Some(crate::cronus_ui_sidebar::render(comp)),
-        "sonner" => Some(crate::cronus_ui_sonner::render(comp)),
-        "navigation-menu" => Some(crate::cronus_ui_navigation_menu::render(comp)),
-        "radar-chart" => Some(crate::cronus_ui_radar_chart::render(comp)),
-        "scatter-chart" => Some(crate::cronus_ui_scatter_chart::render(comp)),
-        "ring-chart" => Some(crate::cronus_ui_ring_chart::render(comp)),
-        "phone-input" => Some(crate::cronus_ui_phone_input::render(comp)),
-        "currency-input" => Some(crate::cronus_ui_currency_input::render(comp)),
-        "color-picker" => Some(crate::cronus_ui_color_picker::render(comp)),
-        "scroll-area" => Some(crate::cronus_ui_scroll_area::render(comp)),
-        "toolbar" => Some(crate::cronus_ui_toolbar::render(comp)),
-        "status-dot" => Some(crate::cronus_ui_status_dot::render(comp)),
-        "tags-input" => Some(crate::cronus_ui_tags_input::render(comp)),
-        "autocomplete" => Some(crate::cronus_ui_autocomplete::render(comp)),
-        "multi-select" => Some(crate::cronus_ui_multi_select::render(comp)),
-        "credit-card-input" => Some(crate::cronus_ui_credit_card_input::render(comp)),
-        "floating-label-input" => Some(crate::cronus_ui_floating_label_input::render(comp)),
-        "split-button" => Some(crate::cronus_ui_split_button::render(comp)),
-        "pill-nav" => Some(crate::cronus_ui_pill_nav::render(comp)),
-        "dock" => Some(crate::cronus_ui_dock::render(comp)),
-        "workspace-switcher" => Some(crate::cronus_ui_workspace_switcher::render(comp)),
-        "app-shell" => Some(crate::cronus_ui_app_shell::render(comp)),
-        "table-of-contents" => Some(crate::cronus_ui_table_of_contents::render(comp)),
-        "form" => Some(crate::cronus_ui_form::render(comp)),
-        "signature-pad" => Some(crate::cronus_ui_signature_pad::render(comp)),
-        "resizable" => Some(crate::cronus_ui_resizable::render(comp)),
-        "scheduler" => Some(crate::cronus_ui_scheduler::render(comp)),
-        "alert-dialog" => Some(crate::cronus_ui_alert_dialog::render(comp)),
-        "lightbox" => Some(crate::cronus_ui_lightbox::render(comp)),
-        "notification-center" => Some(crate::cronus_ui_notification_center::render(comp)),
-        "segmented-control" => Some(crate::cronus_ui_segmented_control::render(comp)),
-        "usage-meter" => Some(crate::cronus_ui_usage_meter::render(comp)),
-        "masonry" => Some(crate::cronus_ui_masonry::render(comp)),
-        "heatmap" => Some(crate::cronus_ui_heatmap::render(comp)),
-        "comparison-slider" => Some(crate::cronus_ui_comparison_slider::render(comp)),
-        "code-tabs" => Some(crate::cronus_ui_code_tabs::render(comp)),
-        "expandable-tabs" => Some(crate::cronus_ui_expandable_tabs::render(comp)),
-        "live-line-chart" => Some(crate::cronus_ui_live_line_chart::render(comp)),
-        "sunburst-chart" => Some(crate::cronus_ui_sunburst_chart::render(comp)),
-        "choropleth-chart" => Some(crate::cronus_ui_choropleth_chart::render(comp)),
-        "profit-loss-chart" => Some(crate::cronus_ui_profit_loss_chart::render(comp)),
-        "scroll-progress" => Some(crate::cronus_ui_scroll_progress::render(comp)),
-        "rich-text-editor" => Some(crate::cronus_ui_rich_text_editor::render(comp)),
-        "confirmation-dialog" => Some(crate::cronus_ui_confirmation_dialog::render(comp)),
-        "invite-dialog" => Some(crate::cronus_ui_invite_dialog::render(comp)),
-        "shimmer" => Some(crate::cronus_ui_shimmer::render(comp)),
-        "reveal" => Some(crate::cronus_ui_reveal::render(comp)),
-        "text-shimmer" => Some(crate::cronus_ui_text_shimmer::render(comp)),
-        "particles" => Some(crate::cronus_ui_particles::render(comp)),
-        "sparkles-text" => Some(crate::cronus_ui_sparkles_text::render(comp)),
-        "noise" => Some(crate::cronus_ui_noise::render(comp)),
-        "morphing-popover" => Some(crate::cronus_ui_morphing_popover::render(comp)),
-        "bouncy-accordion" => Some(crate::cronus_ui_bouncy_accordion::render(comp)),
-        "typing-text" => Some(crate::cronus_ui_typing_text::render(comp)),
-        "word-rotate" => Some(crate::cronus_ui_word_rotate::render(comp)),
-        "timeline" => Some(crate::cronus_ui_timeline::render(comp)),
-        "tree-view" => Some(crate::cronus_ui_tree_view::render(comp)),
-        "tilt-card" => Some(crate::cronus_ui_tilt_card::render(comp)),
-        "star-border" => Some(crate::cronus_ui_star_border::render(comp)),
-        "glass-card" => Some(crate::cronus_ui_glass_card::render(comp)),
-        "terminal" => Some(crate::cronus_ui_terminal::render(comp)),
-        "video-player" => Some(crate::cronus_ui_video_player::render(comp)),
-        "text-effect" => Some(crate::cronus_ui_text_effect::render(comp)),
-        "spotlight-card" => Some(crate::cronus_ui_spotlight_card::render(comp)),
-        "animated-list" => Some(crate::cronus_ui_animated_list::render(comp)),
-        "toast" => Some(crate::cronus_ui_toast::render(comp)),
-        "carousel" => Some(crate::cronus_ui_carousel::render(comp)),
-        "code-block" => Some(crate::cronus_ui_code_block::render(comp)),
-        "description-list" => Some(crate::cronus_ui_description_list::render(comp)),
-        "kanban" => Some(crate::cronus_ui_kanban::render(comp)),
-        "json-viewer" => Some(crate::cronus_ui_json_viewer::render(comp)),
-        "animated-number" => Some(crate::cronus_ui_animated_number::render(comp)),
-        "marquee" => Some(crate::cronus_ui_marquee::render(comp)),
-        "gradient-text" => Some(crate::cronus_ui_gradient_text::render(comp)),
-        "shiny-text" => Some(crate::cronus_ui_shiny_text::render(comp)),
-        "aspect-ratio" => Some(crate::cronus_ui_aspect_ratio::render(comp)),
-        "frame" => Some(crate::cronus_ui_frame::render(comp)),
-        "flip-card" => Some(crate::cronus_ui_flip_card::render(comp)),
-        "countdown" => Some(crate::cronus_ui_countdown::render(comp)),
-        "animated-button" => Some(crate::cronus_ui_animated_button::render(comp)),
-        "card-stack" => Some(crate::cronus_ui_card_stack::render(comp)),
-        "gauge-chart" => Some(crate::cronus_ui_gauge_chart::render(comp)),
-        "funnel-chart" => Some(crate::cronus_ui_funnel_chart::render(comp)),
-        "candlestick-chart" => Some(crate::cronus_ui_candlestick_chart::render(comp)),
-        "logo-carousel" => Some(crate::cronus_ui_logo_carousel::render(comp)),
-        "dynamic-island" => Some(crate::cronus_ui_dynamic_island::render(comp)),
-        "image-zoom" => Some(crate::cronus_ui_image_zoom::render(comp)),
-        "aurora-background" => Some(crate::cronus_ui_aurora_background::render(comp)),
-        "border-beam" => Some(crate::cronus_ui_border_beam::render(comp)),
-        "confetti" => Some(crate::cronus_ui_confetti::render(comp)),
-        "composed-chart" => Some(crate::cronus_ui_composed_chart::render(comp)),
-        "heatmap-chart" => Some(crate::cronus_ui_heatmap_chart::render(comp)),
-        "chart" => Some(crate::cronus_ui_chart::render(comp)),
-        "click-spark" => Some(crate::cronus_ui_click_spark::render(comp)),
-        "glare-hover" => Some(crate::cronus_ui_glare_hover::render(comp)),
-        "magnetic" => Some(crate::cronus_ui_magnetic::render(comp)),
-        "dot-pattern" => Some(crate::cronus_ui_dot_pattern::render(comp)),
-        "flickering-grid" => Some(crate::cronus_ui_flickering_grid::render(comp)),
-        "grid-pattern" => Some(crate::cronus_ui_grid_pattern::render(comp)),
-        "highlighter" => Some(crate::cronus_ui_highlighter::render(comp)),
-        "scramble-text" => Some(crate::cronus_ui_scramble_text::render(comp)),
-        "spinning-text" => Some(crate::cronus_ui_spinning_text::render(comp)),
-        "gradient-border" => Some(crate::cronus_ui_gradient_border::render(comp)),
-        "light-rays" => Some(crate::cronus_ui_light_rays::render(comp)),
-        "orbit" => Some(crate::cronus_ui_orbit::render(comp)),
-        "progressive-blur" => Some(crate::cronus_ui_progressive_blur::render(comp)),
-        "retro-grid" => Some(crate::cronus_ui_retro_grid::render(comp)),
-        "ripple" => Some(crate::cronus_ui_ripple::render(comp)),
-        "motion-presets" => Some(crate::cronus_ui_motion_presets::render(comp)),
-        _ => None,
+    match renderer_of(family)? {
+        Renderer::Dedicated(_, render) => Some(render(comp)),
+        Renderer::Stub(..) => None,
     }
 }
 
 pub fn render(comp: &ComponentNode) -> Option<String> {
     let family = family_of(comp)?;
-    if PORTED_FAMILIES.contains(&family) {
-        return dedicated_render(family, comp);
-    }
-    if let Some(html) = crate::cronus_ui_interact::render(family, comp) {
-        return Some(html);
-    }
-    let html = match family {
-        "accordion" => nav("accordion", comp),
-        "alert" => display("alert", comp),
-        "alert-dialog" => overlay("alert-dialog", comp),
-        "animated-button" => fx("animated-button", comp),
-        "animated-list" => fx("animated-list", comp),
-        "animated-number" => fx("animated-number", comp),
-        "app-shell" => nav("app-shell", comp),
-        "area-chart" => chart("area-chart", comp),
-        "aspect-ratio" => display("aspect-ratio", comp),
-        "aurora-background" => fx("aurora-background", comp),
-        "autocomplete" => field("autocomplete", comp),
-        "avatar" => display("avatar", comp),
-        "avatar-group" => display("avatar-group", comp),
-        "badge" => pill("badge", comp),
-        "banner" => display("banner", comp),
-        "bar-chart" => chart("bar-chart", comp),
-        "border-beam" => fx("border-beam", comp),
-        "bouncy-accordion" => nav("bouncy-accordion", comp),
-        "breadcrumb" => nav("breadcrumb", comp),
-        "button" => button_from(comp),
-        "button-group" => nav("button-group", comp),
-        "calendar" => display("calendar", comp),
-        "candlestick-chart" => chart("candlestick-chart", comp),
-        "card" => display("card", comp),
-        "card-stack" => display("card-stack", comp),
-        "carousel" => display("carousel", comp),
-        "chart" => chart("chart", comp),
-        "checkbox" => pill("checkbox", comp),
-        "chip" => pill("chip", comp),
-        "choropleth-chart" => chart("choropleth-chart", comp),
-        "click-spark" => fx("click-spark", comp),
-        "code-block" => display("code-block", comp),
-        "code-tabs" => display("code-tabs", comp),
-        "collapsible" => nav("collapsible", comp),
-        "color-picker" => field("color-picker", comp),
-        "combobox" => field("combobox", comp),
-        "command" => overlay("command", comp),
-        "comparison-slider" => fx("comparison-slider", comp),
-        "composed-chart" => chart("composed-chart", comp),
-        "confetti" => fx("confetti", comp),
-        "confirmation-dialog" => overlay("confirmation-dialog", comp),
-        "context-menu" => overlay("context-menu", comp),
-        "copy-button" => pill("copy-button", comp),
-        "countdown" => fx("countdown", comp),
-        "credit-card-input" => field("credit-card-input", comp),
-        "currency-input" => field("currency-input", comp),
-        "data-table" => display("data-table", comp),
-        "date-picker" => field("date-picker", comp),
-        "date-range-picker" => field("date-range-picker", comp),
-        "description-list" => display("description-list", comp),
-        "dialog" => overlay("dialog", comp),
-        "dock" => nav("dock", comp),
-        "dot-pattern" => fx("dot-pattern", comp),
-        "drawer" => overlay("drawer", comp),
-        "dropdown-menu" => overlay("dropdown-menu", comp),
-        "dynamic-island" => fx("dynamic-island", comp),
-        "empty" => display("empty", comp),
-        "expandable-tabs" => nav("expandable-tabs", comp),
-        "fab" => pill("fab", comp),
-        "field" => field("field", comp),
-        "file-dropzone" => field("file-dropzone", comp),
-        "flickering-grid" => fx("flickering-grid", comp),
-        "flip-card" => display("flip-card", comp),
-        "floating-label-input" => field("floating-label-input", comp),
-        "form" => field("form", comp),
-        "frame" => display("frame", comp),
-        "funnel-chart" => chart("funnel-chart", comp),
-        "gauge-chart" => chart("gauge-chart", comp),
-        "glare-hover" => fx("glare-hover", comp),
-        "glass-card" => display("glass-card", comp),
-        "gradient-border" => fx("gradient-border", comp),
-        "gradient-text" => fx("gradient-text", comp),
-        "grid-pattern" => fx("grid-pattern", comp),
-        "heatmap" => chart("heatmap", comp),
-        "heatmap-chart" => chart("heatmap-chart", comp),
-        "highlighter" => fx("highlighter", comp),
-        "hover-card" => overlay("hover-card", comp),
-        "image-zoom" => fx("image-zoom", comp),
-        "input" => field("input", comp),
-        "input-group" => field("input-group", comp),
-        "input-otp" => field("input-otp", comp),
-        "invite-dialog" => overlay("invite-dialog", comp),
-        "json-viewer" => display("json-viewer", comp),
-        "kanban" => display("kanban", comp),
-        "kbd" => pill("kbd", comp),
-        "label" => pill("label", comp),
-        "light-rays" => fx("light-rays", comp),
-        "lightbox" => overlay("lightbox", comp),
-        "line-chart" => chart("line-chart", comp),
-        "live-line-chart" => chart("live-line-chart", comp),
-        "logo-carousel" => display("logo-carousel", comp),
-        "magnetic" => fx("magnetic", comp),
-        "marquee" => fx("marquee", comp),
-        "masonry" => display("masonry", comp),
-        "menubar" => overlay("menubar", comp),
-        "meteors" => fx("meteors", comp),
-        "metric" => display("metric", comp),
-        "mode-toggle" => nav("mode-toggle", comp),
-        "morphing-popover" => overlay("morphing-popover", comp),
-        "multi-select" => field("multi-select", comp),
-        "navigation-menu" => nav("navigation-menu", comp),
-        "noise" => fx("noise", comp),
-        "notification-center" => overlay("notification-center", comp),
-        "number-input" => field("number-input", comp),
-        "orbit" => fx("orbit", comp),
-        "pagination" => nav("pagination", comp),
-        "particles" => fx("particles", comp),
-        "password-input" => field("password-input", comp),
-        "phone-input" => field("phone-input", comp),
-        "pie-chart" => chart("pie-chart", comp),
-        "pill-nav" => nav("pill-nav", comp),
-        "popover" => overlay("popover", comp),
-        "profit-loss-chart" => chart("profit-loss-chart", comp),
-        "progress" => pill("progress", comp),
-        "progressive-blur" => fx("progressive-blur", comp),
-        "radar-chart" => chart("radar-chart", comp),
-        "radio-group" => pill("radio-group", comp),
-        "rating" => pill("rating", comp),
-        "resizable" => display("resizable", comp),
-        "retro-grid" => fx("retro-grid", comp),
-        "reveal" => fx("reveal", comp),
-        "rich-text-editor" => field("rich-text-editor", comp),
-        "ring-chart" => chart("ring-chart", comp),
-        "ripple" => fx("ripple", comp),
-        "sankey-chart" => chart("sankey-chart", comp),
-        "scatter-chart" => chart("scatter-chart", comp),
-        "scheduler" => display("scheduler", comp),
-        "scramble-text" => fx("scramble-text", comp),
-        "scroll-area" => display("scroll-area", comp),
-        "scroll-progress" => fx("scroll-progress", comp),
-        "segmented-control" => pill("segmented-control", comp),
-        "select" => field("select", comp),
-        "separator" => pill("separator", comp),
-        "sheet" => overlay("sheet", comp),
-        "shimmer" => fx("shimmer", comp),
-        "shiny-text" => fx("shiny-text", comp),
-        "sidebar" => nav("sidebar", comp),
-        "signature-pad" => field("signature-pad", comp),
-        "skeleton" => pill("skeleton", comp),
-        "slider" => pill("slider", comp),
-        "sonner" => overlay("sonner", comp),
-        "sparkles-text" => fx("sparkles-text", comp),
-        "sparkline" => chart("sparkline", comp),
-        "spinner" => pill("spinner", comp),
-        "spinning-text" => fx("spinning-text", comp),
-        "split-button" => nav("split-button", comp),
-        "spotlight-card" => display("spotlight-card", comp),
-        "star-border" => fx("star-border", comp),
-        "status-dot" => pill("status-dot", comp),
-        "stepper" => nav("stepper", comp),
-        "sunburst-chart" => chart("sunburst-chart", comp),
-        "switch" => pill("switch", comp),
-        "table" => display("table", comp),
-        "table-of-contents" => nav("table-of-contents", comp),
-        "tabs" => nav("tabs", comp),
-        "tags-input" => field("tags-input", comp),
-        "terminal" => display("terminal", comp),
-        "text-effect" => fx("text-effect", comp),
-        "text-shimmer" => fx("text-shimmer", comp),
-        "textarea" => field("textarea", comp),
-        "tilt-card" => display("tilt-card", comp),
-        "time-picker" => field("time-picker", comp),
-        "timeline" => display("timeline", comp),
-        "toggle" => pill("toggle", comp),
-        "toggle-group" => pill("toggle-group", comp),
-        "toolbar" => nav("toolbar", comp),
-        "tooltip" => overlay("tooltip", comp),
-        "tree-view" => display("tree-view", comp),
-        "typing-text" => fx("typing-text", comp),
-        "usage-meter" => display("usage-meter", comp),
-        "video-player" => display("video-player", comp),
-        "word-rotate" => fx("word-rotate", comp),
-        "workspace-switcher" => nav("workspace-switcher", comp),
-        "toast" => fx("toast", comp),
-        "motion-presets" => fx("motion-presets", comp),
-        _ => return None,
-    };
-    Some(html)
+    Some(match renderer_of(family)? {
+        Renderer::Dedicated(_, render) => render(comp),
+        Renderer::Stub(_, render) => render(family, comp),
+    })
 }
 
 fn label_of(comp: &ComponentNode) -> String {
@@ -756,19 +303,6 @@ fn item<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
         .iter()
         .find(|i| i.item_type == kind)
         .map(|i| i.text.as_str())
-}
-
-fn texts(comp: &ComponentNode) -> Vec<String> {
-    let mut out: Vec<String> = comp
-        .items
-        .iter()
-        .filter(|i| !i.text.is_empty())
-        .map(|i| esc(&i.text))
-        .collect();
-    if out.is_empty() {
-        out.push(label_of(comp));
-    }
-    out
 }
 
 fn variant(comp: &ComponentNode) -> String {
@@ -826,59 +360,6 @@ fn button_from(comp: &ComponentNode) -> String {
 const BASE: &str =
     "color:var(--cronus-fg);font-family:var(--cronus-font-sans,inherit);box-sizing:border-box;";
 const SURF: &str = "background:var(--cronus-surface-raised);border:1px solid var(--cronus-border);border-radius:var(--cronus-radius,14px);";
-
-fn pill(family: &str, comp: &ComponentNode) -> String {
-    let label = label_of(comp);
-    format!(
-        "<span data-slot=\"{family}\" style=\"{BASE}{SURF}display:inline-flex;align-items:center;gap:0.35rem;padding:0.15rem 0.55rem;font-size:0.75rem;font-weight:500;\">{label}</span>"
-    )
-}
-
-fn field(family: &str, comp: &ComponentNode) -> String {
-    let label = label_of(comp);
-    let ph = esc(item(comp, "text").unwrap_or(""));
-    format!(
-        "<label data-slot=\"{family}\" style=\"{BASE}display:flex;flex-direction:column;gap:0.35rem;font-size:0.875rem;\"><span style=\"color:var(--cronus-fg-secondary);\">{label}</span><input data-slot=\"{family}-control\" placeholder=\"{ph}\" style=\"height:2.5rem;padding:0 0.75rem;border-radius:0.5rem;border:1px solid var(--cronus-border);background:var(--cronus-surface-inset);color:var(--cronus-fg);outline:none;\" /></label>"
-    )
-}
-
-fn overlay(family: &str, comp: &ComponentNode) -> String {
-    let title = label_of(comp);
-    let body = texts(comp)
-        .into_iter()
-        .map(|t| format!("<p style=\"margin:0;color:var(--cronus-fg-secondary);font-size:0.875rem;\">{t}</p>"))
-        .collect::<Vec<_>>()
-        .join("");
-    format!(
-        "<div data-slot=\"{family}\" role=\"dialog\" style=\"{BASE}{SURF}padding:1.25rem;display:flex;flex-direction:column;gap:0.75rem;max-width:28rem;\"><div style=\"font-weight:500;\">{title}</div>{body}</div>"
-    )
-}
-
-fn nav(family: &str, comp: &ComponentNode) -> String {
-    let links = texts(comp)
-        .iter()
-        .map(|t| format!("<a href=\"#\" style=\"color:var(--cronus-fg-secondary);text-decoration:none;padding:0.35rem 0.6rem;border-radius:0.4rem;\">{t}</a>"))
-        .collect::<Vec<_>>()
-        .join("");
-    format!(
-        "<nav data-slot=\"{family}\" style=\"{BASE}display:flex;flex-wrap:wrap;gap:0.25rem;align-items:center;\">{links}</nav>"
-    )
-}
-
-fn display(family: &str, comp: &ComponentNode) -> String {
-    let title = label_of(comp);
-    let rest = texts(comp)
-        .into_iter()
-        .skip(1)
-        .map(|t| {
-            format!("<div style=\"color:var(--cronus-fg-secondary);font-size:0.875rem;\">{t}</div>")
-        })
-        .collect::<Vec<_>>()
-        .join("");
-    format!(
-        "<section data-slot=\"{family}\" style=\"{BASE}{SURF}padding:1rem;display:flex;flex-direction:column;gap:0.5rem;\"><div style=\"font-weight:500;\">{title}</div>{rest}</section>"
-    )
-}
 
 fn chart(family: &str, comp: &ComponentNode) -> String {
     let title = label_of(comp);
@@ -986,6 +467,25 @@ mod tests {
     }
 
     #[test]
+    fn family_table_derives_lists() {
+        assert_eq!(FAMILIES.len(), FAMILY_TABLE.len());
+        let stubs: Vec<&str> = FAMILY_TABLE
+            .iter()
+            .filter(|(_, r)| matches!(r, Renderer::Stub(..)))
+            .map(|(f, _)| *f)
+            .collect();
+        assert_eq!(stubs, ["meteors", "sankey-chart"]);
+        assert_eq!(PORTED_FAMILIES.len(), FAMILIES.len() - stubs.len());
+        for family in FAMILIES {
+            assert_eq!(
+                PORTED_FAMILIES.contains(family),
+                !stubs.contains(family),
+                "{family}"
+            );
+        }
+    }
+
+    #[test]
     fn unknown_family_is_none() {
         let mut c = stub("nope-widget");
         c.style = Some("nope-widget".into());
@@ -1034,10 +534,7 @@ mod tests {
     #[test]
     fn voodoo_attrs_only_when_runtime_on() {
         crate::voodoo::with_enabled(true, || {
-            // Dedicated renderers are zero-JS; the interact fallback still opts in.
-            let html = crate::cronus_ui_interact::render("select", &stub("select")).unwrap();
-            assert!(html.contains("v-data="));
-            assert!(html.contains("v-model="));
+            // Dedicated renderers are zero-JS even with the runtime on.
             assert!(!render(&stub("select")).unwrap().contains("v-data="));
             let meter = render(&stub("scroll-progress")).unwrap();
             assert!(!meter.contains("{ value }"), "{meter}");
@@ -1123,9 +620,6 @@ mod tests {
     fn ported_family_skips_interact() {
         for family in PORTED_FAMILIES {
             let html = render(&stub(family)).expect(family);
-            if let Some(ih) = crate::cronus_ui_interact::render(family, &stub(family)) {
-                assert_ne!(html, ih, "{family} still equals interact HTML");
-            }
             assert!(
                 !html.contains("data-slot=\"input-control\""),
                 "{family} used interact input-control"
@@ -1215,7 +709,7 @@ component Revenue layout:stack style:metric {
                 let family = family_of(comp).expect(&comp.name);
                 families.push(family.to_string());
                 match renderer_kind(family) {
-                    RendererKind::Dedicated(_) | RendererKind::Interact => {}
+                    RendererKind::Dedicated(_) => {}
                     other => panic!("{family} on catalog is {other:?}, expected native"),
                 }
                 let html = render(comp).expect(family);

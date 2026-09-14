@@ -1,292 +1,34 @@
-//! Stub + interact gate. A family is `ported` only when the dispatch arm
-//! calls a dedicated renderer — not `fx`/`pill`/interact generic HTML.
+//! Stub renderer gate. A family is `ported` only when its
+//! `cronus_ui_widgets::FAMILY_TABLE` entry is a dedicated renderer, not a stub.
 
 use crate::cli::audit_codes::{AuditFinding, STUB_RENDERER};
-use crate::cronus_ui_widgets::{self, PORTED_FAMILIES};
+use crate::cronus_ui_widgets::{self, Renderer};
 use crate::parser::AstNode;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RendererKind {
     Dedicated(&'static str),
-    Interact,
     Stub(&'static str),
     Missing,
 }
 
 pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
-    match family {
-        "button" => Some("button_from"),
-        "badge" => Some("cronus_ui_badge::render"),
-        "input" => Some("cronus_ui_input::render"),
-        "label" => Some("cronus_ui_label::render"),
-        "textarea" => Some("cronus_ui_textarea::render"),
-        "checkbox" => Some("cronus_ui_checkbox::render"),
-        "switch" => Some("cronus_ui_switch::render"),
-        "spinner" => Some("cronus_ui_spinner::render"),
-        "separator" => Some("cronus_ui_separator::render"),
-        "kbd" => Some("cronus_ui_kbd::render"),
-        "toggle" => Some("cronus_ui_toggle::render"),
-        "progress" => Some("cronus_ui_progress::render"),
-        "alert" => Some("cronus_ui_alert::render"),
-        "skeleton" => Some("cronus_ui_skeleton::render"),
-        "banner" => Some("cronus_ui_banner::render"),
-        "slider" => Some("cronus_ui_slider::render"),
-        "radio-group" => Some("cronus_ui_radio_group::render"),
-        "chip" => Some("cronus_ui_chip::render"),
-        "avatar" => Some("cronus_ui_avatar::render"),
-        "card" => Some("cronus_ui_card::render"),
-        "empty" => Some("cronus_ui_empty::render"),
-        "select" => Some("cronus_ui_select::render"),
-        "dialog" => Some("cronus_ui_dialog::render"),
-        "tabs" => Some("cronus_ui_tabs::render"),
-        "accordion" => Some("cronus_ui_accordion::render"),
-        "table" => Some("cronus_ui_table::render"),
-        "pagination" => Some("cronus_ui_pagination::render"),
-        "breadcrumb" => Some("cronus_ui_breadcrumb::render"),
-        "tooltip" => Some("cronus_ui_tooltip::render"),
-        "password-input" => Some("cronus_ui_password_input::render"),
-        "number-input" => Some("cronus_ui_number_input::render"),
-        "field" => Some("cronus_ui_field::render"),
-        "input-group" => Some("cronus_ui_input_group::render"),
-        "rating" => Some("cronus_ui_rating::render"),
-        "copy-button" => Some("cronus_ui_copy_button::render"),
-        "fab" => Some("cronus_ui_fab::render"),
-        "toggle-group" => Some("cronus_ui_toggle_group::render"),
-        "metric" => Some("cronus_ui_metric::render"),
-        "avatar-group" => Some("cronus_ui_avatar_group::render"),
-        "button-group" => Some("cronus_ui_button_group::render"),
-        "combobox" => Some("cronus_ui_combobox::render"),
-        "stepper" => Some("cronus_ui_stepper::render"),
-        "input-otp" => Some("cronus_ui_input_otp::render"),
-        "file-dropzone" => Some("cronus_ui_file_dropzone::render"),
-        "popover" => Some("cronus_ui_popover::render"),
-        "hover-card" => Some("cronus_ui_hover_card::render"),
-        "dropdown-menu" => Some("cronus_ui_dropdown_menu::render"),
-        "collapsible" => Some("cronus_ui_collapsible::render"),
-        "mode-toggle" => Some("cronus_ui_mode_toggle::render"),
-        "command" => Some("cronus_ui_command::render"),
-        "menubar" => Some("cronus_ui_menubar::render"),
-        "context-menu" => Some("cronus_ui_context_menu::render"),
-        "drawer" => Some("cronus_ui_drawer::render"),
-        "sheet" => Some("cronus_ui_sheet::render"),
-        "calendar" => Some("cronus_ui_calendar::render"),
-        "date-picker" => Some("cronus_ui_date_picker::render"),
-        "time-picker" => Some("cronus_ui_time_picker::render"),
-        "date-range-picker" => Some("cronus_ui_date_range_picker::render"),
-        "area-chart" => Some("cronus_ui_area_chart::render"),
-        "bar-chart" => Some("cronus_ui_bar_chart::render"),
-        "line-chart" => Some("cronus_ui_line_chart::render"),
-        "sparkline" => Some("cronus_ui_sparkline::render"),
-        "pie-chart" => Some("cronus_ui_pie_chart::render"),
-        "data-table" => Some("cronus_ui_data_table::render"),
-        "sidebar" => Some("cronus_ui_sidebar::render"),
-        "sonner" => Some("cronus_ui_sonner::render"),
-        "navigation-menu" => Some("cronus_ui_navigation_menu::render"),
-        "radar-chart" => Some("cronus_ui_radar_chart::render"),
-        "scatter-chart" => Some("cronus_ui_scatter_chart::render"),
-        "ring-chart" => Some("cronus_ui_ring_chart::render"),
-        "phone-input" => Some("cronus_ui_phone_input::render"),
-        "currency-input" => Some("cronus_ui_currency_input::render"),
-        "color-picker" => Some("cronus_ui_color_picker::render"),
-        "scroll-area" => Some("cronus_ui_scroll_area::render"),
-        "toolbar" => Some("cronus_ui_toolbar::render"),
-        "status-dot" => Some("cronus_ui_status_dot::render"),
-        "tags-input" => Some("cronus_ui_tags_input::render"),
-        "autocomplete" => Some("cronus_ui_autocomplete::render"),
-        "multi-select" => Some("cronus_ui_multi_select::render"),
-        "credit-card-input" => Some("cronus_ui_credit_card_input::render"),
-        "floating-label-input" => Some("cronus_ui_floating_label_input::render"),
-        "split-button" => Some("cronus_ui_split_button::render"),
-        "pill-nav" => Some("cronus_ui_pill_nav::render"),
-        "dock" => Some("cronus_ui_dock::render"),
-        "workspace-switcher" => Some("cronus_ui_workspace_switcher::render"),
-        "app-shell" => Some("cronus_ui_app_shell::render"),
-        "table-of-contents" => Some("cronus_ui_table_of_contents::render"),
-        "form" => Some("cronus_ui_form::render"),
-        "signature-pad" => Some("cronus_ui_signature_pad::render"),
-        "resizable" => Some("cronus_ui_resizable::render"),
-        "scheduler" => Some("cronus_ui_scheduler::render"),
-        "alert-dialog" => Some("cronus_ui_alert_dialog::render"),
-        "lightbox" => Some("cronus_ui_lightbox::render"),
-        "notification-center" => Some("cronus_ui_notification_center::render"),
-        "segmented-control" => Some("cronus_ui_segmented_control::render"),
-        "usage-meter" => Some("cronus_ui_usage_meter::render"),
-        "masonry" => Some("cronus_ui_masonry::render"),
-        "heatmap" => Some("cronus_ui_heatmap::render"),
-        "comparison-slider" => Some("cronus_ui_comparison_slider::render"),
-        "code-tabs" => Some("cronus_ui_code_tabs::render"),
-        "expandable-tabs" => Some("cronus_ui_expandable_tabs::render"),
-        "live-line-chart" => Some("cronus_ui_live_line_chart::render"),
-        "sunburst-chart" => Some("cronus_ui_sunburst_chart::render"),
-        "choropleth-chart" => Some("cronus_ui_choropleth_chart::render"),
-        "profit-loss-chart" => Some("cronus_ui_profit_loss_chart::render"),
-        "scroll-progress" => Some("cronus_ui_scroll_progress::render"),
-        "rich-text-editor" => Some("cronus_ui_rich_text_editor::render"),
-        "confirmation-dialog" => Some("cronus_ui_confirmation_dialog::render"),
-        "invite-dialog" => Some("cronus_ui_invite_dialog::render"),
-        "shimmer" => Some("cronus_ui_shimmer::render"),
-        "reveal" => Some("cronus_ui_reveal::render"),
-        "text-shimmer" => Some("cronus_ui_text_shimmer::render"),
-        "particles" => Some("cronus_ui_particles::render"),
-        "sparkles-text" => Some("cronus_ui_sparkles_text::render"),
-        "noise" => Some("cronus_ui_noise::render"),
-        "morphing-popover" => Some("cronus_ui_morphing_popover::render"),
-        "bouncy-accordion" => Some("cronus_ui_bouncy_accordion::render"),
-        "typing-text" => Some("cronus_ui_typing_text::render"),
-        "word-rotate" => Some("cronus_ui_word_rotate::render"),
-        "timeline" => Some("cronus_ui_timeline::render"),
-        "tree-view" => Some("cronus_ui_tree_view::render"),
-        "tilt-card" => Some("cronus_ui_tilt_card::render"),
-        "star-border" => Some("cronus_ui_star_border::render"),
-        "glass-card" => Some("cronus_ui_glass_card::render"),
-        "terminal" => Some("cronus_ui_terminal::render"),
-        "video-player" => Some("cronus_ui_video_player::render"),
-        "text-effect" => Some("cronus_ui_text_effect::render"),
-        "spotlight-card" => Some("cronus_ui_spotlight_card::render"),
-        "animated-list" => Some("cronus_ui_animated_list::render"),
-        "toast" => Some("cronus_ui_toast::render"),
-        "carousel" => Some("cronus_ui_carousel::render"),
-        "code-block" => Some("cronus_ui_code_block::render"),
-        "description-list" => Some("cronus_ui_description_list::render"),
-        "kanban" => Some("cronus_ui_kanban::render"),
-        "json-viewer" => Some("cronus_ui_json_viewer::render"),
-        "animated-number" => Some("cronus_ui_animated_number::render"),
-        "marquee" => Some("cronus_ui_marquee::render"),
-        "gradient-text" => Some("cronus_ui_gradient_text::render"),
-        "shiny-text" => Some("cronus_ui_shiny_text::render"),
-        "aspect-ratio" => Some("cronus_ui_aspect_ratio::render"),
-        "frame" => Some("cronus_ui_frame::render"),
-        "flip-card" => Some("cronus_ui_flip_card::render"),
-        "countdown" => Some("cronus_ui_countdown::render"),
-        "animated-button" => Some("cronus_ui_animated_button::render"),
-        "card-stack" => Some("cronus_ui_card_stack::render"),
-        "gauge-chart" => Some("cronus_ui_gauge_chart::render"),
-        "funnel-chart" => Some("cronus_ui_funnel_chart::render"),
-        "candlestick-chart" => Some("cronus_ui_candlestick_chart::render"),
-        "logo-carousel" => Some("cronus_ui_logo_carousel::render"),
-        "dynamic-island" => Some("cronus_ui_dynamic_island::render"),
-        "image-zoom" => Some("cronus_ui_image_zoom::render"),
-        "aurora-background" => Some("cronus_ui_aurora_background::render"),
-        "border-beam" => Some("cronus_ui_border_beam::render"),
-        "confetti" => Some("cronus_ui_confetti::render"),
-        "composed-chart" => Some("cronus_ui_composed_chart::render"),
-        "heatmap-chart" => Some("cronus_ui_heatmap_chart::render"),
-        "chart" => Some("cronus_ui_chart::render"),
-        "click-spark" => Some("cronus_ui_click_spark::render"),
-        "glare-hover" => Some("cronus_ui_glare_hover::render"),
-        "magnetic" => Some("cronus_ui_magnetic::render"),
-        "dot-pattern" => Some("cronus_ui_dot_pattern::render"),
-        "flickering-grid" => Some("cronus_ui_flickering_grid::render"),
-        "grid-pattern" => Some("cronus_ui_grid_pattern::render"),
-        "highlighter" => Some("cronus_ui_highlighter::render"),
-        "scramble-text" => Some("cronus_ui_scramble_text::render"),
-        "spinning-text" => Some("cronus_ui_spinning_text::render"),
-        "gradient-border" => Some("cronus_ui_gradient_border::render"),
-        "light-rays" => Some("cronus_ui_light_rays::render"),
-        "orbit" => Some("cronus_ui_orbit::render"),
-        "progressive-blur" => Some("cronus_ui_progressive_blur::render"),
-        "retro-grid" => Some("cronus_ui_retro_grid::render"),
-        "ripple" => Some("cronus_ui_ripple::render"),
-        "motion-presets" => Some("cronus_ui_motion_presets::render"),
-        _ => None,
+    match cronus_ui_widgets::renderer_of(family)? {
+        Renderer::Dedicated(name, _) => Some(name),
+        Renderer::Stub(..) => None,
     }
 }
 
 pub fn renderer_kind(family: &str) -> RendererKind {
-    if PORTED_FAMILIES.contains(&family) {
-        return match dedicated_fn_name(family) {
-            Some(name) => RendererKind::Dedicated(name),
-            None => RendererKind::Missing,
-        };
-    }
-    if crate::cronus_ui_interact::covers(family) {
-        return RendererKind::Interact;
-    }
-    match catalog_stub_kind(family) {
-        Some(kind) => RendererKind::Stub(kind),
+    match cronus_ui_widgets::renderer_of(family) {
+        Some(Renderer::Dedicated(name, _)) => RendererKind::Dedicated(name),
+        Some(Renderer::Stub(kind, _)) => RendererKind::Stub(kind),
         None => RendererKind::Missing,
     }
 }
 
-/// Catalog kind from the generator table (pill/field/overlay/nav/display/chart/fx).
-/// Not a proof of port — interact still wins for unported families.
-pub fn catalog_stub_kind(family: &str) -> Option<&'static str> {
-    match family {
-        "button" => Some("button"),
-        "badge" | "chip" | "kbd" | "status-dot" | "spinner" | "skeleton" | "separator"
-        | "label" | "progress" | "slider" | "rating" | "copy-button" | "fab" | "toggle"
-        | "switch" | "checkbox" | "radio-group" | "toggle-group" | "segmented-control" => {
-            Some("pill")
-        }
-        "input"
-        | "textarea"
-        | "password-input"
-        | "number-input"
-        | "phone-input"
-        | "currency-input"
-        | "credit-card-input"
-        | "floating-label-input"
-        | "tags-input"
-        | "input-otp"
-        | "input-group"
-        | "color-picker"
-        | "file-dropzone"
-        | "select"
-        | "combobox"
-        | "autocomplete"
-        | "multi-select"
-        | "date-picker"
-        | "date-range-picker"
-        | "time-picker"
-        | "field"
-        | "form"
-        | "signature-pad"
-        | "rich-text-editor" => Some("field"),
-        "dialog"
-        | "alert-dialog"
-        | "confirmation-dialog"
-        | "invite-dialog"
-        | "sheet"
-        | "drawer"
-        | "popover"
-        | "hover-card"
-        | "tooltip"
-        | "dropdown-menu"
-        | "context-menu"
-        | "menubar"
-        | "command"
-        | "lightbox"
-        | "morphing-popover"
-        | "notification-center"
-        | "sonner" => Some("overlay"),
-        "tabs" | "accordion" | "bouncy-accordion" | "collapsible" | "breadcrumb" | "pagination"
-        | "sidebar" | "navigation-menu" | "pill-nav" | "expandable-tabs" | "stepper"
-        | "toolbar" | "table-of-contents" | "app-shell" | "workspace-switcher" | "dock"
-        | "mode-toggle" | "split-button" | "button-group" => Some("nav"),
-        "card" | "card-stack" | "glass-card" | "spotlight-card" | "tilt-card" | "flip-card"
-        | "banner" | "empty" | "alert" | "metric" | "description-list" | "table" | "data-table"
-        | "avatar" | "avatar-group" | "aspect-ratio" | "frame" | "scroll-area" | "resizable"
-        | "calendar" | "timeline" | "kanban" | "scheduler" | "json-viewer" | "code-block"
-        | "code-tabs" | "terminal" | "tree-view" | "carousel" | "logo-carousel" | "masonry"
-        | "usage-meter" | "video-player" => Some("display"),
-        "area-chart" | "bar-chart" | "line-chart" | "pie-chart" | "radar-chart"
-        | "composed-chart" | "candlestick-chart" | "choropleth-chart" | "funnel-chart"
-        | "gauge-chart" | "heatmap" | "heatmap-chart" | "live-line-chart" | "profit-loss-chart"
-        | "ring-chart" | "sankey-chart" | "scatter-chart" | "sparkline" | "sunburst-chart"
-        | "chart" => Some("chart"),
-        "animated-button" | "animated-list" | "animated-number" | "aurora-background"
-        | "border-beam" | "click-spark" | "confetti" | "countdown" | "dot-pattern"
-        | "flickering-grid" | "glare-hover" | "gradient-border" | "gradient-text"
-        | "grid-pattern" | "highlighter" | "image-zoom" | "light-rays" | "magnetic" | "marquee"
-        | "meteors" | "noise" | "orbit" | "particles" | "progressive-blur" | "retro-grid"
-        | "reveal" | "ripple" | "scramble-text" | "scroll-progress" | "shimmer" | "shiny-text"
-        | "sparkles-text" | "spinning-text" | "star-border" | "text-effect" | "text-shimmer"
-        | "typing-text" | "word-rotate" | "comparison-slider" | "dynamic-island" | "toast"
-        | "motion-presets" => Some("fx"),
-        _ => None,
-    }
-}
-
+/// Fingerprints of the retired generic renderers (inline-style stubs and the
+/// old interact fallback). Dedicated output must never match.
 pub fn looks_like_interact_generic(html: &str) -> bool {
     html.contains("data-slot=\"input-control\"")
         || html.contains("<label data-slot=\"input\"")
@@ -860,11 +602,6 @@ pub fn check_family(family: &str) -> Result<(), AuditFinding> {
             STUB_RENDERER,
             format!("family {family} is stub renderer {kind}"),
         )),
-        RendererKind::Interact => Err(AuditFinding::fail(
-            "logic",
-            STUB_RENDERER,
-            format!("family {family} is interact generic, not a dedicated port"),
-        )),
         RendererKind::Missing => Err(AuditFinding::fail(
             "logic",
             STUB_RENDERER,
@@ -891,7 +628,7 @@ pub fn check_ast(nodes: &[AstNode]) -> Vec<AuditFinding> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cronus_ui_widgets::{render, FAMILIES};
+    use crate::cronus_ui_widgets::{render, FAMILIES, PORTED_FAMILIES};
 
     fn stub(family: &str) -> crate::parser::ComponentNode {
         crate::cronus_ui_widgets::test_stub(family)
@@ -911,9 +648,9 @@ mod tests {
     }
 
     /// wave1s: form emits React's `label` / `input` slots (no form-label).
-    /// Gate accepts it; the interact form (style= + Submit) is still caught.
+    /// Gate accepts it; a bare form without label slots is still caught.
     #[test]
-    fn form_react_label_slots_pass_gate_interact_form_does_not() {
+    fn form_react_label_slots_pass_gate_bare_form_does_not() {
         let html = render(&stub("form")).unwrap();
         assert!(html.contains("<label data-slot=\"label\""), "{html}");
         assert!(!html.contains("data-slot=\"form-label\""), "{html}");
@@ -922,8 +659,6 @@ mod tests {
         assert!(check_family("form").is_ok());
         let bare = "<form data-slot=\"form\"><div data-slot=\"form-item\"><input /></div></form>";
         assert!(looks_like_interact_generic(bare));
-        let ih = crate::cronus_ui_interact::render("form", &stub("form")).unwrap();
-        assert!(looks_like_interact_generic(&ih), "{ih}");
     }
 
     #[test]
@@ -954,25 +689,22 @@ mod tests {
     }
 
     #[test]
-    fn radio_fingerprint_is_interact_styling_not_any_radio() {
-        let ih = crate::cronus_ui_interact::render("radio-group", &stub("radio-group")).unwrap();
-        assert!(looks_like_interact_generic(&ih), "{ih}");
+    fn radio_fingerprint_is_inline_styling_not_any_radio() {
+        let styled = "<label><input type=\"radio\" style=\"margin:0\" /></label>";
+        assert!(looks_like_interact_generic(styled));
         let tabs = render(&stub("tabs")).unwrap();
         assert!(tabs.contains("<input type=\"radio\""), "{tabs}");
         assert!(!looks_like_interact_generic(&tabs), "{tabs}");
     }
 
     #[test]
-    fn ported_families_are_dedicated_and_skip_interact() {
+    fn ported_families_are_dedicated_not_stub() {
         for family in PORTED_FAMILIES {
             assert!(
                 matches!(renderer_kind(family), RendererKind::Dedicated(_)),
                 "{family}"
             );
             let html = render(&stub(family)).expect(family);
-            if let Some(ih) = crate::cronus_ui_interact::render(family, &stub(family)) {
-                assert_ne!(html, ih, "{family} still equals interact HTML");
-            }
             assert!(
                 !looks_like_interact_generic(&html),
                 "{family} looks like interact: {html}"

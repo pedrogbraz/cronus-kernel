@@ -95,11 +95,6 @@ mod tests {
     #[test]
     fn skips_display_surf_section() {
         let html = render(&stub("frame", "Preview"));
-        let interact =
-            crate::cronus_ui_interact::render("frame", &stub("frame", "Preview")).unwrap();
-        assert!(interact.starts_with("<section data-slot=\"frame\""));
-        assert!(!interact.contains("data-slot=\"frame-chrome\""));
-        assert_ne!(html, interact);
         reject_display(&html);
         assert_eq!(dedicated_fn_name("frame"), Some("cronus_ui_frame::render"));
         assert_eq!(

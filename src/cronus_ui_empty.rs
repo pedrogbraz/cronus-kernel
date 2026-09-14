@@ -121,12 +121,6 @@ mod tests {
     #[test]
     fn skips_interact_alert() {
         let html = render(&stub("No results"));
-        let interact = crate::cronus_ui_interact::render("empty", &stub("No results")).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("data-slot=\"empty\""));
-        assert!(interact.contains("role=\"status\""));
-        assert!(interact.contains("style="));
-        assert!(!interact.contains("data-slot=\"empty-title\""));
         assert!(!html.contains("v-data="));
     }
 

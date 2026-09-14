@@ -56,11 +56,6 @@ mod tests {
     #[test]
     fn skips_interact_inline_dump() {
         let html = render(&stub());
-        let interact = crate::cronus_ui_interact::render("skeleton", &stub()).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("height:0.9rem;width:8rem;"));
-        assert!(interact.contains("background:var(--cronus-border)"));
-        assert!(interact.contains("style="));
         assert!(!html.contains("style="));
     }
 

@@ -75,15 +75,6 @@ mod tests {
     #[test]
     fn skips_interact_surf_details() {
         let html = render(&with_body("Preview", "Native disclosure."));
-        let interact = crate::cronus_ui_interact::render(
-            "hover-card",
-            &with_body("Preview", "Native disclosure."),
-        )
-        .unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<details data-slot=\"hover-card\""));
-        assert!(interact.contains("style="));
-        assert!(!interact.contains("data-slot=\"hover-card-content\""));
         assert!(!html.contains("<details"));
         reject_interact(&html);
     }

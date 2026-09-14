@@ -129,17 +129,6 @@ mod tests {
     }
 
     #[test]
-    fn skips_interact_switch() {
-        let html = render(&stub("toggle", "Bold"));
-        let interact =
-            crate::cronus_ui_interact::render("toggle", &stub("toggle", "Bold")).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<label data-slot=\"toggle\""));
-        assert!(interact.contains("data-slot=\"toggle-control\""));
-        assert!(interact.contains("type=\"checkbox\""));
-    }
-
-    #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"toggle\"]"));

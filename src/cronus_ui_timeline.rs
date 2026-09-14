@@ -155,12 +155,6 @@ mod tests {
     fn skips_interact_styled_ol_and_display_surf() {
         let c = feed(&["Shipped", "Delivered"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("timeline", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.starts_with("<ol data-slot=\"timeline\""));
-        assert!(interact.contains("style="));
-        assert!(!interact.contains("data-slot=\"timeline-item\""));
-        assert!(!interact.contains("data-slot=\"timeline-content\""));
         assert!(html.starts_with("<ol role=\"list\" data-slot=\"timeline\">"));
         assert!(html.contains("data-slot=\"timeline-item\""));
         reject_interact(&html);

@@ -127,12 +127,6 @@ mod tests {
         let mut c = stub("navigation-menu", "Menus");
         c.items.push(extra("item", "Products"));
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("navigation-menu", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<nav data-slot=\"navigation-menu\""));
-        assert!(interact.contains("style="));
-        assert!(interact.contains("flex-wrap:wrap;gap:0.25rem"));
-        assert!(!interact.contains("data-slot=\"navigation-menu-list\""));
         assert!(html.contains("data-slot=\"navigation-menu-list\""));
         reject_interact(&html);
     }

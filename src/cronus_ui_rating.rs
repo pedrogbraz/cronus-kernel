@@ -138,12 +138,6 @@ mod tests {
     #[test]
     fn skips_interact_radio_stars() {
         let html = render(&stub("rating", "Rating"));
-        let interact =
-            crate::cronus_ui_interact::render("rating", &stub("rating", "Rating")).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("role=\"radiogroup\""));
-        assert!(interact.contains("<input type=\"radio\""));
-        assert!(interact.contains("★"));
         assert!(!html.contains("★"));
         assert!(!html.contains("role=\"radiogroup\""));
         reject_interact(&html);

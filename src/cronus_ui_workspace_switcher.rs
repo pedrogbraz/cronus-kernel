@@ -116,11 +116,6 @@ mod tests {
         let mut c = stub("workspace-switcher", "Orgs");
         c.items.push(extra("item", "Acme"));
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("workspace-switcher", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(crate::cli::stub_renderer_gate::looks_like_interact_generic(
-            &interact
-        ));
         assert!(!crate::cli::stub_renderer_gate::looks_like_interact_generic(&html));
         reject_interact(&html);
     }

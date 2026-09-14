@@ -218,9 +218,6 @@ mod tests {
         c.items.push(extra("item", "Todo"));
         c.items.push(extra("item", "Ship"));
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("kanban", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("min-width:10rem"));
         assert!(html.contains("data-slot=\"kanban-column\""));
         reject_interact(&html);
     }

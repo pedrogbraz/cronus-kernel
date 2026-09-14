@@ -164,15 +164,6 @@ mod tests {
     fn skips_interact_fieldset_ctrl() {
         let c = stub("input-otp", "Code");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("input-otp", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<fieldset data-slot=\"input-otp\""));
-        assert!(interact.contains("style="));
-        assert!(interact.contains("<input data-slot=\"input-otp-slot\""));
-        assert!(interact.contains("maxlength=\"1\""));
-        assert!(
-            interact.contains("width:2.5rem;text-align:center;font-variant-numeric:tabular-nums")
-        );
         assert!(!html.contains("<fieldset"));
         assert!(html.contains("<input data-slot=\"input-otp\""));
         reject_interact(&html);

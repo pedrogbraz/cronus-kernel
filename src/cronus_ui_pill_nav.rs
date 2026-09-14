@@ -146,9 +146,6 @@ mod tests {
     fn skips_interact_nav_surf() {
         let c = emitted("Sections", &["Home", "Docs"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("pill-nav", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(!interact.contains("data-slot=\"pill-nav-item\""));
         assert!(html.contains("data-slot=\"pill-nav-item\""));
         reject_interact(&html);
     }

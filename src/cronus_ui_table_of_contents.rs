@@ -156,9 +156,6 @@ mod tests {
         let mut c = stub("table-of-contents", "Nav");
         c.items.push(extra("item", "Intro"));
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("table-of-contents", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(!interact.contains("data-slot=\"table-of-contents-list\""));
         assert!(html.contains("data-slot=\"table-of-contents-list\""));
         reject_interact(&html);
     }

@@ -207,10 +207,6 @@ mod tests {
     #[test]
     fn skips_interact_html_progress() {
         let html = render(&stub());
-        let interact = crate::cronus_ui_interact::render("progress", &stub()).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<progress"));
-        assert!(interact.contains("max=\"100\""));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("{ value }"));
     }

@@ -279,12 +279,6 @@ mod tests {
     fn skips_interact_native_date_input() {
         let c = stub("date-picker", "Due date");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("date-picker", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<label data-slot=\"date-picker\""));
-        assert!(interact.contains("data-slot=\"date-picker-control\""));
-        assert!(interact.contains("type=\"date\""));
-        assert!(interact.contains("style="));
         assert!(!html.contains("date-picker-control"));
         assert!(!html.contains("type=\"date\""));
         assert!(html.contains("data-slot=\"date-picker-trigger\""));

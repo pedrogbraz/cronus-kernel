@@ -239,11 +239,6 @@ mod tests {
     fn skips_interact_native_radios() {
         let c = stub_options(&["Day", "Week"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("segmented-control", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<input type=\"radio\""));
-        assert!(interact.contains("<label"));
-        assert!(!interact.contains("data-slot=\"segmented-control-item\""));
         assert!(html.contains("data-slot=\"segmented-control-item\""));
         assert!(html.contains("role=\"radiogroup\""));
         reject_interact(&html);

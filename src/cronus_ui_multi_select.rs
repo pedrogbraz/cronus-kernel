@@ -365,11 +365,6 @@ mod tests {
     fn skips_interact_native_select() {
         let c = multi("Pick", &["Ada", "Grace"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("multi-select", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<label data-slot=\"multi-select\""));
-        assert!(interact.contains("<select data-slot=\"multi-select-control\""));
-        assert!(interact.contains("style="));
         assert!(!html.contains("multi-select-control"));
         assert!(!html.contains("<select"));
         reject_interact(&html);

@@ -183,11 +183,6 @@ mod tests {
     fn skips_interact_native_select() {
         let c = combo("Search", &["Ada", "Grace"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("combobox", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<label data-slot=\"combobox\""));
-        assert!(interact.contains("<select data-slot=\"combobox-control\""));
-        assert!(interact.contains("style="));
         assert!(!html.contains("combobox-control"));
         assert!(!html.contains("<select"));
         reject_interact(&html);

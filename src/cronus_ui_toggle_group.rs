@@ -141,9 +141,6 @@ mod tests {
         let mut c = stub("toggle-group", "Align");
         c.items.push(item("item", "Left"));
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("toggle-group", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("role=\"radiogroup\""));
         reject_interact(&html);
     }
 

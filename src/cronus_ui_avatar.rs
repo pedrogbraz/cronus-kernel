@@ -195,11 +195,6 @@ mod tests {
     #[test]
     fn skips_interact_div() {
         let html = render(&stub("Demo"));
-        let interact = crate::cronus_ui_interact::render("avatar", &stub("Demo")).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.starts_with("<div data-slot=\"avatar\""));
-        assert!(interact.contains("width:2.25rem"));
-        assert!(!interact.contains("data-slot=\"avatar-fallback\""));
         assert!(!html.contains("v-data="));
     }
 

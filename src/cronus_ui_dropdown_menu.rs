@@ -109,13 +109,6 @@ mod tests {
     fn skips_interact_popover_surf() {
         let c = menu("Actions", &["Edit"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("dropdown-menu", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<details data-slot=\"dropdown-menu\""));
-        assert!(interact.contains("<summary"));
-        assert!(interact.contains("style="));
-        assert!(interact.contains("position:absolute;z-index:20"));
-        assert!(!interact.contains("data-slot=\"dropdown-menu-content\""));
         assert!(html.contains("data-slot=\"dropdown-menu-content\""));
         reject_interact(&html);
     }

@@ -153,10 +153,6 @@ mod tests {
         let html = render(&c);
         let via = crate::cronus_ui_widgets::render(&c).unwrap();
         assert_eq!(via, html);
-        let interact = crate::cronus_ui_interact::render("card-stack", &c).unwrap();
-        assert!(interact.starts_with("<section data-slot=\"card-stack\""));
-        assert!(interact.contains("style="));
-        assert_ne!(html, interact);
         assert!(html.starts_with("<section data-slot=\"card-stack\">"));
         reject_display(&html);
         assert_eq!(

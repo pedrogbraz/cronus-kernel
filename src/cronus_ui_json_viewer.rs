@@ -213,10 +213,6 @@ mod tests {
         let mut c = stub("json-viewer", "Payload");
         c.items.push(extra("item", "name: Ada"));
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("json-viewer", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.starts_with("<pre data-slot=\"json-viewer\""));
-        assert!(!interact.contains("data-slot=\"json-viewer-row\""));
         assert!(html.contains("data-slot=\"json-viewer-row\""));
         reject_interact(&html);
     }

@@ -104,13 +104,6 @@ mod tests {
         let mut c = stub("menubar", "File");
         c.items.push(extra("item", "Edit"));
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("menubar", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<details data-slot=\"menubar\""));
-        assert!(interact.contains("<summary"));
-        assert!(interact.contains("style="));
-        assert!(interact.contains("position:absolute;z-index:20"));
-        assert!(!interact.contains("data-slot=\"menubar-trigger\""));
         assert!(html.contains("data-slot=\"menubar-content\""));
         reject_interact(&html);
     }

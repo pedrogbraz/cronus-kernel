@@ -159,15 +159,6 @@ mod tests {
     }
 
     #[test]
-    fn skips_interact_surf_box() {
-        let html = render(&stub("alert", "Saved"));
-        let interact = crate::cronus_ui_interact::render("alert", &stub("alert", "Saved")).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<div>Saved</div>"));
-        assert!(!interact.contains("data-slot=\"alert-title\""));
-    }
-
-    #[test]
     fn chrome_is_token_only_and_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("grid-template-columns: 0 1fr; align-items: start; row-gap: 0.25rem;"));

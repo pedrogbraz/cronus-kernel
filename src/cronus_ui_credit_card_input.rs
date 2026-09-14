@@ -283,12 +283,6 @@ mod tests {
     fn skips_interact_label_text_control() {
         let c = stub("credit-card-input", "Card");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("credit-card-input", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<label data-slot=\"credit-card-input\""));
-        assert!(interact.contains("data-slot=\"credit-card-input-control\""));
-        assert!(interact.contains("type=\"text\""));
-        assert!(interact.contains("style="));
         assert!(!html.contains("credit-card-input-control"));
         assert!(!html.contains("<label"));
         reject_interact(&html);

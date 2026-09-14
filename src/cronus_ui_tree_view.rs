@@ -151,9 +151,6 @@ mod tests {
         c.items.push(extra("item", "src"));
         c.items.push(extra("item", "Cargo.toml"));
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("tree-view", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.starts_with("<ul data-slot=\"tree-view\""));
         assert!(html.contains("data-slot=\"tree-view-item-trigger\""));
         reject_interact(&html);
     }

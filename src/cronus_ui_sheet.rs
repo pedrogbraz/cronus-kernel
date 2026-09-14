@@ -121,10 +121,6 @@ mod tests {
     fn skips_interact_dialog_surf() {
         let c = stub("sheet", "Filters");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("sheet", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<dialog data-slot=\"sheet-content\""));
-        assert!(interact.contains("showModal()"));
         reject_interact(&html);
     }
 

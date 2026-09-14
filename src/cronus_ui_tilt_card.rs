@@ -55,11 +55,6 @@ mod tests {
     #[test]
     fn skips_display_surf_section() {
         let html = render(&stub("tilt-card", "Tilt"));
-        let interact =
-            crate::cronus_ui_interact::render("tilt-card", &stub("tilt-card", "Tilt")).unwrap();
-        assert!(interact.starts_with("<section data-slot=\"tilt-card\""));
-        assert!(interact.contains(DISPLAY_SURF));
-        assert_ne!(html, interact);
         reject_display(&html);
         assert_eq!(
             crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html),

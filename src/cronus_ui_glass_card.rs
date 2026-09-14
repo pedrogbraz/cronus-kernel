@@ -57,11 +57,6 @@ mod tests {
     #[test]
     fn skips_display_surf_section() {
         let html = render(&stub("glass-card", "Frost"));
-        let interact =
-            crate::cronus_ui_interact::render("glass-card", &stub("glass-card", "Frost")).unwrap();
-        assert!(interact.starts_with("<section data-slot=\"glass-card\""));
-        assert!(interact.contains(DISPLAY_SURF));
-        assert_ne!(html, interact);
         reject_display(&html);
     }
 

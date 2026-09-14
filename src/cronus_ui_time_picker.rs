@@ -331,12 +331,6 @@ mod tests {
     fn skips_interact_native_time_input() {
         let c = stub("time-picker", "Time");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("time-picker", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<label data-slot=\"time-picker\""));
-        assert!(interact.contains("data-slot=\"time-picker-control\""));
-        assert!(interact.contains("type=\"time\""));
-        assert!(interact.contains("style="));
         assert!(!html.contains("time-picker-control"));
         assert!(!html.contains("type=\"time\""));
         reject_interact(&html);

@@ -229,12 +229,6 @@ mod tests {
     fn skips_interact_nav_surf() {
         let c = bar(&["Home", "Search"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("dock", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<nav data-slot=\"dock\""));
-        assert!(interact.contains("style="));
-        assert!(interact.contains("flex-wrap:wrap;gap:0.25rem"));
-        assert!(!interact.contains("data-slot=\"dock-item\""));
         assert!(html.contains("data-slot=\"dock-item\""));
         reject_interact(&html);
     }

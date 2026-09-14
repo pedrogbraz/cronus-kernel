@@ -211,10 +211,6 @@ mod tests {
         let mut c = stub("code-tabs", "bun");
         c.items.push(extra("item", "npm"));
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("code-tabs", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("onclick="));
-        assert!(!interact.contains("data-slot=\"code-tabs-pre\""));
         assert!(html.contains("data-slot=\"code-tabs-pre\""));
         reject_interact(&html);
     }

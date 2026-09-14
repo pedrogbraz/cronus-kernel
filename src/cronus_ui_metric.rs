@@ -185,13 +185,6 @@ mod tests {
     #[test]
     fn skips_interact_section() {
         let html = render(&stub("metric", "Revenue"));
-        let interact =
-            crate::cronus_ui_interact::render("metric", &stub("metric", "Revenue")).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.starts_with("<section data-slot=\"metric\""));
-        assert!(interact.contains("style="));
-        assert!(!interact.contains("data-slot=\"metric-label\""));
-        assert!(!interact.contains("data-slot=\"metric-value\""));
         assert!(html.starts_with("<div data-slot=\"metric\">"));
         reject_interact(&html);
     }

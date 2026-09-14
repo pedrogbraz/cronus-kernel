@@ -169,12 +169,6 @@ mod tests {
     fn skips_interact_ol_and_passes_stub_gate() {
         let c = steps("W", &["Account", "Plan"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("stepper", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.starts_with("<ol data-slot=\"stepper\""));
-        assert!(crate::cli::stub_renderer_gate::looks_like_interact_generic(
-            &interact
-        ));
         assert!(!crate::cli::stub_renderer_gate::looks_like_interact_generic(&html));
         reject_interact(&html);
     }

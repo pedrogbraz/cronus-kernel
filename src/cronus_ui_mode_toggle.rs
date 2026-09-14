@@ -153,11 +153,6 @@ mod tests {
     fn skips_interact_classlist_toggle() {
         let c = stub("mode-toggle", "Theme");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("mode-toggle", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("onclick=\"document.documentElement.classList.toggle('dark')\""));
-        assert!(interact.contains("style="));
-        assert!(interact.contains(">Theme</button>"));
         assert!(!html.contains("onclick="));
         assert!(!html.contains("Theme</button>"));
         reject_interact(&html);

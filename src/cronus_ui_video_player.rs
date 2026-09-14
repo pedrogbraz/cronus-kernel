@@ -82,10 +82,6 @@ mod tests {
     fn skips_interact_video_and_display_surf() {
         let c = stub("video-player", "Demo");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("video-player", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.starts_with("<video data-slot=\"video-player\""));
-        assert!(!interact.contains("data-slot=\"video-player-controls\""));
         reject_stub(&html);
     }
 

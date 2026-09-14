@@ -181,12 +181,6 @@ mod tests {
     #[test]
     fn skips_interact_label_control() {
         let html = render(&stub("input-group", "https://"));
-        let interact =
-            crate::cronus_ui_interact::render("input-group", &stub("input-group", "https://"))
-                .unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<label data-slot=\"input-group\""));
-        assert!(interact.contains("data-slot=\"input-group-control\""));
         assert!(!html.contains("input-group-control"));
         reject_interact(&html);
     }

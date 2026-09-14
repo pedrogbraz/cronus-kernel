@@ -358,10 +358,6 @@ mod tests {
     fn skips_interact_calendar_surf() {
         let c = audit_source();
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("scheduler", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("grid-template-columns:repeat(7,1fr)"));
-        assert!(!interact.contains("data-slot=\"scheduler-grid\""));
         reject_interact(&html);
     }
 

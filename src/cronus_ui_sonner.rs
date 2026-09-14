@@ -88,11 +88,6 @@ mod tests {
     fn skips_interact_popover_surf() {
         let c = stub("sonner", "Saved");
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("sonner", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<details data-slot=\"sonner\""));
-        assert!(interact.contains("style="));
-        assert!(!interact.contains("data-slot=\"toaster\""));
         assert!(html.contains("data-slot=\"toaster\""));
         reject_interact(&html);
     }

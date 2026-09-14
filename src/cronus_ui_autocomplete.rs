@@ -219,11 +219,6 @@ mod tests {
     fn skips_interact_native_select() {
         let c = auto("Search", &["Ada", "Grace"]);
         let html = render(&c);
-        let interact = crate::cronus_ui_interact::render("autocomplete", &c).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.contains("<label data-slot=\"autocomplete\""));
-        assert!(interact.contains("<select data-slot=\"autocomplete-control\""));
-        assert!(interact.contains("style="));
         assert!(!html.contains("autocomplete-control"));
         assert!(!html.contains("<select"));
         reject_interact(&html);

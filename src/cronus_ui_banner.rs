@@ -140,10 +140,6 @@ mod tests {
     #[test]
     fn skips_interact_surf_box() {
         let html = render(&stub("banner", "New billing"));
-        let interact =
-            crate::cronus_ui_interact::render("banner", &stub("banner", "New billing")).unwrap();
-        assert_ne!(html, interact);
-        assert!(interact.starts_with("<div data-slot=\"banner\""));
         assert!(html.starts_with("<section "));
     }
 
