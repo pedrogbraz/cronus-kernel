@@ -42,7 +42,12 @@ CLI verbs are matched in `src/main.rs` (`match cmd`); implementations live in `s
 ## Layout (2026-09-14, from `ls` / `wc -l`)
 
 ```
-src/main.rs              4815  CLI dispatch, cmd_run, handle_request (guards) → handle_request_inner (routes)
+src/main.rs               460  CLI verb dispatch (`match cmd`), global flags, find_cronus_file, open_memory_db
+src/routes/               mod.rs = serve (SSE, audit canvas, panic isolation) → handle_request (guards, traces)
+                          → handle_request_inner: ordered route groups (devtools, throttle, diagnostics, sessions,
+                          billing, audit_log, introspection, gql, scripts, rest, forms, pages). Order is precedence.
+src/effects.rs            transitions, outbound webhooks, entity effect blocks (called by api_crud/actions)
+src/http_dispatch_tests.rs end-to-end HTTP tests over loopback against routes::serve
 src/parser/              mod.rs 4724 (parser), ast.rs (AST + FieldType/HttpMethod), tokenizer.rs (KEYWORDS, METHODS)
 src/cli/                 40 files, one per command (+ context_grammar.rs: grammar facts for AI context)
 src/ui/                  14 files. mod.rs = section dispatcher (render_section_inner), page.rs, layout.rs, dashboard.rs, section_*.rs
@@ -109,14 +114,14 @@ Changing any of the above is a breaking change: record it in `CHANGELOG.md` and 
 
 Deleted in Sprint 4 (2026-09-14): `src/server/router.rs`, `src/server/api.rs`, `CronusServer` and its private handlers in `src/server/mod.rs`, the duplicate `RateLimiter` in `src/security.rs` (the live one is `src/rate_limit.rs`), and `src/cronus_ui_interact.rs` (unreachable fallback).
 
-- The live HTTP path is `main.rs::handle_request` → `handle_request_inner` → `api_crud::handle_api` / `actions` / `graphql` / `sse` / `ui`. `src/server/mod.rs` only declares its live submodules.
+- The live HTTP path is `routes::serve` → `routes::handle_request` → `handle_request_inner` (route groups in `src/routes/`) → `api_crud::handle_api` / `actions` / `graphql` / `sse` / `ui`. `src/server/mod.rs` only declares its live submodules.
 - cronus-ui families have one table: `cronus_ui_widgets::FAMILY_TABLE`. `FAMILIES`, `PORTED_FAMILIES` and `cli::stub_renderer_gate::{dedicated_fn_name, renderer_kind}` derive from it. The only stubs are `meteors` (fx) and `sankey-chart` (chart).
 - `stub_renderer_gate::looks_like_interact_generic` is a fingerprint of the retired generic renderers, kept as a test oracle for dedicated output.
 
 ## Known gaps (2026-09-14)
 
-- No tests: `src/main.rs` (dispatcher), `src/runtime_js.rs`, `src/ui/mod.rs`, `src/ui/dashboard.rs`, `src/scripting/vm.rs`, `src/zeus.rs`, `src/hmr.rs`, `src/server/{docs,response,auth_pages}.rs`. Thin: `render.rs`, `sse.rs`, `ui/layout.rs` (1 each).
-- `main.rs` is 4815 lines. Split it only under a test net.
+- No tests: `src/runtime_js.rs`, `src/ui/mod.rs`, `src/ui/dashboard.rs`, `src/scripting/vm.rs`, `src/zeus.rs`, `src/hmr.rs`, `src/server/{docs,response,auth_pages}.rs`. Thin: `render.rs`, `sse.rs`, `ui/layout.rs` (1 each).
+- The dispatcher is split into `src/routes/`; `http_dispatch_tests.rs` is its net. Add a case there when you add or reorder a route group.
 - Clippy has ~291 non-correctness warnings (per the CI comment); only `clippy::correctness` is enforced.
 - Webhooks cannot deliver `https://` (no TLS client in dependencies).
 - GraphQL has no `update<Entity>` mutation and cannot be disabled.
