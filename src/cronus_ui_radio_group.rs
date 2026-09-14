@@ -12,52 +12,65 @@ pub fn render(comp: &ComponentNode) -> String {
         .map(|(text, checked)| {
             let state = if *checked { "checked" } else { "unchecked" };
             let aria = if *checked { "true" } else { "false" };
+            let indicator = if *checked { CIRCLE_INDICATOR } else { "" };
             format!(
-                "<button type=\"button\" data-slot=\"radio-group-item\" role=\"radio\" aria-checked=\"{aria}\" data-state=\"{state}\" aria-label=\"{}\"></button>",
-                esc(text)
+                "<button type=\"button\" role=\"radio\" aria-checked=\"{aria}\" data-state=\"{state}\" value=\"{v}\" data-slot=\"radio-group-item\" aria-label=\"{v}\">{indicator}</button>",
+                v = esc(text)
             )
         })
         .collect::<Vec<_>>()
         .join("");
-    let name = crate::cronus_ui_kit::label_of(comp);
+    let name = group_label(comp);
     format!(
-        "<div data-slot=\"radio-group\" role=\"radiogroup\" aria-label=\"{name}\">{buttons}</div>"
+        "<div role=\"radiogroup\" aria-required=\"false\" dir=\"ltr\" data-slot=\"radio-group\" aria-label=\"{name}\">{buttons}</div>"
     )
 }
 
-const FIELD_KINDS: &[&str] = &["label", "title", "text", "value"];
-const CHOICE_KINDS: &[&str] = &["item", "tab", "columns"];
+/// Radix Indicator: unslotted span + lucide Circle (size-2, fill primary).
+const CIRCLE_INDICATOR: &str = "<span data-state=\"checked\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle></svg></span>";
+
+/// Label / title name the group; they are never options.
+const NAME_KINDS: &[&str] = &["label", "title"];
+
+fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
+    comp.props
+        .get(key)
+        .or_else(|| comp.items.iter().find_map(|i| i.config.get(key)))
+        .map(String::as_str)
+        .filter(|s| !s.is_empty())
+}
+
+fn group_label(comp: &ComponentNode) -> String {
+    match attr(comp, "aria-label") {
+        Some(v) => esc(v),
+        None => crate::cronus_ui_kit::label_of(comp),
+    }
+}
 
 fn options(comp: &ComponentNode) -> Vec<(String, bool)> {
-    let preferred: Vec<&ComponentItemNode> = comp
+    let items: Vec<&ComponentItemNode> = comp
         .items
         .iter()
-        .filter(|i| CHOICE_KINDS.contains(&i.item_type.as_str()) && !i.text.is_empty())
+        .filter(|i| !NAME_KINDS.contains(&i.item_type.as_str()) && !i.text.is_empty())
         .collect();
-    let items: Vec<&ComponentItemNode> = if !preferred.is_empty() {
-        preferred
-    } else {
-        comp.items
-            .iter()
-            .filter(|i| !FIELD_KINDS.contains(&i.item_type.as_str()) && !i.text.is_empty())
-            .collect()
-    };
     if items.is_empty() {
         let label = if comp.name.is_empty() {
             "Option"
         } else {
             comp.name.as_str()
         };
-        return vec![(label.to_string(), true)];
+        return vec![(label.to_string(), false)];
     }
+    // Radix: `value` selects the matching item; without it nothing is checked.
+    let selected = attr(comp, "value");
     let checked_idx = items
         .iter()
-        .position(|i| is_true(i.config.get("checked")))
-        .unwrap_or(0);
+        .position(|i| selected == Some(i.text.as_str()))
+        .or_else(|| items.iter().position(|i| is_true(i.config.get("checked"))));
     items
         .iter()
         .enumerate()
-        .map(|(idx, i)| (i.text.clone(), idx == checked_idx))
+        .map(|(idx, i)| (i.text.clone(), Some(idx) == checked_idx))
         .collect()
 }
 
@@ -118,25 +131,51 @@ mod tests {
         assert!(html.contains("data-slot=\"radio-group\""));
         assert!(html.contains("role=\"radiogroup\""));
         assert_eq!(html.matches("data-slot=\"radio-group-item\"").count(), 2);
-        assert!(html.contains("<button type=\"button\" data-slot=\"radio-group-item\" role=\"radio\""));
+        assert!(html.contains("<button type=\"button\" role=\"radio\""));
         assert!(html.contains("aria-label=\"Free\""));
         assert!(html.contains("aria-label=\"Pro\""));
         reject_interact(&html);
     }
 
     #[test]
-    fn first_item_is_selected_by_default() {
+    fn nothing_is_selected_without_value() {
+        // Radix RadioGroup without value/defaultValue checks no item.
         let html = render(&stub_options(&["Free", "Pro", "Team"]));
-        assert!(html.contains(
-            "aria-checked=\"true\" data-state=\"checked\" aria-label=\"Free\""
-        ));
-        assert!(html.contains(
-            "aria-checked=\"false\" data-state=\"unchecked\" aria-label=\"Pro\""
-        ));
-        assert!(html.contains(
-            "aria-checked=\"false\" data-state=\"unchecked\" aria-label=\"Team\""
-        ));
+        assert_eq!(html.matches("aria-checked=\"true\"").count(), 0);
+        assert_eq!(html.matches("aria-checked=\"false\"").count(), 3);
         reject_interact(&html);
+    }
+
+    #[test]
+    fn wave1t_default_fixture_text_options_and_value() {
+        // app.cronus RadioGroupDefault: label "Plan", text "Free", text "Pro",
+        // then value:"Pro" / aria-label:"Plan" attach to the last item's config.
+        let mut c = stub_options(&["Free", "Pro"]);
+        for i in c.items.iter_mut() {
+            i.item_type = "text".into();
+        }
+        c.items[1].config.insert("value".into(), "Pro".into());
+        c.items[1].config.insert("aria-label".into(), "Plan".into());
+        c.items.insert(
+            0,
+            ComponentItemNode {
+                item_type: "label".into(),
+                text: "Plan".into(),
+                link: None,
+                tone: None,
+                config: HashMap::new(),
+            },
+        );
+        c.name = "RadioGroupDefault".into();
+        assert_eq!(
+            render(&c),
+            format!(
+                "<div role=\"radiogroup\" aria-required=\"false\" dir=\"ltr\" data-slot=\"radio-group\" aria-label=\"Plan\"><button type=\"button\" role=\"radio\" aria-checked=\"false\" data-state=\"unchecked\" value=\"Free\" data-slot=\"radio-group-item\" aria-label=\"Free\"></button><button type=\"button\" role=\"radio\" aria-checked=\"true\" data-state=\"checked\" value=\"Pro\" data-slot=\"radio-group-item\" aria-label=\"Pro\">{CIRCLE_INDICATOR}</button></div>"
+            )
+        );
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(!css.contains("[data-slot=\"radio-group-item\"][data-state=\"checked\"]::after"));
+        assert!(css.contains("[data-slot=\"radio-group-item\"] > span > svg {"));
     }
 
     #[test]
@@ -147,13 +186,13 @@ mod tests {
             .insert("checked".into(), "true".into());
         let html = render(&c);
         assert!(html.contains(
-            "aria-checked=\"false\" data-state=\"unchecked\" aria-label=\"Free\""
+            "aria-checked=\"false\" data-state=\"unchecked\" value=\"Free\""
         ));
         assert!(html.contains(
-            "aria-checked=\"true\" data-state=\"checked\" aria-label=\"Pro\""
+            "aria-checked=\"true\" data-state=\"checked\" value=\"Pro\""
         ));
         assert!(html.contains(
-            "aria-checked=\"false\" data-state=\"unchecked\" aria-label=\"Team\""
+            "aria-checked=\"false\" data-state=\"unchecked\" value=\"Team\""
         ));
         reject_interact(&html);
     }
@@ -181,7 +220,8 @@ mod tests {
             },
         );
         let html = render(&c);
-        assert!(html.contains("role=\"radiogroup\" aria-label=\"Plan\""));
+        assert!(html.contains("role=\"radiogroup\""));
+        assert!(html.contains("data-slot=\"radio-group\" aria-label=\"Plan\""));
         assert_eq!(html.matches("role=\"radio\"").count(), 2);
         assert!(html.contains("aria-label=\"Free\""));
         assert!(html.contains("aria-label=\"Pro\""));

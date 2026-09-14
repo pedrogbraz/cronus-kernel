@@ -11,7 +11,7 @@ pub fn render(comp: &ComponentNode) -> String {
     let state = if checked { "checked" } else { "unchecked" };
     let aria_checked = if checked { "true" } else { "false" };
     let mut attrs = format!(
-        "type=\"button\" data-slot=\"checkbox\" role=\"checkbox\" aria-checked=\"{aria_checked}\" data-state=\"{state}\""
+        "type=\"button\" role=\"checkbox\" aria-checked=\"{aria_checked}\" data-state=\"{state}\" value=\"on\" data-slot=\"checkbox\""
     );
     if disabled {
         attrs.push_str(" disabled");
@@ -22,17 +22,12 @@ pub fn render(comp: &ComponentNode) -> String {
     if let Some(label) = aria_label_of(comp) {
         attrs.push_str(&format!(" aria-label=\"{}\"", esc(label)));
     }
-    let inner = if checked {
-        "<span data-slot=\"checkbox-indicator\"></span>"
-    } else {
-        ""
-    };
-    let text = aria_label_of(comp)
-        .filter(|t| !t.is_empty())
-        .map(|t| format!("<span data-slot=\"checkbox-text\">{}</span>", esc(t)))
-        .unwrap_or_default();
-    format!("<button {attrs}>{inner}</button>{text}")
+    // Radix Indicator: unslotted span + lucide Check; React renders no label text.
+    let inner = if checked { CHECK_INDICATOR } else { "" };
+    format!("<button {attrs}>{inner}</button>")
 }
+
+const CHECK_INDICATOR: &str = "<span data-state=\"checked\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"></path></svg></span>";
 
 fn checked_of(comp: &ComponentNode) -> bool {
     if flag(comp, "checked") {
@@ -150,7 +145,8 @@ mod tests {
         let html = render(&c);
         assert!(html.contains("aria-checked=\"true\""));
         assert!(html.contains("data-state=\"checked\""));
-        assert!(html.contains("data-slot=\"checkbox-indicator\""));
+        assert!(html.contains(CHECK_INDICATOR));
+        assert!(!html.contains("checkbox-indicator"));
         reject_interact(&html);
     }
 
@@ -174,6 +170,22 @@ mod tests {
         assert!(html.contains("aria-checked=\"true\""));
         assert!(html.contains("data-state=\"checked\""));
         reject_interact(&html);
+    }
+
+    #[test]
+    fn wave1t_off_fixture_has_no_label_text() {
+        // app.cronus CheckboxOff: `label "Accept"` + `aria-label:"Accept"` on that item.
+        let mut c = stub();
+        c.items[0].text = "Accept".into();
+        c.items[0].config.insert("aria-label".into(), "Accept".into());
+        assert_eq!(
+            render(&c),
+            "<button type=\"button\" role=\"checkbox\" aria-checked=\"false\" data-state=\"unchecked\" value=\"on\" data-slot=\"checkbox\" aria-label=\"Accept\"></button>"
+        );
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(!css.contains("checkbox-text"));
+        assert!(css.contains("background: var(--cronus-surface-inset);\n  box-shadow: var(--cronus-shadow-xs, none);"));
+        assert!(css.contains("[data-slot=\"checkbox\"] > span > svg { width: 0.875rem; height: 0.875rem; }"));
     }
 
     #[test]

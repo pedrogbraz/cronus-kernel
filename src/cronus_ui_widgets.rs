@@ -1281,7 +1281,8 @@ component Revenue layout:stack style:metric {
     fn catalog_radio_items_are_items_not_the_field_label() {
         let html = render(&catalog_component("PlanRadio")).expect("radio-group");
         assert!(
-            html.contains("role=\"radiogroup\" aria-label=\"Plan\""),
+            html.contains("role=\"radiogroup\"")
+                && html.contains("data-slot=\"radio-group\" aria-label=\"Plan\""),
             "Plan must name the group: {html}"
         );
         assert_eq!(

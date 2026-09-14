@@ -1,5 +1,5 @@
 //! Dedicated InputGroup renderer. DOM matches React:
-//! `<div data-slot="input-group"><span data-slot="input-group-addon">…</span><input data-slot="input" />`.
+//! `<div data-slot="input-group"><div data-slot="input-group-addon" data-align="start">…</div><input data-slot="input" />`.
 //! Not interact `input("input-group")` (`<label data-slot="input-group"><input data-slot="input-group-control">`).
 
 use crate::cronus_ui_kit::{esc, item};
@@ -11,13 +11,25 @@ pub fn render(comp: &ComponentNode) -> String {
     if !placeholder.is_empty() {
         input.push_str(&format!(" placeholder=\"{placeholder}\""));
     }
+    if let Some(label) = aria_label_of(comp) {
+        input.push_str(&format!(" aria-label=\"{label}\""));
+    }
     input.push_str(" />");
     match addon_of(comp) {
         Some(addon) => format!(
-            "<div data-slot=\"input-group\"><span data-slot=\"input-group-addon\">{addon}</span>{input}</div>"
+            "<div data-slot=\"input-group\"><div data-slot=\"input-group-addon\" data-align=\"start\">{addon}</div>{input}</div>"
         ),
         None => format!("<div data-slot=\"input-group\">{input}</div>"),
     }
+}
+
+fn aria_label_of(comp: &ComponentNode) -> Option<String> {
+    comp.props
+        .get("aria-label")
+        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
+        .map(String::as_str)
+        .filter(|s| !s.is_empty())
+        .map(esc)
 }
 
 fn placeholder_of(comp: &ComponentNode) -> String {
@@ -79,13 +91,36 @@ mod tests {
         let html = render(&stub("input-group", "https://"));
         assert!(html.starts_with("<div "));
         assert!(html.contains("data-slot=\"input-group\""));
-        assert!(html.contains("data-slot=\"input-group-addon\">https://</span>"));
+        assert!(html.contains("data-slot=\"input-group-addon\" data-align=\"start\">https://</div>"));
         assert!(html.contains("<input data-slot=\"input\" type=\"text\""));
         reject_interact(&html);
         assert_eq!(
             html,
-            "<div data-slot=\"input-group\"><span data-slot=\"input-group-addon\">https://</span><input data-slot=\"input\" type=\"text\" /></div>"
+            "<div data-slot=\"input-group\"><div data-slot=\"input-group-addon\" data-align=\"start\">https://</div><input data-slot=\"input\" type=\"text\" /></div>"
         );
+    }
+
+    #[test]
+    fn wave1t_default_fixture_exact_dom() {
+        // app.cronus InputGroupDefault: label "Amount", text "0.00", text "$" + aria-label:"Amount".
+        let mut c = stub("input-group", "Amount");
+        for t in ["0.00", "$"] {
+            c.items.push(ComponentItemNode {
+                item_type: "text".into(),
+                text: t.into(),
+                link: None,
+                tone: None,
+                config: HashMap::new(),
+            });
+        }
+        let last = c.items.len() - 1;
+        c.items[last].config.insert("aria-label".into(), "Amount".into());
+        assert_eq!(
+            render(&c),
+            "<div data-slot=\"input-group\"><div data-slot=\"input-group-addon\" data-align=\"start\">$</div><input data-slot=\"input\" type=\"text\" placeholder=\"0.00\" aria-label=\"Amount\" /></div>"
+        );
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("font-size: 0.875rem; line-height: 1.25rem;\n}\n[data-slot=\"input-group-addon\"]"));
     }
 
     #[test]
@@ -93,7 +128,7 @@ mod tests {
         let mut c = stub("input-group", "Amount");
         c.props.insert("addon".into(), "$".into());
         let html = render(&c);
-        assert!(html.contains("data-slot=\"input-group-addon\">$</span>"));
+        assert!(html.contains("data-slot=\"input-group-addon\" data-align=\"start\">$</div>"));
         reject_interact(&html);
     }
 
@@ -108,7 +143,7 @@ mod tests {
             config: HashMap::new(),
         });
         let html = render(&c);
-        assert!(html.contains("data-slot=\"input-group-addon\">https://</span>"));
+        assert!(html.contains("data-slot=\"input-group-addon\" data-align=\"start\">https://</div>"));
         reject_interact(&html);
     }
 
@@ -123,7 +158,7 @@ mod tests {
             config: HashMap::new(),
         });
         let html = render(&c);
-        assert!(html.contains("data-slot=\"input-group-addon\">https://</span>"));
+        assert!(html.contains("data-slot=\"input-group-addon\" data-align=\"start\">https://</div>"));
         assert!(html.contains("placeholder=\"example.com\""));
         reject_interact(&html);
     }
@@ -133,7 +168,7 @@ mod tests {
         let mut c = stub("input-group", "@");
         c.props.insert("placeholder".into(), "username".into());
         let html = render(&c);
-        assert!(html.contains("data-slot=\"input-group-addon\">@</span>"));
+        assert!(html.contains("data-slot=\"input-group-addon\" data-align=\"start\">@</div>"));
         assert!(html.contains("placeholder=\"username\""));
         reject_interact(&html);
     }

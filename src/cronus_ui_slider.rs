@@ -1,5 +1,7 @@
 //! Dedicated Slider renderer. DOM matches React/Radix Root (a **span**):
-//! `<span data-slot="slider">` + track/range + thumb `role="slider"`.
+//! `<span data-slot="slider" data-value>` + unslotted track/range spans + an
+//! unslotted positioner span holding the `role="slider"` thumb. Position comes
+//! from `data-value` rules in COMPONENT_CHROME (integer 0..100), never inline style.
 //! Not the interact `<label data-slot="slider">…<input type="range" data-slot="slider-control">`.
 
 use crate::parser::{ComponentItemNode, ComponentNode};
@@ -7,14 +9,16 @@ use crate::parser::{ComponentItemNode, ComponentNode};
 pub fn render(comp: &ComponentNode) -> String {
     let pct = value_of(comp);
     let now = fmt_num(pct);
-    let mut thumb = format!(
-        "data-slot=\"slider-thumb\" role=\"slider\" aria-valuenow=\"{now}\" aria-valuemin=\"0\" aria-valuemax=\"100\""
-    );
+    let step = pct.round() as i64;
+    let mut thumb = String::from("role=\"slider\"");
     if let Some(label) = aria_label_of(comp) {
         thumb.push_str(&format!(" aria-label=\"{}\"", esc(label)));
     }
+    thumb.push_str(&format!(
+        " aria-valuemin=\"0\" aria-valuemax=\"100\" aria-orientation=\"horizontal\" data-orientation=\"horizontal\" aria-valuenow=\"{now}\""
+    ));
     format!(
-        "<span data-slot=\"slider\"><span data-slot=\"slider-track\"><span data-slot=\"slider-range\" style=\"width:{now}%\"></span></span><span {thumb} style=\"left:{now}%\"></span></span>"
+        "<span dir=\"ltr\" data-orientation=\"horizontal\" aria-disabled=\"false\" data-slot=\"slider\" data-value=\"{step}\"><span data-orientation=\"horizontal\"><span data-orientation=\"horizontal\"></span></span><span><span {thumb}></span></span></span>"
     )
 }
 
@@ -138,16 +142,16 @@ mod tests {
     fn assert_slider(html: &str, now: &str, label: &str) {
         assert!(html.starts_with("<span "));
         assert!(html.contains("data-slot=\"slider\""));
-        assert!(html.contains("data-slot=\"slider-track\""));
-        assert!(html.contains("data-slot=\"slider-range\""));
-        assert!(html.contains(&format!("style=\"width:{now}%\"")));
-        assert!(html.contains("data-slot=\"slider-thumb\""));
+        assert!(html.contains(&format!("data-value=\"{now}\"")));
+        assert!(!html.contains("slider-track"));
+        assert!(!html.contains("slider-range"));
+        assert!(!html.contains("slider-thumb"));
+        assert!(!html.contains("style="));
         assert!(html.contains("role=\"slider\""));
         assert!(html.contains(&format!("aria-valuenow=\"{now}\"")));
         assert!(html.contains("aria-valuemin=\"0\""));
         assert!(html.contains("aria-valuemax=\"100\""));
         assert!(html.contains(&format!("aria-label=\"{label}\"")));
-        assert!(html.contains(&format!("style=\"left:{now}%\"")));
         reject_interact(html);
     }
 
@@ -157,7 +161,7 @@ mod tests {
         assert_slider(&html, "0", "Volume");
         assert_eq!(
             html,
-            "<span data-slot=\"slider\"><span data-slot=\"slider-track\"><span data-slot=\"slider-range\" style=\"width:0%\"></span></span><span data-slot=\"slider-thumb\" role=\"slider\" aria-valuenow=\"0\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-label=\"Volume\" style=\"left:0%\"></span></span>"
+            "<span dir=\"ltr\" data-orientation=\"horizontal\" aria-disabled=\"false\" data-slot=\"slider\" data-value=\"0\"><span data-orientation=\"horizontal\"><span data-orientation=\"horizontal\"></span></span><span><span role=\"slider\" aria-label=\"Volume\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-orientation=\"horizontal\" data-orientation=\"horizontal\" aria-valuenow=\"0\"></span></span></span>"
         );
     }
 
@@ -218,12 +222,30 @@ mod tests {
     }
 
     #[test]
+    fn wave1t_half_fixture_value_from_item_config() {
+        // app.cronus SliderHalf: `label "Volume"` then `value:50` / `aria-label:"Volume"` on it.
+        let mut c = stub();
+        c.items[0].config.insert("value".into(), "50".into());
+        c.items[0].config.insert("aria-label".into(), "Volume".into());
+        let html = render(&c);
+        assert_slider(&html, "50", "Volume");
+    }
+
+    #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"slider\"]"));
-        assert!(css.contains("[data-slot=\"slider-track\"]"));
-        assert!(css.contains("[data-slot=\"slider-range\"]"));
-        assert!(css.contains("[data-slot=\"slider-thumb\"]"));
+        assert!(css.contains("[data-slot=\"slider\"] > span:first-child {"));
+        assert!(css.contains("[data-slot=\"slider\"] > span:first-child > span {"));
+        assert!(css.contains("[data-slot=\"slider\"] > span:last-child {"));
+        assert!(css.contains("[data-slot=\"slider\"] > span:last-child > span {"));
+        assert!(css.contains("[data-slot=\"slider\"][data-value=\"0\"] { --cui-slider-value: 0; }"));
+        assert!(css.contains("[data-slot=\"slider\"][data-value=\"50\"] { --cui-slider-value: 50; }"));
+        assert!(css.contains("[data-slot=\"slider\"][data-value=\"100\"] { --cui-slider-value: 100; }"));
+        // Radix thumb-in-bounds offset: +8px at 0, 0 at 50, -8px at 100.
+        assert!(css.contains("left: calc(var(--cui-slider-value, 0) * 1% + 0.5rem - var(--cui-slider-value, 0) * 0.01rem);"));
+        assert!(!css.contains("slider-track"));
+        assert!(!css.contains("slider-thumb"));
         assert!(css.contains("position: relative"));
         assert!(css.contains("display: flex"));
         assert!(css.contains("width: 100%"));
