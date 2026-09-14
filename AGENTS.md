@@ -107,7 +107,7 @@ Changing any of the above is a breaking change: record it in `CHANGELOG.md` and 
 1. Read the file and a neighbour before editing. Keep `main.rs` thin: new routing logic goes in its own module.
 2. Every behaviour change or bug fix gets a regression test in the same file (`#[cfg(test)] mod tests`).
 3. Run `cargo fmt` and `cargo test` before committing; clippy must pass `-D clippy::correctness`.
-4. Do not add `#![allow(dead_code, …)]` (53 files already have it, 2026-09-14). Do not add `as any`-style suppressions without a comment.
+4. Do not add `#![allow(dead_code, …)]`. It remains on `src/dump/*.rs`, `src/parser/mod.rs`, `src/server/response.rs` and crate-wide in `src/main.rs` (2026-09-14); files cleaned in Sprint 4 must build warning-free without it. Do not add `as any`-style suppressions without a comment.
 5. Language changes: update `LANGUAGE.md`, `llms-full.txt` and, if user-visible, `CHANGELOG.md`.
 6. Money is integer centavos (`money` type). `!` marks a required field. Data sections without `bind` or items fail `build`.
 
