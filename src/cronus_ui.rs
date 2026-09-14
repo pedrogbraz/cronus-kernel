@@ -3442,6 +3442,35 @@ button:has(+ [data-slot="sheet-content"]) {
   background: var(--cronus-surface-raised);
   padding: 0.75rem 1.25rem;
 }
+[data-slot="light-rays"] {
+  position: relative;
+  overflow: hidden;
+  color: var(--cronus-fg);
+}
+[data-slot="light-rays-field"] {
+  position: absolute;
+  inset: -50%;
+  pointer-events: none;
+  background: repeating-conic-gradient(
+    from 0deg,
+    color-mix(in oklch, var(--cronus-primary) 22%, transparent) 0deg 6deg,
+    transparent 6deg 28deg
+  );
+  -webkit-mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
+  mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
+  animation: cui-light-rays 18s linear infinite;
+}
+@keyframes cui-light-rays {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+[data-slot="light-rays-content"] {
+  position: relative;
+  z-index: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="light-rays-field"] { display: none; }
+}
 
 "#;
 

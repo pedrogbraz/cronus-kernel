@@ -136,6 +136,7 @@ mod cronus_ui_kanban;
 mod cronus_ui_kbd;
 mod cronus_ui_kit;
 mod cronus_ui_label;
+mod cronus_ui_light_rays;
 mod cronus_ui_lightbox;
 mod cronus_ui_line_chart;
 mod cronus_ui_masonry;

@@ -182,6 +182,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "scramble-text" => Some("cronus_ui_scramble_text::render"),
         "spinning-text" => Some("cronus_ui_spinning_text::render"),
         "gradient-border" => Some("cronus_ui_gradient_border::render"),
+        "light-rays" => Some("cronus_ui_light_rays::render"),
         _ => None,
     }
 }
@@ -742,6 +743,14 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || !html.contains("data-slot=\"gradient-border-inner\"")
                 || html.contains("<canvas")
                 || html.contains("<script")))
+        || (html.contains("data-slot=\"light-rays\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || !html.contains("data-slot=\"light-rays-field\"")
+                || !html.contains("data-slot=\"light-rays-content\"")
+                || html.contains("<canvas")
+                || html.contains("<script")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -1014,6 +1023,7 @@ mod tests {
             "src/cronus_ui_scramble_text.rs",
             "src/cronus_ui_spinning_text.rs",
             "src/cronus_ui_gradient_border.rs",
+            "src/cronus_ui_light_rays.rs",
             "src/cronus_ui_masonry.rs",
             "src/cronus_ui_comparison_slider.rs",
             "src/cronus_ui_confirmation_dialog.rs",
