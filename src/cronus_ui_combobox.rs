@@ -224,7 +224,7 @@ mod tests {
         assert!(css.contains("[data-slot=\"combobox-content\"]"));
         assert!(css.contains("[data-slot=\"combobox-item\"]"));
         assert!(css.contains("justify-content: space-between"));
-        assert!(css.contains("min-width: 8rem"));
+        assert!(css.contains("min-width: 16rem"));
         assert!(css.contains("var(--cronus-surface-floating"));
         assert!(css.contains("[data-slot=\"combobox-item\"][aria-selected=\"true\"]"));
         assert!(!css.contains("zinc-"));
