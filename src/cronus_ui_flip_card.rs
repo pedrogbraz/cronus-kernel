@@ -25,12 +25,15 @@ pub fn render(comp: &ComponentNode) -> String {
     let aria_label = comp.props.get("aria-label").or_else(|| {
         comp.items.iter().find_map(|i| i.config.get("aria-label"))
     });
+    // React hover trigger: `role="group"` only when named, always `tabindex=0`
+    // (CSS `:focus-within` flips it, so focus is a real, JS-free control).
     let aria = match aria_label.filter(|s| !s.is_empty()) {
-        Some(v) => format!(" aria-label=\"{}\"", esc(v)),
-        None => String::new(),
+        Some(v) => format!(" role=\"group\" tabindex=\"0\" aria-label=\"{}\"", esc(v)),
+        None => " tabindex=\"0\"".to_string(),
     };
+    // Inner `<div>` is React's preserve-3d stage that rotates on hover/focus.
     format!(
-        "<div data-slot=\"flip-card\"{aria}><div data-slot=\"flip-card-front\">{front}</div><div data-slot=\"flip-card-back\">{back}</div></div>"
+        "<div data-slot=\"flip-card\"{aria}><div><div data-slot=\"flip-card-front\">{front}</div><div data-slot=\"flip-card-back\">{back}</div></div></div>"
     )
 }
 
@@ -73,9 +76,9 @@ mod tests {
         let html = render(&stub("flip-card", "Front"));
         assert_eq!(
             html,
-            "<div data-slot=\"flip-card\"><div data-slot=\"flip-card-front\">Front</div><div data-slot=\"flip-card-back\"></div></div>"
+            "<div data-slot=\"flip-card\" tabindex=\"0\"><div><div data-slot=\"flip-card-front\">Front</div><div data-slot=\"flip-card-back\"></div></div></div>"
         );
-        assert!(html.starts_with("<div data-slot=\"flip-card\">"));
+        assert!(html.starts_with("<div data-slot=\"flip-card\""));
         assert!(html.contains("data-slot=\"flip-card-front\">Front</div>"));
         assert!(html.contains("data-slot=\"flip-card-back\"></div>"));
         reject_display(&html);
@@ -88,7 +91,7 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            "<div data-slot=\"flip-card\"><div data-slot=\"flip-card-front\">Front</div><div data-slot=\"flip-card-back\">Back copy</div></div>"
+            "<div data-slot=\"flip-card\" tabindex=\"0\"><div><div data-slot=\"flip-card-front\">Front</div><div data-slot=\"flip-card-back\">Back copy</div></div></div>"
         );
         reject_display(&html);
     }
@@ -106,7 +109,7 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            "<div data-slot=\"flip-card\" aria-label=\"Plan\"><div data-slot=\"flip-card-front\">Front</div><div data-slot=\"flip-card-back\">Back</div></div>"
+            "<div data-slot=\"flip-card\" role=\"group\" tabindex=\"0\" aria-label=\"Plan\"><div><div data-slot=\"flip-card-front\">Front</div><div data-slot=\"flip-card-back\">Back</div></div></div>"
         );
         reject_display(&html);
     }
@@ -118,7 +121,7 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            "<div data-slot=\"flip-card\"><div data-slot=\"flip-card-front\">A &lt;B&gt; &amp; &quot;C&quot;</div><div data-slot=\"flip-card-back\">D &lt;E&gt;</div></div>"
+            "<div data-slot=\"flip-card\" tabindex=\"0\"><div><div data-slot=\"flip-card-front\">A &lt;B&gt; &amp; &quot;C&quot;</div><div data-slot=\"flip-card-back\">D &lt;E&gt;</div></div></div>"
         );
         reject_display(&html);
     }
@@ -174,5 +177,29 @@ mod tests {
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(DISPLAY_SURF));
         assert!(!css.contains("onclick"));
+    }
+
+    /// Wave 1s geometry parity with the corrected React `FlipCard
+    /// className="w-72"`: root 288×256 rounded-2xl (22px); the preserve-3d
+    /// stage is `absolute inset-0` (was `size-full`, which resolved to 0px
+    /// against a min-height-only card), so both faces measure 288×256.
+    #[test]
+    fn chrome_geometry_matches_react() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains(
+            "[data-slot=\"flip-card\"] {\n  position: relative; isolation: isolate;\n  width: 18rem;\n  min-height: 16rem; border-radius: calc(var(--cronus-radius, 14px) + 8px);\n  perspective: 1600px;\n  line-height: 1.5;"
+        ));
+        assert!(css.contains(
+            "[data-slot=\"flip-card\"] > div {\n  position: absolute; inset: 0;\n  transform-style: preserve-3d;"
+        ));
+        assert!(!css.contains("position: relative; width: 100%; height: 100%;\n  transform-style: preserve-3d;"));
+        assert!(css.contains(
+            "[data-slot=\"flip-card\"]:hover > div,\n[data-slot=\"flip-card\"]:focus-within > div {\n  transform: rotateY(180deg);\n}"
+        ));
+        assert!(css.contains(
+            "overflow: hidden; border-radius: calc(var(--cronus-radius, 14px) + 8px);\n  border: 1px solid var(--cronus-border);"
+        ));
+        assert!(!css.contains("transform: rotateY(360deg)"));
+        assert!(!css.contains("min-height: 16rem; border-radius: var(--cronus-radius-xl);"));
     }
 }

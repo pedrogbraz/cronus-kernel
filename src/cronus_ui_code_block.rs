@@ -25,7 +25,9 @@ pub fn render(comp: &ComponentNode) -> String {
             .unwrap_or_default();
         let l = language
             .as_deref()
-            .map(|l| format!("<span data-slot=\"code-block-language\">{l}</span>"))
+            .map(|l| {
+                format!("<span data-slot=\"code-block-language\" data-variant=\"secondary\">{l}</span>")
+            })
             .unwrap_or_default();
         format!("<div data-slot=\"code-block-header\"><div>{f}{l}</div></div>")
     } else {
@@ -164,7 +166,7 @@ mod tests {
         assert_eq!(
             html,
             block(
-                "<div data-slot=\"code-block-header\"><div><span data-slot=\"code-block-filename\">index.ts</span><span data-slot=\"code-block-language\">ts</span></div></div>",
+                "<div data-slot=\"code-block-header\"><div><span data-slot=\"code-block-filename\">index.ts</span><span data-slot=\"code-block-language\" data-variant=\"secondary\">ts</span></div></div>",
                 "Code block, index.ts",
                 "<span>const n = 1;</span>"
             )
@@ -240,5 +242,34 @@ mod tests {
         assert!(!css.contains("onclick"));
         assert!(!css.contains(DISPLAY_SURF));
         assert!(!css.contains(CODEY));
+    }
+
+    /// Wave 1s geometry parity with React `CodeBlock className="w-72"`:
+    /// root 288×106, header 286×49 (copy-button slot 2rem tall), filename
+    /// mono 12/16, language Badge secondary 29×22, pre padding 16, 14/22.75.
+    #[test]
+    fn chrome_geometry_matches_react() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains(
+            "[data-slot=\"code-block\"] {\n  box-sizing: border-box; width: 18rem; max-width: 100%;\n  overflow: hidden;\n  border-radius: var(--cronus-radius-xl);\n  border: 1px solid var(--cronus-border);\n  background: var(--cronus-surface-raised);\n  color: var(--cronus-fg);\n  line-height: 1.5;\n}"
+        ));
+        assert!(css.contains(
+            "display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;\n  padding: 0.5rem 1rem; border: 0 solid var(--cronus-border); border-bottom-width: 1px;\n  background: var(--cronus-surface-overlay);"
+        ));
+        assert!(css.contains(
+            "[data-slot=\"code-block-header\"] > div { display: flex; align-items: center; gap: 0.5rem; min-width: 0; min-height: 2rem; }"
+        ));
+        assert!(css.contains(
+            "font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-secondary);"
+        ));
+        assert!(css.contains(
+            "padding: 0.125rem 0.5rem; border-radius: var(--cronus-radius-md);"
+        ));
+        assert!(css.contains(
+            "font-size: 0.75rem; line-height: 1rem; font-weight: 500; white-space: nowrap;"
+        ));
+        assert!(!css.contains(
+            "padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--cronus-border);\n  font-size: 0.75rem; color: var(--cronus-fg-secondary);"
+        ));
     }
 }
