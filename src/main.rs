@@ -180,6 +180,7 @@ mod cronus_ui_sparkles_text;
 mod cronus_ui_sparkline;
 mod cronus_ui_sonner;
 mod cronus_ui_spinner;
+mod cronus_ui_spinning_text;
 mod cronus_ui_split_button;
 mod cronus_ui_star_border;
 mod cronus_ui_spotlight_card;
