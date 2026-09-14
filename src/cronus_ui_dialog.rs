@@ -13,7 +13,7 @@ pub fn render(comp: &ComponentNode) -> String {
         .collect::<Vec<_>>()
         .join("");
     format!(
-        "<div data-slot=\"dialog\"><button type=\"button\" data-slot=\"button\" data-variant=\"primary\" onclick=\"this.nextElementSibling.showModal()\">{title}</button><dialog data-slot=\"dialog-content\"><form method=\"dialog\"><div data-slot=\"dialog-title\">{title}</div>{body}<button type=\"submit\" value=\"close\" data-slot=\"button\" data-variant=\"outline\">Close</button></form></dialog></div>"
+        "<div data-slot=\"dialog\"><button type=\"button\" data-slot=\"dialog-trigger\" data-variant=\"primary\" onclick=\"this.nextElementSibling.showModal()\">{title}</button><dialog data-slot=\"dialog-content\"><form method=\"dialog\"><div data-slot=\"dialog-title\">{title}</div>{body}<button type=\"submit\" value=\"close\" data-slot=\"button\" data-variant=\"outline\">Close</button></form></dialog></div>"
     )
 }
 
