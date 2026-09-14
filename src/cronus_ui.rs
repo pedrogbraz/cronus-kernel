@@ -3279,6 +3279,13 @@ button:has(+ [data-slot="sheet-content"]) {
   fill: none; stroke: var(--cronus-primary); stroke-width: 2;
   stroke-linejoin: round; stroke-linecap: round;
 }
+[data-slot="click-spark"] {
+  position: relative; overflow: hidden;
+  color: var(--cronus-fg);
+}
+[data-slot="click-spark-content"] {
+  position: relative;
+}
 
 "#;
 

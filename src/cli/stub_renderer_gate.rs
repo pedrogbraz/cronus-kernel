@@ -172,6 +172,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "composed-chart" => Some("cronus_ui_composed_chart::render"),
         "heatmap-chart" => Some("cronus_ui_heatmap_chart::render"),
         "chart" => Some("cronus_ui_chart::render"),
+        "click-spark" => Some("cronus_ui_click_spark::render"),
         _ => None,
     }
 }
@@ -656,6 +657,13 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"heatmap-chart\"") && html.contains("<figcaption"))
         || html.contains("<figure data-slot=\"chart\"")
         || (html.contains("data-slot=\"chart\"") && html.contains("<figcaption"))
+        || (html.contains("data-slot=\"click-spark\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<script")
+                || html.contains("onclick=")
+                || html.contains("requestAnimationFrame")
+                || !html.contains("data-slot=\"click-spark-content\"")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -876,6 +884,7 @@ mod tests {
             "src/cronus_ui_scroll_progress.rs",
             "src/cronus_ui_chip.rs",
             "src/cronus_ui_choropleth_chart.rs",
+            "src/cronus_ui_click_spark.rs",
             "src/cronus_ui_code_tabs.rs",
             "src/cronus_ui_collapsible.rs",
             "src/cronus_ui_avatar.rs",

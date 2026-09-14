@@ -77,6 +77,7 @@ mod cronus_ui_chart;
 mod cronus_ui_checkbox;
 mod cronus_ui_chip;
 mod cronus_ui_choropleth_chart;
+mod cronus_ui_click_spark;
 mod cronus_ui_combobox;
 mod cronus_ui_command;
 mod cronus_ui_comparison_slider;
