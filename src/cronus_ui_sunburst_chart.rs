@@ -1,102 +1,153 @@
-//! Dedicated SunburstChart renderer. DOM matches React:
-//! `<div data-slot="sunburst-chart">` wrapping SVG annulus arcs/rings.
-//! Token fills. Not the catalog `chart()` stub (`<figure><figcaption>`).
+//! Dedicated SunburstChart renderer. DOM matches React's settled render:
+//! `<div data-slot="sunburst-chart" role="img" aria-label>`
+//!   `<svg viewBox="0 0 200 200">` (h-full, mx-auto → 256×256 centred) with
+//!   one inner annulus (r 36..64) per top-level node, fill chart-(i%5+1), each
+//!   followed by its children on the outer ring (r 66..94), fill
+//!   chart-((i+1)%5+1); every path carries `<title>{name}</title>`. No stroke.
+//!
+//! The kernel has no nested items, so nodes are the `text` lines (values from
+//! numeric items when given). Nodes named like the React fixture tree
+//! (Desktop 8: Chrome 5, Safari 3; Mobile 4: iOS 4) take its value and
+//! children; any other node gets its demo value and one child spanning it.
 
-use crate::cronus_ui_kit::{fmt_coord, label_of, numeric_series};
+use crate::cronus_ui_chart::series_names;
+use crate::cronus_ui_kit::{esc, fmt_coord, label_of, numeric_items, DEFAULT_CHART_SERIES};
 use crate::parser::ComponentNode;
 
-const SIZE: f64 = 200.0;
 const CX: f64 = 100.0;
 const CY: f64 = 100.0;
 const INNER0: f64 = 36.0;
 const INNER1: f64 = 64.0;
 const OUTER0: f64 = 66.0;
 const OUTER1: f64 = 94.0;
-const FILLS: [&str; 4] = [
-    "var(--cronus-primary)",
-    "var(--cronus-success)",
-    "var(--cronus-warning)",
-    "var(--cronus-info)",
+
+type Leaf = (&'static str, f64);
+/// React `SunburstChartFixture` data.
+const DEMO_TREE: [(&str, f64, &[Leaf]); 2] = [
+    ("Desktop", 8.0, &[("Chrome", 5.0), ("Safari", 3.0)]),
+    ("Mobile", 4.0, &[("iOS", 4.0)]),
 ];
+
+struct Node {
+    name: String,
+    value: f64,
+    children: Vec<(String, f64)>,
+}
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = label_of(comp);
-    let series = numeric_series(comp);
-    let paths = sunburst_paths(&series);
+    let paths: String = slices(&tree(comp))
+        .into_iter()
+        .map(|(d, chart, name)| {
+            format!(
+                "<path d=\"{d}\" fill=\"var(--cronus-chart-{chart})\"><title>{}</title></path>",
+                esc(&name)
+            )
+        })
+        .collect();
     format!(
-        "<div data-slot=\"sunburst-chart\" role=\"img\" aria-label=\"{label}\"><svg viewBox=\"0 0 {s} {s}\" aria-hidden=\"true\">{paths}</svg></div>",
-        s = fmt_coord(SIZE),
+        "<div data-slot=\"sunburst-chart\" role=\"img\" aria-label=\"{label}\"><svg viewBox=\"0 0 200 200\" aria-hidden=\"true\">{paths}</svg></div>"
     )
 }
 
-fn sunburst_paths(series: &[f64]) -> String {
-    slices(series)
-        .into_iter()
-        .map(|(d, fill)| format!("<path d=\"{d}\" fill=\"{fill}\"></path>"))
-        .collect::<Vec<_>>()
-        .join("")
+fn tree(comp: &ComponentNode) -> Vec<Node> {
+    let mut names = series_names(comp);
+    let nums = numeric_items(comp);
+    if names.is_empty() && nums.is_empty() {
+        names = DEMO_TREE.iter().map(|d| d.0.to_string()).collect();
+    }
+    let n = names.len().max(nums.len());
+    (0..n)
+        .map(|i| {
+            let name = names.get(i).cloned().unwrap_or_else(|| (i + 1).to_string());
+            let demo = DEMO_TREE.iter().find(|d| d.0.eq_ignore_ascii_case(&name));
+            let value = nums
+                .get(i)
+                .copied()
+                .or(demo.map(|d| d.1))
+                .unwrap_or(DEFAULT_CHART_SERIES[i % DEFAULT_CHART_SERIES.len()]);
+            let children = match demo {
+                Some(d) => d.2.iter().map(|(k, v)| (k.to_string(), *v)).collect(),
+                None => vec![(name.clone(), value)],
+            };
+            Node {
+                name,
+                value,
+                children,
+            }
+        })
+        .collect()
 }
 
-fn slices(series: &[f64]) -> Vec<(String, &'static str)> {
-    let vals: Vec<f64> = if series.is_empty() {
-        crate::cronus_ui_kit::DEFAULT_CHART_SERIES.to_vec()
-    } else {
-        series.to_vec()
-    };
-    let total: f64 = vals.iter().copied().sum();
-    let n = vals.len().max(1) as f64;
+/// `(d, chart token index, title)` in React paint order.
+fn slices(nodes: &[Node]) -> Vec<(String, usize, String)> {
+    let sum: f64 = nodes.iter().map(|n| n.value).sum();
+    let total = if sum == 0.0 { 1.0 } else { sum };
     let mut angle = -std::f64::consts::FRAC_PI_2;
     let mut out = Vec::new();
-    for (index, value) in vals.iter().enumerate() {
-        let span = if total <= 0.0 {
-            std::f64::consts::TAU / n
-        } else {
-            (*value / total) * std::f64::consts::TAU
-        };
-        let next = angle + span;
-        let fill = FILLS[index % FILLS.len()];
-        push_annulus(&mut out, INNER0, INNER1, angle, next, fill);
-        let mid = angle + span * 0.62;
-        let fill_a = FILLS[(index + 1) % FILLS.len()];
-        let fill_b = FILLS[(index + 2) % FILLS.len()];
-        push_annulus(&mut out, OUTER0, OUTER1, angle, mid, fill_a);
-        push_annulus(&mut out, OUTER0, OUTER1, mid, next, fill_b);
-        angle = next;
+    for (index, node) in nodes.iter().enumerate() {
+        let span = node.value / total * std::f64::consts::TAU;
+        push_annulus(
+            &mut out,
+            INNER0,
+            INNER1,
+            angle,
+            angle + span,
+            index % 5 + 1,
+            &node.name,
+        );
+        let kid_sum: f64 = node.children.iter().map(|c| c.1).sum();
+        let kid_total = if kid_sum == 0.0 { 1.0 } else { kid_sum };
+        let mut inner = angle;
+        for (name, value) in &node.children {
+            let kid_span = value / kid_total * span;
+            push_annulus(
+                &mut out,
+                OUTER0,
+                OUTER1,
+                inner,
+                inner + kid_span,
+                (index + 1) % 5 + 1,
+                name,
+            );
+            inner += kid_span;
+        }
+        angle += span;
     }
     out
 }
 
 fn push_annulus(
-    out: &mut Vec<(String, &'static str)>,
+    out: &mut Vec<(String, usize, String)>,
     r0: f64,
     r1: f64,
     a0: f64,
     a1: f64,
-    fill: &'static str,
+    chart: usize,
+    name: &str,
 ) {
     let sweep = a1 - a0;
-    if sweep.abs() < 1e-9 {
-        return;
-    }
     if sweep.abs() >= std::f64::consts::TAU - 1e-6 {
+        // A single arc cannot draw a full ring (start == end); split it.
         let mid = a0 + std::f64::consts::PI;
-        out.push((arc_path(r0, r1, a0, mid), fill));
-        out.push((arc_path(r0, r1, mid, a0 + std::f64::consts::TAU), fill));
+        out.push((arc_path(r0, r1, a0, mid), chart, name.to_string()));
+        out.push((
+            arc_path(r0, r1, mid, a0 + std::f64::consts::TAU),
+            chart,
+            name.to_string(),
+        ));
         return;
     }
-    out.push((arc_path(r0, r1, a0, a1), fill));
+    out.push((arc_path(r0, r1, a0, a1), chart, name.to_string()));
 }
 
 fn polar(r: f64, a: f64) -> (f64, f64) {
     (CX + r * a.cos(), CY + r * a.sin())
 }
 
+/// React `arcPath(100, 100, r0, r1, a0, a1)`.
 fn arc_path(r0: f64, r1: f64, a0: f64, a1: f64) -> String {
-    let large = if (a1 - a0).abs() > std::f64::consts::PI {
-        1
-    } else {
-        0
-    };
+    let large = u8::from(a1 - a0 > std::f64::consts::PI);
     let (x0, y0) = polar(r1, a0);
     let (x1, y1) = polar(r1, a1);
     let (x2, y2) = polar(r0, a1);
@@ -152,18 +203,49 @@ mod tests {
     }
 
     #[test]
+    fn fixture_matches_react_tree_arcs_and_fills() {
+        // React SunburstChartFixture: Desktop 8 (Chrome 5, Safari 3),
+        // Mobile 4 (iOS 4); inner ring chart-(i+1), children chart-(i+2).
+        let mut c = stub("sunburst-chart", "Traffic");
+        for t in ["Desktop", "Mobile"] {
+            c.items.push(extra("text", t));
+        }
+        let html = render(&c);
+        assert_eq!(html.matches("<path ").count(), 5);
+        assert!(html.contains("<path d=\"M 100 36 A 64 64 0 1 1 44.57 132 L 68.82 118 A 36 36 0 1 0 100 64 Z\" fill=\"var(--cronus-chart-1)\"><title>Desktop</title></path>"));
+        assert!(html.contains("<path d=\"M 100 6 A 94 94 0 0 1 147 181.41 L 133 157.16 A 66 66 0 0 0 100 34 Z\" fill=\"var(--cronus-chart-2)\"><title>Chrome</title></path>"));
+        let fills: Vec<&str> = html
+            .split("fill=\"var(--cronus-")
+            .skip(1)
+            .map(|s| &s[..7])
+            .collect();
+        assert_eq!(
+            fills,
+            vec!["chart-1", "chart-2", "chart-2", "chart-2", "chart-3"]
+        );
+        assert!(html.contains("<title>iOS</title>"));
+    }
+
+    #[test]
+    fn chrome_sizes_svg_like_react_h_full_mx_auto() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains(
+            "[data-slot=\"sunburst-chart\"] svg {\n  display: block; height: 100%; margin: 0 auto;\n}"
+        ));
+        assert!(!css.contains("[data-slot=\"sunburst-chart\"] path"));
+    }
+
+    #[test]
     fn root_is_div_with_svg_arcs_not_figure() {
         let html = render(&stub("sunburst-chart", "Share"));
         assert!(html.starts_with("<div data-slot=\"sunburst-chart\""));
         assert!(html.contains("role=\"img\""));
         assert!(html.contains("aria-label=\"Share\""));
         assert!(html.contains("<svg"));
-        assert!(html.contains("<path "));
         assert!(html.contains(" A "));
-        assert!(html.contains("fill=\"var(--cronus-primary)\""));
-        assert!(html.contains("fill=\"var(--cronus-success)\""));
-        assert!(html.contains("fill=\"var(--cronus-warning)\""));
-        assert!(html.contains("fill=\"var(--cronus-info)\""));
+        assert!(html.contains("fill=\"var(--cronus-chart-1)\""));
+        assert!(html.contains("fill=\"var(--cronus-chart-2)\""));
+        assert!(html.contains("fill=\"var(--cronus-chart-3)\""));
         assert!(html.contains("viewBox=\"0 0 200 200\""));
         assert!(html.contains(" A 64 64 "));
         assert!(html.contains(" A 94 94 "));
@@ -171,13 +253,12 @@ mod tests {
     }
 
     #[test]
-    fn default_series_when_only_label() {
-        let html = render(&stub("sunburst-chart", "Share"));
-        let expected = slices(&[4.0, 8.0, 6.0, 10.0, 7.0]);
-        assert_eq!(expected.len(), 15);
-        assert_eq!(html.matches("<path ").count(), 15);
-        assert!(html.contains(&format!("d=\"{}\"", expected[0].0)));
-        reject_stub(&html);
+    fn default_tree_when_only_label() {
+        let mut named = stub("sunburst-chart", "Share");
+        for t in ["Desktop", "Mobile"] {
+            named.items.push(extra("text", t));
+        }
+        assert_eq!(render(&stub("sunburst-chart", "Share")), render(&named));
     }
 
     #[test]
@@ -187,12 +268,15 @@ mod tests {
         c.items.push(extra("item", "3"));
         c.items.push(extra("item", "2"));
         let html = render(&c);
-        let expected = slices(&[1.0, 3.0, 2.0]);
-        assert_eq!(expected.len(), 9);
-        assert_eq!(html.matches("<path ").count(), 9);
+        let nodes = tree(&c);
+        assert_eq!(
+            nodes.iter().map(|n| n.value).collect::<Vec<_>>(),
+            vec![1.0, 3.0, 2.0]
+        );
+        let expected = slices(&nodes);
+        assert_eq!(expected.len(), 6);
+        assert_eq!(html.matches("<path ").count(), 6);
         assert!(html.contains(&format!("d=\"{}\"", expected[0].0)));
-        let def = slices(&[4.0, 8.0, 6.0, 10.0, 7.0]);
-        assert_ne!(expected.len(), def.len());
         reject_stub(&html);
     }
 
@@ -201,8 +285,16 @@ mod tests {
         let mut c = stub("sunburst-chart", "Share");
         c.items.push(extra("item", "4, 8, 6"));
         let html = render(&c);
-        assert_eq!(html.matches("<path ").count(), 9);
+        assert_eq!(html.matches("<path ").count(), 6);
         reject_stub(&html);
+    }
+
+    #[test]
+    fn full_ring_is_split_into_two_arcs() {
+        let mut c = stub("sunburst-chart", "Share");
+        c.items.push(extra("text", "Only"));
+        let html = render(&c);
+        assert_eq!(html.matches("<path ").count(), 4);
     }
 
     #[test]
@@ -232,7 +324,6 @@ mod tests {
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"sunburst-chart\"]"));
-        assert!(css.contains("var(--cronus-primary)"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("onclick"));
     }

@@ -3160,12 +3160,10 @@ div:has(> [data-slot="autocomplete"] + [data-slot="autocomplete-content"]) {
   display: block; width: 100%; height: 16rem;
 }
 [data-slot="sunburst-chart"] {
-  display: flex; align-items: center; justify-content: center;
-  width: 100%; height: 16rem;
+  display: block; width: 100%; height: 16rem;
 }
-[data-slot="sunburst-chart"] svg { width: 12rem; height: 12rem; }
-[data-slot="sunburst-chart"] path {
-  stroke: var(--cronus-surface-base); stroke-width: 1;
+[data-slot="sunburst-chart"] svg {
+  display: block; height: 100%; margin: 0 auto;
 }
 [data-slot="choropleth-chart"] {
   display: block; width: 100%; height: 16rem;
