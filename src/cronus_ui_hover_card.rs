@@ -12,7 +12,7 @@ pub fn render(comp: &ComponentNode) -> String {
     let trigger = ts.first().cloned().unwrap_or_else(|| label_of(comp));
     let body = ts.iter().skip(1).cloned().collect::<Vec<_>>().join("");
     format!(
-        "<span data-slot=\"hover-card\"><button type=\"button\">{trigger}</button><div data-slot=\"hover-card-content\">{body}</div></span>"
+        "<span data-slot=\"hover-card\"><button type=\"button\" data-slot=\"hover-card-trigger\">{trigger}</button><div data-slot=\"hover-card-content\">{body}</div></span>"
     )
 }
 
@@ -59,7 +59,8 @@ mod tests {
     fn content_slot_is_the_contract() {
         let html = render(&stub("hover-card", "Preview"));
         assert!(html.contains("data-slot=\"hover-card-content\""));
-        assert!(html.contains("<button type=\"button\">Preview</button>"));
+        assert!(html.contains("data-slot=\"hover-card-trigger\""));
+        assert!(html.contains(">Preview</button>"));
         assert!(html.contains("data-slot=\"hover-card\""));
         reject_interact(&html);
     }
