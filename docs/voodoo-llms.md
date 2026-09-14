@@ -2,7 +2,7 @@
 
 > Cronus is the language (`.cronus`). Voodoo.js is the opt-in runtime of the HTML the kernel emits at `cronus run`. Never write JSX, HTML, or CSS in `.cronus`. Never make Voodoo the authoring language. Default is off so Obsidian demos (`style:primary`, `--foreground`) stay untouched.
 
-Paste this file into Claude/Grok/Cursor before emitting interactivity. Full contract: [VOODOO.md](VOODOO.md). Language: [LANGUAGE.md](LANGUAGE.md). Kernel: [AGENTS.md](AGENTS.md). Upstream Voodoo 0.13: https://github.com/kwy404/Voodoo.js · https://kwy404.github.io/Voodoo.js/docs/
+Paste this file into Claude/Grok/Cursor before emitting interactivity. Full contract: [VOODOO.md](../VOODOO.md). Language grammar: [llms-full.txt](../llms-full.txt), [LANGUAGE.md](../LANGUAGE.md). Kernel: [AGENTS.md](../AGENTS.md). Upstream Voodoo 0.13: https://github.com/kwy404/Voodoo.js · https://kwy404.github.io/Voodoo.js/docs/
 
 ## Law
 
@@ -29,7 +29,7 @@ https://cdn.jsdelivr.net/npm/voodoojs@0.13.0/dist/voodoo.full.min.js
 <script src="https://cdn.jsdelivr.net/npm/voodoojs@0.13.0/dist/voodoo.full.min.js" data-cronus-runtime="voodoo" defer></script>
 ```
 
-Injection: `html_response` → `voodoo::inject_into_html`. Idempotent. CSP already allows `cdn.jsdelivr.net`.
+Injection: `html_response` → `voodoo::inject_into_html`. Idempotent. CSP allows this exact URL only (`security::KERNEL_SCRIPT_URLS`) plus `'unsafe-eval'` on Voodoo pages.
 
 ## Never
 
@@ -104,9 +104,10 @@ State: `v-data` `v-model` `v-if` `v-else` `v-show` `v-for` `:class` `:style` `@c
 
 ## Files
 
-- [VOODOO.md](VOODOO.md): full agent contract (never/helpers/recipe/tests)
-- [LANGUAGE.md](LANGUAGE.md): verified Cronus spec. §6 = components + this runtime
-- [AGENTS.md](AGENTS.md): kernel rules. `CLAUDE.md` is a symlink to it
+- [VOODOO.md](../VOODOO.md): full agent contract (never/helpers/recipe/tests)
+- [llms-full.txt](../llms-full.txt): Cronus grammar, valid section/field types, example
+- [LANGUAGE.md](../LANGUAGE.md): verified Cronus spec. §6 = components + this runtime
+- [AGENTS.md](../AGENTS.md): kernel rules. `CLAUDE.md` is a symlink to it
 - `src/voodoo.rs` `src/cronus_ui_interact.rs` `src/cronus_ui_widgets.rs` `src/cronus_ui.rs`
 - `demos/cronus-ui/widgets.cronus` `demos/cronus-ui/button.cronus`
 

@@ -1,0 +1,25 @@
+# CRONUS
+
+> CRONUS is a declarative full-stack language: one `.cronus` file, compiled by the `cronus` Rust binary, serves SQLite, a REST API, server-rendered HTML, GraphQL, cookie sessions and an audit trail. Authors write `.cronus` only (no JS/JSX/HTML/CSS). Validate with `cronus build --ai`; get project context with `cronus context --for-claude`.
+
+Start with `llms-full.txt`: it has the canonical grammar, the valid section and field types (checked against the kernel source by `cargo test context_grammar`), a complete example that builds clean, and a "never do" list.
+
+## Language
+
+- [llms-full.txt](llms-full.txt): grammar for app, auth, entity, types, api, layout, page, sections, bind, actions, style, webhook, component; example; never-do list
+- [LANGUAGE.md](LANGUAGE.md): long-form verified language reference (security semantics, bindings, CLI)
+
+## Runtime
+
+- [docs/voodoo-llms.md](docs/voodoo-llms.md): compact guide to the opt-in Voodoo.js runtime for the emitted HTML
+- [VOODOO.md](VOODOO.md): full Cronus x Voodoo.js contract
+
+## Kernel development
+
+- [AGENTS.md](AGENTS.md): rules for agents changing the Rust kernel (structure, security model, UI renderer rules, tests)
+- [CHANGELOG.md](CHANGELOG.md): changes and breaking changes
+- [docs/README.md](docs/README.md): documentation index
+
+## Optional
+
+- [docs/archive/](docs/archive/): historical wave reports and planning documents (not current)

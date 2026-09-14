@@ -3,6 +3,113 @@
 All notable changes to CRONUS will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
+`feat/cronus-ui-tokens-button`. Commit hashes are given so each entry can be checked.
+
+## [Unreleased]
+
+### Breaking changes
+
+Apps that worked before may now return 401/403/404 or refuse to start. Each item is a
+deliberate security change.
+
+- **Data is owner-scoped on every surface.** REST, GraphQL, SSR bindings, `/_form`,
+  `/_action` and SSE share one rule set (`src/access.rs`): non-admins see and change only
+  rows whose `_owner_id` is theirs, `shared` entities are readable by signed-in users, admins
+  see everything. Other users' rows are `404`. (d9ce111, 8dc8c98, fd75d70)
+- **Anonymous visitors see no bound data** unless the binding says `scope:public`; the auth
+  entity is never public. (8dc8c98)
+- **Declared routes only.** When an entity has an `api` block, only its declared method +
+  path shapes are served (`404` otherwise, also for admins); `auth:public|jwt|role(x)` is
+  enforced. Entities are resolved by exact path segment. (d9ce111)
+- **Authentication required** for auto CRUD without an `api` block, for GraphQL
+  (`/graphql`, `/graphql/schema`), `/api/sse`, `/_action` and non-public `/_form`. Users are
+  never created through generic REST; use `POST /api/auth/signup`. (d9ce111, 8dc8c98)
+- **`requires:` matches the exact route pattern**, no longer a prefix: `/admin` does not
+  protect `/admin/users`. (8dc8c98)
+- **Cookie-only sessions + CSRF.** Login/signup set an `HttpOnly; SameSite=Lax` cookie
+  (`Secure` in production); the JWT is in the response body only with `?token=1` or
+  `X-Cronus-Session-Token: 1`. Client JS no longer stores or sends the token. Cookie-authenticated
+  mutations must send a same-host `Origin`/`Referer`. (1fd49b2)
+- **Old tokens are invalid.** Session JWTs now require `iat` and `jti`; tokens minted before
+  do not verify and users must log in again. Cookie `Max-Age` and JWT `exp` follow
+  `session jwt expires:<dur>`. (cbc198b, 1fd49b2)
+- **Legacy password hashes no longer log in.** Only Argon2id PHC strings verify
+  (`m=19456,t=2,p=1`); SHA-256 hashes were removed. Signup requires at least 15 characters. (d9ce111)
+- **`cronus run` binds `127.0.0.1` by default.** Use `--host 0.0.0.0` / `CRONUS_HOST` to
+  expose the server. (bf1fcf9)
+- **Production mode** (`--prod` or `CRONUS_ENV=production`): internal/diagnostic routes
+  (`/zeus`, `/blocks`, `/trust`, `/hydra`, `/api/_context`, `/docs*`, …) return `404`; in dev
+  they need an admin unless bound to loopback. `/api/audit/trail*` always needs an admin. (bf1fcf9)
+- **`JWT_SECRET` shorter than 32 bytes refuses to start.** (7dfb451)
+- **Webhooks:** only `http://` URLs are delivered (`https://` is refused and logged, the
+  kernel has no TLS client); loopback/private/link-local/metadata/CGNAT targets are blocked
+  unless `CRONUS_WEBHOOK_ALLOW_PRIVATE=1`; payloads are redacted and signed with
+  `X-Cronus-Signature`. (85964d0)
+- **Request bodies over 1 MiB get `413`** (`CRONUS_MAX_BODY_BYTES`). (bf1fcf9)
+- **Record ids are UUIDv7** instead of nanosecond hex. (4b6aeb3)
+- **`/_action` runs only AST-declared actions by `action_id`**; client-sent instruction JSON
+  is ignored. (8dc8c98, fd75d70)
+- **cronus-ui renderers are zero-JS.** `tabs`, `accordion`, `dialog`, `select`, `tooltip`,
+  `table`, `pagination`, `breadcrumb`, `number-input` and `password-input` no longer emit
+  `<select>`/`<dialog>`/`<details>`/`onclick`; JS-only controls render disabled. `calendar`
+  and `scheduler` highlight a day only from explicit `selected:`/`today:` attrs. (37596d4, f38e132)
+
+### Security (Sprint 1)
+
+- Shared authorization contract: `authz::redact_sensitive`, `authz::writable_body` and
+  safe `{"error":{"code","message"}}` bodies; database text never reaches clients. (56c550d, d9ce111)
+- `src/api_crud.rs` replaces the REST handler in `main.rs`, with owner scope in the SQL
+  `WHERE` of every SELECT/UPDATE/DELETE and 17 HTTP-level regression tests
+  (`src/api_security_tests.rs`). (d9ce111)
+- GraphQL, forms/actions, SSR bindings and SSE authorized through `src/access.rs`; sensitive
+  fields removed from GraphQL SDL and responses. (8dc8c98, fd75d70)
+- HTTP hardening in `src/http_guard.rs`: per-request panic isolation (`panic = "unwind"`),
+  HTTP/1 header read timeout, rate limit keyed on the socket peer (`X-Forwarded-For` only from
+  `CRONUS_TRUSTED_PROXIES`), per-account login backoff, bounded maps, poison-recovering
+  locks. (bf1fcf9)
+- CSP with per-request nonces for kernel-authored scripts only, no `'unsafe-inline'`,
+  exact CDN URLs, `object-src 'none'`, `base-uri 'self'`. (cbc198b, 076a332)
+- Bound data escaped in SSR sections and client HTML sinks (kanban, timeline, KPI,
+  charts, form values, data lists, SSE cells). (234cdf1)
+- Secrets: `.cronus/jwt.key` and `.cronus/webhook.key` created with mode 0600; `cronus new`
+  gitignores key files and databases; `cronus generate` passes the API key on stdin. (7dfb451)
+- Voodoo CDN script pinned with Subresource Integrity. (ed25676)
+- Output safety gate (`src/cronus_ui_output_gate.rs`) renders every ported cronus-ui family
+  with hostile inputs and fails on scripts, inline styles, `on*` attributes or executable
+  URLs; `cronus_ui_kit::safe_url` filters `href`/`src`. (3e425e8)
+- SSE clients stop reconnecting without a session and back off exponentially. (575c3bd)
+
+### UI parity and audit
+
+- Waves 1a–1r: dedicated kernel renderers for the cronus-ui families (about nine per wave),
+  replacing generic fallbacks. Reports: `docs/archive/waves/`.
+- Waves 1s–1t: geometry parity with the React components, checked by the cooud-ui
+  Playwright audit (`e2e/audit/geometry.spec.ts`) against `cronus run --audit-canvas`.
+- Sprint 2: zero-JS rewrites of ten renderers (37596d4), multi-select search row (762de83),
+  choropleth/sunburst pixel parity (3c475d6), style fixes from the extended geometry audit
+  (dd6082d), `cronus_ui_kit` attr/flag/esc helpers with a gate test against local copies (20e6e2b).
+
+### Language
+
+- `where x eq:auth.id` / `eq:"v"` / `gt:5` colon forms equal the space form; `neq` aliases `ne`;
+  `field:`, `group_by:`, `interval:` parsed in bindings. `aggregate` without `group_by` feeds
+  KPI `value:bind`. (fd75d70)
+- `PATCH /_form/<section>/<id>` edits through the declared form. (fd75d70)
+- P041 (SQL reserved words) no longer applies to enum/array values; a test parses every
+  `.cronus` under `templates/` and `demos/`. (e98d8ae)
+
+### Tooling and docs
+
+- CI runs `cargo test`, `cargo clippy -D clippy::correctness`, `cargo fmt --check` and a
+  12 MB release-size budget. (bdd6c45, 14209e3)
+- `llms.txt` is now an llmstxt.org index; `llms-full.txt` holds the language grammar with
+  section/field type lists checked against the code; the Voodoo guide moved to
+  `docs/voodoo-llms.md`.
+- `cronus context --for-claude` prints the grammar, valid section and field types, the
+  project's entities/APIs/pages and the current `build --ai` errors; `cronus brief` no
+  longer prints placeholders when metadata is missing.
+- Historical `WAVE*.md` and `.cronus/` planning docs moved to `docs/archive/`.
 
 ## [0.1.0] - 2026-04-03
 
