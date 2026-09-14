@@ -539,14 +539,14 @@ document.getElementById('auth-form').addEventListener('submit',async function(e)
   try{{
     var r=await fetch(action,{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify(data)}});
     var body=await r.json();
-    if(r.ok&&body.token){{
-      localStorage.setItem('token',body.token);
-      localStorage.setItem('user',JSON.stringify(body.user||{{}}));
+    if(r.ok&&body.user){{
+      // Session is the HttpOnly cookie set by the server; nothing to store.
+      localStorage.setItem('user',JSON.stringify(body.user));
       window.location.href='/';
     }}else{{
       var msg=document.getElementById('auth-msg');
       msg.style.display='block';msg.style.background='#fef2f2';msg.style.color='#dc2626';msg.style.border='1px solid #fecaca';
-      msg.textContent=body.error||'Invalid credentials';
+      msg.textContent=(body.error&&body.error.message)||body.error||'Invalid credentials';
       btn.disabled=false;btn.textContent='{btn_label}';
     }}
   }}catch(err){{

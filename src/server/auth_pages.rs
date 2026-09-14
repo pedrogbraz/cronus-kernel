@@ -195,15 +195,14 @@ async function doLogin(email, password, remember, errorEl, btn) {{
   try {{
     var res = await fetch('/api/auth/login', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify({{ email: email, password: password, remember: remember }}) }});
     var json = await res.json();
-    if (json.token) {{
-      localStorage.setItem('token', json.token);
-      localStorage.setItem('user', JSON.stringify(json.user || {{}}));
+    if (res.ok && json.user) {{
+      localStorage.setItem('user', JSON.stringify(json.user));
       saveAccount(json.user);
-      var role = json.user && json.user.role;
+      var role = json.user.role;
       window.location.href = (role === 'admin') ? '{admin}' : '{home}';
     }} else {{
       errorEl.style.display = 'block';
-      errorEl.textContent = json.error || 'Invalid credentials';
+      errorEl.textContent = (json.error && json.error.message) || json.error || 'Invalid credentials';
       btn.disabled = false; btn.textContent = 'Sign In';
     }}
   }} catch(err) {{
@@ -227,20 +226,16 @@ document.getElementById('quickLogin').addEventListener('submit', function(e) {{
   doLogin(fd.email, fd.password, !!fd.remember, document.getElementById('quick-error'), e.target.querySelector('button[type=submit]'));
 }});
 
-// Auto-redirect if already logged in with valid token
+// Auto-redirect if the HttpOnly session cookie is still valid
 !function(){{
-  var token = localStorage.getItem('token');
-  if (token) {{
-    fetch('/api/auth/me', {{ headers: {{ 'Authorization': 'Bearer ' + token }} }})
-      .then(function(r) {{ return r.json(); }})
-      .then(function(d) {{
-        if (d.id || d.user) {{
-          var user = d.user || d;
-          var role = user.role || 'user';
-          window.location.href = (role === 'admin') ? '{admin}' : '{home}';
-        }}
-      }}).catch(function(){{}});
-  }}
+  fetch('/api/auth/me', {{ credentials: 'same-origin' }})
+    .then(function(r) {{ return r.ok ? r.json() : null; }})
+    .then(function(d) {{
+      if (d && d.id) {{
+        var role = d.role || 'user';
+        window.location.href = (role === 'admin') ? '{admin}' : '{home}';
+      }}
+    }}).catch(function(){{}});
 }}();
 
 // Init: show saved accounts or full login
@@ -280,7 +275,7 @@ input:focus{{border-color:#525252}}
   <form id="registerForm" style="display:flex;flex-direction:column;gap:16px">
     <input name="name" type="text" placeholder="Full name" required />
     <input name="email" type="email" placeholder="Email" required />
-    <input name="password" type="password" placeholder="Password" required minlength="6" />
+    <input name="password" type="password" placeholder="Password (15+ characters)" required minlength="15" />
     <div id="error" style="display:none;padding:10px 14px;border-radius:10px;font-size:13px;text-align:center;background:#450a0a;color:#fca5a5;border:1px solid #7f1d1d"></div>
     <button type="submit" class="btn">Sign Up</button>
     <p style="text-align:center;font-size:14px;color:#a3a3a3">Already have an account? <a href="/login" style="color:#fafafa;font-weight:600;text-decoration:none">Sign in</a></p>
@@ -305,16 +300,15 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
   try {{
     const res = await fetch('/api/auth/signup', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify(data) }});
     const json = await res.json();
-    if (json.token) {{
-      localStorage.setItem('token', json.token);
-      localStorage.setItem('user', JSON.stringify(json.user || {{}}));
+    if (res.ok && json.user) {{
+      localStorage.setItem('user', JSON.stringify(json.user));
       saveAccount(json.user);
-      const role = json.user && json.user.role;
+      const role = json.user.role;
       window.location.href = (role === 'admin') ? '{admin}' : '{home}';
     }} else {{
       const err = document.getElementById('error');
       err.style.display = 'block';
-      err.textContent = json.error || 'Registration failed';
+      err.textContent = (json.error && json.error.message) || json.error || 'Registration failed';
       btn.disabled = false; btn.textContent = 'Sign Up';
     }}
   }} catch(err) {{

@@ -252,7 +252,7 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
       {nav_items}
     </nav>
     <div class="sb-footer">
-      <button onclick="localStorage.clear();location.href='/login'" class="sb-signout">
+      <button onclick="fetch('/api/auth/logout',{{method:'POST',credentials:'same-origin'}}).finally(function(){{localStorage.removeItem('user');location.href='/login'}})" class="sb-signout">
         <span class="material-symbols-outlined">logout</span>Sign Out
       </button>
     </div>
@@ -1308,63 +1308,6 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
   }};
   // Run on initial load
   window.__cronusAnimateContent();
-  </script>
-  <script>
-  // Token auto-refresh — re-authenticate silently before expiry
-  !function(){{
-    var token=localStorage.getItem('token');
-    if(!token)return;
-    // Decode JWT payload to check expiry
-    try{{
-      var payload=JSON.parse(atob(token.split('.')[1]));
-      var exp=payload.exp*1000; // ms
-      var now=Date.now();
-      var remaining=exp-now;
-      // If token expires in less than 1 hour, refresh now
-      if(remaining<3600000&&remaining>0){{
-        fetch('/api/auth/me',{{headers:{{'Authorization':'Bearer '+token}}}})
-          .then(function(r){{return r.json()}})
-          .then(function(d){{
-            if(d.token){{
-              localStorage.setItem('token',d.token);
-              document.cookie='cronus_token='+d.token+';path=/;max-age=604800;SameSite=Strict';
-            }}
-          }}).catch(function(){{}});
-      }}
-      // Schedule refresh 1 hour before expiry
-      if(remaining>3600000){{
-        setTimeout(function(){{
-          var t=localStorage.getItem('token');
-          if(!t)return;
-          fetch('/api/auth/me',{{headers:{{'Authorization':'Bearer '+t}}}})
-            .then(function(r){{return r.json()}})
-            .then(function(d){{
-              if(d.token){{
-                localStorage.setItem('token',d.token);
-                document.cookie='cronus_token='+d.token+';path=/;max-age=604800;SameSite=Strict';
-              }}
-            }}).catch(function(){{}});
-        }},remaining-3600000);
-      }}
-    }}catch(e){{}}
-    // Also inject token into every fetch for SPA navigation
-    var origFetch=window.fetch;
-    window.fetch=function(url,opts){{
-      opts=opts||{{}};
-      if(typeof url==='string'&&url.startsWith('/')&&!url.startsWith('/api/auth/login')){{
-        var t=localStorage.getItem('token');
-        if(t){{
-          opts.headers=opts.headers||{{}};
-          if(!opts.headers['Authorization']&&!opts.headers['authorization']){{
-            opts.headers['Authorization']='Bearer '+t;
-          }}
-          // Also set cookie for page requests
-          opts.credentials='same-origin';
-        }}
-      }}
-      return origFetch.call(this,url,opts);
-    }};
-  }}();
   </script>
   <script>
   // ── CRONUS SPA Router ──────────────────────────────

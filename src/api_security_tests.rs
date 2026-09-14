@@ -62,7 +62,12 @@ api /reports {
 "#;
 
 fn state() -> AppState {
-    let nodes = parse(SRC).expect("parse test app");
+    state_from(SRC)
+}
+
+/// In-memory app state for any `.cronus` source (shared with `session` tests).
+pub(crate) fn state_from(src: &str) -> AppState {
+    let nodes = parse(src).expect("parse test app");
     let mut app = None;
     let mut entities = Vec::new();
     let mut apis = Vec::new();
@@ -96,6 +101,7 @@ fn state() -> AppState {
         auth_roles,
         auth_required_pages: vec![],
         auth_redirect: None,
+        session_policy: Default::default(),
         layout: None,
         webhooks: vec![],
         rate_limiter: crate::rate_limit::RateLimiter::new(10_000, 60),

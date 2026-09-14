@@ -326,10 +326,8 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
   function cronusLiveReload(){
     var main=document.getElementById('cronus-content')||document.getElementById('cronus-main');
     if(!main) return Promise.resolve();
-    var token=localStorage.getItem('token');
-    var headers={};
-    if(token) headers['Authorization']='Bearer '+token;
-    return fetch(location.pathname,{headers:headers})
+    // Session travels in the HttpOnly cookie; JS never sees the token.
+    return fetch(location.pathname,{credentials:'same-origin'})
       .then(function(r){return r.text()})
       .then(function(html){
         var parser=new DOMParser();
@@ -384,10 +382,7 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
     content.style.opacity='0';
     content.style.transform='translateY(8px)';
     // Start fetch in parallel
-    var token=localStorage.getItem('token');
-    var headers={};
-    if(token) headers['Authorization']='Bearer '+token;
-    var fetchPromise=_originalFetch(url,{headers:headers}).then(function(r){return r.text()});
+    var fetchPromise=_originalFetch(url,{credentials:'same-origin'}).then(function(r){return r.text()});
     // Phase 2: after fade out completes, swap content
     setTimeout(function(){
       fetchPromise.then(function(html){
@@ -795,7 +790,6 @@ pub const CRONUS_DEBUG_JS: &str = r#"
       }
       s.textContent=state.errors.length+' error(s)';
     }else if(state.tab==='info'){
-      var token=localStorage.getItem('token');
       var nonceMeta=document.querySelector('meta[name="csp-nonce"]');
       var nonceScript=document.querySelector('script[nonce]');
       var sections=document.querySelectorAll('[data-section]').length;
@@ -807,7 +801,7 @@ pub const CRONUS_DEBUG_JS: &str = r#"
         +infoRow('Viewport',w+'\u00d7'+window.innerHeight+' \u2014 '+bp)
         +infoRow('Sections',sections)
         +infoRow('Entity bindings',entities)
-        +infoRow('Auth',token?'Authenticated':'Not authenticated')
+        +infoRow('Auth','HttpOnly cookie (not readable from JS)')
         +infoRow('SSE',state.sseState)
         +infoRow('CSP nonce',nonceMeta?nonceMeta.content:(nonceScript?nonceScript.nonce:'N/A'))
         +infoRow('Last audit',window.__cronusLastAudit||'N/A')

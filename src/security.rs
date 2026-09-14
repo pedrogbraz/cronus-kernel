@@ -284,23 +284,5 @@ pub fn is_strong_password(password: &str) -> bool {
     password.len() >= 8
 }
 
-// ══════════════════════════════════════════════════
-// COOKIE BUILDER — secure by default
-// ══════════════════════════════════════════════════
-
-/// Build a cookie string. HttpOnly + SameSite=Lax.
-/// Secure flag only added when not on localhost (HTTPS required for Secure).
-pub fn secure_cookie(name: &str, value: &str, max_age_secs: u64, path: &str) -> String {
-    format!(
-        "{}={}; Path={}; HttpOnly; SameSite=Lax; Max-Age={}",
-        name, value, path, max_age_secs
-    )
-}
-
-/// Build a cookie deletion string.
-pub fn delete_cookie(name: &str, path: &str) -> String {
-    format!(
-        "{}=; Path={}; HttpOnly; SameSite=Lax; Max-Age=0",
-        name, path
-    )
-}
+// Session cookies are built in `crate::session` (HttpOnly, SameSite=Lax,
+// Secure in production / behind HTTPS).

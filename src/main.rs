@@ -46,6 +46,7 @@ mod render;
 mod runtime_js;
 mod scripting;
 mod server;
+mod session;
 mod trust;
 mod zeus;
 mod sse;
@@ -551,6 +552,12 @@ async fn handle_request_inner(
         return Ok(json_response(StatusCode::OK, json!({})));
     }
 
+    // CSRF: cookie-authenticated mutations (REST, GraphQL, forms, actions,
+    // auth routes) must come from this origin. Runs before every handler.
+    if let Some(resp) = session::csrf_rejection(&method, &path, req.headers()) {
+        return Ok(resp);
+    }
+
     // HMR version endpoint
     if path == "/.cronus/version" {
         return Ok(json_response(StatusCode::OK, json!({ "version": hmr::current_version() })));
@@ -684,143 +691,17 @@ async fn handle_request_inner(
 
     // Auth routes
     if path.starts_with("/api/auth/") {
-        let secret = auth::default_secret();
-        let auth_header = req.headers().get("authorization").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
-
-        let user_table = state.entities.iter()
-            .find(|e| {
-                let lower = e.name.to_lowercase();
-                lower == "user" || lower == "users"
-            })
-            .map(|e| e.name.as_str())
-            .unwrap_or("User");
-
-        let mut login_account: Option<String> = None;
-        let resp = match (method.clone(), path.as_str()) {
-            (Method::GET, "/api/auth/me") => {
-                match auth::extract_user(auth_header.as_deref(), &secret) {
-                    Some(claims) => json_response(StatusCode::OK, json!({"sub": claims.sub, "role": claims.role, "exp": claims.exp})),
-                    None => json_response(StatusCode::UNAUTHORIZED, json!({"error": "unauthorized"})),
-                }
-            }
-
-            // POST /api/auth/signup
-            (Method::POST, "/api/auth/signup") => {
-                let body_bytes = match http_guard::read_body(req).await { Ok(b) => b, Err(r) => return Ok(r) };
-                let body: Value = serde_json::from_slice(&body_bytes).unwrap_or(json!({}));
-
-                let name = body.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                let email = body.get("email").and_then(|v| v.as_str()).unwrap_or("");
-                let password = body.get("password").and_then(|v| v.as_str()).unwrap_or("");
-                // Accept role from request, but only if it's a valid declared role
-                let requested_role = body.get("role").and_then(|v| v.as_str()).unwrap_or("user");
-                // SECURITY: Never allow privileged roles via self-registration
-                let forbidden_roles = ["admin", "superadmin", "root", "owner"];
-                let role = if state.auth_roles.iter().any(|r| r == requested_role)
-                    && !forbidden_roles.contains(&requested_role) {
-                    requested_role.to_string()
-                } else {
-                    state.auth_roles.iter()
-                        .find(|r| !forbidden_roles.contains(&r.as_str()))
-                        .cloned()
-                        .unwrap_or_else(|| "user".to_string())
-                };
-
-                if name.is_empty() || email.is_empty() || password.is_empty() {
-                    json_response(StatusCode::BAD_REQUEST, json!({"error": "name, email and password required"}))
-                } else if let Err(message) = auth::validate_new_password(password) {
-                    json_response(StatusCode::BAD_REQUEST, authz::error_body("VALIDATION_FAILED", &message))
-                } else {
-                    // Check if email already exists (direct query, not full table scan)
-                    let exists = state.db.find_by_field(user_table, "email", email)
-                        .ok()
-                        .map(|opt| opt.is_some())
-                        .unwrap_or(false);
-
-                    if exists {
-                        json_response(StatusCode::BAD_REQUEST, json!({"error": "email already registered"}))
-                    } else {
-                        let hashed = auth::hash_password(password);
-                        let user_data = json!({
-                            "name": name,
-                            "email": email,
-                            "password": hashed,
-                            "role": &role
-                        });
-
-                        match state.db.insert(user_table, &user_data) {
-                            Ok(user) => {
-                                let user_id = user.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                                let token = auth::create_token(user_id, &role, &secret);
-                                let body = json!({
-                                    "token": token,
-                                    "user": {"id": user_id, "name": name, "email": email, "role": &role}
-                                });
-                                Response::builder()
-                                    .status(StatusCode::CREATED)
-                                    .header("Content-Type", "application/json")
-                                    .header("Set-Cookie", crate::security::secure_cookie("cronus_token", &token, 604800, "/"))
-                                    .body(Full::new(Bytes::from(body.to_string())))
-                                    .unwrap()
-                            }
-                            Err(e) => json_response(StatusCode::BAD_REQUEST, json!({"error": e}))
-                        }
-                    }
-                }
-            }
-
-            // POST /api/auth/login
-            (Method::POST, "/api/auth/login") => {
-                let body_bytes = match http_guard::read_body(req).await { Ok(b) => b, Err(r) => return Ok(r) };
-                let body: Value = serde_json::from_slice(&body_bytes).unwrap_or(json!({}));
-
-                let email = body.get("email").and_then(|v| v.as_str()).unwrap_or("");
-                let password = body.get("password").and_then(|v| v.as_str()).unwrap_or("");
-                if let Some(locked) = http_guard::login_account_check(email) { return Ok(locked); }
-                login_account = Some(email.to_string());
-                let remember =body.get("remember").and_then(|v| v.as_bool()).unwrap_or(false);
-                let cookie_max_age = if remember { 2592000 } else { 86400 }; // 30 days or 24h
-
-                if email.is_empty() || password.is_empty() {
-                    json_response(StatusCode::BAD_REQUEST, json!({"error": "email and password required"}))
-                } else {
-                    match state.db.find_by_field(user_table, "email", email) {
-                        Ok(user) => {
-                            match user {
-                                Some(u) => {
-                                    let stored_pass = u.get("password").and_then(|v| v.as_str()).unwrap_or("");
-                                    if auth::verify_password(password, stored_pass) {
-                                        let user_id = u.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                                        let role = u.get("role").and_then(|v| v.as_str()).unwrap_or("user");
-                                        let token = auth::create_token(user_id, role, &secret);
-                                        let body = json!({
-                                            "token": token,
-                                            "user": {"id": user_id, "name": u.get("name"), "email": email, "role": role}
-                                        });
-                                        Response::builder()
-                                            .status(StatusCode::OK)
-                                            .header("Content-Type", "application/json")
-                                            .header("Set-Cookie", crate::security::secure_cookie("cronus_token", &token, cookie_max_age, "/"))
-                                            .body(Full::new(Bytes::from(body.to_string())))
-                                            .unwrap()
-                                    } else {
-                                        json_response(StatusCode::UNAUTHORIZED, json!({"error": "invalid credentials"}))
-                                    }
-                                }
-                                None => json_response(StatusCode::UNAUTHORIZED, json!({"error": "invalid credentials"}))
-                            }
-                        }
-                        Err(_) => json_response(StatusCode::INTERNAL_SERVER_ERROR, json!({"error": "database error"}))
-                    }
-                }
-            }
-
-            _ => json_response(StatusCode::OK, json!({"info": "auth endpoint", "routes": ["/api/auth/signup POST", "/api/auth/login POST", "/api/auth/me GET"]})),
+        let headers = req.headers().clone();
+        let body_bytes = if method == Method::POST {
+            match http_guard::read_body(req).await { Ok(b) => b, Err(r) => return Ok(r) }
+        } else {
+            Default::default()
         };
-        if let Some(ref account) = login_account {
-            http_guard::login_account_record(account, resp.status());
+        let outcome = session::handle_auth(&state, &method, &path, &query, &headers, &body_bytes);
+        if let Some(ref account) = outcome.login_account {
+            http_guard::login_account_record(account, outcome.response.status());
         }
-        return Ok(resp);
+        return Ok(outcome.response);
     }
 
     // Payment endpoints
@@ -1526,7 +1407,7 @@ async fn handle_request_inner(
             return Ok(Response::builder()
                 .status(StatusCode::FOUND)
                 .header("Location", "/login")
-                .header("Set-Cookie", crate::security::delete_cookie("cronus_token", "/"))
+                .header("Set-Cookie", session::clear_session_cookie(session::cookie_secure(http_guard::policy().mode, req.headers())))
                 .body(Full::new(Bytes::new()))
                 .unwrap());
         }
@@ -2182,6 +2063,7 @@ async fn cmd_run(args: &[String]) {
     let mut auth_roles: Vec<String> = Vec::new();
     let mut auth_required_pages: Vec<(String, String)> = Vec::new();
     let mut auth_redirect: Option<String> = None;
+    let mut session_policy = crate::auth::SessionPolicy::default();
     let mut layout: Option<parser::LayoutNode> = None;
     let mut defines: std::collections::HashMap<String, Vec<parser::SectionNode>> = std::collections::HashMap::new();
 
@@ -2206,6 +2088,13 @@ async fn cmd_run(args: &[String]) {
             AstNode::Auth(auth) => {
                 auth_entity = Some(auth.entity.clone());
                 auth_roles = auth.roles.clone();
+                session_policy = match crate::auth::SessionPolicy::from_session_config(&auth.session_config) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        eprintln!("  \x1b[31m✗\x1b[0m {}", e);
+                        std::process::exit(1);
+                    }
+                };
                 if let Some(r) = auth.session_config.get("redirect") {
                     auth_redirect = Some(r.clone());
                 }
@@ -2530,6 +2419,7 @@ async fn cmd_run(args: &[String]) {
         auth_roles,
         auth_required_pages,
         auth_redirect,
+        session_policy,
         layout,
         webhooks,
         rate_limiter: rate_limit::RateLimiter::new(100, 60),
