@@ -226,6 +226,7 @@ mod cronus_ui_workspace_switcher;
 mod cronus_ui_word_rotate;
 mod cronus_ui_widgets;
 mod voodoo;
+mod webhook;
 mod navigation;
 mod security;
 mod ui;
@@ -1944,7 +1945,7 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                         match entity_def {
                             Some(entity) => match state.db.validated_insert(entity, data) {
                                 Ok(row) => {
-                                    fire_webhooks(&state.webhooks, table, "create", &row);
+                                    fire_webhooks(&state.webhooks, &state.entities, table, "create", &row);
                                     fire_effects(entity, "create", &row, None, &state.brain, &state.sse_hub);
                                     let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
                                     scripting::fire_scripts(&state.script_registry, &entity.name, "create", &row, &row_id, None, &state.db, owner_id, "user", &std::collections::HashMap::new());
@@ -1973,7 +1974,7 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                             },
                             None => match state.db.insert(table, data) {
                                 Ok(row) => {
-                                    fire_webhooks(&state.webhooks, table, "create", &row);
+                                    fire_webhooks(&state.webhooks, &state.entities, table, "create", &row);
                                     fire_effects(entity, "create", &row, None, &state.brain, &state.sse_hub);
                                     let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
                                     scripting::fire_scripts(&state.script_registry, &entity.name, "create", &row, &row_id, None, &state.db, owner_id, "user", &std::collections::HashMap::new());
@@ -2012,7 +2013,7 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
 
                             match state.db.update(table, segments[1], data) {
                             Ok(row) => {
-                                fire_webhooks(&state.webhooks, table, "update", &row);
+                                fire_webhooks(&state.webhooks, &state.entities, table, "update", &row);
                                 fire_effects(entity, "update", &row, prev_record.as_ref(), &state.brain, &state.sse_hub);
                                 let ent_name = entity.name.as_str();
                                 scripting::fire_scripts(&state.script_registry, ent_name, "update", &row, segments[1], prev_record.as_ref(), &state.db, owner_id, "user", &std::collections::HashMap::new());
@@ -2041,7 +2042,7 @@ fn handle_api(method: &Method, path: &str, body: Option<&serde_json::Value>, sta
                     match state.db.delete(table, segments[1]) {
                         Ok(true) => {
                             let delete_payload = json!({"id": segments[1], "entity": table});
-                            fire_webhooks(&state.webhooks, table, "delete", &delete_payload);
+                            fire_webhooks(&state.webhooks, &state.entities, table, "delete", &delete_payload);
                             // For effects, use prev_record if available (has field values for interpolation)
                             let effect_record = prev_record.as_ref().unwrap_or(&delete_payload);
                             fire_effects(entity, "delete", effect_record, None, &state.brain, &state.sse_hub);
@@ -2137,53 +2138,21 @@ fn validate_transitions(
 
 /// Fire webhooks in background for a given entity + event.
 /// Sends the payload as JSON body to each matching webhook URL.
-fn fire_webhooks(webhooks: &[parser::WebhookNode], entity: &str, event: &str, payload: &serde_json::Value) {
-    let entity_lower = entity.to_lowercase();
-    for wh in webhooks {
-        let wh_entity = wh.entity.to_lowercase();
-        // Match entity name (with or without trailing 's')
-        if wh_entity != entity_lower
-            && format!("{}s", wh_entity) != entity_lower
-            && wh_entity != format!("{}s", entity_lower) {
-            continue;
-        }
-        for hook in &wh.hooks {
-            if hook.event != event { continue; }
-            let url = hook.url.clone();
-            let method = hook.method.clone();
-            let payload = payload.clone();
-            let headers: Vec<(String, String)> = hook.headers.clone();
-            // Spawn background task — fire and forget
-            tokio::spawn(async move {
-                let client_result = tokio::net::TcpStream::connect(
-                    url.trim_start_matches("http://")
-                       .trim_start_matches("https://")
-                       .split('/')
-                       .next()
-                       .unwrap_or("")
-                ).await;
-                // Use a simple HTTP request via hyper or raw TCP
-                // For robustness, just use the process's own fetch
-                let body_str = payload.to_string();
-                let req_body = format!(
-                    "{method} {path} HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\nContent-Length: {len}\r\n{extra_headers}\r\n{body}",
-                    method = method,
-                    path = url.find('/').map(|_| {
-                        let after_scheme = url.trim_start_matches("http://").trim_start_matches("https://");
-                        after_scheme.find('/').map(|i| &after_scheme[i..]).unwrap_or("/")
-                    }).unwrap_or("/"),
-                    host = url.trim_start_matches("http://").trim_start_matches("https://").split('/').next().unwrap_or(""),
-                    len = body_str.len(),
-                    extra_headers = headers.iter().map(|(k,v)| format!("{}: {}\r\n", k, v)).collect::<String>(),
-                    body = body_str,
-                );
-                if let Ok(mut stream) = client_result {
-                    use tokio::io::AsyncWriteExt;
-                    let _ = stream.write_all(req_body.as_bytes()).await;
-                } else {
-                    eprintln!("  \x1b[33m⚠\x1b[0m Webhook failed: {}", url);
-                }
-            });
+/// Fire-and-forget webhooks for an entity event. Validation, SSRF blocking,
+/// redaction, signing and timeouts live in `webhook.rs`.
+fn fire_webhooks(
+    webhooks: &[parser::WebhookNode],
+    entities: &[parser::EntityNode],
+    entity: &str,
+    event: &str,
+    payload: &serde_json::Value,
+) {
+    for wh in webhooks.iter().filter(|wh| webhook::names_match(&wh.entity, entity)) {
+        let hooks: Vec<_> = wh.hooks.iter().filter(|h| h.event == event).collect();
+        if hooks.is_empty() { continue; }
+        let body = webhook::redacted_body(entities, entity, payload);
+        for hook in hooks {
+            tokio::spawn(webhook::fire(hook.clone(), event.to_string(), body.clone()));
         }
     }
 }
@@ -2346,6 +2315,11 @@ async fn cmd_debug(args: &[String]) {
 
 async fn cmd_run(args: &[String]) {
     let start_time = Instant::now();
+
+    if let Err(e) = auth::check_secret_config() {
+        eprintln!("  \x1b[31m✗\x1b[0m {}", e);
+        std::process::exit(1);
+    }
 
     // Find .cronus files — supports multi-agent mode
     let files = find_all_cronus_files();
