@@ -11,6 +11,10 @@ Dedicated CONTRACT renderers. Zero JS, zero `<script>`, zero `<style>` tags,
 zero inline `style=`, zero canvas, zero rAF. Token CSS in `COMPONENT_CHROME`.
 `PORTED_FAMILIES` length 160 (157 + 3).
 
+## B — dot-pattern / flickering-grid / grid-pattern
+
+CSS field + content. No SVG useId, no 160 cells, leftover stub is meteors.
+
 ### click-spark
 React idle: `<div data-slot="click-spark">` + relative children. Sparks only on pointer (JS).
 Kernel idle: `<div data-slot="click-spark"><div data-slot="click-spark-content">{label}</div></div>`.

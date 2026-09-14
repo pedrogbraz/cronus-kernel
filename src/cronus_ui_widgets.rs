@@ -346,6 +346,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "click-spark",
     "glare-hover",
     "magnetic",
+    "dot-pattern",
+    "flickering-grid",
+    "grid-pattern",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -520,6 +523,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "click-spark" => Some(crate::cronus_ui_click_spark::render(comp)),
         "glare-hover" => Some(crate::cronus_ui_glare_hover::render(comp)),
         "magnetic" => Some(crate::cronus_ui_magnetic::render(comp)),
+        "dot-pattern" => Some(crate::cronus_ui_dot_pattern::render(comp)),
+        "flickering-grid" => Some(crate::cronus_ui_flickering_grid::render(comp)),
+        "grid-pattern" => Some(crate::cronus_ui_grid_pattern::render(comp)),
         _ => None,
     }
 }

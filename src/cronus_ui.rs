@@ -3326,6 +3326,53 @@ button:has(+ [data-slot="sheet-content"]) {
     transition: none;
   }
 }
+[data-slot="dot-pattern"] {
+  position: relative; overflow: hidden;
+  color: var(--cronus-fg);
+}
+[data-slot="dot-pattern-field"] {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image: repeating-radial-gradient(circle at 8px 8px, var(--cronus-fg) 0 1px, transparent 1.25px 16px);
+  opacity: 0.18;
+}
+[data-slot="dot-pattern-content"] {
+  position: relative; z-index: 1;
+}
+[data-slot="flickering-grid"] {
+  position: relative; overflow: hidden;
+  color: var(--cronus-fg);
+}
+[data-slot="flickering-grid-field"] {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--cronus-fg) 18%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--cronus-fg) 18%, transparent) 1px, transparent 1px);
+  background-size: 12px 12px;
+  animation: cui-flicker 1.8s ease-in-out infinite;
+}
+[data-slot="flickering-grid-content"] {
+  position: relative; z-index: 1;
+}
+@keyframes cui-flicker {
+  0%, 100% { opacity: 0.08; }
+  50% { opacity: 0.45; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="flickering-grid-field"] { animation: none; opacity: 0.4; }
+}
+[data-slot="grid-pattern"] {
+  position: relative; overflow: hidden;
+  color: var(--cronus-border);
+}
+[data-slot="grid-pattern-field"] {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    repeating-linear-gradient(to right, var(--cronus-border) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(to bottom, var(--cronus-border) 0 1px, transparent 1px 24px);
+}
+[data-slot="grid-pattern-content"] {
+  position: relative; z-index: 1;
+}
 
 "#;
 

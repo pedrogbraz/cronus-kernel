@@ -175,6 +175,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "click-spark" => Some("cronus_ui_click_spark::render"),
         "glare-hover" => Some("cronus_ui_glare_hover::render"),
         "magnetic" => Some("cronus_ui_magnetic::render"),
+        "dot-pattern" => Some("cronus_ui_dot_pattern::render"),
+        "flickering-grid" => Some("cronus_ui_flickering_grid::render"),
+        "grid-pattern" => Some("cronus_ui_grid_pattern::render"),
         _ => None,
     }
 }
@@ -682,6 +685,30 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || html.contains("requestAnimationFrame")
                 || html.contains("data-magnetic-active")
                 || !html.contains("data-slot=\"magnetic-target\"")))
+        || (html.contains("data-slot=\"dot-pattern\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || !html.contains("data-slot=\"dot-pattern-field\"")
+                || !html.contains("data-slot=\"dot-pattern-content\"")
+                || html.contains("<script")
+                || html.contains("<canvas")))
+        || (html.contains("data-slot=\"flickering-grid\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || !html.contains("data-slot=\"flickering-grid-field\"")
+                || !html.contains("data-slot=\"flickering-grid-content\"")
+                || html.contains("<script")
+                || html.contains("<canvas")))
+        || (html.contains("data-slot=\"grid-pattern\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || !html.contains("data-slot=\"grid-pattern-field\"")
+                || !html.contains("data-slot=\"grid-pattern-content\"")
+                || html.contains("<script")
+                || html.contains("<canvas")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -947,6 +974,9 @@ mod tests {
             "src/cronus_ui_combobox.rs",
             "src/cronus_ui_command.rs",
             "src/cronus_ui_magnetic.rs",
+            "src/cronus_ui_dot_pattern.rs",
+            "src/cronus_ui_flickering_grid.rs",
+            "src/cronus_ui_grid_pattern.rs",
             "src/cronus_ui_masonry.rs",
             "src/cronus_ui_comparison_slider.rs",
             "src/cronus_ui_confirmation_dialog.rs",
