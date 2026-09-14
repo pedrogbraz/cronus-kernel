@@ -191,6 +191,7 @@ pub const SSE_CLIENT_JS: &str = r##"
 // CRONUS SSE — Real-time data updates via Server-Sent Events
 (function() {
   var connected = false;
+  var retryMs = 3000;
 
   function connect() {
     var es = new EventSource('/api/sse');
@@ -213,13 +214,24 @@ pub const SSE_CLIENT_JS: &str = r##"
       } catch(err) {}
     });
 
+    es.addEventListener('open', function() { retryMs = 3000; });
+
     es.onerror = function() {
       connected = false;
       var dot = document.getElementById('cronus-sse-dot');
       if (dot) dot.style.background = '#ef4444';
       es.close();
-      console.log('[CRONUS SSE] disconnected, reconnecting in 3s...');
-      setTimeout(connect, 3000);
+      // /api/sse requires a session: without one, stop instead of retrying
+      // forever; otherwise back off exponentially (3s → 60s).
+      fetch('/api/auth/me', { credentials: 'same-origin' }).then(function(r) {
+        if (r.status === 401) { console.log('[CRONUS SSE] no session, not reconnecting'); return; }
+        console.log('[CRONUS SSE] disconnected, reconnecting in ' + (retryMs / 1000) + 's...');
+        setTimeout(connect, retryMs);
+        retryMs = Math.min(retryMs * 2, 60000);
+      }).catch(function() {
+        setTimeout(connect, retryMs);
+        retryMs = Math.min(retryMs * 2, 60000);
+      });
     };
   }
 
@@ -235,3 +247,18 @@ pub const SSE_CLIENT_JS: &str = r##"
   connect();
 })();
 "##;
+
+#[cfg(test)]
+mod tests {
+    use super::SSE_CLIENT_JS;
+
+    /// /api/sse returns 401 without a session; the client used to retry every
+    /// 3s forever (hundreds of 401s per anonymous page view).
+    #[test]
+    fn client_stops_without_session_and_backs_off() {
+        assert!(!SSE_CLIENT_JS.contains("setTimeout(connect, 3000)"));
+        assert!(SSE_CLIENT_JS.contains("fetch('/api/auth/me'"));
+        assert!(SSE_CLIENT_JS.contains("r.status === 401"));
+        assert!(SSE_CLIENT_JS.contains("retryMs = Math.min(retryMs * 2, 60000)"));
+    }
+}
