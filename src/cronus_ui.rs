@@ -402,12 +402,93 @@ button:has(+ [popover][data-slot="sheet-content"]) {
 [data-slot="combobox-item"]:hover {
   background: var(--cronus-surface-overlay);
 }
-[data-slot="sheet-content"][popover] {
-  height: 100dvh; width: min(24rem, 92vw);
-  margin: 0; padding: 1.5rem;
+[data-slot="combobox-content"]:not(:popover-open),
+[data-slot="sheet-content"]:not(:popover-open),
+[data-slot="dropdown-menu-content"]:not(:popover-open),
+[data-slot="popover-content"]:not(:popover-open) {
+  display: none;
+}
+[data-slot="sheet-trigger"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2.5rem; padding: 0 1rem;
+  border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-overlay);
+  color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; cursor: pointer;
+}
+[data-slot="sheet-content"][popover]:popover-open {
+  display: flex; flex-direction: column; gap: 0.5rem;
+  box-sizing: border-box;
+  height: 100dvh; width: min(24rem, 92vw); max-width: 24rem;
+  margin: 0; padding: 1.5rem 1.5rem 1.75rem;
+  border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-xl) 0 0 var(--cronus-radius-xl);
+  background: var(--cronus-surface-floating, var(--cronus-surface-overlay));
+  color: var(--cronus-fg);
   position: fixed; inset: 0 0 0 auto;
+  box-shadow: var(--cronus-shadow-lg, 0 16px 40px rgba(0,0,0,.35));
   animation: cronus-slide-in-right 280ms var(--cronus-ease) both;
+}
+[data-slot="sheet-content"][popover]::backdrop {
+  background: color-mix(in oklch, black 45%, transparent);
+  animation: cronus-overlay-in 200ms var(--cronus-ease) both;
+}
+[data-slot="sheet-title"] {
+  font-family: var(--cronus-font-display, inherit);
+  font-size: 1.125rem; font-weight: 400; letter-spacing: -0.02em;
+  color: var(--cronus-fg); padding-inline-end: 2.5rem;
+}
+[data-slot="sheet-description"] {
+  font-size: 0.875rem; line-height: 1.5; color: var(--cronus-fg-secondary);
+}
+[data-slot="sheet-close"] {
+  position: absolute; top: 1rem; right: 1rem;
+  width: 2rem; height: 2rem; padding: 0; border: 0;
+  border-radius: var(--cronus-radius-md);
+  background: transparent; color: var(--cronus-fg-tertiary); cursor: pointer;
+}
+[data-slot="sheet-close"]:hover { color: var(--cronus-fg); }
+[data-slot="sheet-close"]::before,
+[data-slot="sheet-close"]::after {
+  content: ""; position: absolute; top: 50%; left: 50%;
+  width: 0.75rem; height: 1.5px; background: currentColor;
+}
+[data-slot="sheet-close"]::before { transform: translate(-50%, -50%) rotate(45deg); }
+[data-slot="sheet-close"]::after { transform: translate(-50%, -50%) rotate(-45deg); }
+[data-slot="combobox-trigger"] {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  width: 16rem; max-width: 100%; height: 2.5rem; padding: 0 0.75rem; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; cursor: pointer;
+}
+[data-slot="combobox-trigger"]::after {
+  content: ""; width: 0.4rem; height: 0.4rem; flex-shrink: 0;
+  border-inline-end: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-1px); opacity: 0.55;
+}
+[data-slot="combobox-content"]:popover-open {
+  display: flex; flex-direction: column; min-width: 16rem; padding: 0.25rem;
+  z-index: 50;
+}
+[data-slot="combobox-item"] {
+  background: transparent; color: inherit;
+}
+[data-slot="toast"] {
+  display: inline-flex; align-items: center; gap: 0.75rem;
+  min-width: 14rem; max-width: 22rem;
+  padding: 0.75rem 1rem; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  font-size: 0.875rem; font-weight: 500;
+  box-shadow: var(--cronus-shadow-lg, 0 12px 32px rgba(0,0,0,.28));
+  animation: cronus-pop-in 200ms var(--cronus-ease) both;
+}
+[data-slot="toast"]::before {
+  content: ""; width: 0.375rem; height: 0.375rem; border-radius: 9999px;
+  background: var(--cronus-primary); flex-shrink: 0;
 }
 [data-slot="hover-card-content"] {
   position: absolute; z-index: 50; top: calc(100% + 0.35rem); left: 0;
@@ -1157,14 +1238,14 @@ dialog[data-slot="dialog-content"]::backdrop {
 }
 [data-slot="combobox-trigger"] {
   display: inline-flex; align-items: center; justify-content: space-between;
-  width: 100%; height: 2.5rem; padding: 0 0.75rem; box-sizing: border-box;
+  width: 16rem; max-width: 100%; height: 2.5rem; padding: 0 0.75rem; box-sizing: border-box;
   border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
-  background: transparent; color: var(--cronus-fg);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
   font-size: 0.875rem; font-weight: 400; font-family: inherit; cursor: pointer;
 }
 [data-slot="combobox-trigger"]:disabled { opacity: 0.5; pointer-events: none; }
-[data-slot="combobox-content"] {
-  display: flex; flex-direction: column; min-width: 8rem; padding: 0.25rem;
+[data-slot="combobox-content"]:popover-open {
+  display: flex; flex-direction: column; min-width: 16rem; padding: 0.25rem;
   border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
   background: var(--cronus-surface-floating, var(--cronus-surface-overlay));
   color: var(--cronus-fg); box-shadow: var(--cronus-shadow-md, none);
@@ -1424,17 +1505,17 @@ button:has(+ [data-slot="context-menu-content"]) {
 [data-slot="drawer-description"] {
   font-size: 0.875rem; color: var(--cronus-fg-secondary);
   padding: 0 1rem 1rem;
+}
 button:has(+ [data-slot="sheet-content"]) {
 }
-}
-[data-slot="sheet-content"] {
-  z-index: 50; display: flex; flex-direction: column; gap: 1rem;
-  padding: 1.5rem; box-sizing: border-box;
-  width: 75%; max-width: 24rem;
+[data-slot="sheet-content"]:popover-open {
+  z-index: 50;
 }
 [data-slot="sheet-title"] {
+  font-size: 1.125rem; color: var(--cronus-fg);
 }
 [data-slot="sheet-description"] {
+  font-size: 0.875rem; color: var(--cronus-fg-secondary);
 }
 [data-slot="calendar"] {
   display: block; padding: 0.75rem; box-sizing: border-box;
