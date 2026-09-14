@@ -184,7 +184,10 @@ async fn handle_request(
         .and_then(|v| v.to_str().ok())
         .map(|c| c.starts_with("text/html"))
         .unwrap_or(false);
-    if crate::security::script_nonces_enabled()
+    // In production the same pass removes the HMR client that layout-rendered
+    // pages (404, source-page errors) carry outside `html_response`.
+    let production = crate::http_guard::is_production();
+    if (crate::security::script_nonces_enabled() || production)
         && is_html
         && !resp.headers().contains_key("content-security-policy")
     {
@@ -195,7 +198,14 @@ async fn handle_request(
             .await
             .map(|c| c.to_bytes())
             .unwrap_or_else(|never| match never {});
-        let cleaned = crate::security::strip_script_nonce_markers(&String::from_utf8_lossy(&bytes));
+        let mut html = String::from_utf8_lossy(&bytes).into_owned();
+        if production {
+            html = crate::server::response::strip_hmr_client(
+                html,
+                crate::security::script_nonce_attr(),
+            );
+        }
+        let cleaned = crate::security::strip_script_nonce_markers(&html);
         resp = Response::from_parts(parts, Full::new(Bytes::from(cleaned)));
     }
 

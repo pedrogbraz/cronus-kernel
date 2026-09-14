@@ -630,8 +630,12 @@ pub async fn cmd_run(args: &[String]) {
         .and_then(|s| s.accent.as_deref())
         .unwrap_or("amber");
 
-    // Start HMR file watcher
-    if files.len() > 1 {
+    // Start HMR file watcher (dev only: production pages carry no HMR client
+    // and /.cronus/version is a 404 there, so polling files would be wasted work)
+    let watch_files = policy.mode != http_guard::RunMode::Production;
+    if !watch_files {
+        println!("  \x1b[90mHMR:\x1b[0m       off (production)");
+    } else if files.len() > 1 {
         hmr::start_directory_watcher(".", move || {
             let v = hmr::bump_version();
             eprintln!(
