@@ -323,12 +323,32 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
 
   // Soft-reload: re-fetch current page HTML and replace #cronus-main content
   // This gives "React-like" reactivity without a virtual DOM
+  // Swapped-in scripts run only when they carry the nonce of the response
+  // they came from; they are re-created with this page's nonce. A <script>
+  // that arrived through data has no (or a guessed) nonce and is dropped.
+  window.__cronusSelfNonce=window.__cronusSelfNonce||(document.currentScript&&document.currentScript.nonce)||'';
+  window.__cronusCspNonce=window.__cronusCspNonce||function(r){
+    var m=((r&&r.headers&&r.headers.get('content-security-policy'))||'').match(/'nonce-([^']+)'/);
+    return m?m[1]:null;
+  };
+  window.__cronusRunScript=window.__cronusRunScript||function(old,trusted){
+    if(window.__cronusSelfNonce){
+      var n=old.nonce||old.getAttribute('nonce')||'';
+      if(!trusted||n!==trusted){if(old.parentNode)old.parentNode.removeChild(old);return;}
+    }
+    var s=document.createElement('script');
+    if(old.src)s.src=old.src;else s.textContent=old.textContent;
+    if(window.__cronusSelfNonce)s.nonce=window.__cronusSelfNonce;
+    if(old.parentNode)old.parentNode.replaceChild(s,old);else document.body.appendChild(s);
+  };
+
   function cronusLiveReload(){
     var main=document.getElementById('cronus-content')||document.getElementById('cronus-main');
     if(!main) return Promise.resolve();
+    var trusted=null;
     // Session travels in the HttpOnly cookie; JS never sees the token.
     return fetch(location.pathname,{credentials:'same-origin'})
-      .then(function(r){return r.text()})
+      .then(function(r){trusted=window.__cronusCspNonce(r);return r.text()})
       .then(function(html){
         var parser=new DOMParser();
         var doc=parser.parseFromString(html,'text/html');
@@ -338,11 +358,7 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
           main.style.opacity='0.5';
           setTimeout(function(){
             main.innerHTML=newContent.innerHTML;
-            main.querySelectorAll('script').forEach(function(old){
-              var s=document.createElement('script');
-              s.textContent=old.textContent;
-              old.parentNode.replaceChild(s,old);
-            });
+            main.querySelectorAll('script').forEach(function(old){window.__cronusRunScript(old,trusted)});
             main.style.transition='opacity 0.25s cubic-bezier(0,0,0.2,1)';
             main.style.opacity='1';
             init();
@@ -382,7 +398,8 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
     content.style.opacity='0';
     content.style.transform='translateY(8px)';
     // Start fetch in parallel
-    var fetchPromise=_originalFetch(url,{credentials:'same-origin'}).then(function(r){return r.text()});
+    var trusted=null;
+    var fetchPromise=_originalFetch(url,{credentials:'same-origin'}).then(function(r){trusted=window.__cronusCspNonce(r);return r.text()});
     // Phase 2: after fade out completes, swap content
     setTimeout(function(){
       fetchPromise.then(function(html){
@@ -410,11 +427,7 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
           if(m)m.innerHTML=newMain.innerHTML;
         }
         // Run inline scripts in swapped area
-        content.querySelectorAll('script').forEach(function(old){
-          var s=document.createElement('script');
-          s.textContent=old.textContent;
-          old.parentNode.replaceChild(s,old);
-        });
+        content.querySelectorAll('script').forEach(function(old){window.__cronusRunScript(old,trusted)});
         // Update URL + nav
         history.pushState(null,'',url);
         // Sidebar active state is managed by the declarative layout JS
@@ -627,6 +640,7 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
       if(urls.length){
         var script=document.createElement('script');
         script.type='speculationrules';
+        if(window.__cronusSelfNonce)script.nonce=window.__cronusSelfNonce;
         script.textContent=JSON.stringify({prefetch:[{source:'list',urls:urls}]});
         document.head.appendChild(script);
       }

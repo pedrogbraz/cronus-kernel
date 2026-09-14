@@ -14,6 +14,7 @@ fn next_id(prefix: &str) -> String {
 ///
 /// Items: "sidebar" (width, collapsible, component), "topbar" (height, component), "content" (role).
 pub fn render_layout_section(section: &SectionNode) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let style = section.config.get("style").map(|s| s.as_str()).unwrap_or("app-shell");
     let layout_id = next_id("layout");
 
@@ -99,7 +100,7 @@ pub fn render_layout_section(section: &SectionNode) -> String {
 
     // JS for sidebar toggle and collapse
     let js = format!(
-        r##"<script>
+        r##"<script{script_nonce}>
 (function(){{
   window.cronusToggleSidebar=function(){{
     var sb=document.getElementById('cronus-sidebar');

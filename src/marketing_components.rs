@@ -369,6 +369,7 @@ pub fn testimonials(items: &[Testimonial], accent: &str) -> String {
 // ══════════════════════════════════════════════════
 
 pub fn faq(items: &[(&str, &str)], accent: &str) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let entries: String = items.iter().enumerate().map(|(i, (q, a))| {
         format!(
             r#"<div class="anim anim-d{d} border-b border-neutral-800/50">
@@ -392,7 +393,7 @@ pub fn faq(items: &[(&str, &str)], accent: &str) -> String {
       {entries}
     </div>
   </div>
-  <script>
+  <script{script_nonce}>
     function toggleFaq(btn) {{
       var body = btn.nextElementSibling;
       var icon = btn.querySelector('.faq-icon');
@@ -412,6 +413,7 @@ pub fn faq(items: &[(&str, &str)], accent: &str) -> String {
 // ══════════════════════════════════════════════════
 
 pub fn stats_section(stats: &[(&str, &str, &str)], accent: &str) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     // stats: (value, label, suffix)  e.g. ("99.99", "Uptime", "%")
     // Based on stitch-variations/ir/Stats.tsx + StatsSection1.tsx
     let items: String = stats.iter().enumerate().map(|(i, (value, label, suffix))| {
@@ -432,7 +434,7 @@ pub fn stats_section(stats: &[(&str, &str, &str)], accent: &str) -> String {
       {items}
     </div>
   </div>
-  <script>
+  <script{script_nonce}>
     document.querySelectorAll('[data-countup]').forEach(function(el){{
       var raw=el.getAttribute('data-countup');
       var suffix=el.getAttribute('data-suffix')||'';

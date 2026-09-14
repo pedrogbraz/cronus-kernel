@@ -9,6 +9,7 @@ use super::CRONUS_ANIMATIONS_CSS;
 use super::CRONUS_ANIMATIONS_JS;
 
 pub fn render_light_app_page(app_name: &str, comps: &[ComponentNode]) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let topbar = comps.iter()
         .find(|c| c.style.as_deref().unwrap_or("").contains("topbar+light"))
         .map(render_light_topbar)
@@ -92,7 +93,7 @@ pub fn render_light_app_page(app_name: &str, comps: &[ComponentNode]) -> String 
   </div>
 </main>
 </div>
-<script>{hmr}</script>
+<script{script_nonce}>{hmr}</script>
 {anim_js}
 </body>
 </html>"#,
@@ -106,7 +107,7 @@ pub fn render_light_app_page(app_name: &str, comps: &[ComponentNode]) -> String 
         table = table,
         support = support,
         anim_css = CRONUS_ANIMATIONS_CSS,
-        anim_js = CRONUS_ANIMATIONS_JS,
+        anim_js = crate::security::mark_kernel_scripts(CRONUS_ANIMATIONS_JS),
         hmr = crate::hmr::HMR_CLIENT_JS,
     )
 }
@@ -542,6 +543,7 @@ fn render_kit_specimen(comp: &ComponentNode) -> String {
 }
 
 fn render_kit_catalog(comps: &[ComponentNode]) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     if comps.is_empty() {
         return String::new();
     }
@@ -624,7 +626,7 @@ fn render_kit_catalog(comps: &[ComponentNode]) -> String {
     <nav data-slot="catalog-nav" aria-label="Kit groups">{nav}</nav>
   </div>
 {body}</div>
-<script>
+<script{script_nonce}>
 (function () {{
   var root = document.querySelector('[data-slot="catalog"]');
   if (!root) return;

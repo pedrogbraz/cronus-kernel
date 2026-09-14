@@ -108,7 +108,9 @@ pub fn render_accordion(section: &SectionNode) -> String {
     html.push_str("</div>"); // cronus-accordion
 
     // JavaScript (inline, idempotent via window check)
-    html.push_str(r#"<script>
+    html.push_str("<script");
+    html.push_str(crate::security::script_nonce_attr());
+    html.push_str(r#">
 if(!window._cronusAccordionInit){window._cronusAccordionInit=true;
 window.cronusToggleAccordion=function(el){
   var panel=el.nextElementSibling;

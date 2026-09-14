@@ -359,7 +359,7 @@ pub fn alert(message: &str, variant: &str, closable: bool) -> String {
 
 /// Toast container (inject once, use JS to add toasts)
 pub fn toast_container() -> String {
-    "<div id=\"cronus-toasts\" class=\"fixed top-4 right-4 z-[999] flex flex-col gap-2 pointer-events-none\"></div>\
+    crate::security::mark_kernel_scripts("<div id=\"cronus-toasts\" class=\"fixed top-4 right-4 z-[999] flex flex-col gap-2 pointer-events-none\"></div>\
     <script>\
     window.cronusToast=function(msg,type){\
       var el=document.createElement('div');\
@@ -369,7 +369,7 @@ pub fn toast_container() -> String {
       document.getElementById('cronus-toasts').appendChild(el);\
       setTimeout(function(){el.style.opacity='0';el.style.transition='opacity 0.3s';setTimeout(function(){el.remove()},300);},3000);\
     };\
-    </script>".to_string()
+    </script>")
 }
 
 /// Loading spinner

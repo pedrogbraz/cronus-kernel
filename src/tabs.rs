@@ -8,6 +8,7 @@ use crate::parser::SectionNode;
 /// Expected items: `_type:"tab"` with `title` (label), optional `icon`,
 /// optional `active`/`style:"active"` flag, and `description` (panel content).
 pub fn render_tabs(section: &SectionNode) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let mut html = String::new();
 
     // Collect only tab items
@@ -134,7 +135,7 @@ pub fn render_tabs(section: &SectionNode) -> String {
 
     // ── JavaScript ──
     html.push_str(&format!(
-        r#"<script>
+        r#"<script{script_nonce}>
 function cronusSwitchTab(groupId, tabIndex) {{
   var container = document.getElementById('cronus-tabs-' + groupId);
   if (!container) return;

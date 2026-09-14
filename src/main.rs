@@ -468,6 +468,26 @@ async fn handle_request(
     )
     .await?;
 
+    // Markers become real nonces only in `html_response`. HTML leaving through
+    // any other builder (403 page, block explorer, error pages) has no nonce
+    // CSP, so strip the markers rather than disclose them.
+    let is_html = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .map(|c| c.starts_with("text/html"))
+        .unwrap_or(false);
+    if crate::security::script_nonces_enabled()
+        && is_html
+        && !resp.headers().contains_key("content-security-policy")
+    {
+        use http_body_util::BodyExt;
+        let (parts, body) = resp.into_parts();
+        let bytes = body.collect().await.map(|c| c.to_bytes()).unwrap_or_else(|never| match never {});
+        let cleaned = crate::security::strip_script_nonce_markers(&String::from_utf8_lossy(&bytes));
+        resp = Response::from_parts(parts, Full::new(Bytes::from(cleaned)));
+    }
+
     let duration_ms = req_start.elapsed().as_millis() as u64;
     let queries = database::query_count();
     resp.headers_mut().insert(
@@ -1497,7 +1517,8 @@ async fn handle_request_inner(
             }
             match std::fs::read_to_string(source_path) {
                 Ok(html) => {
-                    return Ok(html_response(html));
+                    // Developer-authored file with no interpolated data: trusted scripts.
+                    return Ok(html_response(crate::security::mark_kernel_scripts(&html)));
                 }
                 Err(err) => {
                     // Detail goes to the log once; the page never shows IO errors or paths.
@@ -2459,6 +2480,9 @@ async fn cmd_run(args: &[String]) {
         });
     }
     let addr = std::net::SocketAddr::new(policy.bind_ip, serve_port);
+    // Every kernel-authored <script> now carries a marker that html_response
+    // turns into the per-request CSP nonce (no 'unsafe-inline' in script-src).
+    crate::security::enable_script_nonces();
     let listener = TcpListener::bind(addr).await.unwrap_or_else(|e| {
         eprintln!("  \x1b[31m✗\x1b[0m Cannot bind to port {}: {}", serve_port, e);
         std::process::exit(1);

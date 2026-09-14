@@ -2,6 +2,7 @@
 use crate::parser::SectionNode;
 
 pub(super) fn render_topbar(section: &SectionNode, theme: &str) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let brand = section.config.get("brand").map(|s| s.as_str())
         .or(section.title.as_deref())
         .unwrap_or("Brand");
@@ -113,7 +114,7 @@ pub(super) fn render_topbar(section: &SectionNode, theme: &str) -> String {
     </div>
   </div>
 </header>
-<script>!function(){{var p=location.pathname.replace(/\/$/,'')||'/';document.querySelectorAll('[data-cronus-topbar] [data-nav]').forEach(function(a){{var h=a.getAttribute('href');if(h===p||(p==='/'&&h==='/')){{a.style.color='{accent}';a.style.borderBottom='2px solid {accent}';a.classList.add('active')}}}})}}()</script>"##,
+<script{script_nonce}>!function(){{var p=location.pathname.replace(/\/$/,'')||'/';document.querySelectorAll('[data-cronus-topbar] [data-nav]').forEach(function(a){{var h=a.getAttribute('href');if(h===p||(p==='/'&&h==='/')){{a.style.color='{accent}';a.style.borderBottom='2px solid {accent}';a.classList.add('active')}}}})}}()</script>"##,
         position=position_style, brand=brand, nav_html=nav_html, right_side=right_side, accent=accent)
 }
 
@@ -632,7 +633,7 @@ pub(super) fn render_page_header_section(section: &SectionNode) -> String {
     let auto_dark_js = if is_dark_explicit {
         String::new()
     } else {
-        r#"<script>(function(){var b=getComputedStyle(document.body).backgroundColor;if(!b||b==='rgba(0, 0, 0, 0)')b='';if(b){var m=b.match(/\d+/g);if(m&&m.length>=3){var lum=(parseInt(m[0])*299+parseInt(m[1])*587+parseInt(m[2])*114)/1000;if(lum<50){var w=document.querySelector('[data-ph-wrapper]');if(w){var h=w.querySelector('h2');if(h)h.style.color='#e2e2e2';var s=w.querySelector('[data-ph-sub]');if(s)s.style.color='rgba(226,226,226,0.5)';var e=w.querySelector('[data-ph-eyebrow]');if(e)e.style.color='#adc6ff'}}}}})();</script>"#.to_string()
+        crate::security::mark_kernel_scripts(r#"<script>(function(){var b=getComputedStyle(document.body).backgroundColor;if(!b||b==='rgba(0, 0, 0, 0)')b='';if(b){var m=b.match(/\d+/g);if(m&&m.length>=3){var lum=(parseInt(m[0])*299+parseInt(m[1])*587+parseInt(m[2])*114)/1000;if(lum<50){var w=document.querySelector('[data-ph-wrapper]');if(w){var h=w.querySelector('h2');if(h)h.style.color='#e2e2e2';var s=w.querySelector('[data-ph-sub]');if(s)s.style.color='rgba(226,226,226,0.5)';var e=w.querySelector('[data-ph-eyebrow]');if(e)e.style.color='#adc6ff'}}}}})();</script>"#)
     };
 
     format!(

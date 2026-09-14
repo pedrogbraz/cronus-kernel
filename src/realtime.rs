@@ -22,6 +22,7 @@ pub struct KpiItem {
 /// Connects to /api/sse, listens for data_change events, and refreshes
 /// matching sections. Falls back to polling on SSE disconnect.
 pub fn render_live_script(sections: &[LiveSection]) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     if sections.is_empty() {
         return String::new();
     }
@@ -40,7 +41,7 @@ pub fn render_live_script(sections: &[LiveSection]) -> String {
     sections_json.push(']');
 
     format!(
-        r##"<script>
+        r##"<script{script_nonce}>
 (function(){{
   var liveSections={sections_json};
 
@@ -107,8 +108,9 @@ pub fn render_live_script(sections: &[LiveSection]) -> String {
 /// Dispatches a `cronus:optimistic` event locally before sending to server,
 /// then rolls back on failure.
 pub fn render_optimistic_mutation(entity: &str, _action: &str) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     format!(
-        r##"<script>
+        r##"<script{script_nonce}>
 window.cronusMutate=function(entity,action,data){{
   var el=document.querySelector('[data-entity="'+entity+'"]');
   if(el){{
@@ -139,6 +141,7 @@ window.cronusMutate=function(entity,action,data){{
 ///
 /// Listens for `cronus:update` on the section and re-fetches aggregate stats.
 pub fn render_live_kpi_handler(section_id: &str, entity: &str, items: &[KpiItem]) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     if items.is_empty() {
         return String::new();
     }
@@ -156,7 +159,7 @@ pub fn render_live_kpi_handler(section_id: &str, entity: &str, items: &[KpiItem]
     }
 
     format!(
-        r##"<script>
+        r##"<script{script_nonce}>
 (function(){{
   var el=document.getElementById('{section_id}');
   if(!el)return;
@@ -180,8 +183,9 @@ pub fn render_live_kpi_handler(section_id: &str, entity: &str, items: &[KpiItem]
 /// Listens for `cronus:update` on the section and re-renders table rows
 /// from fresh API data, preserving the header.
 pub fn render_live_table_handler(section_id: &str, entity: &str) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     format!(
-        r##"<script>
+        r##"<script{script_nonce}>
 (function(){{
   var el=document.getElementById('{section_id}');
   if(!el)return;

@@ -622,6 +622,7 @@ fn attach_voodoo_form(html: String, entity: &str) -> String {
 }
 
 fn render_section_inner(section: &SectionNode, accent: &str, theme: &str, bound_data: &crate::binding::ResolvedData) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     // --- Conditional visibility ---
     if let Some(ref cond) = section.visibility {
         let eval_condition = |val: &serde_json::Value| -> bool {
@@ -830,7 +831,7 @@ fn render_section_inner(section: &SectionNode, accent: &str, theme: &str, bound_
         let live_id = format!("live_{}", entity.to_lowercase());
         format!(
             r#"<div id="{live_id}" data-live-entity="{entity}">{output}</div>
-<script>
+<script{script_nonce}>
 (function(){{
   var el=document.getElementById('{live_id}');
   if(!el)return;
@@ -849,11 +850,8 @@ fn render_section_inner(section: &SectionNode, accent: &str, theme: &str, bound_
     }}catch(err){{}}
   }});
   es.onerror=function(){{
+    // Stop hammering a dead stream; the next navigation re-subscribes.
     es.close();
-    setTimeout(function(){{
-      var script=document.createElement('script');
-      script.textContent='('+arguments.callee.caller.toString()+')()';
-    }},3000);
   }};
 }})();
 </script>"#,
@@ -901,10 +899,15 @@ fn safe_interpolate(template: &str, key: &str, value: &str) -> String {
 /// Render a section from its inline template block, replacing `{{placeholder}}`
 /// tokens with values from the section's title, subtitle, config, and items.
 fn render_template(template: &str, section: &SectionNode, style_block: &Option<String>) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let mut html = String::new();
 
     // Unescape template (parser escapes quotes in StringLit)
     let template = template.replace("\\\"", "\"").replace("\\'", "'");
+    // Scripts the app author wrote in the template are trusted: mark them for
+    // the CSP nonce now, before any value is interpolated. A `<script{script_nonce}>` that
+    // arrives through a placeholder stays unmarked and is blocked.
+    let template = crate::security::mark_kernel_scripts(&template);
     let template = template.as_str();
 
     // Add scoped style if present

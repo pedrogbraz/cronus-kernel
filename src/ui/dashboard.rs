@@ -15,6 +15,7 @@ pub fn render_dashboard_page(
     theme: &str,
     current_route: &str,
 ) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let _ = theme;
 
     // ── Extract component data ──────────────────────
@@ -114,8 +115,8 @@ pub fn render_dashboard_page(
   </div>
 </main>
 
-<script>{runtime}</script>
-<script>{hmr}</script>
+<script{script_nonce}>{runtime}</script>
+<script{script_nonce}>{hmr}</script>
 {anim_js}
 </body>
 </html>"##,
@@ -130,7 +131,7 @@ pub fn render_dashboard_page(
         quick_links = quick_links_html,
         status = status_html,
         anim_css = CRONUS_ANIMATIONS_CSS,
-        anim_js = CRONUS_ANIMATIONS_JS,
+        anim_js = crate::security::mark_kernel_scripts(CRONUS_ANIMATIONS_JS),
         runtime = crate::render::CRONUS_RUNTIME_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
     )
@@ -147,6 +148,7 @@ pub fn render_generic_dashboard(
     theme: &str,
     current_route: &str,
 ) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let is_dark = theme == "dark" || theme == "obsidian";
     let (html_class, bg_color, text_color, selection_bg, scrollbar_color) = if is_dark {
         ("dark", "#131313", "#e2e2e2", "rgba(173,198,255,0.2)", "rgba(255,255,255,0.1)")
@@ -198,8 +200,8 @@ pub fn render_generic_dashboard(
   </div>
 </main>
 
-<script>{runtime}</script>
-<script>{hmr}</script>
+<script{script_nonce}>{runtime}</script>
+<script{script_nonce}>{hmr}</script>
 {anim_js}
 </body>
 </html>"##,
@@ -208,7 +210,7 @@ pub fn render_generic_dashboard(
         topbar = topbar_html,
         body = body,
         anim_css = CRONUS_ANIMATIONS_CSS,
-        anim_js = CRONUS_ANIMATIONS_JS,
+        anim_js = crate::security::mark_kernel_scripts(CRONUS_ANIMATIONS_JS),
         runtime = crate::render::CRONUS_RUNTIME_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
     )
@@ -732,6 +734,7 @@ pub fn render_billing_dashboard(
     theme: &str,
     current_route: &str,
 ) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let is_dark = theme == "dark";
 
     // ── Extract component data ──────────────────────
@@ -862,8 +865,8 @@ pub fn render_billing_dashboard(
   </div>
 </main>
 
-<script>{runtime}</script>
-<script>{hmr}</script>
+<script{script_nonce}>{runtime}</script>
+<script{script_nonce}>{hmr}</script>
 {anim_js}
 </body>
 </html>"##,
@@ -882,7 +885,7 @@ pub fn render_billing_dashboard(
         payment_methods = payment_methods_html,
         recent_invoices = recent_invoices_html,
         anim_css = CRONUS_ANIMATIONS_CSS,
-        anim_js = CRONUS_ANIMATIONS_JS,
+        anim_js = crate::security::mark_kernel_scripts(CRONUS_ANIMATIONS_JS),
         runtime = crate::render::CRONUS_RUNTIME_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
     )
@@ -1287,6 +1290,7 @@ pub fn render_payouts_dashboard(
     theme: &str,
     current_route: &str,
 ) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let _ = theme;
 
     // ── Extract component data ──────────────────────
@@ -1380,8 +1384,8 @@ pub fn render_payouts_dashboard(
   </div>
 </main>
 
-<script>{runtime}</script>
-<script>{hmr}</script>
+<script{script_nonce}>{runtime}</script>
+<script{script_nonce}>{hmr}</script>
 {anim_js}
 </body>
 </html>"##,
@@ -1394,7 +1398,7 @@ pub fn render_payouts_dashboard(
         history = history_html,
         support = support_html,
         anim_css = CRONUS_ANIMATIONS_CSS,
-        anim_js = CRONUS_ANIMATIONS_JS,
+        anim_js = crate::security::mark_kernel_scripts(CRONUS_ANIMATIONS_JS),
         runtime = crate::render::CRONUS_RUNTIME_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
     )
@@ -1906,6 +1910,7 @@ pub fn render_unified_dashboard(
     theme: &str,
     current_route: &str,
 ) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let _ = theme;
 
     // ── Extract component data ──────────────────────
@@ -2022,8 +2027,8 @@ pub fn render_unified_dashboard(
   </div>
 </main>
 
-<script>{runtime}</script>
-<script>{hmr}</script>
+<script{script_nonce}>{runtime}</script>
+<script{script_nonce}>{hmr}</script>
 {anim_js}
 </body>
 </html>"##,
@@ -2042,7 +2047,7 @@ pub fn render_unified_dashboard(
         invoices = invoices_html,
         support = support_html,
         anim_css = CRONUS_ANIMATIONS_CSS,
-        anim_js = CRONUS_ANIMATIONS_JS,
+        anim_js = crate::security::mark_kernel_scripts(CRONUS_ANIMATIONS_JS),
         runtime = crate::render::CRONUS_RUNTIME_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
     )
@@ -2059,6 +2064,7 @@ pub fn render_payment_links_dashboard(
     theme: &str,
     current_route: &str,
 ) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let _ = theme;
 
     // ── Extract component data ──────────────────────
@@ -2167,8 +2173,8 @@ pub fn render_payment_links_dashboard(
   {info_bar}
 </main>
 
-<script>{runtime}</script>
-<script>{hmr}</script>
+<script{script_nonce}>{runtime}</script>
+<script{script_nonce}>{hmr}</script>
 {anim_js}
 </body>
 </html>"##,
@@ -2181,7 +2187,7 @@ pub fn render_payment_links_dashboard(
         promo = promo_html,
         info_bar = info_bar_html,
         anim_css = CRONUS_ANIMATIONS_CSS,
-        anim_js = CRONUS_ANIMATIONS_JS,
+        anim_js = crate::security::mark_kernel_scripts(CRONUS_ANIMATIONS_JS),
         runtime = crate::render::CRONUS_RUNTIME_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
     )
@@ -2476,6 +2482,7 @@ pub fn render_checkout_dashboard(
     _components: &[crate::parser::ComponentNode],
     theme: &str,
 ) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let _ = theme;
 
     let topbar_sec = sections.iter().find(|s| s.section_type == "topbar");
@@ -2533,8 +2540,8 @@ pub fn render_checkout_dashboard(
 
 {footer}
 
-<script>{runtime}</script>
-<script>{hmr}</script>
+<script{script_nonce}>{runtime}</script>
+<script{script_nonce}>{hmr}</script>
 {anim_js}
 </body>
 </html>"##,
@@ -2546,7 +2553,7 @@ pub fn render_checkout_dashboard(
         testimonial = testimonial_html,
         footer = footer_html,
         anim_css = CRONUS_ANIMATIONS_CSS,
-        anim_js = CRONUS_ANIMATIONS_JS,
+        anim_js = crate::security::mark_kernel_scripts(CRONUS_ANIMATIONS_JS),
         runtime = crate::render::CRONUS_RUNTIME_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
     )
@@ -2920,6 +2927,7 @@ pub fn render_security_dashboard(
     theme: &str,
     current_route: &str,
 ) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let _ = theme;
 
     let sidebar_comp = components.iter().find(|c| c.layout.as_deref() == Some("sidebar"));
@@ -2995,8 +3003,8 @@ pub fn render_security_dashboard(
 
 </div>
 
-<script>{runtime}</script>
-<script>{hmr}</script>
+<script{script_nonce}>{runtime}</script>
+<script{script_nonce}>{hmr}</script>
 {anim_js}
 </body>
 </html>"##,
@@ -3009,7 +3017,7 @@ pub fn render_security_dashboard(
         policies = policies_html,
         activity = activity_html,
         anim_css = CRONUS_ANIMATIONS_CSS,
-        anim_js = CRONUS_ANIMATIONS_JS,
+        anim_js = crate::security::mark_kernel_scripts(CRONUS_ANIMATIONS_JS),
         runtime = crate::render::CRONUS_RUNTIME_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
     )
@@ -3591,6 +3599,7 @@ pub fn render_settings_dashboard(
     theme: &str,
     _current_route: &str,
 ) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let _ = theme;
     let sidebar_section = sections.iter().find(|s| s.section_type == "sidebar");
     let topbar_section = sections.iter().find(|s| s.section_type == "topbar");
@@ -3858,8 +3867,8 @@ pub fn render_settings_dashboard(
     <div class="anim-slide-up d5">{danger}</div>
   </div>
 </main>
-<script>{runtime}</script>
-<script>{hmr}</script>
+<script{script_nonce}>{runtime}</script>
+<script{script_nonce}>{hmr}</script>
 </body>
 </html>"##,
         app_name = app_name, topbar = topbar_html, sidebar = sidebar_html, header = header_html,
@@ -3918,6 +3927,7 @@ pub fn render_order_detail_dashboard(
     theme: &str,
     _current_route: &str,
 ) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let _ = theme;
     let sidebar_section = sections.iter().find(|s| s.section_type == "sidebar");
     let topbar_section = sections.iter().find(|s| s.section_type == "topbar");
@@ -4209,8 +4219,8 @@ pub fn render_order_detail_dashboard(
     </div>
   </div>
 </main>
-<script>{runtime}</script>
-<script>{hmr}</script>
+<script{script_nonce}>{runtime}</script>
+<script{script_nonce}>{hmr}</script>
 </body>
 </html>"##,
         app_name = app_name, topbar = topbar_html, sidebar = sidebar_html,

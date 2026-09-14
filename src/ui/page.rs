@@ -35,7 +35,7 @@ pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str, theme
 fn render_dashboard(page: &PageNode, entities: &[EntityNode], _accent: &str) -> String {
     let _title = page.title.as_deref().unwrap_or("");
 
-    r##"<div>
+    crate::security::mark_kernel_scripts(r##"<div>
   <!-- Header -->
   <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:4px 4px 20px">
     <div>
@@ -248,7 +248,7 @@ fn render_dashboard(page: &PageNode, entities: &[EntityNode], _accent: &str) -> 
 
   loadData();
 })();
-</script>"##.to_string()
+</script>"##)
 }
 
 // ══════════════════════════════════════════════════
@@ -256,6 +256,7 @@ fn render_dashboard(page: &PageNode, entities: &[EntityNode], _accent: &str) -> 
 // ══════════════════════════════════════════════════
 
 fn render_list(page: &PageNode, entities: &[EntityNode], accent: &str) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let entity_name = page.entity.as_deref().unwrap_or("");
     let entity = entities.iter().find(|e| e.name.eq_ignore_ascii_case(entity_name));
     let title = page.title.as_deref().unwrap_or(entity_name);
@@ -339,7 +340,7 @@ fn render_list(page: &PageNode, entities: &[EntityNode], accent: &str) -> String
   </div>
 </div>
 
-<script>
+<script{script_nonce}>
 (function() {{
   var fields = [{fields_js}];
   var enumFields = [{enum_fields_js}];
@@ -474,6 +475,7 @@ fn render_list(page: &PageNode, entities: &[EntityNode], accent: &str) -> String
 // ══════════════════════════════════════════════════
 
 pub fn render_auth_page(page: &PageNode, is_login: bool) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let title = if is_login { "Welcome back" } else { "Create your account" };
     let subtitle = if is_login { "Sign in to your account" } else { "Get started for free" };
     let btn_label = if is_login { "Sign In" } else { "Sign Up" };
@@ -529,7 +531,7 @@ pub fn render_auth_page(page: &PageNode, is_login: bool) -> String {
     </p>
   </div>
 </div>
-<script>
+<script{script_nonce}>
 document.getElementById('auth-form').addEventListener('submit',async function(e){{
   e.preventDefault();
   var data={{}};new FormData(this).forEach(function(v,k){{data[k]=v}});
@@ -576,6 +578,7 @@ document.getElementById('auth-form').addEventListener('submit',async function(e)
 // ══════════════════════════════════════════════════
 
 fn render_product_grid(title: &str, lower: &str, _entity: Option<&EntityNode>) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     format!(r##"<div>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
     <h1 style="font-size:20px;font-weight:600;color:var(--foreground)">{title}</h1>
@@ -587,7 +590,7 @@ fn render_product_grid(title: &str, lower: &str, _entity: Option<&EntityNode>) -
   <div id="product-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px"></div>
   <div id="empty-products" style="display:none;text-align:center;padding:60px 0;color:var(--foreground-subtle);font-size:13px">Nenhum produto</div>
 </div>
-<script>
+<script{script_nonce}>
 (function(){{
   var lower='{lower}';var allData=[];
   function renderCards(data){{
@@ -614,6 +617,7 @@ fn render_product_grid(title: &str, lower: &str, _entity: Option<&EntityNode>) -
 }
 
 fn render_form(page: &PageNode, entities: &[EntityNode], accent: &str) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let _ = accent; // oklch monocromatic — no accent colors in forms
     let entity_name = page.entity.as_deref().unwrap_or("");
     let entity = entities.iter().find(|e| e.name.eq_ignore_ascii_case(entity_name));
@@ -718,7 +722,7 @@ fn render_form(page: &PageNode, entities: &[EntityNode], accent: &str) -> String
   </form>
 </div>
 
-<script>
+<script{script_nonce}>
 document.getElementById('entity-form').addEventListener('submit', function(e) {{
   e.preventDefault();
   var form = e.target;
@@ -770,6 +774,7 @@ document.getElementById('entity-form').addEventListener('submit', function(e) {{
 // ══════════════════════════════════════════════════
 
 fn render_detail(page: &PageNode, _entities: &[EntityNode], accent: &str) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let entity_name = page.entity.as_deref().unwrap_or("");
     let title = page.title.as_deref().unwrap_or(entity_name);
     let lower = entity_name.to_lowercase();
@@ -790,7 +795,7 @@ fn render_detail(page: &PageNode, _entities: &[EntityNode], accent: &str) -> Str
     <button onclick="cronusDelete()" class="px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 rounded text-sm transition-colors">Delete</button>
   </div>
 </div>
-<script>
+<script{script_nonce}>
 (function(){{
   var id=window.location.pathname.split('/').pop();
   fetch('/api/{lower}s/'+id).then(function(r){{return r.json()}}).then(function(d){{

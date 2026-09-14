@@ -9,6 +9,7 @@ use super::state::AppState;
 
 /// Render the auto-generated API documentation page.
 pub(crate) fn render_auto_docs(state: &AppState) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let app_name = &state.app.name;
     let port = state.app.port;
     let t = crate::theme::get();
@@ -302,7 +303,7 @@ pub(crate) fn render_auto_docs(state: &AppState) -> String {
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>{app_name} | Documentation</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<script{script_nonce} src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <style>
@@ -442,7 +443,7 @@ main>section:nth-child(5){{animation-delay:0.2s}}
 main>section:nth-child(6){{animation-delay:0.25s}}
 .doc-nav{{cursor:pointer}}
 </style>
-<script>
+<script{script_nonce}>
 document.querySelectorAll('[data-scroll]').forEach(function(a){{
   a.addEventListener('click',function(e){{
     e.preventDefault();
@@ -492,6 +493,7 @@ window.addEventListener('scroll',function(){{
 
 /// Design System page -- live rendered components with the project's theme tokens.
 pub(crate) fn render_design_system(state: &AppState) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let app_name = &state.app.name;
     let t = crate::theme::get();
 
@@ -693,7 +695,7 @@ main>section:nth-child(8){{animation-delay:0.35s}}
 main>section:nth-child(9){{animation-delay:0.4s}}
 main>section:nth-child(10){{animation-delay:0.45s}}
 </style>
-<script>
+<script{script_nonce}>
 document.querySelectorAll('[data-scroll]').forEach(function(a){{
   a.addEventListener('click',function(e){{
     e.preventDefault();
@@ -727,6 +729,7 @@ window.addEventListener('scroll',function(){{
 /// Relationship graph page -- interactive Mermaid diagram of entity relations,
 /// page bindings, and webhook flows.
 pub(crate) fn render_graph_page(state: &AppState) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let app_name = &state.app.name;
     let relationship_graph = graph::build_graph_from_state(
         &state.entities, &state.pages, &state.webhooks,
@@ -745,7 +748,7 @@ pub(crate) fn render_graph_page(state: &AppState) -> String {
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>{app_name} | Relationship Graph</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
-<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script{script_nonce} src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 <style>
 body {{ background:#0e0e0e; color:#fff; font-family:'Inter',sans-serif; margin:0 }}
 ::-webkit-scrollbar {{ width:4px }} ::-webkit-scrollbar-track {{ background:#0e0e0e }} ::-webkit-scrollbar-thumb {{ background:#262626;border-radius:10px }}
@@ -782,7 +785,7 @@ body {{ background:#0e0e0e; color:#fff; font-family:'Inter',sans-serif; margin:0
   </div>
 </div>
 
-<script>
+<script{script_nonce}>
 mermaid.initialize({{
   startOnLoad: true,
   theme: 'dark',

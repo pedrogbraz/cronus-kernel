@@ -271,7 +271,7 @@ pub fn render_dark_mode_toggle(_section: &SectionNode) -> String {
     html.push_str("</div>\n");
 
     // JavaScript
-    html.push_str("<script>\n");
+    html.push_str(&format!("<script{}>\n", crate::security::script_nonce_attr()));
     html.push_str("(function() {\n");
     html.push_str("  var saved = localStorage.getItem('cronus-theme');\n");
     html.push_str("  if (saved) { document.documentElement.dataset.theme = saved; }\n");

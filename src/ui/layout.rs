@@ -8,6 +8,7 @@ use super::{CRONUS_ANIMATIONS_CSS, CRONUS_ANIMATIONS_JS};
 // ══════════════════════════════════════════════════
 
 pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &str) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let preset = crate::theme::get_preset();
     let theme_attrs = if crate::cronus_ui::is_named_preset(&preset) {
         format!(" data-cronus-theme=\"{preset}\" data-cronus-mode=\"dark\"")
@@ -44,9 +45,9 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
   <main style="min-height:100vh;padding:24px;max-width:1120px;margin:0 auto" class="animate-fade-in">
       {body}
   </main>
-  <script>{runtime}</script>
-  <script>{animate_js}</script>
-  <script>{hmr}</script>
+  <script{script_nonce}>{runtime}</script>
+  <script{script_nonce}>{animate_js}</script>
+  <script{script_nonce}>{hmr}</script>
   {anim_js}
   {action_js}
 </body>
@@ -58,11 +59,11 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
         tailwind_css = crate::tailwind::CRONUS_TAILWIND,
         animations_css = crate::animations::CRONUS_ANIMATIONS,
         anim_css = CRONUS_ANIMATIONS_CSS,
-        anim_js = CRONUS_ANIMATIONS_JS,
+        anim_js = crate::security::mark_kernel_scripts(CRONUS_ANIMATIONS_JS),
         runtime = crate::render::CRONUS_RUNTIME_JS,
         animate_js = crate::animations::CRONUS_ANIMATE_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
-        action_js = crate::runtime_js::CRONUS_ACTION_JS,
+        action_js = crate::security::mark_kernel_scripts(crate::runtime_js::CRONUS_ACTION_JS),
     )
 }
 
@@ -71,6 +72,7 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
 // ══════════════════════════════════════════════════
 
 pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_route: &str, body: &str) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let brand = layout.sidebar_config.get("brand").map(|s| s.as_str()).unwrap_or(app_name);
 
     // Build nav items HTML with modern design
@@ -145,7 +147,7 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script{script_nonce} src="https://cdn.tailwindcss.com"></script>
   <style>{cronus_ui_css}</style>
   <style>
     *,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
@@ -268,7 +270,7 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
     </main>
   </div>
 
-  <script>
+  <script{script_nonce}>
     // Update sidebar active state on SPA navigation
     // Uses multiple strategies to ensure reliability:
     // 1. Initial page load
@@ -334,9 +336,9 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
       }});
     }})();
   </script>
-  <script>{runtime}</script>
-  <script>{animate_js}</script>
-  <script>{hmr}</script>
+  <script{script_nonce}>{runtime}</script>
+  <script{script_nonce}>{animate_js}</script>
+  <script{script_nonce}>{hmr}</script>
   {anim_js}
   {action_js}
 </body>
@@ -348,11 +350,11 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
         body = body,
         theme_attrs = theme_attrs,
         anim_css = CRONUS_ANIMATIONS_CSS,
-        anim_js = CRONUS_ANIMATIONS_JS,
+        anim_js = crate::security::mark_kernel_scripts(CRONUS_ANIMATIONS_JS),
         runtime = crate::render::CRONUS_RUNTIME_JS,
         animate_js = crate::animations::CRONUS_ANIMATE_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
-        action_js = crate::runtime_js::CRONUS_ACTION_JS,
+        action_js = crate::security::mark_kernel_scripts(crate::runtime_js::CRONUS_ACTION_JS),
         cronus_ui_css = cronus_ui_css,
     )
 }
@@ -506,6 +508,7 @@ pub fn render_layout_landing(app_name: &str, body: &str, theme: &str, style_node
 
 /// Full-width layout for landing pages, with optional Tailwind config injection
 pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_node: Option<&StyleNode>, tailwind_config_js: Option<&str>) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let is_light = theme == "light";
     let html_class = if is_light { "light" } else { "dark" };
     let preset = style_node
@@ -543,7 +546,7 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
     let tw_config_script = if let Some(cfg) = tailwind_config_js {
         // Unescape quotes that were escaped for .cronus string storage
         let unescaped = cfg.replace("\\\"", "\"").replace("\\'", "'");
-        format!("<script>\n    {}\n  </script>", unescaped)
+        format!("<script{script_nonce}>\n    {}\n  </script>", unescaped)
     } else {
         String::new()
     };
@@ -589,7 +592,7 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
 
     // Mobile bottom nav — auto-built from sidebar links via JS
     let bottom_nav_html = if clean_body.contains("<aside") {
-        r##"<nav class="cronus-bottom-nav" aria-label="Mobile navigation"></nav>
+        crate::security::mark_kernel_scripts(r##"<nav class="cronus-bottom-nav" aria-label="Mobile navigation"></nav>
 <script>
 !function(){
   var aside=document.querySelector('aside');
@@ -615,7 +618,7 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
     added++;
   });
 }();
-</script>"##.to_string()
+</script>"##)
     } else {
         String::new()
     };
@@ -629,8 +632,8 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
   <title>{app_name}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script{script_nonce} src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script{script_nonce} src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   {tw_config_script}
   {head_styles}
   <style>
@@ -880,12 +883,12 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
   <style>{tailwind_css}</style>
 </head>
 <body style="margin:0;padding:0;width:100%;max-width:100vw;overflow-x:hidden">
-  <div class="aura-background-component top-0 w-full -z-10 absolute h-[900px]" data-alpha-mask="80" style="{unicorn_display}mask-image: linear-gradient(to bottom, transparent, black 0%, black 80%, transparent); -webkit-mask-image: linear-gradient(to bottom, transparent, black 0%, black 80%, transparent)"><div class="aura-background-component top-0 w-full -z-10 absolute h-full"><div data-us-project="bKN5upvoulAmWvInmHza" class="absolute w-full h-full left-0 top-0 -z-10"></div><script type="text/javascript">!function(){{if(!window.UnicornStudio){{window.UnicornStudio={{isInitialized:!1}};var i=document.createElement("script");i.src="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v1.4.29/dist/unicornStudio.umd.js",i.onload=function(){{window.UnicornStudio.isInitialized||(UnicornStudio.init(),window.UnicornStudio.isInitialized=!0)}},(document.head||document.body).appendChild(i)}}}}();</script></div></div>
+  <div class="aura-background-component top-0 w-full -z-10 absolute h-[900px]" data-alpha-mask="80" style="{unicorn_display}mask-image: linear-gradient(to bottom, transparent, black 0%, black 80%, transparent); -webkit-mask-image: linear-gradient(to bottom, transparent, black 0%, black 80%, transparent)"><div class="aura-background-component top-0 w-full -z-10 absolute h-full"><div data-us-project="bKN5upvoulAmWvInmHza" class="absolute w-full h-full left-0 top-0 -z-10"></div><script{script_nonce} type="text/javascript">!function(){{if(!window.UnicornStudio){{window.UnicornStudio={{isInitialized:!1}};var i=document.createElement("script");i.src="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v1.4.29/dist/unicornStudio.umd.js",i.onload=function(){{window.UnicornStudio.isInitialized||(UnicornStudio.init(),window.UnicornStudio.isInitialized=!0)}},(document.head||document.body).appendChild(i)}}}}();</script></div></div>
   {nav_html}
   <main id="cronus-main" style="min-height:100vh;width:100%;box-sizing:border-box">
   {clean_body}
   </main>
-  <script>
+  <script{script_nonce}>
   // Auto-detect fixed sidebar and adjust main content offset (desktop only)
   !function(){{
     if(window.innerWidth<=768)return; // skip on mobile
@@ -1053,9 +1056,9 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
   cronusResponsive();
   window.addEventListener('resize',cronusResponsive);
   </script>
-  <script>{runtime}</script>
-  <script>{hmr}</script>
-  <script>
+  <script{script_nonce}>{runtime}</script>
+  <script{script_nonce}>{hmr}</script>
+  <script{script_nonce}>
     document.addEventListener('DOMContentLoaded',function(){{
       var io=new IntersectionObserver(function(entries){{
         entries.forEach(function(e){{if(e.isIntersecting){{e.target.classList.add('visible');io.unobserve(e.target)}}}})
@@ -1071,7 +1074,7 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
   {anim_js}
   {action_js}
   {bottom_nav}
-  <script>
+  <script{script_nonce}>
   // SPA Router — intercept internal links, swap content without full reload
   !function(){{
     var navInFlight=false;
@@ -1082,7 +1085,8 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
       window.__hmrPaused=true;
 
       // Prefetch immediately while animating out
-      var fetchPromise=fetch(url).then(function(r){{return r.text()}});
+      var trusted=null;
+      var fetchPromise=fetch(url,{{credentials:'same-origin'}}).then(function(r){{trusted=window.__cronusCspNonce?window.__cronusCspNonce(r):null;return r.text()}});
 
       // Smooth fade-out
       main.style.transition='opacity 0.2s cubic-bezier(0.4,0,0.2,1), transform 0.2s cubic-bezier(0.4,0,0.2,1)';
@@ -1101,7 +1105,7 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
         if(source){{
           // Collect inline scripts, then remove from DOM before swap
           source.querySelectorAll('script').forEach(function(s){{
-            if(!s.src)pageScripts.push(s.textContent);
+            if(!s.src)pageScripts.push(s);
             s.remove();
           }});
           main.innerHTML=source.innerHTML;
@@ -1145,8 +1149,9 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
         setTimeout(function(){{
           if(window.__cronusAnimateContent)window.__cronusAnimateContent(main);
           // Execute inline scripts from the new page
-          pageScripts.forEach(function(code){{
-            try{{(new Function(code))()}}catch(e){{console.warn('[SPA] script error:',e)}}
+          // Only scripts carrying the fetched page's nonce run (no eval).
+          pageScripts.forEach(function(s){{
+            if(window.__cronusRunScript)window.__cronusRunScript(s,trusted);
           }});
           navInFlight=false;
           setTimeout(function(){{window.__hmrPaused=false}},500);
@@ -1176,7 +1181,7 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
     }});
   }}();
   </script>
-  <script>
+  <script{script_nonce}>
   // Premium Animations Runtime — contextual, purposeful animations
   window.__cronusAnimateContent=function(scope){{
     scope=scope||document;
@@ -1309,7 +1314,7 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
   // Run on initial load
   window.__cronusAnimateContent();
   </script>
-  <script>
+  <script{script_nonce}>
   // ── CRONUS SPA Router ──────────────────────────────
   // Intercepts internal link clicks, fetches new page, swaps body.
   // No full reload. Sidebar persists visually. ~800 bytes.
@@ -1333,9 +1338,11 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
       document.body.style.opacity='0.6';
       document.body.style.transition='opacity 0.1s ease';
 
+      var trusted=null;
       fetch(url,{{headers:{{'X-CRONUS-SPA':'1'}},credentials:'same-origin'}})
         .then(function(r){{
           if(!r.ok){{ window.location.href=url; return null; }}
+          trusted=window.__cronusCspNonce?window.__cronusCspNonce(r):null;
           return r.text();
         }})
         .then(function(html){{
@@ -1361,10 +1368,11 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
             }}
           }});
           // Execute scripts
-          document.querySelectorAll('script:not([src])').forEach(function(s){{
+          document.body.querySelectorAll('script:not([src])').forEach(function(s){{
             if(s.textContent.indexOf('CRONUS SPA Router')>-1)return; // skip self
             if(s.textContent.indexOf('tailwind')>-1)return; // skip tailwind config
-            try{{ new Function(s.textContent)(); }}catch(e){{}}
+            // Only scripts carrying the fetched page's nonce run (no eval).
+            if(window.__cronusRunScript)window.__cronusRunScript(s,trusted);
           }});
           // Re-run Tailwind if present
           if(window.tailwind&&window.tailwind.refresh){{
@@ -1416,11 +1424,11 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
         clean_body = clean_body,
         bottom_nav = bottom_nav_html,
         anim_css = CRONUS_ANIMATIONS_CSS,
-        anim_js = CRONUS_ANIMATIONS_JS,
+        anim_js = crate::security::mark_kernel_scripts(CRONUS_ANIMATIONS_JS),
         tailwind_css = crate::tailwind::CRONUS_TAILWIND,
         runtime = crate::render::CRONUS_RUNTIME_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
-        action_js = crate::runtime_js::CRONUS_ACTION_JS,
+        action_js = crate::security::mark_kernel_scripts(crate::runtime_js::CRONUS_ACTION_JS),
     )
 }
 
@@ -1429,6 +1437,7 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
 // ══════════════════════════════════════════════════
 
 pub fn render_layout_dashboard(app_name: &str, body: &str, theme: &str) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let t = crate::theme::get();
     let is_dark = theme == "dark" || theme == "obsidian";
     let (html_class, bg_color, text_color, selection_bg, scrollbar_color) = if is_dark {
@@ -1520,7 +1529,7 @@ pub fn render_layout_dashboard(app_name: &str, body: &str, theme: &str) -> Strin
 </head>
 <body>
   {body}
-  <script>
+  <script{script_nonce}>
     // Auto-wrap: if page has a fixed sidebar, wrap non-sidebar content in dashboard-main
     (function(){{
       var aside = document.querySelector('aside[style*="position:fixed"]');
@@ -1538,9 +1547,9 @@ pub fn render_layout_dashboard(app_name: &str, body: &str, theme: &str) -> Strin
       document.body.insertBefore(aside, main);
     }})();
   </script>
-  <script>{runtime}</script>
-  <script>{hmr}</script>
-  <script>
+  <script{script_nonce}>{runtime}</script>
+  <script{script_nonce}>{hmr}</script>
+  <script{script_nonce}>
     document.addEventListener('DOMContentLoaded',function(){{
       var io=new IntersectionObserver(function(entries){{
         entries.forEach(function(e){{if(e.isIntersecting){{e.target.classList.add('visible');io.unobserve(e.target)}}}})
@@ -1559,7 +1568,7 @@ pub fn render_layout_dashboard(app_name: &str, body: &str, theme: &str) -> Strin
         app_name = app_name,
         body = body,
         anim_css = CRONUS_ANIMATIONS_CSS,
-        anim_js = CRONUS_ANIMATIONS_JS,
+        anim_js = crate::security::mark_kernel_scripts(CRONUS_ANIMATIONS_JS),
         runtime = crate::render::CRONUS_RUNTIME_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
     )

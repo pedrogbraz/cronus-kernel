@@ -29,6 +29,7 @@ pub(crate) fn post_login_paths(state: &AppState) -> (String, String) {
 }
 
 pub(crate) fn generate_login_page(state: &AppState) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let app_name = &state.app.name;
     let logo_letter = app_name.chars().next().unwrap_or('C').to_uppercase().to_string();
     let (home, admin) = post_login_paths(state);
@@ -115,7 +116,7 @@ input[type=checkbox]{{width:16px;height:16px;accent-color:#fafafa;cursor:pointer
     <p style="text-align:center;font-size:14px;color:#a3a3a3">Don't have an account? <a href="/register" style="color:#fafafa;font-weight:600;text-decoration:none">Register</a></p>
   </form>
 </div>
-<script>
+<script{script_nonce}>
 // Saved accounts management
 function getSavedAccounts() {{
   try {{ return JSON.parse(localStorage.getItem('saved_accounts') || '[]'); }} catch(e) {{ return []; }}
@@ -245,6 +246,7 @@ renderAccounts();
 }
 
 pub(crate) fn generate_register_page(state: &AppState) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let app_name = &state.app.name;
     let logo_letter = app_name.chars().next().unwrap_or('C').to_uppercase().to_string();
     let (home, admin) = post_login_paths(state);
@@ -281,7 +283,7 @@ input:focus{{border-color:#525252}}
     <p style="text-align:center;font-size:14px;color:#a3a3a3">Already have an account? <a href="/login" style="color:#fafafa;font-weight:600;text-decoration:none">Sign in</a></p>
   </form>
 </div>
-<script>
+<script{script_nonce}>
 // Save account on register too
 function getSavedAccounts() {{
   try {{ return JSON.parse(localStorage.getItem('saved_accounts') || '[]'); }} catch(e) {{ return []; }}

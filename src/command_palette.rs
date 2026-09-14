@@ -4,6 +4,7 @@ use crate::parser::SectionNode;
 /// Renders a command palette (Cmd+K overlay) from a "command" section.
 /// Returns a complete HTML string with inline <style> and <script>.
 pub fn render_command_palette(section: &SectionNode) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let palette_id = section.config.get("id").map(|s| s.as_str()).unwrap_or("command-palette");
 
     // Build items HTML
@@ -77,7 +78,7 @@ pub fn render_command_palette(section: &SectionNode) -> String {
 #{pid} .cmd-item.active,#{pid} .cmd-item:hover{{background:#f5f5f5}}
 #{pid}.hidden{{display:none!important}}
 </style>
-<script>
+<script{script_nonce}>
 (function(){{
   var pid='{pid}';
   var selectedIdx=-1;

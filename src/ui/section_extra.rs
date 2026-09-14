@@ -754,6 +754,7 @@ pub(super) fn render_links_section(section: &SectionNode) -> String {
 }
 
 pub(super) fn render_modal_section(section: &SectionNode) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let t = crate::theme::get();
     let title = section.title.as_deref().unwrap_or("Dialog");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
@@ -957,7 +958,7 @@ pub(super) fn render_modal_section(section: &SectionNode) -> String {
 
     // Auto-open trigger
     let auto_open = if trigger == "auto" || trigger == "open" {
-        format!(r#"<script>document.getElementById('{}').style.display='flex'</script>"#, modal_id)
+        format!(r#"<script{script_nonce}>document.getElementById('{}').style.display='flex'</script>"#, modal_id)
     } else { String::new() };
 
     format!(

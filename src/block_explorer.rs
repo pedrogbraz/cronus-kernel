@@ -8,6 +8,7 @@ pub fn render_explorer(
     trust_metrics: &[crate::trust::BlockMetrics],
     script_registry: &crate::scripting::ScriptRegistry,
 ) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let hydra_blocks = load_hydra_blocks();
 
     let mut blocks_js = String::from("[");
@@ -251,7 +252,7 @@ body{{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-appl
   <div id="dr-content"></div>
 </div>
 
-<script>
+<script{script_nonce}>
 var B={blocks_js};
 function tc(v){{return v>=.8?'#adc6ff':v>=.6?'#10b981':v>=.3?'#eab308':'#ef4444'}}
 function sc(v){{if(v>=.8)return['OFFICIAL','#adc6ff'];if(v>=.6)return['PRODUCTION','#10b981'];if(v>=.3)return['APPROVED','#eab308'];return['PENDING','#484848']}}

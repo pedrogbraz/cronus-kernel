@@ -340,11 +340,12 @@ pub fn css_vars() -> String {
 
 /// Generate the Tailwind CDN script + config if available
 pub fn tailwind_cdn_script() -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let t = get();
     if let Some(ref config) = t.tailwind_config_js {
         format!(
-            r#"<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script>{}</script>"#,
+            r#"<script{script_nonce} src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script{script_nonce}>{}</script>"#,
             config
         )
     } else {

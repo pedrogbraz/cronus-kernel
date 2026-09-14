@@ -286,3 +286,69 @@ pub fn is_strong_password(password: &str) -> bool {
 
 // Session cookies are built in `crate::session` (HttpOnly, SameSite=Lax,
 // Secure in production / behind HTTPS).
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // These tests never call `enable_script_nonces()`: the flag is
+    // process-wide and would leak markers into renderer tests running in
+    // parallel. They drive the marker attribute directly instead.
+
+    #[test]
+    fn marking_adds_marker_only_to_real_script_tags() {
+        let attr = marker_attr();
+        let html = r#"<script>a()</script><SCRIPT src="x.js"></SCRIPT><scripting>no</scripting><script nonce="n">b()</script>"#;
+        let marked = add_attr_to_script_tags(html, attr);
+        assert_eq!(marked.matches(nonce_marker()).count(), 2, "{marked}");
+        assert!(marked.contains("<scripting>"));
+        assert!(marked.contains(r#"<script nonce="n">"#), "already-nonced tag left alone");
+        assert_eq!(add_attr_to_script_tags(html, ""), html, "disabled = unchanged");
+    }
+
+    #[test]
+    fn only_marked_scripts_receive_the_request_nonce() {
+        // Kernel template marked before interpolation; the row value is not.
+        let template = add_attr_to_script_tags("<div>{row}</div><script>kernel()</script>", marker_attr());
+        let row = r#"<script nonce="guess">steal()</script><script>steal()</script>"#;
+        let page = template.replace("{row}", &html_escape(row)).replace("</div>", &format!("{row}</div>"));
+        let out = finalize_script_nonces(&page, "REQNONCE");
+        assert_eq!(out.matches(r#"nonce="REQNONCE""#).count(), 1, "{out}");
+        assert!(out.contains(r#"<script nonce="REQNONCE">kernel()</script>"#));
+        assert!(out.contains("<script>steal()</script>"), "data script stays unnonced");
+        assert!(!out.contains(nonce_marker()));
+    }
+
+    #[test]
+    fn strip_removes_marker_without_a_nonce_csp() {
+        let marked = add_attr_to_script_tags("<script>x()</script>", marker_attr());
+        let stripped = strip_script_nonce_markers(&marked);
+        assert_eq!(stripped, "<script>x()</script>");
+    }
+
+    #[test]
+    fn marker_is_unguessable_and_stable_per_process() {
+        assert!(nonce_marker().starts_with("cronus-nonce-marker-"));
+        assert_eq!(nonce_marker().len(), "cronus-nonce-marker-".len() + 36);
+        assert_eq!(nonce_marker(), nonce_marker());
+    }
+
+    #[test]
+    fn csp_with_nonce_drops_unsafe_inline_and_host_wide_cdn() {
+        let csp = csp_header_value(Some("abc"), EvalPolicy::Forbid);
+        let script_src = csp.split(';').find(|d| d.trim().starts_with("script-src ")).unwrap();
+        assert!(script_src.contains("'nonce-abc'"));
+        assert!(!script_src.contains("'unsafe-inline'"));
+        assert!(!script_src.contains("'unsafe-eval'"));
+        assert!(!script_src.split_whitespace().any(|t| t == "https://cdn.jsdelivr.net"), "{script_src}");
+        assert!(csp.contains("object-src 'none'") && csp.contains("base-uri 'self'"));
+    }
+
+    #[test]
+    fn csp_eval_only_for_voodoo_and_inline_only_without_nonce() {
+        assert!(csp_header_value(Some("abc"), EvalPolicy::AllowForVoodoo).contains("'unsafe-eval'"));
+        let legacy = csp_header_value(None, EvalPolicy::Forbid);
+        assert!(legacy.contains("'unsafe-inline'"));
+        assert!(!legacy.contains("'nonce-"));
+    }
+}

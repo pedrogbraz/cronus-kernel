@@ -220,6 +220,7 @@ impl ZeusBuffer {
 // ── Zeus Dashboard HTML ──
 
 pub fn render_dashboard(buffer: &ZeusBuffer) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let traces = buffer.last_n(50);
     let stats = buffer.stats();
 
@@ -390,7 +391,7 @@ tr:hover .cell{{background:rgba(255,255,255,0.02)}}
     <a href="/trust">Trust Engine</a>
   </div>
 </div>
-<script>setTimeout(function(){{location.reload()}},5000)</script>
+<script{script_nonce}>setTimeout(function(){{location.reload()}},5000)</script>
 </body></html>"##,
         total = stats["total"],
         errors = stats["errors"],

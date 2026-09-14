@@ -230,6 +230,7 @@ pub fn generate_railway_config(app_name: &str, port: u16) -> String {
 // ── Static Build ──
 
 pub fn generate_static_build(pages_html: &[(String, String)]) -> Vec<(String, String)> {
+    let script_nonce = crate::security::script_nonce_attr();
     let mut files: Vec<(String, String)> = Vec::new();
     let mut all_css = String::new();
     let mut all_js = String::new();
@@ -259,7 +260,7 @@ pub fn generate_static_build(pages_html: &[(String, String)]) -> Vec<(String, St
             }
         }
 
-        // Extract <script> blocks into shared JS
+        // Extract <script{script_nonce}> blocks into shared JS
         search_from = 0;
         while let Some(start) = page_html[search_from..].find("<script>") {
             let abs_start = search_from + start;
@@ -283,7 +284,7 @@ pub fn generate_static_build(pages_html: &[(String, String)]) -> Vec<(String, St
             )
         } else {
             format!(
-                r#"<!DOCTYPE html><html><head><link rel="stylesheet" href="/assets/cronus.css"><script src="/assets/cronus.js" defer></script></head><body>{page_html}</body></html>"#
+                r#"<!DOCTYPE html><html><head><link rel="stylesheet" href="/assets/cronus.css"><script{script_nonce} src="/assets/cronus.js" defer></script></head><body>{page_html}</body></html>"#
             )
         };
 
@@ -324,13 +325,14 @@ pub fn generate_production_headers() -> Vec<(String, String)> {
 // ── HTML Minification ──
 
 pub fn minify_html(html: &str) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let mut result = String::with_capacity(html.len());
     let mut i = 0;
     let bytes = html.as_bytes();
     let len = bytes.len();
 
     while i < len {
-        // Preserve <pre>, <script>, <style> content verbatim
+        // Preserve <pre>, <script{script_nonce}>, <style> content verbatim
         if i + 5 < len {
             let tag_start = &html[i..];
             for preserve_tag in &["<pre", "<script", "<style"] {

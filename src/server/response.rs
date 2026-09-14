@@ -121,6 +121,7 @@ pub(crate) fn forbidden_response(message: &str) -> Response<Full<Bytes>> {
 /// If CRONUS_AUDIT_REF env var points to an HTML file, extract reference values
 /// and inject the dump audit script into every page response.
 fn inject_audit_if_enabled(html: String) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let ref_path = match std::env::var("CRONUS_AUDIT_REF") {
         Ok(p) if !p.is_empty() => p,
         _ => return html,
@@ -134,7 +135,7 @@ fn inject_audit_if_enabled(html: String) -> String {
     let mut ref_numbers: Vec<f64> = Vec::new();
     let mut ref_strings: Vec<String> = Vec::new();
 
-    // Extract only VISIBLE text -- skip <script>, <style>, <head>, and Tailwind config
+    // Extract only VISIBLE text -- skip <script{script_nonce}>, <style>, <head>, and Tailwind config
     let visible_text = extract_visible_text(&ref_html);
     // Extract numbers (including formatted: 1,482,900.00 / 12,842 / 4.82%)
     for cap in regex_numbers(&visible_text) {

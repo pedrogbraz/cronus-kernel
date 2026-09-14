@@ -7,6 +7,7 @@ use crate::parser::SectionNode;
 /// Row props map to column names (lowercase).
 /// When bound_data contains Rows, generates table body from database rows instead of static items.
 pub fn render_data_table(section: &SectionNode, bound_data: &crate::binding::ResolvedData) -> String {
+    let script_nonce = crate::security::script_nonce_attr();
     let title = section.title.as_deref().unwrap_or("");
     let table_id = format!("cronus-tbl-{}", title.replace(' ', "-").to_lowercase());
 
@@ -69,7 +70,7 @@ pub fn render_data_table(section: &SectionNode, bound_data: &crate::binding::Res
 
     // Sort + bulk select + search + pagination JS (once per page)
     html.push_str(&format!(
-        r##"<script>
+        r##"<script{script_nonce}>
 function cronusSortTable(tid,ci){{var t=document.getElementById(tid);if(!t)return;var tb=t.querySelector('tbody');var rs=Array.from(tb.rows);var d=t.dataset.sortDir==='asc'?'desc':'asc';t.dataset.sortDir=d;rs.sort(function(a,b){{var av=a.cells[ci].textContent.trim();var bv=b.cells[ci].textContent.trim();var r=av.localeCompare(bv,undefined,{{numeric:true}});return d==='asc'?r:-r;}});rs.forEach(function(r){{tb.appendChild(r);}});t.querySelectorAll('thead th[data-sort] .sa').forEach(function(s,i){{s.textContent=i+1===ci?(d==='asc'?'▲':'▼'):'';}});}}
 function cronusBulkSelect(tid,cb){{var t=document.getElementById(tid);if(!t)return;t.querySelectorAll('tbody input[type=checkbox]').forEach(function(c){{c.checked=cb.checked;}});}}
 function cronusSearch(tid){{var w=document.getElementById(tid);if(!w)return;var input=w.querySelector('[data-cronus-search]');var tbl=w.querySelector('table');if(!input||!tbl)return;input.addEventListener('input',function(){{var term=this.value.toLowerCase();tbl.querySelectorAll('tbody tr').forEach(function(tr){{var txt=Array.from(tr.cells).map(function(c){{return c.textContent.toLowerCase();}}).join(' ');tr.style.display=txt.indexOf(term)>=0?'':'none';}});if(w._cronusPaginate)w._cronusPaginate(0);}});}}
@@ -242,7 +243,7 @@ function cronusPaginate(tid,perPage){{var w=document.getElementById(tid);if(!w)r
         init_js.push_str(&format!("cronusPaginate('{table_id}',{paginate_per});"));
     }
     if !init_js.is_empty() {
-        html.push_str(&format!(r#"<script>document.addEventListener('DOMContentLoaded',function(){{{init_js}}});</script>"#));
+        html.push_str(&format!(r#"<script{script_nonce}>document.addEventListener('DOMContentLoaded',function(){{{init_js}}});</script>"#));
     }
 
     html.push_str("</div>");

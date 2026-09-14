@@ -634,7 +634,7 @@ fn filter_fields_object(obj: &Value, fields: &[String]) -> Value {
 // ══════════════════════════════════════════════════
 
 pub fn playground_html() -> String {
-    r#"<!DOCTYPE html>
+    crate::security::mark_kernel_scripts(r#"<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
@@ -748,7 +748,7 @@ pub fn playground_html() -> String {
     });
   </script>
 </body>
-</html>"#.to_string()
+</html>"#)
 }
 
 #[cfg(test)]
