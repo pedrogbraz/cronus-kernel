@@ -28,16 +28,41 @@ pub fn render(comp: &ComponentNode) -> String {
             "<span data-slot=\"avatar-group-overflow\" role=\"img\" aria-label=\"{overflow} more\">+{overflow}</span>"
         ));
     }
-    format!("<div data-slot=\"avatar-group\" role=\"group\" aria-label=\"Avatar group\">{inner}</div>")
+    let aria = esc(aria_label(comp).unwrap_or("Avatar group"));
+    format!("<div data-slot=\"avatar-group\" role=\"group\" aria-label=\"{aria}\">{inner}</div>")
 }
 
+fn aria_label(comp: &ComponentNode) -> Option<&str> {
+    comp.props
+        .get("aria-label")
+        .map(String::as_str)
+        .or_else(|| {
+            comp.items
+                .iter()
+                .find_map(|i| i.config.get("aria-label").map(String::as_str))
+        })
+        .filter(|s| !s.is_empty())
+}
+
+/// Members come from the non-label items (React: `items`/`options`). The
+/// emitter's `label` line is the group's aria-label/title, never a member;
+/// it only becomes the single member when no other item exists.
 fn names(comp: &ComponentNode) -> Vec<String> {
-    let out: Vec<String> = comp
+    let members: Vec<String> = comp
         .items
         .iter()
-        .filter(|i| !i.text.is_empty())
+        .filter(|i| !i.text.is_empty() && !matches!(i.item_type.as_str(), "label" | "title"))
         .map(|i| i.text.clone())
         .collect();
+    let out: Vec<String> = if members.is_empty() {
+        comp.items
+            .iter()
+            .filter(|i| !i.text.is_empty())
+            .map(|i| i.text.clone())
+            .collect()
+    } else {
+        members
+    };
     if out.is_empty() {
         if !comp.name.is_empty() {
             vec![comp.name.clone()]
@@ -94,7 +119,9 @@ mod tests {
     }
 
     fn group(names: &[&str]) -> crate::parser::ComponentNode {
+        // Members are `text` items, as the audit emitter writes them.
         let mut c = stub("avatar-group", names[0]);
+        c.items[0].item_type = "text".into();
         for n in names.iter().skip(1) {
             c.items.push(extra(n));
         }
@@ -115,7 +142,9 @@ mod tests {
 
     #[test]
     fn root_wraps_avatars_not_single_circle() {
-        let html = render(&group(&["Jane Doe", "Ada Lovelace"]));
+        let mut c = group(&["Jane Doe", "Ada Lovelace"]);
+        c.items[0].item_type = "text".into();
+        let html = render(&c);
         assert!(html.starts_with("<div data-slot=\"avatar-group\""));
         assert!(html.contains("role=\"group\""));
         assert!(html.contains("aria-label=\"Avatar group\""));
@@ -129,6 +158,25 @@ mod tests {
             html,
             "<div data-slot=\"avatar-group\" role=\"group\" aria-label=\"Avatar group\"><span data-slot=\"avatar\"><span data-slot=\"avatar-fallback\">JD</span></span><span data-slot=\"avatar\"><span data-slot=\"avatar-fallback\">AL</span></span></div>"
         );
+    }
+
+    #[test]
+    fn label_is_aria_label_not_a_member() {
+        // Wave 1t: emitter writes `label "Team"` + `text "AL"` + `text "JB"` +
+        // `aria-label:"Team"` (config of the last item). React: 2 avatars.
+        let mut c = stub("avatar-group", "Team");
+        c.items.push(extra("AL"));
+        let mut jb = extra("JB");
+        jb.config.insert("aria-label".into(), "Team".into());
+        c.items.push(jb);
+        let html = render(&c);
+        assert_eq!(
+            html,
+            "<div data-slot=\"avatar-group\" role=\"group\" aria-label=\"Team\"><span data-slot=\"avatar\"><span data-slot=\"avatar-fallback\">AL</span></span><span data-slot=\"avatar\"><span data-slot=\"avatar-fallback\">JB</span></span></div>"
+        );
+        assert!(!html.contains(">TE<"));
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("font-weight: 500; font-size: 0.875rem; line-height: 1.25rem;\n  box-shadow: 0 0 0 2px var(--cronus-surface-base);"));
     }
 
     #[test]

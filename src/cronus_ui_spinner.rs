@@ -87,8 +87,10 @@ mod tests {
     fn chrome_size_5_and_spin() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"spinner\"]"));
-        assert!(css.contains("width: 1.25rem"));
-        assert!(css.contains("height: 1.25rem"));
+        // Wave 1t: display block (Tailwind preflight `svg { display: block }`);
+        // inline-block sat on the 24px line box and dropped the svg 3.8px.
+        assert!(css.contains("width: 1.25rem; height: 1.25rem; display: block;"));
+        assert!(!css.contains("width: 1.25rem; height: 1.25rem; display: inline-block;"));
         assert!(css.contains("@keyframes spin"));
         assert!(css.contains("animation: spin 1s linear infinite"));
         assert!(!css.contains("border-top-color"));

@@ -117,6 +117,13 @@ mod tests {
     }
 
     #[test]
+    fn chrome_pairs_text_xs_with_1rem_line_height() {
+        // Wave 1t: Tailwind text-xs = 0.75rem/1rem → badge height 22px, not 24.
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("padding: 0.125rem 0.5rem; font-size: 0.75rem; line-height: 1rem; font-weight: 500;"));
+    }
+
+    #[test]
     fn primary_from_style() {
         let html = render(&stub("badge+primary", "Beta"));
         assert!(html.contains("data-variant=\"primary\""));
