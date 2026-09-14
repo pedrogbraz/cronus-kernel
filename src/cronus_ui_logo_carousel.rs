@@ -272,7 +272,7 @@ mod tests {
         assert!(css.contains("list-style: none"));
         // Wave 1s geometry parity (React measured: ul 288x96, li 138x96, 60px initials).
         assert!(css.contains(
-            "display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);\n  gap: 0.75rem; width: 18rem;"
+            "display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);\n  gap: 0.75rem; width: var(--cui-logo-carousel-w, 100%);"
         ));
         assert!(css.contains("position: relative; box-sizing: border-box;"));
         assert!(css.contains("overflow: hidden; height: 5rem; padding: 0 0.75rem;"));

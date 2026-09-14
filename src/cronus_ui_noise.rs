@@ -80,7 +80,7 @@ mod tests {
     #[test]
     fn chrome_noise_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"noise\"] {\n  position: relative; overflow: hidden;\n  width: 18rem; height: 8rem;\n}"));
+        assert!(css.contains("[data-slot=\"noise\"] {\n  position: relative; overflow: hidden;\n  width: var(--cui-noise-w, 100%); height: 8rem;\n}"));
         assert!(css.contains("[data-slot=\"noise\"] > svg {\n  position: absolute; inset: 0;\n  width: 100%; height: 100%;\n  pointer-events: none; opacity: 0.08;\n}"));
         assert!(css.contains("[data-slot=\"noise\"] > div {\n  position: relative;\n}"));
         assert!(!css.contains("[data-slot=\"noise\"]::after"));

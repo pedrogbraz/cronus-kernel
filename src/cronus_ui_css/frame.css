@@ -1,5 +1,5 @@
 [data-slot="frame"] {
-  width: 18rem; overflow: hidden;
+  width: var(--cui-frame-w, 100%); box-sizing: border-box; overflow: hidden;
   border-radius: var(--cronus-radius-xl);
   border: 1px solid var(--cronus-border);
   background: var(--cronus-surface-raised);

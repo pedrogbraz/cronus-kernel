@@ -1,6 +1,6 @@
 [data-slot="shimmer"] {
   display: block; position: relative; overflow: hidden;
-  height: 2rem; width: 12rem;
+  height: 2rem; width: var(--cui-shimmer-w, 100%);
   border-radius: var(--cronus-radius-md);
   background: var(--cronus-surface-overlay);
 }

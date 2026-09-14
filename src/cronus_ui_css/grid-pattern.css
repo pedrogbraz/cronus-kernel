@@ -1,6 +1,6 @@
 [data-slot="grid-pattern"] {
   position: relative; overflow: hidden;
-  width: 18rem; min-height: 8rem;
+  width: var(--cui-grid-pattern-w, 100%); min-height: 8rem;
   color: var(--cronus-border);
 }
 [data-slot="grid-pattern"] > [aria-hidden] {

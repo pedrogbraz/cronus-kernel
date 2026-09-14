@@ -1,12 +1,12 @@
-[data-slot="carousel"] { position: relative; outline: none; width: 18rem; max-width: 100%; }
+[data-slot="carousel"] { position: relative; outline: none; width: var(--cui-carousel-w, 100%); max-width: 100%; }
 [data-slot="carousel-content"] {
-  margin-left: -1rem; display: flex; overflow-x: auto;
+  margin-inline-start: -1rem; display: flex; overflow-x: auto;
   scroll-snap-type: x mandatory; outline: none;
   scrollbar-width: none;
 }
 [data-slot="carousel-content"]::-webkit-scrollbar { display: none; }
 [data-slot="carousel-item"] {
-  min-width: 0; flex: 0 0 100%; padding-left: 1rem;
+  min-width: 0; flex: 0 0 100%; padding-inline-start: 1rem;
   scroll-snap-align: start; box-sizing: border-box;
 }
 [data-slot="carousel-item"] > div {

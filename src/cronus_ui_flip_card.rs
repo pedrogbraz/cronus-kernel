@@ -177,7 +177,7 @@ mod tests {
     fn chrome_geometry_matches_react() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains(
-            "[data-slot=\"flip-card\"] {\n  position: relative; isolation: isolate;\n  width: 18rem;\n  min-height: 16rem; border-radius: calc(var(--cronus-radius, 14px) + 8px);\n  perspective: 1600px;\n  line-height: 1.5;"
+            "[data-slot=\"flip-card\"] {\n  position: relative; isolation: isolate;\n  width: var(--cui-flip-card-w, 100%);\n  min-height: 16rem; border-radius: calc(var(--cronus-radius, 14px) + 8px);\n  perspective: 1600px;\n  line-height: 1.5;"
         ));
         assert!(css.contains(
             "[data-slot=\"flip-card\"] > div {\n  position: absolute; inset: 0;\n  transform-style: preserve-3d;"

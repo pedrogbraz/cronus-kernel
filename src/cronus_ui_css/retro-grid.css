@@ -1,6 +1,6 @@
 [data-slot="retro-grid"] {
   position: relative; overflow: hidden;
-  width: 18rem; min-height: 8rem;
+  width: var(--cui-retro-grid-w, 100%); min-height: 8rem;
   perspective: 240px;
   color: var(--cronus-fg);
 }

@@ -80,7 +80,7 @@ mod tests {
     #[test]
     fn chrome_star_border_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"star-border\"] {\n  position: relative; width: 18rem;\n  border-radius: calc(var(--cronus-radius, 14px) + 8px);\n}"));
+        assert!(css.contains("[data-slot=\"star-border\"] {\n  position: relative; width: var(--cui-star-border-w, 100%);\n  border-radius: calc(var(--cronus-radius, 14px) + 8px);\n}"));
         assert!(css.contains("[data-slot=\"star-border\"] > [aria-hidden=\"true\"] > span {"));
         assert!(css.contains("[data-slot=\"star-border\"] > [aria-hidden=\"true\"] > span:nth-child(2) { animation-delay: -3s; }"));
         assert!(!css.contains("[data-slot=\"star-border\"]::before"));

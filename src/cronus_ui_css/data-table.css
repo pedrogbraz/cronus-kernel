@@ -26,7 +26,7 @@
 [data-slot="data-table"] [data-slot="table-row"] { border-bottom: 1px solid var(--cronus-border); }
 [data-slot="data-table"] [data-slot="table-body"] > [data-slot="table-row"]:last-child { border-bottom: 0; }
 [data-slot="data-table"] [data-slot="table-head"] {
-  height: 2.5rem; padding: 0 0.75rem; text-align: left; vertical-align: middle;
+  height: 2.5rem; padding: 0 0.75rem; text-align: start; vertical-align: middle;
   font-size: inherit; font-weight: 500; color: var(--cronus-fg-secondary); white-space: nowrap; border: 0;
 }
 [data-slot="data-table"] [data-slot="table-cell"] {

@@ -1,6 +1,6 @@
 [data-slot="logo-carousel"] {
   display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
-  gap: 0.75rem; width: 18rem; margin: 0; padding: 0; list-style: none;
+  gap: 0.75rem; width: var(--cui-logo-carousel-w, 100%); margin: 0; padding: 0; list-style: none;
   line-height: 1.5;
 }
 [data-slot="logo-carousel-item"] {

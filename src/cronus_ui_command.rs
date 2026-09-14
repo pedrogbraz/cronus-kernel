@@ -205,7 +205,7 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"command\"] {\n  display: flex; flex-direction: column; overflow: hidden;\n  width: 18rem; height: 12rem;"));
+        assert!(css.contains("[data-slot=\"command\"] {\n  display: flex; flex-direction: column; overflow: hidden;\n  width: var(--cui-command-w, 100%); height: 12rem;"));
         assert!(css.contains("[data-slot=\"command-input-wrapper\"]"));
         assert!(css.contains("[data-slot=\"command\"] > label {"));
         assert!(css.contains("[data-slot=\"command-list\"]"));

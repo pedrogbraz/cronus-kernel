@@ -34,3 +34,48 @@ button, input:where([type='button'], [type='reset'], [type='submit']), ::file-se
 }
 ::-webkit-inner-spin-button, ::-webkit-outer-spin-button { height: auto; }
 [hidden]:where(:not([hidden='until-found'])) { display: none !important; }
+/* Fixture widths. The React audit fixtures pass `className="w-72"` (or the
+   harness default); cronus-ui family CSS is fluid (`width: var(--cui-<family>-w,
+   100%)`), so the audit canvas restores the fixture box. Custom properties
+   inherit, so this works from the tokens layer. */
+[data-audit-canvas] {
+  --cui-aspect-ratio-w: 18rem;
+  --cui-aurora-background-w: 18rem;
+  --cui-border-beam-w: 18rem;
+  --cui-card-stack-w: 18rem;
+  --cui-carousel-w: 18rem;
+  --cui-click-spark-w: 18rem;
+  --cui-code-block-w: 18rem;
+  --cui-command-w: 18rem;
+  --cui-confetti-w: 18rem;
+  --cui-description-list-w: 18rem;
+  --cui-dot-pattern-w: 18rem;
+  --cui-flickering-grid-w: 18rem;
+  --cui-flip-card-w: 18rem;
+  --cui-frame-w: 18rem;
+  --cui-glare-hover-w: 18rem;
+  --cui-glass-card-w: 18rem;
+  --cui-gradient-border-w: 18rem;
+  --cui-grid-pattern-w: 18rem;
+  --cui-image-zoom-w: 18rem;
+  --cui-json-viewer-w: 18rem;
+  --cui-light-rays-w: 18rem;
+  --cui-logo-carousel-w: 18rem;
+  --cui-magnetic-w: 18rem;
+  --cui-marquee-w: 18rem;
+  --cui-masonry-w: 18rem;
+  --cui-noise-w: 18rem;
+  --cui-particles-w: 18rem;
+  --cui-progressive-blur-w: 18rem;
+  --cui-retro-grid-w: 18rem;
+  --cui-ripple-w: 18rem;
+  --cui-scroll-area-w: 12rem;
+  --cui-scroll-progress-w: 18rem;
+  --cui-shimmer-w: 12rem;
+  --cui-skeleton-w: 8rem;
+  --cui-spotlight-card-w: 18rem;
+  --cui-star-border-w: 18rem;
+  --cui-terminal-w: 18rem;
+  --cui-tilt-card-w: 18rem;
+  --cui-orbit-size: 18rem;
+}

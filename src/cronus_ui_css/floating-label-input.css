@@ -6,7 +6,7 @@
   height: 3.5rem; padding-top: 1rem; line-height: 1.25rem;
 }
 [data-slot="floating-label-input-label"] {
-  position: absolute; left: 0.75rem; top: 50%; z-index: 10;
+  position: absolute; inset-inline-start: 0.75rem; top: 50%; z-index: 10;
   transform-origin: left; transform: translateY(-1.6rem) scale(0.8);
   pointer-events: none; user-select: none;
   color: var(--cronus-fg-secondary); font-size: 0.875rem; line-height: 1.25rem;
@@ -32,3 +32,5 @@
   margin-top: 0.375rem; padding: 0 0.25rem;
   font-size: 0.75rem; color: var(--cronus-fg-secondary);
 }
+/* RTL: the label sits at inline-start; scale it from that edge. */
+[data-slot="floating-label-input-label"]:dir(rtl) { transform-origin: right; }

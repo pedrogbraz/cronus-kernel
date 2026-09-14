@@ -98,7 +98,7 @@ mod tests {
     #[test]
     fn chrome_spotlight_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"spotlight-card\"] {\n  position: relative; overflow: hidden;\n  width: 18rem; padding: 1.5rem; color: var(--cronus-fg);\n  border-radius: calc(var(--cronus-radius, 14px) + 8px); box-shadow: none;\n}"));
+        assert!(css.contains("[data-slot=\"spotlight-card\"] {\n  position: relative; overflow: hidden;\n  width: var(--cui-spotlight-card-w, 100%); box-sizing: border-box; padding: 1.5rem; color: var(--cronus-fg);\n  border-radius: calc(var(--cronus-radius, 14px) + 8px); box-shadow: none;\n}"));
         assert!(css.contains("[data-slot=\"spotlight-card\"] > [aria-hidden=\"true\"] {"));
         assert!(css.contains(
             "[data-slot=\"spotlight-card\"]:hover > [aria-hidden=\"true\"] { opacity: 1; }"

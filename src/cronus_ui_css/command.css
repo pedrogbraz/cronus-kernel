@@ -1,6 +1,6 @@
 [data-slot="command"] {
   display: flex; flex-direction: column; overflow: hidden;
-  width: 18rem; height: 12rem; box-sizing: border-box;
+  width: var(--cui-command-w, 100%); height: 12rem; box-sizing: border-box;
   border-radius: var(--cronus-radius-lg);
   background: var(--cronus-surface-floating); color: var(--cronus-fg);
 }

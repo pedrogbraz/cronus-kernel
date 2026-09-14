@@ -157,7 +157,7 @@ mod tests {
     fn chrome_mirrors_w72_and_translucent_indicator() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains(
-            "[data-slot=\"image-zoom\"] {\n  position: relative; display: block; width: 18rem; overflow: hidden;"
+            "[data-slot=\"image-zoom\"] {\n  position: relative; display: block; width: var(--cui-image-zoom-w, 100%); box-sizing: border-box; overflow: hidden;"
         ));
         assert!(css.contains(
             "background: color-mix(in oklab, var(--cronus-surface-overlay) 90%, transparent);"

@@ -114,7 +114,7 @@ mod tests {
     #[test]
     fn chrome_frame_w72_and_address_bar() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"frame\"] {\n  width: 18rem; overflow: hidden;"));
+        assert!(css.contains("[data-slot=\"frame\"] {\n  width: var(--cui-frame-w, 100%); box-sizing: border-box; overflow: hidden;"));
         assert!(css.contains(
             "[data-slot=\"frame-address-bar\"] {\n  margin: 0 auto; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
         ));

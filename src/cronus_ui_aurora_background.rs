@@ -113,7 +113,7 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         let start = css.find("[data-slot=\"aurora-background\"] {").unwrap();
         let block = &css[start..start + css[start..].find('}').unwrap()];
-        assert!(block.contains("width: 18rem; min-height: 8rem;"));
+        assert!(block.contains("width: var(--cui-aurora-background-w, 100%); min-height: 8rem;"));
         let layer = css
             .find("[data-slot=\"aurora-background\"] > [aria-hidden] {")
             .unwrap();

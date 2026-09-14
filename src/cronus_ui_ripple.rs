@@ -109,7 +109,7 @@ mod tests {
     #[test]
     fn chrome_ripple_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"ripple\"] {\n  position: relative; overflow: hidden;\n  width: 18rem; min-height: 8rem;"));
+        assert!(css.contains("[data-slot=\"ripple\"] {\n  position: relative; overflow: hidden;\n  width: var(--cui-ripple-w, 100%); min-height: 8rem;"));
         assert!(css.contains("[data-slot=\"ripple\"] > [aria-hidden=\"true\"] > span {"));
         assert!(css.contains("[data-slot=\"ripple\"] > div:last-child {\n  position: relative;\n}"));
         assert!(css.contains("> span:nth-of-type(8) { animation-delay: 7s; }"));

@@ -1,5 +1,5 @@
 [data-slot="json-viewer"] {
-  display: block; width: 18rem; max-width: 100%; overflow-x: auto; padding: 1rem;
+  display: block; width: var(--cui-json-viewer-w, 100%); box-sizing: border-box; max-width: 100%; overflow-x: auto; padding: 1rem;
   border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-xl);
   background: var(--cronus-surface-inset); color: var(--cronus-fg);
   font-family: var(--cronus-font-mono, ui-monospace, monospace); font-size: 0.875rem; line-height: 1.5rem;
@@ -30,7 +30,7 @@
 }
 [data-slot="json-viewer-toggle"] svg { width: 0.875rem; height: 0.875rem; }
 [data-slot="json-viewer-toggle"][data-state="open"] svg { transform: rotate(90deg); }
-[data-slot="json-viewer-children"] { margin-left: 0.625rem; padding-left: 0.875rem; border-left: 1px solid var(--cronus-border); }
+[data-slot="json-viewer-children"] { margin-inline-start: 0.625rem; padding-inline-start: 0.875rem; border-inline-start: 1px solid var(--cronus-border); }
 [data-slot="json-viewer"] [data-json="punct"] { color: var(--cronus-fg-tertiary); }
 [data-slot="json-viewer-key"] { color: var(--cronus-fg-secondary); }
 [data-slot="json-viewer-value"] { word-break: break-all; color: var(--cronus-fg); }

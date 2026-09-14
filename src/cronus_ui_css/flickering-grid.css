@@ -1,6 +1,6 @@
 [data-slot="flickering-grid"] {
   position: relative; overflow: hidden;
-  width: 18rem; min-height: 8rem;
+  width: var(--cui-flickering-grid-w, 100%); min-height: 8rem;
   color: var(--cronus-fg);
 }
 [data-slot="flickering-grid"] > [aria-hidden] {

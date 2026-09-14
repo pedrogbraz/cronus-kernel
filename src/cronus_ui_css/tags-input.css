@@ -8,7 +8,7 @@
 [data-slot="tags-input"][data-disabled=""] { opacity: 0.5; pointer-events: none; }
 [data-slot="tags-input"][aria-invalid="true"] { border-color: var(--cronus-error); }
 [data-slot="tags-input"] > [data-slot="badge"] {
-  gap: 0.25rem; padding-right: 0.25rem; line-height: 1rem;
+  gap: 0.25rem; padding-inline-end: 0.25rem; line-height: 1rem;
 }
 [data-slot="tags-input"] > [data-slot="badge"] > span {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

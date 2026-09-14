@@ -1,4 +1,4 @@
 [data-slot="aspect-ratio"] {
-  position: relative; width: 18rem;
+  position: relative; width: var(--cui-aspect-ratio-w, 100%);
   aspect-ratio: 16 / 9;
 }

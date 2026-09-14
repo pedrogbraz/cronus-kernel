@@ -100,7 +100,7 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         let start = css.find("[data-slot=\"grid-pattern\"] {").unwrap();
         let block = &css[start..start + css[start..].find('}').unwrap()];
-        assert!(block.contains("width: 18rem; min-height: 8rem;"));
+        assert!(block.contains("width: var(--cui-grid-pattern-w, 100%); min-height: 8rem;"));
         assert!(css.contains("[data-slot=\"grid-pattern\"] > [aria-hidden] {"));
         assert!(css.contains("[data-slot=\"grid-pattern\"] > div:last-child {"));
         assert!(!css.contains("[data-slot=\"grid-pattern-field\"]"));

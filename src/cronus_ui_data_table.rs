@@ -144,7 +144,7 @@ mod tests {
     fn reject_interact(html: &str) {
         assert!(!html.contains("style="));
         assert!(!html.contains("SURF"));
-        assert!(!html.contains("text-align:left;padding:0.5rem 0.75rem"));
+        assert!(!html.contains("text-align: start;padding:0.5rem 0.75rem"));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("onclick="));
         assert!(!html.contains("<script"));
@@ -255,7 +255,7 @@ mod tests {
     fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"data-table-container\"] {\n  overflow: hidden; border-radius: var(--cronus-radius-xl); border: 1px solid var(--cronus-border);\n}"));
-        assert!(css.contains("[data-slot=\"data-table\"] [data-slot=\"table-head\"] {\n  height: 2.5rem; padding: 0 0.75rem; text-align: left; vertical-align: middle;\n  font-size: inherit; font-weight: 500; color: var(--cronus-fg-secondary); white-space: nowrap; border: 0;\n}"));
+        assert!(css.contains("[data-slot=\"data-table\"] [data-slot=\"table-head\"] {\n  height: 2.5rem; padding: 0 0.75rem; text-align: start; vertical-align: middle;\n  font-size: inherit; font-weight: 500; color: var(--cronus-fg-secondary); white-space: nowrap; border: 0;\n}"));
         assert!(css.contains("[data-slot=\"data-table\"] [data-slot=\"table-body\"] > [data-slot=\"table-row\"]:last-child { border-bottom: 0; }"));
         assert!(!css.contains("zinc-"));
     }

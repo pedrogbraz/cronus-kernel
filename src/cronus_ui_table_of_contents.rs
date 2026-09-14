@@ -173,7 +173,7 @@ mod tests {
         assert!(css.contains("position: relative; font-size: 0.875rem; line-height: 1.25rem;"));
         assert!(css.contains("[data-slot=\"table-of-contents-indicator\"]"));
         assert!(css.contains("border-start-end-radius: var(--cronus-radius-md);"));
-        assert!(css.contains("border-left: 1px solid var(--cronus-border)"));
+        assert!(css.contains("border-inline-start: 1px solid var(--cronus-border)"));
         assert!(!css.contains("zinc-"));
     }
 }

@@ -181,7 +181,7 @@ mod tests {
     #[test]
     fn chrome_is_token_only_and_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"terminal\"] {\n  box-sizing: border-box; width: 18rem;"));
+        assert!(css.contains("[data-slot=\"terminal\"] {\n  box-sizing: border-box; width: var(--cui-terminal-w, 100%);"));
         assert!(css.contains(
             "[data-slot=\"terminal-chrome\"] {\n  display: flex; align-items: center; gap: 0.5rem;"
         ));

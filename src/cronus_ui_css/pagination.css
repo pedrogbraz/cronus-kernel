@@ -36,3 +36,6 @@
 [data-slot="pagination-ellipsis"] {
   display: flex; width: 2.5rem; height: 2.5rem; align-items: center; justify-content: center;
 }
+/* RTL: React flips the previous/next chevrons (rtl:rotate-180). */
+[data-slot="pagination-previous"]:dir(rtl) > svg,
+[data-slot="pagination-next"]:dir(rtl) > svg { scale: -1 1; }

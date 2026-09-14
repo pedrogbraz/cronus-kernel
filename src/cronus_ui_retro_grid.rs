@@ -106,7 +106,7 @@ mod tests {
     #[test]
     fn chrome_retro_grid_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"retro-grid\"] {\n  position: relative; overflow: hidden;\n  width: 18rem; min-height: 8rem;"));
+        assert!(css.contains("[data-slot=\"retro-grid\"] {\n  position: relative; overflow: hidden;\n  width: var(--cui-retro-grid-w, 100%); min-height: 8rem;"));
         assert!(css.contains("[data-slot=\"retro-grid\"] > [aria-hidden=\"true\"] > div > div {"));
         assert!(
             css.contains("[data-slot=\"retro-grid\"] > div:last-child {\n  position: relative;\n}")

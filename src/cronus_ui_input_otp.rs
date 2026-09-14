@@ -194,11 +194,11 @@ mod tests {
             "[data-input-otp-container] {\n  position: relative; display: flex; align-items: center; gap: 0.5rem;\n  line-height: 1.5; cursor: text; user-select: none; pointer-events: none;\n}"
         ));
         assert!(css.contains(
-            "  border: 0 solid var(--cronus-border);\n  border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px;\n  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg);"
+            "  border: 0 solid var(--cronus-border);\n  border-top-width: 1px; border-inline-end-width: 1px; border-bottom-width: 1px;\n  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg);"
         ));
-        assert!(
-            css.contains("[data-slot=\"input-otp-slot\"]:first-child {\n  border-left-width: 1px;")
-        );
+        assert!(css.contains(
+            "[data-slot=\"input-otp-slot\"]:first-child {\n  border-inline-start-width: 1px;"
+        ));
         assert!(css.contains("var(--cronus-border)"));
         assert!(!css.contains("zinc-"));
     }

@@ -482,10 +482,280 @@ mod tests {
         "drop 0067 3d448f4b3251ec55 dead-slot combobox-content",
         "drop 0068 4acc7eb25a02c57e dead-slot combobox-item",
         "drop 0080 dd57e9b1ef15bbdd duplicate-of 0630",
+        "edit 0264 skeleton a3f1f5f9ca9c93a2 d482cce5f3ac16e9 - fluid-width",
+        "edit 0268 slider 954c72ddabb73151 1e6810c23e740a83 - fluid-width+rtl-logical",
+        "edit 0269 slider 887d176a3ed16b9d 2f4e520b79d29308 - fluid-width+rtl-logical",
+        "edit 0382 spotlight-card f56a3123befe8a71 08bd99cd223cd4d4 - fluid-width",
+        "edit 0388 card 0a5cd4803ec7e826 b8ce1556f40a92d8 - rtl-logical",
+        "edit 0391 card cce28aac88cba255 9d340a383b050423 - rtl-logical",
+        "edit 0392 card 50eedcfbe719006d ad25a5791836fd2d - rtl-logical",
+        "edit 0476 table 6866c7987fda2b41 d15054ac9a2e6364 - rtl-logical",
+        "edit 0482 input-group e45fa6f9750bb519 96d1eb514b775d12 - rtl-logical",
+        "edit 0513 avatar-group be253346a180b206 f08c85e8bc1bc67f - rtl-logical",
+        "edit 0518 button-group c21578a2bd4d8565 1848b154301a2bdb - rtl-logical",
+        "edit 0519 button-group 98cd1d9976ec1434 55def2d1e9120385 - rtl-logical",
+        "edit 0521 button-group 7380cd574da85b4a 4ebee069dc7fbe84 - rtl-logical",
+        "edit 0522 button-group 4e0ab56457700ec5 5b32fded6c630d57 - rtl-logical",
+        "edit 0529 combobox 3b3ae8f5b25cdc80 98993517048e52eb - rtl-logical",
         "drop 0531 10570e9feebc0200 dead-slot combobox-content",
         "drop 0532 19d506c62fe39e86 dead-slot combobox-item",
         "drop 0533 e4b51a5bc215dfbe dead-slot combobox-item",
+        "edit 0554 input-otp 51e017e6f999d072 132b2c080cc8e205 - rtl-logical",
+        "edit 0556 input-otp a8b7a6b8de41f3c1 299734ae117d05ae - rtl-logical",
+        "edit 0557 input-otp 1844db63f820786e 13f000ca45b25f7c - rtl-logical",
+        "edit 0558 input-otp 1f27f44142134629 b7df97b1e2b74928 - rtl-logical",
+        "edit 0582 command ccbe07bf303dbbd8 13f807887a1fbe6e - fluid-width",
+        "edit 0602 drawer af5a827f67c2126f f7c352b8e723144d - rtl-logical",
+        "edit 0654 date-range-picker dcb356a0dde5d611 f9180117126f3fe4 - rtl-logical",
+        "edit 0655 date-range-picker f2293e1cbd120009 239be8fcbc037ab6 - rtl-logical",
+        "edit 0686 data-table 0101660718339584 5fec1161d3905c4d - rtl-logical",
+        "edit 0690 sidebar 513f59157d798b32 260562aca047148d - rtl-logical",
+        "edit 0698 sidebar dd117fea5d3de876 042615eea0855cb1 - rtl-logical",
+        "edit 0711 phone-input 2c15a6677afaf871 d3d9be5bc7e3f6b3 - rtl-logical",
+        "edit 0723 currency-input 7bff3ec4c879d8ba 2859e20157ffb9e0 - rtl-logical",
+        "edit 0734 scroll-area 20361d594149c881 2936aee452e7930d - fluid-width",
+        "edit 0755 tags-input a98cfa9cfcb73b32 0e1a3a1bdfa7ab31 - rtl-logical",
+        "edit 0766 autocomplete 740db6c4ad65d7f2 7e0633b7e571569f - rtl-logical",
+        "edit 0782 multi-select 43ae9c8e4da0ae91 073b070e899e2554 - rtl-logical",
+        "edit 0808 floating-label-input 59b37c3b116b8128 13677f1e77d038e3 - rtl-logical",
+        "edit 0818 split-button 6a5eb8f0d12bf538 875fa4f701c673f2 - rtl-logical",
+        "edit 0819 split-button d8249b2b29909828 85c3ef63b8e3539c - rtl-logical",
+        "edit 0820 split-button f9215cafb019da6a daa88e3912342c7f - rtl-logical",
+        "edit 0847 table-of-contents 3e1e8b2fdc1f93af 7fc83188aa81b0b0 - rtl-logical",
+        "edit 0860 signature-pad 7217d5f697a92e8b f9cc627ed88ad1bb - rtl-logical",
+        "edit 0863 signature-pad 76052660b192ab23 e40c1f98435b6ff2 - rtl-logical",
+        "edit 0884 scheduler 4d5d21e381f6af4d 2482f5f28959edd8 - rtl-logical",
+        "edit 0885 scheduler 10dad5d652712d58 8be82d141d7b1027 - rtl-logical",
+        "edit 0890 scheduler cb65834052e5ac77 b236d8b84d6bc942 - rtl-logical",
+        "edit 0956 masonry 6414a25b66c839a7 8c3ed0c3b05a18db - fluid-width",
+        "edit 0979 code-tabs 6baaa7ae42f4eb81 edb15edd51f5965c - rtl-logical",
+        "edit 0986 code-tabs f3e70770a8690f64 c721c723290e304b - rtl-logical",
+        "edit 0989 code-tabs 08d19d373b04cc10 d07c2d20d98a262f - rtl-logical",
+        "edit 1010 scroll-progress db40775229ca10ab b310519200952d73 - fluid-width",
+        "edit 1048 shimmer f8c62b68eea13a38 234944956a7f500e - fluid-width",
+        "edit 1055 particles 29eb1a3ae353c6b5 52524b75c6ae6c81 - fluid-width",
+        "edit 1062 sparkles-text 6fa54eca8e9bd5d0 2eebac6a12602315 - rtl-logical",
+        "edit 1064 noise 2a2085735d7b43c8 40c7e42be65c5f7b - fluid-width",
+        "edit 1076 bouncy-accordion 9c0a088c53ddba70 20b4beeb4e38d26c - rtl-logical",
+        "edit 1081 bouncy-accordion 15ef72afa120c690 8c68b9b58b8e90ec - rtl-logical",
+        "edit 1082 bouncy-accordion 6a3bb3cd1605645d d0fc05bba8141aa1 - rtl-logical",
+        "edit 1116 tilt-card e0a951fc10377b0c 5baacc4b2564ff15 - fluid-width",
+        "edit 1118 star-border 91b699d57df3bfb9 d8efd27effb23799 - fluid-width",
+        "edit 1125 glass-card 7b88a3bbe9d43e1d c372a7125e994ff4 - fluid-width",
+        "edit 1128 terminal b8d796e8670ccb9f 867aa3d9e48c20da - fluid-width",
+        "edit 1135 terminal ba7c352a6dd33b96 5da0f48d75ed00c3 - rtl-logical",
+        "edit 1175 carousel ac856209dbebf162 d3906a0db9feadfb - fluid-width",
+        "edit 1176 carousel 7428138cc2f22eab 7ba6ee385ca9c362 - rtl-logical",
+        "edit 1178 carousel 5e064e3340602b72 b321774864b9c7d9 - rtl-logical",
+        "edit 1185 code-block d3f6a5be1bac270f 6b19407d1a69cee7 - fluid-width",
+        "edit 1186 code-block 4c0391de0ef74a5b e7d861b9d622d854 - rtl-logical",
+        "edit 1195 description-list b88a2533160bd592 14e7b27386e0c11a - fluid-width",
+        "edit 1214 json-viewer 340994334bf4dca0 6765cf28b9315c93 - fluid-width",
+        "edit 1223 json-viewer 610466e85825412c e26ebb254cb3a55b - rtl-logical",
+        "edit 1232 marquee 76ec4d3744788704 7d7492452d74f5f9 - fluid-width",
+        "edit 1243 aspect-ratio d01ccaa4a2e0b3fd 89f829e272089d02 - fluid-width",
+        "edit 1244 frame 84ef520bd9e87b7a 6af87c1b603ae0f3 - fluid-width",
+        "edit 1253 flip-card 1a59654b409cc6d6 26705dd4113f1883 - fluid-width",
+        "edit 1270 card-stack 45e51d5120424d60 b087280a33e8b302 - fluid-width",
+        "edit 1280 logo-carousel 1aa806280af8fb37 1d4e40ead78ef924 - fluid-width",
+        "edit 1293 image-zoom b53cd2d150098233 141aca21869c38fe - fluid-width",
+        "edit 1300 aurora-background 8bc3792c8ef7888e 64633a0c9c89f16a - fluid-width",
+        "edit 1309 border-beam bda1e5c4d9decb54 57065944325ae64a - fluid-width",
+        "edit 1315 confetti e2002970e087288c 2178eda0da462f93 - fluid-width",
+        "edit 1330 click-spark 471c5ba1bb7d58e1 c5d36a49488a2e7c - fluid-width",
+        "edit 1333 glare-hover f6215effcad9630a 5cfdce37f871dc89 - fluid-width",
+        "edit 1338 magnetic b8ea707717573f67 27f96e97791afe92 - fluid-width+rtl-logical",
+        "edit 1342 dot-pattern 85b3813b645613af 01c74d722cd922d4 - fluid-width",
+        "edit 1345 flickering-grid 384afc00cec0b896 c0635d5a27ce646e - fluid-width",
+        "edit 1350 grid-pattern 702a57a3e0e5baa7 6bb52c4c9aba8cf1 - fluid-width",
+        "edit 1401 gradient-border 55d5663218f54f99 fb44a5ed19e85a6a - fluid-width",
+        "edit 1403 light-rays 9723bf9870382629 c25d6927a7ea8060 - fluid-width",
+        "edit 1409 orbit 0889fd4cb288103f 76d4501727d4c7a5 - fluid-width",
+        "edit 1432 progressive-blur c30b57293e11a852 ab568ec7444f1330 - fluid-width",
+        "edit 1439 retro-grid cd563f0e6f2c6ad3 6553063ed787dbbd - fluid-width",
+        "edit 1446 ripple 5a1e5fb407ddfcb1 011c6227d04460a0 - fluid-width",
     ];
+
+    /// `(selector, property, value)` for every declaration of a stylesheet
+    /// (comments removed; nested at-rules flattened; selector = innermost).
+    fn declarations(css: &str) -> Vec<(String, String, String)> {
+        let text = normalize(css);
+        let mut out = Vec::new();
+        let mut selectors: Vec<String> = Vec::new();
+        let mut seg = String::new();
+        for c in text.chars() {
+            match c {
+                '{' => {
+                    selectors.push(seg.trim().to_string());
+                    seg.clear();
+                }
+                ';' | '}' => {
+                    if let Some((prop, value)) = seg.split_once(':') {
+                        let prop = prop.trim();
+                        if !prop.is_empty() && !prop.contains(' ') {
+                            out.push((
+                                selectors.last().cloned().unwrap_or_default(),
+                                prop.to_string(),
+                                value.trim().to_string(),
+                            ));
+                        }
+                    }
+                    seg.clear();
+                    if c == '}' {
+                        selectors.pop();
+                    }
+                }
+                _ => seg.push(c),
+            }
+        }
+        out
+    }
+
+    /// Family CSS this lint owns (vendored tokens, theme and catalog excluded).
+    fn family_css() -> impl Iterator<Item = (&'static str, &'static str)> {
+        FILES
+            .iter()
+            .copied()
+            .filter(|(name, _)| !matches!(*name, "theme" | "catalog"))
+            .chain([("base", BASE_CSS)])
+    }
+
+    /// Physical sides that stay physical, as `(file, property, value)`.
+    /// Each has a `/* physical: … */` comment next to it in the CSS.
+    const PHYSICAL_EXCEPTIONS: &[(&str, &str, &str)] = &[
+        // Centred with a -50% translate (translate has no logical form).
+        ("comparison-slider", "left", "50%"),
+        ("lightbox", "left", "50%"),
+        ("hover-card", "left", "50%"),
+        ("resizable", "left", "50%"),
+        ("orbit", "left", "50%"),
+        ("sheet", "left", "50%"),
+        ("shared", "left", "50%"),
+        ("tooltip", "left", "anchor(center)"),
+        // anchor() edges: the anchor's physical box, right in both directions.
+        ("code-tabs", "left", "anchor(--code-tabs-active left)"),
+        ("shared", "left", "anchor(left)"),
+        // React's API side is physical: Sheet side="right", badge `-right-1`.
+        ("sheet", "right", "0"),
+        ("sheet", "border-left-width", "1px"),
+        ("notification-center", "right", "-0.25rem"),
+    ];
+
+    #[test]
+    fn family_css_uses_logical_sides() {
+        const PHYSICAL: &[&str] = &[
+            "margin-left",
+            "margin-right",
+            "padding-left",
+            "padding-right",
+            "left",
+            "right",
+            "border-left",
+            "border-right",
+            "border-left-width",
+            "border-right-width",
+            "border-left-color",
+            "border-right-color",
+            "border-left-style",
+            "border-right-style",
+        ];
+        let mut bad = Vec::new();
+        for (file, css) in family_css() {
+            for (selector, prop, value) in declarations(css) {
+                let physical = PHYSICAL.contains(&prop.as_str())
+                    || (prop == "text-align" && (value == "left" || value == "right"));
+                if physical
+                    && !PHYSICAL_EXCEPTIONS
+                        .iter()
+                        .any(|(f, p, v)| *f == file && *p == prop && *v == value)
+                {
+                    bad.push(format!("{file}.css `{selector}` {prop}: {value}"));
+                }
+            }
+        }
+        assert!(
+            bad.is_empty(),
+            "use logical properties (margin-inline-start, inset-inline-end, border-inline-start, text-align: start…) or document a PHYSICAL_EXCEPTIONS entry:\n{}",
+            bad.join("\n")
+        );
+    }
+
+    /// Fixed widths the React component itself has by default (not a fixture
+    /// `className`), as `(file, selector substring, value)`.
+    const REACT_DEFAULT_WIDTHS: &[(&str, &str, &str)] = &[
+        ("popover", "popover-content", "18rem"), // w-72
+        ("morphing-popover", "morphing-popover-content", "18rem"), // w-72
+        ("kanban", "kanban-column", "18rem"),    // w-72
+        ("hover-card", "hover-card-content", "16rem"), // w-64
+        ("notification-center", "notification-center", "20rem"), // w-80
+        ("date-picker", "date-picker-trigger", "15rem"), // w-[240px]
+        ("time-picker", "time-picker", "15rem"), // w-[240px]
+        ("date-range-picker", "date-range-picker-trigger", "18.75rem"), // w-[300px]
+        ("sidebar", "sidebar", "16rem"),         // --sidebar-width
+        // Ring geometry needs a square box; override with --cui-orbit-size.
+        ("orbit", "orbit", "var(--cui-orbit-size, 18rem)"),
+        ("orbit", "orbit", "16rem"),
+    ];
+
+    fn length_rem(token: &str) -> Option<f64> {
+        let token = token.trim_matches(|c: char| c == '(' || c == ')' || c == ',');
+        if let Some(n) = token.strip_suffix("rem") {
+            n.parse().ok()
+        } else if let Some(n) = token.strip_suffix("px") {
+            n.parse::<f64>().ok().map(|px| px / 16.0)
+        } else {
+            None
+        }
+    }
+
+    /// Fixture widths (`w-72` = 18rem…) live in audit.css, scoped to the audit
+    /// canvas; family CSS is fluid unless React's component has the width.
+    #[test]
+    fn fixed_widths_only_in_audit_css_or_react_defaults() {
+        let mut bad = Vec::new();
+        for (file, css) in family_css() {
+            for (selector, prop, value) in declarations(css) {
+                if !matches!(prop.as_str(), "width" | "inline-size") {
+                    continue;
+                }
+                let fixed = value
+                    .split_whitespace()
+                    .filter_map(length_rem)
+                    .any(|rem| rem >= 10.0);
+                let allowed = selector.starts_with("[data-audit-canvas]")
+                    || REACT_DEFAULT_WIDTHS
+                        .iter()
+                        .any(|(f, s, v)| *f == file && selector.contains(s) && *v == value);
+                if fixed && !allowed {
+                    bad.push(format!("{file}.css `{selector}` {prop}: {value}"));
+                }
+            }
+        }
+        assert!(
+            bad.is_empty(),
+            "fixed widths ≥ 10rem: make the family fluid (`width: var(--cui-<family>-w, 100%)`) and set the fixture width in audit.css, or add a REACT_DEFAULT_WIDTHS entry:\n{}",
+            bad.join("\n")
+        );
+        assert!(AUDIT_CSS.contains("--cui-carousel-w: 18rem;"));
+        assert!(declarations(AUDIT_CSS)
+            .iter()
+            .filter(|(_, p, _)| p.starts_with("--cui-"))
+            .all(|(s, _, _)| s == "[data-audit-canvas]"));
+    }
+
+    #[test]
+    fn declarations_parser_sees_nested_rules() {
+        let d = declarations(
+            "/* left: 1px */ a:hover { left: 0; } @media (min-width: 40rem) { b { width: 18rem } }",
+        );
+        assert_eq!(
+            d,
+            vec![
+                ("a:hover".into(), "left".into(), "0".into()),
+                ("b".into(), "width".into(), "18rem".into()),
+            ]
+        );
+    }
 
     fn manifest_lines() -> Vec<&'static str> {
         MANIFEST

@@ -1,6 +1,6 @@
 [data-slot="tilt-card"] {
   position: relative;
-  width: 18rem;
+  width: var(--cui-tilt-card-w, 100%);
   border-radius: calc(var(--cronus-radius, 14px) + 8px);
   border: 1px solid var(--cronus-border);
   background: var(--cronus-surface-raised);

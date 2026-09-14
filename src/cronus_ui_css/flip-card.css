@@ -1,6 +1,6 @@
 [data-slot="flip-card"] {
   position: relative; isolation: isolate;
-  width: 18rem;
+  width: var(--cui-flip-card-w, 100%);
   min-height: 16rem; border-radius: calc(var(--cronus-radius, 14px) + 8px);
   perspective: 1600px;
   line-height: 1.5;

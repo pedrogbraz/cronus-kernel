@@ -195,7 +195,7 @@ mod tests {
     #[test]
     fn chrome_geometry_matches_react() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("height: 14rem; width: 18rem; max-width: 24rem;\n  line-height: 1.5;"));
+        assert!(css.contains("height: 14rem; width: var(--cui-card-stack-w, 100%); max-width: 24rem;\n  line-height: 1.5;"));
         assert!(css.contains(
             "[data-slot=\"card-stack\"] > span {\n  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;"
         ));

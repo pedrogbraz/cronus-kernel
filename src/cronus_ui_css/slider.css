@@ -6,12 +6,12 @@
   overflow: hidden; border-radius: 9999px; background: var(--cronus-surface-overlay);
 }
 [data-slot="slider"] > span:first-child > span {
-  position: absolute; display: block; height: 100%; left: 0;
-  right: calc(100% - var(--cui-slider-value, 0) * 1%); background: var(--cronus-primary);
+  position: absolute; display: block; height: 100%; inset-inline-start: 0;
+  inset-inline-end: calc(100% - var(--cui-slider-value, 0) * 1%); background: var(--cronus-primary);
 }
 [data-slot="slider"] > span:last-child {
   position: absolute; transform: translateX(-50%);
-  left: calc(var(--cui-slider-value, 0) * 1% + 0.5rem - var(--cui-slider-value, 0) * 0.01rem);
+  inset-inline-start: calc(var(--cui-slider-value, 0) * 1% + 0.5rem - var(--cui-slider-value, 0) * 0.01rem);
 }
 [data-slot="slider"] > span:last-child > span {
   display: block; width: 1rem; height: 1rem; box-sizing: border-box;
@@ -120,3 +120,5 @@
 [data-slot="slider"][data-value="98"] { --cui-slider-value: 98; }
 [data-slot="slider"][data-value="99"] { --cui-slider-value: 99; }
 [data-slot="slider"][data-value="100"] { --cui-slider-value: 100; }
+/* RTL: the thumb sits at inline-start; its -50% centring shift mirrors too. */
+[data-slot="slider"] > span:last-child:dir(rtl) { transform: translateX(50%); }

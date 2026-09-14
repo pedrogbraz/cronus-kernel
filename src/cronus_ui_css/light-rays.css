@@ -1,7 +1,7 @@
 [data-slot="light-rays"] {
   position: relative;
   overflow: hidden;
-  width: 18rem;
+  width: var(--cui-light-rays-w, 100%);
   min-height: 8rem;
   color: var(--cronus-fg);
 }

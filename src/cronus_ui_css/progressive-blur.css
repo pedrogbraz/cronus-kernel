@@ -1,6 +1,6 @@
 [data-progressive-blur-host] {
   position: relative;
-  width: 18rem;
+  width: var(--cui-progressive-blur-w, 100%);
   min-height: 8rem;
   line-height: 1.5;
   color: var(--cronus-fg);

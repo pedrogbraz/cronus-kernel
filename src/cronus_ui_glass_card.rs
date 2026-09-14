@@ -90,7 +90,9 @@ mod tests {
         let start = css.find("[data-slot=\"glass-card\"] {").unwrap();
         let block = &css[start..start + css[start..].find('}').unwrap()];
         assert!(block.contains("position: relative;"));
-        assert!(block.contains("width: 18rem; padding: 1.5rem;"));
+        assert!(block.contains(
+            "width: var(--cui-glass-card-w, 100%); box-sizing: border-box; padding: 1.5rem;"
+        ));
         assert!(block.contains("border-radius: calc(var(--cronus-radius, 14px) + 8px);"));
         assert!(
             block.contains("border: 1px solid var(--cronus-border-soft, var(--cronus-border));")

@@ -379,8 +379,8 @@ mod tests {
         assert!(css.contains("[data-slot=\"scheduler-title\"] { font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; color: var(--cronus-fg); }"));
         // `html[data-cronus-theme] h2` (0,1,2) forces weight 400 and -0.025em.
         assert!(css.contains("[data-slot=\"scheduler\"] > div:first-child > [data-slot=\"scheduler-title\"] {\n  font-weight: 600; letter-spacing: normal; font-variant-numeric: tabular-nums;\n}"));
-        assert!(css.contains("[data-slot=\"scheduler-grid\"] td {\n  height: 6rem; min-width: 0; padding: 0.375rem; vertical-align: top;\n  border-right: 1px solid var(--cronus-border); border-bottom: 1px solid var(--cronus-border);"));
-        assert!(css.contains("[data-slot=\"scheduler-event\"] {\n  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;\n  border: 0; border-radius: 0.25rem; padding: 0.125rem 0.375rem; text-align: left;\n  font-size: 0.75rem; line-height: 1rem; font-weight: 500;"));
+        assert!(css.contains("[data-slot=\"scheduler-grid\"] td {\n  height: 6rem; min-width: 0; padding: 0.375rem; vertical-align: top;\n  border-inline-end: 1px solid var(--cronus-border); border-bottom: 1px solid var(--cronus-border);"));
+        assert!(css.contains("[data-slot=\"scheduler-event\"] {\n  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;\n  border: 0; border-radius: 0.25rem; padding: 0.125rem 0.375rem; text-align: start;\n  font-size: 0.75rem; line-height: 1rem; font-weight: 500;"));
         assert!(css.contains("var(--cronus-fg-tertiary)"));
         assert!(!css.contains("zinc-"));
     }

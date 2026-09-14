@@ -6,7 +6,7 @@
 }
 [data-slot="code-tabs-header"] {
   display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
-  padding-right: 0.75rem; border-bottom: 1px solid var(--cronus-border);
+  padding-inline-end: 0.75rem; border-bottom: 1px solid var(--cronus-border);
   background: var(--cronus-surface-overlay);
 }
 [data-slot="code-tabs-list"] {
@@ -25,7 +25,7 @@
   position: absolute; bottom: 0; height: 0.125rem; pointer-events: none;
   border-radius: 9999px; background: var(--cronus-primary);
   position-anchor: --code-tabs-active;
-  left: anchor(--code-tabs-active left); width: anchor-size(--code-tabs-active width);
+  left: anchor(--code-tabs-active left); width: anchor-size(--code-tabs-active width); /* physical: anchor() edge of the active tab, correct in both directions */
 }
 [data-slot="code-tabs-language"] {
   flex-shrink: 0; font-family: var(--cronus-font-mono, ui-monospace, monospace);
@@ -33,7 +33,7 @@
 }
 [data-slot="code-tabs-panels"] { position: relative; }
 [data-slot="code-tabs-panels"] > [data-slot="copy-button"] {
-  position: absolute; top: 0.5rem; right: 0.5rem; z-index: 10;
+  position: absolute; top: 0.5rem; inset-inline-end: 0.5rem; z-index: 10;
   width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: var(--cronus-radius-lg);
   background: color-mix(in oklab, var(--cronus-surface-overlay) 80%, transparent);
   backdrop-filter: blur(8px); color: var(--cronus-fg-secondary);
@@ -45,7 +45,7 @@
   flex: 1; overflow-x: auto; outline: none;
 }
 [data-slot="code-tabs-pre"] {
-  margin: 0; padding: 1rem 3.5rem 1rem 1rem;
+  margin: 0; padding-block: 1rem; padding-inline: 1rem 3.5rem;
   font-family: var(--cronus-font-mono, ui-monospace, monospace);
   font-size: 0.875rem; line-height: 1.625;
 }

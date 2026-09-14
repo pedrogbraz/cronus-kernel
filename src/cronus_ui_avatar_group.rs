@@ -223,7 +223,7 @@ mod tests {
         assert!(css.contains("[data-slot=\"avatar-group-overflow\"]"));
         assert!(css.contains("display: flex"));
         assert!(css.contains("align-items: center"));
-        assert!(css.contains("margin-left: -0.5rem"));
+        assert!(css.contains("margin-inline-start: -0.5rem"));
         assert!(css.contains("width: 2.25rem"));
         assert!(css.contains("height: 2.25rem"));
         assert!(css.contains("box-shadow: 0 0 0 2px var(--cronus-surface-base)"));

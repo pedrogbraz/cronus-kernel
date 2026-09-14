@@ -120,7 +120,7 @@ mod tests {
     fn chrome_mirrors_h32_w48_and_hides_native_scrollbar() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains(
-            "[data-slot=\"scroll-area\"] {\n  position: relative; overflow: hidden;\n  width: 12rem; height: 8rem;\n}"
+            "[data-slot=\"scroll-area\"] {\n  position: relative; overflow: hidden;\n  width: var(--cui-scroll-area-w, 100%); height: 8rem;\n}"
         ));
         assert!(css.contains("overflow-x: hidden; overflow-y: scroll; scrollbar-width: none;"));
         assert!(css.contains(

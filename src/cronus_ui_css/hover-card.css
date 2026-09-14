@@ -1,6 +1,6 @@
 [data-slot="hover-card-content"] {
   display: none;
-  position: absolute; z-index: 50; top: calc(100% + 4px); left: 50%;
+  position: absolute; z-index: 50; top: calc(100% + 4px); left: 50%; /* physical: centred with translateX(-50%) */
   width: 16rem; padding: 0.75rem; box-sizing: border-box;
   border: 1px solid var(--cronus-border);
   border-radius: var(--cronus-radius-lg);

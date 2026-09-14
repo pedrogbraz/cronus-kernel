@@ -1,6 +1,6 @@
 [data-slot="scroll-area"] {
   position: relative; overflow: hidden;
-  width: 12rem; height: 8rem;
+  width: var(--cui-scroll-area-w, 100%); height: 8rem;
 }
 [data-slot="scroll-area"] > [role="region"] {
   width: 100%; height: 100%; border-radius: inherit; outline: none;

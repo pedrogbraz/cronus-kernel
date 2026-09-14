@@ -118,7 +118,9 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         let start = css.find("[data-slot=\"border-beam\"] {").unwrap();
         let block = &css[start..start + css[start..].find('}').unwrap()];
-        assert!(block.contains("width: 18rem; padding: 1.5rem;"));
+        assert!(block.contains(
+            "width: var(--cui-border-beam-w, 100%); box-sizing: border-box; padding: 1.5rem;"
+        ));
         assert!(block.contains("border-radius: calc(var(--cronus-radius, 14px) + 8px);"));
     }
 }

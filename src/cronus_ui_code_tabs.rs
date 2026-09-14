@@ -236,7 +236,7 @@ mod tests {
         assert!(css.contains(
             "left: anchor(--code-tabs-active left); width: anchor-size(--code-tabs-active width);"
         ));
-        assert!(css.contains("[data-slot=\"code-tabs-panels\"] > [data-slot=\"copy-button\"] {\n  position: absolute; top: 0.5rem; right: 0.5rem; z-index: 10;\n  width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: var(--cronus-radius-lg);"));
+        assert!(css.contains("[data-slot=\"code-tabs-panels\"] > [data-slot=\"copy-button\"] {\n  position: absolute; top: 0.5rem; inset-inline-end: 0.5rem; z-index: 10;\n  width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: var(--cronus-radius-lg);"));
         assert!(css.contains("opacity: 1; cursor: default;"));
         assert!(!css.contains("zinc-"));
     }

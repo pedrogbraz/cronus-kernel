@@ -258,7 +258,7 @@ mod tests {
             css.contains("padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.25rem;")
         );
         assert!(css.contains(
-            "[data-slot=\"tags-input\"] > [data-slot=\"badge\"] {\n  gap: 0.25rem; padding-right: 0.25rem; line-height: 1rem;\n}"
+            "[data-slot=\"tags-input\"] > [data-slot=\"badge\"] {\n  gap: 0.25rem; padding-inline-end: 0.25rem; line-height: 1rem;\n}"
         ));
         assert!(css.contains(
             "[data-slot=\"tags-input-remove\"] svg { width: 0.75rem; height: 0.75rem; }"
