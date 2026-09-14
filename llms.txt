@@ -92,6 +92,8 @@ New control: native HTML that works **off** (`<input>`, `<dialog>`, `<details>`,
 - `button` → `cronus_ui::button_ex` (CONTRACT). Not interact.
 - charts/fx → generic fallbacks in `cronus_ui_widgets.rs`
 
+The list above is the interact fallback. Ported families use dedicated zero-JS renderers first (no `on*=`/`<script>`): `tabs` → radios + labels, `accordion` → checkboxes + labels, `dialog` → open-by-default divs, `select` → disabled closed trigger, `tooltip` → `popover="hint"` + `interestfor`.
+
 `data-slot="<family>"` on the root. Dual theme: `style:button+primary+md` + `preset aurora` is cronus-ui; `style:primary` is Obsidian.
 
 ## Voodoo on emitted HTML (not in `.cronus`)

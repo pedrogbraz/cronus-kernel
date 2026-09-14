@@ -135,6 +135,17 @@ pub fn texts(comp: &ComponentNode) -> Vec<String> {
     out
 }
 
+/// Every non-empty item text except the field name (`label` / `title` items),
+/// escaped, in order. The audit emitter writes lists (tabs/accordion pairs,
+/// table cells) as `text` lines after the label; [`choice_texts`] would drop them.
+pub fn content_texts(comp: &ComponentNode) -> Vec<String> {
+    comp.items
+        .iter()
+        .filter(|i| i.item_type != "label" && i.item_type != "title" && !i.text.is_empty())
+        .map(|i| esc(&i.text))
+        .collect()
+}
+
 const CHOICE_KINDS: &[&str] = &["item", "tab", "columns"];
 const FIELD_KINDS: &[&str] = &["label", "title", "text", "value"];
 

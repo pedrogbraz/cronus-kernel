@@ -1,24 +1,35 @@
-//! Dedicated Tooltip renderer. Native `<details>` disclosure, chrome in CSS.
-//! Not interact popover SURF overlay stub.
+//! Dedicated Tooltip renderer — mirrors React `Tooltip` with
+//! `TooltipTrigger asChild` + outline `Button`.
+//!
+//! DOM: the trigger is `<button data-slot="button" data-variant="outline">`
+//! (Radix Slot keeps the Button's own `data-slot`), followed by
+//! `<div data-slot="tooltip-content" role="tooltip" popover="hint">`.
+//! Zero JS: the trigger's `interestfor` (interest invokers) opens the hint
+//! popover on hover / keyboard focus in browsers that support it; the trigger
+//! is always `aria-describedby` the content, so the text is announced either
+//! way. React's audit fixture forces `open` and portals the content out of the
+//! canvas; the kernel keeps it closed (a top-layer popover cannot start open
+//! without JS), so only the trigger is in the canvas on both sides.
+//!
+//! Content: trigger = first text (the fixture's `children` label), body =
+//! the remaining texts, else the trigger text.
 
-use crate::cronus_ui_kit::{label_of, texts};
+use crate::cronus_ui_kit::{texts, widget_id};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    let title = label_of(comp);
-    let body = texts(comp)
-        .into_iter()
-        .skip(1)
-        .map(|t| format!("<p>{t}</p>"))
-        .collect::<Vec<_>>()
-        .join("");
-    let hint = if body.is_empty() {
-        format!("<p>{title}</p>")
+    let ts = texts(comp);
+    let trigger = ts.first().cloned().unwrap_or_default();
+    let body = ts.iter().skip(1).cloned().collect::<Vec<_>>().join(" ");
+    let body = if body.is_empty() {
+        trigger.clone()
     } else {
         body
     };
+    let trigger_id = widget_id(comp, "tooltip-trigger");
+    let content_id = widget_id(comp, "tooltip");
     format!(
-        "<details data-slot=\"tooltip\" data-animate><summary data-slot=\"tooltip-trigger\">{title}</summary><div data-slot=\"tooltip-content\" role=\"tooltip\">{hint}</div></details>"
+        "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"outline\" interestfor=\"{content_id}\" aria-describedby=\"{content_id}\">{trigger}</button><div id=\"{content_id}\" popover=\"hint\" data-slot=\"tooltip-content\" role=\"tooltip\">{body}</div>"
     )
 }
 
@@ -26,16 +37,52 @@ pub fn render(comp: &ComponentNode) -> String {
 mod tests {
     use super::*;
     use crate::cronus_ui_kit::stub;
+    use crate::parser::ComponentItemNode;
+
+    fn fixture() -> ComponentNode {
+        let mut c = stub("tooltip", "Need help?");
+        c.items.push(ComponentItemNode {
+            item_type: "text".into(),
+            text: "We usually reply within minutes.".into(),
+            link: None,
+            tone: None,
+            config: Default::default(),
+        });
+        c
+    }
+
+    fn reject_js(html: &str) {
+        for bad in [
+            "<details", "<summary", "onclick", "onmouse", "<script", "style=", "v-data",
+        ] {
+            assert!(!html.contains(bad), "{bad} in {html}");
+        }
+    }
 
     #[test]
-    fn details_tooltip() {
+    fn trigger_is_outline_button_and_content_is_hint_popover() {
+        assert_eq!(
+            render(&fixture()),
+            "<button type=\"button\" id=\"cui-tooltip-tooltip-trigger\" data-slot=\"button\" data-variant=\"outline\" interestfor=\"cui-tooltip-tooltip\" aria-describedby=\"cui-tooltip-tooltip\">Need help?</button><div id=\"cui-tooltip-tooltip\" popover=\"hint\" data-slot=\"tooltip-content\" role=\"tooltip\">We usually reply within minutes.</div>"
+        );
+        reject_js(&render(&fixture()));
+    }
+
+    #[test]
+    fn label_only_uses_label_as_body() {
         let html = render(&stub("tooltip", "Hint"));
-        assert!(html.contains("data-slot=\"tooltip\""));
-        assert!(html.contains("role=\"tooltip\""));
-        assert!(html.contains("Hint"));
-        assert!(!html.contains("zinc-"));
-        let interact =
-            crate::cronus_ui_interact::render("tooltip", &stub("tooltip", "Hint")).unwrap();
-        assert_ne!(html, interact);
+        assert!(html.contains(">Hint</button>"));
+        assert!(html.contains("role=\"tooltip\">Hint</div>"));
+        assert!(!html.contains("data-slot=\"tooltip\""));
+    }
+
+    #[test]
+    fn chrome_closed_until_popover_open() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(
+            css.contains("[data-slot=\"tooltip-content\"]:not(:popover-open) { display: none; }")
+        );
+        assert!(css.contains("[data-slot=\"tooltip-content\"]:popover-open {"));
+        assert!(!css.contains("[data-slot=\"tooltip-trigger\"]"));
     }
 }

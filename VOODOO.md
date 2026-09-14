@@ -177,7 +177,7 @@ Unknown family → `None` → legacy path. `style:primary` must keep returning `
 
 ### 5.3 Adding a widget behaviour
 
-1. Prefer **native HTML that works with Voodoo off** (`<input type=checkbox>`, `<dialog>`, `<details>`, `<progress>`, `<table>`, tablist + `onclick`).
+1. Prefer **native HTML that works with Voodoo off** (`<input type=checkbox>`, `<details>`, `<progress>`, `<table>`, radio/checkbox + `<label>` state driven by CSS `:has(:checked)`). No inline JS: `cronus_ui_output_gate` rejects `on*=` / `<script>` / `style=` for every ported family (its `KNOWN_JS_OFFENDERS` list is empty).
 2. Add Voodoo attrs only through the helpers.
 3. Put the renderer in `src/cronus_ui_interact.rs` (not the generated match in `cronus_ui_widgets.rs`).
 4. If you regenerate widgets: `scripts/gen_cronus_ui_widgets.py` must keep the `cronus_ui_interact::render` call at the top of `render()`.
@@ -207,6 +207,8 @@ Unknown family → `None` → legacy path. `style:primary` must keep returning `
 | `accordion`, `collapsible` | `<details>` | native (no JS required) |
 | `table`, `data-table` | `<table>` | — |
 | `form`, `field` | `<form>` | native submit |
+
+This table is the interact **fallback**. Families in `PORTED_FAMILIES` render through their dedicated zero-JS `cronus_ui_<family>.rs` first, e.g. `tabs` → hidden radios + labels switching panels via `:has(:checked)`, `accordion` → hidden checkboxes + labels, `dialog` → open-by-default `dialog-overlay` + `dialog-content` divs, `select` → closed `select-trigger` button (`disabled`), `tooltip` → `popover="hint"` opened by `interestfor`.
 
 Charts / FX families stay in the generic `chart()` / `fx()` fallbacks (`cronus_ui_widgets.rs`). Button stays `cronus_ui::button_ex` (CONTRACT), not interact.
 
