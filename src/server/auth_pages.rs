@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_imports)]
 //! Login and register page generators extracted from main.rs.
 
 use super::state::AppState;

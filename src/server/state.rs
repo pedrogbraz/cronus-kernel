@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_imports)]
 //! AppState and related types extracted from main.rs.
 
 use std::sync::Arc;
@@ -6,9 +5,7 @@ use std::sync::Arc;
 use crate::audit;
 use crate::brain;
 use crate::database;
-use crate::parser::{
-    self, ApiNode, AppNode, ComponentNode, EntityNode, LayoutNode, PageNode, StyleNode,
-};
+use crate::parser::{self, ApiNode, AppNode, EntityNode, PageNode, StyleNode};
 use crate::rate_limit;
 use crate::sse;
 
