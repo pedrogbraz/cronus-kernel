@@ -111,7 +111,8 @@ page "/tasks" requires:auth {
 
 page "/tasks/new" requires:auth {
   section form {
-    bind Task
+    bind Task { query all }
+    field "title" type:text required
     on submit {
       create Task
       toast "Task created" success
@@ -260,7 +261,9 @@ page "/products" requires:auth {
 
 page "/products/new" requires:auth {
   section form {
-    bind Product
+    bind Product { query all }
+    field "name" type:text required
+    field "price" type:money required
     on submit {
       create Product
       toast "Product added" success
@@ -288,6 +291,8 @@ pub fn cmd_generate(args: &[String]) {
     let mut dry_run = false;
     let mut from_file: Option<String> = None;
     let mut output_path = "app.cronus".to_string();
+    let mut output_explicit = false;
+    let mut force = false;
     let mut auto_go = false;
 
     // Parse flags from args[2..] (args[0] = "cronus", args[1] = "generate"/"gen")
@@ -305,6 +310,9 @@ pub fn cmd_generate(args: &[String]) {
             "--go" => {
                 auto_go = true;
             }
+            "--force" | "-f" => {
+                force = true;
+            }
             "--from-file" => {
                 i += 1;
                 if i >= flag_args.len() {
@@ -320,6 +328,7 @@ pub fn cmd_generate(args: &[String]) {
                     std::process::exit(1);
                 }
                 output_path = flag_args[i].clone();
+                output_explicit = true;
             }
             other => {
                 // Positional arg = description (join remaining non-flag words)
@@ -334,6 +343,15 @@ pub fn cmd_generate(args: &[String]) {
             }
         }
         i += 1;
+    }
+
+    if !dry_run {
+        if let Err(e) =
+            check_output_target(std::path::Path::new(&output_path), output_explicit, force)
+        {
+            eprintln!("  \x1b[31m✗\x1b[0m {}", e);
+            std::process::exit(1);
+        }
     }
 
     // MODE: --from-file
@@ -749,15 +767,28 @@ fn gen_entity_columns(ent: &DetectedEntity) -> String {
     }
 }
 
+/// `generate` never silently replaces a file: an existing default target
+/// (`app.cronus`) needs `--force`; an explicit `-o <file>` is taken as intent.
+fn check_output_target(path: &std::path::Path, explicit: bool, force: bool) -> Result<(), String> {
+    if path.exists() && !explicit && !force {
+        return Err(format!(
+            "{} already exists — use --force to overwrite or -o <file> to write elsewhere",
+            path.display()
+        ));
+    }
+    Ok(())
+}
+
+/// Emits canonical `.cronus`: `!` for required, bare enum values, relative
+/// API routes, `aggregate` KPIs. The generated app has no auth block, so its
+/// pages read with `scope:public` and its routes are `auth:public`.
 fn generate_cronus_from_entities(app_name: &str, entities: &[DetectedEntity]) -> String {
     let mut out = String::new();
 
     // App block
     out.push_str(&format!("app \"{}\" {{\n", app_name));
-    out.push_str("  stack fullstack\n");
-    out.push_str("  port 3000\n");
+    out.push_str("  port 5175\n");
     out.push_str("  database sqlite \"./data.db\"\n");
-    out.push_str("  theme dark\n");
     out.push_str("}\n\n");
 
     // Entity blocks
@@ -768,13 +799,11 @@ fn generate_cronus_from_entities(app_name: &str, entities: &[DetectedEntity]) ->
             let tmpl = &ENTITY_TEMPLATES[tidx];
             for &(fname, ftype, enum_vals, required, unique) in tmpl.fields {
                 let mut line = format!("  {} {}", fname, ftype);
-                if ftype == "enum" && !enum_vals.is_empty() {
-                    let vals: Vec<String> =
-                        enum_vals.iter().map(|v| format!("\"{}\"", v)).collect();
-                    line.push_str(&format!(" [{}]", vals.join(", ")));
-                }
                 if required {
-                    line.push_str(" required");
+                    line.push('!');
+                }
+                if ftype == "enum" && !enum_vals.is_empty() {
+                    line.push_str(&format!(" [{}]", enum_vals.join(", ")));
                 }
                 if unique {
                     line.push_str(" unique");
@@ -783,9 +812,9 @@ fn generate_cronus_from_entities(app_name: &str, entities: &[DetectedEntity]) ->
                 out.push('\n');
             }
         } else {
-            out.push_str("  name string required\n");
+            out.push_str("  name string!\n");
             out.push_str("  description text\n");
-            out.push_str("  status enum [\"active\", \"inactive\"] required\n");
+            out.push_str("  status enum [active, inactive] default:active\n");
         }
 
         for rel in &ent.relations {
@@ -799,32 +828,36 @@ fn generate_cronus_from_entities(app_name: &str, entities: &[DetectedEntity]) ->
     // API blocks
     for ent in entities {
         let slug = ent.name.to_lowercase() + "s";
-        let prefix = format!("/{}", slug);
-        out.push_str(&format!("api {} {{\n", prefix));
-        out.push_str(&format!("  list GET {}\n", prefix));
-        out.push_str(&format!("  find GET {}/:id\n", prefix));
-        out.push_str(&format!("  create POST {}\n", prefix));
-        out.push_str(&format!("  update PATCH {}/:id\n", prefix));
-        out.push_str(&format!("  remove DELETE {}/:id\n", prefix));
+        out.push_str(&format!("api /{} {{\n", slug));
+        out.push_str("  list   GET    /    auth:public\n");
+        out.push_str("  detail GET    /:id auth:public\n");
+        out.push_str("  create POST   /    auth:public\n");
+        out.push_str("  update PATCH  /:id auth:public\n");
+        out.push_str("  delete DELETE /:id auth:public\n");
         out.push_str("}\n\n");
     }
 
-    // Dashboard page
+    // Home page
     let first = &entities[0];
+    let first_plural = gen_pluralize(&first.name);
     out.push_str("page \"/\" type:custom {\n");
-    out.push_str("  section kpi cols:3 {\n");
-    out.push_str(&format!("    bind {} {{ query count }}\n", first.name));
-    out.push_str("  }\n");
-    out.push_str("  section table style:dark {\n");
+    out.push_str("  section kpi {\n");
     out.push_str(&format!(
-        "    title \"Recent {}\"\n",
-        gen_pluralize(&first.name)
-    ));
-    out.push_str(&format!("    columns \"{}\"\n", gen_entity_columns(first)));
-    out.push_str(&format!(
-        "    bind {} {{ query all order created_at desc limit 10 }}\n",
+        "    bind {} {{ aggregate count scope:public }}\n",
         first.name
     ));
+    out.push_str(&format!(
+        "    item \"{}\" value:bind icon:analytics\n",
+        first_plural
+    ));
+    out.push_str("  }\n");
+    out.push_str("  section table {\n");
+    out.push_str(&format!("    title \"Recent {}\"\n", first_plural));
+    out.push_str(&format!(
+        "    bind {} {{ query all order created_at desc limit 10 scope:public }}\n",
+        first.name
+    ));
+    out.push_str(&format!("    columns \"{}\"\n", gen_entity_columns(first)));
     out.push_str("  }\n");
     out.push_str("}\n\n");
 
@@ -832,10 +865,13 @@ fn generate_cronus_from_entities(app_name: &str, entities: &[DetectedEntity]) ->
     for (i, ent) in entities.iter().enumerate() {
         let slug = ent.name.to_lowercase() + "s";
         out.push_str(&format!("page \"/{}\" type:custom {{\n", slug));
-        out.push_str("  section table style:dark {\n");
+        out.push_str("  section table {\n");
         out.push_str(&format!("    title \"{}\"\n", gen_pluralize(&ent.name)));
+        out.push_str(&format!(
+            "    bind {} {{ query all scope:public }}\n",
+            ent.name
+        ));
         out.push_str(&format!("    columns \"{}\"\n", gen_entity_columns(ent)));
-        out.push_str(&format!("    bind {} {{ query all }}\n", ent.name));
         out.push_str("  }\n");
         out.push_str("}\n");
         if i < entities.len() - 1 {
@@ -844,6 +880,60 @@ fn generate_cronus_from_entities(app_name: &str, entities: &[DetectedEntity]) ->
     }
 
     out
+}
+
+#[cfg(test)]
+mod generate_output_tests {
+    use super::*;
+
+    #[test]
+    fn generate_refuses_to_overwrite_existing_app_cronus() {
+        let dir = std::env::temp_dir().join(format!("cronus-gen-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("app.cronus");
+        std::fs::write(&target, "mine").unwrap();
+        assert!(check_output_target(&target, false, false).is_err());
+        assert!(check_output_target(&target, false, true).is_ok());
+        assert!(check_output_target(&target, true, false).is_ok());
+        assert!(check_output_target(&dir.join("new.cronus"), false, false).is_ok());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn generated_app_is_canonical_and_passes_build_ai() {
+        for desc in [
+            "a todo app",
+            "veterinary clinic with pets owners and appointments",
+            "blog with posts and comments",
+            "online store with products orders and customers",
+        ] {
+            let (name, entities) = parse_generate_description(desc);
+            let src = generate_cronus_from_entities(&name, &entities);
+            assert!(
+                !src.contains(" required"),
+                "{}: uses `required`:\n{}",
+                desc,
+                src
+            );
+            assert!(
+                !src.contains("[\""),
+                "{}: quoted enum values:\n{}",
+                desc,
+                src
+            );
+            assert!(!src.contains("port 3000"), "{}", desc);
+            let report = crate::cli::build::validate_source_ai(&src, "app.cronus")
+                .unwrap_or_else(|e| panic!("{}: parse error {}\n{}", desc, e, src));
+            assert_eq!(
+                report["valid"].as_bool(),
+                Some(true),
+                "{}: {}\n{}",
+                desc,
+                report["errors"],
+                src
+            );
+        }
+    }
 }
 
 pub fn cmd_generate_template(desc: &str, output_path: &str, auto_go: bool) {
