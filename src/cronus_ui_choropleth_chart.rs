@@ -1,7 +1,9 @@
 //! Dedicated ChoroplethChart renderer. DOM matches React:
 //! `<div data-slot="choropleth-chart">` wrapping SVG filled regions.
 //! Token fills. Not the catalog `chart()` stub (`<figure><figcaption>`).
+//! Region `text` lines select the drawn cells like React's `data` prop.
 
+use crate::cronus_ui_chart::series_names;
 use crate::cronus_ui_kit::{fmt_coord, label_of, numeric_items};
 use crate::parser::ComponentNode;
 
@@ -51,10 +53,11 @@ const REGIONS: [Region; 7] = [
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = label_of(comp);
+    let regions = selected_regions(comp);
     let values = region_values(comp);
     let max = values.iter().copied().fold(1.0_f64, f64::max);
     let mut paths = String::new();
-    for (region, value) in REGIONS.iter().zip(values.iter()) {
+    for (region, value) in regions.iter().zip(values.iter()) {
         let opacity = 0.15 + (*value / max).clamp(0.0, 1.0) * 0.85;
         paths.push_str(&format!(
             "<path d=\"{d}\" fill=\"var(--cronus-primary)\" stroke=\"var(--cronus-border)\" fill-opacity=\"{op}\"><title>{name}: {v}</title></path>",
@@ -69,9 +72,23 @@ pub fn render(comp: &ComponentNode) -> String {
     )
 }
 
+/// Regions named by the `text` lines, in item order (React maps `data` to
+/// cells and skips unknown ids); every region when none is named.
+fn selected_regions(comp: &ComponentNode) -> Vec<&'static Region> {
+    let names = series_names(comp);
+    if names.is_empty() {
+        return REGIONS.iter().collect();
+    }
+    names
+        .iter()
+        .filter_map(|n| REGIONS.iter().find(|r| r.name.eq_ignore_ascii_case(n)))
+        .collect()
+}
+
+/// Demo value per selected region; numeric items override by position.
 fn region_values(comp: &ComponentNode) -> Vec<f64> {
     let nums = numeric_items(comp);
-    REGIONS
+    selected_regions(comp)
         .iter()
         .enumerate()
         .map(|(i, r)| nums.get(i).copied().unwrap_or(r.demo))
@@ -125,6 +142,26 @@ mod tests {
         assert!(html.contains("<title>Northwest: 42</title>"));
         assert!(html.contains("<title>Central: 95</title>"));
         reject_stub(&html);
+    }
+
+    #[test]
+    fn named_regions_select_cells_like_react_data() {
+        // React maps `data` → CELLS[id] and skips the rest: the audit fixture
+        // names 4 regions, so only those 4 cells are drawn (max = 95).
+        let mut c = stub("choropleth-chart", "Regions");
+        for t in ["Northwest", "Northeast", "Central", "Southeast"] {
+            c.items.push(extra("text", t));
+        }
+        let html = render(&c);
+        assert_eq!(html.matches("<path ").count(), 4);
+        assert!(html.contains("<title>Northwest: 42</title>"));
+        assert!(html.contains("<title>Central: 95</title>"));
+        assert!(html.contains("<title>Southeast: 67</title>"));
+        assert!(!html.contains("<title>West:"));
+        assert!(!html.contains("M10 70 h 50 v 50 h -50 z"));
+        let nw = html.find("Northwest").unwrap();
+        let se = html.find("Southeast").unwrap();
+        assert!(nw < se);
     }
 
     #[test]

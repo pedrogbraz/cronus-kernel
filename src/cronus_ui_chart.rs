@@ -97,6 +97,17 @@ pub fn category_labels(comp: &ComponentNode) -> Vec<String> {
         .collect()
 }
 
+/// Category names that are not numeric lists (`"4, 8, 6"` is a series).
+pub fn series_names(comp: &ComponentNode) -> Vec<String> {
+    category_labels(comp)
+        .into_iter()
+        .filter(|t| {
+            !t.split(|c: char| c == ',' || c.is_whitespace())
+                .any(|p| p.parse::<f64>().is_ok())
+        })
+        .collect()
+}
+
 /// Every `text` / `item` / `option` line (numeric or not), e.g. live ticks.
 pub fn item_labels(comp: &ComponentNode) -> Vec<String> {
     comp.items
