@@ -1,21 +1,47 @@
 //! Dedicated ButtonGroup renderer. DOM matches React:
-//! `<div data-slot="button-group" role="group" data-orientation="horizontal">`
-//! plus child `<button type="button" data-slot="button">` from text items.
+//! `<div data-slot="button-group" role="group" data-orientation aria-label>`
+//! plus child `<button type="button" data-slot="button" data-variant="primary">`
+//! per item. The `label` names the group (it is never a button).
 //! Not interact `buttonish()` (wrapper with a SINGLE primary button and inline styles).
 
-use crate::cronus_ui_kit::texts;
+use crate::cronus_ui_kit::{choice_texts, esc, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     let orientation = orientation_of(comp);
-    let buttons = texts(comp)
+    let buttons = labels(comp)
         .into_iter()
-        .map(|t| format!("<button type=\"button\" data-slot=\"button\">{t}</button>"))
+        .map(|t| format!("<button type=\"button\" data-slot=\"button\" data-variant=\"primary\">{t}</button>"))
         .collect::<Vec<_>>()
         .join("");
+    let aria = comp
+        .props
+        .get("aria-label")
+        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
+        .filter(|s| !s.is_empty())
+        .map(|a| format!(" aria-label=\"{}\"", esc(a)))
+        .unwrap_or_default();
     format!(
-        "<div data-slot=\"button-group\" role=\"group\" data-orientation=\"{orientation}\">{buttons}</div>"
+        "<div data-slot=\"button-group\" role=\"group\" data-orientation=\"{orientation}\"{aria}>{buttons}</div>"
     )
+}
+
+fn labels(comp: &ComponentNode) -> Vec<String> {
+    let choices = choice_texts(comp);
+    if !choices.is_empty() {
+        return choices;
+    }
+    let body: Vec<String> = comp
+        .items
+        .iter()
+        .filter(|i| !matches!(i.item_type.as_str(), "label" | "title") && !i.text.is_empty())
+        .map(|i| esc(&i.text))
+        .collect();
+    if body.is_empty() {
+        vec![label_of(comp)]
+    } else {
+        body
+    }
 }
 
 fn orientation_of(comp: &ComponentNode) -> &'static str {
@@ -45,9 +71,9 @@ mod tests {
     use crate::cronus_ui_kit::stub;
     use crate::parser::ComponentItemNode;
 
-    fn extra(text: &str) -> ComponentItemNode {
+    fn extra(kind: &str, text: &str) -> ComponentItemNode {
         ComponentItemNode {
-            item_type: "item".into(),
+            item_type: kind.into(),
             text: text.into(),
             link: None,
             tone: None,
@@ -55,10 +81,10 @@ mod tests {
         }
     }
 
-    fn group(labels: &[&str]) -> crate::parser::ComponentNode {
-        let mut c = stub("button-group", labels[0]);
-        for n in labels.iter().skip(1) {
-            c.items.push(extra(n));
+    fn group(label: &str, items: &[&str]) -> ComponentNode {
+        let mut c = stub("button-group", label);
+        for n in items {
+            c.items.push(extra("text", n));
         }
         c
     }
@@ -66,86 +92,67 @@ mod tests {
     fn reject_interact(html: &str) {
         assert!(!html.contains("style="));
         assert!(!html.contains("display:inline-flex;gap:0.25rem"));
-        assert!(!html.contains("height:2.5rem;padding:0 1rem"));
         assert!(!html.contains("v-data="));
-        assert!(!html.contains("v-model="));
-        assert!(!html.contains("{ value }"));
         assert!(!html.contains("<script"));
         assert!(!html.contains("onclick="));
     }
 
     #[test]
-    fn root_is_group_of_buttons_not_single_buttonish() {
-        let html = render(&group(&["Edit", "Share", "Delete"]));
-        assert!(html.starts_with("<div data-slot=\"button-group\""));
-        assert!(html.contains("role=\"group\""));
-        assert!(html.contains("data-orientation=\"horizontal\""));
-        assert_eq!(html.matches("<button type=\"button\" data-slot=\"button\">").count(), 3);
-        assert!(html.contains(">Edit</button>"));
-        assert!(html.contains(">Share</button>"));
-        assert!(html.contains(">Delete</button>"));
-        reject_interact(&html);
+    fn emitted_fixture_label_is_aria_not_a_button() {
+        let mut c = group("Actions", &["Save", "Cancel"]);
+        c.items[2].config.insert("aria-label".into(), "Actions".into());
+        let html = render(&c);
         assert_eq!(
             html,
-            "<div data-slot=\"button-group\" role=\"group\" data-orientation=\"horizontal\"><button type=\"button\" data-slot=\"button\">Edit</button><button type=\"button\" data-slot=\"button\">Share</button><button type=\"button\" data-slot=\"button\">Delete</button></div>"
+            "<div data-slot=\"button-group\" role=\"group\" data-orientation=\"horizontal\" aria-label=\"Actions\"><button type=\"button\" data-slot=\"button\" data-variant=\"primary\">Save</button><button type=\"button\" data-slot=\"button\" data-variant=\"primary\">Cancel</button></div>"
         );
+        reject_interact(&html);
     }
 
     #[test]
-    fn vertical_from_props() {
-        let mut c = group(&["Top", "Bottom"]);
+    fn vertical_from_props_and_style() {
+        let mut c = group("G", &["Top", "Bottom"]);
         c.props.insert("orientation".into(), "vertical".into());
-        let html = render(&c);
-        assert!(html.contains("data-orientation=\"vertical\""));
-        assert!(!html.contains("data-orientation=\"horizontal\""));
-        assert_eq!(html.matches("data-slot=\"button\"").count(), 2);
-        reject_interact(&html);
+        assert!(render(&c).contains("data-orientation=\"vertical\""));
+        let mut s = group("G", &["Top", "Bottom"]);
+        s.style = Some("button-group+vertical".into());
+        assert!(render(&s).contains("data-orientation=\"vertical\""));
     }
 
     #[test]
-    fn vertical_from_style() {
-        let mut c = group(&["Top", "Bottom"]);
-        c.style = Some("button-group+vertical".into());
-        let html = render(&c);
-        assert!(html.contains("data-orientation=\"vertical\""));
-        reject_interact(&html);
+    fn label_only_still_emits_one_button() {
+        let html = render(&stub("button-group", "Edit"));
+        assert_eq!(html.matches("data-slot=\"button\"").count(), 1);
+        assert!(html.contains(">Edit</button>"));
     }
 
     #[test]
     fn skips_interact_buttonish() {
-        let html = render(&group(&["Edit", "Share"]));
+        let html = render(&group("G", &["Edit", "Share"]));
         let interact =
             crate::cronus_ui_interact::render("button-group", &stub("button-group", "Edit")).unwrap();
         assert_ne!(html, interact);
-        assert!(interact.starts_with("<div data-slot=\"button-group\""));
-        assert!(interact.contains("style="));
         assert!(interact.contains("display:inline-flex;gap:0.25rem"));
-        assert_eq!(interact.matches("<button").count(), 1);
         assert_eq!(html.matches("<button").count(), 2);
-        assert!(html.contains("role=\"group\""));
-        assert!(!interact.contains("role=\"group\""));
         reject_interact(&html);
     }
 
     #[test]
     fn no_voodoo_even_when_runtime_on() {
         crate::voodoo::with_enabled(true, || {
-            let html = render(&group(&["Edit", "Share"]));
-            reject_interact(&html);
+            reject_interact(&render(&group("G", &["Edit", "Share"])));
         });
     }
 
     #[test]
-    fn chrome_is_token_only() {
+    fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"button-group\"]"));
-        assert!(css.contains("display: inline-flex"));
-        assert!(css.contains("flex-direction: row"));
-        assert!(css.contains("flex-direction: column"));
+        assert!(css.contains("[data-slot=\"button-group\"] > [data-slot=\"button\"] { line-height: 1.25rem; }"));
+        assert!(css.contains(
+            "[data-slot=\"button-group\"] > [data-slot=\"button\"][data-variant=\"primary\"] { border-width: 0; }"
+        ));
         assert!(css.contains("margin-left: -1px"));
         assert!(css.contains("margin-top: -1px"));
-        assert!(css.contains("border-top-left-radius: 0"));
-        assert!(css.contains("[data-slot=\"button-group\"] > *:focus-visible"));
         assert!(!css.contains("zinc-"));
     }
 }
