@@ -106,8 +106,9 @@ async fn spawn(state: AppState) -> SocketAddr {
             };
             let st = state.clone();
             tokio::spawn(async move {
-                let svc =
-                    hyper::service::service_fn(move |req| crate::serve(req, st.clone(), peer));
+                let svc = hyper::service::service_fn(move |req| {
+                    crate::routes::serve(req, st.clone(), peer)
+                });
                 let _ = crate::http_guard::http1_builder()
                     .serve_connection(TokioIo::new(stream), svc)
                     .await;

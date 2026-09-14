@@ -25,6 +25,7 @@ pub mod objective_kernel;
 pub mod parse_cmd;
 pub mod reconcile;
 pub mod review;
+pub mod run;
 pub mod seed;
 pub mod segment;
 pub mod source_language_scan;

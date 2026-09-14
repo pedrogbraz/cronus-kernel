@@ -622,7 +622,7 @@ fn update_from_form(
     };
     if !schema.transitions.is_empty() {
         if let Err(mut err) =
-            crate::validate_transitions(schema, &Value::Object(changes.clone()), &prev)
+            crate::effects::validate_transitions(schema, &Value::Object(changes.clone()), &prev)
         {
             err["ok"] = json!(false);
             return (409, err);

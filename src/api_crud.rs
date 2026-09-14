@@ -516,8 +516,8 @@ fn create(
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
-    crate::fire_webhooks(&state.webhooks, &state.entities, table, "create", &row);
-    crate::fire_effects(entity, "create", &row, None, &state.brain, &state.sse_hub);
+    crate::effects::fire_webhooks(&state.webhooks, &state.entities, table, "create", &row);
+    crate::effects::fire_effects(entity, "create", &row, None, &state.brain, &state.sse_hub);
     crate::scripting::fire_scripts(
         &state.script_registry,
         table,
@@ -576,7 +576,7 @@ fn update(
         return validation_failed(StatusCode::BAD_REQUEST, &message);
     }
     if !entity.transitions.is_empty() {
-        if let Err(err_body) = crate::validate_transitions(entity, &data_value, &prev) {
+        if let Err(err_body) = crate::effects::validate_transitions(entity, &data_value, &prev) {
             return json_response(StatusCode::CONFLICT, err_body);
         }
     }
@@ -618,8 +618,8 @@ fn update(
 
     if !data.is_empty() {
         let table = entity.name.as_str();
-        crate::fire_webhooks(&state.webhooks, &state.entities, table, "update", &row);
-        crate::fire_effects(
+        crate::effects::fire_webhooks(&state.webhooks, &state.entities, table, "update", &row);
+        crate::effects::fire_effects(
             entity,
             "update",
             &row,
@@ -696,8 +696,8 @@ fn delete(
 
     let table = entity.name.as_str();
     let payload = json!({"id": id, "entity": table});
-    crate::fire_webhooks(&state.webhooks, &state.entities, table, "delete", &payload);
-    crate::fire_effects(entity, "delete", &prev, None, &state.brain, &state.sse_hub);
+    crate::effects::fire_webhooks(&state.webhooks, &state.entities, table, "delete", &payload);
+    crate::effects::fire_effects(entity, "delete", &prev, None, &state.brain, &state.sse_hub);
     crate::scripting::fire_scripts(
         &state.script_registry,
         table,
