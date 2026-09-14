@@ -154,7 +154,10 @@ fn outcome_to_response(out: AuditHttpOutcome) -> Response<Full<Bytes>> {
         .header("Content-Type", out.content_type);
     if out.audit_headers {
         builder = builder
-            .header("X-Cronus-Engine", "cronus-lang/0.1.0")
+            .header(
+                "X-Cronus-Engine",
+                concat!("cronus-lang/", env!("CARGO_PKG_VERSION")),
+            )
             .header("X-Cronus-Audit", "1");
     }
     builder.body(Full::new(Bytes::from(out.body))).unwrap()
@@ -233,7 +236,7 @@ page "/audit/button/primary-md" type:custom {
             resp.headers()
                 .get("X-Cronus-Engine")
                 .and_then(|v| v.to_str().ok()),
-            Some("cronus-lang/0.1.0")
+            Some(concat!("cronus-lang/", env!("CARGO_PKG_VERSION")))
         );
     }
 

@@ -314,7 +314,7 @@ pub fn generate_ir(nodes: &[crate::parser::AstNode]) -> serde_json::Value {
         "design": style,
         "meta": {
             "generatedAt": generate_timestamp(),
-            "generator": "cronus-kernel v0.1.0",
+            "generator": concat!("cronus-kernel v", env!("CARGO_PKG_VERSION")),
         }
     })
 }
@@ -478,8 +478,9 @@ pub fn generate_health_endpoint(entity_count: usize, page_count: usize) -> Strin
         .unwrap_or_default()
         .as_secs();
 
+    let version = env!("CARGO_PKG_VERSION");
     format!(
-        r#"{{"status":"ok","version":"0.1.0","uptime":{uptime},"entities":{entity_count},"pages":{page_count}}}"#
+        r#"{{"status":"ok","version":"{version}","uptime":{uptime},"entities":{entity_count},"pages":{page_count}}}"#
     )
 }
 

@@ -983,7 +983,7 @@ async fn handle_request_inner(
                 "entities": state.entities.len(),
                 "pages": state.pages.len(),
                 "runtime": "cronus-kernel",
-                "version": "0.1.0"
+                "version": env!("CARGO_PKG_VERSION")
             }),
         ));
     }
@@ -3110,7 +3110,10 @@ async fn cmd_run(args: &[String]) {
 
     // ── Clean startup banner ──
     println!();
-    println!("  \x1b[36m\x1b[1mCRONUS\x1b[0m \x1b[90mv0.1.0\x1b[0m");
+    println!(
+        "  \x1b[36m\x1b[1mCRONUS\x1b[0m \x1b[90mv{}\x1b[0m",
+        env!("CARGO_PKG_VERSION")
+    );
     println!();
     println!("  \x1b[90mApp:\x1b[0m       \x1b[1m{}\x1b[0m", app.name);
     println!("  \x1b[90mPort:\x1b[0m      \x1b]8;;http://localhost:{}\x1b\\http://localhost:{}\x1b]8;;\x1b\\", serve_port, serve_port);

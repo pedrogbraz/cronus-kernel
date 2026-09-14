@@ -77,7 +77,8 @@ pub(crate) const HELP_GROUPS: &[(&str, &[(&str, &str)])] = &[
 pub fn print_help() {
     println!();
     println!(
-        "  \x1b[36m\x1b[1mCRONUS\x1b[0m \x1b[90mdeclarative full-stack language (v0.1.0)\x1b[0m"
+        "  \x1b[36m\x1b[1mCRONUS\x1b[0m \x1b[90mdeclarative full-stack language (v{})\x1b[0m",
+        env!("CARGO_PKG_VERSION")
     );
     println!();
     println!("  \x1b[1mUsage:\x1b[0m cronus <command> [options]");
