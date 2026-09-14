@@ -20,6 +20,13 @@ use std::future::Future;
 /// `.cronus` authoring stays `.cronus` — JSX is not a source language here.
 pub const SCRIPT_SRC: &str = "https://cdn.jsdelivr.net/npm/voodoojs@0.13.0/dist/voodoo.full.min.js";
 
+/// Subresource Integrity for [`SCRIPT_SRC`]. Computed 2026-09-14 as
+/// `openssl dgst -sha384 -binary | openssl base64 -A` over the jsDelivr file,
+/// and cross-checked byte-identical against `dist/voodoo.full.min.js` inside
+/// the npm tarball `voodoojs-0.13.0.tgz`. Bumping the version REQUIRES
+/// recomputing this; a mismatch makes browsers refuse to run the script.
+pub const VOODOO_SRI: &str = "sha384-T8aMcXnhRtYq6zSQrZOBZrG4JR0nH0lULV6xS1ahoJgI5KEVijdDFczre4phw8Bn";
+
 tokio::task_local! {
     static ENABLED: bool;
 }
@@ -48,7 +55,7 @@ pub fn scope<F: Future>(on: bool, fut: F) -> impl Future<Output = F::Output> {
 
 pub fn script_tag() -> String {
     format!(
-        r#"<script src="{SCRIPT_SRC}" data-cronus-runtime="voodoo" defer></script>"#
+        r#"<script src="{SCRIPT_SRC}" integrity="{VOODOO_SRI}" crossorigin="anonymous" data-cronus-runtime="voodoo" defer></script>"#
     )
 }
 
@@ -190,6 +197,16 @@ mod tests {
             assert_eq!(interp("n", "0"), "{ n }");
         });
         assert!(!enabled());
+    }
+
+    #[test]
+    fn script_tag_pins_sri_and_crossorigin() {
+        assert!(VOODOO_SRI.starts_with("sha384-"), "VOODOO_SRI must be a sha384 SRI hash");
+        // 48-byte digest -> 64 base64 chars
+        assert_eq!(VOODOO_SRI.len(), "sha384-".len() + 64);
+        let tag = script_tag();
+        assert!(tag.contains(&format!(r#"integrity="{VOODOO_SRI}""#)));
+        assert!(tag.contains(r#"crossorigin="anonymous""#));
     }
 
     #[test]

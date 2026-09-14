@@ -165,11 +165,6 @@ page "/login" type:form requires:auth {
 # ── API Routes ──
 
 api /api/auth {
-  list         GET      /[                   auth:jwt
-  create       POST     /[                   auth:jwt
-  update       PUT      /[                   auth:jwt
-  update       PATCH    /[                   auth:jwt
-  delete       DELETE   /[                   auth:jwt
 }
 
 api /api/og {

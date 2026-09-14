@@ -460,7 +460,7 @@ fn create(state: &AppState, entity: &EntityNode, body: Option<&Value>, claims: O
     let table = entity.name.as_str();
     let owner = claims.map(|c| c.sub.as_str()).unwrap_or("");
     let row_id = row.get("id").and_then(Value::as_str).unwrap_or("").to_string();
-    crate::fire_webhooks(&state.webhooks, table, "create", &row);
+    crate::fire_webhooks(&state.webhooks, &state.entities, table, "create", &row);
     crate::fire_effects(entity, "create", &row, None, &state.brain, &state.sse_hub);
     crate::scripting::fire_scripts(&state.script_registry, table, "create", &row, &row_id, None, &state.db, owner, "user", &std::collections::HashMap::new());
     let mut row = row;
@@ -536,7 +536,7 @@ fn update(
     if !data.is_empty() {
         let table = entity.name.as_str();
         let owner = claims.map(|c| c.sub.as_str()).unwrap_or("");
-        crate::fire_webhooks(&state.webhooks, table, "update", &row);
+        crate::fire_webhooks(&state.webhooks, &state.entities, table, "update", &row);
         crate::fire_effects(entity, "update", &row, Some(&prev), &state.brain, &state.sse_hub);
         crate::scripting::fire_scripts(&state.script_registry, table, "update", &row, id, Some(&prev), &state.db, owner, "user", &std::collections::HashMap::new());
         let (mut logged_row, mut logged_prev) = (row.clone(), prev.clone());
@@ -575,7 +575,7 @@ fn delete(state: &AppState, entity: &EntityNode, id: &str, scope: &Scope, claims
     let table = entity.name.as_str();
     let owner = claims.map(|c| c.sub.as_str()).unwrap_or("");
     let payload = json!({"id": id, "entity": table});
-    crate::fire_webhooks(&state.webhooks, table, "delete", &payload);
+    crate::fire_webhooks(&state.webhooks, &state.entities, table, "delete", &payload);
     crate::fire_effects(entity, "delete", &prev, None, &state.brain, &state.sse_hub);
     crate::scripting::fire_scripts(&state.script_registry, table, "delete", &prev, id, None, &state.db, owner, "user", &std::collections::HashMap::new());
     let mut logged_prev = prev.clone();

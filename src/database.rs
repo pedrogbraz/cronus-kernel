@@ -65,14 +65,52 @@ fn sql_type_for(ft: &FieldType) -> &'static str {
     }
 }
 
-/// Generate a simple random hex ID (16 chars).
+/// Generate an opaque, time-ordered UUIDv7 (RFC 9562), e.g.
+/// `01920f3a-7b2c-7d41-8e5f-0a1b2c3d4e5f`.
+///
+/// Layout: 48-bit unix ms | ver 7 | 12-bit `rand_a` | variant 10 | 62-bit `rand_b`.
+/// Randomness comes from `rand::thread_rng()` (ChaCha CSPRNG seeded from the OS
+/// via `getrandom`), which is already a direct dependency — no new crate.
+/// `rand_a` is used as a per-process counter (RFC 9562 §6.2 method 1) so ids
+/// generated in the same millisecond still sort in creation order; the counter
+/// is re-seeded with 11 random bits on each new millisecond, and a counter
+/// overflow borrows the next millisecond.
 fn generate_id() -> String {
+    use rand::RngCore;
     use std::time::{SystemTime, UNIX_EPOCH};
-    let nanos = SystemTime::now()
+
+    static LAST: Mutex<(u64, u16)> = Mutex::new((0, 0));
+
+    let now_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
-        .as_nanos();
-    format!("{:016x}", nanos)
+        .as_millis() as u64;
+    let mut rng = rand::thread_rng();
+
+    let (ms, counter) = {
+        let mut last = LAST.lock().unwrap_or_else(|p| p.into_inner());
+        if now_ms > last.0 {
+            *last = (now_ms, (rng.next_u32() & 0x07FF) as u16);
+        } else if last.1 >= 0x0FFF {
+            *last = (last.0 + 1, (rng.next_u32() & 0x07FF) as u16);
+        } else {
+            last.1 += 1;
+        }
+        *last
+    };
+
+    uuid_v7_string(ms, counter, rng.next_u64())
+}
+
+fn uuid_v7_string(unix_ms: u64, rand_a: u16, rand_b: u64) -> String {
+    let mut b = [0u8; 16];
+    b[..6].copy_from_slice(&unix_ms.to_be_bytes()[2..]);
+    b[6] = 0x70 | ((rand_a >> 8) as u8 & 0x0F);
+    b[7] = rand_a as u8;
+    b[8..].copy_from_slice(&rand_b.to_be_bytes());
+    b[8] = (b[8] & 0x3F) | 0x80;
+    let h = hex::encode(b);
+    format!("{}-{}-{}-{}-{}", &h[0..8], &h[8..12], &h[12..16], &h[16..20], &h[20..])
 }
 
 impl CronusDB {
@@ -1315,6 +1353,47 @@ mod tests {
         let entity = entity_with_constraints();
         let result = db.validate(&entity, &json!({"title": "Good Product", "price": 29.99, "sku": "SKU-001"}));
         assert!(result.is_ok());
+    }
+
+    // ── UUIDv7 ids ──
+
+    #[test]
+    fn generated_id_is_uuid_v7_format() {
+        let re = regex::Regex::new(
+            r"^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+        )
+        .unwrap();
+        for _ in 0..100 {
+            let id = generate_id();
+            assert!(re.is_match(&id), "not a UUIDv7: {id}");
+            assert_eq!(&id[14..15], "7", "version nibble must be 7: {id}");
+        }
+    }
+
+    #[test]
+    fn generated_id_embeds_current_ms_timestamp() {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let before = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+        let id = generate_id();
+        let ts = u64::from_str_radix(&id.replace('-', "")[..12], 16).unwrap();
+        // counter overflow may borrow a few ms ahead; never behind `before`
+        assert!(ts >= before && ts <= before + 1000, "ts {ts} vs now {before}");
+    }
+
+    #[test]
+    fn generated_ids_are_unique_and_ordered() {
+        let ids: Vec<String> = (0..10_000).map(|_| generate_id()).collect();
+        let unique: std::collections::HashSet<&String> = ids.iter().collect();
+        assert_eq!(unique.len(), ids.len(), "duplicate ids generated");
+        let mut sorted = ids.clone();
+        sorted.sort();
+        assert_eq!(sorted, ids, "ids must sort in creation order");
+    }
+
+    #[test]
+    fn uuid_v7_bit_layout() {
+        let id = uuid_v7_string(0x0123_4567_89AB, 0x0FFF, u64::MAX);
+        assert_eq!(id, "01234567-89ab-7fff-bfff-ffffffffffff");
     }
 
     #[test]

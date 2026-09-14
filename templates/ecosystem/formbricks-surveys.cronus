@@ -445,22 +445,15 @@ api /api/v1 {
   list         GET      /integrations/airtable/callback auth:jwt
   list         GET      /client/og           auth:public
   create       POST     /client/:environmentId/storage auth:jwt
-  handle       OPTIONS  /client/:environmentId/storage auth:jwt
   create       POST     /client/:environmentId/responses auth:public
-  handle       OPTIONS  /client/:environmentId/responses auth:public
   update       PUT      /client/:environmentId/responses/:responseId auth:public
-  handle       OPTIONS  /client/:environmentId/responses/:responseId auth:public
   detail       GET      /client/:environmentId/environment auth:public
-  handle       OPTIONS  /client/:environmentId/environment auth:public
   create       POST     /client/:environmentId/displays auth:public
-  handle       OPTIONS  /client/:environmentId/displays auth:public
 }
 
 api /api/v2 {
   create       POST     /client/:environmentId/responses auth:public
-  handle       OPTIONS  /client/:environmentId/responses auth:public
   create       POST     /client/:environmentId/displays auth:public
-  handle       OPTIONS  /client/:environmentId/displays auth:public
 }
 
 api /api/v3 {

@@ -1039,11 +1039,6 @@ api /api/auth {
   update       PUT      /verify-email        auth:jwt
   update       PATCH    /verify-email        auth:jwt
   delete       DELETE   /verify-email        auth:jwt
-  list         GET      /[                   auth:jwt
-  create       POST     /[                   auth:jwt
-  update       PUT      /[                   auth:jwt
-  update       PATCH    /[                   auth:jwt
-  delete       DELETE   /[                   auth:jwt
 }
 
 api /api/availability {
@@ -1156,11 +1151,6 @@ api /api/integrations {
   update       PUT      /alby/webhook        auth:public
   update       PATCH    /alby/webhook        auth:public
   delete       DELETE   /alby/webhook        auth:public
-  list         GET      /[                   auth:jwt
-  create       POST     /[                   auth:jwt
-  update       PUT      /[                   auth:jwt
-  update       PATCH    /[                   auth:jwt
-  delete       DELETE   /[                   auth:jwt
 }
 
 api /api/ip {
