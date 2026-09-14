@@ -20,6 +20,8 @@ pub fn render_audit_document(widget_html: &str, preset: &str, mode: &str, dir: &
   padding: 24px;
   box-sizing: border-box;
   line-height: 1.5;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  font-variant-numeric: tabular-nums;
   background: var(--cronus-surface-base);
   color: var(--cronus-fg);
 }}
@@ -54,6 +56,10 @@ mod tests {
         // React's audit canvas inherits Tailwind preflight `line-height: 1.5`
         // (24px at 16px); without it every text box was `normal` and shorter.
         assert!(html.contains("line-height: 1.5"));
+        // The www body the React panes inherit from sets Inter character
+        // variants and tabular digits; without them digit runs measure narrower.
+        assert!(html.contains("font-feature-settings: \"cv02\", \"cv03\", \"cv04\", \"cv11\";"));
+        assert!(html.contains("font-variant-numeric: tabular-nums;"));
         assert!(html.contains("data-slot=\"button\""));
         assert!(!html.contains("<script"));
         assert!(!html.contains("voodoojs"));

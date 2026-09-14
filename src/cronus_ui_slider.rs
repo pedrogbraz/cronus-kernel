@@ -244,8 +244,10 @@ mod tests {
         assert!(css.contains("[data-slot=\"slider\"][data-value=\"100\"] { --cui-slider-value: 100; }"));
         // Radix thumb-in-bounds offset: +8px at 0, 0 at 50, -8px at 100.
         assert!(css.contains("left: calc(var(--cui-slider-value, 0) * 1% + 0.5rem - var(--cui-slider-value, 0) * 0.01rem);"));
-        assert!(!css.contains("slider-track"));
-        assert!(!css.contains("slider-thumb"));
+        // Slots only: `::-webkit-slider-thumb` pseudo-elements (e.g. video-player
+        // range inputs) legitimately contain the substring.
+        assert!(!css.contains("[data-slot=\"slider-track\"]"));
+        assert!(!css.contains("[data-slot=\"slider-thumb\"]"));
         assert!(css.contains("position: relative"));
         assert!(css.contains("display: flex"));
         assert!(css.contains("width: 100%"));

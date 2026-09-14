@@ -1,9 +1,11 @@
 //! Dedicated CopyButton renderer. DOM matches React idle state (Button ghost/icon):
 //! `<button data-slot="copy-button" data-variant="ghost" type="button" aria-label>`
 //! with the lucide `Copy` glyph and an empty `aria-live` sr-only span.
-//! Divergence: zero-JS kernel, so clicking does not write to the clipboard and
-//! the "copied" state (Check glyph + "Copied" announcement) never appears. The
-//! idle render is geometry-identical; no text label (React has none either).
+//! Divergence: zero-JS kernel, so the clipboard write and the "copied" state
+//! (Check glyph + "Copied" announcement) cannot happen. The button is emitted
+//! as the same native element with `disabled` (inert, announced unavailable)
+//! and React's idle look — no dimming, since React doesn't dim it; authors dim
+//! a deliberately disabled copy button with `data-disabled`.
 //! Not interact clipboard `onclick` or inline BASE/SURF styles.
 
 use crate::cronus_ui_kit::esc;
@@ -12,9 +14,14 @@ use crate::parser::ComponentNode;
 const COPY_ICON: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect width=\"14\" height=\"14\" x=\"8\" y=\"8\" rx=\"2\" ry=\"2\"></rect><path d=\"M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2\"></path></svg>";
 
 pub fn render(comp: &ComponentNode) -> String {
-    let aria = esc(aria_label(comp).unwrap_or("Copy"));
+    idle_button(&esc(aria_label(comp).unwrap_or("Copy")))
+}
+
+/// Idle, JS-less CopyButton; `aria` must already be escaped. Shared by
+/// families that embed React's CopyButton (code-block header).
+pub fn idle_button(aria: &str) -> String {
     format!(
-        "<button data-slot=\"copy-button\" data-variant=\"ghost\" type=\"button\" aria-label=\"{aria}\">{COPY_ICON}<span aria-live=\"polite\"></span></button>"
+        "<button data-slot=\"copy-button\" data-variant=\"ghost\" type=\"button\" aria-label=\"{aria}\" disabled>{COPY_ICON}<span aria-live=\"polite\"></span></button>"
     )
 }
 
@@ -53,10 +60,22 @@ mod tests {
         let html = render(&stub("copy-button", "Copy"));
         assert_eq!(
             html,
-            format!("<button data-slot=\"copy-button\" data-variant=\"ghost\" type=\"button\" aria-label=\"Copy\">{COPY_ICON}<span aria-live=\"polite\"></span></button>")
+            format!("<button data-slot=\"copy-button\" data-variant=\"ghost\" type=\"button\" aria-label=\"Copy\" disabled>{COPY_ICON}<span aria-live=\"polite\"></span></button>")
         );
         assert!(!html.contains(">Copy<"));
         reject_interact(&html);
+    }
+
+    /// Wave 1t policy: a control that needs JS is the native element with
+    /// `disabled`, not a live button that silently does nothing; the idle look
+    /// is kept (dimming only via author `data-disabled`).
+    #[test]
+    fn js_only_copy_is_disabled_but_not_dimmed() {
+        let html = render(&stub("copy-button", "Copy"));
+        assert!(html.contains(" disabled>"));
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"copy-button\"][data-disabled] { opacity: 0.5; pointer-events: none; }"));
+        assert!(!css.contains("[data-slot=\"copy-button\"]:disabled { opacity: 0.5;"));
     }
 
     #[test]

@@ -184,12 +184,12 @@ html[data-cronus-theme] body {
   -webkit-font-smoothing: antialiased;
   letter-spacing: 0;
 }
-html[data-cronus-theme] h1, html[data-cronus-theme] h2, html[data-cronus-theme] h3 {
+:where(html[data-cronus-theme]) :where(h1, h2, h3) {
   font-weight: 400;
 }
-html[data-cronus-theme] h1 { letter-spacing: -0.03em; }
-html[data-cronus-theme] h2, html[data-cronus-theme] .text-4xl { letter-spacing: -0.025em; }
-html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -0.02em; }
+:where(html[data-cronus-theme]) :where(h1) { letter-spacing: -0.03em; }
+:where(html[data-cronus-theme]) :where(h2, .text-4xl) { letter-spacing: -0.025em; }
+:where(html[data-cronus-theme]) :where(h3, .text-xl) { letter-spacing: -0.02em; }
 
 [data-slot="catalog"] {
   width: 100%;
@@ -385,7 +385,6 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   box-shadow: var(--cronus-shadow-lg, 0 16px 40px rgba(0,0,0,.35));
 }
 @supports (top: anchor(bottom)) {
-}
   [popover]:not([data-slot="sheet-content"]) {
     position: absolute;
     top: calc(anchor(bottom) + 0.35rem);
@@ -393,7 +392,6 @@ html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -
   }
 }
 @supports not (top: anchor(bottom)) {
-}
   [popover]:not([data-slot="sheet-content"]) {
     position: fixed;
     top: 18%;
@@ -1327,7 +1325,7 @@ dialog[data-slot="dialog-content"]::backdrop {
 }
 [data-slot="copy-button"]:active { transform: scale(0.98); }
 [data-slot="copy-button"]:hover { background: var(--cronus-surface-overlay); color: var(--cronus-fg); }
-[data-slot="copy-button"]:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="copy-button"][data-disabled] { opacity: 0.5; pointer-events: none; }
 [data-slot="copy-button"] svg {
   width: 1rem; height: 1rem; flex-shrink: 0; pointer-events: none;
 }
@@ -3761,6 +3759,8 @@ dialog:has(> [data-slot="invite-dialog"]) > [data-slot="dialog-overlay"] {
   background: var(--cronus-surface-overlay);
 }
 [data-slot="code-block-header"] > div { display: flex; align-items: center; gap: 0.5rem; min-width: 0; min-height: 2rem; }
+[data-slot="code-block-header"] > [data-slot="copy-button"] { width: 2rem; height: 2rem; }
+[data-slot="code-block-header"] > [data-slot="copy-button"] svg { width: 0.875rem; height: 0.875rem; }
 [data-slot="code-block-filename"] {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-family: var(--cronus-font-mono, ui-monospace, monospace);

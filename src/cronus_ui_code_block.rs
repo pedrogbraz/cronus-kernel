@@ -3,7 +3,8 @@
 //! (filename / language), then `<div><section data-slot="code-block-scroll">`
 //! > `<pre data-slot="code-block-pre">` > `<code data-slot="code-block-code">`
 //! with one `<span>` per line. Code comes from `text`/`item` lines (the audit
-//! emitter repeats the code as `label`). No copy button: it would need JS.
+//! emitter repeats the code as `label`). The header carries React's CopyButton
+//! as a `disabled` native button (clipboard needs JS; idle look kept).
 //! Not interact `codey()` SURF `<pre style=…>`, not catalog `display()`
 //! `<section>`, not ai-code-block.
 
@@ -29,7 +30,10 @@ pub fn render(comp: &ComponentNode) -> String {
                 format!("<span data-slot=\"code-block-language\" data-variant=\"secondary\">{l}</span>")
             })
             .unwrap_or_default();
-        format!("<div data-slot=\"code-block-header\"><div>{f}{l}</div></div>")
+        format!(
+            "<div data-slot=\"code-block-header\"><div>{f}{l}</div>{}</div>",
+            crate::cronus_ui_copy_button::idle_button("Copy")
+        )
     } else {
         String::new()
     };
@@ -166,11 +170,28 @@ mod tests {
         assert_eq!(
             html,
             block(
-                "<div data-slot=\"code-block-header\"><div><span data-slot=\"code-block-filename\">index.ts</span><span data-slot=\"code-block-language\" data-variant=\"secondary\">ts</span></div></div>",
+                &format!(
+                    "<div data-slot=\"code-block-header\"><div><span data-slot=\"code-block-filename\">index.ts</span><span data-slot=\"code-block-language\" data-variant=\"secondary\">ts</span></div>{}</div>",
+                    crate::cronus_ui_copy_button::idle_button("Copy")
+                ),
                 "Code block, index.ts",
                 "<span>const n = 1;</span>"
             )
         );
+        reject_stub(&html);
+    }
+
+    /// React's code-block header renders CopyButton; the geometry spec compares
+    /// every React slot, so the kernel emits it — disabled, since copying needs JS.
+    #[test]
+    fn header_copy_button_is_disabled_native_button() {
+        let mut c = snippet(&["const n = 1;"]);
+        c.props.insert("filename".into(), "index.ts".into());
+        let html = render(&c);
+        assert_eq!(html.matches("data-slot=\"copy-button\"").count(), 1);
+        assert!(html.contains("aria-label=\"Copy\" disabled>"));
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"code-block-header\"] > [data-slot=\"copy-button\"] { width: 2rem; height: 2rem; }"));
         reject_stub(&html);
     }
 
