@@ -413,7 +413,9 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"form\"") && html.contains("style="))
         || (html.contains("data-slot=\"form\"") && html.contains(">Submit</button>"))
         || (html.contains("data-slot=\"form\"") && !html.contains("data-slot=\"form-item\""))
-        || (html.contains("data-slot=\"form\"") && !html.contains("data-slot=\"form-label\""))
+        || (html.contains("data-slot=\"form\"")
+            && !html.contains("data-slot=\"form-label\"")
+            && !html.contains("<label data-slot=\"label\""))
         || (html.contains("data-slot=\"form\"") && html.contains("v-submit="))
         || (html.contains("data-slot=\"signature-pad\"")
             && !html.contains("data-slot=\"signature-pad-canvas\""))
@@ -873,6 +875,22 @@ mod tests {
         assert!(html.contains("data-slot=\"button\""));
         assert!(looks_like_stub_fingerprint(&html).is_none());
         assert!(!looks_like_interact_generic(&html));
+    }
+
+    /// wave1s: form emits React's `label` / `input` slots (no form-label).
+    /// Gate accepts it; the interact form (style= + Submit) is still caught.
+    #[test]
+    fn form_react_label_slots_pass_gate_interact_form_does_not() {
+        let html = render(&stub("form")).unwrap();
+        assert!(html.contains("<label data-slot=\"label\""), "{html}");
+        assert!(!html.contains("data-slot=\"form-label\""), "{html}");
+        assert!(!looks_like_interact_generic(&html), "{html}");
+        assert!(looks_like_stub_fingerprint(&html).is_none(), "{html}");
+        assert!(check_family("form").is_ok());
+        let bare = "<form data-slot=\"form\"><div data-slot=\"form-item\"><input /></div></form>";
+        assert!(looks_like_interact_generic(bare));
+        let ih = crate::cronus_ui_interact::render("form", &stub("form")).unwrap();
+        assert!(looks_like_interact_generic(&ih), "{ih}");
     }
 
     #[test]

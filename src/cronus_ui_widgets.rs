@@ -1067,7 +1067,7 @@ mod tests {
                 assert!(!html.contains("v-submit="), "{html}");
                 assert!(!html.contains("v-method="), "{html}");
                 assert!(html.contains("data-slot=\"form-item\""), "{html}");
-                assert!(html.contains("data-slot=\"form-label\""), "{html}");
+                assert!(html.contains("<label data-slot=\"label\""), "{html}");
             });
         });
         let off = render(&stub("form")).unwrap();
