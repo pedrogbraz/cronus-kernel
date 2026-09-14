@@ -3,6 +3,7 @@ mod actions;
 mod animations;
 mod audit;
 mod auth;
+mod authz;
 mod binding;
 mod block_explorer;
 mod board;
