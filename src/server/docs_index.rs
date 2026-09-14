@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 //! AI-optimized documentation index for CRONUS kernel.
 //!
 //! Serves a structured JSON index of all language topics,

@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_imports, unused_variables)]
 //! CRONUS Embedded Tailwind — Complete CSS engine
 //!
 //! All 22 color palettes × 11 steps × 3 properties + base utilities.

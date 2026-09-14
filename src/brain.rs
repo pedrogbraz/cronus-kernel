@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_imports, unused_variables)]
 //! CRONUS Hydra Brain — Pattern Learning Engine
 //!
 //! Tracks usage patterns from HTTP requests and provides

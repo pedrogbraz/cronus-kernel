@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_imports, unused_variables)]
 //! CRONUS Rate Limiter — Sliding window counter per key (client IP).
 //!
 //! Returns 429 Too Many Requests when exceeded. Keys come from
@@ -89,19 +88,6 @@ impl RateLimiter {
         Ok(self.max_requests - entry.timestamps.len())
     }
 
-    /// Get current request count for a key
-    pub fn count(&self, ip: &str) -> usize {
-        let mut map = self.map();
-        let now = Instant::now();
-        let window = self.window();
-        if let Some(entry) = map.get_mut(ip) {
-            entry.timestamps.retain(|t| now.duration_since(*t) < window);
-            entry.timestamps.len()
-        } else {
-            0
-        }
-    }
-
     /// Clean up expired entries (called periodically by the server).
     pub fn cleanup(&self) {
         let mut map = self.map();
@@ -114,15 +100,11 @@ impl RateLimiter {
     }
 
     /// (tracked keys, total timestamps)
+    #[cfg(test)]
     pub fn stats(&self) -> (usize, usize) {
         let map = self.map();
         (map.len(), map.values().map(|e| e.timestamps.len()).sum())
     }
-}
-
-/// Create default rate limiter (100 req/min)
-pub fn default_rate_limiter() -> RateLimiter {
-    RateLimiter::new(100, 60)
 }
 
 #[cfg(test)]

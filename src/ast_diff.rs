@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 //! AST-level semantic diff for .cronus files.
 //!
 //! Compares two parsed ASTs and produces a list of meaningful, semantic changes
@@ -273,12 +272,6 @@ pub fn snapshot_from_ast(nodes: &[AstNode]) -> AstSnapshot {
 // ══════════════════════════════════════════════════
 // DIFF TWO ASTS
 // ══════════════════════════════════════════════════
-
-pub fn diff_ast(old: &[AstNode], new: &[AstNode]) -> Vec<AstChange> {
-    let old_snap = snapshot_from_ast(old);
-    let new_snap = snapshot_from_ast(new);
-    diff_snapshots(&old_snap, &new_snap)
-}
 
 pub fn diff_snapshots(old: &AstSnapshot, new: &AstSnapshot) -> Vec<AstChange> {
     let mut changes = Vec::new();

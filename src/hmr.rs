@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_imports, unused_variables)]
 //! CRONUS HMR Engine — Hot Module Replacement without Vite
 //!
 //! File watcher + version polling for instant browser reload.

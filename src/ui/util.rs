@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_imports)]
 //! Utility helpers shared across UI submodules.
 
 use crate::parser::ComponentItemNode;

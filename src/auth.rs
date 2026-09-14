@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_imports, unused_variables)]
 //! CRONUS Auth Engine — JWT (jsonwebtoken) + Password Hashing (argon2)
 //!
 //! Production-grade auth using industry-standard crates.
@@ -106,7 +105,8 @@ pub fn create_session_token(user_id: &str, role: &str, secret: &str, ttl_secs: u
     .unwrap_or_default()
 }
 
-/// Create a JWT with the default session lifetime (24h).
+/// Create a JWT with the default session lifetime (24h). Test fixture only.
+#[cfg(test)]
 pub fn create_token(user_id: &str, role: &str, secret: &str) -> String {
     create_session_token(user_id, role, secret, DEFAULT_SESSION_TTL_SECS)
 }
@@ -186,32 +186,6 @@ pub fn verify_password(password: &str, stored: &str) -> bool {
             .is_ok(),
         _ => false,
     }
-}
-
-// ══════════════════════════════════════════════════
-// AUTH MIDDLEWARE
-// ══════════════════════════════════════════════════
-
-/// Extract user claims from Authorization header
-pub fn extract_user(auth_header: Option<&str>, secret: &str) -> Option<Claims> {
-    let header = auth_header?;
-    let token = if header.starts_with("Bearer ") {
-        &header[7..]
-    } else {
-        header
-    };
-    verify_token(token, secret).ok()
-}
-
-/// Check if claims have the required role
-pub fn require_role(claims: &Claims, role: &str) -> bool {
-    if role == "public" {
-        return true;
-    }
-    if role == "jwt" {
-        return true;
-    } // any authenticated user
-    claims.role == role || claims.role == "admin"
 }
 
 /// Minimum length for any HMAC signing secret supplied by the operator
@@ -409,24 +383,6 @@ mod tests {
         assert!(validate_new_password("ééééééééééééé").is_err());
     }
 
-    #[test]
-    fn test_extract_user() {
-        let secret = "test-secret";
-        let token = create_token("u1", "user", secret);
-
-        // With Bearer prefix
-        let claims = extract_user(Some(&format!("Bearer {}", token)), secret);
-        assert!(claims.is_some());
-        assert_eq!(claims.unwrap().sub, "u1");
-
-        // Without prefix
-        let claims = extract_user(Some(&token), secret);
-        assert!(claims.is_some());
-
-        // None header
-        assert!(extract_user(None, secret).is_none());
-    }
-
     fn scratch_dir(tag: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!(
             "cronus-auth-{}-{}-{}",
@@ -493,31 +449,6 @@ mod tests {
         assert!(write_key_file(&path, "two").is_err());
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "one");
         let _ = std::fs::remove_dir_all(dir);
-    }
-
-    #[test]
-    fn test_require_role() {
-        let claims = Claims {
-            sub: "u1".into(),
-            role: "admin".into(),
-            exp: 0,
-            iat: 0,
-            jti: "t1".into(),
-        };
-        assert!(require_role(&claims, "admin"));
-        assert!(require_role(&claims, "user")); // admin can do anything
-        assert!(require_role(&claims, "jwt"));
-        assert!(require_role(&claims, "public"));
-
-        let user_claims = Claims {
-            sub: "u2".into(),
-            role: "user".into(),
-            exp: 0,
-            iat: 0,
-            jti: "t2".into(),
-        };
-        assert!(require_role(&user_claims, "user"));
-        assert!(!require_role(&user_claims, "admin"));
     }
 
     #[test]

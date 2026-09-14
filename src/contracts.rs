@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::parser::SectionNode;
 
 // ── Core Types ──────────────────────────────────────────────────────────────
@@ -18,6 +16,9 @@ pub enum Layer {
     Pattern,
 }
 
+// Unconstructed variants and unread fields below are part of the schema that
+// `cronus spec` emits into contracts_generated.rs (see cli/spec.rs).
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Stability {
     Stable,
@@ -32,6 +33,7 @@ pub struct KeyDef {
     pub required: bool,
 }
 
+#[allow(dead_code)] // layer/stability/requires_* are codegen schema, see Stability
 pub struct SectionContract {
     pub name: &'static str,
     pub layer: Layer,
@@ -566,10 +568,6 @@ impl ContractRegistry {
         }
     }
 
-    pub fn is_known(name: &str) -> bool {
-        Self::get(name).is_some() || Self::resolve_alias(name).is_some()
-    }
-
     pub fn all_names() -> &'static [&'static str] {
         #[cfg(feature = "generated-contracts")]
         {
@@ -579,31 +577,6 @@ impl ContractRegistry {
         {
             HARDCODED_NAMES
         }
-    }
-
-    /// Get all contracts (generated preferred, with hardcoded fallback for any missing)
-    #[allow(unused_mut)]
-    pub fn all_contracts() -> Vec<&'static SectionContract> {
-        let mut result: Vec<&'static SectionContract> = Vec::new();
-        let mut seen: Vec<&str> = Vec::new();
-
-        // Add generated first (they take precedence)
-        #[cfg(feature = "generated-contracts")]
-        {
-            for c in generated::GENERATED_CONTRACTS {
-                result.push(c);
-                seen.push(c.name);
-            }
-        }
-
-        // Fill in any hardcoded contracts not covered by generated
-        for c in HARDCODED_CONTRACTS {
-            if !seen.contains(&c.name) {
-                result.push(c);
-            }
-        }
-
-        result
     }
 }
 

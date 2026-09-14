@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_imports, unused_variables)]
 //! CRONUS GraphQL Engine — Auto-generated from EntityNode
 //!
 //! - GET  /graphql  → Playground HTML
@@ -68,7 +67,6 @@ impl GraphQLSchema {
         // Generate Mutation type
         sdl.push_str("type Mutation {\n");
         for entity in entities {
-            let lower = entity.name.to_lowercase();
             sdl.push_str(&format!(
                 "  create{name}(input: Create{name}Input!): {name}!\n",
                 name = entity.name
@@ -150,7 +148,7 @@ struct ParsedField {
 enum ArgValue {
     StringVal(String),
     IntVal(i64),
-    BoolVal(bool),
+    BoolVal,
     Variable(String),
 }
 
@@ -398,7 +396,7 @@ fn parse_arg_value(chars: &mut std::iter::Peekable<std::str::Chars>) -> Result<A
             while chars.peek().map_or(false, |c| c.is_alphabetic()) {
                 word.push(chars.next().unwrap());
             }
-            Ok(ArgValue::BoolVal(word == "true"))
+            Ok(ArgValue::BoolVal)
         }
         _ => Err("unexpected arg value".into()),
     }

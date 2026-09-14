@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_imports, unused_variables)]
 //! CRONUS UI — Server-Side HTML Renderer
 //!
 //! Generates complete HTML pages from the AST.
@@ -18,28 +17,17 @@ mod section_kpi;
 mod section_misc;
 mod util;
 
-pub use component::{
-    render_component, render_components_inline, render_components_page, render_light_app_page,
-};
+pub use component::{render_components_inline, render_components_page, render_light_app_page};
 pub use dashboard::{
-    render_billing_dashboard, render_checkout_dashboard, render_dashboard_page,
-    render_generic_dashboard, render_order_detail_dashboard, render_payment_links_dashboard,
-    render_payouts_dashboard, render_security_dashboard, render_settings_dashboard,
-    render_unified_dashboard,
+    render_billing_dashboard, render_checkout_dashboard, render_generic_dashboard,
+    render_order_detail_dashboard, render_payment_links_dashboard, render_payouts_dashboard,
+    render_security_dashboard, render_settings_dashboard, render_unified_dashboard,
 };
 
 pub use layout::*;
 pub use page::{render_auth_page, render_page};
 
-use crate::animations::{CRONUS_ANIMATE_JS, CRONUS_ANIMATIONS};
-use crate::components;
-use crate::hmr::HMR_CLIENT_JS;
-use crate::parser::{
-    ComponentItemNode, ComponentNode, EntityNode, FieldType, LayoutNode, PageNode, SectionNode,
-    StyleNode,
-};
-use crate::render::CRONUS_RUNTIME_JS;
-use crate::tailwind::CRONUS_TAILWIND;
+use crate::parser::SectionNode;
 
 // ══════════════════════════════════════════════════
 // SHARED ANIMATION CSS + JS (injected into every page)
@@ -817,17 +805,6 @@ fn render_section_inner(
                 .unwrap_or(false)
                 || theme == "dark"
                 || theme == "obsidian";
-            let has_static_rows = section.items.iter().any(|item| {
-                let t = item.get("_type").map(|s| s.as_str()).unwrap_or("item");
-                (t == "item" || t == "row")
-                    && (item
-                        .get("title")
-                        .map(|s| s.starts_with('#'))
-                        .unwrap_or(false)
-                        || item.get("client").is_some()
-                        || item.get("value").is_some()
-                        || item.get("status").is_some())
-            });
             if is_dark_table {
                 crate::data_table::render_data_table_dark(section, bound_data)
             } else {
@@ -985,7 +962,6 @@ fn safe_interpolate(template: &str, key: &str, value: &str) -> String {
 /// Render a section from its inline template block, replacing `{{placeholder}}`
 /// tokens with values from the section's title, subtitle, config, and items.
 fn render_template(template: &str, section: &SectionNode, style_block: &Option<String>) -> String {
-    let script_nonce = crate::security::script_nonce_attr();
     let mut html = String::new();
 
     // Unescape template (parser escapes quotes in StringLit)

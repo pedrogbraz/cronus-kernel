@@ -1,9 +1,8 @@
-#![allow(dead_code, unused_imports)]
 //! Auto-generated documentation pages extracted from main.rs.
 
 use crate::cli::objective_kernel::reconcile_field_type_str;
 use crate::graph;
-use crate::parser::{self, HttpMethod};
+use crate::parser::HttpMethod;
 
 use super::state::AppState;
 

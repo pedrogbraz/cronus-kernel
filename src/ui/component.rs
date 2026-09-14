@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_imports, unused_variables)]
 //! Component renderers (layout-based: inline, stack, grid, table, hero, modal, sidebar, tabs, menu)
 //! Also includes the light-theme app page renderer.
 
@@ -704,7 +703,6 @@ fn render_kit_catalog(comps: &[ComponentNode]) -> String {
 
 pub(super) fn render_inline_component(comp: &ComponentNode, style: &str) -> String {
     let label = item_by_kind(&comp.items, "label").unwrap_or(&comp.name);
-    let icon = item_by_kind(&comp.items, "icon");
 
     if style.contains("badge") {
         // Badge
@@ -913,13 +911,10 @@ pub(super) fn render_grid_component(comp: &ComponentNode, style: &str) -> String
 
 // ── table: DataTable ──
 
-pub(super) fn render_table_component(comp: &ComponentNode, style: &str) -> String {
+pub(super) fn render_table_component(comp: &ComponentNode, _style: &str) -> String {
     let source = item_by_kind(&comp.items, "source").unwrap_or("item");
     let cols_str = item_by_kind(&comp.items, "columns").unwrap_or("id,name");
     let cols: Vec<&str> = cols_str.split(',').map(|s| s.trim()).collect();
-
-    let headers: Vec<&str> = cols.clone();
-    let rows: Vec<Vec<String>> = vec![]; // SSR empty — runtime fills via data-list
 
     let lower = source.to_lowercase();
     let cols_attr = cols.join(",");
@@ -937,7 +932,7 @@ pub(super) fn render_table_component(comp: &ComponentNode, style: &str) -> Strin
 
 // ── hero ──
 
-pub(super) fn render_hero_component(comp: &ComponentNode, style: &str) -> String {
+pub(super) fn render_hero_component(comp: &ComponentNode, _style: &str) -> String {
     let badge_text = item_by_kind(&comp.items, "badge").unwrap_or("");
     let title = item_by_kind(&comp.items, "title").unwrap_or("Welcome");
     let subtitle = item_by_kind(&comp.items, "subtitle").unwrap_or("");
@@ -987,7 +982,7 @@ pub(super) fn render_hero_component(comp: &ComponentNode, style: &str) -> String
 
 // ── modal ──
 
-pub(super) fn render_modal_component(comp: &ComponentNode, style: &str) -> String {
+pub(super) fn render_modal_component(comp: &ComponentNode, _style: &str) -> String {
     let id = comp.name.to_lowercase().replace(' ', "-");
     let title = item_by_kind(&comp.items, "title").unwrap_or("Dialog");
     let text = item_by_kind(&comp.items, "text").unwrap_or("");
@@ -1049,7 +1044,7 @@ pub(super) fn render_sidebar_component(comp: &ComponentNode, _style: &str) -> St
 
 // ── tabs ──
 
-pub(super) fn render_tabs_component(comp: &ComponentNode, style: &str) -> String {
+pub(super) fn render_tabs_component(comp: &ComponentNode, _style: &str) -> String {
     let tab_items: Vec<(&str, &str)> = items_by_kind(&comp.items, "tab")
         .iter()
         .map(|t| (t.text.as_str(), ""))

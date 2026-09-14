@@ -1,5 +1,3 @@
-#![allow(dead_code, unused_imports)]
-
 use crate::access::{self, Access, ReadScope};
 use crate::database::CronusDB;
 use crate::parser::{

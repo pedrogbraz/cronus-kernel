@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_imports, unused_variables)]
 //! CRONUS HTTP server submodules.
 //!
 //! The live dispatcher is `main.rs::handle_request` → `handle_request_inner`.

@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_imports, unused_variables)]
 //! Additional section renderers — product-grid, bento, team-list, modal, sheet,
 //! tabs, accordion, breadcrumb, generic, alert, skeleton, empty, error, not-found,
 //! timeline, progress, sidebar, card, links, etc.
@@ -76,7 +75,7 @@ pub(super) fn render_product_grid_section(section: &SectionNode) -> String {
     )
 }
 
-pub(super) fn render_bento(section: &SectionNode, accent: &str) -> String {
+pub(super) fn render_bento(section: &SectionNode, _accent: &str) -> String {
     let cols = section
         .config
         .get("cols")
@@ -1394,139 +1393,6 @@ pub(super) fn render_sheet_section(section: &SectionNode) -> String {
     )
 }
 
-pub(super) fn render_tabs_section(section: &SectionNode) -> String {
-    // Group items into tabs: each "tab" _type starts a new group, subsequent "item" types belong to it
-    let mut tabs: Vec<(String, Vec<&std::collections::HashMap<String, String>>)> = Vec::new();
-
-    for item in &section.items {
-        let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("item");
-        let title = item.get("title").map(|s| s.as_str()).unwrap_or("");
-
-        if item_type == "tab" {
-            tabs.push((title.to_string(), Vec::new()));
-        } else if let Some(last) = tabs.last_mut() {
-            last.1.push(item);
-        } else {
-            // Items before any tab — create an implicit tab
-            tabs.push(("Tab".to_string(), vec![item]));
-        }
-    }
-
-    let mut buttons_html = String::new();
-    let mut panels_html = String::new();
-
-    for (i, (tab_title, tab_items)) in tabs.iter().enumerate() {
-        let is_active = i == 0;
-        let (color, border_color, weight) = if is_active {
-            ("#000", "#000", "600")
-        } else {
-            ("#71717a", "transparent", "500")
-        };
-
-        buttons_html.push_str(&format!(
-            r#"<button class="cronus-tab" data-tab="{i}" style="padding:12px 24px;font-size:14px;font-weight:{weight};color:{color};border-bottom:2px solid {border_color};background:none;border-top:none;border-left:none;border-right:none;cursor:pointer;font-family:Inter,sans-serif;transition:all 0.2s">{title}</button>"#,
-            i = i, weight = weight, color = color, border_color = border_color, title = tab_title,
-        ));
-
-        let display = if is_active { "block" } else { "none" };
-        let anim = if is_active {
-            " style=\"animation:fadeIn 0.3s ease-out\""
-        } else {
-            ""
-        };
-
-        let mut content_html = String::new();
-        for ti in tab_items {
-            let ti_title = ti.get("title").map(|s| s.as_str()).unwrap_or("");
-            let ti_desc = ti.get("description").map(|s| s.as_str()).unwrap_or("");
-            let ti_icon = ti.get("icon").map(|s| s.as_str()).unwrap_or("");
-
-            content_html.push_str(r#"<div style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px">"#);
-            if !ti_icon.is_empty() {
-                content_html.push_str(&format!(
-                    r#"<span style="font-size:20px;margin-bottom:8px;display:block">{}</span>"#,
-                    ti_icon
-                ));
-            }
-            if !ti_title.is_empty() {
-                content_html.push_str(&format!(
-                    r#"<h3 style="font-size:16px;font-weight:600;color:#1a1c1c;margin:0 0 6px">{}</h3>"#, ti_title
-                ));
-            }
-            if !ti_desc.is_empty() {
-                content_html.push_str(&format!(
-                    r#"<p style="font-size:14px;color:#6e6e6e;margin:0;line-height:1.5">{}</p>"#,
-                    ti_desc
-                ));
-            }
-            content_html.push_str("</div>");
-        }
-
-        panels_html.push_str(&format!(
-            r#"<div class="cronus-tab-panel" data-panel="{i}" style="display:{display}"{anim}><div style="display:flex;flex-direction:column;gap:16px">{content}</div></div>"#,
-            i = i, display = display, anim = anim, content = content_html,
-        ));
-    }
-
-    format!(
-        r#"<div style="margin:24px 0"><div style="display:flex;gap:0;border-bottom:1px solid #e5e7eb;margin-bottom:24px">{buttons}</div>{panels}</div>"#,
-        buttons = buttons_html,
-        panels = panels_html,
-    )
-}
-
-pub(super) fn render_accordion_section(section: &SectionNode) -> String {
-    let mut items_html = String::new();
-
-    for item in &section.items {
-        let title = item.get("title").map(|s| s.as_str()).unwrap_or("");
-        let description = item.get("description").map(|s| s.as_str()).unwrap_or("");
-
-        items_html.push_str(&format!(
-            r#"<div class="cronus-accordion"><button class="cronus-accordion-trigger" style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:none;border:none;border-bottom:1px solid #e5e7eb;cursor:pointer;font-size:14px;font-weight:600;text-align:left;font-family:Inter,sans-serif"><span>{title}</span><span class="material-symbols-outlined" style="font-size:18px;transition:transform 0.2s">expand_more</span></button><div class="cronus-accordion-content" style="display:none;padding:16px 20px;font-size:14px;color:#5e5e5e;line-height:1.6;border-bottom:1px solid #e5e7eb">{desc}</div></div>"#,
-            title = title,
-            desc = description,
-        ));
-    }
-
-    format!(
-        r#"<div style="display:flex;flex-direction:column;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">{items}</div>"#,
-        items = items_html,
-    )
-}
-
-pub(super) fn render_breadcrumb_section(section: &SectionNode) -> String {
-    let mut parts: Vec<String> = Vec::new();
-    let total = section.items.len();
-
-    for (i, item) in section.items.iter().enumerate() {
-        let title = item.get("title").map(|s| s.as_str()).unwrap_or("");
-        let link = item.get("link").map(|s| s.as_str()).unwrap_or("");
-        let is_last = i == total - 1;
-
-        if i > 0 {
-            parts.push(r#"<span style="color:#d4d4d8">/</span>"#.to_string());
-        }
-
-        if is_last || link.is_empty() {
-            parts.push(format!(
-                r#"<span style="color:#000;font-weight:500">{}</span>"#,
-                title
-            ));
-        } else {
-            parts.push(format!(
-                r#"<a href="{}" style="color:#71717a;text-decoration:none;transition:color 0.2s" onmouseover="this.style.color='#000'" onmouseout="this.style.color='#71717a'">{}</a>"#,
-                link, title
-            ));
-        }
-    }
-
-    format!(
-        r#"<nav style="display:flex;align-items:center;gap:8px;padding:12px 0;font-size:14px" class="anim-fade">{}</nav>"#,
-        parts.join("")
-    )
-}
-
 // ── Route State Sections ──
 
 pub(super) fn render_generic_section(section: &SectionNode, _accent: &str) -> String {
@@ -1724,42 +1590,6 @@ pub(super) fn render_generic_section(section: &SectionNode, _accent: &str) -> St
 // ══════════════════════════════════════════════════
 // ALERT SECTION
 // ══════════════════════════════════════════════════
-
-pub(super) fn render_alert_section(section: &SectionNode) -> String {
-    let style = section
-        .config
-        .get("style")
-        .map(|s| s.as_str())
-        .unwrap_or("info");
-    let title = section.title.as_deref().unwrap_or("Alert");
-    let subtitle = section.subtitle.as_deref().unwrap_or("");
-
-    let (bg_color, border_color, text_color, icon) = match style {
-        "success" => ("#f0fdf4", "#bbf7d0", "#16a34a", "check_circle"),
-        "error" => ("#fef2f2", "#fecaca", "#dc2626", "error"),
-        "warning" => ("#fffbeb", "#fde68a", "#d97706", "warning"),
-        _ => ("#eff6ff", "#bfdbfe", "#2563eb", "info"),
-    };
-
-    format!(
-        r##"<div class="anim-slide-up" style="display:flex;align-items:flex-start;gap:12px;padding:16px 20px;border-radius:12px;border:1px solid {border_color};background:{bg_color}">
-  <span class="material-symbols-outlined" style="font-size:20px;color:{text_color};flex-shrink:0;margin-top:1px">{icon}</span>
-  <div>
-    <h4 style="font-size:14px;font-weight:600;color:{text_color};margin:0 0 4px">{title}</h4>
-    <p style="font-size:13px;color:{text_color};opacity:0.8;margin:0;line-height:1.5">{subtitle}</p>
-  </div>
-  <button onclick="this.parentElement.style.display='none'" style="margin-left:auto;background:none;border:none;cursor:pointer;color:{text_color};opacity:0.5;padding:4px">
-    <span class="material-symbols-outlined" style="font-size:16px">close</span>
-  </button>
-</div>"##,
-        bg_color = bg_color,
-        border_color = border_color,
-        text_color = text_color,
-        icon = icon,
-        title = title,
-        subtitle = subtitle,
-    )
-}
 
 // ══════════════════════════════════════════════════
 // CHART SECTION

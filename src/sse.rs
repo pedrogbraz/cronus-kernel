@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_imports, unused_variables)]
 //! CRONUS SSE — Server-Sent Events for real-time updates
 //!
 //! Uses tokio::sync::broadcast to fan-out data change events
@@ -10,10 +9,10 @@ use std::sync::Arc;
 
 use async_stream::stream;
 use bytes::Bytes;
-use http_body_util::{BodyExt, StreamBody};
+use http_body_util::StreamBody;
 use hyper::body::Frame;
 use hyper::{Response, StatusCode};
-use serde_json::{json, Value};
+use serde_json::json;
 use tokio::sync::broadcast;
 
 /// An event representing a data change (entity mutation).
@@ -64,11 +63,6 @@ impl SseHub {
             debug_tx,
             active_connections: Arc::new(AtomicUsize::new(0)),
         }
-    }
-
-    /// Number of currently active SSE connections (for monitoring/metrics).
-    pub fn connection_count(&self) -> usize {
-        self.active_connections.load(Ordering::Relaxed)
     }
 
     /// Broadcast a data change event to all connected SSE clients.
