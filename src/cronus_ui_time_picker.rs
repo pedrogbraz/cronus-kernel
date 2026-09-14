@@ -368,6 +368,16 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"time-picker\"]"));
         assert!(css.contains("[data-slot=\"time-picker\"]:disabled"));
+        // wave1s geometry parity: React Button outline md + w-[240px] font-normal.
+        assert!(css.contains(
+            "[data-slot=\"time-picker\"] {\n  display: inline-flex; align-items: center; justify-content: flex-start; gap: 0.5rem;\n  width: 15rem; height: 2.5rem; padding: 0 1rem; box-sizing: border-box;"
+        ));
+        assert!(css.contains("  background: transparent;\n  box-shadow: var(--cronus-shadow-xs, none);"));
+        assert!(css.contains("font-size: 0.875rem; line-height: 1.25rem; font-weight: 400;"));
+        assert!(css.contains(
+            "[data-slot=\"time-picker\"] svg {\n  width: 1rem; height: 1rem; flex-shrink: 0; pointer-events: none;\n  color: var(--cronus-fg-tertiary);\n}"
+        ));
+        assert!(!css.contains("[data-slot=\"date-picker-trigger\"],\n[data-slot=\"time-picker\"]"));
         assert!(!css.contains("[data-slot=\"time-picker-trigger\"]"));
         assert!(!css.contains("[data-slot=\"time-picker\"] > button"));
         assert!(css.contains("[data-slot=\"time-picker-content\"]"));

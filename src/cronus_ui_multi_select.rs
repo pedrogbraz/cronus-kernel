@@ -1,8 +1,13 @@
-//! Dedicated MultiSelect renderer. DOM mirrors React (Radix popover open):
-//! wrapper `data-slot="multi-select"`, trigger
+//! Dedicated MultiSelect renderer. DOM mirrors React (Radix popover open,
+//! `defaultOpen`): trigger
 //! `<div data-slot="multi-select-trigger" role="combobox" tabindex="0">` with
-//! the placeholder/selection span and a chevron, plus an open listbox of
-//! options. Not interact `select("multi-select")` native `<select multiple>`.
+//! the placeholder/selection span and a chevron, then the open content tree
+//! React portals — `popover-content > command > command-list[role=listbox] >
+//! command-item[role=option]` with a `multi-select-indicator` box + label.
+//! Kernel wraps both in `data-slot="multi-select"` (position: relative) so the
+//! content sits absolutely 4px below the trigger, like the Radix popper.
+//! No cmdk search row: filtering needs JS, so it is not emitted (no dead input).
+//! Not interact `select("multi-select")` native `<select multiple>`.
 
 use crate::cronus_ui_kit::{choice_texts, esc, item, texts};
 use crate::parser::ComponentNode;
@@ -11,6 +16,13 @@ const CHEVRON: &str = concat!(
     "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" ",
     "stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\">",
     "<path d=\"m6 9 6 6 6-6\" />",
+    "</svg>",
+);
+
+const CHECK: &str = concat!(
+    "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" ",
+    "stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\">",
+    "<path d=\"M20 6 9 17l-5-5\" />",
     "</svg>",
 );
 
@@ -25,13 +37,14 @@ pub fn render(comp: &ComponentNode) -> String {
     let items = options
         .iter()
         .map(|t| {
-            let aria = if selected.iter().any(|s| s == t) {
-                "true"
+            let on = selected.iter().any(|s| s == t);
+            let (aria, state, mark) = if on {
+                ("true", "checked", CHECK)
             } else {
-                "false"
+                ("false", "unchecked", "")
             };
             format!(
-                "<button type=\"button\" data-slot=\"multi-select-item\" role=\"option\" aria-selected=\"{aria}\">{t}</button>"
+                "<div data-slot=\"command-item\" role=\"option\" aria-selected=\"{aria}\"><span data-slot=\"multi-select-indicator\" data-state=\"{state}\" aria-hidden=\"true\">{mark}</span><span>{t}</span></div>"
             )
         })
         .collect::<Vec<_>>()
@@ -49,8 +62,12 @@ pub fn render(comp: &ComponentNode) -> String {
     if flag(comp, "invalid") {
         trigger_attrs.push_str(" aria-invalid=\"true\"");
     }
+    trigger_attrs.push_str(" data-state=\"open\"");
+    if selected.is_empty() {
+        trigger_attrs.push_str(" data-placeholder=\"\"");
+    }
     format!(
-        "<div data-slot=\"multi-select\"><div {trigger_attrs}><span><span>{trigger}</span></span><span aria-hidden=\"true\">{CHEVRON}</span></div><div data-slot=\"multi-select-content\" role=\"listbox\">{items}</div></div>"
+        "<div data-slot=\"multi-select\"><div {trigger_attrs}><span><span>{trigger}</span></span><span aria-hidden=\"true\">{CHEVRON}</span></div><div data-slot=\"popover-content\" role=\"dialog\" data-state=\"open\"><div data-slot=\"command\"><div data-slot=\"command-list\" role=\"listbox\" aria-multiselectable=\"true\">{items}</div></div></div></div>"
     )
 }
 
@@ -132,7 +149,7 @@ mod tests {
     use crate::cronus_ui_kit::stub;
     use crate::parser::ComponentItemNode;
 
-    const TRIGGER_OPEN: &str = "<div data-slot=\"multi-select-trigger\" role=\"combobox\" tabindex=\"0\" aria-expanded=\"true\" aria-haspopup=\"listbox\">";
+    const TRIGGER_OPEN: &str = "<div data-slot=\"multi-select-trigger\" role=\"combobox\" tabindex=\"0\" aria-expanded=\"true\" aria-haspopup=\"listbox\" data-state=\"open\" data-placeholder=\"\">";
 
     fn node(kind: &str, text: &str) -> ComponentItemNode {
         ComponentItemNode {
@@ -156,12 +173,22 @@ mod tests {
         format!("<span><span>{t}</span></span>")
     }
 
+    fn opt(t: &str, on: bool) -> String {
+        if on {
+            format!("<div data-slot=\"command-item\" role=\"option\" aria-selected=\"true\"><span data-slot=\"multi-select-indicator\" data-state=\"checked\" aria-hidden=\"true\">{CHECK}</span><span>{t}</span></div>")
+        } else {
+            format!("<div data-slot=\"command-item\" role=\"option\" aria-selected=\"false\"><span data-slot=\"multi-select-indicator\" data-state=\"unchecked\" aria-hidden=\"true\"></span><span>{t}</span></div>")
+        }
+    }
+
     fn reject_interact(html: &str) {
         assert!(!html.contains("<select"));
         assert!(!html.contains("</select>"));
         assert!(!html.contains(" multiple"));
         assert!(!html.contains("-control"));
         assert!(!html.contains("<label"));
+        assert!(!html.contains("<button"));
+        assert!(!html.contains("<input"));
         assert!(!html.contains("style="));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
@@ -169,17 +196,23 @@ mod tests {
         assert!(!html.contains("onclick="));
     }
 
+    /// React (defaultOpen): div combobox trigger + portal
+    /// `popover-content > command > command-list > command-item`. Options are
+    /// divs with an indicator box, never buttons (wave1s geometry parity).
     #[test]
     fn trigger_is_div_combobox_and_list_is_open() {
         let html = render(&multi("Pick", &["Ada", "Grace"]));
         assert_eq!(
             html,
             format!(
-                "<div data-slot=\"multi-select\">{TRIGGER_OPEN}{}<span aria-hidden=\"true\">{CHEVRON}</span></div><div data-slot=\"multi-select-content\" role=\"listbox\"><button type=\"button\" data-slot=\"multi-select-item\" role=\"option\" aria-selected=\"false\">Ada</button><button type=\"button\" data-slot=\"multi-select-item\" role=\"option\" aria-selected=\"false\">Grace</button></div></div>",
-                trig("Pick")
+                "<div data-slot=\"multi-select\">{TRIGGER_OPEN}{}<span aria-hidden=\"true\">{CHEVRON}</span></div><div data-slot=\"popover-content\" role=\"dialog\" data-state=\"open\"><div data-slot=\"command\"><div data-slot=\"command-list\" role=\"listbox\" aria-multiselectable=\"true\">{}{}</div></div></div></div>",
+                trig("Pick"),
+                opt("Ada", false),
+                opt("Grace", false)
             )
         );
-        assert!(!html.contains("<button type=\"button\" data-slot=\"multi-select-trigger\""));
+        assert!(!html.contains("data-slot=\"multi-select-content\""));
+        assert!(!html.contains("data-slot=\"multi-select-item\""));
         reject_interact(&html);
     }
 
@@ -196,11 +229,13 @@ mod tests {
         c.items.push(vue);
         let html = render(&c);
         assert!(html.contains(
-            "<div data-slot=\"multi-select-trigger\" role=\"combobox\" tabindex=\"0\" aria-expanded=\"true\" aria-haspopup=\"listbox\" aria-label=\"Stack\">"
+            "<div data-slot=\"multi-select-trigger\" role=\"combobox\" tabindex=\"0\" aria-expanded=\"true\" aria-haspopup=\"listbox\" aria-label=\"Stack\" data-state=\"open\" data-placeholder=\"\">"
         ));
         assert!(html.contains(&trig("Select frameworks")));
         assert_eq!(html.matches("role=\"option\"").count(), 2);
-        assert!(!html.contains("aria-selected=\"false\">Select frameworks</button>"));
+        assert!(html.contains(&opt("React", false)));
+        assert!(html.contains(&opt("Vue", false)));
+        assert!(!html.contains("<span>Select frameworks</span></div>"));
         reject_interact(&html);
     }
 
@@ -209,12 +244,7 @@ mod tests {
         let html = render(&multi("Pick", &["Ada", "Grace"]));
         assert!(html.contains(&trig("Pick")));
         assert_eq!(html.matches("role=\"option\"").count(), 2);
-        for chunk in html.split("data-slot=\"multi-select-item\"").skip(1) {
-            assert!(
-                !chunk.contains(">Pick</button>"),
-                "Pick leaked as option: {html}"
-            );
-        }
+        assert!(!html.contains(&opt("Pick", false)));
         reject_interact(&html);
     }
 
@@ -225,9 +255,9 @@ mod tests {
         c.items.push(node("text", "Grace"));
         let html = render(&c);
         assert!(html.contains(&trig("Pick")));
-        assert!(html.contains("aria-selected=\"false\">Ada</button>"));
-        assert!(html.contains("aria-selected=\"false\">Grace</button>"));
-        assert_eq!(html.matches("data-slot=\"multi-select-item\"").count(), 2);
+        assert!(html.contains(&opt("Ada", false)));
+        assert!(html.contains(&opt("Grace", false)));
+        assert_eq!(html.matches("data-slot=\"command-item\"").count(), 2);
         reject_interact(&html);
     }
 
@@ -237,9 +267,10 @@ mod tests {
         c.props.insert("value".into(), "Ada, Linus".into());
         let html = render(&c);
         assert!(html.contains(&trig("Ada, Linus")));
-        assert!(html.contains("aria-selected=\"true\">Ada</button>"));
-        assert!(html.contains("aria-selected=\"false\">Grace</button>"));
-        assert!(html.contains("aria-selected=\"true\">Linus</button>"));
+        assert!(html.contains(&opt("Ada", true)));
+        assert!(html.contains(&opt("Grace", false)));
+        assert!(html.contains(&opt("Linus", true)));
+        assert!(!html.contains("data-placeholder"));
         reject_interact(&html);
     }
 
@@ -251,8 +282,8 @@ mod tests {
             .insert("selected".into(), "true".into());
         let html = render(&c);
         assert!(html.contains(&trig("Ada")));
-        assert!(html.contains("aria-selected=\"true\">Ada</button>"));
-        assert!(html.contains("aria-selected=\"false\">Grace</button>"));
+        assert!(html.contains(&opt("Ada", true)));
+        assert!(html.contains(&opt("Grace", false)));
         reject_interact(&html);
     }
 
@@ -271,7 +302,7 @@ mod tests {
         let html = render(&stub("multi-select", "Pick"));
         assert!(html.contains("data-slot=\"multi-select-trigger\""));
         assert!(html.contains("role=\"listbox\""));
-        assert!(!html.contains("data-slot=\"multi-select-item\""));
+        assert!(!html.contains("data-slot=\"command-item\""));
         assert!(html.contains(&trig("Pick")));
         reject_interact(&html);
     }
@@ -298,19 +329,24 @@ mod tests {
         });
     }
 
+    /// Measured against React (wave1s): trigger 432x40 radius-lg surface-inset
+    /// with border-strong while open; content 4px below, full trigger width;
+    /// rows 32px (px-2 py-1.5, 20px line) with a 16px indicator box.
     #[test]
-    fn chrome_is_token_only() {
+    fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"multi-select\"]"));
-        assert!(css.contains("[data-slot=\"multi-select-trigger\"]"));
-        assert!(css.contains("[data-slot=\"multi-select-trigger\"][aria-disabled=\"true\"]"));
-        assert!(css.contains("[data-slot=\"multi-select-trigger\"] svg"));
-        assert!(css.contains("[data-slot=\"multi-select-content\"]"));
-        assert!(css.contains("[data-slot=\"multi-select-item\"]"));
-        assert!(css.contains("justify-content: space-between"));
-        assert!(css.contains("min-width: 8rem"));
-        assert!(css.contains("var(--cronus-surface-floating"));
-        assert!(css.contains("[data-slot=\"multi-select-item\"][aria-selected=\"true\"]"));
+        assert!(css.contains("[data-slot=\"multi-select\"] {\n  position: relative; display: block; width: 100%;"));
+        assert!(css.contains(
+            "[data-slot=\"multi-select-trigger\"] {\n  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;\n  width: 100%; min-height: 2.5rem; padding: 0.375rem 0.75rem; box-sizing: border-box;"
+        ));
+        assert!(css.contains("[data-slot=\"multi-select-trigger\"][aria-expanded=\"true\"] { border-color: var(--cronus-border-strong); }"));
+        assert!(css.contains("[data-slot=\"multi-select\"] > [data-slot=\"popover-content\"] {\n  position: absolute; top: calc(100% + 4px); left: 0; z-index: 50;"));
+        assert!(css.contains("[data-slot=\"multi-select\"] [data-slot=\"command-item\"] {\n  position: relative; display: flex; align-items: center; gap: 0.5rem;"));
+        assert!(css.contains("padding: 0.375rem 0.5rem;"));
+        assert!(css.contains("[data-slot=\"multi-select-indicator\"] {\n  display: flex; align-items: center; justify-content: center; flex-shrink: 0;\n  width: 1rem; height: 1rem;"));
+        assert!(css.contains("[data-slot=\"multi-select-indicator\"][data-state=\"checked\"]"));
+        assert!(!css.contains("[data-slot=\"multi-select-item\"]"));
+        assert!(!css.contains("[data-slot=\"multi-select-content\"]"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("onclick"));
     }

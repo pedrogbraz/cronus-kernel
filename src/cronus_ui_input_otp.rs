@@ -186,6 +186,15 @@ mod tests {
         assert!(css.contains("caret-color: transparent"));
         assert!(css.contains("height: 2.5rem"));
         assert!(css.contains("width: 2.5rem"));
+        // wave1s geometry parity: React container inherits 24px line-height,
+        // slots are text-sm (20px); left border exists but is 0 wide except first.
+        assert!(css.contains(
+            "[data-input-otp-container] {\n  position: relative; display: flex; align-items: center; gap: 0.5rem;\n  line-height: 1.5; cursor: text; user-select: none; pointer-events: none;\n}"
+        ));
+        assert!(css.contains(
+            "  border: 0 solid var(--cronus-border);\n  border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px;\n  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg);"
+        ));
+        assert!(css.contains("[data-slot=\"input-otp-slot\"]:first-child {\n  border-left-width: 1px;"));
         assert!(css.contains("var(--cronus-border)"));
         assert!(!css.contains("zinc-"));
     }

@@ -1,12 +1,12 @@
-//! Dedicated Form renderer. DOM matches React rhf wrappers:
-//! `<form data-slot="form"><div data-slot="form-item"><label data-slot="form-label">`
-//! plus `form-control` wrapping an input and optional `form-description`.
-//! Fields come from `item` lines; without them the form has one field named by
-//! the `label`, and the first `text` line is its placeholder (the audit
-//! emitter writes `placeholder` as `text`).
+//! Dedicated Form renderer. DOM matches the React audit fixture:
+//! `<form data-slot="form"><div data-slot="form-item"><label data-slot="label" for>`
+//! + `<input data-slot="input" id>` (shared Label / Input chrome) and optional
+//! `form-description`. Fields come from `item` lines; without them the form
+//! has one field named by the `label`, and the first `text` line is its
+//! placeholder (the audit emitter writes `placeholder` as `text`).
 //! Not interact `field_form()` (SURF `<form>` dump + Submit button styles).
 
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{esc, label_of, widget_id};
 use crate::parser::ComponentNode;
 
 struct Field {
@@ -16,15 +16,24 @@ struct Field {
 }
 
 pub fn render(comp: &ComponentNode) -> String {
+    let base = widget_id(comp, "input");
     let items = field_entries(comp)
         .iter()
-        .map(field_html)
+        .enumerate()
+        .map(|(i, f)| {
+            let id = if i == 0 {
+                base.clone()
+            } else {
+                format!("{base}-{}", i + 1)
+            };
+            field_html(f, &id)
+        })
         .collect::<Vec<_>>()
         .join("");
     format!("<form data-slot=\"form\">{items}</form>")
 }
 
-fn field_html(field: &Field) -> String {
+fn field_html(field: &Field, id: &str) -> String {
     let label = &field.label;
     let desc = field
         .description
@@ -37,7 +46,7 @@ fn field_html(field: &Field) -> String {
         .map(|p| format!(" placeholder=\"{p}\""))
         .unwrap_or_default();
     format!(
-        "<div data-slot=\"form-item\"><label data-slot=\"form-label\">{label}</label><div data-slot=\"form-control\"><input type=\"text\" name=\"{label}\"{placeholder} /></div>{desc}</div>"
+        "<div data-slot=\"form-item\"><label data-slot=\"label\" for=\"{id}\">{label}</label><input data-slot=\"input\" id=\"{id}\" name=\"{label}\"{placeholder} />{desc}</div>"
     )
 }
 
@@ -125,24 +134,24 @@ mod tests {
         assert!(!html.contains(">Submit</button>"));
         assert!(!html.contains("font-weight:500"));
         assert!(!html.contains("padding:1rem;display:flex;flex-direction:column;gap:0.75rem"));
-        assert!(!html.contains("<input data-slot="));
+        assert!(!html.contains("data-slot=\"form-control\""));
+        assert!(!html.contains("data-slot=\"form-label\""));
+        // stub_renderer_gate "field" fingerprint = `<input data-slot=` + `-control"`.
+        assert!(!html.contains("-control\""));
+        assert!(crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(html).is_none());
         assert!(!html.contains("<script"));
         assert!(!html.contains("field_form("));
     }
 
+    /// React fixture: `form > form-item > label[data-slot=label] + input[data-slot=input]`
+    /// — no form-label / form-control wrapper (wave1s geometry parity).
     #[test]
     fn root_is_form_item_label_and_input_not_surf() {
         let html = render(&stub("form", "Email"));
-        assert!(html.starts_with("<form data-slot=\"form\">"));
-        assert!(html.contains("<div data-slot=\"form-item\">"));
-        assert!(html.contains("<label data-slot=\"form-label\">Email</label>"));
-        assert!(html.contains("<div data-slot=\"form-control\">"));
-        assert!(html.contains("<input type=\"text\" name=\"Email\" />"));
-        assert!(!html.contains("data-slot=\"form-description\""));
         reject_interact(&html);
         assert_eq!(
             html,
-            "<form data-slot=\"form\"><div data-slot=\"form-item\"><label data-slot=\"form-label\">Email</label><div data-slot=\"form-control\"><input type=\"text\" name=\"Email\" /></div></div></form>"
+            "<form data-slot=\"form\"><div data-slot=\"form-item\"><label data-slot=\"label\" for=\"cui-form-input\">Email</label><input data-slot=\"input\" id=\"cui-form-input\" name=\"Email\" /></div></form>"
         );
     }
 
@@ -155,7 +164,7 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            "<form data-slot=\"form\"><div data-slot=\"form-item\"><label data-slot=\"form-label\">Email</label><div data-slot=\"form-control\"><input type=\"text\" name=\"Email\" placeholder=\"ada@cronus.dev\" /></div></div></form>"
+            "<form data-slot=\"form\"><div data-slot=\"form-item\"><label data-slot=\"label\" for=\"cui-form-input\">Email</label><input data-slot=\"input\" id=\"cui-form-input\" name=\"Email\" placeholder=\"ada@cronus.dev\" /></div></form>"
         );
         assert_eq!(html.matches("data-slot=\"form-item\"").count(), 1);
         reject_interact(&html);
@@ -176,9 +185,10 @@ mod tests {
         c.items.push(extra("item", "Email"));
         c.items.push(extra("item", "Name"));
         let html = render(&c);
-        assert!(html.contains("data-slot=\"form-label\">Email</label>"));
-        assert!(html.contains("data-slot=\"form-label\">Name</label>"));
-        assert!(!html.contains("data-slot=\"form-label\">Contact</label>"));
+        assert!(html.contains("<label data-slot=\"label\" for=\"cui-form-input\">Email</label>"));
+        assert!(html.contains("<label data-slot=\"label\" for=\"cui-form-input-2\">Name</label>"));
+        assert!(html.contains("<input data-slot=\"input\" id=\"cui-form-input-2\" name=\"Name\" />"));
+        assert!(!html.contains(">Contact</label>"));
         assert_eq!(html.matches("data-slot=\"form-item\"").count(), 2);
         reject_interact(&html);
     }
@@ -189,7 +199,7 @@ mod tests {
         c.items
             .push(extra("description", "We'll never share this."));
         let html = render(&c);
-        assert!(html.contains("data-slot=\"form-label\">Email</label>"));
+        assert!(html.contains("for=\"cui-form-input\">Email</label>"));
         assert!(html.contains("data-slot=\"form-description\">We'll never share this.</p>"));
         reject_interact(&html);
     }
@@ -208,8 +218,8 @@ mod tests {
         assert!(!interact.contains("data-slot=\"form-label\""));
         assert!(!interact.contains("data-slot=\"form-control\""));
         assert!(html.contains("data-slot=\"form-item\""));
-        assert!(html.contains("data-slot=\"form-label\""));
-        assert!(html.contains("data-slot=\"form-control\""));
+        assert!(html.contains("<label data-slot=\"label\""));
+        assert!(html.contains("<input data-slot=\"input\""));
         assert!(!html.contains(">Submit</button>"));
         reject_interact(&html);
     }
@@ -227,13 +237,17 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"form\"]"));
-        assert!(css.contains("[data-slot=\"form-item\"]"));
-        assert!(css.contains("[data-slot=\"form-label\"]"));
-        assert!(css.contains("[data-slot=\"form-control\"]"));
+        assert!(css.contains("[data-slot=\"form\"] {\n  display: block; line-height: 1.5;\n}"));
+        assert!(css.contains(
+            "[data-slot=\"form-item\"] {\n  display: flex; flex-direction: column; gap: 0.375rem;\n}"
+        ));
+        assert!(css.contains("[data-slot=\"form-item\"] > [data-slot=\"input\"] {\n  line-height: 1.25rem;\n}"));
+        assert!(css.contains(
+            "[data-slot=\"form-item\"] > [data-slot=\"input\"]::placeholder {\n  color: var(--cronus-fg-tertiary);\n}"
+        ));
+        assert!(!css.contains("[data-slot=\"form-label\"] {"));
+        assert!(!css.contains("[data-slot=\"form-control\"] {"));
         assert!(css.contains("[data-slot=\"form-description\"]"));
-        assert!(css.contains("flex-direction: column"));
-        assert!(css.contains("gap: 0.375rem"));
         assert!(css.contains("font-size: 0.75rem"));
         assert!(css.contains("var(--cronus-fg-secondary)"));
         assert!(css.contains("var(--cronus-surface-inset)"));
