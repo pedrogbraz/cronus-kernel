@@ -78,3 +78,23 @@ label truncates.
 | tree-view-group / item-trigger#1 | 24,56 432×32 (pad-left 24) | same |
 
 Result: 0 mismatches.
+### bouncy-accordion
+Wave 1t geometry parity. DOM = React idle: `div[data-slot=bouncy-accordion]` >
+`<p>Click on items to expand &amp; collapse</p>` (React default hint) > `<ul>` > `<li data-state>` >
+`button[data-slot=bouncy-accordion-trigger][aria-expanded][disabled]` > `<span><span>title</span></span>`
++ `<span>description</span>`. Items = `text` items (fixture label "default" is the fixture id);
+first item open. No content slot.
+CSS: hint `margin 0 0 5rem; max-width 18ch; 0.75rem/1.25; uppercase; fg-tertiary` + `::after` 1px×4rem
+gradient; `li` 45px, overflow hidden, surface-base (hover raised); open `li` height auto,
+`margin-block: 10px`, radius 20px; group-end radii via `:first-child`, `[open] + li`, `:last-child`,
+`:has(+ li[data-state=open])`; trigger flex column, `padding 0 0.5rem`; title row 45px,
+`padding-inline-start 0.75rem`, title `0.875rem/1.25rem`, `-0.025em`, fg 75%; description
+`0.5rem 0.75rem`, `0.875rem/1.25rem`, fg-tertiary.
+
+| slot | React | Cronus |
+|---|---|---|
+| bouncy-accordion | 24,24 300×256, text "CLICK ON ITEMS TO EXPAND & COLLAPSE Type Type Schedule Schedule" | identical |
+| trigger #0 (open) | 24,144 300×81, 16px/24px, transparent, r 0 | identical |
+| trigger #1 (closed, clipped by li) | 24,235 300×81 | identical |
+
+0 mismatches. Divergence: spring and click-to-toggle need JS; triggers are `disabled` (not dimmed).

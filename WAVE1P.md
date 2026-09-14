@@ -40,15 +40,35 @@ Divergences:
 3. **Shadow.** React computes a Tailwind `shadow-none` box-shadow composite made entirely of transparent layers. The kernel emits no box-shadow. Visually identical.
 
 ### dynamic-island
-React idle: `<div data-slot="dynamic-island">` + `dynamic-island-shell` + `role="tablist"` of `button data-slot="dynamic-island-trigger"`.
-Static first view (first text). First trigger `aria-selected="true"`.
-Skips catalog `fx()` SURF title box. No motion/framer.
+React idle: `<div data-slot="dynamic-island">` + `dynamic-island-shell` > `<div>` (flex row, gap 0.75rem) + `role="tablist"` of `button data-slot="dynamic-island-trigger"`.
+Wave 1t: views come from `text` items only (fixture `label "default"` is the fixture id, it leaked as a
+view and a third dot). Static first view, first trigger `aria-selected="true"`. Switching views and the
+spring morph need JS, so the dots are `disabled` (not dimmed). Skips catalog `fx()` SURF title box.
+
+| slot | React | Cronus |
+|---|---|---|
+| dynamic-island | 24,24 60.05×62, text "Idle" | identical (was 84.36 wide, "default") |
+| dynamic-island-shell | 24,24 60.05×42, r 21px, bg rgba(22,22,25) | identical |
+| dynamic-island-trigger ×2 | 44.02,78 / 56.02,78 8×8 | identical |
+
+0 mismatches.
 
 ### image-zoom
-React idle: `<button type="button" data-slot="image-zoom" data-state="idle">` wrapping `image-zoom-content` + optional `image-zoom-indicator`.
-URL/src texts → escaped `<img src alt>`. Else label text in content.
-No JS zoom / onclick. CSS hover scale; `@media (prefers-reduced-motion: reduce) { transform: none }`.
-Skips catalog `fx()` SURF title box.
+React idle: `<button type="button" data-slot="image-zoom" data-state="idle">` wrapping `image-zoom-content` + `image-zoom-indicator` (lucide ZoomIn).
+URL/src texts → escaped `<img src alt>` and name `Zoom image: {alt}`; otherwise label text in content and name
+`Zoom image` (children are content, not alt). Wave 1t CSS: `width: 18rem` (fixture `w-72`), indicator
+`color-mix(in oklab, var(--cronus-surface-overlay) 90%, transparent)` + shadow-sm, svg 1rem.
+Zoom: CSS `:hover`/`:focus-visible` scale(1.5), `@media (prefers-reduced-motion: reduce) { transform: none }`.
+The button stays enabled because this CSS zoom works without JS; pointer-origin tracking and the sticky
+touch/keyboard toggle (`aria-pressed`) need JS and are not emulated. Skips catalog `fx()` SURF title box.
+
+| slot | React | Cronus |
+|---|---|---|
+| image-zoom | 24,24 288×26 | identical (was 432) |
+| image-zoom-content | 25,25 286×24 | identical |
+| image-zoom-indicator | 271,9 32×32, bg rgba(30,30,33,230) | identical |
+
+0 mismatches.
 
 ### leftovers
 `renderer_kind("meteors")` = `Stub("fx")`

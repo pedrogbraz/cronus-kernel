@@ -138,3 +138,16 @@ CSS: list flex row items-center; item `:not(:last-child) { flex: 1 }`; indicator
 | stepper-indicator #0 / #1 | 24,24 32×32 / 365.86,24 32×32 | identical |
 | stepper-title #0 / #1 | 56,33 54.66×14 / 397.86,33 58.14×14 | identical |
 | stepper-item-state | 23,39.5 1×1 | identical |
+### collapsible
+Wave 1t geometry parity. React/Radix open state: root `<div data-state="open">` has no data-slot,
+trigger `<button aria-expanded="true" data-state="open">`, content
+`<div data-state="open" data-slot="collapsible-content">`. Kernel mirrors it (root slot removed);
+body = non-label texts. CSS: `[data-slot="collapsible-content"]` gains `line-height: 1.25rem`
+(`text-sm` pair).
+
+| slot | React | Cronus |
+|---|---|---|
+| collapsible-content | 24,48 432×20, 14px/20px, rgb(159,159,169) | identical |
+
+0 mismatches. Divergence: toggling needs JS; the fixture's `defaultOpen` state is rendered and the
+trigger is `disabled` (not dimmed).

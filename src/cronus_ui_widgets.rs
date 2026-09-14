@@ -967,7 +967,9 @@ mod tests {
                 || html.contains(&format!("data-slot=\"{family}-content\""))
                 || html.contains(&format!("data-slot=\"{family}-trigger\""))
                 || html.contains(&format!("data-slot=\"{family}-panel-group\""))
-                || html.contains("data-slot=\"button\"");
+                || html.contains("data-slot=\"button\"")
+                // wave1t: React <Toaster /> roots at data-slot="toaster" (no sonner slot).
+                || (*family == "sonner" && html.contains("data-slot=\"toaster\""));
             assert!(slot_ok, "{family} missing data-slot: {html}");
             assert!(!html.contains("zinc-"), "{family} used zinc palette");
             assert!(!html.contains("amber-500"), "{family} used amber palette");

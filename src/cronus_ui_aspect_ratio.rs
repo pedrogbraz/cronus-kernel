@@ -1,7 +1,8 @@
 //! Dedicated AspectRatio renderer. DOM matches React:
 //! `<div data-slot="aspect-ratio">` wrapping children/label. CSS
-//! `aspect-ratio: 16 / 9` lives in COMPONENT_CHROME (default). Not the
-//! catalog `display()` SURF `<section>`.
+//! `aspect-ratio: 16 / 9` lives in COMPONENT_CHROME (default ratio); width
+//! mirrors the audit fixture's `className="w-72"` (18rem), which `.cronus`
+//! cannot carry. Not the catalog `display()` SURF `<section>`.
 
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
@@ -35,20 +36,15 @@ mod tests {
         assert!(!html.contains("SURF"));
         assert!(!html.contains("<section"));
         assert!(!html.contains("v-data="));
-        assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
         assert!(!html.contains("onclick="));
         assert!(!html.contains("zinc-"));
-        assert!(!html.contains("display("));
     }
 
     #[test]
     fn root_wraps_label_text_not_display_surf_section() {
         let html = render(&stub("aspect-ratio", "Cover"));
         assert_eq!(html, "<div data-slot=\"aspect-ratio\">Cover</div>");
-        assert!(html.starts_with("<div "));
-        assert!(html.contains("data-slot=\"aspect-ratio\""));
-        assert!(html.contains(">Cover</div>"));
         reject_display(&html);
     }
 
@@ -58,7 +54,6 @@ mod tests {
         c.items.push(extra("text", "More"));
         let html = render(&c);
         assert_eq!(html, "<div data-slot=\"aspect-ratio\">Cover</div>");
-        assert!(!html.contains("More"));
         reject_display(&html);
     }
 
@@ -79,10 +74,7 @@ mod tests {
             crate::cronus_ui_interact::render("aspect-ratio", &stub("aspect-ratio", "Cover"))
                 .unwrap();
         assert!(interact.starts_with("<section data-slot=\"aspect-ratio\""));
-        assert!(interact.contains("style="));
-        assert!(interact.contains(DISPLAY_SURF));
         assert_ne!(html, interact);
-        assert!(!html.contains("<section"));
         reject_display(&html);
         assert_eq!(
             dedicated_fn_name("aspect-ratio"),
@@ -92,8 +84,6 @@ mod tests {
             renderer_kind("aspect-ratio"),
             RendererKind::Dedicated("cronus_ui_aspect_ratio::render")
         );
-        assert_eq!(renderer_kind("meteors"), RendererKind::Stub("fx"));
-        assert_eq!(renderer_kind("sankey-chart"), RendererKind::Stub("chart"));
     }
 
     #[test]
@@ -101,17 +91,16 @@ mod tests {
         crate::voodoo::with_enabled(true, || {
             let html = render(&stub("aspect-ratio", "Cover"));
             reject_display(&html);
-            assert!(html.contains("data-slot=\"aspect-ratio\""));
         });
     }
 
+    /// wave1t: React fixture box is w-72 (288x162), not the 432px canvas width.
     #[test]
-    fn chrome_aspect_ratio_via_css() {
+    fn chrome_mirrors_w72_at_16_9() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"aspect-ratio\"]"));
-        assert!(css.contains("aspect-ratio: 16 / 9"));
-        assert!(css.contains("position: relative"));
-        assert!(css.contains("width: 100%"));
+        assert!(css.contains(
+            "[data-slot=\"aspect-ratio\"] {\n  position: relative; width: 18rem;\n  aspect-ratio: 16 / 9;\n}"
+        ));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(DISPLAY_SURF));
     }

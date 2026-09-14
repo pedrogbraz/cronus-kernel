@@ -69,3 +69,18 @@ Result: 0 mismatches **only with the proposed fixture source** (`text` Name, Rol
 Linus, Editor). With today's emitted source (`label "Members"`, `text "Ada"`, `text "Linus"`)
 25 mismatches remain, all text/row-count: `data-table-fixture.tsx` ignores fixture props and
 hardcodes Name/Role · Ada/Admin · Linus/Editor, which the kernel cannot (and must not) invent.
+### sonner
+Wave 1t geometry parity. React `<Toaster />` idle = `<div data-slot="toaster">` around Sonner's empty
+live region `<section aria-label="Notifications alt+T" tabindex="-1" aria-live="polite"
+aria-relevant="additions text" aria-atomic="false">`. No `sonner` slot and no toast until `toast()`.
+Kernel: same empty toaster + section (label = `aria-label` prop/config, else label). CSS:
+`[data-slot="toaster"] { display: block; }`. The fixed `[data-slot="sonner"]` rule and the sample
+toast were removed.
+
+| slot | React | Cronus |
+|---|---|---|
+| toaster | 24,24 432×0, text "" | identical |
+
+0 mismatches. Divergences: queued toasts need `toast()` + timers (JS), so none are faked; the
+region name has no Sonner hotkey suffix (" alt+T" needs a key listener).
+`cronus_ui_widgets` slot test accepts `toaster` for `sonner`.

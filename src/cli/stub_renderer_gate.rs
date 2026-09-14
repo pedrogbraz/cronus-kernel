@@ -367,7 +367,7 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"scroll-area\"") && html.contains("<section"))
         || (html.contains("data-slot=\"scroll-area\"") && html.contains("max-height:12rem;overflow:auto"))
         || (html.contains("data-slot=\"scroll-area\"")
-            && !html.contains("data-slot=\"scroll-area-viewport\"")
+            && !html.contains("tabindex=\"0\"")
             && !html.contains("data-slot=\"sidebar-content\""))
         || (html.contains("data-slot=\"toolbar\"") && html.contains("<nav"))
         || (html.contains("data-slot=\"toolbar\"")

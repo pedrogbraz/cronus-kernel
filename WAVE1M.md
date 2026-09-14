@@ -20,3 +20,18 @@ Screenshot pixel diff: 0. Divergence: React renders an `sr-only` copy of the tex
 an `aria-hidden` span tree (one inline-block span per word, 40ms stagger). Cronus
 animates the whole paragraph at once and has no inner spans, since per-word timing
 would need a span per word plus inline delays.
+
+### toast
+Wave 1t geometry parity. React `ToastFixture`: `<div data-slot="toast" role="status">` block box,
+`rounded-lg border bg-surface-floating px-4 py-3 text-sm text-fg shadow-lg`. Kernel DOM unchanged
+(`aria-live="polite"` extra). CSS: one `[data-slot="toast"]` rule — `display: block`, padding
+`0.75rem 1rem`, `font-size: 0.875rem; line-height: 1.25rem`, radius-lg, 1px border, surface-floating,
+shadow-lg. Removed from the f5f80d5 chrome: `inline-flex`, `min-width: 14rem; max-width: 22rem`,
+`font-weight: 500`, pop-in animation and the `::before` dot (none exist in React). The duplicate
+toast rule that lived next to sonner is gone.
+
+| slot | React | Cronus |
+|---|---|---|
+| toast | 24,24 432×46, 14px/20px 400, bg rgba(22,22,25), r 14px, border 1px | identical |
+
+0 mismatches (geometry spec rules). Screenshots visually identical.
