@@ -108,54 +108,67 @@ fn collect_page_strings(page: &PageNode) -> HashSet<String> {
 }
 
 /// Extract visible text from rendered HTML
+///
+/// Inside a tag, quoted attribute values are skipped whole, so a `>` in
+/// `onblur="()=>…"` or a `url('data:…<svg>…')` does not end the tag and leak
+/// markup as text. `<script>`/`<style>` bodies are skipped up to their
+/// closing tag.
 fn extract_visible_text(html: &str) -> Vec<String> {
-    let mut texts = Vec::new();
-    let mut in_tag = false;
-    let mut in_script = false;
-    let mut in_style = false;
-    let mut current = String::new();
-
-    let chars: Vec<char> = html.chars().collect();
-    let len = chars.len();
-    let mut i = 0;
-
-    while i < len {
-        let ch = chars[i];
-
-        if ch == '<' {
-            // Flush current text
-            let trimmed = current.trim().to_string();
-            if !trimmed.is_empty() && !in_script && !in_style {
-                texts.push(trimmed);
-            }
-            current.clear();
-
-            // Check for script/style open/close
-            let rest: String = chars[i..std::cmp::min(i + 20, len)].iter().collect();
-            let rest_lower = rest.to_lowercase();
-            if rest_lower.starts_with("<script") {
-                in_script = true;
-            } else if rest_lower.starts_with("</script") {
-                in_script = false;
-            } else if rest_lower.starts_with("<style") {
-                in_style = true;
-            } else if rest_lower.starts_with("</style") {
-                in_style = false;
-            }
-            in_tag = true;
-        } else if ch == '>' {
-            in_tag = false;
-        } else if !in_tag {
-            current.push(ch);
+    fn flush(current: &mut String, texts: &mut Vec<String>) {
+        let trimmed = current.trim();
+        if !trimmed.is_empty() {
+            texts.push(trimmed.to_string());
         }
-
-        i += 1;
+        current.clear();
     }
 
-    // Flush remaining
-    let trimmed = current.trim().to_string();
-    if !trimmed.is_empty() && !in_script && !in_style {
-        texts.push(trimmed);
+    // ASCII lowercasing keeps byte offsets aligned with `html`.
+    let lower = html.to_ascii_lowercase();
+    let mut texts = Vec::new();
+    let mut current = String::new();
+    let mut in_tag = false;
+    let mut quote: Option<char> = None;
+    // Raw-text element opened by the current tag, and the one we are inside.
+    let mut pending_raw: Option<&str> = None;
+    let mut raw_until: Option<&str> = None;
+
+    for (i, ch) in html.char_indices() {
+        if let Some(close) = raw_until {
+            if lower[i..].starts_with(close) {
+                raw_until = None;
+                in_tag = true;
+            }
+            continue;
+        }
+        if in_tag {
+            match quote {
+                Some(q) if ch == q => quote = None,
+                Some(_) => {}
+                None if ch == '"' || ch == '\'' => quote = Some(ch),
+                None if ch == '>' => {
+                    in_tag = false;
+                    raw_until = pending_raw.take();
+                }
+                None => {}
+            }
+            continue;
+        }
+        if ch == '<' {
+            flush(&mut current, &mut texts);
+            in_tag = true;
+            let rest = &lower[i..];
+            if rest.starts_with("<script") {
+                pending_raw = Some("</script");
+            } else if rest.starts_with("<style") {
+                pending_raw = Some("</style");
+            }
+        } else {
+            current.push(ch);
+        }
+    }
+
+    if raw_until.is_none() && !in_tag {
+        flush(&mut current, &mut texts);
     }
 
     texts
@@ -343,4 +356,15 @@ pub fn lint_all_pages(
     crate::STRICT_MODE.store(was_strict, std::sync::atomic::Ordering::Relaxed);
 
     all_findings
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn visible_text_ignores_gt_inside_quoted_attributes() {
+        let html = r#"<input onblur="setTimeout(()=>{x()},200)" style="background:url('a<b>c') no-repeat"><span title='1>0'>Hello</span>"#;
+        assert_eq!(extract_visible_text(html), vec!["Hello".to_string()]);
+    }
 }

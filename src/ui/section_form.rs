@@ -172,7 +172,7 @@ pub(super) fn render_form_section(
                         ));
                     }
                     fields_html.push_str(&format!(
-                        r#"<div><label style="{label_style}">{label}</label><select name="{name}" {required} {disabled} style="{input_style};appearance:none;background:#fff url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 12 12%22><path d=%22M2 4l4 4 4-4%22 fill=%22none%22 stroke=%22%2371717a%22 stroke-width=%221.5%22/></svg>') no-repeat right 12px center">{options}</select></div>"#,
+                        r#"<div><label style="{label_style}">{label}</label><select name="{name}" {required} {disabled} style="{input_style}">{options}</select></div>"#,
                         label_style = label_style, label = item_title, name = name_lower,
                         required = required, disabled = disabled, input_style = input_style, options = opts_html,
                     ));
@@ -446,6 +446,50 @@ mod tests {
             template: None,
             style_block: None,
             doc: None,
+        }
+    }
+
+    /// Naive tag stripper: everything outside `<...>` counts as text. A `>`
+    /// inside an attribute value ends the "tag" early, which is exactly how
+    /// markup leaks into text extractors such as the hardcode lint.
+    fn naive_visible_text(html: &str) -> String {
+        let mut out = String::new();
+        let mut in_tag = false;
+        for ch in html.chars() {
+            match ch {
+                '<' => in_tag = true,
+                '>' => in_tag = false,
+                c if !in_tag => out.push(c),
+                _ => {}
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn select_field_leaks_no_css_into_visible_text() {
+        let mut section = form();
+        section.items = vec![field("Priority", "select", Some("low||medium||high"))];
+        let html = render_form_section(&section, &ResolvedData::Record(None));
+        let text = naive_visible_text(&html);
+        for needle in ["no-repeat", "center\"", "url(", "svg", "stroke", ";"] {
+            assert!(
+                !text.contains(needle),
+                "leaked {needle:?} into text: {text}"
+            );
+        }
+        let open = html.find("<select").expect("select rendered");
+        let close = html[open..].find("</select>").expect("select closed") + open;
+        let select = &html[open..close];
+        assert!(
+            !select.contains("<svg"),
+            "no markup inside select: {select}"
+        );
+        for opt in ["low", "medium", "high"] {
+            assert!(
+                select.contains(&format!(r#"<option value="{opt}">{opt}</option>"#)),
+                "option {opt} missing: {select}"
+            );
         }
     }
 

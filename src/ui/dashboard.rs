@@ -456,7 +456,7 @@ pub(super) fn build_dashboard_page_header(section: Option<&SectionNode>) -> Stri
         Some(s) => s,
         None => return String::new(),
     };
-    let title = sec.title.as_deref().unwrap_or("Page Title");
+    let title = sec.title.as_deref().unwrap_or("");
     let subtitle = sec.subtitle.as_deref().unwrap_or("");
     let badge = sec.config.get("badge").map(|s| s.as_str()).unwrap_or("");
 
@@ -484,11 +484,18 @@ pub(super) fn build_dashboard_page_header(section: Option<&SectionNode>) -> Stri
     format!(
         r#"<div style="margin-bottom:48px">
       <div class="anim-fade d1">{badge}</div>
-      <h2 class="anim-slide-up d1" style="font-size:36px;font-weight:800;letter-spacing:-0.04em;color:#1a1c1c;margin:0 0 8px">{title}</h2>
+      {title}
       <div class="anim-slide-up d2">{subtitle}</div>
     </div>"#,
         badge = badge_html,
-        title = title,
+        // No declared title, no heading (never a "Page Title" placeholder).
+        title = if title.is_empty() {
+            String::new()
+        } else {
+            format!(
+                r#"<h2 class="anim-slide-up d1" style="font-size:36px;font-weight:800;letter-spacing:-0.04em;color:#1a1c1c;margin:0 0 8px">{title}</h2>"#
+            )
+        },
         subtitle = subtitle_html,
     )
 }
@@ -5014,4 +5021,35 @@ pub fn render_order_detail_dashboard(
         runtime = crate::render::CRONUS_RUNTIME_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn header(title: Option<&str>) -> SectionNode {
+        SectionNode {
+            section_type: "page-header".into(),
+            title: title.map(str::to_string),
+            subtitle: None,
+            config: std::collections::HashMap::new(),
+            items: vec![],
+            plans: vec![],
+            binding: None,
+            actions: vec![],
+            visibility: None,
+            template: None,
+            style_block: None,
+            doc: None,
+        }
+    }
+
+    #[test]
+    fn dashboard_page_header_without_title_renders_no_placeholder_heading() {
+        let html = build_dashboard_page_header(Some(&header(None)));
+        assert!(!html.contains("Page Title"), "{html}");
+        assert!(!html.contains("<h2"), "{html}");
+        let html = build_dashboard_page_header(Some(&header(Some("Invoices"))));
+        assert!(html.contains(">Invoices</h2>"), "{html}");
+    }
 }

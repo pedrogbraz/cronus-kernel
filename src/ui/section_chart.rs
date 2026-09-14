@@ -64,7 +64,7 @@ pub(super) fn render_chart_section(
             .config
             .get("periods")
             .map(|s| s.as_str())
-            .unwrap_or("7 Days,30 Days");
+            .unwrap_or(""); // no invented period tabs
         let period_items: Vec<&str> = periods_raw
             .split(',')
             .map(|s| s.trim())
@@ -88,7 +88,7 @@ pub(super) fn render_chart_section(
             .config
             .get("y_axis")
             .map(|s| s.as_str())
-            .unwrap_or("1.5M,1.0M,0.5M,0.0");
+            .unwrap_or(""); // no invented axis values
         let y_labels: Vec<&str> = y_axis_raw
             .split(',')
             .map(|s| s.trim())
@@ -107,7 +107,7 @@ pub(super) fn render_chart_section(
             .config
             .get("x_axis")
             .map(|s| s.as_str())
-            .unwrap_or("Oct 01,Oct 08,Oct 15,Oct 22,Oct 29");
+            .unwrap_or(""); // no invented dates
         let x_items: Vec<&str> = x_axis_raw
             .split(',')
             .map(|s| s.trim())
@@ -446,6 +446,22 @@ mod tests {
             style_block: None,
             doc: None,
         }
+    }
+
+    #[test]
+    fn placeholder_chart_invents_no_axis_or_period_labels() {
+        for kind in ["bar", "area"] {
+            let html = render_chart_section(&chart(kind), &ResolvedData::Rows(vec![]));
+            for fake in ["7 Days", "30 Days", "1.5M", "0.5M", "Oct 01", "Oct 29"] {
+                assert!(!html.contains(fake), "{kind}: invented {fake:?}: {html}");
+            }
+        }
+        let mut declared = chart("bar");
+        declared.config.insert("x_axis".into(), "Jan,Feb".into());
+        declared.config.insert("periods".into(), "Week".into());
+        let html = render_chart_section(&declared, &ResolvedData::Rows(vec![]));
+        assert!(html.contains("<span>Jan</span><span>Feb</span>"), "{html}");
+        assert!(html.contains(">Week</button>"), "{html}");
     }
 
     #[test]
