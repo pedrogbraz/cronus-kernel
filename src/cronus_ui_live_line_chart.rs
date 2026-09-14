@@ -6,8 +6,8 @@
 //! zero-JS kernel renders the initial series only (values cycle 4, 8, 6).
 
 use crate::cronus_ui_chart::{
-    container, item_labels, line_path, max_of, nice_domain, point_xs, value_grid,
-    x_tick_labels, DEMO_VALUES,
+    container, item_labels, line_path, max_of, nice_domain, point_xs, value_grid, x_tick_labels,
+    DEMO_VALUES,
 };
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
@@ -59,7 +59,9 @@ mod tests {
     fn fixture_renders_first_paint_series_and_ticks() {
         let html = render(&fixture());
         assert!(html.starts_with("<div data-slot=\"live-line-chart\" role=\"img\" aria-label=\"Live\"><div data-slot=\"chart\"><svg viewBox=\"0 0 432 256\" aria-hidden=\"true\">"));
-        assert!(html.contains("d=\"M8,117C77.3333,62.5,146.6667,8,216,8C285.3333,8,354.6667,35.25,424,62.5\""));
+        assert!(html.contains(
+            "d=\"M8,117C77.3333,62.5,146.6667,8,216,8C285.3333,8,354.6667,35.25,424,62.5\""
+        ));
         assert!(html.contains("<tspan x=\"8\" dy=\"0.71em\">0</tspan>"));
         assert!(html.contains("<tspan x=\"216\" dy=\"0.71em\">1</tspan>"));
         assert!(html.contains("<tspan x=\"424\" dy=\"0.71em\">2</tspan>"));
@@ -70,6 +72,8 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"live-line-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"));
+        assert!(css.contains(
+            "[data-slot=\"live-line-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"
+        ));
     }
 }

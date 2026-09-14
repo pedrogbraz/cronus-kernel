@@ -177,7 +177,10 @@ mod tests {
     fn first_panel_code_and_language_from_item_config() {
         let mut c = stub("code-tabs", "Install");
         c.items = vec![
-            with_config("bun", &[("code", "bunx cronus-ui add code-tabs"), ("language", "sh")]),
+            with_config(
+                "bun",
+                &[("code", "bunx cronus-ui add code-tabs"), ("language", "sh")],
+            ),
             extra("item", "npm"),
         ];
         let html = render(&c);
@@ -238,7 +241,9 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"code-tabs-trigger\"] {\n  display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem;\n  white-space: nowrap; padding: 0.625rem 0.875rem; border: 0; border-radius: 0;\n  background: transparent; color: var(--cronus-fg-tertiary);\n  font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; cursor: default;\n}"));
         assert!(css.contains("[data-slot=\"code-tabs-trigger\"][data-state=\"active\"] { color: var(--cronus-fg); anchor-name: --code-tabs-active; }"));
-        assert!(css.contains("left: anchor(--code-tabs-active left); width: anchor-size(--code-tabs-active width);"));
+        assert!(css.contains(
+            "left: anchor(--code-tabs-active left); width: anchor-size(--code-tabs-active width);"
+        ));
         assert!(css.contains("[data-slot=\"code-tabs-panels\"] > [data-slot=\"copy-button\"] {\n  position: absolute; top: 0.5rem; right: 0.5rem; z-index: 10;\n  width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: var(--cronus-radius-lg);"));
         assert!(css.contains("opacity: 1; cursor: default;"));
         assert!(!css.contains("zinc-"));

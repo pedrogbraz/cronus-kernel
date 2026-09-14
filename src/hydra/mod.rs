@@ -4,24 +4,21 @@
 //! promotes validated ones to canonical blocks, and maintains
 //! the block registry with lineage tracking.
 
-pub mod registry;
-pub mod extract;
 pub mod compose;
+pub mod extract;
 pub mod microservices;
+pub mod registry;
 
-use registry::{BlockRegistry, CanonicalBlock, BlockTier, BlockStatus};
 use crate::scripting::ast::ScriptFile;
-use crate::trust::{self, TrustProfile, EvidencePack, TrustGates, Lineage, BlockOrigin};
+use crate::trust::{self, BlockOrigin, EvidencePack, Lineage, TrustGates, TrustProfile};
+use registry::{BlockRegistry, BlockStatus, BlockTier, CanonicalBlock};
 
 /// Run the full evolution cycle:
 /// 1. Collect metrics from running scripts
 /// 2. Score each script block
 /// 3. Promote blocks that pass threshold
 /// 4. Update registry
-pub fn evolve(
-    registry: &mut BlockRegistry,
-    scripts: &[ScriptFile],
-) -> EvolutionReport {
+pub fn evolve(registry: &mut BlockRegistry, scripts: &[ScriptFile]) -> EvolutionReport {
     let mut report = EvolutionReport::new();
 
     let all_metrics = trust::all_metrics();
@@ -61,7 +58,11 @@ pub fn evolve(
                     version: "1.0.0".into(),
                     hash: hash_content(&promoted_text),
                     tier: BlockTier::Composed,
-                    status: if trust.official() { BlockStatus::Official } else { BlockStatus::Production },
+                    status: if trust.official() {
+                        BlockStatus::Official
+                    } else {
+                        BlockStatus::Production
+                    },
                     intent: format!("Auto-promoted from script: {}", metrics.block_id),
                     cronus_text: promoted_text,
                     trust,
@@ -113,7 +114,10 @@ impl EvolutionReport {
 
 fn generate_block_id() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
-    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos();
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
     format!("blk_{:016x}", nanos & 0xFFFF_FFFF_FFFF_FFFF)
 }
 
@@ -126,7 +130,8 @@ fn hash_content(content: &str) -> String {
 }
 
 fn extract_tags(block_id: &str) -> Vec<String> {
-    block_id.split('.')
+    block_id
+        .split('.')
         .map(|s| s.to_lowercase())
         .filter(|s| !s.is_empty() && s.len() > 2)
         .collect()

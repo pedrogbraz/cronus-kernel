@@ -1,8 +1,8 @@
-use std::fs;
-use crate::parser::AstNode;
-use crate::{parser, find_all_cronus_files};
 use crate::hydra::compose::{self, ComposeOptions, EntityRemap, FieldDef};
 use crate::hydra::microservices;
+use crate::parser::AstNode;
+use crate::{find_all_cronus_files, parser};
+use std::fs;
 
 pub fn cmd_compose(args: &[String]) {
     // Mode 1: cronus compose --from <template>
@@ -44,7 +44,9 @@ fn compose_from_template(template_name: &str, args: &[String]) {
             }
 
             // Override app name
-            let app_name = args.iter().position(|a| a == "--name")
+            let app_name = args
+                .iter()
+                .position(|a| a == "--name")
                 .and_then(|p| args.get(p + 1))
                 .map(|s| s.as_str())
                 .unwrap_or(template_name);
@@ -64,7 +66,10 @@ fn compose_from_template(template_name: &str, args: &[String]) {
             let route_count = entities.len() * 5; // CRUD per entity
 
             println!();
-            println!("  \x1b[32m✓\x1b[0m Composed \x1b[1m{}\x1b[0m from template \x1b[36m{}\x1b[0m", filename, template_name);
+            println!(
+                "  \x1b[32m✓\x1b[0m Composed \x1b[1m{}\x1b[0m from template \x1b[36m{}\x1b[0m",
+                filename, template_name
+            );
             println!();
             println!("    Entities:  {}", entity_count);
             println!("    Pages:     {}", page_count);
@@ -86,9 +91,11 @@ fn compose_from_template(template_name: &str, args: &[String]) {
                     });
 
                     // Write gateway .cronus
-                    fs::write("services/gateway.cronus", &gateway.cronus_source).unwrap_or_else(|e| {
-                        eprintln!("  \x1b[31m✗\x1b[0m Failed to write gateway.cronus: {}", e);
-                    });
+                    fs::write("services/gateway.cronus", &gateway.cronus_source).unwrap_or_else(
+                        |e| {
+                            eprintln!("  \x1b[31m✗\x1b[0m Failed to write gateway.cronus: {}", e);
+                        },
+                    );
 
                     // Write per-service .cronus files
                     for svc in &splits {
@@ -101,7 +108,10 @@ fn compose_from_template(template_name: &str, args: &[String]) {
                     // Write docker-compose.yml
                     let compose_yml = microservices::generate_docker_compose(&gateway, &splits);
                     fs::write("docker-compose.yml", &compose_yml).unwrap_or_else(|e| {
-                        eprintln!("  \x1b[31m✗\x1b[0m Failed to write docker-compose.yml: {}", e);
+                        eprintln!(
+                            "  \x1b[31m✗\x1b[0m Failed to write docker-compose.yml: {}",
+                            e
+                        );
                     });
 
                     // Write Dockerfile
@@ -149,7 +159,9 @@ fn compose_from_entity(args: &[String], entity_pos: usize) {
         Some(name) => name.clone(),
         None => {
             eprintln!("  \x1b[31m✗\x1b[0m --entity requires a name");
-            eprintln!("  Example: cronus compose --entity Product name:text price:money status:text");
+            eprintln!(
+                "  Example: cronus compose --entity Product name:text price:money status:text"
+            );
             std::process::exit(1);
         }
     };
@@ -157,12 +169,16 @@ fn compose_from_entity(args: &[String], entity_pos: usize) {
     // Parse fields from remaining args: name:type name:type!required
     let mut fields = Vec::new();
     for arg in &args[entity_pos + 2..] {
-        if arg.starts_with("--") { break; }
+        if arg.starts_with("--") {
+            break;
+        }
         let (name, rest) = arg.split_once(':').unwrap_or((arg, "text"));
         let required = rest.ends_with('!');
         let field_type = rest.trim_end_matches('!');
         let mut fd = FieldDef::new(name, field_type);
-        if required { fd = fd.req(); }
+        if required {
+            fd = fd.req();
+        }
         fields.push(fd);
     }
 
@@ -170,7 +186,9 @@ fn compose_from_entity(args: &[String], entity_pos: usize) {
         fields = vec![FieldDef::new("name", "text").req()];
     }
 
-    let app_name = args.iter().position(|a| a == "--name")
+    let app_name = args
+        .iter()
+        .position(|a| a == "--name")
         .and_then(|p| args.get(p + 1))
         .map(|s| s.as_str())
         .unwrap_or(&entity_name);
@@ -186,7 +204,10 @@ fn compose_from_entity(args: &[String], entity_pos: usize) {
     });
 
     println!();
-    println!("  \x1b[32m✓\x1b[0m Composed \x1b[1m{}\x1b[0m with entity \x1b[36m{}\x1b[0m", filename, entity_name);
+    println!(
+        "  \x1b[32m✓\x1b[0m Composed \x1b[1m{}\x1b[0m with entity \x1b[36m{}\x1b[0m",
+        filename, entity_name
+    );
     println!("  \x1b[90mRun:\x1b[0m  cronus run . {}", opts.port);
     println!();
 }
@@ -201,10 +222,15 @@ fn compose_directory() {
         println!("  Only 1 file ({}). Compose requires 2+ files.", files[0]);
         return;
     }
-    println!("  \x1b[36m⚡ CRONUS\x1b[0m Composing {} files:\n", files.len());
+    println!(
+        "  \x1b[36m⚡ CRONUS\x1b[0m Composing {} files:\n",
+        files.len()
+    );
     let mut total_lines = 0;
     for f in &files {
-        let lines = fs::read_to_string(f).map(|s| s.lines().count()).unwrap_or(0);
+        let lines = fs::read_to_string(f)
+            .map(|s| s.lines().count())
+            .unwrap_or(0);
         total_lines += lines;
         println!("    + {} ({} lines)", f, lines);
     }
@@ -215,15 +241,26 @@ fn compose_directory() {
             println!("    Entities: {}", entities);
             println!("    Pages:    {}", pages);
             println!("    Routes:   {}", routes);
-            println!("    Total:    {} nodes from {} lines\n", nodes.len(), total_lines);
+            println!(
+                "    Total:    {} nodes from {} lines\n",
+                nodes.len(),
+                total_lines
+            );
             for node in &nodes {
-                if let AstNode::Entity(e) = node { println!("    entity {} ({} fields)", e.name, e.fields.len()); }
+                if let AstNode::Entity(e) = node {
+                    println!("    entity {} ({} fields)", e.name, e.fields.len());
+                }
             }
             for node in &nodes {
-                if let AstNode::Page(p) = node { println!("    page {} ({})", p.route, p.page_type); }
+                if let AstNode::Page(p) = node {
+                    println!("    page {} ({})", p.route, p.page_type);
+                }
             }
             println!();
         }
-        Err(e) => { eprintln!("  \x1b[31m✗\x1b[0m {}", e); std::process::exit(1); }
+        Err(e) => {
+            eprintln!("  \x1b[31m✗\x1b[0m {}", e);
+            std::process::exit(1);
+        }
     }
 }

@@ -14,7 +14,11 @@ pub fn render(comp: &ComponentNode) -> String {
     let ts = texts(comp);
     let trigger = ts.first().cloned().unwrap_or_else(|| label_of(comp));
     let body = ts.iter().skip(1).cloned().collect::<Vec<_>>().join("");
-    let body = if body.is_empty() { trigger.clone() } else { body };
+    let body = if body.is_empty() {
+        trigger.clone()
+    } else {
+        body
+    };
     let aria = aria_label_of(comp).unwrap_or_else(|| "Details".into());
     let trigger_id = widget_id(comp, "trigger");
     let pop_id = widget_id(comp, "pop");

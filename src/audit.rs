@@ -6,8 +6,8 @@
 
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value, Map};
-use sha2::{Sha256, Digest};
+use serde_json::{json, Map, Value};
+use sha2::{Digest, Sha256};
 use std::sync::Mutex;
 
 /// A single field-level change between two JSON objects.
@@ -108,8 +108,9 @@ impl AuditTrail {
             BEFORE UPDATE ON _audit_log
             BEGIN
                 SELECT RAISE(ABORT, 'Audit log entries cannot be modified');
-            END;"
-        ).map_err(|e| e.to_string())?;
+            END;",
+        )
+        .map_err(|e| e.to_string())?;
 
         // Add prev_data column if table already existed without it
         let has_prev_data: bool = conn
@@ -119,10 +120,13 @@ impl AuditTrail {
             .unwrap_or(false);
 
         if !has_prev_data {
-            conn.execute_batch("ALTER TABLE _audit_log ADD COLUMN prev_data TEXT;").ok();
+            conn.execute_batch("ALTER TABLE _audit_log ADD COLUMN prev_data TEXT;")
+                .ok();
         }
 
-        Ok(Self { conn: Mutex::new(conn) })
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
     }
 
     /// Compute SHA-256 of the canonical audit string.
@@ -151,7 +155,8 @@ impl AuditTrail {
             "SELECT hash FROM _audit_log ORDER BY id DESC LIMIT 1",
             [],
             |row| row.get::<_, String>(0),
-        ).unwrap_or_default()
+        )
+        .unwrap_or_default()
     }
 
     /// Record an audit entry synchronously. Returns the new entry's hash.
@@ -176,9 +181,7 @@ impl AuditTrail {
 
         let data_str = data.to_string();
         let prev_data_str = prev_data.map(|v| v.to_string());
-        let hash = Self::compute_hash(
-            &timestamp, action, entity, record_id, &data_str, &prev_hash,
-        );
+        let hash = Self::compute_hash(&timestamp, action, entity, record_id, &data_str, &prev_hash);
 
         conn.execute(
             "INSERT INTO _audit_log (timestamp, action, entity, record_id, user_id, data, prev_data, prev_hash, hash)
@@ -195,7 +198,11 @@ impl AuditTrail {
     }
 
     /// Retrieve audit entries with optional entity filter, including computed diffs.
-    pub fn query_filtered(&self, limit: usize, entity_filter: Option<&str>) -> Result<Value, String> {
+    pub fn query_filtered(
+        &self,
+        limit: usize,
+        entity_filter: Option<&str>,
+    ) -> Result<Value, String> {
         let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
 
         let (sql, use_filter) = match entity_filter {
@@ -215,17 +222,15 @@ impl AuditTrail {
 
         let rows: Vec<Value> = if use_filter {
             let entity = entity_filter.unwrap();
-            stmt.query_map(params![entity, limit as i64], |row| {
-                Self::row_to_json(row)
-            }).map_err(|e| e.to_string())?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| e.to_string())?
+            stmt.query_map(params![entity, limit as i64], |row| Self::row_to_json(row))
+                .map_err(|e| e.to_string())?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| e.to_string())?
         } else {
-            stmt.query_map(params![limit as i64], |row| {
-                Self::row_to_json(row)
-            }).map_err(|e| e.to_string())?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| e.to_string())?
+            stmt.query_map(params![limit as i64], |row| Self::row_to_json(row))
+                .map_err(|e| e.to_string())?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| e.to_string())?
         };
 
         Ok(json!(rows))
@@ -237,20 +242,27 @@ impl AuditTrail {
         let prev_data_str: Option<String> = row.get(7)?;
 
         // Parse data and prev_data for diff computation
-        let data_val = data_str.as_ref().and_then(|s| serde_json::from_str::<Value>(s).ok());
-        let prev_data_val = prev_data_str.as_ref().and_then(|s| serde_json::from_str::<Value>(s).ok());
+        let data_val = data_str
+            .as_ref()
+            .and_then(|s| serde_json::from_str::<Value>(s).ok());
+        let prev_data_val = prev_data_str
+            .as_ref()
+            .and_then(|s| serde_json::from_str::<Value>(s).ok());
 
         // Compute diff if both prev_data and data exist
         let diff = match (&prev_data_val, &data_val) {
             (Some(prev), Some(next)) => {
                 let diffs = compute_diff(prev, next);
-                Some(json!(diffs.iter().map(|d| {
-                    json!({
-                        "field": d.field,
-                        "old": d.old_value,
-                        "new": d.new_value,
+                Some(json!(diffs
+                    .iter()
+                    .map(|d| {
+                        json!({
+                            "field": d.field,
+                            "old": d.old_value,
+                            "new": d.new_value,
+                        })
                     })
-                }).collect::<Vec<_>>()))
+                    .collect::<Vec<_>>()))
             }
             _ => None,
         };
@@ -273,12 +285,23 @@ impl AuditTrail {
     /// Verify the entire hash chain. Returns verification result as JSON.
     pub fn verify(&self) -> Result<Value, String> {
         let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
-        let mut stmt = conn.prepare(
-            "SELECT id, timestamp, action, entity, record_id, data, prev_hash, hash
-             FROM _audit_log ORDER BY id ASC"
-        ).map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, timestamp, action, entity, record_id, data, prev_hash, hash
+             FROM _audit_log ORDER BY id ASC",
+            )
+            .map_err(|e| e.to_string())?;
 
-        let rows: Vec<(i64, String, String, String, String, Option<String>, Option<String>, String)> = stmt
+        let rows: Vec<(
+            i64,
+            String,
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            String,
+        )> = stmt
             .query_map([], |row| {
                 Ok((
                     row.get(0)?,
@@ -313,9 +336,8 @@ impl AuditTrail {
             }
 
             // Recompute hash and compare
-            let recomputed = Self::compute_hash(
-                timestamp, action, entity, record_id, data_str, prev,
-            );
+            let recomputed =
+                Self::compute_hash(timestamp, action, entity, record_id, data_str, prev);
 
             if &recomputed != hash {
                 return Ok(json!({
@@ -337,7 +359,12 @@ impl AuditTrail {
     }
 
     /// Format audit entries for CLI display with diffs and hash verification.
-    pub fn debug_display(&self, limit: usize, entity_filter: Option<&str>, verify_hashes: bool) -> Result<String, String> {
+    pub fn debug_display(
+        &self,
+        limit: usize,
+        entity_filter: Option<&str>,
+        verify_hashes: bool,
+    ) -> Result<String, String> {
         let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
 
         let (sql, use_filter) = match entity_filter {
@@ -381,7 +408,8 @@ impl AuditTrail {
                     prev_hash: row.get(8)?,
                     hash: row.get(9)?,
                 })
-            }).map_err(|e| e.to_string())?
+            })
+            .map_err(|e| e.to_string())?
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| e.to_string())?
         } else {
@@ -397,7 +425,8 @@ impl AuditTrail {
                     prev_hash: row.get(8)?,
                     hash: row.get(9)?,
                 })
-            }).map_err(|e| e.to_string())?
+            })
+            .map_err(|e| e.to_string())?
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| e.to_string())?
         };
@@ -411,8 +440,14 @@ impl AuditTrail {
                 row.id, row.action, row.entity, row.record_id, row.timestamp
             ));
 
-            let data_val = row.data.as_ref().and_then(|s| serde_json::from_str::<Value>(s).ok());
-            let prev_val = row.prev_data.as_ref().and_then(|s| serde_json::from_str::<Value>(s).ok());
+            let data_val = row
+                .data
+                .as_ref()
+                .and_then(|s| serde_json::from_str::<Value>(s).ok());
+            let prev_val = row
+                .prev_data
+                .as_ref()
+                .and_then(|s| serde_json::from_str::<Value>(s).ok());
 
             match row.action.as_str() {
                 "UPDATE" => {
@@ -436,10 +471,7 @@ impl AuditTrail {
                     if let Some(data) = &data_val {
                         if let Some(obj) = data.as_object() {
                             for (k, v) in obj {
-                                output.push_str(&format!(
-                                    "    + {}: \"{}\"\n",
-                                    k, format_value(v)
-                                ));
+                                output.push_str(&format!("    + {}: \"{}\"\n", k, format_value(v)));
                             }
                         }
                     }
@@ -448,10 +480,7 @@ impl AuditTrail {
                     if let Some(prev) = &prev_val {
                         if let Some(obj) = prev.as_object() {
                             for (k, v) in obj {
-                                output.push_str(&format!(
-                                    "    - {}: \"{}\"\n",
-                                    k, format_value(v)
-                                ));
+                                output.push_str(&format!("    - {}: \"{}\"\n", k, format_value(v)));
                             }
                         }
                     } else {
@@ -466,7 +495,12 @@ impl AuditTrail {
                 let prev = row.prev_hash.as_deref().unwrap_or("");
                 let data_str = row.data.as_deref().unwrap_or("null");
                 let recomputed = Self::compute_hash(
-                    &row.timestamp, &row.action, &row.entity, &row.record_id, data_str, prev,
+                    &row.timestamp,
+                    &row.action,
+                    &row.entity,
+                    &row.record_id,
+                    data_str,
+                    prev,
                 );
                 if recomputed == row.hash {
                     output.push_str("    \x1b[32m✓ hash valid\x1b[0m\n");
@@ -493,7 +527,12 @@ pub fn verify_from_file(db_path: &str) -> Result<Value, String> {
 }
 
 /// Standalone debug display for CLI use.
-pub fn debug_from_file(db_path: &str, limit: usize, entity: Option<&str>, verify: bool) -> Result<String, String> {
+pub fn debug_from_file(
+    db_path: &str,
+    limit: usize,
+    entity: Option<&str>,
+    verify: bool,
+) -> Result<String, String> {
     let trail = AuditTrail::open(db_path)?;
     trail.debug_display(limit, entity, verify)
 }
@@ -548,13 +587,24 @@ mod tests {
         let trail = AuditTrail::open(":memory:").unwrap();
 
         // INSERT — no prev_data
-        let h1 = trail.log("INSERT", "User", "u1", "sys", &json!({"name": "Alice"}), None).unwrap();
+        let h1 = trail
+            .log(
+                "INSERT",
+                "User",
+                "u1",
+                "sys",
+                &json!({"name": "Alice"}),
+                None,
+            )
+            .unwrap();
         assert!(!h1.is_empty());
 
         // UPDATE — with prev_data
         let prev = json!({"name": "Alice"});
         let next = json!({"name": "Bob"});
-        let h2 = trail.log("UPDATE", "User", "u1", "sys", &next, Some(&prev)).unwrap();
+        let h2 = trail
+            .log("UPDATE", "User", "u1", "sys", &next, Some(&prev))
+            .unwrap();
         assert!(!h2.is_empty());
         assert_ne!(h1, h2);
 
@@ -576,9 +626,36 @@ mod tests {
     #[test]
     fn test_audit_chain_integrity_with_prev_data() {
         let trail = AuditTrail::open(":memory:").unwrap();
-        trail.log("INSERT", "User", "u1", "sys", &json!({"name": "Alice"}), None).unwrap();
-        trail.log("UPDATE", "User", "u1", "sys", &json!({"name": "Bob"}), Some(&json!({"name": "Alice"}))).unwrap();
-        trail.log("DELETE", "User", "u1", "sys", &json!({"id": "u1"}), Some(&json!({"name": "Bob"}))).unwrap();
+        trail
+            .log(
+                "INSERT",
+                "User",
+                "u1",
+                "sys",
+                &json!({"name": "Alice"}),
+                None,
+            )
+            .unwrap();
+        trail
+            .log(
+                "UPDATE",
+                "User",
+                "u1",
+                "sys",
+                &json!({"name": "Bob"}),
+                Some(&json!({"name": "Alice"})),
+            )
+            .unwrap();
+        trail
+            .log(
+                "DELETE",
+                "User",
+                "u1",
+                "sys",
+                &json!({"id": "u1"}),
+                Some(&json!({"name": "Bob"})),
+            )
+            .unwrap();
 
         let result = trail.verify().unwrap();
         assert_eq!(result["valid"], true);
@@ -588,9 +665,15 @@ mod tests {
     #[test]
     fn test_query_filtered_by_entity() {
         let trail = AuditTrail::open(":memory:").unwrap();
-        trail.log("INSERT", "User", "u1", "sys", &json!({"name": "A"}), None).unwrap();
-        trail.log("INSERT", "Order", "o1", "sys", &json!({"total": 100}), None).unwrap();
-        trail.log("INSERT", "User", "u2", "sys", &json!({"name": "B"}), None).unwrap();
+        trail
+            .log("INSERT", "User", "u1", "sys", &json!({"name": "A"}), None)
+            .unwrap();
+        trail
+            .log("INSERT", "Order", "o1", "sys", &json!({"total": 100}), None)
+            .unwrap();
+        trail
+            .log("INSERT", "User", "u2", "sys", &json!({"name": "B"}), None)
+            .unwrap();
 
         let users = trail.query_filtered(10, Some("User")).unwrap();
         assert_eq!(users.as_array().unwrap().len(), 2);
@@ -602,37 +685,84 @@ mod tests {
     #[test]
     fn test_audit_immutable_no_delete() {
         let trail = AuditTrail::open(":memory:").unwrap();
-        trail.log("INSERT", "User", "u1", "sys", &json!({"name": "Alice"}), None).unwrap();
+        trail
+            .log(
+                "INSERT",
+                "User",
+                "u1",
+                "sys",
+                &json!({"name": "Alice"}),
+                None,
+            )
+            .unwrap();
 
         // Attempt to delete should fail due to trigger
         let conn = trail.conn.lock().unwrap_or_else(|e| e.into_inner());
         let result = conn.execute("DELETE FROM _audit_log WHERE id = 1", []);
-        assert!(result.is_err(), "DELETE on _audit_log should be blocked by trigger");
+        assert!(
+            result.is_err(),
+            "DELETE on _audit_log should be blocked by trigger"
+        );
         let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("cannot be deleted"), "Error should mention deletion prohibition: {}", err_msg);
+        assert!(
+            err_msg.contains("cannot be deleted"),
+            "Error should mention deletion prohibition: {}",
+            err_msg
+        );
     }
 
     #[test]
     fn test_audit_immutable_no_update() {
         let trail = AuditTrail::open(":memory:").unwrap();
-        trail.log("INSERT", "User", "u1", "sys", &json!({"name": "Alice"}), None).unwrap();
+        trail
+            .log(
+                "INSERT",
+                "User",
+                "u1",
+                "sys",
+                &json!({"name": "Alice"}),
+                None,
+            )
+            .unwrap();
 
         // Attempt to update should fail due to trigger
         let conn = trail.conn.lock().unwrap_or_else(|e| e.into_inner());
         let result = conn.execute("UPDATE _audit_log SET action = 'FAKE' WHERE id = 1", []);
-        assert!(result.is_err(), "UPDATE on _audit_log should be blocked by trigger");
+        assert!(
+            result.is_err(),
+            "UPDATE on _audit_log should be blocked by trigger"
+        );
         let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("cannot be modified"), "Error should mention modification prohibition: {}", err_msg);
+        assert!(
+            err_msg.contains("cannot be modified"),
+            "Error should mention modification prohibition: {}",
+            err_msg
+        );
     }
 
     #[test]
     fn test_debug_display_format() {
         let trail = AuditTrail::open(":memory:").unwrap();
-        trail.log("INSERT", "Deployment", "dep_001", "sys", &json!({"status": "Rolling"}), None).unwrap();
-        trail.log("UPDATE", "Deployment", "dep_001", "sys",
-            &json!({"status": "Live", "duration": "28s"}),
-            Some(&json!({"status": "Rolling", "duration": "0s"})),
-        ).unwrap();
+        trail
+            .log(
+                "INSERT",
+                "Deployment",
+                "dep_001",
+                "sys",
+                &json!({"status": "Rolling"}),
+                None,
+            )
+            .unwrap();
+        trail
+            .log(
+                "UPDATE",
+                "Deployment",
+                "dep_001",
+                "sys",
+                &json!({"status": "Live", "duration": "28s"}),
+                Some(&json!({"status": "Rolling", "duration": "0s"})),
+            )
+            .unwrap();
 
         let output = trail.debug_display(20, None, true).unwrap();
         assert!(output.contains("UPDATE"));

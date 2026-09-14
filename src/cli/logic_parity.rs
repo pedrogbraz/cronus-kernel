@@ -151,7 +151,10 @@ pub fn compare_html(html: &str, expect: &LogicExpect) -> Vec<AuditFinding> {
             findings.push(AuditFinding::fail(
                 "logic",
                 "CRONUS_AUDIT_LOGIC",
-                format!("aria-invalid {:?} != {inv}", el.value().attr("aria-invalid")),
+                format!(
+                    "aria-invalid {:?} != {inv}",
+                    el.value().attr("aria-invalid")
+                ),
             ));
         }
     }
@@ -186,13 +189,11 @@ mod tests {
             tag: Some("button".into()),
             ..Default::default()
         };
+        expect.attrs.insert("data-slot".into(), "button".into());
+        expect.attrs.insert("data-variant".into(), "primary".into());
         expect
             .attrs
-            .insert("data-slot".into(), "button".into());
-        expect
-            .attrs
-            .insert("data-variant".into(), "primary".into());
-        expect.attrs.insert("data-size".into(), "must-ignore".into());
+            .insert("data-size".into(), "must-ignore".into());
         let findings = compare_html(&html, &expect);
         assert!(findings.is_empty(), "{findings:?}");
         assert!(html.contains("data-size=\"md\""));
@@ -207,16 +208,21 @@ mod tests {
             href: Some("/docs".into()),
             ..Default::default()
         };
-        expect
-            .attrs
-            .insert("data-variant".into(), "link".into());
+        expect.attrs.insert("data-variant".into(), "link".into());
         let findings = compare_html(&html, &expect);
         assert!(findings.is_empty(), "{findings:?}");
     }
 
     #[test]
     fn button_variant_matrix_does_not_require_data_size() {
-        for variant in ["primary", "secondary", "outline", "ghost", "destructive", "link"] {
+        for variant in [
+            "primary",
+            "secondary",
+            "outline",
+            "ghost",
+            "destructive",
+            "link",
+        ] {
             for size in ["sm", "md", "lg", "icon"] {
                 let html = button_ex("Save", variant, size, None, false);
                 let mut expect = LogicExpect {

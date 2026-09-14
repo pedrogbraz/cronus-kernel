@@ -1,6 +1,6 @@
 #![allow(dead_code, unused_imports)]
-use std::collections::HashMap;
 use crate::parser::SectionNode;
+use std::collections::HashMap;
 
 /// Describes a section that has live:true
 pub struct LiveSection {
@@ -30,12 +30,16 @@ pub fn render_live_script(sections: &[LiveSection]) -> String {
     // Build JSON array of live sections
     let mut sections_json = String::from("[");
     for (i, sec) in sections.iter().enumerate() {
-        if i > 0 { sections_json.push(','); }
+        if i > 0 {
+            sections_json.push(',');
+        }
         sections_json.push_str(&format!(
             r#"{{"sectionId":"{}","entity":"{}","interval":{}}}"#,
             escape_js(&sec.section_id),
             escape_js(&sec.entity),
-            sec.interval.map(|v| v.to_string()).unwrap_or_else(|| "null".to_string()),
+            sec.interval
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "null".to_string()),
         ));
     }
     sections_json.push(']');
@@ -224,7 +228,7 @@ pub fn render_live_table_handler(section_id: &str, entity: &str) -> String {
 /// Escape string for safe JS embedding
 fn escape_js(s: &str) -> String {
     s.replace('\\', "\\\\")
-     .replace('\'', "\\'")
-     .replace('"', "\\\"")
-     .replace('\n', "\\n")
+        .replace('\'', "\\'")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
 }

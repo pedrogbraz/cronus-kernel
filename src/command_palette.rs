@@ -1,21 +1,32 @@
-use std::collections::HashMap;
 use crate::parser::SectionNode;
+use std::collections::HashMap;
 
 /// Renders a command palette (Cmd+K overlay) from a "command" section.
 /// Returns a complete HTML string with inline <style> and <script>.
 pub fn render_command_palette(section: &SectionNode) -> String {
     let script_nonce = crate::security::script_nonce_attr();
-    let palette_id = section.config.get("id").map(|s| s.as_str()).unwrap_or("command-palette");
+    let palette_id = section
+        .config
+        .get("id")
+        .map(|s| s.as_str())
+        .unwrap_or("command-palette");
 
     // Build items HTML
     let mut items_html = String::new();
     let mut shortcut_bindings = String::new();
 
     for (i, item) in section.items.iter().enumerate() {
-        let name = item.get("title").or(item.get("name")).map(|s| s.as_str()).unwrap_or("");
+        let name = item
+            .get("title")
+            .or(item.get("name"))
+            .map(|s| s.as_str())
+            .unwrap_or("");
         let shortcut = item.get("shortcut").map(|s| s.as_str()).unwrap_or("");
         let link = item.get("link").map(|s| s.as_str()).unwrap_or("#");
-        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("arrow_forward");
+        let icon = item
+            .get("icon")
+            .map(|s| s.as_str())
+            .unwrap_or("arrow_forward");
 
         if name.is_empty() {
             continue;
@@ -46,9 +57,19 @@ pub fn render_command_palette(section: &SectionNode) -> String {
         // Register keyboard shortcut bindings
         if !shortcut.is_empty() {
             // Parse shortcut: "⌘B" -> metaKey + 'b', "⌘N" -> metaKey + 'n'
-            let key_char = shortcut.chars().last().unwrap_or(' ').to_lowercase().next().unwrap_or(' ');
+            let key_char = shortcut
+                .chars()
+                .last()
+                .unwrap_or(' ')
+                .to_lowercase()
+                .next()
+                .unwrap_or(' ');
             if key_char.is_alphanumeric() || key_char == ',' {
-                let key_str = if key_char == ',' { "," } else { &key_char.to_string() };
+                let key_str = if key_char == ',' {
+                    ","
+                } else {
+                    &key_char.to_string()
+                };
                 shortcut_bindings.push_str(&format!(
                     r#"if((e.metaKey||e.ctrlKey)&&e.key==='{key}'){{e.preventDefault();window.location.href='{link}';}}"#,
                     key = key_str, link = link,
@@ -153,7 +174,9 @@ pub fn render_command_palette(section: &SectionNode) -> String {
   }}
 }})();
 </script>"##,
-        pid = palette_id, items = items_html, shortcut_bindings = shortcut_bindings,
+        pid = palette_id,
+        items = items_html,
+        shortcut_bindings = shortcut_bindings,
     )
 }
 

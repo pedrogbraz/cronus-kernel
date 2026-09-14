@@ -1,10 +1,10 @@
-use std::fs;
-use std::io::Write;
 use crate::parser;
 use crate::{
-    TEMPLATE_LANDING, TEMPLATE_ADMIN, TEMPLATE_SAAS, TEMPLATE_API,
-    TEMPLATE_ECOMMERCE, TEMPLATE_BLOG, TEMPLATE_HELPDESK, TEMPLATE_CRM,
+    TEMPLATE_ADMIN, TEMPLATE_API, TEMPLATE_BLOG, TEMPLATE_CRM, TEMPLATE_ECOMMERCE,
+    TEMPLATE_HELPDESK, TEMPLATE_LANDING, TEMPLATE_SAAS,
 };
+use std::fs;
+use std::io::Write;
 
 /// Entries every scaffolded project must keep out of git: signing keys and
 /// local SQLite databases (which hold user rows and password hashes).
@@ -42,7 +42,18 @@ pub(crate) fn write_gitignore(dir: &std::path::Path) -> std::io::Result<()> {
 }
 
 pub fn cmd_new(args: &[String]) {
-    let all_templates = ["landing", "admin", "saas", "api", "ecommerce", "blog", "helpdesk", "crm", "cronus-ui", "aurora"];
+    let all_templates = [
+        "landing",
+        "admin",
+        "saas",
+        "api",
+        "ecommerce",
+        "blog",
+        "helpdesk",
+        "crm",
+        "cronus-ui",
+        "aurora",
+    ];
 
     let template = args.get(2).map(|s| s.as_str()).unwrap_or_else(|| {
         eprintln!("  Usage: cronus new <template>");
@@ -90,7 +101,10 @@ pub fn cmd_new(args: &[String]) {
     file.write_all(content.as_bytes()).unwrap();
 
     if let Err(e) = write_gitignore(std::path::Path::new(dir)) {
-        eprintln!("  \x1b[33m⚠\x1b[0m Could not write {}/.gitignore: {}", dir, e);
+        eprintln!(
+            "  \x1b[33m⚠\x1b[0m Could not write {}/.gitignore: {}",
+            dir, e
+        );
     }
 
     if template == "cronus-ui" || template == "aurora" {
@@ -105,17 +119,29 @@ on Lead.create {
 
     // Parse the template to show stats
     let new_nodes = parser::parse(content).ok();
-    let (ent_count, pg_count, rt_count) = new_nodes.as_ref()
+    let (ent_count, pg_count, rt_count) = new_nodes
+        .as_ref()
         .map(|n| parser::stats(n))
         .unwrap_or((0, 0, 0));
 
-    let entity_names: Vec<String> = new_nodes.as_ref()
-        .map(|nodes| nodes.iter().filter_map(|n| {
-            if let parser::AstNode::Entity(e) = n { Some(e.name.clone()) } else { None }
-        }).collect())
+    let entity_names: Vec<String> = new_nodes
+        .as_ref()
+        .map(|nodes| {
+            nodes
+                .iter()
+                .filter_map(|n| {
+                    if let parser::AstNode::Entity(e) = n {
+                        Some(e.name.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        })
         .unwrap_or_default();
 
-    let has_auth = new_nodes.as_ref()
+    let has_auth = new_nodes
+        .as_ref()
         .map(|nodes| nodes.iter().any(|n| matches!(n, parser::AstNode::Auth(_))))
         .unwrap_or(false);
 
@@ -151,7 +177,10 @@ mod tests {
             "cronus-new-{}-{}-{}",
             tag,
             std::process::id(),
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
         ));
         fs::create_dir_all(&dir).unwrap();
         dir

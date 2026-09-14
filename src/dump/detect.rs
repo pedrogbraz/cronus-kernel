@@ -4,9 +4,9 @@
 //! Orchestrates pattern matching on parsed DOM and produces
 //! `SectionBlueprint` instances ready for `.cronus` emission.
 
-use std::collections::HashMap;
 use super::dom::{self, DomNode};
 use super::patterns;
+use std::collections::HashMap;
 
 // ---------------------------------------------------------------------------
 // Data models
@@ -46,7 +46,9 @@ fn dom_to_html(node: &DomNode) -> String {
 
     // Attributes (skip "class" — we emit classes separately)
     for (key, value) in &node.attrs {
-        if key == "class" { continue; }
+        if key == "class" {
+            continue;
+        }
         html.push_str(&format!(" {}=\"{}\"", key, value.replace('"', "&quot;")));
     }
 
@@ -284,8 +286,12 @@ pub fn fix_animation_visibility(sections: &mut [SectionBlueprint]) {
                 // Find closing quote
                 if let Some(end) = tmpl[class_start..].find('"') {
                     let class_val = &tmpl[class_start..class_start + end];
-                    if class_val.contains("animate-on-scroll") && !class_val.contains("animate-on-scroll animate") {
-                        result.push_str(&class_val.replace("animate-on-scroll", "animate-on-scroll animate"));
+                    if class_val.contains("animate-on-scroll")
+                        && !class_val.contains("animate-on-scroll animate")
+                    {
+                        result.push_str(
+                            &class_val.replace("animate-on-scroll", "animate-on-scroll animate"),
+                        );
                     } else {
                         result.push_str(class_val);
                     }
@@ -410,14 +416,26 @@ fn should_deep_split(node: &DomNode, section_type: &str, confidence: f32) -> boo
     // Don't split nodes that already classify with high confidence as a
     // known composite type (kpi-grid, stat-cards, data-table, chart, pricing).
     // These are self-contained visual blocks.
-    if confidence >= 0.6 && matches!(section_type,
-        "kpi-grid" | "stat-cards" | "stats" | "data-table" | "chart" | "pricing" | "form" | "tabs"
-    ) {
+    if confidence >= 0.6
+        && matches!(
+            section_type,
+            "kpi-grid"
+                | "stat-cards"
+                | "stats"
+                | "data-table"
+                | "chart"
+                | "pricing"
+                | "form"
+                | "tabs"
+        )
+    {
         return false;
     }
 
     // Need at least 2 non-trivial direct children
-    let meaningful_children: Vec<&DomNode> = node.children.iter()
+    let meaningful_children: Vec<&DomNode> = node
+        .children
+        .iter()
         .filter(|c| c.tag != "_text" && !c.full_text.trim().is_empty())
         .collect();
     if meaningful_children.len() < 2 {
@@ -447,7 +465,8 @@ fn deep_split_and_detect(node: &DomNode) -> Vec<SectionBlueprint> {
 
     for child in &node.children {
         // Skip empty/trivial children (text nodes, whitespace)
-        if child.tag == "_text" || (child.full_text.trim().is_empty() && child.children.is_empty()) {
+        if child.tag == "_text" || (child.full_text.trim().is_empty() && child.children.is_empty())
+        {
             continue;
         }
 
@@ -538,7 +557,10 @@ fn merge_page_headers(sections: &mut Vec<SectionBlueprint>) {
             }
             // Merge config (badge, badge_dot, etc.) — don't overwrite existing keys
             for (k, v) in &next.config {
-                combined.config.entry(k.clone()).or_insert_with(|| v.clone());
+                combined
+                    .config
+                    .entry(k.clone())
+                    .or_insert_with(|| v.clone());
             }
             // Merge items (action buttons, etc.)
             combined.items.extend(next.items.clone());
@@ -644,7 +666,11 @@ fn extract_topbar(node: &DomNode) -> SectionBlueprint {
             }
             items.push(ItemBlueprint {
                 item_type: "image".into(),
-                title: if !alt.is_empty() { alt } else { "Avatar".into() },
+                title: if !alt.is_empty() {
+                    alt
+                } else {
+                    "Avatar".into()
+                },
                 description: None,
                 config: item_config,
             });
@@ -690,7 +716,9 @@ fn extract_topbar(node: &DomNode) -> SectionBlueprint {
     if !config.contains_key("cta_text") {
         let buttons = extract_clean_buttons(node);
         // Prefer buttons matching CTA keywords, else last button
-        let cta = buttons.iter().rev()
+        let cta = buttons
+            .iter()
+            .rev()
             .find(|b| is_cta_text(&b.to_lowercase()))
             .or_else(|| buttons.last())
             .cloned();
@@ -715,10 +743,28 @@ fn extract_topbar(node: &DomNode) -> SectionBlueprint {
 /// Matches common CTA patterns in navigation bars.
 fn is_cta_text(lower: &str) -> bool {
     let cta_keywords = [
-        "bag", "cart", "sign in", "sign up", "log in", "login", "signup",
-        "get started", "try ", "start ", "subscribe", "register",
-        "download", "buy", "purchase", "order", "book ", "join",
-        "free trial", "demo", "contact", "schedule",
+        "bag",
+        "cart",
+        "sign in",
+        "sign up",
+        "log in",
+        "login",
+        "signup",
+        "get started",
+        "try ",
+        "start ",
+        "subscribe",
+        "register",
+        "download",
+        "buy",
+        "purchase",
+        "order",
+        "book ",
+        "join",
+        "free trial",
+        "demo",
+        "contact",
+        "schedule",
     ];
     cta_keywords.iter().any(|kw| lower.contains(kw))
 }
@@ -741,7 +787,14 @@ fn capitalize_icon_name(icon: &str) -> String {
 /// or simply the first non-link text.
 fn find_brand_text(node: &DomNode) -> Option<String> {
     // Try finding a node with large text classes (brand logos)
-    let large_classes = ["text-xl", "text-2xl", "text-3xl", "font-bold", "font-semibold", "logo"];
+    let large_classes = [
+        "text-xl",
+        "text-2xl",
+        "text-3xl",
+        "font-bold",
+        "font-semibold",
+        "logo",
+    ];
     for cls in &large_classes {
         let matches = dom::find_by_class(node, cls);
         for m in matches {
@@ -780,8 +833,7 @@ fn extract_hero(node: &DomNode) -> SectionBlueprint {
     let mut items: Vec<ItemBlueprint> = Vec::new();
 
     // h1 -> title
-    let title = find_heading_by_tag(node, "h1")
-        .or_else(|| dom::find_heading(node));
+    let title = find_heading_by_tag(node, "h1").or_else(|| dom::find_heading(node));
 
     // First <p> after heading -> subtitle
     let subtitle = dom::find_paragraph(node);
@@ -821,7 +873,10 @@ fn extract_hero(node: &DomNode) -> SectionBlueprint {
     // Strategy 1: <pre>/<code> blocks (classic terminals)
     let pre_nodes = dom::find_by_tag(node, "pre");
     let code_nodes = dom::find_by_tag(node, "code");
-    let classic_terminal: Vec<&DomNode> = pre_nodes.into_iter().chain(code_nodes.into_iter()).collect();
+    let classic_terminal: Vec<&DomNode> = pre_nodes
+        .into_iter()
+        .chain(code_nodes.into_iter())
+        .collect();
     for tn in &classic_terminal {
         let text = tn.full_text.trim().to_string();
         if text.is_empty() {
@@ -953,8 +1008,16 @@ fn find_hero_stat_label(node: &DomNode) -> Option<String> {
             continue;
         }
         // Skip lines that start with material icon names
-        let icon_names = ["trending_down", "trending_up", "bolt", "check_circle",
-                          "arrow_forward", "arrow_back", "public", "speed"];
+        let icon_names = [
+            "trending_down",
+            "trending_up",
+            "bolt",
+            "check_circle",
+            "arrow_forward",
+            "arrow_back",
+            "public",
+            "speed",
+        ];
         if icon_names.iter().any(|i| txt.starts_with(i)) {
             continue;
         }
@@ -971,7 +1034,11 @@ fn find_hero_badge(node: &DomNode) -> Option<String> {
     let badge_nodes = dom::find_by_class(node, "badge");
     let pill_nodes = dom::find_by_class(node, "pill");
     let tag_nodes = dom::find_by_class(node, "tag");
-    for n in badge_nodes.iter().chain(pill_nodes.iter()).chain(tag_nodes.iter()) {
+    for n in badge_nodes
+        .iter()
+        .chain(pill_nodes.iter())
+        .chain(tag_nodes.iter())
+    {
         // Skip nodes that are too large (likely not a badge)
         let txt = n.full_text.trim().to_string();
         if !txt.is_empty() && txt.len() < 60 {
@@ -982,17 +1049,24 @@ fn find_hero_badge(node: &DomNode) -> Option<String> {
     // Check for short <span> elements that appear before h1 (common badge pattern)
     let mut found_h1 = false;
     for child in &node.children {
-        if child.tag == "h1" { found_h1 = true; }
+        if child.tag == "h1" {
+            found_h1 = true;
+        }
         // Look one level deeper for span-before-h1 pattern
         for grandchild in &child.children {
-            if grandchild.tag == "h1" { found_h1 = true; }
+            if grandchild.tag == "h1" {
+                found_h1 = true;
+            }
             if !found_h1 && grandchild.tag == "span" {
                 let txt = grandchild.full_text.trim().to_string();
                 if !txt.is_empty() && txt.len() < 60 && txt.len() > 3 {
                     // Check if it looks like a badge (has badge/tag/pill class or is short inline text)
                     let has_badge_class = grandchild.classes.iter().any(|c| {
-                        c.contains("badge") || c.contains("tag") || c.contains("pill")
-                            || c.contains("label") || c.contains("chip")
+                        c.contains("badge")
+                            || c.contains("tag")
+                            || c.contains("pill")
+                            || c.contains("label")
+                            || c.contains("chip")
                     });
                     if has_badge_class {
                         return Some(txt);
@@ -1007,7 +1081,9 @@ fn find_hero_badge(node: &DomNode) -> Option<String> {
     for n in &rounded_nodes {
         let has_indicator = dom::has_class(n, "animate-pulse")
             || dom::has_class(n, "inline-flex")
-            || n.children.iter().any(|c| dom::has_class(c, "animate-pulse"));
+            || n.children
+                .iter()
+                .any(|c| dom::has_class(c, "animate-pulse"));
 
         if !has_indicator {
             continue;
@@ -1016,9 +1092,9 @@ fn find_hero_badge(node: &DomNode) -> Option<String> {
         // Must have small text (text-xs or text-sm) somewhere
         let has_small_text = dom::has_class(n, "text-xs")
             || dom::has_class(n, "text-sm")
-            || n.children.iter().any(|c| {
-                dom::has_class(c, "text-xs") || dom::has_class(c, "text-sm")
-            });
+            || n.children
+                .iter()
+                .any(|c| dom::has_class(c, "text-xs") || dom::has_class(c, "text-sm"));
 
         if !has_small_text {
             continue;
@@ -1117,8 +1193,9 @@ fn find_terminal_body<'a>(terminal: &'a DomNode) -> Option<&'a DomNode> {
     for child in &terminal.children {
         // Skip the header bar (terminal-header class or contains traffic light dots)
         let is_header = dom::has_class(child, "terminal-header")
-            || child.children.iter().any(|c| is_traffic_light_dot(c)
-                || c.children.iter().any(|gc| is_traffic_light_dot(gc)));
+            || child.children.iter().any(|c| {
+                is_traffic_light_dot(c) || c.children.iter().any(|gc| is_traffic_light_dot(gc))
+            });
 
         if is_header {
             continue;
@@ -1153,9 +1230,10 @@ fn collect_terminal_leaf_divs<'a>(node: &'a DomNode) -> Vec<&'a DomNode> {
     for child in &node.children {
         if child.tag == "div" || child.tag == "" {
             // Check if this div has child divs that themselves contain spans
-            let has_nested_divs_with_content = child.children.iter().any(|gc| {
-                gc.tag == "div" && !gc.full_text.trim().is_empty()
-            });
+            let has_nested_divs_with_content = child
+                .children
+                .iter()
+                .any(|gc| gc.tag == "div" && !gc.full_text.trim().is_empty());
             if has_nested_divs_with_content {
                 // This is a wrapper div — recurse
                 result.extend(collect_terminal_leaf_divs(child));
@@ -1184,15 +1262,13 @@ fn classify_terminal_leaf(node: &DomNode) -> Option<ItemBlueprint> {
     // Use full_text so nested elements (e.g. <a> inside <span>) are included.
     // Only fall back to direct text for very short tokens (symbols like "$", "✓")
     // where full_text would be identical anyway.
-    let spans: Vec<(&str, &[String])> = node.children.iter()
+    let spans: Vec<(&str, &[String])> = node
+        .children
+        .iter()
         .filter(|c| c.tag == "span" || c.tag == "a" || c.tag == "")
         .map(|c| {
             let ft = c.full_text.trim();
-            let txt = if !ft.is_empty() {
-                ft
-            } else {
-                c.text.trim()
-            };
+            let txt = if !ft.is_empty() { ft } else { c.text.trim() };
             (txt, c.classes.as_slice())
         })
         .filter(|(txt, _)| !txt.is_empty())
@@ -1219,7 +1295,12 @@ fn classify_terminal_leaf(node: &DomNode) -> Option<ItemBlueprint> {
     // Classify based on first span
     if first_text == "$" {
         // Command line: "$ command"
-        let cmd = spans.iter().skip(1).map(|(t, _)| *t).collect::<Vec<_>>().join(" ");
+        let cmd = spans
+            .iter()
+            .skip(1)
+            .map(|(t, _)| *t)
+            .collect::<Vec<_>>()
+            .join(" ");
         let title = format!("$ {}", cmd);
         return Some(ItemBlueprint {
             item_type: "line".into(),
@@ -1231,7 +1312,11 @@ fn classify_terminal_leaf(node: &DomNode) -> Option<ItemBlueprint> {
 
     if first_text == "?" {
         // Prompt line
-        let question = if spans.len() > 1 { spans[1].0.to_string() } else { String::new() };
+        let question = if spans.len() > 1 {
+            spans[1].0.to_string()
+        } else {
+            String::new()
+        };
         // Answer is typically the third span with tertiary/blue color
         if spans.len() > 2 {
             let answer_text = spans[2].0.to_string();
@@ -1249,7 +1334,12 @@ fn classify_terminal_leaf(node: &DomNode) -> Option<ItemBlueprint> {
 
     if first_text == "\u{2713}" {
         // Success line
-        let rest = spans.iter().skip(1).map(|(t, _)| *t).collect::<Vec<_>>().join(" ");
+        let rest = spans
+            .iter()
+            .skip(1)
+            .map(|(t, _)| *t)
+            .collect::<Vec<_>>()
+            .join(" ");
         // Detect color from spans
         for (_, classes) in &spans {
             if classes.iter().any(|c| c.contains("green")) {
@@ -1275,7 +1365,10 @@ fn classify_terminal_leaf(node: &DomNode) -> Option<ItemBlueprint> {
 
     // Detect color from span classes
     for (_, classes) in &spans {
-        if classes.iter().any(|c| c.contains("tertiary-container") || c.contains("text-blue")) {
+        if classes
+            .iter()
+            .any(|c| c.contains("tertiary-container") || c.contains("text-blue"))
+        {
             config.insert("color".into(), "blue".into());
             break;
         }
@@ -1295,8 +1388,7 @@ fn classify_terminal_leaf(node: &DomNode) -> Option<ItemBlueprint> {
 
 /// Check if a node is just a blinking cursor (animate-pulse with "_" text).
 fn is_cursor_blink(node: &DomNode) -> bool {
-    dom::has_class(node, "animate-pulse")
-        && node.full_text.trim().len() <= 1
+    dom::has_class(node, "animate-pulse") && node.full_text.trim().len() <= 1
 }
 
 /// Classify a terminal line in the hero context with richer type detection.
@@ -1309,9 +1401,13 @@ fn classify_hero_terminal_line(text: &str, node: &DomNode) -> (String, HashMap<S
     }
 
     // Success line: contains checkmark or has green text
-    if text.contains('\u{2713}') || text.contains("\u{2713}")
+    if text.contains('\u{2713}')
+        || text.contains("\u{2713}")
         || dom::has_class(node, "text-green")
-        || node.children.iter().any(|c| dom::has_class(c, "text-green"))
+        || node
+            .children
+            .iter()
+            .any(|c| dom::has_class(c, "text-green"))
     {
         return ("success".into(), config);
     }
@@ -1324,11 +1420,15 @@ fn classify_hero_terminal_line(text: &str, node: &DomNode) -> (String, HashMap<S
         });
         if has_question_mark || text.contains("[Y/n]") || text.contains("[y/N]") {
             // Try to extract the colored answer part
-            let colored_children: Vec<&DomNode> = node.children.iter().filter(|c| {
-                dom::has_class(c, "text-tertiary-container")
-                    || dom::has_class(c, "text-blue")
-                    || dom::has_class(c, "text-green")
-            }).collect();
+            let colored_children: Vec<&DomNode> = node
+                .children
+                .iter()
+                .filter(|c| {
+                    dom::has_class(c, "text-tertiary-container")
+                        || dom::has_class(c, "text-blue")
+                        || dom::has_class(c, "text-green")
+                })
+                .collect();
             if let Some(answer_node) = colored_children.first() {
                 let answer = answer_node.full_text.trim().to_string();
                 if !answer.is_empty() {
@@ -1342,7 +1442,10 @@ fn classify_hero_terminal_line(text: &str, node: &DomNode) -> (String, HashMap<S
     // Blue/tertiary output
     if dom::has_class(node, "text-tertiary-container")
         || dom::has_class(node, "text-blue")
-        || node.children.iter().any(|c| dom::has_class(c, "text-tertiary-container"))
+        || node
+            .children
+            .iter()
+            .any(|c| dom::has_class(c, "text-tertiary-container"))
     {
         config.insert("color".into(), "blue".into());
         return ("output".into(), config);
@@ -1368,10 +1471,7 @@ fn extract_hero_chips(container: &DomNode, items: &mut Vec<ItemBlueprint>) {
         if let Some(icon) = extract_chip_icon(card) {
             // Remove icon text from the chip title to avoid duplication
             // e.g. "NEXT Ready for Next.js" -> "Ready for Next.js" with icon "NEXT"
-            chip_title = chip_title
-                .replace(&icon, "")
-                .trim()
-                .to_string();
+            chip_title = chip_title.replace(&icon, "").trim().to_string();
             if chip_title.is_empty() {
                 chip_title = text;
             }
@@ -1422,7 +1522,6 @@ fn extract_chip_icon(node: &DomNode) -> Option<String> {
     }
     None
 }
-
 
 // ---------------------------------------------------------------------------
 // Extraction: features
@@ -1476,7 +1575,8 @@ fn extract_features(node: &DomNode) -> SectionBlueprint {
         }
 
         // Detect dark card style
-        let is_dark = dom::has_class(card, "bg-black") || dom::has_class(card, "bg-primary")
+        let is_dark = dom::has_class(card, "bg-black")
+            || dom::has_class(card, "bg-primary")
             || dom::has_class(card, "bg-surface-container-highest");
         if is_dark {
             item_config.insert("style".into(), "dark".into());
@@ -1504,7 +1604,8 @@ fn extract_features(node: &DomNode) -> SectionBlueprint {
             if mono.tag == "code" || mono.tag == "pre" {
                 continue;
             }
-            let is_small = dom::has_class(mono, "text-xs") || dom::has_class(mono, "text-sm")
+            let is_small = dom::has_class(mono, "text-xs")
+                || dom::has_class(mono, "text-sm")
                 || mono.classes.iter().any(|c| c.contains("text-["));
             if !is_small {
                 continue;
@@ -1552,7 +1653,9 @@ fn extract_features(node: &DomNode) -> SectionBlueprint {
                 }
                 let chip_text = clean_button_text(chip);
                 // Skip if this chip title already exists (avoid duplicates from hero-level extraction)
-                let already_exists = items.iter().any(|i| i.item_type == "chip" && i.title == chip_text);
+                let already_exists = items
+                    .iter()
+                    .any(|i| i.item_type == "chip" && i.title == chip_text);
                 if !chip_text.is_empty() && chip_text.len() < 60 && !already_exists {
                     let mut chip_config: HashMap<String, String> = HashMap::new();
                     chip_config.insert("role".into(), "child".into());
@@ -1788,15 +1891,15 @@ fn find_card_children(node: &DomNode) -> Vec<&DomNode> {
 fn extract_stats(node: &DomNode) -> SectionBlueprint {
     let mut items: Vec<ItemBlueprint> = Vec::new();
 
-    let title = find_heading_by_tag(node, "h2")
-        .or_else(|| dom::find_heading(node));
+    let title = find_heading_by_tag(node, "h2").or_else(|| dom::find_heading(node));
     let subtitle = find_subtitle_paragraph(node, &title);
 
     // Try BEM-style stat cards first (stat-card__value + stat-card__label)
     // find_by_class matches substrings, so "stat-card" also matches "stat-card__value".
     // Filter to only the BEM block element (exact class "stat-card", not "stat-card__*").
     let all_stat_nodes = dom::find_by_class(node, "stat-card");
-    let stat_cards: Vec<&DomNode> = all_stat_nodes.into_iter()
+    let stat_cards: Vec<&DomNode> = all_stat_nodes
+        .into_iter()
         .filter(|n| n.classes.iter().any(|c| c == "stat-card"))
         .collect();
     if !stat_cards.is_empty() {
@@ -1887,7 +1990,9 @@ fn extract_stats(node: &DomNode) -> SectionBlueprint {
 
 /// Find large text (number/stat value) in a node -- looks for large font classes.
 fn find_large_text(node: &DomNode) -> Option<String> {
-    let large_classes = ["text-4xl", "text-5xl", "text-6xl", "text-7xl", "text-8xl", "text-3xl"];
+    let large_classes = [
+        "text-4xl", "text-5xl", "text-6xl", "text-7xl", "text-8xl", "text-3xl",
+    ];
     for cls in &large_classes {
         let matches = dom::find_by_class(node, cls);
         for m in matches {
@@ -1902,7 +2007,14 @@ fn find_large_text(node: &DomNode) -> Option<String> {
 
 /// Find the small label text (description beneath a stat number).
 fn find_small_label(node: &DomNode) -> Option<String> {
-    let small_classes = ["text-sm", "text-xs", "text-muted", "text-gray", "uppercase", "tracking-wide"];
+    let small_classes = [
+        "text-sm",
+        "text-xs",
+        "text-muted",
+        "text-gray",
+        "uppercase",
+        "tracking-wide",
+    ];
     for cls in &small_classes {
         let matches = dom::find_by_class(node, cls);
         for m in matches {
@@ -1972,8 +2084,7 @@ fn looks_like_stat(text: &str) -> bool {
 fn extract_testimonials(node: &DomNode) -> SectionBlueprint {
     let config: HashMap<String, String> = HashMap::new();
 
-    let title = find_heading_by_tag(node, "h2")
-        .or_else(|| dom::find_heading(node));
+    let title = find_heading_by_tag(node, "h2").or_else(|| dom::find_heading(node));
     let subtitle = find_subtitle_paragraph(node, &title);
 
     // Collect testimonial cards: look for children (or grandchildren) that
@@ -1981,10 +2092,16 @@ fn extract_testimonials(node: &DomNode) -> SectionBlueprint {
     let mut items: Vec<ItemBlueprint> = Vec::new();
 
     fn is_heading_container(node: &DomNode) -> bool {
-        node.classes.iter().any(|c| c.contains("header") && !c.contains("card"))
+        node.classes
+            .iter()
+            .any(|c| c.contains("header") && !c.contains("card"))
     }
 
-    fn collect_testimonial_cards(parent: &DomNode, out: &mut Vec<ItemBlueprint>, skip_headers: bool) {
+    fn collect_testimonial_cards(
+        parent: &DomNode,
+        out: &mut Vec<ItemBlueprint>,
+        skip_headers: bool,
+    ) {
         for child in &parent.children {
             // Skip section header containers (contain title/subtitle, not testimonials)
             if skip_headers && is_heading_container(child) {
@@ -1992,15 +2109,20 @@ fn extract_testimonials(node: &DomNode) -> SectionBlueprint {
             }
 
             // Check if this child IS a testimonial card (exact BEM block match, not a grid wrapper)
-            let is_card = child.classes.iter().any(|c|
-                c == "testimonial-card" || c == "review-card" || c == "quote-card"
-                || c == "testimonial" || c == "review" || c == "quote"
-            );
+            let is_card = child.classes.iter().any(|c| {
+                c == "testimonial-card"
+                    || c == "review-card"
+                    || c == "quote-card"
+                    || c == "testimonial"
+                    || c == "review"
+                    || c == "quote"
+            });
 
             if is_card {
                 // Extract quote from direct or nested <p> tags
                 let paragraphs = dom::find_by_tag(child, "p");
-                let quote = paragraphs.iter()
+                let quote = paragraphs
+                    .iter()
                     .map(|p| dom::clean_node_text(p))
                     .filter(|t| t.len() > 30)
                     .next();
@@ -2036,7 +2158,11 @@ fn extract_testimonials(node: &DomNode) -> SectionBlueprint {
                         item_config.insert("role".into(), role);
                     }
 
-                    let item_title = if !author.is_empty() { author } else { "Anonymous".to_string() };
+                    let item_title = if !author.is_empty() {
+                        author
+                    } else {
+                        "Anonymous".to_string()
+                    };
 
                     out.push(ItemBlueprint {
                         item_type: "testimonial".into(),
@@ -2071,8 +2197,7 @@ fn extract_testimonials(node: &DomNode) -> SectionBlueprint {
 // ---------------------------------------------------------------------------
 
 fn extract_pricing(node: &DomNode) -> SectionBlueprint {
-    let title = find_heading_by_tag(node, "h2")
-        .or_else(|| dom::find_heading(node));
+    let title = find_heading_by_tag(node, "h2").or_else(|| dom::find_heading(node));
     let subtitle = find_subtitle_paragraph(node, &title);
 
     let mut items: Vec<ItemBlueprint> = Vec::new();
@@ -2081,8 +2206,13 @@ fn extract_pricing(node: &DomNode) -> SectionBlueprint {
     let pricing_cards = dom::find_by_class(node, "pricing-card");
     let cards: Vec<&DomNode> = if !pricing_cards.is_empty() {
         // Filter out nested elements — only keep top-level pricing-card divs
-        pricing_cards.into_iter()
-            .filter(|c| c.classes.iter().any(|cls| cls == "pricing-card" || cls.starts_with("pricing-card ")))
+        pricing_cards
+            .into_iter()
+            .filter(|c| {
+                c.classes
+                    .iter()
+                    .any(|cls| cls == "pricing-card" || cls.starts_with("pricing-card "))
+            })
             .collect()
     } else {
         find_card_children(node)
@@ -2123,8 +2253,10 @@ fn extract_pricing(node: &DomNode) -> SectionBlueprint {
         }
 
         // Check if this plan is "featured" (popular/recommended)
-        let is_featured = card.classes.iter().any(|c| c.contains("featured") || c.contains("popular") || c.contains("recommended"))
-            || dom::find_by_class(card, "badge").len() > 0;
+        let is_featured =
+            card.classes.iter().any(|c| {
+                c.contains("featured") || c.contains("popular") || c.contains("recommended")
+            }) || dom::find_by_class(card, "badge").len() > 0;
 
         let mut config = HashMap::new();
         let has_price = !price.is_empty();
@@ -2196,8 +2328,7 @@ fn find_price_text_in(node: &DomNode) -> Option<String> {
 fn extract_cta(node: &DomNode) -> SectionBlueprint {
     let mut config: HashMap<String, String> = HashMap::new();
 
-    let title = find_heading_by_tag(node, "h2")
-        .or_else(|| dom::find_heading(node));
+    let title = find_heading_by_tag(node, "h2").or_else(|| dom::find_heading(node));
     let subtitle = dom::find_paragraph(node);
 
     let buttons = extract_clean_buttons(node);
@@ -2304,7 +2435,11 @@ fn extract_footer(node: &DomNode) -> SectionBlueprint {
 /// Search for copyright text within a node tree.
 fn find_copyright_text(node: &DomNode) -> Option<String> {
     let full = &node.full_text;
-    if full.contains('\u{00A9}') || full.contains("(c)") || full.contains("©") || full.contains("Copyright") {
+    if full.contains('\u{00A9}')
+        || full.contains("(c)")
+        || full.contains("©")
+        || full.contains("Copyright")
+    {
         // Try to find the specific child that holds it
         for child in &node.children {
             if let Some(c) = find_copyright_text(child) {
@@ -2334,7 +2469,10 @@ fn extract_terminal(node: &DomNode) -> SectionBlueprint {
     // Strategy 1: Collect text from <pre> and <code> blocks
     let pre_nodes = dom::find_by_tag(node, "pre");
     let code_nodes = dom::find_by_tag(node, "code");
-    let sources: Vec<&DomNode> = pre_nodes.into_iter().chain(code_nodes.into_iter()).collect();
+    let sources: Vec<&DomNode> = pre_nodes
+        .into_iter()
+        .chain(code_nodes.into_iter())
+        .collect();
 
     for src in &sources {
         extract_terminal_lines_from_text(&src.full_text, src, &mut items);
@@ -2350,7 +2488,13 @@ fn extract_terminal(node: &DomNode) -> SectionBlueprint {
 
     // Strategy 3: Find dark background containers that look terminal-like
     if items.is_empty() {
-        let dark_classes = ["bg-black", "bg-gray-900", "bg-neutral-900", "bg-zinc-900", "bg-slate-900"];
+        let dark_classes = [
+            "bg-black",
+            "bg-gray-900",
+            "bg-neutral-900",
+            "bg-zinc-900",
+            "bg-slate-900",
+        ];
         for cls in &dark_classes {
             let dark_nodes = dom::find_by_class(node, cls);
             for dark in &dark_nodes {
@@ -2483,7 +2627,10 @@ fn classify_terminal_line(text: &str, node: &DomNode) -> (String, HashMap<String
         "line"
     } else if text.contains('\u{2713}') || text.contains("✓") || text.starts_with("✓") {
         "success"
-    } else if text.contains('?') && text.len() < 100 && (text.contains("(Y/n)") || text.contains("(y/N)") || text.ends_with('?')) {
+    } else if text.contains('?')
+        && text.len() < 100
+        && (text.contains("(Y/n)") || text.contains("(y/N)") || text.ends_with('?'))
+    {
         "prompt"
     } else {
         "output"
@@ -2543,7 +2690,11 @@ fn extract_sidebar(node: &DomNode) -> SectionBlueprint {
             continue;
         }
 
-        let href = a_node.attrs.get("href").cloned().unwrap_or_else(|| "#".into());
+        let href = a_node
+            .attrs
+            .get("href")
+            .cloned()
+            .unwrap_or_else(|| "#".into());
 
         let mut item_config: HashMap<String, String> = HashMap::new();
         item_config.insert("href".into(), href);
@@ -2612,7 +2763,10 @@ fn find_sidebar_brand(node: &DomNode) -> Option<String> {
     for tag in &["h1", "h2"] {
         let headings = dom::find_by_tag(node, tag);
         for h in headings {
-            if dom::has_class(h, "font-bold") || dom::has_class(h, "tracking-tighter") || dom::has_class(h, "font-semibold") {
+            if dom::has_class(h, "font-bold")
+                || dom::has_class(h, "tracking-tighter")
+                || dom::has_class(h, "font-semibold")
+            {
                 let text = dom::clean_node_text(h);
                 if !text.is_empty() && text.len() < 50 {
                     return Some(text);
@@ -2687,8 +2841,7 @@ fn extract_page_header(node: &DomNode) -> SectionBlueprint {
     let mut items: Vec<ItemBlueprint> = Vec::new();
 
     // Title from h1 or h2 (dashboard pages often use h2 with large text)
-    let title = find_heading_by_tag(node, "h1")
-        .or_else(|| find_heading_by_tag(node, "h2"));
+    let title = find_heading_by_tag(node, "h1").or_else(|| find_heading_by_tag(node, "h2"));
 
     // Subtitle from p
     let subtitle = dom::find_paragraph(node);
@@ -2864,12 +3017,18 @@ fn find_stat_value(node: &DomNode) -> Option<String> {
 
 /// Find the small uppercase label in a stat card (used by extract_stat_cards).
 fn find_stat_label(node: &DomNode) -> Option<String> {
-    let label_classes = ["uppercase", "tracking-widest", "tracking-wider", "tracking-tighter"];
+    let label_classes = [
+        "uppercase",
+        "tracking-widest",
+        "tracking-wider",
+        "tracking-tighter",
+    ];
     for cls in &label_classes {
         let matches = dom::find_by_class(node, cls);
         for m in matches {
             // Must be small text (label, not a heading)
-            let is_small = dom::has_class(m, "text-xs") || dom::has_class(m, "text-sm")
+            let is_small = dom::has_class(m, "text-xs")
+                || dom::has_class(m, "text-sm")
                 || m.classes.iter().any(|c| c.contains("text-["));
             // Skip if not small and not uppercase
             if !is_small && !dom::has_class(m, "uppercase") {
@@ -2882,7 +3041,15 @@ fn find_stat_label(node: &DomNode) -> Option<String> {
             let txt = m.full_text.trim().to_string();
             if !txt.is_empty() && txt.len() < 60 {
                 // Skip if this is just a number (that's the value, not the label)
-                if txt.chars().all(|c| c.is_ascii_digit() || c == '.' || c == '%' || c == '$' || c == ',' || c == 'M' || c == 'K') {
+                if txt.chars().all(|c| {
+                    c.is_ascii_digit()
+                        || c == '.'
+                        || c == '%'
+                        || c == '$'
+                        || c == ','
+                        || c == 'M'
+                        || c == 'K'
+                }) {
                     continue;
                 }
                 return Some(txt);
@@ -3066,13 +3233,20 @@ fn find_status_badge(node: &DomNode) -> Option<String> {
             }
             let txt = m.full_text.trim().to_string();
             let lower = txt.to_lowercase();
-            if (lower.contains("active") || lower.contains("draft")
-                || lower.contains("paused") || lower.contains("archived")
-                || lower.contains("testing") || lower.contains("inactive")
-                || lower.contains("pending") || lower.contains("enabled")
-                || lower.contains("disabled") || lower.contains("new feature")
-                || lower.contains("beta") || lower.contains("premium")
-                || lower.contains("pro") || lower.contains("new"))
+            if (lower.contains("active")
+                || lower.contains("draft")
+                || lower.contains("paused")
+                || lower.contains("archived")
+                || lower.contains("testing")
+                || lower.contains("inactive")
+                || lower.contains("pending")
+                || lower.contains("enabled")
+                || lower.contains("disabled")
+                || lower.contains("new feature")
+                || lower.contains("beta")
+                || lower.contains("premium")
+                || lower.contains("pro")
+                || lower.contains("new"))
                 && txt.len() < 30
             {
                 return Some(txt);
@@ -3080,7 +3254,15 @@ fn find_status_badge(node: &DomNode) -> Option<String> {
         }
     }
     // Also check for colored span badges (bg-green-*, bg-zinc-*, bg-red-*)
-    let color_badge_prefixes = ["bg-green-", "bg-red-", "bg-yellow-", "bg-zinc-", "bg-blue-", "bg-orange-", "bg-white"];
+    let color_badge_prefixes = [
+        "bg-green-",
+        "bg-red-",
+        "bg-yellow-",
+        "bg-zinc-",
+        "bg-blue-",
+        "bg-orange-",
+        "bg-white",
+    ];
     for prefix in &color_badge_prefixes {
         let matches = dom::find_by_class(node, prefix);
         for m in matches {
@@ -3099,8 +3281,11 @@ fn find_status_badge(node: &DomNode) -> Option<String> {
         if is_material_icon_span(m) || m.tag == "button" || m.tag == "a" {
             continue;
         }
-        let is_small = dom::has_class(m, "text-xs") || dom::has_class(m, "text-sm")
-            || m.classes.iter().any(|c| c.contains("text-[10px]") || c.contains("text-[11px]"));
+        let is_small = dom::has_class(m, "text-xs")
+            || dom::has_class(m, "text-sm")
+            || m.classes
+                .iter()
+                .any(|c| c.contains("text-[10px]") || c.contains("text-[11px]"));
         if !is_small {
             continue;
         }
@@ -3124,8 +3309,7 @@ fn find_status_badge(node: &DomNode) -> Option<String> {
 fn extract_team_list(node: &DomNode) -> SectionBlueprint {
     let mut items: Vec<ItemBlueprint> = Vec::new();
 
-    let title = find_heading_by_tag(node, "h2")
-        .or_else(|| dom::find_heading(node));
+    let title = find_heading_by_tag(node, "h2").or_else(|| dom::find_heading(node));
 
     // Find member rows: look for repeated structures with name + email + role
     // Members are typically in a space-y container with flex rows
@@ -3230,9 +3414,7 @@ fn find_member_name(node: &DomNode) -> String {
             continue;
         }
         let txt = dom::clean_node_text(m);
-        if !txt.is_empty() && txt.len() < 50 && !txt.contains('@')
-            && !is_role_text(&txt)
-        {
+        if !txt.is_empty() && txt.len() < 50 && !txt.contains('@') && !is_role_text(&txt) {
             return txt;
         }
     }
@@ -3294,7 +3476,15 @@ fn find_role_badge(node: &DomNode) -> Option<String> {
 /// Check if text looks like a role name.
 fn is_role_text(text: &str) -> bool {
     let lower = text.to_lowercase();
-    let roles = ["admin", "developer", "viewer", "editor", "owner", "member", "manager"];
+    let roles = [
+        "admin",
+        "developer",
+        "viewer",
+        "editor",
+        "owner",
+        "member",
+        "manager",
+    ];
     roles.iter().any(|r| lower.contains(r))
 }
 
@@ -3327,7 +3517,14 @@ fn extract_content_card(node: &DomNode) -> SectionBlueprint {
     let mut seen_labels: Vec<String> = Vec::new();
     let mut seen_btns: Vec<String> = Vec::new();
     let mut seen_codes: Vec<String> = Vec::new();
-    card_walk_ordered(node, &mut items, &mut seen_labels, &mut seen_btns, &mut seen_codes, node);
+    card_walk_ordered(
+        node,
+        &mut items,
+        &mut seen_labels,
+        &mut seen_btns,
+        &mut seen_codes,
+        node,
+    );
 
     // Extract row entries from divide-y containers or font-mono URLs with status
     let row_entries = find_webhook_entries(node);
@@ -3567,7 +3764,8 @@ fn icon_name_to_action_title(icon: &str) -> String {
         "open_in_new" => "Open".into(),
         _ => {
             // Generic fallback: replace underscores, capitalize first letter
-            let words: Vec<String> = icon.split('_')
+            let words: Vec<String> = icon
+                .split('_')
                 .map(|w| {
                     let mut c = w.chars();
                     match c.next() {
@@ -3643,8 +3841,11 @@ fn find_webhook_entries(node: &DomNode) -> Vec<(String, Option<String>, Option<S
                     continue;
                 }
                 let txt = mono.full_text.trim().to_string();
-                if !txt.is_empty() && (txt.starts_with("http") || txt.contains("://")
-                    || txt.contains(".") || dom::has_class(mono, "font-bold"))
+                if !txt.is_empty()
+                    && (txt.starts_with("http")
+                        || txt.contains("://")
+                        || txt.contains(".")
+                        || dom::has_class(mono, "font-bold"))
                 {
                     url_text = Some(txt);
                     break;
@@ -3709,12 +3910,14 @@ fn extract_info_panel(node: &DomNode) -> SectionBlueprint {
     let mut items: Vec<ItemBlueprint> = Vec::new();
 
     // Determine sub-type based on content
-    let is_dark = dom::has_class(node, "bg-primary") || dom::has_class(node, "bg-black")
-        || dom::has_class(node, "bg-gray-900") || dom::has_class(node, "bg-zinc-900");
+    let is_dark = dom::has_class(node, "bg-primary")
+        || dom::has_class(node, "bg-black")
+        || dom::has_class(node, "bg-gray-900")
+        || dom::has_class(node, "bg-zinc-900");
     let has_status_dot = patterns::has_descendant_class(node, "bg-green-500")
         || patterns::has_descendant_class(node, "bg-green-400");
-    let has_link_list = dom::find_by_tag(node, "ul").len() > 0
-        || dom::extract_links(node).len() >= 3;
+    let has_link_list =
+        dom::find_by_tag(node, "ul").len() > 0 || dom::extract_links(node).len() >= 3;
 
     let sub_type = if has_status_dot {
         let text = node.full_text.to_lowercase();
@@ -3928,8 +4131,7 @@ fn find_nodes_with_attr<'a>(node: &'a DomNode, attr: &str, value: &str) -> Vec<&
 fn extract_tabs(node: &DomNode) -> SectionBlueprint {
     let mut items: Vec<ItemBlueprint> = Vec::new();
 
-    let title = find_heading_by_tag(node, "h2")
-        .or_else(|| dom::find_heading(node));
+    let title = find_heading_by_tag(node, "h2").or_else(|| dom::find_heading(node));
 
     // Strategy 1: Find [role="tablist"] container
     let tablists = find_nodes_with_attr(node, "role", "tablist");
@@ -3941,7 +4143,9 @@ fn extract_tabs(node: &DomNode) -> SectionBlueprint {
                     continue;
                 }
                 let mut item_config: HashMap<String, String> = HashMap::new();
-                let is_active = child.attrs.get("aria-selected")
+                let is_active = child
+                    .attrs
+                    .get("aria-selected")
                     .map(|v| v == "true")
                     .unwrap_or(false)
                     || dom::has_class(child, "active")
@@ -4001,7 +4205,12 @@ fn extract_tabs(node: &DomNode) -> SectionBlueprint {
                     continue;
                 }
                 let mut item_config: HashMap<String, String> = HashMap::new();
-                if child.attrs.get("aria-selected").map(|v| v == "true").unwrap_or(false) {
+                if child
+                    .attrs
+                    .get("aria-selected")
+                    .map(|v| v == "true")
+                    .unwrap_or(false)
+                {
                     item_config.insert("active".into(), "true".into());
                 }
                 items.push(ItemBlueprint {
@@ -4054,7 +4263,14 @@ fn extract_order_header(node: &DomNode) -> SectionBlueprint {
         let txt = dom::clean_node_text(bn).trim().to_string();
         if !txt.is_empty() && txt.len() < 20 && txt.to_lowercase() != "back to orders" {
             let lower = txt.to_lowercase();
-            let statuses = ["shipped", "processing", "fulfilled", "pending", "completed", "cancelled"];
+            let statuses = [
+                "shipped",
+                "processing",
+                "fulfilled",
+                "pending",
+                "completed",
+                "cancelled",
+            ];
             if statuses.iter().any(|s| lower.contains(s)) {
                 config.insert("badge".into(), txt);
                 break;
@@ -4077,7 +4293,16 @@ fn extract_order_header(node: &DomNode) -> SectionBlueprint {
         }
     }
 
-    SectionBlueprint { section_type: "order-header".into(), confidence: 0.0, title, subtitle, config, items: Vec::new(), template: None, style_block: None }
+    SectionBlueprint {
+        section_type: "order-header".into(),
+        confidence: 0.0,
+        title,
+        subtitle,
+        config,
+        items: Vec::new(),
+        template: None,
+        style_block: None,
+    }
 }
 
 fn extract_line_items_section(node: &DomNode) -> SectionBlueprint {
@@ -4104,13 +4329,24 @@ fn extract_line_items_section(node: &DomNode) -> SectionBlueprint {
                     }
                     // Extract product name (h4 or first bold text)
                     let h4s = dom::find_by_tag(child, "h4");
-                    let name = h4s.first().map(|h| dom::clean_node_text(h))
+                    let name = h4s
+                        .first()
+                        .map(|h| dom::clean_node_text(h))
                         .unwrap_or_default();
                     // Extract SKU (mono text with SKU: prefix)
                     for t in collect_all_text_nodes(child) {
                         let trimmed = t.trim();
-                        if trimmed.to_lowercase().starts_with("sku:") || trimmed.to_lowercase().starts_with("sku ") {
-                            config.insert("sku".into(), trimmed.trim_start_matches("SKU:").trim_start_matches("SKU ").trim().to_string());
+                        if trimmed.to_lowercase().starts_with("sku:")
+                            || trimmed.to_lowercase().starts_with("sku ")
+                        {
+                            config.insert(
+                                "sku".into(),
+                                trimmed
+                                    .trim_start_matches("SKU:")
+                                    .trim_start_matches("SKU ")
+                                    .trim()
+                                    .to_string(),
+                            );
                         }
                     }
                     // Extract price ($X,XXX.XX)
@@ -4125,7 +4361,14 @@ fn extract_line_items_section(node: &DomNode) -> SectionBlueprint {
                     for t in collect_all_text_nodes(child) {
                         let lower = t.to_lowercase();
                         if lower.starts_with("qty:") || lower.starts_with("qty ") {
-                            config.insert("qty".into(), lower.trim_start_matches("qty:").trim_start_matches("qty ").trim().to_string());
+                            config.insert(
+                                "qty".into(),
+                                lower
+                                    .trim_start_matches("qty:")
+                                    .trim_start_matches("qty ")
+                                    .trim()
+                                    .to_string(),
+                            );
                         }
                     }
                     // Extract variant (subtitle-like text, not SKU, not price, not qty)
@@ -4133,15 +4376,25 @@ fn extract_line_items_section(node: &DomNode) -> SectionBlueprint {
                     for p in &ps {
                         let pt = dom::clean_node_text(p);
                         let lower = pt.to_lowercase();
-                        if !lower.starts_with("sku") && !lower.starts_with("qty") && !pt.starts_with('$')
-                            && pt.len() > 5 && pt.len() < 100
-                            && (dom::has_class(p, "text-sm") || dom::has_class(p, "text-on-surface-variant")) {
+                        if !lower.starts_with("sku")
+                            && !lower.starts_with("qty")
+                            && !pt.starts_with('$')
+                            && pt.len() > 5
+                            && pt.len() < 100
+                            && (dom::has_class(p, "text-sm")
+                                || dom::has_class(p, "text-on-surface-variant"))
+                        {
                             config.insert("variant".into(), pt);
                             break;
                         }
                     }
                     if !name.is_empty() {
-                        items.push(ItemBlueprint { item_type: "item".into(), title: name, description: None, config });
+                        items.push(ItemBlueprint {
+                            item_type: "item".into(),
+                            title: name,
+                            description: None,
+                            config,
+                        });
                     }
                 }
             }
@@ -4150,14 +4403,25 @@ fn extract_line_items_section(node: &DomNode) -> SectionBlueprint {
         if items.is_empty() {
             for child in &node.children {
                 find_product_rows(child, items);
-                if !items.is_empty() { break; }
+                if !items.is_empty() {
+                    break;
+                }
             }
         }
     }
 
     find_product_rows(node, &mut items);
 
-    SectionBlueprint { section_type: "line-items".into(), confidence: 0.0, title, subtitle: None, config: HashMap::new(), items, template: None, style_block: None }
+    SectionBlueprint {
+        section_type: "line-items".into(),
+        confidence: 0.0,
+        title,
+        subtitle: None,
+        config: HashMap::new(),
+        items,
+        template: None,
+        style_block: None,
+    }
 }
 
 fn extract_price_breakdown(node: &DomNode) -> SectionBlueprint {
@@ -4177,14 +4441,28 @@ fn extract_price_breakdown(node: &DomNode) -> SectionBlueprint {
                 if lower.contains("total") && !lower.contains("subtotal") {
                     config.insert("style".into(), "total".into());
                 }
-                items.push(ItemBlueprint { item_type: "item".into(), title: t.to_string(), description: None, config });
+                items.push(ItemBlueprint {
+                    item_type: "item".into(),
+                    title: t.to_string(),
+                    description: None,
+                    config,
+                });
                 i += 2;
                 continue;
             }
         }
         i += 1;
     }
-    SectionBlueprint { section_type: "price-breakdown".into(), confidence: 0.0, title: None, subtitle: None, config: HashMap::new(), items, template: None, style_block: None }
+    SectionBlueprint {
+        section_type: "price-breakdown".into(),
+        confidence: 0.0,
+        title: None,
+        subtitle: None,
+        config: HashMap::new(),
+        items,
+        template: None,
+        style_block: None,
+    }
 }
 
 fn extract_shipping_timeline(node: &DomNode) -> SectionBlueprint {
@@ -4196,14 +4474,20 @@ fn extract_shipping_timeline(node: &DomNode) -> SectionBlueprint {
         // Check children for step-like patterns
         for child in &node.children {
             let text = dom::clean_node_text(child);
-            if text.is_empty() { continue; }
+            if text.is_empty() {
+                continue;
+            }
 
             // Look for bold text (step title) + small date text
             let bold_nodes = dom::find_by_class(child, "font-bold");
             for bn in &bold_nodes {
-                if is_material_icon_span(bn) { continue; }
+                if is_material_icon_span(bn) {
+                    continue;
+                }
                 let step_title = dom::clean_node_text(bn).trim().to_string();
-                if step_title.is_empty() || step_title.len() > 60 { continue; }
+                if step_title.is_empty() || step_title.len() > 60 {
+                    continue;
+                }
 
                 let mut config = HashMap::new();
                 // Find date subtitle nearby
@@ -4212,9 +4496,17 @@ fn extract_shipping_timeline(node: &DomNode) -> SectionBlueprint {
                 for t in collect_all_text_nodes(child) {
                     let trimmed = t.trim();
                     if trimmed != step_title && trimmed.len() > 5 && trimmed.len() < 60 {
-                        if trimmed.contains("202") || trimmed.contains("AM") || trimmed.contains("PM") || trimmed.to_lowercase().starts_with("est:") {
+                        if trimmed.contains("202")
+                            || trimmed.contains("AM")
+                            || trimmed.contains("PM")
+                            || trimmed.to_lowercase().starts_with("est:")
+                        {
                             config.insert("subtitle".into(), trimmed.to_string());
-                        } else if trimmed.len() > 10 && (trimmed.contains("carrier") || trimmed.contains("package") || trimmed.contains("tracking")) {
+                        } else if trimmed.len() > 10
+                            && (trimmed.contains("carrier")
+                                || trimmed.contains("package")
+                                || trimmed.contains("tracking"))
+                        {
                             config.insert("detail".into(), trimmed.to_string());
                         }
                     }
@@ -4223,7 +4515,8 @@ fn extract_shipping_timeline(node: &DomNode) -> SectionBlueprint {
                 // Detect step style
                 let has_pulse = dom::find_by_class(child, "animate-pulse").len() > 0;
                 let has_check = child.full_text.to_lowercase().contains("check");
-                let is_dimmed = dom::has_class(bn, "text-on-surface/40") || child.full_text.contains("/40");
+                let is_dimmed =
+                    dom::has_class(bn, "text-on-surface/40") || child.full_text.contains("/40");
                 if has_pulse {
                     config.insert("style".into(), "active".into());
                 } else if is_dimmed || step_title.to_lowercase().contains("expected") {
@@ -4232,7 +4525,12 @@ fn extract_shipping_timeline(node: &DomNode) -> SectionBlueprint {
                     config.insert("style".into(), "completed".into());
                 }
 
-                items.push(ItemBlueprint { item_type: "item".into(), title: step_title, description: None, config });
+                items.push(ItemBlueprint {
+                    item_type: "item".into(),
+                    title: step_title,
+                    description: None,
+                    config,
+                });
             }
             // Recurse
             if items.is_empty() {
@@ -4243,7 +4541,16 @@ fn extract_shipping_timeline(node: &DomNode) -> SectionBlueprint {
 
     find_timeline_steps(node, &mut items);
 
-    SectionBlueprint { section_type: "shipping-timeline".into(), confidence: 0.0, title, subtitle: None, config: HashMap::new(), items, template: None, style_block: None }
+    SectionBlueprint {
+        section_type: "shipping-timeline".into(),
+        confidence: 0.0,
+        title,
+        subtitle: None,
+        config: HashMap::new(),
+        items,
+        template: None,
+        style_block: None,
+    }
 }
 
 fn extract_customer_profile(node: &DomNode) -> SectionBlueprint {
@@ -4254,7 +4561,9 @@ fn extract_customer_profile(node: &DomNode) -> SectionBlueprint {
     let h4s = dom::find_by_tag(node, "h4");
     if let Some(h4) = h4s.first() {
         let name = dom::clean_node_text(h4).trim().to_string();
-        if !name.is_empty() { config.insert("customer_name".into(), name); }
+        if !name.is_empty() {
+            config.insert("customer_name".into(), name);
+        }
     }
 
     // Avatar
@@ -4262,7 +4571,11 @@ fn extract_customer_profile(node: &DomNode) -> SectionBlueprint {
     for img in &imgs {
         if let Some(src) = img.attrs.get("src") {
             // Avatar is typically in a rounded-full container
-            if img.classes.iter().any(|c| c.contains("rounded-full") || c.contains("object-cover")) {
+            if img
+                .classes
+                .iter()
+                .any(|c| c.contains("rounded-full") || c.contains("object-cover"))
+            {
                 config.insert("customer_avatar".into(), src.clone());
                 break;
             }
@@ -4277,7 +4590,9 @@ fn extract_customer_profile(node: &DomNode) -> SectionBlueprint {
             config.insert("email_label".into(), t.trim().to_string());
             if i + 1 < all_text.len() {
                 let val = all_text[i + 1].trim();
-                if val.contains('@') { config.insert("customer_email".into(), val.to_string()); }
+                if val.contains('@') {
+                    config.insert("customer_email".into(), val.to_string());
+                }
             }
         }
         if lower.contains("tier") || lower.contains("member") {
@@ -4285,11 +4600,14 @@ fn extract_customer_profile(node: &DomNode) -> SectionBlueprint {
                 config.insert("customer_tier".into(), t.trim().to_string());
             }
         }
-        if lower.contains("shipping") && lower.contains("destination") || lower.contains("address") && !lower.contains("email") {
+        if lower.contains("shipping") && lower.contains("destination")
+            || lower.contains("address") && !lower.contains("email")
+        {
             config.insert("address_label".into(), t.trim().to_string());
             // Next block of text is likely the address
             if i + 1 < all_text.len() {
-                let addr_parts: Vec<&str> = all_text[i+1..].iter()
+                let addr_parts: Vec<&str> = all_text[i + 1..]
+                    .iter()
                     .take(5)
                     .map(|s| s.trim())
                     .filter(|s| !s.is_empty() && s.len() < 50)
@@ -4301,7 +4619,16 @@ fn extract_customer_profile(node: &DomNode) -> SectionBlueprint {
         }
     }
 
-    SectionBlueprint { section_type: "customer-profile".into(), confidence: 0.0, title, subtitle: None, config, items: Vec::new(), template: None, style_block: None }
+    SectionBlueprint {
+        section_type: "customer-profile".into(),
+        confidence: 0.0,
+        title,
+        subtitle: None,
+        config,
+        items: Vec::new(),
+        template: None,
+        style_block: None,
+    }
 }
 
 fn extract_payment_info(node: &DomNode) -> SectionBlueprint {
@@ -4311,7 +4638,9 @@ fn extract_payment_info(node: &DomNode) -> SectionBlueprint {
     for child in &node.children {
         let text = &child.full_text;
         let heading = dom::find_heading(child);
-        if heading.is_none() && text.len() < 10 { continue; }
+        if heading.is_none() && text.len() < 10 {
+            continue;
+        }
 
         let mut config = HashMap::new();
         let h = heading.unwrap_or_default();
@@ -4319,7 +4648,9 @@ fn extract_payment_info(node: &DomNode) -> SectionBlueprint {
         // Extract details
         let bold_nodes = dom::find_by_class(child, "font-bold");
         for bn in &bold_nodes {
-            if is_material_icon_span(bn) { continue; }
+            if is_material_icon_span(bn) {
+                continue;
+            }
             let t = dom::clean_node_text(bn).trim().to_string();
             if !t.is_empty() && t != h && t.len() < 60 {
                 config.insert("title".into(), t);
@@ -4332,7 +4663,11 @@ fn extract_payment_info(node: &DomNode) -> SectionBlueprint {
             if dom::has_class(p, "text-xs") || dom::has_class(p, "text-sm") {
                 let pt = dom::clean_node_text(p).trim().to_string();
                 let lower = pt.to_lowercase();
-                if !pt.is_empty() && !lower.contains("payment") && !lower.contains("security") && pt.len() < 80 {
+                if !pt.is_empty()
+                    && !lower.contains("payment")
+                    && !lower.contains("security")
+                    && pt.len() < 80
+                {
                     config.insert("subtitle".into(), pt);
                     break;
                 }
@@ -4348,13 +4683,30 @@ fn extract_payment_info(node: &DomNode) -> SectionBlueprint {
             }
         }
         // Label (VISA, etc.)
-        if text.contains("VISA") { config.insert("label".into(), "VISA".into()); }
-        else if text.contains("MASTERCARD") { config.insert("label".into(), "MASTERCARD".into()); }
+        if text.contains("VISA") {
+            config.insert("label".into(), "VISA".into());
+        } else if text.contains("MASTERCARD") {
+            config.insert("label".into(), "MASTERCARD".into());
+        }
 
-        items.push(ItemBlueprint { item_type: "item".into(), title: h, description: None, config });
+        items.push(ItemBlueprint {
+            item_type: "item".into(),
+            title: h,
+            description: None,
+            config,
+        });
     }
 
-    SectionBlueprint { section_type: "payment-info".into(), confidence: 0.0, title: None, subtitle: None, config: HashMap::new(), items, template: None, style_block: None }
+    SectionBlueprint {
+        section_type: "payment-info".into(),
+        confidence: 0.0,
+        title: None,
+        subtitle: None,
+        config: HashMap::new(),
+        items,
+        template: None,
+        style_block: None,
+    }
 }
 
 fn extract_staff_notes(node: &DomNode) -> SectionBlueprint {
@@ -4365,7 +4717,10 @@ fn extract_staff_notes(node: &DomNode) -> SectionBlueprint {
     // Find italic/quoted text
     let italics = dom::find_by_class(node, "italic");
     for it in &italics {
-        let text = dom::clean_node_text(it).trim().trim_matches('"').to_string();
+        let text = dom::clean_node_text(it)
+            .trim()
+            .trim_matches('"')
+            .to_string();
         if !text.is_empty() && text.len() > 10 {
             let mut item_config = HashMap::new();
             // Find author (bold text after the quote)
@@ -4377,7 +4732,12 @@ fn extract_staff_notes(node: &DomNode) -> SectionBlueprint {
                     break;
                 }
             }
-            items.push(ItemBlueprint { item_type: "item".into(), title: text, description: None, config: item_config });
+            items.push(ItemBlueprint {
+                item_type: "item".into(),
+                title: text,
+                description: None,
+                config: item_config,
+            });
         }
     }
 
@@ -4387,7 +4747,16 @@ fn extract_staff_notes(node: &DomNode) -> SectionBlueprint {
         config.insert("action_label".into(), btn.clone());
     }
 
-    SectionBlueprint { section_type: "staff-notes".into(), confidence: 0.0, title, subtitle: None, config, items, template: None, style_block: None }
+    SectionBlueprint {
+        section_type: "staff-notes".into(),
+        confidence: 0.0,
+        title,
+        subtitle: None,
+        config,
+        items,
+        template: None,
+        style_block: None,
+    }
 }
 
 fn extract_settings_profile(node: &DomNode) -> SectionBlueprint {
@@ -4398,14 +4767,29 @@ fn extract_settings_profile(node: &DomNode) -> SectionBlueprint {
     // Extract form fields
     let inputs = dom::find_by_tag(node, "input");
     for input in &inputs {
-        let input_type = input.attrs.get("type").map(|s| s.as_str()).unwrap_or("text");
+        let input_type = input
+            .attrs
+            .get("type")
+            .map(|s| s.as_str())
+            .unwrap_or("text");
         let value = input.attrs.get("value").map(|s| s.as_str()).unwrap_or("");
         // Find label: look for nearby label/span with uppercase text
         let label = input.attrs.get("placeholder").cloned().unwrap_or_default();
         let mut item_config = HashMap::new();
         item_config.insert("type".into(), input_type.to_string());
-        if !value.is_empty() { item_config.insert("value".into(), value.to_string()); }
-        items.push(ItemBlueprint { item_type: "item".into(), title: if label.is_empty() { input_type.to_string() } else { label }, description: None, config: item_config });
+        if !value.is_empty() {
+            item_config.insert("value".into(), value.to_string());
+        }
+        items.push(ItemBlueprint {
+            item_type: "item".into(),
+            title: if label.is_empty() {
+                input_type.to_string()
+            } else {
+                label
+            },
+            description: None,
+            config: item_config,
+        });
     }
 
     // Note text (italic/small)
@@ -4424,7 +4808,16 @@ fn extract_settings_profile(node: &DomNode) -> SectionBlueprint {
         config.insert("action_label".into(), btn.clone());
     }
 
-    SectionBlueprint { section_type: "settings-profile".into(), confidence: 0.0, title, subtitle: None, config, items, template: None, style_block: None }
+    SectionBlueprint {
+        section_type: "settings-profile".into(),
+        confidence: 0.0,
+        title,
+        subtitle: None,
+        config,
+        items,
+        template: None,
+        style_block: None,
+    }
 }
 
 fn extract_api_keys(node: &DomNode) -> SectionBlueprint {
@@ -4437,7 +4830,12 @@ fn extract_api_keys(node: &DomNode) -> SectionBlueprint {
     let mono_nodes = dom::find_by_class(node, "font-mono");
     for mn in &mono_nodes {
         let text = dom::clean_node_text(mn).trim().to_string();
-        if text.len() > 5 && (text.contains("_") || text.contains("...") || text.contains("sk_") || text.contains("pk_")) {
+        if text.len() > 5
+            && (text.contains("_")
+                || text.contains("...")
+                || text.contains("sk_")
+                || text.contains("pk_"))
+        {
             let mut item_config = HashMap::new();
             // Find icon nearby
             let parent = find_parent_of(node, mn);
@@ -4445,18 +4843,31 @@ fn extract_api_keys(node: &DomNode) -> SectionBlueprint {
                 let icons = dom::find_by_class(p, "material-symbols");
                 for icon in &icons {
                     let it = dom::clean_node_text(icon).trim().to_string();
-                    if !it.is_empty() { item_config.insert("icon".into(), it); break; }
+                    if !it.is_empty() {
+                        item_config.insert("icon".into(), it);
+                        break;
+                    }
                 }
                 // Find subtitle (small text)
                 for t in collect_all_text_nodes(p) {
                     let trimmed = t.trim();
-                    if trimmed != text && trimmed.len() > 5 && trimmed.len() < 60 && !trimmed.contains("copy") && !trimmed.contains("delete") {
+                    if trimmed != text
+                        && trimmed.len() > 5
+                        && trimmed.len() < 60
+                        && !trimmed.contains("copy")
+                        && !trimmed.contains("delete")
+                    {
                         item_config.insert("subtitle".into(), trimmed.to_string());
                         break;
                     }
                 }
             }
-            items.push(ItemBlueprint { item_type: "item".into(), title: text, description: None, config: item_config });
+            items.push(ItemBlueprint {
+                item_type: "item".into(),
+                title: text,
+                description: None,
+                config: item_config,
+            });
         }
     }
 
@@ -4466,7 +4877,16 @@ fn extract_api_keys(node: &DomNode) -> SectionBlueprint {
         config.insert("action_label".into(), btn.clone());
     }
 
-    SectionBlueprint { section_type: "api-keys".into(), confidence: 0.0, title, subtitle, config, items, template: None, style_block: None }
+    SectionBlueprint {
+        section_type: "api-keys".into(),
+        confidence: 0.0,
+        title,
+        subtitle,
+        config,
+        items,
+        template: None,
+        style_block: None,
+    }
 }
 
 fn extract_subscription_card(node: &DomNode) -> SectionBlueprint {
@@ -4479,7 +4899,12 @@ fn extract_subscription_card(node: &DomNode) -> SectionBlueprint {
         let txt = dom::clean_node_text(bn).trim().to_string();
         if !txt.is_empty() && txt.len() < 20 {
             let lower = txt.to_lowercase();
-            if lower == "enterprise" || lower == "pro" || lower == "premium" || lower == "starter" || lower == "free" {
+            if lower == "enterprise"
+                || lower == "pro"
+                || lower == "premium"
+                || lower == "starter"
+                || lower == "free"
+            {
                 config.insert("title_override".into(), txt);
                 break;
             }
@@ -4495,8 +4920,16 @@ fn extract_subscription_card(node: &DomNode) -> SectionBlueprint {
         let trimmed = t.trim();
         if trimmed.starts_with('$') && trimmed.len() > 3 {
             let mut item_config = HashMap::new();
-            item_config.insert("badge".into(), config.get("title_override").cloned().unwrap_or_default());
-            items.push(ItemBlueprint { item_type: "item".into(), title: trimmed.to_string(), description: None, config: item_config });
+            item_config.insert(
+                "badge".into(),
+                config.get("title_override").cloned().unwrap_or_default(),
+            );
+            items.push(ItemBlueprint {
+                item_type: "item".into(),
+                title: trimmed.to_string(),
+                description: None,
+                config: item_config,
+            });
             break;
         }
     }
@@ -4504,7 +4937,12 @@ fn extract_subscription_card(node: &DomNode) -> SectionBlueprint {
     // Check-circle features
     for t in &all_text {
         let trimmed = t.trim();
-        if trimmed.len() > 3 && trimmed.len() < 50 && !trimmed.starts_with('$') && !trimmed.to_lowercase().contains("billing") && !trimmed.to_lowercase().contains("monthly") {
+        if trimmed.len() > 3
+            && trimmed.len() < 50
+            && !trimmed.starts_with('$')
+            && !trimmed.to_lowercase().contains("billing")
+            && !trimmed.to_lowercase().contains("monthly")
+        {
             // Check if nearby a check_circle icon
             let lower = trimmed.to_lowercase();
             if lower != "enterprise" && lower != "pro" && lower != "premium" {
@@ -4512,7 +4950,12 @@ fn extract_subscription_card(node: &DomNode) -> SectionBlueprint {
                 item_config.insert("icon".into(), "check_circle".into());
                 // Only add if it looks like a feature (not a date or ID)
                 if !trimmed.contains("ID:") && !trimmed.contains("202") {
-                    items.push(ItemBlueprint { item_type: "item".into(), title: trimmed.to_string(), description: None, config: item_config });
+                    items.push(ItemBlueprint {
+                        item_type: "item".into(),
+                        title: trimmed.to_string(),
+                        description: None,
+                        config: item_config,
+                    });
                 }
             }
         }
@@ -4524,7 +4967,16 @@ fn extract_subscription_card(node: &DomNode) -> SectionBlueprint {
         config.insert("action_label".into(), btn.clone());
     }
 
-    SectionBlueprint { section_type: "subscription-card".into(), confidence: 0.0, title, subtitle, config, items, template: None, style_block: None }
+    SectionBlueprint {
+        section_type: "subscription-card".into(),
+        confidence: 0.0,
+        title,
+        subtitle,
+        config,
+        items,
+        template: None,
+        style_block: None,
+    }
 }
 
 fn extract_danger_zone(node: &DomNode) -> SectionBlueprint {
@@ -4536,7 +4988,9 @@ fn extract_danger_zone(node: &DomNode) -> SectionBlueprint {
     let h4s = dom::find_by_tag(node, "h4");
     if let Some(h4) = h4s.first() {
         let t = dom::clean_node_text(h4).trim().to_string();
-        if !t.is_empty() { config.insert("subtitle_text".into(), t); }
+        if !t.is_empty() {
+            config.insert("subtitle_text".into(), t);
+        }
     }
 
     // Description
@@ -4544,7 +4998,12 @@ fn extract_danger_zone(node: &DomNode) -> SectionBlueprint {
     for p in &ps {
         let pt = dom::clean_node_text(p).trim().to_string();
         if pt.len() > 20 {
-            items.push(ItemBlueprint { item_type: "item".into(), title: pt, description: None, config: HashMap::new() });
+            items.push(ItemBlueprint {
+                item_type: "item".into(),
+                title: pt,
+                description: None,
+                config: HashMap::new(),
+            });
             break;
         }
     }
@@ -4555,7 +5014,16 @@ fn extract_danger_zone(node: &DomNode) -> SectionBlueprint {
         config.insert("action_label".into(), btn.clone());
     }
 
-    SectionBlueprint { section_type: "danger-zone".into(), confidence: 0.0, title, subtitle: config.remove("subtitle_text"), config, items, template: None, style_block: None }
+    SectionBlueprint {
+        section_type: "danger-zone".into(),
+        confidence: 0.0,
+        title,
+        subtitle: config.remove("subtitle_text"),
+        config,
+        items,
+        template: None,
+        style_block: None,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -4656,7 +5124,8 @@ fn extract_chart_canvas_id(script: &str, chart_pos: usize) -> Option<String> {
 
     // Pattern 1: new Chart(document.getElementById('myChart'), ...)
     if let Some(gid_pos) = after.find("getElementById(") {
-        if gid_pos < 200 { // must be close to the new Chart( call
+        if gid_pos < 200 {
+            // must be close to the new Chart( call
             let after_gid = &after[gid_pos + 15..];
             // Extract quoted string
             let quote = after_gid.chars().next()?;
@@ -4987,7 +5456,8 @@ fn extract_card_items(node: &DomNode) -> Vec<ItemBlueprint> {
         card_config.insert("_type".into(), "card".into());
 
         // Detect dark card style
-        if dom::has_class(card, "bg-black") || dom::has_class(card, "bg-primary")
+        if dom::has_class(card, "bg-black")
+            || dom::has_class(card, "bg-primary")
             || dom::has_class(card, "bg-surface-container-highest")
         {
             card_config.insert("style".into(), "dark".into());
@@ -5017,7 +5487,8 @@ fn extract_card_items(node: &DomNode) -> Vec<ItemBlueprint> {
             if mono.tag == "code" || mono.tag == "pre" || is_material_icon_span(mono) {
                 continue;
             }
-            let is_small = dom::has_class(mono, "text-xs") || dom::has_class(mono, "text-sm")
+            let is_small = dom::has_class(mono, "text-xs")
+                || dom::has_class(mono, "text-sm")
                 || mono.classes.iter().any(|c| c.contains("text-["));
             if !is_small {
                 continue;
@@ -5141,15 +5612,17 @@ fn extract_key_value_rows(node: &DomNode) -> Vec<ItemBlueprint> {
             continue;
         }
         // Key-value rows typically have border-b or are in a space-y container
-        let has_border = dom::has_class(jb, "border-b")
-            || jb.classes.iter().any(|c| c.contains("border-"));
+        let has_border =
+            dom::has_class(jb, "border-b") || jb.classes.iter().any(|c| c.contains("border-"));
 
         if !has_border && !dom::has_class(jb, "items-end") && !dom::has_class(jb, "items-center") {
             continue;
         }
 
         // Need exactly 2 meaningful text children (key and value)
-        let children_with_text: Vec<&DomNode> = jb.children.iter()
+        let children_with_text: Vec<&DomNode> = jb
+            .children
+            .iter()
             .filter(|c| !c.full_text.trim().is_empty())
             .collect();
 
@@ -5198,10 +5671,16 @@ fn find_labeled_progress_recursive(node: &DomNode, items: &mut Vec<ItemBlueprint
     for (i, child) in node.children.iter().enumerate() {
         // Check if this child is a progress bar track (h-1.5 or h-2 with rounded + overflow)
         let is_track = (dom::has_class(child, "rounded-full") || dom::has_class(child, "rounded"))
-            && (dom::has_class(child, "overflow-hidden") || dom::has_class(child, "h-1")
-                || child.classes.iter().any(|c| c.starts_with("h-1") || c.starts_with("h-2")))
-            && (dom::has_class(child, "bg-surface") || dom::has_class(child, "bg-gray")
-                || dom::has_class(child, "bg-zinc") || dom::has_class(child, "bg-neutral")
+            && (dom::has_class(child, "overflow-hidden")
+                || dom::has_class(child, "h-1")
+                || child
+                    .classes
+                    .iter()
+                    .any(|c| c.starts_with("h-1") || c.starts_with("h-2")))
+            && (dom::has_class(child, "bg-surface")
+                || dom::has_class(child, "bg-gray")
+                || dom::has_class(child, "bg-zinc")
+                || dom::has_class(child, "bg-neutral")
                 || dom::has_class(child, "bg-muted"));
 
         if !is_track {
@@ -5214,7 +5693,10 @@ fn find_labeled_progress_recursive(node: &DomNode, items: &mut Vec<ItemBlueprint
         for bar_child in &child.children {
             for cls in &bar_child.classes {
                 if cls.starts_with("w-[") && cls.contains('%') {
-                    pct = cls.trim_start_matches("w-[").trim_end_matches(']').to_string();
+                    pct = cls
+                        .trim_start_matches("w-[")
+                        .trim_end_matches(']')
+                        .to_string();
                     break;
                 }
             }
@@ -5227,7 +5709,9 @@ fn find_labeled_progress_recursive(node: &DomNode, items: &mut Vec<ItemBlueprint
             let prev = &node.children[i - 1];
             // The preceding div typically has justify-between with label + value
             if dom::has_class(prev, "justify-between") {
-                let texts: Vec<String> = prev.children.iter()
+                let texts: Vec<String> = prev
+                    .children
+                    .iter()
                     .map(|c| c.full_text.trim().to_string())
                     .filter(|t| !t.is_empty())
                     .collect();
@@ -5285,7 +5769,9 @@ fn extract_invoice_rows(node: &DomNode) -> Vec<ItemBlueprint> {
     };
 
     for container in containers {
-        let jb_children: Vec<&DomNode> = container.children.iter()
+        let jb_children: Vec<&DomNode> = container
+            .children
+            .iter()
             .filter(|c| dom::has_class(c, "justify-between") && c.tag != "button")
             .collect();
 
@@ -5309,7 +5795,9 @@ fn extract_invoice_rows(node: &DomNode) -> Vec<ItemBlueprint> {
         for row in &jb_children {
             // Left side: title + subtitle
             // Right side: amount + icon
-            let children_with_text: Vec<&DomNode> = row.children.iter()
+            let children_with_text: Vec<&DomNode> = row
+                .children
+                .iter()
                 .filter(|c| !c.full_text.trim().is_empty())
                 .collect();
 
@@ -5397,10 +5885,14 @@ fn extract_payment_method_rows(node: &DomNode) -> Vec<ItemBlueprint> {
         let lower = text.to_lowercase();
 
         // Must look like a payment method (card brand names, "ending in", "pay")
-        let is_payment = lower.contains("visa") || lower.contains("mastercard")
-            || lower.contains("amex") || lower.contains("apple pay")
-            || lower.contains("google pay") || lower.contains("ending in")
-            || lower.contains("paypal") || lower.contains("expires");
+        let is_payment = lower.contains("visa")
+            || lower.contains("mastercard")
+            || lower.contains("amex")
+            || lower.contains("apple pay")
+            || lower.contains("google pay")
+            || lower.contains("ending in")
+            || lower.contains("paypal")
+            || lower.contains("expires");
 
         if !is_payment {
             continue;
@@ -5408,7 +5900,8 @@ fn extract_payment_method_rows(node: &DomNode) -> Vec<ItemBlueprint> {
 
         // Extract the card name (bold text)
         let bold = dom::find_by_class(row, "font-bold");
-        let card_name = bold.iter()
+        let card_name = bold
+            .iter()
             .map(|b| b.full_text.trim().to_string())
             .find(|t| !t.is_empty() && t.len() < 60 && !is_material_icon_text(t))
             .unwrap_or_default();
@@ -5427,7 +5920,8 @@ fn extract_payment_method_rows(node: &DomNode) -> Vec<ItemBlueprint> {
 
         // Extract subtitle (expiry, added date)
         let small = dom::find_by_class(row, "text-xs");
-        let subtitle = small.iter()
+        let subtitle = small
+            .iter()
             .map(|s| s.full_text.trim().to_string())
             .find(|t| !t.is_empty() && t.len() < 80);
 
@@ -5570,9 +6064,7 @@ fn extract_table_items(node: &DomNode) -> (Option<String>, Vec<ItemBlueprint>) {
 
         for row in &data_rows {
             let td_nodes = dom::find_by_tag(row, "td");
-            let cells: Vec<String> = td_nodes.iter()
-                .map(|td| dom::clean_node_text(td))
-                .collect();
+            let cells: Vec<String> = td_nodes.iter().map(|td| dom::clean_node_text(td)).collect();
 
             if cells.is_empty() || cells.iter().all(|c| c.is_empty()) {
                 continue;
@@ -5593,7 +6085,8 @@ fn extract_table_items(node: &DomNode) -> (Option<String>, Vec<ItemBlueprint>) {
                 }
             }
 
-            let row_title = cells.iter()
+            let row_title = cells
+                .iter()
                 .find(|c| !c.is_empty())
                 .cloned()
                 .unwrap_or_default();
@@ -5614,9 +6107,8 @@ fn extract_table_items(node: &DomNode) -> (Option<String>, Vec<ItemBlueprint>) {
             let rows = find_nodes_with_attr(rt, "role", "row");
             for row in &rows {
                 let cells = find_nodes_with_attr(row, "role", "cell");
-                let cell_texts: Vec<String> = cells.iter()
-                    .map(|c| dom::clean_node_text(c))
-                    .collect();
+                let cell_texts: Vec<String> =
+                    cells.iter().map(|c| dom::clean_node_text(c)).collect();
 
                 if cell_texts.is_empty() || cell_texts.iter().all(|c| c.is_empty()) {
                     continue;
@@ -5668,7 +6160,11 @@ fn extract_form_items(node: &DomNode) -> Vec<ItemBlueprint> {
         let inner_selects = dom::find_by_tag(label, "select");
         let inner_textareas = dom::find_by_tag(label, "textarea");
 
-        for input in inner_inputs.iter().chain(inner_selects.iter()).chain(inner_textareas.iter()) {
+        for input in inner_inputs
+            .iter()
+            .chain(inner_selects.iter())
+            .chain(inner_textareas.iter())
+        {
             found_input = true;
             extract_input_attrs(input, &mut field_config);
         }
@@ -5704,7 +6200,11 @@ fn extract_form_items(node: &DomNode) -> Vec<ItemBlueprint> {
         let inputs = dom::find_by_tag(node, "input");
         for input in &inputs {
             let placeholder = input.attrs.get("placeholder").cloned().unwrap_or_default();
-            let input_type = input.attrs.get("type").cloned().unwrap_or_else(|| "text".into());
+            let input_type = input
+                .attrs
+                .get("type")
+                .cloned()
+                .unwrap_or_else(|| "text".into());
             if placeholder.is_empty() && input_type == "hidden" {
                 continue;
             }
@@ -5759,10 +6259,15 @@ fn extract_input_attrs(input: &DomNode, config: &mut HashMap<String, String>) {
     if input.tag == "select" {
         // Extract <option> values
         let options = dom::find_by_tag(input, "option");
-        let opt_texts: Vec<String> = options.iter()
+        let opt_texts: Vec<String> = options
+            .iter()
             .filter_map(|o| {
                 let txt = dom::clean_node_text(o);
-                if txt.is_empty() { None } else { Some(txt) }
+                if txt.is_empty() {
+                    None
+                } else {
+                    Some(txt)
+                }
             })
             .collect();
         if !opt_texts.is_empty() {
@@ -5801,7 +6306,10 @@ fn find_sibling_input<'a>(parent: &'a DomNode, label: &DomNode) -> Option<&'a Do
             }
             // Check one level deeper (wrapper div around input)
             for grandchild in &child.children {
-                if grandchild.tag == "input" || grandchild.tag == "select" || grandchild.tag == "textarea" {
+                if grandchild.tag == "input"
+                    || grandchild.tag == "select"
+                    || grandchild.tag == "textarea"
+                {
                     return Some(grandchild);
                 }
             }
@@ -5834,10 +6342,8 @@ fn extract_inline_stat_items(node: &DomNode) -> Vec<ItemBlueprint> {
 
         let mut candidates: Vec<ItemBlueprint> = Vec::new();
         for child in &grid.children {
-            let large = find_large_text(child)
-                .or_else(|| find_stat_value(child));
-            let label = find_small_label(child)
-                .or_else(|| find_stat_label(child));
+            let large = find_large_text(child).or_else(|| find_stat_value(child));
+            let label = find_small_label(child).or_else(|| find_stat_label(child));
 
             if let (Some(val), Some(lbl)) = (large, label) {
                 let mut config: HashMap<String, String> = HashMap::new();
@@ -5872,11 +6378,15 @@ fn extract_progress_items(node: &DomNode) -> Vec<ItemBlueprint> {
     // Look for elements with role="progressbar"
     let progress_nodes = find_nodes_with_attr(node, "role", "progressbar");
     for pn in &progress_nodes {
-        let value = pn.attrs.get("aria-valuenow")
+        let value = pn
+            .attrs
+            .get("aria-valuenow")
             .or_else(|| pn.attrs.get("aria-value"))
             .cloned()
             .unwrap_or_default();
-        let label = pn.attrs.get("aria-label")
+        let label = pn
+            .attrs
+            .get("aria-label")
             .cloned()
             .or_else(|| {
                 let parent = find_parent_of(node, pn);
@@ -5892,7 +6402,11 @@ fn extract_progress_items(node: &DomNode) -> Vec<ItemBlueprint> {
         items.push(ItemBlueprint {
             item_type: "meter".into(),
             title: label,
-            description: if value.is_empty() { None } else { Some(format!("{}%", value)) },
+            description: if value.is_empty() {
+                None
+            } else {
+                Some(format!("{}%", value))
+            },
             config,
         });
     }
@@ -5912,7 +6426,11 @@ fn extract_progress_items(node: &DomNode) -> Vec<ItemBlueprint> {
         items.push(ItemBlueprint {
             item_type: "meter".into(),
             title: String::new(),
-            description: if value.is_empty() { None } else { Some(format!("{}%", value)) },
+            description: if value.is_empty() {
+                None
+            } else {
+                Some(format!("{}%", value))
+            },
             config,
         });
     }
@@ -5929,8 +6447,10 @@ fn extract_progress_items(node: &DomNode) -> Vec<ItemBlueprint> {
 /// that has an inner child with a style containing "width:" percentage.
 fn find_div_progress_bars(node: &DomNode, items: &mut Vec<ItemBlueprint>) {
     // Check if this node is a progress bar track
-    let is_track = (dom::has_class(node, "bg-gray") || dom::has_class(node, "bg-neutral")
-        || dom::has_class(node, "bg-muted") || dom::has_class(node, "bg-surface"))
+    let is_track = (dom::has_class(node, "bg-gray")
+        || dom::has_class(node, "bg-neutral")
+        || dom::has_class(node, "bg-muted")
+        || dom::has_class(node, "bg-surface"))
         && dom::has_class(node, "rounded");
 
     if is_track {
@@ -5957,7 +6477,10 @@ fn find_div_progress_bars(node: &DomNode, items: &mut Vec<ItemBlueprint>) {
             // Also check Tailwind w-[] classes for percentage
             for cls in &child.classes {
                 if cls.starts_with("w-[") && cls.contains('%') {
-                    let pct = cls.trim_start_matches("w-[").trim_end_matches(']').to_string();
+                    let pct = cls
+                        .trim_start_matches("w-[")
+                        .trim_end_matches(']')
+                        .to_string();
                     let mut config: HashMap<String, String> = HashMap::new();
                     config.insert("_type".into(), "meter".into());
                     config.insert("progress".into(), pct.clone());
@@ -5987,7 +6510,8 @@ fn extract_width_percent(style: &str) -> Option<String> {
         if let Some(colon) = after.find(':') {
             let val_part = after[colon + 1..].trim();
             if val_part.contains('%') {
-                let pct: String = val_part.chars()
+                let pct: String = val_part
+                    .chars()
                     .take_while(|c| c.is_ascii_digit() || *c == '.' || *c == '%')
                     .collect();
                 if !pct.is_empty() {
@@ -6025,8 +6549,10 @@ fn find_status_indicators(node: &DomNode, items: &mut Vec<ItemBlueprint>) {
             continue;
         }
         // Tiny dot: w-2/w-3 h-2/h-3 with color bg
-        let is_dot = (dom::has_class(child, "w-2") || dom::has_class(child, "w-3")
-            || dom::has_class(child, "h-2") || dom::has_class(child, "h-3"))
+        let is_dot = (dom::has_class(child, "w-2")
+            || dom::has_class(child, "w-3")
+            || dom::has_class(child, "h-2")
+            || dom::has_class(child, "h-3"))
             && child.full_text.trim().is_empty();
 
         if !is_dot {
@@ -6111,7 +6637,8 @@ fn extract_badge_items(node: &DomNode) -> Vec<ItemBlueprint> {
             continue;
         }
         // Must have small text
-        let is_small = dom::has_class(badge, "text-xs") || dom::has_class(badge, "text-sm")
+        let is_small = dom::has_class(badge, "text-xs")
+            || dom::has_class(badge, "text-sm")
             || badge.classes.iter().any(|c| c.contains("text-["));
         if !is_small {
             continue;
@@ -6151,8 +6678,12 @@ fn extract_inline_badges(node: &DomNode) -> Vec<ItemBlueprint> {
     let uppercase_nodes = dom::find_by_class(node, "uppercase");
     for badge in &uppercase_nodes {
         // Must be small text
-        let is_small = dom::has_class(badge, "text-xs") || dom::has_class(badge, "text-sm")
-            || badge.classes.iter().any(|c| c.contains("text-[10px]") || c.contains("text-[11px]"));
+        let is_small = dom::has_class(badge, "text-xs")
+            || dom::has_class(badge, "text-sm")
+            || badge
+                .classes
+                .iter()
+                .any(|c| c.contains("text-[10px]") || c.contains("text-[11px]"));
         if !is_small {
             continue;
         }
@@ -6223,7 +6754,9 @@ fn extract_code_items(node: &DomNode) -> Vec<ItemBlueprint> {
     for code in &code_nodes {
         // Skip if parent is <pre> (already captured)
         let is_in_pre = pre_nodes.iter().any(|pre| {
-            dom::find_by_tag(pre, "code").iter().any(|c| std::ptr::eq(*c, *code))
+            dom::find_by_tag(pre, "code")
+                .iter()
+                .any(|c| std::ptr::eq(*c, *code))
         });
         if is_in_pre {
             continue;
@@ -6283,30 +6816,113 @@ fn extract_code_items(node: &DomNode) -> Vec<ItemBlueprint> {
 /// Common Material Symbols icon names that may appear as text content
 /// inside `<span class="material-symbols-outlined">`.
 const MATERIAL_ICON_NAMES: &[&str] = &[
-    "arrow_forward", "arrow_back", "arrow_downward", "arrow_upward",
-    "chevron_right", "chevron_left", "close", "menu", "search",
-    "check", "check_circle", "add", "remove", "delete", "edit",
-    "star", "favorite", "settings", "home", "person", "mail",
-    "phone", "link", "open_in_new", "download", "upload",
-    "play_arrow", "pause", "stop", "skip_next", "skip_previous",
-    "expand_more", "expand_less", "more_vert", "more_horiz",
-    "visibility", "visibility_off", "lock", "lock_open",
-    "notifications", "info", "warning", "error", "help",
-    "schedule", "calendar_today", "event", "place", "map",
-    "shopping_cart", "payments", "credit_card", "receipt",
-    "code", "terminal", "data_object", "deployed_code", "content_copy", "content_paste",
-    "cloud", "cloud_upload", "cloud_download", "storage",
-    "rocket_launch", "speed", "bolt", "auto_awesome",
-    "dark_mode", "light_mode", "contrast", "palette",
-    "folder", "description", "article", "draft",
-    "group", "groups", "diversity_3", "share",
-    "thumb_up", "thumb_down", "mood", "sentiment_satisfied",
-    "trending_up", "trending_down", "analytics", "insights",
-    "verified", "new_releases", "campaign", "flag",
-    "security", "shield", "vpn_key", "key",
-    "language", "translate", "public", "dns",
-    "developer_board", "memory", "device_hub", "hub",
-    "network_check", "wifi", "signal_cellular_alt", "cell_tower",
+    "arrow_forward",
+    "arrow_back",
+    "arrow_downward",
+    "arrow_upward",
+    "chevron_right",
+    "chevron_left",
+    "close",
+    "menu",
+    "search",
+    "check",
+    "check_circle",
+    "add",
+    "remove",
+    "delete",
+    "edit",
+    "star",
+    "favorite",
+    "settings",
+    "home",
+    "person",
+    "mail",
+    "phone",
+    "link",
+    "open_in_new",
+    "download",
+    "upload",
+    "play_arrow",
+    "pause",
+    "stop",
+    "skip_next",
+    "skip_previous",
+    "expand_more",
+    "expand_less",
+    "more_vert",
+    "more_horiz",
+    "visibility",
+    "visibility_off",
+    "lock",
+    "lock_open",
+    "notifications",
+    "info",
+    "warning",
+    "error",
+    "help",
+    "schedule",
+    "calendar_today",
+    "event",
+    "place",
+    "map",
+    "shopping_cart",
+    "payments",
+    "credit_card",
+    "receipt",
+    "code",
+    "terminal",
+    "data_object",
+    "deployed_code",
+    "content_copy",
+    "content_paste",
+    "cloud",
+    "cloud_upload",
+    "cloud_download",
+    "storage",
+    "rocket_launch",
+    "speed",
+    "bolt",
+    "auto_awesome",
+    "dark_mode",
+    "light_mode",
+    "contrast",
+    "palette",
+    "folder",
+    "description",
+    "article",
+    "draft",
+    "group",
+    "groups",
+    "diversity_3",
+    "share",
+    "thumb_up",
+    "thumb_down",
+    "mood",
+    "sentiment_satisfied",
+    "trending_up",
+    "trending_down",
+    "analytics",
+    "insights",
+    "verified",
+    "new_releases",
+    "campaign",
+    "flag",
+    "security",
+    "shield",
+    "vpn_key",
+    "key",
+    "language",
+    "translate",
+    "public",
+    "dns",
+    "developer_board",
+    "memory",
+    "device_hub",
+    "hub",
+    "network_check",
+    "wifi",
+    "signal_cellular_alt",
+    "cell_tower",
 ];
 
 /// Clean button text by stripping material icon names from spans.
@@ -6345,9 +6961,13 @@ fn clean_button_text(node: &DomNode) -> String {
 /// Collect all visible text nodes from a DOM subtree (skipping icons)
 fn collect_all_text_nodes(node: &DomNode) -> Vec<String> {
     let mut texts = Vec::new();
-    if is_material_icon_span(node) { return texts; }
+    if is_material_icon_span(node) {
+        return texts;
+    }
     let t = node.text.trim();
-    if !t.is_empty() { texts.push(t.to_string()); }
+    if !t.is_empty() {
+        texts.push(t.to_string());
+    }
     for child in &node.children {
         texts.extend(collect_all_text_nodes(child));
     }
@@ -6372,8 +6992,7 @@ fn is_material_icon_text(text: &str) -> bool {
         return false;
     }
     MATERIAL_ICON_NAMES.contains(&trimmed)
-        || (trimmed.chars().all(|c| c.is_ascii_lowercase() || c == '_')
-            && trimmed.contains('_'))
+        || (trimmed.chars().all(|c| c.is_ascii_lowercase() || c == '_') && trimmed.contains('_'))
 }
 
 /// Extract clean button texts from a node, stripping material icon text.
@@ -6507,12 +7126,20 @@ fn extract_kpi_grid(node: &DomNode) -> SectionBlueprint {
     }
 
     // Find the grid container (may be node itself or a child)
-    let grid_children: Vec<&DomNode> = if node.classes.iter().any(|c| c.starts_with("grid-cols") || c == "grid") {
+    let grid_children: Vec<&DomNode> = if node
+        .classes
+        .iter()
+        .any(|c| c.starts_with("grid-cols") || c == "grid")
+    {
         node.children.iter().collect()
     } else {
         let mut found: Vec<&DomNode> = Vec::new();
         for child in &node.children {
-            if child.classes.iter().any(|c| c.starts_with("grid-cols") || c == "grid") {
+            if child
+                .classes
+                .iter()
+                .any(|c| c.starts_with("grid-cols") || c == "grid")
+            {
                 found = child.children.iter().collect();
                 break;
             }
@@ -6561,9 +7188,11 @@ fn extract_kpi_grid(node: &DomNode) -> SectionBlueprint {
 
         // Detect mini chart (SVG or bar elements inside the card)
         let has_svg = dom::find_by_tag(card, "svg").len() > 0;
-        let has_bars = card.children.iter().any(|c|
-            c.classes.iter().any(|cls| cls.contains("bar") || cls.contains("chart"))
-        );
+        let has_bars = card.children.iter().any(|c| {
+            c.classes
+                .iter()
+                .any(|cls| cls.contains("bar") || cls.contains("chart"))
+        });
         if has_svg || has_bars {
             card_config.insert("mini_chart".into(), "true".into());
         }
@@ -6645,7 +7274,11 @@ fn find_percentage_badge(node: &DomNode) -> Option<String> {
     }
     // Also check children with badge-like classes
     for child in &node.children {
-        if child.classes.iter().any(|c| c.contains("badge") || c.contains("pill") || c.contains("tag")) {
+        if child
+            .classes
+            .iter()
+            .any(|c| c.contains("badge") || c.contains("pill") || c.contains("tag"))
+        {
             let txt = child.full_text.trim().to_string();
             if txt.contains('%') {
                 return Some(txt);
@@ -6665,11 +7298,16 @@ fn find_kpi_subtitle(node: &DomNode) -> Option<String> {
     for cls in &["text-xs", "text-sm"] {
         let matches = dom::find_by_class(node, cls);
         for m in matches {
-            if is_material_icon_span(m) { continue; }
+            if is_material_icon_span(m) {
+                continue;
+            }
             let txt = m.full_text.trim().to_string();
             if !txt.is_empty() && txt.len() < 80 && txt.len() > 3 {
                 // Skip if it's purely numeric (that's a value, not subtitle)
-                if txt.chars().all(|c| c.is_ascii_digit() || c == '.' || c == '%' || c == '$' || c == ',') {
+                if txt
+                    .chars()
+                    .all(|c| c.is_ascii_digit() || c == '.' || c == '%' || c == '$' || c == ',')
+                {
                     continue;
                 }
                 // Skip if it's uppercase and short (that's a label)
@@ -6700,11 +7338,17 @@ fn extract_chart(node: &DomNode) -> SectionBlueprint {
     let all_classes: Vec<String> = collect_all_classes(node);
     let chart_type = if all_classes.iter().any(|c| c.contains("area")) {
         "area"
-    } else if all_classes.iter().any(|c| c.contains("bar-chart") || c.contains("bar_chart")) {
+    } else if all_classes
+        .iter()
+        .any(|c| c.contains("bar-chart") || c.contains("bar_chart"))
+    {
         "bar"
     } else if all_classes.iter().any(|c| c.contains("line")) {
         "line"
-    } else if all_classes.iter().any(|c| c.contains("pie") || c.contains("donut")) {
+    } else if all_classes
+        .iter()
+        .any(|c| c.contains("pie") || c.contains("donut"))
+    {
         "pie"
     } else {
         "area" // default
@@ -6715,8 +7359,10 @@ fn extract_chart(node: &DomNode) -> SectionBlueprint {
     let buttons = dom::extract_buttons(node);
     let links = dom::extract_links(node);
     let mut periods: Vec<String> = Vec::new();
-    let period_keywords = ["7d", "30d", "90d", "1y", "12m", "6m", "3m", "1m",
-        "week", "month", "year", "quarter", "daily", "weekly", "monthly"];
+    let period_keywords = [
+        "7d", "30d", "90d", "1y", "12m", "6m", "3m", "1m", "week", "month", "year", "quarter",
+        "daily", "weekly", "monthly",
+    ];
     for btn_text in &buttons {
         let lower = btn_text.to_lowercase();
         if period_keywords.iter().any(|kw| lower.contains(kw)) {
@@ -6770,8 +7416,14 @@ fn collect_all_classes(node: &DomNode) -> Vec<String> {
 fn extract_axis_labels(node: &DomNode) -> Vec<String> {
     // Look for a child div with flex that contains multiple short text elements
     for child in &node.children {
-        if child.classes.iter().any(|c| c == "flex" || c.contains("justify-between") || c.contains("gap-")) {
-            let labels: Vec<String> = child.children.iter()
+        if child
+            .classes
+            .iter()
+            .any(|c| c == "flex" || c.contains("justify-between") || c.contains("gap-"))
+        {
+            let labels: Vec<String> = child
+                .children
+                .iter()
                 .filter_map(|c| {
                     let txt = c.full_text.trim().to_string();
                     if !txt.is_empty() && txt.len() < 15 {
@@ -6799,7 +7451,11 @@ fn extract_legend_items(node: &DomNode) -> Vec<ItemBlueprint> {
     let mut legends = Vec::new();
     for child in &node.children {
         // Legend items typically have a small colored indicator + text
-        if child.classes.iter().any(|c| c.contains("legend") || c.contains("indicator")) {
+        if child
+            .classes
+            .iter()
+            .any(|c| c.contains("legend") || c.contains("indicator"))
+        {
             let txt = child.full_text.trim().to_string();
             if !txt.is_empty() {
                 let mut cfg = HashMap::new();
@@ -6834,8 +7490,16 @@ fn extract_data_table(node: &DomNode) -> SectionBlueprint {
     // Search input detection
     let inputs = dom::find_by_tag(node, "input");
     for input in &inputs {
-        let input_type = input.attrs.get("type").map(|s| s.as_str()).unwrap_or("text");
-        let placeholder = input.attrs.get("placeholder").map(|s| s.as_str()).unwrap_or("");
+        let input_type = input
+            .attrs
+            .get("type")
+            .map(|s| s.as_str())
+            .unwrap_or("text");
+        let placeholder = input
+            .attrs
+            .get("placeholder")
+            .map(|s| s.as_str())
+            .unwrap_or("");
         if input_type == "search" || placeholder.to_lowercase().contains("search") {
             config.insert("search".into(), "true".into());
             if !placeholder.is_empty() {
@@ -6856,8 +7520,11 @@ fn extract_data_table(node: &DomNode) -> SectionBlueprint {
     let links = dom::extract_links(node);
     for (text, href) in &links {
         let lower = text.to_lowercase();
-        if lower.contains("view all") || lower.contains("ver todos") || lower.contains("see all")
-            || lower.contains("show all") || lower.contains("more")
+        if lower.contains("view all")
+            || lower.contains("ver todos")
+            || lower.contains("see all")
+            || lower.contains("show all")
+            || lower.contains("more")
         {
             config.insert("footer_link".into(), text.clone());
             config.insert("footer_href".into(), href.clone());
@@ -6877,11 +7544,18 @@ fn extract_data_table(node: &DomNode) -> SectionBlueprint {
             // Check row values for status-like text
             for (key, val) in item.config.clone() {
                 let lower = val.to_lowercase();
-                if lower == "active" || lower == "completed" || lower == "pending"
-                    || lower == "failed" || lower == "inactive" || lower == "cancelled"
-                    || lower == "approved" || lower == "rejected" || lower == "draft"
+                if lower == "active"
+                    || lower == "completed"
+                    || lower == "pending"
+                    || lower == "failed"
+                    || lower == "inactive"
+                    || lower == "cancelled"
+                    || lower == "approved"
+                    || lower == "rejected"
+                    || lower == "draft"
                 {
-                    item.config.insert(format!("{}_status", key), "badge".into());
+                    item.config
+                        .insert(format!("{}_status", key), "badge".into());
                 }
             }
         }
@@ -6916,45 +7590,124 @@ mod tests {
 
         // Find the hero section
         let hero = sections.iter().find(|s| s.section_type == "hero");
-        assert!(hero.is_some(), "Hero section not found. Sections: {:?}", sections.iter().map(|s| &s.section_type).collect::<Vec<_>>());
+        assert!(
+            hero.is_some(),
+            "Hero section not found. Sections: {:?}",
+            sections.iter().map(|s| &s.section_type).collect::<Vec<_>>()
+        );
         let hero = hero.unwrap();
 
         // A) Badge
         let badge = hero.config.get("badge");
-        assert!(badge.is_some(), "Badge not found in hero config. Config: {:?}", hero.config);
+        assert!(
+            badge.is_some(),
+            "Badge not found in hero config. Config: {:?}",
+            hero.config
+        );
         let badge_text = badge.unwrap();
-        assert!(badge_text.contains("Next.js 15"), "Badge should contain 'Next.js 15', got: {}", badge_text);
+        assert!(
+            badge_text.contains("Next.js 15"),
+            "Badge should contain 'Next.js 15', got: {}",
+            badge_text
+        );
 
         // B) Terminal lines
-        let lines: Vec<&ItemBlueprint> = hero.items.iter().filter(|i| i.item_type == "line").collect();
-        assert!(!lines.is_empty(), "No terminal 'line' items found. Items: {:?}", hero.items.iter().map(|i| (&i.item_type, &i.title)).collect::<Vec<_>>());
-        assert!(lines.iter().any(|l| l.title.contains("npm i -g vercel")), "Missing 'npm i -g vercel' line");
-        assert!(lines.iter().any(|l| l.title.contains("vercel deploy")), "Missing 'vercel deploy' line");
+        let lines: Vec<&ItemBlueprint> = hero
+            .items
+            .iter()
+            .filter(|i| i.item_type == "line")
+            .collect();
+        assert!(
+            !lines.is_empty(),
+            "No terminal 'line' items found. Items: {:?}",
+            hero.items
+                .iter()
+                .map(|i| (&i.item_type, &i.title))
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            lines.iter().any(|l| l.title.contains("npm i -g vercel")),
+            "Missing 'npm i -g vercel' line"
+        );
+        assert!(
+            lines.iter().any(|l| l.title.contains("vercel deploy")),
+            "Missing 'vercel deploy' line"
+        );
 
-        let outputs: Vec<&ItemBlueprint> = hero.items.iter().filter(|i| i.item_type == "output").collect();
-        assert!(outputs.iter().any(|o| o.title.contains("Vercel CLI")), "Missing 'Vercel CLI' output");
+        let outputs: Vec<&ItemBlueprint> = hero
+            .items
+            .iter()
+            .filter(|i| i.item_type == "output")
+            .collect();
+        assert!(
+            outputs.iter().any(|o| o.title.contains("Vercel CLI")),
+            "Missing 'Vercel CLI' output"
+        );
 
-        let prompts: Vec<&ItemBlueprint> = hero.items.iter().filter(|i| i.item_type == "prompt").collect();
+        let prompts: Vec<&ItemBlueprint> = hero
+            .items
+            .iter()
+            .filter(|i| i.item_type == "prompt")
+            .collect();
         assert!(!prompts.is_empty(), "No prompt items found");
         // Check prompt has answer
-        assert!(prompts.iter().any(|p| p.config.get("answer").is_some()), "Prompt should have answer config");
+        assert!(
+            prompts.iter().any(|p| p.config.get("answer").is_some()),
+            "Prompt should have answer config"
+        );
 
-        let successes: Vec<&ItemBlueprint> = hero.items.iter().filter(|i| i.item_type == "success").collect();
-        assert!(successes.len() >= 2, "Expected at least 2 success lines, got {}", successes.len());
+        let successes: Vec<&ItemBlueprint> = hero
+            .items
+            .iter()
+            .filter(|i| i.item_type == "success")
+            .collect();
+        assert!(
+            successes.len() >= 2,
+            "Expected at least 2 success lines, got {}",
+            successes.len()
+        );
 
         // C) Floating chips
-        let chips: Vec<&ItemBlueprint> = hero.items.iter().filter(|i| i.item_type == "chip").collect();
-        assert!(chips.len() >= 2, "Expected at least 2 chips, got {}. Items: {:?}",
-            chips.len(), hero.items.iter().map(|i| (&i.item_type, &i.title)).collect::<Vec<_>>());
+        let chips: Vec<&ItemBlueprint> = hero
+            .items
+            .iter()
+            .filter(|i| i.item_type == "chip")
+            .collect();
+        assert!(
+            chips.len() >= 2,
+            "Expected at least 2 chips, got {}. Items: {:?}",
+            chips.len(),
+            hero.items
+                .iter()
+                .map(|i| (&i.item_type, &i.title))
+                .collect::<Vec<_>>()
+        );
 
         // Check chip content — title should NOT contain icon text
-        let next_chip = chips.iter().find(|c| c.title.contains("Next.js")).expect("Missing Next.js chip");
-        assert!(!next_chip.title.starts_with("NEXT"), "Chip title should not start with icon text, got: {}", next_chip.title);
+        let next_chip = chips
+            .iter()
+            .find(|c| c.title.contains("Next.js"))
+            .expect("Missing Next.js chip");
+        assert!(
+            !next_chip.title.starts_with("NEXT"),
+            "Chip title should not start with icon text, got: {}",
+            next_chip.title
+        );
         assert_eq!(next_chip.title, "Ready for Next.js");
-        assert_eq!(next_chip.config.get("icon").map(|s| s.as_str()), Some("NEXT"));
+        assert_eq!(
+            next_chip.config.get("icon").map(|s| s.as_str()),
+            Some("NEXT")
+        );
 
-        let sv_chip = chips.iter().find(|c| c.title.contains("SvelteKit")).expect("Missing SvelteKit chip");
-        assert!(!sv_chip.title.starts_with("SV"), "Chip title should not start with icon text, got: {}", sv_chip.title);
+        let sv_chip = chips
+            .iter()
+            .find(|c| c.title.contains("SvelteKit"))
+            .expect("Missing SvelteKit chip");
+        assert!(
+            !sv_chip.title.starts_with("SV"),
+            "Chip title should not start with icon text, got: {}",
+            sv_chip.title
+        );
         assert_eq!(sv_chip.title, "SvelteKit Support");
         assert_eq!(sv_chip.config.get("icon").map(|s| s.as_str()), Some("SV"));
 

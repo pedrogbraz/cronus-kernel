@@ -11,7 +11,9 @@ use crate::parser::ComponentNode;
 pub fn render(comp: &ComponentNode) -> String {
     let buttons = toolbar_buttons(comp)
         .into_iter()
-        .map(|t| format!("<button type=\"button\" data-slot=\"toolbar-button\" disabled>{t}</button>"))
+        .map(|t| {
+            format!("<button type=\"button\" data-slot=\"toolbar-button\" disabled>{t}</button>")
+        })
         .collect::<Vec<_>>()
         .join("");
     let aria = comp
@@ -76,7 +78,9 @@ mod tests {
         let mut c = stub("toolbar", "Formatting");
         c.items.push(extra("text", "Bold"));
         c.items.push(extra("text", "Italic"));
-        c.items[2].config.insert("aria-label".into(), "Formatting".into());
+        c.items[2]
+            .config
+            .insert("aria-label".into(), "Formatting".into());
         let html = render(&c);
         assert_eq!(
             html,

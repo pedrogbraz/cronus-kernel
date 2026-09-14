@@ -13,17 +13,28 @@ pub fn cmd_timeline() {
                 if let Ok(content) = fs::read_to_string(entry.path()) {
                     let id = brief_toml_val(&content, "id")
                         .unwrap_or_else(|| name.trim_end_matches(".toml").to_string());
-                    let title = brief_toml_val(&content, "title").unwrap_or_else(|| "(no title)".into());
-                    let status = brief_toml_val(&content, "status").unwrap_or_else(|| "open".into());
+                    let title =
+                        brief_toml_val(&content, "title").unwrap_or_else(|| "(no title)".into());
+                    let status =
+                        brief_toml_val(&content, "status").unwrap_or_else(|| "open".into());
                     let created = brief_toml_val(&content, "created")
                         .map(|d| {
-                            if d.len() >= 10 { d[..10].to_string() } else { d }
+                            if d.len() >= 10 {
+                                d[..10].to_string()
+                            } else {
+                                d
+                            }
                         })
                         .unwrap_or_else(|| {
-                            entry.metadata().ok()
+                            entry
+                                .metadata()
+                                .ok()
                                 .and_then(|m| m.modified().ok())
                                 .map(|t| {
-                                    let secs = t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+                                    let secs = t
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .unwrap_or_default()
+                                        .as_secs();
                                     format_unix_date(secs)
                                 })
                                 .unwrap_or_else(|| "unknown".into())
@@ -44,9 +55,7 @@ pub fn cmd_timeline() {
         return;
     }
 
-    tasks.sort_by(|a, b| {
-        b.0.cmp(&a.0).then(b.1.cmp(&a.1))
-    });
+    tasks.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.cmp(&a.1)));
 
     println!();
     println!("  \x1b[1mCRONUS Timeline\x1b[0m");
@@ -61,7 +70,11 @@ pub fn cmd_timeline() {
             _ => format!("[{}]", status),
         };
         let status_plain = format!("[{}]", status);
-        let pad = if status_plain.len() < 15 { " ".repeat(15 - status_plain.len()) } else { String::new() };
+        let pad = if status_plain.len() < 15 {
+            " ".repeat(15 - status_plain.len())
+        } else {
+            String::new()
+        };
         println!("  {}  {}  {}{} {}", date, id, status_colored, pad, title);
     }
     println!();

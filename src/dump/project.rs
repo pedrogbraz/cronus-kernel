@@ -5,9 +5,9 @@
 //! and emit a single .cronus file describing the full stack.
 //! v2: page extraction, entity filtering, fetch route detection, CSS style.
 
+use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
-use serde_json::Value;
 
 pub struct ProjectProfile {
     pub name: String,
@@ -45,7 +45,11 @@ pub fn dump_project(dir: &Path) -> String {
     // Phase 1: DETECT
     let profile = detect_project(dir);
     eprintln!("  Stack: {}", profile.stack);
-    eprintln!("  Source files: {} TS, {} CSS", profile.ts_files.len(), profile.css_files.len());
+    eprintln!(
+        "  Source files: {} TS, {} CSS",
+        profile.ts_files.len(),
+        profile.css_files.len()
+    );
 
     let mut entities_cronus = String::new();
     let mut routes_cronus = String::new();
@@ -108,7 +112,8 @@ pub fn dump_project(dir: &Path) -> String {
         if !all_entities.is_empty() {
             eprintln!(
                 "  \x1b[32m✓\x1b[0m Found {} entities from {} domain files",
-                all_entities.len(), scanned
+                all_entities.len(),
+                scanned
             );
             entities_cronus.push_str("# Entities extracted from TypeScript interfaces\n");
             entities_cronus.push_str(&super::typescript::emit_entities(&all_entities));
@@ -119,10 +124,7 @@ pub fn dump_project(dir: &Path) -> String {
     if routes_cronus.is_empty() {
         let detected = super::routes::detect_routes(&profile);
         if !detected.is_empty() {
-            eprintln!(
-                "  \x1b[32m✓\x1b[0m Detected {} routes",
-                detected.len()
-            );
+            eprintln!("  \x1b[32m✓\x1b[0m Detected {} routes", detected.len());
             routes_cronus.push_str("# Routes detected from source code\n");
             routes_cronus.push_str(&super::routes::emit_routes(&detected));
         }
@@ -132,16 +134,17 @@ pub fn dump_project(dir: &Path) -> String {
     let pages = detect_pages(&profile);
     let mut pages_cronus = String::new();
     if !pages.is_empty() {
-        eprintln!(
-            "  \x1b[32m✓\x1b[0m Detected {} pages",
-            pages.len()
-        );
+        eprintln!("  \x1b[32m✓\x1b[0m Detected {} pages", pages.len());
         pages_cronus.push_str("# Pages detected from project structure\n");
         for page in &pages {
             pages_cronus.push_str(&format!(
                 "page \"{}\" type:custom {}{{\n  title \"{}\"\n}}\n\n",
                 page.route,
-                if page.requires_auth { "requires:auth " } else { "" },
+                if page.requires_auth {
+                    "requires:auth "
+                } else {
+                    ""
+                },
                 page.title
             ));
         }
@@ -177,7 +180,8 @@ pub fn dump_project(dir: &Path) -> String {
                         "  \x1b[32m✓\x1b[0m CSS theme found: {}",
                         css_file.file_name().unwrap_or_default().to_string_lossy()
                     );
-                    style_cronus = super::style_extract::extract_style_from_css(&css, &profile.ts_files);
+                    style_cronus =
+                        super::style_extract::extract_style_from_css(&css, &profile.ts_files);
                     break;
                 }
             }
@@ -235,10 +239,17 @@ pub fn dump_project(dir: &Path) -> String {
     }
 
     // Summary
-    let entity_count = output.matches("\nentity ").count() + if output.starts_with("entity ") { 1 } else { 0 };
-    let page_count = output.matches("\npage ").count() + if output.starts_with("page ") { 1 } else { 0 };
-    let api_count = output.matches("\napi ").count() + if output.starts_with("api ") { 1 } else { 0 };
-    let style_count = if output.contains("\nstyle ") || output.starts_with("style ") { 1 } else { 0 };
+    let entity_count =
+        output.matches("\nentity ").count() + if output.starts_with("entity ") { 1 } else { 0 };
+    let page_count =
+        output.matches("\npage ").count() + if output.starts_with("page ") { 1 } else { 0 };
+    let api_count =
+        output.matches("\napi ").count() + if output.starts_with("api ") { 1 } else { 0 };
+    let style_count = if output.contains("\nstyle ") || output.starts_with("style ") {
+        1
+    } else {
+        0
+    };
     eprintln!(
         "\n  \x1b[32m✓\x1b[0m Generated: {} entities, {} pages, {} api blocks, {} style",
         entity_count, page_count, api_count, style_count
@@ -317,11 +328,7 @@ fn detect_project(dir: &Path) -> ProjectProfile {
     }
 
     // Find Prisma schema
-    for candidate in &[
-        "prisma/schema.prisma",
-        "schema.prisma",
-        "db/schema.prisma",
-    ] {
+    for candidate in &["prisma/schema.prisma", "schema.prisma", "db/schema.prisma"] {
         let p = dir.join(candidate);
         if p.exists() {
             profile.prisma_path = Some(p);
@@ -374,7 +381,12 @@ fn detect_project(dir: &Path) -> ProjectProfile {
     profile
 }
 
-fn collect_source_files(dir: &Path, ts_files: &mut Vec<PathBuf>, css_files: &mut Vec<PathBuf>, depth: usize) {
+fn collect_source_files(
+    dir: &Path,
+    ts_files: &mut Vec<PathBuf>,
+    css_files: &mut Vec<PathBuf>,
+    depth: usize,
+) {
     if depth > 10 || ts_files.len() >= 500 {
         return;
     }
@@ -450,8 +462,16 @@ fn detect_pages(profile: &ProjectProfile) -> Vec<PageDef> {
     // React: scan for route definitions in App.tsx or routes.tsx
     if pages.is_empty() {
         for file in &profile.ts_files {
-            let name = file.file_name().unwrap_or_default().to_string_lossy().to_string();
-            if name == "App.tsx" || name == "app.tsx" || name == "routes.tsx" || name == "router.tsx" {
+            let name = file
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            if name == "App.tsx"
+                || name == "app.tsx"
+                || name == "routes.tsx"
+                || name == "router.tsx"
+            {
                 if let Ok(source) = fs::read_to_string(file) {
                     extract_react_routes(&source, &mut pages);
                     if !pages.is_empty() {
@@ -488,11 +508,23 @@ fn scan_app_dir(dir: &Path, prefix: &str, pages: &mut Vec<PageDef>) {
                 };
 
                 scan_app_dir(&path, &format!("{}{}", prefix, segment), pages);
-            } else if name == "page.tsx" || name == "page.jsx" || name == "page.ts" || name == "page.js" {
-                let route = if prefix.is_empty() { "/".to_string() } else { prefix.to_string() };
+            } else if name == "page.tsx"
+                || name == "page.jsx"
+                || name == "page.ts"
+                || name == "page.js"
+            {
+                let route = if prefix.is_empty() {
+                    "/".to_string()
+                } else {
+                    prefix.to_string()
+                };
                 let title = route_to_title(&route);
                 let requires_auth = check_has_auth_layout(dir);
-                pages.push(PageDef { route, title, requires_auth });
+                pages.push(PageDef {
+                    route,
+                    title,
+                    requires_auth,
+                });
             }
         }
     }
@@ -516,8 +548,16 @@ fn scan_pages_dir(dir: &Path, prefix: &str, pages: &mut Vec<PageDef>) {
                 };
                 scan_pages_dir(&path, &format!("{}{}", prefix, segment), pages);
             } else {
-                let stem = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
-                let ext = path.extension().unwrap_or_default().to_string_lossy().to_string();
+                let stem = path
+                    .file_stem()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+                let ext = path
+                    .extension()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
 
                 if !matches!(ext.as_str(), "tsx" | "jsx" | "ts" | "js") {
                     continue;
@@ -528,7 +568,11 @@ fn scan_pages_dir(dir: &Path, prefix: &str, pages: &mut Vec<PageDef>) {
                 }
 
                 let route = if stem == "index" {
-                    if prefix.is_empty() { "/".to_string() } else { prefix.to_string() }
+                    if prefix.is_empty() {
+                        "/".to_string()
+                    } else {
+                        prefix.to_string()
+                    }
                 } else {
                     format!("{}/{}", prefix, stem.to_lowercase())
                 };
@@ -597,7 +641,11 @@ fn route_to_title(route: &str) -> String {
     if route == "/" {
         return "Home".to_string();
     }
-    let last = route.split('/').filter(|s| !s.is_empty() && !s.starts_with(':')).last().unwrap_or("Page");
+    let last = route
+        .split('/')
+        .filter(|s| !s.is_empty() && !s.starts_with(':'))
+        .last()
+        .unwrap_or("Page");
     // Capitalize first letter, replace hyphens
     let mut title = last.replace('-', " ");
     if let Some(first) = title.get_mut(0..1) {
@@ -610,7 +658,9 @@ fn check_has_auth_layout(dir: &Path) -> bool {
     // Check if layout.tsx in this or parent dir contains auth references
     let layout = dir.join("layout.tsx");
     if let Ok(content) = fs::read_to_string(&layout) {
-        return content.contains("auth") || content.contains("session") || content.contains("protect");
+        return content.contains("auth")
+            || content.contains("session")
+            || content.contains("protect");
     }
     false
 }
@@ -622,7 +672,15 @@ fn check_has_auth_layout(dir: &Path) -> bool {
 fn detect_fetch_routes(ts_files: &[PathBuf]) -> Vec<FetchRoute> {
     let mut routes = Vec::new();
 
-    let patterns = ["\"/api/", "'/api/", "`/api/", "\"/tasks", "\"/agents", "\"/events", "\"/db/"];
+    let patterns = [
+        "\"/api/",
+        "'/api/",
+        "`/api/",
+        "\"/tasks",
+        "\"/agents",
+        "\"/events",
+        "\"/db/",
+    ];
 
     for file in ts_files {
         if let Ok(source) = fs::read_to_string(file) {
@@ -632,15 +690,24 @@ fn detect_fetch_routes(ts_files: &[PathBuf]) -> Vec<FetchRoute> {
                         let start = pos + 1; // skip the opening quote
                         let rest = &line[start..];
                         let end = rest
-                            .find(|c: char| c == '"' || c == '\'' || c == '`' || c == '$' || c == '{')
+                            .find(|c: char| {
+                                c == '"' || c == '\'' || c == '`' || c == '$' || c == '{'
+                            })
                             .unwrap_or(rest.len());
                         let path = &rest[..end];
                         if path.len() > 3 && path.len() < 100 {
-                            let method = if line.contains("POST") || line.contains("post") || line.contains("method: \"POST\"") {
+                            let method = if line.contains("POST")
+                                || line.contains("post")
+                                || line.contains("method: \"POST\"")
+                            {
                                 "POST"
                             } else if line.contains("DELETE") || line.contains("delete") {
                                 "DELETE"
-                            } else if line.contains("PATCH") || line.contains("patch") || line.contains("PUT") || line.contains("put") {
+                            } else if line.contains("PATCH")
+                                || line.contains("patch")
+                                || line.contains("PUT")
+                                || line.contains("put")
+                            {
                                 "PATCH"
                             } else {
                                 "GET"
@@ -683,7 +750,8 @@ fn emit_fetch_routes(routes: &[FetchRoute]) -> String {
     }
 
     // Group by path prefix
-    let mut groups: std::collections::HashMap<String, Vec<&FetchRoute>> = std::collections::HashMap::new();
+    let mut groups: std::collections::HashMap<String, Vec<&FetchRoute>> =
+        std::collections::HashMap::new();
 
     for route in routes {
         let parts: Vec<&str> = route.path.split('/').filter(|s| !s.is_empty()).collect();

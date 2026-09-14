@@ -27,7 +27,11 @@ pub fn render(comp: &ComponentNode) -> String {
         .and_then(|v| v.trim().parse::<f64>().ok())
         .or_else(|| numeric_items(comp).first().copied())
         .unwrap_or(72.0);
-    let clamped = if value.is_finite() { value.clamp(0.0, max) } else { 0.0 };
+    let clamped = if value.is_finite() {
+        value.clamp(0.0, max)
+    } else {
+        0.0
+    };
     let mut body = format!(
         "<path d=\"{}\" fill=\"#eee\"></path>",
         rounded_sector_path(

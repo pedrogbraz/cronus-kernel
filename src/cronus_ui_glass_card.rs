@@ -97,8 +97,8 @@ mod tests {
         assert!(block.contains("position: relative;"));
         assert!(block.contains("width: 18rem; padding: 1.5rem;"));
         assert!(block.contains("border-radius: calc(var(--cronus-radius, 14px) + 8px);"));
-        assert!(block.contains(
-            "border: 1px solid var(--cronus-border-soft, var(--cronus-border));"
-        ));
+        assert!(
+            block.contains("border: 1px solid var(--cronus-border-soft, var(--cronus-border));")
+        );
     }
 }

@@ -3,10 +3,10 @@
 // Manages schema migration from EntityNode definitions
 // and provides CRUD operations with JSON I/O.
 
-use rusqlite::{Connection, params, types::ValueRef};
-use serde_json::{Value, json, Map};
-use std::sync::Mutex;
+use rusqlite::{params, types::ValueRef, Connection};
+use serde_json::{json, Map, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
 
 use crate::parser::{EntityNode, FieldType};
 
@@ -110,7 +110,14 @@ fn uuid_v7_string(unix_ms: u64, rand_a: u16, rand_b: u64) -> String {
     b[8..].copy_from_slice(&rand_b.to_be_bytes());
     b[8] = (b[8] & 0x3F) | 0x80;
     let h = hex::encode(b);
-    format!("{}-{}-{}-{}-{}", &h[0..8], &h[8..12], &h[12..16], &h[16..20], &h[20..])
+    format!(
+        "{}-{}-{}-{}-{}",
+        &h[0..8],
+        &h[8..12],
+        &h[12..16],
+        &h[16..20],
+        &h[20..]
+    )
 }
 
 impl CronusDB {
@@ -147,10 +154,12 @@ impl CronusDB {
     /// If the closure returns Err, the transaction is rolled back.
     /// If it returns Ok, the transaction is committed.
     pub fn transaction<F, T>(&self, f: F) -> Result<T, String>
-    where F: FnOnce(&Connection) -> Result<T, String>
+    where
+        F: FnOnce(&Connection) -> Result<T, String>,
     {
         let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
-        conn.execute_batch("BEGIN IMMEDIATE").map_err(|e| e.to_string())?;
+        conn.execute_batch("BEGIN IMMEDIATE")
+            .map_err(|e| e.to_string())?;
         match f(&conn) {
             Ok(result) => {
                 conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
@@ -203,7 +212,10 @@ impl CronusDB {
         let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
         let col_names: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
 
-        let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|s| s as &dyn rusqlite::types::ToSql).collect();
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
+            .iter()
+            .map(|s| s as &dyn rusqlite::types::ToSql)
+            .collect();
 
         let rows = stmt
             .query_map(param_refs.as_slice(), |row| {
@@ -241,14 +253,38 @@ impl CronusDB {
             for field in &entity.fields {
                 let lower = field.name.to_lowercase();
                 // Skip timestamps (auto-added below)
-                if lower == "createdat" || lower == "created_at" { has_created_at = true; continue; }
-                if lower == "updatedat" || lower == "updated_at" { has_updated_at = true; continue; }
+                if lower == "createdat" || lower == "created_at" {
+                    has_created_at = true;
+                    continue;
+                }
+                if lower == "updatedat" || lower == "updated_at" {
+                    has_updated_at = true;
+                    continue;
+                }
                 // Skip id (already PK)
-                if lower == "id" { continue; }
+                if lower == "id" {
+                    continue;
+                }
                 // Skip duplicate column names
-                if seen_cols.contains(&lower) { continue; }
+                if seen_cols.contains(&lower) {
+                    continue;
+                }
                 // Skip fields whose name is a SQL/CRONUS keyword that would confuse things
-                if matches!(lower.as_str(), "string" | "integer" | "text" | "real" | "blob" | "null" | "primary" | "table" | "index" | "select" | "from" | "where") {
+                if matches!(
+                    lower.as_str(),
+                    "string"
+                        | "integer"
+                        | "text"
+                        | "real"
+                        | "blob"
+                        | "null"
+                        | "primary"
+                        | "table"
+                        | "index"
+                        | "select"
+                        | "from"
+                        | "where"
+                ) {
                     continue;
                 }
                 seen_cols.insert(lower);
@@ -289,7 +325,9 @@ impl CronusDB {
     pub fn insert(&self, table: &str, data: &Value) -> Result<Value, String> {
         tick_query();
         let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
-        let obj = data.as_object().ok_or("insert data must be a JSON object")?;
+        let obj = data
+            .as_object()
+            .ok_or("insert data must be a JSON object")?;
 
         let id = generate_id();
         let mut col_names: Vec<String> = vec!["id".into()];
@@ -329,13 +367,16 @@ impl CronusDB {
 
         // Return the inserted row by reading it back
         drop(conn);
-        self.find_by_id(table, &id).map(|opt| opt.unwrap_or(json!({"id": id})))
+        self.find_by_id(table, &id)
+            .map(|opt| opt.unwrap_or(json!({"id": id})))
     }
 
     /// Update a row by id with partial data. Returns the updated row.
     pub fn update(&self, table: &str, id: &str, data: &Value) -> Result<Value, String> {
         tick_query();
-        let obj = data.as_object().ok_or("update data must be a JSON object")?;
+        let obj = data
+            .as_object()
+            .ok_or("update data must be a JSON object")?;
 
         let mut sets = Vec::new();
         let mut values: Vec<String> = Vec::new();
@@ -344,8 +385,12 @@ impl CronusDB {
             if !crate::security::is_safe_identifier(key) {
                 continue; // skip invalid column names — SQL injection prevention
             }
-            if key == "id" || key == "created_at" { continue; }
-            if matches!(val, Value::Null) { continue; }
+            if key == "id" || key == "created_at" {
+                continue;
+            }
+            if matches!(val, Value::Null) {
+                continue;
+            }
             sets.push(format!("\"{}\" = ?", key));
             let s = match val {
                 Value::String(s) => s.clone(),
@@ -355,7 +400,9 @@ impl CronusDB {
         }
 
         if sets.is_empty() {
-            return self.find_by_id(table, id).map(|opt| opt.unwrap_or(json!({"id": id})));
+            return self
+                .find_by_id(table, id)
+                .map(|opt| opt.unwrap_or(json!({"id": id})));
         }
 
         // Add updated_at
@@ -363,11 +410,7 @@ impl CronusDB {
 
         values.push(id.to_string()); // WHERE id = ?
 
-        let sql = format!(
-            "UPDATE \"{}\" SET {} WHERE id = ?",
-            table,
-            sets.join(", ")
-        );
+        let sql = format!("UPDATE \"{}\" SET {} WHERE id = ?", table, sets.join(", "));
 
         let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let param_refs: Vec<&dyn rusqlite::types::ToSql> = values
@@ -379,7 +422,8 @@ impl CronusDB {
             .map_err(|e| e.to_string())?;
 
         drop(conn);
-        self.find_by_id(table, id).map(|opt| opt.unwrap_or(json!({"id": id})))
+        self.find_by_id(table, id)
+            .map(|opt| opt.unwrap_or(json!({"id": id})))
     }
 
     /// Retrieve all rows with LIMIT / OFFSET. Returns a JSON array.
@@ -392,11 +436,7 @@ impl CronusDB {
         );
 
         let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
-        let col_names: Vec<String> = stmt
-            .column_names()
-            .iter()
-            .map(|c| c.to_string())
-            .collect();
+        let col_names: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
 
         let rows = stmt
             .query_map(params![limit as i64, offset as i64], |row| {
@@ -423,11 +463,7 @@ impl CronusDB {
         let sql = format!("SELECT * FROM \"{}\" WHERE id = ?", table);
 
         let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
-        let col_names: Vec<String> = stmt
-            .column_names()
-            .iter()
-            .map(|c| c.to_string())
-            .collect();
+        let col_names: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
 
         let mut rows = stmt
             .query_map(params![id], |row| {
@@ -467,13 +503,21 @@ impl CronusDB {
 
     /// Find a single row by a specific field value.
     /// e.g. find_by_field("User", "email", "zedd@cooud.com")
-    pub fn find_by_field(&self, table: &str, field: &str, value: &str) -> Result<Option<Value>, String> {
+    pub fn find_by_field(
+        &self,
+        table: &str,
+        field: &str,
+        value: &str,
+    ) -> Result<Option<Value>, String> {
         tick_query();
         if !crate::security::is_safe_identifier(field) {
             return Err("invalid field name".to_string()); // SQL injection prevention
         }
         let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
-        let sql = format!("SELECT * FROM \"{}\" WHERE \"{}\" = ? LIMIT 1", table, field);
+        let sql = format!(
+            "SELECT * FROM \"{}\" WHERE \"{}\" = ? LIMIT 1",
+            table, field
+        );
 
         let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
         let col_names: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
@@ -503,11 +547,16 @@ impl CronusDB {
         // Get column names
         let probe_sql = format!("SELECT * FROM \"{}\" LIMIT 0", table);
         let probe_stmt = conn.prepare(&probe_sql).map_err(|e| e.to_string())?;
-        let col_names: Vec<String> = probe_stmt.column_names().iter().map(|c| c.to_string()).collect();
+        let col_names: Vec<String> = probe_stmt
+            .column_names()
+            .iter()
+            .map(|c| c.to_string())
+            .collect();
         drop(probe_stmt);
 
         // Build OR conditions for all text-like columns
-        let text_cols: Vec<String> = col_names.iter()
+        let text_cols: Vec<String> = col_names
+            .iter()
             .filter(|c| *c != "id" && *c != "created_at" && *c != "updated_at")
             .map(|c| format!("\"{}\" LIKE ?", c))
             .collect();
@@ -517,29 +566,45 @@ impl CronusDB {
         }
 
         let where_clause = text_cols.join(" OR ");
-        let sql = format!("SELECT * FROM \"{}\" WHERE {} ORDER BY rowid DESC LIMIT ?", table, where_clause);
+        let sql = format!(
+            "SELECT * FROM \"{}\" WHERE {} ORDER BY rowid DESC LIMIT ?",
+            table, where_clause
+        );
 
         let mut params_vec: Vec<String> = text_cols.iter().map(|_| like_pattern.clone()).collect();
         params_vec.push(limit.to_string());
 
         let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
-        let param_refs: Vec<&dyn rusqlite::types::ToSql> = params_vec.iter().map(|v| v as &dyn rusqlite::types::ToSql).collect();
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> = params_vec
+            .iter()
+            .map(|v| v as &dyn rusqlite::types::ToSql)
+            .collect();
 
-        let rows = stmt.query_map(param_refs.as_slice(), |row| {
-            let mut map = Map::new();
-            for (i, name) in col_names.iter().enumerate() {
-                map.insert(name.clone(), column_to_json(row, i)?);
-            }
-            Ok(Value::Object(map))
-        }).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(param_refs.as_slice(), |row| {
+                let mut map = Map::new();
+                for (i, name) in col_names.iter().enumerate() {
+                    map.insert(name.clone(), column_to_json(row, i)?);
+                }
+                Ok(Value::Object(map))
+            })
+            .map_err(|e| e.to_string())?;
 
         let mut results = Vec::new();
-        for r in rows { results.push(r.map_err(|e| e.to_string())?); }
+        for r in rows {
+            results.push(r.map_err(|e| e.to_string())?);
+        }
         Ok(Value::Array(results))
     }
 
     /// Find all with query string filters (e.g. ?owner=abc&status=active)
-    pub fn find_filtered(&self, table: &str, filters: &[(String, String)], limit: usize, offset: usize) -> Result<Value, String> {
+    pub fn find_filtered(
+        &self,
+        table: &str,
+        filters: &[(String, String)],
+        limit: usize,
+        offset: usize,
+    ) -> Result<Value, String> {
         tick_query();
         let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let mut conditions = Vec::new();
@@ -566,17 +631,24 @@ impl CronusDB {
         let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
         let col_names: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
 
-        let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|v| v as &dyn rusqlite::types::ToSql).collect();
-        let rows = stmt.query_map(param_refs.as_slice(), |row| {
-            let mut map = Map::new();
-            for (i, name) in col_names.iter().enumerate() {
-                map.insert(name.clone(), column_to_json(row, i)?);
-            }
-            Ok(Value::Object(map))
-        }).map_err(|e| e.to_string())?;
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
+            .iter()
+            .map(|v| v as &dyn rusqlite::types::ToSql)
+            .collect();
+        let rows = stmt
+            .query_map(param_refs.as_slice(), |row| {
+                let mut map = Map::new();
+                for (i, name) in col_names.iter().enumerate() {
+                    map.insert(name.clone(), column_to_json(row, i)?);
+                }
+                Ok(Value::Object(map))
+            })
+            .map_err(|e| e.to_string())?;
 
         let mut results = Vec::new();
-        for r in rows { results.push(r.map_err(|e| e.to_string())?); }
+        for r in rows {
+            results.push(r.map_err(|e| e.to_string())?);
+        }
         Ok(Value::Array(results))
     }
 
@@ -586,7 +658,9 @@ impl CronusDB {
 
         for field in &entity.fields {
             let val = obj.get(&field.name);
-            let is_empty = val.map_or(true, |v| v.is_null() || (v.is_string() && v.as_str().unwrap_or("").is_empty()));
+            let is_empty = val.map_or(true, |v| {
+                v.is_null() || (v.is_string() && v.as_str().unwrap_or("").is_empty())
+            });
 
             // Required check
             if field.required && is_empty {
@@ -594,15 +668,25 @@ impl CronusDB {
             }
 
             // Skip further validation if empty and not required
-            if is_empty { continue; }
+            if is_empty {
+                continue;
+            }
 
-            let val_str = val.unwrap().as_str().unwrap_or(&val.unwrap().to_string()).to_string();
+            let val_str = val
+                .unwrap()
+                .as_str()
+                .unwrap_or(&val.unwrap().to_string())
+                .to_string();
 
             // Enum validation
             if field.field_type == FieldType::Enum {
                 if let Some(ref allowed) = field.enum_values {
                     if !allowed.contains(&val_str) {
-                        return Err(format!("'{}' must be one of: {}", field.name, allowed.join(", ")));
+                        return Err(format!(
+                            "'{}' must be one of: {}",
+                            field.name,
+                            allowed.join(", ")
+                        ));
                     }
                 }
             }
@@ -622,7 +706,10 @@ impl CronusDB {
             }
 
             // Numeric min/max constraints (number, money, percentage)
-            if matches!(field.field_type, FieldType::Number | FieldType::Money | FieldType::Percentage) {
+            if matches!(
+                field.field_type,
+                FieldType::Number | FieldType::Money | FieldType::Percentage
+            ) {
                 if let Ok(num) = val_str.parse::<f64>() {
                     if let Some(min_val) = field.min {
                         if num < min_val {
@@ -640,12 +727,18 @@ impl CronusDB {
             // String length constraints
             if let Some(min_len) = field.min_length {
                 if val_str.len() < min_len {
-                    return Err(format!("'{}' must be at least {} characters", field.name, min_len));
+                    return Err(format!(
+                        "'{}' must be at least {} characters",
+                        field.name, min_len
+                    ));
                 }
             }
             if let Some(max_len) = field.max_length {
                 if val_str.len() > max_len {
-                    return Err(format!("'{}' must be at most {} characters", field.name, max_len));
+                    return Err(format!(
+                        "'{}' must be at most {} characters",
+                        field.name, max_len
+                    ));
                 }
             }
 
@@ -654,11 +747,17 @@ impl CronusDB {
                 match regex::Regex::new(pat) {
                     Ok(re) => {
                         if !re.is_match(&val_str) {
-                            return Err(format!("'{}' does not match pattern '{}'", field.name, pat));
+                            return Err(format!(
+                                "'{}' does not match pattern '{}'",
+                                field.name, pat
+                            ));
                         }
                     }
                     Err(_) => {
-                        return Err(format!("invalid regex pattern for '{}': {}", field.name, pat));
+                        return Err(format!(
+                            "invalid regex pattern for '{}': {}",
+                            field.name, pat
+                        ));
                     }
                 }
             }
@@ -673,12 +772,21 @@ impl CronusDB {
         let obj = data.as_object().ok_or("data must be a JSON object")?;
 
         for field in &entity.fields {
-            if !field.unique { continue; }
+            if !field.unique {
+                continue;
+            }
             if let Some(val) = obj.get(&field.name) {
-                if val.is_null() { continue; }
+                if val.is_null() {
+                    continue;
+                }
                 let val_str = val.as_str().unwrap_or(&val.to_string()).to_string();
-                let sql = format!("SELECT COUNT(*) FROM \"{}\" WHERE \"{}\" = ?", entity.name, field.name);
-                let count: i64 = conn.query_row(&sql, params![val_str], |row| row.get(0)).unwrap_or(0);
+                let sql = format!(
+                    "SELECT COUNT(*) FROM \"{}\" WHERE \"{}\" = ?",
+                    entity.name, field.name
+                );
+                let count: i64 = conn
+                    .query_row(&sql, params![val_str], |row| row.get(0))
+                    .unwrap_or(0);
                 if count > 0 {
                     return Err(format!("'{}' already exists", field.name));
                 }
@@ -694,8 +802,7 @@ impl CronusDB {
         if let Some(obj) = data.as_object_mut() {
             for field in &entity.fields {
                 if let Some(ref default_val) = field.default_value {
-                    let is_missing = obj.get(&field.name)
-                        .map_or(true, |v| v.is_null());
+                    let is_missing = obj.get(&field.name).map_or(true, |v| v.is_null());
                     if is_missing {
                         obj.insert(field.name.clone(), Value::String(default_val.clone()));
                     }
@@ -710,25 +817,29 @@ impl CronusDB {
     /// Find a row with a related entity joined
     /// e.g. find_with_relation("Order", "abc123", "User") →
     /// SELECT o.*, u.* FROM Order o LEFT JOIN User u ON o.user = u.id WHERE o.id = ?
-    pub fn find_with_relation(&self, table: &str, id: &str, relation_table: &str) -> Result<Value, String> {
+    pub fn find_with_relation(
+        &self,
+        table: &str,
+        id: &str,
+        relation_table: &str,
+    ) -> Result<Value, String> {
         let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let relation_field = relation_table.to_lowercase();
 
         // Try to find the FK column (lowercase of relation table name)
-        let sql = format!(
-            "SELECT * FROM \"{}\" WHERE id = ?",
-            table
-        );
+        let sql = format!("SELECT * FROM \"{}\" WHERE id = ?", table);
         let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
         let col_names: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
 
-        let main_row = stmt.query_row(params![id], |row| {
-            let mut map = Map::new();
-            for (i, name) in col_names.iter().enumerate() {
-                map.insert(name.clone(), column_to_json(row, i)?);
-            }
-            Ok(map)
-        }).map_err(|e| e.to_string())?;
+        let main_row = stmt
+            .query_row(params![id], |row| {
+                let mut map = Map::new();
+                for (i, name) in col_names.iter().enumerate() {
+                    map.insert(name.clone(), column_to_json(row, i)?);
+                }
+                Ok(map)
+            })
+            .map_err(|e| e.to_string())?;
 
         // Now fetch the related row if FK exists
         let mut result = main_row.clone();
@@ -736,7 +847,11 @@ impl CronusDB {
             if !fk_value.is_empty() {
                 let rel_sql = format!("SELECT * FROM \"{}\" WHERE id = ?", relation_table);
                 if let Ok(mut rel_stmt) = conn.prepare(&rel_sql) {
-                    let rel_cols: Vec<String> = rel_stmt.column_names().iter().map(|c| c.to_string()).collect();
+                    let rel_cols: Vec<String> = rel_stmt
+                        .column_names()
+                        .iter()
+                        .map(|c| c.to_string())
+                        .collect();
                     if let Ok(rel_row) = rel_stmt.query_row(params![fk_value], |row| {
                         let mut map = Map::new();
                         for (i, name) in rel_cols.iter().enumerate() {
@@ -756,7 +871,13 @@ impl CronusDB {
     /// Find all rows where a field matches a value
     /// e.g. find_all_where("Product", "store_id", "store123", 100) →
     /// SELECT * FROM Product WHERE store_id = ? LIMIT ?
-    pub fn find_all_where(&self, table: &str, field: &str, value: &str, limit: usize) -> Result<Value, String> {
+    pub fn find_all_where(
+        &self,
+        table: &str,
+        field: &str,
+        value: &str,
+        limit: usize,
+    ) -> Result<Value, String> {
         let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let sql = format!(
             "SELECT * FROM \"{}\" WHERE \"{}\" = ? ORDER BY rowid DESC LIMIT ?",
@@ -765,16 +886,20 @@ impl CronusDB {
         let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
         let col_names: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
 
-        let rows = stmt.query_map(params![value, limit as i64], |row| {
-            let mut map = Map::new();
-            for (i, name) in col_names.iter().enumerate() {
-                map.insert(name.clone(), column_to_json(row, i)?);
-            }
-            Ok(Value::Object(map))
-        }).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(params![value, limit as i64], |row| {
+                let mut map = Map::new();
+                for (i, name) in col_names.iter().enumerate() {
+                    map.insert(name.clone(), column_to_json(row, i)?);
+                }
+                Ok(Value::Object(map))
+            })
+            .map_err(|e| e.to_string())?;
 
         let mut results = Vec::new();
-        for r in rows { results.push(r.map_err(|e| e.to_string())?); }
+        for r in rows {
+            results.push(r.map_err(|e| e.to_string())?);
+        }
         Ok(Value::Array(results))
     }
 
@@ -826,7 +951,11 @@ impl CronusDB {
                 if !field.chars().all(|c| c.is_alphanumeric() || c == '_') {
                     return Err(format!("Invalid order field: {}", field));
                 }
-                let safe_dir = if dir.eq_ignore_ascii_case("DESC") { "DESC" } else { "ASC" };
+                let safe_dir = if dir.eq_ignore_ascii_case("DESC") {
+                    "DESC"
+                } else {
+                    "ASC"
+                };
                 format!(" ORDER BY \"{}\" {}", field, safe_dir)
             }
             (Some(field), None) => {
@@ -923,7 +1052,7 @@ impl CronusDB {
             format!(" WHERE {}", where_parts.join(" AND "))
         };
 
-        let sql = format!("SELECT COUNT(*) FROM \"{}\"{}",  table, where_clause);
+        let sql = format!("SELECT COUNT(*) FROM \"{}\"{}", table, where_clause);
 
         let params_refs: Vec<&dyn rusqlite::types::ToSql> = params_vec
             .iter()
@@ -939,7 +1068,9 @@ impl CronusDB {
 
     /// Seed an entity with fake data (10 rows)
     pub fn seed_entity(&self, entity: &EntityNode) -> Result<usize, String> {
-        let names = ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace", "Hank", "Ivy", "Jack"];
+        let names = [
+            "Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace", "Hank", "Ivy", "Jack",
+        ];
         let mut count = 0;
 
         for (i, name) in names.iter().enumerate() {
@@ -960,12 +1091,16 @@ impl CronusDB {
                             Value::String(format!("{}-{}", field.name, i))
                         }
                     }
-                    FieldType::Email => Value::String(format!("{}@example.com", name.to_lowercase())),
+                    FieldType::Email => {
+                        Value::String(format!("{}@example.com", name.to_lowercase()))
+                    }
                     FieldType::Number => Value::String(format!("{}", (i + 1) * 10)),
                     FieldType::Money => Value::String(format!("{}", 1000 + i * 500)),
                     FieldType::Boolean => Value::String(if i % 2 == 0 { "1" } else { "0" }.into()),
                     FieldType::Date => Value::String("2026-03-29".into()),
-                    FieldType::Url => Value::String(format!("https://example.com/{}", name.to_lowercase())),
+                    FieldType::Url => {
+                        Value::String(format!("https://example.com/{}", name.to_lowercase()))
+                    }
                     FieldType::Enum => {
                         if let Some(ref values) = field.enum_values {
                             Value::String(values[i % values.len()].clone())
@@ -980,11 +1115,19 @@ impl CronusDB {
                                 Ok(rows) => {
                                     if let Some(arr) = rows.as_array() {
                                         if let Some(first) = arr.first() {
-                                            if let Some(id) = first.get("id").and_then(|v| v.as_str()) {
+                                            if let Some(id) =
+                                                first.get("id").and_then(|v| v.as_str())
+                                            {
                                                 Value::String(id.to_string())
-                                            } else { Value::Null }
-                                        } else { Value::Null }
-                                    } else { Value::Null }
+                                            } else {
+                                                Value::Null
+                                            }
+                                        } else {
+                                            Value::Null
+                                        }
+                                    } else {
+                                        Value::Null
+                                    }
                                 }
                                 Err(_) => Value::Null,
                             }
@@ -1018,8 +1161,8 @@ pub fn filter_op_to_sql(op: &str) -> &'static str {
         "gte" => ">=",
         "lt" => "<",
         "lte" => "<=",
-        "contains" => "LIKE",     // value needs %value% wrapping
-        "starts_with" => "LIKE",  // value needs value% wrapping
+        "contains" => "LIKE",    // value needs %value% wrapping
+        "starts_with" => "LIKE", // value needs value% wrapping
         _ => "=",
     }
 }
@@ -1065,7 +1208,12 @@ mod tests {
                     enum_values: None,
                     reference: None,
                     doc: None,
-                    default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
+                    default_value: None,
+                    min: None,
+                    max: None,
+                    min_length: None,
+                    max_length: None,
+                    pattern: None,
                 },
                 FieldNode {
                     name: "email".into(),
@@ -1082,7 +1230,12 @@ mod tests {
                     enum_values: None,
                     reference: None,
                     doc: None,
-                    default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
+                    default_value: None,
+                    min: None,
+                    max: None,
+                    min_length: None,
+                    max_length: None,
+                    pattern: None,
                 },
                 FieldNode {
                     name: "age".into(),
@@ -1099,7 +1252,12 @@ mod tests {
                     enum_values: None,
                     reference: None,
                     doc: None,
-                    default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
+                    default_value: None,
+                    min: None,
+                    max: None,
+                    min_length: None,
+                    max_length: None,
+                    pattern: None,
                 },
             ],
             transitions: vec![],
@@ -1115,7 +1273,10 @@ mod tests {
         db.migrate(&[test_entity()]).unwrap();
 
         let row = db
-            .insert("users", &json!({"name": "Zedd", "email": "z@cooud.com", "age": "25"}))
+            .insert(
+                "users",
+                &json!({"name": "Zedd", "email": "z@cooud.com", "age": "25"}),
+            )
             .unwrap();
 
         assert!(row.get("id").is_some());
@@ -1127,8 +1288,10 @@ mod tests {
         let db = CronusDB::open_memory().unwrap();
         db.migrate(&[test_entity()]).unwrap();
 
-        db.insert("users", &json!({"name": "A", "email": "a@x.com"})).unwrap();
-        db.insert("users", &json!({"name": "B", "email": "b@x.com"})).unwrap();
+        db.insert("users", &json!({"name": "A", "email": "a@x.com"}))
+            .unwrap();
+        db.insert("users", &json!({"name": "B", "email": "b@x.com"}))
+            .unwrap();
 
         let all = db.find_all("users", 100, 0).unwrap();
         assert_eq!(all.as_array().unwrap().len(), 2);
@@ -1140,7 +1303,9 @@ mod tests {
         let db = CronusDB::open_memory().unwrap();
         db.migrate(&[test_entity()]).unwrap();
 
-        let row = db.insert("users", &json!({"name": "C", "email": "c@x.com"})).unwrap();
+        let row = db
+            .insert("users", &json!({"name": "C", "email": "c@x.com"}))
+            .unwrap();
         let id = row.get("id").unwrap().as_str().unwrap().to_string();
 
         assert!(db.find_by_id("users", &id).unwrap().is_some());
@@ -1153,7 +1318,9 @@ mod tests {
     fn test_update() {
         let db = CronusDB::open_memory().unwrap();
         db.migrate(&[test_entity()]).unwrap();
-        let row = db.insert("users", &json!({"name": "Old", "email": "u@x.com"})).unwrap();
+        let row = db
+            .insert("users", &json!({"name": "Old", "email": "u@x.com"}))
+            .unwrap();
         let id = row.get("id").unwrap().as_str().unwrap();
         let updated = db.update("users", id, &json!({"name": "New"})).unwrap();
         assert_eq!(updated.get("name").unwrap(), "New");
@@ -1172,7 +1339,8 @@ mod tests {
     fn test_validate_email() {
         let db = CronusDB::open_memory().unwrap();
         db.migrate(&[test_entity()]).unwrap();
-        let result = db.validated_insert(&test_entity(), &json!({"name": "T", "email": "notanemail"}));
+        let result =
+            db.validated_insert(&test_entity(), &json!({"name": "T", "email": "notanemail"}));
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("email"));
     }
@@ -1181,7 +1349,8 @@ mod tests {
     fn test_unique_constraint() {
         let db = CronusDB::open_memory().unwrap();
         db.migrate(&[test_entity()]).unwrap();
-        db.validated_insert(&test_entity(), &json!({"name": "A", "email": "a@x.com"})).unwrap();
+        db.validated_insert(&test_entity(), &json!({"name": "A", "email": "a@x.com"}))
+            .unwrap();
         let result = db.validated_insert(&test_entity(), &json!({"name": "B", "email": "a@x.com"}));
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("already exists"));
@@ -1192,7 +1361,11 @@ mod tests {
         let db = CronusDB::open_memory().unwrap();
         db.migrate(&[test_entity()]).unwrap();
         for i in 0..5 {
-            db.insert("users", &json!({"name": format!("User{}", i), "email": format!("u{}@x.com", i)})).unwrap();
+            db.insert(
+                "users",
+                &json!({"name": format!("User{}", i), "email": format!("u{}@x.com", i)}),
+            )
+            .unwrap();
         }
         let page1 = db.find_all("users", 2, 0).unwrap();
         assert_eq!(page1.as_array().unwrap().len(), 2);
@@ -1215,9 +1388,18 @@ mod tests {
     fn test_find_filtered() {
         let db = CronusDB::open_memory().unwrap();
         db.migrate(&[test_entity()]).unwrap();
-        db.insert("users", &json!({"name": "Alice", "email": "a@x.com"})).unwrap();
-        db.insert("users", &json!({"name": "Bob", "email": "b@x.com"})).unwrap();
-        let results = db.find_filtered("users", &[("name".to_string(), "Alice".to_string())], 100, 0).unwrap();
+        db.insert("users", &json!({"name": "Alice", "email": "a@x.com"}))
+            .unwrap();
+        db.insert("users", &json!({"name": "Bob", "email": "b@x.com"}))
+            .unwrap();
+        let results = db
+            .find_filtered(
+                "users",
+                &[("name".to_string(), "Alice".to_string())],
+                100,
+                0,
+            )
+            .unwrap();
         assert_eq!(results.as_array().unwrap().len(), 1);
     }
 
@@ -1225,7 +1407,8 @@ mod tests {
     fn test_find_by_field() {
         let db = CronusDB::open_memory().unwrap();
         db.migrate(&[test_entity()]).unwrap();
-        db.insert("users", &json!({"name": "FindMe", "email": "find@x.com"})).unwrap();
+        db.insert("users", &json!({"name": "FindMe", "email": "find@x.com"}))
+            .unwrap();
         let found = db.find_by_field("users", "email", "find@x.com").unwrap();
         assert!(found.is_some());
         assert_eq!(found.unwrap().get("name").unwrap(), "FindMe");
@@ -1237,8 +1420,16 @@ mod tests {
     fn test_search() {
         let db = CronusDB::open_memory().unwrap();
         db.migrate(&[test_entity()]).unwrap();
-        db.insert("users", &json!({"name": "Alice Wonder", "email": "alice@x.com"})).unwrap();
-        db.insert("users", &json!({"name": "Bob Builder", "email": "bob@x.com"})).unwrap();
+        db.insert(
+            "users",
+            &json!({"name": "Alice Wonder", "email": "alice@x.com"}),
+        )
+        .unwrap();
+        db.insert(
+            "users",
+            &json!({"name": "Bob Builder", "email": "bob@x.com"}),
+        )
+        .unwrap();
         let results = db.search("users", "alice", 100).unwrap();
         assert_eq!(results.as_array().unwrap().len(), 1);
     }
@@ -1251,33 +1442,67 @@ mod tests {
                 FieldNode {
                     name: "title".into(),
                     field_type: FieldType::String,
-                    required: true, unique: false, sensitive: false,
-                    optional: false, searchable: false, index: false,
-                    featured: false, formatted: false, array: false,
-                    enum_values: None, reference: None, doc: None,
-                    default_value: None, min: None, max: None,
-                    min_length: Some(3), max_length: Some(100),
+                    required: true,
+                    unique: false,
+                    sensitive: false,
+                    optional: false,
+                    searchable: false,
+                    index: false,
+                    featured: false,
+                    formatted: false,
+                    array: false,
+                    enum_values: None,
+                    reference: None,
+                    doc: None,
+                    default_value: None,
+                    min: None,
+                    max: None,
+                    min_length: Some(3),
+                    max_length: Some(100),
                     pattern: Some("^[A-Za-z0-9 ]+$".to_string()),
                 },
                 FieldNode {
                     name: "price".into(),
                     field_type: FieldType::Number,
-                    required: true, unique: false, sensitive: false,
-                    optional: false, searchable: false, index: false,
-                    featured: false, formatted: false, array: false,
-                    enum_values: None, reference: None, doc: None,
-                    default_value: None, min: Some(0.0), max: Some(999999.0),
-                    min_length: None, max_length: None, pattern: None,
+                    required: true,
+                    unique: false,
+                    sensitive: false,
+                    optional: false,
+                    searchable: false,
+                    index: false,
+                    featured: false,
+                    formatted: false,
+                    array: false,
+                    enum_values: None,
+                    reference: None,
+                    doc: None,
+                    default_value: None,
+                    min: Some(0.0),
+                    max: Some(999999.0),
+                    min_length: None,
+                    max_length: None,
+                    pattern: None,
                 },
                 FieldNode {
                     name: "sku".into(),
                     field_type: FieldType::String,
-                    required: false, unique: false, sensitive: false,
-                    optional: true, searchable: false, index: false,
-                    featured: false, formatted: false, array: false,
-                    enum_values: None, reference: None, doc: None,
-                    default_value: None, min: None, max: None,
-                    min_length: None, max_length: Some(20),
+                    required: false,
+                    unique: false,
+                    sensitive: false,
+                    optional: true,
+                    searchable: false,
+                    index: false,
+                    featured: false,
+                    formatted: false,
+                    array: false,
+                    enum_values: None,
+                    reference: None,
+                    doc: None,
+                    default_value: None,
+                    min: None,
+                    max: None,
+                    min_length: None,
+                    max_length: Some(20),
                     pattern: Some("^[A-Z0-9-]+$".to_string()),
                 },
             ],
@@ -1342,7 +1567,10 @@ mod tests {
         let result = db.validate(&entity, &json!({"title": "Good Product", "price": 50}));
         assert!(result.is_ok());
         // Invalid: sku provided but doesn't match
-        let result = db.validate(&entity, &json!({"title": "Good Product", "price": 50, "sku": "bad sku!"}));
+        let result = db.validate(
+            &entity,
+            &json!({"title": "Good Product", "price": 50, "sku": "bad sku!"}),
+        );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("does not match pattern"));
     }
@@ -1351,7 +1579,10 @@ mod tests {
     fn test_validate_constraints_pass() {
         let db = CronusDB::open_memory().unwrap();
         let entity = entity_with_constraints();
-        let result = db.validate(&entity, &json!({"title": "Good Product", "price": 29.99, "sku": "SKU-001"}));
+        let result = db.validate(
+            &entity,
+            &json!({"title": "Good Product", "price": 29.99, "sku": "SKU-001"}),
+        );
         assert!(result.is_ok());
     }
 
@@ -1373,11 +1604,17 @@ mod tests {
     #[test]
     fn generated_id_embeds_current_ms_timestamp() {
         use std::time::{SystemTime, UNIX_EPOCH};
-        let before = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+        let before = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
         let id = generate_id();
         let ts = u64::from_str_radix(&id.replace('-', "")[..12], 16).unwrap();
         // counter overflow may borrow a few ms ahead; never behind `before`
-        assert!(ts >= before && ts <= before + 1000, "ts {ts} vs now {before}");
+        assert!(
+            ts >= before && ts <= before + 1000,
+            "ts {ts} vs now {before}"
+        );
     }
 
     #[test]

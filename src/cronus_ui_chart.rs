@@ -44,7 +44,14 @@ pub fn render(comp: &ComponentNode) -> String {
     let (lo, hi, _) = nice_domain(0.0, max_of(&values));
     let (centers, band) = band_xs(values.len());
     let mut body = String::new();
-    body.push_str(&bars_svg(&centers, band, &values, lo, hi, "var(--cronus-chart-1)"));
+    body.push_str(&bars_svg(
+        &centers,
+        band,
+        &values,
+        lo,
+        hi,
+        "var(--cronus-chart-1)",
+    ));
     body.push_str(&x_tick_labels(&labels, &centers, 5.0));
     format!(
         "<div data-slot=\"chart\" role=\"img\" aria-label=\"{label}\">{}</div>",
@@ -461,7 +468,14 @@ pub fn rounded_rect_path(x: f64, y: f64, w: f64, h: f64, radius: f64) -> String 
 }
 
 /// One bar series on a band scale (barCategoryGap 10%, radius 4).
-pub fn bars_svg(centers: &[f64], band: f64, values: &[f64], lo: f64, hi: f64, fill: &str) -> String {
+pub fn bars_svg(
+    centers: &[f64],
+    band: f64,
+    values: &[f64],
+    lo: f64,
+    hi: f64,
+    fill: &str,
+) -> String {
     let gap = band * 0.1;
     let w = (band - 2.0 * gap).round();
     let base = y_of(0f64.max(lo), lo, hi);
@@ -471,7 +485,11 @@ pub fn bars_svg(centers: &[f64], band: f64, values: &[f64], lo: f64, hi: f64, fi
         .map(|(c, v)| {
             let x = c - band / 2.0 + gap;
             let y = y_of(*v, lo, hi);
-            let (top, h) = if y <= base { (y, base - y) } else { (base, y - base) };
+            let (top, h) = if y <= base {
+                (y, base - y)
+            } else {
+                (base, y - base)
+            };
             format!(
                 "<path d=\"{}\" fill=\"{fill}\"></path>",
                 rounded_rect_path(x, top, w, h, 4.0)
@@ -489,7 +507,11 @@ pub fn polar(cx: f64, cy: f64, r: f64, angle: f64) -> (f64, f64) {
 /// recharts `getSectorPath` (no corner radius).
 pub fn sector_path(cx: f64, cy: f64, inner: f64, outer: f64, start: f64, end: f64) -> String {
     let delta = (end - start).abs().min(359.999);
-    let end = if end >= start { start + delta } else { start - delta };
+    let end = if end >= start {
+        start + delta
+    } else {
+        start - delta
+    };
     let large = if delta > 180.0 { 1 } else { 0 };
     let os = polar(cx, cy, outer, start);
     let oe = polar(cx, cy, outer, end);
@@ -664,12 +686,21 @@ mod tests {
 
     #[test]
     fn nice_ticks_follow_recharts() {
-        assert_eq!(nice_domain(0.0, 8.0), (0.0, 8.0, vec![0.0, 2.0, 4.0, 6.0, 8.0]));
+        assert_eq!(
+            nice_domain(0.0, 8.0),
+            (0.0, 8.0, vec![0.0, 2.0, 4.0, 6.0, 8.0])
+        );
         assert_eq!(nice_domain(0.0, 12.0).1, 12.0);
         assert_eq!(nice_domain(0.0, 6.0).1, 8.0);
-        assert_eq!(nice_domain(-4.0, 8.0), (-4.0, 12.0, vec![-4.0, 0.0, 4.0, 8.0, 12.0]));
+        assert_eq!(
+            nice_domain(-4.0, 8.0),
+            (-4.0, 12.0, vec![-4.0, 0.0, 4.0, 8.0, 12.0])
+        );
         assert_eq!(nice_domain(0.0, 3.0).2, vec![0.0, 0.75, 1.5, 2.25, 3.0]);
-        assert_eq!(fixed_domain_ticks(0.0, 11.0), vec![0.0, 3.0, 6.0, 9.0, 11.0]);
+        assert_eq!(
+            fixed_domain_ticks(0.0, 11.0),
+            vec![0.0, 3.0, 6.0, 9.0, 11.0]
+        );
     }
 
     #[test]
@@ -683,7 +714,10 @@ mod tests {
 
     #[test]
     fn preserve_end_hides_clipped_first_label() {
-        let labels: Vec<String> = ["Jan", "Feb", "Mar"].iter().map(|s| s.to_string()).collect();
+        let labels: Vec<String> = ["Jan", "Feb", "Mar"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
         let html = x_tick_labels(&labels, &point_xs(3), 24.0);
         assert!(!html.contains(">Jan<"));
         assert!(html.contains(">Feb<"));
@@ -699,7 +733,9 @@ mod tests {
             "M 314.4,128 A 98.4,98.4,0, 0,0, 166.8,42.7831 L 216,128 Z"
         );
         let gauge = rounded_sector_path(216.0, 128.0, 83.0, 107.0, 8.0, 210.0, -30.0);
-        assert!(gauge.starts_with("M 130.5439,177.3381 A8,8,0,0,1,119.3151,173.837 A107,107,0,1,1,312.6849,173.837"));
+        assert!(gauge.starts_with(
+            "M 130.5439,177.3381 A8,8,0,0,1,119.3151,173.837 A107,107,0,1,1,312.6849,173.837"
+        ));
         assert_eq!(compact_number(12.0), "12");
         assert_eq!(compact_number(1250.0), "1.3K");
     }

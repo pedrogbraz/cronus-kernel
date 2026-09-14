@@ -74,7 +74,10 @@ mod tests {
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
         reject_fx(&html);
-        assert_eq!(crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html), None);
+        assert_eq!(
+            crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html),
+            None
+        );
         assert_eq!(
             dedicated_fn_name("scramble-text"),
             Some("cronus_ui_scramble_text::render")
@@ -100,7 +103,8 @@ mod tests {
     fn chrome_scramble_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"scramble-text\"] {\n  display: inline;\n  font-family: var(--cronus-font-mono, ui-monospace, monospace);\n}"));
-        assert!(css.contains("[data-slot=\"scramble-text\"] > span:first-child {\n  position: absolute;"));
+        assert!(css
+            .contains("[data-slot=\"scramble-text\"] > span:first-child {\n  position: absolute;"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
         assert!(!css.contains("setTimeout"));

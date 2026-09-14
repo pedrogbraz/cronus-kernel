@@ -1,45 +1,75 @@
 //! Chart section renderers (bar, line, donut)
 use crate::parser::SectionNode;
 
-pub(super) fn render_chart_section(section: &SectionNode, bound_data: &crate::binding::ResolvedData) -> String {
-    let chart_type = section.config.get("type").map(|s| s.as_str()).unwrap_or("bar");
+pub(super) fn render_chart_section(
+    section: &SectionNode,
+    bound_data: &crate::binding::ResolvedData,
+) -> String {
+    let chart_type = section
+        .config
+        .get("type")
+        .map(|s| s.as_str())
+        .unwrap_or("bar");
     let title = section.title.as_deref().unwrap_or("Chart");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
 
     // When bound_data has Rows, extract chart data from DB rows.
     // Uses "label"/"name"/"title" field for label, "value"/"amount"/"count" for numeric value.
-    let bound_chart_data: Vec<(String, f64)> = if let crate::binding::ResolvedData::Rows(rows) = bound_data {
-        rows.iter().filter_map(|row| {
-            let label = row.get("label").or_else(|| row.get("name")).or_else(|| row.get("title"))
-                .and_then(|v| v.as_str())
-                .map(crate::security::html_escape)
-                .unwrap_or_default();
-            if label.is_empty() { return None; }
-            let val = row.get("value").or_else(|| row.get("amount")).or_else(|| row.get("count"))
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.0);
-            Some((label, val))
-        }).collect()
-    } else {
-        Vec::new()
-    };
+    let bound_chart_data: Vec<(String, f64)> =
+        if let crate::binding::ResolvedData::Rows(rows) = bound_data {
+            rows.iter()
+                .filter_map(|row| {
+                    let label = row
+                        .get("label")
+                        .or_else(|| row.get("name"))
+                        .or_else(|| row.get("title"))
+                        .and_then(|v| v.as_str())
+                        .map(crate::security::html_escape)
+                        .unwrap_or_default();
+                    if label.is_empty() {
+                        return None;
+                    }
+                    let val = row
+                        .get("value")
+                        .or_else(|| row.get("amount"))
+                        .or_else(|| row.get("count"))
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0);
+                    Some((label, val))
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
 
     let data: Vec<(String, f64)> = if !bound_chart_data.is_empty() {
         bound_chart_data
     } else {
         // Fallback: parse from static items
-        section.items.iter().filter_map(|item| {
-            let label = item.get("title")?.clone();
-            let val_str = item.get("description")?;
-            let val: f64 = val_str.trim().parse().ok()?;
-            Some((label, val))
-        }).collect()
+        section
+            .items
+            .iter()
+            .filter_map(|item| {
+                let label = item.get("title")?.clone();
+                let val_str = item.get("description")?;
+                let val: f64 = val_str.trim().parse().ok()?;
+                Some((label, val))
+            })
+            .collect()
     };
 
     if data.is_empty() {
         // No data — render placeholder chart with title (dark dashboard style)
-        let periods_raw = section.config.get("periods").map(|s| s.as_str()).unwrap_or("7 Days,30 Days");
-        let period_items: Vec<&str> = periods_raw.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+        let periods_raw = section
+            .config
+            .get("periods")
+            .map(|s| s.as_str())
+            .unwrap_or("7 Days,30 Days");
+        let period_items: Vec<&str> = periods_raw
+            .split(',')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect();
         let mut period_html = String::from(r#"<div style="display:flex;gap:8px">"#);
         for (pi, p) in period_items.iter().enumerate() {
             if pi == period_items.len() - 1 {
@@ -54,16 +84,40 @@ pub(super) fn render_chart_section(section: &SectionNode, bound_data: &crate::bi
         }
         period_html.push_str("</div>");
 
-        let y_axis_raw = section.config.get("y_axis").map(|s| s.as_str()).unwrap_or("1.5M,1.0M,0.5M,0.0");
-        let y_labels: Vec<&str> = y_axis_raw.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
-        let y_spans: String = y_labels.iter().map(|l| format!("<span>{l}</span>")).collect::<Vec<_>>().join("");
+        let y_axis_raw = section
+            .config
+            .get("y_axis")
+            .map(|s| s.as_str())
+            .unwrap_or("1.5M,1.0M,0.5M,0.0");
+        let y_labels: Vec<&str> = y_axis_raw
+            .split(',')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect();
+        let y_spans: String = y_labels
+            .iter()
+            .map(|l| format!("<span>{l}</span>"))
+            .collect::<Vec<_>>()
+            .join("");
         let y_axis_html = format!(
             r#"<div style="display:flex;flex-direction:column;justify-content:space-between;font-size:10px;color:rgba(226,226,226,0.3);width:40px;padding:8px 0">{y_spans}</div>"#
         );
 
-        let x_axis_raw = section.config.get("x_axis").map(|s| s.as_str()).unwrap_or("Oct 01,Oct 08,Oct 15,Oct 22,Oct 29");
-        let x_items: Vec<&str> = x_axis_raw.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
-        let x_spans: String = x_items.iter().map(|l| format!("<span>{l}</span>")).collect::<Vec<_>>().join("");
+        let x_axis_raw = section
+            .config
+            .get("x_axis")
+            .map(|s| s.as_str())
+            .unwrap_or("Oct 01,Oct 08,Oct 15,Oct 22,Oct 29");
+        let x_items: Vec<&str> = x_axis_raw
+            .split(',')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect();
+        let x_spans: String = x_items
+            .iter()
+            .map(|l| format!("<span>{l}</span>"))
+            .collect::<Vec<_>>()
+            .join("");
         let x_labels = format!(
             r#"<div style="display:flex;justify-content:space-between;padding:16px 48px;font-size:10px;color:rgba(226,226,226,0.4);text-transform:uppercase;letter-spacing:0.15em;background:#1b1b1b">{x_spans}</div>"#
         );
@@ -73,9 +127,27 @@ pub(super) fn render_chart_section(section: &SectionNode, bound_data: &crate::bi
         let chart_html = if is_area {
             // Smooth area chart with gradient fill
             let points = [
-                (0,160),(30,140),(60,120),(90,135),(120,100),(150,110),(180,80),
-                (210,90),(240,60),(270,70),(300,45),(330,55),(360,35),(390,50),
-                (420,30),(450,40),(480,25),(510,45),(540,55),(570,40),(600,50)
+                (0, 160),
+                (30, 140),
+                (60, 120),
+                (90, 135),
+                (120, 100),
+                (150, 110),
+                (180, 80),
+                (210, 90),
+                (240, 60),
+                (270, 70),
+                (300, 45),
+                (330, 55),
+                (360, 35),
+                (390, 50),
+                (420, 30),
+                (450, 40),
+                (480, 25),
+                (510, 45),
+                (540, 55),
+                (570, 40),
+                (600, 50),
             ];
             let mut path_line = String::new();
             let mut path_area = String::new();
@@ -116,18 +188,24 @@ pub(super) fn render_chart_section(section: &SectionNode, bound_data: &crate::bi
 <div class="anim-breathe" style="position:absolute;bottom:30%;left:50%;width:60%;height:1px;background:linear-gradient(90deg,transparent,rgba(210,119,255,0.15),transparent);transform:translateX(-50%)"></div>
 <style>@keyframes cronusFadeIn{{from{{opacity:0}}to{{opacity:1}}}}@keyframes cronusDrawLine{{to{{stroke-dashoffset:0}}}}</style>
 </div>"##,
-                area = path_area, line = path_line
+                area = path_area,
+                line = path_line
             )
         } else {
             // Bar chart — matching Nova Core reference design
             // Heights as percentages, colors alternate primary/secondary
             let bars: Vec<(&str, &str)> = vec![
-                ("50%", "rgba(135,173,255,0.2)"), ("66%", "rgba(135,173,255,0.2)"),
-                ("75%", "rgba(135,173,255,0.3)"), ("50%", "rgba(135,173,255,0.2)"),
-                ("80%", "rgba(210,119,255,0.4)"), ("66%", "rgba(135,173,255,0.2)"),
-                ("60%", "rgba(135,173,255,0.2)"), ("50%", "rgba(135,173,255,0.2)"),
-                ("75%", "rgba(135,173,255,0.3)"), ("80%", "rgba(135,173,255,0.2)"),
-                ("100%","rgba(135,173,255,0.4)"),
+                ("50%", "rgba(135,173,255,0.2)"),
+                ("66%", "rgba(135,173,255,0.2)"),
+                ("75%", "rgba(135,173,255,0.3)"),
+                ("50%", "rgba(135,173,255,0.2)"),
+                ("80%", "rgba(210,119,255,0.4)"),
+                ("66%", "rgba(135,173,255,0.2)"),
+                ("60%", "rgba(135,173,255,0.2)"),
+                ("50%", "rgba(135,173,255,0.2)"),
+                ("75%", "rgba(135,173,255,0.3)"),
+                ("80%", "rgba(135,173,255,0.2)"),
+                ("100%", "rgba(135,173,255,0.4)"),
             ];
             let mut bars_html = String::new();
             for (h, bg) in &bars {
@@ -207,26 +285,46 @@ pub(super) fn render_chart_line(title: &str, subtitle: &str, data: &[(String, f6
     let usable_h = height - 2 * padding;
     let n = data.len();
 
-    let points: Vec<(i32, i32)> = data.iter().enumerate().map(|(i, (_, v))| {
-        let x = padding + (i as i32 * usable_w / (n as i32 - 1));
-        let y = padding + (usable_h as f64 * (1.0 - v / max_val)) as i32;
-        (x, y)
-    }).collect();
+    let points: Vec<(i32, i32)> = data
+        .iter()
+        .enumerate()
+        .map(|(i, (_, v))| {
+            let x = padding + (i as i32 * usable_w / (n as i32 - 1));
+            let y = padding + (usable_h as f64 * (1.0 - v / max_val)) as i32;
+            (x, y)
+        })
+        .collect();
 
-    let polyline_pts: String = points.iter().map(|(x, y)| format!("{},{}", x, y)).collect::<Vec<_>>().join(" ");
-    let fill_pts = format!("{} {},{} {},{}",
+    let polyline_pts: String = points
+        .iter()
+        .map(|(x, y)| format!("{},{}", x, y))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let fill_pts = format!(
+        "{} {},{} {},{}",
         polyline_pts,
-        points.last().unwrap().0, height,
-        points.first().unwrap().0, height
+        points.last().unwrap().0,
+        height,
+        points.first().unwrap().0,
+        height
     );
 
-    let circles: String = points.iter().map(|(x, y)| {
-        format!(r##"<circle cx="{}" cy="{}" r="4" fill="#000"/>"##, x, y)
-    }).collect::<Vec<_>>().join("\n    ");
+    let circles: String = points
+        .iter()
+        .map(|(x, y)| format!(r##"<circle cx="{}" cy="{}" r="4" fill="#000"/>"##, x, y))
+        .collect::<Vec<_>>()
+        .join("\n    ");
 
-    let labels: String = data.iter().map(|(label, _)| {
-        format!(r##"<span style="font-size:11px;color:#71717a">{}</span>"##, label)
-    }).collect::<Vec<_>>().join("\n    ");
+    let labels: String = data
+        .iter()
+        .map(|(label, _)| {
+            format!(
+                r##"<span style="font-size:11px;color:#71717a">{}</span>"##,
+                label
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n    ");
 
     format!(
         r##"<div class="anim-slide-up" style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px">
@@ -262,7 +360,9 @@ pub(super) fn render_chart_donut(title: &str, subtitle: &str, data: &[(String, f
     }
 
     let circumference: f64 = 2.0 * std::f64::consts::PI * 50.0;
-    let colors = ["#000", "#71717a", "#a1a1aa", "#d4d4d8", "#e5e7eb", "#f3f4f6"];
+    let colors = [
+        "#000", "#71717a", "#a1a1aa", "#d4d4d8", "#e5e7eb", "#f3f4f6",
+    ];
 
     let mut offset = 0.0_f64;
     let segments: Vec<String> = data.iter().enumerate().map(|(i, (_, v))| {
@@ -280,19 +380,24 @@ pub(super) fn render_chart_donut(title: &str, subtitle: &str, data: &[(String, f
         seg
     }).collect();
 
-    let legend: String = data.iter().enumerate().map(|(i, (label, value))| {
-        let color = colors[i % colors.len()];
-        format!(
-            r##"<div style="display:flex;align-items:center;gap:8px">
+    let legend: String = data
+        .iter()
+        .enumerate()
+        .map(|(i, (label, value))| {
+            let color = colors[i % colors.len()];
+            format!(
+                r##"<div style="display:flex;align-items:center;gap:8px">
       <div style="width:12px;height:12px;border-radius:3px;background:{color};flex-shrink:0"></div>
       <span style="font-size:13px;color:#1a1c1c">{label}</span>
       <span style="font-size:13px;color:#71717a;margin-left:auto">{value}</span>
     </div>"##,
-            color = color,
-            label = label,
-            value = *value as i64,
-        )
-    }).collect::<Vec<_>>().join("\n    ");
+                color = color,
+                label = label,
+                value = *value as i64,
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n    ");
 
     format!(
         r##"<div class="anim-slide-up" style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px">
@@ -354,8 +459,10 @@ mod tests {
             assert!(!html.is_empty(), "{kind}");
             assert!(!html.contains("<svg onload"), "{kind}: {html}");
             assert!(!html.contains("<script>c()"), "{kind}: {html}");
-            assert!(html.contains("&lt;svg onload=alert(1)&gt;"), "{kind}: {html}");
+            assert!(
+                html.contains("&lt;svg onload=alert(1)&gt;"),
+                "{kind}: {html}"
+            );
         }
     }
 }
-

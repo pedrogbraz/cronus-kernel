@@ -7,7 +7,10 @@ pub fn cmd_memory(args: &[String]) {
         "sessions" => {
             let mem = match open_memory_db() {
                 Ok(m) => m,
-                Err(e) => { eprintln!("  \x1b[31m✗\x1b[0m {}", e); return; }
+                Err(e) => {
+                    eprintln!("  \x1b[31m✗\x1b[0m {}", e);
+                    return;
+                }
             };
             match mem.get_recent_sessions(20) {
                 Ok(sessions) => {
@@ -23,10 +26,20 @@ pub fn cmd_memory(args: &[String]) {
                         let started = s["started_at"].as_str().unwrap_or("?");
                         let agent = s["agent"].as_str().unwrap_or("-");
                         let changes = s["changes_count"].as_i64().unwrap_or(0);
-                        let ended = if s["ended_at"].is_null() { "active" } else { "done" };
+                        let ended = if s["ended_at"].is_null() {
+                            "active"
+                        } else {
+                            "done"
+                        };
                         let summary = s["summary"].as_str().unwrap_or("");
-                        println!("  \x1b[36m{}\x1b[0m  {}  agent={}  changes={}  [{}]",
-                            &id[..id.len().min(20)], started, agent, changes, ended);
+                        println!(
+                            "  \x1b[36m{}\x1b[0m  {}  agent={}  changes={}  [{}]",
+                            &id[..id.len().min(20)],
+                            started,
+                            agent,
+                            changes,
+                            ended
+                        );
                         if !summary.is_empty() {
                             println!("    {}", summary);
                         }
@@ -39,7 +52,10 @@ pub fn cmd_memory(args: &[String]) {
         "decisions" => {
             let mem = match open_memory_db() {
                 Ok(m) => m,
-                Err(e) => { eprintln!("  \x1b[31m✗\x1b[0m {}", e); return; }
+                Err(e) => {
+                    eprintln!("  \x1b[31m✗\x1b[0m {}", e);
+                    return;
+                }
             };
             match mem.get_decisions(20) {
                 Ok(decisions) => {
@@ -48,14 +64,20 @@ pub fn cmd_memory(args: &[String]) {
                         return;
                     }
                     println!();
-                    println!("  \x1b[1mRecent Decisions\x1b[0m ({} total)", decisions.len());
+                    println!(
+                        "  \x1b[1mRecent Decisions\x1b[0m ({} total)",
+                        decisions.len()
+                    );
                     println!();
                     for d in &decisions {
                         let date = d["date"].as_str().unwrap_or("?");
                         let decision = d["decision"].as_str().unwrap_or("?");
                         let category = d["category"].as_str().unwrap_or("-");
                         let reason = d["reason"].as_str().unwrap_or("");
-                        println!("  \x1b[33m[{}]\x1b[0m {} \x1b[90m({})\x1b[0m", category, decision, date);
+                        println!(
+                            "  \x1b[33m[{}]\x1b[0m {} \x1b[90m({})\x1b[0m",
+                            category, decision, date
+                        );
                         if !reason.is_empty() {
                             println!("    reason: {}", reason);
                         }
@@ -73,7 +95,10 @@ pub fn cmd_memory(args: &[String]) {
             }
             let mem = match open_memory_db() {
                 Ok(m) => m,
-                Err(e) => { eprintln!("  \x1b[31m✗\x1b[0m {}", e); return; }
+                Err(e) => {
+                    eprintln!("  \x1b[31m✗\x1b[0m {}", e);
+                    return;
+                }
             };
             match mem.add_changelog(None, "manual", description) {
                 Ok(_) => println!("  \x1b[32m✓\x1b[0m Logged: {}", description),
@@ -90,13 +115,20 @@ pub fn cmd_memory(args: &[String]) {
             let category = find_flag_value(args, "--category");
             let mem = match open_memory_db() {
                 Ok(m) => m,
-                Err(e) => { eprintln!("  \x1b[31m✗\x1b[0m {}", e); return; }
+                Err(e) => {
+                    eprintln!("  \x1b[31m✗\x1b[0m {}", e);
+                    return;
+                }
             };
             match mem.add_decision(None, decision, reason.as_deref(), category.as_deref()) {
                 Ok(_) => {
                     println!("  \x1b[32m✓\x1b[0m Decision recorded: {}", decision);
-                    if let Some(ref r) = reason { println!("    reason: {}", r); }
-                    if let Some(ref c) = category { println!("    category: {}", c); }
+                    if let Some(ref r) = reason {
+                        println!("    reason: {}", r);
+                    }
+                    if let Some(ref c) = category {
+                        println!("    category: {}", c);
+                    }
                 }
                 Err(e) => eprintln!("  \x1b[31m✗\x1b[0m {}", e),
             }

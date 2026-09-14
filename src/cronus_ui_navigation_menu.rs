@@ -103,14 +103,22 @@ mod tests {
         assert!(html.contains("aria-expanded=\"false\" disabled>Products<svg"));
         assert!(html.contains("aria-expanded=\"false\" disabled>Docs<svg"));
         assert!(!html.contains(">Menus<svg"));
-        assert_eq!(html.matches("data-slot=\"navigation-menu-trigger\"").count(), 2);
+        assert_eq!(
+            html.matches("data-slot=\"navigation-menu-trigger\"")
+                .count(),
+            2
+        );
         reject_interact(&html);
     }
 
     #[test]
     fn label_only_is_one_trigger() {
         let html = render(&stub("navigation-menu", "Products"));
-        assert_eq!(html.matches("data-slot=\"navigation-menu-trigger\"").count(), 1);
+        assert_eq!(
+            html.matches("data-slot=\"navigation-menu-trigger\"")
+                .count(),
+            1
+        );
         reject_interact(&html);
     }
 
@@ -141,7 +149,9 @@ mod tests {
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"navigation-menu\"]"));
-        assert!(css.contains("[data-slot=\"navigation-menu-list\"] {\n  display: flex; flex: 1; list-style: none;"));
+        assert!(css.contains(
+            "[data-slot=\"navigation-menu-list\"] {\n  display: flex; flex: 1; list-style: none;"
+        ));
         assert!(css.contains("[data-slot=\"navigation-menu-item\"]"));
         assert!(css.contains("[data-slot=\"navigation-menu-trigger\"] > svg {"));
         assert!(css.contains("font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;"));

@@ -71,7 +71,10 @@ fn selected_of(comp: &ComponentNode, options: &[String]) -> Option<String> {
 }
 
 fn disabled(comp: &ComponentNode) -> bool {
-    comp.props.get("disabled").map(|s| s == "true").unwrap_or(false)
+    comp.props
+        .get("disabled")
+        .map(|s| s == "true")
+        .unwrap_or(false)
 }
 
 fn is_true(raw: Option<&String>) -> bool {
@@ -117,7 +120,10 @@ mod tests {
     #[test]
     fn root_is_single_disabled_trigger_button() {
         let html = render(&combo("Search", &["Ada", "Grace"]));
-        assert!(!html.contains("data-slot=\"combobox\""), "React has no wrapper slot: {html}");
+        assert!(
+            !html.contains("data-slot=\"combobox\""),
+            "React has no wrapper slot: {html}"
+        );
         assert!(!html.contains("popover"), "no JS-less listbox: {html}");
         reject_interact(&html);
         assert_eq!(
@@ -130,7 +136,10 @@ mod tests {
     fn label_is_placeholder_not_an_option() {
         let html = render(&combo("Search", &["Ada", "Grace"]));
         assert!(html.contains("<span>Search</span>"));
-        assert!(!html.contains("Ada"), "options only mount while open: {html}");
+        assert!(
+            !html.contains("Ada"),
+            "options only mount while open: {html}"
+        );
         reject_interact(&html);
     }
 
@@ -155,9 +164,7 @@ mod tests {
     #[test]
     fn selected_item_config_marks_option() {
         let mut c = combo("Search", &["Ada", "Grace"]);
-        c.items[1]
-            .config
-            .insert("selected".into(), "true".into());
+        c.items[1].config.insert("selected".into(), "true".into());
         let html = render(&c);
         assert!(html.contains("<span>Ada</span>"));
         reject_interact(&html);

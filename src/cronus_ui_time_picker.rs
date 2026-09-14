@@ -284,7 +284,8 @@ mod tests {
             config: Default::default(),
         };
         text.config.insert("value".into(), "09:30".into());
-        text.config.insert("aria-label".into(), "Meeting time".into());
+        text.config
+            .insert("aria-label".into(), "Meeting time".into());
         c.items.push(text);
         let html = render(&c);
         assert!(html.starts_with("<button type=\"button\""));
@@ -372,7 +373,8 @@ mod tests {
         assert!(css.contains(
             "[data-slot=\"time-picker\"] {\n  display: inline-flex; align-items: center; justify-content: flex-start; gap: 0.5rem;\n  width: 15rem; height: 2.5rem; padding: 0 1rem; box-sizing: border-box;"
         ));
-        assert!(css.contains("  background: transparent;\n  box-shadow: var(--cronus-shadow-xs, none);"));
+        assert!(css
+            .contains("  background: transparent;\n  box-shadow: var(--cronus-shadow-xs, none);"));
         assert!(css.contains("font-size: 0.875rem; line-height: 1.25rem; font-weight: 400;"));
         assert!(css.contains(
             "[data-slot=\"time-picker\"] svg {\n  width: 1rem; height: 1rem; flex-shrink: 0; pointer-events: none;\n  color: var(--cronus-fg-tertiary);\n}"

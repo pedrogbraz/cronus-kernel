@@ -108,9 +108,7 @@ fn value_span(raw: &str) -> String {
     let (kind, text) = match raw {
         "true" | "false" => ("boolean", raw.to_string()),
         "null" => ("null", raw.to_string()),
-        _ if raw.parse::<f64>().map(f64::is_finite).unwrap_or(false) => {
-            ("number", raw.to_string())
-        }
+        _ if raw.parse::<f64>().map(f64::is_finite).unwrap_or(false) => ("number", raw.to_string()),
         _ => ("string", quote(raw)),
     };
     format!(
@@ -153,7 +151,9 @@ mod tests {
     #[test]
     fn label_only_renders_react_harness_payload_tree() {
         let mut c = stub("json-viewer", "Payload");
-        c.items[0].config.insert("aria-label".into(), "Payload".into());
+        c.items[0]
+            .config
+            .insert("aria-label".into(), "Payload".into());
         let html = render(&c);
         let copy = |label: &str| {
             format!("<button type=\"button\" data-slot=\"copy-button\" data-variant=\"ghost\" aria-label=\"{label}\" disabled>{COPY_ICON}</button>")
@@ -205,7 +205,8 @@ mod tests {
         assert!(html.contains("aria-expanded=\"true\" aria-label=\"Toggle root\" disabled>"));
         assert_eq!(html.matches("data-slot=\"copy-button\"").count(), 3);
         assert_eq!(
-            html.matches("data-slot=\"copy-button\" data-variant=\"ghost\"").count(),
+            html.matches("data-slot=\"copy-button\" data-variant=\"ghost\"")
+                .count(),
             html.matches(" disabled>").count() - 1
         );
         assert!(!crate::cli::stub_renderer_gate::looks_like_interact_generic(&html));

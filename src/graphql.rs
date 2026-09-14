@@ -7,7 +7,7 @@
 //! Auto-generates types, queries, and mutations from entities.
 //! Resolves via CronusDB.
 
-use serde_json::{json, Value, Map};
+use serde_json::{json, Map, Value};
 
 use crate::access::{self, Access, ReadScope, WriteScope};
 use crate::authz;
@@ -54,8 +54,14 @@ impl GraphQLSchema {
         for entity in entities {
             let lower = entity.name.to_lowercase();
             let plural = format!("{}s", lower);
-            sdl.push_str(&format!("  {plural}(limit: Int): [{name}!]!\n", name = entity.name));
-            sdl.push_str(&format!("  {lower}(id: String!): {name}\n", name = entity.name));
+            sdl.push_str(&format!(
+                "  {plural}(limit: Int): [{name}!]!\n",
+                name = entity.name
+            ));
+            sdl.push_str(&format!(
+                "  {lower}(id: String!): {name}\n",
+                name = entity.name
+            ));
         }
         sdl.push_str("}\n\n");
 
@@ -232,7 +238,10 @@ fn parse_fields(body: &str) -> Result<Vec<ParsedField>, String> {
 
         // Read field name
         let mut name = String::new();
-        while chars.peek().map_or(false, |c| c.is_alphanumeric() || *c == '_') {
+        while chars
+            .peek()
+            .map_or(false, |c| c.is_alphanumeric() || *c == '_')
+        {
             name.push(chars.next().unwrap());
         }
         if name.is_empty() {
@@ -306,7 +315,10 @@ fn parse_args_inline(
 
     loop {
         // Skip whitespace
-        while chars.peek().map_or(false, |c| c.is_whitespace() || *c == ',') {
+        while chars
+            .peek()
+            .map_or(false, |c| c.is_whitespace() || *c == ',')
+        {
             chars.next();
         }
         if chars.peek() == Some(&')') {
@@ -319,12 +331,18 @@ fn parse_args_inline(
 
         // Read key
         let mut key = String::new();
-        while chars.peek().map_or(false, |c| c.is_alphanumeric() || *c == '_') {
+        while chars
+            .peek()
+            .map_or(false, |c| c.is_alphanumeric() || *c == '_')
+        {
             key.push(chars.next().unwrap());
         }
 
         // Skip ':'
-        while chars.peek().map_or(false, |c| c.is_whitespace() || *c == ':') {
+        while chars
+            .peek()
+            .map_or(false, |c| c.is_whitespace() || *c == ':')
+        {
             chars.next();
         }
 
@@ -336,9 +354,7 @@ fn parse_args_inline(
     Ok(args)
 }
 
-fn parse_arg_value(
-    chars: &mut std::iter::Peekable<std::str::Chars>,
-) -> Result<ArgValue, String> {
+fn parse_arg_value(chars: &mut std::iter::Peekable<std::str::Chars>) -> Result<ArgValue, String> {
     // Skip whitespace
     while chars.peek().map_or(false, |c| c.is_whitespace()) {
         chars.next();
@@ -348,7 +364,10 @@ fn parse_arg_value(
         Some('$') => {
             chars.next(); // consume $
             let mut name = String::new();
-            while chars.peek().map_or(false, |c| c.is_alphanumeric() || *c == '_') {
+            while chars
+                .peek()
+                .map_or(false, |c| c.is_alphanumeric() || *c == '_')
+            {
                 name.push(chars.next().unwrap());
             }
             Ok(ArgValue::Variable(name))
@@ -366,12 +385,13 @@ fn parse_arg_value(
         }
         Some(c) if c.is_ascii_digit() || *c == '-' => {
             let mut num = String::new();
-            while chars.peek().map_or(false, |c| c.is_ascii_digit() || *c == '-') {
+            while chars
+                .peek()
+                .map_or(false, |c| c.is_ascii_digit() || *c == '-')
+            {
                 num.push(chars.next().unwrap());
             }
-            Ok(ArgValue::IntVal(
-                num.parse().map_err(|_| "invalid number")?,
-            ))
+            Ok(ArgValue::IntVal(num.parse().map_err(|_| "invalid number")?))
         }
         Some('t') | Some('f') => {
             let mut word = String::new();
@@ -433,16 +453,14 @@ pub fn execute_graphql(
                     }));
                 }
             }
-            Operation::Mutation => {
-                match resolve_mutation(field, schema, db, variables, access) {
-                    Ok(result) => {
-                        data.insert(field.name.clone(), result);
-                    }
-                    Err((code, message)) => {
-                        errors.push(json!({ "message": message, "extensions": { "code": code } }));
-                    }
+            Operation::Mutation => match resolve_mutation(field, schema, db, variables, access) {
+                Ok(result) => {
+                    data.insert(field.name.clone(), result);
                 }
-            }
+                Err((code, message)) => {
+                    errors.push(json!({ "message": message, "extensions": { "code": code } }));
+                }
+            },
         }
     }
 
@@ -454,10 +472,14 @@ pub fn execute_graphql(
 }
 
 fn string_arg(field: &ParsedField, name: &str) -> Option<String> {
-    field.args.iter().find(|(k, _)| k == name).and_then(|(_, v)| match v {
-        ArgValue::StringVal(s) => Some(s.clone()),
-        _ => None,
-    })
+    field
+        .args
+        .iter()
+        .find(|(k, _)| k == name)
+        .and_then(|(_, v)| match v {
+            ArgValue::StringVal(s) => Some(s.clone()),
+            _ => None,
+        })
 }
 
 fn select(value: Value, sub_fields: &[String]) -> Value {
@@ -500,16 +522,18 @@ fn resolve_query(
                 })
                 .unwrap_or(100)
                 .min(1000);
-            return Some(match db.find_many(&entity.name, &filters, None, None, Some(limit), Some(0)) {
-                Ok(mut rows) => {
-                    authz::redact_sensitive(entity, &mut rows);
-                    select(rows, &field.sub_fields)
-                }
-                Err(e) => {
-                    eprintln!("  graphql {} list failed: {}", entity.name, e);
-                    empty
-                }
-            });
+            return Some(
+                match db.find_many(&entity.name, &filters, None, None, Some(limit), Some(0)) {
+                    Ok(mut rows) => {
+                        authz::redact_sensitive(entity, &mut rows);
+                        select(rows, &field.sub_fields)
+                    }
+                    Err(e) => {
+                        eprintln!("  graphql {} list failed: {}", entity.name, e);
+                        empty
+                    }
+                },
+            );
         }
 
         let id = match string_arg(field, "id") {
@@ -559,17 +583,12 @@ fn resolve_mutation(
                 .iter()
                 .find(|(k, _)| k == "input")
                 .and_then(|(_, v)| match v {
-                    ArgValue::Variable(var_name) => {
-                        variables.get(var_name).cloned()
-                    }
+                    ArgValue::Variable(var_name) => variables.get(var_name).cloned(),
                     _ => None,
                 })
                 .unwrap_or_else(|| {
                     // Try to get from variables directly
-                    variables
-                        .get("input")
-                        .cloned()
-                        .unwrap_or(json!({}))
+                    variables.get("input").cloned().unwrap_or(json!({}))
                 });
 
             let obj = input
@@ -602,14 +621,20 @@ fn resolve_mutation(
         }
     }
 
-    Err(("UNKNOWN_MUTATION", format!("Unknown mutation: {}", field.name)))
+    Err((
+        "UNKNOWN_MUTATION",
+        format!("Unknown mutation: {}", field.name),
+    ))
 }
 
 fn filter_fields_array(arr: &Value, fields: &[String]) -> Value {
     match arr.as_array() {
-        Some(items) => {
-            Value::Array(items.iter().map(|item| filter_fields_object(item, fields)).collect())
-        }
+        Some(items) => Value::Array(
+            items
+                .iter()
+                .map(|item| filter_fields_object(item, fields))
+                .collect(),
+        ),
         None => arr.clone(),
     }
 }
@@ -634,7 +659,8 @@ fn filter_fields_object(obj: &Value, fields: &[String]) -> Value {
 // ══════════════════════════════════════════════════
 
 pub fn playground_html() -> String {
-    crate::security::mark_kernel_scripts(r#"<!DOCTYPE html>
+    crate::security::mark_kernel_scripts(
+        r#"<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
@@ -748,7 +774,8 @@ pub fn playground_html() -> String {
     });
   </script>
 </body>
-</html>"#)
+</html>"#,
+    )
 }
 
 #[cfg(test)]
@@ -765,11 +792,27 @@ mod tests {
     fn anonymous_requests_are_rejected() {
         let ents = entities();
         let db = db(&ents);
-        db.insert("User", &json!({"email":"a@b.co","password":"$argon2id$hash","role":"admin"})).unwrap();
-        let out = run("{ users { email password role } }", json!({}), &anon(), &db, &ents);
+        db.insert(
+            "User",
+            &json!({"email":"a@b.co","password":"$argon2id$hash","role":"admin"}),
+        )
+        .unwrap();
+        let out = run(
+            "{ users { email password role } }",
+            json!({}),
+            &anon(),
+            &db,
+            &ents,
+        );
         assert_eq!(out["errors"][0]["extensions"]["code"], "UNAUTHENTICATED");
         assert!(out.get("data").is_none());
-        let out = run("mutation { deleteNote(id: \"x\") }", json!({}), &anon(), &db, &ents);
+        let out = run(
+            "mutation { deleteNote(id: \"x\") }",
+            json!({}),
+            &anon(),
+            &db,
+            &ents,
+        );
         assert_eq!(out["errors"][0]["extensions"]["code"], "UNAUTHENTICATED");
     }
 
@@ -780,14 +823,23 @@ mod tests {
         let alice_note = insert_note(&db, "alice", "a1");
         insert_note(&db, "bob", "b1");
 
-        let out = run("{ notes { id title } }", json!({}), &as_user("bob"), &db, &ents);
+        let out = run(
+            "{ notes { id title } }",
+            json!({}),
+            &as_user("bob"),
+            &db,
+            &ents,
+        );
         let notes = out["data"]["notes"].as_array().unwrap();
         assert_eq!(notes.len(), 1);
         assert_eq!(notes[0]["title"], "b1");
 
         let q = format!("{{ note(id: \"{}\") {{ title }} }}", alice_note);
         assert!(run(&q, json!({}), &as_user("bob"), &db, &ents)["data"]["note"].is_null());
-        assert_eq!(run(&q, json!({}), &as_user("alice"), &db, &ents)["data"]["note"]["title"], "a1");
+        assert_eq!(
+            run(&q, json!({}), &as_user("alice"), &db, &ents)["data"]["note"]["title"],
+            "a1"
+        );
         let all = run("{ notes { id } }", json!({}), &as_admin(), &db, &ents);
         assert_eq!(all["data"]["notes"].as_array().unwrap().len(), 2);
     }
@@ -797,11 +849,26 @@ mod tests {
         let ents = entities();
         let db = db(&ents);
         insert_note(&db, "alice", "a1");
-        let me = db.insert("User", &json!({"email":"me@x.co","password":"$argon2id$me"})).unwrap();
-        db.insert("User", &json!({"email":"other@x.co","password":"$argon2id$other"})).unwrap();
+        let me = db
+            .insert(
+                "User",
+                &json!({"email":"me@x.co","password":"$argon2id$me"}),
+            )
+            .unwrap();
+        db.insert(
+            "User",
+            &json!({"email":"other@x.co","password":"$argon2id$other"}),
+        )
+        .unwrap();
         let me_id = me["id"].as_str().unwrap();
 
-        let out = run("{ notes { title secret } }", json!({}), &as_user("alice"), &db, &ents);
+        let out = run(
+            "{ notes { title secret } }",
+            json!({}),
+            &as_user("alice"),
+            &db,
+            &ents,
+        );
         assert!(out["data"]["notes"][0].get("secret").is_none());
         let out = run("{ users }", json!({}), &as_user(me_id), &db, &ents);
         let users = out["data"]["users"].as_array().unwrap();
@@ -811,7 +878,10 @@ mod tests {
         let sdl = GraphQLSchema::from_entities(&ents).sdl;
         assert!(!sdl.contains("secret"));
         assert!(!sdl.contains("password"));
-        assert!(!sdl.contains("  role: String\n}\ninput"), "role is not writable");
+        assert!(
+            !sdl.contains("  role: String\n}\ninput"),
+            "role is not writable"
+        );
     }
 
     #[test]
@@ -820,9 +890,15 @@ mod tests {
         let db = db(&ents);
         let id = insert_note(&db, "alice", "a1");
         let q = format!("mutation {{ deleteNote(id: \"{}\") }}", id);
-        assert_eq!(run(&q, json!({}), &as_user("bob"), &db, &ents)["data"]["deleteNote"], false);
+        assert_eq!(
+            run(&q, json!({}), &as_user("bob"), &db, &ents)["data"]["deleteNote"],
+            false
+        );
         assert!(db.find_by_id("Note", &id).unwrap().is_some());
-        assert_eq!(run(&q, json!({}), &as_user("alice"), &db, &ents)["data"]["deleteNote"], true);
+        assert_eq!(
+            run(&q, json!({}), &as_user("alice"), &db, &ents)["data"]["deleteNote"],
+            true
+        );
     }
 
     #[test]

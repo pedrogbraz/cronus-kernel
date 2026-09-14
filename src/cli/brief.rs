@@ -12,7 +12,8 @@ pub fn cmd_brief() {
 
     // --- Read objective.toml ---
     let objective = fs::read_to_string(".cronus/objective.toml").unwrap_or_default();
-    let obj_title = brief_toml_val(&objective, "title").unwrap_or_else(|| "No objective set".into());
+    let obj_title =
+        brief_toml_val(&objective, "title").unwrap_or_else(|| "No objective set".into());
     let obj_deadline = brief_toml_val(&objective, "deadline").unwrap_or_else(|| "none".into());
     let obj_why = brief_toml_val(&objective, "why").unwrap_or_default();
     let out_of_scope = brief_toml_arr(&objective, "items");
@@ -66,9 +67,15 @@ pub fn cmd_brief() {
     println!("{} is a {}. {}.", proj_name, proj_category, proj_purpose);
     if !kernel_lines.is_empty() || !binary_size.is_empty() {
         let mut meta = Vec::new();
-        if !kernel_lines.is_empty() { meta.push(format!("{} lines", kernel_lines)); }
-        if !binary_size.is_empty() { meta.push(format!("{} binary", binary_size)); }
-        if !build_status.is_empty() { meta.push(format!("build: {}", build_status)); }
+        if !kernel_lines.is_empty() {
+            meta.push(format!("{} lines", kernel_lines));
+        }
+        if !binary_size.is_empty() {
+            meta.push(format!("{} binary", binary_size));
+        }
+        if !build_status.is_empty() {
+            meta.push(format!("build: {}", build_status));
+        }
         println!("Rust kernel, {}.", meta.join(", "));
     }
     println!();
@@ -84,9 +91,10 @@ pub fn cmd_brief() {
         println!("## Your Task");
         println!("{}: {}", task_id, task_title);
         if !task_write.is_empty() {
-            let files: Vec<String> = task_write.iter().map(|f| {
-                f.rsplit('/').next().unwrap_or(f).to_string()
-            }).collect();
+            let files: Vec<String> = task_write
+                .iter()
+                .map(|f| f.rsplit('/').next().unwrap_or(f).to_string())
+                .collect();
             println!("Files: {}", files.join(", "));
         }
         if !task_forbidden.is_empty() {
@@ -153,16 +161,38 @@ pub fn brief_today_date() -> String {
     let mut y = 1970i64;
     let mut remaining = days as i64;
     loop {
-        let diy = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) { 366 } else { 365 };
-        if remaining < diy { break; }
+        let diy = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) {
+            366
+        } else {
+            365
+        };
+        if remaining < diy {
+            break;
+        }
         remaining -= diy;
         y += 1;
     }
     let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
-    let md = [31, if leap {29} else {28}, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let md = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
     let mut m = 0usize;
     for (i, &d) in md.iter().enumerate() {
-        if remaining < d as i64 { m = i + 1; break; }
+        if remaining < d as i64 {
+            m = i + 1;
+            break;
+        }
         remaining -= d as i64;
     }
     format!("{:04}-{:02}-{:02}", y, m, remaining + 1)
@@ -205,7 +235,9 @@ pub fn brief_toml_arr(content: &str, key: &str) -> Vec<String> {
                         if let Some(be) = trimmed.rfind(']') {
                             for item in trimmed[bs + 1..be].split(',') {
                                 let v = item.trim().trim_matches('"');
-                                if !v.is_empty() { result.push(v.to_string()); }
+                                if !v.is_empty() {
+                                    result.push(v.to_string());
+                                }
                             }
                             return result;
                         }
@@ -213,9 +245,13 @@ pub fn brief_toml_arr(content: &str, key: &str) -> Vec<String> {
                 }
             }
         } else {
-            if trimmed.starts_with(']') { break; }
+            if trimmed.starts_with(']') {
+                break;
+            }
             let v = trimmed.trim_end_matches(',').trim().trim_matches('"');
-            if !v.is_empty() { result.push(v.to_string()); }
+            if !v.is_empty() {
+                result.push(v.to_string());
+            }
         }
     }
     result
@@ -233,10 +269,16 @@ pub fn brief_toml_arr_after_section(content: &str, section: &str, key: &str) -> 
             in_section = true;
             continue;
         }
-        if in_section && trimmed.starts_with('[') && !trimmed.starts_with("[[") && trimmed != section {
+        if in_section
+            && trimmed.starts_with('[')
+            && !trimmed.starts_with("[[")
+            && trimmed != section
+        {
             break; // next section
         }
-        if !in_section { continue; }
+        if !in_section {
+            continue;
+        }
 
         if !in_array {
             if let Some(eq_pos) = trimmed.find('=') {
@@ -247,7 +289,9 @@ pub fn brief_toml_arr_after_section(content: &str, section: &str, key: &str) -> 
                         if let Some(be) = trimmed.rfind(']') {
                             for item in trimmed[bs + 1..be].split(',') {
                                 let v = item.trim().trim_matches('"');
-                                if !v.is_empty() { result.push(v.to_string()); }
+                                if !v.is_empty() {
+                                    result.push(v.to_string());
+                                }
                             }
                             return result;
                         }
@@ -255,9 +299,13 @@ pub fn brief_toml_arr_after_section(content: &str, section: &str, key: &str) -> 
                 }
             }
         } else {
-            if trimmed.starts_with(']') { break; }
+            if trimmed.starts_with(']') {
+                break;
+            }
             let v = trimmed.trim_end_matches(',').trim().trim_matches('"');
-            if !v.is_empty() { result.push(v.to_string()); }
+            if !v.is_empty() {
+                result.push(v.to_string());
+            }
         }
     }
     result
@@ -279,16 +327,22 @@ pub fn brief_json_arr(content: &str, key: &str) -> Vec<String> {
                     if let (Some(bs), Some(be)) = (after.find('['), after.rfind(']')) {
                         for item in after[bs + 1..be].split(',') {
                             let v = item.trim().trim_matches('"');
-                            if !v.is_empty() { result.push(v.to_string()); }
+                            if !v.is_empty() {
+                                result.push(v.to_string());
+                            }
                         }
                         return result;
                     }
                 }
             }
         } else {
-            if trimmed.starts_with(']') { break; }
+            if trimmed.starts_with(']') {
+                break;
+            }
             let v = trimmed.trim_end_matches(',').trim().trim_matches('"');
-            if !v.is_empty() { result.push(v.to_string()); }
+            if !v.is_empty() {
+                result.push(v.to_string());
+            }
         }
     }
     result
@@ -301,7 +355,11 @@ pub fn brief_json_val(content: &str, key: &str) -> Option<String> {
         let trimmed = line.trim();
         if trimmed.contains(&search) && trimmed.contains(':') {
             if let Some(colon) = trimmed.find(':') {
-                let val = trimmed[colon + 1..].trim().trim_end_matches(',').trim().trim_matches('"');
+                let val = trimmed[colon + 1..]
+                    .trim()
+                    .trim_end_matches(',')
+                    .trim()
+                    .trim_matches('"');
                 if !val.is_empty() && !val.contains('[') && !val.contains('{') {
                     return Some(val.to_string());
                 }

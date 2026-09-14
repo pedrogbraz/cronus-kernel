@@ -42,7 +42,9 @@ pub fn render(comp: &ComponentNode) -> String {
         Some(v) => format!(" aria-label=\"{}\"", esc(v)),
         None => String::new(),
     };
-    format!("<div data-slot=\"orbit\"{aria}>{nucleus}<div data-slot=\"orbit-ring\">{ring}</div></div>")
+    format!(
+        "<div data-slot=\"orbit\"{aria}>{nucleus}<div data-slot=\"orbit-ring\">{ring}</div></div>"
+    )
 }
 
 #[cfg(test)]
@@ -208,7 +210,13 @@ mod tests {
     #[test]
     fn chrome_orbit_mirrors_react_mechanism() {
         let css = crate::cronus_ui::component_chrome_css();
-        for slot in ["orbit", "orbit-ring", "orbit-positioner", "orbit-holder", "orbit-item"] {
+        for slot in [
+            "orbit",
+            "orbit-ring",
+            "orbit-positioner",
+            "orbit-holder",
+            "orbit-item",
+        ] {
             assert!(css.contains(&format!("[data-slot=\"{slot}\"]")), "{slot}");
         }
         assert!(css.contains("@keyframes cui-orbit-spin"));

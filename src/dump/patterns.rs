@@ -4,7 +4,9 @@
 //! Each scoring function checks multiple signals in a DomNode and returns
 //! a confidence value between 0.0 and 1.0. Signals are additive (0.1-0.3 each).
 
-use super::dom::{DomNode, find_by_tag, find_by_class, extract_links, extract_buttons, has_class, tw_font_size};
+use super::dom::{
+    extract_buttons, extract_links, find_by_class, find_by_tag, has_class, tw_font_size, DomNode,
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -20,7 +22,9 @@ pub fn has_descendant_class(node: &DomNode, class: &str) -> bool {
     if node.classes.iter().any(|c| c.contains(class)) {
         return true;
     }
-    node.children.iter().any(|child| has_descendant_class(child, class))
+    node.children
+        .iter()
+        .any(|child| has_descendant_class(child, class))
 }
 
 /// Return the largest Tailwind font size (in px) among headings in the subtree.
@@ -85,14 +89,17 @@ fn has_inline_clip_path(node: &DomNode) -> bool {
             return true;
         }
     }
-    node.children.iter().any(|child| has_inline_clip_path(child))
+    node.children
+        .iter()
+        .any(|child| has_inline_clip_path(child))
 }
 
 /// Count date-like labels in text: patterns like "Oct 01", "Jan 15", "Feb 28".
 /// Works on already-lowercased text.
 fn count_date_labels(text: &str) -> usize {
-    let months = ["jan", "feb", "mar", "apr", "may", "jun",
-                   "jul", "aug", "sep", "oct", "nov", "dec"];
+    let months = [
+        "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+    ];
     let mut count = 0;
     for month in &months {
         let mut search_from = 0;
@@ -199,7 +206,12 @@ pub fn is_topbar(node: &DomNode) -> f32 {
         score += 0.3;
     }
     // Check for BEM class names containing header/navbar/topbar
-    if node.classes.iter().any(|c| c.contains("header") || c.contains("navbar") || c.contains("topbar") || c.contains("nav-bar")) {
+    if node.classes.iter().any(|c| {
+        c.contains("header")
+            || c.contains("navbar")
+            || c.contains("topbar")
+            || c.contains("nav-bar")
+    }) {
         score += 0.2;
     }
 
@@ -241,8 +253,8 @@ pub fn is_hero(node: &DomNode) -> f32 {
 
     // CTA buttons — a hero MUST have CTA buttons (rounded-full style)
     let buttons = extract_buttons(node);
-    let has_rounded_full_buttons = has_descendant_class(node, "rounded-full")
-        && !buttons.is_empty();
+    let has_rounded_full_buttons =
+        has_descendant_class(node, "rounded-full") && !buttons.is_empty();
     if has_rounded_full_buttons {
         score += 0.15;
     } else if !buttons.is_empty() {
@@ -264,9 +276,14 @@ pub fn is_hero(node: &DomNode) -> f32 {
     }
 
     // Large padding (hero sections typically have generous vertical padding)
-    if has_class(node, "py-20") || has_class(node, "py-24") || has_class(node, "py-32")
-        || has_class(node, "pt-20") || has_class(node, "pt-24") || has_class(node, "pt-32")
-        || has_class(node, "min-h-screen") || has_class(node, "h-screen")
+    if has_class(node, "py-20")
+        || has_class(node, "py-24")
+        || has_class(node, "py-32")
+        || has_class(node, "pt-20")
+        || has_class(node, "pt-24")
+        || has_class(node, "pt-32")
+        || has_class(node, "min-h-screen")
+        || has_class(node, "h-screen")
     {
         score += 0.15;
     }
@@ -283,8 +300,12 @@ pub fn is_hero(node: &DomNode) -> f32 {
     }
     // Count <a> tags with button-like classes as CTAs (not just <button> tags)
     let link_buttons = find_link_buttons(node);
-    if link_buttons >= 1 { score += 0.15; }
-    if link_buttons >= 2 { score += 0.1; }
+    if link_buttons >= 1 {
+        score += 0.15;
+    }
+    if link_buttons >= 2 {
+        score += 0.1;
+    }
 
     // Centered text (common in heroes)
     if has_descendant_class(node, "text-center") || has_class(node, "text-center") {
@@ -298,7 +319,12 @@ pub fn is_hero(node: &DomNode) -> f32 {
 fn find_link_buttons(node: &DomNode) -> usize {
     let mut count = 0;
     for child in &node.children {
-        if child.tag == "a" && child.classes.iter().any(|c| c.contains("btn") || c.contains("button") || c.contains("cta")) {
+        if child.tag == "a"
+            && child
+                .classes
+                .iter()
+                .any(|c| c.contains("btn") || c.contains("button") || c.contains("cta"))
+        {
             count += 1;
         }
         count += find_link_buttons(child);
@@ -387,15 +413,26 @@ pub fn is_faq(node: &DomNode) -> f32 {
     let text = node.full_text.to_lowercase();
 
     // Heading text signals (very strong for FAQ)
-    if text.contains("faq") || text.contains("perguntas") || text.contains("dúvidas")
-        || text.contains("duvidas") || text.contains("frequently") {
+    if text.contains("faq")
+        || text.contains("perguntas")
+        || text.contains("dúvidas")
+        || text.contains("duvidas")
+        || text.contains("frequently")
+    {
         score += 0.5;
     }
 
     // Class-based signals
-    if node.classes.iter().any(|c| c.contains("faq") || c.contains("accordion") || c.contains("collapse")) {
+    if node
+        .classes
+        .iter()
+        .any(|c| c.contains("faq") || c.contains("accordion") || c.contains("collapse"))
+    {
         score += 0.35;
-    } else if has_descendant_class(node, "faq") || has_descendant_class(node, "accordion") || has_descendant_class(node, "collapse") {
+    } else if has_descendant_class(node, "faq")
+        || has_descendant_class(node, "accordion")
+        || has_descendant_class(node, "collapse")
+    {
         score += 0.3;
     }
 
@@ -408,11 +445,16 @@ pub fn is_faq(node: &DomNode) -> f32 {
     }
 
     // Items with question marks in text (strong FAQ signal)
-    let question_count = node.children.iter()
+    let question_count = node
+        .children
+        .iter()
         .filter(|c| c.full_text.contains('?'))
         .count();
-    if question_count >= 3 { score += 0.3; }
-    else if question_count >= 2 { score += 0.15; }
+    if question_count >= 3 {
+        score += 0.3;
+    } else if question_count >= 2 {
+        score += 0.15;
+    }
 
     // Card children with title+description (shared with features, but FAQ-specific
     // when combined with question keywords)
@@ -433,30 +475,47 @@ pub fn is_testimonials(node: &DomNode) -> f32 {
     let mut score: f32 = 0.0;
 
     // Class-based signals on node or descendants
-    if node.classes.iter().any(|c| c.contains("testimonial") || c.contains("review") || c.contains("quote")) {
+    if node
+        .classes
+        .iter()
+        .any(|c| c.contains("testimonial") || c.contains("review") || c.contains("quote"))
+    {
         score += 0.4;
-    } else if has_descendant_class(node, "testimonial") || has_descendant_class(node, "review") || has_descendant_class(node, "quote") {
+    } else if has_descendant_class(node, "testimonial")
+        || has_descendant_class(node, "review")
+        || has_descendant_class(node, "quote")
+    {
         score += 0.35;
     }
 
     // ID-based signal
     if let Some(ref id) = node.id {
         let id_lower = id.to_lowercase();
-        if id_lower.contains("testimonial") || id_lower.contains("review") || id_lower.contains("depoimento") {
+        if id_lower.contains("testimonial")
+            || id_lower.contains("review")
+            || id_lower.contains("depoimento")
+        {
             score += 0.3;
         }
     }
 
     // Text content signals (PT-BR + EN)
     let lower = node.full_text.to_lowercase();
-    if lower.contains("dizem") || lower.contains("testimonial") || lower.contains("clientes") || lower.contains("depoimento") {
+    if lower.contains("dizem")
+        || lower.contains("testimonial")
+        || lower.contains("clientes")
+        || lower.contains("depoimento")
+    {
         score += 0.2;
     }
 
     // Multiple similar-sized text blocks (quote cards): look for 2+ <p> with
     // substantial text inside card-like divs
     let paragraphs = find_by_tag(node, "p");
-    let long_paragraphs: Vec<_> = paragraphs.iter().filter(|p| p.full_text.len() > 40).collect();
+    let long_paragraphs: Vec<_> = paragraphs
+        .iter()
+        .filter(|p| p.full_text.len() > 40)
+        .collect();
     if long_paragraphs.len() >= 3 {
         score += 0.3;
     } else if long_paragraphs.len() >= 2 {
@@ -475,7 +534,8 @@ pub fn is_testimonials(node: &DomNode) -> f32 {
     }
 
     // Penalize if has form elements (not testimonials)
-    if count_descendants_with_tag(node, "form") > 0 || count_descendants_with_tag(node, "input") > 0 {
+    if count_descendants_with_tag(node, "form") > 0 || count_descendants_with_tag(node, "input") > 0
+    {
         score -= 0.3;
     }
 
@@ -601,7 +661,8 @@ pub fn is_cta(node: &DomNode) -> f32 {
     // Penalize if section contains form elements (it's probably a form section, not CTA)
     if find_by_tag(node, "form").len() > 0
         || find_by_tag(node, "input").len() > 0
-        || find_by_tag(node, "textarea").len() > 0 {
+        || find_by_tag(node, "textarea").len() > 0
+    {
         score -= 0.4;
     }
 
@@ -629,7 +690,10 @@ pub fn is_footer(node: &DomNode) -> f32 {
 
     // Copyright text
     let lower = node.full_text.to_lowercase();
-    if lower.contains("copyright") || lower.contains("\u{00a9}") || lower.contains("all rights reserved") {
+    if lower.contains("copyright")
+        || lower.contains("\u{00a9}")
+        || lower.contains("all rights reserved")
+    {
         score += 0.2;
     }
 
@@ -779,7 +843,9 @@ pub fn is_pricing(node: &DomNode) -> f32 {
     let h2s = find_by_tag(node, "h2");
     for h2 in &h2s {
         let lower = h2.full_text.to_lowercase();
-        if lower.contains("pricing") || lower.contains("plans") || lower.contains("preco")
+        if lower.contains("pricing")
+            || lower.contains("plans")
+            || lower.contains("preco")
             || lower.contains("plano")
         {
             score += 0.15;
@@ -834,7 +900,9 @@ pub fn is_bento(node: &DomNode) -> f32 {
     }
 
     // Multiple card-like children
-    let card_children = node.children.iter()
+    let card_children = node
+        .children
+        .iter()
         .filter(|c| c.tag == "div" && !c.classes.is_empty())
         .count();
     if card_children >= 4 {
@@ -895,7 +963,10 @@ fn count_card_children(node: &DomNode) -> usize {
 /// or is a rounded div with heading content).
 fn is_card_like(node: &DomNode) -> bool {
     let heading_tags = ["h2", "h3", "h4", "h5", "h6"];
-    let has_heading = node.children.iter().any(|c| heading_tags.contains(&c.tag.as_str()))
+    let has_heading = node
+        .children
+        .iter()
+        .any(|c| heading_tags.contains(&c.tag.as_str()))
         || find_by_tag(node, "h3").len() + find_by_tag(node, "h4").len() > 0;
     let has_paragraph = find_by_tag(node, "p").len() > 0;
 
@@ -913,7 +984,10 @@ fn is_card_like(node: &DomNode) -> bool {
     }
 
     // Card with padding and heading
-    let has_padding = node.classes.iter().any(|c| c.starts_with("p-") || c.starts_with("px-") || c.starts_with("py-"));
+    let has_padding = node
+        .classes
+        .iter()
+        .any(|c| c.starts_with("p-") || c.starts_with("px-") || c.starts_with("py-"));
     if has_padding && has_heading {
         return true;
     }
@@ -998,8 +1072,7 @@ pub fn is_page_header(node: &DomNode) -> f32 {
 
     // Does NOT have rounded-full CTA buttons (distinguishes from hero)
     let buttons = extract_buttons(node);
-    let has_rounded_full_btns = has_descendant_class(node, "rounded-full")
-        && !buttons.is_empty();
+    let has_rounded_full_btns = has_descendant_class(node, "rounded-full") && !buttons.is_empty();
     if !has_rounded_full_btns {
         score += 0.2;
     }
@@ -1007,7 +1080,9 @@ pub fn is_page_header(node: &DomNode) -> f32 {
     // Has badge span (uppercase small text like "DEVELOPER")
     if has_descendant_class(node, "uppercase") && has_descendant_class(node, "tracking-wider") {
         score += 0.1;
-    } else if has_descendant_class(node, "uppercase") && has_descendant_class(node, "tracking-widest") {
+    } else if has_descendant_class(node, "uppercase")
+        && has_descendant_class(node, "tracking-widest")
+    {
         score += 0.1;
     }
 
@@ -1050,7 +1125,10 @@ pub fn is_stat_cards(node: &DomNode) -> f32 {
         node.children.iter().collect()
     } else {
         // Check one level deeper (wrapper div)
-        node.children.iter().flat_map(|c| c.children.iter()).collect()
+        node.children
+            .iter()
+            .flat_map(|c| c.children.iter())
+            .collect()
     };
 
     for child in &children_to_check {
@@ -1100,7 +1178,8 @@ pub fn is_product_grid(node: &DomNode) -> f32 {
     let mut score: f32 = 0.0;
 
     // Grid layout
-    if has_descendant_class(node, "grid-cols") || has_class(node, "grid-cols-3")
+    if has_descendant_class(node, "grid-cols")
+        || has_class(node, "grid-cols-3")
         || has_class(node, "grid-cols-2")
     {
         score += 0.15;
@@ -1135,7 +1214,8 @@ pub fn is_product_grid(node: &DomNode) -> f32 {
     }
 
     // Penalize if it looks like stat-cards (uppercase tracking-widest + no prices)
-    if has_descendant_class(node, "uppercase") && has_descendant_class(node, "tracking-widest")
+    if has_descendant_class(node, "uppercase")
+        && has_descendant_class(node, "tracking-widest")
         && price_count == 0
     {
         score -= 0.2;
@@ -1240,10 +1320,11 @@ pub fn is_content_card(node: &DomNode) -> f32 {
     }
 
     // Rounded border container (card look)
-    let is_rounded = has_class(node, "rounded-xl") || has_class(node, "rounded-lg")
+    let is_rounded = has_class(node, "rounded-xl")
+        || has_class(node, "rounded-lg")
         || has_class(node, "rounded-2xl");
-    let has_border = has_class(node, "border") || has_class(node, "shadow")
-        || has_class(node, "ghost-border");
+    let has_border =
+        has_class(node, "border") || has_class(node, "shadow") || has_class(node, "ghost-border");
     if is_rounded || has_border {
         score += 0.2;
     }
@@ -1255,7 +1336,8 @@ pub fn is_content_card(node: &DomNode) -> f32 {
 
     // Has label elements or uppercase tracking-widest text (form labels)
     if count_descendants_with_tag(node, "label") > 0
-        || (has_descendant_class(node, "uppercase") && has_descendant_class(node, "tracking-widest"))
+        || (has_descendant_class(node, "uppercase")
+            && has_descendant_class(node, "tracking-widest"))
     {
         score += 0.1;
     }
@@ -1290,8 +1372,10 @@ pub fn is_info_panel(node: &DomNode) -> f32 {
     let mut score: f32 = 0.0;
 
     // Dark background (promo panel)
-    if has_class(node, "bg-primary") || has_class(node, "bg-black")
-        || has_class(node, "bg-gray-900") || has_class(node, "bg-zinc-900")
+    if has_class(node, "bg-primary")
+        || has_class(node, "bg-black")
+        || has_class(node, "bg-gray-900")
+        || has_class(node, "bg-zinc-900")
     {
         score += 0.3;
     }
@@ -1381,7 +1465,18 @@ pub fn is_form(node: &DomNode) -> f32 {
 
     // Submit button (EN + PT-BR keywords)
     let buttons = extract_buttons(node);
-    let submit_keywords = ["submit", "save", "create", "send", "update", "enviar", "cadastrar", "salvar", "registrar", "entrar"];
+    let submit_keywords = [
+        "submit",
+        "save",
+        "create",
+        "send",
+        "update",
+        "enviar",
+        "cadastrar",
+        "salvar",
+        "registrar",
+        "entrar",
+    ];
     let has_submit = buttons.iter().any(|b| {
         let lower = b.to_lowercase();
         submit_keywords.iter().any(|kw| lower.contains(kw))
@@ -1415,7 +1510,12 @@ pub fn is_tabs(node: &DomNode) -> f32 {
     let mut score: f32 = 0.0;
 
     // role="tablist"
-    if node.attrs.get("role").map(|r| r == "tablist").unwrap_or(false) {
+    if node
+        .attrs
+        .get("role")
+        .map(|r| r == "tablist")
+        .unwrap_or(false)
+    {
         score += 0.4;
     }
     // Descendant with role=tablist
@@ -1440,9 +1540,11 @@ pub fn is_tabs(node: &DomNode) -> f32 {
     }
 
     // Multiple short-text inline children (tab labels)
-    let inline_children = node.children.iter().filter(|c| {
-        (c.tag == "button" || c.tag == "a") && c.full_text.trim().len() < 30
-    }).count();
+    let inline_children = node
+        .children
+        .iter()
+        .filter(|c| (c.tag == "button" || c.tag == "a") && c.full_text.trim().len() < 30)
+        .count();
     if inline_children >= 2 {
         score += 0.15;
     }
@@ -1474,7 +1576,9 @@ fn has_descendant_attr(node: &DomNode, attr: &str, value: &str) -> bool {
     if node.attrs.get(attr).map(|v| v == value).unwrap_or(false) {
         return true;
     }
-    node.children.iter().any(|child| has_descendant_attr(child, attr, value))
+    node.children
+        .iter()
+        .any(|child| has_descendant_attr(child, attr, value))
 }
 
 /// Count descendants with a specific attribute present.
@@ -1527,8 +1631,8 @@ pub fn is_kpi_grid(node: &DomNode) -> f32 {
 
     // Financial values ($1,482,900.00 or similar)
     let has_dollar = text.contains('$') || text.contains("R$");
-    let has_comma_number = text.chars().filter(|c| *c == ',').count() >= 1
-        && text.chars().any(|c| c.is_ascii_digit());
+    let has_comma_number =
+        text.chars().filter(|c| *c == ',').count() >= 1 && text.chars().any(|c| c.is_ascii_digit());
     if has_dollar && has_comma_number {
         score += 0.25;
     } else if has_dollar {
@@ -1546,7 +1650,10 @@ pub fn is_kpi_grid(node: &DomNode) -> f32 {
     let children: Vec<&DomNode> = if node.children.len() >= 2 {
         node.children.iter().collect()
     } else {
-        node.children.iter().flat_map(|c| c.children.iter()).collect()
+        node.children
+            .iter()
+            .flat_map(|c| c.children.iter())
+            .collect()
     };
     for child in &children {
         let child_text = &child.full_text;
@@ -1618,7 +1725,11 @@ pub fn is_chart(node: &DomNode) -> f32 {
     let text = node.full_text.to_lowercase();
 
     // Class-based signals: "chart", "graph", "area-chart"
-    if node.classes.iter().any(|c| c.contains("chart") || c.contains("graph")) {
+    if node
+        .classes
+        .iter()
+        .any(|c| c.contains("chart") || c.contains("graph"))
+    {
         score += 0.35;
     } else if has_descendant_class(node, "chart") || has_descendant_class(node, "graph") {
         score += 0.25;
@@ -1647,10 +1758,12 @@ pub fn is_chart(node: &DomNode) -> f32 {
     }
 
     // Axis labels pattern: look for rows of short text like day/month names
-    let axis_keywords = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
-        "mon", "tue", "wed", "thu", "fri", "sat", "sun",
-        "seg", "ter", "qua", "qui", "sex", "sab", "dom"];
-    let axis_hit_count = axis_keywords.iter()
+    let axis_keywords = [
+        "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec", "mon",
+        "tue", "wed", "thu", "fri", "sat", "sun", "seg", "ter", "qua", "qui", "sex", "sab", "dom",
+    ];
+    let axis_hit_count = axis_keywords
+        .iter()
         .filter(|kw| text.contains(**kw))
         .count();
     if axis_hit_count >= 3 {
@@ -1678,10 +1791,12 @@ pub fn is_chart(node: &DomNode) -> f32 {
 
     // Period selector buttons (7d, 30d, 90d, 1y, etc.)
     // Also match spaced variants: "7 days", "30 days", "90 days"
-    let period_keywords = ["7d", "30d", "90d", "1y", "12m", "6m", "3m", "1m",
-        "week", "month", "year", "quarter",
-        "7 day", "30 day", "90 day", "1 year", "12 month", "6 month", "3 month"];
-    let period_hits = period_keywords.iter()
+    let period_keywords = [
+        "7d", "30d", "90d", "1y", "12m", "6m", "3m", "1m", "week", "month", "year", "quarter",
+        "7 day", "30 day", "90 day", "1 year", "12 month", "6 month", "3 month",
+    ];
+    let period_hits = period_keywords
+        .iter()
         .filter(|kw| text.contains(**kw))
         .count();
     if period_hits >= 2 {
@@ -1718,16 +1833,31 @@ pub fn is_order_header(node: &DomNode) -> f32 {
     let text = node.full_text.to_lowercase();
     let mut score: f32 = 0.0;
     // "back to" link
-    if text.contains("back to") { score += 0.3; }
+    if text.contains("back to") {
+        score += 0.3;
+    }
     // Status badge (shipped, processing, fulfilled, pending)
-    let statuses = ["shipped", "processing", "fulfilled", "pending", "completed", "cancelled"];
-    if statuses.iter().any(|s| text.contains(s)) { score += 0.2; }
+    let statuses = [
+        "shipped",
+        "processing",
+        "fulfilled",
+        "pending",
+        "completed",
+        "cancelled",
+    ];
+    if statuses.iter().any(|s| text.contains(s)) {
+        score += 0.2;
+    }
     // Large heading with order/detail/invoice pattern
-    if text.contains("order") && (text.contains("detail") || text.contains("#")) { score += 0.3; }
+    if text.contains("order") && (text.contains("detail") || text.contains("#")) {
+        score += 0.3;
+    }
     // Action buttons (refund, invoice, download)
     let buttons = extract_buttons(node);
     let btn_text = buttons.join(" ").to_lowercase();
-    if btn_text.contains("refund") || btn_text.contains("invoice") { score += 0.2; }
+    if btn_text.contains("refund") || btn_text.contains("invoice") {
+        score += 0.2;
+    }
     cap(score)
 }
 
@@ -1736,17 +1866,27 @@ pub fn is_line_items(node: &DomNode) -> f32 {
     let text = node.full_text.to_lowercase();
     let mut score: f32 = 0.0;
     // "line items" heading
-    if text.contains("line item") { score += 0.4; }
+    if text.contains("line item") {
+        score += 0.4;
+    }
     // Multiple images (product photos)
     let imgs = count_descendants_with_tag(node, "img");
-    if imgs >= 2 { score += 0.2; }
+    if imgs >= 2 {
+        score += 0.2;
+    }
     // Price patterns ($XX.XX)
     let price_count = text.matches('$').count();
-    if price_count >= 2 { score += 0.2; }
+    if price_count >= 2 {
+        score += 0.2;
+    }
     // SKU patterns
-    if text.contains("sku") { score += 0.2; }
+    if text.contains("sku") {
+        score += 0.2;
+    }
     // Qty patterns
-    if text.contains("qty") { score += 0.1; }
+    if text.contains("qty") {
+        score += 0.1;
+    }
     cap(score)
 }
 
@@ -1754,10 +1894,18 @@ pub fn is_line_items(node: &DomNode) -> f32 {
 pub fn is_price_breakdown(node: &DomNode) -> f32 {
     let text = node.full_text.to_lowercase();
     let mut score: f32 = 0.0;
-    if text.contains("subtotal") { score += 0.3; }
-    if text.contains("shipping") || text.contains("delivery") { score += 0.2; }
-    if text.contains("tax") { score += 0.2; }
-    if text.contains("total") && has_price_pattern(&node.full_text) { score += 0.3; }
+    if text.contains("subtotal") {
+        score += 0.3;
+    }
+    if text.contains("shipping") || text.contains("delivery") {
+        score += 0.2;
+    }
+    if text.contains("tax") {
+        score += 0.2;
+    }
+    if text.contains("total") && has_price_pattern(&node.full_text) {
+        score += 0.3;
+    }
     cap(score)
 }
 
@@ -1766,17 +1914,32 @@ pub fn is_shipping_timeline(node: &DomNode) -> f32 {
     let text = node.full_text.to_lowercase();
     let mut score: f32 = 0.0;
     // Timeline/tracking heading
-    if text.contains("timeline") || text.contains("tracking") || text.contains("shipping") { score += 0.2; }
+    if text.contains("timeline") || text.contains("tracking") || text.contains("shipping") {
+        score += 0.2;
+    }
     // Multiple date patterns (Oct 24, 2023 etc.)
     let date_patterns = ["2023", "2024", "2025", "2026", "am", "pm"];
     let date_hits: usize = date_patterns.iter().filter(|p| text.contains(*p)).count();
-    if date_hits >= 2 { score += 0.2; }
+    if date_hits >= 2 {
+        score += 0.2;
+    }
     // Status words
-    let status_words = ["confirmed", "shipped", "transit", "delivered", "processing", "expected"];
+    let status_words = [
+        "confirmed",
+        "shipped",
+        "transit",
+        "delivered",
+        "processing",
+        "expected",
+    ];
     let status_hits: usize = status_words.iter().filter(|w| text.contains(*w)).count();
-    if status_hits >= 2 { score += 0.3; }
+    if status_hits >= 2 {
+        score += 0.3;
+    }
     // Vertical line / timeline dots (animate-pulse or rounded-full patterns)
-    if has_descendant_class(node, "animate-pulse") || has_descendant_class(node, "rounded-full") { score += 0.2; }
+    if has_descendant_class(node, "animate-pulse") || has_descendant_class(node, "rounded-full") {
+        score += 0.2;
+    }
     cap(score)
 }
 
@@ -1784,15 +1947,25 @@ pub fn is_shipping_timeline(node: &DomNode) -> f32 {
 pub fn is_customer_profile(node: &DomNode) -> f32 {
     let text = node.full_text.to_lowercase();
     let mut score: f32 = 0.0;
-    if text.contains("customer") && (text.contains("profile") || text.contains("info")) { score += 0.3; }
+    if text.contains("customer") && (text.contains("profile") || text.contains("info")) {
+        score += 0.3;
+    }
     // Avatar image (rounded-full)
-    if has_descendant_class(node, "rounded-full") { score += 0.1; }
+    if has_descendant_class(node, "rounded-full") {
+        score += 0.1;
+    }
     // Email pattern
-    if text.contains("email") || text.contains("@") { score += 0.2; }
+    if text.contains("email") || text.contains("@") {
+        score += 0.2;
+    }
     // Address pattern (shipping, destination, address)
-    if text.contains("address") || text.contains("destination") || text.contains("shipping") { score += 0.2; }
+    if text.contains("address") || text.contains("destination") || text.contains("shipping") {
+        score += 0.2;
+    }
     // Tier/membership
-    if text.contains("tier") || text.contains("member") { score += 0.2; }
+    if text.contains("tier") || text.contains("member") {
+        score += 0.2;
+    }
     cap(score)
 }
 
@@ -1800,10 +1973,25 @@ pub fn is_customer_profile(node: &DomNode) -> f32 {
 pub fn is_payment_info(node: &DomNode) -> f32 {
     let text = node.full_text.to_lowercase();
     let mut score: f32 = 0.0;
-    if text.contains("payment") && (text.contains("method") || text.contains("info")) { score += 0.3; }
-    if text.contains("visa") || text.contains("mastercard") || text.contains("amex") || text.contains("stripe") { score += 0.2; }
-    if text.contains("3d secure") || text.contains("verified") || text.contains("security validation") { score += 0.2; }
-    if text.contains("authorized") || text.contains("auth id") { score += 0.2; }
+    if text.contains("payment") && (text.contains("method") || text.contains("info")) {
+        score += 0.3;
+    }
+    if text.contains("visa")
+        || text.contains("mastercard")
+        || text.contains("amex")
+        || text.contains("stripe")
+    {
+        score += 0.2;
+    }
+    if text.contains("3d secure")
+        || text.contains("verified")
+        || text.contains("security validation")
+    {
+        score += 0.2;
+    }
+    if text.contains("authorized") || text.contains("auth id") {
+        score += 0.2;
+    }
     cap(score)
 }
 
@@ -1811,11 +1999,21 @@ pub fn is_payment_info(node: &DomNode) -> f32 {
 pub fn is_staff_notes(node: &DomNode) -> f32 {
     let text = node.full_text.to_lowercase();
     let mut score: f32 = 0.0;
-    if text.contains("staff") || text.contains("internal") { score += 0.3; }
-    if text.contains("note") || text.contains("comment") { score += 0.3; }
-    if text.contains("add") && (text.contains("note") || text.contains("comment")) { score += 0.2; }
+    if text.contains("staff") || text.contains("internal") {
+        score += 0.3;
+    }
+    if text.contains("note") || text.contains("comment") {
+        score += 0.3;
+    }
+    if text.contains("add") && (text.contains("note") || text.contains("comment")) {
+        score += 0.2;
+    }
     // Dashed border (common for notes sections)
-    if has_descendant_class(node, "border-dashed") || node.classes.iter().any(|c| c.contains("dashed")) { score += 0.2; }
+    if has_descendant_class(node, "border-dashed")
+        || node.classes.iter().any(|c| c.contains("dashed"))
+    {
+        score += 0.2;
+    }
     cap(score)
 }
 
@@ -1824,16 +2022,26 @@ pub fn is_settings_profile(node: &DomNode) -> f32 {
     let text = node.full_text.to_lowercase();
     let mut score: f32 = 0.0;
     // Profile/general/account heading
-    if text.contains("profile") || text.contains("general") || text.contains("account") { score += 0.2; }
+    if text.contains("profile") || text.contains("general") || text.contains("account") {
+        score += 0.2;
+    }
     // Input fields
     let inputs = count_descendants_with_tag(node, "input");
-    if inputs >= 2 { score += 0.3; }
+    if inputs >= 2 {
+        score += 0.3;
+    }
     // Save/update button
     let buttons = extract_buttons(node);
     let btn_text = buttons.join(" ").to_lowercase();
-    if btn_text.contains("save") || btn_text.contains("update") { score += 0.2; }
+    if btn_text.contains("save") || btn_text.contains("update") {
+        score += 0.2;
+    }
     // NOT a login/signup form (those have "sign in", "log in", "register")
-    if text.contains("sign in") || text.contains("log in") || text.contains("register") || text.contains("sign up") {
+    if text.contains("sign in")
+        || text.contains("log in")
+        || text.contains("register")
+        || text.contains("sign up")
+    {
         return 0.0; // Exclude auth forms
     }
     cap(score)
@@ -1843,13 +2051,25 @@ pub fn is_settings_profile(node: &DomNode) -> f32 {
 pub fn is_api_keys(node: &DomNode) -> f32 {
     let text = node.full_text.to_lowercase();
     let mut score: f32 = 0.0;
-    if text.contains("api") && (text.contains("key") || text.contains("token") || text.contains("integration")) { score += 0.4; }
+    if text.contains("api")
+        && (text.contains("key") || text.contains("token") || text.contains("integration"))
+    {
+        score += 0.4;
+    }
     // Monospace code-like strings (live_vault, test_sandbox, sk_live, pk_test)
-    if text.contains("live_") || text.contains("test_") || text.contains("sk_") || text.contains("pk_") { score += 0.3; }
+    if text.contains("live_")
+        || text.contains("test_")
+        || text.contains("sk_")
+        || text.contains("pk_")
+    {
+        score += 0.3;
+    }
     // Generate/create button
     let buttons = extract_buttons(node);
     let btn_text = buttons.join(" ").to_lowercase();
-    if btn_text.contains("generate") || btn_text.contains("create") || btn_text.contains("new") { score += 0.2; }
+    if btn_text.contains("generate") || btn_text.contains("create") || btn_text.contains("new") {
+        score += 0.2;
+    }
     cap(score)
 }
 
@@ -1858,17 +2078,35 @@ pub fn is_subscription_card(node: &DomNode) -> f32 {
     let text = node.full_text.to_lowercase();
     let mut score: f32 = 0.0;
     // Plan tier names
-    if text.contains("enterprise") || text.contains("pro") || text.contains("premium") || text.contains("starter") { score += 0.2; }
+    if text.contains("enterprise")
+        || text.contains("pro")
+        || text.contains("premium")
+        || text.contains("starter")
+    {
+        score += 0.2;
+    }
     // Monthly/yearly billing
-    if text.contains("monthly") || text.contains("billing") || text.contains("investment") || text.contains("/mo") { score += 0.2; }
+    if text.contains("monthly")
+        || text.contains("billing")
+        || text.contains("investment")
+        || text.contains("/mo")
+    {
+        score += 0.2;
+    }
     // Large price ($XX or $X,XXX)
-    if has_price_pattern(&node.full_text) { score += 0.2; }
+    if has_price_pattern(&node.full_text) {
+        score += 0.2;
+    }
     // Feature checkmarks
-    if has_descendant_class(node, "check_circle") || text.contains("check_circle") { score += 0.2; }
+    if has_descendant_class(node, "check_circle") || text.contains("check_circle") {
+        score += 0.2;
+    }
     // Manage plan button
     let buttons = extract_buttons(node);
     let btn_text = buttons.join(" ").to_lowercase();
-    if btn_text.contains("manage") || btn_text.contains("upgrade") { score += 0.2; }
+    if btn_text.contains("manage") || btn_text.contains("upgrade") {
+        score += 0.2;
+    }
     cap(score)
 }
 
@@ -1877,12 +2115,27 @@ pub fn is_danger_zone(node: &DomNode) -> f32 {
     let text = node.full_text.to_lowercase();
     let mut score: f32 = 0.0;
     // Danger/nuclear/delete keywords
-    if text.contains("danger") || text.contains("nuclear") || text.contains("destructive") { score += 0.3; }
-    if text.contains("delete") || text.contains("purge") || text.contains("deactivate") || text.contains("remove account") { score += 0.3; }
-    if text.contains("irreversible") || text.contains("cannot be undone") { score += 0.3; }
+    if text.contains("danger") || text.contains("nuclear") || text.contains("destructive") {
+        score += 0.3;
+    }
+    if text.contains("delete")
+        || text.contains("purge")
+        || text.contains("deactivate")
+        || text.contains("remove account")
+    {
+        score += 0.3;
+    }
+    if text.contains("irreversible") || text.contains("cannot be undone") {
+        score += 0.3;
+    }
     // Red/error styling
-    if has_descendant_class(node, "text-error") || has_descendant_class(node, "text-red")
-        || has_descendant_class(node, "border-error") || has_descendant_class(node, "border-red") { score += 0.2; }
+    if has_descendant_class(node, "text-error")
+        || has_descendant_class(node, "text-red")
+        || has_descendant_class(node, "border-error")
+        || has_descendant_class(node, "border-red")
+    {
+        score += 0.2;
+    }
     cap(score)
 }
 
@@ -1892,41 +2145,41 @@ pub fn is_danger_zone(node: &DomNode) -> f32 {
 pub fn classify_node(node: &DomNode) -> (&'static str, f32) {
     let detectors: Vec<(&'static str, fn(&DomNode) -> f32)> = vec![
         // Dashboard-specific (high specificity — check first)
-        ("order-header",      is_order_header),
-        ("line-items",        is_line_items),
-        ("price-breakdown",   is_price_breakdown),
+        ("order-header", is_order_header),
+        ("line-items", is_line_items),
+        ("price-breakdown", is_price_breakdown),
         ("shipping-timeline", is_shipping_timeline),
-        ("customer-profile",  is_customer_profile),
-        ("payment-info",      is_payment_info),
-        ("staff-notes",       is_staff_notes),
-        ("settings-profile",  is_settings_profile),
-        ("api-keys",          is_api_keys),
+        ("customer-profile", is_customer_profile),
+        ("payment-info", is_payment_info),
+        ("staff-notes", is_staff_notes),
+        ("settings-profile", is_settings_profile),
+        ("api-keys", is_api_keys),
         ("subscription-card", is_subscription_card),
-        ("danger-zone",       is_danger_zone),
+        ("danger-zone", is_danger_zone),
         // General-purpose
-        ("topbar",       is_topbar),
-        ("hero",         is_hero),
-        ("faq",          is_faq),
-        ("features",     is_features),
-        ("testimonial",  is_testimonials),
-        ("stats",        is_stats),
-        ("cta",          is_cta),
-        ("footer",       is_footer),
-        ("terminal",     is_terminal),
-        ("kpi-grid",     is_kpi_grid),
-        ("chart",        is_chart),
-        ("data-table",   is_table),
-        ("pricing",      is_pricing),
-        ("bento",        is_bento),
-        ("sidebar",      is_sidebar),
-        ("page-header",  is_page_header),
-        ("stat-cards",   is_stat_cards),
+        ("topbar", is_topbar),
+        ("hero", is_hero),
+        ("faq", is_faq),
+        ("features", is_features),
+        ("testimonial", is_testimonials),
+        ("stats", is_stats),
+        ("cta", is_cta),
+        ("footer", is_footer),
+        ("terminal", is_terminal),
+        ("kpi-grid", is_kpi_grid),
+        ("chart", is_chart),
+        ("data-table", is_table),
+        ("pricing", is_pricing),
+        ("bento", is_bento),
+        ("sidebar", is_sidebar),
+        ("page-header", is_page_header),
+        ("stat-cards", is_stat_cards),
         ("product-grid", is_product_grid),
-        ("team-list",    is_team_list),
-        ("card",         is_content_card),
-        ("info-panel",   is_info_panel),
-        ("form",         is_form),
-        ("tabs",         is_tabs),
+        ("team-list", is_team_list),
+        ("card", is_content_card),
+        ("info-panel", is_info_panel),
+        ("form", is_form),
+        ("tabs", is_tabs),
     ];
 
     let mut best_name: &'static str = "generic";

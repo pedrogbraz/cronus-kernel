@@ -1,6 +1,6 @@
 use std::fs;
 
-use crate::cli::brief::{brief_toml_val, brief_toml_arr};
+use crate::cli::brief::{brief_toml_arr, brief_toml_val};
 use crate::cli::objective_kernel::count_files_matching;
 
 pub fn cmd_review(args: &[String]) {
@@ -41,17 +41,21 @@ pub fn cmd_review(args: &[String]) {
         .unwrap_or_default();
 
     let task_id_lower = task_id.to_lowercase();
-    let related_commits: Vec<&str> = git_log.lines()
+    let related_commits: Vec<&str> = git_log
+        .lines()
         .filter(|l| l.to_lowercase().contains(&task_id_lower))
         .collect();
 
     let commit_hashes: Vec<String> = if related_commits.is_empty() {
-        git_log.lines().take(5)
+        git_log
+            .lines()
+            .take(5)
             .filter_map(|l| l.split_whitespace().next())
             .map(|s| s.to_string())
             .collect()
     } else {
-        related_commits.iter()
+        related_commits
+            .iter()
             .filter_map(|l| l.split_whitespace().next())
             .map(|s| s.to_string())
             .collect()
@@ -59,7 +63,11 @@ pub fn cmd_review(args: &[String]) {
 
     // 4. Get diff stats for those commits
     let diff_range = if commit_hashes.len() >= 2 {
-        format!("{}..{}", commit_hashes.last().unwrap(), commit_hashes.first().unwrap())
+        format!(
+            "{}..{}",
+            commit_hashes.last().unwrap(),
+            commit_hashes.first().unwrap()
+        )
     } else if commit_hashes.len() == 1 {
         format!("{}~1..{}", commit_hashes[0], commit_hashes[0])
     } else {
@@ -102,7 +110,9 @@ pub fn cmd_review(args: &[String]) {
 
                 let desc = if file.ends_with(".toml") && file.contains("TASK-") {
                     format!("{} Created task file {}", action, file)
-                } else if file.ends_with(".toml") && (file.contains("constitution") || file.contains("objective")) {
+                } else if file.ends_with(".toml")
+                    && (file.contains("constitution") || file.contains("objective"))
+                {
                     format!("{} Updated project governance ({})", action, file)
                 } else if file.ends_with(".rs") {
                     let num_str = stat.split_whitespace().next().unwrap_or("?");
@@ -166,12 +176,15 @@ pub fn cmd_review(args: &[String]) {
     println!("  \x1b[1mSemantic Review: {}\x1b[0m", task_id);
     println!("  \x1b[90m{}\x1b[0m", "─".repeat(40));
     println!("  Mission: {}", mission);
-    println!("  Status: {}", match status.as_str() {
-        "done" => format!("\x1b[32m{}\x1b[0m", status),
-        "in_progress" | "open" => format!("\x1b[33m{}\x1b[0m", status),
-        "blocked" => format!("\x1b[31m{}\x1b[0m", status),
-        _ => status.clone(),
-    });
+    println!(
+        "  Status: {}",
+        match status.as_str() {
+            "done" => format!("\x1b[32m{}\x1b[0m", status),
+            "in_progress" | "open" => format!("\x1b[33m{}\x1b[0m", status),
+            "blocked" => format!("\x1b[31m{}\x1b[0m", status),
+            _ => status.clone(),
+        }
+    );
     println!("  Author: {}", author);
     println!("  Objective alignment: \x1b[32m{}\x1b[0m", objective_pass);
     println!();
@@ -181,7 +194,10 @@ pub fn cmd_review(args: &[String]) {
         for change in &changes {
             println!("    {}", change);
         }
-        println!("  \x1b[90m({} files, +{} -{})\x1b[0m", files_changed, total_insertions, total_deletions);
+        println!(
+            "  \x1b[90m({} files, +{} -{})\x1b[0m",
+            files_changed, total_insertions, total_deletions
+        );
     } else {
         println!("  \x1b[1mChanges:\x1b[0m \x1b[90m(no diff data available)\x1b[0m");
     }
@@ -199,7 +215,10 @@ pub fn cmd_review(args: &[String]) {
         println!("    Objective: \x1b[33m⚠ N/A\x1b[0m (no objective.toml)");
     }
     if spec_count > 0 || test_count > 0 {
-        println!("    Spec coverage: {} specs, {} tests", spec_count, test_count);
+        println!(
+            "    Spec coverage: {} specs, {} tests",
+            spec_count, test_count
+        );
     } else {
         println!("    Spec coverage: \x1b[90mno specs found\x1b[0m");
     }
@@ -232,7 +251,8 @@ fn review_find_latest_task() -> (String, String) {
             if name.starts_with("TASK-") && name.ends_with(".toml") {
                 if let Ok(content) = fs::read_to_string(entry.path()) {
                     let id = name.trim_end_matches(".toml").to_string();
-                    let status = brief_toml_val(&content, "status").unwrap_or_else(|| "open".into());
+                    let status =
+                        brief_toml_val(&content, "status").unwrap_or_else(|| "open".into());
                     tasks.push((id, status, content));
                 }
             }

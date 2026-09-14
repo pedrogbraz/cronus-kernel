@@ -31,7 +31,11 @@ pub fn render(comp: &ComponentNode) -> String {
     let (trigger_label, badge) = if unread == 0 {
         ("Notifications".to_string(), String::new())
     } else {
-        let shown = if unread > 9 { "9+".to_string() } else { unread.to_string() };
+        let shown = if unread > 9 {
+            "9+".to_string()
+        } else {
+            unread.to_string()
+        };
         (
             format!("Notifications, {unread} unread"),
             format!(
@@ -181,9 +185,12 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"notification-trigger\"] {\n  position: relative; display: inline-flex;"));
+        assert!(css.contains(
+            "[data-slot=\"notification-trigger\"] {\n  position: relative; display: inline-flex;"
+        ));
         assert!(css.contains("[data-slot=\"notification-badge\"] {\n  position: absolute; top: -0.25rem; right: -0.25rem;"));
-        assert!(css.contains("[data-slot=\"notification-center\"]:not(:popover-open) { display: none; }"));
+        assert!(css
+            .contains("[data-slot=\"notification-center\"]:not(:popover-open) { display: none; }"));
         assert!(css.contains("[data-slot=\"notification-row\"]"));
         assert!(css.contains("z-index: 50"));
         assert!(css.contains("width: 20rem"));

@@ -1,18 +1,28 @@
 //! Page-level rendering functions — dispatches to page type renderers.
 
-use crate::parser::{EntityNode, FieldType, PageNode, SectionNode};
 use super::render_section;
+use crate::parser::{EntityNode, FieldType, PageNode, SectionNode};
 
 // ══════════════════════════════════════════════════
 // PAGE RENDERER (returns inner body HTML)
 // ══════════════════════════════════════════════════
 
-pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str, theme: &str, db: Option<&crate::database::CronusDB>, route_params: &std::collections::HashMap<String, String>, access: &crate::access::Access) -> String {
+pub fn render_page(
+    page: &PageNode,
+    entities: &[EntityNode],
+    accent: &str,
+    theme: &str,
+    db: Option<&crate::database::CronusDB>,
+    route_params: &std::collections::HashMap<String, String>,
+    access: &crate::access::Access,
+) -> String {
     match page.page_type.as_str() {
         // dashboard/list/form/detail are now layout hints — actual rendering
         // uses the same pipeline as `custom` so developer-defined sections
         // are always respected. This matches the "declare once, get it" principle.
-        "dashboard" | "custom" => render_custom(page, accent, theme, db, route_params, access, entities),
+        "dashboard" | "custom" => {
+            render_custom(page, accent, theme, db, route_params, access, entities)
+        }
         "list" => render_list(page, entities, accent),
         "form" => render_form(page, entities, accent),
         "detail" => render_list(page, entities, accent),
@@ -35,7 +45,8 @@ pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str, theme
 fn render_dashboard(page: &PageNode, entities: &[EntityNode], _accent: &str) -> String {
     let _title = page.title.as_deref().unwrap_or("");
 
-    crate::security::mark_kernel_scripts(r##"<div>
+    crate::security::mark_kernel_scripts(
+        r##"<div>
   <!-- Header -->
   <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:4px 4px 20px">
     <div>
@@ -248,7 +259,8 @@ fn render_dashboard(page: &PageNode, entities: &[EntityNode], _accent: &str) -> 
 
   loadData();
 })();
-</script>"##)
+</script>"##,
+    )
 }
 
 // ══════════════════════════════════════════════════
@@ -258,7 +270,9 @@ fn render_dashboard(page: &PageNode, entities: &[EntityNode], _accent: &str) -> 
 fn render_list(page: &PageNode, entities: &[EntityNode], accent: &str) -> String {
     let script_nonce = crate::security::script_nonce_attr();
     let entity_name = page.entity.as_deref().unwrap_or("");
-    let entity = entities.iter().find(|e| e.name.eq_ignore_ascii_case(entity_name));
+    let entity = entities
+        .iter()
+        .find(|e| e.name.eq_ignore_ascii_case(entity_name));
     let title = page.title.as_deref().unwrap_or(entity_name);
     let lower = entity_name.to_lowercase();
 
@@ -267,7 +281,9 @@ fn render_list(page: &PageNode, entities: &[EntityNode], accent: &str) -> String
     // if is_product { return render_product_grid(title, &lower, entity); }
 
     let field_names: Vec<String> = match entity {
-        Some(e) => e.fields.iter()
+        Some(e) => e
+            .fields
+            .iter()
             .filter(|f| f.name != "id" && f.name != "createdAt" && f.name != "updatedAt")
             .take(5)
             .map(|f| f.name.clone())
@@ -277,7 +293,9 @@ fn render_list(page: &PageNode, entities: &[EntityNode], accent: &str) -> String
 
     // Find enum fields for status badge coloring
     let enum_fields: Vec<String> = match entity {
-        Some(e) => e.fields.iter()
+        Some(e) => e
+            .fields
+            .iter()
             .filter(|f| f.field_type == FieldType::Enum)
             .map(|f| f.name.clone())
             .collect(),
@@ -291,12 +309,14 @@ fn render_list(page: &PageNode, entities: &[EntityNode], accent: &str) -> String
         .collect::<Vec<_>>()
         .join("\n            ");
 
-    let fields_js: String = field_names.iter()
+    let fields_js: String = field_names
+        .iter()
         .map(|n| format!(r#"'{}'"#, n))
         .collect::<Vec<_>>()
         .join(",");
 
-    let enum_fields_js: String = enum_fields.iter()
+    let enum_fields_js: String = enum_fields
+        .iter()
         .map(|n| format!(r#"'{}'"#, n))
         .collect::<Vec<_>>()
         .join(",");
@@ -476,16 +496,37 @@ fn render_list(page: &PageNode, entities: &[EntityNode], accent: &str) -> String
 
 pub fn render_auth_page(page: &PageNode, is_login: bool) -> String {
     let script_nonce = crate::security::script_nonce_attr();
-    let title = if is_login { "Welcome back" } else { "Create your account" };
-    let subtitle = if is_login { "Sign in to your account" } else { "Get started for free" };
+    let title = if is_login {
+        "Welcome back"
+    } else {
+        "Create your account"
+    };
+    let subtitle = if is_login {
+        "Sign in to your account"
+    } else {
+        "Get started for free"
+    };
     let btn_label = if is_login { "Sign In" } else { "Sign Up" };
-    let action = if is_login { "/api/auth/login" } else { "/api/auth/signup" };
-    let alt_text = if is_login { "Don't have an account?" } else { "Already have an account?" };
+    let action = if is_login {
+        "/api/auth/login"
+    } else {
+        "/api/auth/signup"
+    };
+    let alt_text = if is_login {
+        "Don't have an account?"
+    } else {
+        "Already have an account?"
+    };
     let alt_link = if is_login { "/signup" } else { "/login" };
     let alt_label = if is_login { "Sign up" } else { "Sign in" };
 
     let app_name = page.title.as_deref().unwrap_or("G");
-    let logo_letter = app_name.chars().next().unwrap_or('G').to_uppercase().to_string();
+    let logo_letter = app_name
+        .chars()
+        .next()
+        .unwrap_or('G')
+        .to_uppercase()
+        .to_string();
 
     let name_field = if is_login {
         String::new()
@@ -579,7 +620,8 @@ document.getElementById('auth-form').addEventListener('submit',async function(e)
 
 fn render_product_grid(title: &str, lower: &str, _entity: Option<&EntityNode>) -> String {
     let script_nonce = crate::security::script_nonce_attr();
-    format!(r##"<div>
+    format!(
+        r##"<div>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
     <h1 style="font-size:20px;font-weight:600;color:var(--foreground)">{title}</h1>
     <div style="display:flex;gap:8px;align-items:center">
@@ -613,23 +655,29 @@ fn render_product_grid(title: &str, lower: &str, _entity: Option<&EntityNode>) -
     var q=e.target.value.toLowerCase();renderCards(allData.filter(function(r){{return JSON.stringify(r).toLowerCase().indexOf(q)!==-1}}));
   }});
 }})();
-</script>"##, title=title, lower=lower)
+</script>"##,
+        title = title,
+        lower = lower
+    )
 }
 
 fn render_form(page: &PageNode, entities: &[EntityNode], accent: &str) -> String {
     let script_nonce = crate::security::script_nonce_attr();
     let _ = accent; // oklch monocromatic — no accent colors in forms
     let entity_name = page.entity.as_deref().unwrap_or("");
-    let entity = entities.iter().find(|e| e.name.eq_ignore_ascii_case(entity_name));
+    let entity = entities
+        .iter()
+        .find(|e| e.name.eq_ignore_ascii_case(entity_name));
     let title = page.title.as_deref().unwrap_or(entity_name);
     let lower = entity_name.to_lowercase();
 
     // Determine form context label
-    let context_label = if title.to_lowercase().contains("sign") || title.to_lowercase().contains("log") {
-        "Authentication"
-    } else {
-        entity_name
-    };
+    let context_label =
+        if title.to_lowercase().contains("sign") || title.to_lowercase().contains("log") {
+            "Authentication"
+        } else {
+            entity_name
+        };
 
     let inputs: Vec<String> = match entity {
         Some(e) => e.fields.iter()
@@ -765,7 +813,11 @@ document.getElementById('entity-form').addEventListener('submit', function(e) {{
         context_label = context_label,
         inputs = inputs.join("\n    "),
         lower = lower,
-        submit_label = if context_label == "Authentication" { "Sign In" } else { "Save" },
+        submit_label = if context_label == "Authentication" {
+            "Sign In"
+        } else {
+            "Save"
+        },
     )
 }
 
@@ -815,7 +867,9 @@ fn render_detail(page: &PageNode, _entities: &[EntityNode], accent: &str) -> Str
   window.cronusDelete=function(){{if(confirm('Delete?'))fetch('/api/{lower}s/'+id,{{method:'DELETE'}}).then(function(){{window.location.href='/{lower}s';}});}};
 }})();
 </script>"##,
-        title = title, lower = lower, accent = accent,
+        title = title,
+        lower = lower,
+        accent = accent,
     )
 }
 
@@ -823,7 +877,15 @@ fn render_detail(page: &PageNode, _entities: &[EntityNode], accent: &str) -> Str
 // CUSTOM PAGE (sections: hero, features, pricing)
 // ══════════════════════════════════════════════════
 
-fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::database::CronusDB>, route_params: &std::collections::HashMap<String, String>, access: &crate::access::Access, entities: &[EntityNode]) -> String {
+fn render_custom(
+    page: &PageNode,
+    accent: &str,
+    theme: &str,
+    db: Option<&crate::database::CronusDB>,
+    route_params: &std::collections::HashMap<String, String>,
+    access: &crate::access::Access,
+    entities: &[EntityNode],
+) -> String {
     let shell_types = ["topbar", "sidebar"];
     let mut shell_parts: Vec<String> = Vec::new();
     let mut content_parts: Vec<String> = Vec::new();
@@ -834,27 +896,37 @@ fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::
 
     for section in &page.sections {
         let st_lower = section.section_type.to_lowercase();
-        let comp_lower = section.config.get("_component")
+        let comp_lower = section
+            .config
+            .get("_component")
             .map(|s| s.to_lowercase())
             .unwrap_or_default();
         let is_shell = shell_types.contains(&section.section_type.as_str())
-            || st_lower.contains("sidebar") || st_lower.contains("topbar")
+            || st_lower.contains("sidebar")
+            || st_lower.contains("topbar")
             || st_lower.contains("styles")
-            || comp_lower.contains("sidebar") || comp_lower.contains("topbar")
+            || comp_lower.contains("sidebar")
+            || comp_lower.contains("topbar")
             || comp_lower.contains("styles");
         // Track which shell types are present (for layout offset)
-        if st_lower.contains("topbar") || comp_lower.contains("topbar")
-            || section.section_type == "topbar" {
+        if st_lower.contains("topbar")
+            || comp_lower.contains("topbar")
+            || section.section_type == "topbar"
+        {
             has_topbar_section = true;
         }
-        if st_lower.contains("sidebar") || comp_lower.contains("sidebar")
-            || section.section_type == "sidebar" {
+        if st_lower.contains("sidebar")
+            || comp_lower.contains("sidebar")
+            || section.section_type == "sidebar"
+        {
             has_sidebar_section = true;
         }
         // Resolve binding against real DB (falls back to None if no DB).
         // Authorization (owner scope, shared, scope:public, redaction) lives in binding.rs.
         let bound_data = match db {
-            Some(db) => crate::binding::resolve_binding(section, db, route_params, access, entities),
+            Some(db) => {
+                crate::binding::resolve_binding(section, db, route_params, access, entities)
+            }
             None => crate::binding::ResolvedData::None,
         };
 
@@ -865,7 +937,13 @@ fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::
             );
 
         let is_footer = section.section_type == "footer";
-        let target = if is_footer { &mut footer_parts } else if is_shell { &mut shell_parts } else { &mut content_parts };
+        let target = if is_footer {
+            &mut footer_parts
+        } else if is_shell {
+            &mut shell_parts
+        } else {
+            &mut content_parts
+        };
 
         if is_column_layout {
             if in_grid {
@@ -889,21 +967,29 @@ fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::
     // Use semantic section tracking + HTML fallback for layout detection
     let shell_html = shell_parts.join("\n");
     let has_fixed_sidebar = has_sidebar_section
-        || (shell_html.contains("<aside") && shell_html.contains("fixed") && shell_html.contains("left-0"));
+        || (shell_html.contains("<aside")
+            && shell_html.contains("fixed")
+            && shell_html.contains("left-0"));
     let has_fixed_topbar = has_topbar_section
-        || (shell_html.contains("fixed") && shell_html.contains("w-full") && shell_html.contains("top-0")
+        || (shell_html.contains("fixed")
+            && shell_html.contains("w-full")
+            && shell_html.contains("top-0")
             && !shell_html.contains("left-0"));
 
     // When templates provide fixed sidebar/topbar, content needs margin/padding
     // to avoid being hidden underneath them.
     // Pages that use raw templates (landing, dashboards with custom sidebar)
     // handle their own layout via the template's style_block — skip the wrapper.
-    let has_any_template = page.sections.iter().any(|s|
-        s.template.is_some() || s.config.contains_key("template")
-    );
-    let has_marketing_section = page.sections.iter().any(|s|
-        matches!(s.section_type.as_str(), "hero" | "features" | "topbar" | "footer" | "cta" | "testimonial" | "pricing" | "faq")
-    );
+    let has_any_template = page
+        .sections
+        .iter()
+        .any(|s| s.template.is_some() || s.config.contains_key("template"));
+    let has_marketing_section = page.sections.iter().any(|s| {
+        matches!(
+            s.section_type.as_str(),
+            "hero" | "features" | "topbar" | "footer" | "cta" | "testimonial" | "pricing" | "faq"
+        )
+    });
     // Skip default wrapper whenever the dev supplies their own templates —
     // this matches the landing-page behavior and prevents the kernel from
     // injecting margin/padding that fights against the dev's CSS.
@@ -921,7 +1007,10 @@ fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::
 
     let mut out = String::new();
     out.push_str(&shell_html);
-    out.push_str(&format!("\n<main id=\"cronus-content\"{}>\n", content_style));
+    out.push_str(&format!(
+        "\n<main id=\"cronus-content\"{}>\n",
+        content_style
+    ));
     out.push_str(&content_parts.join("\n"));
     out.push_str("\n</main>\n");
     if !footer_parts.is_empty() {
@@ -933,16 +1022,43 @@ fn render_custom(page: &PageNode, accent: &str, theme: &str, db: Option<&crate::
 fn render_checkout(page: &PageNode) -> String {
     let title = page.title.as_deref().unwrap_or("Checkout");
     // Extract product info from page config
-    let product_name = page.config.get("product_name").map(|s| s.as_str()).unwrap_or("Product");
-    let product_desc = page.config.get("product_desc").map(|s| s.as_str()).unwrap_or("");
-    let product_price = page.config.get("price").map(|s| s.as_str()).unwrap_or("$0.00");
+    let product_name = page
+        .config
+        .get("product_name")
+        .map(|s| s.as_str())
+        .unwrap_or("Product");
+    let product_desc = page
+        .config
+        .get("product_desc")
+        .map(|s| s.as_str())
+        .unwrap_or("");
+    let product_price = page
+        .config
+        .get("price")
+        .map(|s| s.as_str())
+        .unwrap_or("$0.00");
     let product_image = page.config.get("image").map(|s| s.as_str()).unwrap_or("");
-    let subtotal = page.config.get("subtotal").map(|s| s.as_str()).unwrap_or(product_price);
-    let shipping = page.config.get("shipping").map(|s| s.as_str()).unwrap_or("Free");
-    let taxes = page.config.get("taxes").map(|s| s.as_str()).unwrap_or("$0.00");
+    let subtotal = page
+        .config
+        .get("subtotal")
+        .map(|s| s.as_str())
+        .unwrap_or(product_price);
+    let shipping = page
+        .config
+        .get("shipping")
+        .map(|s| s.as_str())
+        .unwrap_or("Free");
+    let taxes = page
+        .config
+        .get("taxes")
+        .map(|s| s.as_str())
+        .unwrap_or("$0.00");
 
     let image_html = if !product_image.is_empty() {
-        format!(r##"<img src="{}" style="width:100%;height:100%;object-fit:cover" alt="{}">"##, product_image, product_name)
+        format!(
+            r##"<img src="{}" style="width:100%;height:100%;object-fit:cover" alt="{}">"##,
+            product_image, product_name
+        )
     } else {
         r##"<div style="width:100%;height:100%;background:#f3f3f3;display:flex;align-items:center;justify-content:center;color:#999;font-size:11px">No image</div>"##.to_string()
     };
@@ -1134,9 +1250,7 @@ mod tests {
             binding: None,
             actions: Vec::new(),
             visibility: None,
-            template: Some(
-                "<div id=\"user-marker\">MY_UNIQUE_KPI_MARKER</div>".to_string(),
-            ),
+            template: Some("<div id=\"user-marker\">MY_UNIQUE_KPI_MARKER</div>".to_string()),
             style_block: None,
             doc: None,
         };
@@ -1201,8 +1315,14 @@ mod tests {
             doc: None,
         };
         let html = render_list(&page, &[], "blue");
-        assert!(html.contains("onclick=\"cronusEdit(this.dataset.entity,this.dataset.id)\""), "{html}");
-        assert!(html.contains("cronusDelete(r.dataset.entity,r.dataset.id)"), "{html}");
+        assert!(
+            html.contains("onclick=\"cronusEdit(this.dataset.entity,this.dataset.id)\""),
+            "{html}"
+        );
+        assert!(
+            html.contains("cronusDelete(r.dataset.entity,r.dataset.id)"),
+            "{html}"
+        );
         assert!(!html.contains("cronusEdit(\\''+lower"), "{html}");
         assert!(!html.contains("'+safeId+'\\')"), "{html}");
     }

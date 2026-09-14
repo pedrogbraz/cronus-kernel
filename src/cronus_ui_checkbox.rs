@@ -163,9 +163,7 @@ mod tests {
     #[test]
     fn checked_from_item_config() {
         let mut c = stub();
-        c.items[0]
-            .config
-            .insert("checked".into(), "true".into());
+        c.items[0].config.insert("checked".into(), "true".into());
         let html = render(&c);
         assert!(html.contains("aria-checked=\"true\""));
         assert!(html.contains("data-state=\"checked\""));
@@ -177,7 +175,9 @@ mod tests {
         // app.cronus CheckboxOff: `label "Accept"` + `aria-label:"Accept"` on that item.
         let mut c = stub();
         c.items[0].text = "Accept".into();
-        c.items[0].config.insert("aria-label".into(), "Accept".into());
+        c.items[0]
+            .config
+            .insert("aria-label".into(), "Accept".into());
         assert_eq!(
             render(&c),
             "<button type=\"button\" role=\"checkbox\" aria-checked=\"false\" data-state=\"unchecked\" value=\"on\" data-slot=\"checkbox\" aria-label=\"Accept\"></button>"
@@ -185,7 +185,9 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(!css.contains("checkbox-text"));
         assert!(css.contains("background: var(--cronus-surface-inset);\n  box-shadow: var(--cronus-shadow-xs, none);"));
-        assert!(css.contains("[data-slot=\"checkbox\"] > span > svg { width: 0.875rem; height: 0.875rem; }"));
+        assert!(css.contains(
+            "[data-slot=\"checkbox\"] > span > svg { width: 0.875rem; height: 0.875rem; }"
+        ));
     }
 
     #[test]

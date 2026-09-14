@@ -40,7 +40,10 @@ mod tests {
     #[test]
     fn contents_slot_wraps_painted_span() {
         let html = render(&stub("shiny-text", "Sheen"));
-        assert_eq!(html, "<span data-slot=\"shiny-text\"><span>Sheen</span></span>");
+        assert_eq!(
+            html,
+            "<span data-slot=\"shiny-text\"><span>Sheen</span></span>"
+        );
         reject_fx(&html);
     }
 

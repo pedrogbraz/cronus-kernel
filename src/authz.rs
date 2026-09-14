@@ -7,7 +7,14 @@ use crate::parser::EntityNode;
 use serde_json::{json, Map, Value};
 
 /// Columns the server owns; a client body can never set them.
-pub const SYSTEM_FIELDS: &[&str] = &["id", "_owner_id", "created_at", "updated_at", "createdAt", "updatedAt"];
+pub const SYSTEM_FIELDS: &[&str] = &[
+    "id",
+    "_owner_id",
+    "created_at",
+    "updated_at",
+    "createdAt",
+    "updatedAt",
+];
 
 /// Fields a client may not write through generic data surfaces
 /// (REST CRUD, GraphQL mutations, forms/actions). `role` is included so
@@ -35,9 +42,7 @@ pub fn redact_sensitive(entity: &EntityNode, value: &mut Value) {
 
 fn redact_row(hidden: &[&str], row: &mut Value) {
     if let Value::Object(map) = row {
-        map.retain(|k, _| {
-            !hidden.contains(&k.as_str()) && k != "password" && k != "password_hash"
-        });
+        map.retain(|k, _| !hidden.contains(&k.as_str()) && k != "password" && k != "password_hash");
     }
 }
 

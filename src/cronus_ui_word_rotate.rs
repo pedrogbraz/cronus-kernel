@@ -99,7 +99,10 @@ mod tests {
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
         reject_fx(&html);
-        assert_eq!(crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html), None);
+        assert_eq!(
+            crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html),
+            None
+        );
     }
 
     #[test]
@@ -115,7 +118,9 @@ mod tests {
     fn chrome_word_rotate_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"word-rotate\"] {\n  position: relative; display: inline-grid;\n  height: 1.2em; overflow: hidden;\n  vertical-align: baseline;\n}"));
-        assert!(css.contains("[data-slot=\"word-rotate\"] > span:first-child {\n  position: absolute;"));
+        assert!(
+            css.contains("[data-slot=\"word-rotate\"] > span:first-child {\n  position: absolute;")
+        );
         assert!(css.contains("[data-slot=\"word-rotate\"] > [data-word-rotate-sizer] {\n  visibility: hidden; grid-area: 1 / 1; white-space: nowrap;\n}"));
         assert!(css.contains("[data-slot=\"word-rotate\"] > span:last-child {\n  grid-area: 1 / 1; display: inline-block; white-space: nowrap; justify-self: start;\n}"));
         assert!(!css.contains("zinc-"));

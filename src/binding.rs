@@ -1,10 +1,12 @@
 #![allow(dead_code, unused_imports)]
 
+use crate::access::{self, Access, ReadScope};
+use crate::database::CronusDB;
+use crate::parser::{
+    BindingNode, BindingValue, EntityNode, FilterOp, OrderDirection, QueryType, SectionNode,
+};
 use serde_json::Value;
 use std::collections::HashMap;
-use crate::access::{self, Access, ReadScope};
-use crate::parser::{BindingNode, EntityNode, QueryType, FilterOp, BindingValue, SectionNode, OrderDirection};
-use crate::database::CronusDB;
 
 /// The result of resolving a binding against the database.
 #[derive(Debug, Clone)]
@@ -58,7 +60,11 @@ fn binding_value_to_string(
                     .find_by_id(access.auth_entity_name(), &viewer.id)
                     .ok()
                     .flatten()
-                    .and_then(|row| row.get("email").and_then(|v| v.as_str()).map(str::to_string)),
+                    .and_then(|row| {
+                        row.get("email")
+                            .and_then(|v| v.as_str())
+                            .map(str::to_string)
+                    }),
                 _ => None,
             }
         }
@@ -72,16 +78,24 @@ fn prepare_filters(
     access: &Access,
     db: &CronusDB,
 ) -> Option<Vec<(String, String, String)>> {
-    binding.filters.iter().map(|f| {
-        let sql_op = crate::database::filter_op_to_sql(op_to_str(&f.operator)).to_string();
-        let mut value = binding_value_to_string(&f.value, route_params, access, db)?;
-        match f.operator {
-            FilterOp::Contains => { value = format!("%{}%", value); }
-            FilterOp::StartsWith => { value = format!("{}%", value); }
-            _ => {}
-        }
-        Some((f.field.clone(), sql_op, value))
-    }).collect()
+    binding
+        .filters
+        .iter()
+        .map(|f| {
+            let sql_op = crate::database::filter_op_to_sql(op_to_str(&f.operator)).to_string();
+            let mut value = binding_value_to_string(&f.value, route_params, access, db)?;
+            match f.operator {
+                FilterOp::Contains => {
+                    value = format!("%{}%", value);
+                }
+                FilterOp::StartsWith => {
+                    value = format!("{}%", value);
+                }
+                _ => {}
+            }
+            Some((f.field.clone(), sql_op, value))
+        })
+        .collect()
 }
 
 fn empty_for(binding: &BindingNode) -> ResolvedData {
@@ -98,7 +112,9 @@ fn empty_for(binding: &BindingNode) -> ResolvedData {
 fn is_hidden_field(entity: Option<&EntityNode>, field: &str) -> bool {
     field == "password"
         || field == "password_hash"
-        || entity.map(|e| crate::authz::sensitive_names(e).contains(&field)).unwrap_or(false)
+        || entity
+            .map(|e| crate::authz::sensitive_names(e).contains(&field))
+            .unwrap_or(false)
 }
 
 /// Resolve a section's binding against the database.
@@ -134,11 +150,9 @@ pub fn resolve_binding(
     filters.extend(scope_filter);
 
     let order_field = binding.order.as_ref().map(|o| o.field.as_str());
-    let order_dir = binding.order.as_ref().map(|o| {
-        match o.direction {
-            OrderDirection::Asc => "ASC",
-            OrderDirection::Desc => "DESC",
-        }
+    let order_dir = binding.order.as_ref().map(|o| match o.direction {
+        OrderDirection::Asc => "ASC",
+        OrderDirection::Desc => "DESC",
     });
 
     if binding.group_by.is_some() {
@@ -154,8 +168,17 @@ pub fn resolve_binding(
 
     match binding.query {
         QueryType::All => {
-            match db.find_many(&table, &filters, order_field, order_dir, binding.limit, binding.offset) {
-                Ok(Value::Array(rows)) => ResolvedData::Rows(rows.into_iter().map(redact).collect()),
+            match db.find_many(
+                &table,
+                &filters,
+                order_field,
+                order_dir,
+                binding.limit,
+                binding.offset,
+            ) {
+                Ok(Value::Array(rows)) => {
+                    ResolvedData::Rows(rows.into_iter().map(redact).collect())
+                }
                 Ok(other) => ResolvedData::Rows(vec![redact(other)]),
                 Err(e) => {
                     eprintln!("  \x1b[31m✗\x1b[0m Binding error ({}): {}", table, e);
@@ -163,24 +186,20 @@ pub fn resolve_binding(
                 }
             }
         }
-        QueryType::One => {
-            match db.find_one(&table, &filters, order_field, order_dir) {
-                Ok(record) => ResolvedData::Record(record.map(redact)),
-                Err(e) => {
-                    eprintln!("  \x1b[31m✗\x1b[0m Binding error ({}): {}", table, e);
-                    ResolvedData::Record(None)
-                }
+        QueryType::One => match db.find_one(&table, &filters, order_field, order_dir) {
+            Ok(record) => ResolvedData::Record(record.map(redact)),
+            Err(e) => {
+                eprintln!("  \x1b[31m✗\x1b[0m Binding error ({}): {}", table, e);
+                ResolvedData::Record(None)
             }
-        }
-        QueryType::Count => {
-            match db.count_where(&table, &filters) {
-                Ok(n) => ResolvedData::Count(n),
-                Err(e) => {
-                    eprintln!("  \x1b[31m✗\x1b[0m Binding error ({}): {}", table, e);
-                    ResolvedData::Count(0)
-                }
+        },
+        QueryType::Count => match db.count_where(&table, &filters) {
+            Ok(n) => ResolvedData::Count(n),
+            Err(e) => {
+                eprintln!("  \x1b[31m✗\x1b[0m Binding error ({}): {}", table, e);
+                ResolvedData::Count(0)
             }
-        }
+        },
     }
 }
 
@@ -202,7 +221,10 @@ fn resolve_aggregation(
     };
 
     if !crate::security::is_safe_identifier(&group.field) || is_hidden_field(entity, &group.field) {
-        eprintln!("  \x1b[31m✗\x1b[0m SECURITY: invalid group field name: {}", group.field);
+        eprintln!(
+            "  \x1b[31m✗\x1b[0m SECURITY: invalid group field name: {}",
+            group.field
+        );
         return ResolvedData::Rows(Vec::new());
     }
     if !crate::security::is_safe_identifier(table) {
@@ -213,10 +235,10 @@ fn resolve_aggregation(
     let group_expr = match &group.interval {
         Some(interval) => match interval.as_str() {
             "month" => format!("strftime('%Y-%m', \"{}\")", group.field),
-            "week"  => format!("strftime('%Y-W%W', \"{}\")", group.field),
-            "day"   => format!("strftime('%Y-%m-%d', \"{}\")", group.field),
-            "year"  => format!("strftime('%Y', \"{}\")", group.field),
-            _       => format!("\"{}\"", group.field),
+            "week" => format!("strftime('%Y-W%W', \"{}\")", group.field),
+            "day" => format!("strftime('%Y-%m-%d', \"{}\")", group.field),
+            "year" => format!("strftime('%Y', \"{}\")", group.field),
+            _ => format!("\"{}\"", group.field),
         },
         None => format!("\"{}\"", group.field),
     };
@@ -224,8 +246,12 @@ fn resolve_aggregation(
     let agg_expr = match &binding.aggregate {
         Some(agg) => {
             let agg_field = agg.field.as_deref().unwrap_or("id");
-            if !crate::security::is_safe_identifier(agg_field) || is_hidden_field(entity, agg_field) {
-                eprintln!("  \x1b[31m✗\x1b[0m SECURITY: invalid agg field: {}", agg_field);
+            if !crate::security::is_safe_identifier(agg_field) || is_hidden_field(entity, agg_field)
+            {
+                eprintln!(
+                    "  \x1b[31m✗\x1b[0m SECURITY: invalid agg field: {}",
+                    agg_field
+                );
                 return ResolvedData::Rows(Vec::new());
             }
             match agg.function.as_str() {
@@ -236,7 +262,7 @@ fn resolve_aggregation(
                 "max" => format!("MAX(\"{}\")", agg_field),
                 _ => "COUNT(*)".to_string(),
             }
-        },
+        }
         None => "COUNT(*)".to_string(),
     };
 
@@ -247,7 +273,10 @@ fn resolve_aggregation(
         // A filter that cannot be expressed safely must not be silently
         // dropped — that would widen the result (e.g. lose the owner scope).
         if !crate::security::is_safe_identifier(field) || !valid_ops.contains(&op.as_str()) {
-            eprintln!("  \x1b[31m✗\x1b[0m SECURITY: invalid aggregation filter on {}", table);
+            eprintln!(
+                "  \x1b[31m✗\x1b[0m SECURITY: invalid aggregation filter on {}",
+                table
+            );
             return ResolvedData::Rows(Vec::new());
         }
         param_values.push(val.clone());
@@ -311,8 +340,21 @@ mod tests {
     fn anonymous_gets_no_rows_without_scope_public() {
         let (ents, db) = fixture();
         let p = HashMap::new();
-        assert!(rows(resolve_binding(&section("bind Note { query all }"), &db, &p, &anon(), &ents)).is_empty());
-        match resolve_binding(&section("bind Note { query count }"), &db, &p, &anon(), &ents) {
+        assert!(rows(resolve_binding(
+            &section("bind Note { query all }"),
+            &db,
+            &p,
+            &anon(),
+            &ents
+        ))
+        .is_empty());
+        match resolve_binding(
+            &section("bind Note { query count }"),
+            &db,
+            &p,
+            &anon(),
+            &ents,
+        ) {
             ResolvedData::Count(n) => assert_eq!(n, 0),
             other => panic!("{:?}", other),
         }
@@ -321,10 +363,31 @@ mod tests {
     #[test]
     fn anonymous_scope_public_sees_rows_but_never_the_auth_entity() {
         let (ents, db) = fixture();
-        db.insert("User", &serde_json::json!({"email":"a@b.co","password":"h"})).unwrap();
+        db.insert(
+            "User",
+            &serde_json::json!({"email":"a@b.co","password":"h"}),
+        )
+        .unwrap();
         let p = HashMap::new();
-        assert_eq!(rows(resolve_binding(&section("bind Note { query all scope:public }"), &db, &p, &anon(), &ents)).len(), 3);
-        assert!(rows(resolve_binding(&section("bind User { query all scope:public }"), &db, &p, &anon(), &ents)).is_empty());
+        assert_eq!(
+            rows(resolve_binding(
+                &section("bind Note { query all scope:public }"),
+                &db,
+                &p,
+                &anon(),
+                &ents
+            ))
+            .len(),
+            3
+        );
+        assert!(rows(resolve_binding(
+            &section("bind User { query all scope:public }"),
+            &db,
+            &p,
+            &anon(),
+            &ents
+        ))
+        .is_empty());
     }
 
     #[test]
@@ -335,15 +398,26 @@ mod tests {
         let alice = rows(resolve_binding(&s, &db, &p, &as_user("alice"), &ents));
         assert_eq!(alice.len(), 2);
         assert!(alice.iter().all(|r| r["_owner_id"] == "alice"));
-        assert_eq!(rows(resolve_binding(&s, &db, &p, &as_admin(), &ents)).len(), 3);
+        assert_eq!(
+            rows(resolve_binding(&s, &db, &p, &as_admin(), &ents)).len(),
+            3
+        );
     }
 
     #[test]
     fn sensitive_fields_are_redacted() {
         let (ents, db) = fixture();
         let p = HashMap::new();
-        let r = rows(resolve_binding(&section("bind Note { query all }"), &db, &p, &as_user("alice"), &ents));
-        assert!(r.iter().all(|row| row.get("secret").is_none() && row.get("title").is_some()));
+        let r = rows(resolve_binding(
+            &section("bind Note { query all }"),
+            &db,
+            &p,
+            &as_user("alice"),
+            &ents,
+        ));
+        assert!(r
+            .iter()
+            .all(|row| row.get("secret").is_none() && row.get("title").is_some()));
     }
 
     #[test]

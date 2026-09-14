@@ -1,7 +1,7 @@
-use std::fs;
-use crate::parser::{self, AstNode};
-use crate::lint;
 use crate::find_cronus_file;
+use crate::lint;
+use crate::parser::{self, AstNode};
+use std::fs;
 
 pub fn cmd_doctor(_args: &[String]) {
     println!();
@@ -18,7 +18,10 @@ pub fn cmd_doctor(_args: &[String]) {
             match parser::parse(&source) {
                 Ok(nodes) => {
                     let (e, p, r) = parser::stats(&nodes);
-                    println!("  \x1b[32m✓\x1b[0m Syntax valid ({} entities, {} pages, {} routes)", e, p, r);
+                    println!(
+                        "  \x1b[32m✓\x1b[0m Syntax valid ({} entities, {} pages, {} routes)",
+                        e, p, r
+                    );
                     passed += 1;
                     let mut port: u16 = 5175;
                     let mut dbp: Option<String> = None;
@@ -46,7 +49,10 @@ pub fn cmd_doctor(_args: &[String]) {
 
     // -- 2. Port --
     match std::net::TcpListener::bind(format!("0.0.0.0:{}", app_port)) {
-        Ok(_) => { println!("  \x1b[32m✓\x1b[0m Port {} available", app_port); passed += 1; }
+        Ok(_) => {
+            println!("  \x1b[32m✓\x1b[0m Port {} available", app_port);
+            passed += 1;
+        }
         Err(_) => println!("  \x1b[33m✗\x1b[0m Port {} in use", app_port),
     }
 
@@ -103,17 +109,32 @@ pub fn cmd_doctor(_args: &[String]) {
         // -- 4. Lint --
         {
             let rule_names: &[&str] = &[
-                "no-dead-text", "no-dead-links", "no-dead-ui", "no-fake-state",
-                "no-orphan-reload", "no-hardcode-user", "bind-or-empty", "no-sensitive-render",
+                "no-dead-text",
+                "no-dead-links",
+                "no-dead-ui",
+                "no-fake-state",
+                "no-orphan-reload",
+                "no-hardcode-user",
+                "bind-or-empty",
+                "no-sensitive-render",
             ];
             let total_rules = rule_names.len();
-            let failed_rules: std::collections::HashSet<&str> = lint_results.iter().map(|r| r.rule).collect();
+            let failed_rules: std::collections::HashSet<&str> =
+                lint_results.iter().map(|r| r.rule).collect();
             let passed_rules = total_rules - failed_rules.len();
             if lint_results.is_empty() {
-                println!("  \x1b[32m✓\x1b[0m Zero hardcode lint: {}/{} rules passed", total_rules, total_rules);
+                println!(
+                    "  \x1b[32m✓\x1b[0m Zero hardcode lint: {}/{} rules passed",
+                    total_rules, total_rules
+                );
                 passed += 1;
             } else {
-                println!("  \x1b[31m✗\x1b[0m Zero hardcode lint: {}/{} rules passed ({} violations)", passed_rules, total_rules, lint_results.len());
+                println!(
+                    "  \x1b[31m✗\x1b[0m Zero hardcode lint: {}/{} rules passed ({} violations)",
+                    passed_rules,
+                    total_rules,
+                    lint_results.len()
+                );
                 for r in &lint_results {
                     println!("    {}", r);
                 }
@@ -142,11 +163,32 @@ pub fn cmd_doctor(_args: &[String]) {
                         let mut in_never = false;
                         for line in toml.lines() {
                             let trimmed = line.trim();
-                            if trimmed.starts_with("[invariants]") || trimmed.starts_with("[must]") { in_must = true; in_never = false; continue; }
-                            if trimmed.starts_with("[forbidden]") || trimmed.starts_with("[never]") { in_never = true; in_must = false; continue; }
-                            if trimmed.starts_with('[') { in_must = false; in_never = false; continue; }
-                            if in_must && (trimmed.starts_with("must") || trimmed.starts_with('-')) { must_count += 1; }
-                            if in_never && (trimmed.starts_with("never") || trimmed.starts_with('-')) { never_count += 1; }
+                            if trimmed.starts_with("[invariants]") || trimmed.starts_with("[must]")
+                            {
+                                in_must = true;
+                                in_never = false;
+                                continue;
+                            }
+                            if trimmed.starts_with("[forbidden]") || trimmed.starts_with("[never]")
+                            {
+                                in_never = true;
+                                in_must = false;
+                                continue;
+                            }
+                            if trimmed.starts_with('[') {
+                                in_must = false;
+                                in_never = false;
+                                continue;
+                            }
+                            if in_must && (trimmed.starts_with("must") || trimmed.starts_with('-'))
+                            {
+                                must_count += 1;
+                            }
+                            if in_never
+                                && (trimmed.starts_with("never") || trimmed.starts_with('-'))
+                            {
+                                never_count += 1;
+                            }
                         }
                     }
                 }
@@ -164,23 +206,35 @@ pub fn cmd_doctor(_args: &[String]) {
 
         // -- 6. Dead links --
         {
-            let dead_link_count: usize = lint_results.iter().filter(|r| r.rule == "no-dead-links").count();
+            let dead_link_count: usize = lint_results
+                .iter()
+                .filter(|r| r.rule == "no-dead-links")
+                .count();
             if dead_link_count == 0 {
                 println!("  \x1b[32m✓\x1b[0m No dead links detected");
                 passed += 1;
             } else {
-                println!("  \x1b[31m✗\x1b[0m {} dead link(s) detected", dead_link_count);
+                println!(
+                    "  \x1b[31m✗\x1b[0m {} dead link(s) detected",
+                    dead_link_count
+                );
             }
         }
 
         // -- 7. Sensitive exposure --
         {
-            let sensitive_count: usize = lint_results.iter().filter(|r| r.rule == "no-sensitive-render").count();
+            let sensitive_count: usize = lint_results
+                .iter()
+                .filter(|r| r.rule == "no-sensitive-render")
+                .count();
             if sensitive_count == 0 {
                 println!("  \x1b[32m✓\x1b[0m No sensitive field exposure");
                 passed += 1;
             } else {
-                println!("  \x1b[31m✗\x1b[0m {} sensitive field exposure(s)", sensitive_count);
+                println!(
+                    "  \x1b[31m✗\x1b[0m {} sensitive field exposure(s)",
+                    sensitive_count
+                );
             }
         }
 
@@ -231,22 +285,47 @@ pub fn cmd_doctor(_args: &[String]) {
                     let mut y = 1970i64;
                     let mut remaining = days as i64;
                     loop {
-                        let days_in_year: i64 = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) { 366 } else { 365 };
-                        if remaining < days_in_year { break; }
+                        let days_in_year: i64 = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) {
+                            366
+                        } else {
+                            365
+                        };
+                        if remaining < days_in_year {
+                            break;
+                        }
                         remaining -= days_in_year;
                         y += 1;
                     }
                     let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
-                    let month_days: [i64; 12] = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+                    let month_days: [i64; 12] = [
+                        31,
+                        if leap { 29 } else { 28 },
+                        31,
+                        30,
+                        31,
+                        30,
+                        31,
+                        31,
+                        30,
+                        31,
+                        30,
+                        31,
+                    ];
                     let mut m = 0usize;
                     for (i, &md) in month_days.iter().enumerate() {
-                        if remaining < md { m = i; break; }
+                        if remaining < md {
+                            m = i;
+                            break;
+                        }
                         remaining -= md;
                     }
                     Some(format!("{:04}-{:02}-{:02}", y, m + 1, remaining + 1))
                 })
                 .unwrap_or_else(|| "unknown".into());
-            println!("  \x1b[32m✓\x1b[0m AST snapshot: .cronus/ast-snapshot.json ({})", date_str);
+            println!(
+                "  \x1b[32m✓\x1b[0m AST snapshot: .cronus/ast-snapshot.json ({})",
+                date_str
+            );
             passed += 1;
         } else {
             println!("  \x1b[33m✗\x1b[0m AST snapshot: .cronus/ast-snapshot.json not found");
@@ -265,7 +344,10 @@ pub fn cmd_doctor(_args: &[String]) {
                     let session_count: i64 = conn
                         .query_row("SELECT COUNT(*) FROM sessions", [], |r| r.get(0))
                         .unwrap_or(0);
-                    println!("  \x1b[32m✓\x1b[0m Memory: .cronus/memory.db ({} sessions)", session_count);
+                    println!(
+                        "  \x1b[32m✓\x1b[0m Memory: .cronus/memory.db ({} sessions)",
+                        session_count
+                    );
                     passed += 1;
                 }
                 Err(_) => {
@@ -280,25 +362,37 @@ pub fn cmd_doctor(_args: &[String]) {
     // -- Summary --
     println!();
     if passed == total {
-        println!("  \x1b[32mHealth: CLEAN ({}/{} checks passed)\x1b[0m", passed, total);
+        println!(
+            "  \x1b[32mHealth: CLEAN ({}/{} checks passed)\x1b[0m",
+            passed, total
+        );
     } else {
-        println!("  \x1b[33mHealth: {}/{} checks passed\x1b[0m", passed, total);
+        println!(
+            "  \x1b[33mHealth: {}/{} checks passed\x1b[0m",
+            passed, total
+        );
     }
     println!();
 }
 
 /// Check if a name is a valid SQL-safe identifier.
 fn is_sql_safe_ident(name: &str) -> bool {
-    if name.is_empty() || name.len() > 64 { return false; }
+    if name.is_empty() || name.len() > 64 {
+        return false;
+    }
     let bytes = name.as_bytes();
-    if !bytes[0].is_ascii_alphabetic() { return false; }
+    if !bytes[0].is_ascii_alphabetic() {
+        return false;
+    }
     for &b in &bytes[1..] {
-        if !(b.is_ascii_alphanumeric() || b == b'_') { return false; }
+        if !(b.is_ascii_alphanumeric() || b == b'_') {
+            return false;
+        }
     }
     const SQL_RESERVED: &[&str] = &[
-        "SELECT", "DROP", "INSERT", "DELETE", "UPDATE", "TABLE", "FROM",
-        "WHERE", "OR", "AND", "UNION", "ALTER", "CREATE", "INDEX", "EXEC",
-        "EXECUTE", "INTO", "VALUES", "SET", "NULL", "TRUE", "FALSE",
+        "SELECT", "DROP", "INSERT", "DELETE", "UPDATE", "TABLE", "FROM", "WHERE", "OR", "AND",
+        "UNION", "ALTER", "CREATE", "INDEX", "EXEC", "EXECUTE", "INTO", "VALUES", "SET", "NULL",
+        "TRUE", "FALSE",
     ];
     let upper = name.to_uppercase();
     !SQL_RESERVED.contains(&upper.as_str())

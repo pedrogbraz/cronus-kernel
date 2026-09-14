@@ -21,12 +21,28 @@ use crate::parser::ComponentNode;
 
 const NAME_KINDS: &[&str] = &["label", "title"];
 const MONTHS: [&str; 12] = [
-    "January", "February", "March", "April", "May", "June", "July", "August", "September",
-    "October", "November", "December",
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
 ];
 const WEEKDAYS: [&str; 7] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WEEKDAY_NAMES: [&str; 7] = [
-    "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
 ];
 const MAX_VISIBLE_EVENTS: usize = 3;
 /// Month shown when neither the title nor `month:` names one.
@@ -83,7 +99,11 @@ fn cell(day: i64, year: i64, month: u32, today: Option<i64>, events: &[(i64, Str
         WEEKDAY_NAMES[weekday(day) as usize],
         MONTHS[(m - 1) as usize]
     );
-    let day_events: Vec<&String> = events.iter().filter(|(at, _)| *at == day).map(|(_, t)| t).collect();
+    let day_events: Vec<&String> = events
+        .iter()
+        .filter(|(at, _)| *at == day)
+        .map(|(_, t)| t)
+        .collect();
     let chips = day_events
         .iter()
         .take(MAX_VISIBLE_EVENTS)
@@ -136,15 +156,27 @@ fn parse_title(title: &str) -> Option<(i64, u32)> {
 fn parse_ym(v: &str) -> Option<(i64, u32)> {
     let mut parts = v.split('-');
     let y = parts.next()?.parse::<i64>().ok()?;
-    let m = parts.next()?.parse::<u32>().ok().filter(|m| (1..=12).contains(m))?;
+    let m = parts
+        .next()?
+        .parse::<u32>()
+        .ok()
+        .filter(|m| (1..=12).contains(m))?;
     Some((y, m))
 }
 
 fn parse_ymd(v: &str) -> Option<i64> {
     let mut parts = v.split('-');
     let y = parts.next()?.parse::<i64>().ok()?;
-    let m = parts.next()?.parse::<u32>().ok().filter(|m| (1..=12).contains(m))?;
-    let d = parts.next()?.parse::<u32>().ok().filter(|d| *d >= 1 && *d <= days_in_month(y, m))?;
+    let m = parts
+        .next()?
+        .parse::<u32>()
+        .ok()
+        .filter(|m| (1..=12).contains(m))?;
+    let d = parts
+        .next()?
+        .parse::<u32>()
+        .ok()
+        .filter(|d| *d >= 1 && *d <= days_in_month(y, m))?;
     Some(days_from_civil(y, m, d))
 }
 
@@ -282,7 +314,9 @@ mod tests {
         let mut c = stub("scheduler", "March 2026");
         c.items.push(extra("text", "Standup"));
         c.items[1].config.insert("date".into(), "2026-03-03".into());
-        c.items[1].config.insert("today".into(), "2026-03-10".into());
+        c.items[1]
+            .config
+            .insert("today".into(), "2026-03-10".into());
         let html = render(&c);
         assert!(html.contains("aria-label=\"Tuesday, March 3, 2026\"><span>3</span><span><button type=\"button\" data-slot=\"scheduler-event\" title=\"Standup\" disabled>Standup</button>"));
         assert!(html.contains("aria-label=\"Tuesday, March 10, 2026\" aria-current=\"date\">"));

@@ -84,7 +84,10 @@ mod tests {
         assert!(interact.starts_with("<section data-slot=\"spotlight-card\""));
         assert!(interact.contains(DISPLAY_BOX));
         reject_display(&html);
-        assert_eq!(crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html), None);
+        assert_eq!(
+            crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html),
+            None
+        );
     }
 
     #[test]
@@ -101,8 +104,12 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"spotlight-card\"] {\n  position: relative; overflow: hidden;\n  width: 18rem; padding: 1.5rem; color: var(--cronus-fg);\n  border-radius: calc(var(--cronus-radius, 14px) + 8px); box-shadow: none;\n}"));
         assert!(css.contains("[data-slot=\"spotlight-card\"] > [aria-hidden=\"true\"] {"));
-        assert!(css.contains("[data-slot=\"spotlight-card\"]:hover > [aria-hidden=\"true\"] { opacity: 1; }"));
-        assert!(css.contains("[data-slot=\"spotlight-card\"] > div:last-child {\n  position: relative;\n}"));
+        assert!(css.contains(
+            "[data-slot=\"spotlight-card\"]:hover > [aria-hidden=\"true\"] { opacity: 1; }"
+        ));
+        assert!(css.contains(
+            "[data-slot=\"spotlight-card\"] > div:last-child {\n  position: relative;\n}"
+        ));
         assert!(!css.contains("[data-slot=\"spotlight-card\"]::after"));
         assert!(css.contains("--spot-x"));
         assert!(css.contains("var(--cronus-primary)"));

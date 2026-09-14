@@ -1,10 +1,17 @@
 //! Form section renderer
 use crate::parser::SectionNode;
 
-pub(super) fn render_form_section(section: &SectionNode, bound_data: &crate::binding::ResolvedData) -> String {
+pub(super) fn render_form_section(
+    section: &SectionNode,
+    bound_data: &crate::binding::ResolvedData,
+) -> String {
     let title = section.title.as_deref().unwrap_or("Form");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
-    let entity = section.config.get("entity").map(|s| s.as_str()).unwrap_or("");
+    let entity = section
+        .config
+        .get("entity")
+        .map(|s| s.as_str())
+        .unwrap_or("");
 
     // Check if we have a bound record (edit mode)
     let bound_record = match bound_data {
@@ -20,12 +27,16 @@ pub(super) fn render_form_section(section: &SectionNode, bound_data: &crate::bin
     let record_id = record_id.as_str();
 
     // Check if on submit has "update entity" instruction
-    let has_update_action = section.actions.iter().any(|a| {
-        a.event == "submit" && a.instructions.iter().any(|i| i.verb == "update")
-    });
+    let has_update_action = section
+        .actions
+        .iter()
+        .any(|a| a.event == "submit" && a.instructions.iter().any(|i| i.verb == "update"));
 
     // Edit mode: use PATCH + include record ID in action URL
-    let action = section.config.get("action").map(|s| s.to_string())
+    let action = section
+        .config
+        .get("action")
+        .map(|s| s.to_string())
         .unwrap_or_else(|| {
             if !entity.is_empty() {
                 if (is_edit || has_update_action) && !record_id.is_empty() {
@@ -40,7 +51,11 @@ pub(super) fn render_form_section(section: &SectionNode, bound_data: &crate::bin
     let method = if is_edit || has_update_action {
         "PATCH"
     } else {
-        section.config.get("method").map(|s| s.as_str()).unwrap_or("POST")
+        section
+            .config
+            .get("method")
+            .map(|s| s.as_str())
+            .unwrap_or("POST")
     };
 
     let mut fields_html = String::new();
@@ -49,13 +64,23 @@ pub(super) fn render_form_section(section: &SectionNode, bound_data: &crate::bin
 
     // Count short fields (text/email/tel/url/password) for grid layout
     let short_field_types = ["text", "email", "tel", "url", "password", "number"];
-    let field_items: Vec<&std::collections::HashMap<String, String>> = section.items.iter()
+    let field_items: Vec<&std::collections::HashMap<String, String>> = section
+        .items
+        .iter()
         .filter(|i| i.get("_type").map(|s| s.as_str()) == Some("field"))
         .collect();
     let total_fields = field_items.len();
     let first_two_short = total_fields >= 2
-        && field_items.get(0).and_then(|i| i.get("type")).map(|t| short_field_types.contains(&t.as_str())).unwrap_or(true)
-        && field_items.get(1).and_then(|i| i.get("type")).map(|t| short_field_types.contains(&t.as_str())).unwrap_or(true);
+        && field_items
+            .get(0)
+            .and_then(|i| i.get("type"))
+            .map(|t| short_field_types.contains(&t.as_str()))
+            .unwrap_or(true)
+        && field_items
+            .get(1)
+            .and_then(|i| i.get("type"))
+            .map(|t| short_field_types.contains(&t.as_str()))
+            .unwrap_or(true);
     let mut field_index: usize = 0;
 
     for item in &section.items {
@@ -65,21 +90,34 @@ pub(super) fn render_form_section(section: &SectionNode, bound_data: &crate::bin
         if itype == "field" {
             // Grid row: open wrapper before first field, close after second field
             if first_two_short && field_index == 0 {
-                fields_html.push_str(r#"<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">"#);
+                fields_html.push_str(
+                    r#"<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">"#,
+                );
             }
 
             let ftype = item.get("type").map(|s| s.as_str()).unwrap_or("text");
             let name_lower = item_title.to_lowercase().replace(' ', "_");
             let placeholder = item.get("placeholder").map(|s| s.as_str()).unwrap_or("");
-            let required = if item.get("required").map(|s| s == "true").unwrap_or(false) { "required" } else { "" };
-            let disabled = if item.get("disabled").map(|s| s == "true").unwrap_or(false) { "disabled" } else { "" };
-            let readonly = if item.get("readonly").map(|s| s == "true").unwrap_or(false) { "readonly" } else { "" };
+            let required = if item.get("required").map(|s| s == "true").unwrap_or(false) {
+                "required"
+            } else {
+                ""
+            };
+            let disabled = if item.get("disabled").map(|s| s == "true").unwrap_or(false) {
+                "disabled"
+            } else {
+                ""
+            };
+            let readonly = if item.get("readonly").map(|s| s == "true").unwrap_or(false) {
+                "readonly"
+            } else {
+                ""
+            };
             // Pre-fill from bound record if in edit mode, otherwise use static value
             let static_value = item.get("value").map(|s| s.as_str()).unwrap_or("");
             let bound_value_owned: String;
             let value = if let Some(record) = bound_record {
-                let field_val = record.get(&name_lower)
-                    .or_else(|| record.get(item_title));
+                let field_val = record.get(&name_lower).or_else(|| record.get(item_title));
                 match field_val {
                     Some(serde_json::Value::String(s)) => s.as_str(),
                     Some(serde_json::Value::Number(n)) => {
@@ -118,11 +156,20 @@ pub(super) fn render_form_section(section: &SectionNode, bound_data: &crate::bin
                 }
                 "select" => {
                     let options_raw = item.get("options").map(|s| s.as_str()).unwrap_or("");
-                    let options: Vec<&str> = if options_raw.is_empty() { vec![] } else { options_raw.split("||").collect() };
-                    let mut opts_html = format!(r#"<option value="">Select {}...</option>"#, item_title);
+                    let options: Vec<&str> = if options_raw.is_empty() {
+                        vec![]
+                    } else {
+                        options_raw.split("||").collect()
+                    };
+                    let mut opts_html =
+                        format!(r#"<option value="">Select {}...</option>"#, item_title);
                     for opt in &options {
                         let selected = if *opt == raw_value { " selected" } else { "" };
-                        opts_html.push_str(&format!(r#"<option value="{v}"{sel}>{v}</option>"#, v = opt, sel = selected));
+                        opts_html.push_str(&format!(
+                            r#"<option value="{v}"{sel}>{v}</option>"#,
+                            v = opt,
+                            sel = selected
+                        ));
                     }
                     fields_html.push_str(&format!(
                         r#"<div><label style="{label_style}">{label}</label><select name="{name}" {required} {disabled} style="{input_style};appearance:none;background:#fff url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 12 12%22><path d=%22M2 4l4 4 4-4%22 fill=%22none%22 stroke=%22%2371717a%22 stroke-width=%221.5%22/></svg>') no-repeat right 12px center">{options}</select></div>"#,
@@ -148,7 +195,11 @@ pub(super) fn render_form_section(section: &SectionNode, bound_data: &crate::bin
                 }
                 "radio" => {
                     let options_raw = item.get("options").map(|s| s.as_str()).unwrap_or("");
-                    let options: Vec<&str> = if options_raw.is_empty() { vec![] } else { options_raw.split("||").collect() };
+                    let options: Vec<&str> = if options_raw.is_empty() {
+                        vec![]
+                    } else {
+                        options_raw.split("||").collect()
+                    };
                     let mut radio_html = String::new();
                     for opt in &options {
                         radio_html.push_str(&format!(
@@ -196,7 +247,11 @@ pub(super) fn render_form_section(section: &SectionNode, bound_data: &crate::bin
                     ));
                 }
                 "tags" => {
-                    let tag_placeholder = if placeholder.is_empty() { "Type and press Enter..." } else { placeholder };
+                    let tag_placeholder = if placeholder.is_empty() {
+                        "Type and press Enter..."
+                    } else {
+                        placeholder
+                    };
                     fields_html.push_str(&format!(
                         r#"<div><label style="{label_style}">{label}</label><div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;min-height:48px;align-items:center;transition:border-color 0.2s" onfocusin="this.style.borderColor='#000'" onfocusout="this.style.borderColor='#e5e7eb'"><input type="text" placeholder="{tag_placeholder}" data-name="{name}" style="border:none;outline:none;flex:1;min-width:100px;font-size:14px;font-family:Inter,sans-serif" onkeydown="if(event.key==='Enter'){{event.preventDefault();cronusAddTag(this)}}"></div><input type="hidden" name="{name}" value=""></div>"#,
                         label_style = label_style, label = item_title,
@@ -216,7 +271,9 @@ pub(super) fn render_form_section(section: &SectionNode, bound_data: &crate::bin
                     ));
                 }
                 "search" => {
-                    let search_entity = item.get("entity").map(|s| s.as_str())
+                    let search_entity = item
+                        .get("entity")
+                        .map(|s| s.as_str())
                         .or_else(|| section.config.get("entity").map(|s| s.as_str()))
                         .unwrap_or("item");
                     fields_html.push_str(&format!(
@@ -251,15 +308,20 @@ pub(super) fn render_form_section(section: &SectionNode, bound_data: &crate::bin
             }
             field_index += 1;
         } else if itype == "action" {
-
-            let variant = item.get("variant").map(|s| s.as_str())
+            let variant = item
+                .get("variant")
+                .map(|s| s.as_str())
                 .or_else(|| item.get("style").map(|s| s.as_str()))
                 .unwrap_or("primary");
             let (bg, color) = match variant {
                 "secondary" | "outline" => ("var(--cronus-surface)", "var(--cronus-text)"),
                 _ => ("var(--cronus-accent)", "#fff"),
             };
-            let border = if variant == "outline" || variant == "secondary" { "1px solid var(--cronus-border)" } else { "none" };
+            let border = if variant == "outline" || variant == "secondary" {
+                "1px solid var(--cronus-border)"
+            } else {
+                "none"
+            };
             actions_html.push_str(&format!(
                 r#"<button type="submit" data-label="{label}" style="width:100%;padding:14px;border:{border};border-radius:999px;background:{bg};color:{color};font-size:16px;font-weight:700;cursor:pointer;font-family:var(--cronus-font)" class="btn-hover">{label}</button>"#,
                 label = item_title, bg = bg, color = color, border = border,
@@ -281,15 +343,29 @@ pub(super) fn render_form_section(section: &SectionNode, bound_data: &crate::bin
     let subtitle_html = if subtitle.is_empty() {
         String::new()
     } else {
-        format!(r#"<p style="font-size:14px;color:#5e5e5e;margin:0" class="anim-slide-up d2">{}</p>"#, subtitle)
+        format!(
+            r#"<p style="font-size:14px;color:#5e5e5e;margin:0" class="anim-slide-up d2">{}</p>"#,
+            subtitle
+        )
     };
 
-    let data_entity = if !entity.is_empty() { format!(r#" data-entity="{}""#, entity) } else { String::new() };
-    let data_cronus_entity = if !entity.is_empty() { format!(r#" data-cronus-entity="{}""#, entity) } else { String::new() };
+    let data_entity = if !entity.is_empty() {
+        format!(r#" data-entity="{}""#, entity)
+    } else {
+        String::new()
+    };
+    let data_cronus_entity = if !entity.is_empty() {
+        format!(r#" data-cronus-entity="{}""#, entity)
+    } else {
+        String::new()
+    };
 
     // Edit mode: add data-cronus-id and data-cronus-method for the JS submit handler
     let edit_attrs = if is_edit && !record_id.is_empty() {
-        format!(r#" data-cronus-id="{}" data-cronus-method="PATCH""#, record_id)
+        format!(
+            r#" data-cronus-id="{}" data-cronus-method="PATCH""#,
+            record_id
+        )
     } else {
         String::new()
     };
@@ -317,10 +393,18 @@ pub(super) fn render_form_section(section: &SectionNode, bound_data: &crate::bin
   </form>
   </div>
 </section>"##,
-        title = title, subtitle_html = subtitle_html, action = action, method = method,
-        data_entity = data_entity, data_cronus_entity = data_cronus_entity,
-        section_type = section.section_type, edit_attrs = edit_attrs,
-        hidden_id = hidden_id, fields = fields_html, actions = actions_html, links = links_html,
+        title = title,
+        subtitle_html = subtitle_html,
+        action = action,
+        method = method,
+        data_entity = data_entity,
+        data_cronus_entity = data_cronus_entity,
+        section_type = section.section_type,
+        edit_attrs = edit_attrs,
+        hidden_id = hidden_id,
+        fields = fields_html,
+        actions = actions_html,
+        links = links_html,
     )
 }
 
@@ -377,8 +461,13 @@ mod tests {
         assert!(!html.contains("\" autofocus onfocus"), "{html}");
         assert!(!html.contains("</textarea><script>"), "{html}");
         assert!(!html.contains("<script>id()"), "{html}");
-        assert!(html.contains("&quot; autofocus onfocus=alert(1) x=&quot;"), "{html}");
-        assert!(html.contains(r#"<option value="closed" selected>"#), "select still matches the raw value: {html}");
+        assert!(
+            html.contains("&quot; autofocus onfocus=alert(1) x=&quot;"),
+            "{html}"
+        );
+        assert!(
+            html.contains(r#"<option value="closed" selected>"#),
+            "select still matches the raw value: {html}"
+        );
     }
 }
-

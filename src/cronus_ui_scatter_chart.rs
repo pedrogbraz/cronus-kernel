@@ -7,8 +7,8 @@
 //!   lines only set the point count.
 
 use crate::cronus_ui_chart::{
-    container, grid_cols, grid_rows, item_labels, max_of, nice_domain, num, x_tick_labels_at,
-    y_of, DEMO_VALUES, PLOT_B, PLOT_R, PLOT_T, TICK_FILL,
+    container, grid_cols, grid_rows, item_labels, max_of, nice_domain, num, x_tick_labels_at, y_of,
+    DEMO_VALUES, PLOT_B, PLOT_R, PLOT_T, TICK_FILL,
 };
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
@@ -76,7 +76,9 @@ mod tests {
     fn fixture_matches_recharts_numeric_axes() {
         let html = render(&fixture());
         assert!(html.starts_with("<div data-slot=\"scatter-chart\" role=\"img\" aria-label=\"Reach\"><div data-slot=\"chart\"><svg viewBox=\"0 0 432 256\" aria-hidden=\"true\"><line x1=\"68\" y1=\"226\" x2=\"424\" y2=\"226\" stroke-dasharray=\"4 4\"></line>"));
-        assert!(html.contains("<line x1=\"157\" y1=\"8\" x2=\"157\" y2=\"226\" stroke-dasharray=\"4 4\"></line>"));
+        assert!(html.contains(
+            "<line x1=\"157\" y1=\"8\" x2=\"157\" y2=\"226\" stroke-dasharray=\"4 4\"></line>"
+        ));
         assert!(html.contains("<circle cx=\"186.6667\" cy=\"117\" r=\"4.5135\" fill=\"var(--cronus-chart-1)\"></circle>"));
         assert!(html.contains("<circle cx=\"305.3333\" cy=\"8\""));
         assert!(html.contains("<circle cx=\"424\" cy=\"62.5\""));
@@ -90,6 +92,8 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"scatter-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"));
+        assert!(css.contains(
+            "[data-slot=\"scatter-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"
+        ));
     }
 }

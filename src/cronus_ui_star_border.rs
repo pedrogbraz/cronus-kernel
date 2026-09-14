@@ -62,7 +62,10 @@ mod tests {
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
         reject_fx(&html);
-        assert_eq!(crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html), None);
+        assert_eq!(
+            crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html),
+            None
+        );
     }
 
     #[test]

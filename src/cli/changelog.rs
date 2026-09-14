@@ -1,10 +1,10 @@
 use std::fs;
 
 use crate::ast_diff;
-use crate::parser;
-use crate::parser::AstNode;
 use crate::find_all_cronus_files;
 use crate::open_memory_db;
+use crate::parser;
+use crate::parser::AstNode;
 
 pub fn cmd_changelog() {
     // 1. Load saved snapshot
@@ -64,7 +64,11 @@ pub fn cmd_changelog() {
         println!("  \x1b[32m✓\x1b[0m No changes since last build");
     } else {
         println!();
-        println!("  \x1b[1mChangelog\x1b[0m ({} change{})", changes.len(), if changes.len() == 1 { "" } else { "s" });
+        println!(
+            "  \x1b[1mChangelog\x1b[0m ({} change{})",
+            changes.len(),
+            if changes.len() == 1 { "" } else { "s" }
+        );
         println!();
 
         // Write changes to semantic memory
@@ -93,7 +97,10 @@ pub fn cmd_changelog() {
             }
         }
         if mem.is_some() {
-            println!("  \x1b[32m✓\x1b[0m {} changes saved to semantic memory", changes.len());
+            println!(
+                "  \x1b[32m✓\x1b[0m {} changes saved to semantic memory",
+                changes.len()
+            );
         }
         println!();
     }

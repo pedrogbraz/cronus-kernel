@@ -34,7 +34,8 @@ mod tests {
         assert!(html.contains("role=\"tooltip\""));
         assert!(html.contains("Hint"));
         assert!(!html.contains("zinc-"));
-        let interact = crate::cronus_ui_interact::render("tooltip", &stub("tooltip", "Hint")).unwrap();
+        let interact =
+            crate::cronus_ui_interact::render("tooltip", &stub("tooltip", "Hint")).unwrap();
         assert_ne!(html, interact);
     }
 }

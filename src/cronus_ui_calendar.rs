@@ -54,8 +54,16 @@ pub fn render(comp: &ComponentNode) -> String {
         .iter()
         .map(|(short, long)| format!("<th scope=\"col\" aria-label=\"{long}\">{short}</th>"))
         .collect::<String>();
-    let (py, pm) = if month == 1 { (year - 1, 12) } else { (year, month - 1) };
-    let (ny, nm) = if month == 12 { (year + 1, 1) } else { (year, month + 1) };
+    let (py, pm) = if month == 1 {
+        (year - 1, 12)
+    } else {
+        (year, month - 1)
+    };
+    let (ny, nm) = if month == 12 {
+        (year + 1, 1)
+    } else {
+        (year, month + 1)
+    };
     let lead = weekday(year, month, 1);
     let prev_days = days_in_month(py, pm);
     let mut cells: Vec<String> = Vec::new();
@@ -97,7 +105,9 @@ fn cell(year: i32, month: u32, day: u32, outside: bool, selected: bool) -> Strin
         ordinal(day),
         if selected { ", selected" } else { "" }
     );
-    format!("<td{attrs}><button type=\"button\" disabled aria-label=\"{label}\">{day}</button></td>")
+    format!(
+        "<td{attrs}><button type=\"button\" disabled aria-label=\"{label}\">{day}</button></td>"
+    )
 }
 
 fn ordinal(day: u32) -> &'static str {
@@ -118,7 +128,11 @@ fn month_of(comp: &ComponentNode) -> (i32, u32, Option<u32>) {
             .props
             .get(key)
             .map(String::as_str)
-            .or_else(|| comp.items.iter().find_map(|i| i.config.get(key).map(String::as_str)))
+            .or_else(|| {
+                comp.items
+                    .iter()
+                    .find_map(|i| i.config.get(key).map(String::as_str))
+            })
             .or_else(|| item(comp, key));
         if let Some((y, m, d)) = raw.and_then(parse_iso) {
             let selected = if key == "value" { d } else { None };
@@ -221,7 +235,9 @@ mod tests {
         );
         assert_eq!(html.matches("<tr>").count(), 6);
         assert!(html.contains("<td role=\"gridcell\" data-outside=\"true\"><button type=\"button\" disabled aria-label=\"Sunday, May 31st, 2026\">31</button></td><td role=\"gridcell\"><button type=\"button\" disabled aria-label=\"Monday, June 1st, 2026\">1</button></td>"));
-        assert!(html.contains("aria-label=\"Saturday, July 4th, 2026\">4</button></td></tr></tbody>"));
+        assert!(
+            html.contains("aria-label=\"Saturday, July 4th, 2026\">4</button></td></tr></tbody>")
+        );
         assert!(!html.contains("aria-selected"));
         reject_interact(&html);
     }
@@ -275,10 +291,13 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"calendar\"] {\n  display: block; color: var(--cronus-fg);\n}"));
+        assert!(css
+            .contains("[data-slot=\"calendar\"] {\n  display: block; color: var(--cronus-fg);\n}"));
         assert!(css.contains("[data-slot=\"calendar\"] > div { padding: 0.75rem; }"));
         assert!(css.contains("@media (min-width: 40rem) {\n  [data-slot=\"calendar\"] > div > div { flex-direction: row; }\n}"));
-        assert!(css.contains("[data-slot=\"calendar\"] tbody tr { width: 100%; margin-top: 0.5rem; }"));
+        assert!(
+            css.contains("[data-slot=\"calendar\"] tbody tr { width: 100%; margin-top: 0.5rem; }")
+        );
         assert!(css.contains("[data-slot=\"calendar\"] nav > button {"));
         assert!(css.contains("[data-slot=\"calendar\"] td > button {"));
         assert!(css.contains("border-collapse: collapse"));

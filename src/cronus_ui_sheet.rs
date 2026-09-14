@@ -106,7 +106,9 @@ mod tests {
     #[test]
     fn description_from_item_config_or_text() {
         let mut c = stub("sheet", "Edit profile");
-        c.items[0].config.insert("description".into(), "Cfg.".into());
+        c.items[0]
+            .config
+            .insert("description".into(), "Cfg.".into());
         assert!(render(&c).contains("data-slot=\"sheet-description\">Cfg.</p>"));
         let mut t = stub("sheet", "Filters");
         t.items.push(extra("text", "Narrow the list."));
@@ -148,7 +150,9 @@ mod tests {
     fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         let block = |sel: &str| {
-            let start = css.find(&format!("{sel} {{")).unwrap_or_else(|| panic!("{sel}"));
+            let start = css
+                .find(&format!("{sel} {{"))
+                .unwrap_or_else(|| panic!("{sel}"));
             let end = start + css[start..].find('}').unwrap();
             css[start..end].to_string()
         };

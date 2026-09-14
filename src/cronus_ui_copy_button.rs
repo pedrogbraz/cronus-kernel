@@ -74,14 +74,18 @@ mod tests {
         let html = render(&stub("copy-button", "Copy"));
         assert!(html.contains(" disabled>"));
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"copy-button\"][data-disabled] { opacity: 0.5; pointer-events: none; }"));
+        assert!(css.contains(
+            "[data-slot=\"copy-button\"][data-disabled] { opacity: 0.5; pointer-events: none; }"
+        ));
         assert!(!css.contains("[data-slot=\"copy-button\"]:disabled { opacity: 0.5;"));
     }
 
     #[test]
     fn aria_label_from_item_config() {
         let mut c = stub("copy-button", "Copy link");
-        c.items[0].config.insert("aria-label".into(), "Copy link".into());
+        c.items[0]
+            .config
+            .insert("aria-label".into(), "Copy link".into());
         let html = render(&c);
         assert!(html.contains("aria-label=\"Copy link\""));
         assert!(!html.contains(">Copy link<"));

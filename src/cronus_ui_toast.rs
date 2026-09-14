@@ -135,7 +135,10 @@ mod tests {
         let b = &toast[0];
         assert!(b.contains("display: block"), "{b}");
         assert!(b.contains("padding: 0.75rem 1rem"), "{b}");
-        assert!(b.contains("font-size: 0.875rem; line-height: 1.25rem"), "{b}");
+        assert!(
+            b.contains("font-size: 0.875rem; line-height: 1.25rem"),
+            "{b}"
+        );
         assert!(b.contains("var(--cronus-surface-floating)"), "{b}");
         assert!(b.contains("var(--cronus-border)"), "{b}");
         assert!(!b.contains("inline-flex"), "{b}");

@@ -25,11 +25,9 @@ mod tests {
         assert!(html.contains("type=\"password\""));
         assert!(html.contains("data-slot=\"password-input\""));
         assert!(!html.contains("zinc-"));
-        let interact = crate::cronus_ui_interact::render(
-            "password-input",
-            &stub("password-input", "Secret"),
-        )
-        .unwrap();
+        let interact =
+            crate::cronus_ui_interact::render("password-input", &stub("password-input", "Secret"))
+                .unwrap();
         assert_ne!(html, interact);
     }
 }

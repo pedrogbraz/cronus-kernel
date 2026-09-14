@@ -6,7 +6,9 @@
 use crate::parser::SectionNode;
 
 pub(super) fn render_product_grid_section(section: &SectionNode) -> String {
-    let cols = section.config.get("cols")
+    let cols = section
+        .config
+        .get("cols")
         .and_then(|c| c.parse::<u32>().ok())
         .unwrap_or(3);
 
@@ -68,12 +70,18 @@ pub(super) fn render_product_grid_section(section: &SectionNode) -> String {
 
     format!(
         r##"<section style="padding:48px 24px"><div style="max-width:var(--cronus-max-w,1120px);margin:0 auto">{title_html}<div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:24px">{cards}</div></div></section>"##,
-        title_html=title_html, cols=cols, cards=cards.join(""),
+        title_html = title_html,
+        cols = cols,
+        cards = cards.join(""),
     )
 }
 
 pub(super) fn render_bento(section: &SectionNode, accent: &str) -> String {
-    let cols = section.config.get("cols").and_then(|c| c.parse::<u32>().ok()).unwrap_or(3);
+    let cols = section
+        .config
+        .get("cols")
+        .and_then(|c| c.parse::<u32>().ok())
+        .unwrap_or(3);
     let title_html = section.title.as_deref().map(|t| format!(
         r#"<h2 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:#1a1c1c;margin-bottom:8px">{}</h2>"#, t
     )).unwrap_or_default();
@@ -129,8 +137,10 @@ pub(super) fn render_bento(section: &SectionNode, accent: &str) -> String {
     {cards}
   </div>
 </section>"#,
-        title_html = title_html, subtitle_html = subtitle_html,
-        cols = cols, cards = cards.join("\n    "),
+        title_html = title_html,
+        subtitle_html = subtitle_html,
+        cols = cols,
+        cards = cards.join("\n    "),
     )
 }
 
@@ -169,11 +179,16 @@ pub(super) fn render_team_list(section: &SectionNode) -> String {
         )
     }).collect();
 
-    let footer_html = footer_link.map(|l| format!(
-        r##"<div style="padding-top:16px;margin-top:8px">
+    let footer_html = footer_link
+        .map(|l| {
+            format!(
+                r##"<div style="padding-top:16px;margin-top:8px">
   <a href="#" style="font-size:13px;color:#5e5e5e;text-decoration:none">{}</a>
-</div>"##, l
-    )).unwrap_or_default();
+</div>"##,
+                l
+            )
+        })
+        .unwrap_or_default();
 
     format!(
         r#"<section style="max-width:1280px;margin:0 auto;padding:48px 24px">
@@ -183,7 +198,8 @@ pub(super) fn render_team_list(section: &SectionNode) -> String {
     {footer_html}
   </div>
 </section>"#,
-        title = title, badge_html = badge_html,
+        title = title,
+        badge_html = badge_html,
         rows = rows.join("\n    "),
         footer_html = footer_html,
     )
@@ -218,7 +234,8 @@ pub(super) fn render_policies(section: &SectionNode) -> String {
     {rows}
   </div>
 </section>"#,
-        title = title, rows = rows.join("\n    "),
+        title = title,
+        rows = rows.join("\n    "),
     )
 }
 
@@ -231,9 +248,11 @@ pub(super) fn render_activity_table(section: &SectionNode) -> String {
     )).unwrap_or_default();
 
     let default_headers = vec!["Event", "User", "Location", "IP Address", "Time", "Status"];
-    let headers: Vec<&str> = section.config.get("columns").map(|c| {
-        c.split(',').map(|s| s.trim()).collect::<Vec<&str>>()
-    }).unwrap_or(default_headers);
+    let headers: Vec<&str> = section
+        .config
+        .get("columns")
+        .map(|c| c.split(',').map(|s| s.trim()).collect::<Vec<&str>>())
+        .unwrap_or(default_headers);
 
     let header_cells: Vec<String> = headers.iter().map(|h| format!(
         r#"<th style="padding:12px 24px;text-align:left;font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.05em;color:#5e5e5e;border-bottom:1px solid #f3f3f3">{}</th>"#, h
@@ -293,7 +312,8 @@ pub(super) fn render_activity_table(section: &SectionNode) -> String {
     </table>
   </div>
 </section>"#,
-        title = title, action_html = action_html,
+        title = title,
+        action_html = action_html,
         header_cells = header_cells.join(""),
         rows = rows.join("\n        "),
     )
@@ -302,29 +322,53 @@ pub(super) fn render_activity_table(section: &SectionNode) -> String {
 pub(super) fn render_status_card(section: &SectionNode) -> String {
     let title = section.title.as_deref().unwrap_or("Status");
     let description = section.subtitle.as_deref().unwrap_or("");
-    let icon_type = section.config.get("icon").map(|s| s.as_str()).unwrap_or("shield");
+    let icon_type = section
+        .config
+        .get("icon")
+        .map(|s| s.as_str())
+        .unwrap_or("shield");
 
     let icon_svg = match icon_type {
-        "shield" | "security" => r##"<svg width="24" height="24" fill="none" stroke="#047857" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>"##,
-        "check" => r##"<svg width="24" height="24" fill="none" stroke="#047857" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>"##,
-        "globe" => r##"<svg width="24" height="24" fill="none" stroke="#047857" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>"##,
-        _ => r##"<svg width="24" height="24" fill="none" stroke="#047857" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>"##,
+        "shield" | "security" => {
+            r##"<svg width="24" height="24" fill="none" stroke="#047857" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>"##
+        }
+        "check" => {
+            r##"<svg width="24" height="24" fill="none" stroke="#047857" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>"##
+        }
+        "globe" => {
+            r##"<svg width="24" height="24" fill="none" stroke="#047857" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>"##
+        }
+        _ => {
+            r##"<svg width="24" height="24" fill="none" stroke="#047857" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>"##
+        }
     };
 
-    let meters: Vec<String> = section.items.iter().map(|item| {
-        let label = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Metric");
-        let value = item.get("description").or_else(|| item.get("desc")).or_else(|| item.get("value")).map(|s| s.as_str()).unwrap_or("");
-        let status = item.get("status").map(|s| s.as_str()).unwrap_or("default");
-        let bar_color = match status.to_lowercase().as_str() {
-            "success" | "ok" | "good" => "#047857",
-            "warning" => "#d97706",
-            "danger" | "error" => "#b91c1c",
-            _ => "#047857",
-        };
-        let pct: u32 = value.trim_end_matches('%').parse().unwrap_or(0);
+    let meters: Vec<String> = section
+        .items
+        .iter()
+        .map(|item| {
+            let label = item
+                .get("title")
+                .or_else(|| item.get("name"))
+                .map(|s| s.as_str())
+                .unwrap_or("Metric");
+            let value = item
+                .get("description")
+                .or_else(|| item.get("desc"))
+                .or_else(|| item.get("value"))
+                .map(|s| s.as_str())
+                .unwrap_or("");
+            let status = item.get("status").map(|s| s.as_str()).unwrap_or("default");
+            let bar_color = match status.to_lowercase().as_str() {
+                "success" | "ok" | "good" => "#047857",
+                "warning" => "#d97706",
+                "danger" | "error" => "#b91c1c",
+                _ => "#047857",
+            };
+            let pct: u32 = value.trim_end_matches('%').parse().unwrap_or(0);
 
-        format!(
-            r#"<div style="margin-top:16px">
+            format!(
+                r#"<div style="margin-top:16px">
   <div style="display:flex;justify-content:space-between;margin-bottom:6px">
     <span style="font-size:13px;color:#5e5e5e">{label}</span>
     <span style="font-size:13px;font-weight:600;color:#1a1c1c">{value}%</span>
@@ -333,9 +377,13 @@ pub(super) fn render_status_card(section: &SectionNode) -> String {
     <div style="width:{pct}%;height:100%;border-radius:3px;background:{bar_color}"></div>
   </div>
 </div>"#,
-            label = label, value = pct, pct = pct, bar_color = bar_color,
-        )
-    }).collect();
+                label = label,
+                value = pct,
+                pct = pct,
+                bar_color = bar_color,
+            )
+        })
+        .collect();
 
     format!(
         r#"<section style="max-width:1280px;margin:0 auto;padding:48px 24px">
@@ -348,7 +396,9 @@ pub(super) fn render_status_card(section: &SectionNode) -> String {
     {meters}
   </div>
 </section>"#,
-        icon_svg = icon_svg, title = title, description = description,
+        icon_svg = icon_svg,
+        title = title,
+        description = description,
         meters = meters.join("\n    "),
     )
 }
@@ -399,32 +449,64 @@ pub(super) fn render_edge(section: &SectionNode, accent: &str) -> String {
 // ══════════════════════════════════════════════════
 
 pub(super) fn render_sidebar(section: &SectionNode) -> String {
-    let style_variant = section.config.get("style").map(|s| s.as_str()).unwrap_or("");
+    let style_variant = section
+        .config
+        .get("style")
+        .map(|s| s.as_str())
+        .unwrap_or("");
     let is_dark = style_variant == "dark";
 
-    let brand = section.config.get("brand")
+    let brand = section
+        .config
+        .get("brand")
         .map(|s| s.as_str())
         .or(section.title.as_deref())
         .unwrap_or("");
-    let subtitle = section.config.get("subtitle")
+    let subtitle = section
+        .config
+        .get("subtitle")
         .map(|s| s.as_str())
         .or(section.subtitle.as_deref())
         .unwrap_or("");
 
     // Active page from config (matches against item title)
-    let active_cfg = section.config.get("active").map(|s| s.as_str()).unwrap_or("");
+    let active_cfg = section
+        .config
+        .get("active")
+        .map(|s| s.as_str())
+        .unwrap_or("");
 
     // Palette: use theme tokens for dark, hardcoded for light
     let t = crate::theme::get();
-    let bg = if is_dark { &t.surface_container_lowest } else { "rgba(250,250,250,0.5)" };
-    let border_color = if is_dark { format!("rgba(76,69,70,0.15)") } else { "rgba(228,228,231,1)".to_string() };
+    let bg = if is_dark {
+        &t.surface_container_lowest
+    } else {
+        "rgba(250,250,250,0.5)"
+    };
+    let border_color = if is_dark {
+        format!("rgba(76,69,70,0.15)")
+    } else {
+        "rgba(228,228,231,1)".to_string()
+    };
     let brand_color = if is_dark { &t.on_surface } else { "#000" };
     let subtitle_color = if is_dark { &t.primary } else { "#71717a" };
-    let inactive_color_str = if is_dark { format!("{}66", t.on_surface) } else { "#71717a".to_string() };
+    let inactive_color_str = if is_dark {
+        format!("{}66", t.on_surface)
+    } else {
+        "#71717a".to_string()
+    };
     let inactive_color = inactive_color_str.as_str();
-    let active_bg = if is_dark { &t.surface_container } else { "rgba(0,0,0,0.04)" };
+    let active_bg = if is_dark {
+        &t.surface_container
+    } else {
+        "rgba(0,0,0,0.04)"
+    };
     let active_text = if is_dark { &t.primary } else { "#000" };
-    let hover_bg = if is_dark { &t.surface_container_low } else { "rgba(0,0,0,0.04)" };
+    let hover_bg = if is_dark {
+        &t.surface_container_low
+    } else {
+        "rgba(0,0,0,0.04)"
+    };
     let hover_text = if is_dark { &t.on_surface } else { "#000" };
 
     // Resolve which item is active: explicit config > item marked active > first nav item
@@ -432,7 +514,9 @@ pub(super) fn render_sidebar(section: &SectionNode) -> String {
     let mut item_marked_active = String::new();
     for item in &section.items {
         let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("item");
-        if item_type == "action" { continue; }
+        if item_type == "action" {
+            continue;
+        }
         let t = item.get("title").map(|s| s.as_str()).unwrap_or("");
         let position = item.get("position").map(|s| s.as_str()).unwrap_or("top");
         if position != "bottom" && first_nav_title.is_empty() {
@@ -471,7 +555,11 @@ pub(super) fn render_sidebar(section: &SectionNode) -> String {
             } else {
                 "background:#1a1c1c"
             };
-            let btn_text = if is_dark || item_style == "gradient" { "#0e0e0e" } else { "#fff" };
+            let btn_text = if is_dark || item_style == "gradient" {
+                "#0e0e0e"
+            } else {
+                "#fff"
+            };
             action_items.push_str(&format!(
                 r#"<button style="width:100%;{btn_bg};color:{btn_text};border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;cursor:pointer;transition:opacity 0.15s;font-family:inherit;margin-top:8px" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">{title}</button>"#,
                 btn_bg = btn_bg, btn_text = btn_text, title = title
@@ -488,8 +576,11 @@ pub(super) fn render_sidebar(section: &SectionNode) -> String {
   <span class="material-symbols-outlined" style="font-size:20px">{icon}</span>
   <span>{title}</span>
 </a>"#,
-                href = href, active_bg = active_bg, active_text = active_text,
-                icon = icon, title = title
+                href = href,
+                active_bg = active_bg,
+                active_text = active_text,
+                icon = icon,
+                title = title
             )
         } else {
             format!(
@@ -497,8 +588,12 @@ pub(super) fn render_sidebar(section: &SectionNode) -> String {
   <span class="material-symbols-outlined" style="font-size:20px">{icon}</span>
   <span>{title}</span>
 </a>"#,
-                href = href, inactive = inactive_color, h_text = hover_text,
-                h_bg = hover_bg, icon = icon, title = title
+                href = href,
+                inactive = inactive_color,
+                h_text = hover_text,
+                h_bg = hover_bg,
+                icon = icon,
+                title = title
             )
         };
 
@@ -537,7 +632,8 @@ pub(super) fn render_sidebar(section: &SectionNode) -> String {
             r#"<div style="margin-top:auto;border-top:0.5px solid {border};padding-top:16px;display:flex;flex-direction:column;gap:2px">
     {bottom}
   </div>"#,
-            border = border_color, bottom = bottom_items
+            border = border_color,
+            bottom = bottom_items
         )
     };
 
@@ -573,7 +669,9 @@ pub(super) fn render_card_section(section: &SectionNode) -> String {
     // Header
     let mut header_html = String::new();
     if !icon.is_empty() || !title.is_empty() || !subtitle.is_empty() {
-        header_html.push_str(r#"<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:24px">"#);
+        header_html.push_str(
+            r#"<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:24px">"#,
+        );
         if !icon.is_empty() {
             header_html.push_str(&format!(
                 r#"<span class="material-symbols-outlined" style="font-size:24px;color:#474747">{}</span>"#,
@@ -629,12 +727,16 @@ pub(super) fn render_card_section(section: &SectionNode) -> String {
                 let on_click = item.get("on_click");
                 if let Some(action_json) = on_click {
                     // Action button with data attributes for the runtime action system
-                    let entity_attr = section.config.get("entity")
+                    let entity_attr = section
+                        .config
+                        .get("entity")
                         .or_else(|| section.binding.as_ref().map(|b| &b.entity))
                         .map(|e| format!(r#" data-cronus-entity="{}""#, e))
                         .unwrap_or_default();
-                    let section_attr = format!(r#" data-cronus-section="{}""#, section.section_type);
-                    let confirm_attr = item.get("confirm")
+                    let section_attr =
+                        format!(r#" data-cronus-section="{}""#, section.section_type);
+                    let confirm_attr = item
+                        .get("confirm")
                         .map(|c| format!(r#" data-cronus-confirm="{}""#, c))
                         .unwrap_or_default();
                     let escaped_json = action_json.replace('"', "&quot;");
@@ -745,7 +847,10 @@ pub(super) fn render_links_section(section: &SectionNode) -> String {
   <div>{links}</div>
 </div>"#,
         title_html = if !title.is_empty() {
-            format!(r#"<h2 style="font-size:18px;font-weight:700;color:#1a1c1c;margin:0 0 20px;letter-spacing:-0.02em">{}</h2>"#, title)
+            format!(
+                r#"<h2 style="font-size:18px;font-weight:700;color:#1a1c1c;margin:0 0 20px;letter-spacing:-0.02em">{}</h2>"#,
+                title
+            )
         } else {
             String::new()
         },
@@ -759,34 +864,55 @@ pub(super) fn render_modal_section(section: &SectionNode) -> String {
     let title = section.title.as_deref().unwrap_or("Dialog");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
     let icon = section.config.get("icon").map(|s| s.as_str()).unwrap_or("");
-    let modal_id = section.config.get("id").cloned()
+    let modal_id = section
+        .config
+        .get("id")
+        .cloned()
         .unwrap_or_else(|| format!("modal-{}", title.to_lowercase().replace(' ', "-")));
-    let trigger = section.config.get("trigger").map(|s| s.as_str()).unwrap_or("");
-    let is_dark = t.surface.contains("0e0e0e") || t.surface.contains("000") || t.on_surface.contains("fff");
+    let trigger = section
+        .config
+        .get("trigger")
+        .map(|s| s.as_str())
+        .unwrap_or("");
+    let is_dark =
+        t.surface.contains("0e0e0e") || t.surface.contains("000") || t.on_surface.contains("fff");
 
     // Theme tokens
-    let (backdrop_bg, panel_bg, panel_border, panel_shadow,
-         label_color, input_bg, input_border, input_focus,
-         text_color, text_muted, summary_bg,
-         btn_secondary_bg, btn_secondary_border, btn_secondary_text,
-         btn_primary_bg, btn_primary_text) = if is_dark {
+    let (
+        backdrop_bg,
+        panel_bg,
+        panel_border,
+        panel_shadow,
+        label_color,
+        input_bg,
+        input_border,
+        input_focus,
+        text_color,
+        text_muted,
+        summary_bg,
+        btn_secondary_bg,
+        btn_secondary_border,
+        btn_secondary_text,
+        btn_primary_bg,
+        btn_primary_text,
+    ) = if is_dark {
         (
-            "rgba(0,0,0,0.6)", // backdrop
-            "rgba(25,25,25,0.85)", // panel
-            "0.5px solid rgba(72,72,72,0.15)", // panel border
-            "0 0 60px rgba(135,173,255,0.08)", // shadow glow
-            "rgba(226,226,226,0.4)", // label
-            "#000000", // input bg
-            "rgba(72,72,72,0.3)", // input border
-            "rgba(135,173,255,0.5)", // input focus
-            "#ffffff", // text
-            "rgba(226,226,226,0.4)", // muted
-            "rgba(31,31,31,0.5)", // summary bg
-            "#262626", // btn secondary bg
-            "0.5px solid rgba(72,72,72,0.2)", // btn secondary border
-            "#ffffff", // btn secondary text
+            "rgba(0,0,0,0.6)",                         // backdrop
+            "rgba(25,25,25,0.85)",                     // panel
+            "0.5px solid rgba(72,72,72,0.15)",         // panel border
+            "0 0 60px rgba(135,173,255,0.08)",         // shadow glow
+            "rgba(226,226,226,0.4)",                   // label
+            "#000000",                                 // input bg
+            "rgba(72,72,72,0.3)",                      // input border
+            "rgba(135,173,255,0.5)",                   // input focus
+            "#ffffff",                                 // text
+            "rgba(226,226,226,0.4)",                   // muted
+            "rgba(31,31,31,0.5)",                      // summary bg
+            "#262626",                                 // btn secondary bg
+            "0.5px solid rgba(72,72,72,0.2)",          // btn secondary border
+            "#ffffff",                                 // btn secondary text
             "linear-gradient(135deg,#87adff,#d277ff)", // btn primary bg (gradient)
-            "#ffffff", // btn primary text
+            "#ffffff",                                 // btn primary text
         )
     } else {
         (
@@ -825,19 +951,38 @@ pub(super) fn render_modal_section(section: &SectionNode) -> String {
             let name_lower = item_title.to_lowercase().replace(' ', "_");
             let placeholder = item.get("placeholder").map(|s| s.as_str()).unwrap_or("");
             let value = item.get("value").map(|s| s.as_str()).unwrap_or("");
-            let required = if item.get("required").map(|s| s == "true").unwrap_or(false) { "required" } else { "" };
-            let readonly = if item.get("readonly").map(|s| s == "true").unwrap_or(false) || !value.is_empty() { "readonly" } else { "" };
+            let required = if item.get("required").map(|s| s == "true").unwrap_or(false) {
+                "required"
+            } else {
+                ""
+            };
+            let readonly = if item.get("readonly").map(|s| s == "true").unwrap_or(false)
+                || !value.is_empty()
+            {
+                "readonly"
+            } else {
+                ""
+            };
             let span = item.get("span").map(|s| s.as_str()).unwrap_or("1");
 
-            let grid_col = if span != "1" { format!("grid-column:span {}", span) } else { String::new() };
+            let grid_col = if span != "1" {
+                format!("grid-column:span {}", span)
+            } else {
+                String::new()
+            };
 
             match ftype {
                 "select" => {
                     let options_raw = item.get("options").map(|s| s.as_str()).unwrap_or("");
-                    let options: Vec<&str> = if options_raw.is_empty() { vec![] } else { options_raw.split("||").collect() };
+                    let options: Vec<&str> = if options_raw.is_empty() {
+                        vec![]
+                    } else {
+                        options_raw.split("||").collect()
+                    };
                     let mut opts_html = String::new();
                     for opt in &options {
-                        opts_html.push_str(&format!(r#"<option value="{v}">{v}</option>"#, v = opt));
+                        opts_html
+                            .push_str(&format!(r#"<option value="{v}">{v}</option>"#, v = opt));
                     }
                     fields_html.push_str(&format!(
                         r#"<div style="{gc}"><label style="{ls}">{label}</label><select name="{name}" style="{is};appearance:none;cursor:pointer;background-image:url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%23888\" stroke-width=\"2\"><path d=\"M6 9l6 6 6-6\"/></svg>');background-repeat:no-repeat;background-position:right 14px center" onfocus="this.style.borderColor='{fc}';this.style.boxShadow='0 0 0 3px {fc}33'" onblur="this.style.borderColor='{ib}';this.style.boxShadow='none'">{opts}</select></div>"#,
@@ -861,11 +1006,24 @@ pub(super) fn render_modal_section(section: &SectionNode) -> String {
                     ));
                 }
                 _ => {
-                    let val_attr = if !value.is_empty() { format!(r#"value="{}""#, value) } else { String::new() };
+                    let val_attr = if !value.is_empty() {
+                        format!(r#"value="{}""#, value)
+                    } else {
+                        String::new()
+                    };
                     let copy_icon = if !readonly.is_empty() && !value.is_empty() {
-                        format!(r#"<span class="material-symbols-outlined" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:16px;color:{};cursor:pointer">content_copy</span>"#, label_color)
-                    } else { String::new() };
-                    let wrapper = if !copy_icon.is_empty() { "position:relative" } else { "" };
+                        format!(
+                            r#"<span class="material-symbols-outlined" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:16px;color:{};cursor:pointer">content_copy</span>"#,
+                            label_color
+                        )
+                    } else {
+                        String::new()
+                    };
+                    let wrapper = if !copy_icon.is_empty() {
+                        "position:relative"
+                    } else {
+                        ""
+                    };
                     fields_html.push_str(&format!(
                         r#"<div style="{gc};{wr}"><label style="{ls}">{label}</label><div style="position:relative"><input type="{ftype}" name="{name}" placeholder="{ph}" {val} {req} {ro} style="{is}" onfocus="this.style.borderColor='{fc}';this.style.boxShadow='0 0 0 3px {fc}33'" onblur="this.style.borderColor='{ib}';this.style.boxShadow='none'">{copy}</div></div>"#,
                         gc = grid_col, wr = wrapper, ls = label_style, label = item_title, ftype = ftype,
@@ -875,19 +1033,28 @@ pub(super) fn render_modal_section(section: &SectionNode) -> String {
                 }
             }
         } else if itype == "action" {
-            let variant = item.get("variant").map(|s| s.as_str())
+            let variant = item
+                .get("variant")
+                .map(|s| s.as_str())
                 .or_else(|| item.get("style").map(|s| s.as_str()))
                 .unwrap_or("primary");
 
             if variant == "secondary" || variant == "outline" || variant == "cancel" {
-                let onclick = format!(r#"onclick="cronusModal.close('{}')" type="button""#, modal_id);
+                let onclick = format!(
+                    r#"onclick="cronusModal.close('{}')" type="button""#,
+                    modal_id
+                );
                 actions_html.push_str(&format!(
                     r#"<button {onclick} style="flex:1;padding:14px;border:{bdr};border-radius:8px;background:{bg};color:{clr};font-size:12px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;letter-spacing:0.1em;text-transform:uppercase;transition:all 0.15s" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">{label}</button>"#,
                     onclick = onclick, bdr = btn_secondary_border, bg = btn_secondary_bg,
                     clr = btn_secondary_text, label = item_title,
                 ));
             } else {
-                let glow = if is_dark { "box-shadow:0 0 20px rgba(135,173,255,0.25);" } else { "" };
+                let glow = if is_dark {
+                    "box-shadow:0 0 20px rgba(135,173,255,0.25);"
+                } else {
+                    ""
+                };
                 actions_html.push_str(&format!(
                     r#"<button type="submit" style="flex:1.5;padding:14px;border:none;border-radius:8px;background:{bg};color:{clr};font-size:12px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;letter-spacing:0.12em;text-transform:uppercase;transition:all 0.15s;{glow}" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter='none'">{label}</button>"#,
                     bg = btn_primary_bg, clr = btn_primary_text, glow = glow, label = item_title,
@@ -906,39 +1073,70 @@ pub(super) fn render_modal_section(section: &SectionNode) -> String {
     // Wrap fields in grid if any have span
     let has_grid = section.items.iter().any(|i| i.get("span").is_some());
     let fields_wrapper = if has_grid {
-        format!(r#"<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:20px">{}</div>"#, fields_html)
+        format!(
+            r#"<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:20px">{}</div>"#,
+            fields_html
+        )
     } else {
-        format!(r#"<div style="display:flex;flex-direction:column;gap:20px">{}</div>"#, fields_html)
+        format!(
+            r#"<div style="display:flex;flex-direction:column;gap:20px">{}</div>"#,
+            fields_html
+        )
     };
 
     let summary_block = if !summary_html.is_empty() {
-        format!(r#"<div style="background:{};border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:8px;margin-top:8px">{}</div>"#, summary_bg, summary_html)
-    } else { String::new() };
+        format!(
+            r#"<div style="background:{};border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:8px;margin-top:8px">{}</div>"#,
+            summary_bg, summary_html
+        )
+    } else {
+        String::new()
+    };
 
     let subtitle_html = if subtitle.is_empty() {
         String::new()
     } else {
-        format!(r#"<p style="font-size:13px;color:{};margin:4px 0 0">{}</p>"#, text_muted, subtitle)
+        format!(
+            r#"<p style="font-size:13px;color:{};margin:4px 0 0">{}</p>"#,
+            text_muted, subtitle
+        )
     };
 
     let icon_html = if icon.is_empty() {
         String::new()
     } else {
         let (icon_bg, icon_color, icon_border) = if is_dark {
-            ("rgba(135,173,255,0.1)", "#87adff", "1px solid rgba(135,173,255,0.2)")
+            (
+                "rgba(135,173,255,0.1)",
+                "#87adff",
+                "1px solid rgba(135,173,255,0.2)",
+            )
         } else {
-            ("rgba(37,99,235,0.1)", "#2563eb", "1px solid rgba(37,99,235,0.2)")
+            (
+                "rgba(37,99,235,0.1)",
+                "#2563eb",
+                "1px solid rgba(37,99,235,0.2)",
+            )
         };
-        format!(r#"<div style="width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:{};border:{};flex-shrink:0"><span class="material-symbols-outlined" style="font-size:24px;color:{}">{}</span></div>"#, icon_bg, icon_border, icon_color, icon)
+        format!(
+            r#"<div style="width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:{};border:{};flex-shrink:0"><span class="material-symbols-outlined" style="font-size:24px;color:{}">{}</span></div>"#,
+            icon_bg, icon_border, icon_color, icon
+        )
     };
 
     // Gradient bar at bottom of modal
     let gradient_bar = if is_dark {
         r#"<div style="height:2px;width:100%;background:linear-gradient(90deg,rgba(135,173,255,0.3),rgba(210,119,255,0.3),rgba(135,173,255,0.3))"></div>"#
-    } else { "" };
+    } else {
+        ""
+    };
 
     // Entity binding — determines API endpoint
-    let entity = section.config.get("entity").map(|s| s.as_str()).unwrap_or("");
+    let entity = section
+        .config
+        .get("entity")
+        .map(|s| s.as_str())
+        .unwrap_or("");
     let entity_lower = entity.to_lowercase();
     let api_endpoint = if !entity.is_empty() {
         format!("/api/{}s", entity_lower)
@@ -950,7 +1148,8 @@ pub(super) fn render_modal_section(section: &SectionNode) -> String {
     let form_submit = if !api_endpoint.is_empty() {
         format!(
             r#"onsubmit="return cronusModalSubmit(event,'{id}','{api}')" "#,
-            id = modal_id, api = api_endpoint
+            id = modal_id,
+            api = api_endpoint
         )
     } else {
         String::new()
@@ -958,8 +1157,13 @@ pub(super) fn render_modal_section(section: &SectionNode) -> String {
 
     // Auto-open trigger
     let auto_open = if trigger == "auto" || trigger == "open" {
-        format!(r#"<script{script_nonce}>document.getElementById('{}').style.display='flex'</script>"#, modal_id)
-    } else { String::new() };
+        format!(
+            r#"<script{script_nonce}>document.getElementById('{}').style.display='flex'</script>"#,
+            modal_id
+        )
+    } else {
+        String::new()
+    };
 
     format!(
         r##"<div id="{id}" style="display:none;position:fixed;inset:0;z-index:100;background:{backdrop};align-items:center;justify-content:center;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:24px" onclick="if(event.target===this)cronusModal.close('{id}')">
@@ -983,20 +1187,40 @@ pub(super) fn render_modal_section(section: &SectionNode) -> String {
     {gradient_bar}
   </div>
 </div>{auto_open}"##,
-        id = modal_id, backdrop = backdrop_bg, panel = panel_bg, border = format!("border:{}", panel_border),
-        shadow = panel_shadow, text = text_color,
-        title = title, subtitle_html = subtitle_html, icon_html = icon_html,
-        fields = fields_wrapper, summary = summary_block,
-        actions = actions_html, gradient_bar = gradient_bar, auto_open = auto_open,
+        id = modal_id,
+        backdrop = backdrop_bg,
+        panel = panel_bg,
+        border = format!("border:{}", panel_border),
+        shadow = panel_shadow,
+        text = text_color,
+        title = title,
+        subtitle_html = subtitle_html,
+        icon_html = icon_html,
+        fields = fields_wrapper,
+        summary = summary_block,
+        actions = actions_html,
+        gradient_bar = gradient_bar,
+        auto_open = auto_open,
     )
 }
 
 pub(super) fn render_sheet_section(section: &SectionNode) -> String {
     let title = section.title.as_deref().unwrap_or("Details");
-    let sheet_id = section.config.get("id").cloned()
+    let sheet_id = section
+        .config
+        .get("id")
+        .cloned()
         .unwrap_or_else(|| format!("sheet-{}", title.to_lowercase().replace(' ', "-")));
-    let side = section.config.get("side").map(|s| s.as_str()).unwrap_or("right");
-    let width = section.config.get("width").map(|s| s.as_str()).unwrap_or("400px");
+    let side = section
+        .config
+        .get("side")
+        .map(|s| s.as_str())
+        .unwrap_or("right");
+    let width = section
+        .config
+        .get("width")
+        .map(|s| s.as_str())
+        .unwrap_or("400px");
 
     let (position_style, animation) = match side {
         "left" => ("left:0;top:0;bottom:0", "slideFromLeft"),
@@ -1011,7 +1235,9 @@ pub(super) fn render_sheet_section(section: &SectionNode) -> String {
         let item_title = item.get("title").map(|s| s.as_str()).unwrap_or("");
 
         if itype == "action" {
-            let variant = item.get("variant").map(|s| s.as_str())
+            let variant = item
+                .get("variant")
+                .map(|s| s.as_str())
                 .or_else(|| item.get("style").map(|s| s.as_str()))
                 .unwrap_or("primary");
             let (bg, color, border) = match variant {
@@ -1027,7 +1253,11 @@ pub(super) fn render_sheet_section(section: &SectionNode) -> String {
             let ftype = item.get("type").map(|s| s.as_str()).unwrap_or("text");
             let name_lower = item_title.to_lowercase().replace(' ', "_");
             let placeholder = item.get("placeholder").map(|s| s.as_str()).unwrap_or("");
-            let required = if item.get("required").map(|s| s == "true").unwrap_or(false) { "required" } else { "" };
+            let required = if item.get("required").map(|s| s == "true").unwrap_or(false) {
+                "required"
+            } else {
+                ""
+            };
             let label_style = "display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#71717a;margin-bottom:8px";
             let input_style = "width:100%;padding:12px 16px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;font-family:Inter,sans-serif;box-sizing:border-box";
             content_html.push_str(&format!(
@@ -1053,7 +1283,10 @@ pub(super) fn render_sheet_section(section: &SectionNode) -> String {
     let actions_block = if actions_html.is_empty() {
         String::new()
     } else {
-        format!(r#"<div style="display:flex;gap:12px;margin-top:24px">{}</div>"#, actions_html)
+        format!(
+            r#"<div style="display:flex;gap:12px;margin-top:24px">{}</div>"#,
+            actions_html
+        )
     };
 
     format!(
@@ -1071,8 +1304,13 @@ pub(super) fn render_sheet_section(section: &SectionNode) -> String {
     {actions}
   </div>
 </div>"##,
-        id = sheet_id, pos = position_style, width = width, anim = animation,
-        title = title, content = content_html, actions = actions_block,
+        id = sheet_id,
+        pos = position_style,
+        width = width,
+        anim = animation,
+        title = title,
+        content = content_html,
+        actions = actions_block,
     )
 }
 
@@ -1111,7 +1349,11 @@ pub(super) fn render_tabs_section(section: &SectionNode) -> String {
         ));
 
         let display = if is_active { "block" } else { "none" };
-        let anim = if is_active { " style=\"animation:fadeIn 0.3s ease-out\"" } else { "" };
+        let anim = if is_active {
+            " style=\"animation:fadeIn 0.3s ease-out\""
+        } else {
+            ""
+        };
 
         let mut content_html = String::new();
         for ti in tab_items {
@@ -1122,7 +1364,8 @@ pub(super) fn render_tabs_section(section: &SectionNode) -> String {
             content_html.push_str(r#"<div style="background:#fff;border:1px solid rgba(198,198,198,0.2);border-radius:12px;padding:24px">"#);
             if !ti_icon.is_empty() {
                 content_html.push_str(&format!(
-                    r#"<span style="font-size:20px;margin-bottom:8px;display:block">{}</span>"#, ti_icon
+                    r#"<span style="font-size:20px;margin-bottom:8px;display:block">{}</span>"#,
+                    ti_icon
                 ));
             }
             if !ti_title.is_empty() {
@@ -1132,7 +1375,8 @@ pub(super) fn render_tabs_section(section: &SectionNode) -> String {
             }
             if !ti_desc.is_empty() {
                 content_html.push_str(&format!(
-                    r#"<p style="font-size:14px;color:#6e6e6e;margin:0;line-height:1.5">{}</p>"#, ti_desc
+                    r#"<p style="font-size:14px;color:#6e6e6e;margin:0;line-height:1.5">{}</p>"#,
+                    ti_desc
                 ));
             }
             content_html.push_str("</div>");
@@ -1272,21 +1516,33 @@ pub(super) fn render_generic_section(section: &SectionNode, _accent: &str) -> St
 
             // --- Code / monospace label ---
             "code" | "label" if style_val == "mono" => {
-                let text = if !title.is_empty() { title } else { description };
+                let text = if !title.is_empty() {
+                    title
+                } else {
+                    description
+                };
                 html.push_str(&format!(
                     r#"<div style="background:#f3f3f3;font-family:'JetBrains Mono',monospace;font-size:13px;border-radius:8px;padding:12px 16px;color:#1a1c1c;white-space:pre-wrap">{}</div>"#,
                     text
                 ));
             }
             "code" => {
-                let text = if !title.is_empty() { title } else { description };
+                let text = if !title.is_empty() {
+                    title
+                } else {
+                    description
+                };
                 html.push_str(&format!(
                     r#"<div style="background:#f3f3f3;font-family:'JetBrains Mono',monospace;font-size:13px;border-radius:8px;padding:12px 16px;color:#1a1c1c;white-space:pre-wrap">{}</div>"#,
                     text
                 ));
             }
             "label" => {
-                let text = if !title.is_empty() { title } else { description };
+                let text = if !title.is_empty() {
+                    title
+                } else {
+                    description
+                };
                 html.push_str(&format!(
                     r#"<span style="font-size:13px;color:#6e6e6e">{}</span>"#,
                     text
@@ -1365,7 +1621,11 @@ pub(super) fn render_generic_section(section: &SectionNode, _accent: &str) -> St
 
             // --- Default: simple text ---
             _ => {
-                let text = if !title.is_empty() { title } else { description };
+                let text = if !title.is_empty() {
+                    title
+                } else {
+                    description
+                };
                 if !text.is_empty() {
                     html.push_str(&format!(
                         r#"<p style="font-size:14px;color:#1a1c1c;margin:0">{}</p>"#,
@@ -1386,15 +1646,19 @@ pub(super) fn render_generic_section(section: &SectionNode, _accent: &str) -> St
 // ══════════════════════════════════════════════════
 
 pub(super) fn render_alert_section(section: &SectionNode) -> String {
-    let style = section.config.get("style").map(|s| s.as_str()).unwrap_or("info");
+    let style = section
+        .config
+        .get("style")
+        .map(|s| s.as_str())
+        .unwrap_or("info");
     let title = section.title.as_deref().unwrap_or("Alert");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
 
     let (bg_color, border_color, text_color, icon) = match style {
         "success" => ("#f0fdf4", "#bbf7d0", "#16a34a", "check_circle"),
-        "error"   => ("#fef2f2", "#fecaca", "#dc2626", "error"),
+        "error" => ("#fef2f2", "#fecaca", "#dc2626", "error"),
         "warning" => ("#fffbeb", "#fde68a", "#d97706", "warning"),
-        _         => ("#eff6ff", "#bfdbfe", "#2563eb", "info"),
+        _ => ("#eff6ff", "#bfdbfe", "#2563eb", "info"),
     };
 
     format!(
@@ -1422,13 +1686,21 @@ pub(super) fn render_alert_section(section: &SectionNode) -> String {
 // ══════════════════════════════════════════════════
 
 pub(super) fn render_skeleton_section(section: &SectionNode) -> String {
-    let cols: usize = section.config.get("cols")
+    let cols: usize = section
+        .config
+        .get("cols")
         .and_then(|s| s.parse().ok())
         .unwrap_or(3);
-    let rows: usize = section.config.get("rows")
+    let rows: usize = section
+        .config
+        .get("rows")
         .and_then(|s| s.parse().ok())
         .unwrap_or(3);
-    let height = section.config.get("height").map(|s| s.as_str()).unwrap_or("120px");
+    let height = section
+        .config
+        .get("height")
+        .map(|s| s.as_str())
+        .unwrap_or("120px");
     let title = section.title.as_deref().unwrap_or("");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
 
@@ -1438,9 +1710,15 @@ pub(super) fn render_skeleton_section(section: &SectionNode) -> String {
         let sub = if subtitle.is_empty() {
             String::new()
         } else {
-            format!(r#"<p style="font-size:14px;color:#a1a1aa;margin:4px 0 0">{}</p>"#, subtitle)
+            format!(
+                r#"<p style="font-size:14px;color:#a1a1aa;margin:4px 0 0">{}</p>"#,
+                subtitle
+            )
         };
-        format!(r#"<div style="margin-bottom:24px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{}</h2>{}</div>"#, title, sub)
+        format!(
+            r#"<div style="margin-bottom:24px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{}</h2>{}</div>"#,
+            title, sub
+        )
     };
 
     let total = cols * rows;
@@ -1459,7 +1737,8 @@ pub(super) fn render_skeleton_section(section: &SectionNode) -> String {
     {blocks}
   </div>
 </section>"##,
-        title_html = title_html, blocks = blocks,
+        title_html = title_html,
+        blocks = blocks,
     )
 }
 
@@ -1470,17 +1749,30 @@ pub(super) fn render_skeleton_section(section: &SectionNode) -> String {
 pub(super) fn render_empty_section(section: &SectionNode) -> String {
     let title = section.title.as_deref().unwrap_or("Nothing here yet");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
-    let icon = section.config.get("icon").map(|s| s.as_str()).unwrap_or("inbox");
-    let cta_text = section.config.get("cta_text")
+    let icon = section
+        .config
+        .get("icon")
+        .map(|s| s.as_str())
+        .unwrap_or("inbox");
+    let cta_text = section
+        .config
+        .get("cta_text")
         .or(section.config.get("cta"))
         .map(|s| s.as_str())
         .unwrap_or("");
-    let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("#");
+    let cta_link = section
+        .config
+        .get("cta_link")
+        .map(|s| s.as_str())
+        .unwrap_or("#");
 
     let subtitle_html = if subtitle.is_empty() {
         String::new()
     } else {
-        format!(r#"<p style="font-size:14px;color:#a1a1aa;margin:8px 0 0;max-width:360px">{}</p>"#, subtitle)
+        format!(
+            r#"<p style="font-size:14px;color:#a1a1aa;margin:8px 0 0;max-width:360px">{}</p>"#,
+            subtitle
+        )
     };
 
     let cta_html = if cta_text.is_empty() {
@@ -1488,7 +1780,8 @@ pub(super) fn render_empty_section(section: &SectionNode) -> String {
     } else {
         format!(
             r#"<a href="{link}" style="display:inline-block;margin-top:24px;padding:12px 28px;background:#000;color:#fff;border-radius:999px;font-size:14px;font-weight:700;text-decoration:none;font-family:Inter,sans-serif">{text}</a>"#,
-            link = cta_link, text = cta_text,
+            link = cta_link,
+            text = cta_text,
         )
     };
 
@@ -1499,7 +1792,10 @@ pub(super) fn render_empty_section(section: &SectionNode) -> String {
   {subtitle_html}
   {cta_html}
 </section>"##,
-        icon = icon, title = title, subtitle_html = subtitle_html, cta_html = cta_html,
+        icon = icon,
+        title = title,
+        subtitle_html = subtitle_html,
+        cta_html = cta_html,
     )
 }
 
@@ -1510,14 +1806,29 @@ pub(super) fn render_empty_section(section: &SectionNode) -> String {
 pub(super) fn render_error_section(section: &SectionNode) -> String {
     let title = section.title.as_deref().unwrap_or("Something went wrong");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
-    let icon = section.config.get("icon").map(|s| s.as_str()).unwrap_or("error");
-    let retry_text = section.config.get("retry_text").map(|s| s.as_str()).unwrap_or("Try again");
-    let retry_link = section.config.get("retry_link").map(|s| s.as_str()).unwrap_or("");
+    let icon = section
+        .config
+        .get("icon")
+        .map(|s| s.as_str())
+        .unwrap_or("error");
+    let retry_text = section
+        .config
+        .get("retry_text")
+        .map(|s| s.as_str())
+        .unwrap_or("Try again");
+    let retry_link = section
+        .config
+        .get("retry_link")
+        .map(|s| s.as_str())
+        .unwrap_or("");
 
     let subtitle_html = if subtitle.is_empty() {
         String::new()
     } else {
-        format!(r#"<p style="font-size:14px;color:#a1a1aa;margin:12px 0 0;max-width:400px">{}</p>"#, subtitle)
+        format!(
+            r#"<p style="font-size:14px;color:#a1a1aa;margin:12px 0 0;max-width:400px">{}</p>"#,
+            subtitle
+        )
     };
 
     let retry_onclick = if retry_link.is_empty() {
@@ -1535,8 +1846,11 @@ pub(super) fn render_error_section(section: &SectionNode) -> String {
   {subtitle_html}
   <button {retry_onclick} style="margin-top:24px;padding:12px 28px;background:#000;color:#fff;border:none;border-radius:999px;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">{retry_text}</button>
 </section>"##,
-        icon = icon, title = title, subtitle_html = subtitle_html,
-        retry_onclick = retry_onclick, retry_text = retry_text,
+        icon = icon,
+        title = title,
+        subtitle_html = subtitle_html,
+        retry_onclick = retry_onclick,
+        retry_text = retry_text,
     )
 }
 
@@ -1546,9 +1860,20 @@ pub(super) fn render_error_section(section: &SectionNode) -> String {
 
 pub(super) fn render_not_found_section(section: &SectionNode) -> String {
     let title = section.title.as_deref().unwrap_or("Page not found");
-    let subtitle = section.subtitle.as_deref().unwrap_or("The page you're looking for doesn't exist or has been moved.");
-    let home_text = section.config.get("home_text").map(|s| s.as_str()).unwrap_or("Go home");
-    let home_link = section.config.get("home_link").map(|s| s.as_str()).unwrap_or("/");
+    let subtitle = section
+        .subtitle
+        .as_deref()
+        .unwrap_or("The page you're looking for doesn't exist or has been moved.");
+    let home_text = section
+        .config
+        .get("home_text")
+        .map(|s| s.as_str())
+        .unwrap_or("Go home");
+    let home_link = section
+        .config
+        .get("home_link")
+        .map(|s| s.as_str())
+        .unwrap_or("/");
 
     format!(
         r##"<section style="padding:80px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center" class="anim-fade">
@@ -1557,7 +1882,10 @@ pub(super) fn render_not_found_section(section: &SectionNode) -> String {
   <p style="font-size:14px;color:#a1a1aa;margin:12px 0 0;max-width:400px">{subtitle}</p>
   <a href="{home_link}" style="display:inline-block;margin-top:24px;padding:12px 28px;background:#000;color:#fff;border-radius:999px;font-size:14px;font-weight:700;text-decoration:none;font-family:Inter,sans-serif">{home_text}</a>
 </section>"##,
-        title = title, subtitle = subtitle, home_link = home_link, home_text = home_text,
+        title = title,
+        subtitle = subtitle,
+        home_link = home_link,
+        home_text = home_text,
     )
 }
 
@@ -1567,7 +1895,10 @@ pub(super) fn render_not_found_section(section: &SectionNode) -> String {
 // SETTINGS DASHBOARD (dark Obsidian — full page renderer)
 // ══════════════════════════════════════════════════
 
-pub(super) fn render_timeline_section(section: &SectionNode, bound_data: &crate::binding::ResolvedData) -> String {
+pub(super) fn render_timeline_section(
+    section: &SectionNode,
+    bound_data: &crate::binding::ResolvedData,
+) -> String {
     let title = section.title.as_deref().unwrap_or("");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
 
@@ -1577,9 +1908,15 @@ pub(super) fn render_timeline_section(section: &SectionNode, bound_data: &crate:
         let sub = if subtitle.is_empty() {
             String::new()
         } else {
-            format!(r#"<p style="font-size:14px;color:#71717a;margin:4px 0 0">{}</p>"#, subtitle)
+            format!(
+                r#"<p style="font-size:14px;color:#71717a;margin:4px 0 0">{}</p>"#,
+                subtitle
+            )
         };
-        format!(r#"<div style="margin-bottom:32px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{}</h2>{}</div>"#, title, sub)
+        format!(
+            r#"<div style="margin-bottom:32px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{}</h2>{}</div>"#,
+            title, sub
+        )
     };
 
     // Build timeline items from bound data or static items
@@ -1591,30 +1928,52 @@ pub(super) fn render_timeline_section(section: &SectionNode, bound_data: &crate:
         status: String,
     }
 
-    let timeline_items: Vec<TimelineItem> = if let crate::binding::ResolvedData::Rows(rows) = bound_data {
-        if !rows.is_empty() {
-            rows.iter().map(|row| {
-                // Row values are data: escape before they reach the markup.
-                let esc = crate::security::html_escape;
-                TimelineItem {
-                    title: row.get("title").or_else(|| row.get("name"))
-                        .and_then(|v| v.as_str()).map(esc).unwrap_or_default(),
-                    description: row.get("description").or_else(|| row.get("desc"))
-                        .and_then(|v| v.as_str()).map(esc).unwrap_or_default(),
-                    time: row.get("time").or_else(|| row.get("date")).or_else(|| row.get("created_at"))
-                        .and_then(|v| v.as_str()).map(esc).unwrap_or_default(),
-                    icon: row.get("icon")
-                        .and_then(|v| v.as_str()).map(esc).unwrap_or_else(|| "circle".to_string()),
-                    status: row.get("status")
-                        .and_then(|v| v.as_str()).unwrap_or("info").to_string(),
-                }
-            }).collect()
+    let timeline_items: Vec<TimelineItem> =
+        if let crate::binding::ResolvedData::Rows(rows) = bound_data {
+            if !rows.is_empty() {
+                rows.iter()
+                    .map(|row| {
+                        // Row values are data: escape before they reach the markup.
+                        let esc = crate::security::html_escape;
+                        TimelineItem {
+                            title: row
+                                .get("title")
+                                .or_else(|| row.get("name"))
+                                .and_then(|v| v.as_str())
+                                .map(esc)
+                                .unwrap_or_default(),
+                            description: row
+                                .get("description")
+                                .or_else(|| row.get("desc"))
+                                .and_then(|v| v.as_str())
+                                .map(esc)
+                                .unwrap_or_default(),
+                            time: row
+                                .get("time")
+                                .or_else(|| row.get("date"))
+                                .or_else(|| row.get("created_at"))
+                                .and_then(|v| v.as_str())
+                                .map(esc)
+                                .unwrap_or_default(),
+                            icon: row
+                                .get("icon")
+                                .and_then(|v| v.as_str())
+                                .map(esc)
+                                .unwrap_or_else(|| "circle".to_string()),
+                            status: row
+                                .get("status")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("info")
+                                .to_string(),
+                        }
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            }
         } else {
             Vec::new()
-        }
-    } else {
-        Vec::new()
-    };
+        };
 
     // Use bound items if available, otherwise fall back to static section items
     let use_bound = !timeline_items.is_empty();
@@ -1640,12 +1999,18 @@ pub(super) fn render_timeline_section(section: &SectionNode, bound_data: &crate:
             let desc_html = if tl.description.is_empty() {
                 String::new()
             } else {
-                format!(r#"<p style="font-size:13px;color:#a1a1aa;margin:4px 0 0">{}</p>"#, tl.description)
+                format!(
+                    r#"<p style="font-size:13px;color:#a1a1aa;margin:4px 0 0">{}</p>"#,
+                    tl.description
+                )
             };
             let time_html = if tl.time.is_empty() {
                 String::new()
             } else {
-                format!(r#"<span style="font-size:12px;color:#a1a1aa;margin-left:auto;white-space:nowrap">{}</span>"#, tl.time)
+                format!(
+                    r#"<span style="font-size:12px;color:#a1a1aa;margin-left:auto;white-space:nowrap">{}</span>"#,
+                    tl.time
+                )
             };
 
             items_html.push_str(&format!(
@@ -1692,13 +2057,19 @@ pub(super) fn render_timeline_section(section: &SectionNode, bound_data: &crate:
             let desc_html = if desc.is_empty() {
                 String::new()
             } else {
-                format!(r#"<p style="font-size:13px;color:#a1a1aa;margin:4px 0 0">{}</p>"#, desc)
+                format!(
+                    r#"<p style="font-size:13px;color:#a1a1aa;margin:4px 0 0">{}</p>"#,
+                    desc
+                )
             };
 
             let time_html = if time.is_empty() {
                 String::new()
             } else {
-                format!(r#"<span style="font-size:12px;color:#a1a1aa;margin-left:auto;white-space:nowrap">{}</span>"#, time)
+                format!(
+                    r#"<span style="font-size:12px;color:#a1a1aa;margin-left:auto;white-space:nowrap">{}</span>"#,
+                    time
+                )
             };
 
             items_html.push_str(&format!(
@@ -1726,7 +2097,8 @@ pub(super) fn render_timeline_section(section: &SectionNode, bound_data: &crate:
     {items}
   </div>
 </section>"##,
-        title_html = title_html, items = items_html,
+        title_html = title_html,
+        items = items_html,
     )
 }
 
@@ -1734,7 +2106,10 @@ pub(super) fn render_timeline_section(section: &SectionNode, bound_data: &crate:
 // PROGRESS / STEPS SECTION
 // ══════════════════════════════════════════════════
 
-pub(super) fn render_progress_section(section: &SectionNode, bound_data: &crate::binding::ResolvedData) -> String {
+pub(super) fn render_progress_section(
+    section: &SectionNode,
+    bound_data: &crate::binding::ResolvedData,
+) -> String {
     let title = section.title.as_deref().unwrap_or("");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
 
@@ -1744,18 +2119,29 @@ pub(super) fn render_progress_section(section: &SectionNode, bound_data: &crate:
         let sub = if subtitle.is_empty() {
             String::new()
         } else {
-            format!(r#"<p style="font-size:14px;color:#71717a;margin:4px 0 0">{}</p>"#, subtitle)
+            format!(
+                r#"<p style="font-size:14px;color:#71717a;margin:4px 0 0">{}</p>"#,
+                subtitle
+            )
         };
-        format!(r#"<div style="margin-bottom:32px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{}</h2>{}</div>"#, title, sub)
+        format!(
+            r#"<div style="margin-bottom:32px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{}</h2>{}</div>"#,
+            title, sub
+        )
     };
 
     // Convert bound data rows into items format
     let items_from_data: Vec<std::collections::HashMap<String, String>> = match bound_data {
-        crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => {
-            rows.iter().filter_map(|row| {
+        crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => rows
+            .iter()
+            .filter_map(|row| {
                 let obj = row.as_object()?;
                 let mut map = std::collections::HashMap::new();
-                if let Some(t) = obj.get("title").or(obj.get("name")).and_then(|v| v.as_str()) {
+                if let Some(t) = obj
+                    .get("title")
+                    .or(obj.get("name"))
+                    .and_then(|v| v.as_str())
+                {
                     map.insert("title".to_string(), t.to_string());
                 }
                 if let Some(s) = obj.get("status").and_then(|v| v.as_str()) {
@@ -1771,8 +2157,8 @@ pub(super) fn render_progress_section(section: &SectionNode, bound_data: &crate:
                     map.insert("icon".to_string(), ic.to_string());
                 }
                 Some(map)
-            }).collect()
-        }
+            })
+            .collect(),
         _ => Vec::new(),
     };
 
@@ -1808,11 +2194,18 @@ pub(super) fn render_progress_section(section: &SectionNode, bound_data: &crate:
         let desc_html = if desc.is_empty() {
             String::new()
         } else {
-            format!(r#"<p style="font-size:13px;color:#a1a1aa;margin:4px 0 0">{}</p>"#, desc)
+            format!(
+                r#"<p style="font-size:13px;color:#a1a1aa;margin:4px 0 0">{}</p>"#,
+                desc
+            )
         };
 
         let progress_bar = if status == "active" || status == "current" || status == "in-progress" {
-            let pct = if value.is_empty() { "50" } else { value.trim_end_matches('%') };
+            let pct = if value.is_empty() {
+                "50"
+            } else {
+                value.trim_end_matches('%')
+            };
             format!(
                 r#"<div style="margin-top:8px;height:4px;background:#e4e4e7;border-radius:999px;overflow:hidden"><div style="height:100%;background:#3b82f6;border-radius:999px;width:{}%;transition:width 0.6s cubic-bezier(0.16,1,0.3,1)"></div></div>"#,
                 pct
@@ -1830,8 +2223,12 @@ pub(super) fn render_progress_section(section: &SectionNode, bound_data: &crate:
     {progress_bar}
   </div>
 </div>"##,
-            delay = delay_class, indicator = indicator, label_color = label_color,
-            title = item_title, desc_html = desc_html, progress_bar = progress_bar,
+            delay = delay_class,
+            indicator = indicator,
+            label_color = label_color,
+            title = item_title,
+            desc_html = desc_html,
+            progress_bar = progress_bar,
         ));
     }
 
@@ -1842,7 +2239,8 @@ pub(super) fn render_progress_section(section: &SectionNode, bound_data: &crate:
     {steps}
   </div>
 </section>"##,
-        title_html = title_html, steps = steps_html,
+        title_html = title_html,
+        steps = steps_html,
     )
 }
 

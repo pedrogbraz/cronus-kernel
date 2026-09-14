@@ -1,9 +1,11 @@
-use std::fs;
-use crate::parser::{self, AstNode};
 use crate::find_cronus_file;
+use crate::parser::{self, AstNode};
+use std::fs;
 
 pub fn cmd_parse(args: &[String]) {
-    let file = args.iter().skip(2)
+    let file = args
+        .iter()
+        .skip(2)
         .find(|a| !a.starts_with("--"))
         .cloned()
         .or_else(find_cronus_file)
@@ -28,7 +30,11 @@ pub fn cmd_parse(args: &[String]) {
                         println!("  Database: {} {:?}", db.db_type, db.path);
                     }
                     if let Some(ref c) = app.constitution {
-                        println!("  Constitution: {} must, {} never", c.must.len(), c.never.len());
+                        println!(
+                            "  Constitution: {} must, {} never",
+                            c.must.len(),
+                            c.never.len()
+                        );
                         for rule in &c.must {
                             println!("    must: \"{}\"", rule);
                         }

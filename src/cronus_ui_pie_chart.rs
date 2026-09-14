@@ -22,7 +22,11 @@ pub fn render(comp: &ComponentNode) -> String {
     let mut body = String::new();
     let mut start = 0.0;
     for (i, v) in values.iter().enumerate() {
-        let delta = if total > 0.0 { v.max(0.0) / total * 360.0 } else { 0.0 };
+        let delta = if total > 0.0 {
+            v.max(0.0) / total * 360.0
+        } else {
+            0.0
+        };
         let end = start + delta;
         body.push_str(&format!(
             "<path d=\"{}\" fill=\"var(--cronus-chart-{})\" stroke-width=\"0\"></path>",
@@ -69,7 +73,9 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"pie-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"));
+        assert!(css.contains(
+            "[data-slot=\"pie-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"
+        ));
         assert!(!css.contains("[data-slot=\"pie-chart\"] svg { width: 12rem"));
     }
 }

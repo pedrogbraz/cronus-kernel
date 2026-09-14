@@ -69,8 +69,23 @@ static TABLE_CONTRACT: SectionContract = SectionContract {
     requires_title: false,
     requires_items: true,
     min_items: 1,
-    config_keys: &["title", "entity", "responsive", "live", "columns", "search", "paginate"],
-    structural_keys: &[req("name"), opt("title"), opt("column"), opt("badge"), opt("status"), opt("_type")],
+    config_keys: &[
+        "title",
+        "entity",
+        "responsive",
+        "live",
+        "columns",
+        "search",
+        "paginate",
+    ],
+    structural_keys: &[
+        req("name"),
+        opt("title"),
+        opt("column"),
+        opt("badge"),
+        opt("status"),
+        opt("_type"),
+    ],
     entity_binding: true,
     on_unknown_key: Fallback::Ignore,
     on_missing_required: Fallback::Error,
@@ -84,7 +99,15 @@ static FORM_CONTRACT: SectionContract = SectionContract {
     requires_items: true,
     min_items: 1,
     config_keys: &["title", "entity", "action", "method"],
-    structural_keys: &[req("name"), opt("title"), opt("type"), opt("placeholder"), opt("required"), opt("options"), opt("disabled")],
+    structural_keys: &[
+        req("name"),
+        opt("title"),
+        opt("type"),
+        opt("placeholder"),
+        opt("required"),
+        opt("options"),
+        opt("disabled"),
+    ],
     entity_binding: true,
     on_unknown_key: Fallback::Warn,
     on_missing_required: Fallback::Error,
@@ -98,7 +121,19 @@ static CARD_CONTRACT: SectionContract = SectionContract {
     requires_items: true,
     min_items: 0,
     config_keys: &["icon", "id", "cols", "cta_text", "cta_link", "cta_style"],
-    structural_keys: &[req("name"), opt("subtitle"), opt("icon"), opt("link"), opt("action"), opt("style"), opt("status"), opt("value"), opt("action_icon"), opt("href"), opt("description")],
+    structural_keys: &[
+        req("name"),
+        opt("subtitle"),
+        opt("icon"),
+        opt("link"),
+        opt("action"),
+        opt("style"),
+        opt("status"),
+        opt("value"),
+        opt("action_icon"),
+        opt("href"),
+        opt("description"),
+    ],
     entity_binding: false,
     on_unknown_key: Fallback::Warn,
     on_missing_required: Fallback::Error,
@@ -112,7 +147,18 @@ static KPI_CONTRACT: SectionContract = SectionContract {
     requires_items: true,
     min_items: 1,
     config_keys: &["cols", "cols-md", "cols-sm", "entity", "live", "interval"],
-    structural_keys: &[req("name"), opt("title"), opt("icon"), opt("trend"), opt("meta"), opt("value"), opt("badge"), opt("subtitle"), opt("description"), opt("span")],
+    structural_keys: &[
+        req("name"),
+        opt("title"),
+        opt("icon"),
+        opt("trend"),
+        opt("meta"),
+        opt("value"),
+        opt("badge"),
+        opt("subtitle"),
+        opt("description"),
+        opt("span"),
+    ],
     entity_binding: false,
     on_unknown_key: Fallback::Warn,
     on_missing_required: Fallback::Error,
@@ -126,7 +172,13 @@ static MODAL_CONTRACT: SectionContract = SectionContract {
     requires_items: true,
     min_items: 0,
     config_keys: &["id"],
-    structural_keys: &[req("name"), opt("type"), opt("placeholder"), opt("required"), opt("options")],
+    structural_keys: &[
+        req("name"),
+        opt("type"),
+        opt("placeholder"),
+        opt("required"),
+        opt("options"),
+    ],
     entity_binding: false,
     on_unknown_key: Fallback::Warn,
     on_missing_required: Fallback::Error,
@@ -140,7 +192,14 @@ static KANBAN_CONTRACT: SectionContract = SectionContract {
     requires_items: true,
     min_items: 1,
     config_keys: &["title"],
-    structural_keys: &[req("name"), opt("column"), opt("color"), opt("assignee"), opt("priority"), opt("label")],
+    structural_keys: &[
+        req("name"),
+        opt("column"),
+        opt("color"),
+        opt("assignee"),
+        opt("priority"),
+        opt("label"),
+    ],
     entity_binding: false,
     on_unknown_key: Fallback::Warn,
     on_missing_required: Fallback::Error,
@@ -225,7 +284,14 @@ static TABS_CONTRACT: SectionContract = SectionContract {
     requires_title: false,
     requires_items: true,
     min_items: 1,
-    structural_keys: &[opt("title"), opt("name"), opt("icon"), opt("active"), opt("style"), opt("description")],
+    structural_keys: &[
+        opt("title"),
+        opt("name"),
+        opt("icon"),
+        opt("active"),
+        opt("style"),
+        opt("description"),
+    ],
     entity_binding: false,
     on_unknown_key: Fallback::Warn,
     on_missing_required: Fallback::Error,
@@ -297,8 +363,16 @@ static HERO_CONTRACT: SectionContract = SectionContract {
     requires_title: false,
     requires_items: false,
     min_items: 0,
-    config_keys: &["title", "subtitle", "cta_text", "cta_link", "style", "image"],
-    structural_keys: &[opt("title"), opt("name"), opt("description"), opt("link"), opt("icon")],
+    config_keys: &[
+        "title", "subtitle", "cta_text", "cta_link", "style", "image",
+    ],
+    structural_keys: &[
+        opt("title"),
+        opt("name"),
+        opt("description"),
+        opt("link"),
+        opt("icon"),
+    ],
     entity_binding: false,
     on_unknown_key: Fallback::Ignore,
     on_missing_required: Fallback::Error,
@@ -326,7 +400,13 @@ static SIDEBAR_CONTRACT: SectionContract = SectionContract {
     requires_items: false,
     min_items: 0,
     config_keys: &["title", "style", "collapsed"],
-    structural_keys: &[opt("name"), opt("title"), opt("link"), opt("icon"), opt("badge")],
+    structural_keys: &[
+        opt("name"),
+        opt("title"),
+        opt("link"),
+        opt("icon"),
+        opt("badge"),
+    ],
     entity_binding: false,
     on_unknown_key: Fallback::Ignore,
     on_missing_required: Fallback::Error,
@@ -372,15 +452,53 @@ static HARDCODED_CONTRACTS: &[&SectionContract] = &[
 ];
 
 static HARDCODED_NAMES: &[&str] = &[
-    "table", "form", "card", "kpi", "modal",
-    "kanban", "command", "dropdown", "toast", "empty",
-    "page-header", "tabs", "alert", "accordion", "breadcrumb", "chart",
-    "sidebar", "topbar", "footer", "hero", "features", "pricing",
-    "promo", "info-bar", "bento", "features-split", "team-list",
-    "status-card", "policies", "activity-table", "edge", "links",
-    "quick-links", "skeleton", "loading", "error", "not-found", "404",
-    "timeline", "progress", "pagination", "filters", "notifications",
-    "dark-mode", "layout", "sheet", "product-grid",
+    "table",
+    "form",
+    "card",
+    "kpi",
+    "modal",
+    "kanban",
+    "command",
+    "dropdown",
+    "toast",
+    "empty",
+    "page-header",
+    "tabs",
+    "alert",
+    "accordion",
+    "breadcrumb",
+    "chart",
+    "sidebar",
+    "topbar",
+    "footer",
+    "hero",
+    "features",
+    "pricing",
+    "promo",
+    "info-bar",
+    "bento",
+    "features-split",
+    "team-list",
+    "status-card",
+    "policies",
+    "activity-table",
+    "edge",
+    "links",
+    "quick-links",
+    "skeleton",
+    "loading",
+    "error",
+    "not-found",
+    "404",
+    "timeline",
+    "progress",
+    "pagination",
+    "filters",
+    "notifications",
+    "dark-mode",
+    "layout",
+    "sheet",
+    "product-grid",
 ];
 
 // ── Generated Contracts (from spec.toml codegen) ──────────────────────────
@@ -402,13 +520,19 @@ impl ContractRegistry {
         // Try generated first (if available)
         #[cfg(feature = "generated-contracts")]
         {
-            if let Some(c) = generated::GENERATED_CONTRACTS.iter().find(|c| c.name == canonical) {
+            if let Some(c) = generated::GENERATED_CONTRACTS
+                .iter()
+                .find(|c| c.name == canonical)
+            {
                 return Some(c);
             }
         }
 
         // Fallback to hardcoded
-        HARDCODED_CONTRACTS.iter().find(|c| c.name == canonical).copied()
+        HARDCODED_CONTRACTS
+            .iter()
+            .find(|c| c.name == canonical)
+            .copied()
     }
 
     /// Resolve alias to canonical name. Generated aliases take precedence.
@@ -487,12 +611,38 @@ impl ContractRegistry {
 
 #[derive(Debug)]
 pub enum ParseWarning {
-    UnknownSection { name: String, line: usize },
-    UnknownKey { section: String, key: String, item: String, line: usize },
-    MissingRequired { section: String, key: String, item: String, line: usize },
-    AliasUsed { alias: String, canonical: String, line: usize },
-    MinItemsViolation { section: String, expected: usize, actual: usize, line: usize },
-    UnknownConfig { section: String, key: String, line: usize },
+    UnknownSection {
+        name: String,
+        line: usize,
+    },
+    UnknownKey {
+        section: String,
+        key: String,
+        item: String,
+        line: usize,
+    },
+    MissingRequired {
+        section: String,
+        key: String,
+        item: String,
+        line: usize,
+    },
+    AliasUsed {
+        alias: String,
+        canonical: String,
+        line: usize,
+    },
+    MinItemsViolation {
+        section: String,
+        expected: usize,
+        actual: usize,
+        line: usize,
+    },
+    UnknownConfig {
+        section: String,
+        key: String,
+        line: usize,
+    },
 }
 
 // ── Validation ──────────────────────────────────────────────────────────────
@@ -534,7 +684,8 @@ pub fn validate_section(section: &SectionNode, entity_fields: &[String]) -> Vec<
     // we can't validate entity-bound keys — skip unknown key warnings entirely.
     // TODO: Thread entity fields from page context through render_section.
     let has_entity_ref = section.config.contains_key("entity") || section.binding.is_some();
-    let skip_entity_key_check = contract.entity_binding && entity_fields.is_empty() && has_entity_ref;
+    let skip_entity_key_check =
+        contract.entity_binding && entity_fields.is_empty() && has_entity_ref;
 
     // 3. Validate items against structural keys + entity fields
     for item in &section.items {
@@ -542,7 +693,10 @@ pub fn validate_section(section: &SectionNode, entity_fields: &[String]) -> Vec<
 
         // Check for unknown keys
         for key in item.keys() {
-            let is_structural = contract.structural_keys.iter().any(|k| k.name == key.as_str());
+            let is_structural = contract
+                .structural_keys
+                .iter()
+                .any(|k| k.name == key.as_str());
             let is_entity_field = contract.entity_binding && entity_fields.contains(key);
             let is_meta = key == "_type" || key == "title" || key == "name" || key == "description";
 
@@ -567,8 +721,8 @@ pub fn validate_section(section: &SectionNode, entity_fields: &[String]) -> Vec<
 
         // Check required keys
         for key_def in contract.structural_keys {
-            let has_key = item.contains_key(key_def.name) ||
-                (key_def.name == "name" && item.contains_key("title"));
+            let has_key = item.contains_key(key_def.name)
+                || (key_def.name == "name" && item.contains_key("title"));
             if key_def.required && !has_key {
                 match contract.on_missing_required {
                     Fallback::Error | Fallback::Warn => {
@@ -586,7 +740,10 @@ pub fn validate_section(section: &SectionNode, entity_fields: &[String]) -> Vec<
     }
 
     // 4. Check min_items (skip if section has a binding — data comes from DB)
-    if contract.min_items > 0 && section.items.len() < contract.min_items && section.binding.is_none() {
+    if contract.min_items > 0
+        && section.items.len() < contract.min_items
+        && section.binding.is_none()
+    {
         warnings.push(ParseWarning::MinItemsViolation {
             section: contract.name.to_string(),
             expected: contract.min_items,

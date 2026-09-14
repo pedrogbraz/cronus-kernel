@@ -115,7 +115,13 @@ pub(crate) fn state_from(src: &str) -> AppState {
 }
 
 fn user(id: &str, role: &str) -> Claims {
-    Claims { sub: id.to_string(), role: role.to_string(), exp: usize::MAX, iat: 0, jti: format!("test-{id}") }
+    Claims {
+        sub: id.to_string(),
+        role: role.to_string(),
+        exp: usize::MAX,
+        iat: 0,
+        jti: format!("test-{id}"),
+    }
 }
 
 struct Reply {
@@ -124,7 +130,13 @@ struct Reply {
     body: Value,
 }
 
-fn call(state: &AppState, method: Method, target: &str, body: Option<Value>, claims: Option<&Claims>) -> Reply {
+fn call(
+    state: &AppState,
+    method: Method,
+    target: &str,
+    body: Option<Value>,
+    claims: Option<&Claims>,
+) -> Reply {
     let (path, query) = target.split_once('?').unwrap_or((target, ""));
     let resp = handle_api(state, &method, path, query, body.as_ref(), claims);
     let status = resp.status();
@@ -136,7 +148,11 @@ fn call(state: &AppState, method: Method, target: &str, body: Option<Value>, cla
         .expect("body")
         .to_bytes();
     let body = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
-    Reply { status, headers, body }
+    Reply {
+        status,
+        headers,
+        body,
+    }
 }
 
 fn insert(state: &AppState, table: &str, row: Value) -> String {
@@ -145,7 +161,12 @@ fn insert(state: &AppState, table: &str, row: Value) -> String {
 }
 
 fn total_count(reply: &Reply) -> String {
-    reply.headers.get("x-total-count").and_then(|v| v.to_str().ok()).unwrap_or("").to_string()
+    reply
+        .headers
+        .get("x-total-count")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string()
 }
 
 fn error_code(reply: &Reply) -> &str {
@@ -158,7 +179,13 @@ fn anonymous_gets_401_on_jwt_routes() {
     let list = call(&s, Method::GET, "/api/notes", None, None);
     assert_eq!(list.status, StatusCode::UNAUTHORIZED);
     assert_eq!(error_code(&list), "UNAUTHORIZED");
-    let create = call(&s, Method::POST, "/api/notes", Some(json!({"title": "x"})), None);
+    let create = call(
+        &s,
+        Method::POST,
+        "/api/notes",
+        Some(json!({"title": "x"})),
+        None,
+    );
     assert_eq!(create.status, StatusCode::UNAUTHORIZED);
     assert_eq!(s.db.count("Note").expect("count"), 0);
 }
@@ -170,7 +197,13 @@ fn public_route_allows_anonymous_but_jwt_sibling_does_not() {
     let list = call(&s, Method::GET, "/api/posts", None, None);
     assert_eq!(list.status, StatusCode::OK);
     assert_eq!(list.body.as_array().map(Vec::len), Some(1));
-    let create = call(&s, Method::POST, "/api/posts", Some(json!({"title": "x"})), None);
+    let create = call(
+        &s,
+        Method::POST,
+        "/api/posts",
+        Some(json!({"title": "x"})),
+        None,
+    );
     assert_eq!(create.status, StatusCode::UNAUTHORIZED);
 }
 
@@ -179,10 +212,36 @@ fn undeclared_routes_are_404_even_for_admin() {
     let s = state();
     let admin = user("root", "admin");
     let id = insert(&s, "Post", json!({"title": "p"}));
-    assert_eq!(call(&s, Method::DELETE, &format!("/api/posts/{id}"), None, Some(&admin)).status, StatusCode::NOT_FOUND);
-    assert_eq!(call(&s, Method::GET, &format!("/api/posts/{id}"), None, Some(&admin)).status, StatusCode::NOT_FOUND);
+    assert_eq!(
+        call(
+            &s,
+            Method::DELETE,
+            &format!("/api/posts/{id}"),
+            None,
+            Some(&admin)
+        )
+        .status,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        call(
+            &s,
+            Method::GET,
+            &format!("/api/posts/{id}"),
+            None,
+            Some(&admin)
+        )
+        .status,
+        StatusCode::NOT_FOUND
+    );
     let note = insert(&s, "Note", json!({"title": "n", "_owner_id": "root"}));
-    let put = call(&s, Method::PUT, &format!("/api/notes/{note}"), Some(json!({"title": "z"})), Some(&admin));
+    let put = call(
+        &s,
+        Method::PUT,
+        &format!("/api/notes/{note}"),
+        Some(json!({"title": "z"})),
+        Some(&admin),
+    );
     assert_eq!(put.status, StatusCode::NOT_FOUND);
     assert_eq!(s.db.count("Post").expect("count"), 1);
 }
@@ -190,11 +249,37 @@ fn undeclared_routes_are_404_even_for_admin() {
 #[test]
 fn auto_crud_without_api_block_requires_auth() {
     let s = state();
-    assert_eq!(call(&s, Method::GET, "/api/memos", None, None).status, StatusCode::UNAUTHORIZED);
-    assert_eq!(call(&s, Method::POST, "/api/memos", Some(json!({"title": "m"})), None).status, StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        call(&s, Method::GET, "/api/memos", None, None).status,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        call(
+            &s,
+            Method::POST,
+            "/api/memos",
+            Some(json!({"title": "m"})),
+            None
+        )
+        .status,
+        StatusCode::UNAUTHORIZED
+    );
     let alice = user("alice", "user");
-    assert_eq!(call(&s, Method::POST, "/api/memos", Some(json!({"title": "m"})), Some(&alice)).status, StatusCode::CREATED);
-    assert_eq!(call(&s, Method::GET, "/api/memos", None, Some(&alice)).status, StatusCode::OK);
+    assert_eq!(
+        call(
+            &s,
+            Method::POST,
+            "/api/memos",
+            Some(json!({"title": "m"})),
+            Some(&alice)
+        )
+        .status,
+        StatusCode::CREATED
+    );
+    assert_eq!(
+        call(&s, Method::GET, "/api/memos", None, Some(&alice)).status,
+        StatusCode::OK
+    );
 }
 
 #[test]
@@ -202,20 +287,44 @@ fn cross_owner_get_patch_delete_return_404_and_leave_row_intact() {
     let s = state();
     let alice = user("alice", "user");
     let bob = user("bob", "user");
-    let created = call(&s, Method::POST, "/api/notes", Some(json!({"title": "mine"})), Some(&alice));
+    let created = call(
+        &s,
+        Method::POST,
+        "/api/notes",
+        Some(json!({"title": "mine"})),
+        Some(&alice),
+    );
     assert_eq!(created.status, StatusCode::CREATED);
     let id = created.body["id"].as_str().expect("id").to_string();
     let path = format!("/api/notes/{id}");
 
-    assert_eq!(call(&s, Method::GET, &path, None, Some(&bob)).status, StatusCode::NOT_FOUND);
-    let patch = call(&s, Method::PATCH, &path, Some(json!({"title": "pwned"})), Some(&bob));
+    assert_eq!(
+        call(&s, Method::GET, &path, None, Some(&bob)).status,
+        StatusCode::NOT_FOUND
+    );
+    let patch = call(
+        &s,
+        Method::PATCH,
+        &path,
+        Some(json!({"title": "pwned"})),
+        Some(&bob),
+    );
     assert_eq!(patch.status, StatusCode::NOT_FOUND);
-    assert_eq!(call(&s, Method::DELETE, &path, None, Some(&bob)).status, StatusCode::NOT_FOUND);
+    assert_eq!(
+        call(&s, Method::DELETE, &path, None, Some(&bob)).status,
+        StatusCode::NOT_FOUND
+    );
 
-    let row = s.db.find_by_id("Note", &id).expect("query").expect("row still exists");
+    let row =
+        s.db.find_by_id("Note", &id)
+            .expect("query")
+            .expect("row still exists");
     assert_eq!(row["title"], "mine");
     assert_eq!(row["_owner_id"], "alice");
-    assert_eq!(call(&s, Method::GET, &path, None, Some(&alice)).status, StatusCode::OK);
+    assert_eq!(
+        call(&s, Method::GET, &path, None, Some(&alice)).status,
+        StatusCode::OK
+    );
 }
 
 #[test]
@@ -223,7 +332,17 @@ fn rows_without_owner_are_hidden_from_non_admins() {
     let s = state();
     let bob = user("bob", "user");
     let orphan = insert(&s, "Note", json!({"title": "orphan"}));
-    assert_eq!(call(&s, Method::GET, &format!("/api/notes/{orphan}"), None, Some(&bob)).status, StatusCode::NOT_FOUND);
+    assert_eq!(
+        call(
+            &s,
+            Method::GET,
+            &format!("/api/notes/{orphan}"),
+            None,
+            Some(&bob)
+        )
+        .status,
+        StatusCode::NOT_FOUND
+    );
     let list = call(&s, Method::GET, "/api/notes", None, Some(&bob));
     assert_eq!(list.body, json!([]));
     assert_eq!(total_count(&list), "0");
@@ -243,7 +362,13 @@ fn owner_and_role_in_body_are_ignored() {
     assert_eq!(created.status, StatusCode::CREATED);
     let id = created.body["id"].as_str().expect("id").to_string();
     assert_ne!(id, "chosen");
-    let patch = call(&s, Method::PATCH, &format!("/api/notes/{id}"), Some(json!({"_owner_id": "bob", "title": "u"})), Some(&alice));
+    let patch = call(
+        &s,
+        Method::PATCH,
+        &format!("/api/notes/{id}"),
+        Some(json!({"_owner_id": "bob", "title": "u"})),
+        Some(&alice),
+    );
     assert_eq!(patch.status, StatusCode::OK);
     let row = s.db.find_by_id("Note", &id).expect("query").expect("row");
     assert_eq!(row["_owner_id"], "alice");
@@ -254,77 +379,244 @@ fn owner_and_role_in_body_are_ignored() {
 #[test]
 fn user_entity_is_self_only_through_generic_rest() {
     let s = state();
-    let alice_id = insert(&s, "User", json!({"name": "A", "email": "a@x.io", "role": "user", "password": "$argon2id$hash"}));
-    let bob_id = insert(&s, "User", json!({"name": "B", "email": "b@x.io", "role": "user", "password": "$argon2id$hash"}));
+    let alice_id = insert(
+        &s,
+        "User",
+        json!({"name": "A", "email": "a@x.io", "role": "user", "password": "$argon2id$hash"}),
+    );
+    let bob_id = insert(
+        &s,
+        "User",
+        json!({"name": "B", "email": "b@x.io", "role": "user", "password": "$argon2id$hash"}),
+    );
     let alice = user(&alice_id, "user");
     let admin = user("root", "admin");
 
-    assert_eq!(call(&s, Method::GET, "/api/users", None, None).status, StatusCode::UNAUTHORIZED);
-    assert_eq!(call(&s, Method::GET, "/api/users", None, Some(&alice)).status, StatusCode::FORBIDDEN);
-    assert_eq!(call(&s, Method::GET, &format!("/api/users/{bob_id}"), None, Some(&alice)).status, StatusCode::NOT_FOUND);
-    assert_eq!(call(&s, Method::GET, &format!("/api/users/{alice_id}"), None, Some(&alice)).status, StatusCode::OK);
+    assert_eq!(
+        call(&s, Method::GET, "/api/users", None, None).status,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        call(&s, Method::GET, "/api/users", None, Some(&alice)).status,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(
+            &s,
+            Method::GET,
+            &format!("/api/users/{bob_id}"),
+            None,
+            Some(&alice)
+        )
+        .status,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        call(
+            &s,
+            Method::GET,
+            &format!("/api/users/{alice_id}"),
+            None,
+            Some(&alice)
+        )
+        .status,
+        StatusCode::OK
+    );
 
-    let anon_patch = call(&s, Method::PATCH, &format!("/api/users/{alice_id}"), Some(json!({"role": "admin"})), None);
+    let anon_patch = call(
+        &s,
+        Method::PATCH,
+        &format!("/api/users/{alice_id}"),
+        Some(json!({"role": "admin"})),
+        None,
+    );
     assert_eq!(anon_patch.status, StatusCode::UNAUTHORIZED);
-    let bob_patch = call(&s, Method::PATCH, &format!("/api/users/{bob_id}"), Some(json!({"name": "hacked"})), Some(&alice));
+    let bob_patch = call(
+        &s,
+        Method::PATCH,
+        &format!("/api/users/{bob_id}"),
+        Some(json!({"name": "hacked"})),
+        Some(&alice),
+    );
     assert_eq!(bob_patch.status, StatusCode::NOT_FOUND);
-    let self_patch = call(&s, Method::PATCH, &format!("/api/users/{alice_id}"), Some(json!({"role": "admin", "name": "Alice"})), Some(&alice));
+    let self_patch = call(
+        &s,
+        Method::PATCH,
+        &format!("/api/users/{alice_id}"),
+        Some(json!({"role": "admin", "name": "Alice"})),
+        Some(&alice),
+    );
     assert_eq!(self_patch.status, StatusCode::OK);
-    let row = s.db.find_by_id("User", &alice_id).expect("query").expect("row");
+    let row =
+        s.db.find_by_id("User", &alice_id)
+            .expect("query")
+            .expect("row");
     assert_eq!(row["role"], "user");
     assert_eq!(row["name"], "Alice");
-    assert_eq!(s.db.find_by_id("User", &bob_id).expect("query").expect("row")["name"], "B");
+    assert_eq!(
+        s.db.find_by_id("User", &bob_id)
+            .expect("query")
+            .expect("row")["name"],
+        "B"
+    );
 
     let signup_bypass = json!({"name": "E", "email": "e@x.io", "password": "x", "role": "admin"});
-    assert_eq!(call(&s, Method::POST, "/api/users", Some(signup_bypass.clone()), None).status, StatusCode::UNAUTHORIZED);
-    assert_eq!(call(&s, Method::POST, "/api/users", Some(signup_bypass.clone()), Some(&alice)).status, StatusCode::FORBIDDEN);
-    assert_eq!(call(&s, Method::POST, "/api/users", Some(signup_bypass), Some(&admin)).status, StatusCode::FORBIDDEN);
-    assert_eq!(call(&s, Method::DELETE, &format!("/api/users/{bob_id}"), None, Some(&alice)).status, StatusCode::FORBIDDEN);
+    assert_eq!(
+        call(
+            &s,
+            Method::POST,
+            "/api/users",
+            Some(signup_bypass.clone()),
+            None
+        )
+        .status,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        call(
+            &s,
+            Method::POST,
+            "/api/users",
+            Some(signup_bypass.clone()),
+            Some(&alice)
+        )
+        .status,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(
+            &s,
+            Method::POST,
+            "/api/users",
+            Some(signup_bypass),
+            Some(&admin)
+        )
+        .status,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(
+            &s,
+            Method::DELETE,
+            &format!("/api/users/{bob_id}"),
+            None,
+            Some(&alice)
+        )
+        .status,
+        StatusCode::FORBIDDEN
+    );
 }
 
 #[test]
 fn sensitive_fields_never_leave_rest() {
     let s = state();
     let admin = user("root", "admin");
-    let uid = insert(&s, "User", json!({"name": "A", "email": "a@x.io", "role": "user", "password": "$argon2id$secret-hash"}));
+    let uid = insert(
+        &s,
+        "User",
+        json!({"name": "A", "email": "a@x.io", "role": "user", "password": "$argon2id$secret-hash"}),
+    );
 
     let list = call(&s, Method::GET, "/api/users", None, Some(&admin));
     assert_eq!(list.status, StatusCode::OK);
     assert!(!list.body.to_string().contains("secret-hash"));
-    let detail = call(&s, Method::GET, &format!("/api/users/{uid}"), None, Some(&admin));
+    let detail = call(
+        &s,
+        Method::GET,
+        &format!("/api/users/{uid}"),
+        None,
+        Some(&admin),
+    );
     assert_eq!(detail.status, StatusCode::OK);
     assert!(detail.body.get("password").is_none());
-    let oracle = call(&s, Method::GET, "/api/users?search=secret-hash", None, Some(&admin));
+    let oracle = call(
+        &s,
+        Method::GET,
+        "/api/users?search=secret-hash",
+        None,
+        Some(&admin),
+    );
     assert_eq!(oracle.body, json!([]));
 
     let alice = user("alice", "user");
-    let note = insert(&s, "Note", json!({"title": "n", "secret": "s3cr3t", "_owner_id": "alice"}));
+    let note = insert(
+        &s,
+        "Note",
+        json!({"title": "n", "secret": "s3cr3t", "_owner_id": "alice"}),
+    );
     for reply in [
         call(&s, Method::GET, "/api/notes", None, Some(&alice)),
-        call(&s, Method::GET, &format!("/api/notes/{note}"), None, Some(&alice)),
-        call(&s, Method::PATCH, &format!("/api/notes/{note}"), Some(json!({"title": "m", "secret": "changed"})), Some(&alice)),
+        call(
+            &s,
+            Method::GET,
+            &format!("/api/notes/{note}"),
+            None,
+            Some(&alice),
+        ),
+        call(
+            &s,
+            Method::PATCH,
+            &format!("/api/notes/{note}"),
+            Some(json!({"title": "m", "secret": "changed"})),
+            Some(&alice),
+        ),
     ] {
         assert_eq!(reply.status, StatusCode::OK);
-        assert!(!reply.body.to_string().contains("s3cr3t"), "leaked in {}", reply.body);
+        assert!(
+            !reply.body.to_string().contains("s3cr3t"),
+            "leaked in {}",
+            reply.body
+        );
     }
     let row = s.db.find_by_id("Note", &note).expect("query").expect("row");
-    assert_eq!(row["secret"], "s3cr3t", "sensitive field must not be client-writable");
+    assert_eq!(
+        row["secret"], "s3cr3t",
+        "sensitive field must not be client-writable"
+    );
 }
 
 #[test]
 fn sensitive_fields_never_reach_the_audit_trail() {
     let s = state();
     let alice = user("alice", "user");
-    let created = call(&s, Method::POST, "/api/notes", Some(json!({"title": "n"})), Some(&alice));
+    let created = call(
+        &s,
+        Method::POST,
+        "/api/notes",
+        Some(json!({"title": "n"})),
+        Some(&alice),
+    );
     assert_eq!(created.status, StatusCode::CREATED);
-    let note = insert(&s, "Note", json!({"title": "n", "secret": "s3cr3t", "_owner_id": "alice"}));
-    let patched = call(&s, Method::PATCH, &format!("/api/notes/{note}"), Some(json!({"title": "m"})), Some(&alice));
+    let note = insert(
+        &s,
+        "Note",
+        json!({"title": "n", "secret": "s3cr3t", "_owner_id": "alice"}),
+    );
+    let patched = call(
+        &s,
+        Method::PATCH,
+        &format!("/api/notes/{note}"),
+        Some(json!({"title": "m"})),
+        Some(&alice),
+    );
     assert_eq!(patched.status, StatusCode::OK);
-    let deleted = call(&s, Method::DELETE, &format!("/api/notes/{note}"), None, Some(&alice));
+    let deleted = call(
+        &s,
+        Method::DELETE,
+        &format!("/api/notes/{note}"),
+        None,
+        Some(&alice),
+    );
     assert_eq!(deleted.status, StatusCode::OK);
     let trail = s.audit_trail.query(100).expect("audit query").to_string();
-    assert!(trail.contains("UPDATE") && trail.contains("DELETE"), "audit entries missing: {trail}");
-    assert!(!trail.contains("s3cr3t"), "sensitive value stored in audit trail: {trail}");
+    assert!(
+        trail.contains("UPDATE") && trail.contains("DELETE"),
+        "audit entries missing: {trail}"
+    );
+    assert!(
+        !trail.contains("s3cr3t"),
+        "sensitive value stored in audit trail: {trail}"
+    );
 }
 
 #[test]
@@ -333,7 +625,13 @@ fn admin_sees_every_owner() {
     insert(&s, "Note", json!({"title": "a", "_owner_id": "alice"}));
     insert(&s, "Note", json!({"title": "b", "_owner_id": "bob"}));
     insert(&s, "Note", json!({"title": "orphan"}));
-    let list = call(&s, Method::GET, "/api/notes", None, Some(&user("root", "admin")));
+    let list = call(
+        &s,
+        Method::GET,
+        "/api/notes",
+        None,
+        Some(&user("root", "admin")),
+    );
     assert_eq!(list.body.as_array().map(Vec::len), Some(3));
     assert_eq!(total_count(&list), "3");
 }
@@ -342,29 +640,66 @@ fn admin_sees_every_owner() {
 fn total_count_is_the_scoped_total_not_page_size() {
     let s = state();
     for i in 0..5 {
-        insert(&s, "Note", json!({"title": format!("a{i}"), "_owner_id": "alice"}));
+        insert(
+            &s,
+            "Note",
+            json!({"title": format!("a{i}"), "_owner_id": "alice"}),
+        );
     }
     insert(&s, "Note", json!({"title": "b", "_owner_id": "bob"}));
-    let page = call(&s, Method::GET, "/api/notes?limit=2&offset=2", None, Some(&user("alice", "user")));
+    let page = call(
+        &s,
+        Method::GET,
+        "/api/notes?limit=2&offset=2",
+        None,
+        Some(&user("alice", "user")),
+    );
     assert_eq!(page.body.as_array().map(Vec::len), Some(2));
     assert_eq!(total_count(&page), "5");
-    assert_eq!(page.headers.get("x-offset").and_then(|v| v.to_str().ok()), Some("2"));
+    assert_eq!(
+        page.headers.get("x-offset").and_then(|v| v.to_str().ok()),
+        Some("2")
+    );
 }
 
 #[test]
 fn search_covers_all_rows_not_first_page() {
     let s = state();
-    insert(&s, "Note", json!({"title": "the needle", "_owner_id": "alice"}));
-    insert(&s, "Note", json!({"title": "bob needle", "_owner_id": "bob"}));
+    insert(
+        &s,
+        "Note",
+        json!({"title": "the needle", "_owner_id": "alice"}),
+    );
+    insert(
+        &s,
+        "Note",
+        json!({"title": "bob needle", "_owner_id": "bob"}),
+    );
     for i in 0..150 {
-        insert(&s, "Note", json!({"title": format!("hay {i}"), "_owner_id": "alice"}));
+        insert(
+            &s,
+            "Note",
+            json!({"title": format!("hay {i}"), "_owner_id": "alice"}),
+        );
     }
-    let found = call(&s, Method::GET, "/api/notes?search=needle", None, Some(&user("alice", "user")));
+    let found = call(
+        &s,
+        Method::GET,
+        "/api/notes?search=needle",
+        None,
+        Some(&user("alice", "user")),
+    );
     assert_eq!(found.status, StatusCode::OK);
     assert_eq!(found.body.as_array().map(Vec::len), Some(1));
     assert_eq!(found.body[0]["title"], "the needle");
     assert_eq!(total_count(&found), "1");
-    let wildcard = call(&s, Method::GET, "/api/notes?q=%25", None, Some(&user("alice", "user")));
+    let wildcard = call(
+        &s,
+        Method::GET,
+        "/api/notes?q=%25",
+        None,
+        Some(&user("alice", "user")),
+    );
     assert_eq!(wildcard.body, json!([]));
 }
 
@@ -373,10 +708,19 @@ fn entity_is_resolved_by_exact_segment() {
     let s = state();
     let alice = user("alice", "user");
     insert(&s, "Note", json!({"title": "a", "_owner_id": "alice"}));
-    assert_eq!(call(&s, Method::GET, "/api/notesarchive", None, Some(&alice)).status, StatusCode::NOT_FOUND);
-    assert_eq!(call(&s, Method::GET, "/api/noteszzz/1", None, Some(&alice)).status, StatusCode::NOT_FOUND);
+    assert_eq!(
+        call(&s, Method::GET, "/api/notesarchive", None, Some(&alice)).status,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        call(&s, Method::GET, "/api/noteszzz/1", None, Some(&alice)).status,
+        StatusCode::NOT_FOUND
+    );
     // The singular alias still hits Note and still obeys the declared api block.
-    assert_eq!(call(&s, Method::GET, "/api/note", None, None).status, StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        call(&s, Method::GET, "/api/note", None, None).status,
+        StatusCode::UNAUTHORIZED
+    );
     assert!(entity_matches_segment("Category", "categories"));
     assert!(entity_matches_segment("BlogPost", "blog-posts"));
     assert!(!entity_matches_segment("Note", "notesarchive"));
@@ -389,33 +733,79 @@ fn shared_entity_reads_are_open_but_writes_stay_owner_scoped() {
     let bob = user("bob", "user");
     let list = call(&s, Method::GET, "/api/boards", None, Some(&bob));
     assert_eq!(list.body.as_array().map(Vec::len), Some(1));
-    let patch = call(&s, Method::PATCH, &format!("/api/boards/{id}"), Some(json!({"title": "bob's"})), Some(&bob));
+    let patch = call(
+        &s,
+        Method::PATCH,
+        &format!("/api/boards/{id}"),
+        Some(json!({"title": "bob's"})),
+        Some(&bob),
+    );
     assert_eq!(patch.status, StatusCode::NOT_FOUND);
-    assert_eq!(s.db.find_by_id("Board", &id).expect("query").expect("row")["title"], "team");
-    assert_eq!(call(&s, Method::GET, "/api/boards", None, None).status, StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        s.db.find_by_id("Board", &id).expect("query").expect("row")["title"],
+        "team"
+    );
+    assert_eq!(
+        call(&s, Method::GET, "/api/boards", None, None).status,
+        StatusCode::UNAUTHORIZED
+    );
 }
 
 #[test]
 fn role_routes_return_403_for_other_roles() {
     let s = state();
-    assert_eq!(call(&s, Method::GET, "/api/reports", None, None).status, StatusCode::UNAUTHORIZED);
-    let denied = call(&s, Method::GET, "/api/reports", None, Some(&user("alice", "user")));
+    assert_eq!(
+        call(&s, Method::GET, "/api/reports", None, None).status,
+        StatusCode::UNAUTHORIZED
+    );
+    let denied = call(
+        &s,
+        Method::GET,
+        "/api/reports",
+        None,
+        Some(&user("alice", "user")),
+    );
     assert_eq!(denied.status, StatusCode::FORBIDDEN);
     assert_eq!(error_code(&denied), "FORBIDDEN");
-    assert_eq!(call(&s, Method::GET, "/api/reports", None, Some(&user("root", "admin"))).status, StatusCode::OK);
+    assert_eq!(
+        call(
+            &s,
+            Method::GET,
+            "/api/reports",
+            None,
+            Some(&user("root", "admin"))
+        )
+        .status,
+        StatusCode::OK
+    );
 }
 
 #[test]
 fn errors_use_stable_codes_without_driver_text() {
     let s = state();
     let alice = user("alice", "user");
-    let missing = call(&s, Method::POST, "/api/notes", Some(json!({"secret": "x"})), Some(&alice));
+    let missing = call(
+        &s,
+        Method::POST,
+        "/api/notes",
+        Some(json!({"secret": "x"})),
+        Some(&alice),
+    );
     assert_eq!(missing.status, StatusCode::BAD_REQUEST);
     assert_eq!(error_code(&missing), "VALIDATION_FAILED");
-    let not_object = call(&s, Method::POST, "/api/notes", Some(json!(["x"])), Some(&alice));
+    let not_object = call(
+        &s,
+        Method::POST,
+        "/api/notes",
+        Some(json!(["x"])),
+        Some(&alice),
+    );
     assert_eq!(error_code(&not_object), "VALIDATION_FAILED");
     let gone = call(&s, Method::GET, "/api/notes/nope", None, Some(&alice));
-    assert_eq!(gone.body, json!({"error": {"code": "NOT_FOUND", "message": "Not found"}}));
+    assert_eq!(
+        gone.body,
+        json!({"error": {"code": "NOT_FOUND", "message": "Not found"}})
+    );
 }
 
 #[test]
@@ -424,7 +814,8 @@ fn claims_come_from_bearer_or_cookie() {
     let token = create_token("u1", "user", secret);
     let from_bearer = claims_from_headers(Some(&format!("Bearer {token}")), "", secret);
     assert_eq!(from_bearer.map(|c| c.sub), Some("u1".to_string()));
-    let from_cookie = claims_from_headers(None, &format!("theme=dark; cronus_token={token}"), secret);
+    let from_cookie =
+        claims_from_headers(None, &format!("theme=dark; cronus_token={token}"), secret);
     assert_eq!(from_cookie.map(|c| c.sub), Some("u1".to_string()));
     assert!(claims_from_headers(Some("Bearer forged"), "", secret).is_none());
     assert!(claims_from_headers(None, "", secret).is_none());

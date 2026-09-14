@@ -4,41 +4,42 @@
 //! Generates complete HTML pages from the AST.
 //! No React, no frameworks — pure HTML + Tailwind CDN + vanilla JS.
 
-pub mod layout;
 pub mod audit_layout;
-pub mod page;
-mod section_hero;
-mod section_features;
-mod section_chart;
-mod section_kpi;
-mod section_form;
-mod section_misc;
-mod util;
 pub mod component;
 pub mod dashboard;
+pub mod layout;
+pub mod page;
+mod section_chart;
 pub(crate) mod section_extra;
+mod section_features;
+mod section_form;
+mod section_hero;
+mod section_kpi;
+mod section_misc;
+mod util;
 
 pub use component::{
     render_component, render_components_inline, render_components_page, render_light_app_page,
 };
 pub use dashboard::{
-    render_dashboard_page, render_generic_dashboard,
-    render_billing_dashboard, render_payouts_dashboard,
-    render_security_dashboard, render_settings_dashboard,
-    render_checkout_dashboard, render_payment_links_dashboard,
-    render_order_detail_dashboard, render_unified_dashboard,
+    render_billing_dashboard, render_checkout_dashboard, render_dashboard_page,
+    render_generic_dashboard, render_order_detail_dashboard, render_payment_links_dashboard,
+    render_payouts_dashboard, render_security_dashboard, render_settings_dashboard,
+    render_unified_dashboard,
 };
 
-
 pub use layout::*;
-pub use page::{render_page, render_auth_page};
+pub use page::{render_auth_page, render_page};
 
-use crate::parser::{EntityNode, FieldType, PageNode, SectionNode, ComponentNode, ComponentItemNode, LayoutNode, StyleNode};
+use crate::animations::{CRONUS_ANIMATE_JS, CRONUS_ANIMATIONS};
 use crate::components;
-use crate::render::CRONUS_RUNTIME_JS;
 use crate::hmr::HMR_CLIENT_JS;
+use crate::parser::{
+    ComponentItemNode, ComponentNode, EntityNode, FieldType, LayoutNode, PageNode, SectionNode,
+    StyleNode,
+};
+use crate::render::CRONUS_RUNTIME_JS;
 use crate::tailwind::CRONUS_TAILWIND;
-use crate::animations::{CRONUS_ANIMATIONS, CRONUS_ANIMATE_JS};
 
 // ══════════════════════════════════════════════════
 // SHARED ANIMATION CSS + JS (injected into every page)
@@ -596,8 +597,17 @@ document.addEventListener('DOMContentLoaded',()=>{
 // LAYOUT (wraps every page)
 // ══════════════════════════════════════════════════
 
-pub(crate) fn render_section(section: &SectionNode, accent: &str, theme: &str, bound_data: &crate::binding::ResolvedData) -> String {
-    let entity = section.binding.as_ref().map(|b| b.entity.as_str()).unwrap_or("");
+pub(crate) fn render_section(
+    section: &SectionNode,
+    accent: &str,
+    theme: &str,
+    bound_data: &crate::binding::ResolvedData,
+) -> String {
+    let entity = section
+        .binding
+        .as_ref()
+        .map(|b| b.entity.as_str())
+        .unwrap_or("");
     crate::cronus_ui_data::with_binding(entity, bound_data, || {
         render_section_inner(section, accent, theme, bound_data)
     })
@@ -625,7 +635,12 @@ fn attach_voodoo_form(html: String, entity: &str) -> String {
     html
 }
 
-fn render_section_inner(section: &SectionNode, accent: &str, theme: &str, bound_data: &crate::binding::ResolvedData) -> String {
+fn render_section_inner(
+    section: &SectionNode,
+    accent: &str,
+    theme: &str,
+    bound_data: &crate::binding::ResolvedData,
+) -> String {
     let script_nonce = crate::security::script_nonce_attr();
     // --- Conditional visibility ---
     if let Some(ref cond) = section.visibility {
@@ -661,30 +676,61 @@ fn render_section_inner(section: &SectionNode, accent: &str, theme: &str, bound_
             crate::contracts::ParseWarning::UnknownSection { name, .. } => {
                 eprintln!("  \x1b[33m⚠\x1b[0m Unknown section type \"{}\"", name);
             }
-            crate::contracts::ParseWarning::UnknownKey { section, key, item, .. } => {
-                eprintln!("  \x1b[33m⚠\x1b[0m Section \"{}\": unexpected key \"{}\" on item \"{}\"", section, key, item);
+            crate::contracts::ParseWarning::UnknownKey {
+                section, key, item, ..
+            } => {
+                eprintln!(
+                    "  \x1b[33m⚠\x1b[0m Section \"{}\": unexpected key \"{}\" on item \"{}\"",
+                    section, key, item
+                );
             }
-            crate::contracts::ParseWarning::MissingRequired { section, key, item, .. } => {
-                eprintln!("  \x1b[31m✗\x1b[0m Section \"{}\": missing required key \"{}\" on item \"{}\"", section, key, item);
+            crate::contracts::ParseWarning::MissingRequired {
+                section, key, item, ..
+            } => {
+                eprintln!(
+                    "  \x1b[31m✗\x1b[0m Section \"{}\": missing required key \"{}\" on item \"{}\"",
+                    section, key, item
+                );
             }
-            crate::contracts::ParseWarning::AliasUsed { alias, canonical, .. } => {
-                eprintln!("  \x1b[36mℹ\x1b[0m Section \"{}\" is an alias for \"{}\"", alias, canonical);
+            crate::contracts::ParseWarning::AliasUsed {
+                alias, canonical, ..
+            } => {
+                eprintln!(
+                    "  \x1b[36mℹ\x1b[0m Section \"{}\" is an alias for \"{}\"",
+                    alias, canonical
+                );
             }
-            crate::contracts::ParseWarning::MinItemsViolation { section, expected, actual, .. } => {
-                eprintln!("  \x1b[33m⚠\x1b[0m Section \"{}\": expected at least {} item(s), found {}", section, expected, actual);
+            crate::contracts::ParseWarning::MinItemsViolation {
+                section,
+                expected,
+                actual,
+                ..
+            } => {
+                eprintln!(
+                    "  \x1b[33m⚠\x1b[0m Section \"{}\": expected at least {} item(s), found {}",
+                    section, expected, actual
+                );
             }
             crate::contracts::ParseWarning::UnknownConfig { section, key, .. } => {
-                eprintln!("  \x1b[33m⚠\x1b[0m Section \"{}\": unknown config key \"{}\"", section, key);
+                eprintln!(
+                    "  \x1b[33m⚠\x1b[0m Section \"{}\": unknown config key \"{}\"",
+                    section, key
+                );
             }
         }
     }
-    if strict && warnings.iter().any(|w| matches!(w,
-        crate::contracts::ParseWarning::UnknownSection { .. } |
-        crate::contracts::ParseWarning::UnknownKey { .. } |
-        crate::contracts::ParseWarning::MissingRequired { .. } |
-        crate::contracts::ParseWarning::MinItemsViolation { .. } |
-        crate::contracts::ParseWarning::UnknownConfig { .. }
-    )) {
+    if strict
+        && warnings.iter().any(|w| {
+            matches!(
+                w,
+                crate::contracts::ParseWarning::UnknownSection { .. }
+                    | crate::contracts::ParseWarning::UnknownKey { .. }
+                    | crate::contracts::ParseWarning::MissingRequired { .. }
+                    | crate::contracts::ParseWarning::MinItemsViolation { .. }
+                    | crate::contracts::ParseWarning::UnknownConfig { .. }
+            )
+        })
+    {
         return format!("<div style=\"padding:24px;color:#dc2626;font-family:monospace\">Strict mode: section \"{}\" has {} validation issue(s)</div>",
             section.section_type, warnings.len());
     }
@@ -698,12 +744,11 @@ fn render_section_inner(section: &SectionNode, accent: &str, theme: &str, bound_
     let style_from_config = section.config.get("style_block").cloned();
 
     // Prefer dedicated SectionNode fields over config keys
-    let effective_template: Option<&String> = section.template.as_ref()
-        .or(template_from_config.as_ref());
+    let effective_template: Option<&String> =
+        section.template.as_ref().or(template_from_config.as_ref());
 
     if let Some(tmpl) = effective_template {
-        let effective_style = section.style_block.clone()
-            .or(style_from_config);
+        let effective_style = section.style_block.clone().or(style_from_config);
         return render_template(tmpl, section, &effective_style);
     }
 
@@ -737,7 +782,9 @@ fn render_section_inner(section: &SectionNode, accent: &str, theme: &str, bound_
         "edge" => section_extra::render_edge(section, accent),
         "sidebar" => section_extra::render_sidebar(section),
         "form" => section_form::render_form_section(section, bound_data),
-        "card" | "live-keys" | "test-keys" | "webhooks" => section_extra::render_card_section(section),
+        "card" | "live-keys" | "test-keys" | "webhooks" => {
+            section_extra::render_card_section(section)
+        }
         "links" | "quick-links" => section_extra::render_links_section(section),
         "tabs" => crate::tabs::render_tabs(section),
         "accordion" => crate::feedback::render_accordion(section),
@@ -761,16 +808,23 @@ fn render_section_inner(section: &SectionNode, accent: &str, theme: &str, bound_
         "progress" => section_extra::render_progress_section(section, bound_data),
         "command" => crate::command_palette::render_command_palette(section),
         "table" => {
-            let is_dark_table = section.config.get("style").map(|s| s.contains("dark")).unwrap_or(false)
-                || theme == "dark" || theme == "obsidian";
+            let is_dark_table = section
+                .config
+                .get("style")
+                .map(|s| s.contains("dark"))
+                .unwrap_or(false)
+                || theme == "dark"
+                || theme == "obsidian";
             let has_static_rows = section.items.iter().any(|item| {
                 let t = item.get("_type").map(|s| s.as_str()).unwrap_or("item");
-                (t == "item" || t == "row") && (
-                    item.get("title").map(|s| s.starts_with('#')).unwrap_or(false)
-                    || item.get("client").is_some()
-                    || item.get("value").is_some()
-                    || item.get("status").is_some()
-                )
+                (t == "item" || t == "row")
+                    && (item
+                        .get("title")
+                        .map(|s| s.starts_with('#'))
+                        .unwrap_or(false)
+                        || item.get("client").is_some()
+                        || item.get("value").is_some()
+                        || item.get("status").is_some())
             });
             if is_dark_table {
                 crate::data_table::render_data_table_dark(section, bound_data)
@@ -786,7 +840,11 @@ fn render_section_inner(section: &SectionNode, accent: &str, theme: &str, bound_
         "kanban" => crate::board::render_kanban(section, bound_data),
         "dark-mode" => crate::board::render_dark_mode_toggle(section),
         "layout" => {
-            let style = section.config.get("style").map(|s| s.as_str()).unwrap_or("");
+            let style = section
+                .config
+                .get("style")
+                .map(|s| s.as_str())
+                .unwrap_or("");
             match style {
                 "columns" | "grid" => crate::layout_system::render_column_layout(section),
                 _ => crate::layout_system::render_layout_section(section),
@@ -794,7 +852,8 @@ fn render_section_inner(section: &SectionNode, accent: &str, theme: &str, bound_
         }
         _ => {
             if crate::cronus_ui_widgets::FAMILIES.contains(&section.section_type.as_str()) {
-                let comp = crate::cronus_ui_data::component_from_section(&section.section_type, section);
+                let comp =
+                    crate::cronus_ui_data::component_from_section(&section.section_type, section);
                 crate::cronus_ui_widgets::render(&comp)
                     .unwrap_or_else(|| section_extra::render_generic_section(section, accent))
             } else {
@@ -803,7 +862,11 @@ fn render_section_inner(section: &SectionNode, accent: &str, theme: &str, bound_
         }
     };
 
-    let entity_name = section.binding.as_ref().map(|b| b.entity.as_str()).unwrap_or("");
+    let entity_name = section
+        .binding
+        .as_ref()
+        .map(|b| b.entity.as_str())
+        .unwrap_or("");
     let section_html = attach_voodoo_form(section_html, entity_name);
 
     // If we have bound data, wrap with data attributes for downstream JS/rendering
@@ -812,7 +875,11 @@ fn render_section_inner(section: &SectionNode, accent: &str, theme: &str, bound_
             let count = rows.len();
             format!(
                 "<div data-entity=\"{}\" data-bound-rows=\"{}\">{}</div>",
-                section.binding.as_ref().map(|b| b.entity.as_str()).unwrap_or(""),
+                section
+                    .binding
+                    .as_ref()
+                    .map(|b| b.entity.as_str())
+                    .unwrap_or(""),
                 count,
                 section_html
             )
@@ -820,7 +887,11 @@ fn render_section_inner(section: &SectionNode, accent: &str, theme: &str, bound_
         crate::binding::ResolvedData::Count(n) => {
             format!(
                 "<div data-entity=\"{}\" data-bound-count=\"{}\">{}</div>",
-                section.binding.as_ref().map(|b| b.entity.as_str()).unwrap_or(""),
+                section
+                    .binding
+                    .as_ref()
+                    .map(|b| b.entity.as_str())
+                    .unwrap_or(""),
                 n,
                 section_html
             )
@@ -831,7 +902,11 @@ fn render_section_inner(section: &SectionNode, accent: &str, theme: &str, bound_
     // Live SSE: auto-refresh when entity data changes
     let is_live = section.binding.as_ref().map(|b| b.live).unwrap_or(false);
     let output = if is_live {
-        let entity = section.binding.as_ref().map(|b| b.entity.as_str()).unwrap_or("");
+        let entity = section
+            .binding
+            .as_ref()
+            .map(|b| b.entity.as_str())
+            .unwrap_or("");
         let live_id = format!("live_{}", entity.to_lowercase());
         format!(
             r#"<div id="{live_id}" data-live-entity="{entity}">{output}</div>
@@ -859,7 +934,9 @@ fn render_section_inner(section: &SectionNode, accent: &str, theme: &str, bound_
   }};
 }})();
 </script>"#,
-            live_id = live_id, entity = entity, output = output
+            live_id = live_id,
+            entity = entity,
+            output = output
         )
     } else {
         output
@@ -867,23 +944,26 @@ fn render_section_inner(section: &SectionNode, accent: &str, theme: &str, bound_
 
     // Add data-cronus-debug attribute when DEBUG_MODE is active
     if crate::DEBUG_MODE.load(std::sync::atomic::Ordering::Relaxed) {
-        let entity = section.binding.as_ref().map(|b| b.entity.as_str()).unwrap_or("");
+        let entity = section
+            .binding
+            .as_ref()
+            .map(|b| b.entity.as_str())
+            .unwrap_or("");
         let row_count = match bound_data {
             crate::binding::ResolvedData::Rows(rows) => rows.len(),
             crate::binding::ResolvedData::Count(n) => *n as usize,
             _ => 0,
         };
-        let doc_summary = section.doc.as_ref()
+        let doc_summary = section
+            .doc
+            .as_ref()
             .map(|d| d.summary.replace('"', "\\\""))
             .unwrap_or_default();
         let debug_json = format!(
             r#"{{"type":"{}","entity":"{}","rows":{},"doc":"{}"}}"#,
             section.section_type, entity, row_count, doc_summary
         );
-        format!(
-            "<div data-cronus-debug='{}'>{}</div>",
-            debug_json, output
-        )
+        format!("<div data-cronus-debug='{}'>{}</div>", debug_json, output)
     } else {
         output
     }
@@ -893,11 +973,11 @@ fn render_section_inner(section: &SectionNode, accent: &str, theme: &str, bound_
 /// Always process raw (`{{{...}}}`) FIRST so the triple-brace pattern isn't caught by double-brace.
 fn safe_interpolate(template: &str, key: &str, value: &str) -> String {
     let safe_value = crate::security::html_escape(value);
-    let raw_pattern = format!("{{{{{{{}}}}}}}", key);   // {{{key}}}
-    let safe_pattern = format!("{{{{{}}}}}", key);       // {{key}}
+    let raw_pattern = format!("{{{{{{{}}}}}}}", key); // {{{key}}}
+    let safe_pattern = format!("{{{{{}}}}}", key); // {{key}}
     template
-        .replace(&raw_pattern, value)        // raw FIRST
-        .replace(&safe_pattern, &safe_value)  // then safe
+        .replace(&raw_pattern, value) // raw FIRST
+        .replace(&safe_pattern, &safe_value) // then safe
 }
 
 /// Render a section from its inline template block, replacing `{{placeholder}}`
@@ -1001,4 +1081,3 @@ fn render_template(template: &str, section: &SectionNode, style_block: &Option<S
     html.push_str(&rendered);
     html
 }
-

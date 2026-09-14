@@ -166,7 +166,11 @@ mod tests {
                 seg("Week", false)
             )
         );
-        assert_eq!(html.matches("data-slot=\"segmented-control-thumb\"").count(), 1);
+        assert_eq!(
+            html.matches("data-slot=\"segmented-control-thumb\"")
+                .count(),
+            1
+        );
         reject_interact(&html);
     }
 
@@ -233,7 +237,10 @@ mod tests {
     #[test]
     fn options_from_items_and_escaped() {
         let html = render(&stub_options(&["A", "B", "<C>"]));
-        assert_eq!(html.matches("data-slot=\"segmented-control-item\"").count(), 3);
+        assert_eq!(
+            html.matches("data-slot=\"segmented-control-item\"").count(),
+            3
+        );
         assert!(html.contains("<span>A</span></button>"));
         assert!(html.contains("<span>&lt;C&gt;</span></button>"));
         reject_interact(&html);
@@ -273,7 +280,9 @@ mod tests {
         assert!(css.contains("gap: 0.25rem"));
         // Wave 1s geometry parity (React measured: root 124x42, items 32px tall, 14px/20px).
         assert!(css.contains("position: relative; isolation: isolate; vertical-align: middle;"));
-        assert!(css.contains("font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;"));
+        assert!(css.contains(
+            "font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;"
+        ));
         assert!(css.contains("position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 0.375rem;"));
         assert!(css.contains("var(--cronus-surface-overlay)"));
         assert!(css.contains("var(--cronus-surface-floating)"));

@@ -18,7 +18,10 @@ use crate::parser::ComponentNode;
 pub fn render(comp: &ComponentNode) -> String {
     let placeholder = placeholder_of(comp);
     let options = options_of(comp, &placeholder);
-    let value = attr(comp, "value").filter(|s| !s.is_empty()).map(esc).unwrap_or_default();
+    let value = attr(comp, "value")
+        .filter(|s| !s.is_empty())
+        .map(esc)
+        .unwrap_or_default();
     let disabled = flag(comp, "disabled");
     let aria = aria_label_of(comp);
     let needle = value.to_lowercase();
@@ -197,7 +200,10 @@ mod tests {
         let html = render(&c);
         assert!(html.contains("placeholder=\"Search\""));
         assert_eq!(html.matches("role=\"option\"").count(), 2);
-        assert!(!html.contains("<span>Search</span>"), "Search leaked as option: {html}");
+        assert!(
+            !html.contains("<span>Search</span>"),
+            "Search leaked as option: {html}"
+        );
         reject_interact(&html);
     }
 

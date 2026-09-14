@@ -70,7 +70,9 @@ pub fn start_directory_watcher(dir: &str, on_change: impl Fn() + Send + 'static)
             if let Ok(entries) = std::fs::read_dir(&dir) {
                 for entry in entries.flatten() {
                     let name = entry.file_name().to_string_lossy().to_string();
-                    if !name.ends_with(".cronus") { continue; }
+                    if !name.ends_with(".cronus") {
+                        continue;
+                    }
 
                     if let Ok(meta) = entry.metadata() {
                         if let Ok(modified) = meta.modified() {
@@ -103,16 +105,12 @@ pub fn start_directory_watcher(dir: &str, on_change: impl Fn() + Send + 'static)
 pub fn start_watcher(path: &str, on_change: impl Fn() + Send + 'static) {
     let path = path.to_string();
     std::thread::spawn(move || {
-        let mut last_modified = std::fs::metadata(&path)
-            .and_then(|m| m.modified())
-            .ok();
+        let mut last_modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
 
         loop {
             std::thread::sleep(Duration::from_millis(500));
 
-            let current = std::fs::metadata(&path)
-                .and_then(|m| m.modified())
-                .ok();
+            let current = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
 
             if current != last_modified {
                 last_modified = current;

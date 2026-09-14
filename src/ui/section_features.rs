@@ -2,7 +2,11 @@
 use crate::parser::SectionNode;
 
 pub(super) fn render_features(section: &SectionNode, _accent: &str, theme: &str) -> String {
-    let style_hint = section.config.get("style").map(|s| s.as_str()).unwrap_or("");
+    let style_hint = section
+        .config
+        .get("style")
+        .map(|s| s.as_str())
+        .unwrap_or("");
     let is_dark = theme == "dark" || style_hint.contains("dark");
 
     // Split layout — two-column text+icons left, image right
@@ -95,25 +99,43 @@ pub(super) fn render_features_bento_dark(section: &SectionNode) -> String {
     // Helper: render a single card's HTML (without grid wrapper)
     let render_card = |group: &CardGroup, card_index: usize| -> String {
         let card = &group.card;
-        let name = card.get("title").or_else(|| card.get("name")).map(|s| s.as_str()).unwrap_or("Feature");
-        let desc = card.get("description").or_else(|| card.get("desc")).map(|s| s.as_str()).unwrap_or("");
+        let name = card
+            .get("title")
+            .or_else(|| card.get("name"))
+            .map(|s| s.as_str())
+            .unwrap_or("Feature");
+        let desc = card
+            .get("description")
+            .or_else(|| card.get("desc"))
+            .map(|s| s.as_str())
+            .unwrap_or("");
         let icon_name = card.get("icon").map(|s| s.as_str()).unwrap_or("star");
         let span: u32 = card.get("span").and_then(|s| s.parse().ok()).unwrap_or(4);
         let anim_delay = format!("{}s", 0.5 + (card_index as f32) * 0.1);
 
-        let has_image = group.children.iter().any(|c| c.get("_type").map(|s| s.as_str()) == Some("image"));
-        let has_chips = group.children.iter().any(|c| c.get("_type").map(|s| s.as_str()) == Some("chip"));
+        let has_image = group
+            .children
+            .iter()
+            .any(|c| c.get("_type").map(|s| s.as_str()) == Some("image"));
+        let has_chips = group
+            .children
+            .iter()
+            .any(|c| c.get("_type").map(|s| s.as_str()) == Some("chip"));
         let has_badge = card.get("badge").is_some();
         let has_action = card.get("action_text").is_some();
 
-        let img_src = group.children.iter()
+        let img_src = group
+            .children
+            .iter()
             .filter(|c| c.get("_type").map(|s| s.as_str()) == Some("image"))
             .filter_map(|c| c.get("src").or(c.get("url")))
             .next()
             .map(|s| s.trim_matches('"').to_string())
             .unwrap_or_default();
 
-        let img_alt = group.children.iter()
+        let img_alt = group
+            .children
+            .iter()
             .filter(|c| c.get("_type").map(|s| s.as_str()) == Some("image"))
             .filter_map(|c| c.get("alt"))
             .next()
@@ -152,14 +174,18 @@ pub(super) fn render_features_bento_dark(section: &SectionNode) -> String {
             let image_html = if !img_src.is_empty() {
                 format!(
                     r#"<div class="flex items-center justify-center mb-8 mt-4 relative w-full z-10"><img alt="{alt}" src="{src}" class="drop-shadow-2xl h-full object-contain"></div>"#,
-                    alt = name, src = img_src
+                    alt = name,
+                    src = img_src
                 )
             } else {
                 String::new()
             };
 
             let price_html = if !desc.is_empty() {
-                format!(r#"<p class="font-mono mb-6 text-neutral-500 text-sm">{}</p>"#, desc)
+                format!(
+                    r#"<p class="font-mono mb-6 text-neutral-500 text-sm">{}</p>"#,
+                    desc
+                )
             } else {
                 String::new()
             };
@@ -191,7 +217,8 @@ pub(super) fn render_features_bento_dark(section: &SectionNode) -> String {
             let image_html = if !img_src.is_empty() {
                 format!(
                     r#"<img src="{src}" alt="{alt}" class="absolute bottom-0 duration-700 group-hover:scale-105 h-full left-0 object-cover opacity-90 right-0 top-0 transition-transform w-full"><div class="absolute bg-gradient-to-t bottom-0 from-black left-0 right-0 to-transparent top-0 via-black/20"></div>"#,
-                    src = img_src, alt = img_alt
+                    src = img_src,
+                    alt = img_alt
                 )
             } else {
                 String::new()
@@ -254,7 +281,11 @@ pub(super) fn render_features_bento_dark(section: &SectionNode) -> String {
     let mut card_index: usize = 0;
 
     while i < cards.len() {
-        let span: u32 = cards[i].card.get("span").and_then(|s| s.parse().ok()).unwrap_or(4);
+        let span: u32 = cards[i]
+            .card
+            .get("span")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(4);
 
         if is_product_grid {
             // Product grid: render each card individually, no col-span wrapping
@@ -281,7 +312,11 @@ pub(super) fn render_features_bento_dark(section: &SectionNode) -> String {
             // Collect consecutive span:4 cards into a flex-col wrapper
             let mut small_cards: Vec<String> = Vec::new();
             while i < cards.len() {
-                let next_span: u32 = cards[i].card.get("span").and_then(|s| s.parse().ok()).unwrap_or(4);
+                let next_span: u32 = cards[i]
+                    .card
+                    .get("span")
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(4);
                 if next_span >= 8 || next_span >= 12 {
                     break;
                 }
@@ -294,7 +329,8 @@ pub(super) fn render_features_bento_dark(section: &SectionNode) -> String {
             }
 
             if !small_cards.is_empty() {
-                let wrapper_delay = format!("{}s", 0.5 + ((card_index - small_cards.len()) as f32) * 0.1);
+                let wrapper_delay =
+                    format!("{}s", 0.5 + ((card_index - small_cards.len()) as f32) * 0.1);
                 grid_items.push(format!(
                     r#"<div class="[animation:fadeInUp_0.8s_ease-out_{delay}_both] flex flex-col gap-6 md:col-span-4 z-10">
   {cards}
@@ -322,7 +358,10 @@ pub(super) fn render_features_bento_dark(section: &SectionNode) -> String {
     let section_header = if let Some(ref title) = section.title {
         let subtitle = section.subtitle.as_deref().unwrap_or("");
         let subtitle_html = if !subtitle.is_empty() {
-            format!(r#"<p class="[animation:fadeInUp_0.8s_ease-out_0.3s_both] font-light mt-4 text-neutral-400">{}</p>"#, subtitle)
+            format!(
+                r#"<p class="[animation:fadeInUp_0.8s_ease-out_0.3s_both] font-light mt-4 text-neutral-400">{}</p>"#,
+                subtitle
+            )
         } else {
             String::new()
         };
@@ -362,14 +401,46 @@ pub(super) fn render_features_bento_dark(section: &SectionNode) -> String {
 /// Material symbol icon helper
 pub(super) fn get_material_icon(name: &str, color: &str, size: u32) -> String {
     match name {
-        "commit" => format!(r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M16.89 12.5a5.001 5.001 0 00-9.78 0H2v-1h5.11a5.001 5.001 0 019.78 0H22v1h-5.11zM12 15a3 3 0 110-6 3 3 0 010 6z"/></svg>"#, s=size, c=color),
-        "extension" => format!(r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M20.5 11H19V7a2 2 0 00-2-2h-4V3.5a2.5 2.5 0 00-5 0V5H4a2 2 0 00-2 2v3.8h1.5a2.7 2.7 0 010 5.4H2V20a2 2 0 002 2h3.8v-1.5a2.7 2.7 0 015.4 0V22H17a2 2 0 002-2v-4h1.5a2.5 2.5 0 000-5z"/></svg>"#, s=size, c=color),
-        "public" | "globe" => format!(r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>"#, s=size, c=color),
-        "terminal" => format!(r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zm0 14H4V8h16v10zm-2-1h-6v-2h6v2zM7.5 17l-1.41-1.41L8.67 13l-2.59-2.59L7.5 9l4 4-4 4z"/></svg>"#, s=size, c=color),
-        "code" => format!(r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>"#, s=size, c=color),
-        "upload" | "cloud_upload" => format!(r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>"#, s=size, c=color),
-        "rocket_launch" | "rocket" => format!(r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M12 2.5s4.5 2 4.5 9.5c0 2.08-.52 3.88-1.26 5.35l-1.62-1.62a2 2 0 00-3.24 0l-1.62 1.62A14.83 14.83 0 017.5 12c0-7.5 4.5-9.5 4.5-9.5zM5 18l1.38-1.37c.49-.49 1.11-.83 1.78-.97l1.85 1.85c-.06.85-.27 1.7-.64 2.49H5zm14 0h-4.37c-.37-.79-.58-1.64-.64-2.49l1.85-1.85c.67.14 1.29.48 1.78.97L19 18zM12 12.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg>"#, s=size, c=color),
-        _ => format!(r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>"#, s=size, c=color),
+        "commit" => format!(
+            r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M16.89 12.5a5.001 5.001 0 00-9.78 0H2v-1h5.11a5.001 5.001 0 019.78 0H22v1h-5.11zM12 15a3 3 0 110-6 3 3 0 010 6z"/></svg>"#,
+            s = size,
+            c = color
+        ),
+        "extension" => format!(
+            r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M20.5 11H19V7a2 2 0 00-2-2h-4V3.5a2.5 2.5 0 00-5 0V5H4a2 2 0 00-2 2v3.8h1.5a2.7 2.7 0 010 5.4H2V20a2 2 0 002 2h3.8v-1.5a2.7 2.7 0 015.4 0V22H17a2 2 0 002-2v-4h1.5a2.5 2.5 0 000-5z"/></svg>"#,
+            s = size,
+            c = color
+        ),
+        "public" | "globe" => format!(
+            r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>"#,
+            s = size,
+            c = color
+        ),
+        "terminal" => format!(
+            r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zm0 14H4V8h16v10zm-2-1h-6v-2h6v2zM7.5 17l-1.41-1.41L8.67 13l-2.59-2.59L7.5 9l4 4-4 4z"/></svg>"#,
+            s = size,
+            c = color
+        ),
+        "code" => format!(
+            r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>"#,
+            s = size,
+            c = color
+        ),
+        "upload" | "cloud_upload" => format!(
+            r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>"#,
+            s = size,
+            c = color
+        ),
+        "rocket_launch" | "rocket" => format!(
+            r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M12 2.5s4.5 2 4.5 9.5c0 2.08-.52 3.88-1.26 5.35l-1.62-1.62a2 2 0 00-3.24 0l-1.62 1.62A14.83 14.83 0 017.5 12c0-7.5 4.5-9.5 4.5-9.5zM5 18l1.38-1.37c.49-.49 1.11-.83 1.78-.97l1.85 1.85c-.06.85-.27 1.7-.64 2.49H5zm14 0h-4.37c-.37-.79-.58-1.64-.64-2.49l1.85-1.85c.67.14 1.29.48 1.78.97L19 18zM12 12.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg>"#,
+            s = size,
+            c = color
+        ),
+        _ => format!(
+            r#"<svg width="{s}" height="{s}" viewBox="0 0 24 24" fill="{c}"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>"#,
+            s = size,
+            c = color
+        ),
     }
 }
 
@@ -659,9 +730,10 @@ pub(super) fn render_bento_children_light(
     parts.join("\n")
 }
 
-
 pub(super) fn render_features_split_dark(section: &SectionNode) -> String {
-    let eyebrow = section.config.get("eyebrow")
+    let eyebrow = section
+        .config
+        .get("eyebrow")
         .or(section.config.get("badge"))
         .map(|s| s.as_str())
         .unwrap_or("");
@@ -683,27 +755,52 @@ pub(super) fn render_features_split_dark(section: &SectionNode) -> String {
     for item in &section.items {
         let item_type = item.get("_type").map(|s| s.as_str()).unwrap_or("");
         if item_type == "image" {
-            image_src = item.get("src").or(item.get("url")).map(|s| s.trim_matches('"').to_string()).unwrap_or_default();
+            image_src = item
+                .get("src")
+                .or(item.get("url"))
+                .map(|s| s.trim_matches('"').to_string())
+                .unwrap_or_default();
             continue;
         }
-        if item.get("image").is_some() || (item.get("src").is_some() && item.get("title").is_none()) {
-            image_src = item.get("src").or(item.get("image")).map(|s| s.trim_matches('"').to_string()).unwrap_or_default();
+        if item.get("image").is_some() || (item.get("src").is_some() && item.get("title").is_none())
+        {
+            image_src = item
+                .get("src")
+                .or(item.get("image"))
+                .map(|s| s.trim_matches('"').to_string())
+                .unwrap_or_default();
             continue;
         }
 
-        let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Feature");
-        let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
+        let name = item
+            .get("title")
+            .or_else(|| item.get("name"))
+            .map(|s| s.as_str())
+            .unwrap_or("Feature");
+        let desc = item
+            .get("description")
+            .or_else(|| item.get("desc"))
+            .map(|s| s.as_str())
+            .unwrap_or("");
         let icon_name = item.get("icon").map(|s| s.as_str()).unwrap_or("star");
 
         // Fix #2: Detect metric-like titles (digits, ms, $, B+, %) -> stat cards in 2-col grid
         let is_metric = name.chars().any(|c| c.is_ascii_digit())
-            || name.contains("ms") || name.contains('$') || name.contains("B+") || name.contains('%');
+            || name.contains("ms")
+            || name.contains('$')
+            || name.contains("B+")
+            || name.contains('%');
 
         if is_metric {
             let meta = item.get("meta").map(|s| s.as_str()).unwrap_or("");
             let unit_html = if !meta.is_empty() {
-                format!(r#"<span style="font-size:1rem;color:rgba(255,255,255,0.4);margin-left:4px">{}</span>"#, meta)
-            } else { String::new() };
+                format!(
+                    r#"<span style="font-size:1rem;color:rgba(255,255,255,0.4);margin-left:4px">{}</span>"#,
+                    meta
+                )
+            } else {
+                String::new()
+            };
             stat_cards.push(format!(
                 r#"<div>
   <div style="font-size:2.5rem;font-weight:700;color:#adc6ff;letter-spacing:-0.02em">{name}{unit}</div>
@@ -760,24 +857,55 @@ pub(super) fn render_features_split_dark(section: &SectionNode) -> String {
     };
 
     // CTA buttons
-    let cta_text = section.config.get("cta_text").map(|s| s.as_str()).unwrap_or("");
-    let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("#");
-    let cta2_text = section.config.get("cta2_text").map(|s| s.as_str()).unwrap_or("");
-    let cta2_link = section.config.get("cta2_link").map(|s| s.as_str()).unwrap_or("#");
+    let cta_text = section
+        .config
+        .get("cta_text")
+        .map(|s| s.as_str())
+        .unwrap_or("");
+    let cta_link = section
+        .config
+        .get("cta_link")
+        .map(|s| s.as_str())
+        .unwrap_or("#");
+    let cta2_text = section
+        .config
+        .get("cta2_text")
+        .map(|s| s.as_str())
+        .unwrap_or("");
+    let cta2_link = section
+        .config
+        .get("cta2_link")
+        .map(|s| s.as_str())
+        .unwrap_or("#");
     let cta_html = if !cta_text.is_empty() {
         let cta2_btn = if !cta2_text.is_empty() {
-            format!(r#"<a href="{}" class="bg-white/5 border border-white/10 font-medium gap-2 hover:bg-white/10 inline-flex items-center px-6 py-2.5 rounded-full text-sm text-white transition-colors">{}</a>"#, cta2_link, cta2_text)
-        } else { String::new() };
-        format!(r#"<div style="display:flex;gap:16px;margin-top:32px">
+            format!(
+                r#"<a href="{}" class="bg-white/5 border border-white/10 font-medium gap-2 hover:bg-white/10 inline-flex items-center px-6 py-2.5 rounded-full text-sm text-white transition-colors">{}</a>"#,
+                cta2_link, cta2_text
+            )
+        } else {
+            String::new()
+        };
+        format!(
+            r#"<div style="display:flex;gap:16px;margin-top:32px">
         <a href="{}" class="bg-white font-medium gap-2 hover:scale-105 inline-flex items-center px-6 py-2.5 rounded-full text-black text-sm transition-transform">{}</a>
         {}
-      </div>"#, cta_link, cta_text, cta2_btn)
-    } else { String::new() };
+      </div>"#,
+            cta_link, cta_text, cta2_btn
+        )
+    } else {
+        String::new()
+    };
 
     // Eyebrow badge with pulse dot
     let eyebrow_html = if !eyebrow.is_empty() {
-        format!(r#"<div class="bg-white/5 border border-white/10 font-medium gap-2 inline-flex items-center mb-6 px-3 py-1 rounded-full text-[10px] text-red-200 tracking-wider uppercase"><span class="flex h-1.5 relative w-1.5"><span class="absolute animate-ping bg-red-400 h-full inline-flex opacity-75 rounded-full w-full"></span><span class="bg-red-500 h-1.5 inline-flex relative rounded-full w-1.5"></span></span>{}</div>"#, eyebrow)
-    } else { String::new() };
+        format!(
+            r#"<div class="bg-white/5 border border-white/10 font-medium gap-2 inline-flex items-center mb-6 px-3 py-1 rounded-full text-[10px] text-red-200 tracking-wider uppercase"><span class="flex h-1.5 relative w-1.5"><span class="absolute animate-ping bg-red-400 h-full inline-flex opacity-75 rounded-full w-full"></span><span class="bg-red-500 h-1.5 inline-flex relative rounded-full w-1.5"></span></span>{}</div>"#,
+            eyebrow
+        )
+    } else {
+        String::new()
+    };
 
     format!(
         r#"<section class="md:mt-28 mt-20 relative">
@@ -812,8 +940,16 @@ pub(super) fn render_features_split(section: &SectionNode, accent: &str) -> Stri
     let mut code_block = String::new();
 
     for item in &section.items {
-        let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Feature");
-        let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
+        let name = item
+            .get("title")
+            .or_else(|| item.get("name"))
+            .map(|s| s.as_str())
+            .unwrap_or("Feature");
+        let desc = item
+            .get("description")
+            .or_else(|| item.get("desc"))
+            .map(|s| s.as_str())
+            .unwrap_or("");
 
         if item.get("code").is_some() || desc.starts_with('{') {
             let code_content = item.get("code").map(|s| s.as_str()).unwrap_or(desc);
@@ -865,4 +1001,3 @@ pub(super) fn render_features_split(section: &SectionNode, accent: &str) -> Stri
         right_col = right_col,
     )
 }
-

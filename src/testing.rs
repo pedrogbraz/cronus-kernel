@@ -32,7 +32,10 @@ pub fn run_tests(entities: &[EntityNode], port: u16) -> (usize, usize, usize) {
     // Check server is reachable
     if TcpStream::connect(&addr).is_err() {
         println!("  \x1b[31m✗\x1b[0m Server not reachable at {}", addr);
-        println!("  \x1b[90mStart the server first: cronus run {}\x1b[0m", port);
+        println!(
+            "  \x1b[90mStart the server first: cronus run {}\x1b[0m",
+            port
+        );
         println!();
         return (0, 1, 1);
     }
@@ -48,10 +51,16 @@ pub fn run_tests(entities: &[EntityNode], port: u16) -> (usize, usize, usize) {
         let body = generate_test_body(entity);
         let (status, response_body, ms) = http_post(&addr, &format!("/api/{}", lower), &body);
         if status >= 200 && status < 300 {
-            println!("  \x1b[32m✓\x1b[0m {}.create \x1b[90m... {} ({}ms)\x1b[0m", entity.name, status, ms);
+            println!(
+                "  \x1b[32m✓\x1b[0m {}.create \x1b[90m... {} ({}ms)\x1b[0m",
+                entity.name, status, ms
+            );
             passed += 1;
         } else {
-            println!("  \x1b[31m✗\x1b[0m {}.create \x1b[90m... expected 2xx got {} ({}ms)\x1b[0m", entity.name, status, ms);
+            println!(
+                "  \x1b[31m✗\x1b[0m {}.create \x1b[90m... expected 2xx got {} ({}ms)\x1b[0m",
+                entity.name, status, ms
+            );
             failed += 1;
         }
 
@@ -62,10 +71,16 @@ pub fn run_tests(entities: &[EntityNode], port: u16) -> (usize, usize, usize) {
         let (status, list_body, ms) = http_get(&addr, &format!("/api/{}", lower));
         let count = count_array_items(&list_body);
         if status == 200 && count > 0 {
-            println!("  \x1b[32m✓\x1b[0m {}.list \x1b[90m... {} ({} items, {}ms)\x1b[0m", entity.name, status, count, ms);
+            println!(
+                "  \x1b[32m✓\x1b[0m {}.list \x1b[90m... {} ({} items, {}ms)\x1b[0m",
+                entity.name, status, count, ms
+            );
             passed += 1;
         } else {
-            println!("  \x1b[31m✗\x1b[0m {}.list \x1b[90m... {} ({} items, {}ms)\x1b[0m", entity.name, status, count, ms);
+            println!(
+                "  \x1b[31m✗\x1b[0m {}.list \x1b[90m... {} ({} items, {}ms)\x1b[0m",
+                entity.name, status, count, ms
+            );
             failed += 1;
         }
 
@@ -73,17 +88,26 @@ pub fn run_tests(entities: &[EntityNode], port: u16) -> (usize, usize, usize) {
         if let Some(ref id) = created_id {
             let (status, _, ms) = http_get(&addr, &format!("/api/{}/{}", lower, id));
             if status == 200 {
-                println!("  \x1b[32m✓\x1b[0m {}.get_by_id \x1b[90m... {} ({}ms)\x1b[0m", entity.name, status, ms);
+                println!(
+                    "  \x1b[32m✓\x1b[0m {}.get_by_id \x1b[90m... {} ({}ms)\x1b[0m",
+                    entity.name, status, ms
+                );
                 passed += 1;
             } else {
-                println!("  \x1b[31m✗\x1b[0m {}.get_by_id \x1b[90m... expected 200 got {} ({}ms)\x1b[0m", entity.name, status, ms);
+                println!(
+                    "  \x1b[31m✗\x1b[0m {}.get_by_id \x1b[90m... expected 200 got {} ({}ms)\x1b[0m",
+                    entity.name, status, ms
+                );
                 failed += 1;
             }
 
             // 4. DELETE
             let (status, _, ms) = http_delete(&addr, &format!("/api/{}/{}", lower, id));
             if status == 200 || status == 204 {
-                println!("  \x1b[32m✓\x1b[0m {}.delete \x1b[90m... {} ({}ms)\x1b[0m", entity.name, status, ms);
+                println!(
+                    "  \x1b[32m✓\x1b[0m {}.delete \x1b[90m... {} ({}ms)\x1b[0m",
+                    entity.name, status, ms
+                );
                 passed += 1;
             } else {
                 println!("  \x1b[31m✗\x1b[0m {}.delete \x1b[90m... expected 200/204 got {} ({}ms)\x1b[0m", entity.name, status, ms);
@@ -93,16 +117,28 @@ pub fn run_tests(entities: &[EntityNode], port: u16) -> (usize, usize, usize) {
             // 5. GET deleted → 404
             let (status, _, ms) = http_get(&addr, &format!("/api/{}/{}", lower, id));
             if status == 404 {
-                println!("  \x1b[32m✓\x1b[0m {}.get_deleted \x1b[90m... {} ({}ms)\x1b[0m", entity.name, status, ms);
+                println!(
+                    "  \x1b[32m✓\x1b[0m {}.get_deleted \x1b[90m... {} ({}ms)\x1b[0m",
+                    entity.name, status, ms
+                );
                 passed += 1;
             } else {
                 println!("  \x1b[31m✗\x1b[0m {}.get_deleted \x1b[90m... expected 404 got {} ({}ms)\x1b[0m", entity.name, status, ms);
                 failed += 1;
             }
         } else {
-            println!("  \x1b[33m⊘\x1b[0m {}.get_by_id \x1b[90m... skipped (no id from create)\x1b[0m", entity.name);
-            println!("  \x1b[33m⊘\x1b[0m {}.delete \x1b[90m... skipped\x1b[0m", entity.name);
-            println!("  \x1b[33m⊘\x1b[0m {}.get_deleted \x1b[90m... skipped\x1b[0m", entity.name);
+            println!(
+                "  \x1b[33m⊘\x1b[0m {}.get_by_id \x1b[90m... skipped (no id from create)\x1b[0m",
+                entity.name
+            );
+            println!(
+                "  \x1b[33m⊘\x1b[0m {}.delete \x1b[90m... skipped\x1b[0m",
+                entity.name
+            );
+            println!(
+                "  \x1b[33m⊘\x1b[0m {}.get_deleted \x1b[90m... skipped\x1b[0m",
+                entity.name
+            );
         }
 
         println!();
@@ -143,7 +179,11 @@ fn generate_test_body(entity: &EntityNode) -> String {
                 }
             }
             FieldType::Email => {
-                format!("\"{}\":\"test-{}@cronus.test\"", field.name, entity.name.to_lowercase())
+                format!(
+                    "\"{}\":\"test-{}@cronus.test\"",
+                    field.name,
+                    entity.name.to_lowercase()
+                )
             }
             FieldType::Number => format!("\"{}\":42", field.name),
             FieldType::Money => format!("\"{}\":2990", field.name),
@@ -153,7 +193,11 @@ fn generate_test_body(entity: &EntityNode) -> String {
             FieldType::Url => format!("\"{}\":\"https://test.cronus.dev\"", field.name),
             FieldType::Enum => {
                 if let Some(ref values) = field.enum_values {
-                    format!("\"{}\":\"{}\"", field.name, values.first().unwrap_or(&"default".to_string()))
+                    format!(
+                        "\"{}\":\"{}\"",
+                        field.name,
+                        values.first().unwrap_or(&"default".to_string())
+                    )
                 } else {
                     format!("\"{}\":\"default\"", field.name)
                 }
@@ -292,7 +336,9 @@ pub fn run_conformance(base_dir: &str) -> (usize, usize, Vec<String>) {
             if path.extension().map(|e| e == "cronus").unwrap_or(false) {
                 let source = std::fs::read_to_string(&path).unwrap_or_default();
                 match crate::parser::parse(&source) {
-                    Ok(_) => { passed += 1; }
+                    Ok(_) => {
+                        passed += 1;
+                    }
                     Err(e) => {
                         failed += 1;
                         errors.push(format!("FAIL [parse-positive] {}: {}", path.display(), e));
@@ -312,9 +358,14 @@ pub fn run_conformance(base_dir: &str) -> (usize, usize, Vec<String>) {
                 match crate::parser::parse(&source) {
                     Ok(_) => {
                         failed += 1;
-                        errors.push(format!("FAIL [parse-negative] {}: expected parse error, but succeeded", path.display()));
+                        errors.push(format!(
+                            "FAIL [parse-negative] {}: expected parse error, but succeeded",
+                            path.display()
+                        ));
                     }
-                    Err(_) => { passed += 1; }
+                    Err(_) => {
+                        passed += 1;
+                    }
                 }
             }
         }
@@ -327,9 +378,14 @@ pub fn run_conformance(base_dir: &str) -> (usize, usize, Vec<String>) {
             let path = entry.path();
             if path.extension().map(|e| e == "cronus").unwrap_or(false) {
                 let source = std::fs::read_to_string(&path).unwrap_or_default();
-                let expected = source.lines()
+                let expected = source
+                    .lines()
                     .find(|l| l.starts_with("# EXPECTED WARNING:"))
-                    .map(|l| l.trim_start_matches("# EXPECTED WARNING:").trim().to_string());
+                    .map(|l| {
+                        l.trim_start_matches("# EXPECTED WARNING:")
+                            .trim()
+                            .to_string()
+                    });
 
                 match crate::parser::parse(&source) {
                     Ok(nodes) => {
@@ -348,14 +404,21 @@ pub fn run_conformance(base_dir: &str) -> (usize, usize, Vec<String>) {
                             passed += 1;
                         } else if expected.is_some() {
                             failed += 1;
-                            errors.push(format!("FAIL [warnings] {}: expected warning but got none", path.display()));
+                            errors.push(format!(
+                                "FAIL [warnings] {}: expected warning but got none",
+                                path.display()
+                            ));
                         } else {
                             passed += 1;
                         }
                     }
                     Err(e) => {
                         failed += 1;
-                        errors.push(format!("FAIL [warnings] {}: parse error: {}", path.display(), e));
+                        errors.push(format!(
+                            "FAIL [warnings] {}: parse error: {}",
+                            path.display(),
+                            e
+                        ));
                     }
                 }
             }

@@ -114,7 +114,9 @@ mod tests {
         let start = css.find("[data-slot=\"aurora-background\"] {").unwrap();
         let block = &css[start..start + css[start..].find('}').unwrap()];
         assert!(block.contains("width: 18rem; min-height: 8rem;"));
-        let layer = css.find("[data-slot=\"aurora-background\"] > [aria-hidden] {").unwrap();
+        let layer = css
+            .find("[data-slot=\"aurora-background\"] > [aria-hidden] {")
+            .unwrap();
         let layer = &css[layer..layer + css[layer..].find('}').unwrap()];
         // React `-z-10`: the blobs sit behind the ground, not over it.
         assert!(layer.contains("z-index: -10;"));

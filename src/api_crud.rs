@@ -33,14 +33,35 @@ const MAX_LIMIT: usize = 1000;
 
 /// Field names `CronusDB::migrate` never turns into columns.
 const NON_COLUMN_FIELDS: &[&str] = &[
-    "id", "createdat", "created_at", "updatedat", "updated_at", "string", "integer", "text",
-    "real", "blob", "null", "primary", "table", "index", "select", "from", "where",
+    "id",
+    "createdat",
+    "created_at",
+    "updatedat",
+    "updated_at",
+    "string",
+    "integer",
+    "text",
+    "real",
+    "blob",
+    "null",
+    "primary",
+    "table",
+    "index",
+    "select",
+    "from",
+    "where",
 ];
 
 /// Reads the session from `Authorization: Bearer` or the `cronus_token`
 /// cookie (bearer wins when present) and verifies it.
-pub(crate) fn claims_from_headers(authorization: Option<&str>, cookie: &str, secret: &str) -> Option<Claims> {
-    let bearer = authorization.and_then(|h| h.strip_prefix("Bearer ")).map(str::to_string);
+pub(crate) fn claims_from_headers(
+    authorization: Option<&str>,
+    cookie: &str,
+    secret: &str,
+) -> Option<Claims> {
+    let bearer = authorization
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .map(str::to_string);
     let cookie_token = cookie
         .split(';')
         .find_map(|c| c.trim().strip_prefix("cronus_token=").map(str::to_string));
@@ -85,8 +106,14 @@ pub(crate) fn handle_api(
         .apis
         .iter()
         .filter(|api| {
-            let prefix = api.prefix.strip_prefix("/api").unwrap_or(&api.prefix).trim_matches('/');
-            !prefix.is_empty() && !prefix.contains('/') && entity_matches_segment(&entity.name, prefix)
+            let prefix = api
+                .prefix
+                .strip_prefix("/api")
+                .unwrap_or(&api.prefix)
+                .trim_matches('/');
+            !prefix.is_empty()
+                && !prefix.contains('/')
+                && entity_matches_segment(&entity.name, prefix)
         })
         .flat_map(|api| api.routes.iter())
         .collect();
@@ -94,7 +121,10 @@ pub(crate) fn handle_api(
     let route = if declared.is_empty() {
         None
     } else {
-        match declared.into_iter().find(|r| route_matches(r, method, rest)) {
+        match declared
+            .into_iter()
+            .find(|r| route_matches(r, method, rest))
+        {
             Some(r) => Some(r),
             None => return not_found(),
         }
@@ -163,18 +193,27 @@ pub(crate) fn handle_api(
 /// `BlogPost` matches `blog-posts`. Never a prefix match.
 pub(crate) fn entity_matches_segment(entity_name: &str, segment: &str) -> bool {
     let name = entity_name.to_lowercase();
-    let seg: String = segment.to_lowercase().chars().filter(|c| *c != '-' && *c != '_').collect();
+    let seg: String = segment
+        .to_lowercase()
+        .chars()
+        .filter(|c| *c != '-' && *c != '_')
+        .collect();
     if seg == name || seg == format!("{name}s") || seg == format!("{name}es") {
         return true;
     }
-    name.strip_suffix('y').map_or(false, |stem| seg == format!("{stem}ies"))
+    name.strip_suffix('y')
+        .map_or(false, |stem| seg == format!("{stem}ies"))
 }
 
 fn resolve_entity<'a>(entities: &'a [EntityNode], segment: &str) -> Option<&'a EntityNode> {
     entities
         .iter()
         .find(|e| e.name.eq_ignore_ascii_case(segment))
-        .or_else(|| entities.iter().find(|e| entity_matches_segment(&e.name, segment)))
+        .or_else(|| {
+            entities
+                .iter()
+                .find(|e| entity_matches_segment(&e.name, segment))
+        })
 }
 
 fn operation<'a>(method: &Method, rest: &[&'a str]) -> Option<Operation<'a>> {
@@ -200,14 +239,21 @@ fn route_matches(route: &RouteNode, method: &Method, rest: &[&str]) -> bool {
         return false;
     }
     let parts: Vec<&str> = route.path.split('/').filter(|s| !s.is_empty()).collect();
-    parts.len() == rest.len() && parts.iter().zip(rest).all(|(p, r)| p.starts_with(':') || p == r)
+    parts.len() == rest.len()
+        && parts
+            .iter()
+            .zip(rest)
+            .all(|(p, r)| p.starts_with(':') || p == r)
 }
 
 fn is_user_entity(state: &AppState, entity: &EntityNode) -> bool {
     let lower = entity.name.to_lowercase();
     lower == "user"
         || lower == "users"
-        || state.auth_entity.as_deref().map_or(false, |a| a.eq_ignore_ascii_case(&entity.name))
+        || state
+            .auth_entity
+            .as_deref()
+            .map_or(false, |a| a.eq_ignore_ascii_case(&entity.name))
 }
 
 // ── Authorization ───────────────────────────────────────────
@@ -225,7 +271,12 @@ fn authorize(route: Option<&RouteNode>, claims: Option<&Claims>) -> Result<bool,
     if auth == "admin" {
         roles.push("admin".to_string());
     } else if let Some(inner) = auth.strip_prefix("role(").and_then(|s| s.strip_suffix(')')) {
-        roles.extend(inner.split(|c| c == '|' || c == ',').map(|r| r.trim().to_string()).filter(|r| !r.is_empty()));
+        roles.extend(
+            inner
+                .split(|c| c == '|' || c == ',')
+                .map(|r| r.trim().to_string())
+                .filter(|r| !r.is_empty()),
+        );
     }
     if auth == "public" && roles.is_empty() {
         return Ok(true);
@@ -263,13 +314,22 @@ fn read_scope(
     Ok(vec![("_owner_id", claims.sub.clone())])
 }
 
-fn write_scope(user_entity: bool, admin: bool, claims: Option<&Claims>, deleting: bool) -> Result<Scope, ApiResponse> {
+fn write_scope(
+    user_entity: bool,
+    admin: bool,
+    claims: Option<&Claims>,
+    deleting: bool,
+) -> Result<Scope, ApiResponse> {
     let claims = claims.ok_or_else(unauthorized)?;
     if admin {
         return Ok(vec![]);
     }
     if user_entity {
-        return if deleting { Err(forbidden()) } else { Ok(vec![("id", claims.sub.clone())]) };
+        return if deleting {
+            Err(forbidden())
+        } else {
+            Ok(vec![("id", claims.sub.clone())])
+        };
     }
     Ok(vec![("_owner_id", claims.sub.clone())])
 }
@@ -291,11 +351,20 @@ fn where_clause(conditions: &[String]) -> String {
     }
 }
 
-fn select_one(state: &AppState, entity: &EntityNode, id: &str, scope: &Scope) -> Result<Option<Value>, String> {
+fn select_one(
+    state: &AppState,
+    entity: &EntityNode,
+    id: &str,
+    scope: &Scope,
+) -> Result<Option<Value>, String> {
     let mut conditions = vec!["\"id\" = ?".to_string()];
     let mut params = vec![id.to_string()];
     scope_conditions(scope, &mut conditions, &mut params);
-    let sql = format!("SELECT * FROM \"{}\"{} LIMIT 1", entity.name, where_clause(&conditions));
+    let sql = format!(
+        "SELECT * FROM \"{}\"{} LIMIT 1",
+        entity.name,
+        where_clause(&conditions)
+    );
     Ok(state.db.query_raw_params(&sql, &params)?.into_iter().next())
 }
 
@@ -305,14 +374,23 @@ fn list(state: &AppState, entity: &EntityNode, scope: &Scope, query: &str) -> Ap
         .filter_map(|p| p.split_once('='))
         .map(|(k, v)| (decode_component(k), decode_component(v)))
         .collect();
-    let param = |name: &str| params_in.iter().find(|(k, _)| k == name).map(|(_, v)| v.as_str());
+    let param = |name: &str| {
+        params_in
+            .iter()
+            .find(|(k, _)| k == name)
+            .map(|(_, v)| v.as_str())
+    };
 
     let limit = param("limit")
         .and_then(|v| v.parse::<usize>().ok())
         .unwrap_or(DEFAULT_LIMIT)
         .clamp(1, MAX_LIMIT);
-    let offset = param("offset").and_then(|v| v.parse::<usize>().ok()).unwrap_or(0);
-    let search = param("search").or_else(|| param("q")).filter(|s| !s.is_empty());
+    let offset = param("offset")
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(0);
+    let search = param("search")
+        .or_else(|| param("q"))
+        .filter(|s| !s.is_empty());
 
     let mut conditions = Vec::new();
     let mut params = Vec::new();
@@ -323,20 +401,33 @@ fn list(state: &AppState, entity: &EntityNode, scope: &Scope, query: &str) -> Ap
             conditions.push("0".to_string());
         } else {
             let pattern = format!("%{}%", escape_like(term));
-            let ors: Vec<String> = columns.iter().map(|c| format!("\"{c}\" LIKE ? ESCAPE '\\'")).collect();
+            let ors: Vec<String> = columns
+                .iter()
+                .map(|c| format!("\"{c}\" LIKE ? ESCAPE '\\'"))
+                .collect();
             conditions.push(format!("({})", ors.join(" OR ")));
             params.extend(columns.iter().map(|_| pattern.clone()));
         }
     }
     let filter = where_clause(&conditions);
 
-    let count_sql = format!("SELECT COUNT(*) AS total FROM \"{}\"{}", entity.name, filter);
+    let count_sql = format!(
+        "SELECT COUNT(*) AS total FROM \"{}\"{}",
+        entity.name, filter
+    );
     let total = match state.db.query_raw_params(&count_sql, &params) {
-        Ok(rows) => rows.first().and_then(|r| r.get("total")).and_then(Value::as_i64).unwrap_or(0),
+        Ok(rows) => rows
+            .first()
+            .and_then(|r| r.get("total"))
+            .and_then(Value::as_i64)
+            .unwrap_or(0),
         Err(detail) => return internal("count", &entity.name, &detail),
     };
 
-    let rows_sql = format!("SELECT * FROM \"{}\"{} ORDER BY rowid DESC LIMIT ? OFFSET ?", entity.name, filter);
+    let rows_sql = format!(
+        "SELECT * FROM \"{}\"{} ORDER BY rowid DESC LIMIT ? OFFSET ?",
+        entity.name, filter
+    );
     let mut row_params = params;
     row_params.push(limit.to_string());
     row_params.push(offset.to_string());
@@ -352,9 +443,18 @@ fn list(state: &AppState, entity: &EntityNode, scope: &Scope, query: &str) -> Ap
         HeaderName::from_static("access-control-expose-headers"),
         HeaderValue::from_static("X-Total-Count, X-Limit, X-Offset"),
     );
-    headers.insert(HeaderName::from_static("x-total-count"), HeaderValue::from(total.max(0) as u64));
-    headers.insert(HeaderName::from_static("x-limit"), HeaderValue::from(limit as u64));
-    headers.insert(HeaderName::from_static("x-offset"), HeaderValue::from(offset as u64));
+    headers.insert(
+        HeaderName::from_static("x-total-count"),
+        HeaderValue::from(total.max(0) as u64),
+    );
+    headers.insert(
+        HeaderName::from_static("x-limit"),
+        HeaderValue::from(limit as u64),
+    );
+    headers.insert(
+        HeaderName::from_static("x-offset"),
+        HeaderValue::from(offset as u64),
+    );
     resp
 }
 
@@ -364,17 +464,24 @@ fn searchable_columns(entity: &EntityNode) -> Vec<&str> {
     entity
         .fields
         .iter()
-        .filter(|f| !f.sensitive && !authz::PRIVILEGED_FIELDS.contains(&f.name.as_str()) && is_column(&f.name))
+        .filter(|f| {
+            !f.sensitive
+                && !authz::PRIVILEGED_FIELDS.contains(&f.name.as_str())
+                && is_column(&f.name)
+        })
         .map(|f| f.name.as_str())
         .collect()
 }
 
 fn is_column(name: &str) -> bool {
-    !NON_COLUMN_FIELDS.contains(&name.to_lowercase().as_str()) && crate::security::is_safe_identifier(name)
+    !NON_COLUMN_FIELDS.contains(&name.to_lowercase().as_str())
+        && crate::security::is_safe_identifier(name)
 }
 
 fn escape_like(term: &str) -> String {
-    term.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
+    term.replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
 }
 
 fn decode_component(raw: &str) -> String {
@@ -429,7 +536,12 @@ fn writable_columns(entity: &EntityNode, body: &Map<String, Value>) -> Map<Strin
 
 // ── Writes ──────────────────────────────────────────────────
 
-fn create(state: &AppState, entity: &EntityNode, body: Option<&Value>, claims: Option<&Claims>) -> ApiResponse {
+fn create(
+    state: &AppState,
+    entity: &EntityNode,
+    body: Option<&Value>,
+    claims: Option<&Claims>,
+) -> ApiResponse {
     let Some(obj) = body.and_then(Value::as_object) else {
         return validation_failed(StatusCode::BAD_REQUEST, "Expected a JSON object body");
     };
@@ -459,16 +571,41 @@ fn create(state: &AppState, entity: &EntityNode, body: Option<&Value>, claims: O
 
     let table = entity.name.as_str();
     let owner = claims.map(|c| c.sub.as_str()).unwrap_or("");
-    let row_id = row.get("id").and_then(Value::as_str).unwrap_or("").to_string();
+    let row_id = row
+        .get("id")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
     crate::fire_webhooks(&state.webhooks, &state.entities, table, "create", &row);
     crate::fire_effects(entity, "create", &row, None, &state.brain, &state.sse_hub);
-    crate::scripting::fire_scripts(&state.script_registry, table, "create", &row, &row_id, None, &state.db, owner, "user", &std::collections::HashMap::new());
+    crate::scripting::fire_scripts(
+        &state.script_registry,
+        table,
+        "create",
+        &row,
+        &row_id,
+        None,
+        &state.db,
+        owner,
+        "user",
+        &std::collections::HashMap::new(),
+    );
     let mut row = row;
     authz::redact_sensitive(entity, &mut row);
-    if let Err(e) = state.audit_trail.log("INSERT", table, &row_id, owner, &row, None) {
-        eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (INSERT {}:{}): {}", table, row_id, e);
+    if let Err(e) = state
+        .audit_trail
+        .log("INSERT", table, &row_id, owner, &row, None)
+    {
+        eprintln!(
+            "  \x1b[33m⚠\x1b[0m Audit log failed (INSERT {}:{}): {}",
+            table, row_id, e
+        );
     }
-    state.sse_hub.broadcast(crate::sse::DataChangeEvent { entity: table.to_string(), action: "created".to_string(), id: row_id });
+    state.sse_hub.broadcast(crate::sse::DataChangeEvent {
+        entity: table.to_string(),
+        action: "created".to_string(),
+        id: row_id,
+    });
 
     json_response(StatusCode::CREATED, row)
 }
@@ -517,9 +654,15 @@ fn update(
         let mut params: Vec<String> = data.values().map(sql_text).collect();
         params.push(id.to_string());
         scope_conditions(scope, &mut conditions, &mut params);
-        let sql = format!("UPDATE \"{}\" SET {}{}", entity.name, sets.join(", "), where_clause(&conditions));
+        let sql = format!(
+            "UPDATE \"{}\" SET {}{}",
+            entity.name,
+            sets.join(", "),
+            where_clause(&conditions)
+        );
         match state.db.transaction(|conn| {
-            conn.execute(&sql, rusqlite::params_from_iter(params.iter())).map_err(|e| e.to_string())
+            conn.execute(&sql, rusqlite::params_from_iter(params.iter()))
+                .map_err(|e| e.to_string())
         }) {
             Ok(0) => return not_found(),
             Ok(_) => {}
@@ -537,15 +680,44 @@ fn update(
         let table = entity.name.as_str();
         let owner = claims.map(|c| c.sub.as_str()).unwrap_or("");
         crate::fire_webhooks(&state.webhooks, &state.entities, table, "update", &row);
-        crate::fire_effects(entity, "update", &row, Some(&prev), &state.brain, &state.sse_hub);
-        crate::scripting::fire_scripts(&state.script_registry, table, "update", &row, id, Some(&prev), &state.db, owner, "user", &std::collections::HashMap::new());
+        crate::fire_effects(
+            entity,
+            "update",
+            &row,
+            Some(&prev),
+            &state.brain,
+            &state.sse_hub,
+        );
+        crate::scripting::fire_scripts(
+            &state.script_registry,
+            table,
+            "update",
+            &row,
+            id,
+            Some(&prev),
+            &state.db,
+            owner,
+            "user",
+            &std::collections::HashMap::new(),
+        );
         let (mut logged_row, mut logged_prev) = (row.clone(), prev.clone());
         authz::redact_sensitive(entity, &mut logged_row);
         authz::redact_sensitive(entity, &mut logged_prev);
-        if let Err(e) = state.audit_trail.log("UPDATE", table, id, owner, &logged_row, Some(&logged_prev)) {
-            eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (UPDATE {}:{}): {}", table, id, e);
+        if let Err(e) =
+            state
+                .audit_trail
+                .log("UPDATE", table, id, owner, &logged_row, Some(&logged_prev))
+        {
+            eprintln!(
+                "  \x1b[33m⚠\x1b[0m Audit log failed (UPDATE {}:{}): {}",
+                table, id, e
+            );
         }
-        state.sse_hub.broadcast(crate::sse::DataChangeEvent { entity: table.to_string(), action: "updated".to_string(), id: id.to_string() });
+        state.sse_hub.broadcast(crate::sse::DataChangeEvent {
+            entity: table.to_string(),
+            action: "updated".to_string(),
+            id: id.to_string(),
+        });
     }
 
     let mut row = row;
@@ -553,7 +725,13 @@ fn update(
     json_response(StatusCode::OK, row)
 }
 
-fn delete(state: &AppState, entity: &EntityNode, id: &str, scope: &Scope, claims: Option<&Claims>) -> ApiResponse {
+fn delete(
+    state: &AppState,
+    entity: &EntityNode,
+    id: &str,
+    scope: &Scope,
+    claims: Option<&Claims>,
+) -> ApiResponse {
     let prev = match select_one(state, entity, id, scope) {
         Ok(Some(row)) => row,
         Ok(None) => return not_found(),
@@ -563,9 +741,14 @@ fn delete(state: &AppState, entity: &EntityNode, id: &str, scope: &Scope, claims
     let mut conditions = vec!["\"id\" = ?".to_string()];
     let mut params = vec![id.to_string()];
     scope_conditions(scope, &mut conditions, &mut params);
-    let sql = format!("DELETE FROM \"{}\"{}", entity.name, where_clause(&conditions));
+    let sql = format!(
+        "DELETE FROM \"{}\"{}",
+        entity.name,
+        where_clause(&conditions)
+    );
     match state.db.transaction(|conn| {
-        conn.execute(&sql, rusqlite::params_from_iter(params.iter())).map_err(|e| e.to_string())
+        conn.execute(&sql, rusqlite::params_from_iter(params.iter()))
+            .map_err(|e| e.to_string())
     }) {
         Ok(0) => return not_found(),
         Ok(_) => {}
@@ -577,13 +760,38 @@ fn delete(state: &AppState, entity: &EntityNode, id: &str, scope: &Scope, claims
     let payload = json!({"id": id, "entity": table});
     crate::fire_webhooks(&state.webhooks, &state.entities, table, "delete", &payload);
     crate::fire_effects(entity, "delete", &prev, None, &state.brain, &state.sse_hub);
-    crate::scripting::fire_scripts(&state.script_registry, table, "delete", &prev, id, None, &state.db, owner, "user", &std::collections::HashMap::new());
+    crate::scripting::fire_scripts(
+        &state.script_registry,
+        table,
+        "delete",
+        &prev,
+        id,
+        None,
+        &state.db,
+        owner,
+        "user",
+        &std::collections::HashMap::new(),
+    );
     let mut logged_prev = prev.clone();
     authz::redact_sensitive(entity, &mut logged_prev);
-    if let Err(e) = state.audit_trail.log("DELETE", table, id, owner, &json!({"id": id}), Some(&logged_prev)) {
-        eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (DELETE {}:{}): {}", table, id, e);
+    if let Err(e) = state.audit_trail.log(
+        "DELETE",
+        table,
+        id,
+        owner,
+        &json!({"id": id}),
+        Some(&logged_prev),
+    ) {
+        eprintln!(
+            "  \x1b[33m⚠\x1b[0m Audit log failed (DELETE {}:{}): {}",
+            table, id, e
+        );
     }
-    state.sse_hub.broadcast(crate::sse::DataChangeEvent { entity: table.to_string(), action: "deleted".to_string(), id: id.to_string() });
+    state.sse_hub.broadcast(crate::sse::DataChangeEvent {
+        entity: table.to_string(),
+        action: "deleted".to_string(),
+        id: id.to_string(),
+    });
 
     json_response(StatusCode::OK, json!({"deleted": id}))
 }
@@ -599,7 +807,11 @@ fn not_found() -> ApiResponse {
 }
 
 fn unauthorized() -> ApiResponse {
-    error(StatusCode::UNAUTHORIZED, "UNAUTHORIZED", "Authentication required")
+    error(
+        StatusCode::UNAUTHORIZED,
+        "UNAUTHORIZED",
+        "Authentication required",
+    )
 }
 
 fn forbidden() -> ApiResponse {
@@ -613,14 +825,24 @@ fn validation_failed(status: StatusCode, message: &str) -> ApiResponse {
 }
 
 fn internal(action: &str, entity: &str, detail: &str) -> ApiResponse {
-    eprintln!("  \x1b[31m✗\x1b[0m api {} {} failed: {}", action, entity, detail);
-    error(StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL", "Internal error")
+    eprintln!(
+        "  \x1b[31m✗\x1b[0m api {} {} failed: {}",
+        action, entity, detail
+    );
+    error(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "INTERNAL",
+        "Internal error",
+    )
 }
 
 /// Unique-constraint races surface as a safe 409; anything else is logged.
 fn write_error(action: &str, entity: &str, detail: &str) -> ApiResponse {
     if detail.contains("UNIQUE constraint failed") {
-        return validation_failed(StatusCode::CONFLICT, "A record with this value already exists");
+        return validation_failed(
+            StatusCode::CONFLICT,
+            "A record with this value already exists",
+        );
     }
     internal(action, entity, detail)
 }

@@ -47,8 +47,16 @@ pub fn render(comp: &ComponentNode) -> String {
         Some(l) => format!("<span data-slot=\"usage-meter-label\">{l}</span>"),
         None => "<span></span>".to_string(),
     };
-    let safe_max = if max.is_finite() && max > 0.0 { max } else { 0.0 };
-    let safe_value = if value.is_finite() { value.clamp(0.0, safe_max) } else { 0.0 };
+    let safe_max = if max.is_finite() && max > 0.0 {
+        max
+    } else {
+        0.0
+    };
+    let safe_value = if value.is_finite() {
+        value.clamp(0.0, safe_max)
+    } else {
+        0.0
+    };
     format!(
         "<div data-slot=\"usage-meter\"><div>{label_html}<span data-slot=\"usage-meter-value\"><span>{value_text}</span><span>{percent}%</span></span></div><div data-slot=\"usage-meter-track\" role=\"meter\" aria-valuenow=\"{now}\" aria-valuemin=\"0\" aria-valuemax=\"{mx}\" aria-valuetext=\"{percent}%\" aria-label=\"{aria}\"><div data-slot=\"usage-meter-fill\" data-tone=\"{tone}\" data-value=\"{fill}\"></div></div></div>",
         now = plain(safe_value),
@@ -155,7 +163,10 @@ mod tests {
         c.props.insert("value".into(), "1".into());
         c.props.insert("max".into(), "3".into());
         let html = render(&c);
-        assert!(html.contains("data-slot=\"usage-meter-fill\" data-tone=\"primary\" data-value=\"33\""), "{html}");
+        assert!(
+            html.contains("data-slot=\"usage-meter-fill\" data-tone=\"primary\" data-value=\"33\""),
+            "{html}"
+        );
         assert!(!html.contains("data-value=\"33.33\""));
         assert!(!html.contains("style="));
     }

@@ -38,7 +38,11 @@ pub fn render(comp: &ComponentNode) -> String {
         .props
         .get("description")
         .map(String::as_str)
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("description").map(String::as_str)))
+        .or_else(|| {
+            comp.items
+                .iter()
+                .find_map(|i| i.config.get("description").map(String::as_str))
+        })
         .or_else(|| item(comp, "description"))
         .filter(|d| !d.is_empty())
         .map(esc)
@@ -124,14 +128,19 @@ mod tests {
         c.items.push(extra("placeholder", "teammate@company.com"));
         c.items.push(extra("send", "Invite"));
         c.items.push(extra("cancel", "Dismiss"));
-        c.props.insert("description".into(), "Add a teammate.".into());
+        c.props
+            .insert("description".into(), "Add a teammate.".into());
         let html = render(&c);
         assert!(html.contains("<p data-slot=\"dialog-description\">Add a teammate.</p>"));
         assert!(html.contains("placeholder=\"teammate@company.com\""));
-        assert!(html.contains("data-slot=\"invite-dialog-send\" data-variant=\"primary\" disabled>Invite</button>"));
+        assert!(html.contains(
+            "data-slot=\"invite-dialog-send\" data-variant=\"primary\" disabled>Invite</button>"
+        ));
         assert!(html.contains("data-variant=\"outline\" disabled>Dismiss</button>"));
         let mut c = stub("invite-dialog", "Invite member");
-        c.items[0].config.insert("description".into(), "From config.".into());
+        c.items[0]
+            .config
+            .insert("description".into(), "From config.".into());
         assert!(render(&c).contains("<p data-slot=\"dialog-description\">From config.</p>"));
         reject_js(&html);
     }
@@ -150,13 +159,14 @@ mod tests {
     fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         let block = |sel: &str| {
-            let start = css.find(&format!("{sel} {{")).unwrap_or_else(|| panic!("{sel}"));
+            let start = css
+                .find(&format!("{sel} {{"))
+                .unwrap_or_else(|| panic!("{sel}"));
             let end = css[start..].find('}').unwrap() + start;
             css[start..end].to_string()
         };
         assert!(!css.contains("dialog:has(> [data-slot=\"invite-dialog\"])"));
-        let overlay =
-            block("[data-slot=\"dialog-overlay\"]:has(+ [data-slot=\"invite-dialog\"])");
+        let overlay = block("[data-slot=\"dialog-overlay\"]:has(+ [data-slot=\"invite-dialog\"])");
         assert!(overlay.contains("position: fixed; inset: 0; z-index: 50;"));
         let content = block("[data-slot=\"invite-dialog\"]");
         assert!(content.contains("position: fixed; inset: 0; z-index: 50; margin: auto;"));

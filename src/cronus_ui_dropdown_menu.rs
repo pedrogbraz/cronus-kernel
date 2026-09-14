@@ -89,7 +89,9 @@ mod tests {
         let html = render(&menu("Actions", &["Edit", "Share"]));
         assert!(html.contains(">Actions</button>"));
         assert!(html.contains("<div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Edit</div>"));
-        assert!(html.contains("<div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Share</div>"));
+        assert!(
+            html.contains("<div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Share</div>")
+        );
         assert!(!html.contains("role=\"menuitem\">Actions"));
         reject_interact(&html);
     }
@@ -131,7 +133,9 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"button\"]:has(+ [data-slot=\"dropdown-menu-content\"])"));
         assert!(css.contains("[data-slot=\"dropdown-menu-content\"]:popover-open {"));
-        assert!(css.contains("[data-slot=\"dropdown-menu-item\"] {\n  position: relative; display: flex;"));
+        assert!(css.contains(
+            "[data-slot=\"dropdown-menu-item\"] {\n  position: relative; display: flex;"
+        ));
         assert!(css.contains("var(--cronus-surface-floating)"));
         assert!(css.contains("var(--cronus-border)"));
         assert!(css.contains("min-width: 8rem"));

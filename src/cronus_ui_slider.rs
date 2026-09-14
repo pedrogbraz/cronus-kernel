@@ -226,7 +226,9 @@ mod tests {
         // app.cronus SliderHalf: `label "Volume"` then `value:50` / `aria-label:"Volume"` on it.
         let mut c = stub();
         c.items[0].config.insert("value".into(), "50".into());
-        c.items[0].config.insert("aria-label".into(), "Volume".into());
+        c.items[0]
+            .config
+            .insert("aria-label".into(), "Volume".into());
         let html = render(&c);
         assert_slider(&html, "50", "Volume");
     }
@@ -240,8 +242,12 @@ mod tests {
         assert!(css.contains("[data-slot=\"slider\"] > span:last-child {"));
         assert!(css.contains("[data-slot=\"slider\"] > span:last-child > span {"));
         assert!(css.contains("[data-slot=\"slider\"][data-value=\"0\"] { --cui-slider-value: 0; }"));
-        assert!(css.contains("[data-slot=\"slider\"][data-value=\"50\"] { --cui-slider-value: 50; }"));
-        assert!(css.contains("[data-slot=\"slider\"][data-value=\"100\"] { --cui-slider-value: 100; }"));
+        assert!(
+            css.contains("[data-slot=\"slider\"][data-value=\"50\"] { --cui-slider-value: 50; }")
+        );
+        assert!(
+            css.contains("[data-slot=\"slider\"][data-value=\"100\"] { --cui-slider-value: 100; }")
+        );
         // Radix thumb-in-bounds offset: +8px at 0, 0 at 50, -8px at 100.
         assert!(css.contains("left: calc(var(--cui-slider-value, 0) * 1% + 0.5rem - var(--cui-slider-value, 0) * 0.01rem);"));
         // Slots only: `::-webkit-slider-thumb` pseudo-elements (e.g. video-player

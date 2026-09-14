@@ -104,7 +104,9 @@ mod tests {
         assert!(css.contains("[data-slot=\"dot-pattern\"] > [aria-hidden] {"));
         assert!(css.contains("[data-slot=\"dot-pattern\"] > div:last-child {"));
         assert!(!css.contains("[data-slot=\"dot-pattern-field\"]"));
-        assert!(css.contains("radial-gradient(circle at 8px 8px, var(--cronus-fg) 1px, transparent 1.25px);"));
+        assert!(css.contains(
+            "radial-gradient(circle at 8px 8px, var(--cronus-fg) 1px, transparent 1.25px);"
+        ));
         assert!(css.contains("background-size: 16px 16px;"));
         assert!(!css.contains("repeating-radial-gradient(circle at 8px 8px"));
         assert!(css.contains("var(--cronus-fg)"));

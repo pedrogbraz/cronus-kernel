@@ -15,7 +15,11 @@ pub fn render(comp: &ComponentNode) -> String {
     let digits: String = digits_of(comp).chars().take(n).collect();
     let mut group = String::new();
     for i in 0..n {
-        let ch = digits.chars().nth(i).map(|c| c.to_string()).unwrap_or_default();
+        let ch = digits
+            .chars()
+            .nth(i)
+            .map(|c| c.to_string())
+            .unwrap_or_default();
         group.push_str(&format!("<div data-slot=\"input-otp-slot\">{ch}</div>"));
     }
     let label = aria_label_of(comp);
@@ -107,7 +111,12 @@ mod tests {
         let html = render(&stub("input-otp", "Code"));
         assert_eq!(
             html,
-            expected(&slots(&["", "", "", "", "", ""]), "One-time passcode", 6, "")
+            expected(
+                &slots(&["", "", "", "", "", ""]),
+                "One-time passcode",
+                6,
+                ""
+            )
         );
         assert_eq!(html.matches("data-slot=\"input-otp\"").count(), 1);
         assert!(!html.contains("role=\"group\""));
@@ -121,7 +130,12 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            expected(&slots(&["1", "2", "3", "", "", ""]), "One-time passcode", 6, "123")
+            expected(
+                &slots(&["1", "2", "3", "", "", ""]),
+                "One-time passcode",
+                6,
+                "123"
+            )
         );
         reject_interact(&html);
     }
@@ -132,7 +146,11 @@ mod tests {
             let mut c = stub("input-otp", "Code");
             c.props.insert(key.into(), "4".into());
             let html = render(&c);
-            assert_eq!(html.matches("data-slot=\"input-otp-slot\"").count(), 4, "{key}");
+            assert_eq!(
+                html.matches("data-slot=\"input-otp-slot\"").count(),
+                4,
+                "{key}"
+            );
             assert!(html.contains("maxlength=\"4\""), "{key}");
             reject_interact(&html);
         }
@@ -144,7 +162,9 @@ mod tests {
         c.props.insert("aria-label".into(), "Login code".into());
         assert!(render(&c).contains("aria-label=\"Login code\""));
         let mut c = stub("input-otp", "Code");
-        c.items[0].config.insert("aria-label".into(), "A <B>".into());
+        c.items[0]
+            .config
+            .insert("aria-label".into(), "A <B>".into());
         let html = render(&c);
         assert!(html.contains("aria-label=\"A &lt;B&gt;\""));
         assert!(!html.contains("aria-label=\"One-time passcode\""));
@@ -161,7 +181,9 @@ mod tests {
         assert!(interact.contains("style="));
         assert!(interact.contains("<input data-slot=\"input-otp-slot\""));
         assert!(interact.contains("maxlength=\"1\""));
-        assert!(interact.contains("width:2.5rem;text-align:center;font-variant-numeric:tabular-nums"));
+        assert!(
+            interact.contains("width:2.5rem;text-align:center;font-variant-numeric:tabular-nums")
+        );
         assert!(!html.contains("<fieldset"));
         assert!(html.contains("<input data-slot=\"input-otp\""));
         reject_interact(&html);
@@ -194,7 +216,9 @@ mod tests {
         assert!(css.contains(
             "  border: 0 solid var(--cronus-border);\n  border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px;\n  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg);"
         ));
-        assert!(css.contains("[data-slot=\"input-otp-slot\"]:first-child {\n  border-left-width: 1px;"));
+        assert!(
+            css.contains("[data-slot=\"input-otp-slot\"]:first-child {\n  border-left-width: 1px;")
+        );
         assert!(css.contains("var(--cronus-border)"));
         assert!(!css.contains("zinc-"));
     }

@@ -101,7 +101,10 @@ impl OpCode {
     /// Fuel cost for this instruction. DB ops cost 10, everything else 1.
     pub fn fuel_cost(&self) -> u32 {
         match self {
-            OpCode::DbQuery(_) | OpCode::DbInsert(_) | OpCode::DbUpdate(_) | OpCode::DbDelete(_) => 10,
+            OpCode::DbQuery(_)
+            | OpCode::DbInsert(_)
+            | OpCode::DbUpdate(_)
+            | OpCode::DbDelete(_) => 10,
             _ => 1,
         }
     }

@@ -25,8 +25,14 @@ pub fn render(comp: &ComponentNode) -> String {
     if slides.is_empty() {
         slides.push(label_of(comp));
     }
-    let aria = attr(comp, "aria-label").map(esc).unwrap_or_else(|| label_of(comp));
-    let next_idle = if slides.len() <= 1 { " data-disabled=\"\"" } else { "" };
+    let aria = attr(comp, "aria-label")
+        .map(esc)
+        .unwrap_or_else(|| label_of(comp));
+    let next_idle = if slides.len() <= 1 {
+        " data-disabled=\"\""
+    } else {
+        ""
+    };
     let items = slides
         .iter()
         .map(|t| {
@@ -44,7 +50,11 @@ fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
     comp.props
         .get(key)
         .map(String::as_str)
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get(key).map(String::as_str)))
+        .or_else(|| {
+            comp.items
+                .iter()
+                .find_map(|i| i.config.get(key).map(String::as_str))
+        })
         .filter(|s| !s.is_empty())
 }
 
@@ -133,7 +143,10 @@ mod tests {
         assert!(interact.contains(INTERACT_ROW));
         assert!(!interact.contains("data-slot=\"carousel-item\""));
         reject_stub(&html);
-        assert_eq!(dedicated_fn_name("carousel"), Some("cronus_ui_carousel::render"));
+        assert_eq!(
+            dedicated_fn_name("carousel"),
+            Some("cronus_ui_carousel::render")
+        );
         assert_eq!(
             renderer_kind("carousel"),
             RendererKind::Dedicated("cronus_ui_carousel::render")
@@ -154,7 +167,9 @@ mod tests {
     #[test]
     fn chrome_is_token_only_and_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"carousel\"] { position: relative; outline: none; width: 18rem;"));
+        assert!(css.contains(
+            "[data-slot=\"carousel\"] { position: relative; outline: none; width: 18rem;"
+        ));
         assert!(css.contains("margin-left: -1rem; display: flex; overflow-x: auto;"));
         assert!(css.contains("min-width: 0; flex: 0 0 100%; padding-left: 1rem;"));
         assert!(css.contains("width: 2.25rem; height: 2.25rem;"));

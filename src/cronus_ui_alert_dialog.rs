@@ -25,7 +25,11 @@ fn description_of(comp: &ComponentNode) -> Option<String> {
     comp.props
         .get("description")
         .map(String::as_str)
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get("description").map(String::as_str)))
+        .or_else(|| {
+            comp.items
+                .iter()
+                .find_map(|i| i.config.get("description").map(String::as_str))
+        })
         .or_else(|| item(comp, "description"))
         .filter(|d| !d.is_empty())
         .map(esc)
@@ -126,20 +130,25 @@ mod tests {
         c.items.push(extra("description", "This cannot be undone."));
         let html = render(&c);
         assert!(html.contains("data-slot=\"alert-dialog-action\" disabled>Delete anyway</button>"));
-        assert!(html.contains("<button type=\"button\" data-slot=\"alert-dialog-cancel\" disabled>Keep</button>"));
         assert!(html.contains(
-            "<p data-slot=\"alert-dialog-description\">This cannot be undone.</p>"
+            "<button type=\"button\" data-slot=\"alert-dialog-cancel\" disabled>Keep</button>"
         ));
+        assert!(
+            html.contains("<p data-slot=\"alert-dialog-description\">This cannot be undone.</p>")
+        );
         reject_js(&html);
     }
 
     #[test]
     fn description_from_prop_or_item_config() {
         let mut c = fixture();
-        c.props.insert("description".into(), "Gone for good.".into());
+        c.props
+            .insert("description".into(), "Gone for good.".into());
         assert!(render(&c).contains("<p data-slot=\"alert-dialog-description\">Gone for good.</p>"));
         let mut c = fixture();
-        c.items[0].config.insert("description".into(), "From config.".into());
+        c.items[0]
+            .config
+            .insert("description".into(), "From config.".into());
         assert!(render(&c).contains("<p data-slot=\"alert-dialog-description\">From config.</p>"));
     }
 
@@ -156,7 +165,9 @@ mod tests {
     fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         let block = |sel: &str| {
-            let start = css.find(&format!("{sel} {{")).unwrap_or_else(|| panic!("{sel}"));
+            let start = css
+                .find(&format!("{sel} {{"))
+                .unwrap_or_else(|| panic!("{sel}"));
             let end = css[start..].find('}').unwrap() + start;
             css[start..end].to_string()
         };
@@ -164,7 +175,8 @@ mod tests {
         let overlay = block("[data-slot=\"alert-dialog-overlay\"]");
         assert!(overlay.contains("position: fixed; inset: 0; z-index: 50;"));
         assert!(overlay.contains("backdrop-filter: blur(8px)"));
-        let content = block("[data-slot=\"confirmation-dialog\"], [data-slot=\"alert-dialog-content\"]");
+        let content =
+            block("[data-slot=\"confirmation-dialog\"], [data-slot=\"alert-dialog-content\"]");
         assert!(content.contains("position: fixed; inset: 0; z-index: 50; margin: auto;"));
         assert!(content.contains("height: fit-content"));
         assert!(content.contains("max-width: 32rem"));

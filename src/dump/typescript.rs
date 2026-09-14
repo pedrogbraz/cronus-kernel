@@ -21,17 +21,41 @@ pub struct TsField {
 
 // Suffixes that indicate internal/framework types (skip unless in types/ or contracts/)
 const SKIP_SUFFIXES: &[&str] = &[
-    "Props", "State", "Actions", "ContextValue", "Options", "Params",
-    "Response", "Request", "Input", "Output", "Hook", "Store",
-    "Handler", "Listener", "Callback", "Ref", "Element", "Style",
-    "Theme", "Animation", "Variant", "Config",
+    "Props",
+    "State",
+    "Actions",
+    "ContextValue",
+    "Options",
+    "Params",
+    "Response",
+    "Request",
+    "Input",
+    "Output",
+    "Hook",
+    "Store",
+    "Handler",
+    "Listener",
+    "Callback",
+    "Ref",
+    "Element",
+    "Style",
+    "Theme",
+    "Animation",
+    "Variant",
+    "Config",
 ];
 
 // Directories to skip entirely
 const SKIP_DIRS: &[&str] = &[
-    "src/components", "src/hooks", "src/game", "src/prompts",
-    "src/parsers", "src/kernel/scaffold", "src/kernel/visualization",
-    "src/kernel/blocks", "src/kernel/blueprints",
+    "src/components",
+    "src/hooks",
+    "src/game",
+    "src/prompts",
+    "src/parsers",
+    "src/kernel/scaffold",
+    "src/kernel/visualization",
+    "src/kernel/blocks",
+    "src/kernel/blueprints",
 ];
 
 /// Check if a file path is in a domain-relevant location
@@ -51,7 +75,11 @@ pub fn is_domain_file(path: &Path) -> bool {
     }
 
     // Include files with domain-relevant names
-    let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
+    let file_name = path
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_lowercase();
     if file_name.contains("types")
         || file_name.contains("models")
         || file_name.contains("entities")
@@ -166,9 +194,7 @@ fn should_skip_name(name: &str, privileged: bool) -> bool {
 
     // In privileged dirs (types/, contracts/), only skip Props/State/Context
     if privileged {
-        return name.ends_with("Props")
-            || name.ends_with("State")
-            || name.ends_with("Context");
+        return name.ends_with("Props") || name.ends_with("State") || name.ends_with("Context");
     }
 
     // Outside privileged dirs, skip all framework suffixes
@@ -288,14 +314,19 @@ fn map_ts_to_cronus(field_name: &str, ts_type: &str) -> String {
         || name_lower.contains("cost")
         || name_lower.contains("fee")
         || name_lower.contains("revenue"))
-        && (ts_lower.contains("number") || ts_lower.contains("decimal") || ts_lower.contains("float"))
+        && (ts_lower.contains("number")
+            || ts_lower.contains("decimal")
+            || ts_lower.contains("float"))
     {
         return "money".to_string();
     }
     if name_lower.contains("slug") {
         return "slug".to_string();
     }
-    if name_lower.contains("password") || name_lower.contains("secret") || name_lower.contains("token") {
+    if name_lower.contains("password")
+        || name_lower.contains("secret")
+        || name_lower.contains("token")
+    {
         return "string".to_string();
     }
     if name_lower.contains("description")
@@ -311,7 +342,11 @@ fn map_ts_to_cronus(field_name: &str, ts_type: &str) -> String {
     if ts_lower.contains("boolean") || ts_lower == "bool" {
         return "boolean".to_string();
     }
-    if ts_lower.contains("number") || ts_lower == "int" || ts_lower == "float" || ts_lower == "decimal" {
+    if ts_lower.contains("number")
+        || ts_lower == "int"
+        || ts_lower == "float"
+        || ts_lower == "decimal"
+    {
         return "number".to_string();
     }
     if ts_lower.contains("date") {
@@ -359,7 +394,12 @@ pub fn emit_entities(entities: &[TsEntity]) -> String {
         out.push_str(&format!("entity {} {{\n", entity.name));
 
         // Find max lengths for alignment
-        let max_name = entity.fields.iter().map(|f| f.name.len()).max().unwrap_or(10);
+        let max_name = entity
+            .fields
+            .iter()
+            .map(|f| f.name.len())
+            .max()
+            .unwrap_or(10);
         let max_type = entity
             .fields
             .iter()

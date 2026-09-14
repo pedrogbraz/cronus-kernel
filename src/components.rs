@@ -103,9 +103,14 @@ pub fn textarea(name: &str, placeholder: &str, rows: u32) -> String {
 
 /// Select dropdown
 pub fn select(name: &str, options: &[(&str, &str)], placeholder: &str) -> String {
-    let opts: String = std::iter::once(format!("<option value=\"\" disabled selected class=\"text-neutral-600\">{placeholder}</option>"))
-        .chain(options.iter().map(|(val, label)| format!("<option value=\"{val}\" class=\"bg-neutral-900\">{label}</option>")))
-        .collect::<Vec<_>>().join("\n      ");
+    let opts: String = std::iter::once(format!(
+        "<option value=\"\" disabled selected class=\"text-neutral-600\">{placeholder}</option>"
+    ))
+    .chain(options.iter().map(|(val, label)| {
+        format!("<option value=\"{val}\" class=\"bg-neutral-900\">{label}</option>")
+    }))
+    .collect::<Vec<_>>()
+    .join("\n      ");
     format!(
         "<select name=\"{name}\" class=\"w-full px-4 py-2.5 bg-[#0a0a0a] border border-neutral-800 rounded text-sm text-white transition-all duration-200 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 outline-none hover:border-neutral-700 appearance-none cursor-pointer\">\n      {opts}\n    </select>",
     )
@@ -124,8 +129,16 @@ pub fn checkbox(name: &str, label: &str, checked: bool) -> String {
 
 /// Toggle switch
 pub fn toggle(name: &str, label: &str, checked: bool) -> String {
-    let bg = if checked { "bg-amber-500" } else { "bg-neutral-700" };
-    let dot_pos = if checked { "translate-x-5" } else { "translate-x-0.5" };
+    let bg = if checked {
+        "bg-amber-500"
+    } else {
+        "bg-neutral-700"
+    };
+    let dot_pos = if checked {
+        "translate-x-5"
+    } else {
+        "translate-x-0.5"
+    };
     let chk = if checked { " checked" } else { "" };
     format!(
         "<label class=\"inline-flex items-center gap-3 cursor-pointer group\">\
@@ -210,7 +223,12 @@ pub fn avatar(name: &str, src: Option<&str>, size: &str) -> String {
         "lg" => "w-12 h-12 text-sm",
         _ => "w-10 h-10 text-xs",
     };
-    let initials: String = name.split_whitespace().filter_map(|w| w.chars().next()).take(2).collect::<String>().to_uppercase();
+    let initials: String = name
+        .split_whitespace()
+        .filter_map(|w| w.chars().next())
+        .take(2)
+        .collect::<String>()
+        .to_uppercase();
     if let Some(url) = src {
         format!("<img src=\"{url}\" alt=\"{name}\" class=\"{size_cls} rounded-full object-cover border border-neutral-800\">")
     } else {
@@ -220,16 +238,31 @@ pub fn avatar(name: &str, src: Option<&str>, size: &str) -> String {
 
 /// Avatar group (stacked)
 pub fn avatar_group(avatars: &[String]) -> String {
-    let inner: String = avatars.iter().map(|a| format!("<div class=\"-ml-2 first:ml-0 ring-2 ring-[#080808] rounded-full\">{a}</div>")).collect::<Vec<_>>().join("\n    ");
+    let inner: String = avatars
+        .iter()
+        .map(|a| {
+            format!("<div class=\"-ml-2 first:ml-0 ring-2 ring-[#080808] rounded-full\">{a}</div>")
+        })
+        .collect::<Vec<_>>()
+        .join("\n    ");
     format!("<div class=\"flex items-center\">\n    {inner}\n  </div>")
 }
 
 /// Stat card
 pub fn stat_card(label: &str, value: &str, change_pct: Option<f32>, icon: &str) -> String {
-    let change_html = change_pct.map(|p| {
-        let (color, arrow) = if p >= 0.0 { ("var(--success)", "↑") } else { ("var(--danger)", "↓") };
-        format!("<span class=\"text-xs font-mono\" style=\"color:{color}\">{arrow} {:.1}%</span>", p.abs())
-    }).unwrap_or_default();
+    let change_html = change_pct
+        .map(|p| {
+            let (color, arrow) = if p >= 0.0 {
+                ("var(--success)", "↑")
+            } else {
+                ("var(--danger)", "↓")
+            };
+            format!(
+                "<span class=\"text-xs font-mono\" style=\"color:{color}\">{arrow} {:.1}%</span>",
+                p.abs()
+            )
+        })
+        .unwrap_or_default();
     format!(
         "<div class=\"border p-5\" style=\"background:var(--card);border-color:var(--border);border-radius:var(--radius-card)\">\
         <div class=\"flex items-center justify-between mb-3\">\
@@ -246,7 +279,11 @@ pub fn stat_card(label: &str, value: &str, change_pct: Option<f32>, icon: &str) 
 
 /// Progress bar
 pub fn progress_bar(value: u32, max: u32, color: &str) -> String {
-    let pct = if max > 0 { (value as f32 / max as f32 * 100.0) as u32 } else { 0 };
+    let pct = if max > 0 {
+        (value as f32 / max as f32 * 100.0) as u32
+    } else {
+        0
+    };
     let bg = match color {
         "emerald" => "bg-emerald-500",
         "red" => "bg-red-500",
@@ -280,7 +317,9 @@ pub fn tag(text: &str, color: &str, closable: bool) -> String {
     };
     let close_btn = if closable {
         " <button class=\"ml-1 hover:text-white transition-colors\">&times;</button>"
-    } else { "" };
+    } else {
+        ""
+    };
     format!(
         "<span class=\"inline-flex items-center px-2.5 py-1 text-xs font-medium rounded {cls}\">{text}{close_btn}</span>",
     )
@@ -288,7 +327,10 @@ pub fn tag(text: &str, color: &str, closable: bool) -> String {
 
 /// Code block
 pub fn code_block(code: &str, _language: &str) -> String {
-    let escaped = code.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;");
+    let escaped = code
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;");
     format!(
         "<div class=\"relative group\">\
         <pre class=\"bg-[#0a0a0a] border border-neutral-800 rounded-lg p-4 overflow-x-auto\">\
@@ -340,14 +382,26 @@ pub fn separator() -> String {
 /// Alert
 pub fn alert(message: &str, variant: &str, closable: bool) -> String {
     let (bg, border, text, icon) = match variant {
-        "success" => ("bg-emerald-500/5", "border-emerald-500/20", "text-emerald-400", "✓"),
-        "warning" => ("bg-amber-500/5", "border-amber-500/20", "text-amber-400", "⚠"),
+        "success" => (
+            "bg-emerald-500/5",
+            "border-emerald-500/20",
+            "text-emerald-400",
+            "✓",
+        ),
+        "warning" => (
+            "bg-amber-500/5",
+            "border-amber-500/20",
+            "text-amber-400",
+            "⚠",
+        ),
         "error" => ("bg-red-500/5", "border-red-500/20", "text-red-400", "✗"),
         _ => ("bg-blue-500/5", "border-blue-500/20", "text-blue-400", "ℹ"),
     };
     let close = if closable {
         " <button class=\"ml-auto text-neutral-600 hover:text-white transition-colors\" onclick=\"this.parentElement.remove()\">&times;</button>"
-    } else { "" };
+    } else {
+        ""
+    };
     format!(
         "<div class=\"flex items-center gap-3 px-4 py-3 {bg} border {border} rounded text-sm {text}\">\
         <span>{icon}</span>\
@@ -431,10 +485,15 @@ pub fn tabs(items: &[(&str, &str)], active: usize) -> String {
         format!("<button class=\"px-4 py-2.5 text-sm font-medium transition-all {cls}\" style=\"{style}\" data-tab=\"{i}\" data-tab-group=\"tabs\">{label}</button>")
     }).collect::<Vec<_>>().join("\n    ");
 
-    let tab_contents: String = items.iter().enumerate().map(|(i, (_, content))| {
-        let display = if i == active { "block" } else { "none" };
-        format!("<div data-tab-content=\"{i}\" style=\"display:{display}\">{content}</div>")
-    }).collect::<Vec<_>>().join("\n    ");
+    let tab_contents: String = items
+        .iter()
+        .enumerate()
+        .map(|(i, (_, content))| {
+            let display = if i == active { "block" } else { "none" };
+            format!("<div data-tab-content=\"{i}\" style=\"display:{display}\">{content}</div>")
+        })
+        .collect::<Vec<_>>()
+        .join("\n    ");
 
     format!(
         "<div>\
@@ -446,7 +505,11 @@ pub fn tabs(items: &[(&str, &str)], active: usize) -> String {
 
 /// Pagination
 pub fn pagination(current: u32, total: u32, per_page: u32) -> String {
-    let total_pages = if total > 0 { (total + per_page - 1) / per_page } else { 1 };
+    let total_pages = if total > 0 {
+        (total + per_page - 1) / per_page
+    } else {
+        1
+    };
     let mut pages = Vec::new();
 
     for i in 1..=total_pages.min(7) {
@@ -455,11 +518,21 @@ pub fn pagination(current: u32, total: u32, per_page: u32) -> String {
         } else {
             "bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-white"
         };
-        pages.push(format!("<button class=\"w-8 h-8 text-xs rounded {cls} transition-all\">{i}</button>"));
+        pages.push(format!(
+            "<button class=\"w-8 h-8 text-xs rounded {cls} transition-all\">{i}</button>"
+        ));
     }
 
-    let prev_cls = if current > 1 { "text-neutral-400 hover:text-white" } else { "text-neutral-700 cursor-not-allowed" };
-    let next_cls = if current < total_pages { "text-neutral-400 hover:text-white" } else { "text-neutral-700 cursor-not-allowed" };
+    let prev_cls = if current > 1 {
+        "text-neutral-400 hover:text-white"
+    } else {
+        "text-neutral-700 cursor-not-allowed"
+    };
+    let next_cls = if current < total_pages {
+        "text-neutral-400 hover:text-white"
+    } else {
+        "text-neutral-700 cursor-not-allowed"
+    };
 
     format!(
         "<div class=\"flex items-center gap-1.5\">\
@@ -474,22 +547,33 @@ pub fn pagination(current: u32, total: u32, per_page: u32) -> String {
 
 /// Steps / stepper
 pub fn steps(items: &[(&str, &str)], current: usize) -> String {
-    let step_items: String = items.iter().enumerate().map(|(i, (label, status))| {
-        let (dot_cls, text_cls, line_cls) = match *status {
-            "complete" => ("bg-emerald-500", "text-emerald-400", "bg-emerald-500"),
-            "current" => ("bg-amber-500 ring-4 ring-amber-500/20", "text-white", "bg-neutral-700"),
-            _ => ("bg-neutral-700", "text-neutral-500", "bg-neutral-800"),
-        };
-        let line = if i < items.len() - 1 {
-            format!("<div class=\"flex-1 h-px {line_cls} mx-3\"></div>")
-        } else { String::new() };
-        format!(
-            "<div class=\"flex items-center gap-2 flex-shrink-0\">\
+    let step_items: String = items
+        .iter()
+        .enumerate()
+        .map(|(i, (label, status))| {
+            let (dot_cls, text_cls, line_cls) = match *status {
+                "complete" => ("bg-emerald-500", "text-emerald-400", "bg-emerald-500"),
+                "current" => (
+                    "bg-amber-500 ring-4 ring-amber-500/20",
+                    "text-white",
+                    "bg-neutral-700",
+                ),
+                _ => ("bg-neutral-700", "text-neutral-500", "bg-neutral-800"),
+            };
+            let line = if i < items.len() - 1 {
+                format!("<div class=\"flex-1 h-px {line_cls} mx-3\"></div>")
+            } else {
+                String::new()
+            };
+            format!(
+                "<div class=\"flex items-center gap-2 flex-shrink-0\">\
             <div class=\"w-3 h-3 rounded-full {dot_cls} transition-all\"></div>\
             <span class=\"text-xs font-mono tracking-wider {text_cls}\">{label}</span>\
             </div>{line}"
-        )
-    }).collect::<Vec<_>>().join("\n    ");
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n    ");
 
     format!("<div class=\"flex items-center w-full\">\n    {step_items}\n  </div>")
 }
@@ -575,7 +659,10 @@ pub fn sidebar_nav(items: &[(&str, &str, &str)], active: &str) -> String {
         let color = if is_active { "var(--foreground)" } else { "var(--foreground-muted)" };
         format!(r#"<a href="{href}" style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:10px;font-size:13px;font-weight:500;color:{color};background:{bg};text-decoration:none;transition:all .15s">{icon}<span>{label}</span></a>"#, href=href, icon=icon, label=label, color=color, bg=bg)
     }).collect::<Vec<_>>().join("\n    ");
-    format!(r#"<nav style="width:220px;flex-shrink:0;display:flex;flex-direction:column;gap:2px;padding:8px">{links}</nav>"#, links=links)
+    format!(
+        r#"<nav style="width:220px;flex-shrink:0;display:flex;flex-direction:column;gap:2px;padding:8px">{links}</nav>"#,
+        links = links
+    )
 }
 
 // ══════════════════════════════════════════════════
@@ -583,14 +670,25 @@ pub fn sidebar_nav(items: &[(&str, &str, &str)], active: &str) -> String {
 // ══════════════════════════════════════════════════
 
 pub fn hero(badge_text: &str, title: &str, subtitle: &str, ctas: &[(&str, &str, &str)]) -> String {
-    let badge = if badge_text.is_empty() { String::new() } else {
-        format!(r#"<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:20px;border:1px solid var(--border);font-size:11px;font-weight:500;color:var(--foreground-muted);margin-bottom:24px"><span style="width:5px;height:5px;border-radius:50%;background:var(--accent)"></span>{}</div>"#, badge_text)
+    let badge = if badge_text.is_empty() {
+        String::new()
+    } else {
+        format!(
+            r#"<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:20px;border:1px solid var(--border);font-size:11px;font-weight:500;color:var(--foreground-muted);margin-bottom:24px"><span style="width:5px;height:5px;border-radius:50%;background:var(--accent)"></span>{}</div>"#,
+            badge_text
+        )
     };
     let buttons: String = ctas.iter().map(|(label, href, variant)| {
         let style = if *variant == "primary" { "background:var(--foreground);color:var(--background)" } else { "background:transparent;color:var(--foreground-muted);border:1px solid var(--border)" };
         format!(r#"<a href="{}" style="padding:10px 24px;border-radius:10px;font-size:14px;font-weight:500;text-decoration:none;{}">{}</a>"#, href, style, label)
     }).collect::<Vec<_>>().join("\n      ");
-    format!(r#"<section style="text-align:center;padding:80px 0">{badge}<h1 style="font-size:48px;font-weight:700;letter-spacing:-0.03em;color:var(--foreground);line-height:1.1;margin:0 0 16px">{title}</h1><p style="font-size:18px;color:var(--foreground-muted);max-width:600px;margin:0 auto 32px;line-height:1.6">{subtitle}</p><div style="display:flex;gap:12px;justify-content:center">{buttons}</div></section>"#, badge=badge, title=title, subtitle=subtitle, buttons=buttons)
+    format!(
+        r#"<section style="text-align:center;padding:80px 0">{badge}<h1 style="font-size:48px;font-weight:700;letter-spacing:-0.03em;color:var(--foreground);line-height:1.1;margin:0 0 16px">{title}</h1><p style="font-size:18px;color:var(--foreground-muted);max-width:600px;margin:0 auto 32px;line-height:1.6">{subtitle}</p><div style="display:flex;gap:12px;justify-content:center">{buttons}</div></section>"#,
+        badge = badge,
+        title = title,
+        subtitle = subtitle,
+        buttons = buttons
+    )
 }
 
 // ══════════════════════════════════════════════════
@@ -604,7 +702,10 @@ pub fn pricing_grid(plans: &[(&str, &str, &[&str], bool)]) -> String {
         let feats: String = features.iter().map(|f| format!(r#"<li style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--foreground-muted)"><span style="color:var(--success)">&#10003;</span>{}</li>"#, f)).collect::<Vec<_>>().join("");
         format!(r#"<div style="position:relative;border-radius:22px;border:1px solid {border};background:var(--card);padding:28px;display:flex;flex-direction:column">{badge}<h3 style="font-size:16px;font-weight:600;color:var(--foreground);margin:0 0 8px">{name}</h3><p style="font-size:32px;font-weight:700;color:var(--foreground);margin:0 0 24px">{price}</p><ul style="list-style:none;padding:0;margin:0 0 24px;display:flex;flex-direction:column;gap:10px;flex:1">{feats}</ul><button style="width:100%;padding:10px;border-radius:10px;font-size:14px;font-weight:500;border:none;cursor:pointer;background:var(--foreground);color:var(--background)">Comecar</button></div>"#, border=border, badge=badge, name=name, price=price, feats=feats)
     }).collect::<Vec<_>>().join("");
-    format!(r#"<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">{cards}</div>"#, cards=cards)
+    format!(
+        r#"<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">{cards}</div>"#,
+        cards = cards
+    )
 }
 
 // ══════════════════════════════════════════════════
@@ -615,13 +716,16 @@ pub fn command_palette(commands: &[(&str, &str)]) -> String {
     let items: String = commands.iter().map(|(label, shortcut)| {
         format!(r#"<div class="cmd-item" style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-radius:8px;cursor:pointer" onmouseover="this.style.background='var(--card-soft)'" onmouseout="this.style.background='transparent'"><span style="font-size:13px;color:var(--foreground)">{}</span><kbd style="font-size:11px;padding:2px 6px;border-radius:4px;background:var(--card);border:1px solid var(--border);color:var(--foreground-muted)">{}</kbd></div>"#, label, shortcut)
     }).collect::<Vec<_>>().join("");
-    format!(r##"<div id="cronus-command" style="display:none;position:fixed;inset:0;z-index:9999;background:oklch(0 0 0/60%);backdrop-filter:blur(4px);align-items:flex-start;justify-content:center;padding-top:20vh" onclick="if(event.target===this)this.style.display='none'">
+    format!(
+        r##"<div id="cronus-command" style="display:none;position:fixed;inset:0;z-index:9999;background:oklch(0 0 0/60%);backdrop-filter:blur(4px);align-items:flex-start;justify-content:center;padding-top:20vh" onclick="if(event.target===this)this.style.display='none'">
   <div style="width:480px;border-radius:16px;border:1px solid var(--border);background:var(--background);overflow:hidden;box-shadow:0 20px 60px oklch(0 0 0/40%)">
     <div style="padding:12px 14px;border-bottom:1px solid var(--border)"><input id="cmd-search" type="text" placeholder="Type a command..." style="width:100%;background:transparent;border:none;outline:none;font-size:14px;color:var(--foreground)" oninput="var q=this.value.toLowerCase();document.querySelectorAll('.cmd-item').forEach(function(e){{e.style.display=e.textContent.toLowerCase().includes(q)?'flex':'none'}})"></div>
     <div style="padding:8px;max-height:300px;overflow-y:auto">{items}</div>
   </div>
 </div>
-<script>document.addEventListener('keydown',function(e){{if((e.metaKey||e.ctrlKey)&&e.key==='k'){{e.preventDefault();var p=document.getElementById('cronus-command');p.style.display=p.style.display==='none'?'flex':'none';if(p.style.display==='flex')document.getElementById('cmd-search').focus()}}}});</script>"##, items=items)
+<script>document.addEventListener('keydown',function(e){{if((e.metaKey||e.ctrlKey)&&e.key==='k'){{e.preventDefault();var p=document.getElementById('cronus-command');p.style.display=p.style.display==='none'?'flex':'none';if(p.style.display==='flex')document.getElementById('cmd-search').focus()}}}});</script>"##,
+        items = items
+    )
 }
 
 // ══════════════════════════════════════════════════
@@ -629,7 +733,8 @@ pub fn command_palette(commands: &[(&str, &str)]) -> String {
 // ══════════════════════════════════════════════════
 
 pub fn sheet(title: &str, content: &str, id: &str) -> String {
-    format!(r##"<div id="{id}" style="display:none;position:fixed;inset:0;z-index:9998;background:oklch(0 0 0/50%)" onclick="if(event.target===this)this.style.display='none'">
+    format!(
+        r##"<div id="{id}" style="display:none;position:fixed;inset:0;z-index:9998;background:oklch(0 0 0/50%)" onclick="if(event.target===this)this.style.display='none'">
   <div style="position:absolute;right:0;top:0;bottom:0;width:400px;background:var(--background);border-left:1px solid var(--border);display:flex;flex-direction:column;transform:translateX(0);transition:transform .2s">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)">
       <h2 style="font-size:16px;font-weight:600;color:var(--foreground);margin:0">{title}</h2>
@@ -637,7 +742,11 @@ pub fn sheet(title: &str, content: &str, id: &str) -> String {
     </div>
     <div style="padding:20px;flex:1;overflow-y:auto">{content}</div>
   </div>
-</div>"##, id=id, title=title, content=content)
+</div>"##,
+        id = id,
+        title = title,
+        content = content
+    )
 }
 
 // ══════════════════════════════════════════════════
@@ -645,5 +754,11 @@ pub fn sheet(title: &str, content: &str, id: &str) -> String {
 // ══════════════════════════════════════════════════
 
 pub fn metric_row(icon_svg: &str, label: &str, value: &str, color: &str) -> String {
-    format!(r#"<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid oklch(1 0 0/4%)"><div style="width:32px;height:32px;border-radius:8px;background:{color};display:flex;align-items:center;justify-content:center;opacity:0.15"><div style="color:{color};opacity:1">{icon}</div></div><span style="flex:1;font-size:13px;color:var(--foreground-muted)">{label}</span><span style="font-size:14px;font-weight:600;color:var(--foreground);font-variant-numeric:tabular-nums">{value}</span></div>"#, icon=icon_svg, label=label, value=value, color=color)
+    format!(
+        r#"<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid oklch(1 0 0/4%)"><div style="width:32px;height:32px;border-radius:8px;background:{color};display:flex;align-items:center;justify-content:center;opacity:0.15"><div style="color:{color};opacity:1">{icon}</div></div><span style="flex:1;font-size:13px;color:var(--foreground-muted)">{label}</span><span style="font-size:14px;font-weight:600;color:var(--foreground);font-variant-numeric:tabular-nums">{value}</span></div>"#,
+        icon = icon_svg,
+        label = label,
+        value = value,
+        color = color
+    )
 }

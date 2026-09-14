@@ -132,7 +132,10 @@ mod tests {
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
         reject_fx(&html);
-        assert_eq!(crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html), None);
+        assert_eq!(
+            crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html),
+            None
+        );
         assert_eq!(
             dedicated_fn_name("spinning-text"),
             Some("cronus_ui_spinning_text::render")
@@ -157,7 +160,8 @@ mod tests {
     #[test]
     fn chrome_spinning_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"spinning-text\"] > span:first-child {\n  position: absolute;"));
+        assert!(css
+            .contains("[data-slot=\"spinning-text\"] > span:first-child {\n  position: absolute;"));
         assert!(css.contains("[data-slot=\"spinning-text\"] > [aria-hidden=\"true\"] > span {"));
         assert!(css.contains("font-size: 0.75rem; line-height: 1rem; font-weight: 500;"));
         assert!(css.contains("letter-spacing: 0.1em;"));
@@ -184,8 +188,14 @@ mod tests {
         ));
         for (pseudo, o, t) in [("nth-child", "io", "it"), ("nth-last-child", "jo", "jt")] {
             for k in 1..10 {
-                assert!(css.contains(&format!("{GLYPH}:{pseudo}(10n+{}) {{ --cui-{o}: {k}; }}", k + 1)));
-                assert!(css.contains(&format!("{GLYPH}:{pseudo}(n+{}) {{ --cui-{t}: {k}; }}", k * 10 + 1)));
+                assert!(css.contains(&format!(
+                    "{GLYPH}:{pseudo}(10n+{}) {{ --cui-{o}: {k}; }}",
+                    k + 1
+                )));
+                assert!(css.contains(&format!(
+                    "{GLYPH}:{pseudo}(n+{}) {{ --cui-{t}: {k}; }}",
+                    k * 10 + 1
+                )));
             }
             assert!(!css.contains(&format!("{GLYPH}:{pseudo}(n+101)")));
         }
@@ -216,7 +226,10 @@ mod tests {
         let long: String = "ab".repeat(80);
         let html = render(&stub("spinning-text", &long));
         assert_eq!(html.matches("<span data-angle=").count(), MAX_GLYPHS);
-        assert!(html.contains(&format!("<span>{long}</span>")), "sr-only copy keeps full text");
+        assert!(
+            html.contains(&format!("<span>{long}</span>")),
+            "sr-only copy keeps full text"
+        );
         assert!(html.contains("<span data-angle=\"3.6deg\">b</span>"));
     }
 }

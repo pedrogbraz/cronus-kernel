@@ -41,7 +41,9 @@ pub fn render(comp: &ComponentNode) -> String {
         .find(|i| i.item_type == "text" && !i.text.is_empty())
         .map(|i| esc(&i.text))
         .unwrap_or_else(|| label_of(comp));
-    let aria = attr(comp, "aria-label").map(esc).unwrap_or_else(|| placeholder.clone());
+    let aria = attr(comp, "aria-label")
+        .map(esc)
+        .unwrap_or_else(|| placeholder.clone());
     let id = widget_id(comp, "content");
     let tools = TOOLS
         .iter()
@@ -64,7 +66,11 @@ fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
     comp.props
         .get(key)
         .map(String::as_str)
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get(key).map(String::as_str)))
+        .or_else(|| {
+            comp.items
+                .iter()
+                .find_map(|i| i.config.get(key).map(String::as_str))
+        })
         .filter(|s| !s.is_empty())
 }
 
@@ -118,7 +124,9 @@ mod tests {
         assert!(html.contains(&format!(
             "<button type=\"button\" aria-pressed=\"false\" data-state=\"off\" data-slot=\"toggle\" aria-label=\"Bold\" disabled>{SVG_OPEN}<path d=\"M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8\"></path></svg></button>"
         )));
-        assert!(html.contains("data-disabled=\"\" data-slot=\"toggle\" aria-label=\"Undo\" disabled>"));
+        assert!(
+            html.contains("data-disabled=\"\" data-slot=\"toggle\" aria-label=\"Undo\" disabled>")
+        );
         // Icon buttons: no visible label text.
         assert!(!html.contains(">Bold</button>"));
         reject_interact(&html);

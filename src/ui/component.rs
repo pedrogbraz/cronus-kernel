@@ -2,44 +2,82 @@
 //! Component renderers (layout-based: inline, stack, grid, table, hero, modal, sidebar, tabs, menu)
 //! Also includes the light-theme app page renderer.
 
-use crate::parser::{ComponentNode, ComponentItemNode};
-use crate::components;
 use super::util::{item_by_kind, items_by_kind};
 use super::CRONUS_ANIMATIONS_CSS;
 use super::CRONUS_ANIMATIONS_JS;
+use crate::components;
+use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render_light_app_page(app_name: &str, comps: &[ComponentNode]) -> String {
     let script_nonce = crate::security::script_nonce_attr();
-    let topbar = comps.iter()
+    let topbar = comps
+        .iter()
         .find(|c| c.style.as_deref().unwrap_or("").contains("topbar+light"))
         .map(render_light_topbar)
         .unwrap_or_default();
-    let sidenav = comps.iter()
+    let sidenav = comps
+        .iter()
         .find(|c| c.style.as_deref().unwrap_or("").contains("sidenav+light"))
         .map(render_light_sidenav)
         .unwrap_or_default();
-    let header = comps.iter()
-        .find(|c| c.style.as_deref().unwrap_or("").contains("page-header+payouts"))
+    let header = comps
+        .iter()
+        .find(|c| {
+            c.style
+                .as_deref()
+                .unwrap_or("")
+                .contains("page-header+payouts")
+        })
         .map(render_light_page_header)
         .unwrap_or_default();
-    let balance = comps.iter()
-        .find(|c| c.style.as_deref().unwrap_or("").contains("card+balance+light"))
+    let balance = comps
+        .iter()
+        .find(|c| {
+            c.style
+                .as_deref()
+                .unwrap_or("")
+                .contains("card+balance+light")
+        })
         .map(render_light_balance_card)
         .unwrap_or_default();
-    let upcoming = comps.iter()
-        .find(|c| c.style.as_deref().unwrap_or("").contains("card+upcoming+light"))
+    let upcoming = comps
+        .iter()
+        .find(|c| {
+            c.style
+                .as_deref()
+                .unwrap_or("")
+                .contains("card+upcoming+light")
+        })
         .map(render_light_upcoming_card)
         .unwrap_or_default();
-    let actions = comps.iter()
-        .find(|c| c.style.as_deref().unwrap_or("").contains("action-row+light"))
+    let actions = comps
+        .iter()
+        .find(|c| {
+            c.style
+                .as_deref()
+                .unwrap_or("")
+                .contains("action-row+light")
+        })
         .map(render_light_history_actions)
         .unwrap_or_default();
-    let table = comps.iter()
-        .find(|c| c.style.as_deref().unwrap_or("").contains("payouts-table+light"))
+    let table = comps
+        .iter()
+        .find(|c| {
+            c.style
+                .as_deref()
+                .unwrap_or("")
+                .contains("payouts-table+light")
+        })
         .map(render_light_payouts_table)
         .unwrap_or_default();
-    let support = comps.iter()
-        .find(|c| c.style.as_deref().unwrap_or("").contains("support-banner+dark"))
+    let support = comps
+        .iter()
+        .find(|c| {
+            c.style
+                .as_deref()
+                .unwrap_or("")
+                .contains("support-banner+dark")
+        })
         .map(render_light_support_banner)
         .unwrap_or_default();
 
@@ -452,7 +490,13 @@ const KIT_GROUPS: &[(&str, &str, &[&str])] = &[
     (
         "date-time",
         "Date & Time",
-        &["calendar", "date-picker", "date-range-picker", "time-picker", "countdown"],
+        &[
+            "calendar",
+            "date-picker",
+            "date-range-picker",
+            "time-picker",
+            "countdown",
+        ],
     ),
 ];
 
@@ -525,11 +569,7 @@ fn render_kit_specimen(comp: &ComponentNode) -> String {
             crate::cronus_ui_kit::esc(&meta)
         )
     };
-    let wide = if kit_is_wide(family) {
-        "true"
-    } else {
-        "false"
-    };
+    let wide = if kit_is_wide(family) { "true" } else { "false" };
     let widget = render_component(comp);
     format!(
         r#"<article data-slot="catalog-specimen" data-family="{family_attr}" data-name="{name}" data-wide="{wide}">
@@ -660,7 +700,6 @@ fn render_kit_catalog(comps: &[ComponentNode]) -> String {
     )
 }
 
-
 // ── inline: Button, Badge ──
 
 pub(super) fn render_inline_component(comp: &ComponentNode, style: &str) -> String {
@@ -669,7 +708,9 @@ pub(super) fn render_inline_component(comp: &ComponentNode, style: &str) -> Stri
 
     if style.contains("badge") {
         // Badge
-        let tone = comp.items.iter()
+        let tone = comp
+            .items
+            .iter()
             .find(|i| i.item_type == "dot" || i.item_type == "label")
             .and_then(|i| i.config.get("tone"))
             .map(|s| s.as_str())
@@ -703,25 +744,33 @@ pub(super) fn render_inline_component(comp: &ComponentNode, style: &str) -> Stri
                     "primary"
                 }
             });
-        let size = comp.props.get("size").map(|s| s.as_str()).unwrap_or_else(|| {
-            if style.contains("icon-sm") {
-                "icon-sm"
-            } else if style.contains("icon") {
-                "icon"
-            } else if style.contains("lg") {
-                "lg"
-            } else if style.contains("sm") {
-                "sm"
-            } else {
-                "md"
-            }
-        });
+        let size = comp
+            .props
+            .get("size")
+            .map(|s| s.as_str())
+            .unwrap_or_else(|| {
+                if style.contains("icon-sm") {
+                    "icon-sm"
+                } else if style.contains("icon") {
+                    "icon"
+                } else if style.contains("lg") {
+                    "lg"
+                } else if style.contains("sm") {
+                    "sm"
+                } else {
+                    "md"
+                }
+            });
         let href = comp
             .items
             .iter()
             .find(|i| i.link.is_some())
             .and_then(|i| i.link.as_deref());
-        let disabled = comp.props.get("disabled").map(|s| s == "true").unwrap_or(false);
+        let disabled = comp
+            .props
+            .get("disabled")
+            .map(|s| s == "true")
+            .unwrap_or(false);
         // Opt-in: `style:button+primary+md` (cronus-ui). Anything else keeps
         // the legacy kernel Button so existing demos do not change.
         if style.contains("button") {
@@ -740,24 +789,28 @@ pub(super) fn render_stack_component(comp: &ComponentNode, style: &str) -> Strin
         let label = item_by_kind(&comp.items, "label").unwrap_or("Metric");
         let value = item_by_kind(&comp.items, "value").unwrap_or("");
         let trend = comp.items.iter().find(|i| i.item_type == "trend");
-        let change_pct = trend.map(|t| {
-            t.text.trim_end_matches('%').parse::<f32>().unwrap_or(0.0)
-        });
+        let change_pct = trend.map(|t| t.text.trim_end_matches('%').parse::<f32>().unwrap_or(0.0));
         let icon = item_by_kind(&comp.items, "icon").unwrap_or("");
         components::stat_card(label, value, change_pct, icon)
     } else if style.contains("empty") {
         // EmptyState
         let icon = item_by_kind(&comp.items, "icon").unwrap_or("📭");
-        let title = item_by_kind(&comp.items, "title").unwrap_or(item_by_kind(&comp.items, "label").unwrap_or("No data"));
+        let title = item_by_kind(&comp.items, "title")
+            .unwrap_or(item_by_kind(&comp.items, "label").unwrap_or("No data"));
         let text = item_by_kind(&comp.items, "text").unwrap_or("");
         let action = item_by_kind(&comp.items, "action");
         components::empty_state(icon, title, text, action)
     } else if style.contains("alert") {
         // Alert
-        let tone = if style.contains("success") { "success" }
-            else if style.contains("warning") { "warning" }
-            else if style.contains("danger") || style.contains("error") { "error" }
-            else { "info" };
+        let tone = if style.contains("success") {
+            "success"
+        } else if style.contains("warning") {
+            "warning"
+        } else if style.contains("danger") || style.contains("error") {
+            "error"
+        } else {
+            "info"
+        };
         let text = item_by_kind(&comp.items, "text")
             .or_else(|| item_by_kind(&comp.items, "title"))
             .unwrap_or("");
@@ -777,11 +830,13 @@ pub(super) fn render_stack_component(comp: &ComponentNode, style: &str) -> Strin
   <p style="font-size:10px;font-weight:600;color:var(--foreground-subtle);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">{}</p>
   {}
 </div>"#,
-            label, actions.join("\n  ")
+            label,
+            actions.join("\n  ")
         )
     } else {
         // Generic card
-        let title = item_by_kind(&comp.items, "title").unwrap_or(item_by_kind(&comp.items, "label").unwrap_or(&comp.name));
+        let title = item_by_kind(&comp.items, "title")
+            .unwrap_or(item_by_kind(&comp.items, "label").unwrap_or(&comp.name));
         let text = item_by_kind(&comp.items, "text").unwrap_or("");
         let inner = format!(
             r#"<h3 style="font-size:14px;font-weight:500;color:var(--foreground);margin-bottom:4px">{}</h3>
@@ -816,10 +871,17 @@ pub(super) fn render_grid_component(comp: &ComponentNode, style: &str) -> String
                 border = border, name = name, badge = badge, price = price,
             )
         }).collect();
-        let cols = if style.contains("3col") { "3" } else if style.contains("2col") { "2" } else { "3" };
+        let cols = if style.contains("3col") {
+            "3"
+        } else if style.contains("2col") {
+            "2"
+        } else {
+            "3"
+        };
         format!(
             r#"<div style="display:grid;grid-template-columns:repeat({},1fr);gap:16px">{}</div>"#,
-            cols, plans.join("\n")
+            cols,
+            plans.join("\n")
         )
     } else {
         // Generic card grid
@@ -834,10 +896,17 @@ pub(super) fn render_grid_component(comp: &ComponentNode, style: &str) -> String
                 title, desc
             )
         }).collect();
-        let cols = if style.contains("3col") { "3" } else if style.contains("2col") { "2" } else { "3" };
+        let cols = if style.contains("3col") {
+            "3"
+        } else if style.contains("2col") {
+            "2"
+        } else {
+            "3"
+        };
         format!(
             r#"<div style="display:grid;grid-template-columns:repeat({},1fr);gap:16px">{}</div>"#,
-            cols, items.join("\n")
+            cols,
+            items.join("\n")
         )
     }
 }
@@ -860,7 +929,9 @@ pub(super) fn render_table_component(comp: &ComponentNode, style: &str) -> Strin
     <p style="padding:16px;font-size:13px;color:var(--foreground-muted)">Loading {source}...</p>
   </div>
 </div>"#,
-        lower = lower, cols_attr = cols_attr, source = source,
+        lower = lower,
+        cols_attr = cols_attr,
+        source = source,
     )
 }
 
@@ -870,21 +941,35 @@ pub(super) fn render_hero_component(comp: &ComponentNode, style: &str) -> String
     let badge_text = item_by_kind(&comp.items, "badge").unwrap_or("");
     let title = item_by_kind(&comp.items, "title").unwrap_or("Welcome");
     let subtitle = item_by_kind(&comp.items, "subtitle").unwrap_or("");
-    let ctas: Vec<String> = items_by_kind(&comp.items, "cta").iter().map(|c| {
-        let href = c.link.as_deref().unwrap_or("");
-        let tone = c.config.get("tone").map(|s| s.as_str()).unwrap_or("primary");
-        let variant = if tone == "primary" || tone == "default" { "primary" } else { "outline" };
-        components::button(&c.text, variant, "lg", Some(href))
-    }).collect();
+    let ctas: Vec<String> = items_by_kind(&comp.items, "cta")
+        .iter()
+        .map(|c| {
+            let href = c.link.as_deref().unwrap_or("");
+            let tone = c
+                .config
+                .get("tone")
+                .map(|s| s.as_str())
+                .unwrap_or("primary");
+            let variant = if tone == "primary" || tone == "default" {
+                "primary"
+            } else {
+                "outline"
+            };
+            components::button(&c.text, variant, "lg", Some(href))
+        })
+        .collect();
 
     let badge_html = if !badge_text.is_empty() {
         format!(
             r#"<span style="display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent);margin-bottom:20px">
     <span style="width:6px;height:6px;border-radius:50%;background:var(--accent)"></span>
     {}
-  </span>"#, badge_text
+  </span>"#,
+            badge_text
         )
-    } else { String::new() };
+    } else {
+        String::new()
+    };
 
     format!(
         r#"<section style="text-align:center;padding:80px 24px 48px;max-width:720px;margin:0 auto">
@@ -893,7 +978,9 @@ pub(super) fn render_hero_component(comp: &ComponentNode, style: &str) -> String
   <p style="font-size:16px;color:var(--foreground-muted);line-height:1.6;max-width:540px;margin:0 auto 32px">{subtitle}</p>
   <div style="display:flex;gap:12px;justify-content:center">{ctas}</div>
 </section>"#,
-        badge_html = badge_html, title = title, subtitle = subtitle,
+        badge_html = badge_html,
+        title = title,
+        subtitle = subtitle,
         ctas = ctas.join("\n    "),
     )
 }
@@ -904,16 +991,30 @@ pub(super) fn render_modal_component(comp: &ComponentNode, style: &str) -> Strin
     let id = comp.name.to_lowercase().replace(' ', "-");
     let title = item_by_kind(&comp.items, "title").unwrap_or("Dialog");
     let text = item_by_kind(&comp.items, "text").unwrap_or("");
-    let actions: Vec<String> = items_by_kind(&comp.items, "action").iter().map(|a| {
-        let tone = a.config.get("tone").map(|s| s.as_str()).unwrap_or("secondary");
-        let variant = if tone == "danger" { "danger" } else if tone == "primary" { "primary" } else { "secondary" };
-        components::button(&a.text, variant, "md", None)
-    }).collect();
+    let actions: Vec<String> = items_by_kind(&comp.items, "action")
+        .iter()
+        .map(|a| {
+            let tone = a
+                .config
+                .get("tone")
+                .map(|s| s.as_str())
+                .unwrap_or("secondary");
+            let variant = if tone == "danger" {
+                "danger"
+            } else if tone == "primary" {
+                "primary"
+            } else {
+                "secondary"
+            };
+            components::button(&a.text, variant, "md", None)
+        })
+        .collect();
 
     let content = format!(
         r#"<p style="font-size:13px;color:var(--foreground-muted);margin-bottom:16px">{}</p>
 <div style="display:flex;gap:8px;justify-content:flex-end">{}</div>"#,
-        text, actions.join("\n    ")
+        text,
+        actions.join("\n    ")
     );
     components::modal(title, &content, &id)
 }
@@ -949,11 +1050,16 @@ pub(super) fn render_sidebar_component(comp: &ComponentNode, _style: &str) -> St
 // ── tabs ──
 
 pub(super) fn render_tabs_component(comp: &ComponentNode, style: &str) -> String {
-    let tab_items: Vec<(&str, &str)> = items_by_kind(&comp.items, "tab").iter().map(|t| {
-        (t.text.as_str(), "")
-    }).collect();
-    let active = comp.items.iter()
-        .position(|i| i.item_type == "tab" && i.config.get("active").map(|v| v == "true").unwrap_or(false))
+    let tab_items: Vec<(&str, &str)> = items_by_kind(&comp.items, "tab")
+        .iter()
+        .map(|t| (t.text.as_str(), ""))
+        .collect();
+    let active = comp
+        .items
+        .iter()
+        .position(|i| {
+            i.item_type == "tab" && i.config.get("active").map(|v| v == "true").unwrap_or(false)
+        })
         .unwrap_or(0);
     components::tabs(&tab_items, active)
 }
@@ -962,10 +1068,13 @@ pub(super) fn render_tabs_component(comp: &ComponentNode, style: &str) -> String
 
 pub(super) fn render_menu_component(comp: &ComponentNode, _style: &str) -> String {
     let trigger = item_by_kind(&comp.items, "trigger").unwrap_or("Menu");
-    let menu_items: Vec<(&str, &str)> = items_by_kind(&comp.items, "action").iter().map(|a| {
-        let href = a.link.as_deref().unwrap_or("");
-        (a.text.as_str(), href)
-    }).collect();
+    let menu_items: Vec<(&str, &str)> = items_by_kind(&comp.items, "action")
+        .iter()
+        .map(|a| {
+            let href = a.link.as_deref().unwrap_or("");
+            (a.text.as_str(), href)
+        })
+        .collect();
     components::dropdown(trigger, &menu_items)
 }
 

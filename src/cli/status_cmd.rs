@@ -1,6 +1,8 @@
 use std::fs;
 
-use crate::cli::brief::{brief_toml_val, brief_toml_arr, brief_toml_arr_after_section, brief_today_date};
+use crate::cli::brief::{
+    brief_today_date, brief_toml_arr, brief_toml_arr_after_section, brief_toml_val,
+};
 use crate::cli::objective_kernel::{count_files_matching, status_days_between};
 
 pub fn cmd_status() {
@@ -12,7 +14,8 @@ pub fn cmd_status() {
 
     // -- 2. Objective from objective.toml --
     let objective = fs::read_to_string(".cronus/objective.toml").unwrap_or_default();
-    let obj_title = brief_toml_val(&objective, "title").unwrap_or_else(|| "(no objective set)".into());
+    let obj_title =
+        brief_toml_val(&objective, "title").unwrap_or_else(|| "(no objective set)".into());
     let obj_deadline = brief_toml_val(&objective, "deadline").unwrap_or_else(|| "none".into());
     let success_criteria = brief_toml_arr(&objective, "criteria");
 
@@ -29,7 +32,10 @@ pub fn cmd_status() {
     let deadline_display = if days_remaining >= 0 {
         format!("{} ({} days remaining)", obj_deadline, days_remaining)
     } else {
-        format!("{} (\x1b[31m{} days overdue\x1b[0m)", obj_deadline, -days_remaining)
+        format!(
+            "{} (\x1b[31m{} days overdue\x1b[0m)",
+            obj_deadline, -days_remaining
+        )
     };
 
     // -- 5. Read tasks --
@@ -66,9 +72,11 @@ pub fn cmd_status() {
                             active_task_id = id;
                             active_task_title = title;
                             active_task_status = "in_progress".into();
-                            active_task_scope = write_files.iter().map(|f| {
-                                f.rsplit('/').next().unwrap_or(f).to_string()
-                            }).collect::<Vec<_>>().join(", ");
+                            active_task_scope = write_files
+                                .iter()
+                                .map(|f| f.rsplit('/').next().unwrap_or(f).to_string())
+                                .collect::<Vec<_>>()
+                                .join(", ");
                         }
                     }
                     _ => {
@@ -77,9 +85,11 @@ pub fn cmd_status() {
                             active_task_id = id;
                             active_task_title = title;
                             active_task_status = "open".into();
-                            active_task_scope = write_files.iter().map(|f| {
-                                f.rsplit('/').next().unwrap_or(f).to_string()
-                            }).collect::<Vec<_>>().join(", ");
+                            active_task_scope = write_files
+                                .iter()
+                                .map(|f| f.rsplit('/').next().unwrap_or(f).to_string())
+                                .collect::<Vec<_>>()
+                                .join(", ");
                         }
                     }
                 }
@@ -124,18 +134,28 @@ pub fn cmd_status() {
     let header = format!("CRONUS — Project Status");
     println!();
     println!("  \x1b[36m╔{}╗\x1b[0m", "═".repeat(bar_len));
-    println!("  \x1b[36m║\x1b[0m  \x1b[1m{:<width$}\x1b[0m \x1b[36m║\x1b[0m", header, width = bar_len - 3);
+    println!(
+        "  \x1b[36m║\x1b[0m  \x1b[1m{:<width$}\x1b[0m \x1b[36m║\x1b[0m",
+        header,
+        width = bar_len - 3
+    );
     println!("  \x1b[36m╚{}╝\x1b[0m", "═".repeat(bar_len));
     println!();
     println!("  \x1b[1mObjective:\x1b[0m {}", obj_title);
     println!("  \x1b[1mDeadline:\x1b[0m  {}", deadline_display);
     if criteria_total > 0 {
-        println!("  \x1b[1mProgress:\x1b[0m  {}/{} success criteria met", criteria_met, criteria_total);
+        println!(
+            "  \x1b[1mProgress:\x1b[0m  {}/{} success criteria met",
+            criteria_met, criteria_total
+        );
     }
     println!();
 
     if !active_task_id.is_empty() {
-        println!("  \x1b[1mActive Task:\x1b[0m {} — {}", active_task_id, active_task_title);
+        println!(
+            "  \x1b[1mActive Task:\x1b[0m {} — {}",
+            active_task_id, active_task_title
+        );
         if !active_task_scope.is_empty() {
             println!("  \x1b[1mScope:\x1b[0m {}", active_task_scope);
         }
@@ -143,12 +163,20 @@ pub fn cmd_status() {
         println!();
     }
 
-    println!("  \x1b[1mSegments:\x1b[0m {} active, {} merged", seg_active, seg_merged);
+    println!(
+        "  \x1b[1mSegments:\x1b[0m {} active, {} merged",
+        seg_active, seg_merged
+    );
     println!();
     println!("  \x1b[1mBuild:\x1b[0m {}", build);
-    println!("  \x1b[1mSpecs:\x1b[0m {} | \x1b[1mTests:\x1b[0m {} | \x1b[1mExamples:\x1b[0m {}", spec_count, test_count, example_count);
+    println!(
+        "  \x1b[1mSpecs:\x1b[0m {} | \x1b[1mTests:\x1b[0m {} | \x1b[1mExamples:\x1b[0m {}",
+        spec_count, test_count, example_count
+    );
     println!();
-    println!("  \x1b[1mTasks:\x1b[0m {} done, {} in_progress, {} open",
-        done_count, in_progress_count, open_count);
+    println!(
+        "  \x1b[1mTasks:\x1b[0m {} done, {} in_progress, {} open",
+        done_count, in_progress_count, open_count
+    );
     println!();
 }

@@ -76,19 +76,27 @@ pub fn hero_split(
         <span class="w-1.5 h-1.5 rounded-full bg-{a}-400 glow-accent"></span>
         <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-{a}-400">{badge}</span>
       </div>"#,
-            a = accent, badge = badge,
+            a = accent,
+            badge = badge,
         )
     };
 
-    let bullets_html: String = bullets.iter().enumerate().map(|(i, b)| {
-        format!(
-            r#"<li class="anim anim-d{d} flex items-center gap-3 text-neutral-400">
+    let bullets_html: String = bullets
+        .iter()
+        .enumerate()
+        .map(|(i, b)| {
+            format!(
+                r#"<li class="anim anim-d{d} flex items-center gap-3 text-neutral-400">
             <span class="w-1.5 h-1.5 bg-{a}-500"></span>
             <span class="text-sm">{b}</span>
           </li>"#,
-            d = i + 2, a = accent, b = b,
-        )
-    }).collect::<Vec<_>>().join("\n");
+                d = i + 2,
+                a = accent,
+                b = b,
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
 
     let ctas_html: String = ctas.iter().enumerate().map(|(i, (text, href, style))| {
         if *style == "primary" {
@@ -166,7 +174,8 @@ pub fn hero_centered(
         <span class="w-1.5 h-1.5 rounded-full bg-{a}-400 glow-accent"></span>
         <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-{a}-400">{b}</span>
       </div>"#,
-            a = accent, b = badge,
+            a = accent,
+            b = badge,
         )
     };
 
@@ -468,7 +477,12 @@ pub fn stats_section(stats: &[(&str, &str, &str)], accent: &str) -> String {
 // CTA SECTION
 // ══════════════════════════════════════════════════
 
-pub fn cta_section(title: &str, subtitle: &str, ctas: &[(&str, &str, &str)], accent: &str) -> String {
+pub fn cta_section(
+    title: &str,
+    subtitle: &str,
+    ctas: &[(&str, &str, &str)],
+    accent: &str,
+) -> String {
     // Based on stitch-variations/ir-brasil/CTASection6.tsx
     let ctas_html: String = ctas.iter().enumerate().map(|(i, (text, href, style))| {
         if *style == "primary" {
@@ -864,7 +878,10 @@ pub fn pricing_toggle(
 // ══════════════════════════════════════════════════
 
 pub fn api_dashboard(accent: &str) -> String {
-    let bars: String = (0..30).map(|_| r#"<div class="flex-1 h-6 bg-emerald-500/20 rounded-sm"></div>"#.to_string()).collect::<Vec<_>>().join("");
+    let bars: String = (0..30)
+        .map(|_| r#"<div class="flex-1 h-6 bg-emerald-500/20 rounded-sm"></div>"#.to_string())
+        .collect::<Vec<_>>()
+        .join("");
 
     format!(
         r##"<section class="py-24">
@@ -901,7 +918,10 @@ pub fn api_dashboard(accent: &str) -> String {
       </div>
     </div>
   </div>
-</section>"##, a = accent, bars = bars)
+</section>"##,
+        a = accent,
+        bars = bars
+    )
 }
 
 // ══════════════════════════════════════════════════
@@ -914,7 +934,8 @@ pub fn webhooks_section(events: &[(&str, &str, &str)], accent: &str) -> String {
         format!(r#"<div class="bg-[#141414] flex items-center justify-between p-4 rounded-lg"><div><div class="text-sm font-medium text-white font-mono">{name}</div><div class="text-xs text-neutral-500">{url}</div></div><span class="text-xs px-2 py-0.5 bg-{bc}-500/10 text-{bc}-400 rounded-full">{status}</span></div>"#, name=name, url=url, status=status, bc=bc)
     }).collect::<Vec<_>>().join("\n");
 
-    format!(r##"<section class="py-20"><div class="max-w-4xl mx-auto px-6">
+    format!(
+        r##"<section class="py-20"><div class="max-w-4xl mx-auto px-6">
     <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-{a}-500 mb-3">// Webhooks</p>
     <h2 class="text-3xl font-bold text-white mb-8">Real-time Events</h2>
     <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-8"><div class="space-y-3">{items}</div></div>
@@ -923,7 +944,10 @@ pub fn webhooks_section(events: &[(&str, &str, &str)], accent: &str) -> String {
       <pre class="text-xs font-mono text-neutral-300"><code>POST /webhooks
 {{"event":"payment.completed","data":{{"id":"pay_abc","amount":4990}}}}</code></pre>
     </div>
-  </div></section>"##, a=accent, items=items)
+  </div></section>"##,
+        a = accent,
+        items = items
+    )
 }
 
 // ══════════════════════════════════════════════════
@@ -931,7 +955,8 @@ pub fn webhooks_section(events: &[(&str, &str, &str)], accent: &str) -> String {
 // ══════════════════════════════════════════════════
 
 pub fn payouts_overview(accent: &str) -> String {
-    format!(r##"<section class="py-24"><div class="max-w-7xl mx-auto px-6">
+    format!(
+        r##"<section class="py-24"><div class="max-w-7xl mx-auto px-6">
     <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-3">// Payouts</p>
     <h2 class="text-4xl font-extrabold text-white mb-12">Payouts &amp; Balance</h2>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
@@ -963,7 +988,9 @@ pub fn payouts_overview(accent: &str) -> String {
         <tr><td class="py-3 font-mono text-neutral-300">PO-0890</td><td class="py-3 text-neutral-500">Mar 11</td><td class="py-3 text-white tabular-nums">$15,780</td><td class="py-3"><span class="text-xs px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full">done</span></td></tr>
       </tbody></table>
     </div>
-  </div></section>"##, a = accent)
+  </div></section>"##,
+        a = accent
+    )
 }
 
 // ══════════════════════════════════════════════════
@@ -994,13 +1021,21 @@ pub const PREMIUM_CSS: &str = r##"
 // ══════════════════════════════════════════════════
 
 pub fn edge_network_section(accent: &str) -> String {
-    let highlighted = [5,8,11,14,17,20,23,26,29];
-    let dots: String = (0..36).map(|i| {
-        let color = if highlighted.contains(&i) { format!("bg-{}-500", accent) } else { "bg-neutral-800".to_string() };
-        format!(r#"<div class="w-4 h-4 rounded-full {}"></div>"#, color)
-    }).collect::<Vec<_>>().join("\n              ");
+    let highlighted = [5, 8, 11, 14, 17, 20, 23, 26, 29];
+    let dots: String = (0..36)
+        .map(|i| {
+            let color = if highlighted.contains(&i) {
+                format!("bg-{}-500", accent)
+            } else {
+                "bg-neutral-800".to_string()
+            };
+            format!(r#"<div class="w-4 h-4 rounded-full {}"></div>"#, color)
+        })
+        .collect::<Vec<_>>()
+        .join("\n              ");
 
-    format!(r##"<section class="py-32">
+    format!(
+        r##"<section class="py-32">
   <div class="max-w-7xl mx-auto px-6">
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
       <div>
@@ -1023,7 +1058,9 @@ pub fn edge_network_section(accent: &str) -> String {
       </div>
     </div>
   </div>
-</section>"##, dots = dots)
+</section>"##,
+        dots = dots
+    )
 }
 
 // ══════════════════════════════════════════════════
@@ -1031,7 +1068,8 @@ pub fn edge_network_section(accent: &str) -> String {
 // ══════════════════════════════════════════════════
 
 pub fn developer_section(accent: &str) -> String {
-    format!(r##"<section class="py-24 relative overflow-hidden">
+    format!(
+        r##"<section class="py-24 relative overflow-hidden">
   <div class="grid-pattern opacity-20 absolute inset-0"></div>
   <div class="max-w-7xl mx-auto px-6 relative z-10">
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center mb-24">
@@ -1070,7 +1108,9 @@ pub fn developer_section(accent: &str) -> String {
       <div class="md:col-span-2 bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-8"><h3 class="text-lg font-semibold text-white">Complete Docs</h3><p class="text-sm text-neutral-400 mt-2">Full documentation with real examples. Step-by-step guides for every feature.</p></div>
     </div>
   </div>
-</section>"##, a = accent)
+</section>"##,
+        a = accent
+    )
 }
 
 // ══════════════════════════════════════════════════
@@ -1078,12 +1118,20 @@ pub fn developer_section(accent: &str) -> String {
 // ══════════════════════════════════════════════════
 
 pub fn enterprise_section(accent: &str) -> String {
-    let regions = [("US-E","Virginia"),("US-W","Oregon"),("EU-W","Frankfurt"),("AP-SE","Singapore"),("AP-NE","Tokyo"),("EU-N","Stockholm")];
+    let regions = [
+        ("US-E", "Virginia"),
+        ("US-W", "Oregon"),
+        ("EU-W", "Frankfurt"),
+        ("AP-SE", "Singapore"),
+        ("AP-NE", "Tokyo"),
+        ("EU-N", "Stockholm"),
+    ];
     let region_cards: String = regions.iter().map(|(code, city)| {
         format!(r#"<div class="text-center p-3 bg-[#0f0f0f] rounded-lg"><div class="w-2.5 h-2.5 rounded-full bg-emerald-500 mx-auto mb-2"></div><div class="text-xs font-mono font-bold text-white">{}</div><div class="text-xs text-neutral-500">{}</div></div>"#, code, city)
     }).collect::<Vec<_>>().join("\n            ");
 
-    format!(r##"<section class="py-24">
+    format!(
+        r##"<section class="py-24">
   <div class="max-w-7xl mx-auto px-6">
     <div class="mb-12">
       <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-3">ENTERPRISE</p>
@@ -1111,7 +1159,9 @@ pub fn enterprise_section(accent: &str) -> String {
       <div class="text-center"><div class="text-3xl font-bold text-white tabular-nums">100+</div><div class="text-sm text-neutral-500 mt-1">Edge Locations</div></div>
     </div>
   </div>
-</section>"##, regions = region_cards)
+</section>"##,
+        regions = region_cards
+    )
 }
 
 // ══════════════════════════════════════════════════
@@ -1132,7 +1182,8 @@ pub fn billing_portal(plans: &[PricingPlan], current_plan: &str, accent: &str) -
             border, p.name, badge, p.price, p.period, btn)
     }).collect::<Vec<_>>().join("\n      ");
 
-    format!(r##"<div class="max-w-6xl mx-auto">
+    format!(
+        r##"<div class="max-w-6xl mx-auto">
   <div class="flex items-center gap-3 mb-8">
     <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-{a}-500">// Billing</p>
     <div class="flex-1 h-px bg-neutral-800/50"></div>
@@ -1169,7 +1220,10 @@ pub fn billing_portal(plans: &[PricingPlan], current_plan: &str, accent: &str) -
       </tbody>
     </table>
   </div>
-</div>"##, a = accent, plans = plan_cards)
+</div>"##,
+        a = accent,
+        plans = plan_cards
+    )
 }
 // ══════════════════════════════════════════════════
 // REAL LANDING PAGE TEMPLATES — Extracted from stitch
@@ -2344,7 +2398,8 @@ body { font-family: 'Inter', sans-serif; background-color: #f9f9fb; color: #1a1c
 // ══════════════════════════════════════════════════
 
 pub fn infra_monitor(accent: &str) -> String {
-    format!(r##"<div class="max-w-7xl mx-auto"><div class="flex items-center gap-3 mb-8"><p class="font-mono text-[10px] uppercase tracking-[0.2em] text-{a}-500">// Infrastructure</p><div class="flex-1 h-px bg-neutral-800/50"></div></div><h1 class="text-3xl font-bold mb-8">Infrastructure Monitor</h1>
+    format!(
+        r##"<div class="max-w-7xl mx-auto"><div class="flex items-center gap-3 mb-8"><p class="font-mono text-[10px] uppercase tracking-[0.2em] text-{a}-500">// Infrastructure</p><div class="flex-1 h-px bg-neutral-800/50"></div></div><h1 class="text-3xl font-bold mb-8">Infrastructure Monitor</h1>
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
     <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-6"><p class="font-mono text-[10px] text-neutral-500 mb-2">CPU</p><p class="text-3xl font-bold tabular-nums text-{a}-400">42%</p><div class="mt-3 w-full h-1.5 bg-neutral-800 rounded-full"><div class="h-1.5 bg-{a}-500 rounded-full" style="width:42%"></div></div></div>
     <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-6"><p class="font-mono text-[10px] text-neutral-500 mb-2">MEMORY</p><p class="text-3xl font-bold tabular-nums text-emerald-400">6.2GB</p><div class="mt-3 w-full h-1.5 bg-neutral-800 rounded-full"><div class="h-1.5 bg-emerald-500 rounded-full" style="width:38%"></div></div></div>
@@ -2354,11 +2409,14 @@ pub fn infra_monitor(accent: &str) -> String {
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-8"><h3 class="text-lg font-semibold text-white mb-6">Active Deployments</h3><div class="space-y-3"><div class="flex items-center justify-between p-3 bg-[#141414] rounded-lg"><div class="flex items-center gap-3"><div class="w-2 h-2 rounded-full bg-emerald-500"></div><span class="text-sm text-white font-mono">api-gateway</span></div><span class="text-xs text-neutral-500">v2.4.1</span></div><div class="flex items-center justify-between p-3 bg-[#141414] rounded-lg"><div class="flex items-center gap-3"><div class="w-2 h-2 rounded-full bg-amber-500"></div><span class="text-sm text-white font-mono">worker-queue</span></div><span class="text-xs text-neutral-500">deploying</span></div></div></div>
     <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-8"><h3 class="text-lg font-semibold text-white mb-6">Events</h3><div class="space-y-3"><div class="flex gap-3 p-3"><span class="w-1.5 h-1.5 mt-2 rounded-full bg-emerald-500 shrink-0"></span><div><p class="text-sm text-white">Deploy completed</p><p class="text-xs text-neutral-500">2m ago</p></div></div><div class="flex gap-3 p-3"><span class="w-1.5 h-1.5 mt-2 rounded-full bg-amber-500 shrink-0"></span><div><p class="text-sm text-white">Scaling event</p><p class="text-xs text-neutral-500">8m ago</p></div></div></div></div>
-  </div></div>"##, a = accent)
+  </div></div>"##,
+        a = accent
+    )
 }
 
 pub fn ecommerce_dashboard(accent: &str) -> String {
-    format!(r##"<div class="max-w-7xl mx-auto"><div class="flex items-center gap-3 mb-8"><p class="font-mono text-[10px] uppercase tracking-[0.2em] text-{a}-500">// Commerce</p><div class="flex-1 h-px bg-neutral-800/50"></div></div>
+    format!(
+        r##"<div class="max-w-7xl mx-auto"><div class="flex items-center gap-3 mb-8"><p class="font-mono text-[10px] uppercase tracking-[0.2em] text-{a}-500">// Commerce</p><div class="flex-1 h-px bg-neutral-800/50"></div></div>
   <div class="flex items-center justify-between mb-8"><h1 class="text-3xl font-bold">Store Dashboard</h1><button class="px-4 py-2 bg-{a}-500 text-black text-sm font-semibold rounded-full">+ Product</button></div>
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
     <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-6"><p class="font-mono text-[10px] text-neutral-500 mb-2">REVENUE</p><p class="text-2xl font-bold tabular-nums text-white">$48,250</p><p class="text-xs text-emerald-400 mt-1">+12.5%</p></div>
@@ -2366,7 +2424,9 @@ pub fn ecommerce_dashboard(accent: &str) -> String {
     <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-6"><p class="font-mono text-[10px] text-neutral-500 mb-2">CUSTOMERS</p><p class="text-2xl font-bold tabular-nums text-white">3,891</p></div>
     <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-6"><p class="font-mono text-[10px] text-neutral-500 mb-2">CONVERSION</p><p class="text-2xl font-bold tabular-nums text-white">3.2%</p></div>
   </div>
-  <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-8"><h3 class="text-lg font-semibold text-white mb-6">Recent Orders</h3><table class="w-full text-sm"><thead><tr class="border-b border-neutral-800/50"><th class="text-left py-3 font-mono text-[10px] text-neutral-500">ORDER</th><th class="text-left py-3 font-mono text-[10px] text-neutral-500">CUSTOMER</th><th class="text-left py-3 font-mono text-[10px] text-neutral-500">TOTAL</th><th class="text-left py-3 font-mono text-[10px] text-neutral-500">STATUS</th></tr></thead><tbody><tr class="border-b border-neutral-800/30"><td class="py-3 font-mono text-neutral-300">#4821</td><td class="py-3 text-white">Alice</td><td class="py-3 text-white tabular-nums">$249</td><td class="py-3"><span class="text-xs px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full">shipped</span></td></tr><tr class="border-b border-neutral-800/30"><td class="py-3 font-mono text-neutral-300">#4820</td><td class="py-3 text-white">Bob</td><td class="py-3 text-white tabular-nums">$89</td><td class="py-3"><span class="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full">processing</span></td></tr></tbody></table></div></div>"##, a = accent)
+  <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-8"><h3 class="text-lg font-semibold text-white mb-6">Recent Orders</h3><table class="w-full text-sm"><thead><tr class="border-b border-neutral-800/50"><th class="text-left py-3 font-mono text-[10px] text-neutral-500">ORDER</th><th class="text-left py-3 font-mono text-[10px] text-neutral-500">CUSTOMER</th><th class="text-left py-3 font-mono text-[10px] text-neutral-500">TOTAL</th><th class="text-left py-3 font-mono text-[10px] text-neutral-500">STATUS</th></tr></thead><tbody><tr class="border-b border-neutral-800/30"><td class="py-3 font-mono text-neutral-300">#4821</td><td class="py-3 text-white">Alice</td><td class="py-3 text-white tabular-nums">$249</td><td class="py-3"><span class="text-xs px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full">shipped</span></td></tr><tr class="border-b border-neutral-800/30"><td class="py-3 font-mono text-neutral-300">#4820</td><td class="py-3 text-white">Bob</td><td class="py-3 text-white tabular-nums">$89</td><td class="py-3"><span class="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full">processing</span></td></tr></tbody></table></div></div>"##,
+        a = accent
+    )
 }
 
 pub fn security_dashboard(_accent: &str) -> String {
@@ -2380,7 +2440,8 @@ pub fn security_dashboard(_accent: &str) -> String {
 }
 
 pub fn ai_model_dashboard(accent: &str) -> String {
-    format!(r##"<div class="max-w-7xl mx-auto"><div class="flex items-center gap-3 mb-8"><p class="font-mono text-[10px] uppercase tracking-[0.2em] text-violet-500">// AI Models</p><div class="flex-1 h-px bg-neutral-800/50"></div></div>
+    format!(
+        r##"<div class="max-w-7xl mx-auto"><div class="flex items-center gap-3 mb-8"><p class="font-mono text-[10px] uppercase tracking-[0.2em] text-violet-500">// AI Models</p><div class="flex-1 h-px bg-neutral-800/50"></div></div>
   <div class="flex items-center justify-between mb-8"><h1 class="text-3xl font-bold">Model Registry</h1><button class="px-4 py-2 bg-violet-500 text-white text-sm font-semibold rounded-full">Deploy Model</button></div>
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
     <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-6"><p class="font-mono text-[10px] text-neutral-500 mb-2">MODELS</p><p class="text-2xl font-bold tabular-nums text-white">7</p></div>
@@ -2388,34 +2449,45 @@ pub fn ai_model_dashboard(accent: &str) -> String {
     <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-6"><p class="font-mono text-[10px] text-neutral-500 mb-2">LATENCY</p><p class="text-2xl font-bold tabular-nums text-white">23ms</p></div>
     <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-6"><p class="font-mono text-[10px] text-neutral-500 mb-2">GPU</p><p class="text-2xl font-bold tabular-nums text-{a}-400">78%</p></div>
   </div>
-  <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-8"><h3 class="text-lg font-semibold text-white mb-6">Deployed Models</h3><div class="space-y-3"><div class="flex items-center justify-between p-4 bg-[#141414] rounded-lg"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-400 font-mono text-xs">LLM</div><div><div class="text-sm text-white">gpt-4-turbo</div><div class="text-xs text-neutral-500">175B params</div></div></div><span class="text-xs px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full">serving</span></div><div class="flex items-center justify-between p-4 bg-[#141414] rounded-lg"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 font-mono text-xs">EMB</div><div><div class="text-sm text-white">ada-embedding-v2</div><div class="text-xs text-neutral-500">1.5B params</div></div></div><span class="text-xs px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full">serving</span></div><div class="flex items-center justify-between p-4 bg-[#141414] rounded-lg"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 font-mono text-xs">IMG</div><div><div class="text-sm text-white">stable-diffusion-xl</div><div class="text-xs text-neutral-500">6.6B params</div></div></div><span class="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full">scaling</span></div></div></div></div>"##, a = accent)
+  <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-8"><h3 class="text-lg font-semibold text-white mb-6">Deployed Models</h3><div class="space-y-3"><div class="flex items-center justify-between p-4 bg-[#141414] rounded-lg"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-400 font-mono text-xs">LLM</div><div><div class="text-sm text-white">gpt-4-turbo</div><div class="text-xs text-neutral-500">175B params</div></div></div><span class="text-xs px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full">serving</span></div><div class="flex items-center justify-between p-4 bg-[#141414] rounded-lg"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 font-mono text-xs">EMB</div><div><div class="text-sm text-white">ada-embedding-v2</div><div class="text-xs text-neutral-500">1.5B params</div></div></div><span class="text-xs px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full">serving</span></div><div class="flex items-center justify-between p-4 bg-[#141414] rounded-lg"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 font-mono text-xs">IMG</div><div><div class="text-sm text-white">stable-diffusion-xl</div><div class="text-xs text-neutral-500">6.6B params</div></div></div><span class="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full">scaling</span></div></div></div></div>"##,
+        a = accent
+    )
 }
 
 pub fn logistics_view(accent: &str) -> String {
-    format!(r##"<div class="max-w-7xl mx-auto"><div class="flex items-center gap-3 mb-8"><p class="font-mono text-[10px] uppercase tracking-[0.2em] text-{a}-500">// Logistics</p><div class="flex-1 h-px bg-neutral-800/50"></div></div><h1 class="text-3xl font-bold mb-8">Shipment Tracker</h1>
+    format!(
+        r##"<div class="max-w-7xl mx-auto"><div class="flex items-center gap-3 mb-8"><p class="font-mono text-[10px] uppercase tracking-[0.2em] text-{a}-500">// Logistics</p><div class="flex-1 h-px bg-neutral-800/50"></div></div><h1 class="text-3xl font-bold mb-8">Shipment Tracker</h1>
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
     <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-6"><p class="font-mono text-[10px] text-neutral-500 mb-2">IN TRANSIT</p><p class="text-2xl font-bold tabular-nums text-blue-400">342</p></div>
     <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-6"><p class="font-mono text-[10px] text-neutral-500 mb-2">DELIVERED</p><p class="text-2xl font-bold tabular-nums text-emerald-400">1,847</p></div>
     <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-6"><p class="font-mono text-[10px] text-neutral-500 mb-2">DELAYED</p><p class="text-2xl font-bold tabular-nums text-amber-400">23</p></div>
     <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-6"><p class="font-mono text-[10px] text-neutral-500 mb-2">AVG TIME</p><p class="text-2xl font-bold tabular-nums text-white">2.4d</p></div>
   </div>
-  <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-8"><h3 class="text-lg font-semibold text-white mb-6">Active Shipments</h3><table class="w-full text-sm"><thead><tr class="border-b border-neutral-800/50"><th class="text-left py-3 font-mono text-[10px] text-neutral-500">TRACKING</th><th class="text-left py-3 font-mono text-[10px] text-neutral-500">ROUTE</th><th class="text-left py-3 font-mono text-[10px] text-neutral-500">STATUS</th></tr></thead><tbody><tr class="border-b border-neutral-800/30"><td class="py-3 font-mono text-neutral-300">SHP-8842</td><td class="py-3 text-neutral-400">SP → NY</td><td class="py-3"><span class="text-xs px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded-full">transit</span></td></tr><tr class="border-b border-neutral-800/30"><td class="py-3 font-mono text-neutral-300">SHP-8841</td><td class="py-3 text-neutral-400">SH → LDN</td><td class="py-3"><span class="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full">customs</span></td></tr></tbody></table></div></div>"##, a = accent)
+  <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-8"><h3 class="text-lg font-semibold text-white mb-6">Active Shipments</h3><table class="w-full text-sm"><thead><tr class="border-b border-neutral-800/50"><th class="text-left py-3 font-mono text-[10px] text-neutral-500">TRACKING</th><th class="text-left py-3 font-mono text-[10px] text-neutral-500">ROUTE</th><th class="text-left py-3 font-mono text-[10px] text-neutral-500">STATUS</th></tr></thead><tbody><tr class="border-b border-neutral-800/30"><td class="py-3 font-mono text-neutral-300">SHP-8842</td><td class="py-3 text-neutral-400">SP → NY</td><td class="py-3"><span class="text-xs px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded-full">transit</span></td></tr><tr class="border-b border-neutral-800/30"><td class="py-3 font-mono text-neutral-300">SHP-8841</td><td class="py-3 text-neutral-400">SH → LDN</td><td class="py-3"><span class="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full">customs</span></td></tr></tbody></table></div></div>"##,
+        a = accent
+    )
 }
 
 pub fn webhook_visualizer(accent: &str) -> String {
-    format!(r##"<div class="max-w-4xl mx-auto"><div class="flex items-center gap-3 mb-8"><p class="font-mono text-[10px] uppercase tracking-[0.2em] text-{a}-500">// Webhooks</p><div class="flex-1 h-px bg-neutral-800/50"></div></div><h2 class="text-3xl font-bold mb-8">Event Flow</h2>
+    format!(
+        r##"<div class="max-w-4xl mx-auto"><div class="flex items-center gap-3 mb-8"><p class="font-mono text-[10px] uppercase tracking-[0.2em] text-{a}-500">// Webhooks</p><div class="flex-1 h-px bg-neutral-800/50"></div></div><h2 class="text-3xl font-bold mb-8">Event Flow</h2>
   <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-8">
     <div class="flex items-center justify-center gap-4 mb-8"><div class="px-4 py-3 bg-{a}-500/10 border border-{a}-500/20 rounded-xl text-center"><p class="font-mono text-[10px] text-{a}-400">EVENT</p><p class="text-sm text-white mt-1">payment.completed</p></div><div class="w-12 h-px bg-neutral-700"></div><div class="px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-xl text-center"><p class="font-mono text-[10px] text-neutral-500">QUEUE</p></div><div class="w-12 h-px bg-neutral-700"></div><div class="px-4 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center"><p class="font-mono text-[10px] text-emerald-400">DELIVER</p></div></div>
     <div class="space-y-2"><div class="flex items-center justify-between p-3 bg-[#141414] rounded-lg"><span class="text-sm text-white font-mono">payment.completed</span><span class="text-xs px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full">200 OK</span></div><div class="flex items-center justify-between p-3 bg-[#141414] rounded-lg"><span class="text-sm text-white font-mono">invoice.created</span><span class="text-xs px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full">200 OK</span></div><div class="flex items-center justify-between p-3 bg-[#141414] rounded-lg"><span class="text-sm text-white font-mono">subscription.renewed</span><span class="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full">timeout</span></div></div>
-  </div></div>"##, a = accent)
+  </div></div>"##,
+        a = accent
+    )
 }
 
 pub fn api_docs_section(accent: &str) -> String {
-    format!(r##"<div class="max-w-4xl mx-auto"><div class="flex items-center gap-3 mb-8"><p class="font-mono text-[10px] uppercase tracking-[0.2em] text-{a}-500">// API Reference</p><div class="flex-1 h-px bg-neutral-800/50"></div></div><h2 class="text-3xl font-bold mb-8">REST API</h2>
+    format!(
+        r##"<div class="max-w-4xl mx-auto"><div class="flex items-center gap-3 mb-8"><p class="font-mono text-[10px] uppercase tracking-[0.2em] text-{a}-500">// API Reference</p><div class="flex-1 h-px bg-neutral-800/50"></div></div><h2 class="text-3xl font-bold mb-8">REST API</h2>
   <div class="space-y-4">
     <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl overflow-hidden"><div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-800/30"><span class="text-xs font-mono font-bold px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded">GET</span><span class="text-sm font-mono text-white">/api/users</span></div><div class="px-6 py-4 bg-[#080808]"><pre class="text-xs font-mono text-neutral-400"><code>curl http://localhost:5175/api/users -H "Authorization: Bearer sk_***"</code></pre></div></div>
     <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl overflow-hidden"><div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-800/30"><span class="text-xs font-mono font-bold px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded">POST</span><span class="text-sm font-mono text-white">/api/users</span></div><div class="px-6 py-4 bg-[#080808]"><pre class="text-xs font-mono text-neutral-400"><code>curl -X POST http://localhost:5175/api/users -d '{{"name":"Alice"}}'</code></pre></div></div>
     <div class="bg-[#0a0a0a] border border-neutral-800/50 rounded-xl overflow-hidden"><div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-800/30"><span class="text-xs font-mono font-bold px-2 py-0.5 bg-red-500/10 text-red-400 rounded">DELETE</span><span class="text-sm font-mono text-white">/api/users/:id</span></div><div class="px-6 py-4 bg-[#080808]"><pre class="text-xs font-mono text-neutral-400"><code>curl -X DELETE http://localhost:5175/api/users/abc123</code></pre></div></div>
   </div>
-  <div class="mt-8 bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-6"><h3 class="font-mono text-[10px] text-neutral-500 mb-4">STATUS CODES</h3><div class="grid grid-cols-4 gap-3"><div class="text-center p-3 bg-[#141414] rounded-lg"><span class="text-lg font-bold text-emerald-400">200</span><p class="text-xs text-neutral-500">OK</p></div><div class="text-center p-3 bg-[#141414] rounded-lg"><span class="text-lg font-bold text-blue-400">201</span><p class="text-xs text-neutral-500">Created</p></div><div class="text-center p-3 bg-[#141414] rounded-lg"><span class="text-lg font-bold text-amber-400">404</span><p class="text-xs text-neutral-500">Not Found</p></div><div class="text-center p-3 bg-[#141414] rounded-lg"><span class="text-lg font-bold text-red-400">500</span><p class="text-xs text-neutral-500">Error</p></div></div></div></div>"##, a = accent)
+  <div class="mt-8 bg-[#0a0a0a] border border-neutral-800/50 rounded-xl p-6"><h3 class="font-mono text-[10px] text-neutral-500 mb-4">STATUS CODES</h3><div class="grid grid-cols-4 gap-3"><div class="text-center p-3 bg-[#141414] rounded-lg"><span class="text-lg font-bold text-emerald-400">200</span><p class="text-xs text-neutral-500">OK</p></div><div class="text-center p-3 bg-[#141414] rounded-lg"><span class="text-lg font-bold text-blue-400">201</span><p class="text-xs text-neutral-500">Created</p></div><div class="text-center p-3 bg-[#141414] rounded-lg"><span class="text-lg font-bold text-amber-400">404</span><p class="text-xs text-neutral-500">Not Found</p></div><div class="text-center p-3 bg-[#141414] rounded-lg"><span class="text-lg font-bold text-red-400">500</span><p class="text-xs text-neutral-500">Error</p></div></div></div></div>"##,
+        a = accent
+    )
 }

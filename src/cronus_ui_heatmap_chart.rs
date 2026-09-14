@@ -108,6 +108,7 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"heatmap-chart\"] {\n  display: block; width: 100%;\n}"));
         assert!(css.contains("grid-template-rows: repeat(7, minmax(0, 1fr));"));
-        assert!(css.contains("font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-tertiary);"));
+        assert!(css
+            .contains("font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-tertiary);"));
     }
 }

@@ -139,7 +139,9 @@ mod tests {
 
     fn unit<'a>(html: &'a str, name: &str) -> &'a str {
         let needle = format!("data-unit=\"{name}\"");
-        let start = html.find(&needle).unwrap_or_else(|| panic!("{name} in {html}"));
+        let start = html
+            .find(&needle)
+            .unwrap_or_else(|| panic!("{name} in {html}"));
         &html[start..]
     }
 

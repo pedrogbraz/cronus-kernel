@@ -88,7 +88,10 @@ fn execute_statement(
         Statement::Let { name, value } => {
             // SECURITY: limit scope size to prevent memory exhaustion
             if ctx.scope.len() >= MAX_SCOPE_VARS && !ctx.scope.contains_key(name) {
-                return Err(format!("scope limit exceeded ({} vars max)", MAX_SCOPE_VARS));
+                return Err(format!(
+                    "scope limit exceeded ({} vars max)",
+                    MAX_SCOPE_VARS
+                ));
             }
             let val = eval_expr(value, ctx, db, event)?;
             ctx.scope.insert(name.clone(), val);
@@ -124,7 +127,10 @@ fn execute_statement(
                     eprintln!("  \x1b[36m[script]\x1b[0m db.create {} → {}", entity, id);
                 }
                 Err(e) => {
-                    eprintln!("  \x1b[31m[script]\x1b[0m db.create {} failed: {}", entity, e);
+                    eprintln!(
+                        "  \x1b[31m[script]\x1b[0m db.create {} failed: {}",
+                        entity, e
+                    );
                 }
             }
         }
@@ -135,9 +141,15 @@ fn execute_statement(
             // SECURITY: verify record belongs to current user before update
             if !ctx.role.eq("admin") && !ctx.user_id.eq("system") {
                 if let Ok(Some(existing)) = db.find_by_id(&table, &id_str) {
-                    let owner = existing.get("_owner_id").and_then(|v| v.as_str()).unwrap_or("");
+                    let owner = existing
+                        .get("_owner_id")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
                     if !owner.is_empty() && owner != ctx.user_id {
-                        eprintln!("  \x1b[31m[script]\x1b[0m db.update {} BLOCKED — owner mismatch", entity);
+                        eprintln!(
+                            "  \x1b[31m[script]\x1b[0m db.update {} BLOCKED — owner mismatch",
+                            entity
+                        );
                         return Ok(()); // silent deny
                     }
                 }
@@ -154,7 +166,10 @@ fn execute_statement(
                     eprintln!("  \x1b[36m[script]\x1b[0m db.update {} {}", entity, id_str);
                 }
                 Err(e) => {
-                    eprintln!("  \x1b[31m[script]\x1b[0m db.update {} failed: {}", entity, e);
+                    eprintln!(
+                        "  \x1b[31m[script]\x1b[0m db.update {} failed: {}",
+                        entity, e
+                    );
                 }
             }
         }
@@ -165,9 +180,15 @@ fn execute_statement(
             // SECURITY: verify record belongs to current user before delete
             if !ctx.role.eq("admin") && !ctx.user_id.eq("system") {
                 if let Ok(Some(existing)) = db.find_by_id(&table, &id_str) {
-                    let owner = existing.get("_owner_id").and_then(|v| v.as_str()).unwrap_or("");
+                    let owner = existing
+                        .get("_owner_id")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
                     if !owner.is_empty() && owner != ctx.user_id {
-                        eprintln!("  \x1b[31m[script]\x1b[0m db.delete {} BLOCKED — owner mismatch", entity);
+                        eprintln!(
+                            "  \x1b[31m[script]\x1b[0m db.delete {} BLOCKED — owner mismatch",
+                            entity
+                        );
                         return Ok(());
                     }
                 }
@@ -180,7 +201,10 @@ fn execute_statement(
             for (k, v) in data {
                 obj.insert(k.clone(), eval_expr(v, ctx, db, event)?);
             }
-            eprintln!("  \x1b[36m[script]\x1b[0m sse.broadcast \"{}\" {:?}", evt, obj);
+            eprintln!(
+                "  \x1b[36m[script]\x1b[0m sse.broadcast \"{}\" {:?}",
+                evt, obj
+            );
             // Actual SSE broadcast happens via the SseHub passed from the caller
         }
         Statement::For { var, iter, body } => {
@@ -194,7 +218,11 @@ fn execute_statement(
                 ctx.scope.remove(var);
             }
         }
-        Statement::If { condition, then_body, else_body } => {
+        Statement::If {
+            condition,
+            then_body,
+            else_body,
+        } => {
             let cond_val = eval_expr(condition, ctx, db, event)?;
             let is_true = match &cond_val {
                 Value::Bool(b) => *b,
@@ -209,7 +237,11 @@ fn execute_statement(
                 execute_statements(else_body, ctx, db, event)?;
             }
         }
-        Statement::Respond { status, body, headers } => {
+        Statement::Respond {
+            status,
+            body,
+            headers,
+        } => {
             let body_val = eval_expr(body, ctx, db, event)?;
             ctx.response = Some(ScriptResponse {
                 status: *status,
@@ -245,13 +277,16 @@ fn eval_expr(
                 .as_secs();
             Ok(json!(now))
         }
-        Expr::EnvVar(key) => {
-            Ok(Value::String(ctx.env_vars.get(key).cloned().unwrap_or_default()))
-        }
-        Expr::Path(parts) => {
-            resolve_path(parts, ctx, event)
-        }
-        Expr::DbQuery { entity, filters, order, limit } => {
+        Expr::EnvVar(key) => Ok(Value::String(
+            ctx.env_vars.get(key).cloned().unwrap_or_default(),
+        )),
+        Expr::Path(parts) => resolve_path(parts, ctx, event),
+        Expr::DbQuery {
+            entity,
+            filters,
+            order,
+            limit,
+        } => {
             let table = entity.to_string();
             let query_limit = limit.unwrap_or(1000) as usize;
             match db.find_all(&table, query_limit, 0) {
@@ -261,7 +296,8 @@ fn eval_expr(
                         _ => vec![],
                     };
                     // SECURITY: owner isolation — non-admin users only see their own data
-                    if !ctx.role.eq("admin") && !ctx.user_id.eq("system") && !ctx.user_id.is_empty() {
+                    if !ctx.role.eq("admin") && !ctx.user_id.eq("system") && !ctx.user_id.is_empty()
+                    {
                         let uid = &ctx.user_id;
                         results.retain(|row| {
                             let owner = row.get("_owner_id").and_then(|v| v.as_str()).unwrap_or("");
@@ -297,7 +333,10 @@ fn eval_expr(
                     Ok(Value::Array(results))
                 }
                 Err(e) => {
-                    eprintln!("  \x1b[31m[script]\x1b[0m db.query {} failed: {}", entity, e);
+                    eprintln!(
+                        "  \x1b[31m[script]\x1b[0m db.query {} failed: {}",
+                        entity, e
+                    );
                     Ok(Value::Array(vec![]))
                 }
             }
@@ -309,7 +348,13 @@ fn eval_expr(
                 Err(_) => Ok(json!(0)),
             }
         }
-        Expr::HttpCall { method, url, headers, body, json: json_body } => {
+        Expr::HttpCall {
+            method,
+            url,
+            headers,
+            body,
+            json: json_body,
+        } => {
             // For now, log the HTTP call — actual reqwest integration in Phase 4
             let url_val = eval_expr(url, ctx, db, event)?;
             let url_str = value_to_string(&url_val);
@@ -329,7 +374,8 @@ fn eval_expr(
                 csv.push_str(&fields.join(","));
                 csv.push('\n');
                 for row in &rows {
-                    let line: Vec<String> = fields.iter()
+                    let line: Vec<String> = fields
+                        .iter()
                         .map(|f| value_to_string(row.get(f).unwrap_or(&Value::Null)))
                         .collect();
                     csv.push_str(&line.join(","));
@@ -364,16 +410,16 @@ fn eval_expr(
             };
             Ok(json!(result))
         }
-        Expr::AuthCheckRole(role) => {
-            Ok(json!(ctx.role == *role))
-        }
-        Expr::AuthGetUser => {
-            Ok(json!({ "id": ctx.user_id, "role": ctx.role }))
-        }
+        Expr::AuthCheckRole(role) => Ok(json!(ctx.role == *role)),
+        Expr::AuthGetUser => Ok(json!({ "id": ctx.user_id, "role": ctx.role })),
     }
 }
 
-fn resolve_path(parts: &[String], ctx: &ScriptContext, event: Option<&EventData>) -> Result<Value, String> {
+fn resolve_path(
+    parts: &[String],
+    ctx: &ScriptContext,
+    event: Option<&EventData>,
+) -> Result<Value, String> {
     if parts.is_empty() {
         return Ok(Value::Null);
     }
@@ -394,9 +440,7 @@ fn resolve_path(parts: &[String], ctx: &ScriptContext, event: Option<&EventData>
                 Value::Null
             }
         }
-        _ => {
-            ctx.scope.get(root).cloned().unwrap_or(Value::Null)
-        }
+        _ => ctx.scope.get(root).cloned().unwrap_or(Value::Null),
     };
 
     for part in &parts[1..] {
@@ -418,7 +462,12 @@ fn interpolate_template(template: &str, ctx: &ScriptContext, event: Option<&Even
             let parts: Vec<String> = path_str.split('.').map(|s| s.to_string()).collect();
             let value = resolve_path(&parts, ctx, event).unwrap_or(Value::Null);
             let replacement = value_to_string(&value);
-            result = format!("{}{}{}", &result[..start], replacement, &result[start + end + 2..]);
+            result = format!(
+                "{}{}{}",
+                &result[..start],
+                replacement,
+                &result[start + end + 2..]
+            );
         } else {
             break;
         }

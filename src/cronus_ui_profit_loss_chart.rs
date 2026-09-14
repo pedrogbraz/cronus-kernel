@@ -5,8 +5,8 @@
 //!   x tick labels. Values cycle -4, 8, 2 unless numeric items are given.
 
 use crate::cronus_ui_chart::{
-    categories_or, container, line_path, max_of, min_of, nice_domain, num, point_xs,
-    value_grid, values_for, x_tick_labels, y_of, PLOT_L, PLOT_R,
+    categories_or, container, line_path, max_of, min_of, nice_domain, num, point_xs, value_grid,
+    values_for, x_tick_labels, y_of, PLOT_L, PLOT_R,
 };
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
@@ -77,6 +77,8 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"profit-loss-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"));
+        assert!(css.contains(
+            "[data-slot=\"profit-loss-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"
+        ));
     }
 }

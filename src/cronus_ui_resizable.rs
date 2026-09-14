@@ -72,7 +72,9 @@ mod tests {
         let mut c = stub("resizable", "Panels");
         c.items.push(extra("text", "One"));
         c.items.push(extra("text", "Two"));
-        c.items[2].config.insert("aria-label".into(), "Panels".into());
+        c.items[2]
+            .config
+            .insert("aria-label".into(), "Panels".into());
         let html = render(&c);
         assert_eq!(
             html,

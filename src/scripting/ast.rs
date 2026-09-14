@@ -61,10 +61,7 @@ pub struct EndpointBlock {
 #[derive(Debug, Clone)]
 pub enum Statement {
     /// `let name = expr`
-    Let {
-        name: String,
-        value: Expr,
-    },
+    Let { name: String, value: Expr },
     /// `db.create Entity { field value, ... }`
     DbCreate {
         entity: String,
@@ -77,14 +74,9 @@ pub enum Statement {
         fields: HashMap<String, Expr>,
     },
     /// `db.delete Entity id`
-    DbDelete {
-        entity: String,
-        id: Expr,
-    },
+    DbDelete { entity: String, id: Expr },
     /// `log "message"`
-    Log {
-        message: Expr,
-    },
+    Log { message: Expr },
     /// `sse.broadcast "event" { key value, ... }`
     SseBroadcast {
         event: String,
@@ -149,9 +141,7 @@ pub enum Expr {
         fields: Vec<String>,
     },
     /// `format.json expr`
-    FormatJson {
-        data: Box<Expr>,
-    },
+    FormatJson { data: Box<Expr> },
     /// `now()`
     Now,
     /// `env.KEY`

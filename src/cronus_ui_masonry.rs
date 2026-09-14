@@ -19,7 +19,10 @@ pub fn render(comp: &ComponentNode) -> String {
     let aria = attr(comp, "aria-label")
         .map(|a| format!(" aria-label=\"{}\"", esc(a)))
         .unwrap_or_default();
-    let body = cells.iter().map(|t| format!("<div>{t}</div>")).collect::<String>();
+    let body = cells
+        .iter()
+        .map(|t| format!("<div>{t}</div>"))
+        .collect::<String>();
     format!("<div data-slot=\"masonry\"{aria}>{body}</div>")
 }
 
@@ -27,7 +30,11 @@ fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
     comp.props
         .get(key)
         .map(String::as_str)
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get(key).map(String::as_str)))
+        .or_else(|| {
+            comp.items
+                .iter()
+                .find_map(|i| i.config.get(key).map(String::as_str))
+        })
         .filter(|s| !s.is_empty())
 }
 
@@ -102,7 +109,9 @@ mod tests {
         let interact = crate::cronus_ui_interact::render("masonry", &c).unwrap();
         assert_ne!(html, interact);
         assert!(interact.contains("max-height:12rem;overflow:auto"));
-        assert!(crate::cli::stub_renderer_gate::looks_like_interact_generic(&interact));
+        assert!(crate::cli::stub_renderer_gate::looks_like_interact_generic(
+            &interact
+        ));
         reject_interact(&html);
     }
 
@@ -119,7 +128,8 @@ mod tests {
     fn chrome_is_token_only_and_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"masonry\"] {\n  box-sizing: border-box; width: 18rem; max-width: 100%;\n  column-count: 2; column-gap: 1rem;"));
-        assert!(css.contains("[data-slot=\"masonry\"] > * { margin-bottom: 1rem; break-inside: avoid; }"));
+        assert!(css
+            .contains("[data-slot=\"masonry\"] > * { margin-bottom: 1rem; break-inside: avoid; }"));
         assert!(css.contains("padding: 0.75rem; font-size: 0.875rem; line-height: 1.25rem;"));
         assert!(!css.contains("[data-slot=\"masonry-cell\"]"));
         assert!(!css.contains("zinc-"));

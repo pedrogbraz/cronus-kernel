@@ -120,7 +120,9 @@ const MONTHS: [&str; 12] = [
 ];
 
 fn caption_of(comp: &ComponentNode) -> String {
-    let raw = attr(comp, "value").or_else(|| item(comp, "value")).unwrap_or("");
+    let raw = attr(comp, "value")
+        .or_else(|| item(comp, "value"))
+        .unwrap_or("");
     if let Some((year, month)) = parse_year_month(raw) {
         if (1..=12).contains(&month) {
             return format!("{} {year}", MONTHS[(month as usize) - 1]);
@@ -250,7 +252,9 @@ mod tests {
         assert!(html.starts_with(
             "<button type=\"button\" id=\"cui-date-picker-trigger\" data-slot=\"date-picker-trigger\" data-variant=\"outline\" popovertarget=\"cui-date-picker-cal\" aria-haspopup=\"dialog\" aria-label=\"Due date\">"
         ));
-        assert!(html.contains("<span>June 15th, 2026</span></button><div id=\"cui-date-picker-cal\" popover=\"auto\""));
+        assert!(html.contains(
+            "<span>June 15th, 2026</span></button><div id=\"cui-date-picker-cal\" popover=\"auto\""
+        ));
         reject_interact(&html);
     }
 
@@ -313,8 +317,12 @@ mod tests {
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"date-picker-trigger\"] {\n  display: inline-flex; align-items: center; justify-content: flex-start; gap: 0.5rem;\n  width: 15rem; height: 2.5rem; padding: 0 1rem; box-sizing: border-box;"));
-        assert!(css.contains("font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 400;"));
-        assert!(css.contains("[data-slot=\"date-picker-trigger\"][data-empty] { color: var(--cronus-fg-tertiary); }"));
+        assert!(css.contains(
+            "font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 400;"
+        ));
+        assert!(css.contains(
+            "[data-slot=\"date-picker-trigger\"][data-empty] { color: var(--cronus-fg-tertiary); }"
+        ));
         assert!(!css.contains("[data-slot=\"date-picker\"],"));
         assert!(css.contains("[data-slot=\"date-picker-content\"]"));
         assert!(css.contains("[data-slot=\"date-picker-calendar\"]"));

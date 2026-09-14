@@ -38,12 +38,7 @@ pub fn emit_routes(routes: &[DetectedRoute]) -> String {
     let mut groups: HashMap<String, Vec<&DetectedRoute>> = HashMap::new();
 
     for route in routes {
-        let prefix = route
-            .path
-            .split('/')
-            .take(3)
-            .collect::<Vec<_>>()
-            .join("/");
+        let prefix = route.path.split('/').take(3).collect::<Vec<_>>().join("/");
         let prefix = if prefix.is_empty() {
             "/".to_string()
         } else {

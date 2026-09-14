@@ -61,7 +61,10 @@ mod tests {
         assert!(interact.contains(DISPLAY_SURF));
         assert_ne!(html, interact);
         reject_display(&html);
-        assert_eq!(crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html), None);
+        assert_eq!(
+            crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html),
+            None
+        );
     }
 
     #[test]

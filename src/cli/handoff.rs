@@ -1,14 +1,15 @@
-use std::fs;
 use crate::cli::brief::brief_toml_val;
-use crate::cli::sync_cmd::cmd_sync;
 use crate::cli::objective_kernel::count_files_matching;
+use crate::cli::sync_cmd::cmd_sync;
+use std::fs;
 
 pub fn cmd_handoff(args: &[String]) {
     use std::path::Path;
     use std::process::Command;
 
     // Parse --summary flag
-    let summary_text = args.windows(2)
+    let summary_text = args
+        .windows(2)
         .find(|w| w[0] == "--summary")
         .map(|w| w[1].clone());
 
@@ -34,8 +35,14 @@ pub fn cmd_handoff(args: &[String]) {
                         "UPDATE sessions SET ended_at = datetime('now'), summary = ?1 WHERE id = ?2",
                         rusqlite::params![summary_text, sid],
                     );
-                    println!("  \x1b[32m✓\x1b[0m Session {} closed{}", sid,
-                        summary_text.as_ref().map(|s| format!(" --- {}", s)).unwrap_or_default());
+                    println!(
+                        "  \x1b[32m✓\x1b[0m Session {} closed{}",
+                        sid,
+                        summary_text
+                            .as_ref()
+                            .map(|s| format!(" --- {}", s))
+                            .unwrap_or_default()
+                    );
                 } else {
                     println!("  \x1b[90mNo active session in memory.db\x1b[0m");
                 }
@@ -63,7 +70,11 @@ pub fn cmd_handoff(args: &[String]) {
             if let Some(status) = brief_toml_val(&content, "status") {
                 if status == "open" || status == "in_progress" {
                     task_id = brief_toml_val(&content, "id").unwrap_or_else(|| {
-                        entry.file_name().to_string_lossy().trim_end_matches(".toml").to_string()
+                        entry
+                            .file_name()
+                            .to_string_lossy()
+                            .trim_end_matches(".toml")
+                            .to_string()
                     });
                     _task_title = brief_toml_val(&content, "title").unwrap_or_default();
                     active_task_path = Some(entry.path());
@@ -115,22 +126,37 @@ pub fn cmd_handoff(args: &[String]) {
                 }
             }
             // Show per-file changes (skip last summary line)
-            let file_lines: Vec<&str> = lines.iter()
+            let file_lines: Vec<&str> = lines
+                .iter()
                 .take(lines.len().saturating_sub(1))
                 .filter(|l| !l.trim().is_empty())
                 .copied()
                 .collect();
             if !file_lines.is_empty() {
                 let display: Vec<&str> = file_lines.iter().take(5).copied().collect();
-                let file_parts: Vec<String> = display.iter().map(|l| {
-                    let parts: Vec<&str> = l.trim().splitn(2, '|').collect();
-                    parts[0].trim().to_string()
-                }).collect();
+                let file_parts: Vec<String> = display
+                    .iter()
+                    .map(|l| {
+                        let parts: Vec<&str> = l.trim().splitn(2, '|').collect();
+                        parts[0].trim().to_string()
+                    })
+                    .collect();
                 let extra = file_lines.len() as i32 - 5;
                 if extra > 0 {
-                    changes_summary = format!("{} (+{}, -{}), {} more files", file_parts.join(", "), insertions, deletions, extra);
+                    changes_summary = format!(
+                        "{} (+{}, -{}), {} more files",
+                        file_parts.join(", "),
+                        insertions,
+                        deletions,
+                        extra
+                    );
                 } else {
-                    changes_summary = format!("{} (+{}, -{})", file_parts.join(", "), insertions, deletions);
+                    changes_summary = format!(
+                        "{} (+{}, -{})",
+                        file_parts.join(", "),
+                        insertions,
+                        deletions
+                    );
                 }
             }
         }
@@ -169,8 +195,9 @@ pub fn cmd_handoff(args: &[String]) {
 
     // 6. Update task status to "done"
     if let Ok(content) = fs::read_to_string(&task_path) {
-        let updated = content.replace("status = \"open\"", "status = \"done\"")
-                             .replace("status = \"in_progress\"", "status = \"done\"");
+        let updated = content
+            .replace("status = \"open\"", "status = \"done\"")
+            .replace("status = \"in_progress\"", "status = \"done\"");
         let _ = fs::write(&task_path, updated);
     }
     println!("  Status: \x1b[33mopen\x1b[0m -> \x1b[32mdone\x1b[0m");

@@ -101,7 +101,9 @@ mod tests {
         assert!(!html.contains("data-disabled"));
         let mut d = stub("mode-toggle", "Theme");
         d.props.insert("disabled".into(), "true".into());
-        assert!(render(&d).contains("aria-label=\"Switch to dark mode\" data-disabled=\"\" disabled>"));
+        assert!(
+            render(&d).contains("aria-label=\"Switch to dark mode\" data-disabled=\"\" disabled>")
+        );
         assert!(html.ends_with("</button>"));
         assert!(html.contains("data-slot=\"mode-toggle-core\""));
         assert!(html.contains("data-slot=\"mode-toggle-rays\""));
@@ -111,7 +113,8 @@ mod tests {
     #[test]
     fn emitted_fixture_aria_label_keeps_light_mode() {
         let mut c = stub("mode-toggle", "Switch to dark mode");
-        c.props.insert("aria-label".into(), "Switch to dark mode".into());
+        c.props
+            .insert("aria-label".into(), "Switch to dark mode".into());
         let html = render(&c);
         assert!(html.contains("data-mode=\"light\" aria-label=\"Switch to dark mode\""));
         reject_interact(&html);
@@ -125,7 +128,8 @@ mod tests {
         let s = render(&stub("mode-toggle+dark", "Theme"));
         assert!(s.contains("data-mode=\"dark\""));
         let mut a = stub("mode-toggle", "Theme");
-        a.props.insert("aria-label".into(), "Switch to light mode".into());
+        a.props
+            .insert("aria-label".into(), "Switch to light mode".into());
         assert!(render(&a).contains("data-mode=\"dark\" aria-label=\"Switch to light mode\""));
     }
 
@@ -179,7 +183,9 @@ mod tests {
         assert!(css.contains("var(--cronus-surface-overlay)"));
         assert!(css.contains("[data-slot=\"mode-toggle\"][data-mode=\"dark\"]"));
         assert!(css.contains("[data-slot=\"mode-toggle\"]:hover {\n  background: var(--cronus-surface-overlay); color: var(--cronus-fg);\n}"));
-        assert!(css.contains("[data-slot=\"mode-toggle\"] svg { width: 1.25rem; height: 1.25rem; flex-shrink: 0; }"));
+        assert!(css.contains(
+            "[data-slot=\"mode-toggle\"] svg { width: 1.25rem; height: 1.25rem; flex-shrink: 0; }"
+        ));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("onclick"));
         assert!(!css.contains("classList"));

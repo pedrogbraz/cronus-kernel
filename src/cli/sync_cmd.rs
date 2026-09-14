@@ -1,7 +1,7 @@
-use std::fs;
 use serde_json::json;
+use std::fs;
 
-use crate::cli::objective_kernel::{count_files_matching, chrono_now_iso};
+use crate::cli::objective_kernel::{chrono_now_iso, count_files_matching};
 
 pub fn cmd_sync() {
     use std::path::Path;
@@ -27,7 +27,9 @@ pub fn cmd_sync() {
                 }
             }
             // Collect criteria lines (inside criteria = [...])
-            if trimmed.starts_with('"') && trimmed.ends_with('"') || trimmed.starts_with('"') && trimmed.ends_with("\",") {
+            if trimmed.starts_with('"') && trimmed.ends_with('"')
+                || trimmed.starts_with('"') && trimmed.ends_with("\",")
+            {
                 let clean = trimmed.trim_matches(|c| c == '"' || c == ',' || c == ' ');
                 if !clean.is_empty() {
                     obj_criteria.push(clean.to_string());
@@ -142,11 +144,21 @@ pub fn cmd_sync() {
     // Ensure .cronus/ dir exists
     let _ = fs::create_dir_all(".cronus");
     let path = ".cronus/state-digest.json";
-    match fs::write(path, serde_json::to_string_pretty(&digest).unwrap_or_default()) {
+    match fs::write(
+        path,
+        serde_json::to_string_pretty(&digest).unwrap_or_default(),
+    ) {
         Ok(_) => {
             println!("  Build: {}", build_status);
-            println!("  Specs: {} | Tests: {} | Examples: {}", spec_count, test_count, example_count);
-            println!("  Open tasks: {} | Completed: {}", open_tasks.len(), done_tasks.len());
+            println!(
+                "  Specs: {} | Tests: {} | Examples: {}",
+                spec_count, test_count, example_count
+            );
+            println!(
+                "  Open tasks: {} | Completed: {}",
+                open_tasks.len(),
+                done_tasks.len()
+            );
             println!("  State digest written to \x1b[32m{}\x1b[0m", path);
         }
         Err(e) => {

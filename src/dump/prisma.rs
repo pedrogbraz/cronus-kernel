@@ -136,10 +136,7 @@ fn parse_field(line: &str, enums: &HashMap<String, Vec<String>>) -> Option<Prism
     let trimmed = line.trim();
 
     // Skip empty lines, comments, model-level attributes
-    if trimmed.is_empty()
-        || trimmed.starts_with("//")
-        || trimmed.starts_with("@@")
-    {
+    if trimmed.is_empty() || trimmed.starts_with("//") || trimmed.starts_with("@@") {
         return None;
     }
 
@@ -178,7 +175,15 @@ fn parse_field(line: &str, enums: &HashMap<String, Vec<String>>) -> Option<Prism
     // Check if it's a relation (type references another model — not a primitive and not an enum)
     let is_known_type = matches!(
         base_type,
-        "String" | "Int" | "Float" | "Decimal" | "Boolean" | "DateTime" | "Json" | "BigInt" | "Bytes"
+        "String"
+            | "Int"
+            | "Float"
+            | "Decimal"
+            | "Boolean"
+            | "DateTime"
+            | "Json"
+            | "BigInt"
+            | "Bytes"
     );
     let is_enum = enums.contains_key(base_type);
 
@@ -269,12 +274,7 @@ fn emit_entity(out: &mut String, model: &PrismaModel) {
     out.push_str(&format!("entity {} {{\n", model.name));
 
     // Calculate padding for alignment
-    let max_name_len = model
-        .fields
-        .iter()
-        .map(|f| f.name.len())
-        .max()
-        .unwrap_or(0);
+    let max_name_len = model.fields.iter().map(|f| f.name.len()).max().unwrap_or(0);
 
     let max_type_len = model
         .fields

@@ -109,7 +109,9 @@ mod tests {
         assert!(css.contains("[data-slot=\"flickering-grid\"] > div:last-child {"));
         assert!(!css.contains("[data-slot=\"flickering-grid-field\"]"));
         assert!(css.contains("@keyframes cui-flicker"));
-        assert!(css.contains("mask-size: calc((100% + 2px) / 16) 100%, 100% calc((100% + 2px) / 10);"));
+        assert!(
+            css.contains("mask-size: calc((100% + 2px) / 16) 100%, 100% calc((100% + 2px) / 10);")
+        );
         assert!(css.contains("mask-composite: intersect;"));
         assert!(css.contains("animation: cui-flicker"));
         assert!(css.contains("prefers-reduced-motion"));

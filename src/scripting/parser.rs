@@ -10,16 +10,46 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, PartialEq)]
 enum Tok {
     // Keywords
-    Script, On, Schedule, Endpoint, Let, For, In, If, Else,
-    Db, Http, Sse, Log, Auth, Format, Env, Respond, Webhook,
+    Script,
+    On,
+    Schedule,
+    Endpoint,
+    Let,
+    For,
+    In,
+    If,
+    Else,
+    Db,
+    Http,
+    Sse,
+    Log,
+    Auth,
+    Format,
+    Env,
+    Respond,
+    Webhook,
     // Literals
     Str(String),
     Num(f64),
     Bool(bool),
     // Symbols
-    LBrace, RBrace, LBracket, RBracket, LParen, RParen,
-    Dot, Comma, Eq, EqEq, Ne, Lt, Gt, Lte, Gte,
-    And, Or,
+    LBrace,
+    RBrace,
+    LBracket,
+    RBracket,
+    LParen,
+    RParen,
+    Dot,
+    Comma,
+    Eq,
+    EqEq,
+    Ne,
+    Lt,
+    Gt,
+    Lte,
+    Gte,
+    And,
+    Or,
     // Identifiers
     Ident(String),
     // Special
@@ -36,10 +66,15 @@ fn tokenize(src: &str) -> Vec<Tok> {
     while i < chars.len() {
         let c = chars[i];
         // Skip whitespace
-        if c.is_whitespace() { i += 1; continue; }
+        if c.is_whitespace() {
+            i += 1;
+            continue;
+        }
         // Comments
         if c == '#' {
-            while i < chars.len() && chars[i] != '\n' { i += 1; }
+            while i < chars.len() && chars[i] != '\n' {
+                i += 1;
+            }
             continue;
         }
         // Strings
@@ -54,7 +89,10 @@ fn tokenize(src: &str) -> Vec<Tok> {
                         't' => s.push('\t'),
                         '"' => s.push('"'),
                         '\\' => s.push('\\'),
-                        other => { s.push('\\'); s.push(other); }
+                        other => {
+                            s.push('\\');
+                            s.push(other);
+                        }
                     }
                 } else {
                     s.push(chars[i]);
@@ -68,32 +106,73 @@ fn tokenize(src: &str) -> Vec<Tok> {
         // Numbers
         if c.is_ascii_digit() {
             let start = i;
-            while i < chars.len() && (chars[i].is_ascii_digit() || chars[i] == '.') { i += 1; }
-            let num: f64 = chars[start..i].iter().collect::<String>().parse().unwrap_or(0.0);
+            while i < chars.len() && (chars[i].is_ascii_digit() || chars[i] == '.') {
+                i += 1;
+            }
+            let num: f64 = chars[start..i]
+                .iter()
+                .collect::<String>()
+                .parse()
+                .unwrap_or(0.0);
             tokens.push(Tok::Num(num));
             continue;
         }
         // Symbols
         match c {
-            '{' => { tokens.push(Tok::LBrace); i += 1; continue; }
-            '}' => { tokens.push(Tok::RBrace); i += 1; continue; }
-            '[' => { tokens.push(Tok::LBracket); i += 1; continue; }
-            ']' => { tokens.push(Tok::RBracket); i += 1; continue; }
-            '(' => { tokens.push(Tok::LParen); i += 1; continue; }
-            ')' => { tokens.push(Tok::RParen); i += 1; continue; }
-            '.' => { tokens.push(Tok::Dot); i += 1; continue; }
-            ',' => { tokens.push(Tok::Comma); i += 1; continue; }
+            '{' => {
+                tokens.push(Tok::LBrace);
+                i += 1;
+                continue;
+            }
+            '}' => {
+                tokens.push(Tok::RBrace);
+                i += 1;
+                continue;
+            }
+            '[' => {
+                tokens.push(Tok::LBracket);
+                i += 1;
+                continue;
+            }
+            ']' => {
+                tokens.push(Tok::RBracket);
+                i += 1;
+                continue;
+            }
+            '(' => {
+                tokens.push(Tok::LParen);
+                i += 1;
+                continue;
+            }
+            ')' => {
+                tokens.push(Tok::RParen);
+                i += 1;
+                continue;
+            }
+            '.' => {
+                tokens.push(Tok::Dot);
+                i += 1;
+                continue;
+            }
+            ',' => {
+                tokens.push(Tok::Comma);
+                i += 1;
+                continue;
+            }
             '=' => {
                 if i + 1 < chars.len() && chars[i + 1] == '=' {
-                    tokens.push(Tok::EqEq); i += 2;
+                    tokens.push(Tok::EqEq);
+                    i += 2;
                 } else {
-                    tokens.push(Tok::Eq); i += 1;
+                    tokens.push(Tok::Eq);
+                    i += 1;
                 }
                 continue;
             }
             '!' => {
                 if i + 1 < chars.len() && chars[i + 1] == '=' {
-                    tokens.push(Tok::Ne); i += 2;
+                    tokens.push(Tok::Ne);
+                    i += 2;
                 } else {
                     i += 1; // skip bare !
                 }
@@ -101,17 +180,21 @@ fn tokenize(src: &str) -> Vec<Tok> {
             }
             '<' => {
                 if i + 1 < chars.len() && chars[i + 1] == '=' {
-                    tokens.push(Tok::Lte); i += 2;
+                    tokens.push(Tok::Lte);
+                    i += 2;
                 } else {
-                    tokens.push(Tok::Lt); i += 1;
+                    tokens.push(Tok::Lt);
+                    i += 1;
                 }
                 continue;
             }
             '>' => {
                 if i + 1 < chars.len() && chars[i + 1] == '=' {
-                    tokens.push(Tok::Gte); i += 2;
+                    tokens.push(Tok::Gte);
+                    i += 2;
                 } else {
-                    tokens.push(Tok::Gt); i += 1;
+                    tokens.push(Tok::Gt);
+                    i += 1;
                 }
                 continue;
             }
@@ -120,7 +203,12 @@ fn tokenize(src: &str) -> Vec<Tok> {
         // Identifiers & keywords
         if c.is_alphanumeric() || c == '_' || c == '/' {
             let start = i;
-            while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_' || chars[i] == '/' || chars[i] == ':') {
+            while i < chars.len()
+                && (chars[i].is_alphanumeric()
+                    || chars[i] == '_'
+                    || chars[i] == '/'
+                    || chars[i] == ':')
+            {
                 i += 1;
             }
             let word: String = chars[start..i].iter().collect();
@@ -200,13 +288,17 @@ impl ScriptParser {
             match self.peek().clone() {
                 Tok::Script => {
                     self.advance();
-                    if let Tok::Str(n) = self.advance() { name = n; }
+                    if let Tok::Str(n) = self.advance() {
+                        name = n;
+                    }
                     self.expect(&Tok::LBrace)?;
                     while *self.peek() != Tok::RBrace && *self.peek() != Tok::Eof {
                         if let Tok::Ident(key) = self.peek().clone() {
                             self.advance();
                             if key == "version" {
-                                if let Tok::Str(v) = self.advance() { version = v; }
+                                if let Tok::Str(v) = self.advance() {
+                                    version = v;
+                                }
                             }
                         } else {
                             self.advance();
@@ -242,7 +334,11 @@ impl ScriptParser {
                         self.expect(&Tok::LBrace)?;
                         let body = self.parse_statements()?;
                         self.expect(&Tok::RBrace)?;
-                        blocks.push(ScriptBlock::OnEvent(OnEventBlock { entity, event, body }));
+                        blocks.push(ScriptBlock::OnEvent(OnEventBlock {
+                            entity,
+                            event,
+                            body,
+                        }));
                     }
                 }
                 Tok::Schedule => {
@@ -256,7 +352,10 @@ impl ScriptParser {
                     while *self.peek() != Tok::LBrace && *self.peek() != Tok::Eof {
                         if let Tok::Ident(key) = self.peek().clone() {
                             if key.starts_with("every:") {
-                                interval = key.trim_start_matches("every:").trim_matches('"').to_string();
+                                interval = key
+                                    .trim_start_matches("every:")
+                                    .trim_matches('"')
+                                    .to_string();
                                 self.advance();
                             } else {
                                 self.advance();
@@ -268,7 +367,11 @@ impl ScriptParser {
                     self.expect(&Tok::LBrace)?;
                     let body = self.parse_statements()?;
                     self.expect(&Tok::RBrace)?;
-                    blocks.push(ScriptBlock::Schedule(ScheduleBlock { name: sched_name, interval, body }));
+                    blocks.push(ScriptBlock::Schedule(ScheduleBlock {
+                        name: sched_name,
+                        interval,
+                        body,
+                    }));
                 }
                 Tok::Endpoint => {
                     self.advance();
@@ -297,13 +400,24 @@ impl ScriptParser {
                     self.expect(&Tok::LBrace)?;
                     let body = self.parse_statements()?;
                     self.expect(&Tok::RBrace)?;
-                    blocks.push(ScriptBlock::Endpoint(EndpointBlock { method, path, auth, body }));
+                    blocks.push(ScriptBlock::Endpoint(EndpointBlock {
+                        method,
+                        path,
+                        auth,
+                        body,
+                    }));
                 }
-                _ => { self.advance(); }
+                _ => {
+                    self.advance();
+                }
             }
         }
 
-        Ok(ScriptFile { name, version, blocks })
+        Ok(ScriptFile {
+            name,
+            version,
+            blocks,
+        })
     }
 
     fn parse_statements(&mut self) -> Result<Vec<Statement>, String> {
@@ -415,7 +529,11 @@ impl ScriptParser {
                 } else {
                     Vec::new()
                 };
-                Ok(Statement::If { condition, then_body, else_body })
+                Ok(Statement::If {
+                    condition,
+                    then_body,
+                    else_body,
+                })
             }
             Tok::Respond => {
                 self.advance();
@@ -441,7 +559,11 @@ impl ScriptParser {
                     }
                     self.expect(&Tok::RBrace)?;
                 }
-                Ok(Statement::Respond { status, body, headers })
+                Ok(Statement::Respond {
+                    status,
+                    body,
+                    headers,
+                })
             }
             Tok::Http => {
                 let expr = self.parse_expr()?;
@@ -471,7 +593,11 @@ impl ScriptParser {
                     _ => unreachable!(),
                 };
                 let right = self.parse_primary()?;
-                Ok(Expr::BinOp { left: Box::new(left), op, right: Box::new(right) })
+                Ok(Expr::BinOp {
+                    left: Box::new(left),
+                    op,
+                    right: Box::new(right),
+                })
             }
             _ => Ok(left),
         }
@@ -479,9 +605,18 @@ impl ScriptParser {
 
     fn parse_primary(&mut self) -> Result<Expr, String> {
         match self.peek().clone() {
-            Tok::Str(s) => { self.advance(); Ok(Expr::StringLit(s)) }
-            Tok::Num(n) => { self.advance(); Ok(Expr::NumberLit(n)) }
-            Tok::Bool(b) => { self.advance(); Ok(Expr::BoolLit(b)) }
+            Tok::Str(s) => {
+                self.advance();
+                Ok(Expr::StringLit(s))
+            }
+            Tok::Num(n) => {
+                self.advance();
+                Ok(Expr::NumberLit(n))
+            }
+            Tok::Bool(b) => {
+                self.advance();
+                Ok(Expr::BoolLit(b))
+            }
             Tok::Ident(first) => {
                 self.advance();
                 // Check for now()
@@ -527,7 +662,9 @@ impl ScriptParser {
                                         self.advance();
                                         let field = match self.advance() {
                                             Tok::Ident(s) => s,
-                                            t => return Err(format!("expected field, got {:?}", t)),
+                                            t => {
+                                                return Err(format!("expected field, got {:?}", t))
+                                            }
                                         };
                                         let fop = match self.advance() {
                                             Tok::EqEq => BinOperator::Eq,
@@ -536,30 +673,52 @@ impl ScriptParser {
                                             Tok::Gt => BinOperator::Gt,
                                             Tok::Lte => BinOperator::Lte,
                                             Tok::Gte => BinOperator::Gte,
-                                            t => return Err(format!("expected operator, got {:?}", t)),
+                                            t => {
+                                                return Err(format!(
+                                                    "expected operator, got {:?}",
+                                                    t
+                                                ))
+                                            }
                                         };
                                         let value = self.parse_primary()?;
-                                        filters.push(Filter { field, op: fop, value });
+                                        filters.push(Filter {
+                                            field,
+                                            op: fop,
+                                            value,
+                                        });
                                     }
                                     Tok::Ident(ref k) if k == "order" => {
                                         self.advance();
-                                        if let Tok::Ident(s) = self.advance() { order = Some(s); }
+                                        if let Tok::Ident(s) = self.advance() {
+                                            order = Some(s);
+                                        }
                                     }
                                     Tok::Ident(ref k) if k == "limit" => {
                                         self.advance();
-                                        if let Tok::Num(n) = self.advance() { limit = Some(n as u64); }
+                                        if let Tok::Num(n) = self.advance() {
+                                            limit = Some(n as u64);
+                                        }
                                     }
                                     Tok::Ident(ref k) if k == "query" => {
                                         self.advance();
                                         // skip "all" or similar
-                                        if let Tok::Ident(_) = self.peek() { self.advance(); }
+                                        if let Tok::Ident(_) = self.peek() {
+                                            self.advance();
+                                        }
                                     }
-                                    _ => { self.advance(); }
+                                    _ => {
+                                        self.advance();
+                                    }
                                 }
                             }
                             self.expect(&Tok::RBrace)?;
                         }
-                        Ok(Expr::DbQuery { entity, filters, order, limit })
+                        Ok(Expr::DbQuery {
+                            entity,
+                            filters,
+                            order,
+                            limit,
+                        })
                     }
                     "count" => {
                         let mut filters = Vec::new();
@@ -571,7 +730,9 @@ impl ScriptParser {
                                         self.advance();
                                         let field = match self.advance() {
                                             Tok::Ident(s) => s,
-                                            t => return Err(format!("expected field, got {:?}", t)),
+                                            t => {
+                                                return Err(format!("expected field, got {:?}", t))
+                                            }
                                         };
                                         let fop = match self.advance() {
                                             Tok::EqEq => BinOperator::Eq,
@@ -579,9 +740,17 @@ impl ScriptParser {
                                             t => return Err(format!("expected op, got {:?}", t)),
                                         };
                                         let value = self.parse_primary()?;
-                                        filters.push(Filter { field, op: fop, value });
-                                    } else { self.advance(); }
-                                } else { self.advance(); }
+                                        filters.push(Filter {
+                                            field,
+                                            op: fop,
+                                            value,
+                                        });
+                                    } else {
+                                        self.advance();
+                                    }
+                                } else {
+                                    self.advance();
+                                }
                             }
                             self.expect(&Tok::RBrace)?;
                         }
@@ -629,12 +798,20 @@ impl ScriptParser {
                                 self.expect(&Tok::RBrace)?;
                                 json = Some(fields);
                             }
-                            _ => { self.advance(); }
+                            _ => {
+                                self.advance();
+                            }
                         }
                     }
                     self.expect(&Tok::RBrace)?;
                 }
-                Ok(Expr::HttpCall { method, url, headers, body, json })
+                Ok(Expr::HttpCall {
+                    method,
+                    url,
+                    headers,
+                    body,
+                    json,
+                })
             }
             Tok::Format => {
                 self.advance();
@@ -864,7 +1041,8 @@ on webhook "/hooks/stripe" {
 
     #[test]
     fn test_parse_webhook_stripe() {
-        let src = r#"on webhook "/hooks/stripe" { db.create Payment { amount event.body.amount } }"#;
+        let src =
+            r#"on webhook "/hooks/stripe" { db.create Payment { amount event.body.amount } }"#;
         let file = ScriptParser::parse(src).unwrap();
         assert_eq!(file.blocks.len(), 1);
         match &file.blocks[0] {
@@ -895,7 +1073,8 @@ on webhook "/hooks/stripe" {
 
     #[test]
     fn test_parse_for_loop() {
-        let src = r#"on X.create { let items = db.query X { query all } for i in items { log "x" } }"#;
+        let src =
+            r#"on X.create { let items = db.query X { query all } for i in items { log "x" } }"#;
         let file = ScriptParser::parse(src).unwrap();
         match &file.blocks[0] {
             ScriptBlock::OnEvent(e) => {
@@ -913,13 +1092,18 @@ on webhook "/hooks/stripe" {
 
     #[test]
     fn test_parse_if_else() {
-        let src = r#"on X.create { if event.record.status == "active" { log "yes" } else { log "no" } }"#;
+        let src =
+            r#"on X.create { if event.record.status == "active" { log "yes" } else { log "no" } }"#;
         let file = ScriptParser::parse(src).unwrap();
         match &file.blocks[0] {
             ScriptBlock::OnEvent(e) => {
                 assert_eq!(e.body.len(), 1);
                 match &e.body[0] {
-                    Statement::If { then_body, else_body, .. } => {
+                    Statement::If {
+                        then_body,
+                        else_body,
+                        ..
+                    } => {
                         assert_eq!(then_body.len(), 1);
                         assert_eq!(else_body.len(), 1);
                     }
@@ -937,22 +1121,23 @@ on webhook "/hooks/stripe" {
         let src = r#"on X.create { let r = db.query Order { filter status == "paid" limit 10 } }"#;
         let file = ScriptParser::parse(src).unwrap();
         match &file.blocks[0] {
-            ScriptBlock::OnEvent(e) => {
-                match &e.body[0] {
-                    Statement::Let { value, .. } => {
-                        match value {
-                            Expr::DbQuery { entity, filters, limit, .. } => {
-                                assert_eq!(entity, "Order");
-                                assert_eq!(filters.len(), 1);
-                                assert_eq!(filters[0].field, "status");
-                                assert_eq!(*limit, Some(10));
-                            }
-                            _ => panic!("expected DbQuery"),
-                        }
+            ScriptBlock::OnEvent(e) => match &e.body[0] {
+                Statement::Let { value, .. } => match value {
+                    Expr::DbQuery {
+                        entity,
+                        filters,
+                        limit,
+                        ..
+                    } => {
+                        assert_eq!(entity, "Order");
+                        assert_eq!(filters.len(), 1);
+                        assert_eq!(filters[0].field, "status");
+                        assert_eq!(*limit, Some(10));
                     }
-                    _ => panic!("expected Let"),
-                }
-            }
+                    _ => panic!("expected DbQuery"),
+                },
+                _ => panic!("expected Let"),
+            },
             _ => panic!("expected OnEvent"),
         }
     }
@@ -962,16 +1147,14 @@ on webhook "/hooks/stripe" {
         let src = r#"on X.create { db.create Order { name "test" amount 100 } }"#;
         let file = ScriptParser::parse(src).unwrap();
         match &file.blocks[0] {
-            ScriptBlock::OnEvent(e) => {
-                match &e.body[0] {
-                    Statement::DbCreate { entity, fields } => {
-                        assert_eq!(entity, "Order");
-                        assert!(fields.contains_key("name"));
-                        assert!(fields.contains_key("amount"));
-                    }
-                    _ => panic!("expected DbCreate"),
+            ScriptBlock::OnEvent(e) => match &e.body[0] {
+                Statement::DbCreate { entity, fields } => {
+                    assert_eq!(entity, "Order");
+                    assert!(fields.contains_key("name"));
+                    assert!(fields.contains_key("amount"));
                 }
-            }
+                _ => panic!("expected DbCreate"),
+            },
             _ => panic!("expected OnEvent"),
         }
     }
@@ -981,12 +1164,10 @@ on webhook "/hooks/stripe" {
         let src = r#"on X.create { db.delete Order event.id }"#;
         let file = ScriptParser::parse(src).unwrap();
         match &file.blocks[0] {
-            ScriptBlock::OnEvent(e) => {
-                match &e.body[0] {
-                    Statement::DbDelete { entity, .. } => assert_eq!(entity, "Order"),
-                    _ => panic!("expected DbDelete"),
-                }
-            }
+            ScriptBlock::OnEvent(e) => match &e.body[0] {
+                Statement::DbDelete { entity, .. } => assert_eq!(entity, "Order"),
+                _ => panic!("expected DbDelete"),
+            },
             _ => panic!("expected OnEvent"),
         }
     }
@@ -998,20 +1179,18 @@ on webhook "/hooks/stripe" {
         let src = r#"on X.create { let r = http.post "https://api.example.com" { headers { Authorization "Bearer key" } } }"#;
         let file = ScriptParser::parse(src).unwrap();
         match &file.blocks[0] {
-            ScriptBlock::OnEvent(e) => {
-                match &e.body[0] {
-                    Statement::Let { value, .. } => {
-                        match value {
-                            Expr::HttpCall { method, headers, .. } => {
-                                assert_eq!(method, "post");
-                                assert!(headers.contains_key("Authorization"));
-                            }
-                            _ => panic!("expected HttpCall"),
-                        }
+            ScriptBlock::OnEvent(e) => match &e.body[0] {
+                Statement::Let { value, .. } => match value {
+                    Expr::HttpCall {
+                        method, headers, ..
+                    } => {
+                        assert_eq!(method, "post");
+                        assert!(headers.contains_key("Authorization"));
                     }
-                    _ => panic!("expected Let"),
-                }
-            }
+                    _ => panic!("expected HttpCall"),
+                },
+                _ => panic!("expected Let"),
+            },
             _ => panic!("expected OnEvent"),
         }
     }
@@ -1023,15 +1202,13 @@ on webhook "/hooks/stripe" {
         let src = r#"on X.create { sse.broadcast "update" { id event.id } }"#;
         let file = ScriptParser::parse(src).unwrap();
         match &file.blocks[0] {
-            ScriptBlock::OnEvent(e) => {
-                match &e.body[0] {
-                    Statement::SseBroadcast { event, data } => {
-                        assert_eq!(event, "update");
-                        assert!(data.contains_key("id"));
-                    }
-                    _ => panic!("expected SseBroadcast"),
+            ScriptBlock::OnEvent(e) => match &e.body[0] {
+                Statement::SseBroadcast { event, data } => {
+                    assert_eq!(event, "update");
+                    assert!(data.contains_key("id"));
                 }
-            }
+                _ => panic!("expected SseBroadcast"),
+            },
             _ => panic!("expected OnEvent"),
         }
     }
@@ -1043,17 +1220,13 @@ on webhook "/hooks/stripe" {
         let src = r#"on X.create { let key = env.API_KEY }"#;
         let file = ScriptParser::parse(src).unwrap();
         match &file.blocks[0] {
-            ScriptBlock::OnEvent(e) => {
-                match &e.body[0] {
-                    Statement::Let { value, .. } => {
-                        match value {
-                            Expr::EnvVar(k) => assert_eq!(k, "API_KEY"),
-                            _ => panic!("expected EnvVar"),
-                        }
-                    }
-                    _ => panic!("expected Let"),
-                }
-            }
+            ScriptBlock::OnEvent(e) => match &e.body[0] {
+                Statement::Let { value, .. } => match value {
+                    Expr::EnvVar(k) => assert_eq!(k, "API_KEY"),
+                    _ => panic!("expected EnvVar"),
+                },
+                _ => panic!("expected Let"),
+            },
             _ => panic!("expected OnEvent"),
         }
     }

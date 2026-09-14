@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use crate::parser::SectionNode;
+use std::collections::HashMap;
 
 // ---------------------------------------------------------------------------
 // Kanban Board
@@ -36,7 +36,10 @@ pub fn render_kanban(section: &SectionNode, bound_data: &crate::binding::Resolve
         if is_column {
             columns.push(KanbanColumn {
                 name: item.get("name").cloned().unwrap_or_default(),
-                color: item.get("color").cloned().unwrap_or_else(|| "#94a3b8".to_string()),
+                color: item
+                    .get("color")
+                    .cloned()
+                    .unwrap_or_else(|| "#94a3b8".to_string()),
                 cards: Vec::new(),
             });
         } else if let Some(col) = columns.last_mut() {
@@ -57,23 +60,38 @@ pub fn render_kanban(section: &SectionNode, bound_data: &crate::binding::Resolve
         if !rows.is_empty() {
             for row in rows {
                 let card = KanbanCard {
-                    name: row.get("name").or_else(|| row.get("title"))
-                        .and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                    assignee: row.get("assignee")
-                        .and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                    priority: row.get("priority")
-                        .and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                    label: row.get("label")
-                        .and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    name: row
+                        .get("name")
+                        .or_else(|| row.get("title"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    assignee: row
+                        .get("assignee")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    priority: row
+                        .get("priority")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    label: row
+                        .get("label")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
                 };
 
                 // Try to match row to column by status/column field
-                let row_col = row.get("status")
+                let row_col = row
+                    .get("status")
                     .or_else(|| row.get("column"))
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
 
-                let target_idx = columns.iter()
+                let target_idx = columns
+                    .iter()
                     .position(|c| c.name.eq_ignore_ascii_case(row_col))
                     .or(if columns.is_empty() { None } else { Some(0) });
 
@@ -271,7 +289,10 @@ pub fn render_dark_mode_toggle(_section: &SectionNode) -> String {
     html.push_str("</div>\n");
 
     // JavaScript
-    html.push_str(&format!("<script{}>\n", crate::security::script_nonce_attr()));
+    html.push_str(&format!(
+        "<script{}>\n",
+        crate::security::script_nonce_attr()
+    ));
     html.push_str("(function() {\n");
     html.push_str("  var saved = localStorage.getItem('cronus-theme');\n");
     html.push_str("  if (saved) { document.documentElement.dataset.theme = saved; }\n");
@@ -333,7 +354,12 @@ mod tests {
         })]);
         let html = render_kanban(&section, &rows);
         assert!(html.contains("&lt;script&gt;card()"), "{html}");
-        for raw in ["<script>card()", "\" onmouseover=\"alert", "<i>p</i>", "<u>l</u>"] {
+        for raw in [
+            "<script>card()",
+            "\" onmouseover=\"alert",
+            "<i>p</i>",
+            "<u>l</u>",
+        ] {
             assert!(!html.contains(raw), "found {raw:?} in {html}");
         }
     }

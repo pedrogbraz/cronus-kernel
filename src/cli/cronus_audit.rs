@@ -72,7 +72,10 @@ fn print_findings(findings: &[AuditFinding], json: bool) {
         println!("  \x1b[32m✓\x1b[0m Cronus Audit: pass");
         return;
     }
-    println!("  \x1b[31m✗\x1b[0m Cronus Audit: {} finding(s)", findings.len());
+    println!(
+        "  \x1b[31m✗\x1b[0m Cronus Audit: {} finding(s)",
+        findings.len()
+    );
     for f in findings {
         println!("    [{}] {}: {}", f.axis, f.code, f.message);
     }

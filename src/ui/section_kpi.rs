@@ -1,56 +1,92 @@
 //! KPI and stat card section renderers
 use crate::parser::SectionNode;
 
-pub(super) fn render_stat_cards(section: &SectionNode, bound_data: &crate::binding::ResolvedData) -> String {
-    let cols = section.config.get("cols")
+pub(super) fn render_stat_cards(
+    section: &SectionNode,
+    bound_data: &crate::binding::ResolvedData,
+) -> String {
+    let cols = section
+        .config
+        .get("cols")
         .and_then(|s| s.parse::<u32>().ok())
         .unwrap_or(3);
 
     let t = crate::theme::get();
-    let is_dark = t.surface.contains("0e0e0e") || t.surface.contains("000") || t.on_surface.contains("fff");
+    let is_dark =
+        t.surface.contains("0e0e0e") || t.surface.contains("000") || t.on_surface.contains("fff");
 
     // Build items from DB rows when section has no static items
     let db_items: Vec<std::collections::HashMap<String, String>> = if section.items.is_empty() {
         if let crate::binding::ResolvedData::Rows(rows) = bound_data {
-            rows.iter().map(|row| {
-                let mut map = std::collections::HashMap::new();
-                if let Some(obj) = row.as_object() {
-                    for (k, v) in obj {
-                        let val = match v {
-                            serde_json::Value::String(s) => crate::security::html_escape(s),
-                            serde_json::Value::Number(n) => n.to_string(),
-                            serde_json::Value::Bool(b) => b.to_string(),
-                            serde_json::Value::Null => String::new(),
-                            other => crate::security::html_escape(&other.to_string()),
-                        };
-                        match k.as_str() {
-                            "label" => { map.insert("title".to_string(), val); }
-                            "change" => { map.insert("badge".to_string(), val); }
-                            _ => { map.insert(k.clone(), val); }
+            rows.iter()
+                .map(|row| {
+                    let mut map = std::collections::HashMap::new();
+                    if let Some(obj) = row.as_object() {
+                        for (k, v) in obj {
+                            let val = match v {
+                                serde_json::Value::String(s) => crate::security::html_escape(s),
+                                serde_json::Value::Number(n) => n.to_string(),
+                                serde_json::Value::Bool(b) => b.to_string(),
+                                serde_json::Value::Null => String::new(),
+                                other => crate::security::html_escape(&other.to_string()),
+                            };
+                            match k.as_str() {
+                                "label" => {
+                                    map.insert("title".to_string(), val);
+                                }
+                                "change" => {
+                                    map.insert("badge".to_string(), val);
+                                }
+                                _ => {
+                                    map.insert(k.clone(), val);
+                                }
+                            }
                         }
                     }
-                }
-                map
-            }).collect()
-        } else { Vec::new() }
-    } else { Vec::new() };
+                    map
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
+    } else {
+        Vec::new()
+    };
 
     let use_db = !db_items.is_empty();
-    let item_count = if use_db { db_items.len() } else { section.items.len() };
+    let item_count = if use_db {
+        db_items.len()
+    } else {
+        section.items.len()
+    };
 
     let bound_value: Option<String> = if !use_db {
         match bound_data {
             crate::binding::ResolvedData::Count(n) => Some(n.to_string()),
-            crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => Some(rows.len().to_string()),
+            crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => {
+                Some(rows.len().to_string())
+            }
             _ => None,
         }
-    } else { None };
+    } else {
+        None
+    };
 
     // Theme colors
     let (card_bg, card_border, label_color, value_color) = if is_dark {
-        ("#1b1b1b", "0.5px solid rgba(76,69,70,0.15)", "rgba(226,226,226,0.5)", "#e2e2e2")
+        (
+            "#1b1b1b",
+            "0.5px solid rgba(76,69,70,0.15)",
+            "rgba(226,226,226,0.5)",
+            "#e2e2e2",
+        )
     } else {
-        ("#fff", "1px solid rgba(198,198,198,0.2)", "#5e5e5e", "#1a1c1c")
+        (
+            "#fff",
+            "1px solid rgba(198,198,198,0.2)",
+            "#5e5e5e",
+            "#1a1c1c",
+        )
     };
 
     let mut cards = Vec::new();
@@ -64,11 +100,18 @@ pub(super) fn render_stat_cards(section: &SectionNode, bound_data: &crate::bindi
             badge = db.get("badge").cloned().unwrap_or_default();
         } else {
             let si = &section.items[idx];
-            label = si.get("title").or_else(|| si.get("name")).map(|s| s.as_str()).unwrap_or("Metric");
+            label = si
+                .get("title")
+                .or_else(|| si.get("name"))
+                .map(|s| s.as_str())
+                .unwrap_or("Metric");
             value_owned = if idx == 0 && bound_value.is_some() {
                 bound_value.as_ref().unwrap().clone()
             } else {
-                si.get("description").or_else(|| si.get("desc")).map(|s| s.to_string()).unwrap_or_default()
+                si.get("description")
+                    .or_else(|| si.get("desc"))
+                    .map(|s| s.to_string())
+                    .unwrap_or_default()
             };
             icon = si.get("icon").cloned().unwrap_or_default();
             badge = String::new();
@@ -77,14 +120,28 @@ pub(super) fn render_stat_cards(section: &SectionNode, bound_data: &crate::bindi
         let icon_html = if icon.is_empty() {
             String::new()
         } else {
-            format!(r#"<span class="material-symbols-outlined" style="font-size:20px;color:{label_color};margin-bottom:4px">{icon}</span>"#)
+            format!(
+                r#"<span class="material-symbols-outlined" style="font-size:20px;color:{label_color};margin-bottom:4px">{icon}</span>"#
+            )
         };
         let badge_html = if badge.is_empty() {
             String::new()
         } else {
-            let positive = badge.starts_with('+') || (!badge.starts_with('-') && badge.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false));
-            let (bg, fg) = if positive { ("rgba(16,185,129,0.1)", "#10b981") } else { ("rgba(239,68,68,0.1)", "#ef4444") };
-            format!(r#"<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:9999px;font-size:12px;font-weight:600;background:{bg};color:{fg}">{badge}</span>"#)
+            let positive = badge.starts_with('+')
+                || (!badge.starts_with('-')
+                    && badge
+                        .chars()
+                        .next()
+                        .map(|c| c.is_ascii_digit())
+                        .unwrap_or(false));
+            let (bg, fg) = if positive {
+                ("rgba(16,185,129,0.1)", "#10b981")
+            } else {
+                ("rgba(239,68,68,0.1)", "#ef4444")
+            };
+            format!(
+                r#"<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:9999px;font-size:12px;font-weight:600;background:{bg};color:{fg}">{badge}</span>"#
+            )
         };
         let delay = format!("d{}", (idx % 10) + 1);
 
@@ -105,11 +162,15 @@ pub(super) fn render_stat_cards(section: &SectionNode, bound_data: &crate::bindi
     )
 }
 
-
-pub(super) fn render_kpi_section(section: &SectionNode, bound_data: &crate::binding::ResolvedData) -> String {
+pub(super) fn render_kpi_section(
+    section: &SectionNode,
+    bound_data: &crate::binding::ResolvedData,
+) -> String {
     let title = section.title.as_deref().unwrap_or("");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
-    let cols: usize = section.config.get("cols")
+    let cols: usize = section
+        .config
+        .get("cols")
         .and_then(|s| s.parse().ok())
         .unwrap_or(4);
 
@@ -119,47 +180,73 @@ pub(super) fn render_kpi_section(section: &SectionNode, bound_data: &crate::bind
         let sub = if subtitle.is_empty() {
             String::new()
         } else {
-            format!(r#"<p style="font-size:14px;color:#71717a;margin:4px 0 0">{}</p>"#, subtitle)
+            format!(
+                r#"<p style="font-size:14px;color:#71717a;margin:4px 0 0">{}</p>"#,
+                subtitle
+            )
         };
-        format!(r#"<div style="margin-bottom:24px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{}</h2>{}</div>"#, title, sub)
+        format!(
+            r#"<div style="margin-bottom:24px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0">{}</h2>{}</div>"#,
+            title, sub
+        )
     };
 
     // Build items from DB rows when section has no static items
     let db_items: Vec<std::collections::HashMap<String, String>> = if section.items.is_empty() {
         if let crate::binding::ResolvedData::Rows(rows) = bound_data {
-            rows.iter().map(|row| {
-                let mut map = std::collections::HashMap::new();
-                if let Some(obj) = row.as_object() {
-                    for (k, v) in obj {
-                        let val = match v {
-                            serde_json::Value::String(s) => crate::security::html_escape(s),
-                            serde_json::Value::Number(n) => n.to_string(),
-                            serde_json::Value::Bool(b) => b.to_string(),
-                            serde_json::Value::Null => String::new(),
-                            other => crate::security::html_escape(&other.to_string()),
-                        };
-                        match k.as_str() {
-                            "label" => { map.insert("title".to_string(), val); }
-                            "change" => { map.insert("badge".to_string(), val); }
-                            _ => { map.insert(k.clone(), val); }
+            rows.iter()
+                .map(|row| {
+                    let mut map = std::collections::HashMap::new();
+                    if let Some(obj) = row.as_object() {
+                        for (k, v) in obj {
+                            let val = match v {
+                                serde_json::Value::String(s) => crate::security::html_escape(s),
+                                serde_json::Value::Number(n) => n.to_string(),
+                                serde_json::Value::Bool(b) => b.to_string(),
+                                serde_json::Value::Null => String::new(),
+                                other => crate::security::html_escape(&other.to_string()),
+                            };
+                            match k.as_str() {
+                                "label" => {
+                                    map.insert("title".to_string(), val);
+                                }
+                                "change" => {
+                                    map.insert("badge".to_string(), val);
+                                }
+                                _ => {
+                                    map.insert(k.clone(), val);
+                                }
+                            }
                         }
                     }
-                }
-                map
-            }).collect()
-        } else { Vec::new() }
-    } else { Vec::new() };
+                    map
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
+    } else {
+        Vec::new()
+    };
 
     let use_db = !db_items.is_empty();
-    let item_count = if use_db { db_items.len() } else { section.items.len() };
+    let item_count = if use_db {
+        db_items.len()
+    } else {
+        section.items.len()
+    };
 
     let bound_value: Option<String> = if !use_db {
         match bound_data {
             crate::binding::ResolvedData::Count(n) => Some(n.to_string()),
-            crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => Some(rows.len().to_string()),
+            crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => {
+                Some(rows.len().to_string())
+            }
             _ => None,
         }
-    } else { None };
+    } else {
+        None
+    };
 
     // Empty state: show placeholder cards when no data (light theme)
     if item_count == 0 {
@@ -176,7 +263,8 @@ pub(super) fn render_kpi_section(section: &SectionNode, bound_data: &crate::bind
         }
         return format!(
             r#"<section style="padding:32px 0">{title_html}<div class="stagger kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">{cards}</div></section>"#,
-            title_html = title_html, cards = placeholder_html,
+            title_html = title_html,
+            cards = placeholder_html,
         );
     }
 
@@ -188,7 +276,11 @@ pub(super) fn render_kpi_section(section: &SectionNode, bound_data: &crate::bind
             item_title = db.get("title").map(|s| s.as_str()).unwrap_or("");
             value_owned = db.get("value").cloned().unwrap_or_default();
             icon = db.get("icon").map(|s| s.as_str()).unwrap_or("");
-            trend = db.get("trend").or(db.get("badge")).map(|s| s.as_str()).unwrap_or("");
+            trend = db
+                .get("trend")
+                .or(db.get("badge"))
+                .map(|s| s.as_str())
+                .unwrap_or("");
             badge = db.get("badge").map(|s| s.as_str()).unwrap_or("");
             meta = db.get("description").map(|s| s.as_str()).unwrap_or("");
             item_subtitle = db.get("subtitle").map(|s| s.as_str()).unwrap_or("");
@@ -212,14 +304,23 @@ pub(super) fn render_kpi_section(section: &SectionNode, bound_data: &crate::bind
         let icon_html = if icon.is_empty() {
             String::new()
         } else {
-            format!(r#"<span class="material-symbols-outlined" style="font-size:20px;color:#71717a;margin-bottom:8px">{}</span>"#, icon)
+            format!(
+                r#"<span class="material-symbols-outlined" style="font-size:20px;color:#71717a;margin-bottom:8px">{}</span>"#,
+                icon
+            )
         };
 
         // Badge pill (same as dark theme)
         let badge_html = if badge.is_empty() {
             String::new()
         } else {
-            let badge_positive = badge.starts_with('+') || (!badge.starts_with('-') && badge.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false));
+            let badge_positive = badge.starts_with('+')
+                || (!badge.starts_with('-')
+                    && badge
+                        .chars()
+                        .next()
+                        .map(|c| c.is_ascii_digit())
+                        .unwrap_or(false));
             let (bg, fg) = if badge_positive {
                 ("rgba(16,185,129,0.1)", "#10b981")
             } else {
@@ -227,7 +328,9 @@ pub(super) fn render_kpi_section(section: &SectionNode, bound_data: &crate::bind
             };
             format!(
                 r#"<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:9999px;font-size:12px;font-weight:600;background:{bg};color:{fg};letter-spacing:-0.01em">{badge}</span>"#,
-                bg = bg, fg = fg, badge = badge
+                bg = bg,
+                fg = fg,
+                badge = badge
             )
         };
 
@@ -239,17 +342,30 @@ pub(super) fn render_kpi_section(section: &SectionNode, bound_data: &crate::bind
         let trend_html = if trend.is_empty() {
             String::new()
         } else if trend == "up" || trend == "down" {
-            format!(r#"<span style="font-size:12px;color:{};font-weight:600">{}</span>"#, trend_color, trend_arrow)
+            format!(
+                r#"<span style="font-size:12px;color:{};font-weight:600">{}</span>"#,
+                trend_color, trend_arrow
+            )
         } else {
-            format!(r#"<span style="font-size:12px;color:{};font-weight:600">{} {}</span>"#, trend_color, trend_arrow, trend)
+            format!(
+                r#"<span style="font-size:12px;color:{};font-weight:600">{} {}</span>"#,
+                trend_color, trend_arrow, trend
+            )
         };
 
         // Subtitle / description
-        let sub_text = if !item_subtitle.is_empty() { item_subtitle } else { meta };
+        let sub_text = if !item_subtitle.is_empty() {
+            item_subtitle
+        } else {
+            meta
+        };
         let meta_html = if sub_text.is_empty() {
             String::new()
         } else {
-            format!(r#"<div style="font-size:12px;color:#a1a1aa;margin-top:4px">{}</div>"#, sub_text)
+            format!(
+                r#"<div style="font-size:12px;color:#a1a1aa;margin-top:4px">{}</div>"#,
+                sub_text
+            )
         };
 
         cards_html.push_str(&format!(
@@ -275,7 +391,8 @@ pub(super) fn render_kpi_section(section: &SectionNode, bound_data: &crate::bind
     {cards}
   </div>
 </section>"##,
-        title_html = title_html, cards = cards_html,
+        title_html = title_html,
+        cards = cards_html,
     )
 }
 
@@ -283,11 +400,16 @@ pub(super) fn render_kpi_section(section: &SectionNode, bound_data: &crate::bind
 // KPI DASHBOARD DARK (Obsidian theme)
 // ══════════════════════════════════════════════════
 
-pub(super) fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crate::binding::ResolvedData) -> String {
+pub(super) fn render_kpi_dashboard_dark(
+    section: &SectionNode,
+    bound_data: &crate::binding::ResolvedData,
+) -> String {
     let t = crate::theme::get();
     let title = section.title.as_deref().unwrap_or("");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
-    let cols: usize = section.config.get("cols")
+    let cols: usize = section
+        .config
+        .get("cols")
         .and_then(|s| s.parse().ok())
         .unwrap_or(4);
 
@@ -297,35 +419,49 @@ pub(super) fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crat
         let sub = if subtitle.is_empty() {
             String::new()
         } else {
-            format!(r#"<p style="font-size:13px;color:rgba(226,226,226,0.4);margin:4px 0 0">{}</p>"#, subtitle)
+            format!(
+                r#"<p style="font-size:13px;color:rgba(226,226,226,0.4);margin:4px 0 0">{}</p>"#,
+                subtitle
+            )
         };
-        format!(r#"<div style="margin-bottom:24px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:{}">{}</h2>{}</div>"#, t.on_surface, title, sub)
+        format!(
+            r#"<div style="margin-bottom:24px"><h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:{}">{}</h2>{}</div>"#,
+            t.on_surface, title, sub
+        )
     };
 
     // Build items list: from DB rows (when section has no static items) or from .cronus items
     let db_items: Vec<std::collections::HashMap<String, String>> = if section.items.is_empty() {
         if let crate::binding::ResolvedData::Rows(rows) = bound_data {
-            rows.iter().map(|row| {
-                let mut map = std::collections::HashMap::new();
-                if let Some(obj) = row.as_object() {
-                    for (k, v) in obj {
-                        let val = match v {
-                            serde_json::Value::String(s) => crate::security::html_escape(s),
-                            serde_json::Value::Number(n) => n.to_string(),
-                            serde_json::Value::Bool(b) => b.to_string(),
-                            serde_json::Value::Null => String::new(),
-                            other => crate::security::html_escape(&other.to_string()),
-                        };
-                        // Map entity fields to KPI card fields
-                        match k.as_str() {
-                            "label" => { map.insert("title".to_string(), val); }
-                            "change" => { map.insert("badge".to_string(), val); }
-                            _ => { map.insert(k.clone(), val); }
+            rows.iter()
+                .map(|row| {
+                    let mut map = std::collections::HashMap::new();
+                    if let Some(obj) = row.as_object() {
+                        for (k, v) in obj {
+                            let val = match v {
+                                serde_json::Value::String(s) => crate::security::html_escape(s),
+                                serde_json::Value::Number(n) => n.to_string(),
+                                serde_json::Value::Bool(b) => b.to_string(),
+                                serde_json::Value::Null => String::new(),
+                                other => crate::security::html_escape(&other.to_string()),
+                            };
+                            // Map entity fields to KPI card fields
+                            match k.as_str() {
+                                "label" => {
+                                    map.insert("title".to_string(), val);
+                                }
+                                "change" => {
+                                    map.insert("badge".to_string(), val);
+                                }
+                                _ => {
+                                    map.insert(k.clone(), val);
+                                }
+                            }
                         }
                     }
-                }
-                map
-            }).collect()
+                    map
+                })
+                .collect()
         } else {
             Vec::new()
         }
@@ -335,13 +471,19 @@ pub(super) fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crat
 
     // Use DB items when available, otherwise fall back to static .cronus items
     let use_db_items = !db_items.is_empty();
-    let item_count = if use_db_items { db_items.len() } else { section.items.len() };
+    let item_count = if use_db_items {
+        db_items.len()
+    } else {
+        section.items.len()
+    };
 
     // Bound data override for first item (only when using static items)
     let bound_value: Option<String> = if !use_db_items {
         match bound_data {
             crate::binding::ResolvedData::Count(n) => Some(n.to_string()),
-            crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => Some(rows.len().to_string()),
+            crate::binding::ResolvedData::Rows(rows) if !rows.is_empty() => {
+                Some(rows.len().to_string())
+            }
             _ => None,
         }
     } else {
@@ -373,7 +515,8 @@ pub(super) fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crat
     {cards}
   </div>
 </section>"##,
-            title_html = title_html, cards = placeholder_html,
+            title_html = title_html,
+            cards = placeholder_html,
         );
     }
 
@@ -388,20 +531,35 @@ pub(super) fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crat
             badge = db_item.get("badge").map(|s| s.as_str()).unwrap_or("");
             item_subtitle = db_item.get("subtitle").map(|s| s.as_str()).unwrap_or("");
             description = db_item.get("description").map(|s| s.as_str()).unwrap_or("");
-            span = db_item.get("span").and_then(|s| s.parse().ok()).unwrap_or(1usize);
+            span = db_item
+                .get("span")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(1usize);
         } else {
             let static_item = &section.items[i];
             item_title = static_item.get("title").map(|s| s.as_str()).unwrap_or("");
             value_owned = if i == 0 && bound_value.is_some() {
                 bound_value.as_ref().unwrap().clone()
             } else {
-                static_item.get("value").map(|s| s.to_string()).unwrap_or_default()
+                static_item
+                    .get("value")
+                    .map(|s| s.to_string())
+                    .unwrap_or_default()
             };
             icon = static_item.get("icon").map(|s| s.as_str()).unwrap_or("");
             badge = static_item.get("badge").map(|s| s.as_str()).unwrap_or("");
-            item_subtitle = static_item.get("subtitle").map(|s| s.as_str()).unwrap_or("");
-            description = static_item.get("description").map(|s| s.as_str()).unwrap_or("");
-            span = static_item.get("span").and_then(|s| s.parse().ok()).unwrap_or(1usize);
+            item_subtitle = static_item
+                .get("subtitle")
+                .map(|s| s.as_str())
+                .unwrap_or("");
+            description = static_item
+                .get("description")
+                .map(|s| s.as_str())
+                .unwrap_or("");
+            span = static_item
+                .get("span")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(1usize);
         }
         let value = value_owned.as_str();
 
@@ -412,7 +570,11 @@ pub(super) fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crat
         };
 
         // Larger text for span:2+ cards — use clamp to prevent overflow
-        let value_size = if span > 1 { "clamp(32px,5vw,56px)" } else { "30px" };
+        let value_size = if span > 1 {
+            "clamp(32px,5vw,56px)"
+        } else {
+            "30px"
+        };
         let value_weight = "700";
 
         // Icon
@@ -429,7 +591,13 @@ pub(super) fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crat
         let badge_html = if badge.is_empty() {
             String::new()
         } else {
-            let badge_positive = badge.starts_with('+') || (!badge.starts_with('-') && badge.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false));
+            let badge_positive = badge.starts_with('+')
+                || (!badge.starts_with('-')
+                    && badge
+                        .chars()
+                        .next()
+                        .map(|c| c.is_ascii_digit())
+                        .unwrap_or(false));
             let (bg, fg) = if badge_positive {
                 ("rgba(16,185,129,0.1)", "#10b981")
             } else {
@@ -437,16 +605,25 @@ pub(super) fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crat
             };
             format!(
                 r#"<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:9999px;font-size:12px;font-weight:600;background:{bg};color:{fg};letter-spacing:-0.01em">{badge}</span>"#,
-                bg = bg, fg = fg, badge = badge
+                bg = bg,
+                fg = fg,
+                badge = badge
             )
         };
 
         // Subtitle / description
-        let sub_text = if !item_subtitle.is_empty() { item_subtitle } else { description };
+        let sub_text = if !item_subtitle.is_empty() {
+            item_subtitle
+        } else {
+            description
+        };
         let sub_html = if sub_text.is_empty() {
             String::new()
         } else {
-            format!(r#"<div style="font-size:12px;color:rgba(226,226,226,0.4);margin-top:4px">{}</div>"#, sub_text)
+            format!(
+                r#"<div style="font-size:12px;color:rgba(226,226,226,0.4);margin-top:4px">{}</div>"#,
+                sub_text
+            )
         };
 
         // Mini bar chart for span:2 cards (decorative)
@@ -471,7 +648,10 @@ pub(super) fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crat
         let label_row = format!(
             r#"<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">{icon}{label}{badge}</div>"#,
             icon = icon_html,
-            label = format!(r#"<span style="font-size:13px;font-weight:500;color:rgba(226,226,226,0.5);letter-spacing:0.02em">{}</span>"#, item_title),
+            label = format!(
+                r#"<span style="font-size:13px;font-weight:500;color:rgba(226,226,226,0.5);letter-spacing:0.02em">{}</span>"#,
+                item_title
+            ),
             badge = badge_html,
         );
 
@@ -502,7 +682,8 @@ pub(super) fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crat
     {cards}
   </div>
 </section>"##,
-        title_html = title_html, cards = cards_html,
+        title_html = title_html,
+        cards = cards_html,
     )
 }
 
@@ -568,4 +749,3 @@ mod tests {
         assert_escaped(&render_kpi_dashboard_dark(&section("kpi"), &hostile_rows()));
     }
 }
-

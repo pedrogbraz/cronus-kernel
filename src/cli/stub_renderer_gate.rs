@@ -218,39 +218,71 @@ pub fn catalog_stub_kind(family: &str) -> Option<&'static str> {
         | "switch" | "checkbox" | "radio-group" | "toggle-group" | "segmented-control" => {
             Some("pill")
         }
-        "input" | "textarea" | "password-input" | "number-input" | "phone-input"
-        | "currency-input" | "credit-card-input" | "floating-label-input" | "tags-input"
-        | "input-otp" | "input-group" | "color-picker" | "file-dropzone" | "select"
-        | "combobox" | "autocomplete" | "multi-select" | "date-picker" | "date-range-picker"
-        | "time-picker" | "field" | "form" | "signature-pad" | "rich-text-editor" => Some("field"),
-        "dialog" | "alert-dialog" | "confirmation-dialog" | "invite-dialog" | "sheet"
-        | "drawer" | "popover" | "hover-card" | "tooltip" | "dropdown-menu" | "context-menu"
-        | "menubar" | "command" | "lightbox" | "morphing-popover" | "notification-center"
+        "input"
+        | "textarea"
+        | "password-input"
+        | "number-input"
+        | "phone-input"
+        | "currency-input"
+        | "credit-card-input"
+        | "floating-label-input"
+        | "tags-input"
+        | "input-otp"
+        | "input-group"
+        | "color-picker"
+        | "file-dropzone"
+        | "select"
+        | "combobox"
+        | "autocomplete"
+        | "multi-select"
+        | "date-picker"
+        | "date-range-picker"
+        | "time-picker"
+        | "field"
+        | "form"
+        | "signature-pad"
+        | "rich-text-editor" => Some("field"),
+        "dialog"
+        | "alert-dialog"
+        | "confirmation-dialog"
+        | "invite-dialog"
+        | "sheet"
+        | "drawer"
+        | "popover"
+        | "hover-card"
+        | "tooltip"
+        | "dropdown-menu"
+        | "context-menu"
+        | "menubar"
+        | "command"
+        | "lightbox"
+        | "morphing-popover"
+        | "notification-center"
         | "sonner" => Some("overlay"),
-        "tabs" | "accordion" | "bouncy-accordion" | "collapsible" | "breadcrumb" | "pagination" | "sidebar"
-        | "navigation-menu" | "pill-nav" | "expandable-tabs" | "stepper" | "toolbar"
-        | "table-of-contents" | "app-shell" | "workspace-switcher" | "dock" | "mode-toggle"
-        | "split-button" | "button-group" => Some("nav"),
+        "tabs" | "accordion" | "bouncy-accordion" | "collapsible" | "breadcrumb" | "pagination"
+        | "sidebar" | "navigation-menu" | "pill-nav" | "expandable-tabs" | "stepper"
+        | "toolbar" | "table-of-contents" | "app-shell" | "workspace-switcher" | "dock"
+        | "mode-toggle" | "split-button" | "button-group" => Some("nav"),
         "card" | "card-stack" | "glass-card" | "spotlight-card" | "tilt-card" | "flip-card"
-        | "banner" | "empty" | "alert" | "metric" | "description-list" | "table"
-        | "data-table" | "avatar" | "avatar-group" | "aspect-ratio" | "frame" | "scroll-area"
-        | "resizable" | "calendar" | "timeline" | "kanban" | "scheduler" | "json-viewer"
-        | "code-block" | "code-tabs" | "terminal" | "tree-view" | "carousel"
-        | "logo-carousel" | "masonry" | "usage-meter" | "video-player" => Some("display"),
+        | "banner" | "empty" | "alert" | "metric" | "description-list" | "table" | "data-table"
+        | "avatar" | "avatar-group" | "aspect-ratio" | "frame" | "scroll-area" | "resizable"
+        | "calendar" | "timeline" | "kanban" | "scheduler" | "json-viewer" | "code-block"
+        | "code-tabs" | "terminal" | "tree-view" | "carousel" | "logo-carousel" | "masonry"
+        | "usage-meter" | "video-player" => Some("display"),
         "area-chart" | "bar-chart" | "line-chart" | "pie-chart" | "radar-chart"
         | "composed-chart" | "candlestick-chart" | "choropleth-chart" | "funnel-chart"
-        | "gauge-chart" | "heatmap" | "heatmap-chart" | "live-line-chart"
-        | "profit-loss-chart" | "ring-chart" | "sankey-chart" | "scatter-chart" | "sparkline"
-        | "sunburst-chart" | "chart" => Some("chart"),
+        | "gauge-chart" | "heatmap" | "heatmap-chart" | "live-line-chart" | "profit-loss-chart"
+        | "ring-chart" | "sankey-chart" | "scatter-chart" | "sparkline" | "sunburst-chart"
+        | "chart" => Some("chart"),
         "animated-button" | "animated-list" | "animated-number" | "aurora-background"
         | "border-beam" | "click-spark" | "confetti" | "countdown" | "dot-pattern"
         | "flickering-grid" | "glare-hover" | "gradient-border" | "gradient-text"
-        | "grid-pattern" | "highlighter" | "image-zoom" | "light-rays" | "magnetic"
-        | "marquee" | "meteors" | "noise" | "orbit" | "particles" | "progressive-blur"
-        | "retro-grid" | "reveal" | "ripple" | "scramble-text" | "scroll-progress"
-        | "shimmer" | "shiny-text" | "sparkles-text" | "spinning-text" | "star-border"
-        | "text-effect" | "text-shimmer" | "typing-text" | "word-rotate" | "comparison-slider"
-        | "dynamic-island" | "toast" | "motion-presets" => Some("fx"),
+        | "grid-pattern" | "highlighter" | "image-zoom" | "light-rays" | "magnetic" | "marquee"
+        | "meteors" | "noise" | "orbit" | "particles" | "progressive-blur" | "retro-grid"
+        | "reveal" | "ripple" | "scramble-text" | "scroll-progress" | "shimmer" | "shiny-text"
+        | "sparkles-text" | "spinning-text" | "star-border" | "text-effect" | "text-shimmer"
+        | "typing-text" | "word-rotate" | "comparison-slider" | "dynamic-island" | "toast"
+        | "motion-presets" => Some("fx"),
         _ => None,
     }
 }
@@ -811,7 +843,9 @@ pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
     if html.contains("<nav data-slot") && html.contains("flex-wrap:wrap;gap:0.25rem") {
         return Some("nav");
     }
-    if html.contains("<section data-slot") && html.contains("padding:1rem;display:flex;flex-direction:column;gap:0.5rem;") {
+    if html.contains("<section data-slot")
+        && html.contains("padding:1rem;display:flex;flex-direction:column;gap:0.5rem;")
+    {
         return Some("display");
     }
     None
@@ -864,7 +898,10 @@ mod tests {
 
     #[test]
     fn button_is_dedicated() {
-        assert_eq!(renderer_kind("button"), RendererKind::Dedicated("button_from"));
+        assert_eq!(
+            renderer_kind("button"),
+            RendererKind::Dedicated("button_from")
+        );
         assert!(check_family("button").is_ok());
         let html = render(&stub("button")).unwrap();
         assert!(html.contains("data-slot=\"button\""));
@@ -1155,7 +1192,10 @@ mod tests {
             }
         }
         let http = std::fs::read_to_string("src/cli/audit_http.rs").unwrap();
-        assert!(!http.contains("fs::read"), "audit_http must never read disk");
+        assert!(
+            !http.contains("fs::read"),
+            "audit_http must never read disk"
+        );
         assert!(
             !http.contains("read_to_string"),
             "audit_http must never read disk"

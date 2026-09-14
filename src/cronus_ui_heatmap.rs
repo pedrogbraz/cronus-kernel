@@ -117,7 +117,8 @@ mod tests {
     #[test]
     fn root_is_div_with_day_cells_not_figure() {
         let html = render(&stub("heatmap", "Activity"));
-        assert!(html.starts_with("<div data-slot=\"heatmap\"><div role=\"img\" aria-label=\"Activity\">"));
+        assert!(html
+            .starts_with("<div data-slot=\"heatmap\"><div role=\"img\" aria-label=\"Activity\">"));
         assert!(html.contains("data-slot=\"heatmap-legend\""));
         assert!(html.contains(">Less</span>"));
         assert!(html.contains(">More</span>"));
@@ -147,7 +148,9 @@ mod tests {
     #[test]
     fn aria_label_config_wins_over_label() {
         let mut c = stub("heatmap", "Heat");
-        c.items[0].config.insert("aria-label".into(), "Activity".into());
+        c.items[0]
+            .config
+            .insert("aria-label".into(), "Activity".into());
         let html = render(&c);
         assert!(html.contains("role=\"img\" aria-label=\"Activity\""));
     }
@@ -177,7 +180,10 @@ mod tests {
     #[test]
     fn legend_has_five_swatches() {
         let html = render(&stub("heatmap", "Activity"));
-        assert_eq!(html.matches("data-slot=\"heatmap-legend-swatch\"").count(), 5);
+        assert_eq!(
+            html.matches("data-slot=\"heatmap-legend-swatch\"").count(),
+            5
+        );
         reject_stub(&html);
     }
 
@@ -206,7 +212,9 @@ mod tests {
     #[test]
     fn chrome_is_token_only_with_text_xs_legend() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"heatmap\"] > [data-slot=\"heatmap-legend\"] { line-height: 1rem; }"));
+        assert!(css.contains(
+            "[data-slot=\"heatmap\"] > [data-slot=\"heatmap-legend\"] { line-height: 1rem; }"
+        ));
         assert!(css.contains("var(--cronus-primary)"));
         assert!(css.contains("var(--cronus-surface-inset)"));
         assert!(css.contains("grid-auto-flow: column"));

@@ -46,7 +46,11 @@ pub fn is_safe_identifier(s: &str) -> bool {
 
 /// Sanitize a column name — returns None if invalid.
 pub fn safe_column(name: &str) -> Option<&str> {
-    if is_safe_identifier(name) { Some(name) } else { None }
+    if is_safe_identifier(name) {
+        Some(name)
+    } else {
+        None
+    }
 }
 
 // ══════════════════════════════════════════════════
@@ -59,7 +63,9 @@ pub struct RateLimiter {
 
 impl RateLimiter {
     pub fn new() -> Self {
-        Self { buckets: Mutex::new(HashMap::new()) }
+        Self {
+            buckets: Mutex::new(HashMap::new()),
+        }
     }
 
     /// Check if request is allowed. Returns false if rate exceeded.
@@ -103,7 +109,10 @@ pub fn security_headers() -> Vec<(&'static str, &'static str)> {
         ("x-frame-options", "SAMEORIGIN"),
         ("x-xss-protection", "0"),
         ("referrer-policy", "strict-origin-when-cross-origin"),
-        ("permissions-policy", "camera=(), microphone=(), geolocation=(), payment=()"),
+        (
+            "permissions-policy",
+            "camera=(), microphone=(), geolocation=(), payment=()",
+        ),
         ("cross-origin-opener-policy", "same-origin"),
     ]
 }
@@ -161,7 +170,11 @@ pub fn script_nonces_enabled() -> bool {
 /// Attribute to place right after `<script` in kernel-authored templates:
 /// `format!("<script{nonce}>…")`. Empty when nonces are disabled.
 pub fn script_nonce_attr() -> &'static str {
-    if script_nonces_enabled() { marker_attr() } else { "" }
+    if script_nonces_enabled() {
+        marker_attr()
+    } else {
+        ""
+    }
 }
 
 /// Mark every `<script` tag in markup the kernel or the app developer wrote
@@ -185,8 +198,14 @@ fn add_attr_to_script_tags(html: &str, attr: &str) -> String {
         out.push_str(&html[cursor..tag_name_end]);
         cursor = tag_name_end;
         let next = lower[cursor..].chars().next();
-        let is_script_tag = matches!(next, Some('>') | Some(' ') | Some('\n') | Some('\t') | Some('\r') | Some('/'));
-        let tag_end = lower[cursor..].find('>').map(|p| cursor + p).unwrap_or(lower.len());
+        let is_script_tag = matches!(
+            next,
+            Some('>') | Some(' ') | Some('\n') | Some('\t') | Some('\r') | Some('/')
+        );
+        let tag_end = lower[cursor..]
+            .find('>')
+            .map(|p| cursor + p)
+            .unwrap_or(lower.len());
         let already_nonced = lower[cursor..tag_end].contains(" nonce=");
         if is_script_tag && !already_nonced {
             out.push_str(attr);
@@ -273,9 +292,13 @@ pub fn csp_header_value(nonce: Option<&str>, eval: EvalPolicy) -> String {
 
 /// Validate an email address (basic but correct).
 pub fn is_valid_email(email: &str) -> bool {
-    if email.len() < 3 || email.len() > 254 { return false; }
+    if email.len() < 3 || email.len() > 254 {
+        return false;
+    }
     let parts: Vec<&str> = email.splitn(2, '@').collect();
-    if parts.len() != 2 { return false; }
+    if parts.len() != 2 {
+        return false;
+    }
     !parts[0].is_empty() && !parts[1].is_empty() && parts[1].contains('.')
 }
 
@@ -302,20 +325,33 @@ mod tests {
         let marked = add_attr_to_script_tags(html, attr);
         assert_eq!(marked.matches(nonce_marker()).count(), 2, "{marked}");
         assert!(marked.contains("<scripting>"));
-        assert!(marked.contains(r#"<script nonce="n">"#), "already-nonced tag left alone");
-        assert_eq!(add_attr_to_script_tags(html, ""), html, "disabled = unchanged");
+        assert!(
+            marked.contains(r#"<script nonce="n">"#),
+            "already-nonced tag left alone"
+        );
+        assert_eq!(
+            add_attr_to_script_tags(html, ""),
+            html,
+            "disabled = unchanged"
+        );
     }
 
     #[test]
     fn only_marked_scripts_receive_the_request_nonce() {
         // Kernel template marked before interpolation; the row value is not.
-        let template = add_attr_to_script_tags("<div>{row}</div><script>kernel()</script>", marker_attr());
+        let template =
+            add_attr_to_script_tags("<div>{row}</div><script>kernel()</script>", marker_attr());
         let row = r#"<script nonce="guess">steal()</script><script>steal()</script>"#;
-        let page = template.replace("{row}", &html_escape(row)).replace("</div>", &format!("{row}</div>"));
+        let page = template
+            .replace("{row}", &html_escape(row))
+            .replace("</div>", &format!("{row}</div>"));
         let out = finalize_script_nonces(&page, "REQNONCE");
         assert_eq!(out.matches(r#"nonce="REQNONCE""#).count(), 1, "{out}");
         assert!(out.contains(r#"<script nonce="REQNONCE">kernel()</script>"#));
-        assert!(out.contains("<script>steal()</script>"), "data script stays unnonced");
+        assert!(
+            out.contains("<script>steal()</script>"),
+            "data script stays unnonced"
+        );
         assert!(!out.contains(nonce_marker()));
     }
 
@@ -336,11 +372,19 @@ mod tests {
     #[test]
     fn csp_with_nonce_drops_unsafe_inline_and_host_wide_cdn() {
         let csp = csp_header_value(Some("abc"), EvalPolicy::Forbid);
-        let script_src = csp.split(';').find(|d| d.trim().starts_with("script-src ")).unwrap();
+        let script_src = csp
+            .split(';')
+            .find(|d| d.trim().starts_with("script-src "))
+            .unwrap();
         assert!(script_src.contains("'nonce-abc'"));
         assert!(!script_src.contains("'unsafe-inline'"));
         assert!(!script_src.contains("'unsafe-eval'"));
-        assert!(!script_src.split_whitespace().any(|t| t == "https://cdn.jsdelivr.net"), "{script_src}");
+        assert!(
+            !script_src
+                .split_whitespace()
+                .any(|t| t == "https://cdn.jsdelivr.net"),
+            "{script_src}"
+        );
         assert!(csp.contains("object-src 'none'") && csp.contains("base-uri 'self'"));
     }
 

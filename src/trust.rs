@@ -18,7 +18,8 @@ static METRICS: std::sync::LazyLock<Mutex<HashMap<String, BlockMetrics>>> =
 /// Called from fire_scripts, execute_endpoint, execute_webhook.
 pub fn track_execution(block_id: &str, latency_ms: f64, error: Option<&str>) {
     if let Ok(mut map) = METRICS.lock() {
-        let metrics = map.entry(block_id.to_string())
+        let metrics = map
+            .entry(block_id.to_string())
             .or_insert_with(|| BlockMetrics::new(block_id));
         metrics.record_execution(latency_ms, error);
     }
@@ -31,7 +32,9 @@ pub fn get_metrics(block_id: &str) -> Option<BlockMetrics> {
 
 /// Get all tracked metrics.
 pub fn all_metrics() -> Vec<BlockMetrics> {
-    METRICS.lock().ok()
+    METRICS
+        .lock()
+        .ok()
         .map(|m| m.values().cloned().collect())
         .unwrap_or_default()
 }
@@ -86,12 +89,16 @@ impl EvidencePack {
     }
 
     pub fn error_rate(&self) -> f64 {
-        if self.production_runs == 0 { return 1.0; }
+        if self.production_runs == 0 {
+            return 1.0;
+        }
         self.production_errors as f64 / self.production_runs as f64
     }
 
     pub fn test_pass_rate(&self) -> f64 {
-        if self.tests_total == 0 { return 0.0; }
+        if self.tests_total == 0 {
+            return 0.0;
+        }
         self.tests_passed as f64 / self.tests_total as f64
     }
 
@@ -132,10 +139,18 @@ impl TrustGates {
 
     pub fn failing_gates(&self) -> Vec<&'static str> {
         let mut failures = Vec::new();
-        if !self.contract_valid { failures.push("contract_invalid"); }
-        if !self.isolation_clean { failures.push("isolation_violation"); }
-        if !self.effects_declared { failures.push("undeclared_side_effects"); }
-        if !self.deps_clean { failures.push("dependency_cve"); }
+        if !self.contract_valid {
+            failures.push("contract_invalid");
+        }
+        if !self.isolation_clean {
+            failures.push("isolation_violation");
+        }
+        if !self.effects_declared {
+            failures.push("undeclared_side_effects");
+        }
+        if !self.deps_clean {
+            failures.push("dependency_cve");
+        }
         failures
     }
 
@@ -176,12 +191,12 @@ impl TrustProfile {
             return 0.0;
         }
 
-        self.correctness   * 0.25 +
-        self.reliability   * 0.20 +
-        self.security      * 0.20 +
-        self.performance   * 0.15 +
-        self.reusability   * 0.10 +
-        self.observability * 0.10
+        self.correctness * 0.25
+            + self.reliability * 0.20
+            + self.security * 0.20
+            + self.performance * 0.15
+            + self.reusability * 0.10
+            + self.observability * 0.10
     }
 
     /// Compute trust from evidence data.
@@ -194,7 +209,11 @@ impl TrustProfile {
             0.0
         };
 
-        let security = if evidence.security_issues == 0 { 1.0 } else { 0.0 };
+        let security = if evidence.security_issues == 0 {
+            1.0
+        } else {
+            0.0
+        };
 
         let performance = if evidence.p95_latency_ms <= 0.0 {
             0.0
@@ -205,9 +224,13 @@ impl TrustProfile {
         let reusability = (evidence.contexts_used as f64 / 10.0).min(1.0);
 
         // Observability: has evidence at all?
-        let observability = if evidence.production_runs > 100 { 1.0 }
-            else if evidence.production_runs > 10 { 0.5 }
-            else { 0.1 };
+        let observability = if evidence.production_runs > 100 {
+            1.0
+        } else if evidence.production_runs > 10 {
+            0.5
+        } else {
+            0.1
+        };
 
         Self {
             gates,
@@ -224,10 +247,15 @@ impl TrustProfile {
     /// Status based on score thresholds.
     pub fn status(&self) -> TrustStatus {
         let s = self.score();
-        if s < 0.3 { TrustStatus::Sandbox }
-        else if s < 0.6 { TrustStatus::Approved }
-        else if s < 0.8 { TrustStatus::Production }
-        else { TrustStatus::Official }
+        if s < 0.3 {
+            TrustStatus::Sandbox
+        } else if s < 0.6 {
+            TrustStatus::Approved
+        } else if s < 0.8 {
+            TrustStatus::Production
+        } else {
+            TrustStatus::Official
+        }
     }
 
     /// Can this block be promoted from .scriptcronus to .cronus?
@@ -377,7 +405,9 @@ impl BlockMetrics {
     }
 
     pub fn avg_latency_ms(&self) -> f64 {
-        if self.executions == 0 { return 0.0; }
+        if self.executions == 0 {
+            return 0.0;
+        }
         self.total_latency_ms / self.executions as f64
     }
 
@@ -419,7 +449,11 @@ mod tests {
             last_run: 0,
         };
         let trust = TrustProfile::from_evidence(&evidence, gates.clone());
-        assert!(trust.score() > 0.8, "Clean block should be Official, got {}", trust.score());
+        assert!(
+            trust.score() > 0.8,
+            "Clean block should be Official, got {}",
+            trust.score()
+        );
         assert!(trust.official());
 
         // Now break a gate
@@ -451,13 +485,19 @@ mod tests {
             last_run: 0,
         };
         let trust_mid = TrustProfile::from_evidence(&mid, gates.clone());
-        assert!(trust_mid.score() > 0.3, "Mid block should be at least Approved");
+        assert!(
+            trust_mid.score() > 0.3,
+            "Mid block should be at least Approved"
+        );
     }
 
     #[test]
     fn test_lineage() {
         let lineage = Lineage::new_promoted("integrations.scriptcronus");
         assert!(matches!(lineage.origin, BlockOrigin::Promoted));
-        assert_eq!(lineage.promoted_from, Some("integrations.scriptcronus".to_string()));
+        assert_eq!(
+            lineage.promoted_from,
+            Some("integrations.scriptcronus".to_string())
+        );
     }
 }

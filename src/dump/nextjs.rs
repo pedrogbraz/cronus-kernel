@@ -113,9 +113,7 @@ pub struct StyleInfo {
 
 /// Scans a Next.js project and returns complete .cronus source
 pub fn dump_nextjs(dir: &Path) -> String {
-    eprintln!(
-        "\n  \x1b[36m⚡\x1b[0m CRONUS × VINEXT: absorbing Next.js project...\n"
-    );
+    eprintln!("\n  \x1b[36m⚡\x1b[0m CRONUS × VINEXT: absorbing Next.js project...\n");
 
     let project = scan_project(dir);
 
@@ -266,14 +264,8 @@ fn detect_port(dir: &Path) -> u16 {
 }
 
 fn detect_router_dirs(dir: &Path) -> (Option<PathBuf>, Option<PathBuf>) {
-    let candidates_app = [
-        dir.join("app"),
-        dir.join("src/app"),
-    ];
-    let candidates_pages = [
-        dir.join("pages"),
-        dir.join("src/pages"),
-    ];
+    let candidates_app = [dir.join("app"), dir.join("src/app")];
+    let candidates_pages = [dir.join("pages"), dir.join("src/pages")];
 
     let app_dir = candidates_app.iter().find(|p| p.exists()).cloned();
     let pages_dir = candidates_pages.iter().find(|p| p.exists()).cloned();
@@ -347,7 +339,9 @@ fn is_route_file(name: &str) -> bool {
 }
 
 fn file_to_app_route(file: &Path, app_root: &Path) -> String {
-    let relative = file.parent().unwrap_or(file)
+    let relative = file
+        .parent()
+        .unwrap_or(file)
         .strip_prefix(app_root)
         .unwrap_or(Path::new(""));
 
@@ -447,14 +441,14 @@ fn scan_pages_dir_recursive(dir: &Path, pages_root: &Path, pages: &mut Vec<NextP
 }
 
 fn is_page_extension(name: &str) -> bool {
-    name.ends_with(".tsx") || name.ends_with(".ts")
-        || name.ends_with(".jsx") || name.ends_with(".js")
+    name.ends_with(".tsx")
+        || name.ends_with(".ts")
+        || name.ends_with(".jsx")
+        || name.ends_with(".js")
 }
 
 fn file_to_pages_route(file: &Path, pages_root: &Path) -> String {
-    let relative = file
-        .strip_prefix(pages_root)
-        .unwrap_or(Path::new(""));
+    let relative = file.strip_prefix(pages_root).unwrap_or(Path::new(""));
 
     let mut route = relative.to_string_lossy().to_string();
 
@@ -476,10 +470,11 @@ fn file_to_pages_route(file: &Path, pages_root: &Path) -> String {
 
     // Convert dynamic segments
     route = route
-        .replace("[[...", "[...")  // normalize optional catch-all
+        .replace("[[...", "[...") // normalize optional catch-all
         .replace("]]", "]");
 
-    let parts: Vec<String> = route.split('/')
+    let parts: Vec<String> = route
+        .split('/')
         .map(|seg| {
             if seg.starts_with("[...") && seg.ends_with(']') {
                 let param = &seg[4..seg.len() - 1];
@@ -584,8 +579,11 @@ fn scan_pages_api_routes(dir: &Path, prefix: &str, routes: &mut Vec<NextApiRoute
             routes.push(NextApiRoute {
                 route,
                 methods: vec![
-                    "GET".into(), "POST".into(), "PUT".into(),
-                    "PATCH".into(), "DELETE".into(),
+                    "GET".into(),
+                    "POST".into(),
+                    "PUT".into(),
+                    "PATCH".into(),
+                    "DELETE".into(),
                 ],
                 has_auth,
                 is_dynamic: prefix.contains(':'),
@@ -683,7 +681,9 @@ fn extract_nav_items(content: &str) -> Vec<NavItem> {
     let mut pos = 0;
     while let Some(href_pos) = content[pos..].find("href=") {
         let abs = pos + href_pos + 5;
-        if abs >= content.len() { break; }
+        if abs >= content.len() {
+            break;
+        }
 
         let quote = content.as_bytes().get(abs).copied().unwrap_or(0);
         if quote == b'"' || quote == b'\'' || quote == b'{' {
@@ -724,9 +724,7 @@ fn extract_brand(content: &str) -> Option<String> {
         // Look for string literal after the link
         if let Some(q_start) = window.find('>') {
             let after = &window[q_start + 1..];
-            let text: String = after.chars()
-                .take_while(|c| *c != '<')
-                .collect();
+            let text: String = after.chars().take_while(|c| *c != '<').collect();
             let text = text.trim().to_string();
             if !text.is_empty() && text.len() < 40 && !text.contains('{') {
                 return Some(text);
@@ -757,8 +755,7 @@ fn detect_middleware(dir: &Path) -> Option<MiddlewareInfo> {
         || content.contains("getToken")
         || content.contains("NextAuth");
 
-    let has_redirect = content.contains("redirect")
-        || content.contains("NextResponse.redirect");
+    let has_redirect = content.contains("redirect") || content.contains("NextResponse.redirect");
 
     // Extract matchers from config
     let mut matchers = Vec::new();
@@ -804,7 +801,8 @@ fn detect_next_config(dir: &Path) -> NextConfig {
         dir.join("next.config.js"),
     ];
 
-    let content = candidates.iter()
+    let content = candidates
+        .iter()
         .find(|p| p.exists())
         .and_then(|p| fs::read_to_string(p).ok())
         .unwrap_or_default();
@@ -845,8 +843,8 @@ fn detect_i18n(content: &str) -> Option<I18nConfig> {
     }
 
     // Simplified: detect locales array and defaultLocale
-    let default = extract_string_value(content, "defaultLocale")
-        .unwrap_or_else(|| "en".to_string());
+    let default =
+        extract_string_value(content, "defaultLocale").unwrap_or_else(|| "en".to_string());
 
     Some(I18nConfig {
         locales: vec![default.clone()],
@@ -911,7 +909,8 @@ fn detect_style(dir: &Path) -> StyleInfo {
             let globals = dir.join("app/globals.css");
             if globals.exists() {
                 let css = fs::read_to_string(&globals).unwrap_or_default();
-                css.contains("@tailwind") || css.contains("@import \"tailwindcss\"")
+                css.contains("@tailwind")
+                    || css.contains("@import \"tailwindcss\"")
                     || css.contains("@import 'tailwindcss'")
             } else {
                 false
@@ -957,8 +956,13 @@ fn detect_style(dir: &Path) -> StyleInfo {
                 if line.contains("font-family") || line.contains("--font") {
                     if let Some(val) = line.split(':').nth(1) {
                         let val = val.trim().trim_end_matches(';').trim();
-                        let font_name = val.split(',').next().unwrap_or("").trim()
-                            .trim_matches('"').trim_matches('\'');
+                        let font_name = val
+                            .split(',')
+                            .next()
+                            .unwrap_or("")
+                            .trim()
+                            .trim_matches('"')
+                            .trim_matches('\'');
                         if !font_name.is_empty()
                             && font_name != "sans-serif"
                             && font_name != "inherit"
@@ -988,10 +992,7 @@ fn detect_style(dir: &Path) -> StyleInfo {
 // ─────────────────────────────────────────────────────────────────────────────
 
 fn detect_prisma(dir: &Path) -> String {
-    let candidates = [
-        dir.join("prisma/schema.prisma"),
-        dir.join("schema.prisma"),
-    ];
+    let candidates = [dir.join("prisma/schema.prisma"), dir.join("schema.prisma")];
 
     for path in &candidates {
         if let Ok(schema) = fs::read_to_string(path) {
@@ -1065,7 +1066,8 @@ fn detect_pages_data_fetching(content: &str) -> Option<String> {
 }
 
 fn route_to_title(route: &str) -> String {
-    let segments: Vec<&str> = route.split('/')
+    let segments: Vec<&str> = route
+        .split('/')
         .filter(|s| !s.is_empty() && !s.starts_with(':'))
         .collect();
 
@@ -1077,7 +1079,8 @@ fn route_to_title(route: &str) -> String {
     let title = last.replace('-', " ").replace('_', " ");
 
     // Capitalize first letter of each word
-    title.split_whitespace()
+    title
+        .split_whitespace()
         .map(|word| {
             let mut chars = word.chars();
             match chars.next() {
@@ -1090,7 +1093,8 @@ fn route_to_title(route: &str) -> String {
 }
 
 fn extract_params(route: &str) -> Vec<String> {
-    route.split('/')
+    route
+        .split('/')
         .filter(|s| s.starts_with(':'))
         .map(|s| s.trim_start_matches(':').to_string())
         .collect()
@@ -1105,9 +1109,13 @@ fn infer_page_type(route: &str, content: &str) -> String {
         }
     } else if route.contains(':') {
         "detail".into()
-    } else if content.contains("<form") || content.contains("Form") || content.contains("onSubmit") {
+    } else if content.contains("<form") || content.contains("Form") || content.contains("onSubmit")
+    {
         "form".into()
-    } else if content.contains("<table") || content.contains("Table") || content.contains("DataTable") {
+    } else if content.contains("<table")
+        || content.contains("Table")
+        || content.contains("DataTable")
+    {
         "list".into()
     } else if content.contains("dashboard") || content.contains("Dashboard") {
         "dashboard".into()
@@ -1127,9 +1135,14 @@ fn emit_cronus(project: &NextJsProject) -> String {
     out.push_str("# Generated by cronus dump --nextjs\n");
     out.push_str(&format!(
         "# Source: Next.js {} project\n",
-        if project.has_app_router { "App Router" } else { "Pages Router" }
+        if project.has_app_router {
+            "App Router"
+        } else {
+            "Pages Router"
+        }
     ));
-    out.push_str(&format!("# Pages: {} | API Routes: {} | Layouts: {}\n\n",
+    out.push_str(&format!(
+        "# Pages: {} | API Routes: {} | Layouts: {}\n\n",
         project.pages.len(),
         project.api_routes.len(),
         project.layouts.len(),
@@ -1157,10 +1170,7 @@ fn emit_cronus(project: &NextJsProject) -> String {
         out.push_str("  login email + password\n");
         out.push_str("  session jwt expires:24h\n");
         if !project.auth.roles.is_empty() {
-            out.push_str(&format!(
-                "  roles [{}]\n",
-                project.auth.roles.join(", ")
-            ));
+            out.push_str(&format!("  roles [{}]\n", project.auth.roles.join(", ")));
         }
         out.push_str("}\n\n");
     }
@@ -1192,7 +1202,9 @@ fn emit_cronus(project: &NextJsProject) -> String {
             }
             out.push_str("  sidebar {\n");
             for item in &layout.nav_items {
-                let icon_str = item.icon.as_deref()
+                let icon_str = item
+                    .icon
+                    .as_deref()
                     .map(|i| format!(" icon:{}", i))
                     .unwrap_or_default();
                 out.push_str(&format!(
@@ -1240,7 +1252,8 @@ fn emit_cronus(project: &NextJsProject) -> String {
                 out.push_str("  section card {\n");
                 out.push_str(&format!(
                     "    # bind Entity {{ query one where {} }}\n",
-                    page.params.iter()
+                    page.params
+                        .iter()
                         .map(|p| format!("{} eq:route.{}", p, p))
                         .collect::<Vec<_>>()
                         .join(" ")
@@ -1263,11 +1276,13 @@ fn emit_cronus(project: &NextJsProject) -> String {
         // Group by base path
         let mut groups: HashMap<String, Vec<&NextApiRoute>> = HashMap::new();
         for route in &project.api_routes {
-            let base = route.route.split('/')
-                .take(3)
-                .collect::<Vec<_>>()
-                .join("/");
-            groups.entry(if base.is_empty() { "/api".to_string() } else { base })
+            let base = route.route.split('/').take(3).collect::<Vec<_>>().join("/");
+            groups
+                .entry(if base.is_empty() {
+                    "/api".to_string()
+                } else {
+                    base
+                })
                 .or_default()
                 .push(route);
         }
@@ -1286,7 +1301,13 @@ fn emit_cronus(project: &NextJsProject) -> String {
 
                 for method in &route.methods {
                     let name = match method.as_str() {
-                        "GET" => if route.is_dynamic { "detail" } else { "list" },
+                        "GET" => {
+                            if route.is_dynamic {
+                                "detail"
+                            } else {
+                                "list"
+                            }
+                        }
                         "POST" => "create",
                         "PUT" | "PATCH" => "update",
                         "DELETE" => "delete",
@@ -1309,7 +1330,10 @@ fn emit_cronus(project: &NextJsProject) -> String {
         + if project.auth.detected { 1 } else { 0 }
         + project.layouts.len();
 
-    eprintln!("  \x1b[32m✓\x1b[0m Generated {} blocks from Next.js project", total_features);
+    eprintln!(
+        "  \x1b[32m✓\x1b[0m Generated {} blocks from Next.js project",
+        total_features
+    );
     eprintln!(
         "  \x1b[32m✓\x1b[0m {} → .cronus ({}x fewer files)\n",
         project.name,
@@ -1344,13 +1368,25 @@ mod tests {
         "#;
         let detected = detect_exported_methods(next_route);
 
-        assert!(detected.contains(&"GET".to_string()),   "expected GET to be detected");
-        assert!(detected.contains(&"POST".to_string()),  "expected POST to be detected");
-        assert!(detected.contains(&"DELETE".to_string()),"expected DELETE to be detected");
+        assert!(
+            detected.contains(&"GET".to_string()),
+            "expected GET to be detected"
+        );
+        assert!(
+            detected.contains(&"POST".to_string()),
+            "expected POST to be detected"
+        );
+        assert!(
+            detected.contains(&"DELETE".to_string()),
+            "expected DELETE to be detected"
+        );
         assert!(!detected.contains(&"HEAD".to_string()),
             "HEAD must not be detected — the .cronus parser rejects it (Identifier, not Method). Got: {:?}", detected);
-        assert!(!detected.contains(&"OPTIONS".to_string()),
-            "OPTIONS must not be detected — same parser limitation. Got: {:?}", detected);
+        assert!(
+            !detected.contains(&"OPTIONS".to_string()),
+            "OPTIONS must not be detected — same parser limitation. Got: {:?}",
+            detected
+        );
     }
 
     #[test]
@@ -1361,6 +1397,10 @@ mod tests {
             export default function Page() { return <div>hi</div>; }
         "#;
         let detected = detect_exported_methods(not_a_route);
-        assert!(detected.is_empty(), "plain page component should detect zero HTTP methods, got {:?}", detected);
+        assert!(
+            detected.is_empty(),
+            "plain page component should detect zero HTTP methods, got {:?}",
+            detected
+        );
     }
 }

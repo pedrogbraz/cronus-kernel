@@ -1,4 +1,4 @@
-﻿//! Cronus UI token + Button slice.
+//! Cronus UI token + Button slice.
 //!
 //! `.cronus` files already declare `style { preset aurora; accent-hex "..." }`
 //! and `component Button layout:inline style:button+primary+md`. Without this
@@ -4948,7 +4948,9 @@ mod tests {
         assert!(html.contains(" disabled"));
         assert!(!html.contains("style="));
         let css = component_chrome_css();
-        assert!(css.contains("[data-slot=\"button\"]:disabled { opacity: 0.5; pointer-events: none; }"));
+        assert!(
+            css.contains("[data-slot=\"button\"]:disabled { opacity: 0.5; pointer-events: none; }")
+        );
     }
 
     #[test]
@@ -4959,11 +4961,14 @@ mod tests {
         assert!(css.contains("font-size: 0.75rem; line-height: 1rem; }"));
         assert!(css.contains("font-size: 1rem; line-height: 1.5rem; }"));
         assert!(css.contains("border-width: 1px; border-color: var(--cronus-border);"));
-        let input = &css[css.find("[data-slot=\"input\"] { line-height").expect("input lh")..];
+        let input = &css[css
+            .find("[data-slot=\"input\"] { line-height")
+            .expect("input lh")..];
         assert!(input.starts_with("[data-slot=\"input\"] { line-height: 1.25rem; }"));
         assert!(css.contains("[data-slot=\"textarea\"] { line-height: 1.25rem; }"));
         assert!(css.contains("[data-slot=\"toggle\"] {\n  line-height: 1.25rem;"));
-        assert!(css.contains("font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-secondary);"));
+        assert!(css
+            .contains("font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-secondary);"));
     }
 
     #[test]
@@ -4992,7 +4997,8 @@ mod tests {
         let css = audit_stylesheet();
         assert!(css.starts_with(AUDIT_PREFLIGHT));
         assert!(css.find(AUDIT_PREFLIGHT).unwrap() < css.find(COMPONENT_CHROME).unwrap());
-        assert!(AUDIT_PREFLIGHT.contains("box-sizing: border-box; margin: 0; padding: 0; border: 0 solid;"));
+        assert!(AUDIT_PREFLIGHT
+            .contains("box-sizing: border-box; margin: 0; padding: 0; border: 0 solid;"));
         assert!(AUDIT_PREFLIGHT.contains("font: inherit; font-feature-settings: inherit;"));
         assert!(AUDIT_PREFLIGHT.contains("letter-spacing: inherit; color: inherit; border-radius: 0; background-color: transparent;"));
         assert!(AUDIT_PREFLIGHT.contains("ol, ul, menu { list-style: none; }"));

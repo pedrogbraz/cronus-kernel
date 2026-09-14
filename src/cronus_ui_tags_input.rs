@@ -170,7 +170,10 @@ mod tests {
     fn label_is_placeholder_not_a_chip() {
         let html = render(&tags("Add a tag", &["react", "vue"]));
         assert_eq!(html.matches("data-slot=\"badge\"").count(), 2);
-        assert!(!html.contains("<span>Add a tag</span>"), "placeholder leaked as chip: {html}");
+        assert!(
+            !html.contains("<span>Add a tag</span>"),
+            "placeholder leaked as chip: {html}"
+        );
         reject_interact(&html);
     }
 
@@ -222,7 +225,9 @@ mod tests {
         assert!(html.contains(" aria-invalid=\"true\""));
         assert!(html.contains(" disabled"));
         assert!(!html.contains("data-slot=\"tags-input-remove\""));
-        assert!(html.contains("<span data-slot=\"badge\" data-variant=\"secondary\"><span>react</span></span>"));
+        assert!(html.contains(
+            "<span data-slot=\"badge\" data-variant=\"secondary\"><span>react</span></span>"
+        ));
         reject_interact(&html);
     }
 
@@ -267,11 +272,16 @@ mod tests {
     #[test]
     fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.25rem;"));
+        assert!(
+            css.contains("padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.25rem;")
+        );
         assert!(css.contains(
             "[data-slot=\"tags-input\"] > [data-slot=\"badge\"] {\n  gap: 0.25rem; padding-right: 0.25rem; line-height: 1rem;\n}"
         ));
-        assert!(css.contains("[data-slot=\"tags-input-remove\"] svg { width: 0.75rem; height: 0.75rem; }"));
-        assert!(css.contains("border-radius: var(--cronus-radius-sm); color: var(--cronus-fg-tertiary);"));
+        assert!(css.contains(
+            "[data-slot=\"tags-input-remove\"] svg { width: 0.75rem; height: 0.75rem; }"
+        ));
+        assert!(css
+            .contains("border-radius: var(--cronus-radius-sm); color: var(--cronus-fg-tertiary);"));
     }
 }

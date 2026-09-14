@@ -348,7 +348,9 @@ fn popover(family: &str, comp: &ComponentNode) -> String {
     let title = label_of(comp);
     let body = texts(comp)
         .into_iter()
-        .map(|t| format!("<div style=\"font-size:0.875rem;color:var(--cronus-fg-secondary);\">{t}</div>"))
+        .map(|t| {
+            format!("<div style=\"font-size:0.875rem;color:var(--cronus-fg-secondary);\">{t}</div>")
+        })
         .collect::<Vec<_>>()
         .join("");
     format!(
@@ -429,12 +431,7 @@ fn table(family: &str, comp: &ComponentNode) -> String {
     let (cols, body) = if !bound.is_empty() {
         let keys: Vec<String> = bound[0]
             .as_object()
-            .map(|o| {
-                o.keys()
-                    .filter(|k| !k.starts_with('_'))
-                    .cloned()
-                    .collect()
-            })
+            .map(|o| o.keys().filter(|k| !k.starts_with('_')).cloned().collect())
             .unwrap_or_default();
         let head = keys
             .iter()
@@ -604,7 +601,9 @@ fn card(family: &str, comp: &ComponentNode) -> String {
     let rest = texts(comp)
         .into_iter()
         .skip(1)
-        .map(|t| format!("<div style=\"color:var(--cronus-fg-secondary);font-size:0.875rem;\">{t}</div>"))
+        .map(|t| {
+            format!("<div style=\"color:var(--cronus-fg-secondary);font-size:0.875rem;\">{t}</div>")
+        })
         .collect::<Vec<_>>()
         .join("");
     format!(
@@ -682,7 +681,9 @@ fn carousel(family: &str, comp: &ComponentNode) -> String {
     let slides = texts(comp)
         .into_iter()
         .map(|t| {
-            format!("<div style=\"{SURF}min-width:12rem;padding:1.5rem;text-align:center;\">{t}</div>")
+            format!(
+                "<div style=\"{SURF}min-width:12rem;padding:1.5rem;text-align:center;\">{t}</div>"
+            )
         })
         .collect::<Vec<_>>()
         .join("");

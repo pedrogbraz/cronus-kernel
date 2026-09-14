@@ -78,7 +78,10 @@ mod tests {
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
         reject_fx(&html);
-        assert_eq!(crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html), None);
+        assert_eq!(
+            crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html),
+            None
+        );
         assert_eq!(
             dedicated_fn_name("retro-grid"),
             Some("cronus_ui_retro_grid::render")
@@ -105,7 +108,9 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"retro-grid\"] {\n  position: relative; overflow: hidden;\n  width: 18rem; min-height: 8rem;"));
         assert!(css.contains("[data-slot=\"retro-grid\"] > [aria-hidden=\"true\"] > div > div {"));
-        assert!(css.contains("[data-slot=\"retro-grid\"] > div:last-child {\n  position: relative;\n}"));
+        assert!(
+            css.contains("[data-slot=\"retro-grid\"] > div:last-child {\n  position: relative;\n}")
+        );
         assert!(!css.contains("[data-slot=\"retro-grid-field\"]"));
         assert!(css.contains("perspective: 240px"));
         assert!(css.contains("rotateX(60deg)"));

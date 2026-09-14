@@ -8,9 +8,9 @@ pub mod parser;
 pub mod vm;
 
 use ast::{ScriptBlock, ScriptFile};
-use vm::{EventData, ScriptContext};
 use std::collections::HashMap;
 use std::sync::Arc;
+use vm::{EventData, ScriptContext};
 
 /// Registry of loaded .scriptcronus files
 #[derive(Debug, Clone)]
@@ -20,33 +20,47 @@ pub struct ScriptRegistry {
 
 impl ScriptRegistry {
     pub fn new() -> Self {
-        Self { scripts: Vec::new() }
+        Self {
+            scripts: Vec::new(),
+        }
     }
 
     /// Load and parse all .scriptcronus files from a directory
     pub fn load_from_directory(dir: &str) -> Self {
         let mut registry = Self::new();
         let path = std::path::Path::new(dir);
-        if !path.is_dir() { return registry; }
+        if !path.is_dir() {
+            return registry;
+        }
 
         if let Ok(entries) = std::fs::read_dir(path) {
             for entry in entries.flatten() {
                 let file_path = entry.path();
                 if file_path.extension().and_then(|e| e.to_str()) == Some("scriptcronus") {
                     match std::fs::read_to_string(&file_path) {
-                        Ok(source) => {
-                            match parser::ScriptParser::parse(&source) {
-                                Ok(script) => {
-                                    eprintln!("  \x1b[32m✓\x1b[0m Script: {} ({})", script.name, file_path.display());
-                                    registry.scripts.push(script);
-                                }
-                                Err(e) => {
-                                    eprintln!("  \x1b[31m✗\x1b[0m Script parse error in {}: {}", file_path.display(), e);
-                                }
+                        Ok(source) => match parser::ScriptParser::parse(&source) {
+                            Ok(script) => {
+                                eprintln!(
+                                    "  \x1b[32m✓\x1b[0m Script: {} ({})",
+                                    script.name,
+                                    file_path.display()
+                                );
+                                registry.scripts.push(script);
                             }
-                        }
+                            Err(e) => {
+                                eprintln!(
+                                    "  \x1b[31m✗\x1b[0m Script parse error in {}: {}",
+                                    file_path.display(),
+                                    e
+                                );
+                            }
+                        },
                         Err(e) => {
-                            eprintln!("  \x1b[31m✗\x1b[0m Could not read {}: {}", file_path.display(), e);
+                            eprintln!(
+                                "  \x1b[31m✗\x1b[0m Could not read {}: {}",
+                                file_path.display(),
+                                e
+                            );
                         }
                     }
                 }
@@ -56,7 +70,11 @@ impl ScriptRegistry {
     }
 
     /// Get all OnEvent blocks matching an entity+event pair
-    pub fn get_event_handlers(&self, entity: &str, event: &str) -> Vec<(&ScriptFile, &ast::OnEventBlock)> {
+    pub fn get_event_handlers(
+        &self,
+        entity: &str,
+        event: &str,
+    ) -> Vec<(&ScriptFile, &ast::OnEventBlock)> {
         let mut handlers = Vec::new();
         for script in &self.scripts {
             for block in &script.blocks {
@@ -132,7 +150,9 @@ pub fn fire_scripts(
     env_vars: &HashMap<String, String>,
 ) {
     let handlers = registry.get_event_handlers(entity, event_type);
-    if handlers.is_empty() { return; }
+    if handlers.is_empty() {
+        return;
+    }
 
     let event_data = EventData {
         entity: entity.to_string(),
@@ -145,7 +165,10 @@ pub fn fire_scripts(
     for (script, on_block) in handlers {
         let mut ctx = ScriptContext::new(user_id, role, env_vars.clone());
         let block_id = format!("{}.{}.{}", script.name, entity, event_type);
-        eprintln!("  \x1b[36m[script]\x1b[0m firing {}.{} from \"{}\"", entity, event_type, script.name);
+        eprintln!(
+            "  \x1b[36m[script]\x1b[0m firing {}.{} from \"{}\"",
+            entity, event_type, script.name
+        );
         let start = std::time::Instant::now();
         let result = vm::execute_statements(&on_block.body, &mut ctx, db, Some(&event_data));
         let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
@@ -156,7 +179,10 @@ pub fn fire_scripts(
             }
             Err(ref e) => {
                 crate::trust::track_execution(&block_id, elapsed_ms, Some(e));
-                eprintln!("  \x1b[31m[script]\x1b[0m error in {}.{}: {}", entity, event_type, e);
+                eprintln!(
+                    "  \x1b[31m[script]\x1b[0m error in {}.{}: {}",
+                    entity, event_type, e
+                );
             }
         }
     }
@@ -174,12 +200,19 @@ pub fn execute_webhook(
     env_vars: &HashMap<String, String>,
 ) -> Option<ScriptContext> {
     let handlers = registry.get_webhook_handlers(path);
-    if handlers.is_empty() { return None; }
+    if handlers.is_empty() {
+        return None;
+    }
 
     // SECURITY: limit webhook body size to prevent memory exhaustion
     let body_str = body.to_string();
-    if body_str.len() > 1_048_576 { // 1MB max
-        eprintln!("  \x1b[31m[script]\x1b[0m webhook {} REJECTED — body too large ({} bytes)", path, body_str.len());
+    if body_str.len() > 1_048_576 {
+        // 1MB max
+        eprintln!(
+            "  \x1b[31m[script]\x1b[0m webhook {} REJECTED — body too large ({} bytes)",
+            path,
+            body_str.len()
+        );
         return None;
     }
 
@@ -192,10 +225,13 @@ pub fn execute_webhook(
     };
 
     let (script, wh_block) = handlers[0]; // first match
-    // SECURITY: webhooks run as "webhook" role, NOT admin — owner isolation applies
+                                          // SECURITY: webhooks run as "webhook" role, NOT admin — owner isolation applies
     let mut ctx = ScriptContext::new("webhook", "webhook", env_vars.clone());
     let block_id = format!("{}.webhook.{}", script.name, path);
-    eprintln!("  \x1b[36m[script]\x1b[0m webhook {} from \"{}\"", path, script.name);
+    eprintln!(
+        "  \x1b[36m[script]\x1b[0m webhook {} from \"{}\"",
+        path, script.name
+    );
     let start = std::time::Instant::now();
     let result = vm::execute_statements(&wh_block.body, &mut ctx, db, Some(&event_data));
     let elapsed = start.elapsed().as_secs_f64() * 1000.0;
@@ -231,8 +267,14 @@ pub fn execute_endpoint(
     });
 
     let mut ctx = ScriptContext::new(user_id, role, env_vars.clone());
-    let block_id = format!("{}.endpoint.{}.{}", script_name, endpoint.method, endpoint.path);
-    eprintln!("  \x1b[36m[script]\x1b[0m endpoint {} {} from \"{}\"", endpoint.method, endpoint.path, script_name);
+    let block_id = format!(
+        "{}.endpoint.{}.{}",
+        script_name, endpoint.method, endpoint.path
+    );
+    eprintln!(
+        "  \x1b[36m[script]\x1b[0m endpoint {} {} from \"{}\"",
+        endpoint.method, endpoint.path, script_name
+    );
     let start = std::time::Instant::now();
     match vm::execute_statements(&endpoint.body, &mut ctx, db, event_data.as_ref()) {
         Ok(()) => {
@@ -240,7 +282,11 @@ pub fn execute_endpoint(
             ctx
         }
         Err(e) => {
-            crate::trust::track_execution(&block_id, start.elapsed().as_secs_f64() * 1000.0, Some(&e));
+            crate::trust::track_execution(
+                &block_id,
+                start.elapsed().as_secs_f64() * 1000.0,
+                Some(&e),
+            );
             eprintln!("  \x1b[31m[script]\x1b[0m endpoint error: {}", e);
             ctx.response = Some(vm::ScriptResponse {
                 status: 500,

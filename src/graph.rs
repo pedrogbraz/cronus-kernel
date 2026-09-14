@@ -1,8 +1,8 @@
 //! Relationship graph extraction from the CRONUS AST.
 //! Analyzes entities, pages, and webhooks to build a complete dependency map.
 
-use serde::Serialize;
 use crate::parser::{AstNode, EntityNode, PageNode, WebhookNode};
+use serde::Serialize;
 
 // ══════════════════════════════════════════════════
 // GRAPH TYPES
@@ -168,8 +168,16 @@ pub fn to_mermaid(graph: &RelationshipGraph) -> String {
 
     // Page bindings
     for binding in &graph.page_bindings {
-        let page_id = binding.page_route.replace('/', "_").trim_matches('_').to_string();
-        let page_id = if page_id.is_empty() { "index".to_string() } else { page_id };
+        let page_id = binding
+            .page_route
+            .replace('/', "_")
+            .trim_matches('_')
+            .to_string();
+        let page_id = if page_id.is_empty() {
+            "index".to_string()
+        } else {
+            page_id
+        };
         lines.push(format!(
             "    page_{}[\"{}\"]-. \"{}\" .->{}",
             page_id, binding.page_route, binding.section_type, binding.entity

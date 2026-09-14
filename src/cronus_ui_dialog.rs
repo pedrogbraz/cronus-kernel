@@ -31,7 +31,8 @@ mod tests {
         assert!(html.contains("showModal()"));
         assert!(!html.contains("zinc-"));
         assert!(!html.contains("max-width:28rem"));
-        let interact = crate::cronus_ui_interact::render("dialog", &stub("dialog", "Delete project")).unwrap();
+        let interact =
+            crate::cronus_ui_interact::render("dialog", &stub("dialog", "Delete project")).unwrap();
         assert_ne!(html, interact);
     }
 }

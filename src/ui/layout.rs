@@ -1,7 +1,7 @@
 //! Layout rendering functions — wraps page content in full HTML documents.
 
-use crate::parser::{LayoutNode, PageNode, StyleNode};
 use super::{CRONUS_ANIMATIONS_CSS, CRONUS_ANIMATIONS_JS};
+use crate::parser::{LayoutNode, PageNode, StyleNode};
 
 // ══════════════════════════════════════════════════
 // LAYOUT (wraps every page)
@@ -15,10 +15,8 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
     } else {
         String::new()
     };
-    let cronus_ui_css = crate::cronus_ui::token_css(
-        if preset.is_empty() { "legacy" } else { &preset },
-        "dark",
-    );
+    let cronus_ui_css =
+        crate::cronus_ui::token_css(if preset.is_empty() { "legacy" } else { &preset }, "dark");
     format!(
         r#"<!DOCTYPE html>
 <html lang="pt-BR"{theme_attrs}>
@@ -71,9 +69,18 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
 // DECLARATIVE LAYOUT (from `layout` block in .cronus)
 // ══════════════════════════════════════════════════
 
-pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_route: &str, body: &str) -> String {
+pub fn render_layout_declarative(
+    app_name: &str,
+    layout: &LayoutNode,
+    current_route: &str,
+    body: &str,
+) -> String {
     let script_nonce = crate::security::script_nonce_attr();
-    let brand = layout.sidebar_config.get("brand").map(|s| s.as_str()).unwrap_or(app_name);
+    let brand = layout
+        .sidebar_config
+        .get("brand")
+        .map(|s| s.as_str())
+        .unwrap_or(app_name);
 
     // Build nav items HTML with modern design
     let mut nav_html = String::new();
@@ -84,7 +91,10 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
         }
         let is_active = current_route == item.route
             || (current_route == "/" && item.route == "/dashboard")
-            || (item.route != "/" && !item.route.is_empty() && current_route.starts_with(&item.route) && item.route.len() > 1);
+            || (item.route != "/"
+                && !item.route.is_empty()
+                && current_route.starts_with(&item.route)
+                && item.route.len() > 1);
         let active_class = if is_active { " active" } else { "" };
         let icon_html = if let Some(ref icon) = item.icon {
             format!(r#"<span class="material-symbols-outlined">{}</span>"#, icon)
@@ -101,7 +111,11 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
     }
 
     // Topbar
-    let search_placeholder = layout.topbar_config.get("search_placeholder").map(|s| s.as_str()).unwrap_or("");
+    let search_placeholder = layout
+        .topbar_config
+        .get("search_placeholder")
+        .map(|s| s.as_str())
+        .unwrap_or("");
     let has_topbar = !layout.topbar_config.is_empty();
     let topbar_html = if has_topbar {
         let search_html = if !search_placeholder.is_empty() {
@@ -130,10 +144,8 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
     } else {
         String::new()
     };
-    let cronus_ui_css = crate::cronus_ui::token_css(
-        if preset.is_empty() { "legacy" } else { &preset },
-        "dark",
-    );
+    let cronus_ui_css =
+        crate::cronus_ui::token_css(if preset.is_empty() { "legacy" } else { &preset }, "dark");
 
     format!(
         r##"<!DOCTYPE html>
@@ -345,7 +357,12 @@ pub fn render_layout_declarative(app_name: &str, layout: &LayoutNode, current_ro
 </html>"##,
         app_name = app_name,
         brand = brand,
-        brand_initial = brand.chars().next().unwrap_or('K').to_uppercase().to_string(),
+        brand_initial = brand
+            .chars()
+            .next()
+            .unwrap_or('K')
+            .to_uppercase()
+            .to_string(),
         nav_items = nav_html,
         body = body,
         theme_attrs = theme_attrs,
@@ -416,7 +433,13 @@ fn generate_css_vars(style: &Option<&StyleNode>, theme: &str) -> String {
     let (def_bg, def_surface, def_text, def_text_muted, def_border) = if is_light {
         ("#fafafa", "#ffffff", "#1a1a1a", "#6b6b6b", "#e5e5e5")
     } else {
-        ("#000000", "#0a0a0a", "#ffffff", "#9ca3af", "rgba(255,255,255,0.1)")
+        (
+            "#000000",
+            "#0a0a0a",
+            "#ffffff",
+            "#9ca3af",
+            "rgba(255,255,255,0.1)",
+        )
     };
 
     let cfg = |key: &str, default: &str| -> String {
@@ -439,23 +462,47 @@ fn generate_css_vars(style: &Option<&StyleNode>, theme: &str) -> String {
         .unwrap_or("legacy");
     let named = crate::cronus_ui::is_named_preset(preset);
 
-    let radius = style
-        .and_then(|s| s.radius.as_deref())
-        .unwrap_or(if named { "14px" } else { "8px" });
+    let radius =
+        style
+            .and_then(|s| s.radius.as_deref())
+            .unwrap_or(if named { "14px" } else { "8px" });
     let radius_px = match radius {
-        "sm" => "4px", "md" => "6px", "lg" => "8px", "xl" => "12px", "2xl" => "16px", "full" => "999px",
+        "sm" => "4px",
+        "md" => "6px",
+        "lg" => "8px",
+        "xl" => "12px",
+        "2xl" => "16px",
+        "full" => "999px",
         other => other,
     };
 
-    let font = style.and_then(|s| s.font.as_deref()).unwrap_or(if named { "SF Pro Text" } else { "Inter" });
+    let font = style.and_then(|s| s.font.as_deref()).unwrap_or(if named {
+        "SF Pro Text"
+    } else {
+        "Inter"
+    });
 
     // Compute accent-hover: use explicit value or darken accent
     let accent_hover = cfg("accent-hover", accent_hex);
 
     // Glow orbs — from style config or computed from accent
     let glow_1 = cfg("glow-1", &format!("rgba({},0.07)", hex_to_rgb(accent_hex)));
-    let glow_2 = cfg("glow-2", &if is_light { "rgba(0,0,0,0.02)".to_string() } else { "rgba(210,119,255,0.04)".to_string() });
-    let glow_3 = cfg("glow-3", &if is_light { "rgba(0,0,0,0.01)".to_string() } else { "rgba(129,236,255,0.03)".to_string() });
+    let glow_2 = cfg(
+        "glow-2",
+        &if is_light {
+            "rgba(0,0,0,0.02)".to_string()
+        } else {
+            "rgba(210,119,255,0.04)".to_string()
+        },
+    );
+    let glow_3 = cfg(
+        "glow-3",
+        &if is_light {
+            "rgba(0,0,0,0.01)".to_string()
+        } else {
+            "rgba(129,236,255,0.03)".to_string()
+        },
+    );
 
     let cronus_ui = crate::cronus_ui::token_css(preset, theme);
 
@@ -470,7 +517,15 @@ fn generate_css_vars(style: &Option<&StyleNode>, theme: &str) -> String {
             format!("var(--cronus-font-sans, '{font}', system-ui, sans-serif)"),
         )
     } else {
-        (bg, surface, text, text_muted, border, radius_px.to_string(), format!("'{font}', system-ui, -apple-system, sans-serif"))
+        (
+            bg,
+            surface,
+            text,
+            text_muted,
+            border,
+            radius_px.to_string(),
+            format!("'{font}', system-ui, -apple-system, sans-serif"),
+        )
     };
 
     format!(
@@ -493,21 +548,41 @@ body {{ font-family: var(--cronus-font); background: var(--cronus-bg); color: va
 a {{ text-decoration: none; color: inherit; }}
 * {{ box-sizing: border-box; }}
 {cronus_ui}"#,
-        bg = bg, surface = surface, text = text, text_muted = text_muted,
-        accent_hex = accent_hex, accent_hover = accent_hover,
-        border = border, radius_px = radius_px, max_width = max_width, font = font,
-        glow_1 = glow_1, glow_2 = glow_2, glow_3 = glow_3,
+        bg = bg,
+        surface = surface,
+        text = text,
+        text_muted = text_muted,
+        accent_hex = accent_hex,
+        accent_hover = accent_hover,
+        border = border,
+        radius_px = radius_px,
+        max_width = max_width,
+        font = font,
+        glow_1 = glow_1,
+        glow_2 = glow_2,
+        glow_3 = glow_3,
         cronus_ui = cronus_ui
     )
 }
 
 /// Full-width layout for landing pages (no sidebar)
-pub fn render_layout_landing(app_name: &str, body: &str, theme: &str, style_node: Option<&StyleNode>) -> String {
+pub fn render_layout_landing(
+    app_name: &str,
+    body: &str,
+    theme: &str,
+    style_node: Option<&StyleNode>,
+) -> String {
     render_layout_landing_ex(app_name, body, theme, style_node, None)
 }
 
 /// Full-width layout for landing pages, with optional Tailwind config injection
-pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_node: Option<&StyleNode>, tailwind_config_js: Option<&str>) -> String {
+pub fn render_layout_landing_ex(
+    app_name: &str,
+    body: &str,
+    theme: &str,
+    style_node: Option<&StyleNode>,
+    tailwind_config_js: Option<&str>,
+) -> String {
     let script_nonce = crate::security::script_nonce_attr();
     let is_light = theme == "light";
     let html_class = if is_light { "light" } else { "dark" };
@@ -521,9 +596,21 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
     } else {
         String::new()
     };
-    let sel_bg = if is_light { "rgba(0,0,0,0.08)" } else { "rgba(0,111,240,0.3)" };
-    let scroll_thumb = if is_light { "rgba(0,0,0,0.1)" } else { "rgba(255,255,255,0.1)" };
-    let grid_line = if is_light { "rgba(0,0,0,0.05)" } else { "rgba(255,255,255,0.03)" };
+    let sel_bg = if is_light {
+        "rgba(0,0,0,0.08)"
+    } else {
+        "rgba(0,111,240,0.3)"
+    };
+    let scroll_thumb = if is_light {
+        "rgba(0,0,0,0.1)"
+    } else {
+        "rgba(255,255,255,0.1)"
+    };
+    let grid_line = if is_light {
+        "rgba(0,0,0,0.05)"
+    } else {
+        "rgba(255,255,255,0.03)"
+    };
     let css_vars = generate_css_vars(&style_node, theme);
 
     // Extract inline <style> blocks from the body (injected by render_template)
@@ -553,17 +640,38 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
 
     // If body already contains a topbar section (rendered <header or <nav with data-topbar),
     // skip the built-in navbar to avoid duplication
-    let has_topbar = clean_body.contains("data-cronus-topbar") || clean_body.contains("<nav ") || clean_body.contains("<nav\n") || clean_body.contains("<header ") || clean_body.contains("MONOLITH") || clean_body.contains("topbar") || clean_body.contains("min-h-[90vh]") || clean_body.contains("min-height:90vh") || clean_body.contains("hero") || clean_body.contains("fadeInUp") || clean_body.contains("animate-on-scroll") || clean_body.contains("animate") || !head_styles.is_empty();
+    let has_topbar = clean_body.contains("data-cronus-topbar")
+        || clean_body.contains("<nav ")
+        || clean_body.contains("<nav\n")
+        || clean_body.contains("<header ")
+        || clean_body.contains("MONOLITH")
+        || clean_body.contains("topbar")
+        || clean_body.contains("min-h-[90vh]")
+        || clean_body.contains("min-height:90vh")
+        || clean_body.contains("hero")
+        || clean_body.contains("fadeInUp")
+        || clean_body.contains("animate-on-scroll")
+        || clean_body.contains("animate")
+        || !head_styles.is_empty();
     let nav_html = if has_topbar {
         String::new()
     } else {
-        let nav_bg = if is_light { "rgba(255,255,255,0.8)" } else { "rgba(0,0,0,0.8)" };
-        let nav_border = if is_light { "rgba(229,229,229,0.5)" } else { "rgba(255,255,255,0.05)" };
+        let nav_bg = if is_light {
+            "rgba(255,255,255,0.8)"
+        } else {
+            "rgba(0,0,0,0.8)"
+        };
+        let nav_border = if is_light {
+            "rgba(229,229,229,0.5)"
+        } else {
+            "rgba(255,255,255,0.05)"
+        };
         let nav_text = if is_light { "black" } else { "white" };
         let nav_muted = if is_light { "#71717a" } else { "#9ca3af" };
         let btn_bg = if is_light { "black" } else { "white" };
         let btn_fg = if is_light { "white" } else { "black" };
-        format!(r##"
+        format!(
+            r##"
   <!-- Fixed Navbar (fallback) -->
   <nav style="position:fixed;top:0;width:100%;z-index:50;background:{nav_bg};backdrop-filter:blur(12px);border-bottom:1px solid {nav_border}">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:0 24px;height:64px;max-width:1280px;margin:0 auto">
@@ -585,14 +693,20 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
       </div>
     </div>
   </nav>"##,
-            nav_bg=nav_bg, nav_border=nav_border, nav_text=nav_text,
-            nav_muted=nav_muted, btn_bg=btn_bg, btn_fg=btn_fg,
-            app_name=app_name)
+            nav_bg = nav_bg,
+            nav_border = nav_border,
+            nav_text = nav_text,
+            nav_muted = nav_muted,
+            btn_bg = btn_bg,
+            btn_fg = btn_fg,
+            app_name = app_name
+        )
     };
 
     // Mobile bottom nav — auto-built from sidebar links via JS
     let bottom_nav_html = if clean_body.contains("<aside") {
-        crate::security::mark_kernel_scripts(r##"<nav class="cronus-bottom-nav" aria-label="Mobile navigation"></nav>
+        crate::security::mark_kernel_scripts(
+            r##"<nav class="cronus-bottom-nav" aria-label="Mobile navigation"></nav>
 <script>
 !function(){
   var aside=document.querySelector('aside');
@@ -618,7 +732,8 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
     added++;
   });
 }();
-</script>"##)
+</script>"##,
+        )
     } else {
         String::new()
     };
@@ -1420,8 +1535,16 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
         theme_attrs = theme_attrs,
         tw_config_script = tw_config_script,
         head_styles = head_styles,
-        css_vars = css_vars, sel_bg = sel_bg, scroll_thumb = scroll_thumb, grid_line = grid_line,
-        unicorn_display = if head_styles.contains("fadeInUp") || clean_body.contains("animate-on-scroll") { "" } else { "display:none;" },
+        css_vars = css_vars,
+        sel_bg = sel_bg,
+        scroll_thumb = scroll_thumb,
+        grid_line = grid_line,
+        unicorn_display =
+            if head_styles.contains("fadeInUp") || clean_body.contains("animate-on-scroll") {
+                ""
+            } else {
+                "display:none;"
+            },
         nav_html = nav_html,
         clean_body = clean_body,
         bottom_nav = bottom_nav_html,
@@ -1443,9 +1566,21 @@ pub fn render_layout_dashboard(app_name: &str, body: &str, theme: &str) -> Strin
     let t = crate::theme::get();
     let is_dark = theme == "dark" || theme == "obsidian";
     let (html_class, bg_color, text_color, selection_bg, scrollbar_color) = if is_dark {
-        ("dark", t.background.as_str(), t.on_surface.as_str(), "rgba(173,198,255,0.2)", "rgba(255,255,255,0.1)")
+        (
+            "dark",
+            t.background.as_str(),
+            t.on_surface.as_str(),
+            "rgba(173,198,255,0.2)",
+            "rgba(255,255,255,0.1)",
+        )
     } else {
-        ("light", "#f9f9f9", "#1a1c1c", "rgba(0,111,240,0.15)", "rgba(0,0,0,0.1)")
+        (
+            "light",
+            "#f9f9f9",
+            "#1a1c1c",
+            "rgba(0,111,240,0.15)",
+            "rgba(0,0,0,0.1)",
+        )
     };
     let theme_css = crate::theme::css_vars();
     let font_links = crate::theme::font_links();
@@ -1626,7 +1761,13 @@ mod tests {
         // Sanity: the output should still contain the user's brand text and routes
         assert!(html.contains("TestApp"), "brand text missing from output");
         assert!(html.contains("/dashboard"), "route missing from output");
-        assert!(!html.contains("Afiliados"), "fallback Cooud chrome leaked into declarative layout");
-        assert!(!html.contains("Visao Geral"), "fallback Cooud chrome leaked into declarative layout");
+        assert!(
+            !html.contains("Afiliados"),
+            "fallback Cooud chrome leaked into declarative layout"
+        );
+        assert!(
+            !html.contains("Visao Geral"),
+            "fallback Cooud chrome leaked into declarative layout"
+        );
     }
 }

@@ -1,7 +1,7 @@
 #![allow(dead_code, unused_imports)]
+use crate::parser::SectionNode;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
-use crate::parser::SectionNode;
 
 static OVERLAY_COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -11,7 +11,10 @@ fn next_id(prefix: &str) -> String {
 }
 
 fn escape_html(s: &str) -> String {
-    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
 }
 
 // ---------------------------------------------------------------------------
@@ -20,12 +23,24 @@ fn escape_html(s: &str) -> String {
 
 /// Renders a dropdown menu from a "dropdown" section
 pub fn render_dropdown(section: &SectionNode) -> String {
-    let trigger = section.config.get("trigger").map(|s| s.as_str()).unwrap_or("Actions");
-    let id = section.config.get("id").cloned().unwrap_or_else(|| next_id("dd"));
+    let trigger = section
+        .config
+        .get("trigger")
+        .map(|s| s.as_str())
+        .unwrap_or("Actions");
+    let id = section
+        .config
+        .get("id")
+        .cloned()
+        .unwrap_or_else(|| next_id("dd"));
 
     let mut items_html = String::new();
     for item in &section.items {
-        let name = item.get("title").or(item.get("name")).map(|s| s.as_str()).unwrap_or("");
+        let name = item
+            .get("title")
+            .or(item.get("name"))
+            .map(|s| s.as_str())
+            .unwrap_or("");
 
         // Divider
         if name == "---" || name == "separator" {
@@ -37,14 +52,30 @@ pub fn render_dropdown(section: &SectionNode) -> String {
         let danger = item.get("danger").map(|s| s == "true").unwrap_or(false);
         let link = item.get("link").map(|s| s.as_str()).unwrap_or("#");
 
-        let text_color = if danger { "color:#dc2626" } else { "color:#1a1c1c" };
-        let hover_bg = if danger { "background:#fef2f2" } else { "background:#f5f5f5" };
-        let icon_color = if danger { "color:#dc2626" } else { "color:#71717a" };
+        let text_color = if danger {
+            "color:#dc2626"
+        } else {
+            "color:#1a1c1c"
+        };
+        let hover_bg = if danger {
+            "background:#fef2f2"
+        } else {
+            "background:#f5f5f5"
+        };
+        let icon_color = if danger {
+            "color:#dc2626"
+        } else {
+            "color:#71717a"
+        };
 
         let icon_html = if icon.is_empty() {
             String::new()
         } else {
-            format!(r#"<span class="material-symbols-outlined" style="font-size:16px;{}">{}</span>"#, icon_color, escape_html(icon))
+            format!(
+                r#"<span class="material-symbols-outlined" style="font-size:16px;{}">{}</span>"#,
+                icon_color,
+                escape_html(icon)
+            )
         };
 
         items_html.push_str(&format!(
@@ -64,7 +95,9 @@ pub fn render_dropdown(section: &SectionNode) -> String {
     {items}
   </div>
 </div>"##,
-        id = id, trigger = escape_html(trigger), items = items_html,
+        id = id,
+        trigger = escape_html(trigger),
+        items = items_html,
     )
 }
 
@@ -75,15 +108,27 @@ pub fn render_dropdown(section: &SectionNode) -> String {
 /// Renders a toast notification from a "toast" section
 pub fn render_toast(section: &SectionNode) -> String {
     let message = section.title.as_deref().unwrap_or("Notification");
-    let toast_type = section.config.get("type").map(|s| s.as_str()).unwrap_or("info");
-    let duration = section.config.get("duration").map(|s| s.as_str()).unwrap_or("3000");
-    let id = section.config.get("id").cloned().unwrap_or_else(|| next_id("toast"));
+    let toast_type = section
+        .config
+        .get("type")
+        .map(|s| s.as_str())
+        .unwrap_or("info");
+    let duration = section
+        .config
+        .get("duration")
+        .map(|s| s.as_str())
+        .unwrap_or("3000");
+    let id = section
+        .config
+        .get("id")
+        .cloned()
+        .unwrap_or_else(|| next_id("toast"));
 
     let (bg, border_color, text_color, icon_color, icon_name) = match toast_type {
         "success" => ("#ecfdf5", "#a7f3d0", "#065f46", "#059669", "check_circle"),
-        "error"   => ("#fef2f2", "#fecaca", "#991b1b", "#dc2626", "error"),
+        "error" => ("#fef2f2", "#fecaca", "#991b1b", "#dc2626", "error"),
         "warning" => ("#fffbeb", "#fde68a", "#92400e", "#d97706", "warning"),
-        _         => ("#eff6ff", "#bfdbfe", "#1e40af", "#2563eb", "info"),
+        _ => ("#eff6ff", "#bfdbfe", "#1e40af", "#2563eb", "info"),
     };
 
     format!(
@@ -94,8 +139,13 @@ pub fn render_toast(section: &SectionNode) -> String {
     <span class="material-symbols-outlined" style="font-size:16px;color:{text}">close</span>
   </button>
 </div>"##,
-        id = id, duration = duration, bg = bg, border = border_color,
-        text = text_color, icon_color = icon_color, icon = icon_name,
+        id = id,
+        duration = duration,
+        bg = bg,
+        border = border_color,
+        text = text_color,
+        icon_color = icon_color,
+        icon = icon_name,
         message = escape_html(message),
     )
 }
@@ -107,25 +157,48 @@ pub fn render_toast(section: &SectionNode) -> String {
 /// Renders a notification center panel from a "notifications" section
 pub fn render_notification_center(section: &SectionNode) -> String {
     let title = section.title.as_deref().unwrap_or("Notifications");
-    let id = section.config.get("id").cloned().unwrap_or_else(|| next_id("notif"));
+    let id = section
+        .config
+        .get("id")
+        .cloned()
+        .unwrap_or_else(|| next_id("notif"));
 
     let mut unread_count = 0u32;
     let mut items_html = String::new();
 
     for (i, item) in section.items.iter().enumerate() {
-        let name = item.get("title").or(item.get("name")).map(|s| s.as_str()).unwrap_or("");
+        let name = item
+            .get("title")
+            .or(item.get("name"))
+            .map(|s| s.as_str())
+            .unwrap_or("");
         let time = item.get("time").map(|s| s.as_str()).unwrap_or("");
-        let icon = item.get("icon").map(|s| s.as_str()).unwrap_or("notifications");
+        let icon = item
+            .get("icon")
+            .map(|s| s.as_str())
+            .unwrap_or("notifications");
         let unread = item.get("unread").map(|s| s == "true").unwrap_or(false);
 
-        if unread { unread_count += 1; }
+        if unread {
+            unread_count += 1;
+        }
 
-        let font_weight = if unread { "font-weight:600" } else { "font-weight:500" };
+        let font_weight = if unread {
+            "font-weight:600"
+        } else {
+            "font-weight:500"
+        };
         let dot_html = if unread {
             r#"<div style="width:8px;height:8px;border-radius:50%;background:#3b82f6;flex-shrink:0;margin-top:8px"></div>"#
-        } else { "" };
+        } else {
+            ""
+        };
 
-        let border_bottom = if i < section.items.len() - 1 { "border-bottom:1px solid #f4f4f5;" } else { "" };
+        let border_bottom = if i < section.items.len() - 1 {
+            "border-bottom:1px solid #f4f4f5;"
+        } else {
+            ""
+        };
 
         items_html.push_str(&format!(
             r##"<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 16px;cursor:pointer;{border}" onmouseenter="this.style.background='#fafafa'" onmouseleave="this.style.background='transparent'">
@@ -149,7 +222,9 @@ pub fn render_notification_center(section: &SectionNode) -> String {
             r#"<div style="background:#ef4444;color:#fff;font-size:11px;font-weight:700;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center">{}</div>"#,
             unread_count
         )
-    } else { String::new() };
+    } else {
+        String::new()
+    };
 
     format!(
         r##"<div id="{id}" style="max-width:384px;width:100%;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.12);overflow:hidden;font-family:Inter,sans-serif">
@@ -164,6 +239,9 @@ pub fn render_notification_center(section: &SectionNode) -> String {
     {items}
   </div>
 </div>"##,
-        id = id, title = escape_html(title), badge = badge_html, items = items_html,
+        id = id,
+        title = escape_html(title),
+        badge = badge_html,
+        items = items_html,
     )
 }

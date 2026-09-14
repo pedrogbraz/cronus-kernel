@@ -157,9 +157,7 @@ fn outcome_to_response(out: AuditHttpOutcome) -> Response<Full<Bytes>> {
             .header("X-Cronus-Engine", "cronus-lang/0.1.0")
             .header("X-Cronus-Audit", "1");
     }
-    builder
-        .body(Full::new(Bytes::from(out.body)))
-        .unwrap()
+    builder.body(Full::new(Bytes::from(out.body))).unwrap()
 }
 
 #[cfg(test)]

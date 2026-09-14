@@ -127,9 +127,13 @@ mod tests {
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"menubar\"]"));
-        assert!(css.contains("[data-slot=\"menubar-trigger\"] {\n  display: flex; align-items: center; border: 0;"));
+        assert!(css.contains(
+            "[data-slot=\"menubar-trigger\"] {\n  display: flex; align-items: center; border: 0;"
+        ));
         assert!(css.contains("font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;"));
-        assert!(css.contains("[data-slot=\"menubar-content\"]:not(:popover-open) { display: none; }"));
+        assert!(
+            css.contains("[data-slot=\"menubar-content\"]:not(:popover-open) { display: none; }")
+        );
         assert!(css.contains("[data-slot=\"menubar-item\"]"));
         assert!(css.contains("var(--cronus-surface-floating)"));
         assert!(css.contains("var(--cronus-border)"));

@@ -101,6 +101,8 @@ mod tests {
     fn chrome_pairs_text_sm_with_line_height() {
         // Wave 1t: text-sm = 0.875rem/1.25rem (20px), not the canvas 1.5.
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("padding: 0 0.625rem; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;"));
+        assert!(css.contains(
+            "padding: 0 0.625rem; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;"
+        ));
     }
 }

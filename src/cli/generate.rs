@@ -1,5 +1,5 @@
-use std::fs;
 use crate::parser;
+use std::fs;
 
 const GENERATE_SYSTEM_PROMPT: &str = r#"You generate .cronus files — a declarative full-stack language. One file = database + REST API + GraphQL + Auth + UI + SSR. Output ONLY valid .cronus code, no markdown.
 
@@ -291,12 +291,20 @@ pub fn cmd_generate(args: &[String]) {
     let mut auto_go = false;
 
     // Parse flags from args[2..] (args[0] = "cronus", args[1] = "generate"/"gen")
-    let flag_args = if args.len() > 2 { &args[2..] } else { &[] as &[String] };
+    let flag_args = if args.len() > 2 {
+        &args[2..]
+    } else {
+        &[] as &[String]
+    };
     let mut i = 0;
     while i < flag_args.len() {
         match flag_args[i].as_str() {
-            "--dry-run" => { dry_run = true; }
-            "--go" => { auto_go = true; }
+            "--dry-run" => {
+                dry_run = true;
+            }
+            "--go" => {
+                auto_go = true;
+            }
             "--from-file" => {
                 i += 1;
                 if i >= flag_args.len() {
@@ -356,7 +364,9 @@ pub fn cmd_generate(args: &[String]) {
     let user_message = format!("Generate a .cronus file for: {}", desc);
 
     // Check for API key
-    let api_key = std::env::var("ANTHROPIC_API_KEY").ok().filter(|k| !k.is_empty());
+    let api_key = std::env::var("ANTHROPIC_API_KEY")
+        .ok()
+        .filter(|k| !k.is_empty());
 
     if dry_run {
         // Explicit dry-run: save prompt to file
@@ -366,7 +376,13 @@ pub fn cmd_generate(args: &[String]) {
         cmd_generate_template(&desc, &output_path, auto_go);
     } else {
         // API mode
-        cmd_generate_api(&desc, &user_message, &api_key.unwrap(), &output_path, auto_go);
+        cmd_generate_api(
+            &desc,
+            &user_message,
+            &api_key.unwrap(),
+            &output_path,
+            auto_go,
+        );
     }
 }
 
@@ -375,12 +391,20 @@ pub fn cmd_generate(args: &[String]) {
 struct EntityTemplate {
     keywords: &'static [&'static str],
     canonical_name: &'static str,
-    fields: &'static [(&'static str, &'static str, &'static [&'static str], bool, bool)],
+    fields: &'static [(
+        &'static str,
+        &'static str,
+        &'static [&'static str],
+        bool,
+        bool,
+    )],
 }
 
 const ENTITY_TEMPLATES: &[EntityTemplate] = &[
     EntityTemplate {
-        keywords: &["user", "member", "team", "person", "people", "staff", "employee"],
+        keywords: &[
+            "user", "member", "team", "person", "people", "staff", "employee",
+        ],
         canonical_name: "Member",
         fields: &[
             ("name", "string", &[], true, false),
@@ -396,7 +420,13 @@ const ENTITY_TEMPLATES: &[EntityTemplate] = &[
             ("title", "string", &[], true, false),
             ("description", "text", &[], false, false),
             ("priority", "enum", &["low", "medium", "high"], true, false),
-            ("status", "enum", &["todo", "in_progress", "done"], true, false),
+            (
+                "status",
+                "enum",
+                &["todo", "in_progress", "done"],
+                true,
+                false,
+            ),
             ("due_date", "date", &[], false, false),
         ],
     },
@@ -406,7 +436,13 @@ const ENTITY_TEMPLATES: &[EntityTemplate] = &[
         fields: &[
             ("name", "string", &[], true, false),
             ("description", "text", &[], false, false),
-            ("status", "enum", &["active", "archived", "draft"], true, false),
+            (
+                "status",
+                "enum",
+                &["active", "archived", "draft"],
+                true,
+                false,
+            ),
         ],
     },
     EntityTemplate {
@@ -425,7 +461,13 @@ const ENTITY_TEMPLATES: &[EntityTemplate] = &[
         canonical_name: "Order",
         fields: &[
             ("total", "money", &[], true, false),
-            ("status", "enum", &["pending", "paid", "shipped", "delivered", "cancelled"], true, false),
+            (
+                "status",
+                "enum",
+                &["pending", "paid", "shipped", "delivered", "cancelled"],
+                true,
+                false,
+            ),
         ],
     },
     EntityTemplate {
@@ -500,7 +542,13 @@ const ENTITY_TEMPLATES: &[EntityTemplate] = &[
         fields: &[
             ("number", "string", &[], true, true),
             ("total", "money", &[], true, false),
-            ("status", "enum", &["draft", "sent", "paid", "overdue"], true, false),
+            (
+                "status",
+                "enum",
+                &["draft", "sent", "paid", "overdue"],
+                true,
+                false,
+            ),
             ("due_date", "date", &[], false, false),
         ],
     },
@@ -540,10 +588,41 @@ fn parse_generate_description(desc: &str) -> (String, Vec<DetectedEntity>) {
         .collect();
 
     let stop_words: &[&str] = &[
-        "a", "an", "the", "and", "or", "with", "for", "to", "of", "in", "on", "at",
-        "by", "from", "that", "this", "is", "are", "has", "have", "app", "application",
-        "system", "platform", "website", "web", "site", "service", "tool", "manage",
-        "management", "manager", "managing", "tracker", "tracking",
+        "a",
+        "an",
+        "the",
+        "and",
+        "or",
+        "with",
+        "for",
+        "to",
+        "of",
+        "in",
+        "on",
+        "at",
+        "by",
+        "from",
+        "that",
+        "this",
+        "is",
+        "are",
+        "has",
+        "have",
+        "app",
+        "application",
+        "system",
+        "platform",
+        "website",
+        "web",
+        "site",
+        "service",
+        "tool",
+        "manage",
+        "management",
+        "manager",
+        "managing",
+        "tracker",
+        "tracking",
     ];
 
     let mut matched: Vec<(usize, String)> = Vec::new();
@@ -551,10 +630,12 @@ fn parse_generate_description(desc: &str) -> (String, Vec<DetectedEntity>) {
 
     for (tidx, tmpl) in ENTITY_TEMPLATES.iter().enumerate() {
         for &kw in tmpl.keywords {
-            if used_templates.contains(&tidx) { break; }
+            if used_templates.contains(&tidx) {
+                break;
+            }
             let kw_plural = format!("{}s", kw);
             let kw_plural2 = if kw.ends_with('y') {
-                format!("{}ies", &kw[..kw.len()-1])
+                format!("{}ies", &kw[..kw.len() - 1])
             } else if kw.ends_with('s') || kw.ends_with('x') {
                 format!("{}es", kw)
             } else {
@@ -636,8 +717,12 @@ fn gen_title_case(s: &str) -> String {
 fn gen_pluralize(name: &str) -> String {
     if name.ends_with('s') || name.ends_with('x') {
         format!("{}es", name)
-    } else if name.ends_with('y') && !name.ends_with("ey") && !name.ends_with("ay") && !name.ends_with("oy") {
-        format!("{}ies", &name[..name.len()-1])
+    } else if name.ends_with('y')
+        && !name.ends_with("ey")
+        && !name.ends_with("ay")
+        && !name.ends_with("oy")
+    {
+        format!("{}ies", &name[..name.len() - 1])
     } else {
         format!("{}s", name)
     }
@@ -653,7 +738,8 @@ fn gen_field_title(s: &str) -> String {
 fn gen_entity_columns(ent: &DetectedEntity) -> String {
     if let Some(tidx) = ent.template_idx {
         let tmpl = &ENTITY_TEMPLATES[tidx];
-        tmpl.fields.iter()
+        tmpl.fields
+            .iter()
             .take(4)
             .map(|&(name, _, _, _, _)| gen_field_title(name))
             .collect::<Vec<_>>()
@@ -683,11 +769,16 @@ fn generate_cronus_from_entities(app_name: &str, entities: &[DetectedEntity]) ->
             for &(fname, ftype, enum_vals, required, unique) in tmpl.fields {
                 let mut line = format!("  {} {}", fname, ftype);
                 if ftype == "enum" && !enum_vals.is_empty() {
-                    let vals: Vec<String> = enum_vals.iter().map(|v| format!("\"{}\"", v)).collect();
+                    let vals: Vec<String> =
+                        enum_vals.iter().map(|v| format!("\"{}\"", v)).collect();
                     line.push_str(&format!(" [{}]", vals.join(", ")));
                 }
-                if required { line.push_str(" required"); }
-                if unique { line.push_str(" unique"); }
+                if required {
+                    line.push_str(" required");
+                }
+                if unique {
+                    line.push_str(" unique");
+                }
                 out.push_str(&line);
                 out.push('\n');
             }
@@ -725,9 +816,15 @@ fn generate_cronus_from_entities(app_name: &str, entities: &[DetectedEntity]) ->
     out.push_str(&format!("    bind {} {{ query count }}\n", first.name));
     out.push_str("  }\n");
     out.push_str("  section table style:dark {\n");
-    out.push_str(&format!("    title \"Recent {}\"\n", gen_pluralize(&first.name)));
+    out.push_str(&format!(
+        "    title \"Recent {}\"\n",
+        gen_pluralize(&first.name)
+    ));
     out.push_str(&format!("    columns \"{}\"\n", gen_entity_columns(first)));
-    out.push_str(&format!("    bind {} {{ query all order created_at desc limit 10 }}\n", first.name));
+    out.push_str(&format!(
+        "    bind {} {{ query all order created_at desc limit 10 }}\n",
+        first.name
+    ));
     out.push_str("  }\n");
     out.push_str("}\n\n");
 
@@ -770,8 +867,10 @@ pub fn cmd_generate_template(desc: &str, output_path: &str, auto_go: bool) {
             });
 
             println!("  \x1b[32m✓\x1b[0m Generated \x1b[1m{}\x1b[0m", output_path);
-            println!("    {} lines, {} entities, {} pages, {} routes",
-                     lines, ent_count, page_count, route_count);
+            println!(
+                "    {} lines, {} entities, {} pages, {} routes",
+                lines, ent_count, page_count, route_count
+            );
             println!();
 
             if auto_go {
@@ -807,7 +906,10 @@ pub fn cmd_generate_dry_run(desc: &str, user_message: &str) {
     );
 
     fs::write(".cronus-prompt.txt", &full_prompt).unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Failed to write .cronus-prompt.txt: {}", e);
+        eprintln!(
+            "  \x1b[31m✗\x1b[0m Failed to write .cronus-prompt.txt: {}",
+            e
+        );
         std::process::exit(1);
     });
 
@@ -842,8 +944,14 @@ pub fn cmd_generate_from_file(file_path: &str, output_path: &str, auto_go: bool)
                 std::process::exit(1);
             });
 
-            println!("  \x1b[32m✓\x1b[0m Valid .cronus file written to \x1b[1m{}\x1b[0m", output_path);
-            println!("    {} lines, {} entities, {} pages, {} routes", lines, entities, pages, routes);
+            println!(
+                "  \x1b[32m✓\x1b[0m Valid .cronus file written to \x1b[1m{}\x1b[0m",
+                output_path
+            );
+            println!(
+                "    {} lines, {} entities, {} pages, {} routes",
+                lines, entities, pages, routes
+            );
             println!();
 
             if auto_go {
@@ -873,12 +981,18 @@ pub fn cmd_generate_from_file(file_path: &str, output_path: &str, auto_go: bool)
 /// argv is visible to every local user via `ps` / `/proc/<pid>/cmdline`.
 fn anthropic_curl_args(body: &str) -> Vec<String> {
     [
-        "-s", "-X", "POST",
+        "-s",
+        "-X",
+        "POST",
         "https://api.anthropic.com/v1/messages",
-        "--config", "-",
-        "-H", "anthropic-version: 2023-06-01",
-        "-H", "content-type: application/json",
-        "-d", body,
+        "--config",
+        "-",
+        "-H",
+        "anthropic-version: 2023-06-01",
+        "-H",
+        "content-type: application/json",
+        "-d",
+        body,
     ]
     .iter()
     .map(|s| s.to_string())
@@ -919,8 +1033,13 @@ mod curl_secret_tests {
     fn api_key_never_appears_in_curl_argv() {
         let key = "sk-ant-api03-SECRET";
         let args = anthropic_curl_args("{\"model\":\"x\"}");
-        assert!(args.iter().all(|a| !a.contains(key) && !a.to_lowercase().contains("x-api-key")));
-        let cfg_idx = args.iter().position(|a| a == "--config").expect("--config flag");
+        assert!(args
+            .iter()
+            .all(|a| !a.contains(key) && !a.to_lowercase().contains("x-api-key")));
+        let cfg_idx = args
+            .iter()
+            .position(|a| a == "--config")
+            .expect("--config flag");
         assert_eq!(args[cfg_idx + 1], "-", "config must be read from stdin");
     }
 
@@ -938,7 +1057,13 @@ mod curl_secret_tests {
     }
 }
 
-pub fn cmd_generate_api(desc: &str, user_message: &str, api_key: &str, output_path: &str, auto_go: bool) {
+pub fn cmd_generate_api(
+    desc: &str,
+    user_message: &str,
+    api_key: &str,
+    output_path: &str,
+    auto_go: bool,
+) {
     println!("  Generating .cronus for: \"{}\"", desc);
     println!();
 
@@ -953,18 +1078,25 @@ pub fn cmd_generate_api(desc: &str, user_message: &str, api_key: &str, output_pa
         }
 
         let messages_with_context = if extra_context.is_empty() {
-            format!(r#"[{{"role":"user","content":"{}"}}]"#,
-                user_message.replace('\\', "\\\\").replace('"', "\\\""))
+            format!(
+                r#"[{{"role":"user","content":"{}"}}]"#,
+                user_message.replace('\\', "\\\\").replace('"', "\\\"")
+            )
         } else {
-            format!(r#"[{{"role":"user","content":"{}"}},{{"role":"assistant","content":"{}"}},{{"role":"user","content":"{}"}}]"#,
+            format!(
+                r#"[{{"role":"user","content":"{}"}},{{"role":"assistant","content":"{}"}},{{"role":"user","content":"{}"}}]"#,
                 user_message.replace('\\', "\\\\").replace('"', "\\\""),
                 "I'll generate the .cronus file now.".replace('"', "\\\""),
-                extra_context.replace('\\', "\\\\").replace('"', "\\\""))
+                extra_context.replace('\\', "\\\\").replace('"', "\\\"")
+            )
         };
 
         let body = format!(
             r#"{{"model":"claude-sonnet-4-20250514","max_tokens":4096,"system":"{}","messages":{}}}"#,
-            GENERATE_SYSTEM_PROMPT.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n"),
+            GENERATE_SYSTEM_PROMPT
+                .replace('\\', "\\\\")
+                .replace('"', "\\\"")
+                .replace('\n', "\\n"),
             messages_with_context
         );
 
@@ -984,11 +1116,19 @@ pub fn cmd_generate_api(desc: &str, user_message: &str, api_key: &str, output_pa
         let generated = extract_api_text(&response_str);
         if generated.is_empty() {
             if attempt >= max_retries {
-                eprintln!("  \x1b[31m✗\x1b[0m API returned no usable content after {} attempts", max_retries);
-                eprintln!("  Response: {}", &response_str[..response_str.len().min(500)]);
+                eprintln!(
+                    "  \x1b[31m✗\x1b[0m API returned no usable content after {} attempts",
+                    max_retries
+                );
+                eprintln!(
+                    "  Response: {}",
+                    &response_str[..response_str.len().min(500)]
+                );
                 std::process::exit(1);
             }
-            extra_context = "The previous response was empty. Please output ONLY valid .cronus code.".to_string();
+            extra_context =
+                "The previous response was empty. Please output ONLY valid .cronus code."
+                    .to_string();
             continue;
         }
 
@@ -1004,8 +1144,14 @@ pub fn cmd_generate_api(desc: &str, user_message: &str, api_key: &str, output_pa
                     std::process::exit(1);
                 });
 
-                println!("  \x1b[32m✓\x1b[0m Generated \x1b[1m{}\x1b[0m ({} lines)", output_path, lines);
-                println!("    {} entities, {} pages, {} routes", entities, pages, routes);
+                println!(
+                    "  \x1b[32m✓\x1b[0m Generated \x1b[1m{}\x1b[0m ({} lines)",
+                    output_path, lines
+                );
+                println!(
+                    "    {} entities, {} pages, {} routes",
+                    entities, pages, routes
+                );
                 println!();
 
                 if auto_go {
@@ -1023,7 +1169,10 @@ pub fn cmd_generate_api(desc: &str, user_message: &str, api_key: &str, output_pa
             }
             Err(e) => {
                 if attempt >= max_retries {
-                    eprintln!("  \x1b[31m✗\x1b[0m Failed to generate valid .cronus after {} attempts", max_retries);
+                    eprintln!(
+                        "  \x1b[31m✗\x1b[0m Failed to generate valid .cronus after {} attempts",
+                        max_retries
+                    );
                     eprintln!("  Last parse error: {}", e);
                     // Save the last attempt for debugging
                     let debug_path = format!("{}.failed.txt", output_path);
@@ -1031,7 +1180,10 @@ pub fn cmd_generate_api(desc: &str, user_message: &str, api_key: &str, output_pa
                     eprintln!("  Raw output saved to {}", debug_path);
                     std::process::exit(1);
                 }
-                println!("  \x1b[33m!\x1b[0m Attempt {} had parse errors, retrying...", attempt);
+                println!(
+                    "  \x1b[33m!\x1b[0m Attempt {} had parse errors, retrying...",
+                    attempt
+                );
                 extra_context = format!(
                     "Your previous output had parse errors:\n{}\n\nPlease fix these errors and output ONLY valid .cronus code.",
                     e
@@ -1081,7 +1233,10 @@ fn extract_api_text(json: &str) -> String {
                             '"' => result.push('"'),
                             '\\' => result.push('\\'),
                             '/' => result.push('/'),
-                            _ => { result.push('\\'); result.push(escaped); }
+                            _ => {
+                                result.push('\\');
+                                result.push(escaped);
+                            }
                         }
                     }
                 }
@@ -1095,20 +1250,26 @@ fn extract_api_text(json: &str) -> String {
     }
 }
 
-
 fn extract_app_name(desc: &str) -> String {
     let words: Vec<&str> = desc.split_whitespace().collect();
     if words.len() <= 3 {
-        return desc.split_whitespace().map(|w| {
-            let mut c = w.chars();
-            match c.next() {
-                None => String::new(),
-                Some(f) => f.to_uppercase().to_string() + &c.as_str().to_lowercase(),
-            }
-        }).collect::<Vec<_>>().join(" ");
+        return desc
+            .split_whitespace()
+            .map(|w| {
+                let mut c = w.chars();
+                match c.next() {
+                    None => String::new(),
+                    Some(f) => f.to_uppercase().to_string() + &c.as_str().to_lowercase(),
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
     }
-    words.iter()
-        .filter(|w| !["a", "an", "the", "with", "and", "for", "my"].contains(&w.to_lowercase().as_str()))
+    words
+        .iter()
+        .filter(|w| {
+            !["a", "an", "the", "with", "and", "for", "my"].contains(&w.to_lowercase().as_str())
+        })
         .take(3)
         .map(|w| {
             let mut c = w.chars();
@@ -1249,7 +1410,8 @@ page "/settings" type:form entity:User {
   title "Settings"
   fields [name, email]
 }
-"#.to_string()
+"#
+    .to_string()
 }
 
 fn generate_landing_template() -> String {

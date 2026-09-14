@@ -5,10 +5,10 @@
 //! Each service runs in its own tokio task with its own port.
 //! Includes health checks, inter-service communication, and basic circuit breaker.
 
-use std::sync::Arc;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use serde_json::{json, Value};
+use std::sync::Arc;
 
 // ══════════════════════════════════════════════════
 // SERVICE CONFIG
@@ -115,13 +115,16 @@ pub struct ServiceOrchestrator {
 impl ServiceOrchestrator {
     /// Create orchestrator from parsed service configs.
     pub fn new(configs: Vec<ServiceConfig>) -> Self {
-        let services = configs.into_iter().map(|config| {
-            Arc::new(ServiceEntry {
-                config,
-                healthy: AtomicBool::new(false),
-                circuit: CircuitBreaker::new(5), // 5 failures → circuit open
+        let services = configs
+            .into_iter()
+            .map(|config| {
+                Arc::new(ServiceEntry {
+                    config,
+                    healthy: AtomicBool::new(false),
+                    circuit: CircuitBreaker::new(5), // 5 failures → circuit open
+                })
             })
-        }).collect();
+            .collect();
         ServiceOrchestrator { services }
     }
 
@@ -137,7 +140,10 @@ impl ServiceOrchestrator {
                 let port = entry.config.port;
                 let stype = entry.config.service_type.as_str();
 
-                eprintln!("  \x1b[32m✓\x1b[0m Service '{}' ({}) starting on port {}", name, stype, port);
+                eprintln!(
+                    "  \x1b[32m✓\x1b[0m Service '{}' ({}) starting on port {}",
+                    name, stype, port
+                );
 
                 // Mark as healthy once started
                 entry.healthy.store(true, Ordering::Relaxed);
@@ -156,32 +162,42 @@ impl ServiceOrchestrator {
 
     /// Health check all services. Returns vec of (name, healthy, failures).
     pub fn health_check(&self) -> Vec<(String, bool, u32)> {
-        self.services.iter().map(|entry| {
-            (
-                entry.config.name.clone(),
-                entry.healthy.load(Ordering::Relaxed),
-                entry.circuit.failure_count(),
-            )
-        }).collect()
+        self.services
+            .iter()
+            .map(|entry| {
+                (
+                    entry.config.name.clone(),
+                    entry.healthy.load(Ordering::Relaxed),
+                    entry.circuit.failure_count(),
+                )
+            })
+            .collect()
     }
 
     /// Get health as JSON (for /api/health endpoint).
     pub fn health_json(&self) -> Value {
-        let services: Vec<Value> = self.services.iter().map(|entry| {
-            let healthy = entry.healthy.load(Ordering::Relaxed);
-            let circuit_open = entry.circuit.is_open();
-            json!({
-                "name": entry.config.name,
-                "type": entry.config.service_type.as_str(),
-                "port": entry.config.port,
-                "healthy": healthy,
-                "circuit_breaker": if circuit_open { "open" } else { "closed" },
-                "failures": entry.circuit.failure_count(),
-                "entities": entry.config.entities,
+        let services: Vec<Value> = self
+            .services
+            .iter()
+            .map(|entry| {
+                let healthy = entry.healthy.load(Ordering::Relaxed);
+                let circuit_open = entry.circuit.is_open();
+                json!({
+                    "name": entry.config.name,
+                    "type": entry.config.service_type.as_str(),
+                    "port": entry.config.port,
+                    "healthy": healthy,
+                    "circuit_breaker": if circuit_open { "open" } else { "closed" },
+                    "failures": entry.circuit.failure_count(),
+                    "entities": entry.config.entities,
+                })
             })
-        }).collect();
+            .collect();
 
-        let all_healthy = self.services.iter().all(|e| e.healthy.load(Ordering::Relaxed));
+        let all_healthy = self
+            .services
+            .iter()
+            .all(|e| e.healthy.load(Ordering::Relaxed));
 
         json!({
             "status": if all_healthy { "healthy" } else { "degraded" },
@@ -192,7 +208,9 @@ impl ServiceOrchestrator {
 
     /// Inter-service HTTP call with circuit breaker.
     pub async fn call_service(&self, name: &str, path: &str) -> Result<String, String> {
-        let entry = self.services.iter()
+        let entry = self
+            .services
+            .iter()
             .find(|e| e.config.name == name)
             .ok_or_else(|| format!("Service '{}' not found", name))?;
 
@@ -204,10 +222,7 @@ impl ServiceOrchestrator {
         let url = format!("http://127.0.0.1:{}{}", entry.config.port, path);
 
         // Simple HTTP GET via TCP (no external HTTP client needed)
-        match tokio::time::timeout(
-            tokio::time::Duration::from_secs(5),
-            tcp_get(&url),
-        ).await {
+        match tokio::time::timeout(tokio::time::Duration::from_secs(5), tcp_get(&url)).await {
             Ok(Ok(body)) => {
                 entry.circuit.record_success();
                 Ok(body)
@@ -225,14 +240,17 @@ impl ServiceOrchestrator {
 
     /// List all registered services.
     pub fn list_services(&self) -> Vec<Value> {
-        self.services.iter().map(|e| {
-            json!({
-                "name": e.config.name,
-                "type": e.config.service_type.as_str(),
-                "port": e.config.port,
-                "entities": e.config.entities,
+        self.services
+            .iter()
+            .map(|e| {
+                json!({
+                    "name": e.config.name,
+                    "type": e.config.service_type.as_str(),
+                    "port": e.config.port,
+                    "entities": e.config.entities,
+                })
             })
-        }).collect()
+            .collect()
     }
 }
 
@@ -249,15 +267,23 @@ async fn tcp_get(url: &str) -> Result<String, String> {
     let (host_port, path) = url.split_once('/').unwrap_or((url, ""));
     let path = format!("/{}", path);
 
-    let mut stream = TcpStream::connect(host_port).await
+    let mut stream = TcpStream::connect(host_port)
+        .await
         .map_err(|e| format!("connect: {}", e))?;
 
-    let request = format!("GET {} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n\r\n", path, host_port);
-    stream.write_all(request.as_bytes()).await
+    let request = format!(
+        "GET {} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n\r\n",
+        path, host_port
+    );
+    stream
+        .write_all(request.as_bytes())
+        .await
         .map_err(|e| format!("write: {}", e))?;
 
     let mut buf = Vec::new();
-    stream.read_to_end(&mut buf).await
+    stream
+        .read_to_end(&mut buf)
+        .await
         .map_err(|e| format!("read: {}", e))?;
 
     let response = String::from_utf8_lossy(&buf);

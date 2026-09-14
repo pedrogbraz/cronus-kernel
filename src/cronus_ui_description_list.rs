@@ -68,7 +68,8 @@ mod tests {
     use crate::parser::ComponentItemNode;
 
     const DISPLAY_SURF: &str = "padding:1rem;display:flex;flex-direction:column;gap:0.5rem";
-    const INTERACT_ROW: &str = "display:flex;justify-content:space-between;gap:1rem;font-size:0.875rem";
+    const INTERACT_ROW: &str =
+        "display:flex;justify-content:space-between;gap:1rem;font-size:0.875rem";
 
     fn extra(kind: &str, text: &str) -> ComponentItemNode {
         ComponentItemNode {
@@ -157,9 +158,9 @@ mod tests {
     #[test]
     fn label_is_escaped() {
         let html = render(&stub("description-list", "A <B> & \"C\""));
-        assert!(html.contains(
-            "data-slot=\"description-term\">A &lt;B&gt; &amp; &quot;C&quot;</dt>"
-        ));
+        assert!(
+            html.contains("data-slot=\"description-term\">A &lt;B&gt; &amp; &quot;C&quot;</dt>")
+        );
         reject_stub(&html);
     }
 

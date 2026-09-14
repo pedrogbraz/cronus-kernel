@@ -4,7 +4,8 @@
 //! Generates deployment artifacts: Dockerfile, docker-compose, .dockerignore
 
 pub fn generate_dockerfile(app_name: &str, port: u16) -> String {
-    format!(r#"# {app_name} — CRONUS Runtime
+    format!(
+        r#"# {app_name} — CRONUS Runtime
 # Built with: cronus deploy
 
 FROM rust:1.82-slim AS builder
@@ -29,7 +30,8 @@ CMD ["cronus", "run", "{port}"]
 
 pub fn generate_compose(app_name: &str, port: u16) -> String {
     let slug = app_name.to_lowercase().replace(' ', "-");
-    format!(r#"# {app_name} — docker-compose
+    format!(
+        r#"# {app_name} — docker-compose
 # Start with: docker compose up
 
 services:
@@ -87,29 +89,37 @@ pub fn generate_ir(nodes: &[crate::parser::AstNode]) -> serde_json::Value {
                 });
             }
             AstNode::Entity(e) => {
-                let fields: Vec<serde_json::Value> = e.fields.iter().map(|f| {
-                    json!({
-                        "name": f.name,
-                        "type": format!("{:?}", f.field_type).to_lowercase(),
-                        "required": f.required,
-                        "unique": f.unique,
-                        "enum_values": f.enum_values,
+                let fields: Vec<serde_json::Value> = e
+                    .fields
+                    .iter()
+                    .map(|f| {
+                        json!({
+                            "name": f.name,
+                            "type": format!("{:?}", f.field_type).to_lowercase(),
+                            "required": f.required,
+                            "unique": f.unique,
+                            "enum_values": f.enum_values,
+                        })
                     })
-                }).collect();
+                    .collect();
                 entities.push(json!({
                     "name": e.name,
                     "fields": fields,
                 }));
             }
             AstNode::Page(p) => {
-                let sections: Vec<serde_json::Value> = p.sections.iter().map(|s| {
-                    json!({
-                        "type": s.section_type,
-                        "title": s.title,
-                        "subtitle": s.subtitle,
-                        "config": s.config,
+                let sections: Vec<serde_json::Value> = p
+                    .sections
+                    .iter()
+                    .map(|s| {
+                        json!({
+                            "type": s.section_type,
+                            "title": s.title,
+                            "subtitle": s.subtitle,
+                            "config": s.config,
+                        })
                     })
-                }).collect();
+                    .collect();
                 pages.push(json!({
                     "route": p.route,
                     "type": p.page_type,
@@ -119,14 +129,18 @@ pub fn generate_ir(nodes: &[crate::parser::AstNode]) -> serde_json::Value {
                 }));
             }
             AstNode::Api(a) => {
-                let routes: Vec<serde_json::Value> = a.routes.iter().map(|r| {
-                    json!({
-                        "name": r.name,
-                        "method": format!("{:?}", r.method),
-                        "path": format!("{}{}", a.prefix, r.path),
-                        "auth": r.auth,
+                let routes: Vec<serde_json::Value> = a
+                    .routes
+                    .iter()
+                    .map(|r| {
+                        json!({
+                            "name": r.name,
+                            "method": format!("{:?}", r.method),
+                            "path": format!("{}{}", a.prefix, r.path),
+                            "auth": r.auth,
+                        })
                     })
-                }).collect();
+                    .collect();
                 apis.extend(routes);
             }
             AstNode::Style(s) => {
@@ -193,7 +207,8 @@ fn slugify(name: &str) -> String {
 
 pub fn generate_fly_toml(app_name: &str, port: u16) -> String {
     let slug = slugify(app_name);
-    format!(r#"app = "{slug}"
+    format!(
+        r#"app = "{slug}"
 primary_region = "gru"
 
 [build]
@@ -211,12 +226,14 @@ primary_region = "gru"
 [[vm]]
   size = "shared-cpu-1x"
   memory = "256mb"
-"#)
+"#
+    )
 }
 
 pub fn generate_railway_config(app_name: &str, port: u16) -> String {
     let _slug = slugify(app_name);
-    format!(r#"{{
+    format!(
+        r#"{{
   "$schema": "https://railway.com/railway.schema.json",
   "build": {{ "builder": "DOCKERFILE" }},
   "deploy": {{
@@ -224,7 +241,8 @@ pub fn generate_railway_config(app_name: &str, port: u16) -> String {
     "healthcheckPath": "/api/health",
     "restartPolicyType": "ON_FAILURE"
   }}
-}}"#)
+}}"#
+    )
 }
 
 // ── Static Build ──
@@ -306,7 +324,9 @@ pub fn generate_health_endpoint(entity_count: usize, page_count: usize) -> Strin
         .unwrap_or_default()
         .as_secs();
 
-    format!(r#"{{"status":"ok","version":"0.1.0","uptime":{uptime},"entities":{entity_count},"pages":{page_count}}}"#)
+    format!(
+        r#"{{"status":"ok","version":"0.1.0","uptime":{uptime},"entities":{entity_count},"pages":{page_count}}}"#
+    )
 }
 
 // ── Production Headers ──
@@ -316,8 +336,14 @@ pub fn generate_production_headers() -> Vec<(String, String)> {
         ("X-Content-Type-Options".into(), "nosniff".into()),
         ("X-Frame-Options".into(), "DENY".into()),
         ("X-XSS-Protection".into(), "1; mode=block".into()),
-        ("Strict-Transport-Security".into(), "max-age=31536000".into()),
-        ("Content-Security-Policy".into(), "default-src 'self' 'unsafe-inline' 'unsafe-eval'".into()),
+        (
+            "Strict-Transport-Security".into(),
+            "max-age=31536000".into(),
+        ),
+        (
+            "Content-Security-Policy".into(),
+            "default-src 'self' 'unsafe-inline' 'unsafe-eval'".into(),
+        ),
         ("Cache-Control".into(), "public, max-age=3600".into()),
     ]
 }
@@ -400,5 +426,6 @@ fn gzip_response(body: &[u8], accept_encoding: &str) -> (Vec<u8>, Vec<(String, S
     }
     (body.to_vec(), vec![])
 }
-"#.to_string()
+"#
+    .to_string()
 }

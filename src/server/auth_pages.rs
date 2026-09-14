@@ -31,9 +31,15 @@ pub(crate) fn post_login_paths(state: &AppState) -> (String, String) {
 pub(crate) fn generate_login_page(state: &AppState) -> String {
     let script_nonce = crate::security::script_nonce_attr();
     let app_name = &state.app.name;
-    let logo_letter = app_name.chars().next().unwrap_or('C').to_uppercase().to_string();
+    let logo_letter = app_name
+        .chars()
+        .next()
+        .unwrap_or('C')
+        .to_uppercase()
+        .to_string();
     let (home, admin) = post_login_paths(state);
-    format!(r##"<!DOCTYPE html>
+    format!(
+        r##"<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -261,15 +267,26 @@ document.getElementById('quickLogin').addEventListener('submit', function(e) {{
 // Init: show saved accounts or full login
 renderAccounts();
 </script>
-</body></html>"##, app = app_name, logo = logo_letter, home = home, admin = admin)
+</body></html>"##,
+        app = app_name,
+        logo = logo_letter,
+        home = home,
+        admin = admin
+    )
 }
 
 pub(crate) fn generate_register_page(state: &AppState) -> String {
     let script_nonce = crate::security::script_nonce_attr();
     let app_name = &state.app.name;
-    let logo_letter = app_name.chars().next().unwrap_or('C').to_uppercase().to_string();
+    let logo_letter = app_name
+        .chars()
+        .next()
+        .unwrap_or('C')
+        .to_uppercase()
+        .to_string();
     let (home, admin) = post_login_paths(state);
-    format!(r##"<!DOCTYPE html>
+    format!(
+        r##"<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -340,5 +357,10 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
   }}
 }});
 </script>
-</body></html>"##, app = app_name, logo = logo_letter, home = home, admin = admin)
+</body></html>"##,
+        app = app_name,
+        logo = logo_letter,
+        home = home,
+        admin = admin
+    )
 }

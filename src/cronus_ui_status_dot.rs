@@ -14,7 +14,10 @@ pub fn render(comp: &ComponentNode) -> String {
     let status = status_of(comp);
     let indicator = "<span aria-hidden=\"true\" data-slot=\"status-dot-indicator\"></span>";
     let tail = if with_label(comp) {
-        format!("<span data-slot=\"status-dot-label\">{}</span>", label_of(comp))
+        format!(
+            "<span data-slot=\"status-dot-label\">{}</span>",
+            label_of(comp)
+        )
     } else {
         let name = attr(comp, "label")
             .map(esc)
@@ -32,12 +35,19 @@ fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
     comp.props
         .get(key)
         .map(String::as_str)
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get(key).map(String::as_str)))
+        .or_else(|| {
+            comp.items
+                .iter()
+                .find_map(|i| i.config.get(key).map(String::as_str))
+        })
         .filter(|s| !s.is_empty())
 }
 
 fn with_label(comp: &ComponentNode) -> bool {
-    matches!(attr(comp, "withLabel").or_else(|| attr(comp, "with-label")), Some("true"))
+    matches!(
+        attr(comp, "withLabel").or_else(|| attr(comp, "with-label")),
+        Some("true")
+    )
 }
 
 fn default_label(status: &str) -> &'static str {

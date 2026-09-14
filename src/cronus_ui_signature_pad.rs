@@ -74,9 +74,12 @@ mod tests {
     #[test]
     fn aria_label_names_canvas_hint_stays_fixed() {
         let mut c = stub("signature-pad", "Contract");
-        c.items[0].config.insert("aria-label".into(), "Sign \"here\"".into());
+        c.items[0]
+            .config
+            .insert("aria-label".into(), "Sign \"here\"".into());
         let html = render(&c);
-        assert!(html.contains("aria-label=\"Sign &quot;here&quot;\" data-slot=\"signature-pad-canvas\""));
+        assert!(html
+            .contains("aria-label=\"Sign &quot;here&quot;\" data-slot=\"signature-pad-canvas\""));
         assert!(html.contains("data-slot=\"signature-pad-hint\"><div></div><span>Sign here</span>"));
         reject_interact(&html);
     }

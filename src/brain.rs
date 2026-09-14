@@ -4,9 +4,9 @@
 //! Tracks usage patterns from HTTP requests and provides
 //! suggestions for optimization based on observed behavior.
 
-use std::sync::Arc;
-use serde_json::{json, Value};
 use crate::database::CronusDB;
+use serde_json::{json, Value};
+use std::sync::Arc;
 
 pub struct CronusBrain {
     db: Arc<CronusDB>,
@@ -33,25 +33,31 @@ impl CronusBrain {
     pub fn track(&self, event: &str, metadata: &Value) {
         // Store in-memory for now (patterns vec)
         // In production this would go to _brain_patterns table
-        let _ = self.db.insert("_brain_events", &json!({
-            "event": event,
-            "metadata": metadata.to_string(),
-            "timestamp": chrono_now(),
-        }));
+        let _ = self.db.insert(
+            "_brain_events",
+            &json!({
+                "event": event,
+                "metadata": metadata.to_string(),
+                "timestamp": chrono_now(),
+            }),
+        );
     }
 
     /// Track an HTTP request
     pub fn track_request(&self, method: &str, path: &str, status: u16, duration_ms: u64) {
-        let _ = self.db.insert("_brain_events", &json!({
-            "event": format!("{} {}", method, path),
-            "metadata": json!({
-                "method": method,
-                "path": path,
-                "status": status,
-                "duration_ms": duration_ms,
-            }).to_string(),
-            "timestamp": chrono_now(),
-        }));
+        let _ = self.db.insert(
+            "_brain_events",
+            &json!({
+                "event": format!("{} {}", method, path),
+                "metadata": json!({
+                    "method": method,
+                    "path": path,
+                    "status": status,
+                    "duration_ms": duration_ms,
+                }).to_string(),
+                "timestamp": chrono_now(),
+            }),
+        );
     }
 
     /// Get suggestions based on tracked patterns
@@ -61,7 +67,8 @@ impl CronusBrain {
         // Analyze event frequency
         if let Ok(events) = self.db.find_all("_brain_events", 1000, 0) {
             if let Some(arr) = events.as_array() {
-                let mut freq: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+                let mut freq: std::collections::HashMap<String, u32> =
+                    std::collections::HashMap::new();
                 let mut errors: u32 = 0;
                 let mut slow: u32 = 0;
 
@@ -72,10 +79,14 @@ impl CronusBrain {
                     if let Some(meta_str) = event.get("metadata").and_then(|v| v.as_str()) {
                         if let Ok(meta) = serde_json::from_str::<Value>(meta_str) {
                             if let Some(status) = meta.get("status").and_then(|v| v.as_u64()) {
-                                if status >= 500 { errors += 1; }
+                                if status >= 500 {
+                                    errors += 1;
+                                }
                             }
                             if let Some(dur) = meta.get("duration_ms").and_then(|v| v.as_u64()) {
-                                if dur > 100 { slow += 1; }
+                                if dur > 100 {
+                                    slow += 1;
+                                }
                             }
                         }
                     }
@@ -87,23 +98,37 @@ impl CronusBrain {
 
                 if let Some((top, count)) = sorted.first() {
                     if **count > 10 {
-                        suggestions.push(format!("Hot endpoint: {} ({} calls) — consider caching", top, count));
+                        suggestions.push(format!(
+                            "Hot endpoint: {} ({} calls) — consider caching",
+                            top, count
+                        ));
                     }
                 }
 
                 if let Some((cold, count)) = sorted.last() {
                     if sorted.len() > 2 && **count <= 1 {
-                        suggestions.push(format!("Cold endpoint: {} ({} calls) — consider removing", cold, count));
+                        suggestions.push(format!(
+                            "Cold endpoint: {} ({} calls) — consider removing",
+                            cold, count
+                        ));
                     }
                 }
 
                 if errors > 0 {
                     let pct = (errors as f64 / arr.len() as f64 * 100.0) as u32;
-                    suggestions.push(format!("Error rate: {}% ({} errors / {} requests)", pct, errors, arr.len()));
+                    suggestions.push(format!(
+                        "Error rate: {}% ({} errors / {} requests)",
+                        pct,
+                        errors,
+                        arr.len()
+                    ));
                 }
 
                 if slow > 0 {
-                    suggestions.push(format!("Slow requests: {} (>100ms) — check database queries", slow));
+                    suggestions.push(format!(
+                        "Slow requests: {} (>100ms) — check database queries",
+                        slow
+                    ));
                 }
             }
         }
@@ -131,11 +156,14 @@ impl CronusBrain {
             }
         }
 
-        let mut top_endpoints: Vec<Value> = freq.iter()
+        let mut top_endpoints: Vec<Value> = freq
+            .iter()
             .map(|(k, v)| json!({"endpoint": k, "count": v}))
             .collect();
         top_endpoints.sort_by(|a, b| {
-            b.get("count").and_then(|v| v.as_u64()).unwrap_or(0)
+            b.get("count")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0)
                 .cmp(&a.get("count").and_then(|v| v.as_u64()).unwrap_or(0))
         });
         top_endpoints.truncate(10);

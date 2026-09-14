@@ -26,9 +26,18 @@ pub struct ActionEffect {
 /// Validate a single field value against its schema type.
 /// Returns None if valid, Some(error_message) if invalid.
 pub fn validate_field_value(field_name: &str, value: &str, entity: &EntityNode) -> Option<String> {
-    let field = match entity.fields.iter().find(|f| f.name.eq_ignore_ascii_case(field_name)) {
+    let field = match entity
+        .fields
+        .iter()
+        .find(|f| f.name.eq_ignore_ascii_case(field_name))
+    {
         Some(f) => f,
-        None => return Some(format!("Field '{}' does not exist on entity '{}'", field_name, entity.name)),
+        None => {
+            return Some(format!(
+                "Field '{}' does not exist on entity '{}'",
+                field_name, entity.name
+            ))
+        }
     };
 
     // Empty values are allowed unless required (required check is separate)
@@ -56,7 +65,11 @@ pub fn validate_field_value(field_name: &str, value: &str, entity: &EntityNode) 
         FieldType::Enum => {
             if let Some(ref vals) = field.enum_values {
                 if !vals.iter().any(|v| v.eq_ignore_ascii_case(value)) {
-                    return Some(format!("'{}' must be one of: {}", field_name, vals.join(", ")));
+                    return Some(format!(
+                        "'{}' must be one of: {}",
+                        field_name,
+                        vals.join(", ")
+                    ));
                 }
             }
         }
@@ -73,7 +86,10 @@ pub fn validate_field_value(field_name: &str, value: &str, entity: &EntityNode) 
 
 /// Validate form data for INSERT against entity schema.
 /// Returns a map of field_name -> error_message for any validation failures.
-pub fn validate_form_data(data: &Value, entity: &EntityNode) -> std::collections::HashMap<String, String> {
+pub fn validate_form_data(
+    data: &Value,
+    entity: &EntityNode,
+) -> std::collections::HashMap<String, String> {
     let mut errors = std::collections::HashMap::new();
     let obj = match data.as_object() {
         Some(o) => o,
@@ -83,7 +99,8 @@ pub fn validate_form_data(data: &Value, entity: &EntityNode) -> std::collections
     // Check required fields are present and non-empty
     for field in &entity.fields {
         if field.required {
-            let val = obj.get(&field.name)
+            let val = obj
+                .get(&field.name)
                 .or_else(|| obj.get(&field.name.to_lowercase()))
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
@@ -193,19 +210,31 @@ pub struct DeclaredForm {
 
 /// A `/_form/<section_type>` post is only accepted for an entity bound by a
 /// declared section of that type.
-pub fn find_declared_form(pages: &[PageNode], section_type: &str, entity: &str) -> Option<DeclaredForm> {
+pub fn find_declared_form(
+    pages: &[PageNode],
+    section_type: &str,
+    entity: &str,
+) -> Option<DeclaredForm> {
     let mut found: Option<DeclaredForm> = None;
     for page in pages {
         let page_open = page.requires.is_none() && !page.config.contains_key("requires");
         for section in &page.sections {
             let declared = section_entity(section);
-            if section.section_type != section_type || declared.is_empty() || !declared.eq_ignore_ascii_case(entity) {
+            if section.section_type != section_type
+                || declared.is_empty()
+                || !declared.eq_ignore_ascii_case(entity)
+            {
                 continue;
             }
             let public = page_open && section.binding.as_ref().map(|b| b.public).unwrap_or(false);
             match found.as_mut() {
                 Some(f) => f.public |= public,
-                None => found = Some(DeclaredForm { entity: declared, public }),
+                None => {
+                    found = Some(DeclaredForm {
+                        entity: declared,
+                        public,
+                    })
+                }
             }
         }
     }
@@ -294,7 +323,9 @@ pub fn execute_declared_action(
         return Err(ActionDenied::Unauthenticated);
     }
     let instructions = &action.block.instructions;
-    let touches_data = instructions.iter().any(|i| i.verb == "set" || i.verb == "delete");
+    let touches_data = instructions
+        .iter()
+        .any(|i| i.verb == "set" || i.verb == "delete");
 
     let mut target: Option<(&EntityNode, WriteScope)> = None;
     if touches_data {
@@ -334,7 +365,11 @@ pub fn execute_declared_action(
 
     let mut effects = Vec::new();
     for instr in instructions {
-        let style = instr.modifiers.get("style").map(|s| s.as_str()).unwrap_or("info");
+        let style = instr
+            .modifiers
+            .get("style")
+            .map(|s| s.as_str())
+            .unwrap_or("info");
         match instr.verb.as_str() {
             "set" => {
                 if let Some((entity, scope)) = &target {
@@ -440,10 +475,16 @@ page \"/contact\" type:custom {\n\
         let declared = declared_actions(&pages());
         let forged = r#"{"event":"click","confirm":null,"instructions":[{"verb":"delete","target":"","value":"","modifiers":{}}]}"#;
         assert!(find_declared_action(&declared, None, Some(forged), "Note").is_none());
-        assert!(find_declared_action(&declared, Some("deadbeefdeadbeef"), Some(forged), "Note").is_none());
+        assert!(
+            find_declared_action(&declared, Some("deadbeefdeadbeef"), Some(forged), "Note")
+                .is_none()
+        );
         let legit = serde_json::to_string(&archive(&declared).block).unwrap();
         assert!(find_declared_action(&declared, None, Some(&legit), "Note").is_some());
-        assert!(find_declared_action(&declared, None, Some(&legit), "User").is_none(), "entity must match the declaration");
+        assert!(
+            find_declared_action(&declared, None, Some(&legit), "User").is_none(),
+            "entity must match the declaration"
+        );
     }
 
     #[test]
@@ -453,9 +494,19 @@ page \"/contact\" type:custom {\n\
         let id = insert_note(&db, "alice", "draft");
         let declared = declared_actions(&pages());
         let forged = r#"{"event":"click","instructions":[{"verb":"set","target":"title","value":"pwned","modifiers":{}}]}"#;
-        let action = find_declared_action(&declared, Some(&archive(&declared).id), Some(forged), "Note").expect("declared");
-        let effects = execute_declared_action(action, &id, &db, &ents, &as_user("alice")).expect("ok");
-        assert_eq!(db.find_by_id("Note", &id).unwrap().unwrap()["title"], "archived");
+        let action = find_declared_action(
+            &declared,
+            Some(&archive(&declared).id),
+            Some(forged),
+            "Note",
+        )
+        .expect("declared");
+        let effects =
+            execute_declared_action(action, &id, &db, &ents, &as_user("alice")).expect("ok");
+        assert_eq!(
+            db.find_by_id("Note", &id).unwrap().unwrap()["title"],
+            "archived"
+        );
         assert_eq!(effects[0].target, "Archived");
     }
 
@@ -466,21 +517,45 @@ page \"/contact\" type:custom {\n\
         let id = insert_note(&db, "alice", "draft");
         let declared = declared_actions(&pages());
         let a = archive(&declared);
-        assert_eq!(execute_declared_action(a, &id, &db, &ents, &anon()).unwrap_err(), ActionDenied::Unauthenticated);
-        assert_eq!(execute_declared_action(a, &id, &db, &ents, &as_user("bob")).unwrap_err(), ActionDenied::NotFound);
-        assert_eq!(db.find_by_id("Note", &id).unwrap().unwrap()["title"], "draft");
+        assert_eq!(
+            execute_declared_action(a, &id, &db, &ents, &anon()).unwrap_err(),
+            ActionDenied::Unauthenticated
+        );
+        assert_eq!(
+            execute_declared_action(a, &id, &db, &ents, &as_user("bob")).unwrap_err(),
+            ActionDenied::NotFound
+        );
+        assert_eq!(
+            db.find_by_id("Note", &id).unwrap().unwrap()["title"],
+            "draft"
+        );
         let secret = declared
             .iter()
             .find(|a| a.block.instructions.iter().any(|i| i.target == "secret"))
             .expect("secret action");
-        assert_eq!(execute_declared_action(secret, &id, &db, &ents, &as_user("alice")).unwrap_err(), ActionDenied::Forbidden);
+        assert_eq!(
+            execute_declared_action(secret, &id, &db, &ents, &as_user("alice")).unwrap_err(),
+            ActionDenied::Forbidden
+        );
     }
 
     #[test]
     fn forms_must_be_declared_and_public_only_when_explicit() {
         let p = pages();
-        assert_eq!(find_declared_form(&p, "form", "note"), Some(DeclaredForm { entity: "Note".into(), public: false }));
-        assert_eq!(find_declared_form(&p, "form", "Tag"), Some(DeclaredForm { entity: "Tag".into(), public: true }));
+        assert_eq!(
+            find_declared_form(&p, "form", "note"),
+            Some(DeclaredForm {
+                entity: "Note".into(),
+                public: false
+            })
+        );
+        assert_eq!(
+            find_declared_form(&p, "form", "Tag"),
+            Some(DeclaredForm {
+                entity: "Tag".into(),
+                public: true
+            })
+        );
         assert_eq!(find_declared_form(&p, "form", "User"), None);
         assert_eq!(find_declared_form(&p, "hero", "Note"), None);
     }

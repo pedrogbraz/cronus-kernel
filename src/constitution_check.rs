@@ -7,11 +7,11 @@
 //! "never" rules are checked to be FALSE.
 //! Unrecognized rules are stored as informational (no automatic check possible).
 
-use crate::parser::{AstNode, ConstitutionNode, EntityNode, PageNode, SectionNode, FieldType};
+use crate::parser::{AstNode, ConstitutionNode, EntityNode, FieldType, PageNode, SectionNode};
 
 #[derive(Debug, Clone)]
 pub struct ConstitutionViolation {
-    pub rule_type: String,  // "must" or "never"
+    pub rule_type: String, // "must" or "never"
     pub rule: String,
     pub violation: String,
     pub entity: Option<String>,
@@ -24,8 +24,11 @@ impl std::fmt::Display for ConstitutionViolation {
             "never" => "\x1b[31m\u{2717}\x1b[0m",
             _ => "\x1b[36mi\x1b[0m",
         };
-        write!(f, "  {} \x1b[1m[{}]\x1b[0m \"{}\"\n    \u{2192} {}",
-            icon, self.rule_type, self.rule, self.violation)?;
+        write!(
+            f,
+            "  {} \x1b[1m[{}]\x1b[0m \"{}\"\n    \u{2192} {}",
+            icon, self.rule_type, self.rule, self.violation
+        )?;
         if let Some(ref ent) = self.entity {
             write!(f, " ({})", ent)?;
         }
@@ -35,7 +38,10 @@ impl std::fmt::Display for ConstitutionViolation {
 
 /// Check all constitution rules against the parsed AST.
 /// Returns a list of violations (empty = all rules pass).
-pub fn check_constitution(nodes: &[AstNode], constitution: &ConstitutionNode) -> Vec<ConstitutionViolation> {
+pub fn check_constitution(
+    nodes: &[AstNode],
+    constitution: &ConstitutionNode,
+) -> Vec<ConstitutionViolation> {
     let mut violations = Vec::new();
 
     // Collect AST parts
@@ -68,10 +74,20 @@ pub fn check_constitution(nodes: &[AstNode], constitution: &ConstitutionNode) ->
             // This rule is always satisfied by the kernel — pass silently.
         } else if lower.contains("bind") && lower.contains("data") {
             // "all data sections require bind" — check data sections have bindings
-            let data_types = ["kpi", "table", "chart", "kanban", "timeline", "stats", "stat-cards"];
+            let data_types = [
+                "kpi",
+                "table",
+                "chart",
+                "kanban",
+                "timeline",
+                "stats",
+                "stat-cards",
+            ];
             for page in &pages {
                 for section in &page.sections {
-                    if !data_types.contains(&section.section_type.as_str()) { continue; }
+                    if !data_types.contains(&section.section_type.as_str()) {
+                        continue;
+                    }
                     let has_bind = section.binding.is_some();
                     let has_items = !section.items.is_empty();
                     if !has_bind && !has_items {
@@ -91,13 +107,23 @@ pub fn check_constitution(nodes: &[AstNode], constitution: &ConstitutionNode) ->
             // "auth required on all admin endpoints" — pages with data sections should have requires
             for page in &pages {
                 let has_data_section = page.sections.iter().any(|s| {
-                    matches!(s.section_type.as_str(),
-                        "kpi" | "table" | "chart" | "kanban" | "timeline" | "stats" | "stat-cards" | "form"
+                    matches!(
+                        s.section_type.as_str(),
+                        "kpi"
+                            | "table"
+                            | "chart"
+                            | "kanban"
+                            | "timeline"
+                            | "stats"
+                            | "stat-cards"
+                            | "form"
                     )
                 });
                 // Skip public-facing pages (landing, login, signup, settings)
-                let is_public = matches!(page.route.as_str(), "/" | "/login" | "/signup" | "/settings")
-                    || page.page_type == "landing"
+                let is_public = matches!(
+                    page.route.as_str(),
+                    "/" | "/login" | "/signup" | "/settings"
+                ) || page.page_type == "landing"
                     || page.page_type == "auth";
 
                 if has_data_section && !is_public && page.requires.is_none() {
@@ -114,9 +140,9 @@ pub fn check_constitution(nodes: &[AstNode], constitution: &ConstitutionNode) ->
             }
         } else if lower.contains("centavos") || lower.contains("cents") {
             // Informational: verify money fields exist. Cannot enforce formatting at AST level.
-            let has_money = entities.iter().any(|e|
-                e.fields.iter().any(|f| f.field_type == FieldType::Money)
-            );
+            let has_money = entities
+                .iter()
+                .any(|e| e.fields.iter().any(|f| f.field_type == FieldType::Money));
             if has_money {
                 // Money fields found — informational note only, no violation
             }
@@ -169,7 +195,9 @@ fn check_sensitive_in_templates(
     rule: &str,
     violations: &mut Vec<ConstitutionViolation>,
 ) {
-    if sensitive_fields.is_empty() { return; }
+    if sensitive_fields.is_empty() {
+        return;
+    }
 
     for page in pages {
         for section in &page.sections {
@@ -227,7 +255,9 @@ fn check_hardcoded_metrics(
                 let text = strip_html_tags(&without_styles);
 
                 for word in text.split_whitespace() {
-                    let w = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '.' && c != '%' && c != '$');
+                    let w = word.trim_matches(|c: char| {
+                        !c.is_alphanumeric() && c != '.' && c != '%' && c != '$'
+                    });
                     if looks_like_hardcoded_metric(w) {
                         violations.push(ConstitutionViolation {
                             rule_type: "never".into(),
@@ -271,19 +301,19 @@ fn check_orphan_reload(
 }
 
 /// Check for static numeric values in data section items (fake data).
-fn check_fake_data(
-    pages: &[&PageNode],
-    rule: &str,
-    violations: &mut Vec<ConstitutionViolation>,
-) {
+fn check_fake_data(pages: &[&PageNode], rule: &str, violations: &mut Vec<ConstitutionViolation>) {
     let data_types = ["kpi", "table", "chart", "kanban", "stats", "stat-cards"];
     for page in pages {
         for section in &page.sections {
-            if !data_types.contains(&section.section_type.as_str()) { continue; }
+            if !data_types.contains(&section.section_type.as_str()) {
+                continue;
+            }
             // Check if items contain hardcoded numeric values
             for item in &section.items {
                 for (key, value) in item {
-                    if key == "icon" || key == "type" || key == "style" { continue; }
+                    if key == "icon" || key == "type" || key == "style" {
+                        continue;
+                    }
                     // Flag if value looks like a hardcoded number (not a field reference)
                     let v = value.trim();
                     if v.parse::<f64>().is_ok() && v != "0" && v != "1" {
@@ -327,9 +357,18 @@ fn strip_html_tags(html: &str) -> String {
     let mut result = String::with_capacity(html.len());
     let mut in_tag = false;
     for ch in html.chars() {
-        if ch == '<' { in_tag = true; continue; }
-        if ch == '>' { in_tag = false; result.push(' '); continue; }
-        if !in_tag { result.push(ch); }
+        if ch == '<' {
+            in_tag = true;
+            continue;
+        }
+        if ch == '>' {
+            in_tag = false;
+            result.push(' ');
+            continue;
+        }
+        if !in_tag {
+            result.push(ch);
+        }
     }
     result
 }
@@ -342,9 +381,17 @@ fn has_exposed_sensitive_field(html: &str, field: &str) -> bool {
         let abs = pos + idx;
 
         // Word boundary check
-        let before_byte = if abs > 0 { html.as_bytes()[abs - 1] } else { b' ' };
+        let before_byte = if abs > 0 {
+            html.as_bytes()[abs - 1]
+        } else {
+            b' '
+        };
         let after_pos = abs + field.len();
-        let after_byte = if after_pos < html.len() { html.as_bytes()[after_pos] } else { b' ' };
+        let after_byte = if after_pos < html.len() {
+            html.as_bytes()[after_pos]
+        } else {
+            b' '
+        };
         let is_boundary = |b: u8| !b.is_ascii_alphanumeric() && b != b'_';
 
         if !is_boundary(before_byte) || !is_boundary(after_byte) {
@@ -359,14 +406,18 @@ fn has_exposed_sensitive_field(html: &str, field: &str) -> bool {
         // Skip if inside <input type="password"> — form input, not display
         if let Some(tag_start) = before.rfind('<') {
             let tag = &before[tag_start..];
-            if tag.contains("input") && (tag.contains("type='password'") || tag.contains("type=\"password\"")) {
+            if tag.contains("input")
+                && (tag.contains("type='password'") || tag.contains("type=\"password\""))
+            {
                 pos = abs + field.len();
                 continue;
             }
         }
 
         // Skip if inside name="", type="", or placeholder="" attribute value
-        let in_attr = ["name", "type", "placeholder"].iter().any(|a| is_in_attr_value(before, a));
+        let in_attr = ["name", "type", "placeholder"]
+            .iter()
+            .any(|a| is_in_attr_value(before, a));
         if in_attr {
             pos = abs + field.len();
             continue;
@@ -396,9 +447,17 @@ fn contains_word(text: &str, word: &str) -> bool {
     let mut pos = 0;
     while let Some(idx) = text[pos..].find(word) {
         let abs = pos + idx;
-        let before = if abs > 0 { text.as_bytes()[abs - 1] } else { b' ' };
+        let before = if abs > 0 {
+            text.as_bytes()[abs - 1]
+        } else {
+            b' '
+        };
         let after_pos = abs + word.len();
-        let after = if after_pos < text.len() { text.as_bytes()[after_pos] } else { b' ' };
+        let after = if after_pos < text.len() {
+            text.as_bytes()[after_pos]
+        } else {
+            b' '
+        };
         let is_boundary = |b: u8| !b.is_ascii_alphanumeric() && b != b'_';
         if is_boundary(before) && is_boundary(after) {
             return true;
@@ -413,7 +472,11 @@ fn has_orphan_reload(html: &str) -> bool {
     let mut pos = 0;
     while let Some(idx) = html[pos..].find(needle) {
         let abs = pos + idx;
-        let before = if abs > 30 { &html[abs-30..abs] } else { &html[..abs] };
+        let before = if abs > 30 {
+            &html[abs - 30..abs]
+        } else {
+            &html[..abs]
+        };
         if before.contains("CRONUS.reload") || before.contains("CRONUS&&") {
             pos = abs + needle.len();
             continue;
@@ -424,18 +487,25 @@ fn has_orphan_reload(html: &str) -> bool {
 }
 
 fn looks_like_hardcoded_metric(w: &str) -> bool {
-    if w.len() < 3 { return false; }
+    if w.len() < 3 {
+        return false;
+    }
     // $123,456
     if w.starts_with('$') && w.len() > 1 && w[1..].replace(',', "").parse::<f64>().is_ok() {
         return true;
     }
     // 99.99%
-    if w.ends_with('%') && w[..w.len()-1].parse::<f64>().is_ok() {
+    if w.ends_with('%') && w[..w.len() - 1].parse::<f64>().is_ok() {
         return true;
     }
     // 1.2M, 4.5GB etc.
-    if (w.ends_with('K') || w.ends_with('M') || w.ends_with('B') || w.ends_with('T')
-        || w.ends_with("GB") || w.ends_with("MB") || w.ends_with("TB"))
+    if (w.ends_with('K')
+        || w.ends_with('M')
+        || w.ends_with('B')
+        || w.ends_with('T')
+        || w.ends_with("GB")
+        || w.ends_with("MB")
+        || w.ends_with("TB"))
         && w.len() > 1
     {
         let num_part = w.trim_end_matches(|c: char| c.is_alphabetic());
@@ -462,23 +532,31 @@ mod tests {
     fn make_entity(name: &str, fields: Vec<(&str, FieldType, bool)>) -> AstNode {
         AstNode::Entity(EntityNode {
             name: name.into(),
-            fields: fields.into_iter().map(|(n, ft, sensitive)| FieldNode {
-                name: n.into(),
-                field_type: ft,
-                required: false,
-                unique: false,
-                sensitive,
-                optional: false,
-                searchable: false,
-                index: false,
-                featured: false,
-                formatted: false,
-                array: false,
-                enum_values: None,
-                reference: None,
-                doc: None,
-                default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
-            }).collect(),
+            fields: fields
+                .into_iter()
+                .map(|(n, ft, sensitive)| FieldNode {
+                    name: n.into(),
+                    field_type: ft,
+                    required: false,
+                    unique: false,
+                    sensitive,
+                    optional: false,
+                    searchable: false,
+                    index: false,
+                    featured: false,
+                    formatted: false,
+                    array: false,
+                    enum_values: None,
+                    reference: None,
+                    doc: None,
+                    default_value: None,
+                    min: None,
+                    max: None,
+                    min_length: None,
+                    max_length: None,
+                    pattern: None,
+                })
+                .collect(),
             transitions: vec![],
             effects: vec![],
             shared: false,
@@ -518,9 +596,13 @@ mod tests {
                     limit: None,
                     offset: None,
                     group_by: None,
-                    aggregate: None, live: false, public: false,
+                    aggregate: None,
+                    live: false,
+                    public: false,
                 })
-            } else { None },
+            } else {
+                None
+            },
             actions: vec![],
             visibility: None,
             template: None,
@@ -531,12 +613,14 @@ mod tests {
 
     #[test]
     fn test_must_bind_pass() {
-        let nodes = vec![
-            make_page("/dashboard", Some("auth"), vec![
+        let nodes = vec![make_page(
+            "/dashboard",
+            Some("auth"),
+            vec![
                 make_data_section("table", true),
                 make_data_section("kpi", true),
-            ]),
-        ];
+            ],
+        )];
         let c = make_constitution(vec!["all data sections require bind"], vec![]);
         let v = check_constitution(&nodes, &c);
         assert!(v.is_empty(), "expected no violations, got: {:?}", v);
@@ -544,11 +628,11 @@ mod tests {
 
     #[test]
     fn test_must_bind_fail() {
-        let nodes = vec![
-            make_page("/dashboard", Some("auth"), vec![
-                make_data_section("table", false),
-            ]),
-        ];
+        let nodes = vec![make_page(
+            "/dashboard",
+            Some("auth"),
+            vec![make_data_section("table", false)],
+        )];
         let c = make_constitution(vec!["all data sections require bind"], vec![]);
         let v = check_constitution(&nodes, &c);
         assert_eq!(v.len(), 1);
@@ -559,9 +643,7 @@ mod tests {
     fn test_never_orphan_reload() {
         let mut section = make_data_section("hero", false);
         section.template = Some("<script>location.reload()</script>".into());
-        let nodes = vec![
-            make_page("/", None, vec![section]),
-        ];
+        let nodes = vec![make_page("/", None, vec![section])];
         let c = make_constitution(vec![], vec!["use location.reload()"]);
         let v = check_constitution(&nodes, &c);
         assert_eq!(v.len(), 1);
@@ -571,12 +653,17 @@ mod tests {
     #[test]
     fn test_never_expose_password() {
         let mut section = make_data_section("table", true);
-        section.config.insert("columns".into(), "name, email, password".into());
+        section
+            .config
+            .insert("columns".into(), "name, email, password".into());
         let nodes = vec![
-            make_entity("User", vec![
-                ("name", FieldType::String, false),
-                ("password", FieldType::String, true),
-            ]),
+            make_entity(
+                "User",
+                vec![
+                    ("name", FieldType::String, false),
+                    ("password", FieldType::String, true),
+                ],
+            ),
             make_page("/users", Some("auth"), vec![section]),
         ];
         let c = make_constitution(vec![], vec!["expose passwords in API responses"]);
@@ -611,20 +698,30 @@ mod tests {
         );
 
         let nodes = vec![
-            make_entity("User", vec![
-                ("name", FieldType::String, false),
-                ("password", FieldType::String, true),
-            ]),
-            make_entity("Deployment", vec![
-                ("deploy_id", FieldType::String, false),
-                ("service", FieldType::String, false),
-            ]),
+            make_entity(
+                "User",
+                vec![
+                    ("name", FieldType::String, false),
+                    ("password", FieldType::String, true),
+                ],
+            ),
+            make_entity(
+                "Deployment",
+                vec![
+                    ("deploy_id", FieldType::String, false),
+                    ("service", FieldType::String, false),
+                ],
+            ),
             // Home page "/" is public, so no auth required
-            make_page("/", None, vec![
-                make_data_section("kpi", true),
-                make_data_section("chart", true),
-                make_data_section("table", true),
-            ]),
+            make_page(
+                "/",
+                None,
+                vec![
+                    make_data_section("kpi", true),
+                    make_data_section("chart", true),
+                    make_data_section("table", true),
+                ],
+            ),
         ];
 
         let v = check_constitution(&nodes, &c);

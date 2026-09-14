@@ -69,7 +69,9 @@ mod tests {
     #[test]
     fn url_config_fills_address_bar_escaped() {
         let mut c = stub("frame", "Checkout");
-        c.items[0].config.insert("url".into(), "cronus.dev/?a=1&b".into());
+        c.items[0]
+            .config
+            .insert("url".into(), "cronus.dev/?a=1&b".into());
         let html = render(&c);
         assert!(html.contains("<div data-slot=\"frame-address-bar\">cronus.dev/?a=1&amp;b</div>"));
         let mut p = stub("frame", "Checkout");
@@ -125,7 +127,8 @@ mod tests {
         assert!(css.contains(
             "[data-slot=\"frame-address-bar\"] {\n  margin: 0 auto; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
         ));
-        assert!(css.contains("font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-tertiary);"));
+        assert!(css
+            .contains("font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-tertiary);"));
         assert!(css.contains("var(--cronus-error)"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(DISPLAY_SURF));

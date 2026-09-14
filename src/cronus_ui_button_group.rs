@@ -100,7 +100,9 @@ mod tests {
     #[test]
     fn emitted_fixture_label_is_aria_not_a_button() {
         let mut c = group("Actions", &["Save", "Cancel"]);
-        c.items[2].config.insert("aria-label".into(), "Actions".into());
+        c.items[2]
+            .config
+            .insert("aria-label".into(), "Actions".into());
         let html = render(&c);
         assert_eq!(
             html,
@@ -130,7 +132,8 @@ mod tests {
     fn skips_interact_buttonish() {
         let html = render(&group("G", &["Edit", "Share"]));
         let interact =
-            crate::cronus_ui_interact::render("button-group", &stub("button-group", "Edit")).unwrap();
+            crate::cronus_ui_interact::render("button-group", &stub("button-group", "Edit"))
+                .unwrap();
         assert_ne!(html, interact);
         assert!(interact.contains("display:inline-flex;gap:0.25rem"));
         assert_eq!(html.matches("<button").count(), 2);
@@ -147,7 +150,9 @@ mod tests {
     #[test]
     fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"button-group\"] > [data-slot=\"button\"] { line-height: 1.25rem; }"));
+        assert!(css.contains(
+            "[data-slot=\"button-group\"] > [data-slot=\"button\"] { line-height: 1.25rem; }"
+        ));
         assert!(css.contains(
             "[data-slot=\"button-group\"] > [data-slot=\"button\"][data-variant=\"primary\"] { border-width: 0; }"
         ));

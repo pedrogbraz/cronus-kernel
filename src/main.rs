@@ -2,10 +2,11 @@
 mod access;
 mod actions;
 mod animations;
-mod audit;
 mod api_crud;
 #[cfg(test)]
 mod api_security_tests;
+mod ast_diff;
+mod audit;
 mod auth;
 mod authz;
 mod binding;
@@ -13,59 +14,23 @@ mod block_explorer;
 mod board;
 mod brain;
 mod cache;
-mod error;
+mod cli;
 mod command_palette;
 mod components;
 mod constitution_check;
 mod contracts;
-mod data_table;
-mod database;
-mod deploy;
-mod dump;
-mod export;
-mod feedback;
-mod graph;
-mod graphql;
-mod hardcode_lint;
-mod hmr;
-mod http_guard;
-mod hydra;
-mod i18n;
-mod layout_system;
-mod lint;
-mod marketing_components;
-mod orchestrator;
-mod overlays;
-mod parser;
-mod payments;
-mod promote;
-mod rate_limit;
-mod reactive;
-mod realtime;
-mod render;
-mod runtime_js;
-mod scripting;
-mod server;
-mod session;
-mod trust;
-mod zeus;
-mod sse;
-mod tabs;
-mod tailwind;
-mod testing;
-mod theme;
 mod cronus_ui;
 mod cronus_ui_accordion;
 mod cronus_ui_alert;
+mod cronus_ui_alert_dialog;
 mod cronus_ui_animated_button;
 mod cronus_ui_animated_list;
 mod cronus_ui_animated_number;
 mod cronus_ui_app_shell;
-mod cronus_ui_alert_dialog;
-mod cronus_ui_autocomplete;
 mod cronus_ui_area_chart;
 mod cronus_ui_aspect_ratio;
 mod cronus_ui_aurora_background;
+mod cronus_ui_autocomplete;
 mod cronus_ui_avatar;
 mod cronus_ui_avatar_group;
 mod cronus_ui_badge;
@@ -85,21 +50,21 @@ mod cronus_ui_checkbox;
 mod cronus_ui_chip;
 mod cronus_ui_choropleth_chart;
 mod cronus_ui_click_spark;
+mod cronus_ui_code_block;
+mod cronus_ui_code_tabs;
+mod cronus_ui_collapsible;
+mod cronus_ui_color_picker;
 mod cronus_ui_combobox;
 mod cronus_ui_command;
 mod cronus_ui_comparison_slider;
 mod cronus_ui_composed_chart;
 mod cronus_ui_confetti;
 mod cronus_ui_confirmation_dialog;
-mod cronus_ui_code_block;
-mod cronus_ui_code_tabs;
-mod cronus_ui_collapsible;
-mod cronus_ui_color_picker;
+mod cronus_ui_context_menu;
 mod cronus_ui_copy_button;
 mod cronus_ui_countdown;
 mod cronus_ui_credit_card_input;
 mod cronus_ui_currency_input;
-mod cronus_ui_context_menu;
 mod cronus_ui_data;
 mod cronus_ui_data_table;
 mod cronus_ui_date_picker;
@@ -113,9 +78,9 @@ mod cronus_ui_dropdown_menu;
 mod cronus_ui_dynamic_island;
 mod cronus_ui_empty;
 mod cronus_ui_expandable_tabs;
+mod cronus_ui_fab;
 mod cronus_ui_field;
 mod cronus_ui_file_dropzone;
-mod cronus_ui_fab;
 mod cronus_ui_flickering_grid;
 mod cronus_ui_flip_card;
 mod cronus_ui_floating_label_input;
@@ -136,8 +101,8 @@ mod cronus_ui_image_zoom;
 mod cronus_ui_input;
 mod cronus_ui_input_group;
 mod cronus_ui_input_otp;
-mod cronus_ui_invite_dialog;
 mod cronus_ui_interact;
+mod cronus_ui_invite_dialog;
 mod cronus_ui_json_viewer;
 mod cronus_ui_kanban;
 mod cronus_ui_kbd;
@@ -146,11 +111,11 @@ mod cronus_ui_label;
 mod cronus_ui_light_rays;
 mod cronus_ui_lightbox;
 mod cronus_ui_line_chart;
-mod cronus_ui_masonry;
-mod cronus_ui_marquee;
 mod cronus_ui_live_line_chart;
 mod cronus_ui_logo_carousel;
 mod cronus_ui_magnetic;
+mod cronus_ui_marquee;
+mod cronus_ui_masonry;
 mod cronus_ui_menubar;
 mod cronus_ui_metric;
 mod cronus_ui_mode_toggle;
@@ -164,21 +129,21 @@ mod cronus_ui_number_input;
 mod cronus_ui_orbit;
 mod cronus_ui_pagination;
 mod cronus_ui_particles;
-mod cronus_ui_popover;
 mod cronus_ui_password_input;
 mod cronus_ui_phone_input;
 mod cronus_ui_pie_chart;
 mod cronus_ui_pill_nav;
+mod cronus_ui_popover;
+mod cronus_ui_profit_loss_chart;
 mod cronus_ui_progress;
 mod cronus_ui_progressive_blur;
-mod cronus_ui_profit_loss_chart;
 mod cronus_ui_radar_chart;
 mod cronus_ui_radio_group;
 mod cronus_ui_rating;
 mod cronus_ui_resizable;
 mod cronus_ui_retro_grid;
-mod cronus_ui_rich_text_editor;
 mod cronus_ui_reveal;
+mod cronus_ui_rich_text_editor;
 mod cronus_ui_ring_chart;
 mod cronus_ui_ripple;
 mod cronus_ui_scatter_chart;
@@ -196,102 +161,144 @@ mod cronus_ui_sidebar;
 mod cronus_ui_signature_pad;
 mod cronus_ui_skeleton;
 mod cronus_ui_slider;
+mod cronus_ui_sonner;
 mod cronus_ui_sparkles_text;
 mod cronus_ui_sparkline;
-mod cronus_ui_sonner;
 mod cronus_ui_spinner;
 mod cronus_ui_spinning_text;
 mod cronus_ui_split_button;
-mod cronus_ui_star_border;
 mod cronus_ui_spotlight_card;
+mod cronus_ui_star_border;
 mod cronus_ui_status_dot;
 mod cronus_ui_stepper;
 mod cronus_ui_sunburst_chart;
+mod cronus_ui_switch;
 mod cronus_ui_table;
 mod cronus_ui_table_of_contents;
 mod cronus_ui_tabs;
 mod cronus_ui_tags_input;
 mod cronus_ui_terminal;
-mod cronus_ui_tooltip;
-mod cronus_ui_tree_view;
-mod cronus_ui_switch;
-mod cronus_ui_textarea;
 mod cronus_ui_text_effect;
 mod cronus_ui_text_shimmer;
+mod cronus_ui_textarea;
 mod cronus_ui_tilt_card;
-mod cronus_ui_typing_text;
 mod cronus_ui_time_picker;
 mod cronus_ui_timeline;
+mod cronus_ui_toast;
 mod cronus_ui_toggle;
 mod cronus_ui_toggle_group;
-mod cronus_ui_toast;
 mod cronus_ui_toolbar;
+mod cronus_ui_tooltip;
+mod cronus_ui_tree_view;
+mod cronus_ui_typing_text;
 mod cronus_ui_usage_meter;
 mod cronus_ui_video_player;
-mod cronus_ui_workspace_switcher;
-mod cronus_ui_word_rotate;
 mod cronus_ui_widgets;
+mod cronus_ui_word_rotate;
+mod cronus_ui_workspace_switcher;
+mod data_table;
+mod database;
+mod deploy;
+mod dump;
+mod error;
+mod export;
+mod feedback;
+mod graph;
+mod graphql;
+mod hardcode_lint;
+mod hmr;
+mod http_guard;
+mod hydra;
+mod i18n;
+mod layout_system;
+mod lint;
+mod marketing_components;
+mod memory;
+mod navigation;
+mod orchestrator;
+mod overlays;
+mod parser;
+mod payments;
+mod promote;
+mod rate_limit;
+mod reactive;
+mod realtime;
+mod render;
+mod resolve;
+mod runtime_js;
+mod scripting;
+mod security;
+mod server;
+mod session;
+mod sse;
+mod tabs;
+mod tailwind;
+mod testing;
+mod theme;
+mod trust;
+mod ui;
+mod vm;
 mod voodoo;
 mod webhook;
-mod navigation;
-mod security;
-mod ui;
-mod ast_diff;
-mod memory;
-mod resolve;
-mod vm;
-mod cli;
+mod zeus;
 
-use cli::help::print_help;
-use cli::stats::cmd_stats;
-use cli::parse_cmd::cmd_parse;
-use cli::doctor::cmd_doctor;
 use cli::brief::cmd_brief;
-use cli::graph_cmd::cmd_graph;
+use cli::brief::{
+    brief_json_arr, brief_json_val, brief_today_date, brief_toml_arr, brief_toml_arr_after_section,
+    brief_toml_val,
+};
+use cli::build::cmd_build;
+use cli::changelog::cmd_changelog;
+use cli::compose::cmd_compose;
+use cli::context::cmd_context;
+use cli::deploy_cmd::cmd_deploy;
+use cli::doctor::cmd_doctor;
+use cli::drift::cmd_drift;
+use cli::dump_cmd::cmd_dump;
 use cli::export_cmd::cmd_export;
 use cli::generate::cmd_generate;
+use cli::graph_cmd::cmd_graph;
 use cli::handoff::cmd_handoff;
-use cli::context::cmd_context;
-use cli::memory_cmd::cmd_memory;
-use cli::changelog::cmd_changelog;
-use cli::build::cmd_build;
-use cli::dump_cmd::cmd_dump;
-use cli::validate::{cmd_validate, cmd_validate_mission};
-use cli::verify::{cmd_verify, cmd_verify_audit, cmd_debug_audit};
-use cli::new::cmd_new;
-use cli::seed::cmd_seed;
-use cli::deploy_cmd::cmd_deploy;
-use cli::test_cmd::cmd_test;
-use cli::compose::cmd_compose;
-use cli::sync_cmd::cmd_sync;
-use cli::drift::cmd_drift;
+use cli::help::print_help;
 use cli::lease::cmd_lease;
-use cli::review::cmd_review;
-use cli::timeline::cmd_timeline;
-use cli::status_cmd::cmd_status;
-use cli::segment::cmd_segment;
-use cli::reconcile::cmd_reconcile;
-use cli::spec::cmd_spec;
+use cli::memory_cmd::cmd_memory;
+use cli::new::cmd_new;
 use cli::objective_kernel::reconcile_field_type_str;
-use cli::brief::{brief_toml_val, brief_toml_arr, brief_toml_arr_after_section, brief_json_arr, brief_json_val, brief_today_date};
+use cli::parse_cmd::cmd_parse;
+use cli::reconcile::cmd_reconcile;
+use cli::review::cmd_review;
+use cli::seed::cmd_seed;
+use cli::segment::cmd_segment;
+use cli::spec::cmd_spec;
+use cli::stats::cmd_stats;
+use cli::status_cmd::cmd_status;
+use cli::sync_cmd::cmd_sync;
+use cli::test_cmd::cmd_test;
+use cli::timeline::cmd_timeline;
+use cli::validate::{cmd_validate, cmd_validate_mission};
+use cli::verify::{cmd_debug_audit, cmd_verify, cmd_verify_audit};
 
 use std::env;
 use std::fs;
 use std::io::Write as IoWrite;
 
-use hyper::{body::Incoming, server::conn::http1, service::service_fn, Request, Response, Method, StatusCode};
-use hyper_util::rt::TokioIo;
-use http_body_util::{BodyExt, Full};
 use bytes::Bytes;
-use tokio::net::TcpListener;
+use http_body_util::{BodyExt, Full};
+use hyper::{
+    body::Incoming, server::conn::http1, service::service_fn, Method, Request, Response, StatusCode,
+};
+use hyper_util::rt::TokioIo;
 use rusqlite::Connection;
 use serde_json::{json, Value};
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::net::TcpListener;
 
-use parser::{AstNode, EntityNode, PageNode, StyleNode, ApiNode, AppNode, FieldType, FieldNode,
-    AuthNode, ServiceNode, ComponentNode, EventNode, WorkerNode, MiddlewareNode, SectionNode,
-    ImportNode, EnvNode, TestNode, ComposeNode, LayoutNode, RouteNode, HttpMethod, DatabaseConfig};
+use parser::{
+    ApiNode, AppNode, AstNode, AuthNode, ComponentNode, ComposeNode, DatabaseConfig, EntityNode,
+    EnvNode, EventNode, FieldNode, FieldType, HttpMethod, ImportNode, LayoutNode, MiddlewareNode,
+    PageNode, RouteNode, SectionNode, ServiceNode, StyleNode, TestNode, WorkerNode,
+};
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
@@ -303,11 +310,13 @@ pub static AUDIT_CANVAS: AtomicBool = AtomicBool::new(false);
 
 /// Cache for the last `--ai` build result, served by `GET /api/_errors`.
 /// Written by `cmd_build` when `--ai` flag is used, read by the server.
-use std::sync::{Mutex, LazyLock};
+use std::sync::{LazyLock, Mutex};
 pub static LAST_AI_ERRORS: LazyLock<Mutex<Option<serde_json::Value>>> =
     LazyLock::new(|| Mutex::new(None));
 
-use server::state::{RequestTrace, TraceBuffer, generate_request_id, current_time_hms, iso_timestamp};
+use server::state::{
+    current_time_hms, generate_request_id, iso_timestamp, RequestTrace, TraceBuffer,
+};
 
 // ══════════════════════════════════════════════════
 // MAIN
@@ -381,7 +390,6 @@ async fn main() {
 
 // cmd_context moved to cli/context.rs
 
-
 // ══════════════════════════════════════════════════
 // FIND .cronus FILE
 // ══════════════════════════════════════════════════
@@ -423,10 +431,9 @@ pub(crate) fn find_all_cronus_files() -> Vec<String> {
 
 use server::state::AppState;
 
-use server::response::{cors_origin, json_response, html_response, forbidden_response};
 use server::auth_pages::{generate_login_page, generate_register_page};
 use server::docs::{render_auto_docs, render_design_system, render_graph_page};
-
+use server::response::{cors_origin, forbidden_response, html_response, json_response};
 
 async fn handle_request(
     req: Request<Incoming>,
@@ -458,7 +465,10 @@ async fn handle_request(
 
     if req.method() == Method::GET && req.uri().path() == "/api/debug/traces" {
         let traces = state.trace_buffer.last_n(50);
-        return Ok(json_response(StatusCode::OK, serde_json::to_value(&traces).unwrap_or(json!([]))));
+        return Ok(json_response(
+            StatusCode::OK,
+            serde_json::to_value(&traces).unwrap_or(json!([])),
+        ));
     }
 
     let voodoo_on = crate::voodoo::wanted(&state.app.stack, state.style.as_ref());
@@ -483,7 +493,11 @@ async fn handle_request(
     {
         use http_body_util::BodyExt;
         let (parts, body) = resp.into_parts();
-        let bytes = body.collect().await.map(|c| c.to_bytes()).unwrap_or_else(|never| match never {});
+        let bytes = body
+            .collect()
+            .await
+            .map(|c| c.to_bytes())
+            .unwrap_or_else(|never| match never {});
         let cleaned = crate::security::strip_script_nonce_markers(&String::from_utf8_lossy(&bytes));
         resp = Response::from_parts(parts, Full::new(Bytes::from(cleaned)));
     }
@@ -507,7 +521,12 @@ async fn handle_request(
     {
         let status = resp.status().as_u16();
         // Skip zeus/trust internal endpoints from traces
-        if !req_path_str.starts_with("/zeus") && !req_path_str.starts_with("/trust") && !req_path_str.starts_with("/.cronus/") && !req_path_str.starts_with("/blocks") && !req_path_str.starts_with("/hydra") {
+        if !req_path_str.starts_with("/zeus")
+            && !req_path_str.starts_with("/trust")
+            && !req_path_str.starts_with("/.cronus/")
+            && !req_path_str.starts_with("/blocks")
+            && !req_path_str.starts_with("/hydra")
+        {
             state.zeus.push(zeus::ZeusTrace {
                 id: req_id.clone(),
                 method: req_method_str.clone(),
@@ -542,11 +561,33 @@ async fn handle_request(
             duration_ms,
             query_count: queries,
         });
-        let sc = match status { 200..=299 => "\x1b[32m", 300..=399 => "\x1b[36m", 400..=499 => "\x1b[33m", _ => "\x1b[31m" };
-        let tc = if duration_ms > 100 { "\x1b[33m" } else { "\x1b[90m" };
-        let dp = if req_path_str.len() > 35 { &req_path_str[..35] } else { &req_path_str };
-        eprintln!("  \x1b[90m{}\x1b[0m {:<5} {:<35} {}{}\x1b[0m  {}{}ms\x1b[0m  {}q",
-            current_time_hms(), req_method_str, dp, sc, status, tc, duration_ms, queries);
+        let sc = match status {
+            200..=299 => "\x1b[32m",
+            300..=399 => "\x1b[36m",
+            400..=499 => "\x1b[33m",
+            _ => "\x1b[31m",
+        };
+        let tc = if duration_ms > 100 {
+            "\x1b[33m"
+        } else {
+            "\x1b[90m"
+        };
+        let dp = if req_path_str.len() > 35 {
+            &req_path_str[..35]
+        } else {
+            &req_path_str
+        };
+        eprintln!(
+            "  \x1b[90m{}\x1b[0m {:<5} {:<35} {}{}\x1b[0m  {}{}ms\x1b[0m  {}q",
+            current_time_hms(),
+            req_method_str,
+            dp,
+            sc,
+            status,
+            tc,
+            duration_ms,
+            queries
+        );
     }
 
     Ok(resp)
@@ -580,7 +621,10 @@ async fn handle_request_inner(
 
     // HMR version endpoint
     if path == "/.cronus/version" {
-        return Ok(json_response(StatusCode::OK, json!({ "version": hmr::current_version() })));
+        return Ok(json_response(
+            StatusCode::OK,
+            json!({ "version": hmr::current_version() }),
+        ));
     }
 
     // Block explorer
@@ -606,10 +650,13 @@ async fn handle_request_inner(
     if path == "/zeus/api" {
         let traces = state.zeus.last_n(100);
         let stats = state.zeus.stats();
-        return Ok(json_response(StatusCode::OK, json!({
-            "stats": stats,
-            "traces": traces,
-        })));
+        return Ok(json_response(
+            StatusCode::OK,
+            json!({
+                "stats": stats,
+                "traces": traces,
+            }),
+        ));
     }
     if path == "/zeus/slow" {
         let slow = state.zeus.slow_traces(50.0); // >50ms
@@ -628,23 +675,32 @@ async fn handle_request_inner(
     if path == "/api/hydra/evolve" {
         let mut registry = hydra::registry::BlockRegistry::open(".cronus/block-registry.json");
         let report = hydra::evolve(&mut registry, &state.script_registry.scripts);
-        return Ok(json_response(StatusCode::OK, serde_json::to_value(&report).unwrap_or(json!({"error":"serialize"}))));
+        return Ok(json_response(
+            StatusCode::OK,
+            serde_json::to_value(&report).unwrap_or(json!({"error":"serialize"})),
+        ));
     }
     if path == "/api/hydra/candidates" {
         let candidates = hydra::extract::extract_candidates(&state.script_registry.scripts);
-        let data: Vec<serde_json::Value> = candidates.iter().map(|c| {
-            json!({
-                "name": c.name,
-                "source": c.source_script,
-                "type": format!("{:?}", c.block_type),
-                "entity": c.entity,
-                "trust_score": format!("{:.3}", c.trust_score),
-                "executions": c.executions,
-                "promotable": c.promotable,
-                "reason": c.reason,
+        let data: Vec<serde_json::Value> = candidates
+            .iter()
+            .map(|c| {
+                json!({
+                    "name": c.name,
+                    "source": c.source_script,
+                    "type": format!("{:?}", c.block_type),
+                    "entity": c.entity,
+                    "trust_score": format!("{:.3}", c.trust_score),
+                    "executions": c.executions,
+                    "promotable": c.promotable,
+                    "reason": c.reason,
+                })
             })
-        }).collect();
-        return Ok(json_response(StatusCode::OK, json!({"candidates": data, "total": candidates.len()})));
+            .collect();
+        return Ok(json_response(
+            StatusCode::OK,
+            json!({"candidates": data, "total": candidates.len()}),
+        ));
     }
 
     // ── Rate limiting (API endpoints only) ──
@@ -674,24 +730,30 @@ async fn handle_request_inner(
     // Trust engine endpoint
     if path == "/api/trust" || path == "/trust" {
         let metrics = trust::all_metrics();
-        let trust_data: Vec<serde_json::Value> = metrics.iter().map(|m| {
-            let evidence = m.to_evidence();
-            let gates = trust::TrustGates::new_clean();
-            let profile = trust::TrustProfile::from_evidence(&evidence, gates);
-            json!({
-                "block_id": m.block_id,
-                "executions": m.executions,
-                "errors": m.errors,
-                "avg_latency_ms": format!("{:.2}", m.avg_latency_ms()),
-                "trust_score": format!("{:.3}", profile.score()),
-                "status": format!("{:?}", profile.status()),
-                "promotable": profile.promotable(),
+        let trust_data: Vec<serde_json::Value> = metrics
+            .iter()
+            .map(|m| {
+                let evidence = m.to_evidence();
+                let gates = trust::TrustGates::new_clean();
+                let profile = trust::TrustProfile::from_evidence(&evidence, gates);
+                json!({
+                    "block_id": m.block_id,
+                    "executions": m.executions,
+                    "errors": m.errors,
+                    "avg_latency_ms": format!("{:.2}", m.avg_latency_ms()),
+                    "trust_score": format!("{:.3}", profile.score()),
+                    "status": format!("{:?}", profile.status()),
+                    "promotable": profile.promotable(),
+                })
             })
-        }).collect();
-        return Ok(json_response(StatusCode::OK, json!({
-            "blocks": trust_data,
-            "total_tracked": metrics.len(),
-        })));
+            .collect();
+        return Ok(json_response(
+            StatusCode::OK,
+            json!({
+                "blocks": trust_data,
+                "total_tracked": metrics.len(),
+            }),
+        ));
     }
 
     // Brain stats endpoint
@@ -699,12 +761,18 @@ async fn handle_request_inner(
         if let Some(ref brain) = state.brain {
             return Ok(json_response(StatusCode::OK, brain.stats()));
         }
-        return Ok(json_response(StatusCode::OK, json!({"status": "brain not initialized"})));
+        return Ok(json_response(
+            StatusCode::OK,
+            json!({"status": "brain not initialized"}),
+        ));
     }
     if path == "/api/brain/suggest" {
         if let Some(ref brain) = state.brain {
             let suggestions = brain.suggest("");
-            return Ok(json_response(StatusCode::OK, json!({"suggestions": suggestions})));
+            return Ok(json_response(
+                StatusCode::OK,
+                json!({"suggestions": suggestions}),
+            ));
         }
         return Ok(json_response(StatusCode::OK, json!({"suggestions": []})));
     }
@@ -713,7 +781,10 @@ async fn handle_request_inner(
     if path.starts_with("/api/auth/") {
         let headers = req.headers().clone();
         let body_bytes = if method == Method::POST {
-            match http_guard::read_body(req).await { Ok(b) => b, Err(r) => return Ok(r) }
+            match http_guard::read_body(req).await {
+                Ok(b) => b,
+                Err(r) => return Ok(r),
+            }
         } else {
             Default::default()
         };
@@ -727,15 +798,29 @@ async fn handle_request_inner(
     // Payment endpoints
     if path == "/api/checkout" && method == Method::POST {
         let engine = payments::PaymentEngine::from_env();
-        let result = engine.create_checkout_url("starter", 2900, "/billing/success", "/billing/cancel", None);
+        let result = engine.create_checkout_url(
+            "starter",
+            2900,
+            "/billing/success",
+            "/billing/cancel",
+            None,
+        );
         match result {
             Ok(data) => return Ok(json_response(StatusCode::OK, data)),
-            Err(e) => return Ok(json_response(StatusCode::INTERNAL_SERVER_ERROR, json!({"error": e}))),
+            Err(e) => {
+                return Ok(json_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    json!({"error": e}),
+                ))
+            }
         }
     }
     if path == "/api/webhooks/stripe" && method == Method::POST {
         let engine = payments::PaymentEngine::from_env();
-        return Ok(json_response(StatusCode::OK, json!({"status": "webhook received", "mode": if engine.is_live() { "live" } else { "mock" }})));
+        return Ok(json_response(
+            StatusCode::OK,
+            json!({"status": "webhook received", "mode": if engine.is_live() { "live" } else { "mock" }}),
+        ));
     }
     if path == "/api/payments/status" {
         let engine = payments::PaymentEngine::from_env();
@@ -777,24 +862,54 @@ async fn handle_request_inner(
     // Audit results storage (posted by the audit widget)
     if path == "/api/audit/results" && method == hyper::Method::POST {
         // Dev only (http_guard 404s it in production). Project dir, never /tmp.
-        let body_bytes = match http_guard::read_body(req.into_body()).await { Ok(b) => b, Err(r) => return Ok(r) };
+        let body_bytes = match http_guard::read_body(req.into_body()).await {
+            Ok(b) => b,
+            Err(r) => return Ok(r),
+        };
         let Ok(val) = serde_json::from_slice::<Value>(&body_bytes) else {
-            return Ok(json_response(StatusCode::BAD_REQUEST, authz::error_body("BAD_REQUEST", "Expected JSON body")));
+            return Ok(json_response(
+                StatusCode::BAD_REQUEST,
+                authz::error_body("BAD_REQUEST", "Expected JSON body"),
+            ));
         };
         {
-            let saved = std::fs::create_dir_all(".cronus")
-                .and_then(|_| std::fs::write(http_guard::AUDIT_WIDGET_RESULTS_PATH, val.to_string()));
+            let saved = std::fs::create_dir_all(".cronus").and_then(|_| {
+                std::fs::write(http_guard::AUDIT_WIDGET_RESULTS_PATH, val.to_string())
+            });
             if let Err(e) = saved {
                 eprintln!("  \x1b[33m[AUDIT]\x1b[0m could not save results: {}", e);
-                return Ok(json_response(StatusCode::INTERNAL_SERVER_ERROR, authz::error_body("INTERNAL", "Could not save audit results")));
+                return Ok(json_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    authz::error_body("INTERNAL", "Could not save audit results"),
+                ));
             }
-            eprintln!("\n  \x1b[36m[AUDIT]\x1b[0m Results saved to {}", http_guard::AUDIT_WIDGET_RESULTS_PATH);
+            eprintln!(
+                "\n  \x1b[36m[AUDIT]\x1b[0m Results saved to {}",
+                http_guard::AUDIT_WIDGET_RESULTS_PATH
+            );
             {
                 let fidelity = val.get("fidelity").and_then(|v| v.as_i64()).unwrap_or(0);
-                let missing = val.get("missingItems").and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
-                let extra = val.get("extraItems").and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
-                let dot = if fidelity >= 90 { "🟢" } else if fidelity >= 60 { "🟡" } else { "🔴" };
-                eprintln!("  {} Fidelity: {}% | Missing: {} | Extra: {}", dot, fidelity, missing, extra);
+                let missing = val
+                    .get("missingItems")
+                    .and_then(|v| v.as_array())
+                    .map(|a| a.len())
+                    .unwrap_or(0);
+                let extra = val
+                    .get("extraItems")
+                    .and_then(|v| v.as_array())
+                    .map(|a| a.len())
+                    .unwrap_or(0);
+                let dot = if fidelity >= 90 {
+                    "🟢"
+                } else if fidelity >= 60 {
+                    "🟡"
+                } else {
+                    "🔴"
+                };
+                eprintln!(
+                    "  {} Fidelity: {}% | Missing: {} | Extra: {}",
+                    dot, fidelity, missing, extra
+                );
             }
         }
         return Ok(json_response(StatusCode::OK, json!({"ok": true})));
@@ -802,8 +917,10 @@ async fn handle_request_inner(
 
     // Audit results read (for CLI/agent access)
     if path == "/api/audit/results" && method == hyper::Method::GET {
-        let results = std::fs::read_to_string(http_guard::AUDIT_WIDGET_RESULTS_PATH).unwrap_or_else(|_| "{}".into());
-        let val: Value = serde_json::from_str(&results).unwrap_or(json!({"error": "no audit results yet"}));
+        let results = std::fs::read_to_string(http_guard::AUDIT_WIDGET_RESULTS_PATH)
+            .unwrap_or_else(|_| "{}".into());
+        let val: Value =
+            serde_json::from_str(&results).unwrap_or(json!({"error": "no audit results yet"}));
         return Ok(json_response(StatusCode::OK, val));
     }
 
@@ -813,67 +930,94 @@ async fn handle_request_inner(
             Ok(result) => return Ok(json_response(StatusCode::OK, result)),
             Err(e) => {
                 eprintln!("  \x1b[31m✗\x1b[0m audit trail verify: {}", e);
-                return Ok(json_response(StatusCode::INTERNAL_SERVER_ERROR, authz::error_body("INTERNAL", "Audit trail unavailable")));
+                return Ok(json_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    authz::error_body("INTERNAL", "Audit trail unavailable"),
+                ));
             }
         }
     }
-    if (path == "/api/audit/trail" || path.starts_with("/api/audit/trail?")) && method == Method::GET {
+    if (path == "/api/audit/trail" || path.starts_with("/api/audit/trail?"))
+        && method == Method::GET
+    {
         let query_str = req.uri().query().unwrap_or("");
-        let limit: usize = query_str.split('&')
+        let limit: usize = query_str
+            .split('&')
             .find(|p| p.starts_with("limit="))
             .and_then(|p| p.strip_prefix("limit="))
             .and_then(|v| v.parse().ok())
             .unwrap_or(50);
-        let entity_filter: Option<String> = query_str.split('&')
+        let entity_filter: Option<String> = query_str
+            .split('&')
             .find(|p| p.starts_with("entity="))
             .and_then(|p| p.strip_prefix("entity="))
             .map(|v| v.to_string());
-        match state.audit_trail.query_filtered(limit, entity_filter.as_deref()) {
+        match state
+            .audit_trail
+            .query_filtered(limit, entity_filter.as_deref())
+        {
             Ok(mut entries) => {
                 http_guard::redact_audit_entries(&mut entries, &state.entities);
                 return Ok(json_response(StatusCode::OK, entries));
             }
             Err(e) => {
                 eprintln!("  \x1b[31m✗\x1b[0m audit trail query: {}", e);
-                return Ok(json_response(StatusCode::INTERNAL_SERVER_ERROR, authz::error_body("INTERNAL", "Audit trail unavailable")));
+                return Ok(json_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    authz::error_body("INTERNAL", "Audit trail unavailable"),
+                ));
             }
         }
     }
 
     // Health endpoint
     if path == "/api/health" {
-        return Ok(json_response(StatusCode::OK, json!({
-            "ok": true,
-            "app": state.app.name,
-            "entities": state.entities.len(),
-            "pages": state.pages.len(),
-            "runtime": "cronus-kernel",
-            "version": "0.1.0"
-        })));
+        return Ok(json_response(
+            StatusCode::OK,
+            json!({
+                "ok": true,
+                "app": state.app.name,
+                "entities": state.entities.len(),
+                "pages": state.pages.len(),
+                "runtime": "cronus-kernel",
+                "version": "0.1.0"
+            }),
+        ));
     }
 
     // Schema endpoint — returns all entities with fields
     if path == "/api/schema" {
-        let schema: Vec<Value> = state.entities.iter().map(|e| {
-            let fields: Vec<Value> = e.fields.iter().map(|f| {
+        let schema: Vec<Value> = state
+            .entities
+            .iter()
+            .map(|e| {
+                let fields: Vec<Value> = e
+                    .fields
+                    .iter()
+                    .map(|f| {
+                        json!({
+                            "name": f.name,
+                            "type": format!("{:?}", f.field_type).to_lowercase(),
+                            "required": f.required,
+                            "unique": f.unique,
+                        })
+                    })
+                    .collect();
                 json!({
-                    "name": f.name,
-                    "type": format!("{:?}", f.field_type).to_lowercase(),
-                    "required": f.required,
-                    "unique": f.unique,
+                    "entity": e.name,
+                    "fields": fields,
+                    "field_count": e.fields.len(),
                 })
-            }).collect();
-            json!({
-                "entity": e.name,
-                "fields": fields,
-                "field_count": e.fields.len(),
             })
-        }).collect();
-        return Ok(json_response(StatusCode::OK, json!({
-            "entities": schema,
-            "total": state.entities.len(),
-            "pages": state.pages.len(),
-        })));
+            .collect();
+        return Ok(json_response(
+            StatusCode::OK,
+            json!({
+                "entities": schema,
+                "total": state.entities.len(),
+                "pages": state.pages.len(),
+            }),
+        ));
     }
 
     // Seed endpoint
@@ -890,38 +1034,66 @@ async fn handle_request_inner(
     // Health endpoint — lint + behavioral audit
     if path == "/api/_health" && method == Method::GET {
         let brain_stats = state.brain.as_ref().map(|b| b.stats()).unwrap_or(json!({}));
-        let entity_rows: Vec<Value> = state.entities.iter()
+        let entity_rows: Vec<Value> = state
+            .entities
+            .iter()
             .filter(|e| !e.name.starts_with('_'))
             .map(|e| {
                 let count = state.db.count(&e.name).unwrap_or(0);
                 json!({"entity": e.name, "rows": count})
-            }).collect();
-        let empty_bound: Vec<&str> = state.pages.iter().flat_map(|p| {
-            p.sections.iter().filter_map(|s| {
-                if s.binding.is_some() {
-                    let entity = s.binding.as_ref().unwrap().entity.clone();
-                    let count = state.db.count(&entity).unwrap_or(0);
-                    if count == 0 { Some(entity) } else { None }
-                } else { None }
             })
-        }).map(|_| "").collect(); // placeholder
-        let behavioral: Vec<String> = state.pages.iter().flat_map(|p| {
-            p.sections.iter().filter_map(|s| {
-                if let Some(ref b) = s.binding {
-                    let count = state.db.count(&b.entity).unwrap_or(0);
-                    if count == 0 {
-                        Some(format!("Entity '{}' has 0 rows — {} page shows empty state", b.entity, p.route))
-                    } else { None }
-                } else { None }
+            .collect();
+        let empty_bound: Vec<&str> = state
+            .pages
+            .iter()
+            .flat_map(|p| {
+                p.sections.iter().filter_map(|s| {
+                    if s.binding.is_some() {
+                        let entity = s.binding.as_ref().unwrap().entity.clone();
+                        let count = state.db.count(&entity).unwrap_or(0);
+                        if count == 0 {
+                            Some(entity)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
             })
-        }).collect();
-        return Ok(json_response(StatusCode::OK, json!({
-            "status": "healthy",
-            "lint": { "warnings": 0, "errors": 0 },
-            "behavioral": behavioral,
-            "entities": entity_rows,
-            "brain": brain_stats,
-        })));
+            .map(|_| "")
+            .collect(); // placeholder
+        let behavioral: Vec<String> = state
+            .pages
+            .iter()
+            .flat_map(|p| {
+                p.sections.iter().filter_map(|s| {
+                    if let Some(ref b) = s.binding {
+                        let count = state.db.count(&b.entity).unwrap_or(0);
+                        if count == 0 {
+                            Some(format!(
+                                "Entity '{}' has 0 rows — {} page shows empty state",
+                                b.entity, p.route
+                            ))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+            })
+            .collect();
+        return Ok(json_response(
+            StatusCode::OK,
+            json!({
+                "status": "healthy",
+                "lint": { "warnings": 0, "errors": 0 },
+                "behavioral": behavioral,
+                "entities": entity_rows,
+                "brain": brain_stats,
+            }),
+        ));
     }
 
     // AI Context Protocol — single endpoint with everything an AI needs
@@ -1022,27 +1194,33 @@ async fn handle_request_inner(
             aj
         }).collect();
 
-        let webhooks_json: Vec<Value> = state.webhooks.iter().map(|w| {
-            json!({
-                "entity": w.entity,
-                "hooks": w.hooks.iter().map(|h| json!({
-                    "event": h.event,
-                    "method": h.method,
-                    "url": h.url,
-                })).collect::<Vec<_>>(),
+        let webhooks_json: Vec<Value> = state
+            .webhooks
+            .iter()
+            .map(|w| {
+                json!({
+                    "entity": w.entity,
+                    "hooks": w.hooks.iter().map(|h| json!({
+                        "event": h.event,
+                        "method": h.method,
+                        "url": h.url,
+                    })).collect::<Vec<_>>(),
+                })
             })
-        }).collect();
+            .collect();
 
-        let entity_rows: Vec<Value> = state.entities.iter()
+        let entity_rows: Vec<Value> = state
+            .entities
+            .iter()
             .filter(|e| !e.name.starts_with('_'))
             .map(|e| {
                 let count = state.db.count(&e.name).unwrap_or(0);
                 json!({"entity": e.name, "count": count})
-            }).collect();
+            })
+            .collect();
 
-        let relationship_graph = graph::build_graph_from_state(
-            &state.entities, &state.pages, &state.webhooks,
-        );
+        let relationship_graph =
+            graph::build_graph_from_state(&state.entities, &state.pages, &state.webhooks);
 
         // Load semantic memory for context
         let memory_data = open_memory_db()
@@ -1053,54 +1231,76 @@ async fn handle_request_inner(
         // Constitution violations — computed before json! macro (generics don't work inside macro)
         let constitution_violations_json: Vec<Value> = {
             let mut ctx_nodes = Vec::new();
-            for e in &state.entities { ctx_nodes.push(AstNode::Entity(e.clone())); }
-            for p in &state.pages { ctx_nodes.push(AstNode::Page(p.clone())); }
-            state.app.constitution.as_ref().map(|c| {
-                constitution_check::check_constitution(&ctx_nodes, c).iter().map(|v| {
-                    json!({
-                        "type": v.rule_type,
-                        "rule": v.rule,
-                        "violation": v.violation,
-                        "entity": v.entity,
-                    })
-                }).collect()
-            }).unwrap_or_default()
+            for e in &state.entities {
+                ctx_nodes.push(AstNode::Entity(e.clone()));
+            }
+            for p in &state.pages {
+                ctx_nodes.push(AstNode::Page(p.clone()));
+            }
+            state
+                .app
+                .constitution
+                .as_ref()
+                .map(|c| {
+                    constitution_check::check_constitution(&ctx_nodes, c)
+                        .iter()
+                        .map(|v| {
+                            json!({
+                                "type": v.rule_type,
+                                "rule": v.rule,
+                                "violation": v.violation,
+                                "entity": v.entity,
+                            })
+                        })
+                        .collect()
+                })
+                .unwrap_or_default()
         };
 
-        return Ok(json_response(StatusCode::OK, json!({
-            "acp_version": "1.0.0",
-            "project": {
-                "name": state.app.name,
-                "port": state.app.port,
-            },
-            "entities": entities_json,
-            "pages": pages_json,
-            "apis": apis_json,
-            "webhooks": webhooks_json,
-            "auth": {
-                "entity": state.auth_entity,
-                "roles": state.auth_roles,
-            },
-            "health": {
-                "entity_rows": entity_rows,
-                "brain": brain_stats,
-            },
-            "constitution": {
-                "invariants": state.app.constitution.as_ref().map(|c| c.must.clone()).unwrap_or_default(),
-                "forbidden": state.app.constitution.as_ref().map(|c| c.never.clone()).unwrap_or_default(),
-                "violations": constitution_violations_json,
-            },
-            "relationship_graph": relationship_graph,
-            "memory": memory_data,
-        })));
+        return Ok(json_response(
+            StatusCode::OK,
+            json!({
+                "acp_version": "1.0.0",
+                "project": {
+                    "name": state.app.name,
+                    "port": state.app.port,
+                },
+                "entities": entities_json,
+                "pages": pages_json,
+                "apis": apis_json,
+                "webhooks": webhooks_json,
+                "auth": {
+                    "entity": state.auth_entity,
+                    "roles": state.auth_roles,
+                },
+                "health": {
+                    "entity_rows": entity_rows,
+                    "brain": brain_stats,
+                },
+                "constitution": {
+                    "invariants": state.app.constitution.as_ref().map(|c| c.must.clone()).unwrap_or_default(),
+                    "forbidden": state.app.constitution.as_ref().map(|c| c.never.clone()).unwrap_or_default(),
+                    "violations": constitution_violations_json,
+                },
+                "relationship_graph": relationship_graph,
+                "memory": memory_data,
+            }),
+        ));
     }
 
     // Server logs API — returns brain events as JSON
     if path == "/api/server/logs" && method == Method::GET {
-        let limit: usize = query.split('&').find_map(|p| {
-            let mut kv = p.splitn(2, '=');
-            if kv.next() == Some("limit") { kv.next().and_then(|v| v.parse().ok()) } else { None }
-        }).unwrap_or(100);
+        let limit: usize = query
+            .split('&')
+            .find_map(|p| {
+                let mut kv = p.splitn(2, '=');
+                if kv.next() == Some("limit") {
+                    kv.next().and_then(|v| v.parse().ok())
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(100);
         match state.db.find_all("_brain_events", limit, 0) {
             Ok(rows) => return Ok(json_response(StatusCode::OK, rows)),
             Err(_) => return Ok(json_response(StatusCode::OK, json!([]))),
@@ -1110,19 +1310,25 @@ async fn handle_request_inner(
     // Server stats API
     if path == "/api/server/stats" && method == Method::GET {
         let brain_stats = state.brain.as_ref().map(|b| b.stats()).unwrap_or(json!({}));
-        let entity_counts: Vec<Value> = state.entities.iter()
+        let entity_counts: Vec<Value> = state
+            .entities
+            .iter()
             .filter(|e| !e.name.starts_with('_'))
             .map(|e| {
                 let count = state.db.count(&e.name).unwrap_or(0);
                 json!({"entity": e.name, "count": count})
-            }).collect();
-        return Ok(json_response(StatusCode::OK, json!({
-            "brain": brain_stats,
-            "entities": entity_counts,
-            "pages": state.pages.len(),
-            "apis": state.apis.len(),
-            "uptime": "running",
-        })));
+            })
+            .collect();
+        return Ok(json_response(
+            StatusCode::OK,
+            json!({
+                "brain": brain_stats,
+                "entities": entity_counts,
+                "pages": state.pages.len(),
+                "apis": state.apis.len(),
+                "uptime": "running",
+            }),
+        ));
     }
 
     // Auto-generated documentation — 100% derived from the .cronus AST
@@ -1145,15 +1351,27 @@ async fn handle_request_inner(
 
     // AI Documentation Index — structured JSON for AI navigation
     if path == "/api/docs/index" && method == Method::GET {
-        return Ok(json_response(StatusCode::OK, server::docs_index::generate_docs_index(&state)));
+        return Ok(json_response(
+            StatusCode::OK,
+            server::docs_index::generate_docs_index(&state),
+        ));
     }
     if path.starts_with("/api/docs/search") && method == Method::GET {
-        let q = query.split('&').find_map(|p| p.strip_prefix("q=")).unwrap_or("");
-        return Ok(json_response(StatusCode::OK, server::docs_index::search_docs_index(&state, q)));
+        let q = query
+            .split('&')
+            .find_map(|p| p.strip_prefix("q="))
+            .unwrap_or("");
+        return Ok(json_response(
+            StatusCode::OK,
+            server::docs_index::search_docs_index(&state, q),
+        ));
     }
     if path.starts_with("/api/docs/tags/") && method == Method::GET {
         let tag = path.strip_prefix("/api/docs/tags/").unwrap_or("");
-        return Ok(json_response(StatusCode::OK, server::docs_index::get_docs_by_tag(&state, tag)));
+        return Ok(json_response(
+            StatusCode::OK,
+            server::docs_index::get_docs_by_tag(&state, tag),
+        ));
     }
 
     // GraphQL endpoint
@@ -1167,12 +1385,21 @@ async fn handle_request_inner(
             auth_entity: state.auth_entity.clone(),
         };
         if gql_access.viewer.is_none() {
-            return Ok(json_response(StatusCode::UNAUTHORIZED, graphql::gql_error("UNAUTHENTICATED", "authentication required")));
+            return Ok(json_response(
+                StatusCode::UNAUTHORIZED,
+                graphql::gql_error("UNAUTHENTICATED", "authentication required"),
+            ));
         }
-        let body_bytes = match http_guard::read_body(req).await { Ok(b) => b, Err(r) => return Ok(r) };
+        let body_bytes = match http_guard::read_body(req).await {
+            Ok(b) => b,
+            Err(r) => return Ok(r),
+        };
         let body_str = String::from_utf8_lossy(&body_bytes);
         let body_json: Value = serde_json::from_str(&body_str).unwrap_or(json!({}));
-        let query = body_json.get("query").and_then(|v| v.as_str()).unwrap_or("");
+        let query = body_json
+            .get("query")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         let variables = body_json.get("variables").cloned().unwrap_or(json!({}));
         let schema = graphql::GraphQLSchema::from_entities(&state.entities);
         let result = graphql::execute_graphql(query, &variables, &schema, &state.db, &gql_access);
@@ -1180,7 +1407,10 @@ async fn handle_request_inner(
     }
     if path == "/graphql/schema" && method == Method::GET {
         if access::viewer_from_headers(req.headers(), &auth::default_secret()).is_none() {
-            return Ok(json_response(StatusCode::UNAUTHORIZED, graphql::gql_error("UNAUTHENTICATED", "authentication required")));
+            return Ok(json_response(
+                StatusCode::UNAUTHORIZED,
+                graphql::gql_error("UNAUTHENTICATED", "authentication required"),
+            ));
         }
         let schema = graphql::GraphQLSchema::from_entities(&state.entities);
         return Ok(Response::builder()
@@ -1193,23 +1423,34 @@ async fn handle_request_inner(
     // ── Script routes (.scriptcronus endpoints + webhooks) ──
     {
         let method_str = method.as_str();
-        let has_endpoint = state.script_registry.get_endpoints().iter().any(|(_s, ep)| ep.method == method_str && ep.path == path);
+        let has_endpoint = state
+            .script_registry
+            .get_endpoints()
+            .iter()
+            .any(|(_s, ep)| ep.method == method_str && ep.path == path);
         // SECURITY: webhooks only match paths under /hooks/ prefix
-        let has_webhook = !has_endpoint && method == Method::POST
+        let has_webhook = !has_endpoint
+            && method == Method::POST
             && path.starts_with("/hooks/")
             && !state.script_registry.get_webhook_handlers(&path).is_empty();
 
         if has_endpoint || has_webhook {
-            let token = req.headers().get("authorization")
+            let token = req
+                .headers()
+                .get("authorization")
                 .and_then(|v| v.to_str().ok())
                 .and_then(|h| h.strip_prefix("Bearer "))
                 .map(|s| s.to_string());
-            let (user_id, role) = token.as_deref()
+            let (user_id, role) = token
+                .as_deref()
                 .and_then(|t| auth::verify_token(t, &auth::default_secret()).ok())
                 .map(|c| (c.sub.clone(), c.role.clone()))
                 .unwrap_or_else(|| ("anonymous".into(), "public".into()));
 
-            let body_bytes = match http_guard::read_body(req).await { Ok(b) => b, Err(r) => return Ok(r) };
+            let body_bytes = match http_guard::read_body(req).await {
+                Ok(b) => b,
+                Err(r) => return Ok(r),
+            };
             let body: Option<serde_json::Value> = serde_json::from_slice(&body_bytes).ok();
 
             if has_endpoint {
@@ -1221,22 +1462,39 @@ async fn handle_request_inner(
                         if required_role != "public" {
                             // Must have valid token
                             if user_id == "anonymous" {
-                                return Ok(json_response(StatusCode::UNAUTHORIZED, json!({"error": "authentication required"})));
+                                return Ok(json_response(
+                                    StatusCode::UNAUTHORIZED,
+                                    json!({"error": "authentication required"}),
+                                ));
                             }
                             // Check role if specific role required
                             if required_role != "any" && role != required_role {
-                                return Ok(json_response(StatusCode::FORBIDDEN, json!({"error": "insufficient role"})));
+                                return Ok(json_response(
+                                    StatusCode::FORBIDDEN,
+                                    json!({"error": "insufficient role"}),
+                                ));
                             }
                         }
-                        let ctx = scripting::execute_endpoint(ep, &script.name, &state.db, &user_id, &role, body.as_ref(), &std::collections::HashMap::new());
+                        let ctx = scripting::execute_endpoint(
+                            ep,
+                            &script.name,
+                            &state.db,
+                            &user_id,
+                            &role,
+                            body.as_ref(),
+                            &std::collections::HashMap::new(),
+                        );
                         if let Some(resp) = ctx.response {
                             // SECURITY: clamp status to safe range
                             let safe_status = resp.status.max(200).min(599);
                             let mut builder = Response::builder().status(safe_status);
                             // SECURITY: whitelist safe response headers — block Set-Cookie, Location, etc.
                             const ALLOWED_HEADERS: &[&str] = &[
-                                "content-type", "content-disposition", "cache-control",
-                                "x-request-id", "x-total-count",
+                                "content-type",
+                                "content-disposition",
+                                "cache-control",
+                                "x-request-id",
+                                "x-total-count",
                             ];
                             for (k, v) in &resp.headers {
                                 let k_lower = k.to_lowercase();
@@ -1246,18 +1504,31 @@ async fn handle_request_inner(
                                     builder = builder.header(k.as_str(), safe_v.as_str());
                                 }
                             }
-                            if !resp.headers.keys().any(|k| k.to_lowercase() == "content-type") {
+                            if !resp
+                                .headers
+                                .keys()
+                                .any(|k| k.to_lowercase() == "content-type")
+                            {
                                 builder = builder.header("Content-Type", "application/json");
                             }
                             return Ok(builder.body(Full::new(Bytes::from(resp.body))).unwrap());
                         }
-                        return Ok(json_response(StatusCode::OK, json!({"ok": true, "logs": ctx.logs})));
+                        return Ok(json_response(
+                            StatusCode::OK,
+                            json!({"ok": true, "logs": ctx.logs}),
+                        ));
                     }
                 }
             }
             // Webhook
             let body_val = body.unwrap_or(serde_json::Value::Null);
-            let _ctx = scripting::execute_webhook(&state.script_registry, &path, &body_val, &state.db, &std::collections::HashMap::new());
+            let _ctx = scripting::execute_webhook(
+                &state.script_registry,
+                &path,
+                &body_val,
+                &state.db,
+                &std::collections::HashMap::new(),
+            );
             return Ok(json_response(StatusCode::OK, json!({"ok": true})));
         }
     }
@@ -1265,14 +1536,37 @@ async fn handle_request_inner(
     // API routes: /api/...
     if path.starts_with("/api/") {
         // SECURITY: read the session BEFORE consuming the request body.
-        let api_auth_header = req.headers().get("authorization").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
-        let api_cookie_header = req.headers().get("cookie").and_then(|v| v.to_str().ok()).unwrap_or("").to_string();
-        let api_claims = api_crud::claims_from_headers(api_auth_header.as_deref(), &api_cookie_header, &auth::default_secret());
+        let api_auth_header = req
+            .headers()
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_string());
+        let api_cookie_header = req
+            .headers()
+            .get("cookie")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_string();
+        let api_claims = api_crud::claims_from_headers(
+            api_auth_header.as_deref(),
+            &api_cookie_header,
+            &auth::default_secret(),
+        );
 
-        let body_bytes = match http_guard::read_body(req).await { Ok(b) => b, Err(r) => return Ok(r) };
+        let body_bytes = match http_guard::read_body(req).await {
+            Ok(b) => b,
+            Err(r) => return Ok(r),
+        };
         let body: Option<serde_json::Value> = serde_json::from_slice(&body_bytes).ok();
 
-        let resp = api_crud::handle_api(&state, &method, &path, &query, body.as_ref(), api_claims.as_ref());
+        let resp = api_crud::handle_api(
+            &state,
+            &method,
+            &path,
+            &query,
+            body.as_ref(),
+            api_claims.as_ref(),
+        );
         // Track request in brain
         if let Some(ref brain) = state.brain {
             let duration = start.elapsed().as_millis() as u64;
@@ -1290,7 +1584,10 @@ async fn handle_request_inner(
             viewer: access::viewer_from_headers(req.headers(), &auth::default_secret()),
             auth_entity: state.auth_entity.clone(),
         };
-        let body_bytes = match http_guard::read_body(req).await { Ok(b) => b, Err(r) => return Ok(r) };
+        let body_bytes = match http_guard::read_body(req).await {
+            Ok(b) => b,
+            Err(r) => return Ok(r),
+        };
         let body: Value = serde_json::from_slice(&body_bytes).unwrap_or(json!({}));
 
         let entity = body.get("entity").and_then(|v| v.as_str()).unwrap_or("");
@@ -1306,13 +1603,23 @@ async fn handle_request_inner(
             return Ok(denied(actions::ActionDenied::Unauthenticated));
         }
         let declared = actions::declared_actions(&state.pages);
-        let Some(action) = actions::find_declared_action(&declared, action_id, client_action, entity) else {
+        let Some(action) =
+            actions::find_declared_action(&declared, action_id, client_action, entity)
+        else {
             return Ok(denied(actions::ActionDenied::Forbidden));
         };
-        return Ok(match actions::execute_declared_action(action, id, &state.db, &state.entities, &action_access) {
-            Ok(effects) => json_response(StatusCode::OK, actions::effects_to_json(&effects)),
-            Err(d) => denied(d),
-        });
+        return Ok(
+            match actions::execute_declared_action(
+                action,
+                id,
+                &state.db,
+                &state.entities,
+                &action_access,
+            ) {
+                Ok(effects) => json_response(StatusCode::OK, actions::effects_to_json(&effects)),
+                Err(d) => denied(d),
+            },
+        );
     }
 
     // ── Form submission endpoint ──
@@ -1321,12 +1628,19 @@ async fn handle_request_inner(
         // required unless that form is explicitly public; body filtered by
         // authz::writable_body; `_owner_id` set by the server.
         let form_viewer = access::viewer_from_headers(req.headers(), &auth::default_secret());
-        let body_bytes = match http_guard::read_body(req).await { Ok(b) => b, Err(r) => return Ok(r) };
+        let body_bytes = match http_guard::read_body(req).await {
+            Ok(b) => b,
+            Err(r) => return Ok(r),
+        };
         let body: Value = serde_json::from_slice(&body_bytes).unwrap_or(json!({}));
 
         let entity = body.get("entity").and_then(|v| v.as_str()).unwrap_or("");
         let data = body.get("data").cloned().unwrap_or(json!({}));
-        let section_type = path.trim_start_matches("/_form/").split('/').next().unwrap_or("");
+        let section_type = path
+            .trim_start_matches("/_form/")
+            .split('/')
+            .next()
+            .unwrap_or("");
         let form_error = |status: StatusCode, code: &str, message: &str| {
             let mut resp = authz::error_body(code, message);
             resp["ok"] = json!(false);
@@ -1335,24 +1649,47 @@ async fn handle_request_inner(
         };
 
         let Some(form) = actions::find_declared_form(&state.pages, section_type, entity) else {
-            return Ok(form_error(StatusCode::FORBIDDEN, "UNKNOWN_FORM", "Not allowed"));
+            return Ok(form_error(
+                StatusCode::FORBIDDEN,
+                "UNKNOWN_FORM",
+                "Not allowed",
+            ));
         };
         let Some(entity_schema) = state.entities.iter().find(|e| e.name == form.entity) else {
-            return Ok(form_error(StatusCode::FORBIDDEN, "UNKNOWN_FORM", "Not allowed"));
+            return Ok(form_error(
+                StatusCode::FORBIDDEN,
+                "UNKNOWN_FORM",
+                "Not allowed",
+            ));
         };
-        let form_access = access::Access { viewer: form_viewer, auth_entity: state.auth_entity.clone() };
+        let form_access = access::Access {
+            viewer: form_viewer,
+            auth_entity: state.auth_entity.clone(),
+        };
         let is_auth_entity = form_access.is_auth_entity(&entity_schema.name);
         match &form_access.viewer {
             None if !form.public || is_auth_entity => {
-                return Ok(form_error(StatusCode::UNAUTHORIZED, "UNAUTHENTICATED", "Sign in required"));
+                return Ok(form_error(
+                    StatusCode::UNAUTHORIZED,
+                    "UNAUTHENTICATED",
+                    "Sign in required",
+                ));
             }
             Some(v) if is_auth_entity && !v.is_admin() => {
-                return Ok(form_error(StatusCode::FORBIDDEN, "FORBIDDEN", "Not allowed"));
+                return Ok(form_error(
+                    StatusCode::FORBIDDEN,
+                    "FORBIDDEN",
+                    "Not allowed",
+                ));
             }
             _ => {}
         }
         let Some(data_obj) = data.as_object() else {
-            return Ok(form_error(StatusCode::BAD_REQUEST, "INVALID", "Missing form data"));
+            return Ok(form_error(
+                StatusCode::BAD_REQUEST,
+                "INVALID",
+                "Missing form data",
+            ));
         };
 
         let errors = actions::validate_form_data(&data, entity_schema);
@@ -1369,9 +1706,16 @@ async fn handle_request_inner(
         if let (Some(v), false) = (&form_access.viewer, is_auth_entity) {
             row_data.insert("_owner_id".into(), json!(v.id));
         }
-        match state.db.insert(&entity_schema.name, &Value::Object(row_data)) {
+        match state
+            .db
+            .insert(&entity_schema.name, &Value::Object(row_data))
+        {
             Ok(row) => {
-                let row_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let row_id = row
+                    .get("id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 state.sse_hub.broadcast(sse::DataChangeEvent {
                     entity: entity_schema.name.clone(),
                     action: "created".to_string(),
@@ -1386,13 +1730,19 @@ async fn handle_request_inner(
             }
             Err(e) => {
                 eprintln!("  /_form insert into {} failed: {}", entity_schema.name, e);
-                return Ok(form_error(StatusCode::BAD_REQUEST, "CREATE_FAILED", "Could not save"));
+                return Ok(form_error(
+                    StatusCode::BAD_REQUEST,
+                    "CREATE_FAILED",
+                    "Could not save",
+                ));
             }
         }
     }
 
     // Serve pages
-    let accent = state.style.as_ref()
+    let accent = state
+        .style
+        .as_ref()
         .and_then(|s| s.accent.as_deref())
         .unwrap_or("amber");
     let app_name = &state.app.name;
@@ -1427,7 +1777,13 @@ async fn handle_request_inner(
             return Ok(Response::builder()
                 .status(StatusCode::FOUND)
                 .header("Location", "/login")
-                .header("Set-Cookie", session::clear_session_cookie(session::cookie_secure(http_guard::policy().mode, req.headers())))
+                .header(
+                    "Set-Cookie",
+                    session::clear_session_cookie(session::cookie_secure(
+                        http_guard::policy().mode,
+                        req.headers(),
+                    )),
+                )
                 .body(Full::new(Bytes::new()))
                 .unwrap());
         }
@@ -1435,27 +1791,36 @@ async fn handle_request_inner(
 
     // ── Auth middleware — protect pages that require authentication ──
     // SECURITY: exact route-pattern match (`/orders/:id`), never prefix.
-    let matched_requires = state.auth_required_pages.iter()
+    let matched_requires = state
+        .auth_required_pages
+        .iter()
         .find(|(r, _)| access::route_pattern_matches(r, &path))
         .map(|(_, req)| req.clone());
 
     if let Some(requires_str) = matched_requires {
-        let token = req.headers().get("cookie")
+        let token = req
+            .headers()
+            .get("cookie")
             .and_then(|c| c.to_str().ok())
             .and_then(|c| c.split(';').find(|s| s.trim().starts_with("cronus_token=")))
             .map(|s| s.trim().trim_start_matches("cronus_token=").to_string())
-            .or_else(|| req.headers().get("authorization")
-                .and_then(|h| h.to_str().ok())
-                .and_then(|h| h.strip_prefix("Bearer "))
-                .map(|s| s.to_string()));
+            .or_else(|| {
+                req.headers()
+                    .get("authorization")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|h| h.strip_prefix("Bearer "))
+                    .map(|s| s.to_string())
+            });
 
         let secret = auth::default_secret();
 
-        let redirect_to_login = || Response::builder()
-            .status(StatusCode::FOUND)
-            .header("Location", "/login")
-            .body(Full::new(Bytes::new()))
-            .unwrap();
+        let redirect_to_login = || {
+            Response::builder()
+                .status(StatusCode::FOUND)
+                .header("Location", "/login")
+                .body(Full::new(Bytes::new()))
+                .unwrap()
+        };
 
         if requires_str.starts_with("role(") {
             // Role-based access control
@@ -1493,7 +1858,10 @@ async fn handle_request_inner(
     }
 
     // Find matching page
-    let page = state.pages.iter().find(|p| access::route_pattern_matches(&p.route, &path));
+    let page = state
+        .pages
+        .iter()
+        .find(|p| access::route_pattern_matches(&p.route, &path));
 
     if let Some(page) = page {
         // Extract route params from parameterized routes (e.g. /orders/:id/edit)
@@ -1542,7 +1910,8 @@ async fn handle_request_inner(
 
         if page.config.get("layout").map(|s| s.as_str()) == Some("light-app") {
             let referenced: Vec<parser::ComponentNode> = if !page.components.is_empty() {
-                page.components.iter()
+                page.components
+                    .iter()
                     .filter_map(|name| state.components.iter().find(|c| c.name == *name))
                     .cloned()
                     .collect()
@@ -1556,18 +1925,28 @@ async fn handle_request_inner(
         // Auth pages — standalone login/signup with no layout chrome
         let route_lower = page.route.to_lowercase();
         let title_lower = page.title.as_deref().unwrap_or("").to_lowercase();
-        let is_auth_page = route_lower == "/login" || route_lower == "/signup"
-            || title_lower.contains("sign in") || title_lower.contains("sign up")
-            || title_lower.contains("login") || title_lower.contains("signup");
+        let is_auth_page = route_lower == "/login"
+            || route_lower == "/signup"
+            || title_lower.contains("sign in")
+            || title_lower.contains("sign up")
+            || title_lower.contains("login")
+            || title_lower.contains("signup");
         // Only use built-in auth renderer if page has NO custom template sections
-        let has_custom_template = page.page_type == "custom" && page.sections.iter().any(|s| s.template.is_some());
+        let has_custom_template =
+            page.page_type == "custom" && page.sections.iter().any(|s| s.template.is_some());
         if is_auth_page && !has_custom_template {
-            let is_login = route_lower == "/login" || title_lower.contains("login") || title_lower.contains("sign in");
+            let is_login = route_lower == "/login"
+                || title_lower.contains("login")
+                || title_lower.contains("sign in");
             let html = ui::render_auth_page(page, is_login);
             return Ok(html_response(html));
         }
 
-        let theme = state.style.as_ref().and_then(|s| s.theme.as_deref()).unwrap_or("dark");
+        let theme = state
+            .style
+            .as_ref()
+            .and_then(|s| s.theme.as_deref())
+            .unwrap_or("dark");
 
         // SECURITY: viewer for SSR bindings (owner scope, auth.* refs, redaction).
         let page_access = access::Access {
@@ -1580,55 +1959,123 @@ async fn handle_request_inner(
 
         // Settings page — full-page renderer with its own sidebar/topbar
         // Order Detail page — full-page renderer
-        let is_order_detail = page.sections.iter().any(|s| s.section_type == "order-header" || s.section_type == "line-items");
+        let is_order_detail = page
+            .sections
+            .iter()
+            .any(|s| s.section_type == "order-header" || s.section_type == "line-items");
         if is_order_detail {
-            let referenced_comps: Vec<parser::ComponentNode> = page.components.iter()
+            let referenced_comps: Vec<parser::ComponentNode> = page
+                .components
+                .iter()
                 .filter_map(|name| state.components.iter().find(|c| c.name == *name))
                 .cloned()
                 .collect();
-            let html = ui::render_order_detail_dashboard(app_name, &page.sections, &referenced_comps, theme, page.route.as_str());
+            let html = ui::render_order_detail_dashboard(
+                app_name,
+                &page.sections,
+                &referenced_comps,
+                theme,
+                page.route.as_str(),
+            );
             return Ok(html_response(html));
         }
 
         // Settings page — full-page renderer
-        let is_settings_page = page.sections.iter().any(|s| s.section_type == "settings-profile" || s.section_type == "subscription-card");
+        let is_settings_page = page
+            .sections
+            .iter()
+            .any(|s| s.section_type == "settings-profile" || s.section_type == "subscription-card");
         if is_settings_page {
-            let referenced_comps: Vec<parser::ComponentNode> = page.components.iter()
+            let referenced_comps: Vec<parser::ComponentNode> = page
+                .components
+                .iter()
                 .filter_map(|name| state.components.iter().find(|c| c.name == *name))
                 .cloned()
                 .collect();
-            let html = ui::render_settings_dashboard(app_name, &page.sections, &referenced_comps, theme, page.route.as_str());
+            let html = ui::render_settings_dashboard(
+                app_name,
+                &page.sections,
+                &referenced_comps,
+                theme,
+                page.route.as_str(),
+            );
             return Ok(html_response(html));
         }
 
         // Dumped pages with HTML templates — use landing layout with Tailwind CDN,
         // EXCEPT for auth-protected pages that have a declarative layout (these
         // must share the same sidebar shell across all pages for consistency).
-        let has_templates = page.sections.iter().any(|s| s.template.is_some() || s.config.get("template").is_some());
+        let has_templates = page
+            .sections
+            .iter()
+            .any(|s| s.template.is_some() || s.config.get("template").is_some());
         let is_auth_page = page.requires.as_deref() == Some("auth")
-            || page.requires.as_deref().map(|r| r.starts_with("role(")).unwrap_or(false);
+            || page
+                .requires
+                .as_deref()
+                .map(|r| r.starts_with("role("))
+                .unwrap_or(false);
         let has_declarative_layout = state.layout.is_some();
         if has_templates && !(is_auth_page && has_declarative_layout) {
-            let body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params, &page_access);
-            let html = ui::render_layout_landing_ex(app_name, &body, theme, state.style.as_ref(), state.app.tailwind_config.as_deref());
+            let body = ui::render_page(
+                page,
+                &state.entities,
+                accent,
+                theme,
+                Some(&state.db),
+                &route_params,
+                &page_access,
+            );
+            let html = ui::render_layout_landing_ex(
+                app_name,
+                &body,
+                theme,
+                state.style.as_ref(),
+                state.app.tailwind_config.as_deref(),
+            );
             return Ok(html_response(html));
         }
 
         if has_section_sidebar {
             // Check for specialized dashboard renderers BEFORE falling back to generic
-            let billing_types = ["current-plan", "usage-status", "billing-stats", "payment-methods", "recent-invoices"];
-            let is_billing_page = page.sections.iter().any(|s| s.section_type == "current-plan" || s.section_type == "billing-stats");
+            let billing_types = [
+                "current-plan",
+                "usage-status",
+                "billing-stats",
+                "payment-methods",
+                "recent-invoices",
+            ];
+            let is_billing_page = page
+                .sections
+                .iter()
+                .any(|s| s.section_type == "current-plan" || s.section_type == "billing-stats");
             if is_billing_page {
-                let referenced_comps: Vec<parser::ComponentNode> = page.components.iter()
+                let referenced_comps: Vec<parser::ComponentNode> = page
+                    .components
+                    .iter()
                     .filter_map(|name| state.components.iter().find(|c| c.name == *name))
                     .cloned()
                     .collect();
-                let html = ui::render_billing_dashboard(app_name, &page.sections, &referenced_comps, theme, &path);
+                let html = ui::render_billing_dashboard(
+                    app_name,
+                    &page.sections,
+                    &referenced_comps,
+                    theme,
+                    &path,
+                );
                 return Ok(html_response(html));
             }
 
             // Generic dashboard wrapper — sidebar + any sections
-            let body = ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params, &page_access);
+            let body = ui::render_page(
+                page,
+                &state.entities,
+                accent,
+                theme,
+                Some(&state.db),
+                &route_params,
+                &page_access,
+            );
             let html = ui::render_layout_dashboard(&state.app.name, &body, theme);
             return Ok(html_response(html));
         }
@@ -1636,22 +2083,32 @@ async fn handle_request_inner(
         let mut body = if page.page_type == "components" && !state.components.is_empty() {
             ui::render_components_page(&state.components)
         } else {
-            ui::render_page(page, &state.entities, accent, theme, Some(&state.db), &route_params, &page_access)
+            ui::render_page(
+                page,
+                &state.entities,
+                accent,
+                theme,
+                Some(&state.db),
+                &route_params,
+                &page_access,
+            )
         };
 
         // `use ComponentName` on a real page — widgets only, no kit chrome.
         // type:components already rendered the full catalog above.
-        let has_sidebar_component_early = !page.components.is_empty() && page.components.iter().any(|comp_name| {
-            state.components.iter().any(|c| {
-                c.name == *comp_name && (
-                    c.style.as_deref().unwrap_or("").contains("sidenav") ||
-                    c.layout.as_deref().unwrap_or("") == "sidebar"
-                )
-            })
-        });
+        let has_sidebar_component_early = !page.components.is_empty()
+            && page.components.iter().any(|comp_name| {
+                state.components.iter().any(|c| {
+                    c.name == *comp_name
+                        && (c.style.as_deref().unwrap_or("").contains("sidenav")
+                            || c.layout.as_deref().unwrap_or("") == "sidebar")
+                })
+            });
         if page.page_type != "components" {
             if !page.components.is_empty() && !has_sidebar_component_early {
-                let referenced: Vec<parser::ComponentNode> = page.components.iter()
+                let referenced: Vec<parser::ComponentNode> = page
+                    .components
+                    .iter()
                     .filter_map(|name| state.components.iter().find(|c| c.name == *name))
                     .cloned()
                     .collect();
@@ -1662,48 +2119,134 @@ async fn handle_request_inner(
             }
 
             // custom pages with no sections — fallback to the kit catalog
-            if page.page_type == "custom" && page.sections.is_empty() && !state.components.is_empty() {
+            if page.page_type == "custom"
+                && page.sections.is_empty()
+                && !state.components.is_empty()
+            {
                 body.push_str("\n");
                 body.push_str(&ui::render_components_page(&state.components));
             }
         }
 
         // FIX 1: Detect sidebar component — if page uses a Sidenav component, it's a dashboard page
-        let has_sidebar_component = !page.components.is_empty() && page.components.iter().any(|comp_name| {
-            state.components.iter().any(|c| {
-                c.name == *comp_name && (
-                    c.style.as_deref().unwrap_or("").contains("sidenav") ||
-                    c.layout.as_deref().unwrap_or("") == "sidebar"
-                )
-            })
-        });
+        let has_sidebar_component = !page.components.is_empty()
+            && page.components.iter().any(|comp_name| {
+                state.components.iter().any(|c| {
+                    c.name == *comp_name
+                        && (c.style.as_deref().unwrap_or("").contains("sidenav")
+                            || c.layout.as_deref().unwrap_or("") == "sidebar")
+                })
+            });
 
         // Landing/checkout pages use full-width layout, no sidebar
-        let landing_section_types = ["hero", "topbar", "checkout", "features", "pricing", "cta", "testimonial", "faq", "trusted", "footer"];
+        let landing_section_types = [
+            "hero",
+            "topbar",
+            "checkout",
+            "features",
+            "pricing",
+            "cta",
+            "testimonial",
+            "faq",
+            "trusted",
+            "footer",
+        ];
         // If ANY section has a template, it's a dumped page — always use landing layout
-        let has_templates = page.sections.iter().any(|s| s.template.is_some() || s.config.get("template").is_some());
-        let is_landing = has_templates || (!has_sidebar_component && (page.page_type == "checkout" || (page.page_type == "custom" && page.sections.iter().any(|s| landing_section_types.contains(&s.section_type.as_str())))));
-        let dashboard_types = ["sidebar", "card", "page-header", "stat-cards", "product-grid",
-            "team-list", "policies", "activity-table", "status-card", "links",
-            "live-keys", "test-keys", "webhooks", "quick-links",
-            "current-plan", "usage-status", "billing-stats", "payment-methods", "recent-invoices",
-            "balance-card", "upcoming-card", "payout-history", "support-banner",
-            "checkout-form", "product-summary", "trust-indicators",
-            "team-members", "security-status", "security-policies", "login-activity",
-            "settings-profile", "api-keys", "security-grid", "subscription-card",
-            "invoices-list", "support-card", "danger-zone",
-            "order-header", "line-items", "price-breakdown", "payment-info",
-            "customer-profile", "shipping-timeline", "staff-notes"];
-        let is_dashboard = has_sidebar_component || page.sections.iter().any(|s| dashboard_types.contains(&s.section_type.as_str()));
-        let is_billing = page.sections.iter().any(|s| s.section_type == "current-plan" || s.section_type == "billing-stats");
-        let is_payouts = page.sections.iter().any(|s| s.section_type == "balance-card" || s.section_type == "payout-history");
-        let is_unified = page.sections.iter().any(|s| s.section_type == "balance-card")
-            && page.sections.iter().any(|s| s.section_type == "billing-stats" || s.section_type == "recent-invoices");
-        let is_payment_links = page.sections.iter().any(|s| s.section_type == "product-grid")
+        let has_templates = page
+            .sections
+            .iter()
+            .any(|s| s.template.is_some() || s.config.get("template").is_some());
+        let is_landing = has_templates
+            || (!has_sidebar_component
+                && (page.page_type == "checkout"
+                    || (page.page_type == "custom"
+                        && page
+                            .sections
+                            .iter()
+                            .any(|s| landing_section_types.contains(&s.section_type.as_str())))));
+        let dashboard_types = [
+            "sidebar",
+            "card",
+            "page-header",
+            "stat-cards",
+            "product-grid",
+            "team-list",
+            "policies",
+            "activity-table",
+            "status-card",
+            "links",
+            "live-keys",
+            "test-keys",
+            "webhooks",
+            "quick-links",
+            "current-plan",
+            "usage-status",
+            "billing-stats",
+            "payment-methods",
+            "recent-invoices",
+            "balance-card",
+            "upcoming-card",
+            "payout-history",
+            "support-banner",
+            "checkout-form",
+            "product-summary",
+            "trust-indicators",
+            "team-members",
+            "security-status",
+            "security-policies",
+            "login-activity",
+            "settings-profile",
+            "api-keys",
+            "security-grid",
+            "subscription-card",
+            "invoices-list",
+            "support-card",
+            "danger-zone",
+            "order-header",
+            "line-items",
+            "price-breakdown",
+            "payment-info",
+            "customer-profile",
+            "shipping-timeline",
+            "staff-notes",
+        ];
+        let is_dashboard = has_sidebar_component
+            || page
+                .sections
+                .iter()
+                .any(|s| dashboard_types.contains(&s.section_type.as_str()));
+        let is_billing = page
+            .sections
+            .iter()
+            .any(|s| s.section_type == "current-plan" || s.section_type == "billing-stats");
+        let is_payouts = page
+            .sections
+            .iter()
+            .any(|s| s.section_type == "balance-card" || s.section_type == "payout-history");
+        let is_unified =
+            page.sections
+                .iter()
+                .any(|s| s.section_type == "balance-card")
+                && page.sections.iter().any(|s| {
+                    s.section_type == "billing-stats" || s.section_type == "recent-invoices"
+                });
+        let is_payment_links = page
+            .sections
+            .iter()
+            .any(|s| s.section_type == "product-grid")
             && page.sections.iter().any(|s| s.section_type == "stat-cards");
-        let is_checkout = page.sections.iter().any(|s| s.section_type == "checkout-form" || s.section_type == "product-summary");
-        let is_security = page.sections.iter().any(|s| s.section_type == "team-members" || s.section_type == "login-activity");
-        let is_settings = page.sections.iter().any(|s| s.section_type == "settings-profile" || s.section_type == "subscription-card");
+        let is_checkout = page
+            .sections
+            .iter()
+            .any(|s| s.section_type == "checkout-form" || s.section_type == "product-summary");
+        let is_security = page
+            .sections
+            .iter()
+            .any(|s| s.section_type == "team-members" || s.section_type == "login-activity");
+        let is_settings = page
+            .sections
+            .iter()
+            .any(|s| s.section_type == "settings-profile" || s.section_type == "subscription-card");
         let current_route = page.route.as_str();
         // Auth pages with a declarative layout share the sidebar shell
         let auth_with_layout = is_auth_page && has_declarative_layout;
@@ -1715,35 +2258,87 @@ async fn handle_request_inner(
             }
         } else if has_templates {
             // Dumped page with original HTML templates — use landing layout, no sidebar
-            ui::render_layout_landing_ex(app_name, &body, theme, state.style.as_ref(), state.app.tailwind_config.as_deref())
+            ui::render_layout_landing_ex(
+                app_name,
+                &body,
+                theme,
+                state.style.as_ref(),
+                state.app.tailwind_config.as_deref(),
+            )
         } else if is_checkout {
             // Checkout page: no sidebar, centered layout
-            let referenced_comps: Vec<parser::ComponentNode> = page.components.iter()
+            let referenced_comps: Vec<parser::ComponentNode> = page
+                .components
+                .iter()
                 .filter_map(|name| state.components.iter().find(|c| c.name == *name))
                 .cloned()
                 .collect();
             ui::render_checkout_dashboard(app_name, &page.sections, &referenced_comps, theme)
         } else if is_dashboard {
             // Dedicated dashboard renderer: produces the ENTIRE page in one shot
-            let referenced_comps: Vec<parser::ComponentNode> = page.components.iter()
+            let referenced_comps: Vec<parser::ComponentNode> = page
+                .components
+                .iter()
                 .filter_map(|name| state.components.iter().find(|c| c.name == *name))
                 .cloned()
                 .collect();
             if is_unified {
-                ui::render_unified_dashboard(app_name, &page.sections, &referenced_comps, theme, current_route)
+                ui::render_unified_dashboard(
+                    app_name,
+                    &page.sections,
+                    &referenced_comps,
+                    theme,
+                    current_route,
+                )
             } else if is_payouts {
-                ui::render_payouts_dashboard(app_name, &page.sections, &referenced_comps, theme, current_route)
+                ui::render_payouts_dashboard(
+                    app_name,
+                    &page.sections,
+                    &referenced_comps,
+                    theme,
+                    current_route,
+                )
             } else if is_billing {
-                ui::render_billing_dashboard(app_name, &page.sections, &referenced_comps, theme, current_route)
+                ui::render_billing_dashboard(
+                    app_name,
+                    &page.sections,
+                    &referenced_comps,
+                    theme,
+                    current_route,
+                )
             } else if is_settings {
-                ui::render_settings_dashboard(app_name, &page.sections, &referenced_comps, theme, current_route)
+                ui::render_settings_dashboard(
+                    app_name,
+                    &page.sections,
+                    &referenced_comps,
+                    theme,
+                    current_route,
+                )
             } else if is_security {
-                ui::render_security_dashboard(app_name, &page.sections, &referenced_comps, theme, current_route)
+                ui::render_security_dashboard(
+                    app_name,
+                    &page.sections,
+                    &referenced_comps,
+                    theme,
+                    current_route,
+                )
             } else if is_payment_links {
-                ui::render_payment_links_dashboard(app_name, &page.sections, &referenced_comps, theme, current_route)
+                ui::render_payment_links_dashboard(
+                    app_name,
+                    &page.sections,
+                    &referenced_comps,
+                    theme,
+                    current_route,
+                )
             } else {
                 // Generic dashboard wrapper — sidebar + any sections
-                ui::render_generic_dashboard(app_name, &body, &referenced_comps, theme, current_route)
+                ui::render_generic_dashboard(
+                    app_name,
+                    &body,
+                    &referenced_comps,
+                    theme,
+                    current_route,
+                )
             }
         } else if is_landing {
             ui::render_layout_landing(app_name, &body, theme, state.style.as_ref())
@@ -1801,14 +2396,18 @@ fn validate_transitions(
         }
 
         // Find the rule for this old_value
-        let allowed: Vec<&str> = transition.rules.iter()
+        let allowed: Vec<&str> = transition
+            .rules
+            .iter()
             .filter(|r| r.from == old_value)
             .flat_map(|r| r.to.iter().map(|s| s.as_str()))
             .collect();
 
         // If no rules found for the current state, check if it's a wildcard "*" rule
         let allowed = if allowed.is_empty() {
-            transition.rules.iter()
+            transition
+                .rules
+                .iter()
                 .filter(|r| r.from == "*")
                 .flat_map(|r| r.to.iter().map(|s| s.as_str()))
                 .collect()
@@ -1847,9 +2446,14 @@ fn fire_webhooks(
     event: &str,
     payload: &serde_json::Value,
 ) {
-    for wh in webhooks.iter().filter(|wh| webhook::names_match(&wh.entity, entity)) {
+    for wh in webhooks
+        .iter()
+        .filter(|wh| webhook::names_match(&wh.entity, entity))
+    {
         let hooks: Vec<_> = wh.hooks.iter().filter(|h| h.event == event).collect();
-        if hooks.is_empty() { continue; }
+        if hooks.is_empty() {
+            continue;
+        }
         let body = webhook::redacted_body(entities, entity, payload);
         for hook in hooks {
             tokio::spawn(webhook::fire(hook.clone(), event.to_string(), body.clone()));
@@ -1876,7 +2480,10 @@ fn fire_effects(
         // For "on update <field>" — check if the specific field changed
         if event == "update" {
             if let Some(ref watched_field) = effect.field {
-                let new_val = record.get(watched_field).and_then(|v| v.as_str()).unwrap_or("");
+                let new_val = record
+                    .get(watched_field)
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 let old_val = prev_record
                     .and_then(|p| p.get(watched_field))
                     .and_then(|v| v.as_str())
@@ -1919,7 +2526,12 @@ fn interpolate_effect_message(template: &str, record: &serde_json::Value) -> Str
                     other => other.to_string(),
                 })
                 .unwrap_or_default();
-            result = format!("{}{}{}", &result[..start], value, &result[start + end + 2..]);
+            result = format!(
+                "{}{}{}",
+                &result[..start],
+                value,
+                &result[start + end + 2..]
+            );
         } else {
             break;
         }
@@ -1942,12 +2554,15 @@ fn execute_effect_action(
                 eprintln!("  \x1b[36m[effect]\x1b[0m {} → {}", entity_name, message);
                 // Write to brain events
                 if let Some(ref brain) = brain {
-                    brain.track(&format!("effect:{}", entity_name), &json!({
-                        "type": "log",
-                        "entity": entity_name,
-                        "message": message,
-                        "record_id": record.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                    }));
+                    brain.track(
+                        &format!("effect:{}", entity_name),
+                        &json!({
+                            "type": "log",
+                            "entity": entity_name,
+                            "message": message,
+                            "record_id": record.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        }),
+                    );
                 }
             }
         }
@@ -1958,36 +2573,49 @@ fn execute_effect_action(
             let msg_template = action.args.get(2).cloned().unwrap_or_default();
             let message = interpolate_effect_message(&msg_template, record);
 
-            eprintln!("  \x1b[35m[notify]\x1b[0m {} → {}:{} — {}", entity_name, provider, channel, message);
+            eprintln!(
+                "  \x1b[35m[notify]\x1b[0m {} → {}:{} — {}",
+                entity_name, provider, channel, message
+            );
 
             // Write to brain events for tracking
             if let Some(ref brain) = brain {
-                brain.track(&format!("effect:notify:{}", entity_name), &json!({
-                    "type": "notify",
-                    "entity": entity_name,
-                    "provider": provider,
-                    "channel": channel,
-                    "message": message,
-                    "record_id": record.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                }));
+                brain.track(
+                    &format!("effect:notify:{}", entity_name),
+                    &json!({
+                        "type": "notify",
+                        "entity": entity_name,
+                        "provider": provider,
+                        "channel": channel,
+                        "message": message,
+                        "record_id": record.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                    }),
+                );
             }
 
             // Broadcast via SSE so dashboards can react
             sse_hub.broadcast(sse::DataChangeEvent {
                 entity: format!("_effect_notify_{}", entity_name.to_lowercase()),
                 action: "notification".to_string(),
-                id: record.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                id: record
+                    .get("id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
             });
         }
         _ => {
             // Generic/unknown action — log it
             if let Some(ref brain) = brain {
-                brain.track(&format!("effect:{}:{}", action.action_type, entity_name), &json!({
-                    "type": action.action_type,
-                    "entity": entity_name,
-                    "args": action.args,
-                    "record_id": record.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                }));
+                brain.track(
+                    &format!("effect:{}:{}", action.action_type, entity_name),
+                    &json!({
+                        "type": action.action_type,
+                        "entity": entity_name,
+                        "args": action.args,
+                        "record_id": record.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                    }),
+                );
             }
         }
     }
@@ -2037,20 +2665,31 @@ async fn cmd_run(args: &[String]) {
         let lines = source.lines().count();
         let n = match parser::parse_with_imports(&source, ".") {
             Ok(n) => n,
-            Err(e) => { eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e); std::process::exit(1); }
+            Err(e) => {
+                eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e);
+                std::process::exit(1);
+            }
         };
         (n, lines)
     } else {
         // Multi-agent mode: compose all .cronus files
-        println!("  \x1b[36m⚡\x1b[0m Multi-file mode: {} files detected", files.len());
+        println!(
+            "  \x1b[36m⚡\x1b[0m Multi-file mode: {} files detected",
+            files.len()
+        );
         let mut total = 0;
         for f in &files {
-            let lines = fs::read_to_string(f).map(|s| s.lines().count()).unwrap_or(0);
+            let lines = fs::read_to_string(f)
+                .map(|s| s.lines().count())
+                .unwrap_or(0);
             total += lines;
         }
         let n = match parser::parse_directory(".") {
             Ok(n) => n,
-            Err(e) => { eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e); std::process::exit(1); }
+            Err(e) => {
+                eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e);
+                std::process::exit(1);
+            }
         };
 
         (n, total)
@@ -2064,7 +2703,10 @@ async fn cmd_run(args: &[String]) {
     // Create semantic memory session and extract business rules
     if let Ok(mem) = open_memory_db() {
         match mem.create_session(Some("cronus-run")) {
-            Ok(sid) => println!("  \x1b[32m✓\x1b[0m Memory session: {}", &sid[..sid.len().min(20)]),
+            Ok(sid) => println!(
+                "  \x1b[32m✓\x1b[0m Memory session: {}",
+                &sid[..sid.len().min(20)]
+            ),
             Err(e) => eprintln!("  \x1b[33m⚠\x1b[0m Memory session failed: {}", e),
         }
         // Auto-extract business rules from @business/@rule doc tags and constitution
@@ -2072,7 +2714,15 @@ async fn cmd_run(args: &[String]) {
     }
 
     // Extract AST parts
-    let mut app = AppNode { name: "CRONUS App".into(), stack: vec![], port: 5175, database: None, tailwind_config: None, constitution: None, doc: None };
+    let mut app = AppNode {
+        name: "CRONUS App".into(),
+        stack: vec![],
+        port: 5175,
+        database: None,
+        tailwind_config: None,
+        constitution: None,
+        doc: None,
+    };
     let mut entities: Vec<EntityNode> = vec![];
     let mut pages: Vec<PageNode> = vec![];
     let mut style: Option<StyleNode> = None;
@@ -2086,7 +2736,8 @@ async fn cmd_run(args: &[String]) {
     let mut auth_redirect: Option<String> = None;
     let mut session_policy = crate::auth::SessionPolicy::default();
     let mut layout: Option<parser::LayoutNode> = None;
-    let mut defines: std::collections::HashMap<String, Vec<parser::SectionNode>> = std::collections::HashMap::new();
+    let mut defines: std::collections::HashMap<String, Vec<parser::SectionNode>> =
+        std::collections::HashMap::new();
 
     for node in &nodes {
         match node {
@@ -2094,7 +2745,10 @@ async fn cmd_run(args: &[String]) {
             AstNode::Entity(e) => entities.push(e.clone()),
             AstNode::Page(p) => {
                 // Track pages that require auth
-                let req = p.requires.clone().or_else(|| p.config.get("requires").cloned());
+                let req = p
+                    .requires
+                    .clone()
+                    .or_else(|| p.config.get("requires").cloned());
                 if let Some(ref req_val) = req {
                     auth_required_pages.push((p.route.clone(), req_val.clone()));
                 }
@@ -2109,13 +2763,14 @@ async fn cmd_run(args: &[String]) {
             AstNode::Auth(auth) => {
                 auth_entity = Some(auth.entity.clone());
                 auth_roles = auth.roles.clone();
-                session_policy = match crate::auth::SessionPolicy::from_session_config(&auth.session_config) {
-                    Ok(p) => p,
-                    Err(e) => {
-                        eprintln!("  \x1b[31m✗\x1b[0m {}", e);
-                        std::process::exit(1);
-                    }
-                };
+                session_policy =
+                    match crate::auth::SessionPolicy::from_session_config(&auth.session_config) {
+                        Ok(p) => p,
+                        Err(e) => {
+                            eprintln!("  \x1b[31m✗\x1b[0m {}", e);
+                            std::process::exit(1);
+                        }
+                    };
                 if let Some(r) = auth.session_config.get("redirect") {
                     auth_redirect = Some(r.clone());
                 }
@@ -2156,10 +2811,12 @@ async fn cmd_run(args: &[String]) {
                         // Auto-resolve topbar active_nav based on page route
                         if sec.section_type == "topbar" {
                             // Set active_nav based on route segments
-                            let route_parts: Vec<&str> = page.route.split('/').filter(|s| !s.is_empty()).collect();
+                            let route_parts: Vec<&str> =
+                                page.route.split('/').filter(|s| !s.is_empty()).collect();
                             if let Some(first) = route_parts.first() {
                                 // Capitalize first letter
-                                let capitalized = format!("{}{}", first[..1].to_uppercase(), &first[1..]);
+                                let capitalized =
+                                    format!("{}{}", first[..1].to_uppercase(), &first[1..]);
                                 sec.config.insert("active_nav".into(), capitalized);
                             }
                         }
@@ -2196,14 +2853,18 @@ async fn cmd_run(args: &[String]) {
                             let mut rendered = tmpl.clone();
                             for param in &comp_def.params {
                                 let placeholder = format!("{{{{{}}}}}", param.name);
-                                let value = section.config.get(&param.name)
+                                let value = section
+                                    .config
+                                    .get(&param.name)
                                     .map(|s| s.as_str())
                                     .or(param.default.as_deref())
                                     .unwrap_or("");
                                 rendered = rendered.replace(&placeholder, value);
                             }
                             for (key, value) in &section.config {
-                                if key == "_component" { continue; }
+                                if key == "_component" {
+                                    continue;
+                                }
                                 let placeholder = format!("{{{{{}}}}}", key);
                                 rendered = rendered.replace(&placeholder, value);
                             }
@@ -2212,13 +2873,20 @@ async fn cmd_run(args: &[String]) {
                             // and generate JS signal code
                             if !comp_def.state.is_empty() {
                                 // Wrap component in a container with unique ID
-                                rendered = format!(r#"<div data-cid="{cid}">{html}</div>"#, cid = cid, html = rendered);
+                                rendered = format!(
+                                    r#"<div data-cid="{cid}">{html}</div>"#,
+                                    cid = cid,
+                                    html = rendered
+                                );
 
                                 // Replace {{state_var}} with reactive spans
                                 for sv in &comp_def.state {
                                     let placeholder = format!("{{{{{}}}}}", sv.name);
-                                    let span = format!(r#"<span data-s="{name}">{default}</span>"#,
-                                        name = sv.name, default = sv.default);
+                                    let span = format!(
+                                        r#"<span data-s="{name}">{default}</span>"#,
+                                        name = sv.name,
+                                        default = sv.default
+                                    );
                                     rendered = rendered.replace(&placeholder, &span);
                                 }
 
@@ -2233,12 +2901,23 @@ async fn cmd_run(args: &[String]) {
                                     let eid = format!("{cid}_e{event_id}");
                                     // Find the expression in quotes
                                     let after = &rendered[pos + 7..];
-                                    let (expr, end_offset) = if after.starts_with("\\\"") || after.starts_with('"') {
-                                        let quote_char = if after.starts_with("\\\"") { "\\\"" } else { "\"" };
+                                    let (expr, end_offset) = if after.starts_with("\\\"")
+                                        || after.starts_with('"')
+                                    {
+                                        let quote_char = if after.starts_with("\\\"") {
+                                            "\\\""
+                                        } else {
+                                            "\""
+                                        };
                                         let qlen = quote_char.len();
                                         let expr_start = qlen;
-                                        if let Some(expr_end) = after[expr_start..].find(quote_char) {
-                                            (after[expr_start..expr_start + expr_end].to_string(), 7 + expr_start + expr_end + qlen)
+                                        if let Some(expr_end) = after[expr_start..].find(quote_char)
+                                        {
+                                            (
+                                                after[expr_start..expr_start + expr_end]
+                                                    .to_string(),
+                                                7 + expr_start + expr_end + qlen,
+                                            )
                                         } else {
                                             break;
                                         }
@@ -2247,8 +2926,12 @@ async fn cmd_run(args: &[String]) {
                                     };
 
                                     // Replace @click="expr" with data-eid="..."
-                                    rendered = format!("{}data-eid=\"{}\"{}",
-                                        &rendered[..pos], eid, &rendered[pos + end_offset..]);
+                                    rendered = format!(
+                                        "{}data-eid=\"{}\"{}",
+                                        &rendered[..pos],
+                                        eid,
+                                        &rendered[pos + end_offset..]
+                                    );
 
                                     // Generate JS for this event
                                     // Parse simple expressions: "count += 1", "count -= 1", "toggle = !toggle"
@@ -2269,7 +2952,8 @@ async fn cmd_run(args: &[String]) {
                                             "boolean" => sv.default.clone(),
                                             _ => format!("\"{}\"", sv.default),
                                         };
-                                        state_init.push_str(&format!("{}:{},", sv.name, default_js));
+                                        state_init
+                                            .push_str(&format!("{}:{},", sv.name, default_js));
                                         update_dom.push_str(&format!(
                                             r#"_c.querySelectorAll('[data-s="{name}"]').forEach(function(el){{ el.textContent=_s.{name}; }});"#,
                                             name = sv.name
@@ -2349,27 +3033,38 @@ async fn cmd_run(args: &[String]) {
     }
 
     // Database — use CronusDB for all operations
-    let db_path = app.database.as_ref()
+    let db_path = app
+        .database
+        .as_ref()
         .and_then(|d| d.path.clone())
         .unwrap_or_else(|| "data.db".into());
 
     let app_db = database::CronusDB::open(&db_path).expect("Failed to open database");
-    app_db.migrate(&entities).expect("Failed to migrate database");
+    app_db
+        .migrate(&entities)
+        .expect("Failed to migrate database");
 
     // Ensure User table has password column for auth (auto-added by kernel)
-    let has_user = entities.iter().any(|e| { let l = e.name.to_lowercase(); l == "user" || l == "users" });
+    let has_user = entities.iter().any(|e| {
+        let l = e.name.to_lowercase();
+        l == "user" || l == "users"
+    });
     if has_user {
-        let user_table = entities.iter()
-            .find(|e| { let l = e.name.to_lowercase(); l == "user" || l == "users" })
+        let user_table = entities
+            .iter()
+            .find(|e| {
+                let l = e.name.to_lowercase();
+                l == "user" || l == "users"
+            })
             .map(|e| e.name.as_str())
             .unwrap();
         let _ = app_db.execute_raw(&format!(
-            "ALTER TABLE \"{}\" ADD COLUMN password TEXT", user_table
+            "ALTER TABLE \"{}\" ADD COLUMN password TEXT",
+            user_table
         ));
     }
 
     let table_count = entities.len();
-
 
     // Initialize Hydra Brain
     let brain_db = Arc::new(database::CronusDB::open(&db_path).expect("Failed to open brain DB"));
@@ -2384,31 +3079,67 @@ async fn cmd_run(args: &[String]) {
                 name: "event".to_string(),
                 field_type: parser::FieldType::String,
                 required: true,
-                unique: false, sensitive: false, optional: false, searchable: false,
-                index: false, featured: false, formatted: false, array: false,
-                enum_values: None, reference: None,
+                unique: false,
+                sensitive: false,
+                optional: false,
+                searchable: false,
+                index: false,
+                featured: false,
+                formatted: false,
+                array: false,
+                enum_values: None,
+                reference: None,
                 doc: None,
-                default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
+                default_value: None,
+                min: None,
+                max: None,
+                min_length: None,
+                max_length: None,
+                pattern: None,
             },
             parser::FieldNode {
                 name: "metadata".to_string(),
                 field_type: parser::FieldType::Text,
                 required: false,
-                unique: false, sensitive: false, optional: false, searchable: false,
-                index: false, featured: false, formatted: false, array: false,
-                enum_values: None, reference: None,
+                unique: false,
+                sensitive: false,
+                optional: false,
+                searchable: false,
+                index: false,
+                featured: false,
+                formatted: false,
+                array: false,
+                enum_values: None,
+                reference: None,
                 doc: None,
-                default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
+                default_value: None,
+                min: None,
+                max: None,
+                min_length: None,
+                max_length: None,
+                pattern: None,
             },
             parser::FieldNode {
                 name: "timestamp".to_string(),
                 field_type: parser::FieldType::String,
                 required: false,
-                unique: false, sensitive: false, optional: false, searchable: false,
-                index: false, featured: false, formatted: false, array: false,
-                enum_values: None, reference: None,
+                unique: false,
+                sensitive: false,
+                optional: false,
+                searchable: false,
+                index: false,
+                featured: false,
+                formatted: false,
+                array: false,
+                enum_values: None,
+                reference: None,
                 doc: None,
-                default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
+                default_value: None,
+                min: None,
+                max: None,
+                min_length: None,
+                max_length: None,
+                pattern: None,
             },
         ],
         remote_url: None,
@@ -2416,7 +3147,6 @@ async fn cmd_run(args: &[String]) {
     };
     let _ = brain_db.migrate(&[brain_entity]);
     let hydra = brain::CronusBrain::init(brain_db);
-
 
     // Build app state (reuse app_db from migration)
 
@@ -2484,11 +3214,16 @@ async fn cmd_run(args: &[String]) {
     // turns into the per-request CSP nonce (no 'unsafe-inline' in script-src).
     crate::security::enable_script_nonces();
     let listener = TcpListener::bind(addr).await.unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Cannot bind to port {}: {}", serve_port, e);
+        eprintln!(
+            "  \x1b[31m✗\x1b[0m Cannot bind to port {}: {}",
+            serve_port, e
+        );
         std::process::exit(1);
     });
 
-    let accent = state.style.as_ref()
+    let accent = state
+        .style
+        .as_ref()
         .and_then(|s| s.accent.as_deref())
         .unwrap_or("amber");
 
@@ -2496,20 +3231,28 @@ async fn cmd_run(args: &[String]) {
     if files.len() > 1 {
         hmr::start_directory_watcher(".", move || {
             let v = hmr::bump_version();
-            eprintln!("  \x1b[33m⚡\x1b[0m File changed — version {} (browser will reload)", v);
+            eprintln!(
+                "  \x1b[33m⚡\x1b[0m File changed — version {} (browser will reload)",
+                v
+            );
         });
     } else {
         let hmr_file = file.clone();
         hmr::start_watcher(&hmr_file, move || {
             let v = hmr::bump_version();
-            eprintln!("  \x1b[33m⚡\x1b[0m File changed — version {} (browser will reload)", v);
+            eprintln!(
+                "  \x1b[33m⚡\x1b[0m File changed — version {} (browser will reload)",
+                v
+            );
         });
     }
 
     // Count total rows across all entities
-    let total_rows: usize = state.entities.iter().map(|e| {
-        state.db.count(&e.name).unwrap_or(0)
-    }).sum();
+    let total_rows: usize = state
+        .entities
+        .iter()
+        .map(|e| state.db.count(&e.name).unwrap_or(0))
+        .sum();
 
     let auth_page_count = state.auth_required_pages.len();
     let total_pages = state.pages.len();
@@ -2521,10 +3264,16 @@ async fn cmd_run(args: &[String]) {
     println!();
     println!("  \x1b[90mApp:\x1b[0m       \x1b[1m{}\x1b[0m", app.name);
     println!("  \x1b[90mPort:\x1b[0m      \x1b]8;;http://localhost:{}\x1b\\http://localhost:{}\x1b]8;;\x1b\\", serve_port, serve_port);
-    println!("  \x1b[90mDatabase:\x1b[0m  ./{} ({} entities, {} rows)", db_path, table_count, total_rows);
+    println!(
+        "  \x1b[90mDatabase:\x1b[0m  ./{} ({} entities, {} rows)",
+        db_path, table_count, total_rows
+    );
     if total_pages > 0 {
         if auth_page_count > 0 {
-            println!("  \x1b[90mPages:\x1b[0m     {} ({} require auth)", total_pages, auth_page_count);
+            println!(
+                "  \x1b[90mPages:\x1b[0m     {} ({} require auth)",
+                total_pages, auth_page_count
+            );
         } else {
             println!("  \x1b[90mPages:\x1b[0m     {}", total_pages);
         }
@@ -2534,18 +3283,37 @@ async fn cmd_run(args: &[String]) {
     }
     if state.script_registry.block_count() > 0 {
         let sc = &state.script_registry;
-        let events = sc.scripts.iter().flat_map(|s| s.blocks.iter()).filter(|b| matches!(b, scripting::ast::ScriptBlock::OnEvent(_))).count();
+        let events = sc
+            .scripts
+            .iter()
+            .flat_map(|s| s.blocks.iter())
+            .filter(|b| matches!(b, scripting::ast::ScriptBlock::OnEvent(_)))
+            .count();
         let schedules = sc.get_schedules().len();
         let endpoints = sc.get_endpoints().len();
-        let webhooks = sc.scripts.iter().flat_map(|s| s.blocks.iter()).filter(|b| matches!(b, scripting::ast::ScriptBlock::OnWebhook(_))).count();
-        println!("  \x1b[90mScripts:\x1b[0m   {} ({} events, {} schedules, {} endpoints, {} webhooks)",
-            sc.scripts.len(), events, schedules, endpoints, webhooks);
+        let webhooks = sc
+            .scripts
+            .iter()
+            .flat_map(|s| s.blocks.iter())
+            .filter(|b| matches!(b, scripting::ast::ScriptBlock::OnWebhook(_)))
+            .count();
+        println!(
+            "  \x1b[90mScripts:\x1b[0m   {} ({} events, {} schedules, {} endpoints, {} webhooks)",
+            sc.scripts.len(),
+            events,
+            schedules,
+            endpoints,
+            webhooks
+        );
     }
     if let Some(ref _auth_e) = state.auth_entity {
         if state.auth_roles.is_empty() {
             println!("  \x1b[90mAuth:\x1b[0m      JWT");
         } else {
-            println!("  \x1b[90mAuth:\x1b[0m      JWT (roles: {})", state.auth_roles.join(", "));
+            println!(
+                "  \x1b[90mAuth:\x1b[0m      JWT (roles: {})",
+                state.auth_roles.join(", ")
+            );
         }
     }
     // ── Integrity checks: dead links, unbound sections, hardcoded data ──
@@ -2565,19 +3333,31 @@ async fn cmd_run(args: &[String]) {
                             let start = pos + idx + 6;
                             if let Some(end) = tpl[start..].find('"') {
                                 let href = &tpl[start - 1..start + end];
-                                if href != "/" && href != "#" && !href.starts_with("/#") && !href.starts_with("/api/") && !page_routes.contains(&href) {
+                                if href != "/"
+                                    && href != "#"
+                                    && !href.starts_with("/#")
+                                    && !href.starts_with("/api/")
+                                    && !page_routes.contains(&href)
+                                {
                                     println!("  \x1b[31m✗\x1b[0m Dead link: \"{}\" → page {} does not exist", href, href);
                                     warnings += 1;
                                 }
                                 pos = start + end;
-                            } else { break; }
-                        } else { break; }
+                            } else {
+                                break;
+                            }
+                        } else {
+                            break;
+                        }
                     }
                 }
 
                 // Check sections without binding that should have data
                 let data_sections = ["kpi", "stat-cards", "table"];
-                if data_sections.contains(&section.section_type.as_str()) && section.binding.is_none() && section.items.is_empty() {
+                if data_sections.contains(&section.section_type.as_str())
+                    && section.binding.is_none()
+                    && section.items.is_empty()
+                {
                     println!("  \x1b[31m✗\x1b[0m Page \"{}\": section \"{}\" has no data source (no bind, no items)", page.route, section.section_type);
                     warnings += 1;
                 }
@@ -2598,7 +3378,10 @@ async fn cmd_run(args: &[String]) {
             match cli::audit_fidelity::run_audit(&ref_path) {
                 Some(result) => {
                     println!();
-                    println!("  \x1b[1mFidelity Audit\x1b[0m (CRONUS_AUDIT_REF={})", ref_path);
+                    println!(
+                        "  \x1b[1mFidelity Audit\x1b[0m (CRONUS_AUDIT_REF={})",
+                        ref_path
+                    );
                     cli::audit_fidelity::print_fidelity_line(&result);
                     if result.fidelity < 90 {
                         println!("  \x1b[33m⚠ Fidelity below 90% — review missing items:\x1b[0m");
@@ -2631,7 +3414,10 @@ async fn cmd_run(args: &[String]) {
                 tick.tick().await; // skip immediate first tick
                 loop {
                     tick.tick().await;
-                    eprintln!("  \x1b[36m[schedule]\x1b[0m running \"{}\" from \"{}\"", sched_name, script_name);
+                    eprintln!(
+                        "  \x1b[36m[schedule]\x1b[0m running \"{}\" from \"{}\"",
+                        sched_name, script_name
+                    );
                     let db = match crate::database::CronusDB::open(&db_path) {
                         Ok(db) => db,
                         Err(e) => {
@@ -2639,13 +3425,23 @@ async fn cmd_run(args: &[String]) {
                             continue;
                         }
                     };
-                    let mut ctx = scripting::vm::ScriptContext::new("system", "admin", std::collections::HashMap::new());
+                    let mut ctx = scripting::vm::ScriptContext::new(
+                        "system",
+                        "admin",
+                        std::collections::HashMap::new(),
+                    );
                     if let Err(e) = scripting::vm::execute_statements(&body, &mut ctx, &db, None) {
-                        eprintln!("  \x1b[31m[schedule]\x1b[0m \"{}\" error: {}", sched_name, e);
+                        eprintln!(
+                            "  \x1b[31m[schedule]\x1b[0m \"{}\" error: {}",
+                            sched_name, e
+                        );
                     }
                 }
             });
-            eprintln!("  \x1b[36m[schedule]\x1b[0m registered \"{}\" (every {})", sched.name, sched.interval);
+            eprintln!(
+                "  \x1b[36m[schedule]\x1b[0m registered \"{}\" (every {})",
+                sched.name, sched.interval
+            );
         }
     }
 
@@ -2658,7 +3454,10 @@ async fn cmd_run(args: &[String]) {
             println!("{}", e);
         }
         println!();
-        println!("  \x1b[31m{} resolve error(s)\x1b[0m — aborting", resolve_errors.len());
+        println!(
+            "  \x1b[31m{} resolve error(s)\x1b[0m — aborting",
+            resolve_errors.len()
+        );
         std::process::exit(1);
     }
 
@@ -2681,7 +3480,10 @@ async fn cmd_run(args: &[String]) {
                 println!("{}", v);
             }
             println!();
-            println!("  \x1b[33m\u{26a0} {} constitution violation(s)\x1b[0m", real_violations.len());
+            println!(
+                "  \x1b[33m\u{26a0} {} constitution violation(s)\x1b[0m",
+                real_violations.len()
+            );
         }
     }
 
@@ -2773,22 +3575,18 @@ async fn cmd_run(args: &[String]) {
 
 // cmd_dump moved to cli::dump_cmd
 
-
 // cmd_build and build_ai_error_json moved to cli/build.rs
 // save_ast_snapshot moved to cli/build.rs
 
 // cmd_validate moved to cli::validate
 
-
 // cmd_new moved to cli::new
-
 
 // ══════════════════════════════════════════════════
 // SEED COMMAND
 // ══════════════════════════════════════════════════
 
 // cmd_seed moved to cli::seed
-
 
 // ══════════════════════════════════════════════════
 // TEMPLATES
@@ -4138,11 +4936,9 @@ style {
 }
 "#;
 
-
 // cmd_parse moved to cli::parse_cmd
 
 // cmd_deploy moved to cli::deploy_cmd
-
 
 // cmd_doctor moved to cli::doctor
 
@@ -4152,12 +4948,9 @@ style {
 
 // cmd_test moved to cli::test_cmd
 
-
 // cmd_compose moved to cli::compose
 
-
 // cmd_generate and generate system moved to cli::generate
-
 
 /// Auto-generated documentation page — derived 100% from the parsed .cronus AST.
 /// Follows the Synthetic Docs design (obsidian dark, glass panels, code blocks).
@@ -4173,7 +4966,6 @@ pub(crate) fn open_memory_db() -> Result<memory::SemanticMemory, String> {
 
 // cmd_verify_audit moved to cli::verify
 
-
 // cmd_memory + find_flag_value moved to cli/memory_cmd.rs
 
 // ══════════════════════════════════════════════════
@@ -4181,6 +4973,5 @@ pub(crate) fn open_memory_db() -> Result<memory::SemanticMemory, String> {
 // ══════════════════════════════════════════════════
 
 // cmd_verify moved to cli::verify
-
 
 // cmd_changelog moved to cli/changelog.rs

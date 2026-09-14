@@ -1,8 +1,8 @@
 #![allow(dead_code, unused_imports, unused_variables)]
 //! DOM parsing and analysis using the `scraper` crate.
 
+use scraper::{ElementRef, Html, Node, Selector};
 use std::collections::HashMap;
-use scraper::{Html, Selector, ElementRef, Node};
 
 /// Known Material Symbols class prefixes that mark icon font spans.
 const MATERIAL_SYMBOL_CLASSES: &[&str] = &[
@@ -31,9 +31,9 @@ pub struct DomNode {
 
 /// Check if an `ElementRef` has a material-symbols icon class.
 fn is_material_symbols_element(el: &ElementRef) -> bool {
-    el.value().classes().any(|c| {
-        MATERIAL_SYMBOL_CLASSES.iter().any(|ms| c.contains(ms))
-    })
+    el.value()
+        .classes()
+        .any(|c| MATERIAL_SYMBOL_CLASSES.iter().any(|ms| c.contains(ms)))
 }
 
 /// Extract text from an `ElementRef` while skipping children that have a
@@ -100,9 +100,11 @@ fn clean_element_text_recursive(el: &ElementRef) -> String {
 /// material-symbols class. Returns cleaned, whitespace-collapsed text.
 pub fn clean_node_text(node: &DomNode) -> String {
     // If this node itself is a material-symbols icon, return empty
-    if node.classes.iter().any(|c| {
-        MATERIAL_SYMBOL_CLASSES.iter().any(|ms| c.contains(ms))
-    }) {
+    if node
+        .classes
+        .iter()
+        .any(|c| MATERIAL_SYMBOL_CLASSES.iter().any(|ms| c.contains(ms)))
+    {
         return String::new();
     }
 
@@ -120,9 +122,11 @@ pub fn clean_node_text(node: &DomNode) -> String {
     // was not populated).
     let mut parts: Vec<String> = Vec::new();
     for child in &node.children {
-        if child.classes.iter().any(|c| {
-            MATERIAL_SYMBOL_CLASSES.iter().any(|ms| c.contains(ms))
-        }) {
+        if child
+            .classes
+            .iter()
+            .any(|c| MATERIAL_SYMBOL_CLASSES.iter().any(|ms| c.contains(ms)))
+        {
             continue;
         }
         let child_text = clean_node_text(child);
@@ -149,16 +153,24 @@ fn collapse_whitespace(s: &str) -> String {
 /// should recurse into its children instead of treating it as a block.
 fn is_wrapper_class(class: &str) -> bool {
     // max-w-* (max-w-6xl, max-w-screen-xl, …)
-    if class.starts_with("max-w-") { return true; }
+    if class.starts_with("max-w-") {
+        return true;
+    }
     // mx-auto centering
-    if class == "mx-auto" { return true; }
+    if class == "mx-auto" {
+        return true;
+    }
     // Pure padding/margin utilities (p-*, px-*, py-*, m-*, mt-*, …)
     if class.len() >= 2 {
         let bytes = class.as_bytes();
         if (bytes[0] == b'p' || bytes[0] == b'm')
-            && (bytes[1] == b'-' || bytes[1] == b'x' || bytes[1] == b'y'
-                || bytes[1] == b't' || bytes[1] == b'b'
-                || bytes[1] == b'l' || bytes[1] == b'r')
+            && (bytes[1] == b'-'
+                || bytes[1] == b'x'
+                || bytes[1] == b'y'
+                || bytes[1] == b't'
+                || bytes[1] == b'b'
+                || bytes[1] == b'l'
+                || bytes[1] == b'r')
         {
             return true;
         }
@@ -168,9 +180,13 @@ fn is_wrapper_class(class: &str) -> bool {
         return true;
     }
     // container utility
-    if class == "container" { return true; }
+    if class == "container" {
+        return true;
+    }
     // space-y-*, gap-*, – spacing only
-    if class.starts_with("space-") || class.starts_with("gap-") { return true; }
+    if class.starts_with("space-") || class.starts_with("gap-") {
+        return true;
+    }
     false
 }
 
@@ -188,7 +204,9 @@ fn is_flex_container(classes: &[String]) -> bool {
 
 /// True when *all* classes on a node are wrapper/layout-only.
 fn is_pure_wrapper(classes: &[String]) -> bool {
-    if classes.is_empty() { return true; } // no classes at all → wrapper
+    if classes.is_empty() {
+        return true;
+    } // no classes at all → wrapper
     classes.iter().all(|c| is_wrapper_class(c))
 }
 
@@ -205,15 +223,15 @@ fn should_keep_together(node: &DomNode) -> bool {
     // Check if any direct child (or grandchild) is a heading
     let has_heading = node.children.iter().any(|c| {
         matches!(c.tag.as_str(), "h1" | "h2" | "h3" | "h4" | "h5" | "h6")
-            || c.children.iter().any(|gc| {
-                matches!(gc.tag.as_str(), "h1" | "h2" | "h3" | "h4" | "h5" | "h6")
-            })
+            || c.children
+                .iter()
+                .any(|gc| matches!(gc.tag.as_str(), "h1" | "h2" | "h3" | "h4" | "h5" | "h6"))
     });
     // Check if any direct child (or grandchild) is a paragraph
-    let has_paragraph = node.children.iter().any(|c| {
-        c.tag == "p"
-            || c.children.iter().any(|gc| gc.tag == "p")
-    });
+    let has_paragraph = node
+        .children
+        .iter()
+        .any(|c| c.tag == "p" || c.children.iter().any(|gc| gc.tag == "p"));
     // Check if any child is a complex container (grid, card, table, section)
     let has_complex = node.children.iter().any(|c| {
         has_class(c, "grid")
@@ -312,18 +330,43 @@ pub fn extract_structured_text(node: &DomNode) -> Vec<(String, String)> {
 
 /// Tags that carry text we want to surface individually.
 const TEXT_BEARING_TAGS: &[&str] = &[
-    "h1", "h2", "h3", "h4", "h5", "h6",
-    "p", "span", "label", "code", "pre", "a",
-    "li", "td", "th", "dt", "dd", "blockquote",
-    "figcaption", "caption", "legend", "summary",
-    "strong", "em", "b", "i", "small", "time",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "p",
+    "span",
+    "label",
+    "code",
+    "pre",
+    "a",
+    "li",
+    "td",
+    "th",
+    "dt",
+    "dd",
+    "blockquote",
+    "figcaption",
+    "caption",
+    "legend",
+    "summary",
+    "strong",
+    "em",
+    "b",
+    "i",
+    "small",
+    "time",
 ];
 
 fn extract_structured_text_inner(node: &DomNode, out: &mut Vec<(String, String)>) {
     // Skip material-symbols icons entirely
-    if node.classes.iter().any(|c| {
-        MATERIAL_SYMBOL_CLASSES.iter().any(|ms| c.contains(ms))
-    }) {
+    if node
+        .classes
+        .iter()
+        .any(|c| MATERIAL_SYMBOL_CLASSES.iter().any(|ms| c.contains(ms)))
+    {
         return;
     }
 
@@ -362,48 +405,48 @@ pub fn extract_form_fields(node: &DomNode) -> Vec<(String, String, String)> {
 fn extract_form_fields_inner(node: &DomNode, out: &mut Vec<(String, String, String)>) {
     match node.tag.as_str() {
         "input" => {
-            let field_type = node.attrs.get("type")
+            let field_type = node
+                .attrs
+                .get("type")
                 .cloned()
                 .unwrap_or_else(|| "text".to_string());
             // Skip hidden inputs
             if field_type == "hidden" {
                 return;
             }
-            let placeholder = node.attrs.get("placeholder")
+            let placeholder = node
+                .attrs
+                .get("placeholder")
                 .or(node.attrs.get("value"))
                 .cloned()
                 .unwrap_or_default();
             // Try to find label from attrs or leave empty (caller can match
             // using sibling label logic below at the block level)
-            let label = node.attrs.get("aria-label")
-                .cloned()
-                .unwrap_or_default();
+            let label = node.attrs.get("aria-label").cloned().unwrap_or_default();
             out.push((field_type, label, placeholder));
         }
         "textarea" => {
-            let placeholder = node.attrs.get("placeholder")
-                .cloned()
-                .unwrap_or_default();
-            let label = node.attrs.get("aria-label")
-                .cloned()
-                .unwrap_or_default();
+            let placeholder = node.attrs.get("placeholder").cloned().unwrap_or_default();
+            let label = node.attrs.get("aria-label").cloned().unwrap_or_default();
             out.push(("textarea".to_string(), label, placeholder));
         }
         "select" => {
             // Collect option texts
-            let options: Vec<String> = node.children.iter()
+            let options: Vec<String> = node
+                .children
+                .iter()
                 .filter(|c| c.tag == "option")
                 .map(|c| clean_node_text(c))
                 .filter(|t| !t.is_empty())
                 .collect();
-            let label = node.attrs.get("aria-label")
-                .cloned()
-                .unwrap_or_default();
+            let label = node.attrs.get("aria-label").cloned().unwrap_or_default();
             out.push(("select".to_string(), label, options.join(", ")));
         }
         "button" => {
             let text = clean_node_text(node);
-            let btn_type = node.attrs.get("type")
+            let btn_type = node
+                .attrs
+                .get("type")
                 .cloned()
                 .unwrap_or_else(|| "button".to_string());
             out.push((format!("button[{}]", btn_type), String::new(), text));
@@ -436,11 +479,17 @@ fn extract_form_fields_inner(node: &DomNode, out: &mut Vec<(String, String, Stri
             for child in &node.children {
                 match child.tag.as_str() {
                     "input" => {
-                        let field_type = child.attrs.get("type")
+                        let field_type = child
+                            .attrs
+                            .get("type")
                             .cloned()
                             .unwrap_or_else(|| "text".to_string());
-                        if field_type == "hidden" { continue; }
-                        let placeholder = child.attrs.get("placeholder")
+                        if field_type == "hidden" {
+                            continue;
+                        }
+                        let placeholder = child
+                            .attrs
+                            .get("placeholder")
                             .or(child.attrs.get("value"))
                             .cloned()
                             .unwrap_or_default();
@@ -448,7 +497,9 @@ fn extract_form_fields_inner(node: &DomNode, out: &mut Vec<(String, String, Stri
                         found_input = true;
                     }
                     "select" => {
-                        let options: Vec<String> = child.children.iter()
+                        let options: Vec<String> = child
+                            .children
+                            .iter()
                             .filter(|c| c.tag == "option")
                             .map(|c| clean_node_text(c))
                             .filter(|t| !t.is_empty())
@@ -457,9 +508,8 @@ fn extract_form_fields_inner(node: &DomNode, out: &mut Vec<(String, String, Stri
                         found_input = true;
                     }
                     "textarea" => {
-                        let placeholder = child.attrs.get("placeholder")
-                            .cloned()
-                            .unwrap_or_default();
+                        let placeholder =
+                            child.attrs.get("placeholder").cloned().unwrap_or_default();
                         out.push(("textarea".to_string(), label_text.clone(), placeholder));
                         found_input = true;
                     }
@@ -497,9 +547,7 @@ pub fn parse_html(html: &str) -> Vec<DomNode> {
     let mut blocks = Vec::new();
 
     // 1) Collect top-level nav, header, aside (top stuff, before main content)
-    let top_selectors = [
-        "body > nav", "body > header", "body > aside",
-    ];
+    let top_selectors = ["body > nav", "body > header", "body > aside"];
     for sel_str in &top_selectors {
         if let Ok(sel) = Selector::parse(sel_str) {
             for el in document.select(&sel) {
@@ -577,14 +625,17 @@ fn element_to_node(el: ElementRef, depth: u32) -> DomNode {
     let id = el.value().id().map(|s| s.to_string());
 
     // Check if this element itself is a material-symbols icon
-    let is_icon = classes.iter().any(|c| {
-        MATERIAL_SYMBOL_CLASSES.iter().any(|ms| c.contains(ms))
-    });
+    let is_icon = classes
+        .iter()
+        .any(|c| MATERIAL_SYMBOL_CLASSES.iter().any(|ms| c.contains(ms)));
 
     // Direct text: first text node only, cleaned of material-symbols children
     let text: String = if is_icon {
         // For icon spans, keep the raw icon name as text (used by extract_material_icon)
-        el.text().next().map(|s| s.trim().to_string()).unwrap_or_default()
+        el.text()
+            .next()
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default()
     } else {
         // Clean: skip material-symbols children, only direct text nodes
         let mut direct_parts: Vec<String> = Vec::new();
@@ -618,7 +669,8 @@ fn element_to_node(el: ElementRef, depth: u32) -> DomNode {
 
     // Children — include both element children AND text nodes so that
     // dom_to_html() can reconstruct the original HTML faithfully.
-    let children: Vec<DomNode> = el.children()
+    let children: Vec<DomNode> = el
+        .children()
         .filter_map(|child| {
             if let Some(child_el) = ElementRef::wrap(child) {
                 Some(element_to_node(child_el, depth + 1))
@@ -643,7 +695,16 @@ fn element_to_node(el: ElementRef, depth: u32) -> DomNode {
         })
         .collect();
 
-    DomNode { tag, classes, id, text, full_text, attrs, children, depth }
+    DomNode {
+        tag,
+        classes,
+        id,
+        text,
+        full_text,
+        attrs,
+        children,
+        depth,
+    }
 }
 
 /// Detect theme from DOM analysis (light or dark).
@@ -662,10 +723,16 @@ pub fn detect_theme_with_html(html: &str, nodes: &[DomNode]) -> &'static str {
         return "light";
     }
     // Body-level Tailwind background utilities
-    if body_str.contains("bg-black") || body_str.contains("bg-gray-900") || body_str.contains("bg-neutral-950") {
+    if body_str.contains("bg-black")
+        || body_str.contains("bg-gray-900")
+        || body_str.contains("bg-neutral-950")
+    {
         return "dark";
     }
-    if body_str.contains("bg-white") || body_str.contains("bg-background") || body_str.contains("bg-gray-50") {
+    if body_str.contains("bg-white")
+        || body_str.contains("bg-background")
+        || body_str.contains("bg-gray-50")
+    {
         return "light";
     }
 
@@ -704,19 +771,30 @@ pub fn detect_theme(nodes: &[DomNode]) -> &'static str {
         let all_classes = collect_all_classes(node);
         let class_str = all_classes.join(" ");
 
-        if class_str.contains("dark") { return "dark"; }
-
-        // Check background colors in classes
-        if class_str.contains("bg-black") || class_str.contains("bg-gray-900") || class_str.contains("bg-neutral-950") {
+        if class_str.contains("dark") {
             return "dark";
         }
-        if class_str.contains("bg-white") || class_str.contains("bg-background") || class_str.contains("bg-gray-50") {
+
+        // Check background colors in classes
+        if class_str.contains("bg-black")
+            || class_str.contains("bg-gray-900")
+            || class_str.contains("bg-neutral-950")
+        {
+            return "dark";
+        }
+        if class_str.contains("bg-white")
+            || class_str.contains("bg-background")
+            || class_str.contains("bg-gray-50")
+        {
             return "light";
         }
 
         // Check inline styles
         if let Some(style) = node.attrs.get("style") {
-            if style.contains("background:#000") || style.contains("background:black") || style.contains("background: #000") {
+            if style.contains("background:#000")
+                || style.contains("background:black")
+                || style.contains("background: #000")
+            {
                 return "dark";
             }
         }
@@ -854,7 +932,12 @@ pub fn extract_links(node: &DomNode) -> Vec<(String, String)> {
 pub fn extract_images(node: &DomNode) -> Vec<(String, String)> {
     let mut images = Vec::new();
     if node.tag == "img" {
-        let alt = node.attrs.get("alt").or(node.attrs.get("data-alt")).cloned().unwrap_or_default();
+        let alt = node
+            .attrs
+            .get("alt")
+            .or(node.attrs.get("data-alt"))
+            .cloned()
+            .unwrap_or_default();
         let src = node.attrs.get("src").cloned().unwrap_or_default();
         images.push((alt, src));
     }
@@ -867,7 +950,13 @@ pub fn extract_images(node: &DomNode) -> Vec<(String, String)> {
 /// Extract all button texts from a node, with material-symbols text filtered out.
 pub fn extract_buttons(node: &DomNode) -> Vec<String> {
     let mut buttons = Vec::new();
-    if node.tag == "button" || (node.tag == "a" && node.classes.iter().any(|c| c.contains("btn") || c.contains("rounded-full"))) {
+    if node.tag == "button"
+        || (node.tag == "a"
+            && node
+                .classes
+                .iter()
+                .any(|c| c.contains("btn") || c.contains("rounded-full")))
+    {
         let text = clean_node_text(node);
         if !text.is_empty() {
             buttons.push(text);

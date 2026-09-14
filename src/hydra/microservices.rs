@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use super::compose::{EntityRemap, ComposeOptions, StyleConfig, AuthConfig};
+use super::compose::{AuthConfig, ComposeOptions, EntityRemap, StyleConfig};
 
 /// A single service split from the monolith.
 #[derive(Debug, Clone)]
@@ -38,10 +38,13 @@ pub struct ServiceDef {
 impl ServiceDef {
     pub fn new(name: &str, port: u16, entities: &[&str]) -> Self {
         let apis: Vec<String> = entities.iter().map(|e| e.to_lowercase() + "s").collect();
-        let pages: Vec<String> = entities.iter().flat_map(|e| {
-            let lower = e.to_lowercase();
-            vec![format!("/{}s", lower), format!("/{}s/new", lower)]
-        }).collect();
+        let pages: Vec<String> = entities
+            .iter()
+            .flat_map(|e| {
+                let lower = e.to_lowercase();
+                vec![format!("/{}s", lower), format!("/{}s/new", lower)]
+            })
+            .collect();
         Self {
             name: name.to_string(),
             port,
@@ -111,7 +114,10 @@ pub fn split_services(
                 source.push_str("auth {\n");
                 source.push_str("  entity User\n");
                 source.push_str(&format!("  login {}\n", auth_cfg.login_fields));
-                source.push_str(&format!("  session {} expires:{}\n", auth_cfg.session_type, auth_cfg.expires));
+                source.push_str(&format!(
+                    "  session {} expires:{}\n",
+                    auth_cfg.session_type, auth_cfg.expires
+                ));
                 if !auth_cfg.roles.is_empty() {
                     source.push_str(&format!("  roles [{}]\n", auth_cfg.roles.join(", ")));
                 }
@@ -124,8 +130,14 @@ pub fn split_services(
                 source.push_str("  password_hash string sensitive\n");
                 if !auth_cfg.roles.is_empty() {
                     let default_role = auth_cfg.roles.last().map(|s| s.as_str()).unwrap_or("user");
-                    source.push_str(&format!("  role enum [{}]! default:\"{}\"\n",
-                        auth_cfg.roles.iter().map(|r| format!("\"{}\"", r)).collect::<Vec<_>>().join(", "),
+                    source.push_str(&format!(
+                        "  role enum [{}]! default:\"{}\"\n",
+                        auth_cfg
+                            .roles
+                            .iter()
+                            .map(|r| format!("\"{}\"", r))
+                            .collect::<Vec<_>>()
+                            .join(", "),
                         default_role
                     ));
                 }
@@ -178,7 +190,9 @@ pub fn split_services(
         }
 
         // Route patterns for gateway
-        let route_patterns: Vec<String> = svc.entities.iter()
+        let route_patterns: Vec<String> = svc
+            .entities
+            .iter()
             .map(|e| format!("/{}s/*", e.to_lowercase()))
             .collect();
         gateway_routes.push((svc.name.clone(), svc.port, route_patterns));
@@ -214,11 +228,23 @@ fn generate_entity_text(e: &EntityRemap) -> String {
 
         let req_mark = if f.required { "!" } else { "" };
         out.push_str(&format!("  {} {}{}", f.name, f.field_type, req_mark));
-        if f.unique { out.push_str(" unique"); }
-        if f.searchable { out.push_str(" searchable"); }
-        if f.sensitive { out.push_str(" sensitive"); }
+        if f.unique {
+            out.push_str(" unique");
+        }
+        if f.searchable {
+            out.push_str(" searchable");
+        }
+        if f.sensitive {
+            out.push_str(" sensitive");
+        }
         if let Some(ref vals) = f.enum_values {
-            out.push_str(&format!(" [{}]", vals.iter().map(|v| format!("\"{}\"", v)).collect::<Vec<_>>().join(", ")));
+            out.push_str(&format!(
+                " [{}]",
+                vals.iter()
+                    .map(|v| format!("\"{}\"", v))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
         }
         if let Some(ref d) = f.default {
             out.push_str(&format!(" default:\"{}\"", d));
@@ -291,14 +317,23 @@ pub fn generate_deploy_block(
     out.push_str("deploy microservices {\n");
     out.push_str(&format!("  gateway port:{} {{\n", gateway_port));
     for (name, port, _) in service_splits {
-        out.push_str(&format!("    proxy \"/{}-api/*\" -> localhost:{}\n", name, port));
+        out.push_str(&format!(
+            "    proxy \"/{}-api/*\" -> localhost:{}\n",
+            name, port
+        ));
     }
     out.push_str("  }\n\n");
 
     for (name, port, ent_names) in service_splits {
         out.push_str(&format!("  service \"{}\" port:{} {{\n", name, port));
-        out.push_str(&format!("    entities [{}]\n",
-            ent_names.iter().map(|e| format!("\"{}\"", e)).collect::<Vec<_>>().join(", ")));
+        out.push_str(&format!(
+            "    entities [{}]\n",
+            ent_names
+                .iter()
+                .map(|e| format!("\"{}\"", e))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
         out.push_str("  }\n");
     }
 
@@ -309,31 +344,57 @@ pub fn generate_deploy_block(
 /// Get microservice split definitions for a template name.
 pub fn get_micro_split(template: &str) -> Option<(Vec<ServiceDef>, u16)> {
     match template {
-        "saas-billing" => Some((vec![
-            ServiceDef::new("auth", 5221, &["User"]),
-            ServiceDef::new("billing", 5222, &["Customer", "Plan", "Subscription", "Invoice", "PaymentMethod", "UsageRecord"]),
-        ], 5220)),
+        "saas-billing" => Some((
+            vec![
+                ServiceDef::new("auth", 5221, &["User"]),
+                ServiceDef::new(
+                    "billing",
+                    5222,
+                    &[
+                        "Customer",
+                        "Plan",
+                        "Subscription",
+                        "Invoice",
+                        "PaymentMethod",
+                        "UsageRecord",
+                    ],
+                ),
+            ],
+            5220,
+        )),
 
-        "blog" => Some((vec![
-            ServiceDef::new("auth", 5211, &["User"]),
-            ServiceDef::new("content", 5212, &["Post", "Category", "Tag", "Comment"]),
-        ], 5210)),
+        "blog" => Some((
+            vec![
+                ServiceDef::new("auth", 5211, &["User"]),
+                ServiceDef::new("content", 5212, &["Post", "Category", "Tag", "Comment"]),
+            ],
+            5210,
+        )),
 
-        "crm" => Some((vec![
-            ServiceDef::new("auth", 5221, &["User"]),
-            ServiceDef::new("crm", 5222, &["Company", "Contact", "Deal", "Activity"]),
-        ], 5220)),
+        "crm" => Some((
+            vec![
+                ServiceDef::new("auth", 5221, &["User"]),
+                ServiceDef::new("crm", 5222, &["Company", "Contact", "Deal", "Activity"]),
+            ],
+            5220,
+        )),
 
-        "helpdesk" => Some((vec![
-            ServiceDef::new("auth", 5221, &["User"]),
-            ServiceDef::new("support", 5222, &["Agent", "Customer", "Ticket", "Message"]),
-        ], 5220)),
+        "helpdesk" => Some((
+            vec![
+                ServiceDef::new("auth", 5221, &["User"]),
+                ServiceDef::new("support", 5222, &["Agent", "Customer", "Ticket", "Message"]),
+            ],
+            5220,
+        )),
 
-        "ecommerce" => Some((vec![
-            ServiceDef::new("auth", 5201, &["User"]),
-            ServiceDef::new("catalog", 5202, &["Category", "Product"]),
-            ServiceDef::new("orders", 5203, &["Customer", "Order", "OrderItem"]),
-        ], 5200)),
+        "ecommerce" => Some((
+            vec![
+                ServiceDef::new("auth", 5201, &["User"]),
+                ServiceDef::new("catalog", 5202, &["Category", "Product"]),
+                ServiceDef::new("orders", 5203, &["Customer", "Order", "OrderItem"]),
+            ],
+            5200,
+        )),
 
         _ => None,
     }
@@ -351,10 +412,16 @@ pub fn generate_docker_compose(gateway: &GatewayDef, services: &[ServiceSplit]) 
     out.push_str("    build:\n");
     out.push_str("      context: .\n");
     out.push_str("      dockerfile: Dockerfile\n");
-    out.push_str(&format!("    ports:\n      - \"{}:{}\"\n", gateway.port, gateway.port));
+    out.push_str(&format!(
+        "    ports:\n      - \"{}:{}\"\n",
+        gateway.port, gateway.port
+    ));
     out.push_str("    volumes:\n");
     out.push_str("      - ./gateway.cronus:/app/app.cronus:ro\n");
-    out.push_str(&format!("    command: [\"cronus\", \"run\", \".\", \"{}\"]\n", gateway.port));
+    out.push_str(&format!(
+        "    command: [\"cronus\", \"run\", \".\", \"{}\"]\n",
+        gateway.port
+    ));
     out.push_str("    depends_on:\n");
     for svc in services {
         out.push_str(&format!("      - {}\n", svc.name));
@@ -369,9 +436,15 @@ pub fn generate_docker_compose(gateway: &GatewayDef, services: &[ServiceSplit]) 
         out.push_str("      dockerfile: Dockerfile\n");
         out.push_str(&format!("    expose:\n      - \"{}\"\n", svc.port));
         out.push_str("    volumes:\n");
-        out.push_str(&format!("      - ./services/{}.cronus:/app/app.cronus:ro\n", svc.name));
+        out.push_str(&format!(
+            "      - ./services/{}.cronus:/app/app.cronus:ro\n",
+            svc.name
+        ));
         out.push_str(&format!("      - {}-data:/app/data\n", svc.name));
-        out.push_str(&format!("    command: [\"cronus\", \"run\", \".\", \"{}\"]\n", svc.port));
+        out.push_str(&format!(
+            "    command: [\"cronus\", \"run\", \".\", \"{}\"]\n",
+            svc.port
+        ));
         out.push_str("    networks:\n      - cronus-net\n\n");
     }
 
@@ -433,7 +506,11 @@ mod tests {
         let entities = vec![];
         let splits = vec![
             ("auth".to_string(), 5221u16, vec!["User".to_string()]),
-            ("billing".to_string(), 5222u16, vec!["Customer".to_string(), "Invoice".to_string()]),
+            (
+                "billing".to_string(),
+                5222u16,
+                vec!["Customer".to_string(), "Invoice".to_string()],
+            ),
         ];
         let block = generate_deploy_block(&entities, 5220, &splits);
         assert!(block.contains("deploy microservices"));

@@ -32,7 +32,9 @@ impl Parser {
         while self.peek().kind == TokenKind::DocComment {
             lines.push(self.advance().value);
         }
-        if lines.is_empty() { return None; }
+        if lines.is_empty() {
+            return None;
+        }
 
         let mut summary = String::new();
         let mut desc_lines: Vec<String> = Vec::new();
@@ -60,11 +62,19 @@ impl Parser {
     }
 
     fn peek(&self) -> Token {
-        self.tokens.get(self.pos).cloned().unwrap_or(Token { kind: TokenKind::Eof, value: String::new(), line: 0 })
+        self.tokens.get(self.pos).cloned().unwrap_or(Token {
+            kind: TokenKind::Eof,
+            value: String::new(),
+            line: 0,
+        })
     }
 
     fn advance(&mut self) -> Token {
-        let t = self.tokens.get(self.pos).cloned().unwrap_or(Token { kind: TokenKind::Eof, value: String::new(), line: 0 });
+        let t = self.tokens.get(self.pos).cloned().unwrap_or(Token {
+            kind: TokenKind::Eof,
+            value: String::new(),
+            line: 0,
+        });
         self.pos += 1;
         t
     }
@@ -72,7 +82,10 @@ impl Parser {
     fn expect(&mut self, kind: TokenKind) -> Result<Token, String> {
         let t = self.advance();
         if t.kind != kind {
-            return Err(format!("Linha {}: esperava {:?}, encontrou '{}' ({:?})", t.line, kind, t.value, t.kind));
+            return Err(format!(
+                "Linha {}: esperava {:?}, encontrou '{}' ({:?})",
+                t.line, kind, t.value, t.kind
+            ));
         }
         Ok(t)
     }
@@ -93,10 +106,10 @@ impl Parser {
     fn split_colon_pair(pair: &str) -> (String, String) {
         if let Some(idx) = pair.find(':') {
             let key = pair[..idx].to_string();
-            let raw_val = &pair[idx+1..];
+            let raw_val = &pair[idx + 1..];
             // Strip surrounding quotes from the value (e.g. value:"12,842" → 12,842)
             let val = if raw_val.starts_with('"') && raw_val.ends_with('"') && raw_val.len() >= 2 {
-                raw_val[1..raw_val.len()-1].to_string()
+                raw_val[1..raw_val.len() - 1].to_string()
             } else {
                 raw_val.to_string()
             };
@@ -175,7 +188,10 @@ impl Parser {
             } else {
                 let unknown = self.peek();
                 if !unknown.value.is_empty() && unknown.kind != TokenKind::Eof {
-                    eprintln!("  \x1b[33m⚠\x1b[0m Line {}: unknown top-level token '{}' (skipped)", unknown.line, unknown.value);
+                    eprintln!(
+                        "  \x1b[33m⚠\x1b[0m Line {}: unknown top-level token '{}' (skipped)",
+                        unknown.line, unknown.value
+                    );
                 }
                 self.advance();
             }
@@ -189,7 +205,9 @@ impl Parser {
     fn parse_import(&mut self) -> Result<ImportNode, String> {
         self.expect(TokenKind::Keyword)?;
         let alias = self.advance().value;
-        if self.matches(TokenKind::Identifier, Some("from")) { self.advance(); }
+        if self.matches(TokenKind::Identifier, Some("from")) {
+            self.advance();
+        }
         let source = self.expect(TokenKind::StringLit)?.value;
         Ok(ImportNode { alias, source })
     }
@@ -214,10 +232,15 @@ impl Parser {
                 let mut config = HashMap::new();
                 if self.matches(TokenKind::LBrace, None) {
                     self.advance();
-                    while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                    while !self.matches(TokenKind::RBrace, None)
+                        && !self.matches(TokenKind::Eof, None)
+                    {
                         if self.peek().kind == TokenKind::ColonPair {
                             let (k, v) = Self::split_colon_pair(&self.advance().value);
-                            if v.is_empty() && (self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::StringLit) {
+                            if v.is_empty()
+                                && (self.peek().kind == TokenKind::Identifier
+                                    || self.peek().kind == TokenKind::StringLit)
+                            {
                                 config.insert(k, self.advance().value);
                             } else {
                                 config.insert(k, v);
@@ -274,7 +297,8 @@ impl Parser {
                 self.expect(TokenKind::LBrace)?;
                 let mut must_rules = Vec::new();
                 let mut never_rules = Vec::new();
-                while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None)
+                {
                     if self.matches(TokenKind::Keyword, Some("must")) {
                         self.advance();
                         must_rules.push(self.expect(TokenKind::StringLit)?.value);
@@ -286,14 +310,25 @@ impl Parser {
                     }
                 }
                 self.expect(TokenKind::RBrace)?;
-                constitution = Some(ConstitutionNode { must: must_rules, never: never_rules });
+                constitution = Some(ConstitutionNode {
+                    must: must_rules,
+                    never: never_rules,
+                });
             } else {
                 self.advance();
             }
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(AppNode { name, stack, port, database, tailwind_config: None, constitution, doc: None })
+        Ok(AppNode {
+            name,
+            stack,
+            port,
+            database,
+            tailwind_config: None,
+            constitution,
+            doc: None,
+        })
     }
 
     // ── entity ──
@@ -331,7 +366,9 @@ impl Parser {
             }
 
             // Check for effect block: on create/update/delete { ... }
-            if self.matches(TokenKind::Keyword, Some("on")) || self.matches(TokenKind::Identifier, Some("on")) {
+            if self.matches(TokenKind::Keyword, Some("on"))
+                || self.matches(TokenKind::Identifier, Some("on"))
+            {
                 let effect = self.parse_effect_block()?;
                 effects.push(effect);
                 continue;
@@ -349,7 +386,15 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(EntityNode { name, fields, transitions, effects, shared, remote_url: None, doc: None })
+        Ok(EntityNode {
+            name,
+            fields,
+            transitions,
+            effects,
+            shared,
+            remote_url: None,
+            doc: None,
+        })
     }
 
     fn parse_field(&mut self) -> Result<Option<FieldNode>, String> {
@@ -366,14 +411,24 @@ impl Parser {
             return Ok(Some(FieldNode {
                 name,
                 field_type: FieldType::Relation,
-                required: false, unique: false, sensitive: false,
-                optional: false, searchable: false, index: false,
-                featured: false, formatted: false, array: false,
+                required: false,
+                unique: false,
+                sensitive: false,
+                optional: false,
+                searchable: false,
+                index: false,
+                featured: false,
+                formatted: false,
+                array: false,
                 enum_values: None,
                 reference: Some(target),
                 doc: None,
                 default_value: None,
-                min: None, max: None, min_length: None, max_length: None, pattern: None,
+                min: None,
+                max: None,
+                min_length: None,
+                max_length: None,
+                pattern: None,
             }));
         }
 
@@ -394,7 +449,7 @@ impl Parser {
 
         // Handle ! suffix on type (e.g. "string!" → type="string", required=true)
         let (clean_type_str, bang_required) = if type_str.ends_with('!') {
-            (type_str[..type_str.len()-1].to_string(), true)
+            (type_str[..type_str.len() - 1].to_string(), true)
         } else {
             (type_str.clone(), false)
         };
@@ -417,27 +472,50 @@ impl Parser {
         let field_line = field_token.line;
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
-            if self.peek().line != field_line { break; }
+            if self.peek().line != field_line {
+                break;
+            }
 
             if self.matches(TokenKind::LBracket, None) {
                 enum_values = Some(self.parse_array()?);
-            } else if self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::ColonPair {
+            } else if self.peek().kind == TokenKind::Identifier
+                || self.peek().kind == TokenKind::ColonPair
+            {
                 // Same-line `author string! note text!` is a second field, not a modifier.
                 // `email` is both a type and a common field name — only break when
                 // the current token is NOT a known modifier.
                 if self.peek().kind == TokenKind::Identifier {
                     let cur = self.peek().value.clone();
                     const MODIFIERS: &[&str] = &[
-                        "required", "unique", "sensitive", "optional",
-                        "searchable", "index", "featured", "formatted",
+                        "required",
+                        "unique",
+                        "sensitive",
+                        "optional",
+                        "searchable",
+                        "index",
+                        "featured",
+                        "formatted",
                     ];
                     if !MODIFIERS.contains(&cur.as_str()) {
                         if let Some(nxt) = self.tokens.get(self.pos + 1) {
                             let t = nxt.value.trim_end_matches('!');
-                            let is_type = matches!(t,
-                                "string" | "text" | "email" | "url" | "slug" | "phone"
-                                | "number" | "money" | "percentage" | "boolean" | "date"
-                                | "ulid" | "json" | "enum" | "ip"
+                            let is_type = matches!(
+                                t,
+                                "string"
+                                    | "text"
+                                    | "email"
+                                    | "url"
+                                    | "slug"
+                                    | "phone"
+                                    | "number"
+                                    | "money"
+                                    | "percentage"
+                                    | "boolean"
+                                    | "date"
+                                    | "ulid"
+                                    | "json"
+                                    | "enum"
+                                    | "ip"
                             );
                             if is_type || nxt.kind == TokenKind::Arrow {
                                 break;
@@ -450,10 +528,18 @@ impl Parser {
                 if mod_val.contains(':') {
                     let (k, v) = Self::split_colon_pair(&mod_val);
                     match k.as_str() {
-                        "default" => { default_value = Some(v); }
-                        "min" => { min = v.parse::<f64>().ok(); }
-                        "max" => { max = v.parse::<f64>().ok(); }
-                        "match" => { pattern = Some(v); }
+                        "default" => {
+                            default_value = Some(v);
+                        }
+                        "min" => {
+                            min = v.parse::<f64>().ok();
+                        }
+                        "max" => {
+                            max = v.parse::<f64>().ok();
+                        }
+                        "match" => {
+                            pattern = Some(v);
+                        }
                         _ => {}
                     }
                 } else {
@@ -476,9 +562,15 @@ impl Parser {
         }
 
         // For string/text types, min/max map to min_length/max_length
-        let is_string_type = matches!(field_type,
-            FieldType::String | FieldType::Text | FieldType::Email
-            | FieldType::Url | FieldType::Slug | FieldType::Phone);
+        let is_string_type = matches!(
+            field_type,
+            FieldType::String
+                | FieldType::Text
+                | FieldType::Email
+                | FieldType::Url
+                | FieldType::Slug
+                | FieldType::Phone
+        );
         let (num_min, num_max, str_min_len, str_max_len) = if is_string_type {
             (None, None, min.map(|v| v as usize), max.map(|v| v as usize))
         } else {
@@ -486,13 +578,25 @@ impl Parser {
         };
 
         Ok(Some(FieldNode {
-            name, field_type, required, unique, sensitive, optional,
-            searchable, index, featured, formatted, array,
-            enum_values, reference: None,
+            name,
+            field_type,
+            required,
+            unique,
+            sensitive,
+            optional,
+            searchable,
+            index,
+            featured,
+            formatted,
+            array,
+            enum_values,
+            reference: None,
             doc: None,
             default_value,
-            min: num_min, max: num_max,
-            min_length: str_min_len, max_length: str_max_len,
+            min: num_min,
+            max: num_max,
+            min_length: str_min_len,
+            max_length: str_max_len,
             pattern,
         }))
     }
@@ -508,10 +612,12 @@ impl Parser {
         let field = fields.iter().find(|f| f.name == field_name);
         let field = match field {
             Some(f) => f,
-            None => return Err(format!(
-                "Line {}: transition references unknown field '{}'",
-                field_name_token.line, field_name
-            )),
+            None => {
+                return Err(format!(
+                    "Line {}: transition references unknown field '{}'",
+                    field_name_token.line, field_name
+                ))
+            }
         };
 
         // Validate: field must be an enum type
@@ -575,7 +681,10 @@ impl Parser {
 
         self.expect(TokenKind::RBrace)?;
 
-        Ok(TransitionNode { field: field_name, rules })
+        Ok(TransitionNode {
+            field: field_name,
+            rules,
+        })
     }
 
     // ── effect block (on create/update/delete) ──
@@ -607,7 +716,9 @@ impl Parser {
         let mut in_when_block = false;
 
         loop {
-            if self.matches(TokenKind::Eof, None) { break; }
+            if self.matches(TokenKind::Eof, None) {
+                break;
+            }
 
             // If we see RBrace and we're inside a "when" block, close the when block
             if self.matches(TokenKind::RBrace, None) {
@@ -661,12 +772,16 @@ impl Parser {
                         let mut args = Vec::new();
                         // Collect up to 3 string arguments
                         for _ in 0..3 {
-                            if self.matches(TokenKind::RBrace, None) || self.matches(TokenKind::Eof, None) {
+                            if self.matches(TokenKind::RBrace, None)
+                                || self.matches(TokenKind::Eof, None)
+                            {
                                 break;
                             }
                             let arg = if self.peek().kind == TokenKind::StringLit {
                                 self.advance().value
-                            } else if self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::Keyword {
+                            } else if self.peek().kind == TokenKind::Identifier
+                                || self.peek().kind == TokenKind::Keyword
+                            {
                                 // Don't consume if it's "when", "log", "notify" (next action)
                                 let next = self.peek().value.clone();
                                 if next == "when" || next == "log" || next == "notify" {
@@ -704,7 +819,11 @@ impl Parser {
 
         self.expect(TokenKind::RBrace)?;
 
-        Ok(EffectBlock { event, field, actions })
+        Ok(EffectBlock {
+            event,
+            field,
+            actions,
+        })
     }
 
     // ── api ──
@@ -729,21 +848,34 @@ impl Parser {
 
                 while self.peek().kind == TokenKind::ColonPair {
                     let (k, v) = Self::split_colon_pair(&self.advance().value);
-                    if k == "auth" { auth = v; }
+                    if k == "auth" {
+                        auth = v;
+                    }
                 }
 
                 if self.matches(TokenKind::LBracket, None) {
                     roles = self.parse_array()?;
                 }
 
-                routes.push(RouteNode { name, method, path, auth, roles, doc: route_doc });
+                routes.push(RouteNode {
+                    name,
+                    method,
+                    path,
+                    auth,
+                    roles,
+                    doc: route_doc,
+                });
             } else {
                 self.advance();
             }
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(ApiNode { prefix, routes, doc: None })
+        Ok(ApiNode {
+            prefix,
+            routes,
+            doc: None,
+        })
     }
 
     // ── webhook ──
@@ -751,7 +883,7 @@ impl Parser {
     fn parse_webhook(&mut self) -> Result<WebhookNode, String> {
         self.expect(TokenKind::Keyword)?; // consume "webhook"
         let entity = self.advance().value; // entity name or path
-        // Strip leading / if present
+                                           // Strip leading / if present
         let entity = entity.trim_start_matches('/').to_string();
         self.expect(TokenKind::LBrace)?;
 
@@ -759,11 +891,16 @@ impl Parser {
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
             // Expect: on <event> -> <METHOD> "<url>"
-            if self.matches(TokenKind::Keyword, Some("on")) || self.matches(TokenKind::Identifier, Some("on")) {
+            if self.matches(TokenKind::Keyword, Some("on"))
+                || self.matches(TokenKind::Identifier, Some("on"))
+            {
                 self.advance(); // consume "on"
                 let event = self.advance().value.to_lowercase(); // create, update, delete
-                // Expect -> or =>
-                if self.peek().kind == TokenKind::Arrow || self.peek().value == "->" || self.peek().value == "=>" {
+                                                                 // Expect -> or =>
+                if self.peek().kind == TokenKind::Arrow
+                    || self.peek().value == "->"
+                    || self.peek().value == "=>"
+                {
                     self.advance();
                 }
                 let method = if self.peek().kind == TokenKind::Method {
@@ -781,12 +918,25 @@ impl Parser {
                 let mut headers = Vec::new();
                 while self.matches(TokenKind::Identifier, Some("header")) {
                     self.advance();
-                    let key = if self.peek().kind == TokenKind::StringLit { self.advance().value } else { self.advance().value };
-                    let val = if self.peek().kind == TokenKind::StringLit { self.advance().value } else { self.advance().value };
+                    let key = if self.peek().kind == TokenKind::StringLit {
+                        self.advance().value
+                    } else {
+                        self.advance().value
+                    };
+                    let val = if self.peek().kind == TokenKind::StringLit {
+                        self.advance().value
+                    } else {
+                        self.advance().value
+                    };
                     headers.push((key, val));
                 }
 
-                hooks.push(WebhookHook { event, method, url, headers });
+                hooks.push(WebhookHook {
+                    event,
+                    method,
+                    url,
+                    headers,
+                });
             } else {
                 self.advance();
             }
@@ -809,7 +959,9 @@ impl Parser {
         let mut roles = Vec::new();
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
-            if self.matches(TokenKind::Identifier, Some("entity")) || self.matches(TokenKind::Keyword, Some("entity")) {
+            if self.matches(TokenKind::Identifier, Some("entity"))
+                || self.matches(TokenKind::Keyword, Some("entity"))
+            {
                 self.advance();
                 entity = self.advance().value;
             } else if self.matches(TokenKind::Identifier, Some("login")) {
@@ -822,7 +974,7 @@ impl Parser {
             } else if self.matches(TokenKind::Identifier, Some("session")) {
                 self.advance();
                 session_type = self.advance().value; // "jwt"
-                // Parse trailing key:value pairs like expires:24h
+                                                     // Parse trailing key:value pairs like expires:24h
                 while self.peek().kind == TokenKind::ColonPair {
                     let (k, v) = Self::split_colon_pair(&self.advance().value);
                     session_config.insert(k, v);
@@ -844,7 +996,13 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(AuthNode { entity, login_fields, session_type, session_config, roles })
+        Ok(AuthNode {
+            entity,
+            login_fields,
+            session_type,
+            session_config,
+            roles,
+        })
     }
 
     // ── layout ──
@@ -862,10 +1020,12 @@ impl Parser {
             if self.matches(TokenKind::Identifier, Some("sidebar")) {
                 self.advance();
                 self.expect(TokenKind::LBrace)?;
-                while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None)
+                {
                     if self.matches(TokenKind::Identifier, Some("brand")) {
                         self.advance();
-                        sidebar_config.insert("brand".into(), self.expect(TokenKind::StringLit)?.value);
+                        sidebar_config
+                            .insert("brand".into(), self.expect(TokenKind::StringLit)?.value);
                     } else if self.matches(TokenKind::Identifier, Some("nav"))
                         || self.peek().kind == TokenKind::StringLit
                     {
@@ -879,22 +1039,35 @@ impl Parser {
                             route = if self.peek().kind == TokenKind::StringLit {
                                 self.advance().value
                             } else {
-                                self.advance().value  // Path token like /orders
+                                self.advance().value // Path token like /orders
                             };
                         }
                         let mut icon = None;
                         let mut requires = None;
                         while self.peek().kind == TokenKind::ColonPair {
                             let (k, v) = Self::split_colon_pair(&self.advance().value);
-                            if k == "icon" { icon = Some(v.clone()); }
-                            if k == "requires" { requires = Some(v); }
+                            if k == "icon" {
+                                icon = Some(v.clone());
+                            }
+                            if k == "requires" {
+                                requires = Some(v);
+                            }
                         }
-                        sidebar_items.push(LayoutNavItem { label, route, icon, requires, is_divider: false });
+                        sidebar_items.push(LayoutNavItem {
+                            label,
+                            route,
+                            icon,
+                            requires,
+                            is_divider: false,
+                        });
                     } else if self.matches(TokenKind::Identifier, Some("divider")) {
                         self.advance();
                         sidebar_items.push(LayoutNavItem {
-                            label: String::new(), route: String::new(),
-                            icon: None, requires: None, is_divider: true,
+                            label: String::new(),
+                            route: String::new(),
+                            icon: None,
+                            requires: None,
+                            is_divider: true,
                         });
                     } else {
                         self.advance();
@@ -904,7 +1077,8 @@ impl Parser {
             } else if self.matches(TokenKind::Identifier, Some("topbar")) {
                 self.advance();
                 self.expect(TokenKind::LBrace)?;
-                while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None)
+                {
                     if self.peek().kind == TokenKind::ColonPair {
                         let (k, v) = Self::split_colon_pair(&self.advance().value);
                         topbar_config.insert(k, v);
@@ -928,7 +1102,12 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(LayoutNode { name, sidebar_items, sidebar_config, topbar_config })
+        Ok(LayoutNode {
+            name,
+            sidebar_items,
+            sidebar_config,
+            topbar_config,
+        })
     }
 
     // ── page ──
@@ -943,8 +1122,12 @@ impl Parser {
 
         while self.peek().kind == TokenKind::ColonPair {
             let (k, v) = Self::split_colon_pair(&self.advance().value);
-            if k == "type" { page_type = v.clone(); }
-            if k == "entity" { entity = Some(v.clone()); }
+            if k == "type" {
+                page_type = v.clone();
+            }
+            if k == "entity" {
+                entity = Some(v.clone());
+            }
             inline_config.insert(k, v);
         }
 
@@ -969,14 +1152,16 @@ impl Parser {
                 self.advance();
                 title = Some(self.expect(TokenKind::StringLit)?.value);
             } else if self.matches(TokenKind::Identifier, Some("columns"))
-                   || self.matches(TokenKind::Identifier, Some("stats"))
-                   || self.matches(TokenKind::Identifier, Some("actions"))
-                   || self.matches(TokenKind::Identifier, Some("fields")) {
+                || self.matches(TokenKind::Identifier, Some("stats"))
+                || self.matches(TokenKind::Identifier, Some("actions"))
+                || self.matches(TokenKind::Identifier, Some("fields"))
+            {
                 let key = self.advance().value;
                 let arr = self.parse_array()?;
                 config.insert(key, arr.join(","));
             } else if self.matches(TokenKind::Identifier, Some("search"))
-                   || self.matches(TokenKind::Identifier, Some("filters")) {
+                || self.matches(TokenKind::Identifier, Some("filters"))
+            {
                 let key = self.advance().value;
                 if self.matches(TokenKind::LBracket, None) {
                     config.insert(key, self.parse_array()?.join(","));
@@ -989,22 +1174,43 @@ impl Parser {
                 config.insert("recent".into(), ent);
                 if self.peek().kind == TokenKind::ColonPair {
                     let (k, v) = Self::split_colon_pair(&self.advance().value);
-                    if k == "limit" { config.insert("recent_limit".into(), v); }
+                    if k == "limit" {
+                        config.insert("recent_limit".into(), v);
+                    }
                 }
             } else if self.matches(TokenKind::Keyword, Some("section")) {
                 let mut sec = self.parse_section()?;
-                if sec.doc.is_none() { sec.doc = inner_doc; }
+                if sec.doc.is_none() {
+                    sec.doc = inner_doc;
+                }
                 sections.push(sec);
             } else if self.peek().kind == TokenKind::Identifier
-                && self.peek().value.chars().next().map(|c| c.is_uppercase()).unwrap_or(false)
-                && !self.peek().value.chars().all(|c| c.is_uppercase() || c == '_') {
+                && self
+                    .peek()
+                    .value
+                    .chars()
+                    .next()
+                    .map(|c| c.is_uppercase())
+                    .unwrap_or(false)
+                && !self
+                    .peek()
+                    .value
+                    .chars()
+                    .all(|c| c.is_uppercase() || c == '_')
+            {
                 // PascalCase identifier = component invocation: KPICard label:"Active" value:"1234"
                 let comp_name = self.advance().value;
                 let mut comp_props = HashMap::new();
                 // Parse props: key:"value" or key:value
-                while self.peek().kind == TokenKind::ColonPair && !self.matches(TokenKind::Eof, None) {
+                while self.peek().kind == TokenKind::ColonPair
+                    && !self.matches(TokenKind::Eof, None)
+                {
                     let (k, v) = Self::split_colon_pair(&self.advance().value);
-                    if v.is_empty() && (self.peek().kind == TokenKind::StringLit || self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::Number) {
+                    if v.is_empty()
+                        && (self.peek().kind == TokenKind::StringLit
+                            || self.peek().kind == TokenKind::Identifier
+                            || self.peek().kind == TokenKind::Number)
+                    {
                         comp_props.insert(k, self.advance().value);
                     } else {
                         comp_props.insert(k, v);
@@ -1037,7 +1243,17 @@ impl Parser {
 
         self.expect(TokenKind::RBrace)?;
         let requires = config.remove("requires");
-        Ok(PageNode { route, page_type, entity, title, sections, config, components, requires, doc: None })
+        Ok(PageNode {
+            route,
+            page_type,
+            entity,
+            title,
+            sections,
+            config,
+            components,
+            requires,
+            doc: None,
+        })
     }
 
     // ── section ──
@@ -1078,7 +1294,11 @@ impl Parser {
             } else {
                 self.advance().value
             };
-            visibility = Some(VisibilityCondition { field, operator: op_raw, value });
+            visibility = Some(VisibilityCondition {
+                field,
+                operator: op_raw,
+                value,
+            });
         }
 
         self.expect(TokenKind::LBrace)?;
@@ -1123,13 +1343,22 @@ impl Parser {
                 config.insert("brand".into(), self.expect(TokenKind::StringLit)?.value);
             } else if self.matches(TokenKind::Identifier, Some("card_brand")) {
                 self.advance();
-                config.insert("card_brand".into(), self.expect(TokenKind::StringLit)?.value);
+                config.insert(
+                    "card_brand".into(),
+                    self.expect(TokenKind::StringLit)?.value,
+                );
             } else if self.matches(TokenKind::Identifier, Some("card_number")) {
                 self.advance();
-                config.insert("card_number".into(), self.expect(TokenKind::StringLit)?.value);
+                config.insert(
+                    "card_number".into(),
+                    self.expect(TokenKind::StringLit)?.value,
+                );
             } else if self.matches(TokenKind::Identifier, Some("card_holder")) {
                 self.advance();
-                config.insert("card_holder".into(), self.expect(TokenKind::StringLit)?.value);
+                config.insert(
+                    "card_holder".into(),
+                    self.expect(TokenKind::StringLit)?.value,
+                );
             } else if self.matches(TokenKind::Identifier, Some("footnote")) {
                 self.advance();
                 config.insert("footnote".into(), self.expect(TokenKind::StringLit)?.value);
@@ -1166,13 +1395,20 @@ impl Parser {
                 }
                 let mut style = String::new();
                 // consume trailing modifiers (primary/secondary/pill/ghost/text + icon:x)
-                while self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::ColonPair {
+                while self.peek().kind == TokenKind::Identifier
+                    || self.peek().kind == TokenKind::ColonPair
+                {
                     if self.peek().kind == TokenKind::ColonPair {
                         let (k, v) = Self::split_colon_pair(&self.advance().value);
                         config.insert(format!("cta{}_{}", cta_count, k), v);
                     } else {
                         let val = &self.peek().value;
-                        if val == "primary" || val == "secondary" || val == "pill" || val == "ghost" || val == "text" {
+                        if val == "primary"
+                            || val == "secondary"
+                            || val == "pill"
+                            || val == "ghost"
+                            || val == "text"
+                        {
                             style = self.advance().value;
                         } else {
                             break;
@@ -1228,7 +1464,9 @@ impl Parser {
                 }
                 if self.matches(TokenKind::LBrace, None) {
                     self.advance();
-                    while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                    while !self.matches(TokenKind::RBrace, None)
+                        && !self.matches(TokenKind::Eof, None)
+                    {
                         if self.peek().kind == TokenKind::ColonPair {
                             // Direct key:value pair (e.g. Status:"Fulfilled")
                             let (k, v) = Self::split_colon_pair(&self.advance().value);
@@ -1250,7 +1488,9 @@ impl Parser {
                             self.advance();
                         }
                     }
-                    if self.matches(TokenKind::RBrace, None) { self.advance(); }
+                    if self.matches(TokenKind::RBrace, None) {
+                        self.advance();
+                    }
                 }
                 items.push(map);
             } else if self.matches(TokenKind::Identifier, Some("policy")) {
@@ -1266,18 +1506,18 @@ impl Parser {
                 }
                 items.push(map);
             } else if self.matches(TokenKind::Identifier, Some("line"))
-                    || self.matches(TokenKind::Identifier, Some("output"))
-                    || self.matches(TokenKind::Identifier, Some("success"))
-                    || self.matches(TokenKind::Identifier, Some("prompt"))
-                    || self.matches(TokenKind::Identifier, Some("chip"))
-                    || self.matches(TokenKind::Identifier, Some("code"))
-                    || self.matches(TokenKind::Identifier, Some("image"))
-                    || self.matches(TokenKind::Identifier, Some("link"))
-                    || self.matches(TokenKind::Identifier, Some("meter"))
-                    || self.matches(TokenKind::Identifier, Some("label"))
-                    || self.matches(TokenKind::Identifier, Some("metric"))
-                    || self.matches(TokenKind::Identifier, Some("detail"))
-                    || self.matches(TokenKind::Identifier, Some("tab"))
+                || self.matches(TokenKind::Identifier, Some("output"))
+                || self.matches(TokenKind::Identifier, Some("success"))
+                || self.matches(TokenKind::Identifier, Some("prompt"))
+                || self.matches(TokenKind::Identifier, Some("chip"))
+                || self.matches(TokenKind::Identifier, Some("code"))
+                || self.matches(TokenKind::Identifier, Some("image"))
+                || self.matches(TokenKind::Identifier, Some("link"))
+                || self.matches(TokenKind::Identifier, Some("meter"))
+                || self.matches(TokenKind::Identifier, Some("label"))
+                || self.matches(TokenKind::Identifier, Some("metric"))
+                || self.matches(TokenKind::Identifier, Some("detail"))
+                || self.matches(TokenKind::Identifier, Some("tab"))
             {
                 // Rich content items: line/output/success/prompt/chip/code/image/link/meter/label/metric/detail
                 let item_type = self.advance().value;
@@ -1293,7 +1533,9 @@ impl Parser {
                     }
                 }
                 // Parse trailing key:value pairs
-                while self.peek().kind == TokenKind::ColonPair || self.peek().kind == TokenKind::Price {
+                while self.peek().kind == TokenKind::ColonPair
+                    || self.peek().kind == TokenKind::Price
+                {
                     if self.peek().kind == TokenKind::Price {
                         map.insert("price".into(), self.advance().value);
                     } else {
@@ -1310,7 +1552,13 @@ impl Parser {
                 // Parse trailing identifiers as flags
                 while self.peek().kind == TokenKind::Identifier {
                     let val = &self.peek().value;
-                    if val == "primary" || val == "secondary" || val == "blink" || val == "active" || val == "success" || val == "danger" {
+                    if val == "primary"
+                        || val == "secondary"
+                        || val == "blink"
+                        || val == "active"
+                        || val == "success"
+                        || val == "danger"
+                    {
                         map.insert("style".into(), self.advance().value);
                     } else {
                         break;
@@ -1320,7 +1568,9 @@ impl Parser {
                 if self.matches(TokenKind::LBrace, None) {
                     self.advance();
                     let mut parts = Vec::new();
-                    while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                    while !self.matches(TokenKind::RBrace, None)
+                        && !self.matches(TokenKind::Eof, None)
+                    {
                         if self.peek().kind == TokenKind::StringLit {
                             parts.push(self.advance().value);
                         } else {
@@ -1330,7 +1580,9 @@ impl Parser {
                     if !parts.is_empty() {
                         map.insert("description".into(), parts.join("\n"));
                     }
-                    if self.matches(TokenKind::RBrace, None) { self.advance(); }
+                    if self.matches(TokenKind::RBrace, None) {
+                        self.advance();
+                    }
                 }
                 items.push(map);
             } else if self.matches(TokenKind::Identifier, Some("field")) {
@@ -1344,13 +1596,17 @@ impl Parser {
                 loop {
                     if self.peek().kind == TokenKind::ColonPair {
                         let (k, v) = Self::split_colon_pair(&self.advance().value);
-                        if k == "options" && v.is_empty() && self.matches(TokenKind::LBracket, None) {
+                        if k == "options" && v.is_empty() && self.matches(TokenKind::LBracket, None)
+                        {
                             let arr = self.parse_string_array()?;
                             map.insert(k, arr.join("||"));
                         } else if k == "options" && v.starts_with('[') {
                             // options:["A","B"] already tokenized as single value — strip brackets
                             let clean = v.trim_start_matches('[').trim_end_matches(']');
-                            let opts: Vec<&str> = clean.split(',').map(|s| s.trim().trim_matches('"').trim_matches('\'')).collect();
+                            let opts: Vec<&str> = clean
+                                .split(',')
+                                .map(|s| s.trim().trim_matches('"').trim_matches('\''))
+                                .collect();
                             map.insert(k, opts.join("||"));
                         } else {
                             map.insert(k, v);
@@ -1374,7 +1630,9 @@ impl Parser {
                 if self.matches(TokenKind::LBrace, None) {
                     self.advance();
                     let mut parts = Vec::new();
-                    while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                    while !self.matches(TokenKind::RBrace, None)
+                        && !self.matches(TokenKind::Eof, None)
+                    {
                         if self.peek().kind == TokenKind::StringLit {
                             parts.push(self.advance().value);
                         } else {
@@ -1384,7 +1642,9 @@ impl Parser {
                     if !parts.is_empty() {
                         map.insert("description".into(), parts.join("\n"));
                     }
-                    if self.matches(TokenKind::RBrace, None) { self.advance(); }
+                    if self.matches(TokenKind::RBrace, None) {
+                        self.advance();
+                    }
                 }
                 items.push(map);
             } else if self.matches(TokenKind::Identifier, Some("search")) {
@@ -1405,14 +1665,18 @@ impl Parser {
                 } else {
                     config.insert("paginate".into(), "25".into());
                 }
-            } else if self.matches(TokenKind::Keyword, Some("on")) || self.matches(TokenKind::Identifier, Some("on")) {
+            } else if self.matches(TokenKind::Keyword, Some("on"))
+                || self.matches(TokenKind::Identifier, Some("on"))
+            {
                 self.advance(); // consume "on"
                 let action_block = self.parse_action_block()?;
                 section_actions.push(action_block);
             } else if self.matches(TokenKind::Identifier, Some("live")) {
                 self.advance(); // consume "live"
-                // "live bind Entity { ... }" or "live list Entity { ... }"
-                if self.matches(TokenKind::Identifier, Some("bind")) || self.matches(TokenKind::Identifier, Some("list")) {
+                                // "live bind Entity { ... }" or "live list Entity { ... }"
+                if self.matches(TokenKind::Identifier, Some("bind"))
+                    || self.matches(TokenKind::Identifier, Some("list"))
+                {
                     let mut b = self.parse_binding()?;
                     b.live = true;
                     binding = Some(b);
@@ -1429,11 +1693,19 @@ impl Parser {
                 self.advance();
                 let mut depth = 1;
                 while depth > 0 && !self.matches(TokenKind::Eof, None) {
-                    if self.peek().kind == TokenKind::LBrace { depth += 1; }
-                    if self.peek().kind == TokenKind::RBrace { depth -= 1; }
-                    if depth > 0 { self.advance(); }
+                    if self.peek().kind == TokenKind::LBrace {
+                        depth += 1;
+                    }
+                    if self.peek().kind == TokenKind::RBrace {
+                        depth -= 1;
+                    }
+                    if depth > 0 {
+                        self.advance();
+                    }
                 }
-                if self.matches(TokenKind::RBrace, None) { self.advance(); }
+                if self.matches(TokenKind::RBrace, None) {
+                    self.advance();
+                }
             } else if self.peek().kind == TokenKind::Identifier {
                 // Generic: unknown identifier followed by string literal → store as config
                 let key = self.advance().value;
@@ -1466,7 +1738,20 @@ impl Parser {
             }
         }
 
-        Ok(SectionNode { section_type, title, subtitle, config, items, plans, binding, actions: section_actions, visibility, template, style_block, doc: None })
+        Ok(SectionNode {
+            section_type,
+            title,
+            subtitle,
+            config,
+            items,
+            plans,
+            binding,
+            actions: section_actions,
+            visibility,
+            template,
+            style_block,
+            doc: None,
+        })
     }
 
     fn parse_section_item(&mut self) -> Result<HashMap<String, String>, String> {
@@ -1483,7 +1768,10 @@ impl Parser {
         }
 
         // Parse inline attributes: icon:x status:active etc
-        while self.peek().kind == TokenKind::ColonPair || self.peek().kind == TokenKind::StringLit || self.peek().kind == TokenKind::Price {
+        while self.peek().kind == TokenKind::ColonPair
+            || self.peek().kind == TokenKind::StringLit
+            || self.peek().kind == TokenKind::Price
+        {
             if self.peek().kind == TokenKind::Price {
                 map.insert("price".into(), self.advance().value);
             } else if self.peek().kind == TokenKind::ColonPair {
@@ -1515,7 +1803,16 @@ impl Parser {
                         let action = self.parse_action_block()?;
                         let serialized = serde_json::to_string(&action).unwrap_or_default();
                         map.insert(format!("on_{}", action.event), serialized);
-                    } else if key == "action" || key == "price" || key == "description" || key == "meta" || key == "detail" || key == "footer" || key == "link" || key == "subtitle" || key == "badge" {
+                    } else if key == "action"
+                        || key == "price"
+                        || key == "description"
+                        || key == "meta"
+                        || key == "detail"
+                        || key == "footer"
+                        || key == "link"
+                        || key == "subtitle"
+                        || key == "badge"
+                    {
                         let key_clone = key.clone();
                         if self.peek().kind == TokenKind::StringLit {
                             let val = self.advance().value;
@@ -1543,11 +1840,19 @@ impl Parser {
                     self.advance();
                     let mut depth = 1;
                     while depth > 0 && !self.matches(TokenKind::Eof, None) {
-                        if self.peek().kind == TokenKind::LBrace { depth += 1; }
-                        if self.peek().kind == TokenKind::RBrace { depth -= 1; }
-                        if depth > 0 { self.advance(); }
+                        if self.peek().kind == TokenKind::LBrace {
+                            depth += 1;
+                        }
+                        if self.peek().kind == TokenKind::RBrace {
+                            depth -= 1;
+                        }
+                        if depth > 0 {
+                            self.advance();
+                        }
                     }
-                    if self.matches(TokenKind::RBrace, None) { self.advance(); }
+                    if self.matches(TokenKind::RBrace, None) {
+                        self.advance();
+                    }
                 } else {
                     self.advance();
                 }
@@ -1587,7 +1892,12 @@ impl Parser {
                         let (k, v) = Self::split_colon_pair(&self.advance().value);
                         mods.insert(k, v);
                     }
-                    instructions.push(ActionInstruction { verb: "set".into(), target: field, value, modifiers: mods });
+                    instructions.push(ActionInstruction {
+                        verb: "set".into(),
+                        target: field,
+                        value,
+                        modifiers: mods,
+                    });
                 }
                 "toast" => {
                     let message = self.expect(TokenKind::StringLit)?.value;
@@ -1596,7 +1906,12 @@ impl Parser {
                         let (k, v) = Self::split_colon_pair(&self.advance().value);
                         mods.insert(k, v);
                     }
-                    instructions.push(ActionInstruction { verb: "toast".into(), target: message, value: String::new(), modifiers: mods });
+                    instructions.push(ActionInstruction {
+                        verb: "toast".into(),
+                        target: message,
+                        value: String::new(),
+                        modifiers: mods,
+                    });
                 }
                 "navigate" => {
                     let url = if self.peek().kind == TokenKind::StringLit {
@@ -1606,32 +1921,71 @@ impl Parser {
                     } else {
                         self.advance().value // "back"
                     };
-                    instructions.push(ActionInstruction { verb: "navigate".into(), target: url, value: String::new(), modifiers: HashMap::new() });
+                    instructions.push(ActionInstruction {
+                        verb: "navigate".into(),
+                        target: url,
+                        value: String::new(),
+                        modifiers: HashMap::new(),
+                    });
                 }
                 "refresh" => {
                     let target = self.advance().value; // "self", "parent", "page"
-                    instructions.push(ActionInstruction { verb: "refresh".into(), target, value: String::new(), modifiers: HashMap::new() });
+                    instructions.push(ActionInstruction {
+                        verb: "refresh".into(),
+                        target,
+                        value: String::new(),
+                        modifiers: HashMap::new(),
+                    });
                 }
                 "create" | "update" | "delete" => {
                     let target = self.advance().value; // "entity" or entity name
-                    instructions.push(ActionInstruction { verb: verb.clone(), target, value: String::new(), modifiers: HashMap::new() });
+                    instructions.push(ActionInstruction {
+                        verb: verb.clone(),
+                        target,
+                        value: String::new(),
+                        modifiers: HashMap::new(),
+                    });
                 }
                 "validate" => {
                     let target = self.advance().value; // "all" or field name
-                    instructions.push(ActionInstruction { verb: "validate".into(), target, value: String::new(), modifiers: HashMap::new() });
+                    instructions.push(ActionInstruction {
+                        verb: "validate".into(),
+                        target,
+                        value: String::new(),
+                        modifiers: HashMap::new(),
+                    });
                 }
                 "open" | "close" => {
                     let target = self.expect(TokenKind::StringLit)?.value;
-                    instructions.push(ActionInstruction { verb: verb.clone(), target, value: String::new(), modifiers: HashMap::new() });
+                    instructions.push(ActionInstruction {
+                        verb: verb.clone(),
+                        target,
+                        value: String::new(),
+                        modifiers: HashMap::new(),
+                    });
                 }
                 _ => {
                     // Unknown verb — skip to next known verb or closing brace
-                    while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                    while !self.matches(TokenKind::RBrace, None)
+                        && !self.matches(TokenKind::Eof, None)
+                    {
                         let next = self.peek();
-                        if next.kind == TokenKind::Identifier && ["set", "toast", "navigate", "refresh", "create", "update", "delete", "validate", "confirm", "open", "close"].contains(&next.value.as_str()) {
+                        if next.kind == TokenKind::Identifier
+                            && [
+                                "set", "toast", "navigate", "refresh", "create", "update",
+                                "delete", "validate", "confirm", "open", "close",
+                            ]
+                            .contains(&next.value.as_str())
+                        {
                             break;
                         }
-                        if next.kind == TokenKind::Keyword && ["set", "toast", "navigate", "refresh", "create", "update", "delete", "validate", "confirm", "open", "close"].contains(&next.value.as_str()) {
+                        if next.kind == TokenKind::Keyword
+                            && [
+                                "set", "toast", "navigate", "refresh", "create", "update",
+                                "delete", "validate", "confirm", "open", "close",
+                            ]
+                            .contains(&next.value.as_str())
+                        {
                             break;
                         }
                         self.advance();
@@ -1640,7 +1994,11 @@ impl Parser {
             }
         }
         self.expect(TokenKind::RBrace)?;
-        Ok(ActionBlock { event, confirm: confirm_msg, instructions })
+        Ok(ActionBlock {
+            event,
+            confirm: confirm_msg,
+            instructions,
+        })
     }
 
     fn parse_plan(&mut self) -> Result<PlanNode, String> {
@@ -1652,7 +2010,9 @@ impl Parser {
             String::new()
         };
 
-        let featured = self.try_consume(TokenKind::Identifier, Some("featured")).is_some();
+        let featured = self
+            .try_consume(TokenKind::Identifier, Some("featured"))
+            .is_some();
 
         let features = if self.matches(TokenKind::LBracket, None) {
             self.parse_string_array()?
@@ -1660,7 +2020,12 @@ impl Parser {
             Vec::new()
         };
 
-        Ok(PlanNode { name, price, featured, features })
+        Ok(PlanNode {
+            name,
+            price,
+            featured,
+            features,
+        })
     }
 
     // ── binding ──
@@ -1722,7 +2087,9 @@ impl Parser {
                         _ => FilterOp::Eq,
                     };
                     let val_token = self.advance();
-                    let value = if val_token.value.starts_with("auth.") || val_token.value.starts_with("route.") {
+                    let value = if val_token.value.starts_with("auth.")
+                        || val_token.value.starts_with("route.")
+                    {
                         BindingValue::AuthRef(val_token.value.clone())
                     } else if val_token.kind == TokenKind::StringLit {
                         BindingValue::Str(val_token.value.clone())
@@ -1733,7 +2100,11 @@ impl Parser {
                     } else {
                         BindingValue::Str(val_token.value.clone())
                     };
-                    filters.push(FilterExpr { field, operator: op, value });
+                    filters.push(FilterExpr {
+                        field,
+                        operator: op,
+                        value,
+                    });
                 }
                 "order" => {
                     let field = self.advance().value.clone();
@@ -1741,10 +2112,15 @@ impl Parser {
                         self.advance();
                         OrderDirection::Desc
                     } else {
-                        if self.matches(TokenKind::Identifier, Some("asc")) { self.advance(); }
+                        if self.matches(TokenKind::Identifier, Some("asc")) {
+                            self.advance();
+                        }
                         OrderDirection::Asc
                     };
-                    order = Some(OrderExpr { field, direction: dir });
+                    order = Some(OrderExpr {
+                        field,
+                        direction: dir,
+                    });
                 }
                 "limit" => {
                     limit = Some(self.advance().value.parse::<usize>().unwrap_or(100));
@@ -1768,10 +2144,16 @@ impl Parser {
                     if func_or_expr.contains('(') {
                         let paren = func_or_expr.find('(').unwrap();
                         let func = func_or_expr[..paren].to_string();
-                        let agg_field = func_or_expr[paren+1..].trim_end_matches(')').to_string();
-                        aggregate = Some(AggregateExpr { function: func, field: Some(agg_field) });
+                        let agg_field = func_or_expr[paren + 1..].trim_end_matches(')').to_string();
+                        aggregate = Some(AggregateExpr {
+                            function: func,
+                            field: Some(agg_field),
+                        });
                     } else {
-                        aggregate = Some(AggregateExpr { function: func_or_expr, field: None });
+                        aggregate = Some(AggregateExpr {
+                            function: func_or_expr,
+                            field: None,
+                        });
                     }
                 }
                 "scope" => {
@@ -1800,7 +2182,18 @@ impl Parser {
 
         self.expect(TokenKind::RBrace)?;
 
-        Ok(BindingNode { entity: entity_name, query, filters, order, limit, offset, group_by, aggregate, live, public })
+        Ok(BindingNode {
+            entity: entity_name,
+            query,
+            filters,
+            order,
+            limit,
+            offset,
+            group_by,
+            aggregate,
+            live,
+            public,
+        })
     }
 
     // ── style ──
@@ -1816,11 +2209,19 @@ impl Parser {
         let mut config = HashMap::new();
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
-            if self.matches(TokenKind::Identifier, Some("theme")) { self.advance(); theme = Some(self.advance().value); }
-            else if self.matches(TokenKind::Identifier, Some("accent")) { self.advance(); accent = Some(self.advance().value); }
-            else if self.matches(TokenKind::Identifier, Some("radius")) { self.advance(); radius = Some(self.advance().value); }
-            else if self.matches(TokenKind::Identifier, Some("font")) { self.advance(); font = Some(self.advance().value); }
-            else if self.peek().kind == TokenKind::Identifier {
+            if self.matches(TokenKind::Identifier, Some("theme")) {
+                self.advance();
+                theme = Some(self.advance().value);
+            } else if self.matches(TokenKind::Identifier, Some("accent")) {
+                self.advance();
+                accent = Some(self.advance().value);
+            } else if self.matches(TokenKind::Identifier, Some("radius")) {
+                self.advance();
+                radius = Some(self.advance().value);
+            } else if self.matches(TokenKind::Identifier, Some("font")) {
+                self.advance();
+                font = Some(self.advance().value);
+            } else if self.peek().kind == TokenKind::Identifier {
                 let key = self.advance().value;
                 let val = self.advance().value;
                 config.insert(key, val);
@@ -1830,7 +2231,13 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(StyleNode { theme, accent, radius, font, config })
+        Ok(StyleNode {
+            theme,
+            accent,
+            radius,
+            font,
+            config,
+        })
     }
 
     // ── service ──
@@ -1844,8 +2251,11 @@ impl Parser {
 
         while self.peek().kind == TokenKind::ColonPair {
             let (k, v) = Self::split_colon_pair(&self.advance().value);
-            if k == "port" { port = v.parse().ok(); }
-            else { config.insert(k, v); }
+            if k == "port" {
+                port = v.parse().ok();
+            } else {
+                config.insert(k, v);
+            }
         }
 
         self.expect(TokenKind::LBrace)?;
@@ -1855,9 +2265,12 @@ impl Parser {
                 let key = self.advance().value;
                 let key_line = self.tokens.get(self.pos - 1).map(|t| t.line).unwrap_or(0);
 
-                while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None)
+                {
                     let next_line = self.peek().line;
-                    if next_line != key_line && self.peek().kind == TokenKind::Identifier { break; }
+                    if next_line != key_line && self.peek().kind == TokenKind::Identifier {
+                        break;
+                    }
 
                     if self.peek().kind == TokenKind::ColonPair {
                         let (k, v) = Self::split_colon_pair(&self.advance().value);
@@ -1869,7 +2282,13 @@ impl Parser {
                         let arr = self.parse_string_array()?;
                         config.insert(key.clone(), arr.join(","));
                         break;
-                    } else if matches!(self.peek().kind, TokenKind::Identifier | TokenKind::StringLit | TokenKind::Number | TokenKind::Path) {
+                    } else if matches!(
+                        self.peek().kind,
+                        TokenKind::Identifier
+                            | TokenKind::StringLit
+                            | TokenKind::Number
+                            | TokenKind::Path
+                    ) {
                         config.insert(key.clone(), self.advance().value);
                         break;
                     } else {
@@ -1904,7 +2323,9 @@ impl Parser {
             let inner_doc = self.collect_doc_comments();
             if self.matches(TokenKind::Keyword, Some("section")) {
                 let mut sec = self.parse_section()?;
-                if sec.doc.is_none() { sec.doc = inner_doc; }
+                if sec.doc.is_none() {
+                    sec.doc = inner_doc;
+                }
                 sections.push(sec);
             } else {
                 self.advance(); // skip unknown tokens
@@ -1924,8 +2345,13 @@ impl Parser {
         if self.matches(TokenKind::LParen, None) {
             self.advance(); // consume (
             while !self.matches(TokenKind::RParen, None) && !self.matches(TokenKind::Eof, None) {
-                if self.matches(TokenKind::Comma, None) { self.advance(); continue; }
-                if self.matches(TokenKind::RParen, None) { break; }
+                if self.matches(TokenKind::Comma, None) {
+                    self.advance();
+                    continue;
+                }
+                if self.matches(TokenKind::RParen, None) {
+                    break;
+                }
                 let raw = self.advance().value;
                 // Handle colon pair: "label:text" or bare "label"
                 if raw.contains(':') {
@@ -1936,9 +2362,20 @@ impl Parser {
                         (pname, true)
                     };
                     let param_type = if ptype.is_empty() {
-                        if self.peek().kind == TokenKind::Identifier { self.advance().value } else { "any".to_string() }
-                    } else { ptype };
-                    params.push(ComponentParam { name: clean_name, param_type, default: None, required });
+                        if self.peek().kind == TokenKind::Identifier {
+                            self.advance().value
+                        } else {
+                            "any".to_string()
+                        }
+                    } else {
+                        ptype
+                    };
+                    params.push(ComponentParam {
+                        name: clean_name,
+                        param_type,
+                        default: None,
+                        required,
+                    });
                 } else {
                     // Bare name, check for ColonPair next
                     let (clean_name, required) = if raw.ends_with('?') {
@@ -1948,14 +2385,25 @@ impl Parser {
                     };
                     let param_type = if self.peek().kind == TokenKind::ColonPair {
                         let (_, v) = Self::split_colon_pair(&self.advance().value);
-                        if v.is_empty() { "any".to_string() } else { v }
+                        if v.is_empty() {
+                            "any".to_string()
+                        } else {
+                            v
+                        }
                     } else {
                         "any".to_string()
                     };
-                    params.push(ComponentParam { name: clean_name, param_type, default: None, required });
+                    params.push(ComponentParam {
+                        name: clean_name,
+                        param_type,
+                        default: None,
+                        required,
+                    });
                 }
             }
-            if self.matches(TokenKind::RParen, None) { self.advance(); }
+            if self.matches(TokenKind::RParen, None) {
+                self.advance();
+            }
         }
 
         // Parse attributes before the opening brace: layout:inline style:topbar+light
@@ -1973,18 +2421,28 @@ impl Parser {
                 let (k, v) = Self::split_colon_pair(&self.advance().value);
                 if k == "layout" {
                     let mut val = v;
-                    if val.is_empty() && (self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::StringLit) {
+                    if val.is_empty()
+                        && (self.peek().kind == TokenKind::Identifier
+                            || self.peek().kind == TokenKind::StringLit)
+                    {
                         val = self.advance().value;
                     }
                     layout = Some(val);
                 } else if k == "style" {
-                    let mut parts = vec![if v.is_empty() { self.advance().value } else { v }];
+                    let mut parts = vec![if v.is_empty() {
+                        self.advance().value
+                    } else {
+                        v
+                    }];
                     while self.try_consume(TokenKind::Plus, None).is_some() {
                         parts.push(self.advance().value);
                     }
                     style = Some(parts.join("+"));
                 } else {
-                    if v.is_empty() && (self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::StringLit) {
+                    if v.is_empty()
+                        && (self.peek().kind == TokenKind::Identifier
+                            || self.peek().kind == TokenKind::StringLit)
+                    {
                         props.insert(k, self.advance().value);
                     } else {
                         props.insert(k, v);
@@ -1993,7 +2451,9 @@ impl Parser {
             } else if self.peek().kind == TokenKind::Identifier {
                 // Handle bare identifiers before brace
                 let ident = self.advance().value;
-                if self.peek().kind == TokenKind::StringLit || self.peek().kind == TokenKind::Identifier {
+                if self.peek().kind == TokenKind::StringLit
+                    || self.peek().kind == TokenKind::Identifier
+                {
                     props.insert(ident, self.advance().value);
                 }
             } else {
@@ -2009,25 +2469,42 @@ impl Parser {
                 binding = Some(self.parse_binding()?);
                 continue;
             }
-            if self.matches(TokenKind::Identifier, Some("state")) || self.matches(TokenKind::Keyword, Some("state")) {
+            if self.matches(TokenKind::Identifier, Some("state"))
+                || self.matches(TokenKind::Keyword, Some("state"))
+            {
                 self.advance();
                 let raw = self.advance().value;
                 // Handle "count:integer" (colon pair) or "count" then next token
                 let (sname, stype) = if raw.contains(':') {
                     let parts: Vec<&str> = raw.splitn(2, ':').collect();
                     let mut t = parts.get(1).map(|s| s.to_string()).unwrap_or_default();
-                    if t.is_empty() && (self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::Keyword) {
+                    if t.is_empty()
+                        && (self.peek().kind == TokenKind::Identifier
+                            || self.peek().kind == TokenKind::Keyword)
+                    {
                         t = self.advance().value;
                     }
-                    (parts[0].to_string(), if t.is_empty() { "any".to_string() } else { t })
+                    (
+                        parts[0].to_string(),
+                        if t.is_empty() { "any".to_string() } else { t },
+                    )
                 } else if self.peek().kind == TokenKind::ColonPair {
                     let (_, v) = Self::split_colon_pair(&self.advance().value);
-                    (raw, if v.is_empty() { self.advance().value } else { v })
+                    (
+                        raw,
+                        if v.is_empty() {
+                            self.advance().value
+                        } else {
+                            v
+                        },
+                    )
                 } else {
                     (raw, "any".to_string())
                 };
                 // Check for = default
-                let default = if self.peek().value == "=" || self.peek().kind == TokenKind::Operator && self.peek().value == "=" {
+                let default = if self.peek().value == "="
+                    || self.peek().kind == TokenKind::Operator && self.peek().value == "="
+                {
                     self.advance();
                     self.advance().value
                 } else {
@@ -2037,13 +2514,19 @@ impl Parser {
                         _ => String::new(),
                     }
                 };
-                state_vars.push(ComponentState { name: sname, state_type: stype, default });
+                state_vars.push(ComponentState {
+                    name: sname,
+                    state_type: stype,
+                    default,
+                });
                 continue;
             }
             if self.matches(TokenKind::Identifier, Some("layout")) {
                 self.advance();
                 layout = Some(self.advance().value);
-            } else if self.matches(TokenKind::Identifier, Some("style")) || self.matches(TokenKind::Keyword, Some("style")) {
+            } else if self.matches(TokenKind::Identifier, Some("style"))
+                || self.matches(TokenKind::Keyword, Some("style"))
+            {
                 self.advance();
                 let mut parts = vec![self.advance().value];
                 while self.try_consume(TokenKind::Plus, None).is_some() {
@@ -2053,33 +2536,62 @@ impl Parser {
             } else if self.matches(TokenKind::Identifier, Some("items")) {
                 self.advance();
                 self.expect(TokenKind::LBracket)?;
-                while !self.matches(TokenKind::RBracket, None) && !self.matches(TokenKind::Eof, None) {
-                    if self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::Keyword {
+                while !self.matches(TokenKind::RBracket, None)
+                    && !self.matches(TokenKind::Eof, None)
+                {
+                    if self.peek().kind == TokenKind::Identifier
+                        || self.peek().kind == TokenKind::Keyword
+                    {
                         let item_type = self.advance().value;
-                        let text = if self.peek().kind == TokenKind::StringLit { self.advance().value } else { String::new() };
+                        let text = if self.peek().kind == TokenKind::StringLit {
+                            self.advance().value
+                        } else {
+                            String::new()
+                        };
                         let link = if self.try_consume(TokenKind::Arrow, None).is_some() {
-                            Some(if self.peek().kind == TokenKind::StringLit { self.advance().value } else { self.advance().value })
+                            Some(if self.peek().kind == TokenKind::StringLit {
+                                self.advance().value
+                            } else {
+                                self.advance().value
+                            })
                         } else {
                             None
                         };
                         let mut item_config = HashMap::new();
                         let mut tone = None;
                         // Parse key:value pairs including tone and price
-                        while self.peek().kind == TokenKind::ColonPair || self.peek().kind == TokenKind::Price {
+                        while self.peek().kind == TokenKind::ColonPair
+                            || self.peek().kind == TokenKind::Price
+                        {
                             if self.peek().kind == TokenKind::Price {
                                 item_config.insert("price".to_string(), self.advance().value);
                                 continue;
                             }
                             let (k, v) = Self::split_colon_pair(&self.advance().value);
                             if k == "tone" {
-                                tone = Some(if v.is_empty() && self.peek().kind == TokenKind::Identifier { self.advance().value } else { v });
-                            } else if v.is_empty() && (self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::StringLit) {
+                                tone = Some(
+                                    if v.is_empty() && self.peek().kind == TokenKind::Identifier {
+                                        self.advance().value
+                                    } else {
+                                        v
+                                    },
+                                );
+                            } else if v.is_empty()
+                                && (self.peek().kind == TokenKind::Identifier
+                                    || self.peek().kind == TokenKind::StringLit)
+                            {
                                 item_config.insert(k, self.advance().value);
                             } else {
                                 item_config.insert(k, v);
                             }
                         }
-                        items.push(ComponentItemNode { item_type, text, link, tone, config: item_config });
+                        items.push(ComponentItemNode {
+                            item_type,
+                            text,
+                            link,
+                            tone,
+                            config: item_config,
+                        });
                     } else {
                         self.advance();
                     }
@@ -2088,60 +2600,113 @@ impl Parser {
             } else if self.peek().kind == TokenKind::ColonPair {
                 // Generic props: key:value at component level
                 let (k, v) = Self::split_colon_pair(&self.advance().value);
-                if v.is_empty() && (self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::StringLit) {
+                if v.is_empty()
+                    && (self.peek().kind == TokenKind::Identifier
+                        || self.peek().kind == TokenKind::StringLit)
+                {
                     props.insert(k, self.advance().value);
                 } else {
                     props.insert(k, v);
                 }
-            } else if self.peek().kind == TokenKind::Identifier && is_valid_item_type(&self.peek().value) {
+            } else if self.peek().kind == TokenKind::Identifier
+                && is_valid_item_type(&self.peek().value)
+            {
                 // Recognized item type: parse as ComponentItemNode
                 let item_type = self.advance().value;
-                let text = if self.peek().kind == TokenKind::StringLit { self.advance().value } else { String::new() };
+                let text = if self.peek().kind == TokenKind::StringLit {
+                    self.advance().value
+                } else {
+                    String::new()
+                };
                 let link = if self.try_consume(TokenKind::Arrow, None).is_some() {
-                    Some(if self.peek().kind == TokenKind::StringLit { self.advance().value } else { self.advance().value })
+                    Some(if self.peek().kind == TokenKind::StringLit {
+                        self.advance().value
+                    } else {
+                        self.advance().value
+                    })
                 } else {
                     None
                 };
                 let mut item_config = HashMap::new();
                 let mut tone = None;
-                while self.peek().kind == TokenKind::ColonPair || self.peek().kind == TokenKind::Price {
+                while self.peek().kind == TokenKind::ColonPair
+                    || self.peek().kind == TokenKind::Price
+                {
                     if self.peek().kind == TokenKind::Price {
                         item_config.insert("price".to_string(), self.advance().value);
                         continue;
                     }
                     let (k, v) = Self::split_colon_pair(&self.advance().value);
                     if k == "tone" {
-                        tone = Some(if v.is_empty() && self.peek().kind == TokenKind::Identifier { self.advance().value } else { v });
-                    } else if v.is_empty() && (self.peek().kind == TokenKind::Identifier || self.peek().kind == TokenKind::StringLit) {
+                        tone = Some(
+                            if v.is_empty() && self.peek().kind == TokenKind::Identifier {
+                                self.advance().value
+                            } else {
+                                v
+                            },
+                        );
+                    } else if v.is_empty()
+                        && (self.peek().kind == TokenKind::Identifier
+                            || self.peek().kind == TokenKind::StringLit)
+                    {
                         item_config.insert(k, self.advance().value);
                     } else {
                         item_config.insert(k, v);
                     }
                 }
                 // Also store single-value item types (brand, subtitle, title) as props for easy access
-                if (item_type == "brand" || item_type == "subtitle" || item_type == "title") && !text.is_empty() {
-                    props.entry(item_type.clone()).or_insert_with(|| text.clone());
+                if (item_type == "brand" || item_type == "subtitle" || item_type == "title")
+                    && !text.is_empty()
+                {
+                    props
+                        .entry(item_type.clone())
+                        .or_insert_with(|| text.clone());
                 }
-                items.push(ComponentItemNode { item_type, text, link, tone, config: item_config });
-            } else if self.matches(TokenKind::Identifier, Some("template")) || self.matches(TokenKind::Keyword, Some("template")) {
+                items.push(ComponentItemNode {
+                    item_type,
+                    text,
+                    link,
+                    tone,
+                    config: item_config,
+                });
+            } else if self.matches(TokenKind::Identifier, Some("template"))
+                || self.matches(TokenKind::Keyword, Some("template"))
+            {
                 self.advance();
                 if self.peek().kind == TokenKind::StringLit {
                     template = Some(self.advance().value);
                 }
-            } else if self.matches(TokenKind::Identifier, Some("test")) || self.matches(TokenKind::Keyword, Some("test")) {
+            } else if self.matches(TokenKind::Identifier, Some("test"))
+                || self.matches(TokenKind::Keyword, Some("test"))
+            {
                 // test "description" { step1; step2; ... }
                 self.advance();
-                let test_name = if self.peek().kind == TokenKind::StringLit { self.advance().value } else { format!("test_{}", tests.len() + 1) };
+                let test_name = if self.peek().kind == TokenKind::StringLit {
+                    self.advance().value
+                } else {
+                    format!("test_{}", tests.len() + 1)
+                };
                 let mut steps = Vec::new();
                 if self.matches(TokenKind::LBrace, None) {
                     self.advance();
-                    while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                    while !self.matches(TokenKind::RBrace, None)
+                        && !self.matches(TokenKind::Eof, None)
+                    {
                         // Each step is a line of text tokens until newline (approximated by reading until next keyword or })
                         let mut step = Vec::new();
-                        while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                        while !self.matches(TokenKind::RBrace, None)
+                            && !self.matches(TokenKind::Eof, None)
+                        {
                             let tok = self.peek();
                             // Heuristic: a new step starts with a keyword like fill, click, expect, navigate
-                            if !step.is_empty() && (tok.value == "fill" || tok.value == "click" || tok.value == "expect" || tok.value == "navigate" || tok.value == "wait" || tok.value == "assert") {
+                            if !step.is_empty()
+                                && (tok.value == "fill"
+                                    || tok.value == "click"
+                                    || tok.value == "expect"
+                                    || tok.value == "navigate"
+                                    || tok.value == "wait"
+                                    || tok.value == "assert")
+                            {
                                 break;
                             }
                             step.push(self.advance().value);
@@ -2150,13 +2715,21 @@ impl Parser {
                             steps.push(step.join(" "));
                         }
                     }
-                    if self.matches(TokenKind::RBrace, None) { self.advance(); }
+                    if self.matches(TokenKind::RBrace, None) {
+                        self.advance();
+                    }
                 }
-                tests.push(ComponentTest { name: test_name, steps });
+                tests.push(ComponentTest {
+                    name: test_name,
+                    steps,
+                });
             } else if self.peek().kind == TokenKind::Identifier {
                 // Unknown identifier props: key value
                 let key = self.advance().value;
-                if self.peek().kind == TokenKind::StringLit || self.peek().kind == TokenKind::Number || self.peek().kind == TokenKind::Identifier {
+                if self.peek().kind == TokenKind::StringLit
+                    || self.peek().kind == TokenKind::Number
+                    || self.peek().kind == TokenKind::Identifier
+                {
                     props.insert(key, self.advance().value);
                 }
             } else {
@@ -2165,7 +2738,19 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(ComponentNode { name, layout, style, items, props, params, template, sections: Vec::new(), state: state_vars, tests, binding })
+        Ok(ComponentNode {
+            name,
+            layout,
+            style,
+            items,
+            props,
+            params,
+            template,
+            sections: Vec::new(),
+            state: state_vars,
+            tests,
+            binding,
+        })
     }
 
     // ── event ──
@@ -2180,7 +2765,10 @@ impl Parser {
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
             let mut parts = Vec::new();
             let action_line = self.peek().line;
-            while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) && self.peek().line == action_line {
+            while !self.matches(TokenKind::RBrace, None)
+                && !self.matches(TokenKind::Eof, None)
+                && self.peek().line == action_line
+            {
                 parts.push(self.advance().value);
             }
             if !parts.is_empty() {
@@ -2201,7 +2789,9 @@ impl Parser {
         let mut queue = None;
         while self.peek().kind == TokenKind::ColonPair {
             let (k, v) = Self::split_colon_pair(&self.advance().value);
-            if k == "queue" { queue = Some(v); }
+            if k == "queue" {
+                queue = Some(v);
+            }
         }
 
         self.expect(TokenKind::LBrace)?;
@@ -2212,15 +2802,32 @@ impl Parser {
         let mut entity = None;
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
-            if self.matches(TokenKind::Identifier, Some("concurrency")) { self.advance(); concurrency = self.advance().value.parse().ok(); }
-            else if self.matches(TokenKind::Identifier, Some("retry")) { self.advance(); retry = self.advance().value.parse().ok(); }
-            else if self.matches(TokenKind::Identifier, Some("timeout")) { self.advance(); timeout = Some(self.advance().value); }
-            else if self.matches(TokenKind::Identifier, Some("process")) { self.advance(); entity = Some(self.advance().value); }
-            else { self.advance(); }
+            if self.matches(TokenKind::Identifier, Some("concurrency")) {
+                self.advance();
+                concurrency = self.advance().value.parse().ok();
+            } else if self.matches(TokenKind::Identifier, Some("retry")) {
+                self.advance();
+                retry = self.advance().value.parse().ok();
+            } else if self.matches(TokenKind::Identifier, Some("timeout")) {
+                self.advance();
+                timeout = Some(self.advance().value);
+            } else if self.matches(TokenKind::Identifier, Some("process")) {
+                self.advance();
+                entity = Some(self.advance().value);
+            } else {
+                self.advance();
+            }
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(WorkerNode { name, queue, concurrency, retry, timeout, entity })
+        Ok(WorkerNode {
+            name,
+            queue,
+            concurrency,
+            retry,
+            timeout,
+            entity,
+        })
     }
 
     // ── middleware ──
@@ -2241,17 +2848,26 @@ impl Parser {
                 let key = self.advance().value;
                 let key_line = self.tokens.get(self.pos - 1).map(|t| t.line).unwrap_or(0);
                 let mut parts = Vec::new();
-                while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) && self.peek().line == key_line {
+                while !self.matches(TokenKind::RBrace, None)
+                    && !self.matches(TokenKind::Eof, None)
+                    && self.peek().line == key_line
+                {
                     parts.push(self.advance().value);
                 }
-                if !parts.is_empty() { config.insert(key, parts.join(" ")); }
+                if !parts.is_empty() {
+                    config.insert(key, parts.join(" "));
+                }
             } else {
                 self.advance();
             }
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(MiddlewareNode { name, applies_to, config })
+        Ok(MiddlewareNode {
+            name,
+            applies_to,
+            config,
+        })
     }
 
     // ── env ──
@@ -2294,10 +2910,15 @@ impl Parser {
                 let mut body = HashMap::new();
                 if self.matches(TokenKind::LBrace, None) {
                     self.advance();
-                    while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                    while !self.matches(TokenKind::RBrace, None)
+                        && !self.matches(TokenKind::Eof, None)
+                    {
                         if self.peek().kind == TokenKind::ColonPair {
                             let (k, v) = Self::split_colon_pair(&self.advance().value);
-                            if v.is_empty() && (self.peek().kind == TokenKind::StringLit || self.peek().kind == TokenKind::Identifier) {
+                            if v.is_empty()
+                                && (self.peek().kind == TokenKind::StringLit
+                                    || self.peek().kind == TokenKind::Identifier)
+                            {
                                 body.insert(k, self.advance().value);
                             } else {
                                 body.insert(k, v.trim_matches('"').to_string());
@@ -2325,7 +2946,13 @@ impl Parser {
                     }
                 }
 
-                steps.push(TestStepNode { action, entity, body, expect: expect_code, expect_config });
+                steps.push(TestStepNode {
+                    action,
+                    entity,
+                    body,
+                    expect: expect_code,
+                    expect_config,
+                });
             } else {
                 self.advance();
             }
@@ -2386,9 +3013,9 @@ impl Parser {
     /// P041: No SQL reserved words (entity/field names become SQL identifiers).
     fn reject_sql_reserved(name: &str, context: &str, line: usize) -> Result<(), String> {
         const SQL_RESERVED: &[&str] = &[
-            "SELECT", "DROP", "INSERT", "DELETE", "UPDATE", "TABLE", "FROM",
-            "WHERE", "OR", "AND", "UNION", "ALTER", "CREATE", "INDEX", "EXEC",
-            "EXECUTE", "INTO", "VALUES", "SET", "NULL", "TRUE", "FALSE",
+            "SELECT", "DROP", "INSERT", "DELETE", "UPDATE", "TABLE", "FROM", "WHERE", "OR", "AND",
+            "UNION", "ALTER", "CREATE", "INDEX", "EXEC", "EXECUTE", "INTO", "VALUES", "SET",
+            "NULL", "TRUE", "FALSE",
         ];
 
         let upper = name.to_uppercase();
@@ -2409,7 +3036,10 @@ impl Parser {
         let mut items = Vec::new();
 
         while !self.matches(TokenKind::RBracket, None) && !self.matches(TokenKind::Eof, None) {
-            if self.peek().kind == TokenKind::Comma { self.advance(); continue; }
+            if self.peek().kind == TokenKind::Comma {
+                self.advance();
+                continue;
+            }
             let token = self.peek().clone();
             // P040: validate unquoted identifiers in arrays (enum values, roles).
             // P041 is skipped on purpose: array values are data, not SQL identifiers.
@@ -2428,7 +3058,10 @@ impl Parser {
         let mut items = Vec::new();
 
         while !self.matches(TokenKind::RBracket, None) && !self.matches(TokenKind::Eof, None) {
-            if self.peek().kind == TokenKind::Comma { self.advance(); continue; }
+            if self.peek().kind == TokenKind::Comma {
+                self.advance();
+                continue;
+            }
             items.push(self.advance().value);
         }
 
@@ -2440,7 +3073,7 @@ impl Parser {
 
     fn parse_deploy(&mut self) -> Result<DeployNode, String> {
         self.expect(TokenKind::Keyword)?; // consume "deploy"
-        let mode = self.advance().value;  // e.g. "microservices"
+        let mode = self.advance().value; // e.g. "microservices"
         self.expect(TokenKind::LBrace)?;
 
         let mut gateway = None;
@@ -2453,13 +3086,16 @@ impl Parser {
                 // Parse inline colon pairs before brace (port:N)
                 while self.peek().kind == TokenKind::ColonPair {
                     let (k, v) = Self::split_colon_pair(&self.advance().value);
-                    if k == "port" { port = v.parse().unwrap_or(0); }
+                    if k == "port" {
+                        port = v.parse().unwrap_or(0);
+                    }
                 }
                 self.expect(TokenKind::LBrace)?;
                 let mut provider = String::new();
                 let mut cors = None;
                 let mut config = HashMap::new();
-                while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None)
+                {
                     if self.matches(TokenKind::Identifier, Some("provider")) {
                         self.advance();
                         provider = self.advance().value;
@@ -2474,8 +3110,15 @@ impl Parser {
                     }
                 }
                 self.expect(TokenKind::RBrace)?;
-                gateway = Some(GatewayConfig { port, provider, cors, config });
-            } else if self.matches(TokenKind::Keyword, Some("service")) || self.matches(TokenKind::Identifier, Some("service")) {
+                gateway = Some(GatewayConfig {
+                    port,
+                    provider,
+                    cors,
+                    config,
+                });
+            } else if self.matches(TokenKind::Keyword, Some("service"))
+                || self.matches(TokenKind::Identifier, Some("service"))
+            {
                 self.advance();
                 let name = self.advance().value; // service name (string or identifier)
                 let mut port: u16 = 0;
@@ -2494,11 +3137,16 @@ impl Parser {
                 let mut apis = Vec::new();
                 let mut pages = Vec::new();
                 let mut config = HashMap::new();
-                while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
-                    if self.matches(TokenKind::Keyword, Some("entity")) || self.matches(TokenKind::Identifier, Some("entities")) {
+                while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None)
+                {
+                    if self.matches(TokenKind::Keyword, Some("entity"))
+                        || self.matches(TokenKind::Identifier, Some("entities"))
+                    {
                         self.advance();
                         entities = self.parse_string_array()?;
-                    } else if self.matches(TokenKind::Keyword, Some("api")) || self.matches(TokenKind::Identifier, Some("apis")) {
+                    } else if self.matches(TokenKind::Keyword, Some("api"))
+                        || self.matches(TokenKind::Identifier, Some("apis"))
+                    {
                         self.advance();
                         apis = self.parse_string_array()?;
                     } else if self.matches(TokenKind::Identifier, Some("pages")) {
@@ -2512,14 +3160,26 @@ impl Parser {
                     }
                 }
                 self.expect(TokenKind::RBrace)?;
-                services.push(DeployServiceDef { name, port, db, entities, apis, pages, config });
+                services.push(DeployServiceDef {
+                    name,
+                    port,
+                    db,
+                    entities,
+                    apis,
+                    pages,
+                    config,
+                });
             } else {
                 self.advance();
             }
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(DeployNode { mode, gateway, services })
+        Ok(DeployNode {
+            mode,
+            gateway,
+            services,
+        })
     }
 }
 
@@ -2609,12 +3269,16 @@ pub fn parse_with_imports(source: &str, base_dir: &str) -> Result<Vec<AstNode>, 
                 deduped.push(node);
             }
             AstNode::App(_) => {
-                if seen_app { continue; }
+                if seen_app {
+                    continue;
+                }
                 seen_app = true;
                 deduped.push(node);
             }
             AstNode::Style(_) => {
-                if seen_style { continue; }
+                if seen_style {
+                    continue;
+                }
                 seen_style = true;
                 deduped.push(node);
             }
@@ -2651,8 +3315,8 @@ pub fn parse_directory(dir: &str) -> Result<Vec<AstNode>, String> {
     // Concatenate all files with comments showing source
     let mut combined = String::new();
     for file in &files {
-        let content = std::fs::read_to_string(file)
-            .map_err(|e| format!("Error reading {}: {}", file, e))?;
+        let content =
+            std::fs::read_to_string(file).map_err(|e| format!("Error reading {}: {}", file, e))?;
         combined.push_str(&format!("# [source: {}]\n", file));
         combined.push_str(&content);
         combined.push('\n');
@@ -2663,11 +3327,24 @@ pub fn parse_directory(dir: &str) -> Result<Vec<AstNode>, String> {
 
 /// Count entities, pages, api routes for quick stats.
 pub fn stats(nodes: &[AstNode]) -> (usize, usize, usize) {
-    let entities = nodes.iter().filter(|n| matches!(n, AstNode::Entity(_))).count();
-    let pages = nodes.iter().filter(|n| matches!(n, AstNode::Page(_))).count();
-    let api_routes: usize = nodes.iter().filter_map(|n| {
-        if let AstNode::Api(api) = n { Some(api.routes.len()) } else { None }
-    }).sum();
+    let entities = nodes
+        .iter()
+        .filter(|n| matches!(n, AstNode::Entity(_)))
+        .count();
+    let pages = nodes
+        .iter()
+        .filter(|n| matches!(n, AstNode::Page(_)))
+        .count();
+    let api_routes: usize = nodes
+        .iter()
+        .filter_map(|n| {
+            if let AstNode::Api(api) = n {
+                Some(api.routes.len())
+            } else {
+                None
+            }
+        })
+        .sum();
     (entities, pages, api_routes)
 }
 
@@ -2855,7 +3532,8 @@ env production {
   DATABASE_URL env(DATABASE_URL)
   JWT_SECRET env(JWT_SECRET)
 }
-"#.to_string()
+"#
+    .to_string()
 }
 
 // ══════════════════════════════════════════════════
@@ -2872,7 +3550,9 @@ mod parser_tests {
     fn p041_enum_values_may_be_sql_reserved_words() {
         let src = "entity Audit {\n  action enum [create, update, delete, select]\n}\n";
         let nodes = parse(src).expect("SQL keywords are legal enum values");
-        let AstNode::Entity(e) = &nodes[0] else { panic!("expected entity") };
+        let AstNode::Entity(e) = &nodes[0] else {
+            panic!("expected entity")
+        };
         let values = e.fields[0].enum_values.as_ref().unwrap();
         assert_eq!(values, &vec!["create", "update", "delete", "select"]);
     }
@@ -2893,7 +3573,9 @@ mod parser_tests {
     fn every_template_and_demo_parses() {
         use std::path::{Path, PathBuf};
         fn collect(dir: &Path, out: &mut Vec<PathBuf>) {
-            let Ok(entries) = std::fs::read_dir(dir) else { return };
+            let Ok(entries) = std::fs::read_dir(dir) else {
+                return;
+            };
             for entry in entries.flatten() {
                 let p = entry.path();
                 if p.is_dir() {
@@ -2912,7 +3594,10 @@ mod parser_tests {
         collect(&root.join("templates"), &mut files);
         collect(&root.join("demos"), &mut files);
         files.sort();
-        assert!(!files.is_empty(), "no .cronus files found under templates/ or demos/");
+        assert!(
+            !files.is_empty(),
+            "no .cronus files found under templates/ or demos/"
+        );
 
         let mut offenders = Vec::new();
         for file in &files {
@@ -2920,7 +3605,11 @@ mod parser_tests {
             let base = file.parent().unwrap().to_string_lossy().to_string();
             if let Err(e) = parse_with_imports(&src, &base) {
                 let rel = file.strip_prefix(root).unwrap_or(file);
-                offenders.push(format!("{}: {}", rel.display(), e.lines().next().unwrap_or("")));
+                offenders.push(format!(
+                    "{}: {}",
+                    rel.display(),
+                    e.lines().next().unwrap_or("")
+                ));
             }
         }
         assert!(
@@ -2984,14 +3673,18 @@ mod parser_tests {
     #[test]
     fn p041_reject_sql_reserved_words() {
         let reserved = vec![
-            "SELECT", "DROP", "INSERT", "DELETE", "UPDATE", "TABLE",
-            "FROM", "WHERE", "OR", "AND", "UNION", "ALTER", "CREATE",
-            "INDEX", "EXEC", "EXECUTE", "INTO", "VALUES", "SET",
+            "SELECT", "DROP", "INSERT", "DELETE", "UPDATE", "TABLE", "FROM", "WHERE", "OR", "AND",
+            "UNION", "ALTER", "CREATE", "INDEX", "EXEC", "EXECUTE", "INTO", "VALUES", "SET",
             "NULL", "TRUE", "FALSE",
         ];
         for word in reserved {
             let err = Parser::validate_identifier(word, "entity name", 1).unwrap_err();
-            assert!(err.contains("SQL reserved word"), "Expected rejection for '{}', got: {}", word, err);
+            assert!(
+                err.contains("SQL reserved word"),
+                "Expected rejection for '{}', got: {}",
+                word,
+                err
+            );
         }
     }
 
@@ -3077,7 +3770,10 @@ mod parser_tests {
         let source = r#"entity User { name string required }"#;
         let ast = parse(source).unwrap();
         if let AstNode::Entity(ref e) = ast[0] {
-            assert!(e.fields[0].required, "old 'required' keyword should still work");
+            assert!(
+                e.fields[0].required,
+                "old 'required' keyword should still work"
+            );
         } else {
             panic!("Expected entity node");
         }
@@ -3158,8 +3854,14 @@ mod parser_tests {
         if let AstNode::Entity(ref e) = ast[0] {
             let field = &e.fields[0];
             assert_eq!(field.name, "username");
-            assert!(field.min.is_none(), "string field should not have numeric min");
-            assert!(field.max.is_none(), "string field should not have numeric max");
+            assert!(
+                field.min.is_none(),
+                "string field should not have numeric min"
+            );
+            assert!(
+                field.max.is_none(),
+                "string field should not have numeric max"
+            );
             assert_eq!(field.min_length, Some(3));
             assert_eq!(field.max_length, Some(30));
         } else {
@@ -3285,8 +3987,16 @@ entity Order {
 }
 "#;
         let err = parse(source).err().expect("Expected parse error");
-        assert!(err.contains("nonexistent"), "Error should mention invalid state: {}", err);
-        assert!(err.contains("not a valid value"), "Error should explain it's not valid: {}", err);
+        assert!(
+            err.contains("nonexistent"),
+            "Error should mention invalid state: {}",
+            err
+        );
+        assert!(
+            err.contains("not a valid value"),
+            "Error should explain it's not valid: {}",
+            err
+        );
     }
 
     #[test]
@@ -3301,7 +4011,11 @@ entity Order {
 }
 "#;
         let err = parse(source).err().expect("Expected parse error");
-        assert!(err.contains("nonexistent"), "Error should mention invalid target: {}", err);
+        assert!(
+            err.contains("nonexistent"),
+            "Error should mention invalid target: {}",
+            err
+        );
     }
 
     #[test]
@@ -3316,8 +4030,16 @@ entity Order {
 }
 "#;
         let err = parse(source).err().expect("Expected parse error");
-        assert!(err.contains("unknown field"), "Error should mention unknown field: {}", err);
-        assert!(err.contains("status"), "Error should mention 'status': {}", err);
+        assert!(
+            err.contains("unknown field"),
+            "Error should mention unknown field: {}",
+            err
+        );
+        assert!(
+            err.contains("status"),
+            "Error should mention 'status': {}",
+            err
+        );
     }
 
     #[test]
@@ -3332,7 +4054,11 @@ entity Order {
 }
 "#;
         let err = parse(source).err().expect("Expected parse error");
-        assert!(err.contains("must be an enum"), "Error should require enum type: {}", err);
+        assert!(
+            err.contains("must be an enum"),
+            "Error should require enum type: {}",
+            err
+        );
     }
 
     #[test]
@@ -3400,7 +4126,11 @@ entity Order {
 }
 "#;
         let err = parse(source).err().expect("Expected parse error");
-        assert!(err.contains("nonexistent"), "Error should mention invalid pipe target: {}", err);
+        assert!(
+            err.contains("nonexistent"),
+            "Error should mention invalid pipe target: {}",
+            err
+        );
     }
 
     // ══════════════════════════════════════════════════
@@ -3426,7 +4156,10 @@ entity Deployment shared {
             assert!(e.effects[0].field.is_none());
             assert_eq!(e.effects[0].actions.len(), 1);
             assert_eq!(e.effects[0].actions[0].action_type, "log");
-            assert_eq!(e.effects[0].actions[0].args[0], "Deploy {{deploy_id}} started");
+            assert_eq!(
+                e.effects[0].actions[0].args[0],
+                "Deploy {{deploy_id}} started"
+            );
             assert!(e.effects[0].actions[0].condition.is_none());
         } else {
             panic!("Expected entity node");
@@ -3623,9 +4356,19 @@ entity Item shared {
   }
 }
 "#;
-        let err = parse(source).err().expect("Expected parse error for invalid effect event");
-        assert!(err.contains("invalid effect event"), "Error should mention invalid event: {}", err);
-        assert!(err.contains("explode"), "Error should mention 'explode': {}", err);
+        let err = parse(source)
+            .err()
+            .expect("Expected parse error for invalid effect event");
+        assert!(
+            err.contains("invalid effect event"),
+            "Error should mention invalid event: {}",
+            err
+        );
+        assert!(
+            err.contains("explode"),
+            "Error should mention 'explode': {}",
+            err
+        );
     }
 
     #[test]
@@ -3655,7 +4398,10 @@ entity Item shared {
         if let AstNode::Entity(ref e) = ast[0] {
             assert_eq!(e.effects.len(), 1);
             assert_eq!(e.effects[0].event, "update");
-            assert!(e.effects[0].field.is_none(), "on update without field should have field=None");
+            assert!(
+                e.effects[0].field.is_none(),
+                "on update without field should have field=None"
+            );
             assert_eq!(e.effects[0].actions[0].args[0], "Item {{name}} was updated");
         } else {
             panic!("Expected entity node");
@@ -3666,15 +4412,26 @@ entity Item shared {
 
     #[test]
     fn layout_sidebar_nav_optional() {
-        let source = r#"layout Main { sidebar { brand "Acme" "Home" -> "/" nav "About" -> "/about" } }"#;
+        let source =
+            r#"layout Main { sidebar { brand "Acme" "Home" -> "/" nav "About" -> "/about" } }"#;
         let ast = parse(source).expect("layout with mixed nav/no-nav sidebar items should parse");
 
-        let layout = ast.iter().find_map(|node| {
-            if let AstNode::Layout(l) = node { Some(l) } else { None }
-        }).expect("expected a Layout node in AST");
+        let layout = ast
+            .iter()
+            .find_map(|node| {
+                if let AstNode::Layout(l) = node {
+                    Some(l)
+                } else {
+                    None
+                }
+            })
+            .expect("expected a Layout node in AST");
 
         assert_eq!(layout.name, "Main");
-        assert_eq!(layout.sidebar_config.get("brand").map(String::as_str), Some("Acme"));
+        assert_eq!(
+            layout.sidebar_config.get("brand").map(String::as_str),
+            Some("Acme")
+        );
         assert_eq!(
             layout.sidebar_items.len(),
             2,
@@ -3717,8 +4474,15 @@ entity Item shared {
     #[test]
     fn same_line_fields_are_two_fields() {
         let ast = parse(r#"entity Message { author string! note text! }"#).unwrap();
-        let AstNode::Entity(e) = &ast[0] else { panic!("entity") };
-        assert_eq!(e.fields.len(), 2, "got {:?}", e.fields.iter().map(|f| &f.name).collect::<Vec<_>>());
+        let AstNode::Entity(e) = &ast[0] else {
+            panic!("entity")
+        };
+        assert_eq!(
+            e.fields.len(),
+            2,
+            "got {:?}",
+            e.fields.iter().map(|f| &f.name).collect::<Vec<_>>()
+        );
         assert_eq!(e.fields[0].name, "author");
         assert_eq!(e.fields[1].name, "note");
         assert!(e.fields[0].required);
@@ -3727,14 +4491,19 @@ entity Item shared {
 
     #[test]
     fn email_field_named_email_stays_one_field() {
-        let ast = parse(r#"
+        let ast = parse(
+            r#"
 entity Lead {
   name string! searchable
   email email! unique
   company string
 }
-"#).unwrap();
-        let AstNode::Entity(e) = &ast[0] else { panic!("entity") };
+"#,
+        )
+        .unwrap();
+        let AstNode::Entity(e) = &ast[0] else {
+            panic!("entity")
+        };
         let names: Vec<_> = e.fields.iter().map(|f| f.name.as_str()).collect();
         assert_eq!(names, vec!["name", "email", "company"], "got {names:?}");
         assert!(e.fields[1].unique);
@@ -3743,15 +4512,20 @@ entity Lead {
 
     #[test]
     fn bind_scope_public() {
-        let ast = parse(r#"
+        let ast = parse(
+            r#"
 page "/" {
   section kpi {
     bind Node { query count scope:public }
     item "Nodes" value:bind
   }
 }
-"#).unwrap();
-        let AstNode::Page(p) = &ast[0] else { panic!("page") };
+"#,
+        )
+        .unwrap();
+        let AstNode::Page(p) = &ast[0] else {
+            panic!("page")
+        };
         let b = p.sections[0].binding.as_ref().expect("binding");
         assert!(b.public);
         assert_eq!(b.entity, "Node");
@@ -3760,28 +4534,48 @@ page "/" {
 
     #[test]
     fn page_use_component_is_recorded() {
-        let ast = parse(r#"
+        let ast = parse(
+            r#"
 component Save layout:inline style:button+primary+md { label "Save" }
 page "/" type:custom {
   title "Home"
   use Save
 }
-"#).unwrap();
-        let page = ast.iter().find_map(|n| if let AstNode::Page(p) = n { Some(p) } else { None }).unwrap();
+"#,
+        )
+        .unwrap();
+        let page = ast
+            .iter()
+            .find_map(|n| {
+                if let AstNode::Page(p) = n {
+                    Some(p)
+                } else {
+                    None
+                }
+            })
+            .unwrap();
         assert_eq!(page.components, vec!["Save".to_string()]);
     }
 
     #[test]
     fn auth_redirect_is_stored() {
-        let ast = parse(r#"
+        let ast = parse(
+            r#"
 auth {
   entity User
   login email + password
   session jwt expires:24h
   redirect "/"
 }
-"#).unwrap();
-        let AstNode::Auth(a) = &ast[0] else { panic!("auth") };
-        assert_eq!(a.session_config.get("redirect").map(String::as_str), Some("/"));
+"#,
+        )
+        .unwrap();
+        let AstNode::Auth(a) = &ast[0] else {
+            panic!("auth")
+        };
+        assert_eq!(
+            a.session_config.get("redirect").map(String::as_str),
+            Some("/")
+        );
     }
 }

@@ -48,7 +48,13 @@ fn options(comp: &ComponentNode) -> Vec<(String, bool)> {
             .iter()
             .find(|i| !i.text.is_empty())
             .map(|i| i.text.clone())
-            .unwrap_or_else(|| if comp.name.is_empty() { "Option".into() } else { comp.name.clone() });
+            .unwrap_or_else(|| {
+                if comp.name.is_empty() {
+                    "Option".into()
+                } else {
+                    comp.name.clone()
+                }
+            });
         return vec![(label, true)];
     }
     let group_value = comp
@@ -101,7 +107,9 @@ mod tests {
         c.items.push(item("text", "Day"));
         c.items.push(item("text", "Week"));
         c.items[2].config.insert("value".into(), "Week".into());
-        c.items[2].config.insert("aria-label".into(), "Range".into());
+        c.items[2]
+            .config
+            .insert("aria-label".into(), "Range".into());
         let html = render(&c);
         assert_eq!(
             html,

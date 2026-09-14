@@ -24,7 +24,15 @@ pub fn render(comp: &ComponentNode) -> String {
     let body = format!(
         "{}{}{}{}",
         value_grid(&ticks, lo, hi),
-        area_paths(&centers, &desktop, lo, hi, "var(--cronus-chart-1)", &gid, "0.35"),
+        area_paths(
+            &centers,
+            &desktop,
+            lo,
+            hi,
+            "var(--cronus-chart-1)",
+            &gid,
+            "0.35"
+        ),
         bars_svg(&centers, band, &mobile, lo, hi, "var(--cronus-chart-2)"),
         x_tick_labels(&cats, &centers, 24.0)
     );
@@ -73,6 +81,8 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"composed-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"));
+        assert!(css.contains(
+            "[data-slot=\"composed-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"
+        ));
     }
 }

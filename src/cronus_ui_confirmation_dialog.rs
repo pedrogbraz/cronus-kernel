@@ -46,7 +46,12 @@ pub fn render(comp: &ComponentNode) -> String {
 fn extras(comp: &ComponentNode, title: &str) -> String {
     comp.items
         .iter()
-        .filter(|i| !matches!(i.item_type.as_str(), "label" | "title" | "action" | "cancel" | "confirm"))
+        .filter(|i| {
+            !matches!(
+                i.item_type.as_str(),
+                "label" | "title" | "action" | "cancel" | "confirm"
+            )
+        })
         .filter(|i| !i.text.is_empty())
         .map(|i| esc(&i.text))
         .filter(|t| t != title)
@@ -108,14 +113,16 @@ mod tests {
             "Delete project</h2><p data-slot=\"alert-dialog-description\">This cannot be undone.</p></div>"
         ));
         assert!(html.contains("data-slot=\"alert-dialog-cancel\" disabled>Keep</button>"));
-        assert!(html.contains("data-slot=\"confirmation-dialog-confirm\" disabled>Delete anyway</button>"));
+        assert!(html
+            .contains("data-slot=\"confirmation-dialog-confirm\" disabled>Delete anyway</button>"));
         reject_js(&html);
     }
 
     #[test]
     fn description_prop_renders_react_description() {
         let mut c = stub("confirmation-dialog", "Delete project");
-        c.props.insert("description".into(), "This cannot be undone.".into());
+        c.props
+            .insert("description".into(), "This cannot be undone.".into());
         assert!(render(&c).contains(
             "Delete project</h2><p data-slot=\"alert-dialog-description\">This cannot be undone.</p></div>"
         ));
@@ -134,7 +141,9 @@ mod tests {
     fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         let block = |sel: &str| {
-            let start = css.find(&format!("{sel} {{")).unwrap_or_else(|| panic!("{sel}"));
+            let start = css
+                .find(&format!("{sel} {{"))
+                .unwrap_or_else(|| panic!("{sel}"));
             let end = css[start..].find('}').unwrap() + start;
             css[start..end].to_string()
         };

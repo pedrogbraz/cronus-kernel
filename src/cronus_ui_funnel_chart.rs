@@ -25,7 +25,11 @@ pub fn render(comp: &ComponentNode) -> String {
     if values.len() != n {
         values = (0..n).map(|i| ((n - i) as f64 * 4.0).max(1.0)).collect();
     }
-    let max = values.iter().copied().fold(0.0_f64, f64::max).max(f64::MIN_POSITIVE);
+    let max = values
+        .iter()
+        .copied()
+        .fold(0.0_f64, f64::max)
+        .max(f64::MIN_POSITIVE);
     let row = BOX_H / n.max(1) as f64;
     let widths: Vec<f64> = values.iter().map(|v| v.max(0.0) / max * BOX_W).collect();
     let mut shapes = String::new();
@@ -36,7 +40,10 @@ pub fn render(comp: &ComponentNode) -> String {
         let y0 = BOX_Y + row * i as f64;
         let y1 = y0 + row;
         let (tl, tr) = (BOX_X + (BOX_W - top) / 2.0, BOX_X + (BOX_W + top) / 2.0);
-        let (bl, br) = (BOX_X + (BOX_W - bottom) / 2.0, BOX_X + (BOX_W + bottom) / 2.0);
+        let (bl, br) = (
+            BOX_X + (BOX_W - bottom) / 2.0,
+            BOX_X + (BOX_W + bottom) / 2.0,
+        );
         shapes.push_str(&format!(
             "<path d=\"M {tl},{y0}L {tr},{y0}L {br},{y1}L {bl},{y1}L {tl},{y0} Z\" fill=\"var(--cronus-chart-{})\" stroke=\"#fff\"></path>",
             i % 5 + 1,

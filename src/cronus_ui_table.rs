@@ -8,12 +8,7 @@ pub fn render(comp: &ComponentNode) -> String {
     if !bound.is_empty() {
         let keys: Vec<String> = bound[0]
             .as_object()
-            .map(|o| {
-                o.keys()
-                    .filter(|k| !k.starts_with('_'))
-                    .cloned()
-                    .collect()
-            })
+            .map(|o| o.keys().filter(|k| !k.starts_with('_')).cloned().collect())
             .unwrap_or_default();
         let head = keys
             .iter()

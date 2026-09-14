@@ -104,10 +104,7 @@ fn country_of(comp: &ComponentNode) -> &'static Country {
         .or_else(|| attr(comp, "default-country"))
         .unwrap_or("BR");
     let code = raw.trim().to_ascii_uppercase();
-    COUNTRIES
-        .iter()
-        .find(|c| c.code == code)
-        .unwrap_or(&BRAZIL)
+    COUNTRIES.iter().find(|c| c.code == code).unwrap_or(&BRAZIL)
 }
 
 fn aria_label_of(comp: &ComponentNode) -> String {

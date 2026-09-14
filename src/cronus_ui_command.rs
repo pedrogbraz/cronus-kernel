@@ -178,7 +178,8 @@ mod tests {
     #[test]
     fn placeholder_from_props() {
         let mut c = palette("Search", &["Calendar"]);
-        c.props.insert("placeholder".into(), "Type a command…".into());
+        c.props
+            .insert("placeholder".into(), "Type a command…".into());
         let html = render(&c);
         assert!(html.contains("placeholder=\"Type a command…\""));
         assert!(html.contains("data-selected=\"true\">Calendar</div>"));

@@ -60,7 +60,12 @@ fn aria_label(comp: &ComponentNode) -> String {
 }
 
 fn is_circle(comp: &ComponentNode) -> bool {
-    if comp.props.get("variant").map(|s| s == "circle").unwrap_or(false) {
+    if comp
+        .props
+        .get("variant")
+        .map(|s| s == "circle")
+        .unwrap_or(false)
+    {
         return true;
     }
     comp.style
@@ -178,7 +183,10 @@ mod tests {
         c.props.insert("value".into(), "36.6".into());
         let html = render(&c);
         assert!(html.contains("aria-valuenow=\"36.6\""));
-        assert!(html.contains("<div data-slot=\"scroll-progress-fill\" data-value=\"37\"></div>"), "{html}");
+        assert!(
+            html.contains("<div data-slot=\"scroll-progress-fill\" data-value=\"37\"></div>"),
+            "{html}"
+        );
         assert!(!html.contains("style="));
     }
 
@@ -249,7 +257,9 @@ mod tests {
         assert!(css.contains("[data-slot=\"scroll-progress-fill\"]"));
         assert!(css.contains("height: 0.25rem"));
         // Fixture wrapper `w-72` (React bar is `w-full` inside it).
-        assert!(css.contains("[data-slot=\"scroll-progress\"] {\n  height: 0.25rem; width: 18rem; overflow: hidden;"));
+        assert!(css.contains(
+            "[data-slot=\"scroll-progress\"] {\n  height: 0.25rem; width: 18rem; overflow: hidden;"
+        ));
         assert!(!css.contains("attr(data-value type("));
         assert!(css.contains("[data-slot=\"scroll-progress-fill\"] {\n  height: 100%; background: var(--cronus-primary);\n  width: calc(var(--cui-progress-value, 0) * 1%);"));
         assert!(css.contains("[data-slot=\"scroll-progress-fill\"])[data-value=\"37\"] { --cui-progress-value: 37; }"));

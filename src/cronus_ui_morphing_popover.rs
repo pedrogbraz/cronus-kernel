@@ -14,7 +14,11 @@ pub fn render(comp: &ComponentNode) -> String {
     let ts = texts(comp);
     let trigger = ts.first().cloned().unwrap_or_else(|| label_of(comp));
     let body = ts.iter().skip(1).cloned().collect::<Vec<_>>().join("");
-    let body = if body.is_empty() { trigger.clone() } else { body };
+    let body = if body.is_empty() {
+        trigger.clone()
+    } else {
+        body
+    };
     let aria = comp
         .props
         .get("aria-label")
@@ -107,9 +111,13 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"morphing-popover\"] {\n  position: relative; isolation: isolate;"));
+        assert!(css.contains(
+            "[data-slot=\"morphing-popover\"] {\n  position: relative; isolation: isolate;"
+        ));
         assert!(css.contains("[data-slot=\"morphing-popover-trigger\"]"));
-        assert!(css.contains("[data-slot=\"morphing-popover-content\"] {\n  position: absolute; z-index: 50;"));
+        assert!(css.contains(
+            "[data-slot=\"morphing-popover-content\"] {\n  position: absolute; z-index: 50;"
+        ));
         assert!(css.contains("border-radius: 16px"));
         assert!(css.contains("width: 18rem"));
         assert!(css.contains("var(--cronus-surface-floating)"));

@@ -124,7 +124,9 @@ mod tests {
     fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         let block = |sel: &str| {
-            let start = css.find(&format!("{sel} {{")).unwrap_or_else(|| panic!("{sel}"));
+            let start = css
+                .find(&format!("{sel} {{"))
+                .unwrap_or_else(|| panic!("{sel}"));
             let end = start + css[start..].find('}').unwrap();
             css[start..end].to_string()
         };

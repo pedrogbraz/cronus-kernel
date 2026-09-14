@@ -13,7 +13,7 @@ pub fn render_breadcrumb(section: &SectionNode) -> String {
     let mut html = String::from(
         "<nav aria-label=\"Breadcrumb\">\
          <ol style=\"display:flex;flex-wrap:wrap;align-items:center;gap:8px;\
-         list-style:none;margin:0;padding:0;font-size:14px;\">"
+         list-style:none;margin:0;padding:0;font-size:14px;\">",
     );
 
     let last_idx = items.len() - 1;
@@ -48,7 +48,7 @@ pub fn render_breadcrumb(section: &SectionNode) -> String {
                  <svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" \
                  stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" \
                  stroke-linejoin=\"round\"><polyline points=\"9 18 15 12 9 6\"></polyline></svg>\
-                 </span>"
+                 </span>",
             );
         }
 

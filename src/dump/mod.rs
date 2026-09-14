@@ -4,12 +4,12 @@
 //! Analyzes HTML pages and generates .cronus files that describe
 //! the same content using CRONUS language primitives.
 
-pub mod dom;
 pub mod detect;
-pub mod patterns;
+pub mod dom;
 pub mod emit;
 pub mod nextjs;
 pub mod openapi;
+pub mod patterns;
 pub mod prisma;
 pub mod project;
 pub mod routes;
@@ -30,8 +30,13 @@ pub fn dump_html(html: &str) -> String {
     let app_name = dom::extract_title(html);
 
     // 4. Detect accent color from HTML (inline SVG fills, style tags, etc.)
-    let accent = detect_accent_from_html(html)
-        .unwrap_or_else(|| if theme == "dark" { "blue".into() } else { "black".into() });
+    let accent = detect_accent_from_html(html).unwrap_or_else(|| {
+        if theme == "dark" {
+            "blue".into()
+        } else {
+            "black".into()
+        }
+    });
 
     // 5. Detect font from HTML
     let font = detect_font_from_html(html).unwrap_or_else(|| "Inter".into());
@@ -42,7 +47,11 @@ pub fn dump_html(html: &str) -> String {
     // 6a. Detect sections (with HTML template extraction)
     let mut sections = detect::detect_sections_with_templates(
         &nodes,
-        if page_css.trim().is_empty() { None } else { Some(&page_css) },
+        if page_css.trim().is_empty() {
+            None
+        } else {
+            Some(&page_css)
+        },
     );
 
     // 6a-fix. Auto-trigger scroll animations for visual fidelity
@@ -115,14 +124,20 @@ pub fn audit_dump(source_html: &str, cronus_output: &str, threshold: u32) -> u32
         }
     }
 
-    let rendered_lower = rendered_text.to_lowercase()
-        .split_whitespace().collect::<Vec<_>>().join(" ");
+    let rendered_lower = rendered_text
+        .to_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
 
     let mut str_matched = 0u32;
     let mut str_missing: Vec<String> = Vec::new();
     for s in &ref_strings {
         if rendered_lower.contains(s.as_str())
-           || rendered_strings.iter().any(|rs| rs.contains(s.as_str()) || s.contains(rs.as_str())) {
+            || rendered_strings
+                .iter()
+                .any(|rs| rs.contains(s.as_str()) || s.contains(rs.as_str()))
+        {
             str_matched += 1;
         } else {
             str_missing.push(s.clone());
@@ -138,13 +153,20 @@ pub fn audit_dump(source_html: &str, cronus_output: &str, threshold: u32) -> u32
     };
 
     // Print summary
-    let dot = if fidelity >= 95 { "\x1b[32m●\x1b[0m" }
-        else if fidelity >= 70 { "\x1b[33m●\x1b[0m" }
-        else { "\x1b[31m●\x1b[0m" };
+    let dot = if fidelity >= 95 {
+        "\x1b[32m●\x1b[0m"
+    } else if fidelity >= 70 {
+        "\x1b[33m●\x1b[0m"
+    } else {
+        "\x1b[31m●\x1b[0m"
+    };
 
     eprintln!();
     eprintln!("  \x1b[1mDump Audit\x1b[0m");
-    eprintln!("  {} \x1b[1m{}% fidelity\x1b[0m  (threshold: {}%)", dot, fidelity, threshold);
+    eprintln!(
+        "  {} \x1b[1m{}% fidelity\x1b[0m  (threshold: {}%)",
+        dot, fidelity, threshold
+    );
     eprintln!("  Numbers: {}/{} matched", num_matched, ref_numbers.len());
     eprintln!("  Strings: {}/{} matched", str_matched, ref_strings.len());
 
@@ -153,7 +175,10 @@ pub fn audit_dump(source_html: &str, cronus_output: &str, threshold: u32) -> u32
         if !str_missing.is_empty() {
             eprintln!("  \x1b[31mMissing strings:\x1b[0m");
             for (i, s) in str_missing.iter().enumerate() {
-                if i >= 15 { eprintln!("    ... +{} more", str_missing.len() - 15); break; }
+                if i >= 15 {
+                    eprintln!("    ... +{} more", str_missing.len() - 15);
+                    break;
+                }
                 eprintln!("    STR  \"{}\"", s);
             }
         }
@@ -181,7 +206,8 @@ pub fn audit_dump(source_html: &str, cronus_output: &str, threshold: u32) -> u32
 /// Extract visible text from HTML (simplified version for dump audit).
 fn audit_extract_visible_text(html: &str) -> String {
     let mut result = String::new();
-    let body_start = html.find("<body")
+    let body_start = html
+        .find("<body")
         .and_then(|pos| html[pos..].find('>').map(|p| pos + p + 1))
         .unwrap_or(0);
     let body_end = html.rfind("</body>").unwrap_or(html.len());
@@ -205,30 +231,50 @@ fn audit_extract_visible_text(html: &str) -> String {
                 let tag_name = tag_lower.split_whitespace().next().unwrap_or("");
                 if tag_name.starts_with('/') {
                     let name = &tag_name[1..];
-                    if skip_tags.contains(&name) && skip_depth > 0 { skip_depth -= 1; }
-                } else {
-                    if matches!(tag_name, "br" | "div" | "p" | "h1" | "h2" | "h3" | "h4" | "li" | "td" | "section") {
-                        if skip_depth == 0 { result.push(' '); }
+                    if skip_tags.contains(&name) && skip_depth > 0 {
+                        skip_depth -= 1;
                     }
-                    if skip_tags.contains(&tag_name) { skip_depth += 1; }
+                } else {
+                    if matches!(
+                        tag_name,
+                        "br" | "div" | "p" | "h1" | "h2" | "h3" | "h4" | "li" | "td" | "section"
+                    ) {
+                        if skip_depth == 0 {
+                            result.push(' ');
+                        }
+                    }
+                    if skip_tags.contains(&tag_name) {
+                        skip_depth += 1;
+                    }
                 }
             } else {
                 tag_buf.push(ch);
             }
             continue;
         }
-        if skip_depth == 0 { result.push(ch); }
+        if skip_depth == 0 {
+            result.push(ch);
+        }
     }
-    result.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
-        .replace("&quot;", "\"").replace("&#39;", "'").replace("&nbsp;", " ")
+    result
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&nbsp;", " ")
 }
 
 /// Extract number-like tokens from text.
 fn audit_extract_numbers(text: &str) -> Vec<f64> {
     let mut nums = Vec::new();
-    for word in text.split(|c: char| !c.is_alphanumeric() && c != '.' && c != ',' && c != '%' && c != '$') {
+    for word in
+        text.split(|c: char| !c.is_alphanumeric() && c != '.' && c != ',' && c != '%' && c != '$')
+    {
         let word = word.trim();
-        if word.is_empty() { continue; }
+        if word.is_empty() {
+            continue;
+        }
         let cleaned = word.replace(',', "").replace('%', "").replace('$', "");
         if let Ok(n) = cleaned.trim().parse::<f64>() {
             if n.is_finite() && n >= 3.0 && n <= 1e9 && !nums.contains(&n) {
@@ -246,11 +292,16 @@ fn audit_extract_strings(text: &str) -> Vec<String> {
         let trimmed = line.trim();
         if trimmed.len() >= 3 && trimmed.len() <= 120 {
             let lower = trimmed.to_lowercase();
-            if !lower.contains("tailwind") && !lower.contains("rgba(")
-                && !lower.starts_with('.') && !lower.starts_with('{')
-                && !lower.starts_with('@') && !lower.starts_with('#')
+            if !lower.contains("tailwind")
+                && !lower.contains("rgba(")
+                && !lower.starts_with('.')
+                && !lower.starts_with('{')
+                && !lower.starts_with('@')
+                && !lower.starts_with('#')
             {
-                if !strings.contains(&lower) { strings.push(lower); }
+                if !strings.contains(&lower) {
+                    strings.push(lower);
+                }
             }
         }
     }
@@ -339,7 +390,7 @@ fn detect_accent_from_html(html: &str) -> Option<String> {
     let style_start = html.find("<style");
     if let Some(start) = style_start {
         if let Some(end) = html[start..].find("</style>") {
-            let style_block = &html[start..start+end];
+            let style_block = &html[start..start + end];
             // Look for accent variable
             for line in style_block.lines() {
                 let line = line.trim();
@@ -365,10 +416,13 @@ fn detect_accent_from_html(html: &str) -> Option<String> {
     let mut color_counts: HashMap<String, u32> = HashMap::new();
 
     // Skip common neutral colors
-    let neutral_colors = ["#000", "#000000", "#fff", "#ffffff", "#fafafa", "#f9f9f9",
-        "#333", "#333333", "#666", "#666666", "#999", "#999999", "#ccc", "#cccccc",
-        "#111", "#111111", "#222", "#222222", "#444", "#555", "#777", "#888", "#aaa", "#bbb", "#ddd", "#eee",
-        "#0a0a0a", "#09090b", "#171717", "#262626", "#404040", "#525252", "#737373", "#a3a3a3", "#d4d4d4", "#e5e5e5", "#f5f5f5"];
+    let neutral_colors = [
+        "#000", "#000000", "#fff", "#ffffff", "#fafafa", "#f9f9f9", "#333", "#333333", "#666",
+        "#666666", "#999", "#999999", "#ccc", "#cccccc", "#111", "#111111", "#222", "#222222",
+        "#444", "#555", "#777", "#888", "#aaa", "#bbb", "#ddd", "#eee", "#0a0a0a", "#09090b",
+        "#171717", "#262626", "#404040", "#525252", "#737373", "#a3a3a3", "#d4d4d4", "#e5e5e5",
+        "#f5f5f5",
+    ];
 
     // Manual hex color extraction (no regex crate needed)
     let bytes = html.as_bytes();
@@ -416,8 +470,14 @@ fn detect_font_from_html(html: &str) -> Option<String> {
     if html.contains("fonts.googleapis.com") || html.contains("fonts.google") {
         if let Some(pos) = html.find("family=") {
             let after = &html[pos + 7..];
-            let end = after.find(|c: char| c == '&' || c == '\'' || c == '"' || c == ')' || c == '>').unwrap_or(after.len());
-            let family = after[..end].split(':').next().unwrap_or("").replace('+', " ");
+            let end = after
+                .find(|c: char| c == '&' || c == '\'' || c == '"' || c == ')' || c == '>')
+                .unwrap_or(after.len());
+            let family = after[..end]
+                .split(':')
+                .next()
+                .unwrap_or("")
+                .replace('+', " ");
             if !family.is_empty() {
                 return Some(family);
             }
@@ -443,8 +503,14 @@ fn extract_css_variables(html: &str) -> HashMap<String, String> {
                 if line.starts_with("--") && line.contains(':') {
                     if let Some(colon) = line.find(':') {
                         let name = line[2..colon].trim().to_string();
-                        let value = line[colon + 1..].trim().trim_end_matches(';').trim().to_string();
-                        if value.is_empty() { continue; }
+                        let value = line[colon + 1..]
+                            .trim()
+                            .trim_end_matches(';')
+                            .trim()
+                            .to_string();
+                        if value.is_empty() {
+                            continue;
+                        }
                         // Map CSS var names to .cronus style keys
                         let key = match name.as_str() {
                             "color-bg" => "background",
@@ -474,7 +540,9 @@ fn extract_css_variables(html: &str) -> HashMap<String, String> {
     if vars.is_empty() {
         // Extract body background and color
         if let Some(body_pos) = html.find("<body") {
-            if let Some(style_pos) = html[body_pos..body_pos + 200.min(html.len() - body_pos)].find("style=\"") {
+            if let Some(style_pos) =
+                html[body_pos..body_pos + 200.min(html.len() - body_pos)].find("style=\"")
+            {
                 let style_start = body_pos + style_pos + 7;
                 if let Some(style_end) = html[style_start..].find('"') {
                     let style_val = &html[style_start..style_start + style_end];
@@ -510,14 +578,13 @@ fn extract_css_variables(html: &str) -> HashMap<String, String> {
 
 /// Extract a CSS property value from an inline style string
 fn extract_css_prop(style: &str, prop: &str) -> Option<String> {
-    let patterns = [
-        format!("{}:", prop),
-        format!("{}-color:", prop),
-    ];
+    let patterns = [format!("{}:", prop), format!("{}-color:", prop)];
     for pat in &patterns {
         if let Some(pos) = style.find(pat.as_str()) {
             let after = &style[pos + pat.len()..];
-            let end = after.find(|c: char| c == ';' || c == '"').unwrap_or(after.len());
+            let end = after
+                .find(|c: char| c == ';' || c == '"')
+                .unwrap_or(after.len());
             let val = after[..end].trim().to_string();
             if !val.is_empty() {
                 return Some(val);
@@ -528,8 +595,10 @@ fn extract_css_prop(style: &str, prop: &str) -> Option<String> {
 }
 
 fn is_neutral_dark(hex: &str) -> bool {
-    matches!(hex.to_lowercase().as_str(),
-        "#000" | "#000000" | "#0a0a0a" | "#111" | "#111111" | "#1a1a1a" | "#222" | "#333")
+    matches!(
+        hex.to_lowercase().as_str(),
+        "#000" | "#000000" | "#0a0a0a" | "#111" | "#111111" | "#1a1a1a" | "#222" | "#333"
+    )
 }
 
 /// Detect the most commonly used border-radius in the HTML
@@ -540,7 +609,9 @@ fn detect_common_radius(html: &str) -> Option<String> {
     while let Some(found) = html[pos..].find(needle) {
         let abs = pos + found + needle.len();
         let after = &html[abs..];
-        let end = after.find(|c: char| c == ';' || c == '"' || c == '}').unwrap_or(after.len());
+        let end = after
+            .find(|c: char| c == ';' || c == '"' || c == '}')
+            .unwrap_or(after.len());
         let val = after[..end].trim().to_string();
         if !val.is_empty() && val != "50%" && val != "999px" && val != "9999px" {
             *counts.entry(val).or_insert(0) += 1;
@@ -558,7 +629,9 @@ fn detect_max_width(html: &str) -> Option<String> {
     while let Some(found) = html[pos..].find(needle) {
         let abs = pos + found + needle.len();
         let after = &html[abs..];
-        let end = after.find(|c: char| c == ';' || c == '"' || c == '}').unwrap_or(after.len());
+        let end = after
+            .find(|c: char| c == ';' || c == '"' || c == '}')
+            .unwrap_or(after.len());
         let val = after[..end].trim().to_string();
         if val.contains("px") && val != "480px" && val != "640px" {
             *counts.entry(val).or_insert(0) += 1;

@@ -30,7 +30,9 @@ pub fn render(comp: &ComponentNode) -> String {
     let current = if count > 0 { 1 } else { 0 };
     let image = images
         .first()
-        .map(|alt| format!("<img data-slot=\"lightbox-image\" src=\"{PLACEHOLDER}\" alt=\"{alt}\">"))
+        .map(|alt| {
+            format!("<img data-slot=\"lightbox-image\" src=\"{PLACEHOLDER}\" alt=\"{alt}\">")
+        })
         .unwrap_or_default();
     let prev_edge = " data-edge";
     let next_edge = if count <= 1 { " data-edge" } else { "" };
@@ -165,7 +167,9 @@ mod tests {
     fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         let block = |sel: &str| {
-            let start = css.find(&format!("{sel} {{")).unwrap_or_else(|| panic!("{sel}"));
+            let start = css
+                .find(&format!("{sel} {{"))
+                .unwrap_or_else(|| panic!("{sel}"));
             let end = start + css[start..].find('}').unwrap();
             css[start..end].to_string()
         };

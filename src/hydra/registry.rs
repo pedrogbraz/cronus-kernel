@@ -3,7 +3,7 @@
 //! Blocks graduate: Sandbox → Approved → Production → Official.
 //! Each block carries its trust profile and full lineage.
 
-use crate::trust::{TrustProfile, Lineage};
+use crate::trust::{Lineage, TrustProfile};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -17,7 +17,7 @@ pub struct CanonicalBlock {
     pub tier: BlockTier,
     pub status: BlockStatus,
     pub intent: String,
-    pub cronus_text: String,      // promoted .cronus source
+    pub cronus_text: String, // promoted .cronus source
     pub trust: TrustProfile,
     pub lineage: Lineage,
     pub tags: Vec<String>,
@@ -25,18 +25,18 @@ pub struct CanonicalBlock {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum BlockTier {
-    Atomic,       // single operation (db.query, http.post)
-    Composed,     // multiple operations (CRUD, sync)
-    Feature,      // complete business logic (stripe integration)
-    Application,  // full system (NovaPay)
+    Atomic,      // single operation (db.query, http.post)
+    Composed,    // multiple operations (CRUD, sync)
+    Feature,     // complete business logic (stripe integration)
+    Application, // full system (NovaPay)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum BlockStatus {
-    Sandbox,      // score < 0.3
-    Approved,     // 0.3 - 0.6
-    Production,   // 0.6 - 0.8 (promotable)
-    Official,     // 0.8 - 1.0 (shareable)
+    Sandbox,    // score < 0.3
+    Approved,   // 0.3 - 0.6
+    Production, // 0.6 - 0.8 (promotable)
+    Official,   // 0.8 - 1.0 (shareable)
 }
 
 /// In-memory block registry.
@@ -48,7 +48,10 @@ pub struct BlockRegistry {
 
 impl BlockRegistry {
     pub fn new() -> Self {
-        Self { blocks: HashMap::new(), file_path: None }
+        Self {
+            blocks: HashMap::new(),
+            file_path: None,
+        }
     }
 
     /// Open or create registry from a JSON file
@@ -68,8 +71,12 @@ impl BlockRegistry {
     }
 
     pub fn add_block(&mut self, block: CanonicalBlock) {
-        eprintln!("  \x1b[32m[hydra]\x1b[0m registered block: {} (trust: {:.3}, {:?})",
-            block.name, block.trust.score(), block.status);
+        eprintln!(
+            "  \x1b[32m[hydra]\x1b[0m registered block: {} (trust: {:.3}, {:?})",
+            block.name,
+            block.trust.score(),
+            block.status
+        );
         self.blocks.insert(block.name.clone(), block);
         self.save();
     }
@@ -91,7 +98,10 @@ impl BlockRegistry {
     }
 
     pub fn blocks_by_status(&self, status: BlockStatus) -> Vec<&CanonicalBlock> {
-        self.blocks.values().filter(|b| b.status == status).collect()
+        self.blocks
+            .values()
+            .filter(|b| b.status == status)
+            .collect()
     }
 
     pub fn blocks_by_tier(&self, tier: BlockTier) -> Vec<&CanonicalBlock> {
@@ -100,32 +110,39 @@ impl BlockRegistry {
 
     pub fn search(&self, query: &str) -> Vec<&CanonicalBlock> {
         let q = query.to_lowercase();
-        self.blocks.values().filter(|b| {
-            b.name.to_lowercase().contains(&q)
-                || b.intent.to_lowercase().contains(&q)
-                || b.tags.iter().any(|t| t.contains(&q))
-        }).collect()
+        self.blocks
+            .values()
+            .filter(|b| {
+                b.name.to_lowercase().contains(&q)
+                    || b.intent.to_lowercase().contains(&q)
+                    || b.tags.iter().any(|t| t.contains(&q))
+            })
+            .collect()
     }
 
     pub fn to_json(&self) -> Value {
-        let blocks: Vec<Value> = self.blocks.values().map(|b| {
-            json!({
-                "id": b.id,
-                "name": b.name,
-                "version": b.version,
-                "tier": format!("{:?}", b.tier),
-                "status": format!("{:?}", b.status),
-                "intent": b.intent,
-                "trust_score": format!("{:.3}", b.trust.score()),
-                "executions": b.trust.evidence.production_runs,
-                "tags": b.tags,
-                "lineage": {
-                    "origin": format!("{:?}", b.lineage.origin),
-                    "promoted_from": b.lineage.promoted_from,
-                    "children": b.lineage.children.len(),
-                },
+        let blocks: Vec<Value> = self
+            .blocks
+            .values()
+            .map(|b| {
+                json!({
+                    "id": b.id,
+                    "name": b.name,
+                    "version": b.version,
+                    "tier": format!("{:?}", b.tier),
+                    "status": format!("{:?}", b.status),
+                    "intent": b.intent,
+                    "trust_score": format!("{:.3}", b.trust.score()),
+                    "executions": b.trust.evidence.production_runs,
+                    "tags": b.tags,
+                    "lineage": {
+                        "origin": format!("{:?}", b.lineage.origin),
+                        "promoted_from": b.lineage.promoted_from,
+                        "children": b.lineage.children.len(),
+                    },
+                })
             })
-        }).collect();
+            .collect();
         json!({
             "total": self.blocks.len(),
             "official": self.blocks_by_status(BlockStatus::Official).len(),

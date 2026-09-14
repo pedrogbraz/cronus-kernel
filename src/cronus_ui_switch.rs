@@ -110,7 +110,9 @@ mod tests {
     fn wave1t_off_fixture_exact_dom() {
         let mut c = stub();
         c.items[0].text = "Airplane mode".into();
-        c.items[0].config.insert("aria-label".into(), "Airplane mode".into());
+        c.items[0]
+            .config
+            .insert("aria-label".into(), "Airplane mode".into());
         assert_eq!(
             render(&c),
             "<button type=\"button\" role=\"switch\" aria-checked=\"false\" data-state=\"unchecked\" value=\"on\" data-slot=\"switch\" aria-label=\"Airplane mode\"><span data-state=\"unchecked\"></span></button>"
@@ -129,9 +131,7 @@ mod tests {
     #[test]
     fn checked_from_item_colon_pair() {
         let mut c = stub();
-        c.items[0]
-            .config
-            .insert("checked".into(), "true".into());
+        c.items[0].config.insert("checked".into(), "true".into());
         let html = render(&c);
         assert!(html.contains("aria-checked=\"true\""));
         assert!(html.contains("data-state=\"checked\""));

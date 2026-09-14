@@ -87,33 +87,39 @@ impl I18n {
 /// Create default i18n with common translations
 pub fn default_i18n() -> I18n {
     let i18n = I18n::new("en");
-    i18n.add_locale("en", &[
-        ("welcome", "Welcome"),
-        ("sign_in", "Sign In"),
-        ("sign_up", "Create Account"),
-        ("dashboard", "Dashboard"),
-        ("settings", "Settings"),
-        ("save", "Save"),
-        ("cancel", "Cancel"),
-        ("delete", "Delete"),
-        ("loading", "Loading..."),
-        ("no_data", "No data yet"),
-        ("error", "An error occurred"),
-        ("success", "Success"),
-    ]);
-    i18n.add_locale("pt-BR", &[
-        ("welcome", "Bem-vindo"),
-        ("sign_in", "Entrar"),
-        ("sign_up", "Criar Conta"),
-        ("dashboard", "Painel"),
-        ("settings", "Configurações"),
-        ("save", "Salvar"),
-        ("cancel", "Cancelar"),
-        ("delete", "Excluir"),
-        ("loading", "Carregando..."),
-        ("no_data", "Nenhum dado ainda"),
-        ("error", "Ocorreu um erro"),
-        ("success", "Sucesso"),
-    ]);
+    i18n.add_locale(
+        "en",
+        &[
+            ("welcome", "Welcome"),
+            ("sign_in", "Sign In"),
+            ("sign_up", "Create Account"),
+            ("dashboard", "Dashboard"),
+            ("settings", "Settings"),
+            ("save", "Save"),
+            ("cancel", "Cancel"),
+            ("delete", "Delete"),
+            ("loading", "Loading..."),
+            ("no_data", "No data yet"),
+            ("error", "An error occurred"),
+            ("success", "Success"),
+        ],
+    );
+    i18n.add_locale(
+        "pt-BR",
+        &[
+            ("welcome", "Bem-vindo"),
+            ("sign_in", "Entrar"),
+            ("sign_up", "Criar Conta"),
+            ("dashboard", "Painel"),
+            ("settings", "Configurações"),
+            ("save", "Salvar"),
+            ("cancel", "Cancelar"),
+            ("delete", "Excluir"),
+            ("loading", "Carregando..."),
+            ("no_data", "Nenhum dado ainda"),
+            ("error", "Ocorreu um erro"),
+            ("success", "Sucesso"),
+        ],
+    );
     i18n
 }

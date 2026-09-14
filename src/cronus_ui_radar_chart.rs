@@ -7,8 +7,8 @@
 //! Axes are the `text` lines; values cycle 4, 8, 6, 10, 7.
 
 use crate::cronus_ui_chart::{
-    categories_or, container, max_of, nice_domain, num, polar, values_for, DEMO_VALUES,
-    POLAR_CX, POLAR_CY,
+    categories_or, container, max_of, nice_domain, num, polar, values_for, DEMO_VALUES, POLAR_CX,
+    POLAR_CY,
 };
 use crate::cronus_ui_kit::{esc, label_of};
 use crate::parser::ComponentNode;
@@ -45,9 +45,19 @@ pub fn render(comp: &ComponentNode) -> String {
     for i in 0..n {
         let r = (values[i] - lo) / (hi - lo) * RADAR_OUTER;
         let (x, y) = polar(POLAR_CX, POLAR_CY, r, angle(i));
-        d.push_str(&format!("{}{},{}", if i == 0 { "M" } else { "L" }, num(x), num(y)));
+        d.push_str(&format!(
+            "{}{},{}",
+            if i == 0 { "M" } else { "L" },
+            num(x),
+            num(y)
+        ));
     }
-    let (x0, y0) = polar(POLAR_CX, POLAR_CY, (values[0] - lo) / (hi - lo) * RADAR_OUTER, angle(0));
+    let (x0, y0) = polar(
+        POLAR_CX,
+        POLAR_CY,
+        (values[0] - lo) / (hi - lo) * RADAR_OUTER,
+        angle(0),
+    );
     d.push_str(&format!("L{},{}Z", num(x0), num(y0)));
     body.push_str(&format!(
         "<path d=\"{d}\" fill=\"var(--cronus-chart-1)\" fill-opacity=\"0.25\" stroke=\"var(--cronus-chart-1)\"></path>"
@@ -90,7 +100,12 @@ fn ring(n: usize, r: f64, angle: impl Fn(usize) -> f64) -> String {
     let mut d = String::new();
     for i in 0..n {
         let (x, y) = polar(POLAR_CX, POLAR_CY, r, angle(i));
-        d.push_str(&format!("{} {},{}", if i == 0 { "M" } else { "L" }, num(x), num(y)));
+        d.push_str(&format!(
+            "{} {},{}",
+            if i == 0 { "M" } else { "L" },
+            num(x),
+            num(y)
+        ));
     }
     d.push('Z');
     d
@@ -132,6 +147,8 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"radar-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"));
+        assert!(css.contains(
+            "[data-slot=\"radar-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"
+        ));
     }
 }

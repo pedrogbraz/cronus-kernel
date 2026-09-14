@@ -1,12 +1,18 @@
-use std::fs;
 use std::collections::HashMap;
+use std::fs;
 
-use crate::parser::{self, AstNode, EntityNode, PageNode, ApiNode,
-    ServiceNode, ComponentNode, EventNode, WorkerNode, MiddlewareNode};
-use crate::cli::objective_kernel::{reconcile_named_map, reconcile_emit};
+use crate::cli::objective_kernel::{reconcile_emit, reconcile_named_map};
+use crate::parser::{
+    self, ApiNode, AstNode, ComponentNode, EntityNode, EventNode, MiddlewareNode, PageNode,
+    ServiceNode, WorkerNode,
+};
 
 pub fn cmd_reconcile(args: &[String]) {
-    let positional: Vec<&String> = args.iter().skip(2).filter(|a| !a.starts_with("--")).collect();
+    let positional: Vec<&String> = args
+        .iter()
+        .skip(2)
+        .filter(|a| !a.starts_with("--"))
+        .collect();
     if positional.len() < 2 {
         eprintln!("  \x1b[31m✗\x1b[0m Usage: cronus reconcile <file-a> <file-b> [--output <file>]");
         std::process::exit(1);
@@ -14,7 +20,8 @@ pub fn cmd_reconcile(args: &[String]) {
     let file_a = &positional[0];
     let file_b = &positional[1];
 
-    let output_file = args.windows(2)
+    let output_file = args
+        .windows(2)
         .find(|w| w[0] == "--output")
         .map(|w| w[1].clone());
 
@@ -62,19 +69,37 @@ pub fn cmd_reconcile(args: &[String]) {
             AstNode::App(n) => app_a = Some(n),
             AstNode::Style(n) => style_a = Some(n),
             AstNode::Auth(n) => auth_a = Some(n),
-            AstNode::Entity(n) => { entities_a.insert(n.name.clone(), n); }
-            AstNode::Page(n) => { pages_a.insert(n.route.clone(), n); }
-            AstNode::Api(n) => { apis_a.insert(n.prefix.clone(), n); }
-            AstNode::Service(n) => { services_a.insert(n.name.clone(), n); }
-            AstNode::Component(n) => { components_a.insert(n.name.clone(), n); }
-            AstNode::Event(n) => { events_a.insert(n.name.clone(), n); }
-            AstNode::Worker(n) => { workers_a.insert(n.name.clone(), n); }
-            AstNode::Middleware(n) => { middlewares_a.insert(n.name.clone(), n); }
+            AstNode::Entity(n) => {
+                entities_a.insert(n.name.clone(), n);
+            }
+            AstNode::Page(n) => {
+                pages_a.insert(n.route.clone(), n);
+            }
+            AstNode::Api(n) => {
+                apis_a.insert(n.prefix.clone(), n);
+            }
+            AstNode::Service(n) => {
+                services_a.insert(n.name.clone(), n);
+            }
+            AstNode::Component(n) => {
+                components_a.insert(n.name.clone(), n);
+            }
+            AstNode::Event(n) => {
+                events_a.insert(n.name.clone(), n);
+            }
+            AstNode::Worker(n) => {
+                workers_a.insert(n.name.clone(), n);
+            }
+            AstNode::Middleware(n) => {
+                middlewares_a.insert(n.name.clone(), n);
+            }
             AstNode::Import(n) => imports_a.push(n),
             AstNode::Env(n) => envs_a.push(n),
             AstNode::Test(n) => tests_a.push(n),
             AstNode::Compose(n) => composes_a.push(n),
-            AstNode::Layout(n) => { layouts_a.insert(n.name.clone(), n); }
+            AstNode::Layout(n) => {
+                layouts_a.insert(n.name.clone(), n);
+            }
             AstNode::Define(_) | AstNode::Webhook(_) | AstNode::Deploy(_) => {}
         }
     }
@@ -102,19 +127,37 @@ pub fn cmd_reconcile(args: &[String]) {
             AstNode::App(n) => app_b = Some(n),
             AstNode::Style(n) => style_b = Some(n),
             AstNode::Auth(n) => auth_b = Some(n),
-            AstNode::Entity(n) => { entities_b.insert(n.name.clone(), n); }
-            AstNode::Page(n) => { pages_b.insert(n.route.clone(), n); }
-            AstNode::Api(n) => { apis_b.insert(n.prefix.clone(), n); }
-            AstNode::Service(n) => { services_b.insert(n.name.clone(), n); }
-            AstNode::Component(n) => { components_b.insert(n.name.clone(), n); }
-            AstNode::Event(n) => { events_b.insert(n.name.clone(), n); }
-            AstNode::Worker(n) => { workers_b.insert(n.name.clone(), n); }
-            AstNode::Middleware(n) => { middlewares_b.insert(n.name.clone(), n); }
+            AstNode::Entity(n) => {
+                entities_b.insert(n.name.clone(), n);
+            }
+            AstNode::Page(n) => {
+                pages_b.insert(n.route.clone(), n);
+            }
+            AstNode::Api(n) => {
+                apis_b.insert(n.prefix.clone(), n);
+            }
+            AstNode::Service(n) => {
+                services_b.insert(n.name.clone(), n);
+            }
+            AstNode::Component(n) => {
+                components_b.insert(n.name.clone(), n);
+            }
+            AstNode::Event(n) => {
+                events_b.insert(n.name.clone(), n);
+            }
+            AstNode::Worker(n) => {
+                workers_b.insert(n.name.clone(), n);
+            }
+            AstNode::Middleware(n) => {
+                middlewares_b.insert(n.name.clone(), n);
+            }
             AstNode::Import(n) => imports_b.push(n),
             AstNode::Env(n) => envs_b.push(n),
             AstNode::Test(n) => tests_b.push(n),
             AstNode::Compose(n) => composes_b.push(n),
-            AstNode::Layout(n) => { layouts_b.insert(n.name.clone(), n); }
+            AstNode::Layout(n) => {
+                layouts_b.insert(n.name.clone(), n);
+            }
             AstNode::Define(_) | AstNode::Webhook(_) | AstNode::Deploy(_) => {}
         }
     }
@@ -215,7 +258,9 @@ pub fn cmd_reconcile(args: &[String]) {
             (Some(a), Some(b)) => {
                 let mut merged_sections: Vec<parser::SectionNode> = a.sections.clone();
                 for (idx, sec_b) in b.sections.iter().enumerate() {
-                    let existing = merged_sections.iter().enumerate()
+                    let existing = merged_sections
+                        .iter()
+                        .enumerate()
                         .find(|(_i, s)| s.section_type == sec_b.section_type);
                     if let Some((pos, _)) = existing {
                         if pos == idx {
@@ -260,9 +305,9 @@ pub fn cmd_reconcile(args: &[String]) {
             (Some(a), Some(b)) => {
                 let mut merged_routes = a.routes.clone();
                 for route_b in &b.routes {
-                    let exists = merged_routes.iter().any(|r| {
-                        r.method == route_b.method && r.path == route_b.path
-                    });
+                    let exists = merged_routes
+                        .iter()
+                        .any(|r| r.method == route_b.method && r.path == route_b.path);
                     if !exists {
                         merged_routes.push(route_b.clone());
                     }
@@ -278,42 +323,96 @@ pub fn cmd_reconcile(args: &[String]) {
     }
 
     // --- 8-13. Named blocks: merge by name, report conflicts ---
-    reconcile_named_map(&mut merged, &mut conflicts, services_a, services_b,
-        "service", |n| AstNode::Service(n));
-    reconcile_named_map(&mut merged, &mut conflicts, components_a, components_b,
-        "component", |n| AstNode::Component(n));
-    reconcile_named_map(&mut merged, &mut conflicts, events_a, events_b,
-        "event", |n| AstNode::Event(n));
-    reconcile_named_map(&mut merged, &mut conflicts, workers_a, workers_b,
-        "worker", |n| AstNode::Worker(n));
-    reconcile_named_map(&mut merged, &mut conflicts, middlewares_a, middlewares_b,
-        "middleware", |n| AstNode::Middleware(n));
-    reconcile_named_map(&mut merged, &mut conflicts, layouts_a, layouts_b,
-        "layout", |n| AstNode::Layout(n));
+    reconcile_named_map(
+        &mut merged,
+        &mut conflicts,
+        services_a,
+        services_b,
+        "service",
+        |n| AstNode::Service(n),
+    );
+    reconcile_named_map(
+        &mut merged,
+        &mut conflicts,
+        components_a,
+        components_b,
+        "component",
+        |n| AstNode::Component(n),
+    );
+    reconcile_named_map(
+        &mut merged,
+        &mut conflicts,
+        events_a,
+        events_b,
+        "event",
+        |n| AstNode::Event(n),
+    );
+    reconcile_named_map(
+        &mut merged,
+        &mut conflicts,
+        workers_a,
+        workers_b,
+        "worker",
+        |n| AstNode::Worker(n),
+    );
+    reconcile_named_map(
+        &mut merged,
+        &mut conflicts,
+        middlewares_a,
+        middlewares_b,
+        "middleware",
+        |n| AstNode::Middleware(n),
+    );
+    reconcile_named_map(
+        &mut merged,
+        &mut conflicts,
+        layouts_a,
+        layouts_b,
+        "layout",
+        |n| AstNode::Layout(n),
+    );
 
     // --- 14. Envs, Tests, Composes: all from A, unique from B ---
-    for env in envs_a { merged.push(AstNode::Env(env)); }
+    for env in envs_a {
+        merged.push(AstNode::Env(env));
+    }
     for env in envs_b {
-        if !merged.iter().any(|n| matches!(n, AstNode::Env(e) if e.name == env.name)) {
+        if !merged
+            .iter()
+            .any(|n| matches!(n, AstNode::Env(e) if e.name == env.name))
+        {
             merged.push(AstNode::Env(env));
         }
     }
-    for test in tests_a { merged.push(AstNode::Test(test)); }
+    for test in tests_a {
+        merged.push(AstNode::Test(test));
+    }
     for test in tests_b {
-        if !merged.iter().any(|n| matches!(n, AstNode::Test(t) if t.name == test.name)) {
+        if !merged
+            .iter()
+            .any(|n| matches!(n, AstNode::Test(t) if t.name == test.name))
+        {
             merged.push(AstNode::Test(test));
         }
     }
-    for comp in composes_a { merged.push(AstNode::Compose(comp)); }
+    for comp in composes_a {
+        merged.push(AstNode::Compose(comp));
+    }
     for comp in composes_b {
-        if !merged.iter().any(|n| matches!(n, AstNode::Compose(c) if c.name == comp.name)) {
+        if !merged
+            .iter()
+            .any(|n| matches!(n, AstNode::Compose(c) if c.name == comp.name))
+        {
             merged.push(AstNode::Compose(comp));
         }
     }
 
     // --- Check for conflicts ---
     if !conflicts.is_empty() {
-        eprintln!("\n  \x1b[31m✗ RECONCILE FAILED — {} conflict(s):\x1b[0m\n", conflicts.len());
+        eprintln!(
+            "\n  \x1b[31m✗ RECONCILE FAILED — {} conflict(s):\x1b[0m\n",
+            conflicts.len()
+        );
         for (i, c) in conflicts.iter().enumerate() {
             eprintln!("  {}. {}", i + 1, c);
         }
@@ -329,7 +428,10 @@ pub fn cmd_reconcile(args: &[String]) {
             eprintln!("  \x1b[31m✗\x1b[0m Cannot write {}: {}", out_path, e);
             std::process::exit(1);
         });
-        println!("  \x1b[32m✓\x1b[0m Reconciled {} + {} → {}", file_a, file_b, out_path);
+        println!(
+            "  \x1b[32m✓\x1b[0m Reconciled {} + {} → {}",
+            file_a, file_b, out_path
+        );
         println!("    {} nodes merged", merged.len());
     } else {
         print!("{}", output);

@@ -1,5 +1,5 @@
-use std::fs;
 use crate::dump;
+use std::fs;
 
 pub fn cmd_dump(args: &[String]) {
     let audit_mode = args.iter().any(|a| a == "--audit");
@@ -22,9 +22,10 @@ pub fn cmd_dump(args: &[String]) {
             || path.join("next.config.js").exists()
             || {
                 let pkg = path.join("package.json");
-                pkg.exists() && fs::read_to_string(&pkg)
-                    .map(|c| c.contains("\"next\"") || c.contains("\"vinext\""))
-                    .unwrap_or(false)
+                pkg.exists()
+                    && fs::read_to_string(&pkg)
+                        .map(|c| c.contains("\"next\"") || c.contains("\"vinext\""))
+                        .unwrap_or(false)
             };
 
         let output = if is_nextjs {
@@ -35,7 +36,9 @@ pub fn cmd_dump(args: &[String]) {
         };
 
         // Determine output file name
-        let out_file = args.iter().position(|a| a == "-o")
+        let out_file = args
+            .iter()
+            .position(|a| a == "-o")
             .and_then(|i| args.get(i + 1))
             .cloned()
             .unwrap_or_else(|| {
@@ -53,7 +56,11 @@ pub fn cmd_dump(args: &[String]) {
         std::process::exit(1);
     });
 
-    eprintln!("  \x1b[36m⚡\x1b[0m Dumping {} ({} bytes)...", file, html.len());
+    eprintln!(
+        "  \x1b[36m⚡\x1b[0m Dumping {} ({} bytes)...",
+        file,
+        html.len()
+    );
 
     // Detect file format
     let cronus = if file.ends_with(".prisma") {
@@ -75,7 +82,10 @@ pub fn cmd_dump(args: &[String]) {
     };
 
     // Check for -o flag
-    let output_file = args.iter().position(|a| a == "-o").and_then(|i| args.get(i + 1));
+    let output_file = args
+        .iter()
+        .position(|a| a == "-o")
+        .and_then(|i| args.get(i + 1));
     if let Some(out) = output_file {
         fs::write(out, &cronus).unwrap_or_else(|e| {
             eprintln!("  \x1b[31m✗\x1b[0m Error writing {}: {}", out, e);
@@ -103,7 +113,9 @@ pub fn cmd_dump(args: &[String]) {
                         }
                         // Save results
                         crate::cli::audit_fidelity::save_audit_results(&result);
-                        eprintln!("  \x1b[32m✓\x1b[0m Audit results saved to .cronus/audit-results.json");
+                        eprintln!(
+                            "  \x1b[32m✓\x1b[0m Audit results saved to .cronus/audit-results.json"
+                        );
                     }
                     None => {
                         eprintln!("  \x1b[33m⚠\x1b[0m Could not run audit comparison");
@@ -111,11 +123,13 @@ pub fn cmd_dump(args: &[String]) {
                 }
             }
             Err(e) => {
-                eprintln!("  \x1b[33m⚠\x1b[0m Dumped .cronus has parse errors, skipping audit: {}", e);
+                eprintln!(
+                    "  \x1b[33m⚠\x1b[0m Dumped .cronus has parse errors, skipping audit: {}",
+                    e
+                );
             }
         }
     } else if audit_mode {
         eprintln!("  \x1b[33m⚠\x1b[0m --audit only works with HTML input files");
     }
 }
-

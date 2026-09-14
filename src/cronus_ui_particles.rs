@@ -65,7 +65,10 @@ mod tests {
         assert!(fx.contains(FX_BOX));
         assert_ne!(html, fx);
         reject_fx(&html);
-        assert_eq!(crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html), None);
+        assert_eq!(
+            crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html),
+            None
+        );
     }
 
     #[test]
@@ -82,7 +85,9 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"particles\"] {\n  position: relative; overflow: hidden;\n  width: 18rem; height: 8rem;\n}"));
         assert!(css.contains("[data-slot=\"particles\"] > [aria-hidden=\"true\"] {"));
-        assert!(css.contains("[data-slot=\"particles\"] > div:last-child {\n  position: relative;\n}"));
+        assert!(
+            css.contains("[data-slot=\"particles\"] > div:last-child {\n  position: relative;\n}")
+        );
         assert!(css.contains("@keyframes cui-particles"));
         assert!(css.contains("animation: cui-particles"));
         assert!(css.contains("color-mix(in oklch, var(--cronus-fg) 35%, transparent)"));

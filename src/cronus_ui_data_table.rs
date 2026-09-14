@@ -152,7 +152,9 @@ mod tests {
     }
 
     fn th(t: &str) -> String {
-        format!("<th data-slot=\"table-head\" colspan=\"1\" scope=\"col\" aria-sort=\"none\">{t}</th>")
+        format!(
+            "<th data-slot=\"table-head\" colspan=\"1\" scope=\"col\" aria-sort=\"none\">{t}</th>"
+        )
     }
 
     #[test]
@@ -183,7 +185,9 @@ mod tests {
         let html = render(&c);
         assert!(html.contains(&format!("{}{}", th("Name"), th("Role"))));
         assert!(html.contains("<tr data-slot=\"table-row\"><td data-slot=\"table-cell\">Ada</td><td data-slot=\"table-cell\">Engineer</td></tr>"));
-        assert!(html.contains("<td data-slot=\"table-cell\">Grace</td><td data-slot=\"table-cell\">Admiral</td>"));
+        assert!(html.contains(
+            "<td data-slot=\"table-cell\">Grace</td><td data-slot=\"table-cell\">Admiral</td>"
+        ));
         reject_interact(&html);
     }
 
@@ -196,9 +200,17 @@ mod tests {
             c.items.push(extra("text", t));
         }
         let html = render(&c);
-        assert!(html.contains(&format!("<tr data-slot=\"table-row\">{}{}</tr>", th("Name"), th("Role"))));
-        assert!(html.contains("<td data-slot=\"table-cell\">Ada</td><td data-slot=\"table-cell\">Admin</td>"));
-        assert!(html.contains("<td data-slot=\"table-cell\">Linus</td><td data-slot=\"table-cell\">Editor</td>"));
+        assert!(html.contains(&format!(
+            "<tr data-slot=\"table-row\">{}{}</tr>",
+            th("Name"),
+            th("Role")
+        )));
+        assert!(html.contains(
+            "<td data-slot=\"table-cell\">Ada</td><td data-slot=\"table-cell\">Admin</td>"
+        ));
+        assert!(html.contains(
+            "<td data-slot=\"table-cell\">Linus</td><td data-slot=\"table-cell\">Editor</td>"
+        ));
         assert!(!html.contains("Members"));
         assert_eq!(html.matches("data-slot=\"table-row\"").count(), 3);
         reject_interact(&html);

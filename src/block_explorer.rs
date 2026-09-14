@@ -24,17 +24,21 @@ pub fn render_explorer(
         for block in &script.blocks {
             let (name, btype, stmts) = match block {
                 crate::scripting::ast::ScriptBlock::OnEvent(on) => (
-                    format!("{}.{}", on.entity, on.event), "event", on.body.len()
+                    format!("{}.{}", on.entity, on.event),
+                    "event",
+                    on.body.len(),
                 ),
                 crate::scripting::ast::ScriptBlock::Endpoint(ep) => (
-                    format!("{} {}", ep.method, ep.path), "endpoint", ep.body.len()
+                    format!("{} {}", ep.method, ep.path),
+                    "endpoint",
+                    ep.body.len(),
                 ),
-                crate::scripting::ast::ScriptBlock::Schedule(s) => (
-                    s.name.clone(), "schedule", s.body.len()
-                ),
-                crate::scripting::ast::ScriptBlock::OnWebhook(w) => (
-                    w.path.clone(), "webhook", w.body.len()
-                ),
+                crate::scripting::ast::ScriptBlock::Schedule(s) => {
+                    (s.name.clone(), "schedule", s.body.len())
+                }
+                crate::scripting::ast::ScriptBlock::OnWebhook(w) => {
+                    (w.path.clone(), "webhook", w.body.len())
+                }
             };
             let m = trust_metrics.iter().find(|m| m.block_id.contains(&name));
             let (execs, errs, lat, score) = match m {
@@ -49,10 +53,18 @@ pub fn render_explorer(
             total_execs += execs;
             total_errors += errs;
             stmts_total += stmts;
-            if score > max_score { max_score = score; }
+            if score > max_score {
+                max_score = score;
+            }
             items_js.push_str(&format!(
                 "{{n:\"{}\",t:\"{}\",ex:{},er:{},lt:{:.1},sc:{:.3},st:{}}},",
-                name.replace('"', "\\\""), btype, execs, errs, lat, score, stmts
+                name.replace('"', "\\\""),
+                btype,
+                execs,
+                errs,
+                lat,
+                score,
+                stmts
             ));
         }
         items_js.push(']');
@@ -65,9 +77,14 @@ pub fn render_explorer(
     }
 
     // Hydra grouped by source
-    let mut groups: std::collections::HashMap<String, Vec<&Value>> = std::collections::HashMap::new();
+    let mut groups: std::collections::HashMap<String, Vec<&Value>> =
+        std::collections::HashMap::new();
     for hb in &hydra_blocks {
-        let src = hb.get("source").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+        let src = hb
+            .get("source")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
         groups.entry(src).or_default().push(hb);
     }
     for (source, blocks) in groups.iter().take(20) {
@@ -75,18 +92,37 @@ pub fn render_explorer(
         let mut avg_score = 0.0;
         for hb in blocks.iter().take(40) {
             let name = hb.get("name").and_then(|v| v.as_str()).unwrap_or("?");
-            let tags: Vec<&str> = hb.get("tags").and_then(|v| v.as_array())
-                .map(|a| a.iter().filter_map(|t| t.as_str()).collect()).unwrap_or_default();
-            let btype = if tags.iter().any(|t| *t == "get") { "query" }
-                else if tags.iter().any(|t| *t == "post") { "mutation" }
-                else if tags.iter().any(|t| *t == "delete") { "delete" }
-                else if tags.iter().any(|t| *t == "patch") { "update" }
-                else { "block" };
-            let sc = hb.get("score").and_then(|v| v.get("final")).and_then(|v| v.as_f64()).unwrap_or(0.0);
-            let provides: Vec<&str> = hb.get("provides").and_then(|v| v.as_array())
-                .map(|a| a.iter().filter_map(|t| t.as_str()).collect()).unwrap_or_default();
-            let requires: Vec<&str> = hb.get("requires").and_then(|v| v.as_array())
-                .map(|a| a.iter().filter_map(|t| t.as_str()).collect()).unwrap_or_default();
+            let tags: Vec<&str> = hb
+                .get("tags")
+                .and_then(|v| v.as_array())
+                .map(|a| a.iter().filter_map(|t| t.as_str()).collect())
+                .unwrap_or_default();
+            let btype = if tags.iter().any(|t| *t == "get") {
+                "query"
+            } else if tags.iter().any(|t| *t == "post") {
+                "mutation"
+            } else if tags.iter().any(|t| *t == "delete") {
+                "delete"
+            } else if tags.iter().any(|t| *t == "patch") {
+                "update"
+            } else {
+                "block"
+            };
+            let sc = hb
+                .get("score")
+                .and_then(|v| v.get("final"))
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+            let provides: Vec<&str> = hb
+                .get("provides")
+                .and_then(|v| v.as_array())
+                .map(|a| a.iter().filter_map(|t| t.as_str()).collect())
+                .unwrap_or_default();
+            let requires: Vec<&str> = hb
+                .get("requires")
+                .and_then(|v| v.as_array())
+                .map(|a| a.iter().filter_map(|t| t.as_str()).collect())
+                .unwrap_or_default();
             avg_score += sc;
             items_js.push_str(&format!(
                 "{{n:\"{}\",t:\"{}\",ex:0,er:0,lt:0,sc:{:.2},st:0,prov:\"{}\",req:\"{}\",tags:\"{}\"}},",
@@ -105,10 +141,16 @@ pub fn render_explorer(
     blocks_js.push(']');
 
     let total_blocks = script_registry.scripts.len() + groups.len();
-    let total_items: usize = script_registry.scripts.iter().map(|s| s.blocks.len()).sum::<usize>() + hydra_blocks.len();
+    let total_items: usize = script_registry
+        .scripts
+        .iter()
+        .map(|s| s.blocks.len())
+        .sum::<usize>()
+        + hydra_blocks.len();
     let total_execs: u64 = trust_metrics.iter().map(|m| m.executions).sum();
 
-    format!(r##"<!DOCTYPE html>
+    format!(
+        r##"<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Blocks — CRONUS</title>
@@ -360,12 +402,18 @@ document.addEventListener('keydown',function(e){{if(e.key==='Escape')closeDrawer
 }
 
 fn simple_hash(s: &str) -> String {
-    let h = s.as_bytes().iter().fold(0u32, |h, &b| h.wrapping_mul(31).wrapping_add(b as u32));
+    let h = s
+        .as_bytes()
+        .iter()
+        .fold(0u32, |h, &b| h.wrapping_mul(31).wrapping_add(b as u32));
     format!("{:08x}", h)
 }
 
 fn load_hydra_blocks() -> Vec<Value> {
-    for p in &["/home/zedd/Documentos/CRONUS/hydra/blocks/index.json", "./hydra/blocks/index.json"] {
+    for p in &[
+        "/home/zedd/Documentos/CRONUS/hydra/blocks/index.json",
+        "./hydra/blocks/index.json",
+    ] {
         if let Ok(data) = std::fs::read_to_string(p) {
             if let Ok(parsed) = serde_json::from_str::<Value>(&data) {
                 if let Some(blocks) = parsed.get("blocks").and_then(|b| b.as_array()) {

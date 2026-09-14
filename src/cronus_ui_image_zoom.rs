@@ -118,7 +118,8 @@ mod tests {
     #[test]
     fn url_attr_is_escaped() {
         let html = render(&stub("image-zoom", "https://cdn.example/a.png?x=1&y=\"z\""));
-        assert!(html.contains("<img src=\"https://cdn.example/a.png?x=1&amp;y=&quot;z&quot;\" alt=\"\">"));
+        assert!(html
+            .contains("<img src=\"https://cdn.example/a.png?x=1&amp;y=&quot;z&quot;\" alt=\"\">"));
         reject_fx(&html);
     }
 
@@ -132,7 +133,10 @@ mod tests {
         assert!(fx.contains(FX_BOX));
         assert_ne!(html, fx);
         reject_fx(&html);
-        assert_eq!(dedicated_fn_name("image-zoom"), Some("cronus_ui_image_zoom::render"));
+        assert_eq!(
+            dedicated_fn_name("image-zoom"),
+            Some("cronus_ui_image_zoom::render")
+        );
         assert_eq!(
             renderer_kind("image-zoom"),
             RendererKind::Dedicated("cronus_ui_image_zoom::render")
@@ -155,8 +159,12 @@ mod tests {
         assert!(css.contains(
             "[data-slot=\"image-zoom\"] {\n  position: relative; display: block; width: 18rem; overflow: hidden;"
         ));
-        assert!(css.contains("background: color-mix(in oklab, var(--cronus-surface-overlay) 90%, transparent);"));
-        assert!(css.contains("[data-slot=\"image-zoom-indicator\"] svg { width: 1rem; height: 1rem; }"));
+        assert!(css.contains(
+            "background: color-mix(in oklab, var(--cronus-surface-overlay) 90%, transparent);"
+        ));
+        assert!(
+            css.contains("[data-slot=\"image-zoom-indicator\"] svg { width: 1rem; height: 1rem; }")
+        );
         assert!(css.contains("transform: scale("));
         assert!(css.contains("prefers-reduced-motion: reduce"));
         assert!(!css.contains("zinc-"));

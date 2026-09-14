@@ -66,8 +66,11 @@ pub fn token_from_headers(headers: &hyper::HeaderMap) -> Option<String> {
             .get("cookie")
             .and_then(|v| v.to_str().ok())
             .and_then(|c| {
-                c.split(';')
-                    .find_map(|part| part.trim().strip_prefix("cronus_token=").map(|s| s.to_string()))
+                c.split(';').find_map(|part| {
+                    part.trim()
+                        .strip_prefix("cronus_token=")
+                        .map(|s| s.to_string())
+                })
             })
     })
 }
@@ -76,7 +79,10 @@ pub fn viewer_from_headers(headers: &hyper::HeaderMap, secret: &str) -> Option<V
     let token = token_from_headers(headers)?;
     crate::auth::verify_token(&token, secret)
         .ok()
-        .map(|c| Viewer { id: c.sub, role: c.role })
+        .map(|c| Viewer {
+            id: c.sub,
+            role: c.role,
+        })
 }
 
 /// Row visibility for reads.
@@ -100,7 +106,12 @@ impl ReadScope {
     }
 }
 
-pub fn read_scope(access: &Access, entity_name: &str, entity: Option<&EntityNode>, explicit_public: bool) -> ReadScope {
+pub fn read_scope(
+    access: &Access,
+    entity_name: &str,
+    entity: Option<&EntityNode>,
+    explicit_public: bool,
+) -> ReadScope {
     let is_auth = access.is_auth_entity(entity_name);
     match &access.viewer {
         None if explicit_public && !is_auth => ReadScope::All,
@@ -148,7 +159,13 @@ fn scope_clause(scope: &WriteScope, params: &mut Vec<String>) -> Result<String, 
 
 /// `UPDATE … WHERE id = ? [AND _owner_id = ?]`. `Ok(None)` when no row in
 /// scope matched. Callers pass an already-filtered body (`authz::writable_body`).
-pub fn scoped_update(db: &CronusDB, table: &str, id: &str, data: &Map<String, Value>, scope: &WriteScope) -> Result<Option<Value>, String> {
+pub fn scoped_update(
+    db: &CronusDB,
+    table: &str,
+    id: &str,
+    data: &Map<String, Value>,
+    scope: &WriteScope,
+) -> Result<Option<Value>, String> {
     if !crate::security::is_safe_identifier(table) {
         return Err("invalid table".into());
     }
@@ -186,13 +203,21 @@ pub fn scoped_update(db: &CronusDB, table: &str, id: &str, data: &Map<String, Va
 }
 
 /// `DELETE … WHERE id = ? [AND _owner_id = ?]`. `Ok(false)` when no row in scope.
-pub fn scoped_delete(db: &CronusDB, table: &str, id: &str, scope: &WriteScope) -> Result<bool, String> {
+pub fn scoped_delete(
+    db: &CronusDB,
+    table: &str,
+    id: &str,
+    scope: &WriteScope,
+) -> Result<bool, String> {
     if !crate::security::is_safe_identifier(table) {
         return Err("invalid table".into());
     }
     let mut params = vec![id.to_string()];
     let owner = scope_clause(scope, &mut params)?;
-    let sql = format!("DELETE FROM \"{}\" WHERE \"id\" = ?1{} RETURNING \"id\"", table, owner);
+    let sql = format!(
+        "DELETE FROM \"{}\" WHERE \"id\" = ?1{} RETURNING \"id\"",
+        table, owner
+    );
     Ok(!db.query_raw_params(&sql, &params)?.is_empty())
 }
 
@@ -216,10 +241,21 @@ pub fn route_pattern_matches(pattern: &str, path: &str) -> bool {
 
 /// Whether an SSE `data_change` event may reach this viewer. Deleted rows of
 /// owner-scoped entities cannot be looked up anymore, so they only reach admins.
-pub fn can_see_event(db: &CronusDB, access: &Access, entities: &[EntityNode], event: &DataChangeEvent) -> bool {
+pub fn can_see_event(
+    db: &CronusDB,
+    access: &Access,
+    entities: &[EntityNode],
+    event: &DataChangeEvent,
+) -> bool {
     let entity = match entities.iter().find(|e| e.name == event.entity) {
         Some(e) => e,
-        None => return access.viewer.as_ref().map(|v| v.is_admin()).unwrap_or(false),
+        None => {
+            return access
+                .viewer
+                .as_ref()
+                .map(|v| v.is_admin())
+                .unwrap_or(false)
+        }
     };
     let (column, expected) = match read_scope(access, &entity.name, Some(entity), false) {
         ReadScope::Deny => return false,
@@ -261,22 +297,43 @@ entity Tag shared {\n  label string!\n}\n";
     }
 
     pub fn as_user(id: &str) -> Access {
-        Access { viewer: Some(Viewer { id: id.into(), role: "user".into() }), auth_entity: Some("User".into()) }
+        Access {
+            viewer: Some(Viewer {
+                id: id.into(),
+                role: "user".into(),
+            }),
+            auth_entity: Some("User".into()),
+        }
     }
 
     pub fn as_admin() -> Access {
-        Access { viewer: Some(Viewer { id: "root".into(), role: "admin".into() }), auth_entity: Some("User".into()) }
+        Access {
+            viewer: Some(Viewer {
+                id: "root".into(),
+                role: "admin".into(),
+            }),
+            auth_entity: Some("User".into()),
+        }
     }
 
     pub fn anon() -> Access {
-        Access { viewer: None, auth_entity: Some("User".into()) }
+        Access {
+            viewer: None,
+            auth_entity: Some("User".into()),
+        }
     }
 
     pub fn insert_note(db: &CronusDB, owner: &str, title: &str) -> String {
         let row = db
-            .insert("Note", &serde_json::json!({"title": title, "secret": "s3cret", "_owner_id": owner}))
+            .insert(
+                "Note",
+                &serde_json::json!({"title": title, "secret": "s3cret", "_owner_id": owner}),
+            )
             .expect("insert");
-        row.get("id").and_then(|v| v.as_str()).expect("id").to_string()
+        row.get("id")
+            .and_then(|v| v.as_str())
+            .expect("id")
+            .to_string()
     }
 }
 
@@ -312,9 +369,18 @@ mod tests {
         assert_eq!(read_scope(&anon(), "Note", note, false), ReadScope::Deny);
         assert_eq!(read_scope(&anon(), "Note", note, true), ReadScope::All);
         assert_eq!(read_scope(&anon(), "User", None, true), ReadScope::Deny);
-        assert_eq!(read_scope(&as_user("u1"), "Note", note, false), ReadScope::Owner("u1".into()));
-        assert_eq!(read_scope(&as_user("u1"), "Tag", tag, false), ReadScope::All);
-        assert_eq!(read_scope(&as_user("u1"), "User", None, true), ReadScope::SelfRow("u1".into()));
+        assert_eq!(
+            read_scope(&as_user("u1"), "Note", note, false),
+            ReadScope::Owner("u1".into())
+        );
+        assert_eq!(
+            read_scope(&as_user("u1"), "Tag", tag, false),
+            ReadScope::All
+        );
+        assert_eq!(
+            read_scope(&as_user("u1"), "User", None, true),
+            ReadScope::SelfRow("u1".into())
+        );
         assert_eq!(read_scope(&as_admin(), "Note", note, false), ReadScope::All);
     }
 
@@ -333,7 +399,9 @@ mod tests {
         assert_eq!(row["title"], "a");
 
         let alice = write_scope(&as_user("alice"), "Note");
-        let updated = scoped_update(&db, "Note", &id, &body, &alice).unwrap().unwrap();
+        let updated = scoped_update(&db, "Note", &id, &body, &alice)
+            .unwrap()
+            .unwrap();
         assert_eq!(updated["title"], "hacked");
         assert!(scoped_delete(&db, "Note", &id, &alice).unwrap());
         assert_eq!(write_scope(&anon(), "Note"), WriteScope::Deny);
@@ -345,12 +413,20 @@ mod tests {
         let ents = entities();
         let db = db(&ents);
         let id = insert_note(&db, "alice", "a");
-        let ev = DataChangeEvent { entity: "Note".into(), action: "created".into(), id: id.clone() };
+        let ev = DataChangeEvent {
+            entity: "Note".into(),
+            action: "created".into(),
+            id: id.clone(),
+        };
         assert!(can_see_event(&db, &as_user("alice"), &ents, &ev));
         assert!(!can_see_event(&db, &as_user("bob"), &ents, &ev));
         assert!(!can_see_event(&db, &anon(), &ents, &ev));
         assert!(can_see_event(&db, &as_admin(), &ents, &ev));
-        let tag = DataChangeEvent { entity: "Tag".into(), action: "deleted".into(), id: "gone".into() };
+        let tag = DataChangeEvent {
+            entity: "Tag".into(),
+            action: "deleted".into(),
+            id: "gone".into(),
+        };
         assert!(can_see_event(&db, &as_user("bob"), &ents, &tag));
         assert!(!can_see_event(&db, &anon(), &ents, &tag));
     }

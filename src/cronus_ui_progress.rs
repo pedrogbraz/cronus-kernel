@@ -117,7 +117,9 @@ mod tests {
         assert!(html.contains("aria-valuemin=\"0\""));
         assert!(html.contains("aria-valuemax=\"100\""));
         assert!(!html.contains("data-slot=\"progress-indicator\""));
-        assert!(html.contains(&format!("data-value=\"{now}\" data-max=\"100\"></div></div>")));
+        assert!(html.contains(&format!(
+            "data-value=\"{now}\" data-max=\"100\"></div></div>"
+        )));
         assert!(!html.contains("style="));
         assert!(!html.contains("<progress"));
         assert!(!html.contains("data-slot=\"progress-control\""));
@@ -141,7 +143,9 @@ mod tests {
         assert!(!html.contains("style="), "{html}");
         assert!(html.contains("aria-valuenow=\"37.4\""));
         assert!(html.contains("data-state=\"loading\" data-value=\"37\" data-max=\"100\">"));
-        assert!(html.contains("<div data-state=\"loading\" data-value=\"37\" data-max=\"100\"></div>"));
+        assert!(
+            html.contains("<div data-state=\"loading\" data-value=\"37\" data-max=\"100\"></div>")
+        );
         c.props.insert("value".into(), "250".into());
         assert!(render(&c).contains("data-value=\"100\""));
         c.props.insert("value".into(), "-5".into());
@@ -152,7 +156,9 @@ mod tests {
     fn chrome_drives_indicator_from_per_value_rules() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(!css.contains("attr(data-value type("));
-        assert!(css.contains("transform: translateX(calc((var(--cui-progress-value, 0) - 100) * 1%));"));
+        assert!(
+            css.contains("transform: translateX(calc((var(--cui-progress-value, 0) - 100) * 1%));")
+        );
         for n in [0, 37, 100] {
             assert!(css.contains(&format!(
                 ":is([data-slot=\"progress\"], [data-slot=\"usage-meter-fill\"], [data-slot=\"scroll-progress-fill\"])[data-value=\"{n}\"] {{ --cui-progress-value: {n}; }}"
@@ -166,7 +172,9 @@ mod tests {
         // Wave 1t: React's Radix Indicator exposes no data-slot; the emitter
         // attaches `aria-label:"…"` to the label item's config.
         let mut c = stub();
-        c.items[0].config.insert("aria-label".into(), "Upload progress".into());
+        c.items[0]
+            .config
+            .insert("aria-label".into(), "Upload progress".into());
         c.props.insert("value".into(), "50".into());
         let html = render(&c);
         assert_eq!(

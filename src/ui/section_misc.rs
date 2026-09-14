@@ -3,13 +3,25 @@ use crate::parser::SectionNode;
 
 pub(super) fn render_topbar(section: &SectionNode, theme: &str) -> String {
     let script_nonce = crate::security::script_nonce_attr();
-    let brand = section.config.get("brand").map(|s| s.as_str())
+    let brand = section
+        .config
+        .get("brand")
+        .map(|s| s.as_str())
         .or(section.title.as_deref())
         .unwrap_or("Brand");
-    let is_dark = section.config.get("style").map(|s| s.contains("dark")).unwrap_or(false) || theme == "dark";
+    let is_dark = section
+        .config
+        .get("style")
+        .map(|s| s.contains("dark"))
+        .unwrap_or(false)
+        || theme == "dark";
 
     // Detect dashboard mode: style:dashboard or style:sidebar offsets left for 256px sidebar
-    let style_hint = section.config.get("style").map(|s| s.as_str()).unwrap_or("");
+    let style_hint = section
+        .config
+        .get("style")
+        .map(|s| s.as_str())
+        .unwrap_or("");
     let has_sidebar = style_hint.contains("dashboard") || style_hint.contains("sidebar");
     let position_style = if has_sidebar {
         "position:fixed;top:0;right:0;left:256px;z-index:999"
@@ -18,9 +30,17 @@ pub(super) fn render_topbar(section: &SectionNode, theme: &str) -> String {
     };
 
     // Accent color for active nav link
-    let accent = section.config.get("accent").map(|s| s.to_string()).unwrap_or_else(|| {
-        if is_dark { "#adc6ff".to_string() } else { "#3b82f6".to_string() }
-    });
+    let accent = section
+        .config
+        .get("accent")
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| {
+            if is_dark {
+                "#adc6ff".to_string()
+            } else {
+                "#3b82f6".to_string()
+            }
+        });
 
     // Parse nav links from config (e.g. "Inventory, Analytics, Orders, Customers")
     let nav_links: Vec<String> = section.config.get("nav")
@@ -84,11 +104,23 @@ pub(super) fn render_topbar(section: &SectionNode, theme: &str) -> String {
     // Build right side: explicit actions+avatar, or fallback to default icons
     let right_side = if action_buttons.is_empty() && avatar_html.is_empty() {
         // Legacy/fallback: CTA button if configured
-        let cta_text_opt = section.config.get("cta_text").or(section.config.get("cta")).map(|s| s.as_str());
-        let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("/signup");
+        let cta_text_opt = section
+            .config
+            .get("cta_text")
+            .or(section.config.get("cta"))
+            .map(|s| s.as_str());
+        let cta_link = section
+            .config
+            .get("cta_link")
+            .map(|s| s.as_str())
+            .unwrap_or("/signup");
         let cta_btn = match cta_text_opt {
             Some(t) if !t.eq_ignore_ascii_case("search") => {
-                format!(r##"<a href="{cta_link}" style="display:inline-flex;align-items:center;padding:6px 16px;border-radius:8px;background:#fff;color:#000;font-weight:700;font-size:12px;text-decoration:none;transition:opacity 0.15s" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">{cta_text}</a>"##, cta_link=cta_link, cta_text=t)
+                format!(
+                    r##"<a href="{cta_link}" style="display:inline-flex;align-items:center;padding:6px 16px;border-radius:8px;background:#fff;color:#000;font-weight:700;font-size:12px;text-decoration:none;transition:opacity 0.15s" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">{cta_text}</a>"##,
+                    cta_link = cta_link,
+                    cta_text = t
+                )
             }
             _ => String::new(),
         };
@@ -96,12 +128,19 @@ pub(super) fn render_topbar(section: &SectionNode, theme: &str) -> String {
             r##"<button style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:none;border:1px solid rgba(76,69,70,0.2);border-radius:50%;cursor:pointer;transition:all 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='none'"><span class="material-symbols-outlined" style="font-size:18px;color:rgba(226,226,226,0.6)">search</span></button>
       <button style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:none;border:1px solid rgba(76,69,70,0.2);border-radius:50%;cursor:pointer;transition:all 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='none'"><span class="material-symbols-outlined" style="font-size:18px;color:rgba(226,226,226,0.6)">notifications</span></button>
       <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#2a2a2a,#3a3a3a);border:0.5px solid rgba(76,69,70,0.3);overflow:hidden;flex-shrink:0"></div>
-      {cta_btn}"##, cta_btn=cta_btn)
+      {cta_btn}"##,
+            cta_btn = cta_btn
+        )
     } else {
-        format!("{actions}\n      {avatar}", actions=actions_html, avatar=avatar_html)
+        format!(
+            "{actions}\n      {avatar}",
+            actions = actions_html,
+            avatar = avatar_html
+        )
     };
 
-    format!(r##"<header data-cronus-topbar class="anim-slide-down" style="{position};height:64px;background:rgba(19,19,19,0.8);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);border-bottom:0.5px solid rgba(76,69,70,0.2);box-shadow:0 8px 32px rgba(0,0,0,0.36);font-family:Inter,system-ui,-apple-system,sans-serif;font-size:14px;letter-spacing:-0.02em">
+    format!(
+        r##"<header data-cronus-topbar class="anim-slide-down" style="{position};height:64px;background:rgba(19,19,19,0.8);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);border-bottom:0.5px solid rgba(76,69,70,0.2);box-shadow:0 8px 32px rgba(0,0,0,0.36);font-family:Inter,system-ui,-apple-system,sans-serif;font-size:14px;letter-spacing:-0.02em">
   <div style="display:flex;justify-content:space-between;align-items:center;padding:0 24px;height:64px">
     <div style="display:flex;align-items:center;gap:32px">
       <a href="/" style="font-size:20px;font-weight:700;letter-spacing:-0.04em;color:#e2e2e2;text-decoration:none">{brand}</a>
@@ -115,9 +154,13 @@ pub(super) fn render_topbar(section: &SectionNode, theme: &str) -> String {
   </div>
 </header>
 <script{script_nonce}>!function(){{var p=location.pathname.replace(/\/$/,'')||'/';document.querySelectorAll('[data-cronus-topbar] [data-nav]').forEach(function(a){{var h=a.getAttribute('href');if(h===p||(p==='/'&&h==='/')){{a.style.color='{accent}';a.style.borderBottom='2px solid {accent}';a.classList.add('active')}}}})}}()</script>"##,
-        position=position_style, brand=brand, nav_html=nav_html, right_side=right_side, accent=accent)
+        position = position_style,
+        brand = brand,
+        nav_html = nav_html,
+        right_side = right_side,
+        accent = accent
+    )
 }
-
 
 pub(super) fn render_checkout_section(section: &SectionNode) -> String {
     let title = section.title.as_deref().unwrap_or("Checkout");
@@ -126,33 +169,66 @@ pub(super) fn render_checkout_section(section: &SectionNode) -> String {
     let mut sub = String::from("Pay");
     let mut chk = String::new();
     for item in &section.items {
-        let n = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("");
-        let d = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
+        let n = item
+            .get("title")
+            .or_else(|| item.get("name"))
+            .map(|s| s.as_str())
+            .unwrap_or("");
+        let d = item
+            .get("description")
+            .or_else(|| item.get("desc"))
+            .map(|s| s.as_str())
+            .unwrap_or("");
         if d.starts_with("express") {
             let dk = d.contains("dark");
-            let (b,c,br) = if dk {("black","white","none")} else {("white","black","1px solid #e5e5e5")};
+            let (b, c, br) = if dk {
+                ("black", "white", "none")
+            } else {
+                ("white", "black", "1px solid #e5e5e5")
+            };
             exp.push_str(&format!(r##"<button style="background:{b};color:{c};height:48px;border-radius:999px;border:{br};display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-size:14px;font-weight:600;transition:opacity 0.2s" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">Pay with <b>{n}</b></button>"##, b=b,c=c,br=br,n=n));
         } else if d.starts_with("field:") {
-            let p: Vec<&str> = d.splitn(3,':').collect();
-            let ft = *p.get(1).unwrap_or(&"text"); let ph = *p.get(2).unwrap_or(&"");
+            let p: Vec<&str> = d.splitn(3, ':').collect();
+            let ft = *p.get(1).unwrap_or(&"text");
+            let ph = *p.get(2).unwrap_or(&"");
             if ft == "card" {
                 fld.push_str(&format!(r##"<div style="display:flex;flex-direction:column;gap:8px"><label style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#71717a">{n}</label><input type="text" placeholder="{ph}" style="width:100%;height:48px;padding:0 16px;border-radius:8px 8px 0 0;border:1px solid rgba(198,198,198,0.4);background:white;font-size:14px;outline:none" onfocus="this.style.borderColor='black'" onblur="this.style.borderColor='rgba(198,198,198,0.4)'"><div style="display:grid;grid-template-columns:1fr 1fr"><input type="text" placeholder="MM / YY" style="width:100%;height:48px;padding:0 16px;border-radius:0 0 0 8px;border:1px solid rgba(198,198,198,0.4);border-top:none;background:white;font-size:14px;outline:none"><input type="text" placeholder="CVC" style="width:100%;height:48px;padding:0 16px;border-radius:0 0 8px 0;border:1px solid rgba(198,198,198,0.4);border-top:none;border-left:none;background:white;font-size:14px;outline:none"></div></div>"##, n=n, ph=ph));
             } else if ft == "select" {
-                let opts: String = ph.split(',').map(|o| format!("<option>{}</option>",o.trim())).collect::<Vec<_>>().join("");
+                let opts: String = ph
+                    .split(',')
+                    .map(|o| format!("<option>{}</option>", o.trim()))
+                    .collect::<Vec<_>>()
+                    .join("");
                 fld.push_str(&format!(r##"<div style="display:flex;flex-direction:column;gap:8px"><label style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#71717a">{n}</label><select style="width:100%;height:48px;padding:0 16px;border-radius:8px;border:1px solid rgba(198,198,198,0.4);background:white;font-size:14px;outline:none;appearance:none">{opts}</select></div>"##, n=n, opts=opts));
             } else {
-                let it = if ft=="email"{"email"} else {"text"};
+                let it = if ft == "email" { "email" } else { "text" };
                 fld.push_str(&format!(r##"<div style="display:flex;flex-direction:column;gap:8px"><label style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#71717a">{n}</label><input type="{it}" placeholder="{ph}" style="width:100%;height:48px;padding:0 16px;border-radius:8px;border:1px solid rgba(198,198,198,0.4);background:white;font-size:14px;outline:none" onfocus="this.style.borderColor='black'" onblur="this.style.borderColor='rgba(198,198,198,0.4)'"></div>"##, n=n, it=it, ph=ph));
             }
-        } else if d == "checkbox" { chk = format!(r##"<label style="display:flex;align-items:center;gap:12px;cursor:pointer;padding-top:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:black"><span style="font-size:14px;color:#52525b">{n}</span></label>"##, n=n);
-        } else if d == "submit" { sub = n.to_string(); }
+        } else if d == "checkbox" {
+            chk = format!(
+                r##"<label style="display:flex;align-items:center;gap:12px;cursor:pointer;padding-top:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:black"><span style="font-size:14px;color:#52525b">{n}</span></label>"##,
+                n = n
+            );
+        } else if d == "submit" {
+            sub = n.to_string();
+        }
     }
-    format!(r##"<main style="max-width:640px;margin:0 auto;padding:48px 24px 80px"><h1 style="font-size:30px;font-weight:700;letter-spacing:-0.02em;margin-bottom:32px">{title}</h1><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:40px">{exp}</div><div style="display:flex;align-items:center;gap:16px;margin-bottom:32px"><div style="flex:1;height:1px;background:#e5e5e5"></div><span style="color:#a1a1aa;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em">Or pay with card</span><div style="flex:1;height:1px;background:#e5e5e5"></div></div><form data-entity="order" style="display:flex;flex-direction:column;gap:24px">{fld}{chk}<button type="submit" style="width:100%;height:56px;border-radius:999px;background:black;color:white;font-size:18px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;transition:opacity 0.2s" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">{sub} <svg width="16" height="16" fill="rgba(255,255,255,0.5)" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg></button><p style="text-align:center;font-size:12px;color:#a1a1aa;margin-top:8px;line-height:1.6">By confirming your payment, you agree to our Terms of Service and Privacy Policy.</p></form></main>"##, title=title, exp=exp, fld=fld, chk=chk, sub=sub)
+    format!(
+        r##"<main style="max-width:640px;margin:0 auto;padding:48px 24px 80px"><h1 style="font-size:30px;font-weight:700;letter-spacing:-0.02em;margin-bottom:32px">{title}</h1><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:40px">{exp}</div><div style="display:flex;align-items:center;gap:16px;margin-bottom:32px"><div style="flex:1;height:1px;background:#e5e5e5"></div><span style="color:#a1a1aa;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em">Or pay with card</span><div style="flex:1;height:1px;background:#e5e5e5"></div></div><form data-entity="order" style="display:flex;flex-direction:column;gap:24px">{fld}{chk}<button type="submit" style="width:100%;height:56px;border-radius:999px;background:black;color:white;font-size:18px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;transition:opacity 0.2s" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">{sub} <svg width="16" height="16" fill="rgba(255,255,255,0.5)" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg></button><p style="text-align:center;font-size:12px;color:#a1a1aa;margin-top:8px;line-height:1.6">By confirming your payment, you agree to our Terms of Service and Privacy Policy.</p></form></main>"##,
+        title = title,
+        exp = exp,
+        fld = fld,
+        chk = chk,
+        sub = sub
+    )
 }
 
-
 pub(super) fn render_testimonial(section: &SectionNode, theme: &str) -> String {
-    let style_hint = section.config.get("style").map(|s| s.as_str()).unwrap_or("");
+    let style_hint = section
+        .config
+        .get("style")
+        .map(|s| s.as_str())
+        .unwrap_or("");
     let is_dark = style_hint.contains("dark") || theme == "dark";
     let is_light = !is_dark;
 
@@ -170,7 +246,8 @@ pub(super) fn render_testimonial(section: &SectionNode, theme: &str) -> String {
     </div>
   </div>
 </section>"##,
-            quote=section_title, author=section_subtitle
+            quote = section_title,
+            author = section_subtitle
         );
     }
 
@@ -209,7 +286,8 @@ pub(super) fn render_testimonial(section: &SectionNode, theme: &str) -> String {
     <h2 style="font-size:36px;font-weight:800;letter-spacing:-0.04em;color:var(--cronus-text);margin-bottom:12px">{title}</h2>
     <p style="font-size:16px;color:var(--cronus-text-muted);max-width:600px;margin:0 auto">{subtitle}</p>
   </div>"##,
-            title=section_title, subtitle=section_subtitle
+            title = section_title,
+            subtitle = section_subtitle
         )
     } else {
         String::new()
@@ -225,10 +303,11 @@ pub(super) fn render_testimonial(section: &SectionNode, theme: &str) -> String {
     </div>
   </div>
 </section>"##,
-        header=header, cols=cols, cards=cards.join("\n      ")
+        header = header,
+        cols = cols,
+        cards = cards.join("\n      ")
     )
 }
-
 
 pub(super) fn render_pricing(section: &SectionNode, _accent: &str) -> String {
     let title = section.title.as_deref().unwrap_or("Pricing");
@@ -279,17 +358,39 @@ pub(super) fn render_pricing(section: &SectionNode, _accent: &str) -> String {
     )
 }
 
-
 pub(super) fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> String {
     let title = section.title.as_deref().unwrap_or("Get Started");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
-    let cta_text = section.config.get("cta_text").map(|s| s.as_str()).unwrap_or("Get Started");
-    let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("/signup");
+    let cta_text = section
+        .config
+        .get("cta_text")
+        .map(|s| s.as_str())
+        .unwrap_or("Get Started");
+    let cta_link = section
+        .config
+        .get("cta_link")
+        .map(|s| s.as_str())
+        .unwrap_or("/signup");
     let cta2_text = section.config.get("cta2_text").map(|s| s.as_str());
-    let cta2_link = section.config.get("cta2_link").map(|s| s.as_str()).unwrap_or("");
+    let cta2_link = section
+        .config
+        .get("cta2_link")
+        .map(|s| s.as_str())
+        .unwrap_or("");
     let footnote = section.config.get("footnote").map(|s| s.as_str());
-    let is_dark = section.config.get("style").map(|s| s.contains("dark")).unwrap_or(false) || theme == "dark";
-    let is_light = !is_dark && (cta2_text.is_some() || section.config.get("style").map(|s| s.contains("light")).unwrap_or(false));
+    let is_dark = section
+        .config
+        .get("style")
+        .map(|s| s.contains("dark"))
+        .unwrap_or(false)
+        || theme == "dark";
+    let is_light = !is_dark
+        && (cta2_text.is_some()
+            || section
+                .config
+                .get("style")
+                .map(|s| s.contains("light"))
+                .unwrap_or(false));
 
     if is_light {
         // Light theme CTA: italic title, centered
@@ -313,8 +414,11 @@ pub(super) fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> S
     {footnote_html}
   </div>
 </section>"##,
-            title=title, cta_link=cta_link, cta_text=cta_text,
-            cta2_html=cta2_html, footnote_html=footnote_html,
+            title = title,
+            cta_link = cta_link,
+            cta_text = cta_text,
+            cta2_html = cta2_html,
+            footnote_html = footnote_html,
         );
     }
 
@@ -322,7 +426,10 @@ pub(super) fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> S
     let subtitle_html = if subtitle.is_empty() {
         String::new()
     } else {
-        format!(r#"<p style="font-size:20px;color:#9ca3af;margin-bottom:48px;max-width:600px;margin-left:auto;margin-right:auto;line-height:1.6">{}</p>"#, subtitle)
+        format!(
+            r#"<p style="font-size:20px;color:#9ca3af;margin-bottom:48px;max-width:600px;margin-left:auto;margin-right:auto;line-height:1.6">{}</p>"#,
+            subtitle
+        )
     };
 
     let cta2_html = cta2_text.map(|t| format!(
@@ -330,9 +437,14 @@ pub(super) fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> S
         link=cta2_link, text=t
     )).unwrap_or_default();
 
-    let footnote_html = footnote.map(|f| format!(
-        r#"<p style="font-size:14px;color:#6b7280;margin-top:32px">{}</p>"#, f
-    )).unwrap_or_default();
+    let footnote_html = footnote
+        .map(|f| {
+            format!(
+                r#"<p style="font-size:14px;color:#6b7280;margin-top:32px">{}</p>"#,
+                f
+            )
+        })
+        .unwrap_or_default();
 
     // Logo bar from items (non-CTA items like "GOLDMAN", "MORGAN", etc.)
     let logo_items: Vec<String> = section.items.iter().filter_map(|item| {
@@ -342,7 +454,10 @@ pub(super) fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> S
     }).collect();
 
     let logo_bar_html = if !logo_items.is_empty() {
-        format!(r#"<div style="padding-top:48px;display:flex;justify-content:center;gap:48px;opacity:0.3;filter:grayscale(100%)">{}</div>"#, logo_items.join("\n"))
+        format!(
+            r#"<div style="padding-top:48px;display:flex;justify-content:center;gap:48px;opacity:0.3;filter:grayscale(100%)">{}</div>"#,
+            logo_items.join("\n")
+        )
     } else {
         String::new()
     };
@@ -365,11 +480,15 @@ pub(super) fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> S
   </div>
 </section>
 <style>@media(min-width:768px){{.cronus-cta-card{{padding:96px 64px!important}}}}@media(min-width:768px){{.anim-d1 div{{flex-direction:row!important}}}}</style>"##,
-        title=title, subtitle_html=subtitle_html, cta_link=cta_link, cta_text=cta_text,
-        cta2_html=cta2_html, footnote_html=footnote_html, logo_bar_html=logo_bar_html,
+        title = title,
+        subtitle_html = subtitle_html,
+        cta_link = cta_link,
+        cta_text = cta_text,
+        cta2_html = cta2_html,
+        footnote_html = footnote_html,
+        logo_bar_html = logo_bar_html,
     )
 }
-
 
 pub(super) fn render_trusted(section: &SectionNode) -> String {
     let title = section.title.as_deref().unwrap_or("Trusted by the best");
@@ -397,16 +516,31 @@ pub(super) fn render_trusted(section: &SectionNode) -> String {
     </div>
   </div>
 </section>"##,
-        title = title, subtitle = subtitle, logos = logos.join("\n        "),
+        title = title,
+        subtitle = subtitle,
+        logos = logos.join("\n        "),
     )
 }
 
-
 pub(super) fn render_footer(section: &SectionNode, theme: &str) -> String {
-    let copyright = section.config.get("copyright").map(|s| s.as_str()).unwrap_or("&copy; 2024 Vercel Inc.");
+    let copyright = section
+        .config
+        .get("copyright")
+        .map(|s| s.as_str())
+        .unwrap_or("&copy; 2024 Vercel Inc.");
     let has_copyright = section.config.contains_key("copyright");
-    let brand = section.config.get("brand").or_else(|| section.title.as_ref()).map(|s| s.as_str()).unwrap_or("MONOLITH_OS");
-    let is_dark = section.config.get("style").map(|s| s.contains("dark")).unwrap_or(false) || theme == "dark";
+    let brand = section
+        .config
+        .get("brand")
+        .or_else(|| section.title.as_ref())
+        .map(|s| s.as_str())
+        .unwrap_or("MONOLITH_OS");
+    let is_dark = section
+        .config
+        .get("style")
+        .map(|s| s.contains("dark"))
+        .unwrap_or(false)
+        || theme == "dark";
 
     // Light minimal footer: only when copyright is set AND we are NOT in dark theme
     if has_copyright && !is_dark {
@@ -428,7 +562,11 @@ pub(super) fn render_footer(section: &SectionNode, theme: &str) -> String {
                 if !title.is_empty() {
                     all_links.push(title.to_string());
                 }
-                let desc = item.get("description").or_else(|| item.get("desc")).map(|s| s.as_str()).unwrap_or("");
+                let desc = item
+                    .get("description")
+                    .or_else(|| item.get("desc"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("");
                 for link in desc.split(',') {
                     let l = link.trim();
                     if !l.is_empty() {
@@ -438,7 +576,11 @@ pub(super) fn render_footer(section: &SectionNode, theme: &str) -> String {
             }
         }
 
-        let split_at = if all_links.len() > 2 { all_links.len() - 2 } else { all_links.len() };
+        let split_at = if all_links.len() > 2 {
+            all_links.len() - 2
+        } else {
+            all_links.len()
+        };
         let left_links: Vec<String> = all_links[..split_at].iter().map(|l| format!(
             r##"<a href="#" style="color:var(--cronus-text-muted);font-size:12px;text-decoration:none;transition:color 0.15s">{}</a>"##, l
         )).collect();
@@ -458,9 +600,9 @@ pub(super) fn render_footer(section: &SectionNode, theme: &str) -> String {
     </div>
   </div>
 </footer>"##,
-            copyright=copyright,
-            left_links=left_links.join("\n      "),
-            right_links=right_links_html.join("\n      "),
+            copyright = copyright,
+            left_links = left_links.join("\n      "),
+            right_links = right_links_html.join("\n      "),
         );
     }
 
@@ -497,7 +639,10 @@ pub(super) fn render_footer(section: &SectionNode, theme: &str) -> String {
     let brand_desc_html = if brand_desc.is_empty() {
         String::new()
     } else {
-        format!(r#"<p style="font-size:14px;color:rgba(255,255,255,0.4);line-height:1.7;text-transform:none;letter-spacing:normal;margin-top:16px;max-width:320px">{}</p>"#, brand_desc)
+        format!(
+            r#"<p style="font-size:14px;color:rgba(255,255,255,0.4);line-height:1.7;text-transform:none;letter-spacing:normal;margin-top:16px;max-width:320px">{}</p>"#,
+            brand_desc
+        )
     };
 
     format!(
@@ -521,14 +666,13 @@ pub(super) fn render_footer(section: &SectionNode, theme: &str) -> String {
     </div>
   </div>
 </footer>"##,
-        brand=brand,
-        brand_desc_html=brand_desc_html,
-        columns_html=columns_html,
-        copyright=copyright,
-        nav_links=nav_links_html,
+        brand = brand,
+        brand_desc_html = brand_desc_html,
+        columns_html = columns_html,
+        copyright = copyright,
+        nav_links = nav_links_html,
     )
 }
-
 
 pub(super) fn render_faq(section: &SectionNode, _accent: &str) -> String {
     let title = section.title.as_deref().unwrap_or("FAQ");
@@ -537,7 +681,10 @@ pub(super) fn render_faq(section: &SectionNode, _accent: &str) -> String {
     let subtitle_html = if subtitle.is_empty() {
         String::new()
     } else {
-        format!(r#"<p style="text-align:center;font-size:16px;color:var(--cronus-fg-secondary);margin:0 auto 48px;max-width:600px">{}</p>"#, subtitle)
+        format!(
+            r#"<p style="text-align:center;font-size:16px;color:var(--cronus-fg-secondary);margin:0 auto 48px;max-width:600px">{}</p>"#,
+            subtitle
+        )
     };
 
     let items: Vec<String> = section.items.iter().map(|item| {
@@ -565,25 +712,32 @@ pub(super) fn render_faq(section: &SectionNode, _accent: &str) -> String {
     </div>
   </div>
 </section>"#,
-        title = title, subtitle_html = subtitle_html, items = items.join("\n    "),
+        title = title,
+        subtitle_html = subtitle_html,
+        items = items.join("\n    "),
     )
 }
-
 
 pub(super) fn render_stats(section: &SectionNode, accent: &str) -> String {
     let title = section.title.as_deref().unwrap_or("Stats");
 
-    let items: Vec<String> = section.items.iter().map(|item| {
-        let label = item.get("title").map(|s| s.as_str()).unwrap_or("Stat");
-        let value = item.get("description").map(|s| s.as_str()).unwrap_or("");
-        format!(
-            r#"<div class="text-center reveal">
+    let items: Vec<String> = section
+        .items
+        .iter()
+        .map(|item| {
+            let label = item.get("title").map(|s| s.as_str()).unwrap_or("Stat");
+            let value = item.get("description").map(|s| s.as_str()).unwrap_or("");
+            format!(
+                r#"<div class="text-center reveal">
   <p class="text-4xl font-bold text-{accent}-400 tabular-nums">{value}</p>
   <p class="mt-2 text-sm text-neutral-500 font-mono uppercase tracking-wider">{label}</p>
 </div>"#,
-            label = label, value = value, accent = accent,
-        )
-    }).collect();
+                label = label,
+                value = value,
+                accent = accent,
+            )
+        })
+        .collect();
 
     format!(
         r#"<section class="py-16">
@@ -592,23 +746,42 @@ pub(super) fn render_stats(section: &SectionNode, accent: &str) -> String {
     {items}
   </div>
 </section>"#,
-        title = title, items = items.join("\n    "),
+        title = title,
+        items = items.join("\n    "),
     )
 }
-
 
 pub(super) fn render_page_header_section(section: &SectionNode) -> String {
     let title = section.title.as_deref().unwrap_or("Page Title");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
-    let eyebrow = section.config.get("eyebrow").map(|s| s.as_str()).unwrap_or("");
-    let style_hint = section.config.get("style").map(|s| s.as_str()).unwrap_or("");
-    let is_dark_explicit = style_hint.contains("dark") || section.config.get("theme").map(|s| s == "dark").unwrap_or(false);
+    let eyebrow = section
+        .config
+        .get("eyebrow")
+        .map(|s| s.as_str())
+        .unwrap_or("");
+    let style_hint = section
+        .config
+        .get("style")
+        .map(|s| s.as_str())
+        .unwrap_or("");
+    let is_dark_explicit = style_hint.contains("dark")
+        || section
+            .config
+            .get("theme")
+            .map(|s| s == "dark")
+            .unwrap_or(false);
 
     // Static colors for explicitly-dark headers — use theme tokens
     let t = crate::theme::get();
     let sub_color_dark = format!("{}80", t.on_surface);
     let (title_color, sub_color, eyebrow_color, btn_bg, btn_color) = if is_dark_explicit {
-        (t.on_surface.as_str(), sub_color_dark.as_str(), t.primary.as_str(), t.primary.as_str(), "#002e69")
+        (
+            t.on_surface.as_str(),
+            sub_color_dark.as_str(),
+            t.primary.as_str(),
+            t.primary.as_str(),
+            "#002e69",
+        )
     } else {
         ("#000", "#71717a", "#3b82f6", "#000", "#fff")
     };
@@ -625,7 +798,10 @@ pub(super) fn render_page_header_section(section: &SectionNode) -> String {
     let subtitle_html = if subtitle.is_empty() {
         String::new()
     } else {
-        format!(r#"<p data-ph-sub style="font-size:14px;color:{};margin:8px 0 0;max-width:32em;line-height:1.6">{}</p>"#, sub_color, subtitle)
+        format!(
+            r#"<p data-ph-sub style="font-size:14px;color:{};margin:8px 0 0;max-width:32em;line-height:1.6">{}</p>"#,
+            sub_color, subtitle
+        )
     };
 
     // When not explicitly dark, inject a small script that checks the body background
@@ -633,7 +809,9 @@ pub(super) fn render_page_header_section(section: &SectionNode) -> String {
     let auto_dark_js = if is_dark_explicit {
         String::new()
     } else {
-        crate::security::mark_kernel_scripts(r#"<script>(function(){var b=getComputedStyle(document.body).backgroundColor;if(!b||b==='rgba(0, 0, 0, 0)')b='';if(b){var m=b.match(/\d+/g);if(m&&m.length>=3){var lum=(parseInt(m[0])*299+parseInt(m[1])*587+parseInt(m[2])*114)/1000;if(lum<50){var w=document.querySelector('[data-ph-wrapper]');if(w){var h=w.querySelector('h2');if(h)h.style.color='#e2e2e2';var s=w.querySelector('[data-ph-sub]');if(s)s.style.color='rgba(226,226,226,0.5)';var e=w.querySelector('[data-ph-eyebrow]');if(e)e.style.color='#adc6ff'}}}}})();</script>"#)
+        crate::security::mark_kernel_scripts(
+            r#"<script>(function(){var b=getComputedStyle(document.body).backgroundColor;if(!b||b==='rgba(0, 0, 0, 0)')b='';if(b){var m=b.match(/\d+/g);if(m&&m.length>=3){var lum=(parseInt(m[0])*299+parseInt(m[1])*587+parseInt(m[2])*114)/1000;if(lum<50){var w=document.querySelector('[data-ph-wrapper]');if(w){var h=w.querySelector('h2');if(h)h.style.color='#e2e2e2';var s=w.querySelector('[data-ph-sub]');if(s)s.style.color='rgba(226,226,226,0.5)';var e=w.querySelector('[data-ph-eyebrow]');if(e)e.style.color='#adc6ff'}}}}})();</script>"#,
+        )
     };
 
     format!(
@@ -644,23 +822,31 @@ pub(super) fn render_page_header_section(section: &SectionNode) -> String {
     {subtitle_html}
   </div>
 </div>{auto_dark_js}"##,
-        eyebrow = eyebrow_html, title_color = title_color, title = title,
-        subtitle_html = subtitle_html, auto_dark_js = auto_dark_js,
+        eyebrow = eyebrow_html,
+        title_color = title_color,
+        title = title,
+        subtitle_html = subtitle_html,
+        auto_dark_js = auto_dark_js,
     )
 }
-
 
 pub(super) fn render_promo(section: &SectionNode) -> String {
     let title = section.title.as_deref().unwrap_or("");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
 
     // Badge: from config or first item with "badge" key
-    let badge_text = section.config.get("badge")
+    let badge_text = section
+        .config
+        .get("badge")
         .or_else(|| section.items.iter().find_map(|i| i.get("badge")))
         .map(|s| s.as_str());
 
     let cta_text = section.config.get("cta_text").map(|s| s.as_str());
-    let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("");
+    let cta_link = section
+        .config
+        .get("cta_link")
+        .map(|s| s.as_str())
+        .unwrap_or("");
 
     // If config has span:2, this section is intended to span 2 grid columns in parent layout
 
@@ -671,7 +857,10 @@ pub(super) fn render_promo(section: &SectionNode) -> String {
     let subtitle_html = if subtitle.is_empty() {
         String::new()
     } else {
-        format!(r#"<p style="font-size:14px;color:#a1a1aa;max-width:480px;line-height:1.6">{subtitle}</p>"#, subtitle=subtitle)
+        format!(
+            r#"<p style="font-size:14px;color:#a1a1aa;max-width:480px;line-height:1.6">{subtitle}</p>"#,
+            subtitle = subtitle
+        )
     };
 
     let cta_html = cta_text.map(|ct| {
@@ -680,14 +869,16 @@ pub(super) fn render_promo(section: &SectionNode) -> String {
 
     format!(
         r##"<div style="background:black;color:white;border-radius:12px;padding:32px;position:relative;overflow:hidden;display:flex;flex-direction:column;gap:16px"><div style="position:absolute;right:0;top:0;bottom:0;width:50%;background:radial-gradient(ellipse at 80% 50%,rgba(0,111,240,0.15),transparent 70%);pointer-events:none"></div><div style="position:relative;display:flex;flex-direction:column;gap:16px">{badge_html}<h2 style="font-size:30px;font-weight:700;letter-spacing:-0.02em;color:white;margin:0">{title}</h2>{subtitle_html}{cta_html}</div></div>"##,
-        badge_html=badge_html, title=title, subtitle_html=subtitle_html, cta_html=cta_html,
+        badge_html = badge_html,
+        title = title,
+        subtitle_html = subtitle_html,
+        cta_html = cta_html,
     )
 }
 
 // ══════════════════════════════════════════════════
 // LIGHT-THEME SECTION RENDERERS (Geist-inspired)
 // ══════════════════════════════════════════════════
-
 
 pub(super) fn render_info_bar(section: &SectionNode) -> String {
     let title = section.title.as_deref().unwrap_or("");
@@ -698,13 +889,34 @@ pub(super) fn render_info_bar(section: &SectionNode) -> String {
     let shield_svg = r#"<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>"#;
 
     let icon_html = if let Some(icon) = config_icon {
-        format!(r#"<span style="display:flex;align-items:center;justify-content:center;width:24px;height:24px">{icon}</span>"#, icon = icon)
-    } else if section.items.iter().any(|i| i.get("type").map(|t| t == "icon").unwrap_or(false)) {
-        let icon_item = section.items.iter().find(|i| i.get("type").map(|t| t == "icon").unwrap_or(false)).unwrap();
-        let icon_val = icon_item.get("title").or_else(|| icon_item.get("name")).map(|s| s.as_str()).unwrap_or("");
-        format!(r#"<span style="display:flex;align-items:center;justify-content:center;width:24px;height:24px">{icon_val}</span>"#, icon_val = icon_val)
+        format!(
+            r#"<span style="display:flex;align-items:center;justify-content:center;width:24px;height:24px">{icon}</span>"#,
+            icon = icon
+        )
+    } else if section
+        .items
+        .iter()
+        .any(|i| i.get("type").map(|t| t == "icon").unwrap_or(false))
+    {
+        let icon_item = section
+            .items
+            .iter()
+            .find(|i| i.get("type").map(|t| t == "icon").unwrap_or(false))
+            .unwrap();
+        let icon_val = icon_item
+            .get("title")
+            .or_else(|| icon_item.get("name"))
+            .map(|s| s.as_str())
+            .unwrap_or("");
+        format!(
+            r#"<span style="display:flex;align-items:center;justify-content:center;width:24px;height:24px">{icon_val}</span>"#,
+            icon_val = icon_val
+        )
     } else {
-        format!(r#"<span style="display:flex;align-items:center;justify-content:center;width:24px;height:24px">{shield}</span>"#, shield = shield_svg)
+        format!(
+            r#"<span style="display:flex;align-items:center;justify-content:center;width:24px;height:24px">{shield}</span>"#,
+            shield = shield_svg
+        )
     };
 
     let links: Vec<String> = section.items.iter()
@@ -722,13 +934,19 @@ pub(super) fn render_info_bar(section: &SectionNode) -> String {
     let title_html = if title.is_empty() {
         String::new()
     } else {
-        format!(r#"<span style="font-size:14px;font-weight:700;color:#000">{title}</span>"#, title = title)
+        format!(
+            r#"<span style="font-size:14px;font-weight:700;color:#000">{title}</span>"#,
+            title = title
+        )
     };
 
     let subtitle_html = if subtitle.is_empty() {
         String::new()
     } else {
-        format!(r#"<span style="font-size:12px;color:#5e5e5e">{subtitle}</span>"#, subtitle = subtitle)
+        format!(
+            r#"<span style="font-size:12px;color:#5e5e5e">{subtitle}</span>"#,
+            subtitle = subtitle
+        )
     };
 
     format!(
@@ -744,7 +962,9 @@ pub(super) fn render_info_bar(section: &SectionNode) -> String {
     {links}
   </div>
 </div>"##,
-        icon_html = icon_html, title_html = title_html, subtitle_html = subtitle_html, links = links.join("\n    "),
+        icon_html = icon_html,
+        title_html = title_html,
+        subtitle_html = subtitle_html,
+        links = links.join("\n    "),
     )
 }
-

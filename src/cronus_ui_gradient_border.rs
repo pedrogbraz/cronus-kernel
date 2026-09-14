@@ -45,7 +45,10 @@ mod tests {
     #[test]
     fn root_wraps_label_text_not_fx_title_box() {
         let html = render(&stub("gradient-border", "Glow"));
-        assert_eq!(html, "<div data-slot=\"gradient-border\"><div>Glow</div></div>");
+        assert_eq!(
+            html,
+            "<div data-slot=\"gradient-border\"><div>Glow</div></div>"
+        );
         assert!(!html.contains("gradient-border-inner"));
         reject_fx(&html);
     }

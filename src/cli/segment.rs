@@ -1,7 +1,7 @@
-use std::fs;
 use std::collections::HashMap;
+use std::fs;
 
-use crate::cli::brief::{brief_toml_val, brief_toml_arr, brief_today_date};
+use crate::cli::brief::{brief_today_date, brief_toml_arr, brief_toml_val};
 
 pub fn cmd_segment(args: &[String]) {
     let sub = args.get(2).map(|s| s.as_str()).unwrap_or("list");
@@ -34,7 +34,11 @@ fn segment_create(args: &[String]) {
     for (i, arg) in args.iter().enumerate() {
         if arg == "--blocks" {
             if let Some(val) = args.get(i + 1) {
-                blocks = val.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+                blocks = val
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
             }
         }
     }
@@ -48,7 +52,10 @@ fn segment_create(args: &[String]) {
     // Validate block format (type:name)
     for b in &blocks {
         if !b.contains(':') {
-            eprintln!("  \x1b[31mInvalid block format: {}\x1b[0m (expected type:name, e.g. entity:User)", b);
+            eprintln!(
+                "  \x1b[31mInvalid block format: {}\x1b[0m (expected type:name, e.g. entity:User)",
+                b
+            );
             std::process::exit(1);
         }
     }
@@ -132,7 +139,11 @@ fn segment_list() {
             seg_name,
             status_color,
             status,
-            if blocks.is_empty() { "(no blocks)".to_string() } else { blocks.join(", ") }
+            if blocks.is_empty() {
+                "(no blocks)".to_string()
+            } else {
+                blocks.join(", ")
+            }
         );
     }
 }
@@ -182,8 +193,22 @@ fn segment_show(args: &[String]) {
         }
     }
     println!("  Owner:");
-    println!("    Agent: {}", if agent.is_empty() { "\x1b[90m(unassigned)\x1b[0m" } else { &agent });
-    println!("    Task:  {}", if task.is_empty() { "\x1b[90m(none)\x1b[0m" } else { &task });
+    println!(
+        "    Agent: {}",
+        if agent.is_empty() {
+            "\x1b[90m(unassigned)\x1b[0m"
+        } else {
+            &agent
+        }
+    );
+    println!(
+        "    Task:  {}",
+        if task.is_empty() {
+            "\x1b[90m(none)\x1b[0m"
+        } else {
+            &task
+        }
+    );
 }
 
 /// cronus segment check — validate no two active segments claim the same block
@@ -216,7 +241,10 @@ fn segment_check() {
             continue;
         }
         let fname = entry.file_name().to_string_lossy().to_string();
-        let seg_name = format!("SEG-{}", fname.trim_start_matches("SEG-").trim_end_matches(".toml"));
+        let seg_name = format!(
+            "SEG-{}",
+            fname.trim_start_matches("SEG-").trim_end_matches(".toml")
+        );
         let blocks = brief_toml_arr(&content, "blocks");
         for b in blocks {
             block_owners.entry(b).or_default().push(seg_name.clone());

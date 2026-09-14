@@ -107,7 +107,9 @@ mod tests {
     #[test]
     fn aria_label_config_names_handle_escaped() {
         let mut c = stub("comparison-slider", "Demo");
-        c.items[0].config.insert("aria-label".into(), "A & B".into());
+        c.items[0]
+            .config
+            .insert("aria-label".into(), "A & B".into());
         let html = render(&c);
         assert!(html.contains("<div role=\"slider\" aria-label=\"A &amp; B\""));
         reject_fx(&html);
@@ -154,7 +156,9 @@ mod tests {
         assert!(css.contains(
             "[data-slot=\"comparison-after\"] > div, [data-slot=\"comparison-before\"] > div {\n  display: flex; width: 100%; height: 100%; align-items: center; justify-content: center;\n  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg);\n}"
         ));
-        assert!(css.contains("[data-slot=\"comparison-after\"] > div { background: var(--cronus-surface-raised); }"));
+        assert!(css.contains(
+            "[data-slot=\"comparison-after\"] > div { background: var(--cronus-surface-raised); }"
+        ));
         assert!(css.contains("[data-slot=\"comparison-before\"] > div { background: var(--cronus-surface-overlay); }"));
         assert!(css.contains("[data-slot=\"comparison-slider\"] > [role=\"slider\"] {"));
         assert!(css.contains("[data-slot=\"comparison-slider\"] > [aria-hidden] {"));

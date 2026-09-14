@@ -1,6 +1,8 @@
 use std::fs;
 
-use crate::cli::objective_kernel::{git_changed_files, git_diff_content, lease_check_scope, DriftResult};
+use crate::cli::objective_kernel::{
+    git_changed_files, git_diff_content, lease_check_scope, DriftResult,
+};
 
 pub fn cmd_drift(args: &[String]) {
     let explain = args.iter().any(|a| a == "--explain");
@@ -16,33 +18,51 @@ pub fn cmd_drift(args: &[String]) {
     // 1. Strategic Drift
     let strategic = drift_check_strategic(&changed);
     match &strategic {
-        DriftResult::Ok(msg) => println!("  Strategic: \x1b[32m\u{2713} OK\x1b[0m \u{2014} {}", msg),
+        DriftResult::Ok(msg) => {
+            println!("  Strategic: \x1b[32m\u{2713} OK\x1b[0m \u{2014} {}", msg)
+        }
         DriftResult::Warn(msg, details) => {
             println!("  Strategic: \x1b[33m\u{26a0} WARN\x1b[0m \u{2014} {}", msg);
             warnings.push(format!("Strategic: {}", msg));
-            if explain { for d in details { println!("      \x1b[33m\u{2014} {}\x1b[0m", d); } }
+            if explain {
+                for d in details {
+                    println!("      \x1b[33m\u{2014} {}\x1b[0m", d);
+                }
+            }
         }
     }
 
     // 2. Scope Drift
     let scope = drift_check_scope(&changed);
     match &scope {
-        DriftResult::Ok(msg) => println!("  Scope:     \x1b[32m\u{2713} OK\x1b[0m \u{2014} {}", msg),
+        DriftResult::Ok(msg) => {
+            println!("  Scope:     \x1b[32m\u{2713} OK\x1b[0m \u{2014} {}", msg)
+        }
         DriftResult::Warn(msg, details) => {
             println!("  Scope:     \x1b[33m\u{26a0} WARN\x1b[0m \u{2014} {}", msg);
             warnings.push(format!("Scope: {}", msg));
-            if explain { for d in details { println!("      \x1b[33m\u{2014} {}\x1b[0m", d); } }
+            if explain {
+                for d in details {
+                    println!("      \x1b[33m\u{2014} {}\x1b[0m", d);
+                }
+            }
         }
     }
 
     // 3. Semantic Drift
     let semantic = drift_check_semantic(&changed, &diff_content);
     match &semantic {
-        DriftResult::Ok(msg) => println!("  Semantic:  \x1b[32m\u{2713} OK\x1b[0m \u{2014} {}", msg),
+        DriftResult::Ok(msg) => {
+            println!("  Semantic:  \x1b[32m\u{2713} OK\x1b[0m \u{2014} {}", msg)
+        }
         DriftResult::Warn(msg, details) => {
             println!("  Semantic:  \x1b[33m\u{26a0} WARN\x1b[0m \u{2014} {}", msg);
             warnings.push(format!("Semantic: {}", msg));
-            if explain { for d in details { println!("      \x1b[33m\u{2014} {}\x1b[0m", d); } }
+            if explain {
+                for d in details {
+                    println!("      \x1b[33m\u{2014} {}\x1b[0m", d);
+                }
+            }
         }
     }
 
@@ -50,7 +70,8 @@ pub fn cmd_drift(args: &[String]) {
     if warnings.is_empty() {
         println!("  \x1b[32mNo drift detected.\x1b[0m");
     } else {
-        println!("  \x1b[33m{} warning{}.\x1b[0m Run `cronus drift --explain` for details.",
+        println!(
+            "  \x1b[33m{} warning{}.\x1b[0m Run `cronus drift --explain` for details.",
             warnings.len(),
             if warnings.len() == 1 { "" } else { "s" }
         );
@@ -75,10 +96,19 @@ fn drift_check_strategic(changed: &[String]) -> DriftResult {
         let mut items = Vec::new();
         for line in objective.lines() {
             let t = line.trim();
-            if t == "[out_of_scope]" { in_oos = true; continue; }
-            if in_oos && t.starts_with('[') && t != "[out_of_scope]" { break; }
+            if t == "[out_of_scope]" {
+                in_oos = true;
+                continue;
+            }
+            if in_oos && t.starts_with('[') && t != "[out_of_scope]" {
+                break;
+            }
             if in_oos {
-                let v = t.trim_start_matches('"').trim_end_matches('"').trim_end_matches(',').trim_matches('"');
+                let v = t
+                    .trim_start_matches('"')
+                    .trim_end_matches('"')
+                    .trim_end_matches(',')
+                    .trim_matches('"');
                 if !v.is_empty() && !v.starts_with("items") && v != "]" {
                     items.push(v.to_lowercase());
                 }
@@ -106,15 +136,22 @@ fn drift_check_strategic(changed: &[String]) -> DriftResult {
 
     if !drift_details.is_empty() {
         return DriftResult::Warn(
-            format!("{} file(s) may relate to out-of-scope items", drift_details.len()),
+            format!(
+                "{} file(s) may relate to out-of-scope items",
+                drift_details.len()
+            ),
             drift_details,
         );
     }
 
     // Check if changes are at least in kernel/project territory
     let relevant = changed.iter().any(|f| {
-        f.contains("src/") || f.ends_with(".rs") || f.ends_with(".cronus")
-            || f.contains("specs/") || f.contains("tests/") || f.contains(".cronus/")
+        f.contains("src/")
+            || f.ends_with(".rs")
+            || f.ends_with(".cronus")
+            || f.contains("specs/")
+            || f.contains("tests/")
+            || f.contains(".cronus/")
     });
 
     if relevant {
@@ -161,7 +198,9 @@ fn drift_check_semantic(changed: &[String], diff_content: &str) -> DriftResult {
     if parser_modified {
         let mut new_keywords: Vec<String> = Vec::new();
         for line in diff_content.lines() {
-            if !line.starts_with('+') || line.starts_with("+++") { continue; }
+            if !line.starts_with('+') || line.starts_with("+++") {
+                continue;
+            }
             let trimmed = line[1..].trim();
             if trimmed.contains("=>") && trimmed.contains('"') {
                 let mut remaining = trimmed;
@@ -174,8 +213,11 @@ fn drift_check_semantic(changed: &[String], diff_content: &str) -> DriftResult {
                             && !keyword.contains(' ')
                             && !keyword.contains('/')
                             && !keyword.contains('.')
-                            && keyword != "true" && keyword != "false"
-                            && keyword.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+                            && keyword != "true"
+                            && keyword != "false"
+                            && keyword
+                                .chars()
+                                .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
                         {
                             let spec_path = format!("specs/core/{}.spec.toml", keyword);
                             if !Path::new(&spec_path).exists()
@@ -201,7 +243,8 @@ fn drift_check_semantic(changed: &[String], diff_content: &str) -> DriftResult {
     }
 
     // Check 2: constitution forbidden violations in added lines
-    let added_lines: String = diff_content.lines()
+    let added_lines: String = diff_content
+        .lines()
         .filter(|l| l.starts_with('+') && !l.starts_with("+++"))
         .map(|l| if l.len() > 1 { &l[1..] } else { "" })
         .collect::<Vec<_>>()
@@ -212,13 +255,18 @@ fn drift_check_semantic(changed: &[String], diff_content: &str) -> DriftResult {
         has_real_warning = true;
         details.push("fake data pattern detected (Math.random)".into());
     }
-    if (added_lines.contains("react") || added_lines.contains("vue") || added_lines.contains("svelte"))
+    if (added_lines.contains("react")
+        || added_lines.contains("vue")
+        || added_lines.contains("svelte"))
         && added_lines.contains("import")
     {
         has_real_warning = true;
         details.push("framework import detected \u{2014} CRONUS is the runtime".into());
     }
-    if added_lines.contains("mock_data") || added_lines.contains("fake_data") || added_lines.contains("dummy_data") {
+    if added_lines.contains("mock_data")
+        || added_lines.contains("fake_data")
+        || added_lines.contains("dummy_data")
+    {
         has_real_warning = true;
         details.push("fake/mock data pattern detected".into());
     }

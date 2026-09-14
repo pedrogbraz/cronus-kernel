@@ -5,7 +5,7 @@
 //! Replaces Tailwind CDN with zero external dependencies.
 
 pub const CRONUS_TAILWIND: &str = concat!(
-r##"
+    r##"
 
 /* ═══ CRONUS Tailwind Embedded v0.1 ═══ */
 /* 200 base utilities from Tailwind v4 */
@@ -246,7 +246,7 @@ p,h1,h2,h3,h4,h5,h6{overflow-wrap:break-word}
 .appearance-none{appearance:none}
 .fill-none{fill:none}
 "##,
-r##"
+    r##"
 /* ═══ FULL COLOR PALETTE — 22 palettes × 11 steps ═══ */
 .text-slate-50{color:#f8fafc}
 .bg-slate-50{background-color:#f8fafc}

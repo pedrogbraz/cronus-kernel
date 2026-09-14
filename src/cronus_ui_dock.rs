@@ -49,7 +49,9 @@ fn nav_entries(comp: &ComponentNode) -> Vec<(String, Option<String>)> {
     let choice: Vec<(String, Option<String>)> = comp
         .items
         .iter()
-        .filter(|i| matches!(i.item_type.as_str(), "item" | "tab" | "columns") && !i.text.is_empty())
+        .filter(|i| {
+            matches!(i.item_type.as_str(), "item" | "tab" | "columns") && !i.text.is_empty()
+        })
         .map(entry_of)
         .collect();
     if !choice.is_empty() {
@@ -92,10 +94,7 @@ fn nav_entries(comp: &ComponentNode) -> Vec<(String, Option<String>)> {
 fn entry_of(i: &ComponentItemNode) -> (String, Option<String>) {
     (
         esc(&i.text),
-        i.link
-            .as_deref()
-            .filter(|s| !s.is_empty())
-            .map(esc),
+        i.link.as_deref().filter(|s| !s.is_empty()).map(esc),
     )
 }
 
@@ -182,9 +181,9 @@ mod tests {
         c.items.push(linked("item", "Home", "/"));
         c.items.push(linked("item", "Search", "/search"));
         let html = render(&c);
-        assert!(html.contains(
-            &format!("<a data-slot=\"dock-item\" href=\"/\" title=\"Home\" aria-label=\"Home\">{GLYPH}</a>")
-        ));
+        assert!(html.contains(&format!(
+            "<a data-slot=\"dock-item\" href=\"/\" title=\"Home\" aria-label=\"Home\">{GLYPH}</a>"
+        )));
         assert!(html.contains(
             &format!("<a data-slot=\"dock-item\" href=\"/search\" title=\"Search\" aria-label=\"Search\">{GLYPH}</a>")
         ));
@@ -263,7 +262,9 @@ mod tests {
         assert!(css.contains("width: 2.75rem; height: 2.75rem"));
         // Wave 1s geometry parity (React measured: dock 122x62 r22, item 44x44 r18, svg 22).
         assert!(css.contains("border-radius: calc(var(--cronus-radius, 14px) + 8px);\n  border: 1px solid var(--cronus-border);"));
-        assert!(css.contains("background: color-mix(in oklab, var(--cronus-surface-raised) 70%, transparent);"));
+        assert!(css.contains(
+            "background: color-mix(in oklab, var(--cronus-surface-raised) 70%, transparent);"
+        ));
         assert!(css.contains("-webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);"));
         assert!(css.contains("border: 0; border-radius: var(--cronus-radius-xl); outline: none;\n  background: var(--cronus-surface-overlay); color: var(--cronus-fg);"));
         assert!(css.contains("[data-slot=\"dock-item\"] > span { display: contents; }"));

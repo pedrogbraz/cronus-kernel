@@ -73,7 +73,9 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"fab\"]"));
         assert!(css.contains("[data-slot=\"fab\"] > button {"));
-        assert!(css.contains("[data-slot=\"fab\"] > button svg {\n  width: 1.5rem; height: 1.5rem;"));
+        assert!(
+            css.contains("[data-slot=\"fab\"] > button svg {\n  width: 1.5rem; height: 1.5rem;")
+        );
         assert!(!css.contains("[data-slot=\"fab-button\"]"));
         assert!(css.contains("display: inline-flex"));
         assert!(css.contains("width: 3.5rem; height: 3.5rem"));

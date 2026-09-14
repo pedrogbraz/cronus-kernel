@@ -111,9 +111,8 @@ mod tests {
     #[test]
     fn label_is_escaped() {
         let html = render(&stub("animated-list", "A <B> & \"C\""));
-        assert!(html.contains(
-            "<li data-slot=\"animated-list-item\">A &lt;B&gt; &amp; &quot;C&quot;</li>"
-        ));
+        assert!(html
+            .contains("<li data-slot=\"animated-list-item\">A &lt;B&gt; &amp; &quot;C&quot;</li>"));
         reject_fx(&html);
     }
 

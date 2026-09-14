@@ -17,7 +17,8 @@ pub fn cmd_audit_fidelity(args: &[String]) {
         std::process::exit(1);
     }
 
-    let threshold: u32 = args.iter()
+    let threshold: u32 = args
+        .iter()
         .position(|a| a == "--threshold")
         .and_then(|i| args.get(i + 1))
         .and_then(|v| v.parse().ok())
@@ -27,7 +28,10 @@ pub fn cmd_audit_fidelity(args: &[String]) {
     let ref_html = match std::fs::read_to_string(&ref_path) {
         Ok(h) => h,
         Err(e) => {
-            eprintln!("  \x1b[31m✗\x1b[0m Cannot read reference: {}: {}", ref_path, e);
+            eprintln!(
+                "  \x1b[31m✗\x1b[0m Cannot read reference: {}: {}",
+                ref_path, e
+            );
             std::process::exit(1);
         }
     };
@@ -54,21 +58,40 @@ pub fn cmd_audit_fidelity(args: &[String]) {
     let mut theme = "dark".to_string();
     for node in &nodes {
         if let AstNode::Style(style) = node {
-            if let Some(a) = &style.accent { accent = a.clone(); }
-            if let Some(t) = &style.theme { theme = t.clone(); }
+            if let Some(a) = &style.accent {
+                accent = a.clone();
+            }
+            if let Some(t) = &style.theme {
+                theme = t.clone();
+            }
         }
     }
 
     // 4. Render all pages
     let mut rendered_html = String::new();
-    let entities: Vec<crate::parser::EntityNode> = nodes.iter().filter_map(|n| {
-        if let AstNode::Entity(e) = n { Some(e.clone()) } else { None }
-    }).collect();
+    let entities: Vec<crate::parser::EntityNode> = nodes
+        .iter()
+        .filter_map(|n| {
+            if let AstNode::Entity(e) = n {
+                Some(e.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
 
     for node in &nodes {
         if let AstNode::Page(page) = node {
             let empty_params: HashMap<String, String> = HashMap::new();
-            let html = render_page(page, &entities, &accent, &theme, None, &empty_params, &crate::access::Access::anonymous());
+            let html = render_page(
+                page,
+                &entities,
+                &accent,
+                &theme,
+                None,
+                &empty_params,
+                &crate::access::Access::anonymous(),
+            );
             rendered_html.push_str(&html);
         }
     }
@@ -94,14 +117,21 @@ pub fn cmd_audit_fidelity(args: &[String]) {
     }
 
     // Normalize rendered text for substring search — collapse whitespace
-    let rendered_lower = rendered_text.to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ");
+    let rendered_lower = rendered_text
+        .to_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
 
     let mut str_matched = 0u32;
     let mut str_missing: Vec<String> = Vec::new();
     for s in &ref_strings {
         // Check both: extracted strings AND full rendered text (substring)
         if rendered_lower.contains(s.as_str())
-           || rendered_strings.iter().any(|rs| rs.contains(s.as_str()) || s.contains(rs.as_str())) {
+            || rendered_strings
+                .iter()
+                .any(|rs| rs.contains(s.as_str()) || s.contains(rs.as_str()))
+        {
             str_matched += 1;
         } else {
             str_missing.push(s.clone());
@@ -115,12 +145,19 @@ pub fn cmd_audit_fidelity(args: &[String]) {
         }
     }
 
-    let ref_lower = ref_text.to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ");
+    let ref_lower = ref_text
+        .to_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
 
     let mut str_extra: Vec<String> = Vec::new();
     for s in &rendered_strings {
         if !ref_lower.contains(s.as_str())
-           && !ref_strings.iter().any(|rs| rs.contains(s.as_str()) || s.contains(rs.as_str())) {
+            && !ref_strings
+                .iter()
+                .any(|rs| rs.contains(s.as_str()) || s.contains(rs.as_str()))
+        {
             str_extra.push(s.clone());
         }
     }
@@ -137,14 +174,23 @@ pub fn cmd_audit_fidelity(args: &[String]) {
     let total_extra = num_extra.len() + str_extra.len();
 
     // 7. Report
-    let dot = if fidelity >= 95 { "\x1b[32m●\x1b[0m" } else if fidelity >= 70 { "\x1b[33m●\x1b[0m" } else { "\x1b[31m●\x1b[0m" };
+    let dot = if fidelity >= 95 {
+        "\x1b[32m●\x1b[0m"
+    } else if fidelity >= 70 {
+        "\x1b[33m●\x1b[0m"
+    } else {
+        "\x1b[31m●\x1b[0m"
+    };
 
     println!();
     println!("  \x1b[1mCRONUS Dump Audit\x1b[0m");
     println!("  Reference: {}", ref_path);
     println!("  Source:    {}", cronus_file);
     println!();
-    println!("  {} \x1b[1m{}% fidelity\x1b[0m  (threshold: {}%)", dot, fidelity, threshold);
+    println!(
+        "  {} \x1b[1m{}% fidelity\x1b[0m  (threshold: {}%)",
+        dot, fidelity, threshold
+    );
     println!("  Numbers: {}/{} matched", num_matched, ref_numbers.len());
     println!("  Strings: {}/{} matched", str_matched, ref_strings.len());
     println!();
@@ -185,11 +231,20 @@ pub fn cmd_audit_fidelity(args: &[String]) {
 
     // 8. Gate — exit 1 if below threshold
     if fidelity < threshold {
-        eprintln!("  \x1b[31m✗ AUDIT FAILED\x1b[0m — {}% < {}% threshold", fidelity, threshold);
-        eprintln!("  Fix the missing items above and re-run: cronus audit {}", ref_path);
+        eprintln!(
+            "  \x1b[31m✗ AUDIT FAILED\x1b[0m — {}% < {}% threshold",
+            fidelity, threshold
+        );
+        eprintln!(
+            "  Fix the missing items above and re-run: cronus audit {}",
+            ref_path
+        );
         std::process::exit(1);
     } else {
-        println!("  \x1b[32m✓ AUDIT PASSED\x1b[0m — {}% >= {}% threshold", fidelity, threshold);
+        println!(
+            "  \x1b[32m✓ AUDIT PASSED\x1b[0m — {}% >= {}% threshold",
+            fidelity, threshold
+        );
     }
 }
 
@@ -221,7 +276,10 @@ pub fn run_audit(ref_html_path: &str) -> Option<AuditResult> {
 }
 
 /// Run fidelity audit with pre-parsed AST nodes (avoids re-parsing).
-pub fn run_audit_from_nodes(ref_html: &str, nodes: &[crate::parser::AstNode]) -> Option<AuditResult> {
+pub fn run_audit_from_nodes(
+    ref_html: &str,
+    nodes: &[crate::parser::AstNode],
+) -> Option<AuditResult> {
     use crate::parser::AstNode;
     use std::collections::HashMap;
 
@@ -229,20 +287,39 @@ pub fn run_audit_from_nodes(ref_html: &str, nodes: &[crate::parser::AstNode]) ->
     let mut theme = "dark".to_string();
     for node in nodes {
         if let AstNode::Style(style) = node {
-            if let Some(a) = &style.accent { accent = a.clone(); }
-            if let Some(t) = &style.theme { theme = t.clone(); }
+            if let Some(a) = &style.accent {
+                accent = a.clone();
+            }
+            if let Some(t) = &style.theme {
+                theme = t.clone();
+            }
         }
     }
 
     let mut rendered_html = String::new();
-    let entities: Vec<crate::parser::EntityNode> = nodes.iter().filter_map(|n| {
-        if let AstNode::Entity(e) = n { Some(e.clone()) } else { None }
-    }).collect();
+    let entities: Vec<crate::parser::EntityNode> = nodes
+        .iter()
+        .filter_map(|n| {
+            if let AstNode::Entity(e) = n {
+                Some(e.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
 
     for node in nodes {
         if let AstNode::Page(page) = node {
             let empty_params: HashMap<String, String> = HashMap::new();
-            let html = crate::ui::page::render_page(page, &entities, &accent, &theme, None, &empty_params, &crate::access::Access::anonymous());
+            let html = crate::ui::page::render_page(
+                page,
+                &entities,
+                &accent,
+                &theme,
+                None,
+                &empty_params,
+                &crate::access::Access::anonymous(),
+            );
             rendered_html.push_str(&html);
         }
     }
@@ -265,13 +342,20 @@ pub fn run_audit_from_nodes(ref_html: &str, nodes: &[crate::parser::AstNode]) ->
         }
     }
 
-    let rendered_lower = rendered_text.to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ");
+    let rendered_lower = rendered_text
+        .to_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
 
     let mut str_matched = 0u32;
     let mut missing_strings: Vec<String> = Vec::new();
     for s in &ref_strings {
         if rendered_lower.contains(s.as_str())
-           || rendered_strings.iter().any(|rs| rs.contains(s.as_str()) || s.contains(rs.as_str())) {
+            || rendered_strings
+                .iter()
+                .any(|rs| rs.contains(s.as_str()) || s.contains(rs.as_str()))
+        {
             str_matched += 1;
         } else {
             missing_strings.push(s.clone());
@@ -285,11 +369,18 @@ pub fn run_audit_from_nodes(ref_html: &str, nodes: &[crate::parser::AstNode]) ->
         }
     }
 
-    let ref_lower = ref_text.to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ");
+    let ref_lower = ref_text
+        .to_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
     let mut extra_strings: Vec<String> = Vec::new();
     for s in &rendered_strings {
         if !ref_lower.contains(s.as_str())
-           && !ref_strings.iter().any(|rs| rs.contains(s.as_str()) || s.contains(rs.as_str())) {
+            && !ref_strings
+                .iter()
+                .any(|rs| rs.contains(s.as_str()) || s.contains(rs.as_str()))
+        {
             extra_strings.push(s.clone());
         }
     }
@@ -321,11 +412,12 @@ pub fn save_audit_results(result: &AuditResult) {
     let timestamp = chrono_now_iso();
 
     // Load existing results to append
-    let mut history: Vec<serde_json::Value> = if let Ok(existing) = std::fs::read_to_string(".cronus/audit-results.json") {
-        serde_json::from_str(&existing).unwrap_or_default()
-    } else {
-        Vec::new()
-    };
+    let mut history: Vec<serde_json::Value> =
+        if let Ok(existing) = std::fs::read_to_string(".cronus/audit-results.json") {
+            serde_json::from_str(&existing).unwrap_or_default()
+        } else {
+            Vec::new()
+        };
 
     let entry = serde_json::json!({
         "timestamp": timestamp,
@@ -363,10 +455,15 @@ pub fn print_fidelity_line(result: &AuditResult) {
     } else {
         "\x1b[31m●\x1b[0m"
     };
-    println!("  {} \x1b[1m{}% fidelity\x1b[0m  (numbers: {}/{}, strings: {}/{})",
-        dot, result.fidelity,
-        result.num_matched, result.num_total,
-        result.str_matched, result.str_total);
+    println!(
+        "  {} \x1b[1m{}% fidelity\x1b[0m  (numbers: {}/{}, strings: {}/{})",
+        dot,
+        result.fidelity,
+        result.num_matched,
+        result.num_total,
+        result.str_matched,
+        result.str_total
+    );
 }
 
 /// Print the top N missing items as warnings.
@@ -390,7 +487,10 @@ pub fn print_missing_top(result: &AuditResult, n: usize) {
 fn chrono_now_iso() -> String {
     // Simple ISO timestamp without chrono dependency
     use std::time::{SystemTime, UNIX_EPOCH};
-    let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
     let days = secs / 86400;
     let time_secs = secs % 86400;
     let hours = time_secs / 3600;
@@ -400,26 +500,54 @@ fn chrono_now_iso() -> String {
     let mut y = 1970i64;
     let mut remaining_days = days as i64;
     loop {
-        let days_in_year = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) { 366 } else { 365 };
-        if remaining_days < days_in_year { break; }
+        let days_in_year = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) {
+            366
+        } else {
+            365
+        };
+        if remaining_days < days_in_year {
+            break;
+        }
         remaining_days -= days_in_year;
         y += 1;
     }
     let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
-    let month_days = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let month_days = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
     let mut m = 0usize;
     while m < 12 && remaining_days >= month_days[m] {
         remaining_days -= month_days[m];
         m += 1;
     }
-    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", y, m + 1, remaining_days + 1, hours, mins, s)
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        y,
+        m + 1,
+        remaining_days + 1,
+        hours,
+        mins,
+        s
+    )
 }
 
 // ── Helpers (pub for reuse) ──
 
 pub fn extract_visible_text(html: &str) -> String {
     let mut result = String::new();
-    let body_start = html.find("<body")
+    let body_start = html
+        .find("<body")
         .and_then(|pos| html[pos..].find('>').map(|p| pos + p + 1))
         .unwrap_or(0);
     let body_end = html.rfind("</body>").unwrap_or(html.len());
@@ -427,7 +555,14 @@ pub fn extract_visible_text(html: &str) -> String {
 
     let mut in_tag = false;
     let mut skip_depth = 0u32;
-    let skip_tags = ["script", "style", "svg", "noscript", "canvas", "iconify-icon"];
+    let skip_tags = [
+        "script",
+        "style",
+        "svg",
+        "noscript",
+        "canvas",
+        "iconify-icon",
+    ];
     let mut tag_buf = String::new();
     // Also skip material icon spans
     let mut in_icon_span = false;
@@ -445,14 +580,34 @@ pub fn extract_visible_text(html: &str) -> String {
                 let tag_name = tag_lower.split_whitespace().next().unwrap_or("");
                 if tag_name.starts_with('/') {
                     let name = &tag_name[1..];
-                    if name == "span" && in_icon_span { in_icon_span = false; }
+                    if name == "span" && in_icon_span {
+                        in_icon_span = false;
+                    }
                     if skip_tags.contains(&name) && skip_depth > 0 {
                         skip_depth -= 1;
                     }
                 } else {
                     // Insert space for block-level tags and <br>
-                    if matches!(tag_name, "br" | "div" | "p" | "h1" | "h2" | "h3" | "h4" | "li" | "td" | "th" | "section" | "article" | "footer" | "header" | "nav") {
-                        if skip_depth == 0 { result.push(' '); }
+                    if matches!(
+                        tag_name,
+                        "br" | "div"
+                            | "p"
+                            | "h1"
+                            | "h2"
+                            | "h3"
+                            | "h4"
+                            | "li"
+                            | "td"
+                            | "th"
+                            | "section"
+                            | "article"
+                            | "footer"
+                            | "header"
+                            | "nav"
+                    ) {
+                        if skip_depth == 0 {
+                            result.push(' ');
+                        }
                     }
                     // Skip material icon spans
                     if tag_name == "span" && tag_buf.contains("material-symbols") {
@@ -472,7 +627,8 @@ pub fn extract_visible_text(html: &str) -> String {
         }
     }
     // Decode HTML entities
-    result.replace("&amp;", "&")
+    result
+        .replace("&amp;", "&")
         .replace("&lt;", "<")
         .replace("&gt;", ">")
         .replace("&quot;", "\"")
@@ -483,15 +639,24 @@ pub fn extract_visible_text(html: &str) -> String {
 pub fn extract_numbers(text: &str) -> Vec<f64> {
     let mut nums = Vec::new();
     let re_like = |s: &str| -> Option<f64> {
-        let cleaned = s.replace(',', "").replace('%', "").replace('$', "")
-            .replace('£', "").replace('€', "").replace('+', "");
+        let cleaned = s
+            .replace(',', "")
+            .replace('%', "")
+            .replace('$', "")
+            .replace('£', "")
+            .replace('€', "")
+            .replace('+', "");
         cleaned.trim().parse::<f64>().ok()
     };
 
     // Split by whitespace and non-alphanumeric, find number-like tokens
-    for word in text.split(|c: char| !c.is_alphanumeric() && c != '.' && c != ',' && c != '%' && c != '$' && c != '£' && c != '+') {
+    for word in text.split(|c: char| {
+        !c.is_alphanumeric() && c != '.' && c != ',' && c != '%' && c != '$' && c != '£' && c != '+'
+    }) {
         let word = word.trim();
-        if word.is_empty() { continue; }
+        if word.is_empty() {
+            continue;
+        }
         if let Some(n) = re_like(word) {
             if n.is_finite() && n >= 3.0 && n <= 1e9 {
                 // Skip CSS noise
@@ -512,10 +677,14 @@ pub fn extract_strings(text: &str) -> Vec<String> {
         let trimmed = line.trim();
         if trimmed.len() >= 3 && trimmed.len() <= 120 {
             let lower = trimmed.to_lowercase();
-            if !lower.contains("tailwind") && !lower.contains("rgba(")
-                && !lower.contains("gradient") && !lower.contains("animation")
-                && !lower.starts_with('.') && !lower.starts_with('{')
-                && !lower.starts_with('@') && !lower.starts_with('#')
+            if !lower.contains("tailwind")
+                && !lower.contains("rgba(")
+                && !lower.contains("gradient")
+                && !lower.contains("animation")
+                && !lower.starts_with('.')
+                && !lower.starts_with('{')
+                && !lower.starts_with('@')
+                && !lower.starts_with('#')
             {
                 if !strings.contains(&lower) {
                     strings.push(lower);

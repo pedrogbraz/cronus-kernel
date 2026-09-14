@@ -6,8 +6,8 @@
 //! Slices are the `text` lines; values cycle 4, 8, 6, 10, 7.
 
 use crate::cronus_ui_chart::{
-    categories_or, compact_number, container, prop, sector_path, values_for, DEMO_VALUES,
-    POLAR_CX, POLAR_CY,
+    categories_or, compact_number, container, prop, sector_path, values_for, DEMO_VALUES, POLAR_CX,
+    POLAR_CY,
 };
 use crate::cronus_ui_kit::{esc, label_of};
 use crate::parser::ComponentNode;
@@ -27,7 +27,11 @@ pub fn render(comp: &ComponentNode) -> String {
     let mut prev_end: Option<f64> = None;
     for (i, v) in values.iter().enumerate() {
         let start = prev_end.map_or(0.0, |e| e + if *v > 0.0 { RING_PADDING } else { 0.0 });
-        let delta = if sum > 0.0 { v.max(0.0) / sum * real_total } else { 0.0 };
+        let delta = if sum > 0.0 {
+            v.max(0.0) / sum * real_total
+        } else {
+            0.0
+        };
         let end = start + delta;
         body.push_str(&format!(
             "<path d=\"{}\" fill=\"var(--cronus-chart-{})\" stroke-width=\"0\"></path>",

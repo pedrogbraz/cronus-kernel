@@ -18,7 +18,7 @@ use std::time::Instant;
 pub struct Span {
     pub name: String,
     pub kind: SpanKind,
-    pub start_us: u64,      // microseconds from request start
+    pub start_us: u64, // microseconds from request start
     pub duration_us: u64,
     pub metadata: Value,
 }
@@ -162,7 +162,9 @@ impl ZeusBuffer {
     }
 
     pub fn last_n(&self, n: usize) -> Vec<ZeusTrace> {
-        self.traces.lock().ok()
+        self.traces
+            .lock()
+            .ok()
             .map(|buf| {
                 let start = buf.len().saturating_sub(n);
                 buf[start..].to_vec()
@@ -171,7 +173,9 @@ impl ZeusBuffer {
     }
 
     pub fn slow_traces(&self, threshold_ms: f64) -> Vec<ZeusTrace> {
-        self.traces.lock().ok()
+        self.traces
+            .lock()
+            .ok()
             .map(|buf| {
                 buf.iter()
                     .filter(|t| t.duration_ms > threshold_ms)
@@ -182,13 +186,10 @@ impl ZeusBuffer {
     }
 
     pub fn error_traces(&self) -> Vec<ZeusTrace> {
-        self.traces.lock().ok()
-            .map(|buf| {
-                buf.iter()
-                    .filter(|t| t.status >= 400)
-                    .cloned()
-                    .collect()
-            })
+        self.traces
+            .lock()
+            .ok()
+            .map(|buf| buf.iter().filter(|t| t.status >= 400).cloned().collect())
             .unwrap_or_default()
     }
 
@@ -226,7 +227,13 @@ pub fn render_dashboard(buffer: &ZeusBuffer) -> String {
 
     let mut rows = String::new();
     for t in traces.iter().rev() {
-        let status_color = if t.status < 300 { "#10b981" } else if t.status < 400 { "#eab308" } else { "#ef4444" };
+        let status_color = if t.status < 300 {
+            "#10b981"
+        } else if t.status < 400 {
+            "#eab308"
+        } else {
+            "#ef4444"
+        };
         let method_color = match t.method.as_str() {
             "GET" => "#10b981",
             "POST" => "#adc6ff",
@@ -234,22 +241,32 @@ pub fn render_dashboard(buffer: &ZeusBuffer) -> String {
             "DELETE" => "#ef4444",
             _ => "#757575",
         };
-        let span_tags: Vec<String> = t.spans.iter().map(|s| {
-            let (color, label) = match s.kind {
-                SpanKind::Auth => ("#c2c1ff", "auth"),
-                SpanKind::Db => ("#eab308", "db"),
-                SpanKind::Script => ("#e9b3ff", "script"),
-                SpanKind::Render => ("#adc6ff", "render"),
-                SpanKind::Http => ("#10b981", "http"),
-                SpanKind::Other => ("#757575", "other"),
-            };
-            format!(
-                "<span class=\"span-tag\" style=\"--tag-color:{}\">{} {:.0}us</span>",
-                color, label, s.duration_us
-            )
-        }).collect();
+        let span_tags: Vec<String> = t
+            .spans
+            .iter()
+            .map(|s| {
+                let (color, label) = match s.kind {
+                    SpanKind::Auth => ("#c2c1ff", "auth"),
+                    SpanKind::Db => ("#eab308", "db"),
+                    SpanKind::Script => ("#e9b3ff", "script"),
+                    SpanKind::Render => ("#adc6ff", "render"),
+                    SpanKind::Http => ("#10b981", "http"),
+                    SpanKind::Other => ("#757575", "other"),
+                };
+                format!(
+                    "<span class=\"span-tag\" style=\"--tag-color:{}\">{} {:.0}us</span>",
+                    color, label, s.duration_us
+                )
+            })
+            .collect();
 
-        let duration_class = if t.duration_ms > 100.0 { "dur-slow" } else if t.duration_ms > 50.0 { "dur-warn" } else { "dur-ok" };
+        let duration_class = if t.duration_ms > 100.0 {
+            "dur-slow"
+        } else if t.duration_ms > 50.0 {
+            "dur-warn"
+        } else {
+            "dur-ok"
+        };
 
         rows.push_str(&format!(
             r#"<tr>
@@ -261,14 +278,21 @@ pub fn render_dashboard(buffer: &ZeusBuffer) -> String {
                 <td class="cell cell-right cell-dim">{}</td>
                 <td class="cell cell-spans">{}</td>
             </tr>"#,
-            t.timestamp, method_color, t.method, t.path,
-            status_color, t.status,
-            duration_class, t.duration_ms, t.query_count,
+            t.timestamp,
+            method_color,
+            t.method,
+            t.path,
+            status_color,
+            t.status,
+            duration_class,
+            t.duration_ms,
+            t.query_count,
             span_tags.join(" ")
         ));
     }
 
-    format!(r##"<!DOCTYPE html>
+    format!(
+        r##"<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Zeus — CRONUS Observability</title>
@@ -395,7 +419,10 @@ tr:hover .cell{{background:rgba(255,255,255,0.02)}}
 </body></html>"##,
         total = stats["total"],
         errors = stats["errors"],
-        error_rate = stats.get("error_rate").and_then(|v| v.as_str()).unwrap_or("0%"),
+        error_rate = stats
+            .get("error_rate")
+            .and_then(|v| v.as_str())
+            .unwrap_or("0%"),
         avg_ms = stats.get("avg_ms").and_then(|v| v.as_str()).unwrap_or("0"),
         p95_ms = stats.get("p95_ms").and_then(|v| v.as_str()).unwrap_or("0"),
         max_ms = stats.get("max_ms").and_then(|v| v.as_str()).unwrap_or("0"),

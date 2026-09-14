@@ -293,7 +293,9 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"date-range-picker-trigger\"] {\n  display: inline-flex; align-items: center; justify-content: flex-start; gap: 0.5rem;\n  width: 18.75rem; height: 2.5rem; padding: 0 1rem; box-sizing: border-box;"));
         assert!(css.contains("[data-slot=\"date-range-picker-trigger\"][data-empty] { color: var(--cronus-fg-tertiary); }"));
-        assert!(css.contains("[data-slot=\"date-range-picker-content\"]:not(:popover-open) { display: none; }"));
+        assert!(css.contains(
+            "[data-slot=\"date-range-picker-content\"]:not(:popover-open) { display: none; }"
+        ));
         assert!(css.contains("[data-slot=\"date-range-picker-content\"]:popover-open {"));
         assert!(css.contains("[data-slot=\"date-range-picker-calendar\"]"));
         assert!(css.contains("[data-slot=\"date-range-picker-preset\"]"));

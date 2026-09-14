@@ -3,15 +3,43 @@ use crate::parser::SectionNode;
 // ── Alert ──────────────────────────────────────────────────────────
 
 pub fn render_alert(section: &SectionNode) -> String {
-    let style = section.config.get("style").map(|s| s.as_str()).unwrap_or("info");
+    let style = section
+        .config
+        .get("style")
+        .map(|s| s.as_str())
+        .unwrap_or("info");
     let title = section.title.as_deref().unwrap_or("");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
 
     let (bg, border, text, icon_color, icon_name) = match style {
-        "success" => ("bg-emerald-50", "border-emerald-200", "text-emerald-800", "text-emerald-600", "check_circle"),
-        "warning" => ("bg-amber-50", "border-amber-200", "text-amber-800", "text-amber-600", "warning"),
-        "error"   => ("bg-red-50", "border-red-200", "text-red-800", "text-red-600", "error"),
-        _         => ("bg-blue-50", "border-blue-200", "text-blue-800", "text-blue-600", "info"),
+        "success" => (
+            "bg-emerald-50",
+            "border-emerald-200",
+            "text-emerald-800",
+            "text-emerald-600",
+            "check_circle",
+        ),
+        "warning" => (
+            "bg-amber-50",
+            "border-amber-200",
+            "text-amber-800",
+            "text-amber-600",
+            "warning",
+        ),
+        "error" => (
+            "bg-red-50",
+            "border-red-200",
+            "text-red-800",
+            "text-red-600",
+            "error",
+        ),
+        _ => (
+            "bg-blue-50",
+            "border-blue-200",
+            "text-blue-800",
+            "text-blue-600",
+            "info",
+        ),
     };
 
     let close_btn = format!(
@@ -36,10 +64,7 @@ pub fn render_alert(section: &SectionNode) -> String {
     // Content
     html.push_str(r#"<div class="flex-1 min-w-0">"#);
     if !title.is_empty() {
-        html.push_str(&format!(
-            r#"<p class="font-medium text-sm">{}</p>"#,
-            title,
-        ));
+        html.push_str(&format!(r#"<p class="font-medium text-sm">{}</p>"#, title,));
     }
     if !subtitle.is_empty() {
         html.push_str(&format!(
@@ -78,13 +103,12 @@ pub fn render_accordion(section: &SectionNode) -> String {
     html.push_str(r#"<div class="border rounded-xl overflow-hidden divide-y divide-neutral-200">"#);
 
     for (i, item) in section.items.iter().enumerate() {
-        let question = item.get("name")
+        let question = item
+            .get("name")
             .or_else(|| item.get("title"))
             .map(|s| s.as_str())
             .unwrap_or("");
-        let answer = item.get("description")
-            .map(|s| s.as_str())
-            .unwrap_or("");
+        let answer = item.get("description").map(|s| s.as_str()).unwrap_or("");
         let panel_id = format!("{}-panel-{}", id_base, i);
 
         // Header
@@ -110,7 +134,8 @@ pub fn render_accordion(section: &SectionNode) -> String {
     // JavaScript (inline, idempotent via window check)
     html.push_str("<script");
     html.push_str(crate::security::script_nonce_attr());
-    html.push_str(r#">
+    html.push_str(
+        r#">
 if(!window._cronusAccordionInit){window._cronusAccordionInit=true;
 window.cronusToggleAccordion=function(el){
   var panel=el.nextElementSibling;
@@ -133,7 +158,8 @@ window.cronusToggleAccordion=function(el){
   }
 };
 }
-</script>"#);
+</script>"#,
+    );
 
     html
 }

@@ -20,19 +20,18 @@ pub fn extract_style(tailwind_config: &str, ts_files: &[PathBuf]) -> String {
 
 /// Extract style block from CSS @theme variables (no tailwind config needed)
 pub fn extract_style_from_css(css: &str, ts_files: &[PathBuf]) -> String {
-    let theme = if css.contains("#000") || css.contains("bg: #0") || css.contains("background: #0") {
+    let theme = if css.contains("#000") || css.contains("bg: #0") || css.contains("background: #0")
+    {
         "dark".to_string()
     } else {
         detect_theme("", ts_files)
     };
 
     // Extract accent from --color-*-accent or prominent color variable
-    let accent = extract_accent_from_css(css)
-        .unwrap_or_else(|| detect_accent_color(ts_files));
+    let accent = extract_accent_from_css(css).unwrap_or_else(|| detect_accent_color(ts_files));
 
     // Extract font from CSS --font-sans or @import
-    let font = extract_font_from_css(css)
-        .unwrap_or_else(|| detect_font("", ts_files));
+    let font = extract_font_from_css(css).unwrap_or_else(|| detect_font("", ts_files));
 
     build_style_block(&theme, &accent, &font)
 }
@@ -91,8 +90,14 @@ fn extract_font_from_css(css: &str) -> Option<String> {
             // Try to extract the first family name
             if let Some(family_pos) = line.find("family=") {
                 let after = &line[family_pos + 7..];
-                let end = after.find(|c: char| c == '&' || c == '\'' || c == '"' || c == ')').unwrap_or(after.len());
-                let family = after[..end].split(':').next().unwrap_or("").replace('+', " ");
+                let end = after
+                    .find(|c: char| c == '&' || c == '\'' || c == '"' || c == ')')
+                    .unwrap_or(after.len());
+                let family = after[..end]
+                    .split(':')
+                    .next()
+                    .unwrap_or("")
+                    .replace('+', " ");
                 if !family.is_empty() {
                     return Some(family);
                 }

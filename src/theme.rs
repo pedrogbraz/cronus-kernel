@@ -99,16 +99,22 @@ pub fn parse_from_tailwind_config(config_str: &str) -> ThemeTokens {
         if chars[i] == '"' {
             let key_start = i + 1;
             i += 1;
-            while i < chars.len() && chars[i] != '"' { i += 1; }
+            while i < chars.len() && chars[i] != '"' {
+                i += 1;
+            }
             let key_end = i;
             i += 1; // skip closing "
-            // Skip whitespace and colon
-            while i < chars.len() && (chars[i] == ' ' || chars[i] == ':') { i += 1; }
+                    // Skip whitespace and colon
+            while i < chars.len() && (chars[i] == ' ' || chars[i] == ':') {
+                i += 1;
+            }
             // Check for "#hex"
             if i < chars.len() && chars[i] == '"' {
                 let val_start = i + 1;
                 i += 1;
-                while i < chars.len() && chars[i] != '"' { i += 1; }
+                while i < chars.len() && chars[i] != '"' {
+                    i += 1;
+                }
                 let val_end = i;
                 i += 1;
                 let key: String = chars[key_start..key_end].iter().collect();
@@ -123,30 +129,74 @@ pub fn parse_from_tailwind_config(config_str: &str) -> ThemeTokens {
     }
 
     // Map colors to token fields
-    if let Some(v) = colors.get("background") { tokens.background = v.clone(); }
-    if let Some(v) = colors.get("surface") { tokens.surface = v.clone(); }
-    if let Some(v) = colors.get("surface-container") { tokens.surface_container = v.clone(); }
-    if let Some(v) = colors.get("surface-container-low") { tokens.surface_container_low = v.clone(); }
-    if let Some(v) = colors.get("surface-container-lowest") { tokens.surface_container_lowest = v.clone(); }
-    if let Some(v) = colors.get("surface-container-high") { tokens.surface_container_high = v.clone(); }
-    if let Some(v) = colors.get("surface-container-highest") { tokens.surface_container_highest = v.clone(); }
-    if let Some(v) = colors.get("surface-bright") { tokens.surface_bright = v.clone(); }
-    if let Some(v) = colors.get("on-surface") { tokens.on_surface = v.clone(); }
-    if let Some(v) = colors.get("on-surface-variant") { tokens.on_surface_variant = v.clone(); }
-    if let Some(v) = colors.get("on-background") { tokens.on_background = v.clone(); }
-    if let Some(v) = colors.get("primary") { tokens.primary = v.clone(); }
-    if let Some(v) = colors.get("secondary") { tokens.secondary = v.clone(); }
-    if let Some(v) = colors.get("tertiary") { tokens.tertiary = v.clone(); }
-    if let Some(v) = colors.get("error") { tokens.error = v.clone(); }
-    if let Some(v) = colors.get("outline") { tokens.outline = v.clone(); }
-    if let Some(v) = colors.get("outline-variant") { tokens.outline_variant = v.clone(); }
-    if let Some(v) = colors.get("secondary-container") { tokens.secondary_container = v.clone(); }
-    if let Some(v) = colors.get("error-container") { tokens.error_container = v.clone(); }
-    if let Some(v) = colors.get("on-error-container") { tokens.on_error_container = v.clone(); }
+    if let Some(v) = colors.get("background") {
+        tokens.background = v.clone();
+    }
+    if let Some(v) = colors.get("surface") {
+        tokens.surface = v.clone();
+    }
+    if let Some(v) = colors.get("surface-container") {
+        tokens.surface_container = v.clone();
+    }
+    if let Some(v) = colors.get("surface-container-low") {
+        tokens.surface_container_low = v.clone();
+    }
+    if let Some(v) = colors.get("surface-container-lowest") {
+        tokens.surface_container_lowest = v.clone();
+    }
+    if let Some(v) = colors.get("surface-container-high") {
+        tokens.surface_container_high = v.clone();
+    }
+    if let Some(v) = colors.get("surface-container-highest") {
+        tokens.surface_container_highest = v.clone();
+    }
+    if let Some(v) = colors.get("surface-bright") {
+        tokens.surface_bright = v.clone();
+    }
+    if let Some(v) = colors.get("on-surface") {
+        tokens.on_surface = v.clone();
+    }
+    if let Some(v) = colors.get("on-surface-variant") {
+        tokens.on_surface_variant = v.clone();
+    }
+    if let Some(v) = colors.get("on-background") {
+        tokens.on_background = v.clone();
+    }
+    if let Some(v) = colors.get("primary") {
+        tokens.primary = v.clone();
+    }
+    if let Some(v) = colors.get("secondary") {
+        tokens.secondary = v.clone();
+    }
+    if let Some(v) = colors.get("tertiary") {
+        tokens.tertiary = v.clone();
+    }
+    if let Some(v) = colors.get("error") {
+        tokens.error = v.clone();
+    }
+    if let Some(v) = colors.get("outline") {
+        tokens.outline = v.clone();
+    }
+    if let Some(v) = colors.get("outline-variant") {
+        tokens.outline_variant = v.clone();
+    }
+    if let Some(v) = colors.get("secondary-container") {
+        tokens.secondary_container = v.clone();
+    }
+    if let Some(v) = colors.get("error-container") {
+        tokens.error_container = v.clone();
+    }
+    if let Some(v) = colors.get("on-error-container") {
+        tokens.on_error_container = v.clone();
+    }
 
     // Extract font families
     // Pattern: "headline": ["FontName"] or "body": ["FontName"]
-    for (label, field) in [("headline", &mut tokens.font_headline), ("body", &mut tokens.font_body), ("label", &mut tokens.font_label)] {
+    for (label, field) in [
+        ("headline", &mut tokens.font_headline),
+        ("body", &mut tokens.font_body),
+        ("label", &mut tokens.font_label),
+    ] {
         let pattern = format!("\"{}\"", label);
         if let Some(pos) = cleaned.find(&pattern) {
             let rest = &cleaned[pos..];
@@ -168,7 +218,9 @@ pub fn parse_from_tailwind_config(config_str: &str) -> ThemeTokens {
 
 fn hex_to_rgb(hex: &str) -> (u8, u8, u8) {
     let hex = hex.trim_start_matches('#');
-    if hex.len() < 6 { return (0, 0, 0); }
+    if hex.len() < 6 {
+        return (0, 0, 0);
+    }
     let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0);
     let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(0);
     let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(0);
@@ -186,7 +238,11 @@ fn rgb_to_hsl(r: u8, g: u8, b: u8) -> (f64, f64, f64) {
         return (0.0, 0.0, l * 100.0);
     }
     let d = max - min;
-    let s = if l > 0.5 { d / (2.0 - max - min) } else { d / (max + min) };
+    let s = if l > 0.5 {
+        d / (2.0 - max - min)
+    } else {
+        d / (max + min)
+    };
     let h = if (max - r).abs() < 1e-6 {
         ((g - b) / d + if g < b { 6.0 } else { 0.0 }) * 60.0
     } else if (max - g).abs() < 1e-6 {
@@ -198,11 +254,21 @@ fn rgb_to_hsl(r: u8, g: u8, b: u8) -> (f64, f64, f64) {
 }
 
 fn hue_to_rgb(p: f64, q: f64, mut t: f64) -> f64 {
-    if t < 0.0 { t += 1.0; }
-    if t > 1.0 { t -= 1.0; }
-    if t < 1.0 / 6.0 { return p + (q - p) * 6.0 * t; }
-    if t < 1.0 / 2.0 { return q; }
-    if t < 2.0 / 3.0 { return p + (q - p) * (2.0 / 3.0 - t) * 6.0; }
+    if t < 0.0 {
+        t += 1.0;
+    }
+    if t > 1.0 {
+        t -= 1.0;
+    }
+    if t < 1.0 / 6.0 {
+        return p + (q - p) * 6.0 * t;
+    }
+    if t < 1.0 / 2.0 {
+        return q;
+    }
+    if t < 2.0 / 3.0 {
+        return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
+    }
     p
 }
 
@@ -212,12 +278,25 @@ fn hsl_to_hex(h: f64, s: f64, l: f64) -> String {
     let (r, g, b) = if s.abs() < 1e-6 {
         (l, l, l)
     } else {
-        let q = if l < 0.5 { l * (1.0 + s) } else { l + s - l * s };
+        let q = if l < 0.5 {
+            l * (1.0 + s)
+        } else {
+            l + s - l * s
+        };
         let p = 2.0 * l - q;
         let hh = h / 360.0;
-        (hue_to_rgb(p, q, hh + 1.0 / 3.0), hue_to_rgb(p, q, hh), hue_to_rgb(p, q, hh - 1.0 / 3.0))
+        (
+            hue_to_rgb(p, q, hh + 1.0 / 3.0),
+            hue_to_rgb(p, q, hh),
+            hue_to_rgb(p, q, hh - 1.0 / 3.0),
+        )
     };
-    format!("#{:02x}{:02x}{:02x}", (r * 255.0).round() as u8, (g * 255.0).round() as u8, (b * 255.0).round() as u8)
+    format!(
+        "#{:02x}{:02x}{:02x}",
+        (r * 255.0).round() as u8,
+        (g * 255.0).round() as u8,
+        (b * 255.0).round() as u8
+    )
 }
 
 fn mix_hex(c1: &str, c2: &str, ratio: f64) -> String {
@@ -232,42 +311,113 @@ fn mix_hex(c1: &str, c2: &str, ratio: f64) -> String {
 /// Derive a full color palette from a single accent hex color.
 /// One declaration → 22 tokens. Zero hardcode outside this function.
 pub fn derive_palette(accent: &str, theme_mode: &str, font: &str) -> ThemeTokens {
-    let accent = if accent.starts_with('#') && accent.len() >= 7 { accent } else { "#87adff" };
-    let (h, s, l) = { let (r, g, b) = hex_to_rgb(accent); rgb_to_hsl(r, g, b) };
+    let accent = if accent.starts_with('#') && accent.len() >= 7 {
+        accent
+    } else {
+        "#87adff"
+    };
+    let (h, s, l) = {
+        let (r, g, b) = hex_to_rgb(accent);
+        rgb_to_hsl(r, g, b)
+    };
     let is_dark = theme_mode != "light";
 
     let primary = accent.to_string();
     let secondary = hsl_to_hex((h + 40.0) % 360.0, (s * 0.8).min(100.0), l);
     let tertiary = hsl_to_hex((h + 80.0) % 360.0, (s * 0.7).min(100.0), l);
 
-    let surface = if is_dark { mix_hex(accent, "#131313", 0.92) } else { mix_hex(accent, "#fafafa", 0.95) };
-    let surface_container = if is_dark { mix_hex(accent, "#1f1f1f", 0.90) } else { mix_hex(accent, "#f0f0f0", 0.92) };
-    let outline = if is_dark { mix_hex(accent, "#888888", 0.70) } else { mix_hex(accent, "#888888", 0.50) };
-    let outline_variant = if is_dark { mix_hex(accent, "#444444", 0.75) } else { mix_hex(accent, "#cccccc", 0.70) };
+    let surface = if is_dark {
+        mix_hex(accent, "#131313", 0.92)
+    } else {
+        mix_hex(accent, "#fafafa", 0.95)
+    };
+    let surface_container = if is_dark {
+        mix_hex(accent, "#1f1f1f", 0.90)
+    } else {
+        mix_hex(accent, "#f0f0f0", 0.92)
+    };
+    let outline = if is_dark {
+        mix_hex(accent, "#888888", 0.70)
+    } else {
+        mix_hex(accent, "#888888", 0.50)
+    };
+    let outline_variant = if is_dark {
+        mix_hex(accent, "#444444", 0.75)
+    } else {
+        mix_hex(accent, "#cccccc", 0.70)
+    };
 
     let font_name = if font.is_empty() { "Inter" } else { font };
 
     ThemeTokens {
-        background: if is_dark { "#0a0a0a".into() } else { "#fafafa".into() },
+        background: if is_dark {
+            "#0a0a0a".into()
+        } else {
+            "#fafafa".into()
+        },
         surface,
         surface_container,
-        surface_container_low: if is_dark { mix_hex(accent, "#1b1b1b", 0.92) } else { mix_hex(accent, "#f5f5f5", 0.93) },
-        surface_container_lowest: if is_dark { mix_hex(accent, "#0e0e0e", 0.95) } else { mix_hex(accent, "#fafafa", 0.97) },
-        surface_container_high: if is_dark { mix_hex(accent, "#2a2a2a", 0.88) } else { mix_hex(accent, "#e8e8e8", 0.90) },
-        surface_container_highest: if is_dark { mix_hex(accent, "#353535", 0.85) } else { mix_hex(accent, "#e0e0e0", 0.88) },
-        surface_bright: if is_dark { mix_hex(accent, "#393939", 0.85) } else { mix_hex(accent, "#ffffff", 0.90) },
-        on_surface: if is_dark { "#e2e2e2".into() } else { "#1a1a1a".into() },
-        on_surface_variant: if is_dark { "#c0c0c0".into() } else { "#444444".into() },
-        on_background: if is_dark { "#e2e2e2".into() } else { "#1a1a1a".into() },
+        surface_container_low: if is_dark {
+            mix_hex(accent, "#1b1b1b", 0.92)
+        } else {
+            mix_hex(accent, "#f5f5f5", 0.93)
+        },
+        surface_container_lowest: if is_dark {
+            mix_hex(accent, "#0e0e0e", 0.95)
+        } else {
+            mix_hex(accent, "#fafafa", 0.97)
+        },
+        surface_container_high: if is_dark {
+            mix_hex(accent, "#2a2a2a", 0.88)
+        } else {
+            mix_hex(accent, "#e8e8e8", 0.90)
+        },
+        surface_container_highest: if is_dark {
+            mix_hex(accent, "#353535", 0.85)
+        } else {
+            mix_hex(accent, "#e0e0e0", 0.88)
+        },
+        surface_bright: if is_dark {
+            mix_hex(accent, "#393939", 0.85)
+        } else {
+            mix_hex(accent, "#ffffff", 0.90)
+        },
+        on_surface: if is_dark {
+            "#e2e2e2".into()
+        } else {
+            "#1a1a1a".into()
+        },
+        on_surface_variant: if is_dark {
+            "#c0c0c0".into()
+        } else {
+            "#444444".into()
+        },
+        on_background: if is_dark {
+            "#e2e2e2".into()
+        } else {
+            "#1a1a1a".into()
+        },
         primary,
         secondary,
         tertiary,
         error: "#ef4444".into(),
         outline,
         outline_variant,
-        secondary_container: hsl_to_hex((h + 40.0) % 360.0, (s * 0.5).min(100.0), if is_dark { 25.0 } else { 85.0 }),
-        error_container: if is_dark { "#93000a".into() } else { "#ffdad6".into() },
-        on_error_container: if is_dark { "#ffdad6".into() } else { "#93000a".into() },
+        secondary_container: hsl_to_hex(
+            (h + 40.0) % 360.0,
+            (s * 0.5).min(100.0),
+            if is_dark { 25.0 } else { 85.0 },
+        ),
+        error_container: if is_dark {
+            "#93000a".into()
+        } else {
+            "#ffdad6".into()
+        },
+        on_error_container: if is_dark {
+            "#ffdad6".into()
+        } else {
+            "#93000a".into()
+        },
         font_headline: font_name.into(),
         font_body: font_name.into(),
         font_label: font_name.into(),
@@ -302,7 +452,8 @@ pub fn get() -> ThemeTokens {
 /// Generate CSS custom properties block from current theme
 pub fn css_vars() -> String {
     let t = get();
-    format!(r#":root {{
+    format!(
+        r#":root {{
   --bg: {bg};
   --surface: {surface};
   --surface-container: {sc};
@@ -326,15 +477,28 @@ pub fn css_vars() -> String {
   --font-body: '{fb}', sans-serif;
   --font-label: '{fl}', sans-serif;
 }}"#,
-        bg = t.background, surface = t.surface,
-        sc = t.surface_container, scl = t.surface_container_low,
-        scll = t.surface_container_lowest, sch = t.surface_container_high,
-        schh = t.surface_container_highest, sb = t.surface_bright,
-        os = t.on_surface, osv = t.on_surface_variant,
-        primary = t.primary, secondary = t.secondary, tertiary = t.tertiary,
-        error = t.error, outline = t.outline, ov = t.outline_variant,
-        sec_c = t.secondary_container, err_c = t.error_container, oec = t.on_error_container,
-        fh = t.font_headline, fb = t.font_body, fl = t.font_label,
+        bg = t.background,
+        surface = t.surface,
+        sc = t.surface_container,
+        scl = t.surface_container_low,
+        scll = t.surface_container_lowest,
+        sch = t.surface_container_high,
+        schh = t.surface_container_highest,
+        sb = t.surface_bright,
+        os = t.on_surface,
+        osv = t.on_surface_variant,
+        primary = t.primary,
+        secondary = t.secondary,
+        tertiary = t.tertiary,
+        error = t.error,
+        outline = t.outline,
+        ov = t.outline_variant,
+        sec_c = t.secondary_container,
+        err_c = t.error_container,
+        oec = t.on_error_container,
+        fh = t.font_headline,
+        fb = t.font_body,
+        fl = t.font_label,
     )
 }
 
@@ -363,7 +527,9 @@ pub fn font_links() -> String {
 
     let mut links = String::new();
     for font in &fonts {
-        if font.is_empty() { continue; }
+        if font.is_empty() {
+            continue;
+        }
         let encoded = font.replace(' ', "+");
         links.push_str(&format!(
             r#"<link href="https://fonts.googleapis.com/css2?family={}:wght@100..900&display=swap" rel="stylesheet">"#,

@@ -69,7 +69,9 @@ mod tests {
     #[test]
     fn aria_label_from_item_config_wins_over_label() {
         let mut c = stub("sonner", "Saved");
-        c.items[0].config.insert("aria-label".into(), "Alerts & more".into());
+        c.items[0]
+            .config
+            .insert("aria-label".into(), "Alerts & more".into());
         let html = render(&c);
         assert!(html.contains("<section aria-label=\"Alerts &amp; more\""));
         assert!(!html.contains(">Saved<"));

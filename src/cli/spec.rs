@@ -41,7 +41,8 @@ fn extract_field(content: &str, field_name: &str) -> Option<String> {
 fn has_section(content: &str, section: &str) -> bool {
     for line in content.lines() {
         let trimmed = line.trim();
-        if trimmed == section || trimmed.starts_with(&format!("{}.", &section[..section.len() - 1])) {
+        if trimmed == section || trimmed.starts_with(&format!("{}.", &section[..section.len() - 1]))
+        {
             return true;
         }
     }
@@ -78,14 +79,20 @@ fn validate_spec_content(content: &str, _subdir: &str) -> Vec<String> {
     // 2. layer must be core, stdlib, or pattern
     if let Some(ref l) = layer {
         if !["core", "stdlib", "pattern"].contains(&l.as_str()) {
-            errors.push(format!("invalid layer '{}' (expected core|stdlib|pattern)", l));
+            errors.push(format!(
+                "invalid layer '{}' (expected core|stdlib|pattern)",
+                l
+            ));
         }
     }
 
     // 3. stability must be draft, experimental, stable, or deprecated
     if let Some(ref s) = stability {
         if !["draft", "experimental", "stable", "deprecated"].contains(&s.as_str()) {
-            errors.push(format!("invalid stability '{}' (expected draft|experimental|stable|deprecated)", s));
+            errors.push(format!(
+                "invalid stability '{}' (expected draft|experimental|stable|deprecated)",
+                s
+            ));
         }
     }
 
@@ -103,7 +110,10 @@ fn validate_spec_content(content: &str, _subdir: &str) -> Vec<String> {
                 // 5. If alias canonical != "none": must NOT have [keys.structural]
                 if let Some(ref c) = canonical {
                     if c != "none" && has_section(content, "[keys.structural") {
-                        errors.push("alias with canonical != 'none' must not have [keys.structural]".to_string());
+                        errors.push(
+                            "alias with canonical != 'none' must not have [keys.structural]"
+                                .to_string(),
+                        );
                     }
                 }
             }
@@ -112,7 +122,9 @@ fn validate_spec_content(content: &str, _subdir: &str) -> Vec<String> {
 
     // 6. If NOT an alias: should have [shape] section
     let is_alias = layer.as_deref() == Some("pattern")
-        && extract_field(content, "canonical").map(|c| c != "none").unwrap_or(false);
+        && extract_field(content, "canonical")
+            .map(|c| c != "none")
+            .unwrap_or(false);
     if !is_alias && layer.as_deref() != Some("core") {
         if !has_section(content, "[shape]") {
             errors.push("non-alias spec should have [shape] section".to_string());
@@ -124,7 +136,10 @@ fn validate_spec_content(content: &str, _subdir: &str) -> Vec<String> {
         let parts: Vec<&str> = v.split('.').collect();
         let valid = parts.len() == 3 && parts.iter().all(|p| p.parse::<u32>().is_ok());
         if !valid {
-            errors.push(format!("version '{}' is not valid semver (expected X.Y.Z)", v));
+            errors.push(format!(
+                "version '{}' is not valid semver (expected X.Y.Z)",
+                v
+            ));
         }
     }
 
@@ -256,8 +271,12 @@ fn extract_field_usize(content: &str, field_name: &str) -> Option<usize> {
 // -- Codegen: --structs --
 
 fn spec_codegen_structs(args: &[String]) {
-    let dir = args.iter().position(|a| a == "--dir").and_then(|i| args.get(i + 1))
-        .map(|s| s.as_str()).unwrap_or("specs");
+    let dir = args
+        .iter()
+        .position(|a| a == "--dir")
+        .and_then(|i| args.get(i + 1))
+        .map(|s| s.as_str())
+        .unwrap_or("specs");
 
     let write_to_file = args.iter().any(|a| a == "--write");
 
@@ -310,7 +329,8 @@ fn spec_codegen_structs(args: &[String]) {
             }
 
             let layer = extract_field(&content, "layer").unwrap_or_else(|| "stdlib".to_string());
-            let stability = extract_field(&content, "stability").unwrap_or_else(|| "stable".to_string());
+            let stability =
+                extract_field(&content, "stability").unwrap_or_else(|| "stable".to_string());
             let requires_title = extract_field_bool(&content, "requires_title").unwrap_or(false);
             let requires_items = extract_field_bool(&content, "requires_items").unwrap_or(false);
             let min_items = extract_field_usize(&content, "min_items").unwrap_or(0);
@@ -323,8 +343,10 @@ fn spec_codegen_structs(args: &[String]) {
             let structural_keys = extract_structural_keys(&content);
             let config_keys = extract_config_keys(&content);
 
-            let on_unknown = extract_field(&content, "on_unknown_structural_key").unwrap_or_else(|| "warn".to_string());
-            let on_missing = extract_field(&content, "on_missing_required_key").unwrap_or_else(|| "error".to_string());
+            let on_unknown = extract_field(&content, "on_unknown_structural_key")
+                .unwrap_or_else(|| "warn".to_string());
+            let on_missing = extract_field(&content, "on_missing_required_key")
+                .unwrap_or_else(|| "error".to_string());
 
             let const_name = name.to_uppercase().replace('-', "_");
 
@@ -346,17 +368,29 @@ fn spec_codegen_structs(args: &[String]) {
                 .collect::<Vec<_>>()
                 .join(", ");
 
-            out!("pub static {}_CONTRACT: SectionContract = SectionContract {{", const_name);
+            out!(
+                "pub static {}_CONTRACT: SectionContract = SectionContract {{",
+                const_name
+            );
             out!("    name: \"{}\",", name);
             out!("    layer: Layer::{},", capitalize_layer(&layer));
-            out!("    stability: Stability::{},", capitalize_stability(&stability));
+            out!(
+                "    stability: Stability::{},",
+                capitalize_stability(&stability)
+            );
             out!("    requires_title: {},", requires_title);
             out!("    requires_items: {},", requires_items);
             out!("    min_items: {},", min_items);
             out!("    structural_keys: &[{}],", struct_keys_str);
             out!("    entity_binding: {},", entity_binding);
-            out!("    on_unknown_key: Fallback::{},", capitalize_fallback(&on_unknown));
-            out!("    on_missing_required: Fallback::{},", capitalize_fallback(&on_missing));
+            out!(
+                "    on_unknown_key: Fallback::{},",
+                capitalize_fallback(&on_unknown)
+            );
+            out!(
+                "    on_missing_required: Fallback::{},",
+                capitalize_fallback(&on_missing)
+            );
             out!("    config_keys: &[{}],", config_keys_str);
             out!("}};");
             out!("");
@@ -384,7 +418,11 @@ fn spec_codegen_structs(args: &[String]) {
     out!("");
     out!("pub static GENERATED_NAMES: &[&str] = &[");
     for names_chunk in all_names.chunks(5) {
-        let line = names_chunk.iter().map(|n| format!("\"{}\"", n)).collect::<Vec<_>>().join(", ");
+        let line = names_chunk
+            .iter()
+            .map(|n| format!("\"{}\"", n))
+            .collect::<Vec<_>>()
+            .join(", ");
         out!("    {},", line);
     }
     out!("];");
@@ -408,14 +446,18 @@ fn spec_codegen_structs(args: &[String]) {
 
     if write_to_file {
         // Determine output path: use --out <path> if given, else default to src/contracts_generated.rs
-        let out_path = args.iter().position(|a| a == "--out")
+        let out_path = args
+            .iter()
+            .position(|a| a == "--out")
             .and_then(|i| args.get(i + 1))
             .map(|s| std::path::PathBuf::from(s))
-            .unwrap_or_else(|| {
-                std::path::PathBuf::from("src/contracts_generated.rs")
-            });
+            .unwrap_or_else(|| std::path::PathBuf::from("src/contracts_generated.rs"));
         match fs::write(&out_path, &output) {
-            Ok(_) => println!("Written {} contracts to {}", all_consts.len(), out_path.display()),
+            Ok(_) => println!(
+                "Written {} contracts to {}",
+                all_consts.len(),
+                out_path.display()
+            ),
             Err(e) => eprintln!("Error writing {}: {}", out_path.display(), e),
         }
     } else {
@@ -557,8 +599,12 @@ fn extract_config_details(content: &str) -> Vec<(String, String, String, String)
 }
 
 fn spec_codegen_docs(args: &[String]) {
-    let dir = args.iter().position(|a| a == "--dir").and_then(|i| args.get(i + 1))
-        .map(|s| s.as_str()).unwrap_or("specs");
+    let dir = args
+        .iter()
+        .position(|a| a == "--dir")
+        .and_then(|i| args.get(i + 1))
+        .map(|s| s.as_str())
+        .unwrap_or("specs");
 
     println!("# Section Types Reference (Auto-Generated)");
     println!();
@@ -566,7 +612,14 @@ fn spec_codegen_docs(args: &[String]) {
     println!();
 
     for subdir in &["stdlib", "patterns"] {
-        println!("## {}", if *subdir == "stdlib" { "Standard Library" } else { "Patterns" });
+        println!(
+            "## {}",
+            if *subdir == "stdlib" {
+                "Standard Library"
+            } else {
+                "Patterns"
+            }
+        );
         println!();
 
         let path = format!("{}/{}", dir, subdir);
@@ -586,9 +639,11 @@ fn spec_codegen_docs(args: &[String]) {
                 Some(n) => n,
                 None => continue,
             };
-            let stability = extract_field(&content, "stability").unwrap_or_else(|| "stable".to_string());
+            let stability =
+                extract_field(&content, "stability").unwrap_or_else(|| "stable".to_string());
             let layer = extract_field(&content, "layer").unwrap_or_else(|| "stdlib".to_string());
-            let renderer = extract_field(&content, "renderer").unwrap_or_else(|| "generic".to_string());
+            let renderer =
+                extract_field(&content, "renderer").unwrap_or_else(|| "generic".to_string());
             let description = extract_field(&content, "description").unwrap_or_default();
             let tags = extract_tags(&content);
 
@@ -600,7 +655,10 @@ fn spec_codegen_docs(args: &[String]) {
 
             println!("### {}", name);
             println!();
-            println!("> **Status:** {} | **Layer:** {} | **Renderer:** {}", stability, layer, renderer);
+            println!(
+                "> **Status:** {} | **Layer:** {} | **Renderer:** {}",
+                stability, layer, renderer
+            );
             if !tags.is_empty() {
                 println!("> **Tags:** {}", tags.join(", "));
             }
@@ -631,7 +689,13 @@ fn spec_codegen_docs(args: &[String]) {
                 for (key, required) in &structural_keys {
                     let typ = extract_key_type(&content, key);
                     let desc = extract_key_description(&content, key).unwrap_or_default();
-                    println!("| `{}` | {} | {} | {} |", key, if *required { "yes" } else { "no" }, typ, desc);
+                    println!(
+                        "| `{}` | {} | {} | {} |",
+                        key,
+                        if *required { "yes" } else { "no" },
+                        typ,
+                        desc
+                    );
                 }
                 println!();
             }
@@ -644,7 +708,11 @@ fn spec_codegen_docs(args: &[String]) {
                 println!("| Key | Type | Default | Description |");
                 println!("|-----|------|---------|-------------|");
                 for (key, typ, default, desc) in &config_details {
-                    let def_display = if default.is_empty() { "-".to_string() } else { format!("`{}`", default) };
+                    let def_display = if default.is_empty() {
+                        "-".to_string()
+                    } else {
+                        format!("`{}`", default)
+                    };
                     println!("| `{}` | {} | {} | {} |", key, typ, def_display, desc);
                 }
                 println!();
@@ -654,10 +722,20 @@ fn spec_codegen_docs(args: &[String]) {
             let requires_title = extract_field_bool(&content, "requires_title").unwrap_or(false);
             let requires_items = extract_field_bool(&content, "requires_items").unwrap_or(false);
             let min_items = extract_field_usize(&content, "min_items").unwrap_or(0);
-            println!("**Shape:** title={}, items={}, min_items={}",
-                if requires_title { "required" } else { "optional" },
-                if requires_items { "required" } else { "optional" },
-                min_items);
+            println!(
+                "**Shape:** title={}, items={}, min_items={}",
+                if requires_title {
+                    "required"
+                } else {
+                    "optional"
+                },
+                if requires_items {
+                    "required"
+                } else {
+                    "optional"
+                },
+                min_items
+            );
             println!();
 
             // Example
@@ -732,7 +810,9 @@ fn extract_config_validates(content: &str, key_name: &str) -> Option<String> {
             continue;
         }
         if trimmed.starts_with('[') && trimmed != "[config]" {
-            if in_config { break; }
+            if in_config {
+                break;
+            }
             continue;
         }
         if in_config && trimmed.starts_with(key_name) {
@@ -758,7 +838,9 @@ fn extract_key_default(content: &str, key_name: &str) -> Option<String> {
             in_section = true;
             continue;
         }
-        if trimmed.starts_with('[') && in_section { break; }
+        if trimmed.starts_with('[') && in_section {
+            break;
+        }
         if in_section && (trimmed.starts_with("default =") || trimmed.starts_with("default=")) {
             if let Some(start) = trimmed.find('"') {
                 if let Some(end) = trimmed[start + 1..].find('"') {
@@ -771,15 +853,25 @@ fn extract_key_default(content: &str, key_name: &str) -> Option<String> {
 }
 
 fn json_escape(s: &str) -> String {
-    s.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n")
+    s.replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
 }
 
 fn spec_codegen_ai_protocol(args: &[String]) {
-    let dir = args.iter().position(|a| a == "--dir").and_then(|i| args.get(i + 1))
-        .map(|s| s.as_str()).unwrap_or("specs");
+    let dir = args
+        .iter()
+        .position(|a| a == "--dir")
+        .and_then(|i| args.get(i + 1))
+        .map(|s| s.as_str())
+        .unwrap_or("specs");
 
-    let output_path = args.iter().position(|a| a == "-o").and_then(|i| args.get(i + 1))
-        .map(|s| s.as_str()).unwrap_or("cronus-schema.json");
+    let output_path = args
+        .iter()
+        .position(|a| a == "-o")
+        .and_then(|i| args.get(i + 1))
+        .map(|s| s.as_str())
+        .unwrap_or("cronus-schema.json");
 
     let mut sections = Vec::new();
     let mut section_count = 0usize;
@@ -804,7 +896,8 @@ fn spec_codegen_ai_protocol(args: &[String]) {
             };
 
             let layer = extract_field(&content, "layer").unwrap_or_else(|| subdir.to_string());
-            let stability = extract_field(&content, "stability").unwrap_or_else(|| "stable".to_string());
+            let stability =
+                extract_field(&content, "stability").unwrap_or_else(|| "stable".to_string());
             let description = extract_field(&content, "description").unwrap_or_default();
             let intent_desc = extract_field_after_section(&content, "[intent]", "description")
                 .unwrap_or_else(|| description.clone());
@@ -851,16 +944,18 @@ fn spec_codegen_ai_protocol(args: &[String]) {
                 if let Some(def) = extract_key_default(&content, key) {
                     fields.push(format!("\"default\": \"{}\"", json_escape(&def)));
                 }
-                sk_entries.push(format!("        \"{}\": {{ {} }}", json_escape(key), fields.join(", ")));
+                sk_entries.push(format!(
+                    "        \"{}\": {{ {} }}",
+                    json_escape(key),
+                    fields.join(", ")
+                ));
             }
 
             // Config keys with full detail
             let config_details = extract_config_details(&content);
             let mut ck_entries = Vec::new();
             for (key, typ, default, desc) in &config_details {
-                let mut fields = vec![
-                    format!("\"type\": \"{}\"", json_escape(typ)),
-                ];
+                let mut fields = vec![format!("\"type\": \"{}\"", json_escape(typ))];
                 if !desc.is_empty() {
                     fields.push(format!("\"description\": \"{}\"", json_escape(desc)));
                 }
@@ -870,13 +965,24 @@ fn spec_codegen_ai_protocol(args: &[String]) {
                 if let Some(validates) = extract_config_validates(&content, key) {
                     fields.push(format!("\"validates\": \"{}\"", json_escape(&validates)));
                 }
-                ck_entries.push(format!("        \"{}\": {{ {} }}", json_escape(key), fields.join(", ")));
+                ck_entries.push(format!(
+                    "        \"{}\": {{ {} }}",
+                    json_escape(key),
+                    fields.join(", ")
+                ));
             }
 
             let aliases_json = if aliases.is_empty() {
                 "[]".to_string()
             } else {
-                format!("[{}]", aliases.iter().map(|a| format!("\"{}\"", json_escape(a))).collect::<Vec<_>>().join(", "))
+                format!(
+                    "[{}]",
+                    aliases
+                        .iter()
+                        .map(|a| format!("\"{}\"", json_escape(a)))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
             };
 
             let section_json = format!(
@@ -899,26 +1005,72 @@ fn spec_codegen_ai_protocol(args: &[String]) {
     }
 
     let field_types = vec![
-        "string", "text", "email", "url", "slug", "phone", "number", "money",
-        "percentage", "boolean", "date", "ulid", "json", "enum", "ip", "relation",
+        "string",
+        "text",
+        "email",
+        "url",
+        "slug",
+        "phone",
+        "number",
+        "money",
+        "percentage",
+        "boolean",
+        "date",
+        "ulid",
+        "json",
+        "enum",
+        "ip",
+        "relation",
     ];
     let field_modifiers = vec![
-        "required", "unique", "sensitive", "optional", "searchable",
-        "index", "featured", "formatted", "array",
+        "required",
+        "unique",
+        "sensitive",
+        "optional",
+        "searchable",
+        "index",
+        "featured",
+        "formatted",
+        "array",
     ];
     let action_verbs = vec![
-        "set", "toast", "navigate", "refresh", "create", "confirm", "delete", "validate", "open", "close",
+        "set", "toast", "navigate", "refresh", "create", "confirm", "delete", "validate", "open",
+        "close",
     ];
     let action_events = vec!["click", "submit", "error", "change"];
     let auth_modes = vec!["jwt", "cookie", "token", "public", "api_key", "internal"];
     let page_types = vec!["custom", "form", "list", "dashboard", "landing", "detail"];
 
-    let ft_json = field_types.iter().map(|t| format!("\"{}\"", t)).collect::<Vec<_>>().join(", ");
-    let fm_json = field_modifiers.iter().map(|m| format!("\"{}\"", m)).collect::<Vec<_>>().join(", ");
-    let av_json = action_verbs.iter().map(|v| format!("\"{}\"", v)).collect::<Vec<_>>().join(", ");
-    let ae_json = action_events.iter().map(|e| format!("\"{}\"", e)).collect::<Vec<_>>().join(", ");
-    let am_json = auth_modes.iter().map(|m| format!("\"{}\"", m)).collect::<Vec<_>>().join(", ");
-    let pt_json = page_types.iter().map(|t| format!("\"{}\"", t)).collect::<Vec<_>>().join(", ");
+    let ft_json = field_types
+        .iter()
+        .map(|t| format!("\"{}\"", t))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let fm_json = field_modifiers
+        .iter()
+        .map(|m| format!("\"{}\"", m))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let av_json = action_verbs
+        .iter()
+        .map(|v| format!("\"{}\"", v))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let ae_json = action_events
+        .iter()
+        .map(|e| format!("\"{}\"", e))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let am_json = auth_modes
+        .iter()
+        .map(|m| format!("\"{}\"", m))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let pt_json = page_types
+        .iter()
+        .map(|t| format!("\"{}\"", t))
+        .collect::<Vec<_>>()
+        .join(", ");
 
     // Compute today's date without external crate
     let today = {
@@ -932,18 +1084,38 @@ fn spec_codegen_ai_protocol(args: &[String]) {
         loop {
             let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
             let days_in_year: i64 = if leap { 366 } else { 365 };
-            if remaining < days_in_year { break; }
+            if remaining < days_in_year {
+                break;
+            }
             remaining -= days_in_year;
             y += 1;
         }
         let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
-        let month_days: [i64; 12] = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        let month_days: [i64; 12] = [
+            31,
+            if leap { 29 } else { 28 },
+            31,
+            30,
+            31,
+            30,
+            31,
+            31,
+            30,
+            31,
+            30,
+            31,
+        ];
         let mut m = 0usize;
         for (i, &md) in month_days.iter().enumerate() {
-            if remaining < md { m = i + 1; break; }
+            if remaining < md {
+                m = i + 1;
+                break;
+            }
             remaining -= md;
         }
-        if m == 0 { m = 12; }
+        if m == 0 {
+            m = 12;
+        }
         let d = remaining + 1;
         format!("{:04}-{:02}-{:02}", y, m, d)
     };

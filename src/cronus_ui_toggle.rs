@@ -137,7 +137,8 @@ mod tests {
     #[test]
     fn skips_interact_switch() {
         let html = render(&stub("toggle", "Bold"));
-        let interact = crate::cronus_ui_interact::render("toggle", &stub("toggle", "Bold")).unwrap();
+        let interact =
+            crate::cronus_ui_interact::render("toggle", &stub("toggle", "Bold")).unwrap();
         assert_ne!(html, interact);
         assert!(interact.contains("<label data-slot=\"toggle\""));
         assert!(interact.contains("data-slot=\"toggle-control\""));

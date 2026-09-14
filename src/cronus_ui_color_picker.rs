@@ -139,21 +139,32 @@ mod tests {
     #[test]
     fn root_is_single_disabled_trigger_button() {
         let html = render(&stub("color-picker", "Accent"));
-        assert!(!html.contains("data-slot=\"color-picker\""), "React has no wrapper slot: {html}");
-        assert!(!html.contains("color-picker-content"), "editor needs JS: {html}");
+        assert!(
+            !html.contains("data-slot=\"color-picker\""),
+            "React has no wrapper slot: {html}"
+        );
+        assert!(
+            !html.contains("color-picker-content"),
+            "editor needs JS: {html}"
+        );
         assert!(!html.contains("color-picker-swatch-button"));
         reject_interact(&html);
         assert_eq!(
             html,
             "<button type=\"button\" data-slot=\"color-picker-trigger\" data-variant=\"outline\" aria-label=\"Accent: oklch(0.62 0.21 256)\" aria-haspopup=\"dialog\" aria-expanded=\"false\" data-state=\"closed\" disabled><span aria-hidden=\"true\" data-slot=\"color-picker-swatch\" data-color=\"oklch(0.62 0.21 256)\"><svg aria-hidden=\"true\" focusable=\"false\" viewBox=\"0 0 1 1\" preserveAspectRatio=\"none\"><rect width=\"1\" height=\"1\" fill=\"oklch(0.62 0.21 256)\"></rect></svg></span><span>oklch(0.62 0.21 256)</span></button>"
         );
-        assert_eq!(html.matches("data-slot=").count(), 2, "svg must stay un-slotted");
+        assert_eq!(
+            html.matches("data-slot=").count(),
+            2,
+            "svg must stay un-slotted"
+        );
     }
 
     #[test]
     fn value_and_aria_label_name_trigger() {
         let mut c = stub("color-picker", "Accent");
-        c.props.insert("value".into(), "oklch(0.72 0.19 145)".into());
+        c.props
+            .insert("value".into(), "oklch(0.72 0.19 145)".into());
         c.props.insert("aria-label".into(), "Color".into());
         let html = render(&c);
         assert!(html.contains("aria-label=\"Color: oklch(0.72 0.19 145)\""));
@@ -167,11 +178,24 @@ mod tests {
     /// presentation attribute (typed `attr()` alone only paints in Chromium).
     #[test]
     fn swatch_svg_carries_validated_fill() {
-        for ok in ["#0af", "#0AF8", "#00aaff", "#00aaff80", "rgb(0 170 255 / 50%)", "hsl(200deg, 100%, 50%)", "OKLCH(0.62 0.21 256)"] {
+        for ok in [
+            "#0af",
+            "#0AF8",
+            "#00aaff",
+            "#00aaff80",
+            "rgb(0 170 255 / 50%)",
+            "hsl(200deg, 100%, 50%)",
+            "OKLCH(0.62 0.21 256)",
+        ] {
             let mut c = stub("color-picker", "Accent");
             c.props.insert("value".into(), ok.into());
             let html = render(&c);
-            assert!(html.contains(&format!("<rect width=\"1\" height=\"1\" fill=\"{ok}\"></rect>")), "{ok}: {html}");
+            assert!(
+                html.contains(&format!(
+                    "<rect width=\"1\" height=\"1\" fill=\"{ok}\"></rect>"
+                )),
+                "{ok}: {html}"
+            );
         }
     }
 
@@ -254,8 +278,11 @@ mod tests {
         assert!(css.contains(
             "[data-slot=\"color-picker-trigger\"] {\n  display: inline-flex; align-items: center; justify-content: flex-start; gap: 0.5rem;\n  width: 100%; height: 2.5rem; padding: 0 1rem; box-sizing: border-box; white-space: nowrap;"
         ));
-        assert!(css.contains("background-color: attr(data-color type(<color>), var(--cronus-primary));"));
-        assert!(css.contains("[data-slot=\"color-picker-trigger\"][data-disabled] { opacity: 0.5; }"));
+        assert!(css
+            .contains("background-color: attr(data-color type(<color>), var(--cronus-primary));"));
+        assert!(
+            css.contains("[data-slot=\"color-picker-trigger\"][data-disabled] { opacity: 0.5; }")
+        );
         assert!(!css.contains("[data-slot=\"color-picker\"] {"));
         assert!(!css.contains("[data-slot=\"color-picker-swatch-button\"]"));
     }

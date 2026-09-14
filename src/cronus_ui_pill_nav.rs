@@ -25,7 +25,11 @@ pub fn render(comp: &ComponentNode) -> String {
 }
 
 fn item_html(text: &str, href: Option<&str>, current: bool) -> String {
-    let current_attr = if current { " aria-current=\"page\"" } else { "" };
+    let current_attr = if current {
+        " aria-current=\"page\""
+    } else {
+        ""
+    };
     match href {
         Some(h) => format!("<a data-slot=\"pill-nav-item\" href=\"{h}\"{current_attr}>{text}</a>"),
         None => format!(
@@ -38,7 +42,9 @@ fn nav_entries(comp: &ComponentNode) -> Vec<(String, Option<String>)> {
     let choice: Vec<_> = comp
         .items
         .iter()
-        .filter(|i| matches!(i.item_type.as_str(), "item" | "tab" | "columns") && !i.text.is_empty())
+        .filter(|i| {
+            matches!(i.item_type.as_str(), "item" | "tab" | "columns") && !i.text.is_empty()
+        })
         .map(entry_of)
         .collect();
     if !choice.is_empty() {
@@ -126,7 +132,8 @@ mod tests {
         home.link = Some("/".into());
         c.items.push(home);
         let html = render(&c);
-        assert!(html.contains("<a data-slot=\"pill-nav-item\" href=\"/\" aria-current=\"page\">Home</a>"));
+        assert!(html
+            .contains("<a data-slot=\"pill-nav-item\" href=\"/\" aria-current=\"page\">Home</a>"));
         reject_interact(&html);
     }
 

@@ -25,7 +25,8 @@ pub const SCRIPT_SRC: &str = "https://cdn.jsdelivr.net/npm/voodoojs@0.13.0/dist/
 /// and cross-checked byte-identical against `dist/voodoo.full.min.js` inside
 /// the npm tarball `voodoojs-0.13.0.tgz`. Bumping the version REQUIRES
 /// recomputing this; a mismatch makes browsers refuse to run the script.
-pub const VOODOO_SRI: &str = "sha384-T8aMcXnhRtYq6zSQrZOBZrG4JR0nH0lULV6xS1ahoJgI5KEVijdDFczre4phw8Bn";
+pub const VOODOO_SRI: &str =
+    "sha384-T8aMcXnhRtYq6zSQrZOBZrG4JR0nH0lULV6xS1ahoJgI5KEVijdDFczre4phw8Bn";
 
 tokio::task_local! {
     static ENABLED: bool;
@@ -202,7 +203,10 @@ mod tests {
 
     #[test]
     fn script_tag_pins_sri_and_crossorigin() {
-        assert!(VOODOO_SRI.starts_with("sha384-"), "VOODOO_SRI must be a sha384 SRI hash");
+        assert!(
+            VOODOO_SRI.starts_with("sha384-"),
+            "VOODOO_SRI must be a sha384 SRI hash"
+        );
         // 48-byte digest -> 64 base64 chars
         assert_eq!(VOODOO_SRI.len(), "sha384-".len() + 64);
         let tag = script_tag();
@@ -236,16 +240,25 @@ app "X" { stack voodoo port 5298 }
 style { theme dark runtime voodoo preset aurora }
 "#;
         let nodes = crate::parser::parse(src).expect("parse");
-        let app = nodes.iter().find_map(|n| match n {
-            crate::parser::AstNode::App(a) => Some(a),
-            _ => None,
-        }).expect("app");
-        let style = nodes.iter().find_map(|n| match n {
-            crate::parser::AstNode::Style(s) => Some(s),
-            _ => None,
-        }).expect("style");
+        let app = nodes
+            .iter()
+            .find_map(|n| match n {
+                crate::parser::AstNode::App(a) => Some(a),
+                _ => None,
+            })
+            .expect("app");
+        let style = nodes
+            .iter()
+            .find_map(|n| match n {
+                crate::parser::AstNode::Style(s) => Some(s),
+                _ => None,
+            })
+            .expect("style");
         assert!(app.stack.iter().any(|s| s == "voodoo"));
-        assert_eq!(style.config.get("runtime").map(String::as_str), Some("voodoo"));
+        assert_eq!(
+            style.config.get("runtime").map(String::as_str),
+            Some("voodoo")
+        );
         assert!(wanted(&app.stack, Some(style)));
     }
 }

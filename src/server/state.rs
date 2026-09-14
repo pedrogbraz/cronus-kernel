@@ -3,12 +3,14 @@
 
 use std::sync::Arc;
 
-use crate::parser::{self, AppNode, EntityNode, PageNode, StyleNode, ApiNode, ComponentNode, LayoutNode};
-use crate::database;
+use crate::audit;
 use crate::brain;
+use crate::database;
+use crate::parser::{
+    self, ApiNode, AppNode, ComponentNode, EntityNode, LayoutNode, PageNode, StyleNode,
+};
 use crate::rate_limit;
 use crate::sse;
-use crate::audit;
 
 // ──────────────────────────────────────────────
 // Request tracing
@@ -31,11 +33,15 @@ pub(crate) struct TraceBuffer {
 
 impl TraceBuffer {
     pub(crate) fn new() -> Self {
-        Self { traces: std::sync::Mutex::new(Vec::with_capacity(200)) }
+        Self {
+            traces: std::sync::Mutex::new(Vec::with_capacity(200)),
+        }
     }
     pub(crate) fn push(&self, trace: RequestTrace) {
         let mut buf = self.traces.lock().unwrap_or_else(|e| e.into_inner());
-        if buf.len() >= 200 { buf.remove(0); }
+        if buf.len() >= 200 {
+            buf.remove(0);
+        }
         buf.push(trace);
     }
     pub(crate) fn last_n(&self, n: usize) -> Vec<RequestTrace> {
@@ -47,13 +53,19 @@ impl TraceBuffer {
 
 pub(crate) fn generate_request_id() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
-    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos();
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
     format!("req_{:012x}", nanos & 0xFFFF_FFFF_FFFF)
 }
 
 pub(crate) fn current_time_hms() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
-    let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
     let h = (secs / 3600) % 24;
     let m = (secs % 3600) / 60;
     let s = secs % 60;
@@ -62,7 +74,10 @@ pub(crate) fn current_time_hms() -> String {
 
 pub(crate) fn iso_timestamp() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
-    let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
     let h = (secs / 3600) % 24;
     let m = (secs % 3600) / 60;
     let s = secs % 60;

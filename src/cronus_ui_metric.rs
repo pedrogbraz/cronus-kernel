@@ -154,7 +154,9 @@ mod tests {
             "<div data-slot=\"metric\"><div data-slot=\"metric-label\">Users</div><div data-slot=\"metric-value\">1,240</div></div>"
         );
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("font-size: 0.75rem; line-height: 1rem; font-weight: 500; text-transform: uppercase;"));
+        assert!(css.contains(
+            "font-size: 0.75rem; line-height: 1rem; font-weight: 500; text-transform: uppercase;"
+        ));
         assert!(css.contains("font-size: 1.5rem; line-height: 2rem; font-weight: 600;"));
     }
 
@@ -183,7 +185,8 @@ mod tests {
     #[test]
     fn skips_interact_section() {
         let html = render(&stub("metric", "Revenue"));
-        let interact = crate::cronus_ui_interact::render("metric", &stub("metric", "Revenue")).unwrap();
+        let interact =
+            crate::cronus_ui_interact::render("metric", &stub("metric", "Revenue")).unwrap();
         assert_ne!(html, interact);
         assert!(interact.starts_with("<section data-slot=\"metric\""));
         assert!(interact.contains("style="));

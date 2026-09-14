@@ -137,7 +137,9 @@ mod tests {
         let html = render(&stub("card-stack", "Front"));
         assert_eq!(html.matches("data-slot=\"card-stack-item\"").count(), 2);
         assert!(html.contains("<div data-slot=\"card-stack-item\">Front</div>"));
-        assert!(html.contains("<div data-slot=\"card-stack-item\" aria-hidden=\"true\">Card 2</div>"));
+        assert!(
+            html.contains("<div data-slot=\"card-stack-item\" aria-hidden=\"true\">Card 2</div>")
+        );
         reject_display(&html);
     }
 
@@ -206,7 +208,9 @@ mod tests {
             "[data-slot=\"card-stack\"] > span {\n  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;"
         ));
         assert!(css.contains("border-radius: calc(var(--cronus-radius, 14px) + 8px);\n  border: 1px solid var(--cronus-border);\n  background: var(--cronus-surface-raised);\n  padding: 1.25rem;"));
-        assert!(css.contains("[data-slot=\"card-stack-item\"]:nth-of-type(1) { translate: 0px 0px; }"));
+        assert!(
+            css.contains("[data-slot=\"card-stack-item\"]:nth-of-type(1) { translate: 0px 0px; }")
+        );
         assert!(css.contains(
             "[data-slot=\"card-stack-item\"]:nth-of-type(2) {\n  translate: 10px 10px; transform: scale(0.96) rotate(-1.5deg);\n}"
         ));

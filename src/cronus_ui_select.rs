@@ -32,7 +32,8 @@ mod tests {
         assert!(!html.contains("select-control"));
         assert!(!html.contains("style="));
         assert!(!html.contains("zinc-"));
-        let interact = crate::cronus_ui_interact::render("select", &stub("select", "Plan")).unwrap();
+        let interact =
+            crate::cronus_ui_interact::render("select", &stub("select", "Plan")).unwrap();
         assert_ne!(html, interact);
     }
 

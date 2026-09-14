@@ -26,7 +26,8 @@ pub fn render(comp: &ComponentNode) -> String {
     }
 
     let disabled_attr = if disabled { " disabled" } else { "" };
-    let primary = format!("<button type=\"button\" data-slot=\"button\"{disabled_attr}>{label}</button>");
+    let primary =
+        format!("<button type=\"button\" data-slot=\"button\"{disabled_attr}>{label}</button>");
     let chevron = format!(
         "<button type=\"button\" data-slot=\"button\" aria-label=\"{menu_label}\" aria-haspopup=\"menu\" disabled>{CHEVRON}</button>"
     );
@@ -110,7 +111,9 @@ mod tests {
         let mut c = stub("split-button", "Save");
         c.items.push(extra("Duplicate"));
         c.items.push(extra("Archive"));
-        c.items[2].config.insert("aria-label".into(), "Save actions".into());
+        c.items[2]
+            .config
+            .insert("aria-label".into(), "Save actions".into());
         let html = render(&c);
         assert_eq!(
             html,
@@ -170,7 +173,9 @@ mod tests {
         assert!(css.contains(
             "[data-slot=\"split-button\"][data-variant=\"primary\"] > [data-slot=\"button\"] { border-width: 0; }"
         ));
-        assert!(css.contains("[data-slot=\"split-button\"] > [data-slot=\"button\"]:last-of-type::before"));
+        assert!(css.contains(
+            "[data-slot=\"split-button\"] > [data-slot=\"button\"]:last-of-type::before"
+        ));
         assert!(css.contains("aspect-ratio: 1"));
         assert!(!css.contains("zinc-"));
     }

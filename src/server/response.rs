@@ -27,15 +27,23 @@ pub(crate) fn json_response(status: StatusCode, body: Value) -> Response<Full<By
     let mut builder = Response::builder()
         .status(status)
         .header("Content-Type", "application/json")
-        .header("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
-        .header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        .header(
+            "Access-Control-Allow-Methods",
+            "GET, POST, PATCH, PUT, DELETE, OPTIONS",
+        )
+        .header(
+            "Access-Control-Allow-Headers",
+            "Content-Type, Authorization",
+        );
     if origin != "same-origin" {
         builder = builder.header("Access-Control-Allow-Origin", origin);
     }
     for (k, v) in crate::security::security_headers() {
         builder = builder.header(k, v);
     }
-    builder.body(Full::new(Bytes::from(body.to_string()))).unwrap()
+    builder
+        .body(Full::new(Bytes::from(body.to_string())))
+        .unwrap()
 }
 
 // ──────────────────────────────────────────────
@@ -48,15 +56,25 @@ pub(crate) fn html_response(body: String) -> Response<Full<Bytes>> {
     final_body = crate::voodoo::inject_into_html(final_body);
     // Inject SSE client JS into every HTML page (before </body>)
     if let Some(pos) = final_body.rfind("</body>") {
-        let sse_script = format!("<script{}>{}</script>\n", nonce_attr, crate::sse::SSE_CLIENT_JS);
+        let sse_script = format!(
+            "<script{}>{}</script>\n",
+            nonce_attr,
+            crate::sse::SSE_CLIENT_JS
+        );
         final_body.insert_str(pos, &sse_script);
     }
     // Inject debug overlay JS when debug mode is active (env var or CLI flag)
     let debug_active = crate::DEBUG_MODE.load(Ordering::Relaxed)
-        || std::env::var("CRONUS_DEBUG").map(|v| v == "1" || v == "true").unwrap_or(false);
+        || std::env::var("CRONUS_DEBUG")
+            .map(|v| v == "1" || v == "true")
+            .unwrap_or(false);
     if debug_active {
         if let Some(pos) = final_body.rfind("</body>") {
-            let debug_script = format!("<script{}>{}</script>\n", nonce_attr, crate::render::CRONUS_DEBUG_JS);
+            let debug_script = format!(
+                "<script{}>{}</script>\n",
+                nonce_attr,
+                crate::render::CRONUS_DEBUG_JS
+            );
             final_body.insert_str(pos, &debug_script);
         }
     }
@@ -81,9 +99,7 @@ pub(crate) fn html_response(body: String) -> Response<Full<Bytes>> {
     for (k, v) in crate::security::security_headers() {
         builder = builder.header(k, v);
     }
-    builder
-        .body(Full::new(Bytes::from(final_body)))
-        .unwrap()
+    builder.body(Full::new(Bytes::from(final_body))).unwrap()
 }
 
 // ──────────────────────────────────────────────
@@ -91,7 +107,8 @@ pub(crate) fn html_response(body: String) -> Response<Full<Bytes>> {
 // ──────────────────────────────────────────────
 
 pub(crate) fn forbidden_response(message: &str) -> Response<Full<Bytes>> {
-    let html = format!(r##"<!DOCTYPE html>
+    let html = format!(
+        r##"<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>403 Forbidden</title>
 <style>
   * {{ margin:0; padding:0; box-sizing:border-box; }}
@@ -106,7 +123,9 @@ pub(crate) fn forbidden_response(message: &str) -> Response<Full<Bytes>> {
   <div class="code">403</div>
   <div class="msg">{}</div>
   <a href="/">Back to dashboard</a>
-</div></body></html>"##, message);
+</div></body></html>"##,
+        message
+    );
     Response::builder()
         .status(StatusCode::FORBIDDEN)
         .header("Content-Type", "text/html; charset=utf-8")
@@ -145,9 +164,10 @@ fn inject_audit_if_enabled(html: String) -> String {
                 let is_hex_color = n == n.floor() && n >= 100000.0 && n <= 999999.0;
                 // Skip common CSS/config numbers
                 let is_css_noise = [
-                    24.0, 32.0, 36.0, 48.0, 64.0, 96.0, 128.0, 256.0, 512.0,
-                    0.125, 0.25, 0.5, 0.75, 0.15, 0.2, 0.3, 0.05, 0.08, 0.1, 0.04, 0.06,
-                ].contains(&n);
+                    24.0, 32.0, 36.0, 48.0, 64.0, 96.0, 128.0, 256.0, 512.0, 0.125, 0.25, 0.5,
+                    0.75, 0.15, 0.2, 0.3, 0.05, 0.08, 0.1, 0.04, 0.06,
+                ]
+                .contains(&n);
                 if !is_hex_color && !is_css_noise {
                     ref_numbers.push(n);
                 }
@@ -160,12 +180,18 @@ fn inject_audit_if_enabled(html: String) -> String {
         if trimmed.len() >= 3 && trimmed.len() <= 120 {
             let lower = trimmed.to_lowercase();
             // Skip CSS/Tailwind noise
-            if !lower.contains("tailwind") && !lower.contains("font-variation")
-                && !lower.contains("border-radius") && !lower.contains("rgba(")
-                && !lower.contains("linear-gradient") && !lower.contains("backdrop-filter")
-                && !lower.contains("clip-path") && !lower.contains("animation")
-                && !lower.starts_with('.') && !lower.starts_with('#')
-                && !lower.starts_with('{') && !lower.starts_with('@')
+            if !lower.contains("tailwind")
+                && !lower.contains("font-variation")
+                && !lower.contains("border-radius")
+                && !lower.contains("rgba(")
+                && !lower.contains("linear-gradient")
+                && !lower.contains("backdrop-filter")
+                && !lower.contains("clip-path")
+                && !lower.contains("animation")
+                && !lower.starts_with('.')
+                && !lower.starts_with('#')
+                && !lower.starts_with('{')
+                && !lower.starts_with('@')
             {
                 ref_strings.push(lower);
             }
@@ -174,7 +200,8 @@ fn inject_audit_if_enabled(html: String) -> String {
 
     // Build audit script injection
     let numbers_json: Vec<String> = ref_numbers.iter().map(|n| format!("{}", n)).collect();
-    let strings_json: Vec<String> = ref_strings.iter()
+    let strings_json: Vec<String> = ref_strings
+        .iter()
         .map(|s| format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\"")))
         .collect();
 
@@ -222,7 +249,10 @@ fn inject_audit_if_enabled(html: String) -> String {
 fn extract_visible_text(html: &str) -> String {
     let mut result = String::new();
     // Find <body> content
-    let body_start = html.find("<body").and_then(|pos| html[pos..].find('>').map(|p| pos + p + 1)).unwrap_or(0);
+    let body_start = html
+        .find("<body")
+        .and_then(|pos| html[pos..].find('>').map(|p| pos + p + 1))
+        .unwrap_or(0);
     let body_end = html.rfind("</body>").unwrap_or(html.len());
     let body = &html[body_start..body_end];
 
@@ -255,7 +285,9 @@ fn extract_visible_text(html: &str) -> String {
                 i += 1;
             }
             i += 1;
-            if skip_depth == 0 { result.push('\n'); }
+            if skip_depth == 0 {
+                result.push('\n');
+            }
             continue;
         }
         if skip_depth == 0 {
@@ -290,11 +322,17 @@ fn strip_html_tags(html: &str) -> String {
         if in_tag {
             // Detect script/style opening
             let partial = result.to_lowercase();
-            if partial.ends_with("script") { in_script = true; }
-            if partial.ends_with("style") { in_style = true; }
+            if partial.ends_with("script") {
+                in_script = true;
+            }
+            if partial.ends_with("style") {
+                in_style = true;
+            }
             continue;
         }
-        if in_script || in_style { continue; }
+        if in_script || in_style {
+            continue;
+        }
         result.push(ch);
     }
     result
@@ -306,9 +344,16 @@ fn regex_numbers(text: &str) -> Vec<String> {
     let len = chars.len();
     let mut i = 0;
     while i < len {
-        if chars[i].is_ascii_digit() || (chars[i] == '-' && i + 1 < len && chars[i + 1].is_ascii_digit()) {
+        if chars[i].is_ascii_digit()
+            || (chars[i] == '-' && i + 1 < len && chars[i + 1].is_ascii_digit())
+        {
             let start = i;
-            while i < len && (chars[i].is_ascii_digit() || chars[i] == '.' || chars[i] == ',' || chars[i] == '-') {
+            while i < len
+                && (chars[i].is_ascii_digit()
+                    || chars[i] == '.'
+                    || chars[i] == ','
+                    || chars[i] == '-')
+            {
                 i += 1;
             }
             let raw: String = chars[start..i].iter().collect();

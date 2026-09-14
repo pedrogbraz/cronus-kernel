@@ -1,9 +1,9 @@
 #![allow(dead_code, unused_imports)]
 //! Auto-generated documentation pages extracted from main.rs.
 
-use crate::parser::{self, HttpMethod};
-use crate::graph;
 use crate::cli::objective_kernel::reconcile_field_type_str;
+use crate::graph;
+use crate::parser::{self, HttpMethod};
 
 use super::state::AppState;
 
@@ -35,33 +35,70 @@ pub(crate) fn render_auto_docs(state: &AppState) -> String {
     // --- Entities section ---
     let mut entities_html = String::new();
     for (_i, entity) in state.entities.iter().enumerate() {
-        if entity.name.starts_with('_') { continue; }
+        if entity.name.starts_with('_') {
+            continue;
+        }
         let shared_badge = if entity.shared {
-            format!(r##" <span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(129,236,255,0.1);color:{tertiary};margin-left:8px">shared</span>"##, tertiary = t.tertiary)
-        } else { String::new() };
+            format!(
+                r##" <span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(129,236,255,0.1);color:{tertiary};margin-left:8px">shared</span>"##,
+                tertiary = t.tertiary
+            )
+        } else {
+            String::new()
+        };
 
         let mut fields_html = String::new();
         for field in &entity.fields {
             let type_name = reconcile_field_type_str(&field.field_type);
             let mut badges = String::new();
-            if field.required { badges.push_str(&format!(r##"<span style="color:{};font-size:10px;margin-left:8px">required</span>"##, t.primary)); }
-            if field.unique { badges.push_str(&format!(r##"<span style="color:{};font-size:10px;margin-left:8px">unique</span>"##, t.secondary)); }
-            if field.sensitive { badges.push_str(&format!(r##"<span style="color:{};font-size:10px;margin-left:8px">sensitive</span>"##, t.error)); }
+            if field.required {
+                badges.push_str(&format!(
+                    r##"<span style="color:{};font-size:10px;margin-left:8px">required</span>"##,
+                    t.primary
+                ));
+            }
+            if field.unique {
+                badges.push_str(&format!(
+                    r##"<span style="color:{};font-size:10px;margin-left:8px">unique</span>"##,
+                    t.secondary
+                ));
+            }
+            if field.sensitive {
+                badges.push_str(&format!(
+                    r##"<span style="color:{};font-size:10px;margin-left:8px">sensitive</span>"##,
+                    t.error
+                ));
+            }
             if let Some(ref vals) = field.enum_values {
                 let joined = vals.join(" | ");
-                badges.push_str(&format!(r##"<span style="color:{};font-size:10px;margin-left:8px">[{}]</span>"##, t.on_surface_variant, joined));
+                badges.push_str(&format!(
+                    r##"<span style="color:{};font-size:10px;margin-left:8px">[{}]</span>"##,
+                    t.on_surface_variant, joined
+                ));
             }
             if let Some(min_val) = field.min {
-                badges.push_str(&format!(r##"<span style="color:#10b981;font-size:10px;margin-left:8px">min:{}</span>"##, min_val));
+                badges.push_str(&format!(
+                    r##"<span style="color:#10b981;font-size:10px;margin-left:8px">min:{}</span>"##,
+                    min_val
+                ));
             }
             if let Some(max_val) = field.max {
-                badges.push_str(&format!(r##"<span style="color:#10b981;font-size:10px;margin-left:8px">max:{}</span>"##, max_val));
+                badges.push_str(&format!(
+                    r##"<span style="color:#10b981;font-size:10px;margin-left:8px">max:{}</span>"##,
+                    max_val
+                ));
             }
             if let Some(min_len) = field.min_length {
-                badges.push_str(&format!(r##"<span style="color:#10b981;font-size:10px;margin-left:8px">min:{}</span>"##, min_len));
+                badges.push_str(&format!(
+                    r##"<span style="color:#10b981;font-size:10px;margin-left:8px">min:{}</span>"##,
+                    min_len
+                ));
             }
             if let Some(max_len) = field.max_length {
-                badges.push_str(&format!(r##"<span style="color:#10b981;font-size:10px;margin-left:8px">max:{}</span>"##, max_len));
+                badges.push_str(&format!(
+                    r##"<span style="color:#10b981;font-size:10px;margin-left:8px">max:{}</span>"##,
+                    max_len
+                ));
             }
             if let Some(ref pat) = field.pattern {
                 badges.push_str(&format!(r##"<span style="color:#10b981;font-size:10px;margin-left:8px">match:{}</span>"##, pat));
@@ -69,20 +106,30 @@ pub(crate) fn render_auto_docs(state: &AppState) -> String {
             let field_doc_html = if let Some(ref doc) = field.doc {
                 let mut parts = Vec::new();
                 if !doc.summary.is_empty() {
-                    parts.push(format!(r##"<span style="color:#757575;font-size:11px;margin-left:8px">{}</span>"##, doc.summary));
+                    parts.push(format!(
+                        r##"<span style="color:#757575;font-size:11px;margin-left:8px">{}</span>"##,
+                        doc.summary
+                    ));
                 }
                 for tag in &doc.tags {
-                    if tag.name == "ai" { continue; }
+                    if tag.name == "ai" {
+                        continue;
+                    }
                     let tag_color = match tag.name.as_str() {
                         "example" => "#10b981",
                         "business" => "#f59e0b",
                         "deprecated" => "#ef4444",
                         _ => "#484848",
                     };
-                    parts.push(format!(r##"<span style="color:{};font-size:10px;margin-left:8px">@{} {}</span>"##, tag_color, tag.name, tag.value));
+                    parts.push(format!(
+                        r##"<span style="color:{};font-size:10px;margin-left:8px">@{} {}</span>"##,
+                        tag_color, tag.name, tag.value
+                    ));
                 }
                 parts.join("")
-            } else { String::new() };
+            } else {
+                String::new()
+            };
 
             fields_html.push_str(&format!(
                 r##"<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;justify-content:space-between;align-items:center"><div style="display:flex;align-items:center;gap:8px"><span style="color:{on_surface};font-family:monospace;font-size:13px">{}</span><span style="color:{primary};font-size:11px;font-family:monospace">{}</span></div><div>{}</div></div>{}</div>"##,
@@ -93,10 +140,16 @@ pub(crate) fn render_auto_docs(state: &AppState) -> String {
         let entity_doc_html = if let Some(ref doc) = entity.doc {
             let mut html = String::new();
             if !doc.summary.is_empty() {
-                html.push_str(&format!(r##"<p style="color:{};font-size:13px;margin:4px 0 0">{}</p>"##, t.on_surface_variant, doc.summary));
+                html.push_str(&format!(
+                    r##"<p style="color:{};font-size:13px;margin:4px 0 0">{}</p>"##,
+                    t.on_surface_variant, doc.summary
+                ));
             }
             if !doc.description.is_empty() {
-                html.push_str(&format!(r##"<p style="color:#757575;font-size:12px;margin:4px 0 0">{}</p>"##, doc.description));
+                html.push_str(&format!(
+                    r##"<p style="color:#757575;font-size:12px;margin:4px 0 0">{}</p>"##,
+                    doc.description
+                ));
             }
             let tags_html: String = doc.tags.iter().filter(|tg| tg.name != "ai").map(|tg| {
                 let color = match tg.name.as_str() {
@@ -108,10 +161,15 @@ pub(crate) fn render_auto_docs(state: &AppState) -> String {
                 format!(r##"<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.03);color:{};margin-right:6px">@{} {}</span>"##, color, tg.name, tg.value)
             }).collect();
             if !tags_html.is_empty() {
-                html.push_str(&format!(r##"<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">{}</div>"##, tags_html));
+                html.push_str(&format!(
+                    r##"<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">{}</div>"##,
+                    tags_html
+                ));
             }
             html
-        } else { String::new() };
+        } else {
+            String::new()
+        };
 
         // Build transition diagram HTML if entity has transitions
         let transitions_html = if !entity.transitions.is_empty() {
@@ -122,7 +180,9 @@ pub(crate) fn render_auto_docs(state: &AppState) -> String {
                     r##"<div style="margin-bottom:8px"><span style="color:{primary};font-size:12px;font-family:monospace">{field}</span></div>"##,
                     primary = t.primary, field = trans.field
                 ));
-                html.push_str(r##"<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">"##);
+                html.push_str(
+                    r##"<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">"##,
+                );
                 for rule in &trans.rules {
                     let targets = rule.to.join(", ");
                     html.push_str(&format!(
@@ -174,7 +234,9 @@ pub(crate) fn render_auto_docs(state: &AppState) -> String {
                     parts.push(format!(r##"<div style="color:#ababab;font-size:12px;margin:4px 0 0 72px">{}</div>"##, doc.summary));
                 }
                 for tag in &doc.tags {
-                    if tag.name == "ai" { continue; }
+                    if tag.name == "ai" {
+                        continue;
+                    }
                     let tag_color = match tag.name.as_str() {
                         "param" => "#87adff",
                         "returns" => "#10b981",
@@ -185,7 +247,9 @@ pub(crate) fn render_auto_docs(state: &AppState) -> String {
                     parts.push(format!(r##"<div style="color:{};font-size:11px;margin:2px 0 0 72px">@{} {}</div>"##, tag_color, tag.name, tag.value));
                 }
                 parts.join("")
-            } else { String::new() };
+            } else {
+                String::new()
+            };
             routes_html.push_str(&format!(
                 r##"<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;align-items:center;gap:12px"><span style="font-family:monospace;font-size:11px;font-weight:700;color:{color};min-width:60px">{method}</span><span style="font-family:monospace;font-size:13px;color:#e2e2e2">{path}</span><span style="font-size:11px;color:#ababab;margin-left:auto">{name}</span></div>{route_doc}</div>"##,
                 color = method_color,
@@ -209,28 +273,49 @@ pub(crate) fn render_auto_docs(state: &AppState) -> String {
         let title = page.title.as_deref().unwrap_or("-");
         let _ptype = &page.page_type;
         let section_count = page.sections.len();
-        let auth = if page.requires.is_some() { "auth required" } else { "public" };
-        let auth_color = if page.requires.is_some() { "#f59e0b" } else { "#10b981" };
+        let auth = if page.requires.is_some() {
+            "auth required"
+        } else {
+            "public"
+        };
+        let auth_color = if page.requires.is_some() {
+            "#f59e0b"
+        } else {
+            "#10b981"
+        };
         let page_doc_html = if let Some(ref doc) = page.doc {
             let mut parts = Vec::new();
             if !doc.summary.is_empty() {
-                parts.push(format!(r##"<div style="color:#ababab;font-size:12px;margin:4px 0 0 0">{}</div>"##, doc.summary));
+                parts.push(format!(
+                    r##"<div style="color:#ababab;font-size:12px;margin:4px 0 0 0">{}</div>"##,
+                    doc.summary
+                ));
             }
             if !doc.description.is_empty() {
-                parts.push(format!(r##"<div style="color:#757575;font-size:11px;margin:2px 0 0 0">{}</div>"##, doc.description));
+                parts.push(format!(
+                    r##"<div style="color:#757575;font-size:11px;margin:2px 0 0 0">{}</div>"##,
+                    doc.description
+                ));
             }
             for tag in &doc.tags {
-                if tag.name == "ai" { continue; }
+                if tag.name == "ai" {
+                    continue;
+                }
                 let tag_color = match tag.name.as_str() {
                     "requires" => "#f59e0b",
                     "layout" => "#87adff",
                     "since" => "#757575",
                     _ => "#484848",
                 };
-                parts.push(format!(r##"<div style="color:{};font-size:10px;margin:2px 0 0 0">@{} {}</div>"##, tag_color, tag.name, tag.value));
+                parts.push(format!(
+                    r##"<div style="color:{};font-size:10px;margin:2px 0 0 0">@{} {}</div>"##,
+                    tag_color, tag.name, tag.value
+                ));
             }
             parts.join("")
-        } else { String::new() };
+        } else {
+            String::new()
+        };
         pages_html.push_str(&format!(
             r##"<div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;justify-content:space-between;align-items:center"><div style="display:flex;align-items:center;gap:12px"><span style="font-family:monospace;font-size:14px;color:var(--primary)">{route}</span><span style="font-size:12px;color:#ababab">{title}</span></div><div style="display:flex;align-items:center;gap:12px"><span style="font-size:10px;color:#ababab">{sections} sections</span><span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.03);color:{auth_color}">{auth}</span></div></div>{page_doc}</div>"##,
             route = route, title = title, sections = section_count, auth = auth, auth_color = auth_color, page_doc = page_doc_html,
@@ -291,10 +376,15 @@ pub(crate) fn render_auto_docs(state: &AppState) -> String {
             format!(r##"<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.03);color:{};margin-right:6px">@{} {}</span>"##, color, t.name, t.value)
         }).collect();
         if !tags.is_empty() {
-            html.push_str(&format!(r##"<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:4px">{}</div>"##, tags.join("")));
+            html.push_str(&format!(
+                r##"<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:4px">{}</div>"##,
+                tags.join("")
+            ));
         }
         html
-    } else { String::new() };
+    } else {
+        String::new()
+    };
 
     // --- Full page ---
     format!(
@@ -482,10 +572,18 @@ window.addEventListener('scroll',function(){{
         entities = entities_html,
         api = api_html,
         pages = pages_html,
-        webhooks_section = if has_webhooks { webhooks_html } else { r#"<p style="color:#757575">No webhooks configured. Add a <code style="background:#191919;color:var(--primary);padding:2px 6px;border-radius:4px;font-size:13px;font-family:monospace">webhook</code> block to your .cronus file.</p>"#.to_string() },
+        webhooks_section = if has_webhooks {
+            webhooks_html
+        } else {
+            r#"<p style="color:#757575">No webhooks configured. Add a <code style="background:#191919;color:var(--primary);padding:2px 6px;border-radius:4px;font-size:13px;font-family:monospace">webhook</code> block to your .cronus file.</p>"#.to_string()
+        },
         cronus_preview = cronus_preview,
         app_doc = app_doc_html,
-        entity_count = state.entities.iter().filter(|e| !e.name.starts_with('_')).count(),
+        entity_count = state
+            .entities
+            .iter()
+            .filter(|e| !e.name.starts_with('_'))
+            .count(),
         api_count = state.apis.len(),
         page_count = state.pages.len(),
     )
@@ -498,9 +596,21 @@ pub(crate) fn render_design_system(state: &AppState) -> String {
     let t = crate::theme::get();
 
     // Extract style info
-    let accent = state.style.as_ref().and_then(|s| s.accent.as_deref()).unwrap_or("#87adff");
-    let font = state.style.as_ref().and_then(|s| s.font.as_deref()).unwrap_or("Inter");
-    let theme_mode = state.style.as_ref().and_then(|s| s.theme.as_deref()).unwrap_or("dark");
+    let accent = state
+        .style
+        .as_ref()
+        .and_then(|s| s.accent.as_deref())
+        .unwrap_or("#87adff");
+    let font = state
+        .style
+        .as_ref()
+        .and_then(|s| s.font.as_deref())
+        .unwrap_or("Inter");
+    let theme_mode = state
+        .style
+        .as_ref()
+        .and_then(|s| s.theme.as_deref())
+        .unwrap_or("dark");
 
     // Color palette from theme tokens
     let colors = vec![
@@ -530,15 +640,37 @@ pub(crate) fn render_design_system(state: &AppState) -> String {
     let type_scale = vec![
         ("Display", "48px", "900", font, "The quick brown fox"),
         ("Headline", "32px", "700", font, "The quick brown fox jumps"),
-        ("Title", "20px", "700", "Inter", "The quick brown fox jumps over the lazy dog"),
-        ("Body", "14px", "400", "Inter", "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs."),
+        (
+            "Title",
+            "20px",
+            "700",
+            "Inter",
+            "The quick brown fox jumps over the lazy dog",
+        ),
+        (
+            "Body",
+            "14px",
+            "400",
+            "Inter",
+            "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.",
+        ),
         ("Label", "11px", "700", font, "UPPERCASE TRACKING WIDE"),
-        ("Mono", "13px", "400", "monospace", "const x = await fetch('/api/data');"),
+        (
+            "Mono",
+            "13px",
+            "400",
+            "monospace",
+            "const x = await fetch('/api/data');",
+        ),
     ];
 
     let mut type_html = String::new();
     for (name, size, weight, family, sample) in &type_scale {
-        let ls = if *name == "Label" { "letter-spacing:0.15em;text-transform:uppercase;" } else { "" };
+        let ls = if *name == "Label" {
+            "letter-spacing:0.15em;text-transform:uppercase;"
+        } else {
+            ""
+        };
         type_html.push_str(&format!(
             r##"<div style="padding:20px 0;border-bottom:1px solid rgba(255,255,255,0.03)"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><span style="font-size:10px;color:#757575;text-transform:uppercase;letter-spacing:0.15em;font-family:Space Grotesk,sans-serif;font-weight:700">{name}</span><span style="font-family:monospace;font-size:10px;color:#484848">{size} / {weight}</span></div><p style="font-family:{family},sans-serif;font-size:{size};font-weight:{weight};color:#e2e2e2;margin:0;{ls}">{sample}</p></div>"##,
             name = name, size = size, weight = weight, family = family, sample = sample, ls = ls,
@@ -553,7 +685,11 @@ pub(crate) fn render_design_system(state: &AppState) -> String {
       <p style="color:#757575;margin-bottom:24px;font-size:14px">{desc}</p>
       {content}
     </section>"##,
-            id = id, num = num, title = title, desc = desc, content = content,
+            id = id,
+            num = num,
+            title = title,
+            desc = desc,
+            content = content,
         )
     };
 
@@ -561,7 +697,9 @@ pub(crate) fn render_design_system(state: &AppState) -> String {
     let comp = |name: &str, cronus_syntax: &str, rendered: &str| -> String {
         format!(
             r##"<div style="background:rgba(25,25,25,0.8);backdrop-filter:blur(40px);border-radius:12px;border:1px solid rgba(255,255,255,0.03);border-top:0.5px solid rgba(135,173,255,0.2);margin-bottom:16px;overflow:hidden"><div style="padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.03);display:flex;justify-content:space-between;align-items:center"><span style="font-family:Space Grotesk,sans-serif;font-size:13px;font-weight:700;color:#e2e2e2">{name}</span><code style="font-size:10px;color:var(--primary);background:#191919;padding:2px 8px;border-radius:4px">{syntax}</code></div><div style="padding:24px;display:flex;flex-wrap:wrap;align-items:center;gap:12px">{rendered}</div></div>"##,
-            name = name, syntax = cronus_syntax, rendered = rendered,
+            name = name,
+            syntax = cronus_syntax,
+            rendered = rendered,
         )
     };
 
@@ -572,12 +710,28 @@ pub(crate) fn render_design_system(state: &AppState) -> String {
 
     let buttons = format!(
         r##"<button style="{}">Primary</button><button style="{}">Secondary</button><button style="{}">Ghost</button><button style="{}">Danger</button><button style="{};font-size:10px;padding:6px 12px">Small</button><button style="{};font-size:14px;padding:14px 28px">Large</button>"##,
-        btn_style("linear-gradient(135deg,var(--primary),var(--secondary))", "#000", "none"),
+        btn_style(
+            "linear-gradient(135deg,var(--primary),var(--secondary))",
+            "#000",
+            "none"
+        ),
         btn_style("#191919", "#e2e2e2", "0.5px solid rgba(255,255,255,0.1)"),
         btn_style("transparent", "#ababab", "1px solid transparent"),
-        btn_style("rgba(239,68,68,0.1)", "#ef4444", "1px solid rgba(239,68,68,0.2)"),
-        btn_style("linear-gradient(135deg,var(--primary),var(--secondary))", "#000", "none"),
-        btn_style("linear-gradient(135deg,var(--primary),var(--secondary))", "#000", "none"),
+        btn_style(
+            "rgba(239,68,68,0.1)",
+            "#ef4444",
+            "1px solid rgba(239,68,68,0.2)"
+        ),
+        btn_style(
+            "linear-gradient(135deg,var(--primary),var(--secondary))",
+            "#000",
+            "none"
+        ),
+        btn_style(
+            "linear-gradient(135deg,var(--primary),var(--secondary))",
+            "#000",
+            "none"
+        ),
     );
 
     let input_style = "width:240px;background:#000;border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:12px 16px;color:#fff;font-size:14px;outline:none;font-family:Inter,sans-serif";
@@ -614,9 +768,15 @@ pub(crate) fn render_design_system(state: &AppState) -> String {
 
     // TOC
     let toc_items = vec![
-        ("colors", "Color Palette"), ("typography", "Typography"), ("buttons", "Buttons"),
-        ("inputs", "Inputs"), ("selects", "Select"), ("badges", "Status Badges"),
-        ("kpi", "KPI Cards"), ("alerts", "Alerts"), ("modal", "Modal"),
+        ("colors", "Color Palette"),
+        ("typography", "Typography"),
+        ("buttons", "Buttons"),
+        ("inputs", "Inputs"),
+        ("selects", "Select"),
+        ("badges", "Status Badges"),
+        ("kpi", "KPI Cards"),
+        ("alerts", "Alerts"),
+        ("modal", "Modal"),
     ];
     let toc: String = toc_items.iter().enumerate().map(|(i, (id, name))| {
         let dot = if i == 0 {
@@ -731,9 +891,8 @@ window.addEventListener('scroll',function(){{
 pub(crate) fn render_graph_page(state: &AppState) -> String {
     let script_nonce = crate::security::script_nonce_attr();
     let app_name = &state.app.name;
-    let relationship_graph = graph::build_graph_from_state(
-        &state.entities, &state.pages, &state.webhooks,
-    );
+    let relationship_graph =
+        graph::build_graph_from_state(&state.entities, &state.pages, &state.webhooks);
     let mermaid_code = graph::to_mermaid(&relationship_graph);
     // Escape backticks and backslashes for safe JS embedding
     let _mermaid_escaped = mermaid_code
@@ -741,7 +900,8 @@ pub(crate) fn render_graph_page(state: &AppState) -> String {
         .replace('`', "\\`")
         .replace("${", "\\${");
 
-    format!(r##"<!DOCTYPE html>
+    format!(
+        r##"<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
@@ -816,7 +976,11 @@ mermaid.initialize({{
 </html>"##,
         app_name = app_name,
         mermaid_code = mermaid_code,
-        entity_count = state.entities.iter().filter(|e| !e.name.starts_with('_')).count(),
+        entity_count = state
+            .entities
+            .iter()
+            .filter(|e| !e.name.starts_with('_'))
+            .count(),
         relation_count = relationship_graph.entity_relations.len(),
         binding_count = relationship_graph.page_bindings.len(),
         webhook_count = relationship_graph.webhook_flows.len(),

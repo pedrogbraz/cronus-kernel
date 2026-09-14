@@ -3,8 +3,8 @@
 //! Exports project AST in multiple portable formats:
 //! json, openapi, sql, typescript.
 
-use serde_json::{json, Value};
 use crate::parser::*;
+use serde_json::{json, Value};
 
 // ══════════════════════════════════════════════════
 // JSON EXPORT — Full AST dump
@@ -75,31 +75,49 @@ pub fn export_json(nodes: &[AstNode]) -> String {
 }
 
 fn entity_to_json(e: &EntityNode) -> Value {
-    let fields: Vec<Value> = e.fields.iter().map(|f| {
-        let mut obj = json!({
-            "name": f.name,
-            "type": field_type_str(&f.field_type),
-            "required": f.required,
-            "optional": f.optional,
-        });
-        if f.unique { obj["unique"] = json!(true); }
-        if f.sensitive { obj["sensitive"] = json!(true); }
-        if f.searchable { obj["searchable"] = json!(true); }
-        if f.index { obj["index"] = json!(true); }
-        if f.featured { obj["featured"] = json!(true); }
-        if f.formatted { obj["formatted"] = json!(true); }
-        if f.array { obj["array"] = json!(true); }
-        if let Some(ref vals) = f.enum_values {
-            obj["enum_values"] = json!(vals);
-        }
-        if let Some(ref r) = f.reference {
-            obj["reference"] = json!(r);
-        }
-        if let Some(ref d) = f.doc {
-            obj["doc"] = json!(d.summary);
-        }
-        obj
-    }).collect();
+    let fields: Vec<Value> = e
+        .fields
+        .iter()
+        .map(|f| {
+            let mut obj = json!({
+                "name": f.name,
+                "type": field_type_str(&f.field_type),
+                "required": f.required,
+                "optional": f.optional,
+            });
+            if f.unique {
+                obj["unique"] = json!(true);
+            }
+            if f.sensitive {
+                obj["sensitive"] = json!(true);
+            }
+            if f.searchable {
+                obj["searchable"] = json!(true);
+            }
+            if f.index {
+                obj["index"] = json!(true);
+            }
+            if f.featured {
+                obj["featured"] = json!(true);
+            }
+            if f.formatted {
+                obj["formatted"] = json!(true);
+            }
+            if f.array {
+                obj["array"] = json!(true);
+            }
+            if let Some(ref vals) = f.enum_values {
+                obj["enum_values"] = json!(vals);
+            }
+            if let Some(ref r) = f.reference {
+                obj["reference"] = json!(r);
+            }
+            if let Some(ref d) = f.doc {
+                obj["doc"] = json!(d.summary);
+            }
+            obj
+        })
+        .collect();
 
     let mut obj = json!({
         "name": e.name,
@@ -110,36 +128,44 @@ fn entity_to_json(e: &EntityNode) -> Value {
         obj["doc"] = json!(d.summary);
     }
     if !e.transitions.is_empty() {
-        let transitions: Vec<Value> = e.transitions.iter().map(|t| {
-            json!({
-                "field": t.field,
-                "rules": t.rules.iter().map(|r| json!({
-                    "from": r.from,
-                    "to": r.to,
-                })).collect::<Vec<Value>>(),
+        let transitions: Vec<Value> = e
+            .transitions
+            .iter()
+            .map(|t| {
+                json!({
+                    "field": t.field,
+                    "rules": t.rules.iter().map(|r| json!({
+                        "from": r.from,
+                        "to": r.to,
+                    })).collect::<Vec<Value>>(),
+                })
             })
-        }).collect();
+            .collect();
         obj["transitions"] = json!(transitions);
     }
     obj
 }
 
 fn api_to_json(a: &ApiNode) -> Value {
-    let routes: Vec<Value> = a.routes.iter().map(|r| {
-        let mut obj = json!({
-            "name": r.name,
-            "method": format!("{:?}", r.method),
-            "path": r.path,
-            "auth": r.auth,
-        });
-        if !r.roles.is_empty() {
-            obj["roles"] = json!(r.roles);
-        }
-        if let Some(ref d) = r.doc {
-            obj["doc"] = json!(d.summary);
-        }
-        obj
-    }).collect();
+    let routes: Vec<Value> = a
+        .routes
+        .iter()
+        .map(|r| {
+            let mut obj = json!({
+                "name": r.name,
+                "method": format!("{:?}", r.method),
+                "path": r.path,
+                "auth": r.auth,
+            });
+            if !r.roles.is_empty() {
+                obj["roles"] = json!(r.roles);
+            }
+            if let Some(ref d) = r.doc {
+                obj["doc"] = json!(d.summary);
+            }
+            obj
+        })
+        .collect();
 
     let mut obj = json!({
         "prefix": a.prefix,
@@ -175,14 +201,18 @@ fn page_to_json(p: &PageNode) -> Value {
 }
 
 fn webhook_to_json(w: &WebhookNode) -> Value {
-    let hooks: Vec<Value> = w.hooks.iter().map(|h| {
-        json!({
-            "event": h.event,
-            "method": h.method,
-            "url": h.url,
-            "headers": h.headers.iter().map(|(k, v)| json!({k: v})).collect::<Vec<_>>(),
+    let hooks: Vec<Value> = w
+        .hooks
+        .iter()
+        .map(|h| {
+            json!({
+                "event": h.event,
+                "method": h.method,
+                "url": h.url,
+                "headers": h.headers.iter().map(|(k, v)| json!({k: v})).collect::<Vec<_>>(),
+            })
         })
-    }).collect();
+        .collect();
 
     json!({
         "entity": w.entity,
@@ -192,10 +222,18 @@ fn webhook_to_json(w: &WebhookNode) -> Value {
 
 fn style_to_json(s: &StyleNode) -> Value {
     let mut obj = json!({});
-    if let Some(ref t) = s.theme { obj["theme"] = json!(t); }
-    if let Some(ref a) = s.accent { obj["accent"] = json!(a); }
-    if let Some(ref r) = s.radius { obj["radius"] = json!(r); }
-    if let Some(ref f) = s.font { obj["font"] = json!(f); }
+    if let Some(ref t) = s.theme {
+        obj["theme"] = json!(t);
+    }
+    if let Some(ref a) = s.accent {
+        obj["accent"] = json!(a);
+    }
+    if let Some(ref r) = s.radius {
+        obj["radius"] = json!(r);
+    }
+    if let Some(ref f) = s.font {
+        obj["font"] = json!(f);
+    }
     if !s.config.is_empty() {
         obj["config"] = json!(s.config);
     }
@@ -280,8 +318,14 @@ pub fn export_openapi(nodes: &[AstNode]) -> String {
 
         // Always include id, created_at, updated_at
         properties.insert("id".to_string(), json!({"type": "string"}));
-        properties.insert("created_at".to_string(), json!({"type": "string", "format": "date-time"}));
-        properties.insert("updated_at".to_string(), json!({"type": "string", "format": "date-time"}));
+        properties.insert(
+            "created_at".to_string(),
+            json!({"type": "string", "format": "date-time"}),
+        );
+        properties.insert(
+            "updated_at".to_string(),
+            json!({"type": "string", "format": "date-time"}),
+        );
         required_fields.push(json!("id"));
 
         for f in &e.fields {
@@ -292,11 +336,14 @@ pub fn export_openapi(nodes: &[AstNode]) -> String {
             properties.insert(f.name.clone(), prop);
         }
 
-        schemas.insert(e.name.clone(), json!({
-            "type": "object",
-            "properties": properties,
-            "required": required_fields,
-        }));
+        schemas.insert(
+            e.name.clone(),
+            json!({
+                "type": "object",
+                "properties": properties,
+                "required": required_fields,
+            }),
+        );
     }
 
     let spec = json!({
@@ -342,7 +389,9 @@ fn field_to_openapi_property(f: &FieldNode) -> Value {
                 json!({"type": "string"})
             }
         }
-        FieldType::Relation => json!({"type": "string", "description": format!("Reference to {}", f.reference.as_deref().unwrap_or("unknown"))}),
+        FieldType::Relation => {
+            json!({"type": "string", "description": format!("Reference to {}", f.reference.as_deref().unwrap_or("unknown"))})
+        }
     };
 
     if f.array {
@@ -526,15 +575,24 @@ fn entity_to_typescript(e: &EntityNode) -> String {
 
 fn field_to_ts_type(f: &FieldNode) -> String {
     let base = match f.field_type {
-        FieldType::String | FieldType::Text | FieldType::Email
-        | FieldType::Url | FieldType::Slug | FieldType::Phone
-        | FieldType::Date | FieldType::Ulid | FieldType::Ip => "string".to_string(),
+        FieldType::String
+        | FieldType::Text
+        | FieldType::Email
+        | FieldType::Url
+        | FieldType::Slug
+        | FieldType::Phone
+        | FieldType::Date
+        | FieldType::Ulid
+        | FieldType::Ip => "string".to_string(),
         FieldType::Number | FieldType::Money | FieldType::Percentage => "number".to_string(),
         FieldType::Boolean => "boolean".to_string(),
         FieldType::Json => "Record<string, unknown>".to_string(),
         FieldType::Enum => {
             if let Some(ref vals) = f.enum_values {
-                vals.iter().map(|v| format!("\"{}\"", v)).collect::<Vec<_>>().join(" | ")
+                vals.iter()
+                    .map(|v| format!("\"{}\"", v))
+                    .collect::<Vec<_>>()
+                    .join(" | ")
             } else {
                 "string".to_string()
             }

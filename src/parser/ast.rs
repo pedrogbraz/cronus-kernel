@@ -86,15 +86,15 @@ pub struct EntityNode {
 
 #[derive(Debug, Clone)]
 pub struct EffectBlock {
-    pub event: String,           // "create", "update", "delete"
-    pub field: Option<String>,   // for "on update status" — which field triggers
+    pub event: String,         // "create", "update", "delete"
+    pub field: Option<String>, // for "on update status" — which field triggers
     pub actions: Vec<EffectAction>,
 }
 
 #[derive(Debug, Clone)]
 pub struct EffectAction {
-    pub action_type: String,     // "log", "notify"
-    pub args: Vec<String>,       // for log: [message]; for notify: [provider, channel, message]
+    pub action_type: String,       // "log", "notify"
+    pub args: Vec<String>,         // for log: [message]; for notify: [provider, channel, message]
     pub condition: Option<String>, // "when" value (e.g., "Failed")
 }
 
@@ -224,8 +224,8 @@ pub struct WebhookNode {
 
 #[derive(Debug, Clone)]
 pub struct WebhookHook {
-    pub event: String,   // "create", "update", "delete"
-    pub method: String,  // "POST", "PUT"
+    pub event: String,  // "create", "update", "delete"
+    pub method: String, // "POST", "PUT"
     pub url: String,
     pub headers: Vec<(String, String)>,
 }
@@ -233,7 +233,7 @@ pub struct WebhookHook {
 #[derive(Debug, Clone)]
 pub struct VisibilityCondition {
     pub field: String,
-    pub operator: String,  // "==", "!=", ">", "<", ">=", "<="
+    pub operator: String, // "==", "!=", ">", "<", ">=", "<="
     pub value: String,
 }
 
@@ -248,8 +248,8 @@ pub struct SectionNode {
     pub binding: Option<BindingNode>,
     pub actions: Vec<ActionBlock>,
     pub visibility: Option<VisibilityCondition>,
-    pub template: Option<String>,      // raw HTML template for visual preservation
-    pub style_block: Option<String>,   // scoped CSS for visual preservation
+    pub template: Option<String>, // raw HTML template for visual preservation
+    pub style_block: Option<String>, // scoped CSS for visual preservation
     pub doc: Option<DocComment>,
 }
 
@@ -271,7 +271,7 @@ pub struct BindingNode {
     pub offset: Option<usize>,
     pub group_by: Option<GroupByExpr>,
     pub aggregate: Option<AggregateExpr>,
-    pub live: bool,  // real-time updates via SSE
+    pub live: bool, // real-time updates via SSE
     /// `bind X { scope:public }` — skip `_owner_id` filter (marketing, shared catalogs).
     pub public: bool,
 }
@@ -284,12 +284,16 @@ pub struct GroupByExpr {
 
 #[derive(Debug, Clone)]
 pub struct AggregateExpr {
-    pub function: String,        // "sum", "count", "avg", "min", "max"
-    pub field: Option<String>,   // None for count, Some("amount") for sum(amount)
+    pub function: String,      // "sum", "count", "avg", "min", "max"
+    pub field: Option<String>, // None for count, Some("amount") for sum(amount)
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum QueryType { All, One, Count }
+pub enum QueryType {
+    All,
+    One,
+    Count,
+}
 
 #[derive(Debug, Clone)]
 pub struct FilterExpr {
@@ -299,7 +303,16 @@ pub struct FilterExpr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum FilterOp { Eq, Ne, Gt, Gte, Lt, Lte, Contains, StartsWith }
+pub enum FilterOp {
+    Eq,
+    Ne,
+    Gt,
+    Gte,
+    Lt,
+    Lte,
+    Contains,
+    StartsWith,
+}
 
 #[derive(Debug, Clone)]
 pub struct OrderExpr {
@@ -308,7 +321,10 @@ pub struct OrderExpr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum OrderDirection { Asc, Desc }
+pub enum OrderDirection {
+    Asc,
+    Desc,
+}
 
 #[derive(Debug, Clone)]
 pub enum BindingValue {
@@ -320,15 +336,15 @@ pub enum BindingValue {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ActionInstruction {
-    pub verb: String,        // "set", "toast", "navigate", "refresh", "create", "confirm", "delete", "validate", "open", "close"
-    pub target: String,      // field name, URL, message text, section ref
-    pub value: String,       // new value for "set", style for "toast"
+    pub verb: String, // "set", "toast", "navigate", "refresh", "create", "confirm", "delete", "validate", "open", "close"
+    pub target: String, // field name, URL, message text, section ref
+    pub value: String, // new value for "set", style for "toast"
     pub modifiers: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ActionBlock {
-    pub event: String,       // "click", "submit", "error", "change"
+    pub event: String, // "click", "submit", "error", "change"
     pub confirm: Option<String>,
     pub instructions: Vec<ActionInstruction>,
 }
@@ -341,8 +357,8 @@ pub struct PageNode {
     pub title: Option<String>,
     pub sections: Vec<SectionNode>,
     pub config: HashMap<String, String>,
-    pub components: Vec<String>,  // referenced component names via `use ComponentName`
-    pub requires: Option<String>,  // "auth", "role(admin)", etc.
+    pub components: Vec<String>, // referenced component names via `use ComponentName`
+    pub requires: Option<String>, // "auth", "role(admin)", etc.
     pub doc: Option<DocComment>,
 }
 
@@ -364,9 +380,8 @@ pub struct ServiceNode {
 
 /// The 15 official component item types
 pub const OFFICIAL_ITEM_TYPES: &[&str] = &[
-    "label", "text", "title", "subtitle", "value", "trend", "icon",
-    "action", "item", "tab", "plan", "field", "source", "columns", "slot",
-    // Also allow common UI types:
+    "label", "text", "title", "subtitle", "value", "trend", "icon", "action", "item", "tab",
+    "plan", "field", "source", "columns", "slot", // Also allow common UI types:
     "link", "button", "badge", "cta", "dot", "meta",
 ];
 
@@ -377,17 +392,17 @@ pub fn is_valid_item_type(t: &str) -> bool {
 
 #[derive(Debug, Clone)]
 pub struct ComponentItemNode {
-    pub item_type: String,  // one of OFFICIAL_ITEM_TYPES
+    pub item_type: String, // one of OFFICIAL_ITEM_TYPES
     pub text: String,
     pub link: Option<String>,
-    pub tone: Option<String>,  // success, danger, primary, secondary, accent, default
-    pub config: HashMap<String, String>,  // key:value pairs (price:$29/mo, featured:true, etc)
+    pub tone: Option<String>, // success, danger, primary, secondary, accent, default
+    pub config: HashMap<String, String>, // key:value pairs (price:$29/mo, featured:true, etc)
 }
 
 #[derive(Debug, Clone)]
 pub struct ComponentParam {
     pub name: String,
-    pub param_type: String,  // text, money, integer, boolean, etc. or "any"
+    pub param_type: String, // text, money, integer, boolean, etc. or "any"
     pub default: Option<String>,
     pub required: bool,
 }
@@ -395,14 +410,14 @@ pub struct ComponentParam {
 #[derive(Debug, Clone)]
 pub struct ComponentState {
     pub name: String,
-    pub state_type: String,  // integer, text, boolean, etc.
+    pub state_type: String, // integer, text, boolean, etc.
     pub default: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct ComponentTest {
-    pub name: String,        // test description
-    pub steps: Vec<String>,  // "fill email \"test@test.com\"", "click \"Login\"", "expect visible \".error\""
+    pub name: String,       // test description
+    pub steps: Vec<String>, // "fill email \"test@test.com\"", "click \"Login\"", "expect visible \".error\""
 }
 
 #[derive(Debug, Clone)]
@@ -416,7 +431,7 @@ pub struct ComponentNode {
     pub template: Option<String>,
     pub sections: Vec<SectionNode>,
     pub state: Vec<ComponentState>,
-    pub tests: Vec<ComponentTest>,       // co-located test blocks
+    pub tests: Vec<ComponentTest>, // co-located test blocks
     /// Optional `bind Entity { ... }` so a widget can read live rows/count.
     pub binding: Option<BindingNode>,
 }
@@ -480,19 +495,19 @@ pub struct ComposeNode {
 
 #[derive(Debug, Clone)]
 pub struct AuthNode {
-    pub entity: String,           // "User"
-    pub login_fields: Vec<String>, // ["email", "password"]
-    pub session_type: String,      // "jwt"
+    pub entity: String,                          // "User"
+    pub login_fields: Vec<String>,               // ["email", "password"]
+    pub session_type: String,                    // "jwt"
     pub session_config: HashMap<String, String>, // expires: "24h"
-    pub roles: Vec<String>,        // ["admin", "member", "viewer"]
+    pub roles: Vec<String>,                      // ["admin", "member", "viewer"]
 }
 
 #[derive(Debug, Clone)]
 pub struct LayoutNode {
     pub name: String,
     pub sidebar_items: Vec<LayoutNavItem>,
-    pub sidebar_config: HashMap<String, String>,  // brand, etc
-    pub topbar_config: HashMap<String, String>,    // search placeholder, etc
+    pub sidebar_config: HashMap<String, String>, // brand, etc
+    pub topbar_config: HashMap<String, String>,  // search placeholder, etc
 }
 
 #[derive(Debug, Clone)]
@@ -500,7 +515,7 @@ pub struct LayoutNavItem {
     pub label: String,
     pub route: String,
     pub icon: Option<String>,
-    pub requires: Option<String>,  // role requirement
+    pub requires: Option<String>, // role requirement
     pub is_divider: bool,
 }
 

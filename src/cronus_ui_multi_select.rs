@@ -298,9 +298,7 @@ mod tests {
     #[test]
     fn selected_item_config_marks_options() {
         let mut c = multi("Pick", &["Ada", "Grace"]);
-        c.items[1]
-            .config
-            .insert("selected".into(), "true".into());
+        c.items[1].config.insert("selected".into(), "true".into());
         let html = render(&c);
         assert!(html.contains(&trig("Ada")));
         assert!(html.contains(&first("Ada", true)));
@@ -356,7 +354,9 @@ mod tests {
     #[test]
     fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"multi-select\"] {\n  position: relative; display: block; width: 100%;"));
+        assert!(css.contains(
+            "[data-slot=\"multi-select\"] {\n  position: relative; display: block; width: 100%;"
+        ));
         assert!(css.contains(
             "[data-slot=\"multi-select-trigger\"] {\n  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;\n  width: 100%; min-height: 2.5rem; padding: 0.375rem 0.75rem; box-sizing: border-box;"
         ));

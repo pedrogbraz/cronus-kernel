@@ -1,10 +1,12 @@
-use std::fs;
-use crate::parser;
-use crate::graph;
 use crate::find_cronus_file;
+use crate::graph;
+use crate::parser;
+use std::fs;
 
 pub fn cmd_graph(args: &[String]) {
-    let file = args.iter().skip(2)
+    let file = args
+        .iter()
+        .skip(2)
         .find(|a| !a.starts_with("--"))
         .cloned()
         .or_else(find_cronus_file)
@@ -32,17 +34,26 @@ pub fn cmd_graph(args: &[String]) {
     let relationship_graph = graph::build_graph(&nodes);
 
     if args.iter().any(|a| a == "--json") {
-        println!("{}", serde_json::to_string_pretty(&relationship_graph).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&relationship_graph).unwrap_or_default()
+        );
     } else {
         // Default: Mermaid diagram
         println!("{}", graph::to_mermaid(&relationship_graph));
 
         // Print summary
-        let rels = relationship_graph.entity_relations.iter()
-            .filter(|r| r.relation_type == "belongs_to").count();
+        let rels = relationship_graph
+            .entity_relations
+            .iter()
+            .filter(|r| r.relation_type == "belongs_to")
+            .count();
         let binds = relationship_graph.page_bindings.len();
         let hooks = relationship_graph.webhook_flows.len();
-        eprintln!("
-  {} entity relation(s), {} page binding(s), {} webhook flow(s)", rels, binds, hooks);
+        eprintln!(
+            "
+  {} entity relation(s), {} page binding(s), {} webhook flow(s)",
+            rels, binds, hooks
+        );
     }
 }

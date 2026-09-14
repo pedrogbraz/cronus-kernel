@@ -111,7 +111,9 @@ mod tests {
     #[test]
     fn root_is_div_with_relative_box_input_then_label() {
         let html = render(&stub("floating-label-input", "Email"));
-        assert!(html.starts_with("<div data-slot=\"floating-label-input\"><div><input data-slot=\"input\""));
+        assert!(html.starts_with(
+            "<div data-slot=\"floating-label-input\"><div><input data-slot=\"input\""
+        ));
         assert!(html.contains("<label data-slot=\"floating-label-input-label\" for=\"floating-label-input\">Email</label>"));
         assert!(html.contains("placeholder=\" \""));
         // React names the field through <label for>, not aria-label.
@@ -127,7 +129,8 @@ mod tests {
     fn helper_and_value() {
         let mut c = stub("floating-label-input", "Email");
         c.props.insert("value".into(), "a@b.co".into());
-        c.props.insert("helperText".into(), "We'll never share this.".into());
+        c.props
+            .insert("helperText".into(), "We'll never share this.".into());
         let html = render(&c);
         assert!(html.contains("value=\"a@b.co\""));
         assert!(html.contains("</label></div><p data-slot=\"floating-label-input-helper\""));
@@ -140,7 +143,9 @@ mod tests {
     #[test]
     fn description_attr_is_helper() {
         let mut c = stub("floating-label-input", "Email");
-        c.items[0].config.insert("description".into(), "Work address".into());
+        c.items[0]
+            .config
+            .insert("description".into(), "Work address".into());
         let html = render(&c);
         assert!(html.contains("aria-describedby=\"floating-label-input-helper\""));
         assert!(html.contains(">Work address</p>"));

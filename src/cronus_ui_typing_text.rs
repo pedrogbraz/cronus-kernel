@@ -7,10 +7,7 @@ use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    format!(
-        "<span data-slot=\"typing-text\">{}</span>",
-        label_of(comp)
-    )
+    format!("<span data-slot=\"typing-text\">{}</span>", label_of(comp))
 }
 
 #[cfg(test)]

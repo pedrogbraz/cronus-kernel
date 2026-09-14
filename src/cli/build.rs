@@ -1,18 +1,20 @@
-use std::fs;
 use serde_json::{json, Value};
+use std::fs;
 
+use crate::ast_diff;
+use crate::constitution_check;
+use crate::contracts;
+use crate::hardcode_lint;
+use crate::lint;
 use crate::parser::{self, AstNode};
 use crate::resolve;
-use crate::lint;
-use crate::constitution_check;
-use crate::hardcode_lint;
-use crate::contracts;
-use crate::ast_diff;
 use crate::{find_cronus_file, LAST_AI_ERRORS};
 
 pub fn cmd_build(args: &[String]) {
     let strict_ai = args.iter().any(|a| a == "--strict-ai");
-    let ai_mode = args.iter().any(|a| a == "--ai" || a == "--machine" || a == "--json-errors");
+    let ai_mode = args
+        .iter()
+        .any(|a| a == "--ai" || a == "--machine" || a == "--json-errors");
     let strict = args.iter().any(|a| a == "--strict") || strict_ai;
     let strict_audit = args.iter().any(|a| a == "--strict-audit");
     let file = args.iter().skip(2)
@@ -71,19 +73,42 @@ pub fn cmd_build(args: &[String]) {
                                     contracts::ParseWarning::UnknownSection { ref name, line } => {
                                         json!({"type": "unknown_section", "section": name, "line": line, "severity": "error", "message": format!("Unknown section type '{}'", name)})
                                     }
-                                    contracts::ParseWarning::UnknownKey { ref section, ref key, ref item, line } => {
+                                    contracts::ParseWarning::UnknownKey {
+                                        ref section,
+                                        ref key,
+                                        ref item,
+                                        line,
+                                    } => {
                                         json!({"type": "unknown_key", "section": section, "key": key, "item": item, "line": line, "severity": "error", "message": format!("Unknown key '{}' in section '{}'", key, section)})
                                     }
-                                    contracts::ParseWarning::MissingRequired { ref section, ref key, ref item, line } => {
+                                    contracts::ParseWarning::MissingRequired {
+                                        ref section,
+                                        ref key,
+                                        ref item,
+                                        line,
+                                    } => {
                                         json!({"type": "missing_required", "section": section, "key": key, "item": item, "line": line, "severity": "error", "message": format!("Missing required key '{}' in section '{}'", key, section)})
                                     }
-                                    contracts::ParseWarning::AliasUsed { ref alias, ref canonical, line } => {
+                                    contracts::ParseWarning::AliasUsed {
+                                        ref alias,
+                                        ref canonical,
+                                        line,
+                                    } => {
                                         json!({"type": "alias", "alias": alias, "canonical": canonical, "line": line, "severity": "error", "message": format!("'{}' is an alias for '{}'", alias, canonical)})
                                     }
-                                    contracts::ParseWarning::MinItemsViolation { ref section, expected, actual, line } => {
+                                    contracts::ParseWarning::MinItemsViolation {
+                                        ref section,
+                                        expected,
+                                        actual,
+                                        line,
+                                    } => {
                                         json!({"type": "min_items", "section": section, "expected": expected, "actual": actual, "line": line, "severity": "error", "message": format!("Section '{}' requires at least {} items, found {}", section, expected, actual)})
                                     }
-                                    contracts::ParseWarning::UnknownConfig { ref section, ref key, line } => {
+                                    contracts::ParseWarning::UnknownConfig {
+                                        ref section,
+                                        ref key,
+                                        line,
+                                    } => {
                                         json!({"type": "unknown_config", "section": section, "key": key, "line": line, "severity": "error", "message": format!("Unknown config key '{}' in section '{}'", key, section)})
                                     }
                                 };
@@ -104,7 +129,8 @@ pub fn cmd_build(args: &[String]) {
                         _ => {}
                     }
                 }
-                let hc_findings = hardcode_lint::lint_all_pages(&all_pages, &all_entities, style_node.as_ref());
+                let hc_findings =
+                    hardcode_lint::lint_all_pages(&all_pages, &all_entities, style_node.as_ref());
                 for f in &hc_findings {
                     errors.push(json!({
                         "type": "hardcoded_content",
@@ -139,12 +165,19 @@ pub fn cmd_build(args: &[String]) {
                         _ => {}
                     }
                 }
-                let hc_findings = hardcode_lint::lint_all_pages(&all_pages, &all_entities, style_node.as_ref());
-                println!("  \x1b[32m\u{2713}\x1b[0m {} — {} entities, {} pages, {} routes", file, entities, pages, routes);
+                let hc_findings =
+                    hardcode_lint::lint_all_pages(&all_pages, &all_entities, style_node.as_ref());
+                println!(
+                    "  \x1b[32m\u{2713}\x1b[0m {} — {} entities, {} pages, {} routes",
+                    file, entities, pages, routes
+                );
                 if hc_findings.is_empty() {
                     println!("  \x1b[32m\u{2713}\x1b[0m No hardcoded content detected");
                 } else {
-                    println!("  \x1b[33m\u{26a0}\x1b[0m {} hardcoded string(s) found:", hc_findings.len());
+                    println!(
+                        "  \x1b[33m\u{26a0}\x1b[0m {} hardcoded string(s) found:",
+                        hc_findings.len()
+                    );
                     for f in &hc_findings {
                         println!("    \x1b[33m\u{2192}\x1b[0m [{}] \"{}\"", f.page, f.text);
                     }
@@ -153,7 +186,10 @@ pub fn cmd_build(args: &[String]) {
                     println!("  \x1b[90mMove them to section title/subtitle/config/items in the .cronus file.\x1b[0m");
                 }
             } else {
-                println!("  \x1b[32m\u{2713}\x1b[0m {} — {} entities, {} pages, {} routes", file, entities, pages, routes);
+                println!(
+                    "  \x1b[32m\u{2713}\x1b[0m {} — {} entities, {} pages, {} routes",
+                    file, entities, pages, routes
+                );
                 println!("  \x1b[32m\u{2713}\x1b[0m Valid .cronus file");
             }
 
@@ -168,18 +204,31 @@ pub fn cmd_build(args: &[String]) {
                     println!("{}", e);
                 }
                 println!();
-                println!("  \x1b[31m{} resolve error(s)\x1b[0m — build blocked ({}ms)", resolve_errors.len(), resolve_ms);
+                println!(
+                    "  \x1b[31m{} resolve error(s)\x1b[0m — build blocked ({}ms)",
+                    resolve_errors.len(),
+                    resolve_ms
+                );
                 std::process::exit(1);
             } else {
-                println!("  \x1b[32m\u{2713}\x1b[0m Resolve pass: all references valid ({}ms)", resolve_ms);
+                println!(
+                    "  \x1b[32m\u{2713}\x1b[0m Resolve pass: all references valid ({}ms)",
+                    resolve_ms
+                );
             }
 
             // Zero Hardcode Enforcement — 7 lint rules
             let lint_start = std::time::Instant::now();
             let lint_results = lint::lint_ast(&nodes, strict);
             let lint_ms = lint_start.elapsed().as_millis();
-            let errors = lint_results.iter().filter(|r| matches!(r.severity, lint::Severity::Error)).count();
-            let warnings = lint_results.iter().filter(|r| matches!(r.severity, lint::Severity::Warning)).count();
+            let errors = lint_results
+                .iter()
+                .filter(|r| matches!(r.severity, lint::Severity::Error))
+                .count();
+            let warnings = lint_results
+                .iter()
+                .filter(|r| matches!(r.severity, lint::Severity::Warning))
+                .count();
 
             if !lint_results.is_empty() {
                 println!();
@@ -189,39 +238,67 @@ pub fn cmd_build(args: &[String]) {
                 }
                 println!();
                 if errors > 0 {
-                    println!("  \x1b[31m{} error(s)\x1b[0m, {} warning(s) — build blocked", errors, warnings);
+                    println!(
+                        "  \x1b[31m{} error(s)\x1b[0m, {} warning(s) — build blocked",
+                        errors, warnings
+                    );
                     std::process::exit(1);
                 } else {
                     println!("  {} warning(s)", warnings);
                 }
             } else {
-                println!("  \x1b[32m\u{2713}\x1b[0m Zero hardcode lint: all 7 rules passed ({}ms)", lint_ms);
+                println!(
+                    "  \x1b[32m\u{2713}\x1b[0m Zero hardcode lint: all 7 rules passed ({}ms)",
+                    lint_ms
+                );
             }
 
             // Constitution enforcement — check rules against AST
             let constitution_app = nodes.iter().find_map(|n| {
-                if let AstNode::App(a) = n { Some(a) } else { None }
+                if let AstNode::App(a) = n {
+                    Some(a)
+                } else {
+                    None
+                }
             });
             if let Some(app_node) = constitution_app {
                 if let Some(ref c) = app_node.constitution {
                     let cv = constitution_check::check_constitution(&nodes, c);
-                    let real_violations: Vec<_> = cv.iter().filter(|v| v.rule_type != "info").collect();
+                    let real_violations: Vec<_> =
+                        cv.iter().filter(|v| v.rule_type != "info").collect();
                     let info_count = cv.len() - real_violations.len();
                     if !real_violations.is_empty() {
                         println!();
-                        println!("  \x1b[1mConstitution Check\x1b[0m ({} rules)", c.must.len() + c.never.len());
+                        println!(
+                            "  \x1b[1mConstitution Check\x1b[0m ({} rules)",
+                            c.must.len() + c.never.len()
+                        );
                         for v in &cv {
                             println!("{}", v);
                         }
                         println!();
-                        println!("  \x1b[31m{} violation(s)\x1b[0m{}", real_violations.len(),
-                            if info_count > 0 { format!(", {} informational", info_count) } else { String::new() });
+                        println!(
+                            "  \x1b[31m{} violation(s)\x1b[0m{}",
+                            real_violations.len(),
+                            if info_count > 0 {
+                                format!(", {} informational", info_count)
+                            } else {
+                                String::new()
+                            }
+                        );
                         if strict {
                             std::process::exit(1);
                         }
                     } else {
-                        println!("  \x1b[32m\u{2713}\x1b[0m Constitution: all {} rules pass{}", c.must.len() + c.never.len(),
-                            if info_count > 0 { format!(" ({} informational)", info_count) } else { String::new() });
+                        println!(
+                            "  \x1b[32m\u{2713}\x1b[0m Constitution: all {} rules pass{}",
+                            c.must.len() + c.never.len(),
+                            if info_count > 0 {
+                                format!(" ({} informational)", info_count)
+                            } else {
+                                String::new()
+                            }
+                        );
                     }
                 }
             }
@@ -263,7 +340,10 @@ pub fn cmd_build(args: &[String]) {
                 println!("{}", serde_json::to_string_pretty(&result).unwrap());
                 *LAST_AI_ERRORS.lock().unwrap() = Some(result);
             } else if strict_ai {
-                println!("{}", json!({"valid": false, "errors": [{"type": "parse_error", "message": e, "severity": "error"}]}));
+                println!(
+                    "{}",
+                    json!({"valid": false, "errors": [{"type": "parse_error", "message": e, "severity": "error"}]})
+                );
             } else {
                 eprintln!("  \x1b[31m\u{2717}\x1b[0m Parse error: {}", e);
             }
@@ -274,7 +354,13 @@ pub fn cmd_build(args: &[String]) {
 
 /// Build the AI-Error Protocol JSON from all validation passes.
 /// Collects errors from contract validation, resolve, lint, hardcode lint, and constitution.
-fn build_ai_error_json(nodes: &[AstNode], file: &str, entity_count: usize, page_count: usize, route_count: usize) -> Value {
+fn build_ai_error_json(
+    nodes: &[AstNode],
+    file: &str,
+    entity_count: usize,
+    page_count: usize,
+    route_count: usize,
+) -> Value {
     let mut ai_errors: Vec<Value> = Vec::new();
     let mut resolve_counter = 0usize;
     let mut lint_counter = 0usize;
@@ -295,27 +381,54 @@ fn build_ai_error_json(nodes: &[AstNode], file: &str, entity_count: usize, page_
                             json!({"action": "replace", "target": name, "hint": "Check valid section types: hero, features, pricing, kpi, table, chart, form, etc."}),
                             line,
                         ),
-                        contracts::ParseWarning::UnknownKey { ref section, ref key, .. } => (
+                        contracts::ParseWarning::UnknownKey {
+                            ref section,
+                            ref key,
+                            ..
+                        } => (
                             format!("Unknown key '{}' in section '{}'", key, section),
                             json!({"action": "remove", "target": key, "hint": format!("Remove or replace with a valid key for '{}' sections", section)}),
                             0,
                         ),
-                        contracts::ParseWarning::MissingRequired { ref section, ref key, .. } => (
+                        contracts::ParseWarning::MissingRequired {
+                            ref section,
+                            ref key,
+                            ..
+                        } => (
                             format!("Missing required key '{}' in section '{}'", key, section),
                             json!({"action": "add", "target": key, "hint": format!("Add '{}' to the {} section item", key, section)}),
                             0,
                         ),
-                        contracts::ParseWarning::AliasUsed { ref alias, ref canonical, line } => (
-                            format!("'{}' is an alias — use canonical name '{}'", alias, canonical),
+                        contracts::ParseWarning::AliasUsed {
+                            ref alias,
+                            ref canonical,
+                            line,
+                        } => (
+                            format!(
+                                "'{}' is an alias — use canonical name '{}'",
+                                alias, canonical
+                            ),
                             json!({"action": "replace", "target": alias, "replacement": canonical}),
                             line,
                         ),
-                        contracts::ParseWarning::MinItemsViolation { ref section, expected, actual, line } => (
-                            format!("Section '{}' requires at least {} items, found {}", section, expected, actual),
+                        contracts::ParseWarning::MinItemsViolation {
+                            ref section,
+                            expected,
+                            actual,
+                            line,
+                        } => (
+                            format!(
+                                "Section '{}' requires at least {} items, found {}",
+                                section, expected, actual
+                            ),
                             json!({"action": "add", "target": "item", "hint": format!("Add {} more item(s) to '{}' section", expected - actual, section)}),
                             line,
                         ),
-                        contracts::ParseWarning::UnknownConfig { ref section, ref key, line } => (
+                        contracts::ParseWarning::UnknownConfig {
+                            ref section,
+                            ref key,
+                            line,
+                        } => (
                             format!("Unknown config key '{}' in section '{}'", key, section),
                             json!({"action": "remove", "target": key, "hint": format!("Remove unknown config key from '{}' section", section)}),
                             line,
@@ -351,15 +464,39 @@ fn build_ai_error_json(nodes: &[AstNode], file: &str, entity_count: usize, page_
         };
 
         let section_hint = if re.message.contains("page '") {
-            format!("page {}", re.message.split("page '").nth(1).and_then(|s| s.split('\'').next()).unwrap_or(""))
+            format!(
+                "page {}",
+                re.message
+                    .split("page '")
+                    .nth(1)
+                    .and_then(|s| s.split('\'').next())
+                    .unwrap_or("")
+            )
         } else if re.message.contains("entity '") {
-            format!("entity {}", re.message.split("entity '").last().and_then(|s| s.split('\'').next()).unwrap_or(""))
-        } else { String::new() };
+            format!(
+                "entity {}",
+                re.message
+                    .split("entity '")
+                    .last()
+                    .and_then(|s| s.split('\'').next())
+                    .unwrap_or("")
+            )
+        } else {
+            String::new()
+        };
 
-        let category = if re.message.contains("Transition") { "state_machine" } else { "reference" };
-        let block = if re.message.contains("bind") { "bind" }
-            else if re.message.contains("Transition") { "transition" }
-            else { "reference" };
+        let category = if re.message.contains("Transition") {
+            "state_machine"
+        } else {
+            "reference"
+        };
+        let block = if re.message.contains("bind") {
+            "bind"
+        } else if re.message.contains("Transition") {
+            "transition"
+        } else {
+            "reference"
+        };
 
         ai_errors.push(json!({
             "code": code,
@@ -374,12 +511,21 @@ fn build_ai_error_json(nodes: &[AstNode], file: &str, entity_count: usize, page_
 
     // Pass 3: Lint — Zero Hardcode Enforcement (7 rules)
     let lint_results = lint::lint_ast(nodes, true);
-    let lint_error_count = lint_results.iter().filter(|r| matches!(r.severity, lint::Severity::Error)).count();
-    let lint_warning_count = lint_results.iter().filter(|r| matches!(r.severity, lint::Severity::Warning)).count();
+    let lint_error_count = lint_results
+        .iter()
+        .filter(|r| matches!(r.severity, lint::Severity::Error))
+        .count();
+    let lint_warning_count = lint_results
+        .iter()
+        .filter(|r| matches!(r.severity, lint::Severity::Warning))
+        .count();
     for lr in &lint_results {
         lint_counter += 1;
         let code = format!("LINT_{:03}", lint_counter);
-        let severity = match lr.severity { lint::Severity::Error => "error", lint::Severity::Warning => "warning" };
+        let severity = match lr.severity {
+            lint::Severity::Error => "error",
+            lint::Severity::Warning => "warning",
+        };
 
         let fix = if lr.rule.contains("dead-text") || lr.rule.contains("hardcode") {
             json!({"action": "wrap_in_dynamic", "target": lr.message.split('\'').nth(1).unwrap_or(&lr.message), "hint": &lr.fix})
@@ -434,7 +580,11 @@ fn build_ai_error_json(nodes: &[AstNode], file: &str, entity_count: usize, page_
     // Pass 4: Constitution enforcement
     let mut constitution_violation_count = 0usize;
     let constitution_app = nodes.iter().find_map(|n| {
-        if let AstNode::App(a) = n { Some(a) } else { None }
+        if let AstNode::App(a) = n {
+            Some(a)
+        } else {
+            None
+        }
     });
     if let Some(app_node) = constitution_app {
         if let Some(ref c) = app_node.constitution {
@@ -490,11 +640,16 @@ pub(crate) fn save_ast_snapshot(nodes: &[AstNode]) {
     match serde_json::to_string_pretty(&snapshot) {
         Ok(json_str) => {
             if fs::write(".cronus/ast-snapshot.json", &json_str).is_ok() {
-                println!("  \x1b[32m\u{2713}\x1b[0m AST snapshot saved to .cronus/ast-snapshot.json");
+                println!(
+                    "  \x1b[32m\u{2713}\x1b[0m AST snapshot saved to .cronus/ast-snapshot.json"
+                );
             }
         }
         Err(e) => {
-            eprintln!("  \x1b[33m\u{26a0}\x1b[0m Failed to serialize AST snapshot: {}", e);
+            eprintln!(
+                "  \x1b[33m\u{26a0}\x1b[0m Failed to serialize AST snapshot: {}",
+                e
+            );
         }
     }
 }

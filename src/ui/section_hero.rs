@@ -2,13 +2,32 @@
 use crate::parser::SectionNode;
 
 pub(super) fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> String {
-    let title = section.title.as_deref().unwrap_or("Build Something Amazing");
-    let subtitle = section.subtitle.as_deref().unwrap_or("The next generation platform for modern teams.");
+    let title = section
+        .title
+        .as_deref()
+        .unwrap_or("Build Something Amazing");
+    let subtitle = section
+        .subtitle
+        .as_deref()
+        .unwrap_or("The next generation platform for modern teams.");
     let badge = section.config.get("badge").map(|s| s.as_str());
-    let cta_primary = section.config.get("cta_text").or(section.config.get("cta")).map(|s| s.as_str()).unwrap_or("Get Started");
-    let cta_link = section.config.get("cta_link").map(|s| s.as_str()).unwrap_or("/signup");
+    let cta_primary = section
+        .config
+        .get("cta_text")
+        .or(section.config.get("cta"))
+        .map(|s| s.as_str())
+        .unwrap_or("Get Started");
+    let cta_link = section
+        .config
+        .get("cta_link")
+        .map(|s| s.as_str())
+        .unwrap_or("/signup");
     let cta2_text = section.config.get("cta2_text").map(|s| s.as_str());
-    let cta2_link = section.config.get("cta2_link").map(|s| s.as_str()).unwrap_or("");
+    let cta2_link = section
+        .config
+        .get("cta2_link")
+        .map(|s| s.as_str())
+        .unwrap_or("");
 
     // Convert accent name to hex color (pass through if already hex)
     let accent_hex = if accent.starts_with('#') {
@@ -35,33 +54,62 @@ pub(super) fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> S
 
     // Extract badge from items if not in config
     let badge_text = badge.or_else(|| {
-        section.items.iter()
-            .find(|i| i.get("badge").is_some() || i.get("title").map(|t| t.len() < 60).unwrap_or(false))
+        section
+            .items
+            .iter()
+            .find(|i| {
+                i.get("badge").is_some() || i.get("title").map(|t| t.len() < 60).unwrap_or(false)
+            })
             .and_then(|i| i.get("badge").or(i.get("title")))
             .map(|s| s.as_str())
     });
 
     // Detect light theme: explicit style:light, or cta2 presence ONLY when global theme is not dark
-    let style_hint = section.config.get("style").map(|s| s.as_str()).unwrap_or("");
+    let style_hint = section
+        .config
+        .get("style")
+        .map(|s| s.as_str())
+        .unwrap_or("");
     let is_dark = style_hint.contains("dark") || theme == "dark";
     let is_light = style_hint.contains("light") || (!is_dark && cta2_text.is_some());
 
     if is_light {
-        return render_developer_landing_hero(section, title, subtitle, badge_text, cta_primary, cta_link, cta2_text, cta2_link, accent_hex);
+        return render_developer_landing_hero(
+            section,
+            title,
+            subtitle,
+            badge_text,
+            cta_primary,
+            cta_link,
+            cta2_text,
+            cta2_link,
+            accent_hex,
+        );
     }
 
     // === Dark theme hero ===
 
     // Extract background image from items with role:background
-    let bg_image_url = section.items.iter()
+    let bg_image_url = section
+        .items
+        .iter()
         .find(|i| i.get("role").map(|s| s.as_str()) == Some("background"))
-        .and_then(|i| i.get("title").or(i.get("image")).or(i.get("src")).or(i.get("url")))
+        .and_then(|i| {
+            i.get("title")
+                .or(i.get("image"))
+                .or(i.get("src"))
+                .or(i.get("url"))
+        })
         .map(|s| s.as_str())
         .unwrap_or("");
 
     // Detect terminal items early for layout branching
     let has_terminal_items = section.items.iter().any(|i| {
-        let t = i.get("_type").or(i.get("type")).map(|s| s.as_str()).unwrap_or("");
+        let t = i
+            .get("_type")
+            .or(i.get("type"))
+            .map(|s| s.as_str())
+            .unwrap_or("");
         matches!(t, "line" | "output" | "success" | "prompt" | "terminal")
     });
 
@@ -69,7 +117,17 @@ pub(super) fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> S
     let is_two_col = bg_image_url.is_empty() && !has_terminal_items;
 
     if is_two_col {
-        return render_two_col_hero(section, title, subtitle, badge_text, cta_primary, cta_link, cta2_text, cta2_link, accent_hex);
+        return render_two_col_hero(
+            section,
+            title,
+            subtitle,
+            badge_text,
+            cta_primary,
+            cta_link,
+            cta2_text,
+            cta2_link,
+            accent_hex,
+        );
     }
 
     // === Centered layout — Premium design (bg image or terminal) ===
@@ -111,9 +169,15 @@ pub(super) fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> S
 
     // Terminal mockup — glass panel with blur, 3 dots header, syntax-colored lines
     let terminal_html = if has_terminal_items {
-        let terminal_title = section.items.iter()
+        let terminal_title = section
+            .items
+            .iter()
             .find(|i| {
-                let t = i.get("_type").or(i.get("type")).map(|s| s.as_str()).unwrap_or("");
+                let t = i
+                    .get("_type")
+                    .or(i.get("type"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("");
                 t == "terminal" || i.get("style").map(|s| s.as_str()) == Some("terminal")
             })
             .and_then(|i| i.get("description").or(i.get("title")))
@@ -123,7 +187,11 @@ pub(super) fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> S
         let mut terminal_lines = String::new();
         let mut line_num = 0u32;
         for item in &section.items {
-            let item_type = item.get("_type").or(item.get("type")).map(|s| s.as_str()).unwrap_or("");
+            let item_type = item
+                .get("_type")
+                .or(item.get("type"))
+                .map(|s| s.as_str())
+                .unwrap_or("");
             let text = item.get("title").map(|s| s.as_str()).unwrap_or("");
             match item_type {
                 "terminal" | "line" => {
@@ -145,7 +213,8 @@ pub(super) fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> S
                             if ch == '"' {
                                 if in_quote {
                                     flags_html.push_str(&format!(
-                                        r#"<span style="color:#e5e2e1">&quot;{}&quot;</span>"#, buf
+                                        r#"<span style="color:#e5e2e1">&quot;{}&quot;</span>"#,
+                                        buf
                                     ));
                                     buf.clear();
                                     in_quote = false;
@@ -164,7 +233,8 @@ pub(super) fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> S
                         }
                         if !buf.is_empty() {
                             flags_html.push_str(&format!(
-                                r#"<span style="color:rgba(255,255,255,0.4)">{}</span>"#, buf
+                                r#"<span style="color:rgba(255,255,255,0.4)">{}</span>"#,
+                                buf
                             ));
                         }
                     }
@@ -203,12 +273,22 @@ pub(super) fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> S
                     let trimmed = text.trim_end();
                     let time_sep = trimmed.rfind(' ');
                     let (main_text, time_html) = if let Some(pos) = time_sep {
-                        let candidate = &trimmed[pos+1..];
+                        let candidate = &trimmed[pos + 1..];
                         // Match patterns like "1.4s", "200ms", "0.3s"
-                        let is_time = candidate.ends_with('s') && candidate[..candidate.len()-1]
-                            .replace("ms", "").replace('.', "").chars().all(|c| c.is_ascii_digit());
+                        let is_time = candidate.ends_with('s')
+                            && candidate[..candidate.len() - 1]
+                                .replace("ms", "")
+                                .replace('.', "")
+                                .chars()
+                                .all(|c| c.is_ascii_digit());
                         if is_time && !candidate.is_empty() {
-                            (&trimmed[..pos], format!(r#" <span style="color:rgba(255,255,255,0.3)">{}</span>"#, candidate))
+                            (
+                                &trimmed[..pos],
+                                format!(
+                                    r#" <span style="color:rgba(255,255,255,0.3)">{}</span>"#,
+                                    candidate
+                                ),
+                            )
                         } else {
                             (trimmed, String::new())
                         }
@@ -250,7 +330,10 @@ pub(super) fn render_hero(section: &SectionNode, accent: &str, theme: &str) -> S
     // Split title: last word(s) get muted color for visual contrast
     let title_parts: Vec<&str> = title.rsplitn(2, ' ').collect();
     let title_html = if title_parts.len() == 2 {
-        format!(r#"{}<br><span class="text-neutral-500">{}</span>"#, title_parts[1], title_parts[0])
+        format!(
+            r#"{}<br><span class="text-neutral-500">{}</span>"#,
+            title_parts[1], title_parts[0]
+        )
     } else {
         title.to_string()
     };
@@ -311,13 +394,14 @@ pub(super) fn render_two_col_hero(
         let last_sep = title.rfind(',').or_else(|| title.rfind('.'));
         if let Some(pos) = last_sep {
             let before = &title[..=pos];
-            let after = &title[pos+1..];
+            let after = &title[pos + 1..];
             if after.trim().is_empty() {
                 format!(r#"<span style="color:#ffffff">{}</span>"#, title)
             } else {
                 format!(
                     r#"<span style="color:#ffffff">{before}</span><span style="background:linear-gradient(135deg,#adc6ff 0%,#c2c1ff 50%,#e9b3ff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">{after}</span>"#,
-                    before = before, after = after
+                    before = before,
+                    after = after
                 )
             }
         } else {
@@ -336,12 +420,22 @@ pub(super) fn render_two_col_hero(
     let has_card = section.config.contains_key("card_brand")
         || section.config.contains_key("card_number")
         || section.config.contains_key("card_holder");
-    let card_brand = section.config.get("card_brand")
+    let card_brand = section
+        .config
+        .get("card_brand")
         .cloned()
         .or_else(|| section.config.get("brand").cloned())
         .unwrap_or_default();
-    let card_number = section.config.get("card_number").cloned().unwrap_or_default();
-    let card_holder = section.config.get("card_holder").cloned().unwrap_or_default();
+    let card_number = section
+        .config
+        .get("card_number")
+        .cloned()
+        .unwrap_or_default();
+    let card_holder = section
+        .config
+        .get("card_holder")
+        .cloned()
+        .unwrap_or_default();
 
     let right_col = if has_card {
         format!(
@@ -368,7 +462,11 @@ pub(super) fn render_two_col_hero(
     } else {
         String::new()
     };
-    let grid = if has_card { "minmax(0,1.2fr) minmax(0,0.8fr)" } else { "1fr" };
+    let grid = if has_card {
+        "minmax(0,1.2fr) minmax(0,0.8fr)"
+    } else {
+        "1fr"
+    };
     let min_h = if has_card { "min-height:80vh;" } else { "" };
 
     format!(
@@ -428,17 +526,25 @@ pub(super) fn render_developer_landing_hero(
 
     // Split title by periods for line breaks (e.g. "Develop. Preview. Ship.")
     let title_lines: Vec<&str> = if title.contains('.') {
-        title.split('.').map(|s| s.trim()).filter(|s| !s.is_empty()).collect()
+        title
+            .split('.')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect()
     } else {
         title.split_whitespace().collect()
     };
-    let title_html: String = title_lines.iter().enumerate().map(|(i, word)| {
-        if i < title_lines.len() - 1 {
-            format!("{}.<br>", word)
-        } else {
-            format!("{}.", word)
-        }
-    }).collect();
+    let title_html: String = title_lines
+        .iter()
+        .enumerate()
+        .map(|(i, word)| {
+            if i < title_lines.len() - 1 {
+                format!("{}.<br>", word)
+            } else {
+                format!("{}.", word)
+            }
+        })
+        .collect();
 
     // CTA2 (outline button)
     let cta2_html = cta2_text.map(|t| format!(
@@ -447,7 +553,9 @@ pub(super) fn render_developer_landing_hero(
     )).unwrap_or_default();
 
     // Terminal window HTML — built dynamically from section items
-    let terminal_title = section.items.iter()
+    let terminal_title = section
+        .items
+        .iter()
         .find(|i| i.get("style").map(|s| s.as_str()) == Some("terminal"))
         .and_then(|i| i.get("description"))
         .map(|s| s.as_str())
@@ -465,15 +573,19 @@ pub(super) fn render_developer_landing_hero(
                 ));
             }
             "output" => {
-                let color = item.get("color").map(|s| match s.as_str() {
-                    "blue" => accent_hex,
-                    "green" => "#28c840",
-                    "yellow" => "#febc2e",
-                    "red" => "#ff5f57",
-                    _ => "#666",
-                }).unwrap_or("#666");
+                let color = item
+                    .get("color")
+                    .map(|s| match s.as_str() {
+                        "blue" => accent_hex,
+                        "green" => "#28c840",
+                        "yellow" => "#febc2e",
+                        "red" => "#ff5f57",
+                        _ => "#666",
+                    })
+                    .unwrap_or("#666");
                 terminal_lines.push_str(&format!(
-                    r#"<div style="color:{};margin-top:4px">{}</div>"#, color, text
+                    r#"<div style="color:{};margin-top:4px">{}</div>"#,
+                    color, text
                 ));
             }
             "prompt" => {
@@ -528,8 +640,13 @@ pub(super) fn render_developer_landing_hero(
             )
         })
         .collect();
-    let chips_html = if chips.is_empty() { String::new() } else {
-        format!(r#"<div style="position:absolute;bottom:-24px;right:-24px;display:flex;flex-direction:column;gap:8px;z-index:20">{}</div>"#, chips.join("\n"))
+    let chips_html = if chips.is_empty() {
+        String::new()
+    } else {
+        format!(
+            r#"<div style="position:absolute;bottom:-24px;right:-24px;display:flex;flex-direction:column;gap:8px;z-index:20">{}</div>"#,
+            chips.join("\n")
+        )
     };
 
     // Wrap terminal + chips in relative container
@@ -539,7 +656,9 @@ pub(super) fn render_developer_landing_hero(
     );
 
     // Stat cards embedded in hero (role:stat items)
-    let stat_items: Vec<&std::collections::HashMap<String, String>> = section.items.iter()
+    let stat_items: Vec<&std::collections::HashMap<String, String>> = section
+        .items
+        .iter()
         .filter(|i| i.get("role").map(|s| s.as_str()) == Some("stat"))
         .collect();
 
@@ -636,4 +755,3 @@ pub(super) fn render_developer_landing_hero(
         terminal_with_chips = terminal_with_chips,
     )
 }
-

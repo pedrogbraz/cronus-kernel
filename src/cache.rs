@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 use std::sync::Mutex;
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 struct CacheEntry {
     value: String,
@@ -58,15 +58,19 @@ impl Cache {
         let mut map = self.entries.lock().unwrap();
         // Evict expired entries if at capacity
         if map.len() >= self.max_entries {
-            let expired: Vec<String> = map.iter()
+            let expired: Vec<String> = map
+                .iter()
                 .filter(|(_, v)| v.is_expired())
                 .map(|(k, _)| k.clone())
                 .collect();
-            for k in expired { map.remove(&k); }
+            for k in expired {
+                map.remove(&k);
+            }
 
             // If still at capacity, remove oldest
             if map.len() >= self.max_entries {
-                if let Some(oldest) = map.iter()
+                if let Some(oldest) = map
+                    .iter()
                     .min_by_key(|(_, v)| v.created)
                     .map(|(k, _)| k.clone())
                 {
@@ -74,26 +78,28 @@ impl Cache {
                 }
             }
         }
-        map.insert(key.to_string(), CacheEntry {
-            value: value.to_string(),
-            created: Instant::now(),
-            ttl,
-        });
+        map.insert(
+            key.to_string(),
+            CacheEntry {
+                value: value.to_string(),
+                created: Instant::now(),
+                ttl,
+            },
+        );
     }
 
     /// Invalidate cache entries matching a prefix (e.g. "GET:/api/users")
     pub fn invalidate(&self, prefix: &str) {
         let mut map = self.entries.lock().unwrap();
-        let keys: Vec<String> = map.keys()
-            .filter(|k| k.contains(prefix))
-            .cloned()
-            .collect();
-        for k in keys { map.remove(&k); }
+        let keys: Vec<String> = map.keys().filter(|k| k.contains(prefix)).cloned().collect();
+        for k in keys {
+            map.remove(&k);
+        }
     }
 
     /// Invalidate all entries for an entity (called on write operations)
     pub fn invalidate_entity(&self, entity: &str) {
-        self.invalidate(&format!("/api/{}",  entity.to_lowercase()));
+        self.invalidate(&format!("/api/{}", entity.to_lowercase()));
     }
 
     /// Clear all cache

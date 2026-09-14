@@ -780,7 +780,15 @@ fn esc(s: &str) -> String {
 fn variant(comp: &ComponentNode) -> String {
     comp.props.get("variant").cloned().unwrap_or_else(|| {
         let style = comp.style.as_deref().unwrap_or("");
-        for v in ["destructive", "danger", "secondary", "outline", "ghost", "link", "primary"] {
+        for v in [
+            "destructive",
+            "danger",
+            "secondary",
+            "outline",
+            "ghost",
+            "link",
+            "primary",
+        ] {
             if style.contains(v) {
                 return v.to_string();
             }
@@ -807,12 +815,20 @@ fn size(comp: &ComponentNode) -> String {
 }
 
 fn disabled(comp: &ComponentNode) -> bool {
-    if comp.props.get("disabled").map(|s| s == "true").unwrap_or(false) {
+    if comp
+        .props
+        .get("disabled")
+        .map(|s| s == "true")
+        .unwrap_or(false)
+    {
         return true;
     }
-    comp.items
-        .iter()
-        .any(|i| i.config.get("disabled").map(|s| s == "true").unwrap_or(false))
+    comp.items.iter().any(|i| {
+        i.config
+            .get("disabled")
+            .map(|s| s == "true")
+            .unwrap_or(false)
+    })
 }
 
 fn href(comp: &ComponentNode) -> Option<&str> {
@@ -824,7 +840,8 @@ fn button_from(comp: &ComponentNode) -> String {
     crate::cronus_ui::button_ex(raw, &variant(comp), &size(comp), href(comp), disabled(comp))
 }
 
-const BASE: &str = "color:var(--cronus-fg);font-family:var(--cronus-font-sans,inherit);box-sizing:border-box;";
+const BASE: &str =
+    "color:var(--cronus-fg);font-family:var(--cronus-font-sans,inherit);box-sizing:border-box;";
 const SURF: &str = "background:var(--cronus-surface-raised);border:1px solid var(--cronus-border);border-radius:var(--cronus-radius,14px);";
 
 fn pill(family: &str, comp: &ComponentNode) -> String {
@@ -870,7 +887,9 @@ fn display(family: &str, comp: &ComponentNode) -> String {
     let rest = texts(comp)
         .into_iter()
         .skip(1)
-        .map(|t| format!("<div style=\"color:var(--cronus-fg-secondary);font-size:0.875rem;\">{t}</div>"))
+        .map(|t| {
+            format!("<div style=\"color:var(--cronus-fg-secondary);font-size:0.875rem;\">{t}</div>")
+        })
         .collect::<Vec<_>>()
         .join("");
     format!(
@@ -885,9 +904,10 @@ fn chart(family: &str, comp: &ComponentNode) -> String {
         let vals: Vec<f64> = rows
             .iter()
             .filter_map(|r| {
-                r.get("value")
-                    .or_else(|| r.get("amount"))
-                    .and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                r.get("value").or_else(|| r.get("amount")).and_then(|v| {
+                    v.as_f64()
+                        .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+                })
             })
             .collect();
         let max = vals.iter().cloned().fold(1.0_f64, f64::max);
@@ -906,7 +926,9 @@ fn chart(family: &str, comp: &ComponentNode) -> String {
     let plot = if bars.is_empty() {
         r#"<svg viewBox="0 0 120 40" width="100%" height="80" aria-hidden="true"><polyline fill="none" stroke="var(--cronus-primary)" stroke-width="2" points="0,30 20,22 40,26 60,12 80,16 100,8 120,14" /></svg>"#.to_string()
     } else {
-        format!("<div style=\"display:flex;align-items:flex-end;gap:4px;height:80px;\">{bars}</div>")
+        format!(
+            "<div style=\"display:flex;align-items:flex-end;gap:4px;height:80px;\">{bars}</div>"
+        )
     };
     format!(
         "<figure data-slot=\"{family}\" style=\"{BASE}{SURF}padding:1rem;\"><figcaption style=\"margin-bottom:0.5rem;font-size:0.875rem;color:var(--cronus-fg-secondary);\">{title}</figcaption>{plot}</figure>"
@@ -973,7 +995,10 @@ mod tests {
             assert!(slot_ok, "{family} missing data-slot: {html}");
             assert!(!html.contains("zinc-"), "{family} used zinc palette");
             assert!(!html.contains("amber-500"), "{family} used amber palette");
-            assert!(!html.contains("bg-neutral-"), "{family} used neutral palette scale");
+            assert!(
+                !html.contains("bg-neutral-"),
+                "{family} used neutral palette scale"
+            );
         }
     }
 
@@ -1011,8 +1036,14 @@ mod tests {
             let html = render(&stub(family)).expect(family);
             assert!(html.contains(needle), "{family} missing {needle}: {html}");
             assert!(!html.contains("{ value }"), "{family} leaked voodoo interp");
-            assert!(!html.contains("v-data="), "{family} leaked v-data without opt-in");
-            assert!(!html.contains("v-model="), "{family} leaked v-model without opt-in");
+            assert!(
+                !html.contains("v-data="),
+                "{family} leaked v-data without opt-in"
+            );
+            assert!(
+                !html.contains("v-model="),
+                "{family} leaked v-model without opt-in"
+            );
             assert!(!html.contains("zinc-"), "{family} used zinc palette");
         }
     }
@@ -1026,14 +1057,20 @@ mod tests {
             let meter = render(&stub("scroll-progress")).unwrap();
             assert!(!meter.contains("{ value }"), "{meter}");
             assert!(!meter.contains("v-data="), "{meter}");
-            assert!(meter.contains("data-slot=\"scroll-progress-fill\""), "{meter}");
+            assert!(
+                meter.contains("data-slot=\"scroll-progress-fill\""),
+                "{meter}"
+            );
             let usage = render(&stub("usage-meter")).unwrap();
             assert!(!usage.contains("{ value }"), "{usage}");
             assert!(!usage.contains("v-data="), "{usage}");
             assert!(usage.contains("data-slot=\"usage-meter-fill\""), "{usage}");
             let tabs = render(&stub("tabs")).unwrap();
             assert!(tabs.contains("role=\"tablist\""));
-            assert!(tabs.contains("onclick="), "tabs stay native; v-show + hidden deadlock");
+            assert!(
+                tabs.contains("onclick="),
+                "tabs stay native; v-show + hidden deadlock"
+            );
             assert!(!tabs.contains("v-show="));
             let checkbox = render(&stub("checkbox")).unwrap();
             assert!(!checkbox.contains("v-data="), "{checkbox}");
@@ -1154,10 +1191,13 @@ component Revenue layout:stack style:metric {
 }
 "#;
         let nodes = crate::parser::parse(src).expect("parse");
-        let comp = nodes.iter().find_map(|n| match n {
-            crate::parser::AstNode::Component(c) => Some(c),
-            _ => None,
-        }).expect("component");
+        let comp = nodes
+            .iter()
+            .find_map(|n| match n {
+                crate::parser::AstNode::Component(c) => Some(c),
+                _ => None,
+            })
+            .expect("component");
         let b = comp.binding.as_ref().expect("binding");
         assert_eq!(b.entity, "Order");
     }
@@ -1235,7 +1275,10 @@ component Revenue layout:stack style:metric {
         assert!(html.contains("id=\"buttons\""));
         assert!(html.contains("id=\"forms\""));
         assert!(html.contains("Save"), "{html}");
-        assert!(html.contains("Email") || html.contains("you@cooud.app"), "{html}");
+        assert!(
+            html.contains("Email") || html.contains("you@cooud.app"),
+            "{html}"
+        );
         for family in ["button", "input", "dialog", "tabs", "select"] {
             assert!(
                 html.contains(&format!("data-slot=\"{family}\"")),
@@ -1244,7 +1287,10 @@ component Revenue layout:stack style:metric {
         }
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"catalog\"]"));
-        assert!(css.contains("--cronus-") || crate::cronus_ui::token_css("aurora", "dark").contains("--cronus-"));
+        assert!(
+            css.contains("--cronus-")
+                || crate::cronus_ui::token_css("aurora", "dark").contains("--cronus-")
+        );
         assert!(!html.contains("zinc-"));
     }
 
@@ -1267,8 +1313,14 @@ component Revenue layout:stack style:metric {
             html.contains("data-slot=\"label\">Plan</span>"),
             "Plan must be the field label: {html}"
         );
-        assert!(html.contains("<option value=\"Free\">Free</option>"), "{html}");
-        assert!(html.contains("<option value=\"Pro\">Pro</option>"), "{html}");
+        assert!(
+            html.contains("<option value=\"Free\">Free</option>"),
+            "{html}"
+        );
+        assert!(
+            html.contains("<option value=\"Pro\">Pro</option>"),
+            "{html}"
+        );
         assert!(
             !html.contains("<option value=\"Plan\">"),
             "Plan must not be an option: {html}"

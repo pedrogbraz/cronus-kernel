@@ -1,7 +1,7 @@
 #![allow(dead_code, unused_imports)]
+use crate::parser::SectionNode;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
-use crate::parser::SectionNode;
 
 static LAYOUT_COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -15,7 +15,11 @@ fn next_id(prefix: &str) -> String {
 /// Items: "sidebar" (width, collapsible, component), "topbar" (height, component), "content" (role).
 pub fn render_layout_section(section: &SectionNode) -> String {
     let script_nonce = crate::security::script_nonce_attr();
-    let style = section.config.get("style").map(|s| s.as_str()).unwrap_or("app-shell");
+    let style = section
+        .config
+        .get("style")
+        .map(|s| s.as_str())
+        .unwrap_or("app-shell");
     let layout_id = next_id("layout");
 
     // Extract sidebar, topbar, content from items
@@ -32,14 +36,28 @@ pub fn render_layout_section(section: &SectionNode) -> String {
         match title {
             "sidebar" => {
                 has_sidebar = true;
-                if let Some(w) = item.get("width") { sidebar_width = w; }
-                if item.get("collapsible").map(|s| s == "true").unwrap_or(false) { sidebar_collapsible = true; }
-                if let Some(bg) = item.get("background") { sidebar_bg = bg; }
+                if let Some(w) = item.get("width") {
+                    sidebar_width = w;
+                }
+                if item
+                    .get("collapsible")
+                    .map(|s| s == "true")
+                    .unwrap_or(false)
+                {
+                    sidebar_collapsible = true;
+                }
+                if let Some(bg) = item.get("background") {
+                    sidebar_bg = bg;
+                }
             }
             "topbar" => {
                 has_topbar = true;
-                if let Some(h) = item.get("height") { topbar_height = h; }
-                if let Some(bg) = item.get("background") { topbar_bg = bg; }
+                if let Some(h) = item.get("height") {
+                    topbar_height = h;
+                }
+                if let Some(bg) = item.get("background") {
+                    topbar_bg = bg;
+                }
             }
             _ => {} // "content" or others — handled by main area
         }
@@ -51,7 +69,8 @@ pub fn render_layout_section(section: &SectionNode) -> String {
             r#"<aside id="cronus-sidebar" style="width:{width};min-height:100vh;background:{bg};border-right:1px solid #f0f0f0;transition:transform 0.3s cubic-bezier(0.16,1,0.3,1);overflow-y:auto;flex-shrink:0;z-index:40">
   <div id="cronus-sidebar-content" style="padding:16px"></div>
 </aside>"#,
-            width = sidebar_width, bg = sidebar_bg,
+            width = sidebar_width,
+            bg = sidebar_bg,
         )
     } else {
         String::new()
@@ -73,7 +92,9 @@ pub fn render_layout_section(section: &SectionNode) -> String {
       {hamburger}
       <div id="cronus-topbar-content" style="flex:1;display:flex;align-items:center;justify-content:space-between"></div>
     </header>"#,
-            height = topbar_height, bg = topbar_bg, hamburger = hamburger,
+            height = topbar_height,
+            bg = topbar_bg,
+            hamburger = hamburger,
         )
     } else {
         String::new()
@@ -92,7 +113,8 @@ pub fn render_layout_section(section: &SectionNode) -> String {
     let sidebar_outer = if has_sidebar {
         format!(
             r#"<div style="position:relative;flex-shrink:0">{sidebar}{collapse}</div>"#,
-            sidebar = sidebar_html, collapse = collapse_btn,
+            sidebar = sidebar_html,
+            collapse = collapse_btn,
         )
     } else {
         String::new()
@@ -149,7 +171,10 @@ pub fn render_layout_section(section: &SectionNode) -> String {
   </div>
 </div>
 {js}"##,
-        id = layout_id, sidebar = sidebar_outer, topbar = topbar_html, js = js,
+        id = layout_id,
+        sidebar = sidebar_outer,
+        topbar = topbar_html,
+        js = js,
     )
 }
 
@@ -158,14 +183,25 @@ pub fn render_layout_section(section: &SectionNode) -> String {
 /// Items define named slots with optional `span` (fr units).
 /// Subsequent sections in the page are auto-placed into the grid by the browser.
 pub fn render_column_layout(section: &SectionNode) -> String {
-    let cols = section.config.get("cols").and_then(|v| v.parse::<u32>().ok()).unwrap_or(2);
-    let gap = section.config.get("gap").map(|s| s.as_str()).unwrap_or("24px");
+    let cols = section
+        .config
+        .get("cols")
+        .and_then(|v| v.parse::<u32>().ok())
+        .unwrap_or(2);
+    let gap = section
+        .config
+        .get("gap")
+        .map(|s| s.as_str())
+        .unwrap_or("24px");
     let id = next_id("grid");
 
     // Build grid-template-columns from items
     let mut template_parts = Vec::new();
     for item in &section.items {
-        let span = item.get("span").and_then(|v| v.parse::<u32>().ok()).unwrap_or(1);
+        let span = item
+            .get("span")
+            .and_then(|v| v.parse::<u32>().ok())
+            .unwrap_or(1);
         template_parts.push(format!("{}fr", span));
     }
     let template = if template_parts.is_empty() {
@@ -182,7 +218,9 @@ pub fn render_column_layout(section: &SectionNode) -> String {
   #{id}{{grid-template-columns:1fr!important}}
 }}
 </style>"##,
-        id = id, template = template, gap = gap,
+        id = id,
+        template = template,
+        gap = gap,
     )
 }
 
@@ -202,11 +240,18 @@ pub fn render_responsive_wrapper(section_html: &str, config: &HashMap<String, St
     let cols_lg = config.get("cols-lg").or(config.get("cols_lg"));
     let cols_xl = config.get("cols-xl").or(config.get("cols_xl"));
     let responsive = config.get("responsive").map(|s| s.as_str());
-    let hide_on = config.get("hide-on").or(config.get("hide_on")).map(|s| s.as_str());
+    let hide_on = config
+        .get("hide-on")
+        .or(config.get("hide_on"))
+        .map(|s| s.as_str());
 
     // If no responsive config at all, return as-is
-    let has_responsive = cols_sm.is_some() || cols_md.is_some() || cols_lg.is_some()
-        || cols_xl.is_some() || responsive.is_some() || hide_on.is_some();
+    let has_responsive = cols_sm.is_some()
+        || cols_md.is_some()
+        || cols_lg.is_some()
+        || cols_xl.is_some()
+        || responsive.is_some()
+        || hide_on.is_some();
 
     if !has_responsive {
         return section_html.to_string();
@@ -297,13 +342,18 @@ pub fn render_responsive_wrapper(section_html: &str, config: &HashMap<String, St
     let final_html = if wrapped == section_html {
         format!(
             r#"<div class="cronus-section-{id}">{html}</div>"#,
-            id = section_id, html = section_html,
+            id = section_id,
+            html = section_html,
         )
     } else {
         wrapped
     };
 
-    format!("<style>\n{css}</style>\n{html}", css = css, html = final_html)
+    format!(
+        "<style>\n{css}</style>\n{html}",
+        css = css,
+        html = final_html
+    )
 }
 
 /// Returns the viewport meta tag and base responsive CSS for mobile sidebar + hamburger.
@@ -350,5 +400,6 @@ pub fn render_responsive_meta() -> String {
     padding: 0 !important;
   }
 }
-</style>"##.to_string()
+</style>"##
+        .to_string()
 }

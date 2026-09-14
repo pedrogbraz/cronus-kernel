@@ -9,14 +9,18 @@
 //! The transparent hover hit-rects and tooltip need JS and are not emitted.
 
 use crate::cronus_ui_chart::{
-    categories_or, container, fixed_domain_ticks, grid_rows, num, point_xs, x_tick_labels,
-    y_of, PLOT_L, PLOT_R,
+    categories_or, container, fixed_domain_ticks, grid_rows, num, point_xs, x_tick_labels, y_of,
+    PLOT_L, PLOT_R,
 };
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
 
 /// open, high, low, close — the React `OHLC_DATA` candles.
-pub const DEMO_OHLC: [[f64; 4]; 3] = [[4.0, 8.0, 2.0, 6.0], [6.0, 9.0, 5.0, 5.0], [5.0, 7.0, 3.0, 4.0]];
+pub const DEMO_OHLC: [[f64; 4]; 3] = [
+    [4.0, 8.0, 2.0, 6.0],
+    [6.0, 9.0, 5.0, 5.0],
+    [5.0, 7.0, 3.0, 4.0],
+];
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = label_of(comp);
@@ -37,7 +41,11 @@ pub fn render(comp: &ComponentNode) -> String {
     let mut marks = String::new();
     for (x, [open, high, low, close]) in xs.iter().zip(&ohlc) {
         let up = close >= open;
-        let color = if up { "var(--cronus-success)" } else { "var(--cronus-error)" };
+        let color = if up {
+            "var(--cronus-success)"
+        } else {
+            "var(--cronus-error)"
+        };
         let y_open = y_of(*open, lo, hi);
         let y_close = y_of(*close, lo, hi);
         marks.push_str(&format!(
@@ -99,6 +107,8 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"candlestick-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"));
+        assert!(css.contains(
+            "[data-slot=\"candlestick-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"
+        ));
     }
 }

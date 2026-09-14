@@ -22,11 +22,41 @@ struct Currency {
 
 /// React `DEFAULT_CURRENCIES` head (BRL first = default) with each locale's separators.
 const CURRENCIES: &[Currency] = &[
-    Currency { code: "BRL", symbol: "R$", group: ".", decimal: ",", fraction: 2 },
-    Currency { code: "USD", symbol: "US$", group: ",", decimal: ".", fraction: 2 },
-    Currency { code: "EUR", symbol: "€", group: ".", decimal: ",", fraction: 2 },
-    Currency { code: "GBP", symbol: "£", group: ",", decimal: ".", fraction: 2 },
-    Currency { code: "JPY", symbol: "¥", group: ",", decimal: ".", fraction: 0 },
+    Currency {
+        code: "BRL",
+        symbol: "R$",
+        group: ".",
+        decimal: ",",
+        fraction: 2,
+    },
+    Currency {
+        code: "USD",
+        symbol: "US$",
+        group: ",",
+        decimal: ".",
+        fraction: 2,
+    },
+    Currency {
+        code: "EUR",
+        symbol: "€",
+        group: ".",
+        decimal: ",",
+        fraction: 2,
+    },
+    Currency {
+        code: "GBP",
+        symbol: "£",
+        group: ",",
+        decimal: ".",
+        fraction: 2,
+    },
+    Currency {
+        code: "JPY",
+        symbol: "¥",
+        group: ",",
+        decimal: ".",
+        fraction: 0,
+    },
 ];
 
 /// lucide `chevron-down` (React `size-3.5 text-fg-tertiary`).

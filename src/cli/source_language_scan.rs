@@ -24,8 +24,7 @@ static VOODOO_ATTR: LazyLock<Regex> =
 const SIDECAR_EXTS: &[&str] = &[".html", ".tsx", ".jsx", ".css"];
 
 pub fn scan_file(path: &str) -> Result<Vec<AuditFinding>, String> {
-    let source = std::fs::read_to_string(path)
-        .map_err(|e| format!("cannot read {path}: {e}"))?;
+    let source = std::fs::read_to_string(path).map_err(|e| format!("cannot read {path}: {e}"))?;
     Ok(scan_source(&source))
 }
 
@@ -224,7 +223,11 @@ page "/audit/button/primary-md" type:custom {
 
     #[test]
     fn clean_fixture_passes() {
-        assert!(scan_source(clean_fixture()).is_empty(), "{:?}", scan_source(clean_fixture()));
+        assert!(
+            scan_source(clean_fixture()).is_empty(),
+            "{:?}",
+            scan_source(clean_fixture())
+        );
     }
 
     #[test]
@@ -294,11 +297,17 @@ page "/audit/button/primary-md" type:custom {
 "#;
         assert!(codes(src).contains(&SIDECAR_SOURCE));
         let nodes = parser::parse(src).unwrap();
-        let page = nodes.iter().find_map(|n| match n {
-            AstNode::Page(p) => Some(p),
-            _ => None,
-        }).unwrap();
-        assert_eq!(page.config.get("source").map(String::as_str), Some("./stolen.html"));
+        let page = nodes
+            .iter()
+            .find_map(|n| match n {
+                AstNode::Page(p) => Some(p),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(
+            page.config.get("source").map(String::as_str),
+            Some("./stolen.html")
+        );
     }
 
     #[test]

@@ -111,8 +111,7 @@ pub fn resolve_bind_ip(
     if audit_canvas {
         return Ok(IpAddr::V4(Ipv4Addr::LOCALHOST));
     }
-    let raw = arg_value(args, "--host")
-        .or(env_host.filter(|s| !s.trim().is_empty()));
+    let raw = arg_value(args, "--host").or(env_host.filter(|s| !s.trim().is_empty()));
     match raw {
         None => Ok(IpAddr::V4(Ipv4Addr::LOCALHOST)),
         Some("localhost") => Ok(IpAddr::V4(Ipv4Addr::LOCALHOST)),
@@ -141,7 +140,9 @@ pub fn policy_from_env(args: &[String], audit_canvas: bool) -> Result<Policy, St
     Ok(Policy {
         mode: run_mode_from(args, env("CRONUS_ENV").as_deref()),
         bind_ip: resolve_bind_ip(args, env("CRONUS_HOST").as_deref(), audit_canvas)?,
-        trusted_proxies: parse_trusted_proxies(env("CRONUS_TRUSTED_PROXIES").as_deref().unwrap_or("")),
+        trusted_proxies: parse_trusted_proxies(
+            env("CRONUS_TRUSTED_PROXIES").as_deref().unwrap_or(""),
+        ),
         max_body_bytes: max_body_bytes_from(env("CRONUS_MAX_BODY_BYTES").as_deref()),
     })
 }
@@ -204,7 +205,10 @@ fn canonical(ip: IpAddr) -> IpAddr {
 }
 
 pub fn parse_trusted_proxies(raw: &str) -> Vec<Cidr> {
-    raw.split(',').filter(|s| !s.trim().is_empty()).filter_map(Cidr::parse).collect()
+    raw.split(',')
+        .filter(|s| !s.trim().is_empty())
+        .filter_map(Cidr::parse)
+        .collect()
 }
 
 /// Client IP for rate limiting. `X-Forwarded-For` is honored only when the
@@ -225,7 +229,10 @@ pub fn client_ip(peer: SocketAddr, xff: Option<&str>, trusted: &[Cidr]) -> IpAdd
             Err(_) => hops.clear(),
         }
     }
-    hops.into_iter().rev().find(|ip| !is_trusted(*ip)).unwrap_or(peer_ip)
+    hops.into_iter()
+        .rev()
+        .find(|ip| !is_trusted(*ip))
+        .unwrap_or(peer_ip)
 }
 
 pub fn client_ip_from_headers(peer: SocketAddr, headers: &HeaderMap) -> IpAddr {
@@ -262,7 +269,10 @@ pub fn normalize_account(email: &str) -> String {
 
 impl AccountLimiter {
     pub fn new(max_keys: usize) -> Self {
-        AccountLimiter { accounts: Mutex::new(HashMap::new()), max_keys }
+        AccountLimiter {
+            accounts: Mutex::new(HashMap::new()),
+            max_keys,
+        }
     }
 
     /// `Err(retry_after_secs)` while the account is locked.
@@ -303,7 +313,11 @@ impl AccountLimiter {
                 }
             }
         }
-        let st = map.entry(key).or_insert(AccountState { failures: 0, locked_until: None, last_seen: now });
+        let st = map.entry(key).or_insert(AccountState {
+            failures: 0,
+            locked_until: None,
+            last_seen: now,
+        });
         st.failures = st.failures.saturating_add(1);
         st.last_seen = now;
         if st.failures > ACCOUNT_FREE_FAILURES {
@@ -326,7 +340,10 @@ impl AccountLimiter {
     }
 
     pub fn len(&self) -> usize {
-        self.accounts.lock().unwrap_or_else(|e| e.into_inner()).len()
+        self.accounts
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .len()
     }
 }
 
@@ -397,7 +414,11 @@ pub enum Gate {
 fn normalize(path: &str) -> &str {
     if path.len() > 1 && path.ends_with('/') {
         let t = path.trim_end_matches('/');
-        if t.is_empty() { "/" } else { t }
+        if t.is_empty() {
+            "/"
+        } else {
+            t
+        }
     } else {
         path
     }
@@ -430,7 +451,11 @@ pub fn classify(method: &Method, raw_path: &str) -> RouteClass {
         || path == "/api/audit/trigger"
         || path == "/api/audit/results";
     let _ = method;
-    if internal { RouteClass::Internal } else { RouteClass::Public }
+    if internal {
+        RouteClass::Internal
+    } else {
+        RouteClass::Public
+    }
 }
 
 pub fn gate(class: RouteClass, policy: &Policy, role: Option<&str>) -> Gate {
@@ -460,8 +485,11 @@ pub fn request_role(headers: &HeaderMap) -> Option<String> {
         .get("cookie")
         .and_then(|v| v.to_str().ok())
         .and_then(|c| {
-            c.split(';')
-                .find_map(|p| p.trim().strip_prefix("cronus_token=").map(|s| s.to_string()))
+            c.split(';').find_map(|p| {
+                p.trim()
+                    .strip_prefix("cronus_token=")
+                    .map(|s| s.to_string())
+            })
         });
     bearer
         .or(cookie)
@@ -470,7 +498,11 @@ pub fn request_role(headers: &HeaderMap) -> Option<String> {
 }
 
 /// Returns a response when the route must not be served to this request.
-pub fn guard_internal(method: &Method, path: &str, headers: &HeaderMap) -> Option<Response<Full<Bytes>>> {
+pub fn guard_internal(
+    method: &Method,
+    path: &str,
+    headers: &HeaderMap,
+) -> Option<Response<Full<Bytes>>> {
     let class = classify(method, path);
     if class == RouteClass::Public {
         return None;
@@ -483,7 +515,10 @@ pub fn guard_internal(method: &Method, path: &str, headers: &HeaderMap) -> Optio
             StatusCode::UNAUTHORIZED,
             error_body("UNAUTHORIZED", "Authentication required"),
         )),
-        Gate::Forbidden => Some(json(StatusCode::FORBIDDEN, error_body("FORBIDDEN", "Admin role required"))),
+        Gate::Forbidden => Some(json(
+            StatusCode::FORBIDDEN,
+            error_body("FORBIDDEN", "Admin role required"),
+        )),
     }
 }
 
@@ -506,7 +541,10 @@ fn json(status: StatusCode, body: Value) -> Response<Full<Bytes>> {
 }
 
 pub fn internal_error() -> Response<Full<Bytes>> {
-    json(StatusCode::INTERNAL_SERVER_ERROR, error_body("INTERNAL", "Internal server error"))
+    json(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        error_body("INTERNAL", "Internal server error"),
+    )
 }
 
 // ══════════════════════════════════════════════════
@@ -522,7 +560,9 @@ fn entity_for_table<'a>(entities: &'a [EntityNode], table: &str) -> Option<&'a E
 }
 
 fn redact_json_str(entity: Option<&EntityNode>, raw: &Value) -> Value {
-    let Some(s) = raw.as_str() else { return raw.clone() };
+    let Some(s) = raw.as_str() else {
+        return raw.clone();
+    };
     let Ok(mut v) = serde_json::from_str::<Value>(s) else {
         // Unparseable payload: do not risk echoing it.
         return Value::Null;
@@ -554,7 +594,11 @@ pub fn redact_audit_entries(entries: &mut Value, entities: &[EntityNode]) {
     let Value::Array(rows) = entries else { return };
     for row in rows.iter_mut() {
         let Value::Object(m) = row else { continue };
-        let table = m.get("entity").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let table = m
+            .get("entity")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         let entity = entity_for_table(entities, &table);
         for key in ["data", "prev_data"] {
             if let Some(v) = m.get(key).cloned() {
@@ -589,7 +633,10 @@ where
             StatusCode::PAYLOAD_TOO_LARGE,
             error_body("PAYLOAD_TOO_LARGE", "Request body too large"),
         )),
-        Err(_) => Err(json(StatusCode::BAD_REQUEST, error_body("BAD_REQUEST", "Could not read request body"))),
+        Err(_) => Err(json(
+            StatusCode::BAD_REQUEST,
+            error_body("BAD_REQUEST", "Could not read request body"),
+        )),
     }
 }
 
@@ -635,9 +682,12 @@ pub fn header_read_timeout_from(env_val: Option<&str>) -> Duration {
 
 pub fn http1_builder() -> hyper::server::conn::http1::Builder {
     let mut b = hyper::server::conn::http1::Builder::new();
-    b.timer(hyper_util::rt::TokioTimer::new()).header_read_timeout(header_read_timeout_from(
-        std::env::var("CRONUS_HEADER_READ_TIMEOUT_SECS").ok().as_deref(),
-    ));
+    b.timer(hyper_util::rt::TokioTimer::new())
+        .header_read_timeout(header_read_timeout_from(
+            std::env::var("CRONUS_HEADER_READ_TIMEOUT_SECS")
+                .ok()
+                .as_deref(),
+        ));
     b
 }
 
@@ -661,9 +711,13 @@ mod tests {
     #[tokio::test]
     async fn limited_body_over_cap_is_413() {
         let body = Full::new(Bytes::from(vec![b'a'; 2048]));
-        let err = read_body_limited(body, 1024).await.expect_err("must reject");
+        let err = read_body_limited(body, 1024)
+            .await
+            .expect_err("must reject");
         assert_eq!(err.status(), StatusCode::PAYLOAD_TOO_LARGE);
-        let ok = read_body_limited(Full::new(Bytes::from_static(b"{}")), 1024).await.expect("small ok");
+        let ok = read_body_limited(Full::new(Bytes::from_static(b"{}")), 1024)
+            .await
+            .expect("small ok");
         assert_eq!(&ok[..], b"{}");
     }
 
@@ -681,18 +735,28 @@ mod tests {
         let ip = client_ip(peer("203.0.113.9"), Some("1.2.3.4"), &trusted);
         assert_eq!(ip, "203.0.113.9".parse::<IpAddr>().unwrap());
         // No trusted proxies configured at all: always the socket peer.
-        assert_eq!(client_ip(peer("127.0.0.1"), Some("9.9.9.9"), &[]), "127.0.0.1".parse::<IpAddr>().unwrap());
+        assert_eq!(
+            client_ip(peer("127.0.0.1"), Some("9.9.9.9"), &[]),
+            "127.0.0.1".parse::<IpAddr>().unwrap()
+        );
     }
 
     #[test]
     fn xff_honored_from_trusted_peer_rightmost_untrusted_hop() {
         let trusted = parse_trusted_proxies("10.0.0.0/8, ::1");
-        let ip = client_ip(peer("10.1.2.3"), Some("6.6.6.6, 198.51.100.7, 10.0.0.5"), &trusted);
+        let ip = client_ip(
+            peer("10.1.2.3"),
+            Some("6.6.6.6, 198.51.100.7, 10.0.0.5"),
+            &trusted,
+        );
         assert_eq!(ip, "198.51.100.7".parse::<IpAddr>().unwrap());
         let ip6 = client_ip(peer("::1"), Some("198.51.100.8"), &trusted);
         assert_eq!(ip6, "198.51.100.8".parse::<IpAddr>().unwrap());
         // Garbage header from a trusted proxy falls back to the peer.
-        assert_eq!(client_ip(peer("10.1.2.3"), Some("nope"), &trusted), "10.1.2.3".parse::<IpAddr>().unwrap());
+        assert_eq!(
+            client_ip(peer("10.1.2.3"), Some("nope"), &trusted),
+            "10.1.2.3".parse::<IpAddr>().unwrap()
+        );
     }
 
     #[test]
@@ -719,12 +783,21 @@ mod tests {
             assert!(l.check_at("Victim@Example.com", t0).is_ok());
             l.record_at(" victim@example.com ", false, t0);
         }
-        assert!(l.check_at("victim@example.com", t0).is_ok(), "free failures do not lock");
+        assert!(
+            l.check_at("victim@example.com", t0).is_ok(),
+            "free failures do not lock"
+        );
         l.record_at("VICTIM@example.com", false, t0);
         assert_eq!(l.check_at("victim@example.com", t0), Err(1));
         l.record_at("victim@example.com", false, t0);
-        assert_eq!(l.check_at("victim@example.com", t0), Err(2), "backoff doubles");
-        assert!(l.check_at("victim@example.com", t0 + Duration::from_secs(3)).is_ok());
+        assert_eq!(
+            l.check_at("victim@example.com", t0),
+            Err(2),
+            "backoff doubles"
+        );
+        assert!(l
+            .check_at("victim@example.com", t0 + Duration::from_secs(3))
+            .is_ok());
         assert!(l.check_at("other@example.com", t0).is_ok(), "per account");
         l.record_at("victim@example.com", true, t0);
         assert!(l.check_at("victim@example.com", t0).is_ok());
@@ -735,7 +808,11 @@ mod tests {
         let l = AccountLimiter::new(3);
         let t0 = Instant::now();
         for i in 0..10 {
-            l.record_at(&format!("u{}@x.io", i), false, t0 + Duration::from_millis(i));
+            l.record_at(
+                &format!("u{}@x.io", i),
+                false,
+                t0 + Duration::from_millis(i),
+            );
         }
         assert!(l.len() <= 3);
         l.cleanup_at(t0 + Duration::from_secs(ACCOUNT_IDLE_SECS + 1));
@@ -748,9 +825,15 @@ mod tests {
         assert!(ip.is_loopback());
         let env = resolve_bind_ip(&args(&["cronus", "run"]), Some("0.0.0.0"), false).unwrap();
         assert_eq!(env, "0.0.0.0".parse::<IpAddr>().unwrap());
-        let flag = resolve_bind_ip(&args(&["cronus", "run", "--host", "::"]), Some("127.0.0.1"), false).unwrap();
+        let flag = resolve_bind_ip(
+            &args(&["cronus", "run", "--host", "::"]),
+            Some("127.0.0.1"),
+            false,
+        )
+        .unwrap();
         assert_eq!(flag, "::".parse::<IpAddr>().unwrap());
-        let audit = resolve_bind_ip(&args(&["cronus", "run", "--host", "0.0.0.0"]), None, true).unwrap();
+        let audit =
+            resolve_bind_ip(&args(&["cronus", "run", "--host", "0.0.0.0"]), None, true).unwrap();
         assert!(audit.is_loopback(), "audit canvas stays loopback");
         assert!(resolve_bind_ip(&args(&["cronus", "run", "--host", "evil"]), None, false).is_err());
         assert!(Policy::default().bind_ip.is_loopback());
@@ -759,17 +842,37 @@ mod tests {
     #[test]
     fn run_mode_flag_and_env() {
         assert_eq!(run_mode_from(&args(&["cronus", "run"]), None), RunMode::Dev);
-        assert_eq!(run_mode_from(&args(&["cronus", "run", "--prod"]), None), RunMode::Production);
-        assert_eq!(run_mode_from(&args(&["cronus", "run"]), Some("Production")), RunMode::Production);
-        assert_eq!(run_mode_from(&args(&["cronus", "run"]), Some("development")), RunMode::Dev);
+        assert_eq!(
+            run_mode_from(&args(&["cronus", "run", "--prod"]), None),
+            RunMode::Production
+        );
+        assert_eq!(
+            run_mode_from(&args(&["cronus", "run"]), Some("Production")),
+            RunMode::Production
+        );
+        assert_eq!(
+            run_mode_from(&args(&["cronus", "run"]), Some("development")),
+            RunMode::Dev
+        );
     }
 
     #[test]
     fn production_mode_hides_internal_routes() {
-        let prod = Policy { mode: RunMode::Production, ..Policy::default() };
+        let prod = Policy {
+            mode: RunMode::Production,
+            ..Policy::default()
+        };
         for p in [
-            "/zeus", "/zeus/api", "/api/debug/traces", "/api/_context", "/api/_seed",
-            "/api/server/logs", "/api/hydra/evolve", "/blocks", "/blocks/", "/api/audit/results",
+            "/zeus",
+            "/zeus/api",
+            "/api/debug/traces",
+            "/api/_context",
+            "/api/_seed",
+            "/api/server/logs",
+            "/api/hydra/evolve",
+            "/blocks",
+            "/blocks/",
+            "/api/audit/results",
         ] {
             let class = classify(&Method::GET, p);
             assert_eq!(class, RouteClass::Internal, "{p}");
@@ -783,15 +886,30 @@ mod tests {
     #[test]
     fn internal_routes_need_admin_unless_loopback_dev() {
         let local = Policy::default();
-        let exposed = Policy { bind_ip: "0.0.0.0".parse().unwrap(), ..Policy::default() };
+        let exposed = Policy {
+            bind_ip: "0.0.0.0".parse().unwrap(),
+            ..Policy::default()
+        };
         assert_eq!(gate(RouteClass::Internal, &local, None), Gate::Allow);
-        assert_eq!(gate(RouteClass::Internal, &exposed, None), Gate::Unauthorized);
-        assert_eq!(gate(RouteClass::Internal, &exposed, Some("user")), Gate::Forbidden);
-        assert_eq!(gate(RouteClass::Internal, &exposed, Some("admin")), Gate::Allow);
+        assert_eq!(
+            gate(RouteClass::Internal, &exposed, None),
+            Gate::Unauthorized
+        );
+        assert_eq!(
+            gate(RouteClass::Internal, &exposed, Some("user")),
+            Gate::Forbidden
+        );
+        assert_eq!(
+            gate(RouteClass::Internal, &exposed, Some("admin")),
+            Gate::Allow
+        );
         // Audit trail: admin in every mode, including loopback dev.
         let trail = classify(&Method::GET, "/api/audit/trail");
         assert_eq!(trail, RouteClass::AdminAlways);
-        assert_eq!(classify(&Method::GET, "/api/audit/trail/verify"), RouteClass::AdminAlways);
+        assert_eq!(
+            classify(&Method::GET, "/api/audit/trail/verify"),
+            RouteClass::AdminAlways
+        );
         assert_eq!(gate(trail, &local, None), Gate::Unauthorized);
         assert_eq!(gate(trail, &local, Some("admin")), Gate::Allow);
     }
@@ -828,7 +946,10 @@ mod tests {
         assert_eq!(data, json!({"id":"1","email":"a@b"}));
         let prev: Value = serde_json::from_str(entries[0]["prev_data"].as_str().unwrap()).unwrap();
         assert_eq!(prev, json!({"id":"1","email":"a@b"}));
-        assert_eq!(entries[0]["diff"], json!([{"field":"email","old":"a","new":"a@b"}]));
+        assert_eq!(
+            entries[0]["diff"],
+            json!([{"field":"email","old":"a","new":"a@b"}])
+        );
         let other: Value = serde_json::from_str(entries[1]["data"].as_str().unwrap()).unwrap();
         assert_eq!(other, json!({"x":1}));
         assert!(entries[1]["prev_data"].is_null());
@@ -848,7 +969,10 @@ mod tests {
 
     #[test]
     fn header_timeout_env() {
-        assert_eq!(header_read_timeout_from(None), Duration::from_secs(DEFAULT_HEADER_READ_TIMEOUT_SECS));
+        assert_eq!(
+            header_read_timeout_from(None),
+            Duration::from_secs(DEFAULT_HEADER_READ_TIMEOUT_SECS)
+        );
         assert_eq!(header_read_timeout_from(Some("3")), Duration::from_secs(3));
     }
 }

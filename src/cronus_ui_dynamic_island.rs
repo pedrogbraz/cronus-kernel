@@ -86,7 +86,10 @@ mod tests {
     #[test]
     fn label_only_still_emits_one_trigger() {
         let html = render(&stub("dynamic-island", "Now playing"));
-        assert_eq!(html.matches("data-slot=\"dynamic-island-trigger\"").count(), 1);
+        assert_eq!(
+            html.matches("data-slot=\"dynamic-island-trigger\"").count(),
+            1
+        );
         assert!(html.contains("data-slot=\"dynamic-island-shell\"><div>Now playing</div></div>"));
         reject_fx(&html);
     }

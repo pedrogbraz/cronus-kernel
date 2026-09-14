@@ -4,8 +4,8 @@
 //! Production-grade auth using industry-standard crates.
 //! JWT via HS256, passwords via Argon2id.
 
-use jsonwebtoken::{encode, decode, Header, Validation, EncodingKey, DecodingKey};
-use serde::{Serialize, Deserialize};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 // ══════════════════════════════════════════════════
@@ -34,13 +34,17 @@ pub struct SessionPolicy {
 
 impl Default for SessionPolicy {
     fn default() -> Self {
-        Self { ttl_secs: DEFAULT_SESSION_TTL_SECS }
+        Self {
+            ttl_secs: DEFAULT_SESSION_TTL_SECS,
+        }
     }
 }
 
 impl SessionPolicy {
     /// Validated once at startup from the auth block's session config.
-    pub fn from_session_config(config: &std::collections::HashMap<String, String>) -> Result<Self, String> {
+    pub fn from_session_config(
+        config: &std::collections::HashMap<String, String>,
+    ) -> Result<Self, String> {
         match config.get("expires") {
             None => Ok(Self::default()),
             Some(raw) => parse_duration_secs(raw)
@@ -55,7 +59,9 @@ pub fn parse_duration_secs(raw: &str) -> Result<u64, String> {
     let raw = raw.trim();
     let split = raw.find(|c: char| !c.is_ascii_digit()).unwrap_or(raw.len());
     let (digits, unit) = raw.split_at(split);
-    let amount: u64 = digits.parse().map_err(|_| "expected <number><unit>, e.g. 24h".to_string())?;
+    let amount: u64 = digits
+        .parse()
+        .map_err(|_| "expected <number><unit>, e.g. 24h".to_string())?;
     let unit_secs = match unit {
         "s" => 1,
         "m" => 60,
@@ -67,7 +73,9 @@ pub fn parse_duration_secs(raw: &str) -> Result<u64, String> {
     if amount == 0 {
         return Err("duration must be greater than zero".to_string());
     }
-    amount.checked_mul(unit_secs).ok_or_else(|| "duration too large".to_string())
+    amount
+        .checked_mul(unit_secs)
+        .ok_or_else(|| "duration too large".to_string())
 }
 
 fn new_jti() -> String {
@@ -90,8 +98,12 @@ pub fn create_session_token(user_id: &str, role: &str, secret: &str, ttl_secs: u
         iat: now as usize,
         jti: new_jti(),
     };
-    encode(&Header::default(), &claims, &EncodingKey::from_secret(secret.as_bytes()))
-        .unwrap_or_default()
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_bytes()),
+    )
+    .unwrap_or_default()
 }
 
 /// Create a JWT with the default session lifetime (24h).
@@ -127,8 +139,8 @@ const ARGON2_P_COST: u32 = 1;
 /// default change can never silently weaken new hashes.
 fn argon2id() -> argon2::Argon2<'static> {
     use argon2::{Algorithm, Argon2, Params, Version};
-    let params = Params::new(ARGON2_M_COST, ARGON2_T_COST, ARGON2_P_COST, None)
-        .unwrap_or(Params::DEFAULT);
+    let params =
+        Params::new(ARGON2_M_COST, ARGON2_T_COST, ARGON2_P_COST, None).unwrap_or(Params::DEFAULT);
     Argon2::new(Algorithm::Argon2id, Version::V0x13, params)
 }
 
@@ -136,34 +148,42 @@ fn argon2id() -> argon2::Argon2<'static> {
 /// scalar values), nothing else.
 pub fn validate_new_password(password: &str) -> Result<(), String> {
     if password.chars().count() < MIN_PASSWORD_CHARS {
-        return Err(format!("password must be at least {} characters", MIN_PASSWORD_CHARS));
+        return Err(format!(
+            "password must be at least {} characters",
+            MIN_PASSWORD_CHARS
+        ));
     }
     Ok(())
 }
 
 /// Hash a password using Argon2id (industry standard)
 pub fn hash_password(password: &str) -> String {
-    use argon2::PasswordHasher;
     use argon2::password_hash::SaltString;
+    use argon2::PasswordHasher;
     use rand_core::OsRng;
 
     let salt = SaltString::generate(&mut OsRng);
     argon2id()
         .hash_password(password.as_bytes(), &salt)
         .map(|h| h.to_string())
-        .unwrap_or_else(|e| panic!("CRITICAL: Argon2 hashing failed — refusing to store password: {}", e))
+        .unwrap_or_else(|e| {
+            panic!(
+                "CRITICAL: Argon2 hashing failed — refusing to store password: {}",
+                e
+            )
+        })
 }
 
 /// Verify a password against a PHC-format Argon2 hash string. Anything
 /// else (including legacy unsalted/salted SHA-256 hex) is rejected.
 pub fn verify_password(password: &str, stored: &str) -> bool {
-    use argon2::PasswordVerifier;
     use argon2::password_hash::PasswordHash;
+    use argon2::PasswordVerifier;
 
     match PasswordHash::new(stored) {
-        Ok(hash) if hash.algorithm.as_str().starts_with("argon2") => {
-            argon2id().verify_password(password.as_bytes(), &hash).is_ok()
-        }
+        Ok(hash) if hash.algorithm.as_str().starts_with("argon2") => argon2id()
+            .verify_password(password.as_bytes(), &hash)
+            .is_ok(),
         _ => false,
     }
 }
@@ -185,8 +205,12 @@ pub fn extract_user(auth_header: Option<&str>, secret: &str) -> Option<Claims> {
 
 /// Check if claims have the required role
 pub fn require_role(claims: &Claims, role: &str) -> bool {
-    if role == "public" { return true; }
-    if role == "jwt" { return true; } // any authenticated user
+    if role == "public" {
+        return true;
+    }
+    if role == "jwt" {
+        return true;
+    } // any authenticated user
     claims.role == role || claims.role == "admin"
 }
 
@@ -290,7 +314,10 @@ fn restrict_key_file_permissions(path: &std::path::Path) {
     if let Ok(meta) = std::fs::metadata(path) {
         if meta.permissions().mode() & 0o077 != 0 {
             let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
-            eprintln!("  \x1b[33m⚠\x1b[0m {} was readable by other users; permissions set to 0600", path.display());
+            eprintln!(
+                "  \x1b[33m⚠\x1b[0m {} was readable by other users; permissions set to 0600",
+                path.display()
+            );
         }
     }
 }
@@ -342,12 +369,15 @@ mod tests {
     #[test]
     fn test_password_hash_uses_explicit_argon2id_params() {
         let hash = hash_password("correct horse battery staple");
-        assert!(hash.starts_with("$argon2id$v=19$m=19456,t=2,p=1$"), "unexpected PHC string: {hash}");
+        assert!(
+            hash.starts_with("$argon2id$v=19$m=19456,t=2,p=1$"),
+            "unexpected PHC string: {hash}"
+        );
     }
 
     #[test]
     fn test_password_verify_rejects_sha256_legacy_salted() {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
         let salt = "randomsalt123";
         let password = "MyOldPassword!";
         let mut hasher = Sha256::new();
@@ -360,7 +390,7 @@ mod tests {
 
     #[test]
     fn test_password_verify_rejects_sha256_plain_hex() {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
         let password = "PlainHash123";
         let hash = hex::encode(Sha256::digest(password.as_bytes()));
 
@@ -402,7 +432,10 @@ mod tests {
             "cronus-auth-{}-{}-{}",
             tag,
             std::process::id(),
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
         ));
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -414,7 +447,10 @@ mod tests {
         assert_eq!(secret_from_env(Some("")), Ok(None));
         let err = secret_from_env(Some("short-secret")).unwrap_err();
         assert!(err.contains("at least 32 bytes"));
-        assert!(!err.contains("short-secret"), "error must not echo the secret");
+        assert!(
+            !err.contains("short-secret"),
+            "error must not echo the secret"
+        );
         assert!(secret_from_env(Some(&"x".repeat(31))).is_err());
         let ok = "k".repeat(32);
         assert_eq!(secret_from_env(Some(&ok)), Ok(Some(ok.clone())));
@@ -461,13 +497,25 @@ mod tests {
 
     #[test]
     fn test_require_role() {
-        let claims = Claims { sub: "u1".into(), role: "admin".into(), exp: 0, iat: 0, jti: "t1".into() };
+        let claims = Claims {
+            sub: "u1".into(),
+            role: "admin".into(),
+            exp: 0,
+            iat: 0,
+            jti: "t1".into(),
+        };
         assert!(require_role(&claims, "admin"));
         assert!(require_role(&claims, "user")); // admin can do anything
         assert!(require_role(&claims, "jwt"));
         assert!(require_role(&claims, "public"));
 
-        let user_claims = Claims { sub: "u2".into(), role: "user".into(), exp: 0, iat: 0, jti: "t2".into() };
+        let user_claims = Claims {
+            sub: "u2".into(),
+            role: "user".into(),
+            exp: 0,
+            iat: 0,
+            jti: "t2".into(),
+        };
         assert!(require_role(&user_claims, "user"));
         assert!(!require_role(&user_claims, "admin"));
     }
@@ -487,24 +535,50 @@ mod tests {
     #[test]
     fn token_without_iat_or_jti_is_rejected() {
         #[derive(Serialize)]
-        struct Legacy { sub: String, role: String, exp: usize }
+        struct Legacy {
+            sub: String,
+            role: String,
+            exp: usize,
+        }
         let secret = "test-secret";
-        let exp = (SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + 3600) as usize;
+        let exp = (SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            + 3600) as usize;
         let legacy = encode(
             &Header::default(),
-            &Legacy { sub: "u1".into(), role: "admin".into(), exp },
+            &Legacy {
+                sub: "u1".into(),
+                role: "admin".into(),
+                exp,
+            },
             &EncodingKey::from_secret(secret.as_bytes()),
-        ).unwrap();
+        )
+        .unwrap();
         assert!(verify_token(&legacy, secret).is_err());
     }
 
     #[test]
     fn session_policy_reads_expires() {
         let mut cfg = std::collections::HashMap::new();
-        assert_eq!(SessionPolicy::from_session_config(&cfg).unwrap().ttl_secs, DEFAULT_SESSION_TTL_SECS);
-        for (raw, secs) in [("30s", 30), ("15m", 900), ("24h", 86_400), ("7d", 604_800), ("2w", 1_209_600)] {
+        assert_eq!(
+            SessionPolicy::from_session_config(&cfg).unwrap().ttl_secs,
+            DEFAULT_SESSION_TTL_SECS
+        );
+        for (raw, secs) in [
+            ("30s", 30),
+            ("15m", 900),
+            ("24h", 86_400),
+            ("7d", 604_800),
+            ("2w", 1_209_600),
+        ] {
             cfg.insert("expires".to_string(), raw.to_string());
-            assert_eq!(SessionPolicy::from_session_config(&cfg).unwrap().ttl_secs, secs, "{raw}");
+            assert_eq!(
+                SessionPolicy::from_session_config(&cfg).unwrap().ttl_secs,
+                secs,
+                "{raw}"
+            );
         }
         for bad in ["0h", "h", "24", "10y", "-1h"] {
             cfg.insert("expires".to_string(), bad.to_string());

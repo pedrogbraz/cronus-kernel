@@ -72,7 +72,11 @@ fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
     comp.props
         .get(key)
         .map(String::as_str)
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get(key).map(String::as_str)))
+        .or_else(|| {
+            comp.items
+                .iter()
+                .find_map(|i| i.config.get(key).map(String::as_str))
+        })
         .filter(|s| !s.is_empty())
 }
 
@@ -131,7 +135,9 @@ mod tests {
     #[test]
     fn description_attribute_matches_react() {
         let mut c = stub("alert", "Heads up");
-        c.items[0].config.insert("description".into(), "Your trial ends soon.".into());
+        c.items[0]
+            .config
+            .insert("description".into(), "Your trial ends soon.".into());
         let html = render(&c);
         assert_eq!(
             html,
@@ -186,7 +192,8 @@ mod tests {
         assert!(css.contains("grid-template-columns: 0 1fr; align-items: start; row-gap: 0.25rem;"));
         assert!(css.contains("padding: 0.75rem 1rem; font-size: 0.875rem; line-height: 1.25rem;"));
         assert!(css.contains("border-radius: var(--cronus-radius-lg)"));
-        assert!(css.contains("[data-slot=\"alert-title\"] {\n  grid-column-start: 2; min-height: 1rem;"));
+        assert!(css
+            .contains("[data-slot=\"alert-title\"] {\n  grid-column-start: 2; min-height: 1rem;"));
         assert!(css.contains("[data-slot=\"alert-description\"] {\n  grid-column-start: 2; display: grid; justify-items: start; gap: 0.25rem;"));
         assert!(css.contains("var(--cronus-surface-overlay)"));
         assert!(!css.contains("zinc-"));

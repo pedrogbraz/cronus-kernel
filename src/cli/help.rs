@@ -11,10 +11,14 @@ pub fn print_help() {
     println!("  \x1b[1mUsage:\x1b[0m cronus <command> [options]\n");
     println!("  \x1b[1mCommands:\x1b[0m");
     println!("    \x1b[32mrun\x1b[0m [port] [--host ip] [--prod] [--strict] [--audit-canvas [port]]  Parse .cronus → serve (127.0.0.1 by default)");
-    println!("          --audit-canvas: bind 127.0.0.1, exclusive /audit/* path (default port 5176)");
+    println!(
+        "          --audit-canvas: bind 127.0.0.1, exclusive /audit/* path (default port 5176)"
+    );
     println!("    \x1b[32mdebug\x1b[0m [port]           Run with request tracing, colored logs, /api/debug/traces");
     println!("    \x1b[32mnew\x1b[0m <template>       Create project (landing/admin/saas/api/ecommerce/blog)");
-    println!("    \x1b[32mseed\x1b[0m [count]          Seed database with fake data (default: 10 rows)");
+    println!(
+        "    \x1b[32mseed\x1b[0m [count]          Seed database with fake data (default: 10 rows)"
+    );
     println!("    \x1b[32mbuild\x1b[0m [--strict] [--strict-ai] [--ai|--machine|--json-errors]  Validate .cronus file");
     println!("          --ai / --machine / --json-errors: AI-Error Protocol (structured JSON with fix hints)");
     println!("    \x1b[32mparse\x1b[0m <file> [--strict] Parse and show AST (strict mode)");
@@ -29,7 +33,9 @@ pub fn print_help() {
     println!("    \x1b[32mvalidate\x1b[0m [file] [--json] [--strict-ai]  Validate (--strict-ai: all warnings = errors, JSON output)");
     println!("    \x1b[32mvalidate\x1b[0m --mission       Validate code against constitution + objective");
     println!("    \x1b[32mbrief\x1b[0m            Generate AI context capsule (~500 words)");
-    println!("    \x1b[32msync\x1b[0m             Generate .cronus/state-digest.json from project state");
+    println!(
+        "    \x1b[32msync\x1b[0m             Generate .cronus/state-digest.json from project state"
+    );
     println!("    \x1b[32mhandoff\x1b[0m          Complete active task, update state digest for next session");
     println!("    \x1b[32mlease\x1b[0m check|list|create  Task lease management (drift detection)");
     println!("    \x1b[32mdrift\x1b[0m [--explain]    Detect strategic, scope, and semantic drift");
@@ -39,7 +45,9 @@ pub fn print_help() {
     println!("    \x1b[32mreview\x1b[0m [task-id]    Semantic review of task changes (what changed, not diff)");
     println!("    \x1b[32mtimeline\x1b[0m         Task-based project history (newest first)");
     println!("    \x1b[32mstatus\x1b[0m           Semantic project overview (like git status for CRONUS)");
-    println!("    \x1b[32mmemory\x1b[0m sessions|decisions|log|decide  Semantic memory across sessions");
+    println!(
+        "    \x1b[32mmemory\x1b[0m sessions|decisions|log|decide  Semantic memory across sessions"
+    );
     println!("    \x1b[32mverify-audit\x1b[0m     Verify audit trail hash chain integrity");
     println!("    \x1b[32maudit\x1b[0m language|logic|visual|all|legacy   Cronus Audit (legacy = dump-text HTML)");
     println!("    \x1b[32mversion\x1b[0m          Show version");

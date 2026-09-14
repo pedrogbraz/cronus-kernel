@@ -21,10 +21,10 @@ pub struct BlockCandidate {
 
 #[derive(Debug, Clone)]
 pub enum CandidateType {
-    EventHandler,   // on Entity.event
-    Endpoint,       // endpoint METHOD /path
-    Schedule,       // schedule "name"
-    Webhook,        // on webhook "/path"
+    EventHandler, // on Entity.event
+    Endpoint,     // endpoint METHOD /path
+    Schedule,     // schedule "name"
+    Webhook,      // on webhook "/path"
 }
 
 /// Extract block candidates from a list of scripts + their execution metrics.
@@ -101,12 +101,16 @@ pub fn find_common_patterns(scripts: &[ScriptFile]) -> Vec<PatternMatch> {
     let mut patterns: Vec<PatternMatch> = Vec::new();
 
     // Collect all entity event handlers
-    let mut entity_events: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    let mut entity_events: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
     for script in scripts {
         for block in &script.blocks {
             if let ScriptBlock::OnEvent(on) = block {
                 let key = format!("{}.{}", on.entity, on.event);
-                entity_events.entry(key).or_default().push(script.name.clone());
+                entity_events
+                    .entry(key)
+                    .or_default()
+                    .push(script.name.clone());
             }
         }
     }
@@ -118,7 +122,11 @@ pub fn find_common_patterns(scripts: &[ScriptFile]) -> Vec<PatternMatch> {
                 pattern: pattern.clone(),
                 occurrences: sources.len(),
                 sources: sources.clone(),
-                suggestion: format!("Entity event '{}' appears in {} scripts — candidate for shared block", pattern, sources.len()),
+                suggestion: format!(
+                    "Entity event '{}' appears in {} scripts — candidate for shared block",
+                    pattern,
+                    sources.len()
+                ),
             });
         }
     }

@@ -35,7 +35,9 @@ fn toc_entries(comp: &ComponentNode) -> Vec<(String, String)> {
     let choice: Vec<_> = comp
         .items
         .iter()
-        .filter(|i| matches!(i.item_type.as_str(), "item" | "tab" | "columns") && !i.text.is_empty())
+        .filter(|i| {
+            matches!(i.item_type.as_str(), "item" | "tab" | "columns") && !i.text.is_empty()
+        })
         .map(entry_of)
         .collect();
     if !choice.is_empty() {
@@ -76,7 +78,10 @@ fn slugify(s: &str) -> String {
     for c in s.trim().chars() {
         if c.is_ascii_alphanumeric() {
             out.push(c.to_ascii_lowercase());
-        } else if (c.is_whitespace() || c == '-' || c == '_') && !out.is_empty() && !out.ends_with('-') {
+        } else if (c.is_whitespace() || c == '-' || c == '_')
+            && !out.is_empty()
+            && !out.ends_with('-')
+        {
             out.push('-');
         }
     }
@@ -116,7 +121,9 @@ mod tests {
         let mut c = stub("table-of-contents", "On this page");
         c.items.push(extra("text", "Overview"));
         c.items.push(extra("text", "Usage"));
-        c.items[2].config.insert("aria-label".into(), "On this page".into());
+        c.items[2]
+            .config
+            .insert("aria-label".into(), "On this page".into());
         let html = render(&c);
         assert_eq!(
             html,
@@ -140,7 +147,10 @@ mod tests {
     #[test]
     fn label_only_still_emits_one_link() {
         let html = render(&stub("table-of-contents", "Intro"));
-        assert_eq!(html.matches("data-slot=\"table-of-contents-link\"").count(), 1);
+        assert_eq!(
+            html.matches("data-slot=\"table-of-contents-link\"").count(),
+            1
+        );
         assert!(html.contains("href=\"#intro\" data-depth=\"0\">Intro</a>"));
         reject_interact(&html);
     }

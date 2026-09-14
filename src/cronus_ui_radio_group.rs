@@ -181,19 +181,11 @@ mod tests {
     #[test]
     fn checked_true_item_is_selected() {
         let mut c = stub_options(&["Free", "Pro", "Team"]);
-        c.items[1]
-            .config
-            .insert("checked".into(), "true".into());
+        c.items[1].config.insert("checked".into(), "true".into());
         let html = render(&c);
-        assert!(html.contains(
-            "aria-checked=\"false\" data-state=\"unchecked\" value=\"Free\""
-        ));
-        assert!(html.contains(
-            "aria-checked=\"true\" data-state=\"checked\" value=\"Pro\""
-        ));
-        assert!(html.contains(
-            "aria-checked=\"false\" data-state=\"unchecked\" value=\"Team\""
-        ));
+        assert!(html.contains("aria-checked=\"false\" data-state=\"unchecked\" value=\"Free\""));
+        assert!(html.contains("aria-checked=\"true\" data-state=\"checked\" value=\"Pro\""));
+        assert!(html.contains("aria-checked=\"false\" data-state=\"unchecked\" value=\"Team\""));
         reject_interact(&html);
     }
 

@@ -118,7 +118,9 @@ mod tests {
         let mut c = stub("timeline", "Order history");
         c.items.push(extra("text", "Order placed"));
         let mut shipped = extra("text", "Order shipped");
-        shipped.config.insert("aria-label".into(), "Order history".into());
+        shipped
+            .config
+            .insert("aria-label".into(), "Order history".into());
         c.items.push(shipped);
         let html = render(&c);
         assert_eq!(
@@ -137,7 +139,10 @@ mod tests {
         let html = render(&stub("timeline", "Shipped"));
         assert_eq!(
             html,
-            format!("<ol role=\"list\" data-slot=\"timeline\">{}</ol>", event("Shipped", false))
+            format!(
+                "<ol role=\"list\" data-slot=\"timeline\">{}</ol>",
+                event("Shipped", false)
+            )
         );
         reject_interact(&html);
     }
@@ -145,9 +150,8 @@ mod tests {
     #[test]
     fn label_is_escaped() {
         let html = render(&stub("timeline", "A <B> & \"C\""));
-        assert!(html.contains(
-            "<div data-slot=\"timeline-title\">A &lt;B&gt; &amp; &quot;C&quot;</div>"
-        ));
+        assert!(html
+            .contains("<div data-slot=\"timeline-title\">A &lt;B&gt; &amp; &quot;C&quot;</div>"));
         reject_interact(&html);
     }
 
@@ -200,10 +204,16 @@ mod tests {
             "position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr);\n  column-gap: 0.75rem; padding-bottom: 1.5rem;"
         ));
         assert!(css.contains("[data-slot=\"timeline-item\"]:last-child { padding-bottom: 0; }"));
-        assert!(css.contains("width: 0.625rem; height: 0.625rem;\n  border-radius: calc(infinity * 1px);"));
+        assert!(css.contains(
+            "width: 0.625rem; height: 0.625rem;\n  border-radius: calc(infinity * 1px);"
+        ));
         assert!(css.contains("flex: 1 1 0%; width: 1px; margin-top: 0.25rem;"));
-        assert!(css.contains("[data-slot=\"timeline-body\"] { min-width: 0; padding-top: 0.125rem; }"));
-        assert!(css.contains("font-size: 0.875rem; font-weight: 500; line-height: 1; color: var(--cronus-fg);"));
+        assert!(
+            css.contains("[data-slot=\"timeline-body\"] { min-width: 0; padding-top: 0.125rem; }")
+        );
+        assert!(css.contains(
+            "font-size: 0.875rem; font-weight: 500; line-height: 1; color: var(--cronus-fg);"
+        ));
         assert!(!css.contains("margin-top: 0.375rem;\n  border-radius: 999px"));
         assert!(css.contains("var(--cronus-border)"));
         assert!(!css.contains("zinc-"));

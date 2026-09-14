@@ -4,7 +4,7 @@
 //! 7 rules that prevent hardcoded data, dead UI, and broken SPA contracts.
 //! Runs at parse time (<5ms) using regex on template strings.
 
-use crate::parser::{AstNode, ApiNode, EntityNode, HttpMethod, PageNode, SectionNode};
+use crate::parser::{ApiNode, AstNode, EntityNode, HttpMethod, PageNode, SectionNode};
 
 #[derive(Debug, Clone)]
 pub enum Severity {
@@ -32,8 +32,11 @@ impl std::fmt::Display for LintResult {
             Severity::Warning => "warning",
             Severity::Error => "error",
         };
-        write!(f, "  {} \x1b[1m{}\x1b[0m ({}): {}\n    → {}",
-            icon, self.rule, self.section, self.message, self.fix)
+        write!(
+            f,
+            "  {} \x1b[1m{}\x1b[0m ({}): {}\n    → {}",
+            icon, self.rule, self.section, self.message, self.fix
+        )
     }
 }
 
@@ -71,7 +74,8 @@ pub fn lint_ast(nodes: &[AstNode], strict: bool) -> Vec<LintResult> {
     }
 
     // Collect sensitive field names from all entities
-    let sensitive_fields: Vec<String> = entities.iter()
+    let sensitive_fields: Vec<String> = entities
+        .iter()
         .flat_map(|e| e.fields.iter())
         .filter(|f| f.sensitive)
         .map(|f| f.name.clone())
@@ -89,12 +93,23 @@ pub fn lint_ast(nodes: &[AstNode], strict: bool) -> Vec<LintResult> {
         for section in &page.sections {
             let sec_name = format!("{} ({})", section.section_type, page.route);
             results.extend(rule_no_dead_text(section, &sec_name, &page.route));
-            results.extend(rule_no_dead_links(section, &sec_name, &page.route, &all_routes, &kernel_routes));
+            results.extend(rule_no_dead_links(
+                section,
+                &sec_name,
+                &page.route,
+                &all_routes,
+                &kernel_routes,
+            ));
             results.extend(rule_no_dead_ui(section, &sec_name, &page.route));
             results.extend(rule_no_fake_state(section, &sec_name, &page.route));
             results.extend(rule_no_orphan_reload(section, &sec_name, &page.route));
             results.extend(rule_no_hardcode_user(section, &sec_name, &page.route));
-            results.extend(rule_no_sensitive_render(section, &sec_name, &page.route, &sensitive_fields));
+            results.extend(rule_no_sensitive_render(
+                section,
+                &sec_name,
+                &page.route,
+                &sensitive_fields,
+            ));
         }
         // Rule 7: bind-or-empty (page-level)
         results.extend(rule_bind_or_empty(page));
@@ -104,12 +119,23 @@ pub fn lint_ast(nodes: &[AstNode], strict: bool) -> Vec<LintResult> {
     for (def_name, section) in &define_sections {
         let sec_name = format!("{} (define:{})", section.section_type, def_name);
         results.extend(rule_no_dead_text(section, &sec_name, "define"));
-        results.extend(rule_no_dead_links(section, &sec_name, "define", &all_routes, &kernel_routes));
+        results.extend(rule_no_dead_links(
+            section,
+            &sec_name,
+            "define",
+            &all_routes,
+            &kernel_routes,
+        ));
         results.extend(rule_no_dead_ui(section, &sec_name, "define"));
         results.extend(rule_no_fake_state(section, &sec_name, "define"));
         results.extend(rule_no_orphan_reload(section, &sec_name, "define"));
         results.extend(rule_no_hardcode_user(section, &sec_name, "define"));
-        results.extend(rule_no_sensitive_render(section, &sec_name, "define", &sensitive_fields));
+        results.extend(rule_no_sensitive_render(
+            section,
+            &sec_name,
+            "define",
+            &sensitive_fields,
+        ));
     }
 
     // Rule C012: form-submit-handler — Form sections must have submit handler
@@ -131,12 +157,22 @@ pub fn lint_ast(nodes: &[AstNode], strict: bool) -> Vec<LintResult> {
     for page in &pages {
         for section in &page.sections {
             let sec_name = format!("{} ({})", section.section_type, page.route);
-            results.extend(rule_no_sensitive_select(section, &sec_name, &page.route, &sensitive_fields));
+            results.extend(rule_no_sensitive_select(
+                section,
+                &sec_name,
+                &page.route,
+                &sensitive_fields,
+            ));
         }
     }
     for (def_name, section) in &define_sections {
         let sec_name = format!("{} (define:{})", section.section_type, def_name);
-        results.extend(rule_no_sensitive_select(section, &sec_name, "define", &sensitive_fields));
+        results.extend(rule_no_sensitive_select(
+            section,
+            &sec_name,
+            "define",
+            &sensitive_fields,
+        ));
     }
 
     // Promote warnings to errors in strict mode
@@ -235,24 +271,32 @@ fn find_dead_metrics_in_html(html: &str) -> Vec<String> {
 
     // Metric patterns
     let patterns: &[(&str, &str)] = &[
-        (r"\b\d+(\.\d+)?%", "percentage"),           // 99.99%, 12%
-        (r"\b\d+(\.\d+)?(ms|s|m|h)\b", "duration"),  // 14ms, 2.5s
-        (r"\$[\d,.]+", "currency"),                    // $142,804
+        (r"\b\d+(\.\d+)?%", "percentage"),                   // 99.99%, 12%
+        (r"\b\d+(\.\d+)?(ms|s|m|h)\b", "duration"),          // 14ms, 2.5s
+        (r"\$[\d,.]+", "currency"),                          // $142,804
         (r"\b\d+(\.\d+)?(K|M|B|T|GB|MB|TB)\b", "magnitude"), // 1.2M, 4.5GB
-        (r"\bv\d+\.\d+(\.\d+)?(-\w+)?", "version"),  // v2.4.0-stable
+        (r"\bv\d+\.\d+(\.\d+)?(-\w+)?", "version"),          // v2.4.0-stable
     ];
 
     for (pattern, _kind) in patterns {
         // Simple regex-like matching (no regex crate — manual scan)
         for word in text_only.split_whitespace() {
-            let w = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '.' && c != '%' && c != '$' && c != '-');
+            let w = word.trim_matches(|c: char| {
+                !c.is_alphanumeric() && c != '.' && c != '%' && c != '$' && c != '-'
+            });
             if matches_metric_pattern(w, pattern) {
                 // Skip if it's inside a placeholder attribute
-                if is_in_placeholder(html, w) { continue; }
+                if is_in_placeholder(html, w) {
+                    continue;
+                }
                 // Skip if the containing element has an id="" (will be populated by JS)
-                if is_in_id_element(html, w) { continue; }
+                if is_in_id_element(html, w) {
+                    continue;
+                }
                 // Skip common false positives
-                if w == "0" || w == "0%" || w.len() < 2 { continue; }
+                if w == "0" || w == "0%" || w.len() < 2 {
+                    continue;
+                }
                 findings.push(w.to_string());
             }
         }
@@ -265,13 +309,15 @@ fn find_dead_metrics_in_html(html: &str) -> Vec<String> {
 fn matches_metric_pattern(word: &str, _pattern: &str) -> bool {
     let w = word;
     // Check each pattern type manually (fast, no regex dependency)
-    if w.ends_with('%') && w[..w.len()-1].parse::<f64>().is_ok() && w.len() > 2 {
+    if w.ends_with('%') && w[..w.len() - 1].parse::<f64>().is_ok() && w.len() > 2 {
         return true;
     }
     if (w.ends_with("ms") || w.ends_with("s") || w.ends_with("m") || w.ends_with("h"))
         && w.len() > 2
-        && w[..w.len()-2].trim_end_matches(|c: char| c == 's' || c == 'm' || c == 'h')
-            .parse::<f64>().is_ok()
+        && w[..w.len() - 2]
+            .trim_end_matches(|c: char| c == 's' || c == 'm' || c == 'h')
+            .parse::<f64>()
+            .is_ok()
     {
         // Avoid matching CSS values and common words
         let num_part = w.trim_end_matches(|c: char| c.is_alphabetic());
@@ -282,8 +328,13 @@ fn matches_metric_pattern(word: &str, _pattern: &str) -> bool {
     if w.starts_with('$') && w.len() > 1 && w[1..].replace(',', "").parse::<f64>().is_ok() {
         return true;
     }
-    if (w.ends_with('K') || w.ends_with('M') || w.ends_with('B') || w.ends_with('T')
-        || w.ends_with("GB") || w.ends_with("MB") || w.ends_with("TB"))
+    if (w.ends_with('K')
+        || w.ends_with('M')
+        || w.ends_with('B')
+        || w.ends_with('T')
+        || w.ends_with("GB")
+        || w.ends_with("MB")
+        || w.ends_with("TB"))
         && w.len() > 1
     {
         let num_part = w.trim_end_matches(|c: char| c.is_alphabetic());
@@ -291,8 +342,16 @@ fn matches_metric_pattern(word: &str, _pattern: &str) -> bool {
             return true;
         }
     }
-    if w.starts_with('v') && w.len() > 3 && w.chars().nth(1).map(|c| c.is_ascii_digit()).unwrap_or(false) {
-        if w.contains('.') { return true; }
+    if w.starts_with('v')
+        && w.len() > 3
+        && w.chars()
+            .nth(1)
+            .map(|c| c.is_ascii_digit())
+            .unwrap_or(false)
+    {
+        if w.contains('.') {
+            return true;
+        }
     }
     false
 }
@@ -301,7 +360,13 @@ fn matches_metric_pattern(word: &str, _pattern: &str) -> bool {
 // RULE 2: no-dead-links — Every Link Must Navigate
 // ══════════════════════════════════════════════════
 
-fn rule_no_dead_links(section: &SectionNode, sec_name: &str, page: &str, routes: &[String], kernel_routes: &[String]) -> Vec<LintResult> {
+fn rule_no_dead_links(
+    section: &SectionNode,
+    sec_name: &str,
+    page: &str,
+    routes: &[String],
+    kernel_routes: &[String],
+) -> Vec<LintResult> {
     let template = match &section.template {
         Some(t) => t,
         None => return vec![],
@@ -329,7 +394,10 @@ fn rule_no_dead_links(section: &SectionNode, sec_name: &str, page: &str, routes:
             if !routes.contains(&href) && !kernel_routes.contains(&href) {
                 let suggestion = find_closest_route(&href, routes, kernel_routes);
                 let fix = if let Some(ref s) = suggestion {
-                    format!("Did you mean \"{}\"? Or create a page with route \"{}\"", s, href)
+                    format!(
+                        "Did you mean \"{}\"? Or create a page with route \"{}\"",
+                        s, href
+                    )
                 } else {
                     format!("Create a page with route \"{}\" or remove the link", href)
                 };
@@ -354,11 +422,16 @@ fn find_dead_hrefs(html: &str) -> Vec<String> {
     let mut pos = 0;
     while let Some(idx) = html[pos..].find("href=") {
         let start = pos + idx + 5;
-        if start >= html.len() { break; }
+        if start >= html.len() {
+            break;
+        }
         let quote = html.as_bytes().get(start).copied().unwrap_or(b'"');
         if quote == b'"' || quote == b'\'' {
-            let end = html[start+1..].find(quote as char).map(|i| start + 1 + i).unwrap_or(html.len());
-            let href = &html[start+1..end];
+            let end = html[start + 1..]
+                .find(quote as char)
+                .map(|i| start + 1 + i)
+                .unwrap_or(html.len());
+            let href = &html[start + 1..end];
             if href == "#" {
                 dead.push("#".into());
             }
@@ -374,11 +447,16 @@ fn extract_hrefs(html: &str) -> Vec<String> {
     let mut pos = 0;
     while let Some(idx) = html[pos..].find("href=") {
         let start = pos + idx + 5;
-        if start >= html.len() { break; }
+        if start >= html.len() {
+            break;
+        }
         let quote = html.as_bytes().get(start).copied().unwrap_or(b'"');
         if quote == b'"' || quote == b'\'' {
-            let end = html[start+1..].find(quote as char).map(|i| start + 1 + i).unwrap_or(html.len());
-            let href = &html[start+1..end];
+            let end = html[start + 1..]
+                .find(quote as char)
+                .map(|i| start + 1 + i)
+                .unwrap_or(html.len());
+            let href = &html[start + 1..end];
             if !href.is_empty() && href != "#" {
                 hrefs.push(href.to_string());
             }
@@ -404,18 +482,24 @@ fn rule_no_dead_ui(section: &SectionNode, sec_name: &str, page: &str) -> Vec<Lin
     let mut pos = 0;
     while let Some(idx) = template[pos..].find("<button") {
         let tag_start = pos + idx;
-        let tag_end = template[tag_start..].find('>').map(|i| tag_start + i).unwrap_or(template.len());
-        let tag = &template[tag_start..tag_end+1];
+        let tag_end = template[tag_start..]
+            .find('>')
+            .map(|i| tag_start + i)
+            .unwrap_or(template.len());
+        let tag = &template[tag_start..tag_end + 1];
 
-        let has_action = tag.contains("onclick") || tag.contains("type=\"submit\"")
-            || tag.contains("type='submit'") || tag.contains("data-cronus")
-            || tag.contains("data-modal") || tag.contains("data-delete")
+        let has_action = tag.contains("onclick")
+            || tag.contains("type=\"submit\"")
+            || tag.contains("type='submit'")
+            || tag.contains("data-cronus")
+            || tag.contains("data-modal")
+            || tag.contains("data-delete")
             || tag.contains("data-scroll");
 
         if !has_action {
             // Extract button text
-            let text_end = template[tag_end+1..].find("</button").unwrap_or(20);
-            let btn_text = &template[tag_end+1..tag_end+1+text_end.min(40)];
+            let text_end = template[tag_end + 1..].find("</button").unwrap_or(20);
+            let btn_text = &template[tag_end + 1..tag_end + 1 + text_end.min(40)];
             let btn_text = strip_html_tags(btn_text).trim().to_string();
             if !btn_text.is_empty() {
                 results.push(LintResult {
@@ -452,7 +536,9 @@ fn rule_no_fake_state(section: &SectionNode, sec_name: &str, page: &str) -> Vec<
     for keyword in &state_keywords {
         if without_scripts.contains(keyword) {
             // Check if it's inside an id="" element (will be replaced by JS) → OK
-            if is_in_id_element(template, keyword) { continue; }
+            if is_in_id_element(template, keyword) {
+                continue;
+            }
 
             results.push(LintResult {
                 rule: "no-fake-state",
@@ -499,7 +585,11 @@ fn has_orphan_reload(html: &str) -> bool {
     while let Some(idx) = html[pos..].find(needle) {
         let abs = pos + idx;
         // Check if this is inside a CRONUS.reload() fallback pattern → OK
-        let before = if abs > 30 { &html[abs-30..abs] } else { &html[..abs] };
+        let before = if abs > 30 {
+            &html[abs - 30..abs]
+        } else {
+            &html[..abs]
+        };
         if before.contains("CRONUS.reload") || before.contains("CRONUS&&") {
             pos = abs + needle.len();
             continue;
@@ -546,11 +636,21 @@ fn rule_no_hardcode_user(section: &SectionNode, sec_name: &str, page: &str) -> V
 // ══════════════════════════════════════════════════
 
 fn rule_bind_or_empty(page: &PageNode) -> Vec<LintResult> {
-    let data_types = ["kpi", "table", "chart", "kanban", "timeline", "stats", "stat-cards"];
+    let data_types = [
+        "kpi",
+        "table",
+        "chart",
+        "kanban",
+        "timeline",
+        "stats",
+        "stat-cards",
+    ];
     let mut results = Vec::new();
 
     for section in &page.sections {
-        if !data_types.contains(&section.section_type.as_str()) { continue; }
+        if !data_types.contains(&section.section_type.as_str()) {
+            continue;
+        }
         let has_bind = section.binding.is_some();
         let has_items = !section.items.is_empty();
         let has_template = section.template.is_some();
@@ -559,7 +659,10 @@ fn rule_bind_or_empty(page: &PageNode) -> Vec<LintResult> {
             results.push(LintResult {
                 rule: "bind-or-empty",
                 severity: Severity::Error, // C003: data sections MUST have a source — always fatal
-                message: format!("section {} has no data source (no bind, no items, no template)", section.section_type),
+                message: format!(
+                    "section {} has no data source (no bind, no items, no template)",
+                    section.section_type
+                ),
                 fix: format!("Add: bind EntityName {{ query all }} or define static items"),
                 section: format!("{} ({})", section.section_type, page.route),
                 page: page.route.clone(),
@@ -574,7 +677,12 @@ fn rule_bind_or_empty(page: &PageNode) -> Vec<LintResult> {
 // RULE C002: no-sensitive-render — Sensitive Fields Never in Rendered Output
 // ══════════════════════════════════════════════════
 
-fn rule_no_sensitive_render(section: &SectionNode, sec_name: &str, page: &str, sensitive_fields: &[String]) -> Vec<LintResult> {
+fn rule_no_sensitive_render(
+    section: &SectionNode,
+    sec_name: &str,
+    page: &str,
+    sensitive_fields: &[String],
+) -> Vec<LintResult> {
     if sensitive_fields.is_empty() {
         return vec![];
     }
@@ -597,7 +705,10 @@ fn rule_no_sensitive_render(section: &SectionNode, sec_name: &str, page: &str, s
                         rule: "no-sensitive-render",
                         severity: Severity::Error,
                         message: format!("sensitive field \"{}\" listed in columns config", field),
-                        fix: format!("Remove \"{}\" from columns — sensitive fields must never be displayed", field),
+                        fix: format!(
+                            "Remove \"{}\" from columns — sensitive fields must never be displayed",
+                            field
+                        ),
                         section: sec_name.into(),
                         page: page.into(),
                     });
@@ -616,13 +727,19 @@ fn rule_no_sensitive_render(section: &SectionNode, sec_name: &str, page: &str, s
             let abs = pos + idx;
 
             // Check word boundaries: the match must be the whole word/identifier
-            let before_char = if abs > 0 { without_scripts.as_bytes()[abs - 1] } else { b' ' };
-            let after_pos = abs + field.len();
-            let after_char = if after_pos < without_scripts.len() { without_scripts.as_bytes()[after_pos] } else { b' ' };
-
-            let is_word_boundary = |b: u8| -> bool {
-                !b.is_ascii_alphanumeric() && b != b'_'
+            let before_char = if abs > 0 {
+                without_scripts.as_bytes()[abs - 1]
+            } else {
+                b' '
             };
+            let after_pos = abs + field.len();
+            let after_char = if after_pos < without_scripts.len() {
+                without_scripts.as_bytes()[after_pos]
+            } else {
+                b' '
+            };
+
+            let is_word_boundary = |b: u8| -> bool { !b.is_ascii_alphanumeric() && b != b'_' };
 
             if !is_word_boundary(before_char) || !is_word_boundary(after_char) {
                 pos = abs + 1;
@@ -675,7 +792,9 @@ fn is_in_password_input(before: &str) -> bool {
     if let Some(tag_start) = before.rfind('<') {
         let tag = &before[tag_start..];
         // Check it's an input with type="password"
-        if tag.contains("input") && (tag.contains("type='password'") || tag.contains("type=\"password\"")) {
+        if tag.contains("input")
+            && (tag.contains("type='password'") || tag.contains("type=\"password\""))
+        {
             return true;
         }
     }
@@ -685,10 +804,7 @@ fn is_in_password_input(before: &str) -> bool {
 /// Check if position is inside a specific attribute's value
 fn is_in_attribute_value(before: &str, attr_name: &str) -> bool {
     // Find the last occurrence of `attr="...` without a closing quote
-    let patterns = [
-        format!("{}=\"", attr_name),
-        format!("{}='", attr_name),
-    ];
+    let patterns = [format!("{}=\"", attr_name), format!("{}='", attr_name)];
     for pat in &patterns {
         if let Some(idx) = before.rfind(pat.as_str()) {
             let after_attr = idx + pat.len();
@@ -746,7 +862,8 @@ fn rule_shared_entity_auth(entities: &[&EntityNode], apis: &[&ApiNode]) -> Vec<L
     let mut results = Vec::new();
 
     // Collect names of shared entities
-    let shared_names: Vec<&str> = entities.iter()
+    let shared_names: Vec<&str> = entities
+        .iter()
         .filter(|e| e.shared)
         .map(|e| e.name.as_str())
         .collect();
@@ -813,7 +930,12 @@ fn rule_shared_entity_auth(entities: &[&EntityNode], apis: &[&ApiNode]) -> Vec<L
 // RULE C031: no-sensitive-select — Sensitive Fields Not in Table Columns or Bind Refs
 // ══════════════════════════════════════════════════
 
-fn rule_no_sensitive_select(section: &SectionNode, sec_name: &str, page: &str, sensitive_fields: &[String]) -> Vec<LintResult> {
+fn rule_no_sensitive_select(
+    section: &SectionNode,
+    sec_name: &str,
+    page: &str,
+    sensitive_fields: &[String],
+) -> Vec<LintResult> {
     if sensitive_fields.is_empty() {
         return vec![];
     }
@@ -878,7 +1000,10 @@ fn rule_no_sensitive_select(section: &SectionNode, sec_name: &str, page: &str, s
                 results.push(LintResult {
                     rule: "no-sensitive-select",
                     severity: Severity::Error,
-                    message: format!("bind group_by references sensitive field \"{}\"", group.field),
+                    message: format!(
+                        "bind group_by references sensitive field \"{}\"",
+                        group.field
+                    ),
                     fix: format!("Do not group by sensitive field \"{}\"", group.field),
                     section: sec_name.into(),
                     page: page.into(),
@@ -929,10 +1054,12 @@ fn simple_edit_distance(a: &str, b: &str) -> usize {
     for i in 1..=m {
         curr[0] = i;
         for j in 1..=n {
-            let cost = if a_bytes[i - 1] == b_bytes[j - 1] { 0 } else { 1 };
-            curr[j] = (prev[j] + 1)
-                .min(curr[j - 1] + 1)
-                .min(prev[j - 1] + cost);
+            let cost = if a_bytes[i - 1] == b_bytes[j - 1] {
+                0
+            } else {
+                1
+            };
+            curr[j] = (prev[j] + 1).min(curr[j - 1] + 1).min(prev[j - 1] + cost);
         }
         std::mem::swap(&mut prev, &mut curr);
     }
@@ -953,8 +1080,8 @@ fn remove_tag_content(html: &str, tag: &str) -> String {
 
     while pos < html.len() {
         if let Some(start) = html[pos..].find(&open) {
-            result.push_str(&html[pos..pos+start]);
-            if let Some(end) = html[pos+start..].find(&close) {
+            result.push_str(&html[pos..pos + start]);
+            if let Some(end) = html[pos + start..].find(&close) {
                 pos = pos + start + end + close.len();
             } else {
                 break;
@@ -972,9 +1099,18 @@ fn strip_html_tags(html: &str) -> String {
     let mut result = String::with_capacity(html.len());
     let mut in_tag = false;
     for c in html.chars() {
-        if c == '<' { in_tag = true; continue; }
-        if c == '>' { in_tag = false; result.push(' '); continue; }
-        if !in_tag { result.push(c); }
+        if c == '<' {
+            in_tag = true;
+            continue;
+        }
+        if c == '>' {
+            in_tag = false;
+            result.push(' ');
+            continue;
+        }
+        if !in_tag {
+            result.push(c);
+        }
     }
     result
 }
@@ -995,10 +1131,12 @@ fn remove_attribute_values(html: &str, attr: &str) -> String {
     while let Some(idx) = result[search_from..].find(&pattern) {
         let abs = search_from + idx;
         let after = abs + pattern.len();
-        if after >= result.len() { break; }
+        if after >= result.len() {
+            break;
+        }
         let quote = result.as_bytes()[after];
         if quote == b'"' || quote == b'\'' {
-            if let Some(end) = result[after+1..].find(quote as char) {
+            if let Some(end) = result[after + 1..].find(quote as char) {
                 let remove_start = after + 1;
                 let remove_end = after + 1 + end;
                 result.replace_range(remove_start..remove_end, "");
@@ -1017,7 +1155,11 @@ fn remove_attribute_values(html: &str, attr: &str) -> String {
 fn is_in_placeholder(html: &str, text: &str) -> bool {
     if let Some(idx) = html.find(text) {
         // Look backwards for placeholder="
-        let before = if idx > 50 { &html[idx-50..idx] } else { &html[..idx] };
+        let before = if idx > 50 {
+            &html[idx - 50..idx]
+        } else {
+            &html[..idx]
+        };
         before.contains("placeholder=")
     } else {
         false
@@ -1046,8 +1188,12 @@ fn is_in_id_element(html: &str, text: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parser::{
+        ActionBlock, ActionInstruction, ApiNode, BindingNode, BindingValue, EntityNode, FieldNode,
+        FieldType, FilterExpr, FilterOp, GroupByExpr, HttpMethod, OrderDirection, OrderExpr,
+        QueryType, RouteNode,
+    };
     use std::collections::HashMap;
-    use crate::parser::{ActionBlock, ActionInstruction, ApiNode, EntityNode, FieldNode, FieldType, FilterExpr, FilterOp, BindingValue, BindingNode, GroupByExpr, HttpMethod, OrderExpr, OrderDirection, QueryType, RouteNode};
 
     fn make_section(template: &str) -> SectionNode {
         SectionNode {
@@ -1079,29 +1225,68 @@ mod tests {
                 FieldNode {
                     name: "name".into(),
                     field_type: FieldType::String,
-                    required: true, unique: false, sensitive: false,
-                    optional: false, searchable: false, index: false,
-                    featured: false, formatted: false, array: false,
-                    enum_values: None, reference: None, doc: None,
-                    default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
+                    required: true,
+                    unique: false,
+                    sensitive: false,
+                    optional: false,
+                    searchable: false,
+                    index: false,
+                    featured: false,
+                    formatted: false,
+                    array: false,
+                    enum_values: None,
+                    reference: None,
+                    doc: None,
+                    default_value: None,
+                    min: None,
+                    max: None,
+                    min_length: None,
+                    max_length: None,
+                    pattern: None,
                 },
                 FieldNode {
                     name: "password".into(),
                     field_type: FieldType::String,
-                    required: false, unique: false, sensitive: true,
-                    optional: false, searchable: false, index: false,
-                    featured: false, formatted: false, array: false,
-                    enum_values: None, reference: None, doc: None,
-                    default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
+                    required: false,
+                    unique: false,
+                    sensitive: true,
+                    optional: false,
+                    searchable: false,
+                    index: false,
+                    featured: false,
+                    formatted: false,
+                    array: false,
+                    enum_values: None,
+                    reference: None,
+                    doc: None,
+                    default_value: None,
+                    min: None,
+                    max: None,
+                    min_length: None,
+                    max_length: None,
+                    pattern: None,
                 },
                 FieldNode {
                     name: "secret_key".into(),
                     field_type: FieldType::String,
-                    required: false, unique: false, sensitive: true,
-                    optional: false, searchable: false, index: false,
-                    featured: false, formatted: false, array: false,
-                    enum_values: None, reference: None, doc: None,
-                    default_value: None, min: None, max: None, min_length: None, max_length: None, pattern: None,
+                    required: false,
+                    unique: false,
+                    sensitive: true,
+                    optional: false,
+                    searchable: false,
+                    index: false,
+                    featured: false,
+                    formatted: false,
+                    array: false,
+                    enum_values: None,
+                    reference: None,
+                    doc: None,
+                    default_value: None,
+                    min: None,
+                    max: None,
+                    min_length: None,
+                    max_length: None,
+                    pattern: None,
                 },
             ],
             shared: false,
@@ -1141,7 +1326,11 @@ mod tests {
         let section = make_section(html);
         let fields = vec!["password".to_string()];
         let results = rule_no_sensitive_render(&section, "form (/login)", "/login", &fields);
-        assert!(results.is_empty(), "type=password input should not trigger: {:?}", results);
+        assert!(
+            results.is_empty(),
+            "type=password input should not trigger: {:?}",
+            results
+        );
     }
 
     #[test]
@@ -1150,7 +1339,11 @@ mod tests {
         let section = make_section(html);
         let fields = vec!["password".to_string()];
         let results = rule_no_sensitive_render(&section, "hero (/login)", "/login", &fields);
-        assert!(results.is_empty(), "script content should not trigger: {:?}", results);
+        assert!(
+            results.is_empty(),
+            "script content should not trigger: {:?}",
+            results
+        );
     }
 
     #[test]
@@ -1159,7 +1352,11 @@ mod tests {
         let section = make_section(html);
         let fields = vec!["password".to_string()];
         let results = rule_no_sensitive_render(&section, "form (/reset)", "/reset", &fields);
-        assert!(results.is_empty(), "placeholder should not trigger: {:?}", results);
+        assert!(
+            results.is_empty(),
+            "placeholder should not trigger: {:?}",
+            results
+        );
     }
 
     #[test]
@@ -1168,7 +1365,11 @@ mod tests {
         let section = make_section(html);
         let fields = vec!["password".to_string()];
         let results = rule_no_sensitive_render(&section, "hero (/)", "/", &fields);
-        assert!(results.is_empty(), "partial word match should not trigger: {:?}", results);
+        assert!(
+            results.is_empty(),
+            "partial word match should not trigger: {:?}",
+            results
+        );
     }
 
     #[test]
@@ -1177,7 +1378,11 @@ mod tests {
         let section = make_section(html);
         let fields = vec!["password".to_string()];
         let results = rule_no_sensitive_render(&section, "form (/)", "/", &fields);
-        assert!(results.is_empty(), "name attribute value should not trigger: {:?}", results);
+        assert!(
+            results.is_empty(),
+            "name attribute value should not trigger: {:?}",
+            results
+        );
     }
 
     #[test]
@@ -1197,7 +1402,11 @@ mod tests {
         let routes = vec!["/".to_string()];
         let kernel = vec!["/docs".to_string()];
         let results = rule_no_dead_links(&section, "hero (/)", "/", &routes, &kernel);
-        assert!(results.is_empty(), "API routes should be allowed: {:?}", results);
+        assert!(
+            results.is_empty(),
+            "API routes should be allowed: {:?}",
+            results
+        );
     }
 
     #[test]
@@ -1207,7 +1416,11 @@ mod tests {
         let kernel = vec!["/docs".to_string()];
         let results = rule_no_dead_links(&section, "nav (/)", "/", &routes, &kernel);
         assert_eq!(results.len(), 1);
-        assert!(results[0].fix.contains("/settings"), "Should suggest /settings: {}", results[0].fix);
+        assert!(
+            results[0].fix.contains("/settings"),
+            "Should suggest /settings: {}",
+            results[0].fix
+        );
     }
 
     #[test]
@@ -1226,7 +1439,11 @@ mod tests {
         let routes = vec!["/".to_string()];
         let kernel = vec!["/docs".to_string(), "/graphql".to_string()];
         let results = rule_no_dead_links(&section, "hero (/)", "/", &routes, &kernel);
-        assert!(results.is_empty(), "Kernel routes should be valid: {:?}", results);
+        assert!(
+            results.is_empty(),
+            "Kernel routes should be valid: {:?}",
+            results
+        );
     }
 
     #[test]
@@ -1258,15 +1475,24 @@ mod tests {
             page_type: "custom".into(),
             entity: None,
             title: None,
-            sections: vec![make_section_with_columns("<table></table>", "name, email, password")],
+            sections: vec![make_section_with_columns(
+                "<table></table>",
+                "name, email, password",
+            )],
             config: HashMap::new(),
             components: vec![],
             requires: None,
             doc: None,
         });
         let results = lint_ast(&[entity, page], false);
-        let sensitive_results: Vec<_> = results.iter().filter(|r| r.rule == "no-sensitive-render").collect();
-        assert!(!sensitive_results.is_empty(), "lint_ast should catch sensitive field in columns");
+        let sensitive_results: Vec<_> = results
+            .iter()
+            .filter(|r| r.rule == "no-sensitive-render")
+            .collect();
+        assert!(
+            !sensitive_results.is_empty(),
+            "lint_ast should catch sensitive field in columns"
+        );
     }
 
     // ── C012: form-submit-handler ──
@@ -1306,7 +1532,11 @@ mod tests {
         };
         let section = make_form_section(Some("<form></form>"), vec![action]);
         let results = rule_form_submit_handler(&section, "form (/contact)", "/contact");
-        assert!(results.is_empty(), "form with submit action should pass: {:?}", results);
+        assert!(
+            results.is_empty(),
+            "form with submit action should pass: {:?}",
+            results
+        );
     }
 
     #[test]
@@ -1316,27 +1546,33 @@ mod tests {
             vec![],
         );
         let results = rule_form_submit_handler(&section, "form (/contact)", "/contact");
-        assert!(results.is_empty(), "form with type=submit button should pass: {:?}", results);
+        assert!(
+            results.is_empty(),
+            "form with type=submit button should pass: {:?}",
+            results
+        );
     }
 
     #[test]
     fn c012_allows_form_with_onsubmit() {
-        let section = make_form_section(
-            Some("<form onsubmit=\"handleSubmit()\"></form>"),
-            vec![],
-        );
+        let section = make_form_section(Some("<form onsubmit=\"handleSubmit()\"></form>"), vec![]);
         let results = rule_form_submit_handler(&section, "form (/contact)", "/contact");
-        assert!(results.is_empty(), "form with onsubmit should pass: {:?}", results);
+        assert!(
+            results.is_empty(),
+            "form with onsubmit should pass: {:?}",
+            results
+        );
     }
 
     #[test]
     fn c012_allows_form_with_data_cronus_form() {
-        let section = make_form_section(
-            Some("<form data-cronus-form></form>"),
-            vec![],
-        );
+        let section = make_form_section(Some("<form data-cronus-form></form>"), vec![]);
         let results = rule_form_submit_handler(&section, "form (/contact)", "/contact");
-        assert!(results.is_empty(), "form with data-cronus-form should pass: {:?}", results);
+        assert!(
+            results.is_empty(),
+            "form with data-cronus-form should pass: {:?}",
+            results
+        );
     }
 
     #[test]
@@ -1362,9 +1598,15 @@ mod tests {
             doc: None,
         });
         let results = lint_ast(&[page], true);
-        let form_results: Vec<_> = results.iter().filter(|r| r.rule == "form-submit-handler").collect();
+        let form_results: Vec<_> = results
+            .iter()
+            .filter(|r| r.rule == "form-submit-handler")
+            .collect();
         assert!(!form_results.is_empty(), "should catch form without submit");
-        assert!(matches!(form_results[0].severity, Severity::Error), "strict mode should promote to Error");
+        assert!(
+            matches!(form_results[0].severity, Severity::Error),
+            "strict mode should promote to Error"
+        );
     }
 
     // ── C030: shared-entity-auth ──
@@ -1403,9 +1645,10 @@ mod tests {
     #[test]
     fn c030_catches_public_post_on_shared_entity() {
         let entity = make_shared_entity("Product");
-        let api = make_api("/products", vec![
-            make_route("create", HttpMethod::POST, "/", "public"),
-        ]);
+        let api = make_api(
+            "/products",
+            vec![make_route("create", HttpMethod::POST, "/", "public")],
+        );
         let results = rule_shared_entity_auth(&[&entity], &[&api]);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].rule, "shared-entity-auth");
@@ -1415,9 +1658,10 @@ mod tests {
     #[test]
     fn c030_catches_empty_auth_on_delete() {
         let entity = make_shared_entity("Product");
-        let api = make_api("/products", vec![
-            make_route("delete", HttpMethod::DELETE, "/:id", ""),
-        ]);
+        let api = make_api(
+            "/products",
+            vec![make_route("delete", HttpMethod::DELETE, "/:id", "")],
+        );
         let results = rule_shared_entity_auth(&[&entity], &[&api]);
         assert_eq!(results.len(), 1);
         assert!(results[0].message.contains("DELETE"));
@@ -1426,19 +1670,25 @@ mod tests {
     #[test]
     fn c030_allows_public_get_on_shared_entity() {
         let entity = make_shared_entity("Product");
-        let api = make_api("/products", vec![
-            make_route("list", HttpMethod::GET, "/", "public"),
-        ]);
+        let api = make_api(
+            "/products",
+            vec![make_route("list", HttpMethod::GET, "/", "public")],
+        );
         let results = rule_shared_entity_auth(&[&entity], &[&api]);
-        assert!(results.is_empty(), "GET on shared entity can be public: {:?}", results);
+        assert!(
+            results.is_empty(),
+            "GET on shared entity can be public: {:?}",
+            results
+        );
     }
 
     #[test]
     fn c030_allows_authed_post_on_shared_entity() {
         let entity = make_shared_entity("Product");
-        let api = make_api("/products", vec![
-            make_route("create", HttpMethod::POST, "/", "token"),
-        ]);
+        let api = make_api(
+            "/products",
+            vec![make_route("create", HttpMethod::POST, "/", "token")],
+        );
         let results = rule_shared_entity_auth(&[&entity], &[&api]);
         assert!(results.is_empty(), "authed POST should pass: {:?}", results);
     }
@@ -1454,24 +1704,37 @@ mod tests {
             remote_url: None,
             doc: None,
         };
-        let api = make_api("/drafts", vec![
-            make_route("create", HttpMethod::POST, "/", "public"),
-        ]);
+        let api = make_api(
+            "/drafts",
+            vec![make_route("create", HttpMethod::POST, "/", "public")],
+        );
         let results = rule_shared_entity_auth(&[&entity], &[&api]);
-        assert!(results.is_empty(), "non-shared entity public POST is OK: {:?}", results);
+        assert!(
+            results.is_empty(),
+            "non-shared entity public POST is OK: {:?}",
+            results
+        );
     }
 
     #[test]
     fn c030_catches_multiple_violations() {
         let entity = make_shared_entity("Product");
-        let api = make_api("/products", vec![
-            make_route("create", HttpMethod::POST, "/", "public"),
-            make_route("update", HttpMethod::PATCH, "/:id", "none"),
-            make_route("list", HttpMethod::GET, "/", "public"),
-            make_route("delete", HttpMethod::DELETE, "/:id", ""),
-        ]);
+        let api = make_api(
+            "/products",
+            vec![
+                make_route("create", HttpMethod::POST, "/", "public"),
+                make_route("update", HttpMethod::PATCH, "/:id", "none"),
+                make_route("list", HttpMethod::GET, "/", "public"),
+                make_route("delete", HttpMethod::DELETE, "/:id", ""),
+            ],
+        );
         let results = rule_shared_entity_auth(&[&entity], &[&api]);
-        assert_eq!(results.len(), 3, "should catch POST, PATCH, DELETE but not GET: {:?}", results);
+        assert_eq!(
+            results.len(),
+            3,
+            "should catch POST, PATCH, DELETE but not GET: {:?}",
+            results
+        );
     }
 
     // ── C031: no-sensitive-select ──
@@ -1480,7 +1743,9 @@ mod tests {
     fn c031_catches_sensitive_field_in_table_columns() {
         let mut section = make_section("<table></table>");
         section.section_type = "table".into();
-        section.config.insert("columns".into(), "name, email, password".into());
+        section
+            .config
+            .insert("columns".into(), "name, email, password".into());
         let fields = vec!["password".to_string()];
         let results = rule_no_sensitive_select(&section, "table (/users)", "/users", &fields);
         assert_eq!(results.len(), 1);
@@ -1492,7 +1757,9 @@ mod tests {
     fn c031_allows_non_sensitive_columns() {
         let mut section = make_section("<table></table>");
         section.section_type = "table".into();
-        section.config.insert("columns".into(), "name, email, role".into());
+        section
+            .config
+            .insert("columns".into(), "name, email, role".into());
         let fields = vec!["password".to_string()];
         let results = rule_no_sensitive_select(&section, "table (/users)", "/users", &fields);
         assert!(results.is_empty());
@@ -1513,7 +1780,9 @@ mod tests {
             limit: None,
             offset: None,
             group_by: None,
-            aggregate: None, live: false, public: false,
+            aggregate: None,
+            live: false,
+            public: false,
         });
         let fields = vec!["password".to_string()];
         let results = rule_no_sensitive_select(&section, "table (/users)", "/users", &fields);
@@ -1535,7 +1804,9 @@ mod tests {
             limit: None,
             offset: None,
             group_by: None,
-            aggregate: None, live: false, public: false,
+            aggregate: None,
+            live: false,
+            public: false,
         });
         let fields = vec!["secret_key".to_string()];
         let results = rule_no_sensitive_select(&section, "table (/users)", "/users", &fields);
@@ -1557,7 +1828,9 @@ mod tests {
                 field: "password".into(),
                 interval: None,
             }),
-            aggregate: None, live: false, public: false,
+            aggregate: None,
+            live: false,
+            public: false,
         });
         let fields = vec!["password".to_string()];
         let results = rule_no_sensitive_select(&section, "table (/users)", "/users", &fields);
@@ -1569,7 +1842,9 @@ mod tests {
     fn c031_no_results_when_no_sensitive_fields() {
         let mut section = make_section("<table></table>");
         section.section_type = "table".into();
-        section.config.insert("columns".into(), "name, email".into());
+        section
+            .config
+            .insert("columns".into(), "name, email".into());
         let fields: Vec<String> = vec![];
         let results = rule_no_sensitive_select(&section, "table (/users)", "/users", &fields);
         assert!(results.is_empty());
@@ -1580,9 +1855,14 @@ mod tests {
         // hero section with columns config should NOT trigger C031 (not a table)
         let mut section = make_section("<div></div>");
         section.section_type = "hero".into();
-        section.config.insert("columns".into(), "name, password".into());
+        section
+            .config
+            .insert("columns".into(), "name, password".into());
         let fields = vec!["password".to_string()];
         let results = rule_no_sensitive_select(&section, "hero (/)", "/", &fields);
-        assert!(results.is_empty(), "non-table section columns should not trigger C031");
+        assert!(
+            results.is_empty(),
+            "non-table section columns should not trigger C031"
+        );
     }
 }

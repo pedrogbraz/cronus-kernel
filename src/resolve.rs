@@ -7,8 +7,8 @@
 //!
 //! Resolve errors are always fatal — they block build/run.
 
-use std::collections::{HashMap, HashSet};
 use crate::parser::{AstNode, EntityNode, FieldNode, FieldType, PageNode, SectionNode};
+use std::collections::{HashMap, HashSet};
 
 // ══════════════════════════════════════════════════
 // TYPES
@@ -79,7 +79,9 @@ impl SymbolTable {
 
     /// All known routes (page routes + kernel routes)
     fn all_routes(&self) -> Vec<&str> {
-        self.pages.keys().map(|s| s.as_str())
+        self.pages
+            .keys()
+            .map(|s| s.as_str())
             .chain(self.kernel_routes.iter().map(|s| s.as_str()))
             .collect()
     }
@@ -114,20 +116,26 @@ fn collect_symbols(nodes: &[AstNode], table: &mut SymbolTable) {
             AstNode::Entity(e) => {
                 let mut fields = HashMap::new();
                 for f in &e.fields {
-                    fields.insert(f.name.clone(), FieldInfo {
-                        name: f.name.clone(),
-                        field_type: format!("{:?}", f.field_type),
-                        required: f.required,
-                        sensitive: f.sensitive,
-                        enum_values: f.enum_values.clone(),
-                    });
+                    fields.insert(
+                        f.name.clone(),
+                        FieldInfo {
+                            name: f.name.clone(),
+                            field_type: format!("{:?}", f.field_type),
+                            required: f.required,
+                            sensitive: f.sensitive,
+                            enum_values: f.enum_values.clone(),
+                        },
+                    );
                 }
-                table.entities.insert(e.name.clone(), EntityInfo {
-                    name: e.name.clone(),
-                    shared: e.shared,
-                    fields,
-                    has_transitions: !e.transitions.is_empty(),
-                });
+                table.entities.insert(
+                    e.name.clone(),
+                    EntityInfo {
+                        name: e.name.clone(),
+                        shared: e.shared,
+                        fields,
+                        has_transitions: !e.transitions.is_empty(),
+                    },
+                );
             }
             AstNode::Page(p) => {
                 let mut bound_entities = Vec::new();
@@ -143,13 +151,15 @@ fn collect_symbols(nodes: &[AstNode], table: &mut SymbolTable) {
                         }
                     }
                 }
-                let requires_auth = p.requires.is_some()
-                    || p.config.get("requires").is_some();
-                table.pages.insert(p.route.clone(), PageInfo {
-                    route: p.route.clone(),
-                    bound_entities,
-                    requires_auth,
-                });
+                let requires_auth = p.requires.is_some() || p.config.get("requires").is_some();
+                table.pages.insert(
+                    p.route.clone(),
+                    PageInfo {
+                        route: p.route.clone(),
+                        bound_entities,
+                        requires_auth,
+                    },
+                );
             }
             AstNode::Api(a) => {
                 table.api_prefixes.insert(a.prefix.clone());
@@ -212,7 +222,8 @@ fn resolve_references(nodes: &[AstNode], table: &SymbolTable, errors: &mut Vec<R
                     let field_opt = e.fields.iter().find(|f| f.name == transition.field);
                     match field_opt {
                         None => {
-                            let field_names: Vec<&str> = e.fields.iter().map(|f| f.name.as_str()).collect();
+                            let field_names: Vec<&str> =
+                                e.fields.iter().map(|f| f.name.as_str()).collect();
                             errors.push(ResolveError {
                                 message: format!(
                                     "Transition field '{}' not found in entity '{}'",
@@ -236,7 +247,13 @@ fn resolve_references(nodes: &[AstNode], table: &SymbolTable, errors: &mut Vec<R
             }
             AstNode::Define(d) => {
                 for section in &d.sections {
-                    resolve_section(section, &format!("define:{}", d.name), table, &entity_names, errors);
+                    resolve_section(
+                        section,
+                        &format!("define:{}", d.name),
+                        table,
+                        &entity_names,
+                        errors,
+                    );
                 }
             }
             AstNode::Webhook(w) => {
@@ -244,9 +261,9 @@ fn resolve_references(nodes: &[AstNode], table: &SymbolTable, errors: &mut Vec<R
                 let wh_entity = w.entity.trim_start_matches('/');
                 let entity_matches = table.entities.keys().any(|e| {
                     e == wh_entity
-                    || e.to_lowercase() == wh_entity.to_lowercase()
-                    || format!("{}s", e.to_lowercase()) == wh_entity.to_lowercase()
-                    || e.to_lowercase() == wh_entity.to_lowercase().trim_end_matches('s')
+                        || e.to_lowercase() == wh_entity.to_lowercase()
+                        || format!("{}s", e.to_lowercase()) == wh_entity.to_lowercase()
+                        || e.to_lowercase() == wh_entity.to_lowercase().trim_end_matches('s')
                 });
                 if !entity_matches {
                     errors.push(ResolveError {
@@ -282,7 +299,9 @@ fn resolve_section(
             let entity = &table.entities[&binding.entity];
             let auto_fields = ["id", "created_at", "updated_at", "_owner_id"];
             let mut all_field_names: Vec<String> = entity.fields.keys().cloned().collect();
-            for af in &auto_fields { all_field_names.push(af.to_string()); }
+            for af in &auto_fields {
+                all_field_names.push(af.to_string());
+            }
             let field_refs: Vec<&str> = all_field_names.iter().map(|s| s.as_str()).collect();
 
             for filter in &binding.filters {
@@ -352,12 +371,14 @@ fn resolve_section(
                 }
                 let columns: Vec<&str> = columns_str.split(',').map(|c| c.trim()).collect();
                 for col in columns {
-                    if col.is_empty() { continue; }
+                    if col.is_empty() {
+                        continue;
+                    }
                     // Normalize: "Deploy ID" → "deploy_id", "Source IP" → "source_ip"
                     let normalized = col.to_lowercase().replace(' ', "_");
-                    let matches = all_fields.iter().any(|f| {
-                        f == col || f == &normalized || f.to_lowercase() == normalized
-                    });
+                    let matches = all_fields
+                        .iter()
+                        .any(|f| f == col || f == &normalized || f.to_lowercase() == normalized);
                     if !matches {
                         let field_refs: Vec<&str> = all_fields.iter().map(|s| s.as_str()).collect();
                         errors.push(ResolveError {
@@ -447,10 +468,12 @@ fn edit_distance(a: &str, b: &str) -> usize {
     for i in 1..=m {
         curr[0] = i;
         for j in 1..=n {
-            let cost = if a_bytes[i - 1] == b_bytes[j - 1] { 0 } else { 1 };
-            curr[j] = (prev[j] + 1)
-                .min(curr[j - 1] + 1)
-                .min(prev[j - 1] + cost);
+            let cost = if a_bytes[i - 1] == b_bytes[j - 1] {
+                0
+            } else {
+                1
+            };
+            curr[j] = (prev[j] + 1).min(curr[j - 1] + 1).min(prev[j - 1] + cost);
         }
         std::mem::swap(&mut prev, &mut curr);
     }
@@ -579,7 +602,9 @@ mod tests {
             limit: None,
             offset: None,
             group_by: None,
-            aggregate: None, live: false, public: false,
+            aggregate: None,
+            live: false,
+            public: false,
         }
     }
 
@@ -588,19 +613,28 @@ mod tests {
     #[test]
     fn valid_references_resolve_clean() {
         let nodes = vec![
-            make_entity("Product", vec![
-                make_field("name", FieldType::String),
-                make_field("price", FieldType::Money),
-            ]),
-            make_entity("Order", vec![
-                make_field("total", FieldType::Money),
-                make_relation_field("product", "Product"),
-            ]),
-            make_page("/products", vec![{
-                let mut s = make_section();
-                s.binding = Some(make_binding("Product"));
-                s
-            }]),
+            make_entity(
+                "Product",
+                vec![
+                    make_field("name", FieldType::String),
+                    make_field("price", FieldType::Money),
+                ],
+            ),
+            make_entity(
+                "Order",
+                vec![
+                    make_field("total", FieldType::Money),
+                    make_relation_field("product", "Product"),
+                ],
+            ),
+            make_page(
+                "/products",
+                vec![{
+                    let mut s = make_section();
+                    s.binding = Some(make_binding("Product"));
+                    s
+                }],
+            ),
         ];
 
         let (table, errors) = resolve(&nodes);
@@ -614,14 +648,15 @@ mod tests {
     #[test]
     fn missing_entity_in_bind_suggests_closest() {
         let nodes = vec![
-            make_entity("Deployment", vec![
-                make_field("name", FieldType::String),
-            ]),
-            make_page("/deployments", vec![{
-                let mut s = make_section();
-                s.binding = Some(make_binding("Deploment")); // typo
-                s
-            }]),
+            make_entity("Deployment", vec![make_field("name", FieldType::String)]),
+            make_page(
+                "/deployments",
+                vec![{
+                    let mut s = make_section();
+                    s.binding = Some(make_binding("Deploment")); // typo
+                    s
+                }],
+            ),
         ];
 
         let (_, errors) = resolve(&nodes);
@@ -634,11 +669,10 @@ mod tests {
 
     #[test]
     fn missing_entity_in_relation() {
-        let nodes = vec![
-            make_entity("Order", vec![
-                make_relation_field("customer", "Customer"),
-            ]),
-        ];
+        let nodes = vec![make_entity(
+            "Order",
+            vec![make_relation_field("customer", "Customer")],
+        )];
 
         let (_, errors) = resolve(&nodes);
         assert_eq!(errors.len(), 1);
@@ -651,17 +685,24 @@ mod tests {
     #[test]
     fn missing_field_in_columns() {
         let nodes = vec![
-            make_entity("Product", vec![
-                make_field("name", FieldType::String),
-                make_field("price", FieldType::Money),
-            ]),
-            make_page("/products", vec![{
-                let mut s = make_section();
-                s.section_type = "table".into();
-                s.binding = Some(make_binding("Product"));
-                s.config.insert("columns".into(), "name, price, stok".into()); // typo: stok
-                s
-            }]),
+            make_entity(
+                "Product",
+                vec![
+                    make_field("name", FieldType::String),
+                    make_field("price", FieldType::Money),
+                ],
+            ),
+            make_page(
+                "/products",
+                vec![{
+                    let mut s = make_section();
+                    s.section_type = "table".into();
+                    s.binding = Some(make_binding("Product"));
+                    s.config
+                        .insert("columns".into(), "name, price, stok".into()); // typo: stok
+                    s
+                }],
+            ),
         ];
 
         let (_, errors) = resolve(&nodes);
@@ -674,20 +715,18 @@ mod tests {
 
     #[test]
     fn transition_on_missing_field() {
-        let nodes = vec![
-            AstNode::Entity(EntityNode {
-                name: "Task".into(),
-                fields: vec![make_field("title", FieldType::String)],
-                transitions: vec![TransitionNode {
-                    field: "status".into(),
-                    rules: vec![],
-                }],
-                effects: vec![],
-                shared: false,
-                remote_url: None,
-                doc: None,
-            }),
-        ];
+        let nodes = vec![AstNode::Entity(EntityNode {
+            name: "Task".into(),
+            fields: vec![make_field("title", FieldType::String)],
+            transitions: vec![TransitionNode {
+                field: "status".into(),
+                rules: vec![],
+            }],
+            effects: vec![],
+            shared: false,
+            remote_url: None,
+            doc: None,
+        })];
 
         let (_, errors) = resolve(&nodes);
         assert_eq!(errors.len(), 1);
@@ -699,20 +738,18 @@ mod tests {
 
     #[test]
     fn transition_on_non_enum_field() {
-        let nodes = vec![
-            AstNode::Entity(EntityNode {
-                name: "Task".into(),
-                fields: vec![make_field("status", FieldType::String)],
-                transitions: vec![TransitionNode {
-                    field: "status".into(),
-                    rules: vec![],
-                }],
-                effects: vec![],
-                shared: false,
-                remote_url: None,
-                doc: None,
-            }),
-        ];
+        let nodes = vec![AstNode::Entity(EntityNode {
+            name: "Task".into(),
+            fields: vec![make_field("status", FieldType::String)],
+            transitions: vec![TransitionNode {
+                field: "status".into(),
+                rules: vec![],
+            }],
+            effects: vec![],
+            shared: false,
+            remote_url: None,
+            doc: None,
+        })];
 
         let (_, errors) = resolve(&nodes);
         assert_eq!(errors.len(), 1);
@@ -723,23 +760,21 @@ mod tests {
 
     #[test]
     fn valid_transition_on_enum() {
-        let nodes = vec![
-            AstNode::Entity(EntityNode {
-                name: "Task".into(),
-                fields: vec![make_enum_field("status", vec!["open", "closed"])],
-                transitions: vec![TransitionNode {
-                    field: "status".into(),
-                    rules: vec![TransitionRule {
-                        from: "open".into(),
-                        to: vec!["closed".into()],
-                    }],
+        let nodes = vec![AstNode::Entity(EntityNode {
+            name: "Task".into(),
+            fields: vec![make_enum_field("status", vec!["open", "closed"])],
+            transitions: vec![TransitionNode {
+                field: "status".into(),
+                rules: vec![TransitionRule {
+                    from: "open".into(),
+                    to: vec!["closed".into()],
                 }],
-                effects: vec![],
-                shared: false,
-                remote_url: None,
-                doc: None,
-            }),
-        ];
+            }],
+            effects: vec![],
+            shared: false,
+            remote_url: None,
+            doc: None,
+        })];
 
         let (_, errors) = resolve(&nodes);
         assert!(errors.is_empty(), "Expected no errors, got: {:?}", errors);
@@ -749,13 +784,14 @@ mod tests {
 
     #[test]
     fn dead_href_in_template() {
-        let nodes = vec![
-            make_page("/home", vec![{
+        let nodes = vec![make_page(
+            "/home",
+            vec![{
                 let mut s = make_section();
                 s.template = Some(r#"<a href="/nonexistent">link</a>"#.into());
                 s
-            }]),
-        ];
+            }],
+        )];
 
         let (_, errors) = resolve(&nodes);
         assert_eq!(errors.len(), 1);
@@ -768,11 +804,14 @@ mod tests {
     fn valid_href_resolves() {
         let nodes = vec![
             make_page("/about", vec![make_section()]),
-            make_page("/home", vec![{
-                let mut s = make_section();
-                s.template = Some(r#"<a href="/about">About</a>"#.into());
-                s
-            }]),
+            make_page(
+                "/home",
+                vec![{
+                    let mut s = make_section();
+                    s.template = Some(r#"<a href="/about">About</a>"#.into());
+                    s
+                }],
+            ),
         ];
 
         let (_, errors) = resolve(&nodes);
@@ -784,15 +823,21 @@ mod tests {
     #[test]
     fn symbol_table_counts() {
         let nodes = vec![
-            make_entity("User", vec![
-                make_field("name", FieldType::String),
-                make_field("email", FieldType::Email),
-            ]),
-            make_entity("Product", vec![
-                make_field("title", FieldType::String),
-                make_field("price", FieldType::Money),
-                make_field("active", FieldType::Boolean),
-            ]),
+            make_entity(
+                "User",
+                vec![
+                    make_field("name", FieldType::String),
+                    make_field("email", FieldType::Email),
+                ],
+            ),
+            make_entity(
+                "Product",
+                vec![
+                    make_field("title", FieldType::String),
+                    make_field("price", FieldType::Money),
+                    make_field("active", FieldType::Boolean),
+                ],
+            ),
             make_page("/users", vec![]),
             make_page("/products", vec![]),
             make_page("/dashboard", vec![]),
@@ -836,28 +881,36 @@ mod tests {
     #[test]
     fn filter_on_nonexistent_field() {
         let nodes = vec![
-            make_entity("Product", vec![
-                make_field("name", FieldType::String),
-                make_field("active", FieldType::Boolean),
-            ]),
-            make_page("/products", vec![{
-                let mut s = make_section();
-                s.binding = Some(BindingNode {
-                    entity: "Product".into(),
-                    query: QueryType::All,
-                    filters: vec![FilterExpr {
-                        field: "actve".into(), // typo
-                        operator: FilterOp::Eq,
-                        value: BindingValue::Bool(true),
-                    }],
-                    order: None,
-                    limit: None,
-                    offset: None,
-                    group_by: None,
-                    aggregate: None, live: false, public: false,
-                });
-                s
-            }]),
+            make_entity(
+                "Product",
+                vec![
+                    make_field("name", FieldType::String),
+                    make_field("active", FieldType::Boolean),
+                ],
+            ),
+            make_page(
+                "/products",
+                vec![{
+                    let mut s = make_section();
+                    s.binding = Some(BindingNode {
+                        entity: "Product".into(),
+                        query: QueryType::All,
+                        filters: vec![FilterExpr {
+                            field: "actve".into(), // typo
+                            operator: FilterOp::Eq,
+                            value: BindingValue::Bool(true),
+                        }],
+                        order: None,
+                        limit: None,
+                        offset: None,
+                        group_by: None,
+                        aggregate: None,
+                        live: false,
+                        public: false,
+                    });
+                    s
+                }],
+            ),
         ];
 
         let (_, errors) = resolve(&nodes);
@@ -914,15 +967,20 @@ mod tests {
 
     #[test]
     fn href_to_kernel_route_resolves() {
-        let nodes = vec![
-            make_page("/home", vec![{
+        let nodes = vec![make_page(
+            "/home",
+            vec![{
                 let mut s = make_section();
                 s.template = Some(r#"<a href="/docs">Docs</a> <a href="/graphql">API</a>"#.into());
                 s
-            }]),
-        ];
+            }],
+        )];
 
         let (_, errors) = resolve(&nodes);
-        assert!(errors.is_empty(), "Kernel routes should resolve: {:?}", errors);
+        assert!(
+            errors.is_empty(),
+            "Kernel routes should resolve: {:?}",
+            errors
+        );
     }
 }

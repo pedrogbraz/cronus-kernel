@@ -39,7 +39,11 @@ fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
     comp.props
         .get(key)
         .map(String::as_str)
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get(key).map(String::as_str)))
+        .or_else(|| {
+            comp.items
+                .iter()
+                .find_map(|i| i.config.get(key).map(String::as_str))
+        })
         .filter(|s| !s.is_empty())
 }
 
@@ -121,7 +125,9 @@ mod tests {
     #[test]
     fn description_attribute_and_extra_text() {
         let mut c = stub("banner", "New billing");
-        c.items[0].config.insert("description".into(), "Usage-based".into());
+        c.items[0]
+            .config
+            .insert("description".into(), "Usage-based".into());
         assert!(render(&c).contains(
             "<span data-slot=\"banner-title\">New billing</span><span data-slot=\"banner-description\">Usage-based</span>"
         ));
@@ -144,7 +150,9 @@ mod tests {
         c.props.insert("aria-label".into(), "Promo".into());
         assert!(render(&c).contains("aria-label=\"Promo\""));
         let mut i = stub("banner", "Sale");
-        i.items[0].config.insert("aria-label".into(), "Promo".into());
+        i.items[0]
+            .config
+            .insert("aria-label".into(), "Promo".into());
         assert!(render(&i).contains("aria-label=\"Promo\""));
     }
 
@@ -161,7 +169,9 @@ mod tests {
     #[test]
     fn chrome_is_token_only_and_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("display: flex; width: 100%; align-items: center; gap: 0.25rem 0.75rem;"));
+        assert!(
+            css.contains("display: flex; width: 100%; align-items: center; gap: 0.25rem 0.75rem;")
+        );
         assert!(css.contains("padding: 0.625rem 1rem; font-size: 0.875rem; line-height: 1.25rem; text-align: center;"));
         assert!(css.contains("border-bottom: 1px solid var(--cronus-border)"));
         assert!(css.contains("align-items: center; gap: 0.125rem 0.5rem;"));

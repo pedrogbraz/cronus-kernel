@@ -1,11 +1,11 @@
 // CRONUS Semantic Memory — Persistent SQLite storage for AI sessions,
 // decisions, anti-patterns, and changelog entries across sessions.
 
-use rusqlite::{Connection, params};
+use crate::parser::{AstNode, ConstitutionNode};
+use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
-use crate::parser::{AstNode, ConstitutionNode};
 
 pub struct SemanticMemory {
     conn: Mutex<Connection>,
@@ -48,7 +48,16 @@ fn now_iso() -> String {
     let month_days = [
         31,
         if leap { 29 } else { 28 },
-        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
     ];
     let mut m = 1u32;
     for &md in &month_days {
@@ -118,8 +127,9 @@ impl SemanticMemory {
                 rule TEXT NOT NULL,
                 source TEXT,
                 extracted_at TEXT DEFAULT (datetime('now'))
-            );"
-        ).map_err(|e| format!("Failed to init memory tables: {}", e))?;
+            );",
+        )
+        .map_err(|e| format!("Failed to init memory tables: {}", e))?;
 
         Ok(Self {
             conn: Mutex::new(conn),
@@ -494,7 +504,8 @@ mod tests {
     fn test_get_context_data() {
         let mem = mem_db();
         mem.add_decision(None, "decision 1", None, None).unwrap();
-        mem.add_changelog(None, "change", "something changed").unwrap();
+        mem.add_changelog(None, "change", "something changed")
+            .unwrap();
 
         let ctx = mem.get_context_data().unwrap();
         assert_eq!(ctx["decisions"].as_array().unwrap().len(), 1);

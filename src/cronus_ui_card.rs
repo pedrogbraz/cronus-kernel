@@ -14,7 +14,8 @@ pub fn render(comp: &ComponentNode) -> String {
         None if extras.is_empty() => (None, &extras[..]),
         None => (Some(extras[0]), &extras[1..]),
     };
-    let mut header = format!("<div data-slot=\"card-header\"><div data-slot=\"card-title\">{title}</div>");
+    let mut header =
+        format!("<div data-slot=\"card-header\"><div data-slot=\"card-title\">{title}</div>");
     if let Some(desc) = desc {
         header.push_str(&format!(
             "<div data-slot=\"card-description\">{}</div>",
@@ -75,7 +76,11 @@ fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
     comp.props
         .get(key)
         .map(String::as_str)
-        .or_else(|| comp.items.iter().find_map(|i| i.config.get(key).map(String::as_str)))
+        .or_else(|| {
+            comp.items
+                .iter()
+                .find_map(|i| i.config.get(key).map(String::as_str))
+        })
         .filter(|s| !s.is_empty())
 }
 
@@ -137,7 +142,9 @@ mod tests {
     #[test]
     fn description_attribute_matches_react_header() {
         let mut c = stub("Subscription");
-        c.items[0].config.insert("description".into(), "Monthly plan".into());
+        c.items[0]
+            .config
+            .insert("description".into(), "Monthly plan".into());
         assert_eq!(
             render(&c),
             "<div data-slot=\"card\"><div data-slot=\"card-header\"><div data-slot=\"card-title\">Subscription</div><div data-slot=\"card-description\">Monthly plan</div></div></div>"
@@ -165,7 +172,9 @@ mod tests {
         assert!(html.contains("data-slot=\"card-description\">Weekly usage</div>"));
         assert!(html.contains("data-slot=\"card-content\">12,400 requests</div>"));
         let mut d = stub("Overview");
-        d.items[0].config.insert("description".into(), "Weekly usage".into());
+        d.items[0]
+            .config
+            .insert("description".into(), "Weekly usage".into());
         d.items.push(extra("text", "12,400 requests"));
         assert!(render(&d).contains("data-slot=\"card-content\">12,400 requests</div>"));
     }

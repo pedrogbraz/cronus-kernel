@@ -83,7 +83,9 @@ mod tests {
         let mut c = stub("expandable-tabs", "Sections");
         c.items.push(extra("text", "Home"));
         c.items.push(extra("text", "Search"));
-        c.items[2].config.insert("aria-label".into(), "Sections".into());
+        c.items[2]
+            .config
+            .insert("aria-label".into(), "Sections".into());
         let html = render(&c);
         assert_eq!(
             html,
@@ -97,7 +99,10 @@ mod tests {
     #[test]
     fn label_only_still_emits_selected_item() {
         let html = render(&stub("expandable-tabs", "Home"));
-        assert_eq!(html.matches("data-slot=\"expandable-tabs-item\"").count(), 1);
+        assert_eq!(
+            html.matches("data-slot=\"expandable-tabs-item\"").count(),
+            1
+        );
         assert!(html.contains("aria-selected=\"true\""));
         assert!(html.contains("<span>Home</span>"));
         reject_interact(&html);
@@ -128,7 +133,9 @@ mod tests {
     fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"expandable-tabs-item\"] > span[aria-hidden=\"true\"]"));
-        assert!(css.contains("[data-slot=\"expandable-tabs-item\"][aria-selected=\"false\"] > span:last-child"));
+        assert!(css.contains(
+            "[data-slot=\"expandable-tabs-item\"][aria-selected=\"false\"] > span:last-child"
+        ));
         assert!(css.contains(
             "font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; cursor: pointer;"
         ));

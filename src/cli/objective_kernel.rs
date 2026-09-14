@@ -1,10 +1,12 @@
-use std::fs;
 use std::collections::HashMap;
+use std::fs;
 
-use crate::cli::brief::{brief_toml_val, brief_toml_arr, brief_toml_arr_after_section};
-use crate::parser::{self, AstNode, EntityNode, PageNode, StyleNode, ApiNode, AppNode, FieldType,
-    AuthNode, ServiceNode, ComponentNode, EventNode, WorkerNode, MiddlewareNode,
-    ImportNode, EnvNode, TestNode, ComposeNode, LayoutNode};
+use crate::cli::brief::{brief_toml_arr, brief_toml_arr_after_section, brief_toml_val};
+use crate::parser::{
+    self, ApiNode, AppNode, AstNode, AuthNode, ComponentNode, ComposeNode, EntityNode, EnvNode,
+    EventNode, FieldType, ImportNode, LayoutNode, MiddlewareNode, PageNode, ServiceNode, StyleNode,
+    TestNode, WorkerNode,
+};
 
 /// Count files matching a suffix in a directory (and one level of subdirs).
 pub fn count_files_matching(dir: &str, suffix: &str) -> usize {
@@ -49,21 +51,46 @@ pub fn chrono_now_iso() -> String {
     let mut y = 1970i64;
     let mut remaining = days as i64;
     loop {
-        let days_in_year = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) { 366 } else { 365 };
-        if remaining < days_in_year { break; }
+        let days_in_year = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) {
+            366
+        } else {
+            365
+        };
+        if remaining < days_in_year {
+            break;
+        }
         remaining -= days_in_year;
         y += 1;
     }
     let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
-    let month_days = [31, if leap {29} else {28}, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let month_days = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
     let mut m = 0usize;
     for (i, &md) in month_days.iter().enumerate() {
-        if remaining < md as i64 { m = i + 1; break; }
+        if remaining < md as i64 {
+            m = i + 1;
+            break;
+        }
         remaining -= md as i64;
     }
     let d = remaining + 1;
 
-    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", y, m, d, hours, minutes, seconds)
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        y, m, d, hours, minutes, seconds
+    )
 }
 
 /// Get list of changed files from git (staged or last commit).
@@ -111,10 +138,7 @@ pub fn git_diff_content() -> String {
     use std::process::Command;
 
     // Priority 1: staged diff
-    if let Ok(output) = Command::new("git")
-        .args(["diff", "--cached"])
-        .output()
-    {
+    if let Ok(output) = Command::new("git").args(["diff", "--cached"]).output() {
         if output.status.success() {
             let staged = String::from_utf8_lossy(&output.stdout).to_string();
             if !staged.trim().is_empty() {
@@ -124,10 +148,7 @@ pub fn git_diff_content() -> String {
     }
 
     // Priority 2: last commit diff
-    if let Ok(output) = Command::new("git")
-        .args(["diff", "HEAD~1..HEAD"])
-        .output()
-    {
+    if let Ok(output) = Command::new("git").args(["diff", "HEAD~1..HEAD"]).output() {
         if output.status.success() {
             return String::from_utf8_lossy(&output.stdout).to_string();
         }
@@ -142,7 +163,8 @@ pub fn lease_check_scope() -> (String, Vec<String>) {
     let mut write_scope: Vec<String> = Vec::new();
 
     if let Ok(entries) = fs::read_dir(".cronus/tasks") {
-        let mut files: Vec<_> = entries.flatten()
+        let mut files: Vec<_> = entries
+            .flatten()
             .filter(|e| {
                 let n = e.file_name().to_string_lossy().to_string();
                 n.starts_with("TASK-") && n.ends_with(".toml")
@@ -157,7 +179,11 @@ pub fn lease_check_scope() -> (String, Vec<String>) {
                     task_id = brief_toml_val(&content, "id").unwrap_or_default();
                     // Try section-aware parsing first, fall back to simple
                     let scope = brief_toml_arr_after_section(&content, "[scope]", "write");
-                    write_scope = if !scope.is_empty() { scope } else { brief_toml_arr(&content, "write") };
+                    write_scope = if !scope.is_empty() {
+                        scope
+                    } else {
+                        brief_toml_arr(&content, "write")
+                    };
                     break;
                 }
             }
@@ -172,9 +198,9 @@ pub fn lease_check_scope() -> (String, Vec<String>) {
 
     let mut outside = Vec::new();
     for file in &changed {
-        let in_scope = write_scope.iter().any(|scope_pattern| {
-            lease_file_allowed(file, &[scope_pattern.clone()])
-        });
+        let in_scope = write_scope
+            .iter()
+            .any(|scope_pattern| lease_file_allowed(file, &[scope_pattern.clone()]));
         if !in_scope {
             outside.push(file.clone());
         }
@@ -266,7 +292,11 @@ pub fn format_unix_date(secs: u64) -> String {
     let mut remaining = days;
 
     loop {
-        let days_in_year = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) { 366 } else { 365 };
+        let days_in_year = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) {
+            366
+        } else {
+            365
+        };
         if remaining < days_in_year {
             break;
         }
@@ -275,7 +305,20 @@ pub fn format_unix_date(secs: u64) -> String {
     }
 
     let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
-    let month_days = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let month_days = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
     let mut m = 0usize;
     for (i, &md) in month_days.iter().enumerate() {
         if remaining < md as i64 {
@@ -284,7 +327,9 @@ pub fn format_unix_date(secs: u64) -> String {
         }
         remaining -= md as i64;
     }
-    if m == 0 { m = 12; }
+    if m == 0 {
+        m = 12;
+    }
     let d = remaining + 1;
     format!("{:04}-{:02}-{:02}", y, m, d)
 }
@@ -299,7 +344,9 @@ pub fn status_days_between(from: &str, target: &str) -> i64 {
 /// Parse YYYY-MM-DD to days since epoch (for simple subtraction).
 pub fn status_parse_date_to_days(date: &str) -> i64 {
     let parts: Vec<&str> = date.split('-').collect();
-    if parts.len() != 3 { return 0; }
+    if parts.len() != 3 {
+        return 0;
+    }
     let y: i64 = parts[0].parse().unwrap_or(1970);
     let m: i64 = parts[1].parse().unwrap_or(1);
     let d: i64 = parts[2].parse().unwrap_or(1);
@@ -310,7 +357,20 @@ pub fn status_parse_date_to_days(date: &str) -> i64 {
         total += if leap { 366 } else { 365 };
     }
     let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
-    let md = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let md = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
     for i in 0..(m as usize - 1).min(11) {
         total += md[i] as i64;
     }
@@ -413,8 +473,11 @@ pub fn reconcile_emit(nodes: &[AstNode]) -> String {
                 out.push_str(&format!("  login {}\n", auth.login_fields.join(", ")));
                 out.push_str(&format!("  session {}", auth.session_type));
                 if !auth.session_config.is_empty() {
-                    let cfg: Vec<String> = auth.session_config.iter()
-                        .map(|(k, v)| format!("{}: {}", k, v)).collect();
+                    let cfg: Vec<String> = auth
+                        .session_config
+                        .iter()
+                        .map(|(k, v)| format!("{}: {}", k, v))
+                        .collect();
                     out.push_str(&format!(" {}", cfg.join(", ")));
                 }
                 out.push('\n');
@@ -428,24 +491,50 @@ pub fn reconcile_emit(nodes: &[AstNode]) -> String {
                 for field in &entity.fields {
                     let ft = reconcile_field_type_str(&field.field_type);
                     let mut modifiers = Vec::new();
-                    if field.required { modifiers.push("required"); }
-                    if field.unique { modifiers.push("unique"); }
-                    if field.optional { modifiers.push("optional"); }
-                    if field.sensitive { modifiers.push("sensitive"); }
-                    if field.searchable { modifiers.push("searchable"); }
-                    if field.index { modifiers.push("index"); }
-                    if field.featured { modifiers.push("featured"); }
-                    if field.formatted { modifiers.push("formatted"); }
-                    if field.array { modifiers.push("array"); }
+                    if field.required {
+                        modifiers.push("required");
+                    }
+                    if field.unique {
+                        modifiers.push("unique");
+                    }
+                    if field.optional {
+                        modifiers.push("optional");
+                    }
+                    if field.sensitive {
+                        modifiers.push("sensitive");
+                    }
+                    if field.searchable {
+                        modifiers.push("searchable");
+                    }
+                    if field.index {
+                        modifiers.push("index");
+                    }
+                    if field.featured {
+                        modifiers.push("featured");
+                    }
+                    if field.formatted {
+                        modifiers.push("formatted");
+                    }
+                    if field.array {
+                        modifiers.push("array");
+                    }
                     let mod_str = if modifiers.is_empty() {
                         String::new()
                     } else {
                         format!(" {}", modifiers.join(" "))
                     };
                     if let Some(ref_name) = &field.reference {
-                        out.push_str(&format!("  {} {} -> {}{}\n", field.name, ft, ref_name, mod_str));
+                        out.push_str(&format!(
+                            "  {} {} -> {}{}\n",
+                            field.name, ft, ref_name, mod_str
+                        ));
                     } else if let Some(vals) = &field.enum_values {
-                        out.push_str(&format!("  {} enum({}){}\n", field.name, vals.join(", "), mod_str));
+                        out.push_str(&format!(
+                            "  {} enum({}){}\n",
+                            field.name,
+                            vals.join(", "),
+                            mod_str
+                        ));
                     } else {
                         out.push_str(&format!("  {} {}{}\n", field.name, ft, mod_str));
                     }
@@ -523,11 +612,21 @@ pub fn reconcile_emit(nodes: &[AstNode]) -> String {
             }
             AstNode::Worker(w) => {
                 out.push_str(&format!("worker {} {{\n", w.name));
-                if let Some(q) = &w.queue { out.push_str(&format!("  queue \"{}\"\n", q)); }
-                if let Some(c) = w.concurrency { out.push_str(&format!("  concurrency {}\n", c)); }
-                if let Some(r) = w.retry { out.push_str(&format!("  retry {}\n", r)); }
-                if let Some(t) = &w.timeout { out.push_str(&format!("  timeout {}\n", t)); }
-                if let Some(e) = &w.entity { out.push_str(&format!("  entity {}\n", e)); }
+                if let Some(q) = &w.queue {
+                    out.push_str(&format!("  queue \"{}\"\n", q));
+                }
+                if let Some(c) = w.concurrency {
+                    out.push_str(&format!("  concurrency {}\n", c));
+                }
+                if let Some(r) = w.retry {
+                    out.push_str(&format!("  retry {}\n", r));
+                }
+                if let Some(t) = &w.timeout {
+                    out.push_str(&format!("  timeout {}\n", t));
+                }
+                if let Some(e) = &w.entity {
+                    out.push_str(&format!("  entity {}\n", e));
+                }
                 out.push_str("}\n\n");
             }
             AstNode::Middleware(mw) => {
@@ -553,7 +652,10 @@ pub fn reconcile_emit(nodes: &[AstNode]) -> String {
             AstNode::Test(test) => {
                 out.push_str(&format!("test \"{}\" {{\n", test.name));
                 for step in &test.steps {
-                    out.push_str(&format!("  {} {} expect {}\n", step.action, step.entity, step.expect));
+                    out.push_str(&format!(
+                        "  {} {} expect {}\n",
+                        step.action, step.entity, step.expect
+                    ));
                 }
                 out.push_str("}\n\n");
             }
@@ -575,7 +677,11 @@ pub fn reconcile_emit(nodes: &[AstNode]) -> String {
                 out.push_str("}\n\n");
             }
             AstNode::Define(def) => {
-                out.push_str(&format!("define \"{}\" {{\n  # {} section(s)\n}}\n\n", def.name, def.sections.len()));
+                out.push_str(&format!(
+                    "define \"{}\" {{\n  # {} section(s)\n}}\n\n",
+                    def.name,
+                    def.sections.len()
+                ));
             }
             AstNode::Webhook(wh) => {
                 out.push_str(&format!("webhook {} {{\n", wh.entity));

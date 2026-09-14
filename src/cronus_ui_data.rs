@@ -132,10 +132,11 @@ pub fn entity_of(comp: &ComponentNode) -> Option<String> {
     if !live.is_empty() {
         return Some(live);
     }
-    comp.props
-        .get("entity")
-        .cloned()
-        .or_else(|| comp.binding.as_ref().map(|b: &BindingNode| b.entity.clone()))
+    comp.props.get("entity").cloned().or_else(|| {
+        comp.binding
+            .as_ref()
+            .map(|b: &BindingNode| b.entity.clone())
+    })
 }
 
 #[cfg(test)]

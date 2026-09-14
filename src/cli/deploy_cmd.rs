@@ -1,19 +1,24 @@
-use std::fs;
 use crate::parser::AstNode;
-use crate::{parser, deploy, find_cronus_file};
+use crate::{deploy, find_cronus_file, parser};
+use std::fs;
 
 pub fn cmd_deploy(args: &[String]) {
     let file = find_cronus_file().unwrap_or_else(|| {
-        eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found"); std::process::exit(1);
+        eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found");
+        std::process::exit(1);
     });
     let source = fs::read_to_string(&file).unwrap();
     let nodes = parser::parse(&source).unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e); std::process::exit(1);
+        eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e);
+        std::process::exit(1);
     });
     let mut app_name = "cronus-app".to_string();
     let mut port: u16 = 5175;
     for node in &nodes {
-        if let AstNode::App(a) = node { app_name = a.name.clone(); port = a.port; }
+        if let AstNode::App(a) = node {
+            app_name = a.name.clone();
+            port = a.port;
+        }
     }
 
     let target = args.get(2).map(|s| s.as_str()).unwrap_or("");
@@ -32,7 +37,11 @@ pub fn cmd_deploy(args: &[String]) {
         "--railway" => {
             fs::write("Dockerfile", deploy::generate_dockerfile(&app_name, port)).unwrap();
             fs::write(".dockerignore", deploy::generate_dockerignore()).unwrap();
-            fs::write("railway.json", deploy::generate_railway_config(&app_name, port)).unwrap();
+            fs::write(
+                "railway.json",
+                deploy::generate_railway_config(&app_name, port),
+            )
+            .unwrap();
             println!("  \x1b[32m✓\x1b[0m Generated Dockerfile + railway.json");
             println!("\n  \x1b[1mDeploy to Railway:\x1b[0m");
             println!("  \x1b[32m1.\x1b[0m railway login");
@@ -41,13 +50,20 @@ pub fn cmd_deploy(args: &[String]) {
         "--static" => {
             println!("  \x1b[36m⚡\x1b[0m Static export requires running server first.");
             println!("  \x1b[90mStart with:\x1b[0m cronus run {}", port);
-            println!("  \x1b[90mThen use:\x1b[0m  wget -r -np http://localhost:{}/", port);
+            println!(
+                "  \x1b[90mThen use:\x1b[0m  wget -r -np http://localhost:{}/",
+                port
+            );
             println!("  \x1b[90mOr:\x1b[0m       curl http://localhost:{}/showcase -o dist/showcase.html", port);
         }
         _ => {
             fs::write("Dockerfile", deploy::generate_dockerfile(&app_name, port)).unwrap();
             println!("  \x1b[32m✓\x1b[0m Generated Dockerfile");
-            fs::write("docker-compose.yml", deploy::generate_compose(&app_name, port)).unwrap();
+            fs::write(
+                "docker-compose.yml",
+                deploy::generate_compose(&app_name, port),
+            )
+            .unwrap();
             println!("  \x1b[32m✓\x1b[0m Generated docker-compose.yml");
             fs::write(".dockerignore", deploy::generate_dockerignore()).unwrap();
             println!("  \x1b[32m✓\x1b[0m Generated .dockerignore");

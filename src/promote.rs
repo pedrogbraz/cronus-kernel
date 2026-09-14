@@ -21,7 +21,10 @@ pub fn promote_to_text(script: &ScriptFile) -> String {
     let mut out = String::new();
 
     // Header
-    out.push_str(&format!("# Promoted from \"{}\" (.scriptcronus)\n", script.name));
+    out.push_str(&format!(
+        "# Promoted from \"{}\" (.scriptcronus)\n",
+        script.name
+    ));
     out.push_str(&format!("# Version: {}\n", script.version));
     out.push_str(&format!("# Trust score: {} ({})\n", score_str, status_str));
     out.push_str(&format!("# Promoted at: {}\n", chrono_date()));
@@ -70,10 +73,7 @@ pub fn promote_to_text(script: &ScriptFile) -> String {
                 Some(role) => format!(" auth:{}", role),
                 None => String::new(),
             };
-            out.push_str(&format!(
-                "  {} {}{} {{\n",
-                ep.method, ep.path, auth_str
-            ));
+            out.push_str(&format!("  {} {}{} {{\n", ep.method, ep.path, auth_str));
             for stmt in &ep.body {
                 emit_statement(&mut out, stmt, 4);
             }
@@ -84,7 +84,10 @@ pub fn promote_to_text(script: &ScriptFile) -> String {
 
     // Emit schedule blocks as worker comments (workers not fully in AST)
     for sched in &schedules {
-        out.push_str(&format!("# Worker: \"{}\" (every {})\n", sched.name, sched.interval));
+        out.push_str(&format!(
+            "# Worker: \"{}\" (every {})\n",
+            sched.name, sched.interval
+        ));
         out.push_str("# Schedule blocks require manual conversion to worker nodes.\n");
         out.push_str(&format!("worker {} {{\n", sanitize_name(&sched.name)));
         out.push_str(&format!("  # interval: {}\n", sched.interval));
@@ -111,16 +114,19 @@ pub fn promote_to_text(script: &ScriptFile) -> String {
 /// Convert a sanitized name from a schedule name (spaces -> underscores, lowercase).
 fn sanitize_name(name: &str) -> String {
     name.chars()
-        .map(|c| if c.is_alphanumeric() { c.to_ascii_lowercase() } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
 /// Extract a meaningful name from a webhook path like "/hooks/stripe" -> "Stripe".
 fn extract_webhook_name(path: &str) -> String {
-    path.split('/')
-        .last()
-        .unwrap_or("webhook")
-        .to_string()
+    path.split('/').last().unwrap_or("webhook").to_string()
 }
 
 /// Emit a statement as .cronus-flavored text with proper indentation.
@@ -164,7 +170,11 @@ fn emit_statement(out: &mut String, stmt: &Statement, indent: usize) {
             }
             out.push_str(&format!("{}}}\n", pad));
         }
-        Statement::If { condition, then_body, else_body } => {
+        Statement::If {
+            condition,
+            then_body,
+            else_body,
+        } => {
             out.push_str(&format!("{}if {} {{\n", pad, emit_expr(condition)));
             for s in then_body {
                 emit_statement(out, s, indent + 2);
@@ -177,7 +187,11 @@ fn emit_statement(out: &mut String, stmt: &Statement, indent: usize) {
             }
             out.push_str(&format!("{}}}\n", pad));
         }
-        Statement::Respond { status, body, headers } => {
+        Statement::Respond {
+            status,
+            body,
+            headers,
+        } => {
             out.push_str(&format!("{}respond {} {}\n", pad, status, emit_expr(body)));
             if !headers.is_empty() {
                 for (k, v) in headers {
@@ -198,11 +212,17 @@ fn emit_expr(expr: &Expr) -> String {
         Expr::NumberLit(n) => format!("{}", n),
         Expr::BoolLit(b) => format!("{}", b),
         Expr::Path(parts) => parts.join("."),
-        Expr::DbQuery { entity, filters, order, limit } => {
+        Expr::DbQuery {
+            entity,
+            filters,
+            order,
+            limit,
+        } => {
             let mut s = format!("query {} {{ all", entity);
             if !filters.is_empty() {
                 s.push_str(" where ");
-                let f: Vec<String> = filters.iter()
+                let f: Vec<String> = filters
+                    .iter()
                     .map(|f| format!("{} {} {}", f.field, emit_binop(&f.op), emit_expr(&f.value)))
                     .collect();
                 s.push_str(&f.join(", "));
@@ -220,7 +240,8 @@ fn emit_expr(expr: &Expr) -> String {
             let mut s = format!("query {} {{ count", entity);
             if !filters.is_empty() {
                 s.push_str(" where ");
-                let f: Vec<String> = filters.iter()
+                let f: Vec<String> = filters
+                    .iter()
                     .map(|f| format!("{} {} {}", f.field, emit_binop(&f.op), emit_expr(&f.value)))
                     .collect();
                 s.push_str(&f.join(", "));
@@ -240,7 +261,12 @@ fn emit_expr(expr: &Expr) -> String {
         Expr::Now => "now()".to_string(),
         Expr::EnvVar(key) => format!("env.{}", key),
         Expr::BinOp { left, op, right } => {
-            format!("{} {} {}", emit_expr(left), emit_binop(op), emit_expr(right))
+            format!(
+                "{} {} {}",
+                emit_expr(left),
+                emit_binop(op),
+                emit_expr(right)
+            )
         }
         Expr::AuthCheckRole(role) => format!("auth.check_role \"{}\"", role),
         Expr::AuthGetUser => "auth.get_user".to_string(),
@@ -281,7 +307,20 @@ fn chrono_date() -> String {
         remaining -= days_in_year;
         y += 1;
     }
-    let months = [31, if is_leap(y) { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let months = [
+        31,
+        if is_leap(y) { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
     let mut m = 1;
     for &d in &months {
         if remaining < d {
@@ -310,11 +349,9 @@ mod tests {
                 ScriptBlock::OnEvent(OnEventBlock {
                     entity: "Customer".to_string(),
                     event: "create".to_string(),
-                    body: vec![
-                        Statement::Log {
-                            message: Expr::StringLit("New customer created".to_string()),
-                        },
-                    ],
+                    body: vec![Statement::Log {
+                        message: Expr::StringLit("New customer created".to_string()),
+                    }],
                 }),
                 ScriptBlock::Endpoint(EndpointBlock {
                     method: "GET".to_string(),
@@ -340,25 +377,24 @@ mod tests {
                 ScriptBlock::Schedule(ScheduleBlock {
                     name: "Daily Report".to_string(),
                     interval: "1d".to_string(),
-                    body: vec![
-                        Statement::Log {
-                            message: Expr::StringLit("Running daily report".to_string()),
-                        },
-                    ],
+                    body: vec![Statement::Log {
+                        message: Expr::StringLit("Running daily report".to_string()),
+                    }],
                 }),
                 ScriptBlock::OnWebhook(OnWebhookBlock {
                     path: "/hooks/stripe".to_string(),
-                    body: vec![
-                        Statement::DbCreate {
-                            entity: "Payment".to_string(),
-                            fields: {
-                                let mut m = HashMap::new();
-                                m.insert("amount".to_string(), Expr::Path(vec!["event".to_string(), "amount".to_string()]));
-                                m.insert("status".to_string(), Expr::StringLit("pending".to_string()));
-                                m
-                            },
+                    body: vec![Statement::DbCreate {
+                        entity: "Payment".to_string(),
+                        fields: {
+                            let mut m = HashMap::new();
+                            m.insert(
+                                "amount".to_string(),
+                                Expr::Path(vec!["event".to_string(), "amount".to_string()]),
+                            );
+                            m.insert("status".to_string(), Expr::StringLit("pending".to_string()));
+                            m
                         },
-                    ],
+                    }],
                 }),
             ],
         }

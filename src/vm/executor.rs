@@ -57,11 +57,15 @@ impl VmState {
     }
 
     fn pop(&mut self) -> Result<Value, String> {
-        self.stack.pop().ok_or_else(|| "stack underflow".to_string())
+        self.stack
+            .pop()
+            .ok_or_else(|| "stack underflow".to_string())
     }
 
     fn peek(&self) -> Result<&Value, String> {
-        self.stack.last().ok_or_else(|| "stack underflow".to_string())
+        self.stack
+            .last()
+            .ok_or_else(|| "stack underflow".to_string())
     }
 }
 
@@ -92,7 +96,9 @@ pub fn execute(
             OpCode::PushNum(n) => state.push(json!(*n)),
             OpCode::PushBool(b) => state.push(json!(*b)),
             OpCode::PushNull => state.push(Value::Null),
-            OpCode::Pop => { state.pop()?; }
+            OpCode::Pop => {
+                state.pop()?;
+            }
 
             // === Variables ===
             OpCode::LoadLocal(idx) => {
@@ -183,9 +189,7 @@ pub fn execute(
                 let val = match &obj {
                     Value::Object(map) => map.get(field).cloned().unwrap_or(Value::Null),
                     // If it's a string (implicit root like "event"), resolve from context
-                    Value::String(root) => {
-                        resolve_context_field(root, field, ctx)
-                    }
+                    Value::String(root) => resolve_context_field(root, field, ctx),
                     _ => Value::Null,
                 };
                 state.push(val);
@@ -210,12 +214,12 @@ pub fn execute(
                             _ => vec![],
                         };
                         // Owner isolation for non-admin
-                        if ctx.role != "admin" && !ctx.user_id.is_empty() && ctx.user_id != "system" {
+                        if ctx.role != "admin" && !ctx.user_id.is_empty() && ctx.user_id != "system"
+                        {
                             let uid = &ctx.user_id;
                             results.retain(|row| {
-                                let owner = row.get("_owner_id")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
+                                let owner =
+                                    row.get("_owner_id").and_then(|v| v.as_str()).unwrap_or("");
                                 owner.is_empty() || owner == uid
                             });
                         }
@@ -256,11 +260,15 @@ pub fn execute(
                 // Owner check for non-admin
                 if ctx.role != "admin" && ctx.user_id != "system" {
                     if let Ok(Some(existing)) = db.find_by_id(&table, &id_str) {
-                        let owner = existing.get("_owner_id")
+                        let owner = existing
+                            .get("_owner_id")
                             .and_then(|v| v.as_str())
                             .unwrap_or("");
                         if !owner.is_empty() && owner != ctx.user_id {
-                            eprintln!("  \x1b[31m[vm]\x1b[0m db.update {} BLOCKED -- owner mismatch", entity);
+                            eprintln!(
+                                "  \x1b[31m[vm]\x1b[0m db.update {} BLOCKED -- owner mismatch",
+                                entity
+                            );
                             ip += 1;
                             continue;
                         }
@@ -288,11 +296,15 @@ pub fn execute(
                 // Owner check for non-admin
                 if ctx.role != "admin" && ctx.user_id != "system" {
                     if let Ok(Some(existing)) = db.find_by_id(&table, &id_str) {
-                        let owner = existing.get("_owner_id")
+                        let owner = existing
+                            .get("_owner_id")
                             .and_then(|v| v.as_str())
                             .unwrap_or("");
                         if !owner.is_empty() && owner != ctx.user_id {
-                            eprintln!("  \x1b[31m[vm]\x1b[0m db.delete {} BLOCKED -- owner mismatch", entity);
+                            eprintln!(
+                                "  \x1b[31m[vm]\x1b[0m db.delete {} BLOCKED -- owner mismatch",
+                                entity
+                            );
                             ip += 1;
                             continue;
                         }
@@ -428,14 +440,13 @@ fn resolve_context_field(root: &str, field: &str, ctx: &VmContext) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::opcodes::OpCode;
+    use super::*;
 
     /// Helper: execute bytecode without a real DB
     fn exec_no_db(bytecode: &[OpCode]) -> Result<VmState, String> {
         // Create a temporary in-memory DB for tests
-        let db = crate::database::CronusDB::open_memory()
-            .map_err(|e| format!("test db: {}", e))?;
+        let db = crate::database::CronusDB::open_memory().map_err(|e| format!("test db: {}", e))?;
         let ctx = VmContext {
             user_id: "test-user".into(),
             role: "admin".into(),
@@ -474,12 +485,12 @@ mod tests {
     #[test]
     fn test_vm_jump() {
         let bytecode = vec![
-            OpCode::PushBool(false),        // 0
-            OpCode::JumpIfFalse(4),         // 1 -> jump to 4
+            OpCode::PushBool(false),           // 0
+            OpCode::JumpIfFalse(4),            // 1 -> jump to 4
             OpCode::PushStr("skipped".into()), // 2 (should be skipped)
-            OpCode::Halt,                    // 3
+            OpCode::Halt,                      // 3
             OpCode::PushStr("reached".into()), // 4
-            OpCode::Halt,                    // 5
+            OpCode::Halt,                      // 5
         ];
         let state = exec_no_db(&bytecode).unwrap();
         assert_eq!(state.stack.len(), 1);
@@ -490,9 +501,9 @@ mod tests {
     fn test_vm_fuel_limit() {
         // Create bytecode that loops forever
         let bytecode = vec![
-            OpCode::PushNull,  // 0
-            OpCode::Pop,       // 1
-            OpCode::Jump(0),   // 2 -> infinite loop
+            OpCode::PushNull, // 0
+            OpCode::Pop,      // 1
+            OpCode::Jump(0),  // 2 -> infinite loop
         ];
 
         // Use a small fuel limit
@@ -509,15 +520,24 @@ mod tests {
         let mut ip: usize = 0;
 
         let result = loop {
-            if ip >= bytecode.len() { break Ok(()); }
+            if ip >= bytecode.len() {
+                break Ok(());
+            }
             let op = &bytecode[ip];
             let cost = op.fuel_cost();
-            if state.fuel < cost { break Err("out of fuel".to_string()); }
+            if state.fuel < cost {
+                break Err("out of fuel".to_string());
+            }
             state.fuel -= cost;
             match op {
                 OpCode::PushNull => state.push(Value::Null),
-                OpCode::Pop => { let _ = state.pop(); },
-                OpCode::Jump(t) => { ip = *t as usize; continue; },
+                OpCode::Pop => {
+                    let _ = state.pop();
+                }
+                OpCode::Jump(t) => {
+                    ip = *t as usize;
+                    continue;
+                }
                 _ => {}
             }
             ip += 1;

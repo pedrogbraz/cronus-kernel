@@ -93,8 +93,16 @@ pub struct Target {
 
 impl Target {
     fn host_header(&self) -> String {
-        let host = if self.host.contains(':') { format!("[{}]", self.host) } else { self.host.clone() };
-        if self.port == 80 { host } else { format!("{host}:{}", self.port) }
+        let host = if self.host.contains(':') {
+            format!("[{}]", self.host)
+        } else {
+            self.host.clone()
+        };
+        if self.port == 80 {
+            host
+        } else {
+            format!("{host}:{}", self.port)
+        }
     }
 
     /// Loggable form: never includes path or query (they may carry tokens).
@@ -112,7 +120,9 @@ pub fn names_match(webhook_entity: &str, entity: &str) -> bool {
 
 pub fn parse_url(url: &str) -> Result<Target, WebhookError> {
     if !url.is_ascii() {
-        return Err(WebhookError::InvalidUrl("non-ASCII characters (percent-encode them)"));
+        return Err(WebhookError::InvalidUrl(
+            "non-ASCII characters (percent-encode them)",
+        ));
     }
     if url.bytes().any(|b| b <= 0x20 || b == 0x7f) {
         return Err(WebhookError::InvalidUrl("control characters or whitespace"));
@@ -141,11 +151,15 @@ pub fn parse_url(url: &str) -> Result<Target, WebhookError> {
         return Err(WebhookError::InvalidUrl("missing host"));
     }
     if authority.contains('@') {
-        return Err(WebhookError::InvalidUrl("credentials in URL are not allowed"));
+        return Err(WebhookError::InvalidUrl(
+            "credentials in URL are not allowed",
+        ));
     }
 
     let (host, port_str) = if let Some(inner) = authority.strip_prefix('[') {
-        let end = inner.find(']').ok_or(WebhookError::InvalidUrl("unterminated IPv6 literal"))?;
+        let end = inner
+            .find(']')
+            .ok_or(WebhookError::InvalidUrl("unterminated IPv6 literal"))?;
         let host = &inner[..end];
         if host.parse::<std::net::Ipv6Addr>().is_err() {
             return Err(WebhookError::InvalidUrl("invalid IPv6 literal"));
@@ -164,7 +178,9 @@ pub fn parse_url(url: &str) -> Result<Target, WebhookError> {
         };
         let valid = !host.is_empty()
             && host.len() <= 253
-            && host.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'.')
+            && host
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'.')
             && !host.starts_with('.')
             && !host.starts_with('-');
         if !valid {
@@ -197,14 +213,22 @@ pub fn validate_method(method: &str) -> Result<&'static str, WebhookError> {
 
 pub fn validate_header(name: &str, value: &str) -> Result<(), WebhookError> {
     const TCHAR_EXTRA: &[u8] = b"!#$%&'*+-.^_`|~";
-    if name.is_empty() || !name.bytes().all(|b| b.is_ascii_alphanumeric() || TCHAR_EXTRA.contains(&b)) {
+    if name.is_empty()
+        || !name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || TCHAR_EXTRA.contains(&b))
+    {
         return Err(WebhookError::InvalidHeader("name must be an HTTP token"));
     }
     if RESERVED_HEADERS.contains(&name.to_ascii_lowercase().as_str()) {
-        return Err(WebhookError::InvalidHeader("name is reserved by the kernel"));
+        return Err(WebhookError::InvalidHeader(
+            "name is reserved by the kernel",
+        ));
     }
     if value.bytes().any(|b| (b < 0x20 && b != b'\t') || b == 0x7f) {
-        return Err(WebhookError::InvalidHeader("value contains control characters"));
+        return Err(WebhookError::InvalidHeader(
+            "value contains control characters",
+        ));
     }
     Ok(())
 }
@@ -222,7 +246,12 @@ pub fn is_blocked_ip(ip: IpAddr) -> bool {
                 }
             }
             if seg[0] == 0x0064 && seg[1] == 0xff9b && seg[2..6] == [0, 0, 0, 0] {
-                let v4 = Ipv4Addr::new((seg[6] >> 8) as u8, seg[6] as u8, (seg[7] >> 8) as u8, seg[7] as u8);
+                let v4 = Ipv4Addr::new(
+                    (seg[6] >> 8) as u8,
+                    seg[6] as u8,
+                    (seg[7] >> 8) as u8,
+                    seg[7] as u8,
+                );
                 if is_blocked_v4(v4) {
                     return true;
                 }
@@ -278,8 +307,15 @@ pub fn hmac_sha256(key: &[u8], msg: &[u8]) -> [u8; 32] {
         ipad[i] ^= k[i];
         opad[i] ^= k[i];
     }
-    let inner = Sha256::new().chain_update(ipad).chain_update(msg).finalize();
-    Sha256::new().chain_update(opad).chain_update(inner).finalize().into()
+    let inner = Sha256::new()
+        .chain_update(ipad)
+        .chain_update(msg)
+        .finalize();
+    Sha256::new()
+        .chain_update(opad)
+        .chain_update(inner)
+        .finalize()
+        .into()
 }
 
 pub fn signature(secret: &str, timestamp: u64, body: &str) -> String {
@@ -345,15 +381,21 @@ pub async fn deliver(
     for (k, v) in headers {
         validate_header(k, v)?;
     }
-    if !event.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-') {
+    if !event
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+    {
         return Err(WebhookError::InvalidHeader("event name"));
     }
 
-    let addrs: Vec<SocketAddr> = timeout(RESOLVE_TIMEOUT, tokio::net::lookup_host((target.host.as_str(), target.port)))
-        .await
-        .map_err(|_| WebhookError::Resolve)?
-        .map_err(|_| WebhookError::Resolve)?
-        .collect();
+    let addrs: Vec<SocketAddr> = timeout(
+        RESOLVE_TIMEOUT,
+        tokio::net::lookup_host((target.host.as_str(), target.port)),
+    )
+    .await
+    .map_err(|_| WebhookError::Resolve)?
+    .map_err(|_| WebhookError::Resolve)?
+    .collect();
     let addr = vet_addrs(&addrs, allow_private)?;
 
     let timestamp = std::time::SystemTime::now()
@@ -412,15 +454,32 @@ fn signing_secret() -> Result<String, WebhookError> {
 
 /// Fire-and-forget entry point used by the HTTP handlers. Logs once, here.
 pub async fn fire(hook: WebhookHook, event: String, body: String) {
-    let allow_private = std::env::var(ALLOW_PRIVATE_ENV).map(|v| v == "1").unwrap_or(false);
-    let origin = parse_url(&hook.url).map(|t| t.origin()).unwrap_or_else(|_| "<invalid url>".into());
+    let allow_private = std::env::var(ALLOW_PRIVATE_ENV)
+        .map(|v| v == "1")
+        .unwrap_or(false);
+    let origin = parse_url(&hook.url)
+        .map(|t| t.origin())
+        .unwrap_or_else(|_| "<invalid url>".into());
     let result = match signing_secret() {
-        Ok(secret) => deliver(&hook.method, &hook.url, &hook.headers, &event, &body, &secret, allow_private).await,
+        Ok(secret) => {
+            deliver(
+                &hook.method,
+                &hook.url,
+                &hook.headers,
+                &event,
+                &body,
+                &secret,
+                allow_private,
+            )
+            .await
+        }
         Err(e) => Err(e),
     };
     match result {
         Ok(status) if (200..300).contains(&status) => {}
-        Ok(status) => eprintln!("  \x1b[33m⚠\x1b[0m Webhook {event} -> {origin} returned HTTP {status}"),
+        Ok(status) => {
+            eprintln!("  \x1b[33m⚠\x1b[0m Webhook {event} -> {origin} returned HTTP {status}")
+        }
         Err(e) => eprintln!("  \x1b[33m⚠\x1b[0m Webhook {event} -> {origin} not delivered: {e}"),
     }
 }
@@ -435,11 +494,19 @@ mod tests {
     fn parses_plain_http_urls() {
         assert_eq!(
             parse_url("http://example.com").unwrap(),
-            Target { host: "example.com".into(), port: 80, path: "/".into() }
+            Target {
+                host: "example.com".into(),
+                port: 80,
+                path: "/".into()
+            }
         );
         assert_eq!(
             parse_url("http://Hooks.Example.com:8080/a/b?x=1#frag").unwrap(),
-            Target { host: "hooks.example.com".into(), port: 8080, path: "/a/b?x=1".into() }
+            Target {
+                host: "hooks.example.com".into(),
+                port: 8080,
+                path: "/a/b?x=1".into()
+            }
         );
         assert_eq!(parse_url("http://example.com?x=1").unwrap().path, "/?x=1");
         let v6 = parse_url("http://[2606:4700::1111]:9000/x").unwrap();
@@ -449,8 +516,14 @@ mod tests {
 
     #[test]
     fn refuses_https_instead_of_sending_cleartext() {
-        assert_eq!(parse_url("https://example.com/hook"), Err(WebhookError::TlsUnsupported));
-        assert_eq!(parse_url("HTTPS://example.com/hook"), Err(WebhookError::TlsUnsupported));
+        assert_eq!(
+            parse_url("https://example.com/hook"),
+            Err(WebhookError::TlsUnsupported)
+        );
+        assert_eq!(
+            parse_url("HTTPS://example.com/hook"),
+            Err(WebhookError::TlsUnsupported)
+        );
     }
 
     #[test]
@@ -469,7 +542,10 @@ mod tests {
             "http://[nope]/",
             "http://exámple.com/",
         ] {
-            assert!(matches!(parse_url(bad), Err(WebhookError::InvalidUrl(_))), "accepted {bad}");
+            assert!(
+                matches!(parse_url(bad), Err(WebhookError::InvalidUrl(_))),
+                "accepted {bad}"
+            );
         }
     }
 
@@ -482,7 +558,10 @@ mod tests {
             "http://example.com/\n",
             "http://example.com/\0",
         ] {
-            assert!(matches!(parse_url(bad), Err(WebhookError::InvalidUrl(_))), "accepted {bad:?}");
+            assert!(
+                matches!(parse_url(bad), Err(WebhookError::InvalidUrl(_))),
+                "accepted {bad:?}"
+            );
         }
     }
 
@@ -515,15 +594,43 @@ mod tests {
     #[test]
     fn blocks_loopback_private_link_local_and_metadata() {
         for ip in [
-            "127.0.0.1", "127.1.2.3", "10.0.0.1", "172.16.5.4", "172.31.255.255", "192.168.1.1",
-            "169.254.169.254", "0.0.0.0", "0.1.2.3", "100.64.0.1", "192.0.0.192", "255.255.255.255",
-            "224.0.0.1", "240.0.0.1", "::1", "::", "fe80::1", "fc00::1", "fd00:ec2::254",
-            "::ffff:127.0.0.1", "::ffff:169.254.169.254", "::ffff:10.0.0.1", "64:ff9b::a9fe:a9fe",
+            "127.0.0.1",
+            "127.1.2.3",
+            "10.0.0.1",
+            "172.16.5.4",
+            "172.31.255.255",
+            "192.168.1.1",
+            "169.254.169.254",
+            "0.0.0.0",
+            "0.1.2.3",
+            "100.64.0.1",
+            "192.0.0.192",
+            "255.255.255.255",
+            "224.0.0.1",
+            "240.0.0.1",
+            "::1",
+            "::",
+            "fe80::1",
+            "fc00::1",
+            "fd00:ec2::254",
+            "::ffff:127.0.0.1",
+            "::ffff:169.254.169.254",
+            "::ffff:10.0.0.1",
+            "64:ff9b::a9fe:a9fe",
         ] {
             assert!(is_blocked_ip(ip.parse().unwrap()), "{ip} should be blocked");
         }
-        for ip in ["93.184.216.34", "1.1.1.1", "172.32.0.1", "2606:4700::1111", "::ffff:8.8.8.8"] {
-            assert!(!is_blocked_ip(ip.parse().unwrap()), "{ip} should be allowed");
+        for ip in [
+            "93.184.216.34",
+            "1.1.1.1",
+            "172.32.0.1",
+            "2606:4700::1111",
+            "::ffff:8.8.8.8",
+        ] {
+            assert!(
+                !is_blocked_ip(ip.parse().unwrap()),
+                "{ip} should be allowed"
+            );
         }
     }
 
@@ -532,17 +639,41 @@ mod tests {
         let public: SocketAddr = "93.184.216.34:80".parse().unwrap();
         let private: SocketAddr = "10.0.0.5:80".parse().unwrap();
         assert_eq!(vet_addrs(&[public], false), Ok(public));
-        assert_eq!(vet_addrs(&[private], false), Err(WebhookError::BlockedAddress));
-        assert_eq!(vet_addrs(&[public, private], false), Err(WebhookError::BlockedAddress));
+        assert_eq!(
+            vet_addrs(&[private], false),
+            Err(WebhookError::BlockedAddress)
+        );
+        assert_eq!(
+            vet_addrs(&[public, private], false),
+            Err(WebhookError::BlockedAddress)
+        );
         assert_eq!(vet_addrs(&[private], true), Ok(private));
         assert_eq!(vet_addrs(&[], true), Err(WebhookError::Resolve));
     }
 
     #[tokio::test]
     async fn deliver_refuses_localhost_by_default() {
-        let err = deliver("POST", "http://localhost:9/hook", &[], "create", "{}", "k", false).await;
+        let err = deliver(
+            "POST",
+            "http://localhost:9/hook",
+            &[],
+            "create",
+            "{}",
+            "k",
+            false,
+        )
+        .await;
         assert_eq!(err, Err(WebhookError::BlockedAddress));
-        let err = deliver("POST", "http://127.0.0.1:9/hook", &[], "create", "{}", "k", false).await;
+        let err = deliver(
+            "POST",
+            "http://127.0.0.1:9/hook",
+            &[],
+            "create",
+            "{}",
+            "k",
+            false,
+        )
+        .await;
         assert_eq!(err, Err(WebhookError::BlockedAddress));
     }
 
@@ -550,11 +681,29 @@ mod tests {
     async fn deliver_refuses_https_and_injection_before_connecting() {
         let hdr = vec![("X-A".to_string(), "1\r\nX-B: 2".to_string())];
         assert_eq!(
-            deliver("POST", "https://example.com/", &[], "create", "{}", "k", true).await,
+            deliver(
+                "POST",
+                "https://example.com/",
+                &[],
+                "create",
+                "{}",
+                "k",
+                true
+            )
+            .await,
             Err(WebhookError::TlsUnsupported)
         );
         assert!(matches!(
-            deliver("POST", "http://127.0.0.1:9/", &hdr, "create", "{}", "k", true).await,
+            deliver(
+                "POST",
+                "http://127.0.0.1:9/",
+                &hdr,
+                "create",
+                "{}",
+                "k",
+                true
+            )
+            .await,
             Err(WebhookError::InvalidHeader(_))
         ));
     }
@@ -570,7 +719,10 @@ mod tests {
         );
         // RFC 4231 test case 6 (key longer than block size)
         assert_eq!(
-            hex::encode(hmac_sha256(&[0xaa; 131], b"Test Using Larger Than Block-Size Key - Hash Key First")),
+            hex::encode(hmac_sha256(
+                &[0xaa; 131],
+                b"Test Using Larger Than Block-Size Key - Hash Key First"
+            )),
             "60e431591ee0b67f0d8a26aacbf5b77f8e0bc6213728c5140546040f0ee37f54"
         );
     }
@@ -588,7 +740,10 @@ mod tests {
         let entities = vec![user_entity()];
         let row = serde_json::json!({"id": "1", "email": "a@b.c", "name": "A", "ssn": "123", "password": "x", "password_hash": "h"});
         let body: Value = serde_json::from_str(&redacted_body(&entities, "users", &row)).unwrap();
-        assert_eq!(body, serde_json::json!({"id": "1", "email": "a@b.c", "name": "A"}));
+        assert_eq!(
+            body,
+            serde_json::json!({"id": "1", "email": "a@b.c", "name": "A"})
+        );
         // unknown entity still drops password columns
         let body: Value = serde_json::from_str(&redacted_body(&[], "ghost", &row)).unwrap();
         assert!(body.get("password").is_none() && body.get("password_hash").is_none());
@@ -620,7 +775,9 @@ mod tests {
                     }
                 }
             }
-            sock.write_all(b"HTTP/1.1 204 No Content\r\n\r\n").await.unwrap();
+            sock.write_all(b"HTTP/1.1 204 No Content\r\n\r\n")
+                .await
+                .unwrap();
             String::from_utf8(req).unwrap()
         });
 
@@ -631,11 +788,16 @@ mod tests {
         );
         let url = format!("http://127.0.0.1:{port}/hooks/in?src=cronus");
         let headers = vec![("X-Api-Token".to_string(), "t0k".to_string())];
-        let status = deliver("POST", &url, &headers, "create", &body, "s3cret", true).await.unwrap();
+        let status = deliver("POST", &url, &headers, "create", &body, "s3cret", true)
+            .await
+            .unwrap();
         assert_eq!(status, 204);
 
         let req = server.await.unwrap();
-        assert!(req.starts_with("POST /hooks/in?src=cronus HTTP/1.1\r\n"), "{req}");
+        assert!(
+            req.starts_with("POST /hooks/in?src=cronus HTTP/1.1\r\n"),
+            "{req}"
+        );
         assert!(req.contains(&format!("\r\nHost: 127.0.0.1:{port}\r\n")));
         assert!(req.contains("\r\nX-Api-Token: t0k\r\n"));
         assert!(req.contains("\r\nX-Cronus-Event: create\r\n"));
@@ -646,7 +808,10 @@ mod tests {
             .unwrap()
             .parse()
             .unwrap();
-        let sig = req.lines().find_map(|l| l.strip_prefix("X-Cronus-Signature: ")).unwrap();
+        let sig = req
+            .lines()
+            .find_map(|l| l.strip_prefix("X-Cronus-Signature: "))
+            .unwrap();
         assert_eq!(sig, signature("s3cret", ts, &body));
         assert!(req.ends_with(&format!("\r\n\r\n{body}")));
     }

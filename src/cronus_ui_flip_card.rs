@@ -22,9 +22,10 @@ pub fn render(comp: &ComponentNode) -> String {
     };
     // `aria-label:` after an item line lands in that item's config (the
     // tokenizer has no newlines), so look there as well as in props.
-    let aria_label = comp.props.get("aria-label").or_else(|| {
-        comp.items.iter().find_map(|i| i.config.get("aria-label"))
-    });
+    let aria_label = comp
+        .props
+        .get("aria-label")
+        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")));
     // React hover trigger: `role="group"` only when named, always `tabindex=0`
     // (CSS `:focus-within` flips it, so focus is a real, JS-free control).
     let aria = match aria_label.filter(|s| !s.is_empty()) {
@@ -192,7 +193,9 @@ mod tests {
         assert!(css.contains(
             "[data-slot=\"flip-card\"] > div {\n  position: absolute; inset: 0;\n  transform-style: preserve-3d;"
         ));
-        assert!(!css.contains("position: relative; width: 100%; height: 100%;\n  transform-style: preserve-3d;"));
+        assert!(!css.contains(
+            "position: relative; width: 100%; height: 100%;\n  transform-style: preserve-3d;"
+        ));
         assert!(css.contains(
             "[data-slot=\"flip-card\"]:hover > div,\n[data-slot=\"flip-card\"]:focus-within > div {\n  transform: rotateY(180deg);\n}"
         ));

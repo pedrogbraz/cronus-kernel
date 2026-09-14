@@ -196,7 +196,10 @@ async fn handle_request(
         return Ok(serve_static(dir, &path).await);
     }
 
-    Ok(json_response(StatusCode::NOT_FOUND, json!({"error": "not found"})))
+    Ok(json_response(
+        StatusCode::NOT_FOUND,
+        json!({"error": "not found"}),
+    ))
 }
 
 // ──────────────────────────────────────────────
@@ -214,7 +217,10 @@ async fn handle_api(
     // segments = ["api", entity] or ["api", entity, id]
 
     if segments.len() < 2 {
-        return json_response(StatusCode::BAD_REQUEST, json!({"error": "invalid api path"}));
+        return json_response(
+            StatusCode::BAD_REQUEST,
+            json!({"error": "invalid api path"}),
+        );
     }
 
     let entity_slug = segments[1];
@@ -234,7 +240,11 @@ async fn handle_api(
             return false;
         }
         let has_id_param = r.path.contains("{id}");
-        if has_id_param { id_segment.is_some() } else { id_segment.is_none() }
+        if has_id_param {
+            id_segment.is_some()
+        } else {
+            id_segment.is_none()
+        }
     });
 
     if !route_exists {
@@ -249,37 +259,37 @@ async fn handle_api(
 
     match (method_str, id_segment) {
         // ── LIST ──
-        ("GET", None) => {
-            match state.db.find_all(table, 100, 0) {
-                Ok(rows) => json_response(StatusCode::OK, json!({"data": rows})),
-                Err(e) => json_response(StatusCode::INTERNAL_SERVER_ERROR, json!({"error": e})),
-            }
-        }
+        ("GET", None) => match state.db.find_all(table, 100, 0) {
+            Ok(rows) => json_response(StatusCode::OK, json!({"data": rows})),
+            Err(e) => json_response(StatusCode::INTERNAL_SERVER_ERROR, json!({"error": e})),
+        },
 
         // ── GET BY ID ──
-        ("GET", Some(id)) => {
-            match state.db.find_by_id(table, id) {
-                Ok(Some(row)) => json_response(StatusCode::OK, json!({"data": row})),
-                Ok(None) => json_response(StatusCode::NOT_FOUND, json!({"error": "not found"})),
-                Err(e) => json_response(StatusCode::INTERNAL_SERVER_ERROR, json!({"error": e})),
-            }
-        }
+        ("GET", Some(id)) => match state.db.find_by_id(table, id) {
+            Ok(Some(row)) => json_response(StatusCode::OK, json!({"data": row})),
+            Ok(None) => json_response(StatusCode::NOT_FOUND, json!({"error": "not found"})),
+            Err(e) => json_response(StatusCode::INTERNAL_SERVER_ERROR, json!({"error": e})),
+        },
 
         // ── CREATE ──
         ("POST", None) => {
             let body = match read_body(req).await {
                 Ok(b) => b,
-                Err(e) => return json_response(
-                    StatusCode::BAD_REQUEST,
-                    json!({"error": format!("body read error: {e}")}),
-                ),
+                Err(e) => {
+                    return json_response(
+                        StatusCode::BAD_REQUEST,
+                        json!({"error": format!("body read error: {e}")}),
+                    )
+                }
             };
             let data: Value = match serde_json::from_slice(&body) {
                 Ok(v) => v,
-                Err(e) => return json_response(
-                    StatusCode::BAD_REQUEST,
-                    json!({"error": format!("invalid JSON: {e}")}),
-                ),
+                Err(e) => {
+                    return json_response(
+                        StatusCode::BAD_REQUEST,
+                        json!({"error": format!("invalid JSON: {e}")}),
+                    )
+                }
             };
             match state.db.insert(table, &data) {
                 Ok(row) => json_response(StatusCode::CREATED, json!({"data": row})),
@@ -288,15 +298,16 @@ async fn handle_api(
         }
 
         // ── DELETE ──
-        ("DELETE", Some(id)) => {
-            match state.db.delete(table, id) {
-                Ok(true) => json_response(StatusCode::OK, json!({"deleted": true})),
-                Ok(false) => json_response(StatusCode::NOT_FOUND, json!({"error": "not found"})),
-                Err(e) => json_response(StatusCode::INTERNAL_SERVER_ERROR, json!({"error": e})),
-            }
-        }
+        ("DELETE", Some(id)) => match state.db.delete(table, id) {
+            Ok(true) => json_response(StatusCode::OK, json!({"deleted": true})),
+            Ok(false) => json_response(StatusCode::NOT_FOUND, json!({"error": "not found"})),
+            Err(e) => json_response(StatusCode::INTERNAL_SERVER_ERROR, json!({"error": e})),
+        },
 
-        _ => json_response(StatusCode::METHOD_NOT_ALLOWED, json!({"error": "method not allowed"})),
+        _ => json_response(
+            StatusCode::METHOD_NOT_ALLOWED,
+            json!({"error": "method not allowed"}),
+        ),
     }
 }
 
@@ -311,14 +322,21 @@ async fn read_body(req: Request<Incoming>) -> Result<Vec<u8>, String> {
     if let Some(cl) = req.headers().get("content-length") {
         if let Ok(len) = cl.to_str().unwrap_or("0").parse::<usize>() {
             if len > MAX_BODY_SIZE {
-                return Err(format!("request body too large: {} bytes (max {})", len, MAX_BODY_SIZE));
+                return Err(format!(
+                    "request body too large: {} bytes (max {})",
+                    len, MAX_BODY_SIZE
+                ));
             }
         }
     }
     let collected = req.into_body().collect().await.map_err(|e| e.to_string())?;
     let bytes = collected.to_bytes().to_vec();
     if bytes.len() > MAX_BODY_SIZE {
-        return Err(format!("request body too large: {} bytes (max {})", bytes.len(), MAX_BODY_SIZE));
+        return Err(format!(
+            "request body too large: {} bytes (max {})",
+            bytes.len(),
+            MAX_BODY_SIZE
+        ));
     }
     Ok(bytes)
 }
@@ -407,8 +425,14 @@ fn json_response(status: StatusCode, body: Value) -> Response<Full<Bytes>> {
         .status(status)
         .header("Content-Type", "application/json")
         .header("Access-Control-Allow-Origin", cors_origin)
-        .header("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
-        .header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        .header(
+            "Access-Control-Allow-Methods",
+            "GET, POST, PATCH, PUT, DELETE, OPTIONS",
+        )
+        .header(
+            "Access-Control-Allow-Headers",
+            "Content-Type, Authorization",
+        )
         .body(Full::new(Bytes::from(body.to_string())))
         .unwrap_or_else(|_| {
             Response::builder()

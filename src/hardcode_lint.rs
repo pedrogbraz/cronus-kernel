@@ -4,7 +4,7 @@
 // Any text that doesn't trace back to section title/subtitle/config/items
 // is flagged as a hardcoded string.
 
-use crate::parser::{PageNode, SectionNode, StyleNode, EntityNode};
+use crate::parser::{EntityNode, PageNode, SectionNode, StyleNode};
 use std::collections::HashSet;
 
 /// A single hardcode finding
@@ -43,7 +43,15 @@ fn collect_section_strings(section: &SectionNode) -> HashSet<String> {
     // All item values
     for item in &section.items {
         for (_, v) in item {
-            if !v.is_empty() && v.len() > 1 && v != "item" && v != "action" && v != "image" && v != "row" && v != "true" && v != "false" {
+            if !v.is_empty()
+                && v.len() > 1
+                && v != "item"
+                && v != "action"
+                && v != "image"
+                && v != "row"
+                && v != "true"
+                && v != "false"
+            {
                 strings.insert(v.clone());
             }
         }
@@ -190,7 +198,10 @@ fn is_ui_label(text: &str) -> bool {
 
     // Pure alphabetic words (with spaces, punctuation like ? ! .) = label
     // e.g. "Save Changes", "No account?", "Already have access?", "Live Uplink"
-    let alpha_ratio = trimmed.chars().filter(|c| c.is_alphabetic() || c.is_whitespace()).count() as f64
+    let alpha_ratio = trimmed
+        .chars()
+        .filter(|c| c.is_alphabetic() || c.is_whitespace())
+        .count() as f64
         / trimmed.len().max(1) as f64;
     if alpha_ratio >= 0.85 {
         return true;
@@ -210,12 +221,21 @@ fn is_structural(text: &str) -> bool {
 
     // Typographic characters used as separators/placeholders (em dash, en dash, bullet, ellipsis)
     let only_punct: String = trimmed.chars().filter(|c| !c.is_whitespace()).collect();
-    if only_punct.chars().all(|c| matches!(c, '\u{2014}' | '\u{2013}' | '\u{2022}' | '\u{2026}' | '-' | '|' | '/' | '·')) {
+    if only_punct.chars().all(|c| {
+        matches!(
+            c,
+            '\u{2014}' | '\u{2013}' | '\u{2022}' | '\u{2026}' | '-' | '|' | '/' | '·'
+        )
+    }) {
         return true;
     }
 
     // HTML entities (&#x2026; etc.)
-    if trimmed.starts_with("&#") || trimmed.starts_with("&amp;") || trimmed.starts_with("&lt;") || trimmed.starts_with("&gt;") {
+    if trimmed.starts_with("&#")
+        || trimmed.starts_with("&amp;")
+        || trimmed.starts_with("&lt;")
+        || trimmed.starts_with("&gt;")
+    {
         return true;
     }
 
@@ -225,14 +245,16 @@ fn is_structural(text: &str) -> bool {
     }
 
     // Pure numbers / CSS values
-    if trimmed.chars().all(|c| c.is_ascii_digit() || c == '.' || c == '%' || c == 'p' || c == 'x' || c == 'e' || c == 'm') {
+    if trimmed.chars().all(|c| {
+        c.is_ascii_digit() || c == '.' || c == '%' || c == 'p' || c == 'x' || c == 'e' || c == 'm'
+    }) {
         return true;
     }
 
     // Common HTML/CSS structural words
     let structural_words = [
-        "none", "auto", "inherit", "block", "flex", "grid", "true", "false",
-        "item", "action", "image", "row", "text", "email", "password",
+        "none", "auto", "inherit", "block", "flex", "grid", "true", "false", "item", "action",
+        "image", "row", "text", "email", "password",
     ];
     if structural_words.contains(&trimmed.to_lowercase().as_str()) {
         return true;
@@ -242,10 +264,7 @@ fn is_structural(text: &str) -> bool {
 }
 
 /// Run the hardcode lint on a rendered page
-pub fn lint_page(
-    page: &PageNode,
-    rendered_html: &str,
-) -> Vec<HardcodeFinding> {
+pub fn lint_page(page: &PageNode, rendered_html: &str) -> Vec<HardcodeFinding> {
     let dsl_strings = collect_page_strings(page);
     let visible_texts = extract_visible_text(rendered_html);
 
@@ -305,7 +324,15 @@ pub fn lint_all_pages(
         }
 
         // Render the page body
-        let body = crate::ui::render_page(page, entities, accent, theme, None, &empty_params, &crate::access::Access::anonymous());
+        let body = crate::ui::render_page(
+            page,
+            entities,
+            accent,
+            theme,
+            None,
+            &empty_params,
+            &crate::access::Access::anonymous(),
+        );
 
         // Run lint
         let findings = lint_page(page, &body);

@@ -1,11 +1,12 @@
-use std::fs;
 use crate::parser::{AstNode, EntityNode};
-use crate::{parser, testing, find_cronus_file};
+use crate::{find_cronus_file, parser, testing};
+use std::fs;
 
 pub fn cmd_test(args: &[String]) {
     if args.iter().any(|a| a == "--conformance") {
         println!("  \x1b[36m⚡\x1b[0m Running conformance suite...\n");
-        let base = args.iter()
+        let base = args
+            .iter()
             .position(|a| a == "--dir")
             .and_then(|i| args.get(i + 1))
             .map(|s| s.as_str())
@@ -28,11 +29,13 @@ pub fn cmd_test(args: &[String]) {
     }
 
     let file = find_cronus_file().unwrap_or_else(|| {
-        eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found"); std::process::exit(1);
+        eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found");
+        std::process::exit(1);
     });
     let source = fs::read_to_string(&file).unwrap();
     let nodes = parser::parse(&source).unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e); std::process::exit(1);
+        eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e);
+        std::process::exit(1);
     });
 
     let mut entities: Vec<EntityNode> = vec![];
@@ -60,7 +63,12 @@ pub fn cmd_test(args: &[String]) {
             for test in &c.tests {
                 comp_tests += 1;
                 comp_test_steps += test.steps.len() as u32;
-                println!("  \x1b[36m◉\x1b[0m {} → \"{}\" ({} steps)", c.name, test.name, test.steps.len());
+                println!(
+                    "  \x1b[36m◉\x1b[0m {} → \"{}\" ({} steps)",
+                    c.name,
+                    test.name,
+                    test.steps.len()
+                );
                 for step in &test.steps {
                     println!("    \x1b[90m{}\x1b[0m", step);
                 }

@@ -18,8 +18,14 @@ pub fn render(comp: &ComponentNode) -> String {
         Some(v) => esc(v),
         None => label_of(comp),
     };
-    let drop = attr(comp, "drop").filter(|s| !s.is_empty()).map(esc).unwrap_or_else(|| "Drag &amp; drop or".into());
-    let browse = attr(comp, "browse").filter(|s| !s.is_empty()).map(esc).unwrap_or_else(|| "browse".into());
+    let drop = attr(comp, "drop")
+        .filter(|s| !s.is_empty())
+        .map(esc)
+        .unwrap_or_else(|| "Drag &amp; drop or".into());
+    let browse = attr(comp, "browse")
+        .filter(|s| !s.is_empty())
+        .map(esc)
+        .unwrap_or_else(|| "browse".into());
     let mut input = String::from("<input type=\"file\"");
     if let Some(accept) = attr(comp, "accept") {
         input.push_str(&format!(" accept=\"{}\"", esc(accept)));
@@ -79,7 +85,9 @@ mod tests {
         let html = render(&stub("file-dropzone", "Upload files"));
         assert!(html.starts_with("<label "));
         assert!(html.contains("data-slot=\"file-dropzone\""));
-        assert!(html.contains("<input type=\"file\" aria-label=\"Upload files\" class=\"sr-only\" />"));
+        assert!(
+            html.contains("<input type=\"file\" aria-label=\"Upload files\" class=\"sr-only\" />")
+        );
         assert!(html.ends_with("</label>"));
         reject_interact(&html);
         assert_eq!(
@@ -161,7 +169,9 @@ mod tests {
     #[test]
     fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);"));
+        assert!(css.contains(
+            "font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);"
+        ));
         assert!(css.contains(
             "[data-slot=\"file-dropzone\"] > svg { width: 1.5rem; height: 1.5rem; color: var(--cronus-fg-muted); }"
         ));

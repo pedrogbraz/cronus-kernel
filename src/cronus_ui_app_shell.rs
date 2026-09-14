@@ -78,7 +78,9 @@ mod tests {
     fn description_attr_fills_body() {
         let mut c = stub("app-shell", "Acme");
         c.items.push(extra("text", "Home"));
-        c.items[1].config.insert("description".into(), "Inbox".into());
+        c.items[1]
+            .config
+            .insert("description".into(), "Inbox".into());
         let html = render(&c);
         assert!(html.contains("<div data-slot=\"app-shell-body\"><div>Inbox</div></div>"));
         assert!(!html.contains(">Inbox</button>"));
@@ -90,7 +92,9 @@ mod tests {
     #[test]
     fn label_only_has_empty_menu_and_header_title() {
         let html = render(&stub("app-shell", "Dashboard"));
-        assert!(html.contains("<header data-slot=\"app-shell-header\"><span>Dashboard</span></header>"));
+        assert!(
+            html.contains("<header data-slot=\"app-shell-header\"><span>Dashboard</span></header>")
+        );
         assert!(html.contains("<ul data-slot=\"sidebar-menu\"></ul>"));
         assert!(html.contains("<div data-slot=\"app-shell-body\"></div>"));
         reject_interact(&html);
@@ -119,7 +123,9 @@ mod tests {
     fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(!css.contains("[data-slot=\"app-shell\"] {"));
-        assert!(css.contains("[data-audit-canvas] > [data-slot=\"sidebar-wrapper\"][data-app-shell]"));
+        assert!(
+            css.contains("[data-audit-canvas] > [data-slot=\"sidebar-wrapper\"][data-app-shell]")
+        );
         assert!(css.contains("width: 20rem; height: 14rem; min-height: 0; overflow: hidden;"));
         assert!(css.contains("[data-slot=\"app-shell-content\"]"));
         assert!(css.contains("min-height: 100svh"));

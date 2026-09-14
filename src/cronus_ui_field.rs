@@ -17,7 +17,10 @@ pub fn render(comp: &ComponentNode) -> String {
         .or_else(|| comp.items.iter().find_map(|i| i.config.get("description")))
         .filter(|d| !d.is_empty());
     match described {
-        Some(d) => inner.push_str(&format!("<p data-slot=\"field-description\">{}</p>", esc(d))),
+        Some(d) => inner.push_str(&format!(
+            "<p data-slot=\"field-description\">{}</p>",
+            esc(d)
+        )),
         None => {
             for d in ts.iter().skip(1) {
                 inner.push_str(&format!("<p data-slot=\"field-description\">{d}</p>"));
@@ -79,7 +82,9 @@ mod tests {
     #[test]
     fn description_attr_from_props_or_item_config() {
         let mut c = stub("field", "Email");
-        c.items[0].config.insert("description".into(), "We'll never share it.".into());
+        c.items[0]
+            .config
+            .insert("description".into(), "We'll never share it.".into());
         assert_eq!(
             render(&c),
             "<div data-slot=\"field\"><label data-slot=\"field-label\">Email</label><p data-slot=\"field-description\">We'll never share it.</p></div>"

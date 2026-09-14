@@ -26,7 +26,12 @@ fn logos(comp: &ComponentNode) -> Vec<(String, String)> {
         .iter()
         .find_map(|k| item(comp, *k).filter(|t| !t.is_empty()))
         .map(str::to_string)
-        .or_else(|| comp.items.iter().find(|i| !i.text.is_empty()).map(|i| i.text.clone()))
+        .or_else(|| {
+            comp.items
+                .iter()
+                .find(|i| !i.text.is_empty())
+                .map(|i| i.text.clone())
+        })
         .unwrap_or_else(|| comp.name.clone());
     vec![(raw, label_of(comp))]
 }
@@ -284,8 +289,11 @@ mod tests {
         assert!(css.contains("position: relative; box-sizing: border-box;"));
         assert!(css.contains("overflow: hidden; height: 5rem; padding: 0 0.75rem;"));
         assert!(css.contains("border: 1px solid transparent;\n  background: transparent;"));
-        assert!(css.contains("color: color-mix(in oklab, var(--cronus-fg-secondary) 70%, transparent);"));
-        assert!(css.contains("font-size: 2.25rem; font-weight: 600; line-height: 1; color: currentColor;"));
+        assert!(css
+            .contains("color: color-mix(in oklab, var(--cronus-fg-secondary) 70%, transparent);"));
+        assert!(css.contains(
+            "font-size: 2.25rem; font-weight: 600; line-height: 1; color: currentColor;"
+        ));
         assert!(css.contains(
             "[data-slot=\"logo-carousel-item\"] { height: 6rem; }\n  [data-slot=\"logo-carousel-item\"] > div > span { font-size: 3.75rem; }"
         ));

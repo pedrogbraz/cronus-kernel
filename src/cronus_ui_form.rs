@@ -187,7 +187,9 @@ mod tests {
         let html = render(&c);
         assert!(html.contains("<label data-slot=\"label\" for=\"cui-form-input\">Email</label>"));
         assert!(html.contains("<label data-slot=\"label\" for=\"cui-form-input-2\">Name</label>"));
-        assert!(html.contains("<input data-slot=\"input\" id=\"cui-form-input-2\" name=\"Name\" />"));
+        assert!(
+            html.contains("<input data-slot=\"input\" id=\"cui-form-input-2\" name=\"Name\" />")
+        );
         assert!(!html.contains(">Contact</label>"));
         assert_eq!(html.matches("data-slot=\"form-item\"").count(), 2);
         reject_interact(&html);
@@ -241,7 +243,9 @@ mod tests {
         assert!(css.contains(
             "[data-slot=\"form-item\"] {\n  display: flex; flex-direction: column; gap: 0.375rem;\n}"
         ));
-        assert!(css.contains("[data-slot=\"form-item\"] > [data-slot=\"input\"] {\n  line-height: 1.25rem;\n}"));
+        assert!(css.contains(
+            "[data-slot=\"form-item\"] > [data-slot=\"input\"] {\n  line-height: 1.25rem;\n}"
+        ));
         assert!(css.contains(
             "[data-slot=\"form-item\"] > [data-slot=\"input\"]::placeholder {\n  color: var(--cronus-fg-tertiary);\n}"
         ));

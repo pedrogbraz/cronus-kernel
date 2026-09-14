@@ -3,8 +3,8 @@
 //! Compiles ScriptFile AST nodes into Vec<OpCode> bytecode sequences.
 //! Each ScriptBlock produces one bytecode program (Vec<OpCode>).
 
-use crate::scripting::ast::*;
 use super::opcodes::OpCode;
+use crate::scripting::ast::*;
 
 /// Compiler state — tracks local variable name-to-index mapping
 pub struct Compiler {
@@ -21,10 +21,22 @@ pub struct CompiledBlock {
 /// Identifies what kind of block was compiled
 #[derive(Debug, Clone)]
 pub enum CompiledBlockKind {
-    OnEvent { entity: String, event: String },
-    OnWebhook { path: String },
-    Schedule { name: String, interval: String },
-    Endpoint { method: String, path: String, auth: Option<String> },
+    OnEvent {
+        entity: String,
+        event: String,
+    },
+    OnWebhook {
+        path: String,
+    },
+    Schedule {
+        name: String,
+        interval: String,
+    },
+    Endpoint {
+        method: String,
+        path: String,
+        auth: Option<String>,
+    },
 }
 
 impl Compiler {
@@ -34,37 +46,43 @@ impl Compiler {
 
     /// Compile an entire ScriptFile into a list of compiled blocks
     pub fn compile(script: &ScriptFile) -> Vec<CompiledBlock> {
-        script.blocks.iter().map(|block| {
-            let mut compiler = Compiler::new();
-            match block {
-                ScriptBlock::OnEvent(b) => CompiledBlock {
-                    kind: CompiledBlockKind::OnEvent {
-                        entity: b.entity.clone(),
-                        event: b.event.clone(),
+        script
+            .blocks
+            .iter()
+            .map(|block| {
+                let mut compiler = Compiler::new();
+                match block {
+                    ScriptBlock::OnEvent(b) => CompiledBlock {
+                        kind: CompiledBlockKind::OnEvent {
+                            entity: b.entity.clone(),
+                            event: b.event.clone(),
+                        },
+                        bytecode: compiler.compile_block_body(&b.body),
                     },
-                    bytecode: compiler.compile_block_body(&b.body),
-                },
-                ScriptBlock::OnWebhook(b) => CompiledBlock {
-                    kind: CompiledBlockKind::OnWebhook { path: b.path.clone() },
-                    bytecode: compiler.compile_block_body(&b.body),
-                },
-                ScriptBlock::Schedule(b) => CompiledBlock {
-                    kind: CompiledBlockKind::Schedule {
-                        name: b.name.clone(),
-                        interval: b.interval.clone(),
+                    ScriptBlock::OnWebhook(b) => CompiledBlock {
+                        kind: CompiledBlockKind::OnWebhook {
+                            path: b.path.clone(),
+                        },
+                        bytecode: compiler.compile_block_body(&b.body),
                     },
-                    bytecode: compiler.compile_block_body(&b.body),
-                },
-                ScriptBlock::Endpoint(b) => CompiledBlock {
-                    kind: CompiledBlockKind::Endpoint {
-                        method: b.method.clone(),
-                        path: b.path.clone(),
-                        auth: b.auth.clone(),
+                    ScriptBlock::Schedule(b) => CompiledBlock {
+                        kind: CompiledBlockKind::Schedule {
+                            name: b.name.clone(),
+                            interval: b.interval.clone(),
+                        },
+                        bytecode: compiler.compile_block_body(&b.body),
                     },
-                    bytecode: compiler.compile_block_body(&b.body),
-                },
-            }
-        }).collect()
+                    ScriptBlock::Endpoint(b) => CompiledBlock {
+                        kind: CompiledBlockKind::Endpoint {
+                            method: b.method.clone(),
+                            path: b.path.clone(),
+                            auth: b.auth.clone(),
+                        },
+                        bytecode: compiler.compile_block_body(&b.body),
+                    },
+                }
+            })
+            .collect()
     }
 
     fn compile_block_body(&mut self, stmts: &[Statement]) -> Vec<OpCode> {
@@ -160,7 +178,11 @@ impl Compiler {
                 code
             }
 
-            Statement::If { condition, then_body, else_body } => {
+            Statement::If {
+                condition,
+                then_body,
+                else_body,
+            } => {
                 let mut code = Vec::new();
                 // Compile condition
                 code.extend(self.compile_expr(condition));
@@ -196,7 +218,11 @@ impl Compiler {
                 code
             }
 
-            Statement::Respond { status, body, headers: _ } => {
+            Statement::Respond {
+                status,
+                body,
+                headers: _,
+            } => {
                 let mut code = self.compile_expr(body);
                 code.push(OpCode::Respond(*status));
                 code
@@ -245,7 +271,12 @@ impl Compiler {
                 }
             }
 
-            Expr::DbQuery { entity, filters: _, order: _, limit: _ } => {
+            Expr::DbQuery {
+                entity,
+                filters: _,
+                order: _,
+                limit: _,
+            } => {
                 // v1: simple query without filter compilation
                 vec![OpCode::DbQuery(entity.clone())]
             }

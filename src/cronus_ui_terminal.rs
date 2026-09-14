@@ -47,7 +47,13 @@ pub fn render(comp: &ComponentNode) -> String {
     let transcript = lines
         .iter()
         .enumerate()
-        .map(|(i, t)| if i % 2 == 0 { format!("$ {t}") } else { t.clone() })
+        .map(|(i, t)| {
+            if i % 2 == 0 {
+                format!("$ {t}")
+            } else {
+                t.clone()
+            }
+        })
         .collect::<Vec<_>>()
         .join("\n");
     format!(
@@ -103,7 +109,10 @@ mod tests {
 
     #[test]
     fn dom_matches_react_static_terminal() {
-        let html = render(&session("zsh", &["bunx cronus-ui add button", "added button"]));
+        let html = render(&session(
+            "zsh",
+            &["bunx cronus-ui add button", "added button"],
+        ));
         let rows = "<div data-slot=\"terminal-line\" data-line-type=\"input\"><span data-slot=\"terminal-prompt\">$</span><span>bunx cronus-ui add button</span></div><div data-slot=\"terminal-line\" data-line-type=\"output\"><span>added button</span></div>";
         assert_eq!(
             html,
@@ -178,7 +187,9 @@ mod tests {
     fn chrome_is_token_only_and_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"terminal\"] {\n  box-sizing: border-box; width: 18rem;"));
-        assert!(css.contains("[data-slot=\"terminal-chrome\"] {\n  display: flex; align-items: center; gap: 0.5rem;"));
+        assert!(css.contains(
+            "[data-slot=\"terminal-chrome\"] {\n  display: flex; align-items: center; gap: 0.5rem;"
+        ));
         assert!(css.contains("font-size: 0.75rem; line-height: 1rem; font-weight: 500;"));
         assert!(css.contains("[data-slot=\"terminal-sizer\"] { visibility: hidden; }"));
         assert!(css.contains("[data-slot=\"terminal-screen\"] { position: absolute; inset: 0;"));

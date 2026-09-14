@@ -150,7 +150,9 @@ mod tests {
         assert!(html.contains(&format!(
             "data-state=\"completed\" data-orientation=\"horizontal\"><span data-slot=\"stepper-indicator\" data-state=\"completed\">{CHECK}</span><div data-slot=\"stepper-title\">Account</div><span data-slot=\"stepper-item-state\">completed</span>"
         )));
-        assert!(html.contains("data-state=\"active\" data-orientation=\"horizontal\" aria-current=\"step\""));
+        assert!(html.contains(
+            "data-state=\"active\" data-orientation=\"horizontal\" aria-current=\"step\""
+        ));
         assert_eq!(html.matches("aria-current=\"step\"").count(), 1);
         reject_interact(&html);
     }
@@ -174,7 +176,9 @@ mod tests {
         let interact = crate::cronus_ui_interact::render("stepper", &c).unwrap();
         assert_ne!(html, interact);
         assert!(interact.starts_with("<ol data-slot=\"stepper\""));
-        assert!(crate::cli::stub_renderer_gate::looks_like_interact_generic(&interact));
+        assert!(crate::cli::stub_renderer_gate::looks_like_interact_generic(
+            &interact
+        ));
         assert!(!crate::cli::stub_renderer_gate::looks_like_interact_generic(&html));
         reject_interact(&html);
     }
@@ -194,7 +198,9 @@ mod tests {
         assert!(css.contains("[data-slot=\"stepper-indicator\"][data-state=\"active\"]"));
         assert!(css.contains("[data-slot=\"stepper-indicator\"][data-state=\"upcoming\"]"));
         assert!(css.contains("[data-slot=\"stepper-item-state\"]"));
-        assert!(css.contains("border-radius: 9999px; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;"));
+        assert!(css.contains(
+            "border-radius: 9999px; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;"
+        ));
         assert!(!css.contains("[data-slot=\"stepper-trigger\"]"));
         assert!(!css.contains("zinc-"));
     }

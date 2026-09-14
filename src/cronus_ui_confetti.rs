@@ -44,7 +44,10 @@ mod tests {
     #[test]
     fn root_wraps_label_text_not_fx_title_box() {
         let html = render(&stub("confetti", "Celebrate"));
-        assert_eq!(html, "<div data-slot=\"confetti\"><div>Celebrate</div></div>");
+        assert_eq!(
+            html,
+            "<div data-slot=\"confetti\"><div>Celebrate</div></div>"
+        );
         assert!(!html.contains("confetti-piece"));
         reject_fx(&html);
     }

@@ -54,14 +54,8 @@ pub fn dump_openapi(json_str: &str) -> String {
                     if !["GET", "POST", "PUT", "PATCH", "DELETE"].contains(&method_upper.as_str()) {
                         continue;
                     }
-                    let op_id = op["operationId"]
-                        .as_str()
-                        .unwrap_or_default()
-                        .to_string();
-                    let summary = op["summary"]
-                        .as_str()
-                        .unwrap_or_default()
-                        .to_string();
+                    let op_id = op["operationId"].as_str().unwrap_or_default().to_string();
+                    let summary = op["summary"].as_str().unwrap_or_default().to_string();
                     let auth = detect_auth(op, &doc);
 
                     groups
@@ -201,7 +195,10 @@ fn detect_auth(operation: &Value, doc: &Value) -> String {
             if let Some(obj) = sec.as_object() {
                 for key in obj.keys() {
                     let key_lower = key.to_lowercase();
-                    if key_lower.contains("bearer") || key_lower.contains("jwt") || key_lower.contains("oauth") {
+                    if key_lower.contains("bearer")
+                        || key_lower.contains("jwt")
+                        || key_lower.contains("oauth")
+                    {
                         return "auth:jwt".to_string();
                     }
                 }
@@ -236,16 +233,15 @@ fn emit_api_group(out: &mut String, group: &str, routes: &[RouteInfo]) {
         };
 
         // Convert path params {id} to :id
-        let full_path = route
-            .path
-            .replace('{', ":")
-            .replace('}', "");
+        let full_path = route.path.replace('{', ":").replace('}', "");
 
         // Make path relative to the group prefix
-        let relative_path = full_path
-            .strip_prefix(group)
-            .unwrap_or(&full_path);
-        let relative_path = if relative_path.is_empty() { "/" } else { relative_path };
+        let relative_path = full_path.strip_prefix(group).unwrap_or(&full_path);
+        let relative_path = if relative_path.is_empty() {
+            "/"
+        } else {
+            relative_path
+        };
 
         // Parser expects: name METHOD path auth:...
         out.push_str(&format!(

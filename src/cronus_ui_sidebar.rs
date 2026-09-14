@@ -56,7 +56,9 @@ pub fn menu_entries(comp: &ComponentNode) -> Vec<(String, Option<String>)> {
     let choices: Vec<_> = comp
         .items
         .iter()
-        .filter(|i| matches!(i.item_type.as_str(), "item" | "tab" | "columns") && !i.text.is_empty())
+        .filter(|i| {
+            matches!(i.item_type.as_str(), "item" | "tab" | "columns") && !i.text.is_empty()
+        })
         .map(entry_of)
         .collect();
     if !choices.is_empty() {
@@ -180,7 +182,9 @@ mod tests {
     fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"sidebar-wrapper\"]"));
-        assert!(css.contains("[data-audit-canvas] > [data-slot=\"sidebar-wrapper\"]:not([data-app-shell])"));
+        assert!(css.contains(
+            "[data-audit-canvas] > [data-slot=\"sidebar-wrapper\"]:not([data-app-shell])"
+        ));
         assert!(css.contains("width: 13rem; height: 14rem; min-height: 0;"));
         assert!(css.contains("[data-slot=\"sidebar-content\"] > [data-slot=\"scroll-area\"]"));
         assert!(css.contains("[data-slot=\"sidebar-menu-button\"][data-active=\"true\"]"));

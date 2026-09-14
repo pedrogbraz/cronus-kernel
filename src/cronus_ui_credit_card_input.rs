@@ -16,14 +16,22 @@ struct Brand {
     cvc: usize,
 }
 
-const UNKNOWN: Brand = Brand { id: "unknown", label: "Card", gaps: &[4, 8, 12], cvc: 3 };
+const UNKNOWN: Brand = Brand {
+    id: "unknown",
+    label: "Card",
+    gaps: &[4, 8, 12],
+    cvc: 3,
+};
 
 /// lucide `check` (React `size-4 text-success`, `scale-75 opacity-0` until valid).
 const CHECK: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"></path></svg>";
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = group_label(comp);
-    let digits = digits_of(comp, &["value", "number", "defaultNumber", "default-number"]);
+    let digits = digits_of(
+        comp,
+        &["value", "number", "defaultNumber", "default-number"],
+    );
     let brand = brand_of(&digits);
     let number = format_number(&digits, brand.gaps);
     let expiry = format_expiry(&digits_of(comp, &["expiry"]));
@@ -45,7 +53,11 @@ pub fn render(comp: &ComponentNode) -> String {
     } else {
         format!("{} card", brand.label)
     };
-    let number_placeholder = if brand.id == "amex" { "0000 000000 00000" } else { "0000 0000 0000 0000" };
+    let number_placeholder = if brand.id == "amex" {
+        "0000 000000 00000"
+    } else {
+        "0000 0000 0000 0000"
+    };
     let number_field = field("Card number", number_placeholder, &number, invalid);
     let expiry_field = field("Expiration date, M M slash Y Y", "MM/YY", &expiry, invalid);
     let cvc_aria = format!("Security code, {} digits", brand.cvc);
@@ -90,23 +102,51 @@ fn glyph(brand: &str) -> String {
 fn brand_of(d: &str) -> Brand {
     let starts = |ps: &[&str]| ps.iter().any(|p| d.starts_with(p));
     let n = |len: usize| d.get(..len).and_then(|s| s.parse::<u32>().ok());
-    if starts(&["4011", "4312", "4389", "4514", "4576", "5041", "5066", "5067", "509", "6277", "6362", "6363", "650", "651", "655"]) {
-        return Brand { id: "elo", label: "Elo", gaps: &[4, 8, 12], cvc: 3 };
+    if starts(&[
+        "4011", "4312", "4389", "4514", "4576", "5041", "5066", "5067", "509", "6277", "6362",
+        "6363", "650", "651", "655",
+    ]) {
+        return Brand {
+            id: "elo",
+            label: "Elo",
+            gaps: &[4, 8, 12],
+            cvc: 3,
+        };
     }
     if starts(&["34", "37"]) {
-        return Brand { id: "amex", label: "American Express", gaps: &[4, 10], cvc: 4 };
+        return Brand {
+            id: "amex",
+            label: "American Express",
+            gaps: &[4, 10],
+            cvc: 4,
+        };
     }
     let mc = n(2).is_some_and(|v| (51..=55).contains(&v) || (23..=26).contains(&v))
         || n(4).is_some_and(|v| (2221..=2229).contains(&v) || v == 2720)
         || n(3).is_some_and(|v| (223..=229).contains(&v) || v == 270 || v == 271);
     if mc {
-        return Brand { id: "mastercard", label: "Mastercard", gaps: &[4, 8, 12], cvc: 3 };
+        return Brand {
+            id: "mastercard",
+            label: "Mastercard",
+            gaps: &[4, 8, 12],
+            cvc: 3,
+        };
     }
     if d.starts_with('4') {
-        return Brand { id: "visa", label: "Visa", gaps: &[4, 8, 12], cvc: 3 };
+        return Brand {
+            id: "visa",
+            label: "Visa",
+            gaps: &[4, 8, 12],
+            cvc: 3,
+        };
     }
     if starts(&["6011", "65", "622"]) || n(3).is_some_and(|v| (644..=649).contains(&v)) {
-        return Brand { id: "discover", label: "Discover", gaps: &[4, 8, 12], cvc: 3 };
+        return Brand {
+            id: "discover",
+            label: "Discover",
+            gaps: &[4, 8, 12],
+            cvc: 3,
+        };
     }
     UNKNOWN
 }
@@ -190,11 +230,14 @@ mod tests {
     #[test]
     fn root_is_div_fieldset_legend_glyph_fields_and_check() {
         let html = render(&stub("credit-card-input", "Card"));
-        assert!(html.starts_with("<div data-slot=\"credit-card-input\"><fieldset data-brand=\"unknown\">"));
+        assert!(html
+            .starts_with("<div data-slot=\"credit-card-input\"><fieldset data-brand=\"unknown\">"));
         assert!(html.contains("<legend class=\"sr-only\">Card</legend>"));
         assert!(html.contains("placeholder=\"MM/YY\""));
         reject_interact(&html);
-        let f = |aria: &str, ph: &str| format!("<input type=\"text\" inputmode=\"numeric\" autocomplete=\"off\" autocorrect=\"off\" spellcheck=\"false\" aria-label=\"{aria}\" placeholder=\"{ph}\" />");
+        let f = |aria: &str, ph: &str| {
+            format!("<input type=\"text\" inputmode=\"numeric\" autocomplete=\"off\" autocorrect=\"off\" spellcheck=\"false\" aria-label=\"{aria}\" placeholder=\"{ph}\" />")
+        };
         assert_eq!(
             html,
             format!(

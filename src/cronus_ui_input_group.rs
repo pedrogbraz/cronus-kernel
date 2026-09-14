@@ -91,7 +91,9 @@ mod tests {
         let html = render(&stub("input-group", "https://"));
         assert!(html.starts_with("<div "));
         assert!(html.contains("data-slot=\"input-group\""));
-        assert!(html.contains("data-slot=\"input-group-addon\" data-align=\"start\">https://</div>"));
+        assert!(
+            html.contains("data-slot=\"input-group-addon\" data-align=\"start\">https://</div>")
+        );
         assert!(html.contains("<input data-slot=\"input\" type=\"text\""));
         reject_interact(&html);
         assert_eq!(
@@ -114,13 +116,17 @@ mod tests {
             });
         }
         let last = c.items.len() - 1;
-        c.items[last].config.insert("aria-label".into(), "Amount".into());
+        c.items[last]
+            .config
+            .insert("aria-label".into(), "Amount".into());
         assert_eq!(
             render(&c),
             "<div data-slot=\"input-group\"><div data-slot=\"input-group-addon\" data-align=\"start\">$</div><input data-slot=\"input\" type=\"text\" placeholder=\"0.00\" aria-label=\"Amount\" /></div>"
         );
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("font-size: 0.875rem; line-height: 1.25rem;\n}\n[data-slot=\"input-group-addon\"]"));
+        assert!(css.contains(
+            "font-size: 0.875rem; line-height: 1.25rem;\n}\n[data-slot=\"input-group-addon\"]"
+        ));
     }
 
     #[test]
@@ -143,7 +149,9 @@ mod tests {
             config: HashMap::new(),
         });
         let html = render(&c);
-        assert!(html.contains("data-slot=\"input-group-addon\" data-align=\"start\">https://</div>"));
+        assert!(
+            html.contains("data-slot=\"input-group-addon\" data-align=\"start\">https://</div>")
+        );
         reject_interact(&html);
     }
 
@@ -158,7 +166,9 @@ mod tests {
             config: HashMap::new(),
         });
         let html = render(&c);
-        assert!(html.contains("data-slot=\"input-group-addon\" data-align=\"start\">https://</div>"));
+        assert!(
+            html.contains("data-slot=\"input-group-addon\" data-align=\"start\">https://</div>")
+        );
         assert!(html.contains("placeholder=\"example.com\""));
         reject_interact(&html);
     }

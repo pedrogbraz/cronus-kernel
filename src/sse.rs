@@ -5,8 +5,8 @@
 //! to all connected SSE clients.
 
 use std::convert::Infallible;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use async_stream::stream;
 use bytes::Bytes;
@@ -59,7 +59,11 @@ impl SseHub {
     pub fn new() -> Self {
         let (tx, _) = broadcast::channel(256);
         let (debug_tx, _) = broadcast::channel(256);
-        SseHub { tx, debug_tx, active_connections: Arc::new(AtomicUsize::new(0)) }
+        SseHub {
+            tx,
+            debug_tx,
+            active_connections: Arc::new(AtomicUsize::new(0)),
+        }
     }
 
     /// Number of currently active SSE connections (for monitoring/metrics).
@@ -85,7 +89,11 @@ impl SseHub {
     /// SECURITY: `filter` decides per event whether this subscriber may see
     /// it (see `access::can_see_event`); request-trace `debug` events are only
     /// streamed when `include_debug` is set (admins).
-    pub fn subscribe_filtered<F>(&self, filter: F, include_debug: bool) -> Response<StreamBody<impl futures_core::Stream<Item = Result<Frame<Bytes>, Infallible>>>>
+    pub fn subscribe_filtered<F>(
+        &self,
+        filter: F,
+        include_debug: bool,
+    ) -> Response<StreamBody<impl futures_core::Stream<Item = Result<Frame<Bytes>, Infallible>>>>
     where
         F: Fn(&DataChangeEvent) -> bool + Send + Sync + 'static,
     {

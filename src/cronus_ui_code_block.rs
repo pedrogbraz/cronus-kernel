@@ -27,7 +27,9 @@ pub fn render(comp: &ComponentNode) -> String {
         let l = language
             .as_deref()
             .map(|l| {
-                format!("<span data-slot=\"code-block-language\" data-variant=\"secondary\">{l}</span>")
+                format!(
+                    "<span data-slot=\"code-block-language\" data-variant=\"secondary\">{l}</span>"
+                )
             })
             .unwrap_or_default();
         format!(
@@ -90,7 +92,10 @@ mod tests {
     }
 
     fn snippet(items: &[&str]) -> crate::parser::ComponentNode {
-        let mut c = stub("code-block", items.first().copied().unwrap_or("fn main() {}"));
+        let mut c = stub(
+            "code-block",
+            items.first().copied().unwrap_or("fn main() {}"),
+        );
         c.items.clear();
         for n in items {
             c.items.push(extra("item", n));
@@ -200,7 +205,11 @@ mod tests {
         let html = render(&stub("code-block", "a <b> & \"c\""));
         assert_eq!(
             html,
-            block("", "Code block", "<span>a &lt;b&gt; &amp; &quot;c&quot;</span>")
+            block(
+                "",
+                "Code block",
+                "<span>a &lt;b&gt; &amp; &quot;c&quot;</span>"
+            )
         );
         reject_stub(&html);
     }
@@ -280,12 +289,9 @@ mod tests {
         assert!(css.contains(
             "[data-slot=\"code-block-header\"] > div { display: flex; align-items: center; gap: 0.5rem; min-width: 0; min-height: 2rem; }"
         ));
-        assert!(css.contains(
-            "font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-secondary);"
-        ));
-        assert!(css.contains(
-            "padding: 0.125rem 0.5rem; border-radius: var(--cronus-radius-md);"
-        ));
+        assert!(css
+            .contains("font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-secondary);"));
+        assert!(css.contains("padding: 0.125rem 0.5rem; border-radius: var(--cronus-radius-md);"));
         assert!(css.contains(
             "font-size: 0.75rem; line-height: 1rem; font-weight: 500; white-space: nowrap;"
         ));

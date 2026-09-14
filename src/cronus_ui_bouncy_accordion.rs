@@ -84,7 +84,11 @@ mod tests {
     #[test]
     fn label_only_opens_single_row() {
         let html = render(&stub("bouncy-accordion", "Type"));
-        assert_eq!(html.matches("data-slot=\"bouncy-accordion-trigger\"").count(), 1);
+        assert_eq!(
+            html.matches("data-slot=\"bouncy-accordion-trigger\"")
+                .count(),
+            1
+        );
         assert!(html.contains("<li data-state=\"open\">"));
         reject_interact(&html);
     }
@@ -117,7 +121,8 @@ mod tests {
         assert!(css.contains("[data-slot=\"bouncy-accordion\"] > ul > li[data-state=\"open\"] {\n  height: auto; margin-block: 10px;"));
         assert!(css.contains("margin: 0 0 5rem; max-width: 18ch;"));
         assert!(css.contains("font-size: 0.75rem; line-height: 1.25; text-transform: uppercase;"));
-        assert!(css.contains("[data-slot=\"bouncy-accordion\"] > ul > li:has(+ li[data-state=\"open\"])"));
+        assert!(css
+            .contains("[data-slot=\"bouncy-accordion\"] > ul > li:has(+ li[data-state=\"open\"])"));
         assert!(css.contains(
             "[data-slot=\"bouncy-accordion-trigger\"] {\n  display: flex; flex-direction: column; width: 100%; padding: 0 0.5rem;"
         ));

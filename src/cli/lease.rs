@@ -1,6 +1,8 @@
 use std::fs;
 
-use crate::cli::brief::{brief_toml_val, brief_toml_arr, brief_toml_arr_after_section, brief_today_date};
+use crate::cli::brief::{
+    brief_today_date, brief_toml_arr, brief_toml_arr_after_section, brief_toml_val,
+};
 use crate::cli::objective_kernel::lease_file_allowed;
 
 pub fn cmd_lease(args: &[String]) {
@@ -89,7 +91,10 @@ fn lease_check() {
         if lease_file_allowed(file, &write_scope) {
             println!("    \x1b[32m{}\x1b[0m  \x1b[32m✓ ALLOWED\x1b[0m", file);
         } else {
-            println!("    \x1b[31m{}\x1b[0m  \x1b[31m✗ BLOCKED (not in scope)\x1b[0m", file);
+            println!(
+                "    \x1b[31m{}\x1b[0m  \x1b[31m✗ BLOCKED (not in scope)\x1b[0m",
+                file
+            );
             blocked_files.push(file.clone());
         }
     }
@@ -177,23 +182,40 @@ fn lease_create(args: &[String]) {
         match args[i].as_str() {
             "--write" | "-w" => {
                 if i + 1 < args.len() {
-                    write_files = args[i + 1].split(',').map(|s| s.trim().to_string()).collect();
+                    write_files = args[i + 1]
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .collect();
                     i += 2;
-                } else { i += 1; }
+                } else {
+                    i += 1;
+                }
             }
             "--checks" | "-c" => {
                 if i + 1 < args.len() {
-                    checks = args[i + 1].split(',').map(|s| s.trim().to_string()).collect();
+                    checks = args[i + 1]
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .collect();
                     i += 2;
-                } else { i += 1; }
+                } else {
+                    i += 1;
+                }
             }
             "--read" | "-r" => {
                 if i + 1 < args.len() {
-                    read_files = args[i + 1].split(',').map(|s| s.trim().to_string()).collect();
+                    read_files = args[i + 1]
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .collect();
                     i += 2;
-                } else { i += 1; }
+                } else {
+                    i += 1;
+                }
             }
-            _ => { i += 1; }
+            _ => {
+                i += 1;
+            }
         }
     }
 
@@ -205,7 +227,9 @@ fn lease_create(args: &[String]) {
             if name.starts_with("TASK-") && name.ends_with(".toml") {
                 let num_str = &name[5..name.len() - 5];
                 if let Ok(n) = num_str.parse::<u32>() {
-                    if n > max_num { max_num = n; }
+                    if n > max_num {
+                        max_num = n;
+                    }
                 }
             }
         }

@@ -40,7 +40,6 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    continue-on-error: true # flips to required after the repo-wide fmt commit
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable

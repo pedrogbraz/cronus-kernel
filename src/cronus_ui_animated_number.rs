@@ -67,9 +67,9 @@ fn display_value(raw: &str) -> Option<String> {
     if t.is_empty() || !t.chars().any(|c| c.is_ascii_digit()) {
         return None;
     }
-    if t.chars().any(|c| {
-        matches!(c, ',' | '$' | '%' | '+') || c.is_ascii_alphabetic()
-    }) {
+    if t.chars()
+        .any(|c| matches!(c, ',' | '$' | '%' | '+') || c.is_ascii_alphabetic())
+    {
         return Some(esc(t));
     }
     match t.parse::<f64>() {
@@ -153,7 +153,10 @@ mod tests {
     #[test]
     fn root_is_span_with_formatted_number_not_fx_title_box() {
         let html = render(&stub("animated-number", "Demo"));
-        assert_eq!(html, "<span data-slot=\"animated-number\"><span>0</span></span>");
+        assert_eq!(
+            html,
+            "<span data-slot=\"animated-number\"><span>0</span></span>"
+        );
         reject_fx(&html);
     }
 
@@ -164,7 +167,10 @@ mod tests {
         let mut c = stub("animated-number", "Count");
         c.items[0].config.insert("value".into(), "1234".into());
         let html = render(&c);
-        assert_eq!(html, "<span data-slot=\"animated-number\"><span>1,234</span></span>");
+        assert_eq!(
+            html,
+            "<span data-slot=\"animated-number\"><span>1,234</span></span>"
+        );
         reject_fx(&html);
     }
 
@@ -173,7 +179,10 @@ mod tests {
         let mut c = stub("animated-number", "Users");
         c.items.push(extra("value", "1234"));
         let html = render(&c);
-        assert_eq!(html, "<span data-slot=\"animated-number\"><span>1,234</span></span>");
+        assert_eq!(
+            html,
+            "<span data-slot=\"animated-number\"><span>1,234</span></span>"
+        );
         reject_fx(&html);
     }
 
@@ -191,7 +200,10 @@ mod tests {
         let mut c = stub("animated-number", "Users");
         c.props.insert("value".into(), "1200".into());
         let html = render(&c);
-        assert_eq!(html, "<span data-slot=\"animated-number\"><span>1,200</span></span>");
+        assert_eq!(
+            html,
+            "<span data-slot=\"animated-number\"><span>1,200</span></span>"
+        );
         reject_fx(&html);
     }
 
@@ -200,7 +212,10 @@ mod tests {
         let mut c = stub("animated-number", "MRR");
         c.items.push(extra("value", "$12.4k"));
         let html = render(&c);
-        assert_eq!(html, "<span data-slot=\"animated-number\"><span>$12.4k</span></span>");
+        assert_eq!(
+            html,
+            "<span data-slot=\"animated-number\"><span>$12.4k</span></span>"
+        );
         reject_fx(&html);
     }
 
@@ -221,7 +236,10 @@ mod tests {
         use crate::binding::ResolvedData;
         crate::cronus_ui_data::with_binding("Lead", &ResolvedData::Count(12), || {
             let html = render(&stub("animated-number", "Leads"));
-            assert_eq!(html, "<span data-slot=\"animated-number\"><span>12</span></span>");
+            assert_eq!(
+                html,
+                "<span data-slot=\"animated-number\"><span>12</span></span>"
+            );
             reject_fx(&html);
         });
     }

@@ -85,7 +85,8 @@ mod tests {
     #[test]
     fn react_dom_overlay_content_header_no_trigger() {
         let mut c = stub("drawer", "Filters");
-        c.props.insert("description".into(), "Narrow the list.".into());
+        c.props
+            .insert("description".into(), "Narrow the list.".into());
         let html = render(&c);
         let t = widget_id(&c, "drawer-title");
         let d = widget_id(&c, "drawer-description");
@@ -156,7 +157,9 @@ mod tests {
     fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         let block = |sel: &str| {
-            let start = css.find(&format!("{sel} {{")).unwrap_or_else(|| panic!("{sel}"));
+            let start = css
+                .find(&format!("{sel} {{"))
+                .unwrap_or_else(|| panic!("{sel}"));
             let end = start + css[start..].find('}').unwrap();
             css[start..end].to_string()
         };

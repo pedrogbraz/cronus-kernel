@@ -44,11 +44,7 @@ fn decorative(comp: &ComponentNode) -> bool {
     if let Some(v) = comp.props.get("decorative") {
         return v != "false";
     }
-    if let Some(v) = comp
-        .items
-        .iter()
-        .find_map(|i| i.config.get("decorative"))
-    {
+    if let Some(v) = comp.items.iter().find_map(|i| i.config.get("decorative")) {
         return v != "false";
     }
     true
