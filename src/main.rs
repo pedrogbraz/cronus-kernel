@@ -163,6 +163,7 @@ mod cronus_ui_reveal;
 mod cronus_ui_ring_chart;
 mod cronus_ui_scatter_chart;
 mod cronus_ui_scheduler;
+mod cronus_ui_scramble_text;
 mod cronus_ui_scroll_area;
 mod cronus_ui_scroll_progress;
 mod cronus_ui_segmented_control;

@@ -173,6 +173,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "heatmap-chart" => Some("cronus_ui_heatmap_chart::render"),
         "chart" => Some("cronus_ui_chart::render"),
         "highlighter" => Some("cronus_ui_highlighter::render"),
+        "scramble-text" => Some("cronus_ui_scramble_text::render"),
         _ => None,
     }
 }
@@ -664,6 +665,13 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || html.contains("<script")
                 || html.contains("setTimeout")
                 || !html.contains("data-slot=\"highlighter-mark\"")))
+        || (html.contains("data-slot=\"scramble-text\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || html.contains("<script")
+                || html.contains("setTimeout")
+                || !html.contains("data-slot=\"scramble-text-label\"")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -957,6 +965,7 @@ mod tests {
             "src/cronus_ui_heatmap_chart.rs",
             "src/cronus_ui_chart.rs",
             "src/cronus_ui_highlighter.rs",
+            "src/cronus_ui_scramble_text.rs",
             "src/cronus_ui_sparkline.rs",
             "src/cronus_ui_pie_chart.rs",
             "src/cronus_ui_pill_nav.rs",

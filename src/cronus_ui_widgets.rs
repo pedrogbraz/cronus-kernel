@@ -344,6 +344,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "heatmap-chart",
     "chart",
     "highlighter",
+    "scramble-text",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -516,6 +517,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "heatmap-chart" => Some(crate::cronus_ui_heatmap_chart::render(comp)),
         "chart" => Some(crate::cronus_ui_chart::render(comp)),
         "highlighter" => Some(crate::cronus_ui_highlighter::render(comp)),
+        "scramble-text" => Some(crate::cronus_ui_scramble_text::render(comp)),
         _ => None,
     }
 }

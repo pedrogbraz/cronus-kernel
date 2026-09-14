@@ -3302,6 +3302,10 @@ button:has(+ [data-slot="sheet-content"]) {
 @media (prefers-reduced-motion: reduce) {
   [data-slot="highlighter-mark"] { animation: none; }
 }
+[data-slot="scramble-text"] {
+  display: inline;
+  font-family: var(--cronus-font-mono, ui-monospace, monospace);
+}
 
 "#;
 
