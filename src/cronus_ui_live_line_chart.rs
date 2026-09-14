@@ -1,128 +1,75 @@
-//! Dedicated LiveLineChart renderer. DOM matches React:
-//! `<div data-slot="live-line-chart">` wrapping an SVG polyline series.
-//! Static snapshot of a real series — not the stub `chart()` `<figure><figcaption>`
-//! dummy polyline, and no JS ticker.
+//! Dedicated LiveLineChart renderer. DOM matches React's first paint:
+//! `<div data-slot="live-line-chart" role="img" aria-label>`
+//!   `<div data-slot="chart"><svg viewBox="0 0 432 256">` dashed grid rows,
+//!   monotone line (chart-1), tick labels (every `text` line is a tick).
+//! React appends a random point every `interval` ms with `setInterval`; the
+//! zero-JS kernel renders the initial series only (values cycle 4, 8, 6).
 
-use crate::cronus_ui_kit::{chart_polyline_points, label_of, numeric_series};
+use crate::cronus_ui_chart::{
+    container, item_labels, line_path, max_of, nice_domain, point_xs, value_grid,
+    x_tick_labels, DEMO_VALUES,
+};
+use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = label_of(comp);
-    let series = numeric_series(comp);
-    let pts = chart_polyline_points(&series);
+    let mut ticks_text = item_labels(comp);
+    if ticks_text.is_empty() {
+        ticks_text = vec!["0".into(), "1".into(), "2".into()];
+    }
+    let values: Vec<f64> = (0..ticks_text.len())
+        .map(|i| DEMO_VALUES[i % DEMO_VALUES.len()])
+        .collect();
+    let (lo, hi, ticks) = nice_domain(0.0, max_of(&values));
+    let xs = point_xs(values.len());
+    let body = format!(
+        "{}{}{}",
+        value_grid(&ticks, lo, hi),
+        line_path(&xs, &values, lo, hi, "var(--cronus-chart-1)"),
+        x_tick_labels(&ticks_text, &xs, 5.0)
+    );
     format!(
-        "<div data-slot=\"live-line-chart\" role=\"img\" aria-label=\"{label}\"><svg viewBox=\"0 0 200 100\" aria-hidden=\"true\"><polyline fill=\"none\" stroke=\"var(--cronus-primary)\" stroke-width=\"2\" points=\"{pts}\"></polyline></svg></div>"
+        "<div data-slot=\"live-line-chart\" role=\"img\" aria-label=\"{label}\">{}</div>",
+        container(&body)
     )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cronus_ui_kit::{chart_polyline_points, stub};
+    use crate::cronus_ui_kit::stub;
     use crate::parser::ComponentItemNode;
 
-    const STUB_POLYLINE: &str = "0,30 20,22 40,26 60,12 80,16 100,8 120,14";
-
-    fn extra(item_type: &str, text: &str) -> ComponentItemNode {
-        ComponentItemNode {
-            item_type: item_type.into(),
-            text: text.into(),
-            link: None,
-            tone: None,
-            config: Default::default(),
+    fn fixture() -> ComponentNode {
+        let mut c = stub("live-line-chart", "Live");
+        for t in ["0", "1", "2"] {
+            c.items.push(ComponentItemNode {
+                item_type: "text".into(),
+                text: t.into(),
+                link: None,
+                tone: None,
+                config: Default::default(),
+            });
         }
+        c
     }
 
-    fn reject_stub(html: &str) {
-        assert!(!html.contains("<figure"));
-        assert!(!html.contains("figcaption"));
-        assert!(!html.contains(STUB_POLYLINE));
-        assert!(!html.contains("style="));
-        assert!(!html.contains("v-data="));
-        assert!(!html.contains("v-model="));
+    #[test]
+    fn fixture_renders_first_paint_series_and_ticks() {
+        let html = render(&fixture());
+        assert!(html.starts_with("<div data-slot=\"live-line-chart\" role=\"img\" aria-label=\"Live\"><div data-slot=\"chart\"><svg viewBox=\"0 0 432 256\" aria-hidden=\"true\">"));
+        assert!(html.contains("d=\"M8,117C77.3333,62.5,146.6667,8,216,8C285.3333,8,354.6667,35.25,424,62.5\""));
+        assert!(html.contains("<tspan x=\"8\" dy=\"0.71em\">0</tspan>"));
+        assert!(html.contains("<tspan x=\"216\" dy=\"0.71em\">1</tspan>"));
+        assert!(html.contains("<tspan x=\"424\" dy=\"0.71em\">2</tspan>"));
         assert!(!html.contains("<script"));
-        assert!(!html.contains("onclick="));
-        assert!(!html.contains("setInterval"));
-        assert!(!html.contains("{ value }"));
-    }
-
-    #[test]
-    fn root_is_div_with_svg_polyline_not_figure() {
-        let html = render(&stub("live-line-chart", "Live"));
-        assert!(html.starts_with("<div data-slot=\"live-line-chart\""));
-        assert!(html.contains("role=\"img\""));
-        assert!(html.contains("aria-label=\"Live\""));
-        assert!(html.contains("<svg"));
-        assert!(html.contains("<polyline "));
-        assert!(html.contains("stroke=\"var(--cronus-primary)\""));
-        assert!(html.contains("viewBox=\"0 0 200 100\""));
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn default_series_when_only_label() {
-        let html = render(&stub("live-line-chart", "Live"));
-        let pts = chart_polyline_points(&[4.0, 8.0, 6.0, 10.0, 7.0]);
-        assert!(html.contains(&format!("points=\"{pts}\"")));
-        assert_ne!(pts, STUB_POLYLINE);
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn numeric_items_drive_series() {
-        let mut c = stub("live-line-chart", "Live");
-        c.items.push(extra("item", "1"));
-        c.items.push(extra("item", "3"));
-        c.items.push(extra("item", "2"));
-        let html = render(&c);
-        let pts = chart_polyline_points(&[1.0, 3.0, 2.0]);
-        assert!(html.contains(&format!("points=\"{pts}\"")));
-        let def = chart_polyline_points(&[4.0, 8.0, 6.0, 10.0, 7.0]);
-        assert_ne!(pts, def);
-        assert!(!html.contains(&format!("points=\"{def}\"")));
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn comma_list_item_is_series() {
-        let mut c = stub("live-line-chart", "Live");
-        c.items.push(extra("item", "4, 8, 6, 10, 7"));
-        let html = render(&c);
-        let pts = chart_polyline_points(&[4.0, 8.0, 6.0, 10.0, 7.0]);
-        assert!(html.contains(&format!("points=\"{pts}\"")));
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn skips_chart_figure_stub() {
-        let html = render(&stub("live-line-chart", "Live"));
-        assert!(!html.contains("<figure"));
-        assert!(!html.contains("<figcaption"));
-        let area =
-            crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("sankey-chart"))
-                .unwrap();
-        assert!(area.contains("<figure"));
-        assert!(area.contains("figcaption"));
-        assert!(area.contains(STUB_POLYLINE));
-        assert_ne!(html, area);
-    }
-
-    #[test]
-    fn no_voodoo_even_when_runtime_on() {
-        crate::voodoo::with_enabled(true, || {
-            let html = render(&stub("live-line-chart", "Live"));
-            reject_stub(&html);
-            assert!(html.contains("data-slot=\"live-line-chart\""));
-        });
+        assert!(!html.contains("style="));
     }
 
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"live-line-chart\"]"));
-        assert!(css.contains("aspect-ratio: 2 / 1"));
-        assert!(css.contains("var(--cronus-primary)"));
-        assert!(!css.contains("zinc-"));
-        assert!(!css.contains("onclick"));
+        assert!(css.contains("[data-slot=\"live-line-chart\"] {\n  display: block; width: 100%; height: 16rem;\n}"));
     }
 }

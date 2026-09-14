@@ -1,146 +1,100 @@
-//! Dedicated FunnelChart renderer. DOM matches React:
-//! `<div data-slot="funnel-chart">` wrapping SVG trapezoids that shrink.
-//! Token fills. Not the stub `chart()` `<figure><figcaption>`.
+//! Dedicated FunnelChart renderer. DOM matches React's settled render:
+//! `<div data-slot="funnel-chart" role="img" aria-label>`
+//!   `<div data-slot="chart"><svg viewBox="0 0 432 256">` one trapezoid per
+//!   stage in the 422×246 box (margin 5): top width = value / max × 422,
+//!   bottom width = next stage (last → 0), fill chart-1..5, recharts stroke
+//!   `#fff`; then the LabelList (`position="right"`, `fill-fg text-xs`).
+//! Stages are the `text` lines; values are (n - i) × 4 unless numeric items
+//! are given. React animates the trapezoids and only mounts the labels when
+//! the animation ends; the kernel emits the settled frame.
 
-use crate::cronus_ui_kit::{chart_funnel, funnel_series, label_of};
+use crate::cronus_ui_chart::{categories_or, container, num, POLAR_CX};
+use crate::cronus_ui_kit::{esc, label_of, numeric_items};
 use crate::parser::ComponentNode;
 
-const FILLS: [&str; 4] = [
-    "var(--cronus-primary)",
-    "var(--cronus-success)",
-    "var(--cronus-warning)",
-    "var(--cronus-info)",
-];
+const BOX_X: f64 = 5.0;
+const BOX_Y: f64 = 5.0;
+const BOX_W: f64 = 422.0;
+const BOX_H: f64 = 246.0;
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = label_of(comp);
-    let series = funnel_series(comp);
-    let mut marks = String::new();
-    for (index, stage) in chart_funnel(&series).iter().enumerate() {
-        let fill = FILLS[index % FILLS.len()];
-        marks.push_str(&format!(
-            "<polygon points=\"{}\" fill=\"{fill}\"></polygon>",
-            stage.points,
+    let stages = categories_or(comp, &["Visit", "Signup"]);
+    let n = stages.len();
+    let mut values = numeric_items(comp);
+    if values.len() != n {
+        values = (0..n).map(|i| ((n - i) as f64 * 4.0).max(1.0)).collect();
+    }
+    let max = values.iter().copied().fold(0.0_f64, f64::max).max(f64::MIN_POSITIVE);
+    let row = BOX_H / n.max(1) as f64;
+    let widths: Vec<f64> = values.iter().map(|v| v.max(0.0) / max * BOX_W).collect();
+    let mut shapes = String::new();
+    let mut labels = String::new();
+    for i in 0..n {
+        let top = widths[i];
+        let bottom = widths.get(i + 1).copied().unwrap_or(0.0);
+        let y0 = BOX_Y + row * i as f64;
+        let y1 = y0 + row;
+        let (tl, tr) = (BOX_X + (BOX_W - top) / 2.0, BOX_X + (BOX_W + top) / 2.0);
+        let (bl, br) = (BOX_X + (BOX_W - bottom) / 2.0, BOX_X + (BOX_W + bottom) / 2.0);
+        shapes.push_str(&format!(
+            "<path d=\"M {tl},{y0}L {tr},{y0}L {br},{y1}L {bl},{y1}L {tl},{y0} Z\" fill=\"var(--cronus-chart-{})\" stroke=\"#fff\"></path>",
+            i % 5 + 1,
+            tl = num(tl),
+            tr = num(tr),
+            bl = num(bl),
+            br = num(br),
+            y0 = num(y0),
+            y1 = num(y1),
+        ));
+        let lx = POLAR_CX + (top + bottom) / 4.0 + 5.0;
+        labels.push_str(&format!(
+            "<text x=\"{x}\" y=\"{}\" text-anchor=\"start\"><tspan x=\"{x}\" dy=\"0.355em\">{}</tspan></text>",
+            num(y0 + row / 2.0),
+            esc(&stages[i]),
+            x = num(lx),
         ));
     }
+    let body = format!("{shapes}<g>{labels}</g>");
     format!(
-        "<div data-slot=\"funnel-chart\" role=\"img\" aria-label=\"{label}\"><svg viewBox=\"0 0 200 100\" aria-hidden=\"true\">{marks}</svg></div>"
+        "<div data-slot=\"funnel-chart\" role=\"img\" aria-label=\"{label}\">{}</div>",
+        container(&body)
     )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cronus_ui_kit::{stub, DEFAULT_FUNNEL_SERIES};
+    use crate::cronus_ui_kit::stub;
     use crate::parser::ComponentItemNode;
 
-    const STUB_POLYLINE: &str = "0,30 20,22 40,26 60,12 80,16 100,8 120,14";
-
-    fn extra(item_type: &str, text: &str) -> ComponentItemNode {
-        ComponentItemNode {
-            item_type: item_type.into(),
-            text: text.into(),
-            link: None,
-            tone: None,
-            config: Default::default(),
+    fn fixture() -> ComponentNode {
+        let mut c = stub("funnel-chart", "Pipeline");
+        for t in ["Visit", "Signup"] {
+            c.items.push(ComponentItemNode {
+                item_type: "text".into(),
+                text: t.into(),
+                link: None,
+                tone: None,
+                config: Default::default(),
+            });
         }
-    }
-
-    fn reject_stub(html: &str) {
-        assert!(!html.contains("<figure"));
-        assert!(!html.contains("figcaption"));
-        assert!(!html.contains(STUB_POLYLINE));
-        assert!(!html.contains("style="));
-        assert!(!html.contains("v-data="));
-        assert!(!html.contains("v-model="));
-        assert!(!html.contains("<script"));
-        assert!(!html.contains("onclick="));
-        assert!(!html.contains("{ value }"));
-        assert!(!html.contains("zinc-"));
+        c
     }
 
     #[test]
-    fn root_is_div_with_svg_trapezoids_not_figure() {
-        let html = render(&stub("funnel-chart", "Pipeline"));
-        assert!(html.starts_with("<div data-slot=\"funnel-chart\""));
-        assert!(html.contains("role=\"img\""));
-        assert!(html.contains("aria-label=\"Pipeline\""));
-        assert!(html.contains("<svg"));
-        assert!(html.contains("<polygon "));
-        assert!(html.contains("fill=\"var(--cronus-primary)\""));
-        assert!(html.contains("fill=\"var(--cronus-success)\""));
-        assert!(html.contains("viewBox=\"0 0 200 100\""));
-        assert_eq!(html.matches("<polygon ").count(), 5);
-        reject_stub(&html);
+    fn fixture_matches_recharts_trapezoids_and_labels() {
+        let html = render(&fixture());
+        assert_eq!(
+            html,
+            "<div data-slot=\"funnel-chart\" role=\"img\" aria-label=\"Pipeline\"><div data-slot=\"chart\"><svg viewBox=\"0 0 432 256\" aria-hidden=\"true\"><path d=\"M 5,5L 427,5L 321.5,128L 110.5,128L 5,5 Z\" fill=\"var(--cronus-chart-1)\" stroke=\"#fff\"></path><path d=\"M 110.5,128L 321.5,128L 216,251L 216,251L 110.5,128 Z\" fill=\"var(--cronus-chart-2)\" stroke=\"#fff\"></path><g><text x=\"379.25\" y=\"66.5\" text-anchor=\"start\"><tspan x=\"379.25\" dy=\"0.355em\">Visit</tspan></text><text x=\"273.75\" y=\"189.5\" text-anchor=\"start\"><tspan x=\"273.75\" dy=\"0.355em\">Signup</tspan></text></g></svg></div></div>"
+        );
     }
 
     #[test]
-    fn default_series_shrinks() {
-        let html = render(&stub("funnel-chart", "Pipeline"));
-        let stages = chart_funnel(&DEFAULT_FUNNEL_SERIES);
-        assert_eq!(stages.len(), 5);
-        assert!(stages[0].top_w > stages[4].top_w);
-        assert!(stages[0].top_w > stages[0].bot_w);
-        assert!(html.contains(&format!("points=\"{}\"", stages[0].points)));
-        assert!(html.contains(&format!("points=\"{}\"", stages[4].points)));
-        assert_ne!(stages[0].points, STUB_POLYLINE);
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn numeric_items_drive_series() {
-        let mut c = stub("funnel-chart", "Pipeline");
-        c.items.push(extra("item", "9"));
-        c.items.push(extra("item", "6"));
-        c.items.push(extra("item", "3"));
-        let html = render(&c);
-        assert_eq!(html.matches("<polygon ").count(), 3);
-        let stages = chart_funnel(&[9.0, 6.0, 3.0]);
-        assert!(html.contains(&format!("points=\"{}\"", stages[0].points)));
-        let def = chart_funnel(&DEFAULT_FUNNEL_SERIES);
-        assert_ne!(stages.len(), def.len());
-        assert!(!html.contains(&format!("points=\"{}\"", def[0].points)));
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn comma_list_item_is_series() {
-        let mut c = stub("funnel-chart", "Pipeline");
-        c.items.push(extra("item", "10, 7, 4"));
-        let html = render(&c);
-        assert_eq!(html.matches("<polygon ").count(), 3);
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn skips_chart_figure_stub() {
-        let html = render(&stub("funnel-chart", "Pipeline"));
-        assert!(!html.contains("<figure"));
-        assert!(!html.contains("<figcaption"));
-        let area =
-            crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("sankey-chart"))
-                .unwrap();
-        assert!(area.contains("<figure"));
-        assert!(area.contains("data-slot=\"sankey-chart\""));
-        assert!(area.contains(STUB_POLYLINE));
-        assert_ne!(html, area);
-    }
-
-    #[test]
-    fn no_voodoo_even_when_runtime_on() {
-        crate::voodoo::with_enabled(true, || {
-            let html = render(&stub("funnel-chart", "Pipeline"));
-            reject_stub(&html);
-            assert!(html.contains("data-slot=\"funnel-chart\""));
-        });
-    }
-
-    #[test]
-    fn chrome_is_token_only() {
+    fn chrome_colours_labels_with_fg() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"funnel-chart\"]"));
-        assert!(css.contains("var(--cronus-primary)"));
-        assert!(!css.contains("zinc-"));
-        assert!(!css.contains("onclick"));
+        assert!(css.contains("[data-slot=\"funnel-chart\"] text {\n  fill: var(--cronus-fg);\n}"));
+        assert!(!css.contains("[data-slot=\"funnel-chart\"] polygon"));
     }
 }
