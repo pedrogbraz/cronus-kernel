@@ -3,18 +3,34 @@
 //! `flip-card-back` (extra text). Static CSS 3D in COMPONENT_CHROME; no JS.
 //! Not the catalog `display()` SURF `<section>`.
 
-use crate::cronus_ui_kit::{label_of, texts};
+use crate::cronus_ui_kit::{esc, label_of};
 use crate::parser::ComponentNode;
 
+/// Faces mirror React `items[0]` / `items[1]`. With fewer than two `text`
+/// lines the `label` stays the front and the single line is the back.
 pub fn render(comp: &ComponentNode) -> String {
-    let front = label_of(comp);
-    let back = texts(comp)
-        .into_iter()
-        .skip(1)
-        .collect::<Vec<_>>()
-        .join(" ");
+    let faces: Vec<String> = comp
+        .items
+        .iter()
+        .filter(|i| matches!(i.item_type.as_str(), "text" | "item") && !i.text.is_empty())
+        .map(|i| esc(&i.text))
+        .collect();
+    let (front, back) = match faces.as_slice() {
+        [f, b, ..] => (f.clone(), b.clone()),
+        [b] => (label_of(comp), b.clone()),
+        [] => (label_of(comp), String::new()),
+    };
+    // `aria-label:` after an item line lands in that item's config (the
+    // tokenizer has no newlines), so look there as well as in props.
+    let aria_label = comp.props.get("aria-label").or_else(|| {
+        comp.items.iter().find_map(|i| i.config.get("aria-label"))
+    });
+    let aria = match aria_label.filter(|s| !s.is_empty()) {
+        Some(v) => format!(" aria-label=\"{}\"", esc(v)),
+        None => String::new(),
+    };
     format!(
-        "<div data-slot=\"flip-card\"><div data-slot=\"flip-card-front\">{front}</div><div data-slot=\"flip-card-back\">{back}</div></div>"
+        "<div data-slot=\"flip-card\"{aria}><div data-slot=\"flip-card-front\">{front}</div><div data-slot=\"flip-card-back\">{back}</div></div>"
     )
 }
 
@@ -73,6 +89,24 @@ mod tests {
         assert_eq!(
             html,
             "<div data-slot=\"flip-card\"><div data-slot=\"flip-card-front\">Front</div><div data-slot=\"flip-card-back\">Back copy</div></div>"
+        );
+        reject_display(&html);
+    }
+
+    /// Audit fixture shape: emitter writes `label "Plan"` (from aria-label),
+    /// `text "Front"`, `text "Back"`, `aria-label:"Plan"`. React faces are
+    /// items[0] / items[1]; "Plan" only names the card.
+    #[test]
+    fn fixture_items_are_faces_label_is_aria() {
+        let mut c = stub("flip-card", "Plan");
+        c.items.push(extra("text", "Front"));
+        let mut back = extra("text", "Back");
+        back.config.insert("aria-label".into(), "Plan".into());
+        c.items.push(back);
+        let html = render(&c);
+        assert_eq!(
+            html,
+            "<div data-slot=\"flip-card\" aria-label=\"Plan\"><div data-slot=\"flip-card-front\">Front</div><div data-slot=\"flip-card-back\">Back</div></div>"
         );
         reject_display(&html);
     }

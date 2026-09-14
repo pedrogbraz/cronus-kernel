@@ -3,16 +3,41 @@
 //! No setInterval. CSS in COMPONENT_CHROME. Not interact flex-overflow
 //! `<div data-slot="logo-carousel" style=...>` without items.
 
-use crate::cronus_ui_kit::{esc, item, texts};
+use crate::cronus_ui_kit::{esc, item, label_of};
 use crate::parser::ComponentNode;
 
+/// Logos come from `text` / `item` lines. The `label` names the list
+/// (aria-label) and is only a logo when no other line exists.
+fn logos(comp: &ComponentNode) -> Vec<String> {
+    let out: Vec<String> = comp
+        .items
+        .iter()
+        .filter(|i| matches!(i.item_type.as_str(), "text" | "item") && !i.text.is_empty())
+        .map(|i| esc(&i.text))
+        .collect();
+    if out.is_empty() {
+        vec![label_of(comp)]
+    } else {
+        out
+    }
+}
+
 pub fn render(comp: &ComponentNode) -> String {
-    let items = texts(comp)
+    let items = logos(comp)
         .into_iter()
-        .map(|t| format!("<li data-slot=\"logo-carousel-item\">{t}</li>"))
+        .map(|t| format!("<li data-slot=\"logo-carousel-item\" aria-label=\"{t}\">{t}</li>"))
         .collect::<Vec<_>>()
         .join("");
-    let aria = match item(comp, "label").filter(|t| !t.is_empty()) {
+    // `aria-label:` after an item line lands in that item's config (the
+    // tokenizer has no newlines), so look there as well as in props.
+    let aria = match comp
+        .props
+        .get("aria-label")
+        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
+        .map(String::as_str)
+        .or_else(|| item(comp, "label"))
+        .filter(|t| !t.is_empty())
+    {
         Some(label) => esc(label),
         None => "Logo carousel".into(),
     };
@@ -76,26 +101,44 @@ mod tests {
         assert!(html.contains("aria-live=\"off\""));
         assert!(html.contains("aria-label=\"Logo carousel\""));
         assert_eq!(html.matches("data-slot=\"logo-carousel-item\"").count(), 2);
-        assert!(html.contains("<li data-slot=\"logo-carousel-item\">Acme</li>"));
-        assert!(html.contains("<li data-slot=\"logo-carousel-item\">Stripe</li>"));
+        assert!(html.contains("<li data-slot=\"logo-carousel-item\" aria-label=\"Acme\">Acme</li>"));
+        assert!(html.contains("<li data-slot=\"logo-carousel-item\" aria-label=\"Stripe\">Stripe</li>"));
         reject_stub(&html);
         assert_eq!(
             html,
-            "<ul data-slot=\"logo-carousel\" aria-label=\"Logo carousel\" aria-live=\"off\"><li data-slot=\"logo-carousel-item\">Acme</li><li data-slot=\"logo-carousel-item\">Stripe</li></ul>"
+            "<ul data-slot=\"logo-carousel\" aria-label=\"Logo carousel\" aria-live=\"off\"><li data-slot=\"logo-carousel-item\" aria-label=\"Acme\">Acme</li><li data-slot=\"logo-carousel-item\" aria-label=\"Stripe\">Stripe</li></ul>"
         );
     }
 
     #[test]
-    fn extra_text_items_become_logos() {
+    fn extra_text_items_become_logos_label_names_list() {
         let mut c = stub("logo-carousel", "Acme");
         c.items.push(extra("text", "Stripe"));
         c.items.push(extra("text", "Vercel"));
         let html = render(&c);
-        assert_eq!(html.matches("data-slot=\"logo-carousel-item\"").count(), 3);
-        assert!(html.contains(">Acme</li>"));
+        assert_eq!(html.matches("data-slot=\"logo-carousel-item\"").count(), 2);
+        assert!(!html.contains(">Acme</li>"));
         assert!(html.contains(">Stripe</li>"));
         assert!(html.contains(">Vercel</li>"));
-        assert!(html.contains("aria-label=\"Acme\""));
+        assert!(html.starts_with("<ul data-slot=\"logo-carousel\" aria-label=\"Acme\""));
+        reject_stub(&html);
+    }
+
+    /// Audit fixture shape: emitter writes `label "Logos"` (from aria-label),
+    /// `text` per item and `aria-label:"Logos"`. React renders only Acme/Globex.
+    #[test]
+    fn fixture_aria_label_is_not_a_logo() {
+        // Label differs from aria-label to prove the item-config value wins.
+        let mut c = stub("logo-carousel", "Brands");
+        c.items.push(extra("text", "Acme"));
+        let mut globex = extra("text", "Globex");
+        globex.config.insert("aria-label".into(), "Logos".into());
+        c.items.push(globex);
+        let html = render(&c);
+        assert_eq!(
+            html,
+            "<ul data-slot=\"logo-carousel\" aria-label=\"Logos\" aria-live=\"off\"><li data-slot=\"logo-carousel-item\" aria-label=\"Acme\">Acme</li><li data-slot=\"logo-carousel-item\" aria-label=\"Globex\">Globex</li></ul>"
+        );
         reject_stub(&html);
     }
 
@@ -114,7 +157,7 @@ mod tests {
     fn label_is_escaped() {
         let html = render(&stub("logo-carousel", "A <B> & \"C\""));
         assert!(html.contains(
-            "<li data-slot=\"logo-carousel-item\">A &lt;B&gt; &amp; &quot;C&quot;</li>"
+            "<li data-slot=\"logo-carousel-item\" aria-label=\"A &lt;B&gt; &amp; &quot;C&quot;\">A &lt;B&gt; &amp; &quot;C&quot;</li>"
         ));
         assert!(html.contains("aria-label=\"A &lt;B&gt; &amp; &quot;C&quot;\""));
         reject_stub(&html);
