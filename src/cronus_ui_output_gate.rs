@@ -21,9 +21,10 @@ use crate::cronus_ui_widgets::{render, PORTED_FAMILIES};
 use crate::parser::{ComponentItemNode, ComponentNode};
 use std::collections::HashMap;
 
-/// Families that still emit inline JS (`onclick=`). A later agent rewrites them
-/// to zero-JS. This list must only shrink, until it is empty.
-const KNOWN_JS_OFFENDERS: &[&str] = &["tabs", "dialog"];
+/// Families that still emit inline JS (`onclick=`). This list must only shrink;
+/// it is empty since tabs (radio labels) and dialog (open-by-default divs) went
+/// zero-JS, so every ported family is gated.
+const KNOWN_JS_OFFENDERS: &[&str] = &[];
 
 const JS_URL: &str = "javascript:alert(1)";
 const XSS_TEXT: &str = "<img src=x onerror=alert(1)>\" onmouseover=\"alert(1)' onfocus='alert(1)";

@@ -1006,10 +1006,10 @@ mod tests {
             ("switch", "role=\"switch\""),
             ("input", "<input"),
             ("textarea", "<textarea"),
-            ("select", "<select"),
-            ("dialog", "<dialog"),
-            ("accordion", "<details"),
-            ("tabs", "role=\"tablist\""),
+            ("select", "role=\"combobox\""),
+            ("dialog", "role=\"dialog\""),
+            ("accordion", "type=\"checkbox\""),
+            ("tabs", "type=\"radio\""),
             ("table", "<table"),
             ("progress", "role=\"progressbar\""),
             ("slider", "role=\"slider\""),
@@ -1034,9 +1034,11 @@ mod tests {
     #[test]
     fn voodoo_attrs_only_when_runtime_on() {
         crate::voodoo::with_enabled(true, || {
-            let html = render(&stub("select")).unwrap();
+            // Dedicated renderers are zero-JS; the interact fallback still opts in.
+            let html = crate::cronus_ui_interact::render("select", &stub("select")).unwrap();
             assert!(html.contains("v-data="));
             assert!(html.contains("v-model="));
+            assert!(!render(&stub("select")).unwrap().contains("v-data="));
             let meter = render(&stub("scroll-progress")).unwrap();
             assert!(!meter.contains("{ value }"), "{meter}");
             assert!(!meter.contains("v-data="), "{meter}");
@@ -1049,11 +1051,11 @@ mod tests {
             assert!(!usage.contains("v-data="), "{usage}");
             assert!(usage.contains("data-slot=\"usage-meter-fill\""), "{usage}");
             let tabs = render(&stub("tabs")).unwrap();
-            assert!(tabs.contains("role=\"tablist\""));
             assert!(
-                tabs.contains("onclick="),
-                "tabs stay native; v-show + hidden deadlock"
+                tabs.contains("type=\"radio\""),
+                "tabs switch with native radios"
             );
+            assert!(!tabs.contains("onclick="), "tabs are zero-JS");
             assert!(!tabs.contains("v-show="));
             let checkbox = render(&stub("checkbox")).unwrap();
             assert!(!checkbox.contains("v-data="), "{checkbox}");
@@ -1108,9 +1110,11 @@ mod tests {
             );
         }
         let tabs = render(&stub("tabs")).unwrap();
-        assert!(tabs.contains("role=\"tablist\""));
+        assert!(tabs.contains("role=\"radiogroup\""));
+        assert!(tabs.contains("aria-label=\"Demo\""));
         let dlg = render(&stub("dialog")).unwrap();
-        assert!(dlg.contains("<dialog"));
+        assert!(dlg.contains("role=\"dialog\""));
+        assert!(!dlg.contains("<dialog"));
         let toast = render(&stub("toast")).unwrap();
         assert!(toast.contains("aria-live"));
     }
@@ -1262,7 +1266,13 @@ component Revenue layout:stack style:metric {
             html.contains("Email") || html.contains("you@cooud.app"),
             "{html}"
         );
-        for family in ["button", "input", "dialog", "tabs", "select"] {
+        for family in [
+            "button",
+            "input",
+            "dialog-content",
+            "tabs",
+            "select-trigger",
+        ] {
             assert!(
                 html.contains(&format!("data-slot=\"{family}\"")),
                 "missing {family}"
@@ -1291,28 +1301,15 @@ component Revenue layout:stack style:metric {
 
     #[test]
     fn catalog_select_options_are_items_not_the_field_label() {
+        // Closed Radix trigger: the field label is the placeholder text; the
+        // `item` options never become the value or the accessible name.
         let html = render(&catalog_component("Plan")).expect("select");
         assert!(
-            html.contains("data-slot=\"label\">Plan</span>"),
-            "Plan must be the field label: {html}"
+            html.contains("aria-label=\"Plan\"") && html.contains("<span>Plan</span>"),
+            "Plan must be the trigger placeholder: {html}"
         );
-        assert!(
-            html.contains("<option value=\"Free\">Free</option>"),
-            "{html}"
-        );
-        assert!(
-            html.contains("<option value=\"Pro\">Pro</option>"),
-            "{html}"
-        );
-        assert!(
-            !html.contains("<option value=\"Plan\">"),
-            "Plan must not be an option: {html}"
-        );
-        assert_eq!(
-            html.matches("<option ").count(),
-            2,
-            "expected Free/Pro only: {html}"
-        );
+        assert!(!html.contains("Free") && !html.contains("Pro"), "{html}");
+        assert!(html.contains("data-slot=\"select-trigger\""), "{html}");
     }
 
     #[test]

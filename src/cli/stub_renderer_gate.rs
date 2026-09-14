@@ -301,7 +301,8 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"banner\"") && !html.contains("data-slot=\"banner-title\""))
         || html.contains("data-slot=\"slider-control\"")
         || html.contains("<label data-slot=\"slider\"")
-        || html.contains("<input type=\"radio\"")
+        // Interact radios are inline-styled; zero-JS radio labels (tabs) are not.
+        || (html.contains("<input type=\"radio\"") && html.contains("style="))
         || (html.contains("data-slot=\"chip\"") && html.contains("padding:0.15rem 0.55rem"))
         || html.contains("<form data-slot=\"field\"")
         || (html.contains("data-slot=\"field\"") && !html.contains("data-slot=\"field-label\""))
@@ -950,6 +951,15 @@ mod tests {
                 "{family} missing RendererKind"
             );
         }
+    }
+
+    #[test]
+    fn radio_fingerprint_is_interact_styling_not_any_radio() {
+        let ih = crate::cronus_ui_interact::render("radio-group", &stub("radio-group")).unwrap();
+        assert!(looks_like_interact_generic(&ih), "{ih}");
+        let tabs = render(&stub("tabs")).unwrap();
+        assert!(tabs.contains("<input type=\"radio\""), "{tabs}");
+        assert!(!looks_like_interact_generic(&tabs), "{tabs}");
     }
 
     #[test]
