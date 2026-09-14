@@ -6,6 +6,41 @@ use crate::{
     TEMPLATE_ECOMMERCE, TEMPLATE_BLOG, TEMPLATE_HELPDESK, TEMPLATE_CRM,
 };
 
+/// Entries every scaffolded project must keep out of git: signing keys and
+/// local SQLite databases (which hold user rows and password hashes).
+pub(crate) const GITIGNORE_ENTRIES: &[&str] = &[
+    ".cronus/jwt.key",
+    ".cronus/webhook.key",
+    "*.db",
+    "*.db-wal",
+    "*.db-shm",
+];
+
+/// Creates `<dir>/.gitignore`, or appends whichever required entries are missing.
+pub(crate) fn write_gitignore(dir: &std::path::Path) -> std::io::Result<()> {
+    let path = dir.join(".gitignore");
+    let existing = fs::read_to_string(&path).unwrap_or_default();
+    let present: Vec<&str> = existing.lines().map(str::trim).collect();
+    let missing: Vec<&str> = GITIGNORE_ENTRIES
+        .iter()
+        .copied()
+        .filter(|e| !present.contains(e))
+        .collect();
+    if missing.is_empty() {
+        return Ok(());
+    }
+    let mut out = existing.clone();
+    if !out.is_empty() && !out.ends_with('\n') {
+        out.push('\n');
+    }
+    out.push_str("# Cronus: secrets and local databases\n");
+    for entry in missing {
+        out.push_str(entry);
+        out.push('\n');
+    }
+    fs::write(&path, out)
+}
+
 pub fn cmd_new(args: &[String]) {
     let all_templates = ["landing", "admin", "saas", "api", "ecommerce", "blog", "helpdesk", "crm", "cronus-ui", "aurora"];
 
@@ -54,6 +89,10 @@ pub fn cmd_new(args: &[String]) {
     let mut file = fs::File::create(&file_path).unwrap();
     file.write_all(content.as_bytes()).unwrap();
 
+    if let Err(e) = write_gitignore(std::path::Path::new(dir)) {
+        eprintln!("  \x1b[33m⚠\x1b[0m Could not write {}/.gitignore: {}", dir, e);
+    }
+
     if template == "cronus-ui" || template == "aurora" {
         let script = r#"# Fires after POST /api/lead (Voodoo v-submit or Cronus form).
 on Lead.create {
@@ -101,4 +140,44 @@ on Lead.create {
     println!("    cronus seed    \x1b[90m# populate with test data\x1b[0m");
     println!("    cronus run     \x1b[90m# start the server\x1b[0m");
     println!();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn scratch_dir(tag: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "cronus-new-{}-{}-{}",
+            tag,
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn scaffold_gitignore_excludes_secrets_and_databases() {
+        let dir = scratch_dir("fresh");
+        write_gitignore(&dir).unwrap();
+        let content = fs::read_to_string(dir.join(".gitignore")).unwrap();
+        let lines: Vec<&str> = content.lines().collect();
+        assert!(lines.contains(&".cronus/jwt.key"));
+        assert!(lines.contains(&"*.db"));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn scaffold_gitignore_appends_missing_entries_once() {
+        let dir = scratch_dir("append");
+        fs::write(dir.join(".gitignore"), "node_modules\n*.db").unwrap();
+        write_gitignore(&dir).unwrap();
+        write_gitignore(&dir).unwrap();
+        let content = fs::read_to_string(dir.join(".gitignore")).unwrap();
+        assert!(content.starts_with("node_modules\n*.db\n"));
+        assert_eq!(content.matches("*.db\n").count(), 1);
+        assert_eq!(content.matches(".cronus/jwt.key").count(), 1);
+        let _ = fs::remove_dir_all(dir);
+    }
 }

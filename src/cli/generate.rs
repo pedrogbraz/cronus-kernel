@@ -869,6 +869,75 @@ pub fn cmd_generate_from_file(file_path: &str, output_path: &str, auto_go: bool)
     }
 }
 
+/// curl argv for the Anthropic call. The API key is deliberately NOT here:
+/// argv is visible to every local user via `ps` / `/proc/<pid>/cmdline`.
+fn anthropic_curl_args(body: &str) -> Vec<String> {
+    [
+        "-s", "-X", "POST",
+        "https://api.anthropic.com/v1/messages",
+        "--config", "-",
+        "-H", "anthropic-version: 2023-06-01",
+        "-H", "content-type: application/json",
+        "-d", body,
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect()
+}
+
+/// curl config (read from stdin via `--config -`) carrying the API key header.
+fn anthropic_curl_config(api_key: &str) -> Result<String, String> {
+    if api_key.bytes().any(|b| b < 0x20 || b == 0x7f) {
+        return Err("ANTHROPIC_API_KEY contains control characters".into());
+    }
+    let escaped = api_key.replace('\\', "\\\\").replace('"', "\\\"");
+    Ok(format!("header = \"x-api-key: {}\"\n", escaped))
+}
+
+fn run_anthropic_curl(api_key: &str, body: &str) -> std::io::Result<std::process::Output> {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let config = anthropic_curl_config(api_key)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+    let mut child = Command::new("curl")
+        .args(anthropic_curl_args(body))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(config.as_bytes())?;
+    } // stdin dropped here → EOF for curl's config reader
+    child.wait_with_output()
+}
+
+#[cfg(test)]
+mod curl_secret_tests {
+    use super::*;
+
+    #[test]
+    fn api_key_never_appears_in_curl_argv() {
+        let key = "sk-ant-api03-SECRET";
+        let args = anthropic_curl_args("{\"model\":\"x\"}");
+        assert!(args.iter().all(|a| !a.contains(key) && !a.to_lowercase().contains("x-api-key")));
+        let cfg_idx = args.iter().position(|a| a == "--config").expect("--config flag");
+        assert_eq!(args[cfg_idx + 1], "-", "config must be read from stdin");
+    }
+
+    #[test]
+    fn api_key_travels_in_stdin_config() {
+        assert_eq!(
+            anthropic_curl_config("sk-ant-123").unwrap(),
+            "header = \"x-api-key: sk-ant-123\"\n"
+        );
+        assert_eq!(
+            anthropic_curl_config("a\"b\\c").unwrap(),
+            "header = \"x-api-key: a\\\"b\\\\c\"\n"
+        );
+        assert!(anthropic_curl_config("sk\nurl = \"http://evil\"").is_err());
+    }
+}
+
 pub fn cmd_generate_api(desc: &str, user_message: &str, api_key: &str, output_path: &str, auto_go: bool) {
     println!("  Generating .cronus for: \"{}\"", desc);
     println!();
@@ -899,16 +968,7 @@ pub fn cmd_generate_api(desc: &str, user_message: &str, api_key: &str, output_pa
             messages_with_context
         );
 
-        let output = std::process::Command::new("curl")
-            .args(&[
-                "-s", "-X", "POST",
-                "https://api.anthropic.com/v1/messages",
-                "-H", &format!("x-api-key: {}", api_key),
-                "-H", "anthropic-version: 2023-06-01",
-                "-H", "content-type: application/json",
-                "-d", &body,
-            ])
-            .output();
+        let output = run_anthropic_curl(api_key, &body);
 
         let output = match output {
             Ok(o) => o,
