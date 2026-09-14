@@ -107,6 +107,12 @@ deliberate security change.
 - `PATCH /_form/<section>/<id>` edits through the declared form. (fd75d70)
 - P041 (SQL reserved words) no longer applies to enum/array values; a test parses every
   `.cronus` under `templates/` and `demos/`. (e98d8ae)
+- `style { theme light | dark | system }` (alias `mode`) now reaches every layout:
+  `data-cronus-mode` follows it (it was hard-coded `dark`), `color-scheme` is set, and
+  `system` ships the preset's other-mode tokens under `prefers-color-scheme`. Default stays
+  `dark`; the audit canvas is byte-identical. Dark legacy pages now also declare
+  `color-scheme: dark`. Section renderers with hard-coded dark colors are not converted
+  (LANGUAGE.md §12).
 
 ### Tooling and docs
 

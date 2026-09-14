@@ -7,24 +7,82 @@ use crate::parser::{LayoutNode, PageNode, StyleNode};
 // LAYOUT (wraps every page)
 // ══════════════════════════════════════════════════
 
-pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &str) -> String {
+/// `data-cronus-theme` / `data-cronus-mode` for `<html>`. Named presets carry
+/// both. Legacy pages get only a mode attribute, and none in dark mode, so
+/// their dark output is unchanged.
+pub(crate) fn mode_attrs(preset: &str, mode: &str) -> String {
+    let mode = crate::cronus_ui::normalize_mode(mode);
+    if crate::cronus_ui::is_named_preset(preset) {
+        format!(" data-cronus-theme=\"{preset}\" data-cronus-mode=\"{mode}\"")
+    } else if mode == "dark" {
+        String::new()
+    } else {
+        format!(" data-cronus-mode=\"{mode}\"")
+    }
+}
+
+/// CSS `color-scheme` for a mode. `system` lets the UA follow the OS and makes
+/// `light-dark()` resolve to the OS preference.
+pub(crate) fn color_scheme(mode: &str) -> &'static str {
+    match crate::cronus_ui::normalize_mode(mode) {
+        "light" => "light",
+        "system" => "light dark",
+        _ => "dark",
+    }
+}
+
+/// A layout color for a mode: the light or dark literal, or `light-dark()` for
+/// `system` (resolved through `color-scheme: light dark`).
+pub(crate) fn mode_value(mode: &str, light: &str, dark: &str) -> String {
+    match crate::cronus_ui::normalize_mode(mode) {
+        "light" => light.to_string(),
+        "system" => format!("light-dark({light}, {dark})"),
+        _ => dark.to_string(),
+    }
+}
+
+pub fn render_layout(app_name: &str, pages: &[PageNode], accent: &str, body: &str) -> String {
+    render_layout_mode(app_name, pages, accent, body, crate::theme::get_mode())
+}
+
+/// `render_layout` for an explicit color mode (`light` | `dark` | `system`).
+pub fn render_layout_mode(
+    app_name: &str,
+    _pages: &[PageNode],
+    _accent: &str,
+    body: &str,
+    mode: &str,
+) -> String {
+    let mode = crate::cronus_ui::normalize_mode(mode);
     let script_nonce = crate::security::script_nonce_attr();
     let preset = crate::theme::get_preset();
-    let theme_attrs = if crate::cronus_ui::is_named_preset(&preset) {
-        format!(" data-cronus-theme=\"{preset}\" data-cronus-mode=\"dark\"")
-    } else {
-        String::new()
-    };
+    let theme_attrs = mode_attrs(&preset, mode);
     // Only the cronus-ui families this page renders, in cascade layers. The
     // kernel's own page CSS (Tailwind subset, animations, resets) shares
     // `cronus.tokens` in its original order, so its specificity contest with
     // tokens/theme is unchanged; components sit above; unlayered author CSS
     // wins over all of it.
-    let cronus_ui_css = crate::cronus_ui_css::page_stylesheet(
+    let cronus_ui_css = crate::cronus_ui_css::page_stylesheet_for(
         if preset.is_empty() { "legacy" } else { &preset },
         body,
         true,
+        mode,
     );
+    let color_scheme = color_scheme(mode);
+    let page_bg = mode_value(mode, "oklch(0.985 0 0)", "oklch(0.11 0 0)");
+    let page_fg = mode_value(mode, "oklch(0.21 0 0)", "oklch(0.93 0 0)");
+    let page_border = mode_value(mode, "oklch(0 0 0 / 8%)", "oklch(1 0 0 / 6%)");
+    // Legacy pages outside dark mode: feed the cronus-ui fallback aliases
+    // (`fallback.css` defaults are dark). Named presets have real tokens.
+    let legacy_vars = if mode == "dark" || crate::cronus_ui::is_named_preset(&preset) {
+        String::new()
+    } else {
+        format!(
+            "\n      --surface: {};\n      --foreground-muted: {};",
+            mode_value(mode, "oklch(0.967 0.001 286)", "#18181b"),
+            mode_value(mode, "oklch(0.442 0.013 286)", "#a1a1aa"),
+        )
+    };
     let layer_order = crate::cronus_ui_css::LAYER_ORDER;
     format!(
         r#"<!DOCTYPE html>
@@ -47,9 +105,10 @@ pub fn render_layout(app_name: &str, _pages: &[PageNode], _accent: &str, body: &
   <style>
     @layer cronus.tokens {{
     :root {{
-      --background: var(--cronus-bg, oklch(0.11 0 0));
-      --foreground: var(--cronus-fg, oklch(0.93 0 0));
-      --border: var(--cronus-border, oklch(1 0 0 / 6%));
+      color-scheme: {color_scheme};
+      --background: var(--cronus-bg, {page_bg});
+      --foreground: var(--cronus-fg, {page_fg});
+      --border: var(--cronus-border, {page_border});{legacy_vars}
     }}
     body {{ background: var(--background); color: var(--foreground); font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; margin: 0; }}
     ::-webkit-scrollbar {{ width: 4px; }}
@@ -93,6 +152,105 @@ pub fn render_layout_declarative(
     current_route: &str,
     body: &str,
 ) -> String {
+    render_layout_declarative_mode(
+        app_name,
+        layout,
+        current_route,
+        body,
+        crate::theme::get_mode(),
+    )
+}
+
+/// Light/system overrides for the declarative shell's dark chrome (sidebar,
+/// main, auto-styled headings/tables/forms/cards). Empty in dark mode, so the
+/// dark document is unchanged. Named presets use the cronus-ui tokens (which
+/// follow `data-cronus-mode`); legacy pages use literals, as `light-dark()` in
+/// `system` mode. Section renderers that hard-code dark Tailwind classes are
+/// not covered.
+fn declarative_mode_css(mode: &str, named: bool) -> String {
+    let mode = crate::cronus_ui::normalize_mode(mode);
+    if mode == "dark" {
+        return String::new();
+    }
+    let v = |light: &str, dark: &str| mode_value(mode, light, dark);
+    let (bg, surface, fg, muted, line) = if named {
+        (
+            "var(--cronus-surface-base)".to_string(),
+            "var(--cronus-surface-raised)".to_string(),
+            "var(--cronus-fg)".to_string(),
+            "var(--cronus-fg-secondary)".to_string(),
+            "var(--cronus-border)".to_string(),
+        )
+    } else {
+        (
+            v("#fafafa", "#000"),
+            v("#ffffff", "#0a0a0a"),
+            v("#18181b", "#fff"),
+            v("#52525b", "#9ca3af"),
+            v("rgba(0,0,0,0.1)", "rgba(255,255,255,0.08)"),
+        )
+    };
+    let soft = v("rgba(0,0,0,0.02)", "rgba(255,255,255,0.02)");
+    let hover = v("rgba(0,0,0,0.05)", "rgba(255,255,255,0.04)");
+    // Legacy pages: feed the cronus-ui fallback aliases (`fallback.css`).
+    let legacy_vars = if named {
+        String::new()
+    } else {
+        format!("--cronus-bg:{bg};--cronus-surface:{surface};--cronus-text:{fg};--cronus-text-muted:{muted};--border:{line};")
+    };
+    let css = r#"
+    html{color-scheme:@SCHEME@;@LEGACY@}
+    html,body{background:@BG@;color:@FG@}
+    ::selection{color:@FG@}
+    ::-webkit-scrollbar-thumb{background:@LINE@}
+    #cronus-sidebar{background:@SURFACE@;border-right-color:@LINE@}
+    .sb-name{color:@FG@}
+    .sb-link,.sb-link:link,.sb-link:visited,.sb-link:focus,.sb-link:active{color:@MUTED@!important}
+    .sb-link:hover,.sb-link:active{background:@HOVER@!important;color:@FG@!important}
+    .sb-link.active,.sb-link.active:link,.sb-link.active:visited,.sb-link.active:focus,.sb-link.active:active{color:@FG@!important}
+    .sb-link .material-symbols-outlined,.sb-link:hover .material-symbols-outlined{color:@MUTED@}
+    .sb-divider{background:@LINE@}
+    .sb-footer{border-top-color:@LINE@}
+    .sb-signout{color:@MUTED@;border-color:@LINE@}
+    #sb-toggle{background:@SURFACE@;border-color:@LINE@;color:@FG@}
+    .cronus-decl-main{background:@BG@}
+    .cronus-decl-main > main h1{color:@FG@;background:none;-webkit-text-fill-color:currentColor}
+    .cronus-decl-main > main h2,.cronus-decl-main > main h3{color:@FG@}
+    .cronus-decl-main > main p{color:@MUTED@}
+    .cronus-decl-main table{background:@SOFT@;border-color:@LINE@}
+    .cronus-decl-main table thead{background:@SOFT@}
+    .cronus-decl-main table th{color:@MUTED@;border-bottom-color:@LINE@}
+    .cronus-decl-main table td{color:@FG@;border-bottom-color:@LINE@}
+    .cronus-decl-main table tr:hover td{background:@HOVER@}
+    .cronus-decl-main form{background:@SOFT@;border-color:@LINE@}
+    .cronus-decl-main form label{color:@FG@}
+    .cronus-decl-main form input,.cronus-decl-main form select,.cronus-decl-main form textarea{color:@FG@;background:@SURFACE@;border-color:@LINE@}
+    .cronus-decl-main section{background:@SOFT@;border-color:@LINE@}
+    .cronus-decl-main a[href^="/"]:not([class]){color:@FG@;background:@SOFT@;border-color:@LINE@}
+    .cronus-decl-main a[href^="/"]:not([class]):hover{background:@HOVER@;border-color:@LINE@}
+    .cronus-decl-main [data-section="kpi"],.cronus-decl-main .kpi-card-wrapper{background:@SOFT@!important;border-color:@LINE@!important}
+  "#
+    .replace("@SCHEME@", color_scheme(mode))
+    .replace("@LEGACY@", &legacy_vars)
+    .replace("@BG@", &bg)
+    .replace("@SURFACE@", &surface)
+    .replace("@FG@", &fg)
+    .replace("@MUTED@", &muted)
+    .replace("@LINE@", &line)
+    .replace("@SOFT@", &soft)
+    .replace("@HOVER@", &hover);
+    format!("\n  <style data-cronus-mode-css>{css}</style>")
+}
+
+/// `render_layout_declarative` for an explicit color mode.
+pub fn render_layout_declarative_mode(
+    app_name: &str,
+    layout: &LayoutNode,
+    current_route: &str,
+    body: &str,
+    mode: &str,
+) -> String {
+    let mode = crate::cronus_ui::normalize_mode(mode);
     let script_nonce = crate::security::script_nonce_attr();
     let brand = layout
         .sidebar_config
@@ -157,24 +315,27 @@ pub fn render_layout_declarative(
     };
 
     let preset = crate::theme::get_preset();
-    let theme_attrs = if crate::cronus_ui::is_named_preset(&preset) {
-        format!(" data-cronus-theme=\"{preset}\" data-cronus-mode=\"dark\"")
-    } else {
-        String::new()
+    let theme_attrs = mode_attrs(&preset, mode);
+    let html_class = match mode {
+        "light" => " class=\"light\"",
+        "system" => "",
+        _ => " class=\"dark\"",
     };
+    let mode_css = declarative_mode_css(mode, crate::cronus_ui::is_named_preset(&preset));
     // Only the families this page renders. Unlayered: the Tailwind play CDN
     // injects an unlayered preflight at runtime (`button { padding: 0 }`),
     // which would beat layered component CSS.
-    let cronus_ui_css = crate::cronus_ui_css::page_stylesheet(
+    let cronus_ui_css = crate::cronus_ui_css::page_stylesheet_for(
         if preset.is_empty() { "legacy" } else { &preset },
         body,
         false,
+        mode,
     );
     let cronus_ui_meta = crate::cronus_ui_css::css_meta(&cronus_ui_css);
 
     format!(
         r##"<!DOCTYPE html>
-<html lang="en" class="dark"{theme_attrs}>
+<html lang="en"{html_class}{theme_attrs}>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -280,7 +441,7 @@ pub fn render_layout_declarative(
     }}
     @media print{{#cronus-sidebar,#sb-toggle,.cronus-overlay{{display:none!important}}.cronus-decl-main{{margin-left:0!important}}}}
   </style>
-  <style>{anim_css}</style>
+  <style>{anim_css}</style>{mode_css}
 </head>
 <body>
   <aside id="cronus-sidebar">
@@ -445,7 +606,8 @@ fn hex_to_rgb(hex: &str) -> String {
 /// Generate CSS custom properties from the StyleNode for theming.
 /// All renderers should use var(--cronus-*) instead of hardcoded colors.
 fn generate_css_vars(style: &Option<&StyleNode>, theme: &str, body: &str) -> String {
-    let is_light = theme == "light";
+    let mode = crate::cronus_ui::normalize_mode(theme);
+    let v = |light: &str, dark: &str| mode_value(mode, light, dark);
 
     // Determine accent hex — from style config accent-hex, or named accent, or default
     let accent_hex = style
@@ -455,18 +617,12 @@ fn generate_css_vars(style: &Option<&StyleNode>, theme: &str, body: &str) -> Str
             accent_to_hex(name)
         });
 
-    // Defaults based on theme
-    let (def_bg, def_surface, def_text, def_text_muted, def_border) = if is_light {
-        ("#fafafa", "#ffffff", "#1a1a1a", "#6b6b6b", "#e5e5e5")
-    } else {
-        (
-            "#000000",
-            "#0a0a0a",
-            "#ffffff",
-            "#9ca3af",
-            "rgba(255,255,255,0.1)",
-        )
-    };
+    // Defaults based on theme (`light-dark()` pairs in system mode)
+    let def_bg = v("#fafafa", "#000000");
+    let def_surface = v("#ffffff", "#0a0a0a");
+    let def_text = v("#1a1a1a", "#ffffff");
+    let def_text_muted = v("#6b6b6b", "#9ca3af");
+    let def_border = v("#e5e5e5", "rgba(255,255,255,0.1)");
 
     let cfg = |key: &str, default: &str| -> String {
         style
@@ -475,11 +631,11 @@ fn generate_css_vars(style: &Option<&StyleNode>, theme: &str, body: &str) -> Str
             .unwrap_or_else(|| default.to_string())
     };
 
-    let bg = cfg("background", def_bg);
-    let surface = cfg("surface", def_surface);
-    let text = cfg("text", def_text);
-    let text_muted = cfg("text-muted", def_text_muted);
-    let border = cfg("border", def_border);
+    let bg = cfg("background", &def_bg);
+    let surface = cfg("surface", &def_surface);
+    let text = cfg("text", &def_text);
+    let text_muted = cfg("text-muted", &def_text_muted);
+    let border = cfg("border", &def_border);
     let max_width = cfg("max-width", "1120px");
 
     let preset = style
@@ -513,25 +669,12 @@ fn generate_css_vars(style: &Option<&StyleNode>, theme: &str, body: &str) -> Str
 
     // Glow orbs — from style config or computed from accent
     let glow_1 = cfg("glow-1", &format!("rgba({},0.07)", hex_to_rgb(accent_hex)));
-    let glow_2 = cfg(
-        "glow-2",
-        &if is_light {
-            "rgba(0,0,0,0.02)".to_string()
-        } else {
-            "rgba(210,119,255,0.04)".to_string()
-        },
-    );
-    let glow_3 = cfg(
-        "glow-3",
-        &if is_light {
-            "rgba(0,0,0,0.01)".to_string()
-        } else {
-            "rgba(129,236,255,0.03)".to_string()
-        },
-    );
+    let glow_2 = cfg("glow-2", &v("rgba(0,0,0,0.02)", "rgba(210,119,255,0.04)"));
+    let glow_3 = cfg("glow-3", &v("rgba(0,0,0,0.01)", "rgba(129,236,255,0.03)"));
+    let color_scheme = color_scheme(mode);
 
     // Only the families `body` renders; unlayered (Tailwind play CDN layout).
-    let cronus_ui = crate::cronus_ui_css::page_stylesheet(preset, body, false);
+    let cronus_ui = crate::cronus_ui_css::page_stylesheet_for(preset, body, false, mode);
 
     let (bg, surface, text, text_muted, border, radius_px, font) = if named {
         (
@@ -557,6 +700,7 @@ fn generate_css_vars(style: &Option<&StyleNode>, theme: &str, body: &str) -> Str
 
     format!(
         r#":root {{
+  color-scheme: {color_scheme};
   --cronus-bg: {bg};
   --cronus-surface: {surface};
   --cronus-text: {text};
@@ -611,33 +755,23 @@ pub fn render_layout_landing_ex(
     tailwind_config_js: Option<&str>,
 ) -> String {
     let script_nonce = crate::security::script_nonce_attr();
-    let is_light = theme == "light";
-    let html_class = if is_light { "light" } else { "dark" };
+    let mode = crate::cronus_ui::normalize_mode(theme);
+    let v = |light: &str, dark: &str| mode_value(mode, light, dark);
+    // `system` sets no Tailwind `dark`/`light` class: templates relying on
+    // `darkMode: 'class'` keep their non-`dark:` styles.
+    let html_class = match mode {
+        "light" => "light",
+        "system" => "",
+        _ => "dark",
+    };
     let preset = style_node
         .and_then(|s| s.config.get("preset"))
         .map(|s| s.as_str())
         .unwrap_or("legacy");
-    let theme_attrs = if crate::cronus_ui::is_named_preset(preset) {
-        let mode = if is_light { "light" } else { "dark" };
-        format!(" data-cronus-theme=\"{preset}\" data-cronus-mode=\"{mode}\"")
-    } else {
-        String::new()
-    };
-    let sel_bg = if is_light {
-        "rgba(0,0,0,0.08)"
-    } else {
-        "rgba(0,111,240,0.3)"
-    };
-    let scroll_thumb = if is_light {
-        "rgba(0,0,0,0.1)"
-    } else {
-        "rgba(255,255,255,0.1)"
-    };
-    let grid_line = if is_light {
-        "rgba(0,0,0,0.05)"
-    } else {
-        "rgba(255,255,255,0.03)"
-    };
+    let theme_attrs = mode_attrs(preset, mode);
+    let sel_bg = v("rgba(0,0,0,0.08)", "rgba(0,111,240,0.3)");
+    let scroll_thumb = v("rgba(0,0,0,0.1)", "rgba(255,255,255,0.1)");
+    let grid_line = v("rgba(0,0,0,0.05)", "rgba(255,255,255,0.03)");
     let css_vars = generate_css_vars(&style_node, theme, body);
     let cronus_ui_meta = crate::cronus_ui_css::css_meta(&css_vars);
 
@@ -684,20 +818,18 @@ pub fn render_layout_landing_ex(
     let nav_html = if has_topbar {
         String::new()
     } else {
-        let nav_bg = if is_light {
-            "rgba(255,255,255,0.8)"
+        let nav_bg = v("rgba(255,255,255,0.8)", "rgba(0,0,0,0.8)");
+        let nav_border = v("rgba(229,229,229,0.5)", "rgba(255,255,255,0.05)");
+        let nav_text = v("black", "white");
+        let nav_muted = v("#71717a", "#9ca3af");
+        let btn_bg = v("black", "white");
+        let btn_fg = v("white", "black");
+        // SVG `fill` attributes do not take `light-dark()`; inherit the text color.
+        let nav_fill = if mode == "system" {
+            "currentColor".to_string()
         } else {
-            "rgba(0,0,0,0.8)"
+            nav_text.clone()
         };
-        let nav_border = if is_light {
-            "rgba(229,229,229,0.5)"
-        } else {
-            "rgba(255,255,255,0.05)"
-        };
-        let nav_text = if is_light { "black" } else { "white" };
-        let nav_muted = if is_light { "#71717a" } else { "#9ca3af" };
-        let btn_bg = if is_light { "black" } else { "white" };
-        let btn_fg = if is_light { "white" } else { "black" };
         format!(
             r##"
   <!-- Fixed Navbar (fallback) -->
@@ -705,7 +837,7 @@ pub fn render_layout_landing_ex(
     <div style="display:flex;justify-content:space-between;align-items:center;padding:0 24px;height:64px;max-width:1280px;margin:0 auto">
       <div style="display:flex;align-items:center;gap:32px">
         <div style="font-size:20px;font-weight:700;letter-spacing:-0.03em;color:{nav_text};display:flex;align-items:center;gap:8px">
-          <svg width="24" height="24" viewBox="0 0 76 65" fill="{nav_text}"><path d="M37.5274 0L75.0548 65L0 65L37.5274 0Z"/></svg>
+          <svg width="24" height="24" viewBox="0 0 76 65" fill="{nav_fill}"><path d="M37.5274 0L75.0548 65L0 65L37.5274 0Z"/></svg>
           {app_name}
         </div>
         <div style="display:flex;align-items:center;gap:24px">
@@ -724,6 +856,7 @@ pub fn render_layout_landing_ex(
             nav_bg = nav_bg,
             nav_border = nav_border,
             nav_text = nav_text,
+            nav_fill = nav_fill,
             nav_muted = nav_muted,
             btn_bg = btn_bg,
             btn_fg = btn_fg,
@@ -1801,5 +1934,102 @@ mod tests {
             !html.contains("Visao Geral"),
             "fallback Cooud chrome leaked into declarative layout"
         );
+    }
+
+    fn empty_layout() -> LayoutNode {
+        LayoutNode {
+            name: "Main".to_string(),
+            sidebar_items: vec![],
+            sidebar_config: HashMap::new(),
+            topbar_config: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn mode_attrs_follow_preset_and_mode() {
+        let named =
+            |p: &str, m: &str| format!(" data-cronus-theme=\"{p}\" data-cronus-mode=\"{m}\"");
+        assert_eq!(mode_attrs("aurora", "dark"), named("aurora", "dark"));
+        assert_eq!(mode_attrs("aurora", "light"), named("aurora", "light"));
+        assert_eq!(mode_attrs("neutral", "system"), named("neutral", "system"));
+        assert_eq!(mode_attrs("aurora", "sepia"), named("aurora", "dark"));
+        assert_eq!(mode_attrs("legacy", "dark"), "");
+        assert_eq!(mode_attrs("", "light"), " data-cronus-mode=\"light\"");
+        assert_eq!(mode_attrs("", "system"), " data-cronus-mode=\"system\"");
+        assert_eq!(color_scheme("system"), "light dark");
+        assert_eq!(
+            mode_value("system", "#fff", "#000"),
+            "light-dark(#fff, #000)"
+        );
+        assert_eq!(mode_value("dark", "#fff", "#000"), "#000");
+    }
+
+    #[test]
+    fn default_layout_follows_mode() {
+        let dark = render_layout_mode("A", &[], "blue", "<p>x</p>", "dark");
+        assert!(dark.contains("<html lang=\"pt-BR\">"));
+        assert!(dark.contains("color-scheme: dark;"));
+        assert!(dark.contains("--background: var(--cronus-bg, oklch(0.11 0 0));"));
+        assert!(!dark.contains("light-dark("));
+        assert!(!dark.contains("--surface:"));
+        let light = render_layout_mode("A", &[], "blue", "<p>x</p>", "light");
+        assert!(light.contains("<html lang=\"pt-BR\" data-cronus-mode=\"light\">"));
+        assert!(light.contains("color-scheme: light;"));
+        assert!(light.contains("--background: var(--cronus-bg, oklch(0.985 0 0));"));
+        // Legacy cronus-ui fallback surfaces must not stay dark (#18181b).
+        assert!(light.contains("--surface: oklch(0.967 0.001 286);"));
+        let system = render_layout_mode("A", &[], "blue", "<p>x</p>", "system");
+        assert!(system.contains("--surface: light-dark(oklch(0.967 0.001 286), #18181b);"));
+        let system = render_layout_mode("A", &[], "blue", "<p>x</p>", "system");
+        assert!(system.contains("data-cronus-mode=\"system\""));
+        assert!(system.contains("color-scheme: light dark;"));
+        assert!(system.contains(
+            "--background: var(--cronus-bg, light-dark(oklch(0.985 0 0), oklch(0.11 0 0)));"
+        ));
+    }
+
+    #[test]
+    fn declarative_layout_overrides_dark_chrome_outside_dark_mode() {
+        let layout = empty_layout();
+        let dark = render_layout_declarative_mode("T", &layout, "/", "<p>b</p>", "dark");
+        assert!(dark.contains("<html lang=\"en\" class=\"dark\">"));
+        assert!(!dark.contains("data-cronus-mode-css"));
+        let light = render_layout_declarative_mode("T", &layout, "/", "<p>b</p>", "light");
+        assert!(light.contains("<html lang=\"en\" class=\"light\" data-cronus-mode=\"light\">"));
+        assert!(light.contains("<style data-cronus-mode-css>"));
+        assert!(light.contains("html{color-scheme:light;--cronus-bg:#fafafa;"));
+        assert!(light.contains("#cronus-sidebar{background:#ffffff;"));
+        assert!(!light.contains("light-dark("));
+        // The override comes after the dark rules it replaces.
+        assert!(
+            light.find("data-cronus-mode-css").unwrap() > light.find(".sb-link:hover").unwrap()
+        );
+        let system = render_layout_declarative_mode("T", &layout, "/", "<p>b</p>", "system");
+        assert!(system.contains("<html lang=\"en\" data-cronus-mode=\"system\">"));
+        assert!(system.contains("html{color-scheme:light dark;"));
+        assert!(system.contains("html,body{background:light-dark(#fafafa, #000);"));
+        // Named presets use tokens instead of literals.
+        let named = declarative_mode_css("light", true);
+        assert!(named.contains("#cronus-sidebar{background:var(--cronus-surface-raised);"));
+        assert!(!named.contains("--cronus-bg:"));
+        assert_eq!(declarative_mode_css("dark", true), "");
+    }
+
+    #[test]
+    fn landing_layout_follows_mode() {
+        let dark = render_layout_landing("A", "<p>x</p>", "dark", None);
+        assert!(dark.contains("<html class=\"dark\" lang=\"en\">"));
+        assert!(dark.contains("color-scheme: dark;"));
+        assert!(dark.contains("--cronus-bg: #000000;"));
+        assert!(!dark.contains("light-dark("));
+        let light = render_layout_landing("A", "<p>x</p>", "light", None);
+        assert!(light.contains("<html class=\"light\" lang=\"en\" data-cronus-mode=\"light\">"));
+        assert!(light.contains("color-scheme: light;"));
+        assert!(light.contains("--cronus-bg: #fafafa;"));
+        let system = render_layout_landing("A", "<p>x</p>", "system", None);
+        assert!(system.contains("data-cronus-mode=\"system\""));
+        assert!(system.contains("color-scheme: light dark;"));
+        assert!(system.contains("--cronus-bg: light-dark(#fafafa, #000000);"));
+        assert!(system.contains("fill=\"currentColor\""));
     }
 }

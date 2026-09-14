@@ -669,12 +669,24 @@ style {
 ```
 
 Accepted values:
-- `theme` — `dark` | `light`
+- `theme` — `dark` (default) | `light` | `system`. `mode` is an alias (`mode light` sets the same field); `theme` is canonical. Unknown values render as `dark`.
 - `accent` — any hex string
 - `font`, `mono` — any string (shipped via Google Fonts include)
 - `radius` — `none` | `sm` | `md` | `lg` | `xl` | `full`
 
 The style block feeds into `render_layout_declarative` and the auto-API docs page. It does NOT override template sections with inline `style=""` attributes.
+
+**Color mode (`theme`)** (2026-09-14, `src/ui/layout.rs`, `src/cronus_ui_css.rs`):
+
+| `theme` | `<html>` | CSS |
+|---|---|---|
+| `dark` | `data-cronus-mode="dark"` with a named `preset`; nothing on legacy pages | `color-scheme: dark`; output otherwise unchanged |
+| `light` | `data-cronus-mode="light"` | `color-scheme: light`; the vendored `[data-cronus-theme][data-cronus-mode="light"]` tokens apply |
+| `system` | `data-cronus-mode="system"` | `color-scheme: light dark`; the preset's other-mode token block (Aurora's light delta, or the dark delta of `neutral`/`midnight`/`sunset`/`emerald`) is re-keyed to `[data-cronus-mode="system"]` inside `@media (prefers-color-scheme: …)`, ~1.5 KB per page. Layout colors use `light-dark()` |
+
+- An explicit `light`/`dark` attribute always wins, so the audit canvas (`/audit/*?mode=`) is unaffected.
+- Default layout, declarative `layout` shell and landing layout follow all three modes.
+- **Limitations:** section renderers that hard-code dark Tailwind/hex colors (`src/ui/dashboard.rs`, `section_*.rs`) and the settings/order-detail dashboards still paint dark in `light`/`system`; prefer cronus-ui families (`style:<family>`) with a named `preset` for light pages. `system` sets no Tailwind `dark`/`light` class, so templates using `darkMode: 'class'` do not follow the OS. `data-cronus-look="glass"` light variants only react to an explicit `light` mode.
 
 **`tailwind_config "<JS literal>"`** is a separate top-level directive (not inside `style`) that stores a raw Tailwind config string for the layout renderer to inject. Undocumented in the flat docs but actively used by `docs/site-v2/app.cronus`.
 

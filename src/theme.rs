@@ -10,6 +10,8 @@ use std::sync::RwLock;
 static THEME: RwLock<Option<ThemeTokens>> = RwLock::new(None);
 /// Named cronus-ui preset (`aurora` / `midnight` / …). Empty = legacy.
 static PRESET: RwLock<String> = RwLock::new(String::new());
+/// Color mode from `style { theme light|dark|system }`. Empty = dark.
+static MODE: RwLock<String> = RwLock::new(String::new());
 
 #[derive(Debug, Clone)]
 pub struct ThemeTokens {
@@ -442,6 +444,16 @@ pub fn set_preset(preset: &str) {
 
 pub fn get_preset() -> String {
     PRESET.read().unwrap().clone()
+}
+
+/// Color mode from `style { theme … }` (alias `mode`).
+pub fn set_mode(mode: &str) {
+    *MODE.write().unwrap() = crate::cronus_ui::normalize_mode(mode).to_string();
+}
+
+/// `"light"`, `"dark"` or `"system"`; `"dark"` when never set.
+pub fn get_mode() -> &'static str {
+    crate::cronus_ui::normalize_mode(&MODE.read().unwrap())
 }
 
 /// Get current tokens (returns defaults if not set)

@@ -158,6 +158,9 @@ style {
   radius md
 }
 ```
+`theme` is `dark` (default) | `light` | `system` (follows the OS via `prefers-color-scheme`);
+`mode` is an alias. Light/system look right with a named `preset` and cronus-ui families;
+legacy sections with hard-coded dark colors stay dark.
 Other `key value` pairs are kept as config (e.g. `preset aurora`, `runtime voodoo`).
 
 ### webhook

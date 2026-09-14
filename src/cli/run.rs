@@ -433,6 +433,12 @@ pub async fn cmd_run(args: &[String]) {
             .and_then(|s| s.config.get("preset").cloned())
             .unwrap_or_default();
         theme::set_preset(&preset);
+        theme::set_mode(
+            style
+                .as_ref()
+                .and_then(|s| s.theme.as_deref())
+                .unwrap_or("dark"),
+        );
     }
 
     // Database — use CronusDB for all operations

@@ -271,7 +271,32 @@ fn page_usage(html: &str) -> Usage {
     usage
 }
 
-fn tokens_part(preset: &str, audit: bool) -> String {
+/// `system` mode for a named preset: its vendored other-mode block (Aurora's
+/// light delta, or a light-first preset's dark delta) re-keyed from
+/// `[data-cronus-mode="light|dark"]` to `[data-cronus-mode="system"]` inside
+/// `@media (prefers-color-scheme: …)`. The base block is already on `:root`
+/// and the preset attribute, so only the delta ships (~1.5 KB), and nothing
+/// applies when `<html>` sets `light`/`dark` explicitly (the audit canvas).
+pub fn system_mode_css(preset: &str) -> String {
+    let preset = preset.trim();
+    for other in ["light", "dark"] {
+        let selector = format!("[data-cronus-theme=\"{preset}\"][data-cronus-mode=\"{other}\"] {{");
+        let Some(start) = TOKENS_CSS.find(&selector) else {
+            continue;
+        };
+        let body_start = start + selector.len();
+        let Some(len) = TOKENS_CSS[body_start..].find('}') else {
+            continue;
+        };
+        let body = &TOKENS_CSS[body_start..body_start + len];
+        return format!(
+            "@media (prefers-color-scheme: {other}) {{\n[data-cronus-theme=\"{preset}\"][data-cronus-mode=\"system\"] {{{body}}}\n}}\n"
+        );
+    }
+    String::new()
+}
+
+fn tokens_part(preset: &str, mode: &str, audit: bool) -> String {
     let preset = preset.trim();
     let mut css = String::new();
     if audit {
@@ -290,6 +315,9 @@ fn tokens_part(preset: &str, audit: bool) -> String {
         let repl = format!(":root, [data-cronus-theme=\"{preset}\"] {{");
         css.push_str(&TOKENS_CSS.replacen(&needle, &repl, 1));
         css.push('\n');
+        if crate::cronus_ui::normalize_mode(mode) == "system" {
+            css.push_str(&system_mode_css(preset));
+        }
     }
     css.push_str(&registry().theme);
     css
@@ -334,36 +362,48 @@ fn assemble(tokens: &str, base: &str, components: &str, layered: bool) -> String
     css
 }
 
-fn build(preset: &str, usage: &Usage, layered: bool, audit: bool) -> String {
+fn build(preset: &str, mode: &str, usage: &Usage, layered: bool, audit: bool) -> String {
     let base = if usage.any_slot || !usage.families.is_empty() {
         BASE_CSS
     } else {
         ""
     };
     assemble(
-        &tokens_part(preset, audit),
+        &tokens_part(preset, mode, audit),
         base,
         &components_part(usage, false),
         layered,
     )
 }
 
-/// Stylesheet for one rendered page: tokens and theme always; base, shared and
-/// family blocks only for the families used by `html`.
+/// Dark-mode page stylesheet (see `page_stylesheet_for`).
 pub fn page_stylesheet(preset: &str, html: &str, layered: bool) -> String {
-    build(preset, &page_usage(html), layered, false)
+    page_stylesheet_for(preset, html, layered, "dark")
+}
+
+/// Stylesheet for one rendered page: tokens and theme always; base, shared and
+/// family blocks only for the families used by `html`. `mode` is the
+/// `style { theme }` value; only `system` changes the CSS (light/dark are
+/// selected by `data-cronus-mode` on `<html>`).
+pub fn page_stylesheet_for(preset: &str, html: &str, layered: bool, mode: &str) -> String {
+    build(preset, mode, &page_usage(html), layered, false)
 }
 
 /// Self-contained audit canvas stylesheet: preflight + tokens (theme/mode from
 /// `<html>` attributes) + the families in `widget_html`. Always layered.
 pub fn audit_stylesheet(widget_html: &str) -> String {
-    build("", &page_usage(widget_html), true, true)
+    build("", "dark", &page_usage(widget_html), true, true)
 }
 
-/// Every family, unlayered: the pre-split `token_css` output.
+/// Every family, unlayered: the pre-split `token_css` output (dark mode).
 pub fn full_stylesheet(preset: &str) -> String {
+    full_stylesheet_for(preset, "dark")
+}
+
+/// Every family, unlayered, for a color mode.
+pub fn full_stylesheet_for(preset: &str, mode: &str) -> String {
     assemble(
-        &tokens_part(preset, false),
+        &tokens_part(preset, mode, false),
         BASE_CSS,
         &components_part(&Usage::default(), true),
         false,
@@ -373,7 +413,7 @@ pub fn full_stylesheet(preset: &str) -> String {
 /// Every family, layered, with the audit preflight.
 pub fn full_audit_stylesheet() -> String {
     assemble(
-        &tokens_part("", true),
+        &tokens_part("", "dark", true),
         BASE_CSS,
         &components_part(&Usage::default(), true),
         true,
@@ -607,6 +647,63 @@ mod tests {
         assert!(!named.contains("@layer cronus.components"));
         assert!(!named.contains("@layer cronus.base"));
         assert!(!named.contains("[popover]"));
+    }
+
+    const NAMED_PRESETS: &[&str] = &["aurora", "neutral", "midnight", "sunset", "emerald"];
+
+    #[test]
+    fn system_mode_ships_other_mode_tokens_under_media_query() {
+        for preset in NAMED_PRESETS {
+            let dark = page_stylesheet_for(preset, "<p>ok</p>", true, "dark");
+            let system = page_stylesheet_for(preset, "<p>ok</p>", true, "system");
+            let rule = format!("[data-cronus-theme=\"{preset}\"][data-cronus-mode=\"system\"] {{");
+            assert!(system.contains(&rule), "{preset}: missing system rule");
+            assert!(!dark.contains(&rule));
+            // Only the delta block is added, not a second copy of the tokens.
+            let added = system.len() - dark.len();
+            assert!(added > 500 && added < 3000, "{preset}: added {added} bytes");
+            // The system rule sits inside the media query, inside the tokens layer.
+            let media = system.find("@media (prefers-color-scheme: ").unwrap();
+            assert!(system.find(&rule).unwrap() > media);
+            assert!(media > system.find("@layer cronus.tokens {").unwrap());
+        }
+        let aurora = page_stylesheet_for("aurora", "", true, "system");
+        let block = &aurora[aurora.find("@media (prefers-color-scheme: light)").unwrap()..];
+        assert!(block.contains("color-scheme: light;"));
+        assert!(block.contains("--cronus-surface-base: oklch(1 0 0);"));
+        let neutral = page_stylesheet_for("neutral", "", true, "system");
+        let block = &neutral[neutral.find("@media (prefers-color-scheme: dark)").unwrap()..];
+        assert!(block.contains("color-scheme: dark;"));
+        assert!(block.contains("--cronus-surface-base: oklch(0.11 0 0);"));
+    }
+
+    #[test]
+    fn light_and_dark_modes_do_not_change_page_css() {
+        for preset in ["aurora", "neutral", "legacy"] {
+            let html = "<button data-slot=\"button\">Save</button>";
+            let base = page_stylesheet(preset, html, true);
+            assert_eq!(page_stylesheet_for(preset, html, true, "dark"), base);
+            assert_eq!(page_stylesheet_for(preset, html, true, "light"), base);
+            assert!(!base.contains("prefers-color-scheme"));
+        }
+        // Legacy pages get no vendored tokens, so `system` adds nothing either.
+        assert_eq!(
+            page_stylesheet_for("legacy", "<p></p>", false, "system"),
+            page_stylesheet("legacy", "<p></p>", false)
+        );
+        assert_eq!(
+            crate::cronus_ui::token_css("aurora", "light"),
+            full_stylesheet("aurora")
+        );
+        assert!(crate::cronus_ui::token_css("aurora", "system").contains("mode=\"system\""));
+    }
+
+    #[test]
+    fn audit_stylesheet_has_no_system_mode_css() {
+        let css = audit_stylesheet("<button data-slot=\"button\">Save</button>");
+        assert!(!css.contains("prefers-color-scheme: light"));
+        assert!(!css.contains("data-cronus-mode=\"system\""));
+        assert!(!full_audit_stylesheet().contains("data-cronus-mode=\"system\""));
     }
 
     fn components_layer(css: &str) -> &str {

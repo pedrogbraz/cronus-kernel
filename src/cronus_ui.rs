@@ -15,12 +15,22 @@ pub fn is_named_preset(preset: &str) -> bool {
     )
 }
 
+/// `style { theme … }` value as a color mode: `"light"`, `"system"` or
+/// `"dark"` (the default, also for unknown values).
+pub fn normalize_mode(mode: &str) -> &'static str {
+    match mode.trim().to_ascii_lowercase().as_str() {
+        "light" => "light",
+        "system" => "system",
+        _ => "dark",
+    }
+}
+
 /// Tokens + every family, unlayered (the pre-split output). Layouts emit
-/// `cronus_ui_css::page_stylesheet` instead, which ships only the families a
-/// page renders. `mode` is selected by `data-cronus-mode` and ignored here.
+/// `cronus_ui_css::page_stylesheet_for` instead, which ships only the families
+/// a page renders. `light`/`dark` are selected by `data-cronus-mode`; `system`
+/// adds the preset's other-mode tokens under `prefers-color-scheme`.
 pub fn token_css(preset: &str, mode: &str) -> String {
-    let _ = mode;
-    crate::cronus_ui_css::full_stylesheet(preset)
+    crate::cronus_ui_css::full_stylesheet_for(preset, mode)
 }
 
 /// Audit preflight + vendored tokens + every family, layered. The audit

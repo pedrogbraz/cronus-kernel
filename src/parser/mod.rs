@@ -2482,7 +2482,10 @@ impl Parser {
         let mut config = HashMap::new();
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
-            if self.matches(TokenKind::Identifier, Some("theme")) {
+            // `mode` is an alias of `theme` (`light` | `dark` | `system`).
+            if self.matches(TokenKind::Identifier, Some("theme"))
+                || self.matches(TokenKind::Identifier, Some("mode"))
+            {
                 self.advance();
                 theme = Some(self.advance().value);
             } else if self.matches(TokenKind::Identifier, Some("accent")) {
@@ -3884,6 +3887,31 @@ mod parser_tests {
 
     fn describe(f: &FilterExpr) -> String {
         format!("{} {:?} {:?}", f.field, f.operator, f.value)
+    }
+
+    fn style_theme(body: &str) -> Option<String> {
+        let nodes = parse(&format!("style {{\n  {body}\n}}\n")).expect("parse");
+        let AstNode::Style(s) = &nodes[0] else {
+            panic!("expected style")
+        };
+        assert!(
+            !s.config.contains_key("mode"),
+            "mode must not land in config"
+        );
+        s.theme.clone()
+    }
+
+    #[test]
+    fn style_mode_is_an_alias_of_theme() {
+        assert_eq!(style_theme("theme light").as_deref(), Some("light"));
+        assert_eq!(style_theme("theme system").as_deref(), Some("system"));
+        assert_eq!(style_theme("mode light").as_deref(), Some("light"));
+        assert_eq!(style_theme("mode system").as_deref(), Some("system"));
+        assert_eq!(
+            style_theme("mode dark\n  preset aurora").as_deref(),
+            Some("dark")
+        );
+        assert_eq!(style_theme("accent blue"), None);
     }
 
     // ── `where x op:value` must equal `where x op value` ──
