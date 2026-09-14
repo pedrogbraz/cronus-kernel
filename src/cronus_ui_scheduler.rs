@@ -10,7 +10,9 @@
 //! `date:"YYYY-MM-DD"` config when given. Undated events follow the React audit
 //! harness placement (`scheduler-fixture.tsx`: first event on the 15th, the rest
 //! on the 20th) — the emitter cannot carry event dates, so both sides use one
-//! placement. `today:"YYYY-MM-DD"` highlights a day (React: opt-in `today`).
+//! placement. `today:"YYYY-MM-DD"` highlights a day (React: opt-in `today`);
+//! without it the 15th of the visible month is today, as the audit harness
+//! passes (`today={new Date(year, month, 15)}`).
 //!
 //! Zero JS divergences, all matching React's idle state: Prev/Today/Next and
 //! the event chips are `disabled` buttons (month navigation and
@@ -55,7 +57,9 @@ pub fn render(comp: &ComponentNode) -> String {
     let (year, month) = visible_month(comp);
     let title = format!("{} {year}", MONTHS[(month - 1) as usize]);
     let events = events(comp, year, month);
-    let today = attr_nonempty(comp, "today").and_then(parse_ymd);
+    let today = attr_nonempty(comp, "today")
+        .and_then(parse_ymd)
+        .or_else(|| Some(days_from_civil(year, month, 15)));
 
     let heads = WEEKDAYS
         .iter()
@@ -289,10 +293,14 @@ mod tests {
         assert_eq!(html.matches("<tr>").count(), 6);
         assert_eq!(html.matches("<td ").count(), 35);
         assert!(html.contains("<tbody><tr><td aria-label=\"Sunday, May 31, 2026\" data-outside=\"true\"><span>31</span><span></span></td><td aria-label=\"Monday, June 1, 2026\"><span>1</span><span></span></td>"));
-        assert!(html.contains("<td aria-label=\"Monday, June 15, 2026\"><span>15</span><span><button type=\"button\" data-slot=\"scheduler-event\" title=\"Launch call\" disabled>Launch call</button></span></td>"));
+        assert!(html.contains("<td aria-label=\"Monday, June 15, 2026\" aria-current=\"date\"><span>15</span><span><button type=\"button\" data-slot=\"scheduler-event\" title=\"Launch call\" disabled>Launch call</button></span></td>"));
         assert!(html.contains("<td aria-label=\"Saturday, June 20, 2026\"><span>20</span><span><button type=\"button\" data-slot=\"scheduler-event\" title=\"Webinar\" disabled>Webinar</button></span></td>"));
         assert!(html.ends_with("<td aria-label=\"Saturday, July 4, 2026\" data-outside=\"true\"><span>4</span><span></span></td></tr></tbody></table></div>"));
-        assert!(!html.contains("aria-current"));
+        // Pixel parity (scheduler/default): the harness passes today = the 15th.
+        assert!(html.contains(
+            "<td aria-label=\"Monday, June 15, 2026\" aria-current=\"date\"><span>15</span>"
+        ));
+        assert_eq!(html.matches("aria-current").count(), 1);
         assert!(!html.contains(">June 2026</button>"));
         reject_interact(&html);
     }
