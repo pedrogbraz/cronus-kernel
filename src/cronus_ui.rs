@@ -3279,6 +3279,18 @@ button:has(+ [data-slot="sheet-content"]) {
   fill: none; stroke: var(--cronus-primary); stroke-width: 2;
   stroke-linejoin: round; stroke-linecap: round;
 }
+[data-slot="dot-pattern"] {
+  position: relative; overflow: hidden;
+  color: var(--cronus-fg);
+}
+[data-slot="dot-pattern-field"] {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image: repeating-radial-gradient(circle at 8px 8px, var(--cronus-fg) 0 1px, transparent 1.25px 16px);
+  opacity: 0.18;
+}
+[data-slot="dot-pattern-content"] {
+  position: relative; z-index: 1;
+}
 
 "#;
 

@@ -172,6 +172,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "composed-chart" => Some("cronus_ui_composed_chart::render"),
         "heatmap-chart" => Some("cronus_ui_heatmap_chart::render"),
         "chart" => Some("cronus_ui_chart::render"),
+        "dot-pattern" => Some("cronus_ui_dot_pattern::render"),
         _ => None,
     }
 }
@@ -656,6 +657,14 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"heatmap-chart\"") && html.contains("<figcaption"))
         || html.contains("<figure data-slot=\"chart\"")
         || (html.contains("data-slot=\"chart\"") && html.contains("<figcaption"))
+        || (html.contains("data-slot=\"dot-pattern\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || !html.contains("data-slot=\"dot-pattern-field\"")
+                || !html.contains("data-slot=\"dot-pattern-content\"")
+                || html.contains("<script")
+                || html.contains("<canvas")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -948,6 +957,7 @@ mod tests {
             "src/cronus_ui_composed_chart.rs",
             "src/cronus_ui_heatmap_chart.rs",
             "src/cronus_ui_chart.rs",
+            "src/cronus_ui_dot_pattern.rs",
             "src/cronus_ui_sparkline.rs",
             "src/cronus_ui_pie_chart.rs",
             "src/cronus_ui_pill_nav.rs",

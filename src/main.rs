@@ -99,6 +99,7 @@ mod cronus_ui_date_range_picker;
 mod cronus_ui_description_list;
 mod cronus_ui_dialog;
 mod cronus_ui_dock;
+mod cronus_ui_dot_pattern;
 mod cronus_ui_drawer;
 mod cronus_ui_dropdown_menu;
 mod cronus_ui_dynamic_island;
