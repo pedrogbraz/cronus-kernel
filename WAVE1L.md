@@ -56,3 +56,25 @@ in the frozen audit screenshot; the kernel shows the settled body.
 | morphing-popover | 24,24 61.5×36 | 288×89 (column wrapper) → identical |
 | morphing-popover-trigger | 24,24 61.5×36, 14px/20px 500, r 10px, bg rgb(22,22,25) | 21px, r 14px → identical |
 | morphing-popover-content | -89.25,29 288×26, 16px/24px, border 1px, r 16px (used 13px) | 24,60 288×53 14px, border 0, r 18px → identical |
+## Wave 1t — geometry parity (2026-09-14)
+
+### tree-view
+DOM (React `tree-view.tsx`): `<div role="tree" aria-label="Files" data-slot="tree-view">`
+`<div data-slot="tree-view-item"><div role="treeitem" aria-level="1" aria-selected="false" aria-expanded="true" data-slot="tree-view-item-trigger" data-state="open">`
+`<svg … data-slot="tree-view-chevron">` `<span>src</span></div>`
+`<div role="group" data-slot="tree-view-group">` leaf items (`<span aria-hidden="true"></span><span>README.md</span>`).
+Content texts map like `tree-view-fixture.tsx`: ≥2 texts → first is an expanded branch holding the
+rest; one text → leaf. `label` is the `aria-label`, never a node. Expand/collapse, selection and
+roving tabindex need JS: static default-expanded state, no tabindex.
+CSS: root flex column 14/20 `fg`; trigger h 2rem gap 0.375rem px 0.5rem radius-md `fg-secondary`;
+level 2 `padding-inline-start: 1.5rem`; chevron/spacer 16px, chevron `fg-tertiary` rotated 90° when open;
+label truncates.
+
+| slot | React | Cronus |
+|---|---|---|
+| tree-view / item#0 | 24,24 432×64 14/20 | same |
+| tree-view-item-trigger#0 | 24,24 432×32 r10 | same |
+| tree-view-chevron | 32,32 16×16 | same |
+| tree-view-group / item-trigger#1 | 24,56 432×32 (pad-left 24) | same |
+
+Result: 0 mismatches.

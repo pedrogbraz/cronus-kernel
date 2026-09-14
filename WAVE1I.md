@@ -94,3 +94,33 @@ so no fixture size is mirrored. `resizable-panel` / `resizable` CSS removed.
 |---|---|---|
 | resizable-panel-group | 24,24 432×24, text "One Two" | identical |
 | resizable-handle | 239.5,24 1×24 | identical |
+## Wave 1t — geometry parity (2026-09-14)
+
+### scheduler
+DOM (React `scheduler.tsx`, month view, Sunday first): `<div data-slot="scheduler"><div>`
+`<h2 data-slot="scheduler-title">June 2026</h2><div>` Prev (`data-size="icon-sm"`), Today
+(`data-size="sm"`), Next outline `data-slot="button"`s `</div></div>`
+`<table data-slot="scheduler-grid" aria-label="Event calendar"><thead data-slot="scheduler-weekdays">…`
+then one `<tr>` per week of `<td aria-label="Sunday, May 31, 2026" [data-outside]>`
+`<span>31</span><span>` chips `<button data-slot="scheduler-event" title="…">` `</span></td>`.
+Month from the title (`label "June 2026"`) or `month:"YYYY-MM"`; events are content texts on
+`date:"YYYY-MM-DD"`, undated ones on the 15th (first) / 20th (rest) like `scheduler-fixture.tsx`;
+`today:"YYYY-MM-DD"` sets `aria-current="date"`. Max 3 chips + `scheduler-event-overflow`.
+Zero-JS control contract (Wave 1t): controls that need a runtime are React's own native element marked `disabled`, in React's idle look (dimmed only where React dims). Prev/Today/Next (month navigation) and event chips (`onEventClick`) are `disabled`.
+CSS: root radius-xl border `surface-base`; header flex space-between gap 0.5rem p 0.75rem bottom
+border; header buttons pinned to React line boxes (14/20, sm 12/16, svg 14px); title 14/20 w600 —
+header-scoped override (0,3,0) beats `html[data-cronus-theme] h2` (weight 400, -0.025em) and adds
+the React page's inherited `tabular-nums`; th 12/16 `fg-tertiary` px 0.5rem py 0.375rem bottom border;
+td h 6rem p 0.375rem right+bottom borders; day number 24px circle 12/16 w500; chips 12/16 w500
+radius 0.25rem, primary 15% tint + `primary-text`.
+
+| slot | React | Cronus |
+|---|---|---|
+| scheduler | 24,24 432×568 r18 | same |
+| scheduler-title | 37,43 72.75×20 w600 | same |
+| button ×3 | 310.42,37 32×32 · 346.42,37 60.58×32 · 411,37 32×32 r14 | same |
+| scheduler-grid / weekdays | 25,82 430×509 / 430×28.5 | same |
+| scheduler-event ×2 | 92.92,339 48.42×20 · 400.03,339 r4 | same |
+
+Result: 0 mismatches. Screenshot delta: React's harness passes `today` (15th → primary dot);
+the kernel only highlights with explicit `today:` (unmeasured, non-slot span).
