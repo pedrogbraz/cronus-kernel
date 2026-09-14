@@ -1,12 +1,20 @@
-//! Dedicated Noise renderer. DOM matches React:
-//! `<div data-slot="noise">` wrapping label text. CSS grain overlay lives in
-//! COMPONENT_CHROME. Not the catalog `fx()` title SURF box.
+//! Dedicated Noise renderer. DOM mirrors React:
+//! `<div data-slot="noise">` + aria-hidden inline `<svg>` with an
+//! `feTurbulence` grain filter painted on a full-size `<rect>` + a relative
+//! content `<div>` wrapping the label. The filter id is derived from the
+//! component name (React uses `useId`). Overlay opacity 0.08, sizing
+//! (fixture `h-32 w-72`) and positioning live in COMPONENT_CHROME — no
+//! inline style. Not the catalog `fx()` title SURF box.
 
-use crate::cronus_ui_kit::label_of;
+use crate::cronus_ui_kit::{label_of, widget_id};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    format!("<div data-slot=\"noise\">{}</div>", label_of(comp))
+    let id = widget_id(comp, "grain");
+    format!(
+        "<div data-slot=\"noise\"><svg aria-hidden=\"true\"><filter id=\"{id}\"><feTurbulence type=\"fractalNoise\" baseFrequency=\"0.8\" numOctaves=\"4\" stitchTiles=\"stitch\"></feTurbulence></filter><rect width=\"100%\" height=\"100%\" filter=\"url(#{id})\"></rect></svg><div>{}</div></div>",
+        label_of(comp)
+    )
 }
 
 #[cfg(test)]
@@ -29,22 +37,20 @@ mod tests {
     }
 
     #[test]
-    fn root_wraps_label_text_not_fx_title_box() {
+    fn root_has_svg_grain_and_content_div() {
         let html = render(&stub("noise", "Grain"));
-        assert_eq!(html, "<div data-slot=\"noise\">Grain</div>");
-        assert!(html.starts_with("<div "));
-        assert!(html.contains("data-slot=\"noise\""));
-        assert!(html.contains(">Grain</div>"));
+        assert_eq!(
+            html,
+            "<div data-slot=\"noise\"><svg aria-hidden=\"true\"><filter id=\"cui-noise-grain\"><feTurbulence type=\"fractalNoise\" baseFrequency=\"0.8\" numOctaves=\"4\" stitchTiles=\"stitch\"></feTurbulence></filter><rect width=\"100%\" height=\"100%\" filter=\"url(#cui-noise-grain)\"></rect></svg><div>Grain</div></div>"
+        );
+        assert_eq!(html.matches("data-slot=").count(), 1);
         reject_fx(&html);
     }
 
     #[test]
     fn label_is_escaped() {
         let html = render(&stub("noise", "A <B> & \"C\""));
-        assert_eq!(
-            html,
-            "<div data-slot=\"noise\">A &lt;B&gt; &amp; &quot;C&quot;</div>"
-        );
+        assert!(html.ends_with("<div>A &lt;B&gt; &amp; &quot;C&quot;</div></div>"));
         reject_fx(&html);
     }
 
@@ -54,10 +60,9 @@ mod tests {
         let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
             .unwrap();
         assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
         assert_ne!(html, fx);
-        assert!(!html.contains("<span"));
         reject_fx(&html);
+        assert_eq!(crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html), None);
     }
 
     #[test]
@@ -72,11 +77,10 @@ mod tests {
     #[test]
     fn chrome_noise_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"noise\"]"));
-        assert!(css.contains("opacity: 0.08"));
-        assert!(css.contains("mix-blend-mode: overlay"));
-        assert!(css.contains("repeating-radial-gradient"));
-        assert!(css.contains("var(--cronus-fg)"));
+        assert!(css.contains("[data-slot=\"noise\"] {\n  position: relative; overflow: hidden;\n  width: 18rem; height: 8rem;\n}"));
+        assert!(css.contains("[data-slot=\"noise\"] > svg {\n  position: absolute; inset: 0;\n  width: 100%; height: 100%;\n  pointer-events: none; opacity: 0.08;\n}"));
+        assert!(css.contains("[data-slot=\"noise\"] > div {\n  position: relative;\n}"));
+        assert!(!css.contains("[data-slot=\"noise\"]::after"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
     }

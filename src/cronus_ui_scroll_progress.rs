@@ -17,9 +17,11 @@ pub fn render(comp: &ComponentNode) -> String {
     }
 }
 
+/// Fill width comes from `data-value` via typed `attr()` in COMPONENT_CHROME
+/// (React writes `style.width`; the kernel emits no inline style).
 fn bar(now: &str, label: &str) -> String {
     format!(
-        "<div data-slot=\"scroll-progress\" data-variant=\"bar\" role=\"progressbar\" aria-valuenow=\"{now}\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-label=\"{label}\"><div data-slot=\"scroll-progress-fill\" style=\"width:{now}%\"></div></div>"
+        "<div data-slot=\"scroll-progress\" data-variant=\"bar\" role=\"progressbar\" aria-valuenow=\"{now}\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-label=\"{label}\"><div data-slot=\"scroll-progress-fill\" data-value=\"{now}\"></div></div>"
     )
 }
 
@@ -137,7 +139,8 @@ mod tests {
         assert!(html.contains("aria-valuemin=\"0\""));
         assert!(html.contains("aria-valuemax=\"100\""));
         assert!(html.contains("data-slot=\"scroll-progress-fill\""));
-        assert!(html.contains(&format!("style=\"width:{width}%\"")));
+        assert!(html.contains(&format!("data-value=\"{width}\"")));
+        assert!(!html.contains("style="));
         assert!(!html.contains("<progress"));
         reject_interact(html);
     }
@@ -149,7 +152,7 @@ mod tests {
         assert!(html.contains("aria-label=\"Reading\""));
         assert_eq!(
             html,
-            "<div data-slot=\"scroll-progress\" data-variant=\"bar\" role=\"progressbar\" aria-valuenow=\"40\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-label=\"Reading\"><div data-slot=\"scroll-progress-fill\" style=\"width:40%\"></div></div>"
+            "<div data-slot=\"scroll-progress\" data-variant=\"bar\" role=\"progressbar\" aria-valuenow=\"40\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-label=\"Reading\"><div data-slot=\"scroll-progress-fill\" data-value=\"40\"></div></div>"
         );
     }
 
@@ -218,7 +221,7 @@ mod tests {
         crate::voodoo::with_enabled(true, || {
             let html = render(&stub("scroll-progress", "Reading"));
             reject_interact(&html);
-            assert!(html.contains("style=\"width:40%\""));
+            assert!(html.contains("data-value=\"40\""));
         });
     }
 
@@ -228,6 +231,9 @@ mod tests {
         assert!(css.contains("[data-slot=\"scroll-progress\"]"));
         assert!(css.contains("[data-slot=\"scroll-progress-fill\"]"));
         assert!(css.contains("height: 0.25rem"));
+        // Fixture wrapper `w-72` (React bar is `w-full` inside it).
+        assert!(css.contains("[data-slot=\"scroll-progress\"] {\n  height: 0.25rem; width: 18rem; overflow: hidden;"));
+        assert!(css.contains("width: calc(attr(data-value type(<number>), 0) * 1%);"));
         assert!(css.contains("var(--cronus-surface-inset)"));
         assert!(css.contains("var(--cronus-primary)"));
         assert!(!css.contains("zinc-"));

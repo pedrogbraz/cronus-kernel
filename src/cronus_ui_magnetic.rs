@@ -104,8 +104,10 @@ mod tests {
     #[test]
     fn chrome_magnetic_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"magnetic\"]"));
-        assert!(css.contains("[data-slot=\"magnetic-target\"]"));
+        // Fixture `w-72` on the inline-block wrapper; the target is a block
+        // `<div>` in React (no display utility), so it spans the wrapper.
+        assert!(css.contains("[data-slot=\"magnetic\"] {\n  display: inline-block;\n  width: 18rem;\n  color: var(--cronus-fg);\n}"));
+        assert!(css.contains("[data-slot=\"magnetic-target\"] {\n  display: block;\n"));
         assert!(css.contains("translate(4px"));
         assert!(css.contains("prefers-reduced-motion"));
         assert!(css.contains("transform: none"));

@@ -118,3 +118,16 @@ Divergence: no count-up tween (React mounts at the target anyway).
 | slot | React | Cronus |
 |---|---|---|
 | animated-number | 24,27 43.5×18 "1,234" | same (was 9.8×24 "0") |
+### marquee
+DOM: `<div data-slot="marquee" aria-label="Logos"><div data-slot="marquee-group"><span>Acme</span><span>Globex</span></div></div>`.
+Items are the non-label rows; `aria-label` from props or item config (the emitter's `label "Logos"`
+had leaked in as an item). CSS root adds `width: 18rem`; item spans `padding-inline: 0.75rem;
+font-size: 0.875rem; line-height: 1.25rem` (React `px-3 text-sm`).
+
+| slot | React | Cronus |
+|---|---|---|
+| marquee | 24,24 288×20 "Acme Globex" | 24,24 288×20 "Acme Globex" |
+| marquee-group | 24,24 145.47×20 | 24,24 145.47×20 |
+
+Divergence: the React fixture forces `motionPreference="never"` (one static group); the kernel
+scrolls one group with `cui-marquee` (frozen by the spec).

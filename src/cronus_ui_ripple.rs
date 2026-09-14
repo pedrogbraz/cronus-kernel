@@ -1,21 +1,22 @@
-//! Dedicated Ripple renderer. DOM is CSS-only (React emits 8 rings with
-//! inline `--ripple-delay`): `<div data-slot="ripple">` + aria-hidden field
-//! of four empty `span data-slot="ripple-ring"` plus content wrapping the
-//! label. `@keyframes cui-ripple` lives in COMPONENT_CHROME — never a `<style>`
-//! tag. Zero JS, no inline style. Not the catalog `fx()` title SURF box.
+//! Dedicated Ripple renderer. DOM mirrors React's default `count=8`:
+//! `<div data-slot="ripple">` + aria-hidden field `<div>` of eight empty ring
+//! `<span>`s + a relative content `<div>` wrapping the label. Only the root
+//! carries a `data-slot` (React adds none to field/rings/content). The
+//! per-ring stagger React writes as inline `--ripple-delay` is
+//! `:nth-of-type` `animation-delay` (0s..7s) in COMPONENT_CHROME, as is the
+//! fixture `w-72 min-h-32`. `@keyframes cui-ripple` lives in COMPONENT_CHROME
+//! — never a `<style>` tag. Zero JS, no inline style.
 
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
 
-const RING: &str = "<span data-slot=\"ripple-ring\" aria-hidden=\"true\"></span>";
+/// React `Ripple` default `count`.
+const RINGS: usize = 8;
 
 pub fn render(comp: &ComponentNode) -> String {
     format!(
-        "<div data-slot=\"ripple\"><div data-slot=\"ripple-field\" aria-hidden=\"true\">{}{}{}{}</div><div data-slot=\"ripple-content\">{}</div></div>",
-        RING,
-        RING,
-        RING,
-        RING,
+        "<div data-slot=\"ripple\"><div aria-hidden=\"true\">{}</div><div>{}</div></div>",
+        "<span></span>".repeat(RINGS),
         label_of(comp)
     )
 }
@@ -51,26 +52,18 @@ mod tests {
         let html = render(&stub("ripple", "Pulse"));
         assert_eq!(
             html,
-            "<div data-slot=\"ripple\"><div data-slot=\"ripple-field\" aria-hidden=\"true\"><span data-slot=\"ripple-ring\" aria-hidden=\"true\"></span><span data-slot=\"ripple-ring\" aria-hidden=\"true\"></span><span data-slot=\"ripple-ring\" aria-hidden=\"true\"></span><span data-slot=\"ripple-ring\" aria-hidden=\"true\"></span></div><div data-slot=\"ripple-content\">Pulse</div></div>"
+            "<div data-slot=\"ripple\"><div aria-hidden=\"true\"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div><div>Pulse</div></div>"
         );
-        assert!(html.starts_with("<div "));
-        assert!(html.contains("data-slot=\"ripple\""));
-        assert!(html.contains("data-slot=\"ripple-field\""));
-        assert!(html.contains("data-slot=\"ripple-ring\""));
-        assert!(html.contains("data-slot=\"ripple-content\""));
-        assert!(html.contains("aria-hidden=\"true\""));
-        assert_eq!(html.matches("data-slot=\"ripple-ring\"").count(), 4);
-        assert!(html.contains(">Pulse</div></div>"));
+        assert_eq!(html.matches("data-slot=").count(), 1);
+        assert_eq!(html.matches("<span></span>").count(), 8);
+        assert!(!html.contains("ripple-ring"));
         reject_fx(&html);
     }
 
     #[test]
     fn label_is_escaped() {
         let html = render(&stub("ripple", "A <B> & \"C\""));
-        assert_eq!(
-            html,
-            "<div data-slot=\"ripple\"><div data-slot=\"ripple-field\" aria-hidden=\"true\"><span data-slot=\"ripple-ring\" aria-hidden=\"true\"></span><span data-slot=\"ripple-ring\" aria-hidden=\"true\"></span><span data-slot=\"ripple-ring\" aria-hidden=\"true\"></span><span data-slot=\"ripple-ring\" aria-hidden=\"true\"></span></div><div data-slot=\"ripple-content\">A &lt;B&gt; &amp; &quot;C&quot;</div></div>"
-        );
+        assert!(html.ends_with("<div>A &lt;B&gt; &amp; &quot;C&quot;</div></div>"));
         assert!(!html.contains("<B>"));
         reject_fx(&html);
     }
@@ -84,11 +77,10 @@ mod tests {
         let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
             .unwrap();
         assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
-        assert!(!html.contains("<span>Demo</span></div>"));
         reject_fx(&html);
+        assert_eq!(crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html), None);
         assert_eq!(
             dedicated_fn_name("ripple"),
             Some("cronus_ui_ripple::render")
@@ -107,26 +99,22 @@ mod tests {
             let html = render(&stub("ripple", "Pulse"));
             reject_fx(&html);
             assert!(html.contains("data-slot=\"ripple\""));
-            assert!(html.contains("data-slot=\"ripple-field\""));
-            assert_eq!(html.matches("data-slot=\"ripple-ring\"").count(), 4);
-            assert!(html.contains("data-slot=\"ripple-content\""));
+            assert_eq!(html.matches("<span></span>").count(), 8);
         });
     }
 
     #[test]
     fn chrome_ripple_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"ripple\"]"));
-        assert!(css.contains("[data-slot=\"ripple-field\"]"));
-        assert!(css.contains("[data-slot=\"ripple-ring\"]"));
-        assert!(css.contains("[data-slot=\"ripple-content\"]"));
+        assert!(css.contains("[data-slot=\"ripple\"] {\n  position: relative; overflow: hidden;\n  width: 18rem; min-height: 8rem;"));
+        assert!(css.contains("[data-slot=\"ripple\"] > [aria-hidden=\"true\"] > span {"));
+        assert!(css.contains("[data-slot=\"ripple\"] > div:last-child {\n  position: relative;\n}"));
+        assert!(css.contains("> span:nth-of-type(8) { animation-delay: 7s; }"));
+        assert!(!css.contains("[data-slot=\"ripple-ring\"]"));
         assert!(css.contains("@keyframes cui-ripple"));
         assert!(css.contains("animation: cui-ripple"));
-        assert!(css.contains("nth-of-type"));
-        assert!(css.contains("animation-delay"));
         assert!(css.contains("prefers-reduced-motion"));
         assert!(css.contains("var(--cronus-primary)"));
-        assert!(!css.contains("<canvas"));
         assert!(!css.contains("--ripple-delay"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
