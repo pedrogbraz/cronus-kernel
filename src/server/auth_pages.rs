@@ -149,9 +149,28 @@ function renderAccounts() {{
     var card = document.createElement('div');
     card.className = 'account-card';
     card.onclick = function() {{ selectAccount(acc.email); }};
-    card.innerHTML = '<div class="account-avatar">' + acc.initial + '</div>' +
-      '<div class="account-info"><div class="account-name">' + acc.name + '</div><div class="account-email">' + acc.email + '</div></div>' +
-      '<div class="account-remove" onclick="event.stopPropagation();removeAccount(\'' + acc.email + '\')" title="Remove"><span class="material-symbols-outlined" style="font-size:16px">close</span></div>';
+    // Saved names/emails are user-chosen: build nodes, never HTML strings.
+    var avatar = document.createElement('div');
+    avatar.className = 'account-avatar';
+    avatar.textContent = acc.initial || '?';
+    var info = document.createElement('div');
+    info.className = 'account-info';
+    var nameEl = document.createElement('div');
+    nameEl.className = 'account-name';
+    nameEl.textContent = acc.name || '';
+    var emailEl = document.createElement('div');
+    emailEl.className = 'account-email';
+    emailEl.textContent = acc.email || '';
+    info.appendChild(nameEl);
+    info.appendChild(emailEl);
+    var removeEl = document.createElement('div');
+    removeEl.className = 'account-remove';
+    removeEl.title = 'Remove';
+    removeEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">close</span>';
+    removeEl.onclick = function(e) {{ e.stopPropagation(); removeAccount(acc.email); }};
+    card.appendChild(avatar);
+    card.appendChild(info);
+    card.appendChild(removeEl);
     list.appendChild(card);
   }});
   document.getElementById('accountsView').style.display = 'flex';

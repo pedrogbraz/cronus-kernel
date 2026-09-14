@@ -12,8 +12,8 @@ pub(super) fn render_chart_section(section: &SectionNode, bound_data: &crate::bi
         rows.iter().filter_map(|row| {
             let label = row.get("label").or_else(|| row.get("name")).or_else(|| row.get("title"))
                 .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
+                .map(crate::security::html_escape)
+                .unwrap_or_default();
             if label.is_empty() { return None; }
             let val = row.get("value").or_else(|| row.get("amount")).or_else(|| row.get("count"))
                 .and_then(|v| v.as_f64())
@@ -315,5 +315,47 @@ pub(super) fn render_chart_donut(title: &str, subtitle: &str, data: &[(String, f
         segments = segments.join("\n      "),
         legend = legend,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::binding::ResolvedData;
+    use serde_json::json;
+    use std::collections::HashMap;
+
+    fn chart(kind: &str) -> SectionNode {
+        let mut config = HashMap::new();
+        config.insert("type".to_string(), kind.to_string());
+        SectionNode {
+            section_type: "chart".into(),
+            title: None,
+            subtitle: None,
+            config,
+            items: vec![],
+            plans: vec![],
+            binding: None,
+            actions: vec![],
+            visibility: None,
+            template: None,
+            style_block: None,
+            doc: None,
+        }
+    }
+
+    #[test]
+    fn chart_labels_from_rows_are_escaped_for_every_chart_type() {
+        let rows = ResolvedData::Rows(vec![
+            json!({"label": "<svg onload=alert(1)>", "value": 3}),
+            json!({"name": "\"><script>c()</script>", "value": 5}),
+        ]);
+        for kind in ["bar", "line", "donut"] {
+            let html = render_chart_section(&chart(kind), &rows);
+            assert!(!html.is_empty(), "{kind}");
+            assert!(!html.contains("<svg onload"), "{kind}: {html}");
+            assert!(!html.contains("<script>c()"), "{kind}: {html}");
+            assert!(html.contains("&lt;svg onload=alert(1)&gt;"), "{kind}: {html}");
+        }
+    }
 }
 

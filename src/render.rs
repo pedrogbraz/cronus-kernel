@@ -82,6 +82,10 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
       });
     });
 
+    // API rows are data: escape everything that goes through innerHTML.
+    window.__cronusEsc=window.__cronusEsc||function(s){
+      return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});
+    };
     // Auto-fetch lists
     document.querySelectorAll('[data-list]').forEach(async function(el){
       if(el._cronus) return;
@@ -95,18 +99,18 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
         if(!data.length){el.innerHTML='<p class="text-neutral-500 p-4">No data yet</p>';return;}
         if(cols.length){
           var html='<table class="w-full"><thead class="border-b border-neutral-800"><tr>';
-          cols.forEach(function(c){html+='<th class="px-4 py-3 text-left text-xs font-medium text-neutral-400 uppercase">'+c+'</th>';});
+          cols.forEach(function(c){html+='<th class="px-4 py-3 text-left text-xs font-medium text-neutral-400 uppercase">'+window.__cronusEsc(c)+'</th>';});
           html+='</tr></thead><tbody>';
           data.forEach(function(row){
             html+='<tr class="border-b border-neutral-800/50">';
-            cols.forEach(function(c){html+='<td class="px-4 py-3 text-sm text-neutral-300">'+(row[c]||'—')+'</td>';});
+            cols.forEach(function(c){html+='<td class="px-4 py-3 text-sm text-neutral-300">'+window.__cronusEsc(row[c]||'—')+'</td>';});
             html+='</tr>';
           });
           html+='</tbody></table>';
           el.innerHTML=html;
         }else{
           el.innerHTML=data.map(function(item){
-            return '<div class="p-3 border-b border-neutral-800 text-sm text-neutral-300">'+JSON.stringify(item)+'</div>';
+            return '<div class="p-3 border-b border-neutral-800 text-sm text-neutral-300">'+window.__cronusEsc(JSON.stringify(item))+'</div>';
           }).join('');
         }
       }catch(e){el.innerHTML='<p class="text-neutral-500 p-4">Error loading</p>';}
@@ -537,10 +541,13 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
     }
     setTimeout(prefetchNext,1000);
     // Highlight match in text
+    function esc(s){
+      return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});
+    }
     function hl(text,q){
       var i=text.toLowerCase().indexOf(q.toLowerCase());
-      if(i===-1)return text;
-      return text.substring(0,i)+'<mark class="cronus-search-hl">'+text.substring(i,i+q.length)+'</mark>'+text.substring(i+q.length);
+      if(i===-1)return esc(text);
+      return esc(text.substring(0,i))+'<mark class="cronus-search-hl">'+esc(text.substring(i,i+q.length))+'</mark>'+esc(text.substring(i+q.length));
     }
     // Render results
     function renderResults(q){
@@ -552,7 +559,7 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
         return p.title.toLowerCase().indexOf(ql)>-1||p.category.toLowerCase().indexOf(ql)>-1||p.content.indexOf(ql)>-1;
       }).slice(0,10);
       if(matches.length===0){
-        dropdown.innerHTML='<div style="padding:14px 16px;color:#555;font-size:13px">No results for "<span style="color:#999">'+q+'</span>"</div>';
+        dropdown.innerHTML='<div style="padding:14px 16px;color:#555;font-size:13px">No results for "<span style="color:#999">'+esc(q)+'</span>"</div>';
         dropdown.style.display='block';
         return;
       }
@@ -561,7 +568,7 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
         item.href=p.href;
         item.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 14px;color:#ccc;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.04);transition:background 0.1s;cursor:pointer';
         var icon=p.href.charAt(0)==='#'?'tag':'description';
-        item.innerHTML='<span class="material-symbols-outlined" style="font-size:16px;color:#555">'+icon+'</span><div style="flex:1;min-width:0"><div style="font-weight:500;color:#eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+hl(p.title,q)+'</div><div style="font-size:11px;color:#555;margin-top:1px">'+p.category+(p.href.charAt(0)!=='#'?' — '+p.href:'')+'</div></div>';
+        item.innerHTML='<span class="material-symbols-outlined" style="font-size:16px;color:#555">'+icon+'</span><div style="flex:1;min-width:0"><div style="font-weight:500;color:#eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+hl(p.title,q)+'</div><div style="font-size:11px;color:#555;margin-top:1px">'+esc(p.category)+(p.href.charAt(0)!=='#'?' — '+esc(p.href):'')+'</div></div>';
         item.addEventListener('mouseenter',function(){item.style.background='rgba(204,0,0,0.08)'});
         item.addEventListener('mouseleave',function(){item.style.background='none'});
         item.addEventListener('click',function(e){

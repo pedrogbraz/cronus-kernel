@@ -1594,15 +1594,17 @@ pub(super) fn render_timeline_section(section: &SectionNode, bound_data: &crate:
     let timeline_items: Vec<TimelineItem> = if let crate::binding::ResolvedData::Rows(rows) = bound_data {
         if !rows.is_empty() {
             rows.iter().map(|row| {
+                // Row values are data: escape before they reach the markup.
+                let esc = crate::security::html_escape;
                 TimelineItem {
                     title: row.get("title").or_else(|| row.get("name"))
-                        .and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                        .and_then(|v| v.as_str()).map(esc).unwrap_or_default(),
                     description: row.get("description").or_else(|| row.get("desc"))
-                        .and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                        .and_then(|v| v.as_str()).map(esc).unwrap_or_default(),
                     time: row.get("time").or_else(|| row.get("date")).or_else(|| row.get("created_at"))
-                        .and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                        .and_then(|v| v.as_str()).map(esc).unwrap_or_default(),
                     icon: row.get("icon")
-                        .and_then(|v| v.as_str()).unwrap_or("circle").to_string(),
+                        .and_then(|v| v.as_str()).map(esc).unwrap_or_else(|| "circle".to_string()),
                     status: row.get("status")
                         .and_then(|v| v.as_str()).unwrap_or("info").to_string(),
                 }
@@ -1842,4 +1844,42 @@ pub(super) fn render_progress_section(section: &SectionNode, bound_data: &crate:
 </section>"##,
         title_html = title_html, steps = steps_html,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::binding::ResolvedData;
+    use serde_json::json;
+    use std::collections::HashMap;
+
+    #[test]
+    fn timeline_items_from_rows_are_escaped() {
+        let section = SectionNode {
+            section_type: "timeline".into(),
+            title: None,
+            subtitle: None,
+            config: HashMap::new(),
+            items: vec![],
+            plans: vec![],
+            binding: None,
+            actions: vec![],
+            visibility: None,
+            template: None,
+            style_block: None,
+            doc: None,
+        };
+        let rows = ResolvedData::Rows(vec![json!({
+            "title": "<script>tl()</script>",
+            "description": "<img src=x onerror=alert(1)>",
+            "time": "<b>now</b>",
+            "icon": "x\"><svg onload=1>",
+            "status": "done",
+        })]);
+        let html = render_timeline_section(&section, &rows);
+        assert!(html.contains("&lt;script&gt;tl()"), "{html}");
+        for raw in ["<script>tl()", "<img src=x", "<b>now</b>", "<svg onload"] {
+            assert!(!html.contains(raw), "found {raw:?} in {html}");
+        }
+    }
 }

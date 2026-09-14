@@ -17,11 +17,11 @@ pub(super) fn render_stat_cards(section: &SectionNode, bound_data: &crate::bindi
                 if let Some(obj) = row.as_object() {
                     for (k, v) in obj {
                         let val = match v {
-                            serde_json::Value::String(s) => s.clone(),
+                            serde_json::Value::String(s) => crate::security::html_escape(s),
                             serde_json::Value::Number(n) => n.to_string(),
                             serde_json::Value::Bool(b) => b.to_string(),
                             serde_json::Value::Null => String::new(),
-                            other => other.to_string(),
+                            other => crate::security::html_escape(&other.to_string()),
                         };
                         match k.as_str() {
                             "label" => { map.insert("title".to_string(), val); }
@@ -132,11 +132,11 @@ pub(super) fn render_kpi_section(section: &SectionNode, bound_data: &crate::bind
                 if let Some(obj) = row.as_object() {
                     for (k, v) in obj {
                         let val = match v {
-                            serde_json::Value::String(s) => s.clone(),
+                            serde_json::Value::String(s) => crate::security::html_escape(s),
                             serde_json::Value::Number(n) => n.to_string(),
                             serde_json::Value::Bool(b) => b.to_string(),
                             serde_json::Value::Null => String::new(),
-                            other => other.to_string(),
+                            other => crate::security::html_escape(&other.to_string()),
                         };
                         match k.as_str() {
                             "label" => { map.insert("title".to_string(), val); }
@@ -310,11 +310,11 @@ pub(super) fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crat
                 if let Some(obj) = row.as_object() {
                     for (k, v) in obj {
                         let val = match v {
-                            serde_json::Value::String(s) => s.clone(),
+                            serde_json::Value::String(s) => crate::security::html_escape(s),
                             serde_json::Value::Number(n) => n.to_string(),
                             serde_json::Value::Bool(b) => b.to_string(),
                             serde_json::Value::Null => String::new(),
-                            other => other.to_string(),
+                            other => crate::security::html_escape(&other.to_string()),
                         };
                         // Map entity fields to KPI card fields
                         match k.as_str() {
@@ -509,4 +509,63 @@ pub(super) fn render_kpi_dashboard_dark(section: &SectionNode, bound_data: &crat
 // ══════════════════════════════════════════════════
 // TIMELINE SECTION
 // ══════════════════════════════════════════════════
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::binding::ResolvedData;
+    use serde_json::json;
+    use std::collections::HashMap;
+
+    fn section(kind: &str) -> SectionNode {
+        SectionNode {
+            section_type: kind.into(),
+            title: None,
+            subtitle: None,
+            config: HashMap::new(),
+            items: vec![],
+            plans: vec![],
+            binding: None,
+            actions: vec![],
+            visibility: None,
+            template: None,
+            style_block: None,
+            doc: None,
+        }
+    }
+
+    fn hostile_rows() -> ResolvedData {
+        ResolvedData::Rows(vec![json!({
+            "label": "<script>kpi()</script>",
+            "value": "\"><img src=x onerror=alert(1)>",
+            "change": "+<b>5</b>",
+            "icon": "x\"><svg onload=1>",
+            "description": "<iframe src=//evil>",
+        })])
+    }
+
+    fn assert_escaped(html: &str) {
+        assert!(!html.contains("<script>kpi()"), "{html}");
+        assert!(!html.contains("<img src=x"), "{html}");
+        assert!(!html.contains("<b>5</b>"), "{html}");
+        assert!(!html.contains("<svg onload"), "{html}");
+        assert!(!html.contains("<iframe"), "{html}");
+        assert!(html.contains("&lt;script&gt;kpi()"), "{html}");
+    }
+
+    #[test]
+    fn stat_cards_escape_bound_row_values() {
+        assert_escaped(&render_stat_cards(&section("stat-cards"), &hostile_rows()));
+    }
+
+    #[test]
+    fn kpi_section_escapes_bound_row_values() {
+        assert_escaped(&render_kpi_section(&section("kpi"), &hostile_rows()));
+    }
+
+    #[test]
+    fn kpi_dashboard_dark_escapes_bound_row_values() {
+        assert_escaped(&render_kpi_dashboard_dark(&section("kpi"), &hostile_rows()));
+    }
+}
 

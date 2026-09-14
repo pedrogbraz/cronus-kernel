@@ -1010,7 +1010,9 @@ pub fn render_layout_landing_ex(app_name: &str, body: &str, theme: &str, style_n
         var entry=document.createElement('div');
         entry.className='flex gap-3';
         entry.style.cssText='opacity:0;transform:translateY(6px);transition:opacity 0.4s ease,transform 0.4s ease';
-        entry.innerHTML='<span class="shrink-0 text-on-surface-variant">'+ts+'</span><span class="'+l[1]+'">['+l[0]+']</span><span class="text-white/70">'+l[2]+'</span>';
+        [['shrink-0 text-on-surface-variant',ts],[l[1],'['+l[0]+']'],['text-white/70',l[2]]].forEach(function(p){{
+          var sp=document.createElement('span');sp.className=p[0];sp.textContent=p[1];entry.appendChild(sp);
+        }});
         logContainer.insertBefore(entry,logContainer.firstChild);
         requestAnimationFrame(function(){{requestAnimationFrame(function(){{
           entry.style.opacity='1';

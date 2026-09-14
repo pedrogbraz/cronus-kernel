@@ -377,9 +377,9 @@ fn render_list(page: &PageNode, entities: &[EntityNode], accent: &str) -> String
       }}).join('');
       var safeId=esc(row.id||'');
       var bg=i%2===0?'':'background:var(--surface-hover)';
-      return '<tr style="border-bottom:1px solid var(--surface-hover);'+bg+';cursor:pointer" onmouseover="this.style.background=\'var(--surface-hover)\'" onclick="cronusEdit(\''+lower+'\',\''+safeId+'\')" data-id="'+safeId+'">'+cells+
+      return '<tr style="border-bottom:1px solid var(--surface-hover);'+bg+';cursor:pointer" onmouseover="this.style.background=\'var(--surface-hover)\'" onclick="cronusEdit(this.dataset.entity,this.dataset.id)" data-entity="'+esc(lower)+'" data-id="'+safeId+'">'+cells+
         '<td style="padding:10px 8px;text-align:center;display:flex;gap:4px;align-items:center;justify-content:center">'+
-        '<button onclick="event.stopPropagation();cronusDelete(\''+lower+'\',\''+safeId+'\')" style="background:none;border:none;cursor:pointer;opacity:0.3;padding:2px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.3"><span class="material-symbols-outlined" style="font-size:16px;color:#dc2626">delete</span></button>'+
+        '<button onclick="event.stopPropagation();var r=this.closest(\'tr\');cronusDelete(r.dataset.entity,r.dataset.id)" style="background:none;border:none;cursor:pointer;opacity:0.3;padding:2px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.3"><span class="material-symbols-outlined" style="font-size:16px;color:#dc2626">delete</span></button>'+
         '<svg width="14" height="14" fill="none" stroke="var(--foreground-subtle)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>'+
         '</td></tr>';
     }}).join('');
@@ -1181,5 +1181,29 @@ mod tests {
                 forbidden
             );
         }
+    }
+
+    /// Row ids used to be concatenated into `onclick="cronusEdit('..','ID')"`.
+    /// `cronusEscape` turns `'` into `&#39;`, which the HTML parser decodes
+    /// back to `'` before the handler's JS is parsed, so an id could break out
+    /// of the string. Handlers now read `data-*` attributes instead.
+    #[test]
+    fn list_row_handlers_read_data_attributes_not_js_strings() {
+        let page = PageNode {
+            route: "/notes".to_string(),
+            page_type: "list".to_string(),
+            entity: Some("Note".to_string()),
+            title: None,
+            sections: vec![],
+            config: HashMap::new(),
+            components: Vec::new(),
+            requires: None,
+            doc: None,
+        };
+        let html = render_list(&page, &[], "blue");
+        assert!(html.contains("onclick=\"cronusEdit(this.dataset.entity,this.dataset.id)\""), "{html}");
+        assert!(html.contains("cronusDelete(r.dataset.entity,r.dataset.id)"), "{html}");
+        assert!(!html.contains("cronusEdit(\\''+lower"), "{html}");
+        assert!(!html.contains("'+safeId+'\\')"), "{html}");
     }
 }

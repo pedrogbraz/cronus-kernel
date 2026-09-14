@@ -112,7 +112,7 @@ pub fn render_kanban(section: &SectionNode, bound_data: &crate::binding::Resolve
         ));
         html.push_str(&format!(
             "      <span class=\"font-semibold text-sm\">{}</span>\n",
-            col.name
+            crate::security::html_escape(&col.name)
         ));
         html.push_str(&format!(
             "      <span class=\"text-neutral-400 text-xs ml-auto\">{}</span>\n",
@@ -129,7 +129,7 @@ pub fn render_kanban(section: &SectionNode, bound_data: &crate::binding::Resolve
             // Card title
             html.push_str(&format!(
                 "        <div class=\"text-sm font-medium mb-2\">{}</div>\n",
-                card.name
+                crate::security::html_escape(&card.name)
             ));
 
             // Card footer
@@ -146,7 +146,7 @@ pub fn render_kanban(section: &SectionNode, bound_data: &crate::binding::Resolve
                 if has_label {
                     html.push_str(&format!(
                         "            <span class=\"text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200\">{}</span>\n",
-                        card.label
+                        crate::security::html_escape(&card.label)
                     ));
                 }
 
@@ -154,7 +154,7 @@ pub fn render_kanban(section: &SectionNode, bound_data: &crate::binding::Resolve
                     let (bg, text, border) = priority_classes(&card.priority);
                     html.push_str(&format!(
                         "            <span class=\"text-xs px-2 py-0.5 rounded-full {} {} border {}\">{}</span>\n",
-                        bg, text, border, card.priority
+                        bg, text, border, crate::security::html_escape(&card.priority)
                     ));
                 }
 
@@ -165,7 +165,7 @@ pub fn render_kanban(section: &SectionNode, bound_data: &crate::binding::Resolve
                     let initials = assignee_initials(&card.assignee);
                     html.push_str(&format!(
                         "          <div class=\"w-6 h-6 rounded-full bg-neutral-200 text-[10px] font-semibold flex items-center justify-center uppercase\" title=\"{}\">{}</div>\n",
-                        card.assignee, initials
+                        crate::security::html_escape(&card.assignee), crate::security::html_escape(&initials)
                     ));
                 }
 
@@ -297,4 +297,44 @@ pub fn render_dark_mode_toggle(_section: &SectionNode) -> String {
     html.push_str("</script>\n");
 
     html
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::binding::ResolvedData;
+    use serde_json::json;
+
+    #[test]
+    fn kanban_cards_from_rows_are_escaped() {
+        let mut column = HashMap::new();
+        column.insert("column".to_string(), "true".to_string());
+        column.insert("name".to_string(), "Todo".to_string());
+        let section = SectionNode {
+            section_type: "kanban".into(),
+            title: None,
+            subtitle: None,
+            config: HashMap::new(),
+            items: vec![column],
+            plans: vec![],
+            binding: None,
+            actions: vec![],
+            visibility: None,
+            template: None,
+            style_block: None,
+            doc: None,
+        };
+        let rows = ResolvedData::Rows(vec![json!({
+            "name": "<script>card()</script>",
+            "assignee": "\" onmouseover=\"alert(1)",
+            "priority": "<i>p</i>",
+            "label": "<u>l</u>",
+            "status": "Todo",
+        })]);
+        let html = render_kanban(&section, &rows);
+        assert!(html.contains("&lt;script&gt;card()"), "{html}");
+        for raw in ["<script>card()", "\" onmouseover=\"alert", "<i>p</i>", "<u>l</u>"] {
+            assert!(!html.contains(raw), "found {raw:?} in {html}");
+        }
+    }
 }

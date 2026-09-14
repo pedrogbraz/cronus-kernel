@@ -15,7 +15,9 @@ pub(super) fn render_form_section(section: &SectionNode, bound_data: &crate::bin
     let record_id = bound_record
         .and_then(|r| r.get("id"))
         .and_then(|v| v.as_str())
-        .unwrap_or("");
+        .map(crate::security::html_escape)
+        .unwrap_or_default();
+    let record_id = record_id.as_str();
 
     // Check if on submit has "update entity" instruction
     let has_update_action = section.actions.iter().any(|a| {
@@ -97,6 +99,10 @@ pub(super) fn render_form_section(section: &SectionNode, bound_data: &crate::bin
             } else {
                 static_value
             };
+            // Bound values come from the DB and land in value="" / <textarea>.
+            let raw_value = value;
+            let escaped_value = crate::security::html_escape(raw_value);
+            let value = escaped_value.as_str();
 
             let label_style = "display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--cronus-text-muted);margin-bottom:8px";
             let input_style = "width:100%;padding:12px 16px;border:1px solid var(--cronus-border);border-radius:var(--cronus-radius);font-size:14px;outline:none;font-family:var(--cronus-font);transition:border-color 0.2s;box-sizing:border-box;background:var(--cronus-surface);color:var(--cronus-text)";
@@ -115,7 +121,7 @@ pub(super) fn render_form_section(section: &SectionNode, bound_data: &crate::bin
                     let options: Vec<&str> = if options_raw.is_empty() { vec![] } else { options_raw.split("||").collect() };
                     let mut opts_html = format!(r#"<option value="">Select {}...</option>"#, item_title);
                     for opt in &options {
-                        let selected = if *opt == value { " selected" } else { "" };
+                        let selected = if *opt == raw_value { " selected" } else { "" };
                         opts_html.push_str(&format!(r#"<option value="{v}"{sel}>{v}</option>"#, v = opt, sel = selected));
                     }
                     fields_html.push_str(&format!(
@@ -316,5 +322,63 @@ pub(super) fn render_form_section(section: &SectionNode, bound_data: &crate::bin
         section_type = section.section_type, edit_attrs = edit_attrs,
         hidden_id = hidden_id, fields = fields_html, actions = actions_html, links = links_html,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::binding::ResolvedData;
+    use serde_json::json;
+    use std::collections::HashMap;
+
+    fn field(title: &str, ftype: &str, options: Option<&str>) -> HashMap<String, String> {
+        let mut m = HashMap::new();
+        m.insert("_type".to_string(), "field".to_string());
+        m.insert("title".to_string(), title.to_string());
+        m.insert("type".to_string(), ftype.to_string());
+        if let Some(o) = options {
+            m.insert("options".to_string(), o.to_string());
+        }
+        m
+    }
+
+    fn form() -> SectionNode {
+        let mut config = HashMap::new();
+        config.insert("entity".to_string(), "Note".to_string());
+        SectionNode {
+            section_type: "form".into(),
+            title: None,
+            subtitle: None,
+            config,
+            items: vec![
+                field("Title", "text", None),
+                field("Body", "textarea", None),
+                field("Status", "select", Some("open||closed")),
+            ],
+            plans: vec![],
+            binding: None,
+            actions: vec![],
+            visibility: None,
+            template: None,
+            style_block: None,
+            doc: None,
+        }
+    }
+
+    #[test]
+    fn bound_form_values_cannot_break_out_of_attributes_or_textarea() {
+        let record = ResolvedData::Record(Some(json!({
+            "id": "1\"><script>id()</script>",
+            "title": "\" autofocus onfocus=alert(1) x=\"",
+            "body": "</textarea><script>body()</script>",
+            "status": "closed",
+        })));
+        let html = render_form_section(&form(), &record);
+        assert!(!html.contains("\" autofocus onfocus"), "{html}");
+        assert!(!html.contains("</textarea><script>"), "{html}");
+        assert!(!html.contains("<script>id()"), "{html}");
+        assert!(html.contains("&quot; autofocus onfocus=alert(1) x=&quot;"), "{html}");
+        assert!(html.contains(r#"<option value="closed" selected>"#), "select still matches the raw value: {html}");
+    }
 }
 
