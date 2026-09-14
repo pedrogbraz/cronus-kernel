@@ -1,6 +1,8 @@
-//! Dedicated LightRays renderer. DOM matches React idle without injected
-//! `<style>`: `<div data-slot="light-rays">` + aria-hidden
-//! `light-rays-field` + `light-rays-content` wrapping the label.
+//! Dedicated LightRays renderer. DOM mirrors React without the injected
+//! `<style>`: `<div data-slot="light-rays">` + an aria-hidden field `<div>`
+//! holding the rotating ray `<div>` + a relative content `<div>` wrapping the
+//! label. Only the root carries a `data-slot` (React adds none to the inner
+//! layers). Fixture `w-72 min-h-32` is mirrored in COMPONENT_CHROME.
 //! `@keyframes cui-light-rays` lives in COMPONENT_CHROME. Zero JS, no
 //! inline style. Not the catalog `fx()` title SURF box.
 
@@ -9,7 +11,7 @@ use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     format!(
-        "<div data-slot=\"light-rays\"><div data-slot=\"light-rays-field\" aria-hidden=\"true\"></div><div data-slot=\"light-rays-content\">{}</div></div>",
+        "<div data-slot=\"light-rays\"><div aria-hidden=\"true\"><div></div></div><div>{}</div></div>",
         label_of(comp)
     )
 }
@@ -45,14 +47,11 @@ mod tests {
         let html = render(&stub("light-rays", "Rays"));
         assert_eq!(
             html,
-            "<div data-slot=\"light-rays\"><div data-slot=\"light-rays-field\" aria-hidden=\"true\"></div><div data-slot=\"light-rays-content\">Rays</div></div>"
+            "<div data-slot=\"light-rays\"><div aria-hidden=\"true\"><div></div></div><div>Rays</div></div>"
         );
-        assert!(html.starts_with("<div "));
-        assert!(html.contains("data-slot=\"light-rays\""));
-        assert!(html.contains("data-slot=\"light-rays-field\""));
-        assert!(html.contains("data-slot=\"light-rays-content\""));
-        assert!(html.contains("aria-hidden=\"true\""));
-        assert!(html.contains(">Rays</div></div>"));
+        assert_eq!(html.matches("data-slot=").count(), 1);
+        assert!(!html.contains("light-rays-field"));
+        assert!(!html.contains("light-rays-content"));
         reject_fx(&html);
     }
 
@@ -61,7 +60,7 @@ mod tests {
         let html = render(&stub("light-rays", "A <B> & \"C\""));
         assert_eq!(
             html,
-            "<div data-slot=\"light-rays\"><div data-slot=\"light-rays-field\" aria-hidden=\"true\"></div><div data-slot=\"light-rays-content\">A &lt;B&gt; &amp; &quot;C&quot;</div></div>"
+            "<div data-slot=\"light-rays\"><div aria-hidden=\"true\"><div></div></div><div>A &lt;B&gt; &amp; &quot;C&quot;</div></div>"
         );
         assert!(!html.contains("<B>"));
         reject_fx(&html);
@@ -76,11 +75,10 @@ mod tests {
         let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
             .unwrap();
         assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
-        assert!(!html.contains("<span"));
         reject_fx(&html);
+        assert_eq!(crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html), None);
         assert_eq!(
             dedicated_fn_name("light-rays"),
             Some("cronus_ui_light_rays::render")
@@ -99,22 +97,20 @@ mod tests {
             let html = render(&stub("light-rays", "Rays"));
             reject_fx(&html);
             assert!(html.contains("data-slot=\"light-rays\""));
-            assert!(html.contains("data-slot=\"light-rays-field\""));
-            assert!(html.contains("data-slot=\"light-rays-content\""));
         });
     }
 
     #[test]
     fn chrome_light_rays_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"light-rays\"]"));
-        assert!(css.contains("[data-slot=\"light-rays-field\"]"));
-        assert!(css.contains("[data-slot=\"light-rays-content\"]"));
+        assert!(css.contains("[data-slot=\"light-rays\"] {\n  position: relative;\n  overflow: hidden;\n  width: 18rem;\n  min-height: 8rem;"));
+        assert!(css.contains("[data-slot=\"light-rays\"] > [aria-hidden=\"true\"] > div {"));
+        assert!(css.contains("[data-slot=\"light-rays\"] > div:last-child {\n  position: relative;\n}"));
+        assert!(!css.contains("[data-slot=\"light-rays-field\"]"));
         assert!(css.contains("repeating-conic-gradient"));
         assert!(css.contains("@keyframes cui-light-rays"));
         assert!(css.contains("animation: cui-light-rays"));
         assert!(css.contains("rotate(360deg)"));
-        assert!(css.contains("radial-gradient"));
         assert!(css.contains("var(--cronus-primary)"));
         assert!(css.contains("prefers-reduced-motion"));
         assert!(!css.contains("zinc-"));

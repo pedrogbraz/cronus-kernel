@@ -1,12 +1,14 @@
-//! Dedicated Shimmer renderer. DOM matches React:
-//! `<div data-slot="shimmer" aria-hidden="true">` (empty skeleton-like block).
-//! Sweep lives in COMPONENT_CHROME (`::after` + `@keyframes cui-shimmer`).
-//! Not the catalog `fx()` title SURF box.
+//! Dedicated Shimmer renderer. DOM mirrors React:
+//! `<div data-slot="shimmer" aria-hidden="true">` + an empty sweep `<div>`
+//! (React: `absolute inset-0 animate-shimmer` gradient). Fixture default
+//! `h-8 w-48`, `rounded-md bg-surface-overlay` and the sweep
+//! (`@keyframes cui-shimmer`) live in COMPONENT_CHROME. Not the catalog
+//! `fx()` title SURF box.
 
 use crate::parser::ComponentNode;
 
 pub fn render(_comp: &ComponentNode) -> String {
-    "<div data-slot=\"shimmer\" aria-hidden=\"true\"></div>".into()
+    "<div data-slot=\"shimmer\" aria-hidden=\"true\"><div></div></div>".into()
 }
 
 #[cfg(test)]
@@ -30,17 +32,12 @@ mod tests {
     }
 
     #[test]
-    fn root_is_empty_div_not_fx_title_box() {
+    fn root_is_block_with_sweep_layer_not_fx_title_box() {
         let html = render(&stub("shimmer", "Demo"));
         assert_eq!(
             html,
-            "<div data-slot=\"shimmer\" aria-hidden=\"true\"></div>"
+            "<div data-slot=\"shimmer\" aria-hidden=\"true\"><div></div></div>"
         );
-        assert!(html.starts_with("<div "));
-        assert!(html.contains("data-slot=\"shimmer\""));
-        assert!(html.contains("aria-hidden=\"true\""));
-        assert!(!html.contains("height:0.9rem"));
-        assert!(!html.contains("width:8rem"));
         reject_fx(&html);
     }
 
@@ -50,10 +47,9 @@ mod tests {
         let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
             .unwrap();
         assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
         assert_ne!(html, fx);
-        assert!(!html.contains("<span"));
         reject_fx(&html);
+        assert_eq!(crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html), None);
     }
 
     #[test]
@@ -67,10 +63,8 @@ mod tests {
     #[test]
     fn chrome_shimmer_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"shimmer\"]"));
-        assert!(css.contains("width: 8rem"));
-        assert!(css.contains("height: 0.9rem"));
-        assert!(css.contains("border-radius: var(--cronus-radius-md)"));
+        assert!(css.contains("[data-slot=\"shimmer\"] {\n  display: block; position: relative; overflow: hidden;\n  height: 2rem; width: 12rem;\n  border-radius: var(--cronus-radius-md);"));
+        assert!(css.contains("[data-slot=\"shimmer\"] > div {\n  position: absolute; inset: 0;"));
         assert!(css.contains("var(--cronus-surface-overlay)"));
         assert!(css.contains("@keyframes cui-shimmer"));
         assert!(css.contains("animation: cui-shimmer"));

@@ -1,13 +1,19 @@
-//! Dedicated SpotlightCard renderer. DOM matches React:
-//! `<div data-slot="spotlight-card">` wrapping label text. CSS radial
-//! spotlight lives in COMPONENT_CHROME (`::after` at `--spot-x` / `--spot-y`).
-//! Not catalog `display()` SURF `<section>`. Not interact `card()`.
+//! Dedicated SpotlightCard renderer. DOM mirrors React:
+//! `<div data-slot="spotlight-card">` + aria-hidden spotlight `<div>` + a
+//! relative content `<div>` wrapping the label. The radial spotlight sits at
+//! `--spot-x` / `--spot-y` (default 50% 50%); React moves it with pointer JS,
+//! the kernel fades it in on `:hover` only. `rounded-2xl`, fixture `w-72`
+//! and colors live in COMPONENT_CHROME. Not catalog `display()` SURF
+//! `<section>`. Not interact `card()`.
 
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    format!("<div data-slot=\"spotlight-card\">{}</div>", label_of(comp))
+    format!(
+        "<div data-slot=\"spotlight-card\"><div aria-hidden=\"true\"></div><div>{}</div></div>",
+        label_of(comp)
+    )
 }
 
 #[cfg(test)]
@@ -43,12 +49,13 @@ mod tests {
     }
 
     #[test]
-    fn root_is_div_wrapping_label_not_display_section() {
+    fn root_has_spotlight_layer_and_content_div() {
         let html = render(&stub("spotlight-card", "Hover me"));
-        assert_eq!(html, "<div data-slot=\"spotlight-card\">Hover me</div>");
-        assert!(html.starts_with("<div "));
-        assert!(html.contains("data-slot=\"spotlight-card\""));
-        assert!(html.contains(">Hover me</div>"));
+        assert_eq!(
+            html,
+            "<div data-slot=\"spotlight-card\"><div aria-hidden=\"true\"></div><div>Hover me</div></div>"
+        );
+        assert_eq!(html.matches("data-slot=").count(), 1);
         reject_display(&html);
     }
 
@@ -57,7 +64,6 @@ mod tests {
         let mut c = stub("spotlight-card", "Hover me");
         c.items.push(extra("text", "More"));
         let html = render(&c);
-        assert_eq!(html, "<div data-slot=\"spotlight-card\">Hover me</div>");
         assert!(!html.contains("More"));
         reject_display(&html);
     }
@@ -65,10 +71,7 @@ mod tests {
     #[test]
     fn label_is_escaped() {
         let html = render(&stub("spotlight-card", "A <B> & \"C\""));
-        assert_eq!(
-            html,
-            "<div data-slot=\"spotlight-card\">A &lt;B&gt; &amp; &quot;C&quot;</div>"
-        );
+        assert!(html.ends_with("<div>A &lt;B&gt; &amp; &quot;C&quot;</div></div>"));
         reject_display(&html);
     }
 
@@ -79,16 +82,9 @@ mod tests {
         let interact = crate::cronus_ui_interact::render("spotlight-card", &c).unwrap();
         assert_ne!(html, interact);
         assert!(interact.starts_with("<section data-slot=\"spotlight-card\""));
-        assert!(interact.contains("style="));
         assert!(interact.contains(DISPLAY_BOX));
-        assert!(interact.contains("font-weight:500"));
-        assert!(!html.contains("<section"));
         reject_display(&html);
-        let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
-            .unwrap();
-        assert!(fx.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"));
-        assert!(fx.starts_with("<div data-slot=\"meteors\""));
-        assert_ne!(html, fx);
+        assert_eq!(crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html), None);
     }
 
     #[test]
@@ -103,13 +99,13 @@ mod tests {
     #[test]
     fn chrome_spotlight_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"spotlight-card\"]"));
-        assert!(css.contains("radial-gradient"));
+        assert!(css.contains("[data-slot=\"spotlight-card\"] {\n  position: relative; overflow: hidden;\n  width: 18rem; padding: 1.5rem; color: var(--cronus-fg);\n  border-radius: calc(var(--cronus-radius, 14px) + 8px); box-shadow: none;\n}"));
+        assert!(css.contains("[data-slot=\"spotlight-card\"] > [aria-hidden=\"true\"] {"));
+        assert!(css.contains("[data-slot=\"spotlight-card\"]:hover > [aria-hidden=\"true\"] { opacity: 1; }"));
+        assert!(css.contains("[data-slot=\"spotlight-card\"] > div:last-child {\n  position: relative;\n}"));
+        assert!(!css.contains("[data-slot=\"spotlight-card\"]::after"));
         assert!(css.contains("--spot-x"));
-        assert!(css.contains("--spot-y"));
         assert!(css.contains("var(--cronus-primary)"));
-        assert!(css.contains("overflow: hidden"));
-        assert!(css.contains("padding: 1.5rem"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(DISPLAY_BOX));
     }

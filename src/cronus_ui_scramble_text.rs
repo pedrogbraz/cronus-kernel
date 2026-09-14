@@ -1,15 +1,17 @@
-//! Dedicated ScrambleText renderer. DOM is the idle/static phrase:
-//! `<span data-slot="scramble-text">` wrapping `scramble-text-label`.
-//! No scramble ticks, no random glyphs, no `setTimeout`. Optional
-//! `font-mono` lives in COMPONENT_CHROME. Not the catalog `fx()` title SURF box.
+//! Dedicated ScrambleText renderer. DOM mirrors React's settled (resolved)
+//! render: `<span data-slot="scramble-text">` + a visually hidden copy
+//! (`sr-only` in React) + an aria-hidden `<span>` with the resolved phrase.
+//! No scramble ticks, no random glyphs, no `setTimeout` — the zero-JS kernel
+//! shows the end state React settles on. `font-mono` + the sr-only rule live
+//! in COMPONENT_CHROME. Not the catalog `fx()` title SURF box.
 
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
+    let label = label_of(comp);
     format!(
-        "<span data-slot=\"scramble-text\"><span data-slot=\"scramble-text-label\">{}</span></span>",
-        label_of(comp)
+        "<span data-slot=\"scramble-text\"><span>{label}</span><span aria-hidden=\"true\">{label}</span></span>"
     )
 }
 
@@ -38,16 +40,14 @@ mod tests {
     }
 
     #[test]
-    fn root_is_span_with_static_label_not_fx_title_box() {
+    fn root_is_span_with_hidden_copy_and_resolved_phrase() {
         let html = render(&stub("scramble-text", "Decrypt"));
         assert_eq!(
             html,
-            "<span data-slot=\"scramble-text\"><span data-slot=\"scramble-text-label\">Decrypt</span></span>"
+            "<span data-slot=\"scramble-text\"><span>Decrypt</span><span aria-hidden=\"true\">Decrypt</span></span>"
         );
-        assert!(html.starts_with("<span "));
-        assert!(html.contains("data-slot=\"scramble-text\""));
-        assert!(html.contains("data-slot=\"scramble-text-label\""));
-        assert!(html.contains(">Decrypt</span></span>"));
+        assert_eq!(html.matches("data-slot=").count(), 1);
+        assert!(!html.contains("scramble-text-label"));
         reject_fx(&html);
     }
 
@@ -56,7 +56,7 @@ mod tests {
         let html = render(&stub("scramble-text", "A <B> & \"C\""));
         assert_eq!(
             html,
-            "<span data-slot=\"scramble-text\"><span data-slot=\"scramble-text-label\">A &lt;B&gt; &amp; &quot;C&quot;</span></span>"
+            "<span data-slot=\"scramble-text\"><span>A &lt;B&gt; &amp; &quot;C&quot;</span><span aria-hidden=\"true\">A &lt;B&gt; &amp; &quot;C&quot;</span></span>"
         );
         assert!(!html.contains("<B>"));
         reject_fx(&html);
@@ -71,11 +71,10 @@ mod tests {
         let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
             .unwrap();
         assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
-        assert!(!html.contains("<div"));
         reject_fx(&html);
+        assert_eq!(crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html), None);
         assert_eq!(
             dedicated_fn_name("scramble-text"),
             Some("cronus_ui_scramble_text::render")
@@ -94,15 +93,14 @@ mod tests {
             let html = render(&stub("scramble-text", "Decrypt"));
             reject_fx(&html);
             assert!(html.contains("data-slot=\"scramble-text\""));
-            assert!(html.contains("data-slot=\"scramble-text-label\""));
         });
     }
 
     #[test]
     fn chrome_scramble_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"scramble-text\"]"));
-        assert!(css.contains("var(--cronus-font-mono, ui-monospace, monospace)"));
+        assert!(css.contains("[data-slot=\"scramble-text\"] {\n  display: inline;\n  font-family: var(--cronus-font-mono, ui-monospace, monospace);\n}"));
+        assert!(css.contains("[data-slot=\"scramble-text\"] > span:first-child {\n  position: absolute;"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
         assert!(!css.contains("setTimeout"));

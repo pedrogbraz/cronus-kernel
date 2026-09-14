@@ -31,3 +31,19 @@ radius-md 10px, border, `surface-overlay`, 12/16, weight 500); pre `padding: 1re
 Screenshot pixel diff: 101 px, all inside the 13×13 icon at 278–291, 42–55: React's
 copy button. Divergence: no copy button (clipboard needs JS); the header row keeps
 its 49px height and the button's slot on the right is empty.
+
+## Wave 1t — geometry parity (2026-09-14)
+
+### marquee
+DOM: `<div data-slot="marquee" aria-label="Logos"><div data-slot="marquee-group"><span>Acme</span><span>Globex</span></div></div>`.
+Items are the non-label rows; `aria-label` from props or item config (the emitter's `label "Logos"`
+had leaked in as an item). CSS root adds `width: 18rem`; item spans `padding-inline: 0.75rem;
+font-size: 0.875rem; line-height: 1.25rem` (React `px-3 text-sm`).
+
+| slot | React | Cronus |
+|---|---|---|
+| marquee | 24,24 288×20 "Acme Globex" | 24,24 288×20 "Acme Globex" |
+| marquee-group | 24,24 145.47×20 | 24,24 145.47×20 |
+
+Divergence: the React fixture forces `motionPreference="never"` (one static group); the kernel
+scrolls one group with `cui-marquee` (frozen by the spec).

@@ -82,3 +82,29 @@ cd /Users/pedrogbraz/projects/cooud/.wt/kernel-1r-a
 cargo test --offline -- --test-threads=1 cronus_ui_gradient_border cronus_ui_light_rays cronus_ui_orbit
 ```
 17 passed (5 gradient-border + 5 light-rays + 7 orbit).
+
+## Wave 1t — geometry parity (2026-09-14)
+
+React puts `data-slot` only on the root of these three, so the kernel-only slots
+(`light-rays-field/-content`, `retro-grid-field/-content`, `ripple-field/-ring/-content`)
+were dropped. Structure is targeted with `> [aria-hidden="true"]` / `> div:last-child`.
+The fixture `w-72 min-h-32` (18rem / 8rem) is mirrored on each root.
+
+### light-rays
+DOM: `<div data-slot="light-rays"><div aria-hidden="true"><div></div></div><div>Rays</div></div>`.
+
+### retro-grid
+DOM: `<div data-slot="retro-grid"><div aria-hidden="true"><div><div></div></div></div><div>Grid</div></div>`
+(mask layer > `rotateX(60deg)` floor > scrolling grid; `cui-retro-grid` now translates only, as React).
+
+### ripple
+DOM: `<div data-slot="ripple"><div aria-hidden="true">` + 8 × `<span></span>` + `</div><div>Pulse</div></div>`
+(React default `count=8`; delays 0s..7s via `:nth-of-type`).
+
+| slot | React | Cronus |
+|---|---|---|
+| light-rays | 24,24 288×128 | 24,24 288×128 (was 432×24 + 2 extra slots) |
+| retro-grid | 24,24 288×128 | 24,24 288×128 (was 432×24 + 2 extra slots) |
+| ripple | 24,24 288×128 | 24,24 288×128 (was 432×24 + 6 extra slots) |
+
+Screenshots: rays and grid floor pixel-identical at the frozen pose.

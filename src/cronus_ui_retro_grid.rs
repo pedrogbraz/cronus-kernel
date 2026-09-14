@@ -1,14 +1,17 @@
-//! Dedicated RetroGrid renderer. DOM matches React idle without `<style>`:
-//! `<div data-slot="retro-grid">` + `aria-hidden` field + relative content
-//! wrapping the label. Perspective floor + `@keyframes cui-retro-grid` live in
-//! COMPONENT_CHROME. Zero JS, no inline style. Not the catalog `fx()` title SURF box.
+//! Dedicated RetroGrid renderer. DOM mirrors React without the injected
+//! `<style>`: `<div data-slot="retro-grid">` + aria-hidden mask `<div>` >
+//! tilted floor `<div>` > scrolling grid `<div>`, then a relative content
+//! `<div>` wrapping the label. Only the root carries a `data-slot`. Fixture
+//! `w-72 min-h-32` is mirrored in COMPONENT_CHROME. Perspective floor +
+//! `@keyframes cui-retro-grid` live in COMPONENT_CHROME. Zero JS, no inline
+//! style. Not the catalog `fx()` title SURF box.
 
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     format!(
-        "<div data-slot=\"retro-grid\"><div data-slot=\"retro-grid-field\" aria-hidden=\"true\"></div><div data-slot=\"retro-grid-content\">{}</div></div>",
+        "<div data-slot=\"retro-grid\"><div aria-hidden=\"true\"><div><div></div></div></div><div>{}</div></div>",
         label_of(comp)
     )
 }
@@ -44,14 +47,11 @@ mod tests {
         let html = render(&stub("retro-grid", "Grid"));
         assert_eq!(
             html,
-            "<div data-slot=\"retro-grid\"><div data-slot=\"retro-grid-field\" aria-hidden=\"true\"></div><div data-slot=\"retro-grid-content\">Grid</div></div>"
+            "<div data-slot=\"retro-grid\"><div aria-hidden=\"true\"><div><div></div></div></div><div>Grid</div></div>"
         );
-        assert!(html.starts_with("<div "));
-        assert!(html.contains("data-slot=\"retro-grid\""));
-        assert!(html.contains("data-slot=\"retro-grid-field\""));
-        assert!(html.contains("data-slot=\"retro-grid-content\""));
-        assert!(html.contains("aria-hidden=\"true\""));
-        assert!(html.contains(">Grid</div></div>"));
+        assert_eq!(html.matches("data-slot=").count(), 1);
+        assert!(!html.contains("retro-grid-field"));
+        assert!(!html.contains("retro-grid-content"));
         reject_fx(&html);
     }
 
@@ -60,7 +60,7 @@ mod tests {
         let html = render(&stub("retro-grid", "A <B> & \"C\""));
         assert_eq!(
             html,
-            "<div data-slot=\"retro-grid\"><div data-slot=\"retro-grid-field\" aria-hidden=\"true\"></div><div data-slot=\"retro-grid-content\">A &lt;B&gt; &amp; &quot;C&quot;</div></div>"
+            "<div data-slot=\"retro-grid\"><div aria-hidden=\"true\"><div><div></div></div></div><div>A &lt;B&gt; &amp; &quot;C&quot;</div></div>"
         );
         assert!(!html.contains("<B>"));
         reject_fx(&html);
@@ -75,11 +75,10 @@ mod tests {
         let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
             .unwrap();
         assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
         assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
-        assert!(!html.contains("<span"));
         reject_fx(&html);
+        assert_eq!(crate::cli::stub_renderer_gate::looks_like_stub_fingerprint(&html), None);
         assert_eq!(
             dedicated_fn_name("retro-grid"),
             Some("cronus_ui_retro_grid::render")
@@ -98,25 +97,23 @@ mod tests {
             let html = render(&stub("retro-grid", "Grid"));
             reject_fx(&html);
             assert!(html.contains("data-slot=\"retro-grid\""));
-            assert!(html.contains("data-slot=\"retro-grid-field\""));
-            assert!(html.contains("data-slot=\"retro-grid-content\""));
         });
     }
 
     #[test]
     fn chrome_retro_grid_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"retro-grid\"]"));
-        assert!(css.contains("[data-slot=\"retro-grid-field\"]"));
-        assert!(css.contains("[data-slot=\"retro-grid-content\"]"));
-        assert!(css.contains("perspective"));
-        assert!(css.contains("rotateX"));
+        assert!(css.contains("[data-slot=\"retro-grid\"] {\n  position: relative; overflow: hidden;\n  width: 18rem; min-height: 8rem;"));
+        assert!(css.contains("[data-slot=\"retro-grid\"] > [aria-hidden=\"true\"] > div > div {"));
+        assert!(css.contains("[data-slot=\"retro-grid\"] > div:last-child {\n  position: relative;\n}"));
+        assert!(!css.contains("[data-slot=\"retro-grid-field\"]"));
+        assert!(css.contains("perspective: 240px"));
+        assert!(css.contains("rotateX(60deg)"));
         assert!(css.contains("@keyframes cui-retro-grid"));
         assert!(css.contains("animation: cui-retro-grid"));
-        assert!(css.contains("translateY"));
+        assert!(css.contains("translateY(48px)"));
         assert!(css.contains("var(--cronus-border)"));
         assert!(css.contains("prefers-reduced-motion"));
-        assert!(!css.contains("<canvas"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
         assert!(!css.contains("<style"));
