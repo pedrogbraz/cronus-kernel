@@ -3463,6 +3463,39 @@ button:has(+ [data-slot="sheet-content"]) {
 @media (prefers-reduced-motion: reduce) {
   [data-slot="progressive-blur"] { display: none; }
 }
+[data-slot="retro-grid"] {
+  position: relative; overflow: hidden;
+  perspective: 240px;
+  color: var(--cronus-fg);
+}
+[data-slot="retro-grid-field"] {
+  position: absolute; inset: 0; pointer-events: none;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, transparent, black 20%, black 70%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 20%, black 70%, transparent);
+}
+[data-slot="retro-grid-field"]::after {
+  content: "";
+  position: absolute; inset-inline: 0; bottom: -50%;
+  height: 200%;
+  transform: rotateX(60deg);
+  transform-origin: 50% 0%;
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--cronus-border) 70%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--cronus-border) 70%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  animation: cui-retro-grid 8s linear infinite;
+}
+@keyframes cui-retro-grid {
+  from { transform: rotateX(60deg) translateY(0); }
+  to { transform: rotateX(60deg) translateY(48px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="retro-grid-field"]::after { animation: none; }
+}
+[data-slot="retro-grid-content"] {
+  position: relative; z-index: 1;
+}
 
 "#;
 

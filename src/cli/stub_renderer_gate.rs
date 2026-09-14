@@ -182,6 +182,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "scramble-text" => Some("cronus_ui_scramble_text::render"),
         "spinning-text" => Some("cronus_ui_spinning_text::render"),
         "progressive-blur" => Some("cronus_ui_progressive_blur::render"),
+        "retro-grid" => Some("cronus_ui_retro_grid::render"),
         _ => None,
     }
 }
@@ -744,6 +745,14 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || !html.contains("data-slot=\"progressive-blur-layer\"")
                 || !html.contains("data-slot=\"progressive-blur-content\"")
                 || html.contains("<canvas")))
+        || (html.contains("data-slot=\"retro-grid\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || html.contains("<script")
+                || !html.contains("data-slot=\"retro-grid-field\"")
+                || !html.contains("data-slot=\"retro-grid-content\"")
+                || html.contains("<canvas")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -961,6 +970,7 @@ mod tests {
             "src/cronus_ui_radio_group.rs",
             "src/cronus_ui_rating.rs",
             "src/cronus_ui_resizable.rs",
+            "src/cronus_ui_retro_grid.rs",
             "src/cronus_ui_rich_text_editor.rs",
             "src/cronus_ui_scroll_area.rs",
             "src/cronus_ui_scroll_progress.rs",
