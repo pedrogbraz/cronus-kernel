@@ -1247,7 +1247,7 @@ fn classify_terminal_leaf(node: &DomNode) -> Option<ItemBlueprint> {
         });
     }
 
-    if first_text == "✓" || first_text == "\u{2713}" {
+    if first_text == "\u{2713}" {
         // Success line
         let rest = spans.iter().skip(1).map(|(t, _)| *t).collect::<Vec<_>>().join(" ");
         // Detect color from spans
