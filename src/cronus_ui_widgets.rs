@@ -355,6 +355,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "gradient-border",
     "light-rays",
     "orbit",
+    "progressive-blur",
+    "retro-grid",
+    "ripple",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -538,6 +541,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "gradient-border" => Some(crate::cronus_ui_gradient_border::render(comp)),
         "light-rays" => Some(crate::cronus_ui_light_rays::render(comp)),
         "orbit" => Some(crate::cronus_ui_orbit::render(comp)),
+        "progressive-blur" => Some(crate::cronus_ui_progressive_blur::render(comp)),
+        "retro-grid" => Some(crate::cronus_ui_retro_grid::render(comp)),
+        "ripple" => Some(crate::cronus_ui_ripple::render(comp)),
         _ => None,
     }
 }

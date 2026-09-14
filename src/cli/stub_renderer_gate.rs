@@ -184,6 +184,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "gradient-border" => Some("cronus_ui_gradient_border::render"),
         "light-rays" => Some("cronus_ui_light_rays::render"),
         "orbit" => Some("cronus_ui_orbit::render"),
+        "progressive-blur" => Some("cronus_ui_progressive_blur::render"),
+        "retro-grid" => Some("cronus_ui_retro_grid::render"),
+        "ripple" => Some("cronus_ui_ripple::render"),
         _ => None,
     }
 }
@@ -761,6 +764,32 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || !html.contains("data-slot=\"orbit-item\"")
                 || html.contains("<canvas")
                 || html.contains("<script")))
+        || (html.contains("data-slot=\"progressive-blur\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || html.contains("<script")
+                || !html.contains("data-slot=\"progressive-blur-host\"")
+                || !html.contains("data-slot=\"progressive-blur-layer\"")
+                || !html.contains("data-slot=\"progressive-blur-content\"")
+                || html.contains("<canvas")))
+        || (html.contains("data-slot=\"retro-grid\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || html.contains("<script")
+                || !html.contains("data-slot=\"retro-grid-field\"")
+                || !html.contains("data-slot=\"retro-grid-content\"")
+                || html.contains("<canvas")))
+        || (html.contains("data-slot=\"ripple\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || html.contains("<script")
+                || !html.contains("data-slot=\"ripple-field\"")
+                || !html.contains("data-slot=\"ripple-ring\"")
+                || !html.contains("data-slot=\"ripple-content\"")
+                || html.contains("<canvas")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -1035,6 +1064,9 @@ mod tests {
             "src/cronus_ui_gradient_border.rs",
             "src/cronus_ui_light_rays.rs",
             "src/cronus_ui_orbit.rs",
+            "src/cronus_ui_progressive_blur.rs",
+            "src/cronus_ui_retro_grid.rs",
+            "src/cronus_ui_ripple.rs",
             "src/cronus_ui_masonry.rs",
             "src/cronus_ui_comparison_slider.rs",
             "src/cronus_ui_confirmation_dialog.rs",

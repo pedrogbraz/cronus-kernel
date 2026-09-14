@@ -11,6 +11,10 @@ Dedicated CONTRACT renderers. Zero JS, zero `<script>`, zero `<style>` tags,
 zero inline `style=`, zero canvas, zero rAF. Token CSS in `COMPONENT_CHROME`.
 `PORTED_FAMILIES` length 169 (166 + 3).
 
+## B — progressive-blur / retro-grid / ripple
+
+CSS overlay/field + content. leftover stub is meteors.
+
 ### gradient-border
 React idle: `<div data-slot="gradient-border">` wrapping an inner surface div + children.
 Kernel: `<div data-slot="gradient-border"><div data-slot="gradient-border-inner">{label}</div></div>`.
