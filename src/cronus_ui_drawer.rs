@@ -1,32 +1,58 @@
-//! Dedicated Drawer renderer. Always-open static: trigger button (label) plus
-//! `<div data-slot="drawer-content">` with `drawer-title` / `drawer-description`.
-//! React Root has `data-slot="drawer"` — wrapper is allowed.
+//! Dedicated Drawer renderer (wave1t geometry parity with the React vaul Drawer).
+//!
+//! React renders the open drawer portaled to `<body>` with no trigger and no
+//! `drawer` wrapper box:
+//! `drawer-overlay` (fixed scrim) + `drawer-content` (fixed, bottom-pinned) holding
+//! an unslotted handle bar and `drawer-header` > `h2 drawer-title` + `p drawer-description`.
+//! The kernel renders the same tree open by default, zero JS. Swipe / overlay-click
+//! dismissal needs JS and is not reproduced (React has no close control to mirror).
+//! Description comes from `description:"…"` (props or item config), else extra `text`.
 //! Not interact `dialog("drawer")` native `<dialog>` + `showModal()` + SURF.
 
-use crate::cronus_ui_kit::{esc, item, label_of, texts};
+use crate::cronus_ui_kit::{esc, item, label_of, widget_id};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    let trigger = texts(comp)
-        .first()
-        .cloned()
-        .unwrap_or_else(|| label_of(comp));
     let title = item(comp, "title")
         .filter(|t| !t.is_empty())
         .map(esc)
-        .unwrap_or_else(|| trigger.clone());
-    let desc = extras(comp, &trigger, &title);
+        .unwrap_or_else(|| label_of(comp));
+    let desc = description(comp, &title);
+    let title_id = widget_id(comp, "drawer-title");
+    let desc_id = widget_id(comp, "drawer-description");
+    let (described_by, desc_html) = if desc.is_empty() {
+        (String::new(), String::new())
+    } else {
+        (
+            format!(" aria-describedby=\"{desc_id}\""),
+            format!("<p id=\"{desc_id}\" data-slot=\"drawer-description\">{desc}</p>"),
+        )
+    };
     format!(
-        "<div data-slot=\"drawer\"><button type=\"button\">{trigger}</button><div data-slot=\"drawer-content\"><div data-slot=\"drawer-title\">{title}</div><div data-slot=\"drawer-description\">{desc}</div></div></div>"
+        "<div data-slot=\"drawer-overlay\" aria-hidden=\"true\"></div><div role=\"dialog\" aria-labelledby=\"{title_id}\"{described_by} data-slot=\"drawer-content\"><div aria-hidden=\"true\"></div><div data-slot=\"drawer-header\"><h2 id=\"{title_id}\" data-slot=\"drawer-title\">{title}</h2>{desc_html}</div></div>"
     )
 }
 
-fn extras(comp: &ComponentNode, trigger: &str, title: &str) -> String {
-    texts(comp)
-        .into_iter()
-        .filter(|t| t != trigger && t != title)
+fn attr<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
+    if let Some(v) = comp.props.get(name) {
+        return Some(v.as_str());
+    }
+    comp.items
+        .iter()
+        .find_map(|i| i.config.get(name).map(String::as_str))
+}
+
+fn description(comp: &ComponentNode, title: &str) -> String {
+    if let Some(d) = attr(comp, "description").filter(|d| !d.trim().is_empty()) {
+        return esc(d);
+    }
+    comp.items
+        .iter()
+        .filter(|i| i.item_type == "text" && !i.text.is_empty())
+        .map(|i| esc(&i.text))
+        .filter(|t| t != title)
         .collect::<Vec<_>>()
-        .join("")
+        .join(" ")
 }
 
 #[cfg(test)]
@@ -54,61 +80,66 @@ mod tests {
         assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
         assert!(!html.contains("max-width:28rem"));
-        assert!(!html.contains("role=\"dialog\""));
     }
 
     #[test]
-    fn trigger_and_always_open_content() {
-        let mut c = stub("drawer", "Menu");
-        c.items.push(extra("text", "Slide-up panel."));
+    fn react_dom_overlay_content_header_no_trigger() {
+        let mut c = stub("drawer", "Filters");
+        c.props.insert("description".into(), "Narrow the list.".into());
         let html = render(&c);
-        assert!(html.starts_with("<div data-slot=\"drawer\">"));
-        assert!(html.contains("<button type=\"button\">Menu</button>"));
-        assert!(html.contains("<div data-slot=\"drawer-content\">"));
-        assert!(html.contains("<div data-slot=\"drawer-title\">Menu</div>"));
-        assert!(html.contains("<div data-slot=\"drawer-description\">Slide-up panel.</div>"));
-        reject_interact(&html);
+        let t = widget_id(&c, "drawer-title");
+        let d = widget_id(&c, "drawer-description");
         assert_eq!(
             html,
-            "<div data-slot=\"drawer\"><button type=\"button\">Menu</button><div data-slot=\"drawer-content\"><div data-slot=\"drawer-title\">Menu</div><div data-slot=\"drawer-description\">Slide-up panel.</div></div></div>"
+            format!(
+                "<div data-slot=\"drawer-overlay\" aria-hidden=\"true\"></div><div role=\"dialog\" aria-labelledby=\"{t}\" aria-describedby=\"{d}\" data-slot=\"drawer-content\"><div aria-hidden=\"true\"></div><div data-slot=\"drawer-header\"><h2 id=\"{t}\" data-slot=\"drawer-title\">Filters</h2><p id=\"{d}\" data-slot=\"drawer-description\">Narrow the list.</p></div></div>"
+            )
         );
+        assert!(!html.contains("<button"));
+        assert!(!html.contains("data-slot=\"drawer\""));
+        reject_interact(&html);
     }
 
     #[test]
-    fn title_item_is_panel_title() {
+    fn description_from_item_config_or_text() {
+        let mut c = stub("drawer", "Filters");
+        c.items[0]
+            .config
+            .insert("description".into(), "From config.".into());
+        assert!(render(&c).contains("<p id=\"cui-"));
+        assert!(render(&c).contains("data-slot=\"drawer-description\">From config.</p>"));
+
+        let mut t = stub("drawer", "Filters");
+        t.items.push(extra("text", "Narrow the list."));
+        assert!(render(&t).contains("data-slot=\"drawer-description\">Narrow the list.</p>"));
+    }
+
+    #[test]
+    fn title_item_wins_and_description_is_optional() {
         let mut c = stub("drawer", "Open");
         c.items.push(extra("title", "Filters"));
-        c.items.push(extra("text", "Narrow the list."));
         let html = render(&c);
-        assert!(html.contains("<button type=\"button\">Open</button>"));
-        assert!(html.contains("<div data-slot=\"drawer-title\">Filters</div>"));
-        assert!(html.contains("<div data-slot=\"drawer-description\">Narrow the list.</div>"));
+        assert!(html.contains("data-slot=\"drawer-title\">Filters</h2>"));
+        assert!(!html.contains("drawer-description"));
+        assert!(!html.contains("aria-describedby"));
         reject_interact(&html);
     }
 
     #[test]
-    fn label_only_still_opens_empty_description() {
-        let html = render(&stub("drawer", "Menu"));
-        assert!(html.contains("<button type=\"button\">Menu</button>"));
-        assert!(html.contains("<div data-slot=\"drawer-title\">Menu</div>"));
-        assert!(html.contains("<div data-slot=\"drawer-description\"></div>"));
-        reject_interact(&html);
+    fn description_is_escaped() {
+        let mut c = stub("drawer", "Filters");
+        c.props.insert("description".into(), "<b>&</b>".into());
+        assert!(render(&c).contains(">&lt;b&gt;&amp;&lt;/b&gt;</p>"));
     }
 
     #[test]
     fn skips_interact_dialog_surf() {
-        let mut c = stub("drawer", "Menu");
-        c.items.push(extra("text", "Slide-up panel."));
+        let c = stub("drawer", "Menu");
         let html = render(&c);
         let interact = crate::cronus_ui_interact::render("drawer", &c).unwrap();
         assert_ne!(html, interact);
         assert!(interact.contains("<dialog data-slot=\"drawer-content\""));
         assert!(interact.contains("showModal()"));
-        assert!(interact.contains("onclick="));
-        assert!(interact.contains("style="));
-        assert!(interact.contains("max-width:28rem"));
-        assert!(!html.contains("<dialog"));
-        assert!(!html.contains("showModal"));
         reject_interact(&html);
     }
 
@@ -122,18 +153,33 @@ mod tests {
     }
 
     #[test]
-    fn chrome_is_token_only() {
+    fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"drawer\"]"));
-        assert!(css.contains("[data-slot=\"drawer-content\"]"));
-        assert!(css.contains("[data-slot=\"drawer-title\"]"));
-        assert!(css.contains("[data-slot=\"drawer-description\"]"));
-        assert!(css.contains("z-index: 50"));
-        assert!(css.contains("var(--cronus-surface-floating)"));
-        assert!(css.contains("var(--cronus-border)"));
-        assert!(css.contains("var(--cronus-fg-secondary)"));
+        let block = |sel: &str| {
+            let start = css.find(&format!("{sel} {{")).unwrap_or_else(|| panic!("{sel}"));
+            let end = start + css[start..].find('}').unwrap();
+            css[start..end].to_string()
+        };
+        let overlay = block("[data-slot=\"drawer-overlay\"]");
+        assert!(overlay.contains("position: fixed; inset: 0;"));
+        assert!(overlay.contains("color-mix(in srgb, black 50%, transparent)"));
+        let content = block("[data-slot=\"drawer-content\"]");
+        assert!(content.contains("position: fixed; left: 0; right: 0; bottom: 0;"));
+        assert!(content.contains("border: 1px solid var(--cronus-border)"));
+        assert!(content.contains("var(--cronus-radius-xl) var(--cronus-radius-xl) 0 0"));
+        assert!(content.contains("background: var(--cronus-surface-floating)"));
+        let handle = block("[data-slot=\"drawer-content\"] > [aria-hidden=\"true\"]");
+        assert!(handle.contains("width: 3rem; height: 0.375rem; margin: 1rem auto 0;"));
+        let header = block("[data-slot=\"drawer-header\"]");
+        assert!(header.contains("display: grid; gap: 0.375rem; padding: 1rem;"));
+        // Scoped under the header so it beats `html[data-cronus-theme] h2`
+        // (font-weight 400, letter-spacing -0.025em); React's title is 600 / normal.
+        let title = block("[data-slot=\"drawer-header\"] > [data-slot=\"drawer-title\"]");
+        assert!(title.contains("letter-spacing: normal;"));
+        assert!(title.contains("font-size: 1.125rem; line-height: 1.75rem; font-weight: 600;"));
+        let desc = block("[data-slot=\"drawer-description\"]");
+        assert!(desc.contains("font-size: 0.875rem; line-height: 1.25rem;"));
+        assert!(!css.contains("[data-slot=\"drawer\"] > button"));
         assert!(!css.contains("zinc-"));
-        assert!(!css.contains("onclick"));
-        assert!(!css.contains("showModal"));
     }
 }

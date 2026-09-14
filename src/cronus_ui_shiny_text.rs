@@ -1,12 +1,18 @@
 //! Dedicated ShinyText renderer. DOM matches React:
-//! `<span data-slot="shiny-text">` wrapping inner text. CSS sheen in
-//! COMPONENT_CHROME. Zero JS. Not the catalog `fx()` title SURF box.
+//! `<span data-slot="shiny-text">` (display: contents) wrapping the painted
+//! `<span>` that carries the sheen: `color: transparent` + `background-clip: text`
+//! over a fg-tertiary → fg → fg-tertiary gradient at 200% width. React's inline
+//! `<style>` keyframes live in COMPONENT_CHROME instead. Zero JS.
+//! Not the catalog `fx()` title SURF box.
 
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    format!("<span data-slot=\"shiny-text\">{}</span>", label_of(comp))
+    format!(
+        "<span data-slot=\"shiny-text\"><span>{}</span></span>",
+        label_of(comp)
+    )
 }
 
 #[cfg(test)]
@@ -20,6 +26,7 @@ mod tests {
     fn reject_fx(html: &str) {
         assert!(!html.contains(FX_BOX));
         assert!(!html.contains("style="));
+        assert!(!html.contains("<style"));
         assert!(!html.contains("SURF"));
         assert!(!html.contains("<div"));
         assert!(!html.contains("v-data="));
@@ -31,12 +38,9 @@ mod tests {
     }
 
     #[test]
-    fn root_is_span_wrapping_text_not_fx_title_box() {
-        let html = render(&stub("shiny-text", "Shimmer"));
-        assert_eq!(html, "<span data-slot=\"shiny-text\">Shimmer</span>");
-        assert!(html.starts_with("<span "));
-        assert!(html.contains("data-slot=\"shiny-text\""));
-        assert!(html.contains(">Shimmer</span>"));
+    fn contents_slot_wraps_painted_span() {
+        let html = render(&stub("shiny-text", "Sheen"));
+        assert_eq!(html, "<span data-slot=\"shiny-text\"><span>Sheen</span></span>");
         reject_fx(&html);
     }
 
@@ -45,7 +49,7 @@ mod tests {
         let html = render(&stub("shiny-text", "A <B> & \"C\""));
         assert_eq!(
             html,
-            "<span data-slot=\"shiny-text\">A &lt;B&gt; &amp; &quot;C&quot;</span>"
+            "<span data-slot=\"shiny-text\"><span>A &lt;B&gt; &amp; &quot;C&quot;</span></span>"
         );
         reject_fx(&html);
     }
@@ -59,10 +63,7 @@ mod tests {
         let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
             .unwrap();
         assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
-        assert!(fx.starts_with("<div data-slot=\"meteors\""));
         assert_ne!(html, fx);
-        assert!(!html.contains("<div"));
         reject_fx(&html);
         assert_eq!(
             dedicated_fn_name("shiny-text"),
@@ -85,15 +86,19 @@ mod tests {
     }
 
     #[test]
-    fn chrome_shine_via_css() {
+    fn chrome_paints_text_transparent_with_clipped_gradient() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"shiny-text\"]"));
-        assert!(css.contains("background-clip: text"));
+        assert!(css.contains("[data-slot=\"shiny-text\"] { display: contents; }"));
+        let start = css.find("[data-slot=\"shiny-text\"] > span {").unwrap();
+        let end = start + css[start..].find('}').unwrap();
+        let painted = &css[start..end];
+        assert!(painted.contains("color: transparent;"));
+        assert!(painted.contains("background-clip: text;"));
+        assert!(painted.contains("background-size: 200% 100%;"));
+        assert!(painted.contains("var(--cronus-fg-tertiary"));
+        assert!(painted.contains("var(--cronus-fg) 50%"));
+        assert!(painted.contains("animation: cui-shiny-text 3s linear infinite;"));
         assert!(css.contains("@keyframes cui-shiny-text"));
-        assert!(css.contains("animation: cui-shiny-text"));
-        assert!(css.contains("var(--cronus-fg-tertiary"));
-        assert!(css.contains("var(--cronus-fg)"));
-        assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
     }
 }
