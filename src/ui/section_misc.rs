@@ -359,13 +359,14 @@ pub(super) fn render_pricing(section: &SectionNode, _accent: &str) -> String {
 }
 
 pub(super) fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> String {
-    let title = section.title.as_deref().unwrap_or("Get Started");
+    // Undeclared title/button render no element (never invented copy).
+    let title = section.title.as_deref().unwrap_or("");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
     let cta_text = section
         .config
         .get("cta_text")
         .map(|s| s.as_str())
-        .unwrap_or("Get Started");
+        .unwrap_or("");
     let cta_link = section
         .config
         .get("cta_link")
@@ -403,22 +404,32 @@ pub(super) fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> S
             r#"<p style="font-size:14px;color:var(--cronus-text-muted);margin-top:32px">{}</p>"#, f
         )).unwrap_or_default();
 
+        let title_html = if title.is_empty() {
+            String::new()
+        } else {
+            format!(
+                r#"<h2 class="anim reveal" style="font-size:clamp(36px,5vw,72px);font-weight:800;letter-spacing:-0.04em;color:var(--cronus-text);margin-bottom:32px;line-height:1;font-style:italic">{title}</h2>"#
+            )
+        };
+        let cta_html = if cta_text.is_empty() {
+            String::new()
+        } else {
+            format!(
+                r#"<a href="{cta_link}" class="reveal btn-hover" style="display:inline-flex;align-items:center;justify-content:center;padding:16px 48px;border-radius:999px;background:var(--cronus-accent);color:#fff;font-weight:700;font-size:18px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_text}</a>"#
+            )
+        };
+
         return format!(
             r##"<section style="padding:128px 24px;position:relative;overflow:hidden;background:var(--cronus-bg)">
   <div style="position:relative;max-width:960px;margin:0 auto;text-align:center">
-    <h2 class="anim reveal" style="font-size:clamp(36px,5vw,72px);font-weight:800;letter-spacing:-0.04em;color:var(--cronus-text);margin-bottom:32px;line-height:1;font-style:italic">{title}</h2>
+    {title_html}
     <div class="anim anim-d1" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px">
-      <a href="{cta_link}" class="reveal btn-hover" style="display:inline-flex;align-items:center;justify-content:center;padding:16px 48px;border-radius:999px;background:var(--cronus-accent);color:#fff;font-weight:700;font-size:18px;text-decoration:none;transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_text}</a>
+      {cta_html}
       {cta2_html}
     </div>
     {footnote_html}
   </div>
 </section>"##,
-            title = title,
-            cta_link = cta_link,
-            cta_text = cta_text,
-            cta2_html = cta2_html,
-            footnote_html = footnote_html,
         );
     }
 
@@ -466,11 +477,11 @@ pub(super) fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> S
         r##"<section style="padding:160px 24px;position:relative;overflow:hidden">
   <div class="cronus-cta-card" style="position:relative;max-width:1024px;margin:0 auto;background:rgba(27,27,27,0.5);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);border:0.5px solid rgba(76,69,70,0.15);border-radius:32px;padding:48px 24px;overflow:hidden">
     <div style="text-align:center">
-      <h2 class="anim reveal" style="font-size:clamp(36px,5vw,72px);font-weight:900;letter-spacing:-0.04em;color:white;margin-bottom:24px;line-height:1.1">{title}</h2>
+      {title_html}
       {subtitle_html}
       <div class="anim anim-d1" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px">
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px">
-          <a href="{cta_link}" class="reveal" style="display:inline-flex;align-items:center;justify-content:center;padding:20px 48px;border-radius:16px;background:linear-gradient(180deg,#fff,#d4d4d4);color:black;font-weight:900;font-size:13px;letter-spacing:0.1em;text-transform:uppercase;text-decoration:none;transition:transform 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_text}</a>
+          {cta_html}
           {cta2_html}
         </div>
       </div>
@@ -480,10 +491,21 @@ pub(super) fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> S
   </div>
 </section>
 <style>@media(min-width:768px){{.cronus-cta-card{{padding:96px 64px!important}}}}@media(min-width:768px){{.anim-d1 div{{flex-direction:row!important}}}}</style>"##,
-        title = title,
+        title_html = if title.is_empty() {
+            String::new()
+        } else {
+            format!(
+                r#"<h2 class="anim reveal" style="font-size:clamp(36px,5vw,72px);font-weight:900;letter-spacing:-0.04em;color:white;margin-bottom:24px;line-height:1.1">{title}</h2>"#
+            )
+        },
         subtitle_html = subtitle_html,
-        cta_link = cta_link,
-        cta_text = cta_text,
+        cta_html = if cta_text.is_empty() {
+            String::new()
+        } else {
+            format!(
+                r#"<a href="{cta_link}" class="reveal" style="display:inline-flex;align-items:center;justify-content:center;padding:20px 48px;border-radius:16px;background:linear-gradient(180deg,#fff,#d4d4d4);color:black;font-weight:900;font-size:13px;letter-spacing:0.1em;text-transform:uppercase;text-decoration:none;transition:transform 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">{cta_text}</a>"#
+            )
+        },
         cta2_html = cta2_html,
         footnote_html = footnote_html,
         logo_bar_html = logo_bar_html,
@@ -491,15 +513,28 @@ pub(super) fn render_cta(section: &SectionNode, _accent: &str, theme: &str) -> S
 }
 
 pub(super) fn render_trusted(section: &SectionNode) -> String {
-    let title = section.title.as_deref().unwrap_or("Trusted by the best");
+    let title = section.title.as_deref().unwrap_or("");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
-
-    let logos: Vec<String> = section.items.iter().map(|item| {
-        let name = item.get("title").or_else(|| item.get("name")).map(|s| s.as_str()).unwrap_or("Company");
+    let title_html = if title.is_empty() {
+        String::new()
+    } else {
         format!(
+            r#"<h2 style="font-size:30px;font-weight:700;letter-spacing:-0.03em;color:white;margin-bottom:16px">{title}</h2>"#
+        )
+    };
+    let subtitle_html = if subtitle.is_empty() {
+        String::new()
+    } else {
+        format!(r#"<p style="color:#9ca3af;font-size:15px;line-height:1.6">{subtitle}</p>"#)
+    };
+
+    // A logo item without a name renders nothing (no invented "Company").
+    let logos: Vec<String> = section.items.iter().filter_map(|item| {
+        let name = item.get("title").or_else(|| item.get("name")).filter(|s| !s.is_empty())?;
+        Some(format!(
             r#"<div style="font-size:24px;font-weight:700;letter-spacing:-0.03em;color:white">{}</div>"#,
             name
-        )
+        ))
     }).collect();
 
     format!(
@@ -507,8 +542,8 @@ pub(super) fn render_trusted(section: &SectionNode) -> String {
   <div style="max-width:1280px;margin:0 auto;padding:0 24px">
     <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:48px">
       <div style="max-width:420px">
-        <h2 style="font-size:30px;font-weight:700;letter-spacing:-0.03em;color:white;margin-bottom:16px">{title}</h2>
-        <p style="color:#9ca3af;font-size:15px;line-height:1.6">{subtitle}</p>
+        {title_html}
+        {subtitle_html}
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:32px 48px;align-items:center;opacity:0.5;filter:grayscale(100%);transition:all 0.3s" onmouseover="this.style.filter='none';this.style.opacity='0.8'" onmouseout="this.style.filter='grayscale(100%)';this.style.opacity='0.5'">
         {logos}
@@ -516,8 +551,8 @@ pub(super) fn render_trusted(section: &SectionNode) -> String {
     </div>
   </div>
 </section>"##,
-        title = title,
-        subtitle = subtitle,
+        title_html = title_html,
+        subtitle_html = subtitle_html,
         logos = logos.join("\n        "),
     )
 }
@@ -527,14 +562,14 @@ pub(super) fn render_footer(section: &SectionNode, theme: &str) -> String {
         .config
         .get("copyright")
         .map(|s| s.as_str())
-        .unwrap_or("&copy; 2024 Vercel Inc.");
+        .unwrap_or(""); // never an invented copyright line
     let has_copyright = section.config.contains_key("copyright");
     let brand = section
         .config
         .get("brand")
         .or_else(|| section.title.as_ref())
         .map(|s| s.as_str())
-        .unwrap_or("MONOLITH_OS");
+        .unwrap_or("");
     let is_dark = section
         .config
         .get("style")
@@ -651,7 +686,7 @@ pub(super) fn render_footer(section: &SectionNode, theme: &str) -> String {
   <div style="max-width:1280px;margin:0 auto;padding:80px 32px">
     <div class="cronus-footer-grid">
       <div class="cronus-footer-brand" style="grid-column:span 2">
-        <div style="font-size:20px;font-weight:900;letter-spacing:-0.04em;text-transform:uppercase;color:white;margin-bottom:24px">{brand}</div>
+        {brand_html}
         {brand_desc_html}
       </div>
       {columns_html}
@@ -659,17 +694,27 @@ pub(super) fn render_footer(section: &SectionNode, theme: &str) -> String {
   </div>
   <div style="border-top:1px solid rgba(255,255,255,0.05);padding:24px 32px">
     <div style="max-width:1280px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px">
-      <span style="color:rgba(255,255,255,0.4)">{copyright}</span>
+      {copyright_html}
       <div style="display:flex;gap:24px">
         {nav_links}
       </div>
     </div>
   </div>
 </footer>"##,
-        brand = brand,
+        brand_html = if brand.is_empty() {
+            String::new()
+        } else {
+            format!(
+                r#"<div style="font-size:20px;font-weight:900;letter-spacing:-0.04em;text-transform:uppercase;color:white;margin-bottom:24px">{brand}</div>"#
+            )
+        },
         brand_desc_html = brand_desc_html,
         columns_html = columns_html,
-        copyright = copyright,
+        copyright_html = if copyright.is_empty() {
+            String::new()
+        } else {
+            format!(r#"<span style="color:rgba(255,255,255,0.4)">{copyright}</span>"#)
+        },
         nav_links = nav_links_html,
     )
 }
@@ -752,7 +797,7 @@ pub(super) fn render_stats(section: &SectionNode, accent: &str) -> String {
 }
 
 pub(super) fn render_page_header_section(section: &SectionNode) -> String {
-    let title = section.title.as_deref().unwrap_or("Page Title");
+    let title = section.title.as_deref().unwrap_or("");
     let subtitle = section.subtitle.as_deref().unwrap_or("");
     let eyebrow = section
         .config
@@ -818,13 +863,18 @@ pub(super) fn render_page_header_section(section: &SectionNode) -> String {
         r##"<div data-ph-wrapper style="padding:80px 0 48px">
   <div>
     {eyebrow}
-    <h2 style="font-size:clamp(32px,5vw,48px);font-weight:700;letter-spacing:-0.04em;color:{title_color};margin:0;line-height:1.1">{title}</h2>
+    {title_html}
     {subtitle_html}
   </div>
 </div>{auto_dark_js}"##,
         eyebrow = eyebrow_html,
-        title_color = title_color,
-        title = title,
+        title_html = if title.is_empty() {
+            String::new()
+        } else {
+            format!(
+                r#"<h2 style="font-size:clamp(32px,5vw,48px);font-weight:700;letter-spacing:-0.04em;color:{title_color};margin:0;line-height:1.1">{title}</h2>"#
+            )
+        },
         subtitle_html = subtitle_html,
         auto_dark_js = auto_dark_js,
     )
@@ -967,4 +1017,86 @@ pub(super) fn render_info_bar(section: &SectionNode) -> String {
         subtitle_html = subtitle_html,
         links = links.join("\n    "),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn section(kind: &str, title: Option<&str>, config: &[(&str, &str)]) -> SectionNode {
+        SectionNode {
+            section_type: kind.into(),
+            title: title.map(str::to_string),
+            subtitle: None,
+            config: config
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect::<HashMap<_, _>>(),
+            items: vec![],
+            plans: vec![],
+            binding: None,
+            actions: vec![],
+            visibility: None,
+            template: None,
+            style_block: None,
+            doc: None,
+        }
+    }
+
+    #[test]
+    fn cta_without_title_or_button_invents_neither() {
+        for theme in ["dark", "light"] {
+            let html = render_cta(&section("cta", None, &[]), "blue", theme);
+            assert!(!html.contains("Get Started"), "{theme}: {html}");
+            assert!(!html.contains("/signup"), "{theme}: {html}");
+            assert!(!html.contains("<h2"), "{theme}: {html}");
+        }
+        let declared = section(
+            "cta",
+            Some("Join"),
+            &[("cta_text", "Sign up"), ("cta_link", "/join")],
+        );
+        let html = render_cta(&declared, "blue", "dark");
+        assert!(html.contains(">Join</h2>") && html.contains(">Sign up</a>"));
+        assert!(html.contains(r#"href="/join""#), "{html}");
+    }
+
+    #[test]
+    fn trusted_without_title_invents_no_heading_or_logo_names() {
+        let mut s = section("trusted", None, &[]);
+        let mut logo = HashMap::new();
+        logo.insert("_type".to_string(), "item".to_string());
+        s.items = vec![logo];
+        let html = render_trusted(&s);
+        assert!(!html.contains("Trusted by the best"), "{html}");
+        assert!(!html.contains("Company"), "{html}");
+        assert!(!html.contains("<h2") && !html.contains("<p "), "{html}");
+        let html = render_trusted(&section("trusted", Some("Our clients"), &[]));
+        assert!(html.contains(">Our clients</h2>"), "{html}");
+    }
+
+    #[test]
+    fn footer_without_copyright_or_brand_invents_neither() {
+        let html = render_footer(&section("footer", None, &[]), "dark");
+        for fake in ["Vercel", "2024", "MONOLITH_OS", "&copy;"] {
+            assert!(!html.contains(fake), "invented {fake:?}: {html}");
+        }
+        let declared = section(
+            "footer",
+            None,
+            &[("brand", "Acme"), ("copyright", "(c) Acme")],
+        );
+        let html = render_footer(&declared, "dark");
+        assert!(html.contains(">Acme</div>") && html.contains(">(c) Acme</span>"));
+    }
+
+    #[test]
+    fn page_header_without_title_renders_no_placeholder_heading() {
+        let html = render_page_header_section(&section("page-header", None, &[]));
+        assert!(!html.contains("Page Title"), "{html}");
+        assert!(!html.contains("<h2"), "{html}");
+        let html = render_page_header_section(&section("page-header", Some("Orders"), &[]));
+        assert!(html.contains(">Orders</h2>"), "{html}");
+    }
 }
