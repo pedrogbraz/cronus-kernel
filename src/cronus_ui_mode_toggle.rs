@@ -27,8 +27,19 @@ pub fn render(comp: &ComponentNode) -> String {
     let next = if mode == "light" { "dark" } else { "light" };
     let aria = aria_label_of(comp).unwrap_or_else(|| format!("Switch to {next} mode"));
     format!(
-        "<button type=\"button\" data-slot=\"mode-toggle\" data-mode=\"{mode}\" aria-label=\"{aria}\">{ICON}</button>"
+        "<button type=\"button\" data-slot=\"mode-toggle\" data-mode=\"{mode}\" aria-label=\"{aria}\"{dimmed} disabled>{ICON}</button>",
+        dimmed = if author_disabled(comp) { " data-disabled=\"\"" } else { "" },
     )
+}
+
+/// Switching the theme needs JS, so the button is always `disabled`; it is only
+/// dimmed (`data-disabled`) when the author disabled it, like React's
+/// `disabled:opacity-50`.
+fn author_disabled(comp: &ComponentNode) -> bool {
+    comp.props
+        .get("disabled")
+        .or_else(|| comp.items.iter().find_map(|i| i.config.get("disabled")))
+        .is_some_and(|v| v == "true")
 }
 
 fn mode_of(comp: &ComponentNode) -> &'static str {
@@ -40,16 +51,19 @@ fn mode_of(comp: &ComponentNode) -> &'static str {
             return "dark";
         }
     }
-    if comp
-        .style
-        .as_deref()
-        .unwrap_or("")
-        .split('+')
-        .any(|part| part.trim() == "light")
-    {
+    let style = comp.style.as_deref().unwrap_or("");
+    if style.split('+').any(|part| part.trim() == "dark") {
+        return "dark";
+    }
+    if style.split('+').any(|part| part.trim() == "light") {
         return "light";
     }
-    "dark"
+    // The audit emitter keeps only `aria-label`, which React words as the *next*
+    // mode ("Switch to dark mode" while light). React's fixture defaults to light.
+    if aria_label_of(comp).is_some_and(|a| a.eq_ignore_ascii_case("switch to light mode")) {
+        return "dark";
+    }
+    "light"
 }
 
 fn aria_label_of(comp: &ComponentNode) -> Option<String> {
@@ -79,15 +93,40 @@ mod tests {
     }
 
     #[test]
-    fn root_is_static_dark_button_not_onclick_theme() {
+    fn root_is_static_light_button_not_onclick_theme() {
         let html = render(&stub("mode-toggle", "Theme"));
         assert!(html.starts_with(
-            "<button type=\"button\" data-slot=\"mode-toggle\" data-mode=\"dark\" aria-label=\"Switch to light mode\">"
+            "<button type=\"button\" data-slot=\"mode-toggle\" data-mode=\"light\" aria-label=\"Switch to dark mode\" disabled>"
         ));
+        assert!(!html.contains("data-disabled"));
+        let mut d = stub("mode-toggle", "Theme");
+        d.props.insert("disabled".into(), "true".into());
+        assert!(render(&d).contains("aria-label=\"Switch to dark mode\" data-disabled=\"\" disabled>"));
         assert!(html.ends_with("</button>"));
         assert!(html.contains("data-slot=\"mode-toggle-core\""));
         assert!(html.contains("data-slot=\"mode-toggle-rays\""));
         reject_interact(&html);
+    }
+
+    #[test]
+    fn emitted_fixture_aria_label_keeps_light_mode() {
+        let mut c = stub("mode-toggle", "Switch to dark mode");
+        c.props.insert("aria-label".into(), "Switch to dark mode".into());
+        let html = render(&c);
+        assert!(html.contains("data-mode=\"light\" aria-label=\"Switch to dark mode\""));
+        reject_interact(&html);
+    }
+
+    #[test]
+    fn dark_from_props_style_or_aria_label() {
+        let mut c = stub("mode-toggle", "Theme");
+        c.props.insert("mode".into(), "dark".into());
+        assert!(render(&c).contains("data-mode=\"dark\" aria-label=\"Switch to light mode\""));
+        let s = render(&stub("mode-toggle+dark", "Theme"));
+        assert!(s.contains("data-mode=\"dark\""));
+        let mut a = stub("mode-toggle", "Theme");
+        a.props.insert("aria-label".into(), "Switch to light mode".into());
+        assert!(render(&a).contains("data-mode=\"dark\" aria-label=\"Switch to light mode\""));
     }
 
     #[test]
@@ -139,6 +178,8 @@ mod tests {
         assert!(css.contains("var(--cronus-fg-secondary)"));
         assert!(css.contains("var(--cronus-surface-overlay)"));
         assert!(css.contains("[data-slot=\"mode-toggle\"][data-mode=\"dark\"]"));
+        assert!(css.contains("[data-slot=\"mode-toggle\"]:hover {\n  background: var(--cronus-surface-overlay); color: var(--cronus-fg);\n}"));
+        assert!(css.contains("[data-slot=\"mode-toggle\"] svg { width: 1.25rem; height: 1.25rem; flex-shrink: 0; }"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("onclick"));
         assert!(!css.contains("classList"));

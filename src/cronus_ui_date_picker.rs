@@ -24,8 +24,11 @@ pub fn render(comp: &ComponentNode) -> String {
     let trigger_id = crate::cronus_ui_kit::widget_id(comp, "trigger");
     let pop_id = crate::cronus_ui_kit::widget_id(comp, "cal");
     let mut attrs = format!(
-        "type=\"button\" id=\"{trigger_id}\" data-slot=\"date-picker-trigger\" popovertarget=\"{pop_id}\" aria-haspopup=\"dialog\""
+        "type=\"button\" id=\"{trigger_id}\" data-slot=\"date-picker-trigger\" data-variant=\"outline\" popovertarget=\"{pop_id}\" aria-haspopup=\"dialog\""
     );
+    if !has_value(comp) {
+        attrs.push_str(" data-empty=\"\"");
+    }
     if flag(comp, "disabled") {
         attrs.push_str(" disabled");
     }
@@ -37,18 +40,43 @@ pub fn render(comp: &ComponentNode) -> String {
     }
     let grid = calendar_grid(selected_day(comp), &caption_of(comp));
     format!(
-        "<div data-slot=\"date-picker\"><button {attrs}>{ICON}<span>{label}</span></button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"date-picker-content\" aria-label=\"{placeholder}\" anchor=\"{trigger_id}\">{grid}</div></div>"
+        "<button {attrs}>{ICON}<span>{label}</span></button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"date-picker-content\" role=\"dialog\" aria-label=\"{placeholder}\" anchor=\"{trigger_id}\">{grid}</div>"
     )
 }
 
+fn has_value(comp: &ComponentNode) -> bool {
+    attr(comp, "value")
+        .or_else(|| item(comp, "value"))
+        .is_some_and(|s| !s.is_empty())
+}
+
 fn trigger_label(comp: &ComponentNode) -> String {
-    if let Some(v) = attr(comp, "value").filter(|s| !s.is_empty()) {
-        return esc(v);
+    let raw = attr(comp, "value")
+        .filter(|s| !s.is_empty())
+        .or_else(|| item(comp, "value").filter(|s| !s.is_empty()));
+    match raw {
+        Some(v) => format_ppp(v).unwrap_or_else(|| esc(v)),
+        None => placeholder_of(comp),
     }
-    if let Some(t) = item(comp, "value").filter(|s| !s.is_empty()) {
-        return esc(t);
+}
+
+/// date-fns `PPP` (en-US) for a local `YYYY-MM-DD`: "June 15th, 2026".
+fn format_ppp(raw: &str) -> Option<String> {
+    let mut parts = raw.split('-');
+    let year: u32 = parts.next()?.parse().ok()?;
+    let month: usize = parts.next()?.parse().ok()?;
+    let day: u32 = parts.next()?.parse().ok()?;
+    if parts.next().is_some() || !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+        return None;
     }
-    placeholder_of(comp)
+    let suffix = match (day % 10, day % 100) {
+        (_, 11..=13) => "th",
+        (1, _) => "st",
+        (2, _) => "nd",
+        (3, _) => "rd",
+        _ => "th",
+    };
+    Some(format!("{} {day}{suffix}, {year}", MONTHS[month - 1]))
 }
 
 fn placeholder_of(comp: &ComponentNode) -> String {
@@ -130,7 +158,7 @@ fn calendar_grid(selected: Option<u8>, caption: &str) -> String {
                 " aria-selected=\"false\""
             };
             out.push_str(&format!(
-                "<button type=\"button\" data-slot=\"date-picker-day\" role=\"gridcell\"{selected_attr}>{day}</button>"
+                "<button type=\"button\" disabled data-slot=\"date-picker-day\" role=\"gridcell\"{selected_attr}>{day}</button>"
             ));
         }
         out.push_str("</div>");
@@ -173,8 +201,11 @@ mod tests {
     #[test]
     fn root_is_trigger_button_not_native_date_input() {
         let html = render(&stub("date-picker", "Due date"));
-        assert!(html.contains("<div data-slot=\"date-picker\">"));
-        assert!(html.contains("data-slot=\"date-picker-trigger\""));
+        assert!(html.starts_with(
+            "<button type=\"button\" id=\"cui-date-picker-trigger\" data-slot=\"date-picker-trigger\" data-variant=\"outline\" popovertarget=\"cui-date-picker-cal\" aria-haspopup=\"dialog\" data-empty=\"\">"
+        ));
+        assert!(!html.contains("data-slot=\"date-picker\""));
+        assert!(html.contains("data-slot=\"date-picker-content\" role=\"dialog\""));
         assert!(html.contains("popovertarget="));
         assert!(html.contains("<span>Due date</span></button>"));
         assert!(html.contains("data-slot=\"date-picker-content\""));
@@ -192,11 +223,45 @@ mod tests {
         let mut c = stub("date-picker", "Due date");
         c.props.insert("value".into(), "2026-09-13".into());
         let html = render(&c);
-        assert!(html.contains("<span>2026-09-13</span></button>"));
+        assert!(html.contains("<span>September 13th, 2026</span></button>"));
+        assert!(!html.contains("data-empty"));
         assert!(html.contains("September 2026"));
         assert!(html.contains("aria-selected=\"true\">13</button>"));
         assert!(!html.contains("type=\"date\""));
         reject_interact(&html);
+    }
+
+    #[test]
+    fn emitted_fixture_trigger_matches_react_ppp_label() {
+        let mut c = stub("date-picker", "Pick a date");
+        c.items.push(crate::parser::ComponentItemNode {
+            item_type: "text".into(),
+            text: "Pick a date".into(),
+            link: None,
+            tone: None,
+            config: [
+                ("value".to_string(), "2026-06-15".to_string()),
+                ("aria-label".to_string(), "Due date".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+        });
+        let html = render(&c);
+        assert!(html.starts_with(
+            "<button type=\"button\" id=\"cui-date-picker-trigger\" data-slot=\"date-picker-trigger\" data-variant=\"outline\" popovertarget=\"cui-date-picker-cal\" aria-haspopup=\"dialog\" aria-label=\"Due date\">"
+        ));
+        assert!(html.contains("<span>June 15th, 2026</span></button><div id=\"cui-date-picker-cal\" popover=\"auto\""));
+        reject_interact(&html);
+    }
+
+    #[test]
+    fn ppp_ordinals() {
+        assert_eq!(format_ppp("2026-06-01").as_deref(), Some("June 1st, 2026"));
+        assert_eq!(format_ppp("2026-06-02").as_deref(), Some("June 2nd, 2026"));
+        assert_eq!(format_ppp("2026-06-03").as_deref(), Some("June 3rd, 2026"));
+        assert_eq!(format_ppp("2026-06-11").as_deref(), Some("June 11th, 2026"));
+        assert_eq!(format_ppp("2026-06-22").as_deref(), Some("June 22nd, 2026"));
+        assert_eq!(format_ppp("not-a-date"), None);
     }
 
     #[test]
@@ -247,7 +312,10 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"date-picker-trigger\"]"));
+        assert!(css.contains("[data-slot=\"date-picker-trigger\"] {\n  display: inline-flex; align-items: center; justify-content: flex-start; gap: 0.5rem;\n  width: 15rem; height: 2.5rem; padding: 0 1rem; box-sizing: border-box;"));
+        assert!(css.contains("font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 400;"));
+        assert!(css.contains("[data-slot=\"date-picker-trigger\"][data-empty] { color: var(--cronus-fg-tertiary); }"));
+        assert!(!css.contains("[data-slot=\"date-picker\"],"));
         assert!(css.contains("[data-slot=\"date-picker-content\"]"));
         assert!(css.contains("[data-slot=\"date-picker-calendar\"]"));
         assert!(css.contains("[data-slot=\"date-picker-day\"]"));

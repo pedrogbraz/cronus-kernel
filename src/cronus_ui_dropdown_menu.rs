@@ -1,5 +1,9 @@
-//! Dedicated DropdownMenu renderer. Native Popover API — closed until invoked.
-//! Trigger + `<div popover data-slot="dropdown-menu-content" role="menu">`.
+//! Dedicated DropdownMenu renderer. DOM mirrors React (`DropdownMenuTrigger
+//! asChild` + `Button`): `<button data-slot="button" data-variant="primary">`
+//! plus a native `popover="auto"` `<div data-slot="dropdown-menu-content"
+//! role="menu">` of `dropdown-menu-item`s. No wrapper slot (React has none).
+//! Zero JS: the menu is closed until `popovertarget` opens it (React's audit
+//! fixture forces `defaultOpen` and portals the menu out of the canvas).
 //! Not interact `popover("dropdown-menu")` (`<details>` SURF box).
 
 use crate::cronus_ui_kit::{choice_texts, label_of, texts, widget_id};
@@ -15,7 +19,7 @@ pub fn render(comp: &ComponentNode) -> String {
         .collect::<Vec<_>>()
         .join("");
     format!(
-        "<div data-slot=\"dropdown-menu\"><button type=\"button\" id=\"{trigger_id}\" data-slot=\"dropdown-menu-trigger\" popovertarget=\"{pop_id}\" aria-haspopup=\"menu\">{label}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"dropdown-menu-content\" role=\"menu\" anchor=\"{trigger_id}\">{items}</div></div>"
+        "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"primary\" popovertarget=\"{pop_id}\" aria-haspopup=\"menu\">{label}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"dropdown-menu-content\" role=\"menu\" aria-orientation=\"vertical\" anchor=\"{trigger_id}\">{items}</div>"
     )
 }
 
@@ -66,30 +70,27 @@ mod tests {
     }
 
     #[test]
-    fn root_is_always_open_menu_not_popover_details() {
-        let html = render(&menu("Actions", &["Edit", "Share"]));
-        assert!(html.starts_with("<div data-slot=\"dropdown-menu\">"));
-        assert!(html.contains("data-slot=\"dropdown-menu-trigger\""));
-        assert!(html.contains("popovertarget="));
-        assert!(html.contains("popover=\"auto\""));
-        assert!(html.contains(">Actions</button>"));
-        assert!(html.contains("data-slot=\"dropdown-menu-content\" role=\"menu\""));
-        assert!(html.contains("<div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Edit</div>"));
-        assert!(html.contains("<div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Share</div>"));
-        assert!(!html.contains("role=\"menuitem\">Actions"));
+    fn trigger_is_primary_button_slot_and_menu_is_native_popover() {
+        let mut c = stub("dropdown-menu", "Actions");
+        c.items.push(extra("text", "Edit"));
+        c.items.push(extra("text", "Delete"));
+        let html = render(&c);
+        assert_eq!(
+            html,
+            "<button type=\"button\" id=\"cui-dropdown-menu-trigger\" data-slot=\"button\" data-variant=\"primary\" popovertarget=\"cui-dropdown-menu-menu\" aria-haspopup=\"menu\">Actions</button><div id=\"cui-dropdown-menu-menu\" popover=\"auto\" data-slot=\"dropdown-menu-content\" role=\"menu\" aria-orientation=\"vertical\" anchor=\"cui-dropdown-menu-trigger\"><div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Edit</div><div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Delete</div></div>"
+        );
+        assert!(!html.contains("data-slot=\"dropdown-menu\""));
+        assert!(!html.contains("data-slot=\"dropdown-menu-trigger\""));
         reject_interact(&html);
     }
 
     #[test]
-    fn extra_text_items_become_menuitems() {
-        let mut c = stub("dropdown-menu", "File");
-        c.items.push(extra("text", "New"));
-        c.items.push(extra("text", "Open"));
-        let html = render(&c);
-        assert!(html.contains(">File</button>"));
-        assert!(html.contains("role=\"menuitem\">New</div>"));
-        assert!(html.contains("role=\"menuitem\">Open</div>"));
-        assert_eq!(html.matches("role=\"menuitem\"").count(), 2);
+    fn item_kinds_become_menuitems() {
+        let html = render(&menu("Actions", &["Edit", "Share"]));
+        assert!(html.contains(">Actions</button>"));
+        assert!(html.contains("<div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Edit</div>"));
+        assert!(html.contains("<div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Share</div>"));
+        assert!(!html.contains("role=\"menuitem\">Actions"));
         reject_interact(&html);
     }
 
@@ -113,9 +114,7 @@ mod tests {
         assert!(interact.contains("style="));
         assert!(interact.contains("position:absolute;z-index:20"));
         assert!(!interact.contains("data-slot=\"dropdown-menu-content\""));
-        assert!(!interact.contains("role=\"menu\""));
         assert!(html.contains("data-slot=\"dropdown-menu-content\""));
-        assert!(html.contains("role=\"menu\""));
         reject_interact(&html);
     }
 
@@ -130,12 +129,13 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"dropdown-menu\"]"));
-        assert!(css.contains("[data-slot=\"dropdown-menu-content\"]"));
-        assert!(css.contains("[data-slot=\"dropdown-menu-item\"]"));
+        assert!(css.contains("[data-slot=\"button\"]:has(+ [data-slot=\"dropdown-menu-content\"])"));
+        assert!(css.contains("[data-slot=\"dropdown-menu-content\"]:popover-open {"));
+        assert!(css.contains("[data-slot=\"dropdown-menu-item\"] {\n  position: relative; display: flex;"));
         assert!(css.contains("var(--cronus-surface-floating)"));
         assert!(css.contains("var(--cronus-border)"));
         assert!(css.contains("min-width: 8rem"));
+        assert!(!css.contains("[data-slot=\"dropdown-menu\"] > button"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("onclick"));
     }

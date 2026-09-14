@@ -1,18 +1,29 @@
-//! Dedicated MorphingPopover renderer. Always-open static DOM (no hover/JS).
-//! Trigger `data-slot="morphing-popover-trigger"` from label plus
-//! `data-slot="morphing-popover-content"` from extra text. Wrapper
-//! `data-slot="morphing-popover"` for the family slot. Not interact
-//! `popover("morphing-popover")` SURF `<details>` overlay.
+//! Dedicated MorphingPopover renderer. DOM mirrors React (open state; the
+//! content is NOT portaled — it is absolutely positioned inside the root):
+//! `<div data-slot="morphing-popover" data-state="open">` >
+//! `<button data-slot="morphing-popover-trigger" aria-hidden="true">` (label in a
+//! `<span>`) + `<div data-slot="morphing-popover-content" role="dialog">` >
+//! reveal `<div>` > body. Zero JS: static open state (no morph, no dismiss); the
+//! trigger (inert while open in React) is the native button rendered `disabled`.
+//! Not interact `popover("morphing-popover")` SURF `<details>` overlay.
 
-use crate::cronus_ui_kit::{label_of, texts};
+use crate::cronus_ui_kit::{esc, label_of, texts};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     let ts = texts(comp);
     let trigger = ts.first().cloned().unwrap_or_else(|| label_of(comp));
     let body = ts.iter().skip(1).cloned().collect::<Vec<_>>().join("");
+    let body = if body.is_empty() { trigger.clone() } else { body };
+    let aria = comp
+        .props
+        .get("aria-label")
+        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
+        .filter(|v| !v.is_empty())
+        .map(|v| esc(v))
+        .unwrap_or_else(|| "Details".into());
     format!(
-        "<div data-slot=\"morphing-popover\" data-state=\"open\"><button type=\"button\" data-slot=\"morphing-popover-trigger\" aria-haspopup=\"dialog\" aria-expanded=\"true\">{trigger}</button><div data-slot=\"morphing-popover-content\" data-state=\"open\" role=\"dialog\" aria-modal=\"false\">{body}</div></div>"
+        "<div data-slot=\"morphing-popover\" data-state=\"open\"><button type=\"button\" data-slot=\"morphing-popover-trigger\" data-state=\"open\" aria-haspopup=\"dialog\" aria-expanded=\"true\" aria-hidden=\"true\" tabindex=\"-1\" disabled><span>{trigger}</span></button><div data-slot=\"morphing-popover-content\" data-state=\"open\" role=\"dialog\" aria-modal=\"false\" aria-label=\"{aria}\" tabindex=\"-1\"><div>{body}</div></div></div>"
     )
 }
 
@@ -48,27 +59,23 @@ mod tests {
     }
 
     #[test]
-    fn trigger_button_and_always_open_content() {
-        let html = render(&with_body("Open menu", "First action"));
-        assert!(html.starts_with("<div data-slot=\"morphing-popover\""));
-        assert!(html.contains("data-slot=\"morphing-popover-trigger\""));
-        assert!(html.contains("<button type=\"button\""));
-        assert!(html.contains(">Open menu</button>"));
-        assert!(html.contains("data-slot=\"morphing-popover-content\""));
-        assert!(html.contains("role=\"dialog\""));
-        assert!(html.contains("aria-modal=\"false\""));
-        assert!(html.contains(">First action</div>"));
-        assert!(html.contains("data-state=\"open\""));
+    fn open_state_dom_matches_react() {
+        let mut c = with_body("Open", "Popover body");
+        c.props.insert("aria-label".into(), "Details".into());
+        let html = render(&c);
+        assert_eq!(
+            html,
+            "<div data-slot=\"morphing-popover\" data-state=\"open\"><button type=\"button\" data-slot=\"morphing-popover-trigger\" data-state=\"open\" aria-haspopup=\"dialog\" aria-expanded=\"true\" aria-hidden=\"true\" tabindex=\"-1\" disabled><span>Open</span></button><div data-slot=\"morphing-popover-content\" data-state=\"open\" role=\"dialog\" aria-modal=\"false\" aria-label=\"Details\" tabindex=\"-1\"><div>Popover body</div></div></div>"
+        );
         reject_interact(&html);
     }
 
     #[test]
     fn content_slot_is_the_contract() {
         let html = render(&stub("morphing-popover", "Open menu"));
-        assert!(html.contains("data-slot=\"morphing-popover\""));
         assert!(html.contains("data-slot=\"morphing-popover-trigger\""));
-        assert!(html.contains("data-slot=\"morphing-popover-content\""));
-        assert!(html.contains(">Open menu</button>"));
+        assert!(html.contains("<span>Open menu</span></button>"));
+        assert!(html.contains("aria-label=\"Details\""));
         reject_interact(&html);
     }
 
@@ -84,7 +91,6 @@ mod tests {
         assert!(interact.contains("<details data-slot=\"morphing-popover\""));
         assert!(interact.contains("style="));
         assert!(!interact.contains("data-slot=\"morphing-popover-trigger\""));
-        assert!(!interact.contains("data-slot=\"morphing-popover-content\""));
         assert!(!html.contains("<details"));
         reject_interact(&html);
     }
@@ -101,10 +107,10 @@ mod tests {
     #[test]
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"morphing-popover\"]"));
+        assert!(css.contains("[data-slot=\"morphing-popover\"] {\n  position: relative; isolation: isolate;"));
         assert!(css.contains("[data-slot=\"morphing-popover-trigger\"]"));
-        assert!(css.contains("[data-slot=\"morphing-popover-content\"]"));
-        assert!(css.contains("z-index: 50"));
+        assert!(css.contains("[data-slot=\"morphing-popover-content\"] {\n  position: absolute; z-index: 50;"));
+        assert!(css.contains("border-radius: 16px"));
         assert!(css.contains("width: 18rem"));
         assert!(css.contains("var(--cronus-surface-floating)"));
         assert!(css.contains("var(--cronus-border)"));
