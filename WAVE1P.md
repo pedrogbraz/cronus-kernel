@@ -38,3 +38,7 @@ cd /Users/pedrogbraz/projects/cooud/.wt/kernel-1p-a
 cargo test --offline -- --test-threads=1 cronus_ui_logo_carousel cronus_ui_dynamic_island cronus_ui_image_zoom
 ```
 22 passed (7 logo-carousel + 7 dynamic-island + 8 image-zoom).
+
+## B — aurora-background / border-beam / confetti
+
+CSS-only fx. No canvas/script. leftover stub is meteors.

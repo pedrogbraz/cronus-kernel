@@ -337,6 +337,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "logo-carousel",
     "dynamic-island",
     "image-zoom",
+    "aurora-background",
+    "border-beam",
+    "confetti",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -502,6 +505,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "logo-carousel" => Some(crate::cronus_ui_logo_carousel::render(comp)),
         "dynamic-island" => Some(crate::cronus_ui_dynamic_island::render(comp)),
         "image-zoom" => Some(crate::cronus_ui_image_zoom::render(comp)),
+        "aurora-background" => Some(crate::cronus_ui_aurora_background::render(comp)),
+        "border-beam" => Some(crate::cronus_ui_border_beam::render(comp)),
+        "confetti" => Some(crate::cronus_ui_confetti::render(comp)),
         _ => None,
     }
 }

@@ -166,6 +166,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "logo-carousel" => Some("cronus_ui_logo_carousel::render"),
         "dynamic-island" => Some("cronus_ui_dynamic_island::render"),
         "image-zoom" => Some("cronus_ui_image_zoom::render"),
+        "aurora-background" => Some("cronus_ui_aurora_background::render"),
+        "border-beam" => Some("cronus_ui_border_beam::render"),
+        "confetti" => Some("cronus_ui_confetti::render"),
         _ => None,
     }
 }
@@ -620,6 +623,30 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
             && (!html.contains("<button")
                 || !html.contains("data-slot=\"image-zoom-content\"")
                 || html.contains("style=")))
+        || (html.contains("data-slot=\"aurora-background\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || !html.contains("data-slot=\"aurora-blob\"")
+                || html.contains("<canvas")
+                || html.contains("<script")
+                || html.contains("setInterval")))
+        || (html.contains("data-slot=\"border-beam\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || !html.contains("data-slot=\"border-beam-layer\"")
+                || !html.contains("data-slot=\"border-beam-content\"")
+                || html.contains("<canvas")
+                || html.contains("<script")
+                || html.contains("setInterval")))
+        || (html.contains("data-slot=\"confetti\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<canvas")
+                || html.contains("<script")
+                || html.contains("setInterval")
+                || html.contains("requestAnimationFrame")
+                || !html.contains("data-slot=\"confetti-piece\"")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -906,6 +933,9 @@ mod tests {
             "src/cronus_ui_line_chart.rs",
             "src/cronus_ui_live_line_chart.rs",
             "src/cronus_ui_logo_carousel.rs",
+            "src/cronus_ui_aurora_background.rs",
+            "src/cronus_ui_border_beam.rs",
+            "src/cronus_ui_confetti.rs",
             "src/cronus_ui_sparkline.rs",
             "src/cronus_ui_pie_chart.rs",
             "src/cronus_ui_pill_nav.rs",
