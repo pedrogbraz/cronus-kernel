@@ -209,6 +209,8 @@ mod graph;
 mod graphql;
 mod hardcode_lint;
 mod hmr;
+#[cfg(test)]
+mod http_dispatch_tests;
 mod http_guard;
 mod hydra;
 mod i18n;
@@ -436,6 +438,73 @@ use server::state::AppState;
 use server::auth_pages::{generate_login_page, generate_register_page};
 use server::docs::{render_auto_docs, render_design_system, render_graph_page};
 use server::response::{cors_origin, forbidden_response, html_response, json_response};
+
+/// Response body of the connection service: buffered, or the SSE stream.
+pub(crate) type ServeBody = http_body_util::Either<
+    Full<Bytes>,
+    http_body_util::combinators::UnsyncBoxBody<Bytes, std::convert::Infallible>,
+>;
+
+/// The per-request service run by the server loop (and the HTTP test suite).
+pub(crate) async fn serve(
+    req: Request<Incoming>,
+    state: Arc<AppState>,
+    remote_addr: std::net::SocketAddr,
+) -> Result<Response<ServeBody>, hyper::Error> {
+    // SSE endpoint — returns a streaming response (not buffered)
+    if AUDIT_CANVAS.load(Ordering::Relaxed) {
+        if req.uri().path().starts_with("/audit/") {
+            let resp = cli::audit_http::handle_audit_request(
+                req.uri().path(),
+                req.uri().query(),
+                &state.pages,
+                &state.components,
+            );
+            let (parts, body) = resp.into_parts();
+            return Ok(Response::from_parts(
+                parts,
+                http_body_util::Either::Left(body),
+            ));
+        }
+        let resp = cli::audit_http::audit_not_found();
+        let (parts, body) = resp.into_parts();
+        return Ok(Response::from_parts(
+            parts,
+            http_body_util::Either::Left(body),
+        ));
+    }
+    if req.uri().path() == "/api/sse" && req.method() == Method::GET {
+        // SECURITY: session required; events filtered per viewer.
+        let sse_access = access::Access::from_headers(req.headers(), state.auth_entity.clone());
+        let Some(is_admin) = sse_access.viewer.as_ref().map(|v| v.is_admin()) else {
+            let resp = json_response(
+                StatusCode::UNAUTHORIZED,
+                authz::error_body("UNAUTHENTICATED", "Sign in required"),
+            );
+            let (parts, body) = resp.into_parts();
+            return Ok(Response::from_parts(
+                parts,
+                http_body_util::Either::Left(body),
+            ));
+        };
+        let sse_state = state.clone();
+        let sse_resp = state.sse_hub.subscribe_filtered(
+            move |ev| access::can_see_event(&sse_state.db, &sse_access, &sse_state.entities, ev),
+            is_admin,
+        );
+        // Map the streaming body to a boxed body for type compatibility
+        let (parts, body) = sse_resp.into_parts();
+        let boxed = http_body_util::Either::Right(body.boxed_unsync());
+        return Ok(Response::from_parts(parts, boxed));
+    }
+    // All other requests — wrap Full<Bytes> in Either::Left
+    let resp = http_guard::isolate_panics(handle_request(req, state, remote_addr)).await?;
+    let (parts, body) = resp.into_parts();
+    Ok(Response::from_parts(
+        parts,
+        http_body_util::Either::Left(body),
+    ))
+}
 
 async fn handle_request(
     req: Request<Incoming>,
@@ -3358,53 +3427,7 @@ async fn cmd_run(args: &[String]) {
 
         tokio::task::spawn(async move {
             let service = service_fn(move |req: Request<Incoming>| {
-                let state = state.clone();
-                async move {
-                    // SSE endpoint — returns a streaming response (not buffered)
-                    if AUDIT_CANVAS.load(Ordering::Relaxed) {
-                        if req.uri().path().starts_with("/audit/") {
-                            let resp = cli::audit_http::handle_audit_request(
-                                req.uri().path(),
-                                req.uri().query(),
-                                &state.pages,
-                                &state.components,
-                            );
-                            let (parts, body) = resp.into_parts();
-                            return Ok::<_, hyper::Error>(Response::from_parts(
-                                parts,
-                                http_body_util::Either::Left(body),
-                            ));
-                        }
-                        let resp = cli::audit_http::audit_not_found();
-                        let (parts, body) = resp.into_parts();
-                        return Ok::<_, hyper::Error>(Response::from_parts(
-                            parts,
-                            http_body_util::Either::Left(body),
-                        ));
-                    }
-                    if req.uri().path() == "/api/sse" && req.method() == Method::GET {
-                        // SECURITY: session required; events filtered per viewer.
-                        let sse_access = access::Access::from_headers(req.headers(), state.auth_entity.clone());
-                        let Some(is_admin) = sse_access.viewer.as_ref().map(|v| v.is_admin()) else {
-                            let resp = json_response(StatusCode::UNAUTHORIZED, authz::error_body("UNAUTHENTICATED", "Sign in required"));
-                            let (parts, body) = resp.into_parts();
-                            return Ok::<_, hyper::Error>(Response::from_parts(parts, http_body_util::Either::Left(body)));
-                        };
-                        let sse_state = state.clone();
-                        let sse_resp = state.sse_hub.subscribe_filtered(
-                            move |ev| access::can_see_event(&sse_state.db, &sse_access, &sse_state.entities, ev),
-                            is_admin,
-                        );
-                        // Map the streaming body to a boxed body for type compatibility
-                        let (parts, body) = sse_resp.into_parts();
-                        let boxed = http_body_util::Either::Right(body);
-                        return Ok::<_, hyper::Error>(Response::from_parts(parts, boxed));
-                    }
-                    // All other requests — wrap Full<Bytes> in Either::Left
-                    let resp = http_guard::isolate_panics(handle_request(req, state, remote_addr)).await?;
-                    let (parts, body) = resp.into_parts();
-                    Ok(Response::from_parts(parts, http_body_util::Either::Left(body)))
-                }
+                serve(req, state.clone(), remote_addr)
             });
             if let Err(e) = http_guard::http1_builder().serve_connection(io, service).await {
                 http_guard::log_connection_error(&e);
