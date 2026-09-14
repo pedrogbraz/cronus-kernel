@@ -169,6 +169,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "aurora-background" => Some("cronus_ui_aurora_background::render"),
         "border-beam" => Some("cronus_ui_border_beam::render"),
         "confetti" => Some("cronus_ui_confetti::render"),
+        "composed-chart" => Some("cronus_ui_composed_chart::render"),
+        "heatmap-chart" => Some("cronus_ui_heatmap_chart::render"),
+        "chart" => Some("cronus_ui_chart::render"),
         _ => None,
     }
 }
@@ -647,6 +650,12 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || html.contains("setInterval")
                 || html.contains("requestAnimationFrame")
                 || !html.contains("data-slot=\"confetti-piece\"")))
+        || html.contains("<figure data-slot=\"composed-chart\"")
+        || (html.contains("data-slot=\"composed-chart\"") && html.contains("<figcaption"))
+        || html.contains("<figure data-slot=\"heatmap-chart\"")
+        || (html.contains("data-slot=\"heatmap-chart\"") && html.contains("<figcaption"))
+        || html.contains("<figure data-slot=\"chart\"")
+        || (html.contains("data-slot=\"chart\"") && html.contains("<figcaption"))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -936,6 +945,9 @@ mod tests {
             "src/cronus_ui_aurora_background.rs",
             "src/cronus_ui_border_beam.rs",
             "src/cronus_ui_confetti.rs",
+            "src/cronus_ui_composed_chart.rs",
+            "src/cronus_ui_heatmap_chart.rs",
+            "src/cronus_ui_chart.rs",
             "src/cronus_ui_sparkline.rs",
             "src/cronus_ui_pie_chart.rs",
             "src/cronus_ui_pill_nav.rs",

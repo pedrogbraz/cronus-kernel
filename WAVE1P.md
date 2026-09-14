@@ -42,3 +42,7 @@ cargo test --offline -- --test-threads=1 cronus_ui_logo_carousel cronus_ui_dynam
 ## B — aurora-background / border-beam / confetti
 
 CSS-only fx. No canvas/script. leftover stub is meteors.
+
+## C — composed-chart / heatmap-chart / chart
+
+SVG dedicated charts. leftover stub is sankey-chart.

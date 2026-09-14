@@ -3222,6 +3222,63 @@ button:has(+ [data-slot="sheet-content"]) {
 @media (prefers-reduced-motion: reduce) {
   [data-slot="confetti-piece"] { display: none; animation: none; }
 }
+[data-slot="composed-chart"] {
+  display: block; width: 100%; aspect-ratio: 2 / 1;
+}
+[data-slot="composed-chart"] svg {
+  display: block; width: 100%; height: 100%;
+}
+[data-slot="composed-chart"] path {
+  fill: var(--cronus-primary); fill-opacity: 0.28;
+}
+[data-slot="composed-chart"] polyline {
+  fill: none; stroke: var(--cronus-primary); stroke-width: 2;
+  stroke-linejoin: round; stroke-linecap: round;
+}
+[data-slot="heatmap-chart"] {
+  display: inline-flex; flex-direction: column; gap: 0.5rem;
+}
+[data-slot="heatmap-chart"] [role="img"] {
+  display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, auto); gap: 0.25rem;
+}
+[data-slot="heatmap-chart"] [data-slot="heatmap-day"],
+[data-slot="heatmap-chart"] [data-slot="heatmap-legend-swatch"] {
+  width: 0.75rem; height: 0.75rem; border-radius: 3px;
+  background: var(--cronus-surface-inset);
+}
+[data-slot="heatmap-chart"] [data-slot="heatmap-day"][data-level="1"],
+[data-slot="heatmap-chart"] [data-slot="heatmap-legend-swatch"][data-level="1"] {
+  background: color-mix(in oklch, var(--cronus-primary) 25%, transparent);
+}
+[data-slot="heatmap-chart"] [data-slot="heatmap-day"][data-level="2"],
+[data-slot="heatmap-chart"] [data-slot="heatmap-legend-swatch"][data-level="2"] {
+  background: color-mix(in oklch, var(--cronus-primary) 45%, transparent);
+}
+[data-slot="heatmap-chart"] [data-slot="heatmap-day"][data-level="3"],
+[data-slot="heatmap-chart"] [data-slot="heatmap-legend-swatch"][data-level="3"] {
+  background: color-mix(in oklch, var(--cronus-primary) 70%, transparent);
+}
+[data-slot="heatmap-chart"] [data-slot="heatmap-day"][data-level="4"],
+[data-slot="heatmap-chart"] [data-slot="heatmap-legend-swatch"][data-level="4"] {
+  background: var(--cronus-primary);
+}
+[data-slot="heatmap-chart"] [data-slot="heatmap-legend"] {
+  display: flex; align-items: center; gap: 0.25rem;
+  font-size: 0.75rem; color: var(--cronus-fg-tertiary);
+}
+[data-slot="chart"] {
+  display: block; width: 100%; aspect-ratio: 2 / 1;
+}
+[data-slot="chart"] svg {
+  display: block; width: 100%; height: 100%;
+}
+[data-slot="chart"] path {
+  fill: var(--cronus-primary); fill-opacity: 0.28;
+}
+[data-slot="chart"] polyline {
+  fill: none; stroke: var(--cronus-primary); stroke-width: 2;
+  stroke-linejoin: round; stroke-linecap: round;
+}
 
 "#;
 

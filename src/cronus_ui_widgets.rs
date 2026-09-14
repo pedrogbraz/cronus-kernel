@@ -340,6 +340,9 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "aurora-background",
     "border-beam",
     "confetti",
+    "composed-chart",
+    "heatmap-chart",
+    "chart",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -508,6 +511,9 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "aurora-background" => Some(crate::cronus_ui_aurora_background::render(comp)),
         "border-beam" => Some(crate::cronus_ui_border_beam::render(comp)),
         "confetti" => Some(crate::cronus_ui_confetti::render(comp)),
+        "composed-chart" => Some(crate::cronus_ui_composed_chart::render(comp)),
+        "heatmap-chart" => Some(crate::cronus_ui_heatmap_chart::render(comp)),
+        "chart" => Some(crate::cronus_ui_chart::render(comp)),
         _ => None,
     }
 }
