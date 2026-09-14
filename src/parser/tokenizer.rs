@@ -32,7 +32,21 @@ pub(crate) enum TokenKind {
 pub(crate) struct Token {
     pub kind: TokenKind,
     pub value: String,
+    /// 1-based source line.
     pub line: usize,
+    /// 1-based column (in chars) of the token's first character.
+    pub col: usize,
+}
+
+impl Token {
+    /// Width of the token in source chars (string literals include their quotes).
+    pub fn width(&self) -> usize {
+        match self.kind {
+            TokenKind::StringLit => self.value.chars().count() + 2,
+            TokenKind::Eof => 0,
+            _ => self.value.chars().count(),
+        }
+    }
 }
 
 pub(crate) const KEYWORDS: &[&str] = &[
@@ -82,6 +96,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                 i += 1;
                 continue;
             }
+            let tok_start = i;
 
             // doc-comment: /// preserved in AST
             if i + 2 < chars.len() && chars[i] == '/' && chars[i + 1] == '/' && chars[i + 2] == '/'
@@ -91,6 +106,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                     kind: TokenKind::DocComment,
                     value: doc_text.trim().to_string(),
                     line: line_num,
+                    col: tok_start + 1,
                 });
                 break;
             }
@@ -107,6 +123,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                     kind: TokenKind::Identifier,
                     value,
                     line: line_num,
+                    col: tok_start + 1,
                 });
                 continue;
             }
@@ -139,6 +156,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                     kind: TokenKind::StringLit,
                     value,
                     line: line_num,
+                    col: tok_start + 1,
                 });
                 continue;
             }
@@ -150,6 +168,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                         kind: TokenKind::LBrace,
                         value: "{".into(),
                         line: line_num,
+                        col: tok_start + 1,
                     });
                     i += 1;
                     continue;
@@ -159,6 +178,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                         kind: TokenKind::RBrace,
                         value: "}".into(),
                         line: line_num,
+                        col: tok_start + 1,
                     });
                     i += 1;
                     continue;
@@ -168,6 +188,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                         kind: TokenKind::LBracket,
                         value: "[".into(),
                         line: line_num,
+                        col: tok_start + 1,
                     });
                     i += 1;
                     continue;
@@ -177,6 +198,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                         kind: TokenKind::RBracket,
                         value: "]".into(),
                         line: line_num,
+                        col: tok_start + 1,
                     });
                     i += 1;
                     continue;
@@ -186,6 +208,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                         kind: TokenKind::Comma,
                         value: ",".into(),
                         line: line_num,
+                        col: tok_start + 1,
                     });
                     i += 1;
                     continue;
@@ -195,6 +218,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                         kind: TokenKind::LParen,
                         value: "(".into(),
                         line: line_num,
+                        col: tok_start + 1,
                     });
                     i += 1;
                     continue;
@@ -204,6 +228,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                         kind: TokenKind::RParen,
                         value: ")".into(),
                         line: line_num,
+                        col: tok_start + 1,
                     });
                     i += 1;
                     continue;
@@ -213,6 +238,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                         kind: TokenKind::Plus,
                         value: "+".into(),
                         line: line_num,
+                        col: tok_start + 1,
                     });
                     i += 1;
                     continue;
@@ -222,6 +248,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                         kind: TokenKind::Pipe,
                         value: "|".into(),
                         line: line_num,
+                        col: tok_start + 1,
                     });
                     i += 1;
                     continue;
@@ -235,6 +262,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                     kind: TokenKind::Operator,
                     value: "==".into(),
                     line: line_num,
+                    col: tok_start + 1,
                 });
                 i += 2;
                 continue;
@@ -244,6 +272,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                     kind: TokenKind::Operator,
                     value: "=".into(),
                     line: line_num,
+                    col: tok_start + 1,
                 });
                 i += 1;
                 continue;
@@ -254,6 +283,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                         kind: TokenKind::Operator,
                         value: "!=".into(),
                         line: line_num,
+                        col: tok_start + 1,
                     });
                     i += 2;
                     continue;
@@ -263,6 +293,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                     kind: TokenKind::Identifier,
                     value: "!".into(),
                     line: line_num,
+                    col: tok_start + 1,
                 });
                 i += 1;
                 continue;
@@ -272,6 +303,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                     kind: TokenKind::Operator,
                     value: ">=".into(),
                     line: line_num,
+                    col: tok_start + 1,
                 });
                 i += 2;
                 continue;
@@ -281,6 +313,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                     kind: TokenKind::Operator,
                     value: "<=".into(),
                     line: line_num,
+                    col: tok_start + 1,
                 });
                 i += 2;
                 continue;
@@ -290,6 +323,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                     kind: TokenKind::Operator,
                     value: ">".into(),
                     line: line_num,
+                    col: tok_start + 1,
                 });
                 i += 1;
                 continue;
@@ -299,6 +333,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                     kind: TokenKind::Operator,
                     value: "<".into(),
                     line: line_num,
+                    col: tok_start + 1,
                 });
                 i += 1;
                 continue;
@@ -310,6 +345,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                     kind: TokenKind::Arrow,
                     value: "->".into(),
                     line: line_num,
+                    col: tok_start + 1,
                 });
                 i += 2;
                 continue;
@@ -332,6 +368,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                     kind: TokenKind::Price,
                     value,
                     line: line_num,
+                    col: tok_start + 1,
                 });
                 continue;
             }
@@ -357,6 +394,7 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                         kind: TokenKind::Path,
                         value,
                         line: line_num,
+                        col: tok_start + 1,
                     });
                     continue;
                 }
@@ -427,42 +465,49 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                         kind: TokenKind::Method,
                         value: word,
                         line: line_num,
+                        col: tok_start + 1,
                     });
                 } else if word.starts_with("env(") && word.ends_with(')') {
                     tokens.push(Token {
                         kind: TokenKind::EnvRef,
                         value: word,
                         line: line_num,
+                        col: tok_start + 1,
                     });
                 } else if word.contains(':') && !word.starts_with('/') {
                     tokens.push(Token {
                         kind: TokenKind::ColonPair,
                         value: word,
                         line: line_num,
+                        col: tok_start + 1,
                     });
                 } else if word.starts_with('/') {
                     tokens.push(Token {
                         kind: TokenKind::Path,
                         value: word,
                         line: line_num,
+                        col: tok_start + 1,
                     });
                 } else if word.chars().all(|c| c.is_ascii_digit()) {
                     tokens.push(Token {
                         kind: TokenKind::Number,
                         value: word,
                         line: line_num,
+                        col: tok_start + 1,
                     });
                 } else if KEYWORDS.contains(&word.as_str()) {
                     tokens.push(Token {
                         kind: TokenKind::Keyword,
                         value: word,
                         line: line_num,
+                        col: tok_start + 1,
                     });
                 } else {
                     tokens.push(Token {
                         kind: TokenKind::Identifier,
                         value: word,
                         line: line_num,
+                        col: tok_start + 1,
                     });
                 }
                 continue;
@@ -475,7 +520,40 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
     tokens.push(Token {
         kind: TokenKind::Eof,
         value: String::new(),
-        line: lines.len(),
+        line: lines.len().max(1),
+        col: lines.last().map(|l| l.chars().count() + 1).unwrap_or(1),
     });
     tokens
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tokens_carry_line_and_column() {
+        let src = "entity Task {\n  title  \"x y\"  -> User\n\tqty number!\n}";
+        let toks = tokenize(src);
+        let find = |v: &str| toks.iter().find(|t| t.value == v).unwrap().clone();
+        assert_eq!((find("entity").line, find("entity").col), (1, 1));
+        assert_eq!((find("Task").line, find("Task").col), (1, 8));
+        assert_eq!((find("{").line, find("{").col), (1, 13));
+        assert_eq!((find("title").line, find("title").col), (2, 3));
+        let s = find("x y");
+        assert_eq!((s.line, s.col, s.width()), (2, 10, 5));
+        assert_eq!((find("->").line, find("->").col), (2, 17));
+        assert_eq!((find("User").line, find("User").col), (2, 20));
+        // tab counts as one column
+        assert_eq!((find("qty").line, find("qty").col), (3, 2));
+        assert_eq!((find("number!").line, find("number!").col), (3, 6));
+        let eof = toks.last().unwrap();
+        assert_eq!(eof.kind, TokenKind::Eof);
+        assert_eq!((eof.line, eof.col), (4, 2));
+    }
+
+    #[test]
+    fn eof_of_empty_source_is_line_one() {
+        let toks = tokenize("");
+        assert_eq!((toks[0].line, toks[0].col), (1, 1));
+    }
 }
