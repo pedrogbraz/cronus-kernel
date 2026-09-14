@@ -1343,9 +1343,7 @@ api /api/misc {
 
 api /api/oauth {
   list         GET      /userinfo            auth:jwt
-  handle       OPTIONS  /userinfo            auth:jwt
   create       POST     /token               auth:jwt
-  handle       OPTIONS  /token               auth:jwt
   create       POST     /authorize           auth:jwt
   list         GET      /apps                auth:jwt
   create       POST     /apps                auth:jwt
@@ -1372,7 +1370,6 @@ api /api/providers {
 
 api /api/qr {
   list         GET      /                    auth:public
-  handle       OPTIONS  /                    auth:public
 }
 
 api /api/resend {

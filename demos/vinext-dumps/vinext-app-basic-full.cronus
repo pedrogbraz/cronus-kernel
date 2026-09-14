@@ -995,7 +995,6 @@ api /api/methods {
   update       PUT      /                    auth:public
   update       PATCH    /                    auth:public
   delete       DELETE   /                    auth:public
-  handle       HEAD     /                    auth:public
   list         GET      /query               auth:public
 }
 

@@ -2339,6 +2339,14 @@ impl Parser {
 
     /// Validate an identifier against P040 (valid pattern) and P041 (no SQL reserved words).
     fn validate_identifier(name: &str, context: &str, line: usize) -> Result<(), String> {
+        Self::validate_identifier_pattern(name, context, line)?;
+        Self::reject_sql_reserved(name, context, line)
+    }
+
+    /// P040 only: `[a-zA-Z][a-zA-Z0-9_]{0,63}`. Used for bracketed array values
+    /// (enum values, roles, config lists). Those are data bound as parameters,
+    /// never SQL identifiers, so P041 does not apply: `enum [create, update]` is legal.
+    fn validate_identifier_pattern(name: &str, context: &str, line: usize) -> Result<(), String> {
         // P040: Must match [a-zA-Z][a-zA-Z0-9_]{0,63}
         if name.is_empty() {
             return Err(format!(
@@ -2372,7 +2380,11 @@ impl Parser {
             }
         }
 
-        // P041: No SQL reserved words
+        Ok(())
+    }
+
+    /// P041: No SQL reserved words (entity/field names become SQL identifiers).
+    fn reject_sql_reserved(name: &str, context: &str, line: usize) -> Result<(), String> {
         const SQL_RESERVED: &[&str] = &[
             "SELECT", "DROP", "INSERT", "DELETE", "UPDATE", "TABLE", "FROM",
             "WHERE", "OR", "AND", "UNION", "ALTER", "CREATE", "INDEX", "EXEC",
@@ -2399,9 +2411,10 @@ impl Parser {
         while !self.matches(TokenKind::RBracket, None) && !self.matches(TokenKind::Eof, None) {
             if self.peek().kind == TokenKind::Comma { self.advance(); continue; }
             let token = self.peek().clone();
-            // P040/P041: validate unquoted identifiers in arrays (enum values)
+            // P040: validate unquoted identifiers in arrays (enum values, roles).
+            // P041 is skipped on purpose: array values are data, not SQL identifiers.
             if token.kind == TokenKind::Identifier {
-                Self::validate_identifier(&token.value, "enum value", token.line)?;
+                Self::validate_identifier_pattern(&token.value, "enum value", token.line)?;
             }
             items.push(self.advance().value);
         }
@@ -2852,6 +2865,72 @@ env production {
 #[cfg(test)]
 mod parser_tests {
     use super::*;
+
+    // ── P041 does not apply to enum values (data, not identifiers) ──
+
+    #[test]
+    fn p041_enum_values_may_be_sql_reserved_words() {
+        let src = "entity Audit {\n  action enum [create, update, delete, select]\n}\n";
+        let nodes = parse(src).expect("SQL keywords are legal enum values");
+        let AstNode::Entity(e) = &nodes[0] else { panic!("expected entity") };
+        let values = e.fields[0].enum_values.as_ref().unwrap();
+        assert_eq!(values, &vec!["create", "update", "delete", "select"]);
+    }
+
+    #[test]
+    fn p041_still_rejects_reserved_field_and_entity_names() {
+        assert!(parse("entity Thing {\n  select string\n}\n").is_err());
+        assert!(parse("entity Table {\n  name string\n}\n").is_err());
+    }
+
+    #[test]
+    fn p040_still_applies_to_enum_values() {
+        assert!(Parser::validate_identifier_pattern("9lives", "enum value", 1).is_err());
+    }
+
+    /// Every shipped `.cronus` under `templates/` and `demos/` must parse.
+    #[test]
+    fn every_template_and_demo_parses() {
+        use std::path::{Path, PathBuf};
+        fn collect(dir: &Path, out: &mut Vec<PathBuf>) {
+            let Ok(entries) = std::fs::read_dir(dir) else { return };
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_dir() {
+                    let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    if name == "node_modules" || name == "target" || name.starts_with('.') {
+                        continue;
+                    }
+                    collect(&p, out);
+                } else if p.extension().and_then(|e| e.to_str()) == Some("cronus") {
+                    out.push(p);
+                }
+            }
+        }
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut files = Vec::new();
+        collect(&root.join("templates"), &mut files);
+        collect(&root.join("demos"), &mut files);
+        files.sort();
+        assert!(!files.is_empty(), "no .cronus files found under templates/ or demos/");
+
+        let mut offenders = Vec::new();
+        for file in &files {
+            let src = std::fs::read_to_string(file).unwrap();
+            let base = file.parent().unwrap().to_string_lossy().to_string();
+            if let Err(e) = parse_with_imports(&src, &base) {
+                let rel = file.strip_prefix(root).unwrap_or(file);
+                offenders.push(format!("{}: {}", rel.display(), e.lines().next().unwrap_or("")));
+            }
+        }
+        assert!(
+            offenders.is_empty(),
+            "{} of {} .cronus files fail to parse:\n  {}",
+            offenders.len(),
+            files.len(),
+            offenders.join("\n  ")
+        );
+    }
 
     // ── P040: Valid identifier pattern ──
 
