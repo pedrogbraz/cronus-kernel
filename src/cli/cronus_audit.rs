@@ -234,10 +234,16 @@ mod tests {
         assert_eq!(run_audit_command(&args), 2);
     }
 
+    /// Per-process temp path: parallel `cargo test` runs (other worktrees)
+    /// share the OS temp dir, and a fixed name let one run delete or
+    /// overwrite another's fixture mid-test.
+    fn temp_path(name: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("{}-{name}", std::process::id()))
+    }
+
     #[test]
     fn html_file_aliases_legacy() {
-        let dir = std::env::temp_dir();
-        let path = dir.join("cronus-audit-legacy-alias.html");
+        let path = temp_path("cronus-audit-legacy-alias.html");
         std::fs::write(&path, "<p>hi</p>").unwrap();
         let args = vec![
             "cronus".into(),
@@ -250,8 +256,7 @@ mod tests {
 
     #[test]
     fn language_clean_fixture_passes() {
-        let dir = std::env::temp_dir();
-        let path = dir.join("cronus-audit-clean.cronus");
+        let path = temp_path("cronus-audit-clean.cronus");
         std::fs::write(
             &path,
             r#"
@@ -278,8 +283,7 @@ page "/audit/button/primary-md" type:custom {
 
     #[test]
     fn language_html_fails() {
-        let dir = std::env::temp_dir();
-        let path = dir.join("cronus-audit-html.cronus");
+        let path = temp_path("cronus-audit-html.cronus");
         std::fs::write(
             &path,
             "app \"x\" { port 1 }\ncomponent B layout:inline style:button { label \"<div>\" }\n",
@@ -298,8 +302,7 @@ page "/audit/button/primary-md" type:custom {
 
     #[test]
     fn all_fails_stub_chart() {
-        let dir = std::env::temp_dir();
-        let path = dir.join("cronus-audit-chart.cronus");
+        let path = temp_path("cronus-audit-chart.cronus");
         std::fs::write(
             &path,
             r#"
