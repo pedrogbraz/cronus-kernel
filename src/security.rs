@@ -2,10 +2,8 @@
 //!
 //! Every generated app enforces these automatically. No opt-out.
 
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Mutex, OnceLock};
-use std::time::Instant;
+use std::sync::OnceLock;
 
 use base64::Engine as _;
 use rand::RngCore;
@@ -50,51 +48,6 @@ pub fn safe_column(name: &str) -> Option<&str> {
         Some(name)
     } else {
         None
-    }
-}
-
-// ══════════════════════════════════════════════════
-// RATE LIMITING — prevents brute force
-// ══════════════════════════════════════════════════
-
-pub struct RateLimiter {
-    buckets: Mutex<HashMap<String, (u32, Instant)>>,
-}
-
-impl RateLimiter {
-    pub fn new() -> Self {
-        Self {
-            buckets: Mutex::new(HashMap::new()),
-        }
-    }
-
-    /// Check if request is allowed. Returns false if rate exceeded.
-    /// `max_requests` in `window_secs` per key.
-    pub fn check(&self, key: &str, max_requests: u32, window_secs: u64) -> bool {
-        let mut buckets = self.buckets.lock().unwrap();
-        let now = Instant::now();
-
-        let entry = buckets.entry(key.to_string()).or_insert((0, now));
-
-        // Reset window if expired
-        if now.duration_since(entry.1).as_secs() >= window_secs {
-            entry.0 = 0;
-            entry.1 = now;
-        }
-
-        if entry.0 >= max_requests {
-            false
-        } else {
-            entry.0 += 1;
-            true
-        }
-    }
-
-    /// Cleanup stale entries (call periodically)
-    pub fn cleanup(&self, max_age_secs: u64) {
-        let mut buckets = self.buckets.lock().unwrap();
-        let now = Instant::now();
-        buckets.retain(|_, (_, t)| now.duration_since(*t).as_secs() < max_age_secs);
     }
 }
 
