@@ -223,4 +223,15 @@ mod tests {
         assert!(css.contains("font-size: 0.875rem"));
         assert!(!css.contains("zinc-"));
     }
+
+    #[test]
+    fn fallback_line_height_is_text_sm() {
+        // Wave 1t: React avatar-fallback lineHeight 20px (text-sm), was 21px.
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("background: var(--cronus-surface-overlay); color: var(--cronus-fg-secondary);\n  font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;"));
+        assert_eq!(
+            render(&stub("AL")),
+            "<span data-slot=\"avatar\"><span data-slot=\"avatar-fallback\">AL</span></span>"
+        );
+    }
 }

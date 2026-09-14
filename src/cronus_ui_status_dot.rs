@@ -1,21 +1,61 @@
 //! Dedicated StatusDot renderer. DOM matches React:
-//! `<span data-slot="status-dot" role="status" data-status>` plus
-//! `status-dot-indicator` and `status-dot-label` from the label.
+//! `<span data-slot="status-dot" data-status role="status">` plus an
+//! `aria-hidden` `status-dot-indicator` and, by default (no `withLabel`), a
+//! visually-hidden `status-dot-sr-label` carrying the status name ("Online").
+//! `withLabel:true` renders the visible `status-dot-label` from the label.
+//! The emitter's `label` is the fixture id when no label prop exists, so it is
+//! never shown unless `withLabel` is set (same as React, which ignores it).
 //! Not interact `pill("status-dot")` (BASE/SURF padding pill span).
 
-use crate::cronus_ui_kit::label_of;
+use crate::cronus_ui_kit::{esc, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     let status = status_of(comp);
-    let label = label_of(comp);
+    let indicator = "<span aria-hidden=\"true\" data-slot=\"status-dot-indicator\"></span>";
+    let tail = if with_label(comp) {
+        format!("<span data-slot=\"status-dot-label\">{}</span>", label_of(comp))
+    } else {
+        let name = attr(comp, "label")
+            .map(esc)
+            .unwrap_or_else(|| default_label(status).to_string());
+        format!("<span data-slot=\"status-dot-sr-label\">{name}</span>")
+    };
     format!(
-        "<span data-slot=\"status-dot\" role=\"status\" data-status=\"{status}\"><span data-slot=\"status-dot-indicator\"></span><span data-slot=\"status-dot-label\">{label}</span></span>"
+        "<span data-slot=\"status-dot\" data-status=\"{status}\" role=\"status\">{indicator}{tail}</span>"
     )
 }
 
+/// Attribute from props or any item's config (the tokenizer attaches
+/// `key:value` lines to the preceding item).
+fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
+    comp.props
+        .get(key)
+        .map(String::as_str)
+        .or_else(|| comp.items.iter().find_map(|i| i.config.get(key).map(String::as_str)))
+        .filter(|s| !s.is_empty())
+}
+
+fn with_label(comp: &ComponentNode) -> bool {
+    matches!(attr(comp, "withLabel").or_else(|| attr(comp, "with-label")), Some("true"))
+}
+
+fn default_label(status: &str) -> &'static str {
+    match status {
+        "offline" => "Offline",
+        "busy" => "Busy",
+        "away" => "Away",
+        "success" => "Success",
+        "warning" => "Warning",
+        "error" => "Error",
+        "info" => "Info",
+        "neutral" => "Neutral",
+        _ => "Online",
+    }
+}
+
 fn status_of(comp: &ComponentNode) -> &'static str {
-    if let Some(v) = comp.props.get("status") {
+    if let Some(v) = attr(comp, "status") {
         if let Some(named) = named_status(v) {
             return named;
         }
@@ -67,18 +107,27 @@ mod tests {
     }
 
     #[test]
-    fn root_is_status_dot_with_indicator_and_label() {
-        let html = render(&stub("status-dot", "Online"));
-        assert!(html.starts_with(
-            "<span data-slot=\"status-dot\" role=\"status\" data-status=\"online\">"
-        ));
-        assert!(html.contains("<span data-slot=\"status-dot-indicator\"></span>"));
-        assert!(html.contains("<span data-slot=\"status-dot-label\">Online</span>"));
-        reject_interact(&html);
+    fn default_is_indicator_plus_sr_status_name_not_fixture_label() {
+        // Wave 1t: the emitter writes `label "default"` (fixture id); React
+        // renders the sr-only status name "Online" and no visible label.
+        let html = render(&stub("status-dot", "default"));
         assert_eq!(
             html,
-            "<span data-slot=\"status-dot\" role=\"status\" data-status=\"online\"><span data-slot=\"status-dot-indicator\"></span><span data-slot=\"status-dot-label\">Online</span></span>"
+            "<span data-slot=\"status-dot\" data-status=\"online\" role=\"status\"><span aria-hidden=\"true\" data-slot=\"status-dot-indicator\"></span><span data-slot=\"status-dot-sr-label\">Online</span></span>"
         );
+        assert!(!html.contains("default"));
+        assert!(!html.contains("data-slot=\"status-dot-label\""));
+        reject_interact(&html);
+    }
+
+    #[test]
+    fn with_label_renders_visible_label() {
+        let mut c = stub("status-dot", "Online");
+        c.props.insert("withLabel".into(), "true".into());
+        let html = render(&c);
+        assert!(html.contains("<span data-slot=\"status-dot-label\">Online</span>"));
+        assert!(!html.contains("status-dot-sr-label"));
+        reject_interact(&html);
     }
 
     #[test]
@@ -87,17 +136,17 @@ mod tests {
         c.props.insert("status".into(), "busy".into());
         let html = render(&c);
         assert!(html.contains("data-status=\"busy\""));
-        assert!(html.contains(">Busy</span>"));
+        assert!(html.contains("<span data-slot=\"status-dot-sr-label\">Busy</span>"));
         reject_interact(&html);
     }
 
     #[test]
     fn status_from_style() {
-        let mut c = stub("status-dot", "Offline");
+        let mut c = stub("status-dot", "x");
         c.style = Some("status-dot+offline".into());
         let html = render(&c);
         assert!(html.contains("data-status=\"offline\""));
-        assert!(html.contains("<span data-slot=\"status-dot-label\">Offline</span>"));
+        assert!(html.contains("<span data-slot=\"status-dot-sr-label\">Offline</span>"));
         reject_interact(&html);
     }
 
@@ -111,10 +160,9 @@ mod tests {
         assert!(interact.contains("style="));
         assert!(interact.contains("padding:0.15rem 0.55rem"));
         assert!(!interact.contains("data-slot=\"status-dot-indicator\""));
-        assert!(!interact.contains("data-slot=\"status-dot-label\""));
         assert!(!interact.contains("role=\"status\""));
         assert!(html.contains("data-slot=\"status-dot-indicator\""));
-        assert!(html.contains("data-slot=\"status-dot-label\""));
+        assert!(html.contains("data-slot=\"status-dot-sr-label\""));
         reject_interact(&html);
     }
 
@@ -132,6 +180,7 @@ mod tests {
         assert!(css.contains("[data-slot=\"status-dot\"]"));
         assert!(css.contains("[data-slot=\"status-dot-indicator\"]"));
         assert!(css.contains("[data-slot=\"status-dot-label\"]"));
+        assert!(css.contains("[data-slot=\"status-dot-sr-label\"] {\n  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;"));
         assert!(css.contains("display: inline-flex"));
         assert!(css.contains("border-radius: 9999px"));
         assert!(css.contains("var(--cronus-success)"));

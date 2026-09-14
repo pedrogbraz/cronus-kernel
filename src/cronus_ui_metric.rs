@@ -37,6 +37,13 @@ fn value_of(comp: &ComponentNode) -> String {
             return esc(v);
         }
     }
+    // The tokenizer attaches `value:"1,240"` after `label "Users"` to the
+    // label item's config, not to props.
+    if let Some(v) = comp.items.iter().find_map(|i| i.config.get("value")) {
+        if !v.is_empty() {
+            return esc(v);
+        }
+    }
     let label = label_raw(comp);
     for i in &comp.items {
         if i.text.is_empty() {
@@ -134,6 +141,21 @@ mod tests {
         let html = render(&c);
         assert!(html.contains("data-slot=\"metric-value\">2.1%</div>"));
         reject_interact(&html);
+    }
+
+    #[test]
+    fn value_from_label_item_config() {
+        // Wave 1t: emitter writes `label "Users"` + `value:"1,240"` → item config.
+        let mut c = stub("metric", "Users");
+        c.items[0].config.insert("value".into(), "1,240".into());
+        let html = render(&c);
+        assert_eq!(
+            html,
+            "<div data-slot=\"metric\"><div data-slot=\"metric-label\">Users</div><div data-slot=\"metric-value\">1,240</div></div>"
+        );
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("font-size: 0.75rem; line-height: 1rem; font-weight: 500; text-transform: uppercase;"));
+        assert!(css.contains("font-size: 1.5rem; line-height: 2rem; font-weight: 600;"));
     }
 
     #[test]

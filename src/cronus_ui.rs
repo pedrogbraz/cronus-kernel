@@ -813,7 +813,7 @@ dialog[data-slot="dialog-content"]::backdrop {
 [data-slot="badge"] {
   display: inline-flex; align-items: center; gap: 0.25rem;
   border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
-  padding: 0.125rem 0.5rem; font-size: 0.75rem; font-weight: 500;
+  padding: 0.125rem 0.5rem; font-size: 0.75rem; line-height: 1rem; font-weight: 500;
   white-space: nowrap;
   background: var(--cronus-surface-overlay); color: var(--cronus-fg);
 }
@@ -899,7 +899,7 @@ dialog[data-slot="dialog-content"]::backdrop {
 }
 
 [data-slot="spinner"] {
-  width: 1.25rem; height: 1.25rem; display: inline-block;
+  width: 1.25rem; height: 1.25rem; display: block;
   color: currentColor; vertical-align: middle;
   animation: spin 1s linear infinite;
 }
@@ -941,13 +941,13 @@ dialog[data-slot="dialog-content"]::backdrop {
   position: relative; height: 0.5rem; width: 100%; overflow: hidden;
   border-radius: 9999px; background: var(--cronus-surface-overlay);
 }
-[data-slot="progress-indicator"] {
+[data-slot="progress"] > div {
   height: 100%; width: 100%; flex: 1; background: var(--cronus-primary);
   transition: transform 300ms var(--ease-out-quart);
 }
 
 [data-slot="skeleton"] {
-  display: block; height: 0.9rem; width: 8rem;
+  display: block; height: 1rem; width: 8rem;
   border-radius: var(--cronus-radius-md);
   background: var(--cronus-surface-overlay);
   animation: cui-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -1098,7 +1098,7 @@ dialog[data-slot="dialog-content"]::backdrop {
 [data-slot="chip"] {
   display: inline-flex; align-items: center; height: 1.75rem;
   border-radius: 9999px; border: 1px solid var(--cronus-border);
-  padding: 0 0.625rem; font-size: 0.875rem; font-weight: 500;
+  padding: 0 0.625rem; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;
   white-space: nowrap; background: var(--cronus-surface-overlay);
   color: var(--cronus-fg);
 }
@@ -1115,7 +1115,7 @@ dialog[data-slot="dialog-content"]::backdrop {
   display: flex; width: 100%; height: 100%;
   align-items: center; justify-content: center; border-radius: 9999px;
   background: var(--cronus-surface-overlay); color: var(--cronus-fg-secondary);
-  font-size: 0.875rem; font-weight: 500;
+  font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;
 }
 
 [data-slot="card"], [data-slot="spotlight-card"] {
@@ -1169,10 +1169,11 @@ dialog[data-slot="dialog-content"]::backdrop {
   padding: 3rem 1.5rem; text-align: center;
 }
 [data-slot="empty-title"] {
-  font-size: 0.875rem; font-weight: 600; color: var(--cronus-fg);
+  font-family: var(--cronus-font-display, inherit);
+  font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; color: var(--cronus-fg);
 }
 [data-slot="empty-description"] {
-  max-width: 24rem; font-size: 0.875rem; color: var(--cronus-fg-secondary);
+  max-width: 24rem; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
 }
 
 [data-slot="alert"] {
@@ -1331,10 +1332,10 @@ dialog[data-slot="dialog-content"]::backdrop {
 [data-slot="copy-button"] {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   white-space: nowrap; border-radius: var(--cronus-radius-lg); font-weight: 500;
-  line-height: 1; cursor: pointer; text-decoration: none;
-  outline: none; border: 1px solid transparent;
+  line-height: 1.25rem; cursor: pointer; text-decoration: none;
+  outline: none; border: 0;
   font-family: inherit; font-size: 0.875rem;
-  height: 2.25rem; padding: 0 0.75rem;
+  width: 2.25rem; height: 2.25rem; padding: 0;
   background: transparent; color: var(--cronus-fg-secondary);
   transition: background 150ms var(--ease-out-quart), box-shadow 150ms var(--ease-out-quart),
     transform 150ms var(--ease-out-quart), opacity 150ms var(--ease-out-quart), border-color 150ms;
@@ -1342,10 +1343,21 @@ dialog[data-slot="dialog-content"]::backdrop {
 [data-slot="copy-button"]:active { transform: scale(0.98); }
 [data-slot="copy-button"]:hover { background: var(--cronus-surface-overlay); color: var(--cronus-fg); }
 [data-slot="copy-button"]:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="copy-button"] svg {
+  width: 1rem; height: 1rem; flex-shrink: 0; pointer-events: none;
+}
+[data-slot="copy-button"] > [aria-live] {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
+}
 [data-slot="fab"] {
   position: relative; display: inline-flex;
 }
-[data-slot="fab-button"] {
+[data-slot="fab"] > button > span { display: inline-flex; }
+[data-slot="fab"] > button svg {
+  width: 1.5rem; height: 1.5rem; flex-shrink: 0; pointer-events: none;
+}
+[data-slot="fab"] > button {
   display: inline-flex; align-items: center; justify-content: center;
   width: 3.5rem; height: 3.5rem; padding: 0; margin: 0;
   border: 0; border-radius: 9999px;
@@ -1355,9 +1367,9 @@ dialog[data-slot="dialog-content"]::backdrop {
   transition: transform 150ms var(--ease-out-quart), box-shadow 150ms var(--ease-out-quart),
     opacity 150ms var(--ease-out-quart);
 }
-[data-slot="fab-button"]:hover { opacity: 0.9; }
-[data-slot="fab-button"]:active { transform: scale(0.95); }
-[data-slot="fab-button"]:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="fab"] > button:hover { opacity: 0.9; }
+[data-slot="fab"] > button:active { transform: scale(0.95); }
+[data-slot="fab"] > button:disabled { opacity: 0.5; pointer-events: none; }
 [data-slot="toggle-group"] {
   display: flex; align-items: center; gap: 0.25rem;
 }
@@ -1376,12 +1388,12 @@ dialog[data-slot="dialog-content"]::backdrop {
   display: flex; flex-direction: column; gap: 0.25rem;
 }
 [data-slot="metric-label"] {
-  font-size: 0.75rem; font-weight: 500; text-transform: uppercase;
+  font-size: 0.75rem; line-height: 1rem; font-weight: 500; text-transform: uppercase;
   letter-spacing: 0.05em; color: var(--cronus-fg-tertiary);
 }
 [data-slot="metric-value"] {
   font-family: var(--cronus-font-display, inherit);
-  font-size: 1.5rem; font-weight: 600; color: var(--cronus-fg);
+  font-size: 1.5rem; line-height: 2rem; font-weight: 600; color: var(--cronus-fg);
   font-variant-numeric: tabular-nums;
 }
 [data-slot="avatar-group"] {
@@ -1399,7 +1411,8 @@ dialog[data-slot="dialog-content"]::backdrop {
   align-items: center; justify-content: center;
   width: 2.25rem; height: 2.25rem; border-radius: 9999px;
   background: var(--cronus-surface-overlay); color: var(--cronus-fg-secondary);
-  font-weight: 500; font-size: 0.875rem;
+  font-weight: 500; font-size: 0.875rem; line-height: 1.25rem;
+  box-shadow: 0 0 0 2px var(--cronus-surface-base);
 }
 [data-slot="button-group"] {
   display: inline-flex;
@@ -2188,7 +2201,11 @@ button:has(+ [data-slot="sheet-content"]) {
   background: var(--cronus-fg-muted);
 }
 [data-slot="status-dot-label"] {
-  font-size: 0.875rem; color: var(--cronus-fg-secondary);
+  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="status-dot-sr-label"] {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
 }
 [data-slot="tags-input"] {
   display: flex; min-height: 2.5rem; width: 100%; flex-wrap: wrap;

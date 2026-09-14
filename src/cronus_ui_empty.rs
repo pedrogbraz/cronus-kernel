@@ -150,4 +150,11 @@ mod tests {
         assert!(css.contains("text-align: center"));
         assert!(!css.contains("zinc-"));
     }
+
+    #[test]
+    fn title_is_display_font_text_sm_line_height() {
+        // Wave 1t: React empty-title = font-display text-sm (20px line-height).
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"empty-title\"] {\n  font-family: var(--cronus-font-display, inherit);\n  font-size: 0.875rem; line-height: 1.25rem; font-weight: 600;"));
+    }
 }

@@ -1,14 +1,19 @@
-//! Dedicated Fab renderer. DOM matches React wrapper + main control:
-//! `<div data-slot="fab"><button type="button" data-slot="fab-button" aria-label>`.
+//! Dedicated Fab renderer. DOM matches React (no `actions`):
+//! `<div data-slot="fab"><button type="button" aria-label><span><svg plus/></span></button></div>`.
+//! The main button has no `data-slot` in React, so CSS targets
+//! `[data-slot="fab"] > button`. The label is the accessible name only — never
+//! visible text. Speed-dial actions need JS (toggle), so they are not rendered.
 //! Not interact `buttonish()` (`data-slot="button"` + inline primary styles).
 
 use crate::cronus_ui_kit::label_of;
 use crate::parser::ComponentNode;
 
+const PLUS_ICON: &str = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\"></path></svg>";
+
 pub fn render(comp: &ComponentNode) -> String {
     let label = label_of(comp);
     format!(
-        "<div data-slot=\"fab\"><button type=\"button\" data-slot=\"fab-button\" aria-label=\"{label}\">{label}</button></div>"
+        "<div data-slot=\"fab\"><button type=\"button\" aria-label=\"{label}\"><span>{PLUS_ICON}</span></button></div>"
     )
 }
 
@@ -29,12 +34,15 @@ mod tests {
     }
 
     #[test]
-    fn root_is_wrapper_with_labelled_button() {
-        let html = render(&stub("fab", "Compose"));
-        assert!(html.starts_with("<div data-slot=\"fab\">"));
-        assert!(html
-            .contains("<button type=\"button\" data-slot=\"fab-button\" aria-label=\"Compose\">"));
-        assert!(html.contains(">Compose</button>"));
+    fn root_is_wrapper_with_icon_button_no_slot_no_text() {
+        // Wave 1t: React's main button has no data-slot and no visible text.
+        let html = render(&stub("fab", "Create"));
+        assert_eq!(
+            html,
+            format!("<div data-slot=\"fab\"><button type=\"button\" aria-label=\"Create\"><span>{PLUS_ICON}</span></button></div>")
+        );
+        assert!(!html.contains("fab-button"));
+        assert!(!html.contains(">Create<"));
         reject_interact(&html);
     }
 
@@ -64,7 +72,9 @@ mod tests {
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"fab\"]"));
-        assert!(css.contains("[data-slot=\"fab-button\"]"));
+        assert!(css.contains("[data-slot=\"fab\"] > button {"));
+        assert!(css.contains("[data-slot=\"fab\"] > button svg {\n  width: 1.5rem; height: 1.5rem;"));
+        assert!(!css.contains("[data-slot=\"fab-button\"]"));
         assert!(css.contains("display: inline-flex"));
         assert!(css.contains("width: 3.5rem; height: 3.5rem"));
         assert!(css.contains("border-radius: 9999px"));
