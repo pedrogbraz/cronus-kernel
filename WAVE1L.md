@@ -37,3 +37,26 @@ Screenshot pixel diff shows 7 pixels (max 14/255), all on the lower anti-aliased
 - React's dot #2 therefore spans page rows 248–258, crossing Chromium's 256px raster tile boundary.
 - The differing pixels are exactly page rows 253–256.
 - Dot #1 does not cross a tile boundary and is pixel-identical.
+
+## Wave 1t — geometry parity (2026-09-14)
+
+### tree-view
+DOM (React `tree-view.tsx`): `<div role="tree" aria-label="Files" data-slot="tree-view">`
+`<div data-slot="tree-view-item"><div role="treeitem" aria-level="1" aria-selected="false" aria-expanded="true" data-slot="tree-view-item-trigger" data-state="open">`
+`<svg … data-slot="tree-view-chevron">` `<span>src</span></div>`
+`<div role="group" data-slot="tree-view-group">` leaf items (`<span aria-hidden="true"></span><span>README.md</span>`).
+Content texts map like `tree-view-fixture.tsx`: ≥2 texts → first is an expanded branch holding the
+rest; one text → leaf. `label` is the `aria-label`, never a node. Expand/collapse, selection and
+roving tabindex need JS: static default-expanded state, no tabindex.
+CSS: root flex column 14/20 `fg`; trigger h 2rem gap 0.375rem px 0.5rem radius-md `fg-secondary`;
+level 2 `padding-inline-start: 1.5rem`; chevron/spacer 16px, chevron `fg-tertiary` rotated 90° when open;
+label truncates.
+
+| slot | React | Cronus |
+|---|---|---|
+| tree-view / item#0 | 24,24 432×64 14/20 | same |
+| tree-view-item-trigger#0 | 24,24 432×32 r10 | same |
+| tree-view-chevron | 32,32 16×16 | same |
+| tree-view-group / item-trigger#1 | 24,56 432×32 (pad-left 24) | same |
+
+Result: 0 mismatches.

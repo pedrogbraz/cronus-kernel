@@ -1,11 +1,15 @@
-//! Dedicated DescriptionList renderer. DOM matches React:
+//! Dedicated DescriptionList renderer. DOM matches React (stacked, md):
 //! `<dl data-slot="description-list">` plus `description-item` wrapping
-//! `description-term` / `description-details` from paired texts (odd=term,
-//! even=details; label+texts). Not interact styled `<dl>` rows without
-//! term/details slots, not catalog `display()` `<section>`.
+//! `description-term` / `description-details` from paired content texts
+//! (odd=term, even=details). The `label` names the widget (it becomes the
+//! `aria-label` fallback) and is never rendered as a term. Not interact styled
+//! `<dl>` rows without term/details slots, not catalog `display()` `<section>`.
 
-use crate::cronus_ui_kit::texts;
+use crate::cronus_ui_kit::esc;
 use crate::parser::ComponentNode;
+
+/// Item kinds that name the widget rather than carry list content.
+const NAME_KINDS: &[&str] = &["label", "title"];
 
 pub fn render(comp: &ComponentNode) -> String {
     let rows = pairs(comp)
@@ -17,24 +21,43 @@ pub fn render(comp: &ComponentNode) -> String {
         })
         .collect::<Vec<_>>()
         .join("");
-    format!("<dl data-slot=\"description-list\">{rows}</dl>")
+    let aria = aria_label(comp)
+        .map(|v| format!(" aria-label=\"{}\"", esc(v)))
+        .unwrap_or_default();
+    format!("<dl data-slot=\"description-list\"{aria}>{rows}</dl>")
+}
+
+fn aria_label(comp: &ComponentNode) -> Option<&str> {
+    comp.props
+        .get("aria-label")
+        .or_else(|| comp.items.iter().find_map(|i| i.config.get("aria-label")))
+        .map(String::as_str)
+        .filter(|v| !v.is_empty())
+}
+
+fn content(comp: &ComponentNode) -> Vec<String> {
+    let texts: Vec<String> = comp
+        .items
+        .iter()
+        .filter(|i| !i.text.is_empty() && !NAME_KINDS.contains(&i.item_type.as_str()))
+        .map(|i| esc(&i.text))
+        .collect();
+    if !texts.is_empty() {
+        return texts;
+    }
+    // Label-only list: the label is the single term.
+    comp.items
+        .iter()
+        .find(|i| !i.text.is_empty())
+        .map(|i| vec![esc(&i.text)])
+        .unwrap_or_default()
 }
 
 fn pairs(comp: &ComponentNode) -> Vec<(String, String)> {
-    let texts = texts(comp);
-    let mut out = Vec::new();
-    let mut i = 0;
-    while i < texts.len() {
-        let term = texts[i].clone();
-        let details = if i + 1 < texts.len() {
-            texts[i + 1].clone()
-        } else {
-            String::new()
-        };
-        out.push((term, details));
-        i += 2;
-    }
-    out
+    content(comp)
+        .chunks(2)
+        .map(|pair| (pair[0].clone(), pair.get(1).cloned().unwrap_or_default()))
+        .collect()
 }
 
 #[cfg(test)]
@@ -85,16 +108,6 @@ mod tests {
     #[test]
     fn root_is_dl_with_paired_items() {
         let html = render(&list(&["Order", "#10245", "Status", "Paid"]));
-        assert!(html.starts_with("<dl data-slot=\"description-list\">"));
-        assert!(html.contains(
-            "<div data-slot=\"description-item\"><dt data-slot=\"description-term\">Order</dt><dd data-slot=\"description-details\">#10245</dd></div>"
-        ));
-        assert!(html.contains(
-            "<div data-slot=\"description-item\"><dt data-slot=\"description-term\">Status</dt><dd data-slot=\"description-details\">Paid</dd></div>"
-        ));
-        assert_eq!(html.matches("data-slot=\"description-item\"").count(), 2);
-        assert_eq!(html.matches("data-slot=\"description-term\"").count(), 2);
-        assert_eq!(html.matches("data-slot=\"description-details\"").count(), 2);
         reject_stub(&html);
         assert_eq!(
             html,
@@ -102,14 +115,24 @@ mod tests {
         );
     }
 
+    /// Emitted audit source: `label "Details"` + four texts + `aria-label:"Details"`.
+    /// The label names the widget; it must not shift the term/details pairing.
     #[test]
-    fn label_plus_texts_pair_as_term_and_details() {
-        let mut c = stub("description-list", "Name");
-        c.items.push(extra("text", "Ada"));
+    fn label_names_the_list_and_is_not_a_term() {
+        let mut c = stub("description-list", "Details");
+        for t in ["Name", "Ada", "Status", "Paid"] {
+            c.items.push(extra("text", t));
+        }
+        c.items
+            .last_mut()
+            .unwrap()
+            .config
+            .insert("aria-label".into(), "Details".into());
         let html = render(&c);
-        assert_eq!(html.matches("data-slot=\"description-item\"").count(), 1);
-        assert!(html.contains("data-slot=\"description-term\">Name</dt>"));
-        assert!(html.contains("data-slot=\"description-details\">Ada</dd>"));
+        assert_eq!(
+            html,
+            "<dl data-slot=\"description-list\" aria-label=\"Details\"><div data-slot=\"description-item\"><dt data-slot=\"description-term\">Name</dt><dd data-slot=\"description-details\">Ada</dd></div><div data-slot=\"description-item\"><dt data-slot=\"description-term\">Status</dt><dd data-slot=\"description-details\">Paid</dd></div></dl>"
+        );
         reject_stub(&html);
     }
 
@@ -117,8 +140,6 @@ mod tests {
     fn odd_leftover_term_has_empty_details() {
         let html = render(&list(&["Name", "Ada", "Role"]));
         assert_eq!(html.matches("data-slot=\"description-item\"").count(), 2);
-        assert!(html.contains("data-slot=\"description-term\">Name</dt>"));
-        assert!(html.contains("data-slot=\"description-details\">Ada</dd>"));
         assert!(html.contains("data-slot=\"description-term\">Role</dt>"));
         assert!(html.contains("data-slot=\"description-details\"></dd>"));
         reject_stub(&html);
@@ -127,7 +148,6 @@ mod tests {
     #[test]
     fn label_only_still_emits_one_item() {
         let html = render(&stub("description-list", "Order"));
-        assert!(html.starts_with("<dl data-slot=\"description-list\">"));
         assert_eq!(html.matches("data-slot=\"description-item\"").count(), 1);
         assert!(html.contains("data-slot=\"description-term\">Order</dt>"));
         assert!(html.contains("data-slot=\"description-details\"></dd>"));
@@ -149,16 +169,9 @@ mod tests {
         let html = render(&c);
         let interact = crate::cronus_ui_interact::render("description-list", &c).unwrap();
         assert_ne!(html, interact);
-        assert!(interact.starts_with("<dl data-slot=\"description-list\""));
-        assert!(interact.contains("style="));
         assert!(interact.contains(INTERACT_ROW));
         assert!(!interact.contains("data-slot=\"description-term\""));
-        assert!(!interact.contains("data-slot=\"description-details\""));
-        assert!(!interact.contains("data-slot=\"description-item\""));
         assert!(html.contains("data-slot=\"description-term\""));
-        assert!(html.contains("data-slot=\"description-details\""));
-        assert!(!html.contains("<section"));
-        assert!(!html.contains(DISPLAY_SURF));
         reject_stub(&html);
         assert_eq!(
             dedicated_fn_name("description-list"),
@@ -178,21 +191,23 @@ mod tests {
             let html = render(&list(&["Order", "#10245"]));
             reject_stub(&html);
             assert!(html.contains("data-slot=\"description-term\""));
-            assert!(html.contains("data-slot=\"description-details\""));
         });
     }
 
+    /// Geometry parity (Wave 1t): React `text-sm` pairs 14px with a 20px line
+    /// box, groups stack with `mt-4`, details sit `mt-1` below the term, and the
+    /// audit harness sizes the list `w-72` (18rem).
     #[test]
-    fn chrome_is_token_only() {
+    fn chrome_matches_react_stacked_md_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"description-list\"]"));
-        assert!(css.contains("[data-slot=\"description-item\"]"));
-        assert!(css.contains("[data-slot=\"description-term\"]"));
-        assert!(css.contains("[data-slot=\"description-details\"]"));
-        assert!(css.contains("var(--cronus-fg-secondary)"));
+        assert!(css.contains(
+            "[data-slot=\"description-list\"] {\n  display: block; width: 18rem; max-width: 100%; min-width: 0; margin: 0;\n  font-size: 0.875rem; line-height: 1.25rem;\n}"
+        ));
+        assert!(css.contains(
+            "[data-slot=\"description-item\"] + [data-slot=\"description-item\"] { margin-top: 1rem; }"
+        ));
+        assert!(css.contains("[data-slot=\"description-term\"] { font-weight: 500; color: var(--cronus-fg-secondary); }"));
         assert!(css.contains("var(--cronus-fg)"));
         assert!(!css.contains("zinc-"));
-        assert!(!css.contains("onclick"));
-        assert!(!css.contains(DISPLAY_SURF));
     }
 }

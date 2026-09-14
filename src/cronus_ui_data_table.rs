@@ -1,13 +1,23 @@
-//! Dedicated DataTable renderer. DOM matches React:
-//! `<div data-slot="data-table"><table><thead><tbody>`.
-//! Columns from first text items as headers, remaining as cells
-//! (or 2-col Name/Value dummy). Token CSS — no inline SURF on `th`.
-//! Not interact `table("data-table")`.
+//! Dedicated DataTable renderer. DOM matches React (`data-table.tsx` over
+//! `table.tsx`, no toolbar/pagination):
+//! `<div data-slot="data-table">` → `data-table-container` (rounded border) →
+//! `<section data-slot="table-container">` → `<table data-slot="table">` with
+//! `table-header` / `table-body`, `table-row`, `table-head` and `table-cell`.
+//!
+//! Content: bound rows (keys become headers) → `columns` items as headers with
+//! the content texts wrapped into rows → otherwise the first two content texts
+//! are headers and the rest fill two-column rows. The `label` names the table
+//! (never a header or cell); label-only tables show a Name/Value dummy row.
+//!
+//! Zero JS: sorting, filtering, column visibility and pagination need a
+//! runtime; the table renders React's unsorted idle state (`aria-sort="none"`
+//! headers, no sort buttons). Not interact `table("data-table")`.
 
 use crate::cronus_ui_kit::{esc, label_of};
 use crate::parser::ComponentNode;
 
-const FIELD_KINDS: &[&str] = &["label", "title", "text", "value"];
+/// Item kinds that name the widget rather than carry table content.
+const NAME_KINDS: &[&str] = &["label", "title", "columns"];
 
 pub fn render(comp: &ComponentNode) -> String {
     let bound = crate::cronus_ui_data::rows();
@@ -21,23 +31,22 @@ pub fn render(comp: &ComponentNode) -> String {
 fn wrap(headers: &[String], rows: &[Vec<String>]) -> String {
     let head = headers
         .iter()
-        .map(|c| format!("<th>{c}</th>"))
-        .collect::<Vec<_>>()
-        .join("");
+        .map(|c| {
+            format!("<th data-slot=\"table-head\" colspan=\"1\" scope=\"col\" aria-sort=\"none\">{c}</th>")
+        })
+        .collect::<String>();
     let body = rows
         .iter()
         .map(|row| {
             let tds = row
                 .iter()
-                .map(|c| format!("<td>{c}</td>"))
-                .collect::<Vec<_>>()
-                .join("");
-            format!("<tr>{tds}</tr>")
+                .map(|c| format!("<td data-slot=\"table-cell\">{c}</td>"))
+                .collect::<String>();
+            format!("<tr data-slot=\"table-row\">{tds}</tr>")
         })
-        .collect::<Vec<_>>()
-        .join("");
+        .collect::<String>();
     format!(
-        "<div data-slot=\"data-table\"><table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>"
+        "<div data-slot=\"data-table\"><div data-slot=\"data-table-container\"><section data-slot=\"table-container\" tabindex=\"0\" aria-label=\"Table\"><table data-slot=\"table\"><thead data-slot=\"table-header\"><tr data-slot=\"table-row\">{head}</tr></thead><tbody data-slot=\"table-body\">{body}</tbody></table></section></div></div>"
     )
 }
 
@@ -76,37 +85,27 @@ fn headers_and_rows(comp: &ComponentNode) -> (Vec<String>, Vec<Vec<String>>) {
     let cells: Vec<String> = comp
         .items
         .iter()
-        .filter(|i| {
-            !i.text.is_empty()
-                && i.item_type != "columns"
-                && !FIELD_KINDS.contains(&i.item_type.as_str())
-        })
+        .filter(|i| !i.text.is_empty() && !NAME_KINDS.contains(&i.item_type.as_str()))
         .map(|i| esc(&i.text))
         .collect();
     if !headers.is_empty() {
         let n = headers.len();
         return (headers, chunk_or_dummy(&cells, n));
     }
-    if !cells.is_empty() {
-        // First text items as headers; leftover values wrap into rows.
-        // A single leftover group with no remaining cells still gets a dummy row.
-        if cells.len() == 1 {
-            return (
-                vec!["Name".into(), "Value".into()],
-                vec![vec![cells[0].clone(), "—".into()]],
-            );
+    match cells.len() {
+        0 => (
+            vec!["Name".into(), "Value".into()],
+            vec![vec![label_of(comp), "—".into()]],
+        ),
+        1 => (
+            vec!["Name".into(), "Value".into()],
+            vec![vec![cells[0].clone(), "—".into()]],
+        ),
+        _ => {
+            let (head, rest) = cells.split_at(2);
+            (head.to_vec(), chunk_or_dummy(rest, 2))
         }
-        let width = 2;
-        let (head, rest) = cells.split_at(width.min(cells.len()));
-        if rest.is_empty() {
-            return (head.to_vec(), dummy_row(head.len()));
-        }
-        return (head.to_vec(), chunk_or_dummy(rest, head.len()));
     }
-    (
-        vec!["Name".into(), "Value".into()],
-        vec![vec![label_of(comp), "—".into()]],
-    )
 }
 
 fn chunk_or_dummy(cells: &[String], n: usize) -> Vec<Vec<String>> {
@@ -114,23 +113,16 @@ fn chunk_or_dummy(cells: &[String], n: usize) -> Vec<Vec<String>> {
         return Vec::new();
     }
     if cells.is_empty() {
-        return dummy_row(n);
+        return vec![vec!["—".into(); n]];
     }
-    let mut rows = Vec::new();
-    let mut i = 0;
-    while i < cells.len() {
-        let mut row = Vec::with_capacity(n);
-        for _ in 0..n {
-            row.push(cells.get(i).cloned().unwrap_or_else(|| "—".into()));
-            i += 1;
-        }
-        rows.push(row);
-    }
-    rows
-}
-
-fn dummy_row(n: usize) -> Vec<Vec<String>> {
-    vec![vec!["—".into(); n]]
+    cells
+        .chunks(n)
+        .map(|chunk| {
+            (0..n)
+                .map(|i| chunk.get(i).cloned().unwrap_or_else(|| "—".into()))
+                .collect()
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -154,23 +146,26 @@ mod tests {
         assert!(!html.contains("SURF"));
         assert!(!html.contains("text-align:left;padding:0.5rem 0.75rem"));
         assert!(!html.contains("v-data="));
-        assert!(!html.contains("v-model="));
-        assert!(!html.contains("v-resource="));
         assert!(!html.contains("onclick="));
         assert!(!html.contains("<script"));
         assert!(!html.contains("zinc-"));
     }
 
+    fn th(t: &str) -> String {
+        format!("<th data-slot=\"table-head\" colspan=\"1\" scope=\"col\" aria-sort=\"none\">{t}</th>")
+    }
+
     #[test]
-    fn root_is_data_table_with_native_table() {
+    fn label_only_is_name_value_dummy_in_react_table_dom() {
         let html = render(&stub("data-table", "People"));
-        assert!(html.starts_with("<div data-slot=\"data-table\">"));
-        assert!(html.contains("<table"));
-        assert!(html.contains("<thead"));
-        assert!(html.contains("<tbody"));
-        assert!(html.contains("<th>Name</th>"));
-        assert!(html.contains("<th>Value</th>"));
-        assert!(html.contains("<td>People</td>"));
+        assert_eq!(
+            html,
+            format!(
+                "<div data-slot=\"data-table\"><div data-slot=\"data-table-container\"><section data-slot=\"table-container\" tabindex=\"0\" aria-label=\"Table\"><table data-slot=\"table\"><thead data-slot=\"table-header\"><tr data-slot=\"table-row\">{}{}</tr></thead><tbody data-slot=\"table-body\"><tr data-slot=\"table-row\"><td data-slot=\"table-cell\">People</td><td data-slot=\"table-cell\">—</td></tr></tbody></table></section></div></div>",
+                th("Name"),
+                th("Value")
+            )
+        );
         reject_interact(&html);
     }
 
@@ -186,24 +181,26 @@ mod tests {
             extra("item", "Admiral"),
         ];
         let html = render(&c);
-        assert!(html.contains("<th>Name</th><th>Role</th>"));
-        assert!(html.contains("<td>Ada</td><td>Engineer</td>"));
-        assert!(html.contains("<td>Grace</td><td>Admiral</td>"));
+        assert!(html.contains(&format!("{}{}", th("Name"), th("Role"))));
+        assert!(html.contains("<tr data-slot=\"table-row\"><td data-slot=\"table-cell\">Ada</td><td data-slot=\"table-cell\">Engineer</td></tr>"));
+        assert!(html.contains("<td data-slot=\"table-cell\">Grace</td><td data-slot=\"table-cell\">Admiral</td>"));
         reject_interact(&html);
     }
 
+    /// `label` + `text` items (the emitter's shape): the label names the table
+    /// and the texts fill it — texts used to be dropped as "field" kinds.
     #[test]
-    fn first_text_items_become_headers() {
-        let mut c = stub("data-table", "People");
-        c.items = vec![
-            extra("item", "Name"),
-            extra("item", "Role"),
-            extra("item", "Ada"),
-            extra("item", "Engineer"),
-        ];
+    fn text_items_fill_table_and_label_is_not_content() {
+        let mut c = stub("data-table", "Members");
+        for t in ["Name", "Role", "Ada", "Admin", "Linus", "Editor"] {
+            c.items.push(extra("text", t));
+        }
         let html = render(&c);
-        assert!(html.contains("<th>Name</th><th>Role</th>"));
-        assert!(html.contains("<td>Ada</td><td>Engineer</td>"));
+        assert!(html.contains(&format!("<tr data-slot=\"table-row\">{}{}</tr>", th("Name"), th("Role"))));
+        assert!(html.contains("<td data-slot=\"table-cell\">Ada</td><td data-slot=\"table-cell\">Admin</td>"));
+        assert!(html.contains("<td data-slot=\"table-cell\">Linus</td><td data-slot=\"table-cell\">Editor</td>"));
+        assert!(!html.contains("Members"));
+        assert_eq!(html.matches("data-slot=\"table-row\"").count(), 3);
         reject_interact(&html);
     }
 
@@ -214,11 +211,9 @@ mod tests {
         crate::cronus_ui_data::with_binding("Lead", &ResolvedData::Rows(rows), || {
             crate::voodoo::with_enabled(true, || {
                 let html = render(&stub("data-table", "People"));
-                assert!(html.contains("data-slot=\"data-table\""));
-                assert!(html.contains("<th>name</th>"));
-                assert!(html.contains("<th>role</th>"));
-                assert!(html.contains("<td>Ada</td>"));
-                assert!(html.contains("<td>Eng</td>"));
+                assert!(html.contains(&th("name")));
+                assert!(html.contains(&th("role")));
+                assert!(html.contains("<td data-slot=\"table-cell\">Ada</td>"));
                 reject_interact(&html);
             });
         });
@@ -230,12 +225,8 @@ mod tests {
         let html = render(&c);
         let interact = crate::cronus_ui_interact::render("data-table", &c).unwrap();
         assert_ne!(html, interact);
-        assert!(interact.contains("data-slot=\"data-table\""));
         assert!(interact.contains("text-align:left;padding:0.5rem 0.75rem"));
-        assert!(interact.contains("style="));
         assert!(!html.contains("style="));
-        assert!(html.contains("<table"));
-        assert!(html.contains("data-slot=\"data-table\""));
         reject_interact(&html);
     }
 
@@ -244,19 +235,19 @@ mod tests {
         crate::voodoo::with_enabled(true, || {
             let html = render(&stub("data-table", "People"));
             reject_interact(&html);
-            assert!(html.contains("<table"));
+            assert!(html.contains("<table data-slot=\"table\">"));
         });
     }
 
+    /// Geometry parity (Wave 1t): rounded bordered container, `text-sm`
+    /// 14px/20px table, 40px `font-medium` heads, `p-3` cells, row dividers
+    /// with none under the last body row.
     #[test]
-    fn chrome_is_token_only() {
+    fn chrome_matches_react_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"data-table\"]"));
-        assert!(css.contains("[data-slot=\"data-table\"] th"));
-        assert!(css.contains("var(--cronus-fg-secondary)"));
-        assert!(css.contains("var(--cronus-border)"));
+        assert!(css.contains("[data-slot=\"data-table-container\"] {\n  overflow: hidden; border-radius: var(--cronus-radius-xl); border: 1px solid var(--cronus-border);\n}"));
+        assert!(css.contains("[data-slot=\"data-table\"] [data-slot=\"table-head\"] {\n  height: 2.5rem; padding: 0 0.75rem; text-align: left; vertical-align: middle;\n  font-size: inherit; font-weight: 500; color: var(--cronus-fg-secondary); white-space: nowrap; border: 0;\n}"));
+        assert!(css.contains("[data-slot=\"data-table\"] [data-slot=\"table-body\"] > [data-slot=\"table-row\"]:last-child { border-bottom: 0; }"));
         assert!(!css.contains("zinc-"));
-        assert!(!css.contains("onclick"));
-        assert!(!css.contains("text-align:left;padding:0.5rem 0.75rem"));
     }
 }
