@@ -1,7 +1,7 @@
 # VOODOO.md — Cronus × Voodoo.js
 
 > **Read this before emitting Voodoo, writing JSX, or “adding interactivity” to a `.cronus` app.**
-> Compact ingest for Claude/Grok: **`llms.txt`** at kernel root (paste that first).
+> Compact ingest for Claude/Grok: **`docs/voodoo-llms.md`** (paste that first). Language grammar for LLMs: `llms-full.txt` (index: `llms.txt`).
 > Language spec: `LANGUAGE.md`. Kernel rules: `AGENTS.md`. This file is the full contract for the **opt-in HTML runtime**.
 >
 > Verified against `src/voodoo.rs`, `src/cronus_ui_interact.rs`, `src/cronus_ui_widgets.rs` (2026-09).
@@ -59,7 +59,7 @@ Tag shape (kernel, not authoring):
         data-cronus-runtime="voodoo" defer></script>
 ```
 
-CSP already allows `https://cdn.jsdelivr.net` (`src/security.rs`). Injection is idempotent (`data-cronus-runtime="voodoo"` or `voodoojs@` already present → skip). Happens in `html_response` (`src/server/response.rs`) **inside** a tokio task-local scope set in `main.rs::handle_request`. Do not use a process-wide `AtomicBool` — `.await` would leak the flag onto another request.
+CSP allows this exact script URL only (`security::KERNEL_SCRIPT_URLS`, never the whole `cdn.jsdelivr.net` host), and Voodoo pages get `'unsafe-eval'` (`src/security.rs`). The tag carries a pinned Subresource Integrity hash. Injection is idempotent (`data-cronus-runtime="voodoo"` or `voodoojs@` already present → skip). Happens in `html_response` (`src/server/response.rs`) **inside** a tokio task-local scope set in `main.rs::handle_request`. Do not use a process-wide `AtomicBool` — `.await` would leak the flag onto another request.
 
 ---
 
@@ -249,7 +249,8 @@ A named preset also applies on `:root` **for that page**, because the author wro
 ## 8. File map
 
 ```
-llms.txt                        compact LLM ingest (paste this first)
+docs/voodoo-llms.md             compact LLM ingest (paste this first)
+llms.txt / llms-full.txt        language index / full grammar for LLMs
 VOODOO.md                       this contract
 LANGUAGE.md                     §6 mentions the runtime; this file is the full contract
 AGENTS.md                       kernel rules; points here

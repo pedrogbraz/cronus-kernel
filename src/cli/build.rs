@@ -362,7 +362,7 @@ pub(crate) fn validate_source_ai(source: &str, file: &str) -> Result<Value, Stri
 
 /// Build the AI-Error Protocol JSON from all validation passes.
 /// Collects errors from contract validation, resolve, lint, hardcode lint, and constitution.
-fn build_ai_error_json(
+pub(crate) fn build_ai_error_json(
     nodes: &[AstNode],
     file: &str,
     entity_count: usize,

@@ -1,6 +1,6 @@
 # CRONUS — Language Reference
 
-> **This is the north star.** Every claim here is verified against the Rust source at `src/` as of **2026-04-10**. When this file disagrees with `docs/`, `docs.cronus.test`, `.cronus/` SDDs, or any other documentation, **trust this file** — it is the reality check.
+> **This is the north star.** Claims here are verified against the Rust source at `src/` (sections carry their own verification dates; the security sections were re-verified 2026-09-14). When this file disagrees with `docs/archive/`, `docs.cronus.test`, or any other documentation, **trust this file**. For LLM ingestion use `llms-full.txt`, whose section and field type lists are checked against the code by `cargo test context_grammar`.
 >
 > Status markers used throughout:
 > - **REAL** — fully implemented, tested, callable from user `.cronus` files
@@ -20,7 +20,7 @@
 - **One binary** (`cronus`, `src/main.rs`). No `[lib]`. No workspace. No nested crates.
 - Dependencies: `tokio`, `hyper 1.x`, `rusqlite` (bundled), `jsonwebtoken`, `argon2`, `serde`, `regex`, `scraper`, `base64`.
 
-**Target**: Rust 1.78+, release profile uses `opt-level=z`, LTO, strip, single codegen unit, panic=abort.
+**Target**: release profile uses `opt-level="z"`, LTO, strip, single codegen unit, `panic="unwind"` (a panic in one request returns 500 instead of killing the server; `http_guard::isolate_panics`).
 
 **Guiding invariants** (enforced by lint + parser):
 - Money is stored and transferred as **centavos** (integer). `money` field type = integer cents.
@@ -339,7 +339,7 @@ This syntax — parameters, `state`, `template` with signals and `@click`/mustac
 - Pages without `preset` only get fallback aliases (`--cronus-primary: var(--primary)`). They do not steal `--background`. Authoring stays `.cronus`.
 - **173 families (REAL opt-in):** `src/cronus_ui_widgets.rs` renders every cronus-ui family when `style` starts with that slug (`dialog`, `input`, `area-chart`, …). Legacy `style:primary` / `style:metric` is unchanged.
 - **Native controls (REAL):** interactive families emit real HTML (`<input type=checkbox>`, `<dialog>`, `<details>`, `<progress>`, `<table>`, tablist). They work without a JS framework.
-- **Voodoo runtime (REAL opt-in, not authoring):** `app { stack voodoo }` or `style { runtime voodoo }` injects the pinned CDN `https://cdn.jsdelivr.net/npm/voodoojs@0.13.0/dist/voodoo.full.min.js` into the **emitted HTML** and adds `v-data` / `v-model` / `@click` / `{ expr }` on those controls. `.cronus` source stays `.cronus` — no JSX, no HTML, no CSS in authoring. Off by default so Obsidian demos do not load it. Interpolations are gated: `{ count }` is never written unless the runtime is on. **LLM ingest: `llms.txt`. Full contract: `VOODOO.md`.**
+- **Voodoo runtime (REAL opt-in, not authoring):** `app { stack voodoo }` or `style { runtime voodoo }` injects the pinned CDN `https://cdn.jsdelivr.net/npm/voodoojs@0.13.0/dist/voodoo.full.min.js` into the **emitted HTML** and adds `v-data` / `v-model` / `@click` / `{ expr }` on those controls. `.cronus` source stays `.cronus` — no JSX, no HTML, no CSS in authoring. Off by default so Obsidian demos do not load it. Interpolations are gated: `{ count }` is never written unless the runtime is on. **LLM ingest: `docs/voodoo-llms.md`. Full contract: `VOODOO.md`.**
 
 If you need React-like reactivity without Voodoo, use `.scriptcronus` event handlers + `live true` binding instead (§10).
 
@@ -357,6 +357,8 @@ AGENTS.md historical claim: "51-way dispatcher".
 - 51 explicit `=>` arms + 1 `_` default = 52 arms
 - 58 distinct section type strings (aliases inlined via `|` pipes)
 - After collapsing aliases via `ContractRegistry::resolve_alias()`: **39 canonical section types**
+
+> **Machine-checked list (2026-09-14):** the dispatcher now has 57 section-type strings in its explicit arms, and names in `cronus_ui_widgets::FAMILIES` render through the default arm. The exact built-in, alias and family lists live in `llms-full.txt` and `src/cli/context_grammar.rs`; `cargo test context_grammar` fails when they drift from `src/ui/mod.rs`. The catalog below is the 2026-04-10 grouping. Note: in code `webhooks` and `live-keys`/`test-keys` alias to `card`, not `table`/`links`.
 
 ### 7.2 Canonical catalog (39)
 
@@ -527,14 +529,14 @@ For chart aggregations: `day`, `week`, `month`, `quarter`, `year`.
 
 ### 9.4 `live:true` — REAL (with caveat)
 
-Verified in `src/ui/mod.rs:784-821`: when a section's binding has `live == true`, the renderer wraps the section in `<div id="live_{entity}" data-live-entity="{entity}">` and injects an inline `<script>` that opens `new EventSource('/api/sse')`, filters `data_change` events by entity name, and triggers a full SPA re-render via `window.__cronusNavigate(location.href, false)`.
+Verified in `src/ui/mod.rs::render_section_inner` (2026-09-14): when a section's binding has `live == true`, the renderer wraps the section in `<div id="live_{entity}" data-live-entity="{entity}">` and injects a nonced inline `<script>` that opens `new EventSource('/api/sse')`, filters `data_change` events by entity name, and triggers a full SPA re-render via `window.__cronusNavigate(location.href, false)`.
 
 Server side: `src/sse.rs` uses a tokio broadcast channel; `main.rs::handle_request_inner` serves `/api/sse` as a long-lived EventStream.
 
 **Caveats**:
 - One live section per page = one EventSource (no multiplexing)
 - Strategy is full SPA re-render, not targeted DOM patching
-- The inline reconnect loop has a broken closure (`arguments.callee.caller.toString()`) — initial connection works; reconnect after disconnect is dead
+- On a stream error the per-section script closes its EventSource; the next navigation re-subscribes (no reconnect loop, so anonymous pages no longer retry a 401 forever — commit 575c3bd)
 
 ### 9.5 Who sees bound data (Sprint 1 security)
 
@@ -595,7 +597,7 @@ Sidebar items can have `requires:auth` or `requires:role(x)` — non-authorized 
 - Responsive: hamburger below 768px, 240px fixed sidebar desktop
 - **Zero hardcoded brand colors** (the runtime JS only toggles semantic `active` class; colors come from the user's style block)
 
-Test coverage in `layout.rs`: **0 tests**. Adding regression tests is Pillar 3 of `.cronus/PLAN-2026-04-10.md`.
+Test coverage: count with `grep -c '#\[test\]' src/ui/layout.rs`.
 
 ---
 
@@ -824,7 +826,7 @@ Status: all four files have executable logic. `auto-promotion` rides on the Trus
 - Real streaming long-lived `Content-Type: text/event-stream` response
 - Events: `data_change` (entity write), `debug` (request trace in DEBUG_MODE)
 - Zero polling on server side — push-only
-- Client reconnect is broken (see §9.4)
+- Clients close the stream on error and re-subscribe on the next navigation (see §9.4)
 
 The stub version of SSE inside `src/server/mod.rs::CronusServer` is DEAD code (see §16).
 
@@ -839,7 +841,9 @@ The stub version of SSE inside `src/server/mod.rs::CronusServer` is DEAD code (s
 - Relationship graph (edges between entities)
 - Memory (brain.rs snapshots if available)
 
-Intended consumer: LLM agents that need to reason about the current project without re-parsing source. Called by `cronus context --for-claude`.
+Intended consumer: LLM agents that need to reason about the current project without re-parsing source. It is served by the running app (dev only, see below).
+
+`cronus context --for-claude` does **not** call this endpoint: it parses the `.cronus` file offline (`src/cli/context.rs`) and prints the project's entities, APIs, pages, webhooks and constitution rules, the current `cronus build --ai` result, the canonical grammar from `llms-full.txt`, and the valid field/section types derived from code. It works on files that do not parse (the parse error is the build status). `cronus context` without the flag prints JSON.
 
 ### 14.9 Internal dev dashboards (7 routes, all REAL)
 
@@ -963,68 +967,46 @@ Flags: `--audit`, `--nextjs`, `-o <file>`.
 
 Three parallel HTTP server implementations exist in `src/server/`, two of which are **not compiled** and one of which compiles but has zero call sites:
 
+Re-verified 2026-09-14 (`grep -n 'mod ' src/server/mod.rs`, `grep -rn CronusServer src`):
+
 | File | LOC   | State |
 |------|-------|-------|
-| `src/server/router.rs` | 1542 | **Not declared in `server/mod.rs`. Never compiled.** |
+| `src/server/router.rs` | 1524 | **Not declared in `server/mod.rs`. Never compiled.** |
 | `src/server/api.rs`    | 511  | **Not declared in `server/mod.rs`. Never compiled.** |
-| `src/server/mod.rs` lines 34-447 (`CronusServer`, `handle_request`, `handle_api`) | ~414 | Compiles; `CronusServer::new` has zero callers. Dead. |
+| `src/server/mod.rs` (`CronusServer` and its `handle_request`/`handle_api`) | 471 total | Compiles; `CronusServer` is never constructed outside that file. Dead. |
 
-The live HTTP dispatcher is **`src/main.rs::handle_request_inner`** at line ~325 (currently ~1326 LOC inside that single function).
+The live HTTP entry is **`src/main.rs::handle_request`** (guards, sessions, CSRF, panic isolation) which calls **`handle_request_inner`**; REST CRUD is `src/api_crud.rs::handle_api`. Find them with `grep -n 'fn handle_request' src/main.rs`.
 
 **Do not edit `router.rs`, `api.rs`, or `CronusServer`.** Fixes applied there never run.
 
-**54 source files** carry `#![allow(dead_code, unused_imports, unused_variables)]` at the top. Do not add more of these — prefer actual cleanup. Removing them en masse is planned backlog work (not a language concern).
+**53 source files** (2026-09-14, `grep -rln '^#!\[allow(dead_code' src | wc -l`) carry `#![allow(dead_code, …)]` at the top. Do not add more of these — prefer actual cleanup. Removing them en masse is planned backlog work (not a language concern).
 
 ---
 
-## 17. Testing — 205 Inline Tests, No `tests/` Directory
+## 17. Testing — Inline Tests, No `tests/` Directory
 
-`cargo test` prints `205 passed; 0 failed` as of 2026-04-10.
+All tests are inline `#[test]` functions in `src/`. Counts change with every commit, so obtain them instead of trusting a number here:
 
-Tests are `#[test]` functions scattered across 18 source files:
+```bash
+cargo test 2>&1 | grep '^test result'                          # total run
+grep -rn '#\[test\]' src | wc -l                               # declared tests
+grep -rc '#\[test\]' src | grep -v ':0$' | sort -t: -k2 -nr    # per file
+grep -rc '#\[test\]' src --include='*.rs' | grep ':0$'         # files without tests
+```
 
-| File | Tests |
-|------|-------|
-| `src/parser/mod.rs` | 44 |
-| `src/lint.rs` | 35 |
-| `src/scripting/parser.rs` | 27 |
-| `src/database.rs` | 20 |
-| `src/resolve.rs` | 16 |
-| `src/audit.rs` | 10 |
-| `src/vm/executor.rs` | 8 |
-| `src/auth.rs` | 7 |
-| `src/memory.rs` | 6 |
-| `src/constitution_check.rs` | 6 |
-| `src/hydra/compose.rs` | 6 |
-| `src/error.rs` | 5 |
-| `src/hydra/microservices.rs` | 5 |
-| `src/promote.rs` | 3 |
-| `src/trust.rs` | 3 |
-| `src/dump/detect.rs` | 1 |
-| `src/hydra/registry.rs` | 1 |
-| `src/dump/nextjs.rs` | **2 (NEW 2026-04-10)** |
-| **Total** | **205** |
+Snapshot 2026-09-14: `cargo test` → `1491 passed; 0 failed`.
 
-### 17.1 Modules with ZERO coverage (the danger zones)
+### 17.1 Modules with zero or thin coverage
 
-- All of `src/ui/` (layout, page, dashboard, all sections, all of `section_*.rs`)
-- `src/main.rs` — including the live HTTP dispatcher
-- `src/render.rs` — the client runtime JS
-- `src/binding.rs` — THE ONLY place sections touch the DB (§9)
-- `src/actions.rs` — action executor
-- `src/graphql.rs`
-- `src/sse.rs`
-- `src/scripting/vm.rs`
-- `src/zeus.rs`, `src/ast_diff.rs`, `src/cli/*`
-- `src/server/*` (except auth_pages.rs which has no tests either)
+Use the last command above for the current list. As of 2026-09-14 these have no tests: `src/main.rs` (live HTTP dispatcher), `src/runtime_js.rs`, `src/ui/mod.rs` (section dispatcher; its section list is drift-checked by `context_grammar`), `src/ui/dashboard.rs`, `src/scripting/vm.rs`, `src/zeus.rs`, `src/hmr.rs`, `src/server/{docs,response,auth_pages}.rs`. Thin: `src/render.rs` (1), `src/sse.rs` (1), `src/ui/layout.rs` (1).
 
-Rule of thumb: if you modify anything in the above list, add a regression test in the same file before committing. See `.cronus/PLAN-2026-04-10.md` Pillar 3 for the 4 pending regression tests.
+Rule of thumb: if you modify a file without tests, add a regression test in the same file before committing.
 
 ---
 
 ## 18. Known Gaps — Where Docs Lie
 
-This section is important because every other doc in the repo has at least one inaccuracy. The items below are **docs claims that are false or overstated**, verified against source.
+The items below are **claims from older docs (now under `docs/archive/`, or `docs.cronus.test`) that are false or overstated**, verified against source. The current docs (`AGENTS.md`, `llms-full.txt`, `CHANGELOG.md`, `VOODOO.md`) were re-checked on 2026-09-14.
 
 | Claim                                             | Reality |
 |---------------------------------------------------|---------|
@@ -1068,15 +1050,16 @@ CRONUS is not a single language — it's a coordinated set of surfaces. This is 
 ## 20. Maintenance — How to Keep This File True
 
 1. **If you change the parser** (`src/parser/`), verify sections §2, §3, §4, §5 are still accurate. If you add a new top-level block, add it to §2.5.
-2. **If you add a section renderer** (`src/ui/mod.rs`), update §7.2. Count canonical sections with: `grep '=>' src/ui/mod.rs | wc -l` and subtract aliases.
+2. **If you add a section renderer or field type**, update `src/cli/context_grammar.rs` and the marked lists in `llms-full.txt`; `cargo test context_grammar` fails until you do. Then update §7.
 3. **If you touch CLI** (`src/cli/` or `src/main.rs` argv), update §15.
 4. **If you fix one of the "known gaps" in §18**, move the row from §18 to the body of the spec.
 5. **Never add a claim here without verifying against source.** If you can't quote a file:line, don't write it.
-6. **Test count in §17** should match `grep -rn '#\[test\]' src/ | wc -l`. Update after every test addition.
+6. **Do not hard-code test counts**; §17 lists the commands, with one dated snapshot.
 
-**Last verified**: 2026-04-10 after reading `src/parser/*`, `src/ui/*`, `src/cli/*`, `src/scripting/*`, `src/hydra/*`, `src/actions.rs`, `src/binding.rs`, `src/audit.rs`, `src/trust.rs`, `src/constitution_check.rs`, `src/graphql.rs`, `src/sse.rs`, `src/promote.rs`, `src/contracts.rs`, `src/dump/nextjs.rs`.
+**Last verified**: 2026-04-10 for §2–3, §6–7.2, §10, §12–13, §15; 2026-09-14 for §4, §5.2, §8.2.1, §9, §14.6–14.9, §16, §17 (Sprint 1 security and this docs pass).
 
 **Cross-references**:
-- `AGENTS.md` — short cheatsheet for AI agents (this file is the long reference)
-- `.cronus/PLAN-2026-04-10.md` — current work plan
-- `.cronus/analysis-2026-04-10/verification/V1-V5_*.md` — raw verification reports backing this file
+- `AGENTS.md` — kernel rules for AI agents (this file is the long language reference)
+- `llms-full.txt` — machine-checked grammar and type lists for LLMs
+- `CHANGELOG.md` — breaking changes since 0.1.0
+- `docs/archive/planning/analysis-2026-04-10/verification/V1-V5_*.md` — raw 2026-04 verification reports behind the older sections

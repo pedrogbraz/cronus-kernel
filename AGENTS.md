@@ -1,341 +1,130 @@
 # CRONUS Kernel — Agent Guidelines
 
-Instructions for AI agents working on this codebase. **Read the whole file before touching anything.**
+Rules for AI agents changing the Rust kernel. `CLAUDE.md` is a symlink to this file.
 
-> **Authoritative language spec: `LANGUAGE.md` at kernel root.** This file is the short cheatsheet; `LANGUAGE.md` is the full, verified, code-cross-referenced reference. When in doubt, trust `LANGUAGE.md`.
->
-> **Voodoo.js runtime:** paste **`llms.txt`** first (compact). Full contract: `VOODOO.md`. Voodoo is opt-in HTML runtime, never the authoring language. Do not emit JSX into `.cronus`.
->
-> Last verified: 2026-09-09. If a claim here doesn't match reality, trust the code, fix this file, and update the "Last verified" line.
+- Writing a `.cronus` app (not the kernel)? Read `llms-full.txt` instead.
+- Language reference: `LANGUAGE.md`. Opt-in Voodoo.js runtime: `VOODOO.md`. Changes: `CHANGELOG.md`. Index: `docs/README.md`.
+- Numbers below carry a date or the command that produces them. If a claim is wrong, trust the code and fix this file.
 
-## What is CRONUS
+Last verified: 2026-09-14 (HEAD `f38e132` + docs pass).
 
-CRONUS is a **declarative full-stack language** (`.cronus`) that compiles to a single ~7MB Rust binary. One `.cronus` file replaces React + Next.js + Prisma + Express. No `node_modules`, no config files, no JavaScript build step.
+## What it is
 
-```
-50 lines .cronus = Database + REST API + GraphQL + Auth + UI + SSR + Audit Trail
-```
+CRONUS is a declarative full-stack language. The `cronus` binary parses a `.cronus` file and serves SQLite, REST, GraphQL, SSR HTML, cookie sessions, SSE and a hash-chained audit trail.
 
-The kernel is a **single binary crate**:
-- `[package] name = "cronus-lang"`
-- `[[bin]] name = "cronus" path = "src/main.rs"`
-- No `[lib]`. No workspace. No nested crates.
+- One binary crate: `[package] cronus-lang`, `[[bin]] cronus` at `src/main.rs`. No `[lib]`, no workspace.
+- Do not add crates. Use what is in `Cargo.lock` (no TLS client, no tempfile, no chrono).
+- All tests are inline `#[test]` in `src/`. There is no `tests/` or `specs/` directory.
 
----
+## Build, test, lint
 
-## Quick Reference — CLI
+CI (`.github/workflows/test.yml`) runs exactly these:
 
 ```bash
-cronus run [port]              # Dev server with HMR (default: 5175)
-cronus build [--ai]            # Validate (--ai for JSON errors)
-cronus test                    # Auto-generated CRUD tests against running server
-cronus parse app.cronus        # Show AST
-cronus dump ./project          # Convert HTML/Next.js/Prisma/OpenAPI → .cronus
-cronus context --for-claude    # Export project context for AI
-cronus doctor                  # Health check
-cronus new my-app              # Scaffold new project
-cargo build --release          # Build kernel
-cargo test                     # Run 203 kernel tests
+cargo test --locked
+cargo clippy --locked --all-targets -- -D clippy::correctness   # style warnings not yet enforced
+cargo fmt --all -- --check
+cargo build --release --locked                                  # binary must stay under 12 MB
 ```
 
----
+In a git worktree, set `CARGO_TARGET_DIR="$PWD/target"` first. A shared target dir makes worktrees run each other's binaries.
 
-## Project Structure (verified 2026-04-10)
+Counts change on every commit. Get them with these commands:
 
-```
-cronus-kernel/
-├── Cargo.toml              # Single binary crate. 1 [[bin]], no [lib], no [workspace].
-├── AGENTS.md               # This file. CLAUDE.md is a symlink to it.
-├── LANGUAGE.md             # Verified language spec.
-├── VOODOO.md               # Cronus × Voodoo.js agent contract (opt-in runtime).
-├── llms.txt                # Compact LLM ingest for Cronus × Voodoo (paste into Claude/Grok).
-├── src/
-│   ├── main.rs             # ~4213 LOC. HTTP server (hyper 1.x) + CLI dispatch.
-│   │                       # handle_request_inner starts at ~line 325. THIS IS THE LIVE DISPATCHER.
-│   ├── parser/
-│   │   ├── mod.rs          # ~3520 LOC. Parser + 44 inline tests.
-│   │   ├── ast.rs          # AST node types. HttpMethod enum = GET|POST|PATCH|PUT|DELETE only.
-│   │   └── tokenizer.rs
-│   ├── ui/
-│   │   ├── mod.rs          # 51-way section dispatcher
-│   │   ├── layout.rs       # ~1638 LOC. render_layout_declarative (rewritten 2026-04-10).
-│   │   ├── page.rs         # ~1120 LOC. page_type dispatch. dashboard|custom → render_custom.
-│   │   ├── dashboard.rs
-│   │   ├── section_kpi.rs, section_chart.rs, section_form.rs,
-│   │   ├── section_hero.rs, section_features.rs, section_extra.rs, section_misc.rs
-│   │   ├── component.rs, util.rs
-│   ├── dump/
-│   │   ├── mod.rs
-│   │   ├── nextjs.rs       # ~1314 LOC. Next.js/VINEXT → .cronus scanner.
-│   │   ├── prisma.rs, openapi.rs, typescript.rs, dom.rs, emit.rs
-│   │   ├── routes.rs, patterns.rs, project.rs, detect.rs, style_extract.rs
-│   ├── cli/                # 33 command files: build, run, dump_cmd, parse_cmd, new, doctor, …
-│   ├── server/
-│   │   ├── mod.rs          # Declares: auth_pages, docs, docs_index, response, state.
-│   │   │                   # ⚠️ mod.rs ALSO contains CronusServer/handle_request/handle_api (lines 34-447)
-│   │   │                   #    which are DEAD CODE. CronusServer::new has ZERO call sites.
-│   │   ├── auth_pages.rs   # Login/register HTML
-│   │   ├── docs.rs         # /.cronus/docs auto-docs
-│   │   ├── docs_index.rs
-│   │   ├── response.rs     # Response helpers
-│   │   ├── state.rs        # AppState struct
-│   │   ├── router.rs       # ⚠️⚠️ DEAD CODE — not declared in mod.rs, never compiled. 1542 LOC.
-│   │   ├── api.rs          # ⚠️⚠️ DEAD CODE — not declared in mod.rs, never compiled. 511 LOC.
-│   │   └── cronus-dump-audit.js
-│   ├── scripting/          # .scriptcronus mini-language (tree-walk interpreter, 4 files, 27 tests)
-│   ├── vm/                 # Bytecode VM experimental (4 files, 8 tests)
-│   ├── hydra/              # Block evolution + registry (5 files, 12 tests)
-│   ├── parser.rs           ⚠️ N/A — parser is `src/parser/` directory
-│   ├── voodoo.rs           # Opt-in Voodoo.js runtime (task-local, gated attrs, CDN). See VOODOO.md.
-│   ├── cronus_ui.rs        # cronus-ui tokens + CONTRACT Button (opt-in).
-│   ├── cronus_ui_widgets.rs  # 173 family dispatcher. Calls interact first.
-│   ├── cronus_ui_interact.rs # Native HTML controls + gated v-data/v-model.
-│   ├── render.rs           # ~863 LOC. SPA client-side JS runtime (vanilla, ~2KB).
-│   ├── binding.rs          # resolve_binding() = THE ONLY place sections touch DB. Zero tests.
-│   ├── database.rs         # SQLite engine (rusqlite). 20 tests.
-│   ├── auth.rs             # JWT HS256 + Argon2id. 7 tests.
-│   ├── lint.rs             # 13 Zero Hardcode Enforcement rules. 35 tests.
-│   ├── trust.rs            # 6-axis trust scoring + 4 binary gates. 3 tests.
-│   ├── audit.rs            # SHA-256 hash-chained audit trail. 10 tests.
-│   ├── constitution_check.rs  # Compilable must/never rules. 6 tests.
-│   ├── graphql.rs          # Auto-generated GraphQL engine. Zero tests.
-│   ├── zeus.rs             # Observability dashboard. Zero tests.
-│   └── ... (~50 more top-level .rs files, most untested)
-├── demos/                  # 11 demo directories (landing-test, vinext-dumps, blog, crm, …)
-├── templates/
-│   ├── saas.cronus, blog.cronus, crm.cronus, ecommerce.cronus, helpdesk.cronus
-│   └── ecosystem/          # 8 files dumped from open-source Next.js apps (2026-04-09).
-│                           # ⚠️ Some fail to parse — see "Known bugs".
-├── docs/
-│   ├── LANGUAGE-REFERENCE.md
-│   └── scriptcronus.md
-├── examples/nova-core/
-└── .cronus/
-    ├── PLAN-2026-04-10.md  ← active plan (source of truth for current work)
-    ├── SESSION-HANDOFF-2026-04-10.md
-    ├── SDD-CRONUS-NEXTGEN.md  ← future roadmap (4 phases)
-    └── ... (~23 older SDDs, most stale — archive candidates)
-```
-
-**Directories `AGENTS.md` previously claimed existed BUT DON'T**:
-- ❌ `tests/conformance/` — does not exist. All tests are inline `#[test]` in `src/`.
-- ❌ `specs/` — does not exist. Contracts are in `src/contracts.rs` / `src/contracts_generated.rs`.
-
----
-
-## .cronus Language Cheatsheet
-
-### Minimal Working App (7 lines)
-```cronus
-app "Hello" {
-  port 5175
-}
-entity Task {
-  title string!
-  done  boolean default:false
-}
-```
-Gives you: SQLite DB + REST API + auto-docs + GraphQL. Zero config.
-
-### Full App Pattern
-```cronus
-app "Name" { stack react + tailwind  port 5175  database sqlite "./data.db" }
-auth { entity User  login email + password  session jwt expires:24h  roles [admin, user] }
-style { theme dark  accent blue  font "Inter" }
-
-entity Name {
-  field type! modifiers        # Types: string text email url slug phone number money
-  relation -> OtherEntity      #        percentage boolean date ulid json enum ip
-  status enum [a, b, c]
-  transition status { a -> b  b -> c }
-  on create { log "created" }
-}
-
-api /entities {
-  list   GET    / auth:public
-  create POST   / auth:jwt
-  detail GET    /:id auth:jwt
-  update PATCH  /:id auth:jwt
-  delete DELETE /:id auth:jwt
-  # ⚠️ HEAD and OPTIONS are NOT supported. Parser currently coerces them to GET silently — bug tracked in PLAN-2026-04-10.md.
-}
-
-layout Main {
-  brand "App"
-  sidebar {
-    "Dashboard" -> "/dashboard" icon:home   # `nav` keyword is optional (since 2026-04-10)
-    nav "Reports" -> "/reports" icon:chart  # both forms work
-  }
-}
-
-page "/dashboard" type:dashboard requires:auth {
-  section kpi  { bind Entity { aggregate count }  item "Label" value:bind icon:name }
-  section table { bind Entity { query all order created_at desc }  columns "f1, f2, f3" }
-  section chart { bind Entity { aggregate sum field:amount group_by:date interval:month } }
-  section form  { bind Entity  on submit { create Entity  toast "Done" success  navigate "/" } }
-}
-```
-
-### Section Types (~51)
-- **Data**: table, kpi, stat-cards, chart, kanban, timeline, progress
-- **Forms**: form, modal, sheet, filters
-- **Nav**: tabs, breadcrumb, sidebar, topbar, command
-- **Feedback**: alert, toast, accordion, dropdown, notifications, skeleton, empty, error
-- **Marketing**: hero, features, pricing, cta, faq, testimonial, footer, trusted, product-grid, team-list
-- **Layout**: card, page-header, dark-mode
-
-### Binding (MANDATORY for data sections — lint rule C003)
-```cronus
-bind Entity { query all }
-bind Entity { query one where id eq:route.id }
-bind Entity { query all where status eq:"active" order name }
-bind Entity { aggregate count }
-bind Entity { aggregate sum field:price }
-bind Entity { aggregate sum field:x group_by:date interval:month }
-```
-
-### Actions
-```cronus
-on submit { create Entity  toast "Saved" success  navigate "/list" }
-on click confirm:"Sure?" { delete Entity route.id  refresh }
-```
-
----
-
-## Testing — 203 inline tests, no `tests/` dir
-
-Find tests:
 ```bash
-grep -rn '#\[test\]' src/
+cargo test 2>&1 | grep '^test result'                          # 2026-09-14: 1491 passed
+grep -rc '#\[test\]' src | grep -v ':0$' | sort -t: -k2 -nr    # tests per file
+find src -name '*.rs' | xargs cat | wc -l                      # 2026-09-14: ~140.6k lines
 ```
 
-Distribution (verified 2026-04-10):
+CLI verbs are matched in `src/main.rs` (`match cmd`); implementations live in `src/cli/`. Most used: `run [port] [--host] [--prod] [--audit-canvas]`, `build [--ai|--strict]`, `parse`, `new`, `test`, `dump`, `context [--for-claude]`, `audit <language|logic|visual|all|legacy>`, `doctor`.
 
-| Module | Tests |
+## Layout (2026-09-14, from `ls` / `wc -l`)
+
+```
+src/main.rs              4815  CLI dispatch, cmd_run, handle_request (guards) → handle_request_inner (routes)
+src/parser/              mod.rs 4724 (parser), ast.rs (AST + FieldType/HttpMethod), tokenizer.rs (KEYWORDS, METHODS)
+src/cli/                 40 files, one per command (+ context_grammar.rs: grammar facts for AI context)
+src/ui/                  14 files. mod.rs = section dispatcher (render_section_inner), page.rs, layout.rs, dashboard.rs, section_*.rs
+src/cronus_ui*.rs        177 files: cronus-ui families. cronus_ui_widgets.rs = FAMILIES + PORTED_FAMILIES dispatch,
+                         cronus_ui_<family>.rs = dedicated renderers, cronus_ui_kit.rs = shared helpers,
+                         cronus_ui_output_gate.rs = safety gate tests, cronus_ui_interact.rs = native-control fallback
+src/dump/                12 files: HTML / Next.js / Prisma / OpenAPI → .cronus
+src/server/              auth_pages, docs, docs_index, response, state (+ dead code, see below)
+src/scripting/ src/vm/ src/hydra/   .scriptcronus interpreter, experimental bytecode VM, block evolution
+```
+
+Security and data path (top-level `src/`):
+
+| File | Role |
 |---|---|
-| `parser/mod.rs` | 44 |
-| `lint.rs` | 35 |
-| `scripting/parser.rs` | 27 |
-| `database.rs` | 20 |
-| `resolve.rs` | 16 |
-| `audit.rs` | 10 |
-| `vm/executor.rs` | 8 |
-| `auth.rs` | 7 |
-| `memory.rs` | 6 |
-| `constitution_check.rs` | 6 |
-| `hydra/compose.rs` | 6 |
-| `error.rs` | 5 |
-| `hydra/microservices.rs` | 5 |
-| `promote.rs`, `trust.rs` | 3 each |
-| `dump/detect.rs`, `hydra/registry.rs` | 1 each |
-| **Total** | **203** |
+| `http_guard.rs` | bind address, dev/prod mode, internal-route gating, body limit, panic isolation, timeouts, client IP, login backoff |
+| `session.rs` | `cronus_token` HttpOnly cookie, CSRF Origin/Referer gate, `/api/auth/{signup,login,logout,me}` |
+| `auth.rs` | JWT (HS256, `iat`+`jti` required), Argon2id `m=19456,t=2,p=1` |
+| `access.rs` | **the** authorization source: viewer, read/write scopes, owner constraints, route-pattern matching, SSE visibility |
+| `authz.rs` | `redact_sensitive`, `writable_body`, safe error bodies |
+| `api_crud.rs` | REST `/api/<entity>` (tests: `api_security_tests.rs`) |
+| `actions.rs` | `/_form` and `/_action` |
+| `binding.rs` | `resolve_binding`: the only place sections read the DB |
+| `graphql.rs`, `sse.rs` | GraphQL (session required) and live events |
+| `security.rs` | escaping, CSP builder, nonces, `KERNEL_SCRIPT_URLS` |
+| `webhook.rs` | outbound webhooks: validation, SSRF block, redaction, HMAC signature |
+| `database.rs`, `audit.rs` | SQLite (UUIDv7 ids), hash-chained audit trail |
+| `render.rs`, `runtime_js.rs` | client runtimes injected into pages |
 
-**Zero coverage** in (critical modules):
-- `src/ui/*` — layout, page, dashboard, all sections (rewritten 2026-04-10, still uncovered)
-- `src/main.rs` — handle_request_inner (the live HTTP dispatcher)
-- `src/render.rs` — client runtime + HTML
-- `src/binding.rs` — THE ONLY place sections touch DB
-- `src/dump/nextjs.rs` — emits .cronus that goes straight to users
-- `src/server/*` — all live server submodules
-- ~30 other top-level modules
+## Security model (Sprint 1) — do not regress
 
-**Rule**: if you change any of the above, add a regression test in the SAME file before committing.
+- **Deny by default.** Auto CRUD, GraphQL, SSE, `/_action` and non-public `/_form` need a session. With an `api` block, only declared routes exist, and each route's `auth:` is enforced (401/403/404).
+- **One authorization source.** Every surface asks `access.rs`. Owner scope goes in the SQL `WHERE` (never read-then-check). Non-admins get their own rows (`_owner_id`); `shared` entities are readable by anyone signed in; admins see all. Rows you may not see are `404`. `User`/auth-entity rows are self-only.
+- **Anonymous bound data** only via `bind X { scope:public }`, never for the auth entity. `requires:` matches exact route patterns.
+- **Fields.** Responses pass `authz::redact_sensitive`; writes pass `authz::writable_body` (no system, privileged or `sensitive` keys). Errors are `{"error":{"code","message"}}`, never DB text or paths.
+- **Sessions.** HttpOnly cookie only (no JS-readable token). CSRF gate for cookie-authenticated mutations. `JWT_SECRET` must be ≥ 32 bytes; key files are 0600.
+- **HTTP.** Binds `127.0.0.1` unless `--host`/`CRONUS_HOST`. `--prod`/`CRONUS_ENV=production` 404s internal routes (`/zeus`, `/api/_context`, `/docs*`, …). Body limit is 1 MiB. Rate limit keys on the socket peer.
+- **CSP.** Nonces only on kernel-authored scripts (marked at generation), no `'unsafe-inline'`, exact CDN URLs. Never add a host-wide script source.
+- **Escaping.** Every DB/user value interpolated into HTML is escaped. URLs go through `cronus_ui_kit::safe_url`.
+- **Webhooks.** `http://` only; private targets blocked unless `CRONUS_WEBHOOK_ALLOW_PRIVATE=1`.
 
-### Commands
-```bash
-cargo test                               # All 203 tests
-cargo test parser                        # Parser tests only
-cargo test -- test_name                  # Specific test
-cargo run -- test                        # CRUD tests against running server
-```
+Changing any of the above is a breaking change: record it in `CHANGELOG.md` and add an HTTP-level test.
 
----
+## UI renderer rules (cronus-ui families)
 
-## Known Language Bugs (2026-04-10)
+- **Zero JS.** Dedicated renderers emit no `<script>`, `<style>`, inline `style=`, `on*=`, `<canvas>` or executable URLs. Interaction uses native HTML and CSS (`:has(:checked)`, radios/checkboxes + labels, `popover`/`interestfor`). `cronus_ui_output_gate.rs` renders every `PORTED_FAMILIES` entry with hostile inputs and fails on violations. `KNOWN_JS_OFFENDERS` is empty; keep it empty.
+- **JS-only controls** (steppers, reveal toggles, nav buttons) render as the React component's native control, `disabled`, with the idle look. Never omit them.
+- **Use the kit.** `cronus_ui_kit::{esc, attr, attr_nonempty, attr_num, flag, flag_any, safe_url, content_texts}`. A gate test fails if another `src/cronus_ui_*.rs` defines `fn esc(`, `fn attr(` or `fn flag(`.
+- **Data, not fixtures.** Values come from `.cronus` props/items/bindings. Never bake audit-fixture defaults into renderers (e.g. calendar/scheduler highlight only explicit `selected:`/`today:`).
+- **Tokens only** (`var(--cronus-*)`), no palette classes. `style:primary` without `button+` is the legacy Obsidian button and must stay unchanged. Voodoo attributes only through `voodoo.rs` helpers, and only when the runtime is on.
+- **Parity audit.** The pixel/geometry source of truth is the Playwright audit in the **cooud-ui** repo (`e2e/audit/geometry.spec.ts`). It drives `cronus run --audit-canvas` (loopback-only, exclusive `/audit/*`, `src/cli/audit_http.rs`, `src/ui/audit_layout.rs`). In-kernel checks: `cronus audit language|logic|all`. `cronus audit visual` exits 2 and points to cooud-ui.
+- Adding a family or section type: update `src/cli/context_grammar.rs` and `llms-full.txt`. `cargo test context_grammar` enforces it.
 
-### HTTP methods: GET/POST/PUT/PATCH/DELETE only
-The language supports exactly **5 HTTP methods**. They're hardcoded in two places that must stay in sync:
-- `src/parser/tokenizer.rs:45` — `METHODS = &["GET", "POST", "PATCH", "PUT", "DELETE"]` (tokenizer classifies these as `TokenKind::Method`)
-- `src/parser/ast.rs:181-196` — `HttpMethod` enum with 5 variants
+## Working rules
 
-Writing `api /x { list HEAD / }` in a `.cronus` file produces:
-```
-Parse error: Linha N: esperava Method, encontrou 'HEAD' (Identifier)
-```
+1. Read the file and a neighbour before editing. Keep `main.rs` thin: new routing logic goes in its own module.
+2. Every behaviour change or bug fix gets a regression test in the same file (`#[cfg(test)] mod tests`).
+3. Run `cargo fmt` and `cargo test` before committing; clippy must pass `-D clippy::correctness`.
+4. Do not add `#![allow(dead_code, …)]` (53 files already have it, 2026-09-14). Do not add `as any`-style suppressions without a comment.
+5. Language changes: update `LANGUAGE.md`, `llms-full.txt` and, if user-visible, `CHANGELOG.md`.
+6. Money is integer centavos (`money` type). `!` marks a required field. Data sections without `bind` or items fail `build`.
 
-Because `HEAD`/`OPTIONS` aren't in the tokenizer's `METHODS` list, they get tokenized as `Identifier`, and `expect(TokenKind::Method)` fails cleanly. The `.unwrap_or(HttpMethod::GET)` in `src/parser/mod.rs:701` is **dead defensive code** — it never fires because the tokenizer filters first. (Do not rely on its presence, but also no need to remove it urgently.)
+## Dead code (verified 2026-09-14)
 
-**Rationale**: HEAD is auto-handled by the runtime (returns GET headers with empty body). OPTIONS is auto-handled as CORS preflight. Exposing them as user-declarable would be a language feature addition, not a bug fix — deliberately out of scope.
+- `src/server/router.rs` and `src/server/api.rs` are not declared in `server/mod.rs` and never compile. Do not edit them.
+- `CronusServer` in `src/server/mod.rs` compiles but is never constructed. The live path is `main.rs::handle_request` → `handle_request_inner` → `api_crud::handle_api` / `actions` / `graphql` / `sse` / `ui`.
 
-**Dumper correctness (fixed 2026-04-10)**: `src/dump/nextjs.rs::detect_exported_methods` used to scan for all 7 methods, including HEAD/OPTIONS. When a Next.js route exported them, the emitted `.cronus` contained unparseable lines. The function now only detects the 5 supported methods. Test coverage: `src/dump/nextjs.rs::tests::detect_exported_methods_skips_head_and_options`.
+## Known gaps (2026-09-14)
 
-### Some `templates/ecosystem/` files fail to parse
-Of the 8 files dumped from open-source Next.js apps on 2026-04-09, some fail at `cronus parse`. Initial agent reports attributed the failures to various causes (reserved words, method keywords, `required` vs `!`), but **none of those claims were empirically verified** — treat them as hypotheses, not facts. Re-dump after the HEAD/OPTIONS fix and investigate each remaining failure manually with `cronus parse <file>`.
+- No tests: `src/main.rs` (dispatcher), `src/runtime_js.rs`, `src/ui/mod.rs`, `src/ui/dashboard.rs`, `src/scripting/vm.rs`, `src/zeus.rs`, `src/hmr.rs`, `src/server/{docs,response,auth_pages}.rs`. Thin: `render.rs`, `sse.rs`, `ui/layout.rs` (1 each).
+- `main.rs` is 4815 lines. Split it only under a test net.
+- Clippy has ~291 non-correctness warnings (per the CI comment); only `clippy::correctness` is enforced.
+- Webhooks cannot deliver `https://` (no TLS client in dependencies).
+- GraphQL has no `update<Entity>` mutation and cannot be disabled.
+- An unknown field type silently becomes `string`, and an unknown `where` operator becomes `eq`.
+- `create`/`update` in action blocks parse, but `/_action` does not execute them. Bound forms create through `/_form`.
+- `#[cfg(feature = "generated-contracts")]` references a feature that is not declared in `Cargo.toml` (compiler warning).
 
----
+## Docs map
 
-## Dead Code Warnings
-
-**Do NOT patch these files — they don't compile:**
-- `src/server/router.rs` (1542 LOC) — not declared in `server/mod.rs`, never compiled
-- `src/server/api.rs` (511 LOC) — not declared in `server/mod.rs`, never compiled
-
-**Do NOT call these symbols — they compile but have zero callers:**
-- `CronusServer::new`, `CronusServer::add_crud_routes`, `CronusServer::start` in `src/server/mod.rs` lines 41-123
-- Internal `handle_request`, `handle_api`, `serve_static`, `json_response` in the same file (only reachable from `CronusServer::start`)
-
-**54 files have `#![allow(dead_code, unused_imports, unused_variables)]` at the top.** This silences warnings that would otherwise expose the dead code above. Do not add more of these `allow` attributes; prefer actual cleanup.
-
-If you find yourself editing `router.rs` or `api.rs` or `CronusServer`, **stop** — you're editing code that never runs.
-
----
-
-## Development Rules
-
-### Adding a feature
-1. **Read existing code** before modifying — `Read` tool first, no speculative edits
-2. **Check if the module already has `#[test]`s** — if yes, add to the same block; if no, add `#[cfg(test)]\nmod tests { use super::*; ... }` at the end of the file
-3. **Run `cargo test` after changes** — must stay at ≥203 passing (plus any new tests you added)
-4. **Do NOT add code to `src/server/router.rs`, `src/server/api.rs`, or `CronusServer`** — they don't run
-5. **Keep `main.rs` clean** — extract new routing logic to its own module under `src/`
-
-### Key invariants
-- **Money = centavos** — `2990` in the DB = `R$29.90` in the UI. Entity uses `money` type.
-- **`!` = required** — prefer `name string!` over `name string required` (both work, `!` is idiomatic)
-- **`bind` mandatory** — data sections without `bind` = lint error C003
-- **`sensitive` blocked** — `sensitive` fields never appear in HTML/API (lint C002/C031)
-- **SQL safe** — identifiers validated at parse time (P040 rejects non-identifiers, P041 rejects reserved words `SELECT, DROP, INSERT, DELETE, UPDATE, TABLE, FROM`)
-- **Owner isolation** — `_owner_id` auto-injected, non-admin requests filter by it
-- **Voodoo is runtime, not language** — `.cronus` never contains JSX/HTML/CSS. Opt-in via `stack voodoo` or `style { runtime voodoo }`. Full contract: `VOODOO.md`.
-
-### Architecture gotchas
-- `main.rs` is **4213 LOC** — HTTP server + all routes + CLI dispatch. `handle_request_inner` at ~line 325 is the live dispatcher. It is too big; split carefully and only under a test net.
-- `render.rs` has the ~2KB client-side JS runtime (vanilla, no React, no build step)
-- `binding.rs::resolve_binding()` is **THE ONLY** place sections touch the DB — zero tests, any change here needs one added
-- Entity `shared` flag = multi-tenant (all users see records)
-- Constitution rules block compilation — not just warnings
-- HMR lives in `src/hmr.rs` and re-parses on file change
-
----
-
-## Debugging
-
-- **Dev server**: `cargo run -- run` from inside a demo dir
-- **AST inspection**: `cargo run -- parse app.cronus`
-- **Route issues**: the live dispatcher is `main.rs::handle_request_inner` (~line 325). **Ignore `src/server/router.rs` — it's dead code.**
-- **Binding issues**: add `eprintln!` in `binding.rs::resolve_binding()`
-- **Section rendering**: check `ui/mod.rs` dispatcher (51-way match on section_type)
-- **Parser errors**: `src/parser/mod.rs` is 3520 LOC — grep for the error message; most errors carry line/column
-
----
-
-## Current Work (2026-04-10)
-
-Active plan: **`.cronus/PLAN-2026-04-10.md`**
-
-Three pillars being executed:
-1. **Fix this file** (AGENTS.md) — this update
-2. **Fix HEAD/OPTIONS parser bug** — parser rejects + dumper filters
-3. **Regression tests** for the 4 fixes the previous session made (layout rewrite, dashboard type, CC0000 removal, nav optional)
-
-Until all three pillars ship with `cargo test` green at 208+, do NOT start work from `SDD-CRONUS-NEXTGEN.md` phases or touch the dead-code cleanup in `src/server/`.
+| Path | Status |
+|---|---|
+| `AGENTS.md` (this), `LANGUAGE.md`, `VOODOO.md`, `CHANGELOG.md` | current |
+| `llms.txt`, `llms-full.txt`, `docs/voodoo-llms.md` | current, for LLMs |
+| `docs/archive/waves/`, `docs/archive/planning/` | historical, not maintained |
