@@ -7,6 +7,10 @@
 pub mod ast;
 pub use ast::*;
 
+pub mod diagnostic;
+use diagnostic::codes;
+pub use diagnostic::ParseError;
+
 pub(crate) mod tokenizer;
 pub(crate) use tokenizer::*;
 
@@ -19,11 +23,89 @@ use std::collections::HashMap;
 struct Parser {
     tokens: Vec<Token>,
     pos: usize,
+    /// Recoverable diagnostics (e.g. unknown field types). Parsing continues
+    /// so one `build` reports all of them; any entry makes the parse fail.
+    diagnostics: Vec<ParseError>,
 }
 
 impl Parser {
     fn new(tokens: Vec<Token>) -> Self {
-        Parser { tokens, pos: 0 }
+        Parser {
+            tokens,
+            pos: 0,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    /// Synthetic EOF positioned at the end of the real token stream.
+    fn eof_token(&self) -> Token {
+        let last = self.tokens.last();
+        Token {
+            kind: TokenKind::Eof,
+            value: String::new(),
+            line: last.map(|t| t.line).unwrap_or(1),
+            col: last.map(|t| t.col + t.width()).unwrap_or(1),
+        }
+    }
+
+    fn describe_kind(kind: &TokenKind) -> &'static str {
+        match kind {
+            TokenKind::Keyword => "a keyword",
+            TokenKind::Identifier => "an identifier",
+            TokenKind::StringLit => "a string literal",
+            TokenKind::Number => "a number",
+            TokenKind::LBrace => "'{'",
+            TokenKind::RBrace => "'}'",
+            TokenKind::LBracket => "'['",
+            TokenKind::RBracket => "']'",
+            TokenKind::LParen => "'('",
+            TokenKind::RParen => "')'",
+            TokenKind::Arrow => "'->'",
+            TokenKind::ColonPair => "a key:value pair",
+            TokenKind::Plus => "'+'",
+            TokenKind::Comma => "','",
+            TokenKind::Price => "a price",
+            TokenKind::Method => "an HTTP method (GET, POST, PUT, PATCH, DELETE)",
+            TokenKind::Path => "a path starting with '/'",
+            TokenKind::EnvRef => "env(...)",
+            TokenKind::Operator => "an operator",
+            TokenKind::Pipe => "'|'",
+            TokenKind::DocComment => "a doc comment",
+            TokenKind::Eof => "end of file",
+        }
+    }
+
+    fn unexpected(t: &Token, expected: &TokenKind) -> ParseError {
+        let found = if t.kind == TokenKind::Eof {
+            "end of file".to_string()
+        } else {
+            format!("'{}'", t.value)
+        };
+        let mut err = ParseError::new(
+            codes::UNEXPECTED_TOKEN,
+            format!(
+                "expected {}, found {}",
+                Self::describe_kind(expected),
+                found
+            ),
+            t.line,
+            t.col,
+        )
+        .with_len(t.width());
+        if t.kind != TokenKind::Eof {
+            err = err.with_target(t.value.clone());
+        }
+        if *expected == TokenKind::Method {
+            let upper = t.value.to_uppercase();
+            if METHODS.contains(&upper.as_str()) {
+                err = err.with_replacement(upper);
+            } else {
+                err = err.with_hint(
+                    "supported methods are GET, POST, PUT, PATCH, DELETE; HEAD and OPTIONS are handled by the runtime",
+                );
+            }
+        }
+        err
     }
 
     /// Consume all consecutive DocComment tokens and build a DocComment struct.
@@ -62,30 +144,26 @@ impl Parser {
     }
 
     fn peek(&self) -> Token {
-        self.tokens.get(self.pos).cloned().unwrap_or(Token {
-            kind: TokenKind::Eof,
-            value: String::new(),
-            line: 0,
-        })
+        self.tokens
+            .get(self.pos)
+            .cloned()
+            .unwrap_or_else(|| self.eof_token())
     }
 
     fn advance(&mut self) -> Token {
-        let t = self.tokens.get(self.pos).cloned().unwrap_or(Token {
-            kind: TokenKind::Eof,
-            value: String::new(),
-            line: 0,
-        });
+        let t = self
+            .tokens
+            .get(self.pos)
+            .cloned()
+            .unwrap_or_else(|| self.eof_token());
         self.pos += 1;
         t
     }
 
-    fn expect(&mut self, kind: TokenKind) -> Result<Token, String> {
+    fn expect(&mut self, kind: TokenKind) -> Result<Token, ParseError> {
         let t = self.advance();
         if t.kind != kind {
-            return Err(format!(
-                "Linha {}: esperava {:?}, encontrou '{}' ({:?})",
-                t.line, kind, t.value, t.kind
-            ));
+            return Err(Self::unexpected(&t, &kind));
         }
         Ok(t)
     }
@@ -154,7 +232,7 @@ impl Parser {
 
     // ── Main parse ──
 
-    fn parse(&mut self) -> Result<Vec<AstNode>, String> {
+    fn parse(&mut self) -> Result<Vec<AstNode>, ParseError> {
         let mut nodes = Vec::new();
 
         while !self.matches(TokenKind::Eof, None) {
@@ -235,7 +313,7 @@ impl Parser {
 
     // ── import ──
 
-    fn parse_import(&mut self) -> Result<ImportNode, String> {
+    fn parse_import(&mut self) -> Result<ImportNode, ParseError> {
         self.expect(TokenKind::Keyword)?;
         let alias = self.advance().value;
         if self.matches(TokenKind::Identifier, Some("from")) {
@@ -247,7 +325,7 @@ impl Parser {
 
     // ── compose ──
 
-    fn parse_compose(&mut self) -> Result<ComposeNode, String> {
+    fn parse_compose(&mut self) -> Result<ComposeNode, ParseError> {
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
         self.expect(TokenKind::LBrace)?;
@@ -296,7 +374,7 @@ impl Parser {
 
     // ── app ──
 
-    fn parse_app(&mut self) -> Result<AppNode, String> {
+    fn parse_app(&mut self) -> Result<AppNode, ParseError> {
         self.expect(TokenKind::Keyword)?;
         let name = self.expect(TokenKind::StringLit)?.value;
         self.expect(TokenKind::LBrace)?;
@@ -366,13 +444,13 @@ impl Parser {
 
     // ── entity ──
 
-    fn parse_entity(&mut self) -> Result<EntityNode, String> {
+    fn parse_entity(&mut self) -> Result<EntityNode, ParseError> {
         self.expect(TokenKind::Keyword)?;
         let name_token = self.peek().clone();
         let name = self.advance().value;
 
         // P040/P041: validate entity name
-        Self::validate_identifier(&name, "entity name", name_token.line)?;
+        Self::validate_identifier(&name, "entity name", (name_token.line, name_token.col))?;
 
         // Check for "shared" modifier before the brace
         let mut shared = false;
@@ -430,29 +508,55 @@ impl Parser {
         })
     }
 
-    fn parse_field(&mut self) -> Result<Option<FieldNode>, String> {
+    fn parse_field(&mut self) -> Result<Option<FieldNode>, ParseError> {
         let field_token = self.peek().clone();
         let name = self.advance().value;
 
         // P040/P041: validate field name
-        Self::validate_identifier(&name, "entity field", field_token.line)?;
+        Self::validate_identifier(&name, "entity field", (field_token.line, field_token.col))?;
 
         // relation: -> EntityName
         if self.matches(TokenKind::Arrow, None) {
             self.advance();
             let target = self.advance().value;
+            // `-> Target[]` and same-line modifiers (`-> User required`).
+            // Without this, `required` was parsed as a new field that took the
+            // next line's field name as its type.
+            let mut array = false;
+            if self.matches(TokenKind::LBracket, None)
+                && self
+                    .tokens
+                    .get(self.pos + 1)
+                    .is_some_and(|t| t.kind == TokenKind::RBracket)
+            {
+                self.advance();
+                self.advance();
+                array = true;
+            }
+            let (mut required, mut unique, mut optional, mut index) = (false, false, false, false);
+            while self.peek().line == field_token.line && self.peek().kind == TokenKind::Identifier
+            {
+                match self.peek().value.as_str() {
+                    "required" | "!" => required = true,
+                    "unique" => unique = true,
+                    "optional" => optional = true,
+                    "index" => index = true,
+                    _ => break,
+                }
+                self.advance();
+            }
             return Ok(Some(FieldNode {
                 name,
                 field_type: FieldType::Relation,
-                required: false,
-                unique: false,
+                required,
+                unique,
                 sensitive: false,
-                optional: false,
+                optional,
                 searchable: false,
-                index: false,
+                index,
                 featured: false,
                 formatted: false,
-                array: false,
+                array,
                 enum_values: None,
                 reference: Some(target),
                 doc: None,
@@ -465,7 +569,29 @@ impl Parser {
             }));
         }
 
-        // type
+        // type — must sit on the same line as the field name
+        let type_token = self.peek();
+        if type_token.line != field_token.line
+            || matches!(type_token.kind, TokenKind::RBrace | TokenKind::Eof)
+        {
+            self.diagnostics.push(
+                ParseError::new(
+                    codes::MISSING_FIELD_TYPE,
+                    format!("field '{}' has no type", name),
+                    field_token.line,
+                    field_token.col,
+                )
+                .with_len(field_token.width())
+                .with_target(name.clone())
+                .with_hint(format!(
+                    "write '{} <type>', e.g. '{} string!'; valid types: {}",
+                    name,
+                    name,
+                    FIELD_TYPE_KEYWORDS.join(", ")
+                )),
+            );
+            return Ok(None);
+        }
         let type_str = self.advance().value;
         let mut array = false;
 
@@ -487,7 +613,17 @@ impl Parser {
             (type_str.clone(), false)
         };
 
-        let field_type = FieldType::from_str(&clean_type_str);
+        let field_type = match FieldType::from_keyword(&clean_type_str) {
+            Some(t) => t,
+            None => {
+                self.diagnostics.push(Self::unknown_type_error(
+                    &clean_type_str,
+                    &name,
+                    &type_token,
+                ));
+                FieldType::String
+            }
+        };
         let mut required = bang_required;
         let mut unique = false;
         let mut sensitive = false;
@@ -532,24 +668,7 @@ impl Parser {
                     if !MODIFIERS.contains(&cur.as_str()) {
                         if let Some(nxt) = self.tokens.get(self.pos + 1) {
                             let t = nxt.value.trim_end_matches('!');
-                            let is_type = matches!(
-                                t,
-                                "string"
-                                    | "text"
-                                    | "email"
-                                    | "url"
-                                    | "slug"
-                                    | "phone"
-                                    | "number"
-                                    | "money"
-                                    | "percentage"
-                                    | "boolean"
-                                    | "date"
-                                    | "ulid"
-                                    | "json"
-                                    | "enum"
-                                    | "ip"
-                            );
+                            let is_type = FieldType::from_keyword(t).is_some();
                             if is_type || nxt.kind == TokenKind::Arrow {
                                 break;
                             }
@@ -634,9 +753,68 @@ impl Parser {
         }))
     }
 
+    /// TYPE_001 with the closest valid type as a concrete replacement.
+    fn unknown_type_error(type_str: &str, field: &str, at: &Token) -> ParseError {
+        let aliases: Vec<&str> = FIELD_TYPE_ALIASES.iter().map(|(a, _)| *a).collect();
+        let suggestion = diagnostic::closest(type_str, FIELD_TYPE_KEYWORDS).or_else(|| {
+            diagnostic::closest(type_str, &aliases).and_then(|a| {
+                FIELD_TYPE_ALIASES
+                    .iter()
+                    .find(|(alias, _)| *alias == a)
+                    .map(|(_, c)| *c)
+            })
+        });
+        let err = ParseError::new(
+            codes::UNKNOWN_FIELD_TYPE,
+            format!("unknown field type '{}' for field '{}'", type_str, field),
+            at.line,
+            at.col,
+        )
+        .with_len(type_str.chars().count())
+        .with_target(type_str);
+        match suggestion {
+            Some(s) => err
+                .with_replacement(s)
+                .with_hint(format!("did you mean '{}'?", s)),
+            None => err.with_hint(format!("valid types: {}", FIELD_TYPE_KEYWORDS.join(", "))),
+        }
+    }
+
+    fn token_error(code: &'static str, message: String, at: &Token) -> ParseError {
+        ParseError::new(code, message, at.line, at.col)
+            .with_len(at.width())
+            .with_target(at.value.clone())
+    }
+
+    /// Transition state/target that is not an enum value.
+    fn invalid_state_error(
+        role: &str,
+        value: &str,
+        field: &str,
+        enum_values: &[String],
+        at: &Token,
+    ) -> ParseError {
+        let candidates: Vec<&str> = enum_values.iter().map(|s| s.as_str()).collect();
+        let err = Self::token_error(
+            codes::INVALID_TRANSITION_STATE,
+            format!(
+                "transition {} '{}' is not a valid value of enum field '{}' (valid values: {})",
+                role,
+                value,
+                field,
+                enum_values.join(", ")
+            ),
+            at,
+        );
+        match diagnostic::closest(value, &candidates) {
+            Some(s) => err.with_replacement(s),
+            None => err,
+        }
+    }
+
     // ── transition (state machine) ──
 
-    fn parse_transition(&mut self, fields: &[FieldNode]) -> Result<TransitionNode, String> {
+    fn parse_transition(&mut self, fields: &[FieldNode]) -> Result<TransitionNode, ParseError> {
         let kw_token = self.advance(); // consume "transition"
         let field_name_token = self.peek().clone();
         let field_name = self.advance().value;
@@ -646,19 +824,33 @@ impl Parser {
         let field = match field {
             Some(f) => f,
             None => {
-                return Err(format!(
-                    "Line {}: transition references unknown field '{}'",
-                    field_name_token.line, field_name
-                ))
+                let names: Vec<&str> = fields.iter().map(|f| f.name.as_str()).collect();
+                let err = Self::token_error(
+                    codes::INVALID_TRANSITION_FIELD,
+                    format!(
+                        "transition references unknown field '{}' (transition blocks must come after the field they use)",
+                        field_name
+                    ),
+                    &field_name_token,
+                );
+                return Err(match diagnostic::closest(&field_name, &names) {
+                    Some(s) => err.with_replacement(s),
+                    None => err,
+                });
             }
         };
 
         // Validate: field must be an enum type
         if field.field_type != FieldType::Enum {
-            return Err(format!(
-                "Line {}: transition field '{}' must be an enum type, got {:?}",
-                field_name_token.line, field_name, field.field_type
-            ));
+            return Err(Self::token_error(
+                codes::INVALID_TRANSITION_FIELD,
+                format!(
+                    "transition field '{}' must be an enum type, got {:?}",
+                    field_name, field.field_type
+                ),
+                &field_name_token,
+            )
+            .with_hint(format!("declare it as '{} enum [a, b, c]'", field_name)));
         }
 
         let enum_values = field.enum_values.as_ref().unwrap_or(&Vec::new()).clone();
@@ -673,9 +865,12 @@ impl Parser {
 
             // Validate: from state must exist in enum values
             if !enum_values.contains(&from) {
-                return Err(format!(
-                    "Line {}: transition state '{}' is not a valid value of enum field '{}'. Valid values: {:?}",
-                    from_token.line, from, field_name, enum_values
+                return Err(Self::invalid_state_error(
+                    "state",
+                    &from,
+                    &field_name,
+                    &enum_values,
+                    &from_token,
                 ));
             }
 
@@ -687,9 +882,12 @@ impl Parser {
 
             // Validate first target
             if !enum_values.contains(&first_target) {
-                return Err(format!(
-                    "Line {}: transition target '{}' is not a valid value of enum field '{}'. Valid values: {:?}",
-                    first_to_token.line, first_target, field_name, enum_values
+                return Err(Self::invalid_state_error(
+                    "target",
+                    &first_target,
+                    &field_name,
+                    &enum_values,
+                    &first_to_token,
                 ));
             }
             to.push(first_target);
@@ -701,9 +899,12 @@ impl Parser {
                 let target = self.advance().value;
 
                 if !enum_values.contains(&target) {
-                    return Err(format!(
-                        "Line {}: transition target '{}' is not a valid value of enum field '{}'. Valid values: {:?}",
-                        target_token.line, target, field_name, enum_values
+                    return Err(Self::invalid_state_error(
+                        "target",
+                        &target,
+                        &field_name,
+                        &enum_values,
+                        &target_token,
                     ));
                 }
                 to.push(target);
@@ -722,16 +923,25 @@ impl Parser {
 
     // ── effect block (on create/update/delete) ──
 
-    fn parse_effect_block(&mut self) -> Result<EffectBlock, String> {
+    fn parse_effect_block(&mut self) -> Result<EffectBlock, ParseError> {
         let on_token = self.advance(); // consume "on"
         let event_token = self.peek().clone();
         let event = self.advance().value.to_lowercase(); // create, update, delete
 
-        if !["create", "update", "delete"].contains(&event.as_str()) {
-            return Err(format!(
-                "Line {}: invalid effect event '{}', expected 'create', 'update', or 'delete'",
-                event_token.line, event
-            ));
+        const EVENTS: &[&str] = &["create", "update", "delete"];
+        if !EVENTS.contains(&event.as_str()) {
+            let err = Self::token_error(
+                codes::INVALID_EFFECT_EVENT,
+                format!(
+                    "invalid effect event '{}', expected 'create', 'update', or 'delete'",
+                    event
+                ),
+                &event_token,
+            );
+            return Err(match diagnostic::closest(&event, EVENTS) {
+                Some(s) => err.with_replacement(s),
+                None => err,
+            });
         }
 
         // For "on update <field>", check if next token is a field name (not a brace)
@@ -861,7 +1071,7 @@ impl Parser {
 
     // ── api ──
 
-    fn parse_api(&mut self) -> Result<ApiNode, String> {
+    fn parse_api(&mut self) -> Result<ApiNode, ParseError> {
         self.expect(TokenKind::Keyword)?;
         let prefix = self.expect(TokenKind::Path)?.value;
         self.expect(TokenKind::LBrace)?;
@@ -913,7 +1123,7 @@ impl Parser {
 
     // ── webhook ──
 
-    fn parse_webhook(&mut self) -> Result<WebhookNode, String> {
+    fn parse_webhook(&mut self) -> Result<WebhookNode, ParseError> {
         self.expect(TokenKind::Keyword)?; // consume "webhook"
         let entity = self.advance().value; // entity name or path
                                            // Strip leading / if present
@@ -981,7 +1191,7 @@ impl Parser {
 
     // ── auth ──
 
-    fn parse_auth(&mut self) -> Result<AuthNode, String> {
+    fn parse_auth(&mut self) -> Result<AuthNode, ParseError> {
         self.advance(); // consume "auth" (tokenized as Identifier, not Keyword)
         self.expect(TokenKind::LBrace)?;
 
@@ -1040,7 +1250,7 @@ impl Parser {
 
     // ── layout ──
 
-    fn parse_layout(&mut self) -> Result<LayoutNode, String> {
+    fn parse_layout(&mut self) -> Result<LayoutNode, ParseError> {
         // "layout" already consumed
         let name = self.advance().value;
         self.expect(TokenKind::LBrace)?;
@@ -1145,7 +1355,7 @@ impl Parser {
 
     // ── page ──
 
-    fn parse_page(&mut self) -> Result<PageNode, String> {
+    fn parse_page(&mut self) -> Result<PageNode, ParseError> {
         self.expect(TokenKind::Keyword)?;
         let route = self.expect(TokenKind::StringLit)?.value;
 
@@ -1291,7 +1501,7 @@ impl Parser {
 
     // ── section ──
 
-    fn parse_section(&mut self) -> Result<SectionNode, String> {
+    fn parse_section(&mut self) -> Result<SectionNode, ParseError> {
         self.expect(TokenKind::Keyword)?;
         let section_type = self.advance().value;
 
@@ -1787,7 +1997,7 @@ impl Parser {
         })
     }
 
-    fn parse_section_item(&mut self) -> Result<HashMap<String, String>, String> {
+    fn parse_section_item(&mut self) -> Result<HashMap<String, String>, ParseError> {
         self.advance(); // consume "item"
         let title = self.expect(TokenKind::StringLit)?.value;
         let mut map = HashMap::new();
@@ -1899,7 +2109,30 @@ impl Parser {
         Ok(map)
     }
 
-    fn parse_action_block(&mut self) -> Result<ActionBlock, String> {
+    const ACTION_VERBS: &'static [&'static str] = &[
+        "set", "toast", "navigate", "refresh", "create", "update", "delete", "validate", "confirm",
+        "open", "close",
+    ];
+
+    /// Optional argument of an action verb. Never consumes `{`, `}`, end of
+    /// file or the next verb — a bare `refresh` before `}` used to swallow the
+    /// block's closing brace and nest every following page inside this one.
+    fn action_arg(&mut self) -> Option<String> {
+        let t = self.peek();
+        let is_verb = matches!(t.kind, TokenKind::Identifier | TokenKind::Keyword)
+            && Self::ACTION_VERBS.contains(&t.value.as_str());
+        if is_verb
+            || matches!(
+                t.kind,
+                TokenKind::LBrace | TokenKind::RBrace | TokenKind::Eof
+            )
+        {
+            return None;
+        }
+        Some(self.advance().value)
+    }
+
+    fn parse_action_block(&mut self) -> Result<ActionBlock, ParseError> {
         // Already consumed "on" keyword before calling this
         let event = self.advance().value; // "click", "submit", "error", "change"
         self.expect(TokenKind::LBrace)?;
@@ -1914,12 +2147,8 @@ impl Parser {
                     confirm_msg = Some(self.expect(TokenKind::StringLit)?.value);
                 }
                 "set" => {
-                    let field = self.advance().value;
-                    let value = if self.peek().kind == TokenKind::StringLit {
-                        self.advance().value
-                    } else {
-                        self.advance().value
-                    };
+                    let field = self.action_arg().unwrap_or_default();
+                    let value = self.action_arg().unwrap_or_default();
                     let mut mods = HashMap::new();
                     while self.peek().kind == TokenKind::ColonPair {
                         let (k, v) = Self::split_colon_pair(&self.advance().value);
@@ -1947,13 +2176,8 @@ impl Parser {
                     });
                 }
                 "navigate" => {
-                    let url = if self.peek().kind == TokenKind::StringLit {
-                        self.advance().value
-                    } else if self.peek().kind == TokenKind::Path {
-                        self.advance().value
-                    } else {
-                        self.advance().value // "back"
-                    };
+                    // "/path", /path or back
+                    let url = self.action_arg().unwrap_or_default();
                     instructions.push(ActionInstruction {
                         verb: "navigate".into(),
                         target: url,
@@ -1962,7 +2186,8 @@ impl Parser {
                     });
                 }
                 "refresh" => {
-                    let target = self.advance().value; // "self", "parent", "page"
+                    // "self" (default), "parent", "page"
+                    let target = self.action_arg().unwrap_or_else(|| "self".into());
                     instructions.push(ActionInstruction {
                         verb: "refresh".into(),
                         target,
@@ -1971,7 +2196,7 @@ impl Parser {
                     });
                 }
                 "create" | "update" | "delete" => {
-                    let target = self.advance().value; // "entity" or entity name
+                    let target = self.action_arg().unwrap_or_default(); // "entity" or entity name
                     instructions.push(ActionInstruction {
                         verb: verb.clone(),
                         target,
@@ -1980,7 +2205,7 @@ impl Parser {
                     });
                 }
                 "validate" => {
-                    let target = self.advance().value; // "all" or field name
+                    let target = self.action_arg().unwrap_or_else(|| "all".into());
                     instructions.push(ActionInstruction {
                         verb: "validate".into(),
                         target,
@@ -2003,21 +2228,8 @@ impl Parser {
                         && !self.matches(TokenKind::Eof, None)
                     {
                         let next = self.peek();
-                        if next.kind == TokenKind::Identifier
-                            && [
-                                "set", "toast", "navigate", "refresh", "create", "update",
-                                "delete", "validate", "confirm", "open", "close",
-                            ]
-                            .contains(&next.value.as_str())
-                        {
-                            break;
-                        }
-                        if next.kind == TokenKind::Keyword
-                            && [
-                                "set", "toast", "navigate", "refresh", "create", "update",
-                                "delete", "validate", "confirm", "open", "close",
-                            ]
-                            .contains(&next.value.as_str())
+                        if matches!(next.kind, TokenKind::Identifier | TokenKind::Keyword)
+                            && Self::ACTION_VERBS.contains(&next.value.as_str())
                         {
                             break;
                         }
@@ -2034,7 +2246,7 @@ impl Parser {
         })
     }
 
-    fn parse_plan(&mut self) -> Result<PlanNode, String> {
+    fn parse_plan(&mut self) -> Result<PlanNode, ParseError> {
         self.advance(); // consume "plan"
         let name = self.expect(TokenKind::StringLit)?.value;
         let price = if self.peek().kind == TokenKind::Price {
@@ -2063,7 +2275,7 @@ impl Parser {
 
     // ── binding ──
 
-    fn parse_binding(&mut self) -> Result<BindingNode, String> {
+    fn parse_binding(&mut self) -> Result<BindingNode, ParseError> {
         self.advance(); // consume "bind"
 
         // Next token: ColonPair "entity:Order" or bare Identifier "Order"
@@ -2259,7 +2471,7 @@ impl Parser {
 
     // ── style ──
 
-    fn parse_style(&mut self) -> Result<StyleNode, String> {
+    fn parse_style(&mut self) -> Result<StyleNode, ParseError> {
         self.expect(TokenKind::Keyword)?;
         self.expect(TokenKind::LBrace)?;
 
@@ -2303,7 +2515,7 @@ impl Parser {
 
     // ── service ──
 
-    fn parse_service(&mut self) -> Result<ServiceNode, String> {
+    fn parse_service(&mut self) -> Result<ServiceNode, ParseError> {
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
 
@@ -2369,7 +2581,7 @@ impl Parser {
 
     /// Parse `define "Name" { section ... section ... }`
     /// Stores one or more reusable sections under a name.
-    fn parse_define(&mut self) -> Result<DefineNode, String> {
+    fn parse_define(&mut self) -> Result<DefineNode, ParseError> {
         self.advance(); // consume "define"
         let name = if self.peek().kind == TokenKind::StringLit {
             self.advance().value
@@ -2397,7 +2609,7 @@ impl Parser {
         Ok(DefineNode { name, sections })
     }
 
-    fn parse_component(&mut self) -> Result<ComponentNode, String> {
+    fn parse_component(&mut self) -> Result<ComponentNode, ParseError> {
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
 
@@ -2816,7 +3028,7 @@ impl Parser {
 
     // ── event ──
 
-    fn parse_event(&mut self) -> Result<EventNode, String> {
+    fn parse_event(&mut self) -> Result<EventNode, ParseError> {
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
         self.expect(TokenKind::LBrace)?;
@@ -2843,7 +3055,7 @@ impl Parser {
 
     // ── worker ──
 
-    fn parse_worker(&mut self) -> Result<WorkerNode, String> {
+    fn parse_worker(&mut self) -> Result<WorkerNode, ParseError> {
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
 
@@ -2893,7 +3105,7 @@ impl Parser {
 
     // ── middleware ──
 
-    fn parse_middleware(&mut self) -> Result<MiddlewareNode, String> {
+    fn parse_middleware(&mut self) -> Result<MiddlewareNode, ParseError> {
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
         self.expect(TokenKind::LBrace)?;
@@ -2933,7 +3145,7 @@ impl Parser {
 
     // ── env ──
 
-    fn parse_env(&mut self) -> Result<EnvNode, String> {
+    fn parse_env(&mut self) -> Result<EnvNode, ParseError> {
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
         self.expect(TokenKind::LBrace)?;
@@ -2956,7 +3168,7 @@ impl Parser {
 
     // ── test ──
 
-    fn parse_test(&mut self) -> Result<TestNode, String> {
+    fn parse_test(&mut self) -> Result<TestNode, ParseError> {
         self.expect(TokenKind::Keyword)?;
         let name = self.expect(TokenKind::StringLit)?.value;
         self.expect(TokenKind::LBrace)?;
@@ -3026,53 +3238,75 @@ impl Parser {
     // ── P040/P041: SQL identifier validation ──
 
     /// Validate an identifier against P040 (valid pattern) and P041 (no SQL reserved words).
-    fn validate_identifier(name: &str, context: &str, line: usize) -> Result<(), String> {
-        Self::validate_identifier_pattern(name, context, line)?;
-        Self::reject_sql_reserved(name, context, line)
+    fn validate_identifier(
+        name: &str,
+        context: &str,
+        at: (usize, usize),
+    ) -> Result<(), ParseError> {
+        Self::validate_identifier_pattern(name, context, at)?;
+        Self::reject_sql_reserved(name, context, at)
     }
 
     /// P040 only: `[a-zA-Z][a-zA-Z0-9_]{0,63}`. Used for bracketed array values
     /// (enum values, roles, config lists). Those are data bound as parameters,
     /// never SQL identifiers, so P041 does not apply: `enum [create, update]` is legal.
-    fn validate_identifier_pattern(name: &str, context: &str, line: usize) -> Result<(), String> {
+    fn validate_identifier_pattern(
+        name: &str,
+        context: &str,
+        at: (usize, usize),
+    ) -> Result<(), ParseError> {
+        const SHAPE: &str = "identifiers must start with a letter and contain only [a-zA-Z0-9_]";
+        let err = |message: String| {
+            let e = ParseError::new(codes::INVALID_IDENTIFIER, message, at.0, at.1)
+                .with_len(name.chars().count());
+            let sanitized: String = name
+                .chars()
+                .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+                .collect();
+            if !name.is_empty()
+                && sanitized != name
+                && sanitized.as_bytes()[0].is_ascii_alphabetic()
+            {
+                e.with_target(name).with_replacement(sanitized)
+            } else {
+                e.with_target(name).with_hint(SHAPE)
+            }
+        };
         // P040: Must match [a-zA-Z][a-zA-Z0-9_]{0,63}
         if name.is_empty() {
-            return Err(format!(
-                "Parse error at line {}: Empty identifier in {}\n  Identifiers must start with a letter and contain only [a-zA-Z0-9_]",
-                line, context
-            ));
+            return Err(err(format!("empty identifier in {}", context)));
         }
 
         let bytes = name.as_bytes();
-        let first = bytes[0];
-        if !(first.is_ascii_alphabetic()) {
-            return Err(format!(
-                "Parse error at line {}: Invalid identifier '{}' in {}\n  Identifiers must start with a letter and contain only [a-zA-Z0-9_]",
-                line, name, context
-            ));
+        if !bytes[0].is_ascii_alphabetic() {
+            return Err(err(format!("invalid identifier '{}' in {}", name, context)));
         }
 
         if name.len() > 64 {
-            return Err(format!(
-                "Parse error at line {}: Identifier '{}' in {} exceeds 64 characters\n  Identifiers must be at most 64 characters long",
-                line, name, context
-            ));
+            return Err(err(format!(
+                "identifier '{}' in {} exceeds 64 characters",
+                name, context
+            ))
+            .with_hint("identifiers must be at most 64 characters long"));
         }
 
-        for (i, &b) in bytes.iter().enumerate().skip(1) {
-            if !(b.is_ascii_alphanumeric() || b == b'_') {
-                return Err(format!(
-                    "Parse error at line {}: Invalid identifier '{}' in {}\n  Identifiers must start with a letter and contain only [a-zA-Z0-9_]",
-                    line, name, context
-                ));
-            }
+        if bytes
+            .iter()
+            .skip(1)
+            .any(|&b| !(b.is_ascii_alphanumeric() || b == b'_'))
+        {
+            return Err(err(format!("invalid identifier '{}' in {}", name, context)));
         }
 
         Ok(())
     }
 
     /// P041: No SQL reserved words (entity/field names become SQL identifiers).
-    fn reject_sql_reserved(name: &str, context: &str, line: usize) -> Result<(), String> {
+    fn reject_sql_reserved(
+        name: &str,
+        context: &str,
+        at: (usize, usize),
+    ) -> Result<(), ParseError> {
         const SQL_RESERVED: &[&str] = &[
             "SELECT", "DROP", "INSERT", "DELETE", "UPDATE", "TABLE", "FROM", "WHERE", "OR", "AND",
             "UNION", "ALTER", "CREATE", "INDEX", "EXEC", "EXECUTE", "INTO", "VALUES", "SET",
@@ -3081,10 +3315,18 @@ impl Parser {
 
         let upper = name.to_uppercase();
         if SQL_RESERVED.contains(&upper.as_str()) {
-            return Err(format!(
-                "Parse error at line {}: '{}' is a SQL reserved word and cannot be used as {}\n  Choose a different name",
-                line, name, context
-            ));
+            return Err(ParseError::new(
+                codes::RESERVED_IDENTIFIER,
+                format!(
+                    "'{}' is a SQL reserved word and cannot be used as {}",
+                    name, context
+                ),
+                at.0,
+                at.1,
+            )
+            .with_len(name.chars().count())
+            .with_target(name)
+            .with_hint("choose a different name"));
         }
 
         Ok(())
@@ -3092,7 +3334,7 @@ impl Parser {
 
     // ── helpers ──
 
-    fn parse_array(&mut self) -> Result<Vec<String>, String> {
+    fn parse_array(&mut self) -> Result<Vec<String>, ParseError> {
         self.expect(TokenKind::LBracket)?;
         let mut items = Vec::new();
 
@@ -3105,7 +3347,11 @@ impl Parser {
             // P040: validate unquoted identifiers in arrays (enum values, roles).
             // P041 is skipped on purpose: array values are data, not SQL identifiers.
             if token.kind == TokenKind::Identifier {
-                Self::validate_identifier_pattern(&token.value, "enum value", token.line)?;
+                Self::validate_identifier_pattern(
+                    &token.value,
+                    "enum value",
+                    (token.line, token.col),
+                )?;
             }
             items.push(self.advance().value);
         }
@@ -3114,7 +3360,7 @@ impl Parser {
         Ok(items)
     }
 
-    fn parse_string_array(&mut self) -> Result<Vec<String>, String> {
+    fn parse_string_array(&mut self) -> Result<Vec<String>, ParseError> {
         self.expect(TokenKind::LBracket)?;
         let mut items = Vec::new();
 
@@ -3132,7 +3378,7 @@ impl Parser {
 
     // ── deploy ──
 
-    fn parse_deploy(&mut self) -> Result<DeployNode, String> {
+    fn parse_deploy(&mut self) -> Result<DeployNode, ParseError> {
         self.expect(TokenKind::Keyword)?; // consume "deploy"
         let mode = self.advance().value; // e.g. "microservices"
         self.expect(TokenKind::LBrace)?;
@@ -3250,9 +3496,23 @@ impl Parser {
 
 /// Parse a .cronus source string into an AST.
 pub fn parse(source: &str) -> Result<Vec<AstNode>, String> {
-    let tokens = tokenize(source);
-    let mut parser = Parser::new(tokens);
-    parser.parse()
+    parse_diagnostics(source).map_err(|errors| diagnostic::join(&errors))
+}
+
+/// Parse a .cronus source string, returning every structured diagnostic on
+/// failure: all recoverable ones (e.g. unknown field types) plus the first
+/// fatal syntax error, in source order of discovery.
+pub fn parse_diagnostics(source: &str) -> Result<Vec<AstNode>, Vec<ParseError>> {
+    let mut parser = Parser::new(tokenize(source));
+    match parser.parse() {
+        Ok(nodes) if parser.diagnostics.is_empty() => Ok(nodes),
+        Ok(_) => Err(parser.diagnostics),
+        Err(fatal) => {
+            let mut all = parser.diagnostics;
+            all.push(fatal);
+            Err(all)
+        }
+    }
 }
 
 /// Parse a .cronus file with import resolution.
@@ -3708,7 +3968,7 @@ mod parser_tests {
 
     #[test]
     fn p040_still_applies_to_enum_values() {
-        assert!(Parser::validate_identifier_pattern("9lives", "enum value", 1).is_err());
+        assert!(Parser::validate_identifier_pattern("9lives", "enum value", (1, 1)).is_err());
     }
 
     /// Every shipped `.cronus` under `templates/` and `demos/` must parse.
@@ -3768,47 +4028,50 @@ mod parser_tests {
 
     #[test]
     fn p040_valid_identifiers() {
-        assert!(Parser::validate_identifier("name", "test", 1).is_ok());
-        assert!(Parser::validate_identifier("User", "test", 1).is_ok());
-        assert!(Parser::validate_identifier("deploy_id", "test", 1).is_ok());
-        assert!(Parser::validate_identifier("status", "test", 1).is_ok());
-        assert!(Parser::validate_identifier("myField2", "test", 1).is_ok());
-        assert!(Parser::validate_identifier("A", "test", 1).is_ok());
+        assert!(Parser::validate_identifier("name", "test", (1, 1)).is_ok());
+        assert!(Parser::validate_identifier("User", "test", (1, 1)).is_ok());
+        assert!(Parser::validate_identifier("deploy_id", "test", (1, 1)).is_ok());
+        assert!(Parser::validate_identifier("status", "test", (1, 1)).is_ok());
+        assert!(Parser::validate_identifier("myField2", "test", (1, 1)).is_ok());
+        assert!(Parser::validate_identifier("A", "test", (1, 1)).is_ok());
         // 64 chars exactly — should pass
         let long = "a".repeat(64);
-        assert!(Parser::validate_identifier(&long, "test", 1).is_ok());
+        assert!(Parser::validate_identifier(&long, "test", (1, 1)).is_ok());
     }
 
     #[test]
     fn p040_reject_starts_with_number() {
-        let err = Parser::validate_identifier("2bad", "entity field", 5).unwrap_err();
-        assert!(err.contains("Invalid identifier"), "got: {}", err);
+        let err = Parser::validate_identifier("2bad", "entity field", (5, 1)).unwrap_err();
+        assert!(err.contains("invalid identifier"), "got: {}", err);
+        assert_eq!(err.code, "PARSE_002");
         assert!(err.contains("2bad"));
     }
 
     #[test]
     fn p040_reject_special_chars() {
-        let err = Parser::validate_identifier("status;DROP", "entity field", 1).unwrap_err();
-        assert!(err.contains("Invalid identifier"), "got: {}", err);
+        let err = Parser::validate_identifier("status;DROP", "entity field", (1, 1)).unwrap_err();
+        assert!(err.contains("invalid identifier"), "got: {}", err);
+        assert_eq!(err.code, "PARSE_002");
     }
 
     #[test]
     fn p040_reject_dash_in_identifier() {
-        let err = Parser::validate_identifier("my-field", "entity field", 1).unwrap_err();
-        assert!(err.contains("Invalid identifier"), "got: {}", err);
+        let err = Parser::validate_identifier("my-field", "entity field", (1, 1)).unwrap_err();
+        assert!(err.contains("invalid identifier"), "got: {}", err);
+        assert_eq!(err.code, "PARSE_002");
     }
 
     #[test]
     fn p040_reject_too_long() {
         let long = "a".repeat(65);
-        let err = Parser::validate_identifier(&long, "test", 1).unwrap_err();
+        let err = Parser::validate_identifier(&long, "test", (1, 1)).unwrap_err();
         assert!(err.contains("exceeds 64 characters"), "got: {}", err);
     }
 
     #[test]
     fn p040_reject_empty() {
-        let err = Parser::validate_identifier("", "test", 1).unwrap_err();
-        assert!(err.contains("Empty identifier"), "got: {}", err);
+        let err = Parser::validate_identifier("", "test", (1, 1)).unwrap_err();
+        assert!(err.contains("empty identifier"), "got: {}", err);
     }
 
     // ── P041: SQL reserved words ──
@@ -3821,7 +4084,7 @@ mod parser_tests {
             "NULL", "TRUE", "FALSE",
         ];
         for word in reserved {
-            let err = Parser::validate_identifier(word, "entity name", 1).unwrap_err();
+            let err = Parser::validate_identifier(word, "entity name", (1, 1)).unwrap_err();
             assert!(
                 err.contains("SQL reserved word"),
                 "Expected rejection for '{}', got: {}",
@@ -3833,22 +4096,22 @@ mod parser_tests {
 
     #[test]
     fn p041_reject_case_insensitive() {
-        let err = Parser::validate_identifier("select", "entity name", 1).unwrap_err();
+        let err = Parser::validate_identifier("select", "entity name", (1, 1)).unwrap_err();
         assert!(err.contains("SQL reserved word"), "got: {}", err);
-        let err = Parser::validate_identifier("Drop", "entity name", 1).unwrap_err();
+        let err = Parser::validate_identifier("Drop", "entity name", (1, 1)).unwrap_err();
         assert!(err.contains("SQL reserved word"), "got: {}", err);
     }
 
     #[test]
     fn p041_allow_non_reserved_common_names() {
         // These are common field names that must NOT be rejected
-        assert!(Parser::validate_identifier("name", "test", 1).is_ok());
-        assert!(Parser::validate_identifier("status", "test", 1).is_ok());
-        assert!(Parser::validate_identifier("type", "test", 1).is_ok());
-        assert!(Parser::validate_identifier("value", "test", 1).is_ok());
-        assert!(Parser::validate_identifier("email", "test", 1).is_ok());
-        assert!(Parser::validate_identifier("User", "test", 1).is_ok());
-        assert!(Parser::validate_identifier("Deployment", "test", 1).is_ok());
+        assert!(Parser::validate_identifier("name", "test", (1, 1)).is_ok());
+        assert!(Parser::validate_identifier("status", "test", (1, 1)).is_ok());
+        assert!(Parser::validate_identifier("type", "test", (1, 1)).is_ok());
+        assert!(Parser::validate_identifier("value", "test", (1, 1)).is_ok());
+        assert!(Parser::validate_identifier("email", "test", (1, 1)).is_ok());
+        assert!(Parser::validate_identifier("User", "test", (1, 1)).is_ok());
+        assert!(Parser::validate_identifier("Deployment", "test", (1, 1)).is_ok());
     }
 
     // ── Integration: parse rejects bad entity names ──
@@ -4608,10 +4871,233 @@ entity Item shared {
             err
         );
         assert!(
-            err.contains("Method"),
-            "error should mention expected kind 'Method', got: {}",
+            err.contains("expected an HTTP method"),
+            "error should say an HTTP method was expected, got: {}",
             err
         );
+        assert!(err.starts_with("PARSE_001: "), "got: {}", err);
+    }
+
+    // ── Sprint 3: structured, English, located diagnostics ──
+
+    fn diags(source: &str) -> Vec<ParseError> {
+        match parse_diagnostics(source) {
+            Err(e) => e,
+            Ok(_) => panic!("expected diagnostics for:\n{}", source),
+        }
+    }
+
+    #[test]
+    fn unknown_field_type_is_type_001_with_closest_suggestion() {
+        let src = "entity Task {\n  title strin!\n  qty   numbr\n}\n";
+        let errs = diags(src);
+        assert_eq!(errs.len(), 2, "both typos are reported: {:?}", errs);
+        let a = &errs[0];
+        assert_eq!(a.code, "TYPE_001");
+        assert_eq!((a.line, a.col, a.len), (2, 9, 5));
+        assert_eq!(a.target.as_deref(), Some("strin"));
+        assert_eq!(a.replacement.as_deref(), Some("string"));
+        assert_eq!(a.message, "unknown field type 'strin' for field 'title'");
+        let b = &errs[1];
+        assert_eq!(b.code, "TYPE_001");
+        assert_eq!((b.line, b.col), (3, 9));
+        assert_eq!(b.replacement.as_deref(), Some("number"));
+    }
+
+    #[test]
+    fn unknown_field_type_without_near_match_lists_valid_types() {
+        let errs = diags("entity Task {\n  title zzzzzzzz\n}\n");
+        assert_eq!(errs[0].code, "TYPE_001");
+        assert!(errs[0].replacement.is_none());
+        assert!(errs[0].hint.as_deref().unwrap().contains("string, text"));
+    }
+
+    #[test]
+    fn unknown_field_type_fails_string_parse_api() {
+        let Err(err) = parse("entity Task {\n  title strin!\n}\n") else {
+            panic!("typo must fail the string parse API")
+        };
+        assert_eq!(
+            err,
+            "TYPE_001: unknown field type 'strin' for field 'title' (line 2, col 9)"
+        );
+    }
+
+    #[test]
+    fn field_type_aliases_map_to_canonical_types() {
+        let src = "entity M {\n  a int\n  b integer\n  c float\n  d decimal\n  e bool\n  f datetime\n  g timestamp\n}\n";
+        let nodes = parse(src).expect("aliases must parse");
+        let AstNode::Entity(e) = &nodes[0] else {
+            panic!("entity expected")
+        };
+        let types: Vec<FieldType> = e.fields.iter().map(|f| f.field_type.clone()).collect();
+        assert_eq!(
+            types,
+            vec![
+                FieldType::Number,
+                FieldType::Number,
+                FieldType::Number,
+                FieldType::Number,
+                FieldType::Boolean,
+                FieldType::Date,
+                FieldType::Date,
+            ]
+        );
+    }
+
+    #[test]
+    fn every_canonical_field_type_keyword_parses() {
+        for kw in FIELD_TYPE_KEYWORDS {
+            let src = format!("entity M {{\n  a {}\n}}\n", kw);
+            assert!(parse(&src).is_ok(), "type '{}' should parse", kw);
+        }
+    }
+
+    #[test]
+    fn relation_with_trailing_modifiers_does_not_swallow_next_field() {
+        let src = "entity Field {\n  kind  -> Kind  required\n  items -> Item[] unique\n  width number   required\n}\n";
+        let nodes = parse(src).unwrap_or_else(|e| panic!("{}", e));
+        let AstNode::Entity(e) = &nodes[0] else {
+            panic!("entity expected")
+        };
+        let names: Vec<&str> = e.fields.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, vec!["kind", "items", "width"]);
+        assert!(e.fields[0].required);
+        assert_eq!(e.fields[0].reference.as_deref(), Some("Kind"));
+        assert!(e.fields[1].array && e.fields[1].unique);
+        assert_eq!(e.fields[2].field_type, FieldType::Number);
+        assert!(e.fields[2].required);
+    }
+
+    #[test]
+    fn bare_action_verbs_do_not_swallow_closing_braces() {
+        for body in [
+            "create Task  refresh",
+            "delete Task  refresh",
+            "refresh",
+            "delete",
+            "refresh  toast \"Saved\"",
+            "navigate",
+            "validate",
+        ] {
+            let src = format!(
+                "entity Task {{\n  title string!\n}}\npage \"/a\" {{\n  section form {{\n    bind Task {{ query all }}\n    on submit {{ {} }}\n  }}\n}}\npage \"/b\" {{\n  section hero {{ }}\n}}\nentity Note {{\n  body text\n}}\n",
+                body
+            );
+            let nodes = parse(&src).unwrap_or_else(|e| panic!("{}: {}", body, e));
+            let (entities, pages, _) = stats(&nodes);
+            assert_eq!((entities, pages), (2, 2), "`{}` merged blocks", body);
+        }
+        // defaults when the argument is omitted
+        let src =
+            "page \"/a\" {\n  section form {\n    on submit { refresh  toast \"ok\" }\n  }\n}\n";
+        let nodes = parse(src).unwrap_or_else(|e| panic!("{}", e));
+        let AstNode::Page(p) = &nodes[0] else {
+            panic!("page expected")
+        };
+        let instr = &p.sections[0].actions[0].instructions;
+        assert_eq!(
+            (instr[0].verb.as_str(), instr[0].target.as_str()),
+            ("refresh", "self")
+        );
+        assert_eq!(
+            (instr[1].verb.as_str(), instr[1].target.as_str()),
+            ("toast", "ok")
+        );
+    }
+
+    #[test]
+    fn field_without_type_is_type_002() {
+        let errs = diags("entity Task {\n  title\n  done boolean\n}\n");
+        assert_eq!(errs.len(), 1, "{:?}", errs);
+        assert_eq!(errs[0].code, "TYPE_002");
+        assert_eq!((errs[0].line, errs[0].col), (2, 3));
+    }
+
+    #[test]
+    fn unexpected_token_error_has_column_and_replacement_for_lowercase_method() {
+        let src = "api /items {\n  list get /\n}\n";
+        let errs = diags(src);
+        let e = errs.last().unwrap();
+        assert_eq!(e.code, "PARSE_001");
+        assert_eq!((e.line, e.col, e.len), (2, 8, 3));
+        assert_eq!(e.replacement.as_deref(), Some("GET"));
+    }
+
+    #[test]
+    fn unexpected_end_of_file_points_past_last_token() {
+        let errs = diags("entity Task {\n  title string");
+        let e = errs.last().unwrap();
+        assert_eq!(e.code, "PARSE_001");
+        assert_eq!(e.message, "expected '}', found end of file");
+        assert_eq!((e.line, e.col), (2, 15));
+    }
+
+    #[test]
+    fn recoverable_and_fatal_diagnostics_are_both_reported() {
+        let errs = diags("entity Task {\n  title strin\n}\napi /x {\n  list HEAD /\n}\n");
+        let codes: Vec<&str> = errs.iter().map(|e| e.code).collect();
+        assert_eq!(codes, vec!["TYPE_001", "PARSE_001"]);
+        assert_eq!((errs[1].line, errs[1].col), (5, 8));
+    }
+
+    #[test]
+    fn parser_messages_are_english_and_never_carry_location_text() {
+        let cases = [
+            "entity Task {\n  title strin\n}\n",
+            "api /x {\n  list HEAD /\n}\n",
+            "entity select {\n  a string\n}\n",
+            "entity Task {\n  my-field string\n}\n",
+            "entity T {\n  s enum [a, b]\n  transition s {\n    a -> c\n  }\n}\n",
+            "entity T {\n  s string\n  transition s {\n    a -> b\n  }\n}\n",
+            "entity T {\n  transition nope {\n  }\n}\n",
+            "entity T {\n  on explode {\n  }\n}\n",
+        ];
+        for src in cases {
+            for e in diags(src) {
+                for banned in [
+                    "Linha",
+                    "esperava",
+                    "encontrou",
+                    "Parse error",
+                    "line ",
+                    "Line ",
+                ] {
+                    assert!(
+                        !e.message.contains(banned),
+                        "message {:?} contains {:?}",
+                        e.message,
+                        banned
+                    );
+                }
+                assert!(e.line >= 1 && e.col >= 1, "{:?}", e);
+                assert!(
+                    e.code.starts_with("PARSE_") || e.code.starts_with("TYPE_"),
+                    "{:?}",
+                    e
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn transition_state_typo_suggests_enum_value() {
+        let errs = diags(
+            "entity T {\n  s enum [pending, paid]\n  transition s {\n    pendng -> paid\n  }\n}\n",
+        );
+        let e = errs.last().unwrap();
+        assert_eq!(e.code, "PARSE_005");
+        assert_eq!((e.line, e.col), (4, 5));
+        assert_eq!(e.replacement.as_deref(), Some("pending"));
+    }
+
+    #[test]
+    fn invalid_identifier_offers_sanitized_replacement() {
+        let errs = diags("entity Task {\n  my-field string\n}\n");
+        let e = errs.last().unwrap();
+        assert_eq!(e.code, "PARSE_002");
+        assert_eq!((e.line, e.col), (2, 3));
+        assert_eq!(e.replacement.as_deref(), Some("my_field"));
     }
 
     #[test]

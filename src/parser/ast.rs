@@ -154,9 +154,47 @@ pub enum FieldType {
     Relation,
 }
 
+/// Canonical field type keywords (relation is written `-> Entity`, not a keyword).
+pub const FIELD_TYPE_KEYWORDS: &[&str] = &[
+    "string",
+    "text",
+    "email",
+    "url",
+    "slug",
+    "phone",
+    "number",
+    "money",
+    "percentage",
+    "boolean",
+    "date",
+    "ulid",
+    "json",
+    "enum",
+    "ip",
+];
+
+/// Accepted aliases → canonical keyword. Documented in LANGUAGE.md §2.3.
+/// These are the spellings emitted by TypeScript/OpenAPI-style sources.
+pub const FIELD_TYPE_ALIASES: &[(&str, &str)] = &[
+    ("int", "number"),
+    ("integer", "number"),
+    ("float", "number"),
+    ("decimal", "number"),
+    ("bool", "boolean"),
+    ("datetime", "date"),
+    ("timestamp", "date"),
+];
+
 impl FieldType {
-    pub(crate) fn from_str(s: &str) -> Self {
-        match s {
+    /// Look up a field type keyword or alias. `None` for unknown spellings —
+    /// the parser reports those as `TYPE_001` instead of guessing.
+    pub(crate) fn from_keyword(s: &str) -> Option<Self> {
+        let canonical = FIELD_TYPE_ALIASES
+            .iter()
+            .find(|(alias, _)| *alias == s)
+            .map(|(_, c)| *c)
+            .unwrap_or(s);
+        Some(match canonical {
             "string" => FieldType::String,
             "text" => FieldType::Text,
             "email" => FieldType::Email,
@@ -172,8 +210,8 @@ impl FieldType {
             "json" => FieldType::Json,
             "enum" => FieldType::Enum,
             "ip" => FieldType::Ip,
-            _ => FieldType::String,
-        }
+            _ => return None,
+        })
     }
 }
 

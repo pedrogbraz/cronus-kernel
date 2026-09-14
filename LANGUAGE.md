@@ -55,8 +55,9 @@ GET  POST  PATCH  PUT  DELETE
 
 **HEAD and OPTIONS are NOT supported.** Writing them in a `.cronus` file produces a parse error:
 ```
-Parse error: Linha N: esperava Method, encontrou 'HEAD' (Identifier)
+PARSE_001: expected an HTTP method (GET, POST, PUT, PATCH, DELETE), found 'HEAD' (line N, col C)
 ```
+A lowercase method (`get`) gets the same error with `fix.replacement: "GET"`.
 
 Rationale: HEAD is auto-handled by the runtime (returns GET headers). OPTIONS is auto-handled as CORS preflight. Exposing them to user syntax is a language-feature decision, not a bug. (The Next.js dumper previously emitted them by mistake — fixed 2026-04-10.)
 
@@ -78,7 +79,7 @@ Plus 15 more in the full list — grep `validate_identifier` for the canonical s
 
 | Keyword          | Storage      | Rendering hint                  | Notes |
 |------------------|--------------|----------------------------------|-------|
-| `string`         | TEXT         | `<input type=text>`              | Default for unknown types (silent fallback) |
+| `string`         | TEXT         | `<input type=text>`              | |
 | `text`           | TEXT         | `<textarea>`                     | |
 | `email`          | TEXT         | `<input type=email>`             | Pattern validated |
 | `url`            | TEXT         | `<input type=url>`               | |
@@ -95,7 +96,22 @@ Plus 15 more in the full list — grep `validate_identifier` for the canonical s
 | `ip`             | TEXT         | monospace                        | |
 | **relation**     | FK column    | linked reference                 | Produced by `-> OtherEntity` arrow syntax, not a keyword |
 
-> **Silent fallback**: unknown type keywords become `FieldType::String` with no parser error. Typos are dangerous.
+Canonical keyword list: `FIELD_TYPE_KEYWORDS` in `src/parser/ast.rs`. Keywords are case-sensitive (`String` is not a type).
+
+**Aliases** (`FIELD_TYPE_ALIASES`, `src/parser/ast.rs`) — accepted and stored as the canonical type:
+
+| Alias | Canonical |
+|-------|-----------|
+| `int`, `integer`, `float`, `decimal` | `number` |
+| `bool` | `boolean` |
+| `datetime`, `timestamp` | `date` |
+
+No other spelling is accepted (since 2026-09-14; before that, every unknown type silently became `string`):
+
+- **`TYPE_001`** — unknown type. The fix carries the closest canonical type by edit distance (adjacent swaps count as one edit) when one is near enough: `title strin!` → `string`, `qty numbr` → `number`, `String` → `string`. Otherwise the hint lists the valid types.
+- **`TYPE_002`** — field with no type on its line (`title` alone).
+
+Both are recoverable: the parser keeps going, so one build reports every type error in the file (plus the first syntax error, if any). Relation fields accept same-line modifiers: `owner -> User required`, `tags -> Tag[] unique`.
 
 ### 2.4 Field modifiers — verified parser acceptance
 
@@ -869,6 +885,11 @@ Verified by reading `src/main.rs` argv dispatch and `src/cli/`. There are **32 t
 | Verb | Purpose | Key flags |
 |------|---------|-----------|
 | `run [port]` | Dev server with HMR (default port 5175, binds `127.0.0.1`) | `--host <ip>`, `--prod`, `--strict`, `--audit-canvas [port]` |
+| `build [file]` | Parse + validate `.cronus`; one verdict, exit 0/1/2 (§15.9) | `--ai` (aliases `--machine`, `--json-errors`, `--strict-ai`), `--strict`, `--strict-audit` |
+| `test` | Run auto-generated CRUD tests against running server | `--conformance` |
+| `parse <file>` | Show AST | |
+| `new <name>` | Scaffold new project | `--template <name>` |
+| `doctor` | Health check diagnostics | |
 
 `cronus run` network/security environment (see `src/http_guard.rs`):
 
@@ -881,11 +902,6 @@ Verified by reading `src/main.rs` argv dispatch and `src/cli/`. There are **32 t
 | `CRONUS_HEADER_READ_TIMEOUT_SECS` | `15` | HTTP/1 header read timeout. |
 
 Login is also limited per account (normalized email): after 5 failures, exponential backoff (1s, 2s, 4s… capped at 15 min) with `429` + `Retry-After`.
-| `build` | Compile/validate `.cronus` | `--ai`, `--strict`, `--strict-ai`, `--static` |
-| `test` | Run auto-generated CRUD tests against running server | `--conformance` |
-| `parse <file>` | Show AST | |
-| `new <name>` | Scaffold new project | `--template <name>` |
-| `doctor` | Health check diagnostics | |
 
 ### 15.2 Generation (4)
 
@@ -946,6 +962,92 @@ Flags: `--audit`, `--nextjs`, `-o <file>`.
 - `cli::verify::cmd_verify` is imported in `main.rs:74` but has no match arm — **dead**
 - `cronus audit` is referenced in code examples but not listed in the `cronus --help` table
 - Some dispatch paths use short aliases (`gen` → `generate`, `clone` → some compose variant) inconsistently
+
+### 15.9 `cronus build` diagnostics — codes, `--ai` schema, exit codes
+
+Source: `src/cli/build.rs` (CLI), `src/cli/build_report.rs` (report + JSON), `src/cli/build_locate.rs` (name → position), `src/parser/diagnostic.rs` (parser errors). Contract tests: `tests/build_cli.rs` (runs the real binary).
+
+**Exit codes** (both modes):
+
+| Code | Meaning |
+|------|---------|
+| `0` | Valid — no errors (warnings allowed) |
+| `1` | Invalid — the file was read and has at least one error |
+| `2` | Usage / I/O — no `.cronus` file found, or the file cannot be read (`IO_001`) |
+
+**Profiles.** `--ai` (and `--strict`) validate with the *strict* profile, mirroring the runtime's strict mode: contract violations (`CONTRACT_001/002/003/005/006`), lint findings, hardcoded-content findings (`LINT_020`, strict only) and constitution violations are **errors**. Plain `cronus build` uses the default profile: those contract, lint-warning and constitution findings are **warnings**. Parse, type and resolve errors are errors in both. `CONTRACT_004` (alias section name) is always a warning.
+
+**Human mode** (`cronus build [file]`): each diagnostic goes to stderr as `file:line:col: error[CODE]: message`, followed by `    fix: replace 'x' with 'y'` or `    hint: ...`. Then exactly one verdict line: `✓ app.cronus is valid — …` on stdout, or `✗ app.cronus — build blocked: N error(s), M warning(s)` / `✗ build failed: …` on stderr.
+
+**AI mode** (`cronus build --ai [file]`): stdout is **only** one JSON document; nothing else is printed to stdout (renderer warnings, if any, go to stderr). Aliases: `--machine`, `--json-errors`, `--strict-ai`.
+
+```json
+{
+  "schema_version": 1,
+  "valid": false,
+  "exit_code": 1,
+  "file": "app.cronus",
+  "errors": [
+    {
+      "code": "TYPE_001",
+      "severity": "error",
+      "category": "type",
+      "message": "unknown field type 'strin' for field 'title'",
+      "location": {
+        "file": "app.cronus", "line": 5, "col": 9,
+        "span": { "start": { "line": 5, "col": 9 }, "end": { "line": 5, "col": 14 } }
+      },
+      "fix": { "action": "replace", "target": "strin", "replacement": "string", "hint": "did you mean 'string'?" }
+    }
+  ],
+  "warnings": [
+    {
+      "code": "CONTRACT_004",
+      "severity": "warning",
+      "category": "contract",
+      "message": "section type 'stats' is an alias; use the canonical name 'kpi'",
+      "location": { "file": "app.cronus", "line": 9, "col": 11, "span": { "start": { "line": 9, "col": 11 }, "end": { "line": 9, "col": 16 } }, "page": "/", "section": "stats" },
+      "fix": { "action": "replace", "target": "stats", "replacement": "kpi" }
+    }
+  ],
+  "context": { "entities": 1, "pages": 1, "routes": 0, "error_count": 1, "warning_count": 1 }
+}
+```
+
+Field rules:
+- `location.line` / `location.col` are 1-based and always ≥ 1 (never `0`). `col` counts characters; a tab is one column. `span.end.col` is exclusive. `span` is omitted for point locations. Validators that only know names (resolve, lint, contracts, constitution) are mapped back to the referenced token, else to the enclosing section/page/entity, else `1:1`. Extra keys `page`, `section`, `entity` give context.
+- `message` is English, without code or location.
+- `fix.action` ∈ `replace | remove | add | edit | add_bind | add_auth | wrap_in_dynamic`. `fix.replacement` is present only when a concrete replacement for `fix.target` is derivable (type typo, alias, section-type typo, lowercase HTTP method, transition state typo, unresolved name with a close match, invalid identifier chars); otherwise `fix.hint` explains what to do.
+- `rule` (optional) names the originating lint or constitution rule.
+- The string API `parser::parse` renders parser errors as `CODE: message (line L, col C)`, one per line.
+
+**Error codes:**
+
+| Code | Severity | Meaning |
+|------|----------|---------|
+| `IO_001` | error (exit 2) | No `.cronus` file found / file unreadable |
+| `PARSE_001` | error | Unexpected token (`expected X, found 'Y'`) |
+| `PARSE_002` | error | Invalid identifier shape (P040) |
+| `PARSE_003` | error | SQL reserved word as entity/field name (P041) |
+| `PARSE_004` | error | `transition` on a missing or non-enum field |
+| `PARSE_005` | error | `transition` state/target not in the enum |
+| `PARSE_006` | error | `on <event>` in an entity is not create/update/delete |
+| `TYPE_001` | error | Unknown field type (§2.3) |
+| `TYPE_002` | error | Field without a type |
+| `STRUCTURE_001` | error | A `page "…"` / `entity Name {` declared in the source is missing from the parsed app (an earlier statement consumed a `}`) |
+| `RESOLVE_001` | error | Unresolved reference (entity, field, column, route) |
+| `RESOLVE_002` | error | State-machine reference error (transition field missing / not enum) |
+| `CONTRACT_001` | strict: error / default: warning | Unknown section type (fix suggests closest canonical type) |
+| `CONTRACT_002` | strict: error / default: warning | Unknown key on a section item |
+| `CONTRACT_003` | strict: error / default: warning | Missing required key on a section item |
+| `CONTRACT_004` | warning | Alias section name (`stats` → `kpi`) |
+| `CONTRACT_005` | strict: error / default: warning | Too few items |
+| `CONTRACT_006` | strict: error / default: warning | Unknown section config key |
+| `LINT_001`…`LINT_011` | from the rule (strict promotes warnings) | `no-dead-text`, `no-dead-links`, `bind-or-empty`, `no-sensitive-render`, `no-sensitive-select`, `no-hardcode-user`, `no-fake-state`, `no-dead-ui`, `no-orphan-reload`, `form-submit-handler`, `shared-entity-auth` (in that order); `LINT_099` = any other rule, see `rule` |
+| `LINT_020` | from the finding (strict only) | Hardcoded text in rendered HTML |
+| `CONSTITUTION_001` | strict: error / default: warning | Constitution `must`/`never` violation, see `rule` |
+
+Parser diagnostics are collected in one pass: every recoverable error (`TYPE_*`) plus the first fatal syntax error. If parsing fails, validation passes do not run.
 
 ---
 
