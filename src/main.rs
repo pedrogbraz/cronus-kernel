@@ -146,6 +146,7 @@ mod cronus_ui_menubar;
 mod cronus_ui_metric;
 mod cronus_ui_mode_toggle;
 mod cronus_ui_morphing_popover;
+mod cronus_ui_motion_presets;
 mod cronus_ui_multi_select;
 mod cronus_ui_navigation_menu;
 mod cronus_ui_noise;
