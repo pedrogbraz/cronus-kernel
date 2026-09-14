@@ -127,6 +127,8 @@ mod cronus_ui_noise;
 mod cronus_ui_notification_center;
 mod cronus_ui_number_input;
 mod cronus_ui_orbit;
+#[cfg(test)]
+mod cronus_ui_output_gate;
 mod cronus_ui_pagination;
 mod cronus_ui_particles;
 mod cronus_ui_password_input;

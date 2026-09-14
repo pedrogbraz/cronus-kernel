@@ -2,11 +2,84 @@
 
 use crate::parser::{ComponentItemNode, ComponentNode};
 
+/// HTML text / double-quoted attribute escape.
 pub fn esc(s: &str) -> String {
     s.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
+}
+
+/// URL safe to interpolate into `href="…"` / `src="…"` / `action="…"`.
+///
+/// Allowed: `http:`, `https:`, `mailto:`, `tel:` (scheme matched
+/// case-insensitively) and scheme-less relative forms (`/…`, `#…`, `?…`,
+/// `./…`, `../…`, bare paths). Surrounding whitespace is trimmed. Anything
+/// else — other schemes (`javascript:`, `data:`, `vbscript:`…), any control
+/// character anywhere (`java\tscript:`), or an empty value — becomes `#`.
+/// The result is HTML-attribute-escaped ([`esc`]).
+pub fn safe_url(raw: &str) -> String {
+    let t = raw.trim();
+    if t.is_empty() || t.chars().any(char::is_control) {
+        return "#".into();
+    }
+    // A scheme is whatever precedes the first `:` when no `/`, `?` or `#` comes first.
+    if let Some(i) = t.find([':', '/', '?', '#']) {
+        if t.as_bytes()[i] == b':' {
+            let scheme = t[..i].to_ascii_lowercase();
+            if !matches!(scheme.as_str(), "http" | "https" | "mailto" | "tel") {
+                return "#".into();
+            }
+        }
+    }
+    esc(t)
+}
+
+/// Raw value of `key`: `comp.props` first, then the first item whose `config`
+/// has it. The audit parser attaches `key:value` written after an item to that
+/// item's config, so both places mean "a prop of this component". May be empty.
+pub fn attr<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
+    comp.props
+        .get(key)
+        .or_else(|| comp.items.iter().find_map(|i| i.config.get(key)))
+        .map(String::as_str)
+}
+
+/// [`attr`], treating an empty value (`key:""`) as absent. The first source
+/// that has the key wins even when empty; it does not fall through.
+pub fn attr_nonempty<'a>(comp: &'a ComponentNode, key: &str) -> Option<&'a str> {
+    attr(comp, key).filter(|s| !s.is_empty())
+}
+
+/// [`attr`] parsed (after trimming) as `T`. `None` when absent or unparsable.
+pub fn attr_num<T: std::str::FromStr>(comp: &ComponentNode, key: &str) -> Option<T> {
+    attr(comp, key).and_then(|s| s.trim().parse().ok())
+}
+
+/// Flag truthiness, defined once: `true`, `1`, `yes` (ASCII case-insensitive,
+/// trimmed) or present without a value (`disabled:` parses to `""`).
+/// Everything else (`false`, `0`, `no`, `off`, garbage) is false.
+pub fn truthy(v: &str) -> bool {
+    let v = v.trim();
+    v.is_empty() || v == "1" || v.eq_ignore_ascii_case("true") || v.eq_ignore_ascii_case("yes")
+}
+
+/// Boolean `key` resolved like [`attr`]: the first source that has the key
+/// decides (`props` `disabled:false` overrides an item's `disabled:true`).
+pub fn flag(comp: &ComponentNode, key: &str) -> bool {
+    attr(comp, key).is_some_and(truthy)
+}
+
+/// Boolean `key` that is on when *any* source (props or any item config) is
+/// truthy. Kept for the renderers whose flags historically OR-ed every source
+/// (checkbox, input, switch, textarea, sparkline, button `disabled`), so a
+/// later `false` never switches an earlier `true` off.
+pub fn flag_any(comp: &ComponentNode, key: &str) -> bool {
+    comp.props.get(key).is_some_and(|v| truthy(v))
+        || comp
+            .items
+            .iter()
+            .any(|i| i.config.get(key).is_some_and(|v| truthy(v)))
 }
 
 pub fn item<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
@@ -611,6 +684,124 @@ pub fn chart_candles(ohlc: &[[f64; 4]]) -> Vec<ChartCandle> {
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn with(props: &[(&str, &str)], configs: &[&[(&str, &str)]]) -> ComponentNode {
+        let mut c = stub("x", "Label");
+        c.items.clear();
+        for cfg in configs {
+            c.items.push(ComponentItemNode {
+                item_type: "item".into(),
+                text: "t".into(),
+                link: None,
+                tone: None,
+                config: cfg
+                    .iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect(),
+            });
+        }
+        c.props = props
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+        c
+    }
+
+    #[test]
+    fn safe_url_allows_web_mail_tel_and_relative() {
+        for (raw, want) in [
+            ("https://cdn.example/a.png", "https://cdn.example/a.png"),
+            ("http://x.dev", "http://x.dev"),
+            ("HTTPS://X.dev", "HTTPS://X.dev"),
+            ("mailto:ada@example.com", "mailto:ada@example.com"),
+            ("tel:+5511999", "tel:+5511999"),
+            ("/docs", "/docs"),
+            ("#usage", "#usage"),
+            ("?page=2", "?page=2"),
+            ("./a", "./a"),
+            ("../a", "../a"),
+            ("docs/intro", "docs/intro"),
+            ("docs/a:b", "docs/a:b"),
+            ("  /padded  ", "/padded"),
+            ("/q?a=1&b=\"2\"", "/q?a=1&amp;b=&quot;2&quot;"),
+        ] {
+            assert_eq!(safe_url(raw), want, "{raw}");
+        }
+    }
+
+    #[test]
+    fn safe_url_rejects_script_schemes_and_tricks() {
+        for raw in [
+            "javascript:alert(1)",
+            "JavaScript:alert(1)",
+            "  javascript:alert(1)",
+            "java\tscript:alert(1)",
+            "java\nscript:alert(1)",
+            "\u{0}javascript:alert(1)",
+            "java script:alert(1)",
+            "vbscript:msgbox(1)",
+            "data:text/html,<script>alert(1)</script>",
+            "file:///etc/passwd",
+            "",
+            "   ",
+        ] {
+            assert_eq!(safe_url(raw), "#", "{raw:?}");
+        }
+    }
+
+    #[test]
+    fn attr_reads_props_then_first_item_config() {
+        let c = with(
+            &[("a", "prop")],
+            &[&[("a", "cfg"), ("b", "one")], &[("b", "two")]],
+        );
+        assert_eq!(attr(&c, "a"), Some("prop"));
+        assert_eq!(attr(&c, "b"), Some("one"));
+        assert_eq!(attr(&c, "missing"), None);
+        let empty = with(&[("a", "")], &[&[("a", "cfg")]]);
+        assert_eq!(attr(&empty, "a"), Some(""));
+        assert_eq!(attr_nonempty(&empty, "a"), None);
+    }
+
+    #[test]
+    fn attr_num_parses_trimmed_values() {
+        let c = with(&[("max", " 7 ")], &[&[("value", "2.5"), ("bad", "x")]]);
+        assert_eq!(attr_num::<u32>(&c, "max"), Some(7));
+        assert_eq!(attr_num::<f64>(&c, "value"), Some(2.5));
+        assert_eq!(attr_num::<f64>(&c, "bad"), None);
+        assert_eq!(attr_num::<f64>(&c, "missing"), None);
+    }
+
+    #[test]
+    fn truthiness_is_defined_once() {
+        for v in ["true", "TRUE", "1", "yes", "Yes", "", " true "] {
+            assert!(truthy(v), "{v:?}");
+        }
+        for v in ["false", "0", "no", "off", "on", "maybe"] {
+            assert!(!truthy(v), "{v:?}");
+        }
+    }
+
+    #[test]
+    fn flag_first_source_decides_flag_any_ors_sources() {
+        let c = with(&[("disabled", "false")], &[&[("disabled", "true")]]);
+        assert!(!flag(&c, "disabled"));
+        assert!(flag_any(&c, "disabled"));
+        let later = with(&[], &[&[("checked", "false")], &[("checked", "yes")]]);
+        assert!(!flag(&later, "checked"));
+        assert!(flag_any(&later, "checked"));
+        let bare = with(&[], &[&[("disabled", "")]]);
+        assert!(flag(&bare, "disabled"));
+        assert!(flag_any(&bare, "disabled"));
+        let none = with(&[], &[&[]]);
+        assert!(!flag(&none, "disabled"));
+        assert!(!flag_any(&none, "disabled"));
+    }
 }
 
 #[cfg(test)]

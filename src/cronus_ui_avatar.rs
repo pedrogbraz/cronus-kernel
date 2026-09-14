@@ -12,7 +12,7 @@ pub fn render(comp: &ComponentNode) -> String {
     if let Some(src) = image_src(comp) {
         inner.push_str(&format!(
             "<img data-slot=\"avatar-image\" src=\"{}\" alt=\"{}\">",
-            esc(&src),
+            crate::cronus_ui_kit::safe_url(src),
             esc(&label)
         ));
     }

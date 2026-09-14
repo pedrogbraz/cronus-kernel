@@ -1,10 +1,12 @@
 //! Dedicated SignaturePad renderer. DOM matches React idle (empty pad):
 //! `<div data-slot="signature-pad" data-empty="true">` with
-//! `<canvas data-slot="signature-pad-canvas">`, the `signature-pad-hint`
+//! the `signature-pad-canvas` surface, the `signature-pad-hint`
 //! (dashed rule + fixed "Sign here" caption) and the two ghost `icon-sm`
 //! Buttons (Undo / Clear), which React renders `disabled` while the pad has
 //! no ink. Drawing needs pointer JS, so the kernel stays in that idle state:
-//! the canvas never receives ink and both buttons stay disabled.
+//! the surface never receives ink and both buttons stay disabled. React's
+//! `<canvas>` is emitted as a `<div>` (zero-JS renderers emit no canvas); the
+//! chrome makes it an absolute 100%×100% block, so its box is the same.
 //! Not interact `signature()` (SURF box + canvas without the canvas slot).
 
 use crate::cronus_ui_kit::{esc, label_of};
@@ -20,7 +22,7 @@ const ERASER_SVG: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\"
 pub fn render(comp: &ComponentNode) -> String {
     let label = aria_label(comp).unwrap_or_else(|| label_of(comp));
     format!(
-        "<div data-slot=\"signature-pad\" data-empty=\"true\"><canvas role=\"img\" aria-label=\"{label}\" data-slot=\"signature-pad-canvas\"></canvas><div aria-hidden=\"true\" data-slot=\"signature-pad-hint\"><div></div><span>{HINT}</span></div><div>{undo}{clear}</div></div>",
+        "<div data-slot=\"signature-pad\" data-empty=\"true\"><div role=\"img\" aria-label=\"{label}\" data-slot=\"signature-pad-canvas\"></div><div aria-hidden=\"true\" data-slot=\"signature-pad-hint\"><div></div><span>{HINT}</span></div><div>{undo}{clear}</div></div>",
         undo = button("Undo last stroke", UNDO_SVG),
         clear = button("Clear signature", ERASER_SVG),
     )
@@ -52,6 +54,7 @@ mod tests {
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
+        assert!(!html.contains("<canvas"));
         assert!(!html.contains("padding:0.75rem;"));
         assert!(!html.contains("signature()"));
         assert!(html.contains("data-slot=\"signature-pad-canvas\""));
@@ -63,7 +66,7 @@ mod tests {
     fn root_matches_react_idle_pad() {
         let html = render(&stub("signature-pad", "Signature pad"));
         let expected = format!(
-            "<div data-slot=\"signature-pad\" data-empty=\"true\"><canvas role=\"img\" aria-label=\"Signature pad\" data-slot=\"signature-pad-canvas\"></canvas><div aria-hidden=\"true\" data-slot=\"signature-pad-hint\"><div></div><span>Sign here</span></div><div><button data-slot=\"button\" data-variant=\"ghost\" data-size=\"icon-sm\" type=\"button\" aria-label=\"Undo last stroke\" disabled>{UNDO_SVG}</button><button data-slot=\"button\" data-variant=\"ghost\" data-size=\"icon-sm\" type=\"button\" aria-label=\"Clear signature\" disabled>{ERASER_SVG}</button></div></div>"
+            "<div data-slot=\"signature-pad\" data-empty=\"true\"><div role=\"img\" aria-label=\"Signature pad\" data-slot=\"signature-pad-canvas\"></div><div aria-hidden=\"true\" data-slot=\"signature-pad-hint\"><div></div><span>Sign here</span></div><div><button data-slot=\"button\" data-variant=\"ghost\" data-size=\"icon-sm\" type=\"button\" aria-label=\"Undo last stroke\" disabled>{UNDO_SVG}</button><button data-slot=\"button\" data-variant=\"ghost\" data-size=\"icon-sm\" type=\"button\" aria-label=\"Clear signature\" disabled>{ERASER_SVG}</button></div></div>"
         );
         assert_eq!(html, expected);
         assert!(!html.contains("<span>Signature pad</span>"));

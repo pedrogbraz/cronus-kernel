@@ -6,7 +6,7 @@
 //! The `label` names the nav (default aria-label); it is never a link.
 //! Not interact `nav("table-of-contents")` (generic SURF `<nav>` without list/link).
 
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{esc, label_of, safe_url};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -63,7 +63,7 @@ fn entry_of(i: &ComponentItemNode) -> (String, String) {
 
 fn hash_href(link: Option<&str>, text: &str) -> String {
     if let Some(h) = link.map(str::trim).filter(|s| !s.is_empty()) {
-        return esc(h);
+        return safe_url(h);
     }
     let slug = slugify(text);
     if slug.is_empty() {

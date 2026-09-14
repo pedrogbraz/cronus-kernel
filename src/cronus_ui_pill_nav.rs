@@ -8,7 +8,7 @@
 //! JS, so (wave 1t rule) such items are native `disabled` buttons, not visually dimmed.
 //! Not interact `nav("pill-nav")` (generic SURF `<nav>` without pill-nav-item).
 
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{esc, label_of, safe_url};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -66,7 +66,7 @@ fn nav_entries(comp: &ComponentNode) -> Vec<(String, Option<String>)> {
 fn entry_of(i: &ComponentItemNode) -> (String, Option<String>) {
     (
         esc(&i.text),
-        i.link.as_deref().filter(|s| !s.is_empty()).map(esc),
+        i.link.as_deref().filter(|s| !s.is_empty()).map(safe_url),
     )
 }
 

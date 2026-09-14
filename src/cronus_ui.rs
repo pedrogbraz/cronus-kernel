@@ -78,7 +78,9 @@ pub fn button_ex(
         _ => "primary",
     };
     let tag = if href.is_some() { "a" } else { "button" };
-    let href_attr = href.map(|h| format!(" href=\"{}\"", h)).unwrap_or_default();
+    let href_attr = href
+        .map(|h| format!(" href=\"{}\"", crate::cronus_ui_kit::safe_url(h)))
+        .unwrap_or_default();
     let type_attr = if href.is_none() {
         " type=\"button\""
     } else {
@@ -91,7 +93,7 @@ pub fn button_ex(
     };
     format!(
         "<{tag}{href_attr}{type_attr}{disabled_attr} data-slot=\"button\" data-variant=\"{variant}\" data-size=\"{size}\" class=\"cui-btn\">{label}</{tag}>",
-        size = size,
+        size = crate::cronus_ui_kit::esc(size),
     )
 }
 

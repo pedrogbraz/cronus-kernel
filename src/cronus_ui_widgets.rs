@@ -3,6 +3,7 @@
 //! Family = first `style` segment (`button+primary+md` -> `button`).
 //! Unknown families return None so legacy dispatchers keep working.
 
+use crate::cronus_ui_kit::{esc, flag_any};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub const FAMILIES: &[&str] = &[
@@ -770,13 +771,6 @@ fn texts(comp: &ComponentNode) -> Vec<String> {
     out
 }
 
-fn esc(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-}
-
 fn variant(comp: &ComponentNode) -> String {
     comp.props.get("variant").cloned().unwrap_or_else(|| {
         let style = comp.style.as_deref().unwrap_or("");
@@ -814,30 +808,19 @@ fn size(comp: &ComponentNode) -> String {
     })
 }
 
-fn disabled(comp: &ComponentNode) -> bool {
-    if comp
-        .props
-        .get("disabled")
-        .map(|s| s == "true")
-        .unwrap_or(false)
-    {
-        return true;
-    }
-    comp.items.iter().any(|i| {
-        i.config
-            .get("disabled")
-            .map(|s| s == "true")
-            .unwrap_or(false)
-    })
-}
-
 fn href(comp: &ComponentNode) -> Option<&str> {
     comp.items.iter().find_map(|i| i.link.as_deref())
 }
 
 fn button_from(comp: &ComponentNode) -> String {
-    let raw = item(comp, "label").unwrap_or(comp.name.as_str());
-    crate::cronus_ui::button_ex(raw, &variant(comp), &size(comp), href(comp), disabled(comp))
+    let label = esc(item(comp, "label").unwrap_or(comp.name.as_str()));
+    crate::cronus_ui::button_ex(
+        &label,
+        &variant(comp),
+        &size(comp),
+        href(comp),
+        flag_any(comp, "disabled"),
+    )
 }
 
 const BASE: &str =

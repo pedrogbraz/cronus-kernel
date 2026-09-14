@@ -9,7 +9,7 @@
 //! The `label` names the widget (nav `aria-label`); it is never a menu item.
 //! Not interact `nav("sidebar")` (generic SURF `<nav>` without sidebar-content/menu).
 
-use crate::cronus_ui_kit::{esc, label_of};
+use crate::cronus_ui_kit::{esc, label_of, safe_url};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -74,7 +74,7 @@ pub fn menu_entries(comp: &ComponentNode) -> Vec<(String, Option<String>)> {
 fn entry_of(i: &ComponentItemNode) -> (String, Option<String>) {
     (
         esc(&i.text),
-        i.link.as_deref().filter(|s| !s.is_empty()).map(esc),
+        i.link.as_deref().filter(|s| !s.is_empty()).map(safe_url),
     )
 }
 
