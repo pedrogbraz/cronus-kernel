@@ -10,7 +10,7 @@ pub fn print_help() {
     println!("  \x1b[90mThe Cognitive Runtime v0.1.0 (Rust native)\x1b[0m\n");
     println!("  \x1b[1mUsage:\x1b[0m cronus <command> [options]\n");
     println!("  \x1b[1mCommands:\x1b[0m");
-    println!("    \x1b[32mrun\x1b[0m [port] [--strict] [--audit-canvas [port]]  Parse .cronus → serve");
+    println!("    \x1b[32mrun\x1b[0m [port] [--host ip] [--prod] [--strict] [--audit-canvas [port]]  Parse .cronus → serve (127.0.0.1 by default)");
     println!("          --audit-canvas: bind 127.0.0.1, exclusive /audit/* path (default port 5176)");
     println!("    \x1b[32mdebug\x1b[0m [port]           Run with request tracing, colored logs, /api/debug/traces");
     println!("    \x1b[32mnew\x1b[0m <template>       Create project (landing/admin/saas/api/ecommerce/blog)");

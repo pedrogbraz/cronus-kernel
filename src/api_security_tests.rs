@@ -306,6 +306,22 @@ fn sensitive_fields_never_leave_rest() {
 }
 
 #[test]
+fn sensitive_fields_never_reach_the_audit_trail() {
+    let s = state();
+    let alice = user("alice", "user");
+    let created = call(&s, Method::POST, "/api/notes", Some(json!({"title": "n"})), Some(&alice));
+    assert_eq!(created.status, StatusCode::CREATED);
+    let note = insert(&s, "Note", json!({"title": "n", "secret": "s3cr3t", "_owner_id": "alice"}));
+    let patched = call(&s, Method::PATCH, &format!("/api/notes/{note}"), Some(json!({"title": "m"})), Some(&alice));
+    assert_eq!(patched.status, StatusCode::OK);
+    let deleted = call(&s, Method::DELETE, &format!("/api/notes/{note}"), None, Some(&alice));
+    assert_eq!(deleted.status, StatusCode::OK);
+    let trail = s.audit_trail.query(100).expect("audit query").to_string();
+    assert!(trail.contains("UPDATE") && trail.contains("DELETE"), "audit entries missing: {trail}");
+    assert!(!trail.contains("s3cr3t"), "sensitive value stored in audit trail: {trail}");
+}
+
+#[test]
 fn admin_sees_every_owner() {
     let s = state();
     insert(&s, "Note", json!({"title": "a", "_owner_id": "alice"}));

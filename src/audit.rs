@@ -165,7 +165,7 @@ impl AuditTrail {
         data: &Value,
         prev_data: Option<&Value>,
     ) -> Result<String, String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
 
         let prev_hash = Self::last_hash(&conn);
 
@@ -196,7 +196,7 @@ impl AuditTrail {
 
     /// Retrieve audit entries with optional entity filter, including computed diffs.
     pub fn query_filtered(&self, limit: usize, entity_filter: Option<&str>) -> Result<Value, String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
 
         let (sql, use_filter) = match entity_filter {
             Some(_) => (
@@ -272,7 +272,7 @@ impl AuditTrail {
 
     /// Verify the entire hash chain. Returns verification result as JSON.
     pub fn verify(&self) -> Result<Value, String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let mut stmt = conn.prepare(
             "SELECT id, timestamp, action, entity, record_id, data, prev_hash, hash
              FROM _audit_log ORDER BY id ASC"
@@ -338,7 +338,7 @@ impl AuditTrail {
 
     /// Format audit entries for CLI display with diffs and hash verification.
     pub fn debug_display(&self, limit: usize, entity_filter: Option<&str>, verify_hashes: bool) -> Result<String, String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
 
         let (sql, use_filter) = match entity_filter {
             Some(_) => (
@@ -605,7 +605,7 @@ mod tests {
         trail.log("INSERT", "User", "u1", "sys", &json!({"name": "Alice"}), None).unwrap();
 
         // Attempt to delete should fail due to trigger
-        let conn = trail.conn.lock().unwrap();
+        let conn = trail.conn.lock().unwrap_or_else(|e| e.into_inner());
         let result = conn.execute("DELETE FROM _audit_log WHERE id = 1", []);
         assert!(result.is_err(), "DELETE on _audit_log should be blocked by trigger");
         let err_msg = result.unwrap_err().to_string();
@@ -618,7 +618,7 @@ mod tests {
         trail.log("INSERT", "User", "u1", "sys", &json!({"name": "Alice"}), None).unwrap();
 
         // Attempt to update should fail due to trigger
-        let conn = trail.conn.lock().unwrap();
+        let conn = trail.conn.lock().unwrap_or_else(|e| e.into_inner());
         let result = conn.execute("UPDATE _audit_log SET action = 'FAKE' WHERE id = 1", []);
         assert!(result.is_err(), "UPDATE on _audit_log should be blocked by trigger");
         let err_msg = result.unwrap_err().to_string();

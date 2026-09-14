@@ -111,7 +111,7 @@ impl CronusDB {
     pub fn transaction<F, T>(&self, f: F) -> Result<T, String>
     where F: FnOnce(&Connection) -> Result<T, String>
     {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         conn.execute_batch("BEGIN IMMEDIATE").map_err(|e| e.to_string())?;
         match f(&conn) {
             Ok(result) => {
@@ -128,7 +128,7 @@ impl CronusDB {
     /// Execute a raw SQL statement (for schema changes like ALTER TABLE).
     /// Silently ignores errors (e.g. column already exists).
     pub fn execute_raw(&self, sql: &str) -> Result<(), String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         conn.execute_batch(sql).map_err(|e| e.to_string())
     }
 
@@ -136,7 +136,7 @@ impl CronusDB {
     /// Used by aggregation bindings (GROUP BY queries).
     pub fn query_raw(&self, sql: &str) -> Result<Vec<Value>, String> {
         tick_query();
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
         let col_names: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
 
@@ -161,7 +161,7 @@ impl CronusDB {
     /// SECURITY: Use this instead of query_raw when filter values come from user input.
     pub fn query_raw_params(&self, sql: &str, params: &[String]) -> Result<Vec<Value>, String> {
         tick_query();
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
         let col_names: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
 
@@ -191,7 +191,7 @@ impl CronusDB {
     /// Create tables from parsed entity definitions.
     /// Existing tables are left untouched (`CREATE TABLE IF NOT EXISTS`).
     pub fn migrate(&self, entities: &[EntityNode]) -> Result<(), String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         for entity in entities {
             let mut cols = vec!["id TEXT PRIMARY KEY".to_string()];
 
@@ -250,7 +250,7 @@ impl CronusDB {
     /// Insert a row from a JSON object. Returns the full row including generated id.
     pub fn insert(&self, table: &str, data: &Value) -> Result<Value, String> {
         tick_query();
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let obj = data.as_object().ok_or("insert data must be a JSON object")?;
 
         let id = generate_id();
@@ -331,7 +331,7 @@ impl CronusDB {
             sets.join(", ")
         );
 
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let param_refs: Vec<&dyn rusqlite::types::ToSql> = values
             .iter()
             .map(|v| v as &dyn rusqlite::types::ToSql)
@@ -347,7 +347,7 @@ impl CronusDB {
     /// Retrieve all rows with LIMIT / OFFSET. Returns a JSON array.
     pub fn find_all(&self, table: &str, limit: usize, offset: usize) -> Result<Value, String> {
         tick_query();
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let sql = format!(
             "SELECT * FROM \"{}\" ORDER BY rowid DESC LIMIT ? OFFSET ?",
             table
@@ -381,7 +381,7 @@ impl CronusDB {
     /// Find a single row by id. Returns `None` if not found.
     pub fn find_by_id(&self, table: &str, id: &str) -> Result<Option<Value>, String> {
         tick_query();
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let sql = format!("SELECT * FROM \"{}\" WHERE id = ?", table);
 
         let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
@@ -410,7 +410,7 @@ impl CronusDB {
     /// Delete a row by id. Returns `true` if a row was actually deleted.
     pub fn delete(&self, table: &str, id: &str) -> Result<bool, String> {
         tick_query();
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let sql = format!("DELETE FROM \"{}\" WHERE id = ?", table);
         let affected = conn.execute(&sql, params![id]).map_err(|e| e.to_string())?;
         Ok(affected > 0)
@@ -419,7 +419,7 @@ impl CronusDB {
     /// Count total rows in a table.
     pub fn count(&self, table: &str) -> Result<usize, String> {
         tick_query();
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let sql = format!("SELECT COUNT(*) FROM \"{}\"", table);
         let count: i64 = conn
             .query_row(&sql, [], |row| row.get(0))
@@ -434,7 +434,7 @@ impl CronusDB {
         if !crate::security::is_safe_identifier(field) {
             return Err("invalid field name".to_string()); // SQL injection prevention
         }
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let sql = format!("SELECT * FROM \"{}\" WHERE \"{}\" = ? LIMIT 1", table, field);
 
         let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
@@ -459,7 +459,7 @@ impl CronusDB {
     /// Search across text fields with LIKE query
     pub fn search(&self, table: &str, query: &str, limit: usize) -> Result<Value, String> {
         tick_query();
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let like_pattern = format!("%{}%", query);
 
         // Get column names
@@ -503,7 +503,7 @@ impl CronusDB {
     /// Find all with query string filters (e.g. ?owner=abc&status=active)
     pub fn find_filtered(&self, table: &str, filters: &[(String, String)], limit: usize, offset: usize) -> Result<Value, String> {
         tick_query();
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let mut conditions = Vec::new();
         let mut params: Vec<String> = Vec::new();
 
@@ -631,7 +631,7 @@ impl CronusDB {
     /// Check unique constraint before insert
     pub fn check_unique(&self, entity: &EntityNode, data: &Value) -> Result<(), String> {
         tick_query();
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let obj = data.as_object().ok_or("data must be a JSON object")?;
 
         for field in &entity.fields {
@@ -673,7 +673,7 @@ impl CronusDB {
     /// e.g. find_with_relation("Order", "abc123", "User") →
     /// SELECT o.*, u.* FROM Order o LEFT JOIN User u ON o.user = u.id WHERE o.id = ?
     pub fn find_with_relation(&self, table: &str, id: &str, relation_table: &str) -> Result<Value, String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let relation_field = relation_table.to_lowercase();
 
         // Try to find the FK column (lowercase of relation table name)
@@ -719,7 +719,7 @@ impl CronusDB {
     /// e.g. find_all_where("Product", "store_id", "store123", 100) →
     /// SELECT * FROM Product WHERE store_id = ? LIMIT ?
     pub fn find_all_where(&self, table: &str, field: &str, value: &str, limit: usize) -> Result<Value, String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let sql = format!(
             "SELECT * FROM \"{}\" WHERE \"{}\" = ? ORDER BY rowid DESC LIMIT ?",
             table, field
@@ -755,7 +755,7 @@ impl CronusDB {
         limit: Option<usize>,
         offset: Option<usize>,
     ) -> Result<Value, String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
 
         // Build WHERE clause
         let mut where_parts = Vec::new();
@@ -861,7 +861,7 @@ impl CronusDB {
         table: &str,
         filters: &[(String, String, String)],
     ) -> Result<u64, String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
 
         let valid_ops = ["=", "!=", ">", ">=", "<", "<=", "LIKE"];
 
@@ -990,6 +990,22 @@ pub fn filter_op_to_sql(op: &str) -> &'static str {
 mod tests {
     use super::*;
     use crate::parser::{EntityNode, FieldNode, FieldType};
+
+    #[test]
+    fn poisoned_connection_lock_does_not_panic_callers() {
+        // Regression: `lock().unwrap()` turned one panicking request into a
+        // panic in every later DB call.
+        let db = CronusDB::open_memory().expect("db");
+        let _ = std::thread::scope(|s| {
+            s.spawn(|| {
+                let _g = db.conn.lock().unwrap();
+                panic!("poison");
+            })
+            .join()
+        });
+        assert!(db.conn.is_poisoned());
+        let _ = db.count("missing_table");
+    }
 
     fn test_entity() -> EntityNode {
         EntityNode {

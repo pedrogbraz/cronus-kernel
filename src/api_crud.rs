@@ -463,13 +463,13 @@ fn create(state: &AppState, entity: &EntityNode, body: Option<&Value>, claims: O
     crate::fire_webhooks(&state.webhooks, table, "create", &row);
     crate::fire_effects(entity, "create", &row, None, &state.brain, &state.sse_hub);
     crate::scripting::fire_scripts(&state.script_registry, table, "create", &row, &row_id, None, &state.db, owner, "user", &std::collections::HashMap::new());
+    let mut row = row;
+    authz::redact_sensitive(entity, &mut row);
     if let Err(e) = state.audit_trail.log("INSERT", table, &row_id, owner, &row, None) {
         eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (INSERT {}:{}): {}", table, row_id, e);
     }
     state.sse_hub.broadcast(crate::sse::DataChangeEvent { entity: table.to_string(), action: "created".to_string(), id: row_id });
 
-    let mut row = row;
-    authz::redact_sensitive(entity, &mut row);
     json_response(StatusCode::CREATED, row)
 }
 
@@ -539,7 +539,10 @@ fn update(
         crate::fire_webhooks(&state.webhooks, table, "update", &row);
         crate::fire_effects(entity, "update", &row, Some(&prev), &state.brain, &state.sse_hub);
         crate::scripting::fire_scripts(&state.script_registry, table, "update", &row, id, Some(&prev), &state.db, owner, "user", &std::collections::HashMap::new());
-        if let Err(e) = state.audit_trail.log("UPDATE", table, id, owner, &row, Some(&prev)) {
+        let (mut logged_row, mut logged_prev) = (row.clone(), prev.clone());
+        authz::redact_sensitive(entity, &mut logged_row);
+        authz::redact_sensitive(entity, &mut logged_prev);
+        if let Err(e) = state.audit_trail.log("UPDATE", table, id, owner, &logged_row, Some(&logged_prev)) {
             eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (UPDATE {}:{}): {}", table, id, e);
         }
         state.sse_hub.broadcast(crate::sse::DataChangeEvent { entity: table.to_string(), action: "updated".to_string(), id: id.to_string() });
@@ -575,7 +578,9 @@ fn delete(state: &AppState, entity: &EntityNode, id: &str, scope: &Scope, claims
     crate::fire_webhooks(&state.webhooks, table, "delete", &payload);
     crate::fire_effects(entity, "delete", &prev, None, &state.brain, &state.sse_hub);
     crate::scripting::fire_scripts(&state.script_registry, table, "delete", &prev, id, None, &state.db, owner, "user", &std::collections::HashMap::new());
-    if let Err(e) = state.audit_trail.log("DELETE", table, id, owner, &json!({"id": id}), Some(&prev)) {
+    let mut logged_prev = prev.clone();
+    authz::redact_sensitive(entity, &mut logged_prev);
+    if let Err(e) = state.audit_trail.log("DELETE", table, id, owner, &json!({"id": id}), Some(&logged_prev)) {
         eprintln!("  \x1b[33m⚠\x1b[0m Audit log failed (DELETE {}:{}): {}", table, id, e);
     }
     state.sse_hub.broadcast(crate::sse::DataChangeEvent { entity: table.to_string(), action: "deleted".to_string(), id: id.to_string() });

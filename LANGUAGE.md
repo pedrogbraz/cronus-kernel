@@ -804,6 +804,17 @@ Served by the kernel on the running app's port:
 | `/.cronus/docs` | Auto-generated API docs (`server/docs.rs`) |
 
 These are for developer use during `cronus run`, NOT exposed to end users of the deployed app.
+Enforced by `src/http_guard.rs` (Sprint 1 security):
+
+- **Production** (`cronus run --prod` or `CRONUS_ENV=production`): `/zeus*`, `/blocks`, `/trust`,
+  `/hydra`, `/api/hydra/*`, `/api/debug/*`, `/api/_context`, `/api/_seed`, `/api/_health`,
+  `/api/server/*`, `/api/brain/*`, `/api/schema`, `/graphql/schema`, `/docs*`, `/api/docs/*`,
+  `/api/audit/trigger`, `/api/audit/results` and `source`-backed pages return **404**.
+- **Dev** (`cronus run`): served without auth only when bound to loopback; with `--host 0.0.0.0`
+  they require an authenticated `admin` (401/403 otherwise).
+- `/api/audit/trail*` requires `admin` in every mode, and sensitive fields are redacted from
+  `data`, `prev_data` and `diff`.
+- `POST /api/audit/results` writes `.cronus/audit-widget-results.json` (never `/tmp`).
 
 ---
 
@@ -815,7 +826,19 @@ Verified by reading `src/main.rs` argv dispatch and `src/cli/`. There are **32 t
 
 | Verb | Purpose | Key flags |
 |------|---------|-----------|
-| `run [port]` | Dev server with HMR (default port 5175) | |
+| `run [port]` | Dev server with HMR (default port 5175, binds `127.0.0.1`) | `--host <ip>`, `--prod`, `--strict`, `--audit-canvas [port]` |
+
+`cronus run` network/security environment (see `src/http_guard.rs`):
+
+| Flag / env | Default | Effect |
+|---|---|---|
+| `--host <ip>` / `CRONUS_HOST` | `127.0.0.1` | Bind address. `0.0.0.0` exposes the server and prints a warning. `--audit-canvas` always binds loopback. |
+| `--prod` / `CRONUS_ENV=production` | dev | Production mode: internal/diagnostic routes return 404 (§14.9). |
+| `CRONUS_MAX_BODY_BYTES` | `1048576` | Max request body; larger bodies get `413`. |
+| `CRONUS_TRUSTED_PROXIES` | empty | Comma list of IPs/CIDRs whose `X-Forwarded-For` is honored for rate limiting. Otherwise the socket peer IP is used. |
+| `CRONUS_HEADER_READ_TIMEOUT_SECS` | `15` | HTTP/1 header read timeout. |
+
+Login is also limited per account (normalized email): after 5 failures, exponential backoff (1s, 2s, 4s… capped at 15 min) with `429` + `Retry-After`.
 | `build` | Compile/validate `.cronus` | `--ai`, `--strict`, `--strict-ai`, `--static` |
 | `test` | Run auto-generated CRUD tests against running server | `--conformance` |
 | `parse <file>` | Show AST | |

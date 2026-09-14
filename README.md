@@ -128,7 +128,9 @@ cronus run demos/admin-panel.cronus
 
 | Command | Description |
 |---|---|
-| `cronus run [port] [--strict]` | Parse `.cronus`, create DB, serve |
+| `cronus run [port] [--strict]` | Parse `.cronus`, create DB, serve on `127.0.0.1` (dev mode) |
+| `cronus run --host 0.0.0.0` | Expose on all interfaces (or `CRONUS_HOST`); internal dev routes then require an admin |
+| `cronus run --prod` | Production mode (or `CRONUS_ENV=production`): `/zeus`, `/api/_context`, `/api/_seed`, debug routes → 404. Env: `CRONUS_MAX_BODY_BYTES`, `CRONUS_TRUSTED_PROXIES`, `CRONUS_HEADER_READ_TIMEOUT_SECS` |
 | `cronus new <template>` | Create project: `landing`, `admin`, `saas`, `api`, `ecommerce`, `blog` |
 | `cronus build [--strict]` | Validate `.cronus` file |
 | `cronus parse <file>` | Parse and show AST |

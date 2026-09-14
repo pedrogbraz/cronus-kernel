@@ -43,4 +43,4 @@ opt-level = "z"
 lto = true
 strip = true
 codegen-units = 1
-panic = "abort"
+panic = "unwind"  # a panic in one request must not kill the server (http_guard::isolate_panics)

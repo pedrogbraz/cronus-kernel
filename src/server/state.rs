@@ -34,12 +34,12 @@ impl TraceBuffer {
         Self { traces: std::sync::Mutex::new(Vec::with_capacity(200)) }
     }
     pub(crate) fn push(&self, trace: RequestTrace) {
-        let mut buf = self.traces.lock().unwrap();
+        let mut buf = self.traces.lock().unwrap_or_else(|e| e.into_inner());
         if buf.len() >= 200 { buf.remove(0); }
         buf.push(trace);
     }
     pub(crate) fn last_n(&self, n: usize) -> Vec<RequestTrace> {
-        let buf = self.traces.lock().unwrap();
+        let buf = self.traces.lock().unwrap_or_else(|e| e.into_inner());
         let start = buf.len().saturating_sub(n);
         buf[start..].to_vec()
     }
