@@ -16,7 +16,8 @@ zero inline `style=`, zero canvas, zero rAF. Token CSS in `COMPONENT_CHROME`.
 CSS overlay/field + content. leftover stub is meteors.
 
 progressive-blur parity pass (2026-09-14): DOM mirrors the React fixture —
-`progressive-blur-host` (fixture wrapper, 18rem × min 8rem, line-height 1.5) holds the
+`<div data-progressive-blur-host="true">` (fixture wrapper, not a data-slot — React has none;
+18rem × min 8rem, line-height 1.5) holds the
 label as bare text, then `<div data-slot="progressive-blur" aria-hidden="true">` with three
 unslotted `<div>` layers (1/4/12px) styled via `> div:nth-child(n)`. Measured host 288×128,
 band 288×96 at y=32, same as React.

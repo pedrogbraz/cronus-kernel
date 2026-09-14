@@ -3734,7 +3734,7 @@ button:has(+ [data-slot="sheet-content"]) {
   [data-slot="orbit-positioner"],
   [data-slot="orbit-item"] { animation: none; }
 }
-[data-slot="progressive-blur-host"] {
+[data-progressive-blur-host] {
   position: relative;
   width: 18rem;
   min-height: 8rem;

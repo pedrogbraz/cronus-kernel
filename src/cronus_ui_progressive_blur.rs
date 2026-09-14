@@ -1,8 +1,9 @@
 //! Dedicated ProgressiveBlur renderer. React `ProgressiveBlur` is an
 //! aria-hidden `absolute` band of three unslotted backdrop-blur layers; the
 //! audit fixture wraps it in `relative min-h-32 w-72` after the text.
-//! Kernel mirrors that: `progressive-blur-host` (the fixture wrapper) holds
-//! the label as bare text, then `<div data-slot="progressive-blur">` with
+//! Kernel mirrors that: a `data-progressive-blur-host` wrapper (the fixture
+//! wrapper — deliberately not a `data-slot`, React has none) holds the label
+//! as bare text, then `<div data-slot="progressive-blur">` with
 //! three plain `<div>` layers styled by `> div:nth-child(n)` in
 //! COMPONENT_CHROME. No inline style, zero JS. Not the catalog `fx()` box.
 
@@ -13,7 +14,7 @@ const LAYER: &str = "<div></div>";
 
 pub fn render(comp: &ComponentNode) -> String {
     format!(
-        "<div data-slot=\"progressive-blur-host\">{}<div data-slot=\"progressive-blur\" aria-hidden=\"true\">{LAYER}{LAYER}{LAYER}</div></div>",
+        "<div data-progressive-blur-host=\"true\">{}<div data-slot=\"progressive-blur\" aria-hidden=\"true\">{LAYER}{LAYER}{LAYER}</div></div>",
         label_of(comp)
     )
 }
@@ -51,8 +52,11 @@ mod tests {
         let html = render(&stub("progressive-blur", "Blur"));
         assert_eq!(
             html,
-            "<div data-slot=\"progressive-blur-host\">Blur<div data-slot=\"progressive-blur\" aria-hidden=\"true\"><div></div><div></div><div></div></div></div>"
+            "<div data-progressive-blur-host=\"true\">Blur<div data-slot=\"progressive-blur\" aria-hidden=\"true\"><div></div><div></div><div></div></div></div>"
         );
+        // Only one data-slot, like React: the host is the fixture wrapper.
+        assert_eq!(html.matches("data-slot=").count(), 1);
+        assert!(!html.contains("progressive-blur-host\""));
         assert!(!html.contains("progressive-blur-layer"));
         assert!(!html.contains("progressive-blur-content"));
         reject_fx(&html);
@@ -62,7 +66,7 @@ mod tests {
     fn label_is_escaped() {
         let html = render(&stub("progressive-blur", "A <B> & \"C\""));
         assert!(html.starts_with(
-            "<div data-slot=\"progressive-blur-host\">A &lt;B&gt; &amp; &quot;C&quot;<div"
+            "<div data-progressive-blur-host=\"true\">A &lt;B&gt; &amp; &quot;C&quot;<div"
         ));
         assert!(!html.contains("<B>"));
         reject_fx(&html);
@@ -99,7 +103,7 @@ mod tests {
         crate::voodoo::with_enabled(true, || {
             let html = render(&stub("progressive-blur", "Blur"));
             reject_fx(&html);
-            assert!(html.contains("data-slot=\"progressive-blur-host\""));
+            assert!(html.contains("data-progressive-blur-host=\"true\""));
             assert!(html.contains("data-slot=\"progressive-blur\" aria-hidden=\"true\""));
             assert_eq!(html.matches("<div></div>").count(), 3);
         });
@@ -111,7 +115,7 @@ mod tests {
     fn chrome_matches_react_fixture_geometry() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains(
-            "[data-slot=\"progressive-blur-host\"] {\n  position: relative;\n  width: 18rem;\n  min-height: 8rem;\n  line-height: 1.5;"
+            "[data-progressive-blur-host] {\n  position: relative;\n  width: 18rem;\n  min-height: 8rem;\n  line-height: 1.5;"
         ));
         assert!(css.contains("height: 6rem; z-index: 10; pointer-events: none;"));
         assert!(css.contains("[data-slot=\"progressive-blur\"] > div {"));

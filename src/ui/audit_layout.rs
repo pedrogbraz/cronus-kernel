@@ -19,6 +19,7 @@ pub fn render_audit_document(widget_html: &str, preset: &str, mode: &str, dir: &
   min-height: 240px;
   padding: 24px;
   box-sizing: border-box;
+  line-height: 1.5;
   background: var(--cronus-surface-base);
   color: var(--cronus-fg);
 }}
@@ -50,6 +51,9 @@ mod tests {
         assert!(html.contains("width: 480px"));
         assert!(html.contains("min-height: 240px"));
         assert!(html.contains("padding: 24px"));
+        // React's audit canvas inherits Tailwind preflight `line-height: 1.5`
+        // (24px at 16px); without it every text box was `normal` and shorter.
+        assert!(html.contains("line-height: 1.5"));
         assert!(html.contains("data-slot=\"button\""));
         assert!(!html.contains("<script"));
         assert!(!html.contains("voodoojs"));

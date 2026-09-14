@@ -767,7 +767,7 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || html.contains("style=")
                 || html.contains("<style")
                 || html.contains("<script")
-                || !html.contains("data-slot=\"progressive-blur-host\"")
+                || !html.contains("data-progressive-blur-host=\"true\"")
                 || !html.contains("aria-hidden=\"true\"")
                 || html.contains("<canvas")))
         || (html.contains("data-slot=\"retro-grid\"")
