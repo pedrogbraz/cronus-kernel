@@ -121,14 +121,21 @@ fn ordinal(day: u32) -> &'static str {
 }
 
 /// `(year, month, selected day)`. Falls back to September 2026 (no clock: the
-/// render stays deterministic).
+/// render stays deterministic). Without an explicit `value` day, the first of
+/// the shown month is selected, as the React audit fixture does
+/// (`<Calendar defaultMonth={month} selected={month} />`).
 fn month_of(comp: &ComponentNode) -> (i32, u32, Option<u32>) {
-    for key in ["defaultMonth", "value"] {
-        let raw = attr(comp, key).or_else(|| item(comp, key));
-        if let Some((y, m, d)) = raw.and_then(parse_iso) {
-            let selected = if key == "value" { d } else { None };
-            return (y, m, selected);
-        }
+    let value = attr(comp, "value")
+        .or_else(|| item(comp, "value"))
+        .and_then(parse_iso);
+    if let Some((y, m, d)) = value {
+        return (y, m, Some(d.unwrap_or(1)));
+    }
+    let default_month = attr(comp, "defaultMonth")
+        .or_else(|| item(comp, "defaultMonth"))
+        .and_then(parse_iso);
+    if let Some((y, m, _)) = default_month {
+        return (y, m, Some(1));
     }
     let label = label_of(comp);
     let mut words = label.split_whitespace();
@@ -137,10 +144,10 @@ fn month_of(comp: &ComponentNode) -> (i32, u32, Option<u32>) {
             MONTHS.iter().position(|m| m.eq_ignore_ascii_case(name)),
             year.parse::<i32>(),
         ) {
-            return (y, idx as u32 + 1, None);
+            return (y, idx as u32 + 1, Some(1));
         }
     }
-    (2026, 9, None)
+    (2026, 9, Some(1))
 }
 
 fn parse_iso(raw: &str) -> Option<(i32, u32, Option<u32>)> {
@@ -225,12 +232,30 @@ mod tests {
             "June 2026 Su Mo Tu We Th Fr Sa 31 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 1 2 3 4"
         );
         assert_eq!(html.matches("<tr>").count(), 6);
-        assert!(html.contains("<td role=\"gridcell\" data-outside=\"true\"><button type=\"button\" disabled aria-label=\"Sunday, May 31st, 2026\">31</button></td><td role=\"gridcell\"><button type=\"button\" disabled aria-label=\"Monday, June 1st, 2026\">1</button></td>"));
+        assert!(html.contains("<td role=\"gridcell\" data-outside=\"true\"><button type=\"button\" disabled aria-label=\"Sunday, May 31st, 2026\">31</button></td><td role=\"gridcell\" aria-selected=\"true\"><button type=\"button\" disabled aria-label=\"Monday, June 1st, 2026, selected\">1</button></td>"));
         assert!(
             html.contains("aria-label=\"Saturday, July 4th, 2026\">4</button></td></tr></tbody>")
         );
-        assert!(!html.contains("aria-selected"));
+        assert_eq!(html.matches("aria-selected").count(), 1);
         reject_interact(&html);
+    }
+
+    /// Pixel parity (calendar/default): the React audit fixture renders
+    /// `<Calendar defaultMonth={month} selected={month} />`, so the first of the
+    /// shown month is the selected (primary-filled) day.
+    #[test]
+    fn month_only_selects_first_day_like_react_fixture() {
+        let first = "<td role=\"gridcell\" aria-selected=\"true\"><button type=\"button\" disabled aria-label=\"Monday, June 1st, 2026, selected\">1</button></td>";
+        assert!(render(&stub("calendar", "June 2026")).contains(first));
+        let mut c = stub("calendar", "Due");
+        c.props.insert("defaultMonth".into(), "2026-06-01".into());
+        let html = render(&c);
+        assert!(html.contains(first), "{html}");
+        assert_eq!(html.matches("aria-selected").count(), 1);
+        let fallback = render(&stub("calendar", "March"));
+        assert!(
+            fallback.contains("aria-label=\"Tuesday, September 1st, 2026, selected\">1</button>")
+        );
     }
 
     #[test]
