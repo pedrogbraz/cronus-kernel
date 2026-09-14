@@ -36,15 +36,19 @@ pub fn render(comp: &ComponentNode) -> String {
     };
     let items = options
         .iter()
-        .map(|t| {
+        .enumerate()
+        .map(|(i, t)| {
             let on = selected.iter().any(|s| s == t);
             let (aria, state, mark) = if on {
                 ("true", "checked", CHECK)
             } else {
                 ("false", "unchecked", "")
             };
+            // cmdk highlights the first row on open (`data-selected`); CSS moves
+            // the highlight to the hovered row, so no JS is needed.
+            let highlighted = if i == 0 { " data-selected=\"true\"" } else { "" };
             format!(
-                "<div data-slot=\"command-item\" role=\"option\" aria-selected=\"{aria}\"><span data-slot=\"multi-select-indicator\" data-state=\"{state}\" aria-hidden=\"true\">{mark}</span><span>{t}</span></div>"
+                "<div data-slot=\"command-item\" role=\"option\" aria-selected=\"{aria}\"{highlighted}><span data-slot=\"multi-select-indicator\" data-state=\"{state}\" aria-hidden=\"true\">{mark}</span><span>{t}</span></div>"
             )
         })
         .collect::<Vec<_>>()
@@ -181,6 +185,23 @@ mod tests {
         }
     }
 
+    /// First row: cmdk's initial keyboard highlight (`data-selected="true"`).
+    fn first(t: &str, on: bool) -> String {
+        opt(t, on).replacen("\">", "\" data-selected=\"true\">", 1)
+    }
+
+    /// React measured the first command-item with the highlight background on
+    /// open; only that row is marked, the rest stay plain.
+    #[test]
+    fn only_first_row_carries_initial_highlight() {
+        let html = render(&multi("Pick", &["Ada", "Grace", "Linus"]));
+        assert_eq!(html.matches("data-selected=\"true\"").count(), 1);
+        assert!(html.contains(&first("Ada", false)));
+        assert!(html.contains(&opt("Grace", false)));
+        assert!(html.contains(&opt("Linus", false)));
+        reject_interact(&html);
+    }
+
     fn reject_interact(html: &str) {
         assert!(!html.contains("<select"));
         assert!(!html.contains("</select>"));
@@ -207,7 +228,7 @@ mod tests {
             format!(
                 "<div data-slot=\"multi-select\">{TRIGGER_OPEN}{}<span aria-hidden=\"true\">{CHEVRON}</span></div><div data-slot=\"popover-content\" role=\"dialog\" data-state=\"open\"><div data-slot=\"command\"><div data-slot=\"command-list\" role=\"listbox\" aria-multiselectable=\"true\">{}{}</div></div></div></div>",
                 trig("Pick"),
-                opt("Ada", false),
+                first("Ada", false),
                 opt("Grace", false)
             )
         );
@@ -233,7 +254,7 @@ mod tests {
         ));
         assert!(html.contains(&trig("Select frameworks")));
         assert_eq!(html.matches("role=\"option\"").count(), 2);
-        assert!(html.contains(&opt("React", false)));
+        assert!(html.contains(&first("React", false)));
         assert!(html.contains(&opt("Vue", false)));
         assert!(!html.contains("<span>Select frameworks</span></div>"));
         reject_interact(&html);
@@ -255,7 +276,7 @@ mod tests {
         c.items.push(node("text", "Grace"));
         let html = render(&c);
         assert!(html.contains(&trig("Pick")));
-        assert!(html.contains(&opt("Ada", false)));
+        assert!(html.contains(&first("Ada", false)));
         assert!(html.contains(&opt("Grace", false)));
         assert_eq!(html.matches("data-slot=\"command-item\"").count(), 2);
         reject_interact(&html);
@@ -267,7 +288,7 @@ mod tests {
         c.props.insert("value".into(), "Ada, Linus".into());
         let html = render(&c);
         assert!(html.contains(&trig("Ada, Linus")));
-        assert!(html.contains(&opt("Ada", true)));
+        assert!(html.contains(&first("Ada", true)));
         assert!(html.contains(&opt("Grace", false)));
         assert!(html.contains(&opt("Linus", true)));
         assert!(!html.contains("data-placeholder"));
@@ -282,7 +303,7 @@ mod tests {
             .insert("selected".into(), "true".into());
         let html = render(&c);
         assert!(html.contains(&trig("Ada")));
-        assert!(html.contains(&opt("Ada", true)));
+        assert!(html.contains(&first("Ada", true)));
         assert!(html.contains(&opt("Grace", false)));
         reject_interact(&html);
     }
@@ -345,6 +366,10 @@ mod tests {
         assert!(css.contains("padding: 0.375rem 0.5rem;"));
         assert!(css.contains("[data-slot=\"multi-select-indicator\"] {\n  display: flex; align-items: center; justify-content: center; flex-shrink: 0;\n  width: 1rem; height: 1rem;"));
         assert!(css.contains("[data-slot=\"multi-select-indicator\"][data-state=\"checked\"]"));
+        // cmdk initial highlight on the first row, handed to the hovered row by CSS.
+        assert!(css.contains(
+            "[data-slot=\"multi-select\"] [data-slot=\"command-list\"]:not(:hover) [data-slot=\"command-item\"][data-selected=\"true\"],\n[data-slot=\"multi-select\"] [data-slot=\"command-item\"]:hover {"
+        ));
         assert!(!css.contains("[data-slot=\"multi-select-item\"]"));
         assert!(!css.contains("[data-slot=\"multi-select-content\"]"));
         assert!(!css.contains("zinc-"));

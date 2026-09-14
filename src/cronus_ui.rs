@@ -2076,6 +2076,7 @@ button:has(+ [data-slot="sheet-content"]) {
   font-size: 0.875rem; line-height: 1.25rem; color: inherit;
   cursor: default; user-select: none; outline: none;
 }
+[data-slot="multi-select"] [data-slot="command-list"]:not(:hover) [data-slot="command-item"][data-selected="true"],
 [data-slot="multi-select"] [data-slot="command-item"]:hover {
   background: var(--cronus-surface-overlay); color: var(--cronus-fg);
 }

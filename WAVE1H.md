@@ -57,7 +57,11 @@ top: calc(100% + 4px); left: 0; width: 100%` (Radix sideOffset 4, trigger width)
 Remaining divergences (documented, intentional):
 - No cmdk search row (`command-input-wrapper` 41px + `<input>`): filtering needs JS; a non-filtering input
   would be a dead control. Content is therefore 41px shorter and rows sit 41px higher.
-- React highlights the first row (`data-selected`, cmdk keyboard state) → kernel shows hover only.
+- First-row highlight: cmdk marks the first row `data-selected` on open. The kernel emits
+  `data-selected="true"` on the first command-item and CSS highlights it while the list is not
+  hovered, then the hovered row instead (no JS; arrow-key movement is the only thing not mirrored).
+- Audit geometry spec compares the listbox/options against `command-list` and popover-content /
+  command against the trigger with height exempt (the React boxes include the JS-only search row).
 - React portal colours come from `<html data-cronus-theme="neutral">` (the portal is outside the aurora
   pane: bg rgb(14,14,14), fg rgb(232,232,232)); kernel content stays inside the canvas and uses the aurora
   tokens (rgb(22,22,25) / rgb(250,250,249)). Harness artifact, not a token bug.
