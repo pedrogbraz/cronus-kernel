@@ -3396,7 +3396,7 @@ async fn cmd_run(args: &[String]) {
                 }
             });
             if let Err(e) = http_guard::http1_builder().serve_connection(io, service).await {
-                eprintln!("  Connection error: {}", e);
+                http_guard::log_connection_error(&e);
             }
         });
             }

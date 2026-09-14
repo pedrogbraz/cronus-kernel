@@ -661,15 +661,60 @@ pub fn header_read_timeout_from(env_val: Option<&str>) -> Duration {
     )
 }
 
+/// HTTP/1 builder with the header read timeout from
+/// `CRONUS_HEADER_READ_TIMEOUT_SECS`.
+///
+/// hyper 1.x arms this timer whenever it polls for the next request head
+/// (`proto/h1/conn.rs::poll_read_head`), which includes a keep-alive
+/// connection sitting idle between requests: there is no separate idle
+/// timeout, and both cases end in the same `Kind::HeaderTimeout` error. So the
+/// timeout doubles as the keep-alive idle limit, and still bounds slow-header
+/// (slowloris) clients. Keep-alive stays on (hyper's default).
 pub fn http1_builder() -> hyper::server::conn::http1::Builder {
+    http1_builder_with(header_read_timeout_from(
+        std::env::var("CRONUS_HEADER_READ_TIMEOUT_SECS")
+            .ok()
+            .as_deref(),
+    ))
+}
+
+pub fn http1_builder_with(header_read_timeout: Duration) -> hyper::server::conn::http1::Builder {
     let mut b = hyper::server::conn::http1::Builder::new();
     b.timer(hyper_util::rt::TokioTimer::new())
-        .header_read_timeout(header_read_timeout_from(
-            std::env::var("CRONUS_HEADER_READ_TIMEOUT_SECS")
-                .ok()
-                .as_deref(),
-        ));
+        .keep_alive(true)
+        .header_read_timeout(header_read_timeout);
     b
+}
+
+/// How a `serve_connection` error is reported.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConnectionErrorLog {
+    /// Routine: the header read timeout closed an idle keep-alive connection
+    /// (or a client that never finished its headers). The connection is
+    /// closed either way; logged only with `CRONUS_DEBUG` set.
+    Debug,
+    /// Anything else (parse errors, I/O failures): printed.
+    Error,
+}
+
+pub fn classify_connection_error(e: &hyper::Error) -> ConnectionErrorLog {
+    if e.is_timeout() {
+        ConnectionErrorLog::Debug
+    } else {
+        ConnectionErrorLog::Error
+    }
+}
+
+/// Logs a finished connection's error per `classify_connection_error`.
+pub fn log_connection_error(e: &hyper::Error) {
+    match classify_connection_error(e) {
+        ConnectionErrorLog::Error => eprintln!("  Connection error: {}", e),
+        ConnectionErrorLog::Debug => {
+            if std::env::var_os("CRONUS_DEBUG").is_some() {
+                eprintln!("  connection closed: {}", e);
+            }
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════
@@ -955,5 +1000,77 @@ mod tests {
             Duration::from_secs(DEFAULT_HEADER_READ_TIMEOUT_SECS)
         );
         assert_eq!(header_read_timeout_from(Some("3")), Duration::from_secs(3));
+    }
+
+    /// Serves one real TCP connection with a short header read timeout, runs
+    /// `client` against it, and returns how the connection's error is logged.
+    async fn serve_one<F, Fut>(client: F) -> Option<ConnectionErrorLog>
+    where
+        F: FnOnce(tokio::net::TcpStream) -> Fut,
+        Fut: Future<Output = tokio::net::TcpStream>,
+    {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let service = hyper::service::service_fn(|_req| async {
+                Ok::<_, std::convert::Infallible>(Response::new(Full::new(Bytes::from_static(
+                    b"ok",
+                ))))
+            });
+            http1_builder_with(Duration::from_millis(150))
+                .serve_connection(hyper_util::rt::TokioIo::new(stream), service)
+                .await
+        });
+        let stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        let _keep_open = client(stream).await;
+        let result = tokio::time::timeout(Duration::from_secs(5), server)
+            .await
+            .expect("connection ends")
+            .unwrap();
+        result.err().map(|e| classify_connection_error(&e))
+    }
+
+    #[tokio::test]
+    async fn idle_keep_alive_timeout_is_not_logged_as_error() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        // One complete request, response read, then the client idles on the
+        // kept-alive connection until the header read timeout closes it.
+        let log = serve_one(|mut s| async move {
+            s.write_all(b"GET / HTTP/1.1\r\nHost: x\r\n\r\n")
+                .await
+                .unwrap();
+            let mut buf = [0u8; 256];
+            let n = s.read(&mut buf).await.unwrap();
+            assert!(std::str::from_utf8(&buf[..n])
+                .unwrap()
+                .starts_with("HTTP/1.1 200"));
+            s
+        })
+        .await;
+        assert_eq!(log, Some(ConnectionErrorLog::Debug));
+    }
+
+    #[tokio::test]
+    async fn slow_headers_still_time_out() {
+        use tokio::io::AsyncWriteExt;
+        // Protection kept: a partial head is cut off by the same timer.
+        let log = serve_one(|mut s| async move {
+            s.write_all(b"GET / HTTP/1.1\r\nHost:").await.unwrap();
+            s
+        })
+        .await;
+        assert_eq!(log, Some(ConnectionErrorLog::Debug));
+    }
+
+    #[tokio::test]
+    async fn malformed_request_is_still_logged() {
+        use tokio::io::AsyncWriteExt;
+        let log = serve_one(|mut s| async move {
+            s.write_all(b"\x00\x01 NOT HTTP\r\n\r\n").await.unwrap();
+            s
+        })
+        .await;
+        assert_eq!(log, Some(ConnectionErrorLog::Error));
     }
 }
