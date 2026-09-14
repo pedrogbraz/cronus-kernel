@@ -183,6 +183,7 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "spinning-text" => Some("cronus_ui_spinning_text::render"),
         "progressive-blur" => Some("cronus_ui_progressive_blur::render"),
         "retro-grid" => Some("cronus_ui_retro_grid::render"),
+        "ripple" => Some("cronus_ui_ripple::render"),
         _ => None,
     }
 }
@@ -753,6 +754,15 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || !html.contains("data-slot=\"retro-grid-field\"")
                 || !html.contains("data-slot=\"retro-grid-content\"")
                 || html.contains("<canvas")))
+        || (html.contains("data-slot=\"ripple\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || html.contains("<script")
+                || !html.contains("data-slot=\"ripple-field\"")
+                || !html.contains("data-slot=\"ripple-ring\"")
+                || !html.contains("data-slot=\"ripple-content\"")
+                || html.contains("<canvas")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -1063,6 +1073,7 @@ mod tests {
             "src/cronus_ui_scatter_chart.rs",
             "src/cronus_ui_scheduler.rs",
             "src/cronus_ui_ring_chart.rs",
+            "src/cronus_ui_ripple.rs",
             "src/cronus_ui_data_table.rs",
             "src/cronus_ui_workspace_switcher.rs",
             "src/cronus_ui_kit.rs",

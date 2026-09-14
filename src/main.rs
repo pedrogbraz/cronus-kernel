@@ -169,6 +169,7 @@ mod cronus_ui_retro_grid;
 mod cronus_ui_rich_text_editor;
 mod cronus_ui_reveal;
 mod cronus_ui_ring_chart;
+mod cronus_ui_ripple;
 mod cronus_ui_scatter_chart;
 mod cronus_ui_scheduler;
 mod cronus_ui_scramble_text;

@@ -3496,6 +3496,36 @@ button:has(+ [data-slot="sheet-content"]) {
 [data-slot="retro-grid-content"] {
   position: relative; z-index: 1;
 }
+[data-slot="ripple"] {
+  position: relative; overflow: hidden;
+  color: var(--cronus-fg);
+}
+[data-slot="ripple-field"] {
+  position: absolute; inset: 0; pointer-events: none;
+}
+[data-slot="ripple-ring"] {
+  position: absolute; left: 50%; top: 50%;
+  width: 220%; aspect-ratio: 1;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklch, var(--cronus-primary) 40%, transparent);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0);
+  animation: cui-ripple 8s ease-out infinite backwards;
+}
+[data-slot="ripple-ring"]:nth-of-type(1) { animation-delay: 0s; }
+[data-slot="ripple-ring"]:nth-of-type(2) { animation-delay: 2s; }
+[data-slot="ripple-ring"]:nth-of-type(3) { animation-delay: 4s; }
+[data-slot="ripple-ring"]:nth-of-type(4) { animation-delay: 6s; }
+@keyframes cui-ripple {
+  from { transform: translate(-50%, -50%) scale(0); opacity: 0.35; }
+  to { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="ripple-field"] { display: none; }
+}
+[data-slot="ripple-content"] {
+  position: relative;
+}
 
 "#;
 

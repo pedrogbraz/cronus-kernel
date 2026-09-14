@@ -354,6 +354,7 @@ pub const PORTED_FAMILIES: &[&str] = &[
     "spinning-text",
     "progressive-blur",
     "retro-grid",
+    "ripple",
 ];
 
 pub fn family_of(comp: &ComponentNode) -> Option<&str> {
@@ -536,6 +537,7 @@ pub fn dedicated_render(family: &str, comp: &ComponentNode) -> Option<String> {
         "spinning-text" => Some(crate::cronus_ui_spinning_text::render(comp)),
         "progressive-blur" => Some(crate::cronus_ui_progressive_blur::render(comp)),
         "retro-grid" => Some(crate::cronus_ui_retro_grid::render(comp)),
+        "ripple" => Some(crate::cronus_ui_ripple::render(comp)),
         _ => None,
     }
 }
