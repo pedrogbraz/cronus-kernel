@@ -15,6 +15,10 @@ zero inline `style=`, zero canvas, zero rAF. Token CSS in `COMPONENT_CHROME`.
 
 CSS field + content. No SVG useId, no 160 cells, leftover stub is meteors.
 
+## C — highlighter / scramble-text / spinning-text
+
+Span highlighter + static scramble + CSS-rotated spinning-text. leftover stub is meteors.
+
 ### click-spark
 React idle: `<div data-slot="click-spark">` + relative children. Sparks only on pointer (JS).
 Kernel idle: `<div data-slot="click-spark"><div data-slot="click-spark-content">{label}</div></div>`.

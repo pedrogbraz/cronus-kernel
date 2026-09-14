@@ -178,6 +178,9 @@ pub fn dedicated_fn_name(family: &str) -> Option<&'static str> {
         "dot-pattern" => Some("cronus_ui_dot_pattern::render"),
         "flickering-grid" => Some("cronus_ui_flickering_grid::render"),
         "grid-pattern" => Some("cronus_ui_grid_pattern::render"),
+        "highlighter" => Some("cronus_ui_highlighter::render"),
+        "scramble-text" => Some("cronus_ui_scramble_text::render"),
+        "spinning-text" => Some("cronus_ui_spinning_text::render"),
         _ => None,
     }
 }
@@ -709,6 +712,28 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
                 || !html.contains("data-slot=\"grid-pattern-content\"")
                 || html.contains("<script")
                 || html.contains("<canvas")))
+        || (html.contains("data-slot=\"highlighter\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || html.contains("<script")
+                || html.contains("setTimeout")
+                || !html.contains("data-slot=\"highlighter-mark\"")))
+        || (html.contains("data-slot=\"scramble-text\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || html.contains("<script")
+                || html.contains("setTimeout")
+                || !html.contains("data-slot=\"scramble-text-label\"")))
+        || (html.contains("data-slot=\"spinning-text\"")
+            && (html.contains("padding:0.75rem 1rem;position:relative;overflow:hidden")
+                || html.contains("style=")
+                || html.contains("<style")
+                || html.contains("<script")
+                || html.contains("setTimeout")
+                || !html.contains("data-slot=\"spinning-text-label\"")
+                || !html.contains("data-slot=\"spinning-text-orbit\"")))
 }
 
 pub fn looks_like_stub_fingerprint(html: &str) -> Option<&'static str> {
@@ -977,6 +1002,9 @@ mod tests {
             "src/cronus_ui_dot_pattern.rs",
             "src/cronus_ui_flickering_grid.rs",
             "src/cronus_ui_grid_pattern.rs",
+            "src/cronus_ui_highlighter.rs",
+            "src/cronus_ui_scramble_text.rs",
+            "src/cronus_ui_spinning_text.rs",
             "src/cronus_ui_masonry.rs",
             "src/cronus_ui_comparison_slider.rs",
             "src/cronus_ui_confirmation_dialog.rs",
