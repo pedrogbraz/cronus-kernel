@@ -54,8 +54,9 @@ pub fn scope<F: Future>(on: bool, fut: F) -> impl Future<Output = F::Output> {
 }
 
 pub fn script_tag() -> String {
+    let nonce = crate::security::script_nonce_attr();
     format!(
-        r#"<script src="{SCRIPT_SRC}" integrity="{VOODOO_SRI}" crossorigin="anonymous" data-cronus-runtime="voodoo" defer></script>"#
+        r#"<script{nonce} src="{SCRIPT_SRC}" integrity="{VOODOO_SRI}" crossorigin="anonymous" data-cronus-runtime="voodoo" defer></script>"#
     )
 }
 

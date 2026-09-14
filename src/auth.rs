@@ -12,26 +12,91 @@ use std::time::{SystemTime, UNIX_EPOCH};
 // JWT
 // ══════════════════════════════════════════════════
 
+/// Session JWT claims. `iat` and `jti` are required: tokens minted before
+/// they existed (7-day, JS-readable) no longer verify and force a re-login.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
     pub sub: String,
     pub role: String,
     pub exp: usize,
+    pub iat: usize,
+    /// Unique token id — the hook for a future server-side revocation list.
+    pub jti: String,
 }
 
-/// Create a JWT token (HS256, 7-day expiry)
-pub fn create_token(user_id: &str, role: &str, secret: &str) -> String {
-    let exp = (SystemTime::now()
+pub const DEFAULT_SESSION_TTL_SECS: u64 = 24 * 3600;
+
+/// Session lifetime from `auth { session jwt expires:<dur> }`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SessionPolicy {
+    pub ttl_secs: u64,
+}
+
+impl Default for SessionPolicy {
+    fn default() -> Self {
+        Self { ttl_secs: DEFAULT_SESSION_TTL_SECS }
+    }
+}
+
+impl SessionPolicy {
+    /// Validated once at startup from the auth block's session config.
+    pub fn from_session_config(config: &std::collections::HashMap<String, String>) -> Result<Self, String> {
+        match config.get("expires") {
+            None => Ok(Self::default()),
+            Some(raw) => parse_duration_secs(raw)
+                .map(|ttl_secs| Self { ttl_secs })
+                .map_err(|e| format!("auth session expires:{}: {}", raw, e)),
+        }
+    }
+}
+
+/// Parse `30s`, `15m`, `24h`, `7d`, `2w`. Zero and unknown units are rejected.
+pub fn parse_duration_secs(raw: &str) -> Result<u64, String> {
+    let raw = raw.trim();
+    let split = raw.find(|c: char| !c.is_ascii_digit()).unwrap_or(raw.len());
+    let (digits, unit) = raw.split_at(split);
+    let amount: u64 = digits.parse().map_err(|_| "expected <number><unit>, e.g. 24h".to_string())?;
+    let unit_secs = match unit {
+        "s" => 1,
+        "m" => 60,
+        "h" => 3600,
+        "d" => 86_400,
+        "w" => 604_800,
+        _ => return Err("unit must be one of s, m, h, d, w".to_string()),
+    };
+    if amount == 0 {
+        return Err("duration must be greater than zero".to_string());
+    }
+    amount.checked_mul(unit_secs).ok_or_else(|| "duration too large".to_string())
+}
+
+fn new_jti() -> String {
+    use rand::RngCore;
+    let mut bytes = [0u8; 16];
+    rand::thread_rng().fill_bytes(&mut bytes);
+    hex::encode(bytes)
+}
+
+/// Create a session JWT (HS256) that expires after `ttl_secs`.
+pub fn create_session_token(user_id: &str, role: &str, secret: &str, ttl_secs: u64) -> String {
+    let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
-        .as_secs() + 7 * 24 * 3600) as usize;
+        .as_secs();
     let claims = Claims {
         sub: user_id.to_string(),
         role: role.to_string(),
-        exp,
+        exp: (now + ttl_secs) as usize,
+        iat: now as usize,
+        jti: new_jti(),
     };
     encode(&Header::default(), &claims, &EncodingKey::from_secret(secret.as_bytes()))
         .unwrap_or_default()
+}
+
+/// Create a JWT with the default session lifetime (24h).
+pub fn create_token(user_id: &str, role: &str, secret: &str) -> String {
+    create_session_token(user_id, role, secret, DEFAULT_SESSION_TTL_SECS)
 }
 
 /// Verify a JWT token, returns Claims if valid
@@ -396,14 +461,54 @@ mod tests {
 
     #[test]
     fn test_require_role() {
-        let claims = Claims { sub: "u1".into(), role: "admin".into(), exp: 0 };
+        let claims = Claims { sub: "u1".into(), role: "admin".into(), exp: 0, iat: 0, jti: "t1".into() };
         assert!(require_role(&claims, "admin"));
         assert!(require_role(&claims, "user")); // admin can do anything
         assert!(require_role(&claims, "jwt"));
         assert!(require_role(&claims, "public"));
 
-        let user_claims = Claims { sub: "u2".into(), role: "user".into(), exp: 0 };
+        let user_claims = Claims { sub: "u2".into(), role: "user".into(), exp: 0, iat: 0, jti: "t2".into() };
         assert!(require_role(&user_claims, "user"));
         assert!(!require_role(&user_claims, "admin"));
+    }
+
+    #[test]
+    fn session_token_carries_iat_jti_and_policy_lifetime() {
+        let secret = "test-secret";
+        let a = verify_token(&create_session_token("u1", "user", secret, 3600), secret).unwrap();
+        let b = verify_token(&create_session_token("u1", "user", secret, 3600), secret).unwrap();
+        assert_eq!(a.exp - a.iat, 3600);
+        assert_eq!(a.jti.len(), 32);
+        assert_ne!(a.jti, b.jti, "every token gets a fresh jti");
+        let default = verify_token(&create_token("u1", "user", secret), secret).unwrap();
+        assert_eq!((default.exp - default.iat) as u64, DEFAULT_SESSION_TTL_SECS);
+    }
+
+    #[test]
+    fn token_without_iat_or_jti_is_rejected() {
+        #[derive(Serialize)]
+        struct Legacy { sub: String, role: String, exp: usize }
+        let secret = "test-secret";
+        let exp = (SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + 3600) as usize;
+        let legacy = encode(
+            &Header::default(),
+            &Legacy { sub: "u1".into(), role: "admin".into(), exp },
+            &EncodingKey::from_secret(secret.as_bytes()),
+        ).unwrap();
+        assert!(verify_token(&legacy, secret).is_err());
+    }
+
+    #[test]
+    fn session_policy_reads_expires() {
+        let mut cfg = std::collections::HashMap::new();
+        assert_eq!(SessionPolicy::from_session_config(&cfg).unwrap().ttl_secs, DEFAULT_SESSION_TTL_SECS);
+        for (raw, secs) in [("30s", 30), ("15m", 900), ("24h", 86_400), ("7d", 604_800), ("2w", 1_209_600)] {
+            cfg.insert("expires".to_string(), raw.to_string());
+            assert_eq!(SessionPolicy::from_session_config(&cfg).unwrap().ttl_secs, secs, "{raw}");
+        }
+        for bad in ["0h", "h", "24", "10y", "-1h"] {
+            cfg.insert("expires".to_string(), bad.to_string());
+            assert!(SessionPolicy::from_session_config(&cfg).is_err(), "{bad}");
+        }
     }
 }

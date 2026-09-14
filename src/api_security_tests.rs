@@ -109,7 +109,7 @@ fn state() -> AppState {
 }
 
 fn user(id: &str, role: &str) -> Claims {
-    Claims { sub: id.to_string(), role: role.to_string(), exp: usize::MAX }
+    Claims { sub: id.to_string(), role: role.to_string(), exp: usize::MAX, iat: 0, jti: format!("test-{id}") }
 }
 
 struct Reply {

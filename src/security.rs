@@ -3,7 +3,8 @@
 //! Every generated app enforces these automatically. No opt-out.
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 
 use base64::Engine as _;
@@ -119,54 +120,151 @@ pub fn generate_csp_nonce() -> String {
     base64::engine::general_purpose::STANDARD.encode(bytes)
 }
 
-/// Build the Content-Security-Policy header value for a given nonce.
-/// In development (localhost), use a permissive policy to avoid blocking
-/// inline scripts/handlers from templates and renderers.
-pub fn csp_header_value(_nonce: &str) -> String {
-    "default-src 'self'; \
-     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; \
-     script-src-attr 'unsafe-inline'; \
-     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
-     font-src https://fonts.gstatic.com; \
-     img-src 'self' https: data:; \
-     connect-src 'self' https://unicorn.studio https://*.unicorn.studio https://assets.unicorn.studio https://storage.googleapis.com https://*.googleapis.com; \
-     worker-src blob:; \
-     frame-ancestors 'self'; \
-     frame-src 'self'".to_string()
+// ── Kernel script marking ─────────────────────────────────────────────
+//
+// The per-request nonce must only reach scripts the kernel itself authored.
+// Adding it to every `<script` of the final HTML (after DB values were
+// interpolated) would hand a valid nonce to any stored `<script>` payload.
+//
+// So kernel templates emit `<script{script_nonce_attr()}>` at generation
+// time. The attribute carries a per-process random marker that no request,
+// row or template can know; `finalize_script_nonces` swaps it for the
+// per-request nonce in `html_response`. Markers are only emitted after the
+// HTTP server calls `enable_script_nonces()`, so CLI renders (deploy, audit,
+// unit tests) keep producing plain `<script>` tags.
+
+static SCRIPT_NONCES_ENABLED: AtomicBool = AtomicBool::new(false);
+
+fn nonce_marker() -> &'static str {
+    static MARKER: OnceLock<String> = OnceLock::new();
+    MARKER.get_or_init(|| {
+        let mut bytes = [0u8; 18];
+        rand::thread_rng().fill_bytes(&mut bytes);
+        format!("cronus-nonce-marker-{}", hex::encode(bytes))
+    })
 }
 
-/// Inject nonce attribute into all `<script` tags in an HTML string.
-/// Replaces `<script>` with `<script nonce="NONCE">` and
-/// `<script src=` with `<script nonce="NONCE" src=`.
-pub fn inject_nonce_into_scripts(html: &str, nonce: &str) -> String {
-    // Replace <script> (inline scripts) and <script followed by a space (scripts with attributes)
-    // We need to handle: <script>, <script src="...">, <script type="...">, etc.
-    // Strategy: replace all occurrences of "<script" that are NOT already nonced.
-    let nonce_attr = format!(" nonce=\"{}\"", nonce);
-    let mut result = String::with_capacity(html.len() + 64 * 20);
-    let mut remaining = html;
+fn marker_attr() -> &'static str {
+    static ATTR: OnceLock<String> = OnceLock::new();
+    ATTR.get_or_init(|| format!(" nonce=\"{}\"", nonce_marker()))
+}
 
-    while let Some(pos) = remaining.find("<script") {
-        // Push everything before the tag
-        result.push_str(&remaining[..pos]);
-        remaining = &remaining[pos..];
+/// Called once by the HTTP server before it renders anything.
+pub fn enable_script_nonces() {
+    SCRIPT_NONCES_ENABLED.store(true, Ordering::Relaxed);
+}
 
-        // Find the end of the opening tag
-        let tag_prefix = "<script";
-        result.push_str(tag_prefix);
-        remaining = &remaining[tag_prefix.len()..];
+pub fn script_nonces_enabled() -> bool {
+    SCRIPT_NONCES_ENABLED.load(Ordering::Relaxed)
+}
 
-        // Insert nonce right after "<script"
-        // The next char should be '>' or ' ' or nothing weird
-        if remaining.starts_with('>') || remaining.starts_with(' ') || remaining.starts_with('\n') {
-            result.push_str(&nonce_attr);
-        }
-        // If it's something unexpected (e.g. "<scripting"), don't inject
+/// Attribute to place right after `<script` in kernel-authored templates:
+/// `format!("<script{nonce}>…")`. Empty when nonces are disabled.
+pub fn script_nonce_attr() -> &'static str {
+    if script_nonces_enabled() { marker_attr() } else { "" }
+}
+
+/// Mark every `<script` tag in markup the kernel or the app developer wrote
+/// (constants, `.cronus` templates, `source` HTML files).
+///
+/// ONLY call this on markup that contains no DB/user values yet — marking
+/// after interpolation would re-create the regex-nonce hole.
+pub fn mark_kernel_scripts(markup: &str) -> String {
+    add_attr_to_script_tags(markup, script_nonce_attr())
+}
+
+fn add_attr_to_script_tags(html: &str, attr: &str) -> String {
+    if attr.is_empty() {
+        return html.to_string();
     }
+    let lower = html.to_ascii_lowercase();
+    let mut out = String::with_capacity(html.len() + attr.len() * 4);
+    let mut cursor = 0;
+    while let Some(rel) = lower[cursor..].find("<script") {
+        let tag_name_end = cursor + rel + "<script".len();
+        out.push_str(&html[cursor..tag_name_end]);
+        cursor = tag_name_end;
+        let next = lower[cursor..].chars().next();
+        let is_script_tag = matches!(next, Some('>') | Some(' ') | Some('\n') | Some('\t') | Some('\r') | Some('/'));
+        let tag_end = lower[cursor..].find('>').map(|p| cursor + p).unwrap_or(lower.len());
+        let already_nonced = lower[cursor..tag_end].contains(" nonce=");
+        if is_script_tag && !already_nonced {
+            out.push_str(attr);
+        }
+    }
+    out.push_str(&html[cursor..]);
+    out
+}
 
-    // Push the rest
-    result.push_str(remaining);
-    result
+/// Swap kernel markers for the per-request nonce. Unmarked scripts (anything
+/// that came from data) stay without a nonce and are blocked by the CSP.
+pub fn finalize_script_nonces(html: &str, nonce: &str) -> String {
+    html.replace(nonce_marker(), nonce)
+}
+
+/// Remove markers from HTML that leaves the server without a nonce CSP, so
+/// the per-process marker is never disclosed.
+pub fn strip_script_nonce_markers(html: &str) -> String {
+    html.replace(marker_attr(), "").replace(nonce_marker(), "")
+}
+
+/// Whether `eval`-style evaluation must be allowed for this page.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EvalPolicy {
+    /// Kernel runtime only — no `eval`/`new Function`.
+    Forbid,
+    /// The opt-in Voodoo.js runtime evaluates attribute expressions.
+    AllowForVoodoo,
+}
+
+/// Exact external scripts the kernel loads. Host-wide CDN allowances are
+/// not used: anything on cdn.jsdelivr.net would otherwise be executable.
+pub const KERNEL_SCRIPT_URLS: &[&str] = &[
+    "https://cdn.tailwindcss.com",
+    "https://cdn.jsdelivr.net/npm/chart.js",
+    "https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js",
+    crate::voodoo::SCRIPT_SRC,
+    UNICORN_STUDIO_SCRIPT_URL,
+];
+
+pub const UNICORN_STUDIO_SCRIPT_URL: &str =
+    "https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v1.4.29/dist/unicornStudio.umd.js";
+
+/// Build the Content-Security-Policy header value.
+///
+/// With a nonce (server enabled script marking) `script-src` has no
+/// `'unsafe-inline'`: only kernel-marked scripts run. Without a nonce the
+/// legacy inline allowance is kept because nothing is marked.
+///
+/// `script-src-attr 'unsafe-inline'` stays: kernel renderers outside the
+/// session/escaping sprint still emit inline `on*=` handlers.
+pub fn csp_header_value(nonce: Option<&str>, eval: EvalPolicy) -> String {
+    let mut script_src = String::from("'self'");
+    match nonce {
+        Some(n) => script_src.push_str(&format!(" 'nonce-{}'", n)),
+        None => script_src.push_str(" 'unsafe-inline'"),
+    }
+    if eval == EvalPolicy::AllowForVoodoo {
+        script_src.push_str(" 'unsafe-eval'");
+    }
+    for url in KERNEL_SCRIPT_URLS {
+        script_src.push(' ');
+        script_src.push_str(url);
+    }
+    format!(
+        "default-src 'self'; \
+         script-src {script_src}; \
+         script-src-attr 'unsafe-inline'; \
+         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
+         font-src 'self' https://fonts.gstatic.com; \
+         img-src 'self' https: data:; \
+         connect-src 'self' https://unicorn.studio https://assets.unicorn.studio https://storage.googleapis.com; \
+         worker-src blob:; \
+         object-src 'none'; \
+         base-uri 'self'; \
+         frame-ancestors 'self'; \
+         frame-src 'self'"
+    )
 }
 
 // ══════════════════════════════════════════════════

@@ -43,24 +43,37 @@ pub(crate) fn json_response(status: StatusCode, body: Value) -> Response<Full<By
 // ──────────────────────────────────────────────
 
 pub(crate) fn html_response(body: String) -> Response<Full<Bytes>> {
+    let nonce_attr = crate::security::script_nonce_attr();
     let mut final_body = inject_audit_if_enabled(body);
     final_body = crate::voodoo::inject_into_html(final_body);
     // Inject SSE client JS into every HTML page (before </body>)
-    if final_body.contains("</body>") {
-        let sse_script = format!("<script>{}</script>", crate::sse::SSE_CLIENT_JS);
-        final_body = final_body.replace("</body>", &format!("{}\n</body>", sse_script));
+    if let Some(pos) = final_body.rfind("</body>") {
+        let sse_script = format!("<script{}>{}</script>\n", nonce_attr, crate::sse::SSE_CLIENT_JS);
+        final_body.insert_str(pos, &sse_script);
     }
     // Inject debug overlay JS when debug mode is active (env var or CLI flag)
     let debug_active = crate::DEBUG_MODE.load(Ordering::Relaxed)
         || std::env::var("CRONUS_DEBUG").map(|v| v == "1" || v == "true").unwrap_or(false);
-    if debug_active && final_body.contains("</body>") {
-        let debug_script = format!("<script>{}</script>", crate::render::CRONUS_DEBUG_JS);
-        final_body = final_body.replace("</body>", &format!("{}\n</body>", debug_script));
+    if debug_active {
+        if let Some(pos) = final_body.rfind("</body>") {
+            let debug_script = format!("<script{}>{}</script>\n", nonce_attr, crate::render::CRONUS_DEBUG_JS);
+            final_body.insert_str(pos, &debug_script);
+        }
     }
-    // Generate per-request CSP nonce and inject into all <script> tags
-    let nonce = crate::security::generate_csp_nonce();
-    final_body = crate::security::inject_nonce_into_scripts(&final_body, &nonce);
-    let csp_value = crate::security::csp_header_value(&nonce);
+    let eval = if crate::voodoo::enabled() {
+        crate::security::EvalPolicy::AllowForVoodoo
+    } else {
+        crate::security::EvalPolicy::Forbid
+    };
+    // Only kernel-marked scripts receive the per-request nonce; scripts that
+    // arrived through data carry no marker and are blocked by the CSP.
+    let csp_value = if crate::security::script_nonces_enabled() {
+        let nonce = crate::security::generate_csp_nonce();
+        final_body = crate::security::finalize_script_nonces(&final_body, &nonce);
+        crate::security::csp_header_value(Some(&nonce), eval)
+    } else {
+        crate::security::csp_header_value(None, eval)
+    };
     let mut builder = Response::builder()
         .status(StatusCode::OK)
         .header("Content-Type", "text/html; charset=utf-8")
@@ -182,8 +195,9 @@ fn inject_audit_if_enabled(html: String) -> String {
     let audit_js = include_str!("cronus-dump-audit.js");
     // Escape </script> inside JS to prevent premature tag closing
     let safe_js = audit_js.replace("</script>", "<\\/script>");
+    let nonce = crate::security::script_nonce_attr();
     let injection = format!(
-        "<script>window.__CRONUS_AUDIT_REFERENCE = {{ numbers: [{}], strings: [{}] }};\nwindow.__CRONUS_DSL_STRINGS__ = {};</script>\n<script>{}</script>",
+        "<script{nonce}>window.__CRONUS_AUDIT_REFERENCE = {{ numbers: [{}], strings: [{}] }};\nwindow.__CRONUS_DSL_STRINGS__ = {};</script>\n<script{nonce}>{}</script>",
         numbers_json.join(","),
         strings_json.join(","),
         dsl_strings_json,
