@@ -3473,53 +3473,75 @@ button:has(+ [data-slot="sheet-content"]) {
 }
 [data-slot="orbit"] {
   position: relative;
-  display: grid;
-  place-items: center;
-  width: 12rem;
-  height: 12rem;
-  color: var(--cronus-fg);
-}
-[data-slot="orbit-nucleus"] {
-  position: relative;
-  z-index: 1;
-  font-weight: 600;
-}
-[data-slot="orbit-ring"] {
-  position: absolute;
-  inset: 1rem;
-  border: 1px solid var(--cronus-border);
-  border-radius: 999px;
-  pointer-events: none;
-  animation: cui-orbit-spin 24s linear infinite;
-}
-@keyframes cui-orbit-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-[data-slot="orbit"]:hover [data-slot="orbit-ring"],
-[data-slot="orbit"]:focus-within [data-slot="orbit-ring"] {
-  animation-play-state: paused;
-}
-[data-slot="orbit-item"] {
-  position: absolute;
-  left: 50%;
-  top: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  white-space: nowrap;
-  font-size: 0.75rem;
-  color: var(--cronus-fg-secondary);
-  pointer-events: auto;
+  width: 18rem;
+  height: 18rem;
+  line-height: 1.5;
+  color: var(--cronus-fg);
 }
-[data-slot="orbit-item"]:nth-child(1) { transform: rotate(0deg) translateY(-5rem) rotate(0deg); }
-[data-slot="orbit-item"]:nth-child(2) { transform: rotate(60deg) translateY(-5rem) rotate(-60deg); }
-[data-slot="orbit-item"]:nth-child(3) { transform: rotate(120deg) translateY(-5rem) rotate(-120deg); }
-[data-slot="orbit-item"]:nth-child(4) { transform: rotate(180deg) translateY(-5rem) rotate(-180deg); }
-[data-slot="orbit-item"]:nth-child(5) { transform: rotate(240deg) translateY(-5rem) rotate(-240deg); }
-[data-slot="orbit-item"]:nth-child(6) { transform: rotate(300deg) translateY(-5rem) rotate(-300deg); }
+[data-slot="orbit-ring"] {
+  box-sizing: border-box;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16rem;
+  height: 16rem;
+  transform: translate(-50%, -50%);
+  border: 1px solid color-mix(in oklch, var(--cronus-border) 40%, transparent);
+  border-radius: 9999px;
+  pointer-events: none;
+}
+@keyframes cui-orbit-spin {
+  from { transform: rotate(0turn); }
+  to { transform: rotate(1turn); }
+}
+[data-slot="orbit-positioner"] {
+  position: absolute;
+  inset: 0;
+  rotate: var(--orbit-angle, 0deg);
+  animation: cui-orbit-spin 24s linear infinite;
+  will-change: transform;
+}
+[data-slot="orbit-holder"] {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -50%);
+}
+[data-slot="orbit-item"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  rotate: calc(var(--orbit-angle, 0deg) * -1);
+  animation: cui-orbit-spin 24s linear infinite reverse;
+}
+[data-slot="orbit"]:hover [data-slot="orbit-positioner"],
+[data-slot="orbit"]:hover [data-slot="orbit-item"],
+[data-slot="orbit"]:focus-within [data-slot="orbit-positioner"],
+[data-slot="orbit"]:focus-within [data-slot="orbit-item"] {
+  animation-play-state: paused;
+}
+[data-slot="orbit-positioner"]:nth-child(2):nth-last-child(1) { --orbit-angle: 180deg; }
+[data-slot="orbit-positioner"]:nth-child(2):nth-last-child(2) { --orbit-angle: 120deg; }
+[data-slot="orbit-positioner"]:nth-child(3):nth-last-child(1) { --orbit-angle: 240deg; }
+[data-slot="orbit-positioner"]:nth-child(2):nth-last-child(3) { --orbit-angle: 90deg; }
+[data-slot="orbit-positioner"]:nth-child(3):nth-last-child(2) { --orbit-angle: 180deg; }
+[data-slot="orbit-positioner"]:nth-child(4):nth-last-child(1) { --orbit-angle: 270deg; }
+[data-slot="orbit-positioner"]:nth-child(2):nth-last-child(4) { --orbit-angle: 72deg; }
+[data-slot="orbit-positioner"]:nth-child(3):nth-last-child(3) { --orbit-angle: 144deg; }
+[data-slot="orbit-positioner"]:nth-child(4):nth-last-child(2) { --orbit-angle: 216deg; }
+[data-slot="orbit-positioner"]:nth-child(5):nth-last-child(1) { --orbit-angle: 288deg; }
+[data-slot="orbit-positioner"]:nth-child(2):nth-last-child(5) { --orbit-angle: 60deg; }
+[data-slot="orbit-positioner"]:nth-child(3):nth-last-child(4) { --orbit-angle: 120deg; }
+[data-slot="orbit-positioner"]:nth-child(4):nth-last-child(3) { --orbit-angle: 180deg; }
+[data-slot="orbit-positioner"]:nth-child(5):nth-last-child(2) { --orbit-angle: 240deg; }
+[data-slot="orbit-positioner"]:nth-child(6):nth-last-child(1) { --orbit-angle: 300deg; }
 @media (prefers-reduced-motion: reduce) {
-  [data-slot="orbit-ring"] { animation: none; }
+  [data-slot="orbit-positioner"],
+  [data-slot="orbit-item"] { animation: none; }
 }
 [data-slot="progressive-blur-host"] {
   position: relative; min-height: 6rem;

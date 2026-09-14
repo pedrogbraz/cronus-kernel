@@ -37,21 +37,27 @@ Skips catalog `fx()` SURF title box.
 ### orbit
 React: `<div data-slot="orbit">` stage + `<style>` keyframes + `OrbitRing` (`data-slot="orbit-ring"`)
 + positioners + `data-slot="orbit-item"`. Inline `--orbit-angle`.
-Kernel emits no `<style>` and no inline style. CSS nth-child for up to 6 items.
-Kernel:
+Kernel emits no `<style>` and no inline style. Up to 6 items.
+Kernel (parity pass 2026-09-14, mirrors React DOM):
 ```
-<div data-slot="orbit">
-  <div data-slot="orbit-nucleus">{first text or label}</div>
-  <div data-slot="orbit-ring" aria-hidden="true">
-    <div data-slot="orbit-item">{each extra text}</div>
+<div data-slot="orbit" aria-label="{aria-label}">
+  {label}
+  <div data-slot="orbit-ring">
+    <div data-slot="orbit-positioner"><div data-slot="orbit-holder">
+      <div data-slot="orbit-item">{each text/item line}</div>
+    </div></div>
   </div>
 </div>
 ```
-If `texts` has 1 item, that string is the nucleus and 3 decorative orbit-items (same escaped label).
-If `texts` has 2+, first is nucleus, rest are orbit-items (cap 6).
-CSS: ring is a circle `border: 1px solid var(--cronus-border)`; items placed with nth-child
-rotate (0, 60, 120, …). `@keyframes cui-orbit-spin` on the ring. `:hover` / `:focus-within`
-pause. `prefers-reduced-motion`: animation none (items stay at nth-child angles).
+Nucleus is the `label` as bare text (React renders it as a text node). Orbit items are the
+`text` / `item` lines (cap 6); with none, 3 slots repeat the label. `aria-label` is read from
+props or item config (the parser attaches `aria-label:` to the preceding item).
+CSS: stage 18rem (`size-72`), ring 16rem (radius 128px) with
+`color-mix(in oklch, var(--cronus-border) 40%, transparent)` (`border-border/40`).
+Slot angle `--orbit-angle` = 360/n via `:nth-child(k):nth-last-child(n-k+1)` quantity queries.
+Positioner: `rotate: var(--orbit-angle)` + `cui-orbit-spin`; item: negated `rotate` + same
+keyframe `reverse`, so content stays upright like React. `:hover` / `:focus-within` pause.
+`prefers-reduced-motion`: animations none (static angles keep placement).
 Skips catalog `fx()` SURF title box.
 
 ### leftovers
