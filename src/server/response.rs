@@ -54,16 +54,14 @@ pub(crate) fn html_response(body: String) -> Response<Full<Bytes>> {
     let nonce_attr = crate::security::script_nonce_attr();
     let mut final_body = inject_audit_if_enabled(body);
     final_body = crate::voodoo::inject_into_html(final_body);
-    final_body = apply_live_clients(
-        final_body,
+    final_body = apply_live_clients(final_body, crate::http_guard::is_production(), nonce_attr);
+    // Inject debug overlay JS when debug mode is active (env var or CLI flag),
+    // never in production.
+    let debug_active = debug_overlay_enabled(
         crate::http_guard::is_production(),
-        nonce_attr,
+        crate::DEBUG_MODE.load(Ordering::Relaxed),
+        std::env::var("CRONUS_DEBUG").ok().as_deref(),
     );
-    // Inject debug overlay JS when debug mode is active (env var or CLI flag)
-    let debug_active = crate::DEBUG_MODE.load(Ordering::Relaxed)
-        || std::env::var("CRONUS_DEBUG")
-            .map(|v| v == "1" || v == "true")
-            .unwrap_or(false);
     if debug_active {
         if let Some(pos) = final_body.rfind("</body>") {
             let debug_script = format!(
@@ -96,6 +94,13 @@ pub(crate) fn html_response(body: String) -> Response<Full<Bytes>> {
         builder = builder.header(k, v);
     }
     builder.body(Full::new(Bytes::from(final_body))).unwrap()
+}
+
+/// Whether pages get the debug overlay: `--debug` (`flag`) or
+/// `CRONUS_DEBUG=1|true`, and never in production (the overlay shows request
+/// traces).
+pub(crate) fn debug_overlay_enabled(production: bool, flag: bool, env: Option<&str>) -> bool {
+    !production && (flag || matches!(env, Some("1") | Some("true")))
 }
 
 /// Dev machinery vs live data in an outgoing HTML page.
@@ -417,7 +422,21 @@ fn regex_numbers(text: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_live_clients, strip_hmr_client};
+    use super::{apply_live_clients, debug_overlay_enabled, strip_hmr_client};
+
+    /// `--debug` / `CRONUS_DEBUG` exposed request traces to every page in
+    /// production. The overlay is dev-only.
+    #[test]
+    fn debug_overlay_never_in_production() {
+        assert!(!debug_overlay_enabled(true, true, Some("1")));
+        assert!(!debug_overlay_enabled(true, true, None));
+        assert!(!debug_overlay_enabled(true, false, Some("true")));
+        assert!(debug_overlay_enabled(false, true, None));
+        assert!(debug_overlay_enabled(false, false, Some("1")));
+        assert!(debug_overlay_enabled(false, false, Some("true")));
+        assert!(!debug_overlay_enabled(false, false, Some("0")));
+        assert!(!debug_overlay_enabled(false, false, None));
+    }
     use crate::hmr::HMR_CLIENT_JS;
     use crate::sse::SSE_CLIENT_JS;
 

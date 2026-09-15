@@ -166,16 +166,33 @@ impl SseHub {
             }
         };
 
-        Response::builder()
+        let mut builder = Response::builder()
             .status(StatusCode::OK)
             .header("content-type", "text/event-stream")
             .header("cache-control", "no-cache")
             .header("connection", "keep-alive")
-            .header("x-accel-buffering", "no")
-            .header("access-control-allow-origin", "*")
-            .body(StreamBody::new(body_stream))
-            .unwrap()
+            .header("x-accel-buffering", "no");
+        for (k, v) in cors_headers(&crate::server::response::cors_origin()) {
+            builder = builder.header(k, v);
+        }
+        builder.body(StreamBody::new(body_stream)).unwrap()
     }
+}
+
+/// CORS headers for the SSE stream. The stream is authenticated by the session
+/// cookie, so it is same-origin unless `CRONUS_CORS_ORIGIN` names an origin;
+/// that origin is echoed with credentials. `*` is refused (a wildcard cannot
+/// carry credentials and would expose the stream to any site).
+fn cors_headers(origin: &str) -> Vec<(&'static str, String)> {
+    let origin = origin.trim();
+    if origin.is_empty() || origin == "same-origin" || origin == "*" {
+        return Vec::new();
+    }
+    vec![
+        ("access-control-allow-origin", origin.to_string()),
+        ("access-control-allow-credentials", "true".to_string()),
+        ("vary", "Origin".to_string()),
+    ]
 }
 
 /// Client-side JS snippet for connecting to SSE and auto-refreshing.
@@ -244,7 +261,30 @@ pub const SSE_CLIENT_JS: &str = r##"
 
 #[cfg(test)]
 mod tests {
-    use super::SSE_CLIENT_JS;
+    use super::{cors_headers, SseHub, SSE_CLIENT_JS};
+
+    /// The stream needs the session cookie, so a wildcard origin let any site
+    /// probe it. Same-origin by default; a configured origin is echoed with
+    /// credentials, never `*`.
+    #[test]
+    fn sse_has_no_wildcard_cors() {
+        assert!(cors_headers("same-origin").is_empty());
+        assert!(cors_headers("").is_empty());
+        assert!(cors_headers("*").is_empty());
+        let h = cors_headers("https://app.example.com");
+        assert!(h.contains(&(
+            "access-control-allow-origin",
+            "https://app.example.com".to_string()
+        )));
+        assert!(h.contains(&("access-control-allow-credentials", "true".to_string())));
+        assert!(h.contains(&("vary", "Origin".to_string())));
+
+        if std::env::var_os("CRONUS_CORS_ORIGIN").is_none() {
+            let resp = SseHub::new().subscribe_filtered(|_| true, false);
+            assert!(resp.headers().get("access-control-allow-origin").is_none());
+            assert_eq!(resp.headers()["content-type"], "text/event-stream");
+        }
+    }
 
     /// /api/sse returns 401 without a session; the client used to retry every
     /// 3s forever (hundreds of 401s per anonymous page view).
