@@ -11,13 +11,18 @@
 //!   who may see/touch which rows is decided by `access.rs` (shared with
 //!   GraphQL, bindings, forms/actions and SSE);
 //! - writes go through `authz::writable_body`, responses through
-//!   `authz::redact_sensitive`, errors through `authz::error_body`.
+//!   `authz::redact_sensitive`, errors through `authz::error_body`;
+//! - field rules come from `validation.rs` (`422` with `error.fields`,
+//!   `409` for `unique`); many-to-many fields (`tags -> Tag[]`) are written
+//!   and read through `relations.rs`.
 
 use crate::access::{self, Access, Denial, WriteOp};
 use crate::authz;
 use crate::parser::{EntityNode, HttpMethod, RouteNode};
+use crate::relations;
 use crate::server::response::json_response;
 use crate::server::state::AppState;
+use crate::validation::{self, FieldErrors, Mode};
 use bytes::Bytes;
 use http_body_util::Full;
 use hyper::header::{HeaderName, HeaderValue};
@@ -126,7 +131,7 @@ pub(crate) fn handle_api(
                 Ok(s) => s.condition(),
                 Err(d) => return denied(d),
             };
-            list(state, entity, &scope, query)
+            list(state, entity, &scope, query, access)
         }
         Operation::Detail(id) => {
             let scope = match access::rest_read_scope(access, entity, public, false) {
@@ -136,6 +141,16 @@ pub(crate) fn handle_api(
             match select_one(state, entity, id, &scope) {
                 Ok(Some(mut row)) => {
                     authz::redact_sensitive(entity, &mut row);
+                    let pairs = query_pairs(query);
+                    let expand = relations::expand_param(query_param(&pairs, "expand"));
+                    relations::attach(
+                        &state.db,
+                        &state.entities,
+                        entity,
+                        &mut row,
+                        access,
+                        &expand,
+                    );
                     json_response(StatusCode::OK, row)
                 }
                 Ok(None) => not_found(),
@@ -155,14 +170,14 @@ pub(crate) fn handle_api(
                 Ok(owner) => owner,
                 Err(d) => return denied(d),
             };
-            create(state, entity, body, owner.as_deref())
+            create(state, entity, body, owner.as_deref(), access)
         }
         Operation::Update(id) => {
             let scope = match access::account_write_scope(access, &entity.name, WriteOp::Update) {
                 Ok(s) => s.condition(),
                 Err(d) => return denied(d),
             };
-            update(state, entity, id, &scope, body, viewer_id(access))
+            update(state, entity, id, &scope, body, access)
         }
         Operation::Delete(id) => {
             let scope = match access::account_write_scope(access, &entity.name, WriteOp::Delete) {
@@ -308,18 +323,30 @@ fn select_one(
     Ok(state.db.query_raw_params(&sql, &params)?.into_iter().next())
 }
 
-fn list(state: &AppState, entity: &EntityNode, scope: &Scope, query: &str) -> ApiResponse {
-    let params_in: Vec<(String, String)> = query
+fn query_pairs(query: &str) -> Vec<(String, String)> {
+    query
         .split('&')
         .filter_map(|p| p.split_once('='))
         .map(|(k, v)| (decode_component(k), decode_component(v)))
-        .collect();
-    let param = |name: &str| {
-        params_in
-            .iter()
-            .find(|(k, _)| k == name)
-            .map(|(_, v)| v.as_str())
-    };
+        .collect()
+}
+
+fn query_param<'a>(pairs: &'a [(String, String)], name: &str) -> Option<&'a str> {
+    pairs
+        .iter()
+        .find(|(k, _)| k == name)
+        .map(|(_, v)| v.as_str())
+}
+
+fn list(
+    state: &AppState,
+    entity: &EntityNode,
+    scope: &Scope,
+    query: &str,
+    access: &Access,
+) -> ApiResponse {
+    let params_in = query_pairs(query);
+    let param = |name: &str| query_param(&params_in, name);
 
     let limit = param("limit")
         .and_then(|v| v.parse::<usize>().ok())
@@ -376,6 +403,15 @@ fn list(state: &AppState, entity: &EntityNode, scope: &Scope, query: &str) -> Ap
         Err(detail) => return internal("list", &entity.name, &detail),
     };
     authz::redact_sensitive(entity, &mut rows);
+    let expand = relations::expand_param(param("expand"));
+    relations::attach(
+        &state.db,
+        &state.entities,
+        entity,
+        &mut rows,
+        access,
+        &expand,
+    );
 
     let mut resp = json_response(StatusCode::OK, rows);
     let headers = resp.headers_mut();
@@ -466,12 +502,45 @@ fn sql_text(value: &Value) -> String {
     }
 }
 
-/// Client-writable, persisted columns with non-null values.
-fn writable_columns(entity: &EntityNode, body: &Map<String, Value>) -> Map<String, Value> {
-    authz::writable_body(entity, body)
+/// Client-writable body split into persisted non-null columns and
+/// many-to-many values (`tags -> Tag[]`).
+fn writable_parts(
+    entity: &EntityNode,
+    body: &Map<String, Value>,
+) -> (Map<String, Value>, Map<String, Value>) {
+    let (columns, many) = relations::split(entity, authz::writable_body(entity, body));
+    let columns = columns
         .into_iter()
         .filter(|(k, v)| is_column(k) && !v.is_null())
-        .collect()
+        .collect();
+    (columns, many)
+}
+
+/// Field rules, then relation ids (exist + readable by the caller), then
+/// uniqueness. `Err` is the ready response (`422`, or `409` for `unique`).
+fn check_write(
+    state: &AppState,
+    entity: &EntityNode,
+    columns: &Map<String, Value>,
+    many: &Map<String, Value>,
+    mode: Mode,
+    exclude_id: Option<&str>,
+    access: &Access,
+) -> Result<Vec<relations::LinkSet>, ApiResponse> {
+    validation::check_write(
+        &state.db,
+        &state.entities,
+        entity,
+        columns,
+        many,
+        mode,
+        exclude_id,
+        access,
+    )
+    .map_err(|(status, errors)| {
+        let status = StatusCode::from_u16(status).unwrap_or(StatusCode::UNPROCESSABLE_ENTITY);
+        invalid_fields(status, &errors)
+    })
 }
 
 // ── Writes ──────────────────────────────────────────────────
@@ -481,30 +550,33 @@ fn create(
     entity: &EntityNode,
     body: Option<&Value>,
     owner: Option<&str>,
+    access: &Access,
 ) -> ApiResponse {
     let Some(obj) = body.and_then(Value::as_object) else {
         return validation_failed(StatusCode::BAD_REQUEST, "Expected a JSON object body");
     };
-    let mut data = writable_columns(entity, obj);
+    let (mut data, many) = writable_parts(entity, obj);
     for field in &entity.fields {
         if let Some(default) = &field.default_value {
-            if is_column(&field.name) && !data.contains_key(&field.name) {
+            if is_column(&field.name) && !field.is_many() && !data.contains_key(&field.name) {
                 data.insert(field.name.clone(), Value::String(default.clone()));
             }
         }
     }
+    let links = match check_write(state, entity, &data, &many, Mode::Create, None, access) {
+        Ok(links) => links,
+        Err(resp) => return resp,
+    };
     if let Some(owner) = owner {
         data.insert("_owner_id".to_string(), json!(owner));
     }
     let data = Value::Object(data);
 
-    if let Err(message) = state.db.validate(entity, &data) {
-        return validation_failed(StatusCode::BAD_REQUEST, &message);
-    }
-    if let Err(message) = state.db.check_unique(entity, &data) {
-        return validation_failed(StatusCode::CONFLICT, &message);
-    }
-    let row = match state.db.insert(&entity.name, &data) {
+    let row = match state.db.insert_with(&entity.name, &data, |conn, id| {
+        links
+            .iter()
+            .try_for_each(|link| relations::replace_links(conn, entity, link, id, owner))
+    }) {
         Ok(row) => row,
         Err(detail) => return write_error("create", &entity.name, &detail),
     };
@@ -532,6 +604,7 @@ fn create(
     );
     let mut row = row;
     authz::redact_sensitive(entity, &mut row);
+    relations::attach(&state.db, &state.entities, entity, &mut row, access, &[]);
     if let Err(e) = state
         .audit_trail
         .log("INSERT", table, &row_id, owner, &row, None)
@@ -556,12 +629,13 @@ fn update(
     id: &str,
     scope: &Scope,
     body: Option<&Value>,
-    owner: &str,
+    access: &Access,
 ) -> ApiResponse {
+    let owner = viewer_id(access);
     let Some(obj) = body.and_then(Value::as_object) else {
         return validation_failed(StatusCode::BAD_REQUEST, "Expected a JSON object body");
     };
-    let data = writable_columns(entity, obj);
+    let (data, many) = writable_parts(entity, obj);
 
     let prev = match select_one(state, entity, id, scope) {
         Ok(Some(row)) => row,
@@ -569,19 +643,19 @@ fn update(
         Err(detail) => return internal("update lookup", &entity.name, &detail),
     };
 
+    let links = match check_write(state, entity, &data, &many, Mode::Update, Some(id), access) {
+        Ok(links) => links,
+        Err(resp) => return resp,
+    };
     let data_value = Value::Object(data.clone());
-    let mut partial = entity.clone();
-    partial.fields.retain(|f| data.contains_key(&f.name));
-    if let Err(message) = state.db.validate(&partial, &data_value) {
-        return validation_failed(StatusCode::BAD_REQUEST, &message);
-    }
     if !entity.transitions.is_empty() {
         if let Err(err_body) = crate::effects::validate_transitions(entity, &data_value, &prev) {
             return json_response(StatusCode::CONFLICT, err_body);
         }
     }
 
-    if !data.is_empty() {
+    let changed = !data.is_empty() || !links.is_empty();
+    if changed {
         let mut sets: Vec<String> = data.keys().map(|k| format!("\"{k}\" = ?")).collect();
         let has_declared_updated_at = entity
             .fields
@@ -589,6 +663,9 @@ fn update(
             .any(|f| matches!(f.name.to_lowercase().as_str(), "updatedat" | "updated_at"));
         if !has_declared_updated_at {
             sets.push("\"updated_at\" = datetime('now')".to_string());
+        }
+        if sets.is_empty() {
+            sets.push("\"id\" = \"id\"".to_string());
         }
         let mut conditions = vec!["\"id\" = ?".to_string()];
         let mut params: Vec<String> = data.values().map(sql_text).collect();
@@ -600,9 +677,18 @@ fn update(
             sets.join(", "),
             where_clause(&conditions)
         );
+        // Join rows keep the parent's owner, whoever edits the links.
+        let parent_owner = prev.get("_owner_id").and_then(Value::as_str);
         match state.db.transaction(|conn| {
-            conn.execute(&sql, rusqlite::params_from_iter(params.iter()))
-                .map_err(|e| e.to_string())
+            let touched = conn
+                .execute(&sql, rusqlite::params_from_iter(params.iter()))
+                .map_err(|e| e.to_string())?;
+            if touched > 0 {
+                for link in &links {
+                    relations::replace_links(conn, entity, link, id, parent_owner)?;
+                }
+            }
+            Ok(touched)
         }) {
             Ok(0) => return not_found(),
             Ok(_) => {}
@@ -616,7 +702,7 @@ fn update(
         Err(detail) => return internal("update reload", &entity.name, &detail),
     };
 
-    if !data.is_empty() {
+    if changed {
         let table = entity.name.as_str();
         crate::effects::fire_webhooks(&state.webhooks, &state.entities, table, "update", &row);
         crate::effects::fire_effects(
@@ -661,6 +747,7 @@ fn update(
 
     let mut row = row;
     authz::redact_sensitive(entity, &mut row);
+    relations::attach(&state.db, &state.entities, entity, &mut row, access, &[]);
     json_response(StatusCode::OK, row)
 }
 
@@ -767,6 +854,11 @@ fn denied(denial: Denial) -> ApiResponse {
 /// from the database driver.
 fn validation_failed(status: StatusCode, message: &str) -> ApiResponse {
     error(status, "VALIDATION_FAILED", message)
+}
+
+/// `VALIDATION_FAILED` with `error.fields` (field → messages).
+fn invalid_fields(status: StatusCode, errors: &FieldErrors) -> ApiResponse {
+    json_response(status, validation::error_body(errors))
 }
 
 fn internal(action: &str, entity: &str, detail: &str) -> ApiResponse {

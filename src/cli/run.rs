@@ -92,6 +92,22 @@ pub async fn cmd_run(args: &[String]) {
 
     let file = files[0].clone(); // for HMR watcher
 
+    // `env { … }` schema: refuse to start on missing or mistyped variables.
+    // The report names variables only, never values.
+    match crate::env_schema::enforce(&nodes, |name| std::env::var(name).ok()) {
+        Ok(0) => {}
+        Ok(n) => println!(
+            "  \x1b[90mEnv:\x1b[0m       {} declared variable(s) valid",
+            n
+        ),
+        Err(report) => {
+            for line in report.lines() {
+                eprintln!("  \x1b[31m✗\x1b[0m {}", line);
+            }
+            std::process::exit(1);
+        }
+    }
+
     // Save AST snapshot for changelog diffing
     cli::build::save_ast_snapshot(&nodes);
 
@@ -605,6 +621,16 @@ pub async fn cmd_run(args: &[String]) {
     }
     if policy.mode == http_guard::RunMode::Production {
         println!("  \x1b[90mMode:\x1b[0m      production (internal routes disabled)");
+        let env_debug = std::env::var("CRONUS_DEBUG").ok();
+        if crate::server::response::debug_overlay_enabled(
+            false,
+            DEBUG_MODE.load(Ordering::Relaxed),
+            env_debug.as_deref(),
+        ) {
+            // Request tracing and the overlay are dev tooling.
+            DEBUG_MODE.store(false, Ordering::Relaxed);
+            eprintln!("  \x1b[33m⚠\x1b[0m Debug mode ignored in production (--debug / CRONUS_DEBUG): no overlay, no request tracing");
+        }
     }
     {
         let st = state.clone();

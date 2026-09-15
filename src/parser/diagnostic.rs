@@ -25,6 +25,16 @@ pub mod codes {
     pub const UNKNOWN_FIELD_TYPE: &str = "TYPE_001";
     /// Field declared without a type.
     pub const MISSING_FIELD_TYPE: &str = "TYPE_002";
+    /// `match:"…"` is not a valid regular expression.
+    pub const INVALID_PATTERN: &str = "FIELD_001";
+    /// `min:` is greater than `max:` on the same field.
+    pub const MIN_GREATER_THAN_MAX: &str = "FIELD_002";
+    /// `min:`/`max:` value is not a number.
+    pub const INVALID_BOUND: &str = "FIELD_003";
+    /// `env { … }` variable type is not string/number/boolean/url/email.
+    pub const UNSUPPORTED_ENV_TYPE: &str = "ENV_001";
+    /// `env { … }` variable `default:` does not match its type.
+    pub const INVALID_ENV_DEFAULT: &str = "ENV_002";
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -799,8 +799,12 @@ fn errors_use_stable_codes_without_driver_text() {
         Some(json!({"secret": "x"})),
         Some(&alice),
     );
-    assert_eq!(missing.status, StatusCode::BAD_REQUEST);
+    assert_eq!(missing.status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(error_code(&missing), "VALIDATION_FAILED");
+    assert_eq!(
+        missing.body["error"]["fields"]["title"],
+        json!(["is required"])
+    );
     let not_object = call(
         &s,
         Method::POST,

@@ -312,10 +312,11 @@ pub fn from_parse_errors(file: &str, errors: &[ParseError]) -> Report {
             Diagnostic {
                 code: e.code.to_string(),
                 severity: Severity::Error,
-                category: if e.code.starts_with("TYPE_") {
-                    "type"
-                } else {
-                    "syntax"
+                category: match e.code.split('_').next() {
+                    Some("TYPE") => "type",
+                    Some("FIELD") => "validation",
+                    Some("ENV") => "env",
+                    _ => "syntax",
                 },
                 message: e.message.clone(),
                 pos: Pos {
@@ -363,6 +364,7 @@ pub fn validate(file: &str, source: &str, nodes: &[AstNode], profile: Profile) -
         hardcode_pass(nodes, &idx, &mut out);
     }
     constitution_pass(nodes, &idx, profile, &mut out);
+    env_pass(nodes, &mut out);
     let (entities, pages, routes) = parser::stats(nodes);
     Report {
         file: file.to_string(),
@@ -373,6 +375,51 @@ pub fn validate(file: &str, source: &str, nodes: &[AstNode], profile: Profile) -
             routes,
         },
         usage_error: false,
+    }
+}
+
+/// `APP_STRIPE_KEY`: SCREAMING_SNAKE with a non-empty prefix before `_`.
+fn has_env_prefix(name: &str) -> bool {
+    name.chars()
+        .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
+        && name.starts_with(|c: char| c.is_ascii_uppercase())
+        && name
+            .split_once('_')
+            .is_some_and(|(prefix, rest)| !prefix.is_empty() && !rest.is_empty())
+}
+
+/// ENV_003 (warning): declared env variables should carry an app prefix
+/// (`APP_STRIPE_KEY`) so they never collide with system variables.
+fn env_pass(nodes: &[AstNode], out: &mut Vec<Diagnostic>) {
+    let vars = nodes.iter().flat_map(|n| match n {
+        AstNode::Env(env) => env.schema.as_slice(),
+        _ => &[],
+    });
+    for var in vars.filter(|v| !has_env_prefix(&v.name)) {
+        out.push(Diagnostic {
+            code: "ENV_003".into(),
+            severity: Severity::Warning,
+            category: "env",
+            message: format!(
+                "environment variable '{}' has no uppercase prefix such as APP_",
+                var.name
+            ),
+            pos: Pos {
+                line: var.line,
+                col: var.col,
+                len: var.name.chars().count(),
+            },
+            context: Vec::new(),
+            fix: Fix::hint(
+                "edit",
+                var.name.clone(),
+                format!(
+                    "use SCREAMING_SNAKE with a prefix, e.g. 'APP_{}'",
+                    var.name.to_ascii_uppercase()
+                ),
+            ),
+            rule: None,
+        });
     }
 }
 
@@ -823,6 +870,40 @@ mod tests {
                 assert_eq!(loc["file"], "app.cronus");
             }
         }
+    }
+
+    #[test]
+    fn field_constraint_error_has_validation_category_and_location() {
+        let r = report("entity T {\n  slug slug match:\"(\"\n}\n", true);
+        let j = r.to_json();
+        assert_eq!(j["valid"], false);
+        let e = &j["errors"][0];
+        assert_eq!(e["code"], "FIELD_001", "{j}");
+        assert_eq!(e["category"], "validation");
+        assert_eq!(e["location"]["line"], 2);
+        assert_eq!(e["location"]["col"], 13);
+        assert!(e["fix"]["hint"].is_string());
+        assert_no_zero_positions(&j);
+    }
+
+    #[test]
+    fn env_names_without_a_prefix_are_warnings() {
+        let src = "app \"A\" { port 5175 }\nenv {\n  STRIPE string\n  APP_OK string\n}\n";
+        let j = report(src, true).to_json();
+        let env: Vec<&Value> = j["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|w| w["code"] == "ENV_003")
+            .collect();
+        assert_eq!(env.len(), 1, "{j}");
+        assert_eq!(env[0]["location"]["line"], 3);
+        assert_eq!(env[0]["fix"]["target"], "STRIPE");
+        assert!(j["errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|e| e["code"] != "ENV_003"));
     }
 
     #[test]

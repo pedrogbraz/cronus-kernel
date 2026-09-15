@@ -12,6 +12,20 @@ use crate::access::{self, Access, ReadScope, WriteScope};
 use crate::authz;
 use crate::database::CronusDB;
 use crate::parser::{EntityNode, FieldNode, FieldType};
+use crate::relations;
+use crate::validation::{self, Mode};
+
+/// GraphQL type of a field: many-to-many relations are id lists.
+fn graphql_field_type(field: &FieldNode) -> String {
+    if field.is_many() {
+        return "[String!]".to_string();
+    }
+    if field.enum_values.is_some() {
+        "String".to_string()
+    } else {
+        field_type_to_graphql(&field.field_type).to_string()
+    }
+}
 
 /// Never part of the generated output type (or introspection).
 fn is_readable_field(field: &FieldNode) -> bool {
@@ -98,12 +112,13 @@ fn generate_type(entity: &EntityNode) -> String {
     let mut out = format!("type {} {{\n", entity.name);
     out.push_str("  id: String!\n");
     for field in entity.fields.iter().filter(|f| is_readable_field(f)) {
-        let gql_type = if field.enum_values.is_some() {
-            "String"
+        // A many-to-many list is always present (possibly empty).
+        let bang = if field.required || field.is_many() {
+            "!"
         } else {
-            field_type_to_graphql(&field.field_type)
+            ""
         };
-        let bang = if field.required { "!" } else { "" };
+        let gql_type = graphql_field_type(field);
         out.push_str(&format!("  {}: {}{}\n", field.name, gql_type, bang));
     }
     out.push_str("  created_at: String\n");
@@ -115,11 +130,7 @@ fn generate_type(entity: &EntityNode) -> String {
 fn generate_create_input(entity: &EntityNode) -> String {
     let mut out = format!("input Create{}Input {{\n", entity.name);
     for field in entity.fields.iter().filter(|f| is_writable_field(f)) {
-        let gql_type = if field.enum_values.is_some() {
-            "String"
-        } else {
-            field_type_to_graphql(&field.field_type)
-        };
+        let gql_type = graphql_field_type(field);
         let bang = if field.required { "!" } else { "" };
         out.push_str(&format!("  {}: {}{}\n", field.name, gql_type, bang));
     }
@@ -406,7 +417,31 @@ fn parse_arg_value(chars: &mut std::iter::Peekable<std::str::Chars>) -> Result<A
 // EXECUTOR
 // ══════════════════════════════════════════════════
 
-type GqlError = (&'static str, String);
+/// A mutation failure: `{"message", "extensions": {"code"[, "fields"]}}`.
+/// `fields` carries per-field messages for `VALIDATION_FAILED`.
+struct GqlError {
+    code: &'static str,
+    message: String,
+    fields: Option<Value>,
+}
+
+impl GqlError {
+    fn new(code: &'static str, message: impl Into<String>) -> Self {
+        GqlError {
+            code,
+            message: message.into(),
+            fields: None,
+        }
+    }
+
+    fn to_json(&self) -> Value {
+        let mut extensions = json!({ "code": self.code });
+        if let Some(fields) = &self.fields {
+            extensions["fields"] = fields.clone();
+        }
+        json!({ "message": self.message, "extensions": extensions })
+    }
+}
 
 pub fn gql_error(code: &str, message: &str) -> Value {
     json!({ "errors": [{ "message": message, "extensions": { "code": code } }] })
@@ -455,9 +490,7 @@ pub fn execute_graphql(
                 Ok(result) => {
                     data.insert(field.name.clone(), result);
                 }
-                Err((code, message)) => {
-                    errors.push(json!({ "message": message, "extensions": { "code": code } }));
-                }
+                Err(failure) => errors.push(failure.to_json()),
             },
         }
     }
@@ -524,6 +557,7 @@ fn resolve_query(
                 match db.find_many(&entity.name, &filters, None, None, Some(limit), Some(0)) {
                     Ok(mut rows) => {
                         authz::redact_sensitive(entity, &mut rows);
+                        relations::attach(db, &schema.entities, entity, &mut rows, access, &[]);
                         select(rows, &field.sub_fields)
                     }
                     Err(e) => {
@@ -542,6 +576,7 @@ fn resolve_query(
         return Some(match db.find_one(&entity.name, &filters, None, None) {
             Ok(Some(mut row)) => {
                 authz::redact_sensitive(entity, &mut row);
+                relations::attach(db, &schema.entities, entity, &mut row, access, &[]);
                 select(row, &field.sub_fields)
             }
             Ok(None) => Value::Null,
@@ -563,7 +598,7 @@ fn resolve_mutation(
     access: &Access,
 ) -> Result<Value, GqlError> {
     if access.viewer.is_none() {
-        return Err(("UNAUTHENTICATED", "authentication required".to_string()));
+        return Err(GqlError::new("UNAUTHENTICATED", "authentication required"));
     }
     for entity in &schema.entities {
         let create_name = format!("create{}", entity.name);
@@ -573,9 +608,11 @@ fn resolve_mutation(
             let owner = match access::create_owner(access, &entity.name, false) {
                 Ok(owner) => owner,
                 Err(access::Denial::Unauthenticated) => {
-                    return Err(("UNAUTHENTICATED", "authentication required".to_string()))
+                    return Err(GqlError::new("UNAUTHENTICATED", "authentication required"))
                 }
-                Err(access::Denial::Forbidden) => return Err(("FORBIDDEN", "not allowed".into())),
+                Err(access::Denial::Forbidden) => {
+                    return Err(GqlError::new("FORBIDDEN", "not allowed"))
+                }
             };
             // Get input from args or variables
             let input = field
@@ -593,35 +630,66 @@ fn resolve_mutation(
 
             let obj = input
                 .as_object()
-                .ok_or(("BAD_USER_INPUT", "input must be an object".to_string()))?;
-            let mut body = authz::writable_body(entity, obj);
-            if let Some(owner) = owner {
+                .ok_or_else(|| GqlError::new("BAD_USER_INPUT", "input must be an object"))?;
+            let (columns, many) = relations::split(entity, authz::writable_body(entity, obj));
+            let mut body: Map<String, Value> =
+                columns.into_iter().filter(|(_, v)| !v.is_null()).collect();
+            for f in entity.fields.iter().filter(|f| !f.is_many()) {
+                if let Some(default) = &f.default_value {
+                    if !body.contains_key(&f.name) {
+                        body.insert(f.name.clone(), Value::String(default.clone()));
+                    }
+                }
+            }
+            let links = validation::check_write(
+                db,
+                &schema.entities,
+                entity,
+                &body,
+                &many,
+                Mode::Create,
+                None,
+                access,
+            )
+            .map_err(|(_, errors)| GqlError {
+                code: "VALIDATION_FAILED",
+                message: validation::message(&errors),
+                fields: Some(validation::fields_json(&errors)),
+            })?;
+            if let Some(owner) = &owner {
                 body.insert("_owner_id".into(), json!(owner));
             }
-            let mut row = db.insert(&entity.name, &Value::Object(body)).map_err(|e| {
-                eprintln!("  graphql {} failed: {}", create_name, e);
-                ("CREATE_FAILED", format!("could not create {}", entity.name))
-            })?;
+            let mut row = db
+                .insert_with(&entity.name, &Value::Object(body), |conn, id| {
+                    links.iter().try_for_each(|link| {
+                        relations::replace_links(conn, entity, link, id, owner.as_deref())
+                    })
+                })
+                .map_err(|e| {
+                    eprintln!("  graphql {} failed: {}", create_name, e);
+                    GqlError::new("CREATE_FAILED", format!("could not create {}", entity.name))
+                })?;
             authz::redact_sensitive(entity, &mut row);
+            relations::attach(db, &schema.entities, entity, &mut row, access, &[]);
             return Ok(select(row, &field.sub_fields));
         }
 
         if field.name == delete_name {
             let id = string_arg(field, "id")
-                .ok_or(("BAD_USER_INPUT", "delete requires id argument".to_string()))?;
+                .ok_or_else(|| GqlError::new("BAD_USER_INPUT", "delete requires id argument"))?;
             let scope = access::write_scope(access, &entity.name);
             if scope == WriteScope::Deny {
-                return Err(("FORBIDDEN", "not allowed".into()));
+                return Err(GqlError::new("FORBIDDEN", "not allowed"));
             }
             let deleted = access::scoped_delete(db, &entity.name, &id, &scope).map_err(|e| {
                 eprintln!("  graphql {} failed: {}", delete_name, e);
-                ("DELETE_FAILED", format!("could not delete {}", entity.name))
+                GqlError::new("DELETE_FAILED", format!("could not delete {}", entity.name))
             })?;
             return Ok(json!(deleted));
         }
     }
 
-    Err((
+    Err(GqlError::new(
         "UNKNOWN_MUTATION",
         format!("Unknown mutation: {}", field.name),
     ))
@@ -926,5 +994,96 @@ mod tests {
             &ents,
         );
         assert_eq!(out["errors"][0]["extensions"]["code"], "FORBIDDEN");
+    }
+
+    const CREATE_POST: &str =
+        "mutation($input: CreatePostInput!) { createPost(input: $input) { id tags } }";
+
+    #[test]
+    fn create_mutation_reports_field_errors() {
+        let s = crate::api_validation_tests::state();
+        let alice = crate::api_validation_tests::viewer("alice", "user");
+        let out = run(
+            CREATE_POST,
+            json!({"input": {"title": "ab", "age": 999}}),
+            &alice,
+            &s.db,
+            &s.entities,
+        );
+        let ext = &out["errors"][0]["extensions"];
+        assert_eq!(ext["code"], "VALIDATION_FAILED", "{out}");
+        assert_eq!(
+            ext["fields"]["title"],
+            json!(["must be at least 3 characters"])
+        );
+        assert_eq!(ext["fields"]["age"], json!(["must be at most 150"]));
+        assert_eq!(s.db.count("Post").unwrap(), 0);
+
+        s.db.insert("Post", &json!({"title": "taken", "contact": "a@b.co"}))
+            .unwrap();
+        let out = run(
+            CREATE_POST,
+            json!({"input": {"title": "dupe", "contact": "a@b.co"}}),
+            &alice,
+            &s.db,
+            &s.entities,
+        );
+        assert_eq!(
+            out["errors"][0]["extensions"]["fields"]["contact"],
+            json!(["already exists"])
+        );
+    }
+
+    #[test]
+    fn many_to_many_is_a_list_field_scoped_to_the_caller() {
+        let s = crate::api_validation_tests::state();
+        let alice = crate::api_validation_tests::viewer("alice", "user");
+        let sdl = GraphQLSchema::from_entities(&s.entities).sdl;
+        assert!(
+            sdl.contains("type Post {\n") && sdl.contains("  tags: [String!]!\n"),
+            "{sdl}"
+        );
+        assert!(sdl.contains("input CreatePostInput {"), "{sdl}");
+        assert!(sdl.contains("  tags: [String!]\n"), "{sdl}");
+
+        let tag = |owner: &str| {
+            s.db.insert("Tag", &json!({"label": "l", "_owner_id": owner}))
+                .unwrap()["id"]
+                .as_str()
+                .unwrap()
+                .to_string()
+        };
+        let (mine, theirs) = (tag("alice"), tag("bob"));
+        let out = run(
+            CREATE_POST,
+            json!({"input": {"title": "steal", "tags": [theirs]}}),
+            &alice,
+            &s.db,
+            &s.entities,
+        );
+        assert_eq!(
+            out["errors"][0]["extensions"]["fields"]["tags"],
+            json!(["contains an unknown id"])
+        );
+        let out = run(
+            CREATE_POST,
+            json!({"input": {"title": "linked", "tags": [mine.clone()]}}),
+            &alice,
+            &s.db,
+            &s.entities,
+        );
+        assert_eq!(
+            out["data"]["createPost"]["tags"],
+            json!([mine.clone()]),
+            "{out}"
+        );
+        let listed = run(
+            "{ posts { title tags } }",
+            json!({}),
+            &alice,
+            &s.db,
+            &s.entities,
+        );
+        assert_eq!(listed["data"]["posts"][0]["tags"], json!([mine]));
     }
 }

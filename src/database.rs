@@ -145,6 +145,8 @@ impl CronusDB {
     pub fn open_memory() -> Result<Self, String> {
         let conn = Connection::open_in_memory().map_err(|e| e.to_string())?;
         conn.execute_batch("PRAGMA journal_mode=WAL;").ok();
+        // Same as `open`: many-to-many join tables cascade through FKs.
+        conn.execute_batch("PRAGMA foreign_keys=ON;").ok();
         Ok(Self {
             conn: Mutex::new(conn),
         })
@@ -238,9 +240,32 @@ impl CronusDB {
     // Migration
     // ──────────────────────────────────────────────
 
-    /// Create tables from parsed entity definitions.
+    /// Create tables from parsed entity definitions, plus one join table per
+    /// many-to-many field (`tags -> Tag[]` → `Post_tags`, see `relations.rs`).
     /// Existing tables are left untouched (`CREATE TABLE IF NOT EXISTS`).
     pub fn migrate(&self, entities: &[EntityNode]) -> Result<(), String> {
+        self.migrate_tables(entities)?;
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
+        for entity in entities {
+            for field in entity.fields.iter().filter(|f| f.is_many()) {
+                let Some(target) = field
+                    .reference
+                    .as_deref()
+                    .filter(|t| entities.iter().any(|e| e.name == *t))
+                else {
+                    continue; // unresolved target: `build` reports RESOLVE_001
+                };
+                if let Some(ddl) =
+                    crate::relations::join_table_ddl(&entity.name, &field.name, target)
+                {
+                    conn.execute_batch(&ddl).map_err(|e| e.to_string())?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn migrate_tables(&self, entities: &[EntityNode]) -> Result<(), String> {
         let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         for entity in entities {
             let mut cols = vec!["id TEXT PRIMARY KEY".to_string()];
@@ -261,8 +286,8 @@ impl CronusDB {
                     has_updated_at = true;
                     continue;
                 }
-                // Skip id (already PK)
-                if lower == "id" {
+                // Skip id (already PK) and many-to-many fields (join table)
+                if lower == "id" || field.is_many() {
                     continue;
                 }
                 // Skip duplicate column names
@@ -324,11 +349,40 @@ impl CronusDB {
     /// Insert a row from a JSON object. Returns the full row including generated id.
     pub fn insert(&self, table: &str, data: &Value) -> Result<Value, String> {
         tick_query();
-        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let obj = data
             .as_object()
             .ok_or("insert data must be a JSON object")?;
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
+        let id = Self::insert_row(&conn, table, obj)?;
+        drop(conn);
+        self.find_by_id(table, &id)
+            .map(|opt| opt.unwrap_or(json!({"id": id})))
+    }
 
+    /// Insert a row and run `then(conn, new_id)` in the same transaction
+    /// (e.g. many-to-many join rows). Either both commit or neither does.
+    pub fn insert_with<F>(&self, table: &str, data: &Value, then: F) -> Result<Value, String>
+    where
+        F: FnOnce(&Connection, &str) -> Result<(), String>,
+    {
+        tick_query();
+        let obj = data
+            .as_object()
+            .ok_or("insert data must be a JSON object")?;
+        let id = self.transaction(|conn| {
+            let id = Self::insert_row(conn, table, obj)?;
+            then(conn, &id)?;
+            Ok(id)
+        })?;
+        self.find_by_id(table, &id)
+            .map(|opt| opt.unwrap_or(json!({"id": id})))
+    }
+
+    fn insert_row(
+        conn: &Connection,
+        table: &str,
+        obj: &Map<String, Value>,
+    ) -> Result<String, String> {
         let id = generate_id();
         let mut col_names: Vec<String> = vec!["id".into()];
         let mut placeholders: Vec<String> = vec!["?".into()];
@@ -364,11 +418,7 @@ impl CronusDB {
 
         conn.execute(&sql, param_refs.as_slice())
             .map_err(|e| e.to_string())?;
-
-        // Return the inserted row by reading it back
-        drop(conn);
-        self.find_by_id(table, &id)
-            .map(|opt| opt.unwrap_or(json!({"id": id})))
+        Ok(id)
     }
 
     /// Update a row by id with partial data. Returns the updated row.
@@ -652,117 +702,16 @@ impl CronusDB {
         Ok(Value::Array(results))
     }
 
-    /// Validate data against entity field definitions before insert
+    /// Validate a create body against the entity rules (`validation.rs`).
+    /// Returns the first failing field as `'field' message`. HTTP surfaces
+    /// use `validation::field_errors` directly to report every field.
     pub fn validate(&self, entity: &EntityNode, data: &Value) -> Result<(), String> {
         let obj = data.as_object().ok_or("data must be a JSON object")?;
-
-        for field in &entity.fields {
-            let val = obj.get(&field.name);
-            let is_empty = val.map_or(true, |v| {
-                v.is_null() || (v.is_string() && v.as_str().unwrap_or("").is_empty())
-            });
-
-            // Required check
-            if field.required && is_empty {
-                return Err(format!("field '{}' is required", field.name));
-            }
-
-            // Skip further validation if empty and not required
-            if is_empty {
-                continue;
-            }
-
-            let val_str = val
-                .unwrap()
-                .as_str()
-                .unwrap_or(&val.unwrap().to_string())
-                .to_string();
-
-            // Enum validation
-            if field.field_type == FieldType::Enum {
-                if let Some(ref allowed) = field.enum_values {
-                    if !allowed.contains(&val_str) {
-                        return Err(format!(
-                            "'{}' must be one of: {}",
-                            field.name,
-                            allowed.join(", ")
-                        ));
-                    }
-                }
-            }
-
-            // Email validation
-            if field.field_type == FieldType::Email {
-                if !val_str.contains('@') || !val_str.contains('.') {
-                    return Err(format!("'{}' must be a valid email", field.name));
-                }
-            }
-
-            // Money/Number validation
-            if matches!(field.field_type, FieldType::Money | FieldType::Number) {
-                if val_str.parse::<f64>().is_err() {
-                    return Err(format!("'{}' must be a number", field.name));
-                }
-            }
-
-            // Numeric min/max constraints (number, money, percentage)
-            if matches!(
-                field.field_type,
-                FieldType::Number | FieldType::Money | FieldType::Percentage
-            ) {
-                if let Ok(num) = val_str.parse::<f64>() {
-                    if let Some(min_val) = field.min {
-                        if num < min_val {
-                            return Err(format!("'{}' must be >= {}", field.name, min_val));
-                        }
-                    }
-                    if let Some(max_val) = field.max {
-                        if num > max_val {
-                            return Err(format!("'{}' must be <= {}", field.name, max_val));
-                        }
-                    }
-                }
-            }
-
-            // String length constraints
-            if let Some(min_len) = field.min_length {
-                if val_str.len() < min_len {
-                    return Err(format!(
-                        "'{}' must be at least {} characters",
-                        field.name, min_len
-                    ));
-                }
-            }
-            if let Some(max_len) = field.max_length {
-                if val_str.len() > max_len {
-                    return Err(format!(
-                        "'{}' must be at most {} characters",
-                        field.name, max_len
-                    ));
-                }
-            }
-
-            // Regex pattern constraint
-            if let Some(ref pat) = field.pattern {
-                match regex::Regex::new(pat) {
-                    Ok(re) => {
-                        if !re.is_match(&val_str) {
-                            return Err(format!(
-                                "'{}' does not match pattern '{}'",
-                                field.name, pat
-                            ));
-                        }
-                    }
-                    Err(_) => {
-                        return Err(format!(
-                            "invalid regex pattern for '{}': {}",
-                            field.name, pat
-                        ));
-                    }
-                }
-            }
+        let errors = crate::validation::field_errors(entity, obj, crate::validation::Mode::Create);
+        match errors.into_iter().next() {
+            None => Ok(()),
+            Some((field, messages)) => Err(format!("'{}' {}", field, messages.join("; "))),
         }
-        Ok(())
     }
 
     /// Check unique constraint before insert
@@ -1519,7 +1468,7 @@ mod tests {
         let entity = entity_with_constraints();
         let result = db.validate(&entity, &json!({"title": "Valid", "price": -5}));
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("must be >= 0"));
+        assert!(result.unwrap_err().contains("must be at least 0"));
     }
 
     #[test]
@@ -1528,7 +1477,7 @@ mod tests {
         let entity = entity_with_constraints();
         let result = db.validate(&entity, &json!({"title": "Valid", "price": 1000000}));
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("must be <= 999999"));
+        assert!(result.unwrap_err().contains("must be at most 999999"));
     }
 
     #[test]
@@ -1556,7 +1505,7 @@ mod tests {
         let entity = entity_with_constraints();
         let result = db.validate(&entity, &json!({"title": "Invalid@Title!", "price": 10}));
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("does not match pattern"));
+        assert!(result.unwrap_err().contains("must match the pattern"));
     }
 
     #[test]
@@ -1572,7 +1521,7 @@ mod tests {
             &json!({"title": "Good Product", "price": 50, "sku": "bad sku!"}),
         );
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("does not match pattern"));
+        assert!(result.unwrap_err().contains("must match the pattern"));
     }
 
     #[test]

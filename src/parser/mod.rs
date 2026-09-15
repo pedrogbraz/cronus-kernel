@@ -637,6 +637,7 @@ impl Parser {
         let mut min: Option<f64> = None;
         let mut max: Option<f64> = None;
         let mut pattern: Option<String> = None;
+        let mut max_token: Option<Token> = None;
 
         let field_line = field_token.line;
 
@@ -675,7 +676,8 @@ impl Parser {
                         }
                     }
                 }
-                let mod_val = self.advance().value;
+                let mod_token = self.advance();
+                let mod_val = mod_token.value.clone();
                 // Check for colon-pair modifiers like default:"value"
                 if mod_val.contains(':') {
                     let (k, v) = Self::split_colon_pair(&mod_val);
@@ -683,13 +685,43 @@ impl Parser {
                         "default" => {
                             default_value = Some(v);
                         }
-                        "min" => {
-                            min = v.parse::<f64>().ok();
-                        }
-                        "max" => {
-                            max = v.parse::<f64>().ok();
-                        }
+                        "min" | "max" => match v.parse::<f64>() {
+                            Ok(n) if n.is_finite() && k == "min" => min = Some(n),
+                            Ok(n) if n.is_finite() => {
+                                max = Some(n);
+                                max_token = Some(mod_token.clone());
+                            }
+                            _ => self.diagnostics.push(
+                                Self::token_error(
+                                    codes::INVALID_BOUND,
+                                    format!(
+                                        "'{}:' of field '{}' must be a number, found '{}'",
+                                        k, name, v
+                                    ),
+                                    &mod_token,
+                                )
+                                .with_hint(format!("write a number, e.g. '{}:0'", k)),
+                            ),
+                        },
                         "match" => {
+                            if let Err(e) = regex::Regex::new(&v) {
+                                let reason = e.to_string();
+                                let reason = reason.lines().last().unwrap_or("").trim().to_string();
+                                self.diagnostics.push(
+                                    Self::token_error(
+                                        codes::INVALID_PATTERN,
+                                        format!(
+                                            "'match:' of field '{}' is not a valid regular expression",
+                                            name
+                                        ),
+                                        &mod_token,
+                                    )
+                                    .with_hint(format!(
+                                        "fix the pattern ({}); it uses Rust regex syntax, without look-around or backreferences",
+                                        reason
+                                    )),
+                                );
+                            }
                             pattern = Some(v);
                         }
                         _ => {}
@@ -710,6 +742,19 @@ impl Parser {
                 }
             } else {
                 break;
+            }
+        }
+
+        if let (Some(lo), Some(hi), Some(at)) = (min, max, &max_token) {
+            if lo > hi {
+                self.diagnostics.push(
+                    Self::token_error(
+                        codes::MIN_GREATER_THAN_MAX,
+                        format!("field '{}' has min:{} greater than max:{}", name, lo, hi),
+                        at,
+                    )
+                    .with_hint("min must be less than or equal to max"),
+                );
             }
         }
 
@@ -3148,25 +3193,105 @@ impl Parser {
 
     // ── env ──
 
+    /// `env { APP_KEY string! sensitive  APP_FLAG boolean default:false }`
+    /// declares typed variables (checked by `cronus run`); the legacy
+    /// `env name { KEY value }` form keeps plain pairs. A line is a
+    /// declaration when the token after the name is a type keyword.
     fn parse_env(&mut self) -> Result<EnvNode, ParseError> {
         self.expect(TokenKind::Keyword)?;
-        let name = self.advance().value;
+        let name = if self.matches(TokenKind::LBrace, None) {
+            String::new()
+        } else {
+            self.advance().value
+        };
         self.expect(TokenKind::LBrace)?;
 
         let mut vars = HashMap::new();
+        let mut schema = Vec::new();
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
-            if self.peek().kind == TokenKind::Identifier {
-                let key = self.advance().value;
-                let val = self.advance().value;
-                vars.insert(key, val);
-            } else {
+            if self.peek().kind != TokenKind::Identifier {
                 self.advance();
+                continue;
+            }
+            let key = self.advance();
+            let next = self.peek();
+            let type_word = next.value.trim_end_matches('!').to_string();
+            let declares_type = next.kind == TokenKind::Identifier
+                && next.line == key.line
+                && FieldType::from_keyword(&type_word).is_some();
+            if !declares_type {
+                let val = self.advance().value;
+                vars.insert(key.value, val);
+                continue;
+            }
+
+            let type_token = self.advance();
+            let env_type = EnvType::from_keyword(&type_word);
+            if env_type.is_none() {
+                self.diagnostics.push(
+                    Self::token_error(
+                        codes::UNSUPPORTED_ENV_TYPE,
+                        format!(
+                            "unsupported type '{}' for environment variable '{}'",
+                            type_word, key.value
+                        ),
+                        &type_token,
+                    )
+                    .with_hint(format!("use one of: {}", EnvType::KEYWORDS.join(", "))),
+                );
+            }
+            let mut required = type_token.value.ends_with('!');
+            let mut sensitive = false;
+            let mut default = None;
+            loop {
+                let t = self.peek();
+                match (&t.kind, t.value.as_str()) {
+                    (TokenKind::Identifier, "!" | "required") => required = true,
+                    (TokenKind::Identifier, "optional") => required = false,
+                    (TokenKind::Identifier, "sensitive") => sensitive = true,
+                    (TokenKind::ColonPair, raw) if raw.starts_with("default:") => {
+                        let (_, value) = Self::split_colon_pair(raw);
+                        if let Some(ty) = env_type.filter(|ty| !ty.accepts(&value)) {
+                            // The value is not echoed: defaults of sensitive
+                            // variables are secrets too.
+                            self.diagnostics.push(
+                                Self::token_error(
+                                    codes::INVALID_ENV_DEFAULT,
+                                    format!(
+                                        "default of environment variable '{}' is not a valid {}",
+                                        key.value,
+                                        ty.keyword()
+                                    ),
+                                    &t,
+                                )
+                                .with_hint(format!(
+                                    "write a {} default or remove it",
+                                    ty.keyword()
+                                )),
+                            );
+                        }
+                        default = Some(value);
+                    }
+                    _ => break,
+                }
+                self.advance();
+            }
+            if let Some(env_type) = env_type {
+                schema.push(EnvVarSpec {
+                    name: key.value,
+                    env_type,
+                    required,
+                    sensitive,
+                    default,
+                    line: key.line,
+                    col: key.col,
+                });
             }
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(EnvNode { name, vars })
+        Ok(EnvNode { name, vars, schema })
     }
 
     // ── test ──
@@ -4344,6 +4469,79 @@ mod parser_tests {
         } else {
             panic!("Expected entity node");
         }
+    }
+
+    #[test]
+    fn field_constraint_errors_are_located_diagnostics() {
+        let src = "entity T {\n  slug slug match:\"^[a-z\"\n  age number min:10 max:1\n  qty number min:abc\n  name string min:9 max:2\n}\n";
+        let Err(errs) = parse_diagnostics(src) else {
+            panic!("invalid constraints must not parse")
+        };
+        let found: Vec<(&str, usize)> = errs.iter().map(|e| (e.code, e.line)).collect();
+        assert_eq!(
+            found,
+            vec![
+                ("FIELD_001", 2),
+                ("FIELD_002", 3),
+                ("FIELD_003", 4),
+                ("FIELD_002", 5)
+            ],
+            "{errs:?}"
+        );
+        assert_eq!(errs[0].col, 13, "points at match:");
+        assert_eq!(errs[1].col, 21, "points at max:");
+        assert!(errs.iter().all(|e| e.hint.is_some()));
+        assert!(parse(
+            "entity T {\n  slug slug match:\"^[a-z0-9-]+$\"\n  n number min:-5 max:5\n}\n"
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn many_to_many_relation_syntax() {
+        let ast = parse("entity Post {\n  tags -> Tag[] required\n  author -> User\n}\n").unwrap();
+        let AstNode::Entity(ref e) = ast[0] else {
+            panic!("entity")
+        };
+        assert!(e.fields[0].is_many() && e.fields[0].required);
+        assert_eq!(e.fields[0].reference.as_deref(), Some("Tag"));
+        assert!(!e.fields[1].is_many());
+    }
+
+    #[test]
+    fn env_block_declares_typed_variables_and_keeps_legacy_pairs() {
+        let src = "env {\n  APP_STRIPE_KEY string! sensitive  APP_FEATURE_X boolean default:false\n  APP_PORT int default:8080\n}\nenv production {\n  DATABASE_URL \"postgres://db\"\n}\n";
+        let ast = parse(src).unwrap();
+        let AstNode::Env(ref env) = ast[0] else {
+            panic!("env")
+        };
+        assert_eq!(env.name, "");
+        let names: Vec<&str> = env.schema.iter().map(|v| v.name.as_str()).collect();
+        assert_eq!(names, ["APP_STRIPE_KEY", "APP_FEATURE_X", "APP_PORT"]);
+        let key = &env.schema[0];
+        assert!(key.required && key.sensitive && key.env_type == EnvType::String);
+        assert_eq!((key.line, key.col), (2, 3));
+        let flag = &env.schema[1];
+        assert!(!flag.required && !flag.sensitive);
+        assert_eq!(flag.env_type, EnvType::Boolean);
+        assert_eq!(flag.default.as_deref(), Some("false"));
+        assert_eq!(env.schema[2].env_type, EnvType::Number);
+        let AstNode::Env(ref legacy) = ast[1] else {
+            panic!("env")
+        };
+        assert_eq!(legacy.name, "production");
+        assert!(legacy.schema.is_empty());
+        assert_eq!(legacy.vars["DATABASE_URL"], "postgres://db");
+    }
+
+    #[test]
+    fn env_unsupported_type_and_bad_default_are_errors() {
+        let src = "env {\n  APP_WHEN date\n  APP_ON boolean default:maybe\n}\n";
+        let Err(errs) = parse_diagnostics(src) else {
+            panic!("invalid env must not parse")
+        };
+        let found: Vec<(&str, usize)> = errs.iter().map(|e| (e.code, e.line)).collect();
+        assert_eq!(found, vec![("ENV_001", 2), ("ENV_002", 3)], "{errs:?}");
     }
 
     // ── Transition block tests ──

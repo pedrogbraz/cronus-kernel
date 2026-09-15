@@ -134,6 +134,14 @@ pub struct FieldNode {
     pub pattern: Option<String>,
 }
 
+impl FieldNode {
+    /// `tags -> Tag[]`: a many-to-many relation stored in the join table
+    /// `<Entity>_<field>` (see `relations.rs`), never a column.
+    pub fn is_many(&self) -> bool {
+        self.field_type == FieldType::Relation && self.array
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum FieldType {
     String,
@@ -505,8 +513,83 @@ pub struct MiddlewareNode {
 
 #[derive(Debug, Clone)]
 pub struct EnvNode {
+    /// Optional block name (`env production { … }`); empty for `env { … }`.
     pub name: String,
+    /// Legacy `KEY value` pairs.
     pub vars: HashMap<String, String>,
+    /// Declared variables (`APP_KEY string! sensitive`), checked by `cronus run`.
+    pub schema: Vec<EnvVarSpec>,
+}
+
+/// Types an `env { … }` variable may declare.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnvType {
+    String,
+    Number,
+    Boolean,
+    Url,
+    Email,
+}
+
+impl EnvType {
+    pub const KEYWORDS: &'static [&'static str] = &["string", "number", "boolean", "url", "email"];
+
+    /// Accepts the canonical keyword or a field-type alias (`int`, `bool`).
+    pub fn from_keyword(s: &str) -> Option<Self> {
+        match FieldType::from_keyword(s)? {
+            FieldType::String => Some(EnvType::String),
+            FieldType::Number => Some(EnvType::Number),
+            FieldType::Boolean => Some(EnvType::Boolean),
+            FieldType::Url => Some(EnvType::Url),
+            FieldType::Email => Some(EnvType::Email),
+            _ => None,
+        }
+    }
+
+    pub fn keyword(self) -> &'static str {
+        match self {
+            EnvType::String => "string",
+            EnvType::Number => "number",
+            EnvType::Boolean => "boolean",
+            EnvType::Url => "url",
+            EnvType::Email => "email",
+        }
+    }
+
+    /// Whether a raw environment value has this type.
+    pub fn accepts(self, value: &str) -> bool {
+        let v = value.trim();
+        match self {
+            EnvType::String => true,
+            EnvType::Number => v.parse::<f64>().is_ok_and(f64::is_finite),
+            EnvType::Boolean => {
+                matches!(
+                    v.to_ascii_lowercase().as_str(),
+                    "true" | "false" | "1" | "0"
+                )
+            }
+            EnvType::Url => {
+                (v.starts_with("http://") || v.starts_with("https://")) && !v.contains(' ')
+            }
+            EnvType::Email => v
+                .split_once('@')
+                .is_some_and(|(l, d)| !l.is_empty() && d.contains('.') && !d.ends_with('.')),
+        }
+    }
+}
+
+/// One declared environment variable: `APP_STRIPE_KEY string! sensitive`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnvVarSpec {
+    pub name: String,
+    pub env_type: EnvType,
+    pub required: bool,
+    /// Value is never printed (also true in practice for every value: startup
+    /// errors name variables, never their values).
+    pub sensitive: bool,
+    pub default: Option<String>,
+    pub line: usize,
+    pub col: usize,
 }
 
 #[derive(Debug, Clone)]

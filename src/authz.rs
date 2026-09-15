@@ -65,6 +65,15 @@ pub fn error_body(code: &str, message: &str) -> Value {
     json!({ "error": { "code": code, "message": message } })
 }
 
+/// `error_body` plus `error.fields`, the per-field messages of a
+/// `VALIDATION_FAILED` error: `{"title": ["must be at least 3 characters"]}`.
+/// Messages come from `validation.rs` rules, never from submitted values.
+pub fn error_body_with_fields(code: &str, message: &str, fields: Value) -> Value {
+    let mut body = error_body(code, message);
+    body["error"]["fields"] = fields;
+    body
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -106,6 +115,22 @@ mod tests {
         assert_eq!(
             error_body("NOT_FOUND", "Not found"),
             json!({"error":{"code":"NOT_FOUND","message":"Not found"}})
+        );
+    }
+
+    #[test]
+    fn error_body_with_fields_keeps_shape_and_adds_fields() {
+        assert_eq!(
+            error_body_with_fields(
+                "VALIDATION_FAILED",
+                "title must be at least 3 characters",
+                json!({"title": ["must be at least 3 characters"]})
+            ),
+            json!({"error":{
+                "code":"VALIDATION_FAILED",
+                "message":"title must be at least 3 characters",
+                "fields":{"title":["must be at least 3 characters"]}
+            }})
         );
     }
 }

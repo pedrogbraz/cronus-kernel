@@ -643,9 +643,28 @@ pub fn reconcile_emit(nodes: &[AstNode]) -> String {
                 out.push_str(&format!("import {} from \"{}\"\n", imp.alias, imp.source));
             }
             AstNode::Env(env) => {
-                out.push_str(&format!("env {} {{\n", env.name));
+                if env.name.is_empty() {
+                    out.push_str("env {\n");
+                } else {
+                    out.push_str(&format!("env {} {{\n", env.name));
+                }
                 for (k, v) in &env.vars {
                     out.push_str(&format!("  {} \"{}\"\n", k, v));
+                }
+                for var in &env.schema {
+                    out.push_str(&format!(
+                        "  {} {}{}",
+                        var.name,
+                        var.env_type.keyword(),
+                        if var.required { "!" } else { "" }
+                    ));
+                    if var.sensitive {
+                        out.push_str(" sensitive");
+                    }
+                    if let Some(default) = &var.default {
+                        out.push_str(&format!(" default:{}", default));
+                    }
+                    out.push('\n');
                 }
                 out.push_str("}\n\n");
             }

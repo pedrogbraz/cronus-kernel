@@ -14,8 +14,10 @@ use sha2::{Digest, Sha256};
 
 use crate::access::{self, Access, Denial, WriteScope};
 use crate::database::CronusDB;
-use crate::parser::{ActionBlock, EntityNode, FieldType, PageNode, SectionNode};
+use crate::parser::{ActionBlock, EntityNode, PageNode, SectionNode};
+use crate::relations;
 use crate::server::state::AppState;
+use crate::validation::{self, FieldErrors, Mode};
 
 #[derive(Debug)]
 pub struct ActionEffect {
@@ -25,103 +27,54 @@ pub struct ActionEffect {
     pub style: String,
 }
 
-/// Validate a single field value against its schema type.
-/// Returns None if valid, Some(error_message) if invalid.
+/// Validate one `set` value against the field's type and constraints
+/// (`validation::value_errors`). `None` when valid; otherwise the first
+/// message as `'field' message`. Empty values are accepted, as before.
 pub fn validate_field_value(field_name: &str, value: &str, entity: &EntityNode) -> Option<String> {
-    let field = match entity
+    let Some(field) = entity
         .fields
         .iter()
         .find(|f| f.name.eq_ignore_ascii_case(field_name))
-    {
-        Some(f) => f,
-        None => {
-            return Some(format!(
-                "Field '{}' does not exist on entity '{}'",
-                field_name, entity.name
-            ))
-        }
+    else {
+        return Some(format!(
+            "Field '{}' does not exist on entity '{}'",
+            field_name, entity.name
+        ));
     };
-
-    // Empty values are allowed unless required (required check is separate)
+    if field.is_many() {
+        return Some(format!("'{}' cannot be set by an action", field.name));
+    }
     if value.is_empty() {
         return None;
     }
-
-    match field.field_type {
-        FieldType::Number | FieldType::Money | FieldType::Percentage => {
-            if value.parse::<f64>().is_err() {
-                return Some(format!("'{}' must be a number", field_name));
-            }
-        }
-        FieldType::Boolean => {
-            let lower = value.to_lowercase();
-            if !["true", "false", "0", "1"].contains(&lower.as_str()) {
-                return Some(format!("'{}' must be true/false", field_name));
-            }
-        }
-        FieldType::Email => {
-            if !value.contains('@') || !value.contains('.') || value.len() < 5 {
-                return Some(format!("'{}' must be a valid email", field_name));
-            }
-        }
-        FieldType::Enum => {
-            if let Some(ref vals) = field.enum_values {
-                if !vals.iter().any(|v| v.eq_ignore_ascii_case(value)) {
-                    return Some(format!(
-                        "'{}' must be one of: {}",
-                        field_name,
-                        vals.join(", ")
-                    ));
-                }
-            }
-        }
-        FieldType::Url => {
-            if !value.starts_with("http://") && !value.starts_with("https://") {
-                return Some(format!("'{}' must be a valid URL", field_name));
-            }
-        }
-        _ => {} // String, Text, Date, Slug, Phone, Ulid, Json, Ip, Relation — no strict validation
-    }
-
-    None
+    validation::value_errors(field, &Value::String(value.to_string()))
+        .into_iter()
+        .next()
+        .map(|message| format!("'{}' {}", field.name, message))
 }
 
-/// Validate form data for INSERT against entity schema.
-/// Returns a map of field_name -> error_message for any validation failures.
-pub fn validate_form_data(
-    data: &Value,
-    entity: &EntityNode,
-) -> std::collections::HashMap<String, String> {
-    let mut errors = std::collections::HashMap::new();
-    let obj = match data.as_object() {
-        Some(o) => o,
-        None => return errors,
-    };
+/// `/_form` validation failure: the form envelope (`ok`, the legacy
+/// `errors` map the runtime renders under each input, a toast) plus
+/// `error.code`/`error.message`/`error.fields` from `authz`.
+fn form_invalid(status: u16, errors: &FieldErrors) -> (u16, Value) {
+    let mut body = validation::error_body(errors);
+    body["ok"] = json!(false);
+    body["errors"] = json!(validation::first_messages(errors));
+    body["effects"] = json!([{"type": "toast", "target": "Validation failed", "style": "error"}]);
+    (status, body)
+}
 
-    // Check required fields are present and non-empty
-    for field in &entity.fields {
-        if field.required {
-            let val = obj
-                .get(&field.name)
-                .or_else(|| obj.get(&field.name.to_lowercase()))
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            if val.trim().is_empty() {
-                errors.insert(field.name.clone(), format!("'{}' is required", field.name));
-            }
-        }
-    }
-
-    // Validate types for all provided fields
-    for (key, val) in obj {
-        let val_string = val.to_string();
-        let str_val = val.as_str().unwrap_or(&val_string);
-        if let Some(err) = validate_field_value(key, str_val, entity) {
-            errors.insert(key.clone(), err);
-        }
-    }
-
-    errors
+/// Writable form body split into non-null columns and many-to-many ids
+/// (`"a,b"` strings from HTML inputs become arrays).
+fn form_parts(
+    schema: &EntityNode,
+    data: &Map<String, Value>,
+) -> (Map<String, Value>, Map<String, Value>) {
+    let mut body = crate::authz::writable_body(schema, data);
+    relations::normalize_form_values(schema, &mut body);
+    let (columns, many) = relations::split(schema, body);
+    let columns = columns.into_iter().filter(|(_, v)| !v.is_null()).collect();
+    (columns, many)
 }
 
 // ══════════════════════════════════════════════════
@@ -514,22 +467,37 @@ fn create_from_form(
     let Some(data_obj) = data.as_object() else {
         return form_error(400, "INVALID", "Missing form data");
     };
-    let errors = validate_form_data(data, schema);
-    if !errors.is_empty() {
-        return (
-            400,
-            json!({
-                "ok": false,
-                "errors": errors,
-                "effects": [{"type": "toast", "target": "Validation failed", "style": "error"}]
-            }),
-        );
+    let (mut row_data, many) = form_parts(schema, data_obj);
+    for field in schema.fields.iter().filter(|f| !f.is_many()) {
+        if let Some(default) = &field.default_value {
+            if !row_data.contains_key(&field.name) {
+                row_data.insert(field.name.clone(), Value::String(default.clone()));
+            }
+        }
     }
-    let mut row_data = crate::authz::writable_body(schema, data_obj);
-    if let Some(owner) = owner {
+    let links = match validation::check_write(
+        &state.db,
+        &state.entities,
+        schema,
+        &row_data,
+        &many,
+        Mode::Create,
+        None,
+        access,
+    ) {
+        Ok(links) => links,
+        Err((status, errors)) => return form_invalid(status, &errors),
+    };
+    if let Some(owner) = &owner {
         row_data.insert("_owner_id".into(), json!(owner));
     }
-    match state.db.insert(&schema.name, &Value::Object(row_data)) {
+    match state
+        .db
+        .insert_with(&schema.name, &Value::Object(row_data), |conn, id| {
+            links.iter().try_for_each(|link| {
+                relations::replace_links(conn, schema, link, id, owner.as_deref())
+            })
+        }) {
         Ok(row) => {
             let row_id = row
                 .get("id")
@@ -580,31 +548,8 @@ fn update_from_form(
     };
 
     // Partial update: validate only the writable fields being sent.
-    let changes: Map<String, Value> = crate::authz::writable_body(schema, data_obj)
-        .into_iter()
-        .filter(|(_, v)| !v.is_null())
-        .collect();
-    let errors: std::collections::HashMap<String, String> = changes
-        .iter()
-        .filter_map(|(k, v)| {
-            let text = v
-                .as_str()
-                .map(str::to_string)
-                .unwrap_or_else(|| v.to_string());
-            validate_field_value(k, &text, schema).map(|e| (k.clone(), e))
-        })
-        .collect();
-    if !errors.is_empty() {
-        return (
-            400,
-            json!({
-                "ok": false,
-                "errors": errors,
-                "effects": [{"type": "toast", "target": "Validation failed", "style": "error"}]
-            }),
-        );
-    }
-    if changes.is_empty() {
+    let (changes, many) = form_parts(schema, data_obj);
+    if changes.is_empty() && many.is_empty() {
         return form_error(400, "INVALID", "Nothing to update");
     }
 
@@ -620,6 +565,19 @@ fn update_from_form(
             return form_error(500, "UPDATE_FAILED", "Could not save");
         }
     };
+    let links = match validation::check_write(
+        &state.db,
+        &state.entities,
+        schema,
+        &changes,
+        &many,
+        Mode::Update,
+        Some(record_id),
+        access,
+    ) {
+        Ok(links) => links,
+        Err((status, errors)) => return form_invalid(status, &errors),
+    };
     if !schema.transitions.is_empty() {
         if let Err(mut err) =
             crate::effects::validate_transitions(schema, &Value::Object(changes.clone()), &prev)
@@ -629,9 +587,29 @@ fn update_from_form(
         }
     }
 
-    match access::scoped_update(&state.db, &schema.name, record_id, &changes, &scope) {
+    let updated = if changes.is_empty() {
+        Ok(Some(prev.clone()))
+    } else {
+        access::scoped_update(&state.db, &schema.name, record_id, &changes, &scope)
+    };
+    // Join rows keep the parent's owner, whoever edits the links.
+    let parent_owner = prev.get("_owner_id").and_then(Value::as_str);
+    let updated = updated.and_then(|row| match (row, links.is_empty()) {
+        (Some(row), false) => state
+            .db
+            .transaction(|conn| {
+                links.iter().try_for_each(|link| {
+                    relations::replace_links(conn, schema, link, record_id, parent_owner)
+                })
+            })
+            .map(|_| Some(row)),
+        (row, _) => Ok(row),
+    });
+
+    match updated {
         Ok(Some(mut row)) => {
             crate::authz::redact_sensitive(schema, &mut row);
+            relations::attach(&state.db, &state.entities, schema, &mut row, access, &[]);
             state.sse_hub.broadcast(crate::sse::DataChangeEvent {
                 entity: schema.name.clone(),
                 action: "updated".to_string(),
@@ -1059,5 +1037,141 @@ page \"/notes\" type:custom requires:auth {\n\
         );
         assert_eq!(find_declared_form(&p, "form", "User"), None);
         assert_eq!(find_declared_form(&p, "hero", "Note"), None);
+    }
+
+    // ── Field validation + many-to-many on /_form and /_action ──
+
+    fn validation_state() -> crate::server::state::AppState {
+        let mut s = crate::api_validation_tests::state();
+        s.pages = parse(crate::api_validation_tests::SRC)
+            .expect("parse")
+            .into_iter()
+            .filter_map(|n| match n {
+                AstNode::Page(p) => Some(p),
+                _ => None,
+            })
+            .collect();
+        s
+    }
+
+    fn post_form(s: &crate::server::state::AppState, data: Value, who: &Access) -> (u16, Value) {
+        handle_form(
+            s,
+            &hyper::Method::POST,
+            "/_form/form",
+            &json!({"entity": "Post", "data": data}),
+            who,
+        )
+    }
+
+    fn row_id(s: &crate::server::state::AppState, table: &str, v: Value) -> String {
+        s.db.insert(table, &v).expect("insert")["id"]
+            .as_str()
+            .expect("id")
+            .to_string()
+    }
+
+    #[test]
+    fn form_create_returns_field_errors_in_the_form_envelope() {
+        let s = validation_state();
+        let alice = crate::api_validation_tests::viewer("alice", "user");
+        let (status, body) = post_form(&s, json!({"title": "ab", "age": "200"}), &alice);
+        assert_eq!(status, 422, "{body}");
+        assert_eq!(body["ok"], false);
+        assert_eq!(body["errors"]["title"], "must be at least 3 characters");
+        assert_eq!(body["error"]["code"], "VALIDATION_FAILED");
+        assert_eq!(
+            body["error"]["fields"]["age"],
+            json!(["must be at most 150"])
+        );
+        assert_eq!(body["effects"][0]["style"], "error");
+        assert_eq!(s.db.count("Post").unwrap(), 0);
+
+        let (status, body) = post_form(&s, json!({"title": "fine", "age": "42"}), &alice);
+        assert_eq!(status, 201, "{body}");
+    }
+
+    #[test]
+    fn form_update_validates_sent_fields_and_uniqueness() {
+        let s = validation_state();
+        let alice = crate::api_validation_tests::viewer("alice", "user");
+        row_id(
+            &s,
+            "Post",
+            json!({"title": "one", "contact": "a@b.co", "_owner_id": "alice"}),
+        );
+        let id = row_id(
+            &s,
+            "Post",
+            json!({"title": "two", "contact": "c@d.co", "_owner_id": "alice"}),
+        );
+        let (status, body) = patch(&s, &id, "Post", json!({"contact": "a@b.co"}), &alice);
+        assert_eq!(status, 409, "{body}");
+        assert_eq!(
+            body["error"]["fields"]["contact"],
+            json!(["already exists"])
+        );
+        let (status, body) = patch(&s, &id, "Post", json!({"slug": "Bad Slug"}), &alice);
+        assert_eq!(status, 422, "{body}");
+        assert!(body["error"]["fields"]["slug"].is_array());
+        assert!(body["error"]["fields"].get("title").is_none());
+        let (status, body) = patch(&s, &id, "Post", json!({"slug": "good-slug"}), &alice);
+        assert_eq!(status, 200, "{body}");
+    }
+
+    #[test]
+    fn form_many_to_many_accepts_comma_separated_ids_in_callers_scope() {
+        let s = validation_state();
+        let alice = crate::api_validation_tests::viewer("alice", "user");
+        let mine = row_id(&s, "Tag", json!({"label": "m", "_owner_id": "alice"}));
+        let theirs = row_id(&s, "Tag", json!({"label": "t", "_owner_id": "bob"}));
+
+        let (status, body) = post_form(&s, json!({"title": "steal", "tags": theirs}), &alice);
+        assert_eq!(status, 422, "{body}");
+        assert_eq!(
+            body["error"]["fields"]["tags"],
+            json!(["contains an unknown id"])
+        );
+
+        let (status, body) =
+            post_form(&s, json!({"title": "linked", "tags": mine.clone()}), &alice);
+        assert_eq!(status, 201, "{body}");
+        let id = body["id"].as_str().unwrap().to_string();
+        let (status, body) = patch(&s, &id, "Post", json!({"tags": ""}), &alice);
+        assert_eq!(status, 200, "links-only update: {body}");
+        assert_eq!(body["record"]["tags"], json!([]));
+        let (status, body) = patch(&s, &id, "Post", json!({"tags": [mine.clone()]}), &alice);
+        assert_eq!(status, 200, "{body}");
+        assert_eq!(body["record"]["tags"], json!([mine]));
+    }
+
+    #[test]
+    fn action_set_enforces_field_constraints() {
+        let s = validation_state();
+        let alice = crate::api_validation_tests::viewer("alice", "user");
+        let id = row_id(&s, "Post", json!({"title": "valid", "_owner_id": "alice"}));
+        let action = DeclaredAction {
+            id: "manual".into(),
+            entity: "Post".into(),
+            block: ActionBlock {
+                event: "click".into(),
+                confirm: None,
+                instructions: vec![crate::parser::ActionInstruction {
+                    verb: "set".into(),
+                    target: "title".into(),
+                    value: "x".into(),
+                    modifiers: std::collections::HashMap::new(),
+                }],
+            },
+        };
+        let err = execute_declared_action(&action, &id, &s.db, &s.entities, &alice).unwrap_err();
+        assert_eq!(
+            err,
+            ActionDenied::Invalid("'title' must be at least 3 characters".into())
+        );
+        assert_eq!(
+            s.db.find_by_id("Post", &id).unwrap().unwrap()["title"],
+            "valid"
+        );
     }
 }
