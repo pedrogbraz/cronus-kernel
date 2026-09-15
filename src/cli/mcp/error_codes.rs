@@ -298,6 +298,41 @@ pub(crate) const ERROR_CODES: &[ErrorCode] = &[
         description: "A declared `env` variable name is not SCREAMING_SNAKE with a prefix such as `APP_`, so it may collide with system variables.",
         example_fix: "`STRIPE_KEY string!` is fine; `stripe string!` -> `APP_STRIPE string!`.",
     },
+    ErrorCode {
+        code: "BIND_001",
+        severity: "error",
+        category: "bind",
+        description: "A `where` clause uses an operator that is not in the language. Unknown operators used to be treated as `eq`.",
+        example_fix: "`where status in:[\"paid\"]` is not implemented; use `where status eq:\"paid\"`. Supported: eq, ne (neq), gt, gte, lt, lte, contains, starts_with.",
+    },
+    ErrorCode {
+        code: "BIND_002",
+        severity: "error",
+        category: "bind",
+        description: "`query` is not `all`, `one` or `count`. Unknown query kinds used to be treated as `all`.",
+        example_fix: "`query every` -> `query all`.",
+    },
+    ErrorCode {
+        code: "FIELD_004",
+        severity: "error",
+        category: "validation",
+        description: "A field modifier is not recognised. Dead spellings such as `indexed`, `computed` and `onupdate:` used to be ignored.",
+        example_fix: "`email string indexed` -> `email string index`. Drop `computed` and `onupdate:`.",
+    },
+    ErrorCode {
+        code: "ACTION_001",
+        severity: "error",
+        category: "action",
+        description: "An action verb is unknown, or is parsed but not executed (`validate`). Invented verbs used to be skipped.",
+        example_fix: "`on click { log \"x\" }` -> `on click { toast \"x\" info }`. Implemented: set, toast, navigate, refresh, delete, open, close. `create`/`update` still parse (forms) and are not this error.",
+    },
+    ErrorCode {
+        code: "LANG_001",
+        severity: "error",
+        category: "language",
+        description: "A top-level block is accepted by the parser so the rest of the file can be checked, but the runtime does not implement it (`service`, `worker`, `middleware`, `deploy`, `test`, `compose`, `define`, top-level `on`).",
+        example_fix: "Remove the block. Page `requires:`, `import`, and `webhook` are the implemented substitutes where they apply.",
+    },
 ];
 
 /// Case-insensitive lookup (`type_001` finds `TYPE_001`).

@@ -326,6 +326,7 @@ impl Parser {
     // ── compose ──
 
     fn parse_compose(&mut self) -> Result<ComposeNode, ParseError> {
+        self.reject_unimplemented_block("compose");
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
         self.expect(TokenKind::LBrace)?;
@@ -724,7 +725,22 @@ impl Parser {
                             }
                             pattern = Some(v);
                         }
-                        _ => {}
+                        other => {
+                            let shown = format!("{other}:");
+                            let mut err = Self::token_error(
+                                codes::UNKNOWN_FIELD_MODIFIER,
+                                format!("unknown field modifier '{shown}' on field '{name}'"),
+                                &mod_token,
+                            )
+                            .with_hint(
+                                "recognised modifiers: required, unique, sensitive, optional, searchable, index, featured, formatted, default:, min:, max:, match:",
+                            );
+                            if other == "onupdate" || other == "computed" {
+                                err =
+                                    err.with_hint("this modifier is not in the language; drop it");
+                            }
+                            self.diagnostics.push(err);
+                        }
                     }
                 } else {
                     match mod_val.as_str() {
@@ -737,7 +753,20 @@ impl Parser {
                         "index" => index = true,
                         "featured" => featured = true,
                         "formatted" => formatted = true,
-                        _ => {}
+                        other => {
+                            let mut err = Self::token_error(
+                                codes::UNKNOWN_FIELD_MODIFIER,
+                                format!("unknown field modifier '{other}' on field '{name}'"),
+                                &mod_token,
+                            )
+                            .with_hint(
+                                "recognised modifiers: required, unique, sensitive, optional, searchable, index, featured, formatted, default:, min:, max:, match:",
+                            );
+                            if other == "indexed" {
+                                err = err.with_replacement("index".to_string());
+                            }
+                            self.diagnostics.push(err);
+                        }
                     }
                 }
             } else {
@@ -829,6 +858,22 @@ impl Parser {
         ParseError::new(code, message, at.line, at.col)
             .with_len(at.width())
             .with_target(at.value.clone())
+    }
+
+    /// `service` / `worker` / … parse so the rest of the file can be diagnosed,
+    /// but `cronus build` treats them as errors: they have no runtime.
+    fn reject_unimplemented_block(&mut self, kind: &'static str) {
+        let at = self.peek().clone();
+        self.diagnostics.push(
+            Self::token_error(
+                codes::UNIMPLEMENTED_BLOCK,
+                format!("top-level '{kind}' is not implemented"),
+                &at,
+            )
+            .with_hint(format!(
+                "remove the '{kind}' block; the parser accepts it so the rest of the file can be checked, but the runtime ignores it"
+            )),
+        );
     }
 
     /// Transition state/target that is not an enum value.
@@ -2209,6 +2254,10 @@ impl Parser {
                 "toast" => {
                     let message = self.expect(TokenKind::StringLit)?.value;
                     let mut mods = HashMap::new();
+                    // Documented form: `toast "Saved" success` (bare style, not a verb).
+                    if let Some(style) = self.action_arg() {
+                        mods.insert("style".into(), style);
+                    }
                     while self.peek().kind == TokenKind::ColonPair {
                         let (k, v) = Self::split_colon_pair(&self.advance().value);
                         mods.insert(k, v);
@@ -2250,6 +2299,19 @@ impl Parser {
                     });
                 }
                 "validate" => {
+                    let at = self.tokens.get(self.pos.saturating_sub(1)).cloned();
+                    if let Some(at) = at {
+                        self.diagnostics.push(
+                            Self::token_error(
+                                codes::UNIMPLEMENTED_ACTION,
+                                "action verb 'validate' is not implemented".into(),
+                                &at,
+                            )
+                            .with_hint(
+                                "remove it; field validation already runs on /_form and REST writes",
+                            ),
+                        );
+                    }
                     let target = self.action_arg().unwrap_or_else(|| "all".into());
                     instructions.push(ActionInstruction {
                         verb: "validate".into(),
@@ -2268,7 +2330,27 @@ impl Parser {
                     });
                 }
                 _ => {
-                    // Unknown verb — skip to next known verb or closing brace
+                    let at = self.tokens.get(self.pos.saturating_sub(1)).cloned();
+                    if let Some(at) = at {
+                        const LIVE: &[&str] = &[
+                            "set", "toast", "navigate", "refresh", "delete", "open", "close",
+                            "confirm", "create", "update",
+                        ];
+                        let mut err = Self::token_error(
+                            codes::UNIMPLEMENTED_ACTION,
+                            format!("unknown action verb '{verb}'"),
+                            &at,
+                        )
+                        .with_hint(
+                            "implemented verbs: set, toast, navigate, refresh, delete, open, close; create/update are parsed for forms",
+                        );
+                        if let Some(s) = diagnostic::closest(&verb, LIVE) {
+                            err = err.with_replacement(s.to_string());
+                        }
+                        self.diagnostics.push(err);
+                    }
+                    // Skip to next known verb or closing brace so the rest of
+                    // the block can still be diagnosed.
                     while !self.matches(TokenKind::RBrace, None)
                         && !self.matches(TokenKind::Eof, None)
                     {
@@ -2357,11 +2439,26 @@ impl Parser {
             };
             match kw_name.as_str() {
                 "query" => {
+                    let qt_token = self.peek().clone();
                     let qt = self.advance().value;
                     query = match qt.as_str() {
+                        "all" => QueryType::All,
                         "one" => QueryType::One,
                         "count" => QueryType::Count,
-                        _ => QueryType::All,
+                        other => {
+                            const KINDS: &[&str] = &["all", "one", "count"];
+                            let mut err = Self::token_error(
+                                codes::UNKNOWN_QUERY,
+                                format!("unknown query '{other}'"),
+                                &qt_token,
+                            )
+                            .with_hint("query must be all, one or count");
+                            if let Some(s) = diagnostic::closest(other, KINDS) {
+                                err = err.with_replacement(s.to_string());
+                            }
+                            self.diagnostics.push(err);
+                            QueryType::All
+                        }
                     };
                 }
                 "where" => {
@@ -2382,21 +2479,48 @@ impl Parser {
                         (op_token.value.clone(), Self::filter_value(&val_token))
                     };
                     let op = match op_str.as_str() {
-                        "eq" => FilterOp::Eq,
-                        "ne" | "neq" => FilterOp::Ne,
-                        "gt" => FilterOp::Gt,
-                        "gte" => FilterOp::Gte,
-                        "lt" => FilterOp::Lt,
-                        "lte" => FilterOp::Lte,
-                        "contains" => FilterOp::Contains,
-                        "starts_with" => FilterOp::StartsWith,
-                        _ => FilterOp::Eq,
+                        "eq" => Some(FilterOp::Eq),
+                        "ne" | "neq" => Some(FilterOp::Ne),
+                        "gt" => Some(FilterOp::Gt),
+                        "gte" => Some(FilterOp::Gte),
+                        "lt" => Some(FilterOp::Lt),
+                        "lte" => Some(FilterOp::Lte),
+                        "contains" => Some(FilterOp::Contains),
+                        "starts_with" => Some(FilterOp::StartsWith),
+                        other => {
+                            const OPS: &[&str] = &[
+                                "eq",
+                                "ne",
+                                "neq",
+                                "gt",
+                                "gte",
+                                "lt",
+                                "lte",
+                                "contains",
+                                "starts_with",
+                            ];
+                            let mut err = Self::token_error(
+                                codes::UNKNOWN_FILTER_OP,
+                                format!("unknown where operator '{other}'"),
+                                &op_token,
+                            )
+                            .with_hint(
+                                "supported operators: eq, ne (neq), gt, gte, lt, lte, contains, starts_with",
+                            );
+                            if let Some(s) = diagnostic::closest(other, OPS) {
+                                err = err.with_replacement(s.to_string());
+                            }
+                            self.diagnostics.push(err);
+                            None
+                        }
                     };
-                    filters.push(FilterExpr {
-                        field,
-                        operator: op,
-                        value,
-                    });
+                    if let Some(operator) = op {
+                        filters.push(FilterExpr {
+                            field,
+                            operator,
+                            value,
+                        });
+                    }
                 }
                 "order" => {
                     let field = self.advance().value.clone();
@@ -2564,6 +2688,7 @@ impl Parser {
     // ── service ──
 
     fn parse_service(&mut self) -> Result<ServiceNode, ParseError> {
+        self.reject_unimplemented_block("service");
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
 
@@ -2630,6 +2755,7 @@ impl Parser {
     /// Parse `define "Name" { section ... section ... }`
     /// Stores one or more reusable sections under a name.
     fn parse_define(&mut self) -> Result<DefineNode, ParseError> {
+        self.reject_unimplemented_block("define");
         self.advance(); // consume "define"
         let name = if self.peek().kind == TokenKind::StringLit {
             self.advance().value
@@ -3077,6 +3203,7 @@ impl Parser {
     // ── event ──
 
     fn parse_event(&mut self) -> Result<EventNode, ParseError> {
+        self.reject_unimplemented_block("on");
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
         self.expect(TokenKind::LBrace)?;
@@ -3104,6 +3231,7 @@ impl Parser {
     // ── worker ──
 
     fn parse_worker(&mut self) -> Result<WorkerNode, ParseError> {
+        self.reject_unimplemented_block("worker");
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
 
@@ -3154,6 +3282,7 @@ impl Parser {
     // ── middleware ──
 
     fn parse_middleware(&mut self) -> Result<MiddlewareNode, ParseError> {
+        self.reject_unimplemented_block("middleware");
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
         self.expect(TokenKind::LBrace)?;
@@ -3297,6 +3426,7 @@ impl Parser {
     // ── test ──
 
     fn parse_test(&mut self) -> Result<TestNode, ParseError> {
+        self.reject_unimplemented_block("test");
         self.expect(TokenKind::Keyword)?;
         let name = self.expect(TokenKind::StringLit)?.value;
         self.expect(TokenKind::LBrace)?;
@@ -3507,6 +3637,7 @@ impl Parser {
     // ── deploy ──
 
     fn parse_deploy(&mut self) -> Result<DeployNode, ParseError> {
+        self.reject_unimplemented_block("deploy");
         self.expect(TokenKind::Keyword)?; // consume "deploy"
         let mode = self.advance().value; // e.g. "microservices"
         self.expect(TokenKind::LBrace)?;
@@ -4098,6 +4229,101 @@ mod parser_tests {
         assert!(matches!(&f[0].value, BindingValue::Num(n) if n == "5"));
         let f = bind_filters("status neq:\"x\"");
         assert_eq!(f[0].operator, FilterOp::Ne);
+    }
+
+    fn diag_codes(src: &str) -> Vec<&'static str> {
+        match parse_diagnostics(src) {
+            Ok(_) => Vec::new(),
+            Err(errs) => errs.into_iter().map(|e| e.code).collect(),
+        }
+    }
+
+    #[test]
+    fn unknown_where_operator_is_bind_001() {
+        let src = "page \"/p\" type:custom {\n  section table {\n    bind Task { query all where status in:\"paid\" }\n  }\n}\n";
+        let codes = diag_codes(src);
+        assert!(codes.contains(&codes::UNKNOWN_FILTER_OP), "{codes:?}");
+        assert!(!codes.is_empty());
+    }
+
+    #[test]
+    fn unknown_query_is_bind_002() {
+        let src =
+            "page \"/p\" type:custom {\n  section table {\n    bind Task { query every }\n  }\n}\n";
+        assert!(diag_codes(src).contains(&codes::UNKNOWN_QUERY));
+    }
+
+    #[test]
+    fn indexed_modifier_is_field_004() {
+        let src = "entity Task {\n  title string indexed\n}\n";
+        let errs = match parse_diagnostics(src) {
+            Err(e) => e,
+            Ok(_) => panic!("expected FIELD_004"),
+        };
+        let e = errs
+            .iter()
+            .find(|e| e.code == codes::UNKNOWN_FIELD_MODIFIER)
+            .expect("FIELD_004");
+        assert_eq!(e.replacement.as_deref(), Some("index"));
+    }
+
+    #[test]
+    fn toast_bare_style_is_not_an_action_verb() {
+        let src = "entity Task { title string! }\npage \"/p\" {\n  section form {\n    bind Task { query all }\n    on submit { create Task toast \"Saved\" success refresh page }\n  }\n}\n";
+        match parse_diagnostics(src) {
+            Ok(nodes) => {
+                let AstNode::Page(p) = &nodes[1] else {
+                    panic!("expected page");
+                };
+                let toast = &p.sections[0].actions[0].instructions[1];
+                assert_eq!(toast.verb, "toast");
+                assert_eq!(
+                    toast.modifiers.get("style").map(String::as_str),
+                    Some("success")
+                );
+            }
+            Err(e) => panic!(
+                "{}",
+                e.iter()
+                    .map(|d| d.to_string())
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            ),
+        }
+    }
+
+    #[test]
+    fn unknown_action_verb_is_action_001_create_is_not() {
+        let bad = "page \"/p\" {\n  section form {\n    on submit { log \"x\" }\n  }\n}\n";
+        assert!(diag_codes(bad).contains(&codes::UNIMPLEMENTED_ACTION));
+        let ok = "entity Task { title string! }\npage \"/p\" {\n  section form {\n    bind Task { query all }\n    on submit { create Task }\n  }\n}\n";
+        match parse_diagnostics(ok) {
+            Ok(_) => {}
+            Err(e) => panic!(
+                "create must stay parseable: {}",
+                e.iter()
+                    .map(|d| d.to_string())
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            ),
+        }
+    }
+
+    #[test]
+    fn unimplemented_top_level_blocks_are_lang_001() {
+        for src in [
+            "service mailer { }\n",
+            "worker jobs { }\n",
+            "middleware auth { }\n",
+            "compose App { }\n",
+            "define \"Box\" { }\n",
+        ] {
+            let codes = diag_codes(src);
+            assert!(
+                codes.contains(&codes::UNIMPLEMENTED_BLOCK),
+                "{src} -> {codes:?}"
+            );
+        }
     }
 
     // ── P041 does not apply to enum values (data, not identifiers) ──
@@ -5204,7 +5430,7 @@ entity Item shared {
             "delete",
             "refresh  toast \"Saved\"",
             "navigate",
-            "validate",
+            "close \"x\"",
         ] {
             let src = format!(
                 "entity Task {{\n  title string!\n}}\npage \"/a\" {{\n  section form {{\n    bind Task {{ query all }}\n    on submit {{ {} }}\n  }}\n}}\npage \"/b\" {{\n  section hero {{ }}\n}}\nentity Note {{\n  body text\n}}\n",

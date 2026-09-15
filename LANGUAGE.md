@@ -131,10 +131,11 @@ Both are recoverable: the parser keeps going, so one build reports every type er
 - `min:<num>` / `max:<num>` — numeric bounds for `number`, `money`, `percentage`; length in characters for `string`, `text`, `email`, `url`, `slug`, `phone` (§3.6). A non-number is `FIELD_003`; `min` > `max` is `FIELD_002`.
 - `match:"<regex>"` — Rust regex the value must match (§3.6). An invalid regex is `FIELD_001`.
 
-**NOT recognized** (despite some doc claims):
-- `onupdate:` — does nothing
+**NOT recognized** — `cronus build` reports **`FIELD_004`** (they used to be ignored):
+- `onupdate:` — not in the language
 - `indexed` — use `index`
 - `computed` — not implemented
+- any other unknown modifier or `key:` pair on a field
 
 ### 2.5 Top-level block parsers — 29 helpers
 
@@ -149,20 +150,18 @@ Both are recoverable: the parser keeps going, so one build reports every type er
 | `auth { ... }`            | `parse_auth`         | `AstNode::Auth`           | REAL |
 | `style { ... }`           | `parse_style`        | `AstNode::Style`          | REAL |
 | `layout Name { ... }`     | `parse_layout`       | `AstNode::Layout`         | REAL |
-| `service Name { ... }`    | `parse_service`      | `AstNode::Service`        | SCAFFOLDED |
+| `service Name { ... }`    | `parse_service`      | `AstNode::Service`        | **LANG_001** — parses, no runtime |
 | `component Name { ... }`  | `parse_component`    | `AstNode::Component`      | **LIMITED** — see §6 |
-| `webhook Name { ... }`    | `parse_webhook`      | `AstNode::Webhook`        | SCAFFOLDED |
-| `worker Name { ... }`     | `parse_worker`       | `AstNode::Worker`         | SCAFFOLDED |
-| `deploy { ... }`          | `parse_deploy`       | `AstNode::Deploy`         | SCAFFOLDED |
-| `middleware { ... }`      | `parse_middleware`   | `AstNode::Middleware`     | SCAFFOLDED |
+| `webhook Name { ... }`    | `parse_webhook`      | `AstNode::Webhook`        | REAL (outbound HTTP; no TLS) |
+| `worker Name { ... }`     | `parse_worker`       | `AstNode::Worker`         | **LANG_001** — parses, no runtime |
+| `deploy { ... }`          | `parse_deploy`       | `AstNode::Deploy`         | **LANG_001** — parses, no runtime |
+| `middleware { ... }`      | `parse_middleware`   | `AstNode::Middleware`     | **LANG_001** — parses, no runtime |
 | `env { ... }`             | `parse_env`          | `AstNode::Env`            | REAL |
-| `test { ... }`            | `parse_test`         | `AstNode::Test`           | SCAFFOLDED |
+| `test { ... }`            | `parse_test`         | `AstNode::Test`           | **LANG_001** — parses, no runtime |
 | `import "path"`           | `parse_import`       | `AstNode::Import`         | REAL |
-| `compose { ... }`         | `parse_compose`      | `AstNode::Compose`        | SCAFFOLDED |
-| `use Name { ... }`        | `parse_use`          | `AstNode::Use`            | SCAFFOLDED |
-| `merge Name`              | `parse_merge`        | `AstNode::Merge`          | SCAFFOLDED |
-| `define Name { ... }`     | `parse_define`       | `AstNode::Define`         | SCAFFOLDED |
-| `on Name { ... }`         | `parse_event`        | `AstNode::Event`          | SCAFFOLDED |
+| `compose { ... }`         | `parse_compose`      | `AstNode::Compose`        | **LANG_001** — parses, no runtime |
+| `define Name { ... }`     | `parse_define`       | `AstNode::Define`         | **LANG_001** — parses, no runtime |
+| `on Name { ... }` (file scope) | `parse_event`   | `AstNode::Event`          | **LANG_001** — parses, no runtime |
 | `tailwind_config "..."`   | inline                | Stored on `App` node      | REAL (undocumented) |
 
 **`constitution`**: has a parser (`parse_constitution`) but NO top-level AST variant. It lives only inline inside `app { constitution { must "..." never "..." } }`. See §13.
@@ -533,11 +532,13 @@ on click confirm:"Delete this order?" {
 - `open <modal_name>`
 - `close <modal_name>`
 
-**Docs claim these that DO NOT exist**:
-- `create Entity { ... }` — parser accepts it but no executor handles it yet
-- `update Entity ...` — same
-- `log "..."` — not in the action executor
-- `confirm:"..."` — **only the `confirm:` MODIFIER on `on click`** works; there's no standalone `confirm` action
+**Parsed, not executed** (forms still create through `/_form`):
+- `create Entity` / `update Entity` — stored on the AST so templates keep parsing; the executor ignores them. Tracked as a language hole, not a silent skip of an unknown verb.
+
+**`ACTION_001`** (build error; these used to be skipped):
+- `validate`
+- any invented verb (`log`, `notify`, `email`, …)
+- a standalone `confirm "..."` instruction is stored on `ActionBlock.confirm` and is not executed; prefer `on click confirm:"…"` as a modifier on the `on` line when that form parses. Inner `confirm` as a verb is still accepted as the confirm message.
 
 ### 8.2.1 Server enforcement (Sprint 1)
 
@@ -612,7 +613,7 @@ Aggregates without `group_by` return one value: `aggregate count` → a count, `
 
 ### 9.2 Supported operators in `where`
 
-`eq`, `ne` (alias `neq`), `gt`, `gte`, `lt`, `lte`, `contains`, `starts_with`. Both forms are equivalent: `where status eq "active"` and `where status eq:"active"` (also `eq:auth.id`, `eq:route.id`, `gt:5`, `eq:true`). `ends_with` and `in:[...]` are **not** implemented. An unknown operator currently falls back to `eq`.
+`eq`, `ne` (alias `neq`), `gt`, `gte`, `lt`, `lte`, `contains`, `starts_with`. Both forms are equivalent: `where status eq "active"` and `where status eq:"active"` (also `eq:auth.id`, `eq:route.id`, `gt:5`, `eq:true`). `ends_with` and `in:[...]` are **not** implemented. An unknown operator is **`BIND_001`** (it used to fall back to `eq`). An unknown `query` kind is **`BIND_002`** (it used to become `all`).
 
 ### 9.3 `group_by` intervals
 
@@ -1142,6 +1143,11 @@ Field rules:
 | `ENV_001` | error | `env` variable type is not `string`, `number`, `boolean`, `url` or `email` (§3.8) |
 | `ENV_002` | error | `env` variable `default:` does not match its type (§3.8) |
 | `ENV_003` | warning | Declared `env` variable name has no uppercase prefix such as `APP_` (§3.8) |
+| `BIND_001` | error | Unknown `where` operator (§9.2); no longer silently `eq` |
+| `BIND_002` | error | Unknown `query` kind; must be `all`, `one` or `count` |
+| `FIELD_004` | error | Unknown field modifier (`indexed`, `computed`, `onupdate:`, …) (§2.4) |
+| `ACTION_001` | error | Unknown or unimplemented action verb (`validate`, invented verbs) (§8.2) |
+| `LANG_001` | error | Top-level block with no runtime (`service`, `worker`, `middleware`, `deploy`, `test`, `compose`, `define`, file-scope `on`) |
 | `STRUCTURE_001` | error | A `page "…"` / `entity Name {` declared in the source is missing from the parsed app (an earlier statement consumed a `}`) |
 | `RESOLVE_001` | error | Unresolved reference (entity, field, column, route) |
 | `RESOLVE_002` | error | State-machine reference error (transition field missing / not enum) |

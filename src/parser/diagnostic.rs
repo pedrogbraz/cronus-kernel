@@ -35,6 +35,16 @@ pub mod codes {
     pub const UNSUPPORTED_ENV_TYPE: &str = "ENV_001";
     /// `env { … }` variable `default:` does not match its type.
     pub const INVALID_ENV_DEFAULT: &str = "ENV_002";
+    /// `where` uses an operator that is not in the language.
+    pub const UNKNOWN_FILTER_OP: &str = "BIND_001";
+    /// `query` is not `all`, `one` or `count`.
+    pub const UNKNOWN_QUERY: &str = "BIND_002";
+    /// Field modifier is not a recognised keyword (`index`, not `indexed`).
+    pub const UNKNOWN_FIELD_MODIFIER: &str = "FIELD_004";
+    /// Action verb is unknown, or parsed but not executed (`validate`).
+    pub const UNIMPLEMENTED_ACTION: &str = "ACTION_001";
+    /// Top-level block that parses but has no runtime (`service`, `worker`, …).
+    pub const UNIMPLEMENTED_BLOCK: &str = "LANG_001";
 }
 
 #[derive(Debug, Clone, PartialEq)]

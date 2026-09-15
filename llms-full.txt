@@ -142,7 +142,8 @@ bind Product { query all scope:public }
 - Always `bind Entity { … }` with braces (`bind entity:Order { … }` also parses).
 - `query all|one|count`. `aggregate count|sum|avg|min|max` with `field:`.
 - `where` operators: `eq` `ne` (`neq`) `gt` `gte` `lt` `lte` `contains` `starts_with`.
-  Values: `"text"`, numbers, `true`, `route.id`, `auth.id`, `auth.role`, `auth.email`.
+  Unknown operators fail the build (`BIND_001`). Values: `"text"`, numbers, `true`,
+  `route.id`, `auth.id`, `auth.role`, `auth.email`. `query` is `all|one|count` (`BIND_002`).
 - `interval:` `day` `week` `month` `quarter` `year`.
 - Visibility: no session sees nothing unless `scope:public` (every row, to anyone);
   users see own rows and `shared` entities; admins see all. `sensitive` fields never leave.
@@ -161,6 +162,7 @@ section form {
 ```
 - Verbs the server executes: `set <field> "<value>"`, `delete <Entity>`, `toast "<msg>" <style>`,
   `navigate "<path>"`, `refresh <target>`, `open "<name>"`, `close "<name>"`.
+  Unknown verbs and `validate` fail the build (`ACTION_001`).
 - `on click confirm:"Sure?" { … }` asks before running.
 - A bound `form` section submits to the kernel (`/_form`), which creates the row with the
   declared fields; `create`/`update` inside the block are accepted but not executed as
@@ -376,8 +378,10 @@ page "/dashboard" type:dashboard requires:auth {
   `stat-cards`) without `bind` or items: the build fails.
 - Never write `bind Entity` without `{ … }`.
 - Never invent field types (`uuid`, `varchar`): unknown types fail the build (`TYPE_001`).
-- Never use `indexed`, `computed` or `onupdate:` (not recognized); use `index`.
-- Never use `ends_with` or `in:[…]` in `where` (not implemented).
+- Never use `indexed`, `computed` or `onupdate:` — the build fails (`FIELD_004`); use `index`.
+- Never use `ends_with` or `in:[…]` in `where` — the build fails (`BIND_001`).
+- Never write top-level `service`, `worker`, `middleware`, `deploy`, `test`, `compose`,
+  `define` or file-scope `on` — the build fails (`LANG_001`).
 - Never name an entity or field `select`, `drop`, `insert`, `delete`, `update`, `table` or `from`.
 - Never list a `sensitive` field in `columns` or a template.
 - Never put `scope:public` on a binding whose rows are not public data.

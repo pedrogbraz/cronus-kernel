@@ -8,6 +8,25 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ## [Unreleased]
 
+### Breaking changes (language honesty)
+
+A `.cronus` file that used to parse and no-op now fails `cronus build`. Codes are in
+LANGUAGE.md §15.9.
+
+- **Unknown `where` operators are `BIND_001`.** `where status in:["paid"]` and
+  `where title ends_with "x"` used to run as `eq`. Supported: `eq`, `ne`/`neq`,
+  `gt`, `gte`, `lt`, `lte`, `contains`, `starts_with`.
+- **Unknown `query` kinds are `BIND_002`.** `query every` used to mean `query all`.
+- **Unknown field modifiers are `FIELD_004`.** `indexed`, `computed` and `onupdate:`
+  used to be ignored; write `index` or drop them.
+- **Unknown action verbs and `validate` are `ACTION_001`.** They used to be skipped.
+  `create`/`update` still parse (templates / `/_form`); the executor still does not
+  run them as separate steps.
+- **Hollow top-level blocks are `LANG_001`:** `service`, `worker`, `middleware`,
+  `deploy`, `test`, `compose`, `define`, file-scope `on`. They parse so the rest of
+  the file can be diagnosed; the app is invalid until they are removed. `webhook`
+  and `import` are unchanged.
+
 ### Breaking changes
 
 Apps that worked before may now return 401/403/404 or refuse to start. Each item is a

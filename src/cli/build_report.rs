@@ -316,6 +316,9 @@ pub fn from_parse_errors(file: &str, errors: &[ParseError]) -> Report {
                     Some("TYPE") => "type",
                     Some("FIELD") => "validation",
                     Some("ENV") => "env",
+                    Some("BIND") => "bind",
+                    Some("ACTION") => "action",
+                    Some("LANG") => "language",
                     _ => "syntax",
                 },
                 message: e.message.clone(),
@@ -904,6 +907,84 @@ mod tests {
             .unwrap()
             .iter()
             .all(|e| e["code"] != "ENV_003"));
+    }
+
+    fn codes_of(j: &Value) -> Vec<String> {
+        j["errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| e["code"].as_str().unwrap().to_string())
+            .collect()
+    }
+
+    #[test]
+    fn unknown_where_operator_is_bind_001_not_silent_eq() {
+        let src = "page \"/p\" type:custom {\n  section table {\n    bind Task { query all where status in:\"paid\" }\n    columns \"status\"\n  }\n}\n";
+        let j = report(src, true).to_json();
+        assert_eq!(j["valid"], false, "{j}");
+        let e = j["errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["code"] == "BIND_001")
+            .unwrap_or_else(|| panic!("{j}"));
+        assert_eq!(e["category"], "bind");
+        assert!(e["message"].as_str().unwrap().contains("in"), "{e}");
+        assert_no_zero_positions(&j);
+    }
+
+    #[test]
+    fn unknown_query_kind_is_bind_002() {
+        let src = "page \"/p\" type:custom {\n  section table {\n    bind Task { query every }\n    columns \"title\"\n  }\n}\n";
+        let j = report(src, true).to_json();
+        assert!(codes_of(&j).contains(&"BIND_002".to_string()), "{j}");
+        assert_eq!(j["errors"][0]["category"], "bind");
+    }
+
+    #[test]
+    fn indexed_modifier_is_field_004_with_index_fix() {
+        let src = "entity Task {\n  title string indexed\n}\n";
+        let j = report(src, true).to_json();
+        let e = j["errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["code"] == "FIELD_004")
+            .unwrap_or_else(|| panic!("{j}"));
+        assert_eq!(e["fix"]["replacement"], "index");
+        assert_eq!(e["category"], "validation");
+    }
+
+    #[test]
+    fn unknown_action_verb_is_action_001() {
+        let src = "page \"/p\" type:custom {\n  section form {\n    bind Task { query all }\n    on submit { log \"x\" toast \"ok\" info }\n  }\n}\n";
+        let j = report(src, true).to_json();
+        assert!(codes_of(&j).iter().any(|c| c == "ACTION_001"), "{j}");
+    }
+
+    #[test]
+    fn create_action_is_not_action_001() {
+        let src = "entity Task { title string! }\npage \"/p\" type:custom {\n  section form {\n    bind Task { query all }\n    on submit { create Task toast \"ok\" info }\n  }\n}\n";
+        let j = report(src, true).to_json();
+        assert!(
+            codes_of(&j).iter().all(|c| c != "ACTION_001"),
+            "create must stay parseable for forms: {j}"
+        );
+    }
+
+    #[test]
+    fn hollow_top_level_service_is_lang_001() {
+        let src = "app \"A\" { port 5175 }\nservice mailer { }\n";
+        let j = report(src, true).to_json();
+        let e = j["errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["code"] == "LANG_001")
+            .unwrap_or_else(|| panic!("{j}"));
+        assert_eq!(e["category"], "language");
+        assert!(e["message"].as_str().unwrap().contains("service"), "{e}");
     }
 
     #[test]

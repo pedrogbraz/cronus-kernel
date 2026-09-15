@@ -173,3 +173,26 @@ fn plain_build_gives_a_single_verdict() {
     assert!(stdout.contains("good.cronus is valid"), "{stdout}");
     assert!(!format!("{stdout}{stderr}").contains("blocked"));
 }
+
+#[test]
+fn ai_unknown_where_operator_is_bind_001() {
+    let dir = workdir("bind-op");
+    fs::write(
+        dir.join("app.cronus"),
+        "app \"T\" { port 5175 }\nentity Task { title string! }\npage \"/\" {\n  section table {\n    bind Task { query all where title ends_with \"x\" }\n    columns \"title\"\n  }\n}\n",
+    )
+    .unwrap();
+    let (code, stdout, _) = cronus(&dir, &["build", "--ai", "app.cronus"]);
+    let j = json_stdout(&stdout);
+    assert_eq!(code, 1);
+    assert_eq!(j["valid"], false);
+    let e = j["errors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["code"] == "BIND_001")
+        .unwrap_or_else(|| panic!("{j}"));
+    assert_eq!(e["category"], "bind");
+    assert!(e["location"]["line"].as_u64().unwrap() >= 1);
+    assert!(e["message"].as_str().unwrap().contains("ends_with"), "{e}");
+}

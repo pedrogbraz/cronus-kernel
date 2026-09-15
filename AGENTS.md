@@ -137,7 +137,7 @@ Deleted in Sprint 4 (2026-09-14): `src/server/router.rs`, `src/server/api.rs`, `
 - Clippy has hundreds of non-correctness warnings; only `clippy::correctness` is enforced (CI).
 - Webhooks cannot deliver `https://` (no TLS client in dependencies).
 - GraphQL has no `update<Entity>` mutation and cannot be disabled.
-- Unknown field types are `TYPE_001` (build error, with a nearest-type hint). An unknown `where` operator still becomes `eq`.
+- Unknown field types are `TYPE_001`. Unknown `where` operators are `BIND_001` (no silent `eq`). Unknown field modifiers are `FIELD_004`. Hollow top-level blocks are `LANG_001`. Unknown action verbs are `ACTION_001`.
 - `create`/`update` in action blocks parse, but `/_action` does not execute them. Bound forms create through `/_form`.
 - `#[cfg(feature = "generated-contracts")]` references a feature that is not declared in `Cargo.toml` (compiler warning).
 - Family stubs: `meteors` (fx) and `sankey-chart` (chart). JS-only controls render `disabled`. Overlays use native `popover` (not modal, no focus trap).
