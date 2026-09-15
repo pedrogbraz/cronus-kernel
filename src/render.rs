@@ -443,6 +443,7 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
         content.querySelectorAll('script').forEach(function(old){window.__cronusRunScript(old,trusted)});
         // Update URL + nav
         history.pushState(null,'',url);
+        cronusPath=location.pathname;
         // Sidebar active state is managed by the declarative layout JS
         // (see render_layout_declarative in ui/layout.rs). No brand colors
         // are injected by the runtime — each app controls its own theme.
@@ -493,6 +494,9 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
     var href=a.getAttribute('href');
     if(!href||href.charAt(0)!=='#') return;
     var target=document.getElementById(href.substring(1));
+    // Zero-JS widgets (carousel slides) read the fragment through :target, which
+    // replaceState never sets: let the browser follow those links.
+    if(target&&target.closest('[data-slot="carousel"]')) return;
     if(target){
       e.preventDefault();
       target.scrollIntoView({behavior:'smooth',block:'start'});
@@ -693,7 +697,13 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
   });
 
   // Handle browser back/forward with View Transitions
+  // Fragment links (zero-JS carousel slides, TOC) also fire popstate: a hash-only
+  // change must not re-render the page (it would reset native widget state and
+  // block clicks for the length of the transition).
+  var cronusPath=location.pathname;
   window.addEventListener('popstate',function(){
+    if(location.pathname===cronusPath) return;
+    cronusPath=location.pathname;
     if(document.startViewTransition){
       document.startViewTransition(function(){return cronusNavigate(location.pathname)||Promise.resolve();});
     }else{
@@ -930,6 +940,42 @@ pub const CRONUS_DEBUG_JS: &str = r#"
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The smooth-scroll handler replaces fragment navigation with
+    /// `scrollIntoView` + `replaceState`, which never sets `:target`. The
+    /// zero-JS carousel moves slides through `:target`, so links to a slide
+    /// must reach the browser (bug: prev/next stuck after the first click).
+    #[test]
+    fn smooth_scroll_leaves_carousel_fragment_links_to_the_browser() {
+        let start = CRONUS_RUNTIME_JS
+            .find("// Smooth scroll for anchor links")
+            .expect("smooth scroll handler");
+        let handler = &CRONUS_RUNTIME_JS[start..start + 700];
+        let guard = handler
+            .find("if(target&&target.closest('[data-slot=\"carousel\"]')) return;")
+            .expect("carousel guard");
+        let prevent = handler.find("e.preventDefault();").expect("preventDefault");
+        assert!(guard < prevent, "guard must run before preventDefault");
+    }
+
+    /// Chromium fires `popstate` for same-document fragment navigation. The
+    /// back/forward handler used to start a View Transition and re-navigate on
+    /// every one, so each carousel slide link blocked clicks for ~300ms and
+    /// re-rendered the page (bug: second "next" click landed on `<html>`).
+    #[test]
+    fn popstate_ignores_hash_only_navigation() {
+        let start = CRONUS_RUNTIME_JS
+            .find("window.addEventListener('popstate',function(){\n    if(location.pathname===cronusPath) return;")
+            .expect("popstate handler starts with the hash-only guard");
+        let handler = &CRONUS_RUNTIME_JS[start..start + 400];
+        let guard = handler
+            .find("if(location.pathname===cronusPath) return;")
+            .unwrap();
+        let update = handler.find("cronusPath=location.pathname;").unwrap();
+        let transition = handler.find("document.startViewTransition").unwrap();
+        assert!(guard < update && update < transition);
+        assert!(CRONUS_RUNTIME_JS.contains("var cronusPath=location.pathname;"));
+    }
 
     #[test]
     fn runtime_js_has_no_hardcoded_brand_colors() {
