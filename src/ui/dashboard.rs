@@ -7,11 +7,163 @@ use super::CRONUS_ANIMATIONS_CSS;
 use super::CRONUS_ANIMATIONS_JS;
 use crate::parser::{ComponentNode, SectionNode};
 
+// ── Colour mode wrappers ───────────────────────────
+// Each full-page dashboard renders its dark branch for `system` and passes
+// through `section_mode::adapt_document`, which maps the dark palette to the
+// page mode (a no-op in dark).
+
+use super::section_mode::{adapt_document, render_theme};
+
+pub fn render_generic_dashboard(
+    app_name: &str,
+    body: &str,
+    components: &[ComponentNode],
+    theme: &str,
+    current_route: &str,
+) -> String {
+    let html = render_generic_dashboard_inner(
+        app_name,
+        body,
+        components,
+        render_theme(theme),
+        current_route,
+    );
+    adapt_document(html, theme)
+}
+
+pub fn render_checkout_dashboard(
+    app_name: &str,
+    sections: &[SectionNode],
+    components: &[crate::parser::ComponentNode],
+    theme: &str,
+) -> String {
+    let html = render_checkout_dashboard_inner(app_name, sections, components, render_theme(theme));
+    adapt_document(html, theme)
+}
+
+pub fn render_billing_dashboard(
+    app_name: &str,
+    sections: &[SectionNode],
+    components: &[crate::parser::ComponentNode],
+    theme: &str,
+    current_route: &str,
+) -> String {
+    let html = render_billing_dashboard_inner(
+        app_name,
+        sections,
+        components,
+        render_theme(theme),
+        current_route,
+    );
+    adapt_document(html, theme)
+}
+
+pub fn render_payouts_dashboard(
+    app_name: &str,
+    sections: &[SectionNode],
+    components: &[crate::parser::ComponentNode],
+    theme: &str,
+    current_route: &str,
+) -> String {
+    let html = render_payouts_dashboard_inner(
+        app_name,
+        sections,
+        components,
+        render_theme(theme),
+        current_route,
+    );
+    adapt_document(html, theme)
+}
+
+pub fn render_unified_dashboard(
+    app_name: &str,
+    sections: &[SectionNode],
+    components: &[crate::parser::ComponentNode],
+    theme: &str,
+    current_route: &str,
+) -> String {
+    let html = render_unified_dashboard_inner(
+        app_name,
+        sections,
+        components,
+        render_theme(theme),
+        current_route,
+    );
+    adapt_document(html, theme)
+}
+
+pub fn render_payment_links_dashboard(
+    app_name: &str,
+    sections: &[SectionNode],
+    components: &[crate::parser::ComponentNode],
+    theme: &str,
+    current_route: &str,
+) -> String {
+    let html = render_payment_links_dashboard_inner(
+        app_name,
+        sections,
+        components,
+        render_theme(theme),
+        current_route,
+    );
+    adapt_document(html, theme)
+}
+
+pub fn render_security_dashboard(
+    app_name: &str,
+    sections: &[SectionNode],
+    components: &[crate::parser::ComponentNode],
+    theme: &str,
+    current_route: &str,
+) -> String {
+    let html = render_security_dashboard_inner(
+        app_name,
+        sections,
+        components,
+        render_theme(theme),
+        current_route,
+    );
+    adapt_document(html, theme)
+}
+
+pub fn render_settings_dashboard(
+    app_name: &str,
+    sections: &[SectionNode],
+    components: &[crate::parser::ComponentNode],
+    theme: &str,
+    current_route: &str,
+) -> String {
+    let html = render_settings_dashboard_inner(
+        app_name,
+        sections,
+        components,
+        render_theme(theme),
+        current_route,
+    );
+    adapt_document(html, theme)
+}
+
+pub fn render_order_detail_dashboard(
+    app_name: &str,
+    sections: &[SectionNode],
+    components: &[crate::parser::ComponentNode],
+    theme: &str,
+    current_route: &str,
+) -> String {
+    let html = render_order_detail_dashboard_inner(
+        app_name,
+        sections,
+        components,
+        render_theme(theme),
+        current_route,
+    );
+    adapt_document(html, theme)
+}
+
 // ── Generic dashboard wrapper (FIX 3) ──────────
 // For pages that have a sidebar component but no specific dashboard section types
 // (e.g. Overview page with hero + stats). Renders body content inside dashboard layout.
-
-pub fn render_generic_dashboard(
+fn render_generic_dashboard_inner(
     app_name: &str,
     body: &str,
     components: &[ComponentNode],
@@ -328,7 +480,7 @@ pub(super) fn build_dashboard_topbar(comp: Option<&ComponentNode>) -> String {
 // Produces a complete HTML page for the Billing dashboard.
 // ══════════════════════════════════════════════════
 
-pub fn render_billing_dashboard(
+fn render_billing_dashboard_inner(
     app_name: &str,
     sections: &[SectionNode],
     components: &[crate::parser::ComponentNode],
@@ -946,7 +1098,7 @@ pub(super) fn build_billing_recent_invoices(section: Option<&SectionNode>) -> St
 // ██  PAYOUTS DASHBOARD  ████████████████████████
 // ════════════════════════════════════════════════
 
-pub fn render_payouts_dashboard(
+fn render_payouts_dashboard_inner(
     app_name: &str,
     sections: &[SectionNode],
     components: &[crate::parser::ComponentNode],
@@ -1627,7 +1779,7 @@ pub(super) fn build_unified_billing_payments(section: Option<&SectionNode>) -> S
 // ██  UNIFIED DASHBOARD  ████████████████████████
 // ════════════════════════════════════════════════
 
-pub fn render_unified_dashboard(
+fn render_unified_dashboard_inner(
     app_name: &str,
     sections: &[SectionNode],
     components: &[crate::parser::ComponentNode],
@@ -1801,7 +1953,7 @@ pub fn render_unified_dashboard(
 // PAYMENT LINKS DASHBOARD — GeistPay
 // ══════════════════════════════════════════════════
 
-pub fn render_payment_links_dashboard(
+fn render_payment_links_dashboard_inner(
     app_name: &str,
     sections: &[SectionNode],
     components: &[crate::parser::ComponentNode],
@@ -2276,7 +2428,7 @@ pub(super) fn build_payment_links_info_bar(section: Option<&SectionNode>) -> Str
 // ██  CHECKOUT DASHBOARD  ████████████████████████
 // ════════════════════════════════════════════════
 
-pub fn render_checkout_dashboard(
+fn render_checkout_dashboard_inner(
     app_name: &str,
     sections: &[SectionNode],
     _components: &[crate::parser::ComponentNode],
@@ -2751,7 +2903,7 @@ pub(super) fn build_checkout_footer(section: Option<&SectionNode>) -> String {
 // ██  SECURITY TEAM DASHBOARD  ███████████████████
 // ════════════════════════════════════════════════
 
-pub fn render_security_dashboard(
+fn render_security_dashboard_inner(
     app_name: &str,
     sections: &[SectionNode],
     components: &[crate::parser::ComponentNode],
@@ -3239,7 +3391,7 @@ pub(super) fn build_security_login_activity(section: Option<&SectionNode>) -> St
 // SETTINGS DASHBOARD (dark Obsidian — full page renderer)
 // ══════════════════════════════════════════════════
 
-pub fn render_settings_dashboard(
+fn render_settings_dashboard_inner(
     app_name: &str,
     sections: &[SectionNode],
     _components: &[crate::parser::ComponentNode],
@@ -3723,7 +3875,7 @@ pub(super) fn build_settings_topbar(section: &SectionNode) -> String {
 // ORDER DETAIL DASHBOARD (dark Obsidian — full page renderer)
 // ══════════════════════════════════════════════════
 
-pub fn render_order_detail_dashboard(
+fn render_order_detail_dashboard_inner(
     app_name: &str,
     sections: &[SectionNode],
     _components: &[crate::parser::ComponentNode],
@@ -4212,4 +4364,255 @@ pub fn render_order_detail_dashboard(
         runtime = crate::render::CRONUS_RUNTIME_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
     )
+}
+
+#[cfg(test)]
+mod mode_tests {
+    use crate::binding::ResolvedData;
+    use crate::parser::{AstNode, PageNode};
+
+    /// Dark-only colours the section renderers and dashboards hard-code. In
+    /// `light` none may remain in a CSS context; in `system` they may only
+    /// appear as the dark side of `light-dark(…)`.
+    const DENY_LITERALS: &[&str] = &[
+        "#0a0a0a",
+        "#0e0e0e",
+        "#131313",
+        "#171717",
+        "#18181b",
+        "#1a1a1a",
+        "#1b1b1b",
+        "#1f1f1f",
+        "#27272a",
+        "#2a2a2a",
+        "#353535",
+        "#e2e2e2",
+        "rgba(76,69,70",
+        "rgba(76, 69, 70",
+        "rgba(207,196,197",
+        "rgba(226,226,226",
+    ];
+    /// Dark-only classes: allowed only when the element carries an inline
+    /// override for the same property (added by `section_mode`).
+    const DENY_CLASSES: &[(&str, &str)] = &[
+        ("text-white", "color:"),
+        ("bg-zinc-900", "background-color:"),
+        ("bg-neutral-900", "background-color:"),
+        ("border-neutral-800", "border-color:"),
+        ("border-zinc-800", "border-color:"),
+    ];
+    /// Intentional dark literals `(substring of the CSS context, reason)`.
+    const ALLOWLIST: &[(&str, &str)] = &[];
+
+    const SOURCE: &str = r#"
+page "/" type:custom {
+  section hero { title "Ship" subtitle "Sub" cta_text "Go" cta_link "/r" }
+  section kpi { item "Tasks" value:"3" icon:folder  item "Users" value:"42" icon:group }
+  section table { title "Tasks" columns "Title, Status" }
+  section chart { title "Amount" }
+  section kanban { title "Board" }
+  section timeline { title "Timeline" item "Created" subtitle:"first" }
+  section form { title "New" field "title" type:text required }
+  section cta { title "Ready?" subtitle "Join" cta_text "Start" cta_link "/" }
+  section footer { title "Demo" item "Docs" link:"/" }
+}
+page "/settings" type:custom {
+  section page-header { title "Settings" subtitle "Manage" }
+  section settings-profile { title "Profile" item "Name" value:"Ada" }
+  section danger-zone { title "Danger zone" }
+}
+page "/orders/1" type:custom {
+  section order-header { title "Order #1" }
+  section line-items { title "Items" item "Widget" value:"2" }
+}
+"#;
+
+    fn pages() -> Vec<PageNode> {
+        crate::parser::parse(SOURCE)
+            .expect("parse")
+            .into_iter()
+            .filter_map(|n| match n {
+                AstNode::Page(p) => Some(p),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn render_all(theme: &str) -> Vec<(String, String)> {
+        let pages = pages();
+        let mut out = Vec::new();
+        for s in &pages[0].sections {
+            let data = match s.section_type.as_str() {
+                "table" | "kanban" | "chart" => ResolvedData::Rows(vec![serde_json::json!({
+                    "id": "1", "title": "Write docs", "status": "todo", "amount": 3
+                })]),
+                _ => ResolvedData::None,
+            };
+            out.push((
+                s.section_type.clone(),
+                crate::ui::render_section(s, "blue", theme, &data),
+            ));
+        }
+        out.push((
+            "settings".into(),
+            super::render_settings_dashboard("App", &pages[1].sections, &[], theme, "/settings"),
+        ));
+        out.push((
+            "order-detail".into(),
+            super::render_order_detail_dashboard("App", &pages[2].sections, &[], theme, "/o"),
+        ));
+        out
+    }
+
+    /// Text between `open` and the next `close`, for every occurrence.
+    fn between<'a>(html: &'a str, open: &str, close: &str) -> Vec<&'a str> {
+        let mut v = Vec::new();
+        let mut rest = html;
+        while let Some(p) = rest.find(open) {
+            let after = &rest[p + open.len()..];
+            let end = after.find(close).unwrap_or(after.len());
+            v.push(&after[..end]);
+            rest = &after[end..];
+        }
+        v
+    }
+
+    fn strip_light_dark(s: &str) -> String {
+        let mut out = String::new();
+        let mut rest = s;
+        while let Some(p) = rest.find("light-dark(") {
+            out.push_str(&rest[..p]);
+            let mut depth = 0;
+            let mut end = rest.len();
+            for (i, c) in rest[p..].char_indices() {
+                if c == '(' {
+                    depth += 1;
+                } else if c == ')' {
+                    depth -= 1;
+                    if depth == 0 {
+                        end = p + i + 1;
+                        break;
+                    }
+                }
+            }
+            out.push_str("LD");
+            rest = &rest[end..];
+        }
+        out.push_str(rest);
+        out
+    }
+
+    fn css_contexts(html: &str) -> Vec<String> {
+        let mut ctx: Vec<&str> = between(html, "style=\"", "\"");
+        ctx.extend(between(html, "<style>", "</style>"));
+        for a in ["stroke=\"", "fill=\"", "stop-color=\""] {
+            ctx.extend(between(html, a, "\""));
+        }
+        ctx.into_iter().map(strip_light_dark).collect()
+    }
+
+    /// Markup only: `<script>` bodies (runtime JS templates) are not rendered
+    /// HTML and are not rewritten by `section_mode`.
+    fn without_scripts(html: &str) -> String {
+        let mut out = String::new();
+        let mut rest = html;
+        while let Some(p) = rest.find("<script") {
+            out.push_str(&rest[..p]);
+            let after = &rest[p..];
+            let end = after
+                .find("</script>")
+                .map(|e| e + "</script>".len())
+                .unwrap_or(after.len());
+            rest = &after[end..];
+        }
+        out.push_str(rest);
+        out
+    }
+
+    fn violations(theme: &str) -> Vec<String> {
+        let mut bad = Vec::new();
+        for (name, html) in render_all(theme) {
+            let html = without_scripts(&html);
+            for c in css_contexts(&html) {
+                let lower = c.to_ascii_lowercase();
+                for lit in DENY_LITERALS {
+                    let hit = lower.match_indices(lit).any(|(i, _)| {
+                        !lower[i + lit.len()..].starts_with(|ch: char| ch.is_ascii_alphanumeric())
+                    });
+                    if hit && !ALLOWLIST.iter().any(|(a, _)| c.contains(a)) {
+                        bad.push(format!("{theme}/{name}: {lit} in `{c}`"));
+                    }
+                }
+            }
+            for tag in between(&html, "<", ">") {
+                let tag_name: String = tag
+                    .chars()
+                    .take_while(|c| c.is_ascii_alphanumeric())
+                    .collect();
+                if ["a", "button", "input", "select", "textarea", "option", ""]
+                    .contains(&tag_name.as_str())
+                {
+                    continue;
+                }
+                let style = between(tag, "style=\"", "\"")
+                    .first()
+                    .copied()
+                    .unwrap_or("");
+                // Named white text (`color:white`) on non-interactive elements.
+                let white_text = strip_light_dark(style).split(';').any(|d| {
+                    d.split_once(':').is_some_and(|(p, v)| {
+                        p.trim().eq_ignore_ascii_case("color")
+                            && v.trim().eq_ignore_ascii_case("white")
+                    })
+                });
+                if white_text {
+                    bad.push(format!("{theme}/{name}: color:white on <{tag}>"));
+                }
+                let Some(class) = between(tag, "class=\"", "\"").first().copied() else {
+                    continue;
+                };
+                for (cls, prop) in DENY_CLASSES {
+                    if class.split_ascii_whitespace().any(|t| t == *cls) && !style.contains(prop) {
+                        bad.push(format!(
+                            "{theme}/{name}: class {cls} without {prop} on <{tag}>"
+                        ));
+                    }
+                }
+            }
+        }
+        bad
+    }
+
+    #[test]
+    fn light_sections_have_no_dark_only_colours() {
+        let bad = violations("light");
+        assert!(bad.is_empty(), "{}", bad.join("\n"));
+    }
+
+    #[test]
+    fn system_sections_keep_dark_colours_only_inside_light_dark() {
+        let bad = violations("system");
+        assert!(bad.is_empty(), "{}", bad.join("\n"));
+        let all = render_all("system");
+        let settings = &all.iter().find(|(n, _)| n == "settings").unwrap().1;
+        assert!(
+            settings.contains("light-dark(#f9f9f9, #131313)"),
+            "{settings}"
+        );
+        assert!(settings.contains("color-scheme:light dark"));
+    }
+
+    #[test]
+    fn dark_rendering_is_unchanged_by_mode_adapter() {
+        for (name, html) in render_all("dark") {
+            assert!(!html.contains("light-dark("), "{name}");
+            assert_eq!(
+                super::super::section_mode::adapt(html.clone(), "dark"),
+                html
+            );
+        }
+        let dark = render_all("dark");
+        let settings = &dark.iter().find(|(n, _)| n == "settings").unwrap().1;
+        assert!(settings.contains("background:#131313"));
+    }
 }

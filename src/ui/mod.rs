@@ -15,6 +15,7 @@ mod section_form;
 mod section_hero;
 mod section_kpi;
 mod section_misc;
+pub(crate) mod section_mode;
 mod util;
 
 pub use component::{render_components_inline, render_components_page, render_light_app_page};
@@ -598,9 +599,13 @@ pub(crate) fn render_section(
         .as_ref()
         .map(|b| b.entity.as_str())
         .unwrap_or("");
-    crate::cronus_ui_data::with_binding(entity, bound_data, || {
-        render_section_inner(section, accent, theme, bound_data)
-    })
+    // `system` renders the dark branch; `section_mode::adapt` then maps the
+    // dark palette to the page mode (no-op in dark).
+    let render_theme = section_mode::render_theme(theme);
+    let html = crate::cronus_ui_data::with_binding(entity, bound_data, || {
+        render_section_inner(section, accent, render_theme, bound_data)
+    });
+    section_mode::adapt(html, theme)
 }
 
 fn attach_voodoo_form(html: String, entity: &str) -> String {
