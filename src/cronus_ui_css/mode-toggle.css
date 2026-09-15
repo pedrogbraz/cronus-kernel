@@ -31,3 +31,26 @@
 [data-slot="mode-toggle"][data-mode="dark"] [data-slot="mode-toggle-crescent"] {
   transform: translateX(-7px);
 }
+/* Zero JS: the label's checkbox is the control (tokens swap in cronus_ui_css::mode_toggle_css);
+   React's button is decorative and morphs to the other mode while checked. */
+label:has(> input[data-cui-mode-toggle]) {
+  position: relative; display: inline-flex; flex-shrink: 0; cursor: pointer;
+}
+label:has(> input[data-cui-mode-toggle]:disabled) { cursor: default; }
+input[data-cui-mode-toggle] {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+input[data-cui-mode-toggle] + [data-slot="mode-toggle"] { pointer-events: none; }
+label:hover > input[data-cui-mode-toggle]:not(:disabled) + [data-slot="mode-toggle"] {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
+input[data-cui-mode-toggle]:focus-visible + [data-slot="mode-toggle"] {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
+}
+input[data-cui-mode-toggle]:checked + [data-slot="mode-toggle"][data-mode="light"] [data-slot="mode-toggle-core"] { transform: scale(1.75); }
+input[data-cui-mode-toggle]:checked + [data-slot="mode-toggle"][data-mode="light"] [data-slot="mode-toggle-rays"] { transform: scale(0.5); opacity: 0; }
+input[data-cui-mode-toggle]:checked + [data-slot="mode-toggle"][data-mode="light"] [data-slot="mode-toggle-crescent"] { transform: translateX(-7px); }
+input[data-cui-mode-toggle]:checked + [data-slot="mode-toggle"][data-mode="dark"] [data-slot="mode-toggle-core"] { transform: scale(1); }
+input[data-cui-mode-toggle]:checked + [data-slot="mode-toggle"][data-mode="dark"] [data-slot="mode-toggle-rays"] { transform: scale(1); opacity: 1; }
+input[data-cui-mode-toggle]:checked + [data-slot="mode-toggle"][data-mode="dark"] [data-slot="mode-toggle-crescent"] { transform: translateX(0); }

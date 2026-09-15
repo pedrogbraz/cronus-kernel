@@ -4,23 +4,35 @@
 //! icon `<span aria-hidden>` (generic circle glyph — .cronus carries no icon
 //! node) and a label `<span>`; unselected labels are visually hidden (sr-only)
 //! like React's collapsed state. First item is selected.
-//! The `label` names the tablist; it is never a tab. Switching tabs needs JS, so
-//! (wave 1t rule) tabs are native `disabled` buttons, not visually dimmed.
+//! The `label` names the group; it is never a tab.
+//!
+//! Zero JS: each item sits in a `<label>` with a visually hidden radio (shared
+//! page-unique `name`); clicking an item or Arrow keys select it, and CSS
+//! expands the label text of the item after the checked radio. The button keeps
+//! React's slot and look but is decorative (`aria-hidden`, `tabindex="-1"`,
+//! `pointer-events: none`), so the root is a `radiogroup`. Gaps vs React: no
+//! `tablist`/`tab` roles or live `aria-selected`, no width animation, no
+//! outside-click collapse.
 //! Not interact `tabs()` (generic tablist without expandable-tabs-item).
 
-use crate::cronus_ui_kit::{attr_nonempty, choice_texts, esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, choice_texts, esc, instance_id, label_of};
 use crate::parser::ComponentNode;
 
 const GLYPH: &str = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"7\"/></svg>";
 
 pub fn render(comp: &ComponentNode) -> String {
+    let name = instance_id(comp, "expandable-tabs");
     let buttons = tabs(comp)
         .iter()
         .enumerate()
         .map(|(i, t)| {
-            let selected = if i == 0 { "true" } else { "false" };
+            let (selected, checked) = if i == 0 {
+                ("true", " checked")
+            } else {
+                ("false", "")
+            };
             format!(
-                "<button type=\"button\" role=\"tab\" data-slot=\"expandable-tabs-item\" aria-selected=\"{selected}\" disabled><span aria-hidden=\"true\">{GLYPH}</span><span>{t}</span></button>"
+                "<label><input type=\"radio\" name=\"{name}\" value=\"{i}\" aria-label=\"{t}\"{checked}><button type=\"button\" role=\"tab\" data-slot=\"expandable-tabs-item\" aria-selected=\"{selected}\" tabindex=\"-1\" aria-hidden=\"true\"><span aria-hidden=\"true\">{GLYPH}</span><span>{t}</span></button></label>"
             )
         })
         .collect::<Vec<_>>()
@@ -28,7 +40,7 @@ pub fn render(comp: &ComponentNode) -> String {
     let aria = attr_nonempty(comp, "aria-label")
         .map(|a| format!(" aria-label=\"{}\"", esc(a)))
         .unwrap_or_default();
-    format!("<div data-slot=\"expandable-tabs\" role=\"tablist\"{aria}>{buttons}</div>")
+    format!("<div data-slot=\"expandable-tabs\" role=\"radiogroup\"{aria}>{buttons}</div>")
 }
 
 fn tabs(comp: &ComponentNode) -> Vec<String> {
@@ -72,6 +84,7 @@ mod tests {
         assert!(!html.contains("onclick="));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("<script"));
+        assert!(!html.contains(" disabled"));
     }
 
     #[test]
@@ -86,10 +99,28 @@ mod tests {
         assert_eq!(
             html,
             format!(
-                "<div data-slot=\"expandable-tabs\" role=\"tablist\" aria-label=\"Sections\"><button type=\"button\" role=\"tab\" data-slot=\"expandable-tabs-item\" aria-selected=\"true\" disabled><span aria-hidden=\"true\">{GLYPH}</span><span>Home</span></button><button type=\"button\" role=\"tab\" data-slot=\"expandable-tabs-item\" aria-selected=\"false\" disabled><span aria-hidden=\"true\">{GLYPH}</span><span>Search</span></button></div>"
+                "<div data-slot=\"expandable-tabs\" role=\"radiogroup\" aria-label=\"Sections\"><label><input type=\"radio\" name=\"cui-expandable-tabs-expandable-tabs\" value=\"0\" aria-label=\"Home\" checked><button type=\"button\" role=\"tab\" data-slot=\"expandable-tabs-item\" aria-selected=\"true\" tabindex=\"-1\" aria-hidden=\"true\"><span aria-hidden=\"true\">{GLYPH}</span><span>Home</span></button></label><label><input type=\"radio\" name=\"cui-expandable-tabs-expandable-tabs\" value=\"1\" aria-label=\"Search\"><button type=\"button\" role=\"tab\" data-slot=\"expandable-tabs-item\" aria-selected=\"false\" tabindex=\"-1\" aria-hidden=\"true\"><span aria-hidden=\"true\">{GLYPH}</span><span>Search</span></button></label></div>"
             )
         );
         reject_interact(&html);
+    }
+
+    #[test]
+    fn two_sets_on_one_page_get_distinct_names() {
+        crate::cronus_ui_kit::reset_instance_ids();
+        let a = render(&stub("expandable-tabs", "Home"));
+        let b = render(&stub("expandable-tabs", "Home"));
+        assert!(a.contains("name=\"cui-expandable-tabs-expandable-tabs\" "));
+        assert!(b.contains("name=\"cui-expandable-tabs-expandable-tabs-2\" "));
+    }
+
+    /// The checked radio, not the initial `aria-selected`, expands an item.
+    #[test]
+    fn chrome_expansion_follows_checked_radio() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"expandable-tabs\"] > label > input:checked + [data-slot=\"expandable-tabs-item\"] {\n  color: var(--cronus-fg); background: var(--cronus-surface-floating);"));
+        assert!(css.contains("[data-slot=\"expandable-tabs\"] > label > input:not(:checked) + [data-slot=\"expandable-tabs-item\"] > span:last-child {\n  position: absolute; width: 1px; height: 1px;"));
+        assert!(css.contains("[data-slot=\"expandable-tabs\"] > label > input:checked + [data-slot=\"expandable-tabs-item\"] > span:last-child {\n  position: static; width: auto; height: auto; margin: 0; clip: auto;\n}"));
     }
 
     #[test]

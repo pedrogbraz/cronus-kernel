@@ -1,6 +1,24 @@
-//! Dedicated ModeToggle renderer. Static:
-//! `<button type="button" data-slot="mode-toggle" data-mode="dark" aria-label="Switch to light mode">`.
-//! Not interact onclick `document.documentElement.classList.toggle('dark')` + BASE/SURF styles.
+//! Dedicated ModeToggle renderer.
+//!
+//! DOM: `<label>` > visually hidden `<input type="checkbox" data-cui-mode-toggle
+//! aria-label="Switch to … mode">` + React's
+//! `<button type="button" data-slot="mode-toggle" data-mode="dark|light">` with
+//! the sun/moon icon. Not interact onclick
+//! `document.documentElement.classList.toggle('dark')` + BASE/SURF styles.
+//!
+//! Zero JS: the checkbox is the control (click, Space, focus ring on the
+//! button). Checking it swaps the page to the other colour mode in CSS:
+//! `cronus_ui_css::mode_toggle_css` re-keys the vendored token blocks under
+//! `[data-cronus-theme][data-cronus-mode]:has(input[data-cui-mode-toggle]:checked)`,
+//! and the icon morphs to the other mode. The button keeps React's slot and
+//! look but is decorative (`aria-hidden`, `tabindex="-1"`,
+//! `pointer-events: none`); it is `data-disabled` (dimmed) only when the author
+//! disabled the toggle, which also disables the checkbox.
+//!
+//! Gaps vs React (no JS): the choice is not persisted (a reload or another page
+//! starts from the document's `data-cronus-mode`); `data-cronus-mode` itself
+//! does not change, so `system` mode and mode-keyed looks (`glass`) are not
+//! swapped; the checkbox's accessible name does not flip with the state.
 
 use crate::cronus_ui_kit::{esc, flag};
 use crate::parser::ComponentNode;
@@ -26,15 +44,18 @@ pub fn render(comp: &ComponentNode) -> String {
     let mode = mode_of(comp);
     let next = if mode == "light" { "dark" } else { "light" };
     let aria = aria_label_of(comp).unwrap_or_else(|| format!("Switch to {next} mode"));
+    let (input_disabled, dimmed) = if author_disabled(comp) {
+        (" disabled", " data-disabled=\"\"")
+    } else {
+        ("", "")
+    };
     format!(
-        "<button type=\"button\" data-slot=\"mode-toggle\" data-mode=\"{mode}\" aria-label=\"{aria}\"{dimmed} disabled>{ICON}</button>",
-        dimmed = if author_disabled(comp) { " data-disabled=\"\"" } else { "" },
+        "<label><input type=\"checkbox\" data-cui-mode-toggle aria-label=\"{aria}\"{input_disabled}><button type=\"button\" data-slot=\"mode-toggle\" data-mode=\"{mode}\" aria-label=\"{aria}\" tabindex=\"-1\" aria-hidden=\"true\"{dimmed}>{ICON}</button></label>"
     )
 }
 
-/// Switching the theme needs JS, so the button is always `disabled`; it is only
-/// dimmed (`data-disabled`) when the author disabled it, like React's
-/// `disabled:opacity-50`.
+/// React's `disabled` prop: dims the button (`disabled:opacity-50`) and
+/// disables the checkbox that carries the state.
 fn author_disabled(comp: &ComponentNode) -> bool {
     flag(comp, "disabled")
 }
@@ -90,21 +111,26 @@ mod tests {
     }
 
     #[test]
-    fn root_is_static_light_button_not_onclick_theme() {
+    fn root_is_checkbox_label_around_react_button() {
         let html = render(&stub("mode-toggle", "Theme"));
         assert!(html.starts_with(
-            "<button type=\"button\" data-slot=\"mode-toggle\" data-mode=\"light\" aria-label=\"Switch to dark mode\" disabled>"
+            "<label><input type=\"checkbox\" data-cui-mode-toggle aria-label=\"Switch to dark mode\"><button type=\"button\" data-slot=\"mode-toggle\" data-mode=\"light\" aria-label=\"Switch to dark mode\" tabindex=\"-1\" aria-hidden=\"true\">"
         ));
         assert!(!html.contains("data-disabled"));
-        let mut d = stub("mode-toggle", "Theme");
-        d.props.insert("disabled".into(), "true".into());
-        assert!(
-            render(&d).contains("aria-label=\"Switch to dark mode\" data-disabled=\"\" disabled>")
-        );
-        assert!(html.ends_with("</button>"));
+        assert!(!html.contains(" disabled"));
+        assert!(html.ends_with("</button></label>"));
         assert!(html.contains("data-slot=\"mode-toggle-core\""));
         assert!(html.contains("data-slot=\"mode-toggle-rays\""));
         reject_interact(&html);
+    }
+
+    #[test]
+    fn author_disabled_dims_button_and_disables_checkbox() {
+        let mut d = stub("mode-toggle", "Theme");
+        d.props.insert("disabled".into(), "true".into());
+        let html = render(&d);
+        assert!(html.contains("aria-label=\"Switch to dark mode\" disabled><button"));
+        assert!(html.contains("aria-hidden=\"true\" data-disabled=\"\">"));
     }
 
     #[test]
@@ -181,5 +207,46 @@ mod tests {
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("onclick"));
         assert!(!css.contains("classList"));
+    }
+
+    /// Checked flips the icon to the other mode; the label carries hover/focus.
+    #[test]
+    fn chrome_checked_morphs_icon_and_label_is_the_hit_target() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains(
+            "input[data-cui-mode-toggle] + [data-slot=\"mode-toggle\"] { pointer-events: none; }"
+        ));
+        assert!(css.contains("input[data-cui-mode-toggle]:checked + [data-slot=\"mode-toggle\"][data-mode=\"light\"] [data-slot=\"mode-toggle-core\"] { transform: scale(1.75); }"));
+        assert!(css.contains("input[data-cui-mode-toggle]:checked + [data-slot=\"mode-toggle\"][data-mode=\"dark\"] [data-slot=\"mode-toggle-core\"] { transform: scale(1); }"));
+        assert!(
+            css.contains("input[data-cui-mode-toggle]:focus-visible + [data-slot=\"mode-toggle\"]")
+        );
+    }
+
+    /// A page with the toggle ships the other-mode token blocks, keyed on the
+    /// checked checkbox, for every preset in both directions; a page without
+    /// it does not.
+    #[test]
+    fn page_with_toggle_ships_checked_mode_swap_tokens() {
+        let html = render(&stub("mode-toggle", "Theme"));
+        let css = crate::cronus_ui_css::audit_stylesheet(&html);
+        assert!(css.contains(
+            "[data-cronus-theme=\"aurora\"]:not([data-cronus-mode=\"light\"]):not([data-cronus-mode=\"system\"]):has(input[data-cui-mode-toggle]:checked) {"
+        ));
+        assert!(css.contains(
+            "[data-cronus-theme=\"aurora\"][data-cronus-mode=\"light\"]:has(input[data-cui-mode-toggle]:checked) {"
+        ));
+        assert!(css.contains(
+            "[data-cronus-theme=\"neutral\"][data-cronus-mode=\"dark\"]:has(input[data-cui-mode-toggle]:checked) {"
+        ));
+        let swap = crate::cronus_ui_css::mode_toggle_css();
+        assert_eq!(
+            swap.matches(":has(input[data-cui-mode-toggle]:checked) {")
+                .count(),
+            10
+        );
+        assert!(!swap.contains("@"));
+        let plain = crate::cronus_ui_css::audit_stylesheet("<div data-slot=\"card\"></div>");
+        assert!(!plain.contains("data-cui-mode-toggle"));
     }
 }

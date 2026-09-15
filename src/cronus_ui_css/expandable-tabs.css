@@ -26,3 +26,29 @@
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
 }
+/* Zero JS: each item's label holds a radio; the checked one expands. React's button is decorative. */
+[data-slot="expandable-tabs"] > label {
+  position: relative; display: inline-flex; cursor: pointer;
+}
+[data-slot="expandable-tabs"] > label > input {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="expandable-tabs"] > label > [data-slot="expandable-tabs-item"] { pointer-events: none; }
+[data-slot="expandable-tabs"] > label > input:checked + [data-slot="expandable-tabs-item"] {
+  color: var(--cronus-fg); background: var(--cronus-surface-floating);
+  box-shadow: var(--cronus-shadow-xs, none);
+}
+[data-slot="expandable-tabs"] > label > input:not(:checked) + [data-slot="expandable-tabs-item"] {
+  color: var(--cronus-fg-secondary); background: transparent; box-shadow: none;
+}
+[data-slot="expandable-tabs"] > label > input:not(:checked) + [data-slot="expandable-tabs-item"] > span:last-child {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
+}
+[data-slot="expandable-tabs"] > label > input:checked + [data-slot="expandable-tabs-item"] > span:last-child {
+  position: static; width: auto; height: auto; margin: 0; clip: auto;
+}
+[data-slot="expandable-tabs"] > label > input:focus-visible + [data-slot="expandable-tabs-item"] {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
+}

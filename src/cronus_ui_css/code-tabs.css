@@ -53,3 +53,51 @@
   display: block; white-space: pre;
   font-family: var(--cronus-font-mono, ui-monospace, monospace);
 }
+/* Zero JS: each trigger's label holds a radio; the checked index picks the
+   active trigger, panel and language (tabs 1-16). React's buttons are decorative. */
+[data-slot="code-tabs-list"] > label { display: inline-flex; cursor: pointer; }
+[data-slot="code-tabs-list"] > label > input {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="code-tabs-list"] > label > [data-slot="code-tabs-trigger"] { pointer-events: none; }
+[data-slot="code-tabs-list"] > label > input:checked + [data-slot="code-tabs-trigger"] { color: var(--cronus-fg); anchor-name: --code-tabs-active; }
+[data-slot="code-tabs-list"] > label > input:focus-visible + [data-slot="code-tabs-trigger"] {
+  box-shadow: inset 0 0 0 2px var(--cronus-ring);
+}
+[data-slot="code-tabs-panels"] > [data-slot="code-tabs-panel"],
+[data-slot="code-tabs-header"] > [data-slot="code-tabs-language"] { display: none; }
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(1) > input:checked) > [data-slot="code-tabs-panels"] > [data-slot="code-tabs-panel"]:nth-of-type(1),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(2) > input:checked) > [data-slot="code-tabs-panels"] > [data-slot="code-tabs-panel"]:nth-of-type(2),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(3) > input:checked) > [data-slot="code-tabs-panels"] > [data-slot="code-tabs-panel"]:nth-of-type(3),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(4) > input:checked) > [data-slot="code-tabs-panels"] > [data-slot="code-tabs-panel"]:nth-of-type(4),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(5) > input:checked) > [data-slot="code-tabs-panels"] > [data-slot="code-tabs-panel"]:nth-of-type(5),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(6) > input:checked) > [data-slot="code-tabs-panels"] > [data-slot="code-tabs-panel"]:nth-of-type(6),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(7) > input:checked) > [data-slot="code-tabs-panels"] > [data-slot="code-tabs-panel"]:nth-of-type(7),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(8) > input:checked) > [data-slot="code-tabs-panels"] > [data-slot="code-tabs-panel"]:nth-of-type(8),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(9) > input:checked) > [data-slot="code-tabs-panels"] > [data-slot="code-tabs-panel"]:nth-of-type(9),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(10) > input:checked) > [data-slot="code-tabs-panels"] > [data-slot="code-tabs-panel"]:nth-of-type(10),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(11) > input:checked) > [data-slot="code-tabs-panels"] > [data-slot="code-tabs-panel"]:nth-of-type(11),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(12) > input:checked) > [data-slot="code-tabs-panels"] > [data-slot="code-tabs-panel"]:nth-of-type(12),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(13) > input:checked) > [data-slot="code-tabs-panels"] > [data-slot="code-tabs-panel"]:nth-of-type(13),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(14) > input:checked) > [data-slot="code-tabs-panels"] > [data-slot="code-tabs-panel"]:nth-of-type(14),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(15) > input:checked) > [data-slot="code-tabs-panels"] > [data-slot="code-tabs-panel"]:nth-of-type(15),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(16) > input:checked) > [data-slot="code-tabs-panels"] > [data-slot="code-tabs-panel"]:nth-of-type(16),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(1) > input:checked) > [data-slot="code-tabs-header"] > [data-slot="code-tabs-language"]:nth-of-type(1),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(2) > input:checked) > [data-slot="code-tabs-header"] > [data-slot="code-tabs-language"]:nth-of-type(2),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(3) > input:checked) > [data-slot="code-tabs-header"] > [data-slot="code-tabs-language"]:nth-of-type(3),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(4) > input:checked) > [data-slot="code-tabs-header"] > [data-slot="code-tabs-language"]:nth-of-type(4),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(5) > input:checked) > [data-slot="code-tabs-header"] > [data-slot="code-tabs-language"]:nth-of-type(5),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(6) > input:checked) > [data-slot="code-tabs-header"] > [data-slot="code-tabs-language"]:nth-of-type(6),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(7) > input:checked) > [data-slot="code-tabs-header"] > [data-slot="code-tabs-language"]:nth-of-type(7),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(8) > input:checked) > [data-slot="code-tabs-header"] > [data-slot="code-tabs-language"]:nth-of-type(8),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(9) > input:checked) > [data-slot="code-tabs-header"] > [data-slot="code-tabs-language"]:nth-of-type(9),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(10) > input:checked) > [data-slot="code-tabs-header"] > [data-slot="code-tabs-language"]:nth-of-type(10),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(11) > input:checked) > [data-slot="code-tabs-header"] > [data-slot="code-tabs-language"]:nth-of-type(11),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(12) > input:checked) > [data-slot="code-tabs-header"] > [data-slot="code-tabs-language"]:nth-of-type(12),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(13) > input:checked) > [data-slot="code-tabs-header"] > [data-slot="code-tabs-language"]:nth-of-type(13),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(14) > input:checked) > [data-slot="code-tabs-header"] > [data-slot="code-tabs-language"]:nth-of-type(14),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(15) > input:checked) > [data-slot="code-tabs-header"] > [data-slot="code-tabs-language"]:nth-of-type(15),
+[data-slot="code-tabs"]:has(> [data-slot="code-tabs-header"] > [data-slot="code-tabs-list"] > label:nth-child(16) > input:checked) > [data-slot="code-tabs-header"] > [data-slot="code-tabs-language"]:nth-of-type(16) {
+  display: block;
+}

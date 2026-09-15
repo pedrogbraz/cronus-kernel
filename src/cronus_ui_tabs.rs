@@ -19,13 +19,15 @@
 //! triggers/panels (it could not follow the selection); inactive panels are
 //! `display: none` with their content present instead of empty + `hidden`;
 //! `radiogroup` Arrow keys wrap and select, Home/End are not handled; the
-//! panel-switching CSS covers the first `MAX_TABS` tabs.
+//! panel-switching CSS covers the first `MAX_TABS` tabs. The radio `name` is
+//! page-unique ([`instance_id`]), so two tab sets on one page switch
+//! independently.
 
-use crate::cronus_ui_kit::{attr, content_texts, esc, label_of, widget_id};
+use crate::cronus_ui_kit::{attr, content_texts, esc, instance_id, label_of};
 use crate::parser::ComponentNode;
 
 /// Tabs beyond this index still render but have no panel-switching rule.
-pub const MAX_TABS: usize = 12;
+pub const MAX_TABS: usize = 32;
 
 /// `(trigger, body)`: `tab` / `item` lines are tabs whose panel repeats the
 /// trigger; otherwise the `text` lines pair up (audit fixture), a lone trailing
@@ -62,7 +64,7 @@ pub fn render(comp: &ComponentNode) -> String {
         .map(esc)
         .and_then(|v| tabs.iter().position(|(t, _)| *t == v))
         .unwrap_or(0);
-    let name = widget_id(comp, "tabs");
+    let name = instance_id(comp, "tabs");
     let triggers = tabs
         .iter()
         .enumerate()
@@ -90,7 +92,7 @@ pub fn render(comp: &ComponentNode) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cronus_ui_kit::stub;
+    use crate::cronus_ui_kit::{reset_instance_ids, stub, widget_id};
     use crate::parser::ComponentItemNode;
 
     fn text(t: &str) -> ComponentItemNode {
@@ -101,6 +103,34 @@ mod tests {
             tone: None,
             config: Default::default(),
         }
+    }
+
+    #[test]
+    fn two_tab_sets_on_one_page_get_distinct_radio_names() {
+        reset_instance_ids();
+        let a = render(&fixture());
+        let b = render(&fixture());
+        assert!(a.contains("name=\"cui-tabs-tabs\" id=\"cui-tabs-tabs-t0\""));
+        assert!(b.contains("name=\"cui-tabs-tabs-2\" id=\"cui-tabs-tabs-2-t0\""));
+        assert!(!b.contains("name=\"cui-tabs-tabs\" "));
+        assert!(b.contains("aria-controls=\"cui-tabs-tabs-2-p0\" checked>"));
+        reset_instance_ids();
+        assert!(render(&fixture()).contains("name=\"cui-tabs-tabs\" "));
+    }
+
+    #[test]
+    fn twenty_tabs_all_switch() {
+        let mut c = stub("tabs", "many");
+        for i in 0..20 {
+            c.items.push(text(&format!("T{i}")));
+            c.items.push(text(&format!("B{i}")));
+        }
+        let html = render(&c);
+        assert_eq!(html.matches("data-slot=\"tabs-content\"").count(), 20);
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains(
+            "label:nth-child(20) > input:checked) > [data-slot=\"tabs-content\"]:nth-child(21)"
+        ));
     }
 
     /// Emitted audit fixture: `label "default"` + trigger/body text pairs.
@@ -152,6 +182,7 @@ mod tests {
         assert!(
             html.contains("aria-label=\"Password\" aria-controls=\"cui-tabs-tabs-p1\" checked>")
         );
+        reset_instance_ids();
         c.props.insert("value".into(), "Nope".into());
         assert!(render(&c).contains("aria-controls=\"cui-tabs-tabs-p0\" checked>"));
     }

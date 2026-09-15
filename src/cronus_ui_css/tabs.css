@@ -42,3 +42,26 @@
 [data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(12) > input:checked) > [data-slot="tabs-content"]:nth-child(13) {
   display: block;
 }
+/* tabs 13-32 (MAX_TABS): same pairing as the first twelve. */
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(13) > input:checked) > [data-slot="tabs-content"]:nth-child(14),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(14) > input:checked) > [data-slot="tabs-content"]:nth-child(15),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(15) > input:checked) > [data-slot="tabs-content"]:nth-child(16),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(16) > input:checked) > [data-slot="tabs-content"]:nth-child(17),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(17) > input:checked) > [data-slot="tabs-content"]:nth-child(18),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(18) > input:checked) > [data-slot="tabs-content"]:nth-child(19),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(19) > input:checked) > [data-slot="tabs-content"]:nth-child(20),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(20) > input:checked) > [data-slot="tabs-content"]:nth-child(21),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(21) > input:checked) > [data-slot="tabs-content"]:nth-child(22),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(22) > input:checked) > [data-slot="tabs-content"]:nth-child(23),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(23) > input:checked) > [data-slot="tabs-content"]:nth-child(24),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(24) > input:checked) > [data-slot="tabs-content"]:nth-child(25),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(25) > input:checked) > [data-slot="tabs-content"]:nth-child(26),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(26) > input:checked) > [data-slot="tabs-content"]:nth-child(27),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(27) > input:checked) > [data-slot="tabs-content"]:nth-child(28),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(28) > input:checked) > [data-slot="tabs-content"]:nth-child(29),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(29) > input:checked) > [data-slot="tabs-content"]:nth-child(30),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(30) > input:checked) > [data-slot="tabs-content"]:nth-child(31),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(31) > input:checked) > [data-slot="tabs-content"]:nth-child(32),
+[data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(32) > input:checked) > [data-slot="tabs-content"]:nth-child(33) {
+  display: block;
+}

@@ -1,21 +1,32 @@
 //! Dedicated RadioGroup renderer. DOM matches React/Radix:
-//! `<div data-slot="radio-group" role="radiogroup">` plus
-//! `<button type="button" data-slot="radio-group-item" role="radio">`.
-//! Not interact `radios()` (`<input type="radio">` inside labels).
+//! `<div data-slot="radio-group" role="radiogroup">` plus, per option,
+//! `<label>` > visually hidden `<input type="radio">` + React's
+//! `<button type="button" data-slot="radio-group-item" role="radio">` with the
+//! Radix indicator.
+//!
+//! Zero JS: the radios share a page-unique `name`, so clicking an option (or
+//! Arrow keys) selects it natively; CSS shows the indicator and the primary
+//! border on the item after the checked radio (each item carries the
+//! indicator; unchecked ones are `display: none`). The button keeps React's
+//! slot and look but is decorative (`aria-hidden`, `tabindex="-1"`,
+//! `pointer-events: none`). Gaps vs Radix: `data-state` / `aria-checked` stay
+//! at the initial state; a form `name`/`value` is the index-free option text.
+//! Not interact `radios()` (inline-styled `<input type="radio">` labels).
 
-use crate::cronus_ui_kit::{attr_nonempty, esc};
+use crate::cronus_ui_kit::{attr_nonempty, esc, instance_id};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
     let items = options(comp);
+    let name = instance_id(comp, "radio-group");
     let buttons = items
         .iter()
         .map(|(text, checked)| {
             let state = if *checked { "checked" } else { "unchecked" };
             let aria = if *checked { "true" } else { "false" };
-            let indicator = if *checked { CIRCLE_INDICATOR } else { "" };
+            let on = if *checked { " checked" } else { "" };
             format!(
-                "<button type=\"button\" role=\"radio\" aria-checked=\"{aria}\" data-state=\"{state}\" value=\"{v}\" data-slot=\"radio-group-item\" aria-label=\"{v}\">{indicator}</button>",
+                "<label><input type=\"radio\" name=\"{name}\" value=\"{v}\" aria-label=\"{v}\"{on}><button type=\"button\" role=\"radio\" aria-checked=\"{aria}\" data-state=\"{state}\" value=\"{v}\" data-slot=\"radio-group-item\" aria-label=\"{v}\" tabindex=\"-1\" aria-hidden=\"true\">{CIRCLE_INDICATOR}</button></label>",
                 v = esc(text)
             )
         })
@@ -102,21 +113,25 @@ mod tests {
     }
 
     fn reject_interact(html: &str) {
-        assert!(!html.contains("<input"));
-        assert!(!html.contains("type=\"radio\""));
-        assert!(!html.contains("<label"));
         assert!(!html.contains("style="));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
+        assert!(!html.contains(" disabled"));
+        assert!(!crate::cli::stub_renderer_gate::looks_like_interact_generic(html));
     }
 
     #[test]
-    fn root_is_radiogroup_of_button_radios() {
+    fn root_is_radiogroup_of_native_radios_around_react_buttons() {
         let html = render(&stub_options(&["Free", "Pro"]));
         assert!(html.starts_with("<div "));
         assert!(html.contains("data-slot=\"radio-group\""));
         assert!(html.contains("role=\"radiogroup\""));
         assert_eq!(html.matches("data-slot=\"radio-group-item\"").count(), 2);
+        assert_eq!(
+            html.matches("<input type=\"radio\" name=\"cui-plan-radio-group\"")
+                .count(),
+            2
+        );
         assert!(html.contains("<button type=\"button\" role=\"radio\""));
         assert!(html.contains("aria-label=\"Free\""));
         assert!(html.contains("aria-label=\"Pro\""));
@@ -129,7 +144,26 @@ mod tests {
         let html = render(&stub_options(&["Free", "Pro", "Team"]));
         assert_eq!(html.matches("aria-checked=\"true\"").count(), 0);
         assert_eq!(html.matches("aria-checked=\"false\"").count(), 3);
+        assert!(!html.contains(" checked"));
         reject_interact(&html);
+    }
+
+    #[test]
+    fn two_groups_on_one_page_get_distinct_names() {
+        crate::cronus_ui_kit::reset_instance_ids();
+        let a = render(&stub_options(&["Free", "Pro"]));
+        let b = render(&stub_options(&["Free", "Pro"]));
+        assert!(a.contains("name=\"cui-plan-radio-group\" "));
+        assert!(b.contains("name=\"cui-plan-radio-group-2\" "));
+    }
+
+    /// The checked radio, not the initial `data-state`, shows the indicator.
+    #[test]
+    fn chrome_indicator_follows_checked_radio() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"radio-group\"] > label > input:not(:checked) + [data-slot=\"radio-group-item\"] > span { display: none; }"));
+        assert!(css.contains("[data-slot=\"radio-group\"] > label > input:checked + [data-slot=\"radio-group-item\"] { border-color: var(--cronus-primary); }"));
+        assert!(css.contains("[data-slot=\"radio-group\"] > label > input:not(:checked) + [data-slot=\"radio-group-item\"][data-state=\"checked\"] { border-color: var(--cronus-border); }"));
     }
 
     #[test]
@@ -156,7 +190,7 @@ mod tests {
         assert_eq!(
             render(&c),
             format!(
-                "<div role=\"radiogroup\" aria-required=\"false\" dir=\"ltr\" data-slot=\"radio-group\" aria-label=\"Plan\"><button type=\"button\" role=\"radio\" aria-checked=\"false\" data-state=\"unchecked\" value=\"Free\" data-slot=\"radio-group-item\" aria-label=\"Free\"></button><button type=\"button\" role=\"radio\" aria-checked=\"true\" data-state=\"checked\" value=\"Pro\" data-slot=\"radio-group-item\" aria-label=\"Pro\">{CIRCLE_INDICATOR}</button></div>"
+                "<div role=\"radiogroup\" aria-required=\"false\" dir=\"ltr\" data-slot=\"radio-group\" aria-label=\"Plan\"><label><input type=\"radio\" name=\"cui-radiogroupdefault-radio-group\" value=\"Free\" aria-label=\"Free\"><button type=\"button\" role=\"radio\" aria-checked=\"false\" data-state=\"unchecked\" value=\"Free\" data-slot=\"radio-group-item\" aria-label=\"Free\" tabindex=\"-1\" aria-hidden=\"true\">{CIRCLE_INDICATOR}</button></label><label><input type=\"radio\" name=\"cui-radiogroupdefault-radio-group\" value=\"Pro\" aria-label=\"Pro\" checked><button type=\"button\" role=\"radio\" aria-checked=\"true\" data-state=\"checked\" value=\"Pro\" data-slot=\"radio-group-item\" aria-label=\"Pro\" tabindex=\"-1\" aria-hidden=\"true\">{CIRCLE_INDICATOR}</button></label></div>"
             )
         );
         let css = crate::cronus_ui::component_chrome_css();

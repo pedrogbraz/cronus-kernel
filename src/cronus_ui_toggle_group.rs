@@ -1,27 +1,45 @@
 //! Dedicated ToggleGroup renderer.
-//! `<div data-slot="toggle-group" role="group" aria-label>` plus
-//! `<button type="button" data-slot="toggle-group-item" data-state="on|off" aria-pressed disabled>`.
-//! Geometry matches React/Radix (`type="single"`); roles stay `group`/`aria-pressed`
+//! `<div data-slot="toggle-group" role="group" aria-label>` plus, per item,
+//! `<label>` > visually hidden state `<input>` + React's
+//! `<button type="button" data-slot="toggle-group-item" data-state="on|off" aria-pressed>`.
+//! Geometry matches React/Radix (`type="single"`); the root role stays `group`
 //! because the stub gate treats `role="radiogroup"` as the interact radios fallback.
-//! Switching the pressed item needs JS, so (wave 1t rule) items are native buttons
-//! marked `disabled`, without visual attenuation; chrome only dims `data-disabled`
-//! (Radix's attribute for a genuinely disabled item).
+//!
+//! Zero JS: in single mode (default) the inputs are radios sharing a page-unique
+//! `name`, so pressing one releases the others and Arrow keys move the choice;
+//! `type:"multiple"` makes them independent checkboxes. CSS paints the item after
+//! a checked input as pressed. The button keeps React's slot and look but is
+//! decorative (`aria-hidden`, `tabindex="-1"`, `pointer-events: none`); only
+//! `data-disabled` (Radix's genuinely disabled item) dims.
+//! Gaps vs Radix: single mode cannot release the pressed item (radios), the
+//! control is announced as a radio/checkbox instead of a pressed button, and
+//! `data-state` / `aria-pressed` stay at the initial state.
 //! The `label` names the group (it is never an option). Selected option: item
 //! `pressed`/`on`, else the group `value` (props or trailing `value:` config), else first.
-//! Not interact `radios()` (`<input type="radio">` inside labels).
+//! Not interact `radios()` (inline-styled `<input type="radio">` labels).
 
-use crate::cronus_ui_kit::{attr, attr_nonempty, esc};
+use crate::cronus_ui_kit::{attr, attr_nonempty, esc, instance_id};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
+    let kind = if attr(comp, "type") == Some("multiple") {
+        "checkbox"
+    } else {
+        "radio"
+    };
+    let name = instance_id(comp, "toggle-group");
     let buttons = options(comp)
         .iter()
-        .map(|(text, on)| {
-            let state = if *on { "on" } else { "off" };
-            let aria = if *on { "true" } else { "false" };
+        .enumerate()
+        .map(|(i, (text, on))| {
+            let (state, aria, checked) = if *on {
+                ("on", "true", " checked")
+            } else {
+                ("off", "false", "")
+            };
+            let t = esc(text);
             format!(
-                "<button type=\"button\" data-slot=\"toggle-group-item\" data-state=\"{state}\" aria-pressed=\"{aria}\" disabled>{}</button>",
-                esc(text)
+                "<label><input type=\"{kind}\" name=\"{name}\" value=\"{i}\" aria-label=\"{t}\"{checked}><button type=\"button\" data-slot=\"toggle-group-item\" data-state=\"{state}\" aria-pressed=\"{aria}\" tabindex=\"-1\" aria-hidden=\"true\">{t}</button></label>"
             )
         })
         .collect::<Vec<_>>()
@@ -86,12 +104,12 @@ mod tests {
     }
 
     fn reject_interact(html: &str) {
-        assert!(!html.contains("<input"));
-        assert!(!html.contains("<label"));
         assert!(!html.contains("role=\"radiogroup\""));
         assert!(!html.contains("style="));
         assert!(!html.contains("onclick="));
         assert!(!html.contains("v-data="));
+        assert!(!html.contains(" disabled"));
+        assert!(!crate::cli::stub_renderer_gate::looks_like_interact_generic(html));
     }
 
     #[test]
@@ -106,7 +124,7 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            "<div data-slot=\"toggle-group\" role=\"group\" aria-label=\"Range\"><button type=\"button\" data-slot=\"toggle-group-item\" data-state=\"off\" aria-pressed=\"false\" disabled>Day</button><button type=\"button\" data-slot=\"toggle-group-item\" data-state=\"on\" aria-pressed=\"true\" disabled>Week</button></div>"
+            "<div data-slot=\"toggle-group\" role=\"group\" aria-label=\"Range\"><label><input type=\"radio\" name=\"cui-toggle-group-toggle-group\" value=\"0\" aria-label=\"Day\"><button type=\"button\" data-slot=\"toggle-group-item\" data-state=\"off\" aria-pressed=\"false\" tabindex=\"-1\" aria-hidden=\"true\">Day</button></label><label><input type=\"radio\" name=\"cui-toggle-group-toggle-group\" value=\"1\" aria-label=\"Week\" checked><button type=\"button\" data-slot=\"toggle-group-item\" data-state=\"on\" aria-pressed=\"true\" tabindex=\"-1\" aria-hidden=\"true\">Week</button></label></div>"
         );
         reject_interact(&html);
     }
@@ -119,8 +137,8 @@ mod tests {
             c.items.push(item("item", t));
         }
         let html = render(&c);
-        assert!(html.contains("data-state=\"on\" aria-pressed=\"true\" disabled>Left</button>"));
-        assert!(html.contains("data-state=\"off\" aria-pressed=\"false\" disabled>Center</button>"));
+        assert!(html.contains("aria-label=\"Left\" checked><button type=\"button\" data-slot=\"toggle-group-item\" data-state=\"on\""));
+        assert!(html.contains("aria-label=\"Center\"><button type=\"button\" data-slot=\"toggle-group-item\" data-state=\"off\""));
     }
 
     #[test]
@@ -132,8 +150,41 @@ mod tests {
         }
         c.items[1].config.insert("pressed".into(), "true".into());
         let html = render(&c);
-        assert!(html.contains("data-state=\"on\" aria-pressed=\"true\" disabled>Center</button>"));
+        assert!(html.contains("aria-label=\"Center\" checked><button"));
         assert_eq!(html.matches("data-state=\"on\"").count(), 1);
+        assert_eq!(html.matches(" checked").count(), 1);
+    }
+
+    #[test]
+    fn multiple_type_uses_checkboxes() {
+        let mut c = stub("toggle-group", "Format");
+        c.items.clear();
+        for t in ["Bold", "Italic"] {
+            c.items.push(item("item", t));
+        }
+        c.props.insert("type".into(), "multiple".into());
+        let html = render(&c);
+        assert_eq!(html.matches("type=\"checkbox\"").count(), 2);
+        assert!(!html.contains("type=\"radio\""));
+    }
+
+    #[test]
+    fn two_groups_on_one_page_get_distinct_names() {
+        crate::cronus_ui_kit::reset_instance_ids();
+        let c = stub("toggle-group", "Align");
+        let a = render(&c);
+        let b = render(&c);
+        assert!(a.contains("name=\"cui-toggle-group-toggle-group\" "));
+        assert!(b.contains("name=\"cui-toggle-group-toggle-group-2\" "));
+    }
+
+    /// The checked input, not the initial `data-state`, paints the pressed item.
+    #[test]
+    fn chrome_pressed_look_follows_checked_input() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"toggle-group\"] > label > input:checked + [data-slot=\"toggle-group-item\"] {\n  background: var(--cronus-surface-overlay); color: var(--cronus-fg);\n}"));
+        assert!(css.contains("[data-slot=\"toggle-group\"] > label > input:not(:checked) + [data-slot=\"toggle-group-item\"][data-state=\"on\"] {\n  background: transparent; color: var(--cronus-fg-secondary);\n}"));
+        assert!(css.contains("[data-slot=\"toggle-group\"] > label > [data-slot=\"toggle-group-item\"] { pointer-events: none; }"));
     }
 
     #[test]

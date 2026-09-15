@@ -10,3 +10,12 @@
 [data-slot="collapsible-content"][data-state="open"] {
   display: block;
 }
+/* Zero-JS root is <details open>: the summary is the trigger; the React button inside is decorative. */
+details:has(> [data-slot="collapsible-content"]) > summary {
+  display: block; list-style: none; cursor: pointer;
+}
+details:has(> [data-slot="collapsible-content"]) > summary::-webkit-details-marker { display: none; }
+details:has(> [data-slot="collapsible-content"]) > summary > button { pointer-events: none; }
+details:has(> [data-slot="collapsible-content"]) > summary:focus-visible {
+  outline: 2px solid var(--cronus-ring); outline-offset: 2px;
+}

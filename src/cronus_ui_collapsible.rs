@@ -1,10 +1,17 @@
 //! Dedicated Collapsible renderer. DOM matches React/Radix open state:
-//! `<div data-state="open">` (Radix Root carries no data-slot) > trigger
-//! `<button aria-expanded="true" data-state="open">` (label) >
+//! unslotted root (Radix Root carries no data-slot) > unslotted trigger
+//! `<button data-state="open">` (label) >
 //! `<div data-slot="collapsible-content" data-state="open">` (body texts).
-//! Toggling needs JS, so the kernel renders the fixture's `defaultOpen` state
-//! and the trigger keeps React's `<button>` but is `disabled` (not dimmed).
-//! Not interact `accordion("collapsible")` (`<details>` SURF, no collapsible-content).
+//!
+//! Zero JS: the root is `<details open>` and the trigger button sits in its
+//! `<summary>`, so the summary toggles the content natively (click, Enter,
+//! Space) and exposes the expanded state. The button keeps React's element and
+//! look but is decorative (`aria-hidden`, `tabindex="-1"`,
+//! `pointer-events: none`). Starts open like the fixture's `defaultOpen`.
+//! Gaps vs Radix: `data-state` stays `open` after toggling (CSS hides closed
+//! content via `<details>`), the focusable element is the `<summary>`, not the
+//! `<button>`. Not interact `accordion("collapsible")` (SURF, no
+//! collapsible-content).
 
 use crate::cronus_ui_kit::{esc, label_of};
 use crate::parser::ComponentNode;
@@ -19,7 +26,7 @@ pub fn render(comp: &ComponentNode) -> String {
         .collect::<Vec<_>>()
         .join("");
     format!(
-        "<div data-state=\"open\"><button type=\"button\" aria-expanded=\"true\" data-state=\"open\" disabled>{label}</button><div data-state=\"open\" data-slot=\"collapsible-content\">{body}</div></div>"
+        "<details open data-state=\"open\"><summary><button type=\"button\" data-state=\"open\" tabindex=\"-1\" aria-hidden=\"true\">{label}</button></summary><div data-state=\"open\" data-slot=\"collapsible-content\">{body}</div></details>"
     )
 }
 
@@ -40,24 +47,24 @@ mod tests {
     }
 
     fn reject_interact(html: &str) {
-        assert!(!html.contains("<details"));
-        assert!(!html.contains("<summary"));
         assert!(!html.contains("style="));
         assert!(!html.contains("onclick="));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("<script"));
+        assert!(!html.contains(" disabled"));
+        assert!(!crate::cli::stub_renderer_gate::looks_like_interact_generic(html));
     }
 
     /// wave1t: Radix Root has no `data-slot`; an extra kernel slot would be
-    /// an unpaired geometry node.
+    /// an unpaired geometry node. The native disclosure is `<details open>`.
     #[test]
-    fn root_is_unslotted_radix_open_state() {
+    fn root_is_unslotted_native_disclosure_open_by_default() {
         let mut c = stub("collapsible", "Toggle");
         c.items.push(extra("Hidden body"));
         let html = render(&c);
         assert_eq!(
             html,
-            "<div data-state=\"open\"><button type=\"button\" aria-expanded=\"true\" data-state=\"open\" disabled>Toggle</button><div data-state=\"open\" data-slot=\"collapsible-content\">Hidden body</div></div>"
+            "<details open data-state=\"open\"><summary><button type=\"button\" data-state=\"open\" tabindex=\"-1\" aria-hidden=\"true\">Toggle</button></summary><div data-state=\"open\" data-slot=\"collapsible-content\">Hidden body</div></details>"
         );
         assert!(!html.contains("data-slot=\"collapsible\""));
         reject_interact(&html);
@@ -66,7 +73,7 @@ mod tests {
     #[test]
     fn label_only_still_opens_empty_content() {
         let html = render(&stub("collapsible", "Show more"));
-        assert!(html.contains(">Show more</button>"));
+        assert!(html.contains(">Show more</button></summary>"));
         assert!(html.contains("data-slot=\"collapsible-content\"></div>"));
         reject_interact(&html);
     }
@@ -97,5 +104,15 @@ mod tests {
         ));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("onclick"));
+    }
+
+    /// The summary lays out like React's root > button (block line box, no
+    /// marker) and hands clicks through the decorative button.
+    #[test]
+    fn chrome_summary_is_markerless_block_trigger() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("details:has(> [data-slot=\"collapsible-content\"]) > summary {\n  display: block; list-style: none; cursor: pointer;"));
+        assert!(css.contains("details:has(> [data-slot=\"collapsible-content\"]) > summary::-webkit-details-marker { display: none; }"));
+        assert!(css.contains("details:has(> [data-slot=\"collapsible-content\"]) > summary > button { pointer-events: none; }"));
     }
 }

@@ -28,3 +28,20 @@
 [data-slot="carousel-previous"]:disabled, [data-slot="carousel-next"]:disabled { cursor: default; }
 [data-slot="carousel-previous"][data-disabled], [data-slot="carousel-next"][data-disabled] { opacity: 0.5; }
 [data-slot="carousel-previous"] svg, [data-slot="carousel-next"] svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+/* Zero-JS navigation: each slide's fragment links sit over the prev/next buttons
+   (row of two 2.25rem buttons, 0.5rem gap, centred); only the live slide's pair shows. */
+[data-slot="carousel-item"] > a {
+  position: absolute; bottom: 0; display: none; box-sizing: border-box;
+  width: 2.25rem; height: 2.25rem; border-radius: 9999px; outline: none; cursor: pointer;
+}
+[data-slot="carousel-item"] > a[data-nav="previous"] { inset-inline-start: calc(50% - 2.5rem); }
+[data-slot="carousel-item"] > a[data-nav="next"] { inset-inline-start: calc(50% + 0.25rem); }
+[data-slot="carousel-item"]:target > a,
+[data-slot="carousel-content"]:not(:has(> :target)) > [data-slot="carousel-item"]:first-child > a {
+  display: block;
+}
+[data-slot="carousel-item"] > a:focus-visible {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
+}
+[data-slot="carousel"]:has(> [data-slot="carousel-content"] > [data-slot="carousel-item"]:target:not(:first-child)) [data-slot="carousel-previous"] { opacity: 1; }
+[data-slot="carousel"]:has(> [data-slot="carousel-content"] > [data-slot="carousel-item"]:target:last-child) [data-slot="carousel-next"] { opacity: 0.5; }

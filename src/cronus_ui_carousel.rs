@@ -3,13 +3,25 @@
 //! `carousel-item` > card `<div>`, then a centred row with icon-only
 //! `carousel-previous` / `carousel-next`.
 //!
-//! Zero JS: the strip scrolls/snaps natively; the prev/next buttons need the
-//! Embla runtime, so both are rendered `disabled` (inert). `data-disabled`
-//! marks the ones React itself disables at idle (previous; next when there is
-//! a single slide) and only those dim. Not catalog `display()` SURF, not
-//! interact flex-overflow slides without `carousel-item`.
+//! Zero JS navigation: every slide has a page-unique fragment id
+//! (`{id}-slide-N`) and carries unslotted `<a href="#{id}-slide-N±1">` links for
+//! its own previous/next. The links are absolutely positioned over React's
+//! prev/next buttons (their containing block is the carousel root, outside the
+//! scroll strip, so they are not clipped and add no scroll overflow). Only the
+//! `:target` slide's pair is displayed (the first slide's pair when no slide is
+//! targeted), so a click follows the fragment and the strip scrolls/snaps to
+//! the slide natively. The buttons keep React's slot and idle look but are
+//! decorative (`aria-hidden`, `tabindex="-1"`); the links are the keyboard and
+//! screen-reader controls. `data-disabled` marks what React disables at idle
+//! (previous; next with one slide); CSS re-derives the edges from `:target`.
+//!
+//! Gaps vs Embla: fragment navigation also scrolls the page so the slide is in
+//! view and adds a history entry; swiping/scrolling the strip by hand does not
+//! move `:target`, so prev/next then act relative to the last linked slide; no
+//! Arrow-key handling on the region. Not catalog `display()` SURF, not interact
+//! flex-overflow slides without `carousel-item`.
 
-use crate::cronus_ui_kit::{attr_nonempty, esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, esc, instance_id, label_of};
 use crate::parser::ComponentNode;
 
 const CHEVRON_LEFT: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m15 18-6-6 6-6\"></path></svg>";
@@ -28,21 +40,36 @@ pub fn render(comp: &ComponentNode) -> String {
     let aria = attr_nonempty(comp, "aria-label")
         .map(esc)
         .unwrap_or_else(|| label_of(comp));
-    let next_idle = if slides.len() <= 1 {
-        " data-disabled=\"\""
-    } else {
-        ""
-    };
+    let id = instance_id(comp, "carousel");
+    let n = slides.len();
+    let next_idle = if n <= 1 { " data-disabled=\"\"" } else { "" };
     let items = slides
         .iter()
-        .map(|t| {
+        .enumerate()
+        .map(|(i, t)| {
+            let prev = if i > 0 {
+                format!(
+                    "<a href=\"#{id}-slide-{}\" data-nav=\"previous\" aria-label=\"Previous slide\"></a>",
+                    i - 1
+                )
+            } else {
+                String::new()
+            };
+            let next = if i + 1 < n {
+                format!(
+                    "<a href=\"#{id}-slide-{}\" data-nav=\"next\" aria-label=\"Next slide\"></a>",
+                    i + 1
+                )
+            } else {
+                String::new()
+            };
             format!(
-                "<div data-slot=\"carousel-item\" role=\"group\" aria-roledescription=\"slide\"><div>{t}</div></div>"
+                "<div data-slot=\"carousel-item\" id=\"{id}-slide-{i}\" role=\"group\" aria-roledescription=\"slide\"><div>{t}</div>{prev}{next}</div>"
             )
         })
         .collect::<String>();
     format!(
-        "<div data-slot=\"carousel\" role=\"region\" aria-roledescription=\"carousel\" aria-label=\"{aria}\"><div data-slot=\"carousel-content\" tabindex=\"0\">{items}</div><div><button type=\"button\" data-slot=\"carousel-previous\" data-variant=\"outline\" aria-label=\"Previous slide\" data-disabled=\"\" disabled>{CHEVRON_LEFT}</button><button type=\"button\" data-slot=\"carousel-next\" data-variant=\"outline\" aria-label=\"Next slide\"{next_idle} disabled>{CHEVRON_RIGHT}</button></div></div>"
+        "<div data-slot=\"carousel\" role=\"region\" aria-roledescription=\"carousel\" aria-label=\"{aria}\"><div data-slot=\"carousel-content\" tabindex=\"0\">{items}</div><div><button type=\"button\" data-slot=\"carousel-previous\" data-variant=\"outline\" aria-label=\"Previous slide\" tabindex=\"-1\" aria-hidden=\"true\" data-disabled=\"\">{CHEVRON_LEFT}</button><button type=\"button\" data-slot=\"carousel-next\" data-variant=\"outline\" aria-label=\"Next slide\" tabindex=\"-1\" aria-hidden=\"true\"{next_idle}>{CHEVRON_RIGHT}</button></div></div>"
     )
 }
 
@@ -50,7 +77,7 @@ pub fn render(comp: &ComponentNode) -> String {
 mod tests {
     use super::*;
     use crate::cli::stub_renderer_gate::{dedicated_fn_name, renderer_kind, RendererKind};
-    use crate::cronus_ui_kit::stub;
+    use crate::cronus_ui_kit::{reset_instance_ids, stub};
     use crate::parser::ComponentItemNode;
 
     const DISPLAY_SURF: &str = "padding:1rem;display:flex;flex-direction:column;gap:0.5rem";
@@ -91,6 +118,7 @@ mod tests {
         assert!(!html.contains(DISPLAY_SURF));
         assert!(!html.contains(INTERACT_ROW));
         assert!(!html.contains("zinc-"));
+        assert!(!html.contains(" disabled"));
     }
 
     #[test]
@@ -99,19 +127,51 @@ mod tests {
         assert_eq!(
             html,
             format!(
-                "<div data-slot=\"carousel\" role=\"region\" aria-roledescription=\"carousel\" aria-label=\"Slides\"><div data-slot=\"carousel-content\" tabindex=\"0\"><div data-slot=\"carousel-item\" role=\"group\" aria-roledescription=\"slide\"><div>One</div></div><div data-slot=\"carousel-item\" role=\"group\" aria-roledescription=\"slide\"><div>Two</div></div></div><div><button type=\"button\" data-slot=\"carousel-previous\" data-variant=\"outline\" aria-label=\"Previous slide\" data-disabled=\"\" disabled>{CHEVRON_LEFT}</button><button type=\"button\" data-slot=\"carousel-next\" data-variant=\"outline\" aria-label=\"Next slide\" disabled>{CHEVRON_RIGHT}</button></div></div>"
+                "<div data-slot=\"carousel\" role=\"region\" aria-roledescription=\"carousel\" aria-label=\"Slides\"><div data-slot=\"carousel-content\" tabindex=\"0\"><div data-slot=\"carousel-item\" id=\"cui-carousel-carousel-slide-0\" role=\"group\" aria-roledescription=\"slide\"><div>One</div><a href=\"#cui-carousel-carousel-slide-1\" data-nav=\"next\" aria-label=\"Next slide\"></a></div><div data-slot=\"carousel-item\" id=\"cui-carousel-carousel-slide-1\" role=\"group\" aria-roledescription=\"slide\"><div>Two</div><a href=\"#cui-carousel-carousel-slide-0\" data-nav=\"previous\" aria-label=\"Previous slide\"></a></div></div><div><button type=\"button\" data-slot=\"carousel-previous\" data-variant=\"outline\" aria-label=\"Previous slide\" tabindex=\"-1\" aria-hidden=\"true\" data-disabled=\"\">{CHEVRON_LEFT}</button><button type=\"button\" data-slot=\"carousel-next\" data-variant=\"outline\" aria-label=\"Next slide\" tabindex=\"-1\" aria-hidden=\"true\">{CHEVRON_RIGHT}</button></div></div>"
             )
         );
         assert!(!html.contains(">Slides<"));
         reject_stub(&html);
     }
 
+    /// Each slide links to its neighbours only; the edges have no link.
+    #[test]
+    fn slides_link_to_their_neighbours() {
+        let html = render(&slides("S", &["A", "B", "C"]));
+        let item = |i: usize| {
+            let start = html
+                .find(&format!("id=\"cui-carousel-carousel-slide-{i}\""))
+                .unwrap();
+            let end = start + html[start..].find("</a></div>").unwrap_or(0);
+            html[start..end].to_string()
+        };
+        assert!(!item(0).contains("data-nav=\"previous\""));
+        assert!(item(0).contains("href=\"#cui-carousel-carousel-slide-1\" data-nav=\"next\""));
+        assert!(item(1).contains("href=\"#cui-carousel-carousel-slide-0\" data-nav=\"previous\""));
+        assert!(item(1).contains("href=\"#cui-carousel-carousel-slide-2\" data-nav=\"next\""));
+        assert_eq!(html.matches("data-nav=\"next\"").count(), 2);
+        assert_eq!(html.matches("data-nav=\"previous\"").count(), 2);
+    }
+
+    #[test]
+    fn two_carousels_on_one_page_have_distinct_slide_ids() {
+        reset_instance_ids();
+        let a = render(&slides("S", &["A", "B"]));
+        let b = render(&slides("S", &["A", "B"]));
+        assert!(a.contains("id=\"cui-carousel-carousel-slide-1\""));
+        assert!(b.contains("id=\"cui-carousel-carousel-2-slide-1\""));
+        assert!(b.contains("href=\"#cui-carousel-carousel-2-slide-1\""));
+    }
+
     #[test]
     fn label_only_still_emits_one_item_and_idle_disables_next() {
         let html = render(&stub("carousel", "Slide"));
         assert_eq!(html.matches("data-slot=\"carousel-item\"").count(), 1);
-        assert!(html.contains("<div>Slide</div>"));
-        assert!(html.contains("aria-label=\"Next slide\" data-disabled=\"\" disabled>"));
+        assert!(html.contains("<div>Slide</div></div>"));
+        assert!(!html.contains("<a "));
+        assert!(html.contains(
+            "aria-label=\"Next slide\" tabindex=\"-1\" aria-hidden=\"true\" data-disabled=\"\">"
+        ));
         reject_stub(&html);
     }
 
@@ -162,5 +222,19 @@ mod tests {
         assert!(css.contains("scroll-snap-align: start"));
         assert!(css.contains("var(--cronus-surface-raised)"));
         assert!(!css.contains("zinc-"));
+    }
+
+    /// Links sit over the buttons (row of two 2.25rem buttons, 0.5rem gap,
+    /// centred), only the live slide's pair shows, and edges follow `:target`.
+    #[test]
+    fn chrome_links_follow_target_slide() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"carousel-item\"] > a[data-nav=\"previous\"] { inset-inline-start: calc(50% - 2.5rem); }"));
+        assert!(css.contains("[data-slot=\"carousel-item\"] > a[data-nav=\"next\"] { inset-inline-start: calc(50% + 0.25rem); }"));
+        assert!(css.contains("[data-slot=\"carousel-item\"]:target > a,\n[data-slot=\"carousel-content\"]:not(:has(> :target)) > [data-slot=\"carousel-item\"]:first-child > a {\n  display: block;\n}"));
+        assert!(css.contains(
+            ":target:not(:first-child)) [data-slot=\"carousel-previous\"] { opacity: 1; }"
+        ));
+        assert!(css.contains(":target:last-child) [data-slot=\"carousel-next\"] { opacity: 0.5; }"));
     }
 }

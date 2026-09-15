@@ -39,3 +39,18 @@
 [data-slot="accordion-content"] > div {
   padding: 0 0 1rem;
 }
+/* single mode: the open header's collapse label targets the group's hidden "Collapse all" radio. */
+[data-slot="accordion-item"] > h3 {
+  position: relative;
+}
+[data-slot="accordion-item"] > h3 > label[for] {
+  position: absolute; inset: 0; display: none; cursor: pointer;
+}
+[data-slot="accordion-item"] > h3:has(> label > input:checked) > label[for] { display: block; }
+[data-slot="accordion-item"] > h3:has(> label[for]:hover) > label > [data-slot="accordion-trigger"] {
+  text-decoration: underline;
+}
+div:has(> [data-slot="accordion-item"]) > input {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}

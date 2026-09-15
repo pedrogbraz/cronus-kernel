@@ -16,3 +16,18 @@
 [data-slot="radio-group-item"] > span > svg {
   width: 0.5rem; height: 0.5rem; fill: var(--cronus-primary); color: var(--cronus-primary);
 }
+/* Zero JS: each option's label holds a radio; React's button is decorative. */
+[data-slot="radio-group"] > label {
+  position: relative; display: flex; justify-self: start; cursor: pointer;
+}
+[data-slot="radio-group"] > label > input {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="radio-group"] > label > [data-slot="radio-group-item"] { pointer-events: none; }
+[data-slot="radio-group"] > label > input:not(:checked) + [data-slot="radio-group-item"] > span { display: none; }
+[data-slot="radio-group"] > label > input:checked + [data-slot="radio-group-item"] { border-color: var(--cronus-primary); }
+[data-slot="radio-group"] > label > input:not(:checked) + [data-slot="radio-group-item"][data-state="checked"] { border-color: var(--cronus-border); }
+[data-slot="radio-group"] > label > input:focus-visible + [data-slot="radio-group-item"] {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
+}

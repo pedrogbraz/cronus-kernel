@@ -1,27 +1,39 @@
 //! Dedicated SegmentedControl renderer. DOM mirrors React:
 //! `<div data-slot="segmented-control" data-size="md" role="radiogroup">` plus
-//! `<button type="button" data-slot="segmented-control-item" role="radio">`;
-//! the active item carries the `segmented-control-thumb` and `tabindex="0"`.
+//! per option `<label>` > visually hidden `<input type="radio">` + React's
+//! `<button type="button" data-slot="segmented-control-item" role="radio">`
+//! holding the `segmented-control-thumb`.
 //! Options are `item`/`text` lines; the `label` names the group.
-//! Not interact `radios()` (`<input type="radio">` + `<label>`).
+//!
+//! Zero JS: the radios share a page-unique `name`; clicking an option's label
+//! checks it and Arrow keys move the selection. CSS shows the thumb and the
+//! active text colour on the item after the checked radio (every item carries a
+//! thumb; unchecked ones are `display: none`, so only one renders, like React).
+//! The button keeps React's slot and look but is decorative (`aria-hidden`,
+//! `tabindex="-1"`, `pointer-events: none`). Gaps vs React: the thumb jumps
+//! instead of sliding, and `data-state` / `aria-checked` stay at the initial
+//! state (the native radio carries the live state).
+//! Not interact `radios()` (inline-styled `<input type="radio">` labels).
 
-use crate::cronus_ui_kit::{attr, attr_nonempty, esc};
+use crate::cronus_ui_kit::{attr, attr_nonempty, esc, instance_id};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 const THUMB: &str = "<div data-slot=\"segmented-control-thumb\" aria-hidden=\"true\"></div>";
 
 pub fn render(comp: &ComponentNode) -> String {
+    let name = instance_id(comp, "segmented-control");
     let buttons = options(comp)
         .iter()
-        .map(|(text, on)| {
-            let (state, checked, tab, thumb) = if *on {
-                ("active", "true", "0", THUMB)
+        .enumerate()
+        .map(|(i, (text, on))| {
+            let (state, aria, checked) = if *on {
+                ("active", "true", " checked")
             } else {
-                ("inactive", "false", "-1", "")
+                ("inactive", "false", "")
             };
+            let t = esc(text);
             format!(
-                "<button type=\"button\" data-slot=\"segmented-control-item\" data-state=\"{state}\" role=\"radio\" aria-checked=\"{checked}\" tabindex=\"{tab}\">{thumb}<span>{}</span></button>",
-                esc(text)
+                "<label><input type=\"radio\" name=\"{name}\" value=\"{i}\" aria-label=\"{t}\"{checked}><button type=\"button\" data-slot=\"segmented-control-item\" data-state=\"{state}\" role=\"radio\" aria-checked=\"{aria}\" tabindex=\"-1\" aria-hidden=\"true\">{THUMB}<span>{t}</span></button></label>"
             )
         })
         .collect::<Vec<_>>()
@@ -119,22 +131,25 @@ mod tests {
         }
     }
 
-    fn seg(text: &str, on: bool) -> String {
-        if on {
-            format!(
-                "<button type=\"button\" data-slot=\"segmented-control-item\" data-state=\"active\" role=\"radio\" aria-checked=\"true\" tabindex=\"0\">{THUMB}<span>{text}</span></button>"
-            )
+    /// Item `i` of the group named `cui-{name}-segmented-control`.
+    fn seg_in(name: &str, i: usize, text: &str, on: bool) -> String {
+        let (state, aria, checked) = if on {
+            ("active", "true", " checked")
         } else {
-            format!(
-                "<button type=\"button\" data-slot=\"segmented-control-item\" data-state=\"inactive\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\"><span>{text}</span></button>"
-            )
-        }
+            ("inactive", "false", "")
+        };
+        format!(
+            "<label><input type=\"radio\" name=\"cui-{name}-segmented-control\" value=\"{i}\" aria-label=\"{text}\"{checked}><button type=\"button\" data-slot=\"segmented-control-item\" data-state=\"{state}\" role=\"radio\" aria-checked=\"{aria}\" tabindex=\"-1\" aria-hidden=\"true\">{THUMB}<span>{text}</span></button></label>"
+        )
+    }
+
+    fn seg(i: usize, text: &str, on: bool) -> String {
+        seg_in("view", i, text, on)
     }
 
     fn reject_interact(html: &str) {
-        assert!(!html.contains("<input"));
-        assert!(!html.contains("type=\"radio\""));
-        assert!(!html.contains("<label"));
+        assert!(!html.contains(" disabled"));
+        assert!(!crate::cli::stub_renderer_gate::looks_like_interact_generic(html));
         assert!(!html.contains("role=\"tablist\""));
         assert!(!html.contains("style="));
         assert!(!html.contains("onclick="));
@@ -151,16 +166,30 @@ mod tests {
             html,
             format!(
                 "<div data-slot=\"segmented-control\" data-size=\"md\" role=\"radiogroup\">{}{}</div>",
-                seg("Day", true),
-                seg("Week", false)
+                seg(0, "Day", true),
+                seg(1, "Week", false)
             )
         );
-        assert_eq!(
-            html.matches("data-slot=\"segmented-control-thumb\"")
-                .count(),
-            1
-        );
+        assert_eq!(html.matches(" checked").count(), 1);
         reject_interact(&html);
+    }
+
+    #[test]
+    fn two_controls_on_one_page_get_distinct_names() {
+        crate::cronus_ui_kit::reset_instance_ids();
+        let a = render(&stub_options(&["Day", "Week"]));
+        let b = render(&stub_options(&["Day", "Week"]));
+        assert!(a.contains("name=\"cui-view-segmented-control\" "));
+        assert!(b.contains("name=\"cui-view-segmented-control-2\" "));
+    }
+
+    /// Only the checked item shows its thumb and the active colour.
+    #[test]
+    fn chrome_thumb_follows_checked_radio() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"segmented-control\"] > label > input:not(:checked) + [data-slot=\"segmented-control-item\"] > [data-slot=\"segmented-control-thumb\"] { display: none; }"));
+        assert!(css.contains("[data-slot=\"segmented-control\"] > label > input:checked + [data-slot=\"segmented-control-item\"] { color: var(--cronus-fg); }"));
+        assert!(css.contains("[data-slot=\"segmented-control\"] > label > input:not(:checked) + [data-slot=\"segmented-control-item\"][data-state=\"active\"] { color: var(--cronus-fg-secondary); }"));
     }
 
     /// Audit fixture: `label "Range"`, `text "Day"`, `text "Week"`, then
@@ -186,8 +215,8 @@ mod tests {
             html,
             format!(
                 "<div data-slot=\"segmented-control\" data-size=\"md\" role=\"radiogroup\" aria-label=\"Range\">{}{}</div>",
-                seg("Day", true),
-                seg("Week", false)
+                seg_in("segmented-control", 0, "Day", true),
+                seg_in("segmented-control", 1, "Week", false)
             )
         );
         reject_interact(&html);
@@ -196,9 +225,9 @@ mod tests {
     #[test]
     fn first_item_is_selected_by_default() {
         let html = render(&stub_options(&["Day", "Week", "Month"]));
-        assert!(html.contains(&seg("Day", true)));
-        assert!(html.contains(&seg("Week", false)));
-        assert!(html.contains(&seg("Month", false)));
+        assert!(html.contains(&seg(0, "Day", true)));
+        assert!(html.contains(&seg(1, "Week", false)));
+        assert!(html.contains(&seg(2, "Month", false)));
         reject_interact(&html);
     }
 
@@ -207,9 +236,9 @@ mod tests {
         let mut c = stub_options(&["Day", "Week", "Month"]);
         c.items[1].config.insert("selected".into(), "true".into());
         let html = render(&c);
-        assert!(html.contains(&seg("Day", false)));
-        assert!(html.contains(&seg("Week", true)));
-        assert!(html.contains(&seg("Month", false)));
+        assert!(html.contains(&seg(0, "Day", false)));
+        assert!(html.contains(&seg(1, "Week", true)));
+        assert!(html.contains(&seg(2, "Month", false)));
         reject_interact(&html);
     }
 
@@ -218,8 +247,8 @@ mod tests {
         let mut c = stub_options(&["Day", "Week", "Month"]);
         c.props.insert("value".into(), "Month".into());
         let html = render(&c);
-        assert!(html.contains(&seg("Month", true)));
-        assert!(html.contains(&seg("Day", false)));
+        assert!(html.contains(&seg(2, "Month", true)));
+        assert!(html.contains(&seg(0, "Day", false)));
         reject_interact(&html);
     }
 
