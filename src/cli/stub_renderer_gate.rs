@@ -218,7 +218,10 @@ pub fn looks_like_interact_generic(html: &str) -> bool {
         || (html.contains("data-slot=\"notification-center\"")
             && !html.contains("data-slot=\"notification-row\"")
             && !html.contains("data-slot=\"notification-empty\""))
-        || (html.contains("data-slot=\"segmented-control\"") && html.contains("<input type=\"radio\""))
+        // Interact radios are inline-styled; zero-JS radio labels are not (as for tabs).
+        || (html.contains("data-slot=\"segmented-control\"")
+            && html.contains("<input type=\"radio\"")
+            && html.contains("style="))
         || (html.contains("data-slot=\"segmented-control\"")
             && !html.contains("data-slot=\"segmented-control-item\""))
         || (html.contains("data-slot=\"usage-meter\"") && html.contains("<progress"))
@@ -718,7 +721,7 @@ mod tests {
 
     #[test]
     fn no_new_stub_families() {
-        assert_eq!(FAMILIES.len(), 175);
+        assert_eq!(FAMILIES.len(), 188);
         for family in PORTED_FAMILIES {
             assert!(FAMILIES.contains(family));
             assert!(cronus_ui_widgets::dedicated_render(family, &stub(family)).is_some());
@@ -859,6 +862,11 @@ mod tests {
             "src/cronus_ui_gradient_border.rs",
             "src/cronus_ui_light_rays.rs",
             "src/cronus_ui_orbit.rs",
+            "src/cronus_ui_animated_checkbox.rs",
+            "src/cronus_ui_loader.rs",
+            "src/cronus_ui_number_flow.rs",
+            "src/cronus_ui_scroll_nav.rs",
+            "src/cronus_ui_slide_up_text.rs",
             "src/cronus_ui_progressive_blur.rs",
             "src/cronus_ui_retro_grid.rs",
             "src/cronus_ui_ripple.rs",
@@ -902,6 +910,15 @@ mod tests {
             "src/cronus_ui_ring_chart.rs",
             "src/cronus_ui_data_table.rs",
             "src/cronus_ui_workspace_switcher.rs",
+            // Sprint 5 C2 — AI suite (alphabetical).
+            "src/cronus_ui_conversation.rs",
+            "src/cronus_ui_inline_citation.rs",
+            "src/cronus_ui_message.rs",
+            "src/cronus_ui_prompt_input.rs",
+            "src/cronus_ui_reasoning.rs",
+            "src/cronus_ui_sources.rs",
+            "src/cronus_ui_suggestion.rs",
+            "src/cronus_ui_tool.rs",
             "src/cronus_ui_kit.rs",
             "src/cli/audit_http.rs",
             "src/ui/audit_layout.rs",

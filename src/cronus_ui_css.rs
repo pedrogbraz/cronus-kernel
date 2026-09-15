@@ -51,8 +51,9 @@ macro_rules! css_files {
 }
 #[rustfmt::skip]
 const FILES: &[(&str, &str)] = css_files![
-    "accordion", "alert", "alert-dialog", "animated-button", "animated-list", "animated-number",
-    "app-shell", "area-chart", "aspect-ratio", "aurora-background", "autocomplete", "avatar",
+    "accordion", "alert", "alert-dialog", "animated-button", "animated-checkbox", "animated-list",
+    "animated-number", "app-shell", "area-chart", "aspect-ratio", "aurora-background",
+    "autocomplete", "avatar",
     "avatar-group", "badge", "banner", "bar-chart", "border-beam", "bouncy-accordion",
     "breadcrumb", "button", "button-group", "calendar", "candlestick-chart", "card",
     "card-stack", "carousel", "catalog", "chart", "checkbox", "chip", "choropleth-chart",
@@ -66,20 +67,25 @@ const FILES: &[(&str, &str)] = css_files![
     "gradient-border", "gradient-text", "grid-pattern", "heatmap", "heatmap-chart",
     "highlighter", "hover-card", "image-zoom", "input", "input-group", "input-otp",
     "invite-dialog", "json-viewer", "kanban", "kbd", "label", "light-rays", "lightbox",
-    "line-chart", "live-line-chart", "logo-carousel", "magnetic", "marquee", "masonry",
+    "line-chart", "live-line-chart", "loader", "logo-carousel", "magnetic", "marquee", "masonry",
     "menubar", "metric", "mode-toggle", "morphing-popover", "motion-presets", "multi-select",
-    "navigation-menu", "noise", "notification-center", "number-input", "orbit", "pagination",
+    "navigation-menu", "noise", "notification-center", "number-flow", "number-input", "orbit",
+    "pagination",
     "particles", "password-input", "phone-input", "pie-chart", "pill-nav", "popover",
     "profit-loss-chart", "progress", "progressive-blur", "radar-chart", "radio-group", "rating",
     "resizable", "retro-grid", "reveal", "rich-text-editor", "ring-chart", "ripple",
-    "scatter-chart", "scheduler", "scramble-text", "scroll-area", "scroll-progress",
+    "scatter-chart", "scheduler", "scramble-text", "scroll-area", "scroll-nav", "scroll-progress",
     "segmented-control", "select", "separator", "shared", "sheet", "shimmer", "shiny-text",
-    "sidebar", "signature-pad", "skeleton", "slider", "sparkles-text", "sparkline", "spinner",
+    "sidebar", "signature-pad", "skeleton", "slide-up-text", "slider", "sparkles-text",
+    "sparkline", "spinner",
     "spinning-text", "split-button", "spotlight-card", "star-border", "status-dot", "stepper",
     "sunburst-chart", "switch", "table", "table-of-contents", "tabs", "tags-input", "terminal",
     "text-effect", "text-shimmer", "textarea", "theme", "tilt-card", "time-picker", "timeline",
     "toast", "toggle", "toggle-group", "toolbar", "tooltip", "tree-view", "typing-text",
     "usage-meter", "video-player", "word-rotate", "workspace-switcher",
+    // Sprint 5 C2 — AI suite (alphabetical).
+    "conversation", "inline-citation", "message", "prompt-input", "reasoning", "sources",
+    "suggestion", "tool",
 ];
 // @end FILES
 
@@ -262,6 +268,7 @@ fn take_noted() -> BTreeSet<&'static str> {
 }
 
 fn page_usage(html: &str) -> Usage {
+    crate::cronus_ui_kit::reset_instance_ids();
     let mut usage = usage_of(html);
     let noted = take_noted();
     if !noted.is_empty() {
@@ -294,6 +301,46 @@ pub fn system_mode_css(preset: &str) -> String {
         );
     }
     String::new()
+}
+
+/// Presets in the vendored tokens, each with a base block and one other-mode block.
+const MODE_TOGGLE_PRESETS: &[&str] = &["aurora", "neutral", "midnight", "sunset", "emerald"];
+
+/// Zero-JS `mode-toggle`: while a toggle checkbox on the page is checked, the
+/// document takes the other colour mode's tokens. For each preset, the vendored
+/// other-mode block (Aurora's light delta, a light-first preset's dark delta)
+/// is re-keyed onto the default mode + `:has(checked)`, and the base block onto
+/// the other mode + `:has(checked)`. `system` mode is left alone. Layouts and
+/// the audit document always stamp both attributes on `<html>`.
+pub fn mode_toggle_css() -> String {
+    const ON: &str = ":has(input[data-cui-mode-toggle]:checked)";
+    let body = |selector: &str| {
+        let start = TOKENS_CSS.find(selector)? + selector.len();
+        let len = TOKENS_CSS[start..].find('}')?;
+        Some(&TOKENS_CSS[start..start + len])
+    };
+    let mut css = String::new();
+    for p in MODE_TOGGLE_PRESETS {
+        let Some(base) = body(&format!("[data-cronus-theme=\"{p}\"] {{")) else {
+            continue;
+        };
+        let Some((other, delta)) = ["light", "dark"].iter().find_map(|m| {
+            body(&format!(
+                "[data-cronus-theme=\"{p}\"][data-cronus-mode=\"{m}\"] {{"
+            ))
+            .map(|b| (*m, b))
+        }) else {
+            continue;
+        };
+        let theme = format!("[data-cronus-theme=\"{p}\"]");
+        css.push_str(&format!(
+            "{theme}:not([data-cronus-mode=\"{other}\"]):not([data-cronus-mode=\"system\"]){ON} {{{delta}}}\n"
+        ));
+        css.push_str(&format!(
+            "{theme}[data-cronus-mode=\"{other}\"]{ON} {{{base}}}\n"
+        ));
+    }
+    css
 }
 
 fn tokens_part(preset: &str, mode: &str, audit: bool) -> String {
@@ -368,12 +415,11 @@ fn build(preset: &str, mode: &str, usage: &Usage, layered: bool, audit: bool) ->
     } else {
         ""
     };
-    assemble(
-        &tokens_part(preset, mode, audit),
-        base,
-        &components_part(usage, false),
-        layered,
-    )
+    let mut tokens = tokens_part(preset, mode, audit);
+    if usage.families.contains("mode-toggle") {
+        tokens.push_str(&mode_toggle_css());
+    }
+    assemble(&tokens, base, &components_part(usage, false), layered)
 }
 
 /// Dark-mode page stylesheet (see `page_stylesheet_for`).
@@ -481,6 +527,7 @@ mod tests {
         "edit 0055 shared b29c1ce7d338311d 1c4516271890d812 dropdown-menu,popover dead-slot combobox-content",
         "drop 0067 3d448f4b3251ec55 dead-slot combobox-content",
         "drop 0068 4acc7eb25a02c57e dead-slot combobox-item",
+        "drop 0073 337a0fe059b71091 native-popover",
         "drop 0080 dd57e9b1ef15bbdd duplicate-of 0630",
         "edit 0264 skeleton a3f1f5f9ca9c93a2 d482cce5f3ac16e9 - fluid-width",
         "edit 0268 slider 954c72ddabb73151 1e6810c23e740a83 - fluid-width+rtl-logical",
@@ -527,6 +574,9 @@ mod tests {
         "edit 0884 scheduler 4d5d21e381f6af4d 2482f5f28959edd8 - rtl-logical",
         "edit 0885 scheduler 10dad5d652712d58 8be82d141d7b1027 - rtl-logical",
         "edit 0890 scheduler cb65834052e5ac77 b236d8b84d6bc942 - rtl-logical",
+        "edit 0920 lightbox 82b3286ae471910d f2ceccd0f0755159 - zero-js-label",
+        "edit 0921 lightbox 0762cdd3f7f3743d 403126419ab403fa - zero-js-label",
+        "edit 0922 lightbox bbc473b0963f8aaf b381e113ff88f0d3 - zero-js-label",
         "edit 0956 masonry 6414a25b66c839a7 8c3ed0c3b05a18db - fluid-width",
         "edit 0979 code-tabs 6baaa7ae42f4eb81 edb15edd51f5965c - rtl-logical",
         "edit 0986 code-tabs f3e70770a8690f64 c721c723290e304b - rtl-logical",
@@ -695,6 +745,7 @@ mod tests {
         // Ring geometry needs a square box; override with --cui-orbit-size.
         ("orbit", "orbit", "var(--cui-orbit-size, 18rem)"),
         ("orbit", "orbit", "16rem"),
+        ("inline-citation", "inline-citation-card-body", "20rem"), // w-80
     ];
 
     fn length_rem(token: &str) -> Option<f64> {
@@ -885,8 +936,12 @@ mod tests {
             missing.is_empty(),
             "CSS for slots no renderer emits: {missing:?}"
         );
-        for dead in ["combobox-content", "combobox-item"] {
-            assert!(!full_components().contains(dead), "{dead}");
+        // Once dead (dropped above), now emitted by the native-popover combobox.
+        for live in ["combobox-content", "combobox-item"] {
+            assert!(
+                full_components().contains(&format!("[data-slot=\"{live}\"]")),
+                "{live}"
+            );
         }
     }
 

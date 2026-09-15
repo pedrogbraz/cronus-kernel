@@ -1,4 +1,4 @@
-//! Opt-in cronus-ui widget renderers (all 175 families).
+//! Opt-in cronus-ui widget renderers (all 188 families).
 //!
 //! Family = first `style` segment (`button+primary+md` -> `button`).
 //! Unknown families return None so legacy dispatchers keep working.
@@ -37,6 +37,7 @@ pub const FAMILY_TABLE: &[(&str, Renderer)] = &[
     dedicated!("alert", cronus_ui_alert),
     dedicated!("alert-dialog", cronus_ui_alert_dialog),
     dedicated!("animated-button", cronus_ui_animated_button),
+    dedicated!("animated-checkbox", cronus_ui_animated_checkbox),
     dedicated!("animated-list", cronus_ui_animated_list),
     dedicated!("animated-number", cronus_ui_animated_number),
     dedicated!("app-shell", cronus_ui_app_shell),
@@ -123,6 +124,7 @@ pub const FAMILY_TABLE: &[(&str, Renderer)] = &[
     dedicated!("lightbox", cronus_ui_lightbox),
     dedicated!("line-chart", cronus_ui_line_chart),
     dedicated!("live-line-chart", cronus_ui_live_line_chart),
+    dedicated!("loader", cronus_ui_loader),
     dedicated!("logo-carousel", cronus_ui_logo_carousel),
     dedicated!("magnetic", cronus_ui_magnetic),
     dedicated!("marquee", cronus_ui_marquee),
@@ -136,6 +138,7 @@ pub const FAMILY_TABLE: &[(&str, Renderer)] = &[
     dedicated!("navigation-menu", cronus_ui_navigation_menu),
     dedicated!("noise", cronus_ui_noise),
     dedicated!("notification-center", cronus_ui_notification_center),
+    dedicated!("number-flow", cronus_ui_number_flow),
     dedicated!("number-input", cronus_ui_number_input),
     dedicated!("orbit", cronus_ui_orbit),
     dedicated!("pagination", cronus_ui_pagination),
@@ -162,6 +165,7 @@ pub const FAMILY_TABLE: &[(&str, Renderer)] = &[
     dedicated!("scheduler", cronus_ui_scheduler),
     dedicated!("scramble-text", cronus_ui_scramble_text),
     dedicated!("scroll-area", cronus_ui_scroll_area),
+    dedicated!("scroll-nav", cronus_ui_scroll_nav),
     dedicated!("scroll-progress", cronus_ui_scroll_progress),
     dedicated!("segmented-control", cronus_ui_segmented_control),
     dedicated!("select", cronus_ui_select),
@@ -172,6 +176,7 @@ pub const FAMILY_TABLE: &[(&str, Renderer)] = &[
     dedicated!("sidebar", cronus_ui_sidebar),
     dedicated!("signature-pad", cronus_ui_signature_pad),
     dedicated!("skeleton", cronus_ui_skeleton),
+    dedicated!("slide-up-text", cronus_ui_slide_up_text),
     dedicated!("slider", cronus_ui_slider),
     dedicated!("sonner", cronus_ui_sonner),
     dedicated!("sparkles-text", cronus_ui_sparkles_text),
@@ -208,6 +213,15 @@ pub const FAMILY_TABLE: &[(&str, Renderer)] = &[
     dedicated!("workspace-switcher", cronus_ui_workspace_switcher),
     dedicated!("toast", cronus_ui_toast),
     dedicated!("motion-presets", cronus_ui_motion_presets),
+    // Sprint 5 C2 — AI suite (alphabetical).
+    dedicated!("conversation", cronus_ui_conversation),
+    dedicated!("inline-citation", cronus_ui_inline_citation),
+    dedicated!("message", cronus_ui_message),
+    dedicated!("prompt-input", cronus_ui_prompt_input),
+    dedicated!("reasoning", cronus_ui_reasoning),
+    dedicated!("sources", cronus_ui_sources),
+    dedicated!("suggestion", cronus_ui_suggestion),
+    dedicated!("tool", cronus_ui_tool),
 ];
 
 const FAMILY_COUNT: usize = FAMILY_TABLE.len();
@@ -448,8 +462,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn registers_175_unique_families() {
-        assert_eq!(FAMILIES.len(), 175);
+    fn registers_180_unique_families() {
+        assert_eq!(FAMILIES.len(), 188);
         let mut s = std::collections::BTreeSet::new();
         for f in FAMILIES {
             assert!(s.insert(*f), "duplicate {f}");
@@ -519,7 +533,7 @@ mod tests {
             ("textarea", "<textarea"),
             ("select", "role=\"combobox\""),
             ("dialog", "role=\"dialog\""),
-            ("accordion", "type=\"checkbox\""),
+            ("accordion", "type=\"radio\""),
             ("tabs", "type=\"radio\""),
             ("table", "<table"),
             ("progress", "role=\"progressbar\""),
@@ -807,14 +821,21 @@ component Revenue layout:stack style:metric {
     #[test]
     fn catalog_select_options_are_items_not_the_field_label() {
         // Closed Radix trigger: the field label is the placeholder text; the
-        // `item` options never become the value or the accessible name.
+        // `item` options never become the value or the accessible name. They
+        // only exist as radios inside the closed native popover.
         let html = render(&catalog_component("Plan")).expect("select");
+        let (trigger, popup) = html.split_once("</button>").expect("trigger");
         assert!(
-            html.contains("aria-label=\"Plan\"") && html.contains("<span>Plan</span>"),
+            trigger.contains("aria-label=\"Plan\"") && trigger.ends_with(">Plan</span><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"></path></svg>"),
             "Plan must be the trigger placeholder: {html}"
         );
-        assert!(!html.contains("Free") && !html.contains("Pro"), "{html}");
-        assert!(html.contains("data-slot=\"select-trigger\""), "{html}");
+        assert!(trigger.contains("data-slot=\"select-trigger\""), "{html}");
+        assert!(popup.contains("data-slot=\"select-content\""), "{html}");
+        assert!(
+            popup.contains("value=\"Free\"") && popup.contains("value=\"Pro\""),
+            "{html}"
+        );
+        assert!(!html.contains("value=\"Plan\""), "{html}");
     }
 
     #[test]

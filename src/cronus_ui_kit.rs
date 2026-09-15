@@ -89,6 +89,30 @@ pub fn item<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
         .map(|i| i.text.as_str())
 }
 
+/// Overlay families whose audited React fixture is open with no trigger
+/// (dialog, alert/confirmation/invite dialog, sheet, drawer, morphing-popover,
+/// context-menu) keep that open specimen by default. They render closed, with a
+/// native `popovertarget` trigger, when the author asks for it: a `trigger:"…"`
+/// prop (a `trigger` item too, for programmatic nodes; the parser drops
+/// unofficial item types), or `open:false` / `defaultOpen:false`. `open:true` / `defaultOpen:true`
+/// always wins and keeps the open specimen. Returns the escaped trigger label in
+/// closed mode (`fallback`, which must already be HTML-safe, when only
+/// `open:false` is given), `None` when open.
+pub fn overlay_trigger(comp: &ComponentNode, fallback: &str) -> Option<String> {
+    let explicit = attr(comp, "open")
+        .or_else(|| attr(comp, "defaultOpen"))
+        .or_else(|| attr(comp, "default-open"));
+    // `trigger:"…"` (always parsed as a prop) or a `trigger "…"` item.
+    let trigger = attr_nonempty(comp, "trigger")
+        .or_else(|| item(comp, "trigger").filter(|t| !t.is_empty()))
+        .map(esc);
+    match explicit {
+        Some(v) if truthy(v) => None,
+        Some(_) => Some(trigger.unwrap_or_else(|| fallback.to_string())),
+        None => trigger,
+    }
+}
+
 /// Stable id for native `popovertarget` / `anchor` pairs. ASCII slug of name.
 pub fn widget_id(comp: &ComponentNode, part: &str) -> String {
     let mut out = String::from("cui-");
@@ -104,6 +128,36 @@ pub fn widget_id(comp: &ComponentNode, part: &str) -> String {
     }
     out.push_str(part);
     out
+}
+
+thread_local! {
+    static INSTANCES: std::cell::RefCell<std::collections::HashMap<String, usize>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+/// Page-unique [`widget_id`] for native state that must not collide between
+/// two instances on one page (radio `name`s, fragment `id`s). The first
+/// instance keeps the plain id; later ones with the same id get `-2`, `-3`, …
+/// Rendering a page is synchronous on one thread; the page stylesheet build
+/// (`cronus_ui_css::page_usage`) calls [`reset_instance_ids`] once the page is
+/// rendered, so output stays deterministic per page.
+pub fn instance_id(comp: &ComponentNode, part: &str) -> String {
+    let base = widget_id(comp, part);
+    let n = INSTANCES.with(|m| {
+        let mut m = m.borrow_mut();
+        let n = m.entry(base.clone()).or_insert(0);
+        *n += 1;
+        *n
+    });
+    if n == 1 {
+        base
+    } else {
+        format!("{base}-{n}")
+    }
+}
+
+pub fn reset_instance_ids() {
+    INSTANCES.with(|m| m.borrow_mut().clear());
 }
 
 pub fn label_of(comp: &ComponentNode) -> String {
@@ -701,6 +755,39 @@ pub fn chart_candles(ohlc: &[[f64; 4]]) -> Vec<ChartCandle> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn overlay_trigger_modes() {
+        let mut c = stub("dialog", "Title");
+        assert_eq!(overlay_trigger(&c, "Open"), None, "fixture: open specimen");
+        c.props.insert("open".into(), "false".into());
+        assert_eq!(overlay_trigger(&c, "Open").as_deref(), Some("Open"));
+        c.items.push(ComponentItemNode {
+            item_type: "trigger".into(),
+            text: "<Go>".into(),
+            link: None,
+            tone: None,
+            config: Default::default(),
+        });
+        assert_eq!(overlay_trigger(&c, "Open").as_deref(), Some("&lt;Go&gt;"));
+        c.props.insert("open".into(), "true".into());
+        assert_eq!(overlay_trigger(&c, "Open"), None, "open:true wins");
+        c.props.clear();
+        assert_eq!(overlay_trigger(&c, "Open").as_deref(), Some("&lt;Go&gt;"));
+        c.props.insert("defaultOpen".into(), String::new());
+        assert_eq!(
+            overlay_trigger(&c, "Open"),
+            None,
+            "bare defaultOpen: is true"
+        );
+        let mut p = stub("dialog", "Title");
+        p.props.insert("trigger".into(), "Edit & save".into());
+        assert_eq!(
+            overlay_trigger(&p, "Open").as_deref(),
+            Some("Edit &amp; save"),
+            "trigger:\"…\" prop"
+        );
+    }
+
     fn with(props: &[(&str, &str)], configs: &[&[(&str, &str)]]) -> ComponentNode {
         let mut c = stub("x", "Label");
         c.items.clear();
@@ -721,6 +808,20 @@ mod tests {
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect();
         c
+    }
+
+    #[test]
+    fn instance_id_is_page_unique_and_resets() {
+        reset_instance_ids();
+        let a = stub("tabs", "A");
+        let mut b = stub("tabs", "B");
+        b.name = "Other".into();
+        assert_eq!(instance_id(&a, "tabs"), "cui-tabs-tabs");
+        assert_eq!(instance_id(&a, "tabs"), "cui-tabs-tabs-2");
+        assert_eq!(instance_id(&b, "tabs"), "cui-other-tabs");
+        assert_eq!(instance_id(&a, "tabs"), "cui-tabs-tabs-3");
+        reset_instance_ids();
+        assert_eq!(instance_id(&a, "tabs"), "cui-tabs-tabs");
     }
 
     #[test]
