@@ -21,6 +21,47 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
     });
   })();
 
+  function placePopover(el){
+    if (!el || el.nodeType !== 1 || !el.hasAttribute('popover')) return;
+    if (el.getAttribute('data-slot') === 'sheet-content') return;
+    var id = el.getAttribute('anchor');
+    var a = id && document.getElementById(id);
+    if (!a) return;
+    var r = a.getBoundingClientRect();
+    el.style.position = 'fixed';
+    el.style.inset = 'auto';
+    el.style.margin = '0';
+    el.style.translate = 'none';
+    el.style.transform = 'none';
+    var h = el.offsetHeight || 240;
+    var w = el.offsetWidth || 280;
+    var top = r.bottom + 6;
+    if (top + h > window.innerHeight - 8) {
+      top = Math.max(8, r.top - h - 6);
+    }
+    var left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+    el.style.top = top + 'px';
+    el.style.left = left + 'px';
+  }
+  function afterOpen(el){
+    setTimeout(function(){
+      if (el && el.matches && el.matches('[popover]:popover-open')) placePopover(el);
+    }, 0);
+  }
+  document.addEventListener('beforetoggle', function(e){
+    if (e.newState === 'open') afterOpen(e.target);
+  }, true);
+  document.addEventListener('toggle', function(e){
+    var el = e.target;
+    if (el && el.matches && el.matches('[popover]:popover-open')) afterOpen(el);
+  }, true);
+  document.addEventListener('click', function(e){
+    var t = e.target.closest && e.target.closest('[popovertarget]');
+    if (!t) return;
+    var pop = document.getElementById(t.getAttribute('popovertarget'));
+    if (pop) afterOpen(pop);
+  }, true);
+
   function init(){
     // Auto-bind forms to API
     document.querySelectorAll('form[data-entity]').forEach(function(form){
