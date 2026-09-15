@@ -1,0 +1,236 @@
+page "/" type:dashboard requires:auth {
+  title "Bench"
+
+  section page-header {
+    title "Bench"
+    subtitle "Open restoration jobs. Estimates are centavos."
+  }
+
+  section kpi {
+    bind Client { aggregate count }
+    item "Clients" value:bind icon:people
+  }
+
+  section kpi {
+    bind Job { aggregate count }
+    item "Jobs" value:bind icon:handyman
+  }
+
+  section kpi {
+    bind Job { aggregate count where status in:[queued, in_progress, waiting] }
+    item "On the bench" value:bind icon:schedule
+  }
+
+  section kpi {
+    bind Job { aggregate sum field:estimate where status in:[queued, in_progress, waiting] }
+    item "Open estimate" value:bind icon:payments
+  }
+
+  section table {
+    title "Up next"
+    columns "title, status, client, scheduled_at, due, estimate"
+    bind Job { query all where status in:[queued, in_progress, waiting] order scheduled_at asc limit 15 expand:client }
+  }
+}
+
+page "/jobs/open" requires:auth {
+  title "Open jobs"
+
+  section page-header {
+    title "Open jobs"
+    subtitle "Queued, in progress, or waiting — not done or cancelled."
+  }
+
+  section table {
+    title "Bench queue"
+    columns "title, status, client, tags, scheduled_at, due, estimate"
+    bind Job { query all where status in:[queued, in_progress, waiting] order scheduled_at asc expand:client,tags }
+    search "title"
+    paginate 20
+  }
+}
+
+page "/jobs" requires:auth {
+  title "Jobs"
+
+  section page-header {
+    title "All jobs"
+    subtitle "Every work order, including the archive."
+  }
+
+  section table {
+    title "Jobs"
+    columns "title, status, client, scheduled_at, due, estimate"
+    bind Job { query all order created_at desc expand:client }
+    search "title"
+    paginate 20
+  }
+}
+
+page "/jobs/archive" requires:auth {
+  title "Archive"
+
+  section page-header {
+    title "Archive"
+    subtitle "Finished or cancelled jobs."
+  }
+
+  section table {
+    title "Closed"
+    columns "title, status, client, due, estimate"
+    bind Job { query all where status in:[done, cancelled] order updated_at desc expand:client }
+    paginate 20
+  }
+}
+
+page "/jobs/new" type:form requires:auth {
+  title "New job"
+
+  section page-header {
+    title "New job"
+    subtitle "scheduled_at is datetime. photo is a file. estimate is centavos."
+  }
+
+  section form entity:Job {
+    title "Job"
+    bind Job { }
+    field "title" type:text required
+    field "notes" type:textarea
+    field "status" type:select options:["queued", "in_progress", "waiting", "done", "cancelled"]
+    field "due" type:date
+    field "scheduled_at" type:datetime
+    field "photo" type:file
+    field "estimate" type:number
+    field "client" type:text
+    field "tags" type:text
+
+    on submit {
+      create Job
+      toast "Job opened" success
+      navigate "/jobs/open"
+    }
+  }
+}
+
+page "/jobs/:id" type:detail requires:auth {
+  title "Job"
+
+  section page-header {
+    title "Job"
+    subtitle "Client and tags are expanded rows, not raw ids."
+  }
+
+  section table {
+    title "Job"
+    columns "title, status, client, tags, scheduled_at, due, estimate, photo"
+    bind Job { query one where id eq:route.id expand:client,tags }
+  }
+
+  section form entity:Job {
+    title "Update"
+    bind Job { query one where id eq:route.id }
+    field "title" type:text required
+    field "notes" type:textarea
+    field "status" type:select options:["queued", "in_progress", "waiting", "done", "cancelled"]
+    field "due" type:date
+    field "scheduled_at" type:datetime
+    field "estimate" type:number
+
+    on submit {
+      update Job
+      toast "Job saved" success
+      refresh page
+    }
+  }
+}
+
+page "/clients" requires:auth {
+  title "Clients"
+
+  section page-header {
+    title "Clients"
+    subtitle "People who bring work to the bench."
+  }
+
+  section table {
+    title "Clients"
+    columns "name, email, phone"
+    bind Client { query all order name asc }
+    search "name,email"
+    paginate 20
+  }
+}
+
+page "/clients/new" type:form requires:auth {
+  title "New client"
+
+  section page-header {
+    title "New client"
+  }
+
+  section form entity:Client {
+    title "Client"
+    bind Client { }
+    field "name" type:text required
+    field "email" type:email required
+    field "phone" type:tel
+    field "notes" type:textarea
+
+    on submit {
+      create Client
+      toast "Client saved" success
+      navigate "/clients"
+    }
+  }
+}
+
+page "/clients/:id" type:detail requires:auth {
+  title "Client"
+
+  section page-header {
+    title "Client"
+    subtitle "jobs is the reverse of Job.client."
+  }
+
+  section table {
+    title "Client"
+    columns "name, email, phone, jobs"
+    bind Client { query one where id eq:route.id expand:jobs }
+  }
+
+  section table {
+    title "Jobs for this client"
+    columns "title, status, scheduled_at, due, estimate"
+    bind Job { query all where client eq:route.id order scheduled_at desc }
+  }
+}
+
+page "/tags" requires:auth {
+  title "Tags"
+
+  section page-header {
+    title "Tags"
+  }
+
+  section table {
+    title "Tags"
+    columns "name"
+    bind Tag { query all order name asc }
+  }
+}
+
+page "/tags/new" type:form requires:auth {
+  title "New tag"
+
+  section form entity:Tag {
+    title "Tag"
+    bind Tag { }
+    field "name" type:text required
+
+    on submit {
+      create Tag
+      toast "Tag saved" success
+      navigate "/tags"
+    }
+  }
+}

@@ -137,6 +137,7 @@ Deleted in Sprint 4 (2026-09-14): `src/server/router.rs`, `src/server/api.rs`, `
 - Clippy has hundreds of non-correctness warnings; only `clippy::correctness` is enforced (CI).
 - Webhooks cannot deliver `https://` (no TLS client in dependencies).
 - GraphQL `update<Entity>` is generated. `app { graphql false }` unmounts `/graphql`.
+- Page `type:form`/`detail`/`list` with sections render those sections. Table `query one` is one row.
 - Unknown field types are `TYPE_001`. Unknown `where` operators are `BIND_001` (no silent `eq`). `ends_with` and `in:[…]` are implemented. `bind { expand:tags }` loads related rows. `datetime` ≠ `date`. `file` stores `/_files/…` or a URL. Reverse expand: `Order.customer` → `Customer` `expand:orders`. Unknown field modifiers are `FIELD_004`. Hollow top-level blocks are `LANG_001`. Unknown action verbs are `ACTION_001`. Multi-file composition is union+conflict (`COMPOSE_001` duplicate, `COMPOSE_002` missing import); `compose { use }` loads files; last-wins is gone.
 - `create`/`update` on `/_action` use AST field literals. Form `on submit { create X … }` writes through `/_form` only; the block supplies toast/navigate.
 - `#[cfg(feature = "generated-contracts")]` references a feature that is not declared in `Cargo.toml` (compiler warning).

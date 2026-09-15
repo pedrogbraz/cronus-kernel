@@ -1,0 +1,44 @@
+# Lumen Atelier — restoration bench.
+# Split across app / entities / pages. `compose { use }` is the language load
+# graph; `cronus run` in this directory unions the same files once.
+
+compose Atelier {
+  use entities
+  use pages
+}
+
+app "Lumen Atelier" {
+  stack voodoo
+  port 5230
+  database sqlite "./data.db"
+  constitution {
+    must "job estimates stored in centavos"
+    never "render password or other sensitive fields"
+  }
+}
+
+auth {
+  entity User
+  login email + password
+  session jwt expires:24h
+  roles [admin, restorer]
+}
+
+style {
+  theme dark
+  preset aurora
+  runtime voodoo
+  font "Inter"
+  radius 14px
+}
+
+layout Main {
+  sidebar {
+    brand "Lumen"
+    "Bench" -> "/" icon:dashboard
+    "Open jobs" -> "/jobs/open" icon:handyman
+    "All jobs" -> "/jobs" icon:inventory
+    "Clients" -> "/clients" icon:people
+    "Tags" -> "/tags" icon:label
+  }
+}
