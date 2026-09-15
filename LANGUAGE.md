@@ -1161,42 +1161,32 @@ Parser diagnostics are collected in one pass: every recoverable error (`TYPE_*`)
 
 ## 16. Dead Code You Should Not Touch
 
-Three parallel HTTP server implementations exist in `src/server/`, two of which are **not compiled** and one of which compiles but has zero call sites:
+Sprint 4 deleted `src/server/router.rs`, `src/server/api.rs`, `CronusServer` and its private handlers. The live HTTP entry is **`src/routes::serve`** → **`handle_request`** (guards, sessions, CSRF, panic isolation) → **`handle_request_inner`** (route groups). REST CRUD is `src/api_crud.rs::handle_api`. `src/main.rs` is CLI dispatch only.
 
-Re-verified 2026-09-14 (`grep -n 'mod ' src/server/mod.rs`, `grep -rn CronusServer src`):
+Do not reintroduce a second HTTP server. New routes go in `src/routes/`.
 
-| File | LOC   | State |
-|------|-------|-------|
-| `src/server/router.rs` | 1524 | **Not declared in `server/mod.rs`. Never compiled.** |
-| `src/server/api.rs`    | 511  | **Not declared in `server/mod.rs`. Never compiled.** |
-| `src/server/mod.rs` (`CronusServer` and its `handle_request`/`handle_api`) | 471 total | Compiles; `CronusServer` is never constructed outside that file. Dead. |
-
-The live HTTP entry is **`src/main.rs::handle_request`** (guards, sessions, CSRF, panic isolation) which calls **`handle_request_inner`**; REST CRUD is `src/api_crud.rs::handle_api`. Find them with `grep -n 'fn handle_request' src/main.rs`.
-
-**Do not edit `router.rs`, `api.rs`, or `CronusServer`.** Fixes applied there never run.
-
-**53 source files** (2026-09-14, `grep -rln '^#!\[allow(dead_code' src | wc -l`) carry `#![allow(dead_code, …)]` at the top. Do not add more of these — prefer actual cleanup. Removing them en masse is planned backlog work (not a language concern).
+A crate-wide `#![allow(dead_code, …)]` remains in `src/main.rs` (dump, parser, routes, cli, cronus_ui*, vm, hydra, scripting still need it). Do not add more of these — prefer actual cleanup.
 
 ---
 
-## 17. Testing — Inline Tests, No `tests/` Directory
+## 17. Testing — Inline Tests Plus `tests/` CLI Contracts
 
-All tests are inline `#[test]` functions in `src/`. Counts change with every commit, so obtain them instead of trusting a number here:
+Most tests are inline `#[test]` functions in `src/`. Binary CLI contracts live in `tests/mcp_cli.rs` and `tests/build_cli.rs`. There is no `tests/conformance/` or `specs/` directory. Counts change with every commit, so obtain them instead of trusting a number here:
 
 ```bash
 cargo test 2>&1 | grep '^test result'                          # total run
-grep -rn '#\[test\]' src | wc -l                               # declared tests
+grep -rn '#\[test\]' src tests | wc -l                         # declared tests
 grep -rc '#\[test\]' src | grep -v ':0$' | sort -t: -k2 -nr    # per file
 grep -rc '#\[test\]' src --include='*.rs' | grep ':0$'         # files without tests
 ```
 
-Snapshot 2026-09-14: `cargo test` → `1491 passed; 0 failed`.
+Snapshot 2026-09-15: `cargo test --locked` → `1781` lib + `6` build_cli + `7` mcp_cli, 0 failed.
 
 ### 17.1 Modules with zero or thin coverage
 
-Use the last command above for the current list. As of 2026-09-14 these have no tests: `src/main.rs` (live HTTP dispatcher), `src/runtime_js.rs`, `src/ui/mod.rs` (section dispatcher; its section list is drift-checked by `context_grammar`), `src/ui/dashboard.rs`, `src/scripting/vm.rs`, `src/zeus.rs`, `src/hmr.rs`, `src/server/{docs,response,auth_pages}.rs`. Thin: `src/render.rs` (1), `src/sse.rs` (1), `src/ui/layout.rs` (1).
+Use the last command above for the current list. As of 2026-09-15 these have no tests: `src/ui/mod.rs` (section dispatcher; its section list is drift-checked by `context_grammar`), `src/scripting/vm.rs`, `src/zeus.rs`, `src/hmr.rs`, `src/server/{docs,auth_pages}.rs`. HTTP dispatch coverage is `src/http_dispatch_tests.rs`.
 
-Rule of thumb: if you modify a file without tests, add a regression test in the same file before committing.
+Rule of thumb: if you modify a file without tests, add a regression test in the same file before committing. CLI stdout contracts go in `tests/`.
 
 ---
 
@@ -1207,7 +1197,7 @@ The items below are **claims from older docs (now under `docs/archive/`, or `doc
 | Claim                                             | Reality |
 |---------------------------------------------------|---------|
 | `specs/` directory with 74 `.spec.toml` files    | Directory does not exist. Contracts are Rust structs in `src/contracts.rs`. |
-| `tests/conformance/` with 90 tests               | Directory does not exist. All tests are inline. |
+| `tests/conformance/` with 90 tests               | Directory does not exist. Kernel tests are inline; CLI contracts are `tests/mcp_cli.rs` and `tests/build_cli.rs`. |
 | 51 section types                                  | 39 canonical; dispatcher has 52 match arms counting aliases and default. |
 | 8 ScriptCronus namespaces                         | 7 implemented; docs list 3 that don't exist and miss 2 that do. |
 | Trust auto-promotion at ≥ 0.800                  | No threshold gate, no auto trigger. `promote_to_text` only called in unit tests. |
@@ -1218,7 +1208,7 @@ The items below are **claims from older docs (now under `docs/archive/`, or `doc
 | HEAD/OPTIONS HTTP methods                         | Tokenizer rejects them. Silent fallback never fires. |
 | `src/dump/typescript.rs` as dump target          | Orphaned. No CLI flag calls it. |
 | Next.js dump target                               | Not in `docs.cronus.test/dump` page. Is in code, is in CLI. |
-| `src/server/router.rs` as the live dispatcher    | Not compiled. Live dispatcher is in `main.rs`. |
+| `src/server/router.rs` as the live dispatcher    | Deleted in Sprint 4. Live dispatcher is `src/routes/`. |
 | `bcrypt` password hashing (in one auth page)     | It's Argon2id. |
 | Port 3000 default                                 | Actual default is 5175. |
 | 32 CLI commands vs 36 CLI commands                | 32 is correct. |

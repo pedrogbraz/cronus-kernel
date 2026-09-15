@@ -36,6 +36,7 @@ examples/**/data.db-wal
 examples/**/data.db-shm
 **/.cronus/memory.db
 **/.cronus/ast-snapshot.json
+**/.cronus/jwt.key
 demos/**/target/
 **/node_modules/
 

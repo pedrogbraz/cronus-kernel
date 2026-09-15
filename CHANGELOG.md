@@ -4,7 +4,7 @@ All notable changes to CRONUS will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
-`feat/cronus-ui-tokens-button`. Commit hashes are given so each entry can be checked.
+`main`. Commit hashes are given so each entry can be checked.
 
 ## [Unreleased]
 
