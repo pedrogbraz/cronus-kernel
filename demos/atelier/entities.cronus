@@ -1,0 +1,67 @@
+entity User {
+  name     string!
+  email    email! unique
+  password string! sensitive
+  role     enum [admin, restorer] default:restorer
+}
+
+entity Tag shared {
+  name string! unique searchable
+}
+
+entity Client shared {
+  name    string! searchable
+  email   email!  unique searchable
+  phone   phone
+  notes   text
+}
+
+entity Job shared {
+  title         string! searchable
+  notes         text
+  status        enum [queued, in_progress, waiting, done, cancelled] default:queued
+  due           date
+  scheduled_at  datetime
+  photo         file
+  estimate      money default:0
+  client        -> Client
+  tags          -> Tag[]
+
+  transition status {
+    queued -> in_progress
+    queued -> cancelled
+    in_progress -> waiting
+    in_progress -> done
+    in_progress -> cancelled
+    waiting -> in_progress
+    waiting -> done
+  }
+
+  on create {
+    log "Job opened: {{title}}"
+  }
+}
+
+api /clients {
+  list   GET    /     auth:jwt
+  create POST   /     auth:jwt
+  detail GET    /:id  auth:jwt
+  update PATCH  /:id  auth:jwt
+  delete DELETE /:id  auth:role(admin)
+}
+
+api /tags {
+  list   GET    /     auth:jwt
+  create POST   /     auth:jwt
+  detail GET    /:id  auth:jwt
+  update PATCH  /:id  auth:jwt
+  delete DELETE /:id  auth:role(admin)
+}
+
+api /jobs {
+  list   GET    /     auth:jwt
+  create POST   /     auth:jwt
+  detail GET    /:id  auth:jwt
+  update PATCH  /:id  auth:jwt
+  delete DELETE /:id  auth:role(admin)
+}

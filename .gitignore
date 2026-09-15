@@ -22,6 +22,7 @@ Thumbs.db
 .env.*.local
 
 # Demo runtime artifacts
+demos/**/files/
 demos/**/data.db
 demos/**/data.db-journal
 demos/**/data.db-wal
