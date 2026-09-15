@@ -230,6 +230,16 @@ pub fn cmd_seed(args: &[String]) {
                         let month = 1 + (i % 12);
                         serde_json::Value::String(format!("2026-{:02}-{:02}", month, day))
                     }
+                    parser::FieldType::DateTime => {
+                        let day = 1 + (i % 28);
+                        let month = 1 + (i % 12);
+                        serde_json::Value::String(format!("2026-{:02}-{:02}T10:00:00", month, day))
+                    }
+                    parser::FieldType::File => serde_json::Value::String(format!(
+                        "https://example.com/files/{}/{}",
+                        field.name,
+                        i + 1
+                    )),
                     parser::FieldType::Enum => {
                         if let Some(ref vals) = field.enum_values {
                             serde_json::Value::String(vals[i % vals.len()].clone())

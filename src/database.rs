@@ -58,6 +58,8 @@ fn sql_type_for(ft: &FieldType) -> &'static str {
         | FieldType::Slug
         | FieldType::Phone
         | FieldType::Date
+        | FieldType::DateTime
+        | FieldType::File
         | FieldType::Ulid
         | FieldType::Enum
         | FieldType::Ip
@@ -861,38 +863,14 @@ impl CronusDB {
     pub fn find_many(
         &self,
         table: &str,
-        filters: &[(String, String, String)], // (field, sql_op, value)
+        filters: &[SqlFilter],
         order_field: Option<&str>,
         order_dir: Option<&str>, // "ASC" or "DESC"
         limit: Option<usize>,
         offset: Option<usize>,
     ) -> Result<Value, String> {
         let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
-
-        // Build WHERE clause
-        let mut where_parts = Vec::new();
-        let mut params_vec: Vec<String> = Vec::new();
-
-        let valid_ops = ["=", "!=", ">", ">=", "<", "<=", "LIKE"];
-
-        for (field, op, value) in filters {
-            // Validate: field name must be alphanumeric + underscore (prevent SQL injection)
-            if !field.chars().all(|c| c.is_alphanumeric() || c == '_') {
-                return Err(format!("Invalid field name: {}", field));
-            }
-            // Validate operator against whitelist
-            if !valid_ops.contains(&op.as_str()) {
-                return Err(format!("Invalid operator: {}", op));
-            }
-            where_parts.push(format!("\"{}\" {} ?", field, op));
-            params_vec.push(value.clone());
-        }
-
-        let where_clause = if where_parts.is_empty() {
-            String::new()
-        } else {
-            format!(" WHERE {}", where_parts.join(" AND "))
-        };
+        let (where_clause, mut params_vec) = sql_where(filters)?;
 
         // Build ORDER BY
         let order_clause = match (order_field, order_dir) {
@@ -959,7 +937,7 @@ impl CronusDB {
     pub fn find_one(
         &self,
         table: &str,
-        filters: &[(String, String, String)],
+        filters: &[SqlFilter],
         order_field: Option<&str>,
         order_dir: Option<&str>,
     ) -> Result<Option<Value>, String> {
@@ -972,46 +950,17 @@ impl CronusDB {
     }
 
     /// Count records matching filters.
-    pub fn count_where(
-        &self,
-        table: &str,
-        filters: &[(String, String, String)],
-    ) -> Result<u64, String> {
+    pub fn count_where(&self, table: &str, filters: &[SqlFilter]) -> Result<u64, String> {
         let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
-
-        let valid_ops = ["=", "!=", ">", ">=", "<", "<=", "LIKE"];
-
-        let mut where_parts = Vec::new();
-        let mut params_vec: Vec<String> = Vec::new();
-
-        for (field, op, value) in filters {
-            if !field.chars().all(|c| c.is_alphanumeric() || c == '_') {
-                return Err(format!("Invalid field name: {}", field));
-            }
-            if !valid_ops.contains(&op.as_str()) {
-                return Err(format!("Invalid operator: {}", op));
-            }
-            where_parts.push(format!("\"{}\" {} ?", field, op));
-            params_vec.push(value.clone());
-        }
-
-        let where_clause = if where_parts.is_empty() {
-            String::new()
-        } else {
-            format!(" WHERE {}", where_parts.join(" AND "))
-        };
-
+        let (where_clause, params_vec) = sql_where(filters)?;
         let sql = format!("SELECT COUNT(*) FROM \"{}\"{}", table, where_clause);
-
         let params_refs: Vec<&dyn rusqlite::types::ToSql> = params_vec
             .iter()
             .map(|s| s as &dyn rusqlite::types::ToSql)
             .collect();
-
         let count: i64 = conn
             .query_row(&sql, params_refs.as_slice(), |row| row.get(0))
             .map_err(|e| e.to_string())?;
-
         Ok(count as u64)
     }
 
@@ -1047,6 +996,8 @@ impl CronusDB {
                     FieldType::Money => Value::String(format!("{}", 1000 + i * 500)),
                     FieldType::Boolean => Value::String(if i % 2 == 0 { "1" } else { "0" }.into()),
                     FieldType::Date => Value::String("2026-03-29".into()),
+                    FieldType::DateTime => Value::String("2026-03-29T10:00:00".into()),
+                    FieldType::File => Value::String("https://example.com/file.bin".into()),
                     FieldType::Url => {
                         Value::String(format!("https://example.com/{}", name.to_lowercase()))
                     }
@@ -1110,10 +1061,69 @@ pub fn filter_op_to_sql(op: &str) -> &'static str {
         "gte" => ">=",
         "lt" => "<",
         "lte" => "<=",
-        "contains" => "LIKE",    // value needs %value% wrapping
-        "starts_with" => "LIKE", // value needs value% wrapping
-        _ => "=",
+        "contains" => "LIKE",
+        "starts_with" => "LIKE",
+        "ends_with" => "LIKE",
+        "in" => "IN",
+        _ => "INVALID",
     }
+}
+
+/// One parameterized predicate. `IN` carries many values; others carry one.
+#[derive(Debug, Clone)]
+pub struct SqlFilter {
+    pub field: String,
+    pub op: String,
+    pub values: Vec<String>,
+}
+
+impl SqlFilter {
+    pub fn one(field: impl Into<String>, op: impl Into<String>, value: impl Into<String>) -> Self {
+        Self {
+            field: field.into(),
+            op: op.into(),
+            values: vec![value.into()],
+        }
+    }
+
+    pub fn from_triple(t: (String, String, String)) -> Self {
+        Self::one(t.0, t.1, t.2)
+    }
+}
+
+pub(crate) fn sql_where(filters: &[SqlFilter]) -> Result<(String, Vec<String>), String> {
+    let valid_ops = ["=", "!=", ">", ">=", "<", "<=", "LIKE", "IN"];
+    let mut parts = Vec::new();
+    let mut params = Vec::new();
+    for f in filters {
+        if !f.field.chars().all(|c| c.is_alphanumeric() || c == '_') {
+            return Err(format!("Invalid field name: {}", f.field));
+        }
+        if !valid_ops.contains(&f.op.as_str()) {
+            return Err(format!("Invalid operator: {}", f.op));
+        }
+        match f.op.as_str() {
+            "IN" => {
+                if f.values.is_empty() {
+                    parts.push("1=0".into());
+                } else {
+                    let ph = vec!["?"; f.values.len()].join(", ");
+                    parts.push(format!("\"{}\" IN ({})", f.field, ph));
+                    params.extend(f.values.iter().cloned());
+                }
+            }
+            _ => {
+                parts.push(format!("\"{}\" {} ?", f.field, f.op));
+                params.push(f.values.first().cloned().unwrap_or_default());
+            }
+        }
+    }
+    let clause = if parts.is_empty() {
+        String::new()
+    } else {
+        format!(" WHERE {}", parts.join(" AND "))
+    };
+    Ok((clause, params))
 }
 
 #[cfg(test)]

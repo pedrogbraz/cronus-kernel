@@ -13,7 +13,7 @@
 //! - reads return only linked rows the viewer may read. The parent row has
 //!   already been scoped by the caller (REST/GraphQL/forms).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use rusqlite::Connection;
 use serde_json::{Map, Value};
@@ -227,9 +227,58 @@ pub fn expand_param(value: Option<&str>) -> Vec<String> {
         .collect()
 }
 
-/// Sets every many-to-many field on `rows` (one object or an array): an id
-/// array, or the linked rows (redacted) for fields listed in `expand`. One
-/// query per field for the whole page, never per row.
+/// A relation that points *at* `target` from another entity.
+/// `Order.customer -> Customer` yields `orders` on Customer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReverseRel {
+    pub name: String,
+    pub source_entity: String,
+    pub source_field: String,
+    pub many_to_many: bool,
+}
+
+fn reverse_name(source_entity: &str) -> String {
+    let mut s = source_entity.to_ascii_lowercase();
+    if !s.ends_with('s') {
+        s.push('s');
+    }
+    s
+}
+
+/// Reverse relations targeting `target`, named without colliding with its
+/// own fields. A second FK from the same source becomes `{source}_{field}`.
+pub fn reverse_rels(entities: &[EntityNode], target: &EntityNode) -> Vec<ReverseRel> {
+    let mut used: HashSet<String> = target.fields.iter().map(|f| f.name.clone()).collect();
+    let mut out = Vec::new();
+    for source in entities {
+        for field in source
+            .fields
+            .iter()
+            .filter(|f| f.field_type == crate::parser::FieldType::Relation)
+        {
+            if field.reference.as_deref() != Some(target.name.as_str()) {
+                continue;
+            }
+            let mut name = reverse_name(&source.name);
+            if !used.insert(name.clone()) {
+                name = format!("{}_{}", source.name.to_ascii_lowercase(), field.name);
+                if !used.insert(name.clone()) {
+                    continue;
+                }
+            }
+            out.push(ReverseRel {
+                name,
+                source_entity: source.name.clone(),
+                source_field: field.name.clone(),
+                many_to_many: field.array,
+            });
+        }
+    }
+    out
+}
+
+/// Sets many-to-many fields, to-one `expand`, and reverse `expand` on `rows`.
+/// One query per field for the whole page, never per row.
 pub fn attach(
     db: &CronusDB,
     entities: &[EntityNode],
@@ -239,9 +288,6 @@ pub fn attach(
     expand: &[String],
 ) {
     let many: Vec<&FieldNode> = entity.fields.iter().filter(|f| f.is_many()).collect();
-    if many.is_empty() {
-        return;
-    }
     let mut targets: Vec<&mut Map<String, Value>> = match rows {
         Value::Array(items) => items.iter_mut().filter_map(Value::as_object_mut).collect(),
         Value::Object(row) => vec![row],
@@ -273,6 +319,197 @@ pub fn attach(
             let values = linked.remove(&id).unwrap_or_default();
             row.insert(field.name.clone(), Value::Array(values));
         }
+    }
+
+    let to_one: Vec<&FieldNode> = entity
+        .fields
+        .iter()
+        .filter(|f| {
+            f.field_type == crate::parser::FieldType::Relation
+                && !f.array
+                && f.reference.is_some()
+                && expand.iter().any(|e| *e == f.name)
+        })
+        .collect();
+    for field in to_one {
+        let fks: Vec<String> = targets
+            .iter()
+            .filter_map(|r| {
+                r.get(&field.name)
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
+            .filter(|s| !s.is_empty())
+            .collect();
+        let loaded = load_to_one(db, entities, field, &fks, access).unwrap_or_default();
+        for row in targets.iter_mut() {
+            let fk = row
+                .get(&field.name)
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            if let Some(obj) = loaded.get(&fk) {
+                row.insert(field.name.clone(), obj.clone());
+            }
+        }
+    }
+
+    for rev in reverse_rels(entities, entity) {
+        if !expand.iter().any(|e| *e == rev.name) {
+            continue;
+        }
+        let mut linked = if ids.is_empty() {
+            HashMap::new()
+        } else {
+            load_reverse(db, entities, &rev, &ids, access).unwrap_or_else(|e| {
+                eprintln!(
+                    "  \x1b[31m✗\x1b[0m reverse load {}.{} failed: {}",
+                    entity.name, rev.name, e
+                );
+                HashMap::new()
+            })
+        };
+        for row in targets.iter_mut() {
+            let id = row
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            let values = linked.remove(&id).unwrap_or_default();
+            row.insert(rev.name.clone(), Value::Array(values));
+        }
+    }
+}
+
+fn load_reverse(
+    db: &CronusDB,
+    entities: &[EntityNode],
+    rev: &ReverseRel,
+    target_ids: &[String],
+    access: &Access,
+) -> Result<HashMap<String, Vec<Value>>, String> {
+    let mut out: HashMap<String, Vec<Value>> = HashMap::new();
+    let Some(source) = entities
+        .iter()
+        .find(|e| e.name == rev.source_entity && is_safe_identifier(&e.name))
+    else {
+        return Ok(out);
+    };
+    let Some(condition) = target_scope(access, source) else {
+        return Ok(out);
+    };
+    if !is_safe_identifier(&rev.source_field) {
+        return Ok(out);
+    }
+    let mut sql;
+    let mut params = target_ids.to_vec();
+    if rev.many_to_many {
+        let table = join_table(&rev.source_entity, &rev.source_field);
+        if !is_safe_identifier(&table) {
+            return Ok(out);
+        }
+        sql = format!(
+            "SELECT j.\"{TARGET_COLUMN}\" AS \"{SOURCE_ALIAS}\", t.* FROM \"{table}\" j \
+             JOIN \"{}\" t ON t.\"id\" = j.\"{SOURCE_COLUMN}\" \
+             WHERE j.\"{TARGET_COLUMN}\" IN ({})",
+            source.name,
+            placeholders(target_ids.len())
+        );
+    } else {
+        sql = format!(
+            "SELECT t.\"{}\" AS \"{SOURCE_ALIAS}\", t.* FROM \"{}\" t \
+             WHERE t.\"{}\" IN ({})",
+            rev.source_field,
+            source.name,
+            rev.source_field,
+            placeholders(target_ids.len())
+        );
+    }
+    if let Some((column, value)) = condition {
+        sql.push_str(&format!(" AND t.\"{column}\" = ?"));
+        params.push(value);
+    }
+    for mut row in db.query_raw_params(&sql, &params)? {
+        let parent = row
+            .as_object_mut()
+            .and_then(|m| m.remove(SOURCE_ALIAS))
+            .and_then(|v| v.as_str().map(str::to_string))
+            .unwrap_or_default();
+        crate::authz::redact_sensitive(source, &mut row);
+        out.entry(parent).or_default().push(row);
+    }
+    Ok(out)
+}
+
+fn load_to_one(
+    db: &CronusDB,
+    entities: &[EntityNode],
+    field: &FieldNode,
+    ids: &[String],
+    access: &Access,
+) -> Result<HashMap<String, Value>, String> {
+    let mut out = HashMap::new();
+    let Some(target_name) = field.reference.as_deref() else {
+        return Ok(out);
+    };
+    let Some(target) = entities
+        .iter()
+        .find(|e| e.name == target_name && is_safe_identifier(&e.name))
+    else {
+        return Ok(out);
+    };
+    let Some(condition) = target_scope(access, target) else {
+        return Ok(out);
+    };
+    let mut unique = Vec::new();
+    for id in ids {
+        if !id.is_empty() && !unique.iter().any(|s: &String| s == id) {
+            unique.push(id.clone());
+        }
+    }
+    if unique.is_empty() {
+        return Ok(out);
+    }
+    let mut sql = format!(
+        "SELECT * FROM \"{}\" WHERE \"id\" IN ({})",
+        target.name,
+        placeholders(unique.len())
+    );
+    let mut params = unique.clone();
+    if let Some((column, value)) = condition {
+        sql.push_str(&format!(" AND \"{column}\" = ?"));
+        params.push(value);
+    }
+    for mut row in db.query_raw_params(&sql, &params)? {
+        crate::authz::redact_sensitive(target, &mut row);
+        if let Some(id) = row.get("id").and_then(Value::as_str).map(str::to_string) {
+            out.insert(id, row);
+        }
+    }
+    Ok(out)
+}
+
+/// Text for a bound cell: scalars as-is; related objects as label/name/title/id.
+pub fn display_value(v: &Value) -> String {
+    match v {
+        Value::String(s) => s.clone(),
+        Value::Number(n) => n.to_string(),
+        Value::Bool(b) => b.to_string(),
+        Value::Array(items) => items
+            .iter()
+            .map(display_value)
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>()
+            .join(", "),
+        Value::Object(o) => o
+            .get("label")
+            .or_else(|| o.get("name"))
+            .or_else(|| o.get("title"))
+            .or_else(|| o.get("id"))
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
+        _ => String::new(),
     }
 }
 
@@ -450,5 +687,52 @@ mod tests {
         assert_eq!(tags.len(), 2);
         assert_eq!(tags[0]["label"], "x");
         assert!(tags[0].get("secret").is_none());
+    }
+
+    #[test]
+    fn reverse_expand_loads_orders_on_customer() {
+        let src = "entity Customer { name string! }\nentity Order { title string!  customer -> Customer }\n";
+        let ents: Vec<EntityNode> = parse(src)
+            .unwrap()
+            .into_iter()
+            .filter_map(|n| match n {
+                AstNode::Entity(e) => Some(e),
+                _ => None,
+            })
+            .collect();
+        let names: Vec<_> = reverse_rels(&ents, &ents[0])
+            .into_iter()
+            .map(|r| r.name)
+            .collect();
+        assert_eq!(names, vec!["orders".to_string()]);
+        let db = CronusDB::open_memory().unwrap();
+        db.migrate(&ents).unwrap();
+        let cid = row(
+            &db,
+            "Customer",
+            json!({"name": "Ada", "_owner_id": "alice"}),
+        );
+        let oid = db
+            .insert(
+                "Order",
+                &json!({"title": "one", "customer": cid, "_owner_id": "alice"}),
+            )
+            .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let mut customer = json!({"id": cid, "name": "Ada"});
+        attach(
+            &db,
+            &ents,
+            &ents[0],
+            &mut customer,
+            &as_user("alice"),
+            &["orders".into()],
+        );
+        let orders = customer["orders"].as_array().unwrap();
+        assert_eq!(orders.len(), 1);
+        assert_eq!(orders[0]["id"], oid);
+        assert_eq!(orders[0]["title"], "one");
     }
 }

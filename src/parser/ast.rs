@@ -69,6 +69,8 @@ pub struct AppNode {
     pub tailwind_config: Option<String>,
     /// Unbreakable rules defined inline in the app block
     pub constitution: Option<ConstitutionNode>,
+    /// `app { graphql false }` unmounts `/graphql`. Default true.
+    pub graphql: bool,
     /// Doc-comment attached to the app block
     pub doc: Option<DocComment>,
 }
@@ -155,10 +157,12 @@ pub enum FieldType {
     Percentage,
     Boolean,
     Date,
+    DateTime,
     Ulid,
     Json,
     Enum,
     Ip,
+    File,
     Relation,
 }
 
@@ -168,6 +172,7 @@ pub const FIELD_TYPE_KEYWORDS: &[&str] = &[
     "text",
     "email",
     "url",
+    "file",
     "slug",
     "phone",
     "number",
@@ -175,6 +180,7 @@ pub const FIELD_TYPE_KEYWORDS: &[&str] = &[
     "percentage",
     "boolean",
     "date",
+    "datetime",
     "ulid",
     "json",
     "enum",
@@ -189,8 +195,7 @@ pub const FIELD_TYPE_ALIASES: &[(&str, &str)] = &[
     ("float", "number"),
     ("decimal", "number"),
     ("bool", "boolean"),
-    ("datetime", "date"),
-    ("timestamp", "date"),
+    ("timestamp", "datetime"),
 ];
 
 impl FieldType {
@@ -207,6 +212,7 @@ impl FieldType {
             "text" => FieldType::Text,
             "email" => FieldType::Email,
             "url" => FieldType::Url,
+            "file" => FieldType::File,
             "slug" => FieldType::Slug,
             "phone" => FieldType::Phone,
             "number" => FieldType::Number,
@@ -214,6 +220,7 @@ impl FieldType {
             "percentage" => FieldType::Percentage,
             "boolean" => FieldType::Boolean,
             "date" => FieldType::Date,
+            "datetime" => FieldType::DateTime,
             "ulid" => FieldType::Ulid,
             "json" => FieldType::Json,
             "enum" => FieldType::Enum,
@@ -320,6 +327,8 @@ pub struct BindingNode {
     pub live: bool, // real-time updates via SSE
     /// `bind X { scope:public }` — skip `_owner_id` filter (marketing, shared catalogs).
     pub public: bool,
+    /// `expand:tags,author` — related rows (not just ids) on those fields.
+    pub expand: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -358,6 +367,8 @@ pub enum FilterOp {
     Lte,
     Contains,
     StartsWith,
+    EndsWith,
+    In,
 }
 
 #[derive(Debug, Clone)]
@@ -378,17 +389,20 @@ pub enum BindingValue {
     Num(String),
     Bool(bool),
     AuthRef(String),
+    /// `where status in:["paid", "shipped"]`
+    List(Vec<BindingValue>),
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ActionInstruction {
     pub verb: String, // "set", "toast", "navigate", "refresh", "create", "confirm", "delete", "validate", "open", "close"
     pub target: String, // field name, URL, message text, section ref
     pub value: String, // new value for "set", style for "toast"
+    /// Toast `style:`; `create`/`update` field literals (`title:"x"` or `{ title "x" }`).
     pub modifiers: HashMap<String, String>,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ActionBlock {
     pub event: String, // "click", "submit", "error", "change"
     pub confirm: Option<String>,
@@ -486,6 +500,8 @@ pub struct ComponentNode {
 pub struct ImportNode {
     pub alias: String,
     pub source: String,
+    pub line: usize,
+    pub col: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -612,6 +628,8 @@ pub struct ComposeNode {
     pub name: String,
     pub uses: Vec<String>,
     pub merges: Vec<(String, HashMap<String, String>)>,
+    pub line: usize,
+    pub col: usize,
 }
 
 #[derive(Debug, Clone)]

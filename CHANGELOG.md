@@ -8,6 +8,86 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ## [Unreleased]
 
+### Language (GraphQL)
+
+- **`update<Entity>(id, input)`** is generated. Partial update, same validation,
+  uniqueness, transitions and M2M rules as REST. Other users' rows return `null`.
+  The auth entity stays admin-only.
+- **`app { graphql false }`** unmounts `/graphql` and `/graphql/schema` (404).
+  Default remains on.
+
+### Language (types)
+
+- **`datetime` is not `date`.** `date` is `YYYY-MM-DD`. `datetime` (alias `timestamp`) is
+  `YYYY-MM-DDTHH:MM` with optional seconds and `Z`/`±HH:MM`. Forms use `datetime-local`.
+- **`file` is a real type.** Forms send a data URL; the kernel stores `/_files/<id>.<ext>`
+  next to the database (512KiB). REST/GraphQL also accept an `https://` URL. `GET /_files/…`
+  serves the bytes. Traversal names are rejected.
+- **Reverse relations.** `Order { customer -> Customer }` yields `orders` on Customer.
+  `bind Customer { expand:orders }` / REST `?expand=orders` loads the related rows
+  (owner-scoped). A name that collides with a field on Customer becomes `{source}_{field}`.
+
+### Language (composition)
+
+- **`import` and `compose { use }` are a load graph.** Nested imports resolve relative
+  to the importing file. Each path is loaded once (cycles skip, they do not error).
+  Missing files are `COMPOSE_002` — they used to `eprintln` a warning and continue.
+- **Union, not last-wins.** Duplicate entity name, page route, `app`, `auth`, `style`,
+  layout name, api prefix, component name, webhook entity, or env variable is
+  `COMPOSE_001`. The first declaration is kept; every later collision is reported.
+  Exactly one `app {}`.
+- **`parse_directory` no longer concatenates sources** (that double-loaded a file that
+  was also `import`ed). `cronus run` with several `*.cronus` files unions the directory
+  through the same graph. `cronus build path.cronus` follows that file's imports;
+  `cronus build` with no path and several files in cwd unions like `run`.
+- **`compose` is not `LANG_001`.** `compose App { use entities }` loads `entities.cronus`.
+  `cronus compose --from` is still hydra template generation, not this primitive.
+
+### Language (query)
+
+- **`ends_with` and `in:[…]`** are real `where` operators (parameterized `LIKE` / `IN`).
+  `in` requires a list; `in:"paid"` is still `BIND_001`. An empty list matches nothing
+  (`1=0`), it is not dropped. Unknown operators still error; they never become `eq`.
+- **`bind { expand:tags }`** (also `expand:tags,author`) loads related rows for SSR,
+  one query per field, same redact/scope as REST `?expand=`. Without `expand`, M2M
+  fields attach as id arrays so `columns "tags"` is no longer blank. A to-one
+  `-> Entity` listed in `expand` is replaced with the related object.
+
+### Language (mutation)
+
+- **Forms honour `on submit`.** `POST`/`PATCH /_form` still write the row once.
+  `create`/`update` in the block are declarations (must match `bind`). The response
+  `effects` are that block's `toast`/`navigate`/`refresh` instead of a generic
+  "Created successfully". `/_action` returns 403 for `submit` blocks, so they cannot
+  double-insert. (`src/actions.rs`)
+- **`/_action` `create`/`update` execute AST field literals.**
+  `on click { create Task { title "hello" } }` inserts; the client still posts only
+  `{action_id, entity, id}`. A `create` with no fields is `400 INVALID`.
+- **`set` on many-to-many fields** (`set tags "id1,id2"`) replaces join rows with the
+  same id-scope rules as REST/`/_form`.
+- **Entity `on create/update/delete` runs after form and action writes**, not only REST.
+  `log` interpolates and records; `notify` broadcasts SSE. Outbound HTTP remains `webhook`.
+
+### Breaking changes (language honesty)
+
+A `.cronus` file that used to parse and no-op now fails `cronus build`. Codes are in
+LANGUAGE.md §15.9.
+
+- **Unknown `where` operators are `BIND_001`.** `where status in:["paid"]` and
+  `where title ends_with "x"` used to run as `eq`. Supported: `eq`, `ne`/`neq`,
+  `gt`, `gte`, `lt`, `lte`, `contains`, `starts_with`.
+- **Unknown `query` kinds are `BIND_002`.** `query every` used to mean `query all`.
+- **Unknown field modifiers are `FIELD_004`.** `indexed`, `computed` and `onupdate:`
+  used to be ignored; write `index` or drop them.
+- **Unknown action verbs and `validate` are `ACTION_001`.** They used to be skipped.
+  `create`/`update` still parse (templates / `/_form`); the executor still does not
+  run them as separate steps.
+- **Hollow top-level blocks are `LANG_001`:** `service`, `worker`, `middleware`,
+  `deploy`, `test`, `define`, file-scope `on`. They parse so the rest of
+  the file can be diagnosed; the app is invalid until they are removed. `webhook`,
+  `import` and `compose { use }` are real. Two `app {}` or two `entity Task` across
+  files used to last-win; they now fail (`COMPOSE_001`).
+
 ### Breaking changes
 
 Apps that worked before may now return 401/403/404 or refuse to start. Each item is a

@@ -189,6 +189,8 @@ fn generate_test_body(entity: &EntityNode) -> String {
             FieldType::Percentage => format!("\"{}\":50", field.name),
             FieldType::Boolean => format!("\"{}\":true", field.name),
             FieldType::Date => format!("\"{}\":\"2026-03-29\"", field.name),
+            FieldType::DateTime => format!("\"{}\":\"2026-03-29T10:00:00\"", field.name),
+            FieldType::File => format!("\"{}\":\"https://test.cronus.dev/file.bin\"", field.name),
             FieldType::Url => format!("\"{}\":\"https://test.cronus.dev\"", field.name),
             FieldType::Enum => {
                 if let Some(ref values) = field.enum_values {

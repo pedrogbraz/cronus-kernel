@@ -392,6 +392,8 @@ pub fn reconcile_field_type_str(ft: &FieldType) -> &'static str {
         FieldType::Percentage => "percentage",
         FieldType::Boolean => "boolean",
         FieldType::Date => "date",
+        FieldType::DateTime => "datetime",
+        FieldType::File => "file",
         FieldType::Ulid => "ulid",
         FieldType::Json => "json",
         FieldType::Enum => "enum",
@@ -446,6 +448,9 @@ pub fn reconcile_emit(nodes: &[AstNode]) -> String {
                     } else {
                         out.push_str(&format!("  database {}\n", db.db_type));
                     }
+                }
+                if !app.graphql {
+                    out.push_str("  graphql false\n");
                 }
                 out.push_str("}\n\n");
             }
@@ -640,7 +645,11 @@ pub fn reconcile_emit(nodes: &[AstNode]) -> String {
                 out.push_str("}\n\n");
             }
             AstNode::Import(imp) => {
-                out.push_str(&format!("import {} from \"{}\"\n", imp.alias, imp.source));
+                if imp.alias.is_empty() {
+                    out.push_str(&format!("import \"{}\"\n", imp.source));
+                } else {
+                    out.push_str(&format!("import {} from \"{}\"\n", imp.alias, imp.source));
+                }
             }
             AstNode::Env(env) => {
                 if env.name.is_empty() {

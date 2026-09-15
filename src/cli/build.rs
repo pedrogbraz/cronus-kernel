@@ -9,10 +9,11 @@
 
 use std::fs;
 use std::io::IsTerminal;
+use std::path::Path;
 
 use crate::ast_diff;
 use crate::parser::{self, AstNode};
-use crate::{find_cronus_file, LAST_AI_ERRORS};
+use crate::{find_all_cronus_files, LAST_AI_ERRORS};
 
 // Flat file names: a `build/` directory is commonly git-ignored.
 #[path = "build_locate.rs"]
@@ -103,9 +104,15 @@ fn run(args: &[String]) -> i32 {
 }
 
 /// Locate, read, parse and validate. Returns the AST when parsing succeeded.
+/// Follows `import` / `compose { use }`. Several `*.cronus` files in cwd with
+/// no path argument are unioned the same way as `cronus run`.
 fn check(file_arg: Option<String>, profile: Profile) -> (Report, Option<Vec<AstNode>>) {
-    let Some(file) = file_arg.or_else(find_cronus_file) else {
-        return (
+    if let Some(file) = file_arg {
+        return check_file(&file, profile);
+    }
+    let files = find_all_cronus_files();
+    match files.len() {
+        0 => (
             report::usage_error(
                 "",
                 "IO_001",
@@ -113,14 +120,26 @@ fn check(file_arg: Option<String>, profile: Profile) -> (Report, Option<Vec<AstN
                 "pass a path, e.g. 'cronus build app.cronus'",
             ),
             None,
-        );
-    };
-    let source = match fs::read_to_string(&file) {
+        ),
+        1 => check_file(&files[0], profile),
+        _ => match parser::parse_directory_diagnostics(".") {
+            Err(errors) => (report::from_parse_errors(&files[0], &errors), None),
+            Ok(nodes) => {
+                let source = fs::read_to_string(&files[0]).unwrap_or_default();
+                let r = report::validate(&files[0], &source, &nodes, profile);
+                (r, Some(nodes))
+            }
+        },
+    }
+}
+
+fn check_file(file: &str, profile: Profile) -> (Report, Option<Vec<AstNode>>) {
+    let source = match fs::read_to_string(file) {
         Ok(s) => s,
         Err(e) => {
             return (
                 report::usage_error(
-                    &file,
+                    file,
                     "IO_001",
                     format!("cannot read '{}': {}", file, e),
                     "check the path and file permissions",
@@ -129,10 +148,10 @@ fn check(file_arg: Option<String>, profile: Profile) -> (Report, Option<Vec<AstN
             )
         }
     };
-    match parser::parse_diagnostics(&source) {
-        Err(errors) => (report::from_parse_errors(&file, &errors), None),
+    match parser::parse_source_at(&source, Path::new(file)) {
+        Err(errors) => (report::from_parse_errors(file, &errors), None),
         Ok(nodes) => {
-            let r = report::validate(&file, &source, &nodes, profile);
+            let r = report::validate(file, &source, &nodes, profile);
             (r, Some(nodes))
         }
     }

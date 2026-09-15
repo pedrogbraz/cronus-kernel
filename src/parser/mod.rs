@@ -11,6 +11,12 @@ pub mod diagnostic;
 use diagnostic::codes;
 pub use diagnostic::ParseError;
 
+mod compose;
+pub use compose::{
+    parse_directory, parse_directory_diagnostics, parse_file_diagnostics, parse_source_at,
+    parse_with_imports, parse_with_imports_diagnostics,
+};
+
 pub(crate) mod tokenizer;
 pub(crate) use tokenizer::*;
 
@@ -212,6 +218,26 @@ impl Parser {
         }
     }
 
+    fn parse_in_list(&mut self) -> Vec<BindingValue> {
+        if !self.matches(TokenKind::LBracket, None) {
+            return Vec::new();
+        }
+        self.advance();
+        let mut items = Vec::new();
+        while !self.matches(TokenKind::RBracket, None) && !self.matches(TokenKind::Eof, None) {
+            if self.peek().kind == TokenKind::Comma {
+                self.advance();
+                continue;
+            }
+            let token = self.advance();
+            items.push(Self::filter_value(&token));
+        }
+        if self.matches(TokenKind::RBracket, None) {
+            self.advance();
+        }
+        items
+    }
+
     /// `where` value glued to its operator (`eq:auth.id`, `eq:"x"`, `gt:5`).
     /// Classified exactly like the space-separated form.
     fn filter_value_from_colon(raw: &str) -> BindingValue {
@@ -315,19 +341,37 @@ impl Parser {
 
     fn parse_import(&mut self) -> Result<ImportNode, ParseError> {
         self.expect(TokenKind::Keyword)?;
+        if self.peek().kind == TokenKind::StringLit {
+            let t = self.advance();
+            return Ok(ImportNode {
+                alias: String::new(),
+                source: t.value.clone(),
+                line: t.line,
+                col: t.col,
+            });
+        }
         let alias = self.advance().value;
         if self.matches(TokenKind::Identifier, Some("from")) {
             self.advance();
         }
-        let source = self.expect(TokenKind::StringLit)?.value;
-        Ok(ImportNode { alias, source })
+        let t = self.expect(TokenKind::StringLit)?;
+        Ok(ImportNode {
+            alias,
+            source: t.value.clone(),
+            line: t.line,
+            col: t.col,
+        })
     }
 
     // ── compose ──
 
     fn parse_compose(&mut self) -> Result<ComposeNode, ParseError> {
-        self.expect(TokenKind::Keyword)?;
-        let name = self.advance().value;
+        let at = self.expect(TokenKind::Keyword)?;
+        let name = if self.matches(TokenKind::LBrace, None) {
+            String::new()
+        } else {
+            self.advance().value
+        };
         self.expect(TokenKind::LBrace)?;
 
         let mut uses = Vec::new();
@@ -369,7 +413,13 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(ComposeNode { name, uses, merges })
+        Ok(ComposeNode {
+            name,
+            uses,
+            merges,
+            line: at.line,
+            col: at.col,
+        })
     }
 
     // ── app ──
@@ -383,6 +433,7 @@ impl Parser {
         let mut port: u16 = 5175;
         let mut database = None;
         let mut constitution = None;
+        let mut graphql = true;
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
             if self.matches(TokenKind::Identifier, Some("stack")) {
@@ -425,6 +476,16 @@ impl Parser {
                     must: must_rules,
                     never: never_rules,
                 });
+            } else if self.matches(TokenKind::Identifier, Some("graphql")) {
+                self.advance();
+                if !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                    graphql = Self::parse_graphql_flag(&self.advance().value);
+                }
+            } else if self.peek().kind == TokenKind::ColonPair
+                && self.peek().value.starts_with("graphql:")
+            {
+                let (_, v) = Self::split_colon_pair(&self.advance().value);
+                graphql = Self::parse_graphql_flag(&v);
             } else {
                 self.advance();
             }
@@ -438,8 +499,16 @@ impl Parser {
             database,
             tailwind_config: None,
             constitution,
+            graphql,
             doc: None,
         })
+    }
+
+    fn parse_graphql_flag(raw: &str) -> bool {
+        !matches!(
+            raw.trim().to_ascii_lowercase().as_str(),
+            "false" | "off" | "no" | "0"
+        )
     }
 
     // ── entity ──
@@ -724,7 +793,22 @@ impl Parser {
                             }
                             pattern = Some(v);
                         }
-                        _ => {}
+                        other => {
+                            let shown = format!("{other}:");
+                            let mut err = Self::token_error(
+                                codes::UNKNOWN_FIELD_MODIFIER,
+                                format!("unknown field modifier '{shown}' on field '{name}'"),
+                                &mod_token,
+                            )
+                            .with_hint(
+                                "recognised modifiers: required, unique, sensitive, optional, searchable, index, featured, formatted, default:, min:, max:, match:",
+                            );
+                            if other == "onupdate" || other == "computed" {
+                                err =
+                                    err.with_hint("this modifier is not in the language; drop it");
+                            }
+                            self.diagnostics.push(err);
+                        }
                     }
                 } else {
                     match mod_val.as_str() {
@@ -737,7 +821,20 @@ impl Parser {
                         "index" => index = true,
                         "featured" => featured = true,
                         "formatted" => formatted = true,
-                        _ => {}
+                        other => {
+                            let mut err = Self::token_error(
+                                codes::UNKNOWN_FIELD_MODIFIER,
+                                format!("unknown field modifier '{other}' on field '{name}'"),
+                                &mod_token,
+                            )
+                            .with_hint(
+                                "recognised modifiers: required, unique, sensitive, optional, searchable, index, featured, formatted, default:, min:, max:, match:",
+                            );
+                            if other == "indexed" {
+                                err = err.with_replacement("index".to_string());
+                            }
+                            self.diagnostics.push(err);
+                        }
                     }
                 }
             } else {
@@ -829,6 +926,22 @@ impl Parser {
         ParseError::new(code, message, at.line, at.col)
             .with_len(at.width())
             .with_target(at.value.clone())
+    }
+
+    /// `service` / `worker` / … parse so the rest of the file can be diagnosed,
+    /// but `cronus build` treats them as errors: they have no runtime.
+    fn reject_unimplemented_block(&mut self, kind: &'static str) {
+        let at = self.peek().clone();
+        self.diagnostics.push(
+            Self::token_error(
+                codes::UNIMPLEMENTED_BLOCK,
+                format!("top-level '{kind}' is not implemented"),
+                &at,
+            )
+            .with_hint(format!(
+                "remove the '{kind}' block; the parser accepts it so the rest of the file can be checked, but the runtime ignores it"
+            )),
+        );
     }
 
     /// Transition state/target that is not an enum value.
@@ -2022,6 +2135,7 @@ impl Parser {
                     aggregate: None,
                     live: false,
                     public: false,
+                    expand: Vec::new(),
                 });
             }
         }
@@ -2177,6 +2291,34 @@ impl Parser {
         Some(self.advance().value)
     }
 
+    /// Field literals on `create`/`update`: `title:"x"` pairs and/or `{ title "x" }`.
+    fn parse_action_fields(&mut self) -> HashMap<String, String> {
+        let mut fields = HashMap::new();
+        while self.peek().kind == TokenKind::ColonPair {
+            let (k, v) = Self::split_colon_pair(&self.advance().value);
+            fields.insert(k, v.trim_matches('"').to_string());
+        }
+        if !self.matches(TokenKind::LBrace, None) {
+            return fields;
+        }
+        self.advance();
+        while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+            let tok = self.advance();
+            if tok.kind == TokenKind::ColonPair {
+                let (k, v) = Self::split_colon_pair(&tok.value);
+                fields.insert(k, v.trim_matches('"').to_string());
+                continue;
+            }
+            let key = tok.value;
+            let val = self.action_arg().unwrap_or_default();
+            fields.insert(key, val.trim_matches('"').to_string());
+        }
+        if self.matches(TokenKind::RBrace, None) {
+            self.advance();
+        }
+        fields
+    }
+
     fn parse_action_block(&mut self) -> Result<ActionBlock, ParseError> {
         // Already consumed "on" keyword before calling this
         let event = self.advance().value; // "click", "submit", "error", "change"
@@ -2209,6 +2351,10 @@ impl Parser {
                 "toast" => {
                     let message = self.expect(TokenKind::StringLit)?.value;
                     let mut mods = HashMap::new();
+                    // Documented form: `toast "Saved" success` (bare style, not a verb).
+                    if let Some(style) = self.action_arg() {
+                        mods.insert("style".into(), style);
+                    }
                     while self.peek().kind == TokenKind::ColonPair {
                         let (k, v) = Self::split_colon_pair(&self.advance().value);
                         mods.insert(k, v);
@@ -2240,8 +2386,18 @@ impl Parser {
                         modifiers: HashMap::new(),
                     });
                 }
-                "create" | "update" | "delete" => {
-                    let target = self.action_arg().unwrap_or_default(); // "entity" or entity name
+                "create" | "update" => {
+                    let target = self.action_arg().unwrap_or_default();
+                    let modifiers = self.parse_action_fields();
+                    instructions.push(ActionInstruction {
+                        verb: verb.clone(),
+                        target,
+                        value: String::new(),
+                        modifiers,
+                    });
+                }
+                "delete" => {
+                    let target = self.action_arg().unwrap_or_default();
                     instructions.push(ActionInstruction {
                         verb: verb.clone(),
                         target,
@@ -2250,6 +2406,19 @@ impl Parser {
                     });
                 }
                 "validate" => {
+                    let at = self.tokens.get(self.pos.saturating_sub(1)).cloned();
+                    if let Some(at) = at {
+                        self.diagnostics.push(
+                            Self::token_error(
+                                codes::UNIMPLEMENTED_ACTION,
+                                "action verb 'validate' is not implemented".into(),
+                                &at,
+                            )
+                            .with_hint(
+                                "remove it; field validation already runs on /_form and REST writes",
+                            ),
+                        );
+                    }
                     let target = self.action_arg().unwrap_or_else(|| "all".into());
                     instructions.push(ActionInstruction {
                         verb: "validate".into(),
@@ -2268,7 +2437,27 @@ impl Parser {
                     });
                 }
                 _ => {
-                    // Unknown verb — skip to next known verb or closing brace
+                    let at = self.tokens.get(self.pos.saturating_sub(1)).cloned();
+                    if let Some(at) = at {
+                        const LIVE: &[&str] = &[
+                            "set", "toast", "navigate", "refresh", "delete", "open", "close",
+                            "confirm", "create", "update",
+                        ];
+                        let mut err = Self::token_error(
+                            codes::UNIMPLEMENTED_ACTION,
+                            format!("unknown action verb '{verb}'"),
+                            &at,
+                        )
+                        .with_hint(
+                            "implemented verbs: set, toast, navigate, refresh, delete, open, close; create/update are parsed for forms",
+                        );
+                        if let Some(s) = diagnostic::closest(&verb, LIVE) {
+                            err = err.with_replacement(s.to_string());
+                        }
+                        self.diagnostics.push(err);
+                    }
+                    // Skip to next known verb or closing brace so the rest of
+                    // the block can still be diagnosed.
                     while !self.matches(TokenKind::RBrace, None)
                         && !self.matches(TokenKind::Eof, None)
                     {
@@ -2344,6 +2533,7 @@ impl Parser {
         let mut aggregate = None;
         let mut public = false;
         let mut live = false;
+        let mut expand: Vec<String> = Vec::new();
         let mut agg_field: Option<String> = None;
         let mut group_interval: Option<String> = None;
 
@@ -2357,11 +2547,26 @@ impl Parser {
             };
             match kw_name.as_str() {
                 "query" => {
+                    let qt_token = self.peek().clone();
                     let qt = self.advance().value;
                     query = match qt.as_str() {
+                        "all" => QueryType::All,
                         "one" => QueryType::One,
                         "count" => QueryType::Count,
-                        _ => QueryType::All,
+                        other => {
+                            const KINDS: &[&str] = &["all", "one", "count"];
+                            let mut err = Self::token_error(
+                                codes::UNKNOWN_QUERY,
+                                format!("unknown query '{other}'"),
+                                &qt_token,
+                            )
+                            .with_hint("query must be all, one or count");
+                            if let Some(s) = diagnostic::closest(other, KINDS) {
+                                err = err.with_replacement(s.to_string());
+                            }
+                            self.diagnostics.push(err);
+                            QueryType::All
+                        }
                     };
                 }
                 "where" => {
@@ -2370,33 +2575,93 @@ impl Parser {
                     // value as separate tokens) and `status eq:"active"` (the
                     // tokenizer emits one ColonPair). Both yield the same FilterExpr.
                     let op_token = self.advance();
-                    let (op_str, value) = if op_token.kind == TokenKind::ColonPair {
-                        let (op, raw) = op_token
+                    let (op_str, colon_raw) = if op_token.kind == TokenKind::ColonPair {
+                        op_token
                             .value
                             .split_once(':')
-                            .map(|(o, r)| (o.to_string(), r.to_string()))
-                            .unwrap_or_default();
-                        (op, Self::filter_value_from_colon(&raw))
+                            .map(|(o, r)| (o.to_string(), Some(r.to_string())))
+                            .unwrap_or_else(|| (op_token.value.clone(), None))
+                    } else {
+                        (op_token.value.clone(), None)
+                    };
+                    const OPS: &[&str] = &[
+                        "eq",
+                        "ne",
+                        "neq",
+                        "gt",
+                        "gte",
+                        "lt",
+                        "lte",
+                        "contains",
+                        "starts_with",
+                        "ends_with",
+                        "in",
+                    ];
+                    let op = match op_str.as_str() {
+                        "eq" => Some(FilterOp::Eq),
+                        "ne" | "neq" => Some(FilterOp::Ne),
+                        "gt" => Some(FilterOp::Gt),
+                        "gte" => Some(FilterOp::Gte),
+                        "lt" => Some(FilterOp::Lt),
+                        "lte" => Some(FilterOp::Lte),
+                        "contains" => Some(FilterOp::Contains),
+                        "starts_with" => Some(FilterOp::StartsWith),
+                        "ends_with" => Some(FilterOp::EndsWith),
+                        "in" => Some(FilterOp::In),
+                        other => {
+                            let mut err = Self::token_error(
+                                codes::UNKNOWN_FILTER_OP,
+                                format!("unknown where operator '{other}'"),
+                                &op_token,
+                            )
+                            .with_hint(
+                                "supported operators: eq, ne (neq), gt, gte, lt, lte, contains, starts_with, ends_with, in",
+                            );
+                            if let Some(s) = diagnostic::closest(other, OPS) {
+                                err = err.with_replacement(s.to_string());
+                            }
+                            self.diagnostics.push(err);
+                            None
+                        }
+                    };
+                    let mut skip_filter = false;
+                    let value = if op == Some(FilterOp::In) {
+                        if self.matches(TokenKind::LBracket, None) {
+                            BindingValue::List(self.parse_in_list())
+                        } else {
+                            skip_filter = true;
+                            self.diagnostics.push(
+                                Self::token_error(
+                                    codes::UNKNOWN_FILTER_OP,
+                                    "where operator 'in' requires a list, e.g. in:[\"paid\", \"shipped\"]"
+                                        .into(),
+                                    &op_token,
+                                )
+                                .with_hint("write in:[a, b] or in:[\"a\", \"b\"]"),
+                            );
+                            if colon_raw.is_none()
+                                && !self.matches(TokenKind::RBrace, None)
+                                && !self.matches(TokenKind::Eof, None)
+                            {
+                                let _ = self.advance();
+                            }
+                            BindingValue::List(Vec::new())
+                        }
+                    } else if let Some(raw) = colon_raw {
+                        Self::filter_value_from_colon(&raw)
                     } else {
                         let val_token = self.advance();
-                        (op_token.value.clone(), Self::filter_value(&val_token))
+                        Self::filter_value(&val_token)
                     };
-                    let op = match op_str.as_str() {
-                        "eq" => FilterOp::Eq,
-                        "ne" | "neq" => FilterOp::Ne,
-                        "gt" => FilterOp::Gt,
-                        "gte" => FilterOp::Gte,
-                        "lt" => FilterOp::Lt,
-                        "lte" => FilterOp::Lte,
-                        "contains" => FilterOp::Contains,
-                        "starts_with" => FilterOp::StartsWith,
-                        _ => FilterOp::Eq,
-                    };
-                    filters.push(FilterExpr {
-                        field,
-                        operator: op,
-                        value,
-                    });
+                    if let Some(operator) = op {
+                        if !skip_filter {
+                            filters.push(FilterExpr {
+                                field,
+                                operator,
+                                value,
+                            });
+                        }
+                    }
                 }
                 "order" => {
                     let field = self.advance().value.clone();
@@ -2467,6 +2732,21 @@ impl Parser {
                     let v = kw_val.unwrap_or_else(|| self.advance().value);
                     public = v.eq_ignore_ascii_case("public");
                 }
+                "expand" => {
+                    let raw = if let Some(v) = kw_val {
+                        v
+                    } else if self.matches(TokenKind::LBracket, None) {
+                        self.parse_string_array()?.join(",")
+                    } else {
+                        self.advance().value
+                    };
+                    expand = raw
+                        .split(',')
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty())
+                        .map(str::to_string)
+                        .collect();
+                }
                 "live" => {
                     live = match kw_val.as_deref() {
                         Some("false") | Some("off") => false,
@@ -2511,6 +2791,7 @@ impl Parser {
             aggregate,
             live,
             public,
+            expand,
         })
     }
 
@@ -2564,6 +2845,7 @@ impl Parser {
     // ── service ──
 
     fn parse_service(&mut self) -> Result<ServiceNode, ParseError> {
+        self.reject_unimplemented_block("service");
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
 
@@ -2630,6 +2912,7 @@ impl Parser {
     /// Parse `define "Name" { section ... section ... }`
     /// Stores one or more reusable sections under a name.
     fn parse_define(&mut self) -> Result<DefineNode, ParseError> {
+        self.reject_unimplemented_block("define");
         self.advance(); // consume "define"
         let name = if self.peek().kind == TokenKind::StringLit {
             self.advance().value
@@ -3077,6 +3360,7 @@ impl Parser {
     // ── event ──
 
     fn parse_event(&mut self) -> Result<EventNode, ParseError> {
+        self.reject_unimplemented_block("on");
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
         self.expect(TokenKind::LBrace)?;
@@ -3104,6 +3388,7 @@ impl Parser {
     // ── worker ──
 
     fn parse_worker(&mut self) -> Result<WorkerNode, ParseError> {
+        self.reject_unimplemented_block("worker");
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
 
@@ -3154,6 +3439,7 @@ impl Parser {
     // ── middleware ──
 
     fn parse_middleware(&mut self) -> Result<MiddlewareNode, ParseError> {
+        self.reject_unimplemented_block("middleware");
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
         self.expect(TokenKind::LBrace)?;
@@ -3297,6 +3583,7 @@ impl Parser {
     // ── test ──
 
     fn parse_test(&mut self) -> Result<TestNode, ParseError> {
+        self.reject_unimplemented_block("test");
         self.expect(TokenKind::Keyword)?;
         let name = self.expect(TokenKind::StringLit)?.value;
         self.expect(TokenKind::LBrace)?;
@@ -3507,6 +3794,7 @@ impl Parser {
     // ── deploy ──
 
     fn parse_deploy(&mut self) -> Result<DeployNode, ParseError> {
+        self.reject_unimplemented_block("deploy");
         self.expect(TokenKind::Keyword)?; // consume "deploy"
         let mode = self.advance().value; // e.g. "microservices"
         self.expect(TokenKind::LBrace)?;
@@ -3631,147 +3919,26 @@ pub fn parse(source: &str) -> Result<Vec<AstNode>, String> {
 /// failure: all recoverable ones (e.g. unknown field types) plus the first
 /// fatal syntax error, in source order of discovery.
 pub fn parse_diagnostics(source: &str) -> Result<Vec<AstNode>, Vec<ParseError>> {
+    let (nodes, diagnostics) = parse_collect(source);
+    if diagnostics.is_empty() {
+        Ok(nodes)
+    } else {
+        Err(diagnostics)
+    }
+}
+
+/// Nodes plus every diagnostic. Recoverable errors still yield the AST so a
+/// compose loader can follow `import`/`use` in the rest of the file.
+pub(crate) fn parse_collect(source: &str) -> (Vec<AstNode>, Vec<ParseError>) {
     let mut parser = Parser::new(tokenize(source));
     match parser.parse() {
-        Ok(nodes) if parser.diagnostics.is_empty() => Ok(nodes),
-        Ok(_) => Err(parser.diagnostics),
+        Ok(nodes) => (nodes, parser.diagnostics),
         Err(fatal) => {
             let mut all = parser.diagnostics;
             all.push(fatal);
-            Err(all)
+            (Vec::new(), all)
         }
     }
-}
-
-/// Parse a .cronus file with import resolution.
-/// Reads imported files relative to `base_dir` and merges all nodes.
-/// Each import is resolved exactly once (no cycles).
-/// This is the key feature for multi-agent collaboration:
-/// each agent owns a file, the kernel composes them all.
-pub fn parse_with_imports(source: &str, base_dir: &str) -> Result<Vec<AstNode>, String> {
-    use std::collections::HashSet;
-    use std::path::Path;
-
-    let mut all_nodes = Vec::new();
-    let mut resolved: HashSet<String> = HashSet::new();
-    let mut queue: Vec<(String, String)> = vec![("main".into(), source.to_string())];
-
-    while let Some((name, src)) = queue.pop() {
-        if resolved.contains(&name) {
-            continue;
-        }
-        resolved.insert(name.clone());
-
-        let nodes = parse(&src)?;
-
-        for node in &nodes {
-            if let AstNode::Import(imp) = node {
-                let import_path = if imp.source.starts_with('/') {
-                    imp.source.clone()
-                } else {
-                    format!("{}/{}", base_dir, imp.source)
-                };
-
-                // Resolve .cronus extension
-                let full_path = if import_path.ends_with(".cronus") {
-                    import_path
-                } else {
-                    format!("{}.cronus", import_path)
-                };
-
-                if !resolved.contains(&full_path) {
-                    match std::fs::read_to_string(&full_path) {
-                        Ok(content) => {
-                            queue.push((full_path, content));
-                        }
-                        Err(e) => {
-                            eprintln!("  [warning] import '{}' not found: {}", imp.source, e);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Add all non-import nodes
-        for node in nodes {
-            if !matches!(node, AstNode::Import(_)) {
-                all_nodes.push(node);
-            }
-        }
-    }
-
-    // Deduplicate: if two files define same entity name, last wins
-    // But for API routes, pages, services — all are kept (additive)
-    let mut seen_entities: HashSet<String> = HashSet::new();
-    let mut seen_app = false;
-    let mut seen_style = false;
-    let mut deduped = Vec::new();
-
-    // Process in reverse so last definition wins for entities
-    for node in all_nodes.into_iter().rev() {
-        match &node {
-            AstNode::Entity(e) => {
-                if seen_entities.contains(&e.name) {
-                    continue; // skip duplicate entity
-                }
-                seen_entities.insert(e.name.clone());
-                deduped.push(node);
-            }
-            AstNode::App(_) => {
-                if seen_app {
-                    continue;
-                }
-                seen_app = true;
-                deduped.push(node);
-            }
-            AstNode::Style(_) => {
-                if seen_style {
-                    continue;
-                }
-                seen_style = true;
-                deduped.push(node);
-            }
-            _ => deduped.push(node), // API, Page, Service, etc are additive
-        }
-    }
-
-    deduped.reverse(); // Restore original order
-    Ok(deduped)
-}
-
-/// Parse all .cronus files in a directory and merge them.
-/// This is the multi-agent mode: each agent writes its own file,
-/// the kernel composes everything automatically.
-pub fn parse_directory(dir: &str) -> Result<Vec<AstNode>, String> {
-    let mut files: Vec<String> = Vec::new();
-
-    // Find all .cronus files
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let name = entry.file_name().to_string_lossy().to_string();
-            if name.ends_with(".cronus") && entry.path().is_file() {
-                files.push(entry.path().to_string_lossy().to_string());
-            }
-        }
-    }
-
-    files.sort(); // Deterministic order
-
-    if files.is_empty() {
-        return Err("No .cronus files found in directory".into());
-    }
-
-    // Concatenate all files with comments showing source
-    let mut combined = String::new();
-    for file in &files {
-        let content =
-            std::fs::read_to_string(file).map_err(|e| format!("Error reading {}: {}", file, e))?;
-        combined.push_str(&format!("# [source: {}]\n", file));
-        combined.push_str(&content);
-        combined.push('\n');
-    }
-
-    parse_with_imports(&combined, dir)
 }
 
 /// Count entities, pages, api routes for quick stats.
@@ -4055,6 +4222,8 @@ mod parser_tests {
             ("done eq:true", "done eq true"),
             ("title contains:\"a b\"", "title contains \"a b\""),
             ("title starts_with:abc", "title starts_with abc"),
+            ("title ends_with:ing", "title ends_with ing"),
+            ("status in:[paid, shipped]", "status in [paid, shipped]"),
         ];
         for (colon, spaced) in cases {
             let a = bind_filters(colon);
@@ -4098,6 +4267,145 @@ mod parser_tests {
         assert!(matches!(&f[0].value, BindingValue::Num(n) if n == "5"));
         let f = bind_filters("status neq:\"x\"");
         assert_eq!(f[0].operator, FilterOp::Ne);
+        let f = bind_filters("title ends_with:\"ing\"");
+        assert_eq!(f[0].operator, FilterOp::EndsWith);
+        assert!(matches!(&f[0].value, BindingValue::Str(s) if s == "ing"));
+        let f = bind_filters("status in:[paid, shipped]");
+        assert_eq!(f[0].operator, FilterOp::In);
+        let BindingValue::List(items) = &f[0].value else {
+            panic!("expected list");
+        };
+        assert_eq!(items.len(), 2);
+    }
+
+    fn diag_codes(src: &str) -> Vec<&'static str> {
+        match parse_diagnostics(src) {
+            Ok(_) => Vec::new(),
+            Err(errs) => errs.into_iter().map(|e| e.code).collect(),
+        }
+    }
+
+    #[test]
+    fn unknown_where_operator_is_bind_001() {
+        let src = "page \"/p\" type:custom {\n  section table {\n    bind Task { query all where status in:\"paid\" }\n  }\n}\n";
+        // in:"paid" without [ ] is still BIND_001.
+        let codes = diag_codes(src);
+        assert!(codes.contains(&codes::UNKNOWN_FILTER_OP), "{codes:?}");
+        assert!(!codes.is_empty());
+    }
+
+    #[test]
+    fn unknown_query_is_bind_002() {
+        let src =
+            "page \"/p\" type:custom {\n  section table {\n    bind Task { query every }\n  }\n}\n";
+        assert!(diag_codes(src).contains(&codes::UNKNOWN_QUERY));
+    }
+
+    #[test]
+    fn indexed_modifier_is_field_004() {
+        let src = "entity Task {\n  title string indexed\n}\n";
+        let errs = match parse_diagnostics(src) {
+            Err(e) => e,
+            Ok(_) => panic!("expected FIELD_004"),
+        };
+        let e = errs
+            .iter()
+            .find(|e| e.code == codes::UNKNOWN_FIELD_MODIFIER)
+            .expect("FIELD_004");
+        assert_eq!(e.replacement.as_deref(), Some("index"));
+    }
+
+    #[test]
+    fn create_action_parses_field_literals() {
+        let src = "entity Task { title string! }\npage \"/p\" {\n  section card {\n    bind Task { query all }\n    on click { create Task { title \"hello\" status \"open\" } toast \"ok\" success }\n  }\n}\n";
+        let nodes = match parse_diagnostics(src) {
+            Ok(n) => n,
+            Err(e) => panic!(
+                "{}",
+                e.iter()
+                    .map(|d| d.to_string())
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            ),
+        };
+        let AstNode::Page(p) = &nodes[1] else {
+            panic!("expected page");
+        };
+        let create = &p.sections[0].actions[0].instructions[0];
+        assert_eq!(create.verb, "create");
+        assert_eq!(create.target, "Task");
+        assert_eq!(
+            create.modifiers.get("title").map(String::as_str),
+            Some("hello")
+        );
+        assert_eq!(
+            create.modifiers.get("status").map(String::as_str),
+            Some("open")
+        );
+    }
+
+    #[test]
+    fn toast_bare_style_is_not_an_action_verb() {
+        let src = "entity Task { title string! }\npage \"/p\" {\n  section form {\n    bind Task { query all }\n    on submit { create Task toast \"Saved\" success refresh page }\n  }\n}\n";
+        match parse_diagnostics(src) {
+            Ok(nodes) => {
+                let AstNode::Page(p) = &nodes[1] else {
+                    panic!("expected page");
+                };
+                let toast = &p.sections[0].actions[0].instructions[1];
+                assert_eq!(toast.verb, "toast");
+                assert_eq!(
+                    toast.modifiers.get("style").map(String::as_str),
+                    Some("success")
+                );
+            }
+            Err(e) => panic!(
+                "{}",
+                e.iter()
+                    .map(|d| d.to_string())
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            ),
+        }
+    }
+
+    #[test]
+    fn unknown_action_verb_is_action_001_create_is_not() {
+        let bad = "page \"/p\" {\n  section form {\n    on submit { log \"x\" }\n  }\n}\n";
+        assert!(diag_codes(bad).contains(&codes::UNIMPLEMENTED_ACTION));
+        let ok = "entity Task { title string! }\npage \"/p\" {\n  section form {\n    bind Task { query all }\n    on submit { create Task }\n  }\n}\n";
+        match parse_diagnostics(ok) {
+            Ok(_) => {}
+            Err(e) => panic!(
+                "create must stay parseable: {}",
+                e.iter()
+                    .map(|d| d.to_string())
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            ),
+        }
+    }
+
+    #[test]
+    fn unimplemented_top_level_blocks_are_lang_001() {
+        for src in [
+            "service mailer { }\n",
+            "worker jobs { }\n",
+            "middleware auth { }\n",
+            "define \"Box\" { }\n",
+            "deploy { }\n",
+            "test { }\n",
+        ] {
+            let codes = diag_codes(src);
+            assert!(
+                codes.contains(&codes::UNIMPLEMENTED_BLOCK),
+                "{src} -> {codes:?}"
+            );
+        }
+        assert!(
+            !diag_codes("compose App { }\n").contains(&codes::UNIMPLEMENTED_BLOCK),
+            "compose is a load-graph primitive, not LANG_001"
+        );
     }
 
     // ── P041 does not apply to enum values (data, not identifiers) ──
@@ -4158,8 +4466,9 @@ mod parser_tests {
         let mut offenders = Vec::new();
         for file in &files {
             let src = std::fs::read_to_string(file).unwrap();
-            let base = file.parent().unwrap().to_string_lossy().to_string();
-            if let Err(e) = parse_with_imports(&src, &base) {
+            // Syntax only: dump fixtures may repeat a page route (Next.js
+            // route groups). Composition of those files is COMPOSE_001.
+            if let Err(e) = parse(&src) {
                 let rel = file.strip_prefix(root).unwrap_or(file);
                 offenders.push(format!(
                     "{}: {}",
@@ -4175,6 +4484,22 @@ mod parser_tests {
             files.len(),
             offenders.join("\n  ")
         );
+    }
+
+    #[test]
+    fn app_graphql_flag_defaults_true_and_accepts_false() {
+        let AstNode::App(on) = &parse("app \"A\" { port 1 }\n").unwrap()[0] else {
+            panic!("app");
+        };
+        assert!(on.graphql);
+        let AstNode::App(off) = &parse("app \"A\" { port 1 graphql false }\n").unwrap()[0] else {
+            panic!("app");
+        };
+        assert!(!off.graphql);
+        let AstNode::App(colon) = &parse("app \"A\" { graphql:false }\n").unwrap()[0] else {
+            panic!("app");
+        };
+        assert!(!colon.graphql);
     }
 
     // ── P040: Valid identifier pattern ──
@@ -5165,8 +5490,8 @@ entity Item shared {
                 FieldType::Number,
                 FieldType::Number,
                 FieldType::Boolean,
-                FieldType::Date,
-                FieldType::Date,
+                FieldType::DateTime,
+                FieldType::DateTime,
             ]
         );
     }
@@ -5204,7 +5529,7 @@ entity Item shared {
             "delete",
             "refresh  toast \"Saved\"",
             "navigate",
-            "validate",
+            "close \"x\"",
         ] {
             let src = format!(
                 "entity Task {{\n  title string!\n}}\npage \"/a\" {{\n  section form {{\n    bind Task {{ query all }}\n    on submit {{ {} }}\n  }}\n}}\npage \"/b\" {{\n  section hero {{ }}\n}}\nentity Note {{\n  body text\n}}\n",

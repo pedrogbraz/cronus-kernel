@@ -55,6 +55,107 @@ fn number_text(n: f64) -> String {
     }
 }
 
+fn is_date(s: &str) -> bool {
+    parse_ymd(s).is_some()
+}
+
+fn parse_ymd(s: &str) -> Option<(u32, u32, u32)> {
+    let mut parts = s.split('-');
+    let y: u32 = parts.next()?.parse().ok()?;
+    let m: u32 = parts.next()?.parse().ok()?;
+    let d: u32 = parts.next()?.parse().ok()?;
+    if parts.next().is_some() || s.len() != 10 {
+        return None;
+    }
+    if !(1..=12).contains(&m) || d == 0 {
+        return None;
+    }
+    let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
+    let dim = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
+    if d > dim[(m - 1) as usize] {
+        return None;
+    }
+    Some((y, m, d))
+}
+
+fn is_datetime(s: &str) -> bool {
+    let Some((date, time)) = s.split_once('T').or_else(|| s.split_once(' ')) else {
+        return false;
+    };
+    parse_ymd(date).is_some() && parse_hms_offset(time)
+}
+
+fn two_digits(s: &str, max: u32) -> Option<u32> {
+    if s.len() != 2 {
+        return None;
+    }
+    let n: u32 = s.parse().ok()?;
+    (n <= max).then_some(n)
+}
+
+fn parse_hms_offset(time: &str) -> bool {
+    let time = time
+        .strip_suffix('Z')
+        .or_else(|| time.strip_suffix('z'))
+        .unwrap_or(time);
+    let time = if let Some(cut) = time.rfind('+').or_else(|| {
+        time.match_indices('-')
+            .map(|(i, _)| i)
+            .find(|&i| i > 0 && time.len() - i == 6)
+    }) {
+        let off = &time[cut..];
+        if off.len() != 6 || off.as_bytes().get(3) != Some(&b':') {
+            return false;
+        }
+        if two_digits(&off[1..3], 14).is_none() || two_digits(&off[4..6], 59).is_none() {
+            return false;
+        }
+        &time[..cut]
+    } else {
+        time
+    };
+    let mut segs = time.split(':');
+    let Some(hh) = segs.next() else {
+        return false;
+    };
+    let Some(mm) = segs.next() else {
+        return false;
+    };
+    if two_digits(hh, 23).is_none() || two_digits(mm, 59).is_none() {
+        return false;
+    }
+    match segs.next() {
+        None => true,
+        Some(ss) => {
+            let (ss, frac) = ss.split_once('.').unwrap_or((ss, ""));
+            two_digits(ss, 60).is_some()
+                && frac.chars().all(|c| c.is_ascii_digit())
+                && segs.next().is_none()
+        }
+    }
+}
+
+fn is_file_ref(s: &str) -> bool {
+    if s.starts_with("http://") || s.starts_with("https://") {
+        return !s.contains(' ');
+    }
+    s.strip_prefix("/_files/")
+        .is_some_and(crate::files::safe_stored_name)
+}
+
 fn is_email(s: &str) -> bool {
     !s.contains(char::is_whitespace)
         && s.split_once('@').is_some_and(|(local, domain)| {
@@ -94,6 +195,11 @@ pub fn value_errors(field: &FieldNode, value: &Value) -> Vec<String> {
         FieldType::Url if !(s.starts_with("http://") || s.starts_with("https://")) => {
             out.push("must be a valid URL".into())
         }
+        FieldType::Date if !is_date(&s) => out.push("must be a date (YYYY-MM-DD)".into()),
+        FieldType::DateTime if !is_datetime(&s) => {
+            out.push("must be a datetime (YYYY-MM-DDTHH:MM)".into())
+        }
+        FieldType::File if !is_file_ref(&s) => out.push("must be a file upload or URL".into()),
         FieldType::Enum => {
             if let Some(allowed) = field.enum_values.as_ref().filter(|a| !a.contains(&s)) {
                 out.push(format!("must be one of: {}", allowed.join(", ")));
@@ -382,5 +488,36 @@ mod tests {
         assert_eq!(taken["handle"], vec!["already exists"]);
         assert!(unique_errors(&db, &e, &body(json!({"handle": "neo"})), Some(id)).is_empty());
         assert!(unique_errors(&db, &e, &body(json!({"handle": "trinity"})), None).is_empty());
+    }
+
+    #[test]
+    fn date_datetime_and_file_have_distinct_rules() {
+        let e = entity("entity Event {\n  day date!\n  at datetime!\n  poster file\n}\n");
+        let bad = field_errors(
+            &e,
+            &body(json!({
+                "day": "2026-13-01",
+                "at": "2026-09-15",
+                "poster": "not-a-file"
+            })),
+            Mode::Create,
+        );
+        assert_eq!(bad["day"], vec!["must be a date (YYYY-MM-DD)"]);
+        assert_eq!(bad["at"], vec!["must be a datetime (YYYY-MM-DDTHH:MM)"]);
+        assert_eq!(bad["poster"], vec!["must be a file upload or URL"]);
+        let ok = field_errors(
+            &e,
+            &body(json!({
+                "day": "2026-09-15",
+                "at": "2026-09-15T14:30",
+                "poster": "https://cdn.example/a.png"
+            })),
+            Mode::Create,
+        );
+        assert!(ok.is_empty(), "{ok:?}");
+        assert!(is_datetime("2026-09-15T14:30:00Z"));
+        assert!(is_datetime("2026-09-15 14:30:00+00:00"));
+        assert!(!is_date("2026-09-15T14:30"));
+        assert!(!is_datetime("2026-09-15"));
     }
 }

@@ -5,9 +5,10 @@
 //
 // SECURITY: the client never supplies instructions. Kernel-rendered buttons
 // carry `data-action-id`; the runtime posts `{action_id, entity, id}` and the
-// server executes its own copy of the declared block. Writes are owner-scoped
-// in SQL (`access::scoped_*`). `/_form` creates and edits go through
-// `handle_form` with the same declared-form + session + owner rules.
+// server executes its own copy of the declared block. `create`/`update` field
+// values are AST literals. Writes are owner-scoped in SQL (`access::scoped_*`).
+// `/_form` creates and edits go through `handle_form`; `on submit` supplies
+// toast/navigate only and is refused on `/_action`.
 
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
@@ -42,7 +43,7 @@ pub fn validate_field_value(field_name: &str, value: &str, entity: &EntityNode) 
         ));
     };
     if field.is_many() {
-        return Some(format!("'{}' cannot be set by an action", field.name));
+        return None;
     }
     if value.is_empty() {
         return None;
@@ -169,6 +170,9 @@ pub struct DeclaredForm {
     /// `bind X { scope:public }` on a page without `requires:` — anonymous
     /// submissions allowed (rows get no `_owner_id`).
     pub public: bool,
+    /// `on submit { … }` on the form section. Write verbs are ignored here
+    /// (`/_form` already wrote); toast/navigate/refresh are returned to the client.
+    pub submit: Option<ActionBlock>,
 }
 
 /// A `/_form/<section_type>` post is only accepted for an entity bound by a
@@ -190,12 +194,23 @@ pub fn find_declared_form(
                 continue;
             }
             let public = page_open && section.binding.as_ref().map(|b| b.public).unwrap_or(false);
+            let submit = section
+                .actions
+                .iter()
+                .find(|a| a.event == "submit")
+                .cloned();
             match found.as_mut() {
-                Some(f) => f.public |= public,
+                Some(f) => {
+                    f.public |= public;
+                    if f.submit.is_none() {
+                        f.submit = submit;
+                    }
+                }
                 None => {
                     found = Some(DeclaredForm {
                         entity: declared,
                         public,
+                        submit,
                     })
                 }
             }
@@ -272,102 +287,332 @@ fn set_body(entity: &EntityNode, target: &str, value: &str) -> Map<String, Value
     crate::authz::writable_body(entity, &m)
 }
 
-/// Execute a declared action for `record_id`. Requires a session; `set` and
-/// `delete` act on the declared entity only, on rows in the viewer's write
-/// scope, and `set` targets must be writable fields.
-pub fn execute_declared_action(
-    action: &DeclaredAction,
-    record_id: &str,
-    db: &CronusDB,
-    entities: &[EntityNode],
-    access: &Access,
-) -> Result<Vec<ActionEffect>, ActionDenied> {
-    if access.viewer.is_none() {
-        return Err(ActionDenied::Unauthenticated);
-    }
-    let instructions = &action.block.instructions;
-    let touches_data = instructions
-        .iter()
-        .any(|i| i.verb == "set" || i.verb == "delete");
-
-    let mut target: Option<(&EntityNode, WriteScope)> = None;
-    if touches_data {
-        let entity = entities
-            .iter()
-            .find(|e| !action.entity.is_empty() && e.name.eq_ignore_ascii_case(&action.entity))
-            .ok_or(ActionDenied::Forbidden)?;
-        if record_id.is_empty() {
-            return Err(ActionDenied::Invalid("Missing record id".into()));
-        }
-        let scope = access::write_scope(access, &entity.name);
-        if scope == WriteScope::Deny {
-            return Err(ActionDenied::Forbidden);
-        }
-        for i in instructions.iter().filter(|i| i.verb == "set") {
-            if let Some(err) = validate_field_value(&i.target, &i.value, entity) {
-                return Err(ActionDenied::Invalid(err));
-            }
-            if set_body(entity, &i.target, &i.value).is_empty() {
-                return Err(ActionDenied::Forbidden);
-            }
-        }
-        let mut filters = vec![("id".to_string(), "=".to_string(), record_id.to_string())];
-        if let Some((column, value)) = scope.condition() {
-            filters.push((column.to_string(), "=".into(), value));
-        }
-        match db.find_one(&entity.name, &filters, None, None) {
-            Ok(Some(_)) => {}
-            Ok(None) => return Err(ActionDenied::NotFound),
-            Err(e) => {
-                eprintln!("  action lookup on {} failed: {}", entity.name, e);
-                return Err(ActionDenied::Failed);
-            }
-        }
-        target = Some((entity, scope));
-    }
-
-    let mut effects = Vec::new();
-    for instr in instructions {
+fn ui_effects(block: &ActionBlock) -> Vec<ActionEffect> {
+    let mut out = Vec::new();
+    for instr in &block.instructions {
         let style = instr
             .modifiers
             .get("style")
             .map(|s| s.as_str())
             .unwrap_or("info");
         match instr.verb.as_str() {
-            "set" => {
-                if let Some((entity, scope)) = &target {
-                    let body = set_body(entity, &instr.target, &instr.value);
-                    match access::scoped_update(db, &entity.name, record_id, &body, scope) {
-                        Ok(Some(_)) => {}
-                        Ok(None) => return Err(ActionDenied::NotFound),
-                        Err(e) => {
-                            eprintln!("  action set on {} failed: {}", entity.name, e);
-                            return Err(ActionDenied::Failed);
-                        }
-                    }
-                }
-            }
-            "delete" => {
-                if let Some((entity, scope)) = &target {
-                    match access::scoped_delete(db, &entity.name, record_id, scope) {
-                        Ok(true) => effects.push(effect("toast", "Deleted", "success")),
-                        Ok(false) => return Err(ActionDenied::NotFound),
-                        Err(e) => {
-                            eprintln!("  action delete on {} failed: {}", entity.name, e);
-                            return Err(ActionDenied::Failed);
-                        }
-                    }
-                }
-            }
-            "toast" => effects.push(effect("toast", &instr.target, style)),
-            "navigate" => effects.push(effect("navigate", &instr.target, "")),
-            "refresh" => effects.push(effect("refresh", "", "")),
-            "open" => effects.push(effect("open", &instr.target, "")),
-            "close" => effects.push(effect("close", &instr.target, "")),
+            "toast" => out.push(effect("toast", &instr.target, style)),
+            "navigate" => out.push(effect("navigate", &instr.target, "")),
+            "refresh" => out.push(effect("refresh", "", "")),
+            "open" => out.push(effect("open", &instr.target, "")),
+            "close" => out.push(effect("close", &instr.target, "")),
             _ => {}
         }
     }
+    out
+}
 
+fn effect_json_list(effects: &[ActionEffect]) -> Vec<Value> {
+    effects
+        .iter()
+        .map(|e| {
+            json!({
+                "type": e.effect_type,
+                "target": e.target,
+                "value": e.value,
+                "style": e.style,
+            })
+        })
+        .collect()
+}
+
+fn form_success_effects(form: &DeclaredForm, fallback: &str) -> Vec<Value> {
+    let fx = form.submit.as_ref().map(ui_effects).unwrap_or_default();
+    if fx.is_empty() {
+        vec![json!({"type": "toast", "target": fallback, "style": "success"})]
+    } else {
+        effect_json_list(&fx)
+    }
+}
+
+fn after_entity_write(
+    state: &AppState,
+    schema: &EntityNode,
+    event: &str,
+    row: &Value,
+    prev: Option<&Value>,
+    access: &Access,
+) {
+    let table = schema.name.as_str();
+    let row_id = row.get("id").and_then(Value::as_str).unwrap_or("");
+    let owner = access.viewer.as_ref().map(|v| v.id.as_str()).unwrap_or("");
+    let role = access
+        .viewer
+        .as_ref()
+        .map(|v| v.role.as_str())
+        .unwrap_or("");
+    crate::effects::fire_webhooks(&state.webhooks, &state.entities, table, event, row);
+    crate::effects::fire_effects(schema, event, row, prev, &state.brain, &state.sse_hub);
+    crate::scripting::fire_scripts(
+        &state.script_registry,
+        table,
+        event,
+        row,
+        row_id,
+        prev,
+        &state.db,
+        owner,
+        role,
+        &std::collections::HashMap::new(),
+    );
+}
+
+fn action_entity<'a>(
+    action: &DeclaredAction,
+    entities: &'a [EntityNode],
+) -> Result<&'a EntityNode, ActionDenied> {
+    entities
+        .iter()
+        .find(|e| !action.entity.is_empty() && e.name.eq_ignore_ascii_case(&action.entity))
+        .ok_or(ActionDenied::Forbidden)
+}
+
+fn named_entity_matches(action: &DeclaredAction, name: &str) -> bool {
+    name.is_empty() || name.eq_ignore_ascii_case(&action.entity)
+}
+
+fn pairs_to_body(entity: &EntityNode, pairs: &[(&str, &str)]) -> Map<String, Value> {
+    let mut m = Map::new();
+    for (k, v) in pairs {
+        m.insert((*k).to_string(), json!(*v));
+    }
+    let mut m = crate::authz::writable_body(entity, &m);
+    relations::normalize_form_values(entity, &mut m);
+    m
+}
+
+fn check_write_denied(
+    db: &CronusDB,
+    entities: &[EntityNode],
+    entity: &EntityNode,
+    columns: &Map<String, Value>,
+    many: &Map<String, Value>,
+    mode: Mode,
+    exclude_id: Option<&str>,
+    access: &Access,
+) -> Result<Vec<crate::relations::LinkSet>, ActionDenied> {
+    match validation::check_write(
+        db, entities, entity, columns, many, mode, exclude_id, access,
+    ) {
+        Ok(links) => Ok(links),
+        Err((_, errors)) => {
+            let msg = errors
+                .iter()
+                .next()
+                .map(|(field, msgs)| {
+                    format!("'{}' {}", field, msgs.first().cloned().unwrap_or_default())
+                })
+                .unwrap_or_else(|| "Invalid".into());
+            Err(ActionDenied::Invalid(msg))
+        }
+    }
+}
+
+fn lookup_owned(
+    db: &CronusDB,
+    entity: &EntityNode,
+    record_id: &str,
+    scope: &WriteScope,
+) -> Result<Value, ActionDenied> {
+    if record_id.is_empty() {
+        return Err(ActionDenied::Invalid("Missing record id".into()));
+    }
+    let mut filters = vec![crate::database::SqlFilter::one("id", "=", record_id)];
+    if let Some((column, value)) = scope.condition() {
+        filters.push(crate::database::SqlFilter::one(column, "=", value));
+    }
+    match db.find_one(&entity.name, &filters, None, None) {
+        Ok(Some(row)) => Ok(row),
+        Ok(None) => Err(ActionDenied::NotFound),
+        Err(e) => {
+            eprintln!("  action lookup on {} failed: {}", entity.name, e);
+            Err(ActionDenied::Failed)
+        }
+    }
+}
+
+/// Execute a declared action for `record_id`. Requires a session. `create` uses
+/// AST field literals (no client body). `update`/`set`/`delete` act on the
+/// bound entity, owner-scoped. Submit blocks are not executed here (`/_form`).
+pub fn execute_declared_action(
+    action: &DeclaredAction,
+    record_id: &str,
+    db: &CronusDB,
+    entities: &[EntityNode],
+    access: &Access,
+    state: Option<&AppState>,
+) -> Result<Vec<ActionEffect>, ActionDenied> {
+    if access.viewer.is_none() {
+        return Err(ActionDenied::Unauthenticated);
+    }
+    let instructions = &action.block.instructions;
+    let is_submit = action.block.event.eq_ignore_ascii_case("submit");
+    let mut effects = Vec::new();
+
+    let writes_existing = instructions
+        .iter()
+        .any(|i| i.verb == "set" || i.verb == "delete" || (i.verb == "update" && !is_submit));
+    let creates = !is_submit && instructions.iter().any(|i| i.verb == "create");
+
+    let entity = if writes_existing || creates {
+        Some(action_entity(action, entities)?)
+    } else {
+        None
+    };
+
+    if creates {
+        let entity = entity.ok_or(ActionDenied::Forbidden)?;
+        let mut fields: Vec<(&str, &str)> = Vec::new();
+        for instr in instructions.iter().filter(|i| i.verb == "create") {
+            if !named_entity_matches(action, &instr.target) {
+                return Err(ActionDenied::Forbidden);
+            }
+            for (k, v) in &instr.modifiers {
+                fields.push((k.as_str(), v.as_str()));
+            }
+        }
+        if fields.is_empty() {
+            return Err(ActionDenied::Invalid(
+                "create requires field values in the action block".into(),
+            ));
+        }
+        let owner = match access::create_owner(access, &entity.name, false) {
+            Ok(owner) => owner,
+            Err(Denial::Unauthenticated) => return Err(ActionDenied::Unauthenticated),
+            Err(Denial::Forbidden) => return Err(ActionDenied::Forbidden),
+        };
+        let mut body = pairs_to_body(entity, &fields);
+        for field in entity.fields.iter().filter(|f| !f.is_many()) {
+            if let Some(default) = &field.default_value {
+                if !body.contains_key(&field.name) {
+                    body.insert(field.name.clone(), Value::String(default.clone()));
+                }
+            }
+        }
+        let (columns, many) = relations::split(entity, body);
+        let links = check_write_denied(
+            db,
+            entities,
+            entity,
+            &columns,
+            &many,
+            Mode::Create,
+            None,
+            access,
+        )?;
+        let mut row_data = columns;
+        if let Some(owner) = &owner {
+            row_data.insert("_owner_id".into(), json!(owner));
+        }
+        match db.insert_with(&entity.name, &Value::Object(row_data), |conn, id| {
+            links.iter().try_for_each(|link| {
+                relations::replace_links(conn, entity, link, id, owner.as_deref())
+            })
+        }) {
+            Ok(row) => {
+                if let Some(state) = state {
+                    after_entity_write(state, entity, "create", &row, None, access);
+                }
+            }
+            Err(e) => {
+                eprintln!("  action create on {} failed: {}", entity.name, e);
+                return Err(ActionDenied::Failed);
+            }
+        }
+    }
+
+    if writes_existing {
+        let entity = entity.ok_or(ActionDenied::Forbidden)?;
+        let scope = access::write_scope(access, &entity.name);
+        if scope == WriteScope::Deny {
+            return Err(ActionDenied::Forbidden);
+        }
+        let prev = lookup_owned(db, entity, record_id, &scope)?;
+        let mut pairs: Vec<(&str, &str)> = Vec::new();
+        for instr in instructions {
+            if instr.verb == "set" {
+                if let Some(err) = validate_field_value(&instr.target, &instr.value, entity) {
+                    return Err(ActionDenied::Invalid(err));
+                }
+                pairs.push((instr.target.as_str(), instr.value.as_str()));
+            } else if instr.verb == "update" && !is_submit {
+                if !named_entity_matches(action, &instr.target) {
+                    return Err(ActionDenied::Forbidden);
+                }
+                for (k, v) in &instr.modifiers {
+                    pairs.push((k.as_str(), v.as_str()));
+                }
+            }
+        }
+        if !pairs.is_empty() {
+            let body = pairs_to_body(entity, &pairs);
+            if body.is_empty() {
+                return Err(ActionDenied::Forbidden);
+            }
+            let (columns, many) = relations::split(entity, body);
+            let links = check_write_denied(
+                db,
+                entities,
+                entity,
+                &columns,
+                &many,
+                Mode::Update,
+                Some(record_id),
+                access,
+            )?;
+            if !columns.is_empty() {
+                match access::scoped_update(db, &entity.name, record_id, &columns, &scope) {
+                    Ok(Some(_)) => {}
+                    Ok(None) => return Err(ActionDenied::NotFound),
+                    Err(e) => {
+                        eprintln!("  action set on {} failed: {}", entity.name, e);
+                        return Err(ActionDenied::Failed);
+                    }
+                }
+            }
+            if !links.is_empty() {
+                let parent_owner = prev.get("_owner_id").and_then(Value::as_str);
+                if let Err(e) = db.transaction(|conn| {
+                    links.iter().try_for_each(|link| {
+                        relations::replace_links(conn, entity, link, record_id, parent_owner)
+                    })
+                }) {
+                    eprintln!("  action links on {} failed: {}", entity.name, e);
+                    return Err(ActionDenied::Failed);
+                }
+            }
+            if let Some(state) = state {
+                if let Ok(Some(row)) = db.find_by_id(&entity.name, record_id) {
+                    after_entity_write(state, entity, "update", &row, Some(&prev), access);
+                }
+            }
+        }
+        for instr in instructions.iter().filter(|i| i.verb == "delete") {
+            if !named_entity_matches(action, &instr.target) {
+                return Err(ActionDenied::Forbidden);
+            }
+            match access::scoped_delete(db, &entity.name, record_id, &scope) {
+                Ok(true) => {
+                    effects.push(effect("toast", "Deleted", "success"));
+                    if let Some(state) = state {
+                        after_entity_write(state, entity, "delete", &prev, Some(&prev), access);
+                    }
+                }
+                Ok(false) => return Err(ActionDenied::NotFound),
+                Err(e) => {
+                    eprintln!("  action delete on {} failed: {}", entity.name, e);
+                    return Err(ActionDenied::Failed);
+                }
+            }
+        }
+    }
+
+    effects.extend(ui_effects(&action.block));
     Ok(effects)
 }
 
@@ -403,7 +648,17 @@ pub fn handle_action(state: &AppState, body: &Value, access: &Access) -> (u16, V
     let Some(action) = find_declared_action(&declared, field("action_id"), field("entity")) else {
         return deny(ActionDenied::Forbidden);
     };
-    match execute_declared_action(action, field("id"), &state.db, &state.entities, access) {
+    if action.block.event.eq_ignore_ascii_case("submit") {
+        return deny(ActionDenied::Forbidden);
+    }
+    match execute_declared_action(
+        action,
+        field("id"),
+        &state.db,
+        &state.entities,
+        access,
+        Some(state),
+    ) {
         Ok(effects) => (200, effects_to_json(&effects)),
         Err(d) => deny(d),
     }
@@ -448,7 +703,7 @@ pub fn handle_form(
     };
     match *method {
         hyper::Method::POST => create_from_form(state, schema, &form, &data, access),
-        hyper::Method::PATCH => update_from_form(state, schema, record_id, &data, access),
+        hyper::Method::PATCH => update_from_form(state, schema, record_id, &form, &data, access),
         _ => form_error(405, "METHOD_NOT_ALLOWED", "Not allowed"),
     }
 }
@@ -468,6 +723,13 @@ fn create_from_form(
         return form_error(400, "INVALID", "Missing form data");
     };
     let (mut row_data, many) = form_parts(schema, data_obj);
+    if let Err(errors) = crate::files::persist_uploads(
+        schema,
+        &mut row_data,
+        &crate::files::dir_for(&state.db_path),
+    ) {
+        return form_invalid(422, &errors);
+    }
     for field in schema.fields.iter().filter(|f| !f.is_many()) {
         if let Some(default) = &field.default_value {
             if !row_data.contains_key(&field.name) {
@@ -509,12 +771,13 @@ fn create_from_form(
                 action: "created".to_string(),
                 id: row_id,
             });
+            after_entity_write(state, schema, "create", &row, None, access);
             (
                 201,
                 json!({
                     "ok": true,
                     "id": row.get("id"),
-                    "effects": [{"type": "toast", "target": "Created successfully", "style": "success"}]
+                    "effects": form_success_effects(form, "Created successfully")
                 }),
             )
         }
@@ -529,6 +792,7 @@ fn update_from_form(
     state: &AppState,
     schema: &EntityNode,
     record_id: &str,
+    form: &DeclaredForm,
     data: &Value,
     access: &Access,
 ) -> (u16, Value) {
@@ -548,14 +812,19 @@ fn update_from_form(
     };
 
     // Partial update: validate only the writable fields being sent.
-    let (changes, many) = form_parts(schema, data_obj);
+    let (mut changes, many) = form_parts(schema, data_obj);
+    if let Err(errors) =
+        crate::files::persist_uploads(schema, &mut changes, &crate::files::dir_for(&state.db_path))
+    {
+        return form_invalid(422, &errors);
+    }
     if changes.is_empty() && many.is_empty() {
         return form_error(400, "INVALID", "Nothing to update");
     }
 
-    let mut filters = vec![("id".to_string(), "=".to_string(), record_id.to_string())];
+    let mut filters = vec![crate::database::SqlFilter::one("id", "=", record_id)];
     if let Some((column, value)) = scope.condition() {
-        filters.push((column.to_string(), "=".into(), value));
+        filters.push(crate::database::SqlFilter::one(column, "=", value));
     }
     let prev = match state.db.find_one(&schema.name, &filters, None, None) {
         Ok(Some(row)) => row,
@@ -615,13 +884,14 @@ fn update_from_form(
                 action: "updated".to_string(),
                 id: record_id.to_string(),
             });
+            after_entity_write(state, schema, "update", &row, Some(&prev), access);
             (
                 200,
                 json!({
                     "ok": true,
                     "id": record_id,
                     "record": row,
-                    "effects": [{"type": "toast", "target": "Updated successfully", "style": "success"}]
+                    "effects": form_success_effects(form, "Updated successfully")
                 }),
             )
         }
@@ -701,7 +971,7 @@ page \"/contact\" type:custom {\n\
         let action =
             find_declared_action(&declared, &archive(&declared).id, "Note").expect("declared");
         let effects =
-            execute_declared_action(action, &id, &db, &ents, &as_user("alice")).expect("ok");
+            execute_declared_action(action, &id, &db, &ents, &as_user("alice"), None).expect("ok");
         assert_eq!(
             db.find_by_id("Note", &id).unwrap().unwrap()["title"],
             "archived"
@@ -717,11 +987,11 @@ page \"/contact\" type:custom {\n\
         let declared = declared_actions(&pages());
         let a = archive(&declared);
         assert_eq!(
-            execute_declared_action(a, &id, &db, &ents, &anon()).unwrap_err(),
+            execute_declared_action(a, &id, &db, &ents, &anon(), None).unwrap_err(),
             ActionDenied::Unauthenticated
         );
         assert_eq!(
-            execute_declared_action(a, &id, &db, &ents, &as_user("bob")).unwrap_err(),
+            execute_declared_action(a, &id, &db, &ents, &as_user("bob"), None).unwrap_err(),
             ActionDenied::NotFound
         );
         assert_eq!(
@@ -733,7 +1003,7 @@ page \"/contact\" type:custom {\n\
             .find(|a| a.block.instructions.iter().any(|i| i.target == "secret"))
             .expect("secret action");
         assert_eq!(
-            execute_declared_action(secret, &id, &db, &ents, &as_user("alice")).unwrap_err(),
+            execute_declared_action(secret, &id, &db, &ents, &as_user("alice"), None).unwrap_err(),
             ActionDenied::Forbidden
         );
     }
@@ -1025,14 +1295,16 @@ page \"/notes\" type:custom requires:auth {\n\
             find_declared_form(&p, "form", "note"),
             Some(DeclaredForm {
                 entity: "Note".into(),
-                public: false
+                public: false,
+                submit: None,
             })
         );
         assert_eq!(
             find_declared_form(&p, "form", "Tag"),
             Some(DeclaredForm {
                 entity: "Tag".into(),
-                public: true
+                public: true,
+                submit: None,
             })
         );
         assert_eq!(find_declared_form(&p, "form", "User"), None);
@@ -1164,7 +1436,8 @@ page \"/notes\" type:custom requires:auth {\n\
                 }],
             },
         };
-        let err = execute_declared_action(&action, &id, &s.db, &s.entities, &alice).unwrap_err();
+        let err =
+            execute_declared_action(&action, &id, &s.db, &s.entities, &alice, None).unwrap_err();
         assert_eq!(
             err,
             ActionDenied::Invalid("'title' must be at least 3 characters".into())
@@ -1173,5 +1446,137 @@ page \"/notes\" type:custom requires:auth {\n\
             s.db.find_by_id("Post", &id).unwrap().unwrap()["title"],
             "valid"
         );
+    }
+
+    #[test]
+    fn form_submit_block_drives_toast_and_does_not_double_insert() {
+        const SRC: &str = "app \"F\" { port 5175 }\n\
+auth { entity User  login email + password  session jwt  roles [admin, user] }\n\
+entity User { name string  email email!  role string  password string sensitive }\n\
+entity Note { title string! }\n\
+page \"/notes\" type:custom requires:auth {\n\
+  section form {\n\
+    bind Note { query all }\n\
+    on submit {\n\
+      create Note\n\
+      toast \"Saved\" success\n\
+      navigate \"/notes\"\n\
+    }\n\
+  }\n\
+}\n";
+        let mut s = crate::api_security_tests::state_from(SRC);
+        s.pages = parse(SRC)
+            .expect("parse")
+            .into_iter()
+            .filter_map(|n| match n {
+                AstNode::Page(p) => Some(p),
+                _ => None,
+            })
+            .collect();
+        let alice = as_user("alice");
+        let (status, body) = handle_form(
+            &s,
+            &hyper::Method::POST,
+            "/_form/form",
+            &json!({"entity": "Note", "data": {"title": "one"}}),
+            &alice,
+        );
+        assert_eq!(status, 201, "{body}");
+        assert_eq!(s.db.count("Note").unwrap(), 1);
+        assert_eq!(body["effects"][0]["target"], "Saved");
+        assert_eq!(body["effects"][1]["type"], "navigate");
+        assert_eq!(body["effects"][1]["target"], "/notes");
+
+        let declared = declared_actions(&s.pages);
+        let submit = declared
+            .iter()
+            .find(|a| a.block.event == "submit")
+            .expect("submit block is indexed");
+        let (status, body) = handle_action(
+            &s,
+            &json!({"action_id": submit.id, "entity": "Note", "id": ""}),
+            &alice,
+        );
+        assert_eq!(status, 403, "submit blocks are not /_action writes: {body}");
+        assert_eq!(s.db.count("Note").unwrap(), 1, "no second insert");
+    }
+
+    #[test]
+    fn action_create_uses_ast_literals_not_client_fields() {
+        let s = validation_state();
+        let alice = crate::api_validation_tests::viewer("alice", "user");
+        let mut fields = std::collections::HashMap::new();
+        fields.insert("title".into(), "from-ast".into());
+        let action = DeclaredAction {
+            id: "c".into(),
+            entity: "Post".into(),
+            block: ActionBlock {
+                event: "click".into(),
+                confirm: None,
+                instructions: vec![crate::parser::ActionInstruction {
+                    verb: "create".into(),
+                    target: "Post".into(),
+                    value: String::new(),
+                    modifiers: fields,
+                }],
+            },
+        };
+        let effects =
+            execute_declared_action(&action, "", &s.db, &s.entities, &alice, None).expect("ok");
+        assert_eq!(s.db.count("Post").unwrap(), 1);
+        let rows = s.db.find_all("Post", 10, 0).unwrap();
+        let row = rows.as_array().unwrap()[0].clone();
+        assert_eq!(row["title"], "from-ast");
+        assert_eq!(row["_owner_id"], "alice");
+        assert!(effects
+            .iter()
+            .all(|e| e.effect_type != "toast" || e.target != "from-ast"));
+
+        let empty = DeclaredAction {
+            id: "empty".into(),
+            entity: "Post".into(),
+            block: ActionBlock {
+                event: "click".into(),
+                confirm: None,
+                instructions: vec![crate::parser::ActionInstruction {
+                    verb: "create".into(),
+                    target: "Post".into(),
+                    value: String::new(),
+                    modifiers: std::collections::HashMap::new(),
+                }],
+            },
+        };
+        assert_eq!(
+            execute_declared_action(&empty, "", &s.db, &s.entities, &alice, None).unwrap_err(),
+            ActionDenied::Invalid("create requires field values in the action block".into())
+        );
+        assert_eq!(s.db.count("Post").unwrap(), 1);
+    }
+
+    #[test]
+    fn action_set_many_to_many_replaces_join_rows() {
+        let s = validation_state();
+        let alice = crate::api_validation_tests::viewer("alice", "user");
+        let tag = row_id(&s, "Tag", json!({"label": "m", "_owner_id": "alice"}));
+        let id = row_id(&s, "Post", json!({"title": "linked", "_owner_id": "alice"}));
+        let action = DeclaredAction {
+            id: "tags".into(),
+            entity: "Post".into(),
+            block: ActionBlock {
+                event: "click".into(),
+                confirm: None,
+                instructions: vec![crate::parser::ActionInstruction {
+                    verb: "set".into(),
+                    target: "tags".into(),
+                    value: tag.clone(),
+                    modifiers: std::collections::HashMap::new(),
+                }],
+            },
+        };
+        execute_declared_action(&action, &id, &s.db, &s.entities, &alice, None).expect("ok");
+        let mut row = s.db.find_by_id("Post", &id).unwrap().unwrap();
+        let post = s.entities.iter().find(|e| e.name == "Post").unwrap();
+        crate::relations::attach(&s.db, &s.entities, post, &mut row, &alice, &[]);
+        assert_eq!(row["tags"], json!([tag]));
     }
 }

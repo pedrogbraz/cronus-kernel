@@ -228,6 +228,14 @@ pub(super) fn render_form_section(
                         readonly = readonly, input_style = input_style,
                     ));
                 }
+                "datetime" => {
+                    fields_html.push_str(&format!(
+                        r#"<div><label style="{label_style}">{label}</label><input type="datetime-local" name="{name}" value="{value}" {required} {disabled} {readonly} style="{input_style}" onfocus="this.style.borderColor='#000'" onblur="this.style.borderColor='#e5e7eb'"></div>"#,
+                        label_style = label_style, label = item_title, name = name_lower,
+                        value = value, required = required, disabled = disabled,
+                        readonly = readonly, input_style = input_style,
+                    ));
+                }
                 "money" => {
                     let prefix = item.get("prefix").map(|s| s.as_str()).unwrap_or("$");
                     fields_html.push_str(&format!(

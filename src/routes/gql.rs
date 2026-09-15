@@ -11,6 +11,14 @@ pub(super) async fn route(req: Request<Incoming>, ctx: &Ctx) -> Routed {
         remote_addr,
     } = ctx;
 
+    let gql = path == "/graphql" || path == "/graphql/schema";
+    if gql && !state.app.graphql {
+        return Ok(json_response(
+            StatusCode::NOT_FOUND,
+            authz::error_body("NOT_FOUND", "Not found"),
+        ));
+    }
+
     // GraphQL endpoint
     if path == "/graphql" && method == Method::GET {
         return Ok(html_response(graphql::playground_html()));
@@ -36,7 +44,14 @@ pub(super) async fn route(req: Request<Incoming>, ctx: &Ctx) -> Routed {
             .unwrap_or("");
         let variables = body_json.get("variables").cloned().unwrap_or(json!({}));
         let schema = graphql::GraphQLSchema::from_entities(&state.entities);
-        let result = graphql::execute_graphql(query, &variables, &schema, &state.db, &gql_access);
+        let result = graphql::execute_graphql(
+            query,
+            &variables,
+            &schema,
+            &state.db,
+            &gql_access,
+            &state.db_path,
+        );
         return Ok(json_response(StatusCode::OK, result));
     }
     if path == "/graphql/schema" && method == Method::GET {

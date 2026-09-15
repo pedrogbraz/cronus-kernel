@@ -298,6 +298,55 @@ pub(crate) const ERROR_CODES: &[ErrorCode] = &[
         description: "A declared `env` variable name is not SCREAMING_SNAKE with a prefix such as `APP_`, so it may collide with system variables.",
         example_fix: "`STRIPE_KEY string!` is fine; `stripe string!` -> `APP_STRIPE string!`.",
     },
+    ErrorCode {
+        code: "BIND_001",
+        severity: "error",
+        category: "bind",
+        description: "A `where` clause uses an operator that is not in the language. Unknown operators used to be treated as `eq`.",
+        example_fix: "`where status blah:\"paid\"` → `where status eq:\"paid\"`. Supported: eq, ne (neq), gt, gte, lt, lte, contains, starts_with, ends_with, in:[…].",
+    },
+    ErrorCode {
+        code: "BIND_002",
+        severity: "error",
+        category: "bind",
+        description: "`query` is not `all`, `one` or `count`. Unknown query kinds used to be treated as `all`.",
+        example_fix: "`query every` -> `query all`.",
+    },
+    ErrorCode {
+        code: "FIELD_004",
+        severity: "error",
+        category: "validation",
+        description: "A field modifier is not recognised. Dead spellings such as `indexed`, `computed` and `onupdate:` used to be ignored.",
+        example_fix: "`email string indexed` -> `email string index`. Drop `computed` and `onupdate:`.",
+    },
+    ErrorCode {
+        code: "ACTION_001",
+        severity: "error",
+        category: "action",
+        description: "An action verb is unknown, or is parsed but not executed (`validate`). Invented verbs used to be skipped.",
+        example_fix: "`on click { log \"x\" }` -> `on click { toast \"x\" info }`. Implemented: set, toast, navigate, refresh, delete, open, close. `create`/`update` still parse (forms) and are not this error.",
+    },
+    ErrorCode {
+        code: "LANG_001",
+        severity: "error",
+        category: "language",
+        description: "A top-level block is accepted by the parser so the rest of the file can be checked, but the runtime does not implement it (`service`, `worker`, `middleware`, `deploy`, `test`, `define`, top-level `on`).",
+        example_fix: "Remove the block. Page `requires:`, `import`, `compose { use }`, and `webhook` are the implemented substitutes where they apply.",
+    },
+    ErrorCode {
+        code: "COMPOSE_001",
+        severity: "error",
+        category: "compose",
+        description: "The same declaration appears twice across the load graph (duplicate entity name, page route, app, auth, style, layout name, api prefix, component name, webhook entity, or env variable). Last-wins is gone; the first is kept and every later collision is reported. Exactly one `app {}`.",
+        example_fix: "Rename or remove the later block. Split files with `import \"entities\"` / `compose { use entities }`; do not repeat `entity Task` in two files.",
+    },
+    ErrorCode {
+        code: "COMPOSE_002",
+        severity: "error",
+        category: "compose",
+        description: "`import` or `compose { use }` / `merge` points at a file that is not on disk. Missing imports used to warn and continue.",
+        example_fix: "`import \"entities\"` looks for `entities.cronus` next to the importing file (nested imports are relative to the importer). Create the file or drop the import.",
+    },
 ];
 
 /// Case-insensitive lookup (`type_001` finds `TYPE_001`).

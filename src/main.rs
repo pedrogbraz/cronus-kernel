@@ -227,6 +227,7 @@ mod env_schema;
 mod error;
 mod export;
 mod feedback;
+mod files;
 mod graph;
 mod graphql;
 mod hardcode_lint;

@@ -63,10 +63,7 @@ fn from_bound(bound: &[serde_json::Value]) -> String {
             keys.iter()
                 .map(|k| {
                     row.get(k)
-                        .map(|x| match x {
-                            serde_json::Value::String(s) => esc(s),
-                            other => esc(&other.to_string()),
-                        })
+                        .map(|x| esc(&crate::relations::display_value(x)))
                         .unwrap_or_default()
                 })
                 .collect()

@@ -83,13 +83,15 @@ Plus 15 more in the full list — grep `validate_identifier` for the canonical s
 | `text`           | TEXT         | `<textarea>`                     | |
 | `email`          | TEXT         | `<input type=email>`             | Pattern validated |
 | `url`            | TEXT         | `<input type=url>`               | |
+| `file`           | TEXT         | `<input type=file>`              | URL or `/_files/…` upload |
 | `slug`           | TEXT         | slug field                       | Auto-kebab |
 | `phone`          | TEXT         | `<input type=tel>`               | |
 | `number`         | INTEGER      | `<input type=number>`            | |
 | `money`          | INTEGER      | money formatter                  | **Stored as centavos** |
 | `percentage`     | INTEGER/REAL | percent formatter                | |
 | `boolean`        | INTEGER      | checkbox                         | |
-| `date`           | TEXT         | `<input type=date>`              | ISO string |
+| `date`           | TEXT         | `<input type=date>`              | `YYYY-MM-DD` |
+| `datetime`       | TEXT         | `<input type=datetime-local>`    | `YYYY-MM-DDTHH:MM` (optional seconds/offset) |
 | `ulid`           | TEXT         | ULID pill                        | |
 | `json`           | TEXT         | JSON viewer                      | |
 | `enum`           | TEXT         | select/badge                     | Requires `[a, b, c]` list |
@@ -104,7 +106,7 @@ Canonical keyword list: `FIELD_TYPE_KEYWORDS` in `src/parser/ast.rs`. Keywords a
 |-------|-----------|
 | `int`, `integer`, `float`, `decimal` | `number` |
 | `bool` | `boolean` |
-| `datetime`, `timestamp` | `date` |
+| `timestamp` | `datetime` |
 
 No other spelling is accepted (since 2026-09-14; before that, every unknown type silently became `string`):
 
@@ -131,10 +133,11 @@ Both are recoverable: the parser keeps going, so one build reports every type er
 - `min:<num>` / `max:<num>` — numeric bounds for `number`, `money`, `percentage`; length in characters for `string`, `text`, `email`, `url`, `slug`, `phone` (§3.6). A non-number is `FIELD_003`; `min` > `max` is `FIELD_002`.
 - `match:"<regex>"` — Rust regex the value must match (§3.6). An invalid regex is `FIELD_001`.
 
-**NOT recognized** (despite some doc claims):
-- `onupdate:` — does nothing
+**NOT recognized** — `cronus build` reports **`FIELD_004`** (they used to be ignored):
+- `onupdate:` — not in the language
 - `indexed` — use `index`
 - `computed` — not implemented
+- any other unknown modifier or `key:` pair on a field
 
 ### 2.5 Top-level block parsers — 29 helpers
 
@@ -149,25 +152,44 @@ Both are recoverable: the parser keeps going, so one build reports every type er
 | `auth { ... }`            | `parse_auth`         | `AstNode::Auth`           | REAL |
 | `style { ... }`           | `parse_style`        | `AstNode::Style`          | REAL |
 | `layout Name { ... }`     | `parse_layout`       | `AstNode::Layout`         | REAL |
-| `service Name { ... }`    | `parse_service`      | `AstNode::Service`        | SCAFFOLDED |
+| `service Name { ... }`    | `parse_service`      | `AstNode::Service`        | **LANG_001** — parses, no runtime |
 | `component Name { ... }`  | `parse_component`    | `AstNode::Component`      | **LIMITED** — see §6 |
-| `webhook Name { ... }`    | `parse_webhook`      | `AstNode::Webhook`        | SCAFFOLDED |
-| `worker Name { ... }`     | `parse_worker`       | `AstNode::Worker`         | SCAFFOLDED |
-| `deploy { ... }`          | `parse_deploy`       | `AstNode::Deploy`         | SCAFFOLDED |
-| `middleware { ... }`      | `parse_middleware`   | `AstNode::Middleware`     | SCAFFOLDED |
+| `webhook Name { ... }`    | `parse_webhook`      | `AstNode::Webhook`        | REAL (outbound HTTP; no TLS) |
+| `worker Name { ... }`     | `parse_worker`       | `AstNode::Worker`         | **LANG_001** — parses, no runtime |
+| `deploy { ... }`          | `parse_deploy`       | `AstNode::Deploy`         | **LANG_001** — parses, no runtime |
+| `middleware { ... }`      | `parse_middleware`   | `AstNode::Middleware`     | **LANG_001** — parses, no runtime |
 | `env { ... }`             | `parse_env`          | `AstNode::Env`            | REAL |
-| `test { ... }`            | `parse_test`         | `AstNode::Test`           | SCAFFOLDED |
-| `import "path"`           | `parse_import`       | `AstNode::Import`         | REAL |
-| `compose { ... }`         | `parse_compose`      | `AstNode::Compose`        | SCAFFOLDED |
-| `use Name { ... }`        | `parse_use`          | `AstNode::Use`            | SCAFFOLDED |
-| `merge Name`              | `parse_merge`        | `AstNode::Merge`          | SCAFFOLDED |
-| `define Name { ... }`     | `parse_define`       | `AstNode::Define`         | SCAFFOLDED |
-| `on Name { ... }`         | `parse_event`        | `AstNode::Event`          | SCAFFOLDED |
+| `test { ... }`            | `parse_test`         | `AstNode::Test`           | **LANG_001** — parses, no runtime |
+| `import "path"` / `import Alias from "path"` | `parse_import` | `AstNode::Import` | REAL — load graph, stripped after resolve |
+| `compose { use … }` / `compose Name { use … }` | `parse_compose` | `AstNode::Compose` | REAL — loads listed files like `import`; stripped after resolve |
+| `define Name { ... }`     | `parse_define`       | `AstNode::Define`         | **LANG_001** — parses, no runtime |
+| `on Name { ... }` (file scope) | `parse_event`   | `AstNode::Event`          | **LANG_001** — parses, no runtime |
 | `tailwind_config "..."`   | inline                | Stored on `App` node      | REAL (undocumented) |
 
 **`constitution`**: has a parser (`parse_constitution`) but NO top-level AST variant. It lives only inline inside `app { constitution { must "..." never "..." } }`. See §13.
 
-**NO `parse_hydra`** — hydra is an internal block-evolution subsystem (§14), not a user-facing block.
+**NO `parse_hydra`** — hydra is an internal block-evolution subsystem (§14), not a user-facing block. `cronus compose --from` is hydra template generation, not the `compose { use }` primitive below.
+
+### 2.7 Composition — `import` / `compose { use }` / directory union
+
+Multi-file apps are one AST. `parse_with_imports` and `parse_directory` share a load graph (`src/parser/compose.rs`): each path is read once; cycles skip the already-loaded file (they are not an error). Nested `import` resolves relative to the **importing** file, not the original `base_dir`. `parse_directory` lists cwd `*.cronus` (non-recursive, sorted) and feeds each into that graph — it does **not** concatenate sources (concatenation double-loaded a file that was also `import`ed).
+
+```cronus
+import "entities"
+import Pages from "pages.cronus"
+
+compose App {
+  use entities
+  merge pages
+}
+```
+
+- `import "file"` and `import Alias from "file"` (optional `from`). `.cronus` is added when missing.
+- `compose Name { use a  use b  merge c }` and unnamed `compose { use a }`. `use`/`merge` load `a.cronus` next to the compose file, same as `import`. Merge config `{ … }` is parsed and ignored (not hydra remap).
+- `Import` and `Compose` nodes are stripped after they have been used as load instructions.
+- Duplicate **entity** name, **page** route, **app**, **auth**, **style**, **layout** name, **api** prefix, **component** name, **webhook** entity, or **env** variable is **`COMPOSE_001`**. The first declaration is kept; every later collision is reported. Exactly one `app {}`.
+- Missing import/use file is **`COMPOSE_002`** (used to be an `eprintln` warning).
+- `cronus run` with 2+ `*.cronus` files in cwd unions the directory this way. `cronus build path.cronus` follows that file's `import`/`compose`. `cronus build` with no path and several files in cwd unions like `run`.
 
 ### 2.6 Nested parsers inside blocks
 
@@ -223,9 +245,14 @@ entity Order {
 
 State machine validation at both compile time (state names must match enum values) and runtime (prevents invalid transitions).
 
-### 3.4 Effects (`on create/update/delete`) — SCAFFOLDED
+### 3.4 Effects (`on create/update/delete`) — REAL (narrow verbs)
 
-Parser accepts the block. Runtime fires the actions but **supported action verbs are limited** (see §8). Test coverage: effect parsing has 10 unit tests in `parser/mod.rs`; effect execution has 0 tests.
+Parser accepts the block. Runtime runs it after **every** write surface: REST (`api_crud`), `/_form`, and `/_action` (`create`/`update`/`set`/`delete`).
+
+- `log "…"` interpolates `{{field}}`, prints to stderr, and records on the brain event log when one is configured.
+- `notify <provider> <channel> "…"` interpolates, prints, records on the brain, and broadcasts an SSE event (`_effect_notify_<entity>`). It does **not** send email or Slack; outbound HTTP is the separate `webhook` block (`fire_webhooks`).
+
+Unknown effect verbs are ignored (brain-only). Test coverage: parser tests in `parser/mod.rs`; `effects.rs` fires log/notify on create.
 
 ### 3.5 Entity features **NOT** advertised by docs but present in code
 
@@ -234,7 +261,7 @@ Parser accepts the block. Runtime fires the actions but **supported action verbs
 
 ### 3.6 Field validation — REAL
 
-Constraints are field modifiers. One rule set (`src/validation.rs`) checks every write surface: REST create/update (`src/api_crud.rs`), `/_form` create/edit and `/_action` `set` (`src/actions.rs`), and GraphQL `create<Entity>` (`src/graphql.rs`).
+Constraints are field modifiers. One rule set (`src/validation.rs`) checks every write surface: REST create/update (`src/api_crud.rs`), `/_form` create/edit and `/_action` `set` (`src/actions.rs`), and GraphQL `create<Entity>` / `update<Entity>` (`src/graphql.rs`).
 
 ```cronus
 entity Account {
@@ -290,8 +317,11 @@ entity Tag { label string! }
 - **Writes** (REST create/update, `/_form`, GraphQL create): send an array of ids (forms also accept `"id1,id2"`). It replaces the current links; omitting the field keeps them; `[]` clears them. Every id must exist and be readable by the caller on the target entity — own rows, rows of `shared` entities, any row for admins — otherwise `422` with `"fields": {"tags": ["contains an unknown id"]}` (same message for missing and unreadable ids). The row and its links are written in one transaction.
 - **Reads.** REST list/detail and GraphQL return the field as an id array in link order. REST `?expand=tags` (comma-separated field names) returns the linked rows instead, passed through `authz::redact_sensitive`. Only linked rows the viewer may read are included; anonymous callers on `auth:public` routes get `[]`. One query per field per page, never per row.
 - **Deletes.** Deleting either side removes its join rows.
-- **GraphQL.** `tags: [String!]!` on the type, `tags: [String!]` on `Create<Entity>Input`.
-- **Not supported:** `unique` on a many-to-many field (ignored), showing links through SSR bindings/`columns`, `set` on the field in actions.
+- **GraphQL.** `tags: [String!]!` on the type, `tags: [String!]` on `Create<Entity>Input` and `Update<Entity>Input`.
+- **Not supported:** `unique` on a many-to-many field (ignored).
+- **SSR.** `bind Post { query all }` attaches M2M fields as id arrays; `expand:tags` attaches redacted Tag rows. Table cells join `label`/`name`/`title`/`id`.
+- **Reverse.** `author -> User` on Post yields `posts` on User. `bind User { expand:posts }` / REST `?expand=posts` loads the Post rows whose `author` is that User (same owner scope). The name is the source entity lowercased + `s`, unless that name is already a field — then `{source}_{field}`. Reverse fields are not stored and are not writable.
+- **`set tags "id1,id2"`** on `/_action` replaces join rows (same id-scope rules as REST/`/_form`).
 
 ### 3.8 Env schema — REAL
 
@@ -505,7 +535,7 @@ However: the outer wrapper at `src/ui/mod.rs:762-781` adds `data-entity="..."` a
 
 ---
 
-## 8. Actions — SCAFFOLDED
+## 8. Actions — REAL
 
 ### 8.1 Syntax
 
@@ -524,20 +554,22 @@ on click confirm:"Delete this order?" {
 
 ### 8.2 Supported verbs (verified in `src/actions.rs`)
 
-**7 action verbs** are implemented:
-- `set <field> "<value>"`
+**Action verbs** (verified in `src/actions.rs`):
+- `set <field> "<value>"` — scalars and many-to-many (`set tags "id1,id2"` replaces join rows)
+- `create Entity { field "value" … }` — `/_action` only; field values come from the AST, never the client JSON
+- `update Entity { field "value" … }` — `/_action` only; same AST-literal rule; `set` in the same block is applied too
 - `toast "<message>" <style>`
 - `navigate "<path>"`
 - `refresh`
-- `delete <Entity> <id_expr>`
+- `delete <Entity>`
 - `open <modal_name>`
 - `close <modal_name>`
 
-**Docs claim these that DO NOT exist**:
-- `create Entity { ... }` — parser accepts it but no executor handles it yet
-- `update Entity ...` — same
-- `log "..."` — not in the action executor
-- `confirm:"..."` — **only the `confirm:` MODIFIER on `on click`** works; there's no standalone `confirm` action
+**Forms (`on submit`)** post to `/_form`, which writes the row. `create`/`update` in that block name the bound entity (they must match `bind`); they do **not** insert a second row. After a successful write, the block's `toast`/`navigate`/`refresh`/`open`/`close` are returned as the effect envelope. `/_action` refuses `event: submit` blocks (403).
+
+**`ACTION_001`** (build error; these used to be skipped):
+- `validate`
+- any invented verb (`log`, `notify`, `email`, …)
 
 ### 8.2.1 Server enforcement (Sprint 1)
 
@@ -545,7 +577,7 @@ on click confirm:"Delete this order?" {
 - Requires a session (401 otherwise).
 - The client can only reference an action **declared in the AST**, by `action_id`. Kernel-rendered action buttons carry `data-action-id` (sha256 of the section entity and the canonical block, first 16 hex chars), and the runtime posts `{action_id, entity, id}`. The server executes **its own copy** of the instructions. A body without a matching `action_id` is 403, and client-sent instruction JSON (`action`) is ignored.
 - `entity` must equal the declared section's entity (`bind X` or `entity:`).
-- `set`/`delete` run on that entity only, constrained by `_owner_id` in SQL for non-admins (404 if the row is not yours), never on the auth entity for non-admins. `set` targets must be writable (`authz::writable_body`: no `id`, `_owner_id`, timestamps, `role`, `password`, or `sensitive` fields).
+- `set`/`delete`/`create`/`update` run on that entity only, constrained by `_owner_id` in SQL for non-admins (404 if the row is not yours), never on the auth entity for non-admins. `set` targets must be writable (`authz::writable_body`: no `id`, `_owner_id`, timestamps, `role`, `password`, or `sensitive` fields). Many-to-many `set` replaces join rows. `create`/`update` field values are the AST literals, not the request body. `event: submit` blocks are 403 here (they belong to `/_form`).
 
 `POST /_form/<section_type>`:
 - `entity` must be bound by a declared section of that type.
@@ -612,7 +644,9 @@ Aggregates without `group_by` return one value: `aggregate count` → a count, `
 
 ### 9.2 Supported operators in `where`
 
-`eq`, `ne` (alias `neq`), `gt`, `gte`, `lt`, `lte`, `contains`, `starts_with`. Both forms are equivalent: `where status eq "active"` and `where status eq:"active"` (also `eq:auth.id`, `eq:route.id`, `gt:5`, `eq:true`). `ends_with` and `in:[...]` are **not** implemented. An unknown operator currently falls back to `eq`.
+`eq`, `ne` (alias `neq`), `gt`, `gte`, `lt`, `lte`, `contains`, `starts_with`, `ends_with`, `in`. Both forms are equivalent: `where status eq "active"` and `where status eq:"active"` (also `eq:auth.id`, `eq:route.id`, `gt:5`, `eq:true`). `in` requires a list: `where status in:[paid, shipped]` or `in:["paid", "shipped"]`. `in:"paid"` without `[` is **`BIND_001`**. An empty list matches no rows. An unknown operator is **`BIND_001`**. An unknown `query` kind is **`BIND_002`**.
+
+`expand:tags` (or `expand:tags,author`) loads related rows on those fields instead of ids. Many-to-many always attaches an id array; listing a field in `expand` replaces it with redacted target rows (one query per field). A to-one `-> Entity` field listed in `expand` is replaced with the related object. Unknown expand names are **`RESOLVE_001`**.
 
 ### 9.3 `group_by` intervals
 
@@ -907,19 +941,14 @@ Status: all four files have executable logic. `auto-promotion` rides on the Trus
 
 **NOT `.spec.toml` files.** `specs/` directory does not exist. This was a historical misconception propagated by stale AGENTS.md.
 
-### 14.6 GraphQL — SCAFFOLDED
+### 14.6 GraphQL — REAL
 
-`src/graphql.rs`, 5 tests.
+`src/graphql.rs`. Default on; `app { graphql false }` unmounts the endpoints (404).
 
-- **Auth (Sprint 1):** `POST /graphql` and `GET /graphql/schema` return 401 without a session. Reads use the same owner scope as bindings (§9.5, without `scope:public`). `create<Entity>` keeps only writable fields and sets `_owner_id` on the server. `delete<Entity>` is constrained by `_owner_id` in SQL (it returns `false` for other users' rows). The auth entity is admin-only for mutations. `sensitive`/`password` fields are absent from responses, output types and create inputs. DB errors are logged and never returned.
-- There is no language flag to disable GraphQL yet. It is always mounted, but authenticated.
-- Auto-generates an SDL schema from entities at server startup
-- Serves `POST /graphql` with a hand-rolled query parser
-- Query playground at `GET /graphql` (hardcoded HTML)
-- Generates: `all<Entity>`, `<entity>(id)` queries
-- Generates mutations: `create<Entity>`, `delete<Entity>` — **no `update<Entity>`**
-- No nested resolvers; related entities return IDs only
-- No subscriptions (SSE is separate)
+- **Language:** `app { graphql false }` / `graphql:false`. Omitted or `true` keeps `/graphql` mounted. `GET /graphql` is the playground (no session). `POST /graphql` and `GET /graphql/schema` return 401 without a session.
+- **Auth:** Reads use the same owner scope as bindings (§9.5, without `scope:public`). `create<Entity>` keeps only writable fields and sets `_owner_id` on the server. `update<Entity>(id, input)` is partial (`Update<Entity>Input` has no required fields), owner-scoped (other users' rows return `null`), and runs the same validation/transitions/M2M rules as REST. `delete<Entity>` is constrained by `_owner_id` in SQL (`false` for other users' rows). The auth entity is admin-only for GraphQL mutations. `sensitive`/`password` fields are absent from responses, output types and create/update inputs. DB errors are logged and never returned.
+- Auto-generates SDL from entities: `{entity}s(limit)`, `{entity}(id)`, `create<Entity>`, `update<Entity>`, `delete<Entity>`.
+- Hand-rolled query parser. No nested resolvers (M2M is an id array; reverse fields expand when selected). No subscriptions (SSE is separate).
 
 ### 14.7 SSE Live — REAL
 
@@ -1142,6 +1171,13 @@ Field rules:
 | `ENV_001` | error | `env` variable type is not `string`, `number`, `boolean`, `url` or `email` (§3.8) |
 | `ENV_002` | error | `env` variable `default:` does not match its type (§3.8) |
 | `ENV_003` | warning | Declared `env` variable name has no uppercase prefix such as `APP_` (§3.8) |
+| `BIND_001` | error | Unknown `where` operator, or `in` without `[…]` (§9.2) |
+| `BIND_002` | error | Unknown `query` kind; must be `all`, `one` or `count` |
+| `FIELD_004` | error | Unknown field modifier (`indexed`, `computed`, `onupdate:`, …) (§2.4) |
+| `ACTION_001` | error | Unknown or unimplemented action verb (`validate`, invented verbs) (§8.2) |
+| `LANG_001` | error | Top-level block with no runtime (`service`, `worker`, `middleware`, `deploy`, `test`, `define`, file-scope `on`) |
+| `COMPOSE_001` | error | Duplicate declaration across the load graph (entity, page route, app, auth, style, layout, api, component, webhook entity, env variable). One `app {}`. |
+| `COMPOSE_002` | error | `import` / `compose { use }` file is missing (§2.7) |
 | `STRUCTURE_001` | error | A `page "…"` / `entity Name {` declared in the source is missing from the parsed app (an earlier statement consumed a `}`) |
 | `RESOLVE_001` | error | Unresolved reference (entity, field, column, route) |
 | `RESOLVE_002` | error | State-machine reference error (transition field missing / not enum) |

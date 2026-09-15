@@ -74,49 +74,69 @@ pub const CRONUS_ACTION_JS: &str = r#"
 
     var formData = {};
     var inputs = form.querySelectorAll('input, textarea, select');
+    var pending = 0;
+    function send() {
+      if (pending > 0) return;
+      var entity = form.getAttribute('data-cronus-entity') || '';
+      var cronusMethod = form.getAttribute('data-cronus-method') || 'POST';
+      var cronusId = form.getAttribute('data-cronus-id') || '';
+      var xhr = new XMLHttpRequest();
+      var formUrl = cronusMethod === 'PATCH' && cronusId
+        ? '/_form/' + (form.getAttribute('data-cronus-section') || '') + '/' + cronusId
+        : '/_form/' + (form.getAttribute('data-cronus-section') || '');
+      xhr.open(cronusMethod, formUrl);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.onload = function() {
+        try {
+          var data = JSON.parse(xhr.responseText);
+          var errs = form.querySelectorAll('.cronus-error');
+          for (var j = 0; j < errs.length; j++) errs[j].remove();
+          if (data.errors) {
+            for (var field in data.errors) {
+              var input = form.querySelector('[name="' + field + '"]');
+              if (input) {
+                var err = document.createElement('span');
+                err.className = 'cronus-error';
+                err.style.cssText = 'color:#ef4444;font-size:12px;display:block;margin-top:4px';
+                err.textContent = data.errors[field];
+                input.parentNode.appendChild(err);
+              }
+            }
+          }
+          applyEffects(data.effects);
+        } catch(err) {
+          showToast('Submit failed', 'error');
+        }
+      };
+      xhr.onerror = function() { showToast('Submit failed', 'error'); };
+      xhr.send(JSON.stringify({ entity: entity, data: formData }));
+    }
     for (var i = 0; i < inputs.length; i++) {
       var inp = inputs[i];
       var name = inp.name || inp.id;
       if (!name || name === '_id') continue;
+      if (inp.type === 'file') {
+        if (inp.files && inp.files[0]) {
+          pending++;
+          (function(field, file) {
+            var reader = new FileReader();
+            reader.onload = function() {
+              formData[field] = reader.result;
+              pending--;
+              send();
+            };
+            reader.onerror = function() {
+              pending--;
+              send();
+            };
+            reader.readAsDataURL(file);
+          })(name, inp.files[0]);
+        }
+        continue;
+      }
       formData[name] = inp.type === 'checkbox' ? inp.checked : inp.value;
     }
-
-    var entity = form.getAttribute('data-cronus-entity') || '';
-    var cronusMethod = form.getAttribute('data-cronus-method') || 'POST';
-    var cronusId = form.getAttribute('data-cronus-id') || '';
-
-    var xhr = new XMLHttpRequest();
-    var formUrl = cronusMethod === 'PATCH' && cronusId
-      ? '/_form/' + (form.getAttribute('data-cronus-section') || '') + '/' + cronusId
-      : '/_form/' + (form.getAttribute('data-cronus-section') || '');
-    xhr.open(cronusMethod, formUrl);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.onload = function() {
-      try {
-        var data = JSON.parse(xhr.responseText);
-        // Clear previous errors
-        var errs = form.querySelectorAll('.cronus-error');
-        for (var j = 0; j < errs.length; j++) errs[j].remove();
-        // Show field errors
-        if (data.errors) {
-          for (var field in data.errors) {
-            var input = form.querySelector('[name="' + field + '"]');
-            if (input) {
-              var err = document.createElement('span');
-              err.className = 'cronus-error';
-              err.style.cssText = 'color:#ef4444;font-size:12px;display:block;margin-top:4px';
-              err.textContent = data.errors[field];
-              input.parentNode.appendChild(err);
-            }
-          }
-        }
-        applyEffects(data.effects);
-      } catch(err) {
-        showToast('Submit failed', 'error');
-      }
-    };
-    xhr.onerror = function() { showToast('Submit failed', 'error'); };
-    xhr.send(JSON.stringify({ entity: entity, data: formData }));
+    send();
   });
 
   window._cronusActions = true;
@@ -143,5 +163,11 @@ mod tests {
             !payload.contains("data-cronus-action"),
             "no client instructions"
         );
+    }
+
+    #[test]
+    fn form_submit_reads_file_inputs_as_data_urls() {
+        assert!(CRONUS_ACTION_JS.contains("inp.type === 'file'"));
+        assert!(CRONUS_ACTION_JS.contains("readAsDataURL"));
     }
 }

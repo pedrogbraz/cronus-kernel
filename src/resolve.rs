@@ -48,6 +48,7 @@ impl SymbolTable {
         kernel_routes.insert("/docs".to_string());
         kernel_routes.insert("/docs/design".to_string());
         kernel_routes.insert("/graphql".to_string());
+        kernel_routes.insert("/_files".to_string());
 
         Self {
             entities: HashMap::new(),
@@ -109,6 +110,22 @@ fn collect_symbols(nodes: &[AstNode], table: &mut SymbolTable) {
                 }
             }
             _ => {}
+        }
+    }
+    let owned: Vec<crate::parser::EntityNode> = nodes
+        .iter()
+        .filter_map(|n| match n {
+            AstNode::Entity(e) => Some(e.clone()),
+            _ => None,
+        })
+        .collect();
+    for e in &owned {
+        let extra: Vec<String> = crate::relations::reverse_rels(&owned, e)
+            .into_iter()
+            .map(|r| r.name)
+            .collect();
+        if let Some(info) = table.entities.get_mut(&e.name) {
+            info.fields.extend(extra);
         }
     }
 }
@@ -277,6 +294,18 @@ fn resolve_section(
                             group.field, binding.entity, section.section_type, context
                         ),
                         suggestion: find_closest(&group.field, &field_refs),
+                    });
+                }
+            }
+
+            for name in &binding.expand {
+                if !all_field_names.contains(name) {
+                    errors.push(ResolveError {
+                        message: format!(
+                            "Field '{}' not found in entity '{}' (expand in {}, {})",
+                            name, binding.entity, section.section_type, context
+                        ),
+                        suggestion: find_closest(name, &field_refs),
                     });
                 }
             }
@@ -544,6 +573,7 @@ mod tests {
             aggregate: None,
             live: false,
             public: false,
+            expand: vec![],
         }
     }
 
@@ -846,6 +876,7 @@ mod tests {
                         aggregate: None,
                         live: false,
                         public: false,
+                        expand: vec![],
                     });
                     s
                 }],

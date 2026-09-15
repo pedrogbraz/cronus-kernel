@@ -1,5 +1,5 @@
 use crate::access::{self, Access, ReadScope};
-use crate::database::CronusDB;
+use crate::database::{CronusDB, SqlFilter};
 use crate::parser::{
     BindingNode, BindingValue, EntityNode, FilterOp, OrderDirection, QueryType, SectionNode,
 };
@@ -32,6 +32,8 @@ fn op_to_str(op: &FilterOp) -> &'static str {
         FilterOp::Lte => "lte",
         FilterOp::Contains => "contains",
         FilterOp::StartsWith => "starts_with",
+        FilterOp::EndsWith => "ends_with",
+        FilterOp::In => "in",
     }
 }
 
@@ -68,21 +70,50 @@ fn binding_value_to_string(
                 _ => None,
             }
         }
+        BindingValue::List(_) => None,
     }
 }
 
-/// Prepare filter tuples (field, sql_operator, value) for the query builder.
+fn list_values(
+    val: &BindingValue,
+    route_params: &HashMap<String, String>,
+    access: &Access,
+    db: &CronusDB,
+) -> Option<Vec<String>> {
+    match val {
+        BindingValue::List(items) => items
+            .iter()
+            .map(|item| binding_value_to_string(item, route_params, access, db))
+            .collect(),
+        other => Some(vec![binding_value_to_string(
+            other,
+            route_params,
+            access,
+            db,
+        )?]),
+    }
+}
+
+/// Prepare parameterized predicates for the query builder.
 fn prepare_filters(
     binding: &BindingNode,
     route_params: &HashMap<String, String>,
     access: &Access,
     db: &CronusDB,
-) -> Option<Vec<(String, String, String)>> {
+) -> Option<Vec<SqlFilter>> {
     binding
         .filters
         .iter()
         .map(|f| {
             let sql_op = crate::database::filter_op_to_sql(op_to_str(&f.operator)).to_string();
+            if f.operator == FilterOp::In {
+                let values = list_values(&f.value, route_params, access, db)?;
+                return Some(SqlFilter {
+                    field: f.field.clone(),
+                    op: sql_op,
+                    values,
+                });
+            }
             let mut value = binding_value_to_string(&f.value, route_params, access, db)?;
             match f.operator {
                 FilterOp::Contains => {
@@ -91,9 +122,12 @@ fn prepare_filters(
                 FilterOp::StartsWith => {
                     value = format!("{}%", value);
                 }
+                FilterOp::EndsWith => {
+                    value = format!("%{}", value);
+                }
                 _ => {}
             }
-            Some((f.field.clone(), sql_op, value))
+            Some(SqlFilter::one(f.field.clone(), sql_op, value))
         })
         .collect()
 }
@@ -154,7 +188,9 @@ pub fn resolve_binding(
         Some(f) => f,
         None => return empty_for(binding),
     };
-    filters.extend(scope_filter);
+    if let Some(triple) = scope_filter {
+        filters.push(SqlFilter::from_triple(triple));
+    }
 
     let order_field = binding.order.as_ref().map(|o| o.field.as_str());
     let order_dir = binding.order.as_ref().map(|o| match o.direction {
@@ -175,6 +211,12 @@ pub fn resolve_binding(
         }
         v
     };
+    let attach = |mut v: Value| {
+        if let Some(e) = entity {
+            crate::relations::attach(db, entities, e, &mut v, access, &binding.expand);
+        }
+        v
+    };
 
     match binding.query {
         QueryType::All => {
@@ -187,9 +229,15 @@ pub fn resolve_binding(
                 binding.offset,
             ) {
                 Ok(Value::Array(rows)) => {
-                    ResolvedData::Rows(rows.into_iter().map(redact).collect())
+                    let rows: Vec<Value> = rows.into_iter().map(redact).collect();
+                    let mut wrapped = Value::Array(rows);
+                    wrapped = attach(wrapped);
+                    match wrapped {
+                        Value::Array(rows) => ResolvedData::Rows(rows),
+                        other => ResolvedData::Rows(vec![other]),
+                    }
                 }
-                Ok(other) => ResolvedData::Rows(vec![redact(other)]),
+                Ok(other) => ResolvedData::Rows(vec![attach(redact(other))]),
                 Err(e) => {
                     eprintln!("  \x1b[31m✗\x1b[0m Binding error ({}): {}", table, e);
                     ResolvedData::Rows(Vec::new())
@@ -197,7 +245,7 @@ pub fn resolve_binding(
             }
         }
         QueryType::One => match db.find_one(&table, &filters, order_field, order_dir) {
-            Ok(record) => ResolvedData::Record(record.map(redact)),
+            Ok(record) => ResolvedData::Record(record.map(|r| attach(redact(r)))),
             Err(e) => {
                 eprintln!("  \x1b[31m✗\x1b[0m Binding error ({}): {}", table, e);
                 ResolvedData::Record(None)
@@ -216,30 +264,17 @@ pub fn resolve_binding(
 /// ` WHERE "f" op ?1 AND …` with bound values. `None` when a filter cannot be
 /// expressed safely: it must not be silently dropped, since that would widen
 /// the result (e.g. lose the owner scope).
-fn where_params(
-    table: &str,
-    filters: &[(String, String, String)],
-) -> Option<(String, Vec<String>)> {
-    let valid_ops = ["=", "!=", ">", ">=", "<", "<=", "LIKE"];
-    let mut values: Vec<String> = Vec::new();
-    let mut parts: Vec<String> = Vec::new();
-    for (field, op, val) in filters {
-        if !crate::security::is_safe_identifier(field) || !valid_ops.contains(&op.as_str()) {
+fn where_params(table: &str, filters: &[SqlFilter]) -> Option<(String, Vec<String>)> {
+    match crate::database::sql_where(filters) {
+        Ok(v) => Some(v),
+        Err(e) => {
             eprintln!(
-                "  \x1b[31m✗\x1b[0m SECURITY: invalid aggregation filter on {}",
-                table
+                "  \x1b[31m✗\x1b[0m SECURITY: invalid aggregation filter on {}: {}",
+                table, e
             );
-            return None;
+            None
         }
-        values.push(val.clone());
-        parts.push(format!("\"{}\" {} ?{}", field, op, values.len()));
     }
-    let clause = if parts.is_empty() {
-        String::new()
-    } else {
-        format!(" WHERE {}", parts.join(" AND "))
-    };
-    Some((clause, values))
 }
 
 /// `aggregate count` → `Count`; `aggregate sum|avg|min|max field:x` → `Scalar`.
@@ -248,7 +283,7 @@ fn resolve_scalar_aggregate(
     agg: &crate::parser::AggregateExpr,
     entity: Option<&EntityNode>,
     table: &str,
-    filters: &[(String, String, String)],
+    filters: &[SqlFilter],
     db: &CronusDB,
 ) -> ResolvedData {
     if agg.function == "count" {
@@ -323,7 +358,7 @@ fn resolve_aggregation(
     binding: &BindingNode,
     entity: Option<&EntityNode>,
     table: &str,
-    filters: &[(String, String, String)],
+    filters: &[SqlFilter],
     db: &CronusDB,
 ) -> ResolvedData {
     let group = match binding.group_by.as_ref() {
@@ -563,5 +598,140 @@ mod tests {
         let alice = rows(resolve_binding(&s, &db, &p, &as_user("alice"), &ents));
         assert_eq!(alice.len(), 2, "{:?}", alice);
         assert!(rows(resolve_binding(&s, &db, &p, &anon(), &ents)).is_empty());
+    }
+
+    #[test]
+    fn ends_with_and_in_filter_rows() {
+        let (ents, db) = fixture();
+        let p = HashMap::new();
+        let alice = as_user("alice");
+        let ends = rows(resolve_binding(
+            &section("bind Note { query all where title ends_with \"1\" }"),
+            &db,
+            &p,
+            &alice,
+            &ents,
+        ));
+        assert_eq!(ends.len(), 1, "{ends:?}");
+        assert_eq!(ends[0]["title"], "a1");
+        let listed = rows(resolve_binding(
+            &section("bind Note { query all where title in:[a1, missing] }"),
+            &db,
+            &p,
+            &alice,
+            &ents,
+        ));
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0]["title"], "a1");
+        let empty = rows(resolve_binding(
+            &section("bind Note { query all where title in:[] }"),
+            &db,
+            &p,
+            &alice,
+            &ents,
+        ));
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn expand_loads_related_rows_for_ssr() {
+        let src = "entity Post { title string!  tags -> Tag[] }\nentity Tag { label string!  secret string sensitive }\n";
+        let ents: Vec<EntityNode> = parse(src)
+            .unwrap()
+            .into_iter()
+            .filter_map(|n| match n {
+                AstNode::Entity(e) => Some(e),
+                _ => None,
+            })
+            .collect();
+        let db = CronusDB::open_memory().unwrap();
+        db.migrate(&ents).unwrap();
+        let tag = db
+            .insert(
+                "Tag",
+                &serde_json::json!({"label": "rust", "secret": "s", "_owner_id": "alice"}),
+            )
+            .unwrap();
+        let tag_id = tag["id"].as_str().unwrap();
+        let post = db
+            .insert(
+                "Post",
+                &serde_json::json!({"title": "hello", "_owner_id": "alice"}),
+            )
+            .unwrap();
+        let post_id = post["id"].as_str().unwrap();
+        db.transaction(|conn| {
+            crate::relations::replace_links(
+                conn,
+                &ents[0],
+                &crate::relations::LinkSet {
+                    field: "tags".into(),
+                    ids: vec![tag_id.to_string()],
+                },
+                post_id,
+                Some("alice"),
+            )
+        })
+        .unwrap();
+        let p = HashMap::new();
+        let ids_only = rows(resolve_binding(
+            &section("bind Post { query all }"),
+            &db,
+            &p,
+            &as_user("alice"),
+            &ents,
+        ));
+        assert_eq!(ids_only[0]["tags"], serde_json::json!([tag_id]));
+        let expanded = rows(resolve_binding(
+            &section("bind Post { query all expand:tags }"),
+            &db,
+            &p,
+            &as_user("alice"),
+            &ents,
+        ));
+        let tags = expanded[0]["tags"].as_array().unwrap();
+        assert_eq!(tags[0]["label"], "rust");
+        assert!(tags[0].get("secret").is_none());
+        assert_eq!(
+            crate::relations::display_value(&expanded[0]["tags"]),
+            "rust"
+        );
+    }
+
+    #[test]
+    fn expand_reverse_relation_on_ssr() {
+        let src = "entity Customer { name string! }\nentity Order { title string!  customer -> Customer }\n";
+        let ents: Vec<EntityNode> = parse(src)
+            .unwrap()
+            .into_iter()
+            .filter_map(|n| match n {
+                AstNode::Entity(e) => Some(e),
+                _ => None,
+            })
+            .collect();
+        let db = CronusDB::open_memory().unwrap();
+        db.migrate(&ents).unwrap();
+        let customer = db
+            .insert(
+                "Customer",
+                &serde_json::json!({"name": "Ada", "_owner_id": "alice"}),
+            )
+            .unwrap();
+        let cid = customer["id"].as_str().unwrap();
+        db.insert(
+            "Order",
+            &serde_json::json!({"title": "one", "customer": cid, "_owner_id": "alice"}),
+        )
+        .unwrap();
+        let p = HashMap::new();
+        let listed = rows(resolve_binding(
+            &section("bind Customer { query all expand:orders }"),
+            &db,
+            &p,
+            &as_user("alice"),
+            &ents,
+        ));
+        let orders = listed[0]["orders"].as_array().unwrap();
+        assert_eq!(orders[0]["title"], "one");
     }
 }

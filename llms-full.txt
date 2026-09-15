@@ -25,6 +25,8 @@ app "Name" {
   database sqlite "./data.db"
 }
 ```
+- `graphql false` unmounts `/graphql` and `/graphql/schema` (404). Default is on.
+  Mutations: `create<Entity>`, `update<Entity>(id, input)`, `delete<Entity>`.
 
 ### auth
 ```cronus
@@ -59,6 +61,10 @@ entity Plan shared { name string! }
 - `name type modifiers`. `!` = required. `-> Entity` = relation (id column).
   `-> Entity[]` = many-to-many (join table): write an array of ids the caller can read,
   read back an id array, `?expand=tags` returns the linked rows.
+  Reverse: `Customer` with `Order { customer -> Customer }` expands as `expand:orders`.
+- `date` is `YYYY-MM-DD`. `datetime` (`timestamp` alias) is `YYYY-MM-DDTHH:MM` (optional
+  seconds/offset). `file` stores an `https://` URL or a `/_files/…` upload (form file
+  inputs are sent as data URLs; max 512KiB).
 - Modifiers: `!` `unique` `sensitive` `optional` `searchable` `index` `featured`
   `formatted` `default:<v>` `min:<n>` `max:<n>` `match:"<regex>"`. `min`/`max` bound
   numbers, or length in characters for text types. `match` is a Rust regex.
@@ -78,6 +84,25 @@ env {
 - Types: `string` `number` `boolean` `url` `email`. `cronus run` refuses to start when a
   required variable is missing or a value has the wrong type; values are never printed.
 - Prefix every name (`APP_…`).
+
+### import and compose
+```cronus
+import "entities"
+import Pages from "pages.cronus"
+
+compose App {
+  use entities
+  merge pages
+}
+```
+- `import "file"` and `import Alias from "file"` load that `.cronus` (extension optional)
+  relative to the importing file. Nested imports are relative to the importer.
+- `compose { use a }` / `compose Name { use a  merge b }` loads `a.cronus` the same way.
+  The compose/import nodes are stripped after they have been used as load instructions.
+- Several `*.cronus` files in the working directory are unioned the same way (`cronus run`).
+- Duplicate entity, page route, `app`, `auth`, `style`, layout, api prefix, component,
+  webhook entity or env variable is `COMPOSE_001` (one `app {}`). Missing file is
+  `COMPOSE_002`. Last-wins is gone. Each path is loaded once.
 
 ### api
 ```cronus
@@ -141,8 +166,12 @@ bind Product { query all scope:public }
 ```
 - Always `bind Entity { … }` with braces (`bind entity:Order { … }` also parses).
 - `query all|one|count`. `aggregate count|sum|avg|min|max` with `field:`.
-- `where` operators: `eq` `ne` (`neq`) `gt` `gte` `lt` `lte` `contains` `starts_with`.
+- `where` operators: `eq` `ne` (`neq`) `gt` `gte` `lt` `lte` `contains` `starts_with`
+  `ends_with` `in:[a, b]`. Unknown operators fail the build (`BIND_001`). `in` needs `[ ]`.
   Values: `"text"`, numbers, `true`, `route.id`, `auth.id`, `auth.role`, `auth.email`.
+  `query` is `all|one|count` (`BIND_002`).
+- `expand:tags` (comma-separated) loads related rows on those fields for SSR.
+  Reverse of `Order.customer -> Customer` is `expand:orders` on Customer.
 - `interval:` `day` `week` `month` `quarter` `year`.
 - Visibility: no session sees nothing unless `scope:public` (every row, to anyone);
   users see own rows and `shared` entities; admins see all. `sensitive` fields never leave.
@@ -159,12 +188,15 @@ section form {
   }
 }
 ```
-- Verbs the server executes: `set <field> "<value>"`, `delete <Entity>`, `toast "<msg>" <style>`,
-  `navigate "<path>"`, `refresh <target>`, `open "<name>"`, `close "<name>"`.
+- Verbs the server executes: `set <field> "<value>"` (including `-> X[]` as `"id1,id2"`),
+  `create Entity { field "value" }`, `update Entity { field "value" }`, `delete <Entity>`,
+  `toast "<msg>" <style>`, `navigate "<path>"`, `refresh <target>`, `open "<name>"`,
+  `close "<name>"`. Unknown verbs and `validate` fail the build (`ACTION_001`).
+- `create`/`update` on `/_action` use only AST field literals, never client JSON.
 - `on click confirm:"Sure?" { … }` asks before running.
-- A bound `form` section submits to the kernel (`/_form`), which creates the row with the
-  declared fields; `create`/`update` inside the block are accepted but not executed as
-  separate server steps.
+- A bound `form` section submits to `/_form`, which writes the row. `create`/`update` in
+  `on submit` name the entity (must match `bind`) and do not insert twice; toast/navigate
+  from that block are the response effects.
 
 ### style
 ```cronus
@@ -200,8 +232,8 @@ The first `style` segment is a family name from the family list below.
 ## Field types
 
 <!-- begin:field-types -->
-`string` `text` `email` `url` `slug` `phone` `number` `money` `percentage` `boolean`
-`date` `ulid` `json` `enum` `ip`
+`string` `text` `email` `url` `file` `slug` `phone` `number` `money` `percentage` `boolean`
+`date` `datetime` `ulid` `json` `enum` `ip`
 <!-- end:field-types -->
 
 Relations are written `name -> Entity` (or `name -> Entity[]` for many-to-many), not as a
@@ -376,8 +408,13 @@ page "/dashboard" type:dashboard requires:auth {
   `stat-cards`) without `bind` or items: the build fails.
 - Never write `bind Entity` without `{ … }`.
 - Never invent field types (`uuid`, `varchar`): unknown types fail the build (`TYPE_001`).
-- Never use `indexed`, `computed` or `onupdate:` (not recognized); use `index`.
-- Never use `ends_with` or `in:[…]` in `where` (not implemented).
+- Never use `indexed`, `computed` or `onupdate:` — the build fails (`FIELD_004`); use `index`.
+- Never invent `where` operators — unknown ones fail the build (`BIND_001`). Supported:
+  `eq` `ne`/`neq` `gt` `gte` `lt` `lte` `contains` `starts_with` `ends_with` `in:[…]`.
+- Never write top-level `service`, `worker`, `middleware`, `deploy`, `test`,
+  `define` or file-scope `on` — the build fails (`LANG_001`).
+- Never declare the same entity, page route, `app`, `auth` or `style` twice across
+  files (`COMPOSE_001`). A missing `import`/`use` file fails (`COMPOSE_002`).
 - Never name an entity or field `select`, `drop`, `insert`, `delete`, `update`, `table` or `from`.
 - Never list a `sensitive` field in `columns` or a template.
 - Never put `scope:public` on a binding whose rows are not public data.

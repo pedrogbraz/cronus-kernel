@@ -27,6 +27,9 @@ pub(super) fn summarize(nodes: &[AstNode]) -> Value {
                 let name = a.name.split('|').next().unwrap_or(&a.name).trim();
                 app.insert("name".into(), json!(name));
                 app.insert("port".into(), json!(a.port));
+                if !a.graphql {
+                    app.insert("graphql".into(), json!(false));
+                }
                 put_list(&mut app, "stack", &a.stack);
                 if let Some(db) = &a.database {
                     let mut d = Map::new();
@@ -110,6 +113,8 @@ fn field_type(t: &FieldType) -> &'static str {
         FieldType::Percentage => "percentage",
         FieldType::Boolean => "boolean",
         FieldType::Date => "date",
+        FieldType::DateTime => "datetime",
+        FieldType::File => "file",
         FieldType::Ulid => "ulid",
         FieldType::Json => "json",
         FieldType::Enum => "enum",
@@ -234,6 +239,9 @@ fn binding(b: &BindingNode) -> Value {
         QueryType::Count => "count",
     };
     m.insert("query".into(), json!(query));
+    if !b.expand.is_empty() {
+        m.insert("expand".into(), json!(b.expand));
+    }
     let filters: Vec<Value> = b
         .filters
         .iter()
@@ -247,6 +255,8 @@ fn binding(b: &BindingNode) -> Value {
                 FilterOp::Lte => "lte",
                 FilterOp::Contains => "contains",
                 FilterOp::StartsWith => "starts_with",
+                FilterOp::EndsWith => "ends_with",
+                FilterOp::In => "in",
             };
             let value = match &f.value {
                 BindingValue::Str(s) => json!(s),
@@ -257,6 +267,16 @@ fn binding(b: &BindingNode) -> Value {
                     .map_or_else(|| json!(n), Value::Number),
                 BindingValue::Bool(v) => json!(v),
                 BindingValue::AuthRef(r) => json!({ "ref": r }),
+                BindingValue::List(items) => json!(items
+                    .iter()
+                    .map(|v| match v {
+                        BindingValue::Str(s) => json!(s),
+                        BindingValue::Num(n) => json!(n),
+                        BindingValue::Bool(b) => json!(b),
+                        BindingValue::AuthRef(r) => json!({ "ref": r }),
+                        BindingValue::List(_) => json!([]),
+                    })
+                    .collect::<Vec<_>>()),
             };
             json!({"field": f.field, "op": op, "value": value})
         })

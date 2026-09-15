@@ -366,6 +366,28 @@ async fn graphql_sse_forms_and_actions_require_a_session() {
     .await;
     assert_eq!(gql_ok.status, StatusCode::OK);
 
+    let off = spawn(app_state(
+        r#"app "Off" { port 5175 graphql false }
+auth { entity User login email + password session jwt }
+entity User { email email! password string sensitive }
+entity Note { title string! }
+"#,
+    ))
+    .await;
+    let token = bearer("alice", "user");
+    for path in ["/graphql", "/graphql/schema"] {
+        let r = get(off, path, &[("authorization", &token)]).await;
+        assert_eq!(r.status, StatusCode::NOT_FOUND, "{path}");
+    }
+    let post = post_json(
+        off,
+        "/graphql",
+        &[("authorization", &token)],
+        json!({"query": "{ notes { id } }"}),
+    )
+    .await;
+    assert_eq!(post.status, StatusCode::NOT_FOUND);
+
     let sse = get(addr, "/api/sse", &[]).await;
     assert_eq!(sse.status, StatusCode::UNAUTHORIZED);
     let sse_ok = start(
