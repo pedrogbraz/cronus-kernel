@@ -20,6 +20,7 @@ pub mod help;
 pub mod lease;
 #[cfg(feature = "dump")]
 pub mod logic_parity;
+pub mod mcp;
 pub mod memory_cmd;
 pub mod new;
 pub mod objective_kernel;

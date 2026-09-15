@@ -44,6 +44,10 @@ pub(crate) const HELP_GROUPS: &[(&str, &[(&str, &str)])] = &[
                 "dump <path>",
                 "Convert HTML / Next.js / Prisma / OpenAPI into .cronus",
             ),
+            (
+                "mcp",
+                "MCP server on stdio: validate/parse/context tools for AI clients",
+            ),
             ("brief", "Short AI context capsule"),
             (
                 "validate [file] [--json]",
@@ -138,6 +142,7 @@ mod tests {
         let ai = verbs("AI");
         assert!(ai.iter().any(|v| v == "dump"));
         assert!(ai.iter().any(|v| v == "context"));
+        assert!(ai.iter().any(|v| v == "mcp"));
     }
 
     #[test]
