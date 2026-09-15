@@ -94,7 +94,7 @@ Plus 15 more in the full list — grep `validate_identifier` for the canonical s
 | `json`           | TEXT         | JSON viewer                      | |
 | `enum`           | TEXT         | select/badge                     | Requires `[a, b, c]` list |
 | `ip`             | TEXT         | monospace                        | |
-| **relation**     | FK column    | linked reference                 | Produced by `-> OtherEntity` arrow syntax, not a keyword |
+| **relation**     | FK column / join table | linked reference       | `-> OtherEntity` (TEXT id column) or `-> OtherEntity[]` (many-to-many join table, §3.7); not a keyword |
 
 Canonical keyword list: `FIELD_TYPE_KEYWORDS` in `src/parser/ast.rs`. Keywords are case-sensitive (`String` is not a type).
 
@@ -111,7 +111,7 @@ No other spelling is accepted (since 2026-09-14; before that, every unknown type
 - **`TYPE_001`** — unknown type. The fix carries the closest canonical type by edit distance (adjacent swaps count as one edit) when one is near enough: `title strin!` → `string`, `qty numbr` → `number`, `String` → `string`. Otherwise the hint lists the valid types.
 - **`TYPE_002`** — field with no type on its line (`title` alone).
 
-Both are recoverable: the parser keeps going, so one build reports every type error in the file (plus the first syntax error, if any). Relation fields accept same-line modifiers: `owner -> User required`, `tags -> Tag[] unique`.
+Both are recoverable: the parser keeps going, so one build reports every type error in the file (plus the first syntax error, if any). Relation fields accept same-line modifiers: `owner -> User required`. `tags -> Tag[]` is a many-to-many relation (§3.7); `required` there means at least one id.
 
 ### 2.4 Field modifiers — verified parser acceptance
 
@@ -128,9 +128,8 @@ Both are recoverable: the parser keeps going, so one build reports every type er
 
 **Colon-pair modifiers** (have a value):
 - `default:<lit>`
-- `min:<num>`
-- `max:<num>`
-- `match:"<regex>"`
+- `min:<num>` / `max:<num>` — numeric bounds for `number`, `money`, `percentage`; length in characters for `string`, `text`, `email`, `url`, `slug`, `phone` (§3.6). A non-number is `FIELD_003`; `min` > `max` is `FIELD_002`.
+- `match:"<regex>"` — Rust regex the value must match (§3.6). An invalid regex is `FIELD_001`.
 
 **NOT recognized** (despite some doc claims):
 - `onupdate:` — does nothing
@@ -233,6 +232,82 @@ Parser accepts the block. Runtime fires the actions but **supported action verbs
 - `EntityNode.remote_url` — field exists in the AST but is never populated by the parser. Dead.
 - `EntityNode.shared` — multi-tenant flag (all users see records) — parsed and respected by binding SQL.
 
+### 3.6 Field validation — REAL
+
+Constraints are field modifiers. One rule set (`src/validation.rs`) checks every write surface: REST create/update (`src/api_crud.rs`), `/_form` create/edit and `/_action` `set` (`src/actions.rs`), and GraphQL `create<Entity>` (`src/graphql.rs`).
+
+```cronus
+entity Account {
+  title  string! min:3 max:120          # length in characters (text-like types)
+  age    number  min:0 max:150          # numeric bounds (number, money, percentage)
+  slug   slug    match:"^[a-z0-9-]+$"   # Rust regex the value must match
+  email  email!  unique                 # 409 when the value is taken
+}
+```
+
+| Rule | Applies to | Message |
+|---|---|---|
+| `!` / `required` | every field | `is required` (missing, `null`, blank string, empty id list) |
+| type | `number`/`money`/`percentage`, `boolean`, `email`, `url`, `enum` | `must be a number`, `must be true or false`, `must be a valid email`, `must be a valid URL` (`http://`/`https://`), `must be one of: a, b` |
+| `min:` / `max:` | `number`, `money`, `percentage` | `must be at least 0`, `must be at most 150` |
+| `min:` / `max:` | `string`, `text`, `email`, `url`, `slug`, `phone` | `must be at least 3 characters`, `must be at most 120 characters` (Unicode characters, not bytes) |
+| `match:"…"` | any scalar field | `must match the pattern ^[a-z0-9-]+$` |
+| `unique` | any column | `already exists` |
+| `-> X[]` | many-to-many (§3.7) | `must be an array of ids`, `must have at most 1000 ids`, `contains an unknown id` |
+
+- Create checks every declared field after `default:` values are applied; update checks only the fields present in the body. System fields (`id`, `_owner_id`, `created_at`, `updated_at`) are neither validated nor writable.
+- Messages name the rule. They never contain the submitted value or database text.
+- Order: field rules and relation ids first (`422`); `unique` only when those pass (`409`).
+
+**Error shapes.** REST, `422` (or `409` when a `unique` value is taken):
+
+```json
+{"error": {"code": "VALIDATION_FAILED",
+           "message": "title must be at least 3 characters",
+           "fields": {"title": ["must be at least 3 characters"]}}}
+```
+
+- `message` is the single failure (`<field> <message>`), or `N fields are invalid`. A body that is not a JSON object stays `400 VALIDATION_FAILED` without `fields`.
+- `/_form`: same status and `error` object, plus the form envelope — `ok: false`, `errors` (field → first message; the client runtime renders it under the input) and an error toast in `effects`.
+- `/_action` `set`: `400 INVALID`, message `'title' must be at least 3 characters`.
+- GraphQL: `{"errors": [{"message": "…", "extensions": {"code": "VALIDATION_FAILED", "fields": {…}}}]}`. There is no `update<Entity>` mutation.
+
+**Build time** (parser diagnostics, §15.9): `FIELD_001` invalid `match:` regex (located at the `match:` token), `FIELD_002` `min` greater than `max` (at `max:`), `FIELD_003` non-numeric bound. The app does not run until they are fixed.
+
+### 3.7 Many-to-many relations — REAL
+
+```cronus
+entity Post {
+  title  string!
+  tags   -> Tag[]        # many-to-many; `required` = at least one id
+  author -> User         # one-to-many: a TEXT id column, unchanged
+}
+entity Tag { label string! }
+```
+
+- **Storage.** `CronusDB::migrate` creates the join table `<Entity>_<field>` (`Post_tags`): `source_id` → `Post.id` and `target_id` → `Tag.id`, both `ON DELETE CASCADE`, primary key `(source_id, target_id)`, indexes `idx_Post_tags_source_id` and `idx_Post_tags_target_id`, plus `_owner_id` and `created_at`. The field is not a column. Foreign keys are enabled on every connection the kernel opens. A target that is not a declared entity gets no table (`build` reports `RESOLVE_001`). Source: `src/relations.rs`.
+- **Ownership.** Join rows carry the parent row's `_owner_id`, also when an admin edits the links.
+- **Writes** (REST create/update, `/_form`, GraphQL create): send an array of ids (forms also accept `"id1,id2"`). It replaces the current links; omitting the field keeps them; `[]` clears them. Every id must exist and be readable by the caller on the target entity — own rows, rows of `shared` entities, any row for admins — otherwise `422` with `"fields": {"tags": ["contains an unknown id"]}` (same message for missing and unreadable ids). The row and its links are written in one transaction.
+- **Reads.** REST list/detail and GraphQL return the field as an id array in link order. REST `?expand=tags` (comma-separated field names) returns the linked rows instead, passed through `authz::redact_sensitive`. Only linked rows the viewer may read are included; anonymous callers on `auth:public` routes get `[]`. One query per field per page, never per row.
+- **Deletes.** Deleting either side removes its join rows.
+- **GraphQL.** `tags: [String!]!` on the type, `tags: [String!]` on `Create<Entity>Input`.
+- **Not supported:** `unique` on a many-to-many field (ignored), showing links through SSR bindings/`columns`, `set` on the field in actions.
+
+### 3.8 Env schema — REAL
+
+```cronus
+env {
+  APP_STRIPE_KEY string! sensitive
+  APP_FEATURE_X  boolean default:false
+}
+```
+
+- Declaration: `NAME type[!] [required|optional] [sensitive] [default:<value>]`; several may share a line. Types: `string`, `number` (aliases `int`, `integer`, `float`, `decimal`), `boolean` (`true`, `false`, `1`, `0`), `url` (`http://`/`https://`), `email`.
+- `cronus run` checks the process environment before it opens the database and refuses to start when a required variable is unset or empty and has no default (one line listing every missing name), or when a set value has the wrong type (one line per variable, naming the expected type). Values are never printed, sensitive or not. Defaults are not written back into the environment, and env values are not exposed to pages or templates.
+- The legacy form `env name { KEY value }` (no type after the key) still parses into plain pairs and is not checked.
+- Build: `ENV_001` unsupported type and `ENV_002` default that does not match the type are errors; `ENV_003` warns when a name is not SCREAMING_SNAKE with a prefix (`APP_…`).
+- Source: `src/parser/mod.rs::parse_env`, `src/env_schema.rs`, called from `src/cli/run.rs`.
+
 ---
 
 ## 4. API Routes — REAL
@@ -290,10 +365,10 @@ Every SELECT / UPDATE / DELETE carries the scope in its `WHERE` clause; there is
 ### 4.6 Writes, responses, errors
 
 - Request bodies are filtered by `authz::writable_body`: only declared fields that are not `sensitive`, not system (`id`, `_owner_id`, `created_at`, `updated_at`, …) and not privileged (`role`, `password`, `password_hash`). Other keys are silently dropped. Defaults (`default:`) are then applied server-side.
-- Create validates with the entity rules (required, enum, email, min/max, pattern, unique); update validates only the fields being written, plus `transition` rules (`409`).
+- Create validates every field with the entity rules (§3.6); update validates only the fields being written, plus `transition` rules (`409`). Rule failures are `422` with `error.fields`; a taken `unique` value is `409` with `error.fields`. Many-to-many fields take id arrays (§3.7).
 - Every row leaving REST passes `authz::redact_sensitive`: `sensitive` fields and `password`/`password_hash` never appear. `?search=` never matches sensitive or privileged columns.
 - List: `?limit=` (default 100, max 1000), `?offset=`, `?search=` / `?q=` (SQL `LIKE` over all visible rows, wildcards escaped). `X-Total-Count` is the total number of matching rows in scope, not the page size.
-- Errors are `{"error": {"code", "message"}}` with codes `UNAUTHORIZED` (401), `FORBIDDEN` (403), `NOT_FOUND` (404), `VALIDATION_FAILED` (400, or 409 for uniqueness), `INTERNAL` (500). Database driver text is logged once server-side and never returned.
+- Errors are `{"error": {"code", "message"}}` with codes `UNAUTHORIZED` (401), `FORBIDDEN` (403), `NOT_FOUND` (404), `VALIDATION_FAILED` (422 with `fields`; 409 with `fields` for uniqueness; 400 without `fields` for a body that is not a JSON object), `INTERNAL` (500). Database driver text is logged once server-side and never returned.
 
 ### 4.7 Passwords
 
@@ -353,7 +428,7 @@ This syntax — parameters, `state`, `template` with signals and `@click`/mustac
 - **Legacy (default):** existing Obsidian Button (`uppercase`, `--foreground`) — `style:primary` without `button+`. Demos do not change.
 - **Cronus UI (opt-in):** `style { preset aurora }` + `style:button+primary+md` → `--cronus-*` from `@cronus-ui/tokens`, CONTRACT Button (`data-slot`, `destructive` alias `danger`).
 - Pages without `preset` only get fallback aliases (`--cronus-primary: var(--primary)`). They do not steal `--background`. Authoring stays `.cronus`.
-- **173 families (REAL opt-in):** `src/cronus_ui_widgets.rs` renders every cronus-ui family when `style` starts with that slug (`dialog`, `input`, `area-chart`, …). Legacy `style:primary` / `style:metric` is unchanged.
+- **188 families (REAL opt-in):** `src/cronus_ui_widgets.rs` renders every cronus-ui family when `style` starts with that slug (`dialog`, `input`, `area-chart`, …). Legacy `style:primary` / `style:metric` is unchanged.
 - **Native controls (REAL):** interactive families emit real HTML (`<input type=checkbox>`, `<dialog>`, `<details>`, `<progress>`, `<table>`, tablist). They work without a JS framework.
 - **Voodoo runtime (REAL opt-in, not authoring):** `app { stack voodoo }` or `style { runtime voodoo }` injects the pinned CDN `https://cdn.jsdelivr.net/npm/voodoojs@0.13.0/dist/voodoo.full.min.js` into the **emitted HTML** and adds `v-data` / `v-model` / `@click` / `{ expr }` on those controls. `.cronus` source stays `.cronus` — no JSX, no HTML, no CSS in authoring. Off by default so Obsidian demos do not load it. Interpolations are gated: `{ count }` is never written unless the runtime is on. **LLM ingest: `docs/voodoo-llms.md`. Full contract: `VOODOO.md`.**
 
@@ -686,7 +761,8 @@ The style block feeds into `render_layout_declarative` and the auto-API docs pag
 
 - An explicit `light`/`dark` attribute always wins, so the audit canvas (`/audit/*?mode=`) is unaffected.
 - Default layout, declarative `layout` shell and landing layout follow all three modes.
-- **Limitations:** section renderers that hard-code dark Tailwind/hex colors (`src/ui/dashboard.rs`, `section_*.rs`) and the settings/order-detail dashboards still paint dark in `light`/`system`; prefer cronus-ui families (`style:<family>`) with a named `preset` for light pages. `system` sets no Tailwind `dark`/`light` class, so templates using `darkMode: 'class'` do not follow the OS. `data-cronus-look="glass"` light variants only react to an explicit `light` mode.
+- **Sections and dashboards** (2026-09-15, `src/ui/section_mode.rs`): kernel section renderers (`section_*.rs`, tables, charts, kanban) and the full-page dashboards (settings, order detail, billing, …) hard-code a dark palette. Their output passes through `section_mode::adapt`: `dark` is byte-identical; `light` maps each dark literal (inline `style`, `<style>` declarations, SVG paint, `this.style.*` hover handlers, dark text/border/bg classes on non-interactive elements) to a light literal; `system` renders the dark branch and wraps each literal as `light-dark(<light>, <dark>)` (dashboards also get `color-scheme: light dark`). `cargo test mode_tests` fails if a dark-only literal survives in `light`/`system`.
+- **Limitations:** the light palette is a fixed mapping of the dark one, not a designed light variant; for designed light pages prefer cronus-ui families (`style:<family>`) with a named `preset`. Colours outside CSS contexts (e.g. JS string literals in runtime scripts) are not mapped. `system` sets no Tailwind `dark`/`light` class, so templates using `darkMode: 'class'` do not follow the OS. `data-cronus-look="glass"` light variants only react to an explicit `light` mode.
 
 **`tailwind_config "<JS literal>"`** is a separate top-level directive (not inside `style`) that stores a raw Tailwind config string for the layout renderer to inject. Undocumented in the flat docs but actively used by `docs/site-v2/app.cronus`.
 
@@ -1060,6 +1136,12 @@ Field rules:
 | `PARSE_006` | error | `on <event>` in an entity is not create/update/delete |
 | `TYPE_001` | error | Unknown field type (§2.3) |
 | `TYPE_002` | error | Field without a type |
+| `FIELD_001` | error | `match:"…"` is not a valid regular expression (§3.6) |
+| `FIELD_002` | error | `min:` is greater than `max:` on the same field (§3.6) |
+| `FIELD_003` | error | `min:` / `max:` value is not a number (§3.6) |
+| `ENV_001` | error | `env` variable type is not `string`, `number`, `boolean`, `url` or `email` (§3.8) |
+| `ENV_002` | error | `env` variable `default:` does not match its type (§3.8) |
+| `ENV_003` | warning | Declared `env` variable name has no uppercase prefix such as `APP_` (§3.8) |
 | `STRUCTURE_001` | error | A `page "…"` / `entity Name {` declared in the source is missing from the parsed app (an earlier statement consumed a `}`) |
 | `RESOLVE_001` | error | Unresolved reference (entity, field, column, route) |
 | `RESOLVE_002` | error | State-machine reference error (transition field missing / not enum) |

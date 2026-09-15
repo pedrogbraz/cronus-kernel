@@ -54,6 +54,14 @@ deliberate security change.
   `table`, `pagination`, `breadcrumb`, `number-input` and `password-input` no longer emit
   `<select>`/`<dialog>`/`<details>`/`onclick`; JS-only controls render disabled. `calendar`
   and `scheduler` highlight a day only from explicit `selected:`/`today:` attrs. (37596d4, f38e132)
+- **Validation failures are `422` with per-field errors.** REST, `/_form` and GraphQL
+  return `{"error":{"code":"VALIDATION_FAILED","message","fields":{"title":["must be at least
+  3 characters"]}}}`; a taken `unique` value is `409` with `fields`. REST used `400` with one
+  message and forms `400` with only `errors` (still present). The rules are now the same on
+  every surface: `url` fields need `http(s)://` on REST too, `enum` values match exactly on
+  forms, lengths count characters. (01ee808, a88cecd)
+- **`-> Entity[]` is a many-to-many relation.** It used to be a TEXT column; it is now a join
+  table `<Entity>_<field>` and an existing column of that name is ignored. (01ee808)
 
 ### Security (Sprint 1)
 
@@ -98,6 +106,16 @@ deliberate security change.
   rules and one duplicate block removed; reduced motion now also covers descendants and
   pseudo-elements of `[data-slot]`. SPA navigation does a full load when the target page
   needs a different cronus-ui stylesheet.
+- Sprint 5 (agent A): zero-JS interactivity for overlay and menu families with native
+  popovers instead of `disabled` triggers. workspace-switcher, split-button, select,
+  combobox, color-picker and navigation-menu items with `content:` get a working
+  `popovertarget` trigger and a `popover="auto"` panel (select/combobox: radio options whose
+  label the trigger shows via CSS `attr()`; color-picker: preset radio swatches). hover-card
+  opens with `interestfor` (Chromium) plus a `popovertarget` click fallback; its CSS
+  `:hover` reveal is dropped. time-picker Done closes its panel. dialog, alert-dialog,
+  confirmation-dialog, invite-dialog, sheet, drawer, morphing-popover and context-menu keep
+  the audited open specimen by default and render closed with a trigger and working
+  close/cancel buttons for `trigger:"…"` or `open:false`. Audit fixtures render unchanged.
 
 ### Language
 
@@ -113,6 +131,17 @@ deliberate security change.
   `dark`; the audit canvas is byte-identical. Dark legacy pages now also declare
   `color-scheme: dark`. Section renderers with hard-coded dark colors are not converted
   (LANGUAGE.md §12).
+- Field constraints `!`, `min:`, `max:`, `match:"…"`, `unique` and types are enforced on REST
+  create/update, `/_form`, `/_action set` and GraphQL create, with field-level errors
+  (LANGUAGE.md §3.6). `build` rejects an invalid `match:` regex (`FIELD_001`), `min` greater
+  than `max` (`FIELD_002`) and non-numeric bounds (`FIELD_003`). (01ee808, a88cecd)
+- Many-to-many relations `tags -> Tag[]`: join table with `ON DELETE CASCADE` on both sides
+  and an index per id column, parent `_owner_id` on join rows, ids checked against the
+  caller's read scope, id arrays in REST and GraphQL (`[String!]!`), `?expand=` for linked
+  rows (LANGUAGE.md §3.7). (01ee808, a88cecd)
+- `env { APP_STRIPE_KEY string! sensitive  APP_FEATURE_X boolean default:false }`: `cronus run`
+  refuses to start on missing or mistyped variables without printing values; `ENV_001` /
+  `ENV_002` build errors and an `ENV_003` prefix warning (LANGUAGE.md §3.8). (a88cecd)
 
 ### Tooling and docs
 

@@ -257,7 +257,7 @@ AGENTS.md                       kernel rules; points here
 
 src/voodoo.rs                   opt-in flag, helpers, CDN, inject, tests
 src/cronus_ui_interact.rs       native HTML + gated attrs
-src/cronus_ui_widgets.rs        173 families; calls interact first
+src/cronus_ui_widgets.rs        188 families; calls interact first
 src/cronus_ui.rs                tokens + CONTRACT Button
 src/ui/component.rs             dispatch: widgets then legacy layouts
 src/main.rs                     mod voodoo; scope() around handle_request_inner
@@ -278,7 +278,7 @@ cargo test voodoo
 
 Minimum:
 
-- `registers_173_unique_families`
+- `registers_183_unique_families`
 - `every_family_renders_slot_without_palette_scales`
 - `legacy_primary_style_is_not_hijacked`
 - `interactive_families_emit_real_controls` (real tags, **no** `v-data` off)

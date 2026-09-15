@@ -226,6 +226,19 @@ cronus run       # Serves composed app
 
 ## AI Integration
 
+### MCP server
+
+```bash
+claude mcp add cronus -- cronus mcp
+```
+
+`cronus mcp` is a Model Context Protocol server on stdio. Claude Code, Claude Desktop and
+Cursor get tools to validate `.cronus` source (same JSON as `cronus build --ai`), summarize
+the AST, list section/field types and cronus-ui families, explain error codes, read project
+context and start from a template. Setup and tool reference: [docs/MCP.md](docs/MCP.md).
+
+### Spec codegen
+
 ```bash
 cronus spec codegen --ai-protocol
 ```

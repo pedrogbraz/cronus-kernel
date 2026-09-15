@@ -51,7 +51,7 @@ src/http_dispatch_tests.rs end-to-end HTTP tests over loopback against routes::s
 src/parser/              mod.rs 4724 (parser), ast.rs (AST + FieldType/HttpMethod), tokenizer.rs (KEYWORDS, METHODS)
 src/cli/                 40 files, one per command (+ context_grammar.rs: grammar facts for AI context)
 src/ui/                  14 files. mod.rs = section dispatcher (render_section_inner), page.rs, layout.rs, dashboard.rs, section_*.rs
-src/cronus_ui*.rs        177 files: cronus-ui families. cronus_ui_widgets.rs = FAMILIES + PORTED_FAMILIES dispatch,
+src/cronus_ui*.rs        182 files: cronus-ui families. cronus_ui_widgets.rs = FAMILIES + PORTED_FAMILIES dispatch,
                          cronus_ui_<family>.rs = dedicated renderers, cronus_ui_kit.rs = shared helpers,
                          cronus_ui_output_gate.rs = safety gate tests (every ported family, zero JS/inline style)
 src/dump/                12 files: HTML / Next.js / Prisma / OpenAPI → .cronus
@@ -94,7 +94,8 @@ Changing any of the above is a breaking change: record it in `CHANGELOG.md` and 
 ## UI renderer rules (cronus-ui families)
 
 - **Zero JS.** Dedicated renderers emit no `<script>`, `<style>`, inline `style=`, `on*=`, `<canvas>` or executable URLs. Interaction uses native HTML and CSS (`:has(:checked)`, radios/checkboxes + labels, `popover`/`interestfor`). `cronus_ui_output_gate.rs` renders every `PORTED_FAMILIES` entry with hostile inputs and fails on violations. `KNOWN_JS_OFFENDERS` is empty; keep it empty.
-- **JS-only controls** (steppers, reveal toggles, nav buttons) render as the React component's native control, `disabled`, with the idle look. Never omit them.
+- **Controls with a native equivalent are live.** Keep React's slotted element and idle look, make it decorative (`aria-hidden`, `tabindex="-1"`, `pointer-events: none`) and put the state in native HTML next to it: a `<label>` with a visually hidden radio/checkbox (tabs, code-tabs, expandable-tabs, segmented-control, toggle-group, radio-group, accordion, mode-toggle, lightbox), `<details>`/`<summary>` (collapsible) or fragment links + `:target` (carousel). Radio `name`s and fragment ids come from `cronus_ui_kit::instance_id` (page-unique). Defaults must render React's idle DOM (unselected panels `display: none`).
+- **JS-only controls** (clipboard copy, media playback, steppers, reveal toggles) render as the React component's native control, `disabled`, with the idle look. Never omit them.
 - **Use the kit.** `cronus_ui_kit::{esc, attr, attr_nonempty, attr_num, flag, flag_any, safe_url, content_texts}`. A gate test fails if another `src/cronus_ui_*.rs` defines `fn esc(`, `fn attr(` or `fn flag(`.
 - **Data, not fixtures.** Values come from `.cronus` props/items/bindings. Never bake audit-fixture defaults into renderers (e.g. calendar/scheduler highlight only explicit `selected:`/`today:`).
 - **Tokens only** (`var(--cronus-*)`), no palette classes. `style:primary` without `button+` is the legacy Obsidian button and must stay unchanged. Voodoo attributes only through `voodoo.rs` helpers, and only when the runtime is on.
@@ -110,6 +111,14 @@ Changing any of the above is a breaking change: record it in `CHANGELOG.md` and 
 4. Do not add `#![allow(dead_code, …)]`. It remains on `src/dump/*.rs`, `src/parser/mod.rs`, `src/server/response.rs` and crate-wide in `src/main.rs` (2026-09-14); files cleaned in Sprint 4 must build warning-free without it. Do not add `as any`-style suppressions without a comment.
 5. Language changes: update `LANGUAGE.md`, `llms-full.txt` and, if user-visible, `CHANGELOG.md`.
 6. Money is integer centavos (`money` type). `!` marks a required field. Data sections without `bind` or items fail `build`.
+
+## MCP server (`cronus mcp`)
+
+- `src/cli/mcp.rs` is a JSON-RPC 2.0 stdio server (newline-delimited, no new crates); tools in `src/cli/mcp/tools.rs`. User guide: `docs/MCP.md`. Contract tests: `tests/mcp_cli.rs`.
+- stdout carries protocol messages only. Anything a tool calls must not `println!`; log with `eprintln!`. The test harness fails on any non-JSON stdout line.
+- Tools call the public entry points (`parser::parse_diagnostics`, `cli::build::validate_source_ai` / `report::from_parse_errors`, `context::render_for_claude`, `context_grammar`, `cli::new::TEMPLATES`); do not duplicate validation there.
+- A build error code added to or removed from LANGUAGE.md §15.9 must also change `src/cli/mcp/error_codes.rs`; `cargo test mcp_error_codes` enforces it.
+- Tool paths are confined to the working directory (`tools::confine`: no `..`, canonicalized, symlinks followed).
 
 ## Dead code (verified 2026-09-14)
 

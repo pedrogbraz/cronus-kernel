@@ -118,7 +118,7 @@ cargo test cronus_ui
 cargo test voodoo
 ```
 
-Must keep: 173 families, no zinc/amber, `style:primary` → None, real tags off, no `v-data` off, no script off, `legacy_button_unchanged`, no hardcoded brand in declarative layout. Environmental fail OK: `dump::detect::tests::test_hero_extraction_developer_landing` (Zedd Linux path). Unrelated.
+Must keep: 188 families, no zinc/amber, `style:primary` → None, real tags off, no `v-data` off, no script off, `legacy_button_unchanged`, no hardcoded brand in declarative layout. Environmental fail OK: `dump::detect::tests::test_hero_extraction_developer_landing` (Zedd Linux path). Unrelated.
 
 ## Optional
 

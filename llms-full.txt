@@ -41,11 +41,12 @@ Sessions are HttpOnly cookies (the JWT is not exposed to page JS). Signup is
 ### entity
 ```cronus
 entity Order {
-  number    string!  unique
+  number    string!  unique match:"^ORD-[0-9]+$"
   customer  -> Customer
-  total     money!   min:0
+  tags      -> Tag[]
+  total     money!   min:0 max:10000000
   status    enum [pending, paid, shipped] default:pending
-  notes     text
+  notes     text     max:2000
   secret    string   sensitive
 
   transition status {
@@ -55,12 +56,28 @@ entity Order {
 }
 entity Plan shared { name string! }
 ```
-- `name type modifiers`. `!` = required. `-> Entity` = relation.
+- `name type modifiers`. `!` = required. `-> Entity` = relation (id column).
+  `-> Entity[]` = many-to-many (join table): write an array of ids the caller can read,
+  read back an id array, `?expand=tags` returns the linked rows.
 - Modifiers: `!` `unique` `sensitive` `optional` `searchable` `index` `featured`
-  `formatted` `default:<v>` `min:<n>` `max:<n>` `match:"<regex>"`.
+  `formatted` `default:<v>` `min:<n>` `max:<n>` `match:"<regex>"`. `min`/`max` bound
+  numbers, or length in characters for text types. `match` is a Rust regex.
+- Invalid writes return `422 {"error":{"code":"VALIDATION_FAILED","message":…,
+  "fields":{"title":["must be at least 3 characters"]}}}`; a taken `unique` value is `409`.
 - `money` is an integer amount in centavos (2990 = 29.90).
 - `shared` after the name: every signed-in user can read all rows (writes stay owner-only).
 - The kernel adds `id` (UUIDv7), `_owner_id`, `created_at`, `updated_at`.
+
+### env
+```cronus
+env {
+  APP_STRIPE_KEY string! sensitive
+  APP_FEATURE_X  boolean default:false
+}
+```
+- Types: `string` `number` `boolean` `url` `email`. `cronus run` refuses to start when a
+  required variable is missing or a value has the wrong type; values are never printed.
+- Prefix every name (`APP_…`).
 
 ### api
 ```cronus
@@ -187,8 +204,8 @@ The first `style` segment is a family name from the family list below.
 `date` `ulid` `json` `enum` `ip`
 <!-- end:field-types -->
 
-Relations are written `name -> Entity`, not as a type keyword. An unknown type keyword
-is silently treated as `string`, so use only the list above.
+Relations are written `name -> Entity` (or `name -> Entity[]` for many-to-many), not as a
+type keyword. An unknown type keyword fails the build (`TYPE_001`), so use only the list above.
 
 ## Section types
 
@@ -217,7 +234,8 @@ cronus-ui families (usable as `component X style:<family>`, or as a section type
 name is not also a built-in above, in which case the built-in renderer wins):
 
 <!-- begin:family-sections -->
-`accordion` `alert` `alert-dialog` `animated-button` `animated-list` `animated-number`
+`accordion` `alert` `alert-dialog` `animated-button` `animated-checkbox` `animated-list`
+`animated-number`
 `app-shell` `area-chart` `aspect-ratio` `aurora-background` `autocomplete` `avatar`
 `avatar-group` `badge` `banner` `bar-chart` `border-beam` `bouncy-accordion` `breadcrumb`
 `button` `button-group` `calendar` `candlestick-chart` `card` `card-stack` `carousel`
@@ -231,20 +249,32 @@ name is not also a built-in above, in which case the built-in renderer wins):
 `glass-card` `gradient-border` `gradient-text` `grid-pattern` `heatmap` `heatmap-chart`
 `highlighter` `hover-card` `image-zoom` `input` `input-group` `input-otp` `invite-dialog`
 `json-viewer` `kanban` `kbd` `label` `light-rays` `lightbox` `line-chart` `live-line-chart`
-`logo-carousel` `magnetic` `marquee` `masonry` `menubar` `meteors` `metric` `mode-toggle`
-`morphing-popover` `multi-select` `navigation-menu` `noise` `notification-center`
-`number-input` `orbit` `pagination` `particles` `password-input` `phone-input` `pie-chart`
+`loader` `logo-carousel` `magnetic` `marquee` `masonry` `menubar` `meteors` `metric`
+`mode-toggle` `morphing-popover` `multi-select` `navigation-menu` `noise`
+`notification-center` `number-flow` `number-input` `orbit` `pagination` `particles` `password-input` `phone-input` `pie-chart`
 `pill-nav` `popover` `profit-loss-chart` `progress` `progressive-blur` `radar-chart`
 `radio-group` `rating` `resizable` `retro-grid` `reveal` `rich-text-editor` `ring-chart`
 `ripple` `sankey-chart` `scatter-chart` `scheduler` `scramble-text` `scroll-area`
-`scroll-progress` `segmented-control` `select` `separator` `sheet` `shimmer` `shiny-text`
-`sidebar` `signature-pad` `skeleton` `slider` `sonner` `sparkles-text` `sparkline`
+`scroll-nav` `scroll-progress` `segmented-control` `select` `separator` `sheet` `shimmer`
+`shiny-text` `sidebar` `signature-pad` `skeleton` `slide-up-text` `slider` `sonner` `sparkles-text` `sparkline`
 `spinner` `spinning-text` `split-button` `spotlight-card` `star-border` `status-dot`
 `stepper` `sunburst-chart` `switch` `table` `table-of-contents` `tabs` `tags-input`
 `terminal` `text-effect` `text-shimmer` `textarea` `tilt-card` `time-picker` `timeline`
 `toggle` `toggle-group` `toolbar` `tooltip` `tree-view` `typing-text` `usage-meter`
 `video-player` `word-rotate` `workspace-switcher` `toast` `motion-presets`
+`conversation` `inline-citation` `message` `prompt-input` `reasoning` `sources` `suggestion`
+`tool`
 <!-- end:family-sections -->
+
+Overlays and pickers open without JavaScript (native `popover` + `popovertarget`; Esc and an
+outside click close them). Menus, popover, hover-card, notification-center, workspace-switcher,
+split-button, select, combobox, color-picker, date-picker and time-picker render a working
+trigger by default. `dialog`, `alert-dialog`, `confirmation-dialog`, `invite-dialog`, `sheet`,
+`drawer`, `morphing-popover` and `context-menu` render open (a static specimen) unless you add
+`trigger:"Label"` or `open:false`; then they render a trigger button and a closable panel.
+`select`/`combobox` options are radios named by `name:"field"` (form value); color-picker
+presets are `item "#hex"` lines; a navigation-menu `item "X"` followed by `content:"…"` opens a
+panel. Not modal: no focus trap, the page behind stays interactive.
 
 ## Complete minimal example
 
@@ -276,12 +306,21 @@ entity User {
   role     enum [admin, user] default:user
 }
 
+env {
+  APP_SUPPORT_EMAIL email default:support@example.com
+}
+
+entity Label shared {
+  name     string! max:40
+}
+
 entity Task {
-  title    string!
-  notes    text
-  budget   money default:0
+  title    string! min:3 max:120
+  notes    text    max:2000
+  budget   money   min:0 default:0
   status   enum [todo, doing, done] default:todo
   due      date
+  labels   -> Label[]
 
   transition status {
     todo -> doing
@@ -336,7 +375,7 @@ page "/dashboard" type:dashboard requires:auth {
 - Never leave a data section (`kpi` `table` `chart` `kanban` `timeline` `stats`
   `stat-cards`) without `bind` or items: the build fails.
 - Never write `bind Entity` without `{ … }`.
-- Never invent field types (`int`, `float`, `datetime`, `uuid`): unknown types become `string`.
+- Never invent field types (`uuid`, `varchar`): unknown types fail the build (`TYPE_001`).
 - Never use `indexed`, `computed` or `onupdate:` (not recognized); use `index`.
 - Never use `ends_with` or `in:[…]` in `where` (not implemented).
 - Never name an entity or field `select`, `drop`, `insert`, `delete`, `update`, `table` or `from`.
