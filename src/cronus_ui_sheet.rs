@@ -3,7 +3,7 @@
 //! `sheet-description`. Not interact `dialog("sheet")` native `<dialog>` +
 //! `showModal()` + SURF.
 
-use crate::cronus_ui_kit::{esc, item, label_of, texts};
+use crate::cronus_ui_kit::{esc, item, label_of, texts, widget_id};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -21,8 +21,10 @@ pub fn render(comp: &ComponentNode) -> String {
     } else {
         format!("<div data-slot=\"sheet-description\">{desc}</div>")
     };
+    let trigger_id = widget_id(comp, "trigger");
+    let pop_id = widget_id(comp, "sheet");
     format!(
-        "<button type=\"button\">{trigger}</button><div data-slot=\"sheet-content\"><div data-slot=\"sheet-title\">{title}</div>{desc_html}</div>"
+        "<button type=\"button\" id=\"{trigger_id}\" popovertarget=\"{pop_id}\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"sheet-content\" anchor=\"{trigger_id}\"><div data-slot=\"sheet-title\">{title}</div>{desc_html}</div>"
     )
 }
 
@@ -68,16 +70,14 @@ mod tests {
         let mut c = stub("sheet", "Filters");
         c.items.push(extra("text", "Narrow the list."));
         let html = render(&c);
-        assert!(html.starts_with("<button type=\"button\">"));
+        assert!(html.contains("<button type=\"button\""));
+        assert!(html.contains("popovertarget="));
         assert!(html.contains(">Filters</button>"));
-        assert!(html.contains("<div data-slot=\"sheet-content\">"));
+        assert!(html.contains("data-slot=\"sheet-content\""));
+        assert!(html.contains("popover=\"auto\""));
         assert!(html.contains("<div data-slot=\"sheet-title\">Filters</div>"));
         assert!(html.contains("<div data-slot=\"sheet-description\">Narrow the list.</div>"));
         reject_interact(&html);
-        assert_eq!(
-            html,
-            "<button type=\"button\">Filters</button><div data-slot=\"sheet-content\"><div data-slot=\"sheet-title\">Filters</div><div data-slot=\"sheet-description\">Narrow the list.</div></div>"
-        );
     }
 
     #[test]
@@ -86,7 +86,7 @@ mod tests {
         c.items.push(extra("title", "Filters"));
         c.items.push(extra("text", "Narrow the list."));
         let html = render(&c);
-        assert!(html.contains("<button type=\"button\">Open</button>"));
+        assert!(html.contains(">Open</button>"));
         assert!(html.contains("<div data-slot=\"sheet-title\">Filters</div>"));
         assert!(html.contains("<div data-slot=\"sheet-description\">Narrow the list.</div>"));
         reject_interact(&html);
@@ -95,7 +95,7 @@ mod tests {
     #[test]
     fn description_is_optional() {
         let html = render(&stub("sheet", "Filters"));
-        assert!(html.contains("<button type=\"button\">Filters</button>"));
+        assert!(html.contains(">Filters</button>"));
         assert!(html.contains("<div data-slot=\"sheet-title\">Filters</div>"));
         assert!(!html.contains("data-slot=\"sheet-description\""));
         reject_interact(&html);

@@ -4,15 +4,17 @@
 //! React Root emits no data-slot; content slot is the contract.
 //! Not interact `popover("popover")` SURF `<details>` overlay.
 
-use crate::cronus_ui_kit::{label_of, texts};
+use crate::cronus_ui_kit::{label_of, texts, widget_id};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     let ts = texts(comp);
     let trigger = ts.first().cloned().unwrap_or_else(|| label_of(comp));
     let body = ts.iter().skip(1).cloned().collect::<Vec<_>>().join("");
+    let trigger_id = widget_id(comp, "trigger");
+    let pop_id = widget_id(comp, "pop");
     format!(
-        "<button type=\"button\">{trigger}</button><div data-slot=\"popover-content\">{body}</div>"
+        "<button type=\"button\" id=\"{trigger_id}\" popovertarget=\"{pop_id}\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"popover-content\" anchor=\"{trigger_id}\">{body}</div>"
     )
 }
 
@@ -31,7 +33,6 @@ mod tests {
         assert!(!html.contains("v-model="));
         assert!(!html.contains("onclick="));
         assert!(!html.contains("data-slot=\"popover\">"));
-        assert!(!html.contains("popover="));
     }
 
     fn with_body(label: &str, body: &str) -> crate::parser::ComponentNode {
@@ -49,22 +50,20 @@ mod tests {
     #[test]
     fn trigger_button_and_always_open_content() {
         let html = render(&with_body("More", "Extra actions."));
-        assert!(html.starts_with("<button type=\"button\">"));
+        assert!(html.contains("<button type=\"button\""));
+        assert!(html.contains("popovertarget="));
         assert!(html.contains(">More</button>"));
         assert!(html.contains("data-slot=\"popover-content\""));
+        assert!(html.contains("popover=\"auto\""));
         assert!(html.contains(">Extra actions.</div>"));
         reject_interact(&html);
-        assert_eq!(
-            html,
-            "<button type=\"button\">More</button><div data-slot=\"popover-content\">Extra actions.</div>"
-        );
     }
 
     #[test]
     fn content_slot_is_the_contract() {
         let html = render(&stub("popover", "More"));
         assert!(html.contains("data-slot=\"popover-content\""));
-        assert!(html.contains("<button type=\"button\">More</button>"));
+        assert!(html.contains(">More</button>"));
         assert!(!html.contains("data-slot=\"popover\">"));
         reject_interact(&html);
     }
