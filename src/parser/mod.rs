@@ -433,6 +433,7 @@ impl Parser {
         let mut port: u16 = 5175;
         let mut database = None;
         let mut constitution = None;
+        let mut graphql = true;
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
             if self.matches(TokenKind::Identifier, Some("stack")) {
@@ -475,6 +476,16 @@ impl Parser {
                     must: must_rules,
                     never: never_rules,
                 });
+            } else if self.matches(TokenKind::Identifier, Some("graphql")) {
+                self.advance();
+                if !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+                    graphql = Self::parse_graphql_flag(&self.advance().value);
+                }
+            } else if self.peek().kind == TokenKind::ColonPair
+                && self.peek().value.starts_with("graphql:")
+            {
+                let (_, v) = Self::split_colon_pair(&self.advance().value);
+                graphql = Self::parse_graphql_flag(&v);
             } else {
                 self.advance();
             }
@@ -488,8 +499,16 @@ impl Parser {
             database,
             tailwind_config: None,
             constitution,
+            graphql,
             doc: None,
         })
+    }
+
+    fn parse_graphql_flag(raw: &str) -> bool {
+        !matches!(
+            raw.trim().to_ascii_lowercase().as_str(),
+            "false" | "off" | "no" | "0"
+        )
     }
 
     // ── entity ──
@@ -4465,6 +4484,22 @@ mod parser_tests {
             files.len(),
             offenders.join("\n  ")
         );
+    }
+
+    #[test]
+    fn app_graphql_flag_defaults_true_and_accepts_false() {
+        let AstNode::App(on) = &parse("app \"A\" { port 1 }\n").unwrap()[0] else {
+            panic!("app");
+        };
+        assert!(on.graphql);
+        let AstNode::App(off) = &parse("app \"A\" { port 1 graphql false }\n").unwrap()[0] else {
+            panic!("app");
+        };
+        assert!(!off.graphql);
+        let AstNode::App(colon) = &parse("app \"A\" { graphql:false }\n").unwrap()[0] else {
+            panic!("app");
+        };
+        assert!(!colon.graphql);
     }
 
     // ── P040: Valid identifier pattern ──

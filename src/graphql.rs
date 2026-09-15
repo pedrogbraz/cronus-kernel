@@ -60,6 +60,8 @@ impl GraphQLSchema {
             sdl.push('\n');
             sdl.push_str(&generate_create_input(entity));
             sdl.push('\n');
+            sdl.push_str(&generate_update_input(entity));
+            sdl.push('\n');
         }
 
         // Generate Query type
@@ -83,6 +85,10 @@ impl GraphQLSchema {
         for entity in entities {
             sdl.push_str(&format!(
                 "  create{name}(input: Create{name}Input!): {name}!\n",
+                name = entity.name
+            ));
+            sdl.push_str(&format!(
+                "  update{name}(id: String!, input: Update{name}Input!): {name}\n",
                 name = entity.name
             ));
             sdl.push_str(&format!(
@@ -139,6 +145,28 @@ fn generate_create_input(entity: &EntityNode) -> String {
     }
     out.push_str("}\n");
     out
+}
+
+fn generate_update_input(entity: &EntityNode) -> String {
+    let mut out = format!("input Update{}Input {{\n", entity.name);
+    for field in entity.fields.iter().filter(|f| is_writable_field(f)) {
+        let gql_type = graphql_field_type(field);
+        out.push_str(&format!("  {}: {}\n", field.name, gql_type));
+    }
+    out.push_str("}\n");
+    out
+}
+
+fn mutation_input(field: &ParsedField, variables: &Value) -> Value {
+    field
+        .args
+        .iter()
+        .find(|(k, _)| k == "input")
+        .and_then(|(_, v)| match v {
+            ArgValue::Variable(var_name) => variables.get(var_name).cloned(),
+            _ => None,
+        })
+        .unwrap_or_else(|| variables.get("input").cloned().unwrap_or(json!({})))
 }
 
 // ══════════════════════════════════════════════════
@@ -482,7 +510,7 @@ pub fn execute_graphql(
     for field in &fields {
         match op {
             Operation::Query => {
-                if let Some(result) = resolve_query(field, schema, db, access) {
+                if let Some(result) = resolve_query(field, schema, db, access, variables) {
                     data.insert(field.name.clone(), result);
                 } else {
                     errors.push(json!({
@@ -508,20 +536,29 @@ pub fn execute_graphql(
     result
 }
 
-fn string_arg(field: &ParsedField, name: &str) -> Option<String> {
+fn string_arg(field: &ParsedField, name: &str, variables: &Value) -> Option<String> {
     field
         .args
         .iter()
         .find(|(k, _)| k == name)
         .and_then(|(_, v)| match v {
             ArgValue::StringVal(s) => Some(s.clone()),
+            ArgValue::Variable(var) => variables
+                .get(var)
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            ArgValue::IntVal(n) => Some(n.to_string()),
             _ => None,
         })
 }
 
 /// Expand reverse and to-one fields that the query selected. Many-to-many
 /// stays an id array (`[String!]!`) unless REST `?expand=` is used.
-fn expand_selection(entity: &EntityNode, entities: &[EntityNode], sub_fields: &[String]) -> Vec<String> {
+fn expand_selection(
+    entity: &EntityNode,
+    entities: &[EntityNode],
+    sub_fields: &[String],
+) -> Vec<String> {
     let mut out = Vec::new();
     for field in entity.fields.iter().filter(|f| {
         f.field_type == FieldType::Relation && !f.array && sub_fields.iter().any(|s| s == &f.name)
@@ -551,6 +588,7 @@ fn resolve_query(
     schema: &GraphQLSchema,
     db: &CronusDB,
     access: &Access,
+    variables: &Value,
 ) -> Option<Value> {
     for entity in &schema.entities {
         let lower = entity.name.to_lowercase();
@@ -602,7 +640,7 @@ fn resolve_query(
             );
         }
 
-        let id = match string_arg(field, "id") {
+        let id = match string_arg(field, "id", variables) {
             Some(id) => id,
             None => return Some(Value::Null),
         };
@@ -644,6 +682,7 @@ fn resolve_mutation(
     }
     for entity in &schema.entities {
         let create_name = format!("create{}", entity.name);
+        let update_name = format!("update{}", entity.name);
         let delete_name = format!("delete{}", entity.name);
 
         if field.name == create_name {
@@ -656,20 +695,7 @@ fn resolve_mutation(
                     return Err(GqlError::new("FORBIDDEN", "not allowed"))
                 }
             };
-            // Get input from args or variables
-            let input = field
-                .args
-                .iter()
-                .find(|(k, _)| k == "input")
-                .and_then(|(_, v)| match v {
-                    ArgValue::Variable(var_name) => variables.get(var_name).cloned(),
-                    _ => None,
-                })
-                .unwrap_or_else(|| {
-                    // Try to get from variables directly
-                    variables.get("input").cloned().unwrap_or(json!({}))
-                });
-
+            let input = mutation_input(field, variables);
             let obj = input
                 .as_object()
                 .ok_or_else(|| GqlError::new("BAD_USER_INPUT", "input must be an object"))?;
@@ -722,8 +748,128 @@ fn resolve_mutation(
             return Ok(select(row, &field.sub_fields));
         }
 
+        if field.name == update_name {
+            let scope = access::write_scope(access, &entity.name);
+            if scope == WriteScope::Deny {
+                return Err(GqlError::new(
+                    if access.viewer.is_none() {
+                        "UNAUTHENTICATED"
+                    } else {
+                        "FORBIDDEN"
+                    },
+                    "not allowed",
+                ));
+            }
+            let id = string_arg(field, "id", variables)
+                .ok_or_else(|| GqlError::new("BAD_USER_INPUT", "update requires id argument"))?;
+            let input = mutation_input(field, variables);
+            let obj = input
+                .as_object()
+                .ok_or_else(|| GqlError::new("BAD_USER_INPUT", "input must be an object"))?;
+            let (columns, many) = relations::split(entity, authz::writable_body(entity, obj));
+            let mut body: Map<String, Value> =
+                columns.into_iter().filter(|(_, v)| !v.is_null()).collect();
+            crate::files::persist_uploads(entity, &mut body, &crate::files::dir_for(db_path))
+                .map_err(|errors| GqlError {
+                    code: "VALIDATION_FAILED",
+                    message: validation::message(&errors),
+                    fields: Some(validation::fields_json(&errors)),
+                })?;
+            if body.is_empty() && many.is_empty() {
+                return Err(GqlError::new("BAD_USER_INPUT", "nothing to update"));
+            }
+            let mut filters = vec![crate::database::SqlFilter::one("id", "=", id.clone())];
+            if let Some((column, value)) = scope.condition() {
+                filters.push(crate::database::SqlFilter::one(column, "=", value));
+            }
+            let prev = match db.find_one(&entity.name, &filters, None, None) {
+                Ok(Some(row)) => row,
+                Ok(None) => return Ok(Value::Null),
+                Err(e) => {
+                    eprintln!("  graphql {} failed: {}", update_name, e);
+                    return Err(GqlError::new(
+                        "UPDATE_FAILED",
+                        format!("could not update {}", entity.name),
+                    ));
+                }
+            };
+            let links = validation::check_write(
+                db,
+                &schema.entities,
+                entity,
+                &body,
+                &many,
+                Mode::Update,
+                Some(&id),
+                access,
+            )
+            .map_err(|(_, errors)| GqlError {
+                code: "VALIDATION_FAILED",
+                message: validation::message(&errors),
+                fields: Some(validation::fields_json(&errors)),
+            })?;
+            if !entity.transitions.is_empty() {
+                if crate::effects::validate_transitions(entity, &Value::Object(body.clone()), &prev)
+                    .is_err()
+                {
+                    return Err(GqlError::new(
+                        "CONFLICT",
+                        format!("invalid transition on {}", entity.name),
+                    ));
+                }
+            }
+            if !body.is_empty() {
+                match access::scoped_update(db, &entity.name, &id, &body, &scope) {
+                    Ok(None) => return Ok(Value::Null),
+                    Ok(_) => {}
+                    Err(e) => {
+                        eprintln!("  graphql {} failed: {}", update_name, e);
+                        return Err(GqlError::new(
+                            "UPDATE_FAILED",
+                            format!("could not update {}", entity.name),
+                        ));
+                    }
+                }
+            }
+            if !links.is_empty() {
+                let parent_owner = prev.get("_owner_id").and_then(Value::as_str);
+                if let Err(e) = db.transaction(|conn| {
+                    links.iter().try_for_each(|link| {
+                        relations::replace_links(conn, entity, link, &id, parent_owner)
+                    })
+                }) {
+                    eprintln!("  graphql {} failed: {}", update_name, e);
+                    return Err(GqlError::new(
+                        "UPDATE_FAILED",
+                        format!("could not update {}", entity.name),
+                    ));
+                }
+            }
+            let mut row = match db.find_one(&entity.name, &filters, None, None) {
+                Ok(Some(row)) => row,
+                Ok(None) => return Ok(Value::Null),
+                Err(e) => {
+                    eprintln!("  graphql {} failed: {}", update_name, e);
+                    return Err(GqlError::new(
+                        "UPDATE_FAILED",
+                        format!("could not update {}", entity.name),
+                    ));
+                }
+            };
+            authz::redact_sensitive(entity, &mut row);
+            relations::attach(
+                db,
+                &schema.entities,
+                entity,
+                &mut row,
+                access,
+                &expand_selection(entity, &schema.entities, &field.sub_fields),
+            );
+            return Ok(select(row, &field.sub_fields));
+        }
+
         if field.name == delete_name {
-            let id = string_arg(field, "id")
+            let id = string_arg(field, "id", variables)
                 .ok_or_else(|| GqlError::new("BAD_USER_INPUT", "delete requires id argument"))?;
             let scope = access::write_scope(access, &entity.name);
             if scope == WriteScope::Deny {
@@ -1133,5 +1279,83 @@ mod tests {
             &s.entities,
         );
         assert_eq!(listed["data"]["posts"][0]["tags"], json!([mine]));
+    }
+
+    const UPDATE_NOTE: &str =
+        "mutation($id: String!, $input: UpdateNoteInput!) { updateNote(id: $id, input: $input) { id title } }";
+
+    #[test]
+    fn update_mutation_is_owner_scoped_and_partial() {
+        let ents = entities();
+        let db = db(&ents);
+        let id = insert_note(&db, "alice", "a1");
+        insert_note(&db, "bob", "b1");
+        let sdl = GraphQLSchema::from_entities(&ents).sdl;
+        assert!(
+            sdl.contains("updateNote(id: String!, input: UpdateNoteInput!): Note"),
+            "{sdl}"
+        );
+        assert!(sdl.contains("input UpdateNoteInput {"), "{sdl}");
+
+        let out = run(
+            UPDATE_NOTE,
+            json!({"id": id, "input": {"title": "renamed"}}),
+            &as_user("bob"),
+            &db,
+            &ents,
+        );
+        assert!(out["data"]["updateNote"].is_null(), "{out}");
+        assert_eq!(db.find_by_id("Note", &id).unwrap().unwrap()["title"], "a1");
+
+        let out = run(
+            UPDATE_NOTE,
+            json!({"id": id, "input": {"title": "renamed"}}),
+            &as_user("alice"),
+            &db,
+            &ents,
+        );
+        assert_eq!(out["data"]["updateNote"]["title"], "renamed", "{out}");
+        assert_eq!(
+            db.find_by_id("Note", &id).unwrap().unwrap()["title"],
+            "renamed"
+        );
+
+        let out = run(
+            "mutation($id: String!, $input: UpdateUserInput!) { updateUser(id: $id, input: $input) { id } }",
+            json!({"id": "x", "input": {"email": "n@x.co"}}),
+            &as_user("bob"),
+            &db,
+            &ents,
+        );
+        assert_eq!(out["errors"][0]["extensions"]["code"], "FORBIDDEN");
+    }
+
+    #[test]
+    fn update_mutation_reports_field_errors() {
+        let s = crate::api_validation_tests::state();
+        let alice = crate::api_validation_tests::viewer("alice", "user");
+        let id =
+            s.db.insert(
+                "Post",
+                &json!({"title": "hello", "age": 20, "_owner_id": "alice"}),
+            )
+            .unwrap()["id"]
+                .as_str()
+                .unwrap()
+                .to_string();
+        let out = run(
+            "mutation($id: String!, $input: UpdatePostInput!) { updatePost(id: $id, input: $input) { id } }",
+            json!({"id": id, "input": {"title": "ab", "age": 999}}),
+            &alice,
+            &s.db,
+            &s.entities,
+        );
+        let ext = &out["errors"][0]["extensions"];
+        assert_eq!(ext["code"], "VALIDATION_FAILED", "{out}");
+        assert_eq!(
+            ext["fields"]["title"],
+            json!(["must be at least 3 characters"])
+        );
+        assert_eq!(ext["fields"]["age"], json!(["must be at most 150"]));
     }
 }

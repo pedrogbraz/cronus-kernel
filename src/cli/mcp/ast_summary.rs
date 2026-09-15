@@ -27,6 +27,9 @@ pub(super) fn summarize(nodes: &[AstNode]) -> Value {
                 let name = a.name.split('|').next().unwrap_or(&a.name).trim();
                 app.insert("name".into(), json!(name));
                 app.insert("port".into(), json!(a.port));
+                if !a.graphql {
+                    app.insert("graphql".into(), json!(false));
+                }
                 put_list(&mut app, "stack", &a.stack);
                 if let Some(db) = &a.database {
                     let mut d = Map::new();

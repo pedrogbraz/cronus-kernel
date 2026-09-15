@@ -135,6 +135,7 @@ pub async fn cmd_run(args: &[String]) {
         database: None,
         tailwind_config: None,
         constitution: None,
+        graphql: true,
         doc: None,
     };
     let mut entities: Vec<EntityNode> = vec![];

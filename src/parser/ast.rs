@@ -69,6 +69,8 @@ pub struct AppNode {
     pub tailwind_config: Option<String>,
     /// Unbreakable rules defined inline in the app block
     pub constitution: Option<ConstitutionNode>,
+    /// `app { graphql false }` unmounts `/graphql`. Default true.
+    pub graphql: bool,
     /// Doc-comment attached to the app block
     pub doc: Option<DocComment>,
 }

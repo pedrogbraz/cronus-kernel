@@ -25,6 +25,8 @@ app "Name" {
   database sqlite "./data.db"
 }
 ```
+- `graphql false` unmounts `/graphql` and `/graphql/schema` (404). Default is on.
+  Mutations: `create<Entity>`, `update<Entity>(id, input)`, `delete<Entity>`.
 
 ### auth
 ```cronus

@@ -8,6 +8,14 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ## [Unreleased]
 
+### Language (GraphQL)
+
+- **`update<Entity>(id, input)`** is generated. Partial update, same validation,
+  uniqueness, transitions and M2M rules as REST. Other users' rows return `null`.
+  The auth entity stays admin-only.
+- **`app { graphql false }`** unmounts `/graphql` and `/graphql/schema` (404).
+  Default remains on.
+
 ### Language (types)
 
 - **`datetime` is not `date`.** `date` is `YYYY-MM-DD`. `datetime` (alias `timestamp`) is

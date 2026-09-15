@@ -449,6 +449,9 @@ pub fn reconcile_emit(nodes: &[AstNode]) -> String {
                         out.push_str(&format!("  database {}\n", db.db_type));
                     }
                 }
+                if !app.graphql {
+                    out.push_str("  graphql false\n");
+                }
                 out.push_str("}\n\n");
             }
             AstNode::Style(style) => {

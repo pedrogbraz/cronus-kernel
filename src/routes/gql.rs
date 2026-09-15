@@ -11,6 +11,14 @@ pub(super) async fn route(req: Request<Incoming>, ctx: &Ctx) -> Routed {
         remote_addr,
     } = ctx;
 
+    let gql = path == "/graphql" || path == "/graphql/schema";
+    if gql && !state.app.graphql {
+        return Ok(json_response(
+            StatusCode::NOT_FOUND,
+            authz::error_body("NOT_FOUND", "Not found"),
+        ));
+    }
+
     // GraphQL endpoint
     if path == "/graphql" && method == Method::GET {
         return Ok(html_response(graphql::playground_html()));
