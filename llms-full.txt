@@ -300,15 +300,17 @@ name is not also a built-in above, in which case the built-in renderer wins):
 `tool`
 <!-- end:family-sections -->
 
-Overlays and pickers open without JavaScript (native `popover` + `popovertarget`; Esc and an
-outside click close them). Menus, popover, hover-card, notification-center, workspace-switcher,
-split-button, select, combobox, color-picker, date-picker and time-picker render a working
-trigger by default. `dialog`, `alert-dialog`, `confirmation-dialog`, `invite-dialog`, `sheet`,
-`drawer`, `morphing-popover` and `context-menu` render open (a static specimen) unless you add
-`trigger:"Label"` or `open:false`; then they render a trigger button and a closable panel.
+Overlays and pickers open without JavaScript. Menus, popover, hover-card,
+notification-center, workspace-switcher, split-button, select, combobox, color-picker,
+date-picker and time-picker use native `popover` + `popovertarget` (Esc and an outside
+click close them). `dialog`, `alert-dialog`, `confirmation-dialog`, `invite-dialog`, `sheet`
+and `drawer` with `trigger:"Label"` or `open:false` use native `<dialog>` +
+`command="show-modal"` (focus trap, inert backdrop, Esc). Alert/confirm use
+`closedby="closerequest"` (no outside-click dismiss). Without a trigger they render open
+(a static specimen). `morphing-popover` and `context-menu` still use `popover`.
 `select`/`combobox` options are radios named by `name:"field"` (form value); color-picker
 presets are `item "#hex"` lines; a navigation-menu `item "X"` followed by `content:"…"` opens a
-panel. Not modal: no focus trap, the page behind stays interactive.
+panel.
 
 ## Complete minimal example
 

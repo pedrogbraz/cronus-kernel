@@ -8,6 +8,14 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ## [Unreleased]
 
+### UI (overlays)
+
+- **Modal overlays trap focus.** Closed-mode dialog, alert-dialog, confirmation,
+  invite-dialog, sheet and drawer use native `<dialog>` with
+  `command="show-modal"` / `command="close"` (inert backdrop, Esc, no JS).
+  Alert/confirm use `closedby="closerequest"` so an outside click does not
+  dismiss them. Menus stay `popover="auto"`.
+
 ### Language (pages)
 
 - **`type:form` / `type:detail` / `type:list` with sections render those sections.**

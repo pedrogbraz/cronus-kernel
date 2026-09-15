@@ -43,12 +43,11 @@
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
-/* Closed mode (trigger item / open:false): native right-pinned popover, scrim on ::backdrop. */
-[data-slot="sheet-content"][popover]:not(:popover-open) { display: none; }
-[data-slot="sheet-content"][popover]:popover-open {
+/* Closed mode: native modal <dialog>, right-pinned, scrim on ::backdrop. */
+[data-slot="sheet-content"]:modal {
   border-radius: 0; translate: none;
 }
-[data-slot="sheet-content"][popover]::backdrop {
+[data-slot="sheet-content"]::backdrop {
   background: color-mix(in srgb, black 50%, transparent);
   backdrop-filter: blur(8px);
 }

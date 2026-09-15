@@ -22,7 +22,10 @@
 //! still need JS and stay `disabled`. Gaps: a popover is not modal (no focus
 //! trap, background not inert, `aria-expanded` not reflected).
 
-use crate::cronus_ui_kit::{attr, esc, item, label_of, overlay_trigger, widget_id};
+use crate::cronus_ui_kit::{
+    attr, esc, item, label_of, modal_close_attrs, modal_dialog_open, modal_open_button,
+    overlay_trigger, widget_id,
+};
 use crate::parser::ComponentNode;
 
 /// React `DEFAULT_ROLES`; the first is initially selected.
@@ -76,7 +79,7 @@ pub fn render(comp: &ComponentNode) -> String {
     let pop_id = widget_id(comp, "invite-dialog");
     // Cancel / Close: inert in the open specimen, native popover hide when closed.
     let dismiss = if trigger.is_some() {
-        format!(" popovertarget=\"{pop_id}\" popovertargetaction=\"hide\"")
+        modal_close_attrs(&pop_id)
     } else {
         " disabled".to_string()
     };
@@ -90,7 +93,9 @@ pub fn render(comp: &ComponentNode) -> String {
         Some(trigger) => {
             let trigger_id = widget_id(comp, "invite-dialog-trigger");
             format!(
-                "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pop_id}\" aria-haspopup=\"dialog\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"invite-dialog\" role=\"dialog\" aria-labelledby=\"{title_id}\">{body}</div>"
+                "{}{}{body}</dialog>",
+                modal_open_button(&trigger_id, &pop_id, &trigger),
+                modal_dialog_open(&pop_id, "invite-dialog", "dialog", &title_id, "", true),
             )
         }
     }
@@ -113,15 +118,14 @@ mod tests {
     }
 
     fn reject_js(html: &str) {
-        assert!(!html.contains("showModal"));
+        assert!(!html.contains("showModal("));
         assert!(!html.contains("-control"));
         assert!(!html.contains("onclick="));
         assert!(!html.contains("style="));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
-        assert!(!html.contains("<dialog"));
-        assert!(!html.contains("method=\"dialog\""));
+        assert!(!html.contains("popovertarget"));
         assert!(!html.contains("<label data-slot=\"invite-dialog\""));
     }
 
@@ -164,34 +168,34 @@ mod tests {
     }
 
     #[test]
-    fn trigger_item_renders_closed_popover_with_working_cancel_and_close() {
+    fn trigger_item_renders_closed_modal_dialog_with_working_cancel_and_close() {
         let mut c = stub("invite-dialog", "Invite member");
         c.items.push(extra("trigger", "Invite"));
         let html = render(&c);
         let tid = widget_id(&c, "invite-dialog-trigger");
         let pid = widget_id(&c, "invite-dialog");
         assert!(html.starts_with(&format!(
-            "<button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pid}\" aria-haspopup=\"dialog\">Invite</button><div id=\"{pid}\" popover=\"auto\" data-slot=\"invite-dialog\" role=\"dialog\" aria-labelledby="
+            "<button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"outline\" commandfor=\"{pid}\" command=\"show-modal\" aria-haspopup=\"dialog\">Invite</button><dialog id=\"{pid}\" data-slot=\"invite-dialog\" role=\"dialog\" aria-modal=\"true\" aria-labelledby="
         )));
+        assert!(html.contains("closedby=\"any\""));
         assert!(!html.contains("dialog-overlay"));
+        assert!(!html.contains("popovertarget"));
         assert!(html.contains(&format!(
-            "data-variant=\"outline\" popovertarget=\"{pid}\" popovertargetaction=\"hide\">Cancel</button>"
+            "data-variant=\"outline\" commandfor=\"{pid}\" command=\"close\">Cancel</button>"
         )));
         assert!(html.contains(&format!(
-            "<button type=\"button\" data-slot=\"dialog-close\" popovertarget=\"{pid}\" popovertargetaction=\"hide\">{CROSS}<span>Close</span></button></div>"
+            "<button type=\"button\" data-slot=\"dialog-close\" commandfor=\"{pid}\" command=\"close\">{CROSS}<span>Close</span></button></dialog>"
         )));
         assert!(html.contains("data-variant=\"primary\" disabled>Send invite</button>"));
         reject_js(&html);
     }
 
     #[test]
-    fn chrome_closed_mode_hides_until_open_with_backdrop() {
+    fn chrome_closed_mode_is_native_modal_dialog() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains(
-            "[data-slot=\"invite-dialog\"][popover]:not(:popover-open) { display: none; }"
-        ));
-        assert!(css.contains("[data-slot=\"invite-dialog\"][popover]:popover-open {\n  position: fixed; inset: 0; margin: auto; translate: none;"));
-        assert!(css.contains("[data-slot=\"invite-dialog\"][popover]::backdrop {"));
+        assert!(css.contains("[data-slot=\"invite-dialog\"]:modal {\n  position: fixed; inset: 0; margin: auto; translate: none;"));
+        assert!(css.contains("[data-slot=\"invite-dialog\"]::backdrop {"));
+        assert!(!css.contains("[data-slot=\"invite-dialog\"][popover]"));
     }
 
     #[test]

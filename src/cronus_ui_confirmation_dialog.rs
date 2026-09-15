@@ -18,7 +18,10 @@
 //! inert, `aria-expanded` not reflected) and an outside click also dismisses it.
 //! Not reproduced (JS-only): async `onConfirm` spinner/error state.
 
-use crate::cronus_ui_kit::{attr_nonempty, esc, item, label_of, overlay_trigger, widget_id};
+use crate::cronus_ui_kit::{
+    attr_nonempty, esc, item, label_of, modal_close_attrs, modal_dialog_open, modal_open_button,
+    overlay_trigger, widget_id,
+};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -45,7 +48,7 @@ pub fn render(comp: &ComponentNode) -> String {
     let trigger = overlay_trigger(comp, "Open");
     let pop_id = widget_id(comp, "confirmation-dialog");
     let cancel_state = if trigger.is_some() {
-        format!(" popovertarget=\"{pop_id}\" popovertargetaction=\"hide\"")
+        modal_close_attrs(&pop_id)
     } else {
         " disabled".to_string()
     };
@@ -59,7 +62,16 @@ pub fn render(comp: &ComponentNode) -> String {
         Some(trigger) => {
             let trigger_id = widget_id(comp, "confirmation-dialog-trigger");
             format!(
-                "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pop_id}\" aria-haspopup=\"dialog\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"confirmation-dialog\" role=\"alertdialog\" aria-labelledby=\"{title_id}\">{body}</div>"
+                "{}{}{body}</dialog>",
+                modal_open_button(&trigger_id, &pop_id, &trigger),
+                modal_dialog_open(
+                    &pop_id,
+                    "confirmation-dialog",
+                    "alertdialog",
+                    &title_id,
+                    "",
+                    false
+                ),
             )
         }
     }
@@ -98,15 +110,14 @@ mod tests {
     }
 
     fn reject_js(html: &str) {
-        assert!(!html.contains("showModal"));
+        assert!(!html.contains("showModal("));
         assert!(!html.contains("-control"));
         assert!(!html.contains("onclick="));
         assert!(!html.contains("style="));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
-        assert!(!html.contains("<dialog"));
-        assert!(!html.contains("<form"));
+        assert!(!html.contains("popovertarget"));
     }
 
     #[test]
@@ -151,22 +162,24 @@ mod tests {
     }
 
     #[test]
-    fn trigger_item_renders_closed_popover_with_working_cancel() {
+    fn trigger_item_renders_closed_modal_dialog_with_working_cancel() {
         let mut c = stub("confirmation-dialog", "Delete project");
         c.items.push(extra("trigger", "Delete…"));
         let html = render(&c);
         let tid = widget_id(&c, "confirmation-dialog-trigger");
         let pid = widget_id(&c, "confirmation-dialog");
         assert!(html.starts_with(&format!(
-            "<button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pid}\" aria-haspopup=\"dialog\">Delete…</button><div id=\"{pid}\" popover=\"auto\" data-slot=\"confirmation-dialog\" role=\"alertdialog\" aria-labelledby="
+            "<button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"outline\" commandfor=\"{pid}\" command=\"show-modal\" aria-haspopup=\"dialog\">Delete…</button><dialog id=\"{pid}\" data-slot=\"confirmation-dialog\" role=\"alertdialog\" aria-modal=\"true\" aria-labelledby="
         )));
+        assert!(html.contains("closedby=\"closerequest\""));
         assert!(!html.contains("alert-dialog-overlay"));
+        assert!(!html.contains("popover"));
         assert!(
             !html.contains("alert-dialog-description"),
             "trigger is not description"
         );
         assert!(html.contains(&format!(
-            "<button type=\"button\" data-slot=\"alert-dialog-cancel\" popovertarget=\"{pid}\" popovertargetaction=\"hide\">Cancel</button>"
+            "<button type=\"button\" data-slot=\"alert-dialog-cancel\" commandfor=\"{pid}\" command=\"close\">Cancel</button>"
         )));
         assert!(
             html.contains("data-slot=\"confirmation-dialog-confirm\" disabled>Confirm</button>")
@@ -175,13 +188,11 @@ mod tests {
     }
 
     #[test]
-    fn chrome_closed_mode_hides_until_open_with_backdrop() {
+    fn chrome_closed_mode_is_native_modal_dialog() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains(
-            "[data-slot=\"confirmation-dialog\"][popover]:not(:popover-open) { display: none; }"
-        ));
-        assert!(css.contains("[data-slot=\"confirmation-dialog\"][popover]:popover-open {\n  position: fixed; inset: 0; margin: auto; translate: none;"));
-        assert!(css.contains("[data-slot=\"confirmation-dialog\"][popover]::backdrop {"));
+        assert!(css.contains("[data-slot=\"confirmation-dialog\"]:modal {\n  position: fixed; inset: 0; margin: auto; translate: none;"));
+        assert!(css.contains("[data-slot=\"confirmation-dialog\"]::backdrop {"));
+        assert!(!css.contains("[data-slot=\"confirmation-dialog\"][popover]"));
     }
 
     #[test]

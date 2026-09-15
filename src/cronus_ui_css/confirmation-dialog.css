@@ -9,12 +9,11 @@
   font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; cursor: pointer;
   box-shadow: var(--cronus-shadow-xs, none);
 }
-/* Closed mode (trigger item / open:false): native popover panel, scrim on ::backdrop. */
-[data-slot="confirmation-dialog"][popover]:not(:popover-open) { display: none; }
-[data-slot="confirmation-dialog"][popover]:popover-open {
+/* Closed mode: native modal <dialog> (Esc only). */
+[data-slot="confirmation-dialog"]:modal {
   position: fixed; inset: 0; margin: auto; translate: none;
 }
-[data-slot="confirmation-dialog"][popover]::backdrop {
+[data-slot="confirmation-dialog"]::backdrop {
   background: color-mix(in oklch, black 50%, transparent);
   backdrop-filter: blur(8px);
 }

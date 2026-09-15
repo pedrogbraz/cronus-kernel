@@ -10,18 +10,20 @@
 //!
 //! Closed mode (`trigger:"…"` prop, or `open:false` / `defaultOpen:false`; see
 //! `cronus_ui_kit::overlay_trigger`): an outline `button` trigger opens the
-//! content as a native `popover="auto"` (scrim on `::backdrop`, no overlay div)
-//! and `alert-dialog-cancel` hides it (`popovertargetaction="hide"`). The action
-//! still needs JS and stays `disabled`. Gaps: a popover is not modal (no focus
-//! trap, background not inert, `aria-expanded` not reflected), and unlike
-//! Radix AlertDialog an outside click also dismisses it (light dismiss).
+//! content as a native `<dialog>` (`command="show-modal"`: focus trap, inert
+//! background). Cancel uses `command="close"`. `closedby="closerequest"` so
+//! only Esc (not an outside click) dismisses it, matching Radix AlertDialog.
+//! The action still needs JS and stays `disabled`.
 //!
 //! Content: `alert-dialog-title` (`h2`), optional `alert-dialog-description`
 //! (`description` item), optional `alert-dialog-cancel` (`cancel` item) and the
 //! primary `alert-dialog-action` (`action` item, else the first `text` item —
 //! the fixture's `items[0]` — else "Confirm").
 
-use crate::cronus_ui_kit::{attr, esc, item, label_of, overlay_trigger, widget_id};
+use crate::cronus_ui_kit::{
+    attr, esc, item, label_of, modal_close_attrs, modal_dialog_open, modal_open_button,
+    overlay_trigger, widget_id,
+};
 use crate::parser::ComponentNode;
 
 fn non_empty<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
@@ -54,7 +56,7 @@ pub fn render(comp: &ComponentNode) -> String {
     let trigger = overlay_trigger(comp, "Open");
     let pop_id = widget_id(comp, "alert-dialog");
     let cancel_state = if trigger.is_some() {
-        format!(" popovertarget=\"{pop_id}\" popovertargetaction=\"hide\"")
+        modal_close_attrs(&pop_id)
     } else {
         " disabled".to_string()
     };
@@ -76,7 +78,16 @@ pub fn render(comp: &ComponentNode) -> String {
         Some(trigger) => {
             let trigger_id = widget_id(comp, "alert-dialog-trigger");
             format!(
-                "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pop_id}\" aria-haspopup=\"dialog\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"alert-dialog-content\" role=\"alertdialog\" aria-labelledby=\"{title_id}\">{body}</div>"
+                "{}{}{body}</dialog>",
+                modal_open_button(&trigger_id, &pop_id, &trigger),
+                modal_dialog_open(
+                    &pop_id,
+                    "alert-dialog-content",
+                    "alertdialog",
+                    &title_id,
+                    "",
+                    false
+                ),
             )
         }
     }
@@ -106,14 +117,13 @@ mod tests {
     }
 
     fn reject_js(html: &str) {
-        assert!(!html.contains("showModal"));
+        assert!(!html.contains("showModal("));
         assert!(!html.contains("onclick="));
         assert!(!html.contains("style="));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
-        assert!(!html.contains("<dialog"));
-        assert!(!html.contains("<form"));
+        assert!(!html.contains("popovertarget"));
     }
 
     #[test]
@@ -172,7 +182,7 @@ mod tests {
     }
 
     #[test]
-    fn trigger_item_renders_closed_popover_with_working_cancel() {
+    fn trigger_item_renders_closed_modal_dialog_with_working_cancel() {
         let mut c = fixture();
         c.items.push(extra("trigger", "Delete"));
         c.items.push(extra("cancel", "Keep"));
@@ -180,11 +190,13 @@ mod tests {
         let tid = widget_id(&c, "alert-dialog-trigger");
         let pid = widget_id(&c, "alert-dialog");
         assert!(html.starts_with(&format!(
-            "<button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pid}\" aria-haspopup=\"dialog\">Delete</button><div id=\"{pid}\" popover=\"auto\" data-slot=\"alert-dialog-content\" role=\"alertdialog\" aria-labelledby="
+            "<button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"outline\" commandfor=\"{pid}\" command=\"show-modal\" aria-haspopup=\"dialog\">Delete</button><dialog id=\"{pid}\" data-slot=\"alert-dialog-content\" role=\"alertdialog\" aria-modal=\"true\" aria-labelledby="
         )));
+        assert!(html.contains("closedby=\"closerequest\""));
         assert!(!html.contains("alert-dialog-overlay"));
+        assert!(!html.contains("popover"));
         assert!(html.contains(&format!(
-            "<button type=\"button\" data-slot=\"alert-dialog-cancel\" popovertarget=\"{pid}\" popovertargetaction=\"hide\">Keep</button>"
+            "<button type=\"button\" data-slot=\"alert-dialog-cancel\" commandfor=\"{pid}\" command=\"close\">Keep</button>"
         )));
         assert!(html.contains("data-slot=\"alert-dialog-action\" disabled>Confirm</button>"));
         reject_js(&html);
@@ -194,13 +206,11 @@ mod tests {
     }
 
     #[test]
-    fn chrome_closed_mode_hides_until_open_with_backdrop() {
+    fn chrome_closed_mode_is_native_modal_dialog() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains(
-            "[data-slot=\"alert-dialog-content\"][popover]:not(:popover-open) { display: none; }"
-        ));
-        assert!(css.contains("[data-slot=\"alert-dialog-content\"][popover]:popover-open {\n  position: fixed; inset: 0; margin: auto; translate: none;"));
-        assert!(css.contains("[data-slot=\"alert-dialog-content\"][popover]::backdrop {"));
+        assert!(css.contains("[data-slot=\"alert-dialog-content\"]:modal {\n  position: fixed; inset: 0; margin: auto; translate: none;"));
+        assert!(css.contains("[data-slot=\"alert-dialog-content\"]::backdrop {"));
+        assert!(!css.contains("[data-slot=\"alert-dialog-content\"][popover]"));
     }
 
     #[test]
