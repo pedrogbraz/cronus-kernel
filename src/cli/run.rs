@@ -58,10 +58,13 @@ pub async fn cmd_run(args: &[String]) {
             std::process::exit(1);
         });
         let lines = source.lines().count();
-        let n = match parser::parse_with_imports(&source, ".") {
+        let n = match parser::parse_source_at(&source, std::path::Path::new(&files[0])) {
             Ok(n) => n,
             Err(e) => {
-                eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e);
+                eprintln!(
+                    "  \x1b[31m✗\x1b[0m Parse error: {}",
+                    parser::diagnostic::join(&e)
+                );
                 std::process::exit(1);
             }
         };

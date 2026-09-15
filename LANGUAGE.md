@@ -158,15 +158,36 @@ Both are recoverable: the parser keeps going, so one build reports every type er
 | `middleware { ... }`      | `parse_middleware`   | `AstNode::Middleware`     | **LANG_001** — parses, no runtime |
 | `env { ... }`             | `parse_env`          | `AstNode::Env`            | REAL |
 | `test { ... }`            | `parse_test`         | `AstNode::Test`           | **LANG_001** — parses, no runtime |
-| `import "path"`           | `parse_import`       | `AstNode::Import`         | REAL |
-| `compose { ... }`         | `parse_compose`      | `AstNode::Compose`        | **LANG_001** — parses, no runtime |
+| `import "path"` / `import Alias from "path"` | `parse_import` | `AstNode::Import` | REAL — load graph, stripped after resolve |
+| `compose { use … }` / `compose Name { use … }` | `parse_compose` | `AstNode::Compose` | REAL — loads listed files like `import`; stripped after resolve |
 | `define Name { ... }`     | `parse_define`       | `AstNode::Define`         | **LANG_001** — parses, no runtime |
 | `on Name { ... }` (file scope) | `parse_event`   | `AstNode::Event`          | **LANG_001** — parses, no runtime |
 | `tailwind_config "..."`   | inline                | Stored on `App` node      | REAL (undocumented) |
 
 **`constitution`**: has a parser (`parse_constitution`) but NO top-level AST variant. It lives only inline inside `app { constitution { must "..." never "..." } }`. See §13.
 
-**NO `parse_hydra`** — hydra is an internal block-evolution subsystem (§14), not a user-facing block.
+**NO `parse_hydra`** — hydra is an internal block-evolution subsystem (§14), not a user-facing block. `cronus compose --from` is hydra template generation, not the `compose { use }` primitive below.
+
+### 2.7 Composition — `import` / `compose { use }` / directory union
+
+Multi-file apps are one AST. `parse_with_imports` and `parse_directory` share a load graph (`src/parser/compose.rs`): each path is read once; cycles skip the already-loaded file (they are not an error). Nested `import` resolves relative to the **importing** file, not the original `base_dir`. `parse_directory` lists cwd `*.cronus` (non-recursive, sorted) and feeds each into that graph — it does **not** concatenate sources (concatenation double-loaded a file that was also `import`ed).
+
+```cronus
+import "entities"
+import Pages from "pages.cronus"
+
+compose App {
+  use entities
+  merge pages
+}
+```
+
+- `import "file"` and `import Alias from "file"` (optional `from`). `.cronus` is added when missing.
+- `compose Name { use a  use b  merge c }` and unnamed `compose { use a }`. `use`/`merge` load `a.cronus` next to the compose file, same as `import`. Merge config `{ … }` is parsed and ignored (not hydra remap).
+- `Import` and `Compose` nodes are stripped after they have been used as load instructions.
+- Duplicate **entity** name, **page** route, **app**, **auth**, **style**, **layout** name, **api** prefix, **component** name, **webhook** entity, or **env** variable is **`COMPOSE_001`**. The first declaration is kept; every later collision is reported. Exactly one `app {}`.
+- Missing import/use file is **`COMPOSE_002`** (used to be an `eprintln` warning).
+- `cronus run` with 2+ `*.cronus` files in cwd unions the directory this way. `cronus build path.cronus` follows that file's `import`/`compose`. `cronus build` with no path and several files in cwd unions like `run`.
 
 ### 2.6 Nested parsers inside blocks
 
@@ -1156,7 +1177,9 @@ Field rules:
 | `BIND_002` | error | Unknown `query` kind; must be `all`, `one` or `count` |
 | `FIELD_004` | error | Unknown field modifier (`indexed`, `computed`, `onupdate:`, …) (§2.4) |
 | `ACTION_001` | error | Unknown or unimplemented action verb (`validate`, invented verbs) (§8.2) |
-| `LANG_001` | error | Top-level block with no runtime (`service`, `worker`, `middleware`, `deploy`, `test`, `compose`, `define`, file-scope `on`) |
+| `LANG_001` | error | Top-level block with no runtime (`service`, `worker`, `middleware`, `deploy`, `test`, `define`, file-scope `on`) |
+| `COMPOSE_001` | error | Duplicate declaration across the load graph (entity, page route, app, auth, style, layout, api, component, webhook entity, env variable). One `app {}`. |
+| `COMPOSE_002` | error | `import` / `compose { use }` file is missing (§2.7) |
 | `STRUCTURE_001` | error | A `page "…"` / `entity Name {` declared in the source is missing from the parsed app (an earlier statement consumed a `}`) |
 | `RESOLVE_001` | error | Unresolved reference (entity, field, column, route) |
 | `RESOLVE_002` | error | State-machine reference error (transition field missing / not enum) |

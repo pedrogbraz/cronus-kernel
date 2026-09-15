@@ -319,6 +319,7 @@ pub fn from_parse_errors(file: &str, errors: &[ParseError]) -> Report {
                     Some("BIND") => "bind",
                     Some("ACTION") => "action",
                     Some("LANG") => "language",
+                    Some("COMPOSE") => "compose",
                     _ => "syntax",
                 },
                 message: e.message.clone(),

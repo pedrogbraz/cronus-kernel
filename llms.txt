@@ -6,7 +6,7 @@ Start with `llms-full.txt`: it has the canonical grammar, the valid section and 
 
 ## Language
 
-- [llms-full.txt](llms-full.txt): grammar for app, auth, entity, types, api, layout, page, sections, bind, actions, style, webhook, component; example; never-do list
+- [llms-full.txt](llms-full.txt): grammar for app, auth, entity, types, import/compose, api, layout, page, sections, bind, actions, style, webhook, component; example; never-do list
 - [LANGUAGE.md](LANGUAGE.md): long-form verified language reference (security semantics, bindings, CLI)
 
 ## Runtime

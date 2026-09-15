@@ -330,8 +330,22 @@ pub(crate) const ERROR_CODES: &[ErrorCode] = &[
         code: "LANG_001",
         severity: "error",
         category: "language",
-        description: "A top-level block is accepted by the parser so the rest of the file can be checked, but the runtime does not implement it (`service`, `worker`, `middleware`, `deploy`, `test`, `compose`, `define`, top-level `on`).",
-        example_fix: "Remove the block. Page `requires:`, `import`, and `webhook` are the implemented substitutes where they apply.",
+        description: "A top-level block is accepted by the parser so the rest of the file can be checked, but the runtime does not implement it (`service`, `worker`, `middleware`, `deploy`, `test`, `define`, top-level `on`).",
+        example_fix: "Remove the block. Page `requires:`, `import`, `compose { use }`, and `webhook` are the implemented substitutes where they apply.",
+    },
+    ErrorCode {
+        code: "COMPOSE_001",
+        severity: "error",
+        category: "compose",
+        description: "The same declaration appears twice across the load graph (duplicate entity name, page route, app, auth, style, layout name, api prefix, component name, webhook entity, or env variable). Last-wins is gone; the first is kept and every later collision is reported. Exactly one `app {}`.",
+        example_fix: "Rename or remove the later block. Split files with `import \"entities\"` / `compose { use entities }`; do not repeat `entity Task` in two files.",
+    },
+    ErrorCode {
+        code: "COMPOSE_002",
+        severity: "error",
+        category: "compose",
+        description: "`import` or `compose { use }` / `merge` points at a file that is not on disk. Missing imports used to warn and continue.",
+        example_fix: "`import \"entities\"` looks for `entities.cronus` next to the importing file (nested imports are relative to the importer). Create the file or drop the import.",
     },
 ];
 

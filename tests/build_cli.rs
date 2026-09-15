@@ -196,3 +196,57 @@ fn ai_unknown_where_operator_is_bind_001() {
     assert!(e["location"]["line"].as_u64().unwrap() >= 1);
     assert!(e["message"].as_str().unwrap().contains("blah"), "{e}");
 }
+
+#[test]
+fn ai_follows_import_and_reports_compose_002() {
+    let dir = workdir("compose-import");
+    fs::write(
+        dir.join("entities.cronus"),
+        "entity Task {\n  title string!\n}\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.join("app.cronus"),
+        "import \"entities\"\napp \"T\" {\n  port 5175\n}\npage \"/\" {\n  section kpi { bind Task { aggregate count } }\n}\n",
+    )
+    .unwrap();
+    let (code, stdout, _) = cronus(&dir, &["build", "--ai", "app.cronus"]);
+    let j = json_stdout(&stdout);
+    assert_eq!((code, &j["valid"]), (0, &serde_json::json!(true)), "{j}");
+
+    fs::write(
+        dir.join("missing.cronus"),
+        "import \"nope\"\napp \"T\" {\n  port 5175\n}\n",
+    )
+    .unwrap();
+    let (code, stdout, _) = cronus(&dir, &["build", "--ai", "missing.cronus"]);
+    let j = json_stdout(&stdout);
+    assert_eq!(code, 1);
+    let e = j["errors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["code"] == "COMPOSE_002")
+        .unwrap_or_else(|| panic!("{j}"));
+    assert_eq!(e["category"], "compose");
+}
+
+#[test]
+fn ai_directory_union_reports_compose_001() {
+    let dir = workdir("compose-dup");
+    fs::write(
+        dir.join("a.cronus"),
+        "app \"A\" {\n  port 5175\n}\nentity Task {\n  title string!\n}\npage \"/\" {\n  section kpi { bind Task { aggregate count } }\n}\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.join("b.cronus"),
+        "app \"B\" {\n  port 5176\n}\nentity Task {\n  title string!\n}\n",
+    )
+    .unwrap();
+    let (code, stdout, _) = cronus(&dir, &["build", "--ai"]);
+    let j = json_stdout(&stdout);
+    assert_eq!(code, 1);
+    let errs = j["errors"].as_array().unwrap();
+    assert!(errs.iter().any(|e| e["code"] == "COMPOSE_001"), "{j}");
+}

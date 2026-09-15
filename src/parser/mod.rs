@@ -11,6 +11,12 @@ pub mod diagnostic;
 use diagnostic::codes;
 pub use diagnostic::ParseError;
 
+mod compose;
+pub use compose::{
+    parse_directory, parse_directory_diagnostics, parse_file_diagnostics, parse_source_at,
+    parse_with_imports, parse_with_imports_diagnostics,
+};
+
 pub(crate) mod tokenizer;
 pub(crate) use tokenizer::*;
 
@@ -335,20 +341,37 @@ impl Parser {
 
     fn parse_import(&mut self) -> Result<ImportNode, ParseError> {
         self.expect(TokenKind::Keyword)?;
+        if self.peek().kind == TokenKind::StringLit {
+            let t = self.advance();
+            return Ok(ImportNode {
+                alias: String::new(),
+                source: t.value.clone(),
+                line: t.line,
+                col: t.col,
+            });
+        }
         let alias = self.advance().value;
         if self.matches(TokenKind::Identifier, Some("from")) {
             self.advance();
         }
-        let source = self.expect(TokenKind::StringLit)?.value;
-        Ok(ImportNode { alias, source })
+        let t = self.expect(TokenKind::StringLit)?;
+        Ok(ImportNode {
+            alias,
+            source: t.value.clone(),
+            line: t.line,
+            col: t.col,
+        })
     }
 
     // ── compose ──
 
     fn parse_compose(&mut self) -> Result<ComposeNode, ParseError> {
-        self.reject_unimplemented_block("compose");
-        self.expect(TokenKind::Keyword)?;
-        let name = self.advance().value;
+        let at = self.expect(TokenKind::Keyword)?;
+        let name = if self.matches(TokenKind::LBrace, None) {
+            String::new()
+        } else {
+            self.advance().value
+        };
         self.expect(TokenKind::LBrace)?;
 
         let mut uses = Vec::new();
@@ -390,7 +413,13 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(ComposeNode { name, uses, merges })
+        Ok(ComposeNode {
+            name,
+            uses,
+            merges,
+            line: at.line,
+            col: at.col,
+        })
     }
 
     // ── app ──
@@ -3871,147 +3900,26 @@ pub fn parse(source: &str) -> Result<Vec<AstNode>, String> {
 /// failure: all recoverable ones (e.g. unknown field types) plus the first
 /// fatal syntax error, in source order of discovery.
 pub fn parse_diagnostics(source: &str) -> Result<Vec<AstNode>, Vec<ParseError>> {
+    let (nodes, diagnostics) = parse_collect(source);
+    if diagnostics.is_empty() {
+        Ok(nodes)
+    } else {
+        Err(diagnostics)
+    }
+}
+
+/// Nodes plus every diagnostic. Recoverable errors still yield the AST so a
+/// compose loader can follow `import`/`use` in the rest of the file.
+pub(crate) fn parse_collect(source: &str) -> (Vec<AstNode>, Vec<ParseError>) {
     let mut parser = Parser::new(tokenize(source));
     match parser.parse() {
-        Ok(nodes) if parser.diagnostics.is_empty() => Ok(nodes),
-        Ok(_) => Err(parser.diagnostics),
+        Ok(nodes) => (nodes, parser.diagnostics),
         Err(fatal) => {
             let mut all = parser.diagnostics;
             all.push(fatal);
-            Err(all)
+            (Vec::new(), all)
         }
     }
-}
-
-/// Parse a .cronus file with import resolution.
-/// Reads imported files relative to `base_dir` and merges all nodes.
-/// Each import is resolved exactly once (no cycles).
-/// This is the key feature for multi-agent collaboration:
-/// each agent owns a file, the kernel composes them all.
-pub fn parse_with_imports(source: &str, base_dir: &str) -> Result<Vec<AstNode>, String> {
-    use std::collections::HashSet;
-    use std::path::Path;
-
-    let mut all_nodes = Vec::new();
-    let mut resolved: HashSet<String> = HashSet::new();
-    let mut queue: Vec<(String, String)> = vec![("main".into(), source.to_string())];
-
-    while let Some((name, src)) = queue.pop() {
-        if resolved.contains(&name) {
-            continue;
-        }
-        resolved.insert(name.clone());
-
-        let nodes = parse(&src)?;
-
-        for node in &nodes {
-            if let AstNode::Import(imp) = node {
-                let import_path = if imp.source.starts_with('/') {
-                    imp.source.clone()
-                } else {
-                    format!("{}/{}", base_dir, imp.source)
-                };
-
-                // Resolve .cronus extension
-                let full_path = if import_path.ends_with(".cronus") {
-                    import_path
-                } else {
-                    format!("{}.cronus", import_path)
-                };
-
-                if !resolved.contains(&full_path) {
-                    match std::fs::read_to_string(&full_path) {
-                        Ok(content) => {
-                            queue.push((full_path, content));
-                        }
-                        Err(e) => {
-                            eprintln!("  [warning] import '{}' not found: {}", imp.source, e);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Add all non-import nodes
-        for node in nodes {
-            if !matches!(node, AstNode::Import(_)) {
-                all_nodes.push(node);
-            }
-        }
-    }
-
-    // Deduplicate: if two files define same entity name, last wins
-    // But for API routes, pages, services — all are kept (additive)
-    let mut seen_entities: HashSet<String> = HashSet::new();
-    let mut seen_app = false;
-    let mut seen_style = false;
-    let mut deduped = Vec::new();
-
-    // Process in reverse so last definition wins for entities
-    for node in all_nodes.into_iter().rev() {
-        match &node {
-            AstNode::Entity(e) => {
-                if seen_entities.contains(&e.name) {
-                    continue; // skip duplicate entity
-                }
-                seen_entities.insert(e.name.clone());
-                deduped.push(node);
-            }
-            AstNode::App(_) => {
-                if seen_app {
-                    continue;
-                }
-                seen_app = true;
-                deduped.push(node);
-            }
-            AstNode::Style(_) => {
-                if seen_style {
-                    continue;
-                }
-                seen_style = true;
-                deduped.push(node);
-            }
-            _ => deduped.push(node), // API, Page, Service, etc are additive
-        }
-    }
-
-    deduped.reverse(); // Restore original order
-    Ok(deduped)
-}
-
-/// Parse all .cronus files in a directory and merge them.
-/// This is the multi-agent mode: each agent writes its own file,
-/// the kernel composes everything automatically.
-pub fn parse_directory(dir: &str) -> Result<Vec<AstNode>, String> {
-    let mut files: Vec<String> = Vec::new();
-
-    // Find all .cronus files
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let name = entry.file_name().to_string_lossy().to_string();
-            if name.ends_with(".cronus") && entry.path().is_file() {
-                files.push(entry.path().to_string_lossy().to_string());
-            }
-        }
-    }
-
-    files.sort(); // Deterministic order
-
-    if files.is_empty() {
-        return Err("No .cronus files found in directory".into());
-    }
-
-    // Concatenate all files with comments showing source
-    let mut combined = String::new();
-    for file in &files {
-        let content =
-            std::fs::read_to_string(file).map_err(|e| format!("Error reading {}: {}", file, e))?;
-        combined.push_str(&format!("# [source: {}]\n", file));
-        combined.push_str(&content);
-        combined.push('\n');
-    }
-
-    parse_with_imports(&combined, dir)
 }
 
 /// Count entities, pages, api routes for quick stats.
@@ -4465,8 +4373,9 @@ mod parser_tests {
             "service mailer { }\n",
             "worker jobs { }\n",
             "middleware auth { }\n",
-            "compose App { }\n",
             "define \"Box\" { }\n",
+            "deploy { }\n",
+            "test { }\n",
         ] {
             let codes = diag_codes(src);
             assert!(
@@ -4474,6 +4383,10 @@ mod parser_tests {
                 "{src} -> {codes:?}"
             );
         }
+        assert!(
+            !diag_codes("compose App { }\n").contains(&codes::UNIMPLEMENTED_BLOCK),
+            "compose is a load-graph primitive, not LANG_001"
+        );
     }
 
     // ── P041 does not apply to enum values (data, not identifiers) ──
@@ -4534,8 +4447,9 @@ mod parser_tests {
         let mut offenders = Vec::new();
         for file in &files {
             let src = std::fs::read_to_string(file).unwrap();
-            let base = file.parent().unwrap().to_string_lossy().to_string();
-            if let Err(e) = parse_with_imports(&src, &base) {
+            // Syntax only: dump fixtures may repeat a page route (Next.js
+            // route groups). Composition of those files is COMPOSE_001.
+            if let Err(e) = parse(&src) {
                 let rel = file.strip_prefix(root).unwrap_or(file);
                 offenders.push(format!(
                     "{}: {}",

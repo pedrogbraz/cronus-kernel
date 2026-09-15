@@ -8,6 +8,22 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ## [Unreleased]
 
+### Language (composition)
+
+- **`import` and `compose { use }` are a load graph.** Nested imports resolve relative
+  to the importing file. Each path is loaded once (cycles skip, they do not error).
+  Missing files are `COMPOSE_002` — they used to `eprintln` a warning and continue.
+- **Union, not last-wins.** Duplicate entity name, page route, `app`, `auth`, `style`,
+  layout name, api prefix, component name, webhook entity, or env variable is
+  `COMPOSE_001`. The first declaration is kept; every later collision is reported.
+  Exactly one `app {}`.
+- **`parse_directory` no longer concatenates sources** (that double-loaded a file that
+  was also `import`ed). `cronus run` with several `*.cronus` files unions the directory
+  through the same graph. `cronus build path.cronus` follows that file's imports;
+  `cronus build` with no path and several files in cwd unions like `run`.
+- **`compose` is not `LANG_001`.** `compose App { use entities }` loads `entities.cronus`.
+  `cronus compose --from` is still hydra template generation, not this primitive.
+
 ### Language (query)
 
 - **`ends_with` and `in:[…]`** are real `where` operators (parameterized `LIKE` / `IN`).
@@ -48,9 +64,10 @@ LANGUAGE.md §15.9.
   `create`/`update` still parse (templates / `/_form`); the executor still does not
   run them as separate steps.
 - **Hollow top-level blocks are `LANG_001`:** `service`, `worker`, `middleware`,
-  `deploy`, `test`, `compose`, `define`, file-scope `on`. They parse so the rest of
-  the file can be diagnosed; the app is invalid until they are removed. `webhook`
-  and `import` are unchanged.
+  `deploy`, `test`, `define`, file-scope `on`. They parse so the rest of
+  the file can be diagnosed; the app is invalid until they are removed. `webhook`,
+  `import` and `compose { use }` are real. Two `app {}` or two `entity Task` across
+  files used to last-win; they now fail (`COMPOSE_001`).
 
 ### Breaking changes
 

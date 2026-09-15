@@ -37,10 +37,13 @@ pub fn cmd_changelog() {
             eprintln!("  \x1b[31m✗\x1b[0m Error reading {}: {}", files[0], e);
             std::process::exit(1);
         });
-        match parser::parse_with_imports(&source, ".") {
+        match parser::parse_source_at(&source, std::path::Path::new(&files[0])) {
             Ok(n) => n,
             Err(e) => {
-                eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e);
+                eprintln!(
+                    "  \x1b[31m✗\x1b[0m Parse error: {}",
+                    parser::diagnostic::join(&e)
+                );
                 std::process::exit(1);
             }
         }

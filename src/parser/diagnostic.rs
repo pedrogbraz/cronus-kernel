@@ -45,6 +45,10 @@ pub mod codes {
     pub const UNIMPLEMENTED_ACTION: &str = "ACTION_001";
     /// Top-level block that parses but has no runtime (`service`, `worker`, …).
     pub const UNIMPLEMENTED_BLOCK: &str = "LANG_001";
+    /// Two files (or one file) declare the same entity, page, app, …
+    pub const DUPLICATE_DECL: &str = "COMPOSE_001";
+    /// `import` / `compose { use }` points at a file that is not on disk.
+    pub const MISSING_IMPORT: &str = "COMPOSE_002";
 }
 
 #[derive(Debug, Clone, PartialEq)]

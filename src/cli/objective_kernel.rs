@@ -640,7 +640,11 @@ pub fn reconcile_emit(nodes: &[AstNode]) -> String {
                 out.push_str("}\n\n");
             }
             AstNode::Import(imp) => {
-                out.push_str(&format!("import {} from \"{}\"\n", imp.alias, imp.source));
+                if imp.alias.is_empty() {
+                    out.push_str(&format!("import \"{}\"\n", imp.source));
+                } else {
+                    out.push_str(&format!("import {} from \"{}\"\n", imp.alias, imp.source));
+                }
             }
             AstNode::Env(env) => {
                 if env.name.is_empty() {

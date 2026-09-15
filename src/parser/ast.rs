@@ -493,6 +493,8 @@ pub struct ComponentNode {
 pub struct ImportNode {
     pub alias: String,
     pub source: String,
+    pub line: usize,
+    pub col: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -619,6 +621,8 @@ pub struct ComposeNode {
     pub name: String,
     pub uses: Vec<String>,
     pub merges: Vec<(String, HashMap<String, String>)>,
+    pub line: usize,
+    pub col: usize,
 }
 
 #[derive(Debug, Clone)]

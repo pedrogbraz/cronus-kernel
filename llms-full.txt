@@ -79,6 +79,25 @@ env {
   required variable is missing or a value has the wrong type; values are never printed.
 - Prefix every name (`APP_…`).
 
+### import and compose
+```cronus
+import "entities"
+import Pages from "pages.cronus"
+
+compose App {
+  use entities
+  merge pages
+}
+```
+- `import "file"` and `import Alias from "file"` load that `.cronus` (extension optional)
+  relative to the importing file. Nested imports are relative to the importer.
+- `compose { use a }` / `compose Name { use a  merge b }` loads `a.cronus` the same way.
+  The compose/import nodes are stripped after they have been used as load instructions.
+- Several `*.cronus` files in the working directory are unioned the same way (`cronus run`).
+- Duplicate entity, page route, `app`, `auth`, `style`, layout, api prefix, component,
+  webhook entity or env variable is `COMPOSE_001` (one `app {}`). Missing file is
+  `COMPOSE_002`. Last-wins is gone. Each path is loaded once.
+
 ### api
 ```cronus
 api /orders {
@@ -383,9 +402,12 @@ page "/dashboard" type:dashboard requires:auth {
 - Never write `bind Entity` without `{ … }`.
 - Never invent field types (`uuid`, `varchar`): unknown types fail the build (`TYPE_001`).
 - Never use `indexed`, `computed` or `onupdate:` — the build fails (`FIELD_004`); use `index`.
-- Never use `ends_with` or `in:[…]` in `where` — the build fails (`BIND_001`).
-- Never write top-level `service`, `worker`, `middleware`, `deploy`, `test`, `compose`,
+- Never invent `where` operators — unknown ones fail the build (`BIND_001`). Supported:
+  `eq` `ne`/`neq` `gt` `gte` `lt` `lte` `contains` `starts_with` `ends_with` `in:[…]`.
+- Never write top-level `service`, `worker`, `middleware`, `deploy`, `test`,
   `define` or file-scope `on` — the build fails (`LANG_001`).
+- Never declare the same entity, page route, `app`, `auth` or `style` twice across
+  files (`COMPOSE_001`). A missing `import`/`use` file fails (`COMPOSE_002`).
 - Never name an entity or field `select`, `drop`, `insert`, `delete`, `update`, `table` or `from`.
 - Never list a `sensitive` field in `columns` or a template.
 - Never put `scope:public` on a binding whose rows are not public data.
