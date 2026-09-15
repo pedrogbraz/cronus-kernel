@@ -212,6 +212,26 @@ impl Parser {
         }
     }
 
+    fn parse_in_list(&mut self) -> Vec<BindingValue> {
+        if !self.matches(TokenKind::LBracket, None) {
+            return Vec::new();
+        }
+        self.advance();
+        let mut items = Vec::new();
+        while !self.matches(TokenKind::RBracket, None) && !self.matches(TokenKind::Eof, None) {
+            if self.peek().kind == TokenKind::Comma {
+                self.advance();
+                continue;
+            }
+            let token = self.advance();
+            items.push(Self::filter_value(&token));
+        }
+        if self.matches(TokenKind::RBracket, None) {
+            self.advance();
+        }
+        items
+    }
+
     /// `where` value glued to its operator (`eq:auth.id`, `eq:"x"`, `gt:5`).
     /// Classified exactly like the space-separated form.
     fn filter_value_from_colon(raw: &str) -> BindingValue {
@@ -2067,6 +2087,7 @@ impl Parser {
                     aggregate: None,
                     live: false,
                     public: false,
+                    expand: Vec::new(),
                 });
             }
         }
@@ -2464,6 +2485,7 @@ impl Parser {
         let mut aggregate = None;
         let mut public = false;
         let mut live = false;
+        let mut expand: Vec<String> = Vec::new();
         let mut agg_field: Option<String> = None;
         let mut group_interval: Option<String> = None;
 
@@ -2505,17 +2527,28 @@ impl Parser {
                     // value as separate tokens) and `status eq:"active"` (the
                     // tokenizer emits one ColonPair). Both yield the same FilterExpr.
                     let op_token = self.advance();
-                    let (op_str, value) = if op_token.kind == TokenKind::ColonPair {
-                        let (op, raw) = op_token
+                    let (op_str, colon_raw) = if op_token.kind == TokenKind::ColonPair {
+                        op_token
                             .value
                             .split_once(':')
-                            .map(|(o, r)| (o.to_string(), r.to_string()))
-                            .unwrap_or_default();
-                        (op, Self::filter_value_from_colon(&raw))
+                            .map(|(o, r)| (o.to_string(), Some(r.to_string())))
+                            .unwrap_or_else(|| (op_token.value.clone(), None))
                     } else {
-                        let val_token = self.advance();
-                        (op_token.value.clone(), Self::filter_value(&val_token))
+                        (op_token.value.clone(), None)
                     };
+                    const OPS: &[&str] = &[
+                        "eq",
+                        "ne",
+                        "neq",
+                        "gt",
+                        "gte",
+                        "lt",
+                        "lte",
+                        "contains",
+                        "starts_with",
+                        "ends_with",
+                        "in",
+                    ];
                     let op = match op_str.as_str() {
                         "eq" => Some(FilterOp::Eq),
                         "ne" | "neq" => Some(FilterOp::Ne),
@@ -2525,25 +2558,16 @@ impl Parser {
                         "lte" => Some(FilterOp::Lte),
                         "contains" => Some(FilterOp::Contains),
                         "starts_with" => Some(FilterOp::StartsWith),
+                        "ends_with" => Some(FilterOp::EndsWith),
+                        "in" => Some(FilterOp::In),
                         other => {
-                            const OPS: &[&str] = &[
-                                "eq",
-                                "ne",
-                                "neq",
-                                "gt",
-                                "gte",
-                                "lt",
-                                "lte",
-                                "contains",
-                                "starts_with",
-                            ];
                             let mut err = Self::token_error(
                                 codes::UNKNOWN_FILTER_OP,
                                 format!("unknown where operator '{other}'"),
                                 &op_token,
                             )
                             .with_hint(
-                                "supported operators: eq, ne (neq), gt, gte, lt, lte, contains, starts_with",
+                                "supported operators: eq, ne (neq), gt, gte, lt, lte, contains, starts_with, ends_with, in",
                             );
                             if let Some(s) = diagnostic::closest(other, OPS) {
                                 err = err.with_replacement(s.to_string());
@@ -2552,12 +2576,43 @@ impl Parser {
                             None
                         }
                     };
+                    let mut skip_filter = false;
+                    let value = if op == Some(FilterOp::In) {
+                        if self.matches(TokenKind::LBracket, None) {
+                            BindingValue::List(self.parse_in_list())
+                        } else {
+                            skip_filter = true;
+                            self.diagnostics.push(
+                                Self::token_error(
+                                    codes::UNKNOWN_FILTER_OP,
+                                    "where operator 'in' requires a list, e.g. in:[\"paid\", \"shipped\"]"
+                                        .into(),
+                                    &op_token,
+                                )
+                                .with_hint("write in:[a, b] or in:[\"a\", \"b\"]"),
+                            );
+                            if colon_raw.is_none()
+                                && !self.matches(TokenKind::RBrace, None)
+                                && !self.matches(TokenKind::Eof, None)
+                            {
+                                let _ = self.advance();
+                            }
+                            BindingValue::List(Vec::new())
+                        }
+                    } else if let Some(raw) = colon_raw {
+                        Self::filter_value_from_colon(&raw)
+                    } else {
+                        let val_token = self.advance();
+                        Self::filter_value(&val_token)
+                    };
                     if let Some(operator) = op {
-                        filters.push(FilterExpr {
-                            field,
-                            operator,
-                            value,
-                        });
+                        if !skip_filter {
+                            filters.push(FilterExpr {
+                                field,
+                                operator,
+                                value,
+                            });
+                        }
                     }
                 }
                 "order" => {
@@ -2629,6 +2684,21 @@ impl Parser {
                     let v = kw_val.unwrap_or_else(|| self.advance().value);
                     public = v.eq_ignore_ascii_case("public");
                 }
+                "expand" => {
+                    let raw = if let Some(v) = kw_val {
+                        v
+                    } else if self.matches(TokenKind::LBracket, None) {
+                        self.parse_string_array()?.join(",")
+                    } else {
+                        self.advance().value
+                    };
+                    expand = raw
+                        .split(',')
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty())
+                        .map(str::to_string)
+                        .collect();
+                }
                 "live" => {
                     live = match kw_val.as_deref() {
                         Some("false") | Some("off") => false,
@@ -2673,6 +2743,7 @@ impl Parser {
             aggregate,
             live,
             public,
+            expand,
         })
     }
 
@@ -4224,6 +4295,8 @@ mod parser_tests {
             ("done eq:true", "done eq true"),
             ("title contains:\"a b\"", "title contains \"a b\""),
             ("title starts_with:abc", "title starts_with abc"),
+            ("title ends_with:ing", "title ends_with ing"),
+            ("status in:[paid, shipped]", "status in [paid, shipped]"),
         ];
         for (colon, spaced) in cases {
             let a = bind_filters(colon);
@@ -4267,6 +4340,15 @@ mod parser_tests {
         assert!(matches!(&f[0].value, BindingValue::Num(n) if n == "5"));
         let f = bind_filters("status neq:\"x\"");
         assert_eq!(f[0].operator, FilterOp::Ne);
+        let f = bind_filters("title ends_with:\"ing\"");
+        assert_eq!(f[0].operator, FilterOp::EndsWith);
+        assert!(matches!(&f[0].value, BindingValue::Str(s) if s == "ing"));
+        let f = bind_filters("status in:[paid, shipped]");
+        assert_eq!(f[0].operator, FilterOp::In);
+        let BindingValue::List(items) = &f[0].value else {
+            panic!("expected list");
+        };
+        assert_eq!(items.len(), 2);
     }
 
     fn diag_codes(src: &str) -> Vec<&'static str> {
@@ -4279,6 +4361,7 @@ mod parser_tests {
     #[test]
     fn unknown_where_operator_is_bind_001() {
         let src = "page \"/p\" type:custom {\n  section table {\n    bind Task { query all where status in:\"paid\" }\n  }\n}\n";
+        // in:"paid" without [ ] is still BIND_001.
         let codes = diag_codes(src);
         assert!(codes.contains(&codes::UNKNOWN_FILTER_OP), "{codes:?}");
         assert!(!codes.is_empty());

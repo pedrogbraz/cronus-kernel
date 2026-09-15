@@ -1732,6 +1732,7 @@ mod tests {
             aggregate: None,
             live: false,
             public: false,
+            expand: vec![],
         });
         let fields = vec!["password".to_string()];
         let results = rule_no_sensitive_select(&section, "table (/users)", "/users", &fields);
@@ -1756,6 +1757,7 @@ mod tests {
             aggregate: None,
             live: false,
             public: false,
+            expand: vec![],
         });
         let fields = vec!["secret_key".to_string()];
         let results = rule_no_sensitive_select(&section, "table (/users)", "/users", &fields);
@@ -1780,6 +1782,7 @@ mod tests {
             aggregate: None,
             live: false,
             public: false,
+            expand: vec![],
         });
         let fields = vec!["password".to_string()];
         let results = rule_no_sensitive_select(&section, "table (/users)", "/users", &fields);

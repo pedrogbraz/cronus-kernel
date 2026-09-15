@@ -234,6 +234,9 @@ fn binding(b: &BindingNode) -> Value {
         QueryType::Count => "count",
     };
     m.insert("query".into(), json!(query));
+    if !b.expand.is_empty() {
+        m.insert("expand".into(), json!(b.expand));
+    }
     let filters: Vec<Value> = b
         .filters
         .iter()
@@ -247,6 +250,8 @@ fn binding(b: &BindingNode) -> Value {
                 FilterOp::Lte => "lte",
                 FilterOp::Contains => "contains",
                 FilterOp::StartsWith => "starts_with",
+                FilterOp::EndsWith => "ends_with",
+                FilterOp::In => "in",
             };
             let value = match &f.value {
                 BindingValue::Str(s) => json!(s),
@@ -257,6 +262,16 @@ fn binding(b: &BindingNode) -> Value {
                     .map_or_else(|| json!(n), Value::Number),
                 BindingValue::Bool(v) => json!(v),
                 BindingValue::AuthRef(r) => json!({ "ref": r }),
+                BindingValue::List(items) => json!(items
+                    .iter()
+                    .map(|v| match v {
+                        BindingValue::Str(s) => json!(s),
+                        BindingValue::Num(n) => json!(n),
+                        BindingValue::Bool(b) => json!(b),
+                        BindingValue::AuthRef(r) => json!({ "ref": r }),
+                        BindingValue::List(_) => json!([]),
+                    })
+                    .collect::<Vec<_>>()),
             };
             json!({"field": f.field, "op": op, "value": value})
         })

@@ -274,6 +274,111 @@ pub fn attach(
             row.insert(field.name.clone(), Value::Array(values));
         }
     }
+
+    let to_one: Vec<&FieldNode> = entity
+        .fields
+        .iter()
+        .filter(|f| {
+            f.field_type == crate::parser::FieldType::Relation
+                && !f.array
+                && f.reference.is_some()
+                && expand.iter().any(|e| *e == f.name)
+        })
+        .collect();
+    for field in to_one {
+        let fks: Vec<String> = targets
+            .iter()
+            .filter_map(|r| {
+                r.get(&field.name)
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
+            .filter(|s| !s.is_empty())
+            .collect();
+        let loaded = load_to_one(db, entities, field, &fks, access).unwrap_or_default();
+        for row in targets.iter_mut() {
+            let fk = row
+                .get(&field.name)
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            if let Some(obj) = loaded.get(&fk) {
+                row.insert(field.name.clone(), obj.clone());
+            }
+        }
+    }
+}
+
+fn load_to_one(
+    db: &CronusDB,
+    entities: &[EntityNode],
+    field: &FieldNode,
+    ids: &[String],
+    access: &Access,
+) -> Result<HashMap<String, Value>, String> {
+    let mut out = HashMap::new();
+    let Some(target_name) = field.reference.as_deref() else {
+        return Ok(out);
+    };
+    let Some(target) = entities
+        .iter()
+        .find(|e| e.name == target_name && is_safe_identifier(&e.name))
+    else {
+        return Ok(out);
+    };
+    let Some(condition) = target_scope(access, target) else {
+        return Ok(out);
+    };
+    let mut unique = Vec::new();
+    for id in ids {
+        if !id.is_empty() && !unique.iter().any(|s: &String| s == id) {
+            unique.push(id.clone());
+        }
+    }
+    if unique.is_empty() {
+        return Ok(out);
+    }
+    let mut sql = format!(
+        "SELECT * FROM \"{}\" WHERE \"id\" IN ({})",
+        target.name,
+        placeholders(unique.len())
+    );
+    let mut params = unique.clone();
+    if let Some((column, value)) = condition {
+        sql.push_str(&format!(" AND \"{column}\" = ?"));
+        params.push(value);
+    }
+    for mut row in db.query_raw_params(&sql, &params)? {
+        crate::authz::redact_sensitive(target, &mut row);
+        if let Some(id) = row.get("id").and_then(Value::as_str).map(str::to_string) {
+            out.insert(id, row);
+        }
+    }
+    Ok(out)
+}
+
+/// Text for a bound cell: scalars as-is; related objects as label/name/title/id.
+pub fn display_value(v: &Value) -> String {
+    match v {
+        Value::String(s) => s.clone(),
+        Value::Number(n) => n.to_string(),
+        Value::Bool(b) => b.to_string(),
+        Value::Array(items) => items
+            .iter()
+            .map(display_value)
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>()
+            .join(", "),
+        Value::Object(o) => o
+            .get("label")
+            .or_else(|| o.get("name"))
+            .or_else(|| o.get("title"))
+            .or_else(|| o.get("id"))
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
+        _ => String::new(),
+    }
 }
 
 const SOURCE_ALIAS: &str = "__cronus_source";

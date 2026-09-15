@@ -141,9 +141,11 @@ bind Product { query all scope:public }
 ```
 - Always `bind Entity { … }` with braces (`bind entity:Order { … }` also parses).
 - `query all|one|count`. `aggregate count|sum|avg|min|max` with `field:`.
-- `where` operators: `eq` `ne` (`neq`) `gt` `gte` `lt` `lte` `contains` `starts_with`.
-  Unknown operators fail the build (`BIND_001`). Values: `"text"`, numbers, `true`,
-  `route.id`, `auth.id`, `auth.role`, `auth.email`. `query` is `all|one|count` (`BIND_002`).
+- `where` operators: `eq` `ne` (`neq`) `gt` `gte` `lt` `lte` `contains` `starts_with`
+  `ends_with` `in:[a, b]`. Unknown operators fail the build (`BIND_001`). `in` needs `[ ]`.
+  Values: `"text"`, numbers, `true`, `route.id`, `auth.id`, `auth.role`, `auth.email`.
+  `query` is `all|one|count` (`BIND_002`).
+- `expand:tags` (comma-separated) loads related rows on those fields for SSR.
 - `interval:` `day` `week` `month` `quarter` `year`.
 - Visibility: no session sees nothing unless `scope:public` (every row, to anyone);
   users see own rows and `shared` entities; admins see all. `sensitive` fields never leave.

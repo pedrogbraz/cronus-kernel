@@ -179,7 +179,7 @@ fn ai_unknown_where_operator_is_bind_001() {
     let dir = workdir("bind-op");
     fs::write(
         dir.join("app.cronus"),
-        "app \"T\" { port 5175 }\nentity Task { title string! }\npage \"/\" {\n  section table {\n    bind Task { query all where title ends_with \"x\" }\n    columns \"title\"\n  }\n}\n",
+        "app \"T\" { port 5175 }\nentity Task { title string! }\npage \"/\" {\n  section table {\n    bind Task { query all where title blah \"x\" }\n    columns \"title\"\n  }\n}\n",
     )
     .unwrap();
     let (code, stdout, _) = cronus(&dir, &["build", "--ai", "app.cronus"]);
@@ -194,5 +194,5 @@ fn ai_unknown_where_operator_is_bind_001() {
         .unwrap_or_else(|| panic!("{j}"));
     assert_eq!(e["category"], "bind");
     assert!(e["location"]["line"].as_u64().unwrap() >= 1);
-    assert!(e["message"].as_str().unwrap().contains("ends_with"), "{e}");
+    assert!(e["message"].as_str().unwrap().contains("blah"), "{e}");
 }

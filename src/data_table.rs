@@ -181,28 +181,10 @@ function cronusPaginate(tid,perPage){{var w=document.getElementById(tid);if(!w)r
 
                 for col in &columns {
                     let col_key = col.to_lowercase();
-                    let cell_value = row
+                    let cell_display = row
                         .get(&col_key)
-                        .and_then(|v| v.as_str())
-                        .or_else(|| {
-                            row.get(&col_key)
-                                .and_then(|v| if v.is_number() { None } else { None })
-                        })
-                        .unwrap_or("");
-                    // For numeric values, convert to string
-                    let cell_display = if cell_value.is_empty() {
-                        if let Some(v) = row.get(&col_key) {
-                            match v {
-                                JsonValue::Number(n) => n.to_string(),
-                                JsonValue::Bool(b) => b.to_string(),
-                                _ => String::new(),
-                            }
-                        } else {
-                            String::new()
-                        }
-                    } else {
-                        cell_value.to_string()
-                    };
+                        .map(crate::relations::display_value)
+                        .unwrap_or_default();
 
                     html.push_str(r#"<td style="padding:12px 16px;color:#374151">"#);
                     html.push_str(&crate::security::html_escape(&cell_display));
@@ -578,12 +560,7 @@ pub fn render_data_table_dark(
                     let cell_value = row
                         .get(&col_key)
                         .or_else(|| row.get(&col.to_lowercase()))
-                        .map(|v| match v {
-                            JsonValue::String(s) => s.clone(),
-                            JsonValue::Number(n) => n.to_string(),
-                            JsonValue::Bool(b) => b.to_string(),
-                            _ => String::new(),
-                        })
+                        .map(crate::relations::display_value)
                         .unwrap_or_default();
 
                     html.push_str(r#"<td style="padding:16px 32px">"#);

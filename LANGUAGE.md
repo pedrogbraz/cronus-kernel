@@ -295,7 +295,8 @@ entity Tag { label string! }
 - **Reads.** REST list/detail and GraphQL return the field as an id array in link order. REST `?expand=tags` (comma-separated field names) returns the linked rows instead, passed through `authz::redact_sensitive`. Only linked rows the viewer may read are included; anonymous callers on `auth:public` routes get `[]`. One query per field per page, never per row.
 - **Deletes.** Deleting either side removes its join rows.
 - **GraphQL.** `tags: [String!]!` on the type, `tags: [String!]` on `Create<Entity>Input`.
-- **Not supported:** `unique` on a many-to-many field (ignored), showing links through SSR bindings/`columns`.
+- **Not supported:** `unique` on a many-to-many field (ignored).
+- **SSR.** `bind Post { query all }` attaches M2M fields as id arrays; `expand:tags` attaches redacted Tag rows. Table cells join `label`/`name`/`title`/`id`.
 - **`set tags "id1,id2"`** on `/_action` replaces join rows (same id-scope rules as REST/`/_form`).
 
 ### 3.8 Env schema — REAL
@@ -619,7 +620,9 @@ Aggregates without `group_by` return one value: `aggregate count` → a count, `
 
 ### 9.2 Supported operators in `where`
 
-`eq`, `ne` (alias `neq`), `gt`, `gte`, `lt`, `lte`, `contains`, `starts_with`. Both forms are equivalent: `where status eq "active"` and `where status eq:"active"` (also `eq:auth.id`, `eq:route.id`, `gt:5`, `eq:true`). `ends_with` and `in:[...]` are **not** implemented. An unknown operator is **`BIND_001`** (it used to fall back to `eq`). An unknown `query` kind is **`BIND_002`** (it used to become `all`).
+`eq`, `ne` (alias `neq`), `gt`, `gte`, `lt`, `lte`, `contains`, `starts_with`, `ends_with`, `in`. Both forms are equivalent: `where status eq "active"` and `where status eq:"active"` (also `eq:auth.id`, `eq:route.id`, `gt:5`, `eq:true`). `in` requires a list: `where status in:[paid, shipped]` or `in:["paid", "shipped"]`. `in:"paid"` without `[` is **`BIND_001`**. An empty list matches no rows. An unknown operator is **`BIND_001`**. An unknown `query` kind is **`BIND_002`**.
+
+`expand:tags` (or `expand:tags,author`) loads related rows on those fields instead of ids. Many-to-many always attaches an id array; listing a field in `expand` replaces it with redacted target rows (one query per field). A to-one `-> Entity` field listed in `expand` is replaced with the related object. Unknown expand names are **`RESOLVE_001`**.
 
 ### 9.3 `group_by` intervals
 
@@ -1149,7 +1152,7 @@ Field rules:
 | `ENV_001` | error | `env` variable type is not `string`, `number`, `boolean`, `url` or `email` (§3.8) |
 | `ENV_002` | error | `env` variable `default:` does not match its type (§3.8) |
 | `ENV_003` | warning | Declared `env` variable name has no uppercase prefix such as `APP_` (§3.8) |
-| `BIND_001` | error | Unknown `where` operator (§9.2); no longer silently `eq` |
+| `BIND_001` | error | Unknown `where` operator, or `in` without `[…]` (§9.2) |
 | `BIND_002` | error | Unknown `query` kind; must be `all`, `one` or `count` |
 | `FIELD_004` | error | Unknown field modifier (`indexed`, `computed`, `onupdate:`, …) (§2.4) |
 | `ACTION_001` | error | Unknown or unimplemented action verb (`validate`, invented verbs) (§8.2) |

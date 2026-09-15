@@ -540,7 +540,11 @@ fn resolve_query(
         if scope == ReadScope::Deny {
             return Some(empty);
         }
-        let mut filters: Vec<(String, String, String)> = scope.filter().into_iter().collect();
+        let mut filters: Vec<crate::database::SqlFilter> = scope
+            .filter()
+            .into_iter()
+            .map(crate::database::SqlFilter::from_triple)
+            .collect();
 
         if is_list {
             let limit = field
@@ -572,7 +576,7 @@ fn resolve_query(
             Some(id) => id,
             None => return Some(Value::Null),
         };
-        filters.push(("id".into(), "=".into(), id));
+        filters.push(crate::database::SqlFilter::one("id", "=", id));
         return Some(match db.find_one(&entity.name, &filters, None, None) {
             Ok(Some(mut row)) => {
                 authz::redact_sensitive(entity, &mut row);

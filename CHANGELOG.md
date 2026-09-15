@@ -8,6 +8,16 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ## [Unreleased]
 
+### Language (query)
+
+- **`ends_with` and `in:[…]`** are real `where` operators (parameterized `LIKE` / `IN`).
+  `in` requires a list; `in:"paid"` is still `BIND_001`. An empty list matches nothing
+  (`1=0`), it is not dropped. Unknown operators still error; they never become `eq`.
+- **`bind { expand:tags }`** (also `expand:tags,author`) loads related rows for SSR,
+  one query per field, same redact/scope as REST `?expand=`. Without `expand`, M2M
+  fields attach as id arrays so `columns "tags"` is no longer blank. A to-one
+  `-> Entity` listed in `expand` is replaced with the related object.
+
 ### Language (mutation)
 
 - **Forms honour `on submit`.** `POST`/`PATCH /_form` still write the row once.

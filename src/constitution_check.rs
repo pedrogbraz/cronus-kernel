@@ -599,6 +599,7 @@ mod tests {
                     aggregate: None,
                     live: false,
                     public: false,
+                    expand: vec![],
                 })
             } else {
                 None

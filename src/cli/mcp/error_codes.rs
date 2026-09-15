@@ -303,7 +303,7 @@ pub(crate) const ERROR_CODES: &[ErrorCode] = &[
         severity: "error",
         category: "bind",
         description: "A `where` clause uses an operator that is not in the language. Unknown operators used to be treated as `eq`.",
-        example_fix: "`where status in:[\"paid\"]` is not implemented; use `where status eq:\"paid\"`. Supported: eq, ne (neq), gt, gte, lt, lte, contains, starts_with.",
+        example_fix: "`where status blah:\"paid\"` → `where status eq:\"paid\"`. Supported: eq, ne (neq), gt, gte, lt, lte, contains, starts_with, ends_with, in:[…].",
     },
     ErrorCode {
         code: "BIND_002",

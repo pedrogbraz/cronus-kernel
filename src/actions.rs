@@ -422,9 +422,9 @@ fn lookup_owned(
     if record_id.is_empty() {
         return Err(ActionDenied::Invalid("Missing record id".into()));
     }
-    let mut filters = vec![("id".to_string(), "=".to_string(), record_id.to_string())];
+    let mut filters = vec![crate::database::SqlFilter::one("id", "=", record_id)];
     if let Some((column, value)) = scope.condition() {
-        filters.push((column.to_string(), "=".into(), value));
+        filters.push(crate::database::SqlFilter::one(column, "=", value));
     }
     match db.find_one(&entity.name, &filters, None, None) {
         Ok(Some(row)) => Ok(row),
@@ -810,9 +810,9 @@ fn update_from_form(
         return form_error(400, "INVALID", "Nothing to update");
     }
 
-    let mut filters = vec![("id".to_string(), "=".to_string(), record_id.to_string())];
+    let mut filters = vec![crate::database::SqlFilter::one("id", "=", record_id)];
     if let Some((column, value)) = scope.condition() {
-        filters.push((column.to_string(), "=".into(), value));
+        filters.push(crate::database::SqlFilter::one(column, "=", value));
     }
     let prev = match state.db.find_one(&schema.name, &filters, None, None) {
         Ok(Some(row)) => row,

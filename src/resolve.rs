@@ -281,6 +281,18 @@ fn resolve_section(
                 }
             }
 
+            for name in &binding.expand {
+                if !all_field_names.contains(name) {
+                    errors.push(ResolveError {
+                        message: format!(
+                            "Field '{}' not found in entity '{}' (expand in {}, {})",
+                            name, binding.entity, section.section_type, context
+                        ),
+                        suggestion: find_closest(name, &field_refs),
+                    });
+                }
+            }
+
             // Check aggregate field
             if let Some(ref agg) = binding.aggregate {
                 if let Some(ref agg_field) = agg.field {
@@ -544,6 +556,7 @@ mod tests {
             aggregate: None,
             live: false,
             public: false,
+            expand: vec![],
         }
     }
 
@@ -846,6 +859,7 @@ mod tests {
                         aggregate: None,
                         live: false,
                         public: false,
+                        expand: vec![],
                     });
                     s
                 }],

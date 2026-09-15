@@ -320,6 +320,8 @@ pub struct BindingNode {
     pub live: bool, // real-time updates via SSE
     /// `bind X { scope:public }` — skip `_owner_id` filter (marketing, shared catalogs).
     pub public: bool,
+    /// `expand:tags,author` — related rows (not just ids) on those fields.
+    pub expand: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -358,6 +360,8 @@ pub enum FilterOp {
     Lte,
     Contains,
     StartsWith,
+    EndsWith,
+    In,
 }
 
 #[derive(Debug, Clone)]
@@ -378,6 +382,8 @@ pub enum BindingValue {
     Num(String),
     Bool(bool),
     AuthRef(String),
+    /// `where status in:["paid", "shipped"]`
+    List(Vec<BindingValue>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
