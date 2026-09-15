@@ -21,6 +21,17 @@ pub enum ResolvedData {
     None,
 }
 
+impl ResolvedData {
+    /// List widgets (`table`, kanban, …) treat `query one` as a single-row list.
+    pub fn list_rows(&self) -> &[Value] {
+        match self {
+            ResolvedData::Rows(rows) => rows,
+            ResolvedData::Record(Some(row)) => std::slice::from_ref(row),
+            _ => &[],
+        }
+    }
+}
+
 /// Convert a FilterOp enum to the string name that filter_op_to_sql expects.
 fn op_to_str(op: &FilterOp) -> &'static str {
     match op {

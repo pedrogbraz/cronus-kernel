@@ -419,13 +419,13 @@ page "/admin"     type:custom requires:role(admin) { ... }
 ```
 
 Supported `type:` values in `src/ui/page.rs`:
-- `dashboard` — sidebar layout + grid (**rewritten 2026-04-10**: now delegates to `render_custom`, respects user sections, no longer rendering hardcoded Cooud template)
-- `list` — default list view
-- `form` — single form view
-- `detail` — detail view
+- `dashboard` — layout hint; declared sections go through `render_custom` (no hardcoded Cooud template)
+- `list` / `form` / `detail` — layout hints. If the page has sections, they render (same pipeline as `custom`). An empty `list`/`form`/`detail` keeps the generic entity table or form.
 - `custom` — freeform, sections handle their own layout
 - `checkout` — checkout flow
 - `components` — component library preview
+
+A `section table` bound with `query one` renders that record as a one-row table.
 
 ### 5.2 `requires:` clauses
 

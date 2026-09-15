@@ -17,10 +17,13 @@ pub fn render_page(
     access: &crate::access::Access,
 ) -> String {
     match page.page_type.as_str() {
-        // dashboard/list/form/detail are now layout hints — actual rendering
-        // uses the same pipeline as `custom` so developer-defined sections
-        // are always respected. This matches the "declare once, get it" principle.
+        // `dashboard`/`list`/`form`/`detail` are layout hints. Declared
+        // sections always go through `custom`. Empty list/form/detail pages
+        // keep the generic entity table/form.
         "dashboard" | "custom" => {
+            render_custom(page, accent, theme, db, route_params, access, entities)
+        }
+        "list" | "form" | "detail" if !page.sections.is_empty() => {
             render_custom(page, accent, theme, db, route_params, access, entities)
         }
         "list" => render_list(page, entities, accent),
@@ -1328,6 +1331,55 @@ mod tests {
         assert!(!html.contains("cronusEdit(\\''+lower"), "{html}");
         assert!(!html.contains("'+safeId+'\\')"), "{html}");
     }
+
+    #[test]
+    fn form_type_with_sections_renders_declared_fields_not_generic_entity_form() {
+        let page = PageNode {
+            route: "/jobs/new".to_string(),
+            page_type: "form".to_string(),
+            entity: Some("Job".to_string()),
+            title: Some("New job".into()),
+            sections: vec![SectionNode {
+                section_type: "form".to_string(),
+                title: Some("Job".into()),
+                subtitle: None,
+                config: HashMap::new(),
+                items: vec![],
+                plans: Vec::new(),
+                binding: None,
+                actions: Vec::new(),
+                visibility: None,
+                template: Some(
+                    r#"<form data-cronus-form><input type="datetime-local" name="scheduled_at"><input type="file" name="photo"></form>"#
+                        .into(),
+                ),
+                style_block: None,
+                doc: None,
+            }],
+            config: HashMap::new(),
+            components: Vec::new(),
+            requires: None,
+            doc: None,
+        };
+        let html = render_page(
+            &page,
+            &[],
+            "blue",
+            "dark",
+            None,
+            &HashMap::new(),
+            &crate::access::Access::anonymous(),
+        );
+        assert!(
+            html.contains(r#"type="datetime-local""#),
+            "declared form fields missing: {html}"
+        );
+        assert!(html.contains(r#"type="file""#), "{html}");
+        assert!(
+            !html.contains("id=\"table-body\""),
+            "generic list leaked into type:form with sections: {html}"
+        );
+    }
 }
 
 /// Regression: `section kpi { bind Task { aggregate count } item "Tasks"
@@ -1390,5 +1442,69 @@ page \"/tasks\" type:dashboard requires:auth {\n\
         assert!(render(&as_admin(), "dark").contains(">3<"));
         let anonymous = render(&anon(), "dark");
         assert!(!anonymous.contains(">bind<") && anonymous.contains(">0<"));
+    }
+}
+
+#[cfg(test)]
+mod detail_query_one_table {
+    use super::*;
+    use crate::access::test_support::as_user;
+    use crate::parser::{parse, AstNode};
+
+    #[test]
+    fn detail_page_table_query_one_renders_the_row() {
+        let src = r#"
+app "T" { port 1 }
+entity Client { name string! }
+page "/clients/:id" type:detail {
+  section table {
+    title "Client"
+    columns "name"
+    bind Client { query one where id eq:route.id }
+  }
+}
+"#;
+        let mut entities = Vec::new();
+        let mut page = None;
+        for node in parse(src).expect("parse") {
+            match node {
+                AstNode::Entity(e) => entities.push(e),
+                AstNode::Page(p) => page = Some(p),
+                _ => {}
+            }
+        }
+        let page = page.expect("page");
+        let db = crate::database::CronusDB::open_memory().expect("db");
+        db.migrate(&entities).expect("migrate");
+        let row = db
+            .insert(
+                "Client",
+                &serde_json::json!({"name": "Casa Lina", "_owner_id": "u1"}),
+            )
+            .unwrap();
+        let id = row["id"].as_str().unwrap().to_string();
+        let mut params = std::collections::HashMap::new();
+        params.insert("id".into(), id);
+        let html = render_page(
+            &page,
+            &entities,
+            "amber",
+            "dark",
+            Some(&db),
+            &params,
+            &as_user("u1"),
+        );
+        assert!(
+            html.contains("Casa Lina"),
+            "query one on a table must render the row: {html}"
+        );
+        assert!(
+            !html.contains("No data yet"),
+            "empty-state leaked for a bound record: {html}"
+        );
+        assert!(
+            !html.contains("id=\"table-body\""),
+            "generic list leaked into type:detail with sections: {html}"
+        );
     }
 }

@@ -147,6 +147,8 @@ page "/dashboard" type:dashboard requires:auth {
 }
 ```
 - Page `type:` `custom` (default) `dashboard` `list` `form` `detail` `checkout` `components`.
+  `form`/`detail`/`list` with sections render those sections (not a generic entity table/form).
+  `query one` on a table is one row.
 - `requires:auth` or `requires:role(admin|editor)`. Matching is by exact route pattern:
   `/admin` does not protect `/admin/users`; declare `requires:` on every protected page.
 - Section body: `title "…"`, `subtitle "…"`, `columns "a, b"`, `item "Label" key:value …`,

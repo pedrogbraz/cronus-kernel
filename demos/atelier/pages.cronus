@@ -83,7 +83,7 @@ page "/jobs/archive" requires:auth {
   }
 }
 
-page "/jobs/new" requires:auth {
+page "/jobs/new" type:form requires:auth {
   title "New job"
 
   section page-header {
@@ -112,7 +112,7 @@ page "/jobs/new" requires:auth {
   }
 }
 
-page "/jobs/:id" requires:auth {
+page "/jobs/:id" type:detail requires:auth {
   title "Job"
 
   section page-header {
@@ -123,12 +123,12 @@ page "/jobs/:id" requires:auth {
   section table {
     title "Job"
     columns "title, status, client, tags, scheduled_at, due, estimate, photo"
-    bind Job { query all where id eq:route.id expand:client,tags }
+    bind Job { query one where id eq:route.id expand:client,tags }
   }
 
   section form entity:Job {
     title "Update"
-    bind Job { query all where id eq:route.id }
+    bind Job { query one where id eq:route.id }
     field "title" type:text required
     field "notes" type:textarea
     field "status" type:select options:["queued", "in_progress", "waiting", "done", "cancelled"]
@@ -161,7 +161,7 @@ page "/clients" requires:auth {
   }
 }
 
-page "/clients/new" requires:auth {
+page "/clients/new" type:form requires:auth {
   title "New client"
 
   section page-header {
@@ -184,7 +184,7 @@ page "/clients/new" requires:auth {
   }
 }
 
-page "/clients/:id" requires:auth {
+page "/clients/:id" type:detail requires:auth {
   title "Client"
 
   section page-header {
@@ -195,7 +195,7 @@ page "/clients/:id" requires:auth {
   section table {
     title "Client"
     columns "name, email, phone, jobs"
-    bind Client { query all where id eq:route.id expand:jobs }
+    bind Client { query one where id eq:route.id expand:jobs }
   }
 
   section table {
@@ -219,7 +219,7 @@ page "/tags" requires:auth {
   }
 }
 
-page "/tags/new" requires:auth {
+page "/tags/new" type:form requires:auth {
   title "New tag"
 
   section form entity:Tag {

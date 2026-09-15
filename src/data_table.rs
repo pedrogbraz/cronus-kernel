@@ -73,8 +73,9 @@ pub fn render_data_table(
         config_columns_owned.iter().map(|s| s.as_str()).collect()
     };
 
-    // Check if we have bound database rows
-    let use_bound = matches!(bound_data, crate::binding::ResolvedData::Rows(r) if !r.is_empty());
+    // Check if we have bound database rows (`query one` is a single-row list).
+    let bound_rows = bound_data.list_rows();
+    let use_bound = !bound_rows.is_empty();
 
     let static_rows: Vec<&HashMap<String, String>> = if use_bound {
         Vec::new()
@@ -91,12 +92,8 @@ pub fn render_data_table(
             .collect()
     };
 
-    let row_count = if let crate::binding::ResolvedData::Rows(rows) = bound_data {
-        if !rows.is_empty() {
-            rows.len()
-        } else {
-            static_rows.len()
-        }
+    let row_count = if !bound_rows.is_empty() {
+        bound_rows.len()
     } else {
         static_rows.len()
     };
@@ -164,37 +161,35 @@ function cronusPaginate(tid,perPage){{var w=document.getElementById(tid);if(!w)r
     // ── Body ──
     html.push_str("<tbody>");
 
-    if let crate::binding::ResolvedData::Rows(bound_rows) = bound_data {
-        if !bound_rows.is_empty() {
-            // === Render from database rows ===
-            for (idx, row) in bound_rows.iter().enumerate() {
-                let alt_bg = if idx % 2 == 1 {
-                    "rgba(250,250,250,0.3)"
-                } else {
-                    "transparent"
-                };
+    if !bound_rows.is_empty() {
+        // === Render from database rows ===
+        for (idx, row) in bound_rows.iter().enumerate() {
+            let alt_bg = if idx % 2 == 1 {
+                "rgba(250,250,250,0.3)"
+            } else {
+                "transparent"
+            };
 
-                html.push_str(&format!(
+            html.push_str(&format!(
                     r#"<tr style="border-bottom:1px solid #f3f4f6;background:{alt_bg};transition:background 0.1s" onmouseover="this.style.background='rgba(245,245,245,0.5)'" onmouseout="this.style.background='{alt_bg}'">"#
                 ));
-                html.push_str(r#"<td style="padding:12px 16px"><input type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:#000"></td>"#);
+            html.push_str(r#"<td style="padding:12px 16px"><input type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:#000"></td>"#);
 
-                for col in &columns {
-                    let col_key = col.to_lowercase();
-                    let cell_display = row
-                        .get(&col_key)
-                        .map(crate::relations::display_value)
-                        .unwrap_or_default();
+            for col in &columns {
+                let col_key = col.to_lowercase();
+                let cell_display = row
+                    .get(&col_key)
+                    .map(crate::relations::display_value)
+                    .unwrap_or_default();
 
-                    html.push_str(r#"<td style="padding:12px 16px;color:#374151">"#);
-                    html.push_str(&crate::security::html_escape(&cell_display));
-                    html.push_str("</td>");
-                }
-                if bound_actions {
-                    html.push_str(&row_action_cell(section, &actions, row, "padding:8px 16px"));
-                }
-                html.push_str("</tr>");
+                html.push_str(r#"<td style="padding:12px 16px;color:#374151">"#);
+                html.push_str(&crate::security::html_escape(&cell_display));
+                html.push_str("</td>");
             }
+            if bound_actions {
+                html.push_str(&row_action_cell(section, &actions, row, "padding:8px 16px"));
+            }
+            html.push_str("</tr>");
         }
     }
 
@@ -526,9 +521,8 @@ pub fn render_data_table_dark(
         ));
     }
     let actions = row_actions(section);
-    let bound_actions = !actions.is_empty()
-        && static_rows.is_empty()
-        && matches!(bound_data, crate::binding::ResolvedData::Rows(r) if !r.is_empty());
+    let bound_rows = bound_data.list_rows();
+    let bound_actions = !actions.is_empty() && static_rows.is_empty() && !bound_rows.is_empty();
     if bound_actions {
         html.push_str(r#"<th style="padding:12px 32px"></th>"#);
     }
@@ -545,95 +539,91 @@ pub fn render_data_table_dark(
 
     // Render from bound DB rows when available and no static rows
     if static_rows.is_empty() {
-        if let crate::binding::ResolvedData::Rows(bound_rows) = bound_data {
-            if !bound_rows.is_empty() {
-                has_rows = true;
-            }
-            for (idx, row) in bound_rows.iter().enumerate() {
-                let delay = format!("{:.2}", 0.05 + idx as f64 * 0.06);
-                html.push_str(&format!(
+        if !bound_rows.is_empty() {
+            has_rows = true;
+        }
+        for (idx, row) in bound_rows.iter().enumerate() {
+            let delay = format!("{:.2}", 0.05 + idx as f64 * 0.06);
+            html.push_str(&format!(
                     r#"<tr class="anim-row" style="border-bottom:1px solid rgba(76,69,70,0.05);transition:background 0.15s;animation-delay:{delay}s" onmouseover="this.style.background='#1f1f1f'" onmouseout="this.style.background='transparent'">"#,
                     delay = delay
                 ));
-                for (ci, col) in columns.iter().enumerate() {
-                    let col_key = col.to_lowercase().replace(' ', "_");
-                    let cell_value = row
-                        .get(&col_key)
-                        .or_else(|| row.get(&col.to_lowercase()))
-                        .map(crate::relations::display_value)
-                        .unwrap_or_default();
+            for (ci, col) in columns.iter().enumerate() {
+                let col_key = col.to_lowercase().replace(' ', "_");
+                let cell_value = row
+                    .get(&col_key)
+                    .or_else(|| row.get(&col.to_lowercase()))
+                    .map(crate::relations::display_value)
+                    .unwrap_or_default();
 
-                    html.push_str(r#"<td style="padding:16px 32px">"#);
+                html.push_str(r#"<td style="padding:16px 32px">"#);
 
-                    if col_key == "status" {
-                        let status_lower = cell_value.to_lowercase();
-                        let (badge_bg, badge_color, dot_color) = match status_lower.as_str() {
-                            "live" | "fulfilled" | "completed" | "active" | "success" => {
-                                ("rgba(16,185,129,0.12)", "#10b981", "#10b981")
-                            }
-                            "rolling" | "processing" | "in_progress" | "in progress" => {
-                                ("rgba(59,130,246,0.12)", "#3b82f6", "#3b82f6")
-                            }
-                            "pending" | "waiting" | "draft" => {
-                                ("rgba(113,113,122,0.12)", "#71717a", "#71717a")
-                            }
-                            "failed" | "cancelled" | "rejected" => {
-                                ("rgba(239,68,68,0.12)", "#ef4444", "#ef4444")
-                            }
-                            "blocked" => ("rgba(239,68,68,0.12)", "#ef4444", "#ef4444"),
-                            "throttled" | "flagged" => {
-                                ("rgba(245,158,11,0.12)", "#f59e0b", "#f59e0b")
-                            }
-                            "critical" => ("rgba(239,68,68,0.15)", "#ef4444", "#ef4444"),
-                            "high" => ("rgba(249,115,22,0.12)", "#f97316", "#f97316"),
-                            "medium" | "warning" => ("rgba(245,158,11,0.12)", "#f59e0b", "#f59e0b"),
-                            "low" | "info" => ("rgba(59,130,246,0.12)", "#3b82f6", "#3b82f6"),
-                            _ => ("rgba(113,113,122,0.12)", "#71717a", "#71717a"),
-                        };
-                        let is_active = matches!(
-                            status_lower.as_str(),
-                            "live" | "rolling" | "processing" | "active"
-                        );
-                        let dot_anim = if is_active {
-                            "animation:pulse 2s ease-in-out infinite;"
-                        } else {
-                            ""
-                        };
-                        let escaped_val = crate::security::html_escape(&cell_value);
-                        html.push_str(&format!(
+                if col_key == "status" {
+                    let status_lower = cell_value.to_lowercase();
+                    let (badge_bg, badge_color, dot_color) = match status_lower.as_str() {
+                        "live" | "fulfilled" | "completed" | "active" | "success" => {
+                            ("rgba(16,185,129,0.12)", "#10b981", "#10b981")
+                        }
+                        "rolling" | "processing" | "in_progress" | "in progress" => {
+                            ("rgba(59,130,246,0.12)", "#3b82f6", "#3b82f6")
+                        }
+                        "pending" | "waiting" | "draft" => {
+                            ("rgba(113,113,122,0.12)", "#71717a", "#71717a")
+                        }
+                        "failed" | "cancelled" | "rejected" => {
+                            ("rgba(239,68,68,0.12)", "#ef4444", "#ef4444")
+                        }
+                        "blocked" => ("rgba(239,68,68,0.12)", "#ef4444", "#ef4444"),
+                        "throttled" | "flagged" => ("rgba(245,158,11,0.12)", "#f59e0b", "#f59e0b"),
+                        "critical" => ("rgba(239,68,68,0.15)", "#ef4444", "#ef4444"),
+                        "high" => ("rgba(249,115,22,0.12)", "#f97316", "#f97316"),
+                        "medium" | "warning" => ("rgba(245,158,11,0.12)", "#f59e0b", "#f59e0b"),
+                        "low" | "info" => ("rgba(59,130,246,0.12)", "#3b82f6", "#3b82f6"),
+                        _ => ("rgba(113,113,122,0.12)", "#71717a", "#71717a"),
+                    };
+                    let is_active = matches!(
+                        status_lower.as_str(),
+                        "live" | "rolling" | "processing" | "active"
+                    );
+                    let dot_anim = if is_active {
+                        "animation:pulse 2s ease-in-out infinite;"
+                    } else {
+                        ""
+                    };
+                    let escaped_val = crate::security::html_escape(&cell_value);
+                    html.push_str(&format!(
                             r#"<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;font-size:11px;font-weight:600;border-radius:999px;background:{badge_bg};color:{badge_color}"><span style="width:6px;height:6px;border-radius:50%;background:{dot_color};flex-shrink:0;{dot_anim}"></span>{escaped_val}</span>"#
                         ));
-                    } else if ci == 0 {
-                        let initials: String = cell_value
-                            .chars()
-                            .filter(|c| c.is_alphabetic())
-                            .take(2)
-                            .collect::<String>()
-                            .to_uppercase();
-                        let avatar_bg = avatar_colors[idx % avatar_colors.len()];
-                        let escaped_val = crate::security::html_escape(&cell_value);
-                        html.push_str(&format!(
+                } else if ci == 0 {
+                    let initials: String = cell_value
+                        .chars()
+                        .filter(|c| c.is_alphabetic())
+                        .take(2)
+                        .collect::<String>()
+                        .to_uppercase();
+                    let avatar_bg = avatar_colors[idx % avatar_colors.len()];
+                    let escaped_val = crate::security::html_escape(&cell_value);
+                    html.push_str(&format!(
                             r#"<div style="display:flex;align-items:center;gap:12px"><div style="width:32px;height:32px;border-radius:50%;background:{avatar_bg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">{initials}</div><span style="font-size:13px;color:#e2e2e2">{escaped_val}</span></div>"#
                         ));
-                    } else {
-                        html.push_str(&format!(
-                            r#"<span style="font-size:13px;color:rgba(226,226,226,0.8)">{}</span>"#,
-                            crate::security::html_escape(&cell_value)
-                        ));
-                    }
-
-                    html.push_str("</td>");
-                }
-                if bound_actions {
-                    html.push_str(&row_action_cell(
-                        section,
-                        &actions,
-                        row,
-                        "padding:12px 32px",
+                } else {
+                    html.push_str(&format!(
+                        r#"<span style="font-size:13px;color:rgba(226,226,226,0.8)">{}</span>"#,
+                        crate::security::html_escape(&cell_value)
                     ));
                 }
-                html.push_str("</tr>");
+
+                html.push_str("</td>");
             }
+            if bound_actions {
+                html.push_str(&row_action_cell(
+                    section,
+                    &actions,
+                    row,
+                    "padding:12px 32px",
+                ));
+            }
+            html.push_str("</tr>");
         }
     }
 

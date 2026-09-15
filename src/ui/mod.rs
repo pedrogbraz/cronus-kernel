@@ -868,6 +868,17 @@ fn render_section_inner(
                 section_html
             )
         }
+        crate::binding::ResolvedData::Record(Some(_)) => {
+            format!(
+                "<div data-entity=\"{}\" data-bound-rows=\"1\">{}</div>",
+                section
+                    .binding
+                    .as_ref()
+                    .map(|b| b.entity.as_str())
+                    .unwrap_or(""),
+                section_html
+            )
+        }
         crate::binding::ResolvedData::Count(n) => {
             format!(
                 "<div data-entity=\"{}\" data-bound-count=\"{}\">{}</div>",

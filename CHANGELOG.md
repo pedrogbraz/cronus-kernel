@@ -8,6 +8,13 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ## [Unreleased]
 
+### Language (pages)
+
+- **`type:form` / `type:detail` / `type:list` with sections render those sections.**
+  They used to ignore the body and emit a generic entity form or JS table
+  (`Carregando...`). Empty pages of those types still use the generic renderer.
+- **`query one` on a `section table` is a one-row table**, not an empty state.
+
 ### Language (GraphQL)
 
 - **`update<Entity>(id, input)`** is generated. Partial update, same validation,
