@@ -1,0 +1,22 @@
+[data-slot="reasoning"] {
+  margin-block-end: 1rem;
+}
+[data-slot="reasoning-trigger"] {
+  display: flex; width: 100%; align-items: center; gap: 0.5rem;
+  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-tertiary);
+  outline: none; transition: color 150ms var(--ease-out-quart);
+}
+[data-slot="reasoning-trigger"] > svg {
+  width: 1rem; height: 1rem;
+}
+[data-slot="reasoning-trigger"][data-state="open"] > svg:last-child {
+  rotate: 180deg;
+}
+[data-slot="reasoning-content"] {
+  margin-block-start: 1rem; overflow: hidden; outline: none;
+  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-tertiary);
+}
+[data-slot="reasoning-content"] > [data-slot="response"] {
+  display: grid; gap: 0.5rem; width: 100%; height: 100%;
+  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg);
+}

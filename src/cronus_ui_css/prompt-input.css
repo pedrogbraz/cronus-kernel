@@ -1,0 +1,49 @@
+[data-slot="prompt-input"] {
+  width: 100%;
+}
+[data-slot="prompt-input-composer"] {
+  display: flex; width: 100%; box-sizing: border-box; flex-direction: column; overflow: hidden;
+  border-radius: var(--cronus-radius-xl); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); box-shadow: var(--cronus-shadow-xs, 0 1px 2px rgba(0,0,0,.2));
+  transition: border-color 150ms var(--ease-out-quart), box-shadow 150ms var(--ease-out-quart);
+}
+[data-slot="prompt-input-composer"]:focus-within {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
+}
+[data-slot="prompt-input-body"] {
+  display: contents;
+}
+[data-slot="prompt-input-textarea"] {
+  display: block; width: 100%; min-height: 4rem; max-height: 12rem; box-sizing: border-box; margin: 0;
+  field-sizing: content; resize: none; outline: none;
+  border: 0 solid var(--cronus-border); border-radius: 0; background: transparent; box-shadow: none;
+  padding: 0.75rem; font-family: inherit; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg);
+}
+[data-slot="prompt-input-textarea"]::placeholder {
+  color: var(--cronus-fg-tertiary);
+}
+[data-slot="prompt-input-footer"] {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.25rem;
+  padding-inline: 0.5rem; padding-block-end: 0.5rem;
+}
+[data-slot="prompt-input-tools"] {
+  display: flex; align-items: center; gap: 0.25rem;
+}
+[data-slot="prompt-input-submit"] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  width: 2rem; height: 2rem; padding: 0; border: 0; white-space: nowrap;
+  border-radius: var(--cronus-radius-lg); font-family: inherit;
+  font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+  box-shadow: var(--cronus-shadow-xs, 0 1px 2px rgba(0,0,0,.2)); cursor: pointer; outline: none;
+  transition: opacity 150ms var(--ease-out-quart), transform 150ms var(--ease-out-quart);
+}
+[data-slot="prompt-input-submit"]:hover:not(:disabled) {
+  opacity: 0.9;
+}
+[data-slot="prompt-input-submit"]:active:not(:disabled) {
+  transform: scale(0.98);
+}
+[data-slot="prompt-input-submit"] > svg {
+  width: 0.875rem; height: 0.875rem; flex-shrink: 0; pointer-events: none;
+}

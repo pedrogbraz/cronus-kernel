@@ -1,0 +1,31 @@
+[data-slot="inline-citation"] {
+  position: relative; display: inline; align-items: center; gap: 0.25rem;
+}
+[data-slot="inline-citation-text"] {
+  transition: background-color 150ms var(--ease-out-quart);
+}
+[data-slot="inline-citation"]:hover > [data-slot="inline-citation-text"] {
+  background: var(--cronus-surface-overlay);
+}
+[data-slot="inline-citation-card-trigger"] {
+  display: inline-flex; align-items: center; gap: 0.25rem; margin-inline-start: 0.25rem;
+  border-radius: 9999px; border: 1px solid var(--cronus-border); padding: 0.125rem 0.5rem;
+  font-size: 0.75rem; line-height: 1rem; font-weight: 500; white-space: nowrap;
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg-secondary);
+  cursor: pointer; outline: none;
+}
+[data-slot="inline-citation-card-body"] {
+  display: none; position: absolute; z-index: 50; inset-block-start: calc(100% + 4px); inset-inline-start: 0;
+  inline-size: 20rem; max-inline-size: 90vw; box-sizing: border-box; padding: 1rem;
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-lg, 0 16px 40px rgba(0,0,0,.32));
+}
+[data-slot="inline-citation"]:hover > [data-slot="inline-citation-card-body"],
+[data-slot="inline-citation"]:focus-within > [data-slot="inline-citation-card-body"] {
+  display: grid; gap: 0.5rem;
+}
+[data-slot="inline-citation-source"] > p {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-tertiary);
+}

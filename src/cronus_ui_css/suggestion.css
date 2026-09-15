@@ -1,0 +1,23 @@
+[data-slot="suggestions"] {
+  width: 100%; overflow-x: auto; white-space: nowrap; outline: none;
+}
+[data-slot="suggestions"]:focus-visible {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
+}
+[data-slot="suggestions"] > div {
+  display: flex; width: max-content; flex-wrap: nowrap; align-items: center; gap: 0.5rem;
+}
+[data-slot="suggestion"] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem;
+  height: 2rem; padding: 0 1rem; box-sizing: border-box; white-space: nowrap;
+  border: 1px solid var(--cronus-border); border-radius: 9999px;
+  font-family: inherit; font-size: 0.75rem; line-height: 1rem; font-weight: 500;
+  background: transparent; color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-xs, none); cursor: pointer; outline: none;
+}
+[data-slot="suggestion"]:hover:not(:disabled) {
+  background: var(--cronus-surface-overlay);
+}
+[data-slot="suggestion"] > svg {
+  width: 0.875rem; height: 0.875rem; flex-shrink: 0;
+}

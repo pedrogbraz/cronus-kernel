@@ -1,0 +1,23 @@
+[data-slot="sources"] {
+  margin-block-end: 1rem; font-size: 0.75rem; line-height: 1rem; color: var(--cronus-primary-text);
+}
+[data-slot="sources-trigger"] {
+  display: flex; align-items: center; gap: 0.5rem; outline: none;
+}
+[data-slot="sources-trigger"] > p {
+  font-weight: 500;
+}
+[data-slot="sources-trigger"] > svg,
+[data-slot="source"] > svg {
+  width: 1rem; height: 1rem;
+}
+[data-slot="sources-content"] {
+  margin-block-start: 0.75rem; display: flex; width: fit-content; flex-direction: column; gap: 0.5rem;
+  overflow: hidden; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="source"] {
+  display: flex; align-items: center; gap: 0.5rem;
+}
+[data-slot="source"] > span {
+  display: block; font-weight: 500;
+}
