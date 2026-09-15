@@ -8,6 +8,8 @@ mod animations;
 mod api_crud;
 #[cfg(test)]
 mod api_security_tests;
+#[cfg(test)]
+mod api_validation_tests;
 mod ast_diff;
 mod audit;
 mod auth;
@@ -27,6 +29,7 @@ mod cronus_ui_accordion;
 mod cronus_ui_alert;
 mod cronus_ui_alert_dialog;
 mod cronus_ui_animated_button;
+mod cronus_ui_animated_checkbox;
 mod cronus_ui_animated_list;
 mod cronus_ui_animated_number;
 mod cronus_ui_app_shell;
@@ -115,6 +118,7 @@ mod cronus_ui_light_rays;
 mod cronus_ui_lightbox;
 mod cronus_ui_line_chart;
 mod cronus_ui_live_line_chart;
+mod cronus_ui_loader;
 mod cronus_ui_logo_carousel;
 mod cronus_ui_magnetic;
 mod cronus_ui_marquee;
@@ -128,6 +132,7 @@ mod cronus_ui_multi_select;
 mod cronus_ui_navigation_menu;
 mod cronus_ui_noise;
 mod cronus_ui_notification_center;
+mod cronus_ui_number_flow;
 mod cronus_ui_number_input;
 mod cronus_ui_orbit;
 #[cfg(test)]
@@ -155,6 +160,7 @@ mod cronus_ui_scatter_chart;
 mod cronus_ui_scheduler;
 mod cronus_ui_scramble_text;
 mod cronus_ui_scroll_area;
+mod cronus_ui_scroll_nav;
 mod cronus_ui_scroll_progress;
 mod cronus_ui_segmented_control;
 mod cronus_ui_select;
@@ -165,6 +171,7 @@ mod cronus_ui_shiny_text;
 mod cronus_ui_sidebar;
 mod cronus_ui_signature_pad;
 mod cronus_ui_skeleton;
+mod cronus_ui_slide_up_text;
 mod cronus_ui_slider;
 mod cronus_ui_sonner;
 mod cronus_ui_sparkles_text;
@@ -201,12 +208,22 @@ mod cronus_ui_video_player;
 mod cronus_ui_widgets;
 mod cronus_ui_word_rotate;
 mod cronus_ui_workspace_switcher;
+// Sprint 5 C2 — AI suite (alphabetical).
+mod cronus_ui_conversation;
+mod cronus_ui_inline_citation;
+mod cronus_ui_message;
+mod cronus_ui_prompt_input;
+mod cronus_ui_reasoning;
+mod cronus_ui_sources;
+mod cronus_ui_suggestion;
+mod cronus_ui_tool;
 mod data_table;
 mod database;
 mod deploy;
 #[cfg(feature = "dump")]
 mod dump;
 mod effects;
+mod env_schema;
 mod error;
 mod export;
 mod feedback;
@@ -227,6 +244,7 @@ mod parser;
 mod payments;
 mod promote;
 mod rate_limit;
+mod relations;
 mod render;
 mod resolve;
 mod routes;
@@ -242,6 +260,7 @@ mod testing;
 mod theme;
 mod trust;
 mod ui;
+mod validation;
 mod vm;
 mod voodoo;
 mod webhook;
@@ -336,6 +355,7 @@ async fn main() {
         "graph" => cmd_graph(&args),
         "brief" => cmd_brief(),
         "context" => cmd_context(&args),
+        "mcp" => cli::mcp::cmd_mcp(&args),
         "sync" => cmd_sync(),
         "handoff" => cmd_handoff(&args),
         "lease" => cmd_lease(&args),
