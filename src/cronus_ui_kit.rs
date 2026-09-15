@@ -16,6 +16,23 @@ pub fn item<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
         .map(|i| i.text.as_str())
 }
 
+/// Stable id for native `popovertarget` / `anchor` pairs. ASCII slug of name.
+pub fn widget_id(comp: &ComponentNode, part: &str) -> String {
+    let mut out = String::from("cui-");
+    for ch in comp.name.chars() {
+        if ch.is_ascii_alphanumeric() {
+            out.push(ch.to_ascii_lowercase());
+        } else if out.as_bytes().last() != Some(&b'-') {
+            out.push('-');
+        }
+    }
+    if !out.ends_with('-') {
+        out.push('-');
+    }
+    out.push_str(part);
+    out
+}
+
 pub fn label_of(comp: &ComponentNode) -> String {
     for kind in ["label", "title", "text", "value"] {
         if let Some(t) = item(comp, kind) {
