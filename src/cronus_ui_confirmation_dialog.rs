@@ -6,11 +6,19 @@
 //! `confirmation-dialog` panel (`role="alertdialog"`). Structure as in React:
 //! `alert-dialog-header` > `alert-dialog-title` (`h2`) [+ `alert-dialog-description`],
 //! then `alert-dialog-footer` > `alert-dialog-cancel` (outline) +
-//! `confirmation-dialog-confirm` (primary, min-width 6rem). Closing/confirming needs
-//! JS, so both are the same native buttons with `disabled` and React's idle look.
-//! Not reproduced (JS-only): focus trap, async `onConfirm` spinner/error state.
+//! `confirmation-dialog-confirm` (primary, min-width 6rem). In this open specimen
+//! nothing can close the panel, so both are the same native buttons with
+//! `disabled` and React's idle look.
+//!
+//! Closed mode (`trigger:"…"` prop, or `open:false` / `defaultOpen:false`; see
+//! `cronus_ui_kit::overlay_trigger`): an outline `button` trigger opens the panel
+//! as a native `popover="auto"` (scrim on `::backdrop`, no overlay div) and
+//! Cancel hides it (`popovertargetaction="hide"`); Confirm still needs JS and
+//! stays `disabled`. Gaps: a popover is not modal (no focus trap, background not
+//! inert, `aria-expanded` not reflected) and an outside click also dismisses it.
+//! Not reproduced (JS-only): async `onConfirm` spinner/error state.
 
-use crate::cronus_ui_kit::{attr_nonempty, esc, item, label_of, widget_id};
+use crate::cronus_ui_kit::{attr_nonempty, esc, item, label_of, overlay_trigger, widget_id};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -34,9 +42,27 @@ pub fn render(comp: &ComponentNode) -> String {
         format!("<p data-slot=\"alert-dialog-description\">{desc}</p>")
     };
     let title_id = widget_id(comp, "confirmation-dialog-title");
-    format!(
-        "<div data-slot=\"alert-dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"confirmation-dialog\" data-state=\"open\" role=\"alertdialog\" aria-labelledby=\"{title_id}\"><div data-slot=\"alert-dialog-header\"><h2 data-slot=\"alert-dialog-title\" id=\"{title_id}\">{title}</h2>{desc_html}</div><div data-slot=\"alert-dialog-footer\"><button type=\"button\" data-slot=\"alert-dialog-cancel\" disabled>{cancel}</button><button type=\"button\" data-slot=\"confirmation-dialog-confirm\" disabled>{confirm}</button></div></div>"
-    )
+    let trigger = overlay_trigger(comp, "Open");
+    let pop_id = widget_id(comp, "confirmation-dialog");
+    let cancel_state = if trigger.is_some() {
+        format!(" popovertarget=\"{pop_id}\" popovertargetaction=\"hide\"")
+    } else {
+        " disabled".to_string()
+    };
+    let body = format!(
+        "<div data-slot=\"alert-dialog-header\"><h2 data-slot=\"alert-dialog-title\" id=\"{title_id}\">{title}</h2>{desc_html}</div><div data-slot=\"alert-dialog-footer\"><button type=\"button\" data-slot=\"alert-dialog-cancel\"{cancel_state}>{cancel}</button><button type=\"button\" data-slot=\"confirmation-dialog-confirm\" disabled>{confirm}</button></div>"
+    );
+    match trigger {
+        None => format!(
+            "<div data-slot=\"alert-dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"confirmation-dialog\" data-state=\"open\" role=\"alertdialog\" aria-labelledby=\"{title_id}\">{body}</div>"
+        ),
+        Some(trigger) => {
+            let trigger_id = widget_id(comp, "confirmation-dialog-trigger");
+            format!(
+                "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pop_id}\" aria-haspopup=\"dialog\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"confirmation-dialog\" role=\"alertdialog\" aria-labelledby=\"{title_id}\">{body}</div>"
+            )
+        }
+    }
 }
 
 fn extras(comp: &ComponentNode, title: &str) -> String {
@@ -45,7 +71,7 @@ fn extras(comp: &ComponentNode, title: &str) -> String {
         .filter(|i| {
             !matches!(
                 i.item_type.as_str(),
-                "label" | "title" | "action" | "cancel" | "confirm"
+                "label" | "title" | "action" | "cancel" | "confirm" | "trigger"
             )
         })
         .filter(|i| !i.text.is_empty())
@@ -122,6 +148,40 @@ mod tests {
         assert!(render(&c).contains(
             "Delete project</h2><p data-slot=\"alert-dialog-description\">This cannot be undone.</p></div>"
         ));
+    }
+
+    #[test]
+    fn trigger_item_renders_closed_popover_with_working_cancel() {
+        let mut c = stub("confirmation-dialog", "Delete project");
+        c.items.push(extra("trigger", "Delete…"));
+        let html = render(&c);
+        let tid = widget_id(&c, "confirmation-dialog-trigger");
+        let pid = widget_id(&c, "confirmation-dialog");
+        assert!(html.starts_with(&format!(
+            "<button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pid}\" aria-haspopup=\"dialog\">Delete…</button><div id=\"{pid}\" popover=\"auto\" data-slot=\"confirmation-dialog\" role=\"alertdialog\" aria-labelledby="
+        )));
+        assert!(!html.contains("alert-dialog-overlay"));
+        assert!(
+            !html.contains("alert-dialog-description"),
+            "trigger is not description"
+        );
+        assert!(html.contains(&format!(
+            "<button type=\"button\" data-slot=\"alert-dialog-cancel\" popovertarget=\"{pid}\" popovertargetaction=\"hide\">Cancel</button>"
+        )));
+        assert!(
+            html.contains("data-slot=\"confirmation-dialog-confirm\" disabled>Confirm</button>")
+        );
+        reject_js(&html);
+    }
+
+    #[test]
+    fn chrome_closed_mode_hides_until_open_with_backdrop() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains(
+            "[data-slot=\"confirmation-dialog\"][popover]:not(:popover-open) { display: none; }"
+        ));
+        assert!(css.contains("[data-slot=\"confirmation-dialog\"][popover]:popover-open {\n  position: fixed; inset: 0; margin: auto; translate: none;"));
+        assert!(css.contains("[data-slot=\"confirmation-dialog\"][popover]::backdrop {"));
     }
 
     #[test]

@@ -26,3 +26,10 @@
   position: relative; top: 1px; width: 0.875rem; height: 0.875rem; flex-shrink: 0;
   color: var(--cronus-fg-tertiary);
 }
+/* Trigger items with `content:` open a native popover panel under the trigger. */
+[data-slot="navigation-menu-content"]:popover-open {
+  box-sizing: border-box; margin: 0; padding: 0.5rem 0.75rem;
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  font-size: 0.875rem; line-height: 1.25rem; box-shadow: var(--cronus-shadow-lg, none);
+}

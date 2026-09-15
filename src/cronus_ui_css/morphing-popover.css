@@ -27,3 +27,8 @@
 [data-slot="morphing-popover-content"] > div {
   display: flex; width: 100%; flex: 1 1 0%; flex-direction: column;
 }
+/* Closed mode (trigger item / open:false): native popover anchored under the trigger. */
+[data-slot="morphing-popover-content"][popover]:not(:popover-open) { display: none; }
+[data-slot="morphing-popover-content"][popover]:popover-open {
+  margin: 0; padding: 0;
+}

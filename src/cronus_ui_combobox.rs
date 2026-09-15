@@ -1,27 +1,47 @@
 //! Dedicated Combobox renderer. DOM matches React's closed Combobox: a single
 //! outline `<button data-slot="combobox-trigger" role="combobox">` with a
 //! `<span>` label (placeholder or selected option) + lucide `chevrons-up-down`.
-//! React has no wrapper element and mounts the listbox only while open.
-//! Opening, filtering and picking need JS, so the trigger is React's native
-//! button rendered `disabled` with React's idle look (not dimmed); a real
-//! `disabled` prop adds `data-disabled` and dims like React `disabled:opacity-50`.
+//! React has no wrapper element and mounts the listbox (`combobox-content`)
+//! only while open.
+//! Zero JS: the trigger's `popovertarget` opens a native `popover="auto"`
+//! `combobox-content` anchored under it (Esc / outside click dismiss) with one
+//! `<label data-slot="combobox-item" data-option="N">` per option around a
+//! visually hidden radio (`name:"…"` prop, else a widget id): the choice submits
+//! with a form. The trigger text follows the checked radio in CSS (`data-oN`
+//! labels on the text span + `attr()`, first 12 options), like select.
+//! Gaps: no search input / filtering (cmdk needs JS), picking does not close the
+//! popover, `aria-expanded` is not reflected, the swapped text is a CSS
+//! pseudo-element, and the popup is a native `radiogroup`, not a listbox.
+//! A real `disabled` prop adds `data-disabled`, `disabled` and dims like React
+//! `disabled:opacity-50`.
 //! Not interact `select("combobox")` (`<label><select data-slot="combobox-control">`).
 
-use crate::cronus_ui_kit::{choice_texts, esc, item};
+use crate::cronus_ui_kit::{choice_texts, content_texts, esc, item, widget_id};
 use crate::parser::ComponentNode;
 
 /// lucide `chevrons-up-down` (React `size-4 opacity-60 ml-2`).
 const CHEVRONS: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m7 15 5 5 5-5\"></path><path d=\"m7 9 5-5 5 5\"></path></svg>";
 
+/// Options whose label the trigger can show (one CSS rule each in combobox.css).
+const SWAP_MAX: usize = 12;
+
 pub fn render(comp: &ComponentNode) -> String {
-    let options = choice_texts(comp);
+    let placeholder = placeholder_of(comp);
+    let options = options_of(comp, &placeholder);
     let selected = selected_of(comp, &options);
-    let trigger = selected.clone().unwrap_or_else(|| placeholder_of(comp));
-    let mut attrs = String::from(
-        "type=\"button\" data-slot=\"combobox-trigger\" data-variant=\"outline\" role=\"combobox\" aria-expanded=\"false\" aria-haspopup=\"listbox\"",
+    let trigger = selected.clone().unwrap_or_else(|| placeholder.clone());
+    let trigger_id = widget_id(comp, "trigger");
+    let pop_id = widget_id(comp, "listbox");
+    let aria_prop = comp
+        .props
+        .get("aria-label")
+        .filter(|s| !s.is_empty())
+        .map(|a| esc(a));
+    let mut attrs = format!(
+        "type=\"button\" id=\"{trigger_id}\" data-slot=\"combobox-trigger\" data-variant=\"outline\" role=\"combobox\" aria-expanded=\"false\" aria-haspopup=\"listbox\""
     );
-    if let Some(aria) = comp.props.get("aria-label").filter(|s| !s.is_empty()) {
-        attrs.push_str(&format!(" aria-label=\"{}\"", esc(aria)));
+    if let Some(aria) = &aria_prop {
+        attrs.push_str(&format!(" aria-label=\"{aria}\""));
     }
     attrs.push_str(" data-state=\"closed\"");
     if selected.is_none() {
@@ -30,8 +50,55 @@ pub fn render(comp: &ComponentNode) -> String {
     if disabled(comp) {
         attrs.push_str(" data-disabled=\"\"");
     }
-    attrs.push_str(" disabled");
-    format!("<button {attrs}><span>{trigger}</span>{CHEVRONS}</button>")
+    attrs.push_str(&format!(
+        " popovertarget=\"{pop_id}\" aria-controls=\"{pop_id}\""
+    ));
+    if disabled(comp) {
+        attrs.push_str(" disabled");
+    }
+    let name = comp
+        .props
+        .get("name")
+        .filter(|s| !s.is_empty())
+        .map(|n| esc(n))
+        .unwrap_or_else(|| widget_id(comp, "value"));
+    let labels: String = options
+        .iter()
+        .take(SWAP_MAX)
+        .enumerate()
+        .map(|(i, o)| format!(" data-o{}=\"{o}\"", i + 1))
+        .collect();
+    let items: String = options
+        .iter()
+        .enumerate()
+        .map(|(i, o)| {
+            let checked = if selected.as_deref() == Some(o.as_str()) {
+                " checked"
+            } else {
+                ""
+            };
+            format!(
+                "<label data-slot=\"combobox-item\" data-option=\"{}\"><input type=\"radio\" name=\"{name}\" value=\"{o}\"{checked}><span>{o}</span></label>",
+                i + 1
+            )
+        })
+        .collect();
+    let aria = aria_prop.unwrap_or_else(|| placeholder.clone());
+    format!(
+        "<button {attrs}><span{labels}>{trigger}</span>{CHEVRONS}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"combobox-content\" role=\"radiogroup\" aria-label=\"{aria}\" anchor=\"{trigger_id}\">{items}</div>"
+    )
+}
+
+/// Choice items, else the `text` lines after the label, minus the placeholder
+/// (the audit fixture repeats it as its first text).
+fn options_of(comp: &ComponentNode, placeholder: &str) -> Vec<String> {
+    let choices = choice_texts(comp);
+    let list = if choices.is_empty() {
+        content_texts(comp)
+    } else {
+        choices
+    };
+    list.into_iter().filter(|o| o != placeholder).collect()
 }
 
 fn placeholder_of(comp: &ComponentNode) -> String {
@@ -109,7 +176,6 @@ mod tests {
         assert!(!html.contains("<select"));
         assert!(!html.contains("</select>"));
         assert!(!html.contains("data-slot=\"combobox-control\""));
-        assert!(!html.contains("<label"));
         assert!(!html.contains(" style="));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
@@ -118,29 +184,47 @@ mod tests {
     }
 
     #[test]
-    fn root_is_single_disabled_trigger_button() {
-        let html = render(&combo("Search", &["Ada", "Grace"]));
+    fn trigger_opens_native_popover_radio_listbox() {
+        let c = combo("Search", &["Ada", "Grace"]);
+        let html = render(&c);
         assert!(
             !html.contains("data-slot=\"combobox\""),
             "React has no wrapper slot: {html}"
         );
-        assert!(!html.contains("popover"), "no JS-less listbox: {html}");
         reject_interact(&html);
+        let tid = crate::cronus_ui_kit::widget_id(&c, "trigger");
+        let pid = crate::cronus_ui_kit::widget_id(&c, "listbox");
+        let name = crate::cronus_ui_kit::widget_id(&c, "value");
         assert_eq!(
             html,
-            format!("<button type=\"button\" data-slot=\"combobox-trigger\" data-variant=\"outline\" role=\"combobox\" aria-expanded=\"false\" aria-haspopup=\"listbox\" data-state=\"closed\" data-placeholder=\"\" disabled><span>Search</span>{CHEVRONS}</button>")
+            format!("<button type=\"button\" id=\"{tid}\" data-slot=\"combobox-trigger\" data-variant=\"outline\" role=\"combobox\" aria-expanded=\"false\" aria-haspopup=\"listbox\" data-state=\"closed\" data-placeholder=\"\" popovertarget=\"{pid}\" aria-controls=\"{pid}\"><span data-o1=\"Ada\" data-o2=\"Grace\">Search</span>{CHEVRONS}</button><div id=\"{pid}\" popover=\"auto\" data-slot=\"combobox-content\" role=\"radiogroup\" aria-label=\"Search\" anchor=\"{tid}\"><label data-slot=\"combobox-item\" data-option=\"1\"><input type=\"radio\" name=\"{name}\" value=\"Ada\"><span>Ada</span></label><label data-slot=\"combobox-item\" data-option=\"2\"><input type=\"radio\" name=\"{name}\" value=\"Grace\"><span>Grace</span></label></div>")
         );
     }
 
     #[test]
     fn label_is_placeholder_not_an_option() {
         let html = render(&combo("Search", &["Ada", "Grace"]));
-        assert!(html.contains("<span>Search</span>"));
-        assert!(
-            !html.contains("Ada"),
-            "options only mount while open: {html}"
-        );
+        assert!(html.contains(">Search</span>"));
+        assert!(!html.contains("value=\"Search\""), "{html}");
         reject_interact(&html);
+    }
+
+    /// Emitted fixture: `text` lines after the label are the options.
+    #[test]
+    fn fixture_text_lines_are_options_without_the_placeholder() {
+        let mut c = stub("combobox", "Select fruit");
+        for t in ["Select fruit", "Apple", "Banana"] {
+            c.items.push(ComponentItemNode {
+                item_type: "text".into(),
+                text: t.into(),
+                link: None,
+                tone: None,
+                config: Default::default(),
+            });
+        }
+        let html = render(&c);
+        assert!(html.contains("data-o1=\"Apple\" data-o2=\"Banana\">Select fruit</span>"));
+        assert_eq!(html.matches("data-slot=\"combobox-item\"").count(), 2);
     }
 
     #[test]
@@ -156,7 +240,8 @@ mod tests {
         let mut c = combo("Search", &["Ada", "Grace"]);
         c.props.insert("value".into(), "Grace".into());
         let html = render(&c);
-        assert!(html.contains("<span>Grace</span>"));
+        assert!(html.contains("data-o2=\"Grace\">Grace</span>"));
+        assert!(html.contains("value=\"Grace\" checked><span>Grace</span>"));
         assert!(!html.contains("data-placeholder"));
         reject_interact(&html);
     }
@@ -175,8 +260,24 @@ mod tests {
         let mut c = combo("Search", &["Ada"]);
         c.props.insert("disabled".into(), "true".into());
         let html = render(&c);
-        assert!(html.contains(" data-disabled=\"\" disabled><span>Search</span>"));
+        assert!(html.contains(" data-disabled=\"\" popovertarget="));
+        assert!(html.contains(" disabled><span data-o1=\"Ada\">Search</span>"));
         reject_interact(&html);
+        let open = render(&combo("Search", &["Ada"]));
+        assert!(
+            !open.contains(" disabled"),
+            "only a real disabled prop disables"
+        );
+    }
+
+    #[test]
+    fn chrome_listbox_popover_and_selection_swap() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"combobox-content\"]:popover-open {"));
+        assert!(css.contains("[data-slot=\"combobox-item\"] {"));
+        assert!(css.contains(
+            "[data-slot=\"combobox-trigger\"]:has(+ [data-slot=\"combobox-content\"] [data-option=\"1\"] > :checked) > span::before { content: attr(data-o1); }"
+        ));
     }
 
     #[test]

@@ -4,12 +4,18 @@
 //! `sheet-overlay` (fixed scrim) + `sheet-content` (fixed, right-pinned, border-left)
 //! holding `sheet-header` > `h2 sheet-title` + `p sheet-description`, then the
 //! `sheet-close` button (X icon + sr-only "Close").
-//! The kernel renders the same tree open by default, zero JS. Closing needs JS, so
-//! `sheet-close` is the same native `<button>` with `disabled`, keeping React's idle
-//! look (no dimming). Description comes from `description:"…"` (props or item
+//! The kernel renders the same tree open by default, zero JS. That open specimen
+//! is not a popover and cannot close, so `sheet-close` is the same native
+//! `<button>` with `disabled`, keeping React's idle look (no dimming).
+//! Closed mode (`trigger:"…"` prop, or `open:false` / `defaultOpen:false`; see
+//! `cronus_ui_kit::overlay_trigger`): an outline `button` trigger opens
+//! `sheet-content` as a native `popover="auto"` (right-pinned, scrim on
+//! `::backdrop`, no overlay div) and `sheet-close` hides it. Gaps: a popover is
+//! not modal (no focus trap, background not inert, `aria-expanded` not reflected).
+//! Description comes from `description:"…"` (props or item
 //! config), else extra `text`. Not interact `dialog("sheet")` `<dialog>` + `showModal()`.
 
-use crate::cronus_ui_kit::{attr, esc, item, label_of, widget_id};
+use crate::cronus_ui_kit::{attr, esc, item, label_of, overlay_trigger, widget_id};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -28,9 +34,21 @@ pub fn render(comp: &ComponentNode) -> String {
             format!("<p id=\"{desc_id}\" data-slot=\"sheet-description\">{desc}</p>"),
         )
     };
-    format!(
-        "<div data-slot=\"sheet-overlay\" aria-hidden=\"true\"></div><div role=\"dialog\" aria-labelledby=\"{title_id}\"{described_by} data-slot=\"sheet-content\"><div data-slot=\"sheet-header\"><h2 id=\"{title_id}\" data-slot=\"sheet-title\">{title}</h2>{desc_html}</div><button type=\"button\" data-slot=\"sheet-close\" disabled><span>Close</span></button></div>"
-    )
+    let header = format!(
+        "<div data-slot=\"sheet-header\"><h2 id=\"{title_id}\" data-slot=\"sheet-title\">{title}</h2>{desc_html}</div>"
+    );
+    match overlay_trigger(comp, "Open") {
+        None => format!(
+            "<div data-slot=\"sheet-overlay\" aria-hidden=\"true\"></div><div role=\"dialog\" aria-labelledby=\"{title_id}\"{described_by} data-slot=\"sheet-content\">{header}<button type=\"button\" data-slot=\"sheet-close\" disabled><span>Close</span></button></div>"
+        ),
+        Some(trigger) => {
+            let trigger_id = widget_id(comp, "sheet-trigger");
+            let pop_id = widget_id(comp, "sheet");
+            format!(
+                "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pop_id}\" aria-haspopup=\"dialog\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" role=\"dialog\" aria-labelledby=\"{title_id}\"{described_by} data-slot=\"sheet-content\">{header}<button type=\"button\" data-slot=\"sheet-close\" popovertarget=\"{pop_id}\" popovertargetaction=\"hide\"><span>Close</span></button></div>"
+            )
+        }
+    }
 }
 
 fn description(comp: &ComponentNode, title: &str) -> String {
@@ -122,6 +140,35 @@ mod tests {
         let c = stub("sheet", "Filters");
         let html = render(&c);
         reject_interact(&html);
+    }
+
+    #[test]
+    fn trigger_item_renders_closed_popover_with_working_close() {
+        let mut c = stub("sheet", "Edit profile");
+        c.items.push(extra("trigger", "Open sheet"));
+        let html = render(&c);
+        let tid = widget_id(&c, "sheet-trigger");
+        let pid = widget_id(&c, "sheet");
+        assert!(html.starts_with(&format!(
+            "<button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pid}\" aria-haspopup=\"dialog\">Open sheet</button><div id=\"{pid}\" popover=\"auto\" role=\"dialog\" aria-labelledby="
+        )));
+        assert!(!html.contains("sheet-overlay"));
+        assert!(
+            !html.contains("data-slot=\"sheet-description\""),
+            "trigger is not description"
+        );
+        assert!(html.ends_with(&format!(
+            "<button type=\"button\" data-slot=\"sheet-close\" popovertarget=\"{pid}\" popovertargetaction=\"hide\"><span>Close</span></button></div>"
+        )));
+    }
+
+    #[test]
+    fn chrome_closed_mode_hides_until_open_with_backdrop() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains(
+            "[data-slot=\"sheet-content\"][popover]:not(:popover-open) { display: none; }"
+        ));
+        assert!(css.contains("[data-slot=\"sheet-content\"][popover]::backdrop {"));
     }
 
     #[test]

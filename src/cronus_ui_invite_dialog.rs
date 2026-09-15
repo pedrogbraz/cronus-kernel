@@ -14,8 +14,15 @@
 //! trigger is a disabled `button` showing the default role, and a hidden native
 //! `select` carries that value. The email input stays editable. Not reproduced either: focus
 //! trap, async `onInvite` spinner/error, invite-link success view.
+//!
+//! Closed mode (`trigger:"…"` prop, or `open:false` / `defaultOpen:false`; see
+//! `cronus_ui_kit::overlay_trigger`): an outline `button` trigger opens the panel
+//! as a native `popover="auto"` (scrim on `::backdrop`, no overlay div); Cancel
+//! and Close hide it (`popovertargetaction="hide"`). Send and the role select
+//! still need JS and stay `disabled`. Gaps: a popover is not modal (no focus
+//! trap, background not inert, `aria-expanded` not reflected).
 
-use crate::cronus_ui_kit::{attr, esc, item, label_of, widget_id};
+use crate::cronus_ui_kit::{attr, esc, item, label_of, overlay_trigger, widget_id};
 use crate::parser::ComponentNode;
 
 /// React `DEFAULT_ROLES`; the first is initially selected.
@@ -65,9 +72,28 @@ pub fn render(comp: &ComponentNode) -> String {
     let email_id = widget_id(comp, "invite-dialog-email");
     let role_id = widget_id(comp, "invite-dialog-role");
 
-    format!(
-        "<div data-slot=\"dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"invite-dialog\" data-state=\"open\" role=\"dialog\" aria-labelledby=\"{title_id}\"><div data-slot=\"dialog-header\"><h2 data-slot=\"dialog-title\" id=\"{title_id}\">{title}</h2><p data-slot=\"dialog-description\">{description}</p></div><form id=\"{form}\"><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{email_id}\">{email}</label><input data-slot=\"input\" id=\"{email_id}\" type=\"email\" name=\"email\" autocomplete=\"email\" required placeholder=\"{placeholder}\"></div><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{role_id}\">{role}</label><button type=\"button\" data-slot=\"select-trigger\" id=\"{role_id}\" role=\"combobox\" aria-expanded=\"false\" disabled><span>{role_text}</span>{CHEVRON}</button><select aria-hidden=\"true\" tabindex=\"-1\" name=\"role\">{options}</select></div><div data-slot=\"dialog-footer\"><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" disabled>{cancel}</button><button type=\"button\" data-slot=\"invite-dialog-send\" data-variant=\"primary\" disabled>{send}</button></div></form><button type=\"button\" data-slot=\"dialog-close\" disabled>{CROSS}<span>{close}</span></button></div>"
-    )
+    let trigger = overlay_trigger(comp, "Open");
+    let pop_id = widget_id(comp, "invite-dialog");
+    // Cancel / Close: inert in the open specimen, native popover hide when closed.
+    let dismiss = if trigger.is_some() {
+        format!(" popovertarget=\"{pop_id}\" popovertargetaction=\"hide\"")
+    } else {
+        " disabled".to_string()
+    };
+    let body = format!(
+        "<div data-slot=\"dialog-header\"><h2 data-slot=\"dialog-title\" id=\"{title_id}\">{title}</h2><p data-slot=\"dialog-description\">{description}</p></div><form id=\"{form}\"><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{email_id}\">{email}</label><input data-slot=\"input\" id=\"{email_id}\" type=\"email\" name=\"email\" autocomplete=\"email\" required placeholder=\"{placeholder}\"></div><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{role_id}\">{role}</label><button type=\"button\" data-slot=\"select-trigger\" id=\"{role_id}\" role=\"combobox\" aria-expanded=\"false\" disabled><span>{role_text}</span>{CHEVRON}</button><select aria-hidden=\"true\" tabindex=\"-1\" name=\"role\">{options}</select></div><div data-slot=\"dialog-footer\"><button type=\"button\" data-slot=\"button\" data-variant=\"outline\"{dismiss}>{cancel}</button><button type=\"button\" data-slot=\"invite-dialog-send\" data-variant=\"primary\" disabled>{send}</button></div></form><button type=\"button\" data-slot=\"dialog-close\"{dismiss}>{CROSS}<span>{close}</span></button>"
+    );
+    match trigger {
+        None => format!(
+            "<div data-slot=\"dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"invite-dialog\" data-state=\"open\" role=\"dialog\" aria-labelledby=\"{title_id}\">{body}</div>"
+        ),
+        Some(trigger) => {
+            let trigger_id = widget_id(comp, "invite-dialog-trigger");
+            format!(
+                "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pop_id}\" aria-haspopup=\"dialog\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"invite-dialog\" role=\"dialog\" aria-labelledby=\"{title_id}\">{body}</div>"
+            )
+        }
+    }
 }
 
 #[cfg(test)]
@@ -135,6 +161,37 @@ mod tests {
             .insert("description".into(), "From config.".into());
         assert!(render(&c).contains("<p data-slot=\"dialog-description\">From config.</p>"));
         reject_js(&html);
+    }
+
+    #[test]
+    fn trigger_item_renders_closed_popover_with_working_cancel_and_close() {
+        let mut c = stub("invite-dialog", "Invite member");
+        c.items.push(extra("trigger", "Invite"));
+        let html = render(&c);
+        let tid = widget_id(&c, "invite-dialog-trigger");
+        let pid = widget_id(&c, "invite-dialog");
+        assert!(html.starts_with(&format!(
+            "<button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pid}\" aria-haspopup=\"dialog\">Invite</button><div id=\"{pid}\" popover=\"auto\" data-slot=\"invite-dialog\" role=\"dialog\" aria-labelledby="
+        )));
+        assert!(!html.contains("dialog-overlay"));
+        assert!(html.contains(&format!(
+            "data-variant=\"outline\" popovertarget=\"{pid}\" popovertargetaction=\"hide\">Cancel</button>"
+        )));
+        assert!(html.contains(&format!(
+            "<button type=\"button\" data-slot=\"dialog-close\" popovertarget=\"{pid}\" popovertargetaction=\"hide\">{CROSS}<span>Close</span></button></div>"
+        )));
+        assert!(html.contains("data-variant=\"primary\" disabled>Send invite</button>"));
+        reject_js(&html);
+    }
+
+    #[test]
+    fn chrome_closed_mode_hides_until_open_with_backdrop() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains(
+            "[data-slot=\"invite-dialog\"][popover]:not(:popover-open) { display: none; }"
+        ));
+        assert!(css.contains("[data-slot=\"invite-dialog\"][popover]:popover-open {\n  position: fixed; inset: 0; margin: auto; translate: none;"));
+        assert!(css.contains("[data-slot=\"invite-dialog\"][popover]::backdrop {"));
     }
 
     #[test]

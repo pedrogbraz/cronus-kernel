@@ -27,3 +27,12 @@
 [data-slot="drawer-description"] {
   margin: 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
 }
+/* Closed mode (trigger item / open:false): native bottom-pinned popover, scrim on ::backdrop. */
+[data-slot="drawer-content"][popover]:not(:popover-open) { display: none; }
+[data-slot="drawer-content"][popover]:popover-open {
+  position: fixed; inset-block: auto 0; inset-inline: 0; margin: 6rem 0 0; translate: none;
+  width: auto; padding: 0; border-radius: var(--cronus-radius-xl) var(--cronus-radius-xl) 0 0;
+}
+[data-slot="drawer-content"][popover]::backdrop {
+  background: color-mix(in srgb, black 50%, transparent);
+}

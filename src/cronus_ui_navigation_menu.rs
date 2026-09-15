@@ -3,12 +3,17 @@
 //! `<div>` > `<ul data-slot="navigation-menu-list">` > one
 //! `<li data-slot="navigation-menu-item">` per text with a closed
 //! `<button data-slot="navigation-menu-trigger">` (label + ChevronDown 14px).
-//! The fixture's triggers carry no `NavigationMenuContent`, so nothing opens.
-//! Radix toggles need JS: triggers are native buttons rendered `disabled` with
-//! React's idle (closed, undimmed) look. No Radix viewport (empty, slotless).
+//! The fixture's triggers carry no `NavigationMenuContent`, so nothing opens:
+//! those triggers are native buttons rendered `disabled` with React's idle
+//! (closed, undimmed) look. No Radix viewport (empty, slotless).
+//! A trigger item with `content:"…"` (item config) gets real content: its
+//! enabled trigger's `popovertarget` opens a native `popover="auto"`
+//! `navigation-menu-content` anchored under it (Esc / outside click dismiss).
+//! Gaps: no hover-to-open or pointer-grace between triggers (JS), and
+//! `aria-expanded` / `data-state` stay "closed".
 //! Not interact `nav("navigation-menu")` (generic SURF `<nav>`).
 
-use crate::cronus_ui_kit::{choice_texts, texts};
+use crate::cronus_ui_kit::{choice_texts, esc, texts, widget_id};
 use crate::parser::ComponentNode;
 
 const CHEVRON: &str = concat!(
@@ -20,16 +25,34 @@ const CHEVRON: &str = concat!(
 pub fn render(comp: &ComponentNode) -> String {
     let items = menu_triggers(comp)
         .iter()
-        .map(|t| {
-            format!(
+        .enumerate()
+        .map(|(i, t)| match content_of(comp, t) {
+            Some(content) => {
+                let trigger_id = widget_id(comp, &format!("trigger-{}", i + 1));
+                let pop_id = widget_id(comp, &format!("content-{}", i + 1));
+                format!(
+                    "<li data-slot=\"navigation-menu-item\"><button type=\"button\" id=\"{trigger_id}\" data-slot=\"navigation-menu-trigger\" data-state=\"closed\" aria-expanded=\"false\" popovertarget=\"{pop_id}\">{t}{CHEVRON}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"navigation-menu-content\" anchor=\"{trigger_id}\">{content}</div></li>"
+                )
+            }
+            None => format!(
                 "<li data-slot=\"navigation-menu-item\"><button type=\"button\" data-slot=\"navigation-menu-trigger\" data-state=\"closed\" aria-expanded=\"false\" disabled>{t}{CHEVRON}</button></li>"
-            )
+            ),
         })
         .collect::<Vec<_>>()
         .join("");
     format!(
         "<nav data-slot=\"navigation-menu\" aria-label=\"Main\"><div><ul data-slot=\"navigation-menu-list\">{items}</ul></div></nav>"
     )
+}
+
+/// `content:"…"` in the config of the item whose (escaped) text is `trigger`.
+fn content_of(comp: &ComponentNode, trigger: &str) -> Option<String> {
+    comp.items
+        .iter()
+        .find(|i| esc(&i.text) == trigger)
+        .and_then(|i| i.config.get("content"))
+        .filter(|c| !c.trim().is_empty())
+        .map(|c| esc(c))
 }
 
 fn menu_triggers(comp: &ComponentNode) -> Vec<String> {
@@ -95,6 +118,26 @@ mod tests {
     }
 
     #[test]
+    fn item_content_opens_a_native_popover_panel() {
+        let mut c = stub("navigation-menu", "Menus");
+        let mut products = extra("item", "Products");
+        products
+            .config
+            .insert("content".into(), "Analytics & dashboards".into());
+        c.items.push(products);
+        c.items.push(extra("item", "Docs"));
+        let html = render(&c);
+        let tid = crate::cronus_ui_kit::widget_id(&c, "trigger-1");
+        let pid = crate::cronus_ui_kit::widget_id(&c, "content-1");
+        assert!(html.contains(&format!(
+            "<li data-slot=\"navigation-menu-item\"><button type=\"button\" id=\"{tid}\" data-slot=\"navigation-menu-trigger\" data-state=\"closed\" aria-expanded=\"false\" popovertarget=\"{pid}\">Products{CHEVRON}</button><div id=\"{pid}\" popover=\"auto\" data-slot=\"navigation-menu-content\" anchor=\"{tid}\">Analytics &amp; dashboards</div></li>"
+        )));
+        // No content: nothing to open, the JS-only trigger stays inert.
+        assert!(html.contains("aria-expanded=\"false\" disabled>Docs<svg"));
+        reject_interact(&html);
+    }
+
+    #[test]
     fn field_label_is_not_a_trigger_when_items_exist() {
         let mut c = stub("navigation-menu", "Menus");
         c.items.push(extra("item", "Products"));
@@ -150,7 +193,7 @@ mod tests {
         assert!(css.contains("[data-slot=\"navigation-menu-trigger\"] > svg {"));
         assert!(css.contains("font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;"));
         assert!(css.contains("var(--cronus-fg-secondary)"));
-        assert!(!css.contains("[data-slot=\"navigation-menu-content\"]"));
+        assert!(css.contains("[data-slot=\"navigation-menu-content\"]:popover-open {"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("onclick"));
     }

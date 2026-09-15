@@ -3,17 +3,25 @@
 //!
 //! Open by default, zero JS, no native `<dialog>` (React's portal renders plain
 //! divs): a fixed `alert-dialog-overlay` scrim and the fixed, centred
-//! `alert-dialog-content` panel carrying `role="alertdialog"`. Closing needs JS,
-//! so action/cancel are the same native buttons with `disabled` and React's idle
-//! look (Wave 1t rule). Not reproduced: focus trap, Esc, pointer-outside guard.
-//! No trigger: the React fixture renders none.
+//! `alert-dialog-content` panel carrying `role="alertdialog"`. In this open
+//! specimen nothing can close the panel, so action/cancel are the same native
+//! buttons with `disabled` and React's idle look (Wave 1t rule). No trigger: the
+//! React fixture renders none.
+//!
+//! Closed mode (`trigger:"…"` prop, or `open:false` / `defaultOpen:false`; see
+//! `cronus_ui_kit::overlay_trigger`): an outline `button` trigger opens the
+//! content as a native `popover="auto"` (scrim on `::backdrop`, no overlay div)
+//! and `alert-dialog-cancel` hides it (`popovertargetaction="hide"`). The action
+//! still needs JS and stays `disabled`. Gaps: a popover is not modal (no focus
+//! trap, background not inert, `aria-expanded` not reflected), and unlike
+//! Radix AlertDialog an outside click also dismisses it (light dismiss).
 //!
 //! Content: `alert-dialog-title` (`h2`), optional `alert-dialog-description`
 //! (`description` item), optional `alert-dialog-cancel` (`cancel` item) and the
 //! primary `alert-dialog-action` (`action` item, else the first `text` item —
 //! the fixture's `items[0]` — else "Confirm").
 
-use crate::cronus_ui_kit::{attr, esc, item, label_of, widget_id};
+use crate::cronus_ui_kit::{attr, esc, item, label_of, overlay_trigger, widget_id};
 use crate::parser::ComponentNode;
 
 fn non_empty<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
@@ -43,17 +51,35 @@ pub fn render(comp: &ComponentNode) -> String {
     let description = description_of(comp)
         .map(|d| format!("<p data-slot=\"alert-dialog-description\">{d}</p>"))
         .unwrap_or_default();
+    let trigger = overlay_trigger(comp, "Open");
+    let pop_id = widget_id(comp, "alert-dialog");
+    let cancel_state = if trigger.is_some() {
+        format!(" popovertarget=\"{pop_id}\" popovertargetaction=\"hide\"")
+    } else {
+        " disabled".to_string()
+    };
     let cancel = non_empty(comp, "cancel")
         .map(|c| {
             format!(
-                "<button type=\"button\" data-slot=\"alert-dialog-cancel\" disabled>{}</button>",
+                "<button type=\"button\" data-slot=\"alert-dialog-cancel\"{cancel_state}>{}</button>",
                 esc(c)
             )
         })
         .unwrap_or_default();
-    format!(
-        "<div data-slot=\"alert-dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"alert-dialog-content\" data-state=\"open\" role=\"alertdialog\" aria-labelledby=\"{title_id}\"><h2 data-slot=\"alert-dialog-title\" id=\"{title_id}\">{title}</h2>{description}{cancel}<button type=\"button\" data-slot=\"alert-dialog-action\" disabled>{action}</button></div>"
-    )
+    let body = format!(
+        "<h2 data-slot=\"alert-dialog-title\" id=\"{title_id}\">{title}</h2>{description}{cancel}<button type=\"button\" data-slot=\"alert-dialog-action\" disabled>{action}</button>"
+    );
+    match trigger {
+        None => format!(
+            "<div data-slot=\"alert-dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"alert-dialog-content\" data-state=\"open\" role=\"alertdialog\" aria-labelledby=\"{title_id}\">{body}</div>"
+        ),
+        Some(trigger) => {
+            let trigger_id = widget_id(comp, "alert-dialog-trigger");
+            format!(
+                "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pop_id}\" aria-haspopup=\"dialog\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"alert-dialog-content\" role=\"alertdialog\" aria-labelledby=\"{title_id}\">{body}</div>"
+            )
+        }
+    }
 }
 
 #[cfg(test)]
@@ -143,6 +169,38 @@ mod tests {
             .config
             .insert("description".into(), "From config.".into());
         assert!(render(&c).contains("<p data-slot=\"alert-dialog-description\">From config.</p>"));
+    }
+
+    #[test]
+    fn trigger_item_renders_closed_popover_with_working_cancel() {
+        let mut c = fixture();
+        c.items.push(extra("trigger", "Delete"));
+        c.items.push(extra("cancel", "Keep"));
+        let html = render(&c);
+        let tid = widget_id(&c, "alert-dialog-trigger");
+        let pid = widget_id(&c, "alert-dialog");
+        assert!(html.starts_with(&format!(
+            "<button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pid}\" aria-haspopup=\"dialog\">Delete</button><div id=\"{pid}\" popover=\"auto\" data-slot=\"alert-dialog-content\" role=\"alertdialog\" aria-labelledby="
+        )));
+        assert!(!html.contains("alert-dialog-overlay"));
+        assert!(html.contains(&format!(
+            "<button type=\"button\" data-slot=\"alert-dialog-cancel\" popovertarget=\"{pid}\" popovertargetaction=\"hide\">Keep</button>"
+        )));
+        assert!(html.contains("data-slot=\"alert-dialog-action\" disabled>Confirm</button>"));
+        reject_js(&html);
+        let mut open = c.clone();
+        open.props.insert("open".into(), "true".into());
+        assert!(render(&open).starts_with("<div data-slot=\"alert-dialog-overlay\""));
+    }
+
+    #[test]
+    fn chrome_closed_mode_hides_until_open_with_backdrop() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains(
+            "[data-slot=\"alert-dialog-content\"][popover]:not(:popover-open) { display: none; }"
+        ));
+        assert!(css.contains("[data-slot=\"alert-dialog-content\"][popover]:popover-open {\n  position: fixed; inset: 0; margin: auto; translate: none;"));
+        assert!(css.contains("[data-slot=\"alert-dialog-content\"][popover]::backdrop {"));
     }
 
     #[test]

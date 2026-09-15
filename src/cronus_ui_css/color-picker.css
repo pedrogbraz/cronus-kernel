@@ -19,3 +19,33 @@
 [data-slot="color-picker-swatch"] > svg {
   display: block; width: 100%; height: 100%; pointer-events: none;
 }
+/* Native popover: value readout + optional preset radio swatches. */
+[data-slot="color-picker-content"]:popover-open {
+  display: grid; gap: 0.75rem; box-sizing: border-box; margin: 0; padding: 0.75rem;
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-lg, none);
+}
+[data-slot="color-picker-value"] {
+  font-size: 0.875rem; line-height: 1.25rem; font-variant-numeric: tabular-nums;
+}
+[data-slot="color-picker-swatches"] {
+  display: flex; flex-wrap: wrap; gap: 0.375rem;
+}
+[data-slot="color-picker-swatch-button"] {
+  position: relative; display: block; width: 1.5rem; height: 1.5rem; box-sizing: border-box;
+  overflow: hidden; border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-md);
+  cursor: pointer;
+}
+[data-slot="color-picker-swatch-button"] > input {
+  position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer;
+}
+[data-slot="color-picker-swatch-button"] > svg {
+  display: block; width: 100%; height: 100%; pointer-events: none;
+}
+[data-slot="color-picker-swatch-button"]:has(> input:checked) {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring, var(--cronus-primary));
+}
+[data-slot="color-picker-swatch-button"]:has(> input:focus-visible) {
+  outline: 2px solid var(--cronus-ring, var(--cronus-primary)); outline-offset: 2px;
+}

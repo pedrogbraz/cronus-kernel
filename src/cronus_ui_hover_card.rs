@@ -1,12 +1,16 @@
 //! Dedicated HoverCard renderer. DOM mirrors React (`HoverCardTrigger asChild`
 //! + `Button variant="link"`): `<button data-slot="button" data-variant="link">`
 //! plus `<div data-slot="hover-card-content">`, inside a slotless `<span>` that
-//! only anchors the card. Zero JS: the card has no layout box until the span is
-//! hovered or focused (CSS `:hover` / `:focus-within`). React's audit fixture
-//! forces `open` and portals the card out of the canvas.
+//! only anchors the card. Zero JS: the card is a native `popover="auto"` with no
+//! layout box until opened. The trigger's `interestfor` opens it on hover /
+//! focus (interest invokers, Chromium) and its `popovertarget` is the portable
+//! fallback: click / Enter / Space toggle it, Esc and an outside click dismiss
+//! it. Gap: browsers without interest invokers only open it on activation, not
+//! on hover. React's audit fixture forces `open` and portals the card out of
+//! the canvas.
 //! Not interact `popover("hover-card")` SURF `<details>` overlay.
 
-use crate::cronus_ui_kit::{label_of, texts};
+use crate::cronus_ui_kit::{label_of, texts, widget_id};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -18,8 +22,10 @@ pub fn render(comp: &ComponentNode) -> String {
     } else {
         body
     };
+    let trigger_id = widget_id(comp, "link");
+    let pop_id = widget_id(comp, "card");
     format!(
-        "<span><button type=\"button\" data-slot=\"button\" data-variant=\"link\">{trigger}</button><div data-slot=\"hover-card-content\">{body}</div></span>"
+        "<span><button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"link\" interestfor=\"{pop_id}\" popovertarget=\"{pop_id}\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" anchor=\"{trigger_id}\" data-slot=\"hover-card-content\">{body}</div></span>"
     )
 }
 
@@ -54,10 +60,16 @@ mod tests {
 
     #[test]
     fn trigger_is_link_button_slot_like_react_as_child() {
-        let html = render(&with_body("@cronus", "Cronus UI"));
+        let c = with_body("@cronus", "Cronus UI");
+        let html = render(&c);
+        let tid = crate::cronus_ui_kit::widget_id(&c, "link");
+        let pid = crate::cronus_ui_kit::widget_id(&c, "card");
+        // interestfor: hover/focus opens (Chromium); popovertarget: click/Enter fallback.
         assert_eq!(
             html,
-            "<span><button type=\"button\" data-slot=\"button\" data-variant=\"link\">@cronus</button><div data-slot=\"hover-card-content\">Cronus UI</div></span>"
+            format!(
+                "<span><button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"link\" interestfor=\"{pid}\" popovertarget=\"{pid}\">@cronus</button><div id=\"{pid}\" popover=\"auto\" anchor=\"{tid}\" data-slot=\"hover-card-content\">Cronus UI</div></span>"
+            )
         );
         assert!(!html.contains("data-slot=\"hover-card\""));
         assert!(!html.contains("hover-card-trigger"));
@@ -83,7 +95,13 @@ mod tests {
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"hover-card-content\"] {\n  display: none;"));
-        assert!(css.contains("span:hover > [data-slot=\"hover-card-content\"]"));
+        // The CSS :hover reveal is gone: it double-rendered next to the native popover.
+        assert!(!css.contains(
+            "span:hover > [data-slot=\"hover-card-content\"],\nspan:focus-within > [data-slot=\"hover-card-content\"]"
+        ));
+        assert!(css.contains(
+            "[data-slot=\"hover-card-content\"]:popover-open {\n  display: block; margin: 0; transform: none;"
+        ));
         assert!(css.contains("[data-slot=\"button\"]:has(+ [data-slot=\"hover-card-content\"])"));
         assert!(css.contains("z-index: 50"));
         assert!(css.contains("width: 16rem"));

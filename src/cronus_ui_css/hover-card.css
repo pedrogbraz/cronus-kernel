@@ -9,7 +9,7 @@
   box-shadow: var(--cronus-shadow-lg, 0 16px 40px rgba(0,0,0,.32));
   transform: translateX(-50%);
 }
-span:hover > [data-slot="hover-card-content"],
-span:focus-within > [data-slot="hover-card-content"] {
-  display: block;
+/* Native popover (interestfor hover/focus, popovertarget click): top-layer box. */
+[data-slot="hover-card-content"]:popover-open {
+  display: block; margin: 0; transform: none;
 }

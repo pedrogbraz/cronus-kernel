@@ -15,3 +15,8 @@
 [data-slot="context-menu-item"]:hover {
   background: var(--cronus-surface-overlay);
 }
+/* Closed mode (trigger item / open:false): click-opened native popover (right-click needs JS). */
+[data-slot="context-menu-content"][popover]:not(:popover-open) { display: none; }
+[data-slot="context-menu-content"][popover]:popover-open {
+  margin: 0;
+}

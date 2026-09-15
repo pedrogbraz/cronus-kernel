@@ -18,3 +18,25 @@
 [data-slot="workspace-switcher"] > svg {
   width: 1rem; height: 1rem; flex-shrink: 0; color: var(--cronus-fg-tertiary);
 }
+/* Native popover menu (React DropdownMenuContent + RadioItems). */
+[data-slot="workspace-switcher-content"]:popover-open {
+  box-sizing: border-box; min-width: 12rem; margin: 0; padding: 0.25rem;
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-lg, none);
+}
+[data-slot="workspace-switcher-content"] > [data-slot="dropdown-menu-radio-item"] {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.375rem 0.5rem; border-radius: var(--cronus-radius-md);
+  font-size: 0.875rem; line-height: 1.25rem; cursor: default; user-select: none;
+}
+[data-slot="workspace-switcher-content"] > [data-slot="dropdown-menu-radio-item"]:hover,
+[data-slot="workspace-switcher-content"] > [data-slot="dropdown-menu-radio-item"][aria-checked="true"] {
+  background: var(--cronus-surface-overlay);
+}
+[data-slot="workspace-switcher-content"] [data-slot="avatar"] {
+  width: 1.5rem; height: 1.5rem;
+}
+[data-slot="workspace-switcher-content"] [data-slot="avatar-fallback"] {
+  font-size: 0.75rem; line-height: 1rem;
+}

@@ -6,10 +6,16 @@
 //! an unslotted handle bar and `drawer-header` > `h2 drawer-title` + `p drawer-description`.
 //! The kernel renders the same tree open by default, zero JS. Swipe / overlay-click
 //! dismissal needs JS and is not reproduced (React has no close control to mirror).
+//! Closed mode (`trigger:"…"` prop, or `open:false` / `defaultOpen:false`; see
+//! `cronus_ui_kit::overlay_trigger`): an outline `button` trigger opens
+//! `drawer-content` as a native bottom-pinned `popover="auto"` (scrim on
+//! `::backdrop`); Esc and an outside click dismiss it. Gaps: no swipe, and a
+//! popover is not modal (no focus trap, background not inert, `aria-expanded`
+//! not reflected).
 //! Description comes from `description:"…"` (props or item config), else extra `text`.
 //! Not interact `dialog("drawer")` native `<dialog>` + `showModal()` + SURF.
 
-use crate::cronus_ui_kit::{attr, esc, item, label_of, widget_id};
+use crate::cronus_ui_kit::{attr, esc, item, label_of, overlay_trigger, widget_id};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -28,9 +34,21 @@ pub fn render(comp: &ComponentNode) -> String {
             format!("<p id=\"{desc_id}\" data-slot=\"drawer-description\">{desc}</p>"),
         )
     };
-    format!(
-        "<div data-slot=\"drawer-overlay\" aria-hidden=\"true\"></div><div role=\"dialog\" aria-labelledby=\"{title_id}\"{described_by} data-slot=\"drawer-content\"><div aria-hidden=\"true\"></div><div data-slot=\"drawer-header\"><h2 id=\"{title_id}\" data-slot=\"drawer-title\">{title}</h2>{desc_html}</div></div>"
-    )
+    let inner = format!(
+        "<div aria-hidden=\"true\"></div><div data-slot=\"drawer-header\"><h2 id=\"{title_id}\" data-slot=\"drawer-title\">{title}</h2>{desc_html}</div>"
+    );
+    match overlay_trigger(comp, "Open") {
+        None => format!(
+            "<div data-slot=\"drawer-overlay\" aria-hidden=\"true\"></div><div role=\"dialog\" aria-labelledby=\"{title_id}\"{described_by} data-slot=\"drawer-content\">{inner}</div>"
+        ),
+        Some(trigger) => {
+            let trigger_id = widget_id(comp, "drawer-trigger");
+            let pop_id = widget_id(comp, "drawer");
+            format!(
+                "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pop_id}\" aria-haspopup=\"dialog\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" role=\"dialog\" aria-labelledby=\"{title_id}\"{described_by} data-slot=\"drawer-content\">{inner}</div>"
+            )
+        }
+    }
 }
 
 fn description(comp: &ComponentNode, title: &str) -> String {
@@ -129,6 +147,31 @@ mod tests {
         let c = stub("drawer", "Menu");
         let html = render(&c);
         reject_interact(&html);
+    }
+
+    #[test]
+    fn open_false_renders_closed_popover_behind_a_trigger() {
+        let mut c = stub("drawer", "Filters");
+        c.props.insert("open".into(), "false".into());
+        let html = render(&c);
+        let tid = widget_id(&c, "drawer-trigger");
+        let pid = widget_id(&c, "drawer");
+        assert!(html.starts_with(&format!(
+            "<button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pid}\" aria-haspopup=\"dialog\">Open</button><div id=\"{pid}\" popover=\"auto\" role=\"dialog\" aria-labelledby="
+        )));
+        assert!(!html.contains("drawer-overlay"));
+        assert!(html.contains("data-slot=\"drawer-content\"><div aria-hidden=\"true\"></div>"));
+        reject_interact(&html);
+    }
+
+    #[test]
+    fn chrome_closed_mode_is_bottom_pinned_popover() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains(
+            "[data-slot=\"drawer-content\"][popover]:not(:popover-open) { display: none; }"
+        ));
+        assert!(css.contains("[data-slot=\"drawer-content\"][popover]:popover-open {\n  position: fixed; inset-block: auto 0; inset-inline: 0;"));
+        assert!(css.contains("[data-slot=\"drawer-content\"][popover]::backdrop {"));
     }
 
     #[test]

@@ -1,7 +1,9 @@
 //! Dedicated TimePicker renderer. DOM mirrors React closed state: the root
 //! `data-slot="time-picker"` IS the outline trigger `<button>`. The panel is a
 //! native `popover` sibling (`time-picker-content`), hidden until opened by
-//! `popovertarget` — no JS. Not interact `input("time-picker", "time")`.
+//! `popovertarget` — no JS. Esc / outside click dismiss it and Done hides it
+//! (`popovertargetaction="hide"`). Gaps: picking an option and Now need JS, so
+//! the value shown never changes. Not interact `input("time-picker", "time")`.
 
 use crate::cronus_ui_kit::{attr, attr_nonempty, esc, flag, item, label_of};
 use crate::parser::ComponentNode;
@@ -40,7 +42,7 @@ pub fn render(comp: &ComponentNode) -> String {
         .unwrap_or_else(|| "Choose a time".into());
     let columns = columns_html(time, hour_cycle, show_seconds);
     format!(
-        "<button {btn}>{ICON}<span>{label}</span></button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"time-picker-content\" aria-label=\"{content_label}\" anchor=\"{trigger_id}\">{columns}<div data-slot=\"time-picker-footer\"><button type=\"button\" data-slot=\"time-picker-now\">Now</button><button type=\"button\" data-slot=\"time-picker-done\">Done</button></div></div>"
+        "<button {btn}>{ICON}<span>{label}</span></button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"time-picker-content\" aria-label=\"{content_label}\" anchor=\"{trigger_id}\">{columns}<div data-slot=\"time-picker-footer\"><button type=\"button\" data-slot=\"time-picker-now\">Now</button><button type=\"button\" data-slot=\"time-picker-done\" popovertarget=\"{pop_id}\" popovertargetaction=\"hide\">Done</button></div></div>"
     )
 }
 
@@ -251,7 +253,10 @@ mod tests {
         assert!(html.contains("aria-label=\"Minute\""));
         assert!(html.contains("aria-label=\"AM or PM\""));
         assert!(html.contains("data-slot=\"time-picker-now\">Now</button>"));
-        assert!(html.contains("data-slot=\"time-picker-done\">Done</button>"));
+        // Done closes the native popover; Now still needs JS.
+        assert!(html.contains(
+            "data-slot=\"time-picker-done\" popovertarget=\"cui-time-picker-panel\" popovertargetaction=\"hide\">Done</button>"
+        ));
         assert!(!html.contains("data-slot=\"time-picker-trigger\""));
         reject_interact(&html);
     }

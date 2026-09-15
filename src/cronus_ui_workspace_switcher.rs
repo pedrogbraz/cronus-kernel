@@ -1,26 +1,55 @@
 //! Dedicated WorkspaceSwitcher renderer. React idle state is a closed menu:
-//! `<button data-slot="workspace-switcher" disabled>` with
+//! `<button data-slot="workspace-switcher">` with
 //! `<span data-slot="avatar"><span data-slot="avatar-fallback">` initials, the
 //! current name `<span>` and a chevrons-up-down `<svg>`.
-//! Opening the menu needs JS, so (wave 1t rule) the trigger is the same native
-//! `<button>` marked `disabled`, without visual attenuation (React's idle trigger
-//! is not dimmed) and no menu content is emitted.
+//! Zero JS: the trigger's `popovertarget` opens React's
+//! `workspace-switcher-content` menu as a native `popover="auto"` anchored under
+//! it (Esc / outside click dismiss), one `dropdown-menu-radio-item`
+//! (`menuitemradio`, avatar + name) per workspace, the first checked.
+//! Gaps: picking a workspace (`onValueChange`) needs JS, so items are inert and
+//! the checked item never moves; no roving arrow-key focus; `aria-expanded` is
+//! not reflected.
 //! The `label` names the widget ("Switch workspace"); it is never a workspace.
 //! Not interact `nav("workspace-switcher")` SURF `<nav>` and not `<details>`.
 
-use crate::cronus_ui_kit::{choice_texts, esc, label_of};
+use crate::cronus_ui_kit::{choice_texts, esc, label_of, widget_id};
 use crate::parser::ComponentNode;
 
 const CHEVRONS: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m7 15 5 5 5-5\"/><path d=\"m7 9 5-5 5 5\"/></svg>";
 
 pub fn render(comp: &ComponentNode) -> String {
-    let current = workspaces(comp)
-        .into_iter()
-        .next()
-        .unwrap_or_else(|| label_of(comp));
+    let mut listed = workspaces(comp);
+    if listed.is_empty() {
+        listed.push(label_of(comp));
+    }
+    let current = listed[0].clone();
+    let trigger_id = widget_id(comp, "trigger");
+    let pop_id = widget_id(comp, "menu");
+    let items = listed
+        .iter()
+        .enumerate()
+        .map(|(i, name)| {
+            let (checked, state) = if i == 0 {
+                ("true", "checked")
+            } else {
+                ("false", "unchecked")
+            };
+            format!(
+                "<div data-slot=\"dropdown-menu-radio-item\" role=\"menuitemradio\" aria-checked=\"{checked}\" data-state=\"{state}\">{}<span>{name}</span></div>",
+                avatar(name)
+            )
+        })
+        .collect::<String>();
     format!(
-        "<button type=\"button\" data-slot=\"workspace-switcher\" aria-label=\"Switch workspace, {current}\" disabled><span data-slot=\"avatar\"><span data-slot=\"avatar-fallback\">{}</span></span><span>{current}</span>{CHEVRONS}</button>",
-        esc(&initials(&current))
+        "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"workspace-switcher\" aria-label=\"Switch workspace, {current}\" aria-haspopup=\"menu\" popovertarget=\"{pop_id}\">{}<span>{current}</span>{CHEVRONS}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"workspace-switcher-content\" role=\"menu\" aria-orientation=\"vertical\" anchor=\"{trigger_id}\">{items}</div>",
+        avatar(&current)
+    )
+}
+
+fn avatar(escaped_name: &str) -> String {
+    format!(
+        "<span data-slot=\"avatar\"><span data-slot=\"avatar-fallback\">{}</span></span>",
+        esc(&initials(escaped_name))
     )
 }
 
@@ -80,19 +109,21 @@ mod tests {
     }
 
     #[test]
-    fn emitted_fixture_is_disabled_idle_trigger_with_avatar() {
+    fn emitted_fixture_trigger_opens_native_popover_menu() {
         let mut c = stub("workspace-switcher", "Switch workspace");
         c.items.push(extra("text", "Cronus"));
         c.items.push(extra("text", "Northwind"));
         let html = render(&c);
+        let tid = crate::cronus_ui_kit::widget_id(&c, "trigger");
+        let pid = crate::cronus_ui_kit::widget_id(&c, "menu");
         assert_eq!(
             html,
             format!(
-                "<button type=\"button\" data-slot=\"workspace-switcher\" aria-label=\"Switch workspace, Cronus\" disabled><span data-slot=\"avatar\"><span data-slot=\"avatar-fallback\">CR</span></span><span>Cronus</span>{CHEVRONS}</button>"
+                "<button type=\"button\" id=\"{tid}\" data-slot=\"workspace-switcher\" aria-label=\"Switch workspace, Cronus\" aria-haspopup=\"menu\" popovertarget=\"{pid}\"><span data-slot=\"avatar\"><span data-slot=\"avatar-fallback\">CR</span></span><span>Cronus</span>{CHEVRONS}</button><div id=\"{pid}\" popover=\"auto\" data-slot=\"workspace-switcher-content\" role=\"menu\" aria-orientation=\"vertical\" anchor=\"{tid}\"><div data-slot=\"dropdown-menu-radio-item\" role=\"menuitemradio\" aria-checked=\"true\" data-state=\"checked\"><span data-slot=\"avatar\"><span data-slot=\"avatar-fallback\">CR</span></span><span>Cronus</span></div><div data-slot=\"dropdown-menu-radio-item\" role=\"menuitemradio\" aria-checked=\"false\" data-state=\"unchecked\"><span data-slot=\"avatar\"><span data-slot=\"avatar-fallback\">NO</span></span><span>Northwind</span></div></div>"
             )
         );
         assert!(!html.contains(">Switch workspace<"));
-        assert!(!html.contains("workspace-switcher-content"));
+        assert!(!html.contains(" disabled"));
         reject_interact(&html);
     }
 
@@ -106,7 +137,7 @@ mod tests {
     #[test]
     fn label_only_uses_label_as_current() {
         let html = render(&stub("workspace-switcher", "Acme"));
-        assert!(html.contains("aria-label=\"Switch workspace, Acme\" disabled>"));
+        assert!(html.contains("aria-label=\"Switch workspace, Acme\" aria-haspopup=\"menu\""));
         assert!(html.contains("<span>Acme</span>"));
         reject_interact(&html);
     }
@@ -132,7 +163,7 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"workspace-switcher\"] [data-slot=\"avatar\"] {\n  width: 1.5rem; height: 1.5rem;"));
         assert!(css.contains("border-radius: var(--cronus-radius-lg); padding: 0.375rem 0.5rem;"));
-        assert!(!css.contains("[data-slot=\"workspace-switcher-content\"]"));
+        assert!(css.contains("[data-slot=\"workspace-switcher-content\"]:popover-open {"));
         assert!(!css.contains("zinc-"));
     }
 }

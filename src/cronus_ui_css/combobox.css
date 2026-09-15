@@ -15,3 +15,49 @@
 [data-slot="combobox-trigger"] > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 [data-slot="combobox-trigger"] > svg { width: 1rem; height: 1rem; flex-shrink: 0; margin-inline-start: 0.5rem; opacity: 0.6; }
 [data-slot="combobox-trigger"][data-disabled] { opacity: 0.5; }
+/* Native popover radiogroup: combobox-content > combobox-item (label + visually hidden radio). */
+[data-slot="combobox-content"]:popover-open {
+  box-sizing: border-box; min-width: 8rem; max-height: 24rem; overflow-y: auto;
+  margin: 0; padding: 0.25rem;
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-lg, none);
+}
+[data-slot="combobox-item"] {
+  position: relative; display: flex; align-items: center; gap: 0.5rem;
+  padding-block: 0.375rem; padding-inline: 0.5rem 2rem; border-radius: var(--cronus-radius-md);
+  font-size: 0.875rem; line-height: 1.25rem; cursor: default; user-select: none;
+}
+[data-slot="combobox-item"]:hover,
+[data-slot="combobox-item"]:has(> input:focus-visible) {
+  background: var(--cronus-surface-overlay);
+}
+[data-slot="combobox-item"] > input {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="combobox-item"]:has(> input:checked)::after {
+  content: "\2713"; position: absolute; inset-inline-end: 0.5rem;
+}
+/* Trigger text follows the checked radio: the span's data-oN label via attr(). */
+[data-slot="combobox-trigger"]:has(+ [data-slot="combobox-content"] :checked) {
+  color: var(--cronus-fg);
+}
+[data-slot="combobox-trigger"]:has(+ [data-slot="combobox-content"] :checked) > span {
+  font-size: 0;
+}
+[data-slot="combobox-trigger"]:has(+ [data-slot="combobox-content"] :checked) > span::before {
+  font-size: 0.875rem;
+}
+[data-slot="combobox-trigger"]:has(+ [data-slot="combobox-content"] [data-option="1"] > :checked) > span::before { content: attr(data-o1); }
+[data-slot="combobox-trigger"]:has(+ [data-slot="combobox-content"] [data-option="2"] > :checked) > span::before { content: attr(data-o2); }
+[data-slot="combobox-trigger"]:has(+ [data-slot="combobox-content"] [data-option="3"] > :checked) > span::before { content: attr(data-o3); }
+[data-slot="combobox-trigger"]:has(+ [data-slot="combobox-content"] [data-option="4"] > :checked) > span::before { content: attr(data-o4); }
+[data-slot="combobox-trigger"]:has(+ [data-slot="combobox-content"] [data-option="5"] > :checked) > span::before { content: attr(data-o5); }
+[data-slot="combobox-trigger"]:has(+ [data-slot="combobox-content"] [data-option="6"] > :checked) > span::before { content: attr(data-o6); }
+[data-slot="combobox-trigger"]:has(+ [data-slot="combobox-content"] [data-option="7"] > :checked) > span::before { content: attr(data-o7); }
+[data-slot="combobox-trigger"]:has(+ [data-slot="combobox-content"] [data-option="8"] > :checked) > span::before { content: attr(data-o8); }
+[data-slot="combobox-trigger"]:has(+ [data-slot="combobox-content"] [data-option="9"] > :checked) > span::before { content: attr(data-o9); }
+[data-slot="combobox-trigger"]:has(+ [data-slot="combobox-content"] [data-option="10"] > :checked) > span::before { content: attr(data-o10); }
+[data-slot="combobox-trigger"]:has(+ [data-slot="combobox-content"] [data-option="11"] > :checked) > span::before { content: attr(data-o11); }
+[data-slot="combobox-trigger"]:has(+ [data-slot="combobox-content"] [data-option="12"] > :checked) > span::before { content: attr(data-o12); }

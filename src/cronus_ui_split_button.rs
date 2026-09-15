@@ -1,12 +1,15 @@
 //! Dedicated SplitButton renderer. DOM matches React:
 //! `<div data-slot="split-button" role="group" data-variant aria-label>` plus primary
 //! `<button data-slot="button">` from the label and a chevron `<button data-slot="button">`.
-//! Opening the menu needs JS, so (wave 1t rule) the chevron is the same native
-//! `<button>` marked `disabled`, without visual attenuation, and the menu items
-//! (React portals them out of the canvas) are not emitted.
+//! Zero JS: the chevron's `popovertarget` opens React's `DropdownMenuContent`
+//! (`dropdown-menu-content` > `dropdown-menu-item`s from the extra texts) as a
+//! native `popover="auto"` anchored under it, emitted right after the group
+//! (React portals it out of the canvas). Esc / outside click dismiss it.
+//! Gaps: items run no action (`onSelect` needs JS), no roving arrow-key focus,
+//! `aria-expanded` is not reflected. `disabled` / `loading` disable both halves.
 //! Not interact `buttonish()` (single primary + inline SURF).
 
-use crate::cronus_ui_kit::{attr, attr_nonempty, esc, flag, label_of};
+use crate::cronus_ui_kit::{attr, attr_nonempty, content_texts, esc, flag, label_of, widget_id};
 use crate::parser::ComponentNode;
 
 const CHEVRON: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"/></svg>";
@@ -28,10 +31,18 @@ pub fn render(comp: &ComponentNode) -> String {
     let disabled_attr = if disabled { " disabled" } else { "" };
     let primary =
         format!("<button type=\"button\" data-slot=\"button\"{disabled_attr}>{label}</button>");
+    let trigger_id = widget_id(comp, "menu-trigger");
+    let pop_id = widget_id(comp, "menu");
     let chevron = format!(
-        "<button type=\"button\" data-slot=\"button\" aria-label=\"{menu_label}\" aria-haspopup=\"menu\" disabled>{CHEVRON}</button>"
+        "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" aria-label=\"{menu_label}\" aria-haspopup=\"menu\" popovertarget=\"{pop_id}\"{disabled_attr}>{CHEVRON}</button>"
     );
-    format!("<div {root}>{primary}{chevron}</div>")
+    let items = content_texts(comp)
+        .into_iter()
+        .map(|t| format!("<div data-slot=\"dropdown-menu-item\" role=\"menuitem\">{t}</div>"))
+        .collect::<String>();
+    format!(
+        "<div {root}>{primary}{chevron}</div><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"dropdown-menu-content\" role=\"menu\" aria-orientation=\"vertical\" anchor=\"{trigger_id}\">{items}</div>"
+    )
 }
 
 fn variant_of(comp: &ComponentNode) -> &'static str {
@@ -94,7 +105,7 @@ mod tests {
     }
 
     #[test]
-    fn emitted_fixture_primary_and_disabled_chevron() {
+    fn emitted_fixture_chevron_opens_native_popover_menu() {
         let mut c = stub("split-button", "Save");
         c.items.push(extra("Duplicate"));
         c.items.push(extra("Archive"));
@@ -102,13 +113,14 @@ mod tests {
             .config
             .insert("aria-label".into(), "Save actions".into());
         let html = render(&c);
+        let tid = crate::cronus_ui_kit::widget_id(&c, "menu-trigger");
+        let pid = crate::cronus_ui_kit::widget_id(&c, "menu");
         assert_eq!(
             html,
             format!(
-                "<div data-slot=\"split-button\" role=\"group\" data-variant=\"primary\" aria-label=\"Save actions\"><button type=\"button\" data-slot=\"button\">Save</button><button type=\"button\" data-slot=\"button\" aria-label=\"More actions\" aria-haspopup=\"menu\" disabled>{CHEVRON}</button></div>"
+                "<div data-slot=\"split-button\" role=\"group\" data-variant=\"primary\" aria-label=\"Save actions\"><button type=\"button\" data-slot=\"button\">Save</button><button type=\"button\" id=\"{tid}\" data-slot=\"button\" aria-label=\"More actions\" aria-haspopup=\"menu\" popovertarget=\"{pid}\">{CHEVRON}</button></div><div id=\"{pid}\" popover=\"auto\" data-slot=\"dropdown-menu-content\" role=\"menu\" aria-orientation=\"vertical\" anchor=\"{tid}\"><div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Duplicate</div><div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Archive</div></div>"
             )
         );
-        assert!(!html.contains("Duplicate"));
         reject_interact(&html);
     }
 

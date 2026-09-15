@@ -7,21 +7,39 @@
 //! Audit cannot right-click and the kernel has no popper, so the content is
 //! always open, in flow under the trigger (React places it at the pointer; the
 //! geometry spec measures it against itself). Zero JS.
+//!
+//! Closed mode (`trigger:"…"` prop, or `open:false` / `defaultOpen:false`; see
+//! `cronus_ui_kit::overlay_trigger`): the span becomes an outline `button`
+//! (label or `trigger` text) whose `popovertarget` opens the menu as a native
+//! `popover="auto"` anchored under it. Gaps: opening on right-click needs a
+//! `contextmenu` listener (JS), so the menu opens on click / Enter / Space;
+//! menu items perform no action.
 //! Not interact `popover("context-menu")` (`<details>` SURF box).
 
-use crate::cronus_ui_kit::{choice_texts, label_of, texts};
+use crate::cronus_ui_kit::{choice_texts, label_of, overlay_trigger, texts, widget_id};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = label_of(comp);
-    let items = menu_items(comp)
+    let mut listed = comp.clone();
+    listed.items.retain(|i| i.item_type != "trigger");
+    let items = menu_items(&listed)
         .into_iter()
         .map(|t| format!("<div data-slot=\"context-menu-item\" role=\"menuitem\">{t}</div>"))
         .collect::<Vec<_>>()
         .join("");
-    format!(
-        "<span>{label}</span><div data-slot=\"context-menu-content\" role=\"menu\" aria-orientation=\"vertical\">{items}</div>"
-    )
+    match overlay_trigger(comp, &label) {
+        None => format!(
+            "<span>{label}</span><div data-slot=\"context-menu-content\" role=\"menu\" aria-orientation=\"vertical\">{items}</div>"
+        ),
+        Some(trigger) => {
+            let trigger_id = widget_id(comp, "trigger");
+            let pop_id = widget_id(comp, "menu");
+            format!(
+                "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pop_id}\" aria-haspopup=\"menu\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"context-menu-content\" role=\"menu\" aria-orientation=\"vertical\" anchor=\"{trigger_id}\">{items}</div>"
+            )
+        }
+    }
 }
 
 fn menu_items(comp: &ComponentNode) -> Vec<String> {
@@ -78,6 +96,42 @@ mod tests {
             "<span>Right click</span><div data-slot=\"context-menu-content\" role=\"menu\" aria-orientation=\"vertical\"><div data-slot=\"context-menu-item\" role=\"menuitem\">Back</div><div data-slot=\"context-menu-item\" role=\"menuitem\">Reload</div></div>"
         );
         reject_interact(&html);
+    }
+
+    #[test]
+    fn open_false_renders_click_trigger_and_native_popover_menu() {
+        let mut c = stub("context-menu", "Right click");
+        c.items.push(extra("text", "Back"));
+        c.items.push(extra("text", "Reload"));
+        c.props.insert("open".into(), "false".into());
+        let html = render(&c);
+        let tid = crate::cronus_ui_kit::widget_id(&c, "trigger");
+        let pid = crate::cronus_ui_kit::widget_id(&c, "menu");
+        assert_eq!(
+            html,
+            format!(
+                "<button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pid}\" aria-haspopup=\"menu\">Right click</button><div id=\"{pid}\" popover=\"auto\" data-slot=\"context-menu-content\" role=\"menu\" aria-orientation=\"vertical\" anchor=\"{tid}\"><div data-slot=\"context-menu-item\" role=\"menuitem\">Back</div><div data-slot=\"context-menu-item\" role=\"menuitem\">Reload</div></div>"
+            )
+        );
+    }
+
+    #[test]
+    fn trigger_item_labels_trigger_and_is_not_a_menu_item() {
+        let mut c = stub("context-menu", "Surface");
+        c.items.push(extra("text", "Cut"));
+        c.items.push(extra("trigger", "Actions"));
+        let html = render(&c);
+        assert!(html.contains("aria-haspopup=\"menu\">Actions</button>"));
+        assert_eq!(html.matches("role=\"menuitem\"").count(), 1);
+        assert!(!html.contains("role=\"menuitem\">Actions"));
+    }
+
+    #[test]
+    fn chrome_closed_mode_hides_until_open() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains(
+            "[data-slot=\"context-menu-content\"][popover]:not(:popover-open) { display: none; }"
+        ));
     }
 
     #[test]
