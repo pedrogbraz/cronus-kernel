@@ -1,0 +1,6 @@
+[data-slot="loader"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  animation: cui-loader-spin 1s linear infinite;
+}
+[data-slot="loader"] > svg { display: block; color: currentColor; }
+@keyframes cui-loader-spin { to { transform: rotate(360deg); } }

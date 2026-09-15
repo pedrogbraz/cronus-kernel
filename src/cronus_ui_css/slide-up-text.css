@@ -1,0 +1,60 @@
+[data-slot="slide-up-text"] { display: flex; flex-wrap: wrap; white-space: pre-wrap; }
+[data-slot="slide-up-text"][data-split="lines"] { flex-direction: column; }
+[data-slot="slide-up-text"] > span:first-child {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
+}
+[data-slot="slide-up-text"] > span[aria-hidden] { display: inline-flex; overflow: hidden; }
+[data-slot="slide-up-text"] > span[aria-hidden] > span { position: relative; overflow: hidden; }
+/* Longhands, so the `data-delay` rules below keep their animation-delay. */
+[data-slot="slide-up-text"] > span[aria-hidden] > span > span {
+  display: inline-block;
+  animation-name: cui-slide-up-text;
+  animation-duration: 500ms;
+  animation-timing-function: cubic-bezier(0.625, 0.05, 0, 1);
+  animation-fill-mode: both;
+}
+@keyframes cui-slide-up-text { from { transform: translateY(100%); } }
+[data-slot="slide-up-text"] [data-delay="1"] { animation-delay: 50ms; }
+[data-slot="slide-up-text"] [data-delay="2"] { animation-delay: 100ms; }
+[data-slot="slide-up-text"] [data-delay="3"] { animation-delay: 150ms; }
+[data-slot="slide-up-text"] [data-delay="4"] { animation-delay: 200ms; }
+[data-slot="slide-up-text"] [data-delay="5"] { animation-delay: 250ms; }
+[data-slot="slide-up-text"] [data-delay="6"] { animation-delay: 300ms; }
+[data-slot="slide-up-text"] [data-delay="7"] { animation-delay: 350ms; }
+[data-slot="slide-up-text"] [data-delay="8"] { animation-delay: 400ms; }
+[data-slot="slide-up-text"] [data-delay="9"] { animation-delay: 450ms; }
+[data-slot="slide-up-text"] [data-delay="10"] { animation-delay: 500ms; }
+[data-slot="slide-up-text"] [data-delay="11"] { animation-delay: 550ms; }
+[data-slot="slide-up-text"] [data-delay="12"] { animation-delay: 600ms; }
+[data-slot="slide-up-text"] [data-delay="13"] { animation-delay: 650ms; }
+[data-slot="slide-up-text"] [data-delay="14"] { animation-delay: 700ms; }
+[data-slot="slide-up-text"] [data-delay="15"] { animation-delay: 750ms; }
+[data-slot="slide-up-text"] [data-delay="16"] { animation-delay: 800ms; }
+[data-slot="slide-up-text"] [data-delay="17"] { animation-delay: 850ms; }
+[data-slot="slide-up-text"] [data-delay="18"] { animation-delay: 900ms; }
+[data-slot="slide-up-text"] [data-delay="19"] { animation-delay: 950ms; }
+[data-slot="slide-up-text"] [data-delay="20"] { animation-delay: 1000ms; }
+[data-slot="slide-up-text"] [data-delay="21"] { animation-delay: 1050ms; }
+[data-slot="slide-up-text"] [data-delay="22"] { animation-delay: 1100ms; }
+[data-slot="slide-up-text"] [data-delay="23"] { animation-delay: 1150ms; }
+[data-slot="slide-up-text"] [data-delay="24"] { animation-delay: 1200ms; }
+[data-slot="slide-up-text"] [data-delay="25"] { animation-delay: 1250ms; }
+[data-slot="slide-up-text"] [data-delay="26"] { animation-delay: 1300ms; }
+[data-slot="slide-up-text"] [data-delay="27"] { animation-delay: 1350ms; }
+[data-slot="slide-up-text"] [data-delay="28"] { animation-delay: 1400ms; }
+[data-slot="slide-up-text"] [data-delay="29"] { animation-delay: 1450ms; }
+[data-slot="slide-up-text"] [data-delay="30"] { animation-delay: 1500ms; }
+[data-slot="slide-up-text"] [data-delay="31"] { animation-delay: 1550ms; }
+[data-slot="slide-up-text"] [data-delay="32"] { animation-delay: 1600ms; }
+[data-slot="slide-up-text"] [data-delay="33"] { animation-delay: 1650ms; }
+[data-slot="slide-up-text"] [data-delay="34"] { animation-delay: 1700ms; }
+[data-slot="slide-up-text"] [data-delay="35"] { animation-delay: 1750ms; }
+[data-slot="slide-up-text"] [data-delay="36"] { animation-delay: 1800ms; }
+[data-slot="slide-up-text"] [data-delay="37"] { animation-delay: 1850ms; }
+[data-slot="slide-up-text"] [data-delay="38"] { animation-delay: 1900ms; }
+[data-slot="slide-up-text"] [data-delay="39"] { animation-delay: 1950ms; }
+[data-slot="slide-up-text"] [data-delay="40"] { animation-delay: 2000ms; }
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="slide-up-text"] > span[aria-hidden] > span > span { animation: none; }
+}

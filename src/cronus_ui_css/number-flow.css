@@ -1,0 +1,24 @@
+[data-slot="number-flow"] {
+  display: inline-flex; align-items: center; line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+[data-slot="number-flow"] > span { display: inline-flex; align-items: center; line-height: 1; }
+[data-slot="number-flow"] > span > span { display: inline-block; }
+/* Digit roller: a 1ch × 1em window over the glyph strip. */
+[data-slot="number-flow"] > span > [data-digit] {
+  display: block; flex-shrink: 0; width: 1ch; height: 1em; overflow: hidden; line-height: 1;
+}
+[data-slot="number-flow"] [data-digit] > span { display: flex; flex-direction: column; }
+[data-slot="number-flow"] [data-digit] > span > span {
+  display: block; width: 1ch; height: 1em; overflow: hidden; text-align: center; line-height: 1;
+}
+[data-slot="number-flow"] [data-digit="0"] > span { margin-block-start: -1em; }
+[data-slot="number-flow"] [data-digit="1"] > span { margin-block-start: -2em; }
+[data-slot="number-flow"] [data-digit="2"] > span { margin-block-start: -3em; }
+[data-slot="number-flow"] [data-digit="3"] > span { margin-block-start: -4em; }
+[data-slot="number-flow"] [data-digit="4"] > span { margin-block-start: -5em; }
+[data-slot="number-flow"] [data-digit="5"] > span { margin-block-start: -6em; }
+[data-slot="number-flow"] [data-digit="6"] > span { margin-block-start: -7em; }
+[data-slot="number-flow"] [data-digit="7"] > span { margin-block-start: -8em; }
+[data-slot="number-flow"] [data-digit="8"] > span { margin-block-start: -9em; }
+[data-slot="number-flow"] [data-digit="9"] > span { margin-block-start: -10em; }

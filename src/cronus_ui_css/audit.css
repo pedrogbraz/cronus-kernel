@@ -78,4 +78,19 @@ button, input:where([type='button'], [type='reset'], [type='submit']), ::file-se
   --cui-terminal-w: 18rem;
   --cui-tilt-card-w: 18rem;
   --cui-orbit-size: 18rem;
+  /* scroll-nav: the React pane's viewport state (1280x900, so `md:` and `lg:`
+     apply and 1vh = 9px). The kernel iframe is 640px wide; these pin it. */
+  --cui-scroll-nav-vh: 9px;
+  --cui-scroll-nav-pad: 3rem;
+  --cui-scroll-nav-title-pt: 0;
+  --cui-scroll-nav-title-size: 3rem;
+  --cui-scroll-nav-title-lh: 1;
+  --cui-scroll-nav-dir: row;
+  --cui-scroll-nav-py: 5rem;
+  --cui-scroll-nav-gap: 60px;
+  --cui-scroll-nav-section-gap: 1.5rem;
+  --cui-scroll-nav-heading-size: 1.875rem;
+  --cui-scroll-nav-heading-lh: calc(2.25 / 1.875);
+  --cui-scroll-nav-body-size: 1.125rem;
+  --cui-scroll-nav-body-lh: calc(1.75 / 1.125);
 }

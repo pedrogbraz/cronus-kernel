@@ -1,0 +1,86 @@
+/* React's `md:` / `lg:` / `vh` values come from the viewport. Each one reads
+   a `--cui-scroll-nav-*` property first, so a host whose viewport is not the
+   page's (the audit canvas, audit.css) can pin a breakpoint state. */
+[data-slot="scroll-nav"] {
+  min-height: calc(var(--cui-scroll-nav-vh, 1vh) * 100);
+  padding: var(--cui-scroll-nav-pad, 1rem);
+}
+[data-slot="scroll-nav"] > h1 {
+  margin: 0; padding-block-start: var(--cui-scroll-nav-title-pt, 2.5rem);
+  font-family: var(--cronus-font-display, inherit); font-weight: inherit;
+  font-size: var(--cui-scroll-nav-title-size, 1.875rem);
+  line-height: var(--cui-scroll-nav-title-lh, calc(2.25 / 1.875));
+  letter-spacing: -0.03em; color: var(--cronus-fg);
+}
+[data-slot="scroll-nav"] > div {
+  position: relative; display: flex; gap: 3rem;
+  flex-direction: var(--cui-scroll-nav-dir, column);
+  margin-block-end: calc(var(--cui-scroll-nav-vh, 1vh) * 50);
+  padding-block: var(--cui-scroll-nav-py, 2.5rem);
+}
+[data-slot="scroll-nav"] nav {
+  position: sticky; top: 6rem; height: fit-content; width: 100%; max-width: 300px;
+}
+[data-slot="scroll-nav"] nav > ul {
+  margin: 0; padding: 0; list-style: none;
+  border-inline-start: 1px solid var(--cronus-border);
+}
+[data-slot="scroll-nav"] nav li { position: relative; cursor: pointer; padding-inline-start: 0.75rem; }
+[data-slot="scroll-nav"] nav li:not(:last-child) { margin-block-end: 1rem; }
+[data-slot="scroll-nav"] nav a { display: block; outline: none; }
+[data-slot="scroll-nav"] nav a:focus-visible {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring, var(--cronus-primary));
+}
+[data-slot="scroll-nav"] nav a > span {
+  position: absolute; inset-inline-start: -1.5px; top: 50%; translate: 0 -50%;
+  display: inline-block; width: 2px; height: 1.25rem;
+  border-radius: 9999px; background-color: var(--cronus-fg);
+}
+[data-slot="scroll-nav"] nav p {
+  margin: 0; color: var(--cronus-fg); opacity: 0.5;
+  transition: opacity 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+[data-slot="scroll-nav"] nav a[aria-current="location"] > p { opacity: 1; }
+[data-slot="scroll-nav"] > div > div {
+  display: flex; flex: 1 1 0%; flex-direction: column;
+  gap: var(--cui-scroll-nav-gap, 2.5rem);
+}
+[data-slot="scroll-nav"] section { scroll-margin-top: 6rem; }
+[data-slot="scroll-nav"] section > :not(:last-child) {
+  margin-block-end: var(--cui-scroll-nav-section-gap, 1rem);
+}
+[data-slot="scroll-nav"] section > h2 {
+  margin-block-start: 0; font-family: var(--cronus-font-display, inherit); font-weight: inherit;
+  font-size: var(--cui-scroll-nav-heading-size, 1.25rem);
+  line-height: var(--cui-scroll-nav-heading-lh, calc(1.75 / 1.25));
+  letter-spacing: -0.02em; color: var(--cronus-fg);
+}
+/* Unset properties inherit, so below lg the body keeps the inherited type. */
+[data-slot="scroll-nav"] section > div {
+  margin: 0; color: var(--cronus-fg-tertiary);
+  font-size: var(--cui-scroll-nav-body-size); line-height: var(--cui-scroll-nav-body-lh);
+}
+@media (min-width: 48rem) {
+  [data-slot="scroll-nav"] > h1 {
+    font-size: var(--cui-scroll-nav-title-size, 3rem); line-height: var(--cui-scroll-nav-title-lh, 1);
+  }
+  [data-slot="scroll-nav"] > div {
+    flex-direction: var(--cui-scroll-nav-dir, row); padding-block: var(--cui-scroll-nav-py, 5rem);
+  }
+  [data-slot="scroll-nav"] > div > div { gap: var(--cui-scroll-nav-gap, 60px); }
+  [data-slot="scroll-nav"] section > :not(:last-child) {
+    margin-block-end: var(--cui-scroll-nav-section-gap, 1.5rem);
+  }
+}
+@media (min-width: 64rem) {
+  [data-slot="scroll-nav"] { padding: var(--cui-scroll-nav-pad, 3rem); }
+  [data-slot="scroll-nav"] > h1 { padding-block-start: var(--cui-scroll-nav-title-pt, 0); }
+  [data-slot="scroll-nav"] section > h2 {
+    font-size: var(--cui-scroll-nav-heading-size, 1.875rem);
+    line-height: var(--cui-scroll-nav-heading-lh, calc(2.25 / 1.875));
+  }
+  [data-slot="scroll-nav"] section > div {
+    font-size: var(--cui-scroll-nav-body-size, 1.125rem);
+    line-height: var(--cui-scroll-nav-body-lh, calc(1.75 / 1.125));
+  }
+}
