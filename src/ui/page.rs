@@ -18,16 +18,8 @@ pub fn render_page(page: &PageNode, entities: &[EntityNode], accent: &str, theme
         "detail" => render_list(page, entities, accent),
         "checkout" => render_checkout(page),
         "components" => {
-            // page type:components — placeholder, actual rendering happens in main.rs
-            // where state.components is available
-            let title = page.title.as_deref().unwrap_or("Components");
-            format!(
-                r#"<div style="padding:20px">
-  <h1 style="font-size:16px;font-weight:400;color:var(--foreground);margin-bottom:16px">{}</h1>
-  <p style="font-size:13px;color:var(--foreground-muted)">Component showcase — rendered from .cronus primitives</p>
-</div>"#,
-                title
-            )
+            // Body is the kit catalog from `render_components_page` in main.rs.
+            String::new()
         }
         _ => format!(
             r#"<div style="padding:20px;color:var(--foreground-muted)">Unknown page type: {}</div>"#,

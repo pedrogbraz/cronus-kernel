@@ -343,12 +343,319 @@ pub fn render_component(comp: &ComponentNode) -> String {
     }
 }
 
-/// Render multiple components into a single HTML block
-pub fn render_components_page(comps: &[ComponentNode]) -> String {
-    comps.iter()
-        .map(|c| render_component(c))
+/// Inline widgets for `use Component` on a page — no catalog chrome.
+pub fn render_components_inline(comps: &[ComponentNode]) -> String {
+    comps
+        .iter()
+        .map(render_component)
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+/// Showcase for `page type:components` (`/kit`). Grouped specimens, not a dump.
+pub fn render_components_page(comps: &[ComponentNode]) -> String {
+    render_kit_catalog(comps)
+}
+
+const KIT_GROUPS: &[(&str, &str, &[&str])] = &[
+    (
+        "buttons",
+        "Buttons",
+        &[
+            "button",
+            "toggle",
+            "toggle-group",
+            "copy-button",
+            "button-group",
+            "fab",
+            "mode-toggle",
+            "split-button",
+            "animated-button",
+        ],
+    ),
+    (
+        "forms",
+        "Forms",
+        &[
+            "input",
+            "input-group",
+            "password-input",
+            "textarea",
+            "label",
+            "checkbox",
+            "radio-group",
+            "switch",
+            "select",
+            "combobox",
+            "slider",
+            "field",
+            "form",
+            "input-otp",
+            "file-dropzone",
+            "number-input",
+            "stepper",
+            "rating",
+            "chip",
+        ],
+    ),
+    (
+        "data-display",
+        "Data display",
+        &[
+            "avatar",
+            "avatar-group",
+            "badge",
+            "card",
+            "table",
+            "metric",
+            "kbd",
+            "empty",
+            "separator",
+            "skeleton",
+            "collapsible",
+        ],
+    ),
+    (
+        "feedback",
+        "Feedback",
+        &["alert", "banner", "spinner", "progress", "toast"],
+    ),
+    (
+        "overlays",
+        "Overlays",
+        &[
+            "dialog",
+            "sheet",
+            "drawer",
+            "popover",
+            "hover-card",
+            "tooltip",
+            "dropdown-menu",
+            "context-menu",
+            "command",
+        ],
+    ),
+    (
+        "navigation",
+        "Navigation",
+        &[
+            "tabs",
+            "accordion",
+            "breadcrumb",
+            "pagination",
+            "menubar",
+            "navigation-menu",
+            "app-shell",
+        ],
+    ),
+    (
+        "date-time",
+        "Date & Time",
+        &["calendar", "date-picker", "date-range-picker", "time-picker", "countdown"],
+    ),
+];
+
+fn kit_family<'a>(comp: &'a ComponentNode) -> &'a str {
+    crate::cronus_ui_widgets::family_of(comp).unwrap_or("component")
+}
+
+fn kit_family_title(family: &str) -> String {
+    family
+        .split('-')
+        .filter(|w| !w.is_empty())
+        .map(|w| {
+            let mut chars = w.chars();
+            match chars.next() {
+                Some(first) => format!("{}{}", first.to_uppercase(), chars.as_str()),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn kit_style_meta(comp: &ComponentNode) -> String {
+    let style = comp.style.as_deref().unwrap_or("");
+    let rest = style.split_once('+').map(|(_, rest)| rest).unwrap_or("");
+    rest.split('+')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join(" · ")
+}
+
+fn kit_is_wide(family: &str) -> bool {
+    matches!(
+        family,
+        "table"
+            | "tabs"
+            | "accordion"
+            | "empty"
+            | "card"
+            | "dialog"
+            | "slider"
+            | "pagination"
+            | "banner"
+            | "alert"
+            | "radio-group"
+            | "sheet"
+            | "drawer"
+            | "calendar"
+            | "command"
+            | "menubar"
+            | "stepper"
+            | "file-dropzone"
+            | "date-range-picker"
+            | "progress"
+            | "textarea"
+    )
+}
+
+fn render_kit_specimen(comp: &ComponentNode) -> String {
+    let family = kit_family(comp);
+    let family_title = crate::cronus_ui_kit::esc(&kit_family_title(family));
+    let name = crate::cronus_ui_kit::esc(&comp.name);
+    let family_attr = crate::cronus_ui_kit::esc(family);
+    let meta = kit_style_meta(comp);
+    let meta_html = if meta.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "<span data-slot=\"catalog-meta\">{}</span>",
+            crate::cronus_ui_kit::esc(&meta)
+        )
+    };
+    let wide = if kit_is_wide(family) {
+        "true"
+    } else {
+        "false"
+    };
+    let widget = render_component(comp);
+    format!(
+        r#"<article data-slot="catalog-specimen" data-family="{family_attr}" data-name="{name}" data-wide="{wide}">
+  <header>
+    <span data-slot="catalog-family">{family_title}</span>
+    {meta_html}
+  </header>
+  <div data-slot="catalog-canvas">{widget}</div>
+</article>"#
+    )
+}
+
+fn render_kit_catalog(comps: &[ComponentNode]) -> String {
+    if comps.is_empty() {
+        return String::new();
+    }
+
+    let mut used = vec![false; comps.len()];
+    let mut sections: Vec<(&str, &str, Vec<usize>)> = Vec::new();
+    for (slug, title, families) in KIT_GROUPS {
+        let mut idxs = Vec::new();
+        for (i, comp) in comps.iter().enumerate() {
+            if families.contains(&kit_family(comp)) {
+                idxs.push(i);
+                used[i] = true;
+            }
+        }
+        if !idxs.is_empty() {
+            sections.push((slug, title, idxs));
+        }
+    }
+    let leftover: Vec<usize> = used
+        .iter()
+        .enumerate()
+        .filter_map(|(i, taken)| if *taken { None } else { Some(i) })
+        .collect();
+    if !leftover.is_empty() {
+        sections.push(("other", "Other", leftover));
+    }
+
+    let family_count = {
+        let mut seen = Vec::new();
+        for comp in comps {
+            let f = kit_family(comp);
+            if !seen.contains(&f) {
+                seen.push(f);
+            }
+        }
+        seen.len()
+    };
+
+    let mut nav = String::new();
+    for (slug, title, _) in &sections {
+        nav.push_str(&format!(r##"<a href="#{slug}">{title}</a>"##));
+    }
+
+    let mut body = String::new();
+    for (slug, title, idxs) in &sections {
+        let mut grid = String::new();
+        for i in idxs {
+            grid.push_str(&render_kit_specimen(&comps[*i]));
+            grid.push('\n');
+        }
+        body.push_str(&format!(
+            r#"<section id="{slug}" data-slot="catalog-section" data-group="{slug}">
+  <h2>{title}</h2>
+  <div data-slot="catalog-grid">
+{grid}  </div>
+</section>
+"#
+        ));
+    }
+
+    format!(
+        r#"<div data-slot="catalog">
+  <header data-slot="catalog-header">
+    <p data-slot="catalog-eyebrow">Language</p>
+    <div data-slot="catalog-title-row">
+      <h1>Kit</h1>
+      <div data-slot="catalog-stats">
+        <span><strong>{family_count}</strong> families</span>
+        <span><strong>{groups}</strong> groups</span>
+      </div>
+    </div>
+    <p data-slot="catalog-lead">Native widgets declared in .cronus. The kernel emits HTML, tokens, and motion — same families as the React catalog, without JSX.</p>
+    <a href="/" data-slot="catalog-home">Home</a>
+  </header>
+  <div data-slot="catalog-toolbar">
+    <label data-slot="catalog-search-wrap">
+      <span class="sr-only">Search families</span>
+      <input data-slot="catalog-search" type="text" placeholder="Search families…" autocomplete="off" />
+    </label>
+    <nav data-slot="catalog-nav" aria-label="Kit groups">{nav}</nav>
+  </div>
+{body}</div>
+<script>
+(function () {{
+  var root = document.querySelector('[data-slot="catalog"]');
+  if (!root) return;
+  var input = root.querySelector('[data-slot="catalog-search"]');
+  if (!input) return;
+  input.addEventListener('input', function () {{
+    var q = (input.value || '').trim().toLowerCase();
+    root.querySelectorAll('[data-slot="catalog-specimen"]').forEach(function (el) {{
+      var hay = ((el.getAttribute('data-family') || '') + ' ' + (el.getAttribute('data-name') || '')).toLowerCase();
+      el.hidden = q !== '' && hay.indexOf(q) === -1;
+    }});
+    root.querySelectorAll('[data-slot="catalog-section"]').forEach(function (sec) {{
+      var any = false;
+      sec.querySelectorAll('[data-slot="catalog-specimen"]').forEach(function (el) {{
+        if (!el.hidden) any = true;
+      }});
+      sec.hidden = !any;
+    }});
+    root.querySelectorAll('[data-slot="catalog-nav"] a').forEach(function (a) {{
+      var id = (a.getAttribute('href') || '').replace('#', '');
+      var sec = id ? root.querySelector('[data-slot="catalog-section"][data-group="' + id + '"]') : null;
+      a.hidden = !sec || sec.hidden;
+    }});
+  }});
+}})();
+</script>"#,
+        family_count = family_count,
+        groups = sections.len(),
+        nav = nav,
+        body = body
+    )
 }
 
 
