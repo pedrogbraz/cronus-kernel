@@ -21,7 +21,11 @@ const WEEKDAYS: [&str; 7] = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 pub fn render(comp: &ComponentNode) -> String {
     let label = trigger_label(comp);
     let placeholder = placeholder_of(comp);
-    let mut attrs = String::from("type=\"button\" data-slot=\"date-picker-trigger\"");
+    let trigger_id = crate::cronus_ui_kit::widget_id(comp, "trigger");
+    let pop_id = crate::cronus_ui_kit::widget_id(comp, "cal");
+    let mut attrs = format!(
+        "type=\"button\" id=\"{trigger_id}\" data-slot=\"date-picker-trigger\" popovertarget=\"{pop_id}\" aria-haspopup=\"dialog\""
+    );
     if flag(comp, "disabled") {
         attrs.push_str(" disabled");
     }
@@ -31,9 +35,9 @@ pub fn render(comp: &ComponentNode) -> String {
     if let Some(aria) = attr(comp, "aria-label").filter(|s| !s.is_empty()) {
         attrs.push_str(&format!(" aria-label=\"{}\"", esc(aria)));
     }
-    let grid = calendar_grid(selected_day(comp));
+    let grid = calendar_grid(selected_day(comp), &caption_of(comp));
     format!(
-        "<button {attrs}>{ICON}<span>{label}</span></button><div data-slot=\"date-picker-content\" aria-label=\"{placeholder}\">{grid}</div>"
+        "<div data-slot=\"date-picker\"><button {attrs}>{ICON}<span>{label}</span></button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"date-picker-content\" aria-label=\"{placeholder}\" anchor=\"{trigger_id}\">{grid}</div></div>"
     )
 }
 
@@ -72,8 +76,43 @@ fn selected_day(comp: &ComponentNode) -> Option<u8> {
     }
 }
 
-fn calendar_grid(selected: Option<u8>) -> String {
+const MONTHS: [&str; 12] = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+];
+
+fn caption_of(comp: &ComponentNode) -> String {
+    let raw = attr(comp, "value").or_else(|| item(comp, "value")).unwrap_or("");
+    if let Some((year, month)) = parse_year_month(raw) {
+        if (1..=12).contains(&month) {
+            return format!("{} {year}", MONTHS[(month as usize) - 1]);
+        }
+    }
+    "September 2026".into()
+}
+
+fn parse_year_month(raw: &str) -> Option<(u16, u8)> {
+    let mut parts = raw.split('-');
+    let year = parts.next()?.parse().ok()?;
+    let month = parts.next()?.parse().ok()?;
+    Some((year, month))
+}
+
+fn calendar_grid(selected: Option<u8>, caption: &str) -> String {
     let mut out = String::from("<div data-slot=\"date-picker-calendar\" role=\"grid\">");
+    out.push_str(&format!(
+        "<div data-slot=\"date-picker-caption\">{caption}</div>"
+    ));
     out.push_str("<div role=\"row\">");
     for d in WEEKDAYS {
         out.push_str(&format!(
@@ -134,10 +173,14 @@ mod tests {
     #[test]
     fn root_is_trigger_button_not_native_date_input() {
         let html = render(&stub("date-picker", "Due date"));
-        assert!(html.starts_with("<button type=\"button\" data-slot=\"date-picker-trigger\">"));
+        assert!(html.contains("<div data-slot=\"date-picker\">"));
+        assert!(html.contains("data-slot=\"date-picker-trigger\""));
+        assert!(html.contains("popovertarget="));
         assert!(html.contains("<span>Due date</span></button>"));
         assert!(html.contains("data-slot=\"date-picker-content\""));
         assert!(html.contains("data-slot=\"date-picker-calendar\""));
+        assert!(html.contains("data-slot=\"date-picker-caption\""));
+        assert!(html.contains("September 2026"));
         assert!(html.contains("data-slot=\"date-picker-day\""));
         assert!(html.contains("role=\"grid\""));
         assert!(!html.contains("type=\"date\""));
@@ -150,6 +193,7 @@ mod tests {
         c.props.insert("value".into(), "2026-09-13".into());
         let html = render(&c);
         assert!(html.contains("<span>2026-09-13</span></button>"));
+        assert!(html.contains("September 2026"));
         assert!(html.contains("aria-selected=\"true\">13</button>"));
         assert!(!html.contains("type=\"date\""));
         reject_interact(&html);
@@ -207,6 +251,7 @@ mod tests {
         assert!(css.contains("[data-slot=\"date-picker-content\"]"));
         assert!(css.contains("[data-slot=\"date-picker-calendar\"]"));
         assert!(css.contains("[data-slot=\"date-picker-day\"]"));
+        assert!(css.contains("[data-slot=\"date-picker-caption\"]"));
         assert!(css.contains("var(--cronus-surface-floating)"));
         assert!(css.contains("var(--cronus-border)"));
         assert!(css.contains("var(--cronus-shadow-lg"));

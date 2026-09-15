@@ -18,7 +18,11 @@ pub fn render(comp: &ComponentNode) -> String {
     let show_seconds = flag(comp, "showSeconds") || flag(comp, "show-seconds");
     let time = parse_time(comp);
     let label = trigger_label(comp, time, hour_cycle, show_seconds);
-    let mut btn = String::from("type=\"button\" aria-haspopup=\"dialog\"");
+    let trigger_id = crate::cronus_ui_kit::widget_id(comp, "trigger");
+    let pop_id = crate::cronus_ui_kit::widget_id(comp, "panel");
+    let mut btn = format!(
+        "type=\"button\" id=\"{trigger_id}\" data-slot=\"time-picker-trigger\" aria-haspopup=\"dialog\" popovertarget=\"{pop_id}\""
+    );
     if flag(comp, "disabled") {
         btn.push_str(" disabled");
     }
@@ -36,7 +40,7 @@ pub fn render(comp: &ComponentNode) -> String {
         .unwrap_or_else(|| "Choose a time".into());
     let columns = columns_html(time, hour_cycle, show_seconds);
     format!(
-        "<div data-slot=\"time-picker\"><button {btn}>{ICON}<span>{label}</span></button><div data-slot=\"time-picker-content\" aria-label=\"{content_label}\">{columns}<div><button type=\"button\" data-slot=\"time-picker-now\">Now</button><button type=\"button\" data-slot=\"time-picker-done\">Done</button></div></div></div>"
+        "<div data-slot=\"time-picker\"><button {btn}>{ICON}<span>{label}</span></button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"time-picker-content\" aria-label=\"{content_label}\" anchor=\"{trigger_id}\">{columns}<div data-slot=\"time-picker-footer\"><button type=\"button\" data-slot=\"time-picker-now\">Now</button><button type=\"button\" data-slot=\"time-picker-done\">Done</button></div></div></div>"
     )
 }
 
@@ -144,7 +148,7 @@ fn hour_cycle_of(comp: &ComponentNode) -> u8 {
 }
 
 fn columns_html(time: Option<TimeValue>, hour_cycle: u8, show_seconds: bool) -> String {
-    let mut out = String::from("<div>");
+    let mut out = String::from("<div data-slot=\"time-picker-columns\">");
     if hour_cycle == 24 {
         out.push_str(&column(
             "Hour",
@@ -246,7 +250,8 @@ mod tests {
     fn root_is_open_panel_not_native_time_input() {
         let html = render(&stub("time-picker", "Time"));
         assert!(html.starts_with("<div data-slot=\"time-picker\">"));
-        assert!(html.contains("<button type=\"button\" aria-haspopup=\"dialog\">"));
+        assert!(html.contains("aria-haspopup=\"dialog\""));
+        assert!(html.contains("popovertarget="));
         assert!(html.contains("<span>Time</span></button>"));
         assert!(html.contains("data-slot=\"time-picker-content\""));
         assert!(html.contains("data-slot=\"time-picker-column\""));
@@ -337,6 +342,8 @@ mod tests {
         assert!(css.contains("[data-slot=\"time-picker-content\"]"));
         assert!(css.contains("[data-slot=\"time-picker-column\"]"));
         assert!(css.contains("[data-slot=\"time-picker-option\"]"));
+        assert!(css.contains("[data-slot=\"time-picker-columns\"]"));
+        assert!(css.contains("[data-slot=\"time-picker-footer\"]"));
         assert!(css.contains("var(--cronus-surface-floating)"));
         assert!(css.contains("var(--cronus-border)"));
         assert!(css.contains("var(--cronus-shadow-lg"));

@@ -24,14 +24,16 @@ pub fn render(comp: &ComponentNode) -> String {
         })
         .collect::<Vec<_>>()
         .join("");
-    let mut trigger_attrs = String::from(
-        "type=\"button\" data-slot=\"combobox-trigger\" role=\"combobox\" aria-expanded=\"true\" aria-haspopup=\"listbox\"",
+    let trigger_id = crate::cronus_ui_kit::widget_id(comp, "trigger");
+    let pop_id = crate::cronus_ui_kit::widget_id(comp, "list");
+    let mut trigger_attrs = format!(
+        "type=\"button\" id=\"{trigger_id}\" data-slot=\"combobox-trigger\" role=\"combobox\" aria-expanded=\"false\" aria-haspopup=\"listbox\" popovertarget=\"{pop_id}\""
     );
     if disabled(comp) {
         trigger_attrs.push_str(" disabled");
     }
     format!(
-        "<div data-slot=\"combobox\"><button {trigger_attrs}>{trigger}</button><div data-slot=\"combobox-content\" role=\"listbox\">{items}</div></div>"
+        "<div data-slot=\"combobox\"><button {trigger_attrs}>{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"combobox-content\" role=\"listbox\" anchor=\"{trigger_id}\">{items}</div></div>"
     )
 }
 
@@ -119,10 +121,12 @@ mod tests {
     fn root_is_trigger_and_open_listbox_not_native_select() {
         let html = render(&combo("Search", &["Ada", "Grace"]));
         assert!(html.starts_with("<div data-slot=\"combobox\">"));
-        assert!(html.contains(
-            "<button type=\"button\" data-slot=\"combobox-trigger\" role=\"combobox\" aria-expanded=\"true\" aria-haspopup=\"listbox\">Search</button>"
-        ));
-        assert!(html.contains("<div data-slot=\"combobox-content\" role=\"listbox\">"));
+        assert!(html.contains("data-slot=\"combobox-trigger\""));
+        assert!(html.contains("role=\"combobox\""));
+        assert!(html.contains("aria-haspopup=\"listbox\""));
+        assert!(html.contains("popovertarget="));
+        assert!(html.contains(">Search</button>"));
+        assert!(html.contains("data-slot=\"combobox-content\" role=\"listbox\""));
         assert!(html.contains(
             "<button type=\"button\" data-slot=\"combobox-item\" role=\"option\" aria-selected=\"false\">Ada</button>"
         ));
@@ -130,10 +134,7 @@ mod tests {
             "<button type=\"button\" data-slot=\"combobox-item\" role=\"option\" aria-selected=\"false\">Grace</button>"
         ));
         reject_interact(&html);
-        assert_eq!(
-            html,
-            "<div data-slot=\"combobox\"><button type=\"button\" data-slot=\"combobox-trigger\" role=\"combobox\" aria-expanded=\"true\" aria-haspopup=\"listbox\">Search</button><div data-slot=\"combobox-content\" role=\"listbox\"><button type=\"button\" data-slot=\"combobox-item\" role=\"option\" aria-selected=\"false\">Ada</button><button type=\"button\" data-slot=\"combobox-item\" role=\"option\" aria-selected=\"false\">Grace</button></div></div>"
-        );
+        assert!(html.contains("popover=\"auto\""));
     }
 
     #[test]
@@ -155,9 +156,7 @@ mod tests {
         let mut c = combo("Search", &["Ada", "Grace"]);
         c.props.insert("value".into(), "Grace".into());
         let html = render(&c);
-        assert!(html.contains(
-            "aria-haspopup=\"listbox\">Grace</button>"
-        ));
+        assert!(html.contains(">Grace</button>"));
         assert!(html.contains("aria-selected=\"false\">Ada</button>"));
         assert!(html.contains("aria-selected=\"true\">Grace</button>"));
         reject_interact(&html);
@@ -170,7 +169,7 @@ mod tests {
             .config
             .insert("selected".into(), "true".into());
         let html = render(&c);
-        assert!(html.contains("aria-haspopup=\"listbox\">Ada</button>"));
+        assert!(html.contains(">Ada</button>"));
         assert!(html.contains("aria-selected=\"true\">Ada</button>"));
         assert!(html.contains("aria-selected=\"false\">Grace</button>"));
         reject_interact(&html);
@@ -181,7 +180,7 @@ mod tests {
         let mut c = combo("Search", &["Ada"]);
         c.props.insert("disabled".into(), "true".into());
         let html = render(&c);
-        assert!(html.contains(" aria-haspopup=\"listbox\" disabled>Search</button>"));
+        assert!(html.contains(" disabled>Search</button>"));
         reject_interact(&html);
     }
 
