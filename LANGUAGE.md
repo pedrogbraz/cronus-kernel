@@ -83,13 +83,15 @@ Plus 15 more in the full list — grep `validate_identifier` for the canonical s
 | `text`           | TEXT         | `<textarea>`                     | |
 | `email`          | TEXT         | `<input type=email>`             | Pattern validated |
 | `url`            | TEXT         | `<input type=url>`               | |
+| `file`           | TEXT         | `<input type=file>`              | URL or `/_files/…` upload |
 | `slug`           | TEXT         | slug field                       | Auto-kebab |
 | `phone`          | TEXT         | `<input type=tel>`               | |
 | `number`         | INTEGER      | `<input type=number>`            | |
 | `money`          | INTEGER      | money formatter                  | **Stored as centavos** |
 | `percentage`     | INTEGER/REAL | percent formatter                | |
 | `boolean`        | INTEGER      | checkbox                         | |
-| `date`           | TEXT         | `<input type=date>`              | ISO string |
+| `date`           | TEXT         | `<input type=date>`              | `YYYY-MM-DD` |
+| `datetime`       | TEXT         | `<input type=datetime-local>`    | `YYYY-MM-DDTHH:MM` (optional seconds/offset) |
 | `ulid`           | TEXT         | ULID pill                        | |
 | `json`           | TEXT         | JSON viewer                      | |
 | `enum`           | TEXT         | select/badge                     | Requires `[a, b, c]` list |
@@ -104,7 +106,7 @@ Canonical keyword list: `FIELD_TYPE_KEYWORDS` in `src/parser/ast.rs`. Keywords a
 |-------|-----------|
 | `int`, `integer`, `float`, `decimal` | `number` |
 | `bool` | `boolean` |
-| `datetime`, `timestamp` | `date` |
+| `timestamp` | `datetime` |
 
 No other spelling is accepted (since 2026-09-14; before that, every unknown type silently became `string`):
 
@@ -318,6 +320,7 @@ entity Tag { label string! }
 - **GraphQL.** `tags: [String!]!` on the type, `tags: [String!]` on `Create<Entity>Input`.
 - **Not supported:** `unique` on a many-to-many field (ignored).
 - **SSR.** `bind Post { query all }` attaches M2M fields as id arrays; `expand:tags` attaches redacted Tag rows. Table cells join `label`/`name`/`title`/`id`.
+- **Reverse.** `author -> User` on Post yields `posts` on User. `bind User { expand:posts }` / REST `?expand=posts` loads the Post rows whose `author` is that User (same owner scope). The name is the source entity lowercased + `s`, unless that name is already a field — then `{source}_{field}`. Reverse fields are not stored and are not writable.
 - **`set tags "id1,id2"`** on `/_action` replaces join rows (same id-scope rules as REST/`/_form`).
 
 ### 3.8 Env schema — REAL

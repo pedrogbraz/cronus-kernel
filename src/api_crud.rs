@@ -556,6 +556,12 @@ fn create(
         return validation_failed(StatusCode::BAD_REQUEST, "Expected a JSON object body");
     };
     let (mut data, many) = writable_parts(entity, obj);
+    if let Err(errors) =
+        crate::files::persist_uploads(entity, &mut data, &crate::files::dir_for(&state.db_path))
+    {
+        let status = StatusCode::from_u16(422).unwrap_or(StatusCode::UNPROCESSABLE_ENTITY);
+        return invalid_fields(status, &errors);
+    }
     for field in &entity.fields {
         if let Some(default) = &field.default_value {
             if is_column(&field.name) && !field.is_many() && !data.contains_key(&field.name) {
@@ -635,7 +641,13 @@ fn update(
     let Some(obj) = body.and_then(Value::as_object) else {
         return validation_failed(StatusCode::BAD_REQUEST, "Expected a JSON object body");
     };
-    let (data, many) = writable_parts(entity, obj);
+    let (mut data, many) = writable_parts(entity, obj);
+    if let Err(errors) =
+        crate::files::persist_uploads(entity, &mut data, &crate::files::dir_for(&state.db_path))
+    {
+        let status = StatusCode::from_u16(422).unwrap_or(StatusCode::UNPROCESSABLE_ENTITY);
+        return invalid_fields(status, &errors);
+    }
 
     let prev = match select_one(state, entity, id, scope) {
         Ok(Some(row)) => row,

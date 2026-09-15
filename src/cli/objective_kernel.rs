@@ -392,6 +392,8 @@ pub fn reconcile_field_type_str(ft: &FieldType) -> &'static str {
         FieldType::Percentage => "percentage",
         FieldType::Boolean => "boolean",
         FieldType::Date => "date",
+        FieldType::DateTime => "datetime",
+        FieldType::File => "file",
         FieldType::Ulid => "ulid",
         FieldType::Json => "json",
         FieldType::Enum => "enum",

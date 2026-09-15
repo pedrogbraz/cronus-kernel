@@ -59,6 +59,10 @@ entity Plan shared { name string! }
 - `name type modifiers`. `!` = required. `-> Entity` = relation (id column).
   `-> Entity[]` = many-to-many (join table): write an array of ids the caller can read,
   read back an id array, `?expand=tags` returns the linked rows.
+  Reverse: `Customer` with `Order { customer -> Customer }` expands as `expand:orders`.
+- `date` is `YYYY-MM-DD`. `datetime` (`timestamp` alias) is `YYYY-MM-DDTHH:MM` (optional
+  seconds/offset). `file` stores an `https://` URL or a `/_files/…` upload (form file
+  inputs are sent as data URLs; max 512KiB).
 - Modifiers: `!` `unique` `sensitive` `optional` `searchable` `index` `featured`
   `formatted` `default:<v>` `min:<n>` `max:<n>` `match:"<regex>"`. `min`/`max` bound
   numbers, or length in characters for text types. `match` is a Rust regex.
@@ -165,6 +169,7 @@ bind Product { query all scope:public }
   Values: `"text"`, numbers, `true`, `route.id`, `auth.id`, `auth.role`, `auth.email`.
   `query` is `all|one|count` (`BIND_002`).
 - `expand:tags` (comma-separated) loads related rows on those fields for SSR.
+  Reverse of `Order.customer -> Customer` is `expand:orders` on Customer.
 - `interval:` `day` `week` `month` `quarter` `year`.
 - Visibility: no session sees nothing unless `scope:public` (every row, to anyone);
   users see own rows and `shared` entities; admins see all. `sensitive` fields never leave.
@@ -225,8 +230,8 @@ The first `style` segment is a family name from the family list below.
 ## Field types
 
 <!-- begin:field-types -->
-`string` `text` `email` `url` `slug` `phone` `number` `money` `percentage` `boolean`
-`date` `ulid` `json` `enum` `ip`
+`string` `text` `email` `url` `file` `slug` `phone` `number` `money` `percentage` `boolean`
+`date` `datetime` `ulid` `json` `enum` `ip`
 <!-- end:field-types -->
 
 Relations are written `name -> Entity` (or `name -> Entity[]` for many-to-many), not as a

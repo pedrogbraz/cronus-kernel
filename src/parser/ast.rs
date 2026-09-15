@@ -155,10 +155,12 @@ pub enum FieldType {
     Percentage,
     Boolean,
     Date,
+    DateTime,
     Ulid,
     Json,
     Enum,
     Ip,
+    File,
     Relation,
 }
 
@@ -168,6 +170,7 @@ pub const FIELD_TYPE_KEYWORDS: &[&str] = &[
     "text",
     "email",
     "url",
+    "file",
     "slug",
     "phone",
     "number",
@@ -175,6 +178,7 @@ pub const FIELD_TYPE_KEYWORDS: &[&str] = &[
     "percentage",
     "boolean",
     "date",
+    "datetime",
     "ulid",
     "json",
     "enum",
@@ -189,8 +193,7 @@ pub const FIELD_TYPE_ALIASES: &[(&str, &str)] = &[
     ("float", "number"),
     ("decimal", "number"),
     ("bool", "boolean"),
-    ("datetime", "date"),
-    ("timestamp", "date"),
+    ("timestamp", "datetime"),
 ];
 
 impl FieldType {
@@ -207,6 +210,7 @@ impl FieldType {
             "text" => FieldType::Text,
             "email" => FieldType::Email,
             "url" => FieldType::Url,
+            "file" => FieldType::File,
             "slug" => FieldType::Slug,
             "phone" => FieldType::Phone,
             "number" => FieldType::Number,
@@ -214,6 +218,7 @@ impl FieldType {
             "percentage" => FieldType::Percentage,
             "boolean" => FieldType::Boolean,
             "date" => FieldType::Date,
+            "datetime" => FieldType::DateTime,
             "ulid" => FieldType::Ulid,
             "json" => FieldType::Json,
             "enum" => FieldType::Enum,

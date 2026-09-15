@@ -110,6 +110,8 @@ fn field_type(t: &FieldType) -> &'static str {
         FieldType::Percentage => "percentage",
         FieldType::Boolean => "boolean",
         FieldType::Date => "date",
+        FieldType::DateTime => "datetime",
+        FieldType::File => "file",
         FieldType::Ulid => "ulid",
         FieldType::Json => "json",
         FieldType::Enum => "enum",

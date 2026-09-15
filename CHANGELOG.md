@@ -8,6 +8,17 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ## [Unreleased]
 
+### Language (types)
+
+- **`datetime` is not `date`.** `date` is `YYYY-MM-DD`. `datetime` (alias `timestamp`) is
+  `YYYY-MM-DDTHH:MM` with optional seconds and `Z`/`±HH:MM`. Forms use `datetime-local`.
+- **`file` is a real type.** Forms send a data URL; the kernel stores `/_files/<id>.<ext>`
+  next to the database (512KiB). REST/GraphQL also accept an `https://` URL. `GET /_files/…`
+  serves the bytes. Traversal names are rejected.
+- **Reverse relations.** `Order { customer -> Customer }` yields `orders` on Customer.
+  `bind Customer { expand:orders }` / REST `?expand=orders` loads the related rows
+  (owner-scoped). A name that collides with a field on Customer becomes `{source}_{field}`.
+
 ### Language (composition)
 
 - **`import` and `compose { use }` are a load graph.** Nested imports resolve relative

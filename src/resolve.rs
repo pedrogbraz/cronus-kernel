@@ -48,6 +48,7 @@ impl SymbolTable {
         kernel_routes.insert("/docs".to_string());
         kernel_routes.insert("/docs/design".to_string());
         kernel_routes.insert("/graphql".to_string());
+        kernel_routes.insert("/_files".to_string());
 
         Self {
             entities: HashMap::new(),
@@ -109,6 +110,22 @@ fn collect_symbols(nodes: &[AstNode], table: &mut SymbolTable) {
                 }
             }
             _ => {}
+        }
+    }
+    let owned: Vec<crate::parser::EntityNode> = nodes
+        .iter()
+        .filter_map(|n| match n {
+            AstNode::Entity(e) => Some(e.clone()),
+            _ => None,
+        })
+        .collect();
+    for e in &owned {
+        let extra: Vec<String> = crate::relations::reverse_rels(&owned, e)
+            .into_iter()
+            .map(|r| r.name)
+            .collect();
+        if let Some(info) = table.entities.get_mut(&e.name) {
+            info.fields.extend(extra);
         }
     }
 }

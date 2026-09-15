@@ -373,12 +373,14 @@ fn field_to_openapi_property(f: &FieldNode) -> Value {
         FieldType::String | FieldType::Text | FieldType::Slug => json!({"type": "string"}),
         FieldType::Email => json!({"type": "string", "format": "email"}),
         FieldType::Url => json!({"type": "string", "format": "uri"}),
+        FieldType::File => json!({"type": "string", "format": "uri"}),
         FieldType::Phone => json!({"type": "string"}),
         FieldType::Number => json!({"type": "integer"}),
         FieldType::Money => json!({"type": "integer", "description": "Amount in cents"}),
         FieldType::Percentage => json!({"type": "number"}),
         FieldType::Boolean => json!({"type": "boolean"}),
-        FieldType::Date => json!({"type": "string", "format": "date-time"}),
+        FieldType::Date => json!({"type": "string", "format": "date"}),
+        FieldType::DateTime => json!({"type": "string", "format": "date-time"}),
         FieldType::Ulid => json!({"type": "string", "format": "ulid"}),
         FieldType::Json => json!({"type": "object"}),
         FieldType::Ip => json!({"type": "string", "format": "ipv4"}),
@@ -483,6 +485,8 @@ fn sql_type_for(ft: &FieldType) -> &'static str {
         | FieldType::Slug
         | FieldType::Phone
         | FieldType::Date
+        | FieldType::DateTime
+        | FieldType::File
         | FieldType::Ulid
         | FieldType::Enum
         | FieldType::Ip
@@ -582,6 +586,8 @@ fn field_to_ts_type(f: &FieldNode) -> String {
         | FieldType::Slug
         | FieldType::Phone
         | FieldType::Date
+        | FieldType::DateTime
+        | FieldType::File
         | FieldType::Ulid
         | FieldType::Ip => "string".to_string(),
         FieldType::Number | FieldType::Money | FieldType::Percentage => "number".to_string(),
@@ -624,6 +630,8 @@ fn field_type_str(ft: &FieldType) -> &'static str {
         FieldType::Percentage => "percentage",
         FieldType::Boolean => "boolean",
         FieldType::Date => "date",
+        FieldType::DateTime => "datetime",
+        FieldType::File => "file",
         FieldType::Ulid => "ulid",
         FieldType::Json => "json",
         FieldType::Enum => "enum",

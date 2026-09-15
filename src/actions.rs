@@ -723,6 +723,13 @@ fn create_from_form(
         return form_error(400, "INVALID", "Missing form data");
     };
     let (mut row_data, many) = form_parts(schema, data_obj);
+    if let Err(errors) = crate::files::persist_uploads(
+        schema,
+        &mut row_data,
+        &crate::files::dir_for(&state.db_path),
+    ) {
+        return form_invalid(422, &errors);
+    }
     for field in schema.fields.iter().filter(|f| !f.is_many()) {
         if let Some(default) = &field.default_value {
             if !row_data.contains_key(&field.name) {
@@ -805,7 +812,12 @@ fn update_from_form(
     };
 
     // Partial update: validate only the writable fields being sent.
-    let (changes, many) = form_parts(schema, data_obj);
+    let (mut changes, many) = form_parts(schema, data_obj);
+    if let Err(errors) =
+        crate::files::persist_uploads(schema, &mut changes, &crate::files::dir_for(&state.db_path))
+    {
+        return form_invalid(422, &errors);
+    }
     if changes.is_empty() && many.is_empty() {
         return form_error(400, "INVALID", "Nothing to update");
     }

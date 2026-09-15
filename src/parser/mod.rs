@@ -5455,8 +5455,8 @@ entity Item shared {
                 FieldType::Number,
                 FieldType::Number,
                 FieldType::Boolean,
-                FieldType::Date,
-                FieldType::Date,
+                FieldType::DateTime,
+                FieldType::DateTime,
             ]
         );
     }

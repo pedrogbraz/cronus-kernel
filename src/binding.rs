@@ -697,4 +697,41 @@ mod tests {
             "rust"
         );
     }
+
+    #[test]
+    fn expand_reverse_relation_on_ssr() {
+        let src = "entity Customer { name string! }\nentity Order { title string!  customer -> Customer }\n";
+        let ents: Vec<EntityNode> = parse(src)
+            .unwrap()
+            .into_iter()
+            .filter_map(|n| match n {
+                AstNode::Entity(e) => Some(e),
+                _ => None,
+            })
+            .collect();
+        let db = CronusDB::open_memory().unwrap();
+        db.migrate(&ents).unwrap();
+        let customer = db
+            .insert(
+                "Customer",
+                &serde_json::json!({"name": "Ada", "_owner_id": "alice"}),
+            )
+            .unwrap();
+        let cid = customer["id"].as_str().unwrap();
+        db.insert(
+            "Order",
+            &serde_json::json!({"title": "one", "customer": cid, "_owner_id": "alice"}),
+        )
+        .unwrap();
+        let p = HashMap::new();
+        let listed = rows(resolve_binding(
+            &section("bind Customer { query all expand:orders }"),
+            &db,
+            &p,
+            &as_user("alice"),
+            &ents,
+        ));
+        let orders = listed[0]["orders"].as_array().unwrap();
+        assert_eq!(orders[0]["title"], "one");
+    }
 }

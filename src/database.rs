@@ -58,6 +58,8 @@ fn sql_type_for(ft: &FieldType) -> &'static str {
         | FieldType::Slug
         | FieldType::Phone
         | FieldType::Date
+        | FieldType::DateTime
+        | FieldType::File
         | FieldType::Ulid
         | FieldType::Enum
         | FieldType::Ip
@@ -994,6 +996,8 @@ impl CronusDB {
                     FieldType::Money => Value::String(format!("{}", 1000 + i * 500)),
                     FieldType::Boolean => Value::String(if i % 2 == 0 { "1" } else { "0" }.into()),
                     FieldType::Date => Value::String("2026-03-29".into()),
+                    FieldType::DateTime => Value::String("2026-03-29T10:00:00".into()),
+                    FieldType::File => Value::String("https://example.com/file.bin".into()),
                     FieldType::Url => {
                         Value::String(format!("https://example.com/{}", name.to_lowercase()))
                     }

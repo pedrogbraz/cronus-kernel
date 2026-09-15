@@ -33,6 +33,7 @@ mod audit_log;
 mod billing;
 mod devtools;
 mod diagnostics;
+mod files;
 mod forms;
 mod gql;
 mod introspection;
@@ -347,6 +348,7 @@ async fn handle_request_inner(
     let req = next!(scripts::route(req, &ctx).await);
     let req = next!(rest::route(req, &ctx, start).await);
     let req = next!(forms::route(req, &ctx).await);
+    let req = next!(files::route(req, &ctx).await);
     let _req = next!(pages::route(req, &ctx));
     pages::not_found(&ctx.state)
 }

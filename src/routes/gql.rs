@@ -36,7 +36,14 @@ pub(super) async fn route(req: Request<Incoming>, ctx: &Ctx) -> Routed {
             .unwrap_or("");
         let variables = body_json.get("variables").cloned().unwrap_or(json!({}));
         let schema = graphql::GraphQLSchema::from_entities(&state.entities);
-        let result = graphql::execute_graphql(query, &variables, &schema, &state.db, &gql_access);
+        let result = graphql::execute_graphql(
+            query,
+            &variables,
+            &schema,
+            &state.db,
+            &gql_access,
+            &state.db_path,
+        );
         return Ok(json_response(StatusCode::OK, result));
     }
     if path == "/graphql/schema" && method == Method::GET {

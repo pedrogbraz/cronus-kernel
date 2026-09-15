@@ -688,6 +688,8 @@ fn render_form(page: &PageNode, entities: &[EntityNode], accent: &str) -> String
                     FieldType::Number | FieldType::Money | FieldType::Percentage => "number",
                     FieldType::Boolean => "checkbox",
                     FieldType::Date => "date",
+                    FieldType::DateTime => "datetime-local",
+                    FieldType::File => "file",
                     FieldType::Url => "url",
                     FieldType::Phone => "tel",
                     _ => if f.sensitive { "password" } else { "text" },
