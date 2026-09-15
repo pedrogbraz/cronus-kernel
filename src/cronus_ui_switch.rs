@@ -18,7 +18,11 @@ pub fn render(comp: &ComponentNode) -> String {
     if let Some(label) = aria_label(comp) {
         attrs.push_str(&format!(" aria-label=\"{}\"", esc_attr(label)));
     }
-    format!("<button {attrs}><span data-slot=\"switch-thumb\"></span></button>")
+    let text = aria_label(comp)
+        .filter(|t| !t.is_empty())
+        .map(|t| format!("<span data-slot=\"switch-text\">{}</span>", esc_attr(t)))
+        .unwrap_or_default();
+    format!("<button {attrs}><span data-slot=\"switch-thumb\"></span></button>{text}")
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<&str> {
