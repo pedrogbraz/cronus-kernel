@@ -8,6 +8,21 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ## [Unreleased]
 
+### Language (mutation)
+
+- **Forms honour `on submit`.** `POST`/`PATCH /_form` still write the row once.
+  `create`/`update` in the block are declarations (must match `bind`). The response
+  `effects` are that block's `toast`/`navigate`/`refresh` instead of a generic
+  "Created successfully". `/_action` returns 403 for `submit` blocks, so they cannot
+  double-insert. (`src/actions.rs`)
+- **`/_action` `create`/`update` execute AST field literals.**
+  `on click { create Task { title "hello" } }` inserts; the client still posts only
+  `{action_id, entity, id}`. A `create` with no fields is `400 INVALID`.
+- **`set` on many-to-many fields** (`set tags "id1,id2"`) replaces join rows with the
+  same id-scope rules as REST/`/_form`.
+- **Entity `on create/update/delete` runs after form and action writes**, not only REST.
+  `log` interpolates and records; `notify` broadcasts SSE. Outbound HTTP remains `webhook`.
+
 ### Breaking changes (language honesty)
 
 A `.cronus` file that used to parse and no-op now fails `cronus build`. Codes are in

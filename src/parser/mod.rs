@@ -2222,6 +2222,34 @@ impl Parser {
         Some(self.advance().value)
     }
 
+    /// Field literals on `create`/`update`: `title:"x"` pairs and/or `{ title "x" }`.
+    fn parse_action_fields(&mut self) -> HashMap<String, String> {
+        let mut fields = HashMap::new();
+        while self.peek().kind == TokenKind::ColonPair {
+            let (k, v) = Self::split_colon_pair(&self.advance().value);
+            fields.insert(k, v.trim_matches('"').to_string());
+        }
+        if !self.matches(TokenKind::LBrace, None) {
+            return fields;
+        }
+        self.advance();
+        while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
+            let tok = self.advance();
+            if tok.kind == TokenKind::ColonPair {
+                let (k, v) = Self::split_colon_pair(&tok.value);
+                fields.insert(k, v.trim_matches('"').to_string());
+                continue;
+            }
+            let key = tok.value;
+            let val = self.action_arg().unwrap_or_default();
+            fields.insert(key, val.trim_matches('"').to_string());
+        }
+        if self.matches(TokenKind::RBrace, None) {
+            self.advance();
+        }
+        fields
+    }
+
     fn parse_action_block(&mut self) -> Result<ActionBlock, ParseError> {
         // Already consumed "on" keyword before calling this
         let event = self.advance().value; // "click", "submit", "error", "change"
@@ -2289,8 +2317,18 @@ impl Parser {
                         modifiers: HashMap::new(),
                     });
                 }
-                "create" | "update" | "delete" => {
-                    let target = self.action_arg().unwrap_or_default(); // "entity" or entity name
+                "create" | "update" => {
+                    let target = self.action_arg().unwrap_or_default();
+                    let modifiers = self.parse_action_fields();
+                    instructions.push(ActionInstruction {
+                        verb: verb.clone(),
+                        target,
+                        value: String::new(),
+                        modifiers,
+                    });
+                }
+                "delete" => {
+                    let target = self.action_arg().unwrap_or_default();
                     instructions.push(ActionInstruction {
                         verb: verb.clone(),
                         target,
@@ -4265,6 +4303,35 @@ mod parser_tests {
             .find(|e| e.code == codes::UNKNOWN_FIELD_MODIFIER)
             .expect("FIELD_004");
         assert_eq!(e.replacement.as_deref(), Some("index"));
+    }
+
+    #[test]
+    fn create_action_parses_field_literals() {
+        let src = "entity Task { title string! }\npage \"/p\" {\n  section card {\n    bind Task { query all }\n    on click { create Task { title \"hello\" status \"open\" } toast \"ok\" success }\n  }\n}\n";
+        let nodes = match parse_diagnostics(src) {
+            Ok(n) => n,
+            Err(e) => panic!(
+                "{}",
+                e.iter()
+                    .map(|d| d.to_string())
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            ),
+        };
+        let AstNode::Page(p) = &nodes[1] else {
+            panic!("expected page");
+        };
+        let create = &p.sections[0].actions[0].instructions[0];
+        assert_eq!(create.verb, "create");
+        assert_eq!(create.target, "Task");
+        assert_eq!(
+            create.modifiers.get("title").map(String::as_str),
+            Some("hello")
+        );
+        assert_eq!(
+            create.modifiers.get("status").map(String::as_str),
+            Some("open")
+        );
     }
 
     #[test]

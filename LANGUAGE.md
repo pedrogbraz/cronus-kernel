@@ -222,9 +222,14 @@ entity Order {
 
 State machine validation at both compile time (state names must match enum values) and runtime (prevents invalid transitions).
 
-### 3.4 Effects (`on create/update/delete`) — SCAFFOLDED
+### 3.4 Effects (`on create/update/delete`) — REAL (narrow verbs)
 
-Parser accepts the block. Runtime fires the actions but **supported action verbs are limited** (see §8). Test coverage: effect parsing has 10 unit tests in `parser/mod.rs`; effect execution has 0 tests.
+Parser accepts the block. Runtime runs it after **every** write surface: REST (`api_crud`), `/_form`, and `/_action` (`create`/`update`/`set`/`delete`).
+
+- `log "…"` interpolates `{{field}}`, prints to stderr, and records on the brain event log when one is configured.
+- `notify <provider> <channel> "…"` interpolates, prints, records on the brain, and broadcasts an SSE event (`_effect_notify_<entity>`). It does **not** send email or Slack; outbound HTTP is the separate `webhook` block (`fire_webhooks`).
+
+Unknown effect verbs are ignored (brain-only). Test coverage: parser tests in `parser/mod.rs`; `effects.rs` fires log/notify on create.
 
 ### 3.5 Entity features **NOT** advertised by docs but present in code
 
@@ -290,7 +295,8 @@ entity Tag { label string! }
 - **Reads.** REST list/detail and GraphQL return the field as an id array in link order. REST `?expand=tags` (comma-separated field names) returns the linked rows instead, passed through `authz::redact_sensitive`. Only linked rows the viewer may read are included; anonymous callers on `auth:public` routes get `[]`. One query per field per page, never per row.
 - **Deletes.** Deleting either side removes its join rows.
 - **GraphQL.** `tags: [String!]!` on the type, `tags: [String!]` on `Create<Entity>Input`.
-- **Not supported:** `unique` on a many-to-many field (ignored), showing links through SSR bindings/`columns`, `set` on the field in actions.
+- **Not supported:** `unique` on a many-to-many field (ignored), showing links through SSR bindings/`columns`.
+- **`set tags "id1,id2"`** on `/_action` replaces join rows (same id-scope rules as REST/`/_form`).
 
 ### 3.8 Env schema — REAL
 
@@ -504,7 +510,7 @@ However: the outer wrapper at `src/ui/mod.rs:762-781` adds `data-entity="..."` a
 
 ---
 
-## 8. Actions — SCAFFOLDED
+## 8. Actions — REAL
 
 ### 8.1 Syntax
 
@@ -523,22 +529,22 @@ on click confirm:"Delete this order?" {
 
 ### 8.2 Supported verbs (verified in `src/actions.rs`)
 
-**7 action verbs** are implemented:
-- `set <field> "<value>"`
+**Action verbs** (verified in `src/actions.rs`):
+- `set <field> "<value>"` — scalars and many-to-many (`set tags "id1,id2"` replaces join rows)
+- `create Entity { field "value" … }` — `/_action` only; field values come from the AST, never the client JSON
+- `update Entity { field "value" … }` — `/_action` only; same AST-literal rule; `set` in the same block is applied too
 - `toast "<message>" <style>`
 - `navigate "<path>"`
 - `refresh`
-- `delete <Entity> <id_expr>`
+- `delete <Entity>`
 - `open <modal_name>`
 - `close <modal_name>`
 
-**Parsed, not executed** (forms still create through `/_form`):
-- `create Entity` / `update Entity` — stored on the AST so templates keep parsing; the executor ignores them. Tracked as a language hole, not a silent skip of an unknown verb.
+**Forms (`on submit`)** post to `/_form`, which writes the row. `create`/`update` in that block name the bound entity (they must match `bind`); they do **not** insert a second row. After a successful write, the block's `toast`/`navigate`/`refresh`/`open`/`close` are returned as the effect envelope. `/_action` refuses `event: submit` blocks (403).
 
 **`ACTION_001`** (build error; these used to be skipped):
 - `validate`
 - any invented verb (`log`, `notify`, `email`, …)
-- a standalone `confirm "..."` instruction is stored on `ActionBlock.confirm` and is not executed; prefer `on click confirm:"…"` as a modifier on the `on` line when that form parses. Inner `confirm` as a verb is still accepted as the confirm message.
 
 ### 8.2.1 Server enforcement (Sprint 1)
 
@@ -546,7 +552,7 @@ on click confirm:"Delete this order?" {
 - Requires a session (401 otherwise).
 - The client can only reference an action **declared in the AST**, by `action_id`. Kernel-rendered action buttons carry `data-action-id` (sha256 of the section entity and the canonical block, first 16 hex chars), and the runtime posts `{action_id, entity, id}`. The server executes **its own copy** of the instructions. A body without a matching `action_id` is 403, and client-sent instruction JSON (`action`) is ignored.
 - `entity` must equal the declared section's entity (`bind X` or `entity:`).
-- `set`/`delete` run on that entity only, constrained by `_owner_id` in SQL for non-admins (404 if the row is not yours), never on the auth entity for non-admins. `set` targets must be writable (`authz::writable_body`: no `id`, `_owner_id`, timestamps, `role`, `password`, or `sensitive` fields).
+- `set`/`delete`/`create`/`update` run on that entity only, constrained by `_owner_id` in SQL for non-admins (404 if the row is not yours), never on the auth entity for non-admins. `set` targets must be writable (`authz::writable_body`: no `id`, `_owner_id`, timestamps, `role`, `password`, or `sensitive` fields). Many-to-many `set` replaces join rows. `create`/`update` field values are the AST literals, not the request body. `event: submit` blocks are 403 here (they belong to `/_form`).
 
 `POST /_form/<section_type>`:
 - `entity` must be bound by a declared section of that type.

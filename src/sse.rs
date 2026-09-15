@@ -71,6 +71,11 @@ impl SseHub {
         let _ = self.tx.send(event);
     }
 
+    #[cfg(test)]
+    pub(crate) fn subscribe_raw(&self) -> broadcast::Receiver<DataChangeEvent> {
+        self.tx.subscribe()
+    }
+
     /// Broadcast a debug event (only meaningful when DEBUG_MODE is active).
     pub fn broadcast_debug(&self, event: DebugEvent) {
         let _ = self.debug_tx.send(event);

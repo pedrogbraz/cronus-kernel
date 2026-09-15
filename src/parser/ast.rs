@@ -380,15 +380,16 @@ pub enum BindingValue {
     AuthRef(String),
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ActionInstruction {
     pub verb: String, // "set", "toast", "navigate", "refresh", "create", "confirm", "delete", "validate", "open", "close"
     pub target: String, // field name, URL, message text, section ref
     pub value: String, // new value for "set", style for "toast"
+    /// Toast `style:`; `create`/`update` field literals (`title:"x"` or `{ title "x" }`).
     pub modifiers: HashMap<String, String>,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ActionBlock {
     pub event: String, // "click", "submit", "error", "change"
     pub confirm: Option<String>,

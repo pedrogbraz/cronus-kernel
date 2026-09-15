@@ -151,6 +151,45 @@ pub(crate) fn fire_effects(
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser::{parse, AstNode};
+    use serde_json::json;
+    use std::sync::Arc;
+
+    fn order_entity() -> parser::EntityNode {
+        let src = "entity Order {\n  number string!\n  on create {\n    log \"Order {{number}} created\"\n    notify slack \"#ops\" \"n={{number}}\"\n  }\n}\n";
+        parse(src)
+            .expect("parse")
+            .into_iter()
+            .find_map(|n| match n {
+                AstNode::Entity(e) => Some(e),
+                _ => None,
+            })
+            .expect("entity")
+    }
+
+    #[test]
+    fn fire_effects_interpolates_log_and_broadcasts_notify() {
+        let entity = order_entity();
+        let hub = Arc::new(sse::SseHub::new());
+        let mut rx = hub.subscribe_raw();
+        fire_effects(
+            &entity,
+            "create",
+            &json!({"id": "abc", "number": "42"}),
+            None,
+            &None,
+            &hub,
+        );
+        let ev = rx.try_recv().expect("notify sse");
+        assert!(ev.entity.contains("order"), "{}", ev.entity);
+        assert_eq!(ev.action, "notification");
+        assert_eq!(ev.id, "abc");
+    }
+}
+
 /// Interpolate `{{field_name}}` placeholders in a message with actual record values.
 fn interpolate_effect_message(template: &str, record: &serde_json::Value) -> String {
     let mut result = template.to_string();

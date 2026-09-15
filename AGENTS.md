@@ -138,7 +138,7 @@ Deleted in Sprint 4 (2026-09-14): `src/server/router.rs`, `src/server/api.rs`, `
 - Webhooks cannot deliver `https://` (no TLS client in dependencies).
 - GraphQL has no `update<Entity>` mutation and cannot be disabled.
 - Unknown field types are `TYPE_001`. Unknown `where` operators are `BIND_001` (no silent `eq`). Unknown field modifiers are `FIELD_004`. Hollow top-level blocks are `LANG_001`. Unknown action verbs are `ACTION_001`.
-- `create`/`update` in action blocks parse, but `/_action` does not execute them. Bound forms create through `/_form`.
+- `create`/`update` on `/_action` use AST field literals. Form `on submit { create X … }` writes through `/_form` only; the block supplies toast/navigate.
 - `#[cfg(feature = "generated-contracts")]` references a feature that is not declared in `Cargo.toml` (compiler warning).
 - Family stubs: `meteors` (fx) and `sankey-chart` (chart). JS-only controls render `disabled`. Overlays use native `popover` (not modal, no focus trap).
 

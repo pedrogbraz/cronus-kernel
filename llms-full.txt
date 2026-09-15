@@ -160,13 +160,15 @@ section form {
   }
 }
 ```
-- Verbs the server executes: `set <field> "<value>"`, `delete <Entity>`, `toast "<msg>" <style>`,
-  `navigate "<path>"`, `refresh <target>`, `open "<name>"`, `close "<name>"`.
-  Unknown verbs and `validate` fail the build (`ACTION_001`).
+- Verbs the server executes: `set <field> "<value>"` (including `-> X[]` as `"id1,id2"`),
+  `create Entity { field "value" }`, `update Entity { field "value" }`, `delete <Entity>`,
+  `toast "<msg>" <style>`, `navigate "<path>"`, `refresh <target>`, `open "<name>"`,
+  `close "<name>"`. Unknown verbs and `validate` fail the build (`ACTION_001`).
+- `create`/`update` on `/_action` use only AST field literals, never client JSON.
 - `on click confirm:"Sure?" { … }` asks before running.
-- A bound `form` section submits to the kernel (`/_form`), which creates the row with the
-  declared fields; `create`/`update` inside the block are accepted but not executed as
-  separate server steps.
+- A bound `form` section submits to `/_form`, which writes the row. `create`/`update` in
+  `on submit` name the entity (must match `bind`) and do not insert twice; toast/navigate
+  from that block are the response effects.
 
 ### style
 ```cronus
