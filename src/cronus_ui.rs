@@ -154,6 +154,425 @@ html[data-cronus-theme] h1 { letter-spacing: -0.03em; }
 html[data-cronus-theme] h2, html[data-cronus-theme] .text-4xl { letter-spacing: -0.025em; }
 html[data-cronus-theme] h3, html[data-cronus-theme] .text-xl { letter-spacing: -0.02em; }
 
+[data-slot="catalog"] {
+  width: 100%;
+  padding: 0.25rem 0 3.5rem;
+}
+[data-slot="catalog"] .sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="catalog-header"] {
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--cronus-border);
+}
+[data-slot="catalog-eyebrow"] {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem; font-weight: 500;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--cronus-fg-tertiary, var(--cronus-fg-secondary));
+}
+[data-slot="catalog-title-row"] {
+  display: flex; flex-wrap: wrap; align-items: flex-end;
+  justify-content: space-between; gap: 1rem;
+}
+[data-slot="catalog-header"] h1 {
+  margin: 0;
+  font-family: var(--cronus-font-display, inherit);
+  font-size: clamp(2rem, 4vw, 3rem); font-weight: 400;
+  letter-spacing: -0.03em; line-height: 1.1;
+  color: var(--cronus-fg);
+}
+[data-slot="catalog-lead"] {
+  max-width: 40rem; margin: 1rem 0 0;
+  font-size: 1.0625rem; line-height: 1.7;
+  color: var(--cronus-fg-secondary);
+}
+[data-slot="catalog-home"] {
+  display: inline-flex; align-items: center; margin-top: 1.25rem;
+  font-size: 0.875rem; color: var(--cronus-fg-secondary); text-decoration: none;
+  transition: color 200ms var(--cronus-ease);
+}
+[data-slot="catalog-home"]:hover { color: var(--cronus-fg); }
+[data-slot="catalog-stats"] {
+  display: flex; flex-wrap: wrap; gap: 0.5rem;
+}
+[data-slot="catalog-stats"] span {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  height: 2rem; padding: 0 0.75rem;
+  border-radius: 9999px; border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised, var(--cronus-surface-overlay));
+  font-size: 0.8125rem; color: var(--cronus-fg-tertiary, var(--cronus-fg-secondary));
+}
+[data-slot="catalog-stats"] strong {
+  font-weight: 600; color: var(--cronus-fg);
+  font-variant-numeric: tabular-nums;
+}
+[data-slot="catalog-toolbar"] {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; flex-direction: column; gap: 0.75rem;
+  padding: 1rem 0;
+  margin: 0 0 0.25rem;
+  background: color-mix(in oklch, var(--cronus-surface-base) 82%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--cronus-border);
+}
+@media (min-width: 640px) {
+  [data-slot="catalog-toolbar"] {
+    flex-direction: row; align-items: center;
+  }
+}
+[data-slot="catalog-search-wrap"] { display: block; width: 100%; max-width: 20rem; }
+[data-slot="catalog-search"] {
+  width: 100%; height: 2.5rem; padding: 0 0.875rem; box-sizing: border-box;
+  border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; outline: none;
+  transition: border-color 200ms var(--cronus-ease), box-shadow 200ms var(--cronus-ease);
+}
+[data-slot="catalog-search"]::placeholder {
+  color: var(--cronus-fg-tertiary, var(--cronus-fg-secondary));
+}
+[data-slot="catalog-search"]:focus {
+  border-color: var(--cronus-ring, var(--cronus-primary));
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--cronus-ring, var(--cronus-primary)) 25%, transparent);
+}
+[data-slot="catalog-nav"] {
+  display: flex; flex-wrap: wrap; gap: 0.5rem; flex: 1;
+}
+[data-slot="catalog-nav"] a {
+  display: inline-flex; align-items: center;
+  height: 2rem; padding: 0 0.75rem;
+  border-radius: 9999px; border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised, var(--cronus-surface-overlay));
+  color: var(--cronus-fg-secondary); font-size: 0.8125rem;
+  text-decoration: none;
+  transition: border-color 200ms var(--cronus-ease), color 200ms var(--cronus-ease);
+}
+[data-slot="catalog-nav"] a:hover {
+  color: var(--cronus-fg);
+  border-color: color-mix(in oklch, var(--cronus-fg) 22%, var(--cronus-border));
+}
+[data-slot="catalog-nav"] a[hidden] { display: none; }
+[data-slot="catalog-section"] {
+  scroll-margin-top: 5.5rem;
+  padding-top: 2.25rem;
+}
+[data-slot="catalog-section"] + [data-slot="catalog-section"] {
+  margin-top: 1.25rem;
+  border-top: 1px solid var(--cronus-border);
+}
+[data-slot="catalog-section"] > h2 {
+  margin: 0 0 1.25rem;
+  font-family: var(--cronus-font-display, inherit);
+  font-size: 1.5rem; font-weight: 400; letter-spacing: -0.02em;
+  color: var(--cronus-fg);
+}
+[data-slot="catalog-grid"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16.5rem, 1fr));
+  gap: 1rem;
+}
+[data-slot="catalog-specimen"] {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-xl);
+  background: var(--cronus-surface-raised, var(--cronus-surface-overlay));
+  overflow: visible;
+  animation: catalog-in 400ms var(--cronus-ease) both;
+  transition: border-color 200ms var(--cronus-ease);
+}
+[data-slot="catalog-specimen"][hidden],
+[data-slot="catalog-section"][hidden] {
+  display: none;
+}
+[data-slot="catalog-specimen"]:hover {
+  border-color: color-mix(in oklch, var(--cronus-fg) 18%, var(--cronus-border));
+}
+[data-slot="catalog-specimen"][data-wide="true"] {
+  grid-column: 1 / -1;
+}
+[data-slot="catalog-specimen"] > header {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1.15rem;
+  border-bottom: 1px solid var(--cronus-border);
+}
+[data-slot="catalog-family"] {
+  font-size: 0.875rem; font-weight: 500; color: var(--cronus-fg);
+}
+[data-slot="catalog-meta"] {
+  font-size: 0.75rem;
+  font-family: var(--cronus-font-mono, ui-monospace, monospace);
+  color: var(--cronus-fg-tertiary, var(--cronus-fg-secondary));
+}
+[data-slot="catalog-canvas"] {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 0.75rem;
+  min-height: 4.75rem;
+  padding: 1.15rem 1.15rem 1.35rem;
+}
+[data-slot="catalog-specimen"][data-wide="true"] [data-slot="catalog-canvas"] {
+  display: block;
+}
+@keyframes catalog-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="catalog-specimen"] { animation: none; }
+}
+@media (max-width: 639px) {
+  [data-slot="catalog-grid"] {
+    grid-template-columns: 1fr;
+  }
+  [data-slot="catalog-specimen"][data-wide="true"] {
+    grid-column: auto;
+  }
+}
+[data-slot="catalog-specimen"] {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 12rem;
+}
+
+/* Native overlays — closed until invoked. Popover API + dialog. */
+[popover] {
+  inset: unset; margin: 0;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-xl);
+  background: var(--cronus-surface-floating, var(--cronus-surface-overlay));
+  color: var(--cronus-fg);
+  padding: 0.35rem;
+  box-shadow: var(--cronus-shadow-lg, 0 16px 40px rgba(0,0,0,.35));
+}
+@supports (top: anchor(bottom)) {
+}
+  [popover]:not([data-slot="sheet-content"]) {
+    position: absolute;
+    top: calc(anchor(bottom) + 0.35rem);
+    left: anchor(left);
+  }
+}
+@supports not (top: anchor(bottom)) {
+}
+  [popover]:not([data-slot="sheet-content"]) {
+    position: fixed;
+    top: 18%;
+    left: 50%;
+    translate: -50% 0;
+  }
+}
+[popover]:popover-open {
+  animation: cronus-pop-in 180ms var(--cronus-ease) both;
+}
+@starting-style {
+  [popover]:popover-open {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+[data-slot="dropdown-menu"],
+[data-slot="combobox"],
+[data-slot="date-picker"],
+[data-slot="time-picker"],
+[data-slot="hover-card"] {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+[data-slot="dropdown-menu-trigger"],
+[data-slot="hover-card"] > button,
+button:has(+ [popover][data-slot="popover-content"]),
+button:has(+ [popover][data-slot="sheet-content"]) {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2.5rem; padding: 0 1rem;
+  border-radius: var(--cronus-radius-lg);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-overlay);
+  color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; cursor: pointer;
+  transition: background 150ms var(--cronus-ease), border-color 150ms var(--cronus-ease);
+}
+[data-slot="dropdown-menu-item"],
+[data-slot="combobox-item"] {
+  transition: background 120ms var(--cronus-ease);
+}
+[data-slot="dropdown-menu-item"]:hover,
+[data-slot="combobox-item"]:hover {
+  background: var(--cronus-surface-overlay);
+}
+[data-slot="sheet-content"][popover] {
+  height: 100dvh; width: min(24rem, 92vw);
+  margin: 0; padding: 1.5rem;
+  border-radius: var(--cronus-radius-xl) 0 0 var(--cronus-radius-xl);
+  position: fixed; inset: 0 0 0 auto;
+  animation: cronus-slide-in-right 280ms var(--cronus-ease) both;
+}
+[data-slot="hover-card-content"] {
+  position: absolute; z-index: 50; top: calc(100% + 0.35rem); left: 0;
+  width: 16rem; padding: 0.75rem; box-sizing: border-box;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-xl);
+  background: var(--cronus-surface-floating, var(--cronus-surface-overlay));
+  color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-lg, none);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transform: translateY(4px) scale(0.98);
+  transition: opacity 160ms var(--cronus-ease), transform 160ms var(--cronus-ease), visibility 160ms;
+}
+[data-slot="hover-card"]:hover [data-slot="hover-card-content"],
+[data-slot="hover-card"]:focus-within [data-slot="hover-card-content"] {
+  opacity: 1; visibility: visible; pointer-events: auto; transform: none;
+}
+dialog[data-slot="dialog-content"] {
+  position: fixed; inset: 0; margin: auto;
+  width: min(24rem, calc(100vw - 2rem));
+  height: fit-content;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-xl);
+  background: var(--cronus-surface-floating, var(--cronus-surface-overlay));
+  color: var(--cronus-fg);
+  padding: 0;
+  box-shadow: var(--cronus-shadow-lg, 0 16px 40px rgba(0,0,0,.4));
+  animation: cronus-pop-in 200ms var(--cronus-ease) both;
+}
+dialog[data-slot="dialog-content"]::backdrop {
+  background: color-mix(in oklch, black 55%, transparent);
+  animation: cronus-overlay-in 200ms var(--cronus-ease) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  [popover]:popover-open,
+  [data-slot="sheet-content"][popover],
+  dialog[data-slot="dialog-content"],
+  dialog[data-slot="dialog-content"]::backdrop,
+  [data-slot="hover-card-content"] {
+    animation: none; transition: none;
+  }
+}
+[data-slot="checkbox-text"], [data-slot="switch-text"] {
+  font-size: 0.875rem; color: var(--cronus-fg); line-height: 1;
+}
+
+[data-slot="date-picker-trigger"],
+[data-slot="time-picker-trigger"] {
+  display: inline-flex; align-items: center; justify-content: flex-start; gap: 0.5rem;
+  width: 15rem; height: 2.5rem; padding: 0 0.75rem; box-sizing: border-box;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-inset);
+  color: var(--cronus-fg);
+  font: inherit; font-size: 0.875rem; font-weight: 400;
+  cursor: pointer; outline: none;
+  transition: border-color 150ms var(--cronus-ease), box-shadow 150ms var(--cronus-ease);
+}
+[data-slot="date-picker-trigger"]:hover,
+[data-slot="time-picker-trigger"]:hover {
+  border-color: color-mix(in oklch, var(--cronus-fg) 22%, var(--cronus-border));
+}
+[data-slot="date-picker-trigger"]:focus-visible,
+[data-slot="time-picker-trigger"]:focus-visible {
+  border-color: var(--cronus-ring, var(--cronus-primary));
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--cronus-ring, var(--cronus-primary)) 25%, transparent);
+}
+[data-slot="date-picker-trigger"] svg,
+[data-slot="time-picker-trigger"] svg {
+  width: 1rem; height: 1rem; flex-shrink: 0; opacity: 0.7;
+}
+[data-slot="date-picker-content"][popover],
+[data-slot="time-picker-content"][popover] {
+  z-index: 50;
+  padding: 0.75rem 0.85rem 0.85rem;
+  min-width: 17.75rem;
+  box-sizing: border-box;
+}
+[data-slot="date-picker-calendar"] {
+  display: flex; flex-direction: column; gap: 0.65rem;
+}
+[data-slot="date-picker-caption"] {
+  font-size: 0.875rem; font-weight: 500; color: var(--cronus-fg);
+  text-align: center; letter-spacing: -0.02em;
+  padding: 0.15rem 0 0.1rem;
+}
+[data-slot="date-picker-calendar"] [role="row"] {
+  display: grid; grid-template-columns: repeat(7, 2.25rem);
+  justify-content: center; gap: 0.1rem;
+}
+[data-slot="date-picker-weekday"] {
+  display: flex; align-items: center; justify-content: center;
+  height: 1.75rem;
+  font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--cronus-fg-tertiary);
+}
+[data-slot="date-picker-day"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2.25rem; height: 2.25rem; padding: 0; margin: 0;
+  border: 0; border-radius: var(--cronus-radius-md);
+  background: transparent; color: var(--cronus-fg);
+  font: inherit; font-size: 0.8125rem; font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 120ms var(--cronus-ease), color 120ms var(--cronus-ease);
+}
+[data-slot="date-picker-day"]:hover {
+  background: var(--cronus-surface-overlay);
+}
+[data-slot="date-picker-day"][aria-selected="true"] {
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+  font-weight: 500;
+}
+[data-slot="time-picker-columns"] {
+  display: flex; align-items: flex-start; justify-content: center; gap: 0;
+}
+[data-slot="time-picker-column"] {
+  display: flex; flex-direction: column; align-items: stretch;
+  min-width: 3.75rem; max-height: 14rem; overflow-y: auto;
+  padding: 0 0.25rem 0.25rem;
+  scrollbar-width: thin;
+}
+[data-slot="time-picker-column"] + [data-slot="time-picker-column"] {
+  border-inline-start: 1px solid var(--cronus-border);
+}
+[data-slot="time-picker-column"] > span {
+  position: sticky; top: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  height: 1.75rem; margin-bottom: 0.2rem;
+  font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--cronus-fg-tertiary);
+  background: var(--cronus-surface-floating, var(--cronus-surface-overlay));
+}
+[data-slot="time-picker-option"] {
+  display: flex; align-items: center; justify-content: center;
+  height: 2rem; border-radius: var(--cronus-radius-md);
+  font-size: 0.875rem; font-variant-numeric: tabular-nums;
+  color: var(--cronus-fg-secondary); cursor: pointer;
+  transition: background 120ms var(--cronus-ease), color 120ms var(--cronus-ease);
+}
+[data-slot="time-picker-option"]:hover {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
+[data-slot="time-picker-option"][aria-selected="true"] {
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+  font-weight: 500;
+}
+[data-slot="time-picker-footer"] {
+  display: flex; justify-content: flex-end; gap: 0.35rem;
+  margin-top: 0.6rem; padding-top: 0.6rem;
+  border-top: 1px solid var(--cronus-border);
+}
+[data-slot="time-picker-now"], [data-slot="time-picker-done"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2rem; padding: 0 0.75rem;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-md);
+  background: transparent; color: var(--cronus-fg);
+  font: inherit; font-size: 0.75rem; font-weight: 500; cursor: pointer;
+}
+[data-slot="time-picker-done"] {
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+  border-color: transparent;
+}
+
 [data-slot="button"].cui-btn, [data-slot="button"] {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   white-space: nowrap; border-radius: var(--cronus-radius-lg); font-weight: 500;
