@@ -15,7 +15,9 @@
 //! Description comes from `description:"…"` (props or item config), else extra `text`.
 //! Not interact `dialog("drawer")` native `<dialog>` + `showModal()` + SURF.
 
-use crate::cronus_ui_kit::{attr, esc, item, label_of, overlay_trigger, widget_id};
+use crate::cronus_ui_kit::{
+    attr, esc, item, label_of, modal_dialog_open, modal_open_button, overlay_trigger, widget_id,
+};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -45,7 +47,16 @@ pub fn render(comp: &ComponentNode) -> String {
             let trigger_id = widget_id(comp, "drawer-trigger");
             let pop_id = widget_id(comp, "drawer");
             format!(
-                "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pop_id}\" aria-haspopup=\"dialog\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" role=\"dialog\" aria-labelledby=\"{title_id}\"{described_by} data-slot=\"drawer-content\">{inner}</div>"
+                "{}{}{inner}</dialog>",
+                modal_open_button(&trigger_id, &pop_id, &trigger),
+                modal_dialog_open(
+                    &pop_id,
+                    "drawer-content",
+                    "dialog",
+                    &title_id,
+                    &described_by,
+                    true
+                ),
             )
         }
     }
@@ -82,7 +93,7 @@ mod tests {
 
     fn reject_interact(html: &str) {
         assert!(!html.contains("<dialog"));
-        assert!(!html.contains("showModal"));
+        assert!(!html.contains("showModal("));
         assert!(!html.contains("onclick="));
         assert!(!html.contains("style="));
         assert!(!html.contains("v-data="));
@@ -150,28 +161,29 @@ mod tests {
     }
 
     #[test]
-    fn open_false_renders_closed_popover_behind_a_trigger() {
+    fn open_false_renders_closed_modal_dialog_behind_a_trigger() {
         let mut c = stub("drawer", "Filters");
         c.props.insert("open".into(), "false".into());
         let html = render(&c);
         let tid = widget_id(&c, "drawer-trigger");
         let pid = widget_id(&c, "drawer");
         assert!(html.starts_with(&format!(
-            "<button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pid}\" aria-haspopup=\"dialog\">Open</button><div id=\"{pid}\" popover=\"auto\" role=\"dialog\" aria-labelledby="
+            "<button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"outline\" commandfor=\"{pid}\" command=\"show-modal\" aria-haspopup=\"dialog\">Open</button><dialog id=\"{pid}\" data-slot=\"drawer-content\" role=\"dialog\" aria-modal=\"true\" aria-labelledby="
         )));
+        assert!(html.contains("closedby=\"any\""));
         assert!(!html.contains("drawer-overlay"));
-        assert!(html.contains("data-slot=\"drawer-content\"><div aria-hidden=\"true\"></div>"));
-        reject_interact(&html);
+        assert!(!html.contains("popover"));
+        assert!(html.contains("data-slot=\"drawer-content\""));
+        assert!(html.contains("<div aria-hidden=\"true\"></div>"));
+        assert!(html.ends_with("</dialog>"));
     }
 
     #[test]
-    fn chrome_closed_mode_is_bottom_pinned_popover() {
+    fn chrome_closed_mode_is_bottom_pinned_modal_dialog() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains(
-            "[data-slot=\"drawer-content\"][popover]:not(:popover-open) { display: none; }"
-        ));
-        assert!(css.contains("[data-slot=\"drawer-content\"][popover]:popover-open {\n  position: fixed; inset-block: auto 0; inset-inline: 0;"));
-        assert!(css.contains("[data-slot=\"drawer-content\"][popover]::backdrop {"));
+        assert!(css.contains("[data-slot=\"drawer-content\"]:modal {\n  position: fixed; inset-block: auto 0; inset-inline: 0;"));
+        assert!(css.contains("[data-slot=\"drawer-content\"]::backdrop {"));
+        assert!(!css.contains("[data-slot=\"drawer-content\"][popover]"));
     }
 
     #[test]

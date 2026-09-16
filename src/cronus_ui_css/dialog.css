@@ -65,12 +65,11 @@
   background: color-mix(in oklch, black 50%, transparent);
   backdrop-filter: blur(8px);
 }
-/* Closed mode (trigger item / open:false): native popover panel, scrim on ::backdrop. */
-[data-slot="dialog-content"][popover]:not(:popover-open) { display: none; }
-[data-slot="dialog-content"][popover]:popover-open {
+/* Closed mode (trigger item / open:false): native modal <dialog>, scrim on ::backdrop. */
+[data-slot="dialog-content"]:modal {
   position: fixed; inset: 0; margin: auto; translate: none;
 }
-[data-slot="dialog-content"][popover]::backdrop {
+[data-slot="dialog-content"]::backdrop {
   background: color-mix(in oklch, black 50%, transparent);
   backdrop-filter: blur(8px);
 }

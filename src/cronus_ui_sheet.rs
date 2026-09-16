@@ -15,7 +15,10 @@
 //! Description comes from `description:"…"` (props or item
 //! config), else extra `text`. Not interact `dialog("sheet")` `<dialog>` + `showModal()`.
 
-use crate::cronus_ui_kit::{attr, esc, item, label_of, overlay_trigger, widget_id};
+use crate::cronus_ui_kit::{
+    attr, esc, item, label_of, modal_close_attrs, modal_dialog_open, modal_open_button,
+    overlay_trigger, widget_id,
+};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -45,7 +48,17 @@ pub fn render(comp: &ComponentNode) -> String {
             let trigger_id = widget_id(comp, "sheet-trigger");
             let pop_id = widget_id(comp, "sheet");
             format!(
-                "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pop_id}\" aria-haspopup=\"dialog\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" role=\"dialog\" aria-labelledby=\"{title_id}\"{described_by} data-slot=\"sheet-content\">{header}<button type=\"button\" data-slot=\"sheet-close\" popovertarget=\"{pop_id}\" popovertargetaction=\"hide\"><span>Close</span></button></div>"
+                "{}{}{header}<button type=\"button\" data-slot=\"sheet-close\"{}><span>Close</span></button></dialog>",
+                modal_open_button(&trigger_id, &pop_id, &trigger),
+                modal_dialog_open(
+                    &pop_id,
+                    "sheet-content",
+                    "dialog",
+                    &title_id,
+                    &described_by,
+                    true
+                ),
+                modal_close_attrs(&pop_id),
             )
         }
     }
@@ -82,7 +95,7 @@ mod tests {
 
     fn reject_interact(html: &str) {
         assert!(!html.contains("<dialog"));
-        assert!(!html.contains("showModal"));
+        assert!(!html.contains("showModal("));
         assert!(!html.contains("onclick="));
         assert!(!html.contains("style="));
         assert!(!html.contains("v-data="));
@@ -143,32 +156,33 @@ mod tests {
     }
 
     #[test]
-    fn trigger_item_renders_closed_popover_with_working_close() {
+    fn trigger_item_renders_closed_modal_dialog_with_working_close() {
         let mut c = stub("sheet", "Edit profile");
         c.items.push(extra("trigger", "Open sheet"));
         let html = render(&c);
         let tid = widget_id(&c, "sheet-trigger");
         let pid = widget_id(&c, "sheet");
         assert!(html.starts_with(&format!(
-            "<button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pid}\" aria-haspopup=\"dialog\">Open sheet</button><div id=\"{pid}\" popover=\"auto\" role=\"dialog\" aria-labelledby="
+            "<button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"outline\" commandfor=\"{pid}\" command=\"show-modal\" aria-haspopup=\"dialog\">Open sheet</button><dialog id=\"{pid}\" data-slot=\"sheet-content\" role=\"dialog\" aria-modal=\"true\" aria-labelledby="
         )));
+        assert!(html.contains("closedby=\"any\""));
         assert!(!html.contains("sheet-overlay"));
+        assert!(!html.contains("popover"));
         assert!(
             !html.contains("data-slot=\"sheet-description\""),
             "trigger is not description"
         );
         assert!(html.ends_with(&format!(
-            "<button type=\"button\" data-slot=\"sheet-close\" popovertarget=\"{pid}\" popovertargetaction=\"hide\"><span>Close</span></button></div>"
+            "<button type=\"button\" data-slot=\"sheet-close\" commandfor=\"{pid}\" command=\"close\"><span>Close</span></button></dialog>"
         )));
     }
 
     #[test]
-    fn chrome_closed_mode_hides_until_open_with_backdrop() {
+    fn chrome_closed_mode_is_native_modal_dialog() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains(
-            "[data-slot=\"sheet-content\"][popover]:not(:popover-open) { display: none; }"
-        ));
-        assert!(css.contains("[data-slot=\"sheet-content\"][popover]::backdrop {"));
+        assert!(css.contains("[data-slot=\"sheet-content\"]:modal {"));
+        assert!(css.contains("[data-slot=\"sheet-content\"]::backdrop {"));
+        assert!(!css.contains("[data-slot=\"sheet-content\"][popover]"));
     }
 
     #[test]

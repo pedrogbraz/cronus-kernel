@@ -13,18 +13,19 @@
 //!
 //! Closed mode (`trigger:"…"` prop, or `open:false` / `defaultOpen:false`; see
 //! `cronus_ui_kit::overlay_trigger`): an outline `button` trigger with
-//! `popovertarget` opens `dialog-content` as a native `popover="auto"` (Esc and
-//! outside click dismiss it; the scrim is `::backdrop`, so no overlay div) and
-//! `dialog-close` hides it (`popovertargetaction="hide"`). The action still
-//! needs JS and stays `disabled`. Gaps (a popover is not modal): no focus trap,
-//! the background is not inert, `aria-modal` is not claimed, and the trigger's
-//! state is not reflected in `aria-expanded`.
+//! `command="show-modal"` opens `dialog-content` as a native `<dialog>` (focus
+//! trap, inert background, Esc and backdrop dismiss; scrim is `::backdrop`).
+//! `dialog-close` uses `command="close"`. The action still needs JS and stays
+//! `disabled`.
 //!
 //! Content: title = label; description = `description:"…"` prop / item config /
 //! `description` item; action = `action` item, else the first `text` item, else
 //! "Continue"; close label = `close` item, else "Close".
 
-use crate::cronus_ui_kit::{attr, esc, item, label_of, overlay_trigger, widget_id};
+use crate::cronus_ui_kit::{
+    attr, esc, item, label_of, modal_close_attrs, modal_dialog_open, modal_open_button,
+    overlay_trigger, widget_id,
+};
 use crate::parser::ComponentNode;
 
 /// lucide `x` (React `size-4`).
@@ -72,7 +73,10 @@ pub fn render(comp: &ComponentNode) -> String {
             let trigger_id = widget_id(comp, "dialog-trigger");
             let pop_id = widget_id(comp, "dialog");
             format!(
-                "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pop_id}\" aria-haspopup=\"dialog\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"dialog-content\" role=\"dialog\" aria-labelledby=\"{title_id}\"{described}>{body}<button type=\"button\" data-slot=\"dialog-close\" popovertarget=\"{pop_id}\" popovertargetaction=\"hide\">{CROSS}<span>{close}</span></button></div>"
+                "{}{}{body}<button type=\"button\" data-slot=\"dialog-close\"{}>{CROSS}<span>{close}</span></button></dialog>",
+                modal_open_button(&trigger_id, &pop_id, &trigger),
+                modal_dialog_open(&pop_id, "dialog-content", "dialog", &title_id, &described, true),
+                modal_close_attrs(&pop_id),
             )
         }
     }
@@ -106,9 +110,8 @@ mod tests {
     fn reject_js(html: &str) {
         for bad in [
             "onclick",
-            "showModal",
-            "<dialog",
-            "<form",
+            "showModal(",
+            "popovertarget",
             "<script",
             "style=",
             "v-data",
@@ -140,19 +143,21 @@ mod tests {
     }
 
     #[test]
-    fn trigger_item_renders_closed_popover_with_working_close() {
+    fn trigger_item_renders_closed_modal_dialog_with_working_close() {
         let mut c = fixture();
         c.items.push(extra("trigger", "Edit"));
         let html = render(&c);
         let tid = widget_id(&c, "dialog-trigger");
         let pid = widget_id(&c, "dialog");
         assert!(html.starts_with(&format!(
-            "<button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"outline\" popovertarget=\"{pid}\" aria-haspopup=\"dialog\">Edit</button><div id=\"{pid}\" popover=\"auto\" data-slot=\"dialog-content\" role=\"dialog\" aria-labelledby="
+            "<button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"outline\" commandfor=\"{pid}\" command=\"show-modal\" aria-haspopup=\"dialog\">Edit</button><dialog id=\"{pid}\" data-slot=\"dialog-content\" role=\"dialog\" aria-modal=\"true\" aria-labelledby="
         )));
+        assert!(html.contains("closedby=\"any\""));
         assert!(!html.contains("dialog-overlay"), "scrim is ::backdrop");
         assert!(!html.contains("data-state=\"open\""));
+        assert!(!html.contains("popover"));
         assert!(html.contains(&format!(
-            "<button type=\"button\" data-slot=\"dialog-close\" popovertarget=\"{pid}\" popovertargetaction=\"hide\">{CROSS}<span>Close</span></button></div>"
+            "<button type=\"button\" data-slot=\"dialog-close\" commandfor=\"{pid}\" command=\"close\">{CROSS}<span>Close</span></button></dialog>"
         )));
         // Saving needs JS: the action keeps the native disabled button.
         assert!(html.contains("data-variant=\"primary\" disabled>Save changes</button>"));
@@ -170,13 +175,11 @@ mod tests {
     }
 
     #[test]
-    fn chrome_closed_mode_hides_until_open_with_backdrop() {
+    fn chrome_closed_mode_is_native_modal_dialog() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains(
-            "[data-slot=\"dialog-content\"][popover]:not(:popover-open) { display: none; }"
-        ));
-        assert!(css.contains("[data-slot=\"dialog-content\"][popover]:popover-open {\n  position: fixed; inset: 0; margin: auto; translate: none;"));
-        assert!(css.contains("[data-slot=\"dialog-content\"][popover]::backdrop {"));
+        assert!(css.contains("[data-slot=\"dialog-content\"]:modal {\n  position: fixed; inset: 0; margin: auto; translate: none;"));
+        assert!(css.contains("[data-slot=\"dialog-content\"]::backdrop {"));
+        assert!(!css.contains("[data-slot=\"dialog-content\"][popover]"));
     }
 
     #[test]

@@ -74,12 +74,11 @@
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
-/* Closed mode (trigger item / open:false): native popover panel, scrim on ::backdrop. */
-[data-slot="invite-dialog"][popover]:not(:popover-open) { display: none; }
-[data-slot="invite-dialog"][popover]:popover-open {
+/* Closed mode: native modal <dialog>. */
+[data-slot="invite-dialog"]:modal {
   position: fixed; inset: 0; margin: auto; translate: none;
 }
-[data-slot="invite-dialog"][popover]::backdrop {
+[data-slot="invite-dialog"]::backdrop {
   background: color-mix(in oklch, black 50%, transparent);
   backdrop-filter: blur(8px);
 }

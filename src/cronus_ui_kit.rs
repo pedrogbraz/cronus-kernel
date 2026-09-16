@@ -89,10 +89,39 @@ pub fn item<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
         .map(|i| i.text.as_str())
 }
 
+/// Trigger that opens a native modal `<dialog>` (focus trap, inert backdrop, Esc).
+/// Invoker Commands: `command="show-modal"` / `command="close"` — no JS.
+pub fn modal_open_button(trigger_id: &str, dialog_id: &str, label: &str) -> String {
+    format!(
+        "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"outline\" commandfor=\"{dialog_id}\" command=\"show-modal\" aria-haspopup=\"dialog\">{label}</button>"
+    )
+}
+
+/// Opening tag for a closed-mode modal overlay. `light_dismiss` is Esc+backdrop
+/// (`closedby="any"`); alert/confirm use Esc only (`closerequest`).
+pub fn modal_dialog_open(
+    dialog_id: &str,
+    slot: &str,
+    role: &str,
+    labelledby: &str,
+    described: &str,
+    light_dismiss: bool,
+) -> String {
+    let closedby = if light_dismiss { "any" } else { "closerequest" };
+    format!(
+        "<dialog id=\"{dialog_id}\" data-slot=\"{slot}\" role=\"{role}\" aria-modal=\"true\" aria-labelledby=\"{labelledby}\"{described} closedby=\"{closedby}\">"
+    )
+}
+
+/// Attribute fragment that closes the modal (`command="close"`).
+pub fn modal_close_attrs(dialog_id: &str) -> String {
+    format!(" commandfor=\"{dialog_id}\" command=\"close\"")
+}
+
 /// Overlay families whose audited React fixture is open with no trigger
 /// (dialog, alert/confirmation/invite dialog, sheet, drawer, morphing-popover,
 /// context-menu) keep that open specimen by default. They render closed, with a
-/// native `popovertarget` trigger, when the author asks for it: a `trigger:"…"`
+/// native modal `<dialog>` trigger (`command="show-modal"`), when the author asks for it: a `trigger:"…"`
 /// prop (a `trigger` item too, for programmatic nodes; the parser drops
 /// unofficial item types), or `open:false` / `defaultOpen:false`. `open:true` / `defaultOpen:true`
 /// always wins and keeps the open specimen. Returns the escaped trigger label in
