@@ -10,6 +10,14 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ### Security
 
+- **`GET /logout` does not clear the session.** It 302s to `/login` without `Set-Cookie`. Sign-out is `POST /api/auth/logout` (the sidebar already POSTs).
+- **Unknown-email login still runs Argon2id verify** against a dummy hash, then returns the same `invalid credentials` as a bad password.
+- **Duplicate signup does not say the email is taken.** It returns 400 `could not create account`.
+- **SQLite and audit files are mode 0600** on unix (including `-wal`/`-shm` after WAL).
+- **`--prod` sends `Strict-Transport-Security: max-age=31536000; includeSubDomains`.**
+- **Webhook IPv6 denylist includes 6to4 (`2002::/16`) and benchmarking (`2001:2::/48`).**
+- **`CRONUS_CORS_ORIGIN=*` is ignored** (no `Access-Control-Allow-Origin`), matching SSE.
+- **Removed unused `is_strong_password` (min 8).** New passwords stay at 15 characters via `validate_new_password`.
 - **`GET /_files/*` needs a session and a visible row.** Anonymous is 401. A signed-in user who cannot see a `file` field holding that path gets 404. Responses set `X-Content-Type-Options: nosniff`.
 - **Inbound `POST /hooks/*` requires HMAC.** Same `X-Cronus-Timestamp` / `X-Cronus-Signature` contract as outbound, skew 300s. Missing or bad signature is 401; unknown path after a valid signature is 404.
 - **Role is read from the User row.** A JWT `role` is overridden when the accounts table has that `id`. Demotion and promotion take effect without waiting for the token to expire.

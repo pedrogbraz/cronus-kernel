@@ -187,6 +187,33 @@ fn uuid_v7_string(unix_ms: u64, rand_a: u16, rand_b: u64) -> String {
     )
 }
 
+/// Restrict a SQLite file (and WAL/SHM sidecars) to owner read/write.
+/// No-op on non-unix or on `:memory:` / empty paths.
+pub(crate) fn tighten_sqlite_file_mode(path: &str) {
+    if path.is_empty() || path == ":memory:" {
+        return;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        for candidate in [
+            path.to_string(),
+            format!("{path}-wal"),
+            format!("{path}-shm"),
+        ] {
+            let meta = match std::fs::metadata(&candidate) {
+                Ok(m) => m,
+                Err(_) => continue,
+            };
+            let mut perms = meta.permissions();
+            if perms.mode() & 0o077 != 0 {
+                perms.set_mode(0o600);
+                let _ = std::fs::set_permissions(&candidate, perms);
+            }
+        }
+    }
+}
+
 impl CronusDB {
     /// Open (or create) a SQLite database at the given path.
     /// Uses WAL mode for concurrent reads + busy timeout to avoid lock errors.
@@ -194,6 +221,7 @@ impl CronusDB {
         let conn = Connection::open(path).map_err(|e| e.to_string())?;
         // WAL mode: readers don't block writers, writers don't block readers
         conn.execute_batch("PRAGMA journal_mode=WAL;").ok();
+        tighten_sqlite_file_mode(path);
         conn.execute_batch("PRAGMA foreign_keys=ON;").ok();
         // Busy timeout: wait up to 5s if DB is locked instead of failing immediately
         conn.busy_timeout(std::time::Duration::from_secs(5)).ok();
@@ -1368,6 +1396,27 @@ mod tests {
 
         assert!(row.get("id").is_some());
         assert_eq!(row.get("name").unwrap(), "Zedd");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn open_sets_owner_only_mode() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!(
+            "cronus-db-mode-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("data.db");
+        let path_s = path.to_string_lossy().to_string();
+        let _db = CronusDB::open(&path_s).unwrap();
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600, "db mode was {:o}", mode);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     fn index_names(db: &CronusDB) -> Vec<String> {

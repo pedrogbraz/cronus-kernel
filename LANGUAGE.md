@@ -750,7 +750,7 @@ auth {
   Matching is case-insensitive, like signup/login. Declare the entity yourself to add fields; a declared entity is never modified. Code: `src/auth_entity.rs` (called from `cmd_run` in `src/main.rs`).
 - Password hashing: **Argon2id** (`argon2` crate) — `src/auth.rs`, 7 tests
 - JWT: `jsonwebtoken` crate, HS256, claims carry `iat`/`jti`; lifetime from `session jwt expires:<dur>` (default 24h)
-- Auto-generated routes: `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`; HTML pages `/login`, `/register` (alias `/signup`), `/logout`
+- Auto-generated routes: `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`; HTML pages `/login`, `/register` (alias `/signup`). `GET /logout` redirects to `/login` and does **not** clear the cookie (that is `POST /api/auth/logout`).
 - Post-login redirect: `redirect "/path"` inside `auth { }`, else `/` if a `/` page exists, else `/dashboard` (`src/server/auth_pages.rs`)
 - Auto-generated HTML login/register pages (templated by `src/server/auth_pages.rs`)
 - Session storage: the JWT lives only in the `cronus_token` cookie (`HttpOnly; SameSite=Lax`, `Secure` in production or behind HTTPS); the browser runtime never reads it. `Authorization: Bearer` stays supported for API clients. Cookie-authenticated mutations must pass the Origin/Referer CSRF check (`src/session.rs`)

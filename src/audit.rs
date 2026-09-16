@@ -84,6 +84,7 @@ impl AuditTrail {
     pub fn open(path: &str) -> Result<Self, String> {
         let conn = Connection::open(path).map_err(|e| e.to_string())?;
         conn.execute_batch("PRAGMA journal_mode=WAL;").ok();
+        crate::database::tighten_sqlite_file_mode(path);
 
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS _audit_log (

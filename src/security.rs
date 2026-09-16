@@ -57,7 +57,13 @@ pub fn safe_column(name: &str) -> Option<&str> {
 
 /// Returns security headers that MUST be set on every HTTP response.
 pub fn security_headers() -> Vec<(&'static str, &'static str)> {
-    vec![
+    security_headers_for(crate::http_guard::is_production())
+}
+
+/// Baseline hardening headers. HSTS only in production (`--prod` /
+/// `CRONUS_ENV=production`); browsers ignore it on cleartext anyway.
+pub fn security_headers_for(production: bool) -> Vec<(&'static str, &'static str)> {
+    let mut headers = vec![
         ("x-content-type-options", "nosniff"),
         ("x-frame-options", "SAMEORIGIN"),
         ("x-xss-protection", "0"),
@@ -67,7 +73,14 @@ pub fn security_headers() -> Vec<(&'static str, &'static str)> {
             "camera=(), microphone=(), geolocation=(), payment=()",
         ),
         ("cross-origin-opener-policy", "same-origin"),
-    ]
+    ];
+    if production {
+        headers.push((
+            "strict-transport-security",
+            "max-age=31536000; includeSubDomains",
+        ));
+    }
+    headers
 }
 
 // ══════════════════════════════════════════════════
@@ -255,13 +268,9 @@ pub fn is_valid_email(email: &str) -> bool {
     !parts[0].is_empty() && !parts[1].is_empty() && parts[1].contains('.')
 }
 
-/// Validate password strength.
-pub fn is_strong_password(password: &str) -> bool {
-    password.len() >= 8
-}
-
 // Session cookies are built in `crate::session` (HttpOnly, SameSite=Lax,
-// Secure in production / behind HTTPS).
+// Secure in production / behind HTTPS). Password policy is
+// `auth::validate_new_password` (15 characters), not a separate helper.
 
 #[cfg(test)]
 mod tests {
@@ -270,6 +279,15 @@ mod tests {
     // These tests never call `enable_script_nonces()`: the flag is
     // process-wide and would leak markers into renderer tests running in
     // parallel. They drive the marker attribute directly instead.
+
+    #[test]
+    fn production_headers_include_hsts() {
+        let prod: Vec<_> = security_headers_for(true);
+        assert!(prod.iter().any(|(k, v)| *k == "strict-transport-security"
+            && *v == "max-age=31536000; includeSubDomains"));
+        let dev: Vec<_> = security_headers_for(false);
+        assert!(!dev.iter().any(|(k, _)| *k == "strict-transport-security"));
+    }
 
     #[test]
     fn marking_adds_marker_only_to_real_script_tags() {

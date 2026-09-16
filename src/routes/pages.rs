@@ -47,16 +47,11 @@ pub(super) fn route(req: Request<Incoming>, ctx: &Ctx) -> Routed {
             return Ok(html_response(html));
         }
         if path == "/logout" {
+            // GET must not clear the cookie (CSRF logout). Sign-out is POST
+            // `/api/auth/logout`. A bookmark here only reaches the login page.
             return Ok(Response::builder()
                 .status(StatusCode::FOUND)
                 .header("Location", "/login")
-                .header(
-                    "Set-Cookie",
-                    session::clear_session_cookie(session::cookie_secure(
-                        http_guard::policy().mode,
-                        req.headers(),
-                    )),
-                )
                 .body(Full::new(Bytes::new()))
                 .unwrap());
         }

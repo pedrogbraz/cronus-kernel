@@ -472,7 +472,12 @@ async fn protected_page_redirects_and_public_page_renders() {
     assert_eq!(get(addr, "/register", &[]).await.status, StatusCode::OK);
     let logout = get(addr, "/logout", &[]).await;
     assert_eq!(logout.status, StatusCode::FOUND);
-    assert!(logout.header("set-cookie").contains("Max-Age=0"));
+    assert_eq!(logout.header("location"), "/login");
+    assert!(
+        !logout.header("set-cookie").contains("Max-Age=0"),
+        "GET /logout must not clear the session cookie: {}",
+        logout.header("set-cookie")
+    );
 
     // Built-in component catalog when no /components page is declared.
     assert_eq!(get(addr, "/components", &[]).await.status, StatusCode::OK);

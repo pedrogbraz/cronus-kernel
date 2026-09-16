@@ -372,7 +372,7 @@ fn signup(
     if exists {
         return json_response(
             StatusCode::BAD_REQUEST,
-            json!({"error": "email already registered"}),
+            json!({"error": "could not create account"}),
         );
     }
     let user_data = json!({
@@ -459,10 +459,13 @@ fn login(state: &AppState, query: &str, headers: &HeaderMap, body: &[u8]) -> Aut
                     )
                 }
             }
-            Ok(None) => json_response(
-                StatusCode::UNAUTHORIZED,
-                json!({"error": "invalid credentials"}),
-            ),
+            Ok(None) => {
+                let _ = auth::verify_password(password, auth::dummy_password_hash());
+                json_response(
+                    StatusCode::UNAUTHORIZED,
+                    json!({"error": "invalid credentials"}),
+                )
+            }
             Err(e) => {
                 eprintln!("[auth] login lookup in {} failed: {}", table, e);
                 json_response(
@@ -863,6 +866,47 @@ mod tests {
             set_cookie(&out).starts_with("cronus_token=; ")
                 && set_cookie(&out).contains("Max-Age=0")
         );
+    }
+
+    #[test]
+    fn unknown_email_login_is_invalid_credentials() {
+        let s = crate::api_security_tests::state_from(APP);
+        let miss = call(
+            &s,
+            Method::POST,
+            "/api/auth/login",
+            &HeaderMap::new(),
+            json!({"email": "nobody@session.test", "password": PASSWORD}),
+        );
+        assert_eq!(miss.status, StatusCode::UNAUTHORIZED);
+        assert_eq!(miss.body["error"], "invalid credentials");
+        assert!(!auth::verify_password("x", auth::dummy_password_hash()));
+        assert!(auth::dummy_password_hash().starts_with("$argon2id$"));
+    }
+
+    #[test]
+    fn duplicate_signup_does_not_reveal_the_email() {
+        let s = crate::api_security_tests::state_from(APP);
+        let first = call(
+            &s,
+            Method::POST,
+            "/api/auth/signup",
+            &HeaderMap::new(),
+            signup_body("dup@session.test"),
+        );
+        assert_eq!(first.status, StatusCode::CREATED);
+        let second = call(
+            &s,
+            Method::POST,
+            "/api/auth/signup",
+            &HeaderMap::new(),
+            signup_body("dup@session.test"),
+        );
+        assert_eq!(second.status, StatusCode::BAD_REQUEST);
+        let msg = second.body["error"].as_str().unwrap_or("");
+        assert_eq!(msg, "could not create account");
+        assert!(!msg.contains("already"));
+        assert!(!msg.contains("dup@session.test"));
     }
 
     #[test]

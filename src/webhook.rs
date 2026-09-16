@@ -263,6 +263,8 @@ pub fn is_blocked_ip(ip: IpAddr) -> bool {
                 || (seg[0] & 0xffc0) == 0xfe80 // link-local
                 || (seg[0] & 0xffc0) == 0xfec0 // deprecated site-local
                 || (seg[0] == 0x2001 && seg[1] == 0x0db8) // documentation
+                || seg[0] == 0x2002 // 6to4 2002::/16
+                || (seg[0] == 0x2001 && seg[1] == 0x0002) // benchmarking 2001:2::/48
         }
     }
 }
@@ -683,6 +685,8 @@ mod tests {
             "::ffff:169.254.169.254",
             "::ffff:10.0.0.1",
             "64:ff9b::a9fe:a9fe",
+            "2002:c000:0201::",
+            "2001:2::1",
         ] {
             assert!(is_blocked_ip(ip.parse().unwrap()), "{ip} should be blocked");
         }

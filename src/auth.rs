@@ -5,6 +5,7 @@
 
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
+use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 // ══════════════════════════════════════════════════
@@ -172,6 +173,13 @@ pub fn hash_password(password: &str) -> String {
                 e
             )
         })
+}
+
+/// Argon2id hash used on unknown-email login so missing users still pay
+/// the verify cost. Not a real account.
+pub fn dummy_password_hash() -> &'static str {
+    static HASH: OnceLock<String> = OnceLock::new();
+    HASH.get_or_init(|| hash_password("timing-dummy-not-a-user"))
 }
 
 /// Verify a password against a PHC-format Argon2 hash string. Anything
@@ -402,6 +410,15 @@ mod tests {
 
         assert!(!verify_password(password, &hash));
         assert!(!verify_password("", ""));
+    }
+
+    #[test]
+    fn dummy_password_hash_is_argon2id() {
+        let hash = dummy_password_hash();
+        assert!(hash.starts_with("$argon2id$"));
+        assert!(verify_password("timing-dummy-not-a-user", hash));
+        assert!(!verify_password("somebody-password", hash));
+        assert_eq!(dummy_password_hash(), hash);
     }
 
     #[test]

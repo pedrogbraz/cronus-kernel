@@ -18,6 +18,17 @@ pub(crate) fn cors_origin() -> String {
     std::env::var("CRONUS_CORS_ORIGIN").unwrap_or_else(|_| "same-origin".to_string())
 }
 
+/// `Access-Control-Allow-Origin` value, or `None` for same-origin / wildcard.
+/// `*` cannot carry credentials and must never be echoed.
+pub(crate) fn cors_allow_origin(raw: &str) -> Option<&str> {
+    let origin = raw.trim();
+    if origin.is_empty() || origin == "same-origin" || origin == "*" {
+        None
+    } else {
+        Some(origin)
+    }
+}
+
 // ──────────────────────────────────────────────
 // JSON response
 // ──────────────────────────────────────────────
@@ -35,7 +46,7 @@ pub(crate) fn json_response(status: StatusCode, body: Value) -> Response<Full<By
             "Access-Control-Allow-Headers",
             "Content-Type, Authorization",
         );
-    if origin != "same-origin" {
+    if let Some(origin) = cors_allow_origin(&origin) {
         builder = builder.header("Access-Control-Allow-Origin", origin);
     }
     for (k, v) in crate::security::security_headers() {
@@ -422,7 +433,7 @@ fn regex_numbers(text: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_live_clients, debug_overlay_enabled, strip_hmr_client};
+    use super::{apply_live_clients, cors_allow_origin, debug_overlay_enabled, strip_hmr_client};
 
     /// `--debug` / `CRONUS_DEBUG` exposed request traces to every page in
     /// production. The overlay is dev-only.
@@ -436,6 +447,17 @@ mod tests {
         assert!(debug_overlay_enabled(false, false, Some("true")));
         assert!(!debug_overlay_enabled(false, false, Some("0")));
         assert!(!debug_overlay_enabled(false, false, None));
+    }
+
+    #[test]
+    fn wildcard_cors_origin_is_refused() {
+        assert_eq!(cors_allow_origin("*"), None);
+        assert_eq!(cors_allow_origin("same-origin"), None);
+        assert_eq!(cors_allow_origin(""), None);
+        assert_eq!(
+            cors_allow_origin("https://app.example"),
+            Some("https://app.example")
+        );
     }
     use crate::hmr::HMR_CLIENT_JS;
     use crate::sse::SSE_CLIENT_JS;
