@@ -56,6 +56,11 @@ pub fn parse_directory(dir: &str) -> Result<Vec<AstNode>, String> {
     parse_directory_diagnostics(dir).map_err(|e| super::diagnostic::join(&e))
 }
 
+/// Same graph `cronus run` uses: every `*.cronus` in the working directory.
+pub fn load_cwd() -> Result<Vec<AstNode>, String> {
+    parse_directory(".")
+}
+
 /// Same as [`parse_directory`], with structured diagnostics.
 pub fn parse_directory_diagnostics(dir: &str) -> Result<Vec<AstNode>, Vec<ParseError>> {
     let mut files: Vec<PathBuf> = Vec::new();

@@ -1,6 +1,6 @@
 use crate::cli::version::VERSION;
 use crate::parser::AstNode;
-use crate::{deploy, find_cronus_file, parser};
+use crate::{deploy, parser};
 use std::fs;
 
 fn write_file(path: &str, contents: &str) {
@@ -23,16 +23,8 @@ fn print_image_notes(db_path: Option<&str>) {
 }
 
 pub fn cmd_deploy(args: &[String]) {
-    let file = find_cronus_file().unwrap_or_else(|| {
-        eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found");
-        std::process::exit(1);
-    });
-    let source = fs::read_to_string(&file).unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Cannot read {}: {}", file, e);
-        std::process::exit(1);
-    });
-    let nodes = parser::parse(&source).unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e);
+    let nodes = parser::load_cwd().unwrap_or_else(|e| {
+        eprintln!("  \x1b[31m✗\x1b[0m {}", e);
         std::process::exit(1);
     });
     let mut app_name = "cronus-app".to_string();

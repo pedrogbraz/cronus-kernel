@@ -1,16 +1,9 @@
-use crate::{auth, database, find_cronus_file, parser};
-use std::fs;
+use crate::{auth, database, parser};
 use std::time::Instant;
 
 pub fn cmd_seed(args: &[String]) {
-    let file = find_cronus_file().unwrap_or_else(|| {
-        eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found");
-        std::process::exit(1);
-    });
-
-    let source = fs::read_to_string(&file).unwrap();
-    let nodes = parser::parse(&source).unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e);
+    let nodes = parser::load_cwd().unwrap_or_else(|e| {
+        eprintln!("  \x1b[31m✗\x1b[0m {}", e);
         std::process::exit(1);
     });
 
@@ -44,7 +37,7 @@ pub fn cmd_seed(args: &[String]) {
         .collect();
 
     if entities.is_empty() {
-        eprintln!("  \x1b[33m⊘\x1b[0m No entities found in {}", file);
+        eprintln!("  \x1b[33m⊘\x1b[0m No entities found");
         return;
     }
 

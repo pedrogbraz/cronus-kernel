@@ -12,6 +12,7 @@
 //! - `CRONUS_MAX_BODY_BYTES`                 request body limit (default 1 MiB)
 //! - `CRONUS_TRUSTED_PROXIES`                IPs/CIDRs whose X-Forwarded-For is honored
 //! - `CRONUS_HEADER_READ_TIMEOUT_SECS`       HTTP/1 header read timeout (default 15)
+//! - `CRONUS_HANDLER_TIMEOUT_SECS`           request handler wall clock (default 30)
 
 use bytes::Bytes;
 use http_body_util::{BodyExt, Full, LengthLimitError, Limited};
@@ -29,6 +30,7 @@ use crate::parser::EntityNode;
 
 pub const DEFAULT_MAX_BODY_BYTES: usize = 1024 * 1024;
 pub const DEFAULT_HEADER_READ_TIMEOUT_SECS: u64 = 15;
+pub const DEFAULT_HANDLER_TIMEOUT_SECS: u64 = 30;
 
 // ══════════════════════════════════════════════════
 // Run policy (mode + bind address + trusted proxies)
@@ -641,20 +643,57 @@ where
 
 /// Runs a request handler in its own task so a panic becomes a 500 for that
 /// request instead of taking down the connection (or, with abort, the process).
+/// Wall-clock timeout: `CRONUS_HANDLER_TIMEOUT_SECS` (default 30). Dropping
+/// the join handle aborts the task.
 pub async fn isolate_panics<F, E>(fut: F) -> Result<Response<Full<Bytes>>, E>
 where
     F: Future<Output = Result<Response<Full<Bytes>>, E>> + Send + 'static,
     E: Send + 'static,
 {
-    match tokio::spawn(fut).await {
-        Ok(res) => res,
-        Err(join_err) => {
+    isolate_panics_with(fut, handler_timeout()).await
+}
+
+pub async fn isolate_panics_with<F, E>(
+    fut: F,
+    timeout: Duration,
+) -> Result<Response<Full<Bytes>>, E>
+where
+    F: Future<Output = Result<Response<Full<Bytes>>, E>> + Send + 'static,
+    E: Send + 'static,
+{
+    match tokio::time::timeout(timeout, tokio::spawn(fut)).await {
+        Ok(Ok(res)) => res,
+        Ok(Err(join_err)) => {
             if join_err.is_panic() {
                 eprintln!("  \x1b[31m✗\x1b[0m request handler panicked; returned 500");
             }
             Ok(internal_error())
         }
+        Err(_) => {
+            eprintln!("  \x1b[31m✗\x1b[0m request handler timed out; returned 504");
+            Ok(handler_timeout_response())
+        }
     }
+}
+
+pub fn handler_timeout() -> Duration {
+    handler_timeout_from(std::env::var("CRONUS_HANDLER_TIMEOUT_SECS").ok().as_deref())
+}
+
+pub fn handler_timeout_from(env_val: Option<&str>) -> Duration {
+    Duration::from_secs(
+        env_val
+            .and_then(|v| v.trim().parse::<u64>().ok())
+            .filter(|n| *n > 0)
+            .unwrap_or(DEFAULT_HANDLER_TIMEOUT_SECS),
+    )
+}
+
+pub fn handler_timeout_response() -> Response<Full<Bytes>> {
+    json(
+        StatusCode::GATEWAY_TIMEOUT,
+        error_body("HANDLER_TIMEOUT", "Request timed out"),
+    )
 }
 
 pub fn header_read_timeout_from(env_val: Option<&str>) -> Duration {
@@ -1047,6 +1086,19 @@ mod tests {
         })
         .await;
         assert_eq!(res.unwrap().status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[tokio::test]
+    async fn slow_handler_becomes_504() {
+        let res: Result<Response<Full<Bytes>>, ()> = isolate_panics_with(
+            async {
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                Ok(not_found())
+            },
+            Duration::from_millis(20),
+        )
+        .await;
+        assert_eq!(res.unwrap().status(), StatusCode::GATEWAY_TIMEOUT);
     }
 
     #[test]

@@ -1,6 +1,5 @@
 use crate::parser::{AstNode, EntityNode};
-use crate::{find_cronus_file, parser, testing};
-use std::fs;
+use crate::{parser, testing};
 
 pub fn cmd_test(args: &[String]) {
     if args.iter().any(|a| a == "--conformance") {
@@ -28,13 +27,8 @@ pub fn cmd_test(args: &[String]) {
         return;
     }
 
-    let file = find_cronus_file().unwrap_or_else(|| {
-        eprintln!("  \x1b[31m✗\x1b[0m No .cronus file found");
-        std::process::exit(1);
-    });
-    let source = fs::read_to_string(&file).unwrap();
-    let nodes = parser::parse(&source).unwrap_or_else(|e| {
-        eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e);
+    let nodes = parser::load_cwd().unwrap_or_else(|e| {
+        eprintln!("  \x1b[31m✗\x1b[0m {}", e);
         std::process::exit(1);
     });
 

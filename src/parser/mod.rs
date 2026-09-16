@@ -13,8 +13,8 @@ pub use diagnostic::ParseError;
 
 mod compose;
 pub use compose::{
-    parse_directory, parse_directory_diagnostics, parse_file_diagnostics, parse_source_at,
-    parse_with_imports, parse_with_imports_diagnostics,
+    load_cwd, parse_directory, parse_directory_diagnostics, parse_file_diagnostics,
+    parse_source_at, parse_with_imports, parse_with_imports_diagnostics,
 };
 
 pub(crate) mod tokenizer;

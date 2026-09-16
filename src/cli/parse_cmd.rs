@@ -1,21 +1,20 @@
-use crate::find_cronus_file;
 use crate::parser::{self, AstNode};
 use std::fs;
+use std::path::Path;
 
 pub fn cmd_parse(args: &[String]) {
-    let file = args
-        .iter()
-        .skip(2)
-        .find(|a| !a.starts_with("--"))
-        .cloned()
-        .or_else(find_cronus_file)
-        .unwrap_or_else(|| {
-            eprintln!("  No .cronus file found");
+    let file = args.iter().skip(2).find(|a| !a.starts_with("--")).cloned();
+
+    let nodes = if let Some(file) = file {
+        let source = fs::read_to_string(&file).unwrap_or_else(|e| {
+            eprintln!("  Cannot read {file}: {e}");
             std::process::exit(1);
         });
-
-    let source = fs::read_to_string(&file).unwrap();
-    match parser::parse(&source) {
+        parser::parse_source_at(&source, Path::new(&file)).map_err(|e| parser::diagnostic::join(&e))
+    } else {
+        parser::load_cwd()
+    };
+    match nodes {
         Ok(nodes) => {
             let (entities, pages, routes) = parser::stats(&nodes);
             println!("Parsed {} nodes:", nodes.len());

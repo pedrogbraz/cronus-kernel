@@ -20,6 +20,10 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ### Runtime
 
+- **`ALTER TABLE ADD COLUMN` on migrate.** New entity fields appear on existing SQLite tables (nullable; no UNIQUE/NOT NULL on add).
+- **Handler timeout.** `CRONUS_HANDLER_TIMEOUT_SECS` (default 30) returns 504 `HANDLER_TIMEOUT`.
+- **GraphQL cost cap.** Selection depth > 8 or > 200 nodes is `COST_EXCEEDED` before resolvers.
+- **`seed` / `deploy` / `test` / `parse` use the same load graph as `run`.** `parse <file>` still follows that file's imports.
 - **`index` / `searchable` create SQLite indexes.** Every entity table also gets `idx_{table}__owner_id`. `CREATE INDEX IF NOT EXISTS` on migrate, including existing databases.
 - **GraphQL mutations share the REST write pipeline.** create/update/delete fire webhooks, entity effects, `.scriptcronus`, the hash-chained audit trail, and SSE.
 - **HMR reloads the spec.** The watcher re-parses, migrates, swaps live `AppState` (shared DB/SSE/limiters), then bumps `/.cronus/version`. Parse/env failure keeps the previous spec and does not bump.

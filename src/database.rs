@@ -45,6 +45,65 @@ fn quote_ident(name: &str) -> String {
     format!("\"{}\"", name.replace('"', "\"\""))
 }
 
+/// `ALTER TABLE … ADD COLUMN` for fields that exist in the entity but not
+/// in an already-created table. Never ADD NOT NULL/UNIQUE: existing rows
+/// would fail or need a default the author did not give.
+fn add_missing_columns(conn: &Connection, entity: &EntityNode) -> Result<(), String> {
+    let existing = table_column_names(conn, &entity.name)?;
+    let mut wanted: Vec<(String, &'static str)> = Vec::new();
+    for field in &entity.fields {
+        let lower = field.name.to_lowercase();
+        if lower == "id"
+            || field.is_many()
+            || lower == "createdat"
+            || lower == "created_at"
+            || lower == "updatedat"
+            || lower == "updated_at"
+        {
+            continue;
+        }
+        if existing.contains(&lower) {
+            continue;
+        }
+        wanted.push((field.name.clone(), sql_type_for(&field.field_type)));
+    }
+    if !existing.contains("_owner_id") {
+        wanted.push(("_owner_id".into(), "TEXT"));
+    }
+    if !existing.contains("created_at") {
+        wanted.push(("created_at".into(), "TEXT"));
+    }
+    if !existing.contains("updated_at") {
+        wanted.push(("updated_at".into(), "TEXT"));
+    }
+    for (name, ty) in wanted {
+        let sql = format!(
+            "ALTER TABLE {} ADD COLUMN {} {}",
+            quote_ident(&entity.name),
+            quote_ident(&name),
+            ty
+        );
+        conn.execute(&sql, []).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+fn table_column_names(
+    conn: &Connection,
+    table: &str,
+) -> Result<std::collections::HashSet<String>, String> {
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info({})", quote_ident(table)))
+        .map_err(|e| e.to_string())?;
+    let mut rows = stmt.query([]).map_err(|e| e.to_string())?;
+    let mut names = std::collections::HashSet::new();
+    while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+        let name: String = row.get(1).map_err(|e| e.to_string())?;
+        names.insert(name.to_lowercase());
+    }
+    Ok(names)
+}
+
 #[derive(Clone)]
 pub struct CronusDB {
     conn: Arc<Mutex<Connection>>,
@@ -346,6 +405,7 @@ impl CronusDB {
                 cols.join(", ")
             );
             conn.execute(&sql, []).map_err(|e| e.to_string())?;
+            add_missing_columns(&conn, entity)?;
 
             let owner_idx = format!("idx_{}__owner_id", entity.name);
             conn.execute(
@@ -1415,6 +1475,41 @@ mod tests {
             !names.iter().any(|n| n == "idx_Post_tags"),
             "many-to-many must not be a column index: {names:?}"
         );
+    }
+
+    #[test]
+    fn migrate_adds_new_columns_on_existing_tables() {
+        let mut users = test_entity();
+        let db = CronusDB::open_memory().unwrap();
+        db.migrate(&[users.clone()]).unwrap();
+        users.fields.push(field(
+            "priority",
+            FieldType::Number,
+            false,
+            false,
+            false,
+            false,
+        ));
+        db.migrate(&[users]).unwrap();
+        let cols = db
+            .query_raw("PRAGMA table_info(\"users\")")
+            .unwrap()
+            .iter()
+            .filter_map(|r| r.get("name").and_then(|v| v.as_str()).map(str::to_string))
+            .collect::<Vec<_>>();
+        assert!(
+            cols.iter().any(|n| n == "priority"),
+            "new column missing: {cols:?}"
+        );
+        db.insert(
+            "users",
+            &json!({"name": "n", "email": "n@x.com", "priority": 3}),
+        )
+        .unwrap();
+        let Value::Array(rows) = db.find_all("users", 1, 0).unwrap() else {
+            panic!("array");
+        };
+        assert_eq!(rows[0]["priority"], 3);
     }
 
     #[test]

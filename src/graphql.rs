@@ -204,6 +204,26 @@ struct ParsedField {
     sub_fields: Vec<ParsedField>,
 }
 
+pub const MAX_SELECTION_DEPTH: usize = 8;
+pub const MAX_SELECTION_NODES: usize = 200;
+
+fn selection_cost(fields: &[ParsedField]) -> (usize, usize) {
+    fn walk(fields: &[ParsedField], depth: usize) -> (usize, usize) {
+        let mut max_depth = depth;
+        let mut nodes = 0;
+        for f in fields {
+            nodes += 1;
+            if !f.sub_fields.is_empty() {
+                let (d, n) = walk(&f.sub_fields, depth + 1);
+                max_depth = max_depth.max(d);
+                nodes += n;
+            }
+        }
+        (max_depth, nodes)
+    }
+    walk(fields, 1)
+}
+
 #[derive(Debug)]
 enum ArgValue {
     StringVal(String),
@@ -516,6 +536,13 @@ pub fn execute_graphql(
             });
         }
     };
+    let (depth, nodes) = selection_cost(&fields);
+    if depth > MAX_SELECTION_DEPTH || nodes > MAX_SELECTION_NODES {
+        let msg = format!(
+            "query too expensive (depth {depth}/{MAX_SELECTION_DEPTH}, nodes {nodes}/{MAX_SELECTION_NODES})"
+        );
+        return gql_error("COST_EXCEEDED", &msg);
+    }
 
     let mut data = Map::new();
     let mut errors: Vec<Value> = Vec::new();
@@ -1225,6 +1252,28 @@ mod tests {
             &ents,
         );
         assert_eq!(out["errors"][0]["extensions"]["code"], "UNAUTHENTICATED");
+    }
+
+    #[test]
+    fn selection_deeper_than_max_is_cost_exceeded() {
+        let ents = entities();
+        let db = db(&ents);
+        db.insert(
+            "User",
+            &json!({"email":"a@b.co","password":"$argon2id$hash","role":"admin"}),
+        )
+        .unwrap();
+        let mut q = String::from("{ notes ");
+        for _ in 0..MAX_SELECTION_DEPTH {
+            q.push_str("{ id ");
+        }
+        for _ in 0..MAX_SELECTION_DEPTH {
+            q.push('}');
+        }
+        q.push('}');
+        let out = run(&q, json!({}), &as_admin(), &db, &ents);
+        assert_eq!(out["errors"][0]["extensions"]["code"], "COST_EXCEEDED");
+        assert!(out.get("data").is_none());
     }
 
     #[test]
