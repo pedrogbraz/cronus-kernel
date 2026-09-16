@@ -1,3 +1,3 @@
 # Retomada
 
-Estado: planejamento. Próximo: ready + start.
+Estado: full+critical verdes. Próximo: integrate (sem push).
