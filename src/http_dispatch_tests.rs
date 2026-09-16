@@ -575,7 +575,14 @@ async fn internal_routes_follow_the_run_policy() {
         mode: RunMode::Production,
         ..Policy::default()
     };
-    for path in ["/zeus", "/api/_context", "/docs", "/graphql/schema"] {
+    for path in [
+        "/zeus",
+        "/api/_context",
+        "/docs",
+        "/graphql/schema",
+        "/graphql",
+        "/.cronus/version",
+    ] {
         assert_eq!(
             gate(classify(&Method::GET, path), &prod, Some("admin")),
             Gate::NotFound,
@@ -637,6 +644,26 @@ async fn api_and_auth_rate_limits_apply() {
     assert_ne!(first.status, StatusCode::TOO_MANY_REQUESTS);
     let second = post_json(addr, "/api/auth/login", &[], body).await;
     assert_eq!(second.status, StatusCode::TOO_MANY_REQUESTS);
+}
+
+#[tokio::test]
+async fn graphql_post_is_rate_limited_pages_are_not() {
+    let _g = shared_globals();
+    let mut state = app_state(SRC);
+    state.rate_limiter = crate::rate_limit::RateLimiter::new(1, 60);
+    let addr = spawn(state).await;
+    let alice = bearer("alice", "user");
+    let q = json!({"query": "{ notes { id } }"});
+    let first = post_json(addr, "/graphql", &[("authorization", &alice)], q.clone()).await;
+    assert_ne!(
+        first.status,
+        StatusCode::TOO_MANY_REQUESTS,
+        "{}",
+        first.text
+    );
+    let second = post_json(addr, "/graphql", &[("authorization", &alice)], q).await;
+    assert_eq!(second.status, StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(get(addr, "/about", &[]).await.status, StatusCode::OK);
 }
 
 #[tokio::test]

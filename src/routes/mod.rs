@@ -323,7 +323,7 @@ async fn handle_request_inner(
 
     // CSRF: cookie-authenticated mutations (REST, GraphQL, forms, actions,
     // auth routes) must come from this origin. Runs before every handler.
-    if let Some(resp) = session::csrf_rejection(&method, &path, req.headers()) {
+    if let Some(resp) = session::csrf_rejection(&method, &path, req.headers(), remote_addr) {
         return Ok(resp);
     }
 

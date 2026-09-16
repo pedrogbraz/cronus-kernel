@@ -448,7 +448,15 @@ fn signing_secret() -> Result<String, WebhookError> {
     }
     static FILE_SECRET: OnceLock<String> = OnceLock::new();
     Ok(FILE_SECRET
-        .get_or_init(|| crate::auth::load_or_create_key_file(std::path::Path::new(SECRET_PATH)))
+        .get_or_init(|| {
+            match crate::auth::load_or_create_key_file(std::path::Path::new(SECRET_PATH)) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("  \x1b[31m✗\x1b[0m {}", e);
+                    std::process::exit(1);
+                }
+            }
+        })
         .clone())
 }
 

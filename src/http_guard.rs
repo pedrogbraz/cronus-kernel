@@ -445,12 +445,13 @@ pub fn classify(method: &Method, raw_path: &str) -> RouteClass {
         || path == "/api/_errors"
         || path == "/api/schema"
         || path == "/graphql/schema"
+        || (path == "/graphql" && *method != Method::POST)
+        || path == "/.cronus/version"
         || under("/docs")
         || under("/api/docs")
         || under("/.cronus/docs")
         || path == "/api/audit/trigger"
         || path == "/api/audit/results";
-    let _ = method;
     if internal {
         RouteClass::Internal
     } else {
@@ -899,6 +900,8 @@ mod tests {
             "/blocks",
             "/blocks/",
             "/api/audit/results",
+            "/graphql",
+            "/.cronus/version",
         ] {
             let class = classify(&Method::GET, p);
             assert_eq!(class, RouteClass::Internal, "{p}");
@@ -906,7 +909,56 @@ mod tests {
         }
         assert_eq!(classify(&Method::GET, "/api/tasks"), RouteClass::Public);
         assert_eq!(classify(&Method::GET, "/zeusx"), RouteClass::Public);
+        assert_eq!(classify(&Method::POST, "/graphql"), RouteClass::Public);
+        assert_eq!(classify(&Method::GET, "/graphql"), RouteClass::Internal);
+        assert_eq!(
+            classify(&Method::GET, "/.cronus/version"),
+            RouteClass::Internal
+        );
         assert_eq!(gate(RouteClass::Public, &prod, None), Gate::Allow);
+        assert_eq!(
+            gate(classify(&Method::POST, "/graphql"), &prod, None),
+            Gate::Allow
+        );
+    }
+
+    #[test]
+    fn classify_hides_graphql_playground_and_version_in_prod() {
+        let prod = Policy {
+            mode: RunMode::Production,
+            ..Policy::default()
+        };
+        let local = Policy::default();
+        assert_eq!(classify(&Method::GET, "/graphql"), RouteClass::Internal);
+        assert_eq!(classify(&Method::POST, "/graphql"), RouteClass::Public);
+        assert_eq!(
+            classify(&Method::GET, "/graphql/schema"),
+            RouteClass::Internal
+        );
+        assert_eq!(
+            classify(&Method::GET, "/.cronus/version"),
+            RouteClass::Internal
+        );
+        assert_eq!(
+            gate(classify(&Method::GET, "/graphql"), &prod, Some("admin")),
+            Gate::NotFound
+        );
+        assert_eq!(
+            gate(
+                classify(&Method::GET, "/.cronus/version"),
+                &prod,
+                Some("admin")
+            ),
+            Gate::NotFound
+        );
+        assert_eq!(
+            gate(classify(&Method::GET, "/graphql"), &local, None),
+            Gate::Allow
+        );
+        assert_eq!(
+            gate(classify(&Method::GET, "/.cronus/version"), &local, None),
+            Gate::Allow
+        );
     }
 
     #[test]

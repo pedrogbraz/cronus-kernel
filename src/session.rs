@@ -8,7 +8,9 @@
 //!   or `X-Cronus-Session-Token: 1`.
 //! - Cookie Max-Age equals the token lifetime from `session jwt expires:<dur>`.
 //! - Any unsafe request that carries the session cookie (and no bearer
-//!   header) must present an `Origin`/`Referer` of this host. This single gate
+//!   header) must present an `Origin`/`Referer` of this host (`Host` header).
+//!   `X-Forwarded-Host` is an expected host only when the socket peer is in
+//!   `CRONUS_TRUSTED_PROXIES`. This single gate
 //!   runs before every handler in `handle_request_inner`, so it covers every
 //!   cookie identity reader: `access::viewer_from_headers` (used by
 //!   `Access::from_headers` and `http_guard::request_role`).
@@ -18,6 +20,7 @@ use http_body_util::Full;
 use hyper::header::{HeaderValue, SET_COOKIE};
 use hyper::{HeaderMap, Method, Response, StatusCode};
 use serde_json::{json, Value};
+use std::net::SocketAddr;
 
 use crate::auth;
 use crate::authz::error_body;
@@ -118,8 +121,44 @@ fn header_str<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
         .filter(|s| !s.is_empty())
 }
 
+/// `X-Forwarded-Host` is only an expected Origin host when the operator
+/// listed trusted proxies and this socket peer is one of them. An empty
+/// list means the header is client-controlled and must be ignored.
+fn forwarded_host_allowed(peer: SocketAddr) -> bool {
+    let trusted = &http_guard::policy().trusted_proxies;
+    !trusted.is_empty() && trusted.iter().any(|c| c.contains(peer.ip()))
+}
+
+fn csrf_expected_hosts(headers: &HeaderMap, trust_forwarded_host: bool) -> Vec<String> {
+    let mut names: Vec<&str> = vec!["host"];
+    if trust_forwarded_host {
+        names.push("x-forwarded-host");
+    }
+    names
+        .into_iter()
+        .filter_map(|h| header_str(headers, h))
+        .map(|h| {
+            h.split(',')
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_ascii_lowercase()
+        })
+        .filter(|h| !h.is_empty())
+        .collect()
+}
+
 /// True when this request must be refused as cross-site.
-pub fn csrf_blocks(method: &Method, path: &str, headers: &HeaderMap) -> bool {
+pub fn csrf_blocks(method: &Method, path: &str, headers: &HeaderMap, peer: SocketAddr) -> bool {
+    csrf_blocks_with(method, path, headers, forwarded_host_allowed(peer))
+}
+
+fn csrf_blocks_with(
+    method: &Method,
+    path: &str,
+    headers: &HeaderMap,
+    trust_forwarded_host: bool,
+) -> bool {
     if matches!(*method, Method::GET | Method::HEAD | Method::OPTIONS) {
         return false;
     }
@@ -145,16 +184,7 @@ pub fn csrf_blocks(method: &Method, path: &str, headers: &HeaderMap) -> bool {
         },
     };
     let Some(source) = source else { return true }; // `Origin: null` and friends
-    let expected = ["host", "x-forwarded-host"]
-        .iter()
-        .filter_map(|h| header_str(headers, h))
-        .map(|h| {
-            h.split(',')
-                .next()
-                .unwrap_or("")
-                .trim()
-                .to_ascii_lowercase()
-        });
+    let expected = csrf_expected_hosts(headers, trust_forwarded_host);
     !expected.into_iter().any(|host| {
         host == source
             || normalize_authority(&host, "80") == source
@@ -166,8 +196,9 @@ pub fn csrf_rejection(
     method: &Method,
     path: &str,
     headers: &HeaderMap,
+    peer: SocketAddr,
 ) -> Option<Response<Full<Bytes>>> {
-    if csrf_blocks(method, path, headers) {
+    if csrf_blocks(method, path, headers, peer) {
         Some(json_response(
             StatusCode::FORBIDDEN,
             error_body("CSRF_REJECTED", "cross-site request blocked"),
@@ -459,6 +490,10 @@ mod tests {
         h
     }
 
+    fn dummy_peer() -> SocketAddr {
+        SocketAddr::from(([127, 0, 0, 1], 1))
+    }
+
     #[test]
     fn cookie_is_httponly_lax_and_secure_only_when_required() {
         let dev = session_cookie("tok", 3600, false);
@@ -485,20 +520,71 @@ mod tests {
             ("origin", "http://localhost:5175"),
             ("cookie", "cronus_token=t"),
         ]);
-        assert!(!csrf_blocks(&Method::POST, "/api/notes", &h));
+        assert!(!csrf_blocks(&Method::POST, "/api/notes", &h, dummy_peer()));
         let proxied = headers(&[
             ("host", "app:5175"),
             ("x-forwarded-host", "example.com"),
             ("origin", "https://example.com"),
             ("cookie", "cronus_token=t"),
         ]);
-        assert!(!csrf_blocks(&Method::DELETE, "/api/notes/1", &proxied));
+        // No trusted proxies in the default policy: X-Forwarded-Host is ignored.
+        assert!(csrf_blocks(
+            &Method::DELETE,
+            "/api/notes/1",
+            &proxied,
+            dummy_peer()
+        ));
         let referer = headers(&[
             ("host", "localhost:5175"),
             ("referer", "http://localhost:5175/notes"),
             ("cookie", "cronus_token=t"),
         ]);
-        assert!(!csrf_blocks(&Method::PATCH, "/api/notes/1", &referer));
+        assert!(!csrf_blocks(
+            &Method::PATCH,
+            "/api/notes/1",
+            &referer,
+            dummy_peer()
+        ));
+    }
+
+    #[test]
+    fn csrf_blocks_spoofed_x_forwarded_host() {
+        let spoof = headers(&[
+            ("host", "localhost"),
+            ("x-forwarded-host", "evil.test"),
+            ("origin", "https://evil.test"),
+            ("cookie", "cronus_token=t"),
+        ]);
+        assert!(csrf_blocks(
+            &Method::POST,
+            "/api/notes",
+            &spoof,
+            dummy_peer()
+        ));
+        assert!(csrf_blocks_with(&Method::POST, "/api/notes", &spoof, false));
+    }
+
+    #[test]
+    fn csrf_allows_x_forwarded_host_when_peer_is_trusted() {
+        let proxied = headers(&[
+            ("host", "app:5175"),
+            ("x-forwarded-host", "example.com"),
+            ("origin", "https://example.com"),
+            ("cookie", "cronus_token=t"),
+        ]);
+        assert!(csrf_blocks_with(
+            &Method::DELETE,
+            "/api/notes/1",
+            &proxied,
+            false
+        ));
+        assert!(!csrf_blocks_with(
+            &Method::DELETE,
+            "/api/notes/1",
+            &proxied,
+            true
+        ));
+        assert!(!forwarded_host_allowed(dummy_peer()));
     }
 
     #[test]
@@ -508,22 +594,47 @@ mod tests {
             ("origin", "https://evil.test"),
             ("cookie", "cronus_token=t"),
         ]);
-        assert!(csrf_blocks(&Method::POST, "/api/notes", &evil));
-        assert!(csrf_blocks(&Method::POST, "/_forms/Note", &evil));
+        assert!(csrf_blocks(
+            &Method::POST,
+            "/api/notes",
+            &evil,
+            dummy_peer()
+        ));
+        assert!(csrf_blocks(
+            &Method::POST,
+            "/_forms/Note",
+            &evil,
+            dummy_peer()
+        ));
         let null_origin = headers(&[
             ("host", "localhost:5175"),
             ("origin", "null"),
             ("cookie", "cronus_token=t"),
         ]);
-        assert!(csrf_blocks(&Method::PUT, "/graphql", &null_origin));
+        assert!(csrf_blocks(
+            &Method::PUT,
+            "/graphql",
+            &null_origin,
+            dummy_peer()
+        ));
         let bare = headers(&[("host", "localhost:5175"), ("cookie", "cronus_token=t")]);
-        assert!(csrf_blocks(&Method::DELETE, "/api/notes/1", &bare));
+        assert!(csrf_blocks(
+            &Method::DELETE,
+            "/api/notes/1",
+            &bare,
+            dummy_peer()
+        ));
         let lookalike = headers(&[
             ("host", "localhost:5175"),
             ("origin", "http://localhost:5175.evil.test"),
             ("cookie", "cronus_token=t"),
         ]);
-        assert!(csrf_blocks(&Method::POST, "/api/notes", &lookalike));
+        assert!(csrf_blocks(
+            &Method::POST,
+            "/api/notes",
+            &lookalike,
+            dummy_peer()
+        ));
     }
 
     #[test]
@@ -533,19 +644,44 @@ mod tests {
             ("origin", "https://evil.test"),
             ("cookie", "cronus_token=t"),
         ]);
-        assert!(!csrf_blocks(&Method::GET, "/api/notes", &evil_cookie));
+        assert!(!csrf_blocks(
+            &Method::GET,
+            "/api/notes",
+            &evil_cookie,
+            dummy_peer()
+        ));
         let bearer = headers(&[("host", "h"), ("authorization", "Bearer x")]);
-        assert!(!csrf_blocks(&Method::POST, "/api/notes", &bearer));
+        assert!(!csrf_blocks(
+            &Method::POST,
+            "/api/notes",
+            &bearer,
+            dummy_peer()
+        ));
         let anon = headers(&[("host", "h"), ("origin", "https://evil.test")]);
-        assert!(!csrf_blocks(&Method::POST, "/api/posts", &anon));
+        assert!(!csrf_blocks(
+            &Method::POST,
+            "/api/posts",
+            &anon,
+            dummy_peer()
+        ));
     }
 
     #[test]
     fn csrf_blocks_cross_site_login_but_not_cli_login() {
         let evil = headers(&[("host", "localhost:5175"), ("origin", "https://evil.test")]);
-        assert!(csrf_blocks(&Method::POST, "/api/auth/login", &evil));
+        assert!(csrf_blocks(
+            &Method::POST,
+            "/api/auth/login",
+            &evil,
+            dummy_peer()
+        ));
         let cli = headers(&[("host", "localhost:5175")]);
-        assert!(!csrf_blocks(&Method::POST, "/api/auth/login", &cli));
+        assert!(!csrf_blocks(
+            &Method::POST,
+            "/api/auth/login",
+            &cli,
+            dummy_peer()
+        ));
     }
 
     #[test]

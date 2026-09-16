@@ -206,10 +206,32 @@ pub fn secret_from_env(value: Option<&str>) -> Result<Option<String>, String> {
     }
 }
 
+/// If `path` exists and is non-empty but shorter than [`MIN_SECRET_BYTES`],
+/// error naming the path and required length (never the secret).
+fn check_existing_key_file(path: &std::path::Path) -> Result<(), String> {
+    let Ok(s) = std::fs::read_to_string(path) else {
+        return Ok(());
+    };
+    let s = s.trim();
+    if !s.is_empty() && s.len() < MIN_SECRET_BYTES {
+        Err(format!(
+            "{} is {} bytes; it must be at least {} bytes",
+            path.display(),
+            s.len(),
+            MIN_SECRET_BYTES
+        ))
+    } else {
+        Ok(())
+    }
+}
+
 /// Startup check: call before binding the server so a weak `JWT_SECRET`
-/// refuses to start instead of silently signing tokens with it.
+/// or a short on-disk key file refuses to start instead of signing with it.
 pub fn check_secret_config() -> Result<(), String> {
-    secret_from_env(std::env::var("JWT_SECRET").ok().as_deref()).map(|_| ())
+    secret_from_env(std::env::var("JWT_SECRET").ok().as_deref())?;
+    check_existing_key_file(std::path::Path::new(".cronus/jwt.key"))?;
+    check_existing_key_file(std::path::Path::new(".cronus/webhook.key"))?;
+    Ok(())
 }
 
 /// Default JWT secret — persisted to `.cronus/jwt.key` so sessions survive restarts.
@@ -229,20 +251,30 @@ pub fn default_secret() -> String {
     use std::sync::OnceLock;
     static SECRET: OnceLock<String> = OnceLock::new();
     SECRET
-        .get_or_init(|| load_or_create_key_file(std::path::Path::new(".cronus/jwt.key")))
+        .get_or_init(
+            || match load_or_create_key_file(std::path::Path::new(".cronus/jwt.key")) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("  \x1b[31m✗\x1b[0m {}", e);
+                    std::process::exit(1);
+                }
+            },
+        )
         .clone()
 }
 
 /// Reads a persisted secret, or generates 64 random alphanumerics and writes
 /// them with owner-only permissions. An existing group/world-readable key file
 /// is tightened to 0600. If persisting fails the secret is still returned
-/// (valid for this process only).
-pub fn load_or_create_key_file(path: &std::path::Path) -> String {
+/// (valid for this process only). An existing non-empty file shorter than
+/// [`MIN_SECRET_BYTES`] is an error (the secret is never echoed).
+pub fn load_or_create_key_file(path: &std::path::Path) -> Result<String, String> {
     if let Ok(s) = std::fs::read_to_string(path) {
         let s = s.trim().to_string();
         if !s.is_empty() {
+            check_existing_key_file(path)?;
             restrict_key_file_permissions(path);
-            return s;
+            return Ok(s);
         }
     }
 
@@ -261,7 +293,7 @@ pub fn load_or_create_key_file(path: &std::path::Path) -> String {
             e.kind()
         ),
     }
-    secret
+    Ok(secret)
 }
 
 /// Creates `path` exclusively with mode 0600 (unix). Never overwrites.
@@ -418,12 +450,12 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let dir = scratch_dir("mode");
         let path = dir.join(".cronus").join("jwt.key");
-        let secret = load_or_create_key_file(&path);
+        let secret = load_or_create_key_file(&path).unwrap();
         assert_eq!(secret.len(), 64);
         let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o600, "key file mode was {:o}", mode);
         // second load returns the persisted value
-        assert_eq!(load_or_create_key_file(&path), secret);
+        assert_eq!(load_or_create_key_file(&path).unwrap(), secret);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -433,11 +465,45 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let dir = scratch_dir("tighten");
         let path = dir.join("jwt.key");
-        std::fs::write(&path, "persisted-secret").unwrap();
+        let persisted = "persisted-secret-must-be-32-bytes!";
+        std::fs::write(&path, persisted).unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
-        assert_eq!(load_or_create_key_file(&path), "persisted-secret");
+        assert_eq!(load_or_create_key_file(&path).unwrap(), persisted);
         let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o600);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn existing_short_key_file_is_rejected_without_echoing_secret() {
+        let dir = scratch_dir("short");
+        let path = dir.join("jwt.key");
+        let short = "too-short-secret";
+        std::fs::write(&path, short).unwrap();
+        let err = load_or_create_key_file(&path).unwrap_err();
+        assert!(err.contains("jwt.key"), "{err}");
+        assert!(err.contains("at least 32 bytes"), "{err}");
+        assert!(
+            !err.contains(short),
+            "error must not echo the secret: {err}"
+        );
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), short);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn check_existing_key_file_rejects_short_and_ignores_missing() {
+        let dir = scratch_dir("check");
+        let missing = dir.join("absent.key");
+        assert!(check_existing_key_file(&missing).is_ok());
+        let short_path = dir.join("short.key");
+        std::fs::write(&short_path, "tiny").unwrap();
+        let err = check_existing_key_file(&short_path).unwrap_err();
+        assert!(err.contains("short.key"), "{err}");
+        assert!(!err.contains("tiny"), "{err}");
+        let ok_path = dir.join("ok.key");
+        std::fs::write(&ok_path, "k".repeat(32)).unwrap();
+        assert!(check_existing_key_file(&ok_path).is_ok());
         let _ = std::fs::remove_dir_all(dir);
     }
 
