@@ -61,7 +61,8 @@ entity Plan shared { name string! }
 - `name type modifiers`. `!` = required. `-> Entity` = relation (id column).
   `-> Entity[]` = many-to-many (join table): write an array of ids the caller can read,
   read back an id array, `?expand=tags` returns the linked rows.
-  Reverse: `Customer` with `Order { customer -> Customer }` expands as `expand:orders`.
+  Reverse: `Customer { jobs <- Job.client }` names `expand:jobs`. Undeclared still
+  infers `orders` from `Order.customer -> Customer`. Invalid reverse is `REL_001`.
 - `date` is `YYYY-MM-DD`. `datetime` (`timestamp` alias) is `YYYY-MM-DDTHH:MM` (optional
   seconds/offset). `file` stores an `https://` URL or a `/_files/…` upload (form file
   inputs are sent as data URLs; max 512KiB).

@@ -1238,6 +1238,7 @@ mod tests {
                     pattern: None,
                 },
             ],
+            reverses: Vec::new(),
             shared: false,
             transitions: vec![],
             effects: vec![],
@@ -1564,6 +1565,7 @@ mod tests {
         EntityNode {
             name: name.into(),
             fields: vec![],
+            reverses: Vec::new(),
             transitions: vec![],
             effects: vec![],
             shared: true,
@@ -1647,6 +1649,7 @@ mod tests {
         let entity = EntityNode {
             name: "Draft".into(),
             fields: vec![],
+            reverses: Vec::new(),
             transitions: vec![],
             effects: vec![],
             shared: false,

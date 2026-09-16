@@ -347,6 +347,13 @@ pub(crate) const ERROR_CODES: &[ErrorCode] = &[
         description: "`import` or `compose { use }` / `merge` points at a file that is not on disk. Missing imports used to warn and continue.",
         example_fix: "`import \"entities\"` looks for `entities.cronus` next to the importing file (nested imports are relative to the importer). Create the file or drop the import.",
     },
+    ErrorCode {
+        code: "REL_001",
+        severity: "error",
+        category: "relation",
+        description: "`jobs <- Job.client` does not name a relation on `Job` that points at this entity, collides with a field, or repeats the same pair.",
+        example_fix: "`entity Customer { jobs <- Job.client }` requires `entity Job { client -> Customer }`. The declared name is used for `expand:jobs` instead of the inferred `jobs`/`orders`.",
+    },
 ];
 
 /// Case-insensitive lookup (`type_001` finds `TYPE_001`).

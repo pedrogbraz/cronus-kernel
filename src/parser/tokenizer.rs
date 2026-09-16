@@ -15,6 +15,7 @@ pub(crate) enum TokenKind {
     LParen,
     RParen,
     Arrow,
+    LeftArrow,
     ColonPair,
     Plus,
     Comma,
@@ -308,6 +309,16 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                 i += 2;
                 continue;
             }
+            if chars[i] == '<' && i + 1 < chars.len() && chars[i + 1] == '-' {
+                tokens.push(Token {
+                    kind: TokenKind::LeftArrow,
+                    value: "<-".into(),
+                    line: line_num,
+                    col: tok_start + 1,
+                });
+                i += 2;
+                continue;
+            }
             if chars[i] == '<' && i + 1 < chars.len() && chars[i + 1] == '=' {
                 tokens.push(Token {
                     kind: TokenKind::Operator,
@@ -433,6 +444,9 @@ pub(crate) fn tokenize(source: &str) -> Vec<Token> {
                         break;
                     }
                     if chars[i] == '-' && i + 1 < chars.len() && chars[i + 1] == '>' {
+                        break;
+                    }
+                    if chars[i] == '<' && i + 1 < chars.len() && chars[i + 1] == '-' {
                         break;
                     }
                     // When a word contains a quoted value (e.g. value:"12,842"),

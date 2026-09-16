@@ -79,11 +79,20 @@ pub struct AppNode {
 pub struct EntityNode {
     pub name: String,
     pub fields: Vec<FieldNode>,
+    /// `jobs <- Job.client` — named reverse of another entity's relation.
+    pub reverses: Vec<ReverseDecl>,
     pub transitions: Vec<TransitionNode>,
     pub effects: Vec<EffectBlock>,
     pub shared: bool,
     pub remote_url: Option<String>,
     pub doc: Option<DocComment>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReverseDecl {
+    pub name: String,
+    pub source_entity: String,
+    pub source_field: String,
 }
 
 #[derive(Debug, Clone)]

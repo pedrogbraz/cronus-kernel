@@ -557,6 +557,7 @@ mod tests {
                     pattern: None,
                 })
                 .collect(),
+            reverses: Vec::new(),
             transitions: vec![],
             effects: vec![],
             shared: false,

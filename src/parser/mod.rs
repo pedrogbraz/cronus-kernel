@@ -67,6 +67,7 @@ impl Parser {
             TokenKind::LParen => "'('",
             TokenKind::RParen => "')'",
             TokenKind::Arrow => "'->'",
+            TokenKind::LeftArrow => "'<-'",
             TokenKind::ColonPair => "a key:value pair",
             TokenKind::Plus => "'+'",
             TokenKind::Comma => "','",
@@ -531,6 +532,7 @@ impl Parser {
         self.expect(TokenKind::LBrace)?;
 
         let mut fields = Vec::new();
+        let mut reverses = Vec::new();
         let mut transitions = Vec::new();
         let mut effects = Vec::new();
 
@@ -556,6 +558,14 @@ impl Parser {
 
             let pk = self.peek().kind;
             if pk == TokenKind::Identifier || pk == TokenKind::Keyword {
+                if self
+                    .tokens
+                    .get(self.pos + 1)
+                    .is_some_and(|t| t.kind == TokenKind::LeftArrow)
+                {
+                    reverses.push(self.parse_reverse_decl()?);
+                    continue;
+                }
                 if let Some(mut field) = self.parse_field()? {
                     field.doc = field_doc;
                     fields.push(field);
@@ -569,11 +579,42 @@ impl Parser {
         Ok(EntityNode {
             name,
             fields,
+            reverses,
             transitions,
             effects,
             shared,
             remote_url: None,
             doc: None,
+        })
+    }
+
+    fn parse_reverse_decl(&mut self) -> Result<ReverseDecl, ParseError> {
+        let name_tok = self.peek().clone();
+        let name = self.advance().value;
+        Self::validate_identifier(&name, "entity field", (name_tok.line, name_tok.col))?;
+        self.expect(TokenKind::LeftArrow)?;
+        let spec_tok = self.peek().clone();
+        let spec = self.advance().value;
+        let Some((source_entity, source_field)) = spec.split_once('.') else {
+            return Err(Self::token_error(
+                codes::INVALID_REVERSE,
+                format!("reverse '{name}' must be Entity.field (got '{spec}')"),
+                &spec_tok,
+            )
+            .with_target(spec)
+            .with_hint(format!("write '{name} <- Job.client'")));
+        };
+        if source_entity.is_empty() || source_field.is_empty() {
+            return Err(Self::token_error(
+                codes::INVALID_REVERSE,
+                format!("reverse '{name}' must be Entity.field (got '{spec}')"),
+                &spec_tok,
+            ));
+        }
+        Ok(ReverseDecl {
+            name,
+            source_entity: source_entity.to_string(),
+            source_field: source_field.to_string(),
         })
     }
 
@@ -3921,7 +3962,19 @@ pub fn parse_diagnostics(source: &str) -> Result<Vec<AstNode>, Vec<ParseError>> 
     let (mut nodes, diagnostics) = parse_collect(source);
     if diagnostics.is_empty() {
         compose::expand_defines(&mut nodes);
-        Ok(nodes)
+        let ents: Vec<EntityNode> = nodes
+            .iter()
+            .filter_map(|n| match n {
+                AstNode::Entity(e) => Some(e.clone()),
+                _ => None,
+            })
+            .collect();
+        let reverse_errs = crate::relations::validate_reverses(&ents);
+        if reverse_errs.is_empty() {
+            Ok(nodes)
+        } else {
+            Err(reverse_errs)
+        }
     } else {
         Err(diagnostics)
     }

@@ -14,6 +14,7 @@ entity Client shared {
   email   email!  unique searchable
   phone   phone
   notes   text
+  jobs    <- Job.client
 }
 
 entity Job shared {
