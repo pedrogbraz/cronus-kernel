@@ -4648,14 +4648,16 @@ mod parser_tests {
         for file in &files {
             let src = std::fs::read_to_string(file).unwrap();
             // Syntax only: dump fixtures may repeat a page route (Next.js
-            // route groups). Composition of those files is COMPOSE_001.
-            if let Err(e) = parse(&src) {
+            // route groups) or a field name. Those are build diagnostics
+            // (COMPOSE_001 / FIELD_005), not a tokenizer failure.
+            let (nodes, diags) = parse_collect(&src);
+            if nodes.is_empty() {
                 let rel = file.strip_prefix(root).unwrap_or(file);
-                offenders.push(format!(
-                    "{}: {}",
-                    rel.display(),
-                    e.lines().next().unwrap_or("")
-                ));
+                let first = diags
+                    .first()
+                    .map(|d| d.to_string())
+                    .unwrap_or_else(|| "no AST".into());
+                offenders.push(format!("{}: {}", rel.display(), first));
             }
         }
         assert!(

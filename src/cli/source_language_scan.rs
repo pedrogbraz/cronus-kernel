@@ -31,7 +31,8 @@ pub fn scan_file(path: &str) -> Result<Vec<AuditFinding>, String> {
 pub fn scan_source(source: &str) -> Vec<AuditFinding> {
     let mut findings = Vec::new();
     scan_raw(source, &mut findings);
-    if let Ok(nodes) = parser::parse(source) {
+    let (nodes, _) = parser::parse_collect(source);
+    if !nodes.is_empty() {
         scan_ast(&nodes, source, &mut findings);
     }
     findings.sort_by(|a, b| a.code.cmp(b.code).then(a.message.cmp(&b.message)));
