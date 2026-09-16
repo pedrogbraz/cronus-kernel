@@ -162,7 +162,7 @@ Both are recoverable: the parser keeps going, so one build reports every type er
 | `test { ... }`            | `parse_test`         | `AstNode::Test`           | **LANG_001** — parses, no runtime |
 | `import "path"` / `import Alias from "path"` | `parse_import` | `AstNode::Import` | REAL — load graph, stripped after resolve |
 | `compose { use … }` / `compose Name { use … }` | `parse_compose` | `AstNode::Compose` | REAL — loads listed files like `import`; stripped after resolve |
-| `define Name { ... }`     | `parse_define`       | `AstNode::Define`         | **LANG_001** — parses, no runtime |
+| `define Name { ... }`     | `parse_define`       | `AstNode::Define`         | REAL — reusable sections; `page { use Name }` splices them |
 | `on Name { ... }` (file scope) | `parse_event`   | `AstNode::Event`          | **LANG_001** — parses, no runtime |
 | `tailwind_config "..."`   | inline                | Stored on `App` node      | REAL (undocumented) |
 
@@ -187,7 +187,7 @@ compose App {
 - `import "file"` and `import Alias from "file"` (optional `from`). `.cronus` is added when missing.
 - `compose Name { use a  use b  merge c }` and unnamed `compose { use a }`. `use`/`merge` load `a.cronus` next to the compose file, same as `import`. Merge config `{ … }` is parsed and ignored (not hydra remap).
 - `Import` and `Compose` nodes are stripped after they have been used as load instructions.
-- Duplicate **entity** name, **page** route, **app**, **auth**, **style**, **layout** name, **api** prefix, **component** name, **webhook** entity, or **env** variable is **`COMPOSE_001`**. The first declaration is kept; every later collision is reported. Exactly one `app {}`.
+- Duplicate **entity** name, **page** route, **app**, **auth**, **style**, **layout** name, **api** prefix, **component** name, **define** name, **webhook** entity, or **env** variable is **`COMPOSE_001`**. The first declaration is kept; every later collision is reported. Exactly one `app {}`.
 - Missing import/use file is **`COMPOSE_002`** (used to be an `eprintln` warning).
 - `cronus run` with 2+ `*.cronus` files in cwd unions the directory this way. `cronus build path.cronus` follows that file's `import`/`compose`. `cronus build` with no path and several files in cwd unions like `run`.
 
@@ -1175,7 +1175,7 @@ Field rules:
 | `BIND_002` | error | Unknown `query` kind; must be `all`, `one` or `count` |
 | `FIELD_004` | error | Unknown field modifier (`indexed`, `computed`, `onupdate:`, …) (§2.4) |
 | `ACTION_001` | error | Unknown or unimplemented action verb (`validate`, invented verbs) (§8.2) |
-| `LANG_001` | error | Top-level block with no runtime (`service`, `worker`, `middleware`, `deploy`, `test`, `define`, file-scope `on`) |
+| `LANG_001` | error | Top-level block with no runtime (`service`, `worker`, `middleware`, `deploy`, `test`, file-scope `on`) |
 | `COMPOSE_001` | error | Duplicate declaration across the load graph (entity, page route, app, auth, style, layout, api, component, webhook entity, env variable). One `app {}`. |
 | `COMPOSE_002` | error | `import` / `compose { use }` file is missing (§2.7) |
 | `STRUCTURE_001` | error | A `page "…"` / `entity Name {` declared in the source is missing from the parsed app (an earlier statement consumed a `}`) |

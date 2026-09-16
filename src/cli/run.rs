@@ -151,8 +151,6 @@ pub async fn cmd_run(args: &[String]) {
     let mut auth_redirect: Option<String> = None;
     let mut session_policy = crate::auth::SessionPolicy::default();
     let mut layout: Option<parser::LayoutNode> = None;
-    let mut defines: std::collections::HashMap<String, Vec<parser::SectionNode>> =
-        std::collections::HashMap::new();
 
     for node in &nodes {
         match node {
@@ -193,9 +191,6 @@ pub async fn cmd_run(args: &[String]) {
             AstNode::Layout(l) => {
                 layout = Some(l.clone());
             }
-            AstNode::Define(d) => {
-                defines.insert(d.name.clone(), d.sections.clone());
-            }
             AstNode::Webhook(w) => {
                 webhooks.push(w.clone());
             }
@@ -209,55 +204,6 @@ pub async fn cmd_run(args: &[String]) {
             "  \x1b[90mAuth:\x1b[0m      entity {} not declared — using implicit (email, password, role, name)",
             auth_entity.as_deref().unwrap_or("")
         );
-    }
-
-    // Expand `use ComponentName` in pages — inject sections from defines
-    if !defines.is_empty() {
-        for page in &mut pages {
-            let mut expanded_sections: Vec<parser::SectionNode> = Vec::new();
-            let mut used_components: Vec<String> = Vec::new();
-
-            for comp_name in &page.components {
-                if let Some(def_sections) = defines.get(comp_name) {
-                    for mut sec in def_sections.clone() {
-                        // Auto-resolve active state: if sidebar item href matches page route
-                        if sec.section_type == "sidebar" {
-                            for item in &mut sec.items {
-                                let href = item.get("href").map(|s| s.as_str()).unwrap_or("");
-                                if !href.is_empty() && href == page.route {
-                                    item.insert("active".into(), "true".into());
-                                } else {
-                                    item.remove("active");
-                                }
-                            }
-                        }
-                        // Auto-resolve topbar active_nav based on page route
-                        if sec.section_type == "topbar" {
-                            // Set active_nav based on route segments
-                            let route_parts: Vec<&str> =
-                                page.route.split('/').filter(|s| !s.is_empty()).collect();
-                            if let Some(first) = route_parts.first() {
-                                // Capitalize first letter
-                                let capitalized =
-                                    format!("{}{}", first[..1].to_uppercase(), &first[1..]);
-                                sec.config.insert("active_nav".into(), capitalized);
-                            }
-                        }
-                        expanded_sections.push(sec);
-                    }
-                } else {
-                    // Keep as component reference for the old system
-                    used_components.push(comp_name.clone());
-                }
-            }
-
-            if !expanded_sections.is_empty() {
-                // Prepend defined sections before page's own sections
-                expanded_sections.append(&mut page.sections);
-                page.sections = expanded_sections;
-                page.components = used_components;
-            }
-        }
     }
 
     // Resolve component invocations in pages — replace {{param}} in templates with passed values
