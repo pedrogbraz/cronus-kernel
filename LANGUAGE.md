@@ -320,7 +320,7 @@ entity Tag { label string! }
 - **GraphQL.** `tags: [String!]!` on the type, `tags: [String!]` on `Create<Entity>Input` and `Update<Entity>Input`.
 - **Not supported:** `unique` on a many-to-many field (ignored).
 - **SSR.** `bind Post { query all }` attaches M2M fields as id arrays; `expand:tags` attaches redacted Tag rows. Table cells join `label`/`name`/`title`/`id`.
-- **Reverse.** `author -> User` on Post yields `posts` on User. `bind User { expand:posts }` / REST `?expand=posts` loads the Post rows whose `author` is that User (same owner scope). The name is the source entity lowercased + `s`, unless that name is already a field — then `{source}_{field}`. Reverse fields are not stored and are not writable.
+- **Reverse.** `author -> User` on Post yields `posts` on User. Declare the name with `jobs <- Job.client` on Customer (`REL_001` if `Job.client` is not a relation pointing here). `bind Customer { expand:jobs }` / REST `?expand=jobs` loads those rows (same owner scope). Undeclared reverses still infer the source entity lowercased + `s` (or `{source}_{field}` on collision). Reverse fields are not stored and are not writable.
 - **`set tags "id1,id2"`** on `/_action` replaces join rows (same id-scope rules as REST/`/_form`).
 
 ### 3.8 Env schema — REAL
@@ -1178,6 +1178,7 @@ Field rules:
 | `LANG_001` | error | Top-level block with no runtime (`service`, `worker`, `middleware`, `deploy`, `test`, file-scope `on`) |
 | `COMPOSE_001` | error | Duplicate declaration across the load graph (entity, page route, app, auth, style, layout, api, component, webhook entity, env variable). One `app {}`. |
 | `COMPOSE_002` | error | `import` / `compose { use }` file is missing (§2.7) |
+| `REL_001` | error | `jobs <- Job.client` is not a relation on `Job` that points at this entity |
 | `STRUCTURE_001` | error | A `page "…"` / `entity Name {` declared in the source is missing from the parsed app (an earlier statement consumed a `}`) |
 | `RESOLVE_001` | error | Unresolved reference (entity, field, column, route) |
 | `RESOLVE_002` | error | State-machine reference error (transition field missing / not enum) |

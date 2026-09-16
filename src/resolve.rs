@@ -522,6 +522,7 @@ mod tests {
         AstNode::Entity(EntityNode {
             name: name.into(),
             fields,
+            reverses: Vec::new(),
             transitions: vec![],
             effects: vec![],
             shared: false,
@@ -687,6 +688,7 @@ mod tests {
         let nodes = vec![AstNode::Entity(EntityNode {
             name: "Task".into(),
             fields: vec![make_field("title", FieldType::String)],
+            reverses: Vec::new(),
             transitions: vec![TransitionNode {
                 field: "status".into(),
                 rules: vec![],
@@ -710,6 +712,7 @@ mod tests {
         let nodes = vec![AstNode::Entity(EntityNode {
             name: "Task".into(),
             fields: vec![make_field("status", FieldType::String)],
+            reverses: Vec::new(),
             transitions: vec![TransitionNode {
                 field: "status".into(),
                 rules: vec![],
@@ -732,6 +735,7 @@ mod tests {
         let nodes = vec![AstNode::Entity(EntityNode {
             name: "Task".into(),
             fields: vec![make_enum_field("status", vec!["open", "closed"])],
+            reverses: Vec::new(),
             transitions: vec![TransitionNode {
                 field: "status".into(),
                 rules: vec![TransitionRule {

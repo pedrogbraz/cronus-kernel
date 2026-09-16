@@ -544,6 +544,12 @@ pub fn reconcile_emit(nodes: &[AstNode]) -> String {
                         out.push_str(&format!("  {} {}{}\n", field.name, ft, mod_str));
                     }
                 }
+                for rev in &entity.reverses {
+                    out.push_str(&format!(
+                        "  {} <- {}.{}\n",
+                        rev.name, rev.source_entity, rev.source_field
+                    ));
+                }
                 out.push_str("}\n\n");
             }
             AstNode::Page(page) => {

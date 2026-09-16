@@ -49,6 +49,8 @@ pub mod codes {
     pub const DUPLICATE_DECL: &str = "COMPOSE_001";
     /// `import` / `compose { use }` points at a file that is not on disk.
     pub const MISSING_IMPORT: &str = "COMPOSE_002";
+    /// `jobs <- Job.client` does not name a relation that points at this entity.
+    pub const INVALID_REVERSE: &str = "REL_001";
 }
 
 #[derive(Debug, Clone, PartialEq)]

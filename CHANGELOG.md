@@ -8,6 +8,12 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ## [Unreleased]
 
+### Language (relations)
+
+- **Declared reverse.** `jobs <- Job.client` on Customer names the inverse of
+  `Job.client -> Customer` for `expand:jobs`. Invalid targets are `REL_001`.
+  Undeclared reverses still infer `orders` / `{source}_{field}`.
+
 ### Language (define)
 
 - **`define Name { section … }` is real.** `page { use Name }` splices those

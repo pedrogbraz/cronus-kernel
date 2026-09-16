@@ -517,6 +517,7 @@ pub async fn cmd_run(args: &[String]) {
                 pattern: None,
             },
         ],
+        reverses: Vec::new(),
         remote_url: None,
         doc: None,
     };

@@ -231,6 +231,7 @@ pub fn cmd_reconcile(args: &[String]) {
                 merged.push(AstNode::Entity(EntityNode {
                     name: name.clone(),
                     fields: merged_fields,
+                    reverses: Vec::new(),
                     transitions: merged_transitions,
                     effects: merged_effects,
                     shared: a.shared || b.shared,

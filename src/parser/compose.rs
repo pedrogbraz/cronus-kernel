@@ -156,6 +156,14 @@ impl Loader {
     fn finish(self) -> Result<Vec<AstNode>, Vec<ParseError>> {
         let (mut nodes, mut compose_errs) = union_conflict(self.nodes);
         expand_defines(&mut nodes);
+        let ents: Vec<super::EntityNode> = nodes
+            .iter()
+            .filter_map(|n| match n {
+                AstNode::Entity(e) => Some(e.clone()),
+                _ => None,
+            })
+            .collect();
+        compose_errs.extend(crate::relations::validate_reverses(&ents));
         let mut errors = self.errors;
         errors.append(&mut compose_errs);
         if errors.is_empty() {

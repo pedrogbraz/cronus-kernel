@@ -245,11 +245,27 @@ fn reverse_name(source_entity: &str) -> String {
     s
 }
 
-/// Reverse relations targeting `target`, named without colliding with its
-/// own fields. A second FK from the same source becomes `{source}_{field}`.
+/// Reverse relations targeting `target`. Declared `jobs <- Job.client` win
+/// over the inferred name (`orders`). Remaining FKs still infer.
 pub fn reverse_rels(entities: &[EntityNode], target: &EntityNode) -> Vec<ReverseRel> {
     let mut used: HashSet<String> = target.fields.iter().map(|f| f.name.clone()).collect();
+    let mut claimed: HashSet<(String, String)> = HashSet::new();
     let mut out = Vec::new();
+    for rev in &target.reverses {
+        used.insert(rev.name.clone());
+        claimed.insert((rev.source_entity.clone(), rev.source_field.clone()));
+        let many_to_many = entities
+            .iter()
+            .find(|e| e.name == rev.source_entity)
+            .and_then(|e| e.fields.iter().find(|f| f.name == rev.source_field))
+            .is_some_and(|f| f.array);
+        out.push(ReverseRel {
+            name: rev.name.clone(),
+            source_entity: rev.source_entity.clone(),
+            source_field: rev.source_field.clone(),
+            many_to_many,
+        });
+    }
     for source in entities {
         for field in source
             .fields
@@ -257,6 +273,9 @@ pub fn reverse_rels(entities: &[EntityNode], target: &EntityNode) -> Vec<Reverse
             .filter(|f| f.field_type == crate::parser::FieldType::Relation)
         {
             if field.reference.as_deref() != Some(target.name.as_str()) {
+                continue;
+            }
+            if claimed.contains(&(source.name.clone(), field.name.clone())) {
                 continue;
             }
             let mut name = reverse_name(&source.name);
@@ -275,6 +294,102 @@ pub fn reverse_rels(entities: &[EntityNode], target: &EntityNode) -> Vec<Reverse
         }
     }
     out
+}
+
+/// `jobs <- Job.client` must name a relation on `Job` that points at this entity.
+pub fn validate_reverses(entities: &[EntityNode]) -> Vec<crate::parser::ParseError> {
+    use crate::parser::diagnostic::codes;
+    use crate::parser::ParseError;
+    let mut errors = Vec::new();
+    for target in entities {
+        let mut seen_pair: HashSet<(String, String)> = HashSet::new();
+        let field_names: HashSet<&str> = target.fields.iter().map(|f| f.name.as_str()).collect();
+        for rev in &target.reverses {
+            if field_names.contains(rev.name.as_str()) {
+                errors.push(
+                    ParseError::new(
+                        codes::INVALID_REVERSE,
+                        format!(
+                            "reverse '{}' collides with a field on {}",
+                            rev.name, target.name
+                        ),
+                        1,
+                        1,
+                    )
+                    .with_target(rev.name.clone())
+                    .with_hint("rename the reverse or the field"),
+                );
+            }
+            let pair = (rev.source_entity.clone(), rev.source_field.clone());
+            if !seen_pair.insert(pair) {
+                errors.push(
+                    ParseError::new(
+                        codes::INVALID_REVERSE,
+                        format!(
+                            "{}.{} already reversed on {}",
+                            rev.source_entity, rev.source_field, target.name
+                        ),
+                        1,
+                        1,
+                    )
+                    .with_target(rev.name.clone()),
+                );
+                continue;
+            }
+            let Some(source) = entities.iter().find(|e| e.name == rev.source_entity) else {
+                errors.push(
+                    ParseError::new(
+                        codes::INVALID_REVERSE,
+                        format!(
+                            "reverse '{}' names unknown entity '{}'",
+                            rev.name, rev.source_entity
+                        ),
+                        1,
+                        1,
+                    )
+                    .with_target(rev.source_entity.clone()),
+                );
+                continue;
+            };
+            let Some(field) = source.fields.iter().find(|f| {
+                f.name == rev.source_field && f.field_type == crate::parser::FieldType::Relation
+            }) else {
+                errors.push(
+                    ParseError::new(
+                        codes::INVALID_REVERSE,
+                        format!(
+                            "reverse '{}' names unknown relation {}.{}",
+                            rev.name, rev.source_entity, rev.source_field
+                        ),
+                        1,
+                        1,
+                    )
+                    .with_target(format!("{}.{}", rev.source_entity, rev.source_field)),
+                );
+                continue;
+            };
+            if field.reference.as_deref() != Some(target.name.as_str()) {
+                errors.push(
+                    ParseError::new(
+                        codes::INVALID_REVERSE,
+                        format!(
+                            "{}.{} does not point at {}",
+                            rev.source_entity, rev.source_field, target.name
+                        ),
+                        1,
+                        1,
+                    )
+                    .with_hint(format!(
+                        "{}.{} -> {}",
+                        rev.source_entity,
+                        rev.source_field,
+                        field.reference.as_deref().unwrap_or("?")
+                    )),
+                );
+            }
+        }
+    }
+    errors
 }
 
 /// Sets many-to-many fields, to-one `expand`, and reverse `expand` on `rows`.
@@ -734,5 +849,63 @@ mod tests {
         assert_eq!(orders.len(), 1);
         assert_eq!(orders[0]["id"], oid);
         assert_eq!(orders[0]["title"], "one");
+    }
+
+    #[test]
+    fn declared_reverse_uses_the_given_name() {
+        let src = "entity Customer {\n  name string!\n  jobs <- Job.client\n}\nentity Job { title string!  client -> Customer }\n";
+        let ents: Vec<EntityNode> = parse(src)
+            .unwrap()
+            .into_iter()
+            .filter_map(|n| match n {
+                AstNode::Entity(e) => Some(e),
+                _ => None,
+            })
+            .collect();
+        let names: Vec<_> = reverse_rels(&ents, &ents[0])
+            .into_iter()
+            .map(|r| r.name)
+            .collect();
+        assert_eq!(names, vec!["jobs".to_string()]);
+        let db = CronusDB::open_memory().unwrap();
+        db.migrate(&ents).unwrap();
+        let cid = row(
+            &db,
+            "Customer",
+            json!({"name": "Ada", "_owner_id": "alice"}),
+        );
+        db.insert(
+            "Job",
+            &json!({"title": "gild", "client": cid, "_owner_id": "alice"}),
+        )
+        .unwrap();
+        let mut customer = json!({"id": cid, "name": "Ada"});
+        attach(
+            &db,
+            &ents,
+            &ents[0],
+            &mut customer,
+            &as_user("alice"),
+            &["jobs".into()],
+        );
+        assert_eq!(customer["jobs"][0]["title"], "gild");
+        assert!(customer.get("orders").is_none());
+    }
+
+    #[test]
+    fn invalid_reverse_is_rel_001() {
+        let err = match crate::parser::parse_diagnostics(
+            "entity Customer {\n  name string!\n  jobs <- Job.missing\n}\nentity Job { title string!  client -> Customer }\n",
+        ) {
+            Err(e) => e,
+            Ok(_) => panic!("expected REL_001"),
+        };
+        assert!(
+            err.iter().any(
+                |e| e.code == crate::parser::diagnostic::codes::INVALID_REVERSE
+                    && e.message.contains("Job.missing")
+            ),
+            "{err:?}"
+        );
     }
 }
