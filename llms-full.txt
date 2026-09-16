@@ -129,7 +129,7 @@ api /orders {
 ### layout
 ```cronus
 layout Main {
-  brand "Acme"
+  brand "Acme"   # at root or inside sidebar { }
   sidebar {
     "Dashboard" -> "/dashboard" icon:home
     nav "Admin" -> "/admin" icon:settings requires:role(admin)

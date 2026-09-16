@@ -8,6 +8,27 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ## [Unreleased]
 
+### Security
+
+- **CSRF ignores client `X-Forwarded-Host`.** Expected Origin is `Host`. `X-Forwarded-Host` is used only when `CRONUS_TRUSTED_PROXIES` is set and the socket peer is in that list.
+- **`--prod` 404s the GraphQL playground.** `GET /graphql` (and `/.cronus/version`) are internal routes. `POST /graphql` still requires a session.
+- **Rate limits cover GraphQL POST, `/_form`, `/_action`, and `/hooks`.** Login/signup and inbound hooks use the stricter auth limiter. Pages stay unlimited.
+- **On-disk secrets must be ≥ 32 bytes.** `.cronus/jwt.key` and `.cronus/webhook.key` that are shorter refuse to start (same rule as `JWT_SECRET`). The error names the path, never the secret.
+
+### Runtime
+
+- **`index` / `searchable` create SQLite indexes.** Every entity table also gets `idx_{table}__owner_id`. `CREATE INDEX IF NOT EXISTS` on migrate, including existing databases.
+- **GraphQL mutations share the REST write pipeline.** create/update/delete fire webhooks, entity effects, `.scriptcronus`, the hash-chained audit trail, and SSE.
+- **HMR reloads the spec.** The watcher re-parses, migrates, swaps live `AppState` (shared DB/SSE/limiters), then bumps `/.cronus/version`. Parse/env failure keeps the previous spec and does not bump.
+
+### Language (honesty)
+
+- **`on click confirm:"…"` parses.** Same confirm message as `on click { confirm "…" }`.
+- **`layout { brand "X" }` at root is stored** on the sidebar config (templates already wrote it this way).
+- **Unknown top-level tokens are `PARSE_001`** (they used to `eprintln` and skip).
+- **`COMPOSE_001` points at the second declaration** (line/col), not `1:1`.
+- **`define` is not `LANG_001`.** Hollow blocks remain `service`, `worker`, `middleware`, `deploy`, `test`, file-scope `on`.
+
 ### Language (GraphQL)
 
 - **Reads match `bind { expand }`.** Output types use related entities
@@ -117,10 +138,12 @@ LANGUAGE.md §15.9.
   `create`/`update` still parse (templates / `/_form`); the executor still does not
   run them as separate steps.
 - **Hollow top-level blocks are `LANG_001`:** `service`, `worker`, `middleware`,
-  `deploy`, `test`, `define`, file-scope `on`. They parse so the rest of
-  the file can be diagnosed; the app is invalid until they are removed. `webhook`,
-  `import` and `compose { use }` are real. Two `app {}` or two `entity Task` across
+  `deploy`, `test`, file-scope `on`. They parse so the rest of
+  the file can be diagnosed; the app is invalid until they are removed. `define`,
+  `webhook`, `import` and `compose { use }` are real. Two `app {}` or two `entity Task` across
   files used to last-win; they now fail (`COMPOSE_001`).
+- **Unknown top-level tokens are `PARSE_001`.** Junk identifiers after a valid
+  file used to be skipped with a stderr warning.
 
 ### Breaking changes
 

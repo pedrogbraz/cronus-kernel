@@ -45,7 +45,7 @@ env       test      webhook   constitution
 must      never     transition deploy
 ```
 
-> **Note**: `auth`, `layout`, `define`, `style`, and `tailwind_config` are dispatched in the parser via **`TokenKind::Identifier`** checks, not via `KEYWORDS`. They work, but they are not tokenizer keywords. If you add a field or enum value named `auth` / `layout` / `define`, you can cause ambiguity.
+> **Note**: `style` **is** a tokenizer keyword (`KEYWORDS`). `auth`, `layout`, `define`, and `tailwind_config` are dispatched via **`TokenKind::Identifier`** checks. They work, but they are not tokenizer keywords. If you add a field or enum value named `auth` / `layout` / `define`, you can cause ambiguity.
 
 **HTTP methods** (`src/parser/tokenizer.rs:45`, const `METHODS`):
 
@@ -151,7 +151,7 @@ Both are recoverable: the parser keeps going, so one build reports every type er
 | `page "/route" { ... }`   | `parse_page`         | `AstNode::Page`           | REAL |
 | `auth { ... }`            | `parse_auth`         | `AstNode::Auth`           | REAL |
 | `style { ... }`           | `parse_style`        | `AstNode::Style`          | REAL |
-| `layout Name { ... }`     | `parse_layout`       | `AstNode::Layout`         | REAL |
+| `layout Name { ... }`     | `parse_layout`       | `AstNode::Layout`         | REAL — `brand "X"` at root or in `sidebar` |
 | `service Name { ... }`    | `parse_service`      | `AstNode::Service`        | **LANG_001** — parses, no runtime |
 | `component Name { ... }`  | `parse_component`    | `AstNode::Component`      | **LIMITED** — see §6 |
 | `webhook Name { ... }`    | `parse_webhook`      | `AstNode::Webhook`        | REAL (outbound HTTP; no TLS) |
@@ -226,17 +226,19 @@ entity Order {
   on create {
     log "Order {{number}} created"
   }
-  on update when status changed to paid {
-    notify "payments@example.com" template "order-paid"
+  on update status {
+    when paid {
+      notify "payments@example.com" template "order-paid"
+    }
   }
 }
 ```
 
 ### 3.2 Auto-generated per entity
 
-- SQLite table with all columns, foreign keys, indexes from `index` modifier
+- SQLite table with all columns, foreign keys, `idx_{table}__owner_id`, and indexes from `index` / `searchable` (`CREATE INDEX IF NOT EXISTS` on migrate)
 - CRUD REST endpoints (can be overridden via explicit `api /prefix` block)
-- GraphQL type, queries (`allOrders`, `order(id)`), mutations (`createOrder`, `deleteOrder` — **no `updateOrder`**; see §15)
+- GraphQL type, queries (`allOrders`, `order(id)`), mutations (`createOrder`, `updateOrder`, `deleteOrder`). Writes share the REST pipeline (effects, webhooks, audit, SSE)
 - Owner isolation via injected `_owner_id`
 - Audit log rows on INSERT/UPDATE/DELETE (§13.2)
 - SSE broadcast when modified (if any section `bind`s with `live true`)
@@ -247,7 +249,7 @@ State machine validation at both compile time (state names must match enum value
 
 ### 3.4 Effects (`on create/update/delete`) — REAL (narrow verbs)
 
-Parser accepts the block. Runtime runs it after **every** write surface: REST (`api_crud`), `/_form`, and `/_action` (`create`/`update`/`set`/`delete`).
+Parser accepts the block. Runtime runs it after **every** write surface: REST (`api_crud`), GraphQL mutations, `/_form`, and `/_action` (`create`/`update`/`set`/`delete`).
 
 - `log "…"` interpolates `{{field}}`, prints to stderr, and records on the brain event log when one is configured.
 - `notify <provider> <channel> "…"` interpolates, prints, records on the brain, and broadcasts an SSE event (`_effect_notify_<entity>`). It does **not** send email or Slack; outbound HTTP is the separate `webhook` block (`fire_webhooks`).
@@ -479,38 +481,27 @@ AGENTS.md historical claim: "51-way dispatcher".
 - 58 distinct section type strings (aliases inlined via `|` pipes)
 - After collapsing aliases via `ContractRegistry::resolve_alias()`: **39 canonical section types**
 
-> **Machine-checked list (2026-09-14):** the dispatcher now has 57 section-type strings in its explicit arms, and names in `cronus_ui_widgets::FAMILIES` render through the default arm. The exact built-in, alias and family lists live in `llms-full.txt` and `src/cli/context_grammar.rs`; `cargo test context_grammar` fails when they drift from `src/ui/mod.rs`. The catalog below is the 2026-04-10 grouping. Note: in code `webhooks` and `live-keys`/`test-keys` alias to `card`, not `table`/`links`.
+> **Machine-checked list:** the exact built-in, alias and family lists live in `llms-full.txt` and `src/cli/context_grammar.rs`; `cargo test context_grammar` fails when they drift from `src/ui/mod.rs`. Names in `cronus_ui_widgets::FAMILIES` render through the default arm. **Do not treat the catalog below as the source of truth** — `drawer`, `popover`, `divider`, and `stats-card` are not dispatcher arms. Canonical builtins include `trusted`, `checkout`, `links`, `pagination`, `layout`, `not-found` instead.
 
-### 7.2 Canonical catalog (39)
+### 7.2 Canonical catalog
 
-**Marketing (7)** — no binding, pure presentation
-`hero`, `features`, `pricing`, `cta`, `testimonial`, `faq`, `footer`
+Trust `llms-full.txt` `<!-- begin:builtin-sections -->`. Grouping for reading:
 
-**Data (8)** — binding-capable, consume `bound_data`
-`table`, `kpi`, `chart`, `timeline`, `progress`, `kanban`, `stat-cards`, `stats`
+**Marketing** — `hero`, `features`, `pricing`, `cta`, `testimonial`, `faq`, `footer`, `trusted`
 
-**Feedback (8)**
-`alert`, `toast`, `skeleton`, `empty`, `error`, `notifications`, `accordion`, `dropdown`
+**Data** — `table`, `kpi`, `chart`, `timeline`, `progress`, `kanban`
 
-**Navigation (5)**
-`tabs`, `breadcrumb`, `sidebar`, `topbar`, `command`
+**Feedback** — `alert`, `toast`, `skeleton`, `empty`, `error`, `notifications`, `accordion`, `dropdown`
 
-**Overlay (4)**
-`modal`, `sheet`, `drawer`, `popover`
+**Navigation** — `tabs`, `breadcrumb`, `sidebar`, `topbar`, `command`
 
-**Layout (3)**
-`card`, `page-header`, `divider`
+**Overlay** — `modal`, `sheet`
 
-**Form (2)**
-`form`, `filters`
+**Layout** — `card`, `page-header`, `layout`, `links`
 
-**Card (1)**
-`stats-card`
+**Form** — `form`, `filters`
 
-**Control (1)**
-`dark-mode`
-
-**= 39 total**
+**Other** — `checkout`, `pagination`, `not-found`, `dark-mode`
 
 ### 7.3 Chart and alert — REAL, not fallbacks
 
@@ -550,6 +541,7 @@ on click confirm:"Delete this order?" {
   delete Entity route.id
   refresh
 }
+# equivalent: on click { confirm "Delete this order?"  delete Entity route.id  refresh }
 ```
 
 ### 8.2 Supported verbs (verified in `src/actions.rs`)
@@ -700,7 +692,11 @@ layout Main {
 }
 ```
 
-### 10.1 `nav` keyword — optional since 2026-04-10
+### 10.1 `brand` at layout root — REAL
+
+`layout Main { brand "Acme"  sidebar { … } }` stores `sidebar_config["brand"]`. `brand` inside `sidebar { }` still works. Templates use the root form.
+
+### 10.2 `nav` keyword — optional since 2026-04-10
 
 Both forms work:
 - `nav "Label" -> "/route" icon:foo`
@@ -708,11 +704,11 @@ Both forms work:
 
 Confirmed in `src/parser/mod.rs:838-844`.
 
-### 10.2 `requires:` on sidebar items
+### 10.3 `requires:` on sidebar items
 
 Sidebar items can have `requires:auth` or `requires:role(x)` — non-authorized users see a filtered menu.
 
-### 10.3 Rendering
+### 10.4 Rendering
 
 `src/ui/layout.rs::render_layout_declarative` (~1638 LOC, rewritten this session) produces:
 - Gradient sidebar with brand + auto-generated initial
@@ -945,7 +941,8 @@ Status: all four files have executable logic. `auto-promotion` rides on the Trus
 
 `src/graphql.rs`. Default on; `app { graphql false }` unmounts the endpoints (404).
 
-- **Language:** `app { graphql false }` / `graphql:false`. Omitted or `true` keeps `/graphql` mounted. `GET /graphql` is the playground (no session). `POST /graphql` and `GET /graphql/schema` return 401 without a session.
+- **Language:** `app { graphql false }` / `graphql:false`. Omitted or `true` keeps `/graphql` mounted. `GET /graphql` is the playground (no session) in loopback **dev**; in `--prod` it is an internal route (**404**). `POST /graphql` requires a session. `GET /graphql/schema` is internal (401 without admin outside loopback; 404 in prod).
+- **Writes:** GraphQL create/update/delete call the same `effects::after_write` pipeline as REST (webhooks, entity `on create/update/delete`, `.scriptcronus`, audit trail, SSE).
 - **Auth:** Reads use the same owner scope as bindings (§9.5, without `scope:public`). `create<Entity>` keeps only writable fields and sets `_owner_id` on the server. `update<Entity>(id, input)` is partial (`Update<Entity>Input` has no required fields), owner-scoped (other users' rows return `null`), and runs the same validation/transitions/M2M rules as REST. `delete<Entity>` is constrained by `_owner_id` in SQL (`false` for other users' rows). The auth entity is admin-only for GraphQL mutations. `sensitive`/`password` fields are absent from responses, output types and create/update inputs. DB errors are logged and never returned.
 - Auto-generates SDL from entities: `{entity}s(limit)`, `{entity}(id)`, `create<Entity>`, `update<Entity>`, `delete<Entity>`.
 - Hand-rolled query parser. Output types use related entities (`tags: [Tag!]!`, `author: User`, reverse `jobs: [Job!]!`). Selecting those fields expands like `bind { expand:… }` (nested selection is recursive reads). Create/update inputs still take ids (`[String!]`) — no nested mutations. No subscriptions (SSE is separate).
@@ -1029,7 +1026,13 @@ Verified by reading `src/main.rs` argv dispatch and `src/cli/`. There are **32 t
 | `--host <ip>` / `CRONUS_HOST` | `127.0.0.1` | Bind address. `0.0.0.0` exposes the server and prints a warning. `--audit-canvas` always binds loopback. |
 | `--prod` / `CRONUS_ENV=production` | dev | Production mode: internal/diagnostic routes return 404 (§14.9). |
 | `CRONUS_MAX_BODY_BYTES` | `1048576` | Max request body; larger bodies get `413`. |
-| `CRONUS_TRUSTED_PROXIES` | empty | Comma list of IPs/CIDRs whose `X-Forwarded-For` is honored for rate limiting. Otherwise the socket peer IP is used. |
+| `CRONUS_TRUSTED_PROXIES` | empty | Comma list of IPs/CIDRs whose `X-Forwarded-For` (rate limit) and `X-Forwarded-Host` (CSRF) are honored. Otherwise the socket peer / `Host` is used. |
+
+Rate limits (`src/routes/throttle.rs`): 100/60s on `/api/*`, `POST /graphql`, `/_form*`, `/_action*`; 10/60s on login/signup and `/hooks*`. Pages are not limited.
+
+`.cronus/jwt.key` and `.cronus/webhook.key` must be ≥ 32 bytes if they exist (`JWT_SECRET` already was).
+
+**HMR** (dev only): the watcher re-parses `.cronus`, migrates, swaps live `AppState`, then bumps `/.cronus/version` so the browser reload sees the new AST. Parse/env failure keeps the previous spec. In `--prod`, `/.cronus/version` is 404.
 | `CRONUS_HEADER_READ_TIMEOUT_SECS` | `15` | HTTP/1 header read timeout. |
 
 Login is also limited per account (normalized email): after 5 failures, exponential backoff (1s, 2s, 4s… capped at 15 min) with `429` + `Retry-After`.
@@ -1157,7 +1160,7 @@ Field rules:
 | Code | Severity | Meaning |
 |------|----------|---------|
 | `IO_001` | error (exit 2) | No `.cronus` file found / file unreadable |
-| `PARSE_001` | error | Unexpected token (`expected X, found 'Y'`) |
+| `PARSE_001` | error | Unexpected token (`expected X, found 'Y'`), including an unknown top-level identifier |
 | `PARSE_002` | error | Invalid identifier shape (P040) |
 | `PARSE_003` | error | SQL reserved word as entity/field name (P041) |
 | `PARSE_004` | error | `transition` on a missing or non-enum field |
@@ -1176,7 +1179,7 @@ Field rules:
 | `FIELD_004` | error | Unknown field modifier (`indexed`, `computed`, `onupdate:`, …) (§2.4) |
 | `ACTION_001` | error | Unknown or unimplemented action verb (`validate`, invented verbs) (§8.2) |
 | `LANG_001` | error | Top-level block with no runtime (`service`, `worker`, `middleware`, `deploy`, `test`, file-scope `on`) |
-| `COMPOSE_001` | error | Duplicate declaration across the load graph (entity, page route, app, auth, style, layout, api, component, webhook entity, env variable). One `app {}`. |
+| `COMPOSE_001` | error | Duplicate declaration across the load graph (entity, page route, app, auth, style, layout, api, component, webhook entity, env variable). One `app {}`. Location is the **second** declaration. |
 | `COMPOSE_002` | error | `import` / `compose { use }` file is missing (§2.7) |
 | `REL_001` | error | `jobs <- Job.client` is not a relation on `Job` that points at this entity |
 | `STRUCTURE_001` | error | A `page "…"` / `entity Name {` declared in the source is missing from the parsed app (an earlier statement consumed a `}`) |
@@ -1221,7 +1224,7 @@ Snapshot 2026-09-15: `cargo test --locked` → `1781` lib + `6` build_cli + `7` 
 
 ### 17.1 Modules with zero or thin coverage
 
-Use the last command above for the current list. As of 2026-09-15 these have no tests: `src/ui/mod.rs` (section dispatcher; its section list is drift-checked by `context_grammar`), `src/scripting/vm.rs`, `src/zeus.rs`, `src/hmr.rs`, `src/server/{docs,auth_pages}.rs`. HTTP dispatch coverage is `src/http_dispatch_tests.rs`.
+Use the last command above for the current list. As of 2026-09-16 these have no tests: `src/ui/mod.rs` (section dispatcher; its section list is drift-checked by `context_grammar`), `src/scripting/vm.rs`, `src/zeus.rs`, `src/server/{docs,auth_pages}.rs`. `src/hmr.rs` covers bump + spec reload. HTTP dispatch coverage is `src/http_dispatch_tests.rs`.
 
 Rule of thumb: if you modify a file without tests, add a regression test in the same file before committing. CLI stdout contracts go in `tests/`.
 
@@ -1240,8 +1243,8 @@ The items below are **claims from older docs (now under `docs/archive/`, or `doc
 | Trust auto-promotion at ≥ 0.800                  | No threshold gate, no auto trigger. `promote_to_text` only called in unit tests. |
 | `component Name(param: type) { state ... }`      | Not implemented. `component.rs` is a layout-preset dispatcher. |
 | 6-axis trust scoring used at runtime             | Gates are always `new_clean()`; correctness axis hardcoded to 0. Scores are cosmetic. |
-| `update<Entity>` GraphQL mutation                 | Not generated. Only create/delete. |
-| `create Entity`, `update Entity`, `log "..."` actions | Parser accepts them; executor ignores. Only 7 verbs work. |
+| `update<Entity>` GraphQL mutation                 | **Generated.** Partial update, owner-scoped; same write hooks as REST. |
+| `create`/`update` on `/_action`                   | **Execute AST field literals.** Form `on submit` writes through `/_form` only. |
 | HEAD/OPTIONS HTTP methods                         | Tokenizer rejects them. Silent fallback never fires. |
 | `src/dump/typescript.rs` as dump target          | Orphaned. No CLI flag calls it. |
 | Next.js dump target                               | Not in `docs.cronus.test/dump` page. Is in code, is in CLI. |
