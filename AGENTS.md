@@ -136,7 +136,7 @@ Deleted in Sprint 4 (2026-09-14): `src/server/router.rs`, `src/server/api.rs`, `
 - The dispatcher is split into `src/routes/`; `http_dispatch_tests.rs` is its net. Add a case there when you add or reorder a route group.
 - Clippy has hundreds of non-correctness warnings; only `clippy::correctness` is enforced (CI).
 - Webhooks cannot deliver `https://` (no TLS client in dependencies).
-- GraphQL `update<Entity>` is generated. `app { graphql false }` unmounts `/graphql`.
+- GraphQL `update<Entity>` is generated. `app { graphql false }` unmounts `/graphql`. Query selection expands relations and reverses like `bind { expand }` (output types are entities; mutation inputs stay ids).
 - Page `type:form`/`detail`/`list` with sections render those sections. Table `query one` is one row.
 - Unknown field types are `TYPE_001`. Unknown `where` operators are `BIND_001` (no silent `eq`). `ends_with` and `in:[…]` are implemented. `bind { expand:tags }` loads related rows. `datetime` ≠ `date`. `file` stores `/_files/…` or a URL. Reverse: `jobs <- Job.client` (`REL_001` if invalid); undeclared still infers `orders`. Unknown field modifiers are `FIELD_004`. Hollow top-level blocks are `LANG_001` (`service`, `worker`, `middleware`, `deploy`, `test`, file-scope `on` — not `define`). `define` + page `use` splices sections. Unknown action verbs are `ACTION_001`. Multi-file composition is union+conflict (`COMPOSE_001` duplicate, `COMPOSE_002` missing import); `compose { use }` loads files; last-wins is gone.
 - `create`/`update` on `/_action` use AST field literals. Form `on submit { create X … }` writes through `/_form` only; the block supplies toast/navigate.

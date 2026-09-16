@@ -8,6 +8,12 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ## [Unreleased]
 
+### Language (GraphQL)
+
+- **Reads match `bind { expand }`.** Output types use related entities
+  (`tags: [Tag!]!`, reverse `jobs: [Job!]!`). Nested selection expands those
+  rows (owner-scoped). Create/update inputs still take ids — no nested mutations.
+
 ### Language (relations)
 
 - **Declared reverse.** `jobs <- Job.client` on Customer names the inverse of
