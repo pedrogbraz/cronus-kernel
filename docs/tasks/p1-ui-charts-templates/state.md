@@ -1,3 +1,4 @@
 # Retomada
 
-Estado: planejamento. Próximo: ready + start.
+Estado: full verde. Commit `fa38e1a`. Próximo: integrate (sem push).
+
