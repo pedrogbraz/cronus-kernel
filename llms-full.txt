@@ -91,15 +91,16 @@ env {
 ### import and compose
 ```cronus
 import "entities"
-import Pages from "pages.cronus"
+import "pages.cronus"
 
 compose App {
   use entities
   merge pages
 }
 ```
-- `import "file"` and `import Alias from "file"` load that `.cronus` (extension optional)
+- `import "file"` loads that `.cronus` (extension optional)
   relative to the importing file. Nested imports are relative to the importer.
+  `import Alias from "file"` is `COMPOSE_003` (the alias is unused).
 - `compose { use a }` / `compose Name { use a  merge b }` loads `a.cronus` the same way.
   The compose/import nodes are stripped after they have been used as load instructions.
 - Several `*.cronus` files in the working directory are unioned the same way (`cronus run`).
@@ -422,6 +423,9 @@ page "/dashboard" type:dashboard requires:auth {
   `eq` `ne`/`neq` `gt` `gte` `lt` `lte` `contains` `starts_with` `ends_with` `in:[…]`.
 - Never write top-level `service`, `worker`, `middleware`, `deploy`, `test`
   or file-scope `on` — the build fails (`LANG_001`).
+- Never give `component` parameters, `state`, or `template` (`LANG_002`).
+- Never repeat a field name in one entity (`FIELD_005`).
+- Never `import Alias from "file"` (`COMPOSE_003`); write `import "file"`.
 - `define Header { section page-header { title "H" } }` + `page "/" { use Header }`
   splices those sections. Duplicate `define` names fail (`COMPOSE_001`).
 - Never declare the same entity, page route, `app`, `auth` or `style` twice across

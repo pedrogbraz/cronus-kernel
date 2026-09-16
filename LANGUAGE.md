@@ -1177,10 +1177,13 @@ Field rules:
 | `BIND_001` | error | Unknown `where` operator, or `in` without `[…]` (§9.2) |
 | `BIND_002` | error | Unknown `query` kind; must be `all`, `one` or `count` |
 | `FIELD_004` | error | Unknown field modifier (`indexed`, `computed`, `onupdate:`, …) (§2.4) |
+| `FIELD_005` | error | Duplicate field name in one entity; the first is kept |
 | `ACTION_001` | error | Unknown or unimplemented action verb (`validate`, invented verbs) (§8.2) |
 | `LANG_001` | error | Top-level block with no runtime (`service`, `worker`, `middleware`, `deploy`, `test`, file-scope `on`) |
+| `LANG_002` | error | `component` `(params)`, `state`, or `template` has no runtime |
 | `COMPOSE_001` | error | Duplicate declaration across the load graph (entity, page route, app, auth, style, layout, api, component, webhook entity, env variable). One `app {}`. Location is the **second** declaration. |
 | `COMPOSE_002` | error | `import` / `compose { use }` file is missing (§2.7) |
+| `COMPOSE_003` | error | `import Alias from "file"` — alias is unused; write `import "file"` |
 | `REL_001` | error | `jobs <- Job.client` is not a relation on `Job` that points at this entity |
 | `STRUCTURE_001` | error | A `page "…"` / `entity Name {` declared in the source is missing from the parsed app (an earlier statement consumed a `}`) |
 | `RESOLVE_001` | error | Unresolved reference (entity, field, column, route) |

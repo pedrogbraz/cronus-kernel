@@ -45,12 +45,20 @@ pub mod codes {
     pub const UNIMPLEMENTED_ACTION: &str = "ACTION_001";
     /// Top-level block that parses but has no runtime (`service`, `worker`, …).
     pub const UNIMPLEMENTED_BLOCK: &str = "LANG_001";
+    /// `component` params, `state`, or `template` parse but have no runtime.
+    pub const UNIMPLEMENTED_COMPONENT: &str = "LANG_002";
     /// Two files (or one file) declare the same entity, page, app, …
     pub const DUPLICATE_DECL: &str = "COMPOSE_001";
     /// `import` / `compose { use }` points at a file that is not on disk.
     pub const MISSING_IMPORT: &str = "COMPOSE_002";
+    /// `import Alias from "file"` — the alias is not a selective import.
+    pub const UNUSED_IMPORT_ALIAS: &str = "COMPOSE_003";
+    /// Two fields with the same name in one entity.
+    pub const DUPLICATE_FIELD: &str = "FIELD_005";
     /// `jobs <- Job.client` does not name a relation that points at this entity.
     pub const INVALID_REVERSE: &str = "REL_001";
+    /// Unresolved `page { use Name }` (not a define and not a component).
+    pub const UNRESOLVED_REF: &str = "RESOLVE_001";
 }
 
 #[derive(Debug, Clone, PartialEq)]

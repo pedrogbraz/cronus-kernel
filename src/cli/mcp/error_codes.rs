@@ -106,8 +106,8 @@ pub(crate) const ERROR_CODES: &[ErrorCode] = &[
         code: "RESOLVE_001",
         severity: "error",
         category: "resolve",
-        description: "Unresolved reference: an entity, field, column or route named in a binding, column list, relation or link does not exist.",
-        example_fix: "`bind Tsk { query all }` -> `bind Task { query all }` (the fix suggests a close existing name when there is one).",
+        description: "Unresolved reference: an entity, field, column or route named in a binding, column list, relation or link does not exist; or `page { use Name }` names neither a `define` nor a `component`.",
+        example_fix: "`bind Tsk { query all }` -> `bind Task { query all }`. For `use Missing`, add `define Missing { section … }` or `component Missing { … }`, or drop the use.",
     },
     ErrorCode {
         code: "RESOLVE_002",
@@ -320,6 +320,13 @@ pub(crate) const ERROR_CODES: &[ErrorCode] = &[
         example_fix: "`email string indexed` -> `email string index`. Drop `computed` and `onupdate:`.",
     },
     ErrorCode {
+        code: "FIELD_005",
+        severity: "error",
+        category: "validation",
+        description: "Two fields in the same entity have the same name. The first is kept.",
+        example_fix: "`entity Task { title string  title string! }` -> one `title` field.",
+    },
+    ErrorCode {
         code: "ACTION_001",
         severity: "error",
         category: "action",
@@ -334,6 +341,13 @@ pub(crate) const ERROR_CODES: &[ErrorCode] = &[
         example_fix: "Remove the block. Page `requires:`, `import`, `compose { use }`, `define` + page `use`, and `webhook` are the implemented substitutes where they apply.",
     },
     ErrorCode {
+        code: "LANG_002",
+        severity: "error",
+        category: "language",
+        description: "`component Name(params)`, `state`, or `template` parse but have no runtime. Kit components use layout/style/items only.",
+        example_fix: "Drop `(params)`, `state`, and `template`. For reusable sections use `define Name { section … }` and `page { use Name }`. For widgets use `style:family`.",
+    },
+    ErrorCode {
         code: "COMPOSE_001",
         severity: "error",
         category: "compose",
@@ -346,6 +360,13 @@ pub(crate) const ERROR_CODES: &[ErrorCode] = &[
         category: "compose",
         description: "`import` or `compose { use }` / `merge` points at a file that is not on disk. Missing imports used to warn and continue.",
         example_fix: "`import \"entities\"` looks for `entities.cronus` next to the importing file (nested imports are relative to the importer). Create the file or drop the import.",
+    },
+    ErrorCode {
+        code: "COMPOSE_003",
+        severity: "error",
+        category: "compose",
+        description: "`import Alias from \"file\"` still loads the whole file; the alias is not a selective import and is unused.",
+        example_fix: "`import Pages from \"pages\"` -> `import \"pages\"`.",
     },
     ErrorCode {
         code: "REL_001",

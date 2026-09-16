@@ -155,7 +155,7 @@ impl Loader {
 
     fn finish(self) -> Result<Vec<AstNode>, Vec<ParseError>> {
         let (mut nodes, mut compose_errs) = union_conflict(self.nodes);
-        expand_defines(&mut nodes);
+        compose_errs.extend(expand_defines(&mut nodes));
         let ents: Vec<super::EntityNode> = nodes
             .iter()
             .filter_map(|n| match n {
@@ -256,24 +256,35 @@ fn normalize(path: &Path) -> String {
 
 /// Expand `page { use Name }` into the sections of `define Name { … }`.
 /// Names that are not defines stay on `page.components` (kit `component`).
-pub(crate) fn expand_defines(nodes: &mut [AstNode]) {
+/// A leftover name that is not a `component` either is `RESOLVE_001`.
+pub(crate) fn expand_defines(nodes: &mut [AstNode]) -> Vec<ParseError> {
     let mut defines: HashMap<String, Vec<SectionNode>> = HashMap::new();
+    let mut components: HashSet<String> = HashSet::new();
     for node in nodes.iter() {
-        if let AstNode::Define(d) = node {
-            defines.insert(d.name.clone(), d.sections.clone());
+        match node {
+            AstNode::Define(d) => {
+                defines.insert(d.name.clone(), d.sections.clone());
+            }
+            AstNode::Component(c) => {
+                components.insert(c.name.clone());
+            }
+            _ => {}
         }
     }
-    if defines.is_empty() {
-        return;
-    }
+    let mut errors = Vec::new();
     for node in nodes.iter_mut() {
         if let AstNode::Page(page) = node {
-            splice_defines(page, &defines);
+            errors.extend(splice_defines(page, &defines, &components));
         }
     }
+    errors
 }
 
-fn splice_defines(page: &mut PageNode, defines: &HashMap<String, Vec<SectionNode>>) {
+fn splice_defines(
+    page: &mut PageNode,
+    defines: &HashMap<String, Vec<SectionNode>>,
+    components: &HashSet<String>,
+) -> Vec<ParseError> {
     let mut expanded = Vec::new();
     let mut leftover = Vec::new();
     for name in &page.components {
@@ -306,12 +317,32 @@ fn splice_defines(page: &mut PageNode, defines: &HashMap<String, Vec<SectionNode
             leftover.push(name.clone());
         }
     }
-    if expanded.is_empty() {
-        return;
+    let mut errors = Vec::new();
+    for name in &leftover {
+        if !components.contains(name) {
+            errors.push(
+                ParseError::new(
+                    codes::UNRESOLVED_REF,
+                    format!(
+                        "page {} use '{name}' is neither a define nor a component",
+                        page.route
+                    ),
+                    page.span.line,
+                    page.span.col,
+                )
+                .with_target(name.clone())
+                .with_hint(format!(
+                    "declare `define {name} {{ section … }}` or `component {name} {{ … }}`, or remove the use"
+                )),
+            );
+        }
     }
-    expanded.append(&mut page.sections);
-    page.sections = expanded;
-    page.components = leftover;
+    if !expanded.is_empty() {
+        expanded.append(&mut page.sections);
+        page.sections = expanded;
+        page.components = leftover;
+    }
+    errors
 }
 
 fn display_spec(path: &Path) -> String {
@@ -476,7 +507,7 @@ mod tests {
         write(
             &dir,
             "app.cronus",
-            "import Tasks from \"entities\"\napp \"X\" { port 1 }\nentity Tag { name string }\n",
+            "import \"entities\"\napp \"X\" { port 1 }\nentity Tag { name string }\n",
         );
         let src = fs::read_to_string(dir.join("app.cronus")).unwrap();
         let nodes = parse_with_imports(&src, dir.to_str().unwrap()).expect("compose");
@@ -485,6 +516,21 @@ mod tests {
             entity_names(&nodes),
             vec!["Tag".to_string(), "Task".to_string()]
         );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn import_alias_is_compose_003() {
+        let dir = tmp("import-alias");
+        write(&dir, "entities.cronus", "entity Task { title string }\n");
+        write(
+            &dir,
+            "app.cronus",
+            "import Tasks from \"entities\"\napp \"X\" { port 1 }\n",
+        );
+        let src = fs::read_to_string(dir.join("app.cronus")).unwrap();
+        let err = expect_err(parse_with_imports_diagnostics(&src, dir.to_str().unwrap()));
+        assert!(codes_of(err).contains(&codes::UNUSED_IMPORT_ALIAS));
         let _ = fs::remove_dir_all(&dir);
     }
 

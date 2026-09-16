@@ -369,11 +369,27 @@ impl Parser {
                 col: t.col,
             });
         }
+        let alias_tok = self.peek().clone();
         let alias = self.advance().value;
         if self.matches(TokenKind::Identifier, Some("from")) {
             self.advance();
         }
         let t = self.expect(TokenKind::StringLit)?;
+        if !alias.is_empty() {
+            self.diagnostics.push(
+                ParseError::new(
+                    codes::UNUSED_IMPORT_ALIAS,
+                    format!("import alias '{alias}' is not used; the whole file is loaded"),
+                    alias_tok.line,
+                    alias_tok.col,
+                )
+                .with_len(alias_tok.width())
+                .with_target(alias.clone())
+                .with_hint(
+                    "write `import \"file\"` (no alias); selective imports are not in the language",
+                ),
+            );
+        }
         Ok(ImportNode {
             alias,
             source: t.value.clone(),
@@ -587,9 +603,26 @@ impl Parser {
                     reverses.push(self.parse_reverse_decl()?);
                     continue;
                 }
+                let field_tok = self.peek().clone();
                 if let Some(mut field) = self.parse_field()? {
-                    field.doc = field_doc;
-                    fields.push(field);
+                    if fields.iter().any(|f| f.name == field.name) {
+                        self.diagnostics.push(
+                            ParseError::new(
+                                codes::DUPLICATE_FIELD,
+                                format!("duplicate field '{}' in entity '{name}'", field.name),
+                                field_tok.line,
+                                field_tok.col,
+                            )
+                            .with_len(field_tok.width())
+                            .with_target(field.name.clone())
+                            .with_hint(
+                                "the first declaration is kept; rename or remove this field",
+                            ),
+                        );
+                    } else {
+                        field.doc = field_doc;
+                        fields.push(field);
+                    }
                 }
             } else {
                 self.advance();
@@ -1163,6 +1196,21 @@ impl Parser {
                 Some(s) => err.with_replacement(s),
                 None => err,
             });
+        }
+
+        // English `on update when status changed to paid` is not grammar.
+        if event == "update"
+            && (self.matches(TokenKind::Identifier, Some("when"))
+                || self.matches(TokenKind::Keyword, Some("when")))
+        {
+            let when_tok = self.peek().clone();
+            return Err(Self::token_error(
+                codes::UNEXPECTED_TOKEN,
+                "write `on update <field> { when <value> { ... } }`, not English `when status changed to`"
+                    .to_string(),
+                &when_tok,
+            )
+            .with_hint("example: on update status { when paid { notify \"ok\" } }"));
         }
 
         // For "on update <field>", check if next token is a field name (not a brace)
@@ -3435,6 +3483,22 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
+        if !params.is_empty() || template.is_some() || !state_vars.is_empty() {
+            self.diagnostics.push(
+                ParseError::new(
+                    codes::UNIMPLEMENTED_COMPONENT,
+                    format!(
+                        "component '{name}' declares params, state, or template, which have no runtime"
+                    ),
+                    span.line,
+                    span.col,
+                )
+                .with_target(name.clone())
+                .with_hint(
+                    "drop (params), `state`, and `template`; use kit `style:family` items, or `define Name { section … }` + `page { use Name }`",
+                ),
+            );
+        }
         Ok(ComponentNode {
             name,
             layout,
@@ -4019,9 +4083,9 @@ pub fn parse(source: &str) -> Result<Vec<AstNode>, String> {
 /// failure: all recoverable ones (e.g. unknown field types) plus the first
 /// fatal syntax error, in source order of discovery.
 pub fn parse_diagnostics(source: &str) -> Result<Vec<AstNode>, Vec<ParseError>> {
-    let (mut nodes, diagnostics) = parse_collect(source);
+    let (mut nodes, mut diagnostics) = parse_collect(source);
+    diagnostics.extend(compose::expand_defines(&mut nodes));
     if diagnostics.is_empty() {
-        compose::expand_defines(&mut nodes);
         let ents: Vec<EntityNode> = nodes
             .iter()
             .filter_map(|n| match n {
@@ -5950,5 +6014,72 @@ layout Main {
         );
         assert!(parse(src).is_err());
         assert!(parse_diagnostics(src).is_err());
+    }
+
+    #[test]
+    fn duplicate_field_is_field_005_at_second_span() {
+        let src = "entity Task {\n  title string\n  title string!\n}\n";
+        let (nodes, diags) = parse_collect(src);
+        let e = diags
+            .iter()
+            .find(|d| d.code == codes::DUPLICATE_FIELD)
+            .expect("FIELD_005");
+        assert_eq!(e.line, 3, "{e:?}");
+        match &nodes[0] {
+            AstNode::Entity(ent) => assert_eq!(ent.fields.len(), 1),
+            _ => panic!("entity"),
+        }
+        assert!(parse_diagnostics(src).is_err());
+    }
+
+    #[test]
+    fn unknown_page_use_is_resolve_001() {
+        let src = "page \"/\" {\n  use Missing\n  section hero { title \"H\" }\n}\n";
+        let err = match parse_diagnostics(src) {
+            Err(e) => e,
+            Ok(_) => panic!("expected RESOLVE_001"),
+        };
+        assert!(
+            err.iter()
+                .any(|e| e.code == codes::UNRESOLVED_REF && e.message.contains("Missing")),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn page_use_component_is_not_resolve_001() {
+        let src = "component Card { layout:card }\npage \"/\" { use Card }\n";
+        match parse_diagnostics(src) {
+            Ok(_) => {}
+            Err(e) => panic!("{e:?}"),
+        }
+    }
+
+    #[test]
+    fn component_params_are_lang_002() {
+        let src =
+            "component Counter(initial: number) {\n  state x = initial\n  template \"n\"\n}\n";
+        let err = match parse_diagnostics(src) {
+            Err(e) => e,
+            Ok(_) => panic!("expected LANG_002"),
+        };
+        assert!(
+            err.iter().any(|e| e.code == codes::UNIMPLEMENTED_COMPONENT),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn english_on_update_when_is_parse_001() {
+        let src = "entity Order {\n  status enum [pending, paid]\n  on update when status changed to paid { log \"x\" }\n}\n";
+        let err = match parse_diagnostics(src) {
+            Err(e) => e,
+            Ok(_) => panic!("expected PARSE_001"),
+        };
+        assert!(
+            err.iter()
+                .any(|e| e.code == codes::UNEXPECTED_TOKEN && e.message.contains("on update")),
+            "{err:?}"
+        );
     }
 }

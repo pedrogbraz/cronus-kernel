@@ -23,6 +23,11 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ### Language (honesty)
 
+- **Duplicate fields are `FIELD_005`.** The first is kept; the second's span is reported.
+- **`page { use X }` that is neither `define` nor `component` is `RESOLVE_001`.**
+- **`component` params / `state` / `template` are `LANG_002`.** Kit widgets stay layout/style/items.
+- **`import Alias from "file"` is `COMPOSE_003`.** The alias is not a selective import; write `import "file"`.
+- **English `on update when status changed to paid` is `PARSE_001`** with a hint to `on update status { when paid { } }`.
 - **`on click confirm:"…"` parses.** Same confirm message as `on click { confirm "…" }`.
 - **`layout { brand "X" }` at root is stored** on the sidebar config (templates already wrote it this way).
 - **Unknown top-level tokens are `PARSE_001`** (they used to `eprintln` and skip).
