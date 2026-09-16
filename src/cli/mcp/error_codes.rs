@@ -330,8 +330,8 @@ pub(crate) const ERROR_CODES: &[ErrorCode] = &[
         code: "LANG_001",
         severity: "error",
         category: "language",
-        description: "A top-level block is accepted by the parser so the rest of the file can be checked, but the runtime does not implement it (`service`, `worker`, `middleware`, `deploy`, `test`, `define`, top-level `on`).",
-        example_fix: "Remove the block. Page `requires:`, `import`, `compose { use }`, and `webhook` are the implemented substitutes where they apply.",
+        description: "A top-level block is accepted by the parser so the rest of the file can be checked, but the runtime does not implement it (`service`, `worker`, `middleware`, `deploy`, `test`, top-level `on`).",
+        example_fix: "Remove the block. Page `requires:`, `import`, `compose { use }`, `define` + page `use`, and `webhook` are the implemented substitutes where they apply.",
     },
     ErrorCode {
         code: "COMPOSE_001",

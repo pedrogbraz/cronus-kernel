@@ -2912,7 +2912,6 @@ impl Parser {
     /// Parse `define "Name" { section ... section ... }`
     /// Stores one or more reusable sections under a name.
     fn parse_define(&mut self) -> Result<DefineNode, ParseError> {
-        self.reject_unimplemented_block("define");
         self.advance(); // consume "define"
         let name = if self.peek().kind == TokenKind::StringLit {
             self.advance().value
@@ -3919,8 +3918,9 @@ pub fn parse(source: &str) -> Result<Vec<AstNode>, String> {
 /// failure: all recoverable ones (e.g. unknown field types) plus the first
 /// fatal syntax error, in source order of discovery.
 pub fn parse_diagnostics(source: &str) -> Result<Vec<AstNode>, Vec<ParseError>> {
-    let (nodes, diagnostics) = parse_collect(source);
+    let (mut nodes, diagnostics) = parse_collect(source);
     if diagnostics.is_empty() {
+        compose::expand_defines(&mut nodes);
         Ok(nodes)
     } else {
         Err(diagnostics)
@@ -4392,7 +4392,6 @@ mod parser_tests {
             "service mailer { }\n",
             "worker jobs { }\n",
             "middleware auth { }\n",
-            "define \"Box\" { }\n",
             "deploy { }\n",
             "test { }\n",
         ] {
@@ -4405,6 +4404,11 @@ mod parser_tests {
         assert!(
             !diag_codes("compose App { }\n").contains(&codes::UNIMPLEMENTED_BLOCK),
             "compose is a load-graph primitive, not LANG_001"
+        );
+        assert!(
+            !diag_codes("define Header { section page-header { title \"H\" } }\n")
+                .contains(&codes::UNIMPLEMENTED_BLOCK),
+            "define is reusable sections, not LANG_001"
         );
     }
 

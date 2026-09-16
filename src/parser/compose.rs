@@ -4,11 +4,11 @@
 //! `entity`/`page`/`app`/… of the same key is `COMPOSE_001`. A missing file is
 //! `COMPOSE_002`. Last-wins is gone.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use super::diagnostic::codes;
-use super::{parse_collect, AstNode, ParseError};
+use super::{parse_collect, AstNode, PageNode, ParseError, SectionNode};
 
 /// Parse `source` and follow `import` / `compose { use }` relative to `base_dir`.
 pub fn parse_with_imports(source: &str, base_dir: &str) -> Result<Vec<AstNode>, String> {
@@ -154,7 +154,8 @@ impl Loader {
     }
 
     fn finish(self) -> Result<Vec<AstNode>, Vec<ParseError>> {
-        let (nodes, mut compose_errs) = union_conflict(self.nodes);
+        let (mut nodes, mut compose_errs) = union_conflict(self.nodes);
+        expand_defines(&mut nodes);
         let mut errors = self.errors;
         errors.append(&mut compose_errs);
         if errors.is_empty() {
@@ -245,6 +246,66 @@ fn normalize(path: &Path) -> String {
     out.to_string_lossy().into_owned()
 }
 
+/// Expand `page { use Name }` into the sections of `define Name { … }`.
+/// Names that are not defines stay on `page.components` (kit `component`).
+pub(crate) fn expand_defines(nodes: &mut [AstNode]) {
+    let mut defines: HashMap<String, Vec<SectionNode>> = HashMap::new();
+    for node in nodes.iter() {
+        if let AstNode::Define(d) = node {
+            defines.insert(d.name.clone(), d.sections.clone());
+        }
+    }
+    if defines.is_empty() {
+        return;
+    }
+    for node in nodes.iter_mut() {
+        if let AstNode::Page(page) = node {
+            splice_defines(page, &defines);
+        }
+    }
+}
+
+fn splice_defines(page: &mut PageNode, defines: &HashMap<String, Vec<SectionNode>>) {
+    let mut expanded = Vec::new();
+    let mut leftover = Vec::new();
+    for name in &page.components {
+        if let Some(secs) = defines.get(name) {
+            for mut sec in secs.clone() {
+                if sec.section_type == "sidebar" {
+                    for item in &mut sec.items {
+                        let href = item.get("href").map(|s| s.as_str()).unwrap_or("");
+                        if !href.is_empty() && href == page.route {
+                            item.insert("active".into(), "true".into());
+                        } else {
+                            item.remove("active");
+                        }
+                    }
+                }
+                if sec.section_type == "topbar" {
+                    let route_parts: Vec<&str> =
+                        page.route.split('/').filter(|s| !s.is_empty()).collect();
+                    if let Some(first) = route_parts.first() {
+                        if !first.is_empty() {
+                            let capitalized =
+                                format!("{}{}", first[..1].to_uppercase(), &first[1..]);
+                            sec.config.insert("active_nav".into(), capitalized);
+                        }
+                    }
+                }
+                expanded.push(sec);
+            }
+        } else {
+            leftover.push(name.clone());
+        }
+    }
+    if expanded.is_empty() {
+        return;
+    }
+    expanded.append(&mut page.sections);
+    page.sections = expanded;
+    page.components = leftover;
+}
+
 fn display_spec(path: &Path) -> String {
     path.file_name()
         .map(|n| n.to_string_lossy().into_owned())
@@ -259,6 +320,7 @@ fn union_conflict(nodes: Vec<AstNode>) -> (Vec<AstNode>, Vec<ParseError>) {
     let mut seen_layout: HashSet<String> = HashSet::new();
     let mut seen_api: HashSet<String> = HashSet::new();
     let mut seen_component: HashSet<String> = HashSet::new();
+    let mut seen_define: HashSet<String> = HashSet::new();
     let mut seen_webhook: HashSet<String> = HashSet::new();
     let mut seen_env_var: HashSet<String> = HashSet::new();
     let mut have_app = false;
@@ -272,6 +334,7 @@ fn union_conflict(nodes: Vec<AstNode>) -> (Vec<AstNode>, Vec<ParseError>) {
             AstNode::Layout(l) => take(&mut seen_layout, &l.name, "layout"),
             AstNode::Api(a) => take(&mut seen_api, &a.prefix, "api"),
             AstNode::Component(c) => take(&mut seen_component, &c.name, "component"),
+            AstNode::Define(d) => take(&mut seen_define, &d.name, "define"),
             AstNode::Webhook(w) => take(&mut seen_webhook, &w.entity, "webhook"),
             AstNode::App(_) => singleton(&mut have_app, "app"),
             AstNode::Auth(_) => singleton(&mut have_auth, "auth"),
@@ -646,6 +709,55 @@ mod tests {
         assert!(
             err.iter()
                 .any(|e| e.code == codes::MISSING_IMPORT && e.message.contains("use 'missing'")),
+            "{err:?}"
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn define_is_not_lang_001_and_use_splices_sections() {
+        let src = r#"
+define Header {
+  section page-header { title "Bench" }
+}
+page "/" {
+  use Header
+  section kpi { bind Task { aggregate count } }
+}
+entity Task { title string }
+app "X" { port 1 }
+"#;
+        let nodes = parse_with_imports(src, ".").expect("define expands");
+        let page = nodes
+            .iter()
+            .find_map(|n| match n {
+                AstNode::Page(p) => Some(p),
+                _ => None,
+            })
+            .expect("page");
+        assert!(page.components.is_empty(), "{:?}", page.components);
+        assert_eq!(page.sections[0].section_type, "page-header");
+        assert_eq!(page.sections[1].section_type, "kpi");
+        assert!(nodes.iter().any(|n| matches!(n, AstNode::Define(_))));
+    }
+
+    #[test]
+    fn duplicate_define_is_compose_001() {
+        let dir = tmp("dup-define");
+        write(
+            &dir,
+            "a.cronus",
+            "define Header { section page-header { title \"A\" } }\n",
+        );
+        write(
+            &dir,
+            "b.cronus",
+            "define Header { section page-header { title \"B\" } }\napp \"X\" { port 1 }\n",
+        );
+        let err = expect_err(parse_directory_diagnostics(dir.to_str().unwrap()));
+        assert!(
+            err.iter()
+                .any(|e| e.code == codes::DUPLICATE_DECL && e.message.contains("define 'Header'")),
             "{err:?}"
         );
         let _ = fs::remove_dir_all(&dir);

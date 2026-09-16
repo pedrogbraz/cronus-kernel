@@ -8,6 +8,13 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ## [Unreleased]
 
+### Language (define)
+
+- **`define Name { section … }` is real.** `page { use Name }` splices those
+  sections ahead of the page's own (same expansion `cronus run` already did).
+  `cronus build` no longer reports `LANG_001`. Duplicate define names are
+  `COMPOSE_001`. `use` of a kit `component` is unchanged.
+
 ### UI (overlays)
 
 - **Modal overlays trap focus.** Closed-mode dialog, alert-dialog, confirmation,
