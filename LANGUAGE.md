@@ -317,7 +317,7 @@ entity Tag { label string! }
 - **Writes** (REST create/update, `/_form`, GraphQL create): send an array of ids (forms also accept `"id1,id2"`). It replaces the current links; omitting the field keeps them; `[]` clears them. Every id must exist and be readable by the caller on the target entity — own rows, rows of `shared` entities, any row for admins — otherwise `422` with `"fields": {"tags": ["contains an unknown id"]}` (same message for missing and unreadable ids). The row and its links are written in one transaction.
 - **Reads.** REST list/detail and GraphQL return the field as an id array in link order. REST `?expand=tags` (comma-separated field names) returns the linked rows instead, passed through `authz::redact_sensitive`. Only linked rows the viewer may read are included; anonymous callers on `auth:public` routes get `[]`. One query per field per page, never per row.
 - **Deletes.** Deleting either side removes its join rows.
-- **GraphQL.** `tags: [String!]!` on the type, `tags: [String!]` on `Create<Entity>Input` and `Update<Entity>Input`.
+- **GraphQL.** `tags: [Tag!]!` on the output type; `tags: [String!]` (ids) on `Create<Entity>Input` and `Update<Entity>Input`.
 - **Not supported:** `unique` on a many-to-many field (ignored).
 - **SSR.** `bind Post { query all }` attaches M2M fields as id arrays; `expand:tags` attaches redacted Tag rows. Table cells join `label`/`name`/`title`/`id`.
 - **Reverse.** `author -> User` on Post yields `posts` on User. Declare the name with `jobs <- Job.client` on Customer (`REL_001` if `Job.client` is not a relation pointing here). `bind Customer { expand:jobs }` / REST `?expand=jobs` loads those rows (same owner scope). Undeclared reverses still infer the source entity lowercased + `s` (or `{source}_{field}` on collision). Reverse fields are not stored and are not writable.
@@ -948,7 +948,7 @@ Status: all four files have executable logic. `auto-promotion` rides on the Trus
 - **Language:** `app { graphql false }` / `graphql:false`. Omitted or `true` keeps `/graphql` mounted. `GET /graphql` is the playground (no session). `POST /graphql` and `GET /graphql/schema` return 401 without a session.
 - **Auth:** Reads use the same owner scope as bindings (§9.5, without `scope:public`). `create<Entity>` keeps only writable fields and sets `_owner_id` on the server. `update<Entity>(id, input)` is partial (`Update<Entity>Input` has no required fields), owner-scoped (other users' rows return `null`), and runs the same validation/transitions/M2M rules as REST. `delete<Entity>` is constrained by `_owner_id` in SQL (`false` for other users' rows). The auth entity is admin-only for GraphQL mutations. `sensitive`/`password` fields are absent from responses, output types and create/update inputs. DB errors are logged and never returned.
 - Auto-generates SDL from entities: `{entity}s(limit)`, `{entity}(id)`, `create<Entity>`, `update<Entity>`, `delete<Entity>`.
-- Hand-rolled query parser. No nested resolvers (M2M is an id array; reverse fields expand when selected). No subscriptions (SSE is separate).
+- Hand-rolled query parser. Output types use related entities (`tags: [Tag!]!`, `author: User`, reverse `jobs: [Job!]!`). Selecting those fields expands like `bind { expand:… }` (nested selection is recursive reads). Create/update inputs still take ids (`[String!]`) — no nested mutations. No subscriptions (SSE is separate).
 
 ### 14.7 SSE Live — REAL
 

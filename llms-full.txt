@@ -27,6 +27,8 @@ app "Name" {
 ```
 - `graphql false` unmounts `/graphql` and `/graphql/schema` (404). Default is on.
   Mutations: `create<Entity>`, `update<Entity>(id, input)`, `delete<Entity>`.
+  Query output types are related entities (`tags: [Tag!]!`); selecting them
+  expands like `bind { expand }`. Mutation inputs still take ids.
 
 ### auth
 ```cronus

@@ -15,12 +15,29 @@ use crate::parser::{EntityNode, FieldNode, FieldType};
 use crate::relations;
 use crate::validation::{self, Mode};
 
-/// GraphQL type of a field: many-to-many relations are id lists.
-fn graphql_field_type(field: &FieldNode) -> String {
-    if field.is_many() {
-        return "[String!]".to_string();
+/// Output type: relations are the related entity (`[Tag!]`, `User`).
+fn graphql_output_type(field: &FieldNode) -> String {
+    if field.field_type == FieldType::Relation {
+        let name = field.reference.as_deref().unwrap_or("String");
+        if field.array {
+            format!("[{name}!]")
+        } else {
+            name.to_string()
+        }
+    } else if field.enum_values.is_some() {
+        "String".to_string()
+    } else {
+        field_type_to_graphql(&field.field_type).to_string()
     }
-    if field.enum_values.is_some() {
+}
+
+/// Input type: relations stay ids (`[String!]`, `String`). No nested mutations.
+fn graphql_input_type(field: &FieldNode) -> String {
+    if field.is_many() {
+        "[String!]".to_string()
+    } else if field.field_type == FieldType::Relation {
+        "String".to_string()
+    } else if field.enum_values.is_some() {
         "String".to_string()
     } else {
         field_type_to_graphql(&field.field_type).to_string()
@@ -124,7 +141,7 @@ fn generate_type(entity: &EntityNode, entities: &[EntityNode]) -> String {
         } else {
             ""
         };
-        let gql_type = graphql_field_type(field);
+        let gql_type = graphql_output_type(field);
         out.push_str(&format!("  {}: {}{}\n", field.name, gql_type, bang));
     }
     for rev in relations::reverse_rels(entities, entity) {
@@ -139,7 +156,7 @@ fn generate_type(entity: &EntityNode, entities: &[EntityNode]) -> String {
 fn generate_create_input(entity: &EntityNode) -> String {
     let mut out = format!("input Create{}Input {{\n", entity.name);
     for field in entity.fields.iter().filter(|f| is_writable_field(f)) {
-        let gql_type = graphql_field_type(field);
+        let gql_type = graphql_input_type(field);
         let bang = if field.required { "!" } else { "" };
         out.push_str(&format!("  {}: {}{}\n", field.name, gql_type, bang));
     }
@@ -150,7 +167,7 @@ fn generate_create_input(entity: &EntityNode) -> String {
 fn generate_update_input(entity: &EntityNode) -> String {
     let mut out = format!("input Update{}Input {{\n", entity.name);
     for field in entity.fields.iter().filter(|f| is_writable_field(f)) {
-        let gql_type = graphql_field_type(field);
+        let gql_type = graphql_input_type(field);
         out.push_str(&format!("  {}: {}\n", field.name, gql_type));
     }
     out.push_str("}\n");
@@ -183,7 +200,7 @@ enum Operation {
 struct ParsedField {
     name: String,
     args: Vec<(String, ArgValue)>,
-    sub_fields: Vec<String>,
+    sub_fields: Vec<ParsedField>,
 }
 
 #[derive(Debug)]
@@ -329,13 +346,7 @@ fn parse_fields(body: &str) -> Result<Vec<ParsedField>, String> {
                     _ => inner.push(c),
                 }
             }
-            // Parse inner as simple field names (no nesting for now)
-            for token in inner.split_whitespace() {
-                let clean = token.trim_matches(|c: char| !c.is_alphanumeric() && c != '_');
-                if !clean.is_empty() {
-                    sub_fields.push(clean.to_string());
-                }
-            }
+            sub_fields = parse_fields(&inner)?;
         }
 
         fields.push(ParsedField {
@@ -552,34 +563,104 @@ fn string_arg(field: &ParsedField, name: &str, variables: &Value) -> Option<Stri
         })
 }
 
-/// Expand reverse and to-one fields that the query selected. Many-to-many
-/// stays an id array (`[String!]!`) unless REST `?expand=` is used.
+/// Relation and reverse names the selection asked to expand (bind `expand:`).
 fn expand_selection(
     entity: &EntityNode,
     entities: &[EntityNode],
-    sub_fields: &[String],
+    sub_fields: &[ParsedField],
 ) -> Vec<String> {
     let mut out = Vec::new();
-    for field in entity.fields.iter().filter(|f| {
-        f.field_type == FieldType::Relation && !f.array && sub_fields.iter().any(|s| s == &f.name)
-    }) {
-        out.push(field.name.clone());
+    for field in entity
+        .fields
+        .iter()
+        .filter(|f| f.field_type == FieldType::Relation)
+    {
+        if sub_fields.iter().any(|s| s.name == field.name) {
+            out.push(field.name.clone());
+        }
     }
     for rev in relations::reverse_rels(entities, entity) {
-        if sub_fields.iter().any(|s| *s == rev.name) {
+        if sub_fields.iter().any(|s| s.name == rev.name) {
             out.push(rev.name);
         }
     }
     out
 }
 
-fn select(value: Value, sub_fields: &[String]) -> Value {
+fn related_entity<'a>(
+    entity: &EntityNode,
+    entities: &'a [EntityNode],
+    name: &str,
+) -> Option<&'a EntityNode> {
+    if let Some(target) = entity
+        .fields
+        .iter()
+        .find(|f| f.name == name && f.field_type == FieldType::Relation)
+        .and_then(|f| f.reference.as_deref())
+    {
+        return entities.iter().find(|e| e.name == target);
+    }
+    relations::reverse_rels(entities, entity)
+        .into_iter()
+        .find(|r| r.name == name)
+        .and_then(|r| entities.iter().find(|e| e.name == r.source_entity))
+}
+
+fn attach_selection(
+    db: &CronusDB,
+    entities: &[EntityNode],
+    entity: &EntityNode,
+    rows: &mut Value,
+    access: &Access,
+    fields: &[ParsedField],
+) {
+    relations::attach(
+        db,
+        entities,
+        entity,
+        rows,
+        access,
+        &expand_selection(entity, entities, fields),
+    );
+    for sf in fields.iter().filter(|f| !f.sub_fields.is_empty()) {
+        let Some(target) = related_entity(entity, entities, &sf.name) else {
+            continue;
+        };
+        match rows {
+            Value::Array(items) => {
+                for item in items {
+                    attach_nested(db, entities, target, item, access, sf);
+                }
+            }
+            Value::Object(_) => attach_nested(db, entities, target, rows, access, sf),
+            _ => {}
+        }
+    }
+}
+
+fn attach_nested(
+    db: &CronusDB,
+    entities: &[EntityNode],
+    target: &EntityNode,
+    row: &mut Value,
+    access: &Access,
+    field: &ParsedField,
+) {
+    match row.get_mut(&field.name) {
+        Some(nested @ (Value::Array(_) | Value::Object(_))) => {
+            attach_selection(db, entities, target, nested, access, &field.sub_fields);
+        }
+        _ => {}
+    }
+}
+
+fn select(value: Value, sub_fields: &[ParsedField]) -> Value {
     if sub_fields.is_empty() {
         value
     } else if value.is_array() {
-        filter_fields_array(&value, sub_fields)
+        select_array(&value, sub_fields)
     } else {
-        filter_fields_object(&value, sub_fields)
+        select_object(&value, sub_fields)
     }
 }
 
@@ -622,13 +703,13 @@ fn resolve_query(
                 match db.find_many(&entity.name, &filters, None, None, Some(limit), Some(0)) {
                     Ok(mut rows) => {
                         authz::redact_sensitive(entity, &mut rows);
-                        relations::attach(
+                        attach_selection(
                             db,
                             &schema.entities,
                             entity,
                             &mut rows,
                             access,
-                            &expand_selection(entity, &schema.entities, &field.sub_fields),
+                            &field.sub_fields,
                         );
                         select(rows, &field.sub_fields)
                     }
@@ -648,13 +729,13 @@ fn resolve_query(
         return Some(match db.find_one(&entity.name, &filters, None, None) {
             Ok(Some(mut row)) => {
                 authz::redact_sensitive(entity, &mut row);
-                relations::attach(
+                attach_selection(
                     db,
                     &schema.entities,
                     entity,
                     &mut row,
                     access,
-                    &expand_selection(entity, &schema.entities, &field.sub_fields),
+                    &field.sub_fields,
                 );
                 select(row, &field.sub_fields)
             }
@@ -744,7 +825,14 @@ fn resolve_mutation(
                     GqlError::new("CREATE_FAILED", format!("could not create {}", entity.name))
                 })?;
             authz::redact_sensitive(entity, &mut row);
-            relations::attach(db, &schema.entities, entity, &mut row, access, &[]);
+            attach_selection(
+                db,
+                &schema.entities,
+                entity,
+                &mut row,
+                access,
+                &field.sub_fields,
+            );
             return Ok(select(row, &field.sub_fields));
         }
 
@@ -857,13 +945,13 @@ fn resolve_mutation(
                 }
             };
             authz::redact_sensitive(entity, &mut row);
-            relations::attach(
+            attach_selection(
                 db,
                 &schema.entities,
                 entity,
                 &mut row,
                 access,
-                &expand_selection(entity, &schema.entities, &field.sub_fields),
+                &field.sub_fields,
             );
             return Ok(select(row, &field.sub_fields));
         }
@@ -889,25 +977,32 @@ fn resolve_mutation(
     ))
 }
 
-fn filter_fields_array(arr: &Value, fields: &[String]) -> Value {
+fn select_array(arr: &Value, fields: &[ParsedField]) -> Value {
     match arr.as_array() {
         Some(items) => Value::Array(
             items
                 .iter()
-                .map(|item| filter_fields_object(item, fields))
+                .map(|item| select_object(item, fields))
                 .collect(),
         ),
         None => arr.clone(),
     }
 }
 
-fn filter_fields_object(obj: &Value, fields: &[String]) -> Value {
+fn select_object(obj: &Value, fields: &[ParsedField]) -> Value {
     match obj.as_object() {
         Some(map) => {
             let mut filtered = Map::new();
             for f in fields {
-                if let Some(val) = map.get(f) {
-                    filtered.insert(f.clone(), val.clone());
+                if let Some(val) = map.get(&f.name) {
+                    let nested = if f.sub_fields.is_empty() {
+                        val.clone()
+                    } else if val.is_array() {
+                        select_array(val, &f.sub_fields)
+                    } else {
+                        select_object(val, &f.sub_fields)
+                    };
+                    filtered.insert(f.name.clone(), nested);
                 }
             }
             Value::Object(filtered)
@@ -1191,7 +1286,7 @@ mod tests {
     }
 
     const CREATE_POST: &str =
-        "mutation($input: CreatePostInput!) { createPost(input: $input) { id tags } }";
+        "mutation($input: CreatePostInput!) { createPost(input: $input) { id tags { id } } }";
 
     #[test]
     fn create_mutation_reports_field_errors() {
@@ -1234,7 +1329,7 @@ mod tests {
         let alice = crate::api_validation_tests::viewer("alice", "user");
         let sdl = GraphQLSchema::from_entities(&s.entities).sdl;
         assert!(
-            sdl.contains("type Post {\n") && sdl.contains("  tags: [String!]!\n"),
+            sdl.contains("type Post {\n") && sdl.contains("  tags: [Tag!]!\n"),
             "{sdl}"
         );
         assert!(sdl.contains("input CreatePostInput {"), "{sdl}");
@@ -1268,17 +1363,59 @@ mod tests {
         );
         assert_eq!(
             out["data"]["createPost"]["tags"],
-            json!([mine.clone()]),
+            json!([{"id": mine.clone()}]),
             "{out}"
         );
         let listed = run(
-            "{ posts { title tags } }",
+            "{ posts { title tags { id } } }",
             json!({}),
             &alice,
             &s.db,
             &s.entities,
         );
-        assert_eq!(listed["data"]["posts"][0]["tags"], json!([mine]));
+        assert_eq!(listed["data"]["posts"][0]["tags"], json!([{"id": mine}]));
+    }
+
+    #[test]
+    fn selection_expands_m2m_and_reverse_like_bind() {
+        let s = crate::api_validation_tests::state();
+        let alice = crate::api_validation_tests::viewer("alice", "user");
+        let tag_id =
+            s.db.insert("Tag", &json!({"label": "rust", "_owner_id": "alice"}))
+                .unwrap()["id"]
+                .as_str()
+                .unwrap()
+                .to_string();
+        let created = run(
+            CREATE_POST,
+            json!({"input": {"title": "hello world", "tags": [tag_id]}}),
+            &alice,
+            &s.db,
+            &s.entities,
+        );
+        assert!(created["data"]["createPost"]["id"].is_string(), "{created}");
+        let sdl = GraphQLSchema::from_entities(&s.entities).sdl;
+        assert!(sdl.contains("  posts: [Post!]!\n"), "{sdl}");
+        let out = run(
+            "{ tags { label posts { title } } }",
+            json!({}),
+            &alice,
+            &s.db,
+            &s.entities,
+        );
+        assert_eq!(out["data"]["tags"][0]["label"], "rust", "{out}");
+        assert_eq!(
+            out["data"]["tags"][0]["posts"][0]["title"], "hello world",
+            "{out}"
+        );
+        let out = run(
+            "{ posts { title tags { label } } }",
+            json!({}),
+            &alice,
+            &s.db,
+            &s.entities,
+        );
+        assert_eq!(out["data"]["posts"][0]["tags"][0]["label"], "rust", "{out}");
     }
 
     const UPDATE_NOTE: &str =
