@@ -40,6 +40,7 @@ mod tests {
             state: vec![],
             tests: vec![],
             binding: None,
+            span: Default::default(),
         }
     }
 

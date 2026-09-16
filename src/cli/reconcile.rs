@@ -237,6 +237,7 @@ pub fn cmd_reconcile(args: &[String]) {
                     shared: a.shared || b.shared,
                     remote_url: None,
                     doc: None,
+                    span: Default::default(),
                 }));
             }
             (None, None) => {}
@@ -284,6 +285,7 @@ pub fn cmd_reconcile(args: &[String]) {
                     components: a.components,
                     requires: a.requires,
                     doc: None,
+                    span: Default::default(),
                 }));
             }
             (None, None) => {}
@@ -317,6 +319,7 @@ pub fn cmd_reconcile(args: &[String]) {
                     prefix: prefix.clone(),
                     routes: merged_routes,
                     doc: None,
+                    span: Default::default(),
                 }));
             }
             (None, None) => {}

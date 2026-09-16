@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use super::diagnostic::codes;
-use super::{parse_collect, AstNode, PageNode, ParseError, SectionNode};
+use super::{parse_collect, AstNode, PageNode, ParseError, SectionNode, Span};
 
 /// Parse `source` and follow `import` / `compose { use }` relative to `base_dir`.
 pub fn parse_with_imports(source: &str, base_dir: &str) -> Result<Vec<AstNode>, String> {
@@ -351,15 +351,39 @@ fn union_conflict(nodes: Vec<AstNode>) -> (Vec<AstNode>, Vec<ParseError>) {
             _ => None,
         };
         if let Some(kind) = conflict {
+            let (line, col) = node_span(&node);
             errors.push(
-                ParseError::new(codes::DUPLICATE_DECL, format!("duplicate {kind}"), 1, 1)
-                    .with_hint("the first declaration is kept; rename or remove the later one"),
+                ParseError::new(
+                    codes::DUPLICATE_DECL,
+                    format!("duplicate {kind}"),
+                    line,
+                    col,
+                )
+                .with_hint("the first declaration is kept; rename or remove the later one"),
             );
             continue;
         }
         out.push(node);
     }
     (out, errors)
+}
+
+fn node_span(node: &AstNode) -> (usize, usize) {
+    let span = match node {
+        AstNode::Entity(n) => n.span,
+        AstNode::Page(n) => n.span,
+        AstNode::Layout(n) => n.span,
+        AstNode::Api(n) => n.span,
+        AstNode::Component(n) => n.span,
+        AstNode::Define(n) => n.span,
+        AstNode::Webhook(n) => n.span,
+        AstNode::App(n) => n.span,
+        AstNode::Auth(n) => n.span,
+        AstNode::Style(n) => n.span,
+        AstNode::Env(n) => n.span,
+        _ => Span::default(),
+    };
+    (span.line, span.col)
 }
 
 fn take(seen: &mut HashSet<String>, name: &str, kind: &str) -> Option<String> {
@@ -491,6 +515,19 @@ mod tests {
         let err = expect_err(parse_with_imports_diagnostics(&src, dir.to_str().unwrap()));
         assert!(codes_of(err).contains(&codes::MISSING_IMPORT));
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn compose_001_points_at_second_entity_line() {
+        let src = "app \"X\" { port 1 }\nentity Foo { n string }\n\nentity Foo { n string }\n";
+        let err = expect_err(parse_source_at(src, Path::new("app.cronus")));
+        let e = err
+            .iter()
+            .find(|e| e.code == codes::DUPLICATE_DECL)
+            .unwrap_or_else(|| panic!("expected COMPOSE_001, got {err:?}"));
+        assert!(e.message.contains("entity 'Foo'"), "{e:?}");
+        assert_eq!(e.line, 4, "second entity is on line 4, got {e:?}");
+        assert_ne!(e.line, 1);
     }
 
     #[test]

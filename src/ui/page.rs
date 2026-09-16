@@ -1270,6 +1270,7 @@ mod tests {
             components: Vec::new(),
             requires: None,
             doc: None,
+            span: Default::default(),
         };
 
         let route_params: HashMap<String, String> = HashMap::new();
@@ -1318,6 +1319,7 @@ mod tests {
             components: Vec::new(),
             requires: None,
             doc: None,
+            span: Default::default(),
         };
         let html = render_list(&page, &[], "blue");
         assert!(
@@ -1360,6 +1362,7 @@ mod tests {
             components: Vec::new(),
             requires: None,
             doc: None,
+            span: Default::default(),
         };
         let html = render_page(
             &page,

@@ -528,6 +528,7 @@ mod tests {
             shared: false,
             remote_url: None,
             doc: None,
+            span: Default::default(),
         })
     }
 
@@ -542,6 +543,7 @@ mod tests {
             components: vec![],
             requires: None,
             doc: None,
+            span: Default::default(),
         })
     }
 
@@ -697,6 +699,7 @@ mod tests {
             shared: false,
             remote_url: None,
             doc: None,
+            span: Default::default(),
         })];
 
         let (_, errors) = resolve(&nodes);
@@ -721,6 +724,7 @@ mod tests {
             shared: false,
             remote_url: None,
             doc: None,
+            span: Default::default(),
         })];
 
         let (_, errors) = resolve(&nodes);
@@ -747,6 +751,7 @@ mod tests {
             shared: false,
             remote_url: None,
             doc: None,
+            span: Default::default(),
         })];
 
         let (_, errors) = resolve(&nodes);
@@ -818,6 +823,7 @@ mod tests {
                 prefix: "/api/v1".into(),
                 routes: vec![],
                 doc: None,
+                span: Default::default(),
             }),
         ];
 
@@ -840,6 +846,7 @@ mod tests {
             AstNode::Webhook(WebhookNode {
                 entity: "Ordr".into(),
                 hooks: vec![],
+                span: Default::default(),
             }),
         ];
 
@@ -928,6 +935,7 @@ mod tests {
                 components: vec![],
                 requires: None,
                 doc: None,
+                span: Default::default(),
             }),
         ];
 

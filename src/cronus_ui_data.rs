@@ -124,6 +124,7 @@ pub fn component_from_section(family: &str, section: &SectionNode) -> ComponentN
         state: vec![],
         tests: vec![],
         binding: section.binding.clone(),
+        span: Default::default(),
     }
 }
 

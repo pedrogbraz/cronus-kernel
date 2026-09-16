@@ -894,6 +894,7 @@ mod tests {
                 components: vec![],
                 requires: None,
                 doc: None,
+                span: Default::default(),
             };
             let findings = crate::hardcode_lint::lint_all_pages(
                 std::slice::from_ref(&page),
@@ -904,6 +905,7 @@ mod tests {
                     radius: None,
                     font: None,
                     config: HashMap::new(),
+                    span: Default::default(),
                 }),
             );
             let texts: Vec<_> = findings.iter().map(|f| f.text.as_str()).collect();

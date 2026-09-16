@@ -1908,6 +1908,7 @@ mod tests {
             ],
             sidebar_config,
             topbar_config: HashMap::new(),
+            span: Default::default(),
         };
 
         let html = render_layout_declarative("TestApp", &layout, "/dashboard", "<p>body</p>");
@@ -1942,6 +1943,7 @@ mod tests {
             sidebar_items: vec![],
             sidebar_config: HashMap::new(),
             topbar_config: HashMap::new(),
+            span: Default::default(),
         }
     }
 

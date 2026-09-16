@@ -391,6 +391,7 @@ style {
             components: vec![],
             requires: None,
             doc: None,
+            span: Default::default(),
         };
         scan_ast(&[AstNode::Page(page)], "", &mut findings);
         let codes: Vec<_> = findings.iter().map(|f| f.code).collect();

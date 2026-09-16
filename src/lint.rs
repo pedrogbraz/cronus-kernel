@@ -1244,6 +1244,7 @@ mod tests {
             effects: vec![],
             remote_url: None,
             doc: None,
+            span: Default::default(),
         }
     }
 
@@ -1433,6 +1434,7 @@ mod tests {
             components: vec![],
             requires: None,
             doc: None,
+            span: Default::default(),
         });
         let results = lint_ast(&[entity, page], false);
         let sensitive_results: Vec<_> = results
@@ -1546,6 +1548,7 @@ mod tests {
             components: vec![],
             requires: None,
             doc: None,
+            span: Default::default(),
         });
         let results = lint_ast(&[page], true);
         let form_results: Vec<_> = results
@@ -1571,6 +1574,7 @@ mod tests {
             shared: true,
             remote_url: None,
             doc: None,
+            span: Default::default(),
         }
     }
 
@@ -1579,6 +1583,7 @@ mod tests {
             prefix: prefix.into(),
             routes,
             doc: None,
+            span: Default::default(),
         }
     }
 
@@ -1655,6 +1660,7 @@ mod tests {
             shared: false,
             remote_url: None,
             doc: None,
+            span: Default::default(),
         };
         let api = make_api(
             "/drafts",

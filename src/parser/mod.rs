@@ -157,6 +157,14 @@ impl Parser {
             .unwrap_or_else(|| self.eof_token())
     }
 
+    fn current_span(&self) -> Span {
+        let t = self.peek();
+        Span {
+            line: t.line,
+            col: t.col,
+        }
+    }
+
     fn advance(&mut self) -> Token {
         let t = self
             .tokens
@@ -325,10 +333,20 @@ impl Parser {
                 }
             } else {
                 let unknown = self.peek();
-                if !unknown.value.is_empty() && unknown.kind != TokenKind::Eof {
-                    eprintln!(
-                        "  \x1b[33m⚠\x1b[0m Line {}: unknown top-level token '{}' (skipped)",
-                        unknown.line, unknown.value
+                if unknown.kind != TokenKind::Eof && !unknown.value.is_empty() {
+                    let value = unknown.value.clone();
+                    self.diagnostics.push(
+                        ParseError::new(
+                            codes::UNEXPECTED_TOKEN,
+                            format!("unknown top-level token '{value}'"),
+                            unknown.line,
+                            unknown.col,
+                        )
+                        .with_len(unknown.width())
+                        .with_target(value)
+                        .with_hint(
+                            "expected a top-level block: app, entity, api, page, auth, layout, style, webhook, env, import, compose, define, component",
+                        ),
                     );
                 }
                 self.advance();
@@ -426,6 +444,7 @@ impl Parser {
     // ── app ──
 
     fn parse_app(&mut self) -> Result<AppNode, ParseError> {
+        let span = self.current_span();
         self.expect(TokenKind::Keyword)?;
         let name = self.expect(TokenKind::StringLit)?.value;
         self.expect(TokenKind::LBrace)?;
@@ -502,6 +521,7 @@ impl Parser {
             constitution,
             graphql,
             doc: None,
+            span,
         })
     }
 
@@ -515,6 +535,7 @@ impl Parser {
     // ── entity ──
 
     fn parse_entity(&mut self) -> Result<EntityNode, ParseError> {
+        let span = self.current_span();
         self.expect(TokenKind::Keyword)?;
         let name_token = self.peek().clone();
         let name = self.advance().value;
@@ -585,6 +606,7 @@ impl Parser {
             shared,
             remote_url: None,
             doc: None,
+            span,
         })
     }
 
@@ -1271,6 +1293,7 @@ impl Parser {
     // ── api ──
 
     fn parse_api(&mut self) -> Result<ApiNode, ParseError> {
+        let span = self.current_span();
         self.expect(TokenKind::Keyword)?;
         let prefix = self.expect(TokenKind::Path)?.value;
         self.expect(TokenKind::LBrace)?;
@@ -1317,12 +1340,14 @@ impl Parser {
             prefix,
             routes,
             doc: None,
+            span,
         })
     }
 
     // ── webhook ──
 
     fn parse_webhook(&mut self) -> Result<WebhookNode, ParseError> {
+        let span = self.current_span();
         self.expect(TokenKind::Keyword)?; // consume "webhook"
         let entity = self.advance().value; // entity name or path
                                            // Strip leading / if present
@@ -1385,12 +1410,17 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(WebhookNode { entity, hooks })
+        Ok(WebhookNode {
+            entity,
+            hooks,
+            span,
+        })
     }
 
     // ── auth ──
 
     fn parse_auth(&mut self) -> Result<AuthNode, ParseError> {
+        let span = self.current_span();
         self.advance(); // consume "auth" (tokenized as Identifier, not Keyword)
         self.expect(TokenKind::LBrace)?;
 
@@ -1444,6 +1474,7 @@ impl Parser {
             session_type,
             session_config,
             roles,
+            span,
         })
     }
 
@@ -1451,6 +1482,7 @@ impl Parser {
 
     fn parse_layout(&mut self) -> Result<LayoutNode, ParseError> {
         // "layout" already consumed
+        let span = self.current_span();
         let name = self.advance().value;
         self.expect(TokenKind::LBrace)?;
 
@@ -1538,6 +1570,9 @@ impl Parser {
                     }
                 }
                 self.expect(TokenKind::RBrace)?;
+            } else if self.matches(TokenKind::Identifier, Some("brand")) {
+                self.advance();
+                sidebar_config.insert("brand".into(), self.expect(TokenKind::StringLit)?.value);
             } else {
                 self.advance();
             }
@@ -1549,12 +1584,14 @@ impl Parser {
             sidebar_items,
             sidebar_config,
             topbar_config,
+            span,
         })
     }
 
     // ── page ──
 
     fn parse_page(&mut self) -> Result<PageNode, ParseError> {
+        let span = self.current_span();
         self.expect(TokenKind::Keyword)?;
         let route = self.expect(TokenKind::StringLit)?.value;
 
@@ -1695,6 +1732,7 @@ impl Parser {
             components,
             requires,
             doc: None,
+            span,
         })
     }
 
@@ -2363,10 +2401,17 @@ impl Parser {
     fn parse_action_block(&mut self) -> Result<ActionBlock, ParseError> {
         // Already consumed "on" keyword before calling this
         let event = self.advance().value; // "click", "submit", "error", "change"
+        let mut confirm_msg = None;
+        if self.peek().kind == TokenKind::ColonPair {
+            let (k, v) = Self::split_colon_pair(&self.peek().value);
+            if k == "confirm" {
+                self.advance();
+                confirm_msg = Some(v.trim_matches('"').to_string());
+            }
+        }
         self.expect(TokenKind::LBrace)?;
 
         let mut instructions = Vec::new();
-        let mut confirm_msg = None;
 
         while !self.matches(TokenKind::RBrace, None) && !self.matches(TokenKind::Eof, None) {
             let verb = self.advance().value;
@@ -2839,6 +2884,7 @@ impl Parser {
     // ── style ──
 
     fn parse_style(&mut self) -> Result<StyleNode, ParseError> {
+        let span = self.current_span();
         self.expect(TokenKind::Keyword)?;
         self.expect(TokenKind::LBrace)?;
 
@@ -2880,6 +2926,7 @@ impl Parser {
             radius,
             font,
             config,
+            span,
         })
     }
 
@@ -2953,6 +3000,7 @@ impl Parser {
     /// Parse `define "Name" { section ... section ... }`
     /// Stores one or more reusable sections under a name.
     fn parse_define(&mut self) -> Result<DefineNode, ParseError> {
+        let span = self.current_span();
         self.advance(); // consume "define"
         let name = if self.peek().kind == TokenKind::StringLit {
             self.advance().value
@@ -2977,10 +3025,15 @@ impl Parser {
         }
         self.expect(TokenKind::RBrace)?;
 
-        Ok(DefineNode { name, sections })
+        Ok(DefineNode {
+            name,
+            sections,
+            span,
+        })
     }
 
     fn parse_component(&mut self) -> Result<ComponentNode, ParseError> {
+        let span = self.current_span();
         self.expect(TokenKind::Keyword)?;
         let name = self.advance().value;
 
@@ -3394,6 +3447,7 @@ impl Parser {
             state: state_vars,
             tests,
             binding,
+            span,
         })
     }
 
@@ -3524,6 +3578,7 @@ impl Parser {
     /// `env name { KEY value }` form keeps plain pairs. A line is a
     /// declaration when the token after the name is a type keyword.
     fn parse_env(&mut self) -> Result<EnvNode, ParseError> {
+        let span = self.current_span();
         self.expect(TokenKind::Keyword)?;
         let name = if self.matches(TokenKind::LBrace, None) {
             String::new()
@@ -3617,7 +3672,12 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(EnvNode { name, vars, schema })
+        Ok(EnvNode {
+            name,
+            vars,
+            schema,
+            span,
+        })
     }
 
     // ── test ──
@@ -5814,5 +5874,81 @@ auth {
             a.session_config.get("redirect").map(String::as_str),
             Some("/")
         );
+    }
+
+    fn first_action_confirm(src: &str) -> Option<String> {
+        let nodes = parse(src).unwrap_or_else(|e| panic!("{e}"));
+        let AstNode::Page(p) = &nodes[0] else {
+            panic!("expected page")
+        };
+        p.sections[0].actions[0].confirm.clone()
+    }
+
+    #[test]
+    fn action_confirm_prefix_and_verb_are_equivalent() {
+        let prefix = r#"
+page "/p" {
+  section form {
+    on click confirm:"Delete this order?" {
+      delete Order
+    }
+  }
+}
+"#;
+        let verb = r#"
+page "/p" {
+  section form {
+    on click {
+      confirm "Delete this order?"
+      delete Order
+    }
+  }
+}
+"#;
+        assert_eq!(
+            first_action_confirm(prefix).as_deref(),
+            Some("Delete this order?")
+        );
+        assert_eq!(first_action_confirm(prefix), first_action_confirm(verb));
+    }
+
+    #[test]
+    fn layout_brand_at_root_fills_sidebar_config() {
+        let src = r#"
+layout Main {
+  brand "SaaS Starter"
+  sidebar {
+    "Dashboard" -> "/dashboard"
+  }
+}
+"#;
+        let nodes = parse(src).unwrap_or_else(|e| panic!("{e}"));
+        let AstNode::Layout(layout) = &nodes[0] else {
+            panic!("expected layout")
+        };
+        assert_eq!(
+            layout.sidebar_config.get("brand").map(String::as_str),
+            Some("SaaS Starter")
+        );
+    }
+
+    #[test]
+    fn unknown_top_level_token_is_parse_001_and_rest_still_parses() {
+        let src = "app \"X\" { port 5175 }\nfoo 1\nentity T { n string }\n";
+        let (nodes, diags) = parse_collect(src);
+        assert!(
+            diags
+                .iter()
+                .any(|e| e.code == "PARSE_001" && e.message.contains("foo")),
+            "{diags:?}"
+        );
+        assert!(
+            nodes
+                .iter()
+                .any(|n| matches!(n, AstNode::Entity(e) if e.name == "T")),
+            "entity T should still parse"
+        );
+        assert!(parse(src).is_err());
+        assert!(parse_diagnostics(src).is_err());
     }
 }

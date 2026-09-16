@@ -17,6 +17,19 @@ pub struct DocTag {
     pub value: String,
 }
 
+/// Source location of a top-level declaration (1-based).
+#[derive(Debug, Clone, Copy)]
+pub struct Span {
+    pub line: usize,
+    pub col: usize,
+}
+
+impl Default for Span {
+    fn default() -> Self {
+        Self { line: 1, col: 1 }
+    }
+}
+
 pub enum AstNode {
     App(AppNode),
     Entity(EntityNode),
@@ -45,6 +58,7 @@ pub enum AstNode {
 pub struct DefineNode {
     pub name: String,
     pub sections: Vec<SectionNode>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]
@@ -73,6 +87,7 @@ pub struct AppNode {
     pub graphql: bool,
     /// Doc-comment attached to the app block
     pub doc: Option<DocComment>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]
@@ -86,6 +101,7 @@ pub struct EntityNode {
     pub shared: bool,
     pub remote_url: Option<String>,
     pub doc: Option<DocComment>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -276,12 +292,14 @@ pub struct ApiNode {
     pub prefix: String,
     pub routes: Vec<RouteNode>,
     pub doc: Option<DocComment>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]
 pub struct WebhookNode {
     pub entity: String,
     pub hooks: Vec<WebhookHook>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]
@@ -429,6 +447,7 @@ pub struct PageNode {
     pub components: Vec<String>, // referenced component names via `use ComponentName`
     pub requires: Option<String>, // "auth", "role(admin)", etc.
     pub doc: Option<DocComment>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]
@@ -438,6 +457,7 @@ pub struct StyleNode {
     pub radius: Option<String>,
     pub font: Option<String>,
     pub config: HashMap<String, String>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]
@@ -503,6 +523,7 @@ pub struct ComponentNode {
     pub tests: Vec<ComponentTest>, // co-located test blocks
     /// Optional `bind Entity { ... }` so a widget can read live rows/count.
     pub binding: Option<BindingNode>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]
@@ -544,6 +565,7 @@ pub struct EnvNode {
     pub vars: HashMap<String, String>,
     /// Declared variables (`APP_KEY string! sensitive`), checked by `cronus run`.
     pub schema: Vec<EnvVarSpec>,
+    pub span: Span,
 }
 
 /// Types an `env { … }` variable may declare.
@@ -648,6 +670,7 @@ pub struct AuthNode {
     pub session_type: String,                    // "jwt"
     pub session_config: HashMap<String, String>, // expires: "24h"
     pub roles: Vec<String>,                      // ["admin", "member", "viewer"]
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]
@@ -656,6 +679,7 @@ pub struct LayoutNode {
     pub sidebar_items: Vec<LayoutNavItem>,
     pub sidebar_config: HashMap<String, String>, // brand, etc
     pub topbar_config: HashMap<String, String>,  // search placeholder, etc
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]

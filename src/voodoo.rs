@@ -168,6 +168,7 @@ mod tests {
             radius: None,
             font: None,
             config,
+            span: Default::default(),
         };
         assert!(wanted(&[], Some(&style)));
         let mut other = HashMap::new();
@@ -178,6 +179,7 @@ mod tests {
             radius: None,
             font: None,
             config: other,
+            span: Default::default(),
         };
         assert!(!wanted(&[], Some(&style)));
     }

@@ -76,6 +76,7 @@ pub fn cmd_context(args: &[String]) {
         constitution: None,
         graphql: true,
         doc: None,
+        span: Default::default(),
     };
     let mut entities: Vec<EntityNode> = vec![];
     let mut pages: Vec<PageNode> = vec![];

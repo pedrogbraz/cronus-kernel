@@ -563,6 +563,7 @@ mod tests {
             shared: false,
             remote_url: None,
             doc: None,
+            span: Default::default(),
         })
     }
 
@@ -577,6 +578,7 @@ mod tests {
             components: vec![],
             requires: requires.map(String::from),
             doc: None,
+            span: Default::default(),
         })
     }
 

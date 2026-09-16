@@ -966,5 +966,6 @@ pub fn stub(family: &str, label: &str) -> ComponentNode {
         state: vec![],
         tests: vec![],
         binding: None,
+        span: Default::default(),
     }
 }

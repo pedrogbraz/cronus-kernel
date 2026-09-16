@@ -454,6 +454,7 @@ fn stub(family: &str) -> ComponentNode {
         state: vec![],
         tests: vec![],
         binding: None,
+        span: Default::default(),
     }
 }
 
