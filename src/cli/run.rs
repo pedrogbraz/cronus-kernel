@@ -16,7 +16,7 @@ use hyper::Request;
 use hyper_util::rt::TokioIo;
 use std::fs;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::Instant;
 use tokio::net::TcpListener;
 
@@ -51,46 +51,18 @@ pub async fn cmd_run(args: &[String]) {
         std::process::exit(1);
     }
 
-    let (nodes, total_lines) = if files.len() == 1 {
-        // Single file mode
-        let source = fs::read_to_string(&files[0]).unwrap_or_else(|e| {
-            eprintln!("  \x1b[31m✗\x1b[0m Error reading {}: {}", files[0], e);
-            std::process::exit(1);
-        });
-        let lines = source.lines().count();
-        let n = match parser::parse_source_at(&source, std::path::Path::new(&files[0])) {
-            Ok(n) => n,
-            Err(e) => {
-                eprintln!(
-                    "  \x1b[31m✗\x1b[0m Parse error: {}",
-                    parser::diagnostic::join(&e)
-                );
-                std::process::exit(1);
-            }
-        };
-        (n, lines)
-    } else {
-        // Multi-agent mode: compose all .cronus files
+    if files.len() > 1 {
         println!(
             "  \x1b[36m⚡\x1b[0m Multi-file mode: {} files detected",
             files.len()
         );
-        let mut total = 0;
-        for f in &files {
-            let lines = fs::read_to_string(f)
-                .map(|s| s.lines().count())
-                .unwrap_or(0);
-            total += lines;
+    }
+    let (nodes, total_lines) = match parse_app_files(&files) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("  \x1b[31m✗\x1b[0m {}", e);
+            std::process::exit(1);
         }
-        let n = match parser::parse_directory(".") {
-            Ok(n) => n,
-            Err(e) => {
-                eprintln!("  \x1b[31m✗\x1b[0m Parse error: {}", e);
-                std::process::exit(1);
-            }
-        };
-
-        (n, total)
     };
 
     let file = files[0].clone(); // for HMR watcher
@@ -127,226 +99,36 @@ pub async fn cmd_run(args: &[String]) {
         memory::extract_and_store_business_rules(&mem, &nodes);
     }
 
-    // Extract AST parts
-    let mut app = AppNode {
-        name: "CRONUS App".into(),
-        stack: vec![],
-        port: 5175,
-        database: None,
-        tailwind_config: None,
-        constitution: None,
-        graphql: true,
-        doc: None,
-    };
-    let mut entities: Vec<EntityNode> = vec![];
-    let mut pages: Vec<PageNode> = vec![];
-    let mut style: Option<StyleNode> = None;
-    let mut apis: Vec<ApiNode> = vec![];
-    let mut webhooks: Vec<parser::WebhookNode> = vec![];
-    let mut cronus_components: Vec<parser::ComponentNode> = vec![];
-    let mut route_count = 0;
-    let mut auth_entity: Option<String> = None;
-    let mut auth_roles: Vec<String> = Vec::new();
-    let mut auth_required_pages: Vec<(String, String)> = Vec::new();
-    let mut auth_redirect: Option<String> = None;
-    let mut session_policy = crate::auth::SessionPolicy::default();
-    let mut layout: Option<parser::LayoutNode> = None;
-
-    for node in &nodes {
-        match node {
-            AstNode::App(a) => app = a.clone(),
-            AstNode::Entity(e) => entities.push(e.clone()),
-            AstNode::Page(p) => {
-                // Track pages that require auth
-                let req = p
-                    .requires
-                    .clone()
-                    .or_else(|| p.config.get("requires").cloned());
-                if let Some(ref req_val) = req {
-                    auth_required_pages.push((p.route.clone(), req_val.clone()));
-                }
-                pages.push(p.clone());
-            }
-            AstNode::Style(s) => style = Some(s.clone()),
-            AstNode::Api(a) => {
-                route_count += a.routes.len();
-                apis.push(a.clone());
-            }
-            AstNode::Component(c) => cronus_components.push(c.clone()),
-            AstNode::Auth(auth) => {
-                auth_entity = Some(auth.entity.clone());
-                auth_roles = auth.roles.clone();
-                session_policy =
-                    match crate::auth::SessionPolicy::from_session_config(&auth.session_config) {
-                        Ok(p) => p,
-                        Err(e) => {
-                            eprintln!("  \x1b[31m✗\x1b[0m {}", e);
-                            std::process::exit(1);
-                        }
-                    };
-                if let Some(r) = auth.session_config.get("redirect") {
-                    auth_redirect = Some(r.clone());
-                }
-            }
-            AstNode::Layout(l) => {
-                layout = Some(l.clone());
-            }
-            AstNode::Webhook(w) => {
-                webhooks.push(w.clone());
-            }
-            _ => {}
+    let spec = match collect_app(&nodes) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("  \x1b[31m✗\x1b[0m {}", e);
+            std::process::exit(1);
         }
-    }
-
-    // `auth { entity X }` without `entity X { … }`: synthesize the login table.
-    if auth_entity::ensure_declared(&mut entities, auth_entity.as_deref()) {
+    };
+    if spec.implicit_auth {
         println!(
             "  \x1b[90mAuth:\x1b[0m      entity {} not declared — using implicit (email, password, role, name)",
-            auth_entity.as_deref().unwrap_or("")
+            spec.auth_entity.as_deref().unwrap_or("")
         );
     }
-
-    // Resolve component invocations in pages — replace {{param}} in templates with passed values
-    // Also generates reactive JS for components with `state` declarations
-    if !cronus_components.is_empty() {
-        let mut comp_instance_counter: u32 = 0;
-        for page in &mut pages {
-            for section in &mut page.sections {
-                if let Some(comp_name) = section.config.get("_component").cloned() {
-                    if let Some(comp_def) = cronus_components.iter().find(|c| c.name == comp_name) {
-                        if let Some(ref tmpl) = comp_def.template {
-                            comp_instance_counter += 1;
-                            let cid = format!("c{}", comp_instance_counter);
-
-                            // Interpolate template: replace {{param}} with values from section.config
-                            let mut rendered = tmpl.clone();
-                            for param in &comp_def.params {
-                                let placeholder = format!("{{{{{}}}}}", param.name);
-                                let value = section
-                                    .config
-                                    .get(&param.name)
-                                    .map(|s| s.as_str())
-                                    .or(param.default.as_deref())
-                                    .unwrap_or("");
-                                rendered = rendered.replace(&placeholder, value);
-                            }
-                            for (key, value) in &section.config {
-                                if key == "_component" {
-                                    continue;
-                                }
-                                let placeholder = format!("{{{{{}}}}}", key);
-                                rendered = rendered.replace(&placeholder, value);
-                            }
-
-                            // Reactive state: replace {{state_var}} with reactive spans
-                            // and generate JS signal code
-                            if !comp_def.state.is_empty() {
-                                // Wrap component in a container with unique ID
-                                rendered = format!(
-                                    r#"<div data-cid="{cid}">{html}</div>"#,
-                                    cid = cid,
-                                    html = rendered
-                                );
-
-                                // Replace {{state_var}} with reactive spans
-                                for sv in &comp_def.state {
-                                    let placeholder = format!("{{{{{}}}}}", sv.name);
-                                    let span = format!(
-                                        r#"<span data-s="{name}">{default}</span>"#,
-                                        name = sv.name,
-                                        default = sv.default
-                                    );
-                                    rendered = rendered.replace(&placeholder, &span);
-                                }
-
-                                // Process @click="expr" → onclick with signal update
-                                // Match @click="..." or @click(...)
-                                let mut script_parts: Vec<String> = Vec::new();
-                                let mut event_id: u32 = 0;
-
-                                // Simple regex-free @click handler extraction
-                                while let Some(pos) = rendered.find("@click=") {
-                                    event_id += 1;
-                                    let eid = format!("{cid}_e{event_id}");
-                                    // Find the expression in quotes
-                                    let after = &rendered[pos + 7..];
-                                    let (expr, end_offset) = if after.starts_with("\\\"")
-                                        || after.starts_with('"')
-                                    {
-                                        let quote_char = if after.starts_with("\\\"") {
-                                            "\\\""
-                                        } else {
-                                            "\""
-                                        };
-                                        let qlen = quote_char.len();
-                                        let expr_start = qlen;
-                                        if let Some(expr_end) = after[expr_start..].find(quote_char)
-                                        {
-                                            (
-                                                after[expr_start..expr_start + expr_end]
-                                                    .to_string(),
-                                                7 + expr_start + expr_end + qlen,
-                                            )
-                                        } else {
-                                            break;
-                                        }
-                                    } else {
-                                        break;
-                                    };
-
-                                    // Replace @click="expr" with data-eid="..."
-                                    rendered = format!(
-                                        "{}data-eid=\"{}\"{}",
-                                        &rendered[..pos],
-                                        eid,
-                                        &rendered[pos + end_offset..]
-                                    );
-
-                                    // Generate JS for this event
-                                    // Parse simple expressions: "count += 1", "count -= 1", "toggle = !toggle"
-                                    let js_expr = expr.replace("\\\"", "\"");
-                                    script_parts.push(format!(
-                                        r#"document.querySelector('[data-eid="{eid}"]').addEventListener('click',function(){{ {update_expr}; _u(); }});"#,
-                                        eid = eid, update_expr = format!("_s.{}", js_expr)
-                                    ));
-                                }
-
-                                // Generate the reactive script
-                                if !comp_def.state.is_empty() {
-                                    let mut state_init = String::new();
-                                    let mut update_dom = String::new();
-                                    for sv in &comp_def.state {
-                                        let default_js = match sv.state_type.as_str() {
-                                            "integer" | "number" => sv.default.clone(),
-                                            "boolean" => sv.default.clone(),
-                                            _ => format!("\"{}\"", sv.default),
-                                        };
-                                        state_init
-                                            .push_str(&format!("{}:{},", sv.name, default_js));
-                                        update_dom.push_str(&format!(
-                                            r#"_c.querySelectorAll('[data-s="{name}"]').forEach(function(el){{ el.textContent=_s.{name}; }});"#,
-                                            name = sv.name
-                                        ));
-                                    }
-
-                                    let script = format!(
-                                        r#"<script>(function(){{ var _c=document.querySelector('[data-cid="{cid}"]'); if(!_c)return; var _s={{{init}}}; function _u(){{{update}}} {events} }})();</script>"#,
-                                        cid = cid,
-                                        init = state_init,
-                                        update = update_dom,
-                                        events = script_parts.join(" "),
-                                    );
-                                    rendered.push_str(&script);
-                                }
-                            }
-
-                            section.template = Some(rendered);
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let CollectedApp {
+        app,
+        entities,
+        pages,
+        style,
+        apis,
+        webhooks,
+        components: cronus_components,
+        auth_entity,
+        auth_roles,
+        auth_required_pages,
+        auth_redirect,
+        session_policy,
+        layout,
+        route_count,
+        implicit_auth: _,
+    } = spec;
 
     let audit_canvas = args.iter().any(|a| a == "--audit-canvas")
         || std::env::var("CRONUS_AUDIT")
@@ -378,34 +160,7 @@ pub async fn cmd_run(args: &[String]) {
     } else {
         app.port
     };
-    let comp_count = cronus_components.len();
-
-    // Initialize theme tokens from tailwind_config or style
-    {
-        let tokens = if let Some(ref tc) = app.tailwind_config {
-            theme::parse_from_tailwind_config(tc)
-        } else if let Some(ref s) = style {
-            theme::derive_palette(
-                s.accent.as_deref().unwrap_or(""),
-                s.theme.as_deref().unwrap_or("dark"),
-                s.font.as_deref().unwrap_or(""),
-            )
-        } else {
-            theme::ThemeTokens::default()
-        };
-        theme::set_global(tokens);
-        let preset = style
-            .as_ref()
-            .and_then(|s| s.config.get("preset").cloned())
-            .unwrap_or_default();
-        theme::set_preset(&preset);
-        theme::set_mode(
-            style
-                .as_ref()
-                .and_then(|s| s.theme.as_deref())
-                .unwrap_or("dark"),
-        );
-    }
+    apply_theme(&app, &style);
 
     // Database — use CronusDB for all operations
     let db_path = app
@@ -419,25 +174,7 @@ pub async fn cmd_run(args: &[String]) {
         .migrate(&entities)
         .expect("Failed to migrate database");
 
-    // Ensure User table has password column for auth (auto-added by kernel)
-    let has_user = entities.iter().any(|e| {
-        let l = e.name.to_lowercase();
-        l == "user" || l == "users"
-    });
-    if has_user {
-        let user_table = entities
-            .iter()
-            .find(|e| {
-                let l = e.name.to_lowercase();
-                l == "user" || l == "users"
-            })
-            .map(|e| e.name.as_str())
-            .unwrap();
-        let _ = app_db.execute_raw(&format!(
-            "ALTER TABLE \"{}\" ADD COLUMN password TEXT",
-            user_table
-        ));
-    }
+    ensure_user_password_column(&app_db, &entities);
 
     let table_count = entities.len();
 
@@ -520,6 +257,7 @@ pub async fn cmd_run(args: &[String]) {
         reverses: Vec::new(),
         remote_url: None,
         doc: None,
+        span: Default::default(),
     };
     let _ = brain_db.migrate(&[brain_entity]);
     let hydra = brain::CronusBrain::init(brain_db);
@@ -557,6 +295,7 @@ pub async fn cmd_run(args: &[String]) {
         script_registry,
         zeus: Arc::new(zeus::ZeusBuffer::new(200)),
     });
+    let live: Arc<RwLock<Arc<AppState>>> = Arc::new(RwLock::new(state.clone()));
 
     // Start server. Default 127.0.0.1; `--host`/CRONUS_HOST opts into exposure.
     // Audit-canvas always binds loopback.
@@ -584,11 +323,12 @@ pub async fn cmd_run(args: &[String]) {
         }
     }
     {
-        let st = state.clone();
+        let live = live.clone();
         tokio::spawn(async move {
             let mut tick = tokio::time::interval(std::time::Duration::from_secs(60));
             loop {
                 tick.tick().await;
+                let st = live.read().unwrap_or_else(|e| e.into_inner()).clone();
                 st.rate_limiter.cleanup();
                 st.auth_rate_limiter.cleanup();
                 http_guard::account_limiter().cleanup_at(Instant::now());
@@ -607,34 +347,41 @@ pub async fn cmd_run(args: &[String]) {
         std::process::exit(1);
     });
 
-    let accent = state
-        .style
-        .as_ref()
-        .and_then(|s| s.accent.as_deref())
-        .unwrap_or("amber");
+    let accent = {
+        let state = live.read().unwrap_or_else(|e| e.into_inner());
+        state
+            .style
+            .as_ref()
+            .and_then(|s| s.accent.as_deref())
+            .unwrap_or("amber")
+            .to_string()
+    };
 
     // Start HMR file watcher (dev only: production pages carry no HMR client
-    // and /.cronus/version is a 404 there, so polling files would be wasted work)
+    // and /.cronus/version is a 404 there, so polling files would be wasted work).
+    // On change: re-parse, migrate, swap live AppState, then bump the poll version
+    // so the browser refresh sees the new AST.
     let watch_files = policy.mode != http_guard::RunMode::Production;
     if !watch_files {
         println!("  \x1b[90mHMR:\x1b[0m       off (production)");
-    } else if files.len() > 1 {
-        hmr::start_directory_watcher(".", move || {
-            let v = hmr::bump_version();
-            eprintln!(
-                "  \x1b[33m⚡\x1b[0m File changed — version {} (browser will reload)",
-                v
-            );
-        });
     } else {
-        let hmr_file = file.clone();
-        hmr::start_watcher(&hmr_file, move || {
-            let v = hmr::bump_version();
-            eprintln!(
-                "  \x1b[33m⚡\x1b[0m File changed — version {} (browser will reload)",
+        let live_w = live.clone();
+        let watch_list = files.clone();
+        let on_change = move || match try_hot_reload(&watch_list, &live_w) {
+            Ok(v) => eprintln!(
+                "  \x1b[33m⚡\x1b[0m Spec reloaded — version {} (browser will reload)",
                 v
-            );
-        });
+            ),
+            Err(e) => eprintln!(
+                "  \x1b[31m✗\x1b[0m HMR reload failed (keeping previous spec): {}",
+                e
+            ),
+        };
+        if files.len() > 1 {
+            hmr::start_directory_watcher(".", on_change);
+        } else {
+            hmr::start_watcher(&file, on_change);
+        }
     }
 
     // Count total rows across all entities
@@ -895,7 +642,7 @@ pub async fn cmd_run(args: &[String]) {
                     }
                 };
                 let io = TokioIo::new(stream);
-                let state = state.clone();
+                let state = live.read().unwrap_or_else(|e| e.into_inner()).clone();
 
         tokio::task::spawn(async move {
             let service = service_fn(move |req: Request<Incoming>| {
@@ -915,4 +662,340 @@ pub async fn cmd_run(args: &[String]) {
             }
         }
     }
+}
+
+struct CollectedApp {
+    app: AppNode,
+    entities: Vec<EntityNode>,
+    pages: Vec<PageNode>,
+    style: Option<StyleNode>,
+    apis: Vec<ApiNode>,
+    webhooks: Vec<parser::WebhookNode>,
+    components: Vec<parser::ComponentNode>,
+    auth_entity: Option<String>,
+    auth_roles: Vec<String>,
+    auth_required_pages: Vec<(String, String)>,
+    auth_redirect: Option<String>,
+    session_policy: crate::auth::SessionPolicy,
+    layout: Option<parser::LayoutNode>,
+    route_count: usize,
+    implicit_auth: bool,
+}
+
+fn parse_app_files(files: &[String]) -> Result<(Vec<AstNode>, usize), String> {
+    if files.len() == 1 {
+        let source = fs::read_to_string(&files[0])
+            .map_err(|e| format!("Error reading {}: {}", files[0], e))?;
+        let lines = source.lines().count();
+        let n = parser::parse_source_at(&source, std::path::Path::new(&files[0]))
+            .map_err(|e| parser::diagnostic::join(&e))?;
+        Ok((n, lines))
+    } else {
+        let mut total = 0;
+        for f in files {
+            total += fs::read_to_string(f)
+                .map(|s| s.lines().count())
+                .unwrap_or(0);
+        }
+        let n = parser::parse_directory(".").map_err(|e| e.to_string())?;
+        Ok((n, total))
+    }
+}
+
+fn collect_app(nodes: &[AstNode]) -> Result<CollectedApp, String> {
+    let mut app = AppNode {
+        name: "CRONUS App".into(),
+        stack: vec![],
+        port: 5175,
+        database: None,
+        tailwind_config: None,
+        constitution: None,
+        graphql: true,
+        doc: None,
+        span: Default::default(),
+    };
+    let mut entities: Vec<EntityNode> = vec![];
+    let mut pages: Vec<PageNode> = vec![];
+    let mut style: Option<StyleNode> = None;
+    let mut apis: Vec<ApiNode> = vec![];
+    let mut webhooks: Vec<parser::WebhookNode> = vec![];
+    let mut cronus_components: Vec<parser::ComponentNode> = vec![];
+    let mut route_count = 0;
+    let mut auth_entity: Option<String> = None;
+    let mut auth_roles: Vec<String> = Vec::new();
+    let mut auth_required_pages: Vec<(String, String)> = Vec::new();
+    let mut auth_redirect: Option<String> = None;
+    let mut session_policy = crate::auth::SessionPolicy::default();
+    let mut layout: Option<parser::LayoutNode> = None;
+
+    for node in nodes {
+        match node {
+            AstNode::App(a) => app = a.clone(),
+            AstNode::Entity(e) => entities.push(e.clone()),
+            AstNode::Page(p) => {
+                let req = p
+                    .requires
+                    .clone()
+                    .or_else(|| p.config.get("requires").cloned());
+                if let Some(ref req_val) = req {
+                    auth_required_pages.push((p.route.clone(), req_val.clone()));
+                }
+                pages.push(p.clone());
+            }
+            AstNode::Style(s) => style = Some(s.clone()),
+            AstNode::Api(a) => {
+                route_count += a.routes.len();
+                apis.push(a.clone());
+            }
+            AstNode::Component(c) => cronus_components.push(c.clone()),
+            AstNode::Auth(auth) => {
+                auth_entity = Some(auth.entity.clone());
+                auth_roles = auth.roles.clone();
+                session_policy =
+                    crate::auth::SessionPolicy::from_session_config(&auth.session_config)?;
+                if let Some(r) = auth.session_config.get("redirect") {
+                    auth_redirect = Some(r.clone());
+                }
+            }
+            AstNode::Layout(l) => {
+                layout = Some(l.clone());
+            }
+            AstNode::Webhook(w) => {
+                webhooks.push(w.clone());
+            }
+            _ => {}
+        }
+    }
+
+    let implicit_auth = auth_entity::ensure_declared(&mut entities, auth_entity.as_deref());
+    interpolate_components(&mut pages, &cronus_components);
+
+    Ok(CollectedApp {
+        app,
+        entities,
+        pages,
+        style,
+        apis,
+        webhooks,
+        components: cronus_components,
+        auth_entity,
+        auth_roles,
+        auth_required_pages,
+        auth_redirect,
+        session_policy,
+        layout,
+        route_count,
+        implicit_auth,
+    })
+}
+
+fn apply_theme(app: &AppNode, style: &Option<StyleNode>) {
+    let tokens = if let Some(ref tc) = app.tailwind_config {
+        theme::parse_from_tailwind_config(tc)
+    } else if let Some(ref s) = style {
+        theme::derive_palette(
+            s.accent.as_deref().unwrap_or(""),
+            s.theme.as_deref().unwrap_or("dark"),
+            s.font.as_deref().unwrap_or(""),
+        )
+    } else {
+        theme::ThemeTokens::default()
+    };
+    theme::set_global(tokens);
+    let preset = style
+        .as_ref()
+        .and_then(|s| s.config.get("preset").cloned())
+        .unwrap_or_default();
+    theme::set_preset(&preset);
+    theme::set_mode(
+        style
+            .as_ref()
+            .and_then(|s| s.theme.as_deref())
+            .unwrap_or("dark"),
+    );
+}
+
+fn ensure_user_password_column(db: &database::CronusDB, entities: &[EntityNode]) {
+    let has_user = entities.iter().any(|e| {
+        let l = e.name.to_lowercase();
+        l == "user" || l == "users"
+    });
+    if has_user {
+        let user_table = entities
+            .iter()
+            .find(|e| {
+                let l = e.name.to_lowercase();
+                l == "user" || l == "users"
+            })
+            .map(|e| e.name.as_str())
+            .unwrap();
+        let _ = db.execute_raw(&format!(
+            "ALTER TABLE \"{}\" ADD COLUMN password TEXT",
+            user_table
+        ));
+    }
+}
+
+fn interpolate_components(pages: &mut [PageNode], cronus_components: &[parser::ComponentNode]) {
+    if cronus_components.is_empty() {
+        return;
+    }
+    let mut comp_instance_counter: u32 = 0;
+    for page in pages {
+        for section in &mut page.sections {
+            if let Some(comp_name) = section.config.get("_component").cloned() {
+                if let Some(comp_def) = cronus_components.iter().find(|c| c.name == comp_name) {
+                    if let Some(ref tmpl) = comp_def.template {
+                        comp_instance_counter += 1;
+                        let cid = format!("c{}", comp_instance_counter);
+
+                        let mut rendered = tmpl.clone();
+                        for param in &comp_def.params {
+                            let placeholder = format!("{{{{{}}}}}", param.name);
+                            let value = section
+                                .config
+                                .get(&param.name)
+                                .map(|s| s.as_str())
+                                .or(param.default.as_deref())
+                                .unwrap_or("");
+                            rendered = rendered.replace(&placeholder, value);
+                        }
+                        for (key, value) in &section.config {
+                            if key == "_component" {
+                                continue;
+                            }
+                            let placeholder = format!("{{{{{}}}}}", key);
+                            rendered = rendered.replace(&placeholder, value);
+                        }
+
+                        if !comp_def.state.is_empty() {
+                            rendered = format!(
+                                r#"<div data-cid="{cid}">{html}</div>"#,
+                                cid = cid,
+                                html = rendered
+                            );
+
+                            for sv in &comp_def.state {
+                                let placeholder = format!("{{{{{}}}}}", sv.name);
+                                let span = format!(
+                                    r#"<span data-s="{name}">{default}</span>"#,
+                                    name = sv.name,
+                                    default = sv.default
+                                );
+                                rendered = rendered.replace(&placeholder, &span);
+                            }
+
+                            let mut script_parts: Vec<String> = Vec::new();
+                            let mut event_id: u32 = 0;
+
+                            while let Some(pos) = rendered.find("@click=") {
+                                event_id += 1;
+                                let eid = format!("{cid}_e{event_id}");
+                                let after = &rendered[pos + 7..];
+                                let (expr, end_offset) = if after.starts_with("\\\"")
+                                    || after.starts_with('"')
+                                {
+                                    let quote_char = if after.starts_with("\\\"") {
+                                        "\\\""
+                                    } else {
+                                        "\""
+                                    };
+                                    let qlen = quote_char.len();
+                                    let expr_start = qlen;
+                                    if let Some(expr_end) = after[expr_start..].find(quote_char) {
+                                        (
+                                            after[expr_start..expr_start + expr_end].to_string(),
+                                            7 + expr_start + expr_end + qlen,
+                                        )
+                                    } else {
+                                        break;
+                                    }
+                                } else {
+                                    break;
+                                };
+
+                                rendered = format!(
+                                    "{}data-eid=\"{}\"{}",
+                                    &rendered[..pos],
+                                    eid,
+                                    &rendered[pos + end_offset..]
+                                );
+
+                                let js_expr = expr.replace("\\\"", "\"");
+                                script_parts.push(format!(
+                                    r#"document.querySelector('[data-eid="{eid}"]').addEventListener('click',function(){{ {update_expr}; _u(); }});"#,
+                                    eid = eid, update_expr = format!("_s.{}", js_expr)
+                                ));
+                            }
+
+                            if !comp_def.state.is_empty() {
+                                let mut state_init = String::new();
+                                let mut update_dom = String::new();
+                                for sv in &comp_def.state {
+                                    let default_js = match sv.state_type.as_str() {
+                                        "integer" | "number" => sv.default.clone(),
+                                        "boolean" => sv.default.clone(),
+                                        _ => format!("\"{}\"", sv.default),
+                                    };
+                                    state_init.push_str(&format!("{}:{},", sv.name, default_js));
+                                    update_dom.push_str(&format!(
+                                        r#"_c.querySelectorAll('[data-s="{name}"]').forEach(function(el){{ el.textContent=_s.{name}; }});"#,
+                                        name = sv.name
+                                    ));
+                                }
+
+                                let script = format!(
+                                    r#"<script>(function(){{ var _c=document.querySelector('[data-cid="{cid}"]'); if(!_c)return; var _s={{{init}}}; function _u(){{{update}}} {events} }})();</script>"#,
+                                    cid = cid,
+                                    init = state_init,
+                                    update = update_dom,
+                                    events = script_parts.join(" "),
+                                );
+                                rendered.push_str(&script);
+                            }
+                        }
+
+                        section.template = Some(rendered);
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn try_hot_reload(files: &[String], live: &RwLock<Arc<AppState>>) -> Result<u64, String> {
+    let (nodes, _) = parse_app_files(files)?;
+    crate::env_schema::enforce(&nodes, |name| std::env::var(name).ok())?;
+    let spec = collect_app(&nodes)?;
+    apply_theme(&spec.app, &spec.style);
+    let prev = live.read().unwrap_or_else(|e| e.into_inner()).clone();
+    let next = AppState {
+        app: spec.app,
+        entities: spec.entities,
+        pages: spec.pages,
+        components: spec.components,
+        style: spec.style,
+        apis: spec.apis,
+        db_path: prev.db_path.clone(),
+        db: prev.db.clone(),
+        brain: prev.brain.clone(),
+        auth_entity: spec.auth_entity,
+        auth_roles: spec.auth_roles,
+        auth_required_pages: spec.auth_required_pages,
+        auth_redirect: spec.auth_redirect,
+        session_policy: spec.session_policy,
+        layout: spec.layout,
+        webhooks: spec.webhooks,
+        rate_limiter: prev.rate_limiter.clone(),
+        auth_rate_limiter: prev.auth_rate_limiter.clone(),
+        sse_hub: Arc::clone(&prev.sse_hub),
+        audit_trail: prev.audit_trail.clone(),
+        trace_buffer: Arc::clone(&prev.trace_buffer),
+        script_registry: scripting::ScriptRegistry::load_from_directory("."),
+        zeus: Arc::clone(&prev.zeus),
+    };
+    let next = hmr::adopt_spec(&prev, next)?;
+    ensure_user_password_column(&next.db, &next.entities);
+    *live.write().unwrap_or_else(|e| e.into_inner()) = Arc::new(next);
+    Ok(hmr::bump_version())
 }

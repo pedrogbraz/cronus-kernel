@@ -13,6 +13,7 @@ use crate::authz;
 use crate::database::CronusDB;
 use crate::parser::{EntityNode, FieldNode, FieldType};
 use crate::relations;
+use crate::server::state::AppState;
 use crate::validation::{self, Mode};
 
 /// Output type: relations are the related entity (`[Tag!]`, `User`).
@@ -502,6 +503,7 @@ pub fn execute_graphql(
     db: &CronusDB,
     access: &Access,
     db_path: &str,
+    state: Option<&AppState>,
 ) -> Value {
     if access.viewer.is_none() {
         return gql_error("UNAUTHENTICATED", "authentication required");
@@ -530,7 +532,7 @@ pub fn execute_graphql(
                 }
             }
             Operation::Mutation => {
-                match resolve_mutation(field, schema, db, variables, access, db_path) {
+                match resolve_mutation(field, schema, db, variables, access, db_path, state) {
                     Ok(result) => {
                         data.insert(field.name.clone(), result);
                     }
@@ -757,6 +759,7 @@ fn resolve_mutation(
     variables: &Value,
     access: &Access,
     db_path: &str,
+    state: Option<&AppState>,
 ) -> Result<Value, GqlError> {
     if access.viewer.is_none() {
         return Err(GqlError::new("UNAUTHENTICATED", "authentication required"));
@@ -824,6 +827,18 @@ fn resolve_mutation(
                     eprintln!("  graphql {} failed: {}", create_name, e);
                     GqlError::new("CREATE_FAILED", format!("could not create {}", entity.name))
                 })?;
+            if let Some(state) = state {
+                let row_id = row.get("id").and_then(Value::as_str).unwrap_or("");
+                crate::effects::after_write(
+                    state,
+                    entity,
+                    "create",
+                    &row,
+                    None,
+                    row_id,
+                    owner.as_deref().unwrap_or(""),
+                );
+            }
             authz::redact_sensitive(entity, &mut row);
             attach_selection(
                 db,
@@ -944,6 +959,17 @@ fn resolve_mutation(
                     ));
                 }
             };
+            if let Some(state) = state {
+                crate::effects::after_write(
+                    state,
+                    entity,
+                    "update",
+                    &row,
+                    Some(&prev),
+                    &id,
+                    access.viewer.as_ref().map(|v| v.id.as_str()).unwrap_or(""),
+                );
+            }
             authz::redact_sensitive(entity, &mut row);
             attach_selection(
                 db,
@@ -963,10 +989,38 @@ fn resolve_mutation(
             if scope == WriteScope::Deny {
                 return Err(GqlError::new("FORBIDDEN", "not allowed"));
             }
+            let mut filters = vec![crate::database::SqlFilter::one("id", "=", id.clone())];
+            if let Some((column, value)) = scope.condition() {
+                filters.push(crate::database::SqlFilter::one(column, "=", value));
+            }
+            let prev = match db.find_one(&entity.name, &filters, None, None) {
+                Ok(Some(row)) => row,
+                Ok(None) => return Ok(json!(false)),
+                Err(e) => {
+                    eprintln!("  graphql {} failed: {}", delete_name, e);
+                    return Err(GqlError::new(
+                        "DELETE_FAILED",
+                        format!("could not delete {}", entity.name),
+                    ));
+                }
+            };
             let deleted = access::scoped_delete(db, &entity.name, &id, &scope).map_err(|e| {
                 eprintln!("  graphql {} failed: {}", delete_name, e);
                 GqlError::new("DELETE_FAILED", format!("could not delete {}", entity.name))
             })?;
+            if deleted {
+                if let Some(state) = state {
+                    crate::effects::after_write(
+                        state,
+                        entity,
+                        "delete",
+                        &prev,
+                        Some(&prev),
+                        &id,
+                        access.viewer.as_ref().map(|v| v.id.as_str()).unwrap_or(""),
+                    );
+                }
+            }
             return Ok(json!(deleted));
         }
     }
@@ -1142,7 +1196,7 @@ mod tests {
 
     fn run(q: &str, vars: Value, access: &Access, db: &CronusDB, ents: &[EntityNode]) -> Value {
         let schema = GraphQLSchema::from_entities(ents);
-        execute_graphql(q, &vars, &schema, db, access, "data.db")
+        execute_graphql(q, &vars, &schema, db, access, "data.db", None)
     }
 
     #[test]
@@ -1494,5 +1548,34 @@ mod tests {
             json!(["must be at least 3 characters"])
         );
         assert_eq!(ext["fields"]["age"], json!(["must be at most 150"]));
+    }
+
+    #[test]
+    fn create_mutation_with_state_writes_audit_and_sse() {
+        let state = crate::api_security_tests::state_from(
+            r#"app "G" { port 5175 }
+entity Note { title string! }
+"#,
+        );
+        let mut rx = state.sse_hub.subscribe_raw();
+        let schema = GraphQLSchema::from_entities(&state.entities);
+        let alice = crate::api_validation_tests::viewer("alice", "user");
+        let out = execute_graphql(
+            "mutation($input: CreateNoteInput!) { createNote(input: $input) { id title } }",
+            &json!({"input": {"title": "hooked"}}),
+            &schema,
+            &state.db,
+            &alice,
+            &state.db_path,
+            Some(&state),
+        );
+        let id = out["data"]["createNote"]["id"].as_str().expect("id");
+        let ev = rx.try_recv().expect("sse created");
+        assert_eq!(ev.action, "created");
+        assert_eq!(ev.entity, "Note");
+        assert_eq!(ev.id, id);
+        let trail = state.audit_trail.query(10).unwrap().to_string();
+        assert!(trail.contains("INSERT"), "{trail}");
+        assert!(trail.contains(id), "{trail}");
     }
 }

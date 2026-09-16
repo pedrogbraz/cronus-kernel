@@ -6,7 +6,7 @@
 use rusqlite::{params, types::ValueRef, Connection};
 use serde_json::{json, Map, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use crate::parser::{EntityNode, FieldType};
 
@@ -40,8 +40,14 @@ fn column_to_json(row: &rusqlite::Row, idx: usize) -> rusqlite::Result<Value> {
     })
 }
 
+/// Quote a SQLite identifier, doubling any embedded `"`.
+fn quote_ident(name: &str) -> String {
+    format!("\"{}\"", name.replace('"', "\"\""))
+}
+
+#[derive(Clone)]
 pub struct CronusDB {
-    conn: Mutex<Connection>,
+    conn: Arc<Mutex<Connection>>,
 }
 
 /// Map CRONUS field types to SQLite column types.
@@ -139,7 +145,7 @@ impl CronusDB {
         // Temp store in memory — faster temp table operations
         conn.execute_batch("PRAGMA temp_store=MEMORY;").ok();
         Ok(Self {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
         })
     }
 
@@ -150,7 +156,7 @@ impl CronusDB {
         // Same as `open`: many-to-many join tables cascade through FKs.
         conn.execute_batch("PRAGMA foreign_keys=ON;").ok();
         Ok(Self {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
         })
     }
 
@@ -335,11 +341,71 @@ impl CronusDB {
             }
 
             let sql = format!(
-                "CREATE TABLE IF NOT EXISTS \"{}\" ({})",
-                entity.name,
+                "CREATE TABLE IF NOT EXISTS {} ({})",
+                quote_ident(&entity.name),
                 cols.join(", ")
             );
             conn.execute(&sql, []).map_err(|e| e.to_string())?;
+
+            let owner_idx = format!("idx_{}__owner_id", entity.name);
+            conn.execute(
+                &format!(
+                    "CREATE INDEX IF NOT EXISTS {} ON {} ({})",
+                    quote_ident(&owner_idx),
+                    quote_ident(&entity.name),
+                    quote_ident("_owner_id")
+                ),
+                [],
+            )
+            .map_err(|e| e.to_string())?;
+
+            for field in &entity.fields {
+                if !field.index && !field.searchable {
+                    continue;
+                }
+                if field.unique {
+                    continue; // UNIQUE columns already have an index
+                }
+                let lower = field.name.to_lowercase();
+                if lower == "id" || field.is_many() {
+                    continue;
+                }
+                if lower == "createdat"
+                    || lower == "created_at"
+                    || lower == "updatedat"
+                    || lower == "updated_at"
+                {
+                    continue;
+                }
+                if matches!(
+                    lower.as_str(),
+                    "string"
+                        | "integer"
+                        | "text"
+                        | "real"
+                        | "blob"
+                        | "null"
+                        | "primary"
+                        | "table"
+                        | "index"
+                        | "select"
+                        | "from"
+                        | "where"
+                ) {
+                    continue;
+                }
+                let idx_name = format!("idx_{}_{}", entity.name, field.name);
+                conn.execute(
+                    &format!(
+                        "CREATE INDEX IF NOT EXISTS {} ON {} ({})",
+                        quote_ident(&idx_name),
+                        quote_ident(&entity.name),
+                        quote_ident(&field.name)
+                    ),
+                    [],
+                )
+                .map_err(|e| e.to_string())?;
+            }
         }
         Ok(())
     }
@@ -1224,6 +1290,7 @@ mod tests {
             effects: vec![],
             remote_url: None,
             doc: None,
+            span: Default::default(),
         }
     }
 
@@ -1241,6 +1308,127 @@ mod tests {
 
         assert!(row.get("id").is_some());
         assert_eq!(row.get("name").unwrap(), "Zedd");
+    }
+
+    fn index_names(db: &CronusDB) -> Vec<String> {
+        db.query_raw("SELECT name FROM sqlite_master WHERE type='index' ORDER BY name")
+            .unwrap()
+            .iter()
+            .filter_map(|row| row.get("name").and_then(Value::as_str).map(str::to_string))
+            .collect()
+    }
+
+    fn field(
+        name: &str,
+        field_type: FieldType,
+        unique: bool,
+        index: bool,
+        searchable: bool,
+        many: bool,
+    ) -> FieldNode {
+        FieldNode {
+            name: name.into(),
+            field_type,
+            required: false,
+            unique,
+            sensitive: false,
+            optional: true,
+            searchable,
+            index,
+            featured: false,
+            formatted: false,
+            array: many,
+            enum_values: None,
+            reference: if many { Some("Tag".into()) } else { None },
+            doc: None,
+            default_value: None,
+            min: None,
+            max: None,
+            min_length: None,
+            max_length: None,
+            pattern: None,
+        }
+    }
+
+    #[test]
+    fn migrate_creates_owner_and_declared_indexes() {
+        let post = EntityNode {
+            name: "Post".into(),
+            shared: false,
+            fields: vec![
+                field("title", FieldType::String, false, true, false, false),
+                field("body", FieldType::Text, false, false, true, false),
+                field("slug", FieldType::Slug, true, true, true, false),
+                field("tags", FieldType::Relation, false, true, true, true),
+            ],
+            reverses: Vec::new(),
+            transitions: vec![],
+            effects: vec![],
+            remote_url: None,
+            doc: None,
+            span: Default::default(),
+        };
+        let tag = EntityNode {
+            name: "Tag".into(),
+            shared: false,
+            fields: vec![field(
+                "label",
+                FieldType::String,
+                false,
+                false,
+                false,
+                false,
+            )],
+            reverses: Vec::new(),
+            transitions: vec![],
+            effects: vec![],
+            remote_url: None,
+            doc: None,
+            span: Default::default(),
+        };
+        let db = CronusDB::open_memory().unwrap();
+        db.migrate(&[post.clone(), tag.clone()]).unwrap();
+        db.migrate(&[post, tag]).unwrap(); // IF NOT EXISTS — existing DBs re-migrate safely
+
+        let names = index_names(&db);
+        assert!(
+            names.iter().any(|n| n == "idx_Post__owner_id"),
+            "owner index missing: {names:?}"
+        );
+        assert!(
+            names.iter().any(|n| n == "idx_Tag__owner_id"),
+            "owner index missing on Tag: {names:?}"
+        );
+        assert!(
+            names.iter().any(|n| n == "idx_Post_title"),
+            "index:true field missing: {names:?}"
+        );
+        assert!(
+            names.iter().any(|n| n == "idx_Post_body"),
+            "searchable field missing: {names:?}"
+        );
+        assert!(
+            !names.iter().any(|n| n == "idx_Post_slug"),
+            "UNIQUE column should not get a duplicate index: {names:?}"
+        );
+        assert!(
+            !names.iter().any(|n| n == "idx_Post_tags"),
+            "many-to-many must not be a column index: {names:?}"
+        );
+    }
+
+    #[test]
+    fn clone_shares_the_same_connection() {
+        let db = CronusDB::open_memory().unwrap();
+        db.migrate(&[test_entity()]).unwrap();
+        db.insert("users", &json!({"name": "A", "email": "a@x.com"}))
+            .unwrap();
+        let cloned = db.clone();
+        assert_eq!(cloned.count("users").unwrap(), 1);
+        cloned
+            .insert("users", &json!({"name": "B", "email": "b@x.com"}))
+            .unwrap();
+        assert_eq!(db.count("users").unwrap(), 2);
     }
 
     #[test]
@@ -1471,6 +1659,7 @@ mod tests {
             effects: vec![],
             remote_url: None,
             doc: None,
+            span: Default::default(),
         }
     }
 

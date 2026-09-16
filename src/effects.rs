@@ -2,7 +2,8 @@
 //! webhooks and `on create/update/delete` effect blocks.
 
 use crate::parser::{self, EntityNode};
-use crate::{brain, sse, webhook};
+use crate::server::state::AppState;
+use crate::{authz, brain, sse, webhook};
 use serde_json::{json, Value};
 use std::sync::Arc;
 
@@ -72,6 +73,129 @@ pub(crate) fn validate_transitions(
         // (no rule = no restriction for that source state)
     }
     Ok(())
+}
+
+/// Shared REST/GraphQL post-write pipeline: webhooks, entity effects,
+/// `.scriptcronus` handlers, hash-chained audit, SSE broadcast.
+pub(crate) fn after_write(
+    state: &AppState,
+    entity: &EntityNode,
+    event: &str,
+    row: &Value,
+    prev: Option<&Value>,
+    row_id: &str,
+    owner: &str,
+) {
+    let table = entity.name.as_str();
+    match event {
+        "update" => {
+            fire_webhooks(&state.webhooks, &state.entities, table, "update", row);
+            fire_effects(entity, "update", row, prev, &state.brain, &state.sse_hub);
+            crate::scripting::fire_scripts(
+                &state.script_registry,
+                table,
+                "update",
+                row,
+                row_id,
+                prev,
+                &state.db,
+                owner,
+                "user",
+                &std::collections::HashMap::new(),
+            );
+            let (mut logged_row, mut logged_prev) =
+                (row.clone(), prev.cloned().unwrap_or(Value::Null));
+            authz::redact_sensitive(entity, &mut logged_row);
+            authz::redact_sensitive(entity, &mut logged_prev);
+            if let Err(e) = state.audit_trail.log(
+                "UPDATE",
+                table,
+                row_id,
+                owner,
+                &logged_row,
+                Some(&logged_prev),
+            ) {
+                eprintln!(
+                    "  \x1b[33m⚠\x1b[0m Audit log failed (UPDATE {}:{}): {}",
+                    table, row_id, e
+                );
+            }
+            state.sse_hub.broadcast(sse::DataChangeEvent {
+                entity: table.to_string(),
+                action: "updated".to_string(),
+                id: row_id.to_string(),
+            });
+        }
+        "delete" => {
+            let payload = json!({"id": row_id, "entity": table});
+            fire_webhooks(&state.webhooks, &state.entities, table, "delete", &payload);
+            fire_effects(entity, "delete", row, None, &state.brain, &state.sse_hub);
+            crate::scripting::fire_scripts(
+                &state.script_registry,
+                table,
+                "delete",
+                row,
+                row_id,
+                None,
+                &state.db,
+                owner,
+                "user",
+                &std::collections::HashMap::new(),
+            );
+            let mut logged_prev = row.clone();
+            authz::redact_sensitive(entity, &mut logged_prev);
+            if let Err(e) = state.audit_trail.log(
+                "DELETE",
+                table,
+                row_id,
+                owner,
+                &json!({"id": row_id}),
+                Some(&logged_prev),
+            ) {
+                eprintln!(
+                    "  \x1b[33m⚠\x1b[0m Audit log failed (DELETE {}:{}): {}",
+                    table, row_id, e
+                );
+            }
+            state.sse_hub.broadcast(sse::DataChangeEvent {
+                entity: table.to_string(),
+                action: "deleted".to_string(),
+                id: row_id.to_string(),
+            });
+        }
+        _ => {
+            fire_webhooks(&state.webhooks, &state.entities, table, "create", row);
+            fire_effects(entity, "create", row, None, &state.brain, &state.sse_hub);
+            crate::scripting::fire_scripts(
+                &state.script_registry,
+                table,
+                "create",
+                row,
+                row_id,
+                None,
+                &state.db,
+                owner,
+                "user",
+                &std::collections::HashMap::new(),
+            );
+            let mut logged_row = row.clone();
+            authz::redact_sensitive(entity, &mut logged_row);
+            if let Err(e) = state
+                .audit_trail
+                .log("INSERT", table, row_id, owner, &logged_row, None)
+            {
+                eprintln!(
+                    "  \x1b[33m⚠\x1b[0m Audit log failed (INSERT {}:{}): {}",
+                    table, row_id, e
+                );
+            }
+            state.sse_hub.broadcast(sse::DataChangeEvent {
+                entity: table.to_string(),
+                action: "created".to_string(),
+                id: row_id.to_string(),
+            });
+        }
+    }
 }
 
 /// Fire webhooks in background for a given entity + event.
@@ -187,6 +311,26 @@ mod tests {
         assert!(ev.entity.contains("order"), "{}", ev.entity);
         assert_eq!(ev.action, "notification");
         assert_eq!(ev.id, "abc");
+    }
+
+    #[test]
+    fn after_write_audits_and_broadcasts_create() {
+        let state = crate::api_security_tests::state_from(
+            r#"app "E" { port 5175 }
+entity Note { title string! secret string sensitive }
+"#,
+        );
+        let entity = state.entities.iter().find(|e| e.name == "Note").unwrap();
+        let mut rx = state.sse_hub.subscribe_raw();
+        let row = json!({"id": "n1", "title": "hello", "secret": "s3cr3t"});
+        after_write(&state, entity, "create", &row, None, "n1", "alice");
+        let ev = rx.try_recv().expect("sse");
+        assert_eq!(ev.action, "created");
+        assert_eq!(ev.entity, "Note");
+        assert_eq!(ev.id, "n1");
+        let trail = state.audit_trail.query(10).unwrap().to_string();
+        assert!(trail.contains("INSERT"), "{trail}");
+        assert!(!trail.contains("s3cr3t"), "sensitive leaked: {trail}");
     }
 }
 

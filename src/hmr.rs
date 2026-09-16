@@ -1,7 +1,12 @@
 //! CRONUS HMR Engine — Hot Module Replacement without Vite
 //!
-//! File watcher + version polling for instant browser reload.
-//! No WebSocket needed — simple HTTP polling every 500ms.
+//! File watcher reloads the spec into the live `AppState`, then bumps
+//! `BUILD_VERSION` so the polling client (`HMR_CLIENT_JS`, every 500ms)
+//! refreshes and sees the new AST. No WebSocket.
+
+use crate::parser::EntityNode;
+use crate::server::state::AppState;
+use std::sync::Arc;
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
@@ -97,6 +102,113 @@ pub fn start_directory_watcher(dir: &str, on_change: impl Fn() + Send + 'static)
             }
         }
     });
+}
+
+/// Rebuild `AppState` after a spec change. Shares the previous process's
+/// database, SSE hub, rate limiters, audit trail, traces, Zeus buffer and
+/// brain. Migrates the new entity list (indexes included) onto the live DB.
+pub(crate) fn reload_state(prev: &AppState, entities: Vec<EntityNode>) -> Result<AppState, String> {
+    prev.db.migrate(&entities)?;
+    Ok(AppState {
+        app: prev.app.clone(),
+        entities,
+        pages: prev.pages.clone(),
+        components: prev.components.clone(),
+        style: prev.style.clone(),
+        apis: prev.apis.clone(),
+        db_path: prev.db_path.clone(),
+        db: prev.db.clone(),
+        brain: prev.brain.clone(),
+        auth_entity: prev.auth_entity.clone(),
+        auth_roles: prev.auth_roles.clone(),
+        auth_required_pages: prev.auth_required_pages.clone(),
+        auth_redirect: prev.auth_redirect.clone(),
+        session_policy: crate::auth::SessionPolicy {
+            ttl_secs: prev.session_policy.ttl_secs,
+        },
+        layout: prev.layout.clone(),
+        webhooks: prev.webhooks.clone(),
+        rate_limiter: prev.rate_limiter.clone(),
+        auth_rate_limiter: prev.auth_rate_limiter.clone(),
+        sse_hub: Arc::clone(&prev.sse_hub),
+        audit_trail: prev.audit_trail.clone(),
+        trace_buffer: Arc::clone(&prev.trace_buffer),
+        script_registry: prev.script_registry.clone(),
+        zeus: Arc::clone(&prev.zeus),
+    })
+}
+
+/// Apply a fully rebuilt spec onto the previous runtime (shared resources
+/// taken from `prev`; `next` supplies pages, entities, scripts, …).
+pub(crate) fn adopt_spec(prev: &AppState, mut next: AppState) -> Result<AppState, String> {
+    next.db_path = prev.db_path.clone();
+    next.db = prev.db.clone();
+    next.brain = prev.brain.clone();
+    next.rate_limiter = prev.rate_limiter.clone();
+    next.auth_rate_limiter = prev.auth_rate_limiter.clone();
+    next.sse_hub = Arc::clone(&prev.sse_hub);
+    next.audit_trail = prev.audit_trail.clone();
+    next.trace_buffer = Arc::clone(&prev.trace_buffer);
+    next.zeus = Arc::clone(&prev.zeus);
+    next.db.migrate(&next.entities)?;
+    Ok(next)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser::{parse, AstNode};
+    use serde_json::json;
+
+    #[test]
+    fn bump_version_increments() {
+        let a = current_version();
+        let b = bump_version();
+        assert_eq!(b, a + 1);
+        assert_eq!(current_version(), b);
+    }
+
+    #[test]
+    fn reload_state_swaps_entities_on_shared_db() {
+        let prev = crate::api_security_tests::state_from(
+            r#"app "H" { port 5175 }
+entity Note { title string! }
+"#,
+        );
+        prev.db
+            .insert("Note", &json!({"title": "kept"}))
+            .expect("insert");
+        let entities: Vec<EntityNode> = parse(
+            r#"app "H" { port 5175 }
+entity Note { title string! }
+entity Task { title string! index }
+"#,
+        )
+        .expect("parse")
+        .into_iter()
+        .filter_map(|n| match n {
+            AstNode::Entity(e) => Some(e),
+            _ => None,
+        })
+        .collect();
+        let next = reload_state(&prev, entities).expect("reload");
+        assert!(next.entities.iter().any(|e| e.name == "Task"));
+        assert_eq!(next.entities.len(), 2);
+        assert_eq!(next.db.count("Note").unwrap(), 1, "db connection is shared");
+        assert!(next.db.count("Task").is_ok());
+        let names = next
+            .db
+            .query_raw("SELECT name FROM sqlite_master WHERE type='index'")
+            .unwrap()
+            .iter()
+            .filter_map(|r| r.get("name").and_then(|v| v.as_str()).map(str::to_string))
+            .collect::<Vec<_>>();
+        assert!(
+            names.iter().any(|n| n == "idx_Task_title"),
+            "new field index missing: {names:?}"
+        );
+        assert!(names.iter().any(|n| n == "idx_Task__owner_id"));
+    }
 }
 
 /// Start file watcher — polls file metadata every 500ms

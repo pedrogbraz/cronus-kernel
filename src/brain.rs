@@ -7,6 +7,7 @@ use crate::database::CronusDB;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub struct CronusBrain {
     db: Arc<CronusDB>,
 }

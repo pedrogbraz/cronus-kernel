@@ -5,7 +5,7 @@
 //! The key map is bounded and cleaned periodically by `cmd_run`.
 
 use std::collections::HashMap;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Instant;
 
 /// Upper bound on tracked keys; beyond it expired keys are pruned and then
@@ -16,8 +16,9 @@ struct WindowEntry {
     timestamps: Vec<Instant>,
 }
 
+#[derive(Clone)]
 pub struct RateLimiter {
-    windows: Mutex<HashMap<String, WindowEntry>>,
+    windows: Arc<Mutex<HashMap<String, WindowEntry>>>,
     max_requests: usize,
     window_secs: u64,
     max_keys: usize,
@@ -31,7 +32,7 @@ impl RateLimiter {
 
     pub fn with_max_keys(max_requests: usize, window_secs: u64, max_keys: usize) -> Self {
         Self {
-            windows: Mutex::new(HashMap::new()),
+            windows: Arc::new(Mutex::new(HashMap::new())),
             max_requests,
             window_secs,
             max_keys: max_keys.max(1),
@@ -128,6 +129,16 @@ mod tests {
             let _ = l.check(&format!("10.0.0.{}", i));
         }
         assert!(l.stats().0 <= 4);
+    }
+
+    #[test]
+    fn clone_shares_counters() {
+        let a = RateLimiter::new(3, 60);
+        assert_eq!(a.check("x"), Ok(2));
+        let b = a.clone();
+        assert_eq!(b.check("x"), Ok(1));
+        assert_eq!(a.check("x"), Ok(0));
+        assert!(b.check("x").is_err());
     }
 
     #[test]

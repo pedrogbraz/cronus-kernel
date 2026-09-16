@@ -51,6 +51,7 @@ pub(super) async fn route(req: Request<Incoming>, ctx: &Ctx) -> Routed {
             &state.db,
             &gql_access,
             &state.db_path,
+            Some(state),
         );
         return Ok(json_response(StatusCode::OK, result));
     }

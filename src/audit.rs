@@ -8,7 +8,7 @@ use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 /// A single field-level change between two JSON objects.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,8 +74,9 @@ fn format_value(v: &Value) -> String {
 }
 
 /// Tamper-proof audit trail backed by SQLite with hash chaining.
+#[derive(Clone)]
 pub struct AuditTrail {
-    conn: Mutex<Connection>,
+    conn: Arc<Mutex<Connection>>,
 }
 
 impl AuditTrail {
@@ -125,7 +126,7 @@ impl AuditTrail {
         }
 
         Ok(Self {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
         })
     }
 

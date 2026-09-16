@@ -587,44 +587,16 @@ fn create(
         Err(detail) => return write_error("create", &entity.name, &detail),
     };
 
-    let table = entity.name.as_str();
     let owner = owner.unwrap_or("");
     let row_id = row
         .get("id")
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
-    crate::effects::fire_webhooks(&state.webhooks, &state.entities, table, "create", &row);
-    crate::effects::fire_effects(entity, "create", &row, None, &state.brain, &state.sse_hub);
-    crate::scripting::fire_scripts(
-        &state.script_registry,
-        table,
-        "create",
-        &row,
-        &row_id,
-        None,
-        &state.db,
-        owner,
-        "user",
-        &std::collections::HashMap::new(),
-    );
+    crate::effects::after_write(state, entity, "create", &row, None, &row_id, owner);
     let mut row = row;
     authz::redact_sensitive(entity, &mut row);
     relations::attach(&state.db, &state.entities, entity, &mut row, access, &[]);
-    if let Err(e) = state
-        .audit_trail
-        .log("INSERT", table, &row_id, owner, &row, None)
-    {
-        eprintln!(
-            "  \x1b[33m⚠\x1b[0m Audit log failed (INSERT {}:{}): {}",
-            table, row_id, e
-        );
-    }
-    state.sse_hub.broadcast(crate::sse::DataChangeEvent {
-        entity: table.to_string(),
-        action: "created".to_string(),
-        id: row_id,
-    });
 
     json_response(StatusCode::CREATED, row)
 }
@@ -715,46 +687,7 @@ fn update(
     };
 
     if changed {
-        let table = entity.name.as_str();
-        crate::effects::fire_webhooks(&state.webhooks, &state.entities, table, "update", &row);
-        crate::effects::fire_effects(
-            entity,
-            "update",
-            &row,
-            Some(&prev),
-            &state.brain,
-            &state.sse_hub,
-        );
-        crate::scripting::fire_scripts(
-            &state.script_registry,
-            table,
-            "update",
-            &row,
-            id,
-            Some(&prev),
-            &state.db,
-            owner,
-            "user",
-            &std::collections::HashMap::new(),
-        );
-        let (mut logged_row, mut logged_prev) = (row.clone(), prev.clone());
-        authz::redact_sensitive(entity, &mut logged_row);
-        authz::redact_sensitive(entity, &mut logged_prev);
-        if let Err(e) =
-            state
-                .audit_trail
-                .log("UPDATE", table, id, owner, &logged_row, Some(&logged_prev))
-        {
-            eprintln!(
-                "  \x1b[33m⚠\x1b[0m Audit log failed (UPDATE {}:{}): {}",
-                table, id, e
-            );
-        }
-        state.sse_hub.broadcast(crate::sse::DataChangeEvent {
-            entity: table.to_string(),
-            action: "updated".to_string(),
-            id: id.to_string(),
-        });
+        crate::effects::after_write(state, entity, "update", &row, Some(&prev), id, owner);
     }
 
     let mut row = row;
@@ -793,42 +726,7 @@ fn delete(
         Err(detail) => return internal("delete", &entity.name, &detail),
     }
 
-    let table = entity.name.as_str();
-    let payload = json!({"id": id, "entity": table});
-    crate::effects::fire_webhooks(&state.webhooks, &state.entities, table, "delete", &payload);
-    crate::effects::fire_effects(entity, "delete", &prev, None, &state.brain, &state.sse_hub);
-    crate::scripting::fire_scripts(
-        &state.script_registry,
-        table,
-        "delete",
-        &prev,
-        id,
-        None,
-        &state.db,
-        owner,
-        "user",
-        &std::collections::HashMap::new(),
-    );
-    let mut logged_prev = prev.clone();
-    authz::redact_sensitive(entity, &mut logged_prev);
-    if let Err(e) = state.audit_trail.log(
-        "DELETE",
-        table,
-        id,
-        owner,
-        &json!({"id": id}),
-        Some(&logged_prev),
-    ) {
-        eprintln!(
-            "  \x1b[33m⚠\x1b[0m Audit log failed (DELETE {}:{}): {}",
-            table, id, e
-        );
-    }
-    state.sse_hub.broadcast(crate::sse::DataChangeEvent {
-        entity: table.to_string(),
-        action: "deleted".to_string(),
-        id: id.to_string(),
-    });
+    crate::effects::after_write(state, entity, "delete", &prev, Some(&prev), id, owner);
 
     json_response(StatusCode::OK, json!({"deleted": id}))
 }
