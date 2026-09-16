@@ -1,3 +1,3 @@
 # Retomada
 
-Estado: planejamento. Próximo: `task ready` + `start`.
+Estado: código commitado; quick passed. Próximo: review + full + integrate.
