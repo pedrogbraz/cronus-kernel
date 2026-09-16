@@ -27,339 +27,133 @@ pub(crate) fn post_login_paths(state: &AppState) -> (String, String) {
     (home, admin)
 }
 
-pub(crate) fn generate_login_page(state: &AppState) -> String {
-    let script_nonce = crate::security::script_nonce_attr();
-    let app_name = &state.app.name;
-    let logo_letter = app_name
-        .chars()
-        .next()
-        .unwrap_or('C')
-        .to_uppercase()
-        .to_string();
-    let (home, admin) = post_login_paths(state);
+fn logo_letter(app: &str) -> String {
+    app.chars().next().unwrap_or('C').to_uppercase().to_string()
+}
+
+fn auth_error_html(error: Option<&str>) -> String {
+    match error.map(str::trim).filter(|s| !s.is_empty()) {
+        Some(msg) => format!(
+            r#"<p class="err" role="alert">{}</p>"#,
+            crate::cronus_ui_kit::esc(msg)
+        ),
+        None => String::new(),
+    }
+}
+
+fn auth_shell(title: &str, logo: &str, heading: &str, sub: &str, form: &str) -> String {
     format!(
         r##"<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-cronus-auth>
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login — {app}</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<title>{title}</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{font-family:'Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;background:#0a0a0a;color:#fafafa;min-height:100vh;display:flex;align-items:center;justify-content:center}}
-input{{width:100%;padding:10px 14px;font-size:14px;background:#171717;border:1px solid #262626;border-radius:10px;color:#fafafa;outline:none;transition:border-color 0.15s}}
+body{{font-family:system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;background:#0a0a0a;color:#fafafa;min-height:100vh;display:flex;align-items:center;justify-content:center}}
+input{{width:100%;padding:10px 14px;font-size:14px;background:#171717;border:1px solid #262626;border-radius:10px;color:#fafafa;outline:none}}
 input:focus{{border-color:#525252}}
-input[type=checkbox]{{width:16px;height:16px;accent-color:#fafafa;cursor:pointer}}
-.btn{{width:100%;padding:10px 14px;font-size:14px;font-weight:600;border:none;border-radius:10px;background:#fafafa;color:#0a0a0a;cursor:pointer;transition:opacity 0.15s}}
+.btn{{width:100%;padding:10px 14px;font-size:14px;font-weight:600;border:none;border-radius:10px;background:#fafafa;color:#0a0a0a;cursor:pointer}}
 .btn:hover{{opacity:0.9}}
-.account-card{{display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid #262626;border-radius:12px;background:#171717;cursor:pointer;transition:all 0.15s;width:100%}}
-.account-card:hover{{border-color:#525252;background:#1f1f1f}}
-.account-avatar{{width:40px;height:40px;border-radius:10px;background:#262626;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:#fafafa;flex-shrink:0}}
-.account-info{{flex:1;text-align:left;min-width:0}}
-.account-name{{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-.account-email{{font-size:12px;color:#a3a3a3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-.account-remove{{color:#525252;font-size:18px;padding:4px;border-radius:6px;transition:color 0.15s;flex-shrink:0;display:flex;align-items:center}}
-.account-remove:hover{{color:#ef4444}}
-.material-symbols-outlined{{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:20px;display:inline-block;line-height:1;vertical-align:middle}}
+.err{{padding:10px 14px;border-radius:10px;font-size:13px;text-align:center;background:#450a0a;color:#fca5a5;border:1px solid #7f1d1d}}
+a{{color:#fafafa;font-weight:600;text-decoration:none}}
+.wrap{{width:100%;max-width:400px;padding:32px}}
+.brand{{text-align:center;margin-bottom:32px}}
+.mark{{width:48px;height:48px;background:#fafafa;border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:#0a0a0a;font-weight:700;font-size:20px}}
+h1{{font-size:24px;font-weight:700;margin:0 0 8px}}
+.sub{{font-size:14px;color:#a3a3a3}}
+form{{display:flex;flex-direction:column;gap:16px}}
+.alt{{text-align:center;font-size:14px;color:#a3a3a3}}
 </style>
 </head>
 <body>
-<div style="width:100%;max-width:400px;padding:32px">
-  <div style="text-align:center;margin-bottom:32px">
-    <div style="width:48px;height:48px;background:#fafafa;border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
-      <span style="color:#0a0a0a;font-weight:700;font-size:20px">{logo}</span>
-    </div>
-    <h1 style="font-size:24px;font-weight:700;margin:0 0 8px" id="page-title">Welcome back</h1>
-    <p style="font-size:14px;color:#a3a3a3" id="page-sub">Sign in to your account</p>
+<div class="wrap">
+  <div class="brand">
+    <div class="mark">{logo}</div>
+    <h1>{heading}</h1>
+    <p class="sub">{sub}</p>
   </div>
-
-  <!-- Saved accounts view -->
-  <div id="accountsView" style="display:none;flex-direction:column;gap:8px">
-    <div id="accountsList" style="display:flex;flex-direction:column;gap:8px"></div>
-    <div style="margin-top:8px">
-      <button onclick="showFullLogin()" style="width:100%;padding:10px 14px;font-size:14px;font-weight:500;border:1px solid #262626;border-radius:10px;background:transparent;color:#a3a3a3;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;justify-content:center;gap:8px" onmouseover="this.style.borderColor='#525252';this.style.color='#fafafa'" onmouseout="this.style.borderColor='#262626';this.style.color='#a3a3a3'">
-        <span class="material-symbols-outlined" style="font-size:18px">add</span>
-        Use another account
-      </button>
-    </div>
-    <p style="text-align:center;font-size:14px;color:#a3a3a3;margin-top:8px">Don't have an account? <a href="/register" style="color:#fafafa;font-weight:600;text-decoration:none">Register</a></p>
-  </div>
-
-  <!-- Password-only view (after clicking a saved account) -->
-  <form id="quickLogin" style="display:none;flex-direction:column;gap:16px">
-    <div class="account-card" style="cursor:default;border-color:#525252">
-      <div class="account-avatar" id="quick-avatar">?</div>
-      <div class="account-info">
-        <div class="account-name" id="quick-name"></div>
-        <div class="account-email" id="quick-email"></div>
-      </div>
-    </div>
-    <input name="password" type="password" placeholder="Password" required autofocus />
-    <input name="email" type="hidden" id="quick-email-input" />
-    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:#a3a3a3">
-      <input name="remember" type="checkbox" checked />
-      Remember me
-    </label>
-    <div id="quick-error" style="display:none;padding:10px 14px;border-radius:10px;font-size:13px;text-align:center;background:#450a0a;color:#fca5a5;border:1px solid #7f1d1d"></div>
-    <button type="submit" class="btn">Sign In</button>
-    <button type="button" onclick="showAccounts()" style="width:100%;padding:8px;font-size:13px;background:transparent;border:none;color:#a3a3a3;cursor:pointer">
-      ← Back to accounts
-    </button>
-  </form>
-
-  <!-- Full login form -->
-  <form id="loginForm" style="display:flex;flex-direction:column;gap:16px">
-    <input name="email" type="email" placeholder="Email" required />
-    <input name="password" type="password" placeholder="Password" required />
-    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:#a3a3a3">
-      <input name="remember" type="checkbox" />
-      Remember me
-    </label>
-    <div id="error" style="display:none;padding:10px 14px;border-radius:10px;font-size:13px;text-align:center;background:#450a0a;color:#fca5a5;border:1px solid #7f1d1d"></div>
-    <button type="submit" class="btn">Sign In</button>
-    <p style="text-align:center;font-size:14px;color:#a3a3a3">Don't have an account? <a href="/register" style="color:#fafafa;font-weight:600;text-decoration:none">Register</a></p>
-  </form>
+  {form}
 </div>
-<script{script_nonce}>
-// Saved accounts management
-function getSavedAccounts() {{
-  try {{ return JSON.parse(localStorage.getItem('saved_accounts') || '[]'); }} catch(e) {{ return []; }}
-}}
-function saveAccount(user) {{
-  var accounts = getSavedAccounts();
-  // Remove existing with same email
-  accounts = accounts.filter(function(a) {{ return a.email !== user.email; }});
-  // Add to front
-  accounts.unshift({{ name: user.name, email: user.email, role: user.role, initial: (user.name||'?').charAt(0).toUpperCase() }});
-  // Max 5 accounts
-  if (accounts.length > 5) accounts = accounts.slice(0, 5);
-  localStorage.setItem('saved_accounts', JSON.stringify(accounts));
-}}
-function removeAccount(email) {{
-  var accounts = getSavedAccounts().filter(function(a) {{ return a.email !== email; }});
-  localStorage.setItem('saved_accounts', JSON.stringify(accounts));
-  renderAccounts();
-}}
-
-function renderAccounts() {{
-  var accounts = getSavedAccounts();
-  if (accounts.length === 0) {{
-    showFullLogin();
-    return;
-  }}
-  var list = document.getElementById('accountsList');
-  list.innerHTML = '';
-  accounts.forEach(function(acc) {{
-    var card = document.createElement('div');
-    card.className = 'account-card';
-    card.onclick = function() {{ selectAccount(acc.email); }};
-    // Saved names/emails are user-chosen: build nodes, never HTML strings.
-    var avatar = document.createElement('div');
-    avatar.className = 'account-avatar';
-    avatar.textContent = acc.initial || '?';
-    var info = document.createElement('div');
-    info.className = 'account-info';
-    var nameEl = document.createElement('div');
-    nameEl.className = 'account-name';
-    nameEl.textContent = acc.name || '';
-    var emailEl = document.createElement('div');
-    emailEl.className = 'account-email';
-    emailEl.textContent = acc.email || '';
-    info.appendChild(nameEl);
-    info.appendChild(emailEl);
-    var removeEl = document.createElement('div');
-    removeEl.className = 'account-remove';
-    removeEl.title = 'Remove';
-    removeEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">close</span>';
-    removeEl.onclick = function(e) {{ e.stopPropagation(); removeAccount(acc.email); }};
-    card.appendChild(avatar);
-    card.appendChild(info);
-    card.appendChild(removeEl);
-    list.appendChild(card);
-  }});
-  document.getElementById('accountsView').style.display = 'flex';
-  document.getElementById('loginForm').style.display = 'none';
-  document.getElementById('quickLogin').style.display = 'none';
-  document.getElementById('page-title').textContent = 'Choose an account';
-  document.getElementById('page-sub').textContent = 'Sign in to {app}';
-}}
-
-function selectAccount(email) {{
-  var acc = getSavedAccounts().find(function(a) {{ return a.email === email; }});
-  if (!acc) return;
-  document.getElementById('quick-avatar').textContent = acc.initial;
-  document.getElementById('quick-name').textContent = acc.name;
-  document.getElementById('quick-email').textContent = acc.email;
-  document.getElementById('quick-email-input').value = acc.email;
-  document.getElementById('accountsView').style.display = 'none';
-  document.getElementById('loginForm').style.display = 'none';
-  document.getElementById('quickLogin').style.display = 'flex';
-  document.getElementById('page-title').textContent = 'Welcome back';
-  document.getElementById('page-sub').textContent = acc.name;
-  document.getElementById('quick-error').style.display = 'none';
-  // Focus password
-  setTimeout(function() {{ document.querySelector('#quickLogin input[type=password]').focus(); }}, 100);
-}}
-
-function showAccounts() {{
-  renderAccounts();
-}}
-
-function showFullLogin() {{
-  document.getElementById('accountsView').style.display = 'none';
-  document.getElementById('quickLogin').style.display = 'none';
-  document.getElementById('loginForm').style.display = 'flex';
-  document.getElementById('page-title').textContent = 'Welcome back';
-  document.getElementById('page-sub').textContent = 'Sign in to your account';
-}}
-
-// Login handler
-async function doLogin(email, password, remember, errorEl, btn) {{
-  btn.disabled = true; btn.textContent = 'Loading...';
-  try {{
-    var res = await fetch('/api/auth/login', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify({{ email: email, password: password, remember: remember }}) }});
-    var json = await res.json();
-    if (res.ok && json.user) {{
-      localStorage.setItem('user', JSON.stringify(json.user));
-      saveAccount(json.user);
-      var role = json.user.role;
-      window.location.href = (role === 'admin') ? '{admin}' : '{home}';
-    }} else {{
-      errorEl.style.display = 'block';
-      errorEl.textContent = (json.error && json.error.message) || json.error || 'Invalid credentials';
-      btn.disabled = false; btn.textContent = 'Sign In';
-    }}
-  }} catch(err) {{
-    errorEl.style.display = 'block';
-    errorEl.textContent = 'Connection failed';
-    btn.disabled = false; btn.textContent = 'Sign In';
-  }}
-}}
-
-// Full login form
-document.getElementById('loginForm').addEventListener('submit', function(e) {{
-  e.preventDefault();
-  var fd = Object.fromEntries(new FormData(e.target));
-  doLogin(fd.email, fd.password, !!fd.remember, document.getElementById('error'), e.target.querySelector('button[type=submit]'));
-}});
-
-// Quick login form
-document.getElementById('quickLogin').addEventListener('submit', function(e) {{
-  e.preventDefault();
-  var fd = Object.fromEntries(new FormData(e.target));
-  doLogin(fd.email, fd.password, !!fd.remember, document.getElementById('quick-error'), e.target.querySelector('button[type=submit]'));
-}});
-
-// Auto-redirect if the HttpOnly session cookie is still valid
-!function(){{
-  fetch('/api/auth/me', {{ credentials: 'same-origin' }})
-    .then(function(r) {{ return r.ok ? r.json() : null; }})
-    .then(function(d) {{
-      if (d && d.id) {{
-        var role = d.role || 'user';
-        window.location.href = (role === 'admin') ? '{admin}' : '{home}';
-      }}
-    }}).catch(function(){{}});
-}}();
-
-// Init: show saved accounts or full login
-renderAccounts();
-</script>
 </body></html>"##,
-        app = app_name,
-        logo = logo_letter,
-        home = home,
-        admin = admin
+        title = crate::cronus_ui_kit::esc(title),
+        logo = crate::cronus_ui_kit::esc(logo),
+        heading = crate::cronus_ui_kit::esc(heading),
+        sub = crate::cronus_ui_kit::esc(sub),
+        form = form
     )
 }
 
-pub(crate) fn generate_register_page(state: &AppState) -> String {
-    let script_nonce = crate::security::script_nonce_attr();
-    let app_name = &state.app.name;
-    let logo_letter = app_name
-        .chars()
-        .next()
-        .unwrap_or('C')
-        .to_uppercase()
-        .to_string();
-    let (home, admin) = post_login_paths(state);
-    format!(
-        r##"<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Register — {app}</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-*{{margin:0;padding:0;box-sizing:border-box}}
-body{{font-family:'Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;background:#0a0a0a;color:#fafafa;min-height:100vh;display:flex;align-items:center;justify-content:center}}
-input{{width:100%;padding:10px 14px;font-size:14px;background:#171717;border:1px solid #262626;border-radius:10px;color:#fafafa;outline:none;transition:border-color 0.15s}}
-input:focus{{border-color:#525252}}
-.btn{{width:100%;padding:10px 14px;font-size:14px;font-weight:600;border:none;border-radius:10px;background:#fafafa;color:#0a0a0a;cursor:pointer;transition:opacity 0.15s}}
-.btn:hover{{opacity:0.9}}
-</style>
-</head>
-<body>
-<div style="width:100%;max-width:400px;padding:32px">
-  <div style="text-align:center;margin-bottom:32px">
-    <div style="width:48px;height:48px;background:#fafafa;border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
-      <span style="color:#0a0a0a;font-weight:700;font-size:20px">{logo}</span>
-    </div>
-    <h1 style="font-size:24px;font-weight:700;margin:0 0 8px">Create your account</h1>
-    <p style="font-size:14px;color:#a3a3a3">Get started for free</p>
-  </div>
-  <form id="registerForm" style="display:flex;flex-direction:column;gap:16px">
-    <input name="name" type="text" placeholder="Full name" required />
-    <input name="email" type="email" placeholder="Email" required />
-    <input name="password" type="password" placeholder="Password (15+ characters)" required minlength="15" />
-    <div id="error" style="display:none;padding:10px 14px;border-radius:10px;font-size:13px;text-align:center;background:#450a0a;color:#fca5a5;border:1px solid #7f1d1d"></div>
-    <button type="submit" class="btn">Sign Up</button>
-    <p style="text-align:center;font-size:14px;color:#a3a3a3">Already have an account? <a href="/login" style="color:#fafafa;font-weight:600;text-decoration:none">Sign in</a></p>
-  </form>
-</div>
-<script{script_nonce}>
-// Save account on register too
-function getSavedAccounts() {{
-  try {{ return JSON.parse(localStorage.getItem('saved_accounts') || '[]'); }} catch(e) {{ return []; }}
-}}
-function saveAccount(user) {{
-  var accounts = getSavedAccounts().filter(function(a) {{ return a.email !== user.email; }});
-  accounts.unshift({{ name: user.name, email: user.email, role: user.role, initial: (user.name||'?').charAt(0).toUpperCase() }});
-  if (accounts.length > 5) accounts = accounts.slice(0, 5);
-  localStorage.setItem('saved_accounts', JSON.stringify(accounts));
-}}
-document.getElementById('registerForm').addEventListener('submit', async (e) => {{
-  e.preventDefault();
-  const btn = e.target.querySelector('button');
-  btn.disabled = true; btn.textContent = 'Loading...';
-  const data = Object.fromEntries(new FormData(e.target));
-  try {{
-    const res = await fetch('/api/auth/signup', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify(data) }});
-    const json = await res.json();
-    if (res.ok && json.user) {{
-      localStorage.setItem('user', JSON.stringify(json.user));
-      saveAccount(json.user);
-      const role = json.user.role;
-      window.location.href = (role === 'admin') ? '{admin}' : '{home}';
-    }} else {{
-      const err = document.getElementById('error');
-      err.style.display = 'block';
-      err.textContent = (json.error && json.error.message) || json.error || 'Registration failed';
-      btn.disabled = false; btn.textContent = 'Sign Up';
-    }}
-  }} catch(err) {{
-    const el = document.getElementById('error');
-    el.style.display = 'block';
-    el.textContent = 'Connection failed';
-    btn.disabled = false; btn.textContent = 'Sign Up';
-  }}
-}});
-</script>
-</body></html>"##,
-        app = app_name,
-        logo = logo_letter,
-        home = home,
-        admin = admin
+pub(crate) fn generate_login_page(state: &AppState, error: Option<&str>) -> String {
+    let app = &state.app.name;
+    let form = format!(
+        r##"<form method="post" action="/login">
+    <input name="email" type="email" autocomplete="username" placeholder="Email" required />
+    <input name="password" type="password" autocomplete="current-password" placeholder="Password" required />
+    {err}
+    <button type="submit" class="btn">Sign In</button>
+    <p class="alt">Don't have an account? <a href="/register">Register</a></p>
+  </form>"##,
+        err = auth_error_html(error)
+    );
+    auth_shell(
+        &format!("Login — {app}"),
+        &logo_letter(app),
+        "Welcome back",
+        "Sign in to your account",
+        &form,
     )
+}
+
+pub(crate) fn generate_register_page(state: &AppState, error: Option<&str>) -> String {
+    let app = &state.app.name;
+    let form = format!(
+        r##"<form method="post" action="/register">
+    <input name="name" type="text" autocomplete="name" placeholder="Full name" required />
+    <input name="email" type="email" autocomplete="username" placeholder="Email" required />
+    <input name="password" type="password" autocomplete="new-password" placeholder="Password (15+ characters)" required minlength="15" />
+    {err}
+    <button type="submit" class="btn">Sign Up</button>
+    <p class="alt">Already have an account? <a href="/login">Sign in</a></p>
+  </form>"##,
+        err = auth_error_html(error)
+    );
+    auth_shell(
+        &format!("Register — {app}"),
+        &logo_letter(app),
+        "Create your account",
+        "Get started for free",
+        &form,
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api_security_tests::state_from;
+
+    const APP: &str = r#"app "SaaS Starter" { port 5175 }
+auth { entity User login email + password session jwt roles [member] redirect "/dashboard" }
+entity User { name string email email! password string! sensitive role string }
+page "/dashboard" type:custom requires:auth {}
+"#;
+
+    #[test]
+    fn login_page_is_a_native_form_without_script() {
+        let html = generate_login_page(&state_from(APP), None);
+        assert!(html.contains(r#"<form method="post" action="/login">"#));
+        assert!(html.contains(r#"autocomplete="username""#));
+        assert!(!html.contains("<script"));
+        assert!(!html.contains("localStorage"));
+        assert!(!html.contains("fonts.googleapis"));
+        assert!(!html.contains("saved_accounts"));
+    }
+
+    #[test]
+    fn login_page_shows_escaped_error() {
+        let html = generate_login_page(&state_from(APP), Some("<xss>"));
+        assert!(html.contains("role=\"alert\""));
+        assert!(html.contains("&lt;xss&gt;"));
+        assert!(!html.contains("<xss>"));
+    }
 }

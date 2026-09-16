@@ -341,16 +341,13 @@ pub fn render_layout_declarative_mode(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="view-transition" content="same-origin">
   <title>{app_name}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
-  <script{script_nonce} src="https://cdn.tailwindcss.com"></script>
   {cronus_ui_meta}
   <style>{cronus_ui_css}</style>
   <style>
     *,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
-    html,body{{background:#000;color:#fff;font-family:'Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}}
+    html,body{{background:#000;color:#fff;font-family:system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}}
+    .material-symbols-outlined{{display:none}}
+    .sb-signout-form{{margin:0}}
     a{{color:inherit;text-decoration:none}}
     button{{font-family:inherit;cursor:pointer}}
     ::selection{{background:rgba(59,130,246,0.3);color:#fff}}
@@ -453,9 +450,9 @@ pub fn render_layout_declarative_mode(
       {nav_items}
     </nav>
     <div class="sb-footer">
-      <button onclick="fetch('/api/auth/logout',{{method:'POST',credentials:'same-origin'}}).finally(function(){{localStorage.removeItem('user');location.href='/login'}})" class="sb-signout">
-        <span class="material-symbols-outlined">logout</span>Sign Out
-      </button>
+      <form method="post" action="/logout" class="sb-signout-form">
+        <button type="submit" class="sb-signout">Sign Out</button>
+      </form>
     </div>
   </aside>
 
@@ -906,11 +903,7 @@ pub fn render_layout_landing_ex(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{app_name}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-  <script{script_nonce} src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   {cronus_ui_meta}
-  <script{script_nonce} src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   {tw_config_script}
   {head_styles}
   <style>
@@ -1714,7 +1707,7 @@ pub fn render_layout_landing_ex(
         clean_body = clean_body,
         bottom_nav = bottom_nav_html,
         anim_css = CRONUS_ANIMATIONS_CSS,
-        anim_js = crate::security::mark_kernel_scripts(CRONUS_ANIMATIONS_JS),
+        anim_js = "",
         tailwind_css = crate::tailwind::CRONUS_TAILWIND,
         runtime = crate::render::CRONUS_RUNTIME_JS,
         hmr = crate::hmr::HMR_CLIENT_JS,
@@ -2033,5 +2026,15 @@ mod tests {
         assert!(system.contains("color-scheme: light dark;"));
         assert!(system.contains("--cronus-bg: light-dark(#fafafa, #000000);"));
         assert!(system.contains("fill=\"currentColor\""));
+    }
+
+    #[test]
+    fn landing_layout_has_no_google_fonts_or_create_modal() {
+        let html = render_layout_landing("A", "<p>x</p>", "dark", None);
+        assert!(!html.contains("fonts.googleapis"));
+        assert!(!html.contains("fonts.gstatic"));
+        assert!(!html.contains("chart.js"));
+        assert!(!html.contains("create-modal"));
+        assert!(!html.contains("cdn.tailwindcss.com"));
     }
 }

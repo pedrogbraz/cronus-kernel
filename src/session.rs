@@ -272,6 +272,52 @@ fn session_response(
     )
 }
 
+/// `application/x-www-form-urlencoded` → JSON object. `+` is space.
+pub(crate) fn json_from_urlencoded(body: &[u8]) -> Value {
+    let raw = String::from_utf8_lossy(body);
+    let mut map = serde_json::Map::new();
+    for pair in raw.split('&') {
+        if pair.is_empty() {
+            continue;
+        }
+        let mut parts = pair.splitn(2, '=');
+        let key = percent_decode(parts.next().unwrap_or(""));
+        let val = percent_decode(parts.next().unwrap_or(""));
+        if !key.is_empty() {
+            map.insert(key, json!(val));
+        }
+    }
+    Value::Object(map)
+}
+
+fn percent_decode(s: &str) -> String {
+    let s = s.replace('+', " ");
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let (Some(h), Some(l)) = (from_hex(bytes[i + 1]), from_hex(bytes[i + 2])) {
+                out.push((h << 4) | l);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+fn from_hex(b: u8) -> Option<u8> {
+    match b {
+        b'0'..=b'9' => Some(b - b'0'),
+        b'a'..=b'f' => Some(b - b'a' + 10),
+        b'A'..=b'F' => Some(b - b'A' + 10),
+        _ => None,
+    }
+}
+
 pub(crate) fn handle_auth(
     state: &AppState,
     method: &Method,
@@ -866,6 +912,13 @@ mod tests {
             set_cookie(&out).starts_with("cronus_token=; ")
                 && set_cookie(&out).contains("Max-Age=0")
         );
+    }
+
+    #[test]
+    fn json_from_urlencoded_decodes_plus_and_percent() {
+        let v = json_from_urlencoded(b"email=a%40b.test&password=fifteen-chars%21%21");
+        assert_eq!(v["email"], "a@b.test");
+        assert_eq!(v["password"], "fifteen-chars!!");
     }
 
     #[test]

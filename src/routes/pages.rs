@@ -3,6 +3,14 @@
 
 use super::*;
 
+fn query_error(query: &str) -> Option<String> {
+    crate::session::json_from_urlencoded(query.as_bytes())
+        .get("error")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .filter(|s| !s.is_empty())
+}
+
 pub(super) fn route(req: Request<Incoming>, ctx: &Ctx) -> Routed {
     let Ctx {
         state,
@@ -39,11 +47,13 @@ pub(super) fn route(req: Request<Incoming>, ctx: &Ctx) -> Routed {
     // ── Auto-generated auth pages (when auth block exists) ──
     if state.auth_entity.is_some() {
         if path == "/login" {
-            let html = generate_login_page(&state);
+            let err = query_error(query);
+            let html = generate_login_page(&state, err.as_deref());
             return Ok(html_response(html));
         }
         if path == "/register" || path == "/signup" {
-            let html = generate_register_page(&state);
+            let err = query_error(query);
+            let html = generate_register_page(&state, err.as_deref());
             return Ok(html_response(html));
         }
         if path == "/logout" {

@@ -529,27 +529,7 @@ pub fn tailwind_cdn_script() -> String {
     }
 }
 
-/// Generate font link tags
+/// Font `<link>` tags. Pages use `system-ui`; no Google Fonts CDN.
 pub fn font_links() -> String {
-    let t = get();
-    let mut fonts = std::collections::HashSet::new();
-    fonts.insert(t.font_headline.clone());
-    fonts.insert(t.font_body.clone());
-    fonts.insert(t.font_label.clone());
-
-    let mut links = String::new();
-    for font in &fonts {
-        if font.is_empty() {
-            continue;
-        }
-        let encoded = font.replace(' ', "+");
-        links.push_str(&format!(
-            r#"<link href="https://fonts.googleapis.com/css2?family={}:wght@100..900&display=swap" rel="stylesheet">"#,
-            encoded
-        ));
-        links.push('\n');
-    }
-    // Always include Material Symbols
-    links.push_str(r#"<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">"#);
-    links
+    String::new()
 }

@@ -73,7 +73,7 @@ pub(crate) fn html_response(body: String) -> Response<Full<Bytes>> {
         crate::DEBUG_MODE.load(Ordering::Relaxed),
         std::env::var("CRONUS_DEBUG").ok().as_deref(),
     );
-    if debug_active {
+    if debug_active && !final_body.contains("data-cronus-auth") {
         if let Some(pos) = final_body.rfind("</body>") {
             let debug_script = format!(
                 "<script{}>{}</script>\n",
@@ -122,6 +122,10 @@ pub(crate) fn debug_overlay_enabled(production: bool, flag: bool, env: Option<&s
 ///   `/api/sse`.
 /// - Dev: HMR stays and the SSE client is injected into every page, as before.
 fn apply_live_clients(mut body: String, production: bool, nonce_attr: &str) -> String {
+    // Native login/register documents must stay script-free.
+    if body.contains("data-cronus-auth") {
+        return body;
+    }
     if production {
         body = strip_hmr_client(body, nonce_attr);
     }

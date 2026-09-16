@@ -468,7 +468,14 @@ async fn protected_page_redirects_and_public_page_renders() {
     assert_eq!(dash_in.status, StatusCode::OK);
 
     // Auto auth pages exist because the app has an auth block.
-    assert_eq!(get(addr, "/login", &[]).await.status, StatusCode::OK);
+    let login_page = get(addr, "/login", &[]).await;
+    assert_eq!(login_page.status, StatusCode::OK);
+    assert!(login_page
+        .text
+        .contains(r#"<form method="post" action="/login">"#));
+    assert!(!login_page.text.contains("<script"));
+    assert!(!login_page.text.contains("localStorage"));
+    assert!(!login_page.text.contains("fonts.googleapis"));
     assert_eq!(get(addr, "/register", &[]).await.status, StatusCode::OK);
     let logout = get(addr, "/logout", &[]).await;
     assert_eq!(logout.status, StatusCode::FOUND);
@@ -481,6 +488,85 @@ async fn protected_page_redirects_and_public_page_renders() {
 
     // Built-in component catalog when no /components page is declared.
     assert_eq!(get(addr, "/components", &[]).await.status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn form_login_redirects_with_cookie_and_logout_form_clears_it() {
+    let _g = shared_globals();
+    let addr = spawn(app_state(SRC)).await;
+    let email = "form-login@example.test";
+    let password = "correct horse battery staple";
+    let origin = format!("http://{addr}");
+    let signup = post_json(
+        addr,
+        "/api/auth/signup",
+        &[],
+        json!({"name": "Ana", "email": email, "password": password}),
+    )
+    .await;
+    assert_eq!(signup.status, StatusCode::CREATED, "{}", signup.text);
+
+    let login = send(
+        addr,
+        Method::POST,
+        "/login",
+        &[
+            ("content-type", "application/x-www-form-urlencoded"),
+            ("origin", origin.as_str()),
+        ],
+        format!(
+            "email={}&password=correct+horse+battery+staple",
+            email.replace('@', "%40")
+        )
+        .into_bytes(),
+    )
+    .await;
+    assert_eq!(login.status, StatusCode::FOUND, "{}", login.text);
+    assert!(
+        login.header("set-cookie").starts_with("cronus_token="),
+        "{}",
+        login.header("set-cookie")
+    );
+    assert!(!login.header("location").is_empty());
+
+    let bad = send(
+        addr,
+        Method::POST,
+        "/login",
+        &[
+            ("content-type", "application/x-www-form-urlencoded"),
+            ("origin", origin.as_str()),
+        ],
+        b"email=nobody%40example.test&password=wrong-password-xx".to_vec(),
+    )
+    .await;
+    assert_eq!(bad.status, StatusCode::OK, "{}", bad.text);
+    assert!(bad.text.contains("role=\"alert\""), "{}", bad.text);
+
+    let cookie_pair = login
+        .header("set-cookie")
+        .split(';')
+        .next()
+        .unwrap()
+        .to_string();
+    let out = send(
+        addr,
+        Method::POST,
+        "/logout",
+        &[
+            ("origin", origin.as_str()),
+            ("cookie", cookie_pair.as_str()),
+        ],
+        Vec::new(),
+    )
+    .await;
+    assert_eq!(out.status, StatusCode::FOUND);
+    assert_eq!(out.header("location"), "/login");
+    assert!(
+        out.header("set-cookie").contains("Max-Age=0"),
+        "{}",
+        out.header("set-cookie")
+    );
 }
 
 #[tokio::test]
