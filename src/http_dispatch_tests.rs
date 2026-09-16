@@ -484,6 +484,51 @@ async fn protected_page_redirects_and_public_page_renders() {
 }
 
 #[tokio::test]
+async fn projects_new_is_the_form_not_a_detail_id() {
+    let _g = shared_globals();
+    let src = r#"
+app "S" { port 5175 }
+auth { entity User login email + password session jwt roles [member] }
+entity User { name string email email! password string! sensitive role string }
+entity Project { name string! }
+page "/projects/:id" type:detail entity:Project requires:auth {
+  section card {
+    item "Delete project" { on click { delete Project } }
+  }
+}
+page "/projects/new" type:custom requires:auth {
+  section form {
+    bind Project { query all }
+    field "name" type:text required
+    on submit { create Project }
+  }
+}
+"#;
+    let addr = spawn(app_state(src)).await;
+    let cookie = cookie("alice", "member");
+    let new = get(addr, "/projects/new", &[("cookie", &cookie)]).await;
+    assert_eq!(new.status, StatusCode::OK, "{}", new.text);
+    assert!(
+        new.text.contains("name") && (new.text.contains("<form") || new.text.contains("New")),
+        "expected create form, got detail: {}",
+        &new.text[new.text.find("<main").unwrap_or(0)..]
+            .chars()
+            .take(800)
+            .collect::<String>()
+    );
+    assert!(
+        !new.text.contains("Delete project"),
+        "/projects/new must not be /projects/:id with id=new"
+    );
+    let detail = get(addr, "/projects/abc", &[("cookie", &cookie)]).await;
+    assert_eq!(detail.status, StatusCode::OK, "{}", detail.text);
+    assert!(
+        detail.text.contains("Delete project"),
+        "parametric detail should still match"
+    );
+}
+
+#[tokio::test]
 async fn not_found_page_does_not_echo_the_path() {
     let _g = shared_globals();
     let addr = spawn(app_state(SRC)).await;

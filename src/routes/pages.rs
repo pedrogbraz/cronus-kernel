@@ -59,11 +59,17 @@ pub(super) fn route(req: Request<Incoming>, ctx: &Ctx) -> Routed {
 
     // ── Auth middleware — protect pages that require authentication ──
     // SECURITY: exact route-pattern match (`/orders/:id`), never prefix.
-    let matched_requires = state
-        .auth_required_pages
-        .iter()
-        .find(|(r, _)| access::route_pattern_matches(r, &path))
-        .map(|(_, req)| req.clone());
+    let matched_requires = access::best_matching_route(
+        state.auth_required_pages.iter().map(|(r, _)| r.as_str()),
+        &path,
+    )
+    .and_then(|route| {
+        state
+            .auth_required_pages
+            .iter()
+            .find(|(r, _)| r == route)
+            .map(|(_, req)| req.clone())
+    });
 
     if let Some(requires_str) = matched_requires {
         let token = req
@@ -125,11 +131,9 @@ pub(super) fn route(req: Request<Incoming>, ctx: &Ctx) -> Routed {
         }
     }
 
-    // Find matching page
-    let page = state
-        .pages
-        .iter()
-        .find(|p| access::route_pattern_matches(&p.route, &path));
+    // Find matching page (static `/projects/new` beats `/projects/:id`).
+    let page = access::best_matching_route(state.pages.iter().map(|p| p.route.as_str()), &path)
+        .and_then(|route| state.pages.iter().find(|p| p.route == route));
 
     if let Some(page) = page {
         // Extract route params from parameterized routes (e.g. /orders/:id/edit)

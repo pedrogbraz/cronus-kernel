@@ -403,7 +403,11 @@ pub async fn cmd_run(args: &[String]) {
     );
     println!();
     println!("  \x1b[90mApp:\x1b[0m       \x1b[1m{}\x1b[0m", app.name);
-    println!("  \x1b[90mPort:\x1b[0m      \x1b]8;;http://localhost:{}\x1b\\http://localhost:{}\x1b]8;;\x1b\\", serve_port, serve_port);
+    let listen_url = match policy.bind_ip {
+        std::net::IpAddr::V6(ip) => format!("http://[{ip}]:{serve_port}"),
+        std::net::IpAddr::V4(ip) => format!("http://{ip}:{serve_port}"),
+    };
+    println!("  \x1b[90mPort:\x1b[0m      \x1b]8;;{listen_url}\x1b\\{listen_url}\x1b]8;;\x1b\\");
     println!(
         "  \x1b[90mDatabase:\x1b[0m  ./{} ({} entities, {} rows)",
         db_path, table_count, total_rows

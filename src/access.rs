@@ -379,6 +379,27 @@ pub fn route_pattern_matches(pattern: &str, path: &str) -> bool {
             .all(|(p, r)| (p.starts_with(':') && !r.is_empty()) || p == r)
 }
 
+/// Among patterns that match `path`, pick the most specific: exact string
+/// first, then fewer `:params`, then more static segments. So `/projects/new`
+/// wins over `/projects/:id`.
+pub fn best_matching_route<'a, I>(patterns: I, path: &str) -> Option<&'a str>
+where
+    I: IntoIterator<Item = &'a str>,
+{
+    patterns
+        .into_iter()
+        .filter(|pattern| route_pattern_matches(pattern, path))
+        .min_by_key(|pattern| {
+            let exact = if *pattern == path { 0u8 } else { 1 };
+            let params = pattern.split('/').filter(|p| p.starts_with(':')).count();
+            let static_segs = pattern
+                .split('/')
+                .filter(|p| !p.is_empty() && !p.starts_with(':'))
+                .count();
+            (exact, params, usize::MAX - static_segs)
+        })
+}
+
 /// Whether an SSE `data_change` event may reach this viewer. Deleted rows of
 /// owner-scoped entities cannot be looked up anymore, so they only reach admins.
 pub fn can_see_event(
@@ -490,6 +511,21 @@ mod tests {
         assert!(route_pattern_matches("/orders/:id", "/orders/42"));
         assert!(!route_pattern_matches("/orders/:id", "/orders/42/edit"));
         assert!(!route_pattern_matches("/orders/:id", "/orders/"));
+    }
+
+    #[test]
+    fn route_patterns_prefer_static_over_param() {
+        let pages = ["/projects/:id", "/projects/new", "/dashboard"];
+        assert_eq!(
+            best_matching_route(pages, "/projects/new"),
+            Some("/projects/new")
+        );
+        assert_eq!(
+            best_matching_route(pages, "/projects/42"),
+            Some("/projects/:id")
+        );
+        assert_eq!(best_matching_route(pages, "/dashboard"), Some("/dashboard"));
+        assert_eq!(best_matching_route(pages, "/nope"), None);
     }
 
     #[test]

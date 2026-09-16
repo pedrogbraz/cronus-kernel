@@ -64,6 +64,20 @@ page "/dashboard" type:dashboard requires:auth {
   }
 }
 
+page "/projects/new" type:custom requires:auth {
+  section form {
+    title "New project"
+    bind Project { query all }
+    field "name" type:text required
+    field "description" type:textarea
+    on submit {
+      create Project
+      toast "Project created" success
+      navigate "/dashboard"
+    }
+  }
+}
+
 page "/projects/:id" type:detail entity:Project requires:auth {
   section page-header {
     title "Project"
@@ -77,20 +91,6 @@ page "/projects/:id" type:detail entity:Project requires:auth {
         toast "Project deleted" success
         navigate "/dashboard"
       }
-    }
-  }
-}
-
-page "/projects/new" type:custom requires:auth {
-  section form {
-    title "New project"
-    bind Project { query all }
-    field "name" type:text required
-    field "description" type:textarea
-    on submit {
-      create Project
-      toast "Project created" success
-      navigate "/dashboard"
     }
   }
 }

@@ -8,6 +8,10 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ## [Unreleased]
 
+### Fixed
+
+- **Static page routes beat `:param`.** `GET /projects/new` is the create form, not the detail page with `id = "new"`. `cronus run` prints `http://127.0.0.1:<port>` (the bind address), not `localhost`.
+
 ### Security
 
 - **`GET /logout` does not clear the session.** It 302s to `/login` without `Set-Cookie`. Sign-out is `POST /api/auth/logout` (the sidebar already POSTs).
