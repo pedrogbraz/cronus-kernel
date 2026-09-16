@@ -2,11 +2,13 @@
 
 Rules for AI agents changing the Rust kernel. `CLAUDE.md` is a symlink to this file.
 
+**Start here:** `.harness/SESSION.md` (paste this into new AI sessions; opening ritual + harness loop) → `.harness/CONTEXT.md` (what to read) → `.harness/project.json` (checks) → this file (kernel invariants). Use `harness check --tier quick` while building; delivery needs `harness check --tier full` plus review of the current commit. Do not invent `cargo test` flags: the helper in `scripts/harness/check.py` owns `--locked`, `--bin cronus`, worktree `CARGO_TARGET_DIR`, and one positional filter.
+
 - Writing a `.cronus` app (not the kernel)? Read `llms-full.txt` instead.
 - Language reference: `LANGUAGE.md`. Opt-in Voodoo.js runtime: `VOODOO.md`. Changes: `CHANGELOG.md`. Index: `docs/README.md`.
 - Numbers below carry a date or the command that produces them. If a claim is wrong, trust the code and fix this file.
 
-Last verified: 2026-09-15 (HEAD `1b465a2` + branch consolidation onto `main`).
+Last verified: 2026-09-16 (P0: CSRF XFH, prod playground, indexes, GraphQL write hooks, HMR reload).
 
 ## What it is
 
@@ -85,8 +87,8 @@ Security and data path (top-level `src/`):
 - **One authorization source.** Every surface asks `access.rs`. Owner scope goes in the SQL `WHERE` (never read-then-check). Non-admins get their own rows (`_owner_id`); `shared` entities are readable by anyone signed in; admins see all. Rows you may not see are `404`. `User`/auth-entity rows are self-only.
 - **Anonymous bound data** only via `bind X { scope:public }`, never for the auth entity. `requires:` matches exact route patterns.
 - **Fields.** Responses pass `authz::redact_sensitive`; writes pass `authz::writable_body` (no system, privileged or `sensitive` keys). Errors are `{"error":{"code","message"}}`, never DB text or paths.
-- **Sessions.** HttpOnly cookie only (no JS-readable token). CSRF gate for cookie-authenticated mutations. `JWT_SECRET` must be ≥ 32 bytes; key files are 0600.
-- **HTTP.** Binds `127.0.0.1` unless `--host`/`CRONUS_HOST`. `--prod`/`CRONUS_ENV=production` 404s internal routes (`/zeus`, `/api/_context`, `/docs*`, …). Body limit is 1 MiB. Rate limit keys on the socket peer.
+- **Sessions.** HttpOnly cookie only (no JS-readable token). CSRF gate for cookie-authenticated mutations (`Host` only; `X-Forwarded-Host` iff the peer is in `CRONUS_TRUSTED_PROXIES`). `JWT_SECRET` and existing `.cronus/jwt.key` / `.cronus/webhook.key` must be ≥ 32 bytes; generated key files are 0600.
+- **HTTP.** Binds `127.0.0.1` unless `--host`/`CRONUS_HOST`. `--prod`/`CRONUS_ENV=production` 404s internal routes (`/zeus`, `/api/_context`, `/docs*`, `GET /graphql` playground, `/.cronus/version`, …). Body limit is 1 MiB. Rate limit keys on the socket peer (`/api/*`, `POST /graphql`, `/_form`, `/_action`; stricter for login/signup and `/hooks`).
 - **CSP.** Nonces only on kernel-authored scripts (marked at generation), no `'unsafe-inline'`, exact CDN URLs. Never add a host-wide script source.
 - **Escaping.** Every DB/user value interpolated into HTML is escaped. URLs go through `cronus_ui_kit::safe_url`.
 - **Webhooks.** `http://` only; private targets blocked unless `CRONUS_WEBHOOK_ALLOW_PRIVATE=1`.
@@ -130,13 +132,14 @@ Deleted in Sprint 4 (2026-09-14): `src/server/router.rs`, `src/server/api.rs`, `
 - cronus-ui families have one table: `cronus_ui_widgets::FAMILY_TABLE`. `FAMILIES`, `PORTED_FAMILIES` and `cli::stub_renderer_gate::{dedicated_fn_name, renderer_kind}` derive from it. The only stubs are `meteors` (fx) and `sankey-chart` (chart).
 - `stub_renderer_gate::looks_like_interact_generic` is a fingerprint of the retired generic renderers, kept as a test oracle for dedicated output.
 
-## Known gaps (2026-09-15)
+## Known gaps (2026-09-16)
 
-- No tests: `src/ui/mod.rs`, `src/scripting/vm.rs`, `src/zeus.rs`, `src/hmr.rs`, `src/server/{docs,auth_pages}.rs`. Thin but present: `runtime_js.rs`, `ui/dashboard.rs`, `server/response.rs`, `render.rs`, `sse.rs`, `ui/layout.rs`.
+- No tests: `src/ui/mod.rs`, `src/scripting/vm.rs`, `src/zeus.rs`, `src/server/{docs,auth_pages}.rs`. Thin but present: `runtime_js.rs`, `ui/dashboard.rs`, `server/response.rs`, `render.rs`, `sse.rs`, `ui/layout.rs`. `hmr.rs` tests bump + entity reload.
 - The dispatcher is split into `src/routes/`; `http_dispatch_tests.rs` is its net. Add a case there when you add or reorder a route group.
 - Clippy has hundreds of non-correctness warnings; only `clippy::correctness` is enforced (CI).
 - Webhooks cannot deliver `https://` (no TLS client in dependencies).
-- GraphQL `update<Entity>` is generated. `app { graphql false }` unmounts `/graphql`. Query selection expands relations and reverses like `bind { expand }` (output types are entities; mutation inputs stay ids).
+- GraphQL `update<Entity>` is generated. Mutations share REST `after_write` (effects, webhooks, audit, SSE). `app { graphql false }` unmounts `/graphql`. `GET /graphql` playground is internal (404 in `--prod`). Query selection expands relations and reverses like `bind { expand }` (output types are entities; mutation inputs stay ids).
+- `index` / `searchable` create SQLite indexes; every table gets `idx_{table}__owner_id`. HMR re-parses and swaps live `AppState` then bumps `/.cronus/version`.
 - Page `type:form`/`detail`/`list` with sections render those sections. Table `query one` is one row.
 - Unknown field types are `TYPE_001`. Unknown `where` operators are `BIND_001` (no silent `eq`). `ends_with` and `in:[…]` are implemented. `bind { expand:tags }` loads related rows. `datetime` ≠ `date`. `file` stores `/_files/…` or a URL. Reverse: `jobs <- Job.client` (`REL_001` if invalid); undeclared still infers `orders`. Unknown field modifiers are `FIELD_004`. Hollow top-level blocks are `LANG_001` (`service`, `worker`, `middleware`, `deploy`, `test`, file-scope `on` — not `define`). `define` + page `use` splices sections. Unknown action verbs are `ACTION_001`. Multi-file composition is union+conflict (`COMPOSE_001` duplicate, `COMPOSE_002` missing import); `compose { use }` loads files; last-wins is gone.
 - `create`/`update` on `/_action` use AST field literals. Form `on submit { create X … }` writes through `/_form` only; the block supplies toast/navigate.
@@ -160,3 +163,30 @@ Deleted in Sprint 4 (2026-09-14): `src/server/router.rs`, `src/server/api.rs`, `
 Read first: `LANGUAGE.md`, `CHANGELOG.md` `[Unreleased]`, this file, `docs/MCP.md` if touching MCP. Catalog demo: `demos/cronus-ui-catalog` (`cronus run` binds `127.0.0.1`, not `localhost`; `/` and `/kit`).
 
 Do not cherry-pick the old wip branch. Do not put HTTP logic back into `main.rs` — new routes go in `src/routes/`. New family CSS goes in `src/cronus_ui_css/<family>.css` plus a `MANIFEST` line.
+
+<!-- dev-harness:begin -->
+## Desenvolvimento com o harness
+
+- Comece por `.harness/project.json` e pela tarefa em `docs/tasks/<id>/`.
+- Planejamento: pedido → análise → plano → revisão → validação → ajustes → entrega.
+- Código: contexto → plano → distribuição → construção → revisão → testes → entrega.
+- Execute `harness doctor` e confira o Git real antes de confiar em um resumo antigo.
+- Use uma worktree por tarefa e um executor de escrita por projeto. O harness serializa seus próprios comandos; isso não bloqueia editores externos.
+- Preserve alterações existentes. Código novo segue a arquitetura e as instruções específicas deste repositório.
+- Registre critérios de aceitação, revisão e validação no plano. Confirmações humanas seguem o escopo já autorizado; etapas não são pedidos automáticos de permissão.
+- Use os comandos reais configurados no projeto. `quick` é retorno parcial; entrega requer `full` e revisão da versão atual. Mudanças críticas exigem verificações adicionais.
+- Não reduza testes, gates ou critérios para obter resultado verde. Ausência de ferramenta e teste não executado são pendências.
+- Worktrees separam arquivos; serviços, dados e credenciais precisam de isolamento próprio. Até ele existir, serialize operações sobre recursos compartilhados.
+- Atualize `state.md` em marcos: estado, decisões, evidências, pendências e próximo passo. Carregue referências adicionais sob demanda.
+- `harness integrate` altera apenas a branch base local. Push, deploy e mudanças externas seguem a autorização da tarefa.
+- Consulte `harness --help` e a documentação do kit quando necessário. Regras do projeto e decisões explícitas do usuário continuam aplicáveis.
+<!-- dev-harness:end -->
+
+## Kernel overlay
+
+- Base local: `main`. Sem merge remoto nem push sem pedido explícito.
+- Contexto sob demanda: `.harness/SESSION.md` → `.harness/CONTEXT.md` → este arquivo → o arquivo que a tarefa nomeia. Não carregue `docs/archive/` nem `LANGUAGE.md` inteiro por padrão.
+- Checks: `quick` = fmt + clippy::correctness + testes do diff (`scripts/harness/check.py`). `full` = contrato da CI (inclui `--locked`, `no-default-features`, binário ≤ 12 MiB). `critical` (auth, cookies, SQL, webhooks, GraphQL, `/_files`) acrescenta o filtro de segurança.
+- Mudança de linguagem: `LANGUAGE.md` + `llms-full.txt` + `CHANGELOG.md` na mesma entrega. `cargo test context_grammar` e `mcp_error_codes` entram pelo helper quando esses arquivos mudam.
+- Não adicionar crates. Worktree: o helper força `CARGO_TARGET_DIR=$PWD/target`.
+- `cronus test` e `cronus audit visual` não são a CI do kernel.
