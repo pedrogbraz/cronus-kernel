@@ -99,17 +99,12 @@ mod tests {
         let sonner = crate::cronus_ui_sonner::render(&stub("sonner", "Saved"));
         assert!(sonner.contains("data-slot=\"toaster\""));
         assert_ne!(html, sonner);
-        let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
-            .unwrap();
-        assert!(fx.contains(FX_BOX));
-        assert_ne!(html, fx);
         reject_fx_and_sonner(&html);
         assert_eq!(dedicated_fn_name("toast"), Some("cronus_ui_toast::render"));
         assert_eq!(
             renderer_kind("toast"),
             RendererKind::Dedicated("cronus_ui_toast::render")
         );
-        assert_eq!(renderer_kind("meteors"), RendererKind::Stub("fx"));
     }
 
     #[test]

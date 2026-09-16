@@ -163,7 +163,6 @@ mod tests {
             renderer_kind("card-stack"),
             RendererKind::Dedicated("cronus_ui_card_stack::render")
         );
-        assert_eq!(renderer_kind("sankey-chart"), RendererKind::Stub("chart"));
     }
 
     #[test]

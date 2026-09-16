@@ -32,13 +32,16 @@ api /leads {
 }
 
 page "/" type:custom {
-  section kpi {
+  section metric {
     bind Lead { aggregate count scope:public }
-    item "Leads" value:bind icon:group
+    item "Leads"
   }
-  section table {
+  section bar-chart {
+    title "By status"
+    bind Lead { query all scope:public }
+  }
+  section data-table {
     title "Pipeline"
     bind Lead { query all order created_at desc limit 20 scope:public }
-    columns "Name, Email, Status"
   }
 }

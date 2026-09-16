@@ -28,6 +28,12 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 - **GraphQL mutations share the REST write pipeline.** create/update/delete fire webhooks, entity effects, `.scriptcronus`, the hash-chained audit trail, and SSE.
 - **HMR reloads the spec.** The watcher re-parses, migrates, swaps live `AppState` (shared DB/SSE/limiters), then bumps `/.cronus/version`. Parse/env failure keeps the previous spec and does not bump.
 
+### UI
+
+- **`meteors` and `sankey-chart` are dedicated zero-JS renderers.** No remaining family stubs.
+- **Chart families read bind rows** (`label`/`name`/`title` + `value`/`amount`/`count`) when `cronus_ui_data` has data.
+- **Templates:** landing form `scope:public`; saas detail page with `on click` delete; `cronus-ui.cronus` uses `metric`, `bar-chart`, `data-table`.
+
 ### Language (honesty)
 
 - **Duplicate fields are `FIELD_005`.** The first is kept; the second's span is reported.

@@ -238,10 +238,6 @@ mod tests {
         assert!(!html.contains("<section"));
         assert!(!html.contains(DISPLAY_SURF));
         reject_stub(&html);
-        let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
-            .unwrap();
-        assert!(fx.contains(FX_BOX));
-        assert_ne!(html, fx);
         assert_eq!(
             dedicated_fn_name("logo-carousel"),
             Some("cronus_ui_logo_carousel::render")
@@ -250,8 +246,6 @@ mod tests {
             renderer_kind("logo-carousel"),
             RendererKind::Dedicated("cronus_ui_logo_carousel::render")
         );
-        assert_eq!(renderer_kind("meteors"), RendererKind::Stub("fx"));
-        assert_eq!(renderer_kind("sankey-chart"), RendererKind::Stub("chart"));
     }
 
     #[test]

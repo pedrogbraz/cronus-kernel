@@ -128,10 +128,6 @@ mod tests {
         let c = stub("image-zoom", "Photo");
         let html = render(&c);
         assert_eq!(crate::cronus_ui_widgets::render(&c).unwrap(), html);
-        let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
-            .unwrap();
-        assert!(fx.contains(FX_BOX));
-        assert_ne!(html, fx);
         reject_fx(&html);
         assert_eq!(
             dedicated_fn_name("image-zoom"),
@@ -141,7 +137,6 @@ mod tests {
             renderer_kind("image-zoom"),
             RendererKind::Dedicated("cronus_ui_image_zoom::render")
         );
-        assert_eq!(renderer_kind("sankey-chart"), RendererKind::Stub("chart"));
     }
 
     #[test]

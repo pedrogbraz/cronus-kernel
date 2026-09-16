@@ -62,12 +62,6 @@ mod tests {
     #[test]
     fn skips_fx_surf_title_box() {
         let html = render(&stub("text-effect", "Ship faster"));
-        let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
-            .unwrap();
-        assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
-        assert!(fx.starts_with("<div data-slot=\"meteors\""));
-        assert_ne!(html, fx);
         reject_fx(&html);
     }
 

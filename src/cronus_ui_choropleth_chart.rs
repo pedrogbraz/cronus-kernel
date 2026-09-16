@@ -206,13 +206,7 @@ mod tests {
         let html = render(&stub("choropleth-chart", "Map"));
         assert!(!html.contains("<figure"));
         assert!(!html.contains("<figcaption"));
-        let area =
-            crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("sankey-chart"))
-                .unwrap();
-        assert!(area.contains("<figure"));
-        assert!(area.contains("data-slot=\"sankey-chart\""));
-        assert!(area.contains(STUB_POLYLINE));
-        assert_ne!(html, area);
+        reject_stub(&html);
     }
 
     #[test]

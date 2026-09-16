@@ -665,20 +665,25 @@ mod tests {
     }
 
     #[test]
-    fn sankey_chart_is_stub() {
-        assert_eq!(renderer_kind("sankey-chart"), RendererKind::Stub("chart"));
-        let err = check_family("sankey-chart").unwrap_err();
-        assert_eq!(err.code, STUB_RENDERER);
+    fn sankey_chart_is_dedicated() {
+        assert_eq!(
+            renderer_kind("sankey-chart"),
+            RendererKind::Dedicated("cronus_ui_sankey_chart::render")
+        );
+        assert!(check_family("sankey-chart").is_ok());
         let html = render(&stub("sankey-chart")).unwrap();
-        assert_eq!(looks_like_stub_fingerprint(&html), Some("chart"));
+        assert!(looks_like_stub_fingerprint(&html).is_none(), "{html}");
     }
 
     #[test]
-    fn meteors_is_stub_fx() {
-        assert_eq!(renderer_kind("meteors"), RendererKind::Stub("fx"));
-        assert!(check_family("meteors").is_err());
+    fn meteors_is_dedicated() {
+        assert_eq!(
+            renderer_kind("meteors"),
+            RendererKind::Dedicated("cronus_ui_meteors::render")
+        );
+        assert!(check_family("meteors").is_ok());
         let html = render(&stub("meteors")).unwrap();
-        assert_eq!(looks_like_stub_fingerprint(&html), Some("fx"));
+        assert!(looks_like_stub_fingerprint(&html).is_none(), "{html}");
     }
 
     #[test]

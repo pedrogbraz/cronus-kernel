@@ -520,9 +520,9 @@ The following section type strings are in the dispatcher match but **never reach
 
 ### 7.5 Bound data consumers
 
-Only **8 renderers** actually read `bound_data`: `form`, `chart`, `kpi`, `stat-cards` (dead arm), `timeline`, `progress`, `table`, `kanban`. Everything else ignores bindings even if declared.
+Eight canonical renderers read `bound_data` directly: `form`, `chart`, `kpi`, `stat-cards` (dead arm), `timeline`, `progress`, `table`, `kanban`. cronus-ui families in the same request read via `cronus_ui_data` (thread-local): `metric` (scalar), `data-table` / `table` (rows), cartesian charts (`bar-chart`, `line-chart`, `area-chart`, `pie-chart` — `label`/`name`/`title` + `value`/`amount`/`count`), and `sankey-chart` (`source`/`target`/`value`).
 
-However: the outer wrapper at `src/ui/mod.rs:762-781` adds `data-entity="..."` and `data-bound-rows="N"` HTML attributes to every section that declares a binding, so client-side code can still discover the relationship.
+The outer wrapper at `src/ui/mod.rs` adds `data-entity="..."` and `data-bound-rows="N"` HTML attributes to every section that declares a binding.
 
 ---
 
@@ -538,10 +538,11 @@ on submit {
 }
 
 on click confirm:"Delete this order?" {
-  delete Entity route.id
+  delete Entity
   refresh
 }
-# equivalent: on click { confirm "Delete this order?"  delete Entity route.id  refresh }
+# equivalent: on click { confirm "Delete this order?"  delete Entity  refresh }
+# `delete Entity route.id` is not a verb; the id comes from the bound row / route.
 ```
 
 ### 8.2 Supported verbs (verified in `src/actions.rs`)

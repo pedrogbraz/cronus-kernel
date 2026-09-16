@@ -105,12 +105,6 @@ mod tests {
         let html = render(&c);
         let via = crate::cronus_ui_widgets::render(&c).unwrap();
         assert_eq!(via, html);
-        let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
-            .unwrap();
-        assert!(fx.contains(FX_BOX));
-        assert!(fx.contains("<span>"));
-        assert!(fx.starts_with("<div data-slot=\"meteors\""));
-        assert_ne!(html, fx);
         assert!(!html.contains("<span"));
         reject_fx(&html);
         assert_eq!(
@@ -121,8 +115,6 @@ mod tests {
             renderer_kind("motion-presets"),
             RendererKind::Dedicated("cronus_ui_motion_presets::render")
         );
-        assert_eq!(renderer_kind("meteors"), RendererKind::Stub("fx"));
-        assert_eq!(renderer_kind("sankey-chart"), RendererKind::Stub("chart"));
     }
 
     #[test]

@@ -1,0 +1,10 @@
+[data-slot="sankey-chart"] {
+  width: var(--cui-sankey-chart-w, 100%);
+  color: var(--cronus-fg);
+}
+[data-slot="sankey-chart"] [data-slot="chart"] {
+  width: 100%; height: 16rem;
+}
+[data-slot="sankey-chart"] svg {
+  width: 100%; height: 100%; display: block;
+}

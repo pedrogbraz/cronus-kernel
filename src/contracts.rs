@@ -135,6 +135,7 @@ static CARD_CONTRACT: SectionContract = SectionContract {
         opt("action_icon"),
         opt("href"),
         opt("description"),
+        opt("on_click"),
     ],
     entity_binding: false,
     on_unknown_key: Fallback::Warn,
@@ -637,9 +638,12 @@ pub fn validate_section(section: &SectionNode, entity_fields: &[String]) -> Vec<
     let contract = match ContractRegistry::get(name) {
         Some(c) => c,
         None => {
-            // Unknown section — not in contracts and not an alias to one
-            // Only warn if it's also not a known alias that points to a section without a contract
-            if ContractRegistry::resolve_alias(name).is_none() {
+            // Unknown section — not in contracts and not an alias to one.
+            // cronus-ui families are valid section types (runtime dispatch in
+            // `ui::render_section_inner`); they have no SectionContract.
+            if ContractRegistry::resolve_alias(name).is_none()
+                && !crate::cronus_ui_widgets::FAMILIES.contains(&name)
+            {
                 warnings.push(ParseWarning::UnknownSection {
                     name: name.to_string(),
                     line: 0,

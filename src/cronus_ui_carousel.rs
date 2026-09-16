@@ -195,8 +195,6 @@ mod tests {
             renderer_kind("carousel"),
             RendererKind::Dedicated("cronus_ui_carousel::render")
         );
-        assert_eq!(renderer_kind("meteors"), RendererKind::Stub("fx"));
-        assert_eq!(renderer_kind("sankey-chart"), RendererKind::Stub("chart"));
     }
 
     #[test]

@@ -137,8 +137,6 @@ mod tests {
             renderer_kind("flip-card"),
             RendererKind::Dedicated("cronus_ui_flip_card::render")
         );
-        assert_eq!(renderer_kind("meteors"), RendererKind::Stub("fx"));
-        assert_eq!(renderer_kind("sankey-chart"), RendererKind::Stub("chart"));
     }
 
     #[test]

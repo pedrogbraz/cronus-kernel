@@ -64,6 +64,23 @@ page "/dashboard" type:dashboard requires:auth {
   }
 }
 
+page "/projects/:id" type:detail entity:Project requires:auth {
+  section page-header {
+    title "Project"
+  }
+  section card {
+    bind Project { query one }
+    item "Delete project" {
+      on click {
+        confirm "Delete this project?"
+        delete Project
+        toast "Project deleted" success
+        navigate "/dashboard"
+      }
+    }
+  }
+}
+
 page "/projects/new" type:custom requires:auth {
   section form {
     title "New project"

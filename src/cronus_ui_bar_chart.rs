@@ -2,8 +2,9 @@
 //! `<div data-slot="bar-chart" role="img" aria-label>`
 //!   `<div data-slot="chart"><svg viewBox="0 0 432 256">` dashed grid rows,
 //!   rounded bars (radius 4, barCategoryGap 10%, chart-1), x tick labels.
-//! Categories are the `text` lines; values cycle 4, 8, 6, 10, 7 unless
-//! numeric items are given. Tooltip/cursor need JS and are not emitted.
+//! Categories are bound rows (`label`/`name`/`title`), then `text` lines;
+//! values are numeric items, then bound `value`/`amount`/`count`, else the
+//! 4, 8, 6, 10, 7 cycle. Tooltip/cursor need JS and are not emitted.
 
 use crate::cronus_ui_chart::{
     band_xs, bars_svg, categories_or, container, max_of, nice_domain, value_grid, values_for,

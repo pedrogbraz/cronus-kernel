@@ -131,7 +131,7 @@ Changing any of the above is a breaking change: record it in `CHANGELOG.md` and 
 Deleted in Sprint 4 (2026-09-14): `src/server/router.rs`, `src/server/api.rs`, `CronusServer` and its private handlers in `src/server/mod.rs`, the duplicate `RateLimiter` in `src/security.rs` (the live one is `src/rate_limit.rs`), and `src/cronus_ui_interact.rs` (unreachable fallback).
 
 - The live HTTP path is `routes::serve` → `routes::handle_request` → `handle_request_inner` (route groups in `src/routes/`) → `api_crud::handle_api` / `actions` / `graphql` / `sse` / `ui`. `src/server/mod.rs` only declares its live submodules.
-- cronus-ui families have one table: `cronus_ui_widgets::FAMILY_TABLE`. `FAMILIES`, `PORTED_FAMILIES` and `cli::stub_renderer_gate::{dedicated_fn_name, renderer_kind}` derive from it. The only stubs are `meteors` (fx) and `sankey-chart` (chart).
+- cronus-ui families have one table: `cronus_ui_widgets::FAMILY_TABLE`. `FAMILIES`, `PORTED_FAMILIES` and `cli::stub_renderer_gate::{dedicated_fn_name, renderer_kind}` derive from it. Family stubs: none.
 - `stub_renderer_gate::looks_like_interact_generic` is a fingerprint of the retired generic renderers, kept as a test oracle for dedicated output.
 
 ## Known gaps (2026-09-16)
@@ -148,7 +148,7 @@ Deleted in Sprint 4 (2026-09-14): `src/server/router.rs`, `src/server/api.rs`, `
 - Unknown field types are `TYPE_001`. Unknown `where` operators are `BIND_001` (no silent `eq`). `ends_with` and `in:[…]` are implemented. `bind { expand:tags }` loads related rows. `datetime` ≠ `date`. `file` stores `/_files/…` or a URL. Reverse: `jobs <- Job.client` (`REL_001` if invalid); undeclared still infers `orders`. Unknown field modifiers are `FIELD_004`. Hollow top-level blocks are `LANG_001` (`service`, `worker`, `middleware`, `deploy`, `test`, file-scope `on` — not `define`). `define` + page `use` splices sections. Unknown action verbs are `ACTION_001`. Multi-file composition is union+conflict (`COMPOSE_001` duplicate, `COMPOSE_002` missing import); `compose { use }` loads files; last-wins is gone.
 - `create`/`update` on `/_action` use AST field literals. Form `on submit { create X … }` writes through `/_form` only; the block supplies toast/navigate.
 - `#[cfg(feature = "generated-contracts")]` references a feature that is not declared in `Cargo.toml` (compiler warning).
-- Family stubs: `meteors` (fx) and `sankey-chart` (chart). JS-only controls render `disabled`. Modal overlays (dialog, alert/confirm/invite, sheet, drawer) with a trigger are native `<dialog>` + `command="show-modal"` (focus trap, inert backdrop, Esc). Menus/comboboxes stay `popover="auto"`.
+- Family stubs: none. JS-only controls render `disabled`. Modal overlays (dialog, alert/confirm/invite, sheet, drawer) with a trigger are native `<dialog>` + `command="show-modal"` (focus trap, inert backdrop, Esc). Menus/comboboxes stay `popover="auto"`.
 
 ## Docs map
 

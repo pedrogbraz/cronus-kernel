@@ -130,7 +130,7 @@ pub const FAMILY_TABLE: &[(&str, Renderer)] = &[
     dedicated!("marquee", cronus_ui_marquee),
     dedicated!("masonry", cronus_ui_masonry),
     dedicated!("menubar", cronus_ui_menubar),
-    ("meteors", Renderer::Stub("fx", fx)),
+    dedicated!("meteors", cronus_ui_meteors),
     dedicated!("metric", cronus_ui_metric),
     dedicated!("mode-toggle", cronus_ui_mode_toggle),
     dedicated!("morphing-popover", cronus_ui_morphing_popover),
@@ -160,7 +160,7 @@ pub const FAMILY_TABLE: &[(&str, Renderer)] = &[
     dedicated!("rich-text-editor", cronus_ui_rich_text_editor),
     dedicated!("ring-chart", cronus_ui_ring_chart),
     dedicated!("ripple", cronus_ui_ripple),
-    ("sankey-chart", Renderer::Stub("chart", chart)),
+    dedicated!("sankey-chart", cronus_ui_sankey_chart),
     dedicated!("scatter-chart", cronus_ui_scatter_chart),
     dedicated!("scheduler", cronus_ui_scheduler),
     dedicated!("scramble-text", cronus_ui_scramble_text),
@@ -500,7 +500,7 @@ mod tests {
             .filter(|(_, r)| matches!(r, Renderer::Stub(..)))
             .map(|(f, _)| *f)
             .collect();
-        assert_eq!(stubs, ["meteors", "sankey-chart"]);
+        assert!(stubs.is_empty(), "unexpected stubs: {stubs:?}");
         assert_eq!(PORTED_FAMILIES.len(), FAMILIES.len() - stubs.len());
         for family in FAMILIES {
             assert_eq!(

@@ -119,8 +119,13 @@ pub fn item_labels(comp: &ComponentNode) -> Vec<String> {
         .collect()
 }
 
-/// Categories from the component, else `fallback`.
+/// Categories from bound rows, then the component, else `fallback`.
 pub fn categories_or(comp: &ComponentNode, fallback: &[&str]) -> Vec<String> {
+    if let Some((cats, _)) = bound_series() {
+        if !cats.is_empty() {
+            return cats;
+        }
+    }
     let cats = category_labels(comp);
     if cats.is_empty() {
         fallback.iter().map(|s| s.to_string()).collect()
@@ -129,13 +134,58 @@ pub fn categories_or(comp: &ComponentNode, fallback: &[&str]) -> Vec<String> {
     }
 }
 
-/// Numeric items when present, else `cycle` repeated to `n` values.
+/// Numeric items when present, else bound values, else `cycle` repeated to `n`.
 pub fn values_for(comp: &ComponentNode, n: usize, cycle: &[f64]) -> Vec<f64> {
     let nums = numeric_items(comp);
     if !nums.is_empty() {
         return nums;
     }
+    if let Some((_, vals)) = bound_series() {
+        if !vals.is_empty() {
+            return vals;
+        }
+    }
     (0..n).map(|i| cycle[i % cycle.len()]).collect()
+}
+
+fn bound_series() -> Option<(Vec<String>, Vec<f64>)> {
+    let rows = crate::cronus_ui_data::rows();
+    if rows.is_empty() {
+        return None;
+    }
+    let mut cats = Vec::new();
+    let mut vals = Vec::new();
+    for row in rows {
+        let label = row
+            .get("label")
+            .or_else(|| row.get("name"))
+            .or_else(|| row.get("title"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let val = row
+            .get("value")
+            .or_else(|| row.get("amount"))
+            .or_else(|| row.get("count"))
+            .and_then(|v| {
+                v.as_f64()
+                    .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+            });
+        let Some(val) = val else {
+            continue;
+        };
+        cats.push(if label.is_empty() {
+            format!("{}", cats.len() + 1)
+        } else {
+            label
+        });
+        vals.push(val);
+    }
+    if vals.is_empty() {
+        None
+    } else {
+        Some((cats, vals))
+    }
 }
 
 // ── ticks ─────────────────────────────────────────────────────────
@@ -751,10 +801,6 @@ mod tests {
     fn skips_chart_figure_stub() {
         let html = render(&stub("chart", "Revenue"));
         reject_stub(&html);
-        let sankey =
-            crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("sankey-chart"))
-                .unwrap();
-        assert!(sankey.contains("<figure"));
         let via = crate::cronus_ui_widgets::render(&stub("chart", "Revenue")).unwrap();
         assert_eq!(via, html);
         assert_eq!(dedicated_fn_name("chart"), Some("cronus_ui_chart::render"));
@@ -762,8 +808,26 @@ mod tests {
             renderer_kind("chart"),
             RendererKind::Dedicated("cronus_ui_chart::render")
         );
-        assert_eq!(renderer_kind("meteors"), RendererKind::Stub("fx"));
-        assert_eq!(renderer_kind("sankey-chart"), RendererKind::Stub("chart"));
+    }
+
+    #[test]
+    fn bound_rows_drive_categories_and_values() {
+        use crate::binding::ResolvedData;
+        let c = stub("bar-chart", "By status");
+        crate::cronus_ui_data::with_binding(
+            "Lead",
+            &ResolvedData::Rows(vec![
+                serde_json::json!({"name": "new", "value": 4}),
+                serde_json::json!({"name": "won", "value": 8}),
+            ]),
+            || {
+                assert_eq!(
+                    categories_or(&c, &["X"]),
+                    vec!["new".to_string(), "won".to_string()]
+                );
+                assert_eq!(values_for(&c, 2, &DEMO_VALUES), vec![4.0, 8.0]);
+            },
+        );
     }
 
     #[test]

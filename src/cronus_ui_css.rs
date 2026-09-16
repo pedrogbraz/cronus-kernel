@@ -68,13 +68,13 @@ const FILES: &[(&str, &str)] = css_files![
     "highlighter", "hover-card", "image-zoom", "input", "input-group", "input-otp",
     "invite-dialog", "json-viewer", "kanban", "kbd", "label", "light-rays", "lightbox",
     "line-chart", "live-line-chart", "loader", "logo-carousel", "magnetic", "marquee", "masonry",
-    "menubar", "metric", "mode-toggle", "morphing-popover", "motion-presets", "multi-select",
+    "menubar", "meteors", "metric", "mode-toggle", "morphing-popover", "motion-presets", "multi-select",
     "navigation-menu", "noise", "notification-center", "number-flow", "number-input", "orbit",
     "pagination",
     "particles", "password-input", "phone-input", "pie-chart", "pill-nav", "popover",
     "profit-loss-chart", "progress", "progressive-blur", "radar-chart", "radio-group", "rating",
     "resizable", "retro-grid", "reveal", "rich-text-editor", "ring-chart", "ripple",
-    "scatter-chart", "scheduler", "scramble-text", "scroll-area", "scroll-nav", "scroll-progress",
+    "sankey-chart", "scatter-chart", "scheduler", "scramble-text", "scroll-area", "scroll-nav", "scroll-progress",
     "segmented-control", "select", "separator", "shared", "sheet", "shimmer", "shiny-text",
     "sidebar", "signature-pad", "skeleton", "slide-up-text", "slider", "sparkles-text",
     "sparkline", "spinner",
@@ -925,7 +925,7 @@ mod tests {
                 let slot = &rest[..end];
                 let emitted = sources.contains(&format!("data-slot=\\\"{slot}\\\""))
                     || sources.contains(&format!("data-slot=\"{slot}\""))
-                    // meteors/sankey-chart stubs emit `data-slot=\"{family}\"`.
+                    // Family renderers emit `data-slot=\"{family}\"`.
                     || crate::cronus_ui_widgets::FAMILIES.contains(&slot);
                 if !emitted {
                     missing.insert(slot.to_string());

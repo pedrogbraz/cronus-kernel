@@ -314,7 +314,7 @@ page "/audit/button/primary-md" type:custom {
     }
 
     #[test]
-    fn all_fails_stub_chart() {
+    fn all_passes_dedicated_sankey_chart() {
         let path = temp_path("cronus-audit-chart.cronus");
         std::fs::write(
             &path,
@@ -333,7 +333,7 @@ component Revenue layout:stack style:sankey-chart {
             "--source".into(),
             path.to_string_lossy().into(),
         ];
-        assert_eq!(run_audit_command(&args), 1);
+        assert_eq!(run_audit_command(&args), 0);
         let _ = std::fs::remove_file(path);
     }
 }

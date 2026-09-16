@@ -186,11 +186,6 @@ mod tests {
     #[test]
     fn skips_chart_figure_stub() {
         let html = render(&stub("heatmap", "Activity"));
-        let area =
-            crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("sankey-chart"))
-                .unwrap();
-        assert!(area.contains("<figure"));
-        assert_ne!(html, area);
         reject_stub(&html);
     }
 

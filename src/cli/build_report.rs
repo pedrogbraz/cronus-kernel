@@ -1056,6 +1056,19 @@ mod tests {
     }
 
     #[test]
+    fn family_section_types_are_not_contract_001() {
+        let src = "page \"/\" {\n  section metric { item \"Leads\" }\n  section bar-chart { }\n  section data-table { }\n}\n";
+        let j = report(src, true).to_json();
+        let unknown: Vec<_> = j["errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|e| e["code"] == "CONTRACT_001")
+            .collect();
+        assert!(unknown.is_empty(), "{j}");
+    }
+
+    #[test]
     fn contract_violations_are_warnings_outside_strict_profile() {
         let src = "page \"/\" {\n  section tabel { }\n}\n";
         let r = report(src, false);

@@ -224,8 +224,6 @@ mod tests {
             dedicated_fn_name("code-tabs"),
             Some("cronus_ui_code_tabs::render")
         );
-        assert_eq!(renderer_kind("meteors"), RendererKind::Stub("fx"));
-        assert_eq!(renderer_kind("sankey-chart"), RendererKind::Stub("chart"));
     }
 
     #[test]

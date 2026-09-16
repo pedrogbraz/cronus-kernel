@@ -107,9 +107,6 @@ mod tests {
         let c = stub("dynamic-island", "Now playing");
         let html = render(&c);
         assert_eq!(crate::cronus_ui_widgets::render(&c).unwrap(), html);
-        let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
-            .unwrap();
-        assert_ne!(html, fx);
         reject_fx(&html);
         assert_eq!(
             dedicated_fn_name("dynamic-island"),

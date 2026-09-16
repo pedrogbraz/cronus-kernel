@@ -119,16 +119,7 @@ mod tests {
     #[test]
     fn skips_fx_surf_title_box() {
         let html = render(&stub("animated-list", "Alpha"));
-        let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
-            .unwrap();
-        assert!(fx.contains(FX_BOX));
-        assert!(fx.starts_with("<div data-slot=\"meteors\""));
-        assert_ne!(html, fx);
         reject_fx(&html);
-        assert_eq!(
-            crate::cli::stub_renderer_gate::renderer_kind("meteors"),
-            crate::cli::stub_renderer_gate::RendererKind::Stub("fx")
-        );
     }
 
     #[test]

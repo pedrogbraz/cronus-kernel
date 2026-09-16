@@ -64,11 +64,6 @@ mod tests {
         let html = render(&c);
         let via = crate::cronus_ui_widgets::render(&c).unwrap();
         assert_eq!(via, html);
-        let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
-            .unwrap();
-        assert!(fx.contains(FX_BOX));
-        assert!(fx.starts_with("<div data-slot=\"meteors\""));
-        assert_ne!(html, fx);
         reject_fx(&html);
         assert_eq!(
             dedicated_fn_name("animated-button"),
@@ -78,7 +73,6 @@ mod tests {
             renderer_kind("animated-button"),
             RendererKind::Dedicated("cronus_ui_animated_button::render")
         );
-        assert_eq!(renderer_kind("meteors"), RendererKind::Stub("fx"));
     }
 
     #[test]

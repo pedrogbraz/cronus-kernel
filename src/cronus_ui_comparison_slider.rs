@@ -125,10 +125,6 @@ mod tests {
     #[test]
     fn skips_fx_surf_title_box() {
         let html = render(&stub("comparison-slider", "Before"));
-        let fx = crate::cronus_ui_widgets::render(&crate::cronus_ui_widgets::test_stub("meteors"))
-            .unwrap();
-        assert!(fx.contains("padding:0.75rem 1rem;position:relative;overflow:hidden"));
-        assert_ne!(html, fx);
         reject_fx(&html);
     }
 
