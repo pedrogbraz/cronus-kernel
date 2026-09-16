@@ -10,6 +10,9 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ### Security
 
+- **`GET /_files/*` needs a session and a visible row.** Anonymous is 401. A signed-in user who cannot see a `file` field holding that path gets 404. Responses set `X-Content-Type-Options: nosniff`.
+- **Inbound `POST /hooks/*` requires HMAC.** Same `X-Cronus-Timestamp` / `X-Cronus-Signature` contract as outbound, skew 300s. Missing or bad signature is 401; unknown path after a valid signature is 404.
+- **Role is read from the User row.** A JWT `role` is overridden when the accounts table has that `id`. Demotion and promotion take effect without waiting for the token to expire.
 - **CSRF ignores client `X-Forwarded-Host`.** Expected Origin is `Host`. `X-Forwarded-Host` is used only when `CRONUS_TRUSTED_PROXIES` is set and the socket peer is in that list.
 - **`--prod` 404s the GraphQL playground.** `GET /graphql` (and `/.cronus/version`) are internal routes. `POST /graphql` still requires a session.
 - **Rate limits cover GraphQL POST, `/_form`, `/_action`, and `/hooks`.** Login/signup and inbound hooks use the stricter auth limiter. Pages stay unlimited.

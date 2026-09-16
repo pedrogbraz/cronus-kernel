@@ -323,6 +323,64 @@ pub fn signature(secret: &str, timestamp: u64, body: &str) -> String {
     format!("sha256={}", hex::encode(mac))
 }
 
+/// Inbound `/hooks` must present a timestamp within this skew.
+pub const INBOUND_MAX_SKEW_SECS: u64 = 300;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InboundAuth {
+    Missing,
+    Invalid,
+    Expired,
+}
+
+fn mac_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut acc = 0u8;
+    for (x, y) in a.iter().zip(b.iter()) {
+        acc |= x ^ y;
+    }
+    acc == 0
+}
+
+/// Verify `X-Cronus-Timestamp` + `X-Cronus-Signature` against `body`.
+/// `now` is unix seconds (injectable for tests).
+pub fn verify_inbound(
+    secret: &str,
+    timestamp: Option<&str>,
+    signature: Option<&str>,
+    body: &[u8],
+    now: u64,
+) -> Result<(), InboundAuth> {
+    let ts_raw = timestamp.map(str::trim).filter(|s| !s.is_empty());
+    let sig_raw = signature.map(str::trim).filter(|s| !s.is_empty());
+    let (Some(ts_raw), Some(sig_raw)) = (ts_raw, sig_raw) else {
+        return Err(InboundAuth::Missing);
+    };
+    let ts: u64 = ts_raw.parse().map_err(|_| InboundAuth::Invalid)?;
+    let age = now.abs_diff(ts);
+    if age > INBOUND_MAX_SKEW_SECS {
+        return Err(InboundAuth::Expired);
+    }
+    let hex = sig_raw
+        .strip_prefix("sha256=")
+        .ok_or(InboundAuth::Invalid)?;
+    let got = hex::decode(hex).map_err(|_| InboundAuth::Invalid)?;
+    let expect = hmac_sha256(
+        secret.as_bytes(),
+        format!("{ts}.{}", String::from_utf8_lossy(body)).as_bytes(),
+    );
+    if !mac_eq(&got, &expect) {
+        return Err(InboundAuth::Invalid);
+    }
+    Ok(())
+}
+
+pub(crate) fn inbound_secret() -> Result<String, WebhookError> {
+    signing_secret()
+}
+
 /// The row as it may leave the server: `sensitive` fields and password
 /// columns removed. Unknown entity → password columns still removed.
 pub fn redacted_body(entities: &[EntityNode], entity: &str, payload: &Value) -> String {
@@ -717,6 +775,39 @@ mod tests {
     }
 
     // ── signing + redaction ──
+
+    #[test]
+    fn inbound_hmac_accepts_fresh_signature_and_rejects_the_rest() {
+        let secret = "k".repeat(32);
+        let body = b"{\"ok\":true}";
+        let now = 1_700_000_000;
+        let sig = signature(&secret, now, std::str::from_utf8(body).unwrap());
+        assert!(verify_inbound(&secret, Some(&now.to_string()), Some(&sig), body, now).is_ok());
+        assert_eq!(
+            verify_inbound(&secret, None, Some(&sig), body, now),
+            Err(InboundAuth::Missing)
+        );
+        assert_eq!(
+            verify_inbound(
+                &secret,
+                Some(&now.to_string()),
+                Some("sha256=00"),
+                body,
+                now
+            ),
+            Err(InboundAuth::Invalid)
+        );
+        assert_eq!(
+            verify_inbound(
+                &secret,
+                Some(&now.to_string()),
+                Some(&sig),
+                body,
+                now + INBOUND_MAX_SKEW_SECS + 1
+            ),
+            Err(InboundAuth::Expired)
+        );
+    }
 
     #[test]
     fn hmac_sha256_matches_rfc4231() {

@@ -91,7 +91,9 @@ Security and data path (top-level `src/`):
 - **HTTP.** Binds `127.0.0.1` unless `--host`/`CRONUS_HOST`. `--prod`/`CRONUS_ENV=production` 404s internal routes (`/zeus`, `/api/_context`, `/docs*`, `GET /graphql` playground, `/.cronus/version`, …). Body limit is 1 MiB. Rate limit keys on the socket peer (`/api/*`, `POST /graphql`, `/_form`, `/_action`; stricter for login/signup and `/hooks`).
 - **CSP.** Nonces only on kernel-authored scripts (marked at generation), no `'unsafe-inline'`, exact CDN URLs. Never add a host-wide script source.
 - **Escaping.** Every DB/user value interpolated into HTML is escaped. URLs go through `cronus_ui_kit::safe_url`.
-- **Webhooks.** `http://` only; private targets blocked unless `CRONUS_WEBHOOK_ALLOW_PRIVATE=1`.
+- **Webhooks.** `http://` only; private targets blocked unless `CRONUS_WEBHOOK_ALLOW_PRIVATE=1`. Inbound `POST /hooks/*` requires the same HMAC as outbound (`X-Cronus-Timestamp` + `X-Cronus-Signature`, 300s skew).
+- **Files.** `GET /_files/*` requires a session and a visible row whose `file` field stores that path. `nosniff` on the response.
+- **Role.** After JWT verify, `Access` copies `role` from the auth-entity row when it exists (stale JWT admin is not admin after demotion).
 
 Changing any of the above is a breaking change: record it in `CHANGELOG.md` and add an HTTP-level test.
 

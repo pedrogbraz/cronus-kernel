@@ -58,6 +58,35 @@ impl Access {
         }
     }
 
+    /// Like [`from_headers`], then replace `role` with the auth-entity row
+    /// when that row exists (JWT role is otherwise kept).
+    pub fn from_state(headers: &hyper::HeaderMap, state: &crate::server::state::AppState) -> Self {
+        Self::from_headers(headers, state.auth_entity.clone()).with_live_role(&state.db)
+    }
+
+    /// If the accounts table has this `id`, use its `role`. A missing row
+    /// keeps the JWT (tests mint tokens without inserting users). A present
+    /// empty `role` also keeps the JWT.
+    pub fn with_live_role(mut self, db: &CronusDB) -> Self {
+        let table = self.auth_entity_name().to_string();
+        let Some(viewer) = self.viewer.as_mut() else {
+            return self;
+        };
+        let id = viewer.id.clone();
+        let filters = [crate::database::SqlFilter::one("id", "=", id)];
+        if let Ok(Some(row)) = db.find_one(&table, &filters, None, None) {
+            if let Some(role) = row
+                .get("role")
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                viewer.role = role.to_string();
+            }
+        }
+        self
+    }
+
     /// Accounts table: the `auth { entity X }` entity, plus `User`/`Users`
     /// which are always treated as accounts.
     pub fn is_auth_entity(&self, entity: &str) -> bool {
@@ -470,6 +499,37 @@ mod tests {
         assert_eq!(token_from_headers(&h).as_deref(), Some("cookie-tok"));
         h.insert("authorization", "Bearer bearer-tok".parse().unwrap());
         assert_eq!(token_from_headers(&h).as_deref(), Some("bearer-tok"));
+    }
+
+    #[test]
+    fn live_role_overrides_jwt_when_row_exists() {
+        let ents = entities();
+        let db = db(&ents);
+        let row = db
+            .insert(
+                "User",
+                &serde_json::json!({"email": "a@b.co", "role": "user", "password": "x"}),
+            )
+            .unwrap();
+        let id = row["id"].as_str().unwrap();
+        let access = Access {
+            viewer: Some(Viewer {
+                id: id.into(),
+                role: "admin".into(),
+            }),
+            auth_entity: Some("User".into()),
+        }
+        .with_live_role(&db);
+        assert_eq!(access.viewer.as_ref().unwrap().role, "user");
+        let missing = Access {
+            viewer: Some(Viewer {
+                id: "no-such".into(),
+                role: "admin".into(),
+            }),
+            auth_entity: Some("User".into()),
+        }
+        .with_live_role(&db);
+        assert_eq!(missing.viewer.as_ref().unwrap().role, "admin");
     }
 
     #[test]

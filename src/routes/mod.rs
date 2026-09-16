@@ -102,7 +102,7 @@ pub(crate) async fn serve(
     }
     if req.uri().path() == "/api/sse" && req.method() == Method::GET {
         // SECURITY: session required; events filtered per viewer.
-        let sse_access = access::Access::from_headers(req.headers(), state.auth_entity.clone());
+        let sse_access = access::Access::from_state(req.headers(), state.as_ref());
         let Some(is_admin) = sse_access.viewer.as_ref().map(|v| v.is_admin()) else {
             let resp = json_response(
                 StatusCode::UNAUTHORIZED,
@@ -156,8 +156,14 @@ async fn handle_request(
         return Ok(cli::audit_http::audit_not_found());
     }
 
+    let access = access::Access::from_state(req.headers(), &state);
     // Internal/diagnostic routes: 404 in production, admin unless loopback dev.
-    if let Some(resp) = http_guard::guard_internal(req.method(), &req_path_str, req.headers()) {
+    if let Some(resp) = http_guard::guard_internal(
+        req.method(),
+        &req_path_str,
+        req.headers(),
+        access.viewer.as_ref().map(|v| v.role.as_str()),
+    ) {
         return Ok(resp);
     }
 

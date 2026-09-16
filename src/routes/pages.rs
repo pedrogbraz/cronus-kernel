@@ -222,7 +222,7 @@ pub(super) fn route(req: Request<Incoming>, ctx: &Ctx) -> Routed {
             .unwrap_or("dark");
 
         // SECURITY: viewer for SSR bindings (owner scope, auth.* refs, redaction).
-        let page_access = access::Access::from_headers(req.headers(), state.auth_entity.clone());
+        let page_access = access::Access::from_state(req.headers(), state.as_ref());
 
         // Check if page has inline sidebar/topbar sections (not components)
         let has_section_sidebar = page.sections.iter().any(|s| s.section_type == "sidebar");

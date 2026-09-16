@@ -480,17 +480,21 @@ pub fn request_role(headers: &HeaderMap) -> Option<String> {
 }
 
 /// Returns a response when the route must not be served to this request.
+/// `live_role` is the accounts-table role when the caller already resolved
+/// one; otherwise the JWT/`cronus_token` role is used.
 pub fn guard_internal(
     method: &Method,
     path: &str,
     headers: &HeaderMap,
+    live_role: Option<&str>,
 ) -> Option<Response<Full<Bytes>>> {
     let class = classify(method, path);
     if class == RouteClass::Public {
         return None;
     }
-    let role = request_role(headers);
-    match gate(class, policy(), role.as_deref()) {
+    let jwt_role = request_role(headers);
+    let role = live_role.or(jwt_role.as_deref());
+    match gate(class, policy(), role) {
         Gate::Allow => None,
         Gate::NotFound => Some(not_found()),
         Gate::Unauthorized => Some(json(

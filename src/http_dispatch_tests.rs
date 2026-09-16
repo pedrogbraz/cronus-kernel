@@ -683,12 +683,101 @@ async fn audit_canvas_is_exclusive() {
 }
 
 #[tokio::test]
-async fn unmatched_webhook_path_falls_through_to_404() {
-    let _g = shared_globals();
+async fn unmatched_webhook_path_requires_hmac_then_404() {
+    let _g = exclusive_globals();
+    let secret = "w".repeat(32);
+    std::env::set_var("CRONUS_WEBHOOK_SECRET", &secret);
     let addr = spawn(app_state(SRC)).await;
-    let hook = post_json(addr, "/hooks/unknown", &[], json!({})).await;
-    assert_eq!(hook.status, StatusCode::NOT_FOUND);
-    let resp = get(addr, "/about", &[]).await;
-    assert!(!resp.header("x-request-id").is_empty());
-    assert!(resp.header("x-response-time").ends_with("ms"));
+    let body = json!({});
+    let unsigned = post_json(addr, "/hooks/unknown", &[], body.clone()).await;
+    assert_eq!(unsigned.status, StatusCode::UNAUTHORIZED);
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        .to_string();
+    let raw = body.to_string();
+    let sig = crate::webhook::signature(&secret, ts.parse().unwrap(), &raw);
+    let signed = post_json(
+        addr,
+        "/hooks/unknown",
+        &[
+            ("x-cronus-timestamp", ts.as_str()),
+            ("x-cronus-signature", sig.as_str()),
+        ],
+        body,
+    )
+    .await;
+    assert_eq!(signed.status, StatusCode::NOT_FOUND);
+    std::env::remove_var("CRONUS_WEBHOOK_SECRET");
+}
+
+#[tokio::test]
+async fn files_require_session_and_a_visible_row() {
+    let _g = shared_globals();
+    let mut state = app_state(
+        r#"app "F" { port 5175 }
+auth { entity User login email + password session jwt roles [admin, user] }
+entity User { email email! role string password string sensitive }
+entity Doc { title string! avatar file }
+"#,
+    );
+    let tmp = std::env::temp_dir().join(format!(
+        "cronus-http-files-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(tmp.join("files")).unwrap();
+    let name = "ab12.png";
+    std::fs::write(tmp.join("files").join(name), [0x89, b'P', b'N', b'G']).unwrap();
+    state.db_path = tmp.join("data.db").to_string_lossy().into_owned();
+    state
+        .db
+        .insert(
+            "Doc",
+            &json!({"title": "t", "avatar": format!("/_files/{name}"), "_owner_id": "alice"}),
+        )
+        .unwrap();
+    let addr = spawn(state).await;
+    let path = format!("/_files/{name}");
+    assert_eq!(get(addr, &path, &[]).await.status, StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        get(addr, &path, &[("authorization", &bearer("bob", "user"))])
+            .await
+            .status,
+        StatusCode::NOT_FOUND
+    );
+    let ok = get(addr, &path, &[("authorization", &bearer("alice", "user"))]).await;
+    assert_eq!(ok.status, StatusCode::OK, "{}", ok.text);
+    assert_eq!(ok.header("x-content-type-options"), "nosniff");
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[tokio::test]
+async fn live_role_from_user_row_beats_stale_jwt() {
+    let _g = shared_globals();
+    let state = app_state(SRC);
+    let db = state.db.clone();
+    let row = db
+        .insert(
+            "User",
+            &json!({"email": "a@b.co", "role": "user", "password": "x"}),
+        )
+        .unwrap();
+    let id = row["id"].as_str().unwrap().to_string();
+    let addr = spawn(state).await;
+    let stale_admin = bearer(&id, "admin");
+    let trail = get(addr, "/api/audit/trail", &[("authorization", &stale_admin)]).await;
+    assert_eq!(trail.status, StatusCode::FORBIDDEN, "{}", trail.text);
+    db.update("User", &id, &json!({"role": "admin"})).unwrap();
+    let promoted = get(
+        addr,
+        "/api/audit/trail",
+        &[("authorization", &bearer(&id, "user"))],
+    )
+    .await;
+    assert_eq!(promoted.status, StatusCode::OK, "{}", promoted.text);
 }

@@ -14,7 +14,7 @@ pub(super) async fn route(req: Request<Incoming>, ctx: &Ctx, start: std::time::I
     // API routes: /api/...
     if path.starts_with("/api/") {
         // SECURITY: read the session BEFORE consuming the request body.
-        let api_access = access::Access::from_headers(req.headers(), state.auth_entity.clone());
+        let api_access = access::Access::from_state(req.headers(), state.as_ref());
 
         let body_bytes = match http_guard::read_body(req).await {
             Ok(b) => b,

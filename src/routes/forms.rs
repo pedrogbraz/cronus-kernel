@@ -15,7 +15,7 @@ pub(super) async fn route(req: Request<Incoming>, ctx: &Ctx) -> Routed {
     if method == Method::POST && path.starts_with("/_action/") {
         // SECURITY: session required; only AST-declared actions run (by
         // `action_id`), with the server's own instructions, owner-scoped.
-        let action_access = access::Access::from_headers(req.headers(), state.auth_entity.clone());
+        let action_access = access::Access::from_state(req.headers(), state.as_ref());
         let body_bytes = match http_guard::read_body(req).await {
             Ok(b) => b,
             Err(r) => return Ok(r),
@@ -30,7 +30,7 @@ pub(super) async fn route(req: Request<Incoming>, ctx: &Ctx) -> Routed {
     if (method == Method::POST || method == Method::PATCH) && path.starts_with("/_form/") {
         // SECURITY: declared form section, session/owner rules from access.rs,
         // body filtered by authz::writable_body (see actions::handle_form).
-        let form_access = access::Access::from_headers(req.headers(), state.auth_entity.clone());
+        let form_access = access::Access::from_state(req.headers(), state.as_ref());
         let body_bytes = match http_guard::read_body(req).await {
             Ok(b) => b,
             Err(r) => return Ok(r),

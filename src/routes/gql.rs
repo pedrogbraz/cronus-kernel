@@ -25,7 +25,7 @@ pub(super) async fn route(req: Request<Incoming>, ctx: &Ctx) -> Routed {
     }
     if path == "/graphql" && method == Method::POST {
         // SECURITY: GraphQL requires a session; owner scope/redaction in graphql.rs.
-        let gql_access = access::Access::from_headers(req.headers(), state.auth_entity.clone());
+        let gql_access = access::Access::from_state(req.headers(), state.as_ref());
         if gql_access.viewer.is_none() {
             return Ok(json_response(
                 StatusCode::UNAUTHORIZED,

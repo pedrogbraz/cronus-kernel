@@ -129,6 +129,50 @@ pub fn safe_stored_name(name: &str) -> bool {
 }
 
 /// Read a stored file. `None` when the name is unsafe or the file is missing.
+/// True when `access` can see at least one row whose `file` field stores
+/// `/_files/<name>`. Anonymous viewers never match.
+pub fn viewer_can_read(
+    db: &crate::database::CronusDB,
+    entities: &[EntityNode],
+    access: &crate::access::Access,
+    stored_path: &str,
+) -> bool {
+    if access.viewer.is_none() {
+        return false;
+    }
+    for entity in entities {
+        for field in entity
+            .fields
+            .iter()
+            .filter(|f| f.field_type == FieldType::File)
+        {
+            let mut filters = vec![crate::database::SqlFilter::one(
+                &field.name,
+                "=",
+                stored_path,
+            )];
+            match crate::access::read_scope(access, &entity.name, Some(entity), false) {
+                crate::access::ReadScope::Deny => continue,
+                crate::access::ReadScope::All => {}
+                other => {
+                    if let Some((col, val)) = other.condition() {
+                        filters.push(crate::database::SqlFilter::one(col, "=", val));
+                    }
+                }
+            }
+            if db
+                .find_one(&entity.name, &filters, None, None)
+                .ok()
+                .flatten()
+                .is_some()
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 pub fn read_stored(files_dir: &Path, name: &str) -> Option<(String, Vec<u8>)> {
     if !safe_stored_name(name) {
         return None;
@@ -217,6 +261,45 @@ mod tests {
         assert!(!safe_stored_name("a/b"));
         assert!(safe_stored_name("ab12.png"));
         assert!(read_stored(Path::new("."), "../x").is_none());
+    }
+
+    #[test]
+    fn viewer_can_read_requires_a_visible_file_row() {
+        let src = "entity Doc { title string!  avatar file }\n";
+        let e = match parse(src).unwrap().into_iter().next() {
+            Some(AstNode::Entity(ent)) => ent,
+            _ => panic!("entity"),
+        };
+        let db = crate::database::CronusDB::open_memory().unwrap();
+        db.migrate(&[e.clone()]).unwrap();
+        let stored = "/_files/ab12.png";
+        db.insert(
+            "Doc",
+            &serde_json::json!({"title": "t", "avatar": stored, "_owner_id": "alice"}),
+        )
+        .unwrap();
+        let owner = crate::access::Access {
+            viewer: Some(crate::access::Viewer {
+                id: "alice".into(),
+                role: "user".into(),
+            }),
+            auth_entity: None,
+        };
+        let other = crate::access::Access {
+            viewer: Some(crate::access::Viewer {
+                id: "bob".into(),
+                role: "user".into(),
+            }),
+            auth_entity: None,
+        };
+        assert!(viewer_can_read(&db, &[e.clone()], &owner, stored));
+        assert!(!viewer_can_read(&db, &[e.clone()], &other, stored));
+        assert!(!viewer_can_read(
+            &db,
+            &[e],
+            &crate::access::Access::anonymous(),
+            stored
+        ));
     }
 
     #[test]
