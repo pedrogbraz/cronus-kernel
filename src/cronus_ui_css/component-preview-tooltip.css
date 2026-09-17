@@ -1,0 +1,66 @@
+/* component-preview-tooltip: outline Button trigger + 300×200 preview card (React defaults), hover / focus reveal. */
+[data-slot="component-preview-tooltip"] {
+  position: relative; display: inline-flex; vertical-align: middle;
+}
+[data-slot="component-preview-tooltip"] > [data-slot="tooltip-content"] {
+  display: none; position: absolute; z-index: 50; box-sizing: border-box;
+  min-width: 18.75rem; max-width: 18.75rem; height: 12.5rem; padding: 0.75rem; overflow: hidden;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-3xl, calc(var(--cronus-radius, 14px) + 14px));
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-lg, none);
+  font-size: 0.75rem; line-height: 1rem;
+}
+[data-slot="component-preview-tooltip"] > [data-slot="tooltip-content"][data-side="right"] {
+  top: 50%; inset-inline-start: calc(100% + 5px); translate: 0 -50%;
+}
+[data-slot="component-preview-tooltip"] > [data-slot="tooltip-content"][data-side="left"] {
+  top: 50%; inset-inline-end: calc(100% + 5px); translate: 0 -50%;
+}
+[data-slot="component-preview-tooltip"] > [data-slot="tooltip-content"][data-side="top"] {
+  bottom: calc(100% + 5px); inset-inline-start: 50%; translate: -50% 0;
+}
+[data-slot="component-preview-tooltip"] > [data-slot="tooltip-content"][data-side="bottom"] {
+  top: calc(100% + 5px); inset-inline-start: 50%; translate: -50% 0;
+}
+[data-slot="component-preview-tooltip"] > [data-slot="tooltip-content"]:is([data-side="top"], [data-side="bottom"]):dir(rtl) { translate: 50% 0; }
+[data-slot="component-preview-tooltip"]:is(:hover, :focus-within) > [data-slot="tooltip-content"] {
+  display: block; animation: cronus-pop-in 150ms var(--ease-out-quart) both;
+}
+/* Inset panel. */
+[data-slot="component-preview-tooltip"] > [data-slot="tooltip-content"] > div {
+  position: relative; width: 100%; height: 100%; overflow: hidden;
+  border-radius: var(--cronus-radius-2xl, calc(var(--cronus-radius, 14px) + 8px));
+  background: var(--cronus-surface-inset);
+}
+/* Scaled frame (scale 0.8 → 125% box, origin top-left) and centring flex. */
+[data-slot="component-preview-tooltip"] > [data-slot="tooltip-content"] > div > div:not([data-failed]) {
+  position: absolute; inset-inline-start: 0; top: 0; width: 125%; height: 125%;
+  transform-origin: top left; /* physical: React origin-top-left */
+  transform: scale(0.8);
+}
+[data-slot="component-preview-tooltip"] > [data-slot="tooltip-content"] > div > div:not([data-failed]):dir(rtl) { transform-origin: top right; }
+[data-slot="component-preview-tooltip"] > [data-slot="tooltip-content"] > div > div > div {
+  display: flex; width: 100%; height: 100%; box-sizing: border-box;
+  align-items: center; justify-content: center; padding: 1rem;
+}
+[data-slot="component-preview-tooltip"] > [data-slot="tooltip-content"] > div > [data-failed] {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-tertiary);
+}
+/* The docs' preview card: w-56 rounded-2xl border bg-surface-raised p-4. */
+[data-slot="component-preview-tooltip"] .preview-card {
+  width: 14rem; box-sizing: border-box; padding: 1rem;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-2xl, calc(var(--cronus-radius, 14px) + 8px));
+  background: var(--cronus-surface-raised);
+}
+[data-slot="component-preview-tooltip"] .preview-card > p {
+  margin: 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg);
+}
+[data-slot="component-preview-tooltip"] .preview-card > p + p {
+  margin-top: 0.25rem; font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-tertiary);
+}
+[data-slot="component-preview-tooltip"] .preview-card > [data-slot="progress"] { margin-top: 0.75rem; }
+/* Kit catalog frame clips overflow; let the open card escape (shared rule, kept here). */
+[data-slot="catalog-frame"]:has([data-slot="component-preview-tooltip"]:is(:hover, :focus-within)) { overflow: visible; z-index: 30; }

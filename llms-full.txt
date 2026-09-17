@@ -276,11 +276,11 @@ name is not also a built-in above, in which case the built-in renderer wins):
 <!-- begin:family-sections -->
 `accordion` `alert` `alert-dialog` `animated-button` `animated-checkbox` `animated-list`
 `animated-number`
-`app-shell` `area-chart` `aspect-ratio` `aurora-background` `autocomplete` `avatar`
+`app-shell` `area-chart` `aspect-ratio` `aurora-background` `author-tooltip` `autocomplete` `avatar`
 `avatar-group` `badge` `banner` `bar-chart` `border-beam` `bouncy-accordion` `breadcrumb`
 `button` `button-group` `calendar` `candlestick-chart` `card` `card-stack` `carousel`
 `chart` `checkbox` `chip` `choropleth-chart` `click-spark` `code-block` `code-tabs`
-`collapsible` `color-picker` `combobox` `command` `comparison-slider` `composed-chart`
+`collapsible` `color-picker` `combobox` `command` `comparison-slider` `component-preview-tooltip` `composed-chart`
 `confetti` `confirmation-dialog` `context-menu` `copy-button` `countdown`
 `credit-card-input` `currency-input` `data-table` `date-picker` `date-range-picker`
 `description-list` `dialog` `dock` `dot-pattern` `drawer` `dropdown-menu` `dynamic-island`
@@ -288,7 +288,7 @@ name is not also a built-in above, in which case the built-in renderer wins):
 `floating-label-input` `form` `frame` `funnel-chart` `gauge-chart` `glare-hover`
 `glass-card` `goal-card` `gradient-border` `gradient-text` `grid-pattern` `heatmap` `heatmap-chart`
 `highlighter` `hover-card` `image-zoom` `input` `input-group` `input-otp` `invite-dialog`
-`json-viewer` `kanban` `kbd` `label` `light-rays` `lightbox` `line-chart` `live-line-chart`
+`json-viewer` `kanban` `kbd` `label` `light-rays` `lightbox` `line-chart` `link-preview` `live-line-chart`
 `loader` `logo-carousel` `magnetic` `marquee` `masonry` `menubar` `meteors` `metric`
 `mode-toggle` `morphing-popover` `multi-select` `navigation-menu` `noise`
 `notification-center` `number-flow` `number-input` `orbit` `pagination` `particles` `password-input` `phone-input` `pie-chart`

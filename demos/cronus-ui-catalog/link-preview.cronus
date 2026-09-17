@@ -1,0 +1,10 @@
+page "/link-preview" type:components family:link-preview {
+  title "LinkPreview"
+  description:"Hover a URL to unfurl title, description, and thumbnail."
+}
+
+component RepoLink layout:stack style:link-preview href:"https://github.com/pedrogbraz/cronus-ui" prefix:"Check out the" suffix:"to browse the catalog." site:"GitHub" favicon:"https://github.com/favicon.ico" image:"https://opengraph.githubassets.com/1/pedrogbraz/cronus-ui" group:"Unfurl" note:"Hover a link to fetch title, description, and a thumbnail. Metadata comes from endpoint (microlink.io by default) or an injected fetcher." {
+  label "Cronus UI repository"
+  title "GitHub - pedrogbraz/cronus-ui"
+  text "Cronus UI: the design system behind the Cronus kernel — tokens, primitives and premium components."
+}

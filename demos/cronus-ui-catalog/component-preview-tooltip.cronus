@@ -1,0 +1,14 @@
+page "/component-preview-tooltip" type:components family:component-preview-tooltip {
+  title "ComponentPreviewTooltip"
+  description:"Hover a name to show a live miniature of a component."
+}
+
+component GoalCardPreview layout:inline style:component-preview-tooltip name:goal-card progress:75 group:"Live preview" note:"Pass a preview node (or loadPreview for a lazy module). The original Gaia version imported from a docs-only path — here the preview is explicit so the library stays framework-agnostic." {
+  label "Hover me: Goal Card"
+  title "Launch MVP"
+}
+component TodoItemPreview layout:inline style:component-preview-tooltip name:todo-item group:"Live preview" {
+  label "Hover me: Todo Item"
+  title "Review pull requests"
+  text "High · 1/2 subtasks"
+}

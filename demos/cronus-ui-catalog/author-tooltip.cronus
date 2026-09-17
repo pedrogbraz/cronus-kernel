@@ -1,0 +1,9 @@
+page "/author-tooltip" type:components family:author-tooltip {
+  title "AuthorTooltip"
+  description:"Hover an avatar to see name, role, and profile links."
+}
+
+component AuthorProfile layout:inline style:author-tooltip role:"Founder & CEO" avatar:"https://github.com/aryanranderiya.png" github:"https://github.com/aryanranderiya" twitter:"https://twitter.com/aryanranderiya" linkedin:"https://linkedin.com/in/aryanranderiya" group:"Profile" note:"Hover the avatar to see name, role, and profile links. Pass trigger to wrap any element." { label "Aryan" }
+component AuthorSm layout:inline style:author-tooltip+sm role:"Founder & CEO" avatar:"https://github.com/aryanranderiya.png" group:"Sizes" note:"sm, md, lg, and xl size the trigger avatar." { label "Aryan" }
+component AuthorMd layout:inline style:author-tooltip+md role:"Founder & CEO" avatar:"https://github.com/aryanranderiya.png" group:"Sizes" { label "Aryan" }
+component AuthorLg layout:inline style:author-tooltip+lg role:"Founder & CEO" avatar:"https://github.com/aryanranderiya.png" group:"Sizes" { label "Aryan" }

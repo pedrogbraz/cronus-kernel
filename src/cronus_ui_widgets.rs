@@ -44,6 +44,7 @@ pub const FAMILY_TABLE: &[(&str, Renderer)] = &[
     dedicated!("area-chart", cronus_ui_area_chart),
     dedicated!("aspect-ratio", cronus_ui_aspect_ratio),
     dedicated!("aurora-background", cronus_ui_aurora_background),
+    dedicated!("author-tooltip", cronus_ui_author_tooltip),
     dedicated!("autocomplete", cronus_ui_autocomplete),
     dedicated!("avatar", cronus_ui_avatar),
     dedicated!("avatar-group", cronus_ui_avatar_group),
@@ -72,6 +73,10 @@ pub const FAMILY_TABLE: &[(&str, Renderer)] = &[
     dedicated!("combobox", cronus_ui_combobox),
     dedicated!("command", cronus_ui_command),
     dedicated!("comparison-slider", cronus_ui_comparison_slider),
+    dedicated!(
+        "component-preview-tooltip",
+        cronus_ui_component_preview_tooltip
+    ),
     dedicated!("composed-chart", cronus_ui_composed_chart),
     dedicated!("confetti", cronus_ui_confetti),
     dedicated!("confirmation-dialog", cronus_ui_confirmation_dialog),
@@ -124,6 +129,7 @@ pub const FAMILY_TABLE: &[(&str, Renderer)] = &[
     dedicated!("light-rays", cronus_ui_light_rays),
     dedicated!("lightbox", cronus_ui_lightbox),
     dedicated!("line-chart", cronus_ui_line_chart),
+    dedicated!("link-preview", cronus_ui_link_preview),
     dedicated!("live-line-chart", cronus_ui_live_line_chart),
     dedicated!("loader", cronus_ui_loader),
     dedicated!("logo-carousel", cronus_ui_logo_carousel),
