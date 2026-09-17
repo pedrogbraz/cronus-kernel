@@ -77,6 +77,7 @@
 }
 /* Per-index stagger: `.i0` … `.i23` on the animated element, `--stagger`
    set by the family (bars: 440ms / n, pie: 80ms, …). */
+[data-slot$="-chart"].v-motion .i0 { animation-delay: var(--cronus-chart-delay, 0ms); }
 [data-slot$="-chart"].v-motion .i1 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 1); }
 [data-slot$="-chart"].v-motion .i2 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 2); }
 [data-slot$="-chart"].v-motion .i3 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 3); }
@@ -139,7 +140,7 @@
   display: grid; grid-template-columns: auto 1fr auto;
   column-gap: 0.75rem; row-gap: 0.25rem;
 }
-.legend-item.compact { padding: 0; gap: 0.5rem; }
+.legend-item.compact { gap: 0.5rem; }
 .legend-marker {
   flex-shrink: 0; width: 0.625rem; height: 0.625rem; border-radius: 9999px;
   background: var(--cronus-chart-1);
@@ -154,7 +155,8 @@
   font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;
   color: var(--cronus-fg);
 }
-.legend-label.grow { flex: 1 1 auto; }
+/* `LegendLabel className="flex-1"` replaces the text-sm/font-medium default. */
+.legend-label.grow { flex: 1 1 auto; font-size: inherit; font-weight: inherit; }
 .legend-item.compact .legend-label { font-size: 0.75rem; line-height: 1rem; font-weight: 400; }
 .legend-value {
   display: flex; align-items: center; gap: 0.5rem;

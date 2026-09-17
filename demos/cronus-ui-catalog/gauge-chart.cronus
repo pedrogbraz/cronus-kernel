@@ -1,0 +1,12 @@
+page "/gauge-chart" type:components family:gauge-chart {
+  title "GaugeChart"
+  description:"Radial score. Default and Motion variants."
+}
+
+component GaugeChartDefault layout:stack style:gauge-chart value:72 label:"Health" group:"Default" note:"Cronus radial score with the value in the hub." {
+  label "Gauge chart showing a score of 72."
+}
+
+component GaugeChartMotion layout:stack style:gauge-chart+motion value:66 center:428000 label:"ARR run rate" format:currency inactive-opacity:0.4 spacing:25 group:"Motion" note:"Notched arc with the score in the hub." {
+  label "Gauge chart of annual recurring revenue run rate."
+}

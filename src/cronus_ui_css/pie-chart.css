@@ -1,3 +1,21 @@
 [data-slot="pie-chart"] {
   display: block; width: 100%; height: 16rem;
 }
+[data-slot="pie-chart"].v-motion {
+  display: flex; align-items: center; justify-content: center;
+  width: auto; height: auto; flex-shrink: 0;
+  --cronus-chart-delay: 100ms; --stagger: 80ms;
+}
+[data-slot="pie-chart"].v-motion > svg {
+  width: auto; height: auto;
+}
+[data-slot="pie-chart"].v-motion .slice {
+  transform-box: view-box; transform-origin: 140px 140px;
+  transition: opacity 150ms, transform var(--cronus-spring-snappy);
+}
+[data-slot="pie-chart"].v-motion:hover .slice:not(:hover) {
+  opacity: 0.4;
+}
+[data-slot="pie-chart"].v-motion .slice:hover {
+  transform: scale(1.077);
+}

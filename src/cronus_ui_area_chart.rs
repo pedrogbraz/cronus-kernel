@@ -64,6 +64,7 @@ pub fn render(comp: &ComponentNode) -> String {
 
 /// visx `AreaChart` at the 432px reference width (aspect 2 / 1).
 fn render_motion(comp: &ComponentNode, label: &str, data: &ChartData) -> String {
+    crate::cronus_ui_chart::note_motion();
     let frame = Frame::aspect(M_W, 2.0);
     let (iw, ih) = (frame.iw(), frame.ih());
     let times = row_times(&data.labels);

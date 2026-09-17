@@ -2068,8 +2068,12 @@ pub fn d3_arc(inner: f64, outer: f64, start: f64, end: f64, corner: f64) -> Stri
     c.d
 }
 
-/// Angular sweep mask for a slice: a thick-stroke circle whose dash CSS
+/// Angular sweep mask for a slice: a thick-stroke circle whose dash the CSS
 /// grows from the slice start (`pathLength` normalises the arc to 1).
+/// `start` is the screen angle in degrees (clockwise from 3 o'clock) and
+/// `span` the sweep in degrees; `cw` false sweeps counter-clockwise. `class`
+/// adds stagger classes (`i3`) to the circle.
+#[allow(clippy::too_many_arguments)]
 pub fn sweep_mask(
     id: &str,
     cx: f64,
@@ -2077,18 +2081,38 @@ pub fn sweep_mask(
     inner: f64,
     outer: f64,
     start: f64,
-    end: f64,
+    span: f64,
+    cw: bool,
+    class: &str,
 ) -> String {
     let r = (inner + outer) / 2.0;
-    let span = (end - start).abs().max(1e-6);
-    let path_length = std::f64::consts::TAU / span;
-    let rot = start.to_degrees() - 90.0;
+    let path_length = 360.0 / span.abs().max(1e-6);
+    let transform = if cw {
+        format!(
+            "rotate({} {cx} {cy})",
+            num(start),
+            cx = num(cx),
+            cy = num(cy)
+        )
+    } else {
+        format!(
+            "rotate({} {cx} {cy}) matrix(1 0 0 -1 0 {})",
+            num(start),
+            num(2.0 * cy),
+            cx = num(cx),
+            cy = num(cy)
+        )
+    };
     format!(
-        "<mask id=\"{id}\"><circle class=\"sweep\" cx=\"{cx}\" cy=\"{cy}\" r=\"{}\" fill=\"none\" stroke=\"white\" stroke-width=\"{}\" pathLength=\"{}\" transform=\"rotate({} {cx} {cy})\"></circle></mask>",
+        "<mask id=\"{id}\"><circle class=\"sweep{}\" cx=\"{cx}\" cy=\"{cy}\" r=\"{}\" fill=\"none\" stroke=\"white\" stroke-width=\"{}\" pathLength=\"{}\" transform=\"{transform}\"></circle></mask>",
+        if class.is_empty() {
+            String::new()
+        } else {
+            format!(" {class}")
+        },
         num(r),
         num(outer - inner + 2.0),
         num(path_length),
-        num(rot),
         cx = num(cx),
         cy = num(cy)
     )
@@ -2485,6 +2509,94 @@ pub fn sankey_link_path(g: &SankeyGraph, l: &SankeyLink) -> String {
         num(l.y1)
     )
 }
+
+// ── shared chart `Legend` (pie / ring / radar / profit-loss motion demos) ──
+
+/// One `LegendItemComponent` row.
+pub struct LegendRow {
+    pub label: String,
+    /// `LegendValue` text (`intFmt`), none for marker + label rows.
+    pub value: Option<String>,
+    /// Marker colour class: `c1`..`c5`, `success`, `error`.
+    pub color: String,
+    /// `LegendProgress` percentage (0..100) when the row has a `maxValue`.
+    pub progress: Option<f64>,
+    /// `LegendLabel className="flex-1"` (docs pie / radar rows) — the label
+    /// drops its `text-sm font-medium` default and grows instead.
+    pub grow: bool,
+}
+
+/// React `Legend` (`div.legend-container`) with a title and one row per
+/// item. `class`: extra container classes (`row` for the inline
+/// profit / loss legend).
+pub fn legend_html(title: Option<&str>, rows: &[LegendRow], class: &str) -> String {
+    let mut out = format!(
+        "<div class=\"legend-container{}\">",
+        if class.is_empty() {
+            String::new()
+        } else {
+            format!(" {class}")
+        }
+    );
+    if let Some(t) = title {
+        out.push_str(&format!("<h3>{}</h3>", esc(t)));
+    }
+    for r in rows {
+        let grid = r.progress.is_some();
+        out.push_str(&format!(
+            "<div class=\"legend-item{}\">",
+            if grid { " grid" } else { "" }
+        ));
+        out.push_str(&format!(
+            "<div class=\"legend-marker {}\"></div>",
+            esc(&r.color)
+        ));
+        out.push_str(&format!(
+            "<span class=\"legend-label{}\">{}</span>",
+            if r.grow { " grow" } else { "" },
+            esc(&r.label)
+        ));
+        if let Some(v) = &r.value {
+            out.push_str(&format!(
+                "<span class=\"legend-value\"><span>{}</span></span>",
+                esc(v)
+            ));
+        }
+        if let Some(p) = r.progress {
+            out.push_str(&format!(
+                "<div class=\"legend-progress\" role=\"progressbar\" aria-valuenow=\"{}\" aria-valuemin=\"0\" aria-valuemax=\"100\"><svg aria-hidden=\"true\"><rect class=\"{}\" height=\"100%\" rx=\"3\" width=\"{}%\"></rect></svg></div>",
+                num(p),
+                esc(&r.color),
+                num(p.clamp(0.0, 100.0))
+            ));
+        }
+        out.push_str("</div>");
+    }
+    out.push_str("</div>");
+    out
+}
+
+/// `chart-center` stat block (`ChartStatFlow`): value + label; the family
+/// CSS sizes it to the hole (`innerRadius * 2 - 16`).
+pub fn center_stat(value: &str, label: &str) -> String {
+    format!(
+        "<div class=\"chart-center\"><span>{}</span><span>{}</span></div>",
+        esc(value),
+        esc(label)
+    )
+}
+
+/// Legend marker class for series `i` (`c1`..`c5`).
+pub fn marker_class(i: usize) -> String {
+    format!("c{}", i % 5 + 1)
+}
+
+/// Motion (visx) renderers share the `chart.css` rules; note the family so
+/// a page without a `data-slot="chart"` container still ships them.
+pub fn note_motion() {
+    crate::cronus_ui_css::note_family("chart");
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

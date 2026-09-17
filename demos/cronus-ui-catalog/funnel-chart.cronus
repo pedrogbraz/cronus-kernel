@@ -1,0 +1,22 @@
+page "/funnel-chart" type:components family:funnel-chart {
+  title "FunnelChart"
+  description:"Stage drop-off. Default and Motion variants."
+}
+
+component FunnelChartDefault layout:stack style:funnel-chart group:"Default" note:"Cronus stage drop-off from visit to retain." {
+  label "Funnel chart from visit to retain."
+  item "Visit" value:8400
+  item "Signup" value:4200
+  item "Activate" value:2600
+  item "Pay" value:1100
+  item "Retain" value:640
+}
+
+component FunnelChartMotion layout:stack style:funnel-chart+motion layers:3 group:"Motion" note:"Stage funnel with hover labels." {
+  label "Funnel chart from visitors to closed."
+  item "Visitors" value:12400 display:"12.4k"
+  item "Leads" value:6800 display:"6.8k"
+  item "Qualified" value:3200 display:"3.2k"
+  item "Proposals" value:1500 display:"1.5k"
+  item "Closed" value:620 display:"620"
+}

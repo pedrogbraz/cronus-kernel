@@ -126,6 +126,7 @@ pub fn render(comp: &ComponentNode) -> String {
 
 /// visx `CandlestickChart` with the docs margins at the 432px reference width.
 fn render_motion(comp: &ComponentNode, label: &str, rows: &[(String, [f64; 4])]) -> String {
+    crate::cronus_ui_chart::note_motion();
     let height = attr_num::<f64>(comp, "height").unwrap_or(M_W / 2.0);
     let frame = Frame::new(M_W, height).margins(16.0, 16.0, 40.0, 16.0);
     let (iw, ih) = (frame.iw(), frame.ih());

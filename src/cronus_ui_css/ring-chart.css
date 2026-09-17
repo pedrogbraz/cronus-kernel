@@ -7,3 +7,30 @@
 [data-slot="ring-chart"] tspan + tspan {
   fill: var(--cronus-fg-tertiary); font-size: 0.75rem;
 }
+[data-slot="ring-chart"].v-motion {
+  display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr;
+  width: auto; height: auto; flex-shrink: 0;
+}
+[data-slot="ring-chart"].v-motion > svg {
+  grid-area: 1 / 1; width: auto; height: auto;
+}
+[data-slot="ring-chart"].v-motion > .chart-center {
+  grid-area: 1 / 1; place-self: center;
+  width: 102px; height: 102px;
+}
+[data-slot="ring-chart"].v-motion .ring {
+  --stagger: 80ms;
+  transform-box: view-box; transform-origin: 140px 140px;
+  animation: cronus-chart-grow-xy 1100ms cubic-bezier(0.85, 0, 0.15, 1) backwards;
+  transition: opacity 150ms, transform var(--cronus-spring-snappy);
+  cursor: pointer;
+}
+[data-slot="ring-chart"].v-motion .sweep.p {
+  --cronus-chart-delay: 600ms; --stagger: 100ms;
+}
+[data-slot="ring-chart"].v-motion:hover .ring:not(:hover) {
+  opacity: 0.35;
+}
+[data-slot="ring-chart"].v-motion .ring:hover {
+  transform: scale(1.03);
+}
