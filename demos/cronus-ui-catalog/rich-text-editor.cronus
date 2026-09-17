@@ -1,0 +1,11 @@
+page "/rich-text-editor" type:components family:rich-text-editor {
+  title "RichTextEditor"
+  description:"WYSIWYG editor with a styled toolbar."
+}
+
+component Notes layout:stack style:rich-text-editor aria-label:"Post body" placeholder:"Write something…" group:"Default" note:"A Tiptap WYSIWYG editor with a Cronus-styled toolbar. Formats text, headings, lists, quotes, and code." {
+  title "Release notes"
+  text "We shipped a themeable editor with a full toolbar — try bold, lists, and headings."
+  item "Keyboard shortcuts"
+  item "Undo & redo"
+}

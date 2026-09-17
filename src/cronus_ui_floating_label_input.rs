@@ -24,7 +24,10 @@ pub fn render(comp: &ComponentNode) -> String {
         root.push_str(" data-invalid=\"\"");
     }
 
-    let mut field = format!("data-slot=\"input\" id=\"{id}\" placeholder=\" \"");
+    let ty = attr_nonempty(comp, "type")
+        .map(|t| format!(" type=\"{}\"", esc(t)))
+        .unwrap_or_default();
+    let mut field = format!("data-slot=\"input\" id=\"{id}\"{ty} placeholder=\" \"");
     if !value.is_empty() {
         field.push_str(&format!(" value=\"{value}\""));
     }
@@ -38,8 +41,22 @@ pub fn render(comp: &ComponentNode) -> String {
         field.push_str(&format!(" aria-describedby=\"{id}-helper\""));
     }
 
+    let start = attr_nonempty(comp, "icon")
+        .and_then(crate::cronus_ui_icons::svg)
+        .map(|g| format!("<span data-slot=\"floating-label-input-adornment\" data-side=\"start\" aria-hidden=\"true\">{g}</span>"))
+        .unwrap_or_default();
+    let end = attr_nonempty(comp, "icon-end")
+        .and_then(crate::cronus_ui_icons::svg)
+        .map(|g| format!("<span data-slot=\"floating-label-input-adornment\" data-side=\"end\" aria-hidden=\"true\">{g}</span>"))
+        .unwrap_or_default();
+    if !start.is_empty() {
+        root.push_str(" data-start-adornment=\"\"");
+    }
+    if !end.is_empty() {
+        root.push_str(" data-end-adornment=\"\"");
+    }
     let mut html = format!(
-        "<div {root}><div><input {field} /><label data-slot=\"floating-label-input-label\" for=\"{id}\">{label}</label></div>"
+        "<div {root}><div>{start}<input {field} /><label data-slot=\"floating-label-input-label\" for=\"{id}\">{label}</label>{end}</div>"
     );
     if !helper.is_empty() {
         let role = if invalid { " role=\"alert\"" } else { "" };

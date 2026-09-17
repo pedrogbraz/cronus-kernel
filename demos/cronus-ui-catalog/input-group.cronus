@@ -1,0 +1,7 @@
+page "/input-group" type:components family:input-group {
+  title "InputGroup"
+  description:"Input with leading/trailing addons that share one border and focus ring."
+}
+
+component Domain layout:stack style:input-group addon:"https://" addon-icon:link-2 addon-end:".cronus.app" group:"Prefix & suffix" note:"Flank an Input with addons on either side. The group owns the border and focus ring, so a protocol prefix and a domain suffix read as one seamless field." { text "acme.cronus.app" }
+component EmailAt layout:stack style:input-group addon-icon:at-sign type:email group:"Leading icon" note:"A single leading addon is perfect for an icon that frames the field's purpose." { text "you@company.com" }

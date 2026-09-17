@@ -1,0 +1,6 @@
+page "/file-dropzone" type:components family:file-dropzone {
+  title "FileDropzone"
+  description:"Drag-and-drop or click-to-browse uploads."
+}
+
+component Attachments layout:stack style:file-dropzone multiple:true aria-label:"Upload attachments" group:"Upload" note:"Drag-and-drop or click-to-browse uploads with selected-file feedback." { label "Upload attachments" }

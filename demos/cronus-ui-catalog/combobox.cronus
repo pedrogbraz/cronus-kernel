@@ -1,0 +1,13 @@
+page "/combobox" type:components family:combobox {
+  title "Combobox"
+  description:"Searchable single-value picker."
+}
+
+component Framework layout:stack style:combobox placeholder:"Select a framework…" search-placeholder:"Search frameworks…" aria-label:"Framework" group:"Single select" note:"A searchable, single-value picker built on Command inside a Popover." {
+  item "Next.js"
+  item "Remix"
+  item "Astro"
+  item "Nuxt"
+  item "SvelteKit"
+  item "SolidStart" disabled:true
+}

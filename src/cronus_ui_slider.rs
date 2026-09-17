@@ -8,19 +8,44 @@ use crate::cronus_ui_kit::esc;
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
-    let pct = value_of(comp);
-    let now = fmt_num(pct);
-    let step = pct.round() as i64;
-    let mut thumb = String::from("role=\"slider\"");
-    if let Some(label) = aria_label_of(comp) {
-        thumb.push_str(&format!(" aria-label=\"{}\"", esc(label)));
+    let (lo, hi) = range_of(comp);
+    let label = aria_label_of(comp)
+        .map(|l| format!(" aria-label=\"{}\"", esc(l)))
+        .unwrap_or_default();
+    let thumb = |v: f64| {
+        format!(
+            "<span><span role=\"slider\"{label} aria-valuemin=\"0\" aria-valuemax=\"100\" aria-orientation=\"horizontal\" data-orientation=\"horizontal\" aria-valuenow=\"{}\"></span></span>",
+            fmt_num(v)
+        )
+    };
+    match lo {
+        // Two thumbs (`value:"20,80"`): the range fills between them.
+        Some(lo) => format!(
+            "<span dir=\"ltr\" data-orientation=\"horizontal\" aria-disabled=\"false\" data-slot=\"slider\" data-value=\"{}\" data-start=\"{}\"><span data-orientation=\"horizontal\"><span data-orientation=\"horizontal\"></span></span>{}{}</span>",
+            hi.round() as i64,
+            lo.round() as i64,
+            thumb(lo),
+            thumb(hi)
+        ),
+        None => format!(
+            "<span dir=\"ltr\" data-orientation=\"horizontal\" aria-disabled=\"false\" data-slot=\"slider\" data-value=\"{}\"><span data-orientation=\"horizontal\"><span data-orientation=\"horizontal\"></span></span>{}</span>",
+            hi.round() as i64,
+            thumb(hi)
+        ),
     }
-    thumb.push_str(&format!(
-        " aria-valuemin=\"0\" aria-valuemax=\"100\" aria-orientation=\"horizontal\" data-orientation=\"horizontal\" aria-valuenow=\"{now}\""
-    ));
-    format!(
-        "<span dir=\"ltr\" data-orientation=\"horizontal\" aria-disabled=\"false\" data-slot=\"slider\" data-value=\"{step}\"><span data-orientation=\"horizontal\"><span data-orientation=\"horizontal\"></span></span><span><span {thumb}></span></span></span>"
-    )
+}
+
+/// `(start, end)`: `value:"20,80"` is a range, a single number a value.
+fn range_of(comp: &ComponentNode) -> (Option<f64>, f64) {
+    if let Some(v) = comp.props.get("value") {
+        if let Some((a, b)) = v.split_once(',') {
+            if let (Some(a), Some(b)) = (parse_num(a), parse_num(b)) {
+                let (a, b) = (clamp(a), clamp(b));
+                return (Some(a.min(b)), a.max(b));
+            }
+        }
+    }
+    (None, value_of(comp))
 }
 
 fn value_of(comp: &ComponentNode) -> f64 {
@@ -229,8 +254,8 @@ mod tests {
         assert!(css.contains("[data-slot=\"slider\"]"));
         assert!(css.contains("[data-slot=\"slider\"] > span:first-child {"));
         assert!(css.contains("[data-slot=\"slider\"] > span:first-child > span {"));
-        assert!(css.contains("[data-slot=\"slider\"] > span:last-child {"));
-        assert!(css.contains("[data-slot=\"slider\"] > span:last-child > span {"));
+        assert!(css.contains("[data-slot=\"slider\"] > span:not(:first-child) {"));
+        assert!(css.contains("[data-slot=\"slider\"] > span:not(:first-child) > span {"));
         assert!(css.contains("[data-slot=\"slider\"][data-value=\"0\"] { --cui-slider-value: 0; }"));
         assert!(
             css.contains("[data-slot=\"slider\"][data-value=\"50\"] { --cui-slider-value: 50; }")

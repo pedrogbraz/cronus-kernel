@@ -1,0 +1,11 @@
+page "/form" type:components family:form {
+  title "Form"
+  description:"Validated form wired to a schema."
+}
+
+component Profile layout:stack style:form group:"Validated form" note:"A form with an email and a bio, each with its own message." {
+  item "Email"
+  item "Bio"
+  description "you@cronus.dev"
+  description "Tell us a bit about yourself…"
+}

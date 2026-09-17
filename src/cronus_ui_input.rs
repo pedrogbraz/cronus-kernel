@@ -29,6 +29,12 @@ pub fn render(comp: &ComponentNode) -> String {
     if let Some(label) = aria_label {
         attrs.push_str(&format!(" aria-label=\"{}\"", esc(label)));
     }
+    if let Some(v) = comp.props.get("value").filter(|v| !v.is_empty()) {
+        attrs.push_str(&format!(" value=\"{}\"", esc(v)));
+    }
+    if let Some(id) = comp.props.get("id").filter(|v| !v.is_empty()) {
+        attrs.push_str(&format!(" id=\"{}\"", esc(id)));
+    }
     format!("<input {attrs} />")
 }
 

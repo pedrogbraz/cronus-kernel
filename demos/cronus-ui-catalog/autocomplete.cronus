@@ -1,0 +1,13 @@
+page "/autocomplete" type:components family:autocomplete {
+  title "Autocomplete"
+  description:"Free-text input that filters suggestions as you type."
+}
+
+component FrameworkSearch layout:stack style:autocomplete placeholder:"Search a framework…" aria-label:"Framework" group:"Default" note:"Free-text input that filters a static options list as you type." {
+  item "Next.js"
+  item "Remix"
+  item "Astro"
+  item "SvelteKit"
+  item "Nuxt"
+  item "SolidStart"
+}

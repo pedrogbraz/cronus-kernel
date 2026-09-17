@@ -1,0 +1,11 @@
+page "/radio-group" type:components family:radio-group {
+  title "RadioGroup"
+  description:"Single choice among options."
+}
+
+component Plan layout:stack style:radio-group value:"Pro" group:"Options" note:"A single-choice list of mutually exclusive options with labels and hints." {
+  label "Plan"
+  item "Starter" hint:"For side projects"
+  item "Pro" hint:"For growing teams"
+  item "Enterprise" hint:"For large organizations"
+}

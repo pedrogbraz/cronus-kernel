@@ -8,3 +8,7 @@
 [data-slot="field-description"] {
   margin: 0; font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-secondary);
 }
+[data-slot="field-error"] {
+  margin: 0; font-size: 0.75rem; line-height: 1rem; color: var(--cronus-error-text);
+}
+[data-slot="field"] > [data-slot="input"], [data-slot="field"] > [data-slot="textarea"] { width: 100%; }

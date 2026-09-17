@@ -1,0 +1,8 @@
+page "/currency-input" type:components family:currency-input {
+  title "CurrencyInput"
+  description:"Money field with a fused currency selector."
+}
+
+component Amount layout:stack style:currency-input value:129900 aria-label:"Amount" group:"Multi-currency" note:"Digits accumulate from the right as minor units; grouping and decimals are formatted per the currency's locale. Switch currencies from the fused selector." { label "Amount" }
+component PriceBRL layout:stack style:currency-input currencies:"BRL" value:12900 aria-label:"Price" group:"Single currency" note:"A one-entry currencies list locks the field to a currency — the selector collapses into a static prefix." { label "Price" }
+component Budget layout:stack style:currency-input currencies:"BRL" value:320000 max:500000 aria-label:"Monthly budget" group:"Hard ceiling" note:"max is a live upper clamp (in minor units) the amount can never be typed past." { label "Monthly budget" }

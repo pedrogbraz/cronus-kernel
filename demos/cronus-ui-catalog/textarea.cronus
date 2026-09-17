@@ -1,0 +1,7 @@
+page "/textarea" type:components family:textarea {
+  title "Textarea"
+  description:"A multi-line text field."
+}
+
+component Building layout:stack style:textarea rows:4 group:"Default" note:"A multi-line text input." { text "Tell us what you're building…" }
+component BioInvalid layout:stack style:field control:textarea rows:4 value:"…" error:"This value isn't allowed." group:"Invalid" note:"An invalid textarea paired with a FieldError." { label "Bio" }

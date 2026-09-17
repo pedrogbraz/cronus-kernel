@@ -1,0 +1,6 @@
+page "/switch" type:components family:switch {
+  title "Switch"
+  description:"Toggle a setting on or off."
+}
+
+component Notifications layout:inline style:switch checked:true group:"Default" note:"A controlled switch with an associated Label." { label "Push notifications" text "Push notifications" }

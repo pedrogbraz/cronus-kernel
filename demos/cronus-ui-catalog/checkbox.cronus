@@ -1,0 +1,7 @@
+page "/checkbox" type:components family:checkbox {
+  title "Checkbox"
+  description:"Binary choice with an indicator."
+}
+
+component Unavailable layout:inline style:checkbox disabled:true group:"Default" note:"A checkbox with an associated Label." { label "Unavailable option" text "Unavailable option" }
+component Terms layout:inline style:checkbox checked:true group:"Default" { label "Accept the terms" text "Accept the terms" }

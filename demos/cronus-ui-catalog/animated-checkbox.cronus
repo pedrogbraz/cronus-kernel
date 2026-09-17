@@ -1,0 +1,8 @@
+page "/animated-checkbox" type:components family:animated-checkbox {
+  title "AnimatedCheckbox"
+  description:"Spring-drawn check mark with a strike-through label."
+}
+
+component Ship layout:inline style:animated-checkbox title:"Ship the release" checked:true group:"Default" note:"Spring-drawn check mark with a strike-through label. Click a row to toggle." { label "Ship the release" }
+component Implement layout:inline style:animated-checkbox title:"Implement Checkbox" group:"Default" { label "Implement Checkbox" }
+component UnavailableRow layout:inline style:animated-checkbox title:"Unavailable option" disabled:true group:"Default" { label "Unavailable option" }

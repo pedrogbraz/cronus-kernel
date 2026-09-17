@@ -1,0 +1,6 @@
+page "/label" type:components family:label {
+  title "Label"
+  description:"Accessible caption for a form control."
+}
+
+component Workspace layout:stack style:field control:input placeholder:"acme-inc" group:"With input" note:"Tie a Label to an Input via matching htmlFor and id." { label "Workspace name" }

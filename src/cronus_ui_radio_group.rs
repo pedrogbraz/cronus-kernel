@@ -19,15 +19,27 @@ use crate::parser::{ComponentItemNode, ComponentNode};
 pub fn render(comp: &ComponentNode) -> String {
     let items = options(comp);
     let name = instance_id(comp, "radio-group");
+    let captions =
+        crate::cronus_ui_kit::flag(comp, "labels") || items.iter().any(|i| i.2.is_some());
     let buttons = items
         .iter()
-        .map(|(text, checked)| {
+        .map(|(text, checked, hint)| {
             let state = if *checked { "checked" } else { "unchecked" };
             let aria = if *checked { "true" } else { "false" };
             let on = if *checked { " checked" } else { "" };
+            let v = esc(text);
+            // The docs pair each item with `<Label>` (+ a hint line); the
+            // option text is that label, a `hint:` config the small line.
+            let caption = match hint {
+                Some(h) => format!(
+                    "<span data-slot=\"label\"><span>{v}</span><span>{}</span></span>",
+                    esc(h)
+                ),
+                None if captions => format!("<span data-slot=\"label\">{v}</span>"),
+                None => String::new(),
+            };
             format!(
-                "<label><input type=\"radio\" name=\"{name}\" value=\"{v}\" aria-label=\"{v}\"{on}><button type=\"button\" role=\"radio\" aria-checked=\"{aria}\" data-state=\"{state}\" value=\"{v}\" data-slot=\"radio-group-item\" aria-label=\"{v}\" tabindex=\"-1\" aria-hidden=\"true\">{CIRCLE_INDICATOR}</button></label>",
-                v = esc(text)
+                "<label><input type=\"radio\" name=\"{name}\" value=\"{v}\" aria-label=\"{v}\"{on}><button type=\"button\" role=\"radio\" aria-checked=\"{aria}\" data-state=\"{state}\" value=\"{v}\" data-slot=\"radio-group-item\" aria-label=\"{v}\" tabindex=\"-1\" aria-hidden=\"true\">{CIRCLE_INDICATOR}</button>{caption}</label>"
             )
         })
         .collect::<Vec<_>>()
@@ -51,7 +63,7 @@ fn group_label(comp: &ComponentNode) -> String {
     }
 }
 
-fn options(comp: &ComponentNode) -> Vec<(String, bool)> {
+fn options(comp: &ComponentNode) -> Vec<(String, bool, Option<String>)> {
     let items: Vec<&ComponentItemNode> = comp
         .items
         .iter()
@@ -63,7 +75,7 @@ fn options(comp: &ComponentNode) -> Vec<(String, bool)> {
         } else {
             comp.name.as_str()
         };
-        return vec![(label.to_string(), false)];
+        return vec![(label.to_string(), false, None)];
     }
     // Radix: `value` selects the matching item; without it nothing is checked.
     let selected = attr_nonempty(comp, "value");
@@ -74,7 +86,13 @@ fn options(comp: &ComponentNode) -> Vec<(String, bool)> {
     items
         .iter()
         .enumerate()
-        .map(|(idx, i)| (i.text.clone(), Some(idx) == checked_idx))
+        .map(|(idx, i)| {
+            (
+                i.text.clone(),
+                Some(idx) == checked_idx,
+                i.config.get("hint").cloned().filter(|h| !h.is_empty()),
+            )
+        })
         .collect()
 }
 

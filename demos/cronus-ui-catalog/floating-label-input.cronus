@@ -1,0 +1,9 @@
+page "/floating-label-input" type:components family:floating-label-input {
+  title "FloatingLabelInput"
+  description:"Label floats from placeholder to caption on focus or fill."
+}
+
+component FloatEmail layout:stack style:floating-label-input type:email helper:"We'll never share your email." group:"Default" note:"The label starts in the placeholder position and floats up to a compact caption on focus or when the field is filled." { label "Email address" }
+component FloatEmailIcon layout:stack style:floating-label-input type:email value:"ada@cronus.dev" icon:mail group:"With adornments" note:"Pin decorative icons as adornments; the label and input inset to make room. A prefilled field shows the floated resting state." { label "Email address" }
+component FloatPassword layout:stack style:floating-label-input type:password icon:lock group:"With adornments" { label "Password" }
+component FloatInvalid layout:stack style:floating-label-input type:password value:"123" invalid:true icon:lock helper:"Use at least 8 characters." group:"Invalid" { label "Password" }

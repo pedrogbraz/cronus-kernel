@@ -1,0 +1,27 @@
+page "/chip" type:components family:chip {
+  title "Chip"
+  description:"Compact pill for tags, filters and statuses."
+}
+
+component TopicFilters layout:inline style:chip aria-label:"Filter articles by topic" selected:false group:"Filter chips" note:"A selected chip renders as a toggle button with aria-pressed and a leading check mark while on." {
+  item "Design" selected:true
+  item "React"
+  item "TypeScript"
+  item "Motion"
+  item "A11y"
+}
+component Variants layout:inline style:chip aria-label:"Chip variants" group:"Variants, colors & sizes" note:"Three treatments across the semantic palette — solid fills, soft 15% tints, and outline." {
+  item "Solid" variant:solid color:primary
+  item "Error" variant:solid color:error
+  item "Soft" variant:soft color:success
+  item "Warning" variant:soft color:warning
+  item "Outline" variant:outline color:info
+  item "Small" variant:soft size:sm
+  item "Large" variant:outline size:lg
+}
+component Tags layout:inline style:chip+soft+primary aria-label:"Selected tags" removable:true group:"Dismissible" note:"onRemove adds a remove affordance — pointer users hit the ×, keyboard users press Delete or Backspace." {
+  item "Aurora"
+  item "Nebula"
+  item "Pulsar"
+  item "Quasar"
+}

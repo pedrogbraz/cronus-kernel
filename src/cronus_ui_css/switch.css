@@ -3,7 +3,7 @@
   display: inline-flex; align-items: center; flex-shrink: 0;
   height: 1.25rem; width: 2.25rem; padding: 0; margin: 0;
   border-radius: 9999px; border: 1px solid transparent;
-  background: var(--cronus-fg-tertiary); cursor: pointer;
+  background: var(--cronus-fg-tertiary);
   transition: background 150ms var(--ease-out-quart);
 }
 [data-slot="switch"][data-state="checked"] {
@@ -26,3 +26,26 @@
 /* RTL: the thumb starts at inline-start, so it travels the other way. */
 [data-slot="switch"]:dir(rtl) > span { transform: translateX(-0.125rem); }
 [data-slot="switch"][data-state="checked"]:dir(rtl) > span { transform: translateX(-18px); }
+/* Zero JS: the label's checkbox is the control; React's button is decorative. */
+label[data-control="switch"] {
+  position: relative; display: inline-flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  vertical-align: middle;
+}
+label[data-control="switch"]:has(> [data-slot="label"]) { display: flex; max-width: 20rem; width: 100%; }
+label[data-control="switch"] > input {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+label[data-control="switch"] > [data-slot="switch"] { pointer-events: none; }
+label[data-control="switch"] > input:checked ~ [data-slot="switch"] { background: var(--cronus-primary); }
+label[data-control="switch"] > input:checked ~ [data-slot="switch"] > span { transform: translateX(18px); }
+label[data-control="switch"] > input:checked ~ [data-slot="switch"]:dir(rtl) > span { transform: translateX(-18px); }
+label[data-control="switch"] > input:not(:checked) ~ [data-slot="switch"][data-state="checked"] { background: var(--cronus-fg-tertiary); }
+label[data-control="switch"] > input:not(:checked) ~ [data-slot="switch"][data-state="checked"] > span { transform: translateX(0.125rem); }
+label[data-control="switch"] > input:not(:checked) ~ [data-slot="switch"][data-state="checked"]:dir(rtl) > span { transform: translateX(-0.125rem); }
+label[data-control="switch"] > input:focus-visible ~ [data-slot="switch"] {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
+}
+label[data-control="switch"] > [data-slot="label"] {
+  font-size: 0.875rem; font-weight: 500; line-height: 1; color: var(--cronus-fg); user-select: none;
+}

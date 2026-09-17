@@ -1,0 +1,6 @@
+page "/field" type:components family:field {
+  title "Field"
+  description:"Label, control and description composed as one field."
+}
+
+component WorkspaceField layout:stack style:field control:input placeholder:"acme-inc" description:"Used in your workspace URL. Letters, numbers, and dashes." group:"Composition" note:"Compose FieldLabel, FieldDescription, and an Input inside a Field." { label "Workspace name" }

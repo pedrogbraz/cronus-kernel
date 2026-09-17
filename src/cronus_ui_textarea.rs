@@ -30,6 +30,12 @@ pub fn render(comp: &ComponentNode) -> String {
     if let Some(label) = aria_label {
         attrs.push_str(&format!(" aria-label=\"{}\"", esc(label)));
     }
+    if let Some(rows) = crate::cronus_ui_kit::attr_num::<u32>(comp, "rows") {
+        attrs.push_str(&format!(" rows=\"{rows}\""));
+    }
+    if let Some(id) = comp.props.get("id").filter(|v| !v.is_empty()) {
+        attrs.push_str(&format!(" id=\"{}\"", esc(id)));
+    }
     format!("<textarea {attrs}>{}</textarea>", esc(value))
 }
 

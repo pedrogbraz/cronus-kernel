@@ -60,24 +60,45 @@ pub fn render(comp: &ComponentNode) -> String {
         .enumerate()
         .map(|(i, o)| format!(" data-o{}=\"{o}\"", i + 1))
         .collect();
-    let items: String = options
-        .iter()
-        .enumerate()
-        .map(|(i, o)| {
-            let checked = if value.as_deref() == Some(o.as_str()) {
-                " checked"
-            } else {
-                ""
-            };
-            format!(
-                "<label data-slot=\"select-item\" data-option=\"{}\"><input type=\"radio\" name=\"{name}\" value=\"{o}\"{checked}><span>{o}</span></label>",
-                i + 1
-            )
-        })
-        .collect();
+    let groups = groups_of(comp);
+    let mut items = String::new();
+    let mut current_group: Option<String> = None;
+    for (i, o) in options.iter().enumerate() {
+        if let Some(g) = groups.get(o) {
+            if current_group.as_deref() != Some(g.as_str()) {
+                if current_group.is_some() {
+                    items.push_str("<div data-slot=\"select-separator\" role=\"separator\"></div>");
+                }
+                items.push_str(&format!("<div data-slot=\"select-label\">{}</div>", esc(g)));
+                current_group = Some(g.clone());
+            }
+        }
+        let checked = if value.as_deref() == Some(o.as_str()) {
+            " checked"
+        } else {
+            ""
+        };
+        items.push_str(&format!(
+            "<label data-slot=\"select-item\" data-option=\"{}\"><input type=\"radio\" name=\"{name}\" value=\"{o}\"{checked}><span>{o}</span></label>",
+            i + 1
+        ));
+    }
     format!(
         "<button type=\"button\" id=\"{trigger_id}\" role=\"combobox\" aria-expanded=\"false\" aria-autocomplete=\"none\" aria-label=\"{aria}\" data-state=\"closed\"{marker} data-slot=\"select-trigger\" popovertarget=\"{pop_id}\" aria-controls=\"{pop_id}\"{disabled}><span{labels}>{text}</span>{CHEVRON}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"select-content\" role=\"radiogroup\" aria-label=\"{aria}\" anchor=\"{trigger_id}\">{items}</div>"
     )
+}
+
+/// `item "Ireland" group:"Europe"` → escaped option text → group label.
+fn groups_of(comp: &ComponentNode) -> std::collections::HashMap<String, String> {
+    comp.items
+        .iter()
+        .filter_map(|i| {
+            i.config
+                .get("group")
+                .filter(|g| !g.is_empty())
+                .map(|g| (esc(&i.text), g.clone()))
+        })
+        .collect()
 }
 
 fn options_of(comp: &ComponentNode, placeholder: &str) -> Vec<String> {

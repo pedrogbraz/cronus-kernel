@@ -1,0 +1,9 @@
+page "/tags-input" type:components family:tags-input {
+  title "TagsInput"
+  description:"Free-form tags committed with Enter or comma."
+}
+
+component Topics layout:stack style:tags-input placeholder:"Add a topic…" max:6 aria-label:"Topics" group:"Default" note:"Type free-form tags and commit each with Enter or comma; they render as removable chips." {
+  text "design"
+  text "react"
+}

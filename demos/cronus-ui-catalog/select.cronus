@@ -1,0 +1,13 @@
+page "/select" type:components family:select {
+  title "Select"
+  description:"Composable dropdown with groups."
+}
+
+component Region layout:stack style:select group:"Grouped" note:"A grouped dropdown with labels, items, and a separator." {
+  label "Choose a region"
+  item "US East (N. Virginia)" group:"Americas"
+  item "US West (Oregon)" group:"Americas"
+  item "São Paulo" group:"Americas"
+  item "Ireland" group:"Europe"
+  item "Frankfurt" group:"Europe"
+}

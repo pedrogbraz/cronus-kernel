@@ -34,3 +34,13 @@
 }
 /* RTL: the label sits at inline-start; scale it from that edge. */
 [data-slot="floating-label-input-label"]:dir(rtl) { transform-origin: right; }
+[data-slot="floating-label-input-adornment"] {
+  pointer-events: none; position: absolute; inset-block: 0; z-index: 10;
+  display: flex; align-items: center; color: var(--cronus-fg-tertiary);
+}
+[data-slot="floating-label-input-adornment"][data-side="start"] { inset-inline-start: 0; padding-inline-start: 0.75rem; }
+[data-slot="floating-label-input-adornment"][data-side="end"] { inset-inline-end: 0; padding-inline-end: 0.75rem; }
+[data-slot="floating-label-input-adornment"] svg { width: 1rem; height: 1rem; }
+[data-slot="floating-label-input"][data-start-adornment] [data-slot="input"] { padding-inline-start: 2.5rem; }
+[data-slot="floating-label-input"][data-start-adornment] [data-slot="floating-label-input-label"] { inset-inline-start: 2.5rem; }
+[data-slot="floating-label-input"][data-end-adornment] [data-slot="input"] { padding-inline-end: 2.5rem; }

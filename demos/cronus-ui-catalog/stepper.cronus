@@ -1,0 +1,10 @@
+page "/stepper" type:components family:stepper {
+  title "Stepper"
+  description:"Multi-step progress with indicators."
+}
+
+component Checkout layout:stack style:stepper value:1 separators:true group:"Wizard" note:"A three-step flow. The indicator checks off completed steps." {
+  item "Account" description:"Your details"
+  item "Shipping" description:"Where to send it"
+  item "Payment" description:"Confirm & pay"
+}

@@ -1,0 +1,7 @@
+page "/rating" type:components family:rating {
+  title "Rating"
+  description:"Star rating, interactive or read-only."
+}
+
+component Experience layout:inline style:rating value:3 interactive:true aria-label:"Rate your experience" group:"Interactive" note:"Click a star to set the value; the wrapper is a single focusable control." { label "Rate your experience" }
+component Score layout:inline style:rating+sm value:4.5 readOnly:true aria-label:"Rated 4.5 out of 5" group:"Read-only with a count" note:"Display an aggregate score with readOnly and allowHalf, paired with the review count." { label "Rated 4.5 out of 5" }

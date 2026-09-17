@@ -16,6 +16,18 @@ const CHECK: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" heig
 pub fn render(comp: &ComponentNode) -> String {
     let o = orientation_of(comp);
     let steps = steps_of(comp);
+    let descriptions: Vec<String> = comp
+        .items
+        .iter()
+        .filter(|i| matches!(i.item_type.as_str(), "item" | "tab") && !i.text.is_empty())
+        .map(|i| {
+            i.config
+                .get("description")
+                .map(|d| esc(d))
+                .unwrap_or_default()
+        })
+        .collect();
+    let separators = crate::cronus_ui_kit::flag(comp, "separators");
     let current = current_of(comp, steps.len());
     let items = steps
         .iter()
@@ -34,8 +46,17 @@ pub fn render(comp: &ComponentNode) -> String {
             } else {
                 format!("<span>{}</span>", i + 1)
             };
+            let desc = descriptions
+                .get(i)
+                .map(|d| format!("<div data-slot=\"stepper-description\">{d}</div>"))
+                .unwrap_or_default();
+            let sep = if separators && i + 1 < steps.len() {
+                format!("<div data-slot=\"stepper-separator\" data-orientation=\"{o}\" aria-hidden=\"true\"></div>")
+            } else {
+                String::new()
+            };
             format!(
-                "<li data-slot=\"stepper-item\" data-state=\"{state}\" data-orientation=\"{o}\"{aria_current}><span data-slot=\"stepper-indicator\" data-state=\"{state}\">{mark}</span><div data-slot=\"stepper-title\">{t}</div><span data-slot=\"stepper-item-state\">{spoken}</span></li>"
+                "<li data-slot=\"stepper-item\" data-state=\"{state}\" data-orientation=\"{o}\"{aria_current}><span data-slot=\"stepper-indicator\" data-state=\"{state}\">{mark}</span><div data-slot=\"stepper-title\">{t}</div>{desc}<span data-slot=\"stepper-item-state\">{spoken}</span>{sep}</li>"
             )
         })
         .collect::<Vec<_>>()

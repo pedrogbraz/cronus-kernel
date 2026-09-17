@@ -9,11 +9,17 @@
   position: absolute; display: block; height: 100%; inset-inline-start: 0;
   inset-inline-end: calc(100% - var(--cui-slider-value, 0) * 1%); background: var(--cronus-primary);
 }
-[data-slot="slider"] > span:last-child {
+[data-slot="slider"] > span:not(:first-child) {
   position: absolute; transform: translateX(-50%);
   inset-inline-start: calc(var(--cui-slider-value, 0) * 1% + 0.5rem - var(--cui-slider-value, 0) * 0.01rem);
 }
-[data-slot="slider"] > span:last-child > span {
+[data-slot="slider"][data-start] > span:first-child > span {
+  inset-inline-start: calc(var(--cui-slider-start, 0) * 1%);
+}
+[data-slot="slider"][data-start] > span:nth-child(2) {
+  inset-inline-start: calc(var(--cui-slider-start, 0) * 1% + 0.5rem - var(--cui-slider-start, 0) * 0.01rem);
+}
+[data-slot="slider"] > span:not(:first-child) > span {
   display: block; width: 1rem; height: 1rem; box-sizing: border-box;
   border-radius: 9999px; border: 1px solid var(--cronus-primary);
   background: var(--cronus-surface-base);
@@ -121,4 +127,106 @@
 [data-slot="slider"][data-value="99"] { --cui-slider-value: 99; }
 [data-slot="slider"][data-value="100"] { --cui-slider-value: 100; }
 /* RTL: the thumb sits at inline-start; its -50% centring shift mirrors too. */
-[data-slot="slider"] > span:last-child:dir(rtl) { transform: translateX(50%); }
+[data-slot="slider"] > span:not(:first-child):dir(rtl) { transform: translateX(50%); }
+[data-slot="slider"][data-start="0"] { --cui-slider-start: 0; }
+[data-slot="slider"][data-start="1"] { --cui-slider-start: 1; }
+[data-slot="slider"][data-start="2"] { --cui-slider-start: 2; }
+[data-slot="slider"][data-start="3"] { --cui-slider-start: 3; }
+[data-slot="slider"][data-start="4"] { --cui-slider-start: 4; }
+[data-slot="slider"][data-start="5"] { --cui-slider-start: 5; }
+[data-slot="slider"][data-start="6"] { --cui-slider-start: 6; }
+[data-slot="slider"][data-start="7"] { --cui-slider-start: 7; }
+[data-slot="slider"][data-start="8"] { --cui-slider-start: 8; }
+[data-slot="slider"][data-start="9"] { --cui-slider-start: 9; }
+[data-slot="slider"][data-start="10"] { --cui-slider-start: 10; }
+[data-slot="slider"][data-start="11"] { --cui-slider-start: 11; }
+[data-slot="slider"][data-start="12"] { --cui-slider-start: 12; }
+[data-slot="slider"][data-start="13"] { --cui-slider-start: 13; }
+[data-slot="slider"][data-start="14"] { --cui-slider-start: 14; }
+[data-slot="slider"][data-start="15"] { --cui-slider-start: 15; }
+[data-slot="slider"][data-start="16"] { --cui-slider-start: 16; }
+[data-slot="slider"][data-start="17"] { --cui-slider-start: 17; }
+[data-slot="slider"][data-start="18"] { --cui-slider-start: 18; }
+[data-slot="slider"][data-start="19"] { --cui-slider-start: 19; }
+[data-slot="slider"][data-start="20"] { --cui-slider-start: 20; }
+[data-slot="slider"][data-start="21"] { --cui-slider-start: 21; }
+[data-slot="slider"][data-start="22"] { --cui-slider-start: 22; }
+[data-slot="slider"][data-start="23"] { --cui-slider-start: 23; }
+[data-slot="slider"][data-start="24"] { --cui-slider-start: 24; }
+[data-slot="slider"][data-start="25"] { --cui-slider-start: 25; }
+[data-slot="slider"][data-start="26"] { --cui-slider-start: 26; }
+[data-slot="slider"][data-start="27"] { --cui-slider-start: 27; }
+[data-slot="slider"][data-start="28"] { --cui-slider-start: 28; }
+[data-slot="slider"][data-start="29"] { --cui-slider-start: 29; }
+[data-slot="slider"][data-start="30"] { --cui-slider-start: 30; }
+[data-slot="slider"][data-start="31"] { --cui-slider-start: 31; }
+[data-slot="slider"][data-start="32"] { --cui-slider-start: 32; }
+[data-slot="slider"][data-start="33"] { --cui-slider-start: 33; }
+[data-slot="slider"][data-start="34"] { --cui-slider-start: 34; }
+[data-slot="slider"][data-start="35"] { --cui-slider-start: 35; }
+[data-slot="slider"][data-start="36"] { --cui-slider-start: 36; }
+[data-slot="slider"][data-start="37"] { --cui-slider-start: 37; }
+[data-slot="slider"][data-start="38"] { --cui-slider-start: 38; }
+[data-slot="slider"][data-start="39"] { --cui-slider-start: 39; }
+[data-slot="slider"][data-start="40"] { --cui-slider-start: 40; }
+[data-slot="slider"][data-start="41"] { --cui-slider-start: 41; }
+[data-slot="slider"][data-start="42"] { --cui-slider-start: 42; }
+[data-slot="slider"][data-start="43"] { --cui-slider-start: 43; }
+[data-slot="slider"][data-start="44"] { --cui-slider-start: 44; }
+[data-slot="slider"][data-start="45"] { --cui-slider-start: 45; }
+[data-slot="slider"][data-start="46"] { --cui-slider-start: 46; }
+[data-slot="slider"][data-start="47"] { --cui-slider-start: 47; }
+[data-slot="slider"][data-start="48"] { --cui-slider-start: 48; }
+[data-slot="slider"][data-start="49"] { --cui-slider-start: 49; }
+[data-slot="slider"][data-start="50"] { --cui-slider-start: 50; }
+[data-slot="slider"][data-start="51"] { --cui-slider-start: 51; }
+[data-slot="slider"][data-start="52"] { --cui-slider-start: 52; }
+[data-slot="slider"][data-start="53"] { --cui-slider-start: 53; }
+[data-slot="slider"][data-start="54"] { --cui-slider-start: 54; }
+[data-slot="slider"][data-start="55"] { --cui-slider-start: 55; }
+[data-slot="slider"][data-start="56"] { --cui-slider-start: 56; }
+[data-slot="slider"][data-start="57"] { --cui-slider-start: 57; }
+[data-slot="slider"][data-start="58"] { --cui-slider-start: 58; }
+[data-slot="slider"][data-start="59"] { --cui-slider-start: 59; }
+[data-slot="slider"][data-start="60"] { --cui-slider-start: 60; }
+[data-slot="slider"][data-start="61"] { --cui-slider-start: 61; }
+[data-slot="slider"][data-start="62"] { --cui-slider-start: 62; }
+[data-slot="slider"][data-start="63"] { --cui-slider-start: 63; }
+[data-slot="slider"][data-start="64"] { --cui-slider-start: 64; }
+[data-slot="slider"][data-start="65"] { --cui-slider-start: 65; }
+[data-slot="slider"][data-start="66"] { --cui-slider-start: 66; }
+[data-slot="slider"][data-start="67"] { --cui-slider-start: 67; }
+[data-slot="slider"][data-start="68"] { --cui-slider-start: 68; }
+[data-slot="slider"][data-start="69"] { --cui-slider-start: 69; }
+[data-slot="slider"][data-start="70"] { --cui-slider-start: 70; }
+[data-slot="slider"][data-start="71"] { --cui-slider-start: 71; }
+[data-slot="slider"][data-start="72"] { --cui-slider-start: 72; }
+[data-slot="slider"][data-start="73"] { --cui-slider-start: 73; }
+[data-slot="slider"][data-start="74"] { --cui-slider-start: 74; }
+[data-slot="slider"][data-start="75"] { --cui-slider-start: 75; }
+[data-slot="slider"][data-start="76"] { --cui-slider-start: 76; }
+[data-slot="slider"][data-start="77"] { --cui-slider-start: 77; }
+[data-slot="slider"][data-start="78"] { --cui-slider-start: 78; }
+[data-slot="slider"][data-start="79"] { --cui-slider-start: 79; }
+[data-slot="slider"][data-start="80"] { --cui-slider-start: 80; }
+[data-slot="slider"][data-start="81"] { --cui-slider-start: 81; }
+[data-slot="slider"][data-start="82"] { --cui-slider-start: 82; }
+[data-slot="slider"][data-start="83"] { --cui-slider-start: 83; }
+[data-slot="slider"][data-start="84"] { --cui-slider-start: 84; }
+[data-slot="slider"][data-start="85"] { --cui-slider-start: 85; }
+[data-slot="slider"][data-start="86"] { --cui-slider-start: 86; }
+[data-slot="slider"][data-start="87"] { --cui-slider-start: 87; }
+[data-slot="slider"][data-start="88"] { --cui-slider-start: 88; }
+[data-slot="slider"][data-start="89"] { --cui-slider-start: 89; }
+[data-slot="slider"][data-start="90"] { --cui-slider-start: 90; }
+[data-slot="slider"][data-start="91"] { --cui-slider-start: 91; }
+[data-slot="slider"][data-start="92"] { --cui-slider-start: 92; }
+[data-slot="slider"][data-start="93"] { --cui-slider-start: 93; }
+[data-slot="slider"][data-start="94"] { --cui-slider-start: 94; }
+[data-slot="slider"][data-start="95"] { --cui-slider-start: 95; }
+[data-slot="slider"][data-start="96"] { --cui-slider-start: 96; }
+[data-slot="slider"][data-start="97"] { --cui-slider-start: 97; }
+[data-slot="slider"][data-start="98"] { --cui-slider-start: 98; }
+[data-slot="slider"][data-start="99"] { --cui-slider-start: 99; }
+[data-slot="slider"][data-start="100"] { --cui-slider-start: 100; }
+

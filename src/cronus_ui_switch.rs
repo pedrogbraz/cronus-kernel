@@ -16,11 +16,28 @@ pub fn render(comp: &ComponentNode) -> String {
     if disabled {
         attrs.push_str(" disabled");
     }
-    if let Some(label) = aria_label(comp) {
-        attrs.push_str(&format!(" aria-label=\"{}\"", esc(label)));
+    let name = aria_label(comp).map(esc);
+    if let Some(label) = &name {
+        attrs.push_str(&format!(" aria-label=\"{label}\""));
     }
-    // Radix Thumb carries no data-slot; React renders no label text.
-    format!("<button {attrs}><span data-state=\"{state}\"></span></button>")
+    // Zero JS: the button (Radix Thumb inside, no data-slot) is decorative; a
+    // visually hidden checkbox in the wrapping label carries the state. A
+    // `text` item is the docs' companion `<Label>`, laid out before the switch
+    // (`justify-between`), as in the docs.
+    let caption = item(comp, "text")
+        .filter(|t| !t.is_empty())
+        .map(|t| format!("<span data-slot=\"label\">{}</span>", esc(t)))
+        .unwrap_or_default();
+    let on = if checked { " checked" } else { "" };
+    let dis = if disabled { " disabled" } else { "" };
+    let input_name = name
+        .as_deref()
+        .map(|n| format!(" aria-label=\"{n}\""))
+        .unwrap_or_default();
+    let id = crate::cronus_ui_kit::instance_id(comp, "switch");
+    format!(
+        "<label data-control=\"switch\"><input type=\"checkbox\" role=\"switch\" id=\"{id}\"{input_name}{on}{dis}>{caption}<button {attrs} tabindex=\"-1\" aria-hidden=\"true\"><span data-state=\"{state}\"></span></button></label>"
+    )
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<&str> {
@@ -69,7 +86,10 @@ mod tests {
     #[test]
     fn root_is_button_not_label_checkbox() {
         let html = render(&stub());
-        assert!(html.starts_with("<button "));
+        assert!(html.starts_with(
+            "<label data-control=\"switch\"><input type=\"checkbox\" role=\"switch\""
+        ));
+        assert_eq!(html.matches("<button ").count(), 1);
         assert!(html.contains("type=\"button\""));
         assert!(html.contains("data-slot=\"switch\""));
         assert!(html.contains("role=\"switch\""));
@@ -78,8 +98,6 @@ mod tests {
         assert!(html.contains("<span data-state=\"unchecked\"></span></button>"));
         assert!(!html.contains("switch-thumb"));
         assert!(!html.contains("switch-text"));
-        assert!(!html.contains("<label"));
-        assert!(!html.contains("type=\"checkbox\""));
         assert!(!html.contains("data-slot=\"switch-control\""));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
@@ -94,7 +112,7 @@ mod tests {
             .insert("aria-label".into(), "Airplane mode".into());
         assert_eq!(
             render(&c),
-            "<button type=\"button\" role=\"switch\" aria-checked=\"false\" data-state=\"unchecked\" value=\"on\" data-slot=\"switch\" aria-label=\"Airplane mode\"><span data-state=\"unchecked\"></span></button>"
+            "<label data-control=\"switch\"><input type=\"checkbox\" role=\"switch\" id=\"cui-notifications-switch\" aria-label=\"Airplane mode\"><button type=\"button\" role=\"switch\" aria-checked=\"false\" data-state=\"unchecked\" value=\"on\" data-slot=\"switch\" aria-label=\"Airplane mode\" tabindex=\"-1\" aria-hidden=\"true\"><span data-state=\"unchecked\"></span></button></label>"
         );
     }
 

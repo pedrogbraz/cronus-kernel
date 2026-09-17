@@ -1,0 +1,8 @@
+page "/input" type:components family:input {
+  title "Input"
+  description:"A single-line text field."
+}
+
+component Email layout:stack style:input group:"Default" note:"A single-line text input." { text "you@cronus.dev" }
+component EmailInvalid layout:stack style:field control:input type:email value:"not-an-email" error:"Enter a valid email address." group:"Invalid state" note:"Set invalid and pair it with a FieldError for accessible validation feedback." { label "Email" }
+component DisabledInput layout:stack style:input disabled:true group:"Disabled" note:"A non-interactive input." { text "Disabled" }

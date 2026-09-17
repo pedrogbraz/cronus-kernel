@@ -1,0 +1,6 @@
+page "/input-otp" type:components family:input-otp {
+  title "InputOTP"
+  description:"One-time-code input with slots."
+}
+
+component Verification layout:inline style:input-otp aria-label:"6-digit verification code" group:"6-digit" note:"A six-digit one-time-code input with a separator after the third slot." { label "Verification code" }

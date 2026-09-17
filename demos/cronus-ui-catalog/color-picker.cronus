@@ -1,0 +1,13 @@
+page "/color-picker" type:components family:color-picker {
+  title "ColorPicker"
+  description:"OKLCH color input on a popover with swatches."
+}
+
+component Brand layout:stack style:color-picker value:"oklch(0.62 0.21 256)" aria-label:"Brand color" group:"With swatches" note:"A controlled OKLCH color input on a popover — drag the area and hue slider, type any channel, or pick one of the preset swatches." {
+  label "Brand color"
+  item "oklch(0.62 0.21 256)"
+  item "oklch(0.65 0.24 24)"
+  item "oklch(0.72 0.19 145)"
+  item "oklch(0.8 0.16 86)"
+  item "oklch(0.62 0.25 304)"
+}

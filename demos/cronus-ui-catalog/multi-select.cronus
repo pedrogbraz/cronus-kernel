@@ -1,0 +1,21 @@
+page "/multi-select" type:components family:multi-select {
+  title "MultiSelect"
+  description:"Pick several values as removable chips."
+}
+
+component Skills layout:stack style:multi-select value:"TypeScript,React" placeholder:"Select skills…" aria-label:"Skills" group:"Default" note:"Select multiple values; each shows as a removable chip in the trigger." {
+  item "TypeScript"
+  item "React"
+  item "Node.js"
+  item "PostgreSQL"
+  item "Tailwind CSS"
+  item "GraphQL"
+  item "Rust" disabled:true
+}
+component SkillsCapped layout:stack style:multi-select value:"TypeScript,React,Node.js,PostgreSQL" max-display:2 placeholder:"Select skills…" aria-label:"Skills" group:"Max display" note:"Cap visible chips with maxDisplay; the rest collapse into a +N badge." {
+  item "TypeScript"
+  item "React"
+  item "Node.js"
+  item "PostgreSQL"
+  item "Tailwind CSS"
+}

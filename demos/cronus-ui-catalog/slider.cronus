@@ -1,0 +1,7 @@
+page "/slider" type:components family:slider {
+  title "Slider"
+  description:"Pick a value or a range."
+}
+
+component Volume layout:stack style:slider value:40 aria-label:"Volume" group:"Single thumb" note:"A single-value slider." { label "Volume" }
+component Price layout:stack style:slider value:"20,80" aria-label:"Price range" group:"Range" note:"A two-thumb slider bound to a [min, max] tuple." { label "Price range" }
