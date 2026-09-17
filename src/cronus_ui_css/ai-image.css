@@ -1,0 +1,7 @@
+/* ai-image: React `GeneratedImage` — h-auto max-w-full overflow-hidden rounded-md. */
+[data-slot="generated-image"] {
+  display: block; height: auto; max-width: 100%; overflow: hidden;
+  border-radius: var(--cronus-radius-md);
+}
+/* Docs preview: the 1x1 placeholder is scaled up (className="size-24 image-rendering-pixelated"). */
+[data-slot="catalog-frame"] > [data-slot="generated-image"] { image-rendering: pixelated; }

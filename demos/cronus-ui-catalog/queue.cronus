@@ -1,0 +1,10 @@
+page "/queue" type:components family:queue {
+  title "Queue"
+  description:"Pending messages and todos waiting to run."
+}
+
+component PendingWork layout:stack style:queue group:"Pending work" note:"A list of items waiting to run." {
+  label "Pending work"
+  item "Summarise the last three PRs"
+  item "Draft the changelog"
+}

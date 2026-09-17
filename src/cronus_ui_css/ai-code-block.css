@@ -1,0 +1,37 @@
+/* ai-code-block: React `AiCodeBlock` — grid rows auto/1fr, rounded-md border, overflow hidden. */
+[data-slot="ai-code-block"] {
+  display: grid; width: 100%; height: 100%; grid-template-rows: auto 1fr; overflow: hidden;
+  box-sizing: border-box; border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-md);
+  color: var(--cronus-fg);
+}
+[data-slot="ai-code-block-header"] {
+  display: flex; flex-direction: row; align-items: center; padding: 0.25rem;
+  border-bottom: 1px solid var(--cronus-border); background: var(--cronus-surface-overlay);
+}
+/* The docs' filename: <span class="font-mono text-xs">. */
+[data-slot="ai-code-block-header"] > span {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--cronus-font-mono); font-size: 0.75rem; line-height: 1rem;
+}
+/* AiCodeBlockCopyButton: Button ghost icon-sm, shrink-0, glyph size-3.5 text-fg-tertiary. */
+[data-slot="ai-code-block-copy-button"] {
+  display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center;
+  width: 2rem; height: 2rem; margin: 0; padding: 0; box-sizing: border-box;
+  border: 0 solid transparent; border-radius: var(--cronus-radius-lg);
+  background: transparent; color: var(--cronus-fg-secondary); font-family: inherit; outline: none;
+  transition: background 150ms var(--ease-out-quart), transform 150ms var(--ease-out-quart);
+}
+[data-slot="ai-code-block-copy-button"] svg { width: 0.875rem; height: 0.875rem; flex-shrink: 0; pointer-events: none; color: var(--cronus-fg-tertiary); }
+[data-slot="ai-code-block-copy-button"]:hover { background: var(--cronus-surface-overlay); color: var(--cronus-fg); }
+[data-slot="ai-code-block-copy-button"]:active { transform: scale(0.98); }
+[data-slot="ai-code-block-body"] {
+  overflow: auto; background: var(--cronus-surface-base);
+}
+[data-slot="ai-code-block-item"] { margin-top: 0; font-size: 0.875rem; line-height: 1.25rem; }
+[data-slot="ai-code-block-content"] {
+  margin: 0; padding: 1rem; overflow: auto;
+  font-family: var(--cronus-font-mono); font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg);
+}
+[data-slot="ai-code-block-content"] > code { font-family: inherit; font-size: inherit; }
+/* Docs preview wrapper: className="w-full max-w-lg". */
+[data-slot="catalog-frame"] > [data-slot="ai-code-block"] { width: 100%; max-width: 32rem; height: auto; }

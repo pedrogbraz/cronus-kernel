@@ -1,0 +1,71 @@
+/* branch: React `Branch` — grid w-full gap-2; radios switch the visible message with zero JS. */
+[data-slot="branch"] {
+  display: grid; width: 100%; gap: 0.5rem;
+}
+[data-slot="branch-messages"] > div {
+  display: none; gap: 0.5rem; overflow: hidden;
+}
+[data-slot="branch-messages"] > div > p { margin: 0; }
+[data-slot="branch-messages"] > div:only-child { display: grid; }
+[data-slot="branch"]:has(> [data-slot="branch-selector"] > input[value="0"]:checked) > [data-slot="branch-messages"] > div:nth-child(1),
+[data-slot="branch"]:has(> [data-slot="branch-selector"] > input[value="1"]:checked) > [data-slot="branch-messages"] > div:nth-child(2),
+[data-slot="branch"]:has(> [data-slot="branch-selector"] > input[value="2"]:checked) > [data-slot="branch-messages"] > div:nth-child(3),
+[data-slot="branch"]:has(> [data-slot="branch-selector"] > input[value="3"]:checked) > [data-slot="branch-messages"] > div:nth-child(4),
+[data-slot="branch"]:has(> [data-slot="branch-selector"] > input[value="4"]:checked) > [data-slot="branch-messages"] > div:nth-child(5),
+[data-slot="branch"]:has(> [data-slot="branch-selector"] > input[value="5"]:checked) > [data-slot="branch-messages"] > div:nth-child(6),
+[data-slot="branch"]:has(> [data-slot="branch-selector"] > input[value="6"]:checked) > [data-slot="branch-messages"] > div:nth-child(7),
+[data-slot="branch"]:has(> [data-slot="branch-selector"] > input[value="7"]:checked) > [data-slot="branch-messages"] > div:nth-child(8),
+[data-slot="branch"]:has(> [data-slot="branch-selector"] > input[value="8"]:checked) > [data-slot="branch-messages"] > div:nth-child(9),
+[data-slot="branch"]:has(> [data-slot="branch-selector"] > input[value="9"]:checked) > [data-slot="branch-messages"] > div:nth-child(10),
+[data-slot="branch"]:has(> [data-slot="branch-selector"] > input[value="10"]:checked) > [data-slot="branch-messages"] > div:nth-child(11),
+[data-slot="branch"]:has(> [data-slot="branch-selector"] > input[value="11"]:checked) > [data-slot="branch-messages"] > div:nth-child(12) {
+  display: grid;
+}
+[data-slot="branch-selector"] {
+  position: relative; display: flex; align-items: center; justify-content: flex-start; gap: 0.5rem;
+  align-self: end; padding: 0 2.5rem;
+}
+[data-slot="branch"].from-user > [data-slot="branch-selector"] { justify-content: flex-end; }
+[data-slot="branch-selector"] > input {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="branch-selector"] > [data-branch] { display: none; }
+[data-slot="branch-selector"]:has(> input[value="0"]:checked) > [data-branch="0"],
+[data-slot="branch-selector"]:has(> input[value="1"]:checked) > [data-branch="1"],
+[data-slot="branch-selector"]:has(> input[value="2"]:checked) > [data-branch="2"],
+[data-slot="branch-selector"]:has(> input[value="3"]:checked) > [data-branch="3"],
+[data-slot="branch-selector"]:has(> input[value="4"]:checked) > [data-branch="4"],
+[data-slot="branch-selector"]:has(> input[value="5"]:checked) > [data-branch="5"],
+[data-slot="branch-selector"]:has(> input[value="6"]:checked) > [data-branch="6"],
+[data-slot="branch-selector"]:has(> input[value="7"]:checked) > [data-branch="7"],
+[data-slot="branch-selector"]:has(> input[value="8"]:checked) > [data-branch="8"],
+[data-slot="branch-selector"]:has(> input[value="9"]:checked) > [data-branch="9"],
+[data-slot="branch-selector"]:has(> input[value="10"]:checked) > [data-branch="10"],
+[data-slot="branch-selector"]:has(> input[value="11"]:checked) > [data-branch="11"] {
+  display: inline-flex;
+}
+[data-slot="branch-selector"] > label { cursor: pointer; }
+[data-slot="branch-selector"] > label > button { pointer-events: none; }
+/* BranchPrevious / BranchNext: Button ghost icon-sm, size-7 rounded-full text-fg-tertiary. */
+[data-slot="branch-previous"], [data-slot="branch-next"] {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 1.75rem; height: 1.75rem; margin: 0; padding: 0; box-sizing: border-box;
+  border: 0 solid transparent; border-radius: 9999px;
+  background: transparent; color: var(--cronus-fg-tertiary);
+  font-family: inherit; outline: none;
+  transition: color 150ms var(--ease-out-quart), background-color 150ms var(--ease-out-quart), transform 150ms var(--ease-out-quart), opacity 150ms var(--ease-out-quart);
+}
+[data-slot="branch-previous"] svg, [data-slot="branch-next"] svg { width: 0.875rem; height: 0.875rem; flex-shrink: 0; pointer-events: none; }
+[data-slot="branch-selector"] > label:hover > button,
+[data-slot="branch-previous"]:not(:disabled):hover, [data-slot="branch-next"]:not(:disabled):hover {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
+[data-slot="branch-selector"] > label:active > button { transform: scale(0.98); }
+[data-slot="branch-previous"]:disabled, [data-slot="branch-next"]:disabled { opacity: 0.5; pointer-events: none; }
+[data-slot="branch-selector"]:has(> input:focus-visible) > label > button {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
+}
+[data-slot="branch-page"] {
+  font-size: 0.75rem; line-height: 1rem; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--cronus-fg-tertiary);
+}

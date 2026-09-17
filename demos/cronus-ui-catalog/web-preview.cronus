@@ -1,0 +1,6 @@
+page "/web-preview" type:components family:web-preview {
+  title "WebPreview"
+  description:"Sandboxed iframe preview with URL chrome and a console."
+}
+
+component SandboxedPreview layout:stack style:web-preview url:"https://aicronus.com" group:"Sandboxed preview" note:"URL chrome around an iframe. The body stays empty until you set a src." { label "Preview" }

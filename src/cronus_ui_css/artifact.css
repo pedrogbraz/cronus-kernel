@@ -1,0 +1,47 @@
+/* artifact: React `Artifact` frame — flex column, rounded-lg border, surface-base, shadow-sm. */
+[data-slot="artifact"] {
+  display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box;
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-base); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-sm, none);
+}
+[data-slot="artifact-header"] {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  padding: 0.75rem 1rem; border-bottom: 1px solid var(--cronus-border);
+  background: color-mix(in oklab, var(--cronus-surface-overlay) 50%, transparent);
+}
+[data-slot="artifact-header"] > div:first-child:not([data-slot]) { min-width: 0; }
+[data-slot="artifact-title"] {
+  margin: 0; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; color: var(--cronus-fg);
+}
+[data-slot="artifact-description"] {
+  margin: 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-tertiary);
+}
+[data-slot="artifact-actions"] {
+  display: flex; align-items: center; gap: 0.25rem;
+}
+/* ArtifactAction / ArtifactClose: Button ghost icon-sm, text-fg-tertiary hover:text-fg. */
+[data-slot="artifact-action"], [data-slot="artifact-close"] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  width: 2rem; height: 2rem; margin: 0; padding: 0; box-sizing: border-box;
+  border: 0 solid transparent; border-radius: var(--cronus-radius-lg);
+  background: transparent; color: var(--cronus-fg-tertiary);
+  font-family: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;
+  outline: none;
+  transition: background 150ms var(--ease-out-quart), transform 150ms var(--ease-out-quart), opacity 150ms var(--ease-out-quart);
+}
+[data-slot="artifact-action"] svg, [data-slot="artifact-close"] svg { width: 1rem; height: 1rem; flex-shrink: 0; pointer-events: none; }
+[data-slot="artifact-action"]:hover, [data-slot="artifact-close"]:hover { background: var(--cronus-surface-overlay); color: var(--cronus-fg); }
+[data-slot="artifact-action"]:active, [data-slot="artifact-close"]:active { transform: scale(0.98); }
+[data-slot="artifact-content"] {
+  flex: 1; overflow: auto; padding: 1rem;
+}
+[data-slot="artifact-content"] > p { margin: 0; font-size: 0.875rem; line-height: 1.25rem; }
+[data-slot="artifact-content"] > p + p { margin-top: 0.5rem; }
+/* The docs' generated file: <pre class="font-mono text-xs text-fg-secondary">. */
+[data-slot="artifact-content"] > pre {
+  margin: 0; font-family: var(--cronus-font-mono); font-size: 0.75rem; line-height: 1rem;
+  color: var(--cronus-fg-secondary); white-space: pre; overflow: auto;
+}
+/* Docs preview wrapper: className="w-full max-w-lg". */
+[data-slot="catalog-frame"] > [data-slot="artifact"] { width: 100%; max-width: 32rem; }

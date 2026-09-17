@@ -301,9 +301,10 @@ name is not also a built-in above, in which case the built-in renderer wins):
 `stepper` `sunburst-chart` `switch` `table` `table-of-contents` `tabs` `tags-input`
 `terminal` `text-effect` `text-shimmer` `textarea` `tilt-card` `time-picker` `timeline`
 `toggle` `toggle-group` `toolbar` `tooltip` `tree-view` `typing-text` `usage-meter`
-`video-player` `word-rotate` `workspace-switcher` `toast` `motion-presets`
-`conversation` `inline-citation` `message` `prompt-input` `reasoning` `sources` `suggestion`
-`tool`
+`video-player` `word-rotate` `words-preloader` `workspace-switcher` `toast` `motion-presets`
+`actions` `ai-code-block` `ai-image` `artifact` `branch` `chain-of-thought` `context`
+`conversation` `inline-citation` `message` `open-in-chat` `plan` `prompt-input` `queue`
+`reasoning` `response` `sources` `suggestion` `task` `tool` `web-preview`
 <!-- end:family-sections -->
 
 Overlays and pickers open without JavaScript. Menus, popover, hover-card,

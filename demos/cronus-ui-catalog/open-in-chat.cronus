@@ -1,0 +1,11 @@
+page "/open-in-chat" type:components family:open-in-chat {
+  title "OpenIn"
+  description:"Open a prompt in ChatGPT, Claude, Cursor, and other chats."
+}
+
+component OpenElsewhere layout:inline style:open-in-chat query:"Explain Cronus tokens" heading:"Open in" group:"Open elsewhere" note:"Hand a prompt to ChatGPT, Claude, or Cursor." {
+  label "Open in chat"
+  item "chatgpt"
+  item "claude"
+  item "cursor"
+}

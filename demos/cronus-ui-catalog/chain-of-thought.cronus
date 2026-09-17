@@ -1,0 +1,11 @@
+page "/chain-of-thought" type:components family:chain-of-thought {
+  title "ChainOfThought"
+  description:"A collapsible trail of model reasoning steps."
+}
+
+component ReasoningTrail layout:stack style:chain-of-thought open:true group:"Reasoning trail" note:"A collapsible list of steps the model took." {
+  label "Chain of Thought"
+  item "Parse the question"
+  item "Retrieve the docs"
+  item "Draft the answer"
+}

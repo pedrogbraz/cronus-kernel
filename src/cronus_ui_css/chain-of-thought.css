@@ -1,0 +1,79 @@
+/* chain-of-thought: React Collapsible root (not-prose max-w-prose); a hidden checkbox carries the open state. */
+[data-slot="chain-of-thought"] {
+  max-width: 65ch;
+}
+[data-slot="chain-of-thought"] > label {
+  position: relative; display: block; cursor: pointer;
+}
+[data-slot="chain-of-thought"] > label > input {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+/* ChainOfThoughtHeader: group flex w-full items-center gap-2 text-sm text-fg-tertiary hover:text-fg. */
+[data-slot="chain-of-thought-header"] {
+  display: flex; width: 100%; align-items: center; gap: 0.5rem;
+  margin: 0; padding: 0; border: 0; background: transparent;
+  font: inherit; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-tertiary);
+  text-align: start; outline: none; pointer-events: none;
+  transition: color 150ms var(--ease-out-quart);
+}
+[data-slot="chain-of-thought"] > label:hover > [data-slot="chain-of-thought-header"] { color: var(--cronus-fg); }
+[data-slot="chain-of-thought"] > label > input:focus-visible + [data-slot="chain-of-thought-header"] {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
+}
+[data-slot="chain-of-thought-header"] > div {
+  position: relative; width: 1rem; height: 1rem; flex-shrink: 0;
+}
+[data-slot="chain-of-thought-header"] > div > svg { width: 1rem; height: 1rem; }
+[data-slot="chain-of-thought-header"] > div > svg:first-child {
+  position: absolute; inset-inline-start: 0; top: 0; opacity: 0;
+  transition: opacity 150ms var(--ease-out-quart), rotate 150ms var(--ease-out-quart);
+}
+[data-slot="chain-of-thought-header"] > div > svg:last-child {
+  transition: scale 150ms var(--ease-out-quart);
+}
+[data-slot="chain-of-thought"] > label:hover > [data-slot="chain-of-thought-header"] > div > svg:first-child,
+[data-slot="chain-of-thought"] > label > input:focus-visible + [data-slot="chain-of-thought-header"] > div > svg:first-child,
+[data-slot="chain-of-thought"] > label > input:checked + [data-slot="chain-of-thought-header"] > div > svg:first-child { opacity: 1; }
+[data-slot="chain-of-thought"] > label > input:checked + [data-slot="chain-of-thought-header"] > div > svg:first-child { rotate: 90deg; }
+[data-slot="chain-of-thought"] > label:hover > [data-slot="chain-of-thought-header"] > div > svg:last-child,
+[data-slot="chain-of-thought"] > label > input:focus-visible + [data-slot="chain-of-thought-header"] > div > svg:last-child,
+[data-slot="chain-of-thought"] > label > input:checked + [data-slot="chain-of-thought-header"] > div > svg:last-child { scale: 0; }
+[data-slot="chain-of-thought-header"] > span { flex: 1; text-align: start; }
+/* ChainOfThoughtContent: CollapsibleContent (overflow-hidden text-sm text-fg-secondary) + mt-2 space-y-3. */
+[data-slot="chain-of-thought-content"] {
+  margin-top: 0.5rem; overflow: hidden; outline: none;
+  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
+  animation: cui-chain-of-thought-down 220ms var(--ease-out-quart) both;
+}
+[data-slot="chain-of-thought-content"] > * + * { margin-top: 0.75rem; }
+[data-slot="chain-of-thought"]:not(:has(> label > input:checked)) > [data-slot="chain-of-thought-content"] { display: none; }
+@keyframes cui-chain-of-thought-down {
+  from { opacity: 0; translate: 0 -0.25rem; }
+}
+/* ChainOfThoughtStep: flex gap-2 text-sm, animate-in fade-in-0 slide-in-from-top-2, colour by status. */
+[data-slot="chain-of-thought-step"] {
+  display: flex; gap: 0.5rem; font-size: 0.875rem; line-height: 1.25rem;
+  color: var(--cronus-fg-tertiary);
+  animation: cui-chain-of-thought-step-in 150ms ease-out both;
+}
+@keyframes cui-chain-of-thought-step-in {
+  from { opacity: 0; transform: translateY(-0.5rem); }
+}
+[data-slot="chain-of-thought-step"][data-status="active"] { color: var(--cronus-fg); }
+[data-slot="chain-of-thought-step"][data-status="pending"] { color: color-mix(in oklab, var(--cronus-fg-tertiary) 50%, transparent); }
+[data-slot="chain-of-thought-step"] > div:first-child {
+  position: relative; margin-top: 0.125rem; flex-shrink: 0;
+}
+[data-slot="chain-of-thought-step"] > div:first-child > svg { width: 1rem; height: 1rem; }
+/* Connector under the glyph: absolute start-1/2 top-7 bottom-0 -ms-px w-px -translate-x-1/2 bg-border. */
+[data-slot="chain-of-thought-step"] > div:first-child > div {
+  position: absolute; inset-inline-start: 50%; top: 1.75rem; bottom: 0;
+  margin-inline-start: -1px; width: 1px; transform: translateX(-50%); background: var(--cronus-border);
+}
+[data-slot="chain-of-thought-step"] > div:last-child { flex: 1; min-width: 0; }
+[data-slot="chain-of-thought-step"] > div:last-child > * + * { margin-top: 0.5rem; }
+[data-slot="chain-of-thought-step"] > div:last-child > div > [data-slot="text-shimmer"] { font-size: inherit; line-height: inherit; }
+[data-slot="chain-of-thought-step"] [data-slot="response"] {
+  font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-tertiary);
+}
