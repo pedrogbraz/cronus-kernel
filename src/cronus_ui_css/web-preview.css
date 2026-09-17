@@ -1,0 +1,81 @@
+/* web-preview: React `WebPreview` — flex column, rounded-lg border, surface-raised. */
+[data-slot="web-preview"] {
+  display: flex; width: 100%; height: 100%; flex-direction: column; box-sizing: border-box;
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-raised); color: var(--cronus-fg);
+}
+[data-slot="web-preview-navigation"] {
+  display: flex; align-items: center; gap: 0.25rem; padding: 0.5rem; border-bottom: 1px solid var(--cronus-border);
+}
+/* WebPreviewNavigationButton: Button ghost sm as a size-8 square, hover:text-fg. */
+[data-slot="web-preview-navigation-button"] {
+  display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center;
+  width: 2rem; height: 2rem; margin: 0; padding: 0; box-sizing: border-box;
+  border: 0 solid transparent; border-radius: var(--cronus-radius-lg);
+  background: transparent; color: var(--cronus-fg-secondary);
+  font-family: inherit; font-size: 0.75rem; line-height: 1rem; font-weight: 500; outline: none;
+  transition: background 150ms var(--ease-out-quart), color 150ms var(--ease-out-quart), transform 150ms var(--ease-out-quart);
+}
+[data-slot="web-preview-navigation-button"] svg { width: 0.875rem; height: 0.875rem; flex-shrink: 0; pointer-events: none; }
+[data-slot="web-preview-navigation-button"]:hover { background: var(--cronus-surface-overlay); color: var(--cronus-fg); }
+[data-slot="web-preview-navigation-button"]:active { transform: scale(0.98); }
+/* WebPreviewUrl: Input (rounded-lg border surface-inset text-sm) at h-8 flex-1. */
+[data-slot="web-preview-url"] {
+  display: flex; flex: 1; min-width: 0; height: 2rem; box-sizing: border-box;
+  padding: 0 0.75rem; border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-inset); color: var(--cronus-fg);
+  font-family: inherit; font-size: 0.875rem; line-height: 1.25rem; outline: none;
+  transition: border-color 150ms var(--ease-out-quart), box-shadow 150ms var(--ease-out-quart);
+}
+[data-slot="web-preview-url"]::placeholder { color: var(--cronus-fg-tertiary); }
+[data-slot="web-preview-url"]:focus-visible {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
+}
+[data-slot="web-preview-url"]::selection { background: var(--cronus-primary); color: var(--cronus-primary-foreground); }
+[data-slot="web-preview-body"] { position: relative; min-height: 0; flex: 1; }
+/* The frame box (React's iframe, size-full; the docs' h-56). */
+[data-slot="web-preview-body"] > div {
+  display: block; width: 100%; height: 14rem; border: 0; background: transparent;
+}
+/* WebPreviewConsole: border-t bg-surface-overlay/50 font-mono text-sm; Collapsible via a hidden checkbox. */
+[data-slot="web-preview-console"] {
+  border-top: 1px solid var(--cronus-border);
+  background: color-mix(in oklab, var(--cronus-surface-overlay) 50%, transparent);
+  font-family: var(--cronus-font-mono); font-size: 0.875rem; line-height: 1.25rem;
+}
+[data-slot="web-preview-console"] > div > label { position: relative; display: block; cursor: pointer; }
+[data-slot="web-preview-console"] > div > label > input {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="web-preview-console"] > div > label > [data-slot="button"] {
+  display: flex; width: 100%; height: auto; align-items: center; justify-content: space-between;
+  padding: 1rem; border-radius: 0; text-align: start; font-weight: 500; font-family: inherit; pointer-events: none;
+}
+[data-slot="web-preview-console"] > div > label:hover > [data-slot="button"] {
+  background: color-mix(in oklab, var(--cronus-surface-overlay) 50%, transparent);
+}
+[data-slot="web-preview-console"] > div > label > input:focus-visible + [data-slot="button"] {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
+}
+[data-slot="web-preview-console"] > div > label > [data-slot="button"] > span { display: inline-flex; align-items: center; gap: 0.5rem; }
+[data-slot="web-preview-console"] > div > label > [data-slot="button"] > svg {
+  width: 1rem; height: 1rem; transition: rotate 200ms var(--ease-out-quart);
+}
+[data-slot="web-preview-console"] > div > label > input:checked + [data-slot="button"] > svg { rotate: 180deg; }
+[data-slot="web-preview-console"] > div:not(:has(> label > input:checked)) > [data-slot="collapsible-content"] { display: none; }
+[data-slot="web-preview-console"] [data-slot="collapsible-content"] > div {
+  max-height: 12rem; overflow-y: auto; padding: 0 1rem 1rem;
+}
+[data-slot="web-preview-console"] [data-slot="collapsible-content"] > div > * + * { margin-top: 0.25rem; }
+[data-slot="web-preview-console"] [data-slot="collapsible-content"] p { margin: 0; color: var(--cronus-fg-tertiary); }
+[data-slot="web-preview-console"] [data-slot="collapsible-content"] > div > div {
+  display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg);
+}
+[data-slot="web-preview-console"] [data-slot="collapsible-content"] > div > div[data-level="error"] { color: var(--cronus-error-text); }
+[data-slot="web-preview-console"] [data-slot="collapsible-content"] > div > div[data-level="warn"] { color: var(--cronus-warning-text); }
+[data-slot="web-preview-console"] [data-slot="collapsible-content"] > div > div > [data-slot="badge"] { flex-shrink: 0; }
+[data-slot="web-preview-console"] [data-slot="collapsible-content"] > div > div > span:nth-child(2) { color: var(--cronus-fg-tertiary); }
+[data-slot="web-preview-console"] [data-slot="collapsible-content"] > div > div > span:last-child { min-width: 0; overflow-wrap: break-word; }
+/* Docs preview wrapper: className="w-full max-w-lg". */
+[data-slot="catalog-frame"] > [data-slot="web-preview"] { width: 100%; max-width: 32rem; height: auto; }

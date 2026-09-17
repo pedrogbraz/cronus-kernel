@@ -1,0 +1,11 @@
+page "/artifact" type:components family:artifact {
+  title "Artifact"
+  description:"A framed canvas for generated files, code, or previews."
+}
+
+component GeneratedArtifact layout:stack style:artifact code:true group:"Generated artifact" note:"A framed canvas for a file the model produced." {
+  title "landing.tsx"
+  text "export function Hero() {"
+  text "  return <h1>Intelligence at scale.</h1>"
+  text "}"
+}

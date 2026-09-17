@@ -82,10 +82,11 @@ const FILES: &[(&str, &str)] = css_files![
     "sunburst-chart", "switch", "table", "table-of-contents", "tabs", "tags-input", "terminal",
     "text-effect", "text-shimmer", "textarea", "theme", "tilt-card", "time-picker", "timeline",
     "toast", "toggle", "toggle-group", "toolbar", "tooltip", "tree-view", "typing-text",
-    "usage-meter", "video-player", "word-rotate", "workspace-switcher",
+    "usage-meter", "video-player", "word-rotate", "words-preloader", "workspace-switcher",
     // Sprint 5 C2 — AI suite (alphabetical).
-    "conversation", "inline-citation", "message", "prompt-input", "reasoning", "sources",
-    "suggestion", "tool",
+    "actions", "ai-code-block", "ai-image", "artifact", "branch", "chain-of-thought", "context",
+    "conversation", "inline-citation", "message", "open-in-chat", "plan", "prompt-input",
+    "queue", "reasoning", "response", "sources", "suggestion", "task", "tool", "web-preview",
 ];
 // @end FILES
 
@@ -821,6 +822,8 @@ mod tests {
         ("orbit", "orbit", "var(--cui-orbit-size, 18rem)"),
         ("orbit", "orbit", "16rem"),
         ("inline-citation", "inline-citation-card-body", "20rem"), // w-80
+        ("context", "context-content", "16rem"),                   // HoverCardContent w-64
+        ("open-in-chat", "open-in-content", "240px"),              // w-[240px]
     ];
 
     fn length_rem(token: &str) -> Option<f64> {

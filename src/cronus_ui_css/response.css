@@ -1,0 +1,6 @@
+/* response: React `Response` — size-full text-sm text-fg, first/last child margins collapsed. */
+[data-slot="response"] {
+  width: 100%; height: 100%; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg);
+}
+[data-slot="response"] > :first-child { margin-top: 0; }
+[data-slot="response"] > :last-child { margin-bottom: 0; }

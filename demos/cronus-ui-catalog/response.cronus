@@ -1,0 +1,6 @@
+page "/response" type:components family:response {
+  title "Response"
+  description:"Streaming-friendly host for assistant markdown."
+}
+
+component AssistantText layout:stack style:response group:"Assistant text" note:"A streaming-friendly host. Pass children as they arrive." { text "Cronus tokens re-theme live. Compose the app; do not fork the kit." }

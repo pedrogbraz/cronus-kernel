@@ -1,0 +1,320 @@
+/* words-preloader: React `WordsPreloader` — surface-raised panel, product lines via SlideUpText, curved lip, slide-up exit. */
+[data-slot="words-preloader"] {
+  display: flex; align-items: center; justify-content: center; overflow: visible; box-sizing: border-box;
+  background: var(--cronus-surface-raised); color: var(--cronus-fg);
+  animation: cui-wp-panel-out 800ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: calc(var(--cui-wp-delay, 0ms) + 120ms);
+}
+[data-slot="words-preloader"].page { position: fixed; inset: 0; z-index: 60; }
+[data-slot="words-preloader"].contained { position: absolute; inset: 0; z-index: 50; }
+/* The docs demo frame: relative h-[36rem] w-full overflow-hidden rounded-xl border. */
+.words-preloader-stage {
+  position: relative; width: 100%; height: 36rem; overflow: hidden; box-sizing: border-box;
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-xl);
+  background: var(--cronus-surface-base);
+}
+/* Curved lip: React's motion.path bulge (300px; contained: clamp(96px, 28% of height, 300px)) flattening on exit. */
+[data-slot="words-preloader"]::after {
+  content: ""; position: absolute; top: 100%; inset-inline: 0; height: 300px; pointer-events: none;
+  background: var(--cronus-surface-raised);
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  animation: cui-wp-lip 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: calc(var(--cui-wp-delay, 0ms) + 180ms);
+}
+[data-slot="words-preloader"].contained::after { height: min(300px, max(96px, 28%)); }
+@keyframes cui-wp-panel-out { to { translate: 0 -100%; } }
+@keyframes cui-wp-lip { to { height: 0; } }
+/* Stage: relative z-10 grid w-full place-items-center px-6; every beat stacks in the same cell,
+   invisible until its start beat (every `data-delay` is absolute: animations do not run under display: none). */
+[data-slot="words-preloader"] > div {
+  position: relative; z-index: 10; display: grid; width: 100%; place-items: center; padding: 0 1.5rem; box-sizing: border-box;
+}
+[data-slot="words-preloader"] > div > .copy, [data-slot="words-preloader"] > div > .end {
+  grid-column: 1; grid-row: 1; display: flex; align-items: center; justify-content: center; visibility: hidden;
+  animation: cui-wp-show 1ms linear forwards;
+  animation-delay: var(--cui-wp-delay, 0ms);
+}
+@keyframes cui-wp-show { from, to { visibility: visible; } }
+/* A line hides once its reveal + hold has elapsed; the last line before an end beat dissolves (320 ms fade + blur). */
+[data-slot="words-preloader"] > div > .copy > div[data-delay] {
+  animation: cui-wp-hide 1ms linear forwards;
+  animation-delay: var(--cui-wp-delay, 0ms);
+}
+[data-slot="words-preloader"] > div > .copy > div.out[data-delay] {
+  animation: cui-wp-out 320ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: var(--cui-wp-delay, 0ms);
+}
+@keyframes cui-wp-hide { to { visibility: hidden; opacity: 0; } }
+@keyframes cui-wp-out { to { opacity: 0; filter: blur(8px); } }
+/* SlideUpText pieces: the stagger is shifted by the line's start (absolute steps). */
+[data-slot="words-preloader"] [data-slot="slide-up-text"] > span[aria-hidden] > span > span { animation-delay: var(--cui-wp-delay, 0ms); }
+/* End beat: opacity 0 / scale 0.92 → 1 over 480 ms from its start beat. */
+[data-slot="words-preloader"] > div > .end {
+  animation: cui-wp-show 1ms linear forwards, cui-wp-end-in 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--cui-wp-delay, 0ms);
+}
+[data-slot="words-preloader"] > div > .end > div { display: flex; align-items: center; justify-content: center; }
+@keyframes cui-wp-end-in { from { opacity: 0; scale: 0.92; } }
+[data-slot="words-preloader"] > div > .end svg { width: 7rem; height: 3.5rem; color: var(--cronus-fg); }
+[data-slot="words-preloader"] > div > .end > div > span {
+  font-family: var(--cronus-font-display, inherit); font-size: 2.25rem; line-height: 1; font-weight: 600;
+  letter-spacing: -0.03em; color: var(--cronus-fg);
+}
+/* Copy: max-w-5xl text-center font-display text-4xl leading-[1.08] tracking-[-0.025em] text-balance, sm:text-5xl, lg:text-6xl. */
+[data-slot="words-preloader"] [data-slot="slide-up-text"] {
+  max-width: 64rem; justify-content: center; text-align: center; text-wrap: balance;
+  font-family: var(--cronus-font-display, inherit); font-size: 2.25rem; line-height: 1.08; letter-spacing: -0.025em;
+  color: var(--cronus-fg);
+}
+@media (min-width: 640px) {
+  [data-slot="words-preloader"] [data-slot="slide-up-text"] { font-size: 3rem; letter-spacing: -0.03em; }
+}
+@media (min-width: 1024px) {
+  [data-slot="words-preloader"] [data-slot="slide-up-text"] { font-size: 3.75rem; }
+}
+/* Reduced motion: React finishes at once and unmounts the panel. */
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="words-preloader"]:not([data-force-motion]):not([data-force-motion] *) { opacity: 0; pointer-events: none; }
+}
+/* `data-delay` = 50 ms steps of the React timeline, 0-240 (12 s). */
+[data-slot="words-preloader"][data-delay="0"], [data-slot="words-preloader"] [data-delay="0"] { --cui-wp-delay: 0ms; }
+[data-slot="words-preloader"][data-delay="1"], [data-slot="words-preloader"] [data-delay="1"] { --cui-wp-delay: 50ms; }
+[data-slot="words-preloader"][data-delay="2"], [data-slot="words-preloader"] [data-delay="2"] { --cui-wp-delay: 100ms; }
+[data-slot="words-preloader"][data-delay="3"], [data-slot="words-preloader"] [data-delay="3"] { --cui-wp-delay: 150ms; }
+[data-slot="words-preloader"][data-delay="4"], [data-slot="words-preloader"] [data-delay="4"] { --cui-wp-delay: 200ms; }
+[data-slot="words-preloader"][data-delay="5"], [data-slot="words-preloader"] [data-delay="5"] { --cui-wp-delay: 250ms; }
+[data-slot="words-preloader"][data-delay="6"], [data-slot="words-preloader"] [data-delay="6"] { --cui-wp-delay: 300ms; }
+[data-slot="words-preloader"][data-delay="7"], [data-slot="words-preloader"] [data-delay="7"] { --cui-wp-delay: 350ms; }
+[data-slot="words-preloader"][data-delay="8"], [data-slot="words-preloader"] [data-delay="8"] { --cui-wp-delay: 400ms; }
+[data-slot="words-preloader"][data-delay="9"], [data-slot="words-preloader"] [data-delay="9"] { --cui-wp-delay: 450ms; }
+[data-slot="words-preloader"][data-delay="10"], [data-slot="words-preloader"] [data-delay="10"] { --cui-wp-delay: 500ms; }
+[data-slot="words-preloader"][data-delay="11"], [data-slot="words-preloader"] [data-delay="11"] { --cui-wp-delay: 550ms; }
+[data-slot="words-preloader"][data-delay="12"], [data-slot="words-preloader"] [data-delay="12"] { --cui-wp-delay: 600ms; }
+[data-slot="words-preloader"][data-delay="13"], [data-slot="words-preloader"] [data-delay="13"] { --cui-wp-delay: 650ms; }
+[data-slot="words-preloader"][data-delay="14"], [data-slot="words-preloader"] [data-delay="14"] { --cui-wp-delay: 700ms; }
+[data-slot="words-preloader"][data-delay="15"], [data-slot="words-preloader"] [data-delay="15"] { --cui-wp-delay: 750ms; }
+[data-slot="words-preloader"][data-delay="16"], [data-slot="words-preloader"] [data-delay="16"] { --cui-wp-delay: 800ms; }
+[data-slot="words-preloader"][data-delay="17"], [data-slot="words-preloader"] [data-delay="17"] { --cui-wp-delay: 850ms; }
+[data-slot="words-preloader"][data-delay="18"], [data-slot="words-preloader"] [data-delay="18"] { --cui-wp-delay: 900ms; }
+[data-slot="words-preloader"][data-delay="19"], [data-slot="words-preloader"] [data-delay="19"] { --cui-wp-delay: 950ms; }
+[data-slot="words-preloader"][data-delay="20"], [data-slot="words-preloader"] [data-delay="20"] { --cui-wp-delay: 1000ms; }
+[data-slot="words-preloader"][data-delay="21"], [data-slot="words-preloader"] [data-delay="21"] { --cui-wp-delay: 1050ms; }
+[data-slot="words-preloader"][data-delay="22"], [data-slot="words-preloader"] [data-delay="22"] { --cui-wp-delay: 1100ms; }
+[data-slot="words-preloader"][data-delay="23"], [data-slot="words-preloader"] [data-delay="23"] { --cui-wp-delay: 1150ms; }
+[data-slot="words-preloader"][data-delay="24"], [data-slot="words-preloader"] [data-delay="24"] { --cui-wp-delay: 1200ms; }
+[data-slot="words-preloader"][data-delay="25"], [data-slot="words-preloader"] [data-delay="25"] { --cui-wp-delay: 1250ms; }
+[data-slot="words-preloader"][data-delay="26"], [data-slot="words-preloader"] [data-delay="26"] { --cui-wp-delay: 1300ms; }
+[data-slot="words-preloader"][data-delay="27"], [data-slot="words-preloader"] [data-delay="27"] { --cui-wp-delay: 1350ms; }
+[data-slot="words-preloader"][data-delay="28"], [data-slot="words-preloader"] [data-delay="28"] { --cui-wp-delay: 1400ms; }
+[data-slot="words-preloader"][data-delay="29"], [data-slot="words-preloader"] [data-delay="29"] { --cui-wp-delay: 1450ms; }
+[data-slot="words-preloader"][data-delay="30"], [data-slot="words-preloader"] [data-delay="30"] { --cui-wp-delay: 1500ms; }
+[data-slot="words-preloader"][data-delay="31"], [data-slot="words-preloader"] [data-delay="31"] { --cui-wp-delay: 1550ms; }
+[data-slot="words-preloader"][data-delay="32"], [data-slot="words-preloader"] [data-delay="32"] { --cui-wp-delay: 1600ms; }
+[data-slot="words-preloader"][data-delay="33"], [data-slot="words-preloader"] [data-delay="33"] { --cui-wp-delay: 1650ms; }
+[data-slot="words-preloader"][data-delay="34"], [data-slot="words-preloader"] [data-delay="34"] { --cui-wp-delay: 1700ms; }
+[data-slot="words-preloader"][data-delay="35"], [data-slot="words-preloader"] [data-delay="35"] { --cui-wp-delay: 1750ms; }
+[data-slot="words-preloader"][data-delay="36"], [data-slot="words-preloader"] [data-delay="36"] { --cui-wp-delay: 1800ms; }
+[data-slot="words-preloader"][data-delay="37"], [data-slot="words-preloader"] [data-delay="37"] { --cui-wp-delay: 1850ms; }
+[data-slot="words-preloader"][data-delay="38"], [data-slot="words-preloader"] [data-delay="38"] { --cui-wp-delay: 1900ms; }
+[data-slot="words-preloader"][data-delay="39"], [data-slot="words-preloader"] [data-delay="39"] { --cui-wp-delay: 1950ms; }
+[data-slot="words-preloader"][data-delay="40"], [data-slot="words-preloader"] [data-delay="40"] { --cui-wp-delay: 2000ms; }
+[data-slot="words-preloader"][data-delay="41"], [data-slot="words-preloader"] [data-delay="41"] { --cui-wp-delay: 2050ms; }
+[data-slot="words-preloader"][data-delay="42"], [data-slot="words-preloader"] [data-delay="42"] { --cui-wp-delay: 2100ms; }
+[data-slot="words-preloader"][data-delay="43"], [data-slot="words-preloader"] [data-delay="43"] { --cui-wp-delay: 2150ms; }
+[data-slot="words-preloader"][data-delay="44"], [data-slot="words-preloader"] [data-delay="44"] { --cui-wp-delay: 2200ms; }
+[data-slot="words-preloader"][data-delay="45"], [data-slot="words-preloader"] [data-delay="45"] { --cui-wp-delay: 2250ms; }
+[data-slot="words-preloader"][data-delay="46"], [data-slot="words-preloader"] [data-delay="46"] { --cui-wp-delay: 2300ms; }
+[data-slot="words-preloader"][data-delay="47"], [data-slot="words-preloader"] [data-delay="47"] { --cui-wp-delay: 2350ms; }
+[data-slot="words-preloader"][data-delay="48"], [data-slot="words-preloader"] [data-delay="48"] { --cui-wp-delay: 2400ms; }
+[data-slot="words-preloader"][data-delay="49"], [data-slot="words-preloader"] [data-delay="49"] { --cui-wp-delay: 2450ms; }
+[data-slot="words-preloader"][data-delay="50"], [data-slot="words-preloader"] [data-delay="50"] { --cui-wp-delay: 2500ms; }
+[data-slot="words-preloader"][data-delay="51"], [data-slot="words-preloader"] [data-delay="51"] { --cui-wp-delay: 2550ms; }
+[data-slot="words-preloader"][data-delay="52"], [data-slot="words-preloader"] [data-delay="52"] { --cui-wp-delay: 2600ms; }
+[data-slot="words-preloader"][data-delay="53"], [data-slot="words-preloader"] [data-delay="53"] { --cui-wp-delay: 2650ms; }
+[data-slot="words-preloader"][data-delay="54"], [data-slot="words-preloader"] [data-delay="54"] { --cui-wp-delay: 2700ms; }
+[data-slot="words-preloader"][data-delay="55"], [data-slot="words-preloader"] [data-delay="55"] { --cui-wp-delay: 2750ms; }
+[data-slot="words-preloader"][data-delay="56"], [data-slot="words-preloader"] [data-delay="56"] { --cui-wp-delay: 2800ms; }
+[data-slot="words-preloader"][data-delay="57"], [data-slot="words-preloader"] [data-delay="57"] { --cui-wp-delay: 2850ms; }
+[data-slot="words-preloader"][data-delay="58"], [data-slot="words-preloader"] [data-delay="58"] { --cui-wp-delay: 2900ms; }
+[data-slot="words-preloader"][data-delay="59"], [data-slot="words-preloader"] [data-delay="59"] { --cui-wp-delay: 2950ms; }
+[data-slot="words-preloader"][data-delay="60"], [data-slot="words-preloader"] [data-delay="60"] { --cui-wp-delay: 3000ms; }
+[data-slot="words-preloader"][data-delay="61"], [data-slot="words-preloader"] [data-delay="61"] { --cui-wp-delay: 3050ms; }
+[data-slot="words-preloader"][data-delay="62"], [data-slot="words-preloader"] [data-delay="62"] { --cui-wp-delay: 3100ms; }
+[data-slot="words-preloader"][data-delay="63"], [data-slot="words-preloader"] [data-delay="63"] { --cui-wp-delay: 3150ms; }
+[data-slot="words-preloader"][data-delay="64"], [data-slot="words-preloader"] [data-delay="64"] { --cui-wp-delay: 3200ms; }
+[data-slot="words-preloader"][data-delay="65"], [data-slot="words-preloader"] [data-delay="65"] { --cui-wp-delay: 3250ms; }
+[data-slot="words-preloader"][data-delay="66"], [data-slot="words-preloader"] [data-delay="66"] { --cui-wp-delay: 3300ms; }
+[data-slot="words-preloader"][data-delay="67"], [data-slot="words-preloader"] [data-delay="67"] { --cui-wp-delay: 3350ms; }
+[data-slot="words-preloader"][data-delay="68"], [data-slot="words-preloader"] [data-delay="68"] { --cui-wp-delay: 3400ms; }
+[data-slot="words-preloader"][data-delay="69"], [data-slot="words-preloader"] [data-delay="69"] { --cui-wp-delay: 3450ms; }
+[data-slot="words-preloader"][data-delay="70"], [data-slot="words-preloader"] [data-delay="70"] { --cui-wp-delay: 3500ms; }
+[data-slot="words-preloader"][data-delay="71"], [data-slot="words-preloader"] [data-delay="71"] { --cui-wp-delay: 3550ms; }
+[data-slot="words-preloader"][data-delay="72"], [data-slot="words-preloader"] [data-delay="72"] { --cui-wp-delay: 3600ms; }
+[data-slot="words-preloader"][data-delay="73"], [data-slot="words-preloader"] [data-delay="73"] { --cui-wp-delay: 3650ms; }
+[data-slot="words-preloader"][data-delay="74"], [data-slot="words-preloader"] [data-delay="74"] { --cui-wp-delay: 3700ms; }
+[data-slot="words-preloader"][data-delay="75"], [data-slot="words-preloader"] [data-delay="75"] { --cui-wp-delay: 3750ms; }
+[data-slot="words-preloader"][data-delay="76"], [data-slot="words-preloader"] [data-delay="76"] { --cui-wp-delay: 3800ms; }
+[data-slot="words-preloader"][data-delay="77"], [data-slot="words-preloader"] [data-delay="77"] { --cui-wp-delay: 3850ms; }
+[data-slot="words-preloader"][data-delay="78"], [data-slot="words-preloader"] [data-delay="78"] { --cui-wp-delay: 3900ms; }
+[data-slot="words-preloader"][data-delay="79"], [data-slot="words-preloader"] [data-delay="79"] { --cui-wp-delay: 3950ms; }
+[data-slot="words-preloader"][data-delay="80"], [data-slot="words-preloader"] [data-delay="80"] { --cui-wp-delay: 4000ms; }
+[data-slot="words-preloader"][data-delay="81"], [data-slot="words-preloader"] [data-delay="81"] { --cui-wp-delay: 4050ms; }
+[data-slot="words-preloader"][data-delay="82"], [data-slot="words-preloader"] [data-delay="82"] { --cui-wp-delay: 4100ms; }
+[data-slot="words-preloader"][data-delay="83"], [data-slot="words-preloader"] [data-delay="83"] { --cui-wp-delay: 4150ms; }
+[data-slot="words-preloader"][data-delay="84"], [data-slot="words-preloader"] [data-delay="84"] { --cui-wp-delay: 4200ms; }
+[data-slot="words-preloader"][data-delay="85"], [data-slot="words-preloader"] [data-delay="85"] { --cui-wp-delay: 4250ms; }
+[data-slot="words-preloader"][data-delay="86"], [data-slot="words-preloader"] [data-delay="86"] { --cui-wp-delay: 4300ms; }
+[data-slot="words-preloader"][data-delay="87"], [data-slot="words-preloader"] [data-delay="87"] { --cui-wp-delay: 4350ms; }
+[data-slot="words-preloader"][data-delay="88"], [data-slot="words-preloader"] [data-delay="88"] { --cui-wp-delay: 4400ms; }
+[data-slot="words-preloader"][data-delay="89"], [data-slot="words-preloader"] [data-delay="89"] { --cui-wp-delay: 4450ms; }
+[data-slot="words-preloader"][data-delay="90"], [data-slot="words-preloader"] [data-delay="90"] { --cui-wp-delay: 4500ms; }
+[data-slot="words-preloader"][data-delay="91"], [data-slot="words-preloader"] [data-delay="91"] { --cui-wp-delay: 4550ms; }
+[data-slot="words-preloader"][data-delay="92"], [data-slot="words-preloader"] [data-delay="92"] { --cui-wp-delay: 4600ms; }
+[data-slot="words-preloader"][data-delay="93"], [data-slot="words-preloader"] [data-delay="93"] { --cui-wp-delay: 4650ms; }
+[data-slot="words-preloader"][data-delay="94"], [data-slot="words-preloader"] [data-delay="94"] { --cui-wp-delay: 4700ms; }
+[data-slot="words-preloader"][data-delay="95"], [data-slot="words-preloader"] [data-delay="95"] { --cui-wp-delay: 4750ms; }
+[data-slot="words-preloader"][data-delay="96"], [data-slot="words-preloader"] [data-delay="96"] { --cui-wp-delay: 4800ms; }
+[data-slot="words-preloader"][data-delay="97"], [data-slot="words-preloader"] [data-delay="97"] { --cui-wp-delay: 4850ms; }
+[data-slot="words-preloader"][data-delay="98"], [data-slot="words-preloader"] [data-delay="98"] { --cui-wp-delay: 4900ms; }
+[data-slot="words-preloader"][data-delay="99"], [data-slot="words-preloader"] [data-delay="99"] { --cui-wp-delay: 4950ms; }
+[data-slot="words-preloader"][data-delay="100"], [data-slot="words-preloader"] [data-delay="100"] { --cui-wp-delay: 5000ms; }
+[data-slot="words-preloader"][data-delay="101"], [data-slot="words-preloader"] [data-delay="101"] { --cui-wp-delay: 5050ms; }
+[data-slot="words-preloader"][data-delay="102"], [data-slot="words-preloader"] [data-delay="102"] { --cui-wp-delay: 5100ms; }
+[data-slot="words-preloader"][data-delay="103"], [data-slot="words-preloader"] [data-delay="103"] { --cui-wp-delay: 5150ms; }
+[data-slot="words-preloader"][data-delay="104"], [data-slot="words-preloader"] [data-delay="104"] { --cui-wp-delay: 5200ms; }
+[data-slot="words-preloader"][data-delay="105"], [data-slot="words-preloader"] [data-delay="105"] { --cui-wp-delay: 5250ms; }
+[data-slot="words-preloader"][data-delay="106"], [data-slot="words-preloader"] [data-delay="106"] { --cui-wp-delay: 5300ms; }
+[data-slot="words-preloader"][data-delay="107"], [data-slot="words-preloader"] [data-delay="107"] { --cui-wp-delay: 5350ms; }
+[data-slot="words-preloader"][data-delay="108"], [data-slot="words-preloader"] [data-delay="108"] { --cui-wp-delay: 5400ms; }
+[data-slot="words-preloader"][data-delay="109"], [data-slot="words-preloader"] [data-delay="109"] { --cui-wp-delay: 5450ms; }
+[data-slot="words-preloader"][data-delay="110"], [data-slot="words-preloader"] [data-delay="110"] { --cui-wp-delay: 5500ms; }
+[data-slot="words-preloader"][data-delay="111"], [data-slot="words-preloader"] [data-delay="111"] { --cui-wp-delay: 5550ms; }
+[data-slot="words-preloader"][data-delay="112"], [data-slot="words-preloader"] [data-delay="112"] { --cui-wp-delay: 5600ms; }
+[data-slot="words-preloader"][data-delay="113"], [data-slot="words-preloader"] [data-delay="113"] { --cui-wp-delay: 5650ms; }
+[data-slot="words-preloader"][data-delay="114"], [data-slot="words-preloader"] [data-delay="114"] { --cui-wp-delay: 5700ms; }
+[data-slot="words-preloader"][data-delay="115"], [data-slot="words-preloader"] [data-delay="115"] { --cui-wp-delay: 5750ms; }
+[data-slot="words-preloader"][data-delay="116"], [data-slot="words-preloader"] [data-delay="116"] { --cui-wp-delay: 5800ms; }
+[data-slot="words-preloader"][data-delay="117"], [data-slot="words-preloader"] [data-delay="117"] { --cui-wp-delay: 5850ms; }
+[data-slot="words-preloader"][data-delay="118"], [data-slot="words-preloader"] [data-delay="118"] { --cui-wp-delay: 5900ms; }
+[data-slot="words-preloader"][data-delay="119"], [data-slot="words-preloader"] [data-delay="119"] { --cui-wp-delay: 5950ms; }
+[data-slot="words-preloader"][data-delay="120"], [data-slot="words-preloader"] [data-delay="120"] { --cui-wp-delay: 6000ms; }
+[data-slot="words-preloader"][data-delay="121"], [data-slot="words-preloader"] [data-delay="121"] { --cui-wp-delay: 6050ms; }
+[data-slot="words-preloader"][data-delay="122"], [data-slot="words-preloader"] [data-delay="122"] { --cui-wp-delay: 6100ms; }
+[data-slot="words-preloader"][data-delay="123"], [data-slot="words-preloader"] [data-delay="123"] { --cui-wp-delay: 6150ms; }
+[data-slot="words-preloader"][data-delay="124"], [data-slot="words-preloader"] [data-delay="124"] { --cui-wp-delay: 6200ms; }
+[data-slot="words-preloader"][data-delay="125"], [data-slot="words-preloader"] [data-delay="125"] { --cui-wp-delay: 6250ms; }
+[data-slot="words-preloader"][data-delay="126"], [data-slot="words-preloader"] [data-delay="126"] { --cui-wp-delay: 6300ms; }
+[data-slot="words-preloader"][data-delay="127"], [data-slot="words-preloader"] [data-delay="127"] { --cui-wp-delay: 6350ms; }
+[data-slot="words-preloader"][data-delay="128"], [data-slot="words-preloader"] [data-delay="128"] { --cui-wp-delay: 6400ms; }
+[data-slot="words-preloader"][data-delay="129"], [data-slot="words-preloader"] [data-delay="129"] { --cui-wp-delay: 6450ms; }
+[data-slot="words-preloader"][data-delay="130"], [data-slot="words-preloader"] [data-delay="130"] { --cui-wp-delay: 6500ms; }
+[data-slot="words-preloader"][data-delay="131"], [data-slot="words-preloader"] [data-delay="131"] { --cui-wp-delay: 6550ms; }
+[data-slot="words-preloader"][data-delay="132"], [data-slot="words-preloader"] [data-delay="132"] { --cui-wp-delay: 6600ms; }
+[data-slot="words-preloader"][data-delay="133"], [data-slot="words-preloader"] [data-delay="133"] { --cui-wp-delay: 6650ms; }
+[data-slot="words-preloader"][data-delay="134"], [data-slot="words-preloader"] [data-delay="134"] { --cui-wp-delay: 6700ms; }
+[data-slot="words-preloader"][data-delay="135"], [data-slot="words-preloader"] [data-delay="135"] { --cui-wp-delay: 6750ms; }
+[data-slot="words-preloader"][data-delay="136"], [data-slot="words-preloader"] [data-delay="136"] { --cui-wp-delay: 6800ms; }
+[data-slot="words-preloader"][data-delay="137"], [data-slot="words-preloader"] [data-delay="137"] { --cui-wp-delay: 6850ms; }
+[data-slot="words-preloader"][data-delay="138"], [data-slot="words-preloader"] [data-delay="138"] { --cui-wp-delay: 6900ms; }
+[data-slot="words-preloader"][data-delay="139"], [data-slot="words-preloader"] [data-delay="139"] { --cui-wp-delay: 6950ms; }
+[data-slot="words-preloader"][data-delay="140"], [data-slot="words-preloader"] [data-delay="140"] { --cui-wp-delay: 7000ms; }
+[data-slot="words-preloader"][data-delay="141"], [data-slot="words-preloader"] [data-delay="141"] { --cui-wp-delay: 7050ms; }
+[data-slot="words-preloader"][data-delay="142"], [data-slot="words-preloader"] [data-delay="142"] { --cui-wp-delay: 7100ms; }
+[data-slot="words-preloader"][data-delay="143"], [data-slot="words-preloader"] [data-delay="143"] { --cui-wp-delay: 7150ms; }
+[data-slot="words-preloader"][data-delay="144"], [data-slot="words-preloader"] [data-delay="144"] { --cui-wp-delay: 7200ms; }
+[data-slot="words-preloader"][data-delay="145"], [data-slot="words-preloader"] [data-delay="145"] { --cui-wp-delay: 7250ms; }
+[data-slot="words-preloader"][data-delay="146"], [data-slot="words-preloader"] [data-delay="146"] { --cui-wp-delay: 7300ms; }
+[data-slot="words-preloader"][data-delay="147"], [data-slot="words-preloader"] [data-delay="147"] { --cui-wp-delay: 7350ms; }
+[data-slot="words-preloader"][data-delay="148"], [data-slot="words-preloader"] [data-delay="148"] { --cui-wp-delay: 7400ms; }
+[data-slot="words-preloader"][data-delay="149"], [data-slot="words-preloader"] [data-delay="149"] { --cui-wp-delay: 7450ms; }
+[data-slot="words-preloader"][data-delay="150"], [data-slot="words-preloader"] [data-delay="150"] { --cui-wp-delay: 7500ms; }
+[data-slot="words-preloader"][data-delay="151"], [data-slot="words-preloader"] [data-delay="151"] { --cui-wp-delay: 7550ms; }
+[data-slot="words-preloader"][data-delay="152"], [data-slot="words-preloader"] [data-delay="152"] { --cui-wp-delay: 7600ms; }
+[data-slot="words-preloader"][data-delay="153"], [data-slot="words-preloader"] [data-delay="153"] { --cui-wp-delay: 7650ms; }
+[data-slot="words-preloader"][data-delay="154"], [data-slot="words-preloader"] [data-delay="154"] { --cui-wp-delay: 7700ms; }
+[data-slot="words-preloader"][data-delay="155"], [data-slot="words-preloader"] [data-delay="155"] { --cui-wp-delay: 7750ms; }
+[data-slot="words-preloader"][data-delay="156"], [data-slot="words-preloader"] [data-delay="156"] { --cui-wp-delay: 7800ms; }
+[data-slot="words-preloader"][data-delay="157"], [data-slot="words-preloader"] [data-delay="157"] { --cui-wp-delay: 7850ms; }
+[data-slot="words-preloader"][data-delay="158"], [data-slot="words-preloader"] [data-delay="158"] { --cui-wp-delay: 7900ms; }
+[data-slot="words-preloader"][data-delay="159"], [data-slot="words-preloader"] [data-delay="159"] { --cui-wp-delay: 7950ms; }
+[data-slot="words-preloader"][data-delay="160"], [data-slot="words-preloader"] [data-delay="160"] { --cui-wp-delay: 8000ms; }
+[data-slot="words-preloader"][data-delay="161"], [data-slot="words-preloader"] [data-delay="161"] { --cui-wp-delay: 8050ms; }
+[data-slot="words-preloader"][data-delay="162"], [data-slot="words-preloader"] [data-delay="162"] { --cui-wp-delay: 8100ms; }
+[data-slot="words-preloader"][data-delay="163"], [data-slot="words-preloader"] [data-delay="163"] { --cui-wp-delay: 8150ms; }
+[data-slot="words-preloader"][data-delay="164"], [data-slot="words-preloader"] [data-delay="164"] { --cui-wp-delay: 8200ms; }
+[data-slot="words-preloader"][data-delay="165"], [data-slot="words-preloader"] [data-delay="165"] { --cui-wp-delay: 8250ms; }
+[data-slot="words-preloader"][data-delay="166"], [data-slot="words-preloader"] [data-delay="166"] { --cui-wp-delay: 8300ms; }
+[data-slot="words-preloader"][data-delay="167"], [data-slot="words-preloader"] [data-delay="167"] { --cui-wp-delay: 8350ms; }
+[data-slot="words-preloader"][data-delay="168"], [data-slot="words-preloader"] [data-delay="168"] { --cui-wp-delay: 8400ms; }
+[data-slot="words-preloader"][data-delay="169"], [data-slot="words-preloader"] [data-delay="169"] { --cui-wp-delay: 8450ms; }
+[data-slot="words-preloader"][data-delay="170"], [data-slot="words-preloader"] [data-delay="170"] { --cui-wp-delay: 8500ms; }
+[data-slot="words-preloader"][data-delay="171"], [data-slot="words-preloader"] [data-delay="171"] { --cui-wp-delay: 8550ms; }
+[data-slot="words-preloader"][data-delay="172"], [data-slot="words-preloader"] [data-delay="172"] { --cui-wp-delay: 8600ms; }
+[data-slot="words-preloader"][data-delay="173"], [data-slot="words-preloader"] [data-delay="173"] { --cui-wp-delay: 8650ms; }
+[data-slot="words-preloader"][data-delay="174"], [data-slot="words-preloader"] [data-delay="174"] { --cui-wp-delay: 8700ms; }
+[data-slot="words-preloader"][data-delay="175"], [data-slot="words-preloader"] [data-delay="175"] { --cui-wp-delay: 8750ms; }
+[data-slot="words-preloader"][data-delay="176"], [data-slot="words-preloader"] [data-delay="176"] { --cui-wp-delay: 8800ms; }
+[data-slot="words-preloader"][data-delay="177"], [data-slot="words-preloader"] [data-delay="177"] { --cui-wp-delay: 8850ms; }
+[data-slot="words-preloader"][data-delay="178"], [data-slot="words-preloader"] [data-delay="178"] { --cui-wp-delay: 8900ms; }
+[data-slot="words-preloader"][data-delay="179"], [data-slot="words-preloader"] [data-delay="179"] { --cui-wp-delay: 8950ms; }
+[data-slot="words-preloader"][data-delay="180"], [data-slot="words-preloader"] [data-delay="180"] { --cui-wp-delay: 9000ms; }
+[data-slot="words-preloader"][data-delay="181"], [data-slot="words-preloader"] [data-delay="181"] { --cui-wp-delay: 9050ms; }
+[data-slot="words-preloader"][data-delay="182"], [data-slot="words-preloader"] [data-delay="182"] { --cui-wp-delay: 9100ms; }
+[data-slot="words-preloader"][data-delay="183"], [data-slot="words-preloader"] [data-delay="183"] { --cui-wp-delay: 9150ms; }
+[data-slot="words-preloader"][data-delay="184"], [data-slot="words-preloader"] [data-delay="184"] { --cui-wp-delay: 9200ms; }
+[data-slot="words-preloader"][data-delay="185"], [data-slot="words-preloader"] [data-delay="185"] { --cui-wp-delay: 9250ms; }
+[data-slot="words-preloader"][data-delay="186"], [data-slot="words-preloader"] [data-delay="186"] { --cui-wp-delay: 9300ms; }
+[data-slot="words-preloader"][data-delay="187"], [data-slot="words-preloader"] [data-delay="187"] { --cui-wp-delay: 9350ms; }
+[data-slot="words-preloader"][data-delay="188"], [data-slot="words-preloader"] [data-delay="188"] { --cui-wp-delay: 9400ms; }
+[data-slot="words-preloader"][data-delay="189"], [data-slot="words-preloader"] [data-delay="189"] { --cui-wp-delay: 9450ms; }
+[data-slot="words-preloader"][data-delay="190"], [data-slot="words-preloader"] [data-delay="190"] { --cui-wp-delay: 9500ms; }
+[data-slot="words-preloader"][data-delay="191"], [data-slot="words-preloader"] [data-delay="191"] { --cui-wp-delay: 9550ms; }
+[data-slot="words-preloader"][data-delay="192"], [data-slot="words-preloader"] [data-delay="192"] { --cui-wp-delay: 9600ms; }
+[data-slot="words-preloader"][data-delay="193"], [data-slot="words-preloader"] [data-delay="193"] { --cui-wp-delay: 9650ms; }
+[data-slot="words-preloader"][data-delay="194"], [data-slot="words-preloader"] [data-delay="194"] { --cui-wp-delay: 9700ms; }
+[data-slot="words-preloader"][data-delay="195"], [data-slot="words-preloader"] [data-delay="195"] { --cui-wp-delay: 9750ms; }
+[data-slot="words-preloader"][data-delay="196"], [data-slot="words-preloader"] [data-delay="196"] { --cui-wp-delay: 9800ms; }
+[data-slot="words-preloader"][data-delay="197"], [data-slot="words-preloader"] [data-delay="197"] { --cui-wp-delay: 9850ms; }
+[data-slot="words-preloader"][data-delay="198"], [data-slot="words-preloader"] [data-delay="198"] { --cui-wp-delay: 9900ms; }
+[data-slot="words-preloader"][data-delay="199"], [data-slot="words-preloader"] [data-delay="199"] { --cui-wp-delay: 9950ms; }
+[data-slot="words-preloader"][data-delay="200"], [data-slot="words-preloader"] [data-delay="200"] { --cui-wp-delay: 10000ms; }
+[data-slot="words-preloader"][data-delay="201"], [data-slot="words-preloader"] [data-delay="201"] { --cui-wp-delay: 10050ms; }
+[data-slot="words-preloader"][data-delay="202"], [data-slot="words-preloader"] [data-delay="202"] { --cui-wp-delay: 10100ms; }
+[data-slot="words-preloader"][data-delay="203"], [data-slot="words-preloader"] [data-delay="203"] { --cui-wp-delay: 10150ms; }
+[data-slot="words-preloader"][data-delay="204"], [data-slot="words-preloader"] [data-delay="204"] { --cui-wp-delay: 10200ms; }
+[data-slot="words-preloader"][data-delay="205"], [data-slot="words-preloader"] [data-delay="205"] { --cui-wp-delay: 10250ms; }
+[data-slot="words-preloader"][data-delay="206"], [data-slot="words-preloader"] [data-delay="206"] { --cui-wp-delay: 10300ms; }
+[data-slot="words-preloader"][data-delay="207"], [data-slot="words-preloader"] [data-delay="207"] { --cui-wp-delay: 10350ms; }
+[data-slot="words-preloader"][data-delay="208"], [data-slot="words-preloader"] [data-delay="208"] { --cui-wp-delay: 10400ms; }
+[data-slot="words-preloader"][data-delay="209"], [data-slot="words-preloader"] [data-delay="209"] { --cui-wp-delay: 10450ms; }
+[data-slot="words-preloader"][data-delay="210"], [data-slot="words-preloader"] [data-delay="210"] { --cui-wp-delay: 10500ms; }
+[data-slot="words-preloader"][data-delay="211"], [data-slot="words-preloader"] [data-delay="211"] { --cui-wp-delay: 10550ms; }
+[data-slot="words-preloader"][data-delay="212"], [data-slot="words-preloader"] [data-delay="212"] { --cui-wp-delay: 10600ms; }
+[data-slot="words-preloader"][data-delay="213"], [data-slot="words-preloader"] [data-delay="213"] { --cui-wp-delay: 10650ms; }
+[data-slot="words-preloader"][data-delay="214"], [data-slot="words-preloader"] [data-delay="214"] { --cui-wp-delay: 10700ms; }
+[data-slot="words-preloader"][data-delay="215"], [data-slot="words-preloader"] [data-delay="215"] { --cui-wp-delay: 10750ms; }
+[data-slot="words-preloader"][data-delay="216"], [data-slot="words-preloader"] [data-delay="216"] { --cui-wp-delay: 10800ms; }
+[data-slot="words-preloader"][data-delay="217"], [data-slot="words-preloader"] [data-delay="217"] { --cui-wp-delay: 10850ms; }
+[data-slot="words-preloader"][data-delay="218"], [data-slot="words-preloader"] [data-delay="218"] { --cui-wp-delay: 10900ms; }
+[data-slot="words-preloader"][data-delay="219"], [data-slot="words-preloader"] [data-delay="219"] { --cui-wp-delay: 10950ms; }
+[data-slot="words-preloader"][data-delay="220"], [data-slot="words-preloader"] [data-delay="220"] { --cui-wp-delay: 11000ms; }
+[data-slot="words-preloader"][data-delay="221"], [data-slot="words-preloader"] [data-delay="221"] { --cui-wp-delay: 11050ms; }
+[data-slot="words-preloader"][data-delay="222"], [data-slot="words-preloader"] [data-delay="222"] { --cui-wp-delay: 11100ms; }
+[data-slot="words-preloader"][data-delay="223"], [data-slot="words-preloader"] [data-delay="223"] { --cui-wp-delay: 11150ms; }
+[data-slot="words-preloader"][data-delay="224"], [data-slot="words-preloader"] [data-delay="224"] { --cui-wp-delay: 11200ms; }
+[data-slot="words-preloader"][data-delay="225"], [data-slot="words-preloader"] [data-delay="225"] { --cui-wp-delay: 11250ms; }
+[data-slot="words-preloader"][data-delay="226"], [data-slot="words-preloader"] [data-delay="226"] { --cui-wp-delay: 11300ms; }
+[data-slot="words-preloader"][data-delay="227"], [data-slot="words-preloader"] [data-delay="227"] { --cui-wp-delay: 11350ms; }
+[data-slot="words-preloader"][data-delay="228"], [data-slot="words-preloader"] [data-delay="228"] { --cui-wp-delay: 11400ms; }
+[data-slot="words-preloader"][data-delay="229"], [data-slot="words-preloader"] [data-delay="229"] { --cui-wp-delay: 11450ms; }
+[data-slot="words-preloader"][data-delay="230"], [data-slot="words-preloader"] [data-delay="230"] { --cui-wp-delay: 11500ms; }
+[data-slot="words-preloader"][data-delay="231"], [data-slot="words-preloader"] [data-delay="231"] { --cui-wp-delay: 11550ms; }
+[data-slot="words-preloader"][data-delay="232"], [data-slot="words-preloader"] [data-delay="232"] { --cui-wp-delay: 11600ms; }
+[data-slot="words-preloader"][data-delay="233"], [data-slot="words-preloader"] [data-delay="233"] { --cui-wp-delay: 11650ms; }
+[data-slot="words-preloader"][data-delay="234"], [data-slot="words-preloader"] [data-delay="234"] { --cui-wp-delay: 11700ms; }
+[data-slot="words-preloader"][data-delay="235"], [data-slot="words-preloader"] [data-delay="235"] { --cui-wp-delay: 11750ms; }
+[data-slot="words-preloader"][data-delay="236"], [data-slot="words-preloader"] [data-delay="236"] { --cui-wp-delay: 11800ms; }
+[data-slot="words-preloader"][data-delay="237"], [data-slot="words-preloader"] [data-delay="237"] { --cui-wp-delay: 11850ms; }
+[data-slot="words-preloader"][data-delay="238"], [data-slot="words-preloader"] [data-delay="238"] { --cui-wp-delay: 11900ms; }
+[data-slot="words-preloader"][data-delay="239"], [data-slot="words-preloader"] [data-delay="239"] { --cui-wp-delay: 11950ms; }
+[data-slot="words-preloader"][data-delay="240"], [data-slot="words-preloader"] [data-delay="240"] { --cui-wp-delay: 12000ms; }

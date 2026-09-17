@@ -677,6 +677,26 @@ pub(super) const KIT_GROUPS: &[(&str, &str, &[&str])] = &[
             "words-preloader",
         ],
     ),
+    (
+        "ai",
+        "AI elements",
+        &[
+            "actions",
+            "artifact",
+            "branch",
+            "chain-of-thought",
+            "ai-code-block",
+            "context",
+            "ai-image",
+            "open-in-chat",
+            "plan",
+            "queue",
+            "response",
+            "task",
+            "web-preview",
+        ],
+    ),
+    ("preloaders", "Preloaders", &["words-preloader"]),
 ];
 
 fn kit_family<'a>(comp: &'a ComponentNode) -> &'a str {

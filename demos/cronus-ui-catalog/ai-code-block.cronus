@@ -1,0 +1,9 @@
+page "/ai-code-block" type:components family:ai-code-block {
+  title "AiCodeBlock"
+  description:"Compound code surface for tool output and streamed files."
+}
+
+component ToolOutput layout:stack style:ai-code-block value:"main.ts" group:"Tool output" note:"Compound code surface with a copy control. No extra highlighter dependency." {
+  item "main.ts" language:ts
+  text "export const n = 1"
+}

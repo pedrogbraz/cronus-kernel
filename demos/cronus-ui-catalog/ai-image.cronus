@@ -1,0 +1,6 @@
+page "/ai-image" type:components family:ai-image {
+  title "GeneratedImage"
+  description:"Renders a model-generated image from base64."
+}
+
+component GeneratedImage layout:inline style:ai-image media-type:image/png base64:"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" width:96 height:96 group:"Generated image" note:"Renders a model image from a data URL. Alt is required for the accessible name." { label "A 1×1 placeholder the model returned" }

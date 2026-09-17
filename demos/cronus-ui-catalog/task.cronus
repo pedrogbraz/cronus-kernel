@@ -1,0 +1,11 @@
+page "/task" type:components family:task {
+  title "Task"
+  description:"Collapsible checklist of agent work."
+}
+
+component AgentChecklist layout:stack style:task group:"Agent checklist" note:"A collapsible list of work the agent is doing." {
+  title "Preparing the PR"
+  item "Read the contract"
+  item "Port the component"
+  item "Verify in the browser"
+}

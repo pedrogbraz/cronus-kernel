@@ -210,18 +210,32 @@ pub const FAMILY_TABLE: &[(&str, Renderer)] = &[
     dedicated!("usage-meter", cronus_ui_usage_meter),
     dedicated!("video-player", cronus_ui_video_player),
     dedicated!("word-rotate", cronus_ui_word_rotate),
+    dedicated!("words-preloader", cronus_ui_words_preloader),
     dedicated!("workspace-switcher", cronus_ui_workspace_switcher),
     dedicated!("toast", cronus_ui_toast),
     dedicated!("motion-presets", cronus_ui_motion_presets),
     // Sprint 5 C2 — AI suite (alphabetical).
+    dedicated!("actions", cronus_ui_actions),
+    dedicated!("ai-code-block", cronus_ui_ai_code_block),
+    dedicated!("ai-image", cronus_ui_ai_image),
+    dedicated!("artifact", cronus_ui_artifact),
+    dedicated!("branch", cronus_ui_branch),
+    dedicated!("chain-of-thought", cronus_ui_chain_of_thought),
+    dedicated!("context", cronus_ui_context),
     dedicated!("conversation", cronus_ui_conversation),
     dedicated!("inline-citation", cronus_ui_inline_citation),
     dedicated!("message", cronus_ui_message),
+    dedicated!("open-in-chat", cronus_ui_open_in_chat),
+    dedicated!("plan", cronus_ui_plan),
     dedicated!("prompt-input", cronus_ui_prompt_input),
+    dedicated!("queue", cronus_ui_queue),
     dedicated!("reasoning", cronus_ui_reasoning),
+    dedicated!("response", cronus_ui_response),
     dedicated!("sources", cronus_ui_sources),
     dedicated!("suggestion", cronus_ui_suggestion),
+    dedicated!("task", cronus_ui_task),
     dedicated!("tool", cronus_ui_tool),
+    dedicated!("web-preview", cronus_ui_web_preview),
 ];
 
 const FAMILY_COUNT: usize = FAMILY_TABLE.len();
@@ -506,7 +520,11 @@ mod tests {
                 || html.contains(&format!("data-slot=\"{family}-panel-group\""))
                 || html.contains("data-slot=\"button\"")
                 // wave1t: React <Toaster /> roots at data-slot="toaster" (no sonner slot).
-                || (*family == "sonner" && html.contains("data-slot=\"toaster\""));
+                || (*family == "sonner" && html.contains("data-slot=\"toaster\""))
+                // React GeneratedImage (docs slug ai-image) roots at data-slot="generated-image".
+                || (*family == "ai-image" && html.contains("data-slot=\"generated-image\""))
+                // React OpenIn (docs slug open-in-chat) slots are open-in-trigger / open-in-content.
+                || (*family == "open-in-chat" && html.contains("data-slot=\"open-in-trigger\""));
             assert!(slot_ok, "{family} missing data-slot: {html}");
             assert!(!html.contains("zinc-"), "{family} used zinc palette");
             assert!(!html.contains("amber-500"), "{family} used amber palette");

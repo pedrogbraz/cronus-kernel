@@ -1,0 +1,6 @@
+page "/context" type:components family:context {
+  title "Context"
+  description:"Hover card for language-model token usage."
+}
+
+component TokenUsage layout:inline style:context used:18432 max:128000 input:12000 output:4432 reasoning:800 cached:2048 group:"Token usage" note:"Hover the trigger to read input, output, reasoning, and cache spend." { label "Model context usage" }

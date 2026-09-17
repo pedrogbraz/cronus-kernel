@@ -1,0 +1,9 @@
+page "/plan" type:components family:plan {
+  title "Plan"
+  description:"Collapsible plan card the model can stream into."
+}
+
+component PlanCard layout:stack style:plan open:true group:"Plan card" note:"A collapsible plan the model can stream into." {
+  title "Ship the chat surface"
+  text "Wire Conversation, Message, and PromptInput."
+}

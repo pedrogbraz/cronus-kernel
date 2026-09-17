@@ -1,0 +1,10 @@
+page "/branch" type:components family:branch {
+  title "Branch"
+  description:"Step through alternative assistant generations."
+}
+
+component AlternativeGenerations layout:stack style:branch from:assistant group:"Alternative generations" note:"Step through sibling assistant replies without wrapping past the ends." {
+  label "Alternative generations"
+  text "First draft of the answer."
+  text "A tighter rewrite of the same answer."
+}
