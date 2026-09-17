@@ -160,13 +160,13 @@ Deleted in Sprint 4 (2026-09-14): `src/server/router.rs`, `src/server/api.rs`, `
 | `tests/mcp_cli.rs`, `tests/build_cli.rs` | current, binary CLI contracts |
 | `docs/archive/waves/`, `docs/archive/planning/` | historical, not maintained |
 
-## Resume here (2026-09-15)
+## Resume here (2026-09-17)
 
-`main` is the only integration branch. It is a fast-forward of former `feat/cronus-ui-tokens-button`. `wip/kit-catalog-native-popovers` was closed with `merge -s ours` — its eight unique commits were already on feat (widget ids, viewport `placePopover`, native popovers, grouped `/kit` catalog, catalog CSS), and taking that tree would regress Radix checkbox/switch DOM and the `src/cronus_ui_css/` split.
+`main` is the only integration branch (`origin/main`). P0–P2 and the saas UX fixes (static routes, native login, form `bind` entity) are on it. Teammate entry: `docs/HANDOFF.md`.
 
-Read first: `LANGUAGE.md`, `CHANGELOG.md` `[Unreleased]`, this file, `docs/MCP.md` if touching MCP. Catalog demo: `demos/cronus-ui-catalog` (`cronus run` binds `127.0.0.1`, not `localhost`; `/` and `/kit`).
+Read first: `docs/HANDOFF.md`, `LANGUAGE.md`, `CHANGELOG.md` `[Unreleased]`, this file, `docs/MCP.md` if touching MCP. Catalog demo: `demos/cronus-ui-catalog` (`cronus run` binds `127.0.0.1`; `/` and `/kit`). App demo: `../cronus-apps/studio`.
 
-Do not cherry-pick the old wip branch. Do not put HTTP logic back into `main.rs` — new routes go in `src/routes/`. New family CSS goes in `src/cronus_ui_css/<family>.css` plus a `MANIFEST` line.
+Do not cherry-pick old `wip/` or `task/` branches. Do not put HTTP logic back into `main.rs` — new routes go in `src/routes/`. New family CSS goes in `src/cronus_ui_css/<family>.css` plus a `MANIFEST` line.
 
 <!-- dev-harness:begin -->
 ## Desenvolvimento com o harness
