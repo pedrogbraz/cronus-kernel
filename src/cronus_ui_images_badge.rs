@@ -6,7 +6,7 @@
 //! with ±3° tilt; hover 48×32 at y −35/−38/−41, ±20px spread, ±15° fan; the
 //! flap rotateX −25° → −45° and scaleY 1 → 0.8; spring stiffness 400 /
 //! damping 25 with a 30ms stagger) are CSS transforms keyed on
-//! `data-count="1|2|3"` and `:nth-child`, transitioned with
+//! `data-photos="1|2|3"` and `:nth-child`, transitioned with
 //! `var(--cronus-spring-snappy)` on `:hover` / `:focus-visible`. Folder
 //! sizes are the React defaults; the size props are not read.
 //!
@@ -46,7 +46,7 @@ pub fn render(comp: &ComponentNode) -> String {
         })
         .collect();
     let folder = format!(
-        "<div class=\"folder\" data-count=\"{count}\"><div class=\"back\"><div class=\"tab\"></div></div>{photos}<div class=\"front\"><div class=\"crease\"></div></div></div>"
+        "<div class=\"folder\" data-photos=\"{count}\"><div class=\"back\"><div class=\"tab\"></div></div>{photos}<div class=\"front\"><div class=\"crease\"></div></div></div>"
     );
     match attr_nonempty(comp, "href") {
         Some(href) => {
@@ -106,7 +106,7 @@ mod tests {
         ));
         assert_eq!(
             html,
-            "<div data-slot=\"images-badge\" tabindex=\"0\"><div class=\"folder\" data-count=\"3\"><div class=\"back\"><div class=\"tab\"></div></div><div class=\"photo\"><img src=\"https://assets.aceternity.com/pro/agenforce-1.webp\" alt=\"Preview 1\"></div><div class=\"photo\"><img src=\"https://assets.aceternity.com/pro/agenforce-2.webp\" alt=\"Preview 2\"></div><div class=\"photo\"><img src=\"https://assets.aceternity.com/pro/agenforce-3.webp\" alt=\"Preview 3\"></div><div class=\"front\"><div class=\"crease\"></div></div></div><span>Introducing Agenforce Marketing Template</span></div>"
+            "<div data-slot=\"images-badge\" tabindex=\"0\"><div class=\"folder\" data-photos=\"3\"><div class=\"back\"><div class=\"tab\"></div></div><div class=\"photo\"><img src=\"https://assets.aceternity.com/pro/agenforce-1.webp\" alt=\"Preview 1\"></div><div class=\"photo\"><img src=\"https://assets.aceternity.com/pro/agenforce-2.webp\" alt=\"Preview 2\"></div><div class=\"photo\"><img src=\"https://assets.aceternity.com/pro/agenforce-3.webp\" alt=\"Preview 3\"></div><div class=\"front\"><div class=\"crease\"></div></div></div><span>Introducing Agenforce Marketing Template</span></div>"
         );
         reject_js(&html);
     }
@@ -114,10 +114,10 @@ mod tests {
     #[test]
     fn caps_at_three_and_counts() {
         let html = render(&badge("Four", &["/1.png", "/2.png", "/3.png", "/4.png"]));
-        assert!(html.contains("data-count=\"3\""));
+        assert!(html.contains("data-photos=\"3\""));
         assert_eq!(html.matches("<div class=\"photo\">").count(), 3);
         let html = render(&badge("None", &[]));
-        assert!(html.contains("data-count=\"0\""));
+        assert!(html.contains("data-photos=\"0\""));
         assert!(!html.contains("<img"));
     }
 
@@ -151,7 +151,7 @@ mod tests {
         assert!(css.contains("var(--cronus-spring-snappy)"));
         assert!(css.contains("rotateX(-25deg)"));
         assert!(css.contains("rotateX(-45deg) scaleY(0.8)"));
-        assert!(css.contains("[data-count=\"3\"] > .photo:nth-child(2)"));
+        assert!(css.contains("[data-photos=\"3\"] > .photo:nth-child(2)"));
         assert!(css.contains(":is(:hover, :focus-visible)"));
         assert!(!css.contains("#"));
         assert!(!css.contains("amber-"));

@@ -1,0 +1,6 @@
+page "/family-wallet" type:components family:family-wallet {
+  title "FamilyWallet"
+  description:"Family sign-in drawer: socials, email/phone/passkey, OTP, waiting orb, wallets."
+}
+
+component FamilySignIn layout:stack style:family-wallet group:"Sign in drawer" note:"Sign In opens a rounded Family drawer. Socials, Email/Phone/Passkey, OTP after Continue, a waiting-passkey orb, and Connect Wallet. Views pop-layout while the shell height tweens." { label "Sign In" }

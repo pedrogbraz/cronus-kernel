@@ -1,0 +1,22 @@
+page "/explore-nav" type:components family:explore-nav {
+  title "ExploreNav"
+  description:"Product navbar that morphs from a compact bar into a family carousel."
+}
+
+component IphoneFamily layout:stack style:explore-nav buy:"#buy" group:"Product family" note:"Click Explore: the 55px bar springs into a family carousel (bounce 0.16). Explore morphs into a Plus/X; hover lifts each product." {
+  title "iPhone 17 Pro"
+  item "iPhone 17 Pro" image:"https://skiper-ui.com/images/oct25Coll/iphone17/1.png" price:"From $1099" price-note:"or $45.79/mo. for 24 mo."
+  item "iPhone 17" image:"https://skiper-ui.com/images/oct25Coll/iphone17/2.png" badge:"New"
+  item "iPhone 17 Air" image:"https://skiper-ui.com/images/oct25Coll/iphone17/3.png" badge:"New"
+  item "iPhone 16 Pro" image:"https://skiper-ui.com/images/oct25Coll/iphone17/4.png"
+  item "iPhone 16" image:"https://skiper-ui.com/images/oct25Coll/iphone17/5.png"
+  item "iPhone 16 E" image:"https://skiper-ui.com/images/oct25Coll/iphone17/6.png"
+  item "Compare" image:"https://skiper-ui.com/images/oct25Coll/iphone17/7.png"
+  item "Accessories" image:"https://skiper-ui.com/images/oct25Coll/iphone17/8.png"
+  item "iOS" image:"https://skiper-ui.com/images/oct25Coll/iphone17/9.png"
+  link "Highlights"
+  link "Performance"
+  link "Design"
+  link "Cameras"
+  link "Tech specs"
+}

@@ -92,8 +92,10 @@ fn marker(lat: f64, lng: f64, src: &str, label: &str) -> String {
     } else {
         format!("<img src=\"{src}\" alt=\"{label}\">")
     };
+    // CSS rotateY sends +x away from the viewer, so 0…180 start on the back.
+    let back = if lng <= 180 { " back" } else { "" };
     format!(
-        "<div class=\"marker ry-{yc}\" title=\"{label}\"><div class=\"fy-{yf}\"><div class=\"rz-{}\"><div class=\"fz-{}\"><div class=\"pin\"><i class=\"stem\"></i><i class=\"tip\"></i><span class=\"bb\"><span class=\"rz-{}\"><span class=\"fz-{}\"><span class=\"ry-{uyc}\"><span class=\"fy-{uyf}\"><span class=\"face\">{img}</span></span></span></span></span></span></div></div></div></div></div>",
+        "<div class=\"marker{back} ry-{yc}\" title=\"{label}\"><div class=\"fy-{yf}\"><div class=\"rz-{}\"><div class=\"fz-{}\"><div class=\"pin\"><i class=\"stem\"></i><i class=\"tip\"></i><span class=\"bb\"><span class=\"rz-{}\"><span class=\"fz-{}\"><span class=\"ry-{uyc}\"><span class=\"fy-{uyf}\"><span class=\"face\">{img}</span></span></span></span></span></span></div></div></div></div></div>",
         signed(zc),
         signed(zf),
         signed(uzc),
@@ -156,11 +158,11 @@ mod tests {
     fn southern_and_eastern_markers() {
         // Sydney: -33.8688, 151.2093 → ry-150 fy-1, rotateZ(+34) = rz-30 fz-4.
         let html = marker(-33.8688, 151.2093, "/a.webp", "Sydney");
-        assert!(html.starts_with("<div class=\"marker ry-150\" title=\"Sydney\"><div class=\"fy-1\"><div class=\"rz-30\"><div class=\"fz-4\">"));
+        assert!(html.starts_with("<div class=\"marker back ry-150\" title=\"Sydney\"><div class=\"fy-1\"><div class=\"rz-30\"><div class=\"fz-4\">"));
         assert!(html.contains("<span class=\"rz-n30\"><span class=\"fz-n4\"><span class=\"ry-200\"><span class=\"fy-9\">"));
         // Equator / prime meridian: every class is the zero one.
         let html = marker(0.0, 0.0, "", "Null Island");
-        assert!(html.contains("ry-0\" title=\"Null Island\"><div class=\"fy-0\"><div class=\"rz-0\"><div class=\"fz-0\">"));
+        assert!(html.contains("<div class=\"marker back ry-0\" title=\"Null Island\"><div class=\"fy-0\"><div class=\"rz-0\"><div class=\"fz-0\">"));
         assert!(
             html.contains("<span class=\"ry-0\"><span class=\"fy-0\"><span class=\"face\"></span>")
         );
@@ -203,7 +205,9 @@ mod tests {
         assert!(css.contains("[data-slot=\"globe-3d\"] {"));
         assert!(css.contains("height: 31.25rem"));
         assert!(css.contains("--cui-globe-period: 200s"));
-        assert!(css.contains("[data-slot=\"globe-3d\"] > .globe { inset: auto; width: 69%;"));
+        assert!(css.contains(
+            "[data-slot=\"globe-3d\"] > .globe { inset: auto; width: auto; height: 69%;"
+        ));
         assert!(css.contains("var(--cronus-info)"));
         assert!(!css.contains("#"));
         let shared = include_str!("cronus_ui_css/globe-wireframe.css");

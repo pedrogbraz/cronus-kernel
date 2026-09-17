@@ -33,20 +33,20 @@
 [data-slot="images-badge"] > .folder > .photo:nth-child(3) { z-index: 11; transition-delay: 30ms; }
 [data-slot="images-badge"] > .folder > .photo:nth-child(4) { z-index: 12; transition-delay: 60ms; }
 /* Teaser offsets: y = -4 - (count - 1 - i), tilt (i - mid) * 3deg. */
-[data-slot="images-badge"] > .folder[data-count="2"] > .photo:nth-child(2) { transform: translate(-50%, -5px) rotate(-1.5deg); }
-[data-slot="images-badge"] > .folder[data-count="2"] > .photo:nth-child(3) { transform: translate(-50%, -4px) rotate(1.5deg); }
-[data-slot="images-badge"] > .folder[data-count="3"] > .photo:nth-child(2) { transform: translate(-50%, -6px) rotate(-3deg); }
-[data-slot="images-badge"] > .folder[data-count="3"] > .photo:nth-child(3) { transform: translate(-50%, -5px) rotate(0deg); }
-[data-slot="images-badge"] > .folder[data-count="3"] > .photo:nth-child(4) { transform: translate(-50%, -4px) rotate(3deg); }
+[data-slot="images-badge"] > .folder[data-photos="2"] > .photo:nth-child(2) { transform: translate(-50%, -5px) rotate(-1.5deg); }
+[data-slot="images-badge"] > .folder[data-photos="2"] > .photo:nth-child(3) { transform: translate(-50%, -4px) rotate(1.5deg); }
+[data-slot="images-badge"] > .folder[data-photos="3"] > .photo:nth-child(2) { transform: translate(-50%, -6px) rotate(-3deg); }
+[data-slot="images-badge"] > .folder[data-photos="3"] > .photo:nth-child(3) { transform: translate(-50%, -5px) rotate(0deg); }
+[data-slot="images-badge"] > .folder[data-photos="3"] > .photo:nth-child(4) { transform: translate(-50%, -4px) rotate(3deg); }
 /* Hover: 48×32, y = -35 - (count - 1 - i) * 3, spread (i - mid) * 20px, fan (i - mid) * 15deg. */
 [data-slot="images-badge"]:is(:hover, :focus-visible) > .folder > .photo {
   width: 48px; height: 32px; transform: translate(-50%, -35px) rotate(0deg);
 }
-[data-slot="images-badge"]:is(:hover, :focus-visible) > .folder[data-count="2"] > .photo:nth-child(2) { transform: translate(calc(-50% - 10px), -38px) rotate(-7.5deg); }
-[data-slot="images-badge"]:is(:hover, :focus-visible) > .folder[data-count="2"] > .photo:nth-child(3) { transform: translate(calc(-50% + 10px), -35px) rotate(7.5deg); }
-[data-slot="images-badge"]:is(:hover, :focus-visible) > .folder[data-count="3"] > .photo:nth-child(2) { transform: translate(calc(-50% - 20px), -41px) rotate(-15deg); }
-[data-slot="images-badge"]:is(:hover, :focus-visible) > .folder[data-count="3"] > .photo:nth-child(3) { transform: translate(-50%, -38px) rotate(0deg); }
-[data-slot="images-badge"]:is(:hover, :focus-visible) > .folder[data-count="3"] > .photo:nth-child(4) { transform: translate(calc(-50% + 20px), -35px) rotate(15deg); }
+[data-slot="images-badge"]:is(:hover, :focus-visible) > .folder[data-photos="2"] > .photo:nth-child(2) { transform: translate(calc(-50% - 10px), -38px) rotate(-7.5deg); }
+[data-slot="images-badge"]:is(:hover, :focus-visible) > .folder[data-photos="2"] > .photo:nth-child(3) { transform: translate(calc(-50% + 10px), -35px) rotate(7.5deg); }
+[data-slot="images-badge"]:is(:hover, :focus-visible) > .folder[data-photos="3"] > .photo:nth-child(2) { transform: translate(calc(-50% - 20px), -41px) rotate(-15deg); }
+[data-slot="images-badge"]:is(:hover, :focus-visible) > .folder[data-photos="3"] > .photo:nth-child(3) { transform: translate(-50%, -38px) rotate(0deg); }
+[data-slot="images-badge"]:is(:hover, :focus-visible) > .folder[data-photos="3"] > .photo:nth-child(4) { transform: translate(calc(-50% + 20px), -35px) rotate(15deg); }
 /* Front flap: rotateX -25° → -45°, scaleY 1 → 0.8. */
 [data-slot="images-badge"] > .folder > .front {
   position: absolute; inset-inline: 0; bottom: 0; height: 85%; z-index: 20; transform-origin: bottom;

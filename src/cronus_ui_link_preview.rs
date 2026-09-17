@@ -10,7 +10,8 @@
 //!
 //! DOM, inside one anchoring `<span data-slot="link-preview">`:
 //! `<a href target="_blank" rel="noopener noreferrer" data-state="closed">`
-//! + `<div data-slot="tooltip-content" role="tooltip">` > unfurl column.
+//! + `<span data-slot="tooltip-content" role="tooltip">` > unfurl column
+//! (spans styled as blocks: a `<div>` would close the docs' `<p>`).
 //! `prefix:"Check out the"` / `suffix:"to browse the catalog."` wrap the
 //! whole thing in the docs' `<p>` paragraph (`max-w-prose text-fg-secondary`).
 //! Zero JS: `:hover` / `:focus-within` reveal with the `cronus-pop-in`
@@ -34,7 +35,7 @@ pub fn render(comp: &ComponentNode) -> String {
     let content_id = crate::cronus_ui_kit::instance_id(comp, "link-preview");
     let globe = crate::cronus_ui_icons::svg_or_empty("globe");
     let body = if !valid {
-        format!("<div data-error=\"true\">{globe}<span>Invalid URL</span></div>")
+        format!("<span data-error=\"true\">{globe}<span>Invalid URL</span></span>")
     } else {
         let site = attr_nonempty(comp, "site")
             .or_else(|| attr_nonempty(comp, "website"))
@@ -49,16 +50,16 @@ pub fn render(comp: &ComponentNode) -> String {
             && image.is_none()
             && favicon.is_none()
         {
-            format!("<div data-empty=\"true\">{globe}<span>No preview available</span></div>")
+            format!("<span data-empty=\"true\">{globe}<span>No preview available</span></span>")
         } else {
-            let mut out = String::from("<div>");
+            let mut out = String::from("<span>");
             if let Some(src) = &image {
                 out.push_str(&format!(
-                    "<div><img src=\"{src}\" alt=\"Website preview\"></div>"
+                    "<span><img src=\"{src}\" alt=\"Website preview\"></span>"
                 ));
             }
             if site.is_some() || favicon.is_some() {
-                out.push_str("<div>");
+                out.push_str("<span>");
                 match &favicon {
                     Some(src) => out.push_str(&format!(
                         "<img width=\"20\" height=\"20\" alt=\"Favicon\" src=\"{src}\">"
@@ -66,25 +67,25 @@ pub fn render(comp: &ComponentNode) -> String {
                     None => out.push_str(&globe),
                 }
                 if let Some(s) = &site {
-                    out.push_str(&format!("<div>{s}</div>"));
+                    out.push_str(&format!("<span>{s}</span>"));
                 }
-                out.push_str("</div>");
+                out.push_str("</span>");
             }
             if let Some(t) = &title {
-                out.push_str(&format!("<div class=\"lp-title\">{t}</div>"));
+                out.push_str(&format!("<span class=\"lp-title\">{t}</span>"));
             }
             if let Some(d) = &description {
-                out.push_str(&format!("<div class=\"lp-description\">{d}</div>"));
+                out.push_str(&format!("<span class=\"lp-description\">{d}</span>"));
             }
             out.push_str(&format!(
-                "<div class=\"lp-url\">{}</div></div>",
+                "<span class=\"lp-url\">{}</span></span>",
                 esc(display_url(raw_href))
             ));
             out
         }
     };
     let inner = format!(
-        "<span data-slot=\"link-preview\"><a href=\"{href}\" target=\"_blank\" rel=\"noopener noreferrer\" data-state=\"closed\" aria-describedby=\"{content_id}\">{label}</a><div id=\"{content_id}\" data-slot=\"tooltip-content\" role=\"tooltip\">{body}</div></span>"
+        "<span data-slot=\"link-preview\"><a href=\"{href}\" target=\"_blank\" rel=\"noopener noreferrer\" data-state=\"closed\" aria-describedby=\"{content_id}\">{label}</a><span id=\"{content_id}\" data-slot=\"tooltip-content\" role=\"tooltip\">{body}</span></span>"
     );
     let prefix = attr_nonempty(comp, "prefix").map(esc);
     let suffix = attr_nonempty(comp, "suffix").map(esc);
@@ -164,7 +165,7 @@ mod tests {
         push(&mut c, "title", "pedrogbraz/cronus-ui");
         push(&mut c, "text", "Design system for Cronus.");
         let html = render(&c);
-        assert!(html.starts_with("<p class=\"link-preview-prose\">Check out the <span data-slot=\"link-preview\"><a href=\"https://github.com/pedrogbraz/cronus-ui\" target=\"_blank\" rel=\"noopener noreferrer\" data-state=\"closed\" aria-describedby=\"cui-link-preview-link-preview\">Cronus UI repository</a><div id=\"cui-link-preview-link-preview\" data-slot=\"tooltip-content\" role=\"tooltip\"><div><div><img src=\"https://opengraph.githubassets.com/1/pedrogbraz/cronus-ui\" alt=\"Website preview\"></div><div><img width=\"20\" height=\"20\" alt=\"Favicon\" src=\"https://github.com/favicon.ico\"><div>GitHub</div></div><div class=\"lp-title\">pedrogbraz/cronus-ui</div><div class=\"lp-description\">Design system for Cronus.</div><div class=\"lp-url\">github.com/pedrogbraz/cronus-ui</div></div></div></span> to browse the catalog.</p>"));
+        assert!(html.starts_with("<p class=\"link-preview-prose\">Check out the <span data-slot=\"link-preview\"><a href=\"https://github.com/pedrogbraz/cronus-ui\" target=\"_blank\" rel=\"noopener noreferrer\" data-state=\"closed\" aria-describedby=\"cui-link-preview-link-preview\">Cronus UI repository</a><span id=\"cui-link-preview-link-preview\" data-slot=\"tooltip-content\" role=\"tooltip\"><span><span><img src=\"https://opengraph.githubassets.com/1/pedrogbraz/cronus-ui\" alt=\"Website preview\"></span><span><img width=\"20\" height=\"20\" alt=\"Favicon\" src=\"https://github.com/favicon.ico\"><span>GitHub</span></span><span class=\"lp-title\">pedrogbraz/cronus-ui</span><span class=\"lp-description\">Design system for Cronus.</span><span class=\"lp-url\">github.com/pedrogbraz/cronus-ui</span></span></span></span> to browse the catalog.</p>"));
         reject_js(&html);
     }
 
@@ -172,14 +173,14 @@ mod tests {
     fn no_metadata_and_favicon_fallback() {
         let html = render(&link("Repo"));
         assert!(html.starts_with("<span data-slot=\"link-preview\">"));
-        assert!(html.contains("<div data-empty=\"true\"><svg"));
+        assert!(html.contains("<span data-empty=\"true\"><svg"));
         assert!(html.contains("data-icon=\"globe\""));
-        assert!(html.contains("</svg><span>No preview available</span></div>"));
+        assert!(html.contains("</svg><span>No preview available</span></span>"));
         let mut c = link("Repo");
         c.props.insert("site".into(), "GitHub".into());
         let html = render(&c);
-        assert!(html.contains("<div><div><svg"));
-        assert!(html.contains("</svg><div>GitHub</div></div><div class=\"lp-url\">"));
+        assert!(html.contains("<span><span><svg"));
+        assert!(html.contains("</svg><span>GitHub</span></span><span class=\"lp-url\">"));
     }
 
     #[test]
@@ -188,7 +189,7 @@ mod tests {
         c.props.insert("href".into(), "javascript:alert(1)".into());
         let html = render(&c);
         assert!(html.contains("<a href=\"#\""));
-        assert!(html.contains("<div data-error=\"true\"><svg"));
+        assert!(html.contains("<span data-error=\"true\"><svg"));
         assert!(html.contains("<span>Invalid URL</span>"));
         let mut c = link("Mail");
         c.props.insert("href".into(), "mailto:x@y.z".into());
@@ -199,7 +200,7 @@ mod tests {
         let html = render(&c);
         assert!(html.contains(">&lt;b&gt;x&lt;/b&gt; &quot;q&quot;</a>"));
         assert!(html.contains("<img src=\"#\""));
-        assert!(html.contains("<div class=\"lp-title\">&lt;i&gt;t&lt;/i&gt;</div>"));
+        assert!(html.contains("<span class=\"lp-title\">&lt;i&gt;t&lt;/i&gt;</span>"));
         reject_js(&html);
     }
 

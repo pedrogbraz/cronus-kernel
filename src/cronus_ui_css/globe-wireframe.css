@@ -72,7 +72,8 @@
   display: block; border: var(--cui-globe-line) solid currentColor; opacity: var(--cui-globe-line-opacity);
   animation: cui-globe-face var(--cui-globe-period) linear infinite;
 }
-:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .a { clip-path: inset(0 0 0 50%); animation-delay: calc(var(--cui-ry, 0) / 360 * -1 * var(--cui-globe-period)); }
+/* Static values match the loop at t = 0: every +x half faces away (rings sit at 0…170 deg), every -x half faces the viewer. */
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .a { clip-path: inset(0 0 0 50%); opacity: calc(var(--cui-globe-line-opacity) * var(--cui-globe-back)); animation-delay: calc(var(--cui-ry, 0) / 360 * -1 * var(--cui-globe-period)); }
 :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .b { clip-path: inset(0 50% 0 0); animation-delay: calc((var(--cui-ry, 0) + 180) / 360 * -1 * var(--cui-globe-period)); }
 :is([data-slot="globe-wireframe"], [data-slot="globe-3d"])[data-static] .m > i { animation: none; }
 /* Surface dots (solid variant): discs tangent to the sphere, back faces culled. */
@@ -98,12 +99,17 @@
 @keyframes cui-globe-unspin { from { rotate: y 0deg; } to { rotate: y -360deg; } }
 /* Front while sin(longitude + spin) < 0 (CSS rotateY sends +x away from the viewer). */
 @keyframes cui-globe-face {
-  0% { opacity: calc((1 + var(--cui-globe-back)) / 2); } 3% { opacity: var(--cui-globe-back); } 47% { opacity: var(--cui-globe-back); }
-  53% { opacity: 1; } 97% { opacity: 1; } 100% { opacity: calc((1 + var(--cui-globe-back)) / 2); }
+  0% { opacity: calc(var(--cui-globe-line-opacity, 1) * (1 + var(--cui-globe-back)) / 2); }
+  3% { opacity: calc(var(--cui-globe-line-opacity, 1) * var(--cui-globe-back)); } 47% { opacity: calc(var(--cui-globe-line-opacity, 1) * var(--cui-globe-back)); }
+  53% { opacity: var(--cui-globe-line-opacity, 1); } 97% { opacity: var(--cui-globe-line-opacity, 1); }
+  100% { opacity: calc(var(--cui-globe-line-opacity, 1) * (1 + var(--cui-globe-back)) / 2); }
 }
 /* Markers (globe-3d): nested coarse + fine rotations place a pin at an exact latitude / longitude;
    the same rotations undone below the pin keep the avatar facing the camera (a sprite). */
 :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .marker, :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .marker div { position: absolute; inset: 0; transform-style: preserve-3d; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .marker { --cui-globe-line-opacity: 1; --cui-globe-back: 0; }
+/* Longitudes 0…180 start behind the viewer (static value = the loop at t = 0). */
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .marker.back :is(.stem, .tip, .face > img) { opacity: 0; }
 :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) [class^="ry-"], :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) [class*=" ry-"] { transform: rotateY(calc(var(--cui-ry, 0) * 1deg)); }
 :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) [class^="fy-"], :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) [class*=" fy-"] { transform: rotateY(calc(var(--cui-fy, 0) * 1deg)); }
 :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) [class^="rz-"], :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) [class*=" rz-"] { transform: rotateZ(calc(var(--cui-rz, 0) * 1deg)); }
@@ -191,7 +197,8 @@
 :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-7 { --cui-fz: 7; }
 :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-8 { --cui-fz: 8; }
 :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-9 { --cui-fz: 9; }
-:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .pin { position: absolute; top: 50%; inset-inline-start: 100%; width: 100%; height: 100%; transform-style: preserve-3d; --cui-globe-back: 0; }
+/* `.marker .pin` outranks the `.marker div` box rule above. */
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .marker .pin { position: absolute; inset: auto; top: 50%; inset-inline-start: 100%; width: 100%; height: 100%; transform-style: preserve-3d; }
 /* Stem, tip and avatar are leaves: they carry the front / back fade (opacity on a 3D parent would flatten it). */
 :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .pin > .stem, :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .pin > .tip {
   position: absolute; top: 0; inset-inline-start: 0; animation: cui-globe-face var(--cui-globe-period) linear infinite;
@@ -203,7 +210,7 @@
 :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .pin > .bb { inset-inline-start: 3.75%; }
 :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .face { animation: cui-globe-unspin var(--cui-globe-period) linear infinite; }
 :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .face > img {
-  position: absolute; top: 0; inset-inline-start: 0; width: 0.75rem; height: 0.75rem; margin: -0.375rem;
+  position: absolute; top: 0; inset-inline-start: 0; width: 0.75rem; height: 0.75rem; max-width: none; margin: -0.375rem;
   border-radius: 50%; object-fit: cover; background: var(--cronus-fg-inverse);
   box-shadow: var(--cronus-shadow-lg, none); transition: transform 200ms var(--ease-out-quart), box-shadow 200ms var(--ease-out-quart);
   /* The undo chain leaves 360 - longitude in the vars. */

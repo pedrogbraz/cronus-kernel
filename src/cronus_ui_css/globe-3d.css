@@ -4,7 +4,7 @@
   --cui-globe-period: 200s; --cui-globe-line: 1px; --cui-globe-line-opacity: 0.22; --cui-globe-back: 0;
 }
 /* Camera fov 45 at 3.5 radii: the globe spans ~69% of the frame height. */
-[data-slot="globe-3d"] > .globe { inset: auto; width: 69%; max-width: 69%; aspect-ratio: 1 / 1; position: relative; margin: 0 auto; top: 50%; translate: 0 -50%; }
+[data-slot="globe-3d"] > .globe { inset: auto; width: auto; height: 69%; max-width: 100%; aspect-ratio: 1 / 1; position: relative; margin: 0 auto; top: 50%; translate: 0 -50%; }
 [data-slot="globe-3d"] > .globe > .disc {
   display: block; transform: translateZ(-1px);
   /* Blue Marble stand-in: ocean tint lit from the top-left (point light) with the atmosphere glow. */
