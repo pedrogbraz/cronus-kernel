@@ -21,3 +21,13 @@
 @media (prefers-reduced-motion: reduce) {
   [data-slot="highlighter"] > [aria-hidden] { animation: none; }
 }
+/* Docs sentence (`prefix:` / `suffix:` / `heading:`): a `<p>` around the mark. */
+p:has(> [data-slot="highlighter"]) {
+  margin: 0; isolation: isolate; color: var(--cronus-fg);
+}
+p[class*="h-"]:has(> [data-slot="highlighter"]) { font-family: var(--cronus-font-display, inherit); }
+p.h-lg:has(> [data-slot="highlighter"]) { font-size: 1.125rem; line-height: 1.75rem; }
+p.h-xl:has(> [data-slot="highlighter"]) { font-size: 1.25rem; line-height: 1.75rem; }
+p.h-2xl:has(> [data-slot="highlighter"]) { font-size: 1.5rem; line-height: 2rem; }
+p.h-3xl:has(> [data-slot="highlighter"]) { font-size: 1.875rem; line-height: 2.25rem; }
+p.h-4xl:has(> [data-slot="highlighter"]) { font-size: 2.25rem; line-height: 2.5rem; }

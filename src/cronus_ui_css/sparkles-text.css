@@ -1,23 +1,37 @@
 [data-slot="sparkles-text"] {
   position: relative; display: inline-block;
 }
-[data-slot="sparkles-text"]::before,
-[data-slot="sparkles-text"]::after {
-  position: absolute;
-  width: 0.5rem; height: 0.5rem;
-  background: var(--cronus-primary);
-  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-  animation: cui-sparkle 1.6s ease-in-out infinite;
-  pointer-events: none;
+[data-slot="sparkles-text"] > [aria-hidden] {
+  position: absolute; inset: 0; overflow: visible; pointer-events: none;
 }
-[data-slot="sparkles-text"]::before {
-  top: -0.35rem; inset-inline-start: 8%;
-  animation-delay: 0s; animation-duration: 1.4s;
-  top: 10%; inset-inline-end: -0.35rem;
-  animation-delay: 0.7s; animation-duration: 1.65s;
+[data-slot="sparkles-text"] > [aria-hidden] > span {
+  position: absolute; width: 0.5rem; height: 0.5rem;
+  color: var(--cronus-primary);
+  opacity: 0; transform: scale(0);
+  animation: cui-sparkle 1.4s ease infinite backwards;
 }
+[data-slot="sparkles-text"] > [aria-hidden] > span > svg { width: 100%; height: 100%; fill: currentColor; }
+[data-slot="sparkles-text"] > [aria-hidden] > span:nth-child(1) { top: 0%; inset-inline-start: 8%; animation-delay: 0s; animation-duration: 1.4s; }
+[data-slot="sparkles-text"] > [aria-hidden] > span:nth-child(2) { top: 10%; inset-inline-start: 88%; animation-delay: 0.35s; animation-duration: 1.65s; }
+[data-slot="sparkles-text"] > [aria-hidden] > span:nth-child(3) { top: 85%; inset-inline-start: 18%; animation-delay: 0.7s; animation-duration: 1.9s; }
+[data-slot="sparkles-text"] > [aria-hidden] > span:nth-child(4) { top: 78%; inset-inline-start: 78%; animation-delay: 1.05s; animation-duration: 1.4s; }
+[data-slot="sparkles-text"] > [aria-hidden] > span:nth-child(5) { top: -8%; inset-inline-start: 48%; animation-delay: 1.4s; animation-duration: 1.65s; }
+[data-slot="sparkles-text"] > [aria-hidden] > span:nth-child(6) { top: 50%; inset-inline-start: -6%; animation-delay: 0.15s; animation-duration: 1.9s; }
+[data-slot="sparkles-text"] > [aria-hidden] > span:nth-child(7) { top: 52%; inset-inline-start: 96%; animation-delay: 0.5s; animation-duration: 1.4s; }
+[data-slot="sparkles-text"] > [aria-hidden] > span:nth-child(8) { top: 100%; inset-inline-start: 52%; animation-delay: 0.85s; animation-duration: 1.65s; }
+[data-slot="sparkles-text"] > span:last-child { position: relative; }
 @keyframes cui-sparkle {
   0%, 100% { transform: scale(0); opacity: 0; }
   40% { transform: scale(1); opacity: 1; }
   70% { transform: scale(0.6); opacity: 0.6; }
 }
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="sparkles-text"] > [aria-hidden] { display: none; }
+}
+/* `heading:<size>`: the docs' font-display text-<size> text-fg on the root. */
+[data-slot="sparkles-text"][class*="h-"] { font-family: var(--cronus-font-display, inherit); color: var(--cronus-fg); }
+[data-slot="sparkles-text"].h-lg { font-size: 1.125rem; line-height: 1.75rem; }
+[data-slot="sparkles-text"].h-xl { font-size: 1.25rem; line-height: 1.75rem; }
+[data-slot="sparkles-text"].h-2xl { font-size: 1.5rem; line-height: 2rem; }
+[data-slot="sparkles-text"].h-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+[data-slot="sparkles-text"].h-4xl { font-size: 2.25rem; line-height: 2.5rem; }

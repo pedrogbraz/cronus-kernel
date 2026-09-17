@@ -1,0 +1,6 @@
+page "/scramble-text" type:components family:scramble-text {
+  title "ScrambleText"
+  description:"Resolves a phrase by cycling random glyphs until it locks in."
+}
+
+component Decrypt layout:inline style:scramble-text heading:3xl group:"Decrypt" note:"Random glyphs lock in left-to-right. Assistive tech gets the resolved phrase immediately." { label "cronus-ui" }

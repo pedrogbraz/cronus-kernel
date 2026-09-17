@@ -1,0 +1,10 @@
+page "/word-rotate" type:components family:word-rotate {
+  title "WordRotate"
+  description:"Cycles through a list of words with a vertical swap."
+}
+
+component WordCycle layout:inline style:word-rotate prefix:"Ship " suffix:"." heading:3xl group:"Word cycle" note:"Cycles through a list of words with a vertical swap. A polite live region announces the current word." {
+  item "faster"
+  item "calmer"
+  item "on-brand"
+}

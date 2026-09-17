@@ -1,0 +1,6 @@
+page "/sparkles-text" type:components family:sparkles-text {
+  title "SparklesText"
+  description:"Twinkling sparkles around a phrase."
+}
+
+component Launch layout:inline style:sparkles-text heading:4xl group:"Sparkles" note:"Twinkling sparkles around a phrase. Hidden under reduced motion." { label "Launch" }

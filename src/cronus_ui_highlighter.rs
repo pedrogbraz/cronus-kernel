@@ -1,17 +1,32 @@
-//! Dedicated Highlighter renderer. DOM matches React idle:
-//! `<span data-slot="highlighter">` plus an `aria-hidden` marker span (no
-//! `data-slot`, like React — Wave 1t geometry parity) and the label. CSS
-//! scaleX draw-in lives in COMPONENT_CHROME. Zero JS, no inline style, no
-//! `<style>` tag. Not the catalog `fx()` title SURF box.
+//! Dedicated Highlighter renderer. DOM mirrors React without the injected
+//! `<style>`: `<span data-slot="highlighter">` + an aria-hidden mark
+//! `<span>` (draws in over 0.6s, `cubic-bezier(.22,1,.36,1)`) + the words.
+//! The mark lives in COMPONENT_CHROME. Zero JS, no inline style.
+//!
+//! Docs sentence from the `.cronus`: `prefix:"Build the "` / `suffix:" first."`
+//! put the words around the mark and `heading:3xl` is the docs
+//! `<p className="font-display text-3xl text-fg">`; any of the three wraps
+//! the slot in that `<p>` (class `h-<size>`).
 
-use crate::cronus_ui_kit::label_of;
+use crate::cronus_ui_dot_pattern::HEADINGS;
+use crate::cronus_ui_kit::{attr, choice, esc, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    format!(
+    let mark = format!(
         "<span data-slot=\"highlighter\"><span aria-hidden=\"true\"></span>{}</span>",
         label_of(comp)
-    )
+    );
+    let prefix = attr(comp, "prefix").map(esc).unwrap_or_default();
+    let suffix = attr(comp, "suffix").map(esc).unwrap_or_default();
+    let heading = choice(comp, "heading", HEADINGS);
+    if prefix.is_empty() && suffix.is_empty() && heading.is_none() {
+        return mark;
+    }
+    let class = heading
+        .map(|h| format!(" class=\"h-{h}\""))
+        .unwrap_or_default();
+    format!("<p{class}>{prefix}{mark}{suffix}</p>")
 }
 
 #[cfg(test)]
@@ -28,13 +43,12 @@ mod tests {
         assert!(!html.contains("<style"));
         assert!(!html.contains("SURF"));
         assert!(!html.contains("<div"));
+        assert!(!html.contains("<mark"));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
         assert!(!html.contains("onclick="));
-        assert!(!html.contains("setTimeout"));
         assert!(!html.contains("zinc-"));
-        assert!(!html.contains("fx("));
         assert_eq!(html.matches("data-slot=").count(), 1);
     }
 
@@ -45,7 +59,6 @@ mod tests {
             html,
             "<span data-slot=\"highlighter\"><span aria-hidden=\"true\"></span>Important</span>"
         );
-        assert!(!html.contains("highlighter-mark"));
         reject_fx(&html);
     }
 
@@ -57,6 +70,24 @@ mod tests {
             "<span data-slot=\"highlighter\"><span aria-hidden=\"true\"></span>A &lt;B&gt; &amp; &quot;C&quot;</span>"
         );
         reject_fx(&html);
+    }
+
+    /// Docs example: `<p className="font-display text-3xl text-fg">Build the
+    /// <Highlighter>product surface</Highlighter> first.</p>`.
+    #[test]
+    fn prefix_suffix_and_heading_wrap_the_docs_sentence() {
+        let mut c = stub("highlighter", "product surface");
+        c.props.insert("prefix".into(), "Build the ".into());
+        c.props.insert("suffix".into(), " <first>.".into());
+        c.props.insert("heading".into(), "3xl".into());
+        let html = render(&c);
+        assert_eq!(
+            html,
+            "<p class=\"h-3xl\">Build the <span data-slot=\"highlighter\"><span aria-hidden=\"true\"></span>product surface</span> &lt;first&gt;.</p>"
+        );
+        reject_fx(&html);
+        c.props.remove("heading");
+        assert!(render(&c).starts_with("<p>Build the <span"));
     }
 
     #[test]
@@ -88,14 +119,15 @@ mod tests {
     #[test]
     fn chrome_highlighter_via_css() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"highlighter\"]"));
+        assert!(css.contains("[data-slot=\"highlighter\"] {\n  position: relative;\n  display: inline;\n  white-space: nowrap;\n}"));
         assert!(css.contains("[data-slot=\"highlighter\"] > [aria-hidden] {"));
-        assert!(!css.contains("[data-slot=\"highlighter-mark\"]"));
-        assert!(css.contains("@keyframes cui-highlighter"));
-        assert!(css.contains("animation: cui-highlighter"));
-        assert!(css.contains("scaleX(0)"));
-        assert!(css.contains("scaleX(1)"));
-        assert!(css.contains("color-mix(in oklch, var(--cronus-primary) 25%"));
+        assert!(css.contains("bottom: 0.08em;"));
+        assert!(css.contains("height: 0.45em;"));
+        assert!(css.contains("color-mix(in oklch, var(--cronus-primary) 25%, transparent)"));
+        assert!(css.contains("animation: cui-highlighter 0.6s cubic-bezier(.22, 1, .36, 1) both;"));
+        assert!(css.contains("@keyframes cui-highlighter {\n  from { transform: scaleX(0); }\n  to { transform: scaleX(1); }\n}"));
+        assert!(css.contains("p:has(> [data-slot=\"highlighter\"]) {\n  margin: 0; isolation: isolate; color: var(--cronus-fg);\n}"));
+        assert!(css.contains("p.h-3xl:has(> [data-slot=\"highlighter\"]) { font-size: 1.875rem; line-height: 2.25rem; }"));
         assert!(css.contains("prefers-reduced-motion"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));

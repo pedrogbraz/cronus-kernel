@@ -1,0 +1,6 @@
+page "/shiny-text" type:components family:shiny-text {
+  title "ShinyText"
+  description:"A metallic sheen that sweeps across live text."
+}
+
+component Sheen layout:inline style:shiny-text heading:4xl group:"Sheen" note:"A metallic sheen sweeps across live text. Reduced-motion visitors see the resting fill." { label "Ship the surface" }
