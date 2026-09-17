@@ -1,0 +1,10 @@
+page "/card-stack" type:components family:card-stack {
+  title "CardStack"
+  description:"A fanned stack of cards that cycles on click or keyboard."
+}
+
+component FannedStack layout:stack style:card-stack heading:lg group:"Fanned stack" note:"Click or press Space / ArrowRight on the front card to send it to the back. Labels can be localized." {
+  item "Northwind"
+  item "Contoso"
+  item "Adventure Works"
+}

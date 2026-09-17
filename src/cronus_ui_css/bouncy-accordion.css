@@ -1,6 +1,8 @@
 [data-slot="bouncy-accordion"] {
   display: flex; flex-direction: column; align-items: center;
   width: 100%; max-width: 300px;
+  /* motion spring { bounce: 0.32, duration: 0.55 } sampled as linear(). */
+  --cui-bouncy-spring: 550ms linear(0, 0.067, 0.2203, 0.4048, 0.5847, 0.7398, 0.8616, 0.9491, 1.006, 1.0382, 1.0521, 1.0538, 1.0482, 1.039, 1.0289, 1.0195, 1.0117, 1.0057, 1.0015, 0.999, 0.9976, 0.9971, 0.9972, 0.9975, 0.9981, 1);
 }
 [data-slot="bouncy-accordion"] > p {
   position: relative; margin: 0 0 5rem; max-width: 18ch; text-align: center;
@@ -11,36 +13,58 @@
   width: 1px; height: 4rem; background: linear-gradient(to bottom, transparent, var(--cronus-fg));
 }
 [data-slot="bouncy-accordion"] > ul { width: 100%; margin: 0; padding: 0; list-style: none; }
+/* Zero JS: each row is a native <details name> (single open, click again to collapse).
+   Collapsed rows share the 20px outer radius; the open row springs into its own card. */
 [data-slot="bouncy-accordion"] > ul > li {
-  position: relative; overflow: hidden; height: 45px;
+  position: relative; overflow: hidden;
   background: var(--cronus-surface-base);
+  transition: margin-block var(--cui-bouncy-spring), border-radius var(--cui-bouncy-spring), background-color 150ms var(--cronus-ease);
 }
 [data-slot="bouncy-accordion"] > ul > li:hover { background: var(--cronus-surface-raised); }
-[data-slot="bouncy-accordion"] > ul > li[data-state="open"] {
-  height: auto; margin-block: 10px; border-radius: 20px;
+[data-slot="bouncy-accordion"] > ul > li:has(> details[open]) {
+  margin-block: 10px; border-radius: 20px;
 }
 [data-slot="bouncy-accordion"] > ul > li:first-child,
-[data-slot="bouncy-accordion"] > ul > li[data-state="open"] + li {
+[data-slot="bouncy-accordion"] > ul > li:has(> details[open]) + li {
   border-start-start-radius: 20px; border-start-end-radius: 20px;
 }
 [data-slot="bouncy-accordion"] > ul > li:last-child,
-[data-slot="bouncy-accordion"] > ul > li:has(+ li[data-state="open"]) {
+[data-slot="bouncy-accordion"] > ul > li:has(+ li > details[open]) {
   border-end-start-radius: 20px; border-end-end-radius: 20px;
 }
-[data-slot="bouncy-accordion-trigger"] {
-  display: flex; flex-direction: column; width: 100%; padding: 0 0.5rem;
-  text-align: start; cursor: pointer; outline: none;
+[data-slot="bouncy-accordion"] details { interpolate-size: allow-keywords; }
+[data-slot="bouncy-accordion"] details::details-content {
+  display: block; height: 0; overflow: hidden;
+  transition: height var(--cui-bouncy-spring), content-visibility var(--cui-bouncy-spring) allow-discrete;
 }
+[data-slot="bouncy-accordion"] details[open]::details-content { height: auto; }
+[data-slot="bouncy-accordion-trigger"] {
+  display: flex; width: 100%; padding: 0 0.5rem;
+  text-align: start; cursor: pointer; outline: none; list-style: none;
+}
+[data-slot="bouncy-accordion-trigger"]::-webkit-details-marker { display: none; }
 [data-slot="bouncy-accordion-trigger"]:focus-visible {
   box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
 }
-[data-slot="bouncy-accordion-trigger"] > span:first-child {
+[data-slot="bouncy-accordion-trigger"] > span {
   display: flex; height: 45px; align-items: center; gap: 0.5rem; padding-inline-start: 0.75rem;
 }
-[data-slot="bouncy-accordion-trigger"] > span:first-child > span {
+/* React `icon`: size-6 scale-[0.85] rounded-md bg-surface-overlay text-fg shadow-xs, 16px glyph. */
+[data-slot="bouncy-accordion-trigger"] > span > span:first-child:not(:last-child) {
+  display: grid; width: 1.5rem; height: 1.5rem; flex-shrink: 0; place-items: center;
+  transform: scale(0.85); border-radius: var(--cronus-radius-md);
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-xs, none);
+}
+[data-slot="bouncy-accordion-trigger"] > span > span:first-child:not(:last-child) > svg { width: 1rem; height: 1rem; }
+[data-slot="bouncy-accordion-trigger"] > span > span:last-child {
   font-size: 0.875rem; line-height: 1.25rem; letter-spacing: -0.025em;
   color: color-mix(in oklab, var(--cronus-fg) 75%, transparent);
 }
-[data-slot="bouncy-accordion-trigger"] > span:last-child {
-  padding: 0.5rem 0.75rem; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-tertiary);
+[data-slot="bouncy-accordion"] details > span {
+  display: block; padding: 0.5rem 1.25rem; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-tertiary);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="bouncy-accordion"] > ul > li,
+  [data-slot="bouncy-accordion"] details::details-content { transition: none; }
 }

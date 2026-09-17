@@ -1,9 +1,10 @@
 [data-slot="pill-nav"] {
-  display: inline-flex; align-items: center; gap: 0.25rem;
+  position: relative; display: inline-flex; align-items: center; gap: 0.25rem;
   border-radius: 9999px;
   border: 1px solid var(--cronus-border);
   background: var(--cronus-surface-inset);
   padding: 0.25rem;
+  anchor-scope: --cui-pill;
 }
 [data-slot="pill-nav-item"] {
   position: relative; z-index: 0;
@@ -12,6 +13,7 @@
   background: transparent; color: var(--cronus-fg-secondary);
   font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;
   text-decoration: none; cursor: pointer;
+  transition: color 150ms var(--cronus-ease);
 }
 [data-slot="pill-nav-item"][aria-current="page"] {
   color: var(--cronus-fg);
@@ -21,4 +23,33 @@
   border-radius: 9999px;
   background: var(--cronus-surface-floating);
   box-shadow: var(--cronus-shadow-xs, none);
+}
+/* Zero JS: each link-less item is a label with a visually hidden radio; React's button is
+   decorative. The checked item names the anchor and the one shared pill (React's
+   layoutId thumb, spring bounce 0.15 / 0.4s) slides to it. */
+[data-slot="pill-nav"] > label {
+  position: relative; z-index: 1; display: inline-flex; cursor: pointer;
+}
+[data-slot="pill-nav"] > label > input {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="pill-nav"] > label > [data-slot="pill-nav-item"] { pointer-events: none; }
+[data-slot="pill-nav"] > label > input:checked + [data-slot="pill-nav-item"] {
+  color: var(--cronus-fg); anchor-name: --cui-pill;
+}
+[data-slot="pill-nav"] > label > input:disabled + [data-slot="pill-nav-item"] { opacity: 0.5; }
+[data-slot="pill-nav"] > label:has(> input:disabled) { pointer-events: none; }
+[data-slot="pill-nav"] > label > input:focus-visible + [data-slot="pill-nav-item"] {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
+}
+[data-slot="pill-nav"] > .pill {
+  position: absolute; z-index: 0;
+  border-radius: 9999px;
+  background: var(--cronus-surface-floating);
+  box-shadow: var(--cronus-shadow-xs, none);
+  position-anchor: --cui-pill;
+  inset-inline-start: anchor(start); top: anchor(top);
+  width: anchor-size(width); height: anchor-size(height);
+  transition: inset-inline-start var(--cronus-spring-snappy), width var(--cronus-spring-snappy);
 }

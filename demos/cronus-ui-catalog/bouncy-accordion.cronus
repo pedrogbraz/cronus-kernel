@@ -1,0 +1,9 @@
+page "/bouncy-accordion" type:components family:bouncy-accordion {
+  title "BouncyAccordion"
+  description:"Stacked accordion that springs open with a gap and rounded card."
+}
+
+component BouncyStack layout:stack style:bouncy-accordion value:"Schedule" group:"Bouncy stack" note:"Collapsed rows share a 20px outer radius. Open one and it springs into its own card with a 10px gap (bounce 0.32). Click again to collapse." {
+  item "Type Shit" icon:book-open description:"Fast, accurate typing."
+  item "Schedule" icon:calendar description:"Plan tasks with timelines."
+}
