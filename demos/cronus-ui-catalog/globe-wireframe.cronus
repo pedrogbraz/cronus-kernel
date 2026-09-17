@@ -1,0 +1,6 @@
+page "/globe-wireframe" type:components family:globe-wireframe {
+  title "GlobeWireframe"
+  description:"An orthographic SVG globe with country strokes, drag, and a slow auto-rotate."
+}
+
+component WireframeSolidGlobe layout:stack style:globe-wireframe+wireframesolid auto-rotate:true group:"Wireframe solid" note:"Orthographic SVG globe with country strokes, drag, and a slow auto-rotate. Optional peer: d3-geo. Land outlines load from Natural Earth (world-atlas 110m)." { label "Globe" }

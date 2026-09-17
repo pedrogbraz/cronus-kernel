@@ -1,0 +1,19 @@
+/* globe-3d: shaded sphere + faint graticule + avatar pins; the 3D machinery is in globe-wireframe.css. */
+[data-slot="globe-3d"] {
+  position: relative; width: 100%; height: 31.25rem; overflow: hidden; color: var(--cronus-info);
+  --cui-globe-period: 200s; --cui-globe-line: 1px; --cui-globe-line-opacity: 0.22; --cui-globe-back: 0;
+}
+/* Camera fov 45 at 3.5 radii: the globe spans ~69% of the frame height. */
+[data-slot="globe-3d"] > .globe { inset: auto; width: 69%; max-width: 69%; aspect-ratio: 1 / 1; position: relative; margin: 0 auto; top: 50%; translate: 0 -50%; }
+[data-slot="globe-3d"] > .globe > .disc {
+  display: block; transform: translateZ(-1px);
+  /* Blue Marble stand-in: ocean tint lit from the top-left (point light) with the atmosphere glow. */
+  background:
+    radial-gradient(circle at 35% 30%, color-mix(in oklab, var(--cronus-info) 55%, var(--cronus-surface-inset)) 0%, color-mix(in oklab, var(--cronus-info) 25%, var(--cronus-surface-inset)) 45%, var(--cronus-surface-inset) 100%);
+  box-shadow: inset -0.75rem -0.75rem 2rem color-mix(in oklab, var(--cronus-surface-base) 70%, transparent),
+    0 0 1.5rem color-mix(in oklab, var(--cronus-info) 45%, transparent),
+    0 0 3.5rem color-mix(in oklab, var(--cronus-info) 20%, transparent);
+}
+[data-slot="globe-3d"] > .globe > .rim { border-color: color-mix(in oklab, var(--cronus-info) 60%, transparent); }
+[data-slot="globe-3d"] .m > .d { display: none; }
+[data-slot="globe-3d"] .face > img { width: 0.875rem; height: 0.875rem; margin: -0.4375rem; }

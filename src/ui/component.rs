@@ -502,6 +502,19 @@ pub(super) const KIT_GROUPS: &[(&str, &str, &[&str])] = &[
             "countdown",
         ],
     ),
+    (
+        "premium",
+        "Premium",
+        &[
+            "images-badge",
+            "globe-3d",
+            "globe-wireframe",
+            "explore-nav",
+            "token-swap",
+            "receive-button",
+            "family-wallet",
+        ],
+    ),
 ];
 
 fn kit_family<'a>(comp: &'a ComponentNode) -> &'a str {

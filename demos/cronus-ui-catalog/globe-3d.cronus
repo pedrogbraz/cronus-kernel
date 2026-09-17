@@ -1,0 +1,21 @@
+page "/globe-3d" type:components family:globe-3d {
+  title "3D Globe"
+  description:"A textured 3D globe with avatar pins, orbit, and auto-rotate."
+}
+
+component TeamGlobe layout:stack style:globe-3d group:"Distributed team" note:"NASA Blue Marble globe with avatar pins, orbit drag, and a slow auto-rotate. Optional peers: three, @react-three/fiber, @react-three/drei." {
+  label "Globe"
+  item "New York" lat:40.7128 lng:-74.006 -> "https://assets.aceternity.com/avatars/1.webp"
+  item "London" lat:51.5074 lng:-0.1278 -> "https://assets.aceternity.com/avatars/2.webp"
+  item "Tokyo" lat:35.6762 lng:139.6503 -> "https://assets.aceternity.com/avatars/3.webp"
+  item "Sydney" lat:-33.8688 lng:151.2093 -> "https://assets.aceternity.com/avatars/4.webp"
+  item "Paris" lat:48.8566 lng:2.3522 -> "https://assets.aceternity.com/avatars/5.webp"
+  item "New Delhi" lat:28.6139 lng:77.209 -> "https://assets.aceternity.com/avatars/6.webp"
+  item "Moscow" lat:55.7558 lng:37.6173 -> "https://assets.aceternity.com/avatars/7.webp"
+  item "Rio de Janeiro" lat:-22.9068 lng:-43.1729 -> "https://assets.aceternity.com/avatars/8.webp"
+  item "Shanghai" lat:31.2304 lng:121.4737 -> "https://assets.aceternity.com/avatars/9.webp"
+  item "Dubai" lat:25.2048 lng:55.2708 -> "https://assets.aceternity.com/avatars/10.webp"
+  item "Buenos Aires" lat:-34.6037 lng:-58.3816 -> "https://assets.aceternity.com/avatars/11.webp"
+  item "Singapore" lat:1.3521 lng:103.8198 -> "https://assets.aceternity.com/avatars/12.webp"
+  item "Seoul" lat:37.5665 lng:126.978 -> "https://assets.aceternity.com/avatars/13.webp"
+}
