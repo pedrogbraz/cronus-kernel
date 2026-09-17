@@ -1,0 +1,29 @@
+page "/table" type:components family:table {
+  title "Table"
+  description:"Styled semantic table primitives."
+}
+
+component TableInvoices layout:stack style:table caption:"A list of your recent invoices." group:"Basic" note:"A styled static table with a header, body, footer, and an accessible caption." {
+  columns "Invoice" font:medium
+  columns "Status"
+  columns "Method"
+  columns "Amount" align:end font:mono
+  text "INV-001"
+  text "Paid"
+  text "Credit Card"
+  text "$250.00"
+  text "INV-002"
+  text "Pending"
+  text "PayPal"
+  text "$150.00"
+  text "INV-003"
+  text "Unpaid"
+  text "Bank Transfer"
+  text "$350.00"
+  text "INV-004"
+  text "Paid"
+  text "Credit Card"
+  text "$450.00"
+  value "Total" span:3
+  value "$1,200.00"
+}

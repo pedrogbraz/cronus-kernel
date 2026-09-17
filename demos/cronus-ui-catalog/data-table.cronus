@@ -1,0 +1,148 @@
+page "/data-table" type:components family:data-table {
+  title "DataTable"
+  description:"TanStack table with sorting, search & faceted filters, pagination, row selection with bulk actions, column visibility, density, and loading/empty/error states."
+}
+
+component DataTableBasic layout:stack style:data-table group:"Basic" note:"The smallest setup: pass `columns` + `data`. With no opt-in props it renders a plain, accessible table — no toolbar, pagination, or selection." {
+  columns "Status" transform:capitalize
+  columns "Email" transform:lowercase
+  columns "Amount" sort:button font:mono
+  item "success" email:"ken99@example.com" amount:"$316.00"
+  item "success" email:"abe45@example.com" amount:"$242.00"
+  item "processing" email:"monserrat44@example.com" amount:"$837.00"
+  item "success" email:"silas22@example.com" amount:"$874.00"
+  item "failed" email:"carmella@example.com" amount:"$721.00"
+  item "pending" email:"jason.lee@example.com" amount:"$459.00"
+}
+
+component DataTableSortable layout:stack style:data-table group:"Sortable" note:"Use the exported `DataTableColumnHeader` in a column header to get an accessible, three-state sort toggle (asc → desc → none) with the right icon and aria-label. Click any header to sort." {
+  columns "Name" sort:true font:medium
+  columns "Email" sort:true color:secondary
+  columns "Role" sort:true badge:outline
+  columns "Status" sort:true badge:tone transform:capitalize tones:"active=success,invited=warning,suspended=error"
+  columns "Seats" sort:true font:mono color:secondary
+  item "Ada Lovelace" email:"ada@cronus.dev" role:Owner status:active seats:5
+  item "Grace Hopper" email:"grace@cronus.dev" role:Admin status:active seats:3
+  item "Alan Turing" email:"alan@cronus.dev" role:Member status:active seats:1
+  item "Katherine Johnson" email:"katherine@cronus.dev" role:Member status:invited seats:1
+  item "Margaret Hamilton" email:"margaret@cronus.dev" role:Admin status:active seats:2
+  item "Dennis Ritchie" email:"dennis@cronus.dev" role:Viewer status:suspended seats:0
+}
+
+component DataTableSearch layout:stack style:data-table searchable:true search-placeholder:"Search members…" filter:Status filter-icons:"check,circle-dashed,circle-slash" group:"Search & filter" note:"Opt into the toolbar with `searchable` for a debounce-free global search, and `facetedFilters` for multi-select column filters with live facet counts. A Reset clears everything." {
+  columns "Name" sort:true font:medium
+  columns "Email" sort:true color:secondary
+  columns "Role" sort:true badge:outline
+  columns "Status" sort:true badge:tone transform:capitalize tones:"active=success,invited=warning,suspended=error"
+  columns "Seats" sort:true font:mono color:secondary
+  item "Ada Lovelace" email:"ada@cronus.dev" role:Owner status:active seats:5
+  item "Grace Hopper" email:"grace@cronus.dev" role:Admin status:active seats:3
+  item "Alan Turing" email:"alan@cronus.dev" role:Member status:active seats:1
+  item "Katherine Johnson" email:"katherine@cronus.dev" role:Member status:invited seats:1
+  item "Margaret Hamilton" email:"margaret@cronus.dev" role:Admin status:active seats:2
+  item "Dennis Ritchie" email:"dennis@cronus.dev" role:Viewer status:suspended seats:0
+  item "Barbara Liskov" email:"barbara@cronus.dev" role:Member status:active seats:1
+  item "Donald Knuth" email:"donald@cronus.dev" role:Member status:invited seats:1
+  item "Edsger Dijkstra" email:"edsger@cronus.dev" role:Viewer status:active seats:1
+  item "Linus Torvalds" email:"linus@cronus.dev" role:Admin status:active seats:4
+  item "Tim Berners-Lee" email:"tim@cronus.dev" role:Member status:suspended seats:0
+  item "Radia Perlman" email:"radia@cronus.dev" role:Member status:active seats:2
+}
+
+component DataTablePagination layout:stack style:data-table pagination:true page-size:5 page-sizes:"5,10,20" group:"Pagination" note:"Set `pagination` to render the footer with a rows-per-page select, a row-range readout, and first/prev/next/last controls. Defaults are uncontrolled; pass `initialPageSize` and `pageSizeOptions` to tune." {
+  columns "Name" sort:true font:medium
+  columns "Email" sort:true color:secondary
+  columns "Role" sort:true badge:outline
+  columns "Status" sort:true badge:tone transform:capitalize tones:"active=success,invited=warning,suspended=error"
+  columns "Seats" sort:true font:mono color:secondary
+  item "Ada Lovelace" email:"ada@cronus.dev" role:Owner status:active seats:5
+  item "Grace Hopper" email:"grace@cronus.dev" role:Admin status:active seats:3
+  item "Alan Turing" email:"alan@cronus.dev" role:Member status:active seats:1
+  item "Katherine Johnson" email:"katherine@cronus.dev" role:Member status:invited seats:1
+  item "Margaret Hamilton" email:"margaret@cronus.dev" role:Admin status:active seats:2
+  item "Dennis Ritchie" email:"dennis@cronus.dev" role:Viewer status:suspended seats:0
+  item "Barbara Liskov" email:"barbara@cronus.dev" role:Member status:active seats:1
+  item "Donald Knuth" email:"donald@cronus.dev" role:Member status:invited seats:1
+  item "Edsger Dijkstra" email:"edsger@cronus.dev" role:Viewer status:active seats:1
+  item "Linus Torvalds" email:"linus@cronus.dev" role:Admin status:active seats:4
+  item "Tim Berners-Lee" email:"tim@cronus.dev" role:Member status:suspended seats:0
+  item "Radia Perlman" email:"radia@cronus.dev" role:Member status:active seats:2
+}
+
+component DataTableSelection layout:stack style:data-table selection:true pagination:true page-size:5 group:"Selection & bulk actions" note:"`enableRowSelection` prepends an accessible select-all/row checkbox column. Render contextual actions with `bulkActions` — a bar that appears only while rows are selected and receives the selected rows." {
+  columns "Name" sort:true font:medium
+  columns "Email" sort:true color:secondary
+  columns "Role" sort:true badge:outline
+  columns "Status" sort:true badge:tone transform:capitalize tones:"active=success,invited=warning,suspended=error"
+  columns "Seats" sort:true font:mono color:secondary
+  item "Ada Lovelace" email:"ada@cronus.dev" role:Owner status:active seats:5
+  item "Grace Hopper" email:"grace@cronus.dev" role:Admin status:active seats:3
+  item "Alan Turing" email:"alan@cronus.dev" role:Member status:active seats:1
+  item "Katherine Johnson" email:"katherine@cronus.dev" role:Member status:invited seats:1
+  item "Margaret Hamilton" email:"margaret@cronus.dev" role:Admin status:active seats:2
+  item "Dennis Ritchie" email:"dennis@cronus.dev" role:Viewer status:suspended seats:0
+  item "Barbara Liskov" email:"barbara@cronus.dev" role:Member status:active seats:1
+  item "Donald Knuth" email:"donald@cronus.dev" role:Member status:invited seats:1
+  item "Edsger Dijkstra" email:"edsger@cronus.dev" role:Viewer status:active seats:1
+  item "Linus Torvalds" email:"linus@cronus.dev" role:Admin status:active seats:4
+  item "Tim Berners-Lee" email:"tim@cronus.dev" role:Member status:suspended seats:0
+  item "Radia Perlman" email:"radia@cronus.dev" role:Member status:active seats:2
+  action "Email" icon:mail variant:outline count:true
+  action "Remove" variant:destructive
+}
+
+component DataTableColumns layout:stack style:data-table searchable:true column-visibility:true group:"Column visibility" note:"`enableColumnVisibility` adds a “View” menu that toggles each hideable column on or off, so users can tailor the table to what they care about." {
+  columns "Name" sort:true font:medium
+  columns "Email" sort:true color:secondary
+  columns "Role" sort:true badge:outline
+  columns "Status" sort:true badge:tone transform:capitalize tones:"active=success,invited=warning,suspended=error"
+  columns "Seats" sort:true font:mono color:secondary
+  item "Ada Lovelace" email:"ada@cronus.dev" role:Owner status:active seats:5
+  item "Grace Hopper" email:"grace@cronus.dev" role:Admin status:active seats:3
+  item "Alan Turing" email:"alan@cronus.dev" role:Member status:active seats:1
+  item "Katherine Johnson" email:"katherine@cronus.dev" role:Member status:invited seats:1
+  item "Margaret Hamilton" email:"margaret@cronus.dev" role:Admin status:active seats:2
+  item "Dennis Ritchie" email:"dennis@cronus.dev" role:Viewer status:suspended seats:0
+}
+
+component DataTableDensity layout:stack style:data-table searchable:true density-toggle:true group:"Density" note:"`enableDensityToggle` exposes a comfortable/compact switch in the toolbar; the `aria-pressed` button trims cell padding for data-dense views without touching your columns." {
+  columns "Name" sort:true font:medium
+  columns "Email" sort:true color:secondary
+  columns "Role" sort:true badge:outline
+  columns "Status" sort:true badge:tone transform:capitalize tones:"active=success,invited=warning,suspended=error"
+  columns "Seats" sort:true font:mono color:secondary
+  item "Ada Lovelace" email:"ada@cronus.dev" role:Owner status:active seats:5
+  item "Grace Hopper" email:"grace@cronus.dev" role:Admin status:active seats:3
+  item "Alan Turing" email:"alan@cronus.dev" role:Member status:active seats:1
+  item "Katherine Johnson" email:"katherine@cronus.dev" role:Member status:invited seats:1
+  item "Margaret Hamilton" email:"margaret@cronus.dev" role:Admin status:active seats:2
+  item "Dennis Ritchie" email:"dennis@cronus.dev" role:Viewer status:suspended seats:0
+}
+
+component DataTableLoading layout:stack style:data-table loading:true loading-rows:4 group:"Loading" note:"Pass `loading` to swap the body for shimmer rows that match your column count — no layout shift when the real data arrives. Toggle below to see the swap." {
+  columns "Name" sort:true font:medium
+  columns "Email" sort:true color:secondary
+  columns "Role" sort:true badge:outline
+  columns "Status" sort:true badge:tone transform:capitalize tones:"active=success,invited=warning,suspended=error"
+  columns "Seats" sort:true font:mono color:secondary
+  item "Ada Lovelace" email:"ada@cronus.dev" role:Owner status:active seats:5
+  item "Grace Hopper" email:"grace@cronus.dev" role:Admin status:active seats:3
+  item "Alan Turing" email:"alan@cronus.dev" role:Member status:active seats:1
+  item "Katherine Johnson" email:"katherine@cronus.dev" role:Member status:invited seats:1
+}
+
+component DataTableEmpty layout:stack style:data-table empty-icon:inbox empty-title:"No members yet" empty-description:"Invite teammates to see them listed here." group:"Empty" note:"With no rows, the table renders a centered empty state. Override the copy — or drop in a full `Empty` composition — via the `emptyState` prop." {
+  columns "Name" sort:true font:medium
+  columns "Email" sort:true color:secondary
+  columns "Role" sort:true badge:outline
+  columns "Status" sort:true badge:tone transform:capitalize
+  columns "Seats" sort:true font:mono color:secondary
+}
+
+component DataTableError layout:stack style:data-table error:"Couldn’t load team members. Check your connection and try again." retry:true group:"Error" note:"Pass `error` to render an inline, `role=“alert”` failure state. Provide `onRetry` to surface a Retry button — handy for refetching after a transient network error." {
+  columns "Name" sort:true font:medium
+  columns "Email" sort:true color:secondary
+  columns "Role" sort:true badge:outline
+  columns "Status" sort:true badge:tone transform:capitalize
+  columns "Seats" sort:true font:mono color:secondary
+}

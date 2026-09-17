@@ -1,0 +1,16 @@
+page "/avatar" type:components family:avatar {
+  title "Avatar"
+  description:"User image with a fallback."
+}
+
+component AvatarShadcn layout:inline style:avatar src:"https://github.com/shadcn.png" alt:"@shadcn" group:"Image & fallback" note:"A user image alongside deterministic initials-only fallbacks." { label "CN" }
+component AvatarAda layout:inline style:avatar group:"Image & fallback" { label "AL" }
+component AvatarCronus layout:inline style:avatar group:"Image & fallback" { label "CU" }
+
+component AvatarStack layout:inline style:avatar ring:true group:"Group" note:"A stack of overlapping avatars with a ring to separate each layer." {
+  item "CN"
+  item "AL"
+  item "JL"
+  item "MK"
+  item "+5" size:xs
+}

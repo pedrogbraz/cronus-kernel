@@ -9,3 +9,56 @@
   min-width: 0; margin: 0.25rem 0 0;
   color: var(--cronus-fg); overflow-wrap: break-word;
 }
+/* Raw stacked pairs: the docs compose bare dt/dd; each new term starts `mt-4`. */
+[data-slot="description-list"] > [data-slot="description-term"]:not(:first-child) { margin-top: 1rem; }
+[data-slot="description-list"].s-sm { font-size: 0.75rem; line-height: 1rem; }
+[data-slot="description-list"].s-sm > [data-slot="description-item"] + [data-slot="description-item"],
+[data-slot="description-list"].s-sm > [data-slot="description-term"]:not(:first-child) { margin-top: 0.75rem; }
+/* horizontal: two aligned columns, one divider per row (subgrid rows for item groups). */
+[data-slot="description-list"].l-horizontal {
+  display: grid; grid-template-columns: fit-content(50%) minmax(0, 1fr);
+}
+[data-slot="description-list"].l-horizontal > [data-slot="description-item"] {
+  grid-column: span 2; display: grid; grid-template-columns: subgrid; margin: 0;
+}
+[data-slot="description-list"].l-horizontal [data-slot="description-term"] { grid-column-start: 1; margin: 0; padding-block: 0.75rem; padding-inline-end: 1.5rem; }
+[data-slot="description-list"].l-horizontal [data-slot="description-details"] { grid-column-start: 2; margin: 0; padding-block: 0.75rem; }
+[data-slot="description-list"].l-horizontal > [data-slot="description-item"]:not(:first-child),
+[data-slot="description-list"].l-horizontal > [data-slot="description-term"]:not(:first-child),
+[data-slot="description-list"].l-horizontal > [data-slot="description-term"]:not(:first-child) + [data-slot="description-details"] {
+  border-top: 1px solid var(--cronus-border);
+}
+[data-slot="description-list"].l-horizontal.s-sm [data-slot="description-term"] { padding-block: 0.5rem; padding-inline-end: 1rem; }
+[data-slot="description-list"].l-horizontal.s-sm [data-slot="description-details"] { padding-block: 0.5rem; }
+/* grid: responsive card tiles (1 → 2 → 3 columns). */
+[data-slot="description-list"].l-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+[data-slot="description-list"].l-grid > [data-slot="description-item"] { margin: 0; }
+[data-slot="description-list"].l-grid > div {
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border); background: var(--cronus-surface-raised); padding: 1rem;
+}
+[data-slot="description-list"].l-grid.s-sm { gap: 0.75rem; }
+[data-slot="description-list"].l-grid.s-sm > div { padding: 0.75rem; }
+@media (min-width: 640px) {
+  [data-slot="description-list"].l-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1024px) {
+  [data-slot="description-list"].l-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+/* striped: zebra on item groups only (nth-of-type counts the div rows). */
+[data-slot="description-list"].striped > div:nth-of-type(even) { background: var(--cronus-surface-inset); }
+[data-slot="description-list"].striped:not(.l-horizontal):not(.l-grid) > div { border-radius: var(--cronus-radius-md); padding: 0.75rem; }
+[data-slot="description-list"].striped.l-horizontal [data-slot="description-term"],
+[data-slot="description-list"].bordered.l-horizontal [data-slot="description-term"] { padding-inline-start: 0.75rem; }
+[data-slot="description-list"].striped.l-horizontal [data-slot="description-details"],
+[data-slot="description-list"].bordered.l-horizontal [data-slot="description-details"] { padding-inline-end: 0.75rem; }
+/* bordered: outer card shell, content inset. */
+[data-slot="description-list"].bordered { overflow: hidden; border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border); box-sizing: border-box; }
+[data-slot="description-list"].bordered:not(.l-horizontal) { padding: 1rem; }
+[data-slot="description-list"].align-end [data-slot="description-details"] { text-align: end; }
+[data-slot="description-list"] .font-mono { font-family: var(--cronus-font-mono, ui-monospace, monospace); font-weight: 500; font-variant-numeric: tabular-nums; }
+[data-slot="description-list"].mw-xs { max-width: 20rem; }
+[data-slot="description-list"].mw-sm { max-width: 24rem; }
+[data-slot="description-list"].mw-md { max-width: 28rem; }
+[data-slot="description-list"].mw-lg { max-width: 32rem; }
+[data-slot="description-list"].mw-xl { max-width: 36rem; }
+[data-slot="description-list"].mw-2xl { max-width: 42rem; }

@@ -1,0 +1,11 @@
+page "/kbd" type:components family:kbd {
+  title "Kbd"
+  description:"Keyboard key hint."
+}
+
+component KbdCommandK layout:inline style:kbd group:"Keys" note:"Keyboard-key hints, on their own or combined into a chord." {
+  item "⌘"
+  item "K"
+}
+component KbdEscape layout:inline style:kbd group:"Keys" { label "Esc" }
+component KbdEnter layout:inline style:kbd group:"Keys" { label "↵" }

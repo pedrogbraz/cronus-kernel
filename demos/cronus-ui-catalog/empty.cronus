@@ -1,0 +1,10 @@
+page "/empty" type:components family:empty {
+  title "Empty"
+  description:"Empty-state placeholder."
+}
+
+component EmptyNoMessages layout:stack style:empty icon:inbox group:"Empty state" note:"A composable empty-state for zero-data views, with an icon, copy, and an action." {
+  title "No messages yet"
+  text "When someone sends you a message, it will show up here. Start a conversation to get going."
+  action "New message"
+}

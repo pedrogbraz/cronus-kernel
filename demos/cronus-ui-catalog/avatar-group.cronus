@@ -1,0 +1,35 @@
+page "/avatar-group" type:components family:avatar-group {
+  title "AvatarGroup"
+  description:"Overlapping avatar stack with a “+N” overflow chip."
+}
+
+component GroupCollaborators layout:inline style:avatar-group max:4 aria-label:"Project collaborators" group:"With overflow" note:"Show the first few members, then a “+N” chip for the rest. Pass `avatars` for the data-driven shorthand and `max` to cap how many render." {
+  item "CN" src:"https://github.com/shadcn.png" alt:"@shadcn"
+  item "AL"
+  item "JL"
+  item "MK"
+  item "RW"
+  item "TP"
+}
+
+component GroupReviewersSm layout:inline style:avatar-group+sm max:3 aria-label:"Reviewers" group:"Sizes" note:"The `size` prop drives both the avatars and the overflow chip, so every row stays uniform regardless of the avatars' own sizes." {
+  item "CN" src:"https://github.com/shadcn.png" alt:"@shadcn"
+  item "AL"
+  item "JL"
+  item "MK"
+  item "RW"
+}
+component GroupReviewersMd layout:inline style:avatar-group+md max:3 aria-label:"Reviewers" group:"Sizes" {
+  item "CN" src:"https://github.com/shadcn.png" alt:"@shadcn"
+  item "AL"
+  item "JL"
+  item "MK"
+  item "RW"
+}
+component GroupReviewersLg layout:inline style:avatar-group+lg max:3 aria-label:"Reviewers" group:"Sizes" {
+  item "CN" src:"https://github.com/shadcn.png" alt:"@shadcn"
+  item "AL"
+  item "JL"
+  item "MK"
+  item "RW"
+}

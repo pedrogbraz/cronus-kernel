@@ -1,0 +1,24 @@
+page "/sparkline" type:components family:sparkline {
+  title "Sparkline"
+  description:"Tiny inline line, area, or bar trend chart for stat tiles."
+}
+
+component SparklineLine layout:inline style:sparkline+primary data:"4,6,5,8,7,11,9,13" group:"Line, area & bar" note:"Three rendering modes from the same series. `area` fills a token-tinted gradient under the line; `bar` plots evenly spaced columns. Each is a tiny inline SVG that scales to its `width`/`height`." {}
+component SparklineArea layout:inline style:sparkline+success+area data:"4,6,5,8,7,11,9,13" group:"Line, area & bar" {}
+component SparklineBar layout:inline style:sparkline+info+bar data:"4,6,5,8,7,11,9,13" group:"Line, area & bar" {}
+
+component SparklineRevenue layout:stack style:sparkline+success+area data:"18,22,19,27,24,31,29,38" height:36 full:true aria-label:"Revenue, trending up" group:"In stat cards" note:"Pair a Sparkline with a Metric to give a KPI tile an at-a-glance trend. The sparkline's tone tracks the delta's direction." {
+  label "Revenue"
+  value "$48,290"
+  trend "+12.5%" tone:up
+}
+component SparklineUsers layout:stack style:sparkline+primary data:"40,38,42,41,45,44,48,52" height:36 full:true aria-label:"Active users, trending up" group:"In stat cards" {
+  label "Active users"
+  value "9,830"
+  trend "+4.1%" tone:up
+}
+component SparklineChurn layout:stack style:sparkline+error+bar data:"9,8,8,7,6,6,5,4" height:36 full:true aria-label:"Churn, trending down" group:"In stat cards" {
+  label "Churn"
+  value "2.1%"
+  trend "-0.4%" tone:down
+}

@@ -1,0 +1,12 @@
+page "/card" type:components family:card {
+  title "Card"
+  description:"Surface that groups related content."
+}
+
+component CardProPlan layout:stack style:card max-width:md group:"Anatomy" note:"A composable container with header, action, content, and footer slots." {
+  title "Pro plan"
+  text "Everything you need to ship a polished product."
+  badge "Popular" variant:primary
+  value "$24" unit:"/ month"
+  action "Upgrade now" variant:primary width:full
+}

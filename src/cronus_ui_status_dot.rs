@@ -2,17 +2,38 @@
 //! `<span data-slot="status-dot" data-status role="status">` plus an
 //! `aria-hidden` `status-dot-indicator` and, by default (no `withLabel`), a
 //! visually-hidden `status-dot-sr-label` carrying the status name ("Online").
-//! `withLabel:true` renders the visible `status-dot-label` from the label.
+//! `with-label:true` renders the visible `status-dot-label` from the label.
 //! The emitter's `label` is the fixture id when no label prop exists, so it is
 //! never shown unless `withLabel` is set (same as React, which ignores it).
+//!
+//! React's other variants have no data attributes, so they travel as classes:
+//! `size` (`xs` | `sm` | `md` | `lg`, style segment or `size:`) → `s-*` on the
+//! root (gap, dot and label sizes), `ring:true` → `ring` on the indicator,
+//! `position:top-right|bottom-right` → `pos-*` on the root. `pulse:true` adds
+//! React's `status-dot-ping` halo inside the indicator (`animate-ping`, static
+//! under reduced motion). `aria-label:` names the region. `avatar:"CN"` (with
+//! `src:` / `alt:`) wraps an Avatar and the dot in the docs' `relative
+//! inline-flex` span for the badge-on-avatar composition.
 //! Not interact `pill("status-dot")` (BASE/SURF padding pill span).
 
-use crate::cronus_ui_kit::{attr_nonempty, esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, choice, esc, flag, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     let status = status_of(comp);
-    let indicator = "<span aria-hidden=\"true\" data-slot=\"status-dot-indicator\"></span>";
+    let ping = if flag(comp, "pulse") {
+        "<span data-slot=\"status-dot-ping\"></span>"
+    } else {
+        ""
+    };
+    let ring = if flag(comp, "ring") {
+        " class=\"ring\""
+    } else {
+        ""
+    };
+    let indicator = format!(
+        "<span aria-hidden=\"true\" data-slot=\"status-dot-indicator\"{ring}>{ping}</span>"
+    );
     let tail = if with_label(comp) {
         format!(
             "<span data-slot=\"status-dot-label\">{}</span>",
@@ -24,16 +45,44 @@ pub fn render(comp: &ComponentNode) -> String {
             .unwrap_or_else(|| default_label(status).to_string());
         format!("<span data-slot=\"status-dot-sr-label\">{name}</span>")
     };
-    format!(
-        "<span data-slot=\"status-dot\" data-status=\"{status}\" role=\"status\">{indicator}{tail}</span>"
-    )
+    let mut classes: Vec<String> = Vec::new();
+    if let Some(size) = choice(comp, "size", &["xs", "sm", "lg"]) {
+        classes.push(format!("s-{size}"));
+    }
+    if let Some(pos) = choice(comp, "position", &["top-right", "bottom-right"]) {
+        classes.push(format!("pos-{pos}"));
+    }
+    let class = if classes.is_empty() {
+        String::new()
+    } else {
+        format!(" class=\"{}\"", classes.join(" "))
+    };
+    let aria = attr_nonempty(comp, "aria-label")
+        .map(|a| format!(" aria-label=\"{}\"", esc(a)))
+        .unwrap_or_default();
+    let dot = format!(
+        "<span data-slot=\"status-dot\"{class} data-status=\"{status}\" role=\"status\"{aria}>{indicator}{tail}</span>"
+    );
+    match attr_nonempty(comp, "avatar") {
+        Some(fallback) => {
+            let alt = attr_nonempty(comp, "alt").unwrap_or(fallback);
+            let avatar = crate::cronus_ui_avatar::avatar_html(
+                &esc(fallback),
+                attr_nonempty(comp, "src"),
+                &esc(alt),
+                "",
+                "",
+            );
+            format!("<span class=\"cui-status-dot-anchor\">{avatar}{dot}</span>")
+        }
+        None => dot,
+    }
 }
 
 fn with_label(comp: &ComponentNode) -> bool {
-    matches!(
-        attr_nonempty(comp, "withLabel").or_else(|| attr_nonempty(comp, "with-label")),
-        Some("true")
-    )
+    attr_nonempty(comp, "withLabel")
+        .or_else(|| attr_nonempty(comp, "with-label"))
+        .is_some_and(crate::cronus_ui_kit::truthy)
 }
 
 fn default_label(status: &str) -> &'static str {
@@ -124,6 +173,9 @@ mod tests {
         assert!(html.contains("<span data-slot=\"status-dot-label\">Online</span>"));
         assert!(!html.contains("status-dot-sr-label"));
         reject_interact(&html);
+        c.props.remove("withLabel");
+        c.props.insert("with-label".into(), "true".into());
+        assert!(render(&c).contains("<span data-slot=\"status-dot-label\">Online</span>"));
     }
 
     #[test]
@@ -146,6 +198,60 @@ mod tests {
         reject_interact(&html);
     }
 
+    /// Docs "Pulse & sizes": `pulse:true` adds the ping halo; the size
+    /// segment becomes a root class (React has no data-size).
+    #[test]
+    fn pulse_and_size_classes() {
+        let mut c = stub("status-dot", "Live");
+        c.style = Some("status-dot+error".into());
+        c.props.insert("pulse".into(), "true".into());
+        c.props.insert("with-label".into(), "true".into());
+        let html = render(&c);
+        assert!(html.contains("<span aria-hidden=\"true\" data-slot=\"status-dot-indicator\"><span data-slot=\"status-dot-ping\"></span></span><span data-slot=\"status-dot-label\">Live</span>"));
+        let mut s = stub("status-dot", "Online");
+        s.style = Some("status-dot+xs".into());
+        s.props.insert("aria-label".into(), "Online (xs)".into());
+        assert_eq!(
+            render(&s),
+            "<span data-slot=\"status-dot\" class=\"s-xs\" data-status=\"online\" role=\"status\" aria-label=\"Online (xs)\"><span aria-hidden=\"true\" data-slot=\"status-dot-indicator\"></span><span data-slot=\"status-dot-sr-label\">Online</span></span>"
+        );
+        s.style = Some("status-dot+md".into());
+        assert!(!render(&s).contains("class=\"s-"));
+        let css = include_str!("cronus_ui_css/status-dot.css");
+        assert!(
+            css.contains("@keyframes cui-ping { 75%, 100% { transform: scale(2); opacity: 0; } }")
+        );
+        assert!(css.contains("[data-slot=\"status-dot\"].s-xs [data-slot=\"status-dot-indicator\"] { width: 0.375rem; height: 0.375rem; }"));
+        assert!(css.contains("[data-slot=\"status-dot\"].s-lg [data-slot=\"status-dot-label\"] { font-size: 1rem; line-height: 1.5rem; }"));
+        assert!(css.contains("[data-slot=\"status-dot\"][data-status=\"offline\"] [data-slot=\"status-dot-ping\"] {\n  inset: -0.125rem; background: transparent; border: 2px solid var(--cronus-fg-muted);\n}"));
+    }
+
+    /// Docs "On an avatar": `avatar:` wraps an Avatar + the dot in the
+    /// `relative inline-flex` span; `position` and `ring` are classes.
+    #[test]
+    fn avatar_overlay_with_position_and_ring() {
+        let mut c = stub("status-dot", "Busy");
+        c.style = Some("status-dot+busy".into());
+        c.props.insert("position".into(), "bottom-right".into());
+        c.props.insert("ring".into(), "true".into());
+        c.props.insert("aria-label".into(), "Ada is busy".into());
+        c.props.insert("avatar".into(), "AL".into());
+        assert_eq!(
+            render(&c),
+            "<span class=\"cui-status-dot-anchor\"><span data-slot=\"avatar\"><span data-slot=\"avatar-fallback\">AL</span></span><span data-slot=\"status-dot\" class=\"pos-bottom-right\" data-status=\"busy\" role=\"status\" aria-label=\"Ada is busy\"><span aria-hidden=\"true\" data-slot=\"status-dot-indicator\" class=\"ring\"></span><span data-slot=\"status-dot-sr-label\">Busy</span></span></span>"
+        );
+        c.props
+            .insert("src".into(), "https://github.com/shadcn.png".into());
+        c.props.insert("alt".into(), "@shadcn".into());
+        assert!(render(&c).contains("<img data-slot=\"avatar-image\" src=\"https://github.com/shadcn.png\" alt=\"@shadcn\">"));
+        let css = include_str!("cronus_ui_css/status-dot.css");
+        assert!(css.contains("[data-slot=\"status-dot\"].pos-bottom-right { position: absolute; bottom: 0; inset-inline-end: 0; }"));
+        assert!(css.contains("[data-slot=\"status-dot-indicator\"].ring { box-shadow: 0 0 0 2px var(--cronus-surface-base); }"));
+        assert!(
+            css.contains(".cui-status-dot-anchor { position: relative; display: inline-flex; }")
+        );
+    }
+
     #[test]
     fn skips_interact_pill() {
         let c = stub("status-dot", "Online");
@@ -165,7 +271,7 @@ mod tests {
 
     #[test]
     fn chrome_is_token_only() {
-        let css = crate::cronus_ui::component_chrome_css();
+        let css = include_str!("cronus_ui_css/status-dot.css");
         assert!(css.contains("[data-slot=\"status-dot\"]"));
         assert!(css.contains("[data-slot=\"status-dot-indicator\"]"));
         assert!(css.contains("[data-slot=\"status-dot-label\"]"));

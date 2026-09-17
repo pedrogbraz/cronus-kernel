@@ -1,13 +1,26 @@
-//! Dedicated Badge renderer. DOM matches React: `<span data-slot="badge" data-variant>`.
+//! Dedicated Badge renderer. DOM matches React: `<span data-slot="badge" data-variant>`
+//! with an optional leading lucide glyph (`icon:`; React `[&_svg]:size-3`).
 //! Not the legacy `pill()` stub.
 
-use crate::cronus_ui_kit::esc;
+use crate::cronus_ui_kit::{attr_nonempty, esc};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
     let variant = variant_of(comp);
     let label = label_of(comp);
-    format!("<span data-slot=\"badge\" data-variant=\"{variant}\">{label}</span>")
+    let icon = attr_nonempty(comp, "icon")
+        .map(|i| crate::cronus_ui_icons::svg_or_empty(i))
+        .unwrap_or_default();
+    badge_html(&format!("{icon}{label}"), variant)
+}
+
+/// One React `Badge`; `inner` is already-escaped HTML. Shared by families that
+/// embed a badge (card action, data-table cells, description-list details).
+pub fn badge_html(inner: &str, variant: &str) -> String {
+    format!(
+        "<span data-slot=\"badge\" data-variant=\"{}\">{inner}</span>",
+        named_variant(variant)
+    )
 }
 
 fn variant_of(comp: &ComponentNode) -> &'static str {
@@ -114,7 +127,7 @@ mod tests {
     #[test]
     fn chrome_pairs_text_xs_with_1rem_line_height() {
         // Wave 1t: Tailwind text-xs = 0.75rem/1rem → badge height 22px, not 24.
-        let css = crate::cronus_ui::component_chrome_css();
+        let css = include_str!("cronus_ui_css/badge.css");
         assert!(css.contains(
             "padding: 0.125rem 0.5rem; font-size: 0.75rem; line-height: 1rem; font-weight: 500;"
         ));
@@ -130,5 +143,33 @@ mod tests {
     fn destructive_from_style() {
         let html = render(&stub("badge+destructive", "Failed"));
         assert!(html.contains("data-variant=\"destructive\""));
+    }
+
+    /// Docs "With icon": `icon:check` puts the lucide glyph before the label
+    /// (React `<Check aria-hidden />` child, `[&_svg]:size-3`).
+    #[test]
+    fn icon_prop_renders_glyph_before_label() {
+        let mut c = stub("badge+success", "Verified");
+        c.props.insert("icon".into(), "check".into());
+        let html = render(&c);
+        assert!(html.starts_with("<span data-slot=\"badge\" data-variant=\"success\"><svg "));
+        assert!(html.contains("data-icon=\"check\""));
+        assert!(html.ends_with("</svg>Verified</span>"));
+        let css = include_str!("cronus_ui_css/badge.css");
+        assert!(css.contains(
+            "[data-slot=\"badge\"] svg { width: 0.75rem; height: 0.75rem; flex-shrink: 0; }"
+        ));
+    }
+
+    #[test]
+    fn badge_html_is_the_shared_react_badge() {
+        assert_eq!(
+            badge_html("Paid", "success"),
+            "<span data-slot=\"badge\" data-variant=\"success\">Paid</span>"
+        );
+        assert_eq!(
+            badge_html("x", "bogus"),
+            "<span data-slot=\"badge\" data-variant=\"default\">x</span>"
+        );
     }
 }

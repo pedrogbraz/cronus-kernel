@@ -11,7 +11,7 @@
   color: var(--cronus-fg);
 }
 [data-slot="data-table"] {
-  display: flex; flex-direction: column; gap: 0.75rem;
+  display: flex; flex-direction: column; gap: 0.75rem; width: 100%; min-width: 0;
   color: var(--cronus-fg);
 }
 [data-slot="data-table-container"] {
@@ -32,3 +32,141 @@
 [data-slot="data-table"] [data-slot="table-cell"] {
   padding: 0.75rem; vertical-align: middle; white-space: nowrap; border: 0; color: inherit;
 }
+/* ── Column config: cell utilities the docs put on cells. ── */
+[data-slot="data-table"] [data-slot="table-body"] > [data-slot="table-row"]:hover {
+  background: color-mix(in oklch, var(--cronus-surface-overlay) 50%, transparent);
+}
+[data-slot="data-table"] [data-slot="table-cell"].font-medium { font-weight: 500; color: var(--cronus-fg); }
+[data-slot="data-table"] [data-slot="table-cell"].font-mono { font-family: var(--cronus-font-mono, ui-monospace, monospace); font-variant-numeric: tabular-nums; }
+[data-slot="data-table"] [data-slot="table-cell"].text-secondary { color: var(--cronus-fg-secondary); }
+[data-slot="data-table"] .capitalize { text-transform: capitalize; }
+[data-slot="data-table"] .lowercase { text-transform: lowercase; }
+[data-slot="data-table"] .text-end { text-align: end; }
+[data-slot="data-table"] .sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+/* ── Sortable headers: React's DataTableColumnHeader (ghost sm Button, `-ms-3 h-8 text-fg-secondary`)
+   and the docs' plain ghost Button (`-ml-2`). Both are inert without a runtime (disabled, idle look). ── */
+[data-slot="data-table-column-header"], [data-slot="data-table-faceted-filter"] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem;
+  height: 2rem; padding: 0 0.75rem; white-space: nowrap; border-radius: var(--cronus-radius-lg);
+  border: 0 solid transparent; background: transparent; font-family: inherit;
+  font-size: 0.75rem; line-height: 1rem; font-weight: 500; outline: none;
+  transition: background 150ms var(--ease-out-quart), border-color 150ms var(--ease-out-quart), box-shadow 150ms var(--ease-out-quart);
+}
+[data-slot="data-table-column-header"] svg, [data-slot="data-table-faceted-filter"] svg { width: 0.875rem; height: 0.875rem; flex-shrink: 0; }
+[data-slot="data-table-column-header"] {
+  margin-inline-start: -0.75rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="data-table-column-header"]:disabled { cursor: default; }
+[data-slot="data-table"] .cui-dt-sort { margin-inline-start: -0.5rem; }
+[data-slot="data-table"] [data-slot="button"].idle:disabled { opacity: 1; }
+[data-slot="data-table"] .opacity-60 { opacity: 0.6; }
+/* ── Toolbar ── */
+[data-slot="data-table-toolbar"] { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.cui-dt-search { position: relative; width: 100%; max-width: 16rem; }
+.cui-dt-search > svg {
+  position: absolute; inset-inline-start: 0.75rem; top: 50%; width: 1rem; height: 1rem;
+  transform: translateY(-50%); pointer-events: none; color: var(--cronus-fg-muted);
+}
+[data-slot="data-table-toolbar"] [data-slot="input"].h-9 { height: 2.25rem; padding-inline-start: 2.25rem; }
+.cui-dt-toolbar-end { margin-inline-start: auto; display: flex; align-items: center; gap: 0.5rem; }
+[data-slot="data-table-faceted-filter"] {
+  color: var(--cronus-fg); border-width: 1px; border-style: dashed; border-color: var(--cronus-border);
+  box-shadow: var(--cronus-shadow-xs, none);
+}
+[data-slot="data-table-faceted-filter"]:hover { background: var(--cronus-surface-overlay); }
+/* Native popover menus (View / faceted filter): Radix label, separator and checkbox items. */
+.cui-dt-view-menu:popover-open { min-width: 10rem; }
+.cui-dt-filter-menu:popover-open { min-width: 12rem; }
+[data-slot="data-table"] [data-slot="dropdown-menu-label"] {
+  padding: 0.375rem 0.5rem; font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-tertiary);
+}
+[data-slot="data-table"] [data-slot="dropdown-menu-separator"] {
+  margin: 0.25rem -0.25rem; height: 1px; background: var(--cronus-border);
+}
+[data-slot="data-table"] [data-slot="dropdown-menu-checkbox-item"] {
+  position: relative; display: flex; align-items: center; gap: 0.5rem;
+  border-radius: var(--cronus-radius-md); padding-block: 0.375rem; padding-inline: 2rem 0.5rem;
+  font-size: 0.875rem; line-height: 1.25rem; cursor: default; user-select: none; outline: none;
+}
+[data-slot="data-table"] [data-slot="dropdown-menu-checkbox-item"]:hover,
+[data-slot="data-table"] [data-slot="dropdown-menu-checkbox-item"]:has(> input:focus-visible) {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
+[data-slot="data-table"] [data-slot="dropdown-menu-checkbox-item"] > input {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="data-table"] [data-slot="dropdown-menu-checkbox-item"] svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+[data-slot="data-table"] .cui-dt-check {
+  position: absolute; inset-inline-start: 0.5rem; display: flex; width: 1rem; height: 1rem;
+  align-items: center; justify-content: center;
+}
+[data-slot="data-table"] .cui-dt-check > svg { display: none; }
+[data-slot="data-table"] [data-slot="dropdown-menu-checkbox-item"]:has(> input:checked) .cui-dt-check > svg { display: block; }
+[data-slot="data-table"] .text-tertiary { color: var(--cronus-fg-tertiary); }
+[data-slot="data-table"] .text-muted { color: var(--cronus-fg-muted); }
+[data-slot="data-table"] .cui-dt-facet { margin-inline-start: auto; font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-tertiary); }
+/* Column visibility (zero JS): an unchecked View item hides its column. */
+[data-slot="data-table"]:has([data-column="1"] > input:not(:checked)) :is([data-slot="table-head"], [data-slot="table-cell"]):nth-child(1) { display: none; }
+[data-slot="data-table"]:has([data-column="2"] > input:not(:checked)) :is([data-slot="table-head"], [data-slot="table-cell"]):nth-child(2) { display: none; }
+[data-slot="data-table"]:has([data-column="3"] > input:not(:checked)) :is([data-slot="table-head"], [data-slot="table-cell"]):nth-child(3) { display: none; }
+[data-slot="data-table"]:has([data-column="4"] > input:not(:checked)) :is([data-slot="table-head"], [data-slot="table-cell"]):nth-child(4) { display: none; }
+[data-slot="data-table"]:has([data-column="5"] > input:not(:checked)) :is([data-slot="table-head"], [data-slot="table-cell"]):nth-child(5) { display: none; }
+[data-slot="data-table"]:has([data-column="6"] > input:not(:checked)) :is([data-slot="table-head"], [data-slot="table-cell"]):nth-child(6) { display: none; }
+[data-slot="data-table"]:has([data-column="7"] > input:not(:checked)) :is([data-slot="table-head"], [data-slot="table-cell"]):nth-child(7) { display: none; }
+[data-slot="data-table"]:has([data-column="8"] > input:not(:checked)) :is([data-slot="table-head"], [data-slot="table-cell"]):nth-child(8) { display: none; }
+/* Density switch (zero JS): the label's checkbox drives the `aria-pressed` outline button and the compact cells. */
+.cui-dt-density { position: relative; display: inline-flex; }
+.cui-dt-density > input {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.cui-dt-density > [data-slot="button"] { pointer-events: none; }
+.cui-dt-density .when-on { display: none; }
+.cui-dt-density:has(> input:checked) .when-on { display: inline; }
+.cui-dt-density:has(> input:checked) .when-off { display: none; }
+.cui-dt-density > input:focus-visible + [data-slot="button"] {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
+}
+[data-slot="data-table"]:has(.cui-dt-density > input:checked) [data-slot="table-cell"] { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+/* ── Selection: the row checkboxes count themselves (CSS counters) into the bulk bar and the readout. ── */
+[data-slot="data-table"] { counter-reset: cui-selected; }
+[data-slot="data-table"] [data-slot="table-body"] label[data-control="checkbox"] > input:checked { counter-increment: cui-selected; }
+.cui-dt-count::before { content: counter(cui-selected); }
+[data-slot="data-table"] label[data-control="checkbox"] { vertical-align: middle; }
+[data-slot="data-table-toolbar"] { order: -2; }
+[data-slot="data-table-bulk-actions"] {
+  display: none; order: -1; flex-wrap: wrap; align-items: center; gap: 0.75rem;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); padding: 0.5rem 0.75rem;
+}
+[data-slot="data-table"]:has([data-slot="table-body"] input:checked) > [data-slot="data-table-bulk-actions"] { display: flex; }
+[data-slot="data-table-bulk-actions"] > span { font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary); }
+[data-slot="data-table-bulk-actions"] > div { margin-inline-start: auto; display: flex; align-items: center; gap: 0.5rem; }
+/* ── Footer: selected-of-total readout and the pagination bar. ── */
+.cui-dt-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; }
+.cui-dt-foot > .ms-auto { margin-inline-start: auto; }
+.cui-dt-selected, .cui-dt-range { margin: 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-tertiary); }
+[data-slot="data-table-pagination"] {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 0.5rem 0.25rem;
+}
+.cui-dt-pager { display: flex; align-items: center; gap: 1rem; }
+.cui-dt-page-size { display: flex; align-items: center; gap: 0.5rem; }
+.cui-dt-page-size > label, .cui-dt-page { margin: 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary); }
+[data-slot="data-table"] [data-slot="select-trigger"].h-8 { height: 2rem; width: 4.5rem; padding: 0 0.75rem; }
+[data-slot="data-table-pagination"] nav { display: flex; align-items: center; gap: 0.25rem; }
+/* ── Loading, empty and error rows. ── */
+[data-slot="data-table"] [data-slot="table-cell"].cui-dt-empty {
+  height: 6rem; text-align: center; white-space: normal; color: var(--cronus-fg-tertiary);
+}
+[data-slot="data-table"] [data-slot="table-cell"].cui-dt-error { height: 8rem; text-align: center; white-space: normal; }
+[data-slot="data-table"] .cui-dt-error > div {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem;
+  color: var(--cronus-fg-secondary);
+}
+[data-slot="data-table"] .cui-dt-error > div > svg { width: 1.5rem; height: 1.5rem; color: var(--cronus-error); }
+[data-slot="data-table"] .cui-dt-error [role="alert"] { font-size: 0.875rem; line-height: 1.25rem; }

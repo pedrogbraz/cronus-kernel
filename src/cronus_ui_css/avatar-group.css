@@ -16,3 +16,14 @@
   font-weight: 500; font-size: 0.875rem; line-height: 1.25rem;
   box-shadow: 0 0 0 2px var(--cronus-surface-base);
 }
+/* `size` (sm | lg; md is the default above): React sizes every avatar and the chip. */
+[data-slot="avatar-group"].s-sm [data-slot="avatar"],
+[data-slot="avatar-group"].s-sm [data-slot="avatar-group-overflow"] {
+  width: 1.75rem; height: 1.75rem;
+}
+[data-slot="avatar-group"].s-sm [data-slot="avatar-group-overflow"] { font-size: 0.75rem; line-height: 1rem; }
+[data-slot="avatar-group"].s-lg [data-slot="avatar"],
+[data-slot="avatar-group"].s-lg [data-slot="avatar-group-overflow"] {
+  width: 2.75rem; height: 2.75rem;
+}
+[data-slot="avatar-group"].s-lg [data-slot="avatar-group-overflow"] { font-size: 1rem; line-height: 1.5rem; }

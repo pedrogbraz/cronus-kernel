@@ -1,5 +1,5 @@
 [data-slot="card"] {
-  display: flex; flex-direction: column; gap: 1.5rem;
+  display: flex; flex-direction: column; gap: 1.5rem; width: 100%; min-width: 0; box-sizing: border-box;
   padding-top: 1.5rem; padding-bottom: 1.5rem; color: var(--cronus-fg);
   box-shadow: var(--cronus-shadow-sm, var(--cronus-shadow-xs, none));
 }
@@ -22,4 +22,28 @@
 }
 @media (max-width: 639.98px) {
   [data-slot="card-header"], [data-slot="card-content"] { padding-inline-start: 1rem; padding-inline-end: 1rem; }
+}
+[data-slot="card-action"] {
+  grid-column-start: 2; grid-row: 1 / span 2; align-self: start; justify-self: end;
+}
+[data-slot="card-content"] > p { margin: 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary); }
+[data-slot="card-footer"] {
+  display: flex; min-width: 0; align-items: center; gap: 0.75rem;
+  padding-inline-start: 1.5rem; padding-inline-end: 1.5rem;
+}
+[data-slot="card-footer"] > .w-full { width: 100%; }
+/* Docs "Anatomy": `$24` (font-display text-3xl font-semibold) beside `/ month` (text-sm fg-tertiary). */
+[data-slot="card-content"].cui-card-price { display: flex; align-items: baseline; gap: 0.25rem; }
+[data-slot="card-content"].cui-card-price > span:first-child {
+  font-family: var(--cronus-font-display, inherit); font-size: 1.875rem; line-height: 2.25rem; font-weight: 600; color: var(--cronus-fg);
+}
+[data-slot="card-content"] > .cui-card-unit { font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-tertiary); }
+[data-slot="card"].mw-xs { max-width: 20rem; }
+[data-slot="card"].mw-sm { max-width: 24rem; }
+[data-slot="card"].mw-md { max-width: 28rem; }
+[data-slot="card"].mw-lg { max-width: 32rem; }
+[data-slot="card"].mw-xl { max-width: 36rem; }
+[data-slot="card"].mw-2xl { max-width: 42rem; }
+@media (max-width: 639.98px) {
+  [data-slot="card-footer"] { padding-inline-start: 1rem; padding-inline-end: 1rem; }
 }

@@ -1,0 +1,10 @@
+page "/skeleton" type:components family:skeleton {
+  title "Skeleton"
+  description:"Loading placeholder shimmer."
+}
+
+component SkeletonLoadingCard layout:inline style:skeleton group:"Loading card" note:"Placeholder shapes that mirror content while it loads." {
+  item "Avatar" shape:circle size:12
+  item "Title" height:3 width:3/4
+  item "Subtitle" height:3 width:1/2
+}

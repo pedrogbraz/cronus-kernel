@@ -2,12 +2,13 @@
 //! `<div data-slot="heatmap">` + `data-slot="heatmap-day"` cells and
 //! `heatmap-legend`. Not the catalog `chart()` `<figure><figcaption>` stub.
 //!
-//! Numeric items drive the days. Without any, the renderer shows a demo series
-//! identical to the React audit harness fallback (`heatmap-fixture.tsx`
+//! The `data:"1,6,0,…"` prop (one value per day) or numeric items drive the
+//! days; `start:"2026-03-01"` dates them (React's `date.toISOString()`), else
+//! the year starts at 2026-01-01. Without any values the renderer shows a demo
+//! series identical to the React audit harness fallback (`heatmap-fixture.tsx`
 //! `FALLBACK_VALUES`, dated from 2026-06-01): the emitter cannot carry the
 //! fixture's `data` array, so both implementations fall back to the same
 //! placeholder instead of two unrelated ones.
-
 use crate::cronus_ui_kit::{attr_nonempty, fmt_coord, label_of, numeric_items};
 use crate::parser::ComponentNode;
 
@@ -20,18 +21,31 @@ const DEMO_SERIES: [f64; 14] = [
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = aria_label(comp).unwrap_or_else(|| label_of(comp));
-    let items = numeric_items(comp);
+    let mut items: Vec<f64> = attr_nonempty(comp, "data")
+        .map(|d| {
+            d.split(|c: char| c == ',' || c.is_whitespace())
+                .filter_map(|p| p.trim().parse::<f64>().ok())
+                .filter(|n| n.is_finite())
+                .collect()
+        })
+        .unwrap_or_default();
+    if items.is_empty() {
+        items = numeric_items(comp);
+    }
     let demo = items.is_empty();
     let series = if demo { DEMO_SERIES.to_vec() } else { items };
+    let start = if demo {
+        (2026, 6, 1)
+    } else {
+        attr_nonempty(comp, "start")
+            .and_then(parse_date)
+            .unwrap_or((2026, 1, 1))
+    };
     let max = series.iter().copied().fold(0.0_f64, f64::max);
     let mut days = String::new();
     for (index, value) in series.iter().enumerate() {
         let level = heatmap_level(*value, max, LEVELS);
-        let date = if demo {
-            format!("2026-06-{:02}", index + 1)
-        } else {
-            iso_date(index)
-        };
+        let date = iso_date(start, index);
         days.push_str(&format!(
             "<div data-slot=\"heatmap-day\" data-level=\"{level}\" title=\"{v} on {date}\"></div>",
             v = fmt_coord(*value),
@@ -64,19 +78,51 @@ fn heatmap_level(value: f64, max: f64, levels: usize) -> usize {
     level.clamp(1, buckets)
 }
 
-fn iso_date(index: usize) -> String {
-    let months = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    let mut day_of_year = index;
-    let mut month = 0;
-    while month < 12 && day_of_year >= months[month] {
-        day_of_year -= months[month];
-        month += 1;
+fn parse_date(s: &str) -> Option<(i32, u32, u32)> {
+    let mut parts = s.trim().split('-');
+    let y = parts.next()?.parse().ok()?;
+    let m = parts.next()?.parse().ok()?;
+    let d = parts.next()?.parse().ok()?;
+    if !(1..=12).contains(&m) || d == 0 || d > days_in_month(y, m) {
+        return None;
     }
-    if month >= 12 {
-        month = 11;
-        day_of_year = 30;
+    Some((y, m, d))
+}
+
+fn days_in_month(year: i32, month: u32) -> u32 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        _ => {
+            if (year % 4 == 0 && year % 100 != 0) || year % 400 == 0 {
+                29
+            } else {
+                28
+            }
+        }
     }
-    format!("2026-{:02}-{:02}", month + 1, day_of_year + 1)
+}
+
+/// `start` plus `offset` days, as `YYYY-MM-DD`.
+fn iso_date(start: (i32, u32, u32), offset: usize) -> String {
+    let (mut y, mut m, mut d) = start;
+    let mut left = offset as u32;
+    loop {
+        let remaining = days_in_month(y, m) - d;
+        if left <= remaining {
+            d += left;
+            break;
+        }
+        left -= remaining + 1;
+        d = 1;
+        if m == 12 {
+            m = 1;
+            y += 1;
+        } else {
+            m += 1;
+        }
+    }
+    format!("{y:04}-{m:02}-{d:02}")
 }
 
 #[cfg(test)]
@@ -173,6 +219,22 @@ mod tests {
         reject_stub(&html);
     }
 
+    /// Docs "Contributions": the `data:` prop is the daily series and
+    /// `start:` dates the cells from 2026-03-01 onward (month rollover kept).
+    #[test]
+    fn data_prop_and_start_date() {
+        let mut c = stub("heatmap", "Contributions");
+        c.props.insert("data".into(), "1,6,0,10".into());
+        c.props.insert("start".into(), "2026-02-27".into());
+        let html = render(&c);
+        assert_eq!(html.matches("data-slot=\"heatmap-day\"").count(), 4);
+        assert!(html.contains("<div data-slot=\"heatmap-day\" data-level=\"1\" title=\"1 on 2026-02-27\"></div><div data-slot=\"heatmap-day\" data-level=\"3\" title=\"6 on 2026-02-28\"></div><div data-slot=\"heatmap-day\" data-level=\"0\" title=\"0 on 2026-03-01\"></div><div data-slot=\"heatmap-day\" data-level=\"4\" title=\"10 on 2026-03-02\"></div>"));
+        assert_eq!(iso_date((2024, 2, 28), 2), "2024-03-01");
+        assert_eq!(iso_date((2026, 12, 31), 1), "2027-01-01");
+        assert_eq!(parse_date("2026-13-01"), None);
+        reject_stub(&html);
+    }
+
     #[test]
     fn legend_has_five_swatches() {
         let html = render(&stub("heatmap", "Activity"));
@@ -202,7 +264,7 @@ mod tests {
     /// rule is scoped to `heatmap` so `heatmap-chart` keeps its own block.
     #[test]
     fn chrome_is_token_only_with_text_xs_legend() {
-        let css = crate::cronus_ui::component_chrome_css();
+        let css = include_str!("cronus_ui_css/heatmap.css");
         assert!(css.contains(
             "[data-slot=\"heatmap\"] > [data-slot=\"heatmap-legend\"] { line-height: 1rem; }"
         ));

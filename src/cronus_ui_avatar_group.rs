@@ -1,26 +1,33 @@
 //! Dedicated AvatarGroup renderer. DOM matches React:
-//! `<div data-slot="avatar-group">` wrapping 2–3
-//! `<span data-slot="avatar"><span data-slot="avatar-fallback">XX</span></span>`
-//! from text items (initials). Optional overflow `+N` span
-//! `data-slot="avatar-group-overflow"`.
+//! `<div data-slot="avatar-group" role="group" aria-label>` wrapping one
+//! `<span data-slot="avatar">` per member (`item` lines: the text is the
+//! fallback, `src:` / `alt:` add the `avatar-image`), then the `+N`
+//! `data-slot="avatar-group-overflow"` chip once `max:` is below the count.
+//! React's `size` (`sm` | `md` | `lg`, style segment or `size:` prop) sizes
+//! the avatars and the chip through a class on the root (`s-sm`, `s-lg`; React
+//! has no data attribute for it). The `label` names the group (never a member).
 //! Not interact `avatar("avatar-group")` (single `<div style=circle>` one letter).
 
-use crate::cronus_ui_kit::{attr_nonempty, esc};
+use crate::cronus_ui_avatar::{avatar_html, initials};
+use crate::cronus_ui_kit::{attr_nonempty, choice, esc};
 use crate::parser::ComponentNode;
 
+struct Member {
+    fallback: String,
+    src: Option<String>,
+    alt: String,
+}
+
 pub fn render(comp: &ComponentNode) -> String {
-    let names = names(comp);
-    let total = names.len();
+    let members = members(comp);
+    let total = members.len();
     let limit = match max_of(comp) {
         Some(m) if m < total => m,
         _ => total,
     };
     let mut inner = String::new();
-    for name in names.iter().take(limit) {
-        let fb = esc(&initials(name));
-        inner.push_str(&format!(
-            "<span data-slot=\"avatar\"><span data-slot=\"avatar-fallback\">{fb}</span></span>"
-        ));
+    for m in members.iter().take(limit) {
+        inner.push_str(&avatar_html(&m.fallback, m.src.as_deref(), &m.alt, "", ""));
     }
     let overflow = total.saturating_sub(limit);
     if overflow > 0 {
@@ -29,38 +36,54 @@ pub fn render(comp: &ComponentNode) -> String {
         ));
     }
     let aria = esc(aria_label(comp).unwrap_or("Avatar group"));
-    format!("<div data-slot=\"avatar-group\" role=\"group\" aria-label=\"{aria}\">{inner}</div>")
+    let class = match choice(comp, "size", &["sm", "lg"]) {
+        Some(s) => format!(" class=\"s-{s}\""),
+        None => String::new(),
+    };
+    format!(
+        "<div data-slot=\"avatar-group\"{class} role=\"group\" aria-label=\"{aria}\">{inner}</div>"
+    )
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<&str> {
     attr_nonempty(comp, "aria-label")
 }
 
-/// Members come from the non-label items (React: `items`/`options`). The
-/// emitter's `label` line is the group's aria-label/title, never a member;
-/// it only becomes the single member when no other item exists.
-fn names(comp: &ComponentNode) -> Vec<String> {
-    let members: Vec<String> = comp
+/// Members come from the non-label items (React: `avatars`). The emitter's
+/// `label` line is the group's aria-label/title, never a member; it only
+/// becomes the single member when no other item exists.
+fn members(comp: &ComponentNode) -> Vec<Member> {
+    let build = |i: &crate::parser::ComponentItemNode| Member {
+        fallback: esc(&initials(&i.text)),
+        src: i.config.get("src").filter(|s| !s.is_empty()).cloned(),
+        alt: esc(i.config.get("alt").map(String::as_str).unwrap_or("")),
+    };
+    let members: Vec<Member> = comp
         .items
         .iter()
         .filter(|i| !i.text.is_empty() && !matches!(i.item_type.as_str(), "label" | "title"))
-        .map(|i| i.text.clone())
+        .map(build)
         .collect();
-    let out: Vec<String> = if members.is_empty() {
+    let out: Vec<Member> = if members.is_empty() {
         comp.items
             .iter()
             .filter(|i| !i.text.is_empty())
-            .map(|i| i.text.clone())
+            .map(build)
             .collect()
     } else {
         members
     };
     if out.is_empty() {
-        if !comp.name.is_empty() {
-            vec![comp.name.clone()]
+        let name = if comp.name.is_empty() {
+            "A"
         } else {
-            vec!["A".into()]
-        }
+            comp.name.as_str()
+        };
+        vec![Member {
+            fallback: esc(&initials(name)),
+            src: None,
+            alt: String::new(),
+        }]
     } else {
         out
     }
@@ -68,30 +91,6 @@ fn names(comp: &ComponentNode) -> Vec<String> {
 
 fn max_of(comp: &ComponentNode) -> Option<usize> {
     comp.props.get("max").and_then(|v| v.parse().ok())
-}
-
-fn initials(label: &str) -> String {
-    let words: Vec<&str> = label.split_whitespace().filter(|w| !w.is_empty()).collect();
-    let mut out = String::new();
-    if words.len() >= 2 {
-        for w in words.iter().take(2) {
-            if let Some(ch) = w.chars().next() {
-                out.extend(ch.to_uppercase().take(1));
-            }
-        }
-    } else if let Some(w) = words.first() {
-        for ch in w.chars().take(2) {
-            out.extend(ch.to_uppercase());
-        }
-        if out.chars().count() > 2 {
-            out = out.chars().take(2).collect();
-        }
-    }
-    if out.is_empty() {
-        "A".into()
-    } else {
-        out
-    }
 }
 
 #[cfg(test)]
@@ -167,7 +166,7 @@ mod tests {
             "<div data-slot=\"avatar-group\" role=\"group\" aria-label=\"Team\"><span data-slot=\"avatar\"><span data-slot=\"avatar-fallback\">AL</span></span><span data-slot=\"avatar\"><span data-slot=\"avatar-fallback\">JB</span></span></div>"
         );
         assert!(!html.contains(">TE<"));
-        let css = crate::cronus_ui::component_chrome_css();
+        let css = include_str!("cronus_ui_css/avatar-group.css");
         assert!(css.contains("font-weight: 500; font-size: 0.875rem; line-height: 1.25rem;\n  box-shadow: 0 0 0 2px var(--cronus-surface-base);"));
     }
 
@@ -194,6 +193,42 @@ mod tests {
         reject_interact(&html);
     }
 
+    /// Docs "With overflow": the first member carries `src:` / `alt:` and
+    /// renders React's `AvatarImage` before its fallback.
+    #[test]
+    fn member_src_and_alt_render_avatar_image() {
+        let mut c = stub("avatar-group", "Project collaborators");
+        let mut cn = extra("CN");
+        cn.config
+            .insert("src".into(), "https://github.com/shadcn.png".into());
+        cn.config.insert("alt".into(), "@shadcn".into());
+        c.items.push(cn);
+        c.items.push(extra("AL"));
+        let html = render(&c);
+        assert!(html.contains("<span data-slot=\"avatar\"><img data-slot=\"avatar-image\" src=\"https://github.com/shadcn.png\" alt=\"@shadcn\"><span data-slot=\"avatar-fallback\">CN</span></span>"));
+        assert_eq!(html.matches("avatar-image").count(), 1);
+        reject_interact(&html);
+    }
+
+    /// Docs "Sizes": `size` from the style segment (or `size:` prop) is a root
+    /// class that sizes avatars and the chip (`size-7` / `size-11`, chip text).
+    #[test]
+    fn size_segment_is_root_class_sizing_avatars_and_chip() {
+        let mut c = group(&["Jane Doe", "Ada Lovelace", "Alan Turing", "Grace Hopper"]);
+        c.props.insert("max".into(), "3".into());
+        c.style = Some("avatar-group+sm".into());
+        let html = render(&c);
+        assert!(html.starts_with("<div data-slot=\"avatar-group\" class=\"s-sm\" role=\"group\""));
+        c.style = Some("avatar-group".into());
+        c.props.insert("size".into(), "lg".into());
+        assert!(render(&c).contains("class=\"s-lg\""));
+        c.props.insert("size".into(), "md".into());
+        assert!(!render(&c).contains("class=\"s-"));
+        let css = include_str!("cronus_ui_css/avatar-group.css");
+        assert!(css.contains("[data-slot=\"avatar-group\"].s-sm [data-slot=\"avatar\"],\n[data-slot=\"avatar-group\"].s-sm [data-slot=\"avatar-group-overflow\"] {\n  width: 1.75rem; height: 1.75rem;\n}"));
+        assert!(css.contains("[data-slot=\"avatar-group\"].s-lg [data-slot=\"avatar-group-overflow\"] { font-size: 1rem; line-height: 1.5rem; }"));
+    }
+
     #[test]
     fn initials_from_single_word() {
         let html = render(&stub("avatar-group", "Demo"));
@@ -218,7 +253,7 @@ mod tests {
 
     #[test]
     fn chrome_is_token_only() {
-        let css = crate::cronus_ui::component_chrome_css();
+        let css = include_str!("cronus_ui_css/avatar-group.css");
         assert!(css.contains("[data-slot=\"avatar-group\"]"));
         assert!(css.contains("[data-slot=\"avatar-group-overflow\"]"));
         assert!(css.contains("display: flex"));

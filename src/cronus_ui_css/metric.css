@@ -10,3 +10,10 @@
   font-size: 1.5rem; line-height: 2rem; font-weight: 600; color: var(--cronus-fg);
   font-variant-numeric: tabular-nums;
 }
+[data-slot="metric-delta"] {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  font-size: 0.75rem; line-height: 1rem; font-weight: 500; color: var(--cronus-fg-tertiary);
+}
+[data-slot="metric-delta"] svg { width: 0.875rem; height: 0.875rem; }
+[data-slot="metric-delta"].t-up { color: var(--cronus-success-text); }
+[data-slot="metric-delta"].t-down { color: var(--cronus-error-text); }

@@ -9,3 +9,6 @@
 [data-slot="sparkline"][data-tone="fg"] { color: var(--cronus-fg); }
 [data-slot="sparkline-line"] { fill: none; stroke: currentColor; }
 [data-slot="sparkline-area"] { stroke: none; }
+/* Docs "In stat cards": `w-full` sparkline under a Metric in `CardContent(flex-col gap-3 pt-6)`. */
+[data-slot="sparkline"].w-full { width: 100%; }
+[data-slot="card-content"].cui-stat-card { display: flex; flex-direction: column; gap: 0.75rem; padding-top: 1.5rem; }

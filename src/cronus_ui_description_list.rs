@@ -1,34 +1,111 @@
-//! Dedicated DescriptionList renderer. DOM matches React (stacked, md):
-//! `<dl data-slot="description-list">` plus `description-item` wrapping
-//! `description-term` / `description-details` from paired content texts
-//! (odd=term, even=details). The `label` names the widget (it becomes the
-//! `aria-label` fallback) and is never rendered as a term. Not interact styled
-//! `<dl>` rows without term/details slots, not catalog `display()` `<section>`.
+//! Dedicated DescriptionList renderer. DOM matches React:
+//! `<dl data-slot="description-list">` of `description-item` groups wrapping
+//! `description-term` / `description-details` — or, with `raw:true`, the bare
+//! alternating `<dt>`/`<dd>` pairs the docs' stacked example composes.
+//! Pairs come from `item "Term" details:"…"` lines (`badge:<variant>` renders
+//! the details as a Badge, `font:mono` as the docs' mono tabular span) or from
+//! paired content texts (odd = term, even = details). The `label` names the
+//! widget (`aria-label` fallback) and is never a term.
+//!
+//! React's `descriptionListVariants` have no data attributes, so they travel
+//! as classes on the `<dl>`: `layout` (`l-horizontal` | `l-grid`; stacked is
+//! the default), `size:sm` (`s-sm`), `striped`, `bordered`, `details-align:end`
+//! (`align-end`), plus `max-width:` (`mw-*`, the docs' `max-w-*`). Not interact
+//! styled `<dl>` rows without term/details slots, not catalog `display()`.
 
-use crate::cronus_ui_kit::{attr_nonempty, esc};
+use crate::cronus_ui_kit::{attr_nonempty, choice, esc, flag};
 use crate::parser::ComponentNode;
 
 /// Item kinds that name the widget rather than carry list content.
 const NAME_KINDS: &[&str] = &["label", "title"];
 
+struct Pair {
+    term: String,
+    details: String,
+}
+
 pub fn render(comp: &ComponentNode) -> String {
+    let raw = flag(comp, "raw");
     let rows = pairs(comp)
         .into_iter()
-        .map(|(term, details)| {
-            format!(
-                "<div data-slot=\"description-item\"><dt data-slot=\"description-term\">{term}</dt><dd data-slot=\"description-details\">{details}</dd></div>"
-            )
+        .map(|p| {
+            let dt = format!("<dt data-slot=\"description-term\">{}</dt>", p.term);
+            let dd = format!("<dd data-slot=\"description-details\">{}</dd>", p.details);
+            if raw {
+                format!("{dt}{dd}")
+            } else {
+                format!("<div data-slot=\"description-item\">{dt}{dd}</div>")
+            }
         })
         .collect::<Vec<_>>()
         .join("");
+    let mut classes: Vec<String> = Vec::new();
+    if let Some(layout) = choice(comp, "layout", &["horizontal", "grid"]) {
+        classes.push(format!("l-{layout}"));
+    }
+    if choice(comp, "size", &["sm"]).is_some() {
+        classes.push("s-sm".into());
+    }
+    if flag(comp, "striped") {
+        classes.push("striped".into());
+    }
+    if flag(comp, "bordered") {
+        classes.push("bordered".into());
+    }
+    if attr_nonempty(comp, "details-align")
+        .or_else(|| attr_nonempty(comp, "detailsAlign"))
+        .is_some_and(|a| a.trim() == "end")
+    {
+        classes.push("align-end".into());
+    }
+    if let Some(mw) = crate::cronus_ui_card::max_width_class(comp) {
+        classes.push(mw.into());
+    }
+    let class = if classes.is_empty() {
+        String::new()
+    } else {
+        format!(" class=\"{}\"", classes.join(" "))
+    };
     let aria = aria_label(comp)
         .map(|v| format!(" aria-label=\"{}\"", esc(v)))
         .unwrap_or_default();
-    format!("<dl data-slot=\"description-list\"{aria}>{rows}</dl>")
+    format!("<dl data-slot=\"description-list\"{class}{aria}>{rows}</dl>")
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<&str> {
     attr_nonempty(comp, "aria-label")
+}
+
+fn pairs(comp: &ComponentNode) -> Vec<Pair> {
+    let keyed: Vec<Pair> = comp
+        .items
+        .iter()
+        .filter(|i| i.item_type == "item" && !i.text.is_empty() && i.config.contains_key("details"))
+        .map(|i| {
+            let details = esc(i.config.get("details").map(String::as_str).unwrap_or(""));
+            let details = match i.config.get("badge").filter(|b| !b.is_empty()) {
+                Some(variant) => crate::cronus_ui_badge::badge_html(&details, variant),
+                None if i.config.get("font").is_some_and(|f| f == "mono") => {
+                    format!("<span class=\"font-mono\">{details}</span>")
+                }
+                None => details,
+            };
+            Pair {
+                term: esc(&i.text),
+                details,
+            }
+        })
+        .collect();
+    if !keyed.is_empty() {
+        return keyed;
+    }
+    content(comp)
+        .chunks(2)
+        .map(|pair| Pair {
+            term: pair[0].clone(),
+            details: pair.get(1).cloned().unwrap_or_default(),
+        })
+        .collect()
 }
 
 fn content(comp: &ComponentNode) -> Vec<String> {
@@ -47,13 +124,6 @@ fn content(comp: &ComponentNode) -> Vec<String> {
         .find(|i| !i.text.is_empty())
         .map(|i| vec![esc(&i.text)])
         .unwrap_or_default()
-}
-
-fn pairs(comp: &ComponentNode) -> Vec<(String, String)> {
-    content(comp)
-        .chunks(2)
-        .map(|pair| (pair[0].clone(), pair.get(1).cloned().unwrap_or_default()))
-        .collect()
 }
 
 #[cfg(test)]
@@ -75,6 +145,14 @@ mod tests {
             tone: None,
             config: Default::default(),
         }
+    }
+
+    fn keyed(term: &str, pairs: &[(&str, &str)]) -> ComponentItemNode {
+        let mut i = extra("item", term);
+        for (k, v) in pairs {
+            i.config.insert(k.to_string(), v.to_string());
+        }
+        i
     }
 
     fn list(items: &[&str]) -> crate::parser::ComponentNode {
@@ -160,6 +238,61 @@ mod tests {
         reject_stub(&html);
     }
 
+    /// Docs "Stacked": `raw:true` composes bare dt/dd pairs (no item groups)
+    /// and `max-width:sm` is the example's `max-w-sm`.
+    #[test]
+    fn raw_pairs_without_item_groups() {
+        let mut c = list(&["Full name", "Margot Foster", "Email", "margot@example.com"]);
+        c.props.insert("raw".into(), "true".into());
+        c.props.insert("max-width".into(), "sm".into());
+        assert_eq!(
+            render(&c),
+            "<dl data-slot=\"description-list\" class=\"mw-sm\"><dt data-slot=\"description-term\">Full name</dt><dd data-slot=\"description-details\">Margot Foster</dd><dt data-slot=\"description-term\">Email</dt><dd data-slot=\"description-details\">margot@example.com</dd></dl>"
+        );
+    }
+
+    /// Docs "Horizontal order summary" / "Striped rows" / "Grid cards": keyed
+    /// items, variant classes on the `<dl>`, Badge and mono details.
+    #[test]
+    fn keyed_items_and_variant_classes() {
+        let mut c = stub("description-list", "Order");
+        c.style = Some("description-list+horizontal".into());
+        c.props.insert("details-align".into(), "end".into());
+        c.props.insert("bordered".into(), "true".into());
+        c.props.insert("max-width".into(), "md".into());
+        c.items = vec![
+            keyed("Order", &[("details", "#10245")]),
+            keyed("Status", &[("details", "Paid"), ("badge", "success")]),
+            keyed("Total", &[("details", "$149.00"), ("font", "mono")]),
+        ];
+        let html = render(&c);
+        assert_eq!(
+            html,
+            "<dl data-slot=\"description-list\" class=\"l-horizontal bordered align-end mw-md\"><div data-slot=\"description-item\"><dt data-slot=\"description-term\">Order</dt><dd data-slot=\"description-details\">#10245</dd></div><div data-slot=\"description-item\"><dt data-slot=\"description-term\">Status</dt><dd data-slot=\"description-details\"><span data-slot=\"badge\" data-variant=\"success\">Paid</span></dd></div><div data-slot=\"description-item\"><dt data-slot=\"description-term\">Total</dt><dd data-slot=\"description-details\"><span class=\"font-mono\">$149.00</span></dd></div></dl>"
+        );
+        let mut s = stub("description-list", "Env");
+        s.style = Some("description-list+horizontal".into());
+        s.props.insert("striped".into(), "true".into());
+        s.items = vec![keyed(
+            "Mode",
+            &[("details", "Live"), ("badge", "secondary")],
+        )];
+        assert!(render(&s)
+            .starts_with("<dl data-slot=\"description-list\" class=\"l-horizontal striped\">"));
+        let mut g = stub("description-list", "Deploy");
+        g.style = Some("description-list+grid+sm".into());
+        g.items = vec![keyed("Region", &[("details", "São Paulo (GRU)")])];
+        assert!(render(&g).starts_with("<dl data-slot=\"description-list\" class=\"l-grid s-sm\">"));
+        reject_stub(&html);
+        let css = include_str!("cronus_ui_css/description-list.css");
+        assert!(css.contains("[data-slot=\"description-list\"].l-horizontal {\n  display: grid; grid-template-columns: fit-content(50%) minmax(0, 1fr);\n}"));
+        assert!(css.contains("[data-slot=\"description-list\"].l-grid > div {\n  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border); background: var(--cronus-surface-raised); padding: 1rem;\n}"));
+        assert!(css.contains("[data-slot=\"description-list\"].striped > div:nth-of-type(even) { background: var(--cronus-surface-inset); }"));
+        assert!(css.contains("[data-slot=\"description-list\"].align-end [data-slot=\"description-details\"] { text-align: end; }"));
+        assert!(css.contains("[data-slot=\"description-list\"].mw-md { max-width: 28rem; }"));
+        assert!(css.contains("@media (min-width: 1024px) {\n  [data-slot=\"description-list\"].l-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n}"));
+    }
+
     #[test]
     fn skips_interact_styled_dl_and_display_surf() {
         let c = list(&["Order", "#10245"]);
@@ -190,7 +323,7 @@ mod tests {
     /// audit harness sizes the list `w-72` (18rem).
     #[test]
     fn chrome_matches_react_stacked_md_geometry() {
-        let css = crate::cronus_ui::component_chrome_css();
+        let css = include_str!("cronus_ui_css/description-list.css");
         assert!(css.contains(
             "[data-slot=\"description-list\"] {\n  display: block; width: var(--cui-description-list-w, 100%); max-width: 100%; min-width: 0; margin: 0;\n  font-size: 0.875rem; line-height: 1.25rem;\n}"
         ));

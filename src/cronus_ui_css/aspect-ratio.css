@@ -1,4 +1,15 @@
 [data-slot="aspect-ratio"] {
-  position: relative; width: var(--cui-aspect-ratio-w, 100%);
+  position: relative; width: var(--cui-aspect-ratio-w, 100%); box-sizing: border-box;
   aspect-ratio: 16 / 9;
 }
+[data-slot="aspect-ratio"].r-16-9 { aspect-ratio: 16 / 9; }
+[data-slot="aspect-ratio"].r-1-1 { aspect-ratio: 1 / 1; }
+[data-slot="aspect-ratio"].r-4-3 { aspect-ratio: 4 / 3; }
+[data-slot="aspect-ratio"].r-3-2 { aspect-ratio: 3 / 2; }
+[data-slot="aspect-ratio"].r-21-9 { aspect-ratio: 21 / 9; }
+[data-slot="aspect-ratio"].r-9-16 { aspect-ratio: 9 / 16; }
+[data-slot="aspect-ratio"].r-2-3 { aspect-ratio: 2 / 3; }
+[data-slot="aspect-ratio"].r-3-4 { aspect-ratio: 3 / 4; }
+/* Docs examples: `overflow-hidden rounded-xl border border-border` wrapper around a stretched image. */
+[data-slot="aspect-ratio"].framed { overflow: hidden; border-radius: var(--cronus-radius-xl); border: 1px solid var(--cronus-border); }
+[data-slot="aspect-ratio"] > img { display: block; width: 100%; height: 100%; object-fit: cover; }
