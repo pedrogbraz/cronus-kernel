@@ -1,0 +1,6 @@
+page "/prompt-input" type:components family:prompt-input {
+  title "PromptInput"
+  description:"Composer with attachments, tools, speech, and submit/stop."
+}
+
+component Composer layout:stack style:prompt-input placeholder:"Ask anything…" group:"Composer" note:"Enter submits. Shift+Enter inserts a newline. Status flips submit to stop." { label "Ask anything…" }

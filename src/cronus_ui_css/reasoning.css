@@ -1,22 +1,43 @@
 [data-slot="reasoning"] {
   margin-block-end: 1rem;
 }
+/* Native disclosure: the summary is the live control, the button is decorative. */
+[data-slot="reasoning"] > details > summary {
+  display: block; list-style: none; cursor: pointer; outline: none;
+}
+[data-slot="reasoning"] > details > summary::-webkit-details-marker { display: none; }
+[data-slot="reasoning"] > details > summary::marker { content: ""; }
 [data-slot="reasoning-trigger"] {
   display: flex; width: 100%; align-items: center; gap: 0.5rem;
-  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-tertiary);
-  outline: none; transition: color 150ms var(--ease-out-quart);
+  margin: 0; padding: 0; border: 0; background: transparent; text-align: start;
+  font: inherit; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-tertiary);
+  outline: none; pointer-events: none; transition: color 150ms var(--ease-out-quart);
 }
+[data-slot="reasoning"] > details > summary:hover [data-slot="reasoning-trigger"] { color: var(--cronus-fg); }
+[data-slot="reasoning-trigger"] > p { margin: 0; }
 [data-slot="reasoning-trigger"] > svg {
-  width: 1rem; height: 1rem;
+  width: 1rem; height: 1rem; flex-shrink: 0;
 }
-[data-slot="reasoning-trigger"][data-state="open"] > svg:last-child {
+[data-slot="reasoning-trigger"] > svg:last-child { transition: rotate 150ms var(--ease-out-quart); }
+[data-slot="reasoning"] > details[open] > summary [data-slot="reasoning-trigger"] > svg:last-child {
   rotate: 180deg;
 }
+/* React's `TextShimmer duration={1}` inside the trigger. */
+[data-slot="reasoning-trigger"] > [data-slot="text-shimmer"] { animation-duration: 1s; }
 [data-slot="reasoning-content"] {
   margin-block-start: 1rem; overflow: hidden; outline: none;
   font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-tertiary);
+}
+/* Radix `animate-in slide-in-from-top-2` on open. */
+[data-slot="reasoning"] > details[open] > [data-slot="reasoning-content"] {
+  animation: cui-reasoning-in 150ms var(--ease-out-quart);
+}
+@keyframes cui-reasoning-in {
+  from { transform: translateY(-0.5rem); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 [data-slot="reasoning-content"] > [data-slot="response"] {
   display: grid; gap: 0.5rem; width: 100%; height: 100%;
   font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg);
 }
+[data-slot="reasoning-content"] > [data-slot="response"] > p { margin: 0; }

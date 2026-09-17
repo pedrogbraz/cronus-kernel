@@ -1,0 +1,7 @@
+page "/message" type:components family:message {
+  title "Message"
+  description:"User and assistant bubbles with optional avatars."
+}
+
+component UserTurn layout:stack style:message from:user group:"User and assistant" note:"User bubbles sit on the end edge; assistant content spans the full width." { text "How do I theme a surface?" }
+component AssistantTurn layout:stack style:message from:assistant avatar:"https://github.com/pedrogbraz.png" name:"Cronus" group:"User and assistant" { text "Use semantic tokens. Never a palette scale." }

@@ -1,0 +1,9 @@
+page "/inline-citation" type:components family:inline-citation {
+  title "InlineCitation"
+  description:"Inline source badge with a hover card of citations."
+}
+
+component CitedClaim layout:inline style:inline-citation group:"Cited claim" note:"A hover card of sources attached to a sentence." {
+  label "*"
+  link "Cronus UI" -> "https://aicronus.com"
+}

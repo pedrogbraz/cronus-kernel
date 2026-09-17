@@ -1,0 +1,6 @@
+page "/date-picker" type:components family:date-picker {
+  title "DatePicker"
+  description:"Popover-based date selection."
+}
+
+component PickADate layout:stack style:date-picker placeholder:"Pick a date" group:"Pick a date" note:"A popover-based picker. Pass value and onChange to control the selection." { label "Pick a date" }

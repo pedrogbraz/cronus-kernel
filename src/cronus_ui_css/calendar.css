@@ -32,6 +32,18 @@
   position: relative; padding: 0; text-align: center;
   font-size: 0.875rem; line-height: 1.25rem;
 }
+/* react-day-picker v9 hangs the selection on the cell: the range strip. */
+[data-slot="calendar"] td[aria-selected="true"] { background: var(--cronus-surface-overlay); }
+[data-slot="calendar"] td[data-outside="true"][aria-selected="true"] {
+  background: color-mix(in oklab, var(--cronus-surface-overlay) 50%, transparent);
+}
+[data-slot="calendar"] td[aria-selected="true"]:first-child {
+  border-start-start-radius: var(--cronus-radius-md); border-end-start-radius: var(--cronus-radius-md);
+}
+[data-slot="calendar"] td[aria-selected="true"]:last-child,
+[data-slot="calendar"] td.day-range-end {
+  border-start-end-radius: var(--cronus-radius-md); border-end-end-radius: var(--cronus-radius-md);
+}
 [data-slot="calendar"] nav {
   position: absolute; inset-inline: 0; top: 0; display: flex; align-items: center; gap: 0.25rem;
 }
@@ -45,13 +57,22 @@
 [data-slot="calendar"] nav > button:first-child { inset-inline-start: 0.25rem; }
 [data-slot="calendar"] nav > button:last-child { inset-inline-end: 0.25rem; }
 [data-slot="calendar"] nav > button > svg { width: 1rem; height: 1rem; }
+/* Day button: Button ghost, size-9 p-0 font-normal. Modifiers re-applied on
+   the button itself (CalendarDayButton), in React's precedence order. */
 [data-slot="calendar"] td > button {
   display: flex; width: 2.25rem; height: 2.25rem; align-items: center; justify-content: center;
   padding: 0; border: 0; border-radius: var(--cronus-radius-lg);
   background: transparent; color: var(--cronus-fg-secondary);
   font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 400; cursor: default;
+  transition: background 150ms var(--ease-out-quart), color 150ms var(--ease-out-quart);
+}
+[data-slot="calendar"] td[data-today="true"] > button {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
 }
 [data-slot="calendar"] td[data-outside="true"] > button { color: var(--cronus-fg-muted); }
-[data-slot="calendar"] td[aria-selected="true"] > button {
-  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+[data-slot="calendar"] td.day-range-middle > button {
+  background: transparent; color: var(--cronus-fg); opacity: 1;
+}
+[data-slot="calendar"] td[aria-selected="true"]:not(.day-range-middle) > button {
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground); opacity: 1;
 }

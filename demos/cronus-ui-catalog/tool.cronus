@@ -1,0 +1,8 @@
+page "/tool" type:components family:tool {
+  title "Tool"
+  description:"Collapsible tool-call panel with input, output, and status."
+}
+
+component CompletedTool layout:stack style:tool defaultOpen:true type:tool-search state:output-available title:search output:"Semantic tokens live in @cronus-ui/tokens." group:"Completed tool" note:"Input and output for a finished tool call." {
+  field "query" value:"Cronus tokens"
+}

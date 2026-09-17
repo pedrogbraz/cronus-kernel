@@ -3,17 +3,26 @@
 //! in COMPONENT_CHROME. Not the catalog `fx()` title SURF box.
 //! React sets `--spread: {text.length * 2}px` inline; the kernel emits the
 //! same number as `data-spread` and the chrome reads it with typed `attr()`.
+//! `duration:1` (seconds, React's motion `duration`, default 2) is emitted the
+//! same way as `data-duration`; `spread:3` overrides the px-per-character.
 
-use crate::cronus_ui_kit::{item, label_of};
+use crate::cronus_ui_kit::{attr_num, item, label_of};
 use crate::parser::ComponentNode;
 
 /// React `TextShimmer` default `spread` multiplier (px per UTF-16 unit).
 const SPREAD_PER_CHAR: usize = 2;
 
 pub fn render(comp: &ComponentNode) -> String {
-    let spread = raw_label(comp).encode_utf16().count() * SPREAD_PER_CHAR;
+    let per_char = attr_num::<f64>(comp, "spread")
+        .filter(|n| n.is_finite() && *n >= 0.0)
+        .unwrap_or(SPREAD_PER_CHAR as f64);
+    let spread = (raw_label(comp).encode_utf16().count() as f64 * per_char).round() as u64;
+    let duration = attr_num::<f64>(comp, "duration")
+        .filter(|n| n.is_finite() && *n > 0.0)
+        .map(|n| format!(" data-duration=\"{}\"", crate::cronus_ui_kit::fmt_coord(n)))
+        .unwrap_or_default();
     format!(
-        "<p data-slot=\"text-shimmer\" data-spread=\"{spread}\">{}</p>",
+        "<p data-slot=\"text-shimmer\" data-spread=\"{spread}\"{duration}>{}</p>",
         label_of(comp)
     )
 }
@@ -75,6 +84,27 @@ mod tests {
         assert!(render(&stub("text-shimmer", "é😀&")).contains("data-spread=\"8\""));
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("transparent calc(50% - attr(data-spread px, 0px)), var(--cronus-surface-base), transparent calc(50% + attr(data-spread px, 0px))),\n    linear-gradient(var(--cronus-fg-tertiary), var(--cronus-fg-tertiary));"));
+    }
+
+    /// React `duration` (seconds) and `spread` (px per character) props.
+    #[test]
+    fn duration_and_spread_props() {
+        let mut c = stub("text-shimmer", "Thinking…");
+        c.props.insert("duration".into(), "1".into());
+        assert_eq!(
+            render(&c),
+            "<p data-slot=\"text-shimmer\" data-spread=\"18\" data-duration=\"1\">Thinking…</p>"
+        );
+        c.props.insert("duration".into(), "0".into());
+        c.props.insert("spread".into(), "3".into());
+        assert_eq!(
+            render(&c),
+            "<p data-slot=\"text-shimmer\" data-spread=\"27\">Thinking…</p>"
+        );
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(
+            css.contains("animation: cui-text-shimmer attr(data-duration s, 2s) linear infinite;")
+        );
     }
 
     #[test]

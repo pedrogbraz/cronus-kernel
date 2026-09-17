@@ -1,0 +1,9 @@
+page "/sources" type:components family:sources {
+  title "Sources"
+  description:"Expandable list of sources the model used."
+}
+
+component UsedSources layout:stack style:sources count:2 group:"Used sources" note:"An expandable list of links the model cited." {
+  link "Cronus UI" -> "https://aicronus.com"
+  link "Design" -> "https://aicronus.com/docs/design"
+}

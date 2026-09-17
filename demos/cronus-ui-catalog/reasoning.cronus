@@ -1,0 +1,6 @@
+page "/reasoning" type:components family:reasoning {
+  title "Reasoning"
+  description:"Collapsible thinking block that follows streaming."
+}
+
+component Thinking layout:stack style:reasoning defaultOpen:true duration:4 group:"Thinking" note:"Opens while streaming, then can collapse once the thought is done." { text "The user wants a product UI system, not a bag of parts." }

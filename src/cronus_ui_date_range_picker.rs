@@ -1,10 +1,27 @@
-//! Dedicated DateRangePicker renderer. Always-open static DOM (no JS).
-//! `<button data-slot="date-range-picker-trigger">` plus open
-//! `<div data-slot="date-range-picker-content">`. Not interact `date_range()`
-//! (two native `type="date"` inputs with CTRL styles).
+//! Dedicated DateRangePicker renderer. DOM matches React `DateRangePicker`:
+//! the outline `Button` trigger `<button data-slot="date-range-picker-trigger">`
+//! (calendar glyph + `<span>` label) and the popover
+//! `<div data-slot="date-range-picker-content" role="dialog">` (`w-auto p-0`)
+//! holding `<div>` (flex, column on narrow viewports) > optional
+//! `<fieldset data-slot="date-range-picker-presets">` (sr-only legend + one
+//! ghost `sm` `<button data-slot="date-range-picker-preset">` per `item`) +
+//! `<fieldset data-slot="date-range-picker-calendar">` (sr-only legend + the
+//! real `Calendar` in range mode, `cronus_ui_calendar::render_spec`).
+//! Zero JS: the panel is a native `popover="auto"` anchored to the trigger.
+//! Selecting days and applying presets need JS, so those buttons are
+//! `disabled` with React's idle look.
+//!
+//! Props: `from:"YYYY-MM-DD"` / `to:"YYYY-MM-DD"` (or `value:"from..to"`)
+//! select the range and label the trigger with date-fns `LLL dd, y`
+//! ("Jun 21, 2026 – Jun 27, 2026"; only `from` → "Jun 21, 2026");
+//! `placeholder:` (default "Pick a date range", also the dialog name);
+//! `numberOfMonths:1` (React default 2); `defaultMonth:"YYYY-MM"`;
+//! `today:"YYYY-MM-DD"`; `disabled:true`; `aria-label:"…"`. Presets are
+//! `item "Last 7 days"` lines. Not interact `date_range()`.
 
+use crate::cronus_ui_calendar::{self, parse_day, Date, Spec, FALLBACK_MONTH};
 use crate::cronus_ui_kit::{
-    attr, attr_nonempty, choice_texts, esc, flag, item, label_of, widget_id,
+    attr, attr_nonempty, attr_num, choice_texts, esc, flag, item, label_of, widget_id,
 };
 use crate::parser::ComponentNode;
 
@@ -17,18 +34,24 @@ const ICON: &str = concat!(
     "<line x1=\"3\" y1=\"10\" x2=\"21\" y2=\"10\" />",
     "</svg>",
 );
-
-const WEEKDAYS: [&str; 7] = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const SHORT_MONTHS: [&str; 12] = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
 
 pub fn render(comp: &ComponentNode) -> String {
     let placeholder = placeholder_of(comp);
-    let label = trigger_label(comp, &placeholder);
+    let range = range_of(comp);
+    let label = match range {
+        Some((from, Some(to))) => format!("{} – {}", format_lll(from), format_lll(to)),
+        Some((from, None)) => format_lll(from),
+        None => placeholder.clone(),
+    };
     let trigger_id = widget_id(comp, "trigger");
     let pop_id = widget_id(comp, "range");
     let mut attrs = format!(
         "type=\"button\" id=\"{trigger_id}\" data-slot=\"date-range-picker-trigger\" data-variant=\"outline\" popovertarget=\"{pop_id}\" aria-haspopup=\"dialog\""
     );
-    if label == placeholder {
+    if range.is_none() {
         attrs.push_str(" data-empty=\"\"");
     }
     if flag(comp, "disabled") {
@@ -37,30 +60,30 @@ pub fn render(comp: &ComponentNode) -> String {
     if let Some(aria) = attr_nonempty(comp, "aria-label") {
         attrs.push_str(&format!(" aria-label=\"{}\"", esc(aria)));
     }
+    let (year, month) = match month_of(comp).or(range.map(|r| r.0)) {
+        Some((y, m, _)) => (y, m),
+        None => FALLBACK_MONTH,
+    };
+    let calendar = cronus_ui_calendar::render_spec(&Spec {
+        year,
+        month,
+        months: attr_num::<u32>(comp, "numberOfMonths")
+            .filter(|n| (1..=12).contains(n))
+            .unwrap_or(2),
+        selected: None,
+        range,
+        today: attr(comp, "today").and_then(parse_day),
+        fixed_weeks: false,
+    });
     let presets = presets_html(comp);
-    let (from, to) = range_of(comp);
-    let calendar = calendar_html(&placeholder, from, to);
     format!(
-        "<button {attrs}>{ICON}<span>{label}</span></button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"date-range-picker-content\" role=\"dialog\" aria-label=\"{placeholder}\" anchor=\"{trigger_id}\">{presets}{calendar}</div>"
+        "<button {attrs}>{ICON}<span>{label}</span></button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"date-range-picker-content\" role=\"dialog\" aria-label=\"{placeholder}\" anchor=\"{trigger_id}\"><div>{presets}<fieldset data-slot=\"date-range-picker-calendar\"><legend>{placeholder}</legend>{calendar}</fieldset></div></div>"
     )
 }
 
-fn trigger_label(comp: &ComponentNode, placeholder: &str) -> String {
-    if let Some(v) = attr(comp, "value").or_else(|| item(comp, "value")) {
-        if !v.is_empty() {
-            return esc(v);
-        }
-    }
-    let (from, to) = range_of(comp);
-    match (from_raw(comp, "from"), from_raw(comp, "to"), from, to) {
-        (Some(f), Some(t), _, _) if !f.is_empty() && !t.is_empty() => {
-            format!("{} – {}", esc(f), esc(t))
-        }
-        (Some(f), None, _, _) if !f.is_empty() => esc(f),
-        (_, _, Some(f), Some(t)) => format!("{f:02} – {t:02}"),
-        (_, _, Some(f), None) => format!("{f:02}"),
-        _ => placeholder.to_string(),
-    }
+/// date-fns `LLL dd, y` (en-US): "Jun 05, 2026".
+fn format_lll((year, month, day): Date) -> String {
+    format!("{} {day:02}, {year}", SHORT_MONTHS[(month - 1) as usize])
 }
 
 fn placeholder_of(comp: &ComponentNode) -> String {
@@ -78,25 +101,25 @@ fn placeholder_of(comp: &ComponentNode) -> String {
     }
 }
 
-fn from_raw<'a>(comp: &'a ComponentNode, name: &str) -> Option<&'a str> {
-    attr(comp, name).or_else(|| item(comp, name))
-}
-
-fn range_of(comp: &ComponentNode) -> (Option<u8>, Option<u8>) {
-    (
-        parse_day(from_raw(comp, "from")),
-        parse_day(from_raw(comp, "to")),
-    )
-}
-
-fn parse_day(raw: Option<&str>) -> Option<u8> {
-    let raw = raw?;
-    let day = raw.rsplit('-').next()?.parse::<u8>().ok()?;
-    if (1..=28).contains(&day) {
-        Some(day)
-    } else {
-        None
+fn range_of(comp: &ComponentNode) -> Option<(Date, Option<Date>)> {
+    let raw = |name: &str| attr_nonempty(comp, name).or_else(|| item(comp, name));
+    if let Some(from) = raw("from").and_then(parse_day) {
+        let to = raw("to").and_then(parse_day).filter(|to| *to >= from);
+        return Some((from, to));
     }
+    let value = raw("value").or_else(|| raw("defaultValue"))?;
+    let (a, b) = value.split_once("..")?;
+    let from = parse_day(a)?;
+    Some((from, parse_day(b).filter(|to| *to >= from)))
+}
+
+fn month_of(comp: &ComponentNode) -> Option<Date> {
+    let raw = attr_nonempty(comp, "defaultMonth")?;
+    parse_day(raw).or_else(|| {
+        let (y, m) = raw.trim().split_once('-')?;
+        let m = m.parse::<u32>().ok().filter(|m| (1..=12).contains(m))?;
+        Some((y.parse().ok()?, m, 1))
+    })
 }
 
 fn presets_html(comp: &ComponentNode) -> String {
@@ -108,7 +131,7 @@ fn presets_html(comp: &ComponentNode) -> String {
         .into_iter()
         .map(|t| {
             format!(
-                "<button type=\"button\" disabled data-slot=\"date-range-picker-preset\">{t}</button>"
+                "<button type=\"button\" disabled data-slot=\"date-range-picker-preset\" data-variant=\"ghost\">{t}</button>"
             )
         })
         .collect::<Vec<_>>()
@@ -116,52 +139,6 @@ fn presets_html(comp: &ComponentNode) -> String {
     format!(
         "<fieldset data-slot=\"date-range-picker-presets\"><legend>Date range presets</legend>{buttons}</fieldset>"
     )
-}
-
-fn calendar_html(placeholder: &str, from: Option<u8>, to: Option<u8>) -> String {
-    let mut out = format!(
-        "<fieldset data-slot=\"date-range-picker-calendar\"><legend>{placeholder}</legend>"
-    );
-    out.push_str(&month_grid(from, to));
-    out.push_str(&month_grid(None, None));
-    out.push_str("</fieldset>");
-    out
-}
-
-fn month_grid(from: Option<u8>, to: Option<u8>) -> String {
-    let mut out = String::from("<div data-slot=\"date-range-picker-month\" role=\"grid\">");
-    out.push_str("<div role=\"row\">");
-    for d in WEEKDAYS {
-        out.push_str(&format!(
-            "<span data-slot=\"date-range-picker-weekday\" role=\"columnheader\">{d}</span>"
-        ));
-    }
-    out.push_str("</div>");
-    for week in 0..4 {
-        out.push_str("<div role=\"row\">");
-        for offset in 1..=7 {
-            let day = week * 7 + offset;
-            let day_u8 = day as u8;
-            let (aria, range) = day_state(day_u8, from, to);
-            out.push_str(&format!(
-                "<button type=\"button\" disabled data-slot=\"date-range-picker-day\" role=\"gridcell\" aria-selected=\"{aria}\"{range}>{day}</button>"
-            ));
-        }
-        out.push_str("</div>");
-    }
-    out.push_str("</div>");
-    out
-}
-
-fn day_state(day: u8, from: Option<u8>, to: Option<u8>) -> (&'static str, &'static str) {
-    match (from, to) {
-        (Some(f), Some(t)) if day == f && day == t => ("true", " data-range=\"start\""),
-        (Some(f), Some(_)) if day == f => ("true", " data-range=\"start\""),
-        (Some(_), Some(t)) if day == t => ("true", " data-range=\"end\""),
-        (Some(f), Some(t)) if day > f && day < t => ("true", " data-range=\"middle\""),
-        (Some(f), None) if day == f => ("true", " data-range=\"start\""),
-        _ => ("false", ""),
-    }
 }
 
 #[cfg(test)]
@@ -194,61 +171,79 @@ mod tests {
     }
 
     #[test]
-    fn root_is_trigger_and_open_content_not_two_date_inputs() {
+    fn root_is_trigger_and_popover_with_two_month_calendar() {
         let html = render(&stub("date-range-picker", "Stay"));
         assert!(html.starts_with(
             "<button type=\"button\" id=\"cui-date-range-picker-trigger\" data-slot=\"date-range-picker-trigger\" data-variant=\"outline\" popovertarget=\"cui-date-range-picker-range\" aria-haspopup=\"dialog\" data-empty=\"\">"
         ));
-        assert!(html.contains("<span>Stay</span></button><div id=\"cui-date-range-picker-range\" popover=\"auto\" data-slot=\"date-range-picker-content\" role=\"dialog\" aria-label=\"Stay\" anchor=\"cui-date-range-picker-trigger\">"));
-        assert!(html.contains("data-slot=\"date-range-picker-calendar\""));
-        assert!(html.contains("data-slot=\"date-range-picker-day\""));
+        assert!(html.contains("<span>Stay</span></button><div id=\"cui-date-range-picker-range\" popover=\"auto\" data-slot=\"date-range-picker-content\" role=\"dialog\" aria-label=\"Stay\" anchor=\"cui-date-range-picker-trigger\"><div><fieldset data-slot=\"date-range-picker-calendar\"><legend>Stay</legend><div data-slot=\"calendar\">"));
+        assert!(!html.contains("date-range-picker-presets"));
         assert_eq!(
-            html.matches("data-slot=\"date-range-picker-month\"")
-                .count(),
-            2
+            html.matches("role=\"grid\"").count(),
+            2,
+            "React default numberOfMonths=2"
         );
-        assert!(!html.contains("type=\"date\""));
-        assert_eq!(html.matches("<input").count(), 0);
+        assert!(html.contains(">September 2026</span>"));
+        assert!(html.contains(">October 2026</span>"));
+        assert!(!html.contains("aria-selected"));
+        assert!(html.ends_with("</table></div></div></div></div></fieldset></div></div>"));
         reject_interact(&html);
     }
 
+    /// Docs "Date range": June 21–27 2026, one month. The trigger reads
+    /// date-fns `LLL dd, y` for both ends; the cells carry the range modifiers.
     #[test]
     fn from_to_label_and_range_days() {
         let mut c = stub("date-range-picker", "Stay");
-        c.props.insert("from".into(), "2026-09-01".into());
-        c.props.insert("to".into(), "2026-09-13".into());
+        c.props.insert("from".into(), "2026-06-21".into());
+        c.props.insert("to".into(), "2026-06-27".into());
+        c.props.insert("numberOfMonths".into(), "1".into());
+        c.props
+            .insert("aria-label".into(), "Pick a date range".into());
         let html = render(&c);
-        assert!(html.contains("<span>2026-09-01 – 2026-09-13</span></button>"));
+        assert!(html.contains("aria-label=\"Pick a date range\"><svg"));
+        assert!(html.contains("<span>Jun 21, 2026 – Jun 27, 2026</span></button>"));
         assert!(!html.contains("data-empty"));
-        assert!(html.contains("data-range=\"start\">1</button>"));
-        assert!(html.contains("data-range=\"end\">13</button>"));
-        assert!(html.contains("data-range=\"middle\">7</button>"));
+        assert_eq!(html.matches("role=\"grid\"").count(), 1);
+        assert!(html.contains(">June 2026</span>"));
+        assert!(html.contains("class=\"day-range-start\" aria-selected=\"true\""));
+        assert!(html.contains("class=\"day-range-end\" aria-selected=\"true\""));
+        assert_eq!(html.matches("day-range-middle").count(), 5);
         reject_interact(&html);
+
+        let mut open = stub("date-range-picker", "Stay");
+        open.props.insert("value".into(), "2026-06-05..".into());
+        let html = render(&open);
+        assert!(html.contains("<span>Jun 05, 2026</span></button>"));
+        assert!(html.contains("class=\"day-range-start day-range-end\" aria-selected=\"true\""));
     }
 
+    /// Docs "With presets": `item` lines become the ghost `sm` preset column
+    /// beside the calendar (JS applies them, so they are disabled).
     #[test]
     fn presets_from_items() {
         let mut c = stub("date-range-picker", "Stay");
         c.items.push(extra("item", "Last 7 days"));
         c.items.push(extra("item", "This month"));
         let html = render(&c);
-        assert!(html.contains("data-slot=\"date-range-picker-presets\""));
-        assert!(html.contains(
-            "<button type=\"button\" disabled data-slot=\"date-range-picker-preset\">Last 7 days</button>"
-        ));
-        assert!(html.contains(
-            "<button type=\"button\" disabled data-slot=\"date-range-picker-preset\">This month</button>"
-        ));
-        assert!(!html.contains("date-range-picker-preset\">Stay"));
+        assert!(html.contains("<div><fieldset data-slot=\"date-range-picker-presets\"><legend>Date range presets</legend><button type=\"button\" disabled data-slot=\"date-range-picker-preset\" data-variant=\"ghost\">Last 7 days</button><button type=\"button\" disabled data-slot=\"date-range-picker-preset\" data-variant=\"ghost\">This month</button></fieldset><fieldset data-slot=\"date-range-picker-calendar\">"));
+        assert!(!html.contains("date-range-picker-preset\" data-variant=\"ghost\">Stay"));
         reject_interact(&html);
     }
 
     #[test]
-    fn disabled_trigger() {
+    fn placeholder_default_month_and_disabled() {
         let mut c = stub("date-range-picker", "Stay");
         c.props.insert("disabled".into(), "true".into());
+        c.props
+            .insert("placeholder".into(), "Pick a reporting range".into());
+        c.props.insert("defaultMonth".into(), "2026-03".into());
         let html = render(&c);
         assert!(html.contains(" disabled>"));
+        assert!(html.contains("<span>Pick a reporting range</span>"));
+        assert!(html.contains("aria-label=\"Pick a reporting range\" anchor="));
+        assert!(html.contains("<legend>Pick a reporting range</legend>"));
+        assert!(html.contains(">March 2026</span>"));
         reject_interact(&html);
     }
 
@@ -279,8 +274,10 @@ mod tests {
             "[data-slot=\"date-range-picker-content\"]:not(:popover-open) { display: none; }"
         ));
         assert!(css.contains("[data-slot=\"date-range-picker-content\"]:popover-open {"));
+        assert!(css.contains("[data-slot=\"date-range-picker-content\"] > div {\n  display: flex; flex-direction: column;\n}"));
         assert!(css.contains("[data-slot=\"date-range-picker-calendar\"]"));
-        assert!(css.contains("[data-slot=\"date-range-picker-preset\"]"));
+        assert!(css.contains("[data-slot=\"date-range-picker-preset\"] {"));
+        assert!(!css.contains("[data-slot=\"date-range-picker-month\"]"));
         assert!(css.contains("var(--cronus-surface-floating)"));
         assert!(css.contains("var(--cronus-border)"));
         assert!(css.contains("var(--cronus-shadow-lg"));

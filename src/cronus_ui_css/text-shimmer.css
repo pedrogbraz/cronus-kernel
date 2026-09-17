@@ -17,6 +17,9 @@
   -webkit-background-clip: text;
   background-clip: text;
   animation: cui-text-shimmer 2s linear infinite;
+  /* React `duration` (seconds), emitted as data-duration (typed attr(); older
+     browsers keep the 2s above). */
+  animation: cui-text-shimmer attr(data-duration s, 2s) linear infinite;
 }
 @keyframes cui-text-shimmer {
   0% { background-position: 100% center, 0 0; }

@@ -6,12 +6,15 @@
   background: var(--cronus-surface-inset); color: var(--cronus-fg);
   box-shadow: var(--cronus-shadow-xs, none);
 }
+[data-slot="signature-pad"][data-disabled="true"] { opacity: 0.6; }
 [data-slot="signature-pad-canvas"] {
-  position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair;
 }
+[data-slot="signature-pad-canvas"][aria-disabled="true"] { cursor: not-allowed; }
 [data-slot="signature-pad-hint"] {
   pointer-events: none; user-select: none; position: absolute;
   inset-inline-start: 1.25rem; inset-inline-end: 1.25rem; bottom: 1.75rem;
+  transition: opacity 300ms var(--ease-out-quart);
 }
 [data-slot="signature-pad-hint"] > div { border-top: 1px dashed var(--cronus-border-strong); }
 [data-slot="signature-pad-hint"] > span {

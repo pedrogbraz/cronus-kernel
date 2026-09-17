@@ -1,3 +1,4 @@
+/* Trigger: Button outline md + w-[240px] justify-start gap-2 font-normal. */
 [data-slot="date-picker-trigger"] {
   display: inline-flex; align-items: center; justify-content: flex-start; gap: 0.5rem;
   width: 15rem; height: 2.5rem; padding: 0 1rem; box-sizing: border-box;
@@ -8,77 +9,47 @@
   box-shadow: var(--cronus-shadow-xs, none);
   color: var(--cronus-fg);
   font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 400;
-  cursor: pointer; outline: none;
-  transition: background 150ms var(--cronus-ease), box-shadow 150ms var(--cronus-ease);
+  cursor: default; outline: none;
+  transition: background 150ms var(--ease-out-quart), border-color 150ms var(--ease-out-quart),
+    box-shadow 150ms var(--ease-out-quart), transform 150ms var(--ease-out-quart), opacity 150ms var(--ease-out-quart);
 }
 [data-slot="date-picker-trigger"][data-empty] { color: var(--cronus-fg-tertiary); }
+[data-slot="date-picker-trigger"][data-empty]:hover { color: var(--cronus-fg-tertiary); }
 [data-slot="date-picker-trigger"]:hover {
   background: var(--cronus-surface-overlay);
 }
+[data-slot="date-picker-trigger"]:active { transform: scale(0.98); }
 [data-slot="date-picker-trigger"]:focus-visible {
   box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring, var(--cronus-primary));
-}
-[data-slot="date-picker-trigger"] > span {
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-[data-slot="date-picker-calendar"] {
-  display: flex; flex-direction: column; gap: 0.65rem;
-}
-[data-slot="date-picker-caption"] {
-  font-size: 0.875rem; font-weight: 500; color: var(--cronus-fg);
-  text-align: center; letter-spacing: -0.02em;
-  padding: 0.15rem 0 0.1rem;
-}
-[data-slot="date-picker-calendar"] [role="row"] {
-  display: grid; grid-template-columns: repeat(7, 2.25rem);
-  justify-content: center; gap: 0.1rem;
-}
-[data-slot="date-picker-weekday"] {
-  display: flex; align-items: center; justify-content: center;
-  height: 1.75rem;
-  font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.04em;
-  text-transform: uppercase; color: var(--cronus-fg-tertiary);
-}
-[data-slot="date-picker-day"] {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 2.25rem; height: 2.25rem; padding: 0; margin: 0;
-  border: 0; border-radius: var(--cronus-radius-md);
-  background: transparent; color: var(--cronus-fg);
-  font: inherit; font-size: 0.8125rem; font-variant-numeric: tabular-nums;
-  cursor: pointer;
-  transition: background 120ms var(--cronus-ease), color 120ms var(--cronus-ease);
-}
-[data-slot="date-picker-day"]:hover {
-  background: var(--cronus-surface-overlay);
-}
-[data-slot="date-picker-day"][aria-selected="true"] {
-  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
-  font-weight: 500;
 }
 [data-slot="date-picker-trigger"]:disabled { opacity: 0.5; pointer-events: none; }
 [data-slot="date-picker-trigger"][aria-invalid="true"] {
   border-color: var(--cronus-error);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--cronus-error) 30%, transparent);
 }
-[data-slot="date-picker-trigger"] svg { width: 1rem; height: 1rem; flex-shrink: 0; opacity: 0.7; }
-[data-slot="date-picker-content"] {
-  z-index: 50; width: auto; box-sizing: border-box;
-  padding: 0.75rem; outline: none;
-  font-size: 0.875rem; box-shadow: var(--cronus-shadow-lg, none);
+[data-slot="date-picker-trigger"] svg { width: 1rem; height: 1rem; flex-shrink: 0; opacity: 0.7; pointer-events: none; }
+[data-slot="date-picker-trigger"] > span {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-[data-slot="date-picker-calendar"] {
-  display: flex; flex-direction: column; gap: 0.25rem;
+/* Popover content: PopoverContent + w-auto p-0, wrapping the real Calendar. */
+[data-slot="date-picker-content"]:not(:popover-open) { display: none; }
+[data-slot="date-picker-content"]:popover-open {
+  z-index: 50; width: auto; padding: 0; min-width: 0; box-sizing: border-box; outline: none;
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-lg, none);
+  animation: cronus-pop-in 180ms var(--ease-out-quart) both;
 }
-[data-slot="date-picker-calendar"] [role="row"] {
-  display: grid; grid-template-columns: repeat(7, 2.25rem); justify-content: center;
+@supports (top: anchor(bottom)) {
+  [data-slot="date-picker-content"]:popover-open { top: calc(anchor(bottom) + 0.25rem); }
 }
-[data-slot="date-picker-weekday"] {
-  font-size: 0.75rem; font-weight: 400; color: var(--cronus-fg-tertiary);
-  text-align: center;
-}
-[data-slot="date-picker-day"] {
-  width: 2.25rem; height: 2.25rem; padding: 0; border: 0;
-  font: inherit; font-size: 0.875rem; cursor: default;
-}
-[data-slot="date-picker-day"][aria-selected="true"] {
-  background: var(--cronus-primary); color: var(--cronus-primary-foreground);
+[data-slot="date-picker-content"] > [data-slot="calendar"] { display: block; }
+[data-slot="date-picker-content"] [data-slot="calendar"] td > button { cursor: default; }
+[data-slot="date-picker-content"] [data-slot="calendar"] nav > button { cursor: default; }
+[data-slot="date-picker-content"] [data-slot="calendar"] [role="status"] { display: inline; }
+[data-slot="date-picker-content"] [data-slot="calendar"] table { margin: 0; }
+[data-slot="date-picker-content"] [data-slot="calendar"] th { box-sizing: border-box; }
+[data-slot="date-picker-content"] [data-slot="calendar"] td { box-sizing: border-box; }
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="date-picker-content"]:popover-open { animation: none; }
 }

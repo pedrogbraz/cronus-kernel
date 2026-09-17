@@ -1,0 +1,8 @@
+page "/countdown" type:components family:countdown {
+  title "Countdown"
+  description:"Ticking day/hour/minute/second tiles counting down to a target."
+}
+
+component Launch layout:inline style:countdown value:"2:14:25:09" aria-label:"Launch countdown" group:"Launch countdown" note:"Days / hours / minutes / seconds tiles ticking toward a target Date, ISO string, or epoch-ms number. SSR-safe: a stable -- placeholder renders until mount, then changed digits slide in (instant under reduced motion)." { label "Launch countdown" }
+
+component OfferEnds layout:inline style:countdown compact:true value:"00:00:15" aria-label:"Offer ends in" group:"Compact with completion" { label "Offer ends in" }
