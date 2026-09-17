@@ -33,9 +33,61 @@ pub fn render(comp: &ComponentNode) -> String {
     if flag_any(comp, "invalid") {
         field.push_str(" aria-invalid=\"true\"");
     }
+    // `strength:true` — React's `showStrength` meter: four segments + label,
+    // scored from the initial `value` (length + character classes).
+    let strength = if flag_any(comp, "strength") {
+        let value = attr_nonempty(comp, "value").unwrap_or("");
+        let (score, word) = strength_of(value);
+        let tone = ["error", "error", "warning", "warning", "success"][score];
+        let segments: String = (0..4)
+            .map(|i| {
+                if i < score {
+                    format!("<div data-tone=\"{tone}\"></div>")
+                } else {
+                    "<div></div>".to_string()
+                }
+            })
+            .collect();
+        format!(
+            "<div data-slot=\"password-input-strength\"><div aria-hidden=\"true\">{segments}</div><span>{word}</span></div>"
+        )
+    } else {
+        String::new()
+    };
+    let value = attr_nonempty(comp, "value")
+        .map(|v| format!(" value=\"{}\"", esc(v)))
+        .unwrap_or_default();
     format!(
-        "<div data-slot=\"password-input\"><div><input {field}><button type=\"button\" data-slot=\"password-input-toggle\" aria-label=\"Show password\" aria-pressed=\"false\" disabled>{EYE}</button></div></div>"
+        "<div data-slot=\"password-input\"><div><input {field}{value}><button type=\"button\" data-slot=\"password-input-toggle\" aria-label=\"Show password\" aria-pressed=\"false\" disabled>{EYE}</button></div>{strength}</div>"
     )
+}
+
+/// React `getPasswordStrength`: 0–4 from length (>=8, >=12) and character
+/// classes (lower+upper, digit, symbol), capped at 4; label per score.
+fn strength_of(value: &str) -> (usize, &'static str) {
+    if value.is_empty() {
+        return (0, "Weak");
+    }
+    let mut score = 0;
+    if value.len() >= 8 {
+        score += 1;
+    }
+    if value.len() >= 12 {
+        score += 1;
+    }
+    let lower = value.chars().any(|c| c.is_lowercase());
+    let upper = value.chars().any(|c| c.is_uppercase());
+    if lower && upper {
+        score += 1;
+    }
+    if value.chars().any(|c| c.is_ascii_digit()) {
+        score += 1;
+    }
+    if value.chars().any(|c| !c.is_alphanumeric()) {
+        score += 1;
+    }
+    let score = score.min(4);
+    (score, ["Weak", "Weak", "Fair", "Good", "Strong"][score])
 }
 
 #[cfg(test)]

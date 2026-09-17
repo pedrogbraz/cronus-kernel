@@ -153,6 +153,8 @@ page "/dashboard" type:dashboard requires:auth {
 }
 ```
 - Page `type:` `custom` (default) `dashboard` `list` `form` `detail` `checkout` `components`.
+  `type:components family:<slug>` is a docs page of one cronus-ui family; `group:"…"` / `note:"…"`
+  on a `component` name and describe the example it belongs to (see `demos/cronus-ui-catalog/`).
   `form`/`detail`/`list` with sections render those sections (not a generic entity table/form).
   `query one` on a table is one row.
 - `requires:auth` or `requires:role(admin|editor)`. Matching is by exact route pattern:

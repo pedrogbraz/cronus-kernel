@@ -8,9 +8,10 @@
 [data-slot="form-item"] > [data-slot="label"] {
   display: block; line-height: 1; user-select: none;
 }
-[data-slot="form-item"] > [data-slot="input"] {
+[data-slot="form-item"] > [data-slot="input"], [data-slot="form-item"] > [data-slot="textarea"] {
   line-height: 1.25rem;
 }
+[data-slot="form"] > [data-slot="button"] { margin-top: 1.25rem; align-self: flex-start; }
 [data-slot="form-item"] > [data-slot="input"]::placeholder {
   color: var(--cronus-fg-tertiary);
 }

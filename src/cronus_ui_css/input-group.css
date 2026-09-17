@@ -10,6 +10,17 @@
   padding: 0 0.75rem; color: var(--cronus-fg-tertiary);
   border-inline-end: 1px solid var(--cronus-border); user-select: none; white-space: nowrap;
 }
+[data-slot="input-group-addon"][data-align="end"] {
+  border-inline-end: 0; border-inline-start: 1px solid var(--cronus-border);
+}
+[data-slot="input-group-addon"] svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+[data-slot="input-group"]:has([data-slot="input"][aria-invalid="true"]) {
+  border-color: var(--cronus-error);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--cronus-error) 30%, transparent);
+}
+[data-slot="input-group"]:has([data-slot="input"]:focus-visible) {
+  border-color: var(--cronus-ring); box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
+}
 [data-slot="input-group"] [data-slot="input"] {
   height: 100%; width: auto; flex: 1; min-width: 0;
   border: 0; border-radius: 0; background: transparent; box-shadow: none;

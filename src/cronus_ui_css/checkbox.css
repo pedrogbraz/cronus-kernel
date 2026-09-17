@@ -45,7 +45,8 @@ label[data-control="checkbox"] > input:not(:checked) + [data-slot="checkbox"][ar
 label[data-control="checkbox"] > input:focus-visible + [data-slot="checkbox"] {
   box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
 }
-label[data-control="checkbox"] > input:disabled ~ [data-slot="label"] { cursor: default; }
+label[data-control="checkbox"] > input:disabled ~ [data-slot="label"] { opacity: 0.5; cursor: not-allowed; }
+label[data-control="checkbox"] > input:disabled + [data-slot="checkbox"] { color: var(--cronus-fg); }
 label[data-control="checkbox"] > [data-slot="label"] {
   font-size: 0.875rem; font-weight: 500; line-height: 1; color: var(--cronus-fg); user-select: none;
 }

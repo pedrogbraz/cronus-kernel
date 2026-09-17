@@ -13,6 +13,8 @@ struct Field {
     label: String,
     description: Option<String>,
     placeholder: Option<String>,
+    textarea: bool,
+    kind: Option<String>,
 }
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -30,7 +32,19 @@ pub fn render(comp: &ComponentNode) -> String {
         })
         .collect::<Vec<_>>()
         .join("");
-    format!("<form data-slot=\"form\">{items}</form>")
+    // `action "Save"` renders the docs' submit Button at the end of the form.
+    let submit = comp
+        .items
+        .iter()
+        .find(|i| i.item_type == "action" && !i.text.is_empty())
+        .map(|i| {
+            format!(
+                "<button type=\"submit\" data-slot=\"button\" data-variant=\"primary\" data-size=\"md\">{}</button>",
+                esc(&i.text)
+            )
+        })
+        .unwrap_or_default();
+    format!("<form data-slot=\"form\">{items}{submit}</form>")
 }
 
 fn field_html(field: &Field, id: &str) -> String {
@@ -45,23 +59,50 @@ fn field_html(field: &Field, id: &str) -> String {
         .as_deref()
         .map(|p| format!(" placeholder=\"{p}\""))
         .unwrap_or_default();
+    let control = if field.textarea {
+        format!("<textarea data-slot=\"textarea\" id=\"{id}\" name=\"{label}\" rows=\"3\"{placeholder}></textarea>")
+    } else {
+        let ty = field
+            .kind
+            .as_deref()
+            .map(|t| format!(" type=\"{t}\""))
+            .unwrap_or_default();
+        format!("<input data-slot=\"input\"{ty} id=\"{id}\" name=\"{label}\"{placeholder} />")
+    };
     format!(
-        "<div data-slot=\"form-item\"><label data-slot=\"label\" for=\"{id}\">{label}</label><input data-slot=\"input\" id=\"{id}\" name=\"{label}\"{placeholder} />{desc}</div>"
+        "<div data-slot=\"form-item\"><label data-slot=\"label\" for=\"{id}\">{label}</label>{control}{desc}</div>"
     )
 }
 
 fn field_entries(comp: &ComponentNode) -> Vec<Field> {
     let descriptions = descriptions_of(comp);
-    let choice: Vec<String> = comp
+    let choice: Vec<&crate::parser::ComponentItemNode> = comp
         .items
         .iter()
         .filter(|i| {
-            matches!(i.item_type.as_str(), "item" | "tab" | "columns") && !i.text.is_empty()
+            matches!(i.item_type.as_str(), "item" | "tab" | "columns" | "field")
+                && !i.text.is_empty()
         })
-        .map(|i| esc(&i.text))
         .collect();
     if !choice.is_empty() {
-        return attach_descriptions(choice, descriptions);
+        return choice
+            .iter()
+            .enumerate()
+            .map(|(i, it)| Field {
+                label: esc(&it.text),
+                description: it
+                    .config
+                    .get("description")
+                    .map(|d| esc(d))
+                    .or_else(|| descriptions.get(i).cloned()),
+                placeholder: it.config.get("placeholder").map(|p| esc(p)),
+                textarea: it
+                    .config
+                    .get("textarea")
+                    .is_some_and(|v| crate::cronus_ui_kit::truthy(v)),
+                kind: it.config.get("type").map(|t| esc(t)),
+            })
+            .collect();
     }
     let other: Vec<String> = comp
         .items
@@ -69,7 +110,7 @@ fn field_entries(comp: &ComponentNode) -> Vec<Field> {
         .filter(|i| {
             !matches!(
                 i.item_type.as_str(),
-                "label" | "title" | "text" | "value" | "description"
+                "label" | "title" | "text" | "value" | "description" | "action"
             ) && !i.text.is_empty()
         })
         .map(|i| esc(&i.text))
@@ -105,6 +146,8 @@ fn attach_descriptions(labels: Vec<String>, descriptions: Vec<String>) -> Vec<Fi
             label,
             description: descriptions.get(i).cloned(),
             placeholder: None,
+            textarea: false,
+            kind: None,
         })
         .collect()
 }
@@ -235,7 +278,7 @@ mod tests {
             "[data-slot=\"form-item\"] {\n  display: flex; flex-direction: column; gap: 0.375rem;\n}"
         ));
         assert!(css.contains(
-            "[data-slot=\"form-item\"] > [data-slot=\"input\"] {\n  line-height: 1.25rem;\n}"
+            "[data-slot=\"form-item\"] > [data-slot=\"input\"], [data-slot=\"form-item\"] > [data-slot=\"textarea\"] {\n  line-height: 1.25rem;\n}"
         ));
         assert!(css.contains(
             "[data-slot=\"form-item\"] > [data-slot=\"input\"]::placeholder {\n  color: var(--cronus-fg-tertiary);\n}"

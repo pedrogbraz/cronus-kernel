@@ -7,7 +7,10 @@ use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     let placeholder = placeholder_of(comp);
-    let mut input = String::from("<input data-slot=\"input\" type=\"text\"");
+    let ty = attr_nonempty(comp, "type")
+        .map(esc)
+        .unwrap_or_else(|| "text".into());
+    let mut input = format!("<input data-slot=\"input\" type=\"{ty}\"");
     if !placeholder.is_empty() {
         input.push_str(&format!(" placeholder=\"{placeholder}\""));
     }
@@ -15,12 +18,27 @@ pub fn render(comp: &ComponentNode) -> String {
         input.push_str(&format!(" aria-label=\"{label}\""));
     }
     input.push_str(" />");
-    match addon_of(comp) {
-        Some(addon) => format!(
-            "<div data-slot=\"input-group\"><div data-slot=\"input-group-addon\" data-align=\"start\">{addon}</div>{input}</div>"
-        ),
-        None => format!("<div data-slot=\"input-group\">{input}</div>"),
-    }
+    let icon = attr_nonempty(comp, "addon-icon")
+        .map(crate::cronus_ui_icons::svg_or_empty)
+        .unwrap_or_default();
+    let start = match (addon_of(comp), icon.is_empty()) {
+        (Some(addon), _) => {
+            format!("<div data-slot=\"input-group-addon\" data-align=\"start\">{icon}{addon}</div>")
+        }
+        (None, false) => {
+            format!("<div data-slot=\"input-group-addon\" data-align=\"start\">{icon}</div>")
+        }
+        (None, true) => String::new(),
+    };
+    let end = attr_nonempty(comp, "addon-end")
+        .map(|a| {
+            format!(
+                "<div data-slot=\"input-group-addon\" data-align=\"end\">{}</div>",
+                esc(a)
+            )
+        })
+        .unwrap_or_default();
+    format!("<div data-slot=\"input-group\">{start}{input}{end}</div>")
 }
 
 fn aria_label_of(comp: &ComponentNode) -> Option<String> {

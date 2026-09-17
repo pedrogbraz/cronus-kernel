@@ -103,6 +103,16 @@ pub fn choice<'a>(comp: &'a ComponentNode, key: &str, names: &[&str]) -> Option<
         .or_else(|| style_seg(comp, names))
 }
 
+/// [`choice`] from the component's own props and style only — never an
+/// item's config — for group-level looks whose items carry their own.
+pub fn own_choice<'a>(comp: &'a ComponentNode, key: &str, names: &[&str]) -> Option<&'a str> {
+    comp.props
+        .get(key)
+        .map(|v| v.trim())
+        .filter(|v| names.contains(v))
+        .or_else(|| style_seg(comp, names))
+}
+
 /// Lucide glyph named by an item's `icon:` config, or empty.
 pub fn item_icon(item: &ComponentItemNode) -> String {
     item.config

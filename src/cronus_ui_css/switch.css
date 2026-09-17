@@ -46,6 +46,7 @@ label[data-control="switch"] > input:not(:checked) ~ [data-slot="switch"][data-s
 label[data-control="switch"] > input:focus-visible ~ [data-slot="switch"] {
   box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
 }
+label[data-control="switch"] > input:disabled ~ [data-slot="label"] { opacity: 0.5; cursor: not-allowed; }
 label[data-control="switch"] > [data-slot="label"] {
   font-size: 0.875rem; font-weight: 500; line-height: 1; color: var(--cronus-fg); user-select: none;
 }

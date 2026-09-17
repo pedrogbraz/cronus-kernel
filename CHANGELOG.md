@@ -8,6 +8,10 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ## [Unreleased]
 
+### Added
+
+- **cronus-ui catalog in `.cronus`.** `demos/cronus-ui-catalog/` declares every cronus-ui family (one file per family) with every docs example — variants, sizes, states, motion — and `page "/<family>" type:components family:<family>` renders it like the React docs page (examples grouped by the component `group:` prop, preview frame, `.cronus` source). `/kit` is the overview of every family. Renderers gained the props the docs need (`icon:`, `icon-end:`, `loading:`, variants/sizes as style segments, `trigger:` on overlays, …), lucide glyphs are vendored (`cronus_ui_icons`), motion/react springs ship as `linear()` easings (`--cronus-spring-snappy` / `--cronus-spring-soft`), and checkbox, switch, toggle, chip, rating, fab and similar controls work without JS.
+
 ### Fixed
 
 - **Forms with `bind Entity` emit `data-cronus-entity`.** Save on `/projects/new` was 403 `UNKNOWN_FORM` / toast "Not allowed" because the renderer only read `config.entity`, not the bind.

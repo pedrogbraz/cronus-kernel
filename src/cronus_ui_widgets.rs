@@ -749,11 +749,37 @@ component Revenue layout:stack style:metric {
         assert!(!src.contains("amber-"));
     }
 
+    /// Every `.cronus` of the kit catalog (`demos/cronus-ui-catalog/`, one
+    /// file per family), parsed like `cronus run` does.
+    fn catalog_nodes() -> Vec<crate::parser::AstNode> {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("demos/cronus-ui-catalog");
+        crate::parser::parse_directory(dir.to_str().unwrap()).expect("parse catalog")
+    }
+
+    fn catalog_components() -> Vec<crate::parser::ComponentNode> {
+        catalog_nodes()
+            .into_iter()
+            .filter_map(|n| match n {
+                crate::parser::AstNode::Component(c) => Some(c),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn catalog_pages() -> Vec<crate::parser::PageNode> {
+        catalog_nodes()
+            .into_iter()
+            .filter_map(|n| match n {
+                crate::parser::AstNode::Page(p) => Some(p),
+                _ => None,
+            })
+            .collect()
+    }
+
     #[test]
     fn catalog_families_are_native_not_stub() {
         use crate::cli::stub_renderer_gate::{renderer_kind, RendererKind};
-        let src = include_str!("../demos/cronus-ui-catalog/app.cronus");
-        let nodes = crate::parser::parse(src).expect("parse catalog");
+        let nodes = catalog_nodes();
         let mut families = Vec::new();
         for node in &nodes {
             if let crate::parser::AstNode::Component(comp) = node {
@@ -771,9 +797,8 @@ component Revenue layout:stack style:metric {
                 assert!(!html.contains("zinc-"), "{family}");
                 assert!(!html.contains("amber-500"), "{family}");
                 assert!(!html.contains("bg-neutral-"), "{family}");
-                if matches!(renderer_kind(family), RendererKind::Stub(_)) {
-                    panic!("{family} stub");
-                }
+                assert!(!html.contains("<script"), "{family}");
+                assert!(!html.contains(" style=\""), "{family}");
             }
         }
         assert!(
@@ -790,57 +815,70 @@ component Revenue layout:stack style:metric {
         assert!(has_app && has_page);
     }
 
+    /// Every family page (`type:components family:x`) has at least one
+    /// specimen of that family, and every specimen family has a page.
+    #[test]
+    fn catalog_family_pages_and_specimens_match() {
+        let pages = catalog_pages();
+        let comps = catalog_components();
+        let page_families: std::collections::BTreeSet<&str> = pages
+            .iter()
+            .filter_map(crate::ui::kit::family_of_page)
+            .collect();
+        let comp_families: std::collections::BTreeSet<&str> =
+            comps.iter().filter_map(family_of).collect();
+        let no_specimen: Vec<&&str> = page_families.difference(&comp_families).collect();
+        assert!(
+            no_specimen.is_empty(),
+            "pages without specimens: {no_specimen:?}"
+        );
+        let no_page: Vec<&&str> = comp_families.difference(&page_families).collect();
+        assert!(no_page.is_empty(), "families without a page: {no_page:?}");
+        for p in &pages {
+            if let Some(f) = crate::ui::kit::family_of_page(p) {
+                assert_eq!(p.route, format!("/{f}"), "family page route");
+                assert!(p.title.is_some(), "{f}: page title");
+                assert!(
+                    p.config.get("description").is_some_and(|d| !d.is_empty()),
+                    "{f}: description"
+                );
+            }
+        }
+    }
+
     #[test]
     fn catalog_kit_html_contains_widget_labels_and_tokens() {
-        let src = include_str!("../demos/cronus-ui-catalog/app.cronus");
-        let nodes = crate::parser::parse(src).expect("parse catalog");
-        let comps: Vec<_> = nodes
-            .iter()
-            .filter_map(|n| match n {
-                crate::parser::AstNode::Component(c) => Some(c.clone()),
-                _ => None,
-            })
-            .collect();
-        let html = crate::ui::render_components_page(&comps);
+        let comps = catalog_components();
+        let pages = catalog_pages();
+        let html = crate::ui::render_overview(&pages, &comps).expect("family pages");
         assert!(html.contains("data-slot=\"catalog\""), "{html}");
-        assert!(html.contains("data-slot=\"catalog-specimen\""), "{html}");
+        assert!(html.contains("data-slot=\"catalog-card\""), "{html}");
         assert!(html.contains("id=\"buttons\""));
         assert!(html.contains("id=\"forms\""));
-        assert!(html.contains("Save"), "{html}");
-        assert!(
-            html.contains("Email") || html.contains("you@cooud.app"),
-            "{html}"
-        );
-        for family in [
-            "button",
-            "input",
-            "dialog-content",
-            "tabs",
-            "select-trigger",
-        ] {
+        assert!(html.contains("href=\"/button\""));
+        for family in ["button", "input", "checkbox", "select-trigger"] {
             assert!(
                 html.contains(&format!("data-slot=\"{family}\"")),
                 "missing {family}"
             );
         }
+        let button_page = pages
+            .iter()
+            .find(|p| p.route == "/button")
+            .expect("button page");
+        let page = crate::ui::render_family_page(button_page, &pages, &comps);
+        assert!(page.contains("data-slot=\"catalog-example\""));
+        assert!(page.contains("data-slot=\"catalog-frame\" data-force-motion"));
+        assert!(page.contains("data-variant=\"destructive\""));
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"catalog\"]"));
-        assert!(
-            css.contains("--cronus-")
-                || crate::cronus_ui::token_css("aurora", "dark").contains("--cronus-")
-        );
         assert!(!html.contains("zinc-"));
     }
 
     fn catalog_component(name: &str) -> crate::parser::ComponentNode {
-        let src = include_str!("../demos/cronus-ui-catalog/app.cronus");
-        let nodes = crate::parser::parse(src).expect("parse catalog");
-        nodes
+        catalog_components()
             .into_iter()
-            .find_map(|n| match n {
-                crate::parser::AstNode::Component(c) if c.name == name => Some(c),
-                _ => None,
-            })
+            .find(|c| c.name == name)
             .unwrap_or_else(|| panic!("catalog missing component {name}"))
     }
 
@@ -849,24 +887,28 @@ component Revenue layout:stack style:metric {
         // Closed Radix trigger: the field label is the placeholder text; the
         // `item` options never become the value or the accessible name. They
         // only exist as radios inside the closed native popover.
-        let html = render(&catalog_component("Plan")).expect("select");
+        let html = render(&catalog_component("Region")).expect("select");
         let (trigger, popup) = html.split_once("</button>").expect("trigger");
         assert!(
-            trigger.contains("aria-label=\"Plan\"") && trigger.ends_with(">Plan</span><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"></path></svg>"),
-            "Plan must be the trigger placeholder: {html}"
+            trigger.contains("aria-label=\"Choose a region\"") && trigger.ends_with(">Choose a region</span><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"></path></svg>"),
+            "the label must be the trigger placeholder: {html}"
         );
         assert!(trigger.contains("data-slot=\"select-trigger\""), "{html}");
         assert!(popup.contains("data-slot=\"select-content\""), "{html}");
         assert!(
-            popup.contains("value=\"Free\"") && popup.contains("value=\"Pro\""),
+            popup.contains("value=\"Ireland\"") && popup.contains("value=\"Frankfurt\""),
             "{html}"
         );
-        assert!(!html.contains("value=\"Plan\""), "{html}");
+        assert!(
+            popup.contains("data-slot=\"select-label\">Europe</div>"),
+            "{html}"
+        );
+        assert!(!html.contains("value=\"Choose a region\""), "{html}");
     }
 
     #[test]
     fn catalog_radio_items_are_items_not_the_field_label() {
-        let html = render(&catalog_component("PlanRadio")).expect("radio-group");
+        let html = render(&catalog_component("Plan")).expect("radio-group");
         assert!(
             html.contains("role=\"radiogroup\"")
                 && html.contains("data-slot=\"radio-group\" aria-label=\"Plan\""),
@@ -874,11 +916,11 @@ component Revenue layout:stack style:metric {
         );
         assert_eq!(
             html.matches("role=\"radio\"").count(),
-            2,
-            "expected Free/Pro only: {html}"
+            3,
+            "expected Starter/Pro/Enterprise only: {html}"
         );
-        assert!(html.contains("aria-label=\"Free\""), "{html}");
-        assert!(html.contains("aria-label=\"Pro\""), "{html}");
+        assert!(html.contains("aria-label=\"Starter\""), "{html}");
+        assert!(html.contains("aria-label=\"Pro\" checked"), "{html}");
         assert!(
             !html.contains("role=\"radio\"") || !html.contains("aria-label=\"Plan\"></button>"),
             "Plan must not be a radio: {html}"

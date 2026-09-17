@@ -39,8 +39,16 @@ pub fn render(comp: &ComponentNode) -> String {
         field.push_str(&format!(" placeholder=\"{}\"", esc(p)));
     }
     if let Some(v) = value {
-        let v = fmt(v);
-        field.push_str(&format!(" value=\"{v}\""));
+        // `precision:2` + `prefix:"$"` mirror React's `format` shown while idle.
+        let shown = match attr_num::<usize>(comp, "precision") {
+            Some(p) => format!("{v:.p$}"),
+            None => fmt(v),
+        };
+        let shown = format!(
+            "{}{shown}",
+            attr_nonempty(comp, "prefix").map(esc).unwrap_or_default()
+        );
+        field.push_str(&format!(" value=\"{shown}\""));
     }
     field.push_str(&format!(" aria-label=\"{aria}\""));
     for (key, aria_key) in [("min", "aria-valuemin"), ("max", "aria-valuemax")] {

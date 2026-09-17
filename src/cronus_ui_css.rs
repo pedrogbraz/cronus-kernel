@@ -589,6 +589,7 @@ mod tests {
         "edit 0820 split-button f9215cafb019da6a daa88e3912342c7f - rtl-logical",
         "edit 0823 split-button 59edad02355663a6 d775fdd8c34fa939 - kit-catalog",
         "edit 0847 table-of-contents 3e1e8b2fdc1f93af 7fc83188aa81b0b0 - rtl-logical",
+        "edit 0855 form 2e8002f44257589a b50dd4bc8a573e4a - kit-catalog",
         "edit 0860 signature-pad 7217d5f697a92e8b f9cc627ed88ad1bb - rtl-logical",
         "edit 0863 signature-pad 76052660b192ab23 e40c1f98435b6ff2 - rtl-logical",
         "edit 0884 scheduler 4d5d21e381f6af4d 2482f5f28959edd8 - rtl-logical",

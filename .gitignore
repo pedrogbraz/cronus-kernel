@@ -47,3 +47,6 @@ logs/
 
 # Generated during build (opt-in via cfg feature)
 src/contracts_generated.rs
+
+# Local agent worktrees
+.claude/

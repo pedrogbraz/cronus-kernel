@@ -14,7 +14,7 @@
 //! after a visually hidden checkbox that carries the pressed state; CSS shows
 //! the check and the selected emphasis after `:checked`.
 
-use crate::cronus_ui_kit::{attr_nonempty, choice, esc, flag, instance_id, truthy};
+use crate::cronus_ui_kit::{attr_nonempty, esc, flag, instance_id, own_choice, truthy};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 const CHECK: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" data-slot=\"chip-check\"><path d=\"M20 6 9 17l-5-5\"></path></svg>";
@@ -32,9 +32,13 @@ struct Look {
 
 fn look(comp: &ComponentNode) -> Look {
     Look {
-        variant: choice(comp, "variant", VARIANTS).unwrap_or("soft").into(),
-        color: choice(comp, "color", COLORS).unwrap_or("neutral").into(),
-        size: choice(comp, "size", SIZES).unwrap_or("md").into(),
+        variant: own_choice(comp, "variant", VARIANTS)
+            .unwrap_or("soft")
+            .into(),
+        color: own_choice(comp, "color", COLORS)
+            .unwrap_or("neutral")
+            .into(),
+        size: own_choice(comp, "size", SIZES).unwrap_or("md").into(),
     }
 }
 
@@ -222,6 +226,31 @@ mod tests {
         assert!(html.contains("aria-label=\"React\"><button type=\"button\" data-slot=\"chip\" class=\"v-soft c-neutral s-md interactive\" aria-pressed=\"false\""));
         assert_eq!(html.matches("data-slot=\"chip-check\"").count(), 2);
         assert!(!html.contains("style="));
+    }
+
+    #[test]
+    fn item_looks_do_not_leak_into_the_group() {
+        let mut c = stub("chip", "Chip variants");
+        let mut config = HashMap::new();
+        config.insert("size".to_string(), "sm".to_string());
+        config.insert("color".to_string(), "primary".to_string());
+        c.items.push(ComponentItemNode {
+            item_type: "item".into(),
+            text: "Small".into(),
+            link: None,
+            tone: None,
+            config,
+        });
+        c.items.push(ComponentItemNode {
+            item_type: "item".into(),
+            text: "Plain".into(),
+            link: None,
+            tone: None,
+            config: HashMap::new(),
+        });
+        let html = render(&c);
+        assert!(html.contains("class=\"v-soft c-primary s-sm\">Small"));
+        assert!(html.contains("class=\"v-soft c-neutral s-md\">Plain"));
     }
 
     #[test]

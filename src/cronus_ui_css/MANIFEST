@@ -212,7 +212,8 @@ new checkbox 7d353c7a60845d1b -
 new checkbox 33cd290c8b06dd85 -
 new checkbox d628f2ecb65fbc1e -
 new checkbox 870ca0936d05836c -
-new checkbox 7379cbf956b9de83 -
+new checkbox f03a1e12a4f857c7 -
+new checkbox 74bbb777e791870b -
 new checkbox 8732bd545e9f1e40 -
 edit 0148 switch e00ad3198951ae9e 9f78192e8a3bc05c - kit-catalog
 keep 0149 switch 3757f046ad4861fb -
@@ -232,6 +233,7 @@ new switch 11ab9d18f47f6d5b -
 new switch 3d22158a9e5f2ba9 -
 new switch 1d92515ac94fcc2a -
 new switch d44c2e024c78ccbf -
+new switch 69ff2c469473271a -
 new switch f1da17c1ecc9ba07 -
 keep 0153 spinner 007a2bd1463af3f5 -
 new spinner e65bf06704ed3ae6 -
@@ -747,6 +749,13 @@ keep 0450 password-input 4b4604692c9058ee -
 keep 0451 password-input 8f3a5de3b7b77a05 -
 keep 0452 password-input 492c2fd5eee370fa -
 keep 0453 password-input 301a452cce1bc8ff -
+new password-input 0f6e61c3c3ac5dff -
+new password-input 714ed47d60ed5ce3 -
+new password-input cd34f9116c90fa46 -
+new password-input 0490e7043e38b0cf -
+new password-input fa8a7f006e475d87 -
+new password-input 1df750ea4d8c2ae1 -
+new password-input f71c6cbd79bde6d0 -
 keep 0454 pagination 906fb8be96289352 -
 keep 0455 pagination a9ffa429e5109b8f -
 keep 0456 pagination 08a0471d8c8abc45 -
@@ -779,6 +788,10 @@ new field 10e57fd42068d372 -
 new field 132efbe2f3ba2a38 -
 keep 0481 input-group 66e07a73ef22605e -
 edit 0482 input-group e45fa6f9750bb519 96d1eb514b775d12 - rtl-logical
+new input-group 4e11dd22bc7c23de -
+new input-group 8d71d9186a07ae8d -
+new input-group 203bb10e0df4d7bb -
+new input-group 16074938089cc2a3 -
 keep 0483 input-group b98c783b1f862e89 -
 edit 0484 rating d515febefbbb4013 571ad69467d87304 - kit-catalog
 keep 0485 rating d9ea52d476122ca5 -
@@ -1293,7 +1306,8 @@ keep 0851 form c352549c3e6202ea -
 keep 0852 form f06ff72e7c74314b -
 keep 0853 form b608aef3726aaec3 -
 keep 0854 form 96661841c6fe499a -
-keep 0855 form 2e8002f44257589a -
+edit 0855 form 2e8002f44257589a b50dd4bc8a573e4a - kit-catalog
+new form 3e0ab9f7bb8a8b63 -
 keep 0856 form cc4414e5e439122b -
 keep 0857 form 9c3db3ea39d5cac8 -
 keep 0858 signature-pad 7c4b58daa342cac3 -

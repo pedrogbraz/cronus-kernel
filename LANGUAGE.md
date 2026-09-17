@@ -425,7 +425,7 @@ Supported `type:` values in `src/ui/page.rs`:
 - `list` / `form` / `detail` — layout hints. If the page has sections, they render (same pipeline as `custom`). An empty `list`/`form`/`detail` keeps the generic entity table or form.
 - `custom` — freeform, sections handle their own layout
 - `checkout` — checkout flow
-- `components` — component library preview
+- `components` — kit catalog. Without `family:` it is the overview of every family that has a family page (one card per family, grouped like the React docs); `page "/button" type:components family:button { title "Button" description:"…" }` renders that family like a docs page: every `component` whose style family matches is a specimen, `group:"Variants"` on a component names the docs example it belongs to (declaration order), `note:"…"` describes the example, and each example shows its `.cronus` source. `group` / `note` are page props: renderers never read them. Reference catalog: `demos/cronus-ui-catalog/` (one file per family).
 
 A `section table` bound with `query one` renders that record as a one-row table.
 
