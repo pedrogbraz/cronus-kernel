@@ -1,0 +1,36 @@
+page "/json-viewer" type:components family:json-viewer {
+  title "JsonViewer"
+  description:"Collapsible JSON tree with type-colored values and per-row copy."
+}
+
+component JsonViewerResponse layout:stack style:json-viewer depth:2 group:"API response" note:"Any JSON value rendered as a collapsible tree. Objects and arrays get a chevron with a muted child-count summary while collapsed; primitives are colored by type (string, number, boolean, null) and every row reveals a copy-value button on hover or focus." {
+  item "order" type:object
+  item "id" value:ord_8kX2 level:2
+  item "total" value:248.9 level:2
+  item "currency" value:BRL level:2
+  item "paid" value:true level:2
+  item "coupon" value:null level:2
+  item "items" type:array level:2
+  item "0" type:object level:3
+  item "sku" value:tee-black-m level:4
+  item "qty" value:2 level:4
+  item "1" type:object level:3
+  item "sku" value:sticker-pack level:4
+  item "qty" value:1 level:4
+}
+
+component JsonViewerExpanded layout:stack style:json-viewer depth:all group:"Expanded depth" note:"`defaultExpandedDepth` sets how many levels start open — the root value is depth 0, so the default of 1 shows the root's entries with nested branches collapsed. Pass `Number.POSITIVE_INFINITY` to expand everything." {
+  item "order" type:object
+  item "id" value:ord_8kX2 level:2
+  item "total" value:248.9 level:2
+  item "currency" value:BRL level:2
+  item "paid" value:true level:2
+  item "coupon" value:null level:2
+  item "items" type:array level:2
+  item "0" type:object level:3
+  item "sku" value:tee-black-m level:4
+  item "qty" value:2 level:4
+  item "1" type:object level:3
+  item "sku" value:sticker-pack level:4
+  item "qty" value:1 level:4
+}

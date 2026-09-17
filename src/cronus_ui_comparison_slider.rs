@@ -1,12 +1,16 @@
 //! Dedicated ComparisonSlider renderer. DOM matches React idle:
 //! `<div data-slot="comparison-slider">` > `comparison-after` and
-//! `comparison-before` layers, each wrapping the audit fixture's centered
-//! `<div>` (text-sm, surface-raised / surface-overlay), then the `aria-hidden`
-//! divider and the round `role="slider"` handle at 50%. Dragging and arrow keys
-//! need JS, so the handle keeps React's element and ARIA value but is
-//! `aria-disabled="true"` and not focusable (a `<div>` has no `disabled`); it is
-//! not dimmed because React does not dim it at idle. The label is the handle's
-//! accessible name, never a layer text. Not the catalog `fx()` SURF title box.
+//! `comparison-before` layers, then the `aria-hidden` divider and the round
+//! `role="slider"` handle at 50%. Two layer sources: `text` items render the
+//! audit fixture's centered `<div>` (text-sm, surface-raised / surface-overlay);
+//! the `before:"…"` / `after:"…"` props render the docs' labelled panels — a
+//! pill `<span>` on a surface-inset (before) / primary (after) panel (class
+//! `panels` on the root). `height:64` is the docs' `h-64` (class `h-64`).
+//! Dragging and arrow keys need JS, so the handle keeps React's element and
+//! ARIA value but is `aria-disabled="true"` and not focusable (a `<div>` has no
+//! `disabled`); it is not dimmed because React does not dim it at idle. The
+//! label is the handle's accessible name, never a layer text. Not the catalog
+//! `fx()` SURF title box.
 
 use crate::cronus_ui_kit::{attr_nonempty, esc, item, label_of};
 use crate::parser::ComponentNode;
@@ -15,11 +19,32 @@ const CHEVRONS_SVG: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24
 
 pub fn render(comp: &ComponentNode) -> String {
     let texts = body_texts(comp);
+    let panels = comp.props.contains_key("before") || comp.props.contains_key("after");
     let before = side(comp, "before", texts.first(), "Before");
     let after = side(comp, "after", texts.get(1), "After");
+    let (before, after) = if panels {
+        (
+            format!("<span>{before}</span>"),
+            format!("<span>{after}</span>"),
+        )
+    } else {
+        (before, after)
+    };
     let label = aria_label(comp).unwrap_or_else(|| label_of(comp));
+    let mut classes: Vec<&str> = Vec::new();
+    if panels {
+        classes.push("panels");
+    }
+    if matches!(attr_nonempty(comp, "height").map(str::trim), Some("64")) {
+        classes.push("h-64");
+    }
+    let class = if classes.is_empty() {
+        String::new()
+    } else {
+        format!(" class=\"{}\"", classes.join(" "))
+    };
     format!(
-        "<div data-slot=\"comparison-slider\"><div data-slot=\"comparison-after\"><div>{after}</div></div><div data-slot=\"comparison-before\"><div>{before}</div></div><div aria-hidden=\"true\"></div><div role=\"slider\" aria-label=\"{label}\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuenow=\"50\" aria-orientation=\"horizontal\" aria-disabled=\"true\">{CHEVRONS_SVG}</div></div>"
+        "<div data-slot=\"comparison-slider\"{class}><div data-slot=\"comparison-after\"><div>{after}</div></div><div data-slot=\"comparison-before\"><div>{before}</div></div><div aria-hidden=\"true\"></div><div role=\"slider\" aria-label=\"{label}\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuenow=\"50\" aria-orientation=\"horizontal\" aria-disabled=\"true\">{CHEVRONS_SVG}</div></div>"
     )
 }
 
@@ -122,6 +147,27 @@ mod tests {
         reject_fx(&html);
     }
 
+    /// Docs "Before & after": `before:` / `after:` props are the labelled
+    /// panels (pill spans on inset / primary), `height:64` the `h-64` class.
+    #[test]
+    fn props_render_docs_panels_with_pills() {
+        let mut c = stub("comparison-slider", "Demo");
+        c.props.insert("before".into(), "Before".into());
+        c.props.insert("after".into(), "After".into());
+        c.props.insert("height".into(), "64".into());
+        c.props
+            .insert("aria-label".into(), "Before and after".into());
+        let html = render(&c);
+        assert!(html.starts_with("<div data-slot=\"comparison-slider\" class=\"panels h-64\"><div data-slot=\"comparison-after\"><div><span>After</span></div></div><div data-slot=\"comparison-before\"><div><span>Before</span></div></div><div aria-hidden=\"true\"></div><div role=\"slider\" aria-label=\"Before and after\""));
+        reject_fx(&html);
+        let css = include_str!("cronus_ui_css/comparison-slider.css");
+        assert!(css.contains(
+            "[data-slot=\"comparison-slider\"].h-64 { height: 16rem; aspect-ratio: auto; }"
+        ));
+        assert!(css.contains("[data-slot=\"comparison-slider\"].panels [data-slot=\"comparison-after\"] > div { background: var(--cronus-primary); }"));
+        assert!(css.contains("[data-slot=\"comparison-slider\"].panels [data-slot=\"comparison-before\"] > div > span { background: var(--cronus-surface-overlay); }"));
+    }
+
     #[test]
     fn skips_fx_surf_title_box() {
         let html = render(&stub("comparison-slider", "Before"));
@@ -141,7 +187,7 @@ mod tests {
     /// carries background and `text-sm` 14px/20px.
     #[test]
     fn chrome_puts_fill_and_type_on_inner_div() {
-        let css = crate::cronus_ui::component_chrome_css();
+        let css = include_str!("cronus_ui_css/comparison-slider.css");
         assert!(css.contains(
             "[data-slot=\"comparison-after\"], [data-slot=\"comparison-before\"] {\n  position: absolute; inset: 0; width: 100%; height: 100%;\n}"
         ));

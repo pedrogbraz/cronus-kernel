@@ -1,0 +1,11 @@
+page "/image-zoom" type:components family:image-zoom {
+  title "ImageZoom"
+  description:"Inline hover/press zoom that magnifies product imagery and pans with the cursor."
+}
+
+component ImageZoomProduct layout:stack style:image-zoom src:"https://picsum.photos/seed/cronus-product/900/600" alt:"Studio product photo" max-width:md group:"Hover to zoom" note:"Product-style inline zoom: a fine pointer magnifies on hover and the pan follows the cursor via transform-origin tracking; touch taps and Enter/Space toggle a sticky zoom instead. The zoom indicator fades away while zoomed." {}
+
+component ImageZoomTwo layout:stack style:image-zoom src:"https://picsum.photos/seed/cronus-loft/700/500" caption:"zoom 2 (default)" group:"Zoom scale" note:"`zoom` sets the magnification applied while zoomed (values below 1 clamp to 1). Defaults to 2." {}
+component ImageZoomFour layout:stack style:image-zoom src:"https://picsum.photos/seed/cronus-loft/700/500" zoom:4 label:"Zoom image (4×)" caption:"zoom 4" group:"Zoom scale" {}
+
+component ImageZoomFabric layout:stack style:image-zoom src:"https://picsum.photos/seed/cronus-fabric/1200/675" zoom:3 label:"Zoom fabric detail" badge:"Hover, tap or press Enter to zoom" max-width:md group:"Custom image & zoom state" note:"Wrap your own `<img>` instead of passing `src`, rename the accessible toggle via `labels`, and observe the state with `onZoomChange`." {}

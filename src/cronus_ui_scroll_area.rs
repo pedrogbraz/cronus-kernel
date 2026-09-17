@@ -1,17 +1,24 @@
 //! Dedicated ScrollArea renderer. DOM matches React/Radix idle:
-//! `<div data-slot="scroll-area">` > viewport `<div role="region"
-//! aria-label tabindex="0">` > `<div>` column of rows. Radix mounts its
-//! scrollbar only while hovering/scrolling (`type="hover"`), so the idle DOM
-//! has no scrollbar slot and neither does the kernel; the native scrollbar is
-//! hidden like Radix hides it. The label names the region; rows come from the
-//! `text` items. Size mirrors the audit harness default `h-32 w-48`.
+//! `<div data-slot="scroll-area">` > viewport `<div tabindex="0">` (a named
+//! `role="region"` only when a label exists, like React) > `<div>` column of
+//! rows. Radix mounts its scrollbar only while hovering/scrolling
+//! (`type="hover"`), so the idle DOM has no scrollbar slot and neither does the
+//! kernel; the native scrollbar is hidden like Radix hides it and a thin,
+//! token-coloured one appears on hover/focus. Rows come from the `item` /
+//! `text` lines. Size mirrors the audit harness default `h-32 w-48`; the docs'
+//! utilities travel as classes: `height:48` (`h-48`), `max-width:xs`
+//! (`mw-xs`), `framed:true` (rounded border on surface-inset) and `font:mono`
+//! (the `p-4` list of mono `text-fg-secondary` rows).
 //! Not interact `scroll()` / catalog `display()` (SURF box without viewport).
 
-use crate::cronus_ui_kit::{attr_nonempty, esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, esc, flag, item};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    let label = aria_label(comp).unwrap_or_else(|| label_of(comp));
+    let label = attr_nonempty(comp, "aria-label")
+        .or_else(|| item(comp, "label").filter(|l| !l.is_empty()))
+        .or_else(|| item(comp, "title").filter(|l| !l.is_empty()))
+        .map(esc);
     let mut rows: Vec<String> = comp
         .items
         .iter()
@@ -19,19 +26,43 @@ pub fn render(comp: &ComponentNode) -> String {
         .map(|i| esc(&i.text))
         .collect();
     if rows.is_empty() {
-        rows.push(label.clone());
+        rows.push(label.clone().unwrap_or_else(|| esc(&comp.name)));
     }
     let rows = rows
         .into_iter()
         .map(|t| format!("<div>{t}</div>"))
         .collect::<String>();
+    let region = label
+        .map(|l| format!(" role=\"region\" aria-label=\"{l}\""))
+        .unwrap_or_default();
+    let mut classes: Vec<&str> = Vec::new();
+    match attr_nonempty(comp, "height").map(str::trim) {
+        Some("32") => classes.push("h-32"),
+        Some("40") => classes.push("h-40"),
+        Some("48") => classes.push("h-48"),
+        Some("64") => classes.push("h-64"),
+        Some("72") => classes.push("h-72"),
+        _ => {}
+    }
+    if let Some(mw) = crate::cronus_ui_card::max_width_class(comp) {
+        classes.push(mw);
+    }
+    if flag(comp, "framed") {
+        classes.push("framed");
+    }
+    let class = if classes.is_empty() {
+        String::new()
+    } else {
+        format!(" class=\"{}\"", classes.join(" "))
+    };
+    let list = if attr_nonempty(comp, "font").is_some_and(|f| f.trim() == "mono") {
+        " class=\"font-mono\""
+    } else {
+        ""
+    };
     format!(
-        "<div data-slot=\"scroll-area\"><div role=\"region\" aria-label=\"{label}\" tabindex=\"0\"><div>{rows}</div></div></div>"
+        "<div data-slot=\"scroll-area\"{class}><div{region} tabindex=\"0\"><div{list}>{rows}</div></div></div>"
     )
-}
-
-fn aria_label(comp: &ComponentNode) -> Option<String> {
-    attr_nonempty(comp, "aria-label").map(|s| esc(s))
 }
 
 #[cfg(test)]
@@ -99,6 +130,30 @@ mod tests {
         reject_interact(&html);
     }
 
+    /// Docs "Scrollable list": no label means no region role (React only
+    /// names the viewport when asked); the utilities become classes.
+    #[test]
+    fn docs_list_has_no_region_role_and_utility_classes() {
+        let mut c = stub("scroll-area", "");
+        c.items.clear();
+        c.items.push(extra("item", "v1.2.0-beta.20"));
+        c.items.push(extra("item", "v1.2.0-beta.19"));
+        c.props.insert("height".into(), "48".into());
+        c.props.insert("max-width".into(), "xs".into());
+        c.props.insert("framed".into(), "true".into());
+        c.props.insert("font".into(), "mono".into());
+        assert_eq!(
+            render(&c),
+            "<div data-slot=\"scroll-area\" class=\"h-48 mw-xs framed\"><div tabindex=\"0\"><div class=\"font-mono\"><div>v1.2.0-beta.20</div><div>v1.2.0-beta.19</div></div></div></div>"
+        );
+        let css = include_str!("cronus_ui_css/scroll-area.css");
+        assert!(css.contains("[data-slot=\"scroll-area\"].h-48 { height: 12rem; }"));
+        assert!(css.contains("[data-slot=\"scroll-area\"].framed {\n  border-radius: var(--cronus-radius-xl); border: 1px solid var(--cronus-border-soft, var(--cronus-border)); background: var(--cronus-surface-inset); box-sizing: border-box;\n}"));
+        assert!(css.contains("[data-slot=\"scroll-area\"] > div > div.font-mono > div {\n  border-radius: var(--cronus-radius-md); padding: 0.375rem 0.5rem;\n  font-family: var(--cronus-font-mono, ui-monospace, monospace); font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);\n}"));
+        assert!(css
+            .contains("scrollbar-width: thin; scrollbar-color: var(--cronus-border) transparent;"));
+    }
+
     #[test]
     fn skips_interact_scroll_surf() {
         let mut c = stub("scroll-area", "Notes");
@@ -118,7 +173,7 @@ mod tests {
 
     #[test]
     fn chrome_mirrors_h32_w48_and_hides_native_scrollbar() {
-        let css = crate::cronus_ui::component_chrome_css();
+        let css = include_str!("cronus_ui_css/scroll-area.css");
         assert!(css.contains(
             "[data-slot=\"scroll-area\"] {\n  position: relative; overflow: hidden;\n  width: var(--cui-scroll-area-w, 100%); height: 8rem;\n}"
         ));

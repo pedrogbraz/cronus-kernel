@@ -33,3 +33,19 @@
   font-family: var(--cronus-font-mono, ui-monospace, monospace);
 }
 [data-slot="code-block-code"] { display: block; white-space: pre; font-family: inherit; }
+/* No header: React floats the copy button over the code (`absolute end-2 top-2 z-10 bg-surface-overlay/80 backdrop-blur-sm`). */
+[data-slot="code-block"] > div { position: relative; }
+[data-slot="code-block"] > div > [data-slot="copy-button"] {
+  position: absolute; inset-inline-end: 0.5rem; top: 0.5rem; z-index: 10;
+  width: 2rem; height: 2rem; flex-shrink: 0; border-radius: var(--cronus-radius-lg);
+  background: color-mix(in oklab, var(--cronus-surface-overlay) 80%, transparent);
+  backdrop-filter: blur(4px); opacity: 1; cursor: default;
+}
+[data-slot="code-block"] > div > [data-slot="copy-button"] svg { width: 0.875rem; height: 0.875rem; }
+/* Docs "Line numbers": table rows with a non-selectable gutter. */
+[data-slot="code-block-line"] { display: table-row; }
+[data-slot="code-block-line-number"] {
+  display: table-cell; user-select: none; padding-inline-end: 1rem; text-align: end;
+  color: var(--cronus-fg-muted); font-variant-numeric: tabular-nums;
+}
+[data-slot="code-block-line"] > span:last-child { display: table-cell; white-space: pre; }

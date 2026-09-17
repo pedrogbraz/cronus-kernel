@@ -1,0 +1,11 @@
+page "/timeline" type:components family:timeline {
+  title "Timeline"
+  description:"Vertical activity feed with dots, connectors, timestamps and descriptions."
+}
+
+component TimelineActivity layout:stack style:timeline max-width:md group:"Activity" note:"A vertical history feed. Each item pairs a tone- or icon-bearing dot on the rail with a title, timestamp and description; the connecting line is drawn automatically and stops at the last event." {
+  item "Order placed" tone:primary icon:credit-card time:"Jun 21 · 09:24" datetime:"2026-06-21T09:24" description:"Order #4827 created for 3 items."
+  item "Payment confirmed" tone:success icon:check-circle-2 time:"Jun 21 · 09:25" datetime:"2026-06-21T09:25" description:"R$ 248,90 captured on the card ending 4242."
+  item "Packed" icon:package time:"Jun 22 · 14:02" datetime:"2026-06-22T14:02" description:"Left the warehouse with the carrier."
+  item "Out for delivery" icon:truck time:"Jun 23 · 08:10" datetime:"2026-06-23T08:10" description:"Arriving today between 9am and 1pm."
+}

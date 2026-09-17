@@ -19,3 +19,25 @@ details:has(> [data-slot="collapsible-content"]) > summary > button { pointer-ev
 details:has(> [data-slot="collapsible-content"]) > summary:focus-visible {
   outline: 2px solid var(--cronus-ring); outline-offset: 2px;
 }
+/* Open/close motion (React `cronus-collapsible-down` 220ms / `-up` 180ms). */
+details:has(> [data-slot="collapsible-content"]) > [data-slot="collapsible-content"] { interpolate-size: allow-keywords; }
+details[open] > [data-slot="collapsible-content"] { animation: cui-collapsible-down 220ms var(--ease-out-quart); }
+@keyframes cui-collapsible-down { from { height: 0; opacity: 0; } to { height: auto; opacity: 1; } }
+/* Docs "Default": bordered trigger row (label + ghost icon-sm Button), `space-y-2`, mono region rows. */
+details.cui-collapsible-row { display: block; width: 100%; box-sizing: border-box; }
+details.cui-collapsible-row > summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border); padding: 0.5rem 1rem;
+}
+details.cui-collapsible-row > summary > span { font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; color: var(--cronus-fg); }
+details.cui-collapsible-row > [data-slot="collapsible-content"] { margin-top: 0.5rem; }
+[data-slot="collapsible-content"].rows { display: flex; flex-direction: column; gap: 0.5rem; }
+[data-slot="collapsible-content"].rows > div {
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border); padding: 0.5rem 1rem;
+  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg);
+}
+[data-slot="collapsible-content"].font-mono > div { font-family: var(--cronus-font-mono, ui-monospace, monospace); }
+details.mw-xs { max-width: 20rem; }
+details.mw-sm { max-width: 24rem; }
+details.mw-md { max-width: 28rem; }
+details.mw-lg { max-width: 32rem; }

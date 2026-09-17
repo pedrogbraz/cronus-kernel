@@ -1,0 +1,13 @@
+page "/tree-view" type:components family:tree-view {
+  title "TreeView"
+  description:"Data-driven, accessible hierarchy with keyboard navigation."
+}
+
+component TreeViewFiles layout:stack style:tree-view aria-label:"Project files" max-width:xs framed:true group:"File tree" note:"A data-driven hierarchy rendered from a `data` array of `TreeNode`s. Branches expand and collapse; selection and the expanded set are both controllable. Full keyboard support (arrows to move, Right/Left to open/close, Enter/Space to select)." {
+  item "src" icon:folder open:true
+  item "components" icon:folder level:2 open:true
+  item "button.tsx" icon:file-text level:3 selected:true
+  item "card.tsx" icon:file-text level:3
+  item "index.ts" icon:file-text level:2
+  item "package.json" icon:file-text
+}

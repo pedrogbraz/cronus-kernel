@@ -33,3 +33,16 @@
 [data-slot="comparison-slider"] > [role="slider"] svg {
   width: 1rem; height: 1rem; color: var(--cronus-fg-secondary);
 }
+/* Docs "Before & after": `h-64` box, labelled panels with a pill on inset / primary. */
+[data-slot="comparison-slider"].h-64 { height: 16rem; aspect-ratio: auto; }
+[data-slot="comparison-slider"].panels [data-slot="comparison-before"] > div { background: var(--cronus-surface-inset); }
+[data-slot="comparison-slider"].panels [data-slot="comparison-after"] > div { background: var(--cronus-primary); }
+[data-slot="comparison-slider"].panels [data-slot="comparison-after"] > div > span,
+[data-slot="comparison-slider"].panels [data-slot="comparison-before"] > div > span {
+  border-radius: var(--cronus-radius-md); padding: 0.25rem 0.75rem;
+  font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; color: var(--cronus-fg);
+}
+[data-slot="comparison-slider"].panels [data-slot="comparison-before"] > div > span { background: var(--cronus-surface-overlay); }
+[data-slot="comparison-slider"].panels [data-slot="comparison-after"] > div > span {
+  background: color-mix(in oklab, var(--cronus-surface-base) 80%, transparent);
+}
