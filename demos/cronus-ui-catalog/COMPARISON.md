@@ -6,7 +6,7 @@ served at `/<family>`). Left: the JSX from the docs page. Right: the declaration
 No imports, no JSX: the kernel emits the HTML, tokens and motion.
 
 
-194 families · 292 examples.
+212 families · 330 examples.
 
 ## Buttons
 
@@ -1895,7 +1895,7 @@ function RichTextEditorDemo() {
 ```cronus
 component Notes layout:stack style:rich-text-editor aria-label:"Post body" placeholder:"Write something…" {
   title "Release notes"
-  text "We shipped a themeable editor with a full toolbar — try bold, lists, and headings."
+  text "We shipped a themeable editor with a full toolbar: try bold, lists, and headings."
   item "Keyboard shortcuts"
   item "Undo & redo"
 }
@@ -4578,7 +4578,7 @@ component DescriptionStacked layout:stack style:description-list raw:true max-wi
   text "Email"
   text "margot@example.com"
   text "Plan"
-  text "Pro — billed yearly"
+  text "Pro: billed yearly"
 }
 ```
 
@@ -5487,7 +5487,7 @@ component TodoItemPreview layout:inline style:component-preview-tooltip name:tod
 component RepoLink layout:stack style:link-preview href:"https://github.com/pedrogbraz/cronus-ui" prefix:"Check out the" suffix:"to browse the catalog." site:"GitHub" favicon:"https://github.com/favicon.ico" image:"https://opengraph.githubassets.com/1/pedrogbraz/cronus-ui" {
   label "Cronus UI repository"
   title "GitHub - pedrogbraz/cronus-ui"
-  text "Cronus UI: the design system behind the Cronus kernel — tokens, primitives and premium components."
+  text "Cronus UI: the design system behind the Cronus kernel: tokens, primitives and premium components."
 }
 ```
 
@@ -6074,7 +6074,7 @@ component Faq layout:stack style:accordion {
   label "FAQ"
   item "Is it accessible?" description:"Yes. It follows the WAI-ARIA disclosure pattern and is fully keyboard navigable."
   item "Is it themeable?" description:"Absolutely. Every color, radius, and shadow flows from semantic design tokens."
-  item "Is it animated?" description:"Yes — content expands and collapses with a smooth height transition."
+  item "Is it animated?" description:"Yes: content expands and collapses with a smooth height transition."
 }
 ```
 
@@ -6996,6 +6996,834 @@ component LockedSlot layout:stack style:time-picker value:"08:00" disabled:true 
 
 ## Charts
 
+### Chart (`/chart`)
+
+#### ChartContainer
+
+<table><tr><th>React</th><th>.cronus</th></tr><tr><td>
+
+```tsx
+import {
+  ChartContainer,
+  ChartCursor,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@cronus-ui/ui";
+```
+
+</td><td>
+
+```cronus
+component ChartContainer layout:stack style:chart center:"11.4K" center-label:"Visitors" legend:true {
+  label "Donut chart of traffic sources by visitors: Direct 4,200, Organic 3,100, Referral 1,900, Social 1,400, Email 800."
+  item "Direct" value:4200
+  item "Organic" value:3100
+  item "Referral" value:1900
+  item "Social" value:1400
+  item "Email" value:800
+}
+```
+
+</td></tr></table>
+
+#### Radial bar (primitive)
+
+<table><tr><th>React</th><th>.cronus</th></tr><tr><td>
+
+```tsx
+<RadialBarChart data={chartData} innerRadius={32} outerRadius={110}>
+  <RadialBar dataKey="visitors" background cornerRadius={8} />
+</RadialBarChart>
+```
+
+</td><td>
+
+```cronus
+component ChartRadialChart layout:stack style:chart+radial legend:true {
+  label "Radial bar chart of visitors by device: Desktop 5,200, Mobile 4,100, Tablet 1,800, Other 900."
+  item "Desktop" value:5200
+  item "Mobile" value:4100
+  item "Tablet" value:1800
+  item "Other" value:900
+}
+```
+
+</td></tr></table>
+
+### AreaChart (`/area-chart`)
+
+#### Default
+
+```cronus
+component AreaChartDefault layout:stack style:area-chart series:"revenue:Revenue,costs:Costs" {
+  label "Area chart of revenue versus costs from Jul 29 to Aug 27."
+  item "Jul 29" revenue:16200 costs:11500
+  item "Jul 30" revenue:14800 costs:10800
+  item "Jul 31" revenue:17100 costs:12100
+  item "Aug 1" revenue:15900 costs:11200
+  item "Aug 2" revenue:18100 costs:12800
+  item "Aug 3" revenue:17600 costs:12400
+  item "Aug 4" revenue:16800 costs:11900
+  item "Aug 5" revenue:19200 costs:13200
+  item "Aug 6" revenue:18500 costs:12600
+  item "Aug 7" revenue:17400 costs:11800
+  item "Aug 8" revenue:20100 costs:13600
+  item "Aug 9" revenue:19400 costs:12900
+  item "Aug 10" revenue:18800 costs:12500
+  item "Aug 11" revenue:21100 costs:14100
+  item "Aug 12" revenue:20500 costs:13400
+  item "Aug 13" revenue:19800 costs:13000
+  item "Aug 14" revenue:21600 costs:14500
+  item "Aug 15" revenue:20900 costs:13800
+  item "Aug 16" revenue:22100 costs:14900
+  item "Aug 17" revenue:21400 costs:14200
+  item "Aug 18" revenue:20800 costs:13700
+  item "Aug 19" revenue:22600 costs:15200
+  item "Aug 20" revenue:21900 costs:14600
+  item "Aug 21" revenue:23200 costs:15600
+  item "Aug 22" revenue:22400 costs:14800
+  item "Aug 23" revenue:21800 costs:14300
+  item "Aug 24" revenue:23800 costs:15900
+  item "Aug 25" revenue:22900 costs:15100
+  item "Aug 26" revenue:24100 costs:16200
+  item "Aug 27" revenue:23500 costs:15500
+}
+```
+
+#### Motion
+
+```cronus
+component AreaChartMotion layout:stack style:area-chart+motion series:"revenue" fade:true fill-opacity:0.3 {
+  label "Area chart of revenue over thirty days."
+  item "2024-01-01" revenue:16200
+  item "2024-01-02" revenue:14800
+  item "2024-01-03" revenue:17100
+  item "2024-01-04" revenue:15900
+  item "2024-01-05" revenue:18100
+  item "2024-01-06" revenue:17600
+  item "2024-01-07" revenue:16800
+  item "2024-01-08" revenue:19200
+  item "2024-01-09" revenue:18500
+  item "2024-01-10" revenue:17400
+  item "2024-01-11" revenue:20100
+  item "2024-01-12" revenue:19400
+  item "2024-01-13" revenue:18800
+  item "2024-01-14" revenue:21100
+  item "2024-01-15" revenue:20500
+  item "2024-01-16" revenue:19800
+  item "2024-01-17" revenue:21600
+  item "2024-01-18" revenue:20900
+  item "2024-01-19" revenue:22100
+  item "2024-01-20" revenue:21400
+  item "2024-01-21" revenue:20800
+  item "2024-01-22" revenue:22600
+  item "2024-01-23" revenue:21900
+  item "2024-01-24" revenue:23200
+  item "2024-01-25" revenue:22400
+  item "2024-01-26" revenue:21800
+  item "2024-01-27" revenue:23800
+  item "2024-01-28" revenue:22900
+  item "2024-01-29" revenue:24100
+  item "2024-01-30" revenue:23500
+}
+```
+
+### LineChart (`/line-chart`)
+
+#### Default
+
+```cronus
+component LineChartDefault layout:stack style:line-chart series:"revenue:Revenue,costs:Costs" {
+  label "Line chart of revenue versus costs from Jul 29 to Aug 27."
+  item "Jul 29" revenue:16200 costs:11500
+  item "Jul 30" revenue:14800 costs:10800
+  item "Jul 31" revenue:17100 costs:12100
+  item "Aug 1" revenue:15900 costs:11200
+  item "Aug 2" revenue:18100 costs:12800
+  item "Aug 3" revenue:17600 costs:12400
+  item "Aug 4" revenue:16800 costs:11900
+  item "Aug 5" revenue:19200 costs:13200
+  item "Aug 6" revenue:18500 costs:12600
+  item "Aug 7" revenue:17400 costs:11800
+  item "Aug 8" revenue:20100 costs:13600
+  item "Aug 9" revenue:19400 costs:12900
+  item "Aug 10" revenue:18800 costs:12500
+  item "Aug 11" revenue:21100 costs:14100
+  item "Aug 12" revenue:20500 costs:13400
+  item "Aug 13" revenue:19800 costs:13000
+  item "Aug 14" revenue:21600 costs:14500
+  item "Aug 15" revenue:20900 costs:13800
+  item "Aug 16" revenue:22100 costs:14900
+  item "Aug 17" revenue:21400 costs:14200
+  item "Aug 18" revenue:20800 costs:13700
+  item "Aug 19" revenue:22600 costs:15200
+  item "Aug 20" revenue:21900 costs:14600
+  item "Aug 21" revenue:23200 costs:15600
+  item "Aug 22" revenue:22400 costs:14800
+  item "Aug 23" revenue:21800 costs:14300
+  item "Aug 24" revenue:23800 costs:15900
+  item "Aug 25" revenue:22900 costs:15100
+  item "Aug 26" revenue:24100 costs:16200
+  item "Aug 27" revenue:23500 costs:15500
+}
+```
+
+#### Motion
+
+```cronus
+component LineChartMotion layout:stack style:line-chart+motion series:"users,pageviews" {
+  label "Line chart of users and pageviews over thirty days."
+  item "2024-01-01" users:1350 pageviews:2875
+  item "2024-01-02" users:1233 pageviews:2700
+  item "2024-01-03" users:1425 pageviews:3025
+  item "2024-01-04" users:1325 pageviews:2800
+  item "2024-01-05" users:1508 pageviews:3200
+  item "2024-01-06" users:1467 pageviews:3100
+  item "2024-01-07" users:1400 pageviews:2975
+  item "2024-01-08" users:1600 pageviews:3300
+  item "2024-01-09" users:1542 pageviews:3150
+  item "2024-01-10" users:1450 pageviews:2950
+  item "2024-01-11" users:1675 pageviews:3400
+  item "2024-01-12" users:1617 pageviews:3225
+  item "2024-01-13" users:1567 pageviews:3125
+  item "2024-01-14" users:1758 pageviews:3525
+  item "2024-01-15" users:1708 pageviews:3350
+  item "2024-01-16" users:1650 pageviews:3250
+  item "2024-01-17" users:1800 pageviews:3625
+  item "2024-01-18" users:1742 pageviews:3450
+  item "2024-01-19" users:1842 pageviews:3725
+  item "2024-01-20" users:1783 pageviews:3550
+  item "2024-01-21" users:1733 pageviews:3425
+  item "2024-01-22" users:1883 pageviews:3800
+  item "2024-01-23" users:1825 pageviews:3650
+  item "2024-01-24" users:1933 pageviews:3900
+  item "2024-01-25" users:1867 pageviews:3700
+  item "2024-01-26" users:1817 pageviews:3575
+  item "2024-01-27" users:1983 pageviews:3975
+  item "2024-01-28" users:1908 pageviews:3775
+  item "2024-01-29" users:2008 pageviews:4050
+  item "2024-01-30" users:1958 pageviews:3875
+}
+```
+
+### LiveLineChart (`/live-line-chart`)
+
+#### Default
+
+```cronus
+component LiveLineChartDefault layout:stack style:live-line-chart {
+  label "Live line chart of requests per second, appending a point about once a second."
+  data:"162,148,171,159,181,176,168,192,185,174,201,194,188,211,205,198,216,209"
+}
+```
+
+#### Motion
+
+```cronus
+component LiveLineChartMotion layout:stack style:live-line-chart+motion format:currency start:"12:00:00" interval:600 window:30 value:"$142.50" {
+  label "Live line chart of a streaming quote, appending a point several times a second."
+  data:"143.03,143.14,144.05,145.1,145.36,146.09,146.85,146.97,147.86,148.54,149.51,149.58,150.31,151.02,151.18,152.08,152.64,153.32,154.55,154.97,155.77,157.4,158.72,159.38,160.3,161.98,162.84,163.78,165.13,166.03"
+}
+```
+
+### BarChart (`/bar-chart`)
+
+#### Default
+
+<table><tr><th>React</th><th>.cronus</th></tr><tr><td>
+
+```tsx
+<BarChart data={MONTHS} series={[{ key: "revenue", label: "Revenue" }, { key: "profit", label: "Profit" }]} />
+```
+
+</td><td>
+
+```cronus
+component BarChartDefault layout:stack style:bar-chart series:"revenue:Revenue,profit:Profit" {
+  label "Bar chart of revenue and profit from January to June."
+  item "Jan" revenue:12000 profit:4500 desktop:4000 mobile:2400
+  item "Feb" revenue:15500 profit:5200 desktop:5000 mobile:3000
+  item "Mar" revenue:11000 profit:3800 desktop:3500 mobile:2800
+  item "Apr" revenue:18500 profit:7100 desktop:4200 mobile:3200
+  item "May" revenue:16800 profit:5400 desktop:3800 mobile:2600
+  item "Jun" revenue:21200 profit:8800 desktop:5500 mobile:3800
+}
+```
+
+</td></tr></table>
+
+#### Stacked
+
+<table><tr><th>React</th><th>.cronus</th></tr><tr><td>
+
+```tsx
+<BarChart data={MONTHS} stacked series={[{ key: "desktop", label: "Desktop" }, { key: "mobile", label: "Mobile" }]} />
+```
+
+</td><td>
+
+```cronus
+component BarChartStacked layout:stack style:bar-chart series:"desktop:Desktop,mobile:Mobile" stacked:true {
+  label "Stacked bar of desktop and mobile sessions from January to June."
+  item "Jan" revenue:12000 profit:4500 desktop:4000 mobile:2400
+  item "Feb" revenue:15500 profit:5200 desktop:5000 mobile:3000
+  item "Mar" revenue:11000 profit:3800 desktop:3500 mobile:2800
+  item "Apr" revenue:18500 profit:7100 desktop:4200 mobile:3200
+  item "May" revenue:16800 profit:5400 desktop:3800 mobile:2600
+  item "Jun" revenue:21200 profit:8800 desktop:5500 mobile:3800
+}
+```
+
+</td></tr></table>
+
+#### Motion
+
+<table><tr><th>React</th><th>.cronus</th></tr><tr><td>
+
+```tsx
+import { BarChart, Bar, BarXAxis, Grid, ChartTooltip } from "@cronus-ui/ui/charts";
+
+<BarChart data={data} xDataKey="month">
+  <Grid horizontal />
+  <Bar dataKey="revenue" fill="var(--chart-line-primary)" lineCap="round" />
+  <Bar dataKey="profit" fill="var(--chart-line-secondary)" lineCap="round" />
+  <BarXAxis />
+  <ChartTooltip />
+</BarChart>
+```
+
+</td><td>
+
+```cronus
+component BarChartMotion layout:stack style:bar-chart+motion series:"revenue,profit" line-cap:round {
+  label "Bar chart of revenue and profit from January to June."
+  item "Jan" revenue:12000 profit:4500 desktop:4000 mobile:2400
+  item "Feb" revenue:15500 profit:5200 desktop:5000 mobile:3000
+  item "Mar" revenue:11000 profit:3800 desktop:3500 mobile:2800
+  item "Apr" revenue:18500 profit:7100 desktop:4200 mobile:3200
+  item "May" revenue:16800 profit:5400 desktop:3800 mobile:2600
+  item "Jun" revenue:21200 profit:8800 desktop:5500 mobile:3800
+}
+```
+
+</td></tr></table>
+
+#### Motion stacked
+
+<table><tr><th>React</th><th>.cronus</th></tr><tr><td>
+
+```tsx
+<BarChart data={data} stacked stackGap={3} xDataKey="month">
+  <Bar dataKey="desktop" fill="var(--chart-line-primary)" lineCap={4} stackGap={3} />
+  <Bar dataKey="mobile" fill="var(--chart-line-secondary)" lineCap={4} stackGap={3} />
+  <BarXAxis />
+  <ChartTooltip />
+</BarChart>
+```
+
+</td><td>
+
+```cronus
+component BarChartMotionStacked layout:stack style:bar-chart+motion series:"desktop,mobile" stacked:true stack-gap:3 line-cap:4 {
+  label "Stacked bar of desktop and mobile sessions from January to June."
+  item "Jan" revenue:12000 profit:4500 desktop:4000 mobile:2400
+  item "Feb" revenue:15500 profit:5200 desktop:5000 mobile:3000
+  item "Mar" revenue:11000 profit:3800 desktop:3500 mobile:2800
+  item "Apr" revenue:18500 profit:7100 desktop:4200 mobile:3200
+  item "May" revenue:16800 profit:5400 desktop:3800 mobile:2600
+  item "Jun" revenue:21200 profit:8800 desktop:5500 mobile:3800
+}
+```
+
+</td></tr></table>
+
+### ComposedChart (`/composed-chart`)
+
+#### Default
+
+```cronus
+component ComposedChartDefault layout:stack style:composed-chart series:"costs:Run rate:area,units:Units:bar,revenue:Revenue:line" {
+  label "Composed chart of area, bar, and line on one time axis."
+  item "Jul 29" costs:11500 units:40 revenue:16200
+  item "Jul 30" costs:10800 units:43 revenue:14800
+  item "Jul 31" costs:12100 units:46 revenue:17100
+  item "Aug 1" costs:11200 units:49 revenue:15900
+  item "Aug 2" costs:12800 units:52 revenue:18100
+  item "Aug 3" costs:12400 units:55 revenue:17600
+  item "Aug 4" costs:11900 units:58 revenue:16800
+  item "Aug 5" costs:13200 units:61 revenue:19200
+  item "Aug 6" costs:12600 units:64 revenue:18500
+  item "Aug 7" costs:11800 units:67 revenue:17400
+  item "Aug 8" costs:13600 units:70 revenue:20100
+  item "Aug 9" costs:12900 units:73 revenue:19400
+  item "Aug 10" costs:12500 units:40 revenue:18800
+  item "Aug 11" costs:14100 units:43 revenue:21100
+  item "Aug 12" costs:13400 units:46 revenue:20500
+  item "Aug 13" costs:13000 units:49 revenue:19800
+  item "Aug 14" costs:14500 units:52 revenue:21600
+  item "Aug 15" costs:13800 units:55 revenue:20900
+  item "Aug 16" costs:14900 units:58 revenue:22100
+  item "Aug 17" costs:14200 units:61 revenue:21400
+  item "Aug 18" costs:13700 units:64 revenue:20800
+  item "Aug 19" costs:15200 units:67 revenue:22600
+  item "Aug 20" costs:14600 units:70 revenue:21900
+  item "Aug 21" costs:15600 units:73 revenue:23200
+  item "Aug 22" costs:14800 units:40 revenue:22400
+  item "Aug 23" costs:14300 units:43 revenue:21800
+  item "Aug 24" costs:15900 units:46 revenue:23800
+  item "Aug 25" costs:15100 units:49 revenue:22900
+  item "Aug 26" costs:16200 units:52 revenue:24100
+  item "Aug 27" costs:15500 units:55 revenue:23500
+}
+```
+
+#### Motion
+
+```cronus
+component ComposedChartMotion layout:stack style:composed-chart+motion series:"runRate:Run rate:area:4,units:Units:bar:3,revenue:Revenue:line:1" curve:catmull bar-gap:0 max-bar-size:32 ticks:8 {
+  label "Composed chart of daily units, run rate, and revenue for January."
+  item "2024-01-01" runRate:96 units:51 revenue:96
+  item "2024-01-02" runRate:95 units:54 revenue:99
+  item "2024-01-03" runRate:93 units:57 revenue:102
+  item "2024-01-04" runRate:92 units:59 revenue:105
+  item "2024-01-05" runRate:90 units:61 revenue:108
+  item "2024-01-06" runRate:88 units:62 revenue:110
+  item "2024-01-07" runRate:86 units:62 revenue:112
+  item "2024-01-08" runRate:84 units:62 revenue:113
+  item "2024-01-09" runRate:82 units:61 revenue:114
+  item "2024-01-10" runRate:80 units:60 revenue:114
+  item "2024-01-11" runRate:79 units:58 revenue:113
+  item "2024-01-12" runRate:78 units:56 revenue:113
+  item "2024-01-13" runRate:77 units:53 revenue:112
+  item "2024-01-14" runRate:76 units:50 revenue:110
+  item "2024-01-15" runRate:76 units:48 revenue:109
+  item "2024-01-16" runRate:77 units:45 revenue:107
+  item "2024-01-17" runRate:78 units:43 revenue:105
+  item "2024-01-18" runRate:79 units:41 revenue:104
+  item "2024-01-19" runRate:80 units:39 revenue:103
+  item "2024-01-20" runRate:81 units:38 revenue:102
+  item "2024-01-21" runRate:83 units:38 revenue:101
+  item "2024-01-22" runRate:85 units:38 revenue:101
+  item "2024-01-23" runRate:86 units:39 revenue:102
+  item "2024-01-24" runRate:88 units:41 revenue:103
+  item "2024-01-25" runRate:89 units:43 revenue:104
+  item "2024-01-26" runRate:90 units:45 revenue:106
+  item "2024-01-27" runRate:90 units:48 revenue:109
+  item "2024-01-28" runRate:90 units:50 revenue:111
+  item "2024-01-29" runRate:90 units:53 revenue:114
+  item "2024-01-30" runRate:89 units:56 revenue:117
+}
+```
+
+### CandlestickChart (`/candlestick-chart`)
+
+#### Default
+
+```cronus
+component CandlestickChartDefault layout:stack style:candlestick-chart {
+  label "Candlestick chart of open, high, low, and close prices."
+  item "Aug 3" open:142 high:148 low:139 close:146
+  item "Aug 4" open:146 high:151 low:144 close:149
+  item "Aug 5" open:149 high:152 low:141 close:143
+  item "Aug 6" open:143 high:147 low:140 close:141
+  item "Aug 7" open:141 high:150 low:140 close:148
+  item "Aug 10" open:148 high:156 low:147 close:155
+  item "Aug 11" open:155 high:158 low:149 close:151
+  item "Aug 12" open:151 high:154 low:145 close:147
+  item "Aug 13" open:147 high:153 low:146 close:152
+  item "Aug 14" open:152 high:160 low:151 close:158
+}
+```
+
+#### Motion
+
+```cronus
+component CandlestickChartMotion layout:stack style:candlestick-chart+motion faded-opacity:0.25 height:320 {
+  label "Candlestick chart of open, high, low, and close prices."
+  item "2024-01-01" open:100 high:108 low:96 close:104
+  item "2024-01-02" open:104 high:112 low:101 close:109
+  item "2024-01-03" open:109 high:115 low:105 close:108
+  item "2024-01-04" open:108 high:114 low:102 close:110
+  item "2024-01-05" open:110 high:118 low:108 close:115
+  item "2024-01-06" open:115 high:120 low:111 close:113
+  item "2024-01-07" open:113 high:119 low:110 close:117
+  item "2024-01-08" open:117 high:124 low:115 close:121
+  item "2024-01-09" open:121 high:126 low:118 close:120
+  item "2024-01-10" open:120 high:128 low:117 close:125
+}
+```
+
+### FunnelChart (`/funnel-chart`)
+
+#### Default
+
+```cronus
+component FunnelChartDefault layout:stack style:funnel-chart {
+  label "Funnel chart from visit to retain."
+  item "Visit" value:8400
+  item "Signup" value:4200
+  item "Activate" value:2600
+  item "Pay" value:1100
+  item "Retain" value:640
+}
+```
+
+#### Motion
+
+```cronus
+component FunnelChartMotion layout:stack style:funnel-chart+motion layers:3 {
+  label "Funnel chart from visitors to closed."
+  item "Visitors" value:12400 display:"12.4k"
+  item "Leads" value:6800 display:"6.8k"
+  item "Qualified" value:3200 display:"3.2k"
+  item "Proposals" value:1500 display:"1.5k"
+  item "Closed" value:620 display:"620"
+}
+```
+
+### GaugeChart (`/gauge-chart`)
+
+#### Default
+
+```cronus
+component GaugeChartDefault layout:stack style:gauge-chart value:72 label:"Health" {
+  label "Gauge chart showing a score of 72."
+}
+```
+
+#### Motion
+
+```cronus
+component GaugeChartMotion layout:stack style:gauge-chart+motion value:66 center:428000 label:"ARR run rate" format:currency inactive-opacity:0.4 spacing:25 {
+  label "Gauge chart of annual recurring revenue run rate."
+}
+```
+
+### PieChart (`/pie-chart`)
+
+#### Default
+
+```cronus
+component PieChartDefault layout:stack style:pie-chart {
+  label "Pie chart of traffic sources."
+  item "Direct" value:320
+  item "Organic" value:280
+  item "Referral" value:190
+  item "Social" value:140
+}
+```
+
+#### Motion
+
+```cronus
+component PieChartMotion layout:stack style:pie-chart+motion size:280 legend:"Traffic" {
+  label "Pie chart of traffic sources."
+  item "Direct" value:320
+  item "Organic" value:280
+  item "Referral" value:190
+  item "Social" value:140
+}
+```
+
+### RingChart (`/ring-chart`)
+
+#### Default
+
+```cronus
+component RingChartDefault layout:stack style:ring-chart center:"Channels" {
+  label "Ring chart of channel mix."
+  item "Email" value:42
+  item "Social" value:28
+  item "Direct" value:18
+  item "Other" value:12
+}
+```
+
+#### Motion
+
+```cronus
+component RingChartMotion layout:stack style:ring-chart+motion size:280 stroke-width:14 center:"Channels" legend:"Channels" {
+  label "Ring chart of channel mix."
+  item "Email" value:42 max:100
+  item "Social" value:28 max:100
+  item "Direct" value:18 max:100
+  item "Other" value:12 max:100
+}
+```
+
+### RadarChart (`/radar-chart`)
+
+#### Default
+
+```cronus
+component RadarChartDefault layout:stack style:radar-chart series:"current:Current,target:Target" {
+  label "Radar chart comparing current versus target metrics."
+  item "Speed" current:80 target:90
+  item "Reliability" current:70 target:85
+  item "Comfort" current:60 target:75
+  item "Safety" current:90 target:95
+  item "Efficiency" current:75 target:80
+}
+```
+
+#### Motion
+
+```cronus
+component RadarChartMotion layout:stack style:radar-chart+motion series:"current:Current,target:Target" size:320 legend:"Series" label-size:10 label-offset:16 {
+  label "Radar chart comparing product metrics."
+  item "Speed" current:80 target:90
+  item "Reliability" current:70 target:85
+  item "Comfort" current:60 target:75
+  item "Safety" current:90 target:95
+  item "Efficiency" current:75 target:80
+}
+```
+
+### ScatterChart (`/scatter-chart`)
+
+#### Default
+
+```cronus
+component ScatterChartDefault layout:stack style:scatter-chart series:"Search,Social" {
+  label "Scatter chart of reach versus conversion for two channels."
+  item "Search" x:12 y:4.2
+  item "Search" x:28 y:6.1
+  item "Search" x:41 y:5.4
+  item "Search" x:55 y:8.8
+  item "Social" x:18 y:9.4
+  item "Social" x:33 y:11.2
+  item "Social" x:47 y:10.1
+  item "Social" x:62 y:14.6
+}
+```
+
+#### Motion
+
+```cronus
+component ScatterChartMotion layout:stack style:scatter-chart+motion series:"sessions,conversions" {
+  label "Scatter chart of sessions versus conversions."
+  item "2023-01-01" sessions:140 conversions:125
+  item "2023-02-01" sessions:180 conversions:127
+  item "2023-03-01" sessions:217 conversions:122
+  item "2023-04-01" sessions:248 conversions:110
+  item "2023-05-01" sessions:231 conversions:96
+  item "2023-06-01" sessions:244 conversions:47
+  item "2023-07-01" sessions:247 conversions:36
+  item "2023-08-01" sessions:242 conversions:32
+  item "2023-09-01" sessions:189 conversions:36
+  item "2023-10-01" sessions:171 conversions:48
+  item "2023-11-01" sessions:152 conversions:34
+  item "2023-12-01" sessions:95 conversions:60
+  item "2024-01-01" sessions:83 conversions:88
+  item "2024-02-01" sessions:79 conversions:116
+  item "2024-03-01" sessions:84 conversions:140
+  item "2024-04-01" sessions:58 conversions:122
+  item "2024-05-01" sessions:82 conversions:131
+  item "2024-06-01" sessions:114 conversions:131
+  item "2024-07-01" sessions:152 conversions:124
+  item "2024-08-01" sessions:153 conversions:111
+  item "2024-09-01" sessions:193 conversions:61
+  item "2024-10-01" sessions:230 conversions:48
+  item "2024-11-01" sessions:220 conversions:39
+  item "2024-12-01" sessions:241 conversions:37
+}
+```
+
+### SankeyChart (`/sankey-chart`)
+
+#### Default
+
+```cronus
+component SankeyChartDefault layout:stack style:sankey-chart {
+  label "Sankey chart of acquisition flow."
+  item "Direct"
+  item "Ads"
+  item "Site"
+  item "App"
+  item "Paid"
+  item "Churn"
+  item "Direct -> Site" value:48
+  item "Ads -> Site" value:32
+  item "Site -> App" value:40
+  item "Site -> Paid" value:24
+  item "App -> Paid" value:28
+  item "App -> Churn" value:12
+  item "Paid -> Churn" value:8
+}
+```
+
+#### Motion
+
+```cronus
+component SankeyChartMotion layout:stack style:sankey-chart+motion aspect:"16 / 9" node-padding:24 node-width:16 labels:vertical line-cap:4 {
+  label "Sankey chart of acquisition flow."
+  item "Organic Search"
+  item "Paid Search"
+  item "Paid Social"
+  item "Email"
+  item "Referral"
+  item "Direct"
+  item "Blog"
+  item "Pricing"
+  item "Product"
+  item "Docs"
+  item "Homepage"
+  item "Converted"
+  item "Engaged"
+  item "Bounced"
+  item "Organic Search -> Blog" value:4200
+  item "Organic Search -> Docs" value:2800
+  item "Organic Search -> Pricing" value:1500
+  item "Paid Search -> Pricing" value:3100
+  item "Paid Search -> Product" value:2200
+  item "Paid Search -> Blog" value:800
+  item "Paid Social -> Blog" value:2800
+  item "Paid Social -> Homepage" value:1900
+  item "Paid Social -> Product" value:600
+  item "Email -> Pricing" value:2100
+  item "Email -> Product" value:1400
+  item "Email -> Blog" value:900
+  item "Referral -> Blog" value:1800
+  item "Referral -> Docs" value:1200
+  item "Referral -> Pricing" value:700
+  item "Direct -> Homepage" value:3500
+  item "Direct -> Pricing" value:1800
+  item "Direct -> Product" value:1100
+  item "Blog -> Converted" value:2100
+  item "Blog -> Engaged" value:4800
+  item "Blog -> Bounced" value:3600
+  item "Pricing -> Converted" value:4500
+  item "Pricing -> Engaged" value:3200
+  item "Pricing -> Bounced" value:1500
+  item "Product -> Converted" value:2800
+  item "Product -> Engaged" value:1900
+  item "Product -> Bounced" value:600
+  item "Docs -> Converted" value:800
+  item "Docs -> Engaged" value:2400
+  item "Docs -> Bounced" value:800
+  item "Homepage -> Converted" value:1200
+  item "Homepage -> Engaged" value:1800
+  item "Homepage -> Bounced" value:2400
+}
+```
+
+### ProfitLossChart (`/profit-loss-chart`)
+
+#### Default
+
+```cronus
+component ProfitLossChartDefault layout:stack style:profit-loss-chart {
+  label "Profit and loss line, split at zero."
+  item "Jan" value:420
+  item "Feb" value:-180
+  item "Mar" value:260
+  item "Apr" value:510
+  item "May" value:-90
+  item "Jun" value:340
+  item "Jul" value:680
+  item "Aug" value:-220
+}
+```
+
+#### Motion
+
+```cronus
+component ProfitLossChartMotion layout:stack style:profit-loss-chart+motion legend:center {
+  label "Profit and loss line, split at zero."
+  item "2024-01-01" value:420
+  item "2024-01-05" value:180
+  item "2024-01-10" value:-240
+  item "2024-01-15" value:-90
+  item "2024-01-20" value:310
+  item "2024-01-25" value:520
+}
+```
+
+### ChoroplethChart (`/choropleth-chart`)
+
+#### Default
+
+```cronus
+component ChoroplethChartDefault layout:stack style:choropleth-chart {
+  label "Choropleth chart of regional intensity."
+  item "Northwest" value:42
+  item "Northeast" value:78
+  item "West" value:31
+  item "Central" value:95
+  item "East" value:58
+  item "Southwest" value:22
+  item "Southeast" value:67
+}
+```
+
+#### Motion
+
+```cronus
+component ChoroplethChartMotion layout:stack style:choropleth-chart+motion zoom:true {
+  label "Choropleth chart of the world with zoom and hover."
+  item "Northwest" value:42
+  item "Northeast" value:78
+  item "West" value:31
+  item "Central" value:95
+  item "East" value:58
+  item "Southwest" value:22
+  item "Southeast" value:67
+}
+```
+
+### SunburstChart (`/sunburst-chart`)
+
+#### Default
+
+```cronus
+component SunburstChartDefault layout:stack style:sunburst-chart {
+  label "Sunburst chart of revenue by product line."
+  item "Product" value:48
+  item "App" value:28 parent:"Product"
+  item "API" value:20 parent:"Product"
+  item "Services" value:32
+  item "Support" value:18 parent:"Services"
+  item "Consulting" value:14 parent:"Services"
+}
+```
+
+#### Motion
+
+```cronus
+component SunburstChartMotion layout:stack style:sunburst-chart+motion root:"Revenue" size:360 {
+  label "Sunburst chart of revenue by product line."
+  item "Product"
+  item "Enterprise" value:198 parent:"Product"
+  item "Pro" value:145 parent:"Product"
+  item "Starter" value:95 parent:"Product"
+  item "Services"
+  item "Consulting" value:160 parent:"Services"
+  item "Support" value:90 parent:"Services"
+  item "Training" value:55 parent:"Services"
+  item "Partners"
+  item "Referrals" value:120 parent:"Partners"
+  item "Affiliates" value:75 parent:"Partners"
+}
+```
+
+### HeatmapChart (`/heatmap-chart`)
+
+#### Default
+
+```cronus
+component HeatmapChartDefault layout:stack style:heatmap-chart start:"2026-06-01" data:"3,10,5,0,7,2,9,4,11,6,1,8,3,10,5,0,7,2,9,4,11,6,1,8,3,10,5,0,7,2,9,4,11,6,1,8,3,10,5,0,7,2,9,4,11,6,1,8,3,10,5,0,7,2,9,4,11,6,1,8,3,10,5,0,7,2,9,4,11,6,1,8,3,10,5,0,7,2,9,4,11,6,1,8" {
+  label "Calendar heatmap of daily activity."
+}
+```
+
+#### Motion
+
+```cronus
+component HeatmapChartMotion layout:stack style:heatmap-chart+motion start:"2024-01-01" rows:7 legend:true data:"0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1" {
+  label "Heatmap chart of daily contributions."
+}
+```
+
 ## Premium & Brand
 
 ### GlassCard (`/glass-card`)
@@ -7025,7 +7853,7 @@ component LockedSlot layout:stack style:time-picker value:"08:00" disabled:true 
 ```cronus
 component Frosted layout:stack style:glass-card icon:sparkles backdrop:inset {
   title "Premium by default"
-  text "Frosted blur ships out of the box — sit it on a surface, not a Midjourney wash."
+  text "Frosted blur ships out of the box: sit it on a surface, not a Midjourney wash."
 }
 ```
 
@@ -7389,14 +8217,14 @@ component LogoTicker layout:stack style:marquee+ticker speed:32 {
 component TestimonialsLeft layout:stack style:marquee speed:24 {
   label "Testimonials"
   item "We shipped a polished, on-brand UI in a weekend. The theming alone paid for itself." name:"Ana Ribeiro" role:"Head of Design, Northwind" initials:"AR"
-  item "Every component is accessible out of the box — our axe audit went green on the first pass." name:"Marcus Lee" role:"Staff Engineer, Atlas" initials:"ML"
+  item "Every component is accessible out of the box: our axe audit went green on the first pass." name:"Marcus Lee" role:"Staff Engineer, Atlas" initials:"ML"
   item "The motion is tasteful and respects reduced-motion. It feels premium without trying hard." name:"Priya Nair" role:"Product Lead, Lumen" initials:"PN"
   item "Drop-in registry, zero lock-in. We own the code and still get updates when we want them." name:"Tomás Costa" role:"Founder, Brava" initials:"TC"
 }
 component TestimonialsRight layout:stack style:marquee speed:24 direction:right {
   label "Testimonials, reversed"
   item "We shipped a polished, on-brand UI in a weekend. The theming alone paid for itself." name:"Ana Ribeiro" role:"Head of Design, Northwind" initials:"AR"
-  item "Every component is accessible out of the box — our axe audit went green on the first pass." name:"Marcus Lee" role:"Staff Engineer, Atlas" initials:"ML"
+  item "Every component is accessible out of the box: our axe audit went green on the first pass." name:"Marcus Lee" role:"Staff Engineer, Atlas" initials:"ML"
   item "The motion is tasteful and respects reduced-motion. It feels premium without trying hard." name:"Priya Nair" role:"Product Lead, Lumen" initials:"PN"
   item "Drop-in registry, zero lock-in. We own the code and still get updates when we want them." name:"Tomás Costa" role:"Founder, Brava" initials:"TC"
 }
@@ -7616,7 +8444,7 @@ component LoadingSheen layout:stack style:shimmer {
 component ScrollReveal layout:stack style:reveal card:true icon:sparkles icon-size:lg {
   title "Reveal as you scroll"
   text "This card fades and slides into view the moment it enters the viewport. Give it room so the entrance is unmistakable."
-  text "Wrap any block — a hero, a pricing tier, a feature grid — and it arrives with intent instead of popping in. Reveals fire a single time, so the section settles instead of replaying as you scroll past."
+  text "Wrap any block: a hero, a pricing tier, a feature grid: and it arrives with intent instead of popping in. Reveals fire a single time, so the section settles instead of replaying as you scroll past."
   item "Fade" description:"opacity 0 → 1"
   item "Slide" description:"y 24 → 0"
   item "Once" description:"no replay"
@@ -8170,7 +8998,7 @@ component PromptBar layout:stack style:border-beam+bar size:80 duration:5 width:
 ```cronus
 component Reverse layout:stack style:border-beam size:90 duration:5 reverse:true width:xs gap:3 icon:shield-check {
   title "Pagamentos protegidos"
-  text "Antifraude e 3-D Secure em cada transação — o feixe reverso mantém o olhar na borda."
+  text "Antifraude e 3-D Secure em cada transação: o feixe reverso mantém o olhar na borda."
 }
 ```
 
@@ -8391,7 +9219,7 @@ component Pedido layout:stack style:flip-card trigger:controlled axis:vertical a
 ```cronus
 component GlareParallax layout:stack style:tilt-card glare:true parallax:true width:xs icon:zap icon-size:lg {
   title "Repasses instantâneos" size:lg
-  text "O saldo entra no mesmo instante em que a venda é aprovada — sem lote noturno, sem espera."
+  text "O saldo entra no mesmo instante em que a venda é aprovada: sem lote noturno, sem espera."
 }
 ```
 
@@ -8876,7 +9704,7 @@ component Dawn layout:stack style:light-rays card:true heading:2xl { label "Dawn
 component EdgeFade layout:stack style:progressive-blur card:true side:bottom {
   text "Scroll under the blur. The band is decorative and sits on the edge of the region."
   text "More copy so the panel actually scrolls."
-  text "Keep going — the fade holds the last lines."
+  text "Keep going: the fade holds the last lines."
   text "Last line of the stack."
 }
 ```
