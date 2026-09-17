@@ -1,0 +1,196 @@
+/* family-wallet: Family sign-in drawer (Skiper 21). Native modal <dialog>; views and methods are radio groups. */
+[data-slot="family-wallet"] {
+  position: relative; display: flex; min-height: 28rem; width: 100%; box-sizing: border-box; flex-direction: column;
+  align-items: center; justify-content: center; padding: 1.25rem; color: var(--cronus-fg); font-family: var(--cronus-font-sans, inherit);
+  /* Family fills the component paints (React bg-[#4EAFFF] / bg-[#22c55e] / #0ea5e9 orb). */
+  --cui-family-sky: rgb(78, 175, 255); --cui-family-green: rgb(34, 197, 94); --cui-family-orb: rgb(14, 165, 233);
+}
+[data-slot="family-wallet"] .sr-only, [data-slot="family-wallet"] .views > input {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="family-wallet"] > p {
+  position: absolute; inset-inline: 0; top: 3rem; margin: 0 auto; max-width: 12ch; text-align: center; opacity: 0.4;
+  font-size: 0.75rem; line-height: 1.25; text-transform: uppercase; color: var(--cronus-fg-tertiary);
+}
+[data-slot="family-wallet"] > p::after {
+  content: ""; position: absolute; inset-inline-start: 50%; top: 100%; height: 4rem; width: 1px; translate: -50% 0;
+  background: linear-gradient(to bottom, transparent, var(--cronus-fg));
+}
+[data-slot="family-wallet"] > p:dir(rtl)::after { translate: 50% 0; }
+[data-slot="family-wallet"] button, [data-slot="family-wallet"] label { font: inherit; color: inherit; border: 0; margin: 0; padding: 0; background: none; box-sizing: border-box; }
+[data-slot="family-wallet"] [data-slot="family-wallet-trigger"] {
+  border-radius: 9999px; background: var(--cronus-surface-overlay); padding: 0.5rem 1rem; color: var(--cronus-fg); outline: none;
+  font-size: 1rem; line-height: 1.5rem;
+}
+[data-slot="family-wallet-trigger"]:focus-visible, [data-slot="family-wallet"] .round:focus-visible, [data-slot="family-wallet"] .socials > button:focus-visible {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
+}
+/* Drawer: fixed bottom sheet, 361px, rounded 36px; scrim on ::backdrop. */
+[data-slot="family-wallet-drawer"] { display: none; }
+[data-slot="family-wallet-drawer"][open], [data-slot="family-wallet-drawer"]:modal {
+  display: block; position: fixed; inset: auto 1rem 1rem; z-index: 50; margin: 0 auto; width: auto; max-width: 22.5625rem;
+  max-height: calc(100vh - 2rem); overflow: hidden; padding: 0; border: 0; border-radius: 36px;
+  background: var(--cronus-surface-base); color: var(--cronus-fg); outline: none;
+  animation: cui-family-wallet-in 270ms cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+[data-slot="family-wallet-drawer"]::backdrop {
+  background: color-mix(in oklab, var(--cronus-surface-base) 80%, transparent); backdrop-filter: blur(4px);
+}
+@keyframes cui-family-wallet-in { from { translate: 0 100%; } to { translate: 0 0; } }
+[data-slot="family-wallet"] .shell { position: relative; overflow: hidden; interpolate-size: allow-keywords; transition: height 270ms cubic-bezier(0.25, 1, 0.5, 1); }
+[data-slot="family-wallet"] .round {
+  display: flex; width: 2rem; height: 2rem; align-items: center; justify-content: center; border-radius: 9999px;
+  background: var(--cronus-surface-base); color: var(--cronus-fg); cursor: pointer; outline: none;
+  transition: transform 150ms var(--ease-out-quart);
+}
+[data-slot="family-wallet"] .round:active { transform: scale(0.75); }
+[data-slot="family-wallet"] .round > svg { width: 1rem; height: 1rem; opacity: 0.45; }
+[data-slot="family-wallet"] .round.close { position: absolute; inset-inline-end: 1.5rem; top: 1.25rem; z-index: 10; }
+[data-slot="family-wallet"] .round.close > svg { rotate: 45deg; }
+[data-slot="family-wallet"] .round.ghost { opacity: 0; background: none; }
+/* Views. */
+[data-slot="family-wallet"] .views { background: var(--cronus-surface-inset); }
+[data-slot="family-wallet"] .view { display: none; animation: cui-family-view-in 270ms cubic-bezier(0.26, 0.08, 0.25, 1) both; }
+[data-slot="family-wallet"] .views > input:nth-of-type(1):checked ~ .view:nth-of-type(1),
+[data-slot="family-wallet"] .views > input:nth-of-type(2):checked ~ .view:nth-of-type(2),
+[data-slot="family-wallet"] .views > input:nth-of-type(3):checked ~ .view:nth-of-type(3),
+[data-slot="family-wallet"] .views > input:nth-of-type(4):checked ~ .view:nth-of-type(4) { display: block; }
+@keyframes cui-family-view-in { from { opacity: 0; scale: 0.96; } to { opacity: 1; scale: 1; } }
+[data-slot="family-wallet"] .view h2 { margin: 0; font-size: 1.25rem; line-height: 1.75rem; font-weight: 500; user-select: none; }
+[data-slot="family-wallet"] .sign-in > h2 { padding: 1.5rem; text-align: center; }
+[data-slot="family-wallet"] .bar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 1.5rem; text-align: center; }
+[data-slot="family-wallet"] .stack { display: flex; flex-direction: column; gap: 1rem; }
+[data-slot="family-wallet"] .sign-in > .stack { padding-top: 0.5rem; }
+[data-slot="family-wallet"] .auth { display: flex; flex-direction: column; gap: 0.5rem; padding-inline: 1.5rem; }
+[data-slot="family-wallet"] .socials { display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; }
+[data-slot="family-wallet"] .socials > button {
+  display: flex; height: 3rem; width: 100%; align-items: center; justify-content: center; border-radius: var(--cronus-radius-xl);
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg); outline: none;
+  transition: background 200ms ease-out, transform 200ms ease-out;
+}
+[data-slot="family-wallet"] .socials > button:hover { background: var(--cronus-surface-raised); }
+[data-slot="family-wallet"] .socials > button:active { transform: scale(0.95); }
+[data-slot="family-wallet"] .socials svg, [data-slot="family-wallet"] .connect svg, [data-slot="family-wallet"] .none svg { width: 1rem; height: 1rem; }
+/* Segmented control: a pill under the checked tab (React layoutId). */
+[data-slot="family-wallet"] .methods { display: flex; height: 3rem; width: 100%; align-items: center; border-radius: var(--cronus-radius-2xl, calc(var(--cronus-radius, 14px) + 8px)); background: var(--cronus-surface-overlay); padding-inline: 0.25rem; box-sizing: border-box; }
+[data-slot="family-wallet"] .methods > div { position: relative; display: flex; width: 100%; margin: 0 auto; align-items: center; }
+[data-slot="family-wallet"] .methods label {
+  position: relative; display: flex; height: 2.5rem; width: 100%; cursor: pointer; align-items: center; justify-content: center;
+  padding: 0.375rem 0.75rem; text-align: center; font-size: 1rem; line-height: 1.5rem; color: var(--cronus-fg-tertiary);
+  transition: color 200ms ease-out;
+}
+[data-slot="family-wallet"] .methods label > input {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="family-wallet"] .methods label:has(> input:checked) { color: var(--cronus-fg); }
+[data-slot="family-wallet"] .methods .pill { position: absolute; inset: 0; border-radius: var(--cronus-radius-xl); background: color-mix(in oklab, var(--cronus-fg) 5%, transparent); opacity: 0; transition: opacity 200ms ease-out; }
+[data-slot="family-wallet"] .methods label:has(> input:checked) > .pill { opacity: 1; }
+[data-slot="family-wallet"] .methods label > span:last-child { position: relative; user-select: none; }
+[data-slot="family-wallet"] .methods label > input:focus-visible ~ span:last-child { text-decoration: underline; }
+/* Field row: email / tel / passkey per method, arrow Continue (enabled while :valid). */
+[data-slot="family-wallet"] .field {
+  display: flex; height: 3rem; width: 100%; align-items: center; justify-content: flex-start; gap: 0.75rem; overflow: hidden; box-sizing: border-box;
+  border-radius: var(--cronus-radius-2xl, calc(var(--cronus-radius, 14px) + 8px)); background: var(--cronus-surface-overlay);
+  padding-inline: 1rem 0.25rem; font-size: 1rem; line-height: 1.5rem;
+}
+[data-slot="family-wallet"] .field > div { display: flex; width: 100%; align-items: center; justify-content: flex-start; }
+[data-slot="family-wallet"] .field input {
+  display: none; width: 100%; background: transparent; border: 0; outline: none; font: inherit; font-weight: 500; color: var(--cronus-fg);
+}
+[data-slot="family-wallet"] .field input::placeholder { color: var(--cronus-fg-tertiary); }
+[data-slot="family-wallet"] .passkey-row { display: none; align-items: center; gap: 0.75rem; }
+[data-slot="family-wallet"] .passkey-row > svg { width: 1.5rem; height: 1.5rem; color: var(--cronus-fg-tertiary); }
+[data-slot="family-wallet"] .passkey-row > span { width: 100%; font-weight: 500; opacity: 0.5; }
+[data-slot="family-wallet"] .auth:has(.methods label:nth-child(1) > input:checked) .email { display: block; }
+[data-slot="family-wallet"] .auth:has(.methods label:nth-child(2) > input:checked) .phone { display: block; }
+[data-slot="family-wallet"] .auth:has(.methods label:nth-child(3) > input:checked) .passkey-row { display: flex; }
+[data-slot="family-wallet"] .continue {
+  display: none; height: 2.5rem; width: 3rem; flex-shrink: 0; align-items: center; justify-content: center; cursor: not-allowed;
+  border-radius: var(--cronus-radius-xl); box-shadow: var(--cronus-shadow-xs, none); pointer-events: none;
+  background: var(--cronus-surface-inset); color: var(--cronus-fg-tertiary);
+  transition: background 200ms ease-out, color 200ms ease-out, transform 200ms ease-out;
+}
+[data-slot="family-wallet"] .continue > svg { width: 1.25rem; height: 1.25rem; }
+[data-slot="family-wallet"] .auth:not(:has(.methods label:nth-child(3) > input:checked)) .continue:nth-of-type(1) { display: flex; }
+[data-slot="family-wallet"] .auth:has(.methods label:nth-child(3) > input:checked) .continue:nth-of-type(2) { display: flex; }
+[data-slot="family-wallet"] .auth:has(.methods label:nth-child(1) > input:checked):has(.email:valid) .continue,
+[data-slot="family-wallet"] .auth:has(.methods label:nth-child(2) > input:checked):has(.phone:valid) .continue,
+[data-slot="family-wallet"] .auth:has(.methods label:nth-child(3) > input:checked) .continue {
+  cursor: pointer; pointer-events: auto; background: var(--cui-family-sky); color: #fff;
+}
+[data-slot="family-wallet"] .continue:hover { background: color-mix(in oklab, var(--cui-family-sky) 90%, transparent); }
+[data-slot="family-wallet"] .continue:active { transform: scale(0.95); }
+/* Or rule + Connect Wallet. */
+[data-slot="family-wallet"] .sign-in > .stack > :is(.or, .connect) { margin-inline: 1.5rem; }
+[data-slot="family-wallet"] .sign-in > .stack > .connect { margin-bottom: 1.5rem; }
+[data-slot="family-wallet"] .or { position: relative; }
+[data-slot="family-wallet"] .or > div:first-child { position: absolute; inset: 0; display: flex; height: 2.5rem; align-items: center; }
+[data-slot="family-wallet"] .or > div:first-child > span { width: 100%; border-radius: 9999px; border-top: 1px solid var(--cronus-border); opacity: 0.2; }
+[data-slot="family-wallet"] .or > div:last-child { position: relative; display: flex; height: 2.5rem; justify-content: center; font-size: 0.75rem; line-height: 1rem; text-transform: uppercase; }
+[data-slot="family-wallet"] .or > div:last-child > span { display: flex; align-items: center; justify-content: center; padding-inline: 0.5rem; font-weight: 500; color: var(--cronus-fg-tertiary); background: var(--cronus-surface-inset); }
+[data-slot="family-wallet"] .connect, [data-slot="family-wallet"] .continue-wide, [data-slot="family-wallet"] .verify {
+  display: flex; height: 3rem; align-self: stretch; cursor: pointer; user-select: none; align-items: center; justify-content: center; gap: 0.5rem;
+  border-radius: 9999px; font-size: 1rem; line-height: 1.5rem; font-weight: 600; color: #fff; background: var(--cui-family-sky);
+  transition: background 200ms ease-out, transform 200ms ease-out;
+}
+[data-slot="family-wallet"] .connect:hover { background: color-mix(in oklab, var(--cui-family-sky) 80%, transparent); }
+[data-slot="family-wallet"] .connect:active, [data-slot="family-wallet"] .continue-wide:active { transform: scale(0.95); }
+/* OTP view. */
+[data-slot="family-wallet"] .otp > .stack { padding-inline: 1.5rem; text-align: center; gap: 1.5rem; }
+[data-slot="family-wallet"] .otp p { margin: 0; color: var(--cronus-fg-tertiary); font-size: 1rem; line-height: 1.5rem; }
+[data-slot="family-wallet"] .otp .dest { font-weight: 500; color: var(--cronus-fg); }
+[data-slot="family-wallet"] .for-phone { display: none; }
+[data-slot="family-wallet"]:has(.methods label:nth-child(2) > input:checked) .for-email { display: none; }
+[data-slot="family-wallet"]:has(.methods label:nth-child(2) > input:checked) .for-phone { display: inline; }
+[data-slot="family-wallet"] [data-input-otp-container] { width: 100%; justify-content: space-between; gap: 0.75rem; }
+[data-slot="family-wallet"] [data-slot="input-otp-group"] { width: 100%; justify-content: space-between; gap: 0.75rem; }
+[data-slot="family-wallet"] [data-slot="input-otp-slot"] {
+  height: 2.75rem; width: 100%; border: 0; border-radius: var(--cronus-radius-xl); background: var(--cronus-surface-overlay);
+}
+[data-slot="family-wallet"] .verify { height: auto; padding: 0.75rem; margin-bottom: 1.5rem; background: var(--cui-family-green); }
+/* Passkey view: orb with the travelling blob. */
+[data-slot="family-wallet"] .center { align-items: center; justify-content: center; padding-inline: 1.5rem; text-align: center; gap: 1.5rem; }
+[data-slot="family-wallet"] .center h3 { margin: 0; font-size: 1.25rem; line-height: 1.75rem; font-weight: 500; }
+[data-slot="family-wallet"] .center p { margin: 0.25rem 0 0; max-width: 16rem; text-wrap: pretty; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-tertiary); }
+[data-slot="family-wallet"] .orb { position: relative; overflow: hidden; padding: 6px; border-radius: 30px; }
+[data-slot="family-wallet"] .orb > .ring { position: absolute; inset: 0; border-radius: calc(30px * 0.96); }
+[data-slot="family-wallet"] .orb > .ring > i {
+  position: absolute; display: block; width: 5rem; height: 5rem; opacity: 0.8;
+  background: radial-gradient(var(--cui-family-orb) 40%, transparent 60%);
+  offset-path: inset(0 round 30%); offset-anchor: center; animation: cui-family-orbit 1.5s linear infinite;
+}
+@keyframes cui-family-orbit { from { offset-distance: 0%; } to { offset-distance: 100%; } }
+[data-slot="family-wallet"] .orb > .core {
+  position: relative; display: flex; width: 5rem; height: 5rem; box-sizing: border-box; align-items: center; justify-content: center;
+  border: 3px solid var(--cronus-surface-overlay); background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+  outline: 3px solid var(--cronus-surface-inset); border-radius: calc(30px * 0.96);
+}
+[data-slot="family-wallet"] .orb > .core > svg { width: 2rem; height: 2rem; opacity: 0.45; }
+[data-slot="family-wallet"] .continue-wide { margin-bottom: 1.5rem; }
+/* Wallet view. */
+[data-slot="family-wallet"] .list { display: flex; flex-direction: column; gap: 0.5rem; padding: 0 1.5rem 1.5rem; }
+[data-slot="family-wallet"] .list > button {
+  display: flex; height: 3.75rem; width: 100%; cursor: pointer; align-items: center; justify-content: space-between;
+  border-radius: var(--cronus-radius-2xl, calc(var(--cronus-radius, 14px) + 8px)); background: var(--cronus-surface-overlay); padding-inline: 1rem;
+  font-size: 1.125rem; line-height: 1.75rem; font-weight: 500; transition: background 150ms var(--ease-out-quart);
+}
+[data-slot="family-wallet"] .list > button:hover { background: var(--cronus-surface-raised); }
+[data-slot="family-wallet"] .list > button > svg { width: 1.5rem; height: 1.5rem; }
+[data-slot="family-wallet"] .list > button > svg[data-icon="trust"] { width: 2rem; height: 2rem; }
+[data-slot="family-wallet"] .phantom { display: flex; width: 1.5rem; height: 1.5rem; align-items: center; justify-content: center; border-radius: 9999px; background: rgb(171, 158, 242); }
+[data-slot="family-wallet"] .phantom > svg { width: 1rem; height: 1rem; }
+[data-slot="family-wallet"] .other { display: flex; align-items: center; gap: 0.75rem; }
+[data-slot="family-wallet"] .count {
+  border-radius: 9999px; border: 1px solid color-mix(in oklab, var(--cronus-fg) 10%, transparent); background: var(--cronus-surface-inset);
+  padding: 0.25rem 0.5rem; font-size: 0.75rem; line-height: 1rem; font-weight: 500; color: var(--cronus-fg-tertiary);
+}
+[data-slot="family-wallet"] .other-mark {
+  display: flex; width: 2.25rem; height: 2.25rem; align-items: center; justify-content: center; border-radius: var(--cronus-radius-lg);
+  border: 1px solid color-mix(in oklab, var(--cronus-fg) 10%, transparent); background: var(--cronus-surface-inset); color: var(--cronus-fg-tertiary);
+}
+[data-slot="family-wallet"] .other-mark > svg { width: 1.25rem; height: 1.25rem; opacity: 0.45; }
+[data-slot="family-wallet"] .list > .none {
+  height: auto; justify-content: center; gap: 0.5rem; padding: 1.5rem 0 0.75rem; border-radius: 0; background: none;
+  font-size: 1rem; line-height: 1.5rem; color: var(--cronus-fg-tertiary);
+}
+[data-slot="family-wallet"] .list > .none:hover { color: var(--cronus-fg); background: none; }

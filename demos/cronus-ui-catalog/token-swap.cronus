@@ -1,0 +1,6 @@
+page "/token-swap" type:components family:token-swap {
+  title "TokenSwap"
+  description:"Aave-style swap: animated amount, USD conversion, Max and Clear."
+}
+
+component AaveSwap layout:stack style:token-swap group:"Aave swap" note:"Type an amount: digits fade in, the USD readout grows, Max morphs Use → Using, and the receive side rolls. Over the 111.82 ETH balance, the USD row becomes Not Enough ETH. Clear resets." { label "Swap" }

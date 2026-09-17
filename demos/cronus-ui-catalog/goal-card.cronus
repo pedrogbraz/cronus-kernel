@@ -1,0 +1,16 @@
+page "/goal-card" type:components family:goal-card {
+  title "GoalCard"
+  description:"Objective card with progress, status, steps, and a due date."
+}
+
+component Mvp layout:stack style:goal-card+in_progress progress:75 due:"2025-12-08" group:"Progress" note:"A goal with a progress bar, status chip, completed/total steps, and a due date. Status can be passed in or derived from progress." {
+  title "Launch MVP by end of quarter"
+  item "Design" completed:true
+  item "Develop" completed:true
+  item "Ship"
+  item "Announce"
+}
+component Kickoff layout:stack style:goal-card+not_started progress:0 group:"Statuses" note:"not_started, in_progress, completed, and at_risk map onto warning, info, success, and error chips." { title "Kickoff research" }
+component Launch layout:stack style:goal-card+in_progress progress:75 group:"Statuses" { title "Launch MVP" }
+component Onboarding layout:stack style:goal-card+completed progress:100 group:"Statuses" { title "Complete onboarding" }
+component Performance layout:stack style:goal-card+at_risk progress:30 group:"Statuses" { title "Fix performance" }

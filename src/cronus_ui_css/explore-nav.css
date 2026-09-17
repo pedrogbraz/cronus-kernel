@@ -1,0 +1,128 @@
+/* explore-nav: Apple product navbar (Skiper 75). Collapsed 55px bar; :has(:checked) on the Explore checkbox expands it. */
+[data-slot="explore-nav"] {
+  position: relative; width: 100%; max-width: 64rem; box-sizing: border-box; overflow: hidden;
+  height: 55px; padding-block: 12px; border-radius: 18px;
+  background: var(--cronus-surface-base); color: var(--cronus-fg); box-shadow: 0 0 0 1px var(--cronus-border);
+  backdrop-filter: blur(20px); font-family: var(--cronus-font-sans, inherit);
+  interpolate-size: allow-keywords;
+  transition: height var(--cronus-spring-soft), border-radius var(--cronus-spring-soft);
+  /* Apple Buy fill the component paints (React bg-[#0071e3]); black-on-white type stays AA. */
+  --cui-explore-nav-buy: rgb(0, 113, 227);
+}
+[data-slot="explore-nav"]:has(> .bar input:checked) { height: auto; border-radius: 28px; }
+[data-slot="explore-nav"] label { position: relative; display: inline-flex; }
+[data-slot="explore-nav"] label > input {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="explore-nav"] label > input:focus-visible + * { box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring); }
+[data-slot="explore-nav"] label > button, [data-slot="explore-nav"] label > span { pointer-events: none; }
+[data-slot="explore-nav"] button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: default; }
+/* Bar. */
+[data-slot="explore-nav"] > .bar { display: flex; height: 2rem; width: 100%; box-sizing: border-box; align-items: center; justify-content: space-between; padding-inline: 1rem; }
+[data-slot="explore-nav"] > .bar > div:first-child > h2 {
+  margin: 0; font-size: 1.25rem; line-height: 1.75rem; font-weight: 500; letter-spacing: 0.012em; color: var(--cronus-fg);
+  transition: opacity var(--cronus-spring-soft);
+}
+[data-slot="explore-nav"]:has(> .bar input:checked) > .bar > div:first-child > h2 { opacity: 0; }
+[data-slot="explore-nav"] > .bar > div:last-child { display: flex; height: 2rem; align-items: center; gap: 0.5rem; }
+/* Explore toggle: 72×28 outline pill → 42×42 inverted circle with the X (Plus rotated 45°). */
+[data-slot="explore-nav"] > .bar label > button {
+  display: inline-flex; align-items: center; justify-content: center; overflow: hidden; box-sizing: border-box;
+  width: 72px; height: 28px; border-radius: 28px; border: 1px solid var(--cronus-border); background: transparent; color: var(--cronus-fg);
+  font-size: 0.75rem; line-height: 1rem;
+  transition: width var(--cronus-spring-soft), height var(--cronus-spring-soft), border-radius var(--cronus-spring-soft), background 150ms var(--ease-out-quart), color 150ms var(--ease-out-quart), border-color 150ms var(--ease-out-quart);
+}
+[data-slot="explore-nav"]:has(> .bar input:checked) > .bar label > button { width: 42px; height: 42px; border-radius: 38px; border-color: transparent; background: var(--cronus-fg); color: var(--cronus-fg-inverse); }
+[data-slot="explore-nav"] > .bar label > button > span { display: flex; align-items: center; justify-content: center; transition: opacity 200ms var(--ease-out-quart), filter 200ms var(--ease-out-quart), scale 200ms var(--ease-out-quart); }
+[data-slot="explore-nav"] > .bar label > button > .close { position: absolute; opacity: 0; filter: blur(4px); scale: 0.5; rotate: 45deg; }
+[data-slot="explore-nav"] > .bar label > button > .close > svg { width: 1.5rem; height: 1.5rem; }
+[data-slot="explore-nav"]:has(> .bar input:checked) > .bar label > button > .explore { opacity: 0; filter: blur(4px); }
+[data-slot="explore-nav"]:has(> .bar input:checked) > .bar label > button > .close { opacity: 1; filter: blur(0); scale: 1; }
+[data-slot="explore-nav"] .buy-collapsed { display: inline-flex; transition: opacity var(--cronus-spring-soft); }
+[data-slot="explore-nav"]:has(> .bar input:checked) .buy-collapsed { opacity: 0; pointer-events: none; }
+[data-slot="explore-nav"] .buy {
+  position: relative; display: inline-flex; align-items: center; box-sizing: border-box; cursor: pointer; text-decoration: none;
+  height: 26px; padding-inline: 0.75rem; border-radius: 9999px; font-size: 0.75rem; line-height: 1rem; letter-spacing: 0.035em;
+  color: #fff; background: var(--cui-explore-nav-buy); outline: none;
+}
+[data-slot="explore-nav"] .buy:disabled { opacity: 1; }
+[data-slot="explore-nav"] .buy:focus-visible { box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring); }
+/* Body (shown expanded, fades / rises in like the motion variant). */
+[data-slot="explore-nav"] > .body { display: none; height: 100%; padding: 1.25rem 2rem 0; }
+@media (min-width: 64rem) { [data-slot="explore-nav"] > .body { padding-inline: 3.5rem; } }
+[data-slot="explore-nav"]:has(> .bar input:checked) > .body { display: block; animation: cui-explore-nav-in var(--cronus-spring-soft) both; }
+@keyframes cui-explore-nav-in { from { opacity: 0; translate: 0 12px; } to { opacity: 1; translate: 0 0; } }
+[data-slot="explore-nav"] .carousel { position: relative; margin-bottom: 2.5rem; height: 10rem; border-bottom: 1px solid var(--cronus-border); }
+[data-slot="explore-nav"] .scroller {
+  display: flex; height: 100%; gap: 1rem; padding-inline: 0.5rem; overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory; scrollbar-width: none;
+}
+[data-slot="explore-nav"] .scroller::-webkit-scrollbar { display: none; }
+[data-slot="explore-nav"] .scroller > label { min-width: 22%; flex-shrink: 0; scroll-snap-align: start; }
+@media (min-width: 48rem) { [data-slot="explore-nav"] .scroller > label { min-width: 12%; } }
+[data-slot="explore-nav"] [data-slot="explore-nav-product"] {
+  display: flex; width: 100%; flex-direction: column; align-items: center; cursor: pointer;
+  transition: transform var(--cronus-spring-soft);
+}
+[data-slot="explore-nav"] .scroller > label:hover > [data-slot="explore-nav-product"] { transform: translateY(-8px); }
+[data-slot="explore-nav"] [data-slot="explore-nav-product"] > img { height: 4.5rem; object-fit: contain; }
+[data-slot="explore-nav"] [data-slot="explore-nav-product"] > p { margin: 0; font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-tertiary); }
+[data-slot="explore-nav"] [data-slot="explore-nav-product"] > p:first-of-type { padding-top: 0.75rem; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; color: var(--cronus-fg); }
+[data-slot="explore-nav"] [data-slot="explore-nav-product"] > .badge { color: var(--cronus-warning-text); }
+[data-slot="explore-nav"] [data-slot="explore-nav-product"] > .viewing { display: none; }
+[data-slot="explore-nav"] .scroller > label:has(> input:checked) > [data-slot="explore-nav-product"] > .viewing { display: block; }
+[data-slot="explore-nav"] .scroller > label:has(> input:checked) > [data-slot="explore-nav-product"] > .badge { display: none; }
+/* Prev / next arrows: JS-only scroll helpers, idle look. */
+[data-slot="explore-nav"] .carousel > button {
+  position: absolute; top: 50%; z-index: 10; display: flex; width: 2.5rem; height: 2.5rem; align-items: center; justify-content: center;
+  color: var(--cronus-fg); translate: 0 -50%;
+}
+[data-slot="explore-nav"] .carousel > button > svg { width: 1.25rem; height: 1.25rem; }
+[data-slot="explore-nav"] .carousel > button:nth-of-type(1) { inset-inline-start: 0; margin-inline-start: -1.25rem; }
+[data-slot="explore-nav"] .carousel > button:nth-of-type(2) { inset-inline-end: 0; margin-inline-end: -1.25rem; }
+[data-slot="explore-nav"] .carousel > button > svg:dir(rtl) { transform: rotate(180deg); }
+/* Selected product: heading + price per product, the checked radio picks which one shows. */
+[data-slot="explore-nav"] .selected { display: flex; width: 100%; flex-direction: column; justify-content: space-between; gap: 0.75rem; }
+@media (min-width: 64rem) { [data-slot="explore-nav"] .selected { flex-direction: row; } }
+[data-slot="explore-nav"] .names > h2 {
+  display: none; margin: 0; font-size: 1.875rem; line-height: 1.21; font-weight: 500; letter-spacing: -0.02em; color: var(--cronus-fg);
+}
+@media (min-width: 64rem) { [data-slot="explore-nav"] .names > h2 { font-size: 40px; } }
+[data-slot="explore-nav"] .prices > div { display: none; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg); }
+@media (min-width: 64rem) { [data-slot="explore-nav"] .prices > div { text-align: end; } }
+[data-slot="explore-nav"] .prices p { margin: 0; }
+[data-slot="explore-nav"] .prices p:first-child { font-weight: 500; }
+[data-slot="explore-nav"] .prices p + p { color: var(--cronus-fg-tertiary); }
+[data-slot="explore-nav"]:has(.scroller > label:nth-child(1) > input:checked) .names > h2:nth-child(1), [data-slot="explore-nav"]:has(.scroller > label:nth-child(1) > input:checked) .prices > div:nth-child(1) { display: block; }
+[data-slot="explore-nav"]:has(.scroller > label:nth-child(2) > input:checked) .names > h2:nth-child(2), [data-slot="explore-nav"]:has(.scroller > label:nth-child(2) > input:checked) .prices > div:nth-child(2) { display: block; }
+[data-slot="explore-nav"]:has(.scroller > label:nth-child(3) > input:checked) .names > h2:nth-child(3), [data-slot="explore-nav"]:has(.scroller > label:nth-child(3) > input:checked) .prices > div:nth-child(3) { display: block; }
+[data-slot="explore-nav"]:has(.scroller > label:nth-child(4) > input:checked) .names > h2:nth-child(4), [data-slot="explore-nav"]:has(.scroller > label:nth-child(4) > input:checked) .prices > div:nth-child(4) { display: block; }
+[data-slot="explore-nav"]:has(.scroller > label:nth-child(5) > input:checked) .names > h2:nth-child(5), [data-slot="explore-nav"]:has(.scroller > label:nth-child(5) > input:checked) .prices > div:nth-child(5) { display: block; }
+[data-slot="explore-nav"]:has(.scroller > label:nth-child(6) > input:checked) .names > h2:nth-child(6), [data-slot="explore-nav"]:has(.scroller > label:nth-child(6) > input:checked) .prices > div:nth-child(6) { display: block; }
+[data-slot="explore-nav"]:has(.scroller > label:nth-child(7) > input:checked) .names > h2:nth-child(7), [data-slot="explore-nav"]:has(.scroller > label:nth-child(7) > input:checked) .prices > div:nth-child(7) { display: block; }
+[data-slot="explore-nav"]:has(.scroller > label:nth-child(8) > input:checked) .names > h2:nth-child(8), [data-slot="explore-nav"]:has(.scroller > label:nth-child(8) > input:checked) .prices > div:nth-child(8) { display: block; }
+[data-slot="explore-nav"]:has(.scroller > label:nth-child(9) > input:checked) .names > h2:nth-child(9), [data-slot="explore-nav"]:has(.scroller > label:nth-child(9) > input:checked) .prices > div:nth-child(9) { display: block; }
+[data-slot="explore-nav"]:has(.scroller > label:nth-child(10) > input:checked) .names > h2:nth-child(10), [data-slot="explore-nav"]:has(.scroller > label:nth-child(10) > input:checked) .prices > div:nth-child(10) { display: block; }
+[data-slot="explore-nav"]:has(.scroller > label:nth-child(11) > input:checked) .names > h2:nth-child(11), [data-slot="explore-nav"]:has(.scroller > label:nth-child(11) > input:checked) .prices > div:nth-child(11) { display: block; }
+[data-slot="explore-nav"]:has(.scroller > label:nth-child(12) > input:checked) .names > h2:nth-child(12), [data-slot="explore-nav"]:has(.scroller > label:nth-child(12) > input:checked) .prices > div:nth-child(12) { display: block; }
+[data-slot="explore-nav"] .names > h2:only-child { display: block; }
+[data-slot="explore-nav"] .buy-row { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 1.5rem; }
+@media (min-width: 64rem) { [data-slot="explore-nav"] .buy-row { width: fit-content; } }
+[data-slot="explore-nav"] .buy-row > .buy { height: 2.75rem; padding-inline: 1rem; font-size: 1.125rem; line-height: 1.75rem; }
+/* Overview disclosure + chip links. */
+[data-slot="explore-nav"] .overview { margin-top: 1.5rem; padding: 0.5rem; }
+@media (min-width: 64rem) { [data-slot="explore-nav"] .overview { padding: 1.25rem; } }
+[data-slot="explore-nav"] .overview > label > button { display: flex; align-items: center; gap: 0.5rem; color: var(--cronus-fg-tertiary); font-size: 1rem; line-height: 1.5rem; }
+@media (min-width: 64rem) { [data-slot="explore-nav"] .overview > label > button { font-size: 1.25rem; line-height: 1.75rem; } }
+[data-slot="explore-nav"] .overview > label > button > svg { width: 1rem; height: 1rem; transition: transform 150ms var(--ease-out-quart); }
+[data-slot="explore-nav"] .overview > label:has(> input:checked) > button > svg { transform: rotate(180deg); }
+[data-slot="explore-nav"] .links { display: none; margin-top: 1.25rem; max-width: 36rem; flex-wrap: wrap; gap: 0.5rem; overflow: hidden; }
+@media (min-width: 64rem) { [data-slot="explore-nav"] .links { margin-top: 1.5rem; } }
+[data-slot="explore-nav"] .overview > label:has(> input:checked) + .links { display: flex; animation: cui-explore-nav-in var(--cronus-spring-soft) both; }
+[data-slot="explore-nav"] .links > label { margin-inline-end: 1rem; }
+[data-slot="explore-nav"] .links > label > span {
+  display: inline-flex; cursor: pointer; border-radius: 9999px; padding: 0.5rem 1.25rem; text-align: center; font-weight: 500; text-transform: capitalize;
+  color: var(--cronus-fg); font-size: 1rem; line-height: 1.5rem; transition: background 150ms var(--ease-out-quart), color 150ms var(--ease-out-quart);
+}
+@media (min-width: 64rem) { [data-slot="explore-nav"] .links > label > span { font-size: 1.125rem; line-height: 1.75rem; } }
+[data-slot="explore-nav"] .links > label:hover > span, [data-slot="explore-nav"] .links > label > input:checked + span { background: var(--cronus-fg); color: var(--cronus-fg-inverse); }

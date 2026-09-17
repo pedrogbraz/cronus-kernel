@@ -1,0 +1,6 @@
+page "/receive-button" type:components family:receive-button {
+  title "ReceiveButton"
+  description:"Family Receive pill that morphs into a confirmation card."
+}
+
+component FamilyReceive layout:stack style:receive-button group:"Family receive" note:"The sky pill morphs into a confirmation card. Receive, Cancel, the close X, Escape, or the blurred backdrop all collapse it back. The CTA keeps its layoutId so it flies into the dialog." { label "Receive" }

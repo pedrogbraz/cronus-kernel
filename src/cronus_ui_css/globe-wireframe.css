@@ -1,0 +1,221 @@
+/* globe-wireframe: orthographic globe built from HTML 3D transforms (no perspective = orthographic, like d3 geoOrthographic).
+   The `.spin` group rotates about the polar axis (rotate: y); meridians are rings rotated 10 deg apart, latitude lines are
+   static horizontal segments, back-facing halves dim through a phase-shifted opacity loop. globe-3d shares this machinery
+   (its renderer notes this family so the rules ship). */
+[data-slot="globe-wireframe"] {
+  position: relative; width: 100%; max-width: 28rem; aspect-ratio: 1 / 1; margin-inline: auto; color: var(--cronus-fg);
+  --cui-globe-period: 13.3s; --cui-globe-line: 1px; --cui-globe-line-opacity: 0.45; --cui-globe-back: 0.12;
+}
+[data-slot="globe-wireframe"][data-variant="wireframesolid"] { --cui-globe-line-opacity: 1; --cui-globe-back: 0.2; }
+[data-slot="globe-wireframe"][data-variant="solid"] { --cui-globe-line-opacity: 0.3; --cui-globe-line: 0.5px; --cui-globe-back: 0; }
+[data-slot="globe-wireframe"] > .sr-only, [data-slot="globe-3d"] > .sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) > .globe {
+  position: absolute; inset: 5%; transform-style: preserve-3d; cursor: grab; user-select: none;
+}
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) > .globe > .disc, :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) > .globe > .rim, :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat, :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .spin, :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m, :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > i {
+  position: absolute; inset: 0; border-radius: 50%; box-sizing: border-box;
+}
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) > .globe > .disc { display: none; }
+[data-slot="globe-wireframe"][data-variant="solid"] > .globe > .disc {
+  display: block; background: color-mix(in oklab, currentColor 30%, transparent); transform: translateZ(-1px);
+}
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) > .globe > .rim { border: 1px solid currentColor; opacity: 1; pointer-events: none; }
+[data-slot="globe-wireframe"]:is([data-variant="wireframesolid"], [data-variant="solid"]) > .globe > .rim { border-width: 1.5px; opacity: 0.8; }
+/* Graticule latitude lines: the equator-on orthographic view flattens them to horizontal segments. */
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat { border-radius: 0; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat > i {
+  position: absolute; display: block; height: 0; border-top: var(--cui-globe-line) solid currentColor; opacity: var(--cui-globe-line-opacity);
+}
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat > i:nth-child(1) { top: 99.24%; width: 17.36%; inset-inline-start: 41.32%; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat > i:nth-child(2) { top: 96.98%; width: 34.20%; inset-inline-start: 32.90%; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat > i:nth-child(3) { top: 93.30%; width: 50.00%; inset-inline-start: 25.00%; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat > i:nth-child(4) { top: 88.30%; width: 64.28%; inset-inline-start: 17.86%; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat > i:nth-child(5) { top: 82.14%; width: 76.60%; inset-inline-start: 11.70%; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat > i:nth-child(6) { top: 75.00%; width: 86.60%; inset-inline-start: 6.70%; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat > i:nth-child(7) { top: 67.10%; width: 93.97%; inset-inline-start: 3.02%; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat > i:nth-child(8) { top: 58.68%; width: 98.48%; inset-inline-start: 0.76%; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat > i:nth-child(9) { top: 50.00%; width: 100.00%; inset-inline-start: 0.00%; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat > i:nth-child(10) { top: 41.32%; width: 98.48%; inset-inline-start: 0.76%; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat > i:nth-child(11) { top: 32.90%; width: 93.97%; inset-inline-start: 3.02%; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat > i:nth-child(12) { top: 25.00%; width: 86.60%; inset-inline-start: 6.70%; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat > i:nth-child(13) { top: 17.86%; width: 76.60%; inset-inline-start: 11.70%; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat > i:nth-child(14) { top: 11.70%; width: 64.28%; inset-inline-start: 17.86%; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat > i:nth-child(15) { top: 6.70%; width: 50.00%; inset-inline-start: 25.00%; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat > i:nth-child(16) { top: 3.02%; width: 34.20%; inset-inline-start: 32.90%; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .lat > i:nth-child(17) { top: 0.76%; width: 17.36%; inset-inline-start: 41.32%; }
+/* Meridians: 18 rings 10 deg apart inside the spinning group; `.a` / `.b` are the +x / -x halves. */
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .spin, :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m { border-radius: 0; transform-style: preserve-3d; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .spin { animation: cui-globe-spin var(--cui-globe-period) linear infinite; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"])[data-static] .spin { animation: none; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m { transform: rotateY(calc(var(--cui-ry, 0) * 1deg)); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m:nth-child(1) { --cui-ry: 0; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m:nth-child(2) { --cui-ry: 10; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m:nth-child(3) { --cui-ry: 20; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m:nth-child(4) { --cui-ry: 30; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m:nth-child(5) { --cui-ry: 40; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m:nth-child(6) { --cui-ry: 50; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m:nth-child(7) { --cui-ry: 60; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m:nth-child(8) { --cui-ry: 70; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m:nth-child(9) { --cui-ry: 80; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m:nth-child(10) { --cui-ry: 90; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m:nth-child(11) { --cui-ry: 100; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m:nth-child(12) { --cui-ry: 110; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m:nth-child(13) { --cui-ry: 120; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m:nth-child(14) { --cui-ry: 130; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m:nth-child(15) { --cui-ry: 140; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m:nth-child(16) { --cui-ry: 150; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m:nth-child(17) { --cui-ry: 160; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m:nth-child(18) { --cui-ry: 170; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > i {
+  display: block; border: var(--cui-globe-line) solid currentColor; opacity: var(--cui-globe-line-opacity);
+  animation: cui-globe-face var(--cui-globe-period) linear infinite;
+}
+/* Static values match the loop at t = 0: every +x half faces away (rings sit at 0…170 deg), every -x half faces the viewer. */
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .a { clip-path: inset(0 0 0 50%); opacity: calc(var(--cui-globe-line-opacity) * var(--cui-globe-back)); animation-delay: calc(var(--cui-ry, 0) / 360 * -1 * var(--cui-globe-period)); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .b { clip-path: inset(0 50% 0 0); animation-delay: calc((var(--cui-ry, 0) + 180) / 360 * -1 * var(--cui-globe-period)); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"])[data-static] .m > i { animation: none; }
+/* Surface dots (solid variant): discs tangent to the sphere, back faces culled. */
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .d {
+  position: absolute; display: block; width: 3.5%; height: 3.5%; inset: auto; border: 0; border-radius: 50%;
+  background: currentColor; opacity: 0.55; backface-visibility: hidden; animation: none;
+}
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .d:nth-child(3) { top: 93.30%; inset-inline-start: 75.00%; transform: translate(-50%, -50%) rotateZ(60deg) rotateY(90deg); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .d:nth-child(4) { top: 82.14%; inset-inline-start: 88.30%; transform: translate(-50%, -50%) rotateZ(40deg) rotateY(90deg); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .d:nth-child(5) { top: 67.10%; inset-inline-start: 96.98%; transform: translate(-50%, -50%) rotateZ(20deg) rotateY(90deg); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .d:nth-child(6) { top: 50.00%; inset-inline-start: 100.00%; transform: translate(-50%, -50%) rotateZ(0deg) rotateY(90deg); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .d:nth-child(7) { top: 32.90%; inset-inline-start: 96.98%; transform: translate(-50%, -50%) rotateZ(-20deg) rotateY(90deg); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .d:nth-child(8) { top: 17.86%; inset-inline-start: 88.30%; transform: translate(-50%, -50%) rotateZ(-40deg) rotateY(90deg); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .d:nth-child(9) { top: 6.70%; inset-inline-start: 75.00%; transform: translate(-50%, -50%) rotateZ(-60deg) rotateY(90deg); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .d:nth-child(10) { top: 93.30%; inset-inline-start: 25.00%; transform: translate(-50%, -50%) rotateZ(-60deg) rotateY(-90deg); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .d:nth-child(11) { top: 82.14%; inset-inline-start: 11.70%; transform: translate(-50%, -50%) rotateZ(-40deg) rotateY(-90deg); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .d:nth-child(12) { top: 67.10%; inset-inline-start: 3.02%; transform: translate(-50%, -50%) rotateZ(-20deg) rotateY(-90deg); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .d:nth-child(13) { top: 50.00%; inset-inline-start: 0.00%; transform: translate(-50%, -50%) rotateZ(0deg) rotateY(-90deg); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .d:nth-child(14) { top: 32.90%; inset-inline-start: 3.02%; transform: translate(-50%, -50%) rotateZ(20deg) rotateY(-90deg); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .d:nth-child(15) { top: 17.86%; inset-inline-start: 11.70%; transform: translate(-50%, -50%) rotateZ(40deg) rotateY(-90deg); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .m > .d:nth-child(16) { top: 6.70%; inset-inline-start: 25.00%; transform: translate(-50%, -50%) rotateZ(60deg) rotateY(-90deg); }
+@keyframes cui-globe-spin { from { rotate: y 0deg; } to { rotate: y 360deg; } }
+@keyframes cui-globe-unspin { from { rotate: y 0deg; } to { rotate: y -360deg; } }
+/* Front while sin(longitude + spin) < 0 (CSS rotateY sends +x away from the viewer). */
+@keyframes cui-globe-face {
+  0% { opacity: calc(var(--cui-globe-line-opacity, 1) * (1 + var(--cui-globe-back)) / 2); }
+  3% { opacity: calc(var(--cui-globe-line-opacity, 1) * var(--cui-globe-back)); } 47% { opacity: calc(var(--cui-globe-line-opacity, 1) * var(--cui-globe-back)); }
+  53% { opacity: var(--cui-globe-line-opacity, 1); } 97% { opacity: var(--cui-globe-line-opacity, 1); }
+  100% { opacity: calc(var(--cui-globe-line-opacity, 1) * (1 + var(--cui-globe-back)) / 2); }
+}
+/* Markers (globe-3d): nested coarse + fine rotations place a pin at an exact latitude / longitude;
+   the same rotations undone below the pin keep the avatar facing the camera (a sprite). */
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .marker, :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .marker div { position: absolute; inset: 0; transform-style: preserve-3d; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .marker { --cui-globe-line-opacity: 1; --cui-globe-back: 0; }
+/* Longitudes 0…180 start behind the viewer (static value = the loop at t = 0). */
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .marker.back :is(.stem, .tip, .face > img) { opacity: 0; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) [class^="ry-"], :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) [class*=" ry-"] { transform: rotateY(calc(var(--cui-ry, 0) * 1deg)); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) [class^="fy-"], :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) [class*=" fy-"] { transform: rotateY(calc(var(--cui-fy, 0) * 1deg)); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) [class^="rz-"], :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) [class*=" rz-"] { transform: rotateZ(calc(var(--cui-rz, 0) * 1deg)); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) [class^="fz-"], :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) [class*=" fz-"] { transform: rotateZ(calc(var(--cui-fz, 0) * 1deg)); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-0 { --cui-ry: 0; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-10 { --cui-ry: 10; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-20 { --cui-ry: 20; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-30 { --cui-ry: 30; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-40 { --cui-ry: 40; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-50 { --cui-ry: 50; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-60 { --cui-ry: 60; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-70 { --cui-ry: 70; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-80 { --cui-ry: 80; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-90 { --cui-ry: 90; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-100 { --cui-ry: 100; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-110 { --cui-ry: 110; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-120 { --cui-ry: 120; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-130 { --cui-ry: 130; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-140 { --cui-ry: 140; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-150 { --cui-ry: 150; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-160 { --cui-ry: 160; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-170 { --cui-ry: 170; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-180 { --cui-ry: 180; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-190 { --cui-ry: 190; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-200 { --cui-ry: 200; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-210 { --cui-ry: 210; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-220 { --cui-ry: 220; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-230 { --cui-ry: 230; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-240 { --cui-ry: 240; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-250 { --cui-ry: 250; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-260 { --cui-ry: 260; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-270 { --cui-ry: 270; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-280 { --cui-ry: 280; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-290 { --cui-ry: 290; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-300 { --cui-ry: 300; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-310 { --cui-ry: 310; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-320 { --cui-ry: 320; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-330 { --cui-ry: 330; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-340 { --cui-ry: 340; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .ry-350 { --cui-ry: 350; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fy-0 { --cui-fy: 0; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fy-1 { --cui-fy: 1; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fy-2 { --cui-fy: 2; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fy-3 { --cui-fy: 3; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fy-4 { --cui-fy: 4; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fy-5 { --cui-fy: 5; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fy-6 { --cui-fy: 6; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fy-7 { --cui-fy: 7; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fy-8 { --cui-fy: 8; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fy-9 { --cui-fy: 9; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-n90 { --cui-rz: -90; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-n80 { --cui-rz: -80; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-n70 { --cui-rz: -70; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-n60 { --cui-rz: -60; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-n50 { --cui-rz: -50; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-n40 { --cui-rz: -40; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-n30 { --cui-rz: -30; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-n20 { --cui-rz: -20; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-n10 { --cui-rz: -10; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-0 { --cui-rz: 0; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-10 { --cui-rz: 10; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-20 { --cui-rz: 20; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-30 { --cui-rz: 30; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-40 { --cui-rz: 40; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-50 { --cui-rz: 50; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-60 { --cui-rz: 60; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-70 { --cui-rz: 70; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-80 { --cui-rz: 80; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .rz-90 { --cui-rz: 90; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-n9 { --cui-fz: -9; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-n8 { --cui-fz: -8; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-n7 { --cui-fz: -7; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-n6 { --cui-fz: -6; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-n5 { --cui-fz: -5; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-n4 { --cui-fz: -4; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-n3 { --cui-fz: -3; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-n2 { --cui-fz: -2; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-n1 { --cui-fz: -1; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-1 { --cui-fz: 1; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-2 { --cui-fz: 2; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-3 { --cui-fz: 3; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-4 { --cui-fz: 4; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-5 { --cui-fz: 5; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-6 { --cui-fz: 6; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-7 { --cui-fz: 7; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-8 { --cui-fz: 8; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .fz-9 { --cui-fz: 9; }
+/* `.marker .pin` outranks the `.marker div` box rule above. */
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .marker .pin { position: absolute; inset: auto; top: 50%; inset-inline-start: 100%; width: 100%; height: 100%; transform-style: preserve-3d; }
+/* Stem, tip and avatar are leaves: they carry the front / back fade (opacity on a 3D parent would flatten it). */
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .pin > .stem, :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .pin > .tip {
+  position: absolute; top: 0; inset-inline-start: 0; animation: cui-globe-face var(--cui-globe-period) linear infinite;
+  animation-delay: calc((var(--cui-ry, 0) + var(--cui-fy, 0)) / 360 * -1 * var(--cui-globe-period));
+}
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .pin > .stem { width: 3.75%; height: 1px; margin-top: -0.5px; background: var(--cronus-fg-tertiary); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .pin > .tip { width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: var(--cronus-error); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .pin > .bb, :is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .pin > .bb span { position: absolute; top: 0; inset-inline-start: 0; width: 0; height: 0; display: block; transform-style: preserve-3d; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .pin > .bb { inset-inline-start: 3.75%; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .face { animation: cui-globe-unspin var(--cui-globe-period) linear infinite; }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .face > img {
+  position: absolute; top: 0; inset-inline-start: 0; width: 0.75rem; height: 0.75rem; max-width: none; margin: -0.375rem;
+  border-radius: 50%; object-fit: cover; background: var(--cronus-fg-inverse);
+  box-shadow: var(--cronus-shadow-lg, none); transition: transform 200ms var(--ease-out-quart), box-shadow 200ms var(--ease-out-quart);
+  /* The undo chain leaves 360 - longitude in the vars. */
+  animation: cui-globe-face var(--cui-globe-period) linear infinite;
+  animation-delay: calc(((var(--cui-ry, 0) + var(--cui-fy, 0)) / 360 - 1) * var(--cui-globe-period));
+}
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"]) .face > img:hover { transform: scale(1.25); box-shadow: var(--cronus-shadow-lg, none), 0 0 0 1px color-mix(in oklab, var(--cronus-fg) 50%, transparent); }
+:is([data-slot="globe-wireframe"], [data-slot="globe-3d"])[data-static] :is(.face, .stem, .tip, .face > img) { animation: none; }

@@ -1,0 +1,11 @@
+page "/images-badge" type:components family:images-badge {
+  title "ImagesBadge"
+  description:"A folder badge that fans preview images on hover."
+}
+
+component AgenforceFolder layout:inline style:images-badge group:"Folder" note:"A manila folder that fans up to three preview images on hover, then flattens the front. Same spring as Aceternity (stiffness: 400, damping: 25)." {
+  label "Introducing Agenforce Marketing Template"
+  item "Preview 1" -> "https://assets.aceternity.com/pro/agenforce-1.webp"
+  item "Preview 2" -> "https://assets.aceternity.com/pro/agenforce-2.webp"
+  item "Preview 3" -> "https://assets.aceternity.com/pro/agenforce-3.webp"
+}

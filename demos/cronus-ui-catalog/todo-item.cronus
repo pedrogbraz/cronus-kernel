@@ -1,0 +1,17 @@
+page "/todo-item" type:components family:todo-item {
+  title "TodoItem"
+  description:"Interactive todo row with priority, due date, labels, and subtasks."
+}
+
+component Docs layout:stack style:todo-item+high due:today project:"Cronus UI" group:"Interactive" note:"Checkbox, priority, due date, project, labels, and a subtask count. Toggle completion from the checkbox." {
+  title "Complete project documentation"
+  text "Write comprehensive docs for the new API"
+  badge "Documentation"
+  badge "API"
+  item "Outline" completed:true
+  item "Draft"
+}
+component TodoHigh layout:stack style:todo-item+high group:"Priority levels" note:"High, medium, and low use error, warning, and info tokens. none hides the chip." { title "Fix critical bug in production" }
+component TodoMedium layout:stack style:todo-item+medium group:"Priority levels" { title "Update documentation" }
+component TodoLow layout:stack style:todo-item+low group:"Priority levels" { title "Refactor legacy code" }
+component TodoNone layout:stack style:todo-item+none group:"Priority levels" { title "Review team submissions" }

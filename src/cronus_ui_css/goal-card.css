@@ -1,0 +1,73 @@
+/* goal-card: rounded-3xl border bg-surface-raised p-5 shadow-sm (React goalCardVariants). */
+[data-slot="goal-card"] {
+  position: relative; display: flex; width: 100%; flex-direction: column; box-sizing: border-box;
+  border-radius: var(--cronus-radius-3xl, calc(var(--cronus-radius, 14px) + 14px));
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised); color: var(--cronus-fg);
+  padding: 1.25rem;
+  box-shadow: var(--cronus-shadow-sm, none);
+  font-family: var(--cronus-font-sans, inherit);
+}
+[data-slot="goal-card"] > div:first-child {
+  position: relative; display: flex; width: 100%; align-items: center; gap: 0.5rem;
+}
+[data-slot="goal-card"] > div:first-child > h3 {
+  min-width: 0; flex: 1; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--cronus-font-display, inherit); font-size: 1.125rem; line-height: 1.75rem;
+  font-weight: 400; letter-spacing: -0.02em; color: var(--cronus-fg);
+}
+/* Delete: ghost icon-sm, revealed on hover / focus-within (group-hover). */
+[data-slot="goal-card"] > div:first-child > [data-slot="button"] {
+  width: 2rem; height: 2rem; flex-shrink: 0; opacity: 0;
+  transition: opacity 150ms var(--ease-out-quart);
+}
+[data-slot="goal-card"]:hover > div:first-child > [data-slot="button"],
+[data-slot="goal-card"]:focus-within > div:first-child > [data-slot="button"] { opacity: 1; }
+[data-slot="goal-card"] > p {
+  margin: 0.25rem 0 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
+}
+/* Progress row: h-2.5 bar + min-w-[2.5rem] percentage. */
+[data-slot="goal-card"] > div:nth-of-type(2) {
+  display: flex; align-items: center; gap: 0.75rem; margin: 1rem 0;
+}
+[data-slot="goal-card"] [data-slot="progress"] { height: 0.625rem; flex: 1; }
+[data-slot="goal-card"] > div:nth-of-type(2) > span {
+  min-width: 2.5rem; text-align: end; font-size: 0.875rem; line-height: 1.25rem;
+  font-weight: 500; color: var(--cronus-fg-tertiary);
+}
+/* Meta row: status chip, steps badge, date, View goal. */
+[data-slot="goal-card"] > div:nth-of-type(3) {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;
+}
+[data-slot="goal-card"] > div > .goal-status {
+  display: inline-flex; align-items: center; border-radius: 9999px;
+  padding: 0.25rem 0.625rem; font-size: 0.75rem; line-height: 1rem; font-weight: 500;
+  background: color-mix(in oklab, var(--cronus-warning) 15%, transparent); color: var(--cronus-warning-text);
+}
+[data-slot="goal-card"][data-status="in_progress"] > div > .goal-status {
+  background: color-mix(in oklab, var(--cronus-info) 15%, transparent); color: var(--cronus-info-text);
+}
+[data-slot="goal-card"][data-status="completed"] > div > .goal-status {
+  background: color-mix(in oklab, var(--cronus-success) 15%, transparent); color: var(--cronus-success-text);
+}
+[data-slot="goal-card"][data-status="at_risk"] > div > .goal-status {
+  background: color-mix(in oklab, var(--cronus-error) 15%, transparent); color: var(--cronus-error-text);
+}
+[data-slot="goal-card"] > div > [data-slot="badge"] {
+  border-radius: 9999px; font-weight: 400; color: var(--cronus-fg-tertiary);
+}
+[data-slot="goal-card"] > div > [data-slot="badge"] > svg,
+[data-slot="goal-card"] > div:nth-of-type(3) > span:not([data-slot]):not(.goal-status) > svg {
+  width: 0.875rem; height: 0.875rem; flex-shrink: 0;
+}
+[data-slot="goal-card"] > div:nth-of-type(3) > span:not([data-slot]):not(.goal-status) {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-tertiary);
+}
+[data-slot="goal-card"] > div:nth-of-type(3) > [data-slot="button"] {
+  margin-inline-start: auto; border-radius: 9999px;
+}
+[data-slot="goal-card"] > div:nth-of-type(3) > [data-slot="button"] > svg { width: 0.875rem; height: 0.875rem; }
+[data-slot="goal-card"] > div:nth-of-type(3) > [data-slot="button"] > svg:dir(rtl) { transform: scaleX(-1); }
+/* JS-only View goal (no href) keeps React's idle look. */
+[data-slot="goal-card"] > div:nth-of-type(3) > [data-slot="button"]:disabled { opacity: 1; }
