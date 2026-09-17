@@ -10,6 +10,7 @@ No release has been tagged since 0.1.0; everything below `[Unreleased]` is on
 
 ### Fixed
 
+- **Forms with `bind Entity` emit `data-cronus-entity`.** Save on `/projects/new` was 403 `UNKNOWN_FORM` / toast "Not allowed" because the renderer only read `config.entity`, not the bind.
 - **Login and register are native HTML forms.** No `localStorage`, no `fetch`. `POST /login` and `POST /register` set the session cookie and redirect. Failed login re-renders the form with an error. Sign Out is `POST /logout`.
 - **Landing pages do not load Google Fonts, Chart.js, or the create-modal JS blob.** They use `system-ui` and the in-tree Tailwind CSS.
 - **Static page routes beat `:param`.** `GET /projects/new` is the create form, not the detail page with `id = "new"`. `cronus run` prints `http://127.0.0.1:<port>` (the bind address), not `localhost`.

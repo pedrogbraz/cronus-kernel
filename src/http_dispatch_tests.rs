@@ -466,6 +466,11 @@ async fn protected_page_redirects_and_public_page_renders() {
 
     let dash_in = get(addr, "/dash", &[("cookie", &cookie("alice", "user"))]).await;
     assert_eq!(dash_in.status, StatusCode::OK);
+    assert!(
+        dash_in.text.contains(r#"data-cronus-entity="Note""#),
+        "form bind Note must name the entity: {}",
+        dash_in.text
+    );
 
     // Auto auth pages exist because the app has an auth block.
     let login_page = get(addr, "/login", &[]).await;

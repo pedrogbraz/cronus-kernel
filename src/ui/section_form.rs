@@ -10,8 +10,10 @@ pub(super) fn render_form_section(
     let entity = section
         .config
         .get("entity")
-        .map(|s| s.as_str())
-        .unwrap_or("");
+        .cloned()
+        .or_else(|| section.binding.as_ref().map(|b| b.entity.clone()))
+        .unwrap_or_default();
+    let entity = crate::security::html_escape(&entity);
 
     // Check if we have a bound record (edit mode)
     let bound_record = match bound_data {
@@ -472,6 +474,31 @@ mod tests {
             }
         }
         out
+    }
+
+    #[test]
+    fn bind_entity_sets_data_cronus_entity() {
+        let mut section = form();
+        section.config.remove("entity");
+        section.binding = Some(crate::parser::BindingNode {
+            entity: "Project".into(),
+            query: crate::parser::QueryType::All,
+            filters: vec![],
+            order: None,
+            limit: None,
+            offset: None,
+            group_by: None,
+            aggregate: None,
+            live: false,
+            public: false,
+            expand: vec![],
+        });
+        let html = render_form_section(&section, &ResolvedData::Record(None));
+        assert!(
+            html.contains(r#"data-cronus-entity="Project""#),
+            "bind entity missing from form: {html}"
+        );
+        assert!(html.contains(r#"data-cronus-section="form""#));
     }
 
     #[test]
