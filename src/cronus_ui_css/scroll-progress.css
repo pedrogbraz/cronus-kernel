@@ -24,3 +24,42 @@
   font-size: 0.75rem; font-weight: 500; color: var(--cronus-fg);
   font-variant-numeric: tabular-nums;
 }
+/* Docs "Reading bar & ring": `flex w-full max-w-md items-start gap-4` around a
+   named scroll region. The region publishes a scroll timeline; the wrapper's
+   `timeline-scope` lets the sibling ring read it. */
+.cui-scroll-progress-demo {
+  display: flex; width: 100%; max-width: 28rem; align-items: flex-start; gap: 1rem;
+  timeline-scope: --cui-scroll-progress;
+}
+.cui-scroll-progress-demo > section {
+  position: relative; height: 16rem; flex: 1 1 0%; min-width: 0; overflow-y: auto;
+  border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-base); outline: none;
+  scroll-timeline: --cui-scroll-progress block;
+}
+.cui-scroll-progress-demo > section:focus-visible { box-shadow: 0 0 0 2px var(--cronus-ring); }
+.cui-scroll-progress-demo > section > [data-slot="scroll-progress"] { position: sticky; top: 0; z-index: 10; }
+.cui-scroll-progress-demo > section > div { padding: 1rem; }
+.cui-scroll-progress-demo > section > div > * + * { margin-top: 1rem; }
+.cui-scroll-progress-demo h4 { margin: 0; font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; color: var(--cronus-fg); }
+.cui-scroll-progress-demo p { margin: 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary); }
+.cui-scroll-progress-demo [data-slot="scroll-progress-fill"] {
+  animation: cui-scroll-progress-fill linear both;
+  animation-timeline: --cui-scroll-progress;
+}
+@keyframes cui-scroll-progress-fill { from { width: 0%; } to { width: 100%; } }
+.cui-scroll-progress-demo [data-slot="scroll-progress-ring"] {
+  animation: cui-scroll-progress-ring linear both;
+  animation-timeline: --cui-scroll-progress;
+}
+@keyframes cui-scroll-progress-ring { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+@property --cui-scroll-pct { syntax: "<integer>"; inherits: false; initial-value: 0; }
+.cui-scroll-progress-demo [data-slot="scroll-progress-value"] {
+  animation: cui-scroll-progress-count linear both;
+  animation-timeline: --cui-scroll-progress;
+  counter-reset: cui-scroll-pct var(--cui-scroll-pct);
+}
+.cui-scroll-progress-demo [data-slot="scroll-progress-value"]::before { content: counter(cui-scroll-pct) "%"; }
+@keyframes cui-scroll-progress-count { from { --cui-scroll-pct: 0; } to { --cui-scroll-pct: 100; } }
+/* `size={n}` other than 40: the root wraps its n×n svg (`s-<n>` class). */
+[data-slot="scroll-progress"][data-variant="circle"][class^="s-"] { width: auto; height: auto; }

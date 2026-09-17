@@ -1,0 +1,10 @@
+page "/segmented-control" type:components family:segmented-control {
+  title "SegmentedControl"
+  description:"Single-select toggle row with a thumb that slides between options."
+}
+
+component Period layout:inline style:segmented-control value:"30 dias" aria-label:"Período" group:"Single select" note:"A thumb that slides between options via a shared layoutId — radiogroup semantics with full arrow-key navigation. Ideal for period filters and view toggles." {
+  item "7 dias"
+  item "30 dias"
+  item "12 meses"
+}

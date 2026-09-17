@@ -13,6 +13,7 @@
   border: 0; border-radius: var(--cronus-radius-md);
   background: transparent; color: var(--cronus-fg-secondary);
   font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; cursor: pointer;
+  transition: color 150ms var(--ease-out-quart);
 }
 [data-slot="segmented-control-item"][data-state="active"] {
   color: var(--cronus-fg);
@@ -35,9 +36,50 @@
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 [data-slot="segmented-control"] > label > [data-slot="segmented-control-item"] { pointer-events: none; }
-[data-slot="segmented-control"] > label > input:not(:checked) + [data-slot="segmented-control-item"] > [data-slot="segmented-control-thumb"] { display: none; }
 [data-slot="segmented-control"] > label > input:checked + [data-slot="segmented-control-item"] { color: var(--cronus-fg); }
 [data-slot="segmented-control"] > label > input:not(:checked) + [data-slot="segmented-control-item"][data-state="active"] { color: var(--cronus-fg-secondary); }
 [data-slot="segmented-control"] > label > input:focus-visible + [data-slot="segmented-control-item"] {
   box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
+}
+[data-slot="segmented-control"] > label:has(> input:disabled) { cursor: default; }
+[data-slot="segmented-control"] > label > input:disabled + [data-slot="segmented-control-item"] { opacity: 0.5; }
+[data-slot="segmented-control"] > label:hover > input:not(:disabled) + [data-slot="segmented-control-item"] { color: var(--cronus-fg); }
+[data-slot="segmented-control"][data-size="sm"] [data-slot="segmented-control-item"] { padding: 0.25rem 0.625rem; font-size: 0.75rem; line-height: 1rem; }
+[data-slot="segmented-control-item"] svg { width: 1rem; height: 1rem; }
+/* The thumb (root's last child) is anchored to the checked option's label and
+   slides between options on React's 0.4 s bounce-0.15 layout spring. */
+[data-slot="segmented-control"] {
+  --cui-segmented-spring: 400ms linear(0, 0.0315, 0.1079, 0.2083, 0.3179, 0.427, 0.5292, 0.6213, 0.7015, 0.7696, 0.826, 0.8717, 0.9081, 0.9364, 0.958, 0.9741, 0.9857, 0.9939, 0.9995, 1.003, 1);
+  anchor-scope: --cui-segmented-1, --cui-segmented-2, --cui-segmented-3, --cui-segmented-4, --cui-segmented-5, --cui-segmented-6, --cui-segmented-7, --cui-segmented-8;
+}
+[data-slot="segmented-control"] > [data-slot="segmented-control-thumb"] {
+  inset: auto; z-index: -1; border-radius: var(--cronus-radius-md);
+  inset-block-start: anchor(top); inset-block-end: anchor(bottom);
+  inset-inline-start: anchor(start); inset-inline-end: anchor(end);
+  transition: inset var(--cui-segmented-spring);
+}
+[data-slot="segmented-control"] > label:nth-child(1) { anchor-name: --cui-segmented-1; }
+[data-slot="segmented-control"] > label:nth-child(2) { anchor-name: --cui-segmented-2; }
+[data-slot="segmented-control"] > label:nth-child(3) { anchor-name: --cui-segmented-3; }
+[data-slot="segmented-control"] > label:nth-child(4) { anchor-name: --cui-segmented-4; }
+[data-slot="segmented-control"] > label:nth-child(5) { anchor-name: --cui-segmented-5; }
+[data-slot="segmented-control"] > label:nth-child(6) { anchor-name: --cui-segmented-6; }
+[data-slot="segmented-control"] > label:nth-child(7) { anchor-name: --cui-segmented-7; }
+[data-slot="segmented-control"] > label:nth-child(8) { anchor-name: --cui-segmented-8; }
+[data-slot="segmented-control"]:has(> label:nth-child(1) > input:checked) > [data-slot="segmented-control-thumb"] { position-anchor: --cui-segmented-1; }
+[data-slot="segmented-control"]:has(> label:nth-child(2) > input:checked) > [data-slot="segmented-control-thumb"] { position-anchor: --cui-segmented-2; }
+[data-slot="segmented-control"]:has(> label:nth-child(3) > input:checked) > [data-slot="segmented-control-thumb"] { position-anchor: --cui-segmented-3; }
+[data-slot="segmented-control"]:has(> label:nth-child(4) > input:checked) > [data-slot="segmented-control-thumb"] { position-anchor: --cui-segmented-4; }
+[data-slot="segmented-control"]:has(> label:nth-child(5) > input:checked) > [data-slot="segmented-control-thumb"] { position-anchor: --cui-segmented-5; }
+[data-slot="segmented-control"]:has(> label:nth-child(6) > input:checked) > [data-slot="segmented-control-thumb"] { position-anchor: --cui-segmented-6; }
+[data-slot="segmented-control"]:has(> label:nth-child(7) > input:checked) > [data-slot="segmented-control-thumb"] { position-anchor: --cui-segmented-7; }
+[data-slot="segmented-control"]:has(> label:nth-child(8) > input:checked) > [data-slot="segmented-control-thumb"] { position-anchor: --cui-segmented-8; }
+@supports not (anchor-name: --a) {
+  [data-slot="segmented-control"] > [data-slot="segmented-control-thumb"] { display: none; }
+  [data-slot="segmented-control"] > label > input:checked + [data-slot="segmented-control-item"] {
+    background: var(--cronus-surface-floating); box-shadow: var(--cronus-shadow-sm, none);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="segmented-control"] > [data-slot="segmented-control-thumb"] { transition: none; }
 }

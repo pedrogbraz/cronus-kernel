@@ -84,3 +84,55 @@
     line-height: var(--cui-scroll-nav-body-lh, calc(1.75 / 1.125));
   }
 }
+/* Docs "Terms": the whole nav inside a named, keyboard-focusable scroller
+   (`h-[28rem] w-full overflow-y-auto rounded-3xl border bg-surface-inset`). */
+.cui-scroll-nav-viewport {
+  display: block; height: 28rem; width: 100%; overflow-y: auto; box-sizing: border-box;
+  border-radius: calc(var(--cronus-radius, 14px) + 14px); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset); outline: none;
+}
+.cui-scroll-nav-viewport:focus-visible { box-shadow: 0 0 0 2px var(--cronus-ring, var(--cronus-primary)); }
+[data-slot="scroll-nav"] section > div > p { margin: 0; }
+[data-slot="scroll-nav"] section > div > p + p { margin-block-start: 0.75rem; }
+/* CSS scroll-spy: every section publishes a view timeline whose scrollport is
+   React's observer band (`rootMargin: -20% 0px -65% 0px`); the row reads it. */
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] > div { timeline-scope: --cui-scroll-nav-1, --cui-scroll-nav-2, --cui-scroll-nav-3, --cui-scroll-nav-4, --cui-scroll-nav-5, --cui-scroll-nav-6, --cui-scroll-nav-7, --cui-scroll-nav-8; }
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] section { view-timeline-axis: block; view-timeline-inset: 20% 65%; }
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] section:nth-child(1) { view-timeline-name: --cui-scroll-nav-1; }
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] section:nth-child(2) { view-timeline-name: --cui-scroll-nav-2; }
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] section:nth-child(3) { view-timeline-name: --cui-scroll-nav-3; }
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] section:nth-child(4) { view-timeline-name: --cui-scroll-nav-4; }
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] section:nth-child(5) { view-timeline-name: --cui-scroll-nav-5; }
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] section:nth-child(6) { view-timeline-name: --cui-scroll-nav-6; }
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] section:nth-child(7) { view-timeline-name: --cui-scroll-nav-7; }
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] section:nth-child(8) { view-timeline-name: --cui-scroll-nav-8; }
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav a::before {
+  content: ""; position: absolute; inset-inline-start: -1.5px; top: 50%; translate: 0 -50%;
+  width: 2px; height: 1.25rem; border-radius: 9999px; background-color: var(--cronus-fg);
+  opacity: 0;
+}
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav a::before,
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav a > p {
+  animation: cui-scroll-nav-active linear; animation-fill-mode: none;
+  animation-range: cover 0% cover 100%;
+}
+/* The first row is React's initial state: active until its section leaves the band. */
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav li:first-child > a::before,
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav li:first-child > a > p { animation-fill-mode: backwards; }
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav li:nth-child(1) > a::before,
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav li:nth-child(1) > a > p { animation-timeline: --cui-scroll-nav-1; }
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav li:nth-child(2) > a::before,
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav li:nth-child(2) > a > p { animation-timeline: --cui-scroll-nav-2; }
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav li:nth-child(3) > a::before,
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav li:nth-child(3) > a > p { animation-timeline: --cui-scroll-nav-3; }
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav li:nth-child(4) > a::before,
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav li:nth-child(4) > a > p { animation-timeline: --cui-scroll-nav-4; }
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav li:nth-child(5) > a::before,
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav li:nth-child(5) > a > p { animation-timeline: --cui-scroll-nav-5; }
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav li:nth-child(6) > a::before,
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav li:nth-child(6) > a > p { animation-timeline: --cui-scroll-nav-6; }
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav li:nth-child(7) > a::before,
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav li:nth-child(7) > a > p { animation-timeline: --cui-scroll-nav-7; }
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav li:nth-child(8) > a::before,
+.cui-scroll-nav-viewport [data-slot="scroll-nav"] nav li:nth-child(8) > a > p { animation-timeline: --cui-scroll-nav-8; }
+@keyframes cui-scroll-nav-active { from, to { opacity: 1; } }

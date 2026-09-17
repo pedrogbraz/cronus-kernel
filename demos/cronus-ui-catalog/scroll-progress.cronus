@@ -1,0 +1,9 @@
+page "/scroll-progress" type:components family:scroll-progress {
+  title "ScrollProgress"
+  description:"A bar or ring that tracks how far a scroll container has been read."
+}
+
+component ReadingBar layout:stack style:scroll-progress target:"Release notes, scrollable" ring:48 group:"Reading bar & ring" note:"Pass a `target` ref to scope progress to a scroll container instead of the page. The `bar` variant pins to the top of the box; the `circle` variant reads the same ref so a sticky reading bar and a progress ring stay in sync." {
+  title "Release notes"
+  text "Scroll this panel to advance the bar above and the ring beside it. Both read from the same container ref, so they stay perfectly in sync without tracking the page itself." repeat:12
+}

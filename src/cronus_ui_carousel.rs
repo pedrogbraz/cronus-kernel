@@ -1,41 +1,56 @@
 //! Dedicated Carousel renderer. DOM matches React idle (first slide):
 //! `carousel` (region, aria-label) > `carousel-content` (scroll-snap strip) >
 //! `carousel-item` > card `<div>`, then a centred row with icon-only
-//! `carousel-previous` / `carousel-next`.
+//! `carousel-previous` / `carousel-next` (and, with `dots:true`, React's
+//! `carousel-dots` between them).
 //!
 //! Zero JS navigation: every slide has a page-unique fragment id
 //! (`{id}-slide-N`) and carries unslotted `<a href="#{id}-slide-N±1">` links for
 //! its own previous/next. The links are absolutely positioned over React's
-//! prev/next buttons (their containing block is the carousel root, outside the
-//! scroll strip, so they are not clipped and add no scroll overflow). Only the
-//! `:target` slide's pair is displayed (the first slide's pair when no slide is
-//! targeted), so a click follows the fragment and the strip scrolls/snaps to
-//! the slide natively. The buttons keep React's slot and idle look but are
-//! decorative (`aria-hidden`, `tabindex="-1"`); the links are the keyboard and
-//! screen-reader controls. `data-disabled` marks what React disables at idle
-//! (previous; next with one slide); CSS re-derives the edges from `:target`.
+//! prev/next buttons (anchor-positioned to them; their containing block is the
+//! carousel root, outside the scroll strip, so they are not clipped and add no
+//! scroll overflow). Only the `:target` slide's pair is displayed (the first
+//! slide's pair when no slide is targeted), so a click follows the fragment and
+//! the strip scrolls/snaps to the slide natively. The buttons keep React's slot
+//! and idle look but are decorative (`aria-hidden`, `tabindex="-1"`); the links
+//! are the keyboard and screen-reader controls. `data-disabled` marks what
+//! React disables at idle (previous; next with one slide); CSS re-derives the
+//! edges from `:target`. Dots are real `<a href="#…">` controls in React's
+//! `carousel-dot` slot; the active dot follows `:target` too.
+//!
+//! Docs slide: `item "1" description:"Onboarding"` renders the `h-40` tile
+//! (display number over a caption); `width:sm|md|lg` is the docs `max-w-*`;
+//! `align:center` snaps slides to the centre.
 //!
 //! Gaps vs Embla: fragment navigation also scrolls the page so the slide is in
 //! view and adds a history entry; swiping/scrolling the strip by hand does not
 //! move `:target`, so prev/next then act relative to the last linked slide; no
-//! Arrow-key handling on the region. Not catalog `display()` SURF, not interact
-//! flex-overflow slides without `carousel-item`.
+//! Arrow-key handling on the region; `loop` cannot wrap. Not catalog
+//! `display()` SURF, not interact flex-overflow slides without `carousel-item`.
 
-use crate::cronus_ui_kit::{attr_nonempty, esc, instance_id, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, esc, flag, instance_id, label_of};
 use crate::parser::ComponentNode;
 
 const CHEVRON_LEFT: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m15 18-6-6 6-6\"></path></svg>";
 const CHEVRON_RIGHT: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m9 18 6-6-6-6\"></path></svg>";
 
 pub fn render(comp: &ComponentNode) -> String {
-    let mut slides: Vec<String> = comp
+    let mut slides: Vec<(String, Option<String>)> = comp
         .items
         .iter()
         .filter(|i| i.item_type != "label" && !i.text.is_empty())
-        .map(|i| esc(&i.text))
+        .map(|i| {
+            (
+                esc(&i.text),
+                i.config
+                    .get("description")
+                    .filter(|d| !d.is_empty())
+                    .map(|d| esc(d)),
+            )
+        })
         .collect();
     if slides.is_empty() {
-        slides.push(label_of(comp));
+        slides.push((label_of(comp), None));
     }
     let aria = attr_nonempty(comp, "aria-label")
         .map(esc)
@@ -43,10 +58,22 @@ pub fn render(comp: &ComponentNode) -> String {
     let id = instance_id(comp, "carousel");
     let n = slides.len();
     let next_idle = if n <= 1 { " data-disabled=\"\"" } else { "" };
+    let mut classes: Vec<String> = Vec::new();
+    if let Some(w @ ("xs" | "sm" | "md" | "lg")) = attr_nonempty(comp, "width") {
+        classes.push(format!("w-{w}"));
+    }
+    if attr_nonempty(comp, "align") == Some("center") {
+        classes.push("center".into());
+    }
+    let class = if classes.is_empty() {
+        String::new()
+    } else {
+        format!(" class=\"{}\"", classes.join(" "))
+    };
     let items = slides
         .iter()
         .enumerate()
-        .map(|(i, t)| {
+        .map(|(i, (t, caption))| {
             let prev = if i > 0 {
                 format!(
                     "<a href=\"#{id}-slide-{}\" data-nav=\"previous\" aria-label=\"Previous slide\"></a>",
@@ -63,13 +90,35 @@ pub fn render(comp: &ComponentNode) -> String {
             } else {
                 String::new()
             };
+            let card = match caption {
+                Some(c) => format!("<div class=\"tile\"><span>{t}</span><span>{c}</span></div>"),
+                None => format!("<div>{t}</div>"),
+            };
             format!(
-                "<div data-slot=\"carousel-item\" id=\"{id}-slide-{i}\" role=\"group\" aria-roledescription=\"slide\"><div>{t}</div>{prev}{next}</div>"
+                "<div data-slot=\"carousel-item\" id=\"{id}-slide-{i}\" role=\"group\" aria-roledescription=\"slide\">{card}{prev}{next}</div>"
             )
         })
         .collect::<String>();
+    let dots = if flag(comp, "dots") {
+        let links: String = (0..n)
+            .map(|i| {
+                let active = if i == 0 {
+                    " data-active=\"\" aria-current=\"true\""
+                } else {
+                    ""
+                };
+                format!(
+                    "<a href=\"#{id}-slide-{i}\" data-slot=\"carousel-dot\"{active} aria-label=\"Go to slide {}\"></a>",
+                    i + 1
+                )
+            })
+            .collect();
+        format!("<div data-slot=\"carousel-dots\">{links}</div>")
+    } else {
+        String::new()
+    };
     format!(
-        "<div data-slot=\"carousel\" role=\"region\" aria-roledescription=\"carousel\" aria-label=\"{aria}\"><div data-slot=\"carousel-content\" tabindex=\"0\">{items}</div><div><button type=\"button\" data-slot=\"carousel-previous\" data-variant=\"outline\" aria-label=\"Previous slide\" tabindex=\"-1\" aria-hidden=\"true\" data-disabled=\"\">{CHEVRON_LEFT}</button><button type=\"button\" data-slot=\"carousel-next\" data-variant=\"outline\" aria-label=\"Next slide\" tabindex=\"-1\" aria-hidden=\"true\"{next_idle}>{CHEVRON_RIGHT}</button></div></div>"
+        "<div data-slot=\"carousel\"{class} role=\"region\" aria-roledescription=\"carousel\" aria-label=\"{aria}\"><div data-slot=\"carousel-content\" tabindex=\"0\">{items}</div><div><button type=\"button\" data-slot=\"carousel-previous\" data-variant=\"outline\" aria-label=\"Previous slide\" tabindex=\"-1\" aria-hidden=\"true\" data-disabled=\"\">{CHEVRON_LEFT}</button>{dots}<button type=\"button\" data-slot=\"carousel-next\" data-variant=\"outline\" aria-label=\"Next slide\" tabindex=\"-1\" aria-hidden=\"true\"{next_idle}>{CHEVRON_RIGHT}</button></div></div>"
     )
 }
 
@@ -234,5 +283,51 @@ mod tests {
             ":target:not(:first-child)) [data-slot=\"carousel-previous\"] { opacity: 1; }"
         ));
         assert!(css.contains(":target:last-child) [data-slot=\"carousel-next\"] { opacity: 0.5; }"));
+    }
+
+    /// Docs "Slides": five numbered tiles with captions inside a `max-w-sm`
+    /// carousel, prev / dots / next in a `mt-4 gap-3` row. Dots are real
+    /// fragment links in React's `carousel-dot` slot; the first is active.
+    #[test]
+    fn docs_tiles_dots_and_width() {
+        reset_instance_ids();
+        let mut c = stub("carousel", "Slides");
+        c.items.clear();
+        for (n, label) in [("1", "Onboarding"), ("2", "Checkout"), ("3", "Repasse")] {
+            let mut i = extra("item", n);
+            i.config.insert("description".into(), label.into());
+            c.items.push(i);
+        }
+        c.props.insert("width".into(), "sm".into());
+        c.props.insert("dots".into(), "true".into());
+        let html = render(&c);
+        assert!(html.starts_with("<div data-slot=\"carousel\" class=\"w-sm\" role=\"region\""));
+        assert!(html.contains("aria-roledescription=\"slide\"><div class=\"tile\"><span>1</span><span>Onboarding</span></div><a href=\"#cui-carousel-carousel-slide-1\" data-nav=\"next\""));
+        assert!(html.contains("</button><div data-slot=\"carousel-dots\"><a href=\"#cui-carousel-carousel-slide-0\" data-slot=\"carousel-dot\" data-active=\"\" aria-current=\"true\" aria-label=\"Go to slide 1\"></a><a href=\"#cui-carousel-carousel-slide-1\" data-slot=\"carousel-dot\" aria-label=\"Go to slide 2\"></a><a href=\"#cui-carousel-carousel-slide-2\" data-slot=\"carousel-dot\" aria-label=\"Go to slide 3\"></a></div><button type=\"button\" data-slot=\"carousel-next\""));
+        reject_stub(&html);
+        c.props.insert("align".into(), "center".into());
+        assert!(render(&c).contains("class=\"w-sm center\""));
+    }
+
+    #[test]
+    fn chrome_docs_tile_dots_and_anchored_links() {
+        let css = include_str!("cronus_ui_css/carousel.css");
+        assert!(css.contains("[data-slot=\"carousel\"].w-sm { max-width: 24rem; }"));
+        assert!(css.contains("[data-slot=\"carousel\"].center [data-slot=\"carousel-item\"] { scroll-snap-align: center; }"));
+        assert!(css.contains("[data-slot=\"carousel-item\"] > .tile {"));
+        assert!(css.contains("height: 10rem; padding: 0; gap: 0.25rem;"));
+        assert!(css.contains("[data-slot=\"carousel-dots\"] { display: flex; align-items: center; justify-content: center; gap: 0.5rem; }"));
+        assert!(css.contains("[data-slot=\"carousel-dot\"] {"));
+        assert!(css.contains("width: 0.5rem; height: 0.5rem; border-radius: 9999px;"));
+        assert!(css.contains(
+            "[data-slot=\"carousel-dot\"][data-active] { background: var(--cronus-fg); }"
+        ));
+        assert!(css.contains("transition: background-color 150ms var(--ease-out-quart);"));
+        for k in 1..=12 {
+            assert!(css.contains(&format!(":nth-child({k}):target) [data-slot=\"carousel-dot\"]:nth-child({k}) {{ background: var(--cronus-fg); }}")), "{k}");
+        }
+        assert!(css.contains("anchor-name: --cui-carousel-previous;"));
+        assert!(css.contains("anchor-scope: --cui-carousel-previous, --cui-carousel-next;"));
+        assert!(css.contains("inset-inline-start: anchor(--cui-carousel-next start); top: anchor(--cui-carousel-next top);"));
     }
 }
