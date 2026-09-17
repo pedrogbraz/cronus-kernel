@@ -44,51 +44,152 @@ const SLOT_ALIASES: &[(&str, &[&str])] = &[
 const SPECIAL_FILES: &[&str] = &["shared", "catalog", "theme"];
 
 // @generated FILES: one entry per `src/cronus_ui_css/<name>.css` named in MANIFEST.
-macro_rules! css_files {
-    ($($name:literal),* $(,)?) => {
-        &[$(($name, include_str!(concat!("cronus_ui_css/", $name, ".css")))),*]
-    };
-}
+// The stylesheets ship compressed (build.rs packs them into `cronus_ui_css.pack`,
+// [`files`] inflates them once); this list is the contract of which files exist.
 #[rustfmt::skip]
-const FILES: &[(&str, &str)] = css_files![
-    "accordion", "alert", "alert-dialog", "animated-button", "animated-checkbox", "animated-list",
-    "animated-number", "app-shell", "area-chart", "aspect-ratio", "aurora-background",
-    "author-tooltip", "autocomplete", "avatar",
-    "avatar-group", "badge", "banner", "bar-chart", "border-beam", "bouncy-accordion",
-    "breadcrumb", "button", "button-group", "calendar", "candlestick-chart", "card",
-    "card-stack", "carousel", "catalog", "chart", "checkbox", "chip", "choropleth-chart",
-    "click-spark", "code-block", "code-tabs", "collapsible", "color-picker", "combobox",
-    "command", "comparison-slider", "component-preview-tooltip", "composed-chart", "confetti", "confirmation-dialog",
+const FILE_NAMES: &[&str] = &[
+    "accordion", "alert", "alert-dialog", "animated-button", "animated-checkbox",
+    "animated-list", "animated-number", "app-shell", "area-chart", "aspect-ratio",
+    "aurora-background", "author-tooltip", "autocomplete", "avatar", "avatar-group", "badge",
+    "banner", "bar-chart", "border-beam", "bouncy-accordion", "breadcrumb", "button",
+    "button-group", "calendar", "candlestick-chart", "card", "card-stack", "carousel",
+    "catalog", "chart", "checkbox", "chip", "choropleth-chart", "click-spark", "code-block",
+    "code-tabs", "collapsible", "color-picker", "combobox", "command", "comparison-slider",
+    "component-preview-tooltip", "composed-chart", "confetti", "confirmation-dialog",
     "context-menu", "copy-button", "countdown", "credit-card-input", "currency-input",
     "data-table", "date-picker", "date-range-picker", "description-list", "dialog", "dock",
     "dot-pattern", "drawer", "dropdown-menu", "dynamic-island", "empty", "expandable-tabs",
-    "explore-nav", "fab", "family-wallet", "field", "file-dropzone", "flickering-grid", "flip-card", "floating-label-input",
-    "form", "frame", "funnel-chart", "gauge-chart", "glare-hover", "glass-card", "globe-3d", "globe-wireframe", "goal-card",
-    "gradient-border", "gradient-text", "grid-pattern", "heatmap", "heatmap-chart",
-    "highlighter", "hover-card", "image-zoom", "images-badge", "input", "input-group", "input-otp",
-    "invite-dialog", "json-viewer", "kanban", "kbd", "label", "light-rays", "lightbox",
-    "line-chart", "link-preview", "live-line-chart", "loader", "logo-carousel", "magnetic", "marquee", "masonry",
-    "menubar", "meteors", "metric", "mode-toggle", "morphing-popover", "motion-presets", "multi-select",
-    "navigation-menu", "noise", "notification-center", "number-flow", "number-input", "orbit",
-    "pagination",
-    "particles", "password-input", "phone-input", "pie-chart", "pill-nav", "popover",
-    "profit-loss-chart", "progress", "progressive-blur", "radar-chart", "radio-group", "rating",
-    "receive-button", "resizable", "retro-grid", "reveal", "rich-text-editor", "ring-chart", "ripple",
-    "sankey-chart", "scatter-chart", "scheduler", "scramble-text", "scroll-area", "scroll-nav", "scroll-progress",
-    "segmented-control", "select", "separator", "shared", "sheet", "shimmer", "shiny-text",
-    "sidebar", "signature-pad", "skeleton", "slide-up-text", "slider", "sparkles-text",
-    "sparkline", "spinner",
-    "spinning-text", "split-button", "spotlight-card", "star-border", "status-dot", "stepper",
-    "sunburst-chart", "switch", "table", "table-of-contents", "tabs", "tags-input", "terminal",
-    "text-effect", "text-shimmer", "textarea", "theme", "tilt-card", "time-picker", "timeline",
-    "toast", "todo-item", "toggle", "toggle-group", "token-swap", "toolbar", "tooltip", "tree-view", "typing-text",
+    "explore-nav", "fab", "family-wallet", "field", "file-dropzone", "flickering-grid",
+    "flip-card", "floating-label-input", "form", "frame", "funnel-chart", "gauge-chart",
+    "glare-hover", "glass-card", "globe-3d", "globe-wireframe", "goal-card", "gradient-border",
+    "gradient-text", "grid-pattern", "heatmap", "heatmap-chart", "highlighter", "hover-card",
+    "image-zoom", "images-badge", "input", "input-group", "input-otp", "invite-dialog",
+    "json-viewer", "kanban", "kbd", "label", "light-rays", "lightbox", "line-chart",
+    "link-preview", "live-line-chart", "loader", "logo-carousel", "magnetic", "marquee",
+    "masonry", "menubar", "meteors", "metric", "mode-toggle", "morphing-popover",
+    "motion-presets", "multi-select", "navigation-menu", "noise", "notification-center",
+    "number-flow", "number-input", "orbit", "pagination", "particles", "password-input",
+    "phone-input", "pie-chart", "pill-nav", "popover", "profit-loss-chart", "progress",
+    "progressive-blur", "radar-chart", "radio-group", "rating", "receive-button", "resizable",
+    "retro-grid", "reveal", "rich-text-editor", "ring-chart", "ripple", "sankey-chart",
+    "scatter-chart", "scheduler", "scramble-text", "scroll-area", "scroll-nav",
+    "scroll-progress", "segmented-control", "select", "separator", "shared", "sheet", "shimmer",
+    "shiny-text", "sidebar", "signature-pad", "skeleton", "slide-up-text", "slider",
+    "sparkles-text", "sparkline", "spinner", "spinning-text", "split-button", "spotlight-card",
+    "star-border", "status-dot", "stepper", "sunburst-chart", "switch", "table",
+    "table-of-contents", "tabs", "tags-input", "terminal", "text-effect", "text-shimmer",
+    "textarea", "theme", "tilt-card", "time-picker", "timeline", "toast", "todo-item", "toggle",
+    "toggle-group", "token-swap", "toolbar", "tooltip", "tree-view", "typing-text",
     "usage-meter", "video-player", "word-rotate", "words-preloader", "workspace-switcher",
-    // Sprint 5 C2 — AI suite (alphabetical).
     "actions", "ai-code-block", "ai-image", "artifact", "branch", "chain-of-thought", "context",
     "conversation", "inline-citation", "message", "open-in-chat", "plan", "prompt-input",
     "queue", "reasoning", "response", "sources", "suggestion", "task", "tool", "web-preview",
 ];
 // @end FILES
+
+const PACK: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/cronus_ui_css.pack"));
+
+/// Every packed stylesheet, `(name, css)`, in [`FILE_NAMES`] order. Inflated
+/// on first use and leaked, so the rest of the module keeps `&'static str`.
+fn files() -> &'static [(&'static str, &'static str)] {
+    static FILES: OnceLock<Vec<(&'static str, &'static str)>> = OnceLock::new();
+    FILES.get_or_init(|| {
+        let unpacked = lz::unpack(PACK);
+        FILE_NAMES
+            .iter()
+            .map(|name| {
+                let css = unpacked
+                    .get(*name)
+                    .unwrap_or_else(|| panic!("cronus_ui_css.pack has no {name}.css"));
+                (*name, &**css)
+            })
+            .collect()
+    })
+}
+
+/// The LZ77 pack written by `build.rs` (format documented there).
+mod lz {
+    use std::collections::HashMap;
+
+    pub fn inflate(packed: &[u8], raw_len: usize) -> Vec<u8> {
+        let mut out = Vec::with_capacity(raw_len);
+        let mut i = 0;
+        while i < packed.len() {
+            let token = packed[i];
+            i += 1;
+            if token < 0x80 {
+                let n = token as usize + 1;
+                out.extend_from_slice(&packed[i..i + n]);
+                i += n;
+            } else {
+                let len = (token & 0x7F) as usize + 3;
+                let off = u16::from_le_bytes([packed[i], packed[i + 1]]) as usize;
+                i += 2;
+                let start = out.len() - off;
+                for k in 0..len {
+                    let byte = out[start + k];
+                    out.push(byte);
+                }
+            }
+        }
+        out
+    }
+
+    /// `name -> css` for every entry of the pack; the strings are leaked
+    /// (`&'static`) because the registry hands out static block slices.
+    pub fn unpack(pack: &[u8]) -> HashMap<&'static str, &'static str> {
+        let mut map = HashMap::new();
+        let mut i = 0;
+        while i < pack.len() {
+            let name_len = u16::from_le_bytes([pack[i], pack[i + 1]]) as usize;
+            i += 2;
+            let name = std::str::from_utf8(&pack[i..i + name_len]).expect("pack name");
+            i += name_len;
+            let raw_len =
+                u32::from_le_bytes([pack[i], pack[i + 1], pack[i + 2], pack[i + 3]]) as usize;
+            let packed_len =
+                u32::from_le_bytes([pack[i + 4], pack[i + 5], pack[i + 6], pack[i + 7]]) as usize;
+            i += 8;
+            let css = inflate(&pack[i..i + packed_len], raw_len);
+            i += packed_len;
+            debug_assert_eq!(css.len(), raw_len, "{name}.css length");
+            let css: &'static str =
+                Box::leak(String::from_utf8(css).expect("pack css").into_boxed_str());
+            map.insert(
+                Box::leak(name.to_string().into_boxed_str()) as &'static str,
+                css,
+            );
+        }
+        map
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn pack_round_trips_every_stylesheet() {
+            let map = unpack(super::super::PACK);
+            let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/cronus_ui_css");
+            for (name, css) in &map {
+                let disk = std::fs::read_to_string(dir.join(format!("{name}.css"))).expect(name);
+                assert_eq!(
+                    disk.replace("\r\n", "\n"),
+                    css.replace("\r\n", "\n"),
+                    "{name}.css"
+                );
+            }
+            assert!(map.contains_key("button"));
+        }
+
+        #[test]
+        fn inflate_handles_literals_and_overlapping_matches() {
+            // "ab" + match(len 6, offset 2) => "abababab"
+            let packed = [0x01, b'a', b'b', 0x80 | 3, 2, 0];
+            assert_eq!(inflate(&packed, 8), b"abababab");
+        }
+    }
+}
 
 enum Owners {
     /// The file's own family.
@@ -164,7 +265,7 @@ fn manifest_entries() -> impl Iterator<Item = (&'static str, &'static str)> {
 fn registry() -> &'static Registry {
     static REG: OnceLock<Registry> = OnceLock::new();
     REG.get_or_init(|| {
-        let mut queues: HashMap<&str, std::vec::IntoIter<&'static str>> = FILES
+        let mut queues: HashMap<&str, std::vec::IntoIter<&'static str>> = files()
             .iter()
             .map(|(name, css)| (*name, split_blocks(css).into_iter()))
             .collect();
@@ -846,7 +947,7 @@ mod tests {
 
     /// Family CSS this lint owns (vendored tokens, theme and catalog excluded).
     fn family_css() -> impl Iterator<Item = (&'static str, &'static str)> {
-        FILES
+        files()
             .iter()
             .copied()
             .filter(|(name, _)| !matches!(*name, "theme" | "catalog"))
@@ -1026,7 +1127,7 @@ mod tests {
     /// whitespace), in MANIFEST order, and the files hold nothing else.
     #[test]
     fn css_files_match_manifest_hashes() {
-        let mut queues: HashMap<&str, std::vec::IntoIter<&'static str>> = FILES
+        let mut queues: HashMap<&str, std::vec::IntoIter<&'static str>> = files()
             .iter()
             .map(|(name, css)| (*name, split_blocks(css).into_iter()))
             .collect();
@@ -1063,13 +1164,13 @@ mod tests {
 
     #[test]
     fn every_css_file_is_a_family_or_known() {
-        for (name, _) in FILES {
+        for (name, _) in files() {
             assert!(
                 crate::cronus_ui_widgets::FAMILIES.contains(name) || SPECIAL_FILES.contains(name),
                 "{name}.css is neither a family nor a known shared file"
             );
         }
-        for (name, css) in FILES {
+        for (name, css) in files() {
             assert_eq!(
                 css.matches('{').count(),
                 css.matches('}').count(),
@@ -1102,7 +1203,7 @@ mod tests {
             &mut sources,
         );
         let mut missing = BTreeSet::new();
-        for (_, css) in FILES {
+        for (_, css) in files() {
             let mut rest = *css;
             while let Some(p) = rest.find("[data-slot=\"") {
                 rest = &rest[p + 12..];

@@ -11,6 +11,7 @@ readme = "README.md"
 keywords = ["web", "framework", "declarative", "fullstack", "language"]
 categories = ["web-programming", "development-tools"]
 exclude = ["target/", ".git/", "tests/", "examples/"]
+build = "build.rs"
 
 [[bin]]
 name = "cronus"
