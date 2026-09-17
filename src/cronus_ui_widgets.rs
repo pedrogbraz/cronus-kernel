@@ -1,4 +1,4 @@
-//! Opt-in cronus-ui widget renderers (all 188 families).
+//! Opt-in cronus-ui widget renderers (every cronus-ui family; `FAMILY_TABLE` is the count).
 //!
 //! Family = first `style` segment (`button+primary+md` -> `button`).
 //! Unknown families return None so legacy dispatchers keep working.
@@ -502,8 +502,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn registers_180_unique_families() {
-        assert_eq!(FAMILIES.len(), 188);
+    fn registers_unique_families() {
+        assert_eq!(FAMILIES.len(), FAMILY_TABLE.len());
         let mut s = std::collections::BTreeSet::new();
         for f in FAMILIES {
             assert!(s.insert(*f), "duplicate {f}");

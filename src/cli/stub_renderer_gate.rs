@@ -726,7 +726,7 @@ mod tests {
 
     #[test]
     fn no_new_stub_families() {
-        assert_eq!(FAMILIES.len(), 188);
+        assert_eq!(FAMILIES.len(), crate::cronus_ui_widgets::FAMILY_TABLE.len());
         for family in PORTED_FAMILIES {
             assert!(FAMILIES.contains(family));
             assert!(cronus_ui_widgets::dedicated_render(family, &stub(family)).is_some());

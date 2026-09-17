@@ -670,32 +670,6 @@ pub(super) const KIT_GROUPS: &[(&str, &str, &[&str])] = &[
             "web-preview",
         ],
     ),
-    (
-        "preloaders",
-        "Preloaders",
-        &[
-            "words-preloader",
-        ],
-    ),
-    (
-        "ai",
-        "AI elements",
-        &[
-            "actions",
-            "artifact",
-            "branch",
-            "chain-of-thought",
-            "ai-code-block",
-            "context",
-            "ai-image",
-            "open-in-chat",
-            "plan",
-            "queue",
-            "response",
-            "task",
-            "web-preview",
-        ],
-    ),
     ("preloaders", "Preloaders", &["words-preloader"]),
 ];
 
