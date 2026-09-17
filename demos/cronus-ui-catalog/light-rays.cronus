@@ -1,0 +1,6 @@
+page "/light-rays" type:components family:light-rays {
+  title "LightRays"
+  description:"Volumetric light shafts fanning across a surface."
+}
+
+component Dawn layout:stack style:light-rays card:true heading:2xl group:"Light shafts" note:"A rotating conic gradient masked into volumetric shafts. Paused under reduced motion." { label "Dawn" }

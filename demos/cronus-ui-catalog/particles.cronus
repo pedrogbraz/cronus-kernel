@@ -1,0 +1,6 @@
+page "/particles" type:components family:particles {
+  title "Particles"
+  description:"A calm 2D particle field that drifts behind content."
+}
+
+component Atmosphere layout:stack style:particles card:true heading:2xl group:"Drifting field" note:"A calm 2D particle field. Canvas-only, no WebGL. Undrawn under reduced motion." { label "Atmosphere" }

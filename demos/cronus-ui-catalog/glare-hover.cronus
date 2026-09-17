@@ -1,0 +1,6 @@
+page "/glare-hover" type:components family:glare-hover {
+  title "GlareHover"
+  description:"A diagonal glare that tracks the pointer across a surface."
+}
+
+component HoverTheSurface layout:stack style:glare-hover card:true heading:xl group:"Pointer glare" note:"A diagonal glare tracks the pointer. Position is written to CSS variables, so pointer motion never re-renders React." { label "Hover the surface" }

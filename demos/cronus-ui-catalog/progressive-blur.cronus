@@ -1,0 +1,11 @@
+page "/progressive-blur" type:components family:progressive-blur {
+  title "ProgressiveBlur"
+  description:"A stacked backdrop-blur that fades content out toward an edge."
+}
+
+component EdgeFade layout:stack style:progressive-blur card:true side:bottom group:"Edge fade" note:"Stacked backdrop-blur that fades a scroll region into the chrome. Place it over overflowing content." {
+  text "Scroll under the blur. The band is decorative and sits on the edge of the region."
+  text "More copy so the panel actually scrolls."
+  text "Keep going — the fade holds the last lines."
+  text "Last line of the stack."
+}

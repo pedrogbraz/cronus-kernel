@@ -6,16 +6,42 @@
 //! as bare text, then `<div data-slot="progressive-blur">` with
 //! three plain `<div>` layers styled by `> div:nth-child(n)` in
 //! COMPONENT_CHROME. No inline style, zero JS. Not the catalog `fx()` box.
+//!
+//! Docs example ("Edge fade"): `text` items become the scroll region
+//! (`h-full overflow-y-auto p-4 pb-16` with `text-sm text-fg-secondary`
+//! paragraphs) and `card:true` is the docs host
+//! (`h-48 overflow-hidden rounded-2xl border bg-surface-raised`, class
+//! `card`). `side:top` moves the band to the top edge (class `side-top`,
+//! React's CVA `side`).
 
-use crate::cronus_ui_kit::label_of;
+use crate::cronus_ui_kit::{choice, esc, flag, label_of};
 use crate::parser::ComponentNode;
 
 const LAYER: &str = "<div></div>";
 
 pub fn render(comp: &ComponentNode) -> String {
-    format!(
-        "<div data-progressive-blur-host=\"true\">{}<div data-slot=\"progressive-blur\" aria-hidden=\"true\">{LAYER}{LAYER}{LAYER}</div></div>",
+    let paragraphs: Vec<String> = comp
+        .items
+        .iter()
+        .filter(|i| i.item_type == "text" && !i.text.is_empty())
+        .map(|i| format!("<p>{}</p>", esc(&i.text)))
+        .collect();
+    let body = if paragraphs.is_empty() {
         label_of(comp)
+    } else {
+        format!("<div>{}</div>", paragraphs.concat())
+    };
+    let host_class = if flag(comp, "card") {
+        " class=\"card\""
+    } else {
+        ""
+    };
+    let side_class = match choice(comp, "side", &["top", "bottom"]) {
+        Some("top") => " class=\"side-top\"",
+        _ => "",
+    };
+    format!(
+        "<div data-progressive-blur-host=\"true\"{host_class}>{body}<div data-slot=\"progressive-blur\"{side_class} aria-hidden=\"true\">{LAYER}{LAYER}{LAYER}</div></div>"
     )
 }
 
@@ -24,8 +50,19 @@ mod tests {
     use super::*;
     use crate::cli::stub_renderer_gate::{dedicated_fn_name, renderer_kind, RendererKind};
     use crate::cronus_ui_kit::stub;
+    use crate::parser::ComponentItemNode;
 
     const FX_BOX: &str = "padding:0.75rem 1rem;position:relative;overflow:hidden";
+
+    fn text(t: &str) -> ComponentItemNode {
+        ComponentItemNode {
+            item_type: "text".into(),
+            text: t.into(),
+            link: None,
+            tone: None,
+            config: Default::default(),
+        }
+    }
 
     fn reject_fx(html: &str) {
         assert!(!html.contains(FX_BOX));
@@ -70,6 +107,34 @@ mod tests {
         ));
         assert!(!html.contains("<B>"));
         reject_fx(&html);
+    }
+
+    /// Docs example: a card host with a scroll region of paragraphs under the band.
+    #[test]
+    fn text_items_become_the_scroll_region_and_card_is_the_docs_host() {
+        let mut c = stub("progressive-blur", "Edge");
+        c.items.push(text("Scroll under the blur."));
+        c.items.push(text("Last <line>."));
+        c.props.insert("card".into(), "true".into());
+        let html = render(&c);
+        assert_eq!(
+            html,
+            "<div data-progressive-blur-host=\"true\" class=\"card\"><div><p>Scroll under the blur.</p><p>Last &lt;line&gt;.</p></div><div data-slot=\"progressive-blur\" aria-hidden=\"true\"><div></div><div></div><div></div></div></div>"
+        );
+        assert!(!html.contains("Edge"));
+        reject_fx(&html);
+    }
+
+    #[test]
+    fn side_top_is_a_class_on_the_band() {
+        let mut c = stub("progressive-blur", "Blur");
+        c.props.insert("side".into(), "top".into());
+        let html = render(&c);
+        assert!(html.contains(
+            "<div data-slot=\"progressive-blur\" class=\"side-top\" aria-hidden=\"true\">"
+        ));
+        c.props.insert("side".into(), "left".into());
+        assert!(!render(&c).contains("class=\"side-"));
     }
 
     #[test]
@@ -118,7 +183,17 @@ mod tests {
             assert!(css.contains(&rule), "{rule}");
         }
         assert!(css.contains("mask-image: linear-gradient(to top, black 30%, transparent 70%)"));
+        assert!(css.contains("[data-slot=\"progressive-blur\"].side-top { top: 0; bottom: auto; }"));
+        assert!(css.contains("mask-image: linear-gradient(to bottom, black 10%, transparent 45%)"));
         assert!(css.contains("[data-slot=\"progressive-blur\"] { display: none; }"));
+        // Docs host: h-48 overflow-hidden rounded-2xl border bg-surface-raised + scroll region.
+        assert!(
+            css.contains("[data-progressive-blur-host].card {\n  height: 12rem; overflow: hidden;")
+        );
+        assert!(css.contains("[data-progressive-blur-host] > div:not([data-slot]) {\n  height: 100%; overflow-y: auto; padding: 1rem 1rem 4rem;"));
+        assert!(css.contains(
+            "[data-progressive-blur-host] > div:not([data-slot]) > p + p { margin-top: 1rem; }"
+        ));
         assert!(!css.contains("progressive-blur-layer"));
         assert!(!css.contains("progressive-blur-content"));
         assert!(!css.contains("zinc-"));

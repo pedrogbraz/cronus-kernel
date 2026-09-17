@@ -5,15 +5,29 @@
 //! component name (React uses `useId`). Overlay opacity 0.08, sizing
 //! (fixture `h-32 w-72`) and positioning live in COMPONENT_CHROME — no
 //! inline style. Not the catalog `fx()` title SURF box.
+//!
+//! Docs chrome from the `.cronus`: `card:true` (class `card`, the docs
+//! `grid min-h-56 place-items-center rounded-2xl border bg-surface-raised`
+//! wrapper) and `heading:2xl` (`<p class="h-2xl">` = `font-display text-2xl text-fg`).
 
-use crate::cronus_ui_kit::{label_of, widget_id};
+use crate::cronus_ui_dot_pattern::HEADINGS;
+use crate::cronus_ui_kit::{choice, flag, label_of, widget_id};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     let id = widget_id(comp, "grain");
+    let class = if flag(comp, "card") {
+        " class=\"card\""
+    } else {
+        ""
+    };
+    let text = label_of(comp);
+    let content = match choice(comp, "heading", HEADINGS) {
+        Some(h) => format!("<p class=\"h-{h}\">{text}</p>"),
+        None => text,
+    };
     format!(
-        "<div data-slot=\"noise\"><svg aria-hidden=\"true\"><filter id=\"{id}\"><feTurbulence type=\"fractalNoise\" baseFrequency=\"0.8\" numOctaves=\"4\" stitchTiles=\"stitch\"></feTurbulence></filter><rect width=\"100%\" height=\"100%\" filter=\"url(#{id})\"></rect></svg><div>{}</div></div>",
-        label_of(comp)
+        "<div data-slot=\"noise\"{class}><svg aria-hidden=\"true\"><filter id=\"{id}\"><feTurbulence type=\"fractalNoise\" baseFrequency=\"0.8\" numOctaves=\"4\" stitchTiles=\"stitch\"></feTurbulence></filter><rect width=\"100%\" height=\"100%\" filter=\"url(#{id})\"></rect></svg><div>{content}</div></div>"
     )
 }
 
@@ -54,6 +68,17 @@ mod tests {
         reject_fx(&html);
     }
 
+    /// Docs example: card wrapper + `<p className="font-display text-2xl text-fg">Print</p>`.
+    #[test]
+    fn card_and_heading_render_the_docs_wrapper() {
+        let mut c = stub("noise", "Print");
+        c.props.insert("card".into(), "true".into());
+        c.props.insert("heading".into(), "2xl".into());
+        let html = render(&c);
+        assert!(html.starts_with("<div data-slot=\"noise\" class=\"card\"><svg"));
+        assert!(html.ends_with("<div><p class=\"h-2xl\">Print</p></div></div>"));
+    }
+
     #[test]
     fn skips_fx_surf_title_box() {
         let html = render(&stub("noise", "Grain"));
@@ -79,6 +104,8 @@ mod tests {
         assert!(css.contains("[data-slot=\"noise\"] {\n  position: relative; overflow: hidden;\n  width: var(--cui-noise-w, 100%); height: 8rem;\n}"));
         assert!(css.contains("[data-slot=\"noise\"] > svg {\n  position: absolute; inset: 0;\n  width: 100%; height: 100%;\n  pointer-events: none; opacity: 0.08;\n}"));
         assert!(css.contains("[data-slot=\"noise\"] > div {\n  position: relative;\n}"));
+        assert!(css.contains("[data-slot=\"noise\"].card {\n  display: grid; place-items: center; height: auto; min-height: 14rem;"));
+        assert!(css.contains("[data-slot=\"noise\"] .h-2xl {"));
         assert!(!css.contains("[data-slot=\"noise\"]::after"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));

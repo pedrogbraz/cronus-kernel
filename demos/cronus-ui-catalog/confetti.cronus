@@ -1,0 +1,6 @@
+page "/confetti" type:components family:confetti {
+  title "Confetti"
+  description:"Canvas confetti that bursts from the pointer."
+}
+
+component Celebrate layout:stack style:confetti card:true group:"Burst" note:"Click anywhere on the wrapper to fire a burst from the pointer. A no-op under reduced motion." { action "Celebrate" }

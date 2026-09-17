@@ -2,22 +2,82 @@
   position: relative; overflow: hidden;
   width: var(--cui-particles-w, 100%); height: 8rem;
 }
-[data-slot="particles"] > [aria-hidden="true"] {
+[data-slot="particles"] > [aria-hidden] {
   position: absolute; inset: 0; pointer-events: none;
-  background-image:
-    radial-gradient(circle, color-mix(in oklch, var(--cronus-fg) 35%, transparent) 1.4px, transparent 1.8px),
-    radial-gradient(circle, color-mix(in oklch, var(--cronus-fg) 35%, transparent) 1px, transparent 1.4px);
-  background-size: 97px 53px, 61px 37px;
-  background-position: 0 0, 29px 17px;
-  animation: cui-particles 14s linear infinite;
 }
+/* React draws the specks on a canvas each frame; zero JS keeps one span per speck with
+   React's spawn grid, size and velocity (px/frame × 60 over a 20s drift, alternating). */
+[data-slot="particles"] > [aria-hidden] > span {
+  position: absolute;
+  inset-inline-start: var(--cui-x); top: var(--cui-y);
+  width: calc(var(--cui-r) * 2); height: calc(var(--cui-r) * 2);
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--cronus-fg) 35%, transparent);
+  animation: cui-particles 20s linear infinite alternate;
+}
+@keyframes cui-particles {
+  from { translate: 0 0; }
+  to { translate: var(--cui-vx) var(--cui-vy); }
+}
+[data-slot="particles"] > [aria-hidden] > span:nth-child(1) { --cui-x: 0%; --cui-y: 0%; --cui-vx: -288px; --cui-vy: -96px; --cui-r: 1px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(2) { --cui-x: 97%; --cui-y: 53%; --cui-vx: -144px; --cui-vy: 0px; --cui-r: 1.4px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(3) { --cui-x: 94%; --cui-y: 6%; --cui-vx: 0px; --cui-vy: 96px; --cui-r: 1.8px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(4) { --cui-x: 91%; --cui-y: 59%; --cui-vx: 144px; --cui-vy: -96px; --cui-r: 1px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(5) { --cui-x: 88%; --cui-y: 12%; --cui-vx: 288px; --cui-vy: 0px; --cui-r: 1.4px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(6) { --cui-x: 85%; --cui-y: 65%; --cui-vx: -288px; --cui-vy: 96px; --cui-r: 1.8px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(7) { --cui-x: 82%; --cui-y: 18%; --cui-vx: -144px; --cui-vy: -96px; --cui-r: 1px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(8) { --cui-x: 79%; --cui-y: 71%; --cui-vx: 0px; --cui-vy: 0px; --cui-r: 1.4px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(9) { --cui-x: 76%; --cui-y: 24%; --cui-vx: 144px; --cui-vy: 96px; --cui-r: 1.8px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(10) { --cui-x: 73%; --cui-y: 77%; --cui-vx: 288px; --cui-vy: -96px; --cui-r: 1px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(11) { --cui-x: 70%; --cui-y: 30%; --cui-vx: -288px; --cui-vy: 0px; --cui-r: 1.4px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(12) { --cui-x: 67%; --cui-y: 83%; --cui-vx: -144px; --cui-vy: 96px; --cui-r: 1.8px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(13) { --cui-x: 64%; --cui-y: 36%; --cui-vx: 0px; --cui-vy: -96px; --cui-r: 1px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(14) { --cui-x: 61%; --cui-y: 89%; --cui-vx: 144px; --cui-vy: 0px; --cui-r: 1.4px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(15) { --cui-x: 58%; --cui-y: 42%; --cui-vx: 288px; --cui-vy: 96px; --cui-r: 1.8px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(16) { --cui-x: 55%; --cui-y: 95%; --cui-vx: -288px; --cui-vy: -96px; --cui-r: 1px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(17) { --cui-x: 52%; --cui-y: 48%; --cui-vx: -144px; --cui-vy: 0px; --cui-r: 1.4px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(18) { --cui-x: 49%; --cui-y: 1%; --cui-vx: 0px; --cui-vy: 96px; --cui-r: 1.8px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(19) { --cui-x: 46%; --cui-y: 54%; --cui-vx: 144px; --cui-vy: -96px; --cui-r: 1px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(20) { --cui-x: 43%; --cui-y: 7%; --cui-vx: 288px; --cui-vy: 0px; --cui-r: 1.4px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(21) { --cui-x: 40%; --cui-y: 60%; --cui-vx: -288px; --cui-vy: 96px; --cui-r: 1.8px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(22) { --cui-x: 37%; --cui-y: 13%; --cui-vx: -144px; --cui-vy: -96px; --cui-r: 1px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(23) { --cui-x: 34%; --cui-y: 66%; --cui-vx: 0px; --cui-vy: 0px; --cui-r: 1.4px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(24) { --cui-x: 31%; --cui-y: 19%; --cui-vx: 144px; --cui-vy: 96px; --cui-r: 1.8px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(25) { --cui-x: 28%; --cui-y: 72%; --cui-vx: 288px; --cui-vy: -96px; --cui-r: 1px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(26) { --cui-x: 25%; --cui-y: 25%; --cui-vx: -288px; --cui-vy: 0px; --cui-r: 1.4px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(27) { --cui-x: 22%; --cui-y: 78%; --cui-vx: -144px; --cui-vy: 96px; --cui-r: 1.8px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(28) { --cui-x: 19%; --cui-y: 31%; --cui-vx: 0px; --cui-vy: -96px; --cui-r: 1px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(29) { --cui-x: 16%; --cui-y: 84%; --cui-vx: 144px; --cui-vy: 0px; --cui-r: 1.4px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(30) { --cui-x: 13%; --cui-y: 37%; --cui-vx: 288px; --cui-vy: 96px; --cui-r: 1.8px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(31) { --cui-x: 10%; --cui-y: 90%; --cui-vx: -288px; --cui-vy: -96px; --cui-r: 1px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(32) { --cui-x: 7%; --cui-y: 43%; --cui-vx: -144px; --cui-vy: 0px; --cui-r: 1.4px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(33) { --cui-x: 4%; --cui-y: 96%; --cui-vx: 0px; --cui-vy: 96px; --cui-r: 1.8px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(34) { --cui-x: 1%; --cui-y: 49%; --cui-vx: 144px; --cui-vy: -96px; --cui-r: 1px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(35) { --cui-x: 98%; --cui-y: 2%; --cui-vx: 288px; --cui-vy: 0px; --cui-r: 1.4px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(36) { --cui-x: 95%; --cui-y: 55%; --cui-vx: -288px; --cui-vy: 96px; --cui-r: 1.8px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(37) { --cui-x: 92%; --cui-y: 8%; --cui-vx: -144px; --cui-vy: -96px; --cui-r: 1px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(38) { --cui-x: 89%; --cui-y: 61%; --cui-vx: 0px; --cui-vy: 0px; --cui-r: 1.4px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(39) { --cui-x: 86%; --cui-y: 14%; --cui-vx: 144px; --cui-vy: 96px; --cui-r: 1.8px; }
+[data-slot="particles"] > [aria-hidden] > span:nth-child(40) { --cui-x: 83%; --cui-y: 67%; --cui-vx: 288px; --cui-vy: -96px; --cui-r: 1px; }
 [data-slot="particles"] > div:last-child {
   position: relative;
 }
-@keyframes cui-particles {
-  from { background-position: 0 0, 29px 17px; }
-  to { background-position: 97px 53px, -32px 54px; }
-}
 @media (prefers-reduced-motion: reduce) {
-  [data-slot="particles"] > [aria-hidden="true"] { display: none; }
+  [data-slot="particles"] > [aria-hidden] { display: none; }
 }
+/* Docs wrapper (`card:true`): grid min-h-56 place-items-center rounded-2xl border bg-surface-raised. */
+[data-slot="particles"].card {
+  display: grid; place-items: center; height: auto; min-height: 14rem;
+  border: 1px solid var(--cronus-border);
+  border-radius: calc(var(--cronus-radius, 14px) + 8px);
+  background: var(--cronus-surface-raised);
+}
+/* `heading:<size>` content: font-display text-<size> text-fg. */
+[data-slot="particles"] p[class^="h-"] {
+  margin: 0; font-family: var(--cronus-font-display, inherit); color: var(--cronus-fg);
+}
+[data-slot="particles"] .h-lg { font-size: 1.125rem; line-height: 1.75rem; }
+[data-slot="particles"] .h-xl { font-size: 1.25rem; line-height: 1.75rem; }
+[data-slot="particles"] .h-2xl { font-size: 1.5rem; line-height: 2rem; }
+[data-slot="particles"] .h-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+[data-slot="particles"] .h-4xl { font-size: 2.25rem; line-height: 2.5rem; }

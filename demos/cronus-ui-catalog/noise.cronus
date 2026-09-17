@@ -1,0 +1,6 @@
+page "/noise" type:components family:noise {
+  title "Noise"
+  description:"A still film-grain overlay."
+}
+
+component Print layout:stack style:noise card:true heading:2xl group:"Film grain" note:"A still SVG turbulence overlay. No animation — analog depth, not flicker." { label "Print" }

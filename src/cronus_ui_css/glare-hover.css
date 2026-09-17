@@ -11,9 +11,16 @@
   background-position: 50% 50%;
   transition: opacity 300ms var(--cronus-ease);
 }
+/* React writes the pointer position to custom properties on every frame; zero JS
+   fades the glare in on hover and sweeps it across the diagonal instead. */
 [data-slot="glare-hover"]:hover > [aria-hidden],
 [data-slot="glare-hover"]:focus-within > [aria-hidden] {
   opacity: 1;
+  animation: cui-glare-sweep 2.4s ease-in-out infinite alternate;
+}
+@keyframes cui-glare-sweep {
+  from { background-position: 0% 0%; }
+  to { background-position: 100% 100%; }
 }
 [data-slot="glare-hover"] > div:last-child {
   position: relative;
@@ -21,3 +28,19 @@
 @media (prefers-reduced-motion: reduce) {
   [data-slot="glare-hover"] > [aria-hidden] { display: none; }
 }
+/* Docs wrapper (`card:true`): rounded-2xl border bg-surface-raised p-8. */
+[data-slot="glare-hover"].card {
+  padding: 2rem;
+  border: 1px solid var(--cronus-border);
+  border-radius: calc(var(--cronus-radius, 14px) + 8px);
+  background: var(--cronus-surface-raised);
+}
+/* `heading:<size>` content: font-display text-<size> text-fg. */
+[data-slot="glare-hover"] p[class^="h-"] {
+  margin: 0; font-family: var(--cronus-font-display, inherit); color: var(--cronus-fg);
+}
+[data-slot="glare-hover"] .h-lg { font-size: 1.125rem; line-height: 1.75rem; }
+[data-slot="glare-hover"] .h-xl { font-size: 1.25rem; line-height: 1.75rem; }
+[data-slot="glare-hover"] .h-2xl { font-size: 1.5rem; line-height: 2rem; }
+[data-slot="glare-hover"] .h-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+[data-slot="glare-hover"] .h-4xl { font-size: 2.25rem; line-height: 2.5rem; }

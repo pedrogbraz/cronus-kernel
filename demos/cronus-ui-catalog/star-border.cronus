@@ -1,0 +1,6 @@
+page "/star-border" type:components family:star-border {
+  title "StarBorder"
+  description:"Two sparkle heads chasing each other around a border."
+}
+
+component Featured layout:stack style:star-border card:true heading:xl group:"Twinkle border" note:"Two sparkle heads chase each other around the perimeter. Distinct from BorderBeam, which is a comet trail." { label "Featured" }

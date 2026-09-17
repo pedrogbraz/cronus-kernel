@@ -5,14 +5,28 @@
 //! `w-72 min-h-32` is mirrored in COMPONENT_CHROME. Perspective floor +
 //! `@keyframes cui-retro-grid` live in COMPONENT_CHROME. Zero JS, no inline
 //! style. Not the catalog `fx()` title SURF box.
+//!
+//! Docs chrome from the `.cronus`: `card:true` (class `card`, the docs
+//! `grid min-h-64 place-items-center rounded-2xl border bg-surface-raised`
+//! wrapper) and `heading:2xl` (`<p class="h-2xl">` = `font-display text-2xl text-fg`).
 
-use crate::cronus_ui_kit::label_of;
+use crate::cronus_ui_dot_pattern::HEADINGS;
+use crate::cronus_ui_kit::{choice, flag, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
+    let class = if flag(comp, "card") {
+        " class=\"card\""
+    } else {
+        ""
+    };
+    let text = label_of(comp);
+    let content = match choice(comp, "heading", HEADINGS) {
+        Some(h) => format!("<p class=\"h-{h}\">{text}</p>"),
+        None => text,
+    };
     format!(
-        "<div data-slot=\"retro-grid\"><div aria-hidden=\"true\"><div><div></div></div></div><div>{}</div></div>",
-        label_of(comp)
+        "<div data-slot=\"retro-grid\"{class}><div aria-hidden=\"true\"><div><div></div></div></div><div>{content}</div></div>"
     )
 }
 
@@ -66,6 +80,18 @@ mod tests {
         reject_fx(&html);
     }
 
+    /// Docs example: card wrapper (min-h-64) + `<p className="font-display text-2xl text-fg">Horizon</p>`.
+    #[test]
+    fn card_and_heading_render_the_docs_wrapper() {
+        let mut c = stub("retro-grid", "Horizon");
+        c.props.insert("card".into(), "true".into());
+        c.props.insert("heading".into(), "2xl".into());
+        assert_eq!(
+            render(&c),
+            "<div data-slot=\"retro-grid\" class=\"card\"><div aria-hidden=\"true\"><div><div></div></div></div><div><p class=\"h-2xl\">Horizon</p></div></div>"
+        );
+    }
+
     #[test]
     fn skips_fx_surf_title_box() {
         let c = stub("retro-grid", "Grid");
@@ -108,10 +134,12 @@ mod tests {
         assert!(css.contains("perspective: 240px"));
         assert!(css.contains("rotateX(60deg)"));
         assert!(css.contains("@keyframes cui-retro-grid"));
-        assert!(css.contains("animation: cui-retro-grid"));
+        assert!(css.contains("animation: cui-retro-grid 8s linear infinite"));
         assert!(css.contains("translateY(48px)"));
         assert!(css.contains("var(--cronus-border)"));
         assert!(css.contains("prefers-reduced-motion"));
+        assert!(css.contains("[data-slot=\"retro-grid\"].card {\n  display: grid; place-items: center; min-height: 16rem;"));
+        assert!(css.contains("[data-slot=\"retro-grid\"] .h-2xl {"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
         assert!(!css.contains("<style"));

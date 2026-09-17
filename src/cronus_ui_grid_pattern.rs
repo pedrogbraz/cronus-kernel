@@ -3,14 +3,28 @@
 //! div wrapping the label. Only the root has a `data-slot`, like React (Wave 1t
 //! geometry parity). CSS repeating-linear-gradient lines live in
 //! COMPONENT_CHROME. Zero JS, no inline style. Not the catalog `fx()` title SURF box.
+//!
+//! Docs chrome from the `.cronus`: `card:true` (class `card`, the docs
+//! `grid min-h-56 place-items-center rounded-2xl border bg-surface-raised`
+//! wrapper) and `heading:2xl` (`<p class="h-2xl">` = `font-display text-2xl text-fg`).
 
-use crate::cronus_ui_kit::label_of;
+use crate::cronus_ui_dot_pattern::HEADINGS;
+use crate::cronus_ui_kit::{choice, flag, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
+    let class = if flag(comp, "card") {
+        " class=\"card\""
+    } else {
+        ""
+    };
+    let text = label_of(comp);
+    let content = match choice(comp, "heading", HEADINGS) {
+        Some(h) => format!("<p class=\"h-{h}\">{text}</p>"),
+        None => text,
+    };
     format!(
-        "<div data-slot=\"grid-pattern\"><div aria-hidden=\"true\"></div><div>{}</div></div>",
-        label_of(comp)
+        "<div data-slot=\"grid-pattern\"{class}><div aria-hidden=\"true\"></div><div>{content}</div></div>"
     )
 }
 
@@ -62,6 +76,18 @@ mod tests {
         reject_fx(&html);
     }
 
+    /// Docs example: card wrapper + `<p className="font-display text-2xl text-fg">Blueprint</p>`.
+    #[test]
+    fn card_and_heading_render_the_docs_wrapper() {
+        let mut c = stub("grid-pattern", "Blueprint");
+        c.props.insert("card".into(), "true".into());
+        c.props.insert("heading".into(), "2xl".into());
+        assert_eq!(
+            render(&c),
+            "<div data-slot=\"grid-pattern\" class=\"card\"><div aria-hidden=\"true\"></div><div><p class=\"h-2xl\">Blueprint</p></div></div>"
+        );
+    }
+
     #[test]
     fn skips_fx_surf_title_box() {
         let c = stub("grid-pattern", "Grid");
@@ -99,6 +125,8 @@ mod tests {
         assert!(!css.contains("[data-slot=\"grid-pattern-field\"]"));
         assert!(css.contains("repeating-linear-gradient"));
         assert!(css.contains("var(--cronus-border)"));
+        assert!(css.contains("[data-slot=\"grid-pattern\"].card {\n  display: grid; place-items: center; min-height: 14rem;"));
+        assert!(css.contains("[data-slot=\"grid-pattern\"] .h-2xl {"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
     }

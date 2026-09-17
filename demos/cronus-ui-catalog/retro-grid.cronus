@@ -1,0 +1,6 @@
+page "/retro-grid" type:components family:retro-grid {
+  title "RetroGrid"
+  description:"A receding perspective grid floor."
+}
+
+component Horizon layout:stack style:retro-grid card:true heading:2xl group:"Perspective floor" note:"A receding grid floor that scrolls toward the horizon. Reduced-motion visitors keep the floor, without the scroll." { label "Horizon" }
