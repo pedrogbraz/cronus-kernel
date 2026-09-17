@@ -6,10 +6,42 @@ use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
     let aria = aria_label(comp).unwrap_or("Loading");
+    let size = size_of(comp);
     format!(
-        "<svg data-slot=\"spinner\" role=\"status\" aria-label=\"{}\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-width=\"3\" opacity=\"0.25\"></circle><path d=\"M12 2a10 10 0 0 1 10 10\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" opacity=\"0.9\"></path></svg>",
+        "<svg data-slot=\"spinner\" data-size=\"{size}\" role=\"status\" aria-label=\"{}\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">{BODY}</svg>",
         esc(aria)
     )
+}
+
+const BODY: &str = "<circle cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-width=\"3\" opacity=\"0.25\"></circle><path d=\"M12 2a10 10 0 0 1 10 10\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" opacity=\"0.9\"></path>";
+
+/// Decorative spinner for other families (button `loading:`): React's
+/// `<Spinner size="sm" aria-hidden="true" />`.
+pub fn glyph(size: &str, hidden: bool) -> String {
+    let aria = if hidden {
+        " aria-hidden=\"true\"".to_string()
+    } else {
+        " role=\"status\" aria-label=\"Loading\"".to_string()
+    };
+    format!(
+        "<svg data-slot=\"spinner\" data-size=\"{}\"{aria} viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">{BODY}</svg>",
+        esc(size)
+    )
+}
+
+/// `size:sm|md|lg` prop, or the style segment (`spinner+lg`); default `md`.
+fn size_of(comp: &ComponentNode) -> &'static str {
+    let from_prop = crate::cronus_ui_kit::attr_nonempty(comp, "size");
+    let style = comp.style.as_deref().unwrap_or("");
+    let seg = style
+        .split('+')
+        .skip(1)
+        .find(|s| matches!(*s, "sm" | "md" | "lg"));
+    match from_prop.or(seg) {
+        Some("sm") => "sm",
+        Some("lg") => "lg",
+        _ => "md",
+    }
 }
 
 fn aria_label(comp: &ComponentNode) -> Option<&str> {

@@ -9,7 +9,9 @@
 //! `aria-expanded` is not reflected. `disabled` / `loading` disable both halves.
 //! Not interact `buttonish()` (single primary + inline SURF).
 
-use crate::cronus_ui_kit::{attr, attr_nonempty, content_texts, esc, flag, label_of, widget_id};
+use crate::cronus_ui_kit::{
+    attr, attr_nonempty, choice, esc, flag, item_icon, label_of, widget_id,
+};
 use crate::parser::ComponentNode;
 
 const CHEVRON: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"/></svg>";
@@ -17,8 +19,10 @@ const CHEVRON: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" he
 pub fn render(comp: &ComponentNode) -> String {
     let label = label_of(comp);
     let variant = variant_of(comp);
+    let size = choice(comp, "size", &["sm", "md", "lg"]).unwrap_or("md");
     let menu_label = menu_label_of(comp);
-    let disabled = flag(comp, "disabled") || flag(comp, "loading");
+    let loading = flag(comp, "loading");
+    let disabled = flag(comp, "disabled") || loading;
 
     let mut root = format!("data-slot=\"split-button\" role=\"group\" data-variant=\"{variant}\"");
     if let Some(a) = attr_nonempty(comp, "aria-label") {
@@ -29,16 +33,50 @@ pub fn render(comp: &ComponentNode) -> String {
     }
 
     let disabled_attr = if disabled { " disabled" } else { "" };
-    let primary =
-        format!("<button type=\"button\" data-slot=\"button\"{disabled_attr}>{label}</button>");
+    let lead = if loading {
+        crate::cronus_ui_spinner::glyph("sm", true)
+    } else {
+        attr_nonempty(comp, "icon")
+            .map(|i| crate::cronus_ui_icons::svg_or_empty(i))
+            .unwrap_or_default()
+    };
+    let primary = format!(
+        "<button type=\"button\" data-slot=\"button\" data-variant=\"{variant}\" data-size=\"{size}\"{disabled_attr}>{lead}{label}</button>"
+    );
     let trigger_id = widget_id(comp, "menu-trigger");
     let pop_id = widget_id(comp, "menu");
     let chevron = format!(
-        "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" aria-label=\"{menu_label}\" aria-haspopup=\"menu\" popovertarget=\"{pop_id}\"{disabled_attr}>{CHEVRON}</button>"
+        "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"{variant}\" data-size=\"{size}\" aria-label=\"{menu_label}\" aria-haspopup=\"menu\" popovertarget=\"{pop_id}\"{disabled_attr}>{CHEVRON}</button>"
     );
-    let items = content_texts(comp)
-        .into_iter()
-        .map(|t| format!("<div data-slot=\"dropdown-menu-item\" role=\"menuitem\">{t}</div>"))
+    let items = comp
+        .items
+        .iter()
+        .filter(|i| !matches!(i.item_type.as_str(), "label" | "title") && !i.text.is_empty())
+        .map(|i| {
+            let destructive = i
+                .tone
+                .as_deref()
+                .is_some_and(|t| matches!(t, "danger" | "destructive" | "error"))
+                || i.config
+                    .get("destructive")
+                    .is_some_and(|v| crate::cronus_ui_kit::truthy(v));
+            let dis = i
+                .config
+                .get("disabled")
+                .is_some_and(|v| crate::cronus_ui_kit::truthy(v));
+            let mut attrs = String::new();
+            if destructive {
+                attrs.push_str(" data-destructive=\"\"");
+            }
+            if dis {
+                attrs.push_str(" data-disabled=\"\" aria-disabled=\"true\"");
+            }
+            format!(
+                "<div data-slot=\"dropdown-menu-item\" role=\"menuitem\"{attrs}>{}{}</div>",
+                item_icon(i),
+                esc(&i.text)
+            )
+        })
         .collect::<String>();
     format!(
         "<div {root}>{primary}{chevron}</div><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"dropdown-menu-content\" role=\"menu\" aria-orientation=\"vertical\" anchor=\"{trigger_id}\">{items}</div>"
@@ -118,7 +156,7 @@ mod tests {
         assert_eq!(
             html,
             format!(
-                "<div data-slot=\"split-button\" role=\"group\" data-variant=\"primary\" aria-label=\"Save actions\"><button type=\"button\" data-slot=\"button\">Save</button><button type=\"button\" id=\"{tid}\" data-slot=\"button\" aria-label=\"More actions\" aria-haspopup=\"menu\" popovertarget=\"{pid}\">{CHEVRON}</button></div><div id=\"{pid}\" popover=\"auto\" data-slot=\"dropdown-menu-content\" role=\"menu\" aria-orientation=\"vertical\" anchor=\"{tid}\"><div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Duplicate</div><div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Archive</div></div>"
+                "<div data-slot=\"split-button\" role=\"group\" data-variant=\"primary\" aria-label=\"Save actions\"><button type=\"button\" data-slot=\"button\" data-variant=\"primary\" data-size=\"md\">Save</button><button type=\"button\" id=\"{tid}\" data-slot=\"button\" data-variant=\"primary\" data-size=\"md\" aria-label=\"More actions\" aria-haspopup=\"menu\" popovertarget=\"{pid}\">{CHEVRON}</button></div><div id=\"{pid}\" popover=\"auto\" data-slot=\"dropdown-menu-content\" role=\"menu\" aria-orientation=\"vertical\" anchor=\"{tid}\"><div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Duplicate</div><div data-slot=\"dropdown-menu-item\" role=\"menuitem\">Archive</div></div>"
             )
         );
         reject_interact(&html);

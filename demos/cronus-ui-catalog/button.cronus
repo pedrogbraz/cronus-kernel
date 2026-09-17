@@ -1,0 +1,25 @@
+page "/button" type:components family:button {
+  title "Button"
+  description:"Clickable action with variants, sizes and asChild."
+}
+
+component Primary layout:inline style:button+primary group:"Variants" note:"Six visual styles, from the primary call-to-action down to a subtle link." { label "Primary" }
+component Secondary layout:inline style:button+secondary group:"Variants" { label "Secondary" }
+component Outline layout:inline style:button+outline group:"Variants" { label "Outline" }
+component Ghost layout:inline style:button+ghost group:"Variants" { label "Ghost" }
+component Destructive layout:inline style:button+destructive group:"Variants" { label "Destructive" }
+component Link layout:inline style:button+link group:"Variants" { label "Link" }
+
+component Small layout:inline style:button+sm group:"Sizes" note:"Three text sizes plus square icon sizes for toolbar-style actions." { label "Small" }
+component Medium layout:inline style:button+md group:"Sizes" { label "Medium" }
+component Large layout:inline style:button+lg group:"Sizes" { label "Large" }
+component Icon layout:inline style:button+icon icon:settings group:"Sizes" { label "Settings" }
+component IconSmall layout:inline style:button+icon-sm icon:settings group:"Sizes" { label "Settings" }
+
+component Download layout:inline style:button icon:download group:"With icons" note:"Icons sit inline with the label. Use a Spinner for loading state and disable to block input." { label "Download" }
+component Continue layout:inline style:button+secondary icon-end:arrow-right group:"With icons" { label "Continue" }
+component Like layout:inline style:button+outline icon:heart group:"With icons" { label "Like" }
+component Disabled layout:inline style:button icon:heart disabled:true group:"With icons" { label "Disabled" }
+component Saving layout:inline style:button loading:true disabled:true group:"With icons" { label "Saving" }
+
+component ReadDocs layout:inline style:button icon-end:arrow-right group:"As link" note:"Give the label a link to render the button styles on an anchor." { label "Read the docs" -> "/docs" }

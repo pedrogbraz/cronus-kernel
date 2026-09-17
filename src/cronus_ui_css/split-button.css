@@ -8,8 +8,21 @@
 }
 [data-slot="split-button"] > [data-slot="button"]:last-of-type {
   border-start-start-radius: 0; border-end-start-radius: 0; border-inline-start-width: 0;
-  aspect-ratio: 1; padding: 0; min-width: 2.5rem;
+  aspect-ratio: 1; padding: 0;
 }
+[data-slot="split-button"] > [data-slot="button"]:last-of-type > svg {
+  transition: transform 200ms var(--ease-out-quart);
+}
+[data-slot="split-button"]:has(+ [data-slot="dropdown-menu-content"]:popover-open) > [data-slot="button"]:last-of-type > svg {
+  transform: rotate(180deg);
+}
+[data-slot="dropdown-menu-item"][data-destructive] { color: var(--cronus-error-text); }
+[data-slot="dropdown-menu-item"][data-destructive]:hover {
+  background: color-mix(in oklab, var(--cronus-error) 10%, transparent); color: var(--cronus-error-text);
+}
+[data-slot="dropdown-menu-item"][data-destructive] svg { color: var(--cronus-error-text); }
+[data-slot="dropdown-menu-item"][data-disabled] { opacity: 0.5; pointer-events: none; }
+[data-slot="dropdown-menu-item"] svg { width: 1rem; height: 1rem; flex-shrink: 0; pointer-events: none; }
 [data-slot="split-button"] > [data-slot="button"]:last-of-type::before {
   content: ""; pointer-events: none; position: absolute; top: 0.5rem; bottom: 0.5rem; inset-inline-start: 0;
   width: 1px; background: color-mix(in oklab, currentColor 15%, transparent);
@@ -18,5 +31,6 @@
   position: relative; z-index: 10;
 }
 [data-slot="split-button"][data-disabled=""] { opacity: 0.5; pointer-events: none; }
-/* The chevron is JS-only (menu), so it is always `disabled`; React only dims it with the group. */
-[data-slot="split-button"]:not([data-disabled]) > [data-slot="button"][aria-haspopup]:disabled { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="split-button"] > [data-slot="button"]:last-of-type > svg { transition: none; }
+}

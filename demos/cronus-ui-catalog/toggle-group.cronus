@@ -1,0 +1,16 @@
+page "/toggle-group" type:components family:toggle-group {
+  title "ToggleGroup"
+  description:"A set of toggles, single or multiple."
+}
+
+component Align layout:inline style:toggle-group value:"Align left" icon-only:true group:"Single" {
+  item "Align left" icon:align-left
+  item "Align center" icon:align-center
+  item "Align right" icon:align-right
+}
+
+component Formats layout:inline style:toggle-group type:multiple value:"Bold" icon-only:true group:"Multiple" {
+  item "Bold" icon:bold
+  item "Italic" icon:italic
+  item "Underline" icon:underline
+}

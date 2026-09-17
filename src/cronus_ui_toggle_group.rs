@@ -18,7 +18,7 @@
 //! `pressed`/`on`, else the group `value` (props or trailing `value:` config), else first.
 //! Not interact `radios()` (inline-styled `<input type="radio">` labels).
 
-use crate::cronus_ui_kit::{attr, attr_nonempty, esc, instance_id};
+use crate::cronus_ui_kit::{attr, attr_nonempty, choice, esc, flag, instance_id, item_icon};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -28,18 +28,43 @@ pub fn render(comp: &ComponentNode) -> String {
         "radio"
     };
     let name = instance_id(comp, "toggle-group");
+    let icon_only = flag(comp, "icon-only");
+    let mut class = String::new();
+    if choice(comp, "variant", &["outline"]).is_some() {
+        class.push_str(" v-outline");
+    }
+    if let Some(size) = choice(comp, "size", &["sm", "lg"]) {
+        class.push_str(&format!(" s-{size}"));
+    }
+    let class = if class.is_empty() {
+        String::new()
+    } else {
+        format!(" class=\"{}\"", class.trim())
+    };
     let buttons = options(comp)
         .iter()
         .enumerate()
-        .map(|(i, (text, on))| {
+        .map(|(i, (item, on))| {
             let (state, aria, checked) = if *on {
                 ("on", "true", " checked")
             } else {
                 ("off", "false", "")
             };
-            let t = esc(text);
+            let t = esc(&item.text);
+            let icon = item_icon(item);
+            let text = if icon_only && !icon.is_empty() {
+                String::new()
+            } else {
+                t.clone()
+            };
+            let disabled = if is_true(item.config.get("disabled")) {
+                " data-disabled=\"\""
+            } else {
+                ""
+            };
+            let input_disabled = if disabled.is_empty() { "" } else { " disabled" };
             format!(
-                "<label><input type=\"{kind}\" name=\"{name}\" value=\"{i}\" aria-label=\"{t}\"{checked}><button type=\"button\" data-slot=\"toggle-group-item\" data-state=\"{state}\" aria-pressed=\"{aria}\" tabindex=\"-1\" aria-hidden=\"true\">{t}</button></label>"
+                "<label><input type=\"{kind}\" name=\"{name}\" value=\"{i}\" aria-label=\"{t}\"{checked}{input_disabled}><button type=\"button\" data-slot=\"toggle-group-item\"{class} data-state=\"{state}\" aria-pressed=\"{aria}\" tabindex=\"-1\" aria-hidden=\"true\"{disabled}>{icon}{text}</button></label>"
             )
         })
         .collect::<Vec<_>>()
@@ -50,7 +75,7 @@ pub fn render(comp: &ComponentNode) -> String {
     format!("<div data-slot=\"toggle-group\" role=\"group\"{aria}>{buttons}</div>")
 }
 
-fn options(comp: &ComponentNode) -> Vec<(String, bool)> {
+fn options(comp: &ComponentNode) -> Vec<(ComponentItemNode, bool)> {
     let items: Vec<&ComponentItemNode> = comp
         .items
         .iter()
@@ -69,18 +94,47 @@ fn options(comp: &ComponentNode) -> Vec<(String, bool)> {
                     comp.name.clone()
                 }
             });
-        return vec![(label, true)];
+        return vec![(
+            ComponentItemNode {
+                item_type: "item".into(),
+                text: label,
+                link: None,
+                tone: None,
+                config: Default::default(),
+            },
+            true,
+        )];
     }
+    let multiple = attr(comp, "type") == Some("multiple");
     let group_value = attr(comp, "value");
-    let on_idx = items
+    let explicit: Vec<bool> = items
         .iter()
-        .position(|i| is_true(i.config.get("pressed")) || is_true(i.config.get("on")))
-        .or_else(|| group_value.and_then(|v| items.iter().position(|i| &i.text == v)))
-        .unwrap_or(0);
+        .map(|i| is_true(i.config.get("pressed")) || is_true(i.config.get("on")))
+        .collect();
+    let by_value: Vec<bool> = items
+        .iter()
+        .map(|i| group_value.is_some_and(|v| v.split(',').map(str::trim).any(|x| x == i.text)))
+        .collect();
+    let mut on: Vec<bool> = if explicit.iter().any(|b| *b) {
+        explicit
+    } else if by_value.iter().any(|b| *b) {
+        by_value
+    } else if multiple {
+        vec![false; items.len()]
+    } else {
+        let mut v = vec![false; items.len()];
+        v[0] = true;
+        v
+    };
+    if !multiple {
+        if let Some(first) = on.iter().position(|b| *b) {
+            on = (0..items.len()).map(|k| k == first).collect();
+        }
+    }
     items
-        .iter()
-        .enumerate()
-        .map(|(idx, i)| (i.text.clone(), idx == on_idx))
+        .into_iter()
+        .zip(on)
+        .map(|(i, on)| (i.clone(), on))
         .collect()
 }
 

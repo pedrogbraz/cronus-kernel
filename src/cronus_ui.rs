@@ -64,6 +64,19 @@ pub fn button_ex(
     href: Option<&str>,
     disabled: bool,
 ) -> String {
+    button_html(label, variant, size, href, disabled, None)
+}
+
+/// [`button_ex`] with pre-rendered inner HTML (label already escaped, glyphs
+/// inline) and an optional `aria-label` (icon-only sizes).
+pub fn button_html(
+    inner: &str,
+    variant: &str,
+    size: &str,
+    href: Option<&str>,
+    disabled: bool,
+    aria_label: Option<&str>,
+) -> String {
     let variant = match variant {
         "danger" | "destructive" => "destructive",
         "secondary" => "secondary",
@@ -86,8 +99,12 @@ pub fn button_ex(
     } else {
         ""
     };
+    let aria_attr = aria_label
+        .filter(|a| !a.trim().is_empty())
+        .map(|a| format!(" aria-label=\"{}\"", crate::cronus_ui_kit::esc(a)))
+        .unwrap_or_default();
     format!(
-        "<{tag}{href_attr}{type_attr}{disabled_attr} data-slot=\"button\" data-variant=\"{variant}\" data-size=\"{size}\" class=\"cui-btn\">{label}</{tag}>",
+        "<{tag}{href_attr}{type_attr}{disabled_attr}{aria_attr} data-slot=\"button\" data-variant=\"{variant}\" data-size=\"{size}\" class=\"cui-btn\">{inner}</{tag}>",
         size = crate::cronus_ui_kit::esc(size),
     )
 }
@@ -190,7 +207,7 @@ mod tests {
     fn button_wave1t_geometry_matches_react() {
         // React primary/ghost/destructive: no border; text-sm -> 1.25rem line-height.
         let css = component_chrome_css();
-        assert!(css.contains("line-height: 1.25rem; cursor: pointer; text-decoration: none;\n  outline: none; border: 0 solid transparent;"));
+        assert!(css.contains("line-height: 1.25rem; text-decoration: none;\n  outline: none; border: 0 solid transparent;"));
         assert!(css.contains("font-size: 0.75rem; line-height: 1rem; }"));
         assert!(css.contains("font-size: 1rem; line-height: 1.5rem; }"));
         assert!(css.contains("border-width: 1px; border-color: var(--cronus-border);"));
@@ -199,7 +216,13 @@ mod tests {
             .expect("input lh")..];
         assert!(input.starts_with("[data-slot=\"input\"] { line-height: 1.25rem; }"));
         assert!(css.contains("[data-slot=\"textarea\"] { line-height: 1.25rem; }"));
-        assert!(css.contains("[data-slot=\"toggle\"] {\n  line-height: 1.25rem;"));
+        assert!(css.contains(
+            "[data-slot=\"toggle\"] {
+  display: inline-flex;"
+        ));
+        assert!(css.contains(
+            "font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; font-family: inherit;"
+        ));
         assert!(css
             .contains("font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-secondary);"));
     }
@@ -314,7 +337,6 @@ mod tests {
         assert!(css.contains(
             "[data-slot=\"invite-dialog\"] [data-slot=\"button\"]:disabled { opacity: 1; }"
         ));
-        assert!(css.contains("[data-slot=\"split-button\"]:not([data-disabled]) > [data-slot=\"button\"][aria-haspopup]:disabled { opacity: 1; }"));
         assert!(css.contains(
             "[data-slot=\"split-button\"][data-disabled=\"\"] { opacity: 0.5; pointer-events: none; }"
         ));

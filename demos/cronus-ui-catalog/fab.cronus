@@ -1,0 +1,13 @@
+page "/fab" type:components family:fab {
+  title "Fab"
+  description:"Floating action button with an optional speed-dial of actions."
+}
+
+component NewItem layout:inline style:fab icon:plus group:"Default" note:"A single floating action button. Positioning is left to you." { label "New item" }
+
+component Create layout:inline style:fab icon:plus group:"Speed dial" note:"Actions turn the FAB into a speed-dial: clicking it reveals a vertical stack of smaller round buttons, each with its own label chip. The main glyph rotates while open." {
+  label "Create"
+  action "Write a note" icon:pencil
+  action "Upload an image" icon:image
+  action "Import a file" icon:upload
+}

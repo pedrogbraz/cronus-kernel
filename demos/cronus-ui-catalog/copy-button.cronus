@@ -1,0 +1,8 @@
+page "/copy-button" type:components family:copy-button {
+  title "CopyButton"
+  description:"Copy text to the clipboard with success feedback."
+}
+
+component CopyInstall layout:inline style:copy-button value:"npm install @cronus-ui/ui" group:"Default" note:"An icon button that writes its value to the clipboard and swaps to a check for a moment." { label "Copy" }
+
+component CopyKey layout:inline style:copy-button+outline value:"cronus_sk_live_a1b2" aria-label:"Copy API key" group:"Inline with a value" note:"Drop it next to a value the user might copy, such as an API key or command, and use the outline variant to sit flush with a field." { label "Copy API key" }

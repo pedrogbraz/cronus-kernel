@@ -49,8 +49,12 @@ pub fn render(comp: &ComponentNode) -> String {
     } else {
         ("", "")
     };
+    let size = match crate::cronus_ui_kit::choice(comp, "size", &["sm", "md"]) {
+        Some("sm") => " class=\"s-sm\"",
+        _ => "",
+    };
     format!(
-        "<label><input type=\"checkbox\" data-cui-mode-toggle aria-label=\"{aria}\"{input_disabled}><button type=\"button\" data-slot=\"mode-toggle\" data-mode=\"{mode}\" aria-label=\"{aria}\" tabindex=\"-1\" aria-hidden=\"true\"{dimmed}>{ICON}</button></label>"
+        "<label><input type=\"checkbox\" data-cui-mode-toggle aria-label=\"{aria}\"{input_disabled}><button type=\"button\" data-slot=\"mode-toggle\"{size} data-mode=\"{mode}\" aria-label=\"{aria}\" tabindex=\"-1\" aria-hidden=\"true\"{dimmed}>{ICON}</button></label>"
     )
 }
 

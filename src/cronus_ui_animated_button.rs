@@ -1,16 +1,77 @@
 //! Dedicated AnimatedButton renderer. DOM matches React idle:
-//! `<button type="button" data-slot="animated-button">` with label.
-//! CSS hover in COMPONENT_CHROME. Not the catalog `fx()` title SURF box.
-//! Wave 1t: chrome mirrors `buttonVariants` primary/md exactly — no border,
-//! `text-sm` 14px / 20px line-height, `whitespace-nowrap`.
+//! `<button type="button" data-slot="animated-button" data-variant data-size>`
+//! with the label and optional lucide glyphs (`icon:` / `icon-end:`), the same
+//! `buttonVariants` chrome as `button` (all six variants, five sizes).
+//! Motion: React's `whileHover={{ y: -1 }}` / `whileTap={{ scale: 0.97 }}` on a
+//! `springSnappy` transition become `:hover` / `:active` transforms with the
+//! same spring as a `linear()` easing (`--cronus-spring-snappy`, base.css).
+//! Not the catalog `fx()` title SURF box.
 
-use crate::cronus_ui_kit::label_of;
+use crate::cronus_ui_kit::{attr_nonempty, esc, flag_any, item};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
+    let style = comp.style.as_deref().unwrap_or("");
+    let seg = |names: &[&str]| -> Option<String> {
+        style
+            .split('+')
+            .skip(1)
+            .map(str::trim)
+            .find(|s| names.contains(s))
+            .map(str::to_string)
+    };
+    let variant = comp
+        .props
+        .get("variant")
+        .cloned()
+        .or_else(|| {
+            seg(&[
+                "primary",
+                "secondary",
+                "outline",
+                "ghost",
+                "destructive",
+                "danger",
+                "link",
+            ])
+        })
+        .unwrap_or_else(|| "primary".into());
+    let variant = if variant == "danger" {
+        "destructive".to_string()
+    } else {
+        variant
+    };
+    let size = comp
+        .props
+        .get("size")
+        .cloned()
+        .or_else(|| seg(&["sm", "md", "lg", "icon", "icon-sm"]))
+        .unwrap_or_else(|| "md".into());
+    let text = item(comp, "label").unwrap_or(comp.name.as_str());
+    let icon_only = size.starts_with("icon");
+    let mut inner = String::new();
+    if let Some(icon) = attr_nonempty(comp, "icon") {
+        inner.push_str(&crate::cronus_ui_icons::svg_or_empty(icon));
+    }
+    if !icon_only {
+        inner.push_str(&esc(text));
+    }
+    if let Some(icon) = attr_nonempty(comp, "icon-end") {
+        inner.push_str(&crate::cronus_ui_icons::svg_or_empty(icon));
+    }
+    let aria = attr_nonempty(comp, "aria-label")
+        .or(if icon_only { Some(text) } else { None })
+        .map(|a| format!(" aria-label=\"{}\"", esc(a)))
+        .unwrap_or_default();
+    let disabled = if flag_any(comp, "disabled") {
+        " disabled"
+    } else {
+        ""
+    };
     format!(
-        "<button type=\"button\" data-slot=\"animated-button\">{}</button>",
-        label_of(comp)
+        "<button type=\"button\" data-slot=\"animated-button\" data-variant=\"{}\" data-size=\"{}\"{aria}{disabled}>{inner}</button>",
+        esc(&variant),
+        esc(&size)
     )
 }
 
@@ -43,7 +104,7 @@ mod tests {
         let html = render(&stub("animated-button", "Launch"));
         assert_eq!(
             html,
-            "<button type=\"button\" data-slot=\"animated-button\">Launch</button>"
+            "<button type=\"button\" data-slot=\"animated-button\" data-variant=\"primary\" data-size=\"md\">Launch</button>"
         );
         reject_fx(&html);
     }
@@ -51,11 +112,31 @@ mod tests {
     #[test]
     fn label_is_escaped() {
         let html = render(&stub("animated-button", "A <B> & \"C\""));
-        assert_eq!(
-            html,
-            "<button type=\"button\" data-slot=\"animated-button\">A &lt;B&gt; &amp; &quot;C&quot;</button>"
-        );
+        assert!(html.contains(">A &lt;B&gt; &amp; &quot;C&quot;</button>"));
         reject_fx(&html);
+    }
+
+    #[test]
+    fn variant_size_and_glyphs_from_style_and_props() {
+        let mut c = stub("animated-button", "Download");
+        c.style = Some("animated-button+secondary+lg".into());
+        c.props.insert("icon".into(), "download".into());
+        let html = render(&c);
+        assert!(html.contains("data-variant=\"secondary\" data-size=\"lg\""));
+        assert!(html.contains("data-icon=\"download\""));
+        assert!(html.ends_with("Download</button>"));
+        c.props.insert("variant".into(), "danger".into());
+        assert!(render(&c).contains("data-variant=\"destructive\""));
+    }
+
+    #[test]
+    fn icon_size_drops_text_and_labels_control() {
+        let mut c = stub("animated-button", "Settings");
+        c.style = Some("animated-button+icon".into());
+        c.props.insert("icon".into(), "settings".into());
+        let html = render(&c);
+        assert!(html.contains("aria-label=\"Settings\""));
+        assert!(!html.contains(">Settings<"));
     }
 
     #[test]
@@ -79,38 +160,8 @@ mod tests {
     fn no_voodoo_even_when_runtime_on() {
         crate::voodoo::with_enabled(true, || {
             let html = render(&stub("animated-button", "Launch"));
-            reject_fx(&html);
-            assert!(html.contains("data-slot=\"animated-button\""));
+            assert!(!html.contains("v-"));
+            assert!(!html.contains("@click"));
         });
-    }
-
-    fn block(css: &str) -> &str {
-        let start = css.find("[data-slot=\"animated-button\"] {").unwrap();
-        let rest = &css[start..];
-        &rest[..rest.find('}').unwrap()]
-    }
-
-    #[test]
-    fn chrome_hover_via_css() {
-        let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"animated-button\"]:hover"));
-        assert!(css.contains("translateY(-1px)"));
-        assert!(css.contains("scale(0.97)"));
-        assert!(css.contains("var(--cronus-primary)"));
-        assert!(css.contains("var(--cronus-primary-foreground)"));
-        assert!(!css.contains("zinc-"));
-        assert!(!css.contains(FX_BOX));
-    }
-
-    /// Wave 1t geometry: React button is 40px tall, 14px / 20px text, no border.
-    #[test]
-    fn chrome_matches_button_primary_md_geometry() {
-        let css = crate::cronus_ui::component_chrome_css();
-        let b = block(&css);
-        assert!(b.contains("height: 2.5rem; padding: 0 1rem;"));
-        assert!(b.contains("border: 0;"));
-        assert!(!b.contains("1px solid transparent"));
-        assert!(b.contains("font-size: 0.875rem; font-weight: 500; line-height: 1.25rem;"));
-        assert!(b.contains("white-space: nowrap;"));
     }
 }

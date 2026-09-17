@@ -371,14 +371,39 @@ fn href(comp: &ComponentNode) -> Option<&str> {
     comp.items.iter().find_map(|i| i.link.as_deref())
 }
 
+/// `label` is the text; `icon:"download"` / `icon-end:"arrow-right"` put a
+/// lucide glyph before / after it (React children order); `loading:true`
+/// puts a `sm` Spinner first, like the docs' `<Spinner size="sm" aria-hidden />`.
+/// Icon-only sizes (`icon`, `icon-sm`) drop the text and label the control.
 fn button_from(comp: &ComponentNode) -> String {
-    let label = esc(item(comp, "label").unwrap_or(comp.name.as_str()));
-    crate::cronus_ui::button_ex(
-        &label,
+    let size = size(comp);
+    let text = item(comp, "label").unwrap_or(comp.name.as_str());
+    let icon_only = size.starts_with("icon");
+    let mut inner = String::new();
+    if flag_any(comp, "loading") {
+        inner.push_str(&crate::cronus_ui_spinner::glyph("sm", true));
+    }
+    if let Some(icon) = crate::cronus_ui_kit::attr_nonempty(comp, "icon") {
+        inner.push_str(&crate::cronus_ui_icons::svg_or_empty(icon));
+    }
+    if !icon_only {
+        inner.push_str(&esc(text));
+    }
+    if let Some(icon) = crate::cronus_ui_kit::attr_nonempty(comp, "icon-end") {
+        inner.push_str(&crate::cronus_ui_icons::svg_or_empty(icon));
+    }
+    let aria = crate::cronus_ui_kit::attr_nonempty(comp, "aria-label").or(if icon_only {
+        Some(text)
+    } else {
+        None
+    });
+    crate::cronus_ui::button_html(
+        &inner,
         &variant(comp),
-        &size(comp),
+        &size,
         href(comp),
         flag_any(comp, "disabled"),
+        aria,
     )
 }
 

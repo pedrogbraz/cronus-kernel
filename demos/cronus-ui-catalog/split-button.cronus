@@ -1,0 +1,33 @@
+page "/split-button" type:components family:split-button {
+  title "SplitButton"
+  description:"Primary action fused to a dropdown of secondary actions."
+}
+
+component Save layout:inline style:split-button icon:save group:"Default" note:"A primary action fused to a menu of related secondaries. The chevron opens the items, including a destructive row." {
+  label "Save"
+  item "Save as draft" icon:file-text
+  item "Save a copy" icon:copy
+  item "Discard changes" icon:trash-2 tone:danger
+}
+
+component SplitPrimary layout:inline style:split-button+primary group:"Variants" note:"Both segments share Button's variants and collapse their inner edges into one seamless control." {
+  label "Primary"
+  item "Duplicate" icon:copy
+  item "Share" icon:share-2
+}
+component SplitSecondary layout:inline style:split-button+secondary group:"Variants" {
+  label "Secondary"
+  item "Duplicate" icon:copy
+  item "Share" icon:share-2
+}
+component SplitOutline layout:inline style:split-button+outline group:"Variants" {
+  label "Outline"
+  item "Duplicate" icon:copy
+  item "Share" icon:share-2
+}
+
+component Publish layout:inline style:split-button icon:send loading:true menuLabel:"Publishing options" group:"Loading" note:"Loading swaps the primary icon for a spinner and disables both segments while the action is in flight." {
+  label "Publishing…"
+  item "Schedule for later" icon:calendar-clock
+  item "Save as draft" icon:file-text
+}

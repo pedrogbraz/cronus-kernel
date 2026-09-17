@@ -1,0 +1,12 @@
+page "/toggle" type:components family:toggle {
+  title "Toggle"
+  description:"A two-state on/off button."
+}
+
+component Bold layout:inline style:toggle icon:bold aria-label:"Toggle bold" group:"Default" note:"A two-state button. Press it to toggle." { label "Bold" }
+
+component Italic layout:inline style:toggle+outline icon:italic aria-label:"Toggle italic" group:"Outline variant" note:"The outline variant keeps a visible border in both states." { label "Italic" }
+
+component BoldSmall layout:inline style:toggle+sm icon:bold icon-only:true pressed:true aria-label:"Bold (small)" group:"Sizes" note:"Toggles come in three sizes to match surrounding controls." { label "Bold" }
+component BoldMedium layout:inline style:toggle+md icon:bold icon-only:true pressed:true aria-label:"Bold (medium)" group:"Sizes" { label "Bold" }
+component BoldLarge layout:inline style:toggle+lg icon:bold icon-only:true pressed:true aria-label:"Bold (large)" group:"Sizes" { label "Bold" }

@@ -1,25 +1,66 @@
-//! Dedicated Toggle renderer. DOM matches React/Radix Toggle: a `<button>`.
-//! React does not emit `data-variant` or `data-size`.
-//! Not interact `switch()` (`<label data-slot="toggle"><input type="checkbox">`).
+//! Dedicated Toggle renderer. DOM matches React/Radix Toggle: a `<button
+//! data-slot="toggle" data-state="on|off" aria-pressed>` with the label and an
+//! optional lucide glyph (`icon:`). React emits no `data-variant` / `data-size`
+//! (the audit checks that), so `toggleVariants` — `outline` and `sm|md|lg` —
+//! travel as classes (`v-outline`, `s-sm`) from the style (`toggle+outline+sm`)
+//! or `variant:` / `size:` props.
+//!
+//! Zero JS: the button sits in a `<label>` after a visually hidden checkbox
+//! that carries the pressed state (click, Space, focus ring); `pressed:true`
+//! checks it. CSS paints the button after `:checked` as on. The button keeps
+//! React's slot and look but is decorative (`aria-hidden`, `tabindex="-1"`,
+//! `pointer-events: none`). Not interact `switch()`
+//! (`<label data-slot="toggle"><input type="checkbox">`).
 
-use crate::cronus_ui_kit::esc;
-use crate::parser::{ComponentItemNode, ComponentNode};
+use crate::cronus_ui_kit::{attr_nonempty, choice, esc, flag, instance_id, item};
+use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    let label = label_of(comp);
+    let label = item(comp, "label")
+        .filter(|t| !t.is_empty())
+        .map(esc)
+        .unwrap_or_else(|| esc(&comp.name));
     let on = pressed(comp);
-    let state = if on { "on" } else { "off" };
-    let aria = if on { "true" } else { "false" };
+    let (state, aria, checked) = if on {
+        ("on", "true", " checked")
+    } else {
+        ("off", "false", "")
+    };
+    let mut class = String::new();
+    if choice(comp, "variant", &["outline"]).is_some() {
+        class.push_str(" v-outline");
+    }
+    if let Some(size) = choice(comp, "size", &["sm", "lg"]) {
+        class.push_str(&format!(" s-{size}"));
+    }
+    let class = if class.is_empty() {
+        String::new()
+    } else {
+        format!(" class=\"{}\"", class.trim())
+    };
+    let icon = attr_nonempty(comp, "icon")
+        .map(|i| crate::cronus_ui_icons::svg_or_empty(i))
+        .unwrap_or_default();
+    let icon_only = flag(comp, "icon-only");
+    let text = if icon_only {
+        String::new()
+    } else {
+        label.clone()
+    };
+    let name = attr_nonempty(comp, "aria-label")
+        .map(esc)
+        .unwrap_or_else(|| label.clone());
+    let disabled = flag(comp, "disabled");
+    let input_disabled = if disabled { " disabled" } else { "" };
+    let dimmed = if disabled { " data-disabled=\"\"" } else { "" };
+    let id = instance_id(comp, "toggle");
     format!(
-        "<button type=\"button\" data-slot=\"toggle\" data-state=\"{state}\" aria-pressed=\"{aria}\">{label}</button>"
+        "<label><input type=\"checkbox\" id=\"{id}\" aria-label=\"{name}\"{checked}{input_disabled}><button type=\"button\" data-slot=\"toggle\"{class} data-state=\"{state}\" aria-pressed=\"{aria}\" tabindex=\"-1\" aria-hidden=\"true\"{dimmed}>{icon}{text}</button></label>"
     )
 }
 
 fn pressed(comp: &ComponentNode) -> bool {
-    if let Some(v) = comp.props.get("pressed") {
-        return is_true(v);
-    }
-    if let Some(v) = comp.props.get("on") {
+    if let Some(v) = comp.props.get("pressed").or_else(|| comp.props.get("on")) {
         return is_true(v);
     }
     if comp.items.iter().any(|i| {
@@ -39,104 +80,74 @@ fn is_true(raw: &str) -> bool {
     matches!(raw, "true" | "on" | "1")
 }
 
-fn label_of(comp: &ComponentNode) -> String {
-    for kind in ["label", "title", "text", "value"] {
-        if let Some(t) = item(comp, kind) {
-            if !t.is_empty() {
-                return esc(t);
-            }
-        }
-    }
-    esc(&comp.name)
-}
-
-fn item<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
-    comp.items
-        .iter()
-        .find(|i| i.item_type == kind)
-        .map(|i| i.text.as_str())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
+    use crate::cli::stub_renderer_gate::{dedicated_fn_name, renderer_kind, RendererKind};
+    use crate::cronus_ui_kit::{reset_instance_ids, stub};
 
-    fn stub(style: &str, label: &str) -> ComponentNode {
-        ComponentNode {
-            name: "Toggle".into(),
-            layout: Some("inline".into()),
-            style: Some(style.into()),
-            items: vec![ComponentItemNode {
-                item_type: "label".into(),
-                text: label.into(),
-                link: None,
-                tone: None,
-                config: HashMap::new(),
-            }],
-            props: HashMap::new(),
-            params: vec![],
-            template: None,
-            sections: vec![],
-            state: vec![],
-            tests: vec![],
-            binding: None,
-            span: Default::default(),
-        }
+    fn toggle(label: &str) -> ComponentNode {
+        reset_instance_ids();
+        stub("toggle", label)
     }
 
     #[test]
-    fn root_is_button_not_switch_label() {
-        let html = render(&stub("toggle", "Bold"));
-        assert!(html.starts_with("<button "));
-        assert!(html.contains("type=\"button\""));
-        assert!(html.contains("data-slot=\"toggle\""));
-        assert!(html.contains("data-state=\"off\""));
-        assert!(html.contains("aria-pressed=\"false\""));
-        assert!(html.contains("Bold"));
+    fn off_is_button_after_unchecked_checkbox() {
+        let html = render(&toggle("Bold"));
+        assert!(html.starts_with("<label><input type=\"checkbox\" id=\"cui-toggle-toggle\" aria-label=\"Bold\"><button type=\"button\" data-slot=\"toggle\" data-state=\"off\" aria-pressed=\"false\" tabindex=\"-1\" aria-hidden=\"true\">Bold</button></label>"));
         assert!(!html.contains("data-variant"));
         assert!(!html.contains("data-size"));
-        assert!(!html.contains("<label"));
-        assert!(!html.contains("type=\"checkbox\""));
-        assert!(!html.contains("data-slot=\"toggle-control\""));
-        assert!(!html.contains("style="));
+        assert!(!html.contains("toggle-control"));
     }
 
     #[test]
-    fn pressed_prop_turns_on() {
-        let mut c = stub("toggle", "Bold");
+    fn pressed_checks_the_input() {
+        let mut c = toggle("Bold");
         c.props.insert("pressed".into(), "true".into());
         let html = render(&c);
-        assert!(html.contains("data-state=\"on\""));
-        assert!(html.contains("aria-pressed=\"true\""));
+        assert!(html.contains(" checked>"));
+        assert!(html.contains("data-state=\"on\" aria-pressed=\"true\""));
     }
 
     #[test]
-    fn pressed_colon_pair_on_item() {
-        let mut c = stub("toggle", "Bold");
-        c.items[0].config.insert("pressed".into(), "true".into());
+    fn style_segments_become_classes_and_icon_glyph() {
+        let mut c = toggle("Italic");
+        c.style = Some("toggle+outline+sm".into());
+        c.props.insert("icon".into(), "italic".into());
         let html = render(&c);
-        assert!(html.contains("data-state=\"on\""));
-        assert!(html.contains("aria-pressed=\"true\""));
+        assert!(html.contains("class=\"v-outline s-sm\""));
+        assert!(html.contains("data-icon=\"italic\""));
+        assert!(html.contains("</svg>Italic</button>"));
+        c.props.insert("icon-only".into(), "true".into());
+        c.props.insert("aria-label".into(), "Bold (small)".into());
+        let html = render(&c);
+        assert!(html.contains("aria-label=\"Bold (small)\""));
+        assert!(html.contains("</svg></button>"));
     }
 
     #[test]
-    fn style_on_turns_on() {
-        let html = render(&stub("toggle+on", "Italic"));
-        assert!(html.contains("data-state=\"on\""));
-        assert!(html.contains("aria-pressed=\"true\""));
-        assert!(!html.contains("data-variant"));
-        assert!(!html.contains("data-size"));
+    fn disabled_dims_button_and_disables_input() {
+        let mut c = toggle("Bold");
+        c.props.insert("disabled".into(), "true".into());
+        let html = render(&c);
+        assert!(html.contains(" disabled><button"));
+        assert!(html.contains("data-disabled=\"\""));
     }
 
     #[test]
-    fn chrome_is_token_only() {
-        let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"toggle\"]"));
-        assert!(css.contains("height: 2.5rem"));
-        assert!(css.contains("padding: 0 0.75rem"));
-        assert!(css.contains("[data-slot=\"toggle\"][data-state=\"on\"]"));
-        assert!(css.contains("var(--cronus-surface-overlay)"));
-        assert!(!css.contains("zinc-"));
+    fn registered_as_dedicated() {
+        let c = toggle("Bold");
+        assert_eq!(crate::cronus_ui_widgets::render(&c).unwrap(), {
+            reset_instance_ids();
+            render(&c)
+        });
+        assert_eq!(
+            dedicated_fn_name("toggle"),
+            Some("cronus_ui_toggle::render")
+        );
+        assert_eq!(
+            renderer_kind("toggle"),
+            RendererKind::Dedicated("cronus_ui_toggle::render")
+        );
     }
 }

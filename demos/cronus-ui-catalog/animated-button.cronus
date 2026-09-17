@@ -1,0 +1,8 @@
+page "/animated-button" type:components family:animated-button {
+  title "AnimatedButton"
+  description:"Motion-powered button with spring feedback."
+}
+
+component SpringPrimary layout:inline style:animated-button+primary group:"Spring feedback" note:"Drop-in replacement for Button that lifts on hover and presses in on tap with a snappy spring." { label "Primary" }
+component SpringOutline layout:inline style:animated-button+outline group:"Spring feedback" { label "Outline" }
+component SpringDownload layout:inline style:animated-button+secondary icon:download group:"Spring feedback" { label "Download" }

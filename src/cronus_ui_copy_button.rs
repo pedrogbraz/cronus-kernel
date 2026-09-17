@@ -8,20 +8,48 @@
 //! a deliberately disabled copy button with `data-disabled`.
 //! Not interact clipboard `onclick` or inline BASE/SURF styles.
 
-use crate::cronus_ui_kit::{attr_nonempty, esc};
+use crate::cronus_ui_kit::{attr_nonempty, choice, esc};
 use crate::parser::ComponentNode;
 
 const COPY_ICON: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect width=\"14\" height=\"14\" x=\"8\" y=\"8\" rx=\"2\" ry=\"2\"></rect><path d=\"M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2\"></path></svg>";
 
 pub fn render(comp: &ComponentNode) -> String {
-    idle_button(&esc(aria_label(comp).unwrap_or("Copy")))
+    let aria = esc(aria_label(comp)
+        .or_else(|| attr_nonempty(comp, "copyLabel"))
+        .or_else(|| attr_nonempty(comp, "copy-label"))
+        .unwrap_or("Copy"));
+    let variant = choice(
+        comp,
+        "variant",
+        &[
+            "primary",
+            "secondary",
+            "outline",
+            "ghost",
+            "destructive",
+            "link",
+        ],
+    )
+    .unwrap_or("ghost");
+    let size = choice(comp, "size", &["icon", "icon-sm", "sm", "md", "lg"]).unwrap_or("icon");
+    idle_button_styled(&aria, variant, size)
 }
 
 /// Idle, JS-less CopyButton; `aria` must already be escaped. Shared by
 /// families that embed React's CopyButton (code-block header).
 pub fn idle_button(aria: &str) -> String {
+    idle_button_styled(aria, "ghost", "icon")
+}
+
+fn idle_button_styled(aria: &str, variant: &str, size: &str) -> String {
+    let size_attr = if size == "icon" {
+        String::new()
+    } else {
+        format!(" data-size=\"{}\"", esc(size))
+    };
     format!(
-        "<button data-slot=\"copy-button\" data-variant=\"ghost\" type=\"button\" aria-label=\"{aria}\" disabled>{COPY_ICON}<span aria-live=\"polite\"></span></button>"
+        "<button data-slot=\"copy-button\" data-variant=\"{}\"{size_attr} type=\"button\" aria-label=\"{aria}\" disabled>{COPY_ICON}<span aria-live=\"polite\"></span></button>",
+        esc(variant)
     )
 }
 
@@ -96,7 +124,7 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"copy-button\"]"));
         assert!(css.contains("display: inline-flex"));
-        assert!(css.contains("line-height: 1.25rem; cursor: pointer; text-decoration: none;\n  outline: none; border: 0;"));
+        assert!(css.contains("line-height: 1.25rem; text-decoration: none;\n  outline: none; border: 0 solid transparent;"));
         assert!(css.contains("width: 2.25rem; height: 2.25rem; padding: 0;"));
         assert!(css.contains("[data-slot=\"copy-button\"] svg {\n  width: 1rem; height: 1rem;"));
         assert!(css.contains("[data-slot=\"copy-button\"] > [aria-live] {"));

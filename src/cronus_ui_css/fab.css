@@ -1,20 +1,75 @@
 [data-slot="fab"] {
   position: relative; display: inline-flex;
 }
-[data-slot="fab"] > button > span { display: inline-flex; }
-[data-slot="fab"] > button svg {
+[data-slot="fab"] > button > span, [data-slot="fab"] > label > button > span {
+  display: inline-flex;
+  transition: rotate var(--cronus-spring-snappy);
+}
+[data-slot="fab"] > button svg, [data-slot="fab"] > label > button svg {
   width: 1.5rem; height: 1.5rem; flex-shrink: 0; pointer-events: none;
 }
-[data-slot="fab"] > button {
+[data-slot="fab"] > button, [data-slot="fab"] > label > button {
   display: inline-flex; align-items: center; justify-content: center;
   width: 3.5rem; height: 3.5rem; padding: 0; margin: 0;
   border: 0; border-radius: 9999px;
   background: var(--cronus-primary); color: var(--cronus-primary-foreground);
   box-shadow: var(--cronus-shadow-md, 0 4px 6px rgba(0,0,0,.2));
-  cursor: pointer; outline: none; font: inherit;
+  outline: none; font: inherit;
   transition: transform 150ms var(--ease-out-quart), box-shadow 150ms var(--ease-out-quart),
     opacity 150ms var(--ease-out-quart);
 }
 [data-slot="fab"] > button:hover { opacity: 0.9; }
 [data-slot="fab"] > button:active { transform: scale(0.95); }
 [data-slot="fab"] > button:disabled { opacity: 0.5; pointer-events: none; }
+/* Zero JS speed dial: the label's checkbox is the control; the button is decorative. */
+[data-slot="fab"] > label { position: relative; display: inline-flex; }
+[data-slot="fab"] > label > input {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="fab"] > label > button { pointer-events: none; }
+[data-slot="fab"] > label:hover > button { opacity: 0.9; }
+[data-slot="fab"] > label:active > button { transform: scale(0.95); }
+[data-slot="fab"] > label > input:focus-visible + button {
+  box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
+}
+[data-slot="fab"] > label > input:checked + button > span { rotate: 45deg; }
+[data-slot="fab-actions"] {
+  display: none; position: absolute; bottom: 100%; inset-inline-end: 0;
+  margin: 0 0 0.75rem; padding: 0; list-style: none;
+  flex-direction: column; align-items: flex-end; gap: 0.75rem;
+}
+[data-slot="fab"]:has(> label > input:checked) > [data-slot="fab-actions"] { display: flex; }
+[data-slot="fab-actions"] > li {
+  display: flex; align-items: center; gap: 0.5rem;
+  animation: fab-action-in var(--cronus-spring-snappy) both;
+}
+[data-slot="fab-actions"] > li:nth-last-child(2) { animation-delay: 40ms; }
+[data-slot="fab-actions"] > li:nth-last-child(3) { animation-delay: 80ms; }
+[data-slot="fab-actions"] > li:nth-last-child(4) { animation-delay: 120ms; }
+[data-slot="fab-actions"] > li:nth-last-child(5) { animation-delay: 160ms; }
+[data-slot="fab-actions"] > li:nth-last-child(6) { animation-delay: 200ms; }
+[data-slot="fab-actions"] > li > span {
+  padding: 0.25rem 0.5rem; border-radius: var(--cronus-radius-md);
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+  font-size: 0.75rem; line-height: 1rem; font-weight: 500;
+  box-shadow: var(--cronus-shadow-xs, 0 1px 2px rgba(0,0,0,.2));
+}
+[data-slot="fab-actions"] > li > button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2.75rem; height: 2.75rem; padding: 0; margin: 0; border: 0; border-radius: 9999px;
+  background: var(--cronus-surface-raised); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-md, 0 4px 6px rgba(0,0,0,.2));
+  outline: none; font: inherit;
+  transition: transform 150ms var(--ease-out-quart), box-shadow 150ms var(--ease-out-quart);
+}
+[data-slot="fab-actions"] > li > button:hover { box-shadow: var(--cronus-shadow-lg, 0 10px 15px rgba(0,0,0,.25)); }
+[data-slot="fab-actions"] > li > button:active { transform: scale(0.95); }
+[data-slot="fab-actions"] > li > button svg { width: 1.25rem; height: 1.25rem; flex-shrink: 0; pointer-events: none; }
+@keyframes fab-action-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.8); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="fab-actions"] > li { animation: none; }
+}
