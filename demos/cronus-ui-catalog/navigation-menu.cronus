@@ -1,0 +1,12 @@
+page "/navigation-menu" type:components family:navigation-menu {
+  title "Navigation Menu"
+  description:"Horizontal menu bar with disclosure panels of links."
+}
+
+component MenuBar layout:inline style:navigation-menu group:"Menu bar" note:"A horizontal menu bar with a disclosure panel of links and a flat link, fully keyboard navigable." {
+  label "Main"
+  item "Products"
+  link "Analytics" -> "#" description:"Real-time dashboards and reports." menu:"Products"
+  link "Automations" -> "#" description:"Wire up rules and workflows." menu:"Products"
+  link "Docs" -> "#"
+}

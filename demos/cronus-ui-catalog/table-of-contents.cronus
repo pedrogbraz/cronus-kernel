@@ -1,0 +1,14 @@
+page "/table-of-contents" type:components family:table-of-contents {
+  title "Table Of Contents"
+  description:"Scrollspy links for the sections of an article."
+}
+
+component Scrollspy layout:stack style:table-of-contents article:true group:"Scrollspy article" note:"The active link gains aria-current and the indicator bar glides to its row. Clicking a link scrolls the container (instant under reduced motion)." {
+  label "On this page"
+  item "Overview" description:"Cronus UI is a token-driven design system: every color, radius and shadow flows from semantic tokens, so a single preset re-themes the whole catalog."
+  item "Installation" description:"Add the package to your workspace and import the stylesheet once. The components ship as plain ESM with no build step required."
+  item "With the CLI" depth:1 description:"Run the init command to scaffold the tokens file and pick a preset. The CLI writes the theme and registers the fonts for you."
+  item "Manual setup" depth:1 description:"Copy the tokens file into your app, import it before your own styles and set the theme attribute on the root element."
+  item "Theming" description:"Switch presets and modes with two data attributes. Looks change the material language without touching the palette."
+  item "API reference" description:"Every component documents its props, slots and data attributes so audits can compare geometry across implementations."
+}

@@ -1,0 +1,10 @@
+page "/app-shell" type:components family:app-shell {
+  title "App Shell"
+  description:"Sidebar, sticky header and content region in one step."
+}
+
+component Shell layout:stack style:app-shell collapsible:icon header:"Acme Inc." description:"Your page content goes here." group:"Shell layout" note:"AppShell composes a sidebar, a sticky header and a content region in one step. It never renders a main element. The route owns that landmark." {
+  label "Dashboard"
+  item "Home" icon:home active:true
+  item "Search" icon:search
+}

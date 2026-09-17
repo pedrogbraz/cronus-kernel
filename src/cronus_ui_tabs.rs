@@ -29,15 +29,24 @@ use crate::parser::ComponentNode;
 /// Tabs beyond this index still render but have no panel-switching rule.
 pub const MAX_TABS: usize = 32;
 
-/// `(trigger, body)`: `tab` / `item` lines are tabs whose panel repeats the
-/// trigger; otherwise the `text` lines pair up (audit fixture), a lone trailing
+/// `(trigger, body)`: `tab` / `item` lines are tabs whose panel is their
+/// `description:"…"` (the docs' `<p>` paragraph) or repeats the trigger;
+/// otherwise the `text` lines pair up (audit fixture), a lone trailing
 /// trigger reusing its own text; with neither, the label is the only tab.
 fn pairs(comp: &ComponentNode) -> Vec<(String, String)> {
     let listed: Vec<(String, String)> = comp
         .items
         .iter()
         .filter(|i| (i.item_type == "tab" || i.item_type == "item") && !i.text.is_empty())
-        .map(|i| (esc(&i.text), esc(&i.text)))
+        .map(|i| {
+            let body = i
+                .config
+                .get("description")
+                .filter(|d| !d.trim().is_empty())
+                .map(|d| format!("<p>{}</p>", esc(d)))
+                .unwrap_or_else(|| esc(&i.text));
+            (esc(&i.text), body)
+        })
         .collect();
     if !listed.is_empty() {
         return listed;
@@ -201,6 +210,25 @@ mod tests {
     #[test]
     fn no_voodoo_even_when_runtime_on() {
         crate::voodoo::with_enabled(true, || reject_js(&render(&fixture())));
+    }
+
+    #[test]
+    fn tab_items_take_a_description_paragraph() {
+        let mut c = stub("tabs", "Settings");
+        let mut account = text("Account");
+        account.item_type = "tab".into();
+        account
+            .config
+            .insert("description".into(), "Manage your account details.".into());
+        c.items.push(account);
+        let mut team = text("Team");
+        team.item_type = "tab".into();
+        c.items.push(team);
+        let html = render(&c);
+        assert!(html.contains("role=\"tabpanel\" aria-labelledby=\"cui-tabs-tabs-t0\"><p>Manage your account details.</p></div>"), "{html}");
+        assert!(html.contains("aria-labelledby=\"cui-tabs-tabs-t1\">Team</div>"));
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"tabs-content\"] > p {\n  margin: 0; padding-top: 1rem; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);"));
     }
 
     #[test]

@@ -1,0 +1,11 @@
+page "/breadcrumb" type:components family:breadcrumb {
+  title "Breadcrumb"
+  description:"Path to the current page."
+}
+
+component Trail layout:inline style:breadcrumb group:"Trail" note:"Shows the path to the current page, with the active page as plain text." {
+  label "Breadcrumb"
+  item "Home" -> "#"
+  item "Components" -> "#"
+  item "Button"
+}

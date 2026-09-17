@@ -29,14 +29,24 @@
 use crate::cronus_ui_kit::{attr, content_texts, esc, instance_id, label_of};
 use crate::parser::ComponentNode;
 
-/// `(trigger, body)`: `item` lines are triggers without a body; otherwise the
-/// `text` lines pair up (audit fixture); with neither, the label alone.
+/// `(trigger, body)`: `item` lines are triggers whose body is their
+/// `description:"…"` (the docs' answer text); otherwise the `text` lines pair
+/// up (audit fixture); with neither, the label alone.
 fn items_of(comp: &ComponentNode) -> Vec<(String, String)> {
     let listed: Vec<(String, String)> = comp
         .items
         .iter()
         .filter(|i| i.item_type == "item" && !i.text.is_empty())
-        .map(|i| (esc(&i.text), String::new()))
+        .map(|i| {
+            (
+                esc(&i.text),
+                i.config
+                    .get("description")
+                    .filter(|d| !d.trim().is_empty())
+                    .map(|d| esc(d))
+                    .unwrap_or_default(),
+            )
+        })
         .collect();
     if !listed.is_empty() {
         return listed;
@@ -202,11 +212,36 @@ mod tests {
     }
 
     #[test]
+    fn item_descriptions_are_the_bodies() {
+        let mut c = stub("accordion", "FAQ");
+        let mut q = text("Is it accessible?");
+        q.item_type = "item".into();
+        q.config.insert(
+            "description".into(),
+            "Yes. It follows the WAI-ARIA disclosure pattern.".into(),
+        );
+        c.items.push(q);
+        let html = render(&c);
+        assert!(
+            html.contains("<div>Yes. It follows the WAI-ARIA disclosure pattern.</div></div>"),
+            "{html}"
+        );
+        assert!(html.contains("aria-label=\"Is it accessible?\""));
+    }
+
+    #[test]
     fn chrome_opens_checked_item() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"accordion-content\"] {\n  display: none;"));
+        // Height animates like React's cronus-accordion-down/up (grid rows 0fr -> 1fr).
         assert!(css.contains(
-            "[data-slot=\"accordion-item\"]:has(> h3 > label > input:checked) > [data-slot=\"accordion-content\"] {\n  display: block;"
+            "[data-slot=\"accordion-content\"] {\n  display: grid; grid-template-rows: 0fr;"
+        ));
+        assert!(css.contains("transition: grid-template-rows 220ms var(--ease-out-quart);"));
+        assert!(css.contains(
+            "[data-slot=\"accordion-item\"]:has(> h3 > label > input:checked) > [data-slot=\"accordion-content\"] {\n  grid-template-rows: 1fr;"
+        ));
+        assert!(css.contains(
+            "[data-slot=\"accordion-content\"] > div {\n  min-height: 0; overflow: hidden;"
         ));
         assert!(
             css.contains("label:has(> input:checked) > [data-slot=\"accordion-trigger\"] > svg")

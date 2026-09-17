@@ -1,0 +1,11 @@
+page "/tabs" type:components family:tabs {
+  title "Tabs"
+  description:"Switch between related panels of content."
+}
+
+component Settings layout:stack style:tabs group:"Three tabs" note:"Switch between related panels of content within a single surface." {
+  label "Settings"
+  tab "Account" description:"Manage your account details and public profile."
+  tab "Password" description:"Change your password and configure two-factor authentication."
+  tab "Team" description:"Invite teammates and manage their roles and permissions."
+}

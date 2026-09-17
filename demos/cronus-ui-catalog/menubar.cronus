@@ -1,0 +1,21 @@
+page "/menubar" type:components family:menubar {
+  title "Menubar"
+  description:"Desktop-style menu bar with nested menus."
+}
+
+component Menus layout:inline style:menubar group:"Menus" note:"A desktop-style menu bar with File / Edit / View menus. Shortcuts, a checkbox and a radio group." {
+  item "New Tab" menu:"File" shortcut:"⌘T"
+  item "New Window" menu:"File" shortcut:"⌘N"
+  item "-" menu:"File"
+  item "Share" menu:"File"
+  item "Email link" menu:"File" sub:"Share"
+  item "Messages" menu:"File" sub:"Share"
+  item "-" menu:"File"
+  item "Print…" menu:"File" shortcut:"⌘P"
+  item "Undo" menu:"Edit" shortcut:"⌘Z"
+  item "Redo" menu:"Edit" shortcut:"⇧⌘Z"
+  item "Always Show Full URLs" menu:"View" type:checkbox checked:true
+  item "-" menu:"View"
+  item "Benoit" menu:"View" type:radio checked:true
+  item "Evil Rabbit" menu:"View" type:radio
+}

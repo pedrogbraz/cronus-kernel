@@ -15,4 +15,10 @@
 [data-slot="app-shell-body"] {
   display: flex; min-height: 0; flex: 1; flex-direction: column;
 }
-[data-slot="app-shell-body"] > div { padding: 0.75rem; font-size: 0.875rem; line-height: 1.25rem; }
+[data-slot="app-shell-body"] > div { padding: 1.5rem; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary); }
+[data-slot="app-shell-header"] > span {
+  font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; color: var(--cronus-fg);
+}
+[data-slot="app-shell-content"] { min-height: 0; }
+[data-slot="catalog-frame"] > [data-slot="sidebar-wrapper"][data-app-shell] { height: 20rem; min-height: 0; overflow: hidden; }
+[data-slot="sidebar-wrapper"][data-app-shell] > [data-slot="sidebar"] { height: 100%; }

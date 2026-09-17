@@ -28,6 +28,9 @@
 [data-slot="tabs"] > [data-slot="tabs-content"] {
   display: none; flex: 1; outline: none;
 }
+[data-slot="tabs-content"] > p {
+  margin: 0; padding-top: 1rem; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
+}
 [data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(1) > input:checked) > [data-slot="tabs-content"]:nth-child(2),
 [data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(2) > input:checked) > [data-slot="tabs-content"]:nth-child(3),
 [data-slot="tabs"]:has(> [data-slot="tabs-list"] > label:nth-child(3) > input:checked) > [data-slot="tabs-content"]:nth-child(4),

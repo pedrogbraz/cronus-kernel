@@ -8,7 +8,10 @@
 //!
 //! Props: `total` (pages, default 1), `current` (1-based, clamped),
 //! `href-template` (default `?page={n}`; `{n}` is replaced, the result goes
-//! through `safe_url`). The window is [`page_window`].
+//! through `safe_url`). The window is [`page_window`]. Explicit `item` lines
+//! (the docs' hand-composed pager) replace it: `item "2" -> "#" active:true`
+//! is a page link, `item "…"` an ellipsis; Previous / Next then link to
+//! `prev:` / `next:` (default `#`).
 
 use crate::cronus_ui_kit::{attr_nonempty, attr_num, safe_url};
 use crate::parser::ComponentNode;
@@ -44,6 +47,9 @@ pub fn page_window(total: u32, current: u32) -> Vec<Option<u32>> {
 }
 
 pub fn render(comp: &ComponentNode) -> String {
+    if comp.items.iter().any(|i| i.item_type == "item") {
+        return render_listed(comp);
+    }
     let total = attr_num::<u32>(comp, "total")
         .unwrap_or(1)
         .clamp(1, MAX_PAGES);
@@ -82,9 +88,87 @@ pub fn render(comp: &ComponentNode) -> String {
     )
 }
 
+fn render_listed(comp: &ComponentNode) -> String {
+    let li = |inner: String| format!("<li data-slot=\"pagination-item\">{inner}</li>");
+    let href = |key: &str| safe_url(attr_nonempty(comp, key).unwrap_or("#"));
+    let mut items = vec![li(format!(
+        "<a aria-label=\"Go to previous page\" data-slot=\"pagination-previous\" href=\"{}\">{CHEVRON_LEFT}<span>Previous</span></a>",
+        href("prev")
+    ))];
+    for item in comp.items.iter().filter(|i| i.item_type == "item") {
+        let text = item.text.trim();
+        if text.is_empty() {
+            continue;
+        }
+        if text == "…" || text == "..." {
+            items.push(li(format!(
+                "<span aria-hidden=\"true\" data-slot=\"pagination-ellipsis\">{ELLIPSIS}<span>More pages</span></span>"
+            )));
+            continue;
+        }
+        let active = item
+            .config
+            .get("active")
+            .is_some_and(|v| crate::cronus_ui_kit::truthy(v));
+        let target = safe_url(item.link.as_deref().unwrap_or("#"));
+        let text = crate::cronus_ui_kit::esc(text);
+        items.push(li(if active {
+            format!(
+                "<a aria-current=\"page\" data-slot=\"pagination-link\" data-active=\"true\" href=\"{target}\">{text}</a>"
+            )
+        } else {
+            format!(
+                "<a data-slot=\"pagination-link\" data-active=\"false\" href=\"{target}\">{text}</a>"
+            )
+        }));
+    }
+    items.push(li(format!(
+        "<a aria-label=\"Go to next page\" data-slot=\"pagination-next\" href=\"{}\"><span>Next</span>{CHEVRON_RIGHT}</a>",
+        href("next")
+    )));
+    format!(
+        "<nav aria-label=\"Pagination\" data-slot=\"pagination\"><ul data-slot=\"pagination-content\">{}</ul></nav>",
+        items.join("")
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn listed_items_replace_the_window() {
+        let mut c = crate::cronus_ui_kit::stub("pagination", "Pager");
+        let page = |n: &str, active: bool| {
+            let mut i = crate::parser::ComponentItemNode {
+                item_type: "item".into(),
+                text: n.into(),
+                link: Some("#".into()),
+                tone: None,
+                config: Default::default(),
+            };
+            if active {
+                i.config.insert("active".into(), "true".into());
+            }
+            i
+        };
+        c.items.push(page("1", false));
+        c.items.push(page("2", true));
+        c.items.push(page("3", false));
+        let mut dots = page("…", false);
+        dots.link = None;
+        c.items.push(dots);
+        let html = render(&c);
+        assert!(html.contains(
+            "<a aria-label=\"Go to previous page\" data-slot=\"pagination-previous\" href=\"#\">"
+        ));
+        assert!(html.contains("<a data-slot=\"pagination-link\" data-active=\"false\" href=\"#\">1</a></li><li data-slot=\"pagination-item\"><a aria-current=\"page\" data-slot=\"pagination-link\" data-active=\"true\" href=\"#\">2</a></li><li data-slot=\"pagination-item\"><a data-slot=\"pagination-link\" data-active=\"false\" href=\"#\">3</a></li><li data-slot=\"pagination-item\"><span aria-hidden=\"true\" data-slot=\"pagination-ellipsis\">"), "{html}");
+        assert!(html.contains(
+            "<a aria-label=\"Go to next page\" data-slot=\"pagination-next\" href=\"#\">"
+        ));
+        assert_eq!(html.matches("pagination-link").count(), 3);
+        assert!(!html.contains(">Pager<"));
+    }
     use crate::cronus_ui_kit::stub;
 
     fn pages(total: &str, current: &str) -> ComponentNode {

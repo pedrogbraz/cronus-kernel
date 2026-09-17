@@ -1,0 +1,12 @@
+page "/pagination" type:components family:pagination {
+  title "Pagination"
+  description:"Previous, page links, an ellipsis and next."
+}
+
+component PageLinks layout:stack style:pagination group:"Pager" note:"Navigate paginated content with previous, page links, an ellipsis, and next." {
+  label "Pagination"
+  item "1" -> "#"
+  item "2" -> "#" active:true
+  item "3" -> "#"
+  item "…"
+}
