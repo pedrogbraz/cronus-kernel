@@ -1,0 +1,26 @@
+page "/orbit" type:components family:orbit {
+  title "Orbit"
+  description:"Icons or avatars revolving around a nucleus on pure-CSS rings."
+}
+
+component Constellation layout:inline style:orbit aria-label:"Tools orbiting the product core" size:80 icon:zap group:"Integration constellation" note:"Two counter-rotating rings of tool chips around a product core — the classic integrations hero. One shared CSS keyframe drives everything (zero JS per frame): hovering the stage pauses both rings so any chip can be clicked, and reduced-motion visitors get the same layout statically placed, every chip upright." {
+  slot "ring" radius:72 duration:22
+  item "Search" icon:search
+  item "Alerts" icon:bell
+  item "Settings" icon:settings
+  slot "ring" radius:128 duration:36 reverse:true start:36
+  item "GitHub" icon:github
+  item "Security" icon:shield-check
+  item "Chat" icon:message-square-plus
+  item "Uptime" icon:wifi
+  item "Favorites" icon:star
+}
+
+component TeamHalo layout:inline style:orbit aria-label:"Teammates on call" size:64 group:"Team halo" note:"A single guide-less ring puts faces around a live metric. `startAngle` rotates the whole formation off the 12 o'clock axis, and the built-in counter-rotation keeps every avatar upright for the full lap." {
+  value "04" meta:"on call"
+  slot "ring" radius:96 duration:30 guide:false start:45
+  item "Ana Ribeiro" initials:AR
+  item "Marcus Lee" initials:ML
+  item "Priya Nair" initials:PN
+  item "Tom Costa" initials:TC
+}

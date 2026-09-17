@@ -30,3 +30,183 @@
   [data-slot="logo-carousel-item"] { height: 6rem; }
   [data-slot="logo-carousel-item"] > div > span { font-size: 3.75rem; }
 }
+/* React pages the columns every `interval` and cross-fades each slot with
+   Motion (0.5 s ease-out-quart, y 22 → 0, scale 0.96, blur 10 px, staggered
+   per column). Every logo a column will show is a stacked `div.k-<page>`;
+   one keyframe cycle per (pages, interval) replays the same cross-fade:
+   plateau until (T-0.5)/C, exit until T/C, hidden until (C-0.5)/C, enter. */
+[data-slot="logo-carousel"] > li > div.k-0 ~ div { opacity: 0; }
+[data-slot="logo-carousel"] > li > div[class^="k-"] {
+  animation-timing-function: linear; animation-iteration-count: infinite; animation-fill-mode: backwards;
+  animation-duration: calc(var(--cui-logo-n) * var(--cui-logo-t));
+  animation-delay: calc(var(--cui-logo-k) * var(--cui-logo-t) + var(--cui-logo-c) * var(--cui-logo-stagger) - var(--cui-logo-n) * var(--cui-logo-t) + 0.5s);
+  will-change: transform, opacity, filter;
+}
+[data-slot="logo-carousel"] > li > div.k-0 { animation-delay: calc(var(--cui-logo-c) * var(--cui-logo-stagger) + 0.5s); }
+[data-slot="logo-carousel"]:hover > li > div,
+[data-slot="logo-carousel"]:focus-within > li > div { animation-play-state: paused; }
+[data-slot="logo-carousel"].i-1600 { --cui-logo-t: 1.6s; }
+[data-slot="logo-carousel"].i-2200 { --cui-logo-t: 2.2s; }
+[data-slot="logo-carousel"].s-7 { --cui-logo-stagger: 0.07s; }
+[data-slot="logo-carousel"].s-12 { --cui-logo-stagger: 0.12s; }
+
+[data-slot="logo-carousel"] > li.c-0 { --cui-logo-c: 0; }
+[data-slot="logo-carousel"] > li.c-1 { --cui-logo-c: 1; }
+[data-slot="logo-carousel"] > li.c-2 { --cui-logo-c: 2; }
+[data-slot="logo-carousel"] > li.c-3 { --cui-logo-c: 3; }
+[data-slot="logo-carousel"] > li.c-4 { --cui-logo-c: 4; }
+[data-slot="logo-carousel"] > li.c-5 { --cui-logo-c: 5; }
+[data-slot="logo-carousel"] > li.c-6 { --cui-logo-c: 6; }
+[data-slot="logo-carousel"] > li.c-7 { --cui-logo-c: 7; }
+[data-slot="logo-carousel"] > li > div.k-0 { --cui-logo-k: 0; }
+[data-slot="logo-carousel"] > li > div.k-1 { --cui-logo-k: 1; }
+[data-slot="logo-carousel"] > li > div.k-2 { --cui-logo-k: 2; }
+[data-slot="logo-carousel"] > li > div.k-3 { --cui-logo-k: 3; }
+[data-slot="logo-carousel"] > li > div.k-4 { --cui-logo-k: 4; }
+[data-slot="logo-carousel"] > li > div.k-5 { --cui-logo-k: 5; }
+[data-slot="logo-carousel"] > li > div.k-6 { --cui-logo-k: 6; }
+[data-slot="logo-carousel"] > li > div.k-7 { --cui-logo-k: 7; }
+[data-slot="logo-carousel"].n-2 { --cui-logo-n: 2; }
+[data-slot="logo-carousel"].n-3 { --cui-logo-n: 3; }
+[data-slot="logo-carousel"].n-4 { --cui-logo-n: 4; }
+[data-slot="logo-carousel"].n-5 { --cui-logo-n: 5; }
+[data-slot="logo-carousel"].n-6 { --cui-logo-n: 6; }
+[data-slot="logo-carousel"].n-7 { --cui-logo-n: 7; }
+[data-slot="logo-carousel"].n-8 { --cui-logo-n: 8; }
+[data-slot="logo-carousel"].n-2.i-1600 > li > div { animation-name: cui-logo-cycle-2x1600; }
+@keyframes cui-logo-cycle-2x1600 {
+  0% { opacity: 1; transform: none; filter: blur(0); }
+  34.375% { opacity: 1; transform: none; filter: blur(0); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  50% { opacity: 0; transform: translateY(-22px) scale(0.96); filter: blur(10px); }
+  84.375% { opacity: 0; transform: translateY(22px) scale(0.96); filter: blur(10px); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+[data-slot="logo-carousel"].n-2.i-2200 > li > div { animation-name: cui-logo-cycle-2x2200; }
+@keyframes cui-logo-cycle-2x2200 {
+  0% { opacity: 1; transform: none; filter: blur(0); }
+  38.63636% { opacity: 1; transform: none; filter: blur(0); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  50% { opacity: 0; transform: translateY(-22px) scale(0.96); filter: blur(10px); }
+  88.63636% { opacity: 0; transform: translateY(22px) scale(0.96); filter: blur(10px); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+[data-slot="logo-carousel"].n-3.i-1600 > li > div { animation-name: cui-logo-cycle-3x1600; }
+@keyframes cui-logo-cycle-3x1600 {
+  0% { opacity: 1; transform: none; filter: blur(0); }
+  22.91667% { opacity: 1; transform: none; filter: blur(0); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  33.33333% { opacity: 0; transform: translateY(-22px) scale(0.96); filter: blur(10px); }
+  89.58333% { opacity: 0; transform: translateY(22px) scale(0.96); filter: blur(10px); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+[data-slot="logo-carousel"].n-3.i-2200 > li > div { animation-name: cui-logo-cycle-3x2200; }
+@keyframes cui-logo-cycle-3x2200 {
+  0% { opacity: 1; transform: none; filter: blur(0); }
+  25.75758% { opacity: 1; transform: none; filter: blur(0); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  33.33333% { opacity: 0; transform: translateY(-22px) scale(0.96); filter: blur(10px); }
+  92.42424% { opacity: 0; transform: translateY(22px) scale(0.96); filter: blur(10px); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+[data-slot="logo-carousel"].n-4.i-1600 > li > div { animation-name: cui-logo-cycle-4x1600; }
+@keyframes cui-logo-cycle-4x1600 {
+  0% { opacity: 1; transform: none; filter: blur(0); }
+  17.1875% { opacity: 1; transform: none; filter: blur(0); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  25% { opacity: 0; transform: translateY(-22px) scale(0.96); filter: blur(10px); }
+  92.1875% { opacity: 0; transform: translateY(22px) scale(0.96); filter: blur(10px); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+[data-slot="logo-carousel"].n-4.i-2200 > li > div { animation-name: cui-logo-cycle-4x2200; }
+@keyframes cui-logo-cycle-4x2200 {
+  0% { opacity: 1; transform: none; filter: blur(0); }
+  19.31818% { opacity: 1; transform: none; filter: blur(0); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  25% { opacity: 0; transform: translateY(-22px) scale(0.96); filter: blur(10px); }
+  94.31818% { opacity: 0; transform: translateY(22px) scale(0.96); filter: blur(10px); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+[data-slot="logo-carousel"].n-5.i-1600 > li > div { animation-name: cui-logo-cycle-5x1600; }
+@keyframes cui-logo-cycle-5x1600 {
+  0% { opacity: 1; transform: none; filter: blur(0); }
+  13.75% { opacity: 1; transform: none; filter: blur(0); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  20% { opacity: 0; transform: translateY(-22px) scale(0.96); filter: blur(10px); }
+  93.75% { opacity: 0; transform: translateY(22px) scale(0.96); filter: blur(10px); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+[data-slot="logo-carousel"].n-5.i-2200 > li > div { animation-name: cui-logo-cycle-5x2200; }
+@keyframes cui-logo-cycle-5x2200 {
+  0% { opacity: 1; transform: none; filter: blur(0); }
+  15.45455% { opacity: 1; transform: none; filter: blur(0); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  20% { opacity: 0; transform: translateY(-22px) scale(0.96); filter: blur(10px); }
+  95.45455% { opacity: 0; transform: translateY(22px) scale(0.96); filter: blur(10px); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+[data-slot="logo-carousel"].n-6.i-1600 > li > div { animation-name: cui-logo-cycle-6x1600; }
+@keyframes cui-logo-cycle-6x1600 {
+  0% { opacity: 1; transform: none; filter: blur(0); }
+  11.45833% { opacity: 1; transform: none; filter: blur(0); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  16.66667% { opacity: 0; transform: translateY(-22px) scale(0.96); filter: blur(10px); }
+  94.79167% { opacity: 0; transform: translateY(22px) scale(0.96); filter: blur(10px); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+[data-slot="logo-carousel"].n-6.i-2200 > li > div { animation-name: cui-logo-cycle-6x2200; }
+@keyframes cui-logo-cycle-6x2200 {
+  0% { opacity: 1; transform: none; filter: blur(0); }
+  12.87879% { opacity: 1; transform: none; filter: blur(0); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  16.66667% { opacity: 0; transform: translateY(-22px) scale(0.96); filter: blur(10px); }
+  96.21212% { opacity: 0; transform: translateY(22px) scale(0.96); filter: blur(10px); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+[data-slot="logo-carousel"].n-7.i-1600 > li > div { animation-name: cui-logo-cycle-7x1600; }
+@keyframes cui-logo-cycle-7x1600 {
+  0% { opacity: 1; transform: none; filter: blur(0); }
+  9.82143% { opacity: 1; transform: none; filter: blur(0); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  14.28571% { opacity: 0; transform: translateY(-22px) scale(0.96); filter: blur(10px); }
+  95.53571% { opacity: 0; transform: translateY(22px) scale(0.96); filter: blur(10px); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+[data-slot="logo-carousel"].n-7.i-2200 > li > div { animation-name: cui-logo-cycle-7x2200; }
+@keyframes cui-logo-cycle-7x2200 {
+  0% { opacity: 1; transform: none; filter: blur(0); }
+  11.03896% { opacity: 1; transform: none; filter: blur(0); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  14.28571% { opacity: 0; transform: translateY(-22px) scale(0.96); filter: blur(10px); }
+  96.75325% { opacity: 0; transform: translateY(22px) scale(0.96); filter: blur(10px); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+[data-slot="logo-carousel"].n-8.i-1600 > li > div { animation-name: cui-logo-cycle-8x1600; }
+@keyframes cui-logo-cycle-8x1600 {
+  0% { opacity: 1; transform: none; filter: blur(0); }
+  8.59375% { opacity: 1; transform: none; filter: blur(0); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  12.5% { opacity: 0; transform: translateY(-22px) scale(0.96); filter: blur(10px); }
+  96.09375% { opacity: 0; transform: translateY(22px) scale(0.96); filter: blur(10px); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+[data-slot="logo-carousel"].n-8.i-2200 > li > div { animation-name: cui-logo-cycle-8x2200; }
+@keyframes cui-logo-cycle-8x2200 {
+  0% { opacity: 1; transform: none; filter: blur(0); }
+  9.65909% { opacity: 1; transform: none; filter: blur(0); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  12.5% { opacity: 0; transform: translateY(-22px) scale(0.96); filter: blur(10px); }
+  97.15909% { opacity: 0; transform: translateY(22px) scale(0.96); filter: blur(10px); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="logo-carousel"] > li > div { animation: none; }
+  [data-slot="logo-carousel"] > li > div:not(.k-0) { display: none; }
+}
+/* Docs "Hero lockup": `min-h-[360px] max-w-4xl` centered column, eyebrow
+   `text-2xl sm:text-3xl` and `text-6xl sm:text-8xl leading-none` heading. */
+.cui-logo-hero {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2rem; width: 100%; max-width: 56rem; min-height: 360px; margin-inline: auto;
+  padding-block: 2rem; text-align: center; box-sizing: border-box;
+}
+.cui-logo-hero > div > * + * { margin-block-start: 0.5rem; }
+.cui-logo-hero > div > p {
+  margin: 0; font-family: var(--cronus-font-display, inherit); font-weight: 600; color: var(--cronus-fg);
+  font-size: 1.5rem; line-height: 1.25;
+}
+.cui-logo-hero > div > h3 {
+  margin: 0; font-family: var(--cronus-font-display, inherit); font-weight: 600; color: var(--cronus-fg);
+  font-size: 3.75rem; line-height: 1; letter-spacing: normal;
+}
+@media (min-width: 640px) {
+  .cui-logo-hero > div > p { font-size: 1.875rem; }
+  .cui-logo-hero > div > h3 { font-size: 6rem; }
+}
+

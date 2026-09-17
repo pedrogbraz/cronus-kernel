@@ -1,0 +1,10 @@
+page "/text-effect" type:components family:text-effect {
+  title "TextEffect"
+  description:"Reveal text by staggering words or characters (fade / blur / slide)."
+}
+
+component EffectHeadline layout:stack style:text-effect as:h3 per:char preset:blur size:3xl group:"Headline" note:"Staggers words or characters in with a fade, blur, or slide — on scroll-into-view or on mount. The full string stays in the a11y tree via aria-label, so screen readers read it once." { label "Ship premium by default" }
+component Subline layout:stack style:text-effect per:word preset:slide delay:0.35 size:sm tone:secondary group:"Headline" {
+  label "Every surface arrives with intent."
+  action "Replay" variant:outline size:sm icon:rotate-cw
+}

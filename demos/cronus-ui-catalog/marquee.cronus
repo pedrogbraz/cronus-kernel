@@ -1,0 +1,29 @@
+page "/marquee" type:components family:marquee {
+  title "Marquee"
+  description:"Seamless infinite scroller for logos, testimonials, or a ticker."
+}
+
+component LogoTicker layout:stack style:marquee+ticker speed:32 group:"Logo ticker" note:"A seamless, constant-velocity strip for a wall of customer logos. The edges fade into the background and the scroll pauses on hover. Reduced-motion visitors get a single static, fully-legible row." {
+  label "Customer logos"
+  item "stripe"
+  item "vercel"
+  item "linear"
+  item "notion"
+  item "supabase"
+  item "raycast"
+}
+
+component TestimonialsLeft layout:stack style:marquee speed:24 group:"Testimonial wall" note:"Two rows scrolling in opposite directions for a lively social-proof band. Each card is full content; hovering anywhere pauses both rows so a quote can be read." {
+  label "Testimonials"
+  item "We shipped a polished, on-brand UI in a weekend. The theming alone paid for itself." name:"Ana Ribeiro" role:"Head of Design, Northwind" initials:"AR"
+  item "Every component is accessible out of the box — our axe audit went green on the first pass." name:"Marcus Lee" role:"Staff Engineer, Atlas" initials:"ML"
+  item "The motion is tasteful and respects reduced-motion. It feels premium without trying hard." name:"Priya Nair" role:"Product Lead, Lumen" initials:"PN"
+  item "Drop-in registry, zero lock-in. We own the code and still get updates when we want them." name:"Tomás Costa" role:"Founder, Brava" initials:"TC"
+}
+component TestimonialsRight layout:stack style:marquee speed:24 direction:right group:"Testimonial wall" {
+  label "Testimonials, reversed"
+  item "We shipped a polished, on-brand UI in a weekend. The theming alone paid for itself." name:"Ana Ribeiro" role:"Head of Design, Northwind" initials:"AR"
+  item "Every component is accessible out of the box — our axe audit went green on the first pass." name:"Marcus Lee" role:"Staff Engineer, Atlas" initials:"ML"
+  item "The motion is tasteful and respects reduced-motion. It feels premium without trying hard." name:"Priya Nair" role:"Product Lead, Lumen" initials:"PN"
+  item "Drop-in registry, zero lock-in. We own the code and still get updates when we want them." name:"Tomás Costa" role:"Founder, Brava" initials:"TC"
+}

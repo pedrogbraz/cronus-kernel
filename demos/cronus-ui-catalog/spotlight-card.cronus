@@ -1,0 +1,9 @@
+page "/spotlight-card" type:components family:spotlight-card {
+  title "SpotlightCard"
+  description:"Cursor-following spotlight."
+}
+
+component AccessibleCore layout:stack style:spotlight-card icon:gauge icon-tone:primary group:"Hover spotlight" note:"A radial spotlight tracks your cursor across the card — hover anywhere over it to bring the surface to life." {
+  title "Accessible core"
+  text "Radix primitives and focus-visible rings ship on by default."
+}

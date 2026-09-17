@@ -1,0 +1,10 @@
+page "/aurora-background" type:components family:aurora-background {
+  title "AuroraBackground"
+  description:"Animated aurora backdrop."
+}
+
+component Backdrop layout:stack style:aurora-background group:"Animated backdrop" note:"Soft primary blobs drift behind centered hero content. Colour lives on the CTA; the headline stays on `text-fg`." {
+  title "Ship something beautiful" size:5xl
+  text "Accessible, token-driven React components with premium motion baked in."
+  action "Get started" size:lg icon-end:arrow-right
+}

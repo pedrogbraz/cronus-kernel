@@ -1,0 +1,19 @@
+page "/scroll-nav" type:components family:scroll-nav {
+  title "ScrollNav"
+  description:"Sticky sidebar that highlights the section in view as you scroll."
+}
+
+component TermsNav layout:stack style:scroll-nav viewport:"Terms, scrollable" group:"Terms" note:"Sticky sidebar tracks the section in view. The 2px bar springs between rows (bounce 0.16); click a title to jump." {
+  label "Terms & Conditions"
+  item "Acceptance of Terms"
+  text "By accessing and using this product, you agree to be bound by these terms. If you do not agree, please do not use the product."
+  text "Continued use after an update means you accept the revised terms."
+  item "License Agreement"
+  text "The software is licensed, not sold. The license is non-exclusive, non-transferable, and may be revoked if these terms are broken."
+  item "Ownership"
+  text "We retain all rights, title, and interest in the product, including intellectual property. This license does not grant ownership."
+  item "Updates and Support"
+  text "Updates may ship automatically. Support is provided on a best-effort basis through official channels."
+  item "Limitation of Liability"
+  text "In no event shall we be liable for indirect, incidental, or consequential damages arising from your use of the product."
+}

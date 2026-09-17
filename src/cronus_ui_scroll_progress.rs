@@ -2,19 +2,65 @@
 //! `<div data-slot="scroll-progress">` plus `<div data-slot="scroll-progress-fill">`
 //! (bar) or `scroll-progress-ring` (circle). Value from props/text number,
 //! default 40. Not interact `progress()` (native `<progress>` / SURF bar).
+//!
+//! `target:"…"` renders the docs "Reading bar & ring" scaffold: a named,
+//! keyboard-focusable scroll region (`<section tabindex="0">`) holding a
+//! sticky bar and the `title` / `text` copy (`repeat:N` paragraphs), with a
+//! `ring:<size>` circle beside it. React measures the container with JS; the
+//! kernel drives fill, ring and percentage from a named CSS scroll timeline
+//! (`scroll-timeline` on the region, `timeline-scope` on the wrapper) — zero JS.
 
-use crate::cronus_ui_kit::{esc, fmt_coord, item};
+use crate::cronus_ui_kit::{attr_nonempty, attr_num, esc, fmt_coord, item};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
+    if let Some(region) = attr_nonempty(comp, "target") {
+        return scoped(comp, region);
+    }
     let pct = value_of(comp);
     let now = fmt_num(pct);
     let label = aria_label(comp);
     if is_circle(comp) {
-        circle(pct, &now, &label)
+        circle(pct, &now, &label, 40.0, false)
     } else {
         bar(pct, &now, &label)
     }
+}
+
+/// Docs scaffold: `flex w-full max-w-md items-start gap-4` > named scroll
+/// region (sticky bar + `space-y-4 p-4` copy) + optional ring.
+fn scoped(comp: &ComponentNode, region: &str) -> String {
+    let label = aria_label(comp);
+    let mut copy = String::new();
+    for i in &comp.items {
+        if i.text.is_empty() {
+            continue;
+        }
+        match i.item_type.as_str() {
+            "title" => copy.push_str(&format!("<h4>{}</h4>", esc(&i.text))),
+            "text" => {
+                let n: usize = i
+                    .config
+                    .get("repeat")
+                    .and_then(|v| v.trim().parse().ok())
+                    .unwrap_or(1)
+                    .clamp(1, 64);
+                for _ in 0..n {
+                    copy.push_str(&format!("<p>{}</p>", esc(&i.text)));
+                }
+            }
+            _ => {}
+        }
+    }
+    let ring = attr_num::<f64>(comp, "ring")
+        .filter(|s| *s >= 8.0)
+        .map(|size| circle(0.0, "0", &label, size, true))
+        .unwrap_or_default();
+    format!(
+        "<div class=\"cui-scroll-progress-demo\"><section tabindex=\"0\" aria-label=\"{}\">{}<div>{copy}</div></section>{ring}</div>",
+        esc(region),
+        bar(0.0, "0", &label)
+    )
 }
 
 /// React writes `style.width`; the kernel emits no inline style. The fill's
@@ -32,25 +78,51 @@ fn bar(pct: f64, now: &str, label: &str) -> String {
     )
 }
 
-fn circle(pct: f64, now: &str, label: &str) -> String {
-    let size = 40.0;
-    let stroke = 4.0;
+/// React: `strokeWidth = max(2, round(size * 0.1))`, radius inset by half of
+/// it, dash array = circumference. A scroll-driven ring also gets
+/// `pathLength="100"` so one keyframe (`100 → 0`) fits every size; its
+/// percentage is painted by a CSS counter, so the value span is empty.
+fn circle(pct: f64, now: &str, label: &str, size: f64, scrolled: bool) -> String {
+    let stroke = (size * 0.1).round().max(2.0);
     let radius = size / 2.0 - stroke / 2.0;
     let circ = 2.0 * std::f64::consts::PI * radius;
     let progress = (pct / 100.0).clamp(0.0, 1.0);
     let offset = circ * (1.0 - progress);
     let r = fmt_coord(radius);
     let sw = fmt_coord(stroke);
-    let c = fmt_coord(circ);
-    let off = fmt_coord(offset);
+    let (c, off, path) = if scrolled {
+        ("100".to_string(), "100".to_string(), " pathLength=\"100\"")
+    } else {
+        (fmt_coord(circ), fmt_coord(offset), "")
+    };
+    let s = fmt_coord(size);
+    let half = fmt_coord(size / 2.0);
+    let value = if scrolled {
+        String::new()
+    } else {
+        format!("{now}%")
+    };
+    let class = if size != 40.0 {
+        format!(" class=\"s-{s}\"")
+    } else {
+        String::new()
+    };
     format!(
-        "<div data-slot=\"scroll-progress\" data-variant=\"circle\" role=\"progressbar\" aria-valuenow=\"{now}\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-label=\"{label}\"><svg width=\"40\" height=\"40\" viewBox=\"0 0 40 40\" fill=\"none\" aria-hidden=\"true\"><circle cx=\"20\" cy=\"20\" r=\"{r}\" stroke-width=\"{sw}\" stroke=\"var(--cronus-border)\"></circle><circle data-slot=\"scroll-progress-ring\" cx=\"20\" cy=\"20\" r=\"{r}\" stroke-width=\"{sw}\" stroke-linecap=\"round\" stroke-dasharray=\"{c}\" stroke-dashoffset=\"{off}\" stroke=\"var(--cronus-primary)\"></circle></svg><span data-slot=\"scroll-progress-value\">{now}%</span></div>"
+        "<div data-slot=\"scroll-progress\" data-variant=\"circle\"{class} role=\"progressbar\" aria-valuenow=\"{now}\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-label=\"{label}\"><svg width=\"{s}\" height=\"{s}\" viewBox=\"0 0 {s} {s}\" fill=\"none\" aria-hidden=\"true\"><circle cx=\"{half}\" cy=\"{half}\" r=\"{r}\" stroke-width=\"{sw}\" stroke=\"var(--cronus-border)\"></circle><circle data-slot=\"scroll-progress-ring\" cx=\"{half}\" cy=\"{half}\" r=\"{r}\" stroke-width=\"{sw}\" stroke-linecap=\"round\"{path} stroke-dasharray=\"{c}\" stroke-dashoffset=\"{off}\" stroke=\"var(--cronus-primary)\"></circle></svg><span data-slot=\"scroll-progress-value\">{value}</span></div>"
     )
 }
 
 fn aria_label(comp: &ComponentNode) -> String {
-    for kind in ["label", "title"] {
-        if let Some(t) = item(comp, kind) {
+    if let Some(l) = attr_nonempty(comp, "aria-label") {
+        return esc(l);
+    }
+    if let Some(t) = item(comp, "label") {
+        if !t.is_empty() && parse_num(t).is_none() {
+            return esc(t);
+        }
+    }
+    if attr_nonempty(comp, "target").is_none() {
+        if let Some(t) = item(comp, "title") {
             if !t.is_empty() && parse_num(t).is_none() {
                 return esc(t);
             }
@@ -262,5 +334,48 @@ mod tests {
         assert!(css.contains("var(--cronus-primary)"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("<progress"));
+    }
+
+    /// Docs "Reading bar & ring": a named scroll region with a sticky bar,
+    /// heading + 12 paragraphs, and a 48px ring — all scroll-driven by CSS.
+    #[test]
+    fn target_renders_scroll_region_bar_copy_and_ring() {
+        let mut c = stub("scroll-progress", "Reading");
+        c.props
+            .insert("target".into(), "Release notes, scrollable".into());
+        c.props.insert("ring".into(), "48".into());
+        c.items.push(extra("title", "Release notes"));
+        let mut p = extra("text", "Scroll this panel.");
+        p.config.insert("repeat".into(), "12".into());
+        c.items.push(p);
+        let html = render(&c);
+        assert!(html.starts_with(
+            "<div class=\"cui-scroll-progress-demo\"><section tabindex=\"0\" aria-label=\"Release notes, scrollable\"><div data-slot=\"scroll-progress\" data-variant=\"bar\" role=\"progressbar\" aria-valuenow=\"0\""
+        ));
+        assert!(html.contains("<div data-slot=\"scroll-progress-fill\" data-value=\"0\"></div></div><div><h4>Release notes</h4><p>Scroll this panel.</p>"));
+        assert_eq!(html.matches("<p>").count(), 12);
+        assert!(html.contains("</div></section><div data-slot=\"scroll-progress\" data-variant=\"circle\" class=\"s-48\" role=\"progressbar\" aria-valuenow=\"0\""));
+        // 48px ring: stroke 5, radius 21.5, drawn with pathLength 100.
+        assert!(html.contains("<svg width=\"48\" height=\"48\" viewBox=\"0 0 48 48\""));
+        assert!(html.contains("<circle cx=\"24\" cy=\"24\" r=\"21.5\" stroke-width=\"5\" stroke=\"var(--cronus-border)\">"));
+        assert!(html.contains("stroke-linecap=\"round\" pathLength=\"100\" stroke-dasharray=\"100\" stroke-dashoffset=\"100\""));
+        assert!(html.ends_with("<span data-slot=\"scroll-progress-value\"></span></div></div>"));
+        assert!(html.contains("aria-label=\"Reading\""));
+        assert!(!html.contains("style="));
+        assert!(!html.contains("<script"));
+    }
+
+    #[test]
+    fn scroll_driven_chrome_uses_named_timeline() {
+        let css = include_str!("cronus_ui_css/scroll-progress.css");
+        assert!(css.contains(".cui-scroll-progress-demo {"));
+        assert!(css.contains("timeline-scope: --cui-scroll-progress;"));
+        assert!(css.contains("scroll-timeline: --cui-scroll-progress block;"));
+        assert!(css.contains("animation-timeline: --cui-scroll-progress;"));
+        assert!(css.contains("@keyframes cui-scroll-progress-fill"));
+        assert!(css.contains("@keyframes cui-scroll-progress-ring"));
+        assert!(css.contains("@property --cui-scroll-pct"));
+        assert!(css.contains("content: counter(cui-scroll-pct) \"%\";"));
+        assert!(css.contains("[data-slot=\"scroll-progress\"][data-variant=\"circle\"][class^=\"s-\"] { width: auto; height: auto; }"));
     }
 }

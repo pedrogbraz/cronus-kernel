@@ -9,10 +9,11 @@
 [data-slot="aurora-background"] > div:last-child {
   position: relative;
 }
+/* React `bg-gradient-aurora opacity-30 blur-3xl animate-aurora`. */
 [data-slot="aurora-background"] > [aria-hidden] > div {
   position: absolute; border-radius: 999px;
-  background: linear-gradient(135deg, var(--cronus-primary), var(--cronus-accent));
-  filter: blur(48px);
+  background: linear-gradient(135deg, var(--cronus-primary), var(--cronus-accent), color-mix(in oklch, var(--cronus-accent) 65%, var(--cronus-primary)));
+  filter: blur(64px);
   opacity: 0.3;
   animation: cui-aurora 18s ease-in-out infinite alternate;
 }
@@ -35,3 +36,26 @@
 @media (prefers-reduced-motion: reduce) {
   [data-slot="aurora-background"] > [aria-hidden] > div { animation: none; }
 }
+/* Docs "Animated backdrop": `flex min-h-48 items-center justify-center rounded-2xl`
+   around a `max-w-lg` centered stack (`gap-4 px-6 py-12 text-center`). */
+[data-slot="aurora-background"].hero {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 12rem; border-radius: calc(var(--cronus-radius, 14px) + 8px);
+}
+[data-slot="aurora-background"].hero > div:last-child {
+  display: flex; flex-direction: column; align-items: center; gap: 1rem;
+  max-width: 32rem; padding: 3rem 1.5rem; text-align: center;
+}
+[data-slot="aurora-background"] h3 {
+  margin: 0; font-family: var(--cronus-font-display, inherit); font-weight: 600; color: var(--cronus-fg);
+  font-size: 1rem; line-height: 1.5rem; letter-spacing: normal;
+}
+[data-slot="aurora-background"] h3.t-5xl {
+  font-size: 3rem; line-height: 1.05; letter-spacing: -0.025em;
+}
+[data-slot="aurora-background"] p {
+  margin: 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
+  text-wrap: balance;
+}
+/* Kit preview: the docs hero is an unsized flex item (shrink-to-fit around `max-w-lg`). */
+[data-slot="catalog-frame"] > [data-slot="aurora-background"].hero { width: fit-content; max-width: 100%; }

@@ -24,14 +24,14 @@
   font-size: 0.75rem; line-height: 1rem; font-weight: 500;
   color: var(--cronus-fg-tertiary, var(--cronus-fg-secondary));
 }
-[data-slot="terminal-chrome"] [data-slot="copy-button"] {
+[data-slot="terminal-chrome"] [data-slot="copy-button"], [data-slot="terminal"] > div > [data-slot="copy-button"].floating {
   width: 2rem; height: 2rem; padding: 0; margin-inline-end: -0.375rem; flex-shrink: 0;
   border: 0; border-radius: var(--cronus-radius-lg);
   font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;
   background: transparent; color: var(--cronus-fg-secondary);
 }
-[data-slot="terminal-chrome"] [data-slot="copy-button"]:disabled { opacity: 1; pointer-events: none; }
-[data-slot="terminal-chrome"] [data-slot="copy-button"] svg { width: 0.875rem; height: 0.875rem; flex-shrink: 0; }
+[data-slot="terminal-chrome"] [data-slot="copy-button"]:disabled, [data-slot="terminal"] > div > [data-slot="copy-button"].floating:disabled { opacity: 1; pointer-events: none; }
+[data-slot="terminal-chrome"] [data-slot="copy-button"] svg, [data-slot="terminal"] > div > [data-slot="copy-button"].floating svg { width: 0.875rem; height: 0.875rem; flex-shrink: 0; }
 [data-slot="terminal-body"] {
   position: relative; overflow: auto; outline: none;
   font-family: var(--cronus-font-mono, ui-monospace, monospace);
@@ -48,8 +48,262 @@
 [data-slot="terminal-prompt"] {
   user-select: none; color: var(--cronus-fg-tertiary, var(--cronus-fg-secondary));
 }
-[data-slot="terminal-line"] > span:last-child {
+[data-slot="terminal-line"] > span:not([data-slot]) {
   min-width: 0; flex: 1; white-space: pre-wrap; overflow-wrap: break-word;
   color: var(--cronus-fg);
 }
-[data-slot="terminal-line"][data-line-type="output"] > span:last-child { color: var(--cronus-fg-secondary); }
+[data-slot="terminal-line"][data-line-type="output"] > span:not([data-slot]) { color: var(--cronus-fg-secondary); }
+/* `chrome:false`: the copy button floats over the body corner. */
+[data-slot="terminal"] > div { position: relative; }
+[data-slot="terminal"] > div > [data-slot="copy-button"].floating {
+  position: absolute; inset-inline-end: 0.5rem; top: 0.5rem; z-index: 10; margin: 0;
+  background: color-mix(in oklab, var(--cronus-surface-overlay) 80%, transparent);
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+}
+/* React's scripted session as CSS (`motion:respect|always`): each screen line
+   starts at `--cui-terminal-t`; commands type after 400 ms (30 ms/char) behind a
+   blinking cursor, outputs fade in 150 ms after their turn. */
+@keyframes cui-terminal-type { from { width: 0; } to { width: var(--cui-terminal-ch, 0ch); } }
+@keyframes cui-terminal-fade {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cui-terminal-show { from { visibility: hidden; } to { visibility: visible; } }
+@keyframes cui-terminal-window { from, to { width: 0.55em; visibility: visible; } }
+@keyframes cui-terminal-blink {
+  0%, 70%, 100% { opacity: 1; }
+  20%, 50% { opacity: 0; }
+}
+[data-slot="terminal"][data-state="animating"] [data-slot="terminal-screen"] > [data-slot="terminal-line"][data-line-type="input"] {
+  visibility: hidden;
+  animation: cui-terminal-show 1ms step-end var(--cui-terminal-t, 0ms) both;
+}
+[data-slot="terminal"][data-state="animating"] [data-slot="terminal-screen"] > [data-slot="terminal-line"][data-line-type="input"] > span:not([data-slot]) {
+  flex: none; display: inline-block; overflow: hidden; white-space: pre; vertical-align: bottom; width: 0;
+  animation: cui-terminal-type var(--cui-terminal-type, 0ms) steps(var(--cui-terminal-steps, 1), end) calc(var(--cui-terminal-t, 0ms) + 400ms) both;
+}
+[data-slot="terminal"][data-state="animating"] [data-slot="terminal-screen"] > [data-slot="terminal-line"][data-line-type="output"] {
+  animation: cui-terminal-fade 240ms ease-out calc(var(--cui-terminal-t, 0ms) + 150ms) both;
+}
+[data-slot="terminal-cursor"] {
+  display: inline-block; height: 1.1em; width: 0; margin-inline-start: calc(1px - 0.5rem); translate: 0 0.18em; flex-shrink: 0;
+  border-radius: 1px; background: var(--cronus-fg); visibility: hidden; vertical-align: baseline;
+  animation: cui-terminal-window calc(400ms + var(--cui-terminal-type, 0ms)) step-end var(--cui-terminal-t, 0ms), cui-terminal-blink 1s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="terminal"][data-state="animating"] [data-slot="terminal-screen"] > [data-slot="terminal-line"][data-line-type="input"] { visibility: visible; animation: none; }
+  [data-slot="terminal"][data-state="animating"] [data-slot="terminal-screen"] > [data-slot="terminal-line"][data-line-type="input"] > span:not([data-slot]) { width: auto; animation: none; }
+  [data-slot="terminal"][data-state="animating"] [data-slot="terminal-screen"] > [data-slot="terminal-line"][data-line-type="output"] { animation: none; }
+  [data-slot="terminal-cursor"] { display: none; }
+}
+[data-slot="terminal-line"].ch-1 { --cui-terminal-ch: 1ch; --cui-terminal-steps: 1; --cui-terminal-type: 30ms; }
+[data-slot="terminal-line"].ch-2 { --cui-terminal-ch: 2ch; --cui-terminal-steps: 2; --cui-terminal-type: 60ms; }
+[data-slot="terminal-line"].ch-3 { --cui-terminal-ch: 3ch; --cui-terminal-steps: 3; --cui-terminal-type: 90ms; }
+[data-slot="terminal-line"].ch-4 { --cui-terminal-ch: 4ch; --cui-terminal-steps: 4; --cui-terminal-type: 120ms; }
+[data-slot="terminal-line"].ch-5 { --cui-terminal-ch: 5ch; --cui-terminal-steps: 5; --cui-terminal-type: 150ms; }
+[data-slot="terminal-line"].ch-6 { --cui-terminal-ch: 6ch; --cui-terminal-steps: 6; --cui-terminal-type: 180ms; }
+[data-slot="terminal-line"].ch-7 { --cui-terminal-ch: 7ch; --cui-terminal-steps: 7; --cui-terminal-type: 210ms; }
+[data-slot="terminal-line"].ch-8 { --cui-terminal-ch: 8ch; --cui-terminal-steps: 8; --cui-terminal-type: 240ms; }
+[data-slot="terminal-line"].ch-9 { --cui-terminal-ch: 9ch; --cui-terminal-steps: 9; --cui-terminal-type: 270ms; }
+[data-slot="terminal-line"].ch-10 { --cui-terminal-ch: 10ch; --cui-terminal-steps: 10; --cui-terminal-type: 300ms; }
+[data-slot="terminal-line"].ch-11 { --cui-terminal-ch: 11ch; --cui-terminal-steps: 11; --cui-terminal-type: 330ms; }
+[data-slot="terminal-line"].ch-12 { --cui-terminal-ch: 12ch; --cui-terminal-steps: 12; --cui-terminal-type: 360ms; }
+[data-slot="terminal-line"].ch-13 { --cui-terminal-ch: 13ch; --cui-terminal-steps: 13; --cui-terminal-type: 390ms; }
+[data-slot="terminal-line"].ch-14 { --cui-terminal-ch: 14ch; --cui-terminal-steps: 14; --cui-terminal-type: 420ms; }
+[data-slot="terminal-line"].ch-15 { --cui-terminal-ch: 15ch; --cui-terminal-steps: 15; --cui-terminal-type: 450ms; }
+[data-slot="terminal-line"].ch-16 { --cui-terminal-ch: 16ch; --cui-terminal-steps: 16; --cui-terminal-type: 480ms; }
+[data-slot="terminal-line"].ch-17 { --cui-terminal-ch: 17ch; --cui-terminal-steps: 17; --cui-terminal-type: 510ms; }
+[data-slot="terminal-line"].ch-18 { --cui-terminal-ch: 18ch; --cui-terminal-steps: 18; --cui-terminal-type: 540ms; }
+[data-slot="terminal-line"].ch-19 { --cui-terminal-ch: 19ch; --cui-terminal-steps: 19; --cui-terminal-type: 570ms; }
+[data-slot="terminal-line"].ch-20 { --cui-terminal-ch: 20ch; --cui-terminal-steps: 20; --cui-terminal-type: 600ms; }
+[data-slot="terminal-line"].ch-21 { --cui-terminal-ch: 21ch; --cui-terminal-steps: 21; --cui-terminal-type: 630ms; }
+[data-slot="terminal-line"].ch-22 { --cui-terminal-ch: 22ch; --cui-terminal-steps: 22; --cui-terminal-type: 660ms; }
+[data-slot="terminal-line"].ch-23 { --cui-terminal-ch: 23ch; --cui-terminal-steps: 23; --cui-terminal-type: 690ms; }
+[data-slot="terminal-line"].ch-24 { --cui-terminal-ch: 24ch; --cui-terminal-steps: 24; --cui-terminal-type: 720ms; }
+[data-slot="terminal-line"].ch-25 { --cui-terminal-ch: 25ch; --cui-terminal-steps: 25; --cui-terminal-type: 750ms; }
+[data-slot="terminal-line"].ch-26 { --cui-terminal-ch: 26ch; --cui-terminal-steps: 26; --cui-terminal-type: 780ms; }
+[data-slot="terminal-line"].ch-27 { --cui-terminal-ch: 27ch; --cui-terminal-steps: 27; --cui-terminal-type: 810ms; }
+[data-slot="terminal-line"].ch-28 { --cui-terminal-ch: 28ch; --cui-terminal-steps: 28; --cui-terminal-type: 840ms; }
+[data-slot="terminal-line"].ch-29 { --cui-terminal-ch: 29ch; --cui-terminal-steps: 29; --cui-terminal-type: 870ms; }
+[data-slot="terminal-line"].ch-30 { --cui-terminal-ch: 30ch; --cui-terminal-steps: 30; --cui-terminal-type: 900ms; }
+[data-slot="terminal-line"].ch-31 { --cui-terminal-ch: 31ch; --cui-terminal-steps: 31; --cui-terminal-type: 930ms; }
+[data-slot="terminal-line"].ch-32 { --cui-terminal-ch: 32ch; --cui-terminal-steps: 32; --cui-terminal-type: 960ms; }
+[data-slot="terminal-line"].ch-33 { --cui-terminal-ch: 33ch; --cui-terminal-steps: 33; --cui-terminal-type: 990ms; }
+[data-slot="terminal-line"].ch-34 { --cui-terminal-ch: 34ch; --cui-terminal-steps: 34; --cui-terminal-type: 1020ms; }
+[data-slot="terminal-line"].ch-35 { --cui-terminal-ch: 35ch; --cui-terminal-steps: 35; --cui-terminal-type: 1050ms; }
+[data-slot="terminal-line"].ch-36 { --cui-terminal-ch: 36ch; --cui-terminal-steps: 36; --cui-terminal-type: 1080ms; }
+[data-slot="terminal-line"].ch-37 { --cui-terminal-ch: 37ch; --cui-terminal-steps: 37; --cui-terminal-type: 1110ms; }
+[data-slot="terminal-line"].ch-38 { --cui-terminal-ch: 38ch; --cui-terminal-steps: 38; --cui-terminal-type: 1140ms; }
+[data-slot="terminal-line"].ch-39 { --cui-terminal-ch: 39ch; --cui-terminal-steps: 39; --cui-terminal-type: 1170ms; }
+[data-slot="terminal-line"].ch-40 { --cui-terminal-ch: 40ch; --cui-terminal-steps: 40; --cui-terminal-type: 1200ms; }
+[data-slot="terminal-line"].ch-41 { --cui-terminal-ch: 41ch; --cui-terminal-steps: 41; --cui-terminal-type: 1230ms; }
+[data-slot="terminal-line"].ch-42 { --cui-terminal-ch: 42ch; --cui-terminal-steps: 42; --cui-terminal-type: 1260ms; }
+[data-slot="terminal-line"].ch-43 { --cui-terminal-ch: 43ch; --cui-terminal-steps: 43; --cui-terminal-type: 1290ms; }
+[data-slot="terminal-line"].ch-44 { --cui-terminal-ch: 44ch; --cui-terminal-steps: 44; --cui-terminal-type: 1320ms; }
+[data-slot="terminal-line"].ch-45 { --cui-terminal-ch: 45ch; --cui-terminal-steps: 45; --cui-terminal-type: 1350ms; }
+[data-slot="terminal-line"].ch-46 { --cui-terminal-ch: 46ch; --cui-terminal-steps: 46; --cui-terminal-type: 1380ms; }
+[data-slot="terminal-line"].ch-47 { --cui-terminal-ch: 47ch; --cui-terminal-steps: 47; --cui-terminal-type: 1410ms; }
+[data-slot="terminal-line"].ch-48 { --cui-terminal-ch: 48ch; --cui-terminal-steps: 48; --cui-terminal-type: 1440ms; }
+[data-slot="terminal-line"].ch-49 { --cui-terminal-ch: 49ch; --cui-terminal-steps: 49; --cui-terminal-type: 1470ms; }
+[data-slot="terminal-line"].ch-50 { --cui-terminal-ch: 50ch; --cui-terminal-steps: 50; --cui-terminal-type: 1500ms; }
+[data-slot="terminal-line"].ch-51 { --cui-terminal-ch: 51ch; --cui-terminal-steps: 51; --cui-terminal-type: 1530ms; }
+[data-slot="terminal-line"].ch-52 { --cui-terminal-ch: 52ch; --cui-terminal-steps: 52; --cui-terminal-type: 1560ms; }
+[data-slot="terminal-line"].ch-53 { --cui-terminal-ch: 53ch; --cui-terminal-steps: 53; --cui-terminal-type: 1590ms; }
+[data-slot="terminal-line"].ch-54 { --cui-terminal-ch: 54ch; --cui-terminal-steps: 54; --cui-terminal-type: 1620ms; }
+[data-slot="terminal-line"].ch-55 { --cui-terminal-ch: 55ch; --cui-terminal-steps: 55; --cui-terminal-type: 1650ms; }
+[data-slot="terminal-line"].ch-56 { --cui-terminal-ch: 56ch; --cui-terminal-steps: 56; --cui-terminal-type: 1680ms; }
+[data-slot="terminal-line"].ch-57 { --cui-terminal-ch: 57ch; --cui-terminal-steps: 57; --cui-terminal-type: 1710ms; }
+[data-slot="terminal-line"].ch-58 { --cui-terminal-ch: 58ch; --cui-terminal-steps: 58; --cui-terminal-type: 1740ms; }
+[data-slot="terminal-line"].ch-59 { --cui-terminal-ch: 59ch; --cui-terminal-steps: 59; --cui-terminal-type: 1770ms; }
+[data-slot="terminal-line"].ch-60 { --cui-terminal-ch: 60ch; --cui-terminal-steps: 60; --cui-terminal-type: 1800ms; }
+[data-slot="terminal-line"].ch-61 { --cui-terminal-ch: 61ch; --cui-terminal-steps: 61; --cui-terminal-type: 1830ms; }
+[data-slot="terminal-line"].ch-62 { --cui-terminal-ch: 62ch; --cui-terminal-steps: 62; --cui-terminal-type: 1860ms; }
+[data-slot="terminal-line"].ch-63 { --cui-terminal-ch: 63ch; --cui-terminal-steps: 63; --cui-terminal-type: 1890ms; }
+[data-slot="terminal-line"].ch-64 { --cui-terminal-ch: 64ch; --cui-terminal-steps: 64; --cui-terminal-type: 1920ms; }
+[data-slot="terminal-line"].ch-65 { --cui-terminal-ch: 65ch; --cui-terminal-steps: 65; --cui-terminal-type: 1950ms; }
+[data-slot="terminal-line"].ch-66 { --cui-terminal-ch: 66ch; --cui-terminal-steps: 66; --cui-terminal-type: 1980ms; }
+[data-slot="terminal-line"].ch-67 { --cui-terminal-ch: 67ch; --cui-terminal-steps: 67; --cui-terminal-type: 2010ms; }
+[data-slot="terminal-line"].ch-68 { --cui-terminal-ch: 68ch; --cui-terminal-steps: 68; --cui-terminal-type: 2040ms; }
+[data-slot="terminal-line"].ch-69 { --cui-terminal-ch: 69ch; --cui-terminal-steps: 69; --cui-terminal-type: 2070ms; }
+[data-slot="terminal-line"].ch-70 { --cui-terminal-ch: 70ch; --cui-terminal-steps: 70; --cui-terminal-type: 2100ms; }
+[data-slot="terminal-line"].ch-71 { --cui-terminal-ch: 71ch; --cui-terminal-steps: 71; --cui-terminal-type: 2130ms; }
+[data-slot="terminal-line"].ch-72 { --cui-terminal-ch: 72ch; --cui-terminal-steps: 72; --cui-terminal-type: 2160ms; }
+[data-slot="terminal-line"].ch-73 { --cui-terminal-ch: 73ch; --cui-terminal-steps: 73; --cui-terminal-type: 2190ms; }
+[data-slot="terminal-line"].ch-74 { --cui-terminal-ch: 74ch; --cui-terminal-steps: 74; --cui-terminal-type: 2220ms; }
+[data-slot="terminal-line"].ch-75 { --cui-terminal-ch: 75ch; --cui-terminal-steps: 75; --cui-terminal-type: 2250ms; }
+[data-slot="terminal-line"].ch-76 { --cui-terminal-ch: 76ch; --cui-terminal-steps: 76; --cui-terminal-type: 2280ms; }
+[data-slot="terminal-line"].ch-77 { --cui-terminal-ch: 77ch; --cui-terminal-steps: 77; --cui-terminal-type: 2310ms; }
+[data-slot="terminal-line"].ch-78 { --cui-terminal-ch: 78ch; --cui-terminal-steps: 78; --cui-terminal-type: 2340ms; }
+[data-slot="terminal-line"].ch-79 { --cui-terminal-ch: 79ch; --cui-terminal-steps: 79; --cui-terminal-type: 2370ms; }
+[data-slot="terminal-line"].ch-80 { --cui-terminal-ch: 80ch; --cui-terminal-steps: 80; --cui-terminal-type: 2400ms; }
+[data-slot="terminal-line"].s-0 { --cui-terminal-s: 0ms; }
+[data-slot="terminal-line"].s-1 { --cui-terminal-s: 1000ms; }
+[data-slot="terminal-line"].s-2 { --cui-terminal-s: 2000ms; }
+[data-slot="terminal-line"].s-3 { --cui-terminal-s: 3000ms; }
+[data-slot="terminal-line"].s-4 { --cui-terminal-s: 4000ms; }
+[data-slot="terminal-line"].s-5 { --cui-terminal-s: 5000ms; }
+[data-slot="terminal-line"].s-6 { --cui-terminal-s: 6000ms; }
+[data-slot="terminal-line"].s-7 { --cui-terminal-s: 7000ms; }
+[data-slot="terminal-line"].s-8 { --cui-terminal-s: 8000ms; }
+[data-slot="terminal-line"].s-9 { --cui-terminal-s: 9000ms; }
+[data-slot="terminal-line"].s-10 { --cui-terminal-s: 10000ms; }
+[data-slot="terminal-line"].s-11 { --cui-terminal-s: 11000ms; }
+[data-slot="terminal-line"].s-12 { --cui-terminal-s: 12000ms; }
+[data-slot="terminal-line"].s-13 { --cui-terminal-s: 13000ms; }
+[data-slot="terminal-line"].s-14 { --cui-terminal-s: 14000ms; }
+[data-slot="terminal-line"].s-15 { --cui-terminal-s: 15000ms; }
+[data-slot="terminal-line"].s-16 { --cui-terminal-s: 16000ms; }
+[data-slot="terminal-line"].s-17 { --cui-terminal-s: 17000ms; }
+[data-slot="terminal-line"].s-18 { --cui-terminal-s: 18000ms; }
+[data-slot="terminal-line"].s-19 { --cui-terminal-s: 19000ms; }
+[data-slot="terminal-line"].s-20 { --cui-terminal-s: 20000ms; }
+[data-slot="terminal-line"].s-21 { --cui-terminal-s: 21000ms; }
+[data-slot="terminal-line"].s-22 { --cui-terminal-s: 22000ms; }
+[data-slot="terminal-line"].s-23 { --cui-terminal-s: 23000ms; }
+[data-slot="terminal-line"].s-24 { --cui-terminal-s: 24000ms; }
+[data-slot="terminal-line"].s-25 { --cui-terminal-s: 25000ms; }
+[data-slot="terminal-line"].s-26 { --cui-terminal-s: 26000ms; }
+[data-slot="terminal-line"].s-27 { --cui-terminal-s: 27000ms; }
+[data-slot="terminal-line"].s-28 { --cui-terminal-s: 28000ms; }
+[data-slot="terminal-line"].s-29 { --cui-terminal-s: 29000ms; }
+[data-slot="terminal-line"].s-30 { --cui-terminal-s: 30000ms; }
+[data-slot="terminal-line"].t-0 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 0ms); }
+[data-slot="terminal-line"].t-1 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 10ms); }
+[data-slot="terminal-line"].t-2 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 20ms); }
+[data-slot="terminal-line"].t-3 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 30ms); }
+[data-slot="terminal-line"].t-4 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 40ms); }
+[data-slot="terminal-line"].t-5 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 50ms); }
+[data-slot="terminal-line"].t-6 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 60ms); }
+[data-slot="terminal-line"].t-7 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 70ms); }
+[data-slot="terminal-line"].t-8 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 80ms); }
+[data-slot="terminal-line"].t-9 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 90ms); }
+[data-slot="terminal-line"].t-10 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 100ms); }
+[data-slot="terminal-line"].t-11 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 110ms); }
+[data-slot="terminal-line"].t-12 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 120ms); }
+[data-slot="terminal-line"].t-13 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 130ms); }
+[data-slot="terminal-line"].t-14 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 140ms); }
+[data-slot="terminal-line"].t-15 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 150ms); }
+[data-slot="terminal-line"].t-16 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 160ms); }
+[data-slot="terminal-line"].t-17 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 170ms); }
+[data-slot="terminal-line"].t-18 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 180ms); }
+[data-slot="terminal-line"].t-19 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 190ms); }
+[data-slot="terminal-line"].t-20 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 200ms); }
+[data-slot="terminal-line"].t-21 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 210ms); }
+[data-slot="terminal-line"].t-22 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 220ms); }
+[data-slot="terminal-line"].t-23 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 230ms); }
+[data-slot="terminal-line"].t-24 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 240ms); }
+[data-slot="terminal-line"].t-25 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 250ms); }
+[data-slot="terminal-line"].t-26 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 260ms); }
+[data-slot="terminal-line"].t-27 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 270ms); }
+[data-slot="terminal-line"].t-28 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 280ms); }
+[data-slot="terminal-line"].t-29 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 290ms); }
+[data-slot="terminal-line"].t-30 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 300ms); }
+[data-slot="terminal-line"].t-31 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 310ms); }
+[data-slot="terminal-line"].t-32 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 320ms); }
+[data-slot="terminal-line"].t-33 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 330ms); }
+[data-slot="terminal-line"].t-34 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 340ms); }
+[data-slot="terminal-line"].t-35 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 350ms); }
+[data-slot="terminal-line"].t-36 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 360ms); }
+[data-slot="terminal-line"].t-37 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 370ms); }
+[data-slot="terminal-line"].t-38 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 380ms); }
+[data-slot="terminal-line"].t-39 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 390ms); }
+[data-slot="terminal-line"].t-40 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 400ms); }
+[data-slot="terminal-line"].t-41 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 410ms); }
+[data-slot="terminal-line"].t-42 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 420ms); }
+[data-slot="terminal-line"].t-43 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 430ms); }
+[data-slot="terminal-line"].t-44 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 440ms); }
+[data-slot="terminal-line"].t-45 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 450ms); }
+[data-slot="terminal-line"].t-46 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 460ms); }
+[data-slot="terminal-line"].t-47 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 470ms); }
+[data-slot="terminal-line"].t-48 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 480ms); }
+[data-slot="terminal-line"].t-49 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 490ms); }
+[data-slot="terminal-line"].t-50 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 500ms); }
+[data-slot="terminal-line"].t-51 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 510ms); }
+[data-slot="terminal-line"].t-52 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 520ms); }
+[data-slot="terminal-line"].t-53 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 530ms); }
+[data-slot="terminal-line"].t-54 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 540ms); }
+[data-slot="terminal-line"].t-55 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 550ms); }
+[data-slot="terminal-line"].t-56 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 560ms); }
+[data-slot="terminal-line"].t-57 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 570ms); }
+[data-slot="terminal-line"].t-58 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 580ms); }
+[data-slot="terminal-line"].t-59 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 590ms); }
+[data-slot="terminal-line"].t-60 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 600ms); }
+[data-slot="terminal-line"].t-61 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 610ms); }
+[data-slot="terminal-line"].t-62 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 620ms); }
+[data-slot="terminal-line"].t-63 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 630ms); }
+[data-slot="terminal-line"].t-64 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 640ms); }
+[data-slot="terminal-line"].t-65 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 650ms); }
+[data-slot="terminal-line"].t-66 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 660ms); }
+[data-slot="terminal-line"].t-67 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 670ms); }
+[data-slot="terminal-line"].t-68 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 680ms); }
+[data-slot="terminal-line"].t-69 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 690ms); }
+[data-slot="terminal-line"].t-70 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 700ms); }
+[data-slot="terminal-line"].t-71 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 710ms); }
+[data-slot="terminal-line"].t-72 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 720ms); }
+[data-slot="terminal-line"].t-73 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 730ms); }
+[data-slot="terminal-line"].t-74 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 740ms); }
+[data-slot="terminal-line"].t-75 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 750ms); }
+[data-slot="terminal-line"].t-76 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 760ms); }
+[data-slot="terminal-line"].t-77 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 770ms); }
+[data-slot="terminal-line"].t-78 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 780ms); }
+[data-slot="terminal-line"].t-79 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 790ms); }
+[data-slot="terminal-line"].t-80 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 800ms); }
+[data-slot="terminal-line"].t-81 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 810ms); }
+[data-slot="terminal-line"].t-82 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 820ms); }
+[data-slot="terminal-line"].t-83 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 830ms); }
+[data-slot="terminal-line"].t-84 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 840ms); }
+[data-slot="terminal-line"].t-85 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 850ms); }
+[data-slot="terminal-line"].t-86 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 860ms); }
+[data-slot="terminal-line"].t-87 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 870ms); }
+[data-slot="terminal-line"].t-88 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 880ms); }
+[data-slot="terminal-line"].t-89 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 890ms); }
+[data-slot="terminal-line"].t-90 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 900ms); }
+[data-slot="terminal-line"].t-91 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 910ms); }
+[data-slot="terminal-line"].t-92 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 920ms); }
+[data-slot="terminal-line"].t-93 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 930ms); }
+[data-slot="terminal-line"].t-94 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 940ms); }
+[data-slot="terminal-line"].t-95 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 950ms); }
+[data-slot="terminal-line"].t-96 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 960ms); }
+[data-slot="terminal-line"].t-97 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 970ms); }
+[data-slot="terminal-line"].t-98 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 980ms); }
+[data-slot="terminal-line"].t-99 { --cui-terminal-t: calc(var(--cui-terminal-s, 0ms) + 990ms); }

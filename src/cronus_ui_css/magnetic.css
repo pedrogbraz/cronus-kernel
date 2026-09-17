@@ -2,18 +2,77 @@
   display: inline-block;
   width: var(--cui-magnetic-w, 100%);
   color: var(--cronus-fg);
+  position: relative;
 }
 [data-slot="magnetic-target"] {
   display: block;
-  transition: transform 300ms var(--cronus-ease);
+  transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
 }
-[data-slot="magnetic"]:hover [data-slot="magnetic-target"] {
-  transform: translate(4px, -4px);
-}
+/* Eight hover zones tile the padding ring; each pulls the target toward
+   the pointer's side (React: pointer offset × strength × falloff). */
+[data-slot="magnetic"] > .z { position: absolute; }
+[data-slot="magnetic"] > .z1 { inset-block-start: 0; inset-inline-start: 0; width: var(--cui-magnetic-pad, 0px); height: var(--cui-magnetic-pad, 0px); }
+[data-slot="magnetic"] > .z1:hover ~ [data-slot="magnetic-target"] { transform: translate(calc(-1 * calc(var(--cui-magnetic-pull, 7px) * 0.7071)), calc(-1 * calc(var(--cui-magnetic-pull, 7px) * 0.7071))); }
+[data-slot="magnetic"] > .z2 { inset-block-start: 0; inset-inline: var(--cui-magnetic-pad, 0px); height: var(--cui-magnetic-pad, 0px); }
+[data-slot="magnetic"] > .z2:hover ~ [data-slot="magnetic-target"] { transform: translate(0, calc(-1 * var(--cui-magnetic-pull, 7px))); }
+[data-slot="magnetic"] > .z3 { inset-block-start: 0; inset-inline-end: 0; width: var(--cui-magnetic-pad, 0px); height: var(--cui-magnetic-pad, 0px); }
+[data-slot="magnetic"] > .z3:hover ~ [data-slot="magnetic-target"] { transform: translate(calc(var(--cui-magnetic-pull, 7px) * 0.7071), calc(-1 * calc(var(--cui-magnetic-pull, 7px) * 0.7071))); }
+[data-slot="magnetic"] > .z4 { inset-block: var(--cui-magnetic-pad, 0px); inset-inline-start: 0; width: var(--cui-magnetic-pad, 0px); }
+[data-slot="magnetic"] > .z4:hover ~ [data-slot="magnetic-target"] { transform: translate(calc(-1 * var(--cui-magnetic-pull, 7px)), 0); }
+[data-slot="magnetic"] > .z5 { inset-block: var(--cui-magnetic-pad, 0px); inset-inline-end: 0; width: var(--cui-magnetic-pad, 0px); }
+[data-slot="magnetic"] > .z5:hover ~ [data-slot="magnetic-target"] { transform: translate(var(--cui-magnetic-pull, 7px), 0); }
+[data-slot="magnetic"] > .z6 { inset-block-end: 0; inset-inline-start: 0; width: var(--cui-magnetic-pad, 0px); height: var(--cui-magnetic-pad, 0px); }
+[data-slot="magnetic"] > .z6:hover ~ [data-slot="magnetic-target"] { transform: translate(calc(-1 * calc(var(--cui-magnetic-pull, 7px) * 0.7071)), calc(var(--cui-magnetic-pull, 7px) * 0.7071)); }
+[data-slot="magnetic"] > .z7 { inset-block-end: 0; inset-inline: var(--cui-magnetic-pad, 0px); height: var(--cui-magnetic-pad, 0px); }
+[data-slot="magnetic"] > .z7:hover ~ [data-slot="magnetic-target"] { transform: translate(0, var(--cui-magnetic-pull, 7px)); }
+[data-slot="magnetic"] > .z8 { inset-block-end: 0; inset-inline-end: 0; width: var(--cui-magnetic-pad, 0px); height: var(--cui-magnetic-pad, 0px); }
+[data-slot="magnetic"] > .z8:hover ~ [data-slot="magnetic-target"] { transform: translate(calc(var(--cui-magnetic-pull, 7px) * 0.7071), calc(var(--cui-magnetic-pull, 7px) * 0.7071)); }
 @media (prefers-reduced-motion: reduce) {
   [data-slot="magnetic"] [data-slot="magnetic-target"],
-  [data-slot="magnetic"]:hover [data-slot="magnetic-target"] {
+  [data-slot="magnetic"] > .z:hover ~ [data-slot="magnetic-target"] {
     transform: none;
     transition: none;
   }
 }
+/* `strength` × 24px: the pull at a typical ring position. */
+[data-slot="magnetic"].s-0 { --cui-magnetic-pull: 0px; }
+[data-slot="magnetic"].s-5 { --cui-magnetic-pull: 1.2px; }
+[data-slot="magnetic"].s-10 { --cui-magnetic-pull: 2.4px; }
+[data-slot="magnetic"].s-15 { --cui-magnetic-pull: 3.6px; }
+[data-slot="magnetic"].s-20 { --cui-magnetic-pull: 4.8px; }
+[data-slot="magnetic"].s-25 { --cui-magnetic-pull: 6px; }
+[data-slot="magnetic"].s-30 { --cui-magnetic-pull: 7.2px; }
+[data-slot="magnetic"].s-35 { --cui-magnetic-pull: 8.4px; }
+[data-slot="magnetic"].s-40 { --cui-magnetic-pull: 9.6px; }
+[data-slot="magnetic"].s-45 { --cui-magnetic-pull: 10.8px; }
+[data-slot="magnetic"].s-50 { --cui-magnetic-pull: 12px; }
+[data-slot="magnetic"].s-55 { --cui-magnetic-pull: 13.2px; }
+[data-slot="magnetic"].s-60 { --cui-magnetic-pull: 14.4px; }
+[data-slot="magnetic"].s-65 { --cui-magnetic-pull: 15.6px; }
+[data-slot="magnetic"].s-70 { --cui-magnetic-pull: 16.8px; }
+[data-slot="magnetic"].s-75 { --cui-magnetic-pull: 18px; }
+[data-slot="magnetic"].s-80 { --cui-magnetic-pull: 19.2px; }
+[data-slot="magnetic"].s-85 { --cui-magnetic-pull: 20.4px; }
+[data-slot="magnetic"].s-90 { --cui-magnetic-pull: 21.6px; }
+[data-slot="magnetic"].s-95 { --cui-magnetic-pull: 22.8px; }
+[data-slot="magnetic"].s-100 { --cui-magnetic-pull: 24px; }
+/* Docs `p-*` wrapper padding (also the hover ring). */
+[data-slot="magnetic"].p-3 { padding: 0.75rem; --cui-magnetic-pad: 0.75rem; }
+[data-slot="magnetic"].p-8 { padding: 2rem; --cui-magnetic-pad: 2rem; }
+[data-slot="magnetic"].p-10 { padding: 2.5rem; --cui-magnetic-pad: 2.5rem; }
+/* Docs button classes. */
+[data-slot="magnetic"] [data-slot="button"].pill { border-radius: 9999px; }
+[data-slot="magnetic"] [data-slot="button"].glow { box-shadow: var(--cronus-shadow-glow, 0 12px 32px rgba(14, 165, 233, 0.32)); }
+[data-slot="magnetic"] [data-slot="button"].px-8 { padding-inline: 2rem; }
+/* Docs layouts: the icon row (`gap-1`) and the strength / radius field. */
+.cui-magnetic-row { display: flex; align-items: center; gap: 0.25rem; }
+.cui-magnetic-field {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: center; gap: 2rem;
+}
+.cui-magnetic-field > div { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+.cui-magnetic-field > div > span {
+  font-family: var(--cronus-font-mono, monospace); font-size: 0.75rem; line-height: 1rem;
+  color: var(--cronus-fg-tertiary); font-variant-numeric: tabular-nums;
+}
+.cui-magnetic-row [data-slot="magnetic"], .cui-magnetic-field [data-slot="magnetic"] { width: auto; }

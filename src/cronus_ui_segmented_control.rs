@@ -1,19 +1,24 @@
 //! Dedicated SegmentedControl renderer. DOM mirrors React:
-//! `<div data-slot="segmented-control" data-size="md" role="radiogroup">` plus
+//! `<div data-slot="segmented-control" data-size role="radiogroup">` plus
 //! per option `<label>` > visually hidden `<input type="radio">` + React's
-//! `<button type="button" data-slot="segmented-control-item" role="radio">`
-//! holding the `segmented-control-thumb`.
-//! Options are `item`/`text` lines; the `label` names the group.
+//! `<button type="button" data-slot="segmented-control-item" role="radio">`,
+//! then one `segmented-control-thumb`.
+//! Options are `item`/`text` lines; the `label` names the group; `size:sm`
+//! is React's small size; `disabled:true` on an item disables it.
 //!
 //! Zero JS: the radios share a page-unique `name`; clicking an option's label
-//! checks it and Arrow keys move the selection. CSS shows the thumb and the
-//! active text colour on the item after the checked radio (every item carries a
-//! thumb; unchecked ones are `display: none`, so only one renders, like React).
-//! The button keeps React's slot and look but is decorative (`aria-hidden`,
-//! `tabindex="-1"`, `pointer-events: none`). Gaps vs React: the thumb jumps
-//! instead of sliding, and `data-state` / `aria-checked` stay at the initial
-//! state (the native radio carries the live state).
-//! Not interact `radios()` (inline-styled `<input type="radio">` labels).
+//! checks it and Arrow keys move the selection. The thumb is anchored to the
+//! checked option's label (`anchor-name` per label, `position-anchor` picked
+//! with `:has(input:checked)`) and its insets transition on React's 0.4 s
+//! bounce-0.15 spring, so it slides between options like the Motion
+//! `layoutId`. React keeps the thumb inside the active item; the kernel keeps
+//! it as the root's last child so it can be anchored to any option (same
+//! geometry). Without anchor positioning the checked item paints the thumb's
+//! surface itself. The button keeps React's slot and look but is decorative
+//! (`aria-hidden`, `tabindex="-1"`, `pointer-events: none`). `data-state` /
+//! `aria-checked` stay at the initial state (the native radio carries the
+//! live state). Not interact `radios()` (inline-styled `<input type="radio">`
+//! labels).
 
 use crate::cronus_ui_kit::{attr, attr_nonempty, esc, instance_id};
 use crate::parser::{ComponentItemNode, ComponentNode};
@@ -25,15 +30,16 @@ pub fn render(comp: &ComponentNode) -> String {
     let buttons = options(comp)
         .iter()
         .enumerate()
-        .map(|(i, (text, on))| {
+        .map(|(i, (text, on, disabled))| {
             let (state, aria, checked) = if *on {
                 ("active", "true", " checked")
             } else {
                 ("inactive", "false", "")
             };
+            let off = if *disabled { " disabled" } else { "" };
             let t = esc(text);
             format!(
-                "<label><input type=\"radio\" name=\"{name}\" value=\"{i}\" aria-label=\"{t}\"{checked}><button type=\"button\" data-slot=\"segmented-control-item\" data-state=\"{state}\" role=\"radio\" aria-checked=\"{aria}\" tabindex=\"-1\" aria-hidden=\"true\">{THUMB}<span>{t}</span></button></label>"
+                "<label><input type=\"radio\" name=\"{name}\" value=\"{i}\" aria-label=\"{t}\"{checked}{off}><button type=\"button\" data-slot=\"segmented-control-item\" data-state=\"{state}\" role=\"radio\" aria-checked=\"{aria}\" tabindex=\"-1\" aria-hidden=\"true\"{off}><span>{t}</span></button></label>"
             )
         })
         .collect::<Vec<_>>()
@@ -42,12 +48,16 @@ pub fn render(comp: &ComponentNode) -> String {
         Some(v) => format!(" aria-label=\"{}\"", esc(v)),
         None => String::new(),
     };
+    let size = match crate::cronus_ui_kit::choice(comp, "size", &["sm", "md"]) {
+        Some("sm") => "sm",
+        _ => "md",
+    };
     format!(
-        "<div data-slot=\"segmented-control\" data-size=\"md\" role=\"radiogroup\"{aria}>{buttons}</div>"
+        "<div data-slot=\"segmented-control\" data-size=\"{size}\" role=\"radiogroup\"{aria}>{buttons}{THUMB}</div>"
     )
 }
 
-fn options(comp: &ComponentNode) -> Vec<(String, bool)> {
+fn options(comp: &ComponentNode) -> Vec<(String, bool, bool)> {
     let items: Vec<&ComponentItemNode> = comp
         .items
         .iter()
@@ -69,13 +79,21 @@ fn options(comp: &ComponentNode) -> Vec<(String, bool)> {
                     comp.name.clone()
                 }
             });
-        return vec![(label, true)];
+        return vec![(label, true, false)];
     }
     let on_idx = selected_idx(comp, &items);
     items
         .iter()
         .enumerate()
-        .map(|(idx, i)| (i.text.clone(), idx == on_idx))
+        .map(|(idx, i)| {
+            (
+                i.text.clone(),
+                idx == on_idx,
+                i.config
+                    .get("disabled")
+                    .is_some_and(|v| crate::cronus_ui_kit::truthy(v)),
+            )
+        })
         .collect()
 }
 
@@ -140,7 +158,7 @@ mod tests {
             ("inactive", "false", "")
         };
         format!(
-            "<label><input type=\"radio\" name=\"cui-{name}-segmented-control\" value=\"{i}\" aria-label=\"{text}\"{checked}><button type=\"button\" data-slot=\"segmented-control-item\" data-state=\"{state}\" role=\"radio\" aria-checked=\"{aria}\" tabindex=\"-1\" aria-hidden=\"true\">{THUMB}<span>{text}</span></button></label>"
+            "<label><input type=\"radio\" name=\"cui-{name}-segmented-control\" value=\"{i}\" aria-label=\"{text}\"{checked}><button type=\"button\" data-slot=\"segmented-control-item\" data-state=\"{state}\" role=\"radio\" aria-checked=\"{aria}\" tabindex=\"-1\" aria-hidden=\"true\"><span>{text}</span></button></label>"
         )
     }
 
@@ -166,7 +184,7 @@ mod tests {
         assert_eq!(
             html,
             format!(
-                "<div data-slot=\"segmented-control\" data-size=\"md\" role=\"radiogroup\">{}{}</div>",
+                "<div data-slot=\"segmented-control\" data-size=\"md\" role=\"radiogroup\">{}{}{THUMB}</div>",
                 seg(0, "Day", true),
                 seg(1, "Week", false)
             )
@@ -184,13 +202,47 @@ mod tests {
         assert!(b.contains("name=\"cui-view-segmented-control-2\" "));
     }
 
-    /// Only the checked item shows its thumb and the active colour.
+    /// The thumb is anchored to the checked option's label and its insets
+    /// slide on the 0.4 s bounce spring; without anchor positioning the
+    /// checked item paints the surface itself.
     #[test]
     fn chrome_thumb_follows_checked_radio() {
-        let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"segmented-control\"] > label > input:not(:checked) + [data-slot=\"segmented-control-item\"] > [data-slot=\"segmented-control-thumb\"] { display: none; }"));
-        assert!(css.contains("[data-slot=\"segmented-control\"] > label > input:checked + [data-slot=\"segmented-control-item\"] { color: var(--cronus-fg); }"));
-        assert!(css.contains("[data-slot=\"segmented-control\"] > label > input:not(:checked) + [data-slot=\"segmented-control-item\"][data-state=\"active\"] { color: var(--cronus-fg-secondary); }"));
+        const CSS: &str = include_str!("cronus_ui_css/segmented-control.css");
+        assert!(CSS.contains("[data-slot=\"segmented-control\"] > label > input:checked + [data-slot=\"segmented-control-item\"] { color: var(--cronus-fg); }"));
+        assert!(CSS.contains("[data-slot=\"segmented-control\"] > label > input:not(:checked) + [data-slot=\"segmented-control-item\"][data-state=\"active\"] { color: var(--cronus-fg-secondary); }"));
+        assert!(CSS.contains("--cui-segmented-spring: 400ms linear("));
+        assert!(CSS.contains("inset-block-start: anchor(top); inset-block-end: anchor(bottom);\n  inset-inline-start: anchor(start); inset-inline-end: anchor(end);\n  transition: inset var(--cui-segmented-spring);"));
+        for i in 1..=8 {
+            assert!(CSS.contains(&format!("[data-slot=\"segmented-control\"] > label:nth-child({i}) {{ anchor-name: --cui-segmented-{i}; }}")));
+            assert!(CSS.contains(&format!("[data-slot=\"segmented-control\"]:has(> label:nth-child({i}) > input:checked) > [data-slot=\"segmented-control-thumb\"] {{ position-anchor: --cui-segmented-{i}; }}")));
+        }
+        assert!(CSS.contains("@supports not (anchor-name: --a)"));
+        assert!(CSS.contains("[data-slot=\"segmented-control\"][data-size=\"sm\"] [data-slot=\"segmented-control-item\"] { padding: 0.25rem 0.625rem; font-size: 0.75rem; line-height: 1rem; }"));
+    }
+
+    /// Docs "Single select": three periods, `30 dias` selected by `value:`,
+    /// the group named by `aria-label`; the thumb is the root's last child.
+    #[test]
+    fn docs_period_filter() {
+        let mut c = stub_options(&["7 dias", "30 dias", "12 meses"]);
+        c.props.insert("value".into(), "30 dias".into());
+        c.props.insert("aria-label".into(), "Período".into());
+        let html = render(&c);
+        assert_eq!(
+            html,
+            format!(
+                "<div data-slot=\"segmented-control\" data-size=\"md\" role=\"radiogroup\" aria-label=\"Período\">{}{}{}{THUMB}</div>",
+                seg(0, "7 dias", false),
+                seg(1, "30 dias", true),
+                seg(2, "12 meses", false)
+            )
+        );
+        reject_interact(&html);
+        c.props.insert("size".into(), "sm".into());
+        assert!(render(&c).contains("data-size=\"sm\""));
+        c.items[2].config.insert("disabled".into(), "true".into());
+        let html = render(&c);
+        assert!(html.contains("aria-label=\"12 meses\" disabled><button type=\"button\" data-slot=\"segmented-control-item\" data-state=\"inactive\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-hidden=\"true\" disabled>"));
     }
 
     /// Audit fixture: `label "Range"`, `text "Day"`, `text "Week"`, then
@@ -215,7 +267,7 @@ mod tests {
         assert_eq!(
             html,
             format!(
-                "<div data-slot=\"segmented-control\" data-size=\"md\" role=\"radiogroup\" aria-label=\"Range\">{}{}</div>",
+                "<div data-slot=\"segmented-control\" data-size=\"md\" role=\"radiogroup\" aria-label=\"Range\">{}{}{THUMB}</div>",
                 seg_in("segmented-control", 0, "Day", true),
                 seg_in("segmented-control", 1, "Week", false)
             )

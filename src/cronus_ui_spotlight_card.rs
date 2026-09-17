@@ -1,38 +1,30 @@
 //! Dedicated SpotlightCard renderer. DOM mirrors React:
 //! `<div data-slot="spotlight-card">` + aria-hidden spotlight `<div>` + a
-//! relative content `<div>` wrapping the label. The radial spotlight sits at
-//! `--spot-x` / `--spot-y` (default 50% 50%); React moves it with pointer JS,
-//! the kernel fades it in on `:hover` only. `rounded-2xl`, fixture `w-72`
-//! and colors live in COMPONENT_CHROME. Not catalog `display()` SURF
-//! `<section>`. Not interact `card()`.
+//! relative content `<div>` wrapping the feature content (icon chip, heading,
+//! copy — see `cronus_ui_glass_card::feature_content`). The radial spotlight
+//! sits at `--spot-x` / `--spot-y` (default 50% 50%); React moves it with
+//! pointer JS, the kernel fades it in on `:hover` only. `rounded-2xl`,
+//! fixture `w-72` and colors live in the family CSS. Not catalog `display()`
+//! SURF `<section>`. Not interact `card()`.
 
-use crate::cronus_ui_kit::label_of;
+use crate::cronus_ui_glass_card::feature_content;
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     format!(
         "<div data-slot=\"spotlight-card\"><div aria-hidden=\"true\"></div><div>{}</div></div>",
-        label_of(comp)
+        feature_content(comp)
     )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cronus_ui_glass_card::tests::item;
     use crate::cronus_ui_kit::stub;
-    use crate::parser::ComponentItemNode;
 
     const DISPLAY_BOX: &str = "padding:1rem;display:flex;flex-direction:column;gap:0.5rem";
-
-    fn extra(kind: &str, text: &str) -> ComponentItemNode {
-        ComponentItemNode {
-            item_type: kind.into(),
-            text: text.into(),
-            link: None,
-            tone: None,
-            config: Default::default(),
-        }
-    }
+    const CSS: &str = include_str!("cronus_ui_css/spotlight-card.css");
 
     fn reject_display(html: &str) {
         assert!(!html.contains(DISPLAY_BOX));
@@ -59,12 +51,24 @@ mod tests {
         reject_display(&html);
     }
 
+    /// Docs "Hover spotlight": a `text-primary` icon chip, heading and copy
+    /// inside the relative content div.
     #[test]
-    fn extra_text_does_not_add_nodes() {
-        let mut c = stub("spotlight-card", "Hover me");
-        c.items.push(extra("text", "More"));
+    fn docs_content_with_primary_glyph() {
+        let mut c = stub("spotlight-card", "Accessible core");
+        c.props.insert("icon".into(), "gauge".into());
+        c.props.insert("icon-tone".into(), "primary".into());
+        c.items.push(item("title", "Accessible core", &[]));
+        c.items.push(item("text", "Radix primitives.", &[]));
         let html = render(&c);
-        assert!(!html.contains("More"));
+        assert!(html.starts_with(
+            "<div data-slot=\"spotlight-card\"><div aria-hidden=\"true\"></div><div><span class=\"glyph primary\"><svg"
+        ));
+        assert!(html.contains("data-icon=\"gauge\""));
+        assert!(
+            html.ends_with("</span><h3>Accessible core</h3><p>Radix primitives.</p></div></div>")
+        );
+        assert_eq!(html.matches("Accessible core").count(), 1);
         reject_display(&html);
     }
 
@@ -97,19 +101,21 @@ mod tests {
 
     #[test]
     fn chrome_spotlight_via_css() {
-        let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"spotlight-card\"] {\n  position: relative; overflow: hidden;\n  width: var(--cui-spotlight-card-w, 100%); box-sizing: border-box; padding: 1.5rem; color: var(--cronus-fg);\n  border-radius: calc(var(--cronus-radius, 14px) + 8px); box-shadow: none;\n}"));
-        assert!(css.contains("[data-slot=\"spotlight-card\"] > [aria-hidden=\"true\"] {"));
-        assert!(css.contains(
+        assert!(CSS.contains("[data-slot=\"spotlight-card\"] {\n  position: relative; overflow: hidden;\n  width: var(--cui-spotlight-card-w, 100%); box-sizing: border-box; padding: 1.5rem; color: var(--cronus-fg);\n  border-radius: calc(var(--cronus-radius, 14px) + 8px); box-shadow: none;\n}"));
+        assert!(CSS.contains("[data-slot=\"spotlight-card\"] > [aria-hidden=\"true\"] {"));
+        assert!(CSS.contains(
             "[data-slot=\"spotlight-card\"]:hover > [aria-hidden=\"true\"] { opacity: 1; }"
         ));
-        assert!(css.contains(
+        assert!(CSS.contains(
             "[data-slot=\"spotlight-card\"] > div:last-child {\n  position: relative;\n}"
         ));
-        assert!(!css.contains("[data-slot=\"spotlight-card\"]::after"));
-        assert!(css.contains("--spot-x"));
-        assert!(css.contains("var(--cronus-primary)"));
-        assert!(!css.contains("zinc-"));
-        assert!(!css.contains(DISPLAY_BOX));
+        assert!(!CSS.contains("[data-slot=\"spotlight-card\"]::after"));
+        assert!(CSS.contains("--spot-x"));
+        assert!(CSS.contains("var(--cronus-primary)"));
+        assert!(CSS.contains(
+            "[data-slot=\"spotlight-card\"] .glyph.primary { color: var(--cronus-primary); }"
+        ));
+        assert!(!CSS.contains("zinc-"));
+        assert!(!CSS.contains(DISPLAY_BOX));
     }
 }

@@ -9,7 +9,79 @@
   box-shadow: var(--cronus-shadow-sm, var(--cronus-shadow-xs, none));
   transform-style: preserve-3d;
   transform: perspective(1000px) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg)) scale(var(--tilt-scale, 1));
+  transition: transform 150ms ease-out, box-shadow 150ms ease-out;
+  will-change: transform;
+  box-sizing: border-box;
 }
-[data-slot="tilt-card"] > div {
+[data-slot="tilt-card"] > div:last-child {
   position: relative;
 }
+/* React's `data-tilting` state at the card's centre: the pointer only adds the tilt. */
+[data-slot="tilt-card"]:hover { --tilt-scale: 1.03; box-shadow: var(--cronus-shadow-lg, var(--cronus-shadow-md, none)); }
+[data-slot="tilt-card"].sc-100:hover { --tilt-scale: 1; }
+[data-slot="tilt-card"].sc-101:hover { --tilt-scale: 1.01; }
+[data-slot="tilt-card"].sc-102:hover { --tilt-scale: 1.02; }
+[data-slot="tilt-card"].sc-104:hover { --tilt-scale: 1.04; }
+[data-slot="tilt-card"].sc-105:hover { --tilt-scale: 1.05; }
+[data-slot="tilt-card"].sc-106:hover { --tilt-scale: 1.06; }
+[data-slot="tilt-card"].sc-108:hover { --tilt-scale: 1.08; }
+[data-slot="tilt-card"].sc-110:hover { --tilt-scale: 1.1; }
+/* `glare`: a pointer-following sheen (centred here) fading in over 300 ms. */
+[data-slot="tilt-card"] > [aria-hidden] {
+  pointer-events: none; position: absolute; inset: 0; z-index: 10; overflow: hidden;
+  border-radius: inherit; opacity: 0; transition: opacity 300ms ease-out;
+  background: radial-gradient(600px circle at var(--tilt-gx, 50%) var(--tilt-gy, 50%), color-mix(in oklch, var(--cronus-fg) 16%, transparent), transparent 60%);
+}
+[data-slot="tilt-card"]:hover > [aria-hidden] { opacity: 1; }
+/* `parallax`: the content lifts toward the viewer while tilting. */
+[data-slot="tilt-card"].parallax > div:last-child { transform: translateZ(0); transition: transform 150ms ease-out; }
+[data-slot="tilt-card"].parallax:hover > div:last-child { transform: translateZ(42px); }
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="tilt-card"], [data-slot="tilt-card"]:hover { transform: none; transition: none; }
+  [data-slot="tilt-card"] > [aria-hidden] { display: none; }
+  [data-slot="tilt-card"].parallax:hover > div:last-child { transform: none; }
+}
+/* Docs widths (`w-full max-w-*`). */
+[data-slot="tilt-card"].w-xs { max-width: 20rem; }
+[data-slot="tilt-card"].w-sm { max-width: 24rem; }
+[data-slot="tilt-card"].w-md { max-width: 28rem; }
+/* Docs content: `flex flex-col gap-3` with an `size-11 rounded-xl` chip. */
+[data-slot="tilt-card"] > div:last-child { display: flex; flex-direction: column; gap: 0.75rem; }
+[data-slot="tilt-card"] .glyph {
+  display: grid; place-items: center; width: 2.25rem; height: 2.25rem; flex-shrink: 0;
+  border-radius: var(--cronus-radius-lg); background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
+[data-slot="tilt-card"] .glyph svg { width: 1rem; height: 1rem; }
+[data-slot="tilt-card"] .glyph.lg { width: 2.75rem; height: 2.75rem; border-radius: var(--cronus-radius-xl); }
+[data-slot="tilt-card"] .glyph.lg svg { width: 1.25rem; height: 1.25rem; }
+[data-slot="tilt-card"] .glyph.round { border-radius: 9999px; }
+[data-slot="tilt-card"] .glyph.secondary { color: var(--cronus-fg-secondary); }
+[data-slot="tilt-card"] h3 {
+  margin: 0; font-family: var(--cronus-font-display, inherit); font-size: 1rem; line-height: 1.5rem; font-weight: 600; letter-spacing: normal; color: var(--cronus-fg);
+}
+[data-slot="tilt-card"] h3.t-lg { font-size: 1.125rem; line-height: 1.75rem; }
+[data-slot="tilt-card"] p { margin: 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary); }
+/* `+row`: `flex items-center gap-4`, truncating name / email, trailing arrow. */
+[data-slot="tilt-card"].row > div:last-child { display: flex; flex-direction: row; align-items: center; gap: 1rem; }
+[data-slot="tilt-card"].row .copy { min-width: 0; }
+[data-slot="tilt-card"].row .copy > h3 { font-family: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-slot="tilt-card"].row .copy > p { color: var(--cronus-fg-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-slot="tilt-card"].row > div:last-child > svg { margin-inline-start: auto; width: 1rem; height: 1rem; flex-shrink: 0; color: var(--cronus-fg-tertiary); }
+/* `+payment`: inverted surface, `gap-6` stack — brand + wifi, chip, mono number, uppercase byline. */
+[data-slot="tilt-card"].payment { background: var(--cronus-fg); color: var(--cronus-fg-inverse); }
+[data-slot="tilt-card"].payment > div:last-child { gap: 1.5rem; }
+[data-slot="tilt-card"].payment .head { display: flex; align-items: flex-start; justify-content: space-between; }
+[data-slot="tilt-card"].payment .head > span { font-family: var(--cronus-font-display, inherit); font-size: 1.125rem; line-height: 1.75rem; font-weight: 600; }
+[data-slot="tilt-card"].payment .head > svg { width: 1.5rem; height: 1.5rem; rotate: 90deg; opacity: 0.9; }
+[data-slot="tilt-card"].payment .chip {
+  width: 3rem; height: 2.25rem; border-radius: var(--cronus-radius-md);
+  background: color-mix(in oklab, var(--cronus-fg-inverse) 20%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--cronus-fg-inverse) 15%, transparent);
+}
+[data-slot="tilt-card"].payment .number { display: flex; flex-direction: column; gap: 1rem; }
+[data-slot="tilt-card"].payment .number > p { font-family: var(--cronus-font-mono, monospace); font-size: 1.25rem; line-height: 1.75rem; letter-spacing: 0.25em; color: inherit; }
+[data-slot="tilt-card"].payment .number > .row {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 0.75rem; line-height: 1rem; text-transform: uppercase; letter-spacing: 0.025em; opacity: 0.9;
+}
+[data-slot="tilt-card"].payment .number > .row > span + span { font-variant-numeric: tabular-nums; }

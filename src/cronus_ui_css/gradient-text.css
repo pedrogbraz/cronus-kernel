@@ -4,3 +4,11 @@
   -webkit-background-clip: text;
   background-clip: text;
 }
+/* Docs headline: `font-display text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl`. */
+[data-slot="gradient-text"].t-5xl, [data-slot="gradient-text"].t-6xl {
+  margin: 0; font-family: var(--cronus-font-display, inherit); font-weight: 600;
+  font-size: 3rem; line-height: 1.05; letter-spacing: -0.025em;
+}
+[data-slot="gradient-text"].t-6xl {
+  font-size: 3.75rem; line-height: 1.05;
+}

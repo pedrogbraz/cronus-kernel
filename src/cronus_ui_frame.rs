@@ -1,17 +1,43 @@
-//! Dedicated Frame renderer. DOM matches React `variant="browser"` (default):
-//! `<div data-slot="frame" data-variant="browser">` > `frame-chrome`
-//! (traffic-light dots + `frame-address-bar` with the `url` value, empty when
-//! no url, exactly like React's `{url}`) > `frame-content` with the label.
+//! Dedicated Frame renderer. DOM matches React:
+//! `<div data-slot="frame" data-variant="browser|window">` > `frame-chrome`
+//! (traffic-light dots + `frame-address-bar` with the `url` value for the
+//! browser variant, empty when no url, exactly like React's `{url}`) >
+//! `frame-content`. The content is the label, or — with `title` / `text`
+//! items — the docs mockup (`space-y-2 p-6`: display heading + copy).
 //! Width mirrors the audit fixture's `w-72`. Not the catalog `display()` SURF.
 
-use crate::cronus_ui_kit::{attr_nonempty, esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, choice, esc, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    let url = url_of(comp).unwrap_or_default();
-    format!(
-        "<div data-slot=\"frame\" data-variant=\"browser\"><div data-slot=\"frame-chrome\"><div aria-hidden=\"true\"><span></span><span></span><span></span></div><div data-slot=\"frame-address-bar\">{url}</div></div><div data-slot=\"frame-content\">{}</div></div>",
+    let variant = choice(comp, "variant", &["browser", "window"]).unwrap_or("browser");
+    let address = if variant == "browser" {
+        format!(
+            "<div data-slot=\"frame-address-bar\">{}</div>",
+            url_of(comp).unwrap_or_default()
+        )
+    } else {
+        String::new()
+    };
+    let lines: String = comp
+        .items
+        .iter()
+        .filter(|i| matches!(i.item_type.as_str(), "title" | "text") && !i.text.is_empty())
+        .map(|i| {
+            if i.item_type == "title" {
+                format!("<h3>{}</h3>", esc(&i.text))
+            } else {
+                format!("<p>{}</p>", esc(&i.text))
+            }
+        })
+        .collect();
+    let content = if lines.is_empty() {
         label_of(comp)
+    } else {
+        format!("<div>{lines}</div>")
+    };
+    format!(
+        "<div data-slot=\"frame\" data-variant=\"{variant}\"><div data-slot=\"frame-chrome\"><div aria-hidden=\"true\"><span></span><span></span><span></span></div>{address}</div><div data-slot=\"frame-content\">{content}</div></div>"
     )
 }
 
@@ -76,13 +102,28 @@ mod tests {
         reject_display(&html);
     }
 
+    /// Docs "Browser chrome" / "Window chrome": `title` + `text` items are the
+    /// `space-y-2 p-6` mockup; the window variant drops the address bar.
     #[test]
-    fn extra_text_does_not_add_nodes() {
+    fn title_and_text_items_are_the_mockup() {
         let mut c = stub("frame", "Preview");
-        c.items.push(extra("text", "https://cronus.com"));
+        c.props.insert("url".into(), "cronus.app/dashboard".into());
+        c.items.push(extra("title", "Faturamento"));
+        c.items
+            .push(extra("text", "R$ 128.940 nos últimos 30 dias."));
+        c.items.push(extra("text", "+18% vs. o período anterior."));
         let html = render(&c);
-        assert!(!html.contains("https://cronus.com"));
+        assert!(html.ends_with("<div data-slot=\"frame-address-bar\">cronus.app/dashboard</div></div><div data-slot=\"frame-content\"><div><h3>Faturamento</h3><p>R$ 128.940 nos últimos 30 dias.</p><p>+18% vs. o período anterior.</p></div></div></div>"));
+        assert!(!html.contains("Preview"));
         reject_display(&html);
+        c.props.remove("url");
+        c.props.insert("variant".into(), "window".into());
+        let html = render(&c);
+        assert!(html.starts_with("<div data-slot=\"frame\" data-variant=\"window\"><div data-slot=\"frame-chrome\"><div aria-hidden=\"true\"><span></span><span></span><span></span></div></div><div data-slot=\"frame-content\"><div><h3>"));
+        assert!(!html.contains("frame-address-bar"));
+        c.style = Some("frame+window".into());
+        c.props.remove("variant");
+        assert!(render(&c).contains("data-variant=\"window\""));
     }
 
     #[test]
@@ -123,5 +164,12 @@ mod tests {
         assert!(css.contains("var(--cronus-error)"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(DISPLAY_SURF));
+        let file = include_str!("cronus_ui_css/frame.css");
+        assert!(file.contains("[data-slot=\"frame-content\"] > div { padding: 1.5rem; }"));
+        assert!(file.contains(
+            "[data-slot=\"frame-content\"] > div > * + * { margin-block-start: 0.5rem; }"
+        ));
+        assert!(file.contains("[data-slot=\"frame-content\"] > div > h3 {"));
+        assert!(file.contains("font-size: 1.125rem; line-height: 1.75rem; font-weight: 600;"));
     }
 }

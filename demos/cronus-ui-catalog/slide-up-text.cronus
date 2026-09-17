@@ -1,0 +1,16 @@
+page "/slide-up-text" type:components family:slide-up-text {
+  title "SlideUpText"
+  description:"Text that slides up from below, staggered by word, character, or line."
+}
+
+component ByWords layout:inline style:slide-up-text size:3xl group:"By words" note:"Each word clips up from below on a 0.5s tween, staggered from the first. The full string stays in the a11y tree via an sr-only copy." { label "You can just ship things." }
+
+component ByCharacters layout:inline style:slide-up-text split:characters size:3xl group:"By characters" note:"Same clip, staggered per grapheme so emoji and flags stay whole." { label "You just can ship things." }
+
+component ByLines layout:inline style:slide-up-text split:lines size:3xl group:"By lines" note:"Split on newlines and stack each line as its own clip." {
+  label "First line"
+  text "Second line"
+  text "Third line"
+}
+
+component FromLast layout:inline style:slide-up-text from:last size:3xl group:"From last" note:"Stagger runs from the last word back to the first." { label "Animation from last word" }

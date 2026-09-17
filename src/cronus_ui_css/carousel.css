@@ -15,7 +15,7 @@
   padding: 1.5rem; font-size: 0.875rem; line-height: 1.25rem;
 }
 [data-slot="carousel"] > div:last-child {
-  margin-top: 0.75rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+  margin-top: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem;
 }
 [data-slot="carousel-previous"], [data-slot="carousel-next"] {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
@@ -45,3 +45,53 @@
 }
 [data-slot="carousel"]:has(> [data-slot="carousel-content"] > [data-slot="carousel-item"]:target:not(:first-child)) [data-slot="carousel-previous"] { opacity: 1; }
 [data-slot="carousel"]:has(> [data-slot="carousel-content"] > [data-slot="carousel-item"]:target:last-child) [data-slot="carousel-next"] { opacity: 0.5; }
+[data-slot="carousel-previous"], [data-slot="carousel-next"] {
+  transition: background-color 150ms var(--ease-out-quart), color 150ms var(--ease-out-quart), border-color 150ms var(--ease-out-quart);
+}
+[data-slot="carousel-previous"]:not([data-disabled]):hover, [data-slot="carousel-next"]:not([data-disabled]):hover { background: var(--cronus-surface-overlay); }
+[data-slot="carousel"].w-xs { max-width: 20rem; }
+[data-slot="carousel"].w-sm { max-width: 24rem; }
+[data-slot="carousel"].w-md { max-width: 28rem; }
+[data-slot="carousel"].w-lg { max-width: 32rem; }
+[data-slot="carousel"].center [data-slot="carousel-item"] { scroll-snap-align: center; }
+/* Docs slide: `flex h-40 flex-col items-center justify-center gap-1 rounded-xl border bg-surface-raised`. */
+[data-slot="carousel-item"] > .tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 10rem; padding: 0; gap: 0.25rem; border-radius: var(--cronus-radius-xl);
+}
+[data-slot="carousel-item"] > .tile > span:first-child {
+  font-family: var(--cronus-font-display, inherit); font-size: 2.25rem; line-height: 2.5rem; font-weight: 600; color: var(--cronus-fg);
+}
+[data-slot="carousel-item"] > .tile > span + span { font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-tertiary); }
+/* Dots: `size-2 rounded-full`, active `bg-fg`, rest `bg-border hover:bg-fg-muted`; the
+   active one follows the `:target` slide. */
+[data-slot="carousel-dots"] { display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+[data-slot="carousel-dot"] {
+  display: block; width: 0.5rem; height: 0.5rem; border-radius: 9999px; padding: 0; border: 0;
+  background: var(--cronus-border); outline: none; cursor: pointer;
+  transition: background-color 150ms var(--ease-out-quart);
+}
+[data-slot="carousel-dot"]:hover { background: var(--cronus-fg-muted, var(--cronus-fg-tertiary)); }
+[data-slot="carousel-dot"]:focus-visible { box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring); }
+[data-slot="carousel-dot"][data-active] { background: var(--cronus-fg); }
+[data-slot="carousel"]:has(> [data-slot="carousel-content"] > [data-slot="carousel-item"]:target:not(:first-child)) [data-slot="carousel-dot"][data-active] { background: var(--cronus-border); }
+[data-slot="carousel"]:has(> [data-slot="carousel-content"] > [data-slot="carousel-item"]:nth-child(1):target) [data-slot="carousel-dot"]:nth-child(1) { background: var(--cronus-fg); }
+[data-slot="carousel"]:has(> [data-slot="carousel-content"] > [data-slot="carousel-item"]:nth-child(2):target) [data-slot="carousel-dot"]:nth-child(2) { background: var(--cronus-fg); }
+[data-slot="carousel"]:has(> [data-slot="carousel-content"] > [data-slot="carousel-item"]:nth-child(3):target) [data-slot="carousel-dot"]:nth-child(3) { background: var(--cronus-fg); }
+[data-slot="carousel"]:has(> [data-slot="carousel-content"] > [data-slot="carousel-item"]:nth-child(4):target) [data-slot="carousel-dot"]:nth-child(4) { background: var(--cronus-fg); }
+[data-slot="carousel"]:has(> [data-slot="carousel-content"] > [data-slot="carousel-item"]:nth-child(5):target) [data-slot="carousel-dot"]:nth-child(5) { background: var(--cronus-fg); }
+[data-slot="carousel"]:has(> [data-slot="carousel-content"] > [data-slot="carousel-item"]:nth-child(6):target) [data-slot="carousel-dot"]:nth-child(6) { background: var(--cronus-fg); }
+[data-slot="carousel"]:has(> [data-slot="carousel-content"] > [data-slot="carousel-item"]:nth-child(7):target) [data-slot="carousel-dot"]:nth-child(7) { background: var(--cronus-fg); }
+[data-slot="carousel"]:has(> [data-slot="carousel-content"] > [data-slot="carousel-item"]:nth-child(8):target) [data-slot="carousel-dot"]:nth-child(8) { background: var(--cronus-fg); }
+[data-slot="carousel"]:has(> [data-slot="carousel-content"] > [data-slot="carousel-item"]:nth-child(9):target) [data-slot="carousel-dot"]:nth-child(9) { background: var(--cronus-fg); }
+[data-slot="carousel"]:has(> [data-slot="carousel-content"] > [data-slot="carousel-item"]:nth-child(10):target) [data-slot="carousel-dot"]:nth-child(10) { background: var(--cronus-fg); }
+[data-slot="carousel"]:has(> [data-slot="carousel-content"] > [data-slot="carousel-item"]:nth-child(11):target) [data-slot="carousel-dot"]:nth-child(11) { background: var(--cronus-fg); }
+[data-slot="carousel"]:has(> [data-slot="carousel-content"] > [data-slot="carousel-item"]:nth-child(12):target) [data-slot="carousel-dot"]:nth-child(12) { background: var(--cronus-fg); }
+/* The slide links sit exactly over React's prev / next buttons whatever sits between them. */
+@supports (anchor-name: --a) {
+  [data-slot="carousel"] { anchor-scope: --cui-carousel-previous, --cui-carousel-next; }
+  [data-slot="carousel-previous"] { anchor-name: --cui-carousel-previous; }
+  [data-slot="carousel-next"] { anchor-name: --cui-carousel-next; }
+  [data-slot="carousel-item"] > a[data-nav="previous"] { inset-inline-start: anchor(--cui-carousel-previous start); top: anchor(--cui-carousel-previous top); bottom: auto; }
+  [data-slot="carousel-item"] > a[data-nav="next"] { inset-inline-start: anchor(--cui-carousel-next start); top: anchor(--cui-carousel-next top); bottom: auto; }
+}
