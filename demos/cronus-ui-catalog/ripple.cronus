@@ -1,0 +1,6 @@
+page "/ripple" type:components family:ripple {
+  title "Ripple"
+  description:"Concentric rings that expand from the centre of a surface."
+}
+
+component Pulse layout:stack style:ripple surface:raised size:2xl group:"Pulse" note:"Concentric rings expand from the centre and fade out. Reduced-motion visitors see the surface with no animation." { label "Now live" }

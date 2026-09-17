@@ -1,23 +1,51 @@
-//! Dedicated Ripple renderer. DOM mirrors React's default `count=8`:
-//! `<div data-slot="ripple">` + aria-hidden field `<div>` of eight empty ring
-//! `<span>`s + a relative content `<div>` wrapping the label. Only the root
-//! carries a `data-slot` (React adds none to field/rings/content). The
-//! per-ring stagger React writes as inline `--ripple-delay` is
-//! `:nth-of-type` `animation-delay` (0s..7s) in COMPONENT_CHROME, as is the
-//! fixture `w-72 min-h-32`. `@keyframes cui-ripple` lives in COMPONENT_CHROME
-//! — never a `<style>` tag. Zero JS, no inline style.
+//! Dedicated Ripple renderer. DOM mirrors React:
+//! `<div data-slot="ripple">` + aria-hidden field `<div>` of `count` (default
+//! 8, max 16) empty ring `<span>`s + a relative content `<div>` wrapping the
+//! label. Only the root carries a `data-slot` (React adds none to
+//! field/rings/content). The per-ring stagger React writes as inline
+//! `--ripple-delay` (`index × duration / count`) is `:nth-of-type` index
+//! variables in the family CSS, with `count` / `duration` (`n-*` / `d-*`
+//! classes) feeding the same formula; `@keyframes cui-ripple` lives there
+//! too — never a `<style>` tag. `surface:raised` + `size:2xl` are the docs
+//! stage (`grid min-h-56 place-items-center rounded-2xl border
+//! bg-surface-raised`, display copy). Zero JS, no inline style.
 
-use crate::cronus_ui_kit::label_of;
+use crate::cronus_ui_kit::{attr_nonempty, attr_num, label_of};
 use crate::parser::ComponentNode;
 
 /// React `Ripple` default `count`.
 const RINGS: usize = 8;
 
 pub fn render(comp: &ComponentNode) -> String {
+    let count = attr_num::<f64>(comp, "count")
+        .map(|c| c.round().clamp(1.0, 16.0) as usize)
+        .unwrap_or(RINGS);
+    let duration = attr_num::<f64>(comp, "duration")
+        .map(|d| d.max(0.5))
+        .unwrap_or(8.0);
+    let mut classes: Vec<String> = Vec::new();
+    if attr_nonempty(comp, "surface") == Some("raised") {
+        classes.push("raised".into());
+    }
+    if count != RINGS {
+        classes.push(format!("n-{count}"));
+    }
+    let seconds = duration.round() as u32;
+    if seconds != 8 {
+        classes.push(format!("d-{}", seconds.clamp(1, 20)));
+    }
+    let class = if classes.is_empty() {
+        String::new()
+    } else {
+        format!(" class=\"{}\"", classes.join(" "))
+    };
+    let content = match attr_nonempty(comp, "size") {
+        Some("2xl") => format!("<p class=\"t-2xl\">{}</p>", label_of(comp)),
+        _ => label_of(comp),
+    };
     format!(
-        "<div data-slot=\"ripple\"><div aria-hidden=\"true\">{}</div><div>{}</div></div>",
-        "<span></span>".repeat(RINGS),
-        label_of(comp)
+        "<div data-slot=\"ripple\"{class}><div aria-hidden=\"true\">{}</div><div>{content}</div></div>",
+        "<span></span>".repeat(count)
     )
 }
 
@@ -101,11 +129,11 @@ mod tests {
 
     #[test]
     fn chrome_ripple_via_css() {
-        let css = crate::cronus_ui::component_chrome_css();
+        let css = include_str!("cronus_ui_css/ripple.css");
         assert!(css.contains("[data-slot=\"ripple\"] {\n  position: relative; overflow: hidden;\n  width: var(--cui-ripple-w, 100%); min-height: 8rem;"));
         assert!(css.contains("[data-slot=\"ripple\"] > [aria-hidden=\"true\"] > span {"));
         assert!(css.contains("[data-slot=\"ripple\"] > div:last-child {\n  position: relative;\n}"));
-        assert!(css.contains("> span:nth-of-type(8) { animation-delay: 7s; }"));
+        assert!(css.contains("> span:nth-of-type(8) { --ripple-i: 7; }"));
         assert!(!css.contains("[data-slot=\"ripple-ring\"]"));
         assert!(css.contains("@keyframes cui-ripple"));
         assert!(css.contains("animation: cui-ripple"));
@@ -115,5 +143,33 @@ mod tests {
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
         assert!(!css.contains("<style"));
+    }
+
+    /// Docs "Pulse": the raised stage with display copy; `count` / `duration`
+    /// ride classes that feed React's `index × duration / count` stagger.
+    #[test]
+    fn docs_stage_count_and_duration() {
+        let mut c = stub("ripple", "Now live");
+        c.props.insert("surface".into(), "raised".into());
+        c.props.insert("size".into(), "2xl".into());
+        let html = render(&c);
+        assert!(html.starts_with(
+            "<div data-slot=\"ripple\" class=\"raised\"><div aria-hidden=\"true\"><span></span>"
+        ));
+        assert!(html.ends_with("</div><div><p class=\"t-2xl\">Now live</p></div></div>"));
+        assert_eq!(html.matches("<span></span>").count(), 8);
+        c.props.insert("count".into(), "12".into());
+        c.props.insert("duration".into(), "6".into());
+        let html = render(&c);
+        assert!(html.starts_with("<div data-slot=\"ripple\" class=\"raised n-12 d-6\">"));
+        assert_eq!(html.matches("<span></span>").count(), 12);
+        let css = include_str!("cronus_ui_css/ripple.css");
+        assert!(css.contains("animation-delay: calc(var(--ripple-i, 0) * var(--ripple-cycle, 8s) / var(--ripple-count, 8));"));
+        assert!(css.contains("[data-slot=\"ripple\"] > [aria-hidden=\"true\"] > span:nth-of-type(16) { --ripple-i: 15; }"));
+        assert!(css.contains("[data-slot=\"ripple\"].n-12 { --ripple-count: 12; }"));
+        assert!(css.contains("[data-slot=\"ripple\"].d-6 { --ripple-cycle: 6s; }"));
+        assert!(css.contains("[data-slot=\"ripple\"].raised {"));
+        assert!(css.contains("min-height: 14rem;"));
+        assert!(css.contains("[data-slot=\"ripple\"] .t-2xl {"));
     }
 }

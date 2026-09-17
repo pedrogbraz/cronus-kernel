@@ -1,0 +1,22 @@
+page "/border-beam" type:components family:border-beam {
+  title "BorderBeam"
+  description:"An animated light beam that travels around an element's border."
+}
+
+component FeaturedCard layout:stack style:border-beam duration:6 width:xs icon:sparkles group:"Featured card" note:"A single light head continuously orbits the border like a comet — the calm way to say “this is the one”. It's one composited CSS animation (no JS, no re-renders) and is fully suppressed under prefers-reduced-motion." {
+  badge "Popular"
+  title "Pro"
+  text "Tudo para escalar a sua loja." mt:1
+  value "R$ 79" meta:"/ mês" size:3xl
+  action "Assinar o Pro" icon-end:arrow-right
+}
+
+component PromptBar layout:stack style:border-beam+bar size:80 duration:5 width:md icon:sparkles icon-tone:primary group:"Prompt bar" note:"The beam isn't only for cards — wrap an input to give an AI prompt bar a living, premium edge. A larger `size` reads as a longer comet trail." {
+  text "Pergunte qualquer coisa ao Cronus…"
+  action "Enviar" size:icon icon:arrow-right
+}
+
+component Reverse layout:stack style:border-beam size:90 duration:5 reverse:true width:xs gap:3 icon:shield-check group:"Custom colours & reverse" note:"Every knob rides a CSS variable: set `colorFrom`/`colorTo` for a token-bound head and `reverse` to orbit counter-clockwise. Here the trail is foreground fading out." {
+  title "Pagamentos protegidos"
+  text "Antifraude e 3-D Secure em cada transação — o feixe reverso mantém o olhar na borda."
+}

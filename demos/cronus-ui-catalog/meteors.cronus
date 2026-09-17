@@ -1,0 +1,6 @@
+page "/meteors" type:components family:meteors {
+  title "Meteors"
+  description:"A field of shooting-star trails drifting across a surface."
+}
+
+component Field layout:stack style:meteors surface:raised size:2xl group:"Shooting stars" note:"Shooting stars fall diagonally from the top and burst as they leave the bottom. Positions are derived from the meteor index, so server and client paint the same field." { label "Launch window" }

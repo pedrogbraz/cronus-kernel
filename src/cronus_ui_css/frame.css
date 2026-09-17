@@ -27,3 +27,11 @@
   font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-tertiary);
 }
 [data-slot="frame-content"] { color: var(--cronus-fg); }
+/* Docs mockup: `space-y-2 p-6` with `font-display text-lg font-semibold` heading and `text-sm text-fg-secondary` copy. */
+[data-slot="frame-content"] > div { padding: 1.5rem; }
+[data-slot="frame-content"] > div > * + * { margin-block-start: 0.5rem; }
+[data-slot="frame-content"] > div > h3 {
+  margin: 0; font-family: var(--cronus-font-display, inherit); letter-spacing: normal; color: var(--cronus-fg);
+  font-size: 1.125rem; line-height: 1.75rem; font-weight: 600;
+}
+[data-slot="frame-content"] > div > p { margin: 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary); }

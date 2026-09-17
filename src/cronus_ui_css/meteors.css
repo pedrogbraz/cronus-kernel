@@ -5,26 +5,90 @@
 [data-slot="meteors"] > [aria-hidden="true"] {
   position: absolute; inset: 0; pointer-events: none;
 }
-[data-slot="meteors"] > [aria-hidden="true"] > div {
-  position: absolute; width: 6rem; height: 1px;
-  background: linear-gradient(90deg, transparent, var(--cronus-fg), transparent);
-  opacity: 0.45; transform: rotate(120deg);
-  animation: cui-meteors 3.2s linear infinite;
+/* React: `h-px w-16 origin-left`, per-index position and timing variables. */
+[data-slot="meteors"] > [aria-hidden="true"] > span {
+  position: absolute; width: 4rem; height: 1px; transform-origin: left center;
+  background: linear-gradient(to right, transparent, color-mix(in oklch, var(--cronus-fg) 85%, transparent));
+  opacity: 0; transform: rotate(var(--meteor-angle, 122deg));
+  animation: cui-meteor var(--meteor-duration, 1.8s) linear var(--meteor-delay, 0s) infinite backwards;
 }
-[data-slot="meteors"] > [aria-hidden="true"] > div:nth-child(1) { inset-block-start: 12%; inset-inline-start: 8%; animation-delay: 0s; }
-[data-slot="meteors"] > [aria-hidden="true"] > div:nth-child(2) { inset-block-start: 28%; inset-inline-start: 42%; animation-delay: 0.4s; }
-[data-slot="meteors"] > [aria-hidden="true"] > div:nth-child(3) { inset-block-start: 51%; inset-inline-start: 18%; animation-delay: 0.9s; }
-[data-slot="meteors"] > [aria-hidden="true"] > div:nth-child(4) { inset-block-start: 66%; inset-inline-start: 61%; animation-delay: 1.3s; }
-[data-slot="meteors"] > [aria-hidden="true"] > div:nth-child(5) { inset-block-start: 8%; inset-inline-start: 72%; animation-delay: 1.7s; }
-[data-slot="meteors"] > [aria-hidden="true"] > div:nth-child(6) { inset-block-start: 81%; inset-inline-start: 33%; animation-delay: 2.1s; }
-[data-slot="meteors"] > [aria-hidden="true"] > div:nth-child(7) { inset-block-start: 39%; inset-inline-start: 79%; animation-delay: 2.5s; }
-[data-slot="meteors"] > [aria-hidden="true"] > div:nth-child(8) { inset-block-start: 73%; inset-inline-start: 6%; animation-delay: 2.9s; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(1) { inset-block-start: -14%; inset-inline-start: 8%; --meteor-delay: 0s; --meteor-duration: 1.8s; --meteor-travel: 340px; --meteor-angle: 122deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(2) { inset-block-start: 3%; inset-inline-start: 51%; --meteor-delay: 1.3s; --meteor-duration: 2.5s; --meteor-travel: 369px; --meteor-angle: 133deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(3) { inset-block-start: -12%; inset-inline-start: 94%; --meteor-delay: 2.6s; --meteor-duration: 3.2s; --meteor-travel: 398px; --meteor-angle: 128deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(4) { inset-block-start: 5%; inset-inline-start: 45%; --meteor-delay: 3.9s; --meteor-duration: 3.9s; --meteor-travel: 427px; --meteor-angle: 123deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(5) { inset-block-start: -10%; inset-inline-start: 88%; --meteor-delay: 5.2s; --meteor-duration: 2.4s; --meteor-travel: 456px; --meteor-angle: 134deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(6) { inset-block-start: 7%; inset-inline-start: 39%; --meteor-delay: 6.5s; --meteor-duration: 3.1s; --meteor-travel: 485px; --meteor-angle: 129deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(7) { inset-block-start: -8%; inset-inline-start: 82%; --meteor-delay: 7.8s; --meteor-duration: 3.8s; --meteor-travel: 514px; --meteor-angle: 124deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(8) { inset-block-start: 9%; inset-inline-start: 33%; --meteor-delay: 1.1s; --meteor-duration: 2.3s; --meteor-travel: 543px; --meteor-angle: 135deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(9) { inset-block-start: -6%; inset-inline-start: 76%; --meteor-delay: 2.4s; --meteor-duration: 3s; --meteor-travel: 352px; --meteor-angle: 130deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(10) { inset-block-start: 11%; inset-inline-start: 27%; --meteor-delay: 3.7s; --meteor-duration: 3.7s; --meteor-travel: 381px; --meteor-angle: 125deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(11) { inset-block-start: -4%; inset-inline-start: 70%; --meteor-delay: 5s; --meteor-duration: 2.2s; --meteor-travel: 410px; --meteor-angle: 136deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(12) { inset-block-start: 13%; inset-inline-start: 21%; --meteor-delay: 6.3s; --meteor-duration: 2.9s; --meteor-travel: 439px; --meteor-angle: 131deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(13) { inset-block-start: -2%; inset-inline-start: 64%; --meteor-delay: 7.6s; --meteor-duration: 3.6s; --meteor-travel: 468px; --meteor-angle: 126deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(14) { inset-block-start: 15%; inset-inline-start: 15%; --meteor-delay: 0.9s; --meteor-duration: 2.1s; --meteor-travel: 497px; --meteor-angle: 137deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(15) { inset-block-start: 0%; inset-inline-start: 58%; --meteor-delay: 2.2s; --meteor-duration: 2.8s; --meteor-travel: 526px; --meteor-angle: 132deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(16) { inset-block-start: 17%; inset-inline-start: 9%; --meteor-delay: 3.5s; --meteor-duration: 3.5s; --meteor-travel: 555px; --meteor-angle: 127deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(17) { inset-block-start: 2%; inset-inline-start: 52%; --meteor-delay: 4.8s; --meteor-duration: 2s; --meteor-travel: 364px; --meteor-angle: 122deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(18) { inset-block-start: -13%; inset-inline-start: 95%; --meteor-delay: 6.1s; --meteor-duration: 2.7s; --meteor-travel: 393px; --meteor-angle: 133deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(19) { inset-block-start: 4%; inset-inline-start: 46%; --meteor-delay: 7.4s; --meteor-duration: 3.4s; --meteor-travel: 422px; --meteor-angle: 128deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(20) { inset-block-start: -11%; inset-inline-start: 89%; --meteor-delay: 0.7s; --meteor-duration: 1.9s; --meteor-travel: 451px; --meteor-angle: 123deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(21) { inset-block-start: 6%; inset-inline-start: 40%; --meteor-delay: 2s; --meteor-duration: 2.6s; --meteor-travel: 480px; --meteor-angle: 134deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(22) { inset-block-start: -9%; inset-inline-start: 83%; --meteor-delay: 3.3s; --meteor-duration: 3.3s; --meteor-travel: 509px; --meteor-angle: 129deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(23) { inset-block-start: 8%; inset-inline-start: 34%; --meteor-delay: 4.6s; --meteor-duration: 1.8s; --meteor-travel: 538px; --meteor-angle: 124deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(24) { inset-block-start: -7%; inset-inline-start: 77%; --meteor-delay: 5.9s; --meteor-duration: 2.5s; --meteor-travel: 347px; --meteor-angle: 135deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(25) { inset-block-start: 10%; inset-inline-start: 28%; --meteor-delay: 7.2s; --meteor-duration: 3.2s; --meteor-travel: 376px; --meteor-angle: 130deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(26) { inset-block-start: -5%; inset-inline-start: 71%; --meteor-delay: 0.5s; --meteor-duration: 3.9s; --meteor-travel: 405px; --meteor-angle: 125deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(27) { inset-block-start: 12%; inset-inline-start: 22%; --meteor-delay: 1.8s; --meteor-duration: 2.4s; --meteor-travel: 434px; --meteor-angle: 136deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(28) { inset-block-start: -3%; inset-inline-start: 65%; --meteor-delay: 3.1s; --meteor-duration: 3.1s; --meteor-travel: 463px; --meteor-angle: 131deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(29) { inset-block-start: 14%; inset-inline-start: 16%; --meteor-delay: 4.4s; --meteor-duration: 3.8s; --meteor-travel: 492px; --meteor-angle: 126deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(30) { inset-block-start: -1%; inset-inline-start: 59%; --meteor-delay: 5.7s; --meteor-duration: 2.3s; --meteor-travel: 521px; --meteor-angle: 137deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(31) { inset-block-start: 16%; inset-inline-start: 10%; --meteor-delay: 7s; --meteor-duration: 3s; --meteor-travel: 550px; --meteor-angle: 132deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(32) { inset-block-start: 1%; inset-inline-start: 53%; --meteor-delay: 0.3s; --meteor-duration: 3.7s; --meteor-travel: 359px; --meteor-angle: 127deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(33) { inset-block-start: -14%; inset-inline-start: 96%; --meteor-delay: 1.6s; --meteor-duration: 2.2s; --meteor-travel: 388px; --meteor-angle: 122deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(34) { inset-block-start: 3%; inset-inline-start: 47%; --meteor-delay: 2.9s; --meteor-duration: 2.9s; --meteor-travel: 417px; --meteor-angle: 133deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(35) { inset-block-start: -12%; inset-inline-start: 90%; --meteor-delay: 4.2s; --meteor-duration: 3.6s; --meteor-travel: 446px; --meteor-angle: 128deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(36) { inset-block-start: 5%; inset-inline-start: 41%; --meteor-delay: 5.5s; --meteor-duration: 2.1s; --meteor-travel: 475px; --meteor-angle: 123deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(37) { inset-block-start: -10%; inset-inline-start: 84%; --meteor-delay: 6.8s; --meteor-duration: 2.8s; --meteor-travel: 504px; --meteor-angle: 134deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(38) { inset-block-start: 7%; inset-inline-start: 35%; --meteor-delay: 0.1s; --meteor-duration: 3.5s; --meteor-travel: 533px; --meteor-angle: 129deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(39) { inset-block-start: -8%; inset-inline-start: 78%; --meteor-delay: 1.4s; --meteor-duration: 2s; --meteor-travel: 342px; --meteor-angle: 124deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(40) { inset-block-start: 9%; inset-inline-start: 29%; --meteor-delay: 2.7s; --meteor-duration: 2.7s; --meteor-travel: 371px; --meteor-angle: 135deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(41) { inset-block-start: -6%; inset-inline-start: 72%; --meteor-delay: 4s; --meteor-duration: 3.4s; --meteor-travel: 400px; --meteor-angle: 130deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(42) { inset-block-start: 11%; inset-inline-start: 23%; --meteor-delay: 5.3s; --meteor-duration: 1.9s; --meteor-travel: 429px; --meteor-angle: 125deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(43) { inset-block-start: -4%; inset-inline-start: 66%; --meteor-delay: 6.6s; --meteor-duration: 2.6s; --meteor-travel: 458px; --meteor-angle: 136deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(44) { inset-block-start: 13%; inset-inline-start: 17%; --meteor-delay: 7.9s; --meteor-duration: 3.3s; --meteor-travel: 487px; --meteor-angle: 131deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(45) { inset-block-start: -2%; inset-inline-start: 60%; --meteor-delay: 1.2s; --meteor-duration: 1.8s; --meteor-travel: 516px; --meteor-angle: 126deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(46) { inset-block-start: 15%; inset-inline-start: 11%; --meteor-delay: 2.5s; --meteor-duration: 2.5s; --meteor-travel: 545px; --meteor-angle: 137deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(47) { inset-block-start: 0%; inset-inline-start: 54%; --meteor-delay: 3.8s; --meteor-duration: 3.2s; --meteor-travel: 354px; --meteor-angle: 132deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(48) { inset-block-start: 17%; inset-inline-start: 97%; --meteor-delay: 5.1s; --meteor-duration: 3.9s; --meteor-travel: 383px; --meteor-angle: 127deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(49) { inset-block-start: 2%; inset-inline-start: 48%; --meteor-delay: 6.4s; --meteor-duration: 2.4s; --meteor-travel: 412px; --meteor-angle: 122deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(50) { inset-block-start: -13%; inset-inline-start: 91%; --meteor-delay: 7.7s; --meteor-duration: 3.1s; --meteor-travel: 441px; --meteor-angle: 133deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(51) { inset-block-start: 4%; inset-inline-start: 42%; --meteor-delay: 1s; --meteor-duration: 3.8s; --meteor-travel: 470px; --meteor-angle: 128deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(52) { inset-block-start: -11%; inset-inline-start: 85%; --meteor-delay: 2.3s; --meteor-duration: 2.3s; --meteor-travel: 499px; --meteor-angle: 123deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(53) { inset-block-start: 6%; inset-inline-start: 36%; --meteor-delay: 3.6s; --meteor-duration: 3s; --meteor-travel: 528px; --meteor-angle: 134deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(54) { inset-block-start: -9%; inset-inline-start: 79%; --meteor-delay: 4.9s; --meteor-duration: 3.7s; --meteor-travel: 557px; --meteor-angle: 129deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(55) { inset-block-start: 8%; inset-inline-start: 30%; --meteor-delay: 6.2s; --meteor-duration: 2.2s; --meteor-travel: 366px; --meteor-angle: 124deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(56) { inset-block-start: -7%; inset-inline-start: 73%; --meteor-delay: 7.5s; --meteor-duration: 2.9s; --meteor-travel: 395px; --meteor-angle: 135deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(57) { inset-block-start: 10%; inset-inline-start: 24%; --meteor-delay: 0.8s; --meteor-duration: 3.6s; --meteor-travel: 424px; --meteor-angle: 130deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(58) { inset-block-start: -5%; inset-inline-start: 67%; --meteor-delay: 2.1s; --meteor-duration: 2.1s; --meteor-travel: 453px; --meteor-angle: 125deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(59) { inset-block-start: 12%; inset-inline-start: 18%; --meteor-delay: 3.4s; --meteor-duration: 2.8s; --meteor-travel: 482px; --meteor-angle: 136deg; }
+[data-slot="meteors"] > [aria-hidden="true"] > span:nth-child(60) { inset-block-start: -3%; inset-inline-start: 61%; --meteor-delay: 4.7s; --meteor-duration: 3.5s; --meteor-travel: 511px; --meteor-angle: 131deg; }
 [data-slot="meteors"] > div:last-child { position: relative; }
-@keyframes cui-meteors {
-  from { transform: rotate(120deg) translateX(0); opacity: 0; }
-  12% { opacity: 0.5; }
-  to { transform: rotate(120deg) translateX(12rem); opacity: 0; }
+@keyframes cui-meteor {
+  0% { transform: rotate(var(--meteor-angle)) translate3d(0, 0, 0); opacity: 0; }
+  7% { opacity: 1; }
+  78% { opacity: 1; transform: rotate(var(--meteor-angle)) translate3d(calc(var(--meteor-travel) * 0.86), 0, 0); }
+  88% { opacity: 0.55; transform: rotate(var(--meteor-angle)) translate3d(var(--meteor-travel), 0, 0) scale(1.85); }
+  100% { transform: rotate(var(--meteor-angle)) translate3d(var(--meteor-travel), 0, 0) scale(0.12); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   [data-slot="meteors"] > [aria-hidden="true"] { display: none; }
+}
+/* Docs stage: `grid min-h-56 place-items-center rounded-2xl border bg-surface-raised`. */
+[data-slot="meteors"].raised {
+  display: grid; place-items: center; min-height: 14rem;
+  border-radius: calc(var(--cronus-radius, 14px) + 8px); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised);
+}
+[data-slot="meteors"] .t-2xl {
+  margin: 0; font-family: var(--cronus-font-display, inherit); font-size: 1.5rem; line-height: 2rem; color: var(--cronus-fg);
 }

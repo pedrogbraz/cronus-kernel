@@ -1,0 +1,16 @@
+page "/gradient-border" type:components family:gradient-border {
+  title "GradientBorder"
+  description:"Aurora gradient border."
+}
+
+component ProPlan layout:stack style:gradient-border glow:true group:"With glow" note:"Pass `glow` to add a quiet shadow that draws the eye to a featured surface." {
+  title "Pro plan"
+  text "The hairline ring draws the eye to your highest-value surface."
+  value "$29" meta:"/ month"
+}
+
+component StarterPlan layout:stack style:gradient-border group:"Flat" note:"Omit `glow` for the same primary hairline, kept calm for secondary surfaces." {
+  title "Starter plan"
+  text "The same primary hairline, kept calm and flat for secondary surfaces."
+  value "$0" meta:"/ forever"
+}

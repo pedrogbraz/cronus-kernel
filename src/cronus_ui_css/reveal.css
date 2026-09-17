@@ -5,3 +5,52 @@
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
+/* React `delay` prop, in 0.1 s steps. */[data-slot="reveal"].d-1 { animation-delay: 0.1s; }
+[data-slot="reveal"].d-2 { animation-delay: 0.2s; }
+[data-slot="reveal"].d-3 { animation-delay: 0.3s; }
+[data-slot="reveal"].d-4 { animation-delay: 0.4s; }
+[data-slot="reveal"].d-5 { animation-delay: 0.5s; }
+[data-slot="reveal"].d-6 { animation-delay: 0.6s; }
+[data-slot="reveal"].d-7 { animation-delay: 0.7s; }
+[data-slot="reveal"].d-8 { animation-delay: 0.8s; }
+[data-slot="reveal"].d-9 { animation-delay: 0.9s; }
+[data-slot="reveal"].d-10 { animation-delay: 1s; }
+[data-slot="reveal"].d-11 { animation-delay: 1.1s; }
+[data-slot="reveal"].d-12 { animation-delay: 1.2s; }
+[data-slot="reveal"].d-13 { animation-delay: 1.3s; }
+[data-slot="reveal"].d-14 { animation-delay: 1.4s; }
+[data-slot="reveal"].d-15 { animation-delay: 1.5s; }
+[data-slot="reveal"].d-16 { animation-delay: 1.6s; }
+[data-slot="reveal"].d-17 { animation-delay: 1.7s; }
+[data-slot="reveal"].d-18 { animation-delay: 1.8s; }
+[data-slot="reveal"].d-19 { animation-delay: 1.9s; }
+[data-slot="reveal"].d-20 { animation-delay: 2s; }
+/* Docs "Scroll reveal" Card: `size-11 rounded-xl` chip, `text-2xl` title,
+   `text-base` description, `gap-5` content with three `p-4` stat tiles. */
+[data-slot="reveal"] > [data-slot="card"] { width: 100%; box-sizing: border-box; }
+[data-slot="reveal"] .glyph {
+  display: grid; place-items: center; width: 2.25rem; height: 2.25rem;
+  border-radius: var(--cronus-radius-lg); background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
+[data-slot="reveal"] .glyph svg { width: 1rem; height: 1rem; }
+[data-slot="reveal"] .glyph.lg { width: 2.75rem; height: 2.75rem; border-radius: var(--cronus-radius-xl); margin-block-end: 0.25rem; }
+[data-slot="reveal"] .glyph.lg svg { width: 1.25rem; height: 1.25rem; }
+[data-slot="reveal"] > [data-slot="card"] > [data-slot="card-header"] > [data-slot="card-title"] { font-size: 1.5rem; line-height: 2rem; }
+[data-slot="reveal"] > [data-slot="card"] > [data-slot="card-header"] > [data-slot="card-description"] { font-size: 1rem; line-height: 1.5rem; }
+[data-slot="reveal"] > [data-slot="card"] > [data-slot="card-content"] {
+  display: flex; flex-direction: column; gap: 1.25rem; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="reveal"] > [data-slot="card"] > [data-slot="card-content"] > p { margin: 0; line-height: 1.625; }
+[data-slot="reveal"] .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
+[data-slot="reveal"] .tiles > div {
+  border-radius: var(--cronus-radius-xl); border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised); padding: 1rem;
+}
+[data-slot="reveal"] .tiles > div > p {
+  margin: 0; font-family: var(--cronus-font-display, inherit); font-size: 1.5rem; line-height: 2rem; font-weight: 600; color: var(--cronus-fg);
+}
+[data-slot="reveal"] .tiles > div > p + p {
+  margin-block-start: 0.25rem; font-family: inherit; font-size: 0.75rem; line-height: 1rem; font-weight: 400; color: var(--cronus-fg-tertiary);
+}
+/* Kit preview: the docs Card is `w-full`. */
+[data-slot="catalog-frame"] > [data-slot="reveal"]:has(> [data-slot="card"]) { width: 100%; }

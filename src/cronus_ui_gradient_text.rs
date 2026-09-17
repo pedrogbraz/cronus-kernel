@@ -1,13 +1,24 @@
 //! Dedicated GradientText renderer. DOM matches React:
-//! `<span data-slot="gradient-text">` with label. CSS gradient fill
-//! in COMPONENT_CHROME. Zero JS. Not the catalog `fx()` title SURF box.
+//! `<span data-slot="gradient-text">` with the label, or — `asChild` on a
+//! heading (`as:h1|h2|h3|h4`) — that heading element carrying the slot.
+//! `size:5xl|6xl` is the docs display recipe (`font-display font-semibold
+//! leading-[1.05] tracking-tight`). CSS gradient fill in the family CSS.
+//! Zero JS. Not the catalog `fx()` title SURF box.
 
-use crate::cronus_ui_kit::label_of;
+use crate::cronus_ui_kit::{attr_nonempty, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
+    let tag = match attr_nonempty(comp, "as") {
+        Some(t @ ("h1" | "h2" | "h3" | "h4" | "p")) => t,
+        _ => "span",
+    };
+    let class = match attr_nonempty(comp, "size") {
+        Some(s @ ("5xl" | "6xl")) => format!(" class=\"t-{s}\""),
+        _ => String::new(),
+    };
     format!(
-        "<span data-slot=\"gradient-text\">{}</span>",
+        "<{tag} data-slot=\"gradient-text\"{class}>{}</{tag}>",
         label_of(comp)
     )
 }
@@ -19,6 +30,7 @@ mod tests {
     use crate::cronus_ui_kit::stub;
 
     const FX_BOX: &str = "padding:0.75rem 1rem;position:relative;overflow:hidden";
+    const CSS: &str = include_str!("cronus_ui_css/gradient-text.css");
 
     fn reject_fx(html: &str) {
         assert!(!html.contains(FX_BOX));
@@ -53,6 +65,22 @@ mod tests {
         reject_fx(&html);
     }
 
+    /// Docs "Headline": `asChild` clips an `<h3>` at the 6xl display size.
+    #[test]
+    fn as_child_heading_with_display_size() {
+        let mut c = stub("gradient-text", "Design that themes itself");
+        c.props.insert("as".into(), "h3".into());
+        c.props.insert("size".into(), "6xl".into());
+        let html = render(&c);
+        assert_eq!(
+            html,
+            "<h3 data-slot=\"gradient-text\" class=\"t-6xl\">Design that themes itself</h3>"
+        );
+        reject_fx(&html);
+        c.props.insert("as".into(), "script".into());
+        assert!(render(&c).starts_with("<span "));
+    }
+
     #[test]
     fn skips_fx_surf_title_box() {
         let c = stub("gradient-text", "Proud of");
@@ -82,13 +110,15 @@ mod tests {
 
     #[test]
     fn chrome_gradient_fill_via_css() {
-        let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"gradient-text\"]"));
-        assert!(css.contains("background-clip: text"));
-        assert!(css.contains("linear-gradient(135deg"));
-        assert!(css.contains("var(--cronus-primary)"));
-        assert!(css.contains("var(--cronus-accent)"));
-        assert!(!css.contains("zinc-"));
-        assert!(!css.contains(FX_BOX));
+        assert!(CSS.contains("[data-slot=\"gradient-text\"]"));
+        assert!(CSS.contains("background-clip: text"));
+        assert!(CSS.contains("linear-gradient(135deg"));
+        assert!(CSS.contains("var(--cronus-primary)"));
+        assert!(CSS.contains("var(--cronus-accent)"));
+        assert!(CSS.contains("[data-slot=\"gradient-text\"].t-6xl {"));
+        assert!(CSS.contains("font-size: 3.75rem; line-height: 1.05;"));
+        assert!(CSS.contains("letter-spacing: -0.025em;"));
+        assert!(!CSS.contains("zinc-"));
+        assert!(!CSS.contains(FX_BOX));
     }
 }

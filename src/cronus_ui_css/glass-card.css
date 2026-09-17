@@ -17,3 +17,27 @@
 [data-slot="glass-card"] > div:last-child {
   position: relative;
 }
+/* Docs example content: `size-9 rounded-lg bg-surface-overlay` chip,
+   `font-display text-base font-semibold` heading, `text-sm text-fg-secondary` copy. */
+[data-slot="glass-card"] .glyph {
+  display: grid; place-items: center;
+  width: 2.25rem; height: 2.25rem;
+  border-radius: var(--cronus-radius-lg); background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
+[data-slot="glass-card"] .glyph svg { width: 1rem; height: 1rem; }
+[data-slot="glass-card"] .glyph.primary { color: var(--cronus-primary); }
+[data-slot="glass-card"] h3 {
+  margin: 0; font-family: var(--cronus-font-display, inherit);
+  font-size: 1rem; line-height: 1.5rem; font-weight: 600; letter-spacing: normal; color: var(--cronus-fg);
+}
+[data-slot="glass-card"] p {
+  margin: 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
+}
+/* The frosted panel over a quiet inset field (`rounded-2xl border bg-surface-inset` > `p-6`). */
+.cui-glass-field {
+  position: relative; overflow: hidden;
+  border-radius: calc(var(--cronus-radius, 14px) + 8px);
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-inset);
+}
+.cui-glass-field > div { position: relative; padding: 1.5rem; }

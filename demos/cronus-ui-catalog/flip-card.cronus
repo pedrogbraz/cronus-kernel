@@ -1,0 +1,38 @@
+page "/flip-card" type:components family:flip-card {
+  title "FlipCard"
+  description:"A 3D card that flips between a front and a back face."
+}
+
+component PlanoPro layout:stack style:flip-card aria-label:"Plano Pro" width:xs height:72 icon:sparkles icon-size:lg group:"Hover to flip" note:"The default trigger flips on pointer hover and keyboard focus, so it's fully operable without a mouse. The inactive face is `inert` — its content never double-reads to a screen reader. Hover the card to reveal the plan's benefits." {
+  title "Plano Pro" size:lg
+  text "Tudo o que você precisa para escalar a sua loja." mt:1
+  meta "Passe o mouse →"
+  slot "back"
+  item "Repasses em D+2" icon:check
+  item "Checkout sem marca" icon:check
+  item "Suporte prioritário" icon:check
+  action "Assinar o Pro" icon-end:arrow-right
+}
+
+component Depoimento layout:stack style:flip-card trigger:click aria-label:"Ver depoimento de Ana Ribeiro" width:xs height:72 group:"Click to flip" {
+  slot "front" layout:center avatar:"AR"
+  title "Ana Ribeiro"
+  text "Head of Design, Northwind" mt:0
+  meta "Clique para ler"
+  slot "back" layout:center rating:5 icons:"github,link-2"
+  text "“Shipped a polished, on-brand UI in a weekend. The theming alone paid for itself.”" tone:fg
+}
+
+component Pedido layout:stack style:flip-card trigger:controlled axis:vertical aria-label:"Detalhe do pedido" width:xs height:64 group:"Controlled" {
+  meta "Pedido #4821" eyebrow:true
+  badge "Pago" tone:success
+  value "R$ 297,00" size:3xl
+  text "Curso de Copywriting" mt:1
+  text "Toque em “Ver detalhes”." size:xs
+  slot "back"
+  meta "Composição" eyebrow:true
+  item "Subtotal" value:"R$ 320,00"
+  item "Cupom BEMVINDO" value:"− R$ 23,00" tone:success
+  item "Total" value:"R$ 297,00" total:true
+  action "Ver detalhes" swap:"Ver resumo" icon:rotate-cw
+}

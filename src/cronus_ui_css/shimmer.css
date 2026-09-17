@@ -4,10 +4,29 @@
   border-radius: var(--cronus-radius-md);
   background: var(--cronus-surface-overlay);
 }
+/* React `animate-shimmer`: the sweep starts at rest and slides out to the right. */
 [data-slot="shimmer"] > div {
   position: absolute; inset: 0;
-  transform: translateX(-100%);
   background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--cronus-fg) 10%, transparent), transparent);
   animation: cui-shimmer 2s linear infinite;
 }
 @keyframes cui-shimmer { 100% { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="shimmer"] > div { display: none; }
+}
+/* Docs sizes (Tailwind `h-*` / `w-*` / `rounded-*`). */
+[data-slot="shimmer"].h-4 { height: 1rem; }
+[data-slot="shimmer"].h-6 { height: 1.5rem; }
+[data-slot="shimmer"].h-8 { height: 2rem; }
+[data-slot="shimmer"].h-10 { height: 2.5rem; }
+[data-slot="shimmer"].h-12 { height: 3rem; }
+[data-slot="shimmer"].w-32 { width: 8rem; }
+[data-slot="shimmer"].w-48 { width: 100%; max-width: 12rem; }
+[data-slot="shimmer"].w-64 { width: 100%; max-width: 16rem; }
+[data-slot="shimmer"].w-full { width: 100%; }
+[data-slot="shimmer"].w-3-4 { width: 75%; }
+[data-slot="shimmer"].w-1-2 { width: 50%; }
+[data-slot="shimmer"].r-lg { border-radius: var(--cronus-radius-lg); }
+[data-slot="shimmer"].r-xl { border-radius: var(--cronus-radius-xl); }
+[data-slot="shimmer"].r-full { border-radius: 9999px; }
+.cui-shimmer-stack { display: flex; flex-direction: column; gap: 0.75rem; width: 100%; }

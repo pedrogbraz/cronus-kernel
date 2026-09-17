@@ -17,3 +17,20 @@
 @media (prefers-reduced-motion: reduce) {
   [data-slot="spotlight-card"] > [aria-hidden="true"] { display: none; }
 }
+/* Docs example content: `size-9 rounded-lg bg-surface-overlay` chip, heading, copy. */
+[data-slot="spotlight-card"] .glyph {
+  display: grid; place-items: center;
+  width: 2.25rem; height: 2.25rem;
+  border-radius: var(--cronus-radius-lg); background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
+[data-slot="spotlight-card"] .glyph svg { width: 1rem; height: 1rem; }
+[data-slot="spotlight-card"] .glyph.primary { color: var(--cronus-primary); }
+[data-slot="spotlight-card"] h3 {
+  margin: 0; font-family: var(--cronus-font-display, inherit);
+  font-size: 1rem; line-height: 1.5rem; font-weight: 600; letter-spacing: normal; color: var(--cronus-fg);
+}
+[data-slot="spotlight-card"] p {
+  margin: 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
+}
+/* Kit preview: React's example is an unsized flex item (shrink-to-fit), not a fluid block. */
+[data-slot="catalog-frame"] > [data-slot="spotlight-card"] { width: fit-content; max-width: 100%; }
