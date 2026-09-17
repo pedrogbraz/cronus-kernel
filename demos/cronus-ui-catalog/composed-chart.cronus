@@ -1,0 +1,72 @@
+page "/composed-chart" type:components family:composed-chart {
+  title "ComposedChart"
+  description:"Area, bar, and line on one axis. Default and Motion variants."
+}
+
+component ComposedChartDefault layout:stack style:composed-chart series:"costs:Run rate:area,units:Units:bar,revenue:Revenue:line" group:"Default" note:"Cronus mix of area, bar, and line on one time axis." {
+  label "Composed chart of area, bar, and line on one time axis."
+  item "Jul 29" costs:11500 units:40 revenue:16200
+  item "Jul 30" costs:10800 units:43 revenue:14800
+  item "Jul 31" costs:12100 units:46 revenue:17100
+  item "Aug 1" costs:11200 units:49 revenue:15900
+  item "Aug 2" costs:12800 units:52 revenue:18100
+  item "Aug 3" costs:12400 units:55 revenue:17600
+  item "Aug 4" costs:11900 units:58 revenue:16800
+  item "Aug 5" costs:13200 units:61 revenue:19200
+  item "Aug 6" costs:12600 units:64 revenue:18500
+  item "Aug 7" costs:11800 units:67 revenue:17400
+  item "Aug 8" costs:13600 units:70 revenue:20100
+  item "Aug 9" costs:12900 units:73 revenue:19400
+  item "Aug 10" costs:12500 units:40 revenue:18800
+  item "Aug 11" costs:14100 units:43 revenue:21100
+  item "Aug 12" costs:13400 units:46 revenue:20500
+  item "Aug 13" costs:13000 units:49 revenue:19800
+  item "Aug 14" costs:14500 units:52 revenue:21600
+  item "Aug 15" costs:13800 units:55 revenue:20900
+  item "Aug 16" costs:14900 units:58 revenue:22100
+  item "Aug 17" costs:14200 units:61 revenue:21400
+  item "Aug 18" costs:13700 units:64 revenue:20800
+  item "Aug 19" costs:15200 units:67 revenue:22600
+  item "Aug 20" costs:14600 units:70 revenue:21900
+  item "Aug 21" costs:15600 units:73 revenue:23200
+  item "Aug 22" costs:14800 units:40 revenue:22400
+  item "Aug 23" costs:14300 units:43 revenue:21800
+  item "Aug 24" costs:15900 units:46 revenue:23800
+  item "Aug 25" costs:15100 units:49 revenue:22900
+  item "Aug 26" costs:16200 units:52 revenue:24100
+  item "Aug 27" costs:15500 units:55 revenue:23500
+}
+
+component ComposedChartMotion layout:stack style:composed-chart+motion series:"runRate:Run rate:area:4,units:Units:bar:3,revenue:Revenue:line:1" curve:catmull bar-gap:0 max-bar-size:32 ticks:8 group:"Motion" note:"Daily units as bars, run-rate as area, revenue as a smooth line — clip-reveal and a date pill." {
+  label "Composed chart of daily units, run rate, and revenue for January."
+  item "2024-01-01" runRate:96 units:51 revenue:96
+  item "2024-01-02" runRate:95 units:54 revenue:99
+  item "2024-01-03" runRate:93 units:57 revenue:102
+  item "2024-01-04" runRate:92 units:59 revenue:105
+  item "2024-01-05" runRate:90 units:61 revenue:108
+  item "2024-01-06" runRate:88 units:62 revenue:110
+  item "2024-01-07" runRate:86 units:62 revenue:112
+  item "2024-01-08" runRate:84 units:62 revenue:113
+  item "2024-01-09" runRate:82 units:61 revenue:114
+  item "2024-01-10" runRate:80 units:60 revenue:114
+  item "2024-01-11" runRate:79 units:58 revenue:113
+  item "2024-01-12" runRate:78 units:56 revenue:113
+  item "2024-01-13" runRate:77 units:53 revenue:112
+  item "2024-01-14" runRate:76 units:50 revenue:110
+  item "2024-01-15" runRate:76 units:48 revenue:109
+  item "2024-01-16" runRate:77 units:45 revenue:107
+  item "2024-01-17" runRate:78 units:43 revenue:105
+  item "2024-01-18" runRate:79 units:41 revenue:104
+  item "2024-01-19" runRate:80 units:39 revenue:103
+  item "2024-01-20" runRate:81 units:38 revenue:102
+  item "2024-01-21" runRate:83 units:38 revenue:101
+  item "2024-01-22" runRate:85 units:38 revenue:101
+  item "2024-01-23" runRate:86 units:39 revenue:102
+  item "2024-01-24" runRate:88 units:41 revenue:103
+  item "2024-01-25" runRate:89 units:43 revenue:104
+  item "2024-01-26" runRate:90 units:45 revenue:106
+  item "2024-01-27" runRate:90 units:48 revenue:109
+  item "2024-01-28" runRate:90 units:50 revenue:111
+  item "2024-01-29" runRate:90 units:53 revenue:114
+  item "2024-01-30" runRate:89 units:56 revenue:117
+}

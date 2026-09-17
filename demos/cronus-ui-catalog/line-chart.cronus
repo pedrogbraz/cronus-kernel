@@ -1,0 +1,72 @@
+page "/line-chart" type:components family:line-chart {
+  title "LineChart"
+  description:"Multi-series line. Default and Motion variants."
+}
+
+component LineChartDefault layout:stack style:line-chart series:"revenue:Revenue,costs:Costs" group:"Default" note:"Cronus ready-made LineChart — same series API as AreaChart, without the fill." {
+  label "Line chart of revenue versus costs from Jul 29 to Aug 27."
+  item "Jul 29" revenue:16200 costs:11500
+  item "Jul 30" revenue:14800 costs:10800
+  item "Jul 31" revenue:17100 costs:12100
+  item "Aug 1" revenue:15900 costs:11200
+  item "Aug 2" revenue:18100 costs:12800
+  item "Aug 3" revenue:17600 costs:12400
+  item "Aug 4" revenue:16800 costs:11900
+  item "Aug 5" revenue:19200 costs:13200
+  item "Aug 6" revenue:18500 costs:12600
+  item "Aug 7" revenue:17400 costs:11800
+  item "Aug 8" revenue:20100 costs:13600
+  item "Aug 9" revenue:19400 costs:12900
+  item "Aug 10" revenue:18800 costs:12500
+  item "Aug 11" revenue:21100 costs:14100
+  item "Aug 12" revenue:20500 costs:13400
+  item "Aug 13" revenue:19800 costs:13000
+  item "Aug 14" revenue:21600 costs:14500
+  item "Aug 15" revenue:20900 costs:13800
+  item "Aug 16" revenue:22100 costs:14900
+  item "Aug 17" revenue:21400 costs:14200
+  item "Aug 18" revenue:20800 costs:13700
+  item "Aug 19" revenue:22600 costs:15200
+  item "Aug 20" revenue:21900 costs:14600
+  item "Aug 21" revenue:23200 costs:15600
+  item "Aug 22" revenue:22400 costs:14800
+  item "Aug 23" revenue:21800 costs:14300
+  item "Aug 24" revenue:23800 costs:15900
+  item "Aug 25" revenue:22900 costs:15100
+  item "Aug 26" revenue:24100 costs:16200
+  item "Aug 27" revenue:23500 costs:15500
+}
+
+component LineChartMotion layout:stack style:line-chart+motion series:"users,pageviews" group:"Motion" note:"Hover cursor, crosshair, animated tooltip. Import from @cronus-ui/ui/charts." {
+  label "Line chart of users and pageviews over thirty days."
+  item "2024-01-01" users:1350 pageviews:2875
+  item "2024-01-02" users:1233 pageviews:2700
+  item "2024-01-03" users:1425 pageviews:3025
+  item "2024-01-04" users:1325 pageviews:2800
+  item "2024-01-05" users:1508 pageviews:3200
+  item "2024-01-06" users:1467 pageviews:3100
+  item "2024-01-07" users:1400 pageviews:2975
+  item "2024-01-08" users:1600 pageviews:3300
+  item "2024-01-09" users:1542 pageviews:3150
+  item "2024-01-10" users:1450 pageviews:2950
+  item "2024-01-11" users:1675 pageviews:3400
+  item "2024-01-12" users:1617 pageviews:3225
+  item "2024-01-13" users:1567 pageviews:3125
+  item "2024-01-14" users:1758 pageviews:3525
+  item "2024-01-15" users:1708 pageviews:3350
+  item "2024-01-16" users:1650 pageviews:3250
+  item "2024-01-17" users:1800 pageviews:3625
+  item "2024-01-18" users:1742 pageviews:3450
+  item "2024-01-19" users:1842 pageviews:3725
+  item "2024-01-20" users:1783 pageviews:3550
+  item "2024-01-21" users:1733 pageviews:3425
+  item "2024-01-22" users:1883 pageviews:3800
+  item "2024-01-23" users:1825 pageviews:3650
+  item "2024-01-24" users:1933 pageviews:3900
+  item "2024-01-25" users:1867 pageviews:3700
+  item "2024-01-26" users:1817 pageviews:3575
+  item "2024-01-27" users:1983 pageviews:3975
+  item "2024-01-28" users:1908 pageviews:3775
+  item "2024-01-29" users:2008 pageviews:4050
+  item "2024-01-30" users:1958 pageviews:3875
+}

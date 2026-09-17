@@ -1,0 +1,32 @@
+page "/candlestick-chart" type:components family:candlestick-chart {
+  title "CandlestickChart"
+  description:"OHLC candles. Default and Motion variants."
+}
+
+component CandlestickChartDefault layout:stack style:candlestick-chart group:"Default" note:"Cronus OHLC candles. Success for up days, error for down." {
+  label "Candlestick chart of open, high, low, and close prices."
+  item "Aug 3" open:142 high:148 low:139 close:146
+  item "Aug 4" open:146 high:151 low:144 close:149
+  item "Aug 5" open:149 high:152 low:141 close:143
+  item "Aug 6" open:143 high:147 low:140 close:141
+  item "Aug 7" open:141 high:150 low:140 close:148
+  item "Aug 10" open:148 high:156 low:147 close:155
+  item "Aug 11" open:155 high:158 low:149 close:151
+  item "Aug 12" open:151 high:154 low:145 close:147
+  item "Aug 13" open:147 high:153 low:146 close:152
+  item "Aug 14" open:152 high:160 low:151 close:158
+}
+
+component CandlestickChartMotion layout:stack style:candlestick-chart+motion faded-opacity:0.25 height:320 group:"Motion" note:"OHLC candles with crosshair and date pill." {
+  label "Candlestick chart of open, high, low, and close prices."
+  item "2024-01-01" open:100 high:108 low:96 close:104
+  item "2024-01-02" open:104 high:112 low:101 close:109
+  item "2024-01-03" open:109 high:115 low:105 close:108
+  item "2024-01-04" open:108 high:114 low:102 close:110
+  item "2024-01-05" open:110 high:118 low:108 close:115
+  item "2024-01-06" open:115 high:120 low:111 close:113
+  item "2024-01-07" open:113 high:119 low:110 close:117
+  item "2024-01-08" open:117 high:124 low:115 close:121
+  item "2024-01-09" open:121 high:126 low:118 close:120
+  item "2024-01-10" open:120 high:128 low:117 close:125
+}

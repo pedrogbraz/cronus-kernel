@@ -9,3 +9,190 @@
 [data-slot="chart"] line[stroke-dasharray] {
   stroke: color-mix(in oklch, var(--cronus-border) 50%, transparent);
 }
+/* ── recharts entrance motion (docs "Default" charts) ──
+   Area / Scatter reveal by a clip rect (`AreaRevealShape`), Line draws its
+   stroke (`pathLength="1"` dash), Bar grows from the 226px baseline of the
+   432×256 frame, Pie / RadialBar sweep, Radar and Funnel scale from centre. */
+[data-slot="chart"] .reveal {
+  animation: cronus-chart-reveal 1100ms ease-out both;
+}
+[data-slot="chart"] .draw {
+  stroke-dasharray: 1; stroke-dashoffset: 1;
+  animation: cronus-chart-draw 1100ms ease-out forwards;
+}
+[data-slot="chart"] .grow {
+  transform-box: view-box; transform-origin: 0 226px;
+  animation: cronus-chart-grow 1100ms ease both;
+}
+[data-slot="chart"] .pop {
+  transform-box: fill-box; transform-origin: center;
+  animation: cronus-chart-grow-xy 1500ms ease 400ms both;
+}
+[data-slot="chart"] .sweep {
+  stroke-dasharray: 1 1000; stroke-dashoffset: 1;
+  animation: cronus-chart-draw 1500ms ease 400ms forwards;
+}
+[data-slot="chart"] .radar-in {
+  transform-box: view-box; transform-origin: 216px 128px;
+  animation: cronus-chart-grow-xy 1500ms ease both;
+}
+@keyframes cronus-chart-reveal {
+  from { width: 0; }
+}
+@keyframes cronus-chart-draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes cronus-chart-grow {
+  from { transform: scaleY(0); }
+  to { transform: none; }
+}
+@keyframes cronus-chart-grow-xy {
+  from { transform: scale(0); }
+  to { transform: none; }
+}
+@keyframes cronus-chart-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+/* ── @cronus-ui/ui/charts (docs "Motion" charts, `class="v-motion"`) ──
+   visx SVG at the 432px audit width; the shared `ChartRevealClip` rect grows
+   0 → width in 1100ms cubic-bezier(0.85, 0, 0.15, 1). */
+[data-slot$="-chart"].v-motion {
+  position: relative; display: block; width: 100%; height: auto;
+  touch-action: none;
+}
+[data-slot$="-chart"].v-motion > svg {
+  display: block; width: 100%; height: 100%; overflow: visible;
+}
+[data-slot$="-chart"].v-motion text {
+  font-family: var(--cronus-font-sans, inherit);
+  font-size: 0.75rem; line-height: 1rem;
+}
+[data-slot$="-chart"].v-motion .reveal {
+  animation: cronus-chart-reveal 1100ms cubic-bezier(0.85, 0, 0.15, 1) both;
+}
+[data-slot$="-chart"].v-motion .sweep {
+  stroke-dasharray: 1 1000; stroke-dashoffset: 1;
+  animation: cronus-chart-draw 1100ms cubic-bezier(0.85, 0, 0.15, 1) both;
+}
+/* Per-index stagger: `.i0` … `.i23` on the animated element, `--stagger`
+   set by the family (bars: 440ms / n, pie: 80ms, …). */
+[data-slot$="-chart"].v-motion .i1 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 1); }
+[data-slot$="-chart"].v-motion .i2 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 2); }
+[data-slot$="-chart"].v-motion .i3 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 3); }
+[data-slot$="-chart"].v-motion .i4 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 4); }
+[data-slot$="-chart"].v-motion .i5 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 5); }
+[data-slot$="-chart"].v-motion .i6 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 6); }
+[data-slot$="-chart"].v-motion .i7 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 7); }
+[data-slot$="-chart"].v-motion .i8 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 8); }
+[data-slot$="-chart"].v-motion .i9 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 9); }
+[data-slot$="-chart"].v-motion .i10 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 10); }
+[data-slot$="-chart"].v-motion .i11 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 11); }
+[data-slot$="-chart"].v-motion .i12 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 12); }
+[data-slot$="-chart"].v-motion .i13 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 13); }
+[data-slot$="-chart"].v-motion .i14 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 14); }
+[data-slot$="-chart"].v-motion .i15 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 15); }
+[data-slot$="-chart"].v-motion .i16 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 16); }
+[data-slot$="-chart"].v-motion .i17 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 17); }
+[data-slot$="-chart"].v-motion .i18 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 18); }
+[data-slot$="-chart"].v-motion .i19 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 19); }
+[data-slot$="-chart"].v-motion .i20 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 20); }
+[data-slot$="-chart"].v-motion .i21 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 21); }
+[data-slot$="-chart"].v-motion .i22 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 22); }
+[data-slot$="-chart"].v-motion .i23 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 23); }
+[data-slot$="-chart"].v-motion .i24 { animation-delay: calc(var(--cronus-chart-delay, 0ms) + var(--stagger, 0ms) * 24); }
+/* Series count → stagger (`Bar`: 40% of 1100ms spread over the rows). */
+[data-slot$="-chart"].v-motion .n2 { --stagger: 220ms; }
+[data-slot$="-chart"].v-motion .n3 { --stagger: 146.67ms; }
+[data-slot$="-chart"].v-motion .n4 { --stagger: 110ms; }
+[data-slot$="-chart"].v-motion .n5 { --stagger: 88ms; }
+[data-slot$="-chart"].v-motion .n6 { --stagger: 73.33ms; }
+[data-slot$="-chart"].v-motion .n7 { --stagger: 62.86ms; }
+[data-slot$="-chart"].v-motion .n8 { --stagger: 55ms; }
+[data-slot$="-chart"].v-motion .n9 { --stagger: 48.89ms; }
+[data-slot$="-chart"].v-motion .n10 { --stagger: 44ms; }
+[data-slot$="-chart"].v-motion .n11 { --stagger: 40ms; }
+[data-slot$="-chart"].v-motion .n12 { --stagger: 36.67ms; }
+[data-slot$="-chart"].v-motion .n24 { --stagger: 18.33ms; }
+[data-slot$="-chart"].v-motion .n30 { --stagger: 14.67ms; }
+/* Shared chart `Legend` (pie / ring / radar / profit-loss motion demos). React
+   has no data-slot here, so the classes are its own (`legend-container`). */
+.legend-container {
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+.legend-container.row { flex-direction: row; flex-wrap: wrap; gap: 1rem; }
+.legend-container > h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem; line-height: 1.25rem; font-weight: 600;
+  color: var(--cronus-fg);
+}
+.legend-item {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: var(--cronus-radius-lg);
+  cursor: pointer;
+  transition: background-color 150ms ease-out, opacity 150ms ease-out;
+}
+.legend-item:hover { background: var(--cronus-surface-overlay); }
+.legend-container:hover .legend-item:not(:hover) { opacity: 0.4; }
+.legend-item.grid {
+  display: grid; grid-template-columns: auto 1fr auto;
+  column-gap: 0.75rem; row-gap: 0.25rem;
+}
+.legend-item.compact { padding: 0; gap: 0.5rem; }
+.legend-marker {
+  flex-shrink: 0; width: 0.625rem; height: 0.625rem; border-radius: 9999px;
+  background: var(--cronus-chart-1);
+}
+.legend-marker.c2 { background: var(--cronus-chart-2); }
+.legend-marker.c3 { background: var(--cronus-chart-3); }
+.legend-marker.c4 { background: var(--cronus-chart-4); }
+.legend-marker.c5 { background: var(--cronus-chart-5); }
+.legend-marker.success { background: var(--cronus-success); }
+.legend-marker.error { background: var(--cronus-error); }
+.legend-label {
+  font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;
+  color: var(--cronus-fg);
+}
+.legend-label.grow { flex: 1 1 auto; }
+.legend-item.compact .legend-label { font-size: 0.75rem; line-height: 1rem; font-weight: 400; }
+.legend-value {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.875rem; line-height: 1.25rem; font-variant-numeric: tabular-nums;
+  color: var(--cronus-fg-tertiary);
+}
+.legend-progress {
+  grid-column: 1 / -1;
+  width: 100%; height: 0.375rem; overflow: hidden; border-radius: 9999px;
+  background: var(--cronus-border);
+}
+.legend-progress > svg { display: block; width: 100%; height: 100%; }
+.legend-progress rect { fill: var(--cronus-chart-1); transition: width 500ms ease; }
+.legend-progress rect.c2 { fill: var(--cronus-chart-2); }
+.legend-progress rect.c3 { fill: var(--cronus-chart-3); }
+.legend-progress rect.c4 { fill: var(--cronus-chart-4); }
+.legend-progress rect.c5 { fill: var(--cronus-chart-5); }
+/* Pie / ring / radar motion demos: chart beside its legend (`gap-8 sm:gap-12`). */
+.chart-with-legend {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2rem; width: 100%;
+}
+@media (min-width: 640px) {
+  .chart-with-legend { flex-direction: row; gap: 3rem; }
+}
+/* Pie / ring / gauge centre stat (`ChartStatFlow`, `@container/chart-center`). */
+.chart-center {
+  container-type: inline-size;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; min-width: 0; pointer-events: none;
+}
+.chart-center > span:first-child {
+  font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
+  font-size: clamp(0.75rem, 22cqw, 1.875rem);
+  color: var(--cronus-fg);
+}
+.chart-center > span + span {
+  margin-top: 0.125rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  line-height: 1.25; font-size: clamp(0.625rem, 9cqw, 0.75rem);
+  color: var(--cronus-fg-tertiary);
+}
