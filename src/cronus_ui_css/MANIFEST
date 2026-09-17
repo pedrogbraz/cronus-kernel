@@ -129,35 +129,51 @@ new hover-card aa5669fbac687924 -
 drop 0073 337a0fe059b71091 native-popover
 keep 0074 popover 4bd18914cbd1a598 -
 keep 0075 shared 5d9c4c9ed47b087a *
-keep 0076 date-picker 3727808462ad2a4e -
+edit 0076 date-picker 3727808462ad2a4e 406e650499a26a3e - kit-catalog
 keep 0077 date-picker 81bfcba901d50c58 -
+new date-picker d62c82e3c06eb398 -
 keep 0078 date-picker 04c7201112b4e289 -
+new date-picker 80635517ce475a5c -
 keep 0079 date-picker 37626d14cc770edb -
+new date-picker 002da4aa4bffb312 -
+new date-picker 3e4d1937961acf7e -
+new date-picker 1b32067d94e555af -
 drop 0080 dd57e9b1ef15bbdd duplicate-of 0630
 keep 0081 date-picker c5e4696acab8419a -
-keep 0082 time-picker 178c4470ad65a9c0 -
+edit 0082 time-picker 178c4470ad65a9c0 8eb2889ac1c63d40 - kit-catalog
 keep 0083 time-picker 831ca153cfb73d4f -
+new time-picker 71c267a35f0f49f6 -
 keep 0084 time-picker 15c5d8a6bcd9c5cd -
+new time-picker 495035bd1b1601a0 -
 keep 0085 time-picker 4fab5be86d077e53 -
 keep 0086 time-picker f86809aec130d4ba -
 keep 0087 shared 9bc72fe90f9718f8 date-picker,time-picker
-keep 0088 date-picker b695e99602dc96e3 -
-keep 0089 date-picker a628d82332dae583 -
-keep 0090 date-picker 9f65ceb2e47e0849 -
-keep 0091 date-picker 5c2c5410d1188ec7 -
-keep 0092 date-picker 53b12106fad6855d -
-keep 0093 date-picker bc90f7486e5d5aaf -
-keep 0094 date-picker 1910acc0b4c9f45a -
-keep 0095 time-picker 0a21b74c8f42f491 -
-keep 0096 time-picker a0c9f920d08d1464 -
-keep 0097 time-picker 5ff7e13a2e6993e1 -
-keep 0098 time-picker 433106082c129228 -
-keep 0099 time-picker 9cc0f19ce3aa4a5f -
+edit 0088 date-picker b695e99602dc96e3 60f245e7f3e57bdd - kit-catalog
+edit 0089 date-picker a628d82332dae583 adfdcdcef09ebaee - kit-catalog
+edit 0090 date-picker 9f65ceb2e47e0849 b91c24a67f11306c - kit-catalog
+edit 0091 date-picker 5c2c5410d1188ec7 bca19ca5c186de90 - kit-catalog
+edit 0092 date-picker 53b12106fad6855d cfbe358288ddf962 - kit-catalog
+edit 0093 date-picker bc90f7486e5d5aaf 5a5b483ad6cdf44f - kit-catalog
+edit 0094 date-picker 1910acc0b4c9f45a d2623d43c24821e3 - kit-catalog
+edit 0095 time-picker 0a21b74c8f42f491 08e3b951ef7c14d6 - kit-catalog
+edit 0096 time-picker a0c9f920d08d1464 4591702bc84f281a - kit-catalog
+edit 0097 time-picker 5ff7e13a2e6993e1 7519a77fa91fb4b0 - kit-catalog
+edit 0098 time-picker 433106082c129228 279ea4ce590efdd7 - kit-catalog
+edit 0099 time-picker 9cc0f19ce3aa4a5f bf3594e4827c8cfd - kit-catalog
+new time-picker ad462bc6c042b97a -
+new time-picker 0891d7d487f04b0d -
+new time-picker a027399b50061cb9 -
+new time-picker 50165cac01651866 -
+new time-picker 5974cfc19bad0cf9 -
+new time-picker 7f5bb3e56171e48b -
+new time-picker 18a8264b9c0f5317 -
+new time-picker a3cbeeb8b188e27b -
+new time-picker 3b9acb291c555417 -
 keep 0100 time-picker 3c90e637f4472f1d -
-keep 0101 time-picker c1caca9a44929fd4 -
-keep 0102 time-picker 76ca9ab93b3f3201 -
-keep 0103 time-picker dc4338f816958344 -
-keep 0104 time-picker d942d53fdc6bb4b2 -
+edit 0101 time-picker c1caca9a44929fd4 24f073411c48e389 - kit-catalog
+edit 0102 time-picker 76ca9ab93b3f3201 b1c96c751aaf34bd - kit-catalog
+edit 0103 time-picker dc4338f816958344 003ac40a3e786f76 - kit-catalog
+edit 0104 time-picker d942d53fdc6bb4b2 c6bb4b62f584ce0a - kit-catalog
 edit 0105 button 67c3db2e8b37557e caafafee8dbeb2e9 - kit-catalog
 keep 0106 button b7dcaeaf5816b73c -
 edit 0107 button e1fdba7aa3e3c216 f814a7aa8c8beea8 - kit-catalog
@@ -1042,49 +1058,58 @@ keep 0616 calendar 13eb27265c9a486f -
 keep 0617 calendar 4e26ee1577ce8130 -
 keep 0618 calendar 856fdfc4381ad872 -
 keep 0619 calendar aa32c159ce4bf103 -
+new calendar 74624144bd728529 -
+new calendar 905bcf721d813a29 -
+new calendar b89e730589785881 -
+new calendar 3f869b22341632a9 -
 keep 0620 calendar e2c551c1a8a665b9 -
 keep 0621 calendar 06d0d0c77994ec35 -
 keep 0622 calendar 92e77d073b31bc87 -
 keep 0623 calendar 53d79151d007b35c -
 keep 0624 calendar c361da74dfe3c46b -
-keep 0625 calendar ea9df80b07daa7c3 -
+edit 0625 calendar ea9df80b07daa7c3 b95566e836ca0588 - kit-catalog
+new calendar f0cc260fb6c1aca2 -
 keep 0626 calendar a4c72aef419bcac0 -
-keep 0627 calendar 7794c342b05e0a0e -
-keep 0628 date-picker 002da4aa4bffb312 -
-keep 0629 date-picker 990f80b18a441863 -
-keep 0630 date-picker dd57e9b1ef15bbdd -
-keep 0631 date-picker b810224ed770a4ef -
-keep 0632 date-picker 0ea42503adb506bf -
-keep 0633 date-picker 27d34edcab5285bb -
-keep 0634 date-picker fbe2d52037ff2904 -
-keep 0635 date-picker 7cf693093be1d94a -
-keep 0636 date-picker eab6f56c6bbfafcc -
-keep 0637 time-picker 495035bd1b1601a0 -
-keep 0638 time-picker bffb5887f96ddb87 -
-keep 0639 time-picker 5f49ed002ad900db -
-keep 0640 time-picker ff8c8f8a182ae174 -
-keep 0641 time-picker 18c0e65ce857ff0b -
-keep 0642 time-picker 1225489dec361e18 -
-keep 0643 time-picker b70e97d07a1e4981 -
-keep 0644 time-picker 2ba75c56f09923ea -
-keep 0645 date-range-picker a987f6ad2ca2557d -
+edit 0627 calendar 7794c342b05e0a0e 7d4411d697690999 - kit-catalog
+new calendar 8f9ac5331483a82f -
+edit 0628 date-picker 002da4aa4bffb312 4f740ce30e65a2fb - kit-catalog
+edit 0629 date-picker 990f80b18a441863 69a715c081ee7c7b - kit-catalog
+edit 0630 date-picker dd57e9b1ef15bbdd 75d077783157f45f - kit-catalog
+edit 0631 date-picker b810224ed770a4ef b7a063a0b02576dd - kit-catalog
+drop 0632 0ea42503adb506bf kit-catalog
+drop 0633 27d34edcab5285bb kit-catalog
+drop 0634 fbe2d52037ff2904 kit-catalog
+drop 0635 7cf693093be1d94a kit-catalog
+drop 0636 eab6f56c6bbfafcc kit-catalog
+edit 0637 time-picker 495035bd1b1601a0 6da7ebdf7a6f7aa6 - kit-catalog
+edit 0638 time-picker bffb5887f96ddb87 43108552da1cffc1 - kit-catalog
+edit 0639 time-picker 5f49ed002ad900db 06c6be825dce68a2 - kit-catalog
+edit 0640 time-picker ff8c8f8a182ae174 6042370dfff39b1e - kit-catalog
+edit 0641 time-picker 18c0e65ce857ff0b 013663be072247da - kit-catalog
+edit 0642 time-picker 1225489dec361e18 f41fb353612cf2af - kit-catalog
+edit 0643 time-picker b70e97d07a1e4981 9114a604bfb4dcbf - kit-catalog
+drop 0644 2ba75c56f09923ea kit-catalog
+edit 0645 date-range-picker a987f6ad2ca2557d b28cde2267e5c08d - kit-catalog
 keep 0646 date-range-picker 91ec866a53cbcf20 -
 keep 0647 date-range-picker 6771cd7a35d87671 -
+new date-range-picker 9953940eecba6a44 -
+new date-range-picker 190f0db43535a433 -
 keep 0648 date-range-picker d91c9710ef51dd7a -
-keep 0649 date-range-picker c40ab4f5cb4a3eb5 -
+edit 0649 date-range-picker c40ab4f5cb4a3eb5 3a8e516c8b67edc7 - kit-catalog
 keep 0650 date-range-picker 8906721f9f88a7f2 -
 keep 0651 date-range-picker 633e99c1329e8035 -
-keep 0652 date-range-picker fe48bd89eef7ec47 -
-keep 0653 date-range-picker dd5f31817585913a -
-edit 0654 date-range-picker dcb356a0dde5d611 f9180117126f3fe4 - rtl-logical
-edit 0655 date-range-picker f2293e1cbd120009 239be8fcbc037ab6 - rtl-logical
-keep 0656 date-range-picker 68c9246b29d97fe1 -
-keep 0657 date-range-picker a408445636acbad3 -
-keep 0658 date-range-picker 7155a3d7471931f6 -
-keep 0659 date-range-picker 6a1db95c78fa859b -
-keep 0660 date-range-picker c8ffa08b4285926f -
-keep 0661 date-range-picker 3a194cfd35fcb3f0 -
-keep 0662 date-range-picker 574777212b06d5af -
+edit 0652 date-range-picker fe48bd89eef7ec47 79b285dfcb29abbc - kit-catalog
+edit 0653 date-range-picker dd5f31817585913a b2d67e2794069df4 - kit-catalog
+edit 0654 date-range-picker dcb356a0dde5d611 923d95fa71ef05c1 - rtl-logical
+edit 0655 date-range-picker f2293e1cbd120009 6311e4440b6733b5 - rtl-logical
+edit 0656 date-range-picker 68c9246b29d97fe1 b0d3ea4c9a26dd3b - kit-catalog
+edit 0657 date-range-picker a408445636acbad3 6ddf430e8b5550b8 - kit-catalog
+edit 0658 date-range-picker 7155a3d7471931f6 5e49a3967916127e - kit-catalog
+edit 0659 date-range-picker 6a1db95c78fa859b 98cccba119a73b56 - kit-catalog
+edit 0660 date-range-picker c8ffa08b4285926f 2444d32d9abab9e6 - kit-catalog
+edit 0661 date-range-picker 3a194cfd35fcb3f0 2e848ece9c9cbae5 - kit-catalog
+edit 0662 date-range-picker 574777212b06d5af d47946f8d928d3d1 - kit-catalog
+new date-range-picker 88d3f0cb166281d5 -
 keep 0663 area-chart faeb7192c2403c1f -
 keep 0664 bar-chart 5f39bb5606245aeb -
 keep 0665 line-chart a0aa00cce026dc0c -
@@ -1311,8 +1336,10 @@ new form 3e0ab9f7bb8a8b63 -
 keep 0856 form cc4414e5e439122b -
 keep 0857 form 9c3db3ea39d5cac8 -
 keep 0858 signature-pad 7c4b58daa342cac3 -
-keep 0859 signature-pad aa7c53d4cced7f3c -
-edit 0860 signature-pad 7217d5f697a92e8b f9cc627ed88ad1bb - rtl-logical
+edit 0859 signature-pad aa7c53d4cced7f3c 9094b6510f6e5aff - kit-catalog
+edit 0860 signature-pad 7217d5f697a92e8b fd561ad63b6e344b - rtl-logical
+new signature-pad 7455090408bc46e8 -
+new signature-pad ef0e04a9fd132942 -
 keep 0861 signature-pad 8464250c8de06c9c -
 keep 0862 signature-pad b60f910e90e142e7 -
 edit 0863 signature-pad 76052660b192ab23 e40c1f98435b6ff2 - rtl-logical
@@ -1336,13 +1363,19 @@ keep 0880 scheduler 9c4b004fca6fdec3 -
 keep 0881 scheduler ca9b7a09df58eb30 -
 keep 0882 scheduler 525b58b048d5e46c -
 keep 0883 scheduler 1f0b079bdc7dff8b -
-edit 0884 scheduler 4d5d21e381f6af4d 2482f5f28959edd8 - rtl-logical
+edit 0884 scheduler 4d5d21e381f6af4d 0d57225c99bcdea2 - rtl-logical
+new scheduler d3937a2a9614a587 -
 edit 0885 scheduler 10dad5d652712d58 8be82d141d7b1027 - rtl-logical
 keep 0886 scheduler 7ae9afe5403ae1e8 -
 keep 0887 scheduler b99c159e9c117d61 -
-keep 0888 scheduler 74d8792da60065e3 -
+edit 0888 scheduler 74d8792da60065e3 e33cea7a8c03a609 - kit-catalog
 keep 0889 scheduler 6f1c6384fab6d5c7 -
-edit 0890 scheduler cb65834052e5ac77 b236d8b84d6bc942 - rtl-logical
+edit 0890 scheduler cb65834052e5ac77 56eecbb86d914c98 - rtl-logical
+new scheduler c40ba17dbe727887 -
+new scheduler 10dfefda39094b50 -
+new scheduler 2cd425c7941424c2 -
+new scheduler 5f5cc8ddf3bdcd50 -
+new scheduler da9627076905ac06 -
 keep 0891 scheduler 9796497dfc3578d0 -
 keep 0892 alert-dialog d87f542d0bd647c1 -
 keep 0893 shared b949445120c879d4 alert-dialog,confirmation-dialog
@@ -1550,7 +1583,7 @@ keep 1049 shimmer 1a510a222b5377c7 -
 keep 1050 shimmer 111995e5b8ea8ce3 -
 keep 1051 reveal edbe19639a105047 -
 keep 1052 reveal a9471a75a06f0f2a -
-keep 1053 text-shimmer 886fbee4d9e8041d -
+edit 1053 text-shimmer 886fbee4d9e8041d 93132ca165ff1347 - kit-catalog
 keep 1054 text-shimmer 2ffbdf3db0efcdcd -
 edit 1055 particles 29eb1a3ae353c6b5 52524b75c6ae6c81 - fluid-width
 keep 1056 particles da4fbe5076222648 -
@@ -1768,10 +1801,17 @@ keep 1258 flip-card fb918be2915d57db -
 keep 1259 flip-card 6d30efbe45dbe51f -
 keep 1260 flip-card 78a7d29d665be7bd -
 keep 1261 countdown 6f41803f269095f1 -
+new countdown 6aa0dfe5a6ac322a -
 keep 1262 countdown ef60944f73e907a0 -
-keep 1263 countdown f4025afcd033c625 -
+edit 1263 countdown f4025afcd033c625 f1b75995cef5f40c - kit-catalog
+new countdown 1e366700c5c2d68a -
 keep 1264 countdown 10a0dbc20e75b1b6 -
+new countdown a2257d2be9e55d74 -
+new countdown 264a09156441cd8f -
+new countdown a816b75f7c714687 -
 keep 1265 countdown e8d027d0fc7786e7 -
+new countdown 89dd86564a93bd48 -
+new countdown ccffe75496c088f8 -
 edit 1266 animated-button fcaa9878c1279215 377218798187f27c - kit-catalog
 keep 1267 animated-button 25f9d597416c5736 -
 keep 1268 animated-button 0be77d25a86f1a75 -
@@ -2089,25 +2129,36 @@ new loader 81ec90608f9f0fa0 -
 new loader 281af7d73741ab6f -
 # Sprint 5 C2 — AI suite (alphabetical). After button/badge/text-shimmer: tool overrides badge.
 new conversation 02a1337ad2f5cccb -
+new conversation 0e65f3388c143355 -
 new conversation 2fea3eb2c4c19405 -
 new conversation 9c5ba766a44ae482 -
-new conversation ce59f761eb967f02 -
-new conversation 056618bdd9971ea3 -
+new conversation a4bd35a0d1175851 -
+new conversation af33a61580c9d369 -
+new conversation d099563c0f016a59 -
 new inline-citation 88277f2803494220 -
 new inline-citation 02a3a31b60a63971 -
 new inline-citation 8721bd52c2d2eacf -
 new inline-citation 4daedc5bed928ca0 -
-new inline-citation d23ae0e7c5c7bdc3 -
-new inline-citation a4daa32628c27858 -
-new inline-citation 38b5a8d9a73f6276 -
+new inline-citation ff177d397eacb52d -
+new inline-citation 8dc628afd60d50f1 -
+new inline-citation 022a14639adf4c90 -
+new inline-citation a0f0b4f727db149f -
+new inline-citation 10741dc8112b485f -
+new inline-citation 07cff12d7439c782 -
+new inline-citation 692dcd829af60849 -
 new message 04f9c4500369b9ec -
 new message 6e913e21b9c25e21 -
+new message 5f94e0d9fbcd824f -
+new message 6eae28c424f51750 -
+new message 06c901133f442c0f -
+new message 694d7780d35df711 -
 new message 8100e025a591beee -
 new message cc2c9390f8fb32a9 -
 new message 71714f2235932984 -
-new message bdeea7133efeb9e6 -
-new message 950d6184b0d13fe6 -
-new message 02fc26cfb3e63d41 -
+new message d659fba0e64bda96 -
+new message 18d575ec5582d8be -
+new message 3e370da87cdbf7f2 -
+new message f2180fec7878d583 -
 new prompt-input a0b25657cf3edeb1 -
 new prompt-input dbb91862f67c5313 -
 new prompt-input 1c9f06adad463139 -
@@ -2116,22 +2167,46 @@ new prompt-input 3f23d1c445a3b6e4 -
 new prompt-input 085f2964777b745b -
 new prompt-input 04bf068371904fc6 -
 new prompt-input c61149867dc62bb8 -
-new prompt-input a629169d33d00690 -
+new prompt-input 3bc5e947b8d26c69 -
+new prompt-input d78bd70bf74c8ae6 -
+new prompt-input 38e48dcd36a60d4d -
+new prompt-input 438c428d2411c2d7 -
+new prompt-input d8a5680893614f46 -
+new prompt-input b636d3d812837464 -
+new prompt-input c0d4f7cf2e700714 -
 new prompt-input 7647b574898f2324 -
 new prompt-input bce734d6d14badc4 -
+new prompt-input a841cbaf2b2347da -
 new prompt-input ffd08eeccdd5edb0 -
+new prompt-input b7eb4f044a03aaf6 -
+new prompt-input 1f60a76f4fb37ef7 -
 new reasoning 7f89e1510cb92c23 -
-new reasoning 048a370b2a0c5ff4 -
-new reasoning 5c25021cf4b2b9d7 -
-new reasoning f97fe3fe80192de9 -
+new reasoning 6c75616837e74931 -
+new reasoning 5ea81a9a86210ad1 -
+new reasoning cdbe546cd644a35d -
+new reasoning f1d543231c86eef4 -
+new reasoning df907a7f34b594a4 -
+new reasoning 587aecd8ffdf2369 -
+new reasoning 264f4163a37e47c3 -
+new reasoning 8631471715537ae9 -
+new reasoning 9d6913386a161c4e -
+new reasoning 1968d9dd4e18dad9 -
 new reasoning 4564144fca2628f0 -
+new reasoning ccf1466f4d8a76c3 -
+new reasoning 337e1c8dfb97135a -
 new reasoning 9891c602d96806f7 -
+new reasoning 7ed36a40284681ed -
 new sources eb6da1c225d639fa -
-new sources 3108e1b3b9d381ef -
-new sources ef3a880454bb2956 -
-new sources 48a3b58c8d251680 -
+new sources dda33f2cc9705215 -
+new sources dba9b9ac66dc6e67 -
+new sources bf231a8769099fe3 -
+new sources 45e9e8f1b47fd138 -
+new sources 9931304d05834d89 -
+new sources 892a7342ec3655f0 -
 new sources bb9ae2f9d578f02c -
-new sources 649ff87c7b0a3954 -
+new sources 7b2ea06b44fadbe3 -
+new sources c15c78dadfe648e2 -
+new sources 226839cd716ab4d8 -
 new sources d6267f73952c462a -
 new suggestion c68cdb7bd32d49ab -
 new suggestion 19250bc74518b51d -
@@ -2140,22 +2215,36 @@ new suggestion 16b2ebeb3bed1af5 -
 new suggestion d297eb689f9f47c7 -
 new suggestion 458773b1fcd8a46c -
 new tool 5afd8f86282fb978 -
-new tool 91c2cd75f67e83d2 -
+new tool e8c4a8c0d424a43b -
+new tool 1f122ba009966fcf -
+new tool 8b940181f4beaceb -
+new tool 28829f29a7ed8152 -
 new tool 0d5c0d26c88f503c -
 new tool 55a2fec9e4c15bb8 -
-new tool acbc6f712853b615 -
-new tool 8b8d0ddcb07ce155 -
+new tool 433bdd13d94c729d -
+new tool 153b6d82768f8b87 -
+new tool 4749af72ac6ec50e -
 new tool 12f23438cb7b2018 -
 new tool 9441dd5e0d85f129 -
+new tool 9a8e6b415cab61f7 -
+new tool e7aab4787ed6fd79 -
 new tool e72e38722540d821 -
 new tool 014e04a6f4b0e0eb -
 new tool 0aa0f18eed8ec114 -
+new tool be51a995f8f00106 -
+new tool 47653a892a4bcb88 -
+new tool a7f5cfab528d07db -
+new tool 62c2441e7fb82491 -
 new tool 5c94d1a509006a66 -
-new tool 1fe2634224a2cb22 -
-new tool c6a09fca26ab553b -
 new tool cd494025b105efd9 -
 new tool dcb2dcae1455d5a3 -
 new tool 4426e3d7087051a3 -
+new tool 16694dc40f2461f7 -
+new tool feec80f7dd749d9a -
+new tool 89d5faafc4f2fd1b -
+new tool 3e47ca5a80a9eac5 -
+new tool a63ed35652a0f6e3 -
+new tool 08dc357a97d56aad -
 new meteors 6d2870930bbf48f0 -
 new meteors a6482eb9c8e4c046 -
 new meteors 17484cfbdfed68fe -
