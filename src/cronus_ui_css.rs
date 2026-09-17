@@ -63,7 +63,7 @@ const FILES: &[(&str, &str)] = css_files![
     "data-table", "date-picker", "date-range-picker", "description-list", "dialog", "dock",
     "dot-pattern", "drawer", "dropdown-menu", "dynamic-island", "empty", "expandable-tabs",
     "fab", "field", "file-dropzone", "flickering-grid", "flip-card", "floating-label-input",
-    "form", "frame", "funnel-chart", "gauge-chart", "glare-hover", "glass-card",
+    "form", "frame", "funnel-chart", "gauge-chart", "glare-hover", "glass-card", "goal-card",
     "gradient-border", "gradient-text", "grid-pattern", "heatmap", "heatmap-chart",
     "highlighter", "hover-card", "image-zoom", "input", "input-group", "input-otp",
     "invite-dialog", "json-viewer", "kanban", "kbd", "label", "light-rays", "lightbox",
@@ -81,7 +81,7 @@ const FILES: &[(&str, &str)] = css_files![
     "spinning-text", "split-button", "spotlight-card", "star-border", "status-dot", "stepper",
     "sunburst-chart", "switch", "table", "table-of-contents", "tabs", "tags-input", "terminal",
     "text-effect", "text-shimmer", "textarea", "theme", "tilt-card", "time-picker", "timeline",
-    "toast", "toggle", "toggle-group", "toolbar", "tooltip", "tree-view", "typing-text",
+    "toast", "todo-item", "toggle", "toggle-group", "toolbar", "tooltip", "tree-view", "typing-text",
     "usage-meter", "video-player", "word-rotate", "workspace-switcher",
     // Sprint 5 C2 — AI suite (alphabetical).
     "conversation", "inline-citation", "message", "prompt-input", "reasoning", "sources",

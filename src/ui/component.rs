@@ -451,6 +451,8 @@ pub(super) const KIT_GROUPS: &[(&str, &str, &[&str])] = &[
             "separator",
             "skeleton",
             "collapsible",
+            "goal-card",
+            "todo-item",
         ],
     ),
     (
