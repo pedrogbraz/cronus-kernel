@@ -395,7 +395,7 @@ pub fn render_components_page(comps: &[ComponentNode]) -> String {
     render_kit_catalog(comps)
 }
 
-const KIT_GROUPS: &[(&str, &str, &[&str])] = &[
+pub(super) const KIT_GROUPS: &[(&str, &str, &[&str])] = &[
     (
         "buttons",
         "Buttons",
@@ -503,7 +503,7 @@ fn kit_family<'a>(comp: &'a ComponentNode) -> &'a str {
     crate::cronus_ui_widgets::family_of(comp).unwrap_or("component")
 }
 
-fn kit_family_title(family: &str) -> String {
+pub(super) fn kit_family_title(family: &str) -> String {
     family
         .split('-')
         .filter(|w| !w.is_empty())
@@ -527,7 +527,7 @@ fn kit_style_meta(comp: &ComponentNode) -> String {
         .join(" · ")
 }
 
-fn kit_is_wide(family: &str) -> bool {
+pub(super) fn kit_is_wide(family: &str) -> bool {
     matches!(
         family,
         "table"

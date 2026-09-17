@@ -6,6 +6,7 @@
 pub mod audit_layout;
 pub mod component;
 pub mod dashboard;
+pub mod kit;
 pub mod layout;
 pub mod page;
 mod section_chart;
@@ -24,6 +25,7 @@ pub use dashboard::{
     render_order_detail_dashboard, render_payment_links_dashboard, render_payouts_dashboard,
     render_security_dashboard, render_settings_dashboard, render_unified_dashboard,
 };
+pub use kit::{render_family_page, render_overview};
 
 pub use layout::*;
 pub use page::{render_auth_page, render_page};

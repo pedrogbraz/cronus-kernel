@@ -529,15 +529,33 @@ mod tests {
         "drop 0068 4acc7eb25a02c57e dead-slot combobox-item",
         "drop 0073 337a0fe059b71091 native-popover",
         "drop 0080 dd57e9b1ef15bbdd duplicate-of 0630",
+        "edit 0105 button 67c3db2e8b37557e caafafee8dbeb2e9 - kit-catalog",
+        "edit 0107 button e1fdba7aa3e3c216 f814a7aa8c8beea8 - kit-catalog",
+        "edit 0120 button 5cb9b933e3f74fd5 5657b0938aba861b - kit-catalog",
+        "edit 0142 checkbox eb979a3554dba3e8 b5310d852a8eb084 - kit-catalog",
+        "edit 0148 switch e00ad3198951ae9e 9f78192e8a3bc05c - kit-catalog",
+        "edit 0159 toggle eeb40eb98caba78f 193e5e7c62302cd5 - kit-catalog",
         "edit 0264 skeleton a3f1f5f9ca9c93a2 d482cce5f3ac16e9 - fluid-width",
         "edit 0268 slider 954c72ddabb73151 1e6810c23e740a83 - fluid-width+rtl-logical",
-        "edit 0269 slider 887d176a3ed16b9d 2f4e520b79d29308 - fluid-width+rtl-logical",
+        "edit 0269 slider 887d176a3ed16b9d 4dc9197403523f10 - fluid-width+rtl-logical",
+        "edit 0270 slider 05f68fea52e42da3 4b78b130edc813cf - kit-catalog",
+        "edit 0372 radio-group 89448c1119e8ba2d d8b3d2f239f00eee - kit-catalog",
+        "edit 0373 radio-group d3fa4fd94e07f04e 9328efb1dd5ca626 - kit-catalog",
+        "edit 0377 chip e498c5f834ec50f9 520cda3814384f75 - kit-catalog",
         "edit 0382 spotlight-card f56a3123befe8a71 08bd99cd223cd4d4 - fluid-width",
         "edit 0388 card 0a5cd4803ec7e826 b8ce1556f40a92d8 - rtl-logical",
         "edit 0391 card cce28aac88cba255 9d340a383b050423 - rtl-logical",
         "edit 0392 card 50eedcfbe719006d ad25a5791836fd2d - rtl-logical",
         "edit 0476 table 6866c7987fda2b41 d15054ac9a2e6364 - rtl-logical",
         "edit 0482 input-group e45fa6f9750bb519 96d1eb514b775d12 - rtl-logical",
+        "edit 0484 rating d515febefbbb4013 571ad69467d87304 - kit-catalog",
+        "edit 0488 rating 29a82bbc1e4252f7 ca1bb70e41aa2575 - kit-catalog",
+        "edit 0491 rating 57b00a1231c5bc9d f0a6c8d2a700ae89 - kit-catalog",
+        "edit 0492 copy-button de94e28b343662ec da1840f7f8d2d11e - kit-catalog",
+        "edit 0499 fab f783e26579c521ec 32fe82cee1347648 - kit-catalog",
+        "edit 0500 fab 1e7ecc7e46a33609 f59d002cb3cccf08 - kit-catalog",
+        "edit 0501 fab 88a782746cd95ce3 fa7853c9ca1359e2 - kit-catalog",
+        "edit 0506 toggle-group 813afdcb8219a0d9 534a033122a46abf - kit-catalog",
         "edit 0513 avatar-group be253346a180b206 f08c85e8bc1bc67f - rtl-logical",
         "edit 0518 button-group c21578a2bd4d8565 1848b154301a2bdb - rtl-logical",
         "edit 0519 button-group 98cd1d9976ec1434 55def2d1e9120385 - rtl-logical",
@@ -551,6 +569,7 @@ mod tests {
         "edit 0556 input-otp a8b7a6b8de41f3c1 299734ae117d05ae - rtl-logical",
         "edit 0557 input-otp 1844db63f820786e 13f000ca45b25f7c - rtl-logical",
         "edit 0558 input-otp 1f27f44142134629 b7df97b1e2b74928 - rtl-logical",
+        "edit 0572 mode-toggle 2d6bdb526d5735c5 cb290ab77936d748 - kit-catalog",
         "edit 0582 command ccbe07bf303dbbd8 13f807887a1fbe6e - fluid-width",
         "edit 0602 drawer af5a827f67c2126f f7c352b8e723144d - rtl-logical",
         "edit 0654 date-range-picker dcb356a0dde5d611 f9180117126f3fe4 - rtl-logical",
@@ -566,8 +585,9 @@ mod tests {
         "edit 0782 multi-select 43ae9c8e4da0ae91 073b070e899e2554 - rtl-logical",
         "edit 0808 floating-label-input 59b37c3b116b8128 13677f1e77d038e3 - rtl-logical",
         "edit 0818 split-button 6a5eb8f0d12bf538 875fa4f701c673f2 - rtl-logical",
-        "edit 0819 split-button d8249b2b29909828 85c3ef63b8e3539c - rtl-logical",
+        "edit 0819 split-button d8249b2b29909828 93cd18848374e2e3 - rtl-logical",
         "edit 0820 split-button f9215cafb019da6a daa88e3912342c7f - rtl-logical",
+        "edit 0823 split-button 59edad02355663a6 d775fdd8c34fa939 - kit-catalog",
         "edit 0847 table-of-contents 3e1e8b2fdc1f93af 7fc83188aa81b0b0 - rtl-logical",
         "edit 0860 signature-pad 7217d5f697a92e8b f9cc627ed88ad1bb - rtl-logical",
         "edit 0863 signature-pad 76052660b192ab23 e40c1f98435b6ff2 - rtl-logical",
@@ -606,6 +626,8 @@ mod tests {
         "edit 1243 aspect-ratio d01ccaa4a2e0b3fd 89f829e272089d02 - fluid-width",
         "edit 1244 frame 84ef520bd9e87b7a 6af87c1b603ae0f3 - fluid-width",
         "edit 1253 flip-card 1a59654b409cc6d6 26705dd4113f1883 - fluid-width",
+        "edit 1266 animated-button fcaa9878c1279215 377218798187f27c - kit-catalog",
+        "edit 1269 animated-button e87f2c585d3172fe b4e77a5db2ffd764 - kit-catalog",
         "edit 1270 card-stack 45e51d5120424d60 b087280a33e8b302 - fluid-width",
         "edit 1280 logo-carousel 1aa806280af8fb37 1d4e40ead78ef924 - fluid-width",
         "edit 1293 image-zoom b53cd2d150098233 141aca21869c38fe - fluid-width",
@@ -1119,8 +1141,11 @@ mod tests {
 
     #[test]
     fn reduced_motion_covers_descendants_and_focus_ring_is_focus_only() {
-        assert!(BASE_CSS.contains("[data-slot] *::before"));
+        assert!(BASE_CSS
+            .contains("[data-slot]:not([data-force-motion]):not([data-force-motion] *) *::before"));
         assert!(BASE_CSS.contains("animation-iteration-count: 1 !important;"));
+        // Same subtree opt-out as tokens.css: a `data-force-motion` frame keeps motion.
+        assert!(BASE_CSS.contains("[data-slot]:not([data-force-motion]):not([data-force-motion] *) { animation: none !important;"));
         assert!(TOKENS_CSS.contains("--cronus-ring:"));
         // Every outline in base is behind :focus-visible (idle render unchanged).
         let before_media = &BASE_CSS[..BASE_CSS.find("@media").unwrap()];

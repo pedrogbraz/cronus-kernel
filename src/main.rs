@@ -104,6 +104,7 @@ mod cronus_ui_heatmap;
 mod cronus_ui_heatmap_chart;
 mod cronus_ui_highlighter;
 mod cronus_ui_hover_card;
+mod cronus_ui_icons;
 mod cronus_ui_image_zoom;
 mod cronus_ui_input;
 mod cronus_ui_input_group;

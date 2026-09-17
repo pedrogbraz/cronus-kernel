@@ -360,7 +360,12 @@ pub(super) fn route(req: Request<Incoming>, ctx: &Ctx) -> Routed {
         }
 
         let mut body = if page.page_type == "components" && !state.components.is_empty() {
-            ui::render_components_page(&state.components)
+            if ui::kit::family_of_page(page).is_some() {
+                ui::render_family_page(page, &state.pages, &state.components)
+            } else {
+                ui::render_overview(&state.pages, &state.components)
+                    .unwrap_or_else(|| ui::render_components_page(&state.components))
+            }
         } else {
             ui::render_page(
                 page,

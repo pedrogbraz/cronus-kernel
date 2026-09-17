@@ -82,6 +82,43 @@ pub fn flag_any(comp: &ComponentNode, key: &str) -> bool {
             .any(|i| i.config.get(key).is_some_and(|v| truthy(v)))
 }
 
+/// Style segment after the family (`button+outline+sm` → `outline` when asked
+/// for variants) that is one of `names`, in style order.
+pub fn style_seg<'a>(comp: &'a ComponentNode, names: &[&str]) -> Option<&'a str> {
+    comp.style
+        .as_deref()
+        .unwrap_or("")
+        .split('+')
+        .skip(1)
+        .map(str::trim)
+        .find(|s| names.contains(s))
+}
+
+/// `key` (props, then item config) when it is one of `names`, else the style
+/// segment among `names`. React's variant/size props in `.cronus` spelling.
+pub fn choice<'a>(comp: &'a ComponentNode, key: &str, names: &[&str]) -> Option<&'a str> {
+    attr(comp, key)
+        .map(str::trim)
+        .filter(|v| names.contains(v))
+        .or_else(|| style_seg(comp, names))
+}
+
+/// Lucide glyph named by an item's `icon:` config, or empty.
+pub fn item_icon(item: &ComponentItemNode) -> String {
+    item.config
+        .get("icon")
+        .map(|i| crate::cronus_ui_icons::svg_or_empty(i))
+        .unwrap_or_default()
+}
+
+/// Lucide glyph named by an item's `icon-end:` config, or empty.
+pub fn item_icon_end(item: &ComponentItemNode) -> String {
+    item.config
+        .get("icon-end")
+        .map(|i| crate::cronus_ui_icons::svg_or_empty(i))
+        .unwrap_or_default()
+}
+
 pub fn item<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
     comp.items
         .iter()

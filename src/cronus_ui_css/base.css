@@ -1,3 +1,10 @@
+/* motion/react spring presets as CSS easings (`linear()` sampled from the
+   damped oscillator): springSnappy = stiffness 400 / damping 30,
+   springSoft = 260 / 26. Use as `transition: transform var(--cronus-spring-snappy)`. */
+:root {
+  --cronus-spring-snappy: 400ms linear(0, 0.0469, 0.158, 0.2982, 0.4441, 0.5808, 0.7, 0.7983, 0.8754, 0.9329, 0.9736, 1.0006, 1.0169, 1.0254, 1.0283, 1.0276, 1.0248, 1.0209, 1.0168, 1.0128, 1.0093, 1.0064, 1.004, 1.0023, 1);
+  --cronus-spring-soft: 529ms linear(0, 0.0521, 0.1717, 0.3179, 0.4652, 0.5992, 0.7128, 0.8042, 0.8744, 0.9259, 0.962, 0.9859, 1.0008, 1.0091, 1.0129, 1.0138, 1.013, 1.0113, 1.0093, 1.0073, 1.0054, 1.0039, 1.0026, 1.0017, 1);
+}
 /* Focus ring for every slot and anything focusable inside one. Only paints on
    :focus-visible, so idle rendering is unchanged. `--cronus-ring` comes from
    tokens.css (named presets) or fallback.css (legacy pages). */
@@ -5,14 +12,17 @@
   outline: 2px solid var(--cronus-ring, var(--cronus-primary)) !important;
   outline-offset: 2px;
 }
+/* Same subtree-scoped opt-out as tokens.css: a container that must
+   demonstrate motion (the kit preview frame) sets `data-force-motion` on
+   itself and nothing inside it is reset. */
 @media (prefers-reduced-motion: reduce) {
-  [data-slot] { animation: none !important; transition: none !important; }
+  [data-slot]:not([data-force-motion]):not([data-force-motion] *) { animation: none !important; transition: none !important; }
   /* Descendants and pseudo-elements (spinner arcs, shimmer sweeps, reveal
      children, sparkles, list items): finish at the end state instead of
      looping. Family rules that hide decorative layers still apply. */
-  [data-slot] *,
-  [data-slot]::before, [data-slot]::after,
-  [data-slot] *::before, [data-slot] *::after {
+  [data-slot]:not([data-force-motion]):not([data-force-motion] *) *,
+  [data-slot]:not([data-force-motion]):not([data-force-motion] *)::before, [data-slot]:not([data-force-motion]):not([data-force-motion] *)::after,
+  [data-slot]:not([data-force-motion]):not([data-force-motion] *) *::before, [data-slot]:not([data-force-motion]):not([data-force-motion] *) *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
