@@ -8,24 +8,60 @@
 //! it. Gap: browsers without interest invokers only open it on activation, not
 //! on hover. React's audit fixture forces `open` and portals the card out of
 //! the canvas.
+//! Docs profile preview: a `title "…"` name, the `description:"…"` line, an
+//! `icon:` glyph in the round `bg-surface-overlay` badge and `meta "…"
+//! icon:calendar-days` lines render the docs' `flex gap-3` card; without them
+//! the extra `text` items are the body. `width:72` (Tailwind `w-72`) is a
+//! `w-72` class on the content (React has no attribute for it).
 //! Not interact `popover("hover-card")` SURF `<details>` overlay.
 
-use crate::cronus_ui_kit::{label_of, texts, widget_id};
+use crate::cronus_ui_kit::{attr_nonempty, esc, item, item_icon, label_of, texts, widget_id};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     let ts = texts(comp);
     let trigger = ts.first().cloned().unwrap_or_else(|| label_of(comp));
-    let body = ts.iter().skip(1).cloned().collect::<Vec<_>>().join("");
-    let body = if body.is_empty() {
-        trigger.clone()
+    let name = item(comp, "title").filter(|t| !t.is_empty()).map(esc);
+    let description = attr_nonempty(comp, "description").map(esc);
+    let icon = attr_nonempty(comp, "icon")
+        .map(crate::cronus_ui_icons::svg_or_empty)
+        .unwrap_or_default();
+    let metas: String = comp
+        .items
+        .iter()
+        .filter(|i| i.item_type == "meta" && !i.text.is_empty())
+        .map(|m| format!("<div class=\"meta\">{}{}</div>", item_icon(m), esc(&m.text)))
+        .collect();
+    let body = if name.is_some() || description.is_some() || !metas.is_empty() {
+        let badge = if icon.is_empty() {
+            String::new()
+        } else {
+            format!("<span class=\"avatar\" aria-hidden=\"true\">{icon}</span>")
+        };
+        format!(
+            "<div class=\"row\">{badge}<div class=\"col\">{}{}{metas}</div></div>",
+            name.map(|n| format!("<p class=\"name\">{n}</p>"))
+                .unwrap_or_default(),
+            description
+                .map(|d| format!("<p class=\"desc\">{d}</p>"))
+                .unwrap_or_default()
+        )
     } else {
-        body
+        let body = ts.iter().skip(1).cloned().collect::<Vec<_>>().join("");
+        if body.is_empty() {
+            trigger.clone()
+        } else {
+            body
+        }
+    };
+    let class = match attr_nonempty(comp, "width").map(str::trim) {
+        Some(w @ ("64" | "72" | "80" | "96")) => format!(" class=\"w-{w}\""),
+        _ => String::new(),
     };
     let trigger_id = widget_id(comp, "link");
     let pop_id = widget_id(comp, "card");
     format!(
-        "<span><button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"link\" interestfor=\"{pop_id}\" popovertarget=\"{pop_id}\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" anchor=\"{trigger_id}\" data-slot=\"hover-card-content\">{body}</div></span>"
+        "<span><button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"link\" interestfor=\"{pop_id}\" popovertarget=\"{pop_id}\">{trigger}</button><div id=\"{pop_id}\" popover=\"auto\" anchor=\"{trigger_id}\" data-slot=\"hover-card-content\"{class}>{body}</div></span>"
     )
 }
 
@@ -74,6 +110,47 @@ mod tests {
         assert!(!html.contains("data-slot=\"hover-card\""));
         assert!(!html.contains("hover-card-trigger"));
         reject_interact(&html);
+    }
+
+    #[test]
+    fn docs_profile_preview_card() {
+        let mut c = stub("hover-card", "@cronus");
+        c.props.insert("icon".into(), "users".into());
+        c.props.insert("width".into(), "72".into());
+        c.props.insert(
+            "description".into(),
+            "The token-driven design system that themes itself.".into(),
+        );
+        c.items.push(ComponentItemNode {
+            item_type: "title".into(),
+            text: "Cronus".into(),
+            link: None,
+            tone: None,
+            config: HashMap::new(),
+        });
+        let mut joined = ComponentItemNode {
+            item_type: "meta".into(),
+            text: "Joined June 2026".into(),
+            link: None,
+            tone: None,
+            config: HashMap::new(),
+        };
+        joined.config.insert("icon".into(), "calendar-days".into());
+        c.items.push(joined);
+        let html = render(&c);
+        assert!(html.contains("data-slot=\"hover-card-content\" class=\"w-72\"><div class=\"row\"><span class=\"avatar\" aria-hidden=\"true\"><svg "), "{html}");
+        assert!(html.contains("data-icon=\"users\""));
+        assert!(html.contains("</span><div class=\"col\"><p class=\"name\">Cronus</p><p class=\"desc\">The token-driven design system that themes itself.</p><div class=\"meta\"><svg "));
+        assert!(html.contains("data-icon=\"calendar-days\""));
+        assert!(html.ends_with("Joined June 2026</div></div></div></div></span>"));
+        assert!(html.contains(">@cronus</button>"));
+        reject_interact(&html);
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains(
+            "[data-slot=\"hover-card-content\"].w-72:popover-open { min-width: 18rem; }"
+        ));
+        assert!(css.contains("[data-slot=\"hover-card-content\"] > .row > .avatar {\n  display: grid; place-items: center; width: 2.75rem; height: 2.75rem; flex-shrink: 0;"));
+        assert!(css.contains("animation: cronus-pop-in 180ms var(--ease-out-quart) both;"));
     }
 
     #[test]

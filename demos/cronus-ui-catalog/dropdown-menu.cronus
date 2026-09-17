@@ -1,0 +1,19 @@
+page "/dropdown-menu" type:components family:dropdown-menu {
+  title "Dropdown Menu"
+  description:"Rich menu with icons, shortcuts, checkbox items and submenus."
+}
+
+component Actions layout:inline style:dropdown-menu trigger-variant:outline width:56 group:"Actions" note:"A rich menu with icons, shortcuts, a checkbox item, and a submenu." {
+  label "Open menu"
+  item "My account" type:label
+  item "-"
+  item "Profile" icon:user shortcut:"⇧⌘P"
+  item "Billing" icon:credit-card shortcut:"⌘B"
+  item "Settings" icon:settings shortcut:"⌘S"
+  item "-"
+  item "Show status bar" type:checkbox checked:true
+  item "-"
+  item "Invite team" icon:users
+  item "Email invite" icon:user-plus sub:"Invite team"
+  item "Copy invite link" icon:copy sub:"Invite team"
+}

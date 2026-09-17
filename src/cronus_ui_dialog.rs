@@ -12,19 +12,25 @@
 //! idle look.
 //!
 //! Closed mode (`trigger:"…"` prop, or `open:false` / `defaultOpen:false`; see
-//! `cronus_ui_kit::overlay_trigger`): an outline `button` trigger with
-//! `command="show-modal"` opens `dialog-content` as a native `<dialog>` (focus
-//! trap, inert background, Esc and backdrop dismiss; scrim is `::backdrop`).
-//! `dialog-close` uses `command="close"`. The action still needs JS and stays
-//! `disabled`.
+//! `cronus_ui_kit::overlay_trigger`): a `button` trigger ([`trigger_button`]:
+//! outline unless `trigger-variant:` says otherwise, `trigger-icon:` /
+//! `trigger-icon-end:` glyphs) with `command="show-modal"` opens
+//! `dialog-content` as a native `<dialog>` (focus trap, inert background, Esc
+//! and backdrop dismiss; scrim is `::backdrop`, entrance is React's
+//! `cronus-pop-in` / `cronus-overlay-in`). Everything the docs wrap in
+//! `DialogClose` closes it natively (`command="close"`): `dialog-close`, the
+//! `cancel:"…"` outline button and the `action` button.
 //!
 //! Content: title = label; description = `description:"…"` prop / item config /
-//! `description` item; action = `action` item, else the first `text` item, else
-//! "Continue"; close label = `close` item, else "Close".
+//! `description` item; body = `field "Name" value:"…"` items ([`fields_html`]:
+//! React's `Label` + `Input` pairs in the docs' `flex-col gap-4 py-2` block);
+//! action = `action` item, else the first `text` item, else "Continue";
+//! `cancel:"…"` adds the outline button before it; close label = `close` item,
+//! else "Close".
 
 use crate::cronus_ui_kit::{
-    attr, esc, item, label_of, modal_close_attrs, modal_dialog_open, modal_open_button,
-    overlay_trigger, widget_id,
+    attr, attr_nonempty, esc, item, label_of, modal_close_attrs, modal_dialog_open,
+    modal_open_button, overlay_trigger, widget_id,
 };
 use crate::parser::ComponentNode;
 
@@ -33,6 +39,82 @@ const CROSS: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" heig
 
 fn non_empty<'a>(comp: &'a ComponentNode, kind: &str) -> Option<&'a str> {
     item(comp, kind).filter(|t| !t.is_empty())
+}
+
+/// Modal trigger: `cronus_ui_kit::modal_open_button` (outline `button` slot,
+/// `command="show-modal"`) styled by `trigger-variant:` (React Button
+/// variants), `trigger-size:` and `trigger-icon:` / `trigger-icon-end:`
+/// (lucide ids) so the docs' `<DialogTrigger asChild><Button …>` renders as
+/// declared. Shared by every modal overlay family.
+pub fn trigger_button(
+    comp: &ComponentNode,
+    trigger_id: &str,
+    dialog_id: &str,
+    label: &str,
+) -> String {
+    let icon = attr_nonempty(comp, "trigger-icon")
+        .map(crate::cronus_ui_icons::svg_or_empty)
+        .unwrap_or_default();
+    let icon_end = attr_nonempty(comp, "trigger-icon-end")
+        .map(crate::cronus_ui_icons::svg_or_empty)
+        .unwrap_or_default();
+    let mut html = modal_open_button(trigger_id, dialog_id, &format!("{icon}{label}{icon_end}"));
+    if let Some(v) = attr_nonempty(comp, "trigger-variant") {
+        let v = match v.trim() {
+            "primary" => "primary",
+            "secondary" => "secondary",
+            "ghost" => "ghost",
+            "link" => "link",
+            "destructive" | "danger" => "destructive",
+            _ => "outline",
+        };
+        html = html.replace("data-variant=\"outline\"", &format!("data-variant=\"{v}\""));
+    }
+    if let Some(s) = attr_nonempty(comp, "trigger-size") {
+        if matches!(s.trim(), "sm" | "md" | "lg" | "icon" | "icon-sm") {
+            html = html.replace(
+                " commandfor=",
+                &format!(" data-size=\"{}\" commandfor=", s.trim()),
+            );
+        }
+    }
+    html
+}
+
+/// One `<div class="field">` per `field "Label" …` item: React `Label` +
+/// `Input` (`value:`, `placeholder:`, `type:`), ids derived from `base_id`.
+pub fn fields_html(comp: &ComponentNode, base_id: &str) -> String {
+    comp.items
+        .iter()
+        .filter(|i| i.item_type == "field" && !i.text.is_empty())
+        .enumerate()
+        .map(|(n, f)| {
+            let id = format!("{base_id}-f{}", n + 1);
+            let ty = f
+                .config
+                .get("type")
+                .map(String::as_str)
+                .filter(|t| !t.trim().is_empty())
+                .unwrap_or("text");
+            let value = f
+                .config
+                .get("value")
+                .filter(|v| !v.is_empty())
+                .map(|v| format!(" value=\"{}\"", esc(v)))
+                .unwrap_or_default();
+            let placeholder = f
+                .config
+                .get("placeholder")
+                .filter(|v| !v.is_empty())
+                .map(|v| format!(" placeholder=\"{}\"", esc(v)))
+                .unwrap_or_default();
+            format!(
+                "<div class=\"field\"><label data-slot=\"label\" for=\"{id}\">{}</label><input data-slot=\"input\" id=\"{id}\" type=\"{}\"{value}{placeholder} /></div>",
+                esc(&f.text),
+                esc(ty)
+            )
+        })
+        .collect()
 }
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -50,11 +132,15 @@ pub fn render(comp: &ComponentNode) -> String {
         })
         .map(esc)
         .unwrap_or_else(|| "Continue".into());
+    let cancel = attr_nonempty(comp, "cancel")
+        .or_else(|| non_empty(comp, "cancel"))
+        .map(esc);
     let close = non_empty(comp, "close")
         .map(esc)
         .unwrap_or_else(|| "Close".into());
     let title_id = widget_id(comp, "dialog-title");
     let desc_id = widget_id(comp, "dialog-description");
+    let pop_id = widget_id(comp, "dialog");
     let (described, description) = match description {
         Some(d) => (
             format!(" aria-describedby=\"{desc_id}\""),
@@ -62,19 +148,37 @@ pub fn render(comp: &ComponentNode) -> String {
         ),
         None => (String::new(), String::new()),
     };
+    let fields = fields_html(comp, &pop_id);
+    let body_fields = if fields.is_empty() {
+        String::new()
+    } else {
+        format!("<div class=\"fields\">{fields}</div>")
+    };
+    let trigger = overlay_trigger(comp, "Open");
+    // DialogClose semantics: in closed mode the footer buttons close natively.
+    let closes = match &trigger {
+        Some(_) => modal_close_attrs(&pop_id),
+        None => " disabled".to_string(),
+    };
+    let cancel = cancel
+        .map(|c| {
+            format!(
+                "<button type=\"button\" data-slot=\"button\" data-variant=\"outline\"{closes}>{c}</button>"
+            )
+        })
+        .unwrap_or_default();
     let body = format!(
-        "<div data-slot=\"dialog-header\"><h2 data-slot=\"dialog-title\" id=\"{title_id}\">{title}</h2>{description}</div><div data-slot=\"dialog-footer\"><button type=\"button\" data-slot=\"button\" data-variant=\"primary\" disabled>{action}</button></div>"
+        "<div data-slot=\"dialog-header\"><h2 data-slot=\"dialog-title\" id=\"{title_id}\">{title}</h2>{description}</div>{body_fields}<div data-slot=\"dialog-footer\">{cancel}<button type=\"button\" data-slot=\"button\" data-variant=\"primary\"{closes}>{action}</button></div>"
     );
-    match overlay_trigger(comp, "Open") {
+    match trigger {
         None => format!(
             "<div data-slot=\"dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"dialog-content\" data-state=\"open\" role=\"dialog\" aria-labelledby=\"{title_id}\"{described}>{body}<button type=\"button\" data-slot=\"dialog-close\" disabled>{CROSS}<span>{close}</span></button></div>"
         ),
         Some(trigger) => {
             let trigger_id = widget_id(comp, "dialog-trigger");
-            let pop_id = widget_id(comp, "dialog");
             format!(
                 "{}{}{body}<button type=\"button\" data-slot=\"dialog-close\"{}>{CROSS}<span>{close}</span></button></dialog>",
-                modal_open_button(&trigger_id, &pop_id, &trigger),
+                trigger_button(comp, &trigger_id, &pop_id, &trigger),
                 modal_dialog_open(&pop_id, "dialog-content", "dialog", &title_id, &described, true),
                 modal_close_attrs(&pop_id),
             )
@@ -159,9 +263,56 @@ mod tests {
         assert!(html.contains(&format!(
             "<button type=\"button\" data-slot=\"dialog-close\" commandfor=\"{pid}\" command=\"close\">{CROSS}<span>Close</span></button></dialog>"
         )));
-        // Saving needs JS: the action keeps the native disabled button.
-        assert!(html.contains("data-variant=\"primary\" disabled>Save changes</button>"));
+        // The docs wrap the footer buttons in DialogClose: they close natively.
+        assert!(html.contains(&format!(
+            "data-variant=\"primary\" commandfor=\"{pid}\" command=\"close\">Save changes</button>"
+        )));
         reject_js(&html);
+    }
+
+    #[test]
+    fn docs_dialog_has_styled_trigger_fields_and_cancel() {
+        let mut c = stub("dialog", "Edit profile");
+        c.props.insert("trigger".into(), "Edit profile".into());
+        c.props.insert("trigger-variant".into(), "primary".into());
+        c.props.insert("cancel".into(), "Cancel".into());
+        c.props.insert(
+            "description".into(),
+            "Update your display name. Changes are saved when you confirm.".into(),
+        );
+        let mut name = extra("field", "Name");
+        name.config.insert("value".into(), "Ada Lovelace".into());
+        let mut user = extra("field", "Username");
+        user.config.insert("value".into(), "ada".into());
+        c.items.push(name);
+        c.items.push(user);
+        c.items.push(extra("action", "Save changes"));
+        let html = render(&c);
+        let pid = widget_id(&c, "dialog");
+        assert!(html.contains("data-slot=\"button\" data-variant=\"primary\" commandfor=\"{pid}\" command=\"show-modal\" aria-haspopup=\"dialog\">Edit profile</button>".replace("{pid}", &pid).as_str()));
+        assert!(html.contains(&format!(
+            "</div><div class=\"fields\"><div class=\"field\"><label data-slot=\"label\" for=\"{pid}-f1\">Name</label><input data-slot=\"input\" id=\"{pid}-f1\" type=\"text\" value=\"Ada Lovelace\" /></div><div class=\"field\"><label data-slot=\"label\" for=\"{pid}-f2\">Username</label><input data-slot=\"input\" id=\"{pid}-f2\" type=\"text\" value=\"ada\" /></div></div><div data-slot=\"dialog-footer\"><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" commandfor=\"{pid}\" command=\"close\">Cancel</button><button type=\"button\" data-slot=\"button\" data-variant=\"primary\" commandfor=\"{pid}\" command=\"close\">Save changes</button></div>"
+        )), "{html}");
+        reject_js(&html);
+    }
+
+    #[test]
+    fn trigger_button_takes_icons_and_sizes() {
+        let mut c = stub("dialog", "Delete");
+        c.props
+            .insert("trigger-variant".into(), "destructive".into());
+        c.props.insert("trigger-icon".into(), "trash-2".into());
+        c.props.insert("trigger-size".into(), "sm".into());
+        let html = trigger_button(&c, "t", "d", "Delete account");
+        assert_eq!(
+            html,
+            format!(
+                "<button type=\"button\" id=\"t\" data-slot=\"button\" data-variant=\"destructive\" data-size=\"sm\" commandfor=\"d\" command=\"show-modal\" aria-haspopup=\"dialog\">{}Delete account</button>",
+                crate::cronus_ui_icons::svg_or_empty("trash-2")
+            )
+        );
+        c.props.insert("trigger-size".into(), "huge".into());
+        assert!(!trigger_button(&c, "t", "d", "x").contains("data-size"));
     }
 
     #[test]
@@ -180,6 +331,10 @@ mod tests {
         assert!(css.contains("[data-slot=\"dialog-content\"]:modal {\n  position: fixed; inset: 0; margin: auto; translate: none;"));
         assert!(css.contains("[data-slot=\"dialog-content\"]::backdrop {"));
         assert!(!css.contains("[data-slot=\"dialog-content\"][popover]"));
+        // React's enter animations (data-[state=open]) on the native dialog + backdrop.
+        assert!(css.contains("animation: cronus-pop-in 200ms var(--ease-out-quart) both;"));
+        assert!(css.contains("[data-slot=\"dialog-content\"]:modal::backdrop {\n  animation: cronus-overlay-in 200ms var(--ease-out-quart);"));
+        assert!(css.contains("[data-slot=\"dialog-content\"] > .fields {\n  display: flex; flex-direction: column; gap: 1rem; padding: 0.5rem 0;"));
     }
 
     #[test]
@@ -201,6 +356,8 @@ mod tests {
             "[data-slot=\"catalog-canvas\"]:has([data-slot=\"dialog-overlay\"]) {\n  position: relative; contain: layout paint; min-height: 16rem;"
         ));
         assert!(!css.contains("[data-slot=\"dialog-trigger\"]"));
-        assert!(!css.contains("dialog[data-slot=\"dialog-content\"]"));
+        assert!(!css.contains("dialog[data-slot=\"dialog-content\"] {"));
+        // The panel rule sets `display`, which would override the UA's hidden closed dialog.
+        assert!(css.contains("dialog[data-slot=\"dialog-content\"]:not([open]) { display: none; }"));
     }
 }

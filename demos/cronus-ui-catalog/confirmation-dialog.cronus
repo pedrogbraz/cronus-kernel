@@ -1,0 +1,10 @@
+page "/confirmation-dialog" type:components family:confirmation-dialog {
+  title "Confirmation Dialog"
+  description:"Ergonomic confirm wrapper over AlertDialog."
+}
+
+component PublishArticle layout:inline style:confirmation-dialog trigger:"Publish article" trigger-variant:primary icon:rocket description:"It becomes visible to everyone on your blog immediately. You can unpublish it again at any time." confirm:"Publish" group:"Basic" note:"An ergonomic wrapper over AlertDialog for confirming an action. Pass a trigger, a title, and optional description; a custom icon fills the primary-tinted header badge." { label "Publish this article?" }
+
+component DeleteAccount layout:inline style:confirmation-dialog+destructive trigger:"Delete account" description:"This permanently deletes your account and everything in it. This action cannot be undone." confirm:"Delete account" cancel:"Cancel" group:"Destructive" note:"Set destructive to render a red confirm button and a warning-triangle badge. The pattern for irreversible actions like deleting an account." { label "Delete your account?" }
+
+component DeleteWorkspace layout:inline style:confirmation-dialog+destructive trigger:"Delete workspace" description:"This permanently removes 3 projects and 128 files. This action can’t be undone." confirm:"Delete workspace" cancel:"Keep workspace" group:"Async confirm" note:"When onConfirm returns a promise the confirm button shows a spinner and both actions lock until it settles. The kernel renders the idle dialog." { label "Delete this workspace?" }

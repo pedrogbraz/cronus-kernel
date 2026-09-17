@@ -22,9 +22,9 @@
 //! still need JS and stay `disabled`. Gaps: a popover is not modal (no focus
 //! trap, background not inert, `aria-expanded` not reflected).
 
+use crate::cronus_ui_dialog::trigger_button;
 use crate::cronus_ui_kit::{
-    attr, esc, item, label_of, modal_close_attrs, modal_dialog_open, modal_open_button,
-    overlay_trigger, widget_id,
+    attr, esc, item, label_of, modal_close_attrs, modal_dialog_open, overlay_trigger, widget_id,
 };
 use crate::parser::ComponentNode;
 
@@ -94,7 +94,7 @@ pub fn render(comp: &ComponentNode) -> String {
             let trigger_id = widget_id(comp, "invite-dialog-trigger");
             format!(
                 "{}{}{body}</dialog>",
-                modal_open_button(&trigger_id, &pop_id, &trigger),
+                trigger_button(comp, &trigger_id, &pop_id, &trigger),
                 modal_dialog_open(&pop_id, "invite-dialog", "dialog", &title_id, "", true),
             )
         }
@@ -193,9 +193,25 @@ mod tests {
     #[test]
     fn chrome_closed_mode_is_native_modal_dialog() {
         let css = crate::cronus_ui::component_chrome_css();
-        assert!(css.contains("[data-slot=\"invite-dialog\"]:modal {\n  position: fixed; inset: 0; margin: auto; translate: none;"));
+        assert!(css.contains("dialog[data-slot=\"invite-dialog\"]:not([open]) { display: none; }"));
+        assert!(css.contains("[data-slot=\"invite-dialog\"]:modal {\n  position: fixed; inset: 0; margin: auto; translate: none;\n  animation: cronus-pop-in 200ms var(--ease-out-quart) both;"));
         assert!(css.contains("[data-slot=\"invite-dialog\"]::backdrop {"));
+        assert!(css.contains("[data-slot=\"invite-dialog\"]:modal::backdrop {\n  animation: cronus-overlay-in 200ms var(--ease-out-quart);"));
         assert!(!css.contains("[data-slot=\"invite-dialog\"][popover]"));
+    }
+
+    #[test]
+    fn docs_trigger_is_the_primary_button() {
+        let mut c = stub("invite-dialog", "Invite member");
+        c.props.insert("trigger".into(), "Invite member".into());
+        c.props.insert("trigger-variant".into(), "primary".into());
+        let html = render(&c);
+        assert!(html.starts_with(&format!(
+            "<button type=\"button\" id=\"{}\" data-slot=\"button\" data-variant=\"primary\" commandfor=\"{}\" command=\"show-modal\" aria-haspopup=\"dialog\">Invite member</button>",
+            widget_id(&c, "invite-dialog-trigger"),
+            widget_id(&c, "invite-dialog")
+        )));
+        reject_js(&html);
     }
 
     #[test]

@@ -78,6 +78,23 @@
   display: block; width: 100%; height: 100%; object-fit: cover;
   box-shadow: inset 0 0 0 999px var(--cronus-fg-tertiary);
 }
+/* Closed mode (docs gallery): a thumbnail grid of labels opens the panel at that
+   image; nothing is checked until then, and the close radio unchecks it again. */
+div.grid:has(+ [data-slot="dialog-content"] > [data-slot="lightbox"]) {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; width: 100%;
+}
+div.grid:has(+ [data-slot="dialog-content"] > [data-slot="lightbox"]) > label {
+  display: block; cursor: pointer; overflow: hidden; border-radius: var(--cronus-radius-md);
+}
+div.grid:has(+ [data-slot="dialog-content"] > [data-slot="lightbox"]) > label > img {
+  display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
+  box-shadow: inset 0 0 0 999px var(--cronus-fg-tertiary);
+}
+[data-slot="dialog-content"]:has(> [data-slot="lightbox"] > div:nth-child(2) > input):not(:has(> [data-slot="lightbox"] > div:nth-child(2) > input:checked)) { display: none; }
+[data-slot="dialog-content"]:has(> [data-slot="lightbox"] > div:nth-child(2) > input:checked) {
+  animation: cronus-overlay-in 200ms var(--ease-out-quart);
+}
+[data-slot="catalog-frame"]:has([data-slot="lightbox"] > div:nth-child(2) > input:checked) { z-index: 30; overflow: visible; }
 /* Zero JS: stage radios pick the image; labels over prev/next/thumbnails target them;
    the close label's checkbox hides the dialog. React's buttons are decorative. */
 [data-slot="lightbox"] > div:first-child > label,

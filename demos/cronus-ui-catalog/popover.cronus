@@ -1,0 +1,11 @@
+page "/popover" type:components family:popover {
+  title "Popover"
+  description:"Floating surface anchored to a trigger."
+}
+
+component Dimensions layout:inline style:popover trigger-variant:outline width:80 align:start description:"Set the dimensions for the layer." group:"With content" note:"A floating surface anchored to a trigger. Ideal for inline editors and pickers." {
+  label "Dimensions"
+  title "Dimensions"
+  field "Width" value:"100%"
+  field "Height" value:"auto"
+}

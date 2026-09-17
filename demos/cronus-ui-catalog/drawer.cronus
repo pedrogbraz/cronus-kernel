@@ -1,0 +1,10 @@
+page "/drawer" type:components family:drawer {
+  title "Drawer"
+  description:"Bottom sheet that drags up from the edge."
+}
+
+component MoveGoal layout:inline style:drawer trigger:"Open drawer" description:"Set your daily activity target." cancel:"Cancel" group:"Bottom drawer" note:"A bottom-anchored sheet that drags up from the edge. Touch-friendly on mobile." {
+  label "Move goal"
+  value "350" description:"Calories / day"
+  action "Submit"
+}

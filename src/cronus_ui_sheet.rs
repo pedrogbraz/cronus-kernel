@@ -8,18 +8,28 @@
 //! is not a popover and cannot close, so `sheet-close` is the same native
 //! `<button>` with `disabled`, keeping React's idle look (no dimming).
 //! Closed mode (`trigger:"…"` prop, or `open:false` / `defaultOpen:false`; see
-//! `cronus_ui_kit::overlay_trigger`): an outline `button` trigger opens
-//! `sheet-content` as a native `popover="auto"` (right-pinned, scrim on
-//! `::backdrop`, no overlay div) and `sheet-close` hides it. Gaps: a popover is
-//! not modal (no focus trap, background not inert, `aria-expanded` not reflected).
+//! `cronus_ui_kit::overlay_trigger`): a `button` trigger
+//! (`cronus_ui_dialog::trigger_button`) opens `sheet-content` as a native
+//! modal `<dialog>` (`command="show-modal"`: focus trap, inert background,
+//! scrim on `::backdrop`, Esc / backdrop dismiss) and `sheet-close` closes it.
+//! The panel slides in from its edge like React's `cronus-slide-in-*` (320ms).
+//! `side:top|right|bottom|left` (or `style:sheet+left`) pins the panel to that
+//! edge; React has no data attribute for it, so it is a `side-<side>` class on
+//! the slot element (`right`, the default, has none).
+//! Body: `field "…"` items (`cronus_ui_dialog::fields_html`, React's
+//! `Label` + `Input` in the docs' `px-4 py-2` block); `action` items render in
+//! `sheet-footer` as primary buttons that close the sheet (`SheetClose`).
 //! Description comes from `description:"…"` (props or item
 //! config), else extra `text`. Not interact `dialog("sheet")` `<dialog>` + `showModal()`.
 
+use crate::cronus_ui_dialog::{fields_html, trigger_button};
 use crate::cronus_ui_kit::{
-    attr, esc, item, label_of, modal_close_attrs, modal_dialog_open, modal_open_button,
-    overlay_trigger, widget_id,
+    attr, choice, esc, item, label_of, modal_close_attrs, modal_dialog_open, overlay_trigger,
+    widget_id,
 };
 use crate::parser::ComponentNode;
+
+const SIDES: &[&str] = &["top", "right", "bottom", "left"];
 
 pub fn render(comp: &ComponentNode) -> String {
     let title = item(comp, "title")
@@ -29,6 +39,7 @@ pub fn render(comp: &ComponentNode) -> String {
     let desc = description(comp, &title);
     let title_id = widget_id(comp, "sheet-title");
     let desc_id = widget_id(comp, "sheet-description");
+    let pop_id = widget_id(comp, "sheet");
     let (described_by, desc_html) = if desc.is_empty() {
         (String::new(), String::new())
     } else {
@@ -40,24 +51,55 @@ pub fn render(comp: &ComponentNode) -> String {
     let header = format!(
         "<div data-slot=\"sheet-header\"><h2 id=\"{title_id}\" data-slot=\"sheet-title\">{title}</h2>{desc_html}</div>"
     );
-    match overlay_trigger(comp, "Open") {
+    let fields = fields_html(comp, &pop_id);
+    let fields = if fields.is_empty() {
+        String::new()
+    } else {
+        format!("<div class=\"fields\">{fields}</div>")
+    };
+    let trigger = overlay_trigger(comp, "Open");
+    let closes = match &trigger {
+        Some(_) => modal_close_attrs(&pop_id),
+        None => " disabled".to_string(),
+    };
+    let actions: String = comp
+        .items
+        .iter()
+        .filter(|i| i.item_type == "action" && !i.text.is_empty())
+        .map(|i| {
+            format!(
+                "<button type=\"button\" data-slot=\"button\" data-variant=\"primary\"{closes}>{}</button>",
+                esc(&i.text)
+            )
+        })
+        .collect();
+    let footer = if actions.is_empty() {
+        String::new()
+    } else {
+        format!("<div data-slot=\"sheet-footer\">{actions}</div>")
+    };
+    let body = format!("{header}{fields}{footer}");
+    match trigger {
         None => format!(
-            "<div data-slot=\"sheet-overlay\" aria-hidden=\"true\"></div><div role=\"dialog\" aria-labelledby=\"{title_id}\"{described_by} data-slot=\"sheet-content\">{header}<button type=\"button\" data-slot=\"sheet-close\" disabled><span>Close</span></button></div>"
+            "<div data-slot=\"sheet-overlay\" aria-hidden=\"true\"></div><div role=\"dialog\" aria-labelledby=\"{title_id}\"{described_by} data-slot=\"sheet-content\">{body}<button type=\"button\" data-slot=\"sheet-close\" disabled><span>Close</span></button></div>"
         ),
         Some(trigger) => {
             let trigger_id = widget_id(comp, "sheet-trigger");
-            let pop_id = widget_id(comp, "sheet");
+            let side = choice(comp, "side", SIDES).unwrap_or("right");
+            let mut open = modal_dialog_open(
+                &pop_id,
+                "sheet-content",
+                "dialog",
+                &title_id,
+                &described_by,
+                true,
+            );
+            if side != "right" {
+                open = open.replace(" role=\"dialog\"", &format!(" class=\"side-{side}\" role=\"dialog\""));
+            }
             format!(
-                "{}{}{header}<button type=\"button\" data-slot=\"sheet-close\"{}><span>Close</span></button></dialog>",
-                modal_open_button(&trigger_id, &pop_id, &trigger),
-                modal_dialog_open(
-                    &pop_id,
-                    "sheet-content",
-                    "dialog",
-                    &title_id,
-                    &described_by,
-                    true
-                ),
+                "{}{open}{body}<button type=\"button\" data-slot=\"sheet-close\"{}><span>Close</span></button></dialog>",
+                trigger_button(comp, &trigger_id, &pop_id, &trigger),
                 modal_close_attrs(&pop_id),
             )
         }
@@ -178,11 +220,51 @@ mod tests {
     }
 
     #[test]
+    fn docs_sides_fields_and_footer() {
+        let mut c = stub("sheet+left", "Left sheet");
+        c.props.insert("trigger".into(), "Left".into());
+        c.props.insert(
+            "description".into(),
+            "This panel slides in from the left edge.".into(),
+        );
+        let mut note = extra("field", "Quick note");
+        note.config
+            .insert("placeholder".into(), "Type something…".into());
+        c.items.push(note);
+        c.items.push(extra("action", "Done"));
+        let html = render(&c);
+        let pid = widget_id(&c, "sheet");
+        assert!(html.contains(&format!(
+            "<dialog id=\"{pid}\" data-slot=\"sheet-content\" class=\"side-left\" role=\"dialog\" aria-modal=\"true\""
+        )), "{html}");
+        assert!(html.contains(&format!(
+            "</div><div class=\"fields\"><div class=\"field\"><label data-slot=\"label\" for=\"{pid}-f1\">Quick note</label><input data-slot=\"input\" id=\"{pid}-f1\" type=\"text\" placeholder=\"Type something…\" /></div></div><div data-slot=\"sheet-footer\"><button type=\"button\" data-slot=\"button\" data-variant=\"primary\" commandfor=\"{pid}\" command=\"close\">Done</button></div><button type=\"button\" data-slot=\"sheet-close\""
+        )), "{html}");
+        // `side:` prop works too; right (the default) adds no class.
+        let mut p = stub("sheet", "Top sheet");
+        p.props.insert("trigger".into(), "Top".into());
+        p.props.insert("side".into(), "top".into());
+        assert!(render(&p).contains("class=\"side-top\""));
+        let mut r = stub("sheet", "Right sheet");
+        r.props.insert("trigger".into(), "Right".into());
+        assert!(!render(&r).contains("class=\"side-"));
+    }
+
+    #[test]
     fn chrome_closed_mode_is_native_modal_dialog() {
         let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("dialog[data-slot=\"sheet-content\"]:not([open]) { display: none; }"));
         assert!(css.contains("[data-slot=\"sheet-content\"]:modal {"));
         assert!(css.contains("[data-slot=\"sheet-content\"]::backdrop {"));
         assert!(!css.contains("[data-slot=\"sheet-content\"][popover]"));
+        // Each side pins to its edge and slides in from it (React 320ms).
+        assert!(css.contains("animation: cronus-slide-in-right 320ms var(--ease-out-quart) both;"));
+        assert!(css.contains("[data-slot=\"sheet-content\"].side-left {\n  inset: 0 auto 0 0; border-inline-start-width: 0; border-inline-end-width: 1px;\n  animation: cronus-slide-in-left 320ms var(--ease-out-quart) both;"));
+        assert!(css.contains("[data-slot=\"sheet-content\"].side-top {\n  inset: 0 0 auto 0; width: 100%; max-width: none; height: auto;"));
+        assert!(css.contains("[data-slot=\"sheet-content\"].side-bottom {\n  inset: auto 0 0 0; width: 100%; max-width: none; height: auto;"));
+        assert!(css.contains("[data-slot=\"sheet-content\"]:modal::backdrop {\n  animation: cronus-overlay-in 300ms var(--ease-out-quart);"));
+        assert!(css.contains("[data-slot=\"sheet-content\"] > .fields > .field {\n  display: flex; flex-direction: column; gap: 0.5rem; padding: 0.5rem 1rem;"));
+        assert!(css.contains("[data-slot=\"sheet-footer\"] {\n  display: flex; flex-direction: row; justify-content: flex-end; gap: 0.5rem;"));
     }
 
     #[test]

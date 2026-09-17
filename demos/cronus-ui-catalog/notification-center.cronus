@@ -1,0 +1,11 @@
+page "/notification-center" type:components family:notification-center {
+  title "Notification Center"
+  description:"Bell-trigger inbox built on Popover."
+}
+
+component Inbox layout:inline style:notification-center mark-all-read:"Mark all read" footer:"View all notifications" group:"Inbox" note:"A bell-trigger inbox built on Popover. The badge counts unread items; clicking a row marks it read, and Mark all read clears them all. Pass an optional footer for a View all link." {
+  label "Notifications"
+  item "Ada mentioned you" description:"“@you can you review the payout rail PR?”" time:"2m ago" icon:message-square
+  item "Your release hit 1,000 stars" description:"cronus-ui reached a new milestone." time:"1h ago" icon:heart
+  item "New teammate joined" description:"Grace accepted your invite to Acme." time:"Yesterday" avatar:"GR" read:true
+}

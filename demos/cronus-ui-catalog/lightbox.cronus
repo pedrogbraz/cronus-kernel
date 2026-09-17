@@ -1,0 +1,11 @@
+page "/lightbox" type:components family:lightbox {
+  title "Lightbox"
+  description:"Full-screen image gallery with thumbnails."
+}
+
+component Gallery layout:stack style:lightbox open:false aria-label:"Image gallery" group:"Gallery" note:"A full-screen gallery: clicking a thumbnail opens the lightbox at that image. The on-image controls and thumbnail strip move between images, and the counter tracks position." {
+  label "Image gallery"
+  text "Mountain ridge at dawn"
+  text "Coastline from above"
+  text "Forest trail in fog"
+}

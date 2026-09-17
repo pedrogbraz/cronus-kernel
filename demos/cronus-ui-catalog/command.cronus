@@ -1,0 +1,14 @@
+page "/command" type:components family:command {
+  title "Command"
+  description:"Command palette with fuzzy search."
+}
+
+component Palette layout:inline style:command trigger:"Open command palette" trigger-variant:outline trigger-badge:"⌘K" placeholder:"Type a command or search…" empty:"No results found." description:"Search for a command to run." group:"Command palette" note:"A command palette with fuzzy search. Open it with the button." {
+  label "Command palette"
+  item "Calendar" icon:calendar-days group:"Suggestions"
+  item "Search profile" icon:user group:"Suggestions"
+  item "Copy link" icon:copy group:"Suggestions"
+  item "Settings" icon:settings shortcut:"⌘S" group:"Settings"
+  item "Keyboard shortcuts" icon:keyboard shortcut:"⌘K" group:"Settings"
+  item "Help & support" icon:life-buoy group:"Settings"
+}

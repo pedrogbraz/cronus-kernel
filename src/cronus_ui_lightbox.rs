@@ -29,8 +29,19 @@
 //! there is no trigger to reopen (React's component has none either — the
 //! fixture is controlled `open`); `aria-current` on thumbnails and the
 //! `data-edge` attributes stay at the initial state.
+//!
+//! Closed mode (`open:false` / `defaultOpen:false`, or `trigger:` — the docs'
+//! gallery): the images render first as the docs' `grid grid-cols-3 gap-2` of
+//! thumbnails, each a `<label for>` its image's stage radio (React's
+//! `<button onClick>` + `<img>`), so clicking one opens the lightbox at that
+//! image. No radio starts checked, and the panel stays hidden until one is;
+//! the header's close control is a radio of the same group ("Close"), so it
+//! unchecks the image and hides the panel again. React's `dialog-overlay` is
+//! omitted here: the opaque full-viewport `dialog-content` covers it, and its
+//! presence would pin the specimen inside the catalog frame. Images can carry
+//! a `src:"…"` (through `safe_url`), else the placeholder.
 
-use crate::cronus_ui_kit::{esc, instance_id, label_of};
+use crate::cronus_ui_kit::{esc, instance_id, label_of, overlay_trigger, safe_url};
 use crate::parser::ComponentNode;
 
 /// Images beyond this index still switch, but the counter shows no number and
@@ -49,6 +60,7 @@ pub fn render(comp: &ComponentNode) -> String {
     let images = images(comp);
     let count = images.len();
     let id = instance_id(comp, "lightbox");
+    let closed = overlay_trigger(comp, "").is_some();
     let counter = if count == 0 {
         "0".to_string()
     } else {
@@ -57,8 +69,8 @@ pub fn render(comp: &ComponentNode) -> String {
     let stage_images = images
         .iter()
         .enumerate()
-        .map(|(i, alt)| {
-            let checked = if i == 0 { " checked" } else { "" };
+        .map(|(i, (alt, src))| {
+            let checked = if i == 0 && !closed { " checked" } else { "" };
             let prev = if i > 0 {
                 format!("<label for=\"{id}-i{}\" data-nav=\"previous\"></label>", i - 1)
             } else {
@@ -70,19 +82,21 @@ pub fn render(comp: &ComponentNode) -> String {
                 String::new()
             };
             format!(
-                "<input type=\"radio\" name=\"{id}\" id=\"{id}-i{i}\" aria-label=\"{alt}\"{checked}><img data-slot=\"lightbox-image\" src=\"{PLACEHOLDER}\" alt=\"{alt}\">{prev}{next}"
+                "<input type=\"radio\" name=\"{id}\" id=\"{id}-i{i}\" aria-label=\"{alt}\"{checked}><img data-slot=\"lightbox-image\" src=\"{src}\" alt=\"{alt}\">{prev}{next}"
             )
         })
         .collect::<String>();
     let prev_edge = " data-edge";
     let next_edge = if count <= 1 { " data-edge" } else { "" };
     let thumbnails = if count > 1 {
-        let buttons = (1..=count)
-            .map(|i| {
+        let buttons = images
+            .iter()
+            .enumerate()
+            .map(|(i, (_, src))| {
                 format!(
-                    "<label for=\"{id}-i{}\"><button type=\"button\" aria-label=\"View image {i}\" aria-current=\"{}\" tabindex=\"-1\" aria-hidden=\"true\"><img src=\"{PLACEHOLDER}\" alt=\"\"></button></label>",
-                    i - 1,
-                    i == 1
+                    "<label for=\"{id}-i{i}\"><button type=\"button\" aria-label=\"View image {}\" aria-current=\"{}\" tabindex=\"-1\" aria-hidden=\"true\"><img src=\"{src}\" alt=\"\"></button></label>",
+                    i + 1,
+                    i == 0
                 )
             })
             .collect::<String>();
@@ -90,16 +104,45 @@ pub fn render(comp: &ComponentNode) -> String {
     } else {
         String::new()
     };
+    let (grid, overlay, close_input) = if closed {
+        let cells = images
+            .iter()
+            .enumerate()
+            .map(|(i, (alt, src))| {
+                format!("<label for=\"{id}-i{i}\"><img src=\"{src}\" alt=\"{alt}\"></label>")
+            })
+            .collect::<String>();
+        (
+            format!("<div class=\"grid\">{cells}</div>"),
+            String::new(),
+            format!("<input type=\"radio\" name=\"{id}\" id=\"{id}-none\" aria-label=\"Close\">"),
+        )
+    } else {
+        (
+            String::new(),
+            "<div data-slot=\"dialog-overlay\" aria-hidden=\"true\"></div>".to_string(),
+            "<input type=\"checkbox\" aria-label=\"Close\">".to_string(),
+        )
+    };
     format!(
-        "<div data-slot=\"dialog-overlay\" aria-hidden=\"true\"></div><div role=\"dialog\" aria-label=\"{gallery}\" data-slot=\"dialog-content\"><div data-slot=\"lightbox\"><div><span data-slot=\"lightbox-counter\">{counter} / {count}</span><label><input type=\"checkbox\" aria-label=\"Close\"><button type=\"button\" data-slot=\"lightbox-close\" aria-label=\"Close\" tabindex=\"-1\" aria-hidden=\"true\"></button></label></div><div><button type=\"button\" aria-label=\"Previous image\" tabindex=\"-1\" aria-hidden=\"true\"{prev_edge}></button>{stage_images}<button type=\"button\" aria-label=\"Next image\" tabindex=\"-1\" aria-hidden=\"true\"{next_edge}></button></div>{thumbnails}</div></div>"
+        "{grid}{overlay}<div role=\"dialog\" aria-label=\"{gallery}\" data-slot=\"dialog-content\"><div data-slot=\"lightbox\"><div><span data-slot=\"lightbox-counter\">{counter} / {count}</span><label>{close_input}<button type=\"button\" data-slot=\"lightbox-close\" aria-label=\"Close\" tabindex=\"-1\" aria-hidden=\"true\"></button></label></div><div><button type=\"button\" aria-label=\"Previous image\" tabindex=\"-1\" aria-hidden=\"true\"{prev_edge}></button>{stage_images}<button type=\"button\" aria-label=\"Next image\" tabindex=\"-1\" aria-hidden=\"true\"{next_edge}></button></div>{thumbnails}</div></div>"
     )
 }
 
-fn images(comp: &ComponentNode) -> Vec<String> {
+/// `(alt, src)` per `text` item; `src:` config through `safe_url`, else the placeholder.
+fn images(comp: &ComponentNode) -> Vec<(String, String)> {
     comp.items
         .iter()
         .filter(|i| i.item_type == "text" && !i.text.is_empty())
-        .map(|i| esc(&i.text))
+        .map(|i| {
+            let src = i
+                .config
+                .get("src")
+                .filter(|s| !s.trim().is_empty())
+                .map(|s| safe_url(s))
+                .unwrap_or_else(|| PLACEHOLDER.to_string());
+            (esc(&i.text), src)
+        })
         .collect()
 }
 
@@ -196,6 +239,34 @@ mod tests {
         assert!(!html.contains("data-nav"));
         assert!(html
             .contains("aria-label=\"Next image\" tabindex=\"-1\" aria-hidden=\"true\" data-edge"));
+    }
+
+    #[test]
+    fn closed_mode_grid_of_thumbnails_opens_the_gallery_at_that_image() {
+        let mut c = gallery(&["Mountain ridge at dawn", "Coastline from above"]);
+        c.props.insert("open".into(), "false".into());
+        c.items[1]
+            .config
+            .insert("src".into(), "/photos/1.jpg".into());
+        let html = render(&c);
+        let n = "cui-lightbox-lightbox";
+        let p = PLACEHOLDER;
+        assert!(html.starts_with(&format!(
+            "<div class=\"grid\"><label for=\"{n}-i0\"><img src=\"/photos/1.jpg\" alt=\"Mountain ridge at dawn\"></label><label for=\"{n}-i1\"><img src=\"{p}\" alt=\"Coastline from above\"></label></div><div role=\"dialog\" aria-label=\"Image gallery\" data-slot=\"dialog-content\">"
+        )), "{html}");
+        assert!(!html.contains("dialog-overlay"));
+        // No image starts selected; the close control is a radio of the same group.
+        assert!(!html.contains(" checked"));
+        assert!(html.contains(&format!(
+            "<label><input type=\"radio\" name=\"{n}\" id=\"{n}-none\" aria-label=\"Close\"><button type=\"button\" data-slot=\"lightbox-close\""
+        )));
+        assert!(html.contains(&format!("<input type=\"radio\" name=\"{n}\" id=\"{n}-i0\" aria-label=\"Mountain ridge at dawn\"><img data-slot=\"lightbox-image\" src=\"/photos/1.jpg\"")));
+        assert!(!html.contains("javascript:"));
+        reject_interact(&html);
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"dialog-content\"]:has(> [data-slot=\"lightbox\"] > div:nth-child(2) > input):not(:has(> [data-slot=\"lightbox\"] > div:nth-child(2) > input:checked)) { display: none; }"));
+        assert!(css.contains("div.grid:has(+ [data-slot=\"dialog-content\"] > [data-slot=\"lightbox\"]) {\n  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem;"));
+        assert!(css.contains("[data-slot=\"catalog-frame\"]:has([data-slot=\"lightbox\"] > div:nth-child(2) > input:checked) { z-index: 30; overflow: visible; }"));
     }
 
     #[test]
