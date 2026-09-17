@@ -1,0 +1,6 @@
+page "/text-shimmer" type:components family:text-shimmer {
+  title "TextShimmer"
+  description:"Shimmering placeholder text while a token stream starts."
+}
+
+component ThinkingPlaceholder layout:inline style:text-shimmer group:"Thinking placeholder" note:"A sliding highlight across placeholder copy while tokens start." { label "Thinking…" }

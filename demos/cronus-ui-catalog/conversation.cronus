@@ -1,0 +1,6 @@
+page "/conversation" type:components family:conversation {
+  title "Conversation"
+  description:"Auto-scrolling chat log with an empty state and jump-to-latest."
+}
+
+component EmptyLog layout:stack style:conversation bordered:true group:"Empty state" note:"The log before the first turn. Jump-to-latest appears once you leave the edge." { label "Conversation" }

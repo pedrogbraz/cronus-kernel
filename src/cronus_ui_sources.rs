@@ -5,8 +5,14 @@
 //! `<a data-slot="source" href rel="noreferrer" target="_blank">` (book icon +
 //! `<span>` title) per `link "Title" -> "url"` item. Links work without JS.
 //! N is `count:` or the number of links; `usedSources:` overrides the label
-//! (`{count}` placeholder). Toggling needs JS: the kernel renders `defaultOpen`
-//! (open unless `defaultOpen:false`) with the trigger `disabled`.
+//! (`{count}` placeholder).
+//!
+//! Zero JS: the trigger and content sit in a native `<details>` inside the
+//! root, the button in its `<summary>` (decorative: `aria-hidden`,
+//! `tabindex="-1"`, `pointer-events: none`), so the list toggles natively.
+//! Radix `Collapsible` starts closed, like the docs example: `defaultOpen:true`
+//! (or `open:true`) opens it; `data-state` / `aria-expanded` reflect that
+//! initial state.
 
 use crate::cronus_ui_kit::{attr, attr_nonempty, attr_num, esc, safe_url, truthy};
 use crate::parser::ComponentNode;
@@ -16,7 +22,10 @@ const BOOK: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" heigh
 const USED_SOURCES: &str = "Used {count} sources";
 
 pub fn render(comp: &ComponentNode) -> String {
-    let open = attr(comp, "defaultOpen").is_none_or(truthy);
+    let open = ["open", "defaultOpen"]
+        .iter()
+        .find_map(|key| attr(comp, key))
+        .is_some_and(truthy);
     let state = if open { "open" } else { "closed" };
     let links: Vec<(&str, &str)> = comp
         .items
@@ -27,23 +36,19 @@ pub fn render(comp: &ComponentNode) -> String {
     let label = attr_nonempty(comp, "usedSources")
         .unwrap_or(USED_SOURCES)
         .replacen("{count}", &count.to_string(), 1);
-    let content = if open {
-        let anchors: String = links
-            .iter()
-            .map(|(title, href)| {
-                format!(
-                    "<a data-slot=\"source\" href=\"{}\" rel=\"noreferrer\" target=\"_blank\">{BOOK}<span>{}</span></a>",
-                    safe_url(href),
-                    esc(title)
-                )
-            })
-            .collect();
-        format!("<div data-state=\"open\" data-slot=\"sources-content\">{anchors}</div>")
-    } else {
-        String::new()
-    };
+    let anchors: String = links
+        .iter()
+        .map(|(title, href)| {
+            format!(
+                "<a data-slot=\"source\" href=\"{}\" rel=\"noreferrer\" target=\"_blank\">{BOOK}<span>{}</span></a>",
+                safe_url(href),
+                esc(title)
+            )
+        })
+        .collect();
+    let details_open = if open { " open" } else { "" };
     format!(
-        "<div data-state=\"{state}\" data-slot=\"sources\"><button type=\"button\" aria-expanded=\"{open}\" data-state=\"{state}\" data-slot=\"sources-trigger\" disabled><p>{}</p>{CHEVRON}</button>{content}</div>",
+        "<div data-state=\"{state}\" data-slot=\"sources\"><details{details_open}><summary><button type=\"button\" aria-expanded=\"{open}\" data-state=\"{state}\" data-slot=\"sources-trigger\" tabindex=\"-1\" aria-hidden=\"true\"><p>{}</p>{CHEVRON}</button></summary><div data-state=\"{state}\" data-slot=\"sources-content\">{anchors}</div></details></div>",
         esc(&label)
     )
 }
@@ -64,19 +69,34 @@ mod tests {
         }
     }
 
+    /// Docs "Used sources": `count={2}`, two links, closed until toggled.
     #[test]
-    fn open_sources_match_react_dom() {
+    fn docs_sources_match_react_dom_in_a_closed_details() {
         let mut c = stub("sources", "default");
         c.props.insert("count".into(), "2".into());
-        c.items.push(link("Docs", "https://cronus.dev/docs"));
-        c.items.push(link("Notes", "https://cronus.dev/changelog"));
+        c.items.push(link("Cronus UI", "https://aicronus.com"));
+        c.items
+            .push(link("Design", "https://aicronus.com/docs/design"));
         let html = render(&c);
-        assert!(html.starts_with("<div data-state=\"open\" data-slot=\"sources\"><button type=\"button\" aria-expanded=\"true\" data-state=\"open\" data-slot=\"sources-trigger\" disabled><p>Used 2 sources</p><svg"));
-        assert!(html.contains("<div data-state=\"open\" data-slot=\"sources-content\"><a data-slot=\"source\" href=\"https://cronus.dev/docs\" rel=\"noreferrer\" target=\"_blank\"><svg"));
-        assert!(html.contains("<span>Docs</span></a><a data-slot=\"source\""));
+        assert!(html.starts_with("<div data-state=\"closed\" data-slot=\"sources\"><details><summary><button type=\"button\" aria-expanded=\"false\" data-state=\"closed\" data-slot=\"sources-trigger\" tabindex=\"-1\" aria-hidden=\"true\"><p>Used 2 sources</p><svg"));
+        assert!(html.contains("</button></summary><div data-state=\"closed\" data-slot=\"sources-content\"><a data-slot=\"source\" href=\"https://aicronus.com\" rel=\"noreferrer\" target=\"_blank\"><svg"));
+        assert!(html.contains("<span>Cronus UI</span></a><a data-slot=\"source\" href=\"https://aicronus.com/docs/design\""));
+        assert!(html.ends_with("<span>Design</span></a></div></details></div>"));
         assert!(!html.contains("default"));
         assert!(!html.contains("style="));
         assert!(!html.contains("<script"));
+        assert!(!html.contains(" disabled"));
+    }
+
+    #[test]
+    fn default_open_opens_the_details() {
+        let mut c = stub("sources", "x");
+        c.props.insert("defaultOpen".into(), "true".into());
+        c.items.push(link("Docs", "https://cronus.dev/docs"));
+        let html = render(&c);
+        assert!(html.starts_with("<div data-state=\"open\" data-slot=\"sources\"><details open><summary><button type=\"button\" aria-expanded=\"true\" data-state=\"open\""));
+        assert!(html.contains("<p>Used 1 sources</p>"));
+        assert!(html.contains("<div data-state=\"open\" data-slot=\"sources-content\">"));
     }
 
     #[test]
@@ -90,12 +110,22 @@ mod tests {
     }
 
     #[test]
-    fn closed_and_custom_label() {
+    fn custom_label() {
         let mut c = stub("sources", "x");
-        c.props.insert("defaultOpen".into(), "false".into());
         c.props.insert("usedSources".into(), "{count} refs".into());
         let html = render(&c);
         assert!(html.contains("<p>0 refs</p>"));
-        assert!(!html.contains("sources-content"));
+        assert!(html.contains("<div data-state=\"closed\" data-slot=\"sources-content\"></div>"));
+    }
+
+    #[test]
+    fn chrome_toggles_on_details() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"sources\"] > details > summary {"));
+        assert!(css.contains(
+            "[data-slot=\"sources-trigger\"] {\n  display: flex; align-items: center; gap: 0.5rem;"
+        ));
+        assert!(css.contains("[data-slot=\"sources\"] > details[open] > [data-slot=\"sources-content\"] {\n  animation: cui-sources-in 220ms var(--ease-out-quart);\n}"));
+        assert!(css.contains("[data-slot=\"source\"] {\n  display: flex; align-items: center; gap: 0.5rem; color: inherit; text-decoration: none;\n}"));
     }
 }

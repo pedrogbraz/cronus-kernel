@@ -7,6 +7,7 @@
 [data-slot="inline-citation"]:hover > [data-slot="inline-citation-text"] {
   background: var(--cronus-surface-overlay);
 }
+/* Trigger: Badge secondary + ms-1 cursor-pointer rounded-full. */
 [data-slot="inline-citation-card-trigger"] {
   display: inline-flex; align-items: center; gap: 0.25rem; margin-inline-start: 0.25rem;
   border-radius: 9999px; border: 1px solid var(--cronus-border); padding: 0.125rem 0.5rem;
@@ -14,18 +15,35 @@
   background: var(--cronus-surface-overlay); color: var(--cronus-fg-secondary);
   cursor: pointer; outline: none;
 }
+/* Body: HoverCardContent + relative w-80 p-0, shown on hover / focus. */
 [data-slot="inline-citation-card-body"] {
-  display: none; position: absolute; z-index: 50; inset-block-start: calc(100% + 4px); inset-inline-start: 0;
-  inline-size: 20rem; max-inline-size: 90vw; box-sizing: border-box; padding: 1rem;
+  display: none; position: absolute; z-index: 50; inset-block-start: calc(100% + 4px);
+  inset-inline-start: 0;
+  inline-size: 20rem; max-inline-size: 90vw; box-sizing: border-box; padding: 0;
   border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
   background: var(--cronus-surface-floating); color: var(--cronus-fg);
   box-shadow: var(--cronus-shadow-lg, 0 16px 40px rgba(0,0,0,.32));
+  font-size: 0.875rem; line-height: 1.25rem;
 }
 [data-slot="inline-citation"]:hover > [data-slot="inline-citation-card-body"],
 [data-slot="inline-citation"]:focus-within > [data-slot="inline-citation-card-body"] {
-  display: grid; gap: 0.5rem;
+  display: block;
+  animation: cronus-pop-in 180ms var(--ease-out-quart) both;
+}
+/* InlineCitationSource: space-y-1 with title, url and description lines. */
+[data-slot="inline-citation-source"] > * + * { margin-block-start: 0.25rem; }
+[data-slot="inline-citation-source"] > h4 {
+  margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 0.875rem; line-height: 1.25; font-weight: 500; letter-spacing: normal; color: var(--cronus-fg);
 }
 [data-slot="inline-citation-source"] > p {
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; word-break: break-all;
   font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-tertiary);
+}
+[data-slot="inline-citation-source"] > p + p {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; white-space: normal; word-break: normal;
+  font-size: 0.875rem; line-height: 1.625;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="inline-citation-card-body"] { animation: none; }
 }

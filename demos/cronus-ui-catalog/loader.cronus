@@ -1,0 +1,6 @@
+page "/loader" type:components family:loader {
+  title "Loader"
+  description:"Spinning glyph for in-flight generation."
+}
+
+component Generating layout:inline style:loader group:"Generating" note:"A spinning glyph. Localise the accessible name with labels.loading." { label "Loading" }

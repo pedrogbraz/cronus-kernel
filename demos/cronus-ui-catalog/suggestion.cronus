@@ -1,0 +1,10 @@
+page "/suggestion" type:components family:suggestion {
+  title "Suggestions"
+  description:"Horizontal row of prompt suggestion chips."
+}
+
+component PromptChips layout:stack style:suggestion group:"Prompt chips" note:"A horizontal row. onClick receives the suggestion string." {
+  item "Explain tokens"
+  item "Show a login"
+  item "Compose a SaaS"
+}

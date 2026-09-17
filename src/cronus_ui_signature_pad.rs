@@ -4,12 +4,14 @@
 //! (dashed rule + fixed "Sign here" caption) and the two ghost `icon-sm`
 //! Buttons (Undo / Clear), which React renders `disabled` while the pad has
 //! no ink. Drawing needs pointer JS, so the kernel stays in that idle state:
-//! the surface never receives ink and both buttons stay disabled. React's
+//! the surface never receives ink and both buttons stay disabled.
+//! `disabled:true` is React's `disabled`: `data-disabled="true"` on the root
+//! (60% opacity), `aria-disabled` on the canvas (not-allowed cursor). React's
 //! `<canvas>` is emitted as a `<div>` (zero-JS renderers emit no canvas); the
 //! chrome makes it an absolute 100%×100% block, so its box is the same.
 //! Not interact `signature()` (SURF box + canvas without the canvas slot).
 
-use crate::cronus_ui_kit::{attr_nonempty, esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, esc, flag, label_of};
 use crate::parser::ComponentNode;
 
 /// React SignaturePad's built-in caption (not a prop).
@@ -21,8 +23,19 @@ const ERASER_SVG: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\"
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = aria_label(comp).unwrap_or_else(|| label_of(comp));
+    let disabled = flag(comp, "disabled");
+    let root = if disabled {
+        " data-disabled=\"true\""
+    } else {
+        ""
+    };
+    let canvas = if disabled {
+        " aria-disabled=\"true\""
+    } else {
+        ""
+    };
     format!(
-        "<div data-slot=\"signature-pad\" data-empty=\"true\"><div role=\"img\" aria-label=\"{label}\" data-slot=\"signature-pad-canvas\"></div><div aria-hidden=\"true\" data-slot=\"signature-pad-hint\"><div></div><span>{HINT}</span></div><div>{undo}{clear}</div></div>",
+        "<div data-slot=\"signature-pad\" data-empty=\"true\"{root}><div role=\"img\" aria-label=\"{label}\"{canvas} data-slot=\"signature-pad-canvas\"></div><div aria-hidden=\"true\" data-slot=\"signature-pad-hint\"><div></div><span>{HINT}</span></div><div>{undo}{clear}</div></div>",
         undo = button("Undo last stroke", UNDO_SVG),
         clear = button("Clear signature", ERASER_SVG),
     )
@@ -81,6 +94,24 @@ mod tests {
             .contains("aria-label=\"Sign &quot;here&quot;\" data-slot=\"signature-pad-canvas\""));
         assert!(html.contains("data-slot=\"signature-pad-hint\"><div></div><span>Sign here</span>"));
         reject_interact(&html);
+    }
+
+    /// Docs "Disabled": the frozen pad keeps its idle DOM, dimmed and marked.
+    #[test]
+    fn disabled_marks_root_and_canvas() {
+        let mut c = stub("signature-pad", "Signature");
+        c.props.insert("disabled".into(), "true".into());
+        let html = render(&c);
+        assert!(html.starts_with("<div data-slot=\"signature-pad\" data-empty=\"true\" data-disabled=\"true\"><div role=\"img\" aria-label=\"Signature\" aria-disabled=\"true\" data-slot=\"signature-pad-canvas\"></div>"));
+        assert_eq!(html.matches(" disabled>").count(), 2);
+        reject_interact(&html);
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(
+            css.contains("[data-slot=\"signature-pad\"][data-disabled=\"true\"] { opacity: 0.6; }")
+        );
+        assert!(css.contains(
+            "[data-slot=\"signature-pad-canvas\"][aria-disabled=\"true\"] { cursor: not-allowed; }"
+        ));
     }
 
     #[test]
