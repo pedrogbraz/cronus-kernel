@@ -25,3 +25,19 @@
   from { offset-distance: 0%; }
   to { offset-distance: 100%; }
 }
+/* Docs wrapper (`card:true`): border bg-surface-raised p-8. */
+[data-slot="star-border"].card {
+  padding: 2rem;
+  border: 1px solid var(--cronus-border);
+  background: var(--cronus-surface-raised);
+  color: var(--cronus-fg);
+}
+/* `heading:<size>` content: font-display text-<size> text-fg. */
+[data-slot="star-border"] p[class^="h-"] {
+  margin: 0; font-family: var(--cronus-font-display, inherit); color: var(--cronus-fg);
+}
+[data-slot="star-border"] .h-lg { font-size: 1.125rem; line-height: 1.75rem; }
+[data-slot="star-border"] .h-xl { font-size: 1.25rem; line-height: 1.75rem; }
+[data-slot="star-border"] .h-2xl { font-size: 1.5rem; line-height: 2rem; }
+[data-slot="star-border"] .h-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+[data-slot="star-border"] .h-4xl { font-size: 2.25rem; line-height: 2.5rem; }

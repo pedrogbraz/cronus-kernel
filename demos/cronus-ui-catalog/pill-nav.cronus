@@ -1,0 +1,10 @@
+page "/pill-nav" type:components family:pill-nav {
+  title "PillNav"
+  description:"A compact nav row whose active item is marked by a sliding pill."
+}
+
+component SlidingPill layout:inline style:pill-nav aria-label:"Product sections" group:"Sliding pill" note:"A compact nav row whose active item is marked by a sliding pill. Arrow keys move selection." {
+  item "Overview"
+  item "Pricing"
+  item "Docs"
+}

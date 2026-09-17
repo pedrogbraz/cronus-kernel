@@ -7,3 +7,57 @@
   width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
 }
+[data-slot="scramble-text"] > [aria-hidden] > span {
+  --cui-jo: 0; --cui-jt: 0;
+  --cui-j: calc(var(--cui-jt) * 10 + var(--cui-jo));
+}
+[data-slot="scramble-text"] > [aria-hidden] > span > span {
+  animation: cui-scramble-lock 1ms steps(1, end) both;
+  animation-delay: calc(160ms * (var(--cui-j) + 1));
+}
+[data-slot="scramble-text"] > [aria-hidden] > span::before {
+  content: none;
+  animation: cui-scramble 80ms steps(1, end) infinite, cui-scramble-off 1ms steps(1, end) forwards;
+  animation-delay: 0s, calc(160ms * (var(--cui-j) + 1));
+}
+@keyframes cui-scramble-lock {
+  from { font-size: 0; }
+  to { font-size: 1em; }
+}
+@keyframes cui-scramble {
+  0% { content: attr(data-g0); }
+  50% { content: attr(data-g1); }
+}
+@keyframes cui-scramble-off {
+  from, to { content: none; }
+}
+[data-slot="scramble-text"] > [aria-hidden] > span:nth-child(10n+2) { --cui-jo: 1; }
+[data-slot="scramble-text"] > [aria-hidden] > span:nth-child(10n+3) { --cui-jo: 2; }
+[data-slot="scramble-text"] > [aria-hidden] > span:nth-child(10n+4) { --cui-jo: 3; }
+[data-slot="scramble-text"] > [aria-hidden] > span:nth-child(10n+5) { --cui-jo: 4; }
+[data-slot="scramble-text"] > [aria-hidden] > span:nth-child(10n+6) { --cui-jo: 5; }
+[data-slot="scramble-text"] > [aria-hidden] > span:nth-child(10n+7) { --cui-jo: 6; }
+[data-slot="scramble-text"] > [aria-hidden] > span:nth-child(10n+8) { --cui-jo: 7; }
+[data-slot="scramble-text"] > [aria-hidden] > span:nth-child(10n+9) { --cui-jo: 8; }
+[data-slot="scramble-text"] > [aria-hidden] > span:nth-child(10n+10) { --cui-jo: 9; }
+[data-slot="scramble-text"] > [aria-hidden] > span:nth-child(n+11) { --cui-jt: 1; }
+[data-slot="scramble-text"] > [aria-hidden] > span:nth-child(n+21) { --cui-jt: 2; }
+[data-slot="scramble-text"] > [aria-hidden] > span:nth-child(n+31) { --cui-jt: 3; }
+[data-slot="scramble-text"] > [aria-hidden] > span:nth-child(n+41) { --cui-jt: 4; }
+[data-slot="scramble-text"] > [aria-hidden] > span:nth-child(n+51) { --cui-jt: 5; }
+[data-slot="scramble-text"] > [aria-hidden] > span:nth-child(n+61) { --cui-jt: 6; }
+[data-slot="scramble-text"] > [aria-hidden] > span:nth-child(n+71) { --cui-jt: 7; }
+[data-slot="scramble-text"] > [aria-hidden] > span:nth-child(n+81) { --cui-jt: 8; }
+[data-slot="scramble-text"] > [aria-hidden] > span:nth-child(n+91) { --cui-jt: 9; }
+/* Reduced motion: React shows the resolved phrase immediately. */
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="scramble-text"] > [aria-hidden] > span > span { animation: none; font-size: inherit; }
+  [data-slot="scramble-text"] > [aria-hidden] > span::before { animation: none; content: none; }
+}
+/* `heading:<size>`: the docs' font-display text-<size> text-fg on the root. */
+[data-slot="scramble-text"][class*="h-"] { font-family: var(--cronus-font-display, inherit); color: var(--cronus-fg); }
+[data-slot="scramble-text"].h-lg { font-size: 1.125rem; line-height: 1.75rem; }
+[data-slot="scramble-text"].h-xl { font-size: 1.25rem; line-height: 1.75rem; }
+[data-slot="scramble-text"].h-2xl { font-size: 1.5rem; line-height: 2rem; }
+[data-slot="scramble-text"].h-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+[data-slot="scramble-text"].h-4xl { font-size: 2.25rem; line-height: 2.5rem; }

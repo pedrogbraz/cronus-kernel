@@ -2,15 +2,36 @@
   display: flex; flex-direction: column; gap: 0.5rem;
   list-style: none; margin: 0; padding: 0;
 }
+/* React: motion.li opacity 0 → 1, y 8px → 0, 0.35s [0.22, 1, 0.36, 1], delay index × 0.08s. */
 [data-slot="animated-list-item"] {
+  --cui-i: 0;
   animation: cui-animated-list 0.35s var(--cronus-ease) both;
+  animation-delay: calc(var(--cui-i) * 0.08s);
 }
-[data-slot="animated-list-item"]:nth-child(1) { animation-delay: 0s; }
-[data-slot="animated-list-item"]:nth-child(2) { animation-delay: 0.08s; }
-[data-slot="animated-list-item"]:nth-child(3) { animation-delay: 0.16s; }
-[data-slot="animated-list-item"]:nth-child(4) { animation-delay: 0.24s; }
-[data-slot="animated-list-item"]:nth-child(5) { animation-delay: 0.32s; }
+[data-slot="animated-list-item"]:nth-child(n+2) { --cui-i: 1; }
+[data-slot="animated-list-item"]:nth-child(n+3) { --cui-i: 2; }
+[data-slot="animated-list-item"]:nth-child(n+4) { --cui-i: 3; }
+[data-slot="animated-list-item"]:nth-child(n+5) { --cui-i: 4; }
+[data-slot="animated-list-item"]:nth-child(n+6) { --cui-i: 5; }
+[data-slot="animated-list-item"]:nth-child(n+7) { --cui-i: 6; }
+[data-slot="animated-list-item"]:nth-child(n+8) { --cui-i: 7; }
+[data-slot="animated-list-item"]:nth-child(n+9) { --cui-i: 8; }
+[data-slot="animated-list-item"]:nth-child(n+10) { --cui-i: 9; }
+[data-slot="animated-list-item"]:nth-child(n+11) { --cui-i: 10; }
+[data-slot="animated-list-item"]:nth-child(n+12) { --cui-i: 11; }
 @keyframes cui-animated-list {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+/* Docs example (`card:true`): w-full max-w-sm list of rounded-xl border bg-surface-raised
+   px-4 py-3 text-sm text-fg bodies. */
+[data-slot="animated-list"].card {
+  width: 100%; max-width: 24rem;
+}
+[data-slot="animated-list"].card > [data-slot="animated-list-item"] > div {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--cronus-border);
+  border-radius: var(--cronus-radius-xl);
+  background: var(--cronus-surface-raised);
+  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg);
 }

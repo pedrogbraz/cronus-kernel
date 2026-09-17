@@ -1,16 +1,21 @@
-//! Dedicated ShinyText renderer. DOM matches React:
-//! `<span data-slot="shiny-text">` (display: contents) wrapping the painted
-//! `<span>` that carries the sheen: `color: transparent` + `background-clip: text`
-//! over a fg-tertiary → fg → fg-tertiary gradient at 200% width. React's inline
-//! `<style>` keyframes live in COMPONENT_CHROME instead. Zero JS.
-//! Not the catalog `fx()` title SURF box.
+//! Dedicated ShinyText renderer. DOM mirrors React without the injected
+//! `<style>`: a `display: contents` `<span data-slot="shiny-text">` wrapping
+//! the painted `<span>` (gradient `background-clip: text`, 3s sweep). The
+//! sheen lives in COMPONENT_CHROME. Zero JS, no inline style.
+//!
+//! `heading:<size>` puts the docs' `font-display text-<size>` on the painted
+//! span (class `h-<size>`).
 
-use crate::cronus_ui_kit::label_of;
+use crate::cronus_ui_dot_pattern::HEADINGS;
+use crate::cronus_ui_kit::{choice, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
+    let class = choice(comp, "heading", HEADINGS)
+        .map(|h| format!(" class=\"h-{h}\""))
+        .unwrap_or_default();
     format!(
-        "<span data-slot=\"shiny-text\"><span>{}</span></span>",
+        "<span data-slot=\"shiny-text\"><span{class}>{}</span></span>",
         label_of(comp)
     )
 }
@@ -34,7 +39,7 @@ mod tests {
         assert!(!html.contains("<script"));
         assert!(!html.contains("onclick="));
         assert!(!html.contains("zinc-"));
-        assert!(!html.contains("fx("));
+        assert_eq!(html.matches("data-slot=").count(), 1);
     }
 
     #[test]
@@ -55,6 +60,19 @@ mod tests {
             "<span data-slot=\"shiny-text\"><span>A &lt;B&gt; &amp; &quot;C&quot;</span></span>"
         );
         reject_fx(&html);
+    }
+
+    /// Docs example: `<ShinyText className="font-display text-4xl">Ship the surface</ShinyText>`.
+    #[test]
+    fn heading_class_goes_on_the_painted_span() {
+        let mut c = stub("shiny-text", "Ship the surface");
+        c.props.insert("heading".into(), "4xl".into());
+        assert_eq!(
+            render(&c),
+            "<span data-slot=\"shiny-text\"><span class=\"h-4xl\">Ship the surface</span></span>"
+        );
+        c.props.insert("heading".into(), "giant".into());
+        assert!(!render(&c).contains("class="));
     }
 
     #[test]
@@ -90,13 +108,18 @@ mod tests {
         let start = css.find("[data-slot=\"shiny-text\"] > span {").unwrap();
         let end = start + css[start..].find('}').unwrap();
         let painted = &css[start..end];
-        assert!(painted.contains("color: transparent;"));
-        assert!(painted.contains("background-clip: text;"));
+        assert!(painted.contains("display: inline; color: transparent;"));
         assert!(painted.contains("background-size: 200% 100%;"));
-        assert!(painted.contains("var(--cronus-fg-tertiary"));
-        assert!(painted.contains("var(--cronus-fg) 50%"));
+        assert!(painted.contains("background-clip: text;"));
         assert!(painted.contains("animation: cui-shiny-text 3s linear infinite;"));
-        assert!(css.contains("@keyframes cui-shiny-text"));
+        assert!(painted.contains("var(--cronus-fg) 50%"));
+        assert!(css.contains("@keyframes cui-shiny-text {\n  0% { background-position: 100% 0; }\n  100% { background-position: -100% 0; }\n}"));
+        assert!(css.contains(
+            "[data-slot=\"shiny-text\"] > .h-4xl { font-size: 2.25rem; line-height: 2.5rem; }"
+        ));
+        assert!(css.contains("[data-slot=\"shiny-text\"] > span[class*=\"h-\"] { font-family: var(--cronus-font-display, inherit); }"));
+        assert!(css.contains("prefers-reduced-motion"));
+        assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
     }
 }

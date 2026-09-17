@@ -1,0 +1,6 @@
+page "/highlighter" type:components family:highlighter {
+  title "Highlighter"
+  description:"A marker stroke that draws in behind a phrase."
+}
+
+component Marker layout:inline style:highlighter prefix:"Build the " suffix:" first." heading:3xl group:"Marker" note:"A marker stroke draws in behind a phrase. The words stay in the accessibility tree; the mark is decorative." { label "product surface" }

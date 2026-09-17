@@ -1,18 +1,31 @@
 //! Dedicated StarBorder renderer. DOM mirrors React without the injected
-//! `<style>`: `<div data-slot="star-border">` + aria-hidden clip `<div>`
-//! holding two sparkle `<span>`s + a relative content `<div>` wrapping the
-//! label. Sparkles ride `offset-path: rect(… round 12px)` with
-//! `@keyframes cui-star-border` (second one delayed -3s, as React's -50%
-//! phase) in COMPONENT_CHROME, with `rounded-2xl` and fixture `w-72`. Zero
-//! JS, no inline style. Not the catalog `fx()` title SURF box.
+//! `<style>`: `<div data-slot="star-border">` + an aria-hidden overflow
+//! layer holding the two sparkle `<span>`s (phase 0 and 50, i.e. a `-3s`
+//! delay on the second) + a relative content `<div>` wrapping the label.
+//! Only the root has a `data-slot`. `offset-path` lap + `@keyframes
+//! cui-star-border` live in COMPONENT_CHROME. Zero JS, no inline style.
+//!
+//! Docs chrome from the `.cronus`: `card:true` (class `card`, the docs
+//! `border bg-surface-raised p-8` wrapper) and `heading:xl`
+//! (`<p class="h-xl">` = `font-display text-xl text-fg`).
 
-use crate::cronus_ui_kit::label_of;
+use crate::cronus_ui_dot_pattern::HEADINGS;
+use crate::cronus_ui_kit::{choice, flag, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
+    let class = if flag(comp, "card") {
+        " class=\"card\""
+    } else {
+        ""
+    };
+    let text = label_of(comp);
+    let content = match choice(comp, "heading", HEADINGS) {
+        Some(h) => format!("<p class=\"h-{h}\">{text}</p>"),
+        None => text,
+    };
     format!(
-        "<div data-slot=\"star-border\"><div aria-hidden=\"true\"><span></span><span></span></div><div>{}</div></div>",
-        label_of(comp)
+        "<div data-slot=\"star-border\"{class}><div aria-hidden=\"true\"><span></span><span></span></div><div>{content}</div></div>"
     )
 }
 
@@ -53,6 +66,19 @@ mod tests {
         reject_fx(&html);
     }
 
+    /// Docs example: `<StarBorder className="rounded-2xl border … p-8">
+    /// <p className="font-display text-xl text-fg">Featured</p>`.
+    #[test]
+    fn card_and_heading_render_the_docs_wrapper() {
+        let mut c = stub("star-border", "Featured");
+        c.props.insert("card".into(), "true".into());
+        c.props.insert("heading".into(), "xl".into());
+        assert_eq!(
+            render(&c),
+            "<div data-slot=\"star-border\" class=\"card\"><div aria-hidden=\"true\"><span></span><span></span></div><div><p class=\"h-xl\">Featured</p></div></div>"
+        );
+    }
+
     #[test]
     fn skips_fx_surf_title_box() {
         let html = render(&stub("star-border", "Twinkle"));
@@ -80,9 +106,11 @@ mod tests {
         assert!(css.contains("[data-slot=\"star-border\"] > [aria-hidden=\"true\"] > span:nth-child(2) { animation-delay: -3s; }"));
         assert!(!css.contains("[data-slot=\"star-border\"]::before"));
         assert!(css.contains("@keyframes cui-star-border"));
-        assert!(css.contains("animation: cui-star-border"));
-        assert!(css.contains("offset-path"));
+        assert!(css.contains("animation: cui-star-border 6s linear infinite"));
+        assert!(css.contains("offset-path: rect(0 auto auto 0 round 12px)"));
         assert!(css.contains("var(--cronus-primary)"));
+        assert!(css.contains("[data-slot=\"star-border\"].card {\n  padding: 2rem;"));
+        assert!(css.contains("[data-slot=\"star-border\"] .h-xl {"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
     }

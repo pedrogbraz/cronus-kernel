@@ -1,0 +1,6 @@
+page "/flickering-grid" type:components family:flickering-grid {
+  title "FlickeringGrid"
+  description:"A grid of cells that independently flicker."
+}
+
+component Signal layout:stack style:flickering-grid card:true heading:2xl group:"Signal grid" note:"Cells flicker on independent, index-derived timings so SSR and the client match. Reduced-motion visitors get a still, faint grid." { label "Signal" }

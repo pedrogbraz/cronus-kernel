@@ -7,19 +7,33 @@
 //! is Chromium-only): decimal-digit `:nth-child(10n+k)` / `:nth-child(n+k1)`
 //! rules set the glyph index `i` and `:nth-last-child` rules set the glyphs
 //! after it, so `n` is their sum and the transform is
-//! `rotate(calc(360deg * i / n)) translateY(-3rem)` — 36 rules, any browser.
+//! `rotate(calc(360deg * i / n)) translateY(-radius)` — 36 rules, any browser.
 //! The tens rules stop at 9, so the orbit supports at most `MAX_GLYPHS` (100)
 //! glyphs; longer phrases are truncated in the orbit only (the sr-only copy
 //! keeps the full text). `data-angle` stays on each glyph as an informational
 //! mirror of React's per-glyph angle (the chrome does not read it).
 //! Glyphs are Unicode scalar values (React segments graphemes; no segmenter
 //! dep here). `@keyframes cui-spinning-text` lives in COMPONENT_CHROME. Zero JS.
+//!
+//! React's `radius` (default 48px) is the `radius:` prop, snapped to the
+//! sizes the stylesheet knows (class `r-<px>` sets `--cui-spin-radius`, the
+//! box is `2 × radius`); `reverse:true` spins counter-clockwise (class
+//! `reverse`).
 
-use crate::cronus_ui_kit::{esc, fmt_coord, label_of};
+use crate::cronus_ui_kit::{attr_num, esc, flag, fmt_coord, label_of};
 use crate::parser::ComponentNode;
 
-/// Largest orbit the chrome's digit rules can place (indices 0..=99).
 pub const MAX_GLYPHS: usize = 100;
+/// Radii (px) the stylesheet has an `.r-N` rule for; 48 is React's default.
+pub const RADII: &[u32] = &[24, 32, 40, 48, 56, 64, 72, 80, 96, 112, 128];
+
+fn radius(comp: &ComponentNode) -> u32 {
+    let wanted = attr_num::<u32>(comp, "radius").unwrap_or(48);
+    *RADII
+        .iter()
+        .min_by_key(|r| r.abs_diff(wanted))
+        .unwrap_or(&48)
+}
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = label_of(comp);
@@ -39,12 +53,24 @@ pub fn render(comp: &ComponentNode) -> String {
             format!("<span data-angle=\"{angle}deg\">{glyph}</span>")
         })
         .collect();
+    let mut classes = Vec::new();
+    let r = radius(comp);
+    if r != 48 {
+        classes.push(format!("r-{r}"));
+    }
+    if flag(comp, "reverse") {
+        classes.push("reverse".to_string());
+    }
+    let class = if classes.is_empty() {
+        String::new()
+    } else {
+        format!(" class=\"{}\"", classes.join(" "))
+    };
     format!(
-        "<div data-slot=\"spinning-text\"><span>{label}</span><div aria-hidden=\"true\">{orbit}</div></div>"
+        "<div data-slot=\"spinning-text\"{class}><span>{label}</span><div aria-hidden=\"true\">{orbit}</div></div>"
     )
 }
 
-/// Unescaped label text (glyphs are escaped one at a time).
 fn raw_label(comp: &ComponentNode) -> String {
     for kind in ["label", "title", "text", "value"] {
         if let Some(t) = crate::cronus_ui_kit::item(comp, kind) {
@@ -120,6 +146,23 @@ mod tests {
         reject_fx(&html);
     }
 
+    /// Docs example: `<SpinningText radius={56}>cronus ui · product · </SpinningText>`.
+    #[test]
+    fn radius_and_reverse_are_classes_on_the_root() {
+        let mut c = stub("spinning-text", "cronus ui \u{b7} product \u{b7} ");
+        c.props.insert("radius".into(), "56".into());
+        let html = render(&c);
+        assert!(html.starts_with("<div data-slot=\"spinning-text\" class=\"r-56\"><span>cronus ui \u{b7} product \u{b7} </span>"));
+        assert_eq!(html.matches("<span data-angle=").count(), 22);
+        c.props.insert("radius".into(), "54".into());
+        c.props.insert("reverse".into(), "true".into());
+        assert!(render(&c).contains(" class=\"r-56 reverse\">"));
+        c.props.insert("radius".into(), "48".into());
+        assert!(render(&c).contains(" class=\"reverse\">"));
+        c.props.insert("radius".into(), "1000".into());
+        assert!(render(&c).contains(" class=\"r-128 reverse\">"));
+    }
+
     #[test]
     fn skips_fx_surf_title_box() {
         let c = stub("spinning-text", "Cronus");
@@ -160,8 +203,22 @@ mod tests {
         assert!(css.contains("letter-spacing: 0.1em;"));
         assert!(!css.contains("[data-slot=\"spinning-text-orbit\"]"));
         assert!(css.contains("@keyframes cui-spinning-text"));
-        assert!(css.contains("animation: cui-spinning-text"));
+        assert!(css.contains("animation: cui-spinning-text 16s linear infinite;"));
         assert!(css.contains("rotate(360deg)"));
+        // React: width/height = 2 × radius (48px default), reverse = animation-direction.
+        assert!(css.contains("--cui-spin-radius: 48px;"));
+        assert!(css.contains(
+            "width: calc(var(--cui-spin-radius) * 2);\n  height: calc(var(--cui-spin-radius) * 2);"
+        ));
+        for r in RADII {
+            assert!(
+                css.contains(&format!(
+                    "[data-slot=\"spinning-text\"].r-{r} {{ --cui-spin-radius: {r}px; }}"
+                )),
+                "{r}"
+            );
+        }
+        assert!(css.contains("[data-slot=\"spinning-text\"].reverse > [aria-hidden=\"true\"] { animation-direction: reverse; }"));
         assert!(css.contains("prefers-reduced-motion"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
@@ -177,7 +234,7 @@ mod tests {
         assert!(!css.contains("type(<angle>)"));
         assert!(!css.contains("attr(data-angle"));
         assert!(css.contains(
-            "transform: rotate(calc(360deg * (10 * var(--cui-it) + var(--cui-io)) / (10 * (var(--cui-it) + var(--cui-jt)) + var(--cui-io) + var(--cui-jo) + 1))) translateY(-3rem);"
+            "transform: rotate(calc(360deg * (10 * var(--cui-it) + var(--cui-io)) / (10 * (var(--cui-it) + var(--cui-jt)) + var(--cui-io) + var(--cui-jo) + 1))) translateY(calc(var(--cui-spin-radius) * -1));"
         ));
         for (pseudo, o, t) in [("nth-child", "io", "it"), ("nth-last-child", "jo", "jt")] {
             for k in 1..10 {

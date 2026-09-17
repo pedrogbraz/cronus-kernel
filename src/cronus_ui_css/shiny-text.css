@@ -21,3 +21,10 @@
 @media (prefers-reduced-motion: reduce) {
   [data-slot="shiny-text"] > span { animation: none; }
 }
+/* `heading:<size>`: the docs' font-display text-<size> on the painted span. */
+[data-slot="shiny-text"] > span[class*="h-"] { font-family: var(--cronus-font-display, inherit); }
+[data-slot="shiny-text"] > .h-lg { font-size: 1.125rem; line-height: 1.75rem; }
+[data-slot="shiny-text"] > .h-xl { font-size: 1.25rem; line-height: 1.75rem; }
+[data-slot="shiny-text"] > .h-2xl { font-size: 1.5rem; line-height: 2rem; }
+[data-slot="shiny-text"] > .h-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+[data-slot="shiny-text"] > .h-4xl { font-size: 2.25rem; line-height: 2.5rem; }

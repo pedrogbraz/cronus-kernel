@@ -30,6 +30,35 @@
   mask-image: linear-gradient(to top, black 10%, transparent 45%);
   -webkit-mask-image: linear-gradient(to top, black 10%, transparent 45%);
 }
+/* React `side="top"` (CVA): the band hugs the top edge and the masks flip. */
+[data-slot="progressive-blur"].side-top { top: 0; bottom: auto; }
+[data-slot="progressive-blur"].side-top > div:nth-child(1) {
+  mask-image: linear-gradient(to bottom, black, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, black, transparent);
+}
+[data-slot="progressive-blur"].side-top > div:nth-child(2) {
+  mask-image: linear-gradient(to bottom, black 30%, transparent 70%);
+  -webkit-mask-image: linear-gradient(to bottom, black 30%, transparent 70%);
+}
+[data-slot="progressive-blur"].side-top > div:nth-child(3) {
+  mask-image: linear-gradient(to bottom, black 10%, transparent 45%);
+  -webkit-mask-image: linear-gradient(to bottom, black 10%, transparent 45%);
+}
 @media (prefers-reduced-motion: reduce) {
   [data-slot="progressive-blur"] { display: none; }
 }
+/* Docs host (`card:true`): h-48 overflow-hidden rounded-2xl border bg-surface-raised,
+   with a `h-full overflow-y-auto p-4 pb-16` scroll region of text-sm secondary paragraphs. */
+[data-progressive-blur-host].card {
+  height: 12rem; overflow: hidden;
+  border: 1px solid var(--cronus-border);
+  border-radius: calc(var(--cronus-radius, 14px) + 8px);
+  background: var(--cronus-surface-raised);
+}
+[data-progressive-blur-host] > div:not([data-slot]) {
+  height: 100%; overflow-y: auto; padding: 1rem 1rem 4rem;
+}
+[data-progressive-blur-host] > div:not([data-slot]) > p {
+  margin: 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
+}
+[data-progressive-blur-host] > div:not([data-slot]) > p + p { margin-top: 1rem; }

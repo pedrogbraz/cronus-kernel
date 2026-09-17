@@ -11,21 +11,20 @@
   padding: 0.375rem 0.625rem;
   background: transparent; color: var(--cronus-fg-secondary);
   font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; cursor: pointer;
-}
-[data-slot="expandable-tabs-item"][aria-selected="true"] {
-  color: var(--cronus-fg);
-  background: var(--cronus-surface-floating);
-  box-shadow: var(--cronus-shadow-xs, none);
+  transition: color 150ms var(--cronus-ease), background-color 150ms var(--cronus-ease);
 }
 [data-slot="expandable-tabs-item"] > span[aria-hidden="true"] {
   display: grid; width: 1rem; height: 1rem; place-items: center;
 }
 [data-slot="expandable-tabs-item"] > span[aria-hidden="true"] > svg { width: 1rem; height: 1rem; }
-[data-slot="expandable-tabs-item"] > span:last-child { overflow: hidden; white-space: nowrap; }
-[data-slot="expandable-tabs-item"][aria-selected="false"] > span:last-child {
-  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
+/* React mounts the label as motion.span width 0 → auto (+ opacity) over 220ms
+   [0.22, 1, 0.36, 1]; a 0fr → 1fr grid cell gives the same reveal without JS. The
+   collapsed cell also swallows the flex gap so an inactive tab is icon-only. */
+[data-slot="expandable-tabs-item"] > span:last-child {
+  display: grid; grid-template-columns: 0fr; opacity: 0; margin-inline-start: -0.5rem;
+  transition: grid-template-columns 220ms var(--cronus-ease), opacity 220ms var(--cronus-ease), margin-inline-start 220ms var(--cronus-ease);
 }
+[data-slot="expandable-tabs-item"] > span:last-child > span { min-width: 0; overflow: hidden; white-space: nowrap; }
 /* Zero JS: each item's label holds a radio; the checked one expands. React's button is decorative. */
 [data-slot="expandable-tabs"] > label {
   position: relative; display: inline-flex; cursor: pointer;
@@ -39,16 +38,11 @@
   color: var(--cronus-fg); background: var(--cronus-surface-floating);
   box-shadow: var(--cronus-shadow-xs, none);
 }
-[data-slot="expandable-tabs"] > label > input:not(:checked) + [data-slot="expandable-tabs-item"] {
-  color: var(--cronus-fg-secondary); background: transparent; box-shadow: none;
-}
-[data-slot="expandable-tabs"] > label > input:not(:checked) + [data-slot="expandable-tabs-item"] > span:last-child {
-  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
-}
 [data-slot="expandable-tabs"] > label > input:checked + [data-slot="expandable-tabs-item"] > span:last-child {
-  position: static; width: auto; height: auto; margin: 0; clip: auto;
+  grid-template-columns: 1fr; opacity: 1; margin-inline-start: 0;
 }
+[data-slot="expandable-tabs"] > label > input:disabled + [data-slot="expandable-tabs-item"] { opacity: 0.5; }
+[data-slot="expandable-tabs"] > label:has(> input:disabled) { pointer-events: none; }
 [data-slot="expandable-tabs"] > label > input:focus-visible + [data-slot="expandable-tabs-item"] {
   box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
 }

@@ -10,3 +10,19 @@
 [data-slot="noise"] > div {
   position: relative;
 }
+/* Docs wrapper (`card:true`): grid min-h-56 place-items-center rounded-2xl border bg-surface-raised. */
+[data-slot="noise"].card {
+  display: grid; place-items: center; height: auto; min-height: 14rem;
+  border: 1px solid var(--cronus-border);
+  border-radius: calc(var(--cronus-radius, 14px) + 8px);
+  background: var(--cronus-surface-raised);
+}
+/* `heading:<size>` content: font-display text-<size> text-fg. */
+[data-slot="noise"] p[class^="h-"] {
+  margin: 0; font-family: var(--cronus-font-display, inherit); color: var(--cronus-fg);
+}
+[data-slot="noise"] .h-lg { font-size: 1.125rem; line-height: 1.75rem; }
+[data-slot="noise"] .h-xl { font-size: 1.25rem; line-height: 1.75rem; }
+[data-slot="noise"] .h-2xl { font-size: 1.5rem; line-height: 2rem; }
+[data-slot="noise"] .h-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+[data-slot="noise"] .h-4xl { font-size: 2.25rem; line-height: 2.5rem; }

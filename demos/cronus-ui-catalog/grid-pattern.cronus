@@ -1,0 +1,6 @@
+page "/grid-pattern" type:components family:grid-pattern {
+  title "GridPattern"
+  description:"A faint SVG grid behind content."
+}
+
+component Blueprint layout:stack style:grid-pattern card:true heading:2xl group:"Grid field" note:"A faint SVG grid behind content. Colour inherits currentColor." { label "Blueprint" }

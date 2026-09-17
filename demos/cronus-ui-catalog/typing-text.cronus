@@ -1,0 +1,10 @@
+page "/typing-text" type:components family:typing-text {
+  title "TypingText"
+  description:"A typewriter that types one or more phrases with a blinking caret."
+}
+
+component Typewriter layout:inline style:typing-text heading:3xl group:"Typewriter" note:"Types, pauses, deletes, and moves to the next phrase. Reduced-motion visitors see the first phrase in full." {
+  text "Design systems."
+  text "Product surfaces."
+  text "Copy you can upgrade."
+}

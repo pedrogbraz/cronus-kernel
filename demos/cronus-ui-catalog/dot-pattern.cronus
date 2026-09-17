@@ -1,0 +1,6 @@
+page "/dot-pattern" type:components family:dot-pattern {
+  title "DotPattern"
+  description:"A faint SVG dotted field behind content."
+}
+
+component QuietTexture layout:stack style:dot-pattern card:true heading:2xl group:"Dotted field" note:"A faint SVG dotted field. Colour inherits currentColor from the wrapper." { label "Quiet texture" }

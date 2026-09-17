@@ -3,14 +3,30 @@
 //! div wrapping the label. Only the root has a `data-slot`, like React (Wave 1t
 //! geometry parity). CSS radial-gradient dots (16px cell, r 1px) live in
 //! COMPONENT_CHROME. Zero JS, no inline style. Not the catalog `fx()` title SURF box.
+//!
+//! Docs chrome from the `.cronus`: `card:true` is the docs wrapper
+//! (`grid min-h-56 place-items-center rounded-2xl border bg-surface-raised`,
+//! class `card` on the root); `heading:2xl` wraps the label in
+//! `<p class="h-2xl">` (`font-display text-2xl text-fg`).
 
-use crate::cronus_ui_kit::label_of;
+use crate::cronus_ui_kit::{choice, flag, label_of};
 use crate::parser::ComponentNode;
 
+pub const HEADINGS: &[&str] = &["lg", "xl", "2xl", "3xl", "4xl"];
+
 pub fn render(comp: &ComponentNode) -> String {
+    let class = if flag(comp, "card") {
+        " class=\"card\""
+    } else {
+        ""
+    };
+    let text = label_of(comp);
+    let content = match choice(comp, "heading", HEADINGS) {
+        Some(h) => format!("<p class=\"h-{h}\">{text}</p>"),
+        None => text,
+    };
     format!(
-        "<div data-slot=\"dot-pattern\"><div aria-hidden=\"true\"></div><div>{}</div></div>",
-        label_of(comp)
+        "<div data-slot=\"dot-pattern\"{class}><div aria-hidden=\"true\"></div><div>{content}</div></div>"
     )
 }
 
@@ -62,6 +78,22 @@ mod tests {
         reject_fx(&html);
     }
 
+    /// Docs example: `<DotPattern className="grid min-h-56 … bg-surface-raised">
+    /// <p className="font-display text-2xl text-fg">Quiet texture</p>`.
+    #[test]
+    fn card_and_heading_render_the_docs_wrapper() {
+        let mut c = stub("dot-pattern", "Quiet texture");
+        c.props.insert("card".into(), "true".into());
+        c.props.insert("heading".into(), "2xl".into());
+        let html = render(&c);
+        assert_eq!(
+            html,
+            "<div data-slot=\"dot-pattern\" class=\"card\"><div aria-hidden=\"true\"></div><div><p class=\"h-2xl\">Quiet texture</p></div></div>"
+        );
+        c.props.insert("heading".into(), "huge".into());
+        assert!(!render(&c).contains("<p"));
+    }
+
     #[test]
     fn skips_fx_surf_title_box() {
         let c = stub("dot-pattern", "Dots");
@@ -103,6 +135,10 @@ mod tests {
         assert!(css.contains("background-size: 16px 16px;"));
         assert!(!css.contains("repeating-radial-gradient(circle at 8px 8px"));
         assert!(css.contains("var(--cronus-fg)"));
+        assert!(css.contains("[data-slot=\"dot-pattern\"].card {\n  display: grid; place-items: center; min-height: 14rem;"));
+        assert!(css.contains(
+            "[data-slot=\"dot-pattern\"] .h-2xl { font-size: 1.5rem; line-height: 2rem; }"
+        ));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
     }

@@ -5,14 +5,28 @@
 //! layers). Fixture `w-72 min-h-32` is mirrored in COMPONENT_CHROME.
 //! `@keyframes cui-light-rays` lives in COMPONENT_CHROME. Zero JS, no
 //! inline style. Not the catalog `fx()` title SURF box.
+//!
+//! Docs chrome from the `.cronus`: `card:true` (class `card`, the docs
+//! `grid min-h-56 place-items-center rounded-2xl border bg-surface-raised`
+//! wrapper) and `heading:2xl` (`<p class="h-2xl">` = `font-display text-2xl text-fg`).
 
-use crate::cronus_ui_kit::label_of;
+use crate::cronus_ui_dot_pattern::HEADINGS;
+use crate::cronus_ui_kit::{choice, flag, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
+    let class = if flag(comp, "card") {
+        " class=\"card\""
+    } else {
+        ""
+    };
+    let text = label_of(comp);
+    let content = match choice(comp, "heading", HEADINGS) {
+        Some(h) => format!("<p class=\"h-{h}\">{text}</p>"),
+        None => text,
+    };
     format!(
-        "<div data-slot=\"light-rays\"><div aria-hidden=\"true\"><div></div></div><div>{}</div></div>",
-        label_of(comp)
+        "<div data-slot=\"light-rays\"{class}><div aria-hidden=\"true\"><div></div></div><div>{content}</div></div>"
     )
 }
 
@@ -66,6 +80,18 @@ mod tests {
         reject_fx(&html);
     }
 
+    /// Docs example: card wrapper + `<p className="font-display text-2xl text-fg">Dawn</p>`.
+    #[test]
+    fn card_and_heading_render_the_docs_wrapper() {
+        let mut c = stub("light-rays", "Dawn");
+        c.props.insert("card".into(), "true".into());
+        c.props.insert("heading".into(), "2xl".into());
+        assert_eq!(
+            render(&c),
+            "<div data-slot=\"light-rays\" class=\"card\"><div aria-hidden=\"true\"><div></div></div><div><p class=\"h-2xl\">Dawn</p></div></div>"
+        );
+    }
+
     #[test]
     fn skips_fx_surf_title_box() {
         let c = stub("light-rays", "Rays");
@@ -107,10 +133,12 @@ mod tests {
         assert!(!css.contains("[data-slot=\"light-rays-field\"]"));
         assert!(css.contains("repeating-conic-gradient"));
         assert!(css.contains("@keyframes cui-light-rays"));
-        assert!(css.contains("animation: cui-light-rays"));
+        assert!(css.contains("animation: cui-light-rays 18s linear infinite"));
         assert!(css.contains("rotate(360deg)"));
         assert!(css.contains("var(--cronus-primary)"));
         assert!(css.contains("prefers-reduced-motion"));
+        assert!(css.contains("[data-slot=\"light-rays\"].card {\n  display: grid; place-items: center; min-height: 14rem;"));
+        assert!(css.contains("[data-slot=\"light-rays\"] .h-2xl {"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
         assert!(!css.contains("<style"));

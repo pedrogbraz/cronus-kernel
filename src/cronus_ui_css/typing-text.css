@@ -1,18 +1,190 @@
 [data-slot="typing-text"] {
   display: inline; white-space: pre-wrap;
 }
-[data-slot="typing-text"]::after {
-  display: inline-block;
-  width: 1px; height: 1em;
-  margin-inline-start: 1px;
+/* React caret: ms-px inline-block h-[1em] w-px translate-y-[0.1em] animate-pulse bg-fg. */
+[data-slot="typing-text"] > .caret {
+  display: inline-block; width: 1px; height: 1em; margin-inline-start: 1px;
+  transform: translateY(0.1em); vertical-align: baseline;
   background: var(--cronus-fg);
-  transform: translateY(0.1em);
-  vertical-align: baseline;
-  animation: cui-typing-caret 1s step-end infinite;
+  animation: cui-typing-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
-@keyframes cui-typing-caret {
-  50% { opacity: 0; }
+@keyframes cui-typing-pulse {
+  50% { opacity: 0.5; }
 }
+/* Typewriter (`.loop`): the sr-only first phrase is the accessible text; each phrase
+   holds one span per glyph. The cycle length is t3…t0 (10ms digits), the phrase offset
+   s3…s0 and its glyph count n1 n0; the glyph index comes from nth-child. */
+[data-slot="typing-text"].loop > span:first-child {
+  position: absolute;
+  width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
+}
+[data-slot="typing-text"].loop {
+  --cui-t3: 0; --cui-t2: 0; --cui-t1: 0; --cui-t0: 0;
+  --cui-t: calc((var(--cui-t3) * 1000 + var(--cui-t2) * 100 + var(--cui-t1) * 10 + var(--cui-t0)) * 10ms);
+}
+[data-slot="typing-text"] > .phrase {
+  --cui-s3: 0; --cui-s2: 0; --cui-s1: 0; --cui-s0: 0; --cui-n1: 0; --cui-n0: 0;
+  --cui-s: calc((var(--cui-s3) * 1000 + var(--cui-s2) * 100 + var(--cui-s1) * 10 + var(--cui-s0)) * 10ms);
+  --cui-n: calc(var(--cui-n1) * 10 + var(--cui-n0));
+}
+/* Glyph j of a phrase types at s + 50ms·(j + 1) and deletes at s + 50ms·n + 1400ms + 30ms·(n − j).
+   The outer span turns on at the typed instant, the inner span turns off at the deleted
+   instant (font-size 0 ↔ 1em); both loop over the cycle, so the glyph shows while both are on. */
+[data-slot="typing-text"] > .phrase > span {
+  --cui-jo: 0; --cui-jt: 0;
+  --cui-j: calc(var(--cui-jt) * 10 + var(--cui-jo));
+  --cui-a: calc(var(--cui-s) + 50ms * (var(--cui-j) + 1));
+  --cui-b: calc(var(--cui-s) + 50ms * var(--cui-n) + 1400ms + 30ms * (var(--cui-n) - var(--cui-j)));
+  --cui-g: 0.5;
+  animation: cui-type-2 var(--cui-t) steps(1, end) infinite both;
+  animation-delay: calc(var(--cui-a) - var(--cui-g) * var(--cui-t));
+}
+[data-slot="typing-text"] > .phrase > span > span {
+  animation: cui-type-2 var(--cui-t) steps(1, end) infinite both;
+  animation-delay: calc(var(--cui-b) - var(--cui-t));
+}
+[data-slot="typing-text"] > .phrase > span:nth-child(10n+2) { --cui-jo: 1; }
+[data-slot="typing-text"] > .phrase > span:nth-child(10n+3) { --cui-jo: 2; }
+[data-slot="typing-text"] > .phrase > span:nth-child(10n+4) { --cui-jo: 3; }
+[data-slot="typing-text"] > .phrase > span:nth-child(10n+5) { --cui-jo: 4; }
+[data-slot="typing-text"] > .phrase > span:nth-child(10n+6) { --cui-jo: 5; }
+[data-slot="typing-text"] > .phrase > span:nth-child(10n+7) { --cui-jo: 6; }
+[data-slot="typing-text"] > .phrase > span:nth-child(10n+8) { --cui-jo: 7; }
+[data-slot="typing-text"] > .phrase > span:nth-child(10n+9) { --cui-jo: 8; }
+[data-slot="typing-text"] > .phrase > span:nth-child(10n+10) { --cui-jo: 9; }
+[data-slot="typing-text"] > .phrase > span:nth-child(n+11) { --cui-jt: 1; }
+[data-slot="typing-text"] > .phrase > span:nth-child(n+21) { --cui-jt: 2; }
+[data-slot="typing-text"] > .phrase > span:nth-child(n+31) { --cui-jt: 3; }
+[data-slot="typing-text"] > .phrase > span:nth-child(n+41) { --cui-jt: 4; }
+[data-slot="typing-text"] > .phrase > span:nth-child(n+51) { --cui-jt: 5; }
+[data-slot="typing-text"] > .phrase > span:nth-child(n+61) { --cui-jt: 6; }
+[data-slot="typing-text"] > .phrase > span:nth-child(n+71) { --cui-jt: 7; }
+[data-slot="typing-text"] > .phrase > span:nth-child(n+81) { --cui-jt: 8; }
+[data-slot="typing-text"] > .phrase > span:nth-child(n+91) { --cui-jt: 9; }
+[data-slot="typing-text"] > .phrase > .f4 { --cui-g: 0.75; animation-name: cui-type-4; }
+[data-slot="typing-text"] > .phrase > .f4 > span { animation-name: cui-type-4; }
+[data-slot="typing-text"] > .phrase > .f8 { --cui-g: 0.875; animation-name: cui-type-8; }
+[data-slot="typing-text"] > .phrase > .f8 > span { animation-name: cui-type-8; }
+[data-slot="typing-text"] > .phrase > .f16 { --cui-g: 0.9375; animation-name: cui-type-16; }
+[data-slot="typing-text"] > .phrase > .f16 > span { animation-name: cui-type-16; }
+@keyframes cui-type-2 {
+  0% { font-size: 0; }
+  50%, 100% { font-size: 1em; }
+}
+@keyframes cui-type-4 {
+  0% { font-size: 0; }
+  25%, 100% { font-size: 1em; }
+}
+@keyframes cui-type-8 {
+  0% { font-size: 0; }
+  12.5%, 100% { font-size: 1em; }
+}
+@keyframes cui-type-16 {
+  0% { font-size: 0; }
+  6.25%, 100% { font-size: 1em; }
+}
+[data-slot="typing-text"].t3-1 { --cui-t3: 1; }
+[data-slot="typing-text"].t3-2 { --cui-t3: 2; }
+[data-slot="typing-text"].t3-3 { --cui-t3: 3; }
+[data-slot="typing-text"].t3-4 { --cui-t3: 4; }
+[data-slot="typing-text"].t3-5 { --cui-t3: 5; }
+[data-slot="typing-text"].t3-6 { --cui-t3: 6; }
+[data-slot="typing-text"].t3-7 { --cui-t3: 7; }
+[data-slot="typing-text"].t3-8 { --cui-t3: 8; }
+[data-slot="typing-text"].t3-9 { --cui-t3: 9; }
+[data-slot="typing-text"].t2-1 { --cui-t2: 1; }
+[data-slot="typing-text"].t2-2 { --cui-t2: 2; }
+[data-slot="typing-text"].t2-3 { --cui-t2: 3; }
+[data-slot="typing-text"].t2-4 { --cui-t2: 4; }
+[data-slot="typing-text"].t2-5 { --cui-t2: 5; }
+[data-slot="typing-text"].t2-6 { --cui-t2: 6; }
+[data-slot="typing-text"].t2-7 { --cui-t2: 7; }
+[data-slot="typing-text"].t2-8 { --cui-t2: 8; }
+[data-slot="typing-text"].t2-9 { --cui-t2: 9; }
+[data-slot="typing-text"].t1-1 { --cui-t1: 1; }
+[data-slot="typing-text"].t1-2 { --cui-t1: 2; }
+[data-slot="typing-text"].t1-3 { --cui-t1: 3; }
+[data-slot="typing-text"].t1-4 { --cui-t1: 4; }
+[data-slot="typing-text"].t1-5 { --cui-t1: 5; }
+[data-slot="typing-text"].t1-6 { --cui-t1: 6; }
+[data-slot="typing-text"].t1-7 { --cui-t1: 7; }
+[data-slot="typing-text"].t1-8 { --cui-t1: 8; }
+[data-slot="typing-text"].t1-9 { --cui-t1: 9; }
+[data-slot="typing-text"].t0-1 { --cui-t0: 1; }
+[data-slot="typing-text"].t0-2 { --cui-t0: 2; }
+[data-slot="typing-text"].t0-3 { --cui-t0: 3; }
+[data-slot="typing-text"].t0-4 { --cui-t0: 4; }
+[data-slot="typing-text"].t0-5 { --cui-t0: 5; }
+[data-slot="typing-text"].t0-6 { --cui-t0: 6; }
+[data-slot="typing-text"].t0-7 { --cui-t0: 7; }
+[data-slot="typing-text"].t0-8 { --cui-t0: 8; }
+[data-slot="typing-text"].t0-9 { --cui-t0: 9; }
+[data-slot="typing-text"] > .s3-1 { --cui-s3: 1; }
+[data-slot="typing-text"] > .s3-2 { --cui-s3: 2; }
+[data-slot="typing-text"] > .s3-3 { --cui-s3: 3; }
+[data-slot="typing-text"] > .s3-4 { --cui-s3: 4; }
+[data-slot="typing-text"] > .s3-5 { --cui-s3: 5; }
+[data-slot="typing-text"] > .s3-6 { --cui-s3: 6; }
+[data-slot="typing-text"] > .s3-7 { --cui-s3: 7; }
+[data-slot="typing-text"] > .s3-8 { --cui-s3: 8; }
+[data-slot="typing-text"] > .s3-9 { --cui-s3: 9; }
+[data-slot="typing-text"] > .s2-1 { --cui-s2: 1; }
+[data-slot="typing-text"] > .s2-2 { --cui-s2: 2; }
+[data-slot="typing-text"] > .s2-3 { --cui-s2: 3; }
+[data-slot="typing-text"] > .s2-4 { --cui-s2: 4; }
+[data-slot="typing-text"] > .s2-5 { --cui-s2: 5; }
+[data-slot="typing-text"] > .s2-6 { --cui-s2: 6; }
+[data-slot="typing-text"] > .s2-7 { --cui-s2: 7; }
+[data-slot="typing-text"] > .s2-8 { --cui-s2: 8; }
+[data-slot="typing-text"] > .s2-9 { --cui-s2: 9; }
+[data-slot="typing-text"] > .s1-1 { --cui-s1: 1; }
+[data-slot="typing-text"] > .s1-2 { --cui-s1: 2; }
+[data-slot="typing-text"] > .s1-3 { --cui-s1: 3; }
+[data-slot="typing-text"] > .s1-4 { --cui-s1: 4; }
+[data-slot="typing-text"] > .s1-5 { --cui-s1: 5; }
+[data-slot="typing-text"] > .s1-6 { --cui-s1: 6; }
+[data-slot="typing-text"] > .s1-7 { --cui-s1: 7; }
+[data-slot="typing-text"] > .s1-8 { --cui-s1: 8; }
+[data-slot="typing-text"] > .s1-9 { --cui-s1: 9; }
+[data-slot="typing-text"] > .s0-1 { --cui-s0: 1; }
+[data-slot="typing-text"] > .s0-2 { --cui-s0: 2; }
+[data-slot="typing-text"] > .s0-3 { --cui-s0: 3; }
+[data-slot="typing-text"] > .s0-4 { --cui-s0: 4; }
+[data-slot="typing-text"] > .s0-5 { --cui-s0: 5; }
+[data-slot="typing-text"] > .s0-6 { --cui-s0: 6; }
+[data-slot="typing-text"] > .s0-7 { --cui-s0: 7; }
+[data-slot="typing-text"] > .s0-8 { --cui-s0: 8; }
+[data-slot="typing-text"] > .s0-9 { --cui-s0: 9; }
+[data-slot="typing-text"] > .n1-1 { --cui-n1: 1; }
+[data-slot="typing-text"] > .n1-2 { --cui-n1: 2; }
+[data-slot="typing-text"] > .n1-3 { --cui-n1: 3; }
+[data-slot="typing-text"] > .n1-4 { --cui-n1: 4; }
+[data-slot="typing-text"] > .n1-5 { --cui-n1: 5; }
+[data-slot="typing-text"] > .n1-6 { --cui-n1: 6; }
+[data-slot="typing-text"] > .n1-7 { --cui-n1: 7; }
+[data-slot="typing-text"] > .n1-8 { --cui-n1: 8; }
+[data-slot="typing-text"] > .n1-9 { --cui-n1: 9; }
+[data-slot="typing-text"] > .n0-1 { --cui-n0: 1; }
+[data-slot="typing-text"] > .n0-2 { --cui-n0: 2; }
+[data-slot="typing-text"] > .n0-3 { --cui-n0: 3; }
+[data-slot="typing-text"] > .n0-4 { --cui-n0: 4; }
+[data-slot="typing-text"] > .n0-5 { --cui-n0: 5; }
+[data-slot="typing-text"] > .n0-6 { --cui-n0: 6; }
+[data-slot="typing-text"] > .n0-7 { --cui-n0: 7; }
+[data-slot="typing-text"] > .n0-8 { --cui-n0: 8; }
+[data-slot="typing-text"] > .n0-9 { --cui-n0: 9; }
+/* Reduced motion: React shows the first phrase in full with no caret. */
 @media (prefers-reduced-motion: reduce) {
-  [data-slot="typing-text"]::after { display: none; animation: none; }
+  [data-slot="typing-text"] > .caret { display: none; }
+  [data-slot="typing-text"] > .phrase > span, [data-slot="typing-text"] > .phrase > span > span { animation: none; }
+  [data-slot="typing-text"] > .phrase:not(:nth-child(2)) { display: none; }
+}
+[data-slot="typing-text"].h-lg { font-size: 1.125rem; line-height: 1.75rem; }
+[data-slot="typing-text"].h-xl { font-size: 1.25rem; line-height: 1.75rem; }
+[data-slot="typing-text"].h-2xl { font-size: 1.5rem; line-height: 2rem; }
+[data-slot="typing-text"].h-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+[data-slot="typing-text"].h-4xl { font-size: 2.25rem; line-height: 2.5rem; }
+[data-slot="typing-text"][class*="h-"] {
+  font-family: var(--cronus-font-display, inherit); color: var(--cronus-fg);
 }

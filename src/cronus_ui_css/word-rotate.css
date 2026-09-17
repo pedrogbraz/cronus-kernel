@@ -11,6 +11,139 @@
 [data-slot="word-rotate"] > [data-word-rotate-sizer] {
   visibility: hidden; grid-area: 1 / 1; white-space: nowrap;
 }
-[data-slot="word-rotate"] > span:last-child {
+[data-slot="word-rotate"] > span:last-child,
+[data-slot="word-rotate"] > .mount,
+[data-slot="word-rotate"] > .word {
   grid-area: 1 / 1; display: inline-block; white-space: nowrap; justify-self: start;
 }
+/* React swaps the visible word every 2200ms (exit y:-40% → enter y:40%, 350ms each,
+   [0.22, 1, 0.36, 1]). The mount copy is the first word on load; each `.word` loops over
+   the 2200ms × n cycle from its own offset (word i enters at 2200ms·i + 350ms, the first
+   word rejoins one cycle later). */
+[data-slot="word-rotate"] > .word {
+  opacity: 0;
+  animation: cui-word-rotate-2 4400ms linear infinite both;
+  animation-delay: calc(2200ms * var(--cui-i) + 350ms);
+}
+[data-slot="word-rotate"] > .mount {
+  animation: cui-word-rotate-mount-2 4400ms linear 1 forwards;
+}
+[data-slot="word-rotate"] > .word { --cui-k: 1; --cui-i: calc(var(--cui-n, 2) - var(--cui-k)); }
+[data-slot="word-rotate"] > .word:nth-last-child(2) { --cui-k: 2; }
+[data-slot="word-rotate"] > .word:nth-last-child(3) { --cui-k: 3; }
+[data-slot="word-rotate"] > .word:nth-last-child(4) { --cui-k: 4; }
+[data-slot="word-rotate"] > .word:nth-last-child(5) { --cui-k: 5; }
+[data-slot="word-rotate"] > .word:nth-last-child(6) { --cui-k: 6; }
+[data-slot="word-rotate"] > .word:nth-last-child(7) { --cui-k: 7; }
+[data-slot="word-rotate"] > .word:nth-last-child(8) { --cui-k: 8; }
+[data-slot="word-rotate"].n-2 { --cui-n: 2; }
+[data-slot="word-rotate"].n-2 > .word:nth-last-child(2) { animation-delay: 4750ms; }
+[data-slot="word-rotate"].n-3 { --cui-n: 3; }
+[data-slot="word-rotate"].n-3 > .word { animation-name: cui-word-rotate-3; animation-duration: 6600ms; }
+[data-slot="word-rotate"].n-3 > .mount { animation-name: cui-word-rotate-mount-3; animation-duration: 6600ms; }
+[data-slot="word-rotate"].n-3 > .word:nth-last-child(3) { animation-delay: 6950ms; }
+[data-slot="word-rotate"].n-4 { --cui-n: 4; }
+[data-slot="word-rotate"].n-4 > .word { animation-name: cui-word-rotate-4; animation-duration: 8800ms; }
+[data-slot="word-rotate"].n-4 > .mount { animation-name: cui-word-rotate-mount-4; animation-duration: 8800ms; }
+[data-slot="word-rotate"].n-4 > .word:nth-last-child(4) { animation-delay: 9150ms; }
+[data-slot="word-rotate"].n-5 { --cui-n: 5; }
+[data-slot="word-rotate"].n-5 > .word { animation-name: cui-word-rotate-5; animation-duration: 11000ms; }
+[data-slot="word-rotate"].n-5 > .mount { animation-name: cui-word-rotate-mount-5; animation-duration: 11000ms; }
+[data-slot="word-rotate"].n-5 > .word:nth-last-child(5) { animation-delay: 11350ms; }
+[data-slot="word-rotate"].n-6 { --cui-n: 6; }
+[data-slot="word-rotate"].n-6 > .word { animation-name: cui-word-rotate-6; animation-duration: 13200ms; }
+[data-slot="word-rotate"].n-6 > .mount { animation-name: cui-word-rotate-mount-6; animation-duration: 13200ms; }
+[data-slot="word-rotate"].n-6 > .word:nth-last-child(6) { animation-delay: 13550ms; }
+[data-slot="word-rotate"].n-7 { --cui-n: 7; }
+[data-slot="word-rotate"].n-7 > .word { animation-name: cui-word-rotate-7; animation-duration: 15400ms; }
+[data-slot="word-rotate"].n-7 > .mount { animation-name: cui-word-rotate-mount-7; animation-duration: 15400ms; }
+[data-slot="word-rotate"].n-7 > .word:nth-last-child(7) { animation-delay: 15750ms; }
+[data-slot="word-rotate"].n-8 { --cui-n: 8; }
+[data-slot="word-rotate"].n-8 > .word { animation-name: cui-word-rotate-8; animation-duration: 17600ms; }
+[data-slot="word-rotate"].n-8 > .mount { animation-name: cui-word-rotate-mount-8; animation-duration: 17600ms; }
+[data-slot="word-rotate"].n-8 > .word:nth-last-child(8) { animation-delay: 17950ms; }
+@keyframes cui-word-rotate-2 {
+  0% { translate: 0 40%; opacity: 0; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  7.9545% { translate: 0 0; opacity: 1; animation-timing-function: linear; }
+  42.0455% { translate: 0 0; opacity: 1; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  50%, 100% { translate: 0 -40%; opacity: 0; }
+}
+@keyframes cui-word-rotate-mount-2 {
+  0%, 50% { translate: 0 0; opacity: 1; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  57.9545%, 100% { translate: 0 -40%; opacity: 0; }
+}
+@keyframes cui-word-rotate-3 {
+  0% { translate: 0 40%; opacity: 0; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  5.303% { translate: 0 0; opacity: 1; animation-timing-function: linear; }
+  28.0303% { translate: 0 0; opacity: 1; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  33.3333%, 100% { translate: 0 -40%; opacity: 0; }
+}
+@keyframes cui-word-rotate-mount-3 {
+  0%, 33.3333% { translate: 0 0; opacity: 1; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  38.6364%, 100% { translate: 0 -40%; opacity: 0; }
+}
+@keyframes cui-word-rotate-4 {
+  0% { translate: 0 40%; opacity: 0; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  3.9773% { translate: 0 0; opacity: 1; animation-timing-function: linear; }
+  21.0227% { translate: 0 0; opacity: 1; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  25%, 100% { translate: 0 -40%; opacity: 0; }
+}
+@keyframes cui-word-rotate-mount-4 {
+  0%, 25% { translate: 0 0; opacity: 1; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  28.9773%, 100% { translate: 0 -40%; opacity: 0; }
+}
+@keyframes cui-word-rotate-5 {
+  0% { translate: 0 40%; opacity: 0; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  3.1818% { translate: 0 0; opacity: 1; animation-timing-function: linear; }
+  16.8182% { translate: 0 0; opacity: 1; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  20%, 100% { translate: 0 -40%; opacity: 0; }
+}
+@keyframes cui-word-rotate-mount-5 {
+  0%, 20% { translate: 0 0; opacity: 1; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  23.1818%, 100% { translate: 0 -40%; opacity: 0; }
+}
+@keyframes cui-word-rotate-6 {
+  0% { translate: 0 40%; opacity: 0; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  2.6515% { translate: 0 0; opacity: 1; animation-timing-function: linear; }
+  14.0152% { translate: 0 0; opacity: 1; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  16.6667%, 100% { translate: 0 -40%; opacity: 0; }
+}
+@keyframes cui-word-rotate-mount-6 {
+  0%, 16.6667% { translate: 0 0; opacity: 1; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  19.3182%, 100% { translate: 0 -40%; opacity: 0; }
+}
+@keyframes cui-word-rotate-7 {
+  0% { translate: 0 40%; opacity: 0; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  2.2727% { translate: 0 0; opacity: 1; animation-timing-function: linear; }
+  12.013% { translate: 0 0; opacity: 1; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  14.2857%, 100% { translate: 0 -40%; opacity: 0; }
+}
+@keyframes cui-word-rotate-mount-7 {
+  0%, 14.2857% { translate: 0 0; opacity: 1; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  16.5584%, 100% { translate: 0 -40%; opacity: 0; }
+}
+@keyframes cui-word-rotate-8 {
+  0% { translate: 0 40%; opacity: 0; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  1.9886% { translate: 0 0; opacity: 1; animation-timing-function: linear; }
+  10.5114% { translate: 0 0; opacity: 1; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  12.5%, 100% { translate: 0 -40%; opacity: 0; }
+}
+@keyframes cui-word-rotate-mount-8 {
+  0%, 12.5% { translate: 0 0; opacity: 1; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  14.4886%, 100% { translate: 0 -40%; opacity: 0; }
+}
+/* Reduced motion: the first word stays; React cuts between words instead. */
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="word-rotate"] > .word { display: none; }
+  [data-slot="word-rotate"] > .mount { animation: none; }
+}
+/* Docs sentence (`prefix:` / `suffix:` / `heading:`): a `<p>` around the rotator. */
+p:has(> [data-slot="word-rotate"]) {
+  margin: 0; color: var(--cronus-fg);
+}
+p[class*="h-"]:has(> [data-slot="word-rotate"]) { font-family: var(--cronus-font-display, inherit); }
+p.h-lg:has(> [data-slot="word-rotate"]) { font-size: 1.125rem; line-height: 1.75rem; }
+p.h-xl:has(> [data-slot="word-rotate"]) { font-size: 1.25rem; line-height: 1.75rem; }
+p.h-2xl:has(> [data-slot="word-rotate"]) { font-size: 1.5rem; line-height: 2rem; }
+p.h-3xl:has(> [data-slot="word-rotate"]) { font-size: 1.875rem; line-height: 2.25rem; }
+p.h-4xl:has(> [data-slot="word-rotate"]) { font-size: 2.25rem; line-height: 2.5rem; }

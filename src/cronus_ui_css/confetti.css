@@ -3,6 +3,95 @@
   width: var(--cui-confetti-w, 100%); min-height: 8rem;
   color: var(--cronus-fg);
 }
-[data-slot="confetti"] > div {
+[data-slot="confetti"] > [aria-hidden] {
+  position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+}
+[data-slot="confetti"] > div:last-child {
   position: relative;
 }
+/* React draws a canvas burst from the pointer (48 pieces, gravity 0.12 px/frame², ~1s life,
+   oklch(0.75 0.18 hue) with hue = i·29); zero JS fires the same burst from the centre of the
+   wrapper while :active, one piece per span with its own launch vector and hue. */
+[data-slot="confetti"] > [aria-hidden] > span {
+  position: absolute; inset-inline-start: 50%; top: 50%;
+  width: var(--cui-s); height: calc(var(--cui-s) * 0.6);
+  background: oklch(0.75 0.18 var(--cui-h));
+  opacity: 0;
+}
+[data-slot="confetti"]:active > [aria-hidden] > span {
+  animation: cui-confetti 1s linear forwards;
+}
+@keyframes cui-confetti {
+  0% { translate: 0 0; opacity: 1; }
+  25% { translate: calc(var(--cui-dx) * 0.25) calc(var(--cui-dy) * 0.25 + 15px); opacity: 0.75; }
+  50% { translate: calc(var(--cui-dx) * 0.5) calc(var(--cui-dy) * 0.5 + 58px); opacity: 0.5; }
+  75% { translate: calc(var(--cui-dx) * 0.75) calc(var(--cui-dy) * 0.75 + 130px); opacity: 0.25; }
+  100% { translate: var(--cui-dx) calc(var(--cui-dy) + 231px); opacity: 0; }
+}
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(1) { --cui-dx: 186px; --cui-dy: -124px; --cui-h: 0; --cui-s: 2px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(2) { --cui-dx: -297px; --cui-dy: 148px; --cui-h: 29; --cui-s: 4.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(3) { --cui-dx: 24px; --cui-dy: -402px; --cui-h: 58; --cui-s: 3.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(4) { --cui-dx: 302px; --cui-dy: 270px; --cui-h: 87; --cui-s: 2.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(5) { --cui-dx: -366px; --cui-dy: -189px; --cui-h: 116; --cui-s: 5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(6) { --cui-dx: 209px; --cui-dy: -257px; --cui-h: 145; --cui-s: 4px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(7) { --cui-dx: -121px; --cui-dy: 325px; --cui-h: 174; --cui-s: 3px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(8) { --cui-dx: -157px; --cui-dy: -427px; --cui-h: 203; --cui-s: 2px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(9) { --cui-dx: 204px; --cui-dy: -50px; --cui-h: 232; --cui-s: 4.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(10) { --cui-dx: -401px; --cui-dy: 42px; --cui-h: 261; --cui-s: 3.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(11) { --cui-dx: 131px; --cui-dy: -405px; --cui-h: 290; --cui-s: 2.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(12) { --cui-dx: 56px; --cui-dy: 53px; --cui-h: 319; --cui-s: 5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(13) { --cui-dx: -349px; --cui-dy: -326px; --cui-h: 348; --cui-s: 4px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(14) { --cui-dx: 272px; --cui-dy: -184px; --cui-h: 17; --cui-s: 3px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(15) { --cui-dx: -285px; --cui-dy: 282px; --cui-h: 46; --cui-s: 2px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(16) { --cui-dx: -48px; --cui-dy: -493px; --cui-h: 75; --cui-s: 4.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(17) { --cui-dx: 190px; --cui-dy: 36px; --cui-h: 104; --cui-s: 3.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(18) { --cui-dx: -465px; --cui-dy: -105px; --cui-h: 133; --cui-s: 2.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(19) { --cui-dx: 242px; --cui-dy: -365px; --cui-h: 162; --cui-s: 5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(20) { --cui-dx: -10px; --cui-dy: 93px; --cui-h: 191; --cui-s: 4px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(21) { --cui-dx: -278px; --cui-dy: -457px; --cui-h: 220; --cui-s: 3px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(22) { --cui-dx: 307px; --cui-dy: -83px; --cui-h: 249; --cui-s: 2px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(23) { --cui-dx: -153px; --cui-dy: -18px; --cui-h: 278; --cui-s: 4.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(24) { --cui-dx: 88px; --cui-dy: -517px; --cui-h: 307; --cui-s: 3.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(25) { --cui-dx: 139px; --cui-dy: 118px; --cui-h: 336; --cui-s: 2.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(26) { --cui-dx: -473px; --cui-dy: -275px; --cui-h: 5; --cui-s: 5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(27) { --cui-dx: 338px; --cui-dy: -280px; --cui-h: 34; --cui-s: 4px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(28) { --cui-dx: -96px; --cui-dy: 105px; --cui-h: 63; --cui-s: 3px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(29) { --cui-dx: -157px; --cui-dy: -562px; --cui-h: 92; --cui-s: 2px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(30) { --cui-dx: 302px; --cui-dy: 35px; --cui-h: 121; --cui-s: 4.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(31) { --cui-dx: -210px; --cui-dy: -69px; --cui-h: 150; --cui-s: 3.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(32) { --cui-dx: 235px; --cui-dy: -489px; --cui-h: 179; --cui-s: 2.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(33) { --cui-dx: 52px; --cui-dy: 182px; --cui-h: 208; --cui-s: 5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(34) { --cui-dx: -147px; --cui-dy: -238px; --cui-h: 237; --cui-s: 4px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(35) { --cui-dx: 402px; --cui-dy: -157px; --cui-h: 266; --cui-s: 3px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(36) { --cui-dx: -189px; --cui-dy: 81px; --cui-h: 295; --cui-s: 2px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(37) { --cui-dx: 2px; --cui-dy: -620px; --cui-h: 324; --cui-s: 4.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(38) { --cui-dx: 250px; --cui-dy: 152px; --cui-h: 353; --cui-s: 3.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(39) { --cui-dx: -247px; --cui-dy: -147px; --cui-h: 22; --cui-s: 2.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(40) { --cui-dx: 370px; --cui-dy: -405px; --cui-h: 51; --cui-s: 5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(41) { --cui-dx: -61px; --cui-dy: 211px; --cui-h: 80; --cui-s: 4px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(42) { --cui-dx: -116px; --cui-dy: -308px; --cui-h: 109; --cui-s: 3px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(43) { --cui-dx: 419px; --cui-dy: -9px; --cui-h: 138; --cui-s: 2px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(44) { --cui-dx: -276px; --cui-dy: 17px; --cui-h: 167; --cui-s: 4.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(45) { --cui-dx: 65px; --cui-dy: -298px; --cui-h: 196; --cui-s: 3.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(46) { --cui-dx: 152px; --cui-dy: 249px; --cui-h: 225; --cui-s: 2.5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(47) { --cui-dx: -252px; --cui-dy: -244px; --cui-h: 254; --cui-s: 5px; }
+[data-slot="confetti"] > [aria-hidden] > span:nth-child(48) { --cui-dx: 474px; --cui-dy: -270px; --cui-h: 283; --cui-s: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="confetti"] > [aria-hidden] { display: none; }
+}
+/* Docs wrapper (`card:true`): grid min-h-40 place-items-center rounded-2xl border bg-surface-raised. */
+[data-slot="confetti"].card {
+  display: grid; place-items: center; min-height: 10rem;
+  border: 1px solid var(--cronus-border);
+  border-radius: calc(var(--cronus-radius, 14px) + 8px);
+  background: var(--cronus-surface-raised);
+}
+/* `heading:<size>` content: font-display text-<size> text-fg. */
+[data-slot="confetti"] p[class^="h-"] {
+  margin: 0; font-family: var(--cronus-font-display, inherit); color: var(--cronus-fg);
+}
+[data-slot="confetti"] .h-lg { font-size: 1.125rem; line-height: 1.75rem; }
+[data-slot="confetti"] .h-xl { font-size: 1.25rem; line-height: 1.75rem; }
+[data-slot="confetti"] .h-2xl { font-size: 1.5rem; line-height: 2rem; }
+[data-slot="confetti"] .h-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+[data-slot="confetti"] .h-4xl { font-size: 2.25rem; line-height: 2.5rem; }

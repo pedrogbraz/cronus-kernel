@@ -1,0 +1,6 @@
+page "/spinning-text" type:components family:spinning-text {
+  title "SpinningText"
+  description:"A phrase laid out around a slowly rotating circle."
+}
+
+component Orbit layout:inline style:spinning-text radius:56 group:"Orbit" note:"The phrase is laid out around a circle. Assistive tech reads the original string once." { label "cronus ui · product · " }

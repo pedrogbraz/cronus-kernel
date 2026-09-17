@@ -1,0 +1,6 @@
+page "/click-spark" type:components family:click-spark {
+  title "ClickSpark"
+  description:"Emits a burst of sparks from the pointer on click."
+}
+
+component ClickMe layout:stack style:click-spark card:true group:"Click burst" note:"Click anywhere on the wrapper to emit sparks from the pointer." { action "Click me" }

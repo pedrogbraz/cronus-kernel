@@ -1,17 +1,32 @@
-//! Dedicated GlareHover renderer. DOM matches React idle:
-//! `<div data-slot="glare-hover">` + aria-hidden glare layer + relative
-//! children div wrapping the label. Only the root has a `data-slot`, like
-//! React (Wave 1t geometry parity). Diagonal glare is CSS-only
-//! (`:hover` / `:focus-within`); no `--glare-x` JS. Not the catalog `fx()`
-//! title SURF box.
+//! Dedicated GlareHover renderer. DOM mirrors React: `<div data-slot="glare-hover">`
+//! + an aria-hidden glare layer + a relative content `<div>` wrapping the
+//! label. Only the root has a `data-slot`. React tracks the pointer with
+//! `requestAnimationFrame` and writes `--glare-x/--glare-y`; the kernel is
+//! zero JS, so `:hover` fades the glare in (300ms, like React's
+//! `data-glare-hovered`) and sweeps it across the surface with a CSS
+//! keyframe as the pointer stand-in. No inline style.
+//!
+//! Docs chrome from the `.cronus`: `card:true` (class `card`, the docs
+//! `rounded-2xl border bg-surface-raised p-8` wrapper) and `heading:xl`
+//! (`<p class="h-xl">` = `font-display text-xl text-fg`).
 
-use crate::cronus_ui_kit::label_of;
+use crate::cronus_ui_dot_pattern::HEADINGS;
+use crate::cronus_ui_kit::{choice, flag, label_of};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
+    let class = if flag(comp, "card") {
+        " class=\"card\""
+    } else {
+        ""
+    };
+    let text = label_of(comp);
+    let content = match choice(comp, "heading", HEADINGS) {
+        Some(h) => format!("<p class=\"h-{h}\">{text}</p>"),
+        None => text,
+    };
     format!(
-        "<div data-slot=\"glare-hover\"><div aria-hidden=\"true\"></div><div>{}</div></div>",
-        label_of(comp)
+        "<div data-slot=\"glare-hover\"{class}><div aria-hidden=\"true\"></div><div>{content}</div></div>"
     )
 }
 
@@ -27,7 +42,6 @@ mod tests {
         assert!(!html.contains(FX_BOX));
         assert!(!html.contains("style="));
         assert!(!html.contains("<style"));
-        assert!(!html.contains("@keyframes"));
         assert!(!html.contains("SURF"));
         assert!(!html.contains("<span"));
         assert!(!html.contains("<canvas"));
@@ -35,10 +49,9 @@ mod tests {
         assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
         assert!(!html.contains("onclick="));
-        assert!(!html.contains("setInterval"));
+        assert!(!html.contains("onmousemove="));
         assert!(!html.contains("requestAnimationFrame"));
         assert!(!html.contains("--glare-x"));
-        assert!(!html.contains("data-glare-hovered"));
         assert!(!html.contains("zinc-"));
         assert!(!html.contains("fx("));
         assert_eq!(html.matches("data-slot=").count(), 1);
@@ -63,6 +76,19 @@ mod tests {
             "<div data-slot=\"glare-hover\"><div aria-hidden=\"true\"></div><div>A &lt;B&gt; &amp; &quot;C&quot;</div></div>"
         );
         reject_fx(&html);
+    }
+
+    /// Docs example: `<GlareHover className="rounded-2xl border … p-8">
+    /// <p className="font-display text-xl text-fg">Hover the surface</p>`.
+    #[test]
+    fn card_and_heading_render_the_docs_wrapper() {
+        let mut c = stub("glare-hover", "Hover the surface");
+        c.props.insert("card".into(), "true".into());
+        c.props.insert("heading".into(), "xl".into());
+        assert_eq!(
+            render(&c),
+            "<div data-slot=\"glare-hover\" class=\"card\"><div aria-hidden=\"true\"></div><div><p class=\"h-xl\">Hover the surface</p></div></div>"
+        );
     }
 
     #[test]
@@ -100,12 +126,18 @@ mod tests {
         assert!(css.contains("[data-slot=\"glare-hover\"] > [aria-hidden] {"));
         assert!(css.contains("[data-slot=\"glare-hover\"] > div:last-child {"));
         assert!(!css.contains("[data-slot=\"glare-hover-layer\"]"));
-        assert!(css.contains("linear-gradient"));
-        assert!(css.contains("var(--cronus-fg)"));
+        assert!(css.contains("linear-gradient(115deg, transparent 32%, color-mix(in oklch, var(--cronus-fg) 18%, transparent) 50%, transparent 68%)"));
+        assert!(css.contains("background-size: 220% 220%;"));
+        assert!(css.contains("transition: opacity 300ms var(--cronus-ease);"));
         assert!(css.contains("[data-slot=\"glare-hover\"]:hover > [aria-hidden]"));
         assert!(css.contains("[data-slot=\"glare-hover\"]:focus-within > [aria-hidden]"));
         assert!(css.contains("50% 50%"));
+        // Pointer stand-in: the glare sweeps the diagonal while hovered.
+        assert!(css.contains("animation: cui-glare-sweep 2.4s ease-in-out infinite alternate;"));
+        assert!(css.contains("@keyframes cui-glare-sweep"));
         assert!(css.contains("prefers-reduced-motion"));
+        assert!(css.contains("[data-slot=\"glare-hover\"].card {\n  padding: 2rem;"));
+        assert!(css.contains("[data-slot=\"glare-hover\"] .h-xl {"));
         assert!(!css.contains("--glare-x"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
