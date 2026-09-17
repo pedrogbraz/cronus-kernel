@@ -4,3 +4,154 @@
 [data-slot="sunburst-chart"] svg {
   display: block; height: 100%; margin: 0 auto;
 }
+/* visx SunburstChart: breadcrumb, square canvas, hint. */
+[data-slot="sunburst-chart"].v-motion {
+  width: var(--cui-sunburst-chart-w, 100%); max-width: 360px; height: auto; margin: 0 auto;
+}
+[data-slot="sunburst-chart"].v-motion .crumbs {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; margin: 0; padding: 0; list-style: none;
+  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-tertiary);
+}
+[data-slot="sunburst-chart"].v-motion .crumbs li { display: flex; align-items: center; gap: 0.25rem; }
+[data-slot="sunburst-chart"].v-motion .crumbs .current { color: var(--cronus-fg); }
+[data-slot="sunburst-chart"].v-motion .canvas {
+  width: 100%; max-width: 360px; margin: 0 auto; aspect-ratio: 1 / 1;
+}
+[data-slot="sunburst-chart"].v-motion .canvas svg {
+  display: block; width: 100%; height: auto; overflow: visible;
+  animation: cronus-chart-fade 350ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+[data-slot="sunburst-chart"].v-motion .hint {
+  margin-top: 0.75rem; min-height: 1.25rem; text-align: center;
+  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-tertiary);
+}
+[data-slot="sunburst-chart"].v-motion .segment {
+  transform-box: view-box; transform-origin: 50% 50%; cursor: pointer;
+  animation: cronus-chart-grow-xy 1100ms cubic-bezier(0.85, 0, 0.15, 1) backwards;
+  transition: opacity 160ms ease-out;
+}
+[data-slot="sunburst-chart"].v-motion:has(.segment:hover) .segment:not(:hover) { opacity: 0.25; }
+[data-slot="sunburst-chart"].v-motion:has(.segment.c0:hover) .segment.c0,
+[data-slot="sunburst-chart"].v-motion:has(.segment.c1:hover) .segment.c1,
+[data-slot="sunburst-chart"].v-motion:has(.segment.c2:hover) .segment.c2,
+[data-slot="sunburst-chart"].v-motion:has(.segment.c3:hover) .segment.c3,
+[data-slot="sunburst-chart"].v-motion:has(.segment.c4:hover) .segment.c4 { opacity: 1; }
+[data-slot="sunburst-chart"].v-motion .labels text {
+  fill: var(--cronus-fg-tertiary); font-size: 11px; font-weight: 600; pointer-events: none;
+  paint-order: stroke; stroke: var(--cronus-surface-base); stroke-linejoin: round; stroke-width: 2.5;
+}
+[data-slot="sunburst-chart"].v-motion .labels {
+  animation: cronus-chart-fade 1100ms cubic-bezier(0.85, 0, 0.15, 1) both;
+}
+[data-slot="sunburst-chart"].v-motion .d0 { animation-delay: 0ms; }
+[data-slot="sunburst-chart"].v-motion .d1 { animation-delay: 10ms; }
+[data-slot="sunburst-chart"].v-motion .d2 { animation-delay: 20ms; }
+[data-slot="sunburst-chart"].v-motion .d3 { animation-delay: 30ms; }
+[data-slot="sunburst-chart"].v-motion .d4 { animation-delay: 40ms; }
+[data-slot="sunburst-chart"].v-motion .d5 { animation-delay: 50ms; }
+[data-slot="sunburst-chart"].v-motion .d6 { animation-delay: 60ms; }
+[data-slot="sunburst-chart"].v-motion .d7 { animation-delay: 70ms; }
+[data-slot="sunburst-chart"].v-motion .d8 { animation-delay: 80ms; }
+[data-slot="sunburst-chart"].v-motion .d9 { animation-delay: 90ms; }
+[data-slot="sunburst-chart"].v-motion .d10 { animation-delay: 100ms; }
+[data-slot="sunburst-chart"].v-motion .d11 { animation-delay: 110ms; }
+[data-slot="sunburst-chart"].v-motion .d12 { animation-delay: 120ms; }
+[data-slot="sunburst-chart"].v-motion .d13 { animation-delay: 130ms; }
+[data-slot="sunburst-chart"].v-motion .d14 { animation-delay: 140ms; }
+[data-slot="sunburst-chart"].v-motion .d15 { animation-delay: 150ms; }
+[data-slot="sunburst-chart"].v-motion .d16 { animation-delay: 160ms; }
+[data-slot="sunburst-chart"].v-motion .d17 { animation-delay: 170ms; }
+[data-slot="sunburst-chart"].v-motion .d18 { animation-delay: 180ms; }
+[data-slot="sunburst-chart"].v-motion .d19 { animation-delay: 190ms; }
+[data-slot="sunburst-chart"].v-motion .d20 { animation-delay: 200ms; }
+[data-slot="sunburst-chart"].v-motion .d21 { animation-delay: 210ms; }
+[data-slot="sunburst-chart"].v-motion .d22 { animation-delay: 220ms; }
+[data-slot="sunburst-chart"].v-motion .d23 { animation-delay: 230ms; }
+[data-slot="sunburst-chart"].v-motion .d24 { animation-delay: 240ms; }
+[data-slot="sunburst-chart"].v-motion .d25 { animation-delay: 250ms; }
+[data-slot="sunburst-chart"].v-motion .d26 { animation-delay: 260ms; }
+[data-slot="sunburst-chart"].v-motion .d27 { animation-delay: 270ms; }
+[data-slot="sunburst-chart"].v-motion .d28 { animation-delay: 280ms; }
+[data-slot="sunburst-chart"].v-motion .d29 { animation-delay: 290ms; }
+[data-slot="sunburst-chart"].v-motion .d30 { animation-delay: 300ms; }
+[data-slot="sunburst-chart"].v-motion .d31 { animation-delay: 310ms; }
+[data-slot="sunburst-chart"].v-motion .d32 { animation-delay: 320ms; }
+[data-slot="sunburst-chart"].v-motion .d33 { animation-delay: 330ms; }
+[data-slot="sunburst-chart"].v-motion .d34 { animation-delay: 340ms; }
+[data-slot="sunburst-chart"].v-motion .d35 { animation-delay: 350ms; }
+[data-slot="sunburst-chart"].v-motion .d36 { animation-delay: 360ms; }
+[data-slot="sunburst-chart"].v-motion .d37 { animation-delay: 370ms; }
+[data-slot="sunburst-chart"].v-motion .d38 { animation-delay: 380ms; }
+[data-slot="sunburst-chart"].v-motion .d39 { animation-delay: 390ms; }
+[data-slot="sunburst-chart"].v-motion .d40 { animation-delay: 400ms; }
+[data-slot="sunburst-chart"].v-motion .d41 { animation-delay: 410ms; }
+[data-slot="sunburst-chart"].v-motion .d42 { animation-delay: 420ms; }
+[data-slot="sunburst-chart"].v-motion .d43 { animation-delay: 430ms; }
+[data-slot="sunburst-chart"].v-motion .d44 { animation-delay: 440ms; }
+[data-slot="sunburst-chart"].v-motion .d45 { animation-delay: 450ms; }
+[data-slot="sunburst-chart"].v-motion .d46 { animation-delay: 460ms; }
+[data-slot="sunburst-chart"].v-motion .d47 { animation-delay: 470ms; }
+[data-slot="sunburst-chart"].v-motion .d48 { animation-delay: 480ms; }
+[data-slot="sunburst-chart"].v-motion .d49 { animation-delay: 490ms; }
+[data-slot="sunburst-chart"].v-motion .d50 { animation-delay: 500ms; }
+[data-slot="sunburst-chart"].v-motion .d51 { animation-delay: 510ms; }
+[data-slot="sunburst-chart"].v-motion .d52 { animation-delay: 520ms; }
+[data-slot="sunburst-chart"].v-motion .d53 { animation-delay: 530ms; }
+[data-slot="sunburst-chart"].v-motion .d54 { animation-delay: 540ms; }
+[data-slot="sunburst-chart"].v-motion .d55 { animation-delay: 550ms; }
+[data-slot="sunburst-chart"].v-motion .d56 { animation-delay: 560ms; }
+[data-slot="sunburst-chart"].v-motion .d57 { animation-delay: 570ms; }
+[data-slot="sunburst-chart"].v-motion .d58 { animation-delay: 580ms; }
+[data-slot="sunburst-chart"].v-motion .d59 { animation-delay: 590ms; }
+[data-slot="sunburst-chart"].v-motion .d60 { animation-delay: 600ms; }
+[data-slot="sunburst-chart"].v-motion .d61 { animation-delay: 610ms; }
+[data-slot="sunburst-chart"].v-motion .d62 { animation-delay: 620ms; }
+[data-slot="sunburst-chart"].v-motion .d63 { animation-delay: 630ms; }
+[data-slot="sunburst-chart"].v-motion .d64 { animation-delay: 640ms; }
+[data-slot="sunburst-chart"].v-motion .d65 { animation-delay: 650ms; }
+[data-slot="sunburst-chart"].v-motion .d66 { animation-delay: 660ms; }
+[data-slot="sunburst-chart"].v-motion .d67 { animation-delay: 670ms; }
+[data-slot="sunburst-chart"].v-motion .d68 { animation-delay: 680ms; }
+[data-slot="sunburst-chart"].v-motion .d69 { animation-delay: 690ms; }
+[data-slot="sunburst-chart"].v-motion .d70 { animation-delay: 700ms; }
+[data-slot="sunburst-chart"].v-motion .d71 { animation-delay: 710ms; }
+[data-slot="sunburst-chart"].v-motion .d72 { animation-delay: 720ms; }
+[data-slot="sunburst-chart"].v-motion .d73 { animation-delay: 730ms; }
+[data-slot="sunburst-chart"].v-motion .d74 { animation-delay: 740ms; }
+[data-slot="sunburst-chart"].v-motion .d75 { animation-delay: 750ms; }
+[data-slot="sunburst-chart"].v-motion .d76 { animation-delay: 760ms; }
+[data-slot="sunburst-chart"].v-motion .d77 { animation-delay: 770ms; }
+[data-slot="sunburst-chart"].v-motion .d78 { animation-delay: 780ms; }
+[data-slot="sunburst-chart"].v-motion .d79 { animation-delay: 790ms; }
+[data-slot="sunburst-chart"].v-motion .d80 { animation-delay: 800ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l0 { animation-delay: 0ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l1 { animation-delay: 100ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l2 { animation-delay: 200ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l3 { animation-delay: 300ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l4 { animation-delay: 400ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l5 { animation-delay: 500ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l6 { animation-delay: 600ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l7 { animation-delay: 700ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l8 { animation-delay: 800ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l9 { animation-delay: 900ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l10 { animation-delay: 1000ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l11 { animation-delay: 1100ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l12 { animation-delay: 1200ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l13 { animation-delay: 1300ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l14 { animation-delay: 1400ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l15 { animation-delay: 1500ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l16 { animation-delay: 1600ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l17 { animation-delay: 1700ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l18 { animation-delay: 1800ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l19 { animation-delay: 1900ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l20 { animation-delay: 2000ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l21 { animation-delay: 2100ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l22 { animation-delay: 2200ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l23 { animation-delay: 2300ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l24 { animation-delay: 2400ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l25 { animation-delay: 2500ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l26 { animation-delay: 2600ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l27 { animation-delay: 2700ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l28 { animation-delay: 2800ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l29 { animation-delay: 2900ms; }
+[data-slot="sunburst-chart"].v-motion .labels.l30 { animation-delay: 3000ms; }

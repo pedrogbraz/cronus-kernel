@@ -1,10 +1,22 @@
-//! Dedicated ChoroplethChart renderer. DOM matches React:
-//! `<div data-slot="choropleth-chart">` wrapping SVG filled regions.
-//! Token fills. Not the catalog `chart()` stub (`<figure><figcaption>`).
-//! Region `text` lines select the drawn cells like React's `data` prop.
+//! Dedicated ChoroplethChart renderer.
+//!
+//! Default (`ChoroplethChart` from `@cronus-ui/ui`, docs "Default"): `<div
+//! data-slot="choropleth-chart" role="img" aria-label>` › `<svg viewBox="0 0
+//! 200 190">` the seven demo region cells (`item "Northwest" value:42`),
+//! `--cronus-primary` fill at 0.15 + value / max × 0.85, `--cronus-border`
+//! stroke, a `<title>` each.
+//!
+//! Motion (`style:choropleth-chart+motion`, `@cronus-ui/ui/charts`): the docs
+//! example fetches a world GeoJSON at runtime, which the kernel cannot embed,
+//! so the same regions stand in for the countries inside the visx
+//! `ChoroplethChart` chrome — `<div data-slot="choropleth-chart"
+//! class="v-motion">` (`aspect` 16 / 9), features filled by quintile with
+//! `--chart-scale-01…05`, `--cronus-surface-base` 0.5px strokes, an 800ms
+//! fade-in, hover dim to 0.4 and the docs zoom buttons (`zoom:true`, rendered
+//! disabled: zoom needs JS).
 
 use crate::cronus_ui_chart::series_names;
-use crate::cronus_ui_kit::{fmt_coord, label_of, numeric_items};
+use crate::cronus_ui_kit::{choice, esc, flag, fmt_coord, label_of, numeric_items};
 use crate::parser::ComponentNode;
 
 struct Region {
@@ -55,6 +67,9 @@ pub fn render(comp: &ComponentNode) -> String {
     let label = label_of(comp);
     let regions = selected_regions(comp);
     let values = region_values(comp);
+    if choice(comp, "variant", &["motion"]) == Some("motion") {
+        return render_motion(comp, &label, &regions, &values);
+    }
     let max = values.iter().copied().fold(1.0_f64, f64::max);
     let mut paths = String::new();
     for (region, value) in regions.iter().zip(values.iter()) {
@@ -72,8 +87,6 @@ pub fn render(comp: &ComponentNode) -> String {
     )
 }
 
-/// Regions named by the `text` lines, in item order (React maps `data` to
-/// cells and skips unknown ids); every region when none is named.
 fn selected_regions(comp: &ComponentNode) -> Vec<&'static Region> {
     let names = series_names(comp);
     if names.is_empty() {
@@ -85,14 +98,75 @@ fn selected_regions(comp: &ComponentNode) -> Vec<&'static Region> {
         .collect()
 }
 
-/// Demo value per selected region; numeric items override by position.
+/// `value:` config per named row, else numeric items in order, else the demo values.
 fn region_values(comp: &ComponentNode) -> Vec<f64> {
+    let regions = selected_regions(comp);
+    let named: Vec<Option<f64>> = regions
+        .iter()
+        .map(|r| {
+            comp.items
+                .iter()
+                .find(|i| i.text.trim().eq_ignore_ascii_case(r.name))
+                .and_then(|i| i.config.get("value"))
+                .and_then(|v| v.trim().parse::<f64>().ok())
+        })
+        .collect();
+    if named.iter().any(Option::is_some) {
+        return regions
+            .iter()
+            .zip(named)
+            .map(|(r, v)| v.unwrap_or(r.demo))
+            .collect();
+    }
     let nums = numeric_items(comp);
-    selected_regions(comp)
+    regions
         .iter()
         .enumerate()
         .map(|(i, r)| nums.get(i).copied().unwrap_or(r.demo))
         .collect()
+}
+
+/// visx `ChoroplethChart` chrome with the demo regions as features.
+fn render_motion(
+    comp: &ComponentNode,
+    label: &str,
+    regions: &[&'static Region],
+    values: &[f64],
+) -> String {
+    crate::cronus_ui_chart::note_motion();
+    let max = values.iter().copied().fold(1.0_f64, f64::max);
+    let mut features = String::new();
+    for (region, value) in regions.iter().zip(values) {
+        let level = ((value / max).clamp(0.0, 1.0) * 5.0).ceil().max(1.0) as usize;
+        features.push_str(&format!(
+            "<path class=\"feature\" d=\"{}\" fill=\"var(--chart-scale-0{level})\" stroke=\"var(--cronus-surface-base)\" stroke-width=\"0.5\"><title>{}: {}</title></path>",
+            region.d,
+            region.name,
+            fmt_coord(*value)
+        ));
+    }
+    let zoom = if flag(comp, "zoom") {
+        let plus = crate::cronus_ui_icons::svg_or_empty("plus");
+        let minus = crate::cronus_ui_icons::svg_or_empty("minus");
+        format!(
+            "<div class=\"zoom\">{}{}</div>",
+            crate::cronus_ui::button_html(&plus, "secondary", "icon", None, true, Some("Zoom in")),
+            crate::cronus_ui::button_html(
+                &minus,
+                "secondary",
+                "icon",
+                None,
+                true,
+                Some("Zoom out")
+            )
+        )
+    } else {
+        String::new()
+    };
+    format!(
+        "<div data-slot=\"choropleth-chart\" class=\"v-motion\" role=\"img\" aria-label=\"{}\"><svg viewBox=\"0 0 200 190\" aria-hidden=\"true\"><g class=\"features\">{features}</g></svg>{zoom}</div>",
+        esc(label)
+    )
 }
 
 #[cfg(test)]
@@ -146,8 +220,6 @@ mod tests {
 
     #[test]
     fn named_regions_select_cells_like_react_data() {
-        // React maps `data` → CELLS[id] and skips the rest: the audit fixture
-        // names 4 regions, so only those 4 cells are drawn (max = 95).
         let mut c = stub("choropleth-chart", "Regions");
         for t in ["Northwest", "Northeast", "Central", "Southeast"] {
             c.items.push(extra("text", t));
@@ -162,6 +234,21 @@ mod tests {
         let nw = html.find("Northwest").unwrap();
         let se = html.find("Southeast").unwrap();
         assert!(nw < se);
+    }
+
+    #[test]
+    fn value_config_drives_named_regions() {
+        let mut c = stub("choropleth-chart", "Regions");
+        let mut nw = extra("item", "Northwest");
+        nw.config.insert("value".into(), "10".into());
+        let mut ce = extra("item", "Central");
+        ce.config.insert("value".into(), "40".into());
+        c.items.push(nw);
+        c.items.push(ce);
+        let html = render(&c);
+        assert_eq!(html.matches("<path ").count(), 2);
+        assert!(html.contains("fill-opacity=\"0.36\"><title>Northwest: 10</title>"));
+        assert!(html.contains("fill-opacity=\"1\"><title>Central: 40</title>"));
     }
 
     #[test]
@@ -191,21 +278,17 @@ mod tests {
     }
 
     #[test]
-    fn comma_list_item_is_series() {
-        let mut c = stub("choropleth-chart", "Map");
-        c.items.push(extra("item", "4, 8, 6"));
+    fn motion_variant_uses_scale_fills_and_disabled_zoom() {
+        let mut c = stub("choropleth-chart", "World");
+        c.style = Some("choropleth-chart+motion".into());
+        c.props.insert("zoom".into(), "true".into());
         let html = render(&c);
-        assert!(html.contains("<title>Northwest: 4</title>"));
-        assert!(html.contains("<title>Northeast: 8</title>"));
-        assert!(html.contains("<title>West: 6</title>"));
-        reject_stub(&html);
-    }
-
-    #[test]
-    fn skips_chart_figure_stub() {
-        let html = render(&stub("choropleth-chart", "Map"));
-        assert!(!html.contains("<figure"));
-        assert!(!html.contains("<figcaption"));
+        assert!(html.starts_with("<div data-slot=\"choropleth-chart\" class=\"v-motion\" role=\"img\" aria-label=\"World\"><svg viewBox=\"0 0 200 190\" aria-hidden=\"true\"><g class=\"features\"><path class=\"feature\" d=\"M10 10 h 80 v 50 h -80 z\" fill=\"var(--chart-scale-03)\" stroke=\"var(--cronus-surface-base)\" stroke-width=\"0.5\"><title>Northwest: 42</title></path>"));
+        assert!(html.contains("fill=\"var(--chart-scale-05)\" stroke=\"var(--cronus-surface-base)\" stroke-width=\"0.5\"><title>Central: 95</title>"));
+        assert!(html.contains("<div class=\"zoom\"><button"));
+        assert!(html.contains("aria-label=\"Zoom in\""));
+        assert!(html.contains("aria-label=\"Zoom out\""));
+        assert_eq!(html.matches(" disabled").count(), 2);
         reject_stub(&html);
     }
 
@@ -224,6 +307,7 @@ mod tests {
         assert!(css.contains("[data-slot=\"choropleth-chart\"]"));
         assert!(css.contains("var(--cronus-primary)"));
         assert!(css.contains("var(--cronus-border)"));
+        assert!(css.contains("[data-slot=\"choropleth-chart\"].v-motion .feature {"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("onclick"));
     }

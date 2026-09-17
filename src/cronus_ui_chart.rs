@@ -36,6 +36,15 @@ pub const DEMO_VALUES: [f64; 5] = [4.0, 8.0, 6.0, 10.0, 7.0];
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = label_of(comp);
+    let has_rows = data_items(comp)
+        .iter()
+        .any(|i| i.config.contains_key("value"));
+    if has_rows {
+        return match crate::cronus_ui_kit::choice(comp, "variant", &["radial"]) {
+            Some("radial") => render_radial(comp, &label),
+            _ => render_donut(comp, &label),
+        };
+    }
     let mut values = numeric_items(comp);
     if values.is_empty() {
         values = DEMO_VALUES[..3].to_vec();
@@ -56,6 +65,149 @@ pub fn render(comp: &ComponentNode) -> String {
     format!(
         "<div data-slot=\"chart\" role=\"img\" aria-label=\"{label}\">{}</div>",
         svg(&body)
+    )
+}
+
+/// Bottom `ChartLegendContent`: a swatch (`size-2 rounded-[2px]`) + label per row.
+fn chart_legend(labels: &[String]) -> String {
+    let items: String = labels
+        .iter()
+        .enumerate()
+        .map(|(i, l)| {
+            format!(
+                "<div class=\"recharts-legend-item\"><div class=\"swatch c{}\"></div>{}</div>",
+                i % 5 + 1,
+                esc(l)
+            )
+        })
+        .collect();
+    format!("<div class=\"recharts-legend-wrapper\">{items}</div>")
+}
+
+/// Height the bottom legend takes from the 256px chart (pt-3 + one text-xs line).
+const LEGEND_H: f64 = 28.0;
+
+/// Docs "ChartContainer" example: the recharts donut (`innerRadius` 64,
+/// `outerRadius` 98, `paddingAngle` 3, `cornerRadius` 6) with the
+/// `center:"11.4K"` / `center-label:"Visitors"` hub and the bottom legend.
+fn render_donut(comp: &ComponentNode, label: &str) -> String {
+    let data = chart_data(comp, &["Direct", "Organic"], &DEMO_VALUES);
+    let values = &data.series[0].values;
+    let legend = crate::cronus_ui_kit::flag(comp, "legend");
+    let cy = if legend {
+        (VIEW_H - LEGEND_H) / 2.0
+    } else {
+        POLAR_CY
+    };
+    let sum: f64 = values.iter().map(|v| v.max(0.0)).sum();
+    let non_zero = values.iter().filter(|v| **v > 0.0).count();
+    let real_total = 360.0 - non_zero as f64 * 3.0;
+    let mask = crate::cronus_ui_kit::instance_id(comp, "sweep");
+    let mut body = format!(
+        "<defs>{}</defs><g mask=\"url(#{mask})\">",
+        sweep_mask(&mask, POLAR_CX, cy, 64.0, 98.0, 0.0, 360.0, false, "")
+    );
+    let mut prev_end: Option<f64> = None;
+    for (i, v) in values.iter().enumerate() {
+        let start = prev_end.map_or(0.0, |e| e + if *v > 0.0 { 3.0 } else { 0.0 });
+        let delta = if sum > 0.0 {
+            v.max(0.0) / sum * real_total
+        } else {
+            0.0
+        };
+        let end = start + delta;
+        body.push_str(&format!(
+            "<path d=\"{}\" fill=\"var(--cronus-chart-{})\" stroke-width=\"0\"></path>",
+            rounded_sector_path(POLAR_CX, cy, 64.0, 98.0, 6.0, start, end),
+            i % 5 + 1
+        ));
+        prev_end = Some(end);
+    }
+    body.push_str("</g>");
+    let center = crate::cronus_ui_kit::attr(comp, "center")
+        .map(str::to_string)
+        .unwrap_or_else(|| compact_number(sum));
+    let center_label = crate::cronus_ui_kit::attr(comp, "center-label").unwrap_or("Visitors");
+    body.push_str(&format!(
+        "<text x=\"{cx}\" y=\"{cy}\" text-anchor=\"middle\" dominant-baseline=\"middle\"><tspan class=\"value\" x=\"{cx}\" y=\"{cy}\">{}</tspan><tspan class=\"label\" x=\"{cx}\" y=\"{}\">{}</tspan></text>",
+        esc(&center),
+        num(cy + 22.0),
+        esc(center_label),
+        cx = num(POLAR_CX),
+        cy = num(cy)
+    ));
+    let legend_html = if legend {
+        chart_legend(&data.labels)
+    } else {
+        String::new()
+    };
+    format!(
+        "<div data-slot=\"chart\" role=\"img\" aria-label=\"{label}\">{}{legend_html}</div>",
+        svg(&body)
+    )
+}
+
+/// Docs "Radial bar (primitive)": `RadialBarChart innerRadius={32}
+/// outerRadius={110}` with `background` tracks, `cornerRadius` 8 and the
+/// bottom legend; one ring band per row from the centre out, angles on the
+/// nice `[0, max]` domain counter-clockwise from 3 o'clock.
+fn render_radial(comp: &ComponentNode, label: &str) -> String {
+    let data = chart_data(comp, &["Desktop", "Mobile"], &DEMO_VALUES);
+    let values = &data.series[0].values;
+    let legend = crate::cronus_ui_kit::flag(comp, "legend");
+    let cy = if legend {
+        (VIEW_H - LEGEND_H) / 2.0
+    } else {
+        POLAR_CY
+    };
+    let (inner, outer) = (32.0, 110.0);
+    let n = values.len().max(1);
+    let band = (outer - inner) / n as f64;
+    let offset = band * 0.1;
+    let size = {
+        let raw = band - 2.0 * offset;
+        if raw > 1.0 {
+            raw.round()
+        } else {
+            raw
+        }
+    };
+    let (_, hi, _) = nice_domain(0.0, max_of(values));
+    let mut defs = String::new();
+    let mut bars = String::new();
+    for (i, v) in values.iter().enumerate() {
+        let r0 = inner + band * i as f64 + offset;
+        let r1 = r0 + size;
+        bars.push_str(&format!(
+            "<path d=\"{}\" fill=\"#eee\"></path>",
+            sector_path(POLAR_CX, cy, r0, r1, 0.0, 360.0)
+        ));
+        let end = if hi > 0.0 {
+            v.max(0.0) / hi * 360.0
+        } else {
+            0.0
+        };
+        if end <= 0.0 {
+            continue;
+        }
+        let mask = crate::cronus_ui_kit::instance_id(comp, &format!("radial-{i}"));
+        defs.push_str(&sweep_mask(
+            &mask, POLAR_CX, cy, r0, r1, 0.0, end, false, "",
+        ));
+        bars.push_str(&format!(
+            "<g mask=\"url(#{mask})\"><path d=\"{}\" fill=\"var(--cronus-chart-{})\"></path></g>",
+            rounded_sector_path(POLAR_CX, cy, r0, r1, 8.0, 0.0, end),
+            i % 5 + 1
+        ));
+    }
+    let legend_html = if legend {
+        chart_legend(&data.labels)
+    } else {
+        String::new()
+    };
+    format!(
+        "<div data-slot=\"chart\" role=\"img\" aria-label=\"{label}\">{}{legend_html}</div>",
+        svg(&format!("<defs>{defs}</defs>{bars}"))
     )
 }
 
@@ -3002,5 +3154,68 @@ mod tests {
         l.props.insert("data".into(), "4, 8, 6".into());
         let d = chart_data(&l, &["X"], &DEMO_VALUES);
         assert_eq!(d.labels, vec!["1", "2", "3"]);
+    }
+
+    #[test]
+    fn value_rows_render_the_docs_donut_with_legend() {
+        let mut c = stub("chart", "Donut chart of traffic sources");
+        c.props.insert("center".into(), "11.4K".into());
+        c.props.insert("center-label".into(), "Visitors".into());
+        c.props.insert("legend".into(), "true".into());
+        for (l, v) in [
+            ("Direct", "4200"),
+            ("Organic", "3100"),
+            ("Referral", "1900"),
+            ("Social", "1400"),
+            ("Email", "800"),
+        ] {
+            let mut it = text_item(l);
+            it.item_type = "item".into();
+            it.config.insert("value".into(), v.into());
+            c.items.push(it);
+        }
+        let html = render(&c);
+        assert!(html.starts_with("<div data-slot=\"chart\" role=\"img\" aria-label=\"Donut chart of traffic sources\"><svg viewBox=\"0 0 432 256\" aria-hidden=\"true\"><defs><mask id=\"cui-chart-sweep\">"));
+        // Pie centre moves up by half the 28px legend; corner radius 6 sectors from 3 o'clock.
+        assert_eq!(html.matches("stroke-width=\"0\"></path>").count(), 5);
+        assert!(html.contains(" A6,6,0,0,0,"));
+        assert!(html.contains(" A98,98,0,"));
+        assert!(html.contains("<text x=\"216\" y=\"114\" text-anchor=\"middle\" dominant-baseline=\"middle\"><tspan class=\"value\" x=\"216\" y=\"114\">11.4K</tspan><tspan class=\"label\" x=\"216\" y=\"136\">Visitors</tspan></text>"));
+        assert!(html.ends_with("</svg><div class=\"recharts-legend-wrapper\"><div class=\"recharts-legend-item\"><div class=\"swatch c1\"></div>Direct</div><div class=\"recharts-legend-item\"><div class=\"swatch c2\"></div>Organic</div><div class=\"recharts-legend-item\"><div class=\"swatch c3\"></div>Referral</div><div class=\"recharts-legend-item\"><div class=\"swatch c4\"></div>Social</div><div class=\"recharts-legend-item\"><div class=\"swatch c5\"></div>Email</div></div></div>"));
+        reject_stub(&html);
+    }
+
+    #[test]
+    fn radial_variant_stacks_ring_bands_with_backgrounds() {
+        let mut c = stub("chart", "Radial bar chart of visitors by device");
+        c.style = Some("chart+radial".into());
+        c.props.insert("legend".into(), "true".into());
+        for (l, v) in [
+            ("Desktop", "5200"),
+            ("Mobile", "4100"),
+            ("Tablet", "1800"),
+            ("Other", "900"),
+        ] {
+            let mut it = text_item(l);
+            it.item_type = "item".into();
+            it.config.insert("value".into(), v.into());
+            c.items.push(it);
+        }
+        let html = render(&c);
+        // Four bands of (110 - 32) / 4 = 19.5 with a 10% inset: 16px rings from r 33.95.
+        assert_eq!(html.matches("fill=\"#eee\"").count(), 4);
+        assert!(html.contains("<path d=\"M 265.95,114 A"));
+        // Desktop 5200 of the nice 6000 domain → 312° counter-clockwise.
+        assert!(html.contains("<mask id=\"cui-chart-radial-0\"><circle class=\"sweep\" cx=\"216\" cy=\"114\" r=\"41.95\" fill=\"none\" stroke=\"white\" stroke-width=\"18\" pathLength=\"1.1538\" transform=\"rotate(0 216 114) matrix(1 0 0 -1 0 228)\"></circle></mask>"));
+        assert!(html.contains("fill=\"var(--cronus-chart-4)\""));
+        assert!(html.contains("<div class=\"swatch c4\"></div>Other</div>"));
+        reject_stub(&html);
+    }
+
+    #[test]
+    fn chrome_styles_legend_and_hub() {
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"chart\"] .recharts-legend-wrapper {"));
+        assert!(css.contains("[data-slot=\"chart\"] tspan.value {"));
     }
 }

@@ -1,0 +1,29 @@
+page "/sunburst-chart" type:components family:sunburst-chart {
+  title "SunburstChart"
+  description:"Hierarchical rings. Default and Motion variants."
+}
+
+component SunburstChartDefault layout:stack style:sunburst-chart group:"Default" note:"Cronus two-level hierarchical rings." {
+  label "Sunburst chart of revenue by product line."
+  item "Product" value:48
+  item "App" value:28 parent:"Product"
+  item "API" value:20 parent:"Product"
+  item "Services" value:32
+  item "Support" value:18 parent:"Services"
+  item "Consulting" value:14 parent:"Services"
+}
+
+component SunburstChartMotion layout:stack style:sunburst-chart+motion root:"Revenue" size:360 group:"Motion" note:"Hierarchical rings with hover grow and labels." {
+  label "Sunburst chart of revenue by product line."
+  item "Product"
+  item "Enterprise" value:198 parent:"Product"
+  item "Pro" value:145 parent:"Product"
+  item "Starter" value:95 parent:"Product"
+  item "Services"
+  item "Consulting" value:160 parent:"Services"
+  item "Support" value:90 parent:"Services"
+  item "Training" value:55 parent:"Services"
+  item "Partners"
+  item "Referrals" value:120 parent:"Partners"
+  item "Affiliates" value:75 parent:"Partners"
+}
