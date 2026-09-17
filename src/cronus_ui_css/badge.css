@@ -30,3 +30,5 @@
   background: color-mix(in oklch, var(--cronus-info) 15%, transparent);
   color: var(--cronus-info-text); border-color: transparent;
 }
+/* React `[&_svg]:size-3`: a leading lucide glyph. */
+[data-slot="badge"] svg { width: 0.75rem; height: 0.75rem; flex-shrink: 0; }

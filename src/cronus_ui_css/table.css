@@ -23,3 +23,12 @@
 [data-slot="table-cell"] {
   padding: 0.75rem; vertical-align: middle; white-space: nowrap;
 }
+[data-slot="table-caption"] { margin-top: 1rem; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-tertiary); caption-side: bottom; }
+[data-slot="table-footer"] {
+  border-top: 1px solid var(--cronus-border); font-weight: 500;
+  background: color-mix(in oklch, var(--cronus-surface-inset) 50%, transparent);
+}
+/* Docs cell utilities carried as column config (`align:end`, `font:medium|mono`). */
+[data-slot="table"] .text-end { text-align: end; }
+[data-slot="table"] .font-medium { font-weight: 500; }
+[data-slot="table"] .font-mono { font-family: var(--cronus-font-mono, ui-monospace, monospace); font-variant-numeric: tabular-nums; }

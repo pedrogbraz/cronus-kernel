@@ -12,3 +12,8 @@
   background: var(--cronus-surface-overlay); color: var(--cronus-fg-secondary);
   font-size: 0.875rem; line-height: 1.25rem; font-weight: 500;
 }
+[data-slot="avatar-fallback"].s-xs { font-size: 0.75rem; line-height: 1rem; }
+/* Docs "Group": React `ring-2 ring-surface-raised` on each avatar of a `flex -space-x-3` div. */
+[data-slot="avatar"].ring { box-shadow: 0 0 0 2px var(--cronus-surface-raised); }
+.cui-avatar-stack { display: flex; }
+.cui-avatar-stack > * + * { margin-inline-start: -0.75rem; }

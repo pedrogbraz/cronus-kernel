@@ -1,0 +1,16 @@
+page "/code-block" type:components family:code-block {
+  title "CodeBlock"
+  description:"Source snippet with header, line numbers and copy."
+}
+
+component CodeBlockTerminal layout:stack style:code-block language:bash filename:terminal group:"Default" note:"Renders a source snippet with a built-in copy button. Add a `language` badge and/or a `filename` to show a header." {
+  text "bunx cronus-ui add button card dialog"
+}
+
+component CodeBlockLines layout:stack style:code-block language:tsx line-numbers:true group:"Line numbers" note:"Set `showLineNumbers` to render a non-selectable gutter beside the code." {
+  text "import { Button } from \"@cronus-ui/ui\";"
+  text ""
+  text "export function Save() {"
+  text "  return <Button>Save</Button>;"
+  text "}"
+}

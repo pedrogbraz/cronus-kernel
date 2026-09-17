@@ -8,3 +8,37 @@
   border-radius: var(--cronus-radius-lg); background: var(--cronus-surface-raised);
   padding: 0.75rem; font-size: 0.875rem; line-height: 1.25rem;
 }
+/* Docs "Responsive cards": Card tiles keep the card shell; `columns` map as classes. */
+[data-slot="masonry"] > [data-slot="card"] {
+  padding: 1.5rem 0; border-radius: var(--cronus-radius-xl); font-size: inherit; line-height: inherit;
+}
+[data-slot="masonry"].cols-1 { column-count: 1; }
+[data-slot="masonry"].cols-2 { column-count: 2; }
+[data-slot="masonry"].cols-3 { column-count: 3; }
+[data-slot="masonry"].cols-4 { column-count: 4; }
+[data-slot="masonry"].cols-5 { column-count: 5; }
+[data-slot="masonry"].cols-6 { column-count: 6; }
+@media (min-width: 640px) {
+  [data-slot="masonry"].sm-cols-1 { column-count: 1; }
+  [data-slot="masonry"].sm-cols-2 { column-count: 2; }
+  [data-slot="masonry"].sm-cols-3 { column-count: 3; }
+  [data-slot="masonry"].sm-cols-4 { column-count: 4; }
+}
+@media (min-width: 768px) {
+  [data-slot="masonry"].md-cols-2 { column-count: 2; }
+  [data-slot="masonry"].md-cols-3 { column-count: 3; }
+  [data-slot="masonry"].md-cols-4 { column-count: 4; }
+}
+@media (min-width: 1024px) {
+  [data-slot="masonry"].lg-cols-3 { column-count: 3; }
+  [data-slot="masonry"].lg-cols-2 { column-count: 2; }
+  [data-slot="masonry"].lg-cols-4 { column-count: 4; }
+  [data-slot="masonry"].lg-cols-5 { column-count: 5; }
+  [data-slot="masonry"].lg-cols-6 { column-count: 6; }
+}
+@media (min-width: 1280px) {
+  [data-slot="masonry"].xl-cols-3 { column-count: 3; }
+  [data-slot="masonry"].xl-cols-4 { column-count: 4; }
+  [data-slot="masonry"].xl-cols-5 { column-count: 5; }
+  [data-slot="masonry"].xl-cols-6 { column-count: 6; }
+}

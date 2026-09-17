@@ -7,3 +7,9 @@
 [data-slot="separator"][data-orientation="vertical"] {
   height: 100%; width: 1px;
 }
+/* Docs copy around the divider: `flex-col gap-3` / `flex h-10 items-center gap-3`, `text-sm text-fg-secondary`. */
+.cui-separator-stack { display: flex; flex-direction: column; gap: 0.75rem; width: 100%; }
+.cui-separator-row { display: flex; height: 2.5rem; align-items: center; gap: 0.75rem; }
+.cui-separator-stack > span, .cui-separator-row > span {
+  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
+}

@@ -1,0 +1,6 @@
+page "/heatmap" type:components family:heatmap {
+  title "Heatmap"
+  description:"A calendar-style contribution heatmap that buckets daily activity into levels."
+}
+
+component HeatmapContributions layout:stack style:heatmap aria-label:"Contributions" start:"2026-03-01" data:"1,6,6,10,1,3,7,7,9,7,9,9,9,7,3,7,1,10,5,10,8,8,3,3,12,11,10,12,6,1,4,7,4,5,11,8,7,0,9,4,5,5,7,6,1,6,9,7,6,11,3,5,11,6,6,0,3,2,1,8,11,1,7,6,6,3,11,8,5,6,11,12,7,7,8,4,10,6,6,11,5,4,3,0,8,7,5,6,6,11,3,6,6,10,10,7,11,10,4,11,1,8,9,6,5,12,12,10,6,1,3,6,1,9,5,5,0,0,7" group:"Contributions" note:"A calendar-style activity grid: each cell is one day, laid out into week columns of 7. Values bucket into discrete levels against the series max, with the empty level reserved for zero-activity days." {}

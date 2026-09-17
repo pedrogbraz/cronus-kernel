@@ -1,0 +1,16 @@
+page "/kanban" type:components family:kanban {
+  title "Kanban"
+  description:"Drag-and-drop board with cards that reorder and move across columns."
+}
+
+component KanbanBoard layout:stack style:kanban aria-label:"Project board" group:"Board" note:"A controlled drag-and-drop board. Cards reorder within a column and move across columns; `onColumnsChange` hands you the next state to store. Drag with the pointer or focus a card's handle and use the arrow keys." {
+  columns "To do"
+  item "Draft the launch post" description:"Outline the key talking points."
+  item "Audit onboarding copy"
+  item "Collect customer quotes" description:"Reach out to 3 design partners."
+  columns "In progress"
+  item "Wire up the billing page" description:"Hook the plan picker to checkout."
+  item "Polish empty states"
+  columns "Done"
+  item "Ship the new docs theme" description:"Dark mode shipped."
+}

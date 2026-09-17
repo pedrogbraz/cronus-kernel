@@ -1,0 +1,15 @@
+page "/badge" type:components family:badge {
+  title "Badge"
+  description:"Small status / category label."
+}
+
+component BadgeDefault layout:inline style:badge+default group:"Variants" note:"Compact status and category labels across the semantic palette." { label "Default" }
+component BadgePrimary layout:inline style:badge+primary group:"Variants" { label "Primary" }
+component BadgeSecondary layout:inline style:badge+secondary group:"Variants" { label "Secondary" }
+component BadgeOutline layout:inline style:badge+outline group:"Variants" { label "Outline" }
+component BadgeSuccess layout:inline style:badge+success group:"Variants" { label "Success" }
+component BadgeWarning layout:inline style:badge+warning group:"Variants" { label "Warning" }
+component BadgeError layout:inline style:badge+error group:"Variants" { label "Error" }
+component BadgeInfo layout:inline style:badge+info group:"Variants" { label "Info" }
+
+component BadgeVerified layout:inline style:badge+success icon:check group:"With icon" note:"Pair a leading icon with the label to reinforce meaning." { label "Verified" }

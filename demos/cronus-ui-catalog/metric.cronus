@@ -1,0 +1,20 @@
+page "/metric" type:components family:metric {
+  title "Metric"
+  description:"KPI value with trend delta."
+}
+
+component MetricRevenue layout:stack style:metric group:"Stat tiles" note:"Compact KPI tiles pairing a label, a value, and a trend-aware delta." {
+  label "Revenue"
+  value "$48,290"
+  trend "+12.5%" tone:up
+}
+component MetricChurn layout:stack style:metric group:"Stat tiles" {
+  label "Churn"
+  value "2.1%"
+  trend "-0.4%" tone:down
+}
+component MetricSessions layout:stack style:metric group:"Stat tiles" {
+  label "Sessions"
+  value "9,830"
+  trend "0.0%" tone:neutral
+}

@@ -1,0 +1,11 @@
+page "/collapsible" type:components family:collapsible {
+  title "Collapsible"
+  description:"Animated show/hide for a single section."
+}
+
+component CollapsibleRegions layout:stack style:collapsible open:false icon:chevrons-up-down aria-label:"Toggle regions" max-width:sm font:mono group:"Default" note:"An animated show/hide for a single section. Control it with `open` and `onOpenChange`, and put the toggle inside `CollapsibleTrigger`." {
+  label "Deployment regions"
+  item "us-east-1"
+  item "eu-west-1"
+  item "ap-southeast-2"
+}

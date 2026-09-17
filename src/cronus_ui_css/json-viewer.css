@@ -38,3 +38,22 @@
 [data-slot="json-viewer-value"][data-type="number"] { color: var(--cronus-info-text); font-variant-numeric: tabular-nums; }
 [data-slot="json-viewer-value"][data-type="boolean"] { color: var(--cronus-warning-text); }
 [data-slot="json-viewer-value"][data-type="null"] { color: var(--cronus-fg-tertiary); }
+/* Row hover/focus reveals the copy button (React `group-hover/row:opacity-100`). */
+[data-slot="json-viewer-row"]:hover > [data-slot="copy-button"],
+[data-slot="json-viewer-row"]:focus-within > [data-slot="copy-button"] { opacity: 1; }
+[data-slot="json-viewer-row"] > [data-slot="copy-button"] { transition: opacity 150ms; }
+/* Zero JS: the toggle label's checkbox carries the expanded state. */
+.cui-json-toggle { position: relative; display: inline-flex; flex-shrink: 0; cursor: pointer; }
+.cui-json-toggle > input {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.cui-json-toggle > [data-slot="json-viewer-toggle"] { pointer-events: none; }
+.cui-json-toggle:hover > [data-slot="json-viewer-toggle"] { background: var(--cronus-surface-overlay); color: var(--cronus-fg); }
+.cui-json-toggle > input:focus-visible + [data-slot="json-viewer-toggle"] { box-shadow: inset 0 0 0 2px var(--cronus-ring); }
+.cui-json-toggle > [data-slot="json-viewer-toggle"] svg { transform: none; transition: transform 200ms var(--ease-out-quart); }
+.cui-json-toggle > input:checked + [data-slot="json-viewer-toggle"] svg { transform: rotate(90deg); }
+[data-slot="json-viewer-branch"]:has(> [data-slot="json-viewer-row"] > .cui-json-toggle > input:not(:checked)) > [data-slot="json-viewer-children"],
+[data-slot="json-viewer-branch"]:has(> [data-slot="json-viewer-row"] > .cui-json-toggle > input:not(:checked)) > [data-slot="json-viewer-closer"] { display: none; }
+[data-slot="json-viewer-branch"]:has(> [data-slot="json-viewer-row"] > .cui-json-toggle > input:checked) > [data-slot="json-viewer-row"] :is([data-slot="json-viewer-summary"], .when-collapsed) { display: none; }
+[data-slot="json-viewer-summary"] { color: var(--cronus-fg-tertiary); font-variant-numeric: tabular-nums; }

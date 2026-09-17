@@ -4,11 +4,15 @@
 //! `code-tabs-language`) → `code-tabs-panels` with the snippet `copy-button`
 //! and the `code-tabs-panel` / `code-tabs-pre` / `code-tabs-code`.
 //!
-//! Tabs are the content texts (the `label` names the widget and becomes the
-//! `aria-label`). Code/language come from item config (`code:` / `language:`)
-//! or a `code` item (first tab). With no code anywhere, each tab gets the React
-//! audit harness placeholder (`"{label} install"`, language `bash`) — the
-//! emitter cannot carry per-tab code, so both sides share one placeholder.
+//! Tabs are `tab "bun" code:"…" language:bash` lines (or `item`s); the `text`
+//! lines that follow a tab are its code, one per line (`text ""` is a blank
+//! line, `\"` a quote), for multi-line snippets. With no tab lines the
+//! content texts are the tabs (the audit emitter's shape) and the `label`
+//! names the widget (`aria-label`). With no code anywhere, each tab gets the
+//! React audit harness placeholder (`"{label} install"`, language `bash`) —
+//! the emitter cannot carry per-tab code, so both sides share one
+//! placeholder. `default:"TypeScript"` picks the starting tab (React
+//! `defaultLabel`; the first tab otherwise).
 //!
 //! Zero JS tab switching: each trigger sits in a `<label>` with a visually
 //! hidden radio (page-unique `name`; the list is a `radiogroup`). Every tab's
@@ -44,18 +48,21 @@ pub fn render(comp: &ComponentNode) -> String {
     let tabs = tabs(comp);
     let demo = tabs.iter().all(|t| t.code.is_none()) && item(comp, "code").is_none();
     let name = instance_id(comp, "code-tabs");
+    let active = attr_nonempty(comp, "default")
+        .and_then(|d| tabs.iter().position(|t| t.label == esc(d)))
+        .unwrap_or(0);
     let triggers = tabs
         .iter()
         .enumerate()
         .map(|(i, t)| {
             let label = &t.label;
-            let checked = if i == 0 { " checked" } else { "" };
+            let checked = if i == active { " checked" } else { "" };
             format!(
                 "<label><input type=\"radio\" name=\"{name}\" value=\"{i}\" aria-label=\"{label}\"{checked}><button type=\"button\" data-slot=\"code-tabs-trigger\" tabindex=\"-1\" aria-hidden=\"true\">{label}</button></label>"
             )
         })
         .collect::<String>();
-    let first_label = tabs.first().map(|t| t.label.as_str()).unwrap_or("");
+    let active_label = tabs.get(active).map(|t| t.label.as_str()).unwrap_or("");
     let has_language = demo || tabs.iter().any(|t| t.language.is_some());
     let languages = if has_language {
         tabs.iter()
@@ -90,7 +97,7 @@ pub fn render(comp: &ComponentNode) -> String {
         .map(|v| format!(" aria-label=\"{}\"", esc(v)))
         .unwrap_or_default();
     format!(
-        "<div data-slot=\"code-tabs\" data-orientation=\"horizontal\"{aria}><div data-slot=\"code-tabs-header\"><div role=\"radiogroup\" aria-orientation=\"horizontal\" data-slot=\"code-tabs-list\">{triggers}<span aria-hidden=\"true\" data-slot=\"code-tabs-indicator\"></span></div>{languages}</div><div data-slot=\"code-tabs-panels\"><button type=\"button\" data-slot=\"copy-button\" data-variant=\"ghost\" aria-label=\"Copy {first_label} snippet\" disabled>{COPY_ICON}</button>{panels}</div></div>"
+        "<div data-slot=\"code-tabs\" data-orientation=\"horizontal\"{aria}><div data-slot=\"code-tabs-header\"><div role=\"radiogroup\" aria-orientation=\"horizontal\" data-slot=\"code-tabs-list\">{triggers}<span aria-hidden=\"true\" data-slot=\"code-tabs-indicator\"></span></div>{languages}</div><div data-slot=\"code-tabs-panels\"><button type=\"button\" data-slot=\"copy-button\" data-variant=\"ghost\" aria-label=\"Copy {active_label} snippet\" disabled>{COPY_ICON}</button>{panels}</div></div>"
     )
 }
 
@@ -100,18 +107,43 @@ fn aria_label(comp: &ComponentNode) -> Option<&str> {
 
 fn tabs(comp: &ComponentNode) -> Vec<Tab> {
     let config = |i: &crate::parser::ComponentItemNode, key: &str| {
-        i.config.get(key).filter(|s| !s.is_empty()).map(|s| esc(s))
+        i.config
+            .get(key)
+            .filter(|s| !s.is_empty())
+            .map(|s| esc(&crate::cronus_ui_code_block::unescape(s)))
     };
-    let tabs: Vec<Tab> = comp
+    let has_tab_lines = comp
         .items
         .iter()
-        .filter(|i| !i.text.is_empty() && !NAME_KINDS.contains(&i.item_type.as_str()))
-        .map(|i| Tab {
-            label: esc(&i.text),
-            code: config(i, "code"),
-            language: config(i, "language"),
-        })
-        .collect();
+        .any(|i| matches!(i.item_type.as_str(), "tab" | "item") && !i.text.is_empty());
+    let mut tabs: Vec<Tab> = Vec::new();
+    let mut lines: Vec<Vec<String>> = Vec::new();
+    for i in &comp.items {
+        if NAME_KINDS.contains(&i.item_type.as_str()) {
+            continue;
+        }
+        let is_tab = matches!(i.item_type.as_str(), "tab" | "item") || !has_tab_lines;
+        if is_tab {
+            if i.text.is_empty() {
+                continue;
+            }
+            tabs.push(Tab {
+                label: esc(&i.text),
+                code: config(i, "code"),
+                language: config(i, "language"),
+            });
+            lines.push(Vec::new());
+        } else if i.item_type == "text" {
+            if let Some(last) = lines.last_mut() {
+                last.push(esc(&crate::cronus_ui_code_block::unescape(&i.text)));
+            }
+        }
+    }
+    for (tab, code_lines) in tabs.iter_mut().zip(lines) {
+        if tab.code.is_none() && !code_lines.is_empty() {
+            tab.code = Some(code_lines.join("\n"));
+        }
+    }
     if !tabs.is_empty() {
         return tabs;
     }
@@ -237,6 +269,40 @@ mod tests {
         reject_interact(&html);
     }
 
+    /// Docs "Multi-language snippet": `text` lines after a `tab` are that
+    /// tab's code (blank lines and `\"` kept); `default:` checks its radio and
+    /// names the copy button.
+    #[test]
+    fn text_lines_follow_their_tab_and_default_picks_the_active_tab() {
+        let mut c = stub("code-tabs", "Formatters");
+        c.items.clear();
+        let mut ts = extra("tab", "TypeScript");
+        ts.config.insert("language".into(), "ts".into());
+        c.items.push(ts);
+        c.items
+            .push(extra("text", "export function f(v: number) {"));
+        c.items.push(extra("text", ""));
+        c.items.push(extra(
+            "text",
+            "  return Intl.NumberFormat(\\\"pt-BR\\\").format(v);",
+        ));
+        c.items.push(extra("text", "}"));
+        let mut js = extra("tab", "JavaScript");
+        js.config.insert("language".into(), "js".into());
+        c.items.push(js);
+        c.items.push(extra("text", "export function f(v) {}"));
+        c.props.insert("default".into(), "JavaScript".into());
+        let html = render(&c);
+        assert!(html.contains("<code data-slot=\"code-tabs-code\">export function f(v: number) {\n\n  return Intl.NumberFormat(&quot;pt-BR&quot;).format(v);\n}</code>"));
+        assert!(html.contains("<code data-slot=\"code-tabs-code\">export function f(v) {}</code>"));
+        assert!(html.contains("value=\"1\" aria-label=\"JavaScript\" checked>"));
+        assert!(!html.contains("value=\"0\" aria-label=\"TypeScript\" checked>"));
+        assert!(html.contains("aria-label=\"Copy JavaScript snippet\" disabled>"));
+        assert!(html.contains("<span data-slot=\"code-tabs-language\">ts</span><span data-slot=\"code-tabs-language\">js</span>"));
+        assert!(!html.contains("\\&quot;"));
+        reject_interact(&html);
+    }
+
     #[test]
     fn code_without_language_omits_language_slot() {
         let mut c = stub("code-tabs", "Install");
@@ -280,7 +346,7 @@ mod tests {
     /// 32px copy button pinned `top-2 right-2` without the global disabled dim.
     #[test]
     fn chrome_matches_react_geometry() {
-        let css = crate::cronus_ui::component_chrome_css();
+        let css = include_str!("cronus_ui_css/code-tabs.css");
         assert!(css.contains("[data-slot=\"code-tabs-trigger\"] {\n  display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem;\n  white-space: nowrap; padding: 0.625rem 0.875rem; border: 0; border-radius: 0;\n  background: transparent; color: var(--cronus-fg-tertiary);\n  font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; cursor: default;\n}"));
         assert!(css.contains(
             "left: anchor(--code-tabs-active left); width: anchor-size(--code-tabs-active width);"
@@ -294,7 +360,7 @@ mod tests {
     /// panel and language, for every tab up to `MAX_TABS`.
     #[test]
     fn chrome_switches_with_checked_radio() {
-        let css = crate::cronus_ui::component_chrome_css();
+        let css = include_str!("cronus_ui_css/code-tabs.css");
         assert!(css.contains("[data-slot=\"code-tabs-list\"] > label > input:checked + [data-slot=\"code-tabs-trigger\"] { color: var(--cronus-fg); anchor-name: --code-tabs-active; }"));
         assert!(css.contains("[data-slot=\"code-tabs-panels\"] > [data-slot=\"code-tabs-panel\"],\n[data-slot=\"code-tabs-header\"] > [data-slot=\"code-tabs-language\"] { display: none; }"));
         for i in 1..=MAX_TABS {

@@ -1,0 +1,14 @@
+page "/separator" type:components family:separator {
+  title "Separator"
+  description:"Visual divider between content."
+}
+
+component SeparatorSections layout:stack style:separator group:"Horizontal & vertical" note:"A divider that adapts to either orientation." {
+  text "Section A"
+  text "Section B"
+}
+component SeparatorLinks layout:inline style:separator+vertical group:"Horizontal & vertical" {
+  text "Docs"
+  text "API"
+  text "Blog"
+}

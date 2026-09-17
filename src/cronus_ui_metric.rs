@@ -1,18 +1,81 @@
 //! Dedicated Metric renderer. DOM matches React:
-//! `<div data-slot="metric"><div data-slot="metric-label">…</div><div data-slot="metric-value">…</div></div>`.
+//! `<div data-slot="metric"><div data-slot="metric-label">…</div><div data-slot="metric-value">…</div></div>`
+//! plus, for a `trend "+12.5%" tone:up` item (or `delta:` / `trend:` props),
+//! React's `<span data-slot="metric-delta">` with the lucide TrendingUp /
+//! TrendingDown / Minus glyph. React has no data attribute for the trend, so
+//! it travels as class `t-up` | `t-down` | `t-neutral`.
 //! Label from label/title; value from item type value / extra text / props.value
 //! (bound scalar as a last resort). Not interact `metric()` (`<section style=SURF>`
 //! + v-data `{ value }` interp).
 
-use crate::cronus_ui_kit::{esc, item};
+use crate::cronus_ui_kit::{attr_nonempty, esc, item};
 use crate::parser::ComponentNode;
+
+const SVG_OPEN: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">";
+/// lucide `TrendingUp`.
+const TRENDING_UP: &str =
+    "<path d=\"M16 7h6v6\"></path><path d=\"m22 7-8.5 8.5-5-5L2 17\"></path></svg>";
+/// lucide `TrendingDown`.
+const TRENDING_DOWN: &str =
+    "<path d=\"M16 17h6v-6\"></path><path d=\"m22 17-8.5-8.5-5 5L2 7\"></path></svg>";
+/// lucide `Minus`.
+const MINUS: &str = "<path d=\"M5 12h14\"></path></svg>";
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = esc(label_raw(comp));
     let value = value_of(comp);
-    format!(
-        "<div data-slot=\"metric\"><div data-slot=\"metric-label\">{label}</div><div data-slot=\"metric-value\">{value}</div></div>"
+    let delta = delta_of(comp);
+    metric_html(
+        &label,
+        &value,
+        delta.as_ref().map(|(t, d)| (t.as_str(), d.as_str())),
     )
+}
+
+/// One React `Metric` (label, value, optional `(trend, delta text)`), every
+/// argument already escaped. Shared with sparkline's stat cards.
+pub fn metric_html(label: &str, value: &str, delta: Option<(&str, &str)>) -> String {
+    let delta = delta
+        .map(|(trend, text)| {
+            let glyph = match trend {
+                "up" => TRENDING_UP,
+                "down" => TRENDING_DOWN,
+                _ => MINUS,
+            };
+            format!(
+                "<span data-slot=\"metric-delta\" class=\"t-{trend}\">{SVG_OPEN}{glyph}{text}</span>"
+            )
+        })
+        .unwrap_or_default();
+    format!(
+        "<div data-slot=\"metric\"><div data-slot=\"metric-label\">{label}</div><div data-slot=\"metric-value\">{value}</div>{delta}</div>"
+    )
+}
+
+/// `(trend, escaped delta text)` from a `trend` item (`tone:` = up | down |
+/// neutral) or the `delta:` + `trend:` props. Unknown trends read as neutral.
+fn delta_of(comp: &ComponentNode) -> Option<(String, String)> {
+    let normalize = |t: Option<&str>| {
+        match t.map(str::trim) {
+            Some("up") | Some("success") | Some("positive") => "up",
+            Some("down") | Some("danger") | Some("error") | Some("negative") => "down",
+            _ => "neutral",
+        }
+        .to_string()
+    };
+    if let Some(i) = comp
+        .items
+        .iter()
+        .find(|i| i.item_type == "trend" && !i.text.is_empty())
+    {
+        let tone = i
+            .tone
+            .as_deref()
+            .or_else(|| i.config.get("trend").map(String::as_str))
+            .or_else(|| attr_nonempty(comp, "trend"));
+        return Some((normalize(tone), esc(&i.text)));
+    }
+    attr_nonempty(comp, "delta").map(|d| (normalize(attr_nonempty(comp, "trend")), esc(d)))
 }
 
 fn label_raw(comp: &ComponentNode) -> &str {
@@ -49,7 +112,7 @@ fn value_of(comp: &ComponentNode) -> String {
         if i.text.is_empty() {
             continue;
         }
-        if matches!(i.item_type.as_str(), "label" | "title") {
+        if matches!(i.item_type.as_str(), "label" | "title" | "trend") {
             continue;
         }
         if i.text == label {
@@ -153,11 +216,46 @@ mod tests {
             html,
             "<div data-slot=\"metric\"><div data-slot=\"metric-label\">Users</div><div data-slot=\"metric-value\">1,240</div></div>"
         );
-        let css = crate::cronus_ui::component_chrome_css();
+        let css = include_str!("cronus_ui_css/metric.css");
         assert!(css.contains(
             "font-size: 0.75rem; line-height: 1rem; font-weight: 500; text-transform: uppercase;"
         ));
         assert!(css.contains("font-size: 1.5rem; line-height: 2rem; font-weight: 600;"));
+    }
+
+    /// Docs "Stat tiles": a `trend` item with `tone:up|down|neutral` renders
+    /// React's MetricDelta (glyph + text, trend as a class).
+    #[test]
+    fn trend_item_renders_metric_delta() {
+        let mut c = stub("metric", "Revenue");
+        c.items.push(extra("value", "$48,290"));
+        let mut t = extra("trend", "+12.5%");
+        t.tone = Some("up".into());
+        c.items.push(t);
+        let html = render(&c);
+        assert!(html.contains("<div data-slot=\"metric-value\">$48,290</div><span data-slot=\"metric-delta\" class=\"t-up\"><svg "));
+        assert!(html.contains("<path d=\"M16 7h6v6\"></path>"));
+        assert!(html.ends_with("</svg>+12.5%</span></div>"));
+        assert!(!html.contains("data-trend"));
+        c.items[2].tone = Some("down".into());
+        assert!(render(&c).contains("class=\"t-down\"><svg "));
+        assert!(render(&c).contains("<path d=\"M16 17h6v-6\"></path>"));
+        c.items[2].tone = Some("neutral".into());
+        assert!(render(&c).contains("class=\"t-neutral\"><svg "));
+        assert!(render(&c).contains("<path d=\"M5 12h14\"></path>"));
+        let mut p = stub("metric", "Churn");
+        p.props.insert("value".into(), "2.1%".into());
+        p.props.insert("delta".into(), "-0.4%".into());
+        p.props.insert("trend".into(), "down".into());
+        assert!(render(&p).contains("class=\"t-down\""));
+        reject_interact(&html);
+        let css = include_str!("cronus_ui_css/metric.css");
+        assert!(css.contains("[data-slot=\"metric-delta\"] {\n  display: inline-flex; align-items: center; gap: 0.25rem;\n  font-size: 0.75rem; line-height: 1rem; font-weight: 500; color: var(--cronus-fg-tertiary);\n}"));
+        assert!(css
+            .contains("[data-slot=\"metric-delta\"].t-up { color: var(--cronus-success-text); }"));
+        assert!(
+            css.contains("[data-slot=\"metric-delta\"] svg { width: 0.875rem; height: 0.875rem; }")
+        );
     }
 
     #[test]
@@ -200,7 +298,7 @@ mod tests {
 
     #[test]
     fn chrome_is_token_only() {
-        let css = crate::cronus_ui::component_chrome_css();
+        let css = include_str!("cronus_ui_css/metric.css");
         assert!(css.contains("[data-slot=\"metric\"]"));
         assert!(css.contains("[data-slot=\"metric-label\"]"));
         assert!(css.contains("[data-slot=\"metric-value\"]"));

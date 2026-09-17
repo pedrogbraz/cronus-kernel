@@ -1,8 +1,10 @@
 [data-slot="kbd"] {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem;
-  height: 1.25rem; min-width: 1.25rem; padding: 0 0.375rem;
+  height: 1.25rem; min-width: 1.25rem; padding: 0 0.375rem; box-sizing: border-box;
   border-radius: var(--cronus-radius-md); border: 1px solid var(--cronus-border);
   background: var(--cronus-surface-overlay); color: var(--cronus-fg-secondary);
   font-family: var(--cronus-font-mono, ui-monospace, monospace);
   font-size: 0.7rem; font-weight: 500; white-space: nowrap;
 }
+/* Docs "Keys": a chord is the example's `inline-flex gap-1` span of keys. */
+.cui-kbd-chord { display: inline-flex; align-items: center; gap: 0.25rem; }

@@ -1,0 +1,6 @@
+page "/comparison-slider" type:components family:comparison-slider {
+  title "ComparisonSlider"
+  description:"Drag a divider to reveal a before/after comparison of two layers."
+}
+
+component ComparisonBeforeAfter layout:stack style:comparison-slider aria-label:"Before and after" height:64 before:"Before" after:"After" group:"Before & after" note:"Drag the divider — or focus it and use the arrow keys — to wipe between two layers. Here two labelled panels stand in for a before/after image pair so it reads clearly offline." {}

@@ -1,0 +1,11 @@
+page "/video-player" type:components family:video-player {
+  title "VideoPlayer"
+  description:"Native video wrapped in token-styled custom controls: seek, volume, playback speed, and fullscreen."
+}
+
+component VideoPlayerTrailer layout:stack style:video-player src:"https://media.w3.org/2010/05/sintel/trailer.mp4" poster:"https://media.w3.org/2010/05/sintel/poster.png" captions:"data:text/vtt,WEBVTT%0A%0A00:00.000%20--%3E%2000:04.000%0AWind%20howls%20across%20a%20snowy%20mountain%20pass." captions-lang:en captions-label:English group:"Default" note:"A token-styled wrapper around the native `<video>` element with custom controls: play/pause, a seek slider, volume, playback speed, and fullscreen. Controls fade in on hover or keyboard focus and stay visible while paused. Captions are your data: pass a `<track kind=“captions”>` child — here a tiny inline WebVTT stub." {}
+
+component VideoPlayerWide layout:stack style:video-player+wide src:"https://media.w3.org/2010/05/sintel/trailer.mp4" poster:"https://media.w3.org/2010/05/sintel/poster.png" group:"Aspect ratios" note:"`aspect` locks the frame to 16:9 (`video`), 1:1 (`square`), or 21:9 (`wide`), so the layout stays stable before metadata loads." {}
+component VideoPlayerSquare layout:stack style:video-player+square src:"https://media.w3.org/2010/05/sintel/trailer.mp4" poster:"https://media.w3.org/2010/05/sintel/poster.png" max-width:xs group:"Aspect ratios" {}
+
+component VideoPlayerLocalized layout:stack style:video-player src:"https://media.w3.org/2010/05/sintel/trailer.mp4" poster:"https://media.w3.org/2010/05/sintel/poster.png" muted:true loop:true label-play:"Reproduzir" label-pause:"Pausar" label-mute:"Silenciar" label-unmute:"Ativar som" label-seek:"Avançar" label-volume:"Volume" label-settings:"Velocidade" label-fullscreen:"Tela cheia" group:"Localized labels" note:"Every control name is overridable through `labels`, so assistive tech announces the app's language — here pt-BR. `muted` and `loop` suit ambient background clips." {}

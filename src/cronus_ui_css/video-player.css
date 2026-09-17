@@ -62,3 +62,12 @@
 @media (max-width: 639.98px) {
   [data-slot="video-player-volume"] { display: none; }
 }
+/* `aspect` variants (16:9 above) and the docs' centred `max-w-xs`. */
+[data-slot="video-player"].a-square { aspect-ratio: 1 / 1; }
+[data-slot="video-player"].a-wide { aspect-ratio: 21 / 9; }
+[data-slot="video-player"].mw-xs { max-width: 20rem; margin-inline: auto; }
+[data-slot="video-player"].mw-sm { max-width: 24rem; margin-inline: auto; }
+[data-slot="video-player"].mw-md { max-width: 28rem; margin-inline: auto; }
+[data-slot="video-player"].mw-lg { max-width: 32rem; margin-inline: auto; }
+/* React's controls fade in on hover/focus and stay while paused (idle = paused). */
+[data-slot="video-player-controls"] { transition: opacity 200ms; }

@@ -1,0 +1,27 @@
+page "/scroll-area" type:components family:scroll-area {
+  title "ScrollArea"
+  description:"Custom-styled scroll container."
+}
+
+component ScrollAreaTags layout:stack style:scroll-area height:48 max-width:xs framed:true font:mono group:"Scrollable list" note:"A fixed-height viewport with a styled, theme-aware vertical scrollbar." {
+  item "v1.2.0-beta.20"
+  item "v1.2.0-beta.19"
+  item "v1.2.0-beta.18"
+  item "v1.2.0-beta.17"
+  item "v1.2.0-beta.16"
+  item "v1.2.0-beta.15"
+  item "v1.2.0-beta.14"
+  item "v1.2.0-beta.13"
+  item "v1.2.0-beta.12"
+  item "v1.2.0-beta.11"
+  item "v1.2.0-beta.10"
+  item "v1.2.0-beta.9"
+  item "v1.2.0-beta.8"
+  item "v1.2.0-beta.7"
+  item "v1.2.0-beta.6"
+  item "v1.2.0-beta.5"
+  item "v1.2.0-beta.4"
+  item "v1.2.0-beta.3"
+  item "v1.2.0-beta.2"
+  item "v1.2.0-beta.1"
+}

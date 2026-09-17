@@ -27,3 +27,21 @@
 [data-slot="timeline-title"] {
   font-size: 0.875rem; font-weight: 500; line-height: 1; color: var(--cronus-fg);
 }
+/* Tones (solid disc) and the ring-bordered `size-7` chip when the dot holds an icon. */
+[data-slot="timeline-dot"][data-tone="primary"] { background: var(--cronus-primary); }
+[data-slot="timeline-dot"][data-tone="success"] { background: var(--cronus-success); }
+[data-slot="timeline-dot"][data-tone="warning"] { background: var(--cronus-warning); }
+[data-slot="timeline-dot"][data-tone="error"] { background: var(--cronus-error); }
+[data-slot="timeline-dot"]:has(> svg) {
+  width: 1.75rem; height: 1.75rem; border: 1px solid var(--cronus-border); background: var(--cronus-surface-raised); color: var(--cronus-fg-secondary);
+}
+[data-slot="timeline-dot"] svg { width: 0.75rem; height: 0.75rem; flex-shrink: 0; }
+[data-slot="timeline-dot"][data-tone="primary"]:has(> svg) { border-color: color-mix(in oklab, var(--cronus-primary) 30%, transparent); color: var(--cronus-primary); }
+[data-slot="timeline-dot"][data-tone="success"]:has(> svg) { border-color: color-mix(in oklab, var(--cronus-success) 30%, transparent); color: var(--cronus-success); }
+[data-slot="timeline-dot"][data-tone="warning"]:has(> svg) { border-color: color-mix(in oklab, var(--cronus-warning) 30%, transparent); color: var(--cronus-warning); }
+[data-slot="timeline-dot"][data-tone="error"]:has(> svg) { border-color: color-mix(in oklab, var(--cronus-error) 30%, transparent); color: var(--cronus-error); }
+[data-slot="timeline-time"] { font-size: 0.75rem; line-height: 1; color: var(--cronus-fg-tertiary); }
+[data-slot="timeline-description"] { font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary); }
+[data-slot="timeline"].mw-sm { max-width: 24rem; }
+[data-slot="timeline"].mw-md { max-width: 28rem; }
+[data-slot="timeline"].mw-lg { max-width: 32rem; }

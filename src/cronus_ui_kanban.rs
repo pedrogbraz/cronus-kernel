@@ -6,7 +6,9 @@
 //! with `kanban-card-title` and, when the card item carries `description:"…"`
 //! config, `kanban-card-description`).
 //!
-//! Content texts pair like the audit fixture: `title, card, title, card, …`
+//! Columns are `columns "To do"` lines and the `item` lines that follow each
+//! one are its cards (any number, including none). Without `columns` lines
+//! the content texts pair like the audit fixture: `title, card, title, card, …`
 //! (a trailing title makes an empty column). The `label` names the board
 //! (`aria-label`) and is never a column or card.
 //!
@@ -30,17 +32,18 @@ struct Entry {
 }
 
 pub fn render(comp: &ComponentNode) -> String {
-    let columns = content(comp)
-        .chunks(2)
-        .map(|pair| column(&pair[0].text, pair.get(1)))
+    let columns = columns_of(comp)
+        .into_iter()
+        .map(|(title, cards)| column(&title, &cards))
         .collect::<String>();
     let aria = esc(aria_label(comp).unwrap_or("Board"));
     format!("<div data-slot=\"kanban\" aria-label=\"{aria}\">{columns}</div>")
 }
 
-fn column(title: &str, card: Option<&Entry>) -> String {
-    let count = usize::from(card.is_some());
-    let cards = card
+fn column(title: &str, cards: &[Entry]) -> String {
+    let count = cards.len();
+    let cards = cards
+        .iter()
         .map(|c| {
             let description = c
                 .description
@@ -52,7 +55,7 @@ fn column(title: &str, card: Option<&Entry>) -> String {
                 c.text
             )
         })
-        .unwrap_or_default();
+        .collect::<String>();
     format!(
         "<section data-slot=\"kanban-column\" aria-label=\"{title}\"><header data-slot=\"kanban-column-header\"><h3 data-slot=\"kanban-column-title\">{title}</h3><span data-slot=\"kanban-column-count\" data-variant=\"secondary\">{count}</span></header><ul data-slot=\"kanban-column-list\">{cards}</ul></section>"
     )
@@ -62,19 +65,61 @@ fn aria_label(comp: &ComponentNode) -> Option<&str> {
     attr_nonempty(comp, "aria-label")
 }
 
+fn entry(i: &crate::parser::ComponentItemNode) -> Entry {
+    Entry {
+        text: esc(&i.text),
+        description: i
+            .config
+            .get("description")
+            .filter(|d| !d.is_empty())
+            .map(|d| esc(d)),
+    }
+}
+
+/// `(title, cards)` per column.
+fn columns_of(comp: &ComponentNode) -> Vec<(String, Vec<Entry>)> {
+    if comp
+        .items
+        .iter()
+        .any(|i| i.item_type == "columns" && !i.text.is_empty())
+    {
+        let mut out: Vec<(String, Vec<Entry>)> = Vec::new();
+        for i in comp.items.iter().filter(|i| !i.text.is_empty()) {
+            if i.item_type == "columns" {
+                out.push((esc(&i.text), Vec::new()));
+            } else if !NAME_KINDS.contains(&i.item_type.as_str()) {
+                if let Some(last) = out.last_mut() {
+                    last.1.push(entry(i));
+                }
+            }
+        }
+        return out;
+    }
+    let entries = content(comp);
+    entries
+        .chunks(2)
+        .map(|pair| {
+            (
+                pair[0].text.clone(),
+                pair.get(1)
+                    .map(|c| {
+                        vec![Entry {
+                            text: c.text.clone(),
+                            description: c.description.clone(),
+                        }]
+                    })
+                    .unwrap_or_default(),
+            )
+        })
+        .collect()
+}
+
 fn content(comp: &ComponentNode) -> Vec<Entry> {
     let entries: Vec<Entry> = comp
         .items
         .iter()
         .filter(|i| !i.text.is_empty() && !NAME_KINDS.contains(&i.item_type.as_str()))
-        .map(|i| Entry {
-            text: esc(&i.text),
-            description: i
-                .config
-                .get("description")
-                .filter(|d| !d.is_empty())
-                .map(|d| esc(d)),
-        })
+        .map(entry)
         .collect();
     if !entries.is_empty() {
         return entries;
@@ -182,6 +227,33 @@ mod tests {
         reject_interact(&html);
     }
 
+    /// Docs "Board": `columns` lines open columns and the `item` lines that
+    /// follow are their cards, with counts per column.
+    #[test]
+    fn columns_lines_group_the_cards_that_follow() {
+        let mut c = stub("kanban", "Board");
+        c.props.insert("aria-label".into(), "Project board".into());
+        c.items.push(extra("columns", "To do"));
+        let mut draft = extra("item", "Draft the launch post");
+        draft.config.insert(
+            "description".into(),
+            "Outline the key talking points.".into(),
+        );
+        c.items.push(draft);
+        c.items.push(extra("item", "Audit onboarding copy"));
+        c.items.push(extra("columns", "In progress"));
+        c.items.push(extra("item", "Polish empty states"));
+        c.items.push(extra("columns", "Done"));
+        let html = render(&c);
+        assert!(html.starts_with("<div data-slot=\"kanban\" aria-label=\"Project board\"><section data-slot=\"kanban-column\" aria-label=\"To do\"><header data-slot=\"kanban-column-header\"><h3 data-slot=\"kanban-column-title\">To do</h3><span data-slot=\"kanban-column-count\" data-variant=\"secondary\">2</span></header>"));
+        assert!(html.contains("<span data-slot=\"kanban-card-title\">Draft the launch post</span><span data-slot=\"kanban-card-description\">Outline the key talking points.</span>"));
+        assert_eq!(html.matches("data-slot=\"kanban-column\"").count(), 3);
+        assert_eq!(html.matches("data-slot=\"kanban-card\"").count(), 3);
+        assert!(html.contains("kanban-column-title\">Done</h3><span data-slot=\"kanban-column-count\" data-variant=\"secondary\">0</span></header><ul data-slot=\"kanban-column-list\"></ul>"));
+        assert!(!html.contains(">Board<"));
+        reject_interact(&html);
+    }
+
     #[test]
     fn label_only_is_one_column_with_one_card() {
         let html = render(&stub("kanban", "Todo"));
@@ -236,7 +308,7 @@ mod tests {
     /// `leading-snug` 22px title) and a 20px grip.
     #[test]
     fn chrome_matches_react_geometry() {
-        let css = crate::cronus_ui::component_chrome_css();
+        let css = include_str!("cronus_ui_css/kanban.css");
         assert!(css.contains("[data-slot=\"kanban-column\"] {\n  display: flex; flex-direction: column; width: 18rem; flex-shrink: 0;\n  border-radius: var(--cronus-radius-xl); border: 1px solid var(--cronus-border);\n  background: var(--cronus-surface-inset);\n}"));
         assert!(css.contains("[data-slot=\"kanban-column-list\"] {\n  display: flex; flex: 1; flex-direction: column; gap: 0.5rem; min-height: 6rem;\n  overflow-y: auto; margin: 0; padding: 0.5rem;"));
         assert!(css.contains("[data-slot=\"kanban-card-title\"] { display: block; font-weight: 500; line-height: 1.375; color: var(--cronus-fg); }"));

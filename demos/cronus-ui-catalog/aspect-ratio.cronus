@@ -1,0 +1,7 @@
+page "/aspect-ratio" type:components family:aspect-ratio {
+  title "AspectRatio"
+  description:"Constrain content to a fixed width-to-height ratio."
+}
+
+component RatioCover layout:stack style:aspect-ratio ratio:"16/9" src:"/og.png" alt:"Cover" framed:true group:"Default" note:"Constrains its content to a fixed width-to-height `ratio` (defaults to 16 / 9). The wrapper fills the available width; stretch the child to fill it." { label "Cover" }
+component RatioThumbnail layout:stack style:aspect-ratio ratio:1 src:"/thumb.png" alt:"Thumbnail" framed:true group:"Square" note:"Pass `ratio={1}` for a 1:1 box — handy for avatars, thumbnails and tiles." { label "Thumbnail" }

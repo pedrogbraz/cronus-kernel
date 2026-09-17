@@ -1,28 +1,33 @@
 //! Dedicated CodeBlock renderer. DOM mirrors React:
 //! `<div data-slot="code-block">` with an optional `code-block-header`
-//! (filename / language), then `<div><section data-slot="code-block-scroll">`
-//! > `<pre data-slot="code-block-pre">` > `<code data-slot="code-block-code">`
-//! with one `<span>` per line. Code comes from `text`/`item` lines (the audit
-//! emitter repeats the code as `label`). The header carries React's CopyButton
-//! as a `disabled` native button (clipboard needs JS; idle look kept).
+//! (`filename:` span with an id the scroll region is described by, and the
+//! `language:` secondary Badge, plus React's CopyButton), then
+//! `<div><section data-slot="code-block-scroll">` > `<pre data-slot="code-block-pre">`
+//! > `<code data-slot="code-block-code">` holding one `<span>` with the code
+//! (newlines kept) — or, with `line-numbers:true`, one `code-block-line` row
+//! per line with its `code-block-line-number` gutter cell. Without a header the
+//! copy button floats over the top-end corner like React's. Code comes from
+//! `text` / `item` lines (an empty `text ""` is a blank line; `\"` in a line is
+//! a quote, since `.cronus` strings keep the backslash) — the audit emitter
+//! repeats the code as `label`. The copy button is a `disabled` native button
+//! (clipboard needs JS; idle look kept).
 //! Not interact `codey()` SURF `<pre style=…>`, not catalog `display()`
 //! `<section>`, not ai-code-block.
 
-use crate::cronus_ui_kit::{attr_nonempty, esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, esc, flag, label_of, widget_id};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    let code = code_lines(comp)
-        .iter()
-        .map(|l| format!("<span>{l}</span>"))
-        .collect::<Vec<_>>()
-        .join("\n");
+    let lines = code_lines(comp);
     let filename = attr_nonempty(comp, "filename").map(esc);
     let language = attr_nonempty(comp, "language").map(esc);
+    let heading_id = widget_id(comp, "filename");
     let header = if filename.is_some() || language.is_some() {
         let f = filename
             .as_deref()
-            .map(|f| format!("<span data-slot=\"code-block-filename\">{f}</span>"))
+            .map(|f| {
+                format!("<span id=\"{heading_id}\" data-slot=\"code-block-filename\">{f}</span>")
+            })
             .unwrap_or_default();
         let l = language
             .as_deref()
@@ -39,23 +44,55 @@ pub fn render(comp: &ComponentNode) -> String {
     } else {
         String::new()
     };
-    let label = match filename.as_deref() {
-        Some(f) => format!("Code block, {f}"),
-        None => "Code block".into(),
+    let floating = if header.is_empty() {
+        crate::cronus_ui_copy_button::idle_button("Copy")
+    } else {
+        String::new()
+    };
+    let label = match (filename.as_deref(), language.as_deref()) {
+        (Some(f), _) => format!("Code block, {f}"),
+        (None, Some(l)) => format!("Code block, {l}"),
+        (None, None) => "Code block".into(),
+    };
+    let described = if filename.is_some() {
+        format!(" aria-describedby=\"{heading_id}\"")
+    } else {
+        String::new()
+    };
+    let code = if flag(comp, "line-numbers") || flag(comp, "show-line-numbers") {
+        lines
+            .iter()
+            .enumerate()
+            .map(|(n, line)| {
+                let text = if line.is_empty() { " " } else { line.as_str() };
+                format!(
+                    "<span data-slot=\"code-block-line\"><span aria-hidden=\"true\" data-slot=\"code-block-line-number\">{}</span><span>{text}</span></span>",
+                    n + 1
+                )
+            })
+            .collect::<String>()
+    } else {
+        format!("<span>{}</span>", lines.join("\n"))
     };
     format!(
-        "<div data-slot=\"code-block\">{header}<div><section data-slot=\"code-block-scroll\" tabindex=\"0\" aria-label=\"{label}\"><pre data-slot=\"code-block-pre\"><code data-slot=\"code-block-code\">{code}</code></pre></section></div></div>"
+        "<div data-slot=\"code-block\">{header}<div>{floating}<section data-slot=\"code-block-scroll\" tabindex=\"0\" aria-label=\"{label}\"{described}><pre data-slot=\"code-block-pre\"><code data-slot=\"code-block-code\">{code}</code></pre></section></div></div>"
     )
+}
+
+/// `\"` and `\\` written in a `.cronus` string come through verbatim; code
+/// lines read them as the quote / backslash they stand for.
+pub fn unescape(s: &str) -> String {
+    s.replace("\\\"", "\"").replace("\\\\", "\\")
 }
 
 fn code_lines(comp: &ComponentNode) -> Vec<String> {
     let lines: Vec<String> = comp
         .items
         .iter()
-        .filter(|i| matches!(i.item_type.as_str(), "text" | "item") && !i.text.is_empty())
-        .flat_map(|i| i.text.split('\n').map(esc).collect::<Vec<_>>())
+        .filter(|i| matches!(i.item_type.as_str(), "text" | "item"))
+        .flat_map(|i| unescape(&i.text).split('\n').map(esc).collect::<Vec<_>>())
         .collect();
-    if lines.is_empty() {
+    if lines.iter().all(String::is_empty) {
         vec![label_of(comp)]
     } else {
         lines
@@ -94,9 +131,18 @@ mod tests {
         c
     }
 
+    fn copy() -> String {
+        crate::cronus_ui_copy_button::idle_button("Copy")
+    }
+
     fn block(header: &str, label: &str, code: &str) -> String {
+        let floating = if header.is_empty() {
+            copy()
+        } else {
+            String::new()
+        };
         format!(
-            "<div data-slot=\"code-block\">{header}<div><section data-slot=\"code-block-scroll\" tabindex=\"0\" aria-label=\"{label}\"><pre data-slot=\"code-block-pre\"><code data-slot=\"code-block-code\">{code}</code></pre></section></div></div>"
+            "<div data-slot=\"code-block\">{header}<div>{floating}<section data-slot=\"code-block-scroll\" tabindex=\"0\" aria-label=\"{label}\"><pre data-slot=\"code-block-pre\"><code data-slot=\"code-block-code\">{code}</code></pre></section></div></div>"
         )
     }
 
@@ -125,7 +171,8 @@ mod tests {
         let html = render(&snippet(&["fn main() {}"]));
         assert_eq!(html, block("", "Code block", "<span>fn main() {}</span>"));
         assert!(!html.contains("data-slot=\"code-tabs\""));
-        assert!(!html.contains("copy-button"));
+        // No header: React floats the copy button over the code's top-end corner.
+        assert_eq!(html.matches("data-slot=\"copy-button\"").count(), 1);
         reject_stub(&html);
     }
 
@@ -140,8 +187,10 @@ mod tests {
         reject_stub(&html);
     }
 
+    /// React renders the whole snippet in one `whitespace-pre` span; text
+    /// lines and embedded newlines join with `\n`.
     #[test]
-    fn text_lines_and_newlines_become_line_spans() {
+    fn text_lines_and_newlines_join_in_one_span() {
         let mut c = stub("code-block", "demo");
         c.items.push(extra("text", "let a = 1;\nlet b = 2;"));
         c.items.push(extra("text", "let c = 3;"));
@@ -151,7 +200,7 @@ mod tests {
             block(
                 "",
                 "Code block",
-                "<span>let a = 1;</span>\n<span>let b = 2;</span>\n<span>let c = 3;</span>"
+                "<span>let a = 1;\nlet b = 2;\nlet c = 3;</span>"
             )
         );
         reject_stub(&html);
@@ -165,16 +214,14 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            block(
-                &format!(
-                    "<div data-slot=\"code-block-header\"><div><span data-slot=\"code-block-filename\">index.ts</span><span data-slot=\"code-block-language\" data-variant=\"secondary\">ts</span></div>{}</div>",
-                    crate::cronus_ui_copy_button::idle_button("Copy")
-                ),
-                "Code block, index.ts",
-                "<span>const n = 1;</span>"
+            format!(
+                "<div data-slot=\"code-block\"><div data-slot=\"code-block-header\"><div><span id=\"cui-code-block-filename\" data-slot=\"code-block-filename\">index.ts</span><span data-slot=\"code-block-language\" data-variant=\"secondary\">ts</span></div>{}</div><div><section data-slot=\"code-block-scroll\" tabindex=\"0\" aria-label=\"Code block, index.ts\" aria-describedby=\"cui-code-block-filename\"><pre data-slot=\"code-block-pre\"><code data-slot=\"code-block-code\"><span>const n = 1;</span></code></pre></section></div></div>",
+                copy()
             )
         );
         reject_stub(&html);
+        c.props.remove("filename");
+        assert!(render(&c).contains("aria-label=\"Code block, ts\"><pre"));
     }
 
     /// React's code-block header renders CopyButton; the geometry spec compares
@@ -186,9 +233,33 @@ mod tests {
         let html = render(&c);
         assert_eq!(html.matches("data-slot=\"copy-button\"").count(), 1);
         assert!(html.contains("aria-label=\"Copy\" disabled>"));
-        let css = crate::cronus_ui::component_chrome_css();
+        let css = include_str!("cronus_ui_css/code-block.css");
         assert!(css.contains("[data-slot=\"code-block-header\"] > [data-slot=\"copy-button\"] { width: 2rem; height: 2rem; }"));
+        assert!(css.contains("[data-slot=\"code-block\"] > div > [data-slot=\"copy-button\"] {\n  position: absolute; inset-inline-end: 0.5rem; top: 0.5rem; z-index: 10;"));
         reject_stub(&html);
+    }
+
+    /// Docs "Line numbers": each line is a table row with a non-selectable
+    /// gutter; blank lines keep their height; `\"` in a line is a quote.
+    #[test]
+    fn line_numbers_render_gutter_rows() {
+        let mut c = stub("code-block", "demo");
+        c.items.clear();
+        c.items.push(extra(
+            "text",
+            "import { Button } from \\\"@cronus-ui/ui\\\";",
+        ));
+        c.items.push(extra("text", ""));
+        c.items.push(extra("text", "export function Save() {}"));
+        c.props.insert("language".into(), "tsx".into());
+        c.props.insert("line-numbers".into(), "true".into());
+        let html = render(&c);
+        assert!(html.contains("<code data-slot=\"code-block-code\"><span data-slot=\"code-block-line\"><span aria-hidden=\"true\" data-slot=\"code-block-line-number\">1</span><span>import { Button } from &quot;@cronus-ui/ui&quot;;</span></span><span data-slot=\"code-block-line\"><span aria-hidden=\"true\" data-slot=\"code-block-line-number\">2</span><span> </span></span><span data-slot=\"code-block-line\"><span aria-hidden=\"true\" data-slot=\"code-block-line-number\">3</span><span>export function Save() {}</span></span></code>"));
+        assert!(!html.contains("\\&quot;"));
+        reject_stub(&html);
+        let css = include_str!("cronus_ui_css/code-block.css");
+        assert!(css.contains("[data-slot=\"code-block-line\"] { display: table-row; }"));
+        assert!(css.contains("[data-slot=\"code-block-line-number\"] {\n  display: table-cell; user-select: none; padding-inline-end: 1rem; text-align: end;\n  color: var(--cronus-fg-muted); font-variant-numeric: tabular-nums;\n}"));
     }
 
     #[test]
@@ -238,7 +309,7 @@ mod tests {
 
     #[test]
     fn chrome_is_token_only() {
-        let css = crate::cronus_ui::component_chrome_css();
+        let css = include_str!("cronus_ui_css/code-block.css");
         for slot in [
             "code-block",
             "code-block-header",
@@ -263,7 +334,7 @@ mod tests {
     /// mono 12/16, language Badge secondary 29×22, pre padding 16, 14/22.75.
     #[test]
     fn chrome_geometry_matches_react() {
-        let css = crate::cronus_ui::component_chrome_css();
+        let css = include_str!("cronus_ui_css/code-block.css");
         assert!(css.contains(
             "[data-slot=\"code-block\"] {\n  box-sizing: border-box; width: var(--cui-code-block-w, 100%); max-width: 100%;\n  overflow: hidden;\n  border-radius: var(--cronus-radius-xl);\n  border: 1px solid var(--cronus-border);\n  background: var(--cronus-surface-raised);\n  color: var(--cronus-fg);\n  line-height: 1.5;\n}"
         ));
