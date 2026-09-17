@@ -1,0 +1,44 @@
+page "/bar-chart" type:components family:bar-chart {
+  title "BarChart"
+  description:"Grouped or stacked columns. Default and Motion variants."
+}
+
+component BarChartDefault layout:stack style:bar-chart series:"revenue:Revenue,profit:Profit" group:"Default" note:"Cronus grouped columns. Pass stacked for a stacked series." {
+  label "Bar chart of revenue and profit from January to June."
+  item "Jan" revenue:12000 profit:4500 desktop:4000 mobile:2400
+  item "Feb" revenue:15500 profit:5200 desktop:5000 mobile:3000
+  item "Mar" revenue:11000 profit:3800 desktop:3500 mobile:2800
+  item "Apr" revenue:18500 profit:7100 desktop:4200 mobile:3200
+  item "May" revenue:16800 profit:5400 desktop:3800 mobile:2600
+  item "Jun" revenue:21200 profit:8800 desktop:5500 mobile:3800
+}
+
+component BarChartStacked layout:stack style:bar-chart series:"desktop:Desktop,mobile:Mobile" stacked:true group:"Stacked" note:"Desktop and mobile on one column." {
+  label "Stacked bar of desktop and mobile sessions from January to June."
+  item "Jan" revenue:12000 profit:4500 desktop:4000 mobile:2400
+  item "Feb" revenue:15500 profit:5200 desktop:5000 mobile:3000
+  item "Mar" revenue:11000 profit:3800 desktop:3500 mobile:2800
+  item "Apr" revenue:18500 profit:7100 desktop:4200 mobile:3200
+  item "May" revenue:16800 profit:5400 desktop:3800 mobile:2600
+  item "Jun" revenue:21200 profit:8800 desktop:5500 mobile:3800
+}
+
+component BarChartMotion layout:stack style:bar-chart+motion series:"revenue,profit" line-cap:round group:"Motion" note:"Grouped revenue and profit — hover dims the rest." {
+  label "Bar chart of revenue and profit from January to June."
+  item "Jan" revenue:12000 profit:4500 desktop:4000 mobile:2400
+  item "Feb" revenue:15500 profit:5200 desktop:5000 mobile:3000
+  item "Mar" revenue:11000 profit:3800 desktop:3500 mobile:2800
+  item "Apr" revenue:18500 profit:7100 desktop:4200 mobile:3200
+  item "May" revenue:16800 profit:5400 desktop:3800 mobile:2600
+  item "Jun" revenue:21200 profit:8800 desktop:5500 mobile:3800
+}
+
+component BarChartMotionStacked layout:stack style:bar-chart+motion series:"desktop,mobile" stacked:true stack-gap:3 line-cap:4 group:"Motion stacked" note:"Stacked desktop and mobile with a gap between segments." {
+  label "Stacked bar of desktop and mobile sessions from January to June."
+  item "Jan" revenue:12000 profit:4500 desktop:4000 mobile:2400
+  item "Feb" revenue:15500 profit:5200 desktop:5000 mobile:3000
+  item "Mar" revenue:11000 profit:3800 desktop:3500 mobile:2800
+  item "Apr" revenue:18500 profit:7100 desktop:4200 mobile:3200
+  item "May" revenue:16800 profit:5400 desktop:3800 mobile:2600
+  item "Jun" revenue:21200 profit:8800 desktop:5500 mobile:3800
+}

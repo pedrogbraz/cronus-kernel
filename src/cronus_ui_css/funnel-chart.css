@@ -4,3 +4,102 @@
 [data-slot="funnel-chart"] text {
   fill: var(--cronus-fg);
 }
+/* visx FunnelChart: flex row of stretched segment SVGs + label cells. */
+[data-slot="funnel-chart"].v-motion {
+  position: relative; display: block; width: 100%; height: auto; aspect-ratio: 2.2 / 1;
+  user-select: none; overflow: visible;
+}
+[data-slot="funnel-chart"].v-motion .segments,
+[data-slot="funnel-chart"].v-motion .labels {
+  position: absolute; inset: 0; display: flex; flex-direction: row; gap: 4px; overflow: visible;
+}
+[data-slot="funnel-chart"].v-motion .segment {
+  position: relative; flex: 1 1 0; min-width: 0; overflow: visible; pointer-events: none;
+  transition: opacity 150ms;
+}
+[data-slot="funnel-chart"].v-motion .enter {
+  position: absolute; inset: 0; overflow: visible;
+  transform-origin: left center;
+  animation: cronus-chart-grow-xy 1100ms cubic-bezier(0.85, 0, 0.15, 1) both;
+}
+[data-slot="funnel-chart"].v-motion .segment svg {
+  position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible;
+}
+[data-slot="funnel-chart"].v-motion .ring {
+  transform-box: fill-box; transform-origin: center;
+  transition: transform var(--cronus-spring-soft);
+}
+[data-slot="funnel-chart"].v-motion .label {
+  position: relative; flex: 1 1 0; min-width: 0; z-index: 20; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center;
+  animation: cronus-chart-fade 350ms ease-out 250ms both;
+  transition: opacity 150ms;
+}
+[data-slot="funnel-chart"].v-motion .label > .value {
+  display: flex; height: 16%; align-items: flex-end; justify-content: center; padding-bottom: 0.25rem;
+}
+[data-slot="funnel-chart"].v-motion .label > .value > span {
+  white-space: nowrap; font-weight: 600; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg);
+}
+[data-slot="funnel-chart"].v-motion .label > .pct {
+  display: flex; flex: 1 1 0; align-items: center; justify-content: center;
+}
+[data-slot="funnel-chart"].v-motion .label > .pct > span {
+  border-radius: 9999px; padding: 0.25rem 0.75rem;
+  background: var(--cronus-fg); color: var(--cronus-surface-base);
+  font-weight: 700; font-size: 0.75rem; line-height: 1rem;
+  box-shadow: var(--cronus-shadow-sm);
+}
+[data-slot="funnel-chart"].v-motion .label > .stage {
+  display: flex; height: 16%; align-items: flex-start; justify-content: center; padding-top: 0.25rem;
+}
+[data-slot="funnel-chart"].v-motion .label > .stage > span {
+  white-space: nowrap; font-weight: 500; font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-tertiary);
+}
+/* Stagger 0.12s per segment (segments and their labels share the index). */
+[data-slot="funnel-chart"].v-motion .i1 > .enter, [data-slot="funnel-chart"].v-motion .label.i1 { animation-delay: 120ms; }
+[data-slot="funnel-chart"].v-motion .i2 > .enter, [data-slot="funnel-chart"].v-motion .label.i2 { animation-delay: 240ms; }
+[data-slot="funnel-chart"].v-motion .i3 > .enter, [data-slot="funnel-chart"].v-motion .label.i3 { animation-delay: 360ms; }
+[data-slot="funnel-chart"].v-motion .i4 > .enter, [data-slot="funnel-chart"].v-motion .label.i4 { animation-delay: 480ms; }
+[data-slot="funnel-chart"].v-motion .i5 > .enter, [data-slot="funnel-chart"].v-motion .label.i5 { animation-delay: 600ms; }
+[data-slot="funnel-chart"].v-motion .i6 > .enter, [data-slot="funnel-chart"].v-motion .label.i6 { animation-delay: 720ms; }
+[data-slot="funnel-chart"].v-motion .i7 > .enter, [data-slot="funnel-chart"].v-motion .label.i7 { animation-delay: 840ms; }
+[data-slot="funnel-chart"].v-motion .label.i1 { animation-delay: 370ms; }
+[data-slot="funnel-chart"].v-motion .label.i2 { animation-delay: 490ms; }
+[data-slot="funnel-chart"].v-motion .label.i3 { animation-delay: 610ms; }
+[data-slot="funnel-chart"].v-motion .label.i4 { animation-delay: 730ms; }
+[data-slot="funnel-chart"].v-motion .label.i5 { animation-delay: 850ms; }
+[data-slot="funnel-chart"].v-motion .label.i6 { animation-delay: 970ms; }
+[data-slot="funnel-chart"].v-motion .label.i7 { animation-delay: 1090ms; }
+/* Hover: the label cell is the trigger; other segments / labels dim to 0.4. */
+[data-slot="funnel-chart"].v-motion:has(.label:hover) .label:not(:hover),
+[data-slot="funnel-chart"].v-motion:has(.label.i0:hover) .segment:not(.i0),
+[data-slot="funnel-chart"].v-motion:has(.label.i1:hover) .segment:not(.i1),
+[data-slot="funnel-chart"].v-motion:has(.label.i2:hover) .segment:not(.i2),
+[data-slot="funnel-chart"].v-motion:has(.label.i3:hover) .segment:not(.i3),
+[data-slot="funnel-chart"].v-motion:has(.label.i4:hover) .segment:not(.i4),
+[data-slot="funnel-chart"].v-motion:has(.label.i5:hover) .segment:not(.i5),
+[data-slot="funnel-chart"].v-motion:has(.label.i6:hover) .segment:not(.i6),
+[data-slot="funnel-chart"].v-motion:has(.label.i7:hover) .segment:not(.i7) {
+  opacity: 0.4;
+}
+[data-slot="funnel-chart"].v-motion:has(.label.i0:hover) .segment.i0 .ring.r1,
+[data-slot="funnel-chart"].v-motion:has(.label.i1:hover) .segment.i1 .ring.r1,
+[data-slot="funnel-chart"].v-motion:has(.label.i2:hover) .segment.i2 .ring.r1,
+[data-slot="funnel-chart"].v-motion:has(.label.i3:hover) .segment.i3 .ring.r1,
+[data-slot="funnel-chart"].v-motion:has(.label.i4:hover) .segment.i4 .ring.r1,
+[data-slot="funnel-chart"].v-motion:has(.label.i5:hover) .segment.i5 .ring.r1,
+[data-slot="funnel-chart"].v-motion:has(.label.i6:hover) .segment.i6 .ring.r1,
+[data-slot="funnel-chart"].v-motion:has(.label.i7:hover) .segment.i7 .ring.r1 {
+  transform: scaleY(1.06);
+}
+[data-slot="funnel-chart"].v-motion:has(.label.i0:hover) .segment.i0 .ring.r2,
+[data-slot="funnel-chart"].v-motion:has(.label.i1:hover) .segment.i1 .ring.r2,
+[data-slot="funnel-chart"].v-motion:has(.label.i2:hover) .segment.i2 .ring.r2,
+[data-slot="funnel-chart"].v-motion:has(.label.i3:hover) .segment.i3 .ring.r2,
+[data-slot="funnel-chart"].v-motion:has(.label.i4:hover) .segment.i4 .ring.r2,
+[data-slot="funnel-chart"].v-motion:has(.label.i5:hover) .segment.i5 .ring.r2,
+[data-slot="funnel-chart"].v-motion:has(.label.i6:hover) .segment.i6 .ring.r2,
+[data-slot="funnel-chart"].v-motion:has(.label.i7:hover) .segment.i7 .ring.r2 {
+  transform: scaleY(1.12);
+}

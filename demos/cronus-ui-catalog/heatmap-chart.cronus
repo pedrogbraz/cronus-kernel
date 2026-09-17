@@ -1,0 +1,12 @@
+page "/heatmap-chart" type:components family:heatmap-chart {
+  title "HeatmapChart"
+  description:"Calendar heatmap. Default and Motion variants."
+}
+
+component HeatmapChartDefault layout:stack style:heatmap-chart start:"2026-06-01" data:"3,10,5,0,7,2,9,4,11,6,1,8,3,10,5,0,7,2,9,4,11,6,1,8,3,10,5,0,7,2,9,4,11,6,1,8,3,10,5,0,7,2,9,4,11,6,1,8,3,10,5,0,7,2,9,4,11,6,1,8,3,10,5,0,7,2,9,4,11,6,1,8,3,10,5,0,7,2,9,4,11,6,1,8" group:"Default" note:"Cronus calendar heatmap (same primitive as Heatmap)." {
+  label "Calendar heatmap of daily activity."
+}
+
+component HeatmapChartMotion layout:stack style:heatmap-chart+motion start:"2024-01-01" rows:7 legend:true data:"0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1,4,4,4,4,4,4,4,2,2,2,2,2,2,2,0,0,0,0,0,0,0,3,3,3,3,3,3,3,1,1,1,1,1,1,1" group:"Motion" note:"Calendar heatmap with legend and tooltip." {
+  label "Heatmap chart of daily contributions."
+}

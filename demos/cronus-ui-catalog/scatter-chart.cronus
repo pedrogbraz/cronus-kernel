@@ -1,0 +1,44 @@
+page "/scatter-chart" type:components family:scatter-chart {
+  title "ScatterChart"
+  description:"Two-axis scatter. Default and Motion variants."
+}
+
+component ScatterChartDefault layout:stack style:scatter-chart series:"Search,Social" group:"Default" note:"Cronus reach versus conversion for two channels." {
+  label "Scatter chart of reach versus conversion for two channels."
+  item "Search" x:12 y:4.2
+  item "Search" x:28 y:6.1
+  item "Search" x:41 y:5.4
+  item "Search" x:55 y:8.8
+  item "Social" x:18 y:9.4
+  item "Social" x:33 y:11.2
+  item "Social" x:47 y:10.1
+  item "Social" x:62 y:14.6
+}
+
+component ScatterChartMotion layout:stack style:scatter-chart+motion series:"sessions,conversions" group:"Motion" note:"Offset rings, hover dim, clip-reveal enter. Two series from the chart ramp." {
+  label "Scatter chart of sessions versus conversions."
+  item "2023-01-01" sessions:140 conversions:125
+  item "2023-02-01" sessions:180 conversions:127
+  item "2023-03-01" sessions:217 conversions:122
+  item "2023-04-01" sessions:248 conversions:110
+  item "2023-05-01" sessions:231 conversions:96
+  item "2023-06-01" sessions:244 conversions:47
+  item "2023-07-01" sessions:247 conversions:36
+  item "2023-08-01" sessions:242 conversions:32
+  item "2023-09-01" sessions:189 conversions:36
+  item "2023-10-01" sessions:171 conversions:48
+  item "2023-11-01" sessions:152 conversions:34
+  item "2023-12-01" sessions:95 conversions:60
+  item "2024-01-01" sessions:83 conversions:88
+  item "2024-02-01" sessions:79 conversions:116
+  item "2024-03-01" sessions:84 conversions:140
+  item "2024-04-01" sessions:58 conversions:122
+  item "2024-05-01" sessions:82 conversions:131
+  item "2024-06-01" sessions:114 conversions:131
+  item "2024-07-01" sessions:152 conversions:124
+  item "2024-08-01" sessions:153 conversions:111
+  item "2024-09-01" sessions:193 conversions:61
+  item "2024-10-01" sessions:230 conversions:48
+  item "2024-11-01" sessions:220 conversions:39
+  item "2024-12-01" sessions:241 conversions:37
+}

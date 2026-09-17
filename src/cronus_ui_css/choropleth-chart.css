@@ -7,3 +7,30 @@
 [data-slot="choropleth-chart"] path {
   fill: var(--cronus-primary); stroke: var(--cronus-border);
 }
+/* visx ChoroplethChart chrome: 16 / 9 box, features fade in over 800ms, zoom buttons bottom-right. */
+[data-slot="choropleth-chart"].v-motion {
+  position: relative; height: auto; aspect-ratio: 16 / 9; overflow: hidden;
+}
+[data-slot="choropleth-chart"].v-motion svg {
+  contain: layout style paint; cursor: grab;
+}
+[data-slot="choropleth-chart"].v-motion .features {
+  animation: cronus-chart-fade 800ms ease-out both;
+}
+[data-slot="choropleth-chart"].v-motion .feature {
+  fill: var(--chart-scale-03); stroke: var(--cronus-surface-base); cursor: pointer;
+  transition: opacity 180ms ease-out;
+}
+[data-slot="choropleth-chart"].v-motion .feature[fill="var(--chart-scale-01)"] { fill: var(--chart-scale-01); }
+[data-slot="choropleth-chart"].v-motion .feature[fill="var(--chart-scale-02)"] { fill: var(--chart-scale-02); }
+[data-slot="choropleth-chart"].v-motion .feature[fill="var(--chart-scale-04)"] { fill: var(--chart-scale-04); }
+[data-slot="choropleth-chart"].v-motion .feature[fill="var(--chart-scale-05)"] { fill: var(--chart-scale-05); }
+[data-slot="choropleth-chart"].v-motion .features:hover .feature:not(:hover) {
+  opacity: 0.4;
+}
+[data-slot="choropleth-chart"].v-motion .zoom {
+  position: absolute; inset-inline-end: 1rem; bottom: 1rem; display: flex; flex-direction: column; gap: 0.25rem;
+}
+[data-slot="choropleth-chart"].v-motion .zoom [data-slot="button"] {
+  box-shadow: var(--cronus-shadow-md);
+}

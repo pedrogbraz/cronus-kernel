@@ -1,3 +1,40 @@
 [data-slot="live-line-chart"] {
   display: block; width: 100%; height: 16rem;
 }
+[data-slot="live-line-chart"].v-motion {
+  height: auto; aspect-ratio: 432 / 260;
+}
+[data-slot="live-line-chart"].v-motion .y-axis text,
+[data-slot="live-line-chart"].v-motion .badge {
+  font-family: var(--cronus-font-mono, ui-monospace, monospace);
+}
+/* Streaming: the series slides one point slot left per interval and loops. */
+[data-slot="live-line-chart"].v-motion .live-series {
+  --cronus-live-shift: -9.6px; --cronus-live-interval: 1000ms;
+  animation: cronus-live-shift var(--cronus-live-interval) linear infinite;
+}
+[data-slot="live-line-chart"].v-motion .live-series.s5-76 {
+  --cronus-live-shift: -5.76px; --cronus-live-interval: 600ms;
+}
+[data-slot="live-line-chart"].v-motion .live-series.s9-6 {
+  --cronus-live-shift: -9.6px; --cronus-live-interval: 1000ms;
+}
+[data-slot="live-line-chart"].v-motion .live-series.s4-8 {
+  --cronus-live-shift: -4.8px; --cronus-live-interval: 500ms;
+}
+@keyframes cronus-live-shift {
+  from { transform: translateX(0); }
+  to { transform: translateX(var(--cronus-live-shift)); }
+}
+/* Live tip pulse (React: SMIL r 4 → 14, opacity 0.5 → 0 over 1.5s). */
+[data-slot="live-line-chart"].v-motion .pulse {
+  transform-box: fill-box; transform-origin: center;
+  animation: cronus-live-pulse 1500ms linear infinite;
+}
+@keyframes cronus-live-pulse {
+  from { transform: scale(0.5); opacity: 0.5; }
+  to { transform: scale(1.75); opacity: 0; }
+}
+[data-slot="live-line-chart"].v-motion .live-tip {
+  transition: opacity 300ms ease-in-out;
+}

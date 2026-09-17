@@ -1,0 +1,22 @@
+page "/radar-chart" type:components family:radar-chart {
+  title "RadarChart"
+  description:"Polar comparison. Default and Motion variants."
+}
+
+component RadarChartDefault layout:stack style:radar-chart series:"current:Current,target:Target" group:"Default" note:"Cronus polar comparison across metrics." {
+  label "Radar chart comparing current versus target metrics."
+  item "Speed" current:80 target:90
+  item "Reliability" current:70 target:85
+  item "Comfort" current:60 target:75
+  item "Safety" current:90 target:95
+  item "Efficiency" current:75 target:80
+}
+
+component RadarChartMotion layout:stack style:radar-chart+motion series:"current:Current,target:Target" size:320 legend:"Series" label-size:10 label-offset:16 group:"Motion" note:"Layered radar with grid, axis, and area." {
+  label "Radar chart comparing product metrics."
+  item "Speed" current:80 target:90
+  item "Reliability" current:70 target:85
+  item "Comfort" current:60 target:75
+  item "Safety" current:90 target:95
+  item "Efficiency" current:75 target:80
+}

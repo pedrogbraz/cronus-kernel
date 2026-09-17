@@ -1,3 +1,14 @@
 [data-slot="composed-chart"] {
   display: block; width: 100%; height: 16rem;
 }
+[data-slot="composed-chart"].v-motion {
+  height: auto; aspect-ratio: 2 / 1;
+}
+[data-slot="composed-chart"].v-motion .grow {
+  transform-box: view-box; transform-origin: 0 176px;
+  animation: cronus-chart-grow 1100ms cubic-bezier(0.85, 0, 0.15, 1) both;
+  transition: opacity 120ms;
+}
+[data-slot="composed-chart"].v-motion .series-bar:hover rect:not(:hover) {
+  opacity: 0.22;
+}

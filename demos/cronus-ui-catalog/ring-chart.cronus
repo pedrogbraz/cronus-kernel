@@ -1,0 +1,20 @@
+page "/ring-chart" type:components family:ring-chart {
+  title "RingChart"
+  description:"Donut with a hub total. Default and Motion variants."
+}
+
+component RingChartDefault layout:stack style:ring-chart center:"Channels" group:"Default" note:"Cronus donut with a hub total." {
+  label "Ring chart of channel mix."
+  item "Email" value:42
+  item "Social" value:28
+  item "Direct" value:18
+  item "Other" value:12
+}
+
+component RingChartMotion layout:stack style:ring-chart+motion size:280 stroke-width:14 center:"Channels" legend:"Channels" group:"Motion" note:"Composable ring segments with a hub total." {
+  label "Ring chart of channel mix."
+  item "Email" value:42 max:100
+  item "Social" value:28 max:100
+  item "Direct" value:18 max:100
+  item "Other" value:12 max:100
+}

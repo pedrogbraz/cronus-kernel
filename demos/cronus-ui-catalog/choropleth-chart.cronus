@@ -1,0 +1,26 @@
+page "/choropleth-chart" type:components family:choropleth-chart {
+  title "ChoroplethChart"
+  description:"Region intensity map. Default and Motion variants."
+}
+
+component ChoroplethChartDefault layout:stack style:choropleth-chart group:"Default" note:"Cronus region intensity grid. Pass your own regions; a demo grid ships for docs." {
+  label "Choropleth chart of regional intensity."
+  item "Northwest" value:42
+  item "Northeast" value:78
+  item "West" value:31
+  item "Central" value:95
+  item "East" value:58
+  item "Southwest" value:22
+  item "Southeast" value:67
+}
+
+component ChoroplethChartMotion layout:stack style:choropleth-chart+motion zoom:true group:"Motion" note:"World map with zoom and a country tooltip." {
+  label "Choropleth chart of the world with zoom and hover."
+  item "Northwest" value:42
+  item "Northeast" value:78
+  item "West" value:31
+  item "Central" value:95
+  item "East" value:58
+  item "Southwest" value:22
+  item "Southeast" value:67
+}

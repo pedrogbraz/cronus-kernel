@@ -1,0 +1,72 @@
+page "/area-chart" type:components family:area-chart {
+  title "AreaChart"
+  description:"Time series with a filled region. Default and Motion variants."
+}
+
+component AreaChartDefault layout:stack style:area-chart series:"revenue:Revenue,costs:Costs" group:"Default" note:"Cronus ready-made AreaChart — series prop, recharts, token fills." {
+  label "Area chart of revenue versus costs from Jul 29 to Aug 27."
+  item "Jul 29" revenue:16200 costs:11500
+  item "Jul 30" revenue:14800 costs:10800
+  item "Jul 31" revenue:17100 costs:12100
+  item "Aug 1" revenue:15900 costs:11200
+  item "Aug 2" revenue:18100 costs:12800
+  item "Aug 3" revenue:17600 costs:12400
+  item "Aug 4" revenue:16800 costs:11900
+  item "Aug 5" revenue:19200 costs:13200
+  item "Aug 6" revenue:18500 costs:12600
+  item "Aug 7" revenue:17400 costs:11800
+  item "Aug 8" revenue:20100 costs:13600
+  item "Aug 9" revenue:19400 costs:12900
+  item "Aug 10" revenue:18800 costs:12500
+  item "Aug 11" revenue:21100 costs:14100
+  item "Aug 12" revenue:20500 costs:13400
+  item "Aug 13" revenue:19800 costs:13000
+  item "Aug 14" revenue:21600 costs:14500
+  item "Aug 15" revenue:20900 costs:13800
+  item "Aug 16" revenue:22100 costs:14900
+  item "Aug 17" revenue:21400 costs:14200
+  item "Aug 18" revenue:20800 costs:13700
+  item "Aug 19" revenue:22600 costs:15200
+  item "Aug 20" revenue:21900 costs:14600
+  item "Aug 21" revenue:23200 costs:15600
+  item "Aug 22" revenue:22400 costs:14800
+  item "Aug 23" revenue:21800 costs:14300
+  item "Aug 24" revenue:23800 costs:15900
+  item "Aug 25" revenue:22900 costs:15100
+  item "Aug 26" revenue:24100 costs:16200
+  item "Aug 27" revenue:23500 costs:15500
+}
+
+component AreaChartMotion layout:stack style:area-chart+motion series:"revenue" fade:true fill-opacity:0.3 group:"Motion" note:"Clip-reveal, crosshair, date pill, cursor on hover. Import from @cronus-ui/ui/charts." {
+  label "Area chart of revenue over thirty days."
+  item "2024-01-01" revenue:16200
+  item "2024-01-02" revenue:14800
+  item "2024-01-03" revenue:17100
+  item "2024-01-04" revenue:15900
+  item "2024-01-05" revenue:18100
+  item "2024-01-06" revenue:17600
+  item "2024-01-07" revenue:16800
+  item "2024-01-08" revenue:19200
+  item "2024-01-09" revenue:18500
+  item "2024-01-10" revenue:17400
+  item "2024-01-11" revenue:20100
+  item "2024-01-12" revenue:19400
+  item "2024-01-13" revenue:18800
+  item "2024-01-14" revenue:21100
+  item "2024-01-15" revenue:20500
+  item "2024-01-16" revenue:19800
+  item "2024-01-17" revenue:21600
+  item "2024-01-18" revenue:20900
+  item "2024-01-19" revenue:22100
+  item "2024-01-20" revenue:21400
+  item "2024-01-21" revenue:20800
+  item "2024-01-22" revenue:22600
+  item "2024-01-23" revenue:21900
+  item "2024-01-24" revenue:23200
+  item "2024-01-25" revenue:22400
+  item "2024-01-26" revenue:21800
+  item "2024-01-27" revenue:23800
+  item "2024-01-28" revenue:22900
+  item "2024-01-29" revenue:24100
+  item "2024-01-30" revenue:23500
+}

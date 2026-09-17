@@ -1,0 +1,72 @@
+page "/sankey-chart" type:components family:sankey-chart {
+  title "SankeyChart"
+  description:"Flow between nodes. Default and Motion variants."
+}
+
+component SankeyChartDefault layout:stack style:sankey-chart group:"Default" note:"Cronus flow between nodes." {
+  label "Sankey chart of acquisition flow."
+  item "Direct"
+  item "Ads"
+  item "Site"
+  item "App"
+  item "Paid"
+  item "Churn"
+  item "Direct -> Site" value:48
+  item "Ads -> Site" value:32
+  item "Site -> App" value:40
+  item "Site -> Paid" value:24
+  item "App -> Paid" value:28
+  item "App -> Churn" value:12
+  item "Paid -> Churn" value:8
+}
+
+component SankeyChartMotion layout:stack style:sankey-chart+motion aspect:"16 / 9" node-padding:24 node-width:16 labels:vertical line-cap:4 group:"Motion" note:"Flow chart with hoverable links and nodes." {
+  label "Sankey chart of acquisition flow."
+  item "Organic Search"
+  item "Paid Search"
+  item "Paid Social"
+  item "Email"
+  item "Referral"
+  item "Direct"
+  item "Blog"
+  item "Pricing"
+  item "Product"
+  item "Docs"
+  item "Homepage"
+  item "Converted"
+  item "Engaged"
+  item "Bounced"
+  item "Organic Search -> Blog" value:4200
+  item "Organic Search -> Docs" value:2800
+  item "Organic Search -> Pricing" value:1500
+  item "Paid Search -> Pricing" value:3100
+  item "Paid Search -> Product" value:2200
+  item "Paid Search -> Blog" value:800
+  item "Paid Social -> Blog" value:2800
+  item "Paid Social -> Homepage" value:1900
+  item "Paid Social -> Product" value:600
+  item "Email -> Pricing" value:2100
+  item "Email -> Product" value:1400
+  item "Email -> Blog" value:900
+  item "Referral -> Blog" value:1800
+  item "Referral -> Docs" value:1200
+  item "Referral -> Pricing" value:700
+  item "Direct -> Homepage" value:3500
+  item "Direct -> Pricing" value:1800
+  item "Direct -> Product" value:1100
+  item "Blog -> Converted" value:2100
+  item "Blog -> Engaged" value:4800
+  item "Blog -> Bounced" value:3600
+  item "Pricing -> Converted" value:4500
+  item "Pricing -> Engaged" value:3200
+  item "Pricing -> Bounced" value:1500
+  item "Product -> Converted" value:2800
+  item "Product -> Engaged" value:1900
+  item "Product -> Bounced" value:600
+  item "Docs -> Converted" value:800
+  item "Docs -> Engaged" value:2400
+  item "Docs -> Bounced" value:800
+  item "Homepage -> Converted" value:1200
+  item "Homepage -> Engaged" value:1800
+  item "Homepage -> Bounced" value:2400
+}

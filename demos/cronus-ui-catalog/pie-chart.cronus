@@ -1,0 +1,20 @@
+page "/pie-chart" type:components family:pie-chart {
+  title "PieChart"
+  description:"Full pie. Default and Motion variants."
+}
+
+component PieChartDefault layout:stack style:pie-chart group:"Default" note:"Cronus full pie with token slices." {
+  label "Pie chart of traffic sources."
+  item "Direct" value:320
+  item "Organic" value:280
+  item "Referral" value:190
+  item "Social" value:140
+}
+
+component PieChartMotion layout:stack style:pie-chart+motion size:280 legend:"Traffic" group:"Motion" note:"Composable slices with a side legend — hover a slice or a row to highlight both." {
+  label "Pie chart of traffic sources."
+  item "Direct" value:320
+  item "Organic" value:280
+  item "Referral" value:190
+  item "Social" value:140
+}

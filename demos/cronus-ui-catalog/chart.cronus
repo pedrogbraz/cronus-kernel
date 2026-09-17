@@ -1,0 +1,21 @@
+page "/chart" type:components family:chart {
+  title "Chart"
+  description:"Low-level recharts primitive: ChartContainer, tooltip, cursor, legend."
+}
+
+component ChartContainer layout:stack style:chart center:"11.4K" center-label:"Visitors" legend:true group:"ChartContainer" note:"Low-level recharts primitive. Named charts ship a Default example and a Motion example (clip-reveal, crosshair, date pill)." {
+  label "Donut chart of traffic sources by visitors: Direct 4,200, Organic 3,100, Referral 1,900, Social 1,400, Email 800."
+  item "Direct" value:4200
+  item "Organic" value:3100
+  item "Referral" value:1900
+  item "Social" value:1400
+  item "Email" value:800
+}
+
+component ChartRadialChart layout:stack style:chart+radial legend:true group:"Radial bar (primitive)" note:"Compose RadialBarChart yourself inside ChartContainer when a named chart is too opinionated." {
+  label "Radial bar chart of visitors by device: Desktop 5,200, Mobile 4,100, Tablet 1,800, Other 900."
+  item "Desktop" value:5200
+  item "Mobile" value:4100
+  item "Tablet" value:1800
+  item "Other" value:900
+}

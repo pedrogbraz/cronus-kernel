@@ -1,3 +1,31 @@
 [data-slot="candlestick-chart"] {
   display: block; width: 100%; height: 16rem;
 }
+[data-slot="candlestick-chart"].v-motion {
+  height: auto; aspect-ratio: 432 / 320;
+}
+[data-slot="candlestick-chart"].v-motion .candle {
+  transform-box: fill-box; transform-origin: center;
+  animation: cronus-candle-in var(--cronus-spring-soft) both;
+  transition: opacity 180ms ease-out;
+}
+/* Candle stagger: 60% of 1100ms spread over the candles. */
+[data-slot="candlestick-chart"].v-motion .chart-candlesticks.n3 { --stagger: 220ms; }
+[data-slot="candlestick-chart"].v-motion .chart-candlesticks.n4 { --stagger: 165ms; }
+[data-slot="candlestick-chart"].v-motion .chart-candlesticks.n5 { --stagger: 132ms; }
+[data-slot="candlestick-chart"].v-motion .chart-candlesticks.n6 { --stagger: 110ms; }
+[data-slot="candlestick-chart"].v-motion .chart-candlesticks.n8 { --stagger: 82.5ms; }
+[data-slot="candlestick-chart"].v-motion .chart-candlesticks.n10 { --stagger: 66ms; }
+[data-slot="candlestick-chart"].v-motion .chart-candlesticks.n12 { --stagger: 55ms; }
+[data-slot="candlestick-chart"].v-motion .chart-candlesticks.n24 { --stagger: 27.5ms; }
+.chart-candlesticks.f25:hover .candle:not(:hover) {
+  opacity: 0.25;
+}
+.chart-candlesticks.f30:hover .candle:not(:hover) {
+  opacity: 0.3;
+}
+@keyframes cronus-candle-in {
+  from { opacity: 0; transform: scaleY(0); }
+  15% { opacity: 1; }
+  to { opacity: 1; transform: none; }
+}

@@ -1,0 +1,26 @@
+page "/profit-loss-chart" type:components family:profit-loss-chart {
+  title "ProfitLossChart"
+  description:"Series split at zero. Default and Motion variants."
+}
+
+component ProfitLossChartDefault layout:stack style:profit-loss-chart group:"Default" note:"Cronus series split at zero." {
+  label "Profit and loss line, split at zero."
+  item "Jan" value:420
+  item "Feb" value:-180
+  item "Mar" value:260
+  item "Apr" value:510
+  item "May" value:-90
+  item "Jun" value:340
+  item "Jul" value:680
+  item "Aug" value:-220
+}
+
+component ProfitLossChartMotion layout:stack style:profit-loss-chart+motion legend:center group:"Motion" note:"Sign-colored segments split at zero." {
+  label "Profit and loss line, split at zero."
+  item "2024-01-01" value:420
+  item "2024-01-05" value:180
+  item "2024-01-10" value:-240
+  item "2024-01-15" value:-90
+  item "2024-01-20" value:310
+  item "2024-01-25" value:520
+}
