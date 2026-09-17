@@ -2,9 +2,16 @@
 //! `<div data-slot="dock" aria-label>` plus each entry as
 //! `<a data-slot="dock-item">` when the item has a link, otherwise
 //! `<button type="button" data-slot="dock-item">`. Items are icon buttons: the
-//! name lives in `title`/`aria-label` and the body is the decorative `GLYPH`
-//! (same circle React's dock fixture passes as `icon`), never visible text.
-//! The `label` names the dock; it is only an entry when nothing else exists.
+//! name lives in `title`/`aria-label` and the body is the decorative glyph —
+//! the lucide `icon:` of the item, else the circle React's dock fixture
+//! passes as `icon` — never visible text. The `label` names the dock; it is
+//! only an entry when nothing else exists.
+//!
+//! React magnifies items by pointer distance (×1.6 at the pointer, base size
+//! 120 px away, spring 260/22/0.2). The kernel's closest CSS: the hovered item
+//! grows to ×1.6, its neighbours to the sizes React gives them at 52 px and
+//! 104 px, on the same (overdamped) spring as a width transition; the dock is
+//! `items-end` so items grow upward. Static under reduced motion.
 //! Not interact `nav("dock")` (generic SURF `<nav>` without dock-item).
 
 use crate::cronus_ui_kit::{attr, esc, label_of, safe_url};
@@ -13,7 +20,7 @@ use crate::parser::{ComponentItemNode, ComponentNode};
 pub fn render(comp: &ComponentNode) -> String {
     let items = nav_entries(comp)
         .into_iter()
-        .map(|(text, href)| item_html(&text, href.as_deref()))
+        .map(|(text, href, icon)| item_html(&text, href.as_deref(), icon.as_deref()))
         .collect::<Vec<_>>()
         .join("");
     format!("<div data-slot=\"dock\"{}>{items}</div>", aria_attr(comp))
@@ -23,11 +30,15 @@ pub fn render(comp: &ComponentNode) -> String {
 /// lives only in `title` / `aria-label`; the button shows no visible text.
 const GLYPH: &str = "<span aria-hidden=\"true\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"7\"></circle></svg></span>";
 
-fn item_html(text: &str, href: Option<&str>) -> String {
+fn item_html(text: &str, href: Option<&str>, icon: Option<&str>) -> String {
+    let glyph = icon
+        .and_then(crate::cronus_ui_icons::svg)
+        .map(|svg| format!("<span aria-hidden=\"true\">{svg}</span>"))
+        .unwrap_or_else(|| GLYPH.to_string());
     match href {
-        Some(h) => format!("<a data-slot=\"dock-item\" href=\"{h}\" title=\"{text}\" aria-label=\"{text}\">{GLYPH}</a>"),
+        Some(h) => format!("<a data-slot=\"dock-item\" href=\"{h}\" title=\"{text}\" aria-label=\"{text}\">{glyph}</a>"),
         None => format!(
-            "<button type=\"button\" data-slot=\"dock-item\" title=\"{text}\" aria-label=\"{text}\">{GLYPH}</button>"
+            "<button type=\"button\" data-slot=\"dock-item\" title=\"{text}\" aria-label=\"{text}\">{glyph}</button>"
         ),
     }
 }
@@ -42,8 +53,8 @@ fn aria_attr(comp: &ComponentNode) -> String {
     }
 }
 
-fn nav_entries(comp: &ComponentNode) -> Vec<(String, Option<String>)> {
-    let choice: Vec<(String, Option<String>)> = comp
+fn nav_entries(comp: &ComponentNode) -> Vec<Entry> {
+    let choice: Vec<Entry> = comp
         .items
         .iter()
         .filter(|i| {
@@ -54,7 +65,7 @@ fn nav_entries(comp: &ComponentNode) -> Vec<(String, Option<String>)> {
     if !choice.is_empty() {
         return choice;
     }
-    let other: Vec<(String, Option<String>)> = comp
+    let other: Vec<Entry> = comp
         .items
         .iter()
         .filter(|i| {
@@ -66,7 +77,7 @@ fn nav_entries(comp: &ComponentNode) -> Vec<(String, Option<String>)> {
     if !other.is_empty() {
         return other;
     }
-    let text_lines: Vec<(String, Option<String>)> = comp
+    let text_lines: Vec<Entry> = comp
         .items
         .iter()
         .filter(|i| i.item_type == "text" && !i.text.is_empty())
@@ -75,23 +86,27 @@ fn nav_entries(comp: &ComponentNode) -> Vec<(String, Option<String>)> {
     if !text_lines.is_empty() {
         return text_lines;
     }
-    let all: Vec<(String, Option<String>)> = comp
+    let all: Vec<Entry> = comp
         .items
         .iter()
         .filter(|i| !i.text.is_empty())
         .map(entry_of)
         .collect();
     if all.is_empty() {
-        vec![(label_of(comp), None)]
+        vec![(label_of(comp), None, None)]
     } else {
         all
     }
 }
 
-fn entry_of(i: &ComponentItemNode) -> (String, Option<String>) {
+/// `(name, href, lucide icon)`.
+type Entry = (String, Option<String>, Option<String>);
+
+fn entry_of(i: &ComponentItemNode) -> Entry {
     (
         esc(&i.text),
         i.link.as_deref().filter(|s| !s.is_empty()).map(safe_url),
+        i.config.get("icon").filter(|s| !s.is_empty()).cloned(),
     )
 }
 
@@ -273,5 +288,34 @@ mod tests {
         assert!(!html.contains(">Search<"));
         assert!(!html.contains("<svg style"));
         reject_interact(&html);
+    }
+
+    /// Docs "App dock": five lucide icons, each item named by its label.
+    #[test]
+    fn item_icons_replace_the_fixture_glyph() {
+        let mut c = bar(&["Home", "Search"]);
+        c.items[0].config.insert("icon".into(), "home".into());
+        c.items[1].config.insert("icon".into(), "search".into());
+        let html = render(&c);
+        assert!(html.contains("aria-label=\"Home\"><span aria-hidden=\"true\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" data-icon=\"home\">"));
+        assert!(html.contains("data-icon=\"search\""));
+        assert!(!html.contains(GLYPH));
+        c.items[1]
+            .config
+            .insert("icon".into(), "no-such-glyph".into());
+        assert_eq!(render(&c).matches(GLYPH).count(), 1);
+    }
+
+    /// Hover magnification: ×1.6 on the hovered item, React's 52 px / 104 px
+    /// neighbour sizes, on the 260/22/0.2 spring.
+    #[test]
+    fn chrome_hover_magnifies_on_the_spring() {
+        let css = include_str!("cronus_ui_css/dock.css");
+        assert!(css.contains("--cui-dock-spring: 350ms linear("));
+        assert!(css.contains("transition: width var(--cui-dock-spring), height var(--cui-dock-spring), background-color 150ms var(--ease-out-quart);"));
+        assert!(css.contains("[data-slot=\"dock-item\"]:hover { width: 4.4rem; height: 4.4rem; }"));
+        assert!(css.contains("[data-slot=\"dock-item\"]:has(+ [data-slot=\"dock-item\"]:hover),\n[data-slot=\"dock-item\"]:hover + [data-slot=\"dock-item\"] { width: 3.68rem; height: 3.68rem; }"));
+        assert!(css.contains("[data-slot=\"dock-item\"]:has(+ [data-slot=\"dock-item\"] + [data-slot=\"dock-item\"]:hover),\n[data-slot=\"dock-item\"]:hover + [data-slot=\"dock-item\"] + [data-slot=\"dock-item\"] { width: 2.97rem; height: 2.97rem; }"));
+        assert!(css.contains("@media (prefers-reduced-motion: reduce)"));
     }
 }

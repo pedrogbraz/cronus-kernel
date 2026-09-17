@@ -10,6 +10,8 @@
 //! Reduced motion shows the text in place. `inView`, `autoStart:false`,
 //! callbacks and custom `transition`s need JS and are not rendered;
 //! `split:"characters"` splits by Unicode scalar value, not grapheme.
+//! `split:lines` takes one line per `label` / `text` item; `size:2xl|3xl|4xl`
+//! is the docs `font-display text-3xl text-fg` typography.
 
 use crate::cronus_ui_kit::{attr, attr_num, esc, item};
 use crate::parser::ComponentNode;
@@ -62,11 +64,27 @@ fn step(seconds: f64) -> u32 {
 }
 
 pub fn render(comp: &ComponentNode) -> String {
-    let text = item(comp, "label").unwrap_or("");
     let split = match attr(comp, "split").map(str::trim) {
         Some("characters") => Split::Characters,
         Some("lines") => Split::Lines,
         _ => Split::Words,
+    };
+    // `split:lines`: every `label` / `text` / `item` line is one line of the
+    // phrase (a `.cronus` string has no newline escape).
+    let joined;
+    let text = if split == Split::Lines {
+        joined = comp
+            .items
+            .iter()
+            .filter(|i| {
+                matches!(i.item_type.as_str(), "label" | "text" | "item") && !i.text.is_empty()
+            })
+            .map(|i| i.text.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
+        joined.as_str()
+    } else {
+        item(comp, "label").unwrap_or("")
     };
     let from = match attr(comp, "from").map(str::trim) {
         Some("last") => From::Last,
@@ -99,8 +117,12 @@ pub fn render(comp: &ComponentNode) -> String {
         step(delay + stagger_delay)
     };
 
+    let size = match attr(comp, "size") {
+        Some(s @ ("2xl" | "3xl" | "4xl")) => format!(" class=\"t-{s}\""),
+        _ => String::new(),
+    };
     let mut html = format!(
-        "<span data-slot=\"slide-up-text\"{}><span>{}</span>",
+        "<span data-slot=\"slide-up-text\"{}{size}><span>{}</span>",
         if split == Split::Lines {
             " data-split=\"lines\""
         } else {
@@ -234,5 +256,29 @@ mod tests {
             crate::cli::stub_renderer_gate::dedicated_fn_name("slide-up-text"),
             Some("cronus_ui_slide_up_text::render")
         );
+    }
+
+    /// Docs "By lines": one `text` line per item, stacked (`flex-col`) with
+    /// the 3xl display typography; "From last" staggers back from the end.
+    #[test]
+    fn lines_from_items_and_display_size() {
+        let mut c = stub("slide-up-text", "First line");
+        c.props.insert("split".into(), "lines".into());
+        c.props.insert("size".into(), "3xl".into());
+        for l in ["Second line", "Third line"] {
+            c.items.push(crate::parser::ComponentItemNode {
+                item_type: "text".into(),
+                text: l.into(),
+                link: None,
+                tone: None,
+                config: Default::default(),
+            });
+        }
+        let html = render(&c);
+        assert!(html.starts_with("<span data-slot=\"slide-up-text\" data-split=\"lines\" class=\"t-3xl\"><span>First line\nSecond line\nThird line</span><span aria-hidden=\"true\"><span><span data-delay=\"0\">First line</span></span></span><span aria-hidden=\"true\"><span><span data-delay=\"2\">Second line</span></span></span>"));
+        assert_eq!(delays(&html), vec![0, 2, 4]);
+        let css = include_str!("cronus_ui_css/slide-up-text.css");
+        assert!(css.contains("[data-slot=\"slide-up-text\"].t-3xl {"));
+        assert!(css.contains("font-size: 1.875rem; line-height: 2.25rem;"));
     }
 }

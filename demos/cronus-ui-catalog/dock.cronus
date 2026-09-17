@@ -1,0 +1,12 @@
+page "/dock" type:components family:dock {
+  title "Dock"
+  description:"A macOS-style icon dock that magnifies items as the pointer nears."
+}
+
+component AppDock layout:inline style:dock group:"App dock" note:"A macOS-style icon dock: items magnify as the pointer approaches and settle back on a spring. Each item is named for assistive tech via its `label`; reduced-motion visitors get a static bar." {
+  item "Home" icon:home
+  item "Search" icon:search
+  item "Notifications" icon:bell
+  item "Profile" icon:user
+  item "Settings" icon:settings
+}

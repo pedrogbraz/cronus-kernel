@@ -1,0 +1,18 @@
+page "/logo-carousel" type:components family:logo-carousel {
+  title "LogoCarousel"
+  description:"Animated hero logo carousel with reduced-motion fallback."
+}
+
+component HeroLockup layout:stack style:logo-carousel columns:3 interval:1600 stagger:0.12 group:"Hero lockup" note:"Large ghost logos that rotate in place for launch pages, waitlists and social-proof heroes. Each slot cross-fades upward with Motion, pauses on hover/focus and becomes static for reduced-motion users." {
+  label "Customer logos"
+  subtitle "The best teams are already here"
+  title "Join Cronus UI"
+  item "Next.js"
+  item "BMW"
+  item "TypeScript"
+  item "Stripe"
+  item "Spiral"
+  item "Apple"
+  item "Tailwind CSS"
+  item "Vercel"
+}

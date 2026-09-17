@@ -22,3 +22,14 @@
 [data-slot="number-flow"] [data-digit="7"] > span { margin-block-start: -8em; }
 [data-slot="number-flow"] [data-digit="8"] > span { margin-block-start: -9em; }
 [data-slot="number-flow"] [data-digit="9"] > span { margin-block-start: -10em; }
+/* Docs display sizes (`font-display text-5xl tracking-[-0.03em] text-fg`). */
+[data-slot="number-flow"].t-3xl, [data-slot="number-flow"].t-4xl, [data-slot="number-flow"].t-5xl {
+  font-family: var(--cronus-font-display, inherit); color: var(--cronus-fg);
+}
+[data-slot="number-flow"].t-3xl { font-size: 1.875rem; letter-spacing: -0.03em; }
+[data-slot="number-flow"].t-4xl { font-size: 2.25rem; letter-spacing: -0.03em; }
+[data-slot="number-flow"].t-5xl {
+  font-size: 3rem; letter-spacing: -0.03em;
+}
+/* Docs demos: number over its (JS) button, `flex-col items-center gap-6`. */
+.cui-number-flow-demo { display: flex; width: 100%; flex-direction: column; align-items: center; gap: 1.5rem; }

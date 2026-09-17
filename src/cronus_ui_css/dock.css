@@ -20,3 +20,24 @@
 }
 [data-slot="dock-item"] > span { display: contents; }
 [data-slot="dock-item"] svg { width: 50%; height: 50%; flex-shrink: 0; pointer-events: none; }
+/* React magnifies by pointer distance (×1.6 at 0 px → ×1 at 120 px) on a
+   260/22/0.2 spring. Closest CSS: the hovered item ×1.6 (70.4px), the
+   neighbours at 52 px (×1.34, 58.9px) and 104 px (×1.08, 47.5px). */
+[data-slot="dock"] {
+  --cui-dock-spring: 350ms linear(0, 0.1846, 0.4086, 0.5769, 0.6977, 0.7841, 0.8458, 0.8899, 0.9214, 0.9439, 0.9599, 0.9714, 0.9796, 0.9854, 1);
+}
+[data-slot="dock-item"] {
+  transition: width var(--cui-dock-spring), height var(--cui-dock-spring), background-color 150ms var(--ease-out-quart);
+}
+[data-slot="dock-item"]:hover { width: 4.4rem; height: 4.4rem; }
+[data-slot="dock-item"]:has(+ [data-slot="dock-item"]:hover),
+[data-slot="dock-item"]:hover + [data-slot="dock-item"] { width: 3.68rem; height: 3.68rem; }
+[data-slot="dock-item"]:has(+ [data-slot="dock-item"] + [data-slot="dock-item"]:hover),
+[data-slot="dock-item"]:hover + [data-slot="dock-item"] + [data-slot="dock-item"] { width: 2.97rem; height: 2.97rem; }
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="dock-item"], [data-slot="dock-item"]:hover,
+  [data-slot="dock-item"]:has(+ [data-slot="dock-item"]:hover),
+  [data-slot="dock-item"]:hover + [data-slot="dock-item"],
+  [data-slot="dock-item"]:has(+ [data-slot="dock-item"] + [data-slot="dock-item"]:hover),
+  [data-slot="dock-item"]:hover + [data-slot="dock-item"] + [data-slot="dock-item"] { width: 2.75rem; height: 2.75rem; transition: none; }
+}

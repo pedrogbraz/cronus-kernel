@@ -1,0 +1,19 @@
+page "/magnetic" type:components family:magnetic {
+  title "Magnetic"
+  description:"Wrapper whose content is gently pulled toward the cursor."
+}
+
+component Cta layout:inline style:magnetic padding:10 group:"Magnetic call-to-action" note:"Wrap a hero CTA so it leans into the cursor before the pointer even lands. Pad the wrapper (`p-10`) to give the field room beyond the button — the attraction only acts where the wrapper is hovered. The pull is lerped straight onto the child's transform inside one rAF (zero re-renders) and the whole effect switches off under prefers-reduced-motion and on touch." {
+  action "Começar agora" size:lg icon-end:arrow-right shape:pill glow:true px:8
+}
+
+component IconRow layout:inline style:magnetic strength:0.25 padding:3 group:"Icon row" note:"A row of independently magnetic icon buttons — each has its own small field, so only the nearest icon drifts toward the pointer while its neighbours stay at rest. Keep `strength` low for chrome that should feel alive but not needy." {
+  action "GitHub" variant:ghost size:icon icon:github shape:pill
+  action "LinkedIn" variant:ghost size:icon icon:link-2 shape:pill
+  action "Compartilhar" variant:ghost size:icon icon:share-2 shape:pill
+}
+
+component FieldTuning layout:inline style:magnetic padding:8 group:"Strength & radius" note:"`strength` (0–1) scales how far the content chases the pointer; `radius` sets where the field dissolves back to zero — the falloff eases to nothing at the edge, so there is never a pop. Tune both per surface: subtle for dense UI, sticky for hero moments." {
+  action "Sutil" variant:outline shape:pill strength:0.15 caption:"strength 0.15 · radius 80"
+  action "Grudento" variant:outline shape:pill strength:0.6 caption:"strength 0.6 · radius 160"
+}

@@ -58,3 +58,12 @@
 @media (prefers-reduced-motion: reduce) {
   [data-slot="slide-up-text"] > span[aria-hidden] > span > span { animation: none; }
 }
+/* Docs typography: `font-display text-3xl text-fg`. */
+[data-slot="slide-up-text"].t-2xl, [data-slot="slide-up-text"].t-3xl, [data-slot="slide-up-text"].t-4xl {
+  font-family: var(--cronus-font-display, inherit); color: var(--cronus-fg);
+}
+[data-slot="slide-up-text"].t-2xl { font-size: 1.5rem; line-height: 2rem; }
+[data-slot="slide-up-text"].t-3xl {
+  font-size: 1.875rem; line-height: 2.25rem;
+}
+[data-slot="slide-up-text"].t-4xl { font-size: 2.25rem; line-height: 2.5rem; }

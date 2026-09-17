@@ -232,10 +232,31 @@ pub fn render(comp: &ComponentNode) -> String {
             Token::Symbol(s) => format!("<span>{}</span>", esc(s)),
         })
         .collect();
-    format!(
-        "<span role=\"img\" aria-label=\"{}\" data-slot=\"number-flow\"><span aria-hidden=\"true\" dir=\"ltr\">{glyphs}</span></span>",
+    let class = match attr(comp, "size") {
+        Some(s @ ("3xl" | "4xl" | "5xl")) => format!(" class=\"t-{s}\""),
+        _ => String::new(),
+    };
+    let flow = format!(
+        "<span role=\"img\" aria-label=\"{}\" data-slot=\"number-flow\"{class}><span aria-hidden=\"true\" dir=\"ltr\">{glyphs}</span></span>",
         esc(&display(&tokens))
-    )
+    );
+    // Docs demos: the number over a button that changes the value — a JS
+    // control, rendered as the same native button `disabled`.
+    match comp
+        .items
+        .iter()
+        .find(|i| matches!(i.item_type.as_str(), "action" | "button") && !i.text.is_empty())
+    {
+        Some(action) => {
+            let mut action = action.clone();
+            action.config.insert("disabled".into(), "true".into());
+            format!(
+                "<div class=\"cui-number-flow-demo\">{flow}{}</div>",
+                crate::cronus_ui_glass_card::action_button(&action)
+            )
+        }
+        None => flow,
+    }
 }
 
 #[cfg(test)]
@@ -389,5 +410,38 @@ mod tests {
             crate::cli::stub_renderer_gate::dedicated_fn_name("number-flow"),
             Some("cronus_ui_number_flow::render")
         );
+    }
+
+    /// Docs "Currency": `$19,348.43` at the 5xl display size over a disabled
+    /// outline "Update value" button (the increment needs JS).
+    #[test]
+    fn docs_currency_demo_with_disabled_button() {
+        let mut c = stub("number-flow", "Revenue");
+        c.props.insert("value".into(), "19348.43".into());
+        c.props.insert("prefix".into(), "$".into());
+        c.props.insert("format".into(), "currency".into());
+        c.props.insert("size".into(), "5xl".into());
+        c.items.push(crate::parser::ComponentItemNode {
+            item_type: "action".into(),
+            text: "Update value".into(),
+            link: None,
+            tone: None,
+            config: [("variant", "outline"), ("size", "sm")]
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+        });
+        let html = render(&c);
+        assert!(html.starts_with("<div class=\"cui-number-flow-demo\"><span role=\"img\" aria-label=\"$19,348.43\" data-slot=\"number-flow\" class=\"t-5xl\"><span aria-hidden=\"true\" dir=\"ltr\"><span>$</span><span data-digit=\"1\">"));
+        assert!(html.ends_with("</span></span><button type=\"button\" disabled data-slot=\"button\" data-variant=\"outline\" data-size=\"sm\" class=\"cui-btn\">Update value</button></div>"));
+        assert!(!html.contains("style="));
+    }
+
+    #[test]
+    fn chrome_display_size_and_demo_stack() {
+        let css = include_str!("cronus_ui_css/number-flow.css");
+        assert!(css.contains("[data-slot=\"number-flow\"].t-5xl {"));
+        assert!(css.contains("font-size: 3rem; letter-spacing: -0.03em;"));
+        assert!(css.contains(".cui-number-flow-demo { display: flex; width: 100%; flex-direction: column; align-items: center; gap: 1.5rem; }"));
     }
 }

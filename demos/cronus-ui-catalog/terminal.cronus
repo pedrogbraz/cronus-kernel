@@ -1,0 +1,19 @@
+page "/terminal" type:components family:terminal {
+  title "Terminal"
+  description:"Animated terminal window that types a scripted shell session."
+}
+
+component InstallSession layout:stack style:terminal motion:respect group:"Install session" note:"A scripted install session: commands type in char-by-char behind the prompt with a blinking block cursor, outputs fade in after a beat of execution time, and loop replays it. The copy button copies just the joined commands. Reduced-motion visitors get the finished transcript instantly." {
+  label "zsh"
+  item "npx cronus-ui add terminal"
+  text "✔ 1 component installed"
+  text "  src/components/ui/terminal.tsx"
+  item "bun run dev"
+  text "ready in 312 ms"
+}
+
+component StaticLog layout:stack style:terminal chrome:false motion:never group:"Static, chrome-less log" note:"Without the traffic-light bar the copy button floats over the corner, and motionPreference of never renders the finished transcript with no animation — exactly what reduced-motion visitors see." {
+  item "cronus deploy --prod"
+  text "Build completed in 8.2s"
+  text "Deployed to https://app.cronus.com"
+}

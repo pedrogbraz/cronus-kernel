@@ -2,3 +2,12 @@
   display: inline;
   font-variant-numeric: tabular-nums;
 }
+/* Docs display sizes (`font-display text-4xl font-semibold text-fg`). */
+[data-slot="animated-number"].t-3xl, [data-slot="animated-number"].t-4xl, [data-slot="animated-number"].t-5xl {
+  font-family: var(--cronus-font-display, inherit); font-weight: 600; color: var(--cronus-fg);
+}
+[data-slot="animated-number"].t-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+[data-slot="animated-number"].t-4xl { font-size: 2.25rem; line-height: 2.5rem; }
+[data-slot="animated-number"].t-5xl { font-size: 3rem; line-height: 1; }
+/* Docs demo: number over its (JS) button, `flex-col items-center gap-4`. */
+.cui-animated-number-demo { display: flex; flex-direction: column; align-items: center; gap: 1rem; }

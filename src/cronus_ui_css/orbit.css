@@ -24,11 +24,12 @@
   from { transform: rotate(0turn); }
   to { transform: rotate(1turn); }
 }
+/* React's per-ring CSS variables (`--orbit-duration` / spin directions) as classes on the ring. */
 [data-slot="orbit-positioner"] {
   position: absolute;
   inset: 0;
-  rotate: var(--orbit-angle, 0deg);
-  animation: cui-orbit-spin 24s linear infinite;
+  rotate: calc(var(--orbit-start, 0deg) + var(--orbit-angle, 0deg));
+  animation: cui-orbit-spin var(--orbit-duration, 24s) linear infinite var(--orbit-spin-direction, normal);
   will-change: transform;
 }
 [data-slot="orbit-holder"] {
@@ -42,8 +43,8 @@
   align-items: center;
   justify-content: center;
   pointer-events: auto;
-  rotate: calc(var(--orbit-angle, 0deg) * -1);
-  animation: cui-orbit-spin 24s linear infinite reverse;
+  rotate: calc((var(--orbit-start, 0deg) + var(--orbit-angle, 0deg)) * -1);
+  animation: cui-orbit-spin var(--orbit-duration, 24s) linear infinite var(--orbit-counter-direction, reverse);
 }
 [data-slot="orbit"]:hover [data-slot="orbit-positioner"],
 [data-slot="orbit"]:hover [data-slot="orbit-item"],
@@ -66,7 +67,205 @@
 [data-slot="orbit-positioner"]:nth-child(4):nth-last-child(3) { --orbit-angle: 180deg; }
 [data-slot="orbit-positioner"]:nth-child(5):nth-last-child(2) { --orbit-angle: 240deg; }
 [data-slot="orbit-positioner"]:nth-child(6):nth-last-child(1) { --orbit-angle: 300deg; }
+[data-slot="orbit-positioner"]:nth-child(2):nth-last-child(6) { --orbit-angle: 51.4286deg; }
+[data-slot="orbit-positioner"]:nth-child(3):nth-last-child(5) { --orbit-angle: 102.857deg; }
+[data-slot="orbit-positioner"]:nth-child(4):nth-last-child(4) { --orbit-angle: 154.286deg; }
+[data-slot="orbit-positioner"]:nth-child(5):nth-last-child(3) { --orbit-angle: 205.714deg; }
+[data-slot="orbit-positioner"]:nth-child(6):nth-last-child(2) { --orbit-angle: 257.143deg; }
+[data-slot="orbit-positioner"]:nth-child(7):nth-last-child(1) { --orbit-angle: 308.571deg; }
+[data-slot="orbit-positioner"]:nth-child(2):nth-last-child(7) { --orbit-angle: 45deg; }
+[data-slot="orbit-positioner"]:nth-child(3):nth-last-child(6) { --orbit-angle: 90deg; }
+[data-slot="orbit-positioner"]:nth-child(4):nth-last-child(5) { --orbit-angle: 135deg; }
+[data-slot="orbit-positioner"]:nth-child(5):nth-last-child(4) { --orbit-angle: 180deg; }
+[data-slot="orbit-positioner"]:nth-child(6):nth-last-child(3) { --orbit-angle: 225deg; }
+[data-slot="orbit-positioner"]:nth-child(7):nth-last-child(2) { --orbit-angle: 270deg; }
+[data-slot="orbit-positioner"]:nth-child(8):nth-last-child(1) { --orbit-angle: 315deg; }
 @media (prefers-reduced-motion: reduce) {
   [data-slot="orbit-positioner"],
   [data-slot="orbit-item"] { animation: none; }
 }
+[data-slot="orbit-ring"].reverse { --orbit-spin-direction: reverse; --orbit-counter-direction: normal; }
+[data-slot="orbit-ring"].no-guide { border: 0; }
+[data-slot="orbit"].sz-64 { --cui-orbit-size: 16rem; }
+[data-slot="orbit"].sz-72 { --cui-orbit-size: 18rem; }
+[data-slot="orbit"].sz-80 { --cui-orbit-size: 20rem; }
+[data-slot="orbit"].sz-96 { --cui-orbit-size: 24rem; }
+[data-slot="orbit-ring"].r-48 { --orbit-radius: 48px; width: calc(var(--orbit-radius) * 2); height: calc(var(--orbit-radius) * 2); }
+[data-slot="orbit-ring"].r-56 { --orbit-radius: 56px; width: calc(var(--orbit-radius) * 2); height: calc(var(--orbit-radius) * 2); }
+[data-slot="orbit-ring"].r-64 { --orbit-radius: 64px; width: calc(var(--orbit-radius) * 2); height: calc(var(--orbit-radius) * 2); }
+[data-slot="orbit-ring"].r-72 { --orbit-radius: 72px; width: calc(var(--orbit-radius) * 2); height: calc(var(--orbit-radius) * 2); }
+[data-slot="orbit-ring"].r-80 { --orbit-radius: 80px; width: calc(var(--orbit-radius) * 2); height: calc(var(--orbit-radius) * 2); }
+[data-slot="orbit-ring"].r-88 { --orbit-radius: 88px; width: calc(var(--orbit-radius) * 2); height: calc(var(--orbit-radius) * 2); }
+[data-slot="orbit-ring"].r-96 { --orbit-radius: 96px; width: calc(var(--orbit-radius) * 2); height: calc(var(--orbit-radius) * 2); }
+[data-slot="orbit-ring"].r-104 { --orbit-radius: 104px; width: calc(var(--orbit-radius) * 2); height: calc(var(--orbit-radius) * 2); }
+[data-slot="orbit-ring"].r-112 { --orbit-radius: 112px; width: calc(var(--orbit-radius) * 2); height: calc(var(--orbit-radius) * 2); }
+[data-slot="orbit-ring"].r-120 { --orbit-radius: 120px; width: calc(var(--orbit-radius) * 2); height: calc(var(--orbit-radius) * 2); }
+[data-slot="orbit-ring"].r-128 { --orbit-radius: 128px; width: calc(var(--orbit-radius) * 2); height: calc(var(--orbit-radius) * 2); }
+[data-slot="orbit-ring"].r-136 { --orbit-radius: 136px; width: calc(var(--orbit-radius) * 2); height: calc(var(--orbit-radius) * 2); }
+[data-slot="orbit-ring"].r-144 { --orbit-radius: 144px; width: calc(var(--orbit-radius) * 2); height: calc(var(--orbit-radius) * 2); }
+[data-slot="orbit-ring"].r-152 { --orbit-radius: 152px; width: calc(var(--orbit-radius) * 2); height: calc(var(--orbit-radius) * 2); }
+[data-slot="orbit-ring"].r-160 { --orbit-radius: 160px; width: calc(var(--orbit-radius) * 2); height: calc(var(--orbit-radius) * 2); }
+[data-slot="orbit-ring"].d-1 { --orbit-duration: 1s; }
+[data-slot="orbit-ring"].d-2 { --orbit-duration: 2s; }
+[data-slot="orbit-ring"].d-3 { --orbit-duration: 3s; }
+[data-slot="orbit-ring"].d-4 { --orbit-duration: 4s; }
+[data-slot="orbit-ring"].d-5 { --orbit-duration: 5s; }
+[data-slot="orbit-ring"].d-6 { --orbit-duration: 6s; }
+[data-slot="orbit-ring"].d-7 { --orbit-duration: 7s; }
+[data-slot="orbit-ring"].d-8 { --orbit-duration: 8s; }
+[data-slot="orbit-ring"].d-9 { --orbit-duration: 9s; }
+[data-slot="orbit-ring"].d-10 { --orbit-duration: 10s; }
+[data-slot="orbit-ring"].d-11 { --orbit-duration: 11s; }
+[data-slot="orbit-ring"].d-12 { --orbit-duration: 12s; }
+[data-slot="orbit-ring"].d-13 { --orbit-duration: 13s; }
+[data-slot="orbit-ring"].d-14 { --orbit-duration: 14s; }
+[data-slot="orbit-ring"].d-15 { --orbit-duration: 15s; }
+[data-slot="orbit-ring"].d-16 { --orbit-duration: 16s; }
+[data-slot="orbit-ring"].d-17 { --orbit-duration: 17s; }
+[data-slot="orbit-ring"].d-18 { --orbit-duration: 18s; }
+[data-slot="orbit-ring"].d-19 { --orbit-duration: 19s; }
+[data-slot="orbit-ring"].d-20 { --orbit-duration: 20s; }
+[data-slot="orbit-ring"].d-21 { --orbit-duration: 21s; }
+[data-slot="orbit-ring"].d-22 { --orbit-duration: 22s; }
+[data-slot="orbit-ring"].d-23 { --orbit-duration: 23s; }
+[data-slot="orbit-ring"].d-24 { --orbit-duration: 24s; }
+[data-slot="orbit-ring"].d-25 { --orbit-duration: 25s; }
+[data-slot="orbit-ring"].d-26 { --orbit-duration: 26s; }
+[data-slot="orbit-ring"].d-27 { --orbit-duration: 27s; }
+[data-slot="orbit-ring"].d-28 { --orbit-duration: 28s; }
+[data-slot="orbit-ring"].d-29 { --orbit-duration: 29s; }
+[data-slot="orbit-ring"].d-30 { --orbit-duration: 30s; }
+[data-slot="orbit-ring"].d-31 { --orbit-duration: 31s; }
+[data-slot="orbit-ring"].d-32 { --orbit-duration: 32s; }
+[data-slot="orbit-ring"].d-33 { --orbit-duration: 33s; }
+[data-slot="orbit-ring"].d-34 { --orbit-duration: 34s; }
+[data-slot="orbit-ring"].d-35 { --orbit-duration: 35s; }
+[data-slot="orbit-ring"].d-36 { --orbit-duration: 36s; }
+[data-slot="orbit-ring"].d-37 { --orbit-duration: 37s; }
+[data-slot="orbit-ring"].d-38 { --orbit-duration: 38s; }
+[data-slot="orbit-ring"].d-39 { --orbit-duration: 39s; }
+[data-slot="orbit-ring"].d-40 { --orbit-duration: 40s; }
+[data-slot="orbit-ring"].d-41 { --orbit-duration: 41s; }
+[data-slot="orbit-ring"].d-42 { --orbit-duration: 42s; }
+[data-slot="orbit-ring"].d-43 { --orbit-duration: 43s; }
+[data-slot="orbit-ring"].d-44 { --orbit-duration: 44s; }
+[data-slot="orbit-ring"].d-45 { --orbit-duration: 45s; }
+[data-slot="orbit-ring"].d-46 { --orbit-duration: 46s; }
+[data-slot="orbit-ring"].d-47 { --orbit-duration: 47s; }
+[data-slot="orbit-ring"].d-48 { --orbit-duration: 48s; }
+[data-slot="orbit-ring"].d-49 { --orbit-duration: 49s; }
+[data-slot="orbit-ring"].d-50 { --orbit-duration: 50s; }
+[data-slot="orbit-ring"].d-51 { --orbit-duration: 51s; }
+[data-slot="orbit-ring"].d-52 { --orbit-duration: 52s; }
+[data-slot="orbit-ring"].d-53 { --orbit-duration: 53s; }
+[data-slot="orbit-ring"].d-54 { --orbit-duration: 54s; }
+[data-slot="orbit-ring"].d-55 { --orbit-duration: 55s; }
+[data-slot="orbit-ring"].d-56 { --orbit-duration: 56s; }
+[data-slot="orbit-ring"].d-57 { --orbit-duration: 57s; }
+[data-slot="orbit-ring"].d-58 { --orbit-duration: 58s; }
+[data-slot="orbit-ring"].d-59 { --orbit-duration: 59s; }
+[data-slot="orbit-ring"].d-60 { --orbit-duration: 60s; }
+[data-slot="orbit-ring"].a-5 { --orbit-start: 5deg; }
+[data-slot="orbit-ring"].a-10 { --orbit-start: 10deg; }
+[data-slot="orbit-ring"].a-15 { --orbit-start: 15deg; }
+[data-slot="orbit-ring"].a-20 { --orbit-start: 20deg; }
+[data-slot="orbit-ring"].a-25 { --orbit-start: 25deg; }
+[data-slot="orbit-ring"].a-30 { --orbit-start: 30deg; }
+[data-slot="orbit-ring"].a-35 { --orbit-start: 35deg; }
+[data-slot="orbit-ring"].a-36 { --orbit-start: 36deg; }
+[data-slot="orbit-ring"].a-40 { --orbit-start: 40deg; }
+[data-slot="orbit-ring"].a-45 { --orbit-start: 45deg; }
+[data-slot="orbit-ring"].a-50 { --orbit-start: 50deg; }
+[data-slot="orbit-ring"].a-55 { --orbit-start: 55deg; }
+[data-slot="orbit-ring"].a-60 { --orbit-start: 60deg; }
+[data-slot="orbit-ring"].a-65 { --orbit-start: 65deg; }
+[data-slot="orbit-ring"].a-70 { --orbit-start: 70deg; }
+[data-slot="orbit-ring"].a-72 { --orbit-start: 72deg; }
+[data-slot="orbit-ring"].a-75 { --orbit-start: 75deg; }
+[data-slot="orbit-ring"].a-80 { --orbit-start: 80deg; }
+[data-slot="orbit-ring"].a-85 { --orbit-start: 85deg; }
+[data-slot="orbit-ring"].a-90 { --orbit-start: 90deg; }
+[data-slot="orbit-ring"].a-95 { --orbit-start: 95deg; }
+[data-slot="orbit-ring"].a-100 { --orbit-start: 100deg; }
+[data-slot="orbit-ring"].a-105 { --orbit-start: 105deg; }
+[data-slot="orbit-ring"].a-108 { --orbit-start: 108deg; }
+[data-slot="orbit-ring"].a-110 { --orbit-start: 110deg; }
+[data-slot="orbit-ring"].a-115 { --orbit-start: 115deg; }
+[data-slot="orbit-ring"].a-120 { --orbit-start: 120deg; }
+[data-slot="orbit-ring"].a-125 { --orbit-start: 125deg; }
+[data-slot="orbit-ring"].a-130 { --orbit-start: 130deg; }
+[data-slot="orbit-ring"].a-135 { --orbit-start: 135deg; }
+[data-slot="orbit-ring"].a-140 { --orbit-start: 140deg; }
+[data-slot="orbit-ring"].a-144 { --orbit-start: 144deg; }
+[data-slot="orbit-ring"].a-145 { --orbit-start: 145deg; }
+[data-slot="orbit-ring"].a-150 { --orbit-start: 150deg; }
+[data-slot="orbit-ring"].a-155 { --orbit-start: 155deg; }
+[data-slot="orbit-ring"].a-160 { --orbit-start: 160deg; }
+[data-slot="orbit-ring"].a-165 { --orbit-start: 165deg; }
+[data-slot="orbit-ring"].a-170 { --orbit-start: 170deg; }
+[data-slot="orbit-ring"].a-175 { --orbit-start: 175deg; }
+[data-slot="orbit-ring"].a-180 { --orbit-start: 180deg; }
+[data-slot="orbit-ring"].a-185 { --orbit-start: 185deg; }
+[data-slot="orbit-ring"].a-190 { --orbit-start: 190deg; }
+[data-slot="orbit-ring"].a-195 { --orbit-start: 195deg; }
+[data-slot="orbit-ring"].a-200 { --orbit-start: 200deg; }
+[data-slot="orbit-ring"].a-205 { --orbit-start: 205deg; }
+[data-slot="orbit-ring"].a-210 { --orbit-start: 210deg; }
+[data-slot="orbit-ring"].a-215 { --orbit-start: 215deg; }
+[data-slot="orbit-ring"].a-216 { --orbit-start: 216deg; }
+[data-slot="orbit-ring"].a-220 { --orbit-start: 220deg; }
+[data-slot="orbit-ring"].a-225 { --orbit-start: 225deg; }
+[data-slot="orbit-ring"].a-230 { --orbit-start: 230deg; }
+[data-slot="orbit-ring"].a-235 { --orbit-start: 235deg; }
+[data-slot="orbit-ring"].a-240 { --orbit-start: 240deg; }
+[data-slot="orbit-ring"].a-245 { --orbit-start: 245deg; }
+[data-slot="orbit-ring"].a-250 { --orbit-start: 250deg; }
+[data-slot="orbit-ring"].a-252 { --orbit-start: 252deg; }
+[data-slot="orbit-ring"].a-255 { --orbit-start: 255deg; }
+[data-slot="orbit-ring"].a-260 { --orbit-start: 260deg; }
+[data-slot="orbit-ring"].a-265 { --orbit-start: 265deg; }
+[data-slot="orbit-ring"].a-270 { --orbit-start: 270deg; }
+[data-slot="orbit-ring"].a-275 { --orbit-start: 275deg; }
+[data-slot="orbit-ring"].a-280 { --orbit-start: 280deg; }
+[data-slot="orbit-ring"].a-285 { --orbit-start: 285deg; }
+[data-slot="orbit-ring"].a-288 { --orbit-start: 288deg; }
+[data-slot="orbit-ring"].a-290 { --orbit-start: 290deg; }
+[data-slot="orbit-ring"].a-295 { --orbit-start: 295deg; }
+[data-slot="orbit-ring"].a-300 { --orbit-start: 300deg; }
+[data-slot="orbit-ring"].a-305 { --orbit-start: 305deg; }
+[data-slot="orbit-ring"].a-310 { --orbit-start: 310deg; }
+[data-slot="orbit-ring"].a-315 { --orbit-start: 315deg; }
+[data-slot="orbit-ring"].a-320 { --orbit-start: 320deg; }
+[data-slot="orbit-ring"].a-324 { --orbit-start: 324deg; }
+[data-slot="orbit-ring"].a-325 { --orbit-start: 325deg; }
+[data-slot="orbit-ring"].a-330 { --orbit-start: 330deg; }
+[data-slot="orbit-ring"].a-335 { --orbit-start: 335deg; }
+[data-slot="orbit-ring"].a-340 { --orbit-start: 340deg; }
+[data-slot="orbit-ring"].a-345 { --orbit-start: 345deg; }
+[data-slot="orbit-ring"].a-350 { --orbit-start: 350deg; }
+[data-slot="orbit-ring"].a-355 { --orbit-start: 355deg; }
+/* Docs nucleus and slots: `size-14 rounded-2xl` core, `size-10 rounded-full` tool
+   chips, `size-9` initials avatars, a display metric. */
+[data-slot="orbit"] .core {
+  display: grid; place-items: center; width: 3.5rem; height: 3.5rem;
+  border-radius: calc(var(--cronus-radius, 14px) + 8px); background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
+[data-slot="orbit"] .core svg { width: 1.5rem; height: 1.5rem; }
+[data-slot="orbit"] .chip {
+  display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: 9999px;
+  border: 1px solid var(--cronus-border); background: var(--cronus-surface-raised); color: var(--cronus-fg-secondary);
+  box-shadow: var(--cronus-shadow-sm, none);
+}
+[data-slot="orbit"] .chip svg { width: 1rem; height: 1rem; }
+[data-slot="orbit"] .avatar {
+  display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 9999px;
+  border: 1px solid var(--cronus-border); background: var(--cronus-surface-overlay);
+  font-size: 0.75rem; line-height: 1rem; font-weight: 500; color: var(--cronus-fg-secondary);
+  box-shadow: var(--cronus-shadow-xs, none);
+}
+[data-slot="orbit"] .metric { display: flex; flex-direction: column; align-items: center; }
+[data-slot="orbit"] .metric > span:first-child {
+  font-family: var(--cronus-font-display, inherit); font-size: 1.875rem; line-height: 2.25rem; font-weight: 600;
+  font-variant-numeric: tabular-nums; color: var(--cronus-fg);
+}
+[data-slot="orbit"] .metric > span + span { font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-tertiary); }

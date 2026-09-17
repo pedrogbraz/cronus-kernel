@@ -7,17 +7,73 @@
 //! (the emitter writes `label "Count"` then `value:1234`), so it is read there
 //! too; the root is `display: inline` like React's unstyled span.
 
-use crate::cronus_ui_kit::{esc, item};
+use crate::cronus_ui_kit::{attr, esc, item};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
-    format!(
-        "<span data-slot=\"animated-number\"><span>{}</span></span>",
+    let class = match attr(comp, "size") {
+        Some(s @ ("3xl" | "4xl" | "5xl")) => format!(" class=\"t-{s}\""),
+        _ => String::new(),
+    };
+    let number = format!(
+        "<span data-slot=\"animated-number\"{class}><span>{}</span></span>",
         value_of(comp)
-    )
+    );
+    // Docs demo: the number over a button that bumps the value — a JS
+    // control, rendered as the same native button `disabled`.
+    match comp
+        .items
+        .iter()
+        .find(|i| matches!(i.item_type.as_str(), "action" | "button") && !i.text.is_empty())
+    {
+        Some(action) => {
+            let mut action = action.clone();
+            action.config.insert("disabled".into(), "true".into());
+            format!(
+                "<div class=\"cui-animated-number-demo\">{number}{}</div>",
+                crate::cronus_ui_glass_card::action_button(&action)
+            )
+        }
+        None => number,
+    }
+}
+
+/// `Intl.NumberFormat(locale, { style: "currency", currency })` for the
+/// locales the docs use (pt-BR, en-US, de-DE); other tags format as en-US.
+fn currency(n: f64, locale: &str, currency: &str) -> String {
+    let (group, decimal, suffix_style) = match locale.trim() {
+        "pt-BR" | "es-ES" | "it-IT" => (".", ",", false),
+        "de-DE" | "fr-FR" => (".", ",", true),
+        _ => (",", ".", false),
+    };
+    let symbol = match currency.trim().to_ascii_uppercase().as_str() {
+        "BRL" => "R$",
+        "EUR" => "€",
+        "GBP" => "£",
+        "JPY" => "¥",
+        _ => "$",
+    };
+    let neg = n < 0.0;
+    let cents = (n.abs() * 100.0).round() as i64;
+    let grouped = group_int(cents / 100).replace(',', group);
+    let body = format!("{grouped}{decimal}{:02}", cents % 100);
+    let sign = if neg { "-" } else { "" };
+    if suffix_style {
+        format!("{sign}{body}\u{a0}{symbol}")
+    } else if locale.trim() == "pt-BR" {
+        format!("{sign}{symbol}\u{a0}{body}")
+    } else {
+        format!("{sign}{symbol}{body}")
+    }
 }
 
 fn value_of(comp: &ComponentNode) -> String {
+    if let Some(code) = attr(comp, "currency").filter(|c| !c.is_empty()) {
+        let raw = attr(comp, "value").or_else(|| item(comp, "value"));
+        if let Some(n) = raw.and_then(|v| v.trim().parse::<f64>().ok()) {
+            return esc(&currency(n, attr(comp, "locale").unwrap_or("en-US"), code));
+        }
+    }
     if let Some(t) = item(comp, "value") {
         if let Some(v) = display_value(t) {
             return v;
@@ -273,5 +329,38 @@ mod tests {
         assert!(block.contains("font-variant-numeric: tabular-nums"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
+    }
+
+    /// Docs "Count up": `pt-BR` BRL currency at the 4xl display size over a
+    /// disabled outline "Nova venda" button (the bump needs JS).
+    #[test]
+    fn docs_currency_demo_with_disabled_button() {
+        let mut c = stub("animated-number", "Revenue");
+        c.props.insert("value".into(), "12480".into());
+        c.props.insert("locale".into(), "pt-BR".into());
+        c.props.insert("currency".into(), "BRL".into());
+        c.props.insert("size".into(), "4xl".into());
+        let mut action = extra("action", "Nova venda");
+        action.config.insert("variant".into(), "outline".into());
+        action.config.insert("size".into(), "sm".into());
+        c.items.push(action);
+        let html = render(&c);
+        assert_eq!(
+            html,
+            "<div class=\"cui-animated-number-demo\"><span data-slot=\"animated-number\" class=\"t-4xl\"><span>R$\u{a0}12.480,00</span></span><button type=\"button\" disabled data-slot=\"button\" data-variant=\"outline\" data-size=\"sm\" class=\"cui-btn\">Nova venda</button></div>"
+        );
+        assert_eq!(currency(1234.5, "en-US", "USD"), "$1,234.50");
+        assert_eq!(currency(1234.5, "de-DE", "EUR"), "1.234,50\u{a0}€");
+        assert_eq!(currency(-3.0, "pt-BR", "BRL"), "-R$\u{a0}3,00");
+    }
+
+    #[test]
+    fn chrome_display_size_and_demo_stack() {
+        let css = include_str!("cronus_ui_css/animated-number.css");
+        assert!(css.contains(
+            "[data-slot=\"animated-number\"].t-4xl { font-size: 2.25rem; line-height: 2.5rem; }"
+        ));
+        assert!(css.contains("font-family: var(--cronus-font-display, inherit); font-weight: 600; color: var(--cronus-fg);"));
+        assert!(css.contains(".cui-animated-number-demo { display: flex; flex-direction: column; align-items: center; gap: 1rem; }"));
     }
 }
