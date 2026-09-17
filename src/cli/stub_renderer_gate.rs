@@ -932,6 +932,9 @@ mod tests {
         ];
         for file in files {
             let src = std::fs::read_to_string(file).unwrap_or_else(|_| panic!("read {file}"));
+            // Only the render path is gated: a `#[cfg(test)]` module may read
+            // its family stylesheet to assert chrome.
+            let src = src.split("#[cfg(test)]").next().unwrap_or("");
             for (i, line) in src.lines().enumerate() {
                 let trimmed = line.trim();
                 if trimmed.starts_with("//") {
