@@ -1,0 +1,6 @@
+page "/calendar" type:components family:calendar {
+  title "Calendar"
+  description:"Date grid (react-day-picker)."
+}
+
+component SingleDate layout:stack style:calendar mode:single selected:2026-06-21 defaultMonth:2026-06-01 fixedWeeks:true group:"Single date" note:"A controlled calendar in single-select mode. Click a day to update the value." { label "June 2026" }

@@ -1,11 +1,29 @@
 //! Dedicated TimePicker renderer. DOM mirrors React closed state: the root
-//! `data-slot="time-picker"` IS the outline trigger `<button>`. The panel is a
-//! native `popover` sibling (`time-picker-content`), hidden until opened by
-//! `popovertarget` — no JS. Esc / outside click dismiss it and Done hides it
-//! (`popovertargetaction="hide"`). Gaps: picking an option and Now need JS, so
-//! the value shown never changes. Not interact `input("time-picker", "time")`.
+//! `data-slot="time-picker"` IS the outline trigger `<button>` (Clock glyph +
+//! tabular `<span>` value). The panel is a native `popover` sibling
+//! (`time-picker-content`, `w-auto p-3`), hidden until opened by
+//! `popovertarget` — no JS. Inside: a flex row of columns, each a `<div>` with
+//! the `<span>` header (Hr / Min / Sec / AM/PM) over the
+//! `<div role="listbox" data-slot="time-picker-column">` of
+//! `<div role="option" data-slot="time-picker-option">`s (every hour, every
+//! `minuteStep`-th minute, every `secondStep`-th second, AM / PM), then the
+//! footer with `Now` (ghost `sm`, JS-only so `disabled`) and `Done` (secondary
+//! `sm`, hides the popover with `popovertargetaction="hide"`). Esc / outside
+//! click dismiss it. The selected option carries `aria-selected="true"` and is
+//! the listbox's `aria-activedescendant`; the chrome snaps it into view when
+//! the panel opens. Picking an option needs JS, so the value never changes.
+//! Without a value the trigger shows `placeholder:` and carries `data-empty`
+//! (tertiary text, like React's `!isSet` span).
+//!
+//! Props: `value:"HH:mm[:ss]"` (or `defaultValue:`); `hourCycle:24`
+//! (`style:time-picker+24`) drops AM/PM for a 0–23 column; `minuteStep:5`,
+//! `showSeconds:true`, `secondStep:15`; `placeholder:` (default "Select time");
+//! `disabled:true` locks the trigger, the listboxes (`aria-disabled`,
+//! `tabindex="-1"`) and `Now`; `aria-label:"…"` names the trigger
+//! ("Meeting time: 09:30 AM" once set) and the panel.
+//! Not interact `input("time-picker", "time")`.
 
-use crate::cronus_ui_kit::{attr, attr_nonempty, esc, flag, item, label_of};
+use crate::cronus_ui_kit::{attr, attr_nonempty, attr_num, esc, flag, item, label_of, widget_id};
 use crate::parser::ComponentNode;
 
 const ICON: &str = concat!(
@@ -19,14 +37,18 @@ const ICON: &str = concat!(
 pub fn render(comp: &ComponentNode) -> String {
     let hour_cycle = hour_cycle_of(comp);
     let show_seconds = flag(comp, "showSeconds") || flag(comp, "show-seconds");
+    let disabled = flag(comp, "disabled");
     let time = parse_time(comp);
     let label = trigger_label(comp, time, hour_cycle, show_seconds);
-    let trigger_id = crate::cronus_ui_kit::widget_id(comp, "trigger");
-    let pop_id = crate::cronus_ui_kit::widget_id(comp, "panel");
+    let trigger_id = widget_id(comp, "trigger");
+    let pop_id = widget_id(comp, "panel");
     let mut btn = format!(
         "type=\"button\" id=\"{trigger_id}\" data-slot=\"time-picker\" data-variant=\"outline\" aria-haspopup=\"dialog\" aria-expanded=\"false\" data-state=\"closed\" popovertarget=\"{pop_id}\""
     );
-    if flag(comp, "disabled") {
+    if time.is_none() {
+        btn.push_str(" data-empty=\"\"");
+    }
+    if disabled {
         btn.push_str(" disabled");
     }
     if let Some(aria) = attr_nonempty(comp, "aria-label") {
@@ -40,9 +62,25 @@ pub fn render(comp: &ComponentNode) -> String {
     let content_label = attr_nonempty(comp, "aria-label")
         .map(esc)
         .unwrap_or_else(|| "Choose a time".into());
-    let columns = columns_html(time, hour_cycle, show_seconds);
+    let columns = Columns {
+        id: widget_id(comp, "col"),
+        time,
+        hour_cycle,
+        show_seconds,
+        minute_step: step_of(comp, "minuteStep"),
+        second_step: step_of(comp, "secondStep"),
+        disabled,
+    }
+    .html();
+    // `Now` always needs JS (`disabled`, idle look); React disables it for
+    // real (dimmed) only when the whole picker is disabled.
+    let now_disabled = if disabled {
+        " disabled aria-disabled=\"true\""
+    } else {
+        " disabled"
+    };
     format!(
-        "<button {btn}>{ICON}<span>{label}</span></button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"time-picker-content\" aria-label=\"{content_label}\" anchor=\"{trigger_id}\">{columns}<div data-slot=\"time-picker-footer\"><button type=\"button\" data-slot=\"time-picker-now\">Now</button><button type=\"button\" data-slot=\"time-picker-done\" popovertarget=\"{pop_id}\" popovertargetaction=\"hide\">Done</button></div></div>"
+        "<button {btn}>{ICON}<span>{label}</span></button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"time-picker-content\" aria-label=\"{content_label}\" anchor=\"{trigger_id}\">{columns}<div><button type=\"button\" data-slot=\"time-picker-now\" data-variant=\"ghost\"{now_disabled}>Now</button><button type=\"button\" data-slot=\"time-picker-done\" data-variant=\"secondary\" popovertarget=\"{pop_id}\" popovertargetaction=\"hide\">Done</button></div></div>"
     )
 }
 
@@ -74,7 +112,9 @@ struct TimeValue {
 }
 
 fn parse_time(comp: &ComponentNode) -> Option<TimeValue> {
-    let raw = attr(comp, "value").or_else(|| item(comp, "value"))?;
+    let raw = attr_nonempty(comp, "value")
+        .or_else(|| attr_nonempty(comp, "defaultValue"))
+        .or_else(|| item(comp, "value"))?;
     parse_time_str(raw)
 }
 
@@ -115,16 +155,19 @@ fn format_time(time: TimeValue, hour_cycle: u8, show_seconds: bool) -> String {
         return format!("{}:{}{second_part}", pad2(time.hours), pad2(time.minutes));
     }
     let period = if time.hours < 12 { "AM" } else { "PM" };
-    let hour12 = if time.hours % 12 == 0 {
-        12
-    } else {
-        time.hours % 12
-    };
     format!(
         "{}:{}{second_part} {period}",
-        pad2(hour12),
+        pad2(hour12(time.hours)),
         pad2(time.minutes)
     )
+}
+
+fn hour12(hours: u8) -> u8 {
+    if hours % 12 == 0 {
+        12
+    } else {
+        hours % 12
+    }
 }
 
 fn pad2(n: u8) -> String {
@@ -133,7 +176,7 @@ fn pad2(n: u8) -> String {
 
 fn hour_cycle_of(comp: &ComponentNode) -> u8 {
     if let Some(v) = attr(comp, "hourCycle").or_else(|| attr(comp, "hour-cycle")) {
-        if v == "24" {
+        if v.trim() == "24" {
             return 24;
         }
     }
@@ -149,72 +192,99 @@ fn hour_cycle_of(comp: &ComponentNode) -> u8 {
     12
 }
 
-fn columns_html(time: Option<TimeValue>, hour_cycle: u8, show_seconds: bool) -> String {
-    let mut out = String::from("<div data-slot=\"time-picker-columns\">");
-    if hour_cycle == 24 {
-        out.push_str(&column(
-            "Hour",
-            "Hr",
-            &(0..24).collect::<Vec<_>>(),
-            time.map(|t| t.hours),
-        ));
-    } else {
-        let hours = [12u8, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-        let selected = time.map(|t| if t.hours % 12 == 0 { 12 } else { t.hours % 12 });
-        out.push_str(&column("Hour", "Hr", &hours, selected));
-    }
-    let minutes = [0u8, 15, 30, 45];
-    out.push_str(&column("Minute", "Min", &minutes, time.map(|t| t.minutes)));
-    if show_seconds {
-        out.push_str(&column("Second", "Sec", &minutes, time.map(|t| t.seconds)));
-    }
-    if hour_cycle == 12 {
-        let selected_period = time.map(|t| if t.hours < 12 { "AM" } else { "PM" });
-        out.push_str(&period_column(selected_period));
-    }
-    out.push_str("</div>");
-    out
+/// React `Math.max(1, Math.floor(step))`.
+fn step_of(comp: &ComponentNode, key: &str) -> u8 {
+    attr_num::<f64>(comp, key)
+        .filter(|n| n.is_finite())
+        .map(|n| n.floor().clamp(1.0, 60.0) as u8)
+        .unwrap_or(1)
 }
 
-fn column(label: &str, header: &str, values: &[u8], selected: Option<u8>) -> String {
-    let opts = values
-        .iter()
-        .map(|v| {
-            let aria = if selected == Some(*v) {
-                "true"
-            } else {
-                "false"
-            };
-            format!(
-                "<div data-slot=\"time-picker-option\" role=\"option\" aria-selected=\"{aria}\">{}</div>",
-                pad2(*v)
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("");
-    format!(
-        "<div data-slot=\"time-picker-column\" role=\"listbox\" aria-label=\"{label}\"><span>{header}</span>{opts}</div>"
-    )
+struct Columns {
+    id: String,
+    time: Option<TimeValue>,
+    hour_cycle: u8,
+    show_seconds: bool,
+    minute_step: u8,
+    second_step: u8,
+    disabled: bool,
 }
 
-fn period_column(selected: Option<&str>) -> String {
-    let opts = ["AM", "PM"]
-        .iter()
-        .map(|p| {
-            let aria = if selected == Some(*p) {
-                "true"
+impl Columns {
+    fn html(&self) -> String {
+        let mut out = String::from("<div>");
+        let hours: Vec<u8> = if self.hour_cycle == 24 {
+            (0..24).collect()
+        } else {
+            vec![12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        };
+        let selected_hour = self.time.map(|t| {
+            if self.hour_cycle == 24 {
+                t.hours
             } else {
-                "false"
-            };
-            format!(
-                "<div data-slot=\"time-picker-option\" role=\"option\" aria-selected=\"{aria}\">{p}</div>"
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("");
-    format!(
-        "<div data-slot=\"time-picker-column\" role=\"listbox\" aria-label=\"AM or PM\"><span>AM/PM</span>{opts}</div>"
-    )
+                hour12(t.hours)
+            }
+        });
+        out.push_str(&self.column("Hour", "Hr", &hours, selected_hour));
+        let minutes: Vec<u8> = (0..60).step_by(self.minute_step as usize).collect();
+        out.push_str(&self.column("Minute", "Min", &minutes, self.time.map(|t| t.minutes)));
+        if self.show_seconds {
+            let seconds: Vec<u8> = (0..60).step_by(self.second_step as usize).collect();
+            out.push_str(&self.column("Second", "Sec", &seconds, self.time.map(|t| t.seconds)));
+        }
+        if self.hour_cycle == 12 {
+            let period = self.time.map(|t| if t.hours < 12 { "AM" } else { "PM" });
+            out.push_str(&self.period_column(period));
+        }
+        out.push_str("</div>");
+        out
+    }
+
+    fn column(&self, label: &str, header: &str, values: &[u8], selected: Option<u8>) -> String {
+        let opts: Vec<(String, String, bool)> = values
+            .iter()
+            .map(|v| (v.to_string(), pad2(*v), selected == Some(*v)))
+            .collect();
+        self.listbox(label, header, &opts)
+    }
+
+    fn period_column(&self, selected: Option<&str>) -> String {
+        let opts: Vec<(String, String, bool)> = ["AM", "PM"]
+            .iter()
+            .map(|p| (p.to_string(), p.to_string(), selected == Some(*p)))
+            .collect();
+        self.listbox("AM or PM", "AM/PM", &opts)
+    }
+
+    /// `opts`: `(value, label, selected)`.
+    fn listbox(&self, label: &str, header: &str, opts: &[(String, String, bool)]) -> String {
+        let base = format!(
+            "{}-{}",
+            self.id,
+            label.to_ascii_lowercase().replace(' ', "-")
+        );
+        let active = opts
+            .iter()
+            .find(|(_, _, on)| *on)
+            .map(|(v, _, _)| format!(" aria-activedescendant=\"{base}-{v}\""))
+            .unwrap_or_default();
+        let disabled = if self.disabled {
+            " aria-disabled=\"true\" tabindex=\"-1\""
+        } else {
+            " tabindex=\"0\""
+        };
+        let options: String = opts
+            .iter()
+            .map(|(v, text, on)| {
+                format!(
+                    "<div id=\"{base}-{v}\" role=\"option\" aria-selected=\"{on}\" data-slot=\"time-picker-option\">{text}</div>"
+                )
+            })
+            .collect();
+        format!(
+            "<div><span>{header}</span><div role=\"listbox\" aria-label=\"{label}\"{active}{disabled} data-slot=\"time-picker-column\">{options}</div></div>"
+        )
+    }
 }
 
 #[cfg(test)]
@@ -240,22 +310,20 @@ mod tests {
     fn root_is_trigger_button_with_native_popover_panel() {
         let html = render(&stub("time-picker", "Time"));
         assert!(html.starts_with(
-            "<button type=\"button\" id=\"cui-time-picker-trigger\" data-slot=\"time-picker\" data-variant=\"outline\" aria-haspopup=\"dialog\" aria-expanded=\"false\" data-state=\"closed\" popovertarget=\"cui-time-picker-panel\">"
+            "<button type=\"button\" id=\"cui-time-picker-trigger\" data-slot=\"time-picker\" data-variant=\"outline\" aria-haspopup=\"dialog\" aria-expanded=\"false\" data-state=\"closed\" popovertarget=\"cui-time-picker-panel\" data-empty=\"\">"
         ));
         assert_eq!(html.matches("data-slot=\"time-picker\"").count(), 1);
         assert!(html.contains(
-            "<span>Time</span></button><div id=\"cui-time-picker-panel\" popover=\"auto\" data-slot=\"time-picker-content\""
+            "<span>Time</span></button><div id=\"cui-time-picker-panel\" popover=\"auto\" data-slot=\"time-picker-content\" aria-label=\"Choose a time\" anchor=\"cui-time-picker-trigger\"><div><div><span>Hr</span><div role=\"listbox\" aria-label=\"Hour\" tabindex=\"0\" data-slot=\"time-picker-column\"><div id=\"cui-time-picker-col-hour-12\" role=\"option\" aria-selected=\"false\" data-slot=\"time-picker-option\">12</div><div id=\"cui-time-picker-col-hour-1\""
         ));
-        assert!(html.contains("data-slot=\"time-picker-column\""));
-        assert!(html.contains("data-slot=\"time-picker-option\""));
-        assert!(html.contains("role=\"listbox\""));
-        assert!(html.contains("aria-label=\"Hour\""));
+        assert_eq!(html.matches("role=\"listbox\"").count(), 3);
+        assert_eq!(html.matches("role=\"option\"").count(), 12 + 60 + 2);
         assert!(html.contains("aria-label=\"Minute\""));
         assert!(html.contains("aria-label=\"AM or PM\""));
-        assert!(html.contains("data-slot=\"time-picker-now\">Now</button>"));
-        // Done closes the native popover; Now still needs JS.
-        assert!(html.contains(
-            "data-slot=\"time-picker-done\" popovertarget=\"cui-time-picker-panel\" popovertargetaction=\"hide\">Done</button>"
+        assert!(!html.contains("aria-activedescendant"));
+        // Now needs JS; Done closes the native popover.
+        assert!(html.ends_with(
+            "</div></div><div><button type=\"button\" data-slot=\"time-picker-now\" data-variant=\"ghost\" disabled>Now</button><button type=\"button\" data-slot=\"time-picker-done\" data-variant=\"secondary\" popovertarget=\"cui-time-picker-panel\" popovertargetaction=\"hide\">Done</button></div></div>"
         ));
         assert!(!html.contains("data-slot=\"time-picker-trigger\""));
         reject_interact(&html);
@@ -282,7 +350,9 @@ mod tests {
         assert!(html.starts_with("<button type=\"button\""));
         assert!(!html.starts_with("<div"));
         assert!(html.contains(" aria-label=\"Meeting time: 09:30 AM\">"));
+        assert!(!html.contains("data-empty"));
         assert!(html.contains("<span>09:30 AM</span></button>"));
+        assert!(html.contains("data-slot=\"time-picker-content\" aria-label=\"Meeting time\""));
         reject_interact(&html);
     }
 
@@ -292,44 +362,87 @@ mod tests {
         c.props.insert("value".into(), "14:30".into());
         let html = render(&c);
         assert!(html.contains("<span>02:30 PM</span></button>"));
-        assert!(html.contains("aria-selected=\"true\">02</div>"));
-        assert!(html.contains("aria-selected=\"true\">30</div>"));
-        assert!(html.contains("aria-selected=\"true\">PM</div>"));
+        assert!(html.contains("aria-label=\"Hour\" aria-activedescendant=\"cui-time-picker-col-hour-2\" tabindex=\"0\""));
+        assert!(html.contains("id=\"cui-time-picker-col-hour-2\" role=\"option\" aria-selected=\"true\" data-slot=\"time-picker-option\">02</div>"));
+        assert!(html.contains("id=\"cui-time-picker-col-minute-30\" role=\"option\" aria-selected=\"true\" data-slot=\"time-picker-option\">30</div>"));
+        assert!(html.contains("id=\"cui-time-picker-col-am-or-pm-PM\" role=\"option\" aria-selected=\"true\" data-slot=\"time-picker-option\">PM</div>"));
+        assert_eq!(html.matches("aria-selected=\"true\"").count(), 3);
         reject_interact(&html);
     }
 
+    /// Docs "24-hour with seconds": `hourCycle=24 minuteStep=5 showSeconds`.
     #[test]
-    fn hour_cycle_24_skips_period_column() {
+    fn hour_cycle_24_steps_and_seconds() {
         let mut c = stub("time-picker", "Time");
-        c.style = Some("time-picker+24".into());
-        c.props.insert("value".into(), "14:30".into());
+        c.props.insert("value".into(), "14:45:00".into());
+        c.props.insert("hourCycle".into(), "24".into());
+        c.props.insert("minuteStep".into(), "5".into());
+        c.props.insert("showSeconds".into(), "true".into());
         let html = render(&c);
-        assert!(html.contains("<span>14:30</span></button>"));
-        assert!(html.contains("aria-selected=\"true\">14</div>"));
+        assert!(html.contains("<span>14:45:00</span></button>"));
+        assert_eq!(html.matches("role=\"listbox\"").count(), 3);
+        assert!(html.contains("aria-label=\"Second\""));
         assert!(!html.contains("AM or PM"));
         assert!(!html.contains(">AM</div>"));
+        assert_eq!(html.matches("role=\"option\"").count(), 24 + 12 + 60);
+        assert!(html.contains("aria-selected=\"true\" data-slot=\"time-picker-option\">14</div>"));
+        assert!(html.contains("aria-selected=\"true\" data-slot=\"time-picker-option\">45</div>"));
+        assert!(html.contains(
+            "id=\"cui-time-picker-col-second-0\" role=\"option\" aria-selected=\"true\""
+        ));
         reject_interact(&html);
+
+        let mut style = stub("time-picker", "Time");
+        style.style = Some("time-picker+24".into());
+        style.props.insert("value".into(), "14:30".into());
+        assert!(render(&style).contains("<span>14:30</span></button>"));
     }
 
     #[test]
-    fn show_seconds_adds_column() {
+    fn show_seconds_adds_column_with_second_step() {
         let mut c = stub("time-picker", "Time");
         c.props.insert("showSeconds".into(), "true".into());
+        c.props.insert("secondStep".into(), "15".into());
         c.props.insert("value".into(), "09:15:45".into());
         let html = render(&c);
-        assert!(html.contains("aria-label=\"Second\""));
         assert!(html.contains("<span>09:15:45 AM</span></button>"));
-        assert!(html.contains("aria-selected=\"true\">45</div>"));
+        assert!(html.contains(
+            "id=\"cui-time-picker-col-second-45\" role=\"option\" aria-selected=\"true\""
+        ));
+        assert_eq!(html.matches("role=\"option\"").count(), 12 + 60 + 4 + 2);
+        reject_interact(&html);
+    }
+
+    /// Docs "Disabled": `defaultValue="08:00" disabled` — the trigger, every
+    /// listbox and `Now` are locked while the value still shows.
+    #[test]
+    fn disabled_locks_trigger_and_panel() {
+        let mut c = stub("time-picker", "Time");
+        c.props.insert("disabled".into(), "true".into());
+        c.props.insert("defaultValue".into(), "08:00".into());
+        c.props.insert("aria-label".into(), "Locked slot".into());
+        let html = render(&c);
+        assert!(html.contains(" disabled aria-label=\"Locked slot: 08:00 AM\">"));
+        assert!(html.contains("<span>08:00 AM</span></button>"));
+        assert_eq!(
+            html.matches("aria-disabled=\"true\" tabindex=\"-1\"")
+                .count(),
+            3
+        );
+        assert!(!html.contains("tabindex=\"0\""));
+        assert!(html.contains("data-slot=\"time-picker-now\" data-variant=\"ghost\" disabled aria-disabled=\"true\">Now</button>"));
         reject_interact(&html);
     }
 
     #[test]
-    fn disabled_trigger() {
+    fn steps_follow_react_clamping() {
         let mut c = stub("time-picker", "Time");
-        c.props.insert("disabled".into(), "true".into());
-        let html = render(&c);
-        assert!(html.contains(" disabled>"));
-        reject_interact(&html);
+        c.props.insert("minuteStep".into(), "0".into());
+        assert_eq!(step_of(&c, "minuteStep"), 1);
+        c.props.insert("minuteStep".into(), "7.9".into());
+        assert_eq!(step_of(&c, "minuteStep"), 7);
+        c.props.insert("minuteStep".into(), "x".into());
+        assert_eq!(step_of(&c, "minuteStep"), 1);
     }
 
     #[test]
@@ -367,13 +480,19 @@ mod tests {
         assert!(!css.contains("[data-slot=\"date-picker-trigger\"],\n[data-slot=\"time-picker\"]"));
         assert!(!css.contains("[data-slot=\"time-picker-trigger\"]"));
         assert!(!css.contains("[data-slot=\"time-picker\"] > button"));
-        assert!(css.contains("[data-slot=\"time-picker-content\"]"));
-        assert!(css.contains("[data-slot=\"time-picker-column\"]"));
-        assert!(css.contains("[data-slot=\"time-picker-option\"]"));
-        assert!(css.contains("[data-slot=\"time-picker-columns\"]"));
-        assert!(css.contains("[data-slot=\"time-picker-footer\"]"));
+        assert!(!css.contains("[data-slot=\"time-picker-columns\"]"));
+        assert!(!css.contains("[data-slot=\"time-picker-footer\"]"));
+        assert!(css.contains("[data-slot=\"time-picker-content\"]:popover-open {"));
+        assert!(css.contains("[data-slot=\"time-picker-column\"] {\n  height: 12rem; width: 4rem;"));
+        assert!(css.contains(
+            "mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent);"
+        ));
+        assert!(css.contains("[data-slot=\"time-picker-option\"][aria-selected=\"true\"] {\n  background: color-mix(in oklch, var(--cronus-primary), black 30%); color: #fff; font-weight: 600;"));
+        assert!(css.contains("scroll-snap-align: center"));
+        assert!(css.contains("[data-slot=\"time-picker-now\"]"));
+        assert!(css.contains("[data-slot=\"time-picker-done\"]"));
+        assert!(css.contains("var(--cronus-border-soft)"));
         assert!(css.contains("var(--cronus-surface-floating)"));
-        assert!(css.contains("var(--cronus-border)"));
         assert!(css.contains("var(--cronus-shadow-lg"));
         assert!(css.contains("z-index: 50"));
         assert!(!css.contains("zinc-"));

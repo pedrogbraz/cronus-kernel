@@ -1,0 +1,13 @@
+page "/date-range-picker" type:components family:date-range-picker {
+  title "DateRangePicker"
+  description:"Start/end date selection with presets."
+}
+
+component Range layout:stack style:date-range-picker from:2026-06-21 to:2026-06-27 numberOfMonths:1 aria-label:"Pick a date range" group:"Date range" note:"A controlled start/end selection in a popover. Pass value and onValueChange; both ends are optional so an in-progress selection is valid." { label "Pick a date range" }
+
+component Presets layout:stack style:date-range-picker numberOfMonths:1 aria-label:"Pick a reporting range" group:"With presets" note:"Add a presets column of named shortcuts beside the calendar — ideal for reporting ranges like the last 7 or 30 days." {
+  label "Pick a date range"
+  item "Last 7 days"
+  item "Last 30 days"
+  item "This week"
+}

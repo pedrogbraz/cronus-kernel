@@ -6,18 +6,24 @@
 //! holds its day number and up to three `scheduler-event` chips.
 //!
 //! The visible month is a `month:"YYYY-MM"` / `defaultMonth:"YYYY-MM-DD"` config
-//! or parsed from the title (`label "June 2026"`). Events are the content texts; an event lands on its
-//! `date:"YYYY-MM-DD"` config when given. Undated events follow the React audit
-//! harness placement (`scheduler-fixture.tsx`: first event on the 15th, the rest
-//! on the 20th) — the emitter cannot carry event dates, so both sides use one
-//! placement. `today:"YYYY-MM-DD"` highlights a day (React: opt-in `today`);
-//! without it no day is highlighted (no clock, no default).
+//! or parsed from the title (`label "June 2026"`). Events are the content texts
+//! (`item "Team standup" date:"2026-06-02" color:info`); an event lands on its
+//! `date:` config when given and its `color:` (React `SchedulerEventColor`:
+//! `primary` (default), `success`, `warning`, `error`, `info`) becomes a
+//! `c-<color>` class on the chip, since React writes the tint as classes.
+//! Undated events follow the React audit harness placement
+//! (`scheduler-fixture.tsx`: first event on the 15th, the rest on the 20th) —
+//! the emitter cannot carry event dates, so both sides use one placement.
+//! `today:"YYYY-MM-DD"` highlights a day (React: opt-in `today`); without it no
+//! day is highlighted (no clock, no default). `weekStartsOn:1` rotates the grid
+//! (0 = Sunday … 6 = Saturday); `aria-label:"…"` names the grid (React
+//! `ariaLabel`, default "Event calendar").
 //!
 //! Zero JS divergences, all matching React's idle state: Prev/Today/Next and
 //! the event chips are `disabled` buttons (month navigation and
 //! `onEventClick` need a runtime). Not interact `calendar("scheduler")`.
 
-use crate::cronus_ui_kit::{attr_nonempty, esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, attr_num, esc, label_of};
 use crate::parser::ComponentNode;
 
 const NAME_KINDS: &[&str] = &["label", "title"];
@@ -46,6 +52,7 @@ const WEEKDAY_NAMES: [&str; 7] = [
     "Saturday",
 ];
 const MAX_VISIBLE_EVENTS: usize = 3;
+const EVENT_COLORS: [&str; 5] = ["primary", "success", "warning", "error", "info"];
 /// Month shown when neither the title nor `month:` names one.
 const FALLBACK_MONTH: (i64, u32) = (2026, 1);
 
@@ -57,16 +64,26 @@ pub fn render(comp: &ComponentNode) -> String {
     let title = format!("{} {year}", MONTHS[(month - 1) as usize]);
     let events = events(comp, year, month);
     let today = attr_nonempty(comp, "today").and_then(parse_ymd);
+    let week_start = attr_num::<i64>(comp, "weekStartsOn")
+        .filter(|d| (0..=6).contains(d))
+        .unwrap_or(0);
+    let grid_label = esc(attr_nonempty(comp, "aria-label")
+        .or_else(|| attr_nonempty(comp, "ariaLabel"))
+        .unwrap_or("Event calendar"));
 
-    let heads = WEEKDAYS
-        .iter()
-        .map(|d| format!("<th scope=\"col\">{d}</th>"))
+    let heads = (0..7)
+        .map(|i| {
+            format!(
+                "<th scope=\"col\">{}</th>",
+                WEEKDAYS[((week_start + i) % 7) as usize]
+            )
+        })
         .collect::<String>();
 
     let first = days_from_civil(year, month, 1);
-    let grid_start = first - weekday(first);
+    let grid_start = first - (weekday(first) - week_start).rem_euclid(7);
     let last = first + days_in_month(year, month) as i64 - 1;
-    let grid_end = last + (6 - weekday(last));
+    let grid_end = last + (week_start + 6 - weekday(last)).rem_euclid(7);
     let mut rows = String::new();
     let mut day = grid_start;
     while day <= grid_end {
@@ -79,11 +96,11 @@ pub fn render(comp: &ComponentNode) -> String {
     }
 
     format!(
-        "<div data-slot=\"scheduler\"><div><h2 data-slot=\"scheduler-title\">{title}</h2><div><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"icon-sm\" aria-label=\"Previous month\" disabled>{CHEVRON_LEFT}</button><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"sm\" disabled>Today</button><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"icon-sm\" aria-label=\"Next month\" disabled>{CHEVRON_RIGHT}</button></div></div><table data-slot=\"scheduler-grid\" aria-label=\"Event calendar\"><thead data-slot=\"scheduler-weekdays\"><tr>{heads}</tr></thead><tbody>{rows}</tbody></table></div>"
+        "<div data-slot=\"scheduler\"><div><h2 data-slot=\"scheduler-title\">{title}</h2><div><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"icon-sm\" aria-label=\"Previous month\" disabled>{CHEVRON_LEFT}</button><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"sm\" disabled>Today</button><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"icon-sm\" aria-label=\"Next month\" disabled>{CHEVRON_RIGHT}</button></div></div><table data-slot=\"scheduler-grid\" aria-label=\"{grid_label}\"><thead data-slot=\"scheduler-weekdays\"><tr>{heads}</tr></thead><tbody>{rows}</tbody></table></div>"
     )
 }
 
-fn cell(day: i64, year: i64, month: u32, today: Option<i64>, events: &[(i64, String)]) -> String {
+fn cell(day: i64, year: i64, month: u32, today: Option<i64>, events: &[Event]) -> String {
     let (y, m, d) = civil_from_days(day);
     let outside = if y == year && m == month {
         ""
@@ -100,16 +117,20 @@ fn cell(day: i64, year: i64, month: u32, today: Option<i64>, events: &[(i64, Str
         WEEKDAY_NAMES[weekday(day) as usize],
         MONTHS[(m - 1) as usize]
     );
-    let day_events: Vec<&String> = events
-        .iter()
-        .filter(|(at, _)| *at == day)
-        .map(|(_, t)| t)
-        .collect();
+    let day_events: Vec<&Event> = events.iter().filter(|e| e.day == day).collect();
     let chips = day_events
         .iter()
         .take(MAX_VISIBLE_EVENTS)
-        .map(|t| {
-            format!("<button type=\"button\" data-slot=\"scheduler-event\" title=\"{t}\" disabled>{t}</button>")
+        .map(|e| {
+            let class = if e.color == "primary" {
+                String::new()
+            } else {
+                format!(" class=\"c-{}\"", e.color)
+            };
+            format!(
+                "<button type=\"button\" data-slot=\"scheduler-event\"{class} title=\"{t}\" disabled>{t}</button>",
+                t = e.title
+            )
         })
         .collect::<String>();
     let overflow = day_events.len().saturating_sub(MAX_VISIBLE_EVENTS);
@@ -175,8 +196,15 @@ fn parse_ymd(v: &str) -> Option<i64> {
     Some(days_from_civil(y, m, d))
 }
 
-/// Content texts as (day, escaped title). Undated events use the harness days.
-fn events(comp: &ComponentNode, year: i64, month: u32) -> Vec<(i64, String)> {
+struct Event {
+    day: i64,
+    title: String,
+    color: &'static str,
+}
+
+/// Content texts as dated, escaped, colour-keyed events. Undated events use
+/// the harness days; an unknown `color:` is React's default `primary`.
+fn events(comp: &ComponentNode, year: i64, month: u32) -> Vec<Event> {
     comp.items
         .iter()
         .filter(|i| !i.text.is_empty() && !NAME_KINDS.contains(&i.item_type.as_str()))
@@ -190,7 +218,21 @@ fn events(comp: &ComponentNode, year: i64, month: u32) -> Vec<(i64, String)> {
                     let d = if index == 0 { 15 } else { 20 };
                     days_from_civil(year, month, d.min(days_in_month(year, month)))
                 });
-            (day, esc(&i.text))
+            let color = i
+                .config
+                .get("color")
+                .and_then(|c| {
+                    EVENT_COLORS
+                        .iter()
+                        .find(|k| k.eq_ignore_ascii_case(c.trim()))
+                })
+                .copied()
+                .unwrap_or("primary");
+            Event {
+                day,
+                title: esc(&i.text),
+                color,
+            }
         })
         .collect()
 }
@@ -336,6 +378,53 @@ mod tests {
         reject_interact(&html);
     }
 
+    /// Docs "Month view": token-coloured events on fixed dates, `today` June 1.
+    #[test]
+    fn colored_dated_events_and_grid_label() {
+        let mut c = stub("scheduler", "Team");
+        c.props.insert("month".into(), "2026-06".into());
+        c.props.insert("today".into(), "2026-06-01".into());
+        c.props
+            .insert("aria-label".into(), "Product calendar".into());
+        for (title, date, color) in [
+            ("Team standup", "2026-06-02", "primary"),
+            ("Design review", "2026-06-09", "info"),
+            ("v2 ship", "2026-06-12", "success"),
+            ("Sprint retro", "2026-06-12", "warning"),
+            ("Launch party", "2026-06-24", "bogus"),
+        ] {
+            let mut item = extra("item", title);
+            item.config.insert("date".into(), date.into());
+            item.config.insert("color".into(), color.into());
+            c.items.push(item);
+        }
+        let html = render(&c);
+        assert!(
+            html.contains("<table data-slot=\"scheduler-grid\" aria-label=\"Product calendar\">")
+        );
+        assert!(html.contains(
+            "<td aria-label=\"Monday, June 1, 2026\" aria-current=\"date\"><span>1</span>"
+        ));
+        assert!(html.contains("<td aria-label=\"Tuesday, June 2, 2026\"><span>2</span><span><button type=\"button\" data-slot=\"scheduler-event\" title=\"Team standup\" disabled>Team standup</button></span></td>"));
+        assert!(html.contains("<button type=\"button\" data-slot=\"scheduler-event\" class=\"c-info\" title=\"Design review\" disabled>Design review</button>"));
+        assert!(html.contains("<td aria-label=\"Friday, June 12, 2026\"><span>12</span><span><button type=\"button\" data-slot=\"scheduler-event\" class=\"c-success\" title=\"v2 ship\" disabled>v2 ship</button><button type=\"button\" data-slot=\"scheduler-event\" class=\"c-warning\" title=\"Sprint retro\" disabled>Sprint retro</button></span></td>"));
+        assert!(html.contains("data-slot=\"scheduler-event\" title=\"Launch party\" disabled>"));
+        assert!(!html.contains("c-bogus"));
+        reject_interact(&html);
+    }
+
+    /// `weekStartsOn:1` rotates the headers and pads the grid from Monday.
+    #[test]
+    fn week_starts_on_rotates_grid() {
+        let mut c = stub("scheduler", "June 2026");
+        c.props.insert("weekStartsOn".into(), "1".into());
+        let html = render(&c);
+        assert!(html.contains("<thead data-slot=\"scheduler-weekdays\"><tr><th scope=\"col\">Mon</th><th scope=\"col\">Tue</th>"));
+        assert!(html.contains("<th scope=\"col\">Sun</th></tr></thead><tbody><tr><td aria-label=\"Monday, June 1, 2026\"><span>1</span>"));
+        assert!(html.ends_with("<td aria-label=\"Sunday, July 5, 2026\" data-outside=\"true\"><span>5</span><span></span></td></tr></tbody></table></div>"));
+        assert_eq!(html.matches("<tr>").count(), 6);
+    }
+
     #[test]
     fn more_than_three_events_collapse_into_overflow() {
         let mut c = stub("scheduler", "June 2026");
@@ -381,6 +470,12 @@ mod tests {
         assert!(css.contains("[data-slot=\"scheduler\"] > div:first-child > [data-slot=\"scheduler-title\"] {\n  font-weight: 600; letter-spacing: normal; font-variant-numeric: tabular-nums;\n}"));
         assert!(css.contains("[data-slot=\"scheduler-grid\"] td {\n  height: 6rem; min-width: 0; padding: 0.375rem; vertical-align: top;\n  border-inline-end: 1px solid var(--cronus-border); border-bottom: 1px solid var(--cronus-border);"));
         assert!(css.contains("[data-slot=\"scheduler-event\"] {\n  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;\n  border: 0; border-radius: 0.25rem; padding: 0.125rem 0.375rem; text-align: start;\n  font-size: 0.75rem; line-height: 1rem; font-weight: 500;"));
+        assert!(css.contains("[data-slot=\"scheduler-event\"].c-success {\n  background: color-mix(in oklab, var(--cronus-success) 15%, transparent); color: var(--cronus-success-text);\n}"));
+        assert!(css.contains("[data-slot=\"scheduler-event\"].c-info {"));
+        assert!(css.contains(
+            "[data-slot=\"scheduler-grid\"] td:hover { background: var(--cronus-surface-overlay); }"
+        ));
+        assert!(css.contains("[data-slot=\"scheduler-grid\"] td[aria-current=\"date\"] > span:first-child {\n  background: var(--cronus-primary); color: #fff;\n}"));
         assert!(css.contains("var(--cronus-fg-tertiary)"));
         assert!(!css.contains("zinc-"));
     }

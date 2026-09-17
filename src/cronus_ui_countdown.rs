@@ -1,11 +1,17 @@
-//! Dedicated Countdown renderer. DOM matches React settled render:
+//! Dedicated Countdown renderer. DOM matches React's settled render:
 //! `<div data-slot="countdown" role="timer" aria-live="off">` + visually
-//! hidden summary `<span class="sr-only">0 days, 0 hours, 0 min, 0 sec</span>`
-//! + four `countdown-unit` / `countdown-value` / `countdown-label` tiles.
-//! Static numbers from texts or `00`. Zero JS timer. CSS in COMPONENT_CHROME.
-//! Not the catalog `fx()` title SURF box.
+//! hidden summary `<span class="sr-only">2 days, 14 hours, 25 min, 9 sec</span>`
+//! + four `countdown-unit` tiles, each a `countdown-value` (with the inner
+//! keyed `<span>` React transitions in from `@starting-style`) over a
+//! `countdown-label` caption. The kernel has no clock, so the tiles are static:
+//! `value:"D:HH:MM:SS"` / `"HH:MM:SS"` / `"MM:SS"` (a `text` item or `target:`
+//! in the same shape also works) or up to four numeric items, right-aligned to
+//! seconds; anything else reads `00`. `compact:true` is React's `compact`
+//! (`data-compact`, smaller tiles and type). Captions localize with
+//! `days:"dias" hours:"horas" minutes:"min" seconds:"seg"` (React `labels`).
+//! `aria-label:"…"` names the timer. Zero JS timer. CSS in `countdown.css`.
 
-use crate::cronus_ui_kit::numeric_items;
+use crate::cronus_ui_kit::{attr_nonempty, esc, flag, numeric_items};
 use crate::parser::ComponentNode;
 
 const UNITS: [(&str, &str); 4] = [
@@ -17,25 +23,35 @@ const UNITS: [(&str, &str); 4] = [
 
 pub fn render(comp: &ComponentNode) -> String {
     let values = values_of(comp);
-    let summary = UNITS
+    let labels: Vec<String> = UNITS
+        .iter()
+        .map(|(unit, label)| esc(attr_nonempty(comp, unit).unwrap_or(label)))
+        .collect();
+    let summary = labels
         .iter()
         .zip(values.iter())
-        .map(|((_, label), value)| format!("{} {label}", value.parse::<u64>().unwrap_or(0)))
+        .map(|(label, value)| format!("{} {label}", value.parse::<u64>().unwrap_or(0)))
         .collect::<Vec<_>>()
         .join(", ");
     let units = UNITS
         .iter()
+        .zip(labels.iter())
         .zip(values.iter())
-        .map(|((unit, label), value)| {
+        .map(|(((unit, _), label), value)| {
             format!(
-                "<div data-slot=\"countdown-unit\" data-unit=\"{unit}\" aria-hidden=\"true\"><span data-slot=\"countdown-value\">{value}</span><span data-slot=\"countdown-label\">{label}</span></div>"
+                "<div data-slot=\"countdown-unit\" data-unit=\"{unit}\" aria-hidden=\"true\"><span data-slot=\"countdown-value\"><span>{value}</span></span><span data-slot=\"countdown-label\">{label}</span></div>"
             )
         })
         .collect::<Vec<_>>()
         .join("");
-    format!(
-        "<div data-slot=\"countdown\" role=\"timer\" aria-live=\"off\"><span class=\"sr-only\">{summary}</span>{units}</div>"
-    )
+    let mut attrs = String::from("data-slot=\"countdown\" role=\"timer\" aria-live=\"off\"");
+    if let Some(aria) = attr_nonempty(comp, "aria-label") {
+        attrs.push_str(&format!(" aria-label=\"{}\"", esc(aria)));
+    }
+    if flag(comp, "compact") {
+        attrs.push_str(" data-compact=\"\"");
+    }
+    format!("<div {attrs}><span class=\"sr-only\">{summary}</span>{units}</div>")
 }
 
 fn values_of(comp: &ComponentNode) -> [String; 4] {
@@ -153,12 +169,13 @@ mod tests {
         assert_eq!(html.matches("data-slot=\"countdown-value\"").count(), 4);
         assert_eq!(html.matches("data-slot=\"countdown-label\"").count(), 4);
         assert!(html.contains(
-            "<div data-slot=\"countdown-unit\" data-unit=\"days\" aria-hidden=\"true\"><span data-slot=\"countdown-value\">00</span><span data-slot=\"countdown-label\">days</span></div>"
+            "<div data-slot=\"countdown-unit\" data-unit=\"days\" aria-hidden=\"true\"><span data-slot=\"countdown-value\"><span>00</span></span><span data-slot=\"countdown-label\">days</span></div>"
         ));
         assert!(html.contains(">hours</span>"));
         assert!(html.contains(">min</span>"));
         assert!(html.contains(">sec</span>"));
-        assert!(unit(&html, "seconds").contains(">00</span>"));
+        assert!(unit(&html, "seconds").contains("><span>00</span>"));
+        assert!(!html.contains("data-compact"));
         reject_fx(&html);
     }
 
@@ -179,9 +196,9 @@ mod tests {
         let mut c = stub("countdown", "Launch");
         c.items.push(extra("text", "00:00:00"));
         let html = render(&c);
-        assert!(unit(&html, "hours").contains(">00</span>"));
-        assert!(unit(&html, "minutes").contains(">00</span>"));
-        assert!(unit(&html, "seconds").contains(">00</span>"));
+        assert!(unit(&html, "hours").contains("><span>00</span>"));
+        assert!(unit(&html, "minutes").contains("><span>00</span>"));
+        assert!(unit(&html, "seconds").contains("><span>00</span>"));
         reject_fx(&html);
     }
 
@@ -193,10 +210,10 @@ mod tests {
         c.items.push(extra("item", "3"));
         c.items.push(extra("item", "4"));
         let html = render(&c);
-        assert!(unit(&html, "days").contains(">01</span>"));
-        assert!(unit(&html, "hours").contains(">02</span>"));
-        assert!(unit(&html, "minutes").contains(">03</span>"));
-        assert!(unit(&html, "seconds").contains(">04</span>"));
+        assert!(unit(&html, "days").contains("><span>01</span>"));
+        assert!(unit(&html, "hours").contains("><span>02</span>"));
+        assert!(unit(&html, "minutes").contains("><span>03</span>"));
+        assert!(unit(&html, "seconds").contains("><span>04</span>"));
         assert!(html.contains("<span class=\"sr-only\">1 days, 2 hours, 3 min, 4 sec</span>"));
         reject_fx(&html);
     }
@@ -208,21 +225,43 @@ mod tests {
         c.items.push(extra("text", "34"));
         c.items.push(extra("text", "56"));
         let html = render(&c);
-        assert!(unit(&html, "days").contains(">00</span>"));
-        assert!(unit(&html, "hours").contains(">12</span>"));
-        assert!(unit(&html, "minutes").contains(">34</span>"));
-        assert!(unit(&html, "seconds").contains(">56</span>"));
+        assert!(unit(&html, "days").contains("><span>00</span>"));
+        assert!(unit(&html, "hours").contains("><span>12</span>"));
+        assert!(unit(&html, "minutes").contains("><span>34</span>"));
+        assert!(unit(&html, "seconds").contains("><span>56</span>"));
         reject_fx(&html);
     }
 
+    /// Docs "Launch countdown": 2 days 14 h 25 min 9 s from now, named.
     #[test]
-    fn clock_from_props_value() {
+    fn clock_from_props_value_with_days_and_aria_label() {
         let mut c = stub("countdown", "Launch");
-        c.props.insert("value".into(), "01:02:03".into());
+        c.props.insert("value".into(), "2:14:25:09".into());
+        c.props
+            .insert("aria-label".into(), "Launch countdown".into());
         let html = render(&c);
-        assert!(unit(&html, "hours").contains(">01</span>"));
-        assert!(unit(&html, "minutes").contains(">02</span>"));
-        assert!(unit(&html, "seconds").contains(">03</span>"));
+        assert!(html.starts_with("<div data-slot=\"countdown\" role=\"timer\" aria-live=\"off\" aria-label=\"Launch countdown\"><span class=\"sr-only\">2 days, 14 hours, 25 min, 9 sec</span>"));
+        assert!(unit(&html, "days").contains("><span>02</span>"));
+        assert!(unit(&html, "hours").contains("><span>14</span>"));
+        assert!(unit(&html, "minutes").contains("><span>25</span>"));
+        assert!(unit(&html, "seconds").contains("><span>09</span>"));
+        reject_fx(&html);
+    }
+
+    /// Docs "Compact with completion": `compact` is `data-compact` on the root.
+    #[test]
+    fn compact_and_custom_labels() {
+        let mut c = stub("countdown", "Offer");
+        c.props.insert("compact".into(), "true".into());
+        c.props.insert("value".into(), "00:00:15".into());
+        c.props.insert("days".into(), "dias".into());
+        c.props.insert("seconds".into(), "seg".into());
+        let html = render(&c);
+        assert!(html.starts_with(
+            "<div data-slot=\"countdown\" role=\"timer\" aria-live=\"off\" data-compact=\"\"><span class=\"sr-only\">0 dias, 0 hours, 0 min, 15 seg</span>"
+        ));
+        assert!(html.contains("<span data-slot=\"countdown-label\">dias</span>"));
+        assert!(html.contains("<span data-slot=\"countdown-label\">seg</span>"));
         reject_fx(&html);
     }
 
@@ -232,6 +271,9 @@ mod tests {
         assert!(!html.contains("<B>"));
         assert!(!html.contains("A <B>"));
         assert!(html.contains("data-slot=\"countdown-label\">days</span>"));
+        let mut c = stub("countdown", "x");
+        c.props.insert("hours".into(), "<h>".into());
+        assert!(render(&c).contains("data-slot=\"countdown-label\">&lt;h&gt;</span>"));
         reject_fx(&html);
     }
 
@@ -266,8 +308,14 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"countdown\"]"));
         assert!(css.contains("[data-slot=\"countdown\"] > .sr-only {"));
+        assert!(css.contains("[data-slot=\"countdown\"][data-compact] { gap: 0.25rem; }"));
         assert!(css.contains("[data-slot=\"countdown-unit\"]"));
+        assert!(css.contains(
+            "[data-slot=\"countdown\"][data-compact] > [data-slot=\"countdown-unit\"] {"
+        ));
         assert!(css.contains("[data-slot=\"countdown-value\"]"));
+        assert!(css.contains("[data-slot=\"countdown-value\"] > span {\n  display: block;\n  transition: transform 300ms var(--ease-out-quart), opacity 300ms var(--ease-out-quart);"));
+        assert!(css.contains("@starting-style {\n  [data-slot=\"countdown-value\"] > span { transform: translateY(-0.375rem); opacity: 0; }\n}"));
         assert!(css.contains("[data-slot=\"countdown-label\"]"));
         assert!(css.contains("font-variant-numeric: tabular-nums"));
         assert!(css.contains("var(--cronus-surface-raised)"));

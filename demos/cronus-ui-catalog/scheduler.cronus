@@ -1,0 +1,13 @@
+page "/scheduler" type:components family:scheduler {
+  title "Scheduler"
+  description:"Month-view event calendar that lays events onto day cells."
+}
+
+component MonthView layout:stack style:scheduler month:2026-06 today:2026-06-01 group:"Month view" note:"A month-grid calendar that lays events onto day cells. Drive the visible month with month/onMonthChange, pass token-coloured events, and opt into a today highlight. Days overflowing three events collapse into a +N more row." {
+  label "June 2026"
+  item "Team standup" date:2026-06-02 color:primary
+  item "Design review" date:2026-06-09 color:info
+  item "v2 ship" date:2026-06-12 color:success
+  item "Sprint retro" date:2026-06-12 color:warning
+  item "Launch party" date:2026-06-24 color:success
+}
