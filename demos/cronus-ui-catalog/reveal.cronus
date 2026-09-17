@@ -6,7 +6,7 @@ page "/reveal" type:components family:reveal {
 component ScrollReveal layout:stack style:reveal card:true icon:sparkles icon-size:lg group:"Scroll reveal" note:"Wrap any content to fade and slide it into view as it enters the viewport. The reveal fires once, then settles. Scroll it into frame to see it animate." {
   title "Reveal as you scroll"
   text "This card fades and slides into view the moment it enters the viewport. Give it room so the entrance is unmistakable."
-  text "Wrap any block — a hero, a pricing tier, a feature grid — and it arrives with intent instead of popping in. Reveals fire a single time, so the section settles instead of replaying as you scroll past."
+  text "Wrap any block: a hero, a pricing tier, a feature grid: and it arrives with intent instead of popping in. Reveals fire a single time, so the section settles instead of replaying as you scroll past."
   item "Fade" description:"opacity 0 → 1"
   item "Slide" description:"y 24 → 0"
   item "Once" description:"no replay"

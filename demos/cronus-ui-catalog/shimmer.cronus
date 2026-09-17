@@ -3,7 +3,7 @@ page "/shimmer" type:components family:shimmer {
   description:"Premium shimmer surface."
 }
 
-component LoadingSheen layout:stack style:shimmer group:"Loading sheen" note:"Sized skeleton blocks with a sweeping sheen — give each Shimmer explicit height and width to match the content it stands in for." {
+component LoadingSheen layout:stack style:shimmer group:"Loading sheen" note:"Sized skeleton blocks with a sweeping sheen: give each Shimmer explicit height and width to match the content it stands in for." {
   item h:8 w:48 radius:lg
   item h:4 w:full radius:md
   item h:4 w:3/4 radius:md

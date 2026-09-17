@@ -5,5 +5,5 @@ page "/mode-toggle" type:components family:mode-toggle {
 
 component Morph layout:inline style:mode-toggle+light group:"Sun ⇄ moon morph" note:"The sun scales into a crescent moon with pure CSS transitions (instant under reduced motion). Pressing it swaps the page mode." { label "Mode" }
 
-component MorphSmall layout:inline style:mode-toggle+dark+sm group:"Sizes" note:"Two square footprints — sm for dense toolbars, md for headers." { label "Mode" }
+component MorphSmall layout:inline style:mode-toggle+dark+sm group:"Sizes" note:"Two square footprints: sm for dense toolbars, md for headers." { label "Mode" }
 component MorphMedium layout:inline style:mode-toggle+dark+md group:"Sizes" { label "Mode" }

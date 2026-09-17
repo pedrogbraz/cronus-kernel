@@ -9,10 +9,10 @@ component DescriptionStacked layout:stack style:description-list raw:true max-wi
   text "Email"
   text "margot@example.com"
   text "Plan"
-  text "Pro — billed yearly"
+  text "Pro: billed yearly"
 }
 
-component DescriptionHorizontal layout:stack style:description-list+horizontal details-align:end bordered:true max-width:md group:"Horizontal order summary" note:"The `horizontal` layout aligns terms and details into two columns with a divider between rows — the classic definition list. `bordered` adds the outer card shell, and `detailsAlign` set to `end` right-aligns values (logical, so it flips in RTL)." {
+component DescriptionHorizontal layout:stack style:description-list+horizontal details-align:end bordered:true max-width:md group:"Horizontal order summary" note:"The `horizontal` layout aligns terms and details into two columns with a divider between rows: the classic definition list. `bordered` adds the outer card shell, and `detailsAlign` set to `end` right-aligns values (logical, so it flips in RTL)." {
   item "Order" details:"#10245"
   item "Date" details:"June 23, 2026"
   item "Payment method" details:"Visa ending in 4242"
@@ -20,7 +20,7 @@ component DescriptionHorizontal layout:stack style:description-list+horizontal d
   item "Total" details:"$149.00" font:mono
 }
 
-component DescriptionStriped layout:stack style:description-list+horizontal striped:true max-width:md group:"Striped rows" note:"`striped` tints alternate rows for scannability. The zebra applies to grouped rows, so wrap each pair with `DescriptionItem` — raw `DescriptionTerm`/`DescriptionDetails` pairs don't participate." {
+component DescriptionStriped layout:stack style:description-list+horizontal striped:true max-width:md group:"Striped rows" note:"`striped` tints alternate rows for scannability. The zebra applies to grouped rows, so wrap each pair with `DescriptionItem`: raw `DescriptionTerm`/`DescriptionDetails` pairs don't participate." {
   item "Environment" details:"Production"
   item "API version" details:"2026-06-01"
   item "Webhook endpoint" details:"https://api.example.com/hooks"
@@ -28,7 +28,7 @@ component DescriptionStriped layout:stack style:description-list+horizontal stri
   item "Mode" details:"Live" badge:secondary
 }
 
-component DescriptionGrid layout:stack style:description-list+grid+sm group:"Grid cards" note:"The `grid` layout spreads `DescriptionItem` pairs across a responsive 1 → 2 → 3 column set of card tiles — a compact settings review. Shown at the `sm` size." {
+component DescriptionGrid layout:stack style:description-list+grid+sm group:"Grid cards" note:"The `grid` layout spreads `DescriptionItem` pairs across a responsive 1 → 2 → 3 column set of card tiles: a compact settings review. Shown at the `sm` size." {
   item "Region" details:"São Paulo (GRU)"
   item "Runtime" details:"Node 22 LTS"
   item "Instances" details:"3 × shared-cpu"

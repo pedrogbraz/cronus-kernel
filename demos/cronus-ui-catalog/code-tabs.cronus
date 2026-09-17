@@ -3,14 +3,14 @@ page "/code-tabs" type:components family:code-tabs {
   description:"Tabbed code snippets with per-tab copy and a localStorage-synced tab choice."
 }
 
-component CodeTabsInstaller layout:stack style:code-tabs group:"Package manager installer" note:"The classic bun/npm/pnpm/yarn switcher. Give every instance the same `storageKey` and the visitor's choice is persisted to localStorage and mirrored across the whole page (and across browser tabs) — flip one below and watch the other follow." {
+component CodeTabsInstaller layout:stack style:code-tabs group:"Package manager installer" note:"The classic bun/npm/pnpm/yarn switcher. Give every instance the same `storageKey` and the visitor's choice is persisted to localStorage and mirrored across the whole page (and across browser tabs): flip one below and watch the other follow." {
   tab "bun" code:"bunx cronus-ui add code-tabs" language:bash
   tab "npm" code:"npx cronus-ui add code-tabs" language:bash
   tab "pnpm" code:"pnpm dlx cronus-ui add code-tabs" language:bash
   tab "yarn" code:"yarn dlx cronus-ui add code-tabs" language:bash
 }
 
-component CodeTabsLanguages layout:stack style:code-tabs default:"TypeScript" group:"Multi-language snippet" note:"General code tabs — one panel per label, each with its own copy button and a `language` hint in the header. `defaultLabel` picks the starting tab; `onLabelChange` reports user switches." {
+component CodeTabsLanguages layout:stack style:code-tabs default:"TypeScript" group:"Multi-language snippet" note:"General code tabs: one panel per label, each with its own copy button and a `language` hint in the header. `defaultLabel` picks the starting tab; `onLabelChange` reports user switches." {
   tab "TypeScript" language:ts
   text "export function formatBRL(value: number): string {"
   text "  return new Intl.NumberFormat(\"pt-BR\", {"

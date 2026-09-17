@@ -3,6 +3,6 @@ page "/credit-card-input" type:components family:credit-card-input {
   description:"Card number, expiry and CVC in one field group."
 }
 
-component Card layout:stack style:credit-card-input group:"Default" note:"One unified field group — card number with live brand detection, expiry and CVC." { label "Card details" }
+component Card layout:stack style:credit-card-input group:"Default" note:"One unified field group: card number with live brand detection, expiry and CVC." { label "Card details" }
 component Visa layout:stack style:credit-card-input number:"4242 4242 4242 4242" group:"Brand detection" note:"The payment network is inferred from the prefix as you type and rendered as a monochrome glyph." { label "Card details" }
 component Declined layout:stack style:credit-card-input number:"4000 0000 0000 0002" error:"Your card was declined. Try another card." group:"With error" { label "Card details" }

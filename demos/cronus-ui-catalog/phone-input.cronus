@@ -4,5 +4,5 @@ page "/phone-input" type:components family:phone-input {
 }
 
 component Phone layout:stack style:phone-input default-country:BR aria-label:"Phone number" group:"Default" note:"A searchable country selector (flag + dial code) fused to a national-number field that groups digits for the selected country." { label "Phone number" }
-component Seeded layout:stack style:phone-input value:"+12025550142" aria-label:"Phone number" group:"Default country & value" note:"Seed the field from an E.164 string — the country is resolved by the longest matching dial code." { label "Phone number" }
+component Seeded layout:stack style:phone-input value:"+12025550142" aria-label:"Phone number" group:"Default country & value" note:"Seed the field from an E.164 string: the country is resolved by the longest matching dial code." { label "Phone number" }
 component PhoneInvalid layout:stack style:phone-input value:"+551198" invalid:true aria-label:"Phone number" group:"Invalid" note:"Set invalid and pair it with a FieldError." { label "Phone number" }

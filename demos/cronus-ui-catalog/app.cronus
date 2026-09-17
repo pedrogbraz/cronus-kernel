@@ -1,4 +1,4 @@
-## Cronus UI catalog — every family declared in .cronus, one file per family.
+## Cronus UI catalog: every family declared in .cronus, one file per family.
 ## The kernel emits the HTML, tokens and motion. No JSX, no imports.
 
 app "Cronus UI" {

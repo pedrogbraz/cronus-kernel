@@ -12,7 +12,7 @@ component InstallSession layout:stack style:terminal motion:respect group:"Insta
   text "ready in 312 ms"
 }
 
-component StaticLog layout:stack style:terminal chrome:false motion:never group:"Static, chrome-less log" note:"Without the traffic-light bar the copy button floats over the corner, and motionPreference of never renders the finished transcript with no animation — exactly what reduced-motion visitors see." {
+component StaticLog layout:stack style:terminal chrome:false motion:never group:"Static, chrome-less log" note:"Without the traffic-light bar the copy button floats over the corner, and motionPreference of never renders the finished transcript with no animation: exactly what reduced-motion visitors see." {
   item "cronus deploy --prod"
   text "Build completed in 8.2s"
   text "Deployed to https://app.cronus.com"

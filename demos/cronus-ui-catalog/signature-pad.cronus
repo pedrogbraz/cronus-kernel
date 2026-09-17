@@ -3,6 +3,6 @@ page "/signature-pad" type:components family:signature-pad {
   description:"Canvas signature input with smoothed strokes, undo/clear, and data-URL output."
 }
 
-component ContractSignature layout:stack style:signature-pad aria-label:"Contract signature" group:"Capture a signature" note:"Draw with mouse, touch, or pen — samples become midpoint-smoothed quadratic curves, and the ink follows the surrounding text color token. onChange reports a PNG data URL after every committed stroke (or null once emptied); the overlaid ghost actions undo the last stroke or clear the pad." { label "Contract signature" }
+component ContractSignature layout:stack style:signature-pad aria-label:"Contract signature" group:"Capture a signature" note:"Draw with mouse, touch, or pen: samples become midpoint-smoothed quadratic curves, and the ink follows the surrounding text color token. onChange reports a PNG data URL after every committed stroke (or null once emptied); the overlaid ghost actions undo the last stroke or clear the pad." { label "Contract signature" }
 
-component FrozenSignature layout:stack style:signature-pad disabled:true aria-label:"Signature" group:"Disabled" note:"Freeze the pad while a document loads or is already countersigned — pointer input is ignored and the overlay actions disable." { label "Signature" }
+component FrozenSignature layout:stack style:signature-pad disabled:true aria-label:"Signature" group:"Disabled" note:"Freeze the pad while a document loads or is already countersigned: pointer input is ignored and the overlay actions disable." { label "Signature" }

@@ -3,7 +3,7 @@ page "/button-group" type:components family:button-group {
   description:"Attaches a row or column of buttons into one segmented unit."
 }
 
-component Pager layout:inline style:button-group+outline aria-label:"Pages" group:"Horizontal" note:"Wrap a row of buttons in a group and they fuse into one segmented control — shared edges collapse and inner radii flatten." {
+component Pager layout:inline style:button-group+outline aria-label:"Pages" group:"Horizontal" note:"Wrap a row of buttons in a group and they fuse into one segmented control: shared edges collapse and inner radii flatten." {
   item "Prev" icon:chevron-left
   item "Page 1"
   item "Next" icon-end:chevron-right

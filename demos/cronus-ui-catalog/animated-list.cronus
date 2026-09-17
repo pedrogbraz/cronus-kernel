@@ -3,7 +3,7 @@ page "/animated-list" type:components family:animated-list {
   description:"Staggers list items in with a short rise and fade."
 }
 
-component StaggeredList layout:stack style:animated-list card:true group:"Staggered list" note:"Children enter with a short rise and fade. Pass the item body, not an li — the component wraps each child." {
+component StaggeredList layout:stack style:animated-list card:true group:"Staggered list" note:"Children enter with a short rise and fade. Pass the item body, not an li: the component wraps each child." {
   item "Deploy finished"
   item "Invite accepted"
   item "Invoice paid"

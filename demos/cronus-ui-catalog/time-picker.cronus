@@ -7,4 +7,4 @@ component TwelveHour layout:stack style:time-picker value:"09:30" aria-label:"Me
 
 component TwentyFourHourSeconds layout:stack style:time-picker+24 value:"14:45:00" minuteStep:5 showSeconds:true aria-label:"Broadcast start" group:"24-hour with seconds" note:"Set hourCycle={24} for a 0–23 column (no AM/PM), tune column granularity with minuteStep, and reveal a seconds wheel with showSeconds." { label "Select time" }
 
-component LockedSlot layout:stack style:time-picker value:"08:00" disabled:true aria-label:"Locked slot" group:"Disabled" note:"Set disabled to lock the trigger and the whole panel while still displaying its current value — useful for read-only or gated slots." { label "Select time" }
+component LockedSlot layout:stack style:time-picker value:"08:00" disabled:true aria-label:"Locked slot" group:"Disabled" note:"Set disabled to lock the trigger and the whole panel while still displaying its current value: useful for read-only or gated slots." { label "Select time" }

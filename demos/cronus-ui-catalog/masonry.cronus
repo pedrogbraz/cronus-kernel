@@ -3,7 +3,7 @@ page "/masonry" type:components family:masonry {
   description:"A responsive CSS multi-column masonry layout for cards and images."
 }
 
-component MasonryCards layout:stack style:masonry columns:"1,2,3" group:"Responsive cards" note:"A pure CSS multi-column layout that flows items top-to-bottom, balancing columns regardless of card height. `columns` takes a responsive map and `gap` controls both axes — no JS measurement, no layout shift." {
+component MasonryCards layout:stack style:masonry columns:"1,2,3" group:"Responsive cards" note:"A pure CSS multi-column layout that flows items top-to-bottom, balancing columns regardless of card height. `columns` takes a responsive map and `gap` controls both axes: no JS measurement, no layout shift." {
   item "Onboarding" description:"Passwordless email code."
   item "Checkout" description:"Card and boleto with upsells that convert."
   item "Payouts" description:"Settled on a fixed schedule."

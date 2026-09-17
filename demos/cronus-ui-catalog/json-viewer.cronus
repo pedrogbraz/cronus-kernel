@@ -19,7 +19,7 @@ component JsonViewerResponse layout:stack style:json-viewer depth:2 group:"API r
   item "qty" value:1 level:4
 }
 
-component JsonViewerExpanded layout:stack style:json-viewer depth:all group:"Expanded depth" note:"`defaultExpandedDepth` sets how many levels start open — the root value is depth 0, so the default of 1 shows the root's entries with nested branches collapsed. Pass `Number.POSITIVE_INFINITY` to expand everything." {
+component JsonViewerExpanded layout:stack style:json-viewer depth:all group:"Expanded depth" note:"`defaultExpandedDepth` sets how many levels start open: the root value is depth 0, so the default of 1 shows the root's entries with nested branches collapsed. Pass `Number.POSITIVE_INFINITY` to expand everything." {
   item "order" type:object
   item "id" value:ord_8kX2 level:2
   item "total" value:248.9 level:2

@@ -390,10 +390,10 @@ pub fn render_overview(pages: &[PageNode], comps: &[ComponentNode]) -> Option<St
                 ""
             };
             cards.push_str(&format!(
-                r#"<a href="{route}" data-slot="catalog-card" data-family="{family}"{wide}>
+                r#"<article data-slot="catalog-card" data-family="{family}"{wide}>
   <div data-slot="catalog-card-canvas" data-force-motion inert>{specimen}</div>
-  <div data-slot="catalog-card-body"><h3>{title}</h3>{lead_html}</div>
-</a>
+  <div data-slot="catalog-card-body"><h3><a href="{route}">{title}</a></h3>{lead_html}</div>
+</article>
 "#,
                 route = esc(&p.route),
                 family = esc(family),
@@ -421,7 +421,7 @@ pub fn render_overview(pages: &[PageNode], comps: &[ComponentNode]) -> Option<St
         <span><strong>{group_count}</strong> groups</span>
       </div>
     </div>
-    <p data-slot="catalog-lead">Every family declared in .cronus. The kernel emits the HTML, tokens and motion — the same components as the React catalog, without JSX. Open a family for all of its variants.</p>
+    <p data-slot="catalog-lead">Every family declared in .cronus. The kernel emits the HTML, tokens and motion: the same components as the React catalog, without JSX. Open a family for all of its variants.</p>
     <a href="/" data-slot="catalog-home">Home</a>
   </header>
   <nav data-slot="catalog-toc" aria-label="Kit groups">{nav}</nav>
@@ -535,7 +535,7 @@ mod tests {
             page("/button", "button", "Button"),
         ];
         let html = render_overview(&pages, &comps).unwrap();
-        assert!(html.contains("href=\"/button\""));
+        assert!(html.contains("<h3><a href=\"/button\">Button</a></h3>"));
         assert!(html.contains("href=\"/badge\""));
         assert!(!html.contains("data-family=\"avatar\""));
         assert!(html.find("id=\"buttons\"").unwrap() < html.find("id=\"data-display\"").unwrap());

@@ -3,7 +3,7 @@ page "/carousel" type:components family:carousel {
   description:"Scroll-snap slide gallery with prev/next, dots and keyboard nav."
 }
 
-component Slides layout:stack style:carousel width:sm dots:true group:"Slides" note:"Native scroll-snap gallery — swipe or drag on touch, prev/next + dots and full keyboard support on desktop, reduced-motion handled by the OS. Set `basis` on CarouselItem for multi-up views." {
+component Slides layout:stack style:carousel width:sm dots:true group:"Slides" note:"Native scroll-snap gallery: swipe or drag on touch, prev/next + dots and full keyboard support on desktop, reduced-motion handled by the OS. Set `basis` on CarouselItem for multi-up views." {
   label "Slides"
   item "1" description:"Onboarding"
   item "2" description:"Checkout"

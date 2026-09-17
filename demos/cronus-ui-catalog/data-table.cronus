@@ -3,7 +3,7 @@ page "/data-table" type:components family:data-table {
   description:"TanStack table with sorting, search & faceted filters, pagination, row selection with bulk actions, column visibility, density, and loading/empty/error states."
 }
 
-component DataTableBasic layout:stack style:data-table group:"Basic" note:"The smallest setup: pass `columns` + `data`. With no opt-in props it renders a plain, accessible table — no toolbar, pagination, or selection." {
+component DataTableBasic layout:stack style:data-table group:"Basic" note:"The smallest setup: pass `columns` + `data`. With no opt-in props it renders a plain, accessible table: no toolbar, pagination, or selection." {
   columns "Status" transform:capitalize
   columns "Email" transform:lowercase
   columns "Amount" sort:button font:mono
@@ -69,7 +69,7 @@ component DataTablePagination layout:stack style:data-table pagination:true page
   item "Radia Perlman" email:"radia@cronus.dev" role:Member status:active seats:2
 }
 
-component DataTableSelection layout:stack style:data-table selection:true pagination:true page-size:5 group:"Selection & bulk actions" note:"`enableRowSelection` prepends an accessible select-all/row checkbox column. Render contextual actions with `bulkActions` — a bar that appears only while rows are selected and receives the selected rows." {
+component DataTableSelection layout:stack style:data-table selection:true pagination:true page-size:5 group:"Selection & bulk actions" note:"`enableRowSelection` prepends an accessible select-all/row checkbox column. Render contextual actions with `bulkActions`: a bar that appears only while rows are selected and receives the selected rows." {
   columns "Name" sort:true font:medium
   columns "Email" sort:true color:secondary
   columns "Role" sort:true badge:outline
@@ -119,7 +119,7 @@ component DataTableDensity layout:stack style:data-table searchable:true density
   item "Dennis Ritchie" email:"dennis@cronus.dev" role:Viewer status:suspended seats:0
 }
 
-component DataTableLoading layout:stack style:data-table loading:true loading-rows:4 group:"Loading" note:"Pass `loading` to swap the body for shimmer rows that match your column count — no layout shift when the real data arrives. Toggle below to see the swap." {
+component DataTableLoading layout:stack style:data-table loading:true loading-rows:4 group:"Loading" note:"Pass `loading` to swap the body for shimmer rows that match your column count: no layout shift when the real data arrives. Toggle below to see the swap." {
   columns "Name" sort:true font:medium
   columns "Email" sort:true color:secondary
   columns "Role" sort:true badge:outline
@@ -131,7 +131,7 @@ component DataTableLoading layout:stack style:data-table loading:true loading-ro
   item "Katherine Johnson" email:"katherine@cronus.dev" role:Member status:invited seats:1
 }
 
-component DataTableEmpty layout:stack style:data-table empty-icon:inbox empty-title:"No members yet" empty-description:"Invite teammates to see them listed here." group:"Empty" note:"With no rows, the table renders a centered empty state. Override the copy — or drop in a full `Empty` composition — via the `emptyState` prop." {
+component DataTableEmpty layout:stack style:data-table empty-icon:inbox empty-title:"No members yet" empty-description:"Invite teammates to see them listed here." group:"Empty" note:"With no rows, the table renders a centered empty state. Override the copy: or drop in a full `Empty` composition: via the `emptyState` prop." {
   columns "Name" sort:true font:medium
   columns "Email" sort:true color:secondary
   columns "Role" sort:true badge:outline
@@ -139,7 +139,7 @@ component DataTableEmpty layout:stack style:data-table empty-icon:inbox empty-ti
   columns "Seats" sort:true font:mono color:secondary
 }
 
-component DataTableError layout:stack style:data-table error:"Couldn’t load team members. Check your connection and try again." retry:true group:"Error" note:"Pass `error` to render an inline, `role=“alert”` failure state. Provide `onRetry` to surface a Retry button — handy for refetching after a transient network error." {
+component DataTableError layout:stack style:data-table error:"Couldn’t load team members. Check your connection and try again." retry:true group:"Error" note:"Pass `error` to render an inline, `role=“alert”` failure state. Provide `onRetry` to surface a Retry button: handy for refetching after a transient network error." {
   columns "Name" sort:true font:medium
   columns "Email" sort:true color:secondary
   columns "Role" sort:true badge:outline

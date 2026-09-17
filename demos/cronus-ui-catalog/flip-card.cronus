@@ -3,7 +3,7 @@ page "/flip-card" type:components family:flip-card {
   description:"A 3D card that flips between a front and a back face."
 }
 
-component PlanoPro layout:stack style:flip-card aria-label:"Plano Pro" width:xs height:72 icon:sparkles icon-size:lg group:"Hover to flip" note:"The default trigger flips on pointer hover and keyboard focus, so it's fully operable without a mouse. The inactive face is `inert` — its content never double-reads to a screen reader. Hover the card to reveal the plan's benefits." {
+component PlanoPro layout:stack style:flip-card aria-label:"Plano Pro" width:xs height:72 icon:sparkles icon-size:lg group:"Hover to flip" note:"The default trigger flips on pointer hover and keyboard focus, so it's fully operable without a mouse. The inactive face is `inert`: its content never double-reads to a screen reader. Hover the card to reveal the plan's benefits." {
   title "Plano Pro" size:lg
   text "Tudo o que você precisa para escalar a sua loja." mt:1
   meta "Passe o mouse →"

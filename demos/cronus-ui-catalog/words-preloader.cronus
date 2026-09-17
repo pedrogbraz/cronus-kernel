@@ -1,6 +1,6 @@
 page "/words-preloader" type:components family:words-preloader {
   title "WordsPreloader"
-  description:"Themeable line preloader — product lines clip up with SlideUpText, optional last-beat mark, then a curved lip flattens as the panel slides up."
+  description:"Themeable line preloader: product lines clip up with SlideUpText, optional last-beat mark, then a curved lip flattens as the panel slides up."
 }
 
 component ProductWords layout:stack style:words-preloader+contained end:"Cronus" group:"Product words" note:"The page sits underneath. Each line clips up with SlideUpText, the mark lands, then the curved lip flattens and the panel slides up. Replay from the nav." {

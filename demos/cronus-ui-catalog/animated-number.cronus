@@ -1,6 +1,6 @@
 page "/animated-number" type:components family:animated-number {
   title "AnimatedNumber"
-  description:"Number that springs to its target — counts up or down."
+  description:"Number that springs to its target: counts up or down."
 }
 
 component CountUp layout:inline style:animated-number value:12480 locale:pt-BR currency:BRL size:4xl group:"Count up" note:"Springs toward the target whenever it changes, so a balance or KPI counts up instead of snapping. Honours reduced-motion (snaps) and formats through Intl. Click to add a sale." {

@@ -10,7 +10,7 @@ component TopicFilters layout:inline style:chip aria-label:"Filter articles by t
   item "Motion"
   item "A11y"
 }
-component Variants layout:inline style:chip aria-label:"Chip variants" group:"Variants, colors & sizes" note:"Three treatments across the semantic palette — solid fills, soft 15% tints, and outline." {
+component Variants layout:inline style:chip aria-label:"Chip variants" group:"Variants, colors & sizes" note:"Three treatments across the semantic palette: solid fills, soft 15% tints, and outline." {
   item "Solid" variant:solid color:primary
   item "Error" variant:solid color:error
   item "Soft" variant:soft color:success
@@ -19,7 +19,7 @@ component Variants layout:inline style:chip aria-label:"Chip variants" group:"Va
   item "Small" variant:soft size:sm
   item "Large" variant:outline size:lg
 }
-component Tags layout:inline style:chip+soft+primary aria-label:"Selected tags" removable:true group:"Dismissible" note:"onRemove adds a remove affordance — pointer users hit the ×, keyboard users press Delete or Backspace." {
+component Tags layout:inline style:chip+soft+primary aria-label:"Selected tags" removable:true group:"Dismissible" note:"onRemove adds a remove affordance: pointer users hit the ×, keyboard users press Delete or Backspace." {
   item "Aurora"
   item "Nebula"
   item "Pulsar"

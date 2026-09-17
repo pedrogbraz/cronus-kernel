@@ -13,7 +13,7 @@ component DotShadcnOnline layout:inline style:status-dot+online position:bottom-
 component DotAdaBusy layout:inline style:status-dot+busy position:bottom-right ring:true aria-label:"Ada is busy" avatar:"AL" group:"On an avatar" { label "Busy" }
 component DotJeanOffline layout:inline style:status-dot+offline position:bottom-right ring:true aria-label:"Jean is offline" avatar:"JL" group:"On an avatar" { label "Offline" }
 
-component DotLive layout:inline style:status-dot+error pulse:true with-label:true group:"Pulse & sizes" note:"`pulse` adds an expanding ping halo for live activity — it stays static under `prefers-reduced-motion`. Sizes run `xs` through `lg`." { label "Live" }
+component DotLive layout:inline style:status-dot+error pulse:true with-label:true group:"Pulse & sizes" note:"`pulse` adds an expanding ping halo for live activity: it stays static under `prefers-reduced-motion`. Sizes run `xs` through `lg`." { label "Live" }
 component DotStreaming layout:inline style:status-dot+success pulse:true with-label:true group:"Pulse & sizes" { label "Streaming" }
 component DotExtraSmall layout:inline style:status-dot+xs aria-label:"Online (xs)" group:"Pulse & sizes" { label "Online" }
 component DotSmall layout:inline style:status-dot+sm aria-label:"Online (sm)" group:"Pulse & sizes" { label "Online" }

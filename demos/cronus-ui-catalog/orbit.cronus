@@ -3,7 +3,7 @@ page "/orbit" type:components family:orbit {
   description:"Icons or avatars revolving around a nucleus on pure-CSS rings."
 }
 
-component Constellation layout:inline style:orbit aria-label:"Tools orbiting the product core" size:80 icon:zap group:"Integration constellation" note:"Two counter-rotating rings of tool chips around a product core — the classic integrations hero. One shared CSS keyframe drives everything (zero JS per frame): hovering the stage pauses both rings so any chip can be clicked, and reduced-motion visitors get the same layout statically placed, every chip upright." {
+component Constellation layout:inline style:orbit aria-label:"Tools orbiting the product core" size:80 icon:zap group:"Integration constellation" note:"Two counter-rotating rings of tool chips around a product core: the classic integrations hero. One shared CSS keyframe drives everything (zero JS per frame): hovering the stage pauses both rings so any chip can be clicked, and reduced-motion visitors get the same layout statically placed, every chip upright." {
   slot "ring" radius:72 duration:22
   item "Search" icon:search
   item "Alerts" icon:bell

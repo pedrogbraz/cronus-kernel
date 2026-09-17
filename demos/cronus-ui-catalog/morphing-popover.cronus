@@ -3,7 +3,7 @@ page "/morphing-popover" type:components family:morphing-popover {
   description:"Trigger that morphs into a non-modal dialog surface."
 }
 
-component Feedback layout:inline style:morphing-popover open:false icon:message-square-plus aria-label:"Send feedback" width:88 close:true group:"Feedback" note:"The trigger physically morphs into a small non-modal dialog instead of fading in beside it. Inside: an accessible, labelled textarea and a footer that pairs Close with a submit. Focus moves into the surface on open and returns to the trigger on close; Escape and outside-click both dismiss. Submit is local-only — it flips to a thank-you state and auto-closes. Honours reduced-motion." {
+component Feedback layout:inline style:morphing-popover open:false icon:message-square-plus aria-label:"Send feedback" width:88 close:true group:"Feedback" note:"The trigger physically morphs into a small non-modal dialog instead of fading in beside it. Inside: an accessible, labelled textarea and a footer that pairs Close with a submit. Focus moves into the surface on open and returns to the trigger on close; Escape and outside-click both dismiss. Submit is local-only: it flips to a thank-you state and auto-closes. Honours reduced-motion." {
   label "Feedback"
   field "Your feedback" placeholder:"Add feedback" rows:5
   action "Submit" variant:outline size:sm disabled:true

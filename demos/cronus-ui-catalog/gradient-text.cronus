@@ -3,4 +3,4 @@ page "/gradient-text" type:components family:gradient-text {
   description:"Gradient-clipped text."
 }
 
-component GradientHeadline layout:inline style:gradient-text as:h3 size:6xl group:"Headline" note:"Use `asChild` to clip your own heading element to a primary→foreground fade — the typography stays yours, the fill follows the theme." { label "Design that themes itself" }
+component GradientHeadline layout:inline style:gradient-text as:h3 size:6xl group:"Headline" note:"Use `asChild` to clip your own heading element to a primary→foreground fade: the typography stays yours, the fill follows the theme." { label "Design that themes itself" }

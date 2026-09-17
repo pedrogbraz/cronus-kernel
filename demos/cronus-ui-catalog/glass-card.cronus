@@ -3,7 +3,7 @@ page "/glass-card" type:components family:glass-card {
   description:"Frosted-glass surface."
 }
 
-component Frosted layout:stack style:glass-card icon:sparkles backdrop:inset group:"Frosted surface" note:"A frosted-glass panel over a quiet inset field — the backdrop-blur needs something behind it, not a rainbow." {
+component Frosted layout:stack style:glass-card icon:sparkles backdrop:inset group:"Frosted surface" note:"A frosted-glass panel over a quiet inset field: the backdrop-blur needs something behind it, not a rainbow." {
   title "Premium by default"
-  text "Frosted blur ships out of the box — sit it on a surface, not a Midjourney wash."
+  text "Frosted blur ships out of the box: sit it on a surface, not a Midjourney wash."
 }

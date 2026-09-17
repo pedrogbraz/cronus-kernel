@@ -3,7 +3,7 @@ page "/number-flow" type:components family:number-flow {
   description:"Formatted number whose digits roll to each new value."
 }
 
-component DigitFlow layout:inline style:number-flow value:12345 size:5xl group:"Digit flow" note:"Each digit rolls the short way to the next value — grouping, prefix and suffix stay put. Shuffle through number, currency, percent and decimal." {
+component DigitFlow layout:inline style:number-flow value:12345 size:5xl group:"Digit flow" note:"Each digit rolls the short way to the next value: grouping, prefix and suffix stay put. Shuffle through number, currency, percent and decimal." {
   label "Digits"
   action "Shuffle format" variant:outline size:sm icon:rotate-cw
 }

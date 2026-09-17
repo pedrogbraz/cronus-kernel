@@ -1,9 +1,9 @@
 page "/actions" type:components family:actions {
   title "Actions"
-  description:"Icon actions for an assistant message — copy, retry, share."
+  description:"Icon actions for an assistant message: copy, retry, share."
 }
 
-component MessageActions layout:inline style:actions group:"Message actions" note:"Icon buttons that sit under an assistant turn — copy, retry, share." {
+component MessageActions layout:inline style:actions group:"Message actions" note:"Icon buttons that sit under an assistant turn: copy, retry, share." {
   label "Message actions"
   action "Copy" icon:copy
   action "Retry" icon:refresh-cw

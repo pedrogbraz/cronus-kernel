@@ -3,13 +3,13 @@ page "/frame" type:components family:frame {
   description:"Browser/window chrome that frames a screenshot or product mockup."
 }
 
-component Browser layout:stack style:frame url:"cronus.app/dashboard" group:"Browser chrome" note:"Wrap a screenshot or mockup in browser chrome — traffic-light dots plus an address bar fed by `url`. Anything you nest becomes the framed content." {
+component Browser layout:stack style:frame url:"cronus.app/dashboard" group:"Browser chrome" note:"Wrap a screenshot or mockup in browser chrome: traffic-light dots plus an address bar fed by `url`. Anything you nest becomes the framed content." {
   title "Faturamento"
   text "R$ 128.940 nos últimos 30 dias."
   text "+18% vs. o período anterior."
 }
 
-component Window layout:stack style:frame+window group:"Window chrome" note:"The `window` variant drops the address bar for a plain title bar — handy for desktop-app mockups." {
+component Window layout:stack style:frame+window group:"Window chrome" note:"The `window` variant drops the address bar for a plain title bar: handy for desktop-app mockups." {
   title "Preferências"
   text "Tema, notificações e atalhos."
 }

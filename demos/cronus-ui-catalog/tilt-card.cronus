@@ -3,19 +3,19 @@ page "/tilt-card" type:components family:tilt-card {
   description:"A card that tilts in 3D toward the pointer, with an optional glare."
 }
 
-component GlareParallax layout:stack style:tilt-card glare:true parallax:true width:xs icon:zap icon-size:lg group:"Glare & parallax" note:"A real perspective transform that tilts toward the pointer, with a soft `glare` sheen and `parallax` lifting the content toward the viewer on hover. The pointer writes straight to CSS variables inside one rAF — no re-renders — and it flattens under prefers-reduced-motion." {
+component GlareParallax layout:stack style:tilt-card glare:true parallax:true width:xs icon:zap icon-size:lg group:"Glare & parallax" note:"A real perspective transform that tilts toward the pointer, with a soft `glare` sheen and `parallax` lifting the content toward the viewer on hover. The pointer writes straight to CSS variables inside one rAF: no re-renders: and it flattens under prefers-reduced-motion." {
   title "Repasses instantâneos" size:lg
-  text "O saldo entra no mesmo instante em que a venda é aprovada — sem lote noturno, sem espera."
+  text "O saldo entra no mesmo instante em que a venda é aprovada: sem lote noturno, sem espera."
 }
 
-component PaymentCard layout:stack style:tilt-card+payment glare:true parallax:true scale:1.05 width:sm icon-end:wifi group:"Payment card" note:"Push `maxTilt` and `scale` for a tactile, dramatic feel — a payment-card mockup that leans into the cursor. The surface is inverted fg, not a rainbow fill." {
+component PaymentCard layout:stack style:tilt-card+payment glare:true parallax:true scale:1.05 width:sm icon-end:wifi group:"Payment card" note:"Push `maxTilt` and `scale` for a tactile, dramatic feel: a payment-card mockup that leans into the cursor. The surface is inverted fg, not a rainbow fill." {
   title "Cronus"
   value "4242 4242 4242 4242"
   meta "Pedro Gontijo"
   meta "12/29"
 }
 
-component Subtle layout:stack style:tilt-card+row scale:1.02 width:xs icon:user icon-size:lg icon-shape:round icon-tone:secondary icon-end:arrow-right group:"Subtle" note:"Dial `maxTilt` and `scale` right down (and skip the glare) for a restrained lift that suits dense lists and rows — motion that's felt more than seen." {
+component Subtle layout:stack style:tilt-card+row scale:1.02 width:xs icon:user icon-size:lg icon-shape:round icon-tone:secondary icon-end:arrow-right group:"Subtle" note:"Dial `maxTilt` and `scale` right down (and skip the glare) for a restrained lift that suits dense lists and rows: motion that's felt more than seen." {
   title "Ana Ribeiro"
   text "ana@cronus.app"
 }
