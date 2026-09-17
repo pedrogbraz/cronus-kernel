@@ -1,0 +1,11 @@
+page "/banner" type:components family:banner {
+  title "Banner"
+  description:"Dismissible announcement bar with an icon, message and action."
+}
+
+component Promo layout:stack style:banner+brand icon:sparkles description:"60+ themeable components, now stable." group:"Brand promo with a CTA" note:"A full-width announcement bar. The brand variant is a solid promo fill carrying white text; the icon, action, and close button all inherit currentColor." {
+  label "Cronus UI 1.0 is here."
+  action "Read the announcement" icon-end:arrow-right
+}
+
+component Maintenance layout:stack style:banner+info icon:info description:"Dashboards may be briefly unavailable on Sunday at 02:00 UTC." restore:"Show banner again" group:"Dismissible" note:"Banners collapse away when dismissed (honouring reduced-motion). Dismiss it, then bring it back with the button." { label "Scheduled maintenance" }

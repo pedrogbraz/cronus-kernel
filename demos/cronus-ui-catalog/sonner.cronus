@@ -1,0 +1,11 @@
+page "/sonner" type:components family:sonner {
+  title "Sonner"
+  description:"Transient toast notifications."
+}
+
+component Toasts layout:inline style:sonner group:"Toasts" note:"Mount one Toaster, then fire transient notifications from the buttons." {
+  label "Notifications"
+  action "Default" description:"Event has been created."
+  action "Success" type:success description:"Changes saved successfully."
+  action "Error" type:error description:"Something went wrong. Please try again."
+}

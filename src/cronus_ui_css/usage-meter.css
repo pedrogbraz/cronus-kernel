@@ -21,6 +21,38 @@
   height: 100%; border-radius: 9999px;
   width: calc(var(--cui-progress-value, 0) * 1%);
   background: var(--cronus-primary);
+  transition: width 500ms var(--ease-out-quart);
 }
+[data-slot="usage-meter-fill"][data-tone="success"] { background: var(--cronus-success); }
 [data-slot="usage-meter-fill"][data-tone="warning"] { background: var(--cronus-warning); }
 [data-slot="usage-meter-fill"][data-tone="error"] { background: var(--cronus-error); }
+/* circular: the ring div is sized by its svg (React sets width/height = size). */
+[data-slot="usage-meter"].circular {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 0.5rem;
+}
+[data-slot="usage-meter-ring"] {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+}
+[data-slot="usage-meter-ring"] > svg {
+  display: block; transform: rotate(-90deg); color: var(--cronus-primary);
+}
+[data-slot="usage-meter-ring"] > svg.tone-success { color: var(--cronus-success); }
+[data-slot="usage-meter-ring"] > svg.tone-warning { color: var(--cronus-warning); }
+[data-slot="usage-meter-ring"] > svg.tone-error { color: var(--cronus-error); }
+[data-slot="usage-meter-ring"] > svg > circle.track { color: var(--cronus-surface-overlay); }
+[data-slot="usage-meter-ring-progress"] {
+  transition: stroke-dashoffset 500ms var(--ease-out-quart);
+}
+[data-slot="usage-meter-ring"] > [data-slot="usage-meter-value"] {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-family: var(--cronus-font-display, inherit); font-size: 1.125rem; line-height: 1.75rem;
+  font-weight: 600; font-variant-numeric: tabular-nums; color: var(--cronus-fg);
+}
+[data-slot="usage-meter"].circular > [data-slot="usage-meter-label"] {
+  text-align: center; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; color: var(--cronus-fg);
+}
+[data-slot="usage-meter"].circular > [data-slot="usage-meter-label"] + div,
+[data-slot="usage-meter"].circular > [data-slot="usage-meter-ring"] + div {
+  text-align: center; font-size: 0.75rem; line-height: 1rem;
+  font-variant-numeric: tabular-nums; color: var(--cronus-fg-secondary);
+}

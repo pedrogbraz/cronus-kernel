@@ -1,0 +1,9 @@
+page "/alert-dialog" type:components family:alert-dialog {
+  title "Alert Dialog"
+  description:"Focus-trapping confirmation for irreversible actions."
+}
+
+component ConfirmDelete layout:inline style:alert-dialog trigger:"Delete account" trigger-variant:destructive trigger-icon:trash-2 description:"This permanently deletes your account and removes all associated data. This action cannot be undone." cancel:"Cancel" group:"Confirm" note:"A focus-trapping confirmation for destructive or irreversible actions." {
+  label "Are you absolutely sure?"
+  action "Yes, delete it"
+}

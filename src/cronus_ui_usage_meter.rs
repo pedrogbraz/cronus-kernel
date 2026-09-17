@@ -9,10 +9,22 @@
 //! each `[data-value="N"]` to `--cui-progress-value: N` and the fill width reads
 //! it (portable; typed `attr()` is Chromium-only). Tone auto: >90% error,
 //! >75% warning, else primary.
-//! `value` / `max` / `unit` / `aria-label` come from props or item config.
+//! `value` / `max` / `unit` / `aria-label` come from props or item config;
+//! `tone:primary|success|warning|error` overrides the auto tone.
+//!
+//! Circular variant (`style:usage-meter+circular`, or `variant:circular`):
+//! `<div data-slot="usage-meter" class="circular">` (React `inline-flex
+//! flex-col items-center gap-2`) > `<div data-slot="usage-meter-ring"
+//! role="meter" aria-*>` holding the `-rotate-90` `<svg>` (track circle +
+//! `usage-meter-ring-progress` circle whose `stroke-dasharray` /
+//! `stroke-dashoffset` attributes carry the ratio) and the centred
+//! `usage-meter-value` percent, then `usage-meter-label` and the readout.
+//! `size:` is the ring diameter in px (React default 96; stroke = 10% of it).
 
-use crate::cronus_ui_kit::{attr, esc, item};
+use crate::cronus_ui_kit::{attr, choice, esc, item};
 use crate::parser::ComponentNode;
+
+const TONES: &[&str] = &["auto", "primary", "success", "warning", "error"];
 
 pub fn render(comp: &ComponentNode) -> String {
     let max = number(attr(comp, "max")).unwrap_or(100.0);
@@ -25,12 +37,14 @@ pub fn render(comp: &ComponentNode) -> String {
         0.0
     };
     let percent = (ratio * 100.0).round() as i64;
-    let tone = if ratio > 0.9 {
-        "error"
-    } else if ratio > 0.75 {
-        "warning"
-    } else {
-        "primary"
+    let tone = match choice(comp, "tone", TONES) {
+        Some("primary") => "primary",
+        Some("success") => "success",
+        Some("warning") => "warning",
+        Some("error") => "error",
+        _ if ratio > 0.9 => "error",
+        _ if ratio > 0.75 => "warning",
+        _ => "primary",
     };
     let readout = format!("{} / {}", group(value), group(max));
     let value_text = match attr(comp, "unit") {
@@ -56,12 +70,73 @@ pub fn render(comp: &ComponentNode) -> String {
     } else {
         0.0
     };
+    if choice(comp, "variant", &["linear", "circular"]) == Some("circular") {
+        return circular(
+            &label,
+            &value_text,
+            &aria,
+            percent,
+            ratio,
+            tone,
+            safe_value,
+            safe_max,
+            comp,
+        );
+    }
     format!(
         "<div data-slot=\"usage-meter\"><div>{label_html}<span data-slot=\"usage-meter-value\"><span>{value_text}</span><span>{percent}%</span></span></div><div data-slot=\"usage-meter-track\" role=\"meter\" aria-valuenow=\"{now}\" aria-valuemin=\"0\" aria-valuemax=\"{mx}\" aria-valuetext=\"{percent}%\" aria-label=\"{aria}\"><div data-slot=\"usage-meter-fill\" data-tone=\"{tone}\" data-value=\"{fill}\"></div></div></div>",
         now = plain(safe_value),
         mx = plain(safe_max),
         fill = percent,
     )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn circular(
+    label: &Option<String>,
+    value_text: &str,
+    aria: &str,
+    percent: i64,
+    ratio: f64,
+    tone: &str,
+    safe_value: f64,
+    safe_max: f64,
+    comp: &ComponentNode,
+) -> String {
+    let size = number(attr(comp, "size"))
+        .filter(|s| *s >= 8.0 && *s <= 4096.0)
+        .unwrap_or(96.0)
+        .round();
+    let stroke = (size * 0.1).round().max(2.0);
+    let radius = size / 2.0 - stroke / 2.0;
+    let circumference = 2.0 * std::f64::consts::PI * radius;
+    let offset = circumference * (1.0 - ratio);
+    let half = plain(size / 2.0);
+    let label_html = label
+        .as_ref()
+        .map(|l| format!("<div data-slot=\"usage-meter-label\">{l}</div>"))
+        .unwrap_or_default();
+    format!(
+        "<div data-slot=\"usage-meter\" class=\"circular\"><div data-slot=\"usage-meter-ring\" role=\"meter\" aria-valuenow=\"{now}\" aria-valuemin=\"0\" aria-valuemax=\"{mx}\" aria-valuetext=\"{percent}%\" aria-label=\"{aria}\"><svg width=\"{size}\" height=\"{size}\" viewBox=\"0 0 {size} {size}\" fill=\"none\" aria-hidden=\"true\" class=\"tone-{tone}\"><circle cx=\"{half}\" cy=\"{half}\" r=\"{r}\" stroke=\"currentColor\" stroke-width=\"{stroke}\" class=\"track\"></circle><circle data-slot=\"usage-meter-ring-progress\" cx=\"{half}\" cy=\"{half}\" r=\"{r}\" stroke=\"currentColor\" stroke-width=\"{stroke}\" stroke-linecap=\"round\" stroke-dasharray=\"{circ}\" stroke-dashoffset=\"{off}\"></circle></svg><span data-slot=\"usage-meter-value\">{percent}%</span></div>{label_html}<div>{value_text}</div></div>",
+        now = plain(safe_value),
+        mx = plain(safe_max),
+        size = plain(size),
+        stroke = plain(stroke),
+        r = plain(radius),
+        circ = fixed(circumference),
+        off = fixed(offset),
+    )
+}
+
+/// Up to three decimals, trailing zeros dropped.
+fn fixed(n: f64) -> String {
+    let s = format!("{n:.3}");
+    let s = s.trim_end_matches('0').trim_end_matches('.');
+    if s.is_empty() {
+        "0".into()
+    } else {
+        s.to_string()
+    }
 }
 
 fn label_of(comp: &ComponentNode) -> Option<String> {
@@ -168,6 +243,51 @@ mod tests {
         );
         assert!(!html.contains("data-value=\"33.33\""));
         assert!(!html.contains("style="));
+    }
+
+    #[test]
+    fn explicit_tone_overrides_auto() {
+        let mut c = stub("usage-meter", "Bandwidth");
+        c.props.insert("value".into(), "172".into());
+        c.props.insert("max".into(), "200".into());
+        c.props.insert("tone".into(), "warning".into());
+        assert!(render(&c).contains("data-tone=\"warning\""));
+        c.props.insert("tone".into(), "success".into());
+        assert!(render(&c).contains("data-tone=\"success\""));
+        c.props.insert("tone".into(), "auto".into());
+        assert!(render(&c).contains("data-tone=\"warning\""));
+    }
+
+    #[test]
+    fn circular_variant_matches_react_ring() {
+        let mut c = stub("usage-meter+circular", "API requests");
+        c.props.insert("value".into(), "6200".into());
+        c.props.insert("max".into(), "10000".into());
+        let html = render(&c);
+        assert_eq!(
+            html,
+            "<div data-slot=\"usage-meter\" class=\"circular\"><div data-slot=\"usage-meter-ring\" role=\"meter\" aria-valuenow=\"6200\" aria-valuemin=\"0\" aria-valuemax=\"10000\" aria-valuetext=\"62%\" aria-label=\"API requests\"><svg width=\"96\" height=\"96\" viewBox=\"0 0 96 96\" fill=\"none\" aria-hidden=\"true\" class=\"tone-primary\"><circle cx=\"48\" cy=\"48\" r=\"43\" stroke=\"currentColor\" stroke-width=\"10\" class=\"track\"></circle><circle data-slot=\"usage-meter-ring-progress\" cx=\"48\" cy=\"48\" r=\"43\" stroke=\"currentColor\" stroke-width=\"10\" stroke-linecap=\"round\" stroke-dasharray=\"270.177\" stroke-dashoffset=\"102.667\"></circle></svg><span data-slot=\"usage-meter-value\">62%</span></div><div data-slot=\"usage-meter-label\">API requests</div><div>6,200 / 10,000</div></div>"
+        );
+        assert!(!html.contains("style="));
+        // `variant:circular` prop, unit suffix and size.
+        let mut p = stub("usage-meter", "Bandwidth");
+        p.props.insert("variant".into(), "circular".into());
+        p.props.insert("value".into(), "172".into());
+        p.props.insert("max".into(), "200".into());
+        p.props.insert("unit".into(), "GB".into());
+        p.props.insert("tone".into(), "warning".into());
+        p.props.insert("size".into(), "64".into());
+        let html = render(&p);
+        assert!(html.contains("<svg width=\"64\" height=\"64\" viewBox=\"0 0 64 64\" fill=\"none\" aria-hidden=\"true\" class=\"tone-warning\"><circle cx=\"32\" cy=\"32\" r=\"29\" stroke=\"currentColor\" stroke-width=\"6\""));
+        assert!(html.ends_with("<div>172 / 200 GB</div></div>"));
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"usage-meter\"].circular {\n  display: inline-flex; flex-direction: column; align-items: center; gap: 0.5rem;"));
+        assert!(css.contains("[data-slot=\"usage-meter-ring\"] > svg {\n  display: block; transform: rotate(-90deg);"));
+        assert!(css.contains(
+            "[data-slot=\"usage-meter-ring\"] > svg.tone-warning { color: var(--cronus-warning); }"
+        ));
+        assert!(css.contains("[data-slot=\"usage-meter-ring\"] > svg > circle.track { color: var(--cronus-surface-overlay); }"));
+        assert!(css.contains("[data-slot=\"usage-meter-ring-progress\"] {\n  transition: stroke-dashoffset 500ms var(--ease-out-quart);"));
     }
 
     #[test]

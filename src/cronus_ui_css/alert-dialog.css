@@ -34,11 +34,26 @@
   font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; cursor: pointer;
   box-shadow: var(--cronus-shadow-xs, none);
 }
-/* Closed mode: native modal <dialog> (Esc only via closedby=closerequest). */
+/* Closed mode: native modal <dialog> (Esc only via closedby=closerequest),
+   React's data-[state=open] entrance (cronus-pop-in 200ms, overlay fade 200ms). */
 [data-slot="alert-dialog-content"]:modal {
   position: fixed; inset: 0; margin: auto; translate: none;
+  animation: cronus-pop-in 200ms var(--ease-out-quart) both;
 }
 [data-slot="alert-dialog-content"]::backdrop {
   background: color-mix(in oklch, black 50%, transparent);
   backdrop-filter: blur(8px);
 }
+[data-slot="alert-dialog-content"]:modal::backdrop {
+  animation: cronus-overlay-in 200ms var(--ease-out-quart);
+}
+[data-slot="alert-dialog-action"]:not(:disabled):hover { opacity: 0.9; }
+[data-slot="alert-dialog-cancel"]:not(:disabled):hover { background: var(--cronus-surface-overlay); }
+[data-slot="alert-dialog-action"], [data-slot="alert-dialog-cancel"] {
+  cursor: default;
+  transition: background 150ms var(--ease-out-quart), border-color 150ms var(--ease-out-quart),
+    box-shadow 150ms var(--ease-out-quart), transform 150ms var(--ease-out-quart), opacity 150ms var(--ease-out-quart);
+}
+[data-slot="alert-dialog-action"]:active, [data-slot="alert-dialog-cancel"]:active { transform: scale(0.98); }
+/* A closed native <dialog> keeps the UA's display: none (the panel rule above sets display). */
+dialog[data-slot="alert-dialog-content"]:not([open]) { display: none; }

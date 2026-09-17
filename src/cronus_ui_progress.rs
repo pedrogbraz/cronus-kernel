@@ -20,8 +20,15 @@ pub fn render(comp: &ComponentNode) -> String {
     let aria = aria_label(comp)
         .map(|a| format!(" aria-label=\"{}\"", crate::cronus_ui_kit::esc(a)))
         .unwrap_or_default();
+    // `animate:true`: the indicator tweens in from empty on mount (the docs'
+    // `setTimeout(() => setValue(66), 400)`); React has no attribute for it.
+    let class = if crate::cronus_ui_kit::flag(comp, "animate") {
+        " class=\"mount\""
+    } else {
+        ""
+    };
     format!(
-        "<div data-slot=\"progress\" role=\"progressbar\" aria-valuenow=\"{now}\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuetext=\"{now}%\" data-state=\"{state}\" data-value=\"{step}\" data-max=\"100\"{aria}><div data-state=\"{state}\" data-value=\"{step}\" data-max=\"100\"></div></div>"
+        "<div data-slot=\"progress\" role=\"progressbar\" aria-valuenow=\"{now}\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuetext=\"{now}%\" data-state=\"{state}\" data-value=\"{step}\" data-max=\"100\"{aria}{class}><div data-state=\"{state}\" data-value=\"{step}\" data-max=\"100\"></div></div>"
     )
 }
 
@@ -210,6 +217,24 @@ mod tests {
         let html = render(&stub());
         assert!(!html.contains("v-data="));
         assert!(!html.contains("{ value }"));
+    }
+
+    #[test]
+    fn animate_flag_adds_mount_class_and_delayed_tween() {
+        let mut c = stub();
+        c.props.insert("value".into(), "66".into());
+        c.props.insert("animate".into(), "true".into());
+        let html = render(&c);
+        assert!(
+            html.contains("data-max=\"100\" class=\"mount\"><div "),
+            "{html}"
+        );
+        assert!(!render(&stub()).contains("class="));
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"progress\"].mount > div {\n  animation: cui-progress-in 300ms var(--ease-out-quart) 400ms both;"));
+        assert!(
+            css.contains("@keyframes cui-progress-in { from { transform: translateX(-100%); } }")
+        );
     }
 
     #[test]
