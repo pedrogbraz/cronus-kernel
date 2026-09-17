@@ -5,10 +5,33 @@
   padding: 0.75rem 1rem; font-size: 0.875rem; line-height: 1.25rem;
   background: var(--cronus-surface-overlay); color: var(--cronus-fg);
 }
-[data-slot="alert"][role="alert"] {
-  background: color-mix(in oklch, var(--cronus-error) 10%, transparent);
-  border-color: color-mix(in oklch, var(--cronus-error) 30%, transparent);
+[data-slot="alert"]:has(> svg) {
+  grid-template-columns: 1.5rem 1fr; column-gap: 0.75rem;
 }
+[data-slot="alert"] > svg {
+  width: 1.25rem; height: 1.25rem; flex-shrink: 0; translate: 0 0.125rem;
+  color: var(--cronus-fg-secondary);
+}
+[data-slot="alert"].v-info {
+  background: color-mix(in oklab, var(--cronus-info) 10%, transparent);
+  border-color: color-mix(in oklab, var(--cronus-info) 30%, transparent);
+}
+[data-slot="alert"].v-info > svg { color: var(--cronus-info); }
+[data-slot="alert"].v-success {
+  background: color-mix(in oklab, var(--cronus-success) 10%, transparent);
+  border-color: color-mix(in oklab, var(--cronus-success) 30%, transparent);
+}
+[data-slot="alert"].v-success > svg { color: var(--cronus-success); }
+[data-slot="alert"].v-warning {
+  background: color-mix(in oklab, var(--cronus-warning) 10%, transparent);
+  border-color: color-mix(in oklab, var(--cronus-warning) 30%, transparent);
+}
+[data-slot="alert"].v-warning > svg { color: var(--cronus-warning); }
+[data-slot="alert"][role="alert"], [data-slot="alert"].v-destructive {
+  background: color-mix(in oklab, var(--cronus-error) 10%, transparent);
+  border-color: color-mix(in oklab, var(--cronus-error) 30%, transparent);
+}
+[data-slot="alert"].v-destructive > svg { color: var(--cronus-error); }
 [data-slot="alert-title"] {
   grid-column-start: 2; min-height: 1rem;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden;
@@ -18,3 +41,4 @@
   grid-column-start: 2; display: grid; justify-items: start; gap: 0.25rem;
   font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
 }
+[data-slot="alert-description"] p { line-height: 1.625; }

@@ -7,16 +7,23 @@
 //! The kernel renders the same tree open by default, zero JS. Swipe / overlay-click
 //! dismissal needs JS and is not reproduced (React has no close control to mirror).
 //! Closed mode (`trigger:"…"` prop, or `open:false` / `defaultOpen:false`; see
-//! `cronus_ui_kit::overlay_trigger`): an outline `button` trigger opens
-//! `drawer-content` as a native bottom-pinned `popover="auto"` (scrim on
-//! `::backdrop`); Esc and an outside click dismiss it. Gaps: no swipe, and a
-//! popover is not modal (no focus trap, background not inert, `aria-expanded`
-//! not reflected).
+//! `cronus_ui_kit::overlay_trigger`): a `button` trigger
+//! (`cronus_ui_dialog::trigger_button`) opens `drawer-content` as a native
+//! bottom-pinned modal `<dialog>` (scrim on `::backdrop`, vaul's 500ms slide
+//! up); Esc and a backdrop click dismiss it. Gap: no swipe.
+//! Body (the docs' `mx-auto w-full max-w-sm` column, an unslotted `<div>`):
+//! after the header, a `value "350" description:"Calories / day"` item renders
+//! the docs' stat block (`font-display text-5xl` figure + uppercase caption),
+//! and `drawer-footer` holds `action` items (primary buttons; React's Submit
+//! has no handler, so they are plain buttons) plus the `cancel:"…"` outline
+//! button that closes the drawer (`DrawerClose`).
 //! Description comes from `description:"…"` (props or item config), else extra `text`.
 //! Not interact `dialog("drawer")` native `<dialog>` + `showModal()` + SURF.
 
+use crate::cronus_ui_dialog::trigger_button;
 use crate::cronus_ui_kit::{
-    attr, esc, item, label_of, modal_dialog_open, modal_open_button, overlay_trigger, widget_id,
+    attr, attr_nonempty, esc, item, label_of, modal_close_attrs, modal_dialog_open,
+    overlay_trigger, widget_id,
 };
 use crate::parser::ComponentNode;
 
@@ -36,19 +43,70 @@ pub fn render(comp: &ComponentNode) -> String {
             format!("<p id=\"{desc_id}\" data-slot=\"drawer-description\">{desc}</p>"),
         )
     };
-    let inner = format!(
-        "<div aria-hidden=\"true\"></div><div data-slot=\"drawer-header\"><h2 id=\"{title_id}\" data-slot=\"drawer-title\">{title}</h2>{desc_html}</div>"
+    let header = format!(
+        "<div data-slot=\"drawer-header\"><h2 id=\"{title_id}\" data-slot=\"drawer-title\">{title}</h2>{desc_html}</div>"
     );
-    match overlay_trigger(comp, "Open") {
+    let trigger = overlay_trigger(comp, "Open");
+    let pop_id = widget_id(comp, "drawer");
+    let stat = comp
+        .items
+        .iter()
+        .find(|i| i.item_type == "value" && !i.text.is_empty())
+        .map(|v| {
+            let caption = v
+                .config
+                .get("description")
+                .filter(|d| !d.trim().is_empty())
+                .map(|d| format!("<p>{}</p>", esc(d)))
+                .unwrap_or_default();
+            format!(
+                "<div class=\"stat\"><span>{}</span>{caption}</div>",
+                esc(&v.text)
+            )
+        })
+        .unwrap_or_default();
+    let mut footer: String = comp
+        .items
+        .iter()
+        .filter(|i| i.item_type == "action" && !i.text.is_empty())
+        .map(|i| {
+            format!(
+                "<button type=\"button\" data-slot=\"button\" data-variant=\"primary\">{}</button>",
+                esc(&i.text)
+            )
+        })
+        .collect();
+    if let Some(cancel) = attr_nonempty(comp, "cancel") {
+        let closes = match &trigger {
+            Some(_) => modal_close_attrs(&pop_id),
+            None => " disabled".to_string(),
+        };
+        footer.push_str(&format!(
+            "<button type=\"button\" data-slot=\"button\" data-variant=\"outline\"{closes}>{}</button>",
+            esc(cancel)
+        ));
+    }
+    let footer = if footer.is_empty() {
+        String::new()
+    } else {
+        format!("<div data-slot=\"drawer-footer\">{footer}</div>")
+    };
+    // The docs wrap header/body/footer in a `mx-auto w-full max-w-sm` column.
+    let body = if stat.is_empty() && footer.is_empty() {
+        header
+    } else {
+        format!("<div>{header}{stat}{footer}</div>")
+    };
+    let inner = format!("<div aria-hidden=\"true\"></div>{body}");
+    match trigger {
         None => format!(
             "<div data-slot=\"drawer-overlay\" aria-hidden=\"true\"></div><div role=\"dialog\" aria-labelledby=\"{title_id}\"{described_by} data-slot=\"drawer-content\">{inner}</div>"
         ),
         Some(trigger) => {
             let trigger_id = widget_id(comp, "drawer-trigger");
-            let pop_id = widget_id(comp, "drawer");
             format!(
                 "{}{}{inner}</dialog>",
-                modal_open_button(&trigger_id, &pop_id, &trigger),
+                trigger_button(comp, &trigger_id, &pop_id, &trigger),
                 modal_dialog_open(
                     &pop_id,
                     "drawer-content",
@@ -179,8 +237,39 @@ mod tests {
     }
 
     #[test]
+    fn docs_drawer_has_stat_block_and_footer() {
+        let mut c = stub("drawer", "Move goal");
+        c.props.insert("trigger".into(), "Open drawer".into());
+        c.props.insert(
+            "description".into(),
+            "Set your daily activity target.".into(),
+        );
+        c.props.insert("cancel".into(), "Cancel".into());
+        let mut v = extra("value", "350");
+        v.config
+            .insert("description".into(), "Calories / day".into());
+        c.items.push(v);
+        c.items.push(extra("action", "Submit"));
+        let html = render(&c);
+        let pid = widget_id(&c, "drawer");
+        assert!(html.contains(&format!(
+            "<div aria-hidden=\"true\"></div><div><div data-slot=\"drawer-header\"><h2 id=\"{}\" data-slot=\"drawer-title\">Move goal</h2><p id=\"{}\" data-slot=\"drawer-description\">Set your daily activity target.</p></div><div class=\"stat\"><span>350</span><p>Calories / day</p></div><div data-slot=\"drawer-footer\"><button type=\"button\" data-slot=\"button\" data-variant=\"primary\">Submit</button><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" commandfor=\"{pid}\" command=\"close\">Cancel</button></div></div></dialog>",
+            widget_id(&c, "drawer-title"),
+            widget_id(&c, "drawer-description")
+        )), "{html}");
+        // The stat is not a description.
+        assert!(!html.contains("drawer-description\">350"));
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"drawer-content\"] > div:not([aria-hidden]) {\n  margin: 0 auto; width: 100%; max-width: 24rem;"));
+        assert!(css.contains("[data-slot=\"drawer-content\"] .stat > span {\n  font-family: var(--cronus-font-display, inherit); font-size: 3rem; line-height: 1; font-weight: 600; letter-spacing: -0.025em;"));
+        assert!(css.contains("[data-slot=\"drawer-footer\"] {\n  display: flex; flex-direction: column; gap: 0.5rem; margin-top: auto; padding: 1rem;"));
+        assert!(css.contains("[data-slot=\"drawer-content\"]:modal {\n  position: fixed; inset-block: auto 0; inset-inline: 0; margin: 6rem 0 0; translate: none;\n  width: auto; padding: 0; border-radius: var(--cronus-radius-xl) var(--cronus-radius-xl) 0 0;\n  max-width: none; max-height: none;\n  animation: cronus-slide-in-bottom 500ms cubic-bezier(0.32, 0.72, 0, 1) both;"));
+    }
+
+    #[test]
     fn chrome_closed_mode_is_bottom_pinned_modal_dialog() {
         let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("dialog[data-slot=\"drawer-content\"]:not([open]) { display: none; }"));
         assert!(css.contains("[data-slot=\"drawer-content\"]:modal {\n  position: fixed; inset-block: auto 0; inset-inline: 0;"));
         assert!(css.contains("[data-slot=\"drawer-content\"]::backdrop {"));
         assert!(!css.contains("[data-slot=\"drawer-content\"][popover]"));

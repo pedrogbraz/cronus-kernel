@@ -1,0 +1,13 @@
+page "/alert" type:components family:alert {
+  title "Alert"
+  description:"Inline callout with an icon, title and description."
+}
+
+component HeadsUp layout:stack style:alert icon:terminal description:"You can add components to your app using the CLI." group:"Default" note:"An inline callout with an icon, title, and description." { label "Heads up!" }
+
+component NewVersion layout:stack style:alert+info icon:info description:"A new release is ready to install." group:"Variants" note:"Semantic variants tint the surface, border, and icon for each intent." { label "New version available" }
+component PaymentReceived layout:stack style:alert+success icon:circle-check description:"Your subscription is now active." group:"Variants" { label "Payment received" }
+component StorageFull layout:stack style:alert+warning icon:triangle-alert description:"You've used 92% of your quota." group:"Variants" { label "Storage almost full" }
+component UnableToSave layout:stack style:alert+destructive icon:circle-alert description:"Check your connection and try again." group:"Variants" { label "Unable to save changes" }
+
+component TrialEnds layout:stack style:alert+info group:"Title only" note:"Drop the icon and description for a compact, single-line callout." { label "Your trial ends in 3 days." }

@@ -1,0 +1,12 @@
+page "/usage-meter" type:components family:usage-meter {
+  title "Usage Meter"
+  description:"Quota bar or ring with a value / max readout."
+}
+
+component Tokens layout:stack style:usage-meter value:186400 max:250000 unit:tokens group:"Linear" note:"A horizontal quota bar with a label and a value / max readout. The auto tone shades the fill from primary to warning to error as usage climbs." { label "Tokens" }
+component Seats layout:stack style:usage-meter value:18 max:20 group:"Linear" { label "Seats" }
+component StorageQuota layout:stack style:usage-meter value:48 max:50 unit:GB group:"Linear" { label "Storage" }
+
+component ApiRequests layout:inline style:usage-meter+circular value:6200 max:10000 group:"Circular" note:"An SVG ring for compact, at-a-glance quota. Here three API-request budgets." { label "API requests" }
+component Bandwidth layout:inline style:usage-meter+circular value:172 max:200 unit:GB tone:warning group:"Circular" { label "Bandwidth" }
+component Builds layout:inline style:usage-meter+circular value:95 max:100 group:"Circular" { label "Builds" }

@@ -1,0 +1,11 @@
+page "/resizable" type:components family:resizable {
+  title "Resizable"
+  description:"Split panes with draggable dividers."
+}
+
+component SplitPanes layout:stack style:resizable handle:true height:48 bordered:true group:"Split panes" note:"A horizontal group nests a vertical one for a three-pane layout. Dragging the divider needs JS; the kernel renders the declared sizes." {
+  label "Panes"
+  item "Sidebar" size:35
+  item "Content" size:60 vertical:true
+  item "Console" size:40 vertical:true
+}

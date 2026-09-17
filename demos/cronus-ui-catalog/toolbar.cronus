@@ -1,0 +1,14 @@
+page "/toolbar" type:components family:toolbar {
+  title "Toolbar"
+  description:"Grouped toggle buttons with separators."
+}
+
+component Formatting layout:inline style:toolbar aria-label:"Formatting" group:"Formatting" {
+  label "Formatting"
+  item "Bold" icon:bold type:toggle pressed:true group:"marks"
+  item "Italic" icon:italic type:toggle group:"marks"
+  item "Underline" icon:underline type:toggle group:"marks"
+  item "Align left" icon:align-left type:radio pressed:true group:"align"
+  item "Align center" icon:align-center type:radio group:"align"
+  item "Align right" icon:align-right type:radio group:"align"
+}

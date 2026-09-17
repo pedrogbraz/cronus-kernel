@@ -1,0 +1,8 @@
+page "/spinner" type:components family:spinner {
+  title "Spinner"
+  description:"Accessible loading indicator in three sizes."
+}
+
+component SpinnerSmall layout:inline style:spinner+sm aria-label:"Loading small" group:"Sizes" note:"An accessible loading indicator in three sizes." { label "Loading" }
+component SpinnerMedium layout:inline style:spinner+md aria-label:"Loading medium" group:"Sizes" { label "Loading" }
+component SpinnerLarge layout:inline style:spinner+lg aria-label:"Loading large" group:"Sizes" { label "Loading" }

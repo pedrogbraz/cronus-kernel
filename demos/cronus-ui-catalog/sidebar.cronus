@@ -1,0 +1,12 @@
+page "/sidebar" type:components family:sidebar {
+  title "Sidebar"
+  description:"Composable app sidebar with grouped menu items."
+}
+
+component Collapsible layout:stack style:sidebar collapsible:icon header:"Acme Inc." description:"Toggle the sidebar with the button above." group:"Collapsible navigation" note:"A composable app sidebar with grouped menu items, a header and footer. Use the trigger to collapse it to icons." {
+  label "Sidebar"
+  item "Home" icon:home active:true group:"Workspace"
+  item "Inbox" icon:inbox group:"Workspace"
+  item "Calendar" icon:calendar group:"Workspace"
+  item "Settings" icon:settings footer:true
+}

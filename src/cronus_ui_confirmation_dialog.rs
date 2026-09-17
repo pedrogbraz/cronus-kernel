@@ -11,30 +11,57 @@
 //! `disabled` and React's idle look.
 //!
 //! Closed mode (`trigger:"…"` prop, or `open:false` / `defaultOpen:false`; see
-//! `cronus_ui_kit::overlay_trigger`): an outline `button` trigger opens the panel
-//! as a native `popover="auto"` (scrim on `::backdrop`, no overlay div) and
-//! Cancel hides it (`popovertargetaction="hide"`); Confirm still needs JS and
-//! stays `disabled`. Gaps: a popover is not modal (no focus trap, background not
-//! inert, `aria-expanded` not reflected) and an outside click also dismisses it.
+//! `cronus_ui_kit::overlay_trigger`): a `button` trigger
+//! (`cronus_ui_dialog::trigger_button`: `trigger-variant:`, `trigger-icon:`)
+//! opens the panel as a native modal `<dialog>` (scrim on `::backdrop`, Esc
+//! only, React's `cronus-pop-in` entrance). Cancel and Confirm both close it
+//! (`command="close"`; React's `handleConfirm` closes when there is no async
+//! `onConfirm`). `confirm:"…"` / `cancel:"…"` props (or `action` items) label
+//! the buttons; `icon:` fills the header badge (`confirmation-dialog-icon`);
+//! `destructive:true` (or `style:confirmation-dialog+destructive`) switches to
+//! the red confirm button and the triangle-alert badge — React has no data
+//! attribute for it, so both carry a `destructive` class.
 //! Not reproduced (JS-only): async `onConfirm` spinner/error state.
 
+use crate::cronus_ui_dialog::trigger_button;
 use crate::cronus_ui_kit::{
-    attr_nonempty, esc, item, label_of, modal_close_attrs, modal_dialog_open, modal_open_button,
-    overlay_trigger, widget_id,
+    attr_nonempty, esc, item, label_of, modal_close_attrs, modal_dialog_open, overlay_trigger,
+    widget_id,
 };
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
     let title = label_of(comp);
-    let confirm = item(comp, "confirm")
+    let confirm = attr_nonempty(comp, "confirm")
+        .or_else(|| item(comp, "confirm"))
         .or_else(|| item(comp, "action"))
         .filter(|t| !t.is_empty())
         .map(esc)
         .unwrap_or_else(|| "Confirm".into());
-    let cancel = item(comp, "cancel")
+    let cancel = attr_nonempty(comp, "cancel")
+        .or_else(|| item(comp, "cancel"))
         .filter(|t| !t.is_empty())
         .map(esc)
         .unwrap_or_else(|| "Cancel".into());
+    let destructive = crate::cronus_ui_kit::flag(comp, "destructive")
+        || crate::cronus_ui_kit::style_seg(comp, &["destructive"]).is_some();
+    let badge_class = if destructive {
+        " class=\"destructive\""
+    } else {
+        ""
+    };
+    let icon = match attr_nonempty(comp, "icon") {
+        Some(name) => crate::cronus_ui_icons::svg_or_empty(name),
+        None if destructive => crate::cronus_ui_icons::svg_or_empty("triangle-alert"),
+        None => String::new(),
+    };
+    let icon = if icon.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "<div aria-hidden=\"true\" data-slot=\"confirmation-dialog-icon\"{badge_class}>{icon}</div>"
+        )
+    };
     // `description:"…"` prop or attr-style item config, else free text items.
     let desc = attr_nonempty(comp, "description")
         .map(|d| esc(d))
@@ -47,13 +74,13 @@ pub fn render(comp: &ComponentNode) -> String {
     let title_id = widget_id(comp, "confirmation-dialog-title");
     let trigger = overlay_trigger(comp, "Open");
     let pop_id = widget_id(comp, "confirmation-dialog");
-    let cancel_state = if trigger.is_some() {
+    let closes = if trigger.is_some() {
         modal_close_attrs(&pop_id)
     } else {
         " disabled".to_string()
     };
     let body = format!(
-        "<div data-slot=\"alert-dialog-header\"><h2 data-slot=\"alert-dialog-title\" id=\"{title_id}\">{title}</h2>{desc_html}</div><div data-slot=\"alert-dialog-footer\"><button type=\"button\" data-slot=\"alert-dialog-cancel\"{cancel_state}>{cancel}</button><button type=\"button\" data-slot=\"confirmation-dialog-confirm\" disabled>{confirm}</button></div>"
+        "<div data-slot=\"alert-dialog-header\">{icon}<h2 data-slot=\"alert-dialog-title\" id=\"{title_id}\">{title}</h2>{desc_html}</div><div data-slot=\"alert-dialog-footer\"><button type=\"button\" data-slot=\"alert-dialog-cancel\"{closes}>{cancel}</button><button type=\"button\" data-slot=\"confirmation-dialog-confirm\"{badge_class}{closes}>{confirm}</button></div>"
     );
     match trigger {
         None => format!(
@@ -63,7 +90,7 @@ pub fn render(comp: &ComponentNode) -> String {
             let trigger_id = widget_id(comp, "confirmation-dialog-trigger");
             format!(
                 "{}{}{body}</dialog>",
-                modal_open_button(&trigger_id, &pop_id, &trigger),
+                trigger_button(comp, &trigger_id, &pop_id, &trigger),
                 modal_dialog_open(
                     &pop_id,
                     "confirmation-dialog",
@@ -181,15 +208,59 @@ mod tests {
         assert!(html.contains(&format!(
             "<button type=\"button\" data-slot=\"alert-dialog-cancel\" commandfor=\"{pid}\" command=\"close\">Cancel</button>"
         )));
-        assert!(
-            html.contains("data-slot=\"confirmation-dialog-confirm\" disabled>Confirm</button>")
-        );
+        // React closes on confirm when there is no async `onConfirm`.
+        assert!(html.contains(&format!(
+            "data-slot=\"confirmation-dialog-confirm\" commandfor=\"{pid}\" command=\"close\">Confirm</button>"
+        )));
         reject_js(&html);
+    }
+
+    #[test]
+    fn docs_variants_icon_badge_and_destructive() {
+        let mut c = stub("confirmation-dialog", "Publish this article?");
+        c.props.insert("trigger".into(), "Publish article".into());
+        c.props.insert("trigger-variant".into(), "primary".into());
+        c.props.insert("icon".into(), "rocket".into());
+        c.props.insert("confirm".into(), "Publish".into());
+        c.props.insert(
+            "description".into(),
+            "It becomes visible to everyone.".into(),
+        );
+        let html = render(&c);
+        let pid = widget_id(&c, "confirmation-dialog");
+        assert!(html.contains(
+            "data-variant=\"primary\" commandfor=\"{pid}\" command=\"show-modal\""
+                .replace("{pid}", &pid)
+                .as_str()
+        ));
+        assert!(html.contains("<div data-slot=\"alert-dialog-header\"><div aria-hidden=\"true\" data-slot=\"confirmation-dialog-icon\"><svg "), "{html}");
+        assert!(html.contains("data-icon=\"rocket\""));
+        assert!(html.contains("<button type=\"button\" data-slot=\"alert-dialog-cancel\" commandfor=\"{pid}\" command=\"close\">Cancel</button><button type=\"button\" data-slot=\"confirmation-dialog-confirm\" commandfor=\"{pid}\" command=\"close\">Publish</button>".replace("{pid}", &pid).as_str()));
+        let mut d = stub("confirmation-dialog+destructive", "Delete your account?");
+        d.props.insert("trigger".into(), "Delete account".into());
+        d.props.insert("confirm".into(), "Delete account".into());
+        d.props.insert("cancel".into(), "Cancel".into());
+        let html = render(&d);
+        assert!(html.contains("<div aria-hidden=\"true\" data-slot=\"confirmation-dialog-icon\" class=\"destructive\"><svg "));
+        assert!(html.contains("data-icon=\"triangle-alert\""));
+        assert!(html.contains(
+            "data-slot=\"confirmation-dialog-confirm\" class=\"destructive\" commandfor="
+        ));
+        assert!(html.contains("data-variant=\"outline\" commandfor="));
+        // No icon, no badge (the audit fixture).
+        assert!(!render(&stub("confirmation-dialog", "Sure?")).contains("confirmation-dialog-icon"));
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"confirmation-dialog-icon\"] {\n  display: flex; width: 2.75rem; height: 2.75rem; align-items: center; justify-content: center; align-self: center;"));
+        assert!(css.contains("[data-slot=\"confirmation-dialog-icon\"].destructive {\n  background: color-mix(in oklab, var(--cronus-error) 10%, transparent); color: var(--cronus-error);"));
+        assert!(css.contains("[data-slot=\"confirmation-dialog-confirm\"].destructive {\n  background: color-mix(in oklch, var(--cronus-error), black 30%); color: #fff;"));
+        assert!(css.contains("[data-slot=\"confirmation-dialog\"]:modal {\n  position: fixed; inset: 0; margin: auto; translate: none;\n  animation: cronus-pop-in 200ms var(--ease-out-quart) both;"));
     }
 
     #[test]
     fn chrome_closed_mode_is_native_modal_dialog() {
         let css = crate::cronus_ui::component_chrome_css();
+        assert!(css
+            .contains("dialog[data-slot=\"confirmation-dialog\"]:not([open]) { display: none; }"));
         assert!(css.contains("[data-slot=\"confirmation-dialog\"]:modal {\n  position: fixed; inset: 0; margin: auto; translate: none;"));
         assert!(css.contains("[data-slot=\"confirmation-dialog\"]::backdrop {"));
         assert!(!css.contains("[data-slot=\"confirmation-dialog\"][popover]"));

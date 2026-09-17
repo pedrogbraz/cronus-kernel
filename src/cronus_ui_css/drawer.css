@@ -27,11 +27,37 @@
 [data-slot="drawer-description"] {
   margin: 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
 }
-/* Closed mode: native modal <dialog>, bottom-pinned, scrim on ::backdrop. */
+/* Docs body: `mx-auto w-full max-w-sm` column, stat block and footer. */
+[data-slot="drawer-content"] > div:not([aria-hidden]) {
+  margin: 0 auto; width: 100%; max-width: 24rem; display: flex; flex-direction: column;
+}
+[data-slot="drawer-content"] .stat {
+  padding: 1.5rem 1rem; text-align: center;
+}
+[data-slot="drawer-content"] .stat > span {
+  font-family: var(--cronus-font-display, inherit); font-size: 3rem; line-height: 1; font-weight: 600; letter-spacing: -0.025em;
+  color: var(--cronus-fg);
+}
+[data-slot="drawer-content"] .stat > p {
+  margin: 0.25rem 0 0; font-size: 0.75rem; line-height: 1rem; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--cronus-fg-tertiary);
+}
+[data-slot="drawer-footer"] {
+  display: flex; flex-direction: column; gap: 0.5rem; margin-top: auto; padding: 1rem;
+}
+/* Closed mode: native modal <dialog>, bottom-pinned, scrim on ::backdrop,
+   vaul's slide-up (500ms cubic-bezier(0.32, 0.72, 0, 1)) and overlay fade. */
 [data-slot="drawer-content"]:modal {
   position: fixed; inset-block: auto 0; inset-inline: 0; margin: 6rem 0 0; translate: none;
   width: auto; padding: 0; border-radius: var(--cronus-radius-xl) var(--cronus-radius-xl) 0 0;
+  max-width: none; max-height: none;
+  animation: cronus-slide-in-bottom 500ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 [data-slot="drawer-content"]::backdrop {
   background: color-mix(in srgb, black 50%, transparent);
 }
+[data-slot="drawer-content"]:modal::backdrop {
+  animation: cronus-overlay-in 500ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+/* A closed native <dialog> keeps the UA's display: none (the panel rule above sets display). */
+dialog[data-slot="drawer-content"]:not([open]) { display: none; }

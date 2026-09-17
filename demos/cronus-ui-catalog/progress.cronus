@@ -1,0 +1,8 @@
+page "/progress" type:components family:progress {
+  title "Progress"
+  description:"Determinate progress bar."
+}
+
+component Storage layout:stack style:progress value:30 aria-label:"Storage used" group:"Determinate" note:"Determinate progress bars. The middle bar animates in on mount." { label "Storage used" }
+component Upload layout:stack style:progress value:66 animate:true aria-label:"Upload progress" group:"Determinate" { label "Upload progress" }
+component Sync layout:stack style:progress value:100 aria-label:"Sync complete" group:"Determinate" { label "Sync complete" }

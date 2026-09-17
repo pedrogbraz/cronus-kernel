@@ -1,0 +1,19 @@
+page "/workspace-switcher" type:components family:workspace-switcher {
+  title "Workspace Switcher"
+  description:"Compact switcher for the current workspace."
+}
+
+component Basic layout:inline style:workspace-switcher width:56 group:"Basic" note:"A compact workspace switcher. The trigger shows the current avatar, name, and chevron; picking another row switches the workspace." {
+  label "Switch workspace"
+  item "Cronus" initials:"CR"
+  item "Northwind" initials:"NW"
+  item "Acme" initials:"AC"
+}
+
+component InSidebar layout:stack style:workspace-switcher sidebar:"Cronus" group:"In a sidebar" note:"Drop the switcher under a brand row in SidebarHeader. The trigger stretches to the sidebar width." {
+  label "Switch workspace"
+  item "Cronus" initials:"CR"
+  item "Northwind" initials:"NW"
+  item "Acme" initials:"AC"
+  link "Home" icon:home active:true
+}

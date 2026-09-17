@@ -12,9 +12,12 @@
 //! without JS), so only the trigger is in the canvas on both sides.
 //!
 //! Content: trigger = first text (the fixture's `children` label), body =
-//! the remaining texts, else the trigger text.
+//! the remaining texts, else the trigger text. `icon:` puts a lucide glyph in
+//! the trigger; `size:icon` (or `style:tooltip+icon`) makes it the docs'
+//! icon-only `Button size="icon"` whose `aria-label` is the label text (the
+//! tooltip carries the same text unless a `text` item overrides it).
 
-use crate::cronus_ui_kit::{texts, widget_id};
+use crate::cronus_ui_kit::{attr_nonempty, choice, texts, widget_id};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -26,10 +29,20 @@ pub fn render(comp: &ComponentNode) -> String {
     } else {
         body
     };
+    let icon = attr_nonempty(comp, "icon")
+        .map(crate::cronus_ui_icons::svg_or_empty)
+        .unwrap_or_default();
+    let (size, inner) = match choice(comp, "size", &["icon", "icon-sm"]) {
+        Some(s) => (
+            format!(" data-size=\"{s}\" aria-label=\"{trigger}\""),
+            icon.clone(),
+        ),
+        None => (String::new(), format!("{icon}{trigger}")),
+    };
     let trigger_id = widget_id(comp, "tooltip-trigger");
     let content_id = widget_id(comp, "tooltip");
     format!(
-        "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"outline\" interestfor=\"{content_id}\" aria-describedby=\"{content_id}\">{trigger}</button><div id=\"{content_id}\" popover=\"hint\" data-slot=\"tooltip-content\" role=\"tooltip\">{body}</div>"
+        "<button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"outline\"{size} interestfor=\"{content_id}\" aria-describedby=\"{content_id}\">{inner}</button><div id=\"{content_id}\" popover=\"hint\" data-slot=\"tooltip-content\" role=\"tooltip\">{body}</div>"
     )
 }
 
@@ -77,8 +90,27 @@ mod tests {
     }
 
     #[test]
+    fn icon_only_trigger_and_icon_label_trigger() {
+        let mut c = stub("tooltip", "Add to library");
+        c.props.insert("icon".into(), "plus".into());
+        c.props.insert("size".into(), "icon".into());
+        let html = render(&c);
+        assert!(html.starts_with("<button type=\"button\" id=\"cui-tooltip-tooltip-trigger\" data-slot=\"button\" data-variant=\"outline\" data-size=\"icon\" aria-label=\"Add to library\" interestfor=\"cui-tooltip-tooltip\" aria-describedby=\"cui-tooltip-tooltip\"><svg "), "{html}");
+        assert!(html.contains("data-icon=\"plus\""));
+        assert!(html.contains("</svg></button><div id=\"cui-tooltip-tooltip\" popover=\"hint\" data-slot=\"tooltip-content\" role=\"tooltip\">Add to library</div>"));
+        let mut h = fixture();
+        h.props.insert("icon".into(), "help-circle".into());
+        let html = render(&h);
+        assert!(html.contains("data-icon=\"help-circle\""));
+        assert!(html.contains("</svg>Need help?</button>"));
+        assert!(!html.contains("data-size"));
+        reject_js(&html);
+    }
+
+    #[test]
     fn chrome_closed_until_popover_open() {
         let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("animation: cronus-pop-in 150ms var(--ease-out-quart) both;"));
         assert!(
             css.contains("[data-slot=\"tooltip-content\"]:not(:popover-open) { display: none; }")
         );

@@ -1,0 +1,25 @@
+page "/sheet" type:components family:sheet {
+  title "Sheet"
+  description:"Panel that slides in from any edge of the screen."
+}
+
+component Top layout:inline style:sheet+top trigger:"Top" description:"This panel slides in from the top edge. Press Escape or click outside to dismiss it." group:"Sides" note:"A panel that slides in from any edge of the screen." {
+  label "Top sheet"
+  field "Quick note" placeholder:"Type something…"
+  action "Done"
+}
+component Right layout:inline style:sheet+right trigger:"Right" description:"This panel slides in from the right edge. Press Escape or click outside to dismiss it." group:"Sides" {
+  label "Right sheet"
+  field "Quick note" placeholder:"Type something…"
+  action "Done"
+}
+component Bottom layout:inline style:sheet+bottom trigger:"Bottom" description:"This panel slides in from the bottom edge. Press Escape or click outside to dismiss it." group:"Sides" {
+  label "Bottom sheet"
+  field "Quick note" placeholder:"Type something…"
+  action "Done"
+}
+component Left layout:inline style:sheet+left trigger:"Left" description:"This panel slides in from the left edge. Press Escape or click outside to dismiss it." group:"Sides" {
+  label "Left sheet"
+  field "Quick note" placeholder:"Type something…"
+  action "Done"
+}

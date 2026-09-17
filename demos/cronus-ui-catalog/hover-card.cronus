@@ -1,0 +1,10 @@
+page "/hover-card" type:components family:hover-card {
+  title "Hover Card"
+  description:"Preview card revealed on hover or focus."
+}
+
+component ProfilePreview layout:inline style:hover-card icon:users width:72 description:"The token-driven design system that themes itself." group:"Profile preview" note:"A preview card that appears on hover or focus. Great for profile mentions." {
+  label "@cronus"
+  title "Cronus"
+  meta "Joined June 2026" icon:calendar-days
+}

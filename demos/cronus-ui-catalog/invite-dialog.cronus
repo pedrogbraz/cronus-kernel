@@ -1,0 +1,8 @@
+page "/invite-dialog" type:components family:invite-dialog {
+  title "Invite Dialog"
+  description:"Invite a member by email and role."
+}
+
+component Invite layout:inline style:invite-dialog trigger:"Invite member" trigger-variant:primary group:"Basic" note:"An ergonomic Dialog for inviting a member by email and role. Pass a trigger; default roles are Member and Admin." { label "Invite member" }
+
+component AsyncInvite layout:inline style:invite-dialog trigger:"Invite member" trigger-variant:primary group:"Async invite" note:"When onInvite returns a promise the send button shows a spinner and both actions lock until it settles. The kernel renders the idle form." { label "Invite member" }

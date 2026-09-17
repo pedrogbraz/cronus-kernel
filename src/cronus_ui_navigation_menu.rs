@@ -11,10 +11,16 @@
 //! `navigation-menu-content` anchored under it (Esc / outside click dismiss).
 //! Gaps: no hover-to-open or pointer-grace between triggers (JS), and
 //! `aria-expanded` / `data-state` stay "closed".
+//! Docs menu bar: `link "Analytics" -> "#" description:"…" menu:"Products"`
+//! lines fill the `Products` trigger's panel with the docs' `<ul>` of
+//! `navigation-menu-link`s (name + description spans); a `link` without
+//! `menu:` is the flat `Docs` entry, a `navigation-menu-link` styled like a
+//! trigger (`navigationMenuTriggerStyle`, a `trigger` class). Trigger panels
+//! open by click or hover (`popovertarget` + `interestfor`).
 //! Not interact `nav("navigation-menu")` (generic SURF `<nav>`).
 
-use crate::cronus_ui_kit::{choice_texts, esc, texts, widget_id};
-use crate::parser::ComponentNode;
+use crate::cronus_ui_kit::{choice_texts, esc, safe_url, texts, widget_id};
+use crate::parser::{ComponentItemNode, ComponentNode};
 
 const CHEVRON: &str = concat!(
     "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" ",
@@ -23,25 +29,68 @@ const CHEVRON: &str = concat!(
 );
 
 pub fn render(comp: &ComponentNode) -> String {
-    let items = menu_triggers(comp)
+    let links: Vec<&ComponentItemNode> = comp
+        .items
         .iter()
-        .enumerate()
-        .map(|(i, t)| match content_of(comp, t) {
+        .filter(|i| i.item_type == "link" && !i.text.is_empty())
+        .collect();
+    let mut items = Vec::new();
+    for (i, t) in menu_triggers(comp).iter().enumerate() {
+        let panel_links: Vec<&ComponentItemNode> = links
+            .iter()
+            .copied()
+            .filter(|l| l.config.get("menu").map(|m| esc(m.trim())) == Some(t.clone()))
+            .collect();
+        let content = if panel_links.is_empty() {
+            content_of(comp, t)
+        } else {
+            Some(format!(
+                "<ul>{}</ul>",
+                panel_links
+                    .iter()
+                    .map(|l| {
+                        let description = l
+                            .config
+                            .get("description")
+                            .filter(|d| !d.trim().is_empty())
+                            .map(|d| format!("<span>{}</span>", esc(d)))
+                            .unwrap_or_default();
+                        format!(
+                            "<li><a data-slot=\"navigation-menu-link\" href=\"{}\"><span>{}</span>{description}</a></li>",
+                            safe_url(l.link.as_deref().unwrap_or("#")),
+                            esc(&l.text)
+                        )
+                    })
+                    .collect::<String>()
+            ))
+        };
+        items.push(match content {
             Some(content) => {
                 let trigger_id = widget_id(comp, &format!("trigger-{}", i + 1));
                 let pop_id = widget_id(comp, &format!("content-{}", i + 1));
                 format!(
-                    "<li data-slot=\"navigation-menu-item\"><button type=\"button\" id=\"{trigger_id}\" data-slot=\"navigation-menu-trigger\" data-state=\"closed\" aria-expanded=\"false\" popovertarget=\"{pop_id}\">{t}{CHEVRON}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"navigation-menu-content\" anchor=\"{trigger_id}\">{content}</div></li>"
+                    "<li data-slot=\"navigation-menu-item\"><button type=\"button\" id=\"{trigger_id}\" data-slot=\"navigation-menu-trigger\" data-state=\"closed\" aria-expanded=\"false\" popovertarget=\"{pop_id}\" interestfor=\"{pop_id}\">{t}{CHEVRON}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"navigation-menu-content\" anchor=\"{trigger_id}\">{content}</div></li>"
                 )
             }
             None => format!(
                 "<li data-slot=\"navigation-menu-item\"><button type=\"button\" data-slot=\"navigation-menu-trigger\" data-state=\"closed\" aria-expanded=\"false\" disabled>{t}{CHEVRON}</button></li>"
             ),
-        })
-        .collect::<Vec<_>>()
-        .join("");
+        });
+    }
+    // Flat links (no `menu:`) are trigger-styled `navigation-menu-link`s.
+    for l in links
+        .iter()
+        .filter(|l| l.config.get("menu").map_or(true, |m| m.trim().is_empty()))
+    {
+        items.push(format!(
+            "<li data-slot=\"navigation-menu-item\"><a data-slot=\"navigation-menu-link\" class=\"trigger\" href=\"{}\">{}</a></li>",
+            safe_url(l.link.as_deref().unwrap_or("#")),
+            esc(&l.text)
+        ));
+    }
     format!(
-        "<nav data-slot=\"navigation-menu\" aria-label=\"Main\"><div><ul data-slot=\"navigation-menu-list\">{items}</ul></div></nav>"
+        "<nav data-slot=\"navigation-menu\" aria-label=\"Main\"><div><ul data-slot=\"navigation-menu-list\">{}</ul></div></nav>",
+        items.join("")
     )
 }
 
@@ -59,6 +108,9 @@ fn menu_triggers(comp: &ComponentNode) -> Vec<String> {
     let choices = choice_texts(comp);
     if !choices.is_empty() {
         return choices;
+    }
+    if comp.items.iter().any(|i| i.item_type == "link") {
+        return Vec::new();
     }
     texts(comp)
 }
@@ -130,7 +182,7 @@ mod tests {
         let tid = crate::cronus_ui_kit::widget_id(&c, "trigger-1");
         let pid = crate::cronus_ui_kit::widget_id(&c, "content-1");
         assert!(html.contains(&format!(
-            "<li data-slot=\"navigation-menu-item\"><button type=\"button\" id=\"{tid}\" data-slot=\"navigation-menu-trigger\" data-state=\"closed\" aria-expanded=\"false\" popovertarget=\"{pid}\">Products{CHEVRON}</button><div id=\"{pid}\" popover=\"auto\" data-slot=\"navigation-menu-content\" anchor=\"{tid}\">Analytics &amp; dashboards</div></li>"
+            "<li data-slot=\"navigation-menu-item\"><button type=\"button\" id=\"{tid}\" data-slot=\"navigation-menu-trigger\" data-state=\"closed\" aria-expanded=\"false\" popovertarget=\"{pid}\" interestfor=\"{pid}\">Products{CHEVRON}</button><div id=\"{pid}\" popover=\"auto\" data-slot=\"navigation-menu-content\" anchor=\"{tid}\">Analytics &amp; dashboards</div></li>"
         )));
         // No content: nothing to open, the JS-only trigger stays inert.
         assert!(html.contains("aria-expanded=\"false\" disabled>Docs<svg"));
@@ -180,6 +232,35 @@ mod tests {
             let html = render(&stub("navigation-menu", "Products"));
             reject_interact(&html);
         });
+    }
+
+    #[test]
+    fn docs_menu_bar_links_fill_the_panel_and_flat_link_is_trigger_styled() {
+        let mut c = stub("navigation-menu", "Main");
+        c.items.push(extra("item", "Products"));
+        let mut analytics = extra("link", "Analytics");
+        analytics.link = Some("#".into());
+        analytics.config.insert("menu".into(), "Products".into());
+        analytics.config.insert(
+            "description".into(),
+            "Real-time dashboards and reports.".into(),
+        );
+        c.items.push(analytics);
+        let mut docs = extra("link", "Docs");
+        docs.link = Some("#".into());
+        c.items.push(docs);
+        let html = render(&c);
+        let tid = widget_id(&c, "trigger-1");
+        let pid = widget_id(&c, "content-1");
+        assert!(html.contains(&format!(
+            "<li data-slot=\"navigation-menu-item\"><button type=\"button\" id=\"{tid}\" data-slot=\"navigation-menu-trigger\" data-state=\"closed\" aria-expanded=\"false\" popovertarget=\"{pid}\" interestfor=\"{pid}\">Products{CHEVRON}</button><div id=\"{pid}\" popover=\"auto\" data-slot=\"navigation-menu-content\" anchor=\"{tid}\"><ul><li><a data-slot=\"navigation-menu-link\" href=\"#\"><span>Analytics</span><span>Real-time dashboards and reports.</span></a></li></ul></div></li><li data-slot=\"navigation-menu-item\"><a data-slot=\"navigation-menu-link\" class=\"trigger\" href=\"#\">Docs</a></li></ul></div></nav>"
+        )), "{html}");
+        assert!(!html.contains(">Main<"));
+        reject_interact(&html);
+        let css = crate::cronus_ui::component_chrome_css();
+        assert!(css.contains("[data-slot=\"navigation-menu-content\"] > ul {\n  display: grid; gap: 0.25rem; margin: 0; padding: 0; list-style: none; min-width: 22rem;"));
+        assert!(css.contains("[data-slot=\"navigation-menu-link\"] {\n  display: flex; flex-direction: column; gap: 0.125rem;"));
+        assert!(css.contains("[data-slot=\"navigation-menu-link\"].trigger {\n  display: inline-flex; flex-direction: row;"));
     }
 
     #[test]

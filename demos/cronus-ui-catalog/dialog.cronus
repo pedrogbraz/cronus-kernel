@@ -1,0 +1,11 @@
+page "/dialog" type:components family:dialog {
+  title "Dialog"
+  description:"Modal window with header, body and footer."
+}
+
+component EditProfile layout:inline style:dialog trigger:"Edit profile" trigger-variant:primary description:"Update your display name. Changes are saved when you confirm." cancel:"Cancel" group:"Basic" note:"A modal dialog with a header, body, and footer rendered in a portal." {
+  label "Edit profile"
+  field "Name" value:"Ada Lovelace"
+  field "Username" value:"ada"
+  action "Save changes"
+}

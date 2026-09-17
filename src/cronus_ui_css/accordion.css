@@ -30,14 +30,21 @@
   box-shadow: inset 0 0 0 2px var(--cronus-ring);
 }
 [data-slot="accordion-content"] {
-  display: none;
+  display: grid; grid-template-rows: 0fr;
   overflow: hidden; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
+  transition: grid-template-rows 220ms var(--ease-out-quart);
 }
 [data-slot="accordion-item"]:has(> h3 > label > input:checked) > [data-slot="accordion-content"] {
-  display: block;
+  grid-template-rows: 1fr;
 }
 [data-slot="accordion-content"] > div {
+  min-height: 0; overflow: hidden;
+}
+[data-slot="accordion-content"] > div:not(:empty) {
   padding: 0 0 1rem;
+}
+[data-slot="accordion-item"]:not(:has(> h3 > label > input:checked)) > [data-slot="accordion-content"] > div {
+  padding-bottom: 0; visibility: hidden; transition: visibility 0s 220ms, padding 220ms var(--ease-out-quart);
 }
 /* single mode: the open header's collapse label targets the group's hidden "Collapse all" radio. */
 [data-slot="accordion-item"] > h3 {

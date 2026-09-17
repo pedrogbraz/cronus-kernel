@@ -6,6 +6,7 @@
   border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-md);
   background: var(--cronus-surface-floating); color: var(--cronus-fg);
   box-shadow: var(--cronus-shadow-md, none);
+  animation: cronus-pop-in 150ms var(--ease-out-quart) both;
 }
 @supports (top: anchor(bottom)) {
   [data-slot="tooltip-content"][popover] {

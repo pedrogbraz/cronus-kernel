@@ -1,0 +1,10 @@
+page "/tooltip" type:components family:tooltip {
+  title "Tooltip"
+  description:"Small label revealed on hover or focus."
+}
+
+component AddToLibrary layout:inline style:tooltip+icon icon:plus group:"On a button" note:"A small label revealed on hover or focus, mounted inside a shared provider." { label "Add to library" }
+component NeedHelp layout:inline style:tooltip icon:help-circle group:"On a button" {
+  label "Need help?"
+  text "We usually reply within minutes."
+}

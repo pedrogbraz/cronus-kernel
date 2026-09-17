@@ -1,48 +1,61 @@
 //! Dedicated Alert renderer. DOM matches React:
 //! `<div data-slot="alert" role="status">` (role=`alert` only if destructive)
-//! with `<div data-slot="alert-title">` and optional `alert-description`
+//! with an optional leading lucide `<svg>` (`icon:` prop), then
+//! `<div data-slot="alert-title">` and optional `alert-description`
 //! (a `description:"…"` attribute first, then extra texts).
+//! Variants (`style:alert+info`, or `variant:`) are React's `info`, `success`,
+//! `warning`, `destructive`; the root has no data attribute for them in React,
+//! so the kernel puts a `v-<variant>` class on the slot element.
 //! Not the interact SURF box wrapping raw `<div>text</div>` with no title slot.
 
-use crate::cronus_ui_kit::{attr_nonempty, esc};
+use crate::cronus_ui_kit::{attr_nonempty, choice, esc};
 use crate::parser::{ComponentItemNode, ComponentNode};
 
+const VARIANTS: &[&str] = &[
+    "default",
+    "info",
+    "success",
+    "warning",
+    "destructive",
+    "danger",
+];
+
 pub fn render(comp: &ComponentNode) -> String {
-    let role = if is_destructive(comp) {
+    let variant = variant_of(comp);
+    let role = if variant == "destructive" {
         "alert"
     } else {
         "status"
     };
+    let class = if variant == "default" {
+        String::new()
+    } else {
+        format!(" class=\"v-{variant}\"")
+    };
+    let icon = attr_nonempty(comp, "icon")
+        .map(crate::cronus_ui_icons::svg_or_empty)
+        .unwrap_or_default();
     let (title, mut descs) = title_and_descriptions(comp);
     if let Some(d) = attr_nonempty(comp, "description") {
         descs.insert(0, esc(d));
     }
-    let mut inner = format!("<div data-slot=\"alert-title\">{title}</div>");
+    let mut inner = format!("{icon}<div data-slot=\"alert-title\">{title}</div>");
     for d in descs {
         inner.push_str(&format!("<div data-slot=\"alert-description\">{d}</div>"));
     }
-    format!("<div data-slot=\"alert\" role=\"{role}\">{inner}</div>")
+    format!("<div data-slot=\"alert\" role=\"{role}\"{class}>{inner}</div>")
 }
 
-fn is_destructive(comp: &ComponentNode) -> bool {
-    if let Some(v) = comp.props.get("variant") {
-        if matches!(v.as_str(), "destructive" | "danger") {
-            return true;
-        }
+/// `variant:` prop / item config, else the style segment; `danger` is the
+/// legacy alias of `destructive`.
+fn variant_of(comp: &ComponentNode) -> &'static str {
+    match choice(comp, "variant", VARIANTS) {
+        Some("info") => "info",
+        Some("success") => "success",
+        Some("warning") => "warning",
+        Some("destructive") | Some("danger") => "destructive",
+        _ => "default",
     }
-    if comp.items.iter().any(|i| {
-        i.config
-            .get("variant")
-            .map(|s| matches!(s.as_str(), "destructive" | "danger"))
-            .unwrap_or(false)
-    }) {
-        return true;
-    }
-    comp.style
-        .as_deref()
-        .unwrap_or("")
-        .split('+')
-        .any(|part| matches!(part.trim(), "destructive" | "danger"))
 }
 
 fn title_and_descriptions(comp: &ComponentNode) -> (String, Vec<String>) {
@@ -147,7 +160,7 @@ mod tests {
     #[test]
     fn destructive_sets_role_alert() {
         let html = render(&stub("alert+destructive", "Outage"));
-        assert!(html.contains("role=\"alert\""));
+        assert!(html.contains("role=\"alert\" class=\"v-destructive\""));
         assert!(!html.contains("role=\"status\""));
         reject_interact(&html);
     }
@@ -157,6 +170,36 @@ mod tests {
         let mut c = stub("alert", "Outage");
         c.props.insert("variant".into(), "destructive".into());
         assert!(render(&c).contains("role=\"alert\""));
+        c.props.insert("variant".into(), "danger".into());
+        assert!(render(&c).contains("role=\"alert\" class=\"v-destructive\""));
+    }
+
+    #[test]
+    fn semantic_variants_are_classes_on_the_slot() {
+        for v in ["info", "success", "warning"] {
+            let html = render(&stub(&format!("alert+{v}"), "Note"));
+            assert!(
+                html.contains(&format!("role=\"status\" class=\"v-{v}\"")),
+                "{html}"
+            );
+        }
+        // React has no data attribute for the variant.
+        assert!(!render(&stub("alert+info", "Note")).contains("data-variant"));
+    }
+
+    #[test]
+    fn icon_prop_renders_leading_lucide_glyph() {
+        let mut c = stub("alert+info", "New version available");
+        c.props.insert("icon".into(), "info".into());
+        c.props
+            .insert("description".into(), "A new release is ready.".into());
+        let html = render(&c);
+        assert!(html.starts_with("<div data-slot=\"alert\" role=\"status\" class=\"v-info\"><svg "));
+        assert!(html.contains("data-icon=\"info\""));
+        assert!(html.contains("</svg><div data-slot=\"alert-title\">New version available</div><div data-slot=\"alert-description\">A new release is ready.</div></div>"));
+        let mut missing = stub("alert", "Note");
+        missing.props.insert("icon".into(), "not-an-icon".into());
+        assert!(!render(&missing).contains("<svg"));
     }
 
     #[test]
@@ -169,6 +212,18 @@ mod tests {
             .contains("[data-slot=\"alert-title\"] {\n  grid-column-start: 2; min-height: 1rem;"));
         assert!(css.contains("[data-slot=\"alert-description\"] {\n  grid-column-start: 2; display: grid; justify-items: start; gap: 0.25rem;"));
         assert!(css.contains("var(--cronus-surface-overlay)"));
+        // Icon column (`has-[>svg]:grid-cols-[--spacing(6)_1fr] has-[>svg]:gap-x-3`) and tints.
+        assert!(css.contains("[data-slot=\"alert\"]:has(> svg) {\n  grid-template-columns: 1.5rem 1fr; column-gap: 0.75rem;"));
+        assert!(css.contains("[data-slot=\"alert\"] > svg {\n  width: 1.25rem; height: 1.25rem; flex-shrink: 0; translate: 0 0.125rem;"));
+        assert!(css.contains("[data-slot=\"alert\"].v-info {\n  background: color-mix(in oklab, var(--cronus-info) 10%, transparent);"));
+        assert!(
+            css.contains("[data-slot=\"alert\"].v-success > svg { color: var(--cronus-success); }")
+        );
+        assert!(
+            css.contains("[data-slot=\"alert\"].v-warning > svg { color: var(--cronus-warning); }")
+        );
+        assert!(css
+            .contains("[data-slot=\"alert\"].v-destructive > svg { color: var(--cronus-error); }"));
         assert!(!css.contains("zinc-"));
     }
 }

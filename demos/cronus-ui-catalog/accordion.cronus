@@ -1,0 +1,11 @@
+page "/accordion" type:components family:accordion {
+  title "Accordion"
+  description:"Single-open collapsible disclosure panels."
+}
+
+component Faq layout:stack style:accordion group:"FAQ" note:"Single-open, collapsible disclosure panels for FAQs and dense content." {
+  label "FAQ"
+  item "Is it accessible?" description:"Yes. It follows the WAI-ARIA disclosure pattern and is fully keyboard navigable."
+  item "Is it themeable?" description:"Absolutely. Every color, radius, and shadow flows from semantic design tokens."
+  item "Is it animated?" description:"Yes — content expands and collapses with a smooth height transition."
+}

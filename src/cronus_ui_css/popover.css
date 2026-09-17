@@ -4,4 +4,34 @@
   border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
   background: var(--cronus-surface-floating); color: var(--cronus-fg);
   box-shadow: var(--cronus-shadow-lg, none);
+  animation: cronus-pop-in 180ms var(--ease-out-quart) both;
 }
+/* The docs' outline trigger keeps its border (button.css drops it before a popover). */
+[data-slot="button"][data-variant="outline"]:has(+ [data-slot="popover-content"]) {
+  border: 1px solid var(--cronus-border);
+}
+[data-slot="popover-content"].w-64:popover-open { max-width: 16rem; }
+[data-slot="popover-content"].w-80:popover-open { min-width: 20rem; }
+[data-slot="popover-content"].w-96:popover-open { min-width: 24rem; }
+@supports (top: anchor(bottom)) {
+  [data-slot="popover-content"][popover]:not(.align-start):not(.align-end) {
+    inset-inline-start: anchor(center); translate: -50% 0;
+  }
+  [data-slot="popover-content"][popover].align-end {
+    inset-inline-start: auto; inset-inline-end: anchor(end);
+  }
+}
+/* Docs content: heading + description, then three-column Label / Input rows. */
+[data-slot="popover-content"] > .stack { display: flex; flex-direction: column; gap: 1rem; }
+[data-slot="popover-content"] > .stack > .head { display: flex; flex-direction: column; gap: 0.25rem; }
+[data-slot="popover-content"] > .stack > .head > h4 {
+  margin: 0; font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; letter-spacing: inherit; color: var(--cronus-fg);
+}
+[data-slot="popover-content"] > .stack > .head > p {
+  margin: 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
+}
+[data-slot="popover-content"] > .stack > .grid { display: grid; gap: 0.75rem; }
+[data-slot="popover-content"] > .stack > .grid > .field {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; gap: 0.75rem;
+}
+[data-slot="popover-content"] > .stack > .grid > .field > [data-slot="input"] { grid-column: span 2 / span 2; height: 2rem; }

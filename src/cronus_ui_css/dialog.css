@@ -65,11 +65,25 @@
   background: color-mix(in oklch, black 50%, transparent);
   backdrop-filter: blur(8px);
 }
-/* Closed mode (trigger item / open:false): native modal <dialog>, scrim on ::backdrop. */
+/* Closed mode (trigger item / open:false): native modal <dialog>, scrim on ::backdrop,
+   React's data-[state=open] entrance (cronus-pop-in 200ms, overlay fade 200ms). */
 [data-slot="dialog-content"]:modal {
   position: fixed; inset: 0; margin: auto; translate: none;
+  animation: cronus-pop-in 200ms var(--ease-out-quart) both;
 }
 [data-slot="dialog-content"]::backdrop {
   background: color-mix(in oklch, black 50%, transparent);
   backdrop-filter: blur(8px);
 }
+[data-slot="dialog-content"]:modal::backdrop {
+  animation: cronus-overlay-in 200ms var(--ease-out-quart);
+}
+/* Docs body: Label + Input pairs (`flex-col gap-4 py-2` > `flex-col gap-2`). */
+[data-slot="dialog-content"] > .fields {
+  display: flex; flex-direction: column; gap: 1rem; padding: 0.5rem 0;
+}
+[data-slot="dialog-content"] > .fields > .field {
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+/* A closed native <dialog> keeps the UA's display: none (the panel rule above sets display). */
+dialog[data-slot="dialog-content"]:not([open]) { display: none; }

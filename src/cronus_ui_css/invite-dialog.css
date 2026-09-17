@@ -74,11 +74,17 @@
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
-/* Closed mode: native modal <dialog>. */
+/* Closed mode: native modal <dialog>, React's pop-in / overlay fade entrance. */
 [data-slot="invite-dialog"]:modal {
   position: fixed; inset: 0; margin: auto; translate: none;
+  animation: cronus-pop-in 200ms var(--ease-out-quart) both;
 }
 [data-slot="invite-dialog"]::backdrop {
   background: color-mix(in oklch, black 50%, transparent);
   backdrop-filter: blur(8px);
 }
+[data-slot="invite-dialog"]:modal::backdrop {
+  animation: cronus-overlay-in 200ms var(--ease-out-quart);
+}
+/* A closed native <dialog> keeps the UA's display: none (the panel rule above sets display). */
+dialog[data-slot="invite-dialog"]:not([open]) { display: none; }
